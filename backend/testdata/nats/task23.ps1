@@ -7,7 +7,12 @@ $task23Names = @('NATS_INTEGRATION','NATS_TASK23','NATS_TASK23_SMOKE','NATS_TASK
 $task23Saved = @{}
 foreach ($task23Name in $task23Names) { $task23Saved[$task23Name] = [Environment]::GetEnvironmentVariable($task23Name,'Process') }
 Push-Location $task23Backend
+$task23SavedNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
 try {
+    # A failed load gate must still reach recovery and the full fault suite.
+    # Inspect native exit codes explicitly, even when the caller opts into
+    # terminating PowerShell errors for unsuccessful native commands.
+    $PSNativeCommandUseErrorActionPreference = $false
     if (!$NATSServerBinary) { $NATSServerBinary = Join-Path ((& go env GOPATH).Trim()) 'bin/nats-server.exe' }
     $NATSServerBinary = (Resolve-Path -LiteralPath $NATSServerBinary).Path
     $task23Version = (& $NATSServerBinary --version).Trim()
@@ -88,6 +93,7 @@ try {
     if (!$task23ReportsComplete -or !$task23RecoveryPassed -or $task23LoadCode -ne 0 -or $task23FaultCode -eq 1 -or $task23DiskBlocked) { throw "Qualification failed; complete pass/fail artifacts: $task23Run" }
     Write-Host "Task23 load/recovery/disk checks passed; artifacts: $task23Run"
 } finally {
+    $PSNativeCommandUseErrorActionPreference = $task23SavedNativeErrorPreference
     foreach ($task23Name in $task23Names) { [Environment]::SetEnvironmentVariable($task23Name,$task23Saved[$task23Name],'Process') }
     Pop-Location
 }

@@ -9,6 +9,8 @@ import (
 
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -125,15 +127,33 @@ func (p *Projection) ObservationSnapshot(sessionID int32) ([]KVPosition, []KVPre
 // WaitPositionApplied observes the exact accepted KV revision without a polling
 // interval or cloning the entire position set for every single report.
 func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, aircraft string, epoch, revision uint64) error {
+	ctx, span := otel.Tracer("cluster").Start(ctx, "euroscope.position.wait_applied")
+	var ready, readLock, registerLock, notification time.Duration
+	var rechecks int64
+	defer func() {
+		span.SetAttributes(
+			attribute.Float64("position.wait_state_ready_ms", float64(ready)/float64(time.Millisecond)),
+			attribute.Float64("position.wait_read_lock_ms", float64(readLock)/float64(time.Millisecond)),
+			attribute.Float64("position.wait_register_lock_ms", float64(registerLock)/float64(time.Millisecond)),
+			attribute.Float64("position.wait_notification_ms", float64(notification)/float64(time.Millisecond)),
+			attribute.Int64("position.wait_rechecks", rechecks))
+		span.End()
+	}()
 	key := positionKey(session, aircraft, epoch)
 	for {
-		if err := p.readyForRead(); err != nil {
-			return err
+		rechecks++
+		stage := time.Now()
+		readyErr := p.readyForRead()
+		ready += time.Since(stage)
+		if readyErr != nil {
+			return readyErr
 		}
 		// PubAck often arrives after this watcher has already applied the value.
 		// Readers can satisfy that exact revision together without contending for
 		// the exclusive lock used only to register a notification for missing data.
+		stage = time.Now()
 		p.mu.RLock()
+		readLock += time.Since(stage)
 		if err := p.healthLocked(); err != nil {
 			p.mu.RUnlock()
 			return err
@@ -143,7 +163,9 @@ func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, air
 			return nil
 		}
 		p.mu.RUnlock()
+		stage = time.Now()
 		p.mu.Lock()
+		registerLock += time.Since(stage)
 		if err := p.healthLocked(); err != nil {
 			p.mu.Unlock()
 			return err
@@ -163,11 +185,14 @@ func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, air
 		waiter.users++
 		changed := waiter.changed
 		p.mu.Unlock()
+		stage = time.Now()
 		select {
 		case <-ctx.Done():
+			notification += time.Since(stage)
 			p.releasePositionWaiter(key, waiter)
 			return ctx.Err()
 		case <-changed:
+			notification += time.Since(stage)
 			p.releasePositionWaiter(key, waiter)
 		}
 	}

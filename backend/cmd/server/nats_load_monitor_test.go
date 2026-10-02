@@ -64,6 +64,9 @@ func (m *loadMonitor) sample(f *entrypointFixture) {
 	}
 	backends := []any{}
 	for _, address := range f.addresses {
+		readyStatus, readyData := entrypointStatus(address, "/readyz", "")
+		var readiness map[string]string
+		_ = json.Unmarshal(readyData, &readiness)
 		status, data := entrypointStatus(address, "/metrics", "")
 		values := map[string]float64{}
 		for _, line := range strings.Split(string(data), "\n") {
@@ -75,7 +78,9 @@ func (m *loadMonitor) sample(f *entrypointFixture) {
 				values[fields[0]] = value
 			}
 		}
-		backends = append(backends, map[string]any{"address": address, "status": status, "metrics": values})
+		// Exact readiness reasons stay in private, synthetic fixture evidence;
+		// they distinguish original health failure from a later socket reset.
+		backends = append(backends, map[string]any{"address": address, "status": status, "metrics": values, "ready_status": readyStatus, "readiness": readiness})
 	}
 	sample["backends"] = backends
 	brokers := []any{}

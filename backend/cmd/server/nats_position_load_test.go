@@ -112,12 +112,43 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 		warmup, duration = 2*time.Second, 10*time.Second
 	}
 	start := time.Now()
+	measureStart := start.Add(warmup)
+	measureEnd := measureStart.Add(duration)
+	binaryHash := hashFixtureBinary(t, f.binary)
+	var measurements []map[string]any
+	var abortedAt time.Time
+	sent, controls, frontend := 0, 0, 0
 	completed := false
 	defer func() {
 		if completed {
 			return
 		}
-		data, err := json.MarshalIndent(map[string]any{"qualification": false, "full_duration": !smoke, "arrival_count": arrivals, "pattern": pattern, "aborted": true, "elapsed": time.Since(start).String(), "result": capture.Report(start, time.Now(), time.Now(), 0)}, "", "  ")
+		if abortedAt.IsZero() {
+			abortedAt = time.Now()
+		}
+		// The lifecycle cleanup was registered before this report, so join it
+		// here before reading its counts. Monitor cleanup runs before this defer.
+		observed := map[string]int{}
+		if !lifecycleFinished {
+			observed = lifecycle.finish()
+			lifecycleFinished = true
+		}
+		windowEnd := abortedAt
+		if windowEnd.After(measureEnd) {
+			windowEnd = measureEnd
+		}
+		if windowEnd.Before(measureStart) {
+			windowEnd = measureStart
+		}
+		data, err := json.MarshalIndent(map[string]any{
+			"qualification": false, "load_pass": false, "full_duration": false, "planned_full_duration": !smoke,
+			"arrival_count": arrivals, "pattern": pattern, "aborted": true, "elapsed": abortedAt.Sub(start).String(),
+			"started_utc": start.UTC(), "aborted_utc": abortedAt.UTC(), "warmup": warmup.String(), "duration": duration.String(),
+			"measure_start_utc": measureStart.UTC(), "measure_end_utc": windowEnd.UTC(),
+			"result": capture.Report(measureStart, windowEnd, abortedAt, 0), "positions_sent": sent, "operational_sent": controls, "frontend_sent": frontend,
+			"measurements": measurements, "lifecycle": observed, "puback": capture.PubAckReport(), "position_stages_ms": capture.StageReport(measureStart, windowEnd),
+			"backend_binary_sha256": binaryHash, "concurrent_load_fixture_limit": positionLoadParallelism(t), "shared_host_parallel_load": positionLoadParallelism(t) > 1,
+		}, "", "  ")
 		if err != nil {
 			t.Errorf("abort report: %v", err)
 			return
@@ -141,12 +172,11 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 	monitorFinished := false
 	defer func() {
 		if !monitorFinished {
-			_ = monitor.finish(f)
+			abortedAt = time.Now()
+			measurements = monitor.finish(f)
+			monitorFinished = true
 		}
 	}()
-	measureStart := start.Add(warmup)
-	measureEnd := measureStart.Add(duration)
-	sent, controls, frontend := 0, 0, 0
 	frontIDs := []string{}
 	send := func(frame *es.Envelope, due time.Time, position bool) {
 		if delay := time.Until(due); delay > 0 {
@@ -213,7 +243,7 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 			}
 		}
 	}
-	measurements := monitor.finish(f)
+	measurements = monitor.finish(f)
 	monitorFinished = true
 	if r.PositionsSent != sent || r.OperationalSent != controls {
 		r.Failures = append(r.Failures, "capture/sender count mismatch")
@@ -230,7 +260,7 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 	if unexpectedFrontend != 0 {
 		r.Failures = append(r.Failures, "frontend action not durably successful")
 	}
-	report := map[string]any{"qualification": false, "full_duration": !smoke, "qualification_pending": []string{"runner combines all six full load results, backend recovery, disk and Task22 fault/restore results"}, "arrival_count": arrivals, "pattern": pattern, "warmup": warmup.String(), "duration": duration.String(), "result": r, "frontend_sent": frontend, "frontend_unexpected": unexpectedFrontend, "backend_binary_sha256": hashFixtureBinary(t, f.binary), "topology": "one physical Windows host, 3 native NATS 2.15.0 file R3 encrypted stores, 2 compiled backend processes; loopback", "load_pass": len(r.Failures) == 0}
+	report := map[string]any{"qualification": false, "full_duration": !smoke, "qualification_pending": []string{"runner combines all six full load results, backend recovery, disk and Task22 fault/restore results"}, "arrival_count": arrivals, "pattern": pattern, "warmup": warmup.String(), "duration": duration.String(), "result": r, "frontend_sent": frontend, "frontend_unexpected": unexpectedFrontend, "backend_binary_sha256": binaryHash, "topology": "one physical Windows host, 3 native NATS 2.15.0 file R3 encrypted stores, 2 compiled backend processes; loopback", "load_pass": len(r.Failures) == 0}
 	report["measurements"] = measurements
 	report["lifecycle"] = observed
 	report["puback"] = capture.PubAckReport()

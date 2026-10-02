@@ -74,7 +74,11 @@ func (c *Capture) StageReport(window ...time.Time) map[string]any {
 			}
 			values = append(values, sample.MS)
 		}
-		out[name] = map[string]any{"count": len(values), "p95_ms": Percentile(values, .95), "p99_ms": Percentile(values, .99)}
+		if name == "position.wait_rechecks" {
+			out[name] = map[string]any{"count": len(values), "unit": "count", "p95": Percentile(values, .95), "p99": Percentile(values, .99)}
+		} else {
+			out[name] = map[string]any{"count": len(values), "p95_ms": Percentile(values, .95), "p99_ms": Percentile(values, .99)}
+		}
 	}
 	return out
 }
@@ -105,6 +109,9 @@ func (c *Capture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					at := time.Unix(0, int64(s.StartTimeUnixNano))
 					c.Stages[s.Name+".total_ms"] = append(c.Stages[s.Name+".total_ms"], StageSample{Start: at, MS: float64(s.EndTimeUnixNano-s.StartTimeUnixNano) / float64(time.Millisecond)})
 					for _, a := range s.Attributes {
+						if a.Key == "position.wait_rechecks" {
+							c.Stages[a.Key] = append(c.Stages[a.Key], StageSample{Start: at, MS: float64(a.Value.GetIntValue())})
+						}
 						if strings.HasPrefix(a.Key, "position.") && strings.HasSuffix(a.Key, "_ms") {
 							c.Stages[a.Key] = append(c.Stages[a.Key], StageSample{Start: at, MS: a.Value.GetDoubleValue()})
 						}

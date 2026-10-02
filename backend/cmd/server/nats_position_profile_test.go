@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -20,6 +21,10 @@ func profilePositionLoad(t *testing.T, f *entrypointFixture) {
 	if raw == "" {
 		return
 	}
+	delay, err := positionProfileDelay(os.Getenv("NATS_TASK23_PROFILE_DELAY"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	node, err := strconv.Atoi(raw)
 	if err != nil || node < 0 || node >= len(f.apps) {
 		t.Fatalf("invalid profile fixture node %q", raw)
@@ -35,10 +40,11 @@ func profilePositionLoad(t *testing.T, f *entrypointFixture) {
 	env := replaceFixtureEnv(f.env, map[string]string{"ENABLE_PPROF": "true"})
 	f.apps[node] = startFixtureProcess(t, f.binary, f.backend, env, "-addr", f.addresses[node])
 	f.ready()
-	t.Logf("POSITION_CPU_PROFILE node=%d pid=%d", node, f.apps[node].command.Process.Pid)
+	t.Logf("POSITION_CPU_PROFILE node=%d pid=%d delay=%s", node, f.apps[node].command.Process.Pid, delay)
 	traceDone := make(chan error, 1)
 	go func() {
-		time.Sleep(10 * time.Second)
+		time.Sleep(delay + 10*time.Second)
+		started := time.Now()
 		dir := os.Getenv("NATS_TASK23_OUTPUT")
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			traceDone <- err
@@ -66,10 +72,12 @@ func profilePositionLoad(t *testing.T, f *entrypointFixture) {
 				return
 			}
 		}
-		traceDone <- nil
+		traceDone <- writePositionProfileWindow(dir, node, "trace", delay, started)
 	}()
 	done := make(chan error, 1)
 	go func() {
+		time.Sleep(delay)
+		started := time.Now()
 		response, err := (&http.Client{Timeout: 45 * time.Second}).Get("http://" + pprofAddr + "/debug/pprof/profile?seconds=30")
 		if err != nil {
 			done <- err
@@ -87,6 +95,9 @@ func profilePositionLoad(t *testing.T, f *entrypointFixture) {
 			if err == nil {
 				err = os.WriteFile(filepath.Join(dir, fmt.Sprintf("backend-%d.cpu", node)), profile, 0600)
 			}
+			if err == nil {
+				err = writePositionProfileWindow(dir, node, "cpu", delay, started)
+			}
 		}
 		done <- err
 	}()
@@ -98,4 +109,45 @@ func profilePositionLoad(t *testing.T, f *entrypointFixture) {
 			t.Errorf("owned backend CPU profile: %v", err)
 		}
 	})
+}
+
+func positionProfileDelay(raw string) (time.Duration, error) {
+	if raw == "" {
+		return 0, nil
+	}
+	delay, err := time.ParseDuration(raw)
+	if err != nil || delay < 0 || delay > 30*time.Minute {
+		return 0, fmt.Errorf("invalid NATS_TASK23_PROFILE_DELAY %q: require a duration between 0 and 30m", raw)
+	}
+	return delay, nil
+}
+
+func writePositionProfileWindow(dir string, node int, kind string, delay time.Duration, started time.Time) error {
+	data, err := json.MarshalIndent(struct {
+		Node     int       `json:"node"`
+		Delay    string    `json:"configured_delay"`
+		Started  time.Time `json:"started_utc"`
+		Finished time.Time `json:"finished_utc"`
+	}{Node: node, Delay: delay.String(), Started: started.UTC(), Finished: time.Now().UTC()}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, fmt.Sprintf("backend-%d.%s-window.json", node, kind)), data, 0600)
+}
+
+func TestPositionProfileDelayValidation(t *testing.T) {
+	for _, tc := range []struct {
+		raw  string
+		want time.Duration
+	}{{"", 0}, {"0s", 0}, {"150s", 150 * time.Second}, {"30m", 30 * time.Minute}} {
+		got, err := positionProfileDelay(tc.raw)
+		if err != nil || got != tc.want {
+			t.Fatalf("delay %q: got %s, %v; want %s", tc.raw, got, err, tc.want)
+		}
+	}
+	for _, raw := range []string{"-1s", "31m", "invalid"} {
+		if _, err := positionProfileDelay(raw); err == nil {
+			t.Fatalf("invalid delay %q accepted", raw)
+		}
+	}
 }

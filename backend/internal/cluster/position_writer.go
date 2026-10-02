@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -102,18 +103,30 @@ func (w *PositionWriter) enqueue(ctx context.Context, aircraft string, value *pb
 	if w == nil || w.dispatcher == nil || w.KV == nil || w.Authority == nil {
 		return nil, fmt.Errorf("position writer unavailable")
 	}
+	stage := time.Now()
 	w.mu.Lock()
+	// The admission span belongs to the caller, not the dispatcher lifetime.
+	admissionSpan := trace.SpanFromContext(ctx)
+	admissionSpan.SetAttributes(attribute.Float64("position.owner_enqueue_lock_ms", float64(time.Since(stage))/float64(time.Millisecond)))
 	defer w.mu.Unlock()
 	if w.disconnected[aircraft] {
 		return nil, fmt.Errorf("aircraft already disconnected in owner epoch")
 	}
 	result := make(chan PositionWriteResult, 1)
 	key := positionKey(w.SessionID, aircraft, w.OwnerEpoch)
+	queued := time.Now()
 	err := w.dispatcher.Submit(ctx, key, func(runCtx context.Context) {
+		// Preserve the dispatcher cancellation context for accepted work while
+		// associating diagnostics with the original admission trace.
+		runCtx = trace.ContextWithSpan(runCtx, admissionSpan)
+		runCtx, span := otel.Tracer("cluster").Start(runCtx, "euroscope.position.owner_write")
+		span.SetAttributes(attribute.Float64("position.owner_queue_to_worker_ms", float64(time.Since(queued))/float64(time.Millisecond)))
+		defer span.End()
 		revision, err := w.write(runCtx, key, value)
 		result <- PositionWriteResult{Revision: revision, Err: err}
 		close(result)
 	})
+	admissionSpan.SetAttributes(attribute.Float64("position.owner_submit_ms", float64(time.Since(queued))/float64(time.Millisecond)))
 	if err != nil {
 		return nil, err
 	}
@@ -124,8 +137,11 @@ func (w *PositionWriter) enqueue(ctx context.Context, aircraft string, value *pb
 }
 
 func (w *PositionWriter) write(ctx context.Context, key string, value *pb.PositionValue) (uint64, error) {
-	if err := w.Authority(ctx, w.SessionID, w.OwnerEpoch, w.Connection); err != nil {
-		return 0, err
+	stage := time.Now()
+	authorityErr := w.Authority(ctx, w.SessionID, w.OwnerEpoch, w.Connection)
+	trace.SpanFromContext(ctx).SetAttributes(attribute.Float64("position.owner_authority_ms", float64(time.Since(stage))/float64(time.Millisecond)))
+	if authorityErr != nil {
+		return 0, authorityErr
 	}
 	data, err := proto.Marshal(value)
 	if err != nil {

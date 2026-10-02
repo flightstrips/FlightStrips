@@ -108,6 +108,11 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 		}
 	}()
 	warmup, duration := 2*time.Minute, 15*time.Minute
+	profiled := os.Getenv("NATS_TASK23_PROFILE_NODE") != ""
+	if profiled {
+		// Diagnostic sampling retains the full warmup, but never qualifies capacity.
+		duration = time.Minute
+	}
 	if smoke {
 		warmup, duration = 2*time.Second, 10*time.Second
 	}
@@ -141,7 +146,7 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 			windowEnd = measureStart
 		}
 		data, err := json.MarshalIndent(map[string]any{
-			"qualification": false, "load_pass": false, "full_duration": false, "planned_full_duration": !smoke,
+			"qualification": false, "load_pass": false, "full_duration": false, "planned_full_duration": !smoke && !profiled, "diagnostic_profiled": profiled,
 			"arrival_count": arrivals, "pattern": pattern, "aborted": true, "elapsed": abortedAt.Sub(start).String(),
 			"started_utc": start.UTC(), "aborted_utc": abortedAt.UTC(), "warmup": warmup.String(), "duration": duration.String(),
 			"measure_start_utc": measureStart.UTC(), "measure_end_utc": windowEnd.UTC(),
@@ -260,7 +265,7 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 	if unexpectedFrontend != 0 {
 		r.Failures = append(r.Failures, "frontend action not durably successful")
 	}
-	report := map[string]any{"qualification": false, "full_duration": !smoke, "qualification_pending": []string{"runner combines all six full load results, backend recovery, disk and Task22 fault/restore results"}, "arrival_count": arrivals, "pattern": pattern, "warmup": warmup.String(), "duration": duration.String(), "result": r, "frontend_sent": frontend, "frontend_unexpected": unexpectedFrontend, "backend_binary_sha256": binaryHash, "topology": "one physical Windows host, 3 native NATS 2.15.0 file R3 encrypted stores, 2 compiled backend processes; loopback", "load_pass": len(r.Failures) == 0}
+	report := map[string]any{"qualification": false, "full_duration": !smoke && !profiled, "diagnostic_profiled": profiled, "qualification_pending": []string{"runner combines all six full load results, backend recovery, disk and Task22 fault/restore results"}, "arrival_count": arrivals, "pattern": pattern, "warmup": warmup.String(), "duration": duration.String(), "result": r, "frontend_sent": frontend, "frontend_unexpected": unexpectedFrontend, "backend_binary_sha256": binaryHash, "topology": "one physical Windows host, 3 native NATS 2.15.0 file R3 encrypted stores, 2 compiled backend processes; loopback", "load_pass": len(r.Failures) == 0}
 	report["measurements"] = measurements
 	report["lifecycle"] = observed
 	report["puback"] = capture.PubAckReport()

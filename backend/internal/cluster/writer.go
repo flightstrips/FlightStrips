@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -134,7 +135,7 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			reply.Status = pb.CommandReply_UNAVAILABLE
 			return reply, published
 		}
-		if w.Lease != nil && !w.Lease.CanWrite(request.Aggregate) {
+		if w.Lease != nil && !w.Lease.CanCommitLocal(request.Aggregate) {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
 			return reply, published
 		}
@@ -229,7 +230,7 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, "invalid or oversized event"
 			return reply, published
 		}
-		if w.Lease != nil && !w.Lease.CanWrite(request.Aggregate) {
+		if w.Lease != nil && !w.Lease.CanCommitLocal(request.Aggregate) {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
 			return reply, published
 		}
@@ -254,8 +255,32 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 		}
 		published = true
 		if w.Projection != nil {
-			if waitErr := w.Projection.WaitApplied(ctx, sequence); waitErr != nil {
-				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, waitErr.Error()
+			// A PubAck proves persistence, but not reducer effectiveness: expired
+			// owner events are committed no-ops. Verify the broker timestamp and
+			// apply the exact event against its conditional predecessor in RAM.
+			var commitErr error
+			if store, ok := w.Store.(interface {
+				Committed(context.Context, uint64) (AppliedEvent, error)
+			}); ok {
+				entry, readErr := store.Committed(ctx, sequence)
+				commitErr = readErr
+				if commitErr == nil {
+					if entry.Subject != subject || entry.StreamSequence != sequence || !bytes.Equal(entry.Data, data) {
+						commitErr = fmt.Errorf("committed event identity mismatch")
+					} else {
+						commitErr = w.Projection.applyCommitted(entry, state.SubjectSequence)
+					}
+				}
+			} else {
+				commitErr = w.Projection.WaitApplied(ctx, sequence)
+			}
+			if commitErr != nil {
+				// Replay remains the authoritative recovery path for metadata loss
+				// or a concurrent local checkpoint change.
+				commitErr = w.Projection.WaitApplied(ctx, sequence)
+			}
+			if commitErr != nil {
+				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, commitErr.Error()
 				return reply, published
 			}
 		}
@@ -263,7 +288,7 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			var fresh *Aggregate
 			var err error
 			if w.Projection != nil {
-				fresh, err = w.Projection.commandCheckpoint(request.Aggregate, request.CommandId)
+				fresh, err = w.Projection.committedCommandCheckpoint(request.Aggregate, request.CommandId)
 			} else {
 				fresh, err = w.load(ctx, subject, request.Aggregate)
 			}
@@ -329,6 +354,9 @@ func statusForOutcome(outcome *pb.CommandOutcome) pb.CommandReply_Status {
 
 func (w Writer) load(ctx context.Context, subject string, ref *pb.AggregateRef) (*Aggregate, error) {
 	if w.Projection != nil {
+		if w.Lease != nil && w.Lease.CanCommitLocal(ref) {
+			return w.Projection.ReadOwned(ref, w.NodeID)
+		}
 		return w.Projection.Read(ref)
 	}
 	entries, err := w.Store.Replay(ctx, subject)

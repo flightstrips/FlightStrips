@@ -13,7 +13,8 @@ import (
 const maxCommandAttempts = 4
 
 // CommandRouter is only started by the explicit NATS runtime. Transport loss
-// is ambiguous: a reply is authoritative only after local projection replay.
+// is ambiguous. A successful owner reply carries its verified committed outcome;
+// the forwarding replica need not wait for its independent local replay.
 type CommandRouter struct {
 	NC         *nats.Conn
 	Projection *Projection
@@ -60,17 +61,17 @@ func (r *CommandRouter) handle(ctx context.Context, data []byte) *pb.CommandRepl
 		bad.Detail = err.Error()
 		return bad
 	}
-	if r.NC.Status() != nats.CONNECTED || r.Projection.Ready() != nil {
+	if r.NC.Status() != nats.CONNECTED || r.Projection.commandHealth() != nil {
 		return &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: pb.CommandReply_UNAVAILABLE}
 	}
-	state, err := r.Projection.Read(request.Aggregate)
+	state, err := r.Projection.committedCommandCheckpoint(request.Aggregate, request.CommandId)
 	if err != nil {
 		return &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: pb.CommandReply_UNAVAILABLE}
 	}
 	if state.Owner == nil || state.Owner.NodeId != r.Lease.NodeID {
 		return &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: pb.CommandReply_NOT_OWNER, CurrentOwner: state.Owner}
 	}
-	if !r.Lease.CanWrite(request.Aggregate) {
+	if !r.Lease.CanCommitLocal(request.Aggregate) {
 		return &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: pb.CommandReply_UNAVAILABLE}
 	}
 	writer := r.Writer
@@ -100,13 +101,13 @@ func (r *CommandRouter) Route(ctx context.Context, request *pb.CommandRequest) *
 	subject, _ := Subject(request.Aggregate)
 	var redirected string
 	for attempt := 0; attempt < maxCommandAttempts && ctx.Err() == nil; attempt++ {
-		if r.Projection.Ready() != nil {
+		if r.Projection.commandHealth() != nil {
 			return unavailable(request.CommandId)
 		}
 		if outcome := r.projectedOutcome(request, hash); outcome != nil {
 			return outcome
 		}
-		state, err := r.Projection.Read(request.Aggregate)
+		state, err := r.Projection.committedCommandCheckpoint(request.Aggregate, request.CommandId)
 		if err != nil {
 			return unavailable(request.CommandId)
 		}
@@ -141,16 +142,9 @@ func (r *CommandRouter) Route(ctx context.Context, request *pb.CommandRequest) *
 		}
 		switch reply.Status {
 		case pb.CommandReply_COMMITTED, pb.CommandReply_PENDING:
-			if reply.StreamSequence == nil {
-				return unavailable(request.CommandId)
+			if validCommittedReply(request, hash, reply) {
+				return reply
 			}
-			if err := r.Projection.WaitApplied(ctx, reply.GetStreamSequence()); err != nil {
-				return unavailable(request.CommandId)
-			}
-			if outcome := r.projectedOutcome(request, hash); outcome != nil {
-				return outcome
-			}
-			// A stale owner may have received a PubAck for a no-op event.
 			return unavailable(request.CommandId)
 		case pb.CommandReply_NOT_OWNER:
 			redirected = ""
@@ -174,8 +168,24 @@ func (r *CommandRouter) Route(ctx context.Context, request *pb.CommandRequest) *
 	return unavailable(request.CommandId)
 }
 
+// Only the owner which reduced the stored event may report success. Transport
+// replies must bind that outcome to the exact actor, request and checkpoint;
+// a bare PubAck (including a stale-owner no-op) is insufficient.
+func validCommittedReply(request *pb.CommandRequest, hash string, reply *pb.CommandReply) bool {
+	if request == nil || reply == nil || reply.ProtocolRevision != 1 || reply.CommandId != request.CommandId {
+		return false
+	}
+	outcome := reply.Outcome
+	return outcome != nil && outcome.CommandId == request.CommandId && outcome.RequestSha256 == hash &&
+		proto.Equal(outcome.Actor, request.Actor) && proto.Equal(outcome.Aggregate, request.Aggregate) &&
+		reply.StreamSequence != nil && reply.GetStreamSequence() > 0 && reply.GetStreamSequence() == outcome.CommittedStreamSequence &&
+		reply.AggregateRevision != nil && reply.GetAggregateRevision() > 0 && reply.GetAggregateRevision() == outcome.AggregateRevision &&
+		(outcome.Status == pb.CommandOutcome_SUCCEEDED || outcome.Status == pb.CommandOutcome_ACCEPTED || outcome.Status == pb.CommandOutcome_FAILED) &&
+		reply.Status == statusForOutcome(outcome)
+}
+
 func (r *CommandRouter) projectedOutcome(request *pb.CommandRequest, hash string) *pb.CommandReply {
-	state, err := r.Projection.Read(request.Aggregate)
+	state, err := r.Projection.committedCommandCheckpoint(request.Aggregate, request.CommandId)
 	if err != nil {
 		return nil
 	}

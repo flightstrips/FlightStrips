@@ -42,6 +42,7 @@ type Projection struct {
 	sinceSnapshot                              map[string]uint64
 	snapshotErrors                             map[string]error
 	positions                                  map[string]KVPosition
+	positionRevision                           map[string]uint64 // materialized revisions, independent of raw cursor proof
 	presence                                   map[string]KVPresence
 	syncFresh                                  map[string]bool
 	positionReady, presenceReady               bool
@@ -223,13 +224,24 @@ func (p *Projection) Run(ctx context.Context) error {
 }
 
 func (p *Projection) apply(entry AppliedEvent) error {
+	return p.applyEvent(entry, nil)
+}
+
+// applyCommitted installs a verified, conditionally appended owner event without
+// advancing the independent ordered consumer. The expected subject checkpoint
+// proves there are no unseen events for this aggregate between the two states.
+func (p *Projection) applyCommitted(entry AppliedEvent, expected uint64) error {
+	return p.applyEvent(entry, &expected)
+}
+
+func (p *Projection) applyEvent(entry AppliedEvent, expected *uint64) error {
 	ref, err := refFromSubject(entry.Subject)
 	if err != nil {
 		return err
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if entry.StreamSequence <= p.applied {
+	if expected == nil && entry.StreamSequence <= p.applied {
 		return fmt.Errorf("out of order stream sequence")
 	}
 	entry.SubjectSequence = entry.StreamSequence
@@ -240,8 +252,20 @@ func (p *Projection) apply(entry AppliedEvent) error {
 		p.lastSnapshot[entry.Subject] = time.Now()
 	}
 	if entry.StreamSequence <= state.StreamSequence {
-		p.applied = entry.StreamSequence
+		if expected == nil {
+			p.applied = entry.StreamSequence
+			p.wakeWaitersLocked()
+			p.lastAppliedServerTime = entry.ServerTime
+		}
 		return nil
+	}
+	if expected != nil {
+		if err := p.healthLocked(); err != nil {
+			return err
+		}
+		if state.SubjectSequence != *expected {
+			return fmt.Errorf("local commit predecessor changed")
+		}
 	}
 	if entry.SubjectSequence <= state.SubjectSequence {
 		return fmt.Errorf("subject sequence regression")
@@ -257,12 +281,14 @@ func (p *Projection) apply(entry AppliedEvent) error {
 		return err
 	}
 	p.states[entry.Subject] = clone
-	p.applied = entry.StreamSequence
+	if expected == nil {
+		p.applied = entry.StreamSequence
+		p.lastAppliedServerTime = entry.ServerTime
+	}
 	if p.stateChanged != nil {
 		close(p.stateChanged)
 		p.stateChanged = nil
 	}
-	p.lastAppliedServerTime = entry.ServerTime
 	if p.syncFresh != nil && clone.Ref.GetSession() != nil && !proto.Equal(state.Sync, clone.Sync) {
 		p.syncFresh[entry.Subject] = clone.Sync != nil && !entry.ServerTime.Before(p.startedAt)
 	}
@@ -669,18 +695,38 @@ func (p *Projection) ReadEntityKinds(ref *pb.AggregateRef, kinds ...pb.EntityKin
 }
 
 func (p *Projection) commandCheckpoint(ref *pb.AggregateRef, id string) (*Aggregate, error) {
+	return p.readCommandCheckpoint(ref, id, true)
+}
+
+// committedCommandCheckpoint reads only an already verified subject prefix.
+// It makes no claim that the independent global replay cursor has advanced.
+func (p *Projection) committedCommandCheckpoint(ref *pb.AggregateRef, id string) (*Aggregate, error) {
+	return p.readCommandCheckpoint(ref, id, false)
+}
+
+func (p *Projection) readCommandCheckpoint(ref *pb.AggregateRef, id string, completeReplay bool) (*Aggregate, error) {
 	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err
 	}
-	if err = p.readyForRead(); err != nil {
-		return nil, err
+	if completeReplay {
+		if err = p.readyForRead(); err != nil {
+			return nil, err
+		}
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	if err := p.healthLocked(); err != nil {
+		return nil, err
+	}
+	if p.history != nil {
+		if err := p.history.check(); err != nil {
+			return nil, err
+		}
+	}
 	out := NewAggregate(ref)
 	if state := p.states[subject]; state != nil {
-		out.StreamSequence, out.Revision = state.StreamSequence, state.Revision
+		out.StreamSequence, out.SubjectSequence, out.Revision = state.StreamSequence, state.SubjectSequence, state.Revision
 		if state.Owner != nil {
 			out.Owner = proto.Clone(state.Owner).(*pb.OwnerTerm)
 		}

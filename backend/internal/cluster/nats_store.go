@@ -17,6 +17,19 @@ import (
 // creates no resources and makes no connection in the current SQL runtime.
 type NATSStore struct{ JS nats.JetStreamContext }
 
+// Committed returns broker metadata for one acknowledged event. In particular,
+// lease validity is decided by the server timestamp, never the owner's clock.
+func (s NATSStore) Committed(ctx context.Context, sequence uint64) (AppliedEvent, error) {
+	msg, err := s.JS.GetMsg("FS_STATE", sequence, nats.Context(ctx))
+	if err != nil {
+		return AppliedEvent{}, err
+	}
+	if msg == nil || msg.Sequence != sequence || msg.Time.IsZero() {
+		return AppliedEvent{}, fmt.Errorf("invalid committed event metadata")
+	}
+	return AppliedEvent{Subject: msg.Subject, StreamSequence: sequence, SubjectSequence: sequence, ServerTime: msg.Time, Data: msg.Data}, nil
+}
+
 func (s NATSStore) Replay(ctx context.Context, subject string) ([]AppliedEvent, error) {
 	entries := []AppliedEvent{}
 	err := s.Visit(ctx, subject, func(entry AppliedEvent) error { entries = append(entries, entry); return nil })

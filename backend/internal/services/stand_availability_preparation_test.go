@@ -79,3 +79,53 @@ func TestStandAvailabilityPreparationUsesExactCommittedVariant(t *testing.T) {
 	require.NotContains(t, result, "A2")
 	require.Equal(t, []string{"blocked by allocated neighbor A1"}, result["B1"])
 }
+
+func TestCanonicalBlockPreparationMatchesUnpreparedAdjacency(t *testing.T) {
+	names := []string{"A1", " a1 ", "a2", " B1", "", "UNKNOWN", "æ1"}
+	lists := [][]string{nil, {}, {" a1 ", "a2"}, {"B1", "UNKNOWN", ""}, {"Æ1"}}
+	for _, left := range lists {
+		for _, right := range lists {
+			for _, candidate := range names {
+				for _, assigned := range names {
+					require.Equal(t, blocksEachOther(left, right, candidate, assigned), canonicalBlocksEachOther(canonicalStandBlocks(left), canonicalStandBlocks(right), standName(candidate), standName(assigned)))
+				}
+			}
+		}
+	}
+}
+
+func TestAvailabilityPreparedDeadlineAllowsNonOverlappingUse(t *testing.T) {
+	stands, _ := lifecyclePolicyFixture(t)
+	now := time.Now()
+	release, arrival := now.Add(30*time.Minute), now.Add(40*time.Minute)
+	s := &StandAllocationService{stands: stands, now: func() time.Time { return now }, planningBlocks: map[string][]string{"SAS2": {" a2 "}}}
+	assignment := &models.StandAssignment{Callsign: "SAS2", Stand: "A1", Stage: StageDepartureBlock, Direction: string(sat.AssignmentDirectionDeparture), ExpiresAt: &release}
+	request := StandAllocationRequest{Airport: "EKCH", Callsign: "SAS1", Direction: sat.AssignmentDirectionArrival, Stage: StageAssigned, ETA: &arrival}
+	matches := map[string]sat.StandCompatibilityMatch{"A1": {}, "A2": {}}
+	require.Empty(t, s.availability(request, []*models.StandAssignment{assignment}, nil, matches))
+	arrival = now.Add(20 * time.Minute)
+	require.Equal(t, map[string][]string{"A1": {"reserved by SAS2"}, "A2": {"blocked by allocated neighbor A1"}}, s.availability(request, []*models.StandAssignment{assignment}, nil, matches))
+}
+
+func TestAvailabilityPreparedManualBlocksUseConfiguredUnionAndFreshAdjacency(t *testing.T) {
+	stands, err := sat.LoadStandCapabilities(strings.NewReader("STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30\nBLOCKS:A2\nSTAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30\nBLOCKS:B1\nSTAND:EKCH:A2:N055.38.42.710:E012.38.33.450:30\nSTAND:EKCH:B1:N055.39.42.710:E012.38.33.450:30\n"))
+	require.NoError(t, err)
+	reason := " closed "
+	s := &StandAllocationService{stands: stands, now: time.Now, planningBlockAdjacency: map[string][]string{"B1": {" a2 "}}, planningOccupancy: map[string]string{"OTHER": "B1", "sas1": "A1"}}
+	request := StandAllocationRequest{Airport: "EKCH", Callsign: "SAS1"}
+	matches := map[string]sat.StandCompatibilityMatch{"A1": {Blocks: []string{"A2"}}, "A2": {}, "B1": {}}
+	blocks := []*models.StandBlock{nil, {Stand: " b1 ", Reason: &reason}}
+	result := s.availability(request, nil, blocks, matches)
+	// A1's selected variant omits B1: physical occupancy does not block it,
+	// but the manual block uses the configured union across both variants.
+	require.Equal(t, []string{"blocked by manual block B1: closed"}, result["A1"])
+	require.Equal(t, []string{"blocked by manual block B1: closed"}, result["A2"])
+	require.Equal(t, []string{"physically occupied by OTHER", "manually blocked: closed"}, result["B1"])
+	require.Equal(t, []string{" a2 "}, s.planningBlockAdjacency["B1"])
+	require.Equal(t, []string{"A2"}, matches["A1"].Blocks)
+	s.planningBlockAdjacency["B1"] = nil
+	delete(s.planningOccupancy, "OTHER")
+	result = s.availability(request, nil, blocks, matches)
+	require.NotContains(t, result, "A2")
+	require.Equal(t, []string{"manually blocked: closed"}, result["B1"])
+}

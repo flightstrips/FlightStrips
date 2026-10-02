@@ -763,29 +763,64 @@ func (s *StandAllocationService) availabilityWithEstimated(request StandAllocati
 		if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) || standAssignmentExpired(assignment, now) {
 			continue
 		}
-		prepared = append(prepared, preparedAssignment{value: assignment, stand: standName(assignment.Stand), blocks: s.assignedBlocks(request.Airport, assignment)})
+		if !assignmentBlocksRequest(assignment, request, now, s.departureReleaseBuffer) || request.displacesAssignment(assignment) || (yieldEstimated && estimatedReservationCanYield(request, assignment)) {
+			continue
+		}
+		assigned := s.assignedBlocks(request.Airport, assignment)
+		// assignedBlocks returns a detached slice, so canonicalization cannot
+		// change the registry or the committed planning view.
+		for i := range assigned {
+			assigned[i] = standName(assigned[i])
+		}
+		prepared = append(prepared, preparedAssignment{value: assignment, stand: standName(assignment.Stand), blocks: assigned})
+	}
+	type preparedOccupancy struct {
+		stand  string
+		blocks []string
+	}
+	occupancy := make(map[string]preparedOccupancy, len(s.planningOccupancy))
+	for callsign, stand := range s.planningOccupancy {
+		occupancy[callsign] = preparedOccupancy{stand: standName(stand), blocks: canonicalStandBlocks(s.configuredStandBlocks(request.Airport, stand))}
+	}
+	type preparedBlock struct {
+		value  *models.StandBlock
+		stand  string
+		blocks []string
+	}
+	manual := make([]preparedBlock, 0, len(blocks))
+	for _, block := range blocks {
+		if block == nil {
+			continue
+		}
+		stand := standName(block.Stand)
+		neighbours := s.configuredStandBlocks(request.Airport, stand)
+		if committed, ok := s.planningBlockAdjacency[stand]; ok {
+			neighbours = committed
+		}
+		manual = append(manual, preparedBlock{value: block, stand: stand, blocks: canonicalStandBlocks(neighbours)})
 	}
 	for candidate, match := range matches {
+		canonicalCandidate := standName(candidate)
+		candidateBlocks := canonicalStandBlocks(match.Blocks)
+		var candidateManualBlocks []string
+		if len(manual) > 0 {
+			// Manual blocks use the configured union, not the candidate variant.
+			candidateManualBlocks = canonicalStandBlocks(s.configuredStandBlocks(request.Airport, candidate))
+		}
 		for callsign, stand := range s.planningOccupancy {
 			if strings.EqualFold(callsign, request.Callsign) {
 				continue
 			}
-			if candidate == stand || blocksEachOther(match.Blocks, s.configuredStandBlocks(request.Airport, stand), candidate, stand) {
+			item := occupancy[callsign]
+			if candidate == stand || canonicalBlocksEachOther(candidateBlocks, item.blocks, canonicalCandidate, item.stand) {
 				result[candidate] = append(result[candidate], "physically occupied by "+callsign)
 			}
 		}
 		for _, item := range prepared {
 			assignment := item.value
 			direct := candidate == item.stand
-			adjacent := blocksEachOther(match.Blocks, item.blocks, candidate, item.stand)
+			adjacent := canonicalBlocksEachOther(candidateBlocks, item.blocks, canonicalCandidate, item.stand)
 			if !direct && !adjacent {
-				continue
-			}
-			if !assignmentBlocksRequest(assignment, request, now, s.departureReleaseBuffer) {
-				continue
-			}
-			if request.displacesAssignment(assignment) ||
-				(yieldEstimated && estimatedReservationCanYield(request, assignment)) {
 				continue
 			}
 			if direct {
@@ -798,17 +833,11 @@ func (s *StandAllocationService) availabilityWithEstimated(request StandAllocati
 			}
 			result[candidate] = append(result[candidate], "blocked by allocated neighbor "+assignment.Stand)
 		}
-		for _, block := range blocks {
-			if block == nil {
-				continue
-			}
-			blockedStand := standName(block.Stand)
+		for _, item := range manual {
+			block := item.value
+			blockedStand := item.stand
 			directlyBlocked := candidate == blockedStand
-			blockedNeighbours := s.configuredStandBlocks(request.Airport, blockedStand)
-			if committed, ok := s.planningBlockAdjacency[blockedStand]; ok {
-				blockedNeighbours = committed
-			}
-			adjacencyBlocked := blocksEachOther(s.configuredStandBlocks(request.Airport, candidate), blockedNeighbours, candidate, blockedStand)
+			adjacencyBlocked := canonicalBlocksEachOther(candidateManualBlocks, item.blocks, canonicalCandidate, blockedStand)
 			if !directlyBlocked && !adjacencyBlocked {
 				continue
 			}
@@ -823,6 +852,23 @@ func (s *StandAllocationService) availabilityWithEstimated(request StandAllocati
 		}
 	}
 	return result
+}
+
+func canonicalStandBlocks(blocks []string) []string {
+	if len(blocks) == 0 {
+		return nil
+	}
+	result := make([]string, len(blocks))
+	for i, block := range blocks {
+		result[i] = standName(block)
+	}
+	return result
+}
+
+// Inputs are canonicalized once by availabilityWithEstimated. Other callers
+// retain blocksEachOther's normalization for their unprepared inputs.
+func canonicalBlocksEachOther(candidateBlocks, assignedBlocks []string, candidate, assigned string) bool {
+	return slices.Contains(candidateBlocks, assigned) || slices.Contains(assignedBlocks, candidate)
 }
 
 func estimatedReservationCanYield(request StandAllocationRequest, assignment *models.StandAssignment) bool {

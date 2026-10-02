@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"sync/atomic"
@@ -256,11 +257,13 @@ func (w *PositionWriter) writeAsyncDurable(ctx context.Context, key string, valu
 	expected := w.projection.asyncPositions.durable[key]
 	w.projection.mu.RUnlock()
 	var revision uint64
+	_, publishSpan := otel.Tracer("cluster").Start(ctx, "nats.positions.puback")
 	if expected == 0 {
 		revision, err = w.KV.Create(key, data)
 	} else {
 		revision, err = w.KV.Update(key, data, expected)
 	}
+	publishSpan.End()
 	if err == nil {
 		w.revisionMu.Lock()
 		w.revisions[key] = revision

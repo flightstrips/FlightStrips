@@ -14,6 +14,7 @@ type positionCursor struct {
 	sub                            *nats.Subscription
 	consumer                       string
 	created                        time.Time
+	lastProved                     time.Time
 	appliedConsumer, appliedStream uint64
 	provedConsumer                 uint64
 	provedName                     string
@@ -69,6 +70,14 @@ func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 	}
 	p.mu.Lock()
 	p.positionReady = false
+	if p.asyncPositions != nil && len(p.asyncPositions.values) > 0 {
+		err := fmt.Errorf("position replay reset during active RAM owner generation")
+		if p.Async != nil {
+			p.Async.Invalidate(nil, err)
+		}
+		p.asyncPositions = nil
+		p.observationErr = err
+	}
 	p.wakeWaitersLocked()
 	for _, old := range p.positions {
 		p.publishObservationLocked(old.Value.SessionId, positionObservation(old, false, true))
@@ -78,6 +87,7 @@ func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 	p.positionRevision = map[string]uint64{}
 	p.wakeWaitersLocked()
 	p.mu.Unlock()
+	lastIntegrityCheck := time.Now()
 	for ctx.Err() == nil {
 		nextCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 		msg, readErr := sub.NextMsgWithContext(nextCtx)
@@ -97,7 +107,10 @@ func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 			metadata, metadataErr := msg.Metadata()
 			atTail = metadataErr == nil && metadata.NumPending == 0
 		}
-		if !ready && atTail {
+		backgroundIntegrity := p.Async != nil && time.Since(lastIntegrityCheck) >= time.Second
+		if (!ready && atTail) || backgroundIntegrity {
+			lastIntegrityCheck = time.Now()
+
 			caught, proofErr := p.provePositionCursor(ctx)
 			if proofErr != nil {
 				if errors.Is(proofErr, errPositionConsumerReset) || p.observationFailurePresent() {
@@ -160,6 +173,9 @@ func (p *Projection) applyPositionMessage(msg *nats.Msg) error {
 	c.appliedConsumer = meta.Sequence.Consumer
 	c.appliedStream = meta.Sequence.Stream
 	c.retained[key] = meta.Sequence.Stream
+	if err := p.checkAsyncPositionReplayLocked(key, value, meta.Sequence.Stream); err != nil {
+		return err
+	}
 	if err := p.materializePositionLocked(key, value, meta.Sequence.Stream, meta.Timestamp); err != nil {
 		return err
 	}
@@ -213,6 +229,7 @@ func (p *Projection) verifyPositionCursorLocked(sub *nats.Subscription, info *na
 	if uint64(len(c.retained)) != info.State.Msgs {
 		return false, p.positionIntegrityFailureLocked("position retained view changed without ordered delivery")
 	}
+	c.lastProved = time.Now()
 	c.provedConsumer = c.appliedConsumer
 	c.provedName = c.consumer
 	return true, nil
@@ -220,6 +237,9 @@ func (p *Projection) verifyPositionCursorLocked(sub *nats.Subscription, info *na
 func (p *Projection) positionIntegrityFailureLocked(reason string) error {
 	err := errors.New(reason)
 	p.observationErr = err
+	if p.Async != nil {
+		p.Async.Invalidate(nil, err)
+	}
 	p.positionReady = false
 	p.wakeWaitersLocked()
 	return err
@@ -261,6 +281,7 @@ func (p *Projection) FenceLifecyclePositions(ctx context.Context, session int32,
 	}
 }
 func (p *Projection) compareLifecyclePositionsLocked(session int32, epoch uint64, connection string, observations []KVPosition) error {
+	view := p.positionViewLocked()
 	expected := make(map[string]uint64, len(observations))
 	for _, item := range observations {
 		if item.Stale {
@@ -271,7 +292,7 @@ func (p *Projection) compareLifecyclePositionsLocked(session int32, epoch uint64
 			return fmt.Errorf("invalid lifecycle position observation")
 		}
 		key := fmt.Sprintf("%d.%s.%d", session, v.AircraftKey, epoch)
-		current, ok := p.positions[key]
+		current, ok := view[key]
 		if !ok || current.Revision != item.Revision || current.Value.SourceConnectionId != connection || current.Value.SessionId != session || current.Value.OwnerEpoch != epoch || current.Value.AircraftKey != v.AircraftKey {
 			return fmt.Errorf("lifecycle position observation changed")
 		}
@@ -280,7 +301,7 @@ func (p *Projection) compareLifecyclePositionsLocked(session int32, epoch uint64
 		}
 		expected[key] = item.Revision
 	}
-	for key, item := range p.positions {
+	for key, item := range view {
 		v := item.Value
 		if v.SessionId == session && v.OwnerEpoch == epoch && v.SourceConnectionId == connection {
 			if expected[key] != item.Revision {

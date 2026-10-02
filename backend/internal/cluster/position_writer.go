@@ -44,6 +44,10 @@ type PositionWriter struct {
 	Authority      PositionAuthority
 	lifecycleFence PositionLifecycleFence
 	committedApply func(context.Context, *pb.PositionValue, uint64) error
+	async          *AsyncSessionOwners
+	projection     *Projection
+	nodeID         string
+	baselineReady  bool
 	dispatcher     *shared.PositionDispatcher
 	mu             sync.Mutex
 	revisionMu     sync.Mutex
@@ -113,6 +117,15 @@ func (w *PositionWriter) enqueue(ctx context.Context, aircraft string, value *pb
 	if w.disconnected[aircraft] {
 		return nil, fmt.Errorf("aircraft already disconnected in owner epoch")
 	}
+	if w.async != nil {
+		w.barrierMu.Lock()
+		closed := w.closed
+		w.barrierMu.Unlock()
+		if closed {
+			return nil, fmt.Errorf("position generation is closed")
+		}
+		return w.enqueueAsync(ctx, aircraft, value, disconnect)
+	}
 	result := make(chan PositionWriteResult, 1)
 	key := positionKey(w.SessionID, aircraft, w.OwnerEpoch)
 	queued := time.Now()
@@ -167,7 +180,7 @@ func (w *PositionWriter) write(ctx context.Context, key string, value *pb.Positi
 		}
 		span.End()
 		revision, err = remember(revision, err)
-		if err == nil && w.committedApply != nil {
+		if err == nil && w.committedApply != nil && w.async == nil {
 			err = w.committedApply(ctx, value, revision)
 		}
 		return revision, err
@@ -177,6 +190,9 @@ func (w *PositionWriter) write(ctx context.Context, key string, value *pb.Positi
 		// A foreign publisher still causes a revision conflict; never refresh
 		// and overwrite it. On a new writer the first value is read/validated.
 		return publish(func() (uint64, error) { return w.KV.Update(key, data, expected) })
+	}
+	if w.baselineReady {
+		return publish(func() (uint64, error) { return w.KV.Create(key, data) })
 	}
 	current, err := w.KV.Get(key)
 	if errors.Is(err, nats.ErrKeyNotFound) {
@@ -224,8 +240,18 @@ func (w *PositionWriter) Close(ctx context.Context) error {
 // ExecuteLifecycle drains all admitted reports and fences every tagged current
 // observation used for occupancy, including neighbours and disconnects.
 func (w *PositionWriter) ExecuteLifecycle(ctx context.Context, observations []KVPosition, run func() (*pb.CommandReply, error)) (*pb.CommandReply, error) {
+	if run == nil {
+		return nil, fmt.Errorf("lifecycle callback required")
+	}
+	return w.ExecuteLifecycleContext(ctx, observations, func(context.Context) (*pb.CommandReply, error) { return run() })
+}
+func (w *PositionWriter) ExecuteLifecycleContext(ctx context.Context, observations []KVPosition, run func(context.Context) (*pb.CommandReply, error)) (*pb.CommandReply, error) {
+
 	if w == nil || w.dispatcher == nil || run == nil {
 		return nil, fmt.Errorf("lifecycle position barrier unavailable")
+	}
+	if w.async != nil {
+		return w.executeAsyncLifecycle(ctx, observations, run)
 	}
 	ctx, span := otel.Tracer("cluster").Start(ctx, "euroscope.position.lifecycle_barrier")
 	defer span.End()
@@ -246,7 +272,7 @@ func (w *PositionWriter) ExecuteLifecycle(ctx context.Context, observations []KV
 			return
 		}
 		stage = time.Now()
-		reply, failure = run()
+		reply, failure = run(ctx)
 		span.SetAttributes(attribute.Float64("position.lifecycle_commit_ms", float64(time.Since(stage))/float64(time.Millisecond)))
 	})
 	if err != nil {
@@ -291,18 +317,28 @@ func (w *PositionWriter) SetCommittedApply(apply func(context.Context, *pb.Posit
 // command. The command must target this writer's session and be submitted by
 // the same session owner; the position itself never writes a strip version.
 func (w *PositionWriter) ExecuteDerived(ctx context.Context, aircraft string, revision uint64, run func() (*pb.CommandReply, error)) (*pb.CommandReply, error) {
-	return w.executeObservation(ctx, aircraft, revision, false, run)
+	return w.ExecuteDerivedContext(ctx, aircraft, revision, func(context.Context) (*pb.CommandReply, error) { return run() })
 }
 
 // ExecuteDisconnect holds the same owner dispatcher barrier for a tombstone
 // derived deletion/retention decision. A newer report invalidates its revision.
 func (w *PositionWriter) ExecuteDisconnect(ctx context.Context, aircraft string, revision uint64, run func() (*pb.CommandReply, error)) (*pb.CommandReply, error) {
+	return w.ExecuteDisconnectContext(ctx, aircraft, revision, func(context.Context) (*pb.CommandReply, error) { return run() })
+}
+
+func (w *PositionWriter) ExecuteDerivedContext(ctx context.Context, aircraft string, revision uint64, run func(context.Context) (*pb.CommandReply, error)) (*pb.CommandReply, error) {
+	return w.executeObservation(ctx, aircraft, revision, false, run)
+}
+func (w *PositionWriter) ExecuteDisconnectContext(ctx context.Context, aircraft string, revision uint64, run func(context.Context) (*pb.CommandReply, error)) (*pb.CommandReply, error) {
 	return w.executeObservation(ctx, aircraft, revision, true, run)
 }
 
-func (w *PositionWriter) executeObservation(ctx context.Context, aircraft string, revision uint64, disconnected bool, run func() (*pb.CommandReply, error)) (*pb.CommandReply, error) {
+func (w *PositionWriter) executeObservation(ctx context.Context, aircraft string, revision uint64, disconnected bool, run func(context.Context) (*pb.CommandReply, error)) (*pb.CommandReply, error) {
 	if w == nil || w.dispatcher == nil || !canonicalAircraft(aircraft) || revision == 0 || run == nil {
 		return nil, fmt.Errorf("invalid position-derived command")
+	}
+	if w.async != nil {
+		return w.executeAsyncObservation(ctx, aircraft, revision, disconnected, run)
 	}
 	var reply *pb.CommandReply
 	var commandErr error
@@ -328,7 +364,7 @@ func (w *PositionWriter) executeObservation(ctx context.Context, aircraft string
 			commandErr = fmt.Errorf("source position is stale or disconnected")
 			return
 		}
-		reply, commandErr = run()
+		reply, commandErr = run(ctx)
 	})
 	if err != nil {
 		return nil, err

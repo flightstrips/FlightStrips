@@ -16,7 +16,7 @@ import (
 )
 
 func (p *Projection) selectedPositionLocked(session int32, aircraft string) (KVPosition, bool) {
-	state := p.states[fmt.Sprintf("fs.v1.state.session.%d", session)]
+	state := p.acceptedStateLocked(fmt.Sprintf("fs.v1.state.session.%d", session))
 	epoch := uint64(0)
 	if state == nil {
 		epoch = ^uint64(0)
@@ -26,7 +26,7 @@ func (p *Projection) selectedPositionLocked(session int32, aircraft string) (KVP
 	fresh := p.operationalSyncLocked(state, session) != nil
 	var selected KVPosition
 	found := false
-	for _, item := range p.positions {
+	for _, item := range p.positionViewLocked() {
 		value := item.Value
 		if value == nil || value.SessionId != session || value.AircraftKey != aircraft || value.OwnerEpoch > epoch || (fresh && value.OwnerEpoch != epoch) {
 			continue
@@ -109,6 +109,9 @@ func (p *Projection) watchPresence(ctx context.Context) {
 func (p *Projection) failObservation(err error) {
 	p.mu.Lock()
 	p.observationErr = err
+	if p.Async != nil {
+		p.Async.Invalidate(nil, err)
+	}
 	p.wakeWaitersLocked()
 	p.mu.Unlock()
 }
@@ -201,7 +204,7 @@ func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, air
 
 func (p *Projection) positionSnapshotLocked(sessionID int32) []KVPosition {
 	selected := map[string]KVPosition{}
-	state := p.states[fmt.Sprintf("fs.v1.state.session.%d", sessionID)]
+	state := p.acceptedStateLocked(fmt.Sprintf("fs.v1.state.session.%d", sessionID))
 	var epoch uint64
 	if state != nil && state.Owner != nil {
 		epoch = state.Owner.Epoch
@@ -211,7 +214,7 @@ func (p *Projection) positionSnapshotLocked(sessionID int32) []KVPosition {
 		epoch = ^uint64(0)
 	}
 	fresh := p.operationalSyncLocked(state, sessionID) != nil
-	for _, item := range p.positions {
+	for _, item := range p.positionViewLocked() {
 		if item.Value == nil || item.Value.SessionId != sessionID || item.Value.OwnerEpoch > epoch {
 			continue
 		}
@@ -271,19 +274,23 @@ func (p *Projection) OperationalSync(ref *pb.AggregateRef) (*pb.SessionSync, err
 	if err != nil {
 		return nil, err
 	}
-	if err := p.Ready(); err != nil {
+	if err := p.sessionReadHealth(ref); err != nil {
 		return nil, err
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.operationalSyncLocked(p.states[subject], ref.GetSession().GetId()), nil
+	return p.operationalSyncLocked(p.acceptedStateLocked(subject), ref.GetSession().GetId()), nil
 }
 
 func (p *Projection) operationalSyncLocked(state *Aggregate, sessionID int32) *pb.SessionSync {
 	if state == nil || state.Sync == nil || state.Master == nil {
 		return nil
 	}
-	if p.syncFresh != nil {
+	memoryControl := p.Async != nil && p.Async.Control(sessionRef(sessionID)) == state
+	if memoryControl && (state.Sync.CompletedAt == nil || state.Sync.CompletedAt.AsTime().Before(p.startedAt)) {
+		return nil
+	}
+	if !memoryControl && p.syncFresh != nil {
 		subject, _ := Subject(state.Ref)
 		if !p.syncFresh[subject] {
 			return nil

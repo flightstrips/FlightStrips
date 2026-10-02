@@ -46,7 +46,7 @@ func (s SessionObservations) ExecuteFromPosition(ctx context.Context, positions 
 	if positions == nil || request == nil || request.Aggregate.GetSession() == nil || request.Aggregate.GetSession().Id != positions.SessionID {
 		return nil, fmt.Errorf("position-derived command requires the session owner writer")
 	}
-	return positions.ExecuteDerived(ctx, aircraft, revision, func() (*pb.CommandReply, error) { return s.Execute(ctx, request) })
+	return positions.ExecuteDerivedContext(ctx, aircraft, revision, func(runCtx context.Context) (*pb.CommandReply, error) { return s.Execute(runCtx, request) })
 }
 
 func (s SessionObservations) SendMessage(ctx context.Context, sessionID int32, commandID, senderCID, text string, recipients []string) (*pb.CommandReply, error) {

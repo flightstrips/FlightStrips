@@ -230,8 +230,8 @@ func (c *DeadlineCandidate) commitDeadline(ctx context.Context, req *pb.CommandR
 	if err != nil {
 		return err
 	}
-	_, err = w.ExecuteDisconnect(ctx, deadline.Callsign, deadline.SourceRevision, func() (*pb.CommandReply, error) {
-		reply := c.Router.Route(ctx, req)
+	_, err = w.ExecuteDisconnectContext(ctx, deadline.Callsign, deadline.SourceRevision, func(runCtx context.Context) (*pb.CommandReply, error) {
+		reply := c.Router.Route(runCtx, req)
 		return reply, candidateReply(reply)
 	})
 	return err

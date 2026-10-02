@@ -22,7 +22,7 @@ import (
 // by binary admission and expiry. Nil means that generation awaits its sync.
 func (c *DeadlineCandidate) Positions(id int32) *cluster.PositionWriter {
 	state, err := c.Router.Projection.Read(candidateRef(id))
-	if err != nil || !c.Router.Lease.CanWrite(candidateRef(id)) {
+	if err != nil || !c.canWritePosition(id) {
 		return nil
 	}
 	if synced, err := c.Router.Projection.OperationalSync(state.Ref); err != nil || synced == nil {
@@ -56,7 +56,7 @@ func (c *DeadlineCandidate) positionWriter(ctx context.Context, id int32, connec
 	masterEpoch, cid := master.Epoch, master.Cid
 	w, err := cluster.NewPositionWriter(c.Router.Projection.Positions, id, owner.Epoch, connection,
 		func(_ context.Context, session int32, ownerEpoch uint64, generation string) error {
-			if !c.Router.Lease.CanWrite(candidateRef(session)) {
+			if !c.canWritePosition(session) {
 				return fmt.Errorf("position owner unavailable")
 			}
 			a, err := c.Router.Projection.ReadOwner(candidateRef(session))
@@ -74,12 +74,26 @@ func (c *DeadlineCandidate) positionWriter(ctx context.Context, id int32, connec
 			_ = w.Close(ctx)
 			return nil, err
 		}
+		if c.Router.Projection.Async != nil {
+			if err = w.SetAsyncOwners(ctx, c.Router.Projection.Async, c.Router.Projection, c.Router.Lease.NodeID); err != nil {
+				_ = w.Close(ctx)
+				return nil, err
+			}
+		}
 		c.writers[id] = w
 	}
 	return w, err
 }
 
 func (c *DeadlineCandidate) position(ctx context.Context, id int32, connection, key string, value *pb.AircraftPosition) error {
+	if owners := c.Router.Projection.Async; owners != nil {
+		return owners.Execute(ctx, candidateRef(id), func(runCtx context.Context) error { return c.positionAccepted(runCtx, id, connection, key, value) })
+	}
+	return c.positionAccepted(ctx, id, connection, key, value)
+}
+
+func (c *DeadlineCandidate) positionAccepted(ctx context.Context, id int32, connection, key string, value *pb.AircraftPosition) error {
+
 	ctx, span := otel.Tracer("euroscopebinary").Start(ctx, "euroscope.position.processing")
 	defer span.End()
 	stage := time.Now()
@@ -132,7 +146,7 @@ func (c *DeadlineCandidate) position(ctx context.Context, id int32, connection, 
 }
 
 func (c *DeadlineCandidate) admit(ctx context.Context, id int32, connection, cid string, original *euroscope.Envelope) error {
-	if !c.Router.Lease.CanWrite(candidateRef(id)) {
+	if !c.canWritePosition(id) {
 		return fmt.Errorf("socket session not owned")
 	}
 	if err := c.Router.Projection.ValidateEuroScopeInbound(id, connection, cid, original); err != nil {
@@ -387,4 +401,11 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 		}
 	}
 	return nil
+}
+
+func (c *DeadlineCandidate) canWritePosition(id int32) bool {
+	if c.Router.Projection.Async != nil {
+		return c.Router.Lease.CanCommitLocal(candidateRef(id))
+	}
+	return c.Router.Lease.CanWrite(candidateRef(id))
 }

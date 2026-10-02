@@ -102,7 +102,7 @@ func (p *Projection) materializePositionLocked(key string, value *pb.PositionVal
 	}
 	p.positionRevision[key] = revision
 	if value == nil {
-		if old, ok := p.positions[key]; ok {
+		if old, ok := p.positions[key]; ok && (p.asyncPositions == nil || p.asyncPositions.values[key].Value == nil) {
 			p.publishObservationLocked(old.Value.SessionId, positionObservation(old, false, true))
 		}
 		delete(p.positions, key)
@@ -111,7 +111,7 @@ func (p *Projection) materializePositionLocked(key string, value *pb.PositionVal
 			p.positions = map[string]KVPosition{}
 		}
 		p.positions[key] = KVPosition{Value: value, Revision: revision, Observed: observed}
-		if selected, ok := p.selectedPositionLocked(value.SessionId, value.AircraftKey); ok && selected.Revision == revision {
+		if selected, ok := p.selectedPositionLocked(value.SessionId, value.AircraftKey); ok && selected.Revision == revision && (p.asyncPositions == nil || p.asyncPositions.values[key].Value == nil) {
 			p.publishObservationLocked(value.SessionId, positionObservation(selected, selected.Stale, false))
 		}
 	}

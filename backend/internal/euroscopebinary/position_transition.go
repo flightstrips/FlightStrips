@@ -103,8 +103,8 @@ func (c *DeadlineCandidate) derivePosition(ctx context.Context, id int32, w *clu
 		planned.GetSystem().GetUpdateEntity().Value = &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: next}}
 		return cluster.PlanStrip(ctx, planned, state)
 	}
-	_, err = w.ExecuteDerived(ctx, key, revision, func() (*pb.CommandReply, error) {
-		reply := writer.Execute(ctx, req)
+	_, err = w.ExecuteDerivedContext(ctx, key, revision, func(runCtx context.Context) (*pb.CommandReply, error) {
+		reply := writer.Execute(runCtx, req)
 		return reply, candidateReply(reply)
 	})
 	return err

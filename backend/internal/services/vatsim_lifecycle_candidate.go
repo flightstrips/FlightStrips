@@ -242,8 +242,8 @@ func (c *VatsimLifecycleCandidate) transitionWithSnapshot(ctx context.Context, i
 			}
 			return changes, pb.CommandReply_COMMITTED, 0, nil
 		}
-		run := func() (*pb.CommandReply, error) {
-			reply := writer.Execute(ctx, request)
+		run := func(runCtx context.Context) (*pb.CommandReply, error) {
+			reply := writer.Execute(runCtx, request)
 			return reply, lifecycleReply(reply)
 		}
 		var result *pb.CommandReply
@@ -263,9 +263,9 @@ func (c *VatsimLifecycleCandidate) transitionWithSnapshot(ctx context.Context, i
 			if dispatcher == nil {
 				return fmt.Errorf("operational lifecycle requires position dispatcher")
 			}
-			result, err = dispatcher.ExecuteLifecycle(ctx, positions, run)
+			result, err = dispatcher.ExecuteLifecycleContext(ctx, positions, run)
 		} else {
-			result, err = run()
+			result, err = run(ctx)
 		}
 		if err == nil {
 			return nil

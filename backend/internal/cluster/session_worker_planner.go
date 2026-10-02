@@ -198,7 +198,7 @@ func (p SessionWorkerPlanner) planDeadline(ctx context.Context, req *pb.CommandR
 			if position.Stale {
 				return nil, pb.CommandReply_UNAVAILABLE, old.Revision, fmt.Errorf("aircraft position awaits new owner sync")
 			}
-			disconnected = position.Revision == d.SourceRevision && position.Value.GetTombstone() != nil
+			disconnected = p.Projection.PositionSourceMatches(position.Revision, d.SourceRevision) && position.Value.GetTombstone() != nil
 			break
 		}
 		if !observed {

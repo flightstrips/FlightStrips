@@ -97,6 +97,22 @@ func (o *OwnerRuntime) CanWrite(ref *pb.AggregateRef) bool {
 	return err == nil && state.Owner != nil && state.Owner.NodeId == o.NodeID
 }
 
+// CanDispatchDurable checks a previously PubAck-authorized external attempt.
+// Later RAM work cannot revoke that permission; all durable health and lease
+// requirements remain in force. This does not authorize a new publication.
+func (o *OwnerRuntime) CanDispatchDurable(ref *pb.AggregateRef) bool {
+	if o != nil && o.Projection != nil && o.Projection.Async != nil && o.Projection.Async.Err() != nil {
+		return false
+	}
+	subject, err := Subject(ref)
+	if err != nil || !o.healthy(subject) {
+		return false
+	}
+	state, err := o.Projection.readOwner(ref)
+	return err == nil && state.Owner != nil && state.Owner.NodeId == o.NodeID &&
+		state.Owner.LeaseUntil != nil && time.Now().Before(state.Owner.LeaseUntil.AsTime())
+}
+
 // CanCommitLocal permits only conditionally appended domain commands to plan
 // from the owner's materialized subject prefix. Subject CAS and the reducer's
 // broker timestamp still fence stale ownership. External effects, takeover and

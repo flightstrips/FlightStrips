@@ -65,7 +65,7 @@ func (w ExternalCallWorker) Run(ctx context.Context, spec ExternalCallSpec) (boo
 	if !fresh {
 		return false, nil
 	}
-	if w.Writer.Lease != nil && !w.Writer.Lease.CanWrite(spec.Source) {
+	if w.Writer.Lease != nil && !w.Writer.Lease.CanDispatchDurable(spec.Source) {
 		return false, fmt.Errorf("source owner lease lost before provider call")
 	}
 	if spec.Reserve != nil {
@@ -77,7 +77,7 @@ func (w ExternalCallWorker) Run(ctx context.Context, spec ExternalCallSpec) (boo
 			return false, err
 		}
 	}
-	if w.Writer.Lease != nil && !w.Writer.Lease.CanWrite(spec.Source) {
+	if w.Writer.Lease != nil && !w.Writer.Lease.CanDispatchDurable(spec.Source) {
 		return false, fmt.Errorf("source owner lease lost before provider call")
 	}
 	result, err := spec.Fetch(ctx)

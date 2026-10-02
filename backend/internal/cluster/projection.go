@@ -555,6 +555,8 @@ func (p *Projection) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 // Reads await this short replay barrier instead of treating an ordinary in-flight
 // event as a broken socket. /readyz still returns Ready's immediate result; no
 // stale projection is read and all unhealthy states still fail closed.
+func (p *Projection) ReadyForRead() error { return p.readyForRead() }
+
 func (p *Projection) readyForRead() error {
 	deadline := time.Now().Add(100 * time.Millisecond)
 	for {

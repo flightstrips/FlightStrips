@@ -198,7 +198,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error)
 	lastSession, lastAirport := session.AggregateRevision, airport.Revision
 	pending := map[string]*pb.AggregateRef{}
 	for {
-		if err := h.Projection.Ready(); err != nil {
+		if err := readyForDelivery(h.Projection); err != nil {
 			return err
 		}
 		select {
@@ -242,6 +242,17 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error)
 			}
 		}
 	}
+}
+
+// A normal in-flight commit can briefly put the replay consumer behind the
+// metadata probe. Await that bounded read barrier rather than closing a live
+// frontend socket. The public readiness probe remains immediate; actual health
+// and watcher/quorum failures still reject delivery.
+func readyForDelivery(p Projection) error {
+	if barrier, ok := p.(interface{ ReadyForRead() error }); ok {
+		return barrier.ReadyForRead()
+	}
+	return p.Ready()
 }
 
 type readResult struct {

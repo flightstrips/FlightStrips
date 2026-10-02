@@ -96,6 +96,9 @@ func (c *DeadlineCandidate) position(ctx context.Context, id int32, connection, 
 			return err
 		}
 		if value != nil {
+			if err := c.derivePosition(ctx, id, w, key, receipt.Revision, value); err != nil {
+				return err
+			}
 			// A live position only cancels its own disconnect deadline. Full
 			// controller/squawk recovery runs at sync and in the owner worker;
 			// copying every completed command and every aircraft on each report
@@ -298,6 +301,9 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 	old := state.Indexes[pb.EntityKind_STRIP][observed.Callsign]
 	revision := old.GetRevision()
 	bay := shared.BAY_UNKNOWN
+	if observed.Destination == state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)].Value.GetSession().Airport {
+		bay = shared.BAY_ARR_HIDDEN
+	}
 	if observed.Origin == state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)].Value.GetSession().Airport {
 		bay = shared.BAY_NOT_CLEARED
 		if observed.Cleared {

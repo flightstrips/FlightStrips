@@ -46,7 +46,7 @@ func (c *CdmCandidate) admission(id int32) error {
 	if err := c.Writer.Projection.Ready(); err != nil {
 		return err
 	}
-	if !c.Writer.Lease.CanWrite(sessionRef(id)) {
+	if !lifecycleOwnerCanPlan(c.Writer.Lease, c.Writer.Projection.Async != nil, sessionRef(id)) {
 		return fmt.Errorf("CDM session is not owned")
 	}
 	return nil

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"os"
@@ -99,7 +98,7 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 		s := f.state(ref)
 		return len(s.EntitiesByKind(pb.EntityKind_STRIP)) == 200 && s.Sync != nil
 	})
-	fronts := []*websocket.Conn{f.front(0, name), f.front(1, name)}
+	fronts := []*loadFrontend{f.loadFrontend(0, name), f.loadFrontend(1, name)}
 	lifecycle := f.watchLoadLifecycle(ref)
 	lifecycleFinished := false
 	defer func() {
@@ -182,7 +181,6 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 			monitorFinished = true
 		}
 	}()
-	frontIDs := []string{}
 	send := func(frame *es.Envelope, due time.Time, position bool) {
 		if delay := time.Until(due); delay > 0 {
 			time.Sleep(delay)
@@ -217,12 +215,7 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 			}
 			if n%rate == 0 {
 				id := uuid.NewString()
-				frontIDs = append(frontIDs, id)
-				// This action uses the accepted revision of a separate control strip.
-				// Position observations do not change the durable strip revision.
-				revision := f.state(ref).Indexes[pb.EntityKind_STRIP]["SAS199"].Revision
-				command := faultCommand(id, &pb.ClientCommand{Action: &pb.ClientCommand_Strip{Strip: &pb.StripAction{Callsign: "SAS199", Change: &pb.StripAction_SetMarked{SetMarked: &pb.SetMarked{Marked: frontend%2 == 0}}}}}, &revision)
-				sendEntrypointFrame(t, fronts[frontend%2], command)
+				fronts[frontend%2].marked(id, frontend%2 == 0)
 				frontend++
 			}
 		}
@@ -257,16 +250,81 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 		r.Failures = append(r.Failures, "batch not completed before next second")
 	}
 	unexpectedFrontend := 0
-	for _, id := range frontIDs {
-		if f.outcome(0, id) != "succeeded" {
-			unexpectedFrontend++
+	frontendAttempts, frontendRetries, frontendLogical := 0, 0, 0
+	var frontendRetryEvidence []*loadFrontendAction
+	var frontendActions []*loadFrontendAction
+	for _, front := range fronts {
+		frontendActions = append(frontendActions, front.finish()...)
+	}
+	// ActionResult may acknowledge RAM while the accepted tail is still pending.
+	// Wait for this independent observer's durable history before evaluating
+	// success; all timing windows and sender counts have already closed.
+	durableDeadline := time.Now().Add(10 * time.Second)
+	for {
+		durable := true
+		state, err := f.projection.ReadDurable(ref)
+		if err != nil {
+			durable = false
+		} else {
+			for _, action := range frontendActions {
+				for _, attempt := range action.Attempts {
+					if attempt.Status == pb.CommandOutcome_STATUS_UNSPECIFIED {
+						continue // A missing reply remains a failure below.
+					}
+					outcome, err := state.LookupOutcome(attempt.ID)
+					if err != nil || outcome == nil || outcome.CommittedStreamSequence == 0 {
+						durable = false
+					}
+				}
+			}
 		}
+		if durable {
+			break
+		}
+		if time.Now().After(durableDeadline) {
+			r.Failures = append(r.Failures, "frontend durable completion timed out")
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	for _, action := range frontendActions {
+		frontendLogical++
+		frontendAttempts += len(action.Attempts)
+		if len(action.Attempts) > 1 {
+			frontendRetries += len(action.Attempts) - 1
+			frontendRetryEvidence = append(frontendRetryEvidence, action)
+		}
+		valid := action.Err == "" && len(action.Attempts) > 0
+		for i, attempt := range action.Attempts {
+			// Even discarded conflicts must be real durable failures. RAM
+			// success and socket delivery alone never satisfy this gate.
+			outcome, err := f.state(ref).LookupOutcome(attempt.ID)
+			if err != nil || outcome == nil || outcome.CommittedStreamSequence == 0 {
+				valid = false
+				continue
+			}
+			if i == len(action.Attempts)-1 {
+				valid = valid && outcome.Status == pb.CommandOutcome_SUCCEEDED && f.outcome(0, attempt.ID) == "succeeded"
+			} else {
+				valid = valid && outcome.Status == pb.CommandOutcome_FAILED && outcome.ReasonCode == "REVISION_CONFLICT"
+			}
+		}
+		if !valid {
+			unexpectedFrontend++
+			t.Logf("FRONTEND_LOGICAL_FAILURE logical_id=%s error=%s attempts=%+v", action.LogicalID, action.Err, action.Attempts)
+		}
+	}
+	if frontendLogical != frontend {
+		r.Failures = append(r.Failures, "frontend logical action count mismatch")
 	}
 	if unexpectedFrontend != 0 {
 		r.Failures = append(r.Failures, "frontend action not durably successful")
 	}
 	report := map[string]any{"qualification": false, "full_duration": !smoke && !profiled, "diagnostic_profiled": profiled, "qualification_pending": []string{"runner combines all six full load results, backend recovery, disk and Task22 fault/restore results"}, "arrival_count": arrivals, "pattern": pattern, "warmup": warmup.String(), "duration": duration.String(), "result": r, "frontend_sent": frontend, "frontend_unexpected": unexpectedFrontend, "backend_binary_sha256": binaryHash, "topology": "one physical Windows host, 3 native NATS 2.15.0 file R3 encrypted stores, 2 compiled backend processes; loopback", "load_pass": len(r.Failures) == 0}
 	report["measurements"] = measurements
+	report["frontend_attempts"] = frontendAttempts
+	report["frontend_revision_conflict_retries"] = frontendRetries
+	report["frontend_retry_evidence"] = frontendRetryEvidence
 	report["lifecycle"] = observed
 	report["puback"] = capture.PubAckReport()
 	report["position_stages_ms"] = capture.StageReport(measureStart, measureEnd)

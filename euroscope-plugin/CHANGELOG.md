@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.6](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.5...plugin/v2.1.6) (2026-10-02)
+
+
+### Bug Fixes
+
+* **aman:** hide gain-loss guidance for untracked aircraft ([#832](https://github.com/flightstrips/FlightStrips/issues/832)) ([47dad99](https://github.com/flightstrips/FlightStrips/commit/47dad993173ca920f1369dea05a5f160a2d31cb0))
+
 ## [2.1.5](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.4...plugin/v2.1.5) (2026-09-28)
 
 

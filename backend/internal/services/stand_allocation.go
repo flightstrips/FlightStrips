@@ -747,6 +747,24 @@ func (s *StandAllocationService) availabilityYieldingEstimated(request StandAllo
 func (s *StandAllocationService) availabilityWithEstimated(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch, yieldEstimated bool) map[string][]string {
 	now := s.now()
 	result := map[string][]string{}
+	if len(matches) == 0 {
+		return result
+	}
+	// The assignment view is immutable during this invocation. Resolve its
+	// committed variant blocks once, rather than cloning them for each candidate.
+	// Keep the preparation local: a later allocation may displace or replace it.
+	type preparedAssignment struct {
+		value  *models.StandAssignment
+		stand  string
+		blocks []string
+	}
+	prepared := make([]preparedAssignment, 0, len(assignments))
+	for _, assignment := range assignments {
+		if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) || standAssignmentExpired(assignment, now) {
+			continue
+		}
+		prepared = append(prepared, preparedAssignment{value: assignment, stand: standName(assignment.Stand), blocks: s.assignedBlocks(request.Airport, assignment)})
+	}
 	for candidate, match := range matches {
 		for callsign, stand := range s.planningOccupancy {
 			if strings.EqualFold(callsign, request.Callsign) {
@@ -756,12 +774,10 @@ func (s *StandAllocationService) availabilityWithEstimated(request StandAllocati
 				result[candidate] = append(result[candidate], "physically occupied by "+callsign)
 			}
 		}
-		for _, assignment := range assignments {
-			if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) || standAssignmentExpired(assignment, now) {
-				continue
-			}
-			direct := candidate == standName(assignment.Stand)
-			adjacent := blocksEachOther(match.Blocks, s.assignedBlocks(request.Airport, assignment), candidate, assignment.Stand)
+		for _, item := range prepared {
+			assignment := item.value
+			direct := candidate == item.stand
+			adjacent := blocksEachOther(match.Blocks, item.blocks, candidate, item.stand)
 			if !direct && !adjacent {
 				continue
 			}

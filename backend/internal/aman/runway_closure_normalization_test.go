@@ -35,15 +35,15 @@ func TestNormalizeRunwayClosureIntervalAbsoluteFiniteAndIndefinite(t *testing.T)
 func TestNormalizeRunwayClosureIntervalAfterAircraftUsesExactNextGridOpportunity(t *testing.T) {
 	base := closureNormalizationTime()
 	state := closureNormalizationState(base)
-	flightID := FlightID("SAS101")
+	flightID := Callsign("SAS101")
 	groupID := RunwayGroupID("north")
 	state.Flights = []AMANFlight{{
-		ID: flightID, SelectedRunwayGroup: &groupID,
+		Callsign: flightID, SelectedRunwayGroup: &groupID,
 		Slot: &Slot{Time: base.Add(3 * time.Minute), RunwayGroupID: groupID, Sequence: 2, Revision: state.Revision},
 	}}
 
 	interval, err := NormalizeRunwayClosureInterval(RunwayClosureIntervalInput{
-		RunwayGroupID: groupID, AfterFlightID: &flightID,
+		RunwayGroupID: groupID, AfterCallsign: &flightID,
 	}, state)
 	if err != nil {
 		t.Fatalf("normalize after-aircraft closure: %v", err)
@@ -64,15 +64,15 @@ func TestNormalizeRunwayClosureIntervalHonorsRateAndGapBoundaries(t *testing.T) 
 		ID: "gap", Start: base.Add(10 * time.Minute), End: base.Add(14 * time.Minute),
 		Label: "inspection", CreatedAt: base, CreatedBy: "controller",
 	}}
-	flightID := FlightID("SAS102")
+	flightID := Callsign("SAS102")
 	groupID := RunwayGroupID("north")
 	state.Flights = []AMANFlight{{
-		ID: flightID, SelectedRunwayGroup: &groupID,
+		Callsign: flightID, SelectedRunwayGroup: &groupID,
 		Slot: &Slot{Time: base.Add(9 * time.Minute), RunwayGroupID: groupID, Sequence: 4, Revision: state.Revision},
 	}}
 
 	interval, err := NormalizeRunwayClosureInterval(RunwayClosureIntervalInput{
-		RunwayGroupID: groupID, AfterFlightID: &flightID,
+		RunwayGroupID: groupID, AfterCallsign: &flightID,
 	}, state)
 	if err != nil {
 		t.Fatalf("normalize across rate and GAP boundaries: %v", err)
@@ -84,7 +84,7 @@ func TestNormalizeRunwayClosureIntervalHonorsRateAndGapBoundaries(t *testing.T) 
 	state.RunwayGroups[0].Gaps = nil
 	state.Flights[0].Slot.Time = base.Add(10 * time.Minute)
 	interval, err = NormalizeRunwayClosureInterval(RunwayClosureIntervalInput{
-		RunwayGroupID: groupID, AfterFlightID: &flightID,
+		RunwayGroupID: groupID, AfterCallsign: &flightID,
 	}, state)
 	if err != nil {
 		t.Fatalf("normalize from exact rate boundary: %v", err)
@@ -98,11 +98,11 @@ func TestNormalizeRunwayClosureIntervalRejectsInvalidInputs(t *testing.T) {
 	base := closureNormalizationTime()
 	end := base.Add(time.Minute)
 	localStart := base.In(time.FixedZone("CEST", 2*60*60))
-	flightID := FlightID("SAS103")
+	flightID := Callsign("SAS103")
 	groupID := RunwayGroupID("north")
 	valid := closureNormalizationState(base)
 	valid.Flights = []AMANFlight{{
-		ID: flightID, SelectedRunwayGroup: &groupID,
+		Callsign: flightID, SelectedRunwayGroup: &groupID,
 		Slot: &Slot{Time: base, RunwayGroupID: groupID, Sequence: 1, Revision: valid.Revision},
 	}}
 
@@ -111,18 +111,18 @@ func TestNormalizeRunwayClosureIntervalRejectsInvalidInputs(t *testing.T) {
 		mutate func(*AirportState)
 	}{
 		"missing start":          {input: RunwayClosureIntervalInput{RunwayGroupID: groupID}},
-		"both starts":            {input: RunwayClosureIntervalInput{RunwayGroupID: groupID, Start: &base, AfterFlightID: &flightID}},
+		"both starts":            {input: RunwayClosureIntervalInput{RunwayGroupID: groupID, Start: &base, AfterCallsign: &flightID}},
 		"non-UTC absolute start": {input: RunwayClosureIntervalInput{RunwayGroupID: groupID, Start: &localStart}},
-		"missing anchor":         {input: RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterFlightID: flightIDPointer("MISSING")}},
+		"missing anchor":         {input: RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterCallsign: flightIDPointer("MISSING")}},
 		"unassigned anchor": {
-			input:  RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterFlightID: &flightID},
+			input:  RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterCallsign: &flightID},
 			mutate: func(state *AirportState) { state.Flights[0].Slot = nil },
 		},
 		"wrong-runway anchor": {
-			input: RunwayClosureIntervalInput{RunwayGroupID: "south", AfterFlightID: &flightID},
+			input: RunwayClosureIntervalInput{RunwayGroupID: "south", AfterCallsign: &flightID},
 		},
 		"stale anchor": {
-			input:  RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterFlightID: &flightID},
+			input:  RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterCallsign: &flightID},
 			mutate: func(state *AirportState) { state.Flights[0].Slot.Revision-- },
 		},
 		"zero end":     {input: RunwayClosureIntervalInput{RunwayGroupID: groupID, Start: &base, End: timePointer(time.Time{})}},
@@ -132,13 +132,13 @@ func TestNormalizeRunwayClosureIntervalRejectsInvalidInputs(t *testing.T) {
 			input: RunwayClosureIntervalInput{RunwayGroupID: groupID, Start: &base, End: timePointer(end.In(time.FixedZone("CEST", 2*60*60)))},
 		},
 		"missing runway grid": {
-			input: RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterFlightID: &flightID},
+			input: RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterCallsign: &flightID},
 			mutate: func(state *AirportState) {
 				state.RunwayGroups[0].RateSchedule, state.RunwayGroups[0].RateEffectiveAt = nil, nil
 			},
 		},
 		"opportunity overflow": {
-			input: RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterFlightID: &flightID},
+			input: RunwayClosureIntervalInput{RunwayGroupID: groupID, AfterCallsign: &flightID},
 			mutate: func(state *AirportState) {
 				state.RunwayGroups[0].RateSchedule = []RunwayGroupRatePoint{{EffectiveAt: time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), ArrivalsPerHour: 1}}
 				state.Flights[0].Slot.Time = time.Date(1000, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -178,4 +178,4 @@ func closureNormalizationTime() time.Time {
 	return time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 }
 
-func flightIDPointer(value FlightID) *FlightID { return &value }
+func flightIDPointer(value Callsign) *Callsign { return &value }

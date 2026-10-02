@@ -15,10 +15,10 @@ func TestActionServiceRoutesTypedMetadataThroughCoordinator(t *testing.T) {
 	mutations := &recordingActionMutations{}
 	service := &ActionService{coordinator: coordinator, mutations: mutations}
 	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)}
-	before := aman.FlightID("flight-2")
+	before := aman.Callsign("flight-2")
 
 	result, err := service.MoveFlight(context.Background(), auth, aman.MoveFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "move-1", ExpectedRevision: 7}, FlightID: "flight-1", RunwayGroupID: "A", BeforeFlightID: &before,
+		Metadata: aman.CommandMetadata{CommandID: "move-1", ExpectedRevision: 7}, Callsign: "flight-1", RunwayGroupID: "A", BeforeCallsign: &before,
 	})
 
 	require.NoError(t, err)

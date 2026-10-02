@@ -72,9 +72,8 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	}, fragment.TimelineMappings)
 	require.Equal(t, []navdata.STARFamilyID{"ERNOV", "MONAK", "TESPI", "TIDVU", "TUDLO"}, starFamilyPolicyIDs(fragment.STARFamilyPolicies))
 	for _, policy := range fragment.STARFamilyPolicies {
-		require.Equal(t, navdata.SameSTARSpacingPolicy{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, policy.SameSTARSpacing, policy.STARFamily)
+		require.Equal(t, navdata.SameSTARSpacingPolicy{Enabled: false, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, policy.SameSTARSpacing, policy.STARFamily)
 		require.Equal(t, navdata.HoldingSequenceDisabled, policy.HoldingSequencePolicy, policy.STARFamily)
-		require.Equal(t, 6*time.Minute, (time.Hour/time.Duration(policy.SameSTARSpacing.ActivationRatePerHour))*time.Duration(policy.SameSTARSpacing.MinimumEmptySlots+1))
 	}
 	require.Len(t, fragment.Paths, len(config.Feeders)*len(config.RunwayGroups))
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings))
@@ -177,11 +176,11 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 	require.Equal(t, config.ApplicabilityUntil, config.Dataset.EffectiveUntil)
 	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R", "ARRIVAL-22L", "ARRIVAL-22R", "ARRIVAL-12", "ARRIVAL-30"}, groupIDs(config.RunwayGroups))
 	for _, group := range config.RunwayGroups {
-		require.Equal(t, &SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, group.SameSTARSpacing, group.ID)
+		require.Equal(t, &SameSTARSpacing{Enabled: false, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, group.SameSTARSpacing, group.ID)
 	}
 	require.Equal(t, []navdata.STARFamilyID{"ERNOV", "MONAK", "TESPI", "TIDVU", "TUDLO"}, configuredSTARFamilyPolicyIDs(config.STARFamilyPolicies))
 	for _, policy := range config.STARFamilyPolicies {
-		require.Equal(t, SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, policy.SameSTARSpacing, policy.STARFamily)
+		require.Equal(t, SameSTARSpacing{Enabled: false, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, policy.SameSTARSpacing, policy.STARFamily)
 		require.Equal(t, navdata.HoldingSequenceDisabled, policy.HoldingSequencePolicy, policy.STARFamily)
 	}
 

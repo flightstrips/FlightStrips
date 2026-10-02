@@ -44,7 +44,7 @@ function renderBoard(value: AMANState | null, overrides: Partial<AMANBoardViewPr
       error={null}
       onSelectFlight={onSelectFlight}
       presentationStatus={value ? "ready" : "empty"}
-      selectedFlightID={null}
+      selectedCallsign={null}
       state={value}
       {...overrides}
     />,
@@ -60,12 +60,12 @@ describe("complete AMAN timeline and strips", () => {
 
   it("renders null and invalid replacement state explicitly without stale partial data", () => {
     const {rerender} = render(
-      <AMANBoardView connectionState="disconnected" error={null} onSelectFlight={() => undefined} presentationStatus="empty" selectedFlightID={null} state={null} />,
+      <AMANBoardView connectionState="disconnected" error={null} onSelectFlight={() => undefined} presentationStatus="empty" selectedCallsign={null} state={null} />,
     );
     expect(screen.getByText("AMAN timeline unavailable")).toBeInTheDocument();
     expect(screen.getByText(/Waiting for a complete AMAN state replacement/)).toBeInTheDocument();
 
-    rerender(<AMANBoardView connectionState="connected" error="invalid_aman_state" onSelectFlight={() => undefined} presentationStatus="degraded" selectedFlightID={null} state={null} />);
+    rerender(<AMANBoardView connectionState="connected" error="invalid_aman_state" onSelectFlight={() => undefined} presentationStatus="degraded" selectedCallsign={null} state={null} />);
     expect(screen.getByText(/State rejected: invalid_aman_state/)).toBeInTheDocument();
     expect(screen.queryByText("SAS123")).not.toBeInTheDocument();
   });
@@ -79,7 +79,7 @@ describe("complete AMAN timeline and strips", () => {
     expect(marker).toHaveTextContent("SAS123");
     expect(marker).toHaveTextContent("G02");
     expect(marker).not.toHaveTextContent("Prediction");
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
+    expect(screen.getByTestId("operational-marker-SAS123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
   });
 
   it("does not invent operational lane mappings when configuration is unavailable", () => {
@@ -101,8 +101,8 @@ describe("complete AMAN timeline and strips", () => {
     frozen.flights[0].slot!.time = "2026-07-22T10:18:00.000Z";
     renderBoard(frozen);
 
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
-    expect(screen.queryByTestId("raw-marker-flight-123")).not.toBeInTheDocument();
+    expect(screen.getByTestId("operational-marker-SAS123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
+    expect(screen.queryByTestId("raw-marker-SAS123")).not.toBeInTheDocument();
     expect(screen.getByRole("button", {name: /Superstable/})).toBeInTheDocument();
   });
 
@@ -119,7 +119,7 @@ describe("complete AMAN timeline and strips", () => {
     flight.provenance = null;
     flight.route_fact = null;
     flight.queue_offers = [{
-      flight_id: flight.flight_id,
+      callsign: flight.callsign,
       runway_group_id: "ARRIVAL-22",
       candidate_slot: {...flight.slot!, time: "2026-07-22T10:16:00.000Z"},
       queue_position: 1,
@@ -144,7 +144,7 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getAllByText("degraded").length).toBeGreaterThan(0);
     expect(screen.getByText("predictor stale")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: /Select SAS123; go around; current delay Unavailable/})).toBeInTheDocument();
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveTextContent("Unavailable");
+    expect(screen.getByTestId("operational-marker-SAS123")).toHaveTextContent("Unavailable");
   });
 
   it("does not show guidance from a non-authoritative AMAN state", () => {
@@ -154,8 +154,8 @@ describe("complete AMAN timeline and strips", () => {
 
     renderBoard(readOnly);
 
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveTextContent("Unavailable");
-    expect(screen.getByTestId("operational-marker-flight-123")).not.toHaveTextContent("G01");
+    expect(screen.getByTestId("operational-marker-SAS123")).toHaveTextContent("Unavailable");
+    expect(screen.getByTestId("operational-marker-SAS123")).not.toHaveTextContent("G01");
   });
 
   it("supports compact timeline marker hit testing from the designed scrolling layout", () => {
@@ -165,8 +165,8 @@ describe("complete AMAN timeline and strips", () => {
     const marker = screen.getByRole("button", {name: /Select SAS123/});
     fireEvent.click(marker);
 
-    expect(onSelectFlight).toHaveBeenNthCalledWith(1, "flight-123");
-    expect(onOpenFlightActions).toHaveBeenNthCalledWith(1, "flight-123");
+    expect(onSelectFlight).toHaveBeenNthCalledWith(1, "SAS123");
+    expect(onOpenFlightActions).toHaveBeenNthCalledWith(1, "SAS123");
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
     expect(screen.getAllByTestId(/^fmp-timeline-/)).toHaveLength(3);
   });
@@ -181,8 +181,8 @@ describe("complete AMAN timeline and strips", () => {
     fireEvent.click(target, {detail: 0});
 
     expect(target).toHaveFocus();
-    expect(onSelectFlight).toHaveBeenCalledWith("flight-123");
-    expect(onOpenFlightActions).toHaveBeenCalledWith("flight-123");
+    expect(onSelectFlight).toHaveBeenCalledWith("SAS123");
+    expect(onOpenFlightActions).toHaveBeenCalledWith("SAS123");
   });
 
   it("renders GAP intervals and audited manual exceptions in every timeline view", () => {
@@ -207,7 +207,7 @@ describe("complete AMAN timeline and strips", () => {
     current.runway_groups.unshift({id: "ARRIVAL-04", gaps: []});
     current.runway_groups[1].gaps = [{id: "gap-selected", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:18:00.000Z", label: "selected runway gap", created_at: "2026-07-22T10:01:00.000Z", created_by: "fmp-1"}];
 
-    renderBoard(current, {selectedFlightID: "flight-123"});
+    renderBoard(current, {selectedCallsign: "SAS123"});
 
     expect(screen.getAllByRole("button", {name: /GAP ARRIVAL-22: selected runway gap/})).toHaveLength(3);
   });
@@ -219,7 +219,7 @@ describe("complete AMAN timeline and strips", () => {
       gaps: [{id: "gap-new", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:18:00.000Z", label: "new gap", created_at: "2026-07-22T10:01:00.000Z", created_by: "fmp-1"}],
     });
 
-    renderBoard(current, {focusedRunwayGroupID: "ARRIVAL-04", selectedFlightID: "flight-123"});
+    renderBoard(current, {focusedRunwayGroupID: "ARRIVAL-04", selectedCallsign: "SAS123"});
 
     expect(screen.getAllByRole("button", {name: /GAP ARRIVAL-04: new gap/})).toHaveLength(3);
   });
@@ -249,7 +249,7 @@ describe("complete AMAN timeline and strips", () => {
 
   it("opens the selected flight's on-demand route detail without changing the board state", () => {
     const onOpenFlightDetails = vi.fn();
-    renderBoard(state(), {selectedFlightID: "flight-123", onOpenFlightDetails});
+    renderBoard(state(), {selectedCallsign: "SAS123", onOpenFlightDetails});
 
     fireEvent.click(screen.getByRole("button", {name: "DETAIL"}));
 
@@ -261,7 +261,6 @@ describe("complete AMAN timeline and strips", () => {
     const original = overlapping.flights[0];
     overlapping.flights.push({
       ...structuredClone(original),
-      flight_id: "flight-124",
       callsign: "SAS124",
       order: 4,
       operational_teta: "2026-07-22T10:18:30.000Z",
@@ -270,8 +269,8 @@ describe("complete AMAN timeline and strips", () => {
     });
 
     renderBoard(overlapping);
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveClass("-translate-x-full");
-    expect(screen.getByTestId("operational-marker-flight-124")).toHaveClass("-translate-x-full");
+    expect(screen.getByTestId("operational-marker-SAS123")).toHaveClass("-translate-x-full");
+    expect(screen.getByTestId("operational-marker-SAS124")).toHaveClass("-translate-x-full");
   });
 
   it("keeps the FMP overview complete while runway selection remains local", () => {
@@ -279,7 +278,6 @@ describe("complete AMAN timeline and strips", () => {
     multiRunwayState.runway_groups.push({id: "ARRIVAL-04"});
     multiRunwayState.flights.push({
       ...structuredClone(multiRunwayState.flights[0]),
-      flight_id: "flight-04",
       callsign: "SKY404",
       runway_group_id: "ARRIVAL-04",
       holding_fix: "TIDVU",
@@ -348,10 +346,10 @@ describe("complete AMAN timeline and strips", () => {
     identities.flights[0].star_family = "TESPI";
     renderBoard(identities);
 
-    expect(screen.getByTestId("operational-marker-flight-123")).not.toHaveTextContent("TESPI");
+    expect(screen.getByTestId("operational-marker-SAS123")).not.toHaveTextContent("TESPI");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveTextContent("TESPI");
-    expect(screen.getByTestId("operational-marker-flight-123")).not.toHaveTextContent("LEGACY-STAR");
+    expect(screen.getByTestId("operational-marker-SAS123")).toHaveTextContent("TESPI");
+    expect(screen.getByTestId("operational-marker-SAS123")).not.toHaveTextContent("LEGACY-STAR");
   });
 
   it("emphasizes one ACC family without filtering traffic and exposes a local ALL override", () => {
@@ -361,7 +359,6 @@ describe("complete AMAN timeline and strips", () => {
     ]};
     configured.flights.push({
       ...structuredClone(configured.flights[0]),
-      flight_id: "flight-tudlo",
       callsign: "TUDLO2",
       star_family: "TUDLO",
       order: 2,

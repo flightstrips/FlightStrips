@@ -13,21 +13,21 @@ import (
 // the supplied point-in-time input.
 type MoveFlightCommand struct {
 	Metadata       aman.CommandMetadata
-	FlightID       aman.FlightID
+	Callsign       aman.Callsign
 	RunwayGroupID  aman.RunwayGroupID
-	BeforeFlightID *aman.FlightID
-	AfterFlightID  *aman.FlightID
+	BeforeCallsign *aman.Callsign
+	AfterCallsign  *aman.Callsign
 }
 
 type ApplyManualFreezeCommand struct {
 	Metadata aman.CommandMetadata
-	FlightID aman.FlightID
+	Callsign aman.Callsign
 	At       time.Time
 }
 
 type ReleaseManualFreezeCommand struct {
 	Metadata aman.CommandMetadata
-	FlightID aman.FlightID
+	Callsign aman.Callsign
 	At       time.Time
 }
 
@@ -40,7 +40,7 @@ type SetRateCommand struct {
 
 type ApplyGoAroundCommand struct {
 	Metadata   aman.CommandMetadata
-	FlightID   aman.FlightID
+	Callsign   aman.Callsign
 	DetectedAt time.Time
 }
 
@@ -53,28 +53,28 @@ func (c MoveFlightCommand) Validate(revision aman.SequenceRevision) error {
 	if err := validateMetadata(c.Metadata, revision); err != nil {
 		return err
 	}
-	if !validID(string(c.FlightID)) || !validID(string(c.RunwayGroupID)) {
+	if !validID(string(c.Callsign)) || !validID(string(c.RunwayGroupID)) {
 		return invalidArgument("move flight and runway group are required")
 	}
-	if (c.BeforeFlightID == nil) == (c.AfterFlightID == nil) {
+	if (c.BeforeCallsign == nil) == (c.AfterCallsign == nil) {
 		return invalidArgument("move requires exactly one before or after anchor")
 	}
-	anchor := c.BeforeFlightID
+	anchor := c.BeforeCallsign
 	if anchor == nil {
-		anchor = c.AfterFlightID
+		anchor = c.AfterCallsign
 	}
-	if !validID(string(*anchor)) || *anchor == c.FlightID {
+	if !validID(string(*anchor)) || *anchor == c.Callsign {
 		return invalidArgument("move anchor must identify another flight")
 	}
 	return nil
 }
 
 func (c ApplyManualFreezeCommand) Validate(revision aman.SequenceRevision) error {
-	return validateFlightAction(c.Metadata, revision, c.FlightID, c.At)
+	return validateFlightAction(c.Metadata, revision, c.Callsign, c.At)
 }
 
 func (c ReleaseManualFreezeCommand) Validate(revision aman.SequenceRevision) error {
-	return validateFlightAction(c.Metadata, revision, c.FlightID, c.At)
+	return validateFlightAction(c.Metadata, revision, c.Callsign, c.At)
 }
 
 func (c SetRateCommand) Validate(revision aman.SequenceRevision) error {
@@ -88,7 +88,7 @@ func (c SetRateCommand) Validate(revision aman.SequenceRevision) error {
 }
 
 func (c ApplyGoAroundCommand) Validate(revision aman.SequenceRevision) error {
-	return validateFlightAction(c.Metadata, revision, c.FlightID, c.DetectedAt)
+	return validateFlightAction(c.Metadata, revision, c.Callsign, c.DetectedAt)
 }
 
 func (p GoAroundPolicy) Validate() error {
@@ -108,11 +108,11 @@ func validateMetadata(metadata aman.CommandMetadata, revision aman.SequenceRevis
 	return nil
 }
 
-func validateFlightAction(metadata aman.CommandMetadata, revision aman.SequenceRevision, flightID aman.FlightID, at time.Time) error {
+func validateFlightAction(metadata aman.CommandMetadata, revision aman.SequenceRevision, callsign aman.Callsign, at time.Time) error {
 	if err := validateMetadata(metadata, revision); err != nil {
 		return err
 	}
-	if !validID(string(flightID)) || !validUTC(at) {
+	if !validID(string(callsign)) || !validUTC(at) {
 		return invalidArgument("flight action requires a flight and UTC time")
 	}
 	return nil

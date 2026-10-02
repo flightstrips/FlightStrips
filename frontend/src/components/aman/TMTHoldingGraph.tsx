@@ -63,13 +63,13 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
   const instructionsId = useId();
   const entryRefs = useRef(new Map<string, HTMLLIElement>());
 
-  function setEntryRef(flightID: string, element: HTMLLIElement | null) {
-    if (element) entryRefs.current.set(flightID, element);
-    else entryRefs.current.delete(flightID);
+  function setEntryRef(callsign: string, element: HTMLLIElement | null) {
+    if (element) entryRefs.current.set(callsign, element);
+    else entryRefs.current.delete(callsign);
   }
 
-  function moveFocus(event: KeyboardEvent<HTMLLIElement>, flightID: string) {
-    const current = positions.findIndex(({entry}) => entry.flight_id === flightID);
+  function moveFocus(event: KeyboardEvent<HTMLLIElement>, callsign: string) {
+    const current = positions.findIndex(({entry}) => entry.callsign === callsign);
     let target: number;
     if (event.key === "ArrowDown" || event.key === "ArrowRight") target = (current + 1) % positions.length;
     else if (event.key === "ArrowUp" || event.key === "ArrowLeft") target = (current - 1 + positions.length) % positions.length;
@@ -77,7 +77,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
     else if (event.key === "End") target = positions.length - 1;
     else return;
     event.preventDefault();
-    entryRefs.current.get(positions[target].entry.flight_id)?.focus();
+    entryRefs.current.get(positions[target].entry.callsign)?.focus();
   }
 
   return (
@@ -118,7 +118,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
           {placed.map((position) => {
             const timeX = 14 + (position.timeTrack ?? 0) * 1.5;
             const targetX = 34 + (position.altitudeTrack ?? 0) * 1.5;
-            return <line key={position.entry.flight_id} stroke="#dcdcdc" strokeWidth="0.45" x1={timeX} x2={targetX} y1={100 - position.time.percent!} y2={position.altitude.percent!} />;
+            return <line key={position.entry.callsign} stroke="#dcdcdc" strokeWidth="0.45" x1={timeX} x2={targetX} y1={100 - position.time.percent!} y2={position.altitude.percent!} />;
           })}
         </svg>
 
@@ -131,9 +131,9 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
                 aria-label={accessibleEntryLabel(position)}
                 aria-keyshortcuts="ArrowDown ArrowRight ArrowUp ArrowLeft Home End"
                 className={cn("absolute left-[34%] grid w-[51%] -translate-y-1/2 border border-[#cdcdcd] bg-[#3c3c3c] font-mono font-semibold hover:z-10 focus:z-20 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white", compact ? "grid-cols-[1.75rem_minmax(0,1fr)] text-[7px]" : "grid-cols-[54px_1fr_52px] text-[10px]")}
-                key={position.entry.flight_id}
-                onKeyDown={(event) => moveFocus(event, position.entry.flight_id)}
-                ref={(element) => setEntryRef(position.entry.flight_id, element)}
+                key={position.entry.callsign}
+                onKeyDown={(event) => moveFocus(event, position.entry.callsign)}
+                ref={(element) => setEntryRef(position.entry.callsign, element)}
                 style={{marginLeft: `${(position.altitudeTrack ?? 0) * 5}px`, top: `clamp(14px, ${position.altitude.percent}%, calc(100% - 14px))`}}
                 tabIndex={0}
               >
@@ -165,9 +165,9 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
               aria-label={accessibleEntryLabel(position)}
               aria-keyshortcuts="ArrowDown ArrowRight ArrowUp ArrowLeft Home End"
               className="grid grid-cols-[1fr_55px_55px_55px_auto] gap-1 font-mono focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white"
-              key={entry.flight_id}
-              onKeyDown={(event) => moveFocus(event, entry.flight_id)}
-              ref={(element) => setEntryRef(entry.flight_id, element)}
+              key={entry.callsign}
+              onKeyDown={(event) => moveFocus(event, entry.callsign)}
+              ref={(element) => setEntryRef(entry.callsign, element)}
               tabIndex={0}
             ><b>{entry.callsign}</b><span>{entry.holding}</span><span>EAT {time.label}</span><span>CFL {altitude.label}</span><span className={source.tone}>{source.symbol} {source.symbol && source.label}</span></li>;
           })}

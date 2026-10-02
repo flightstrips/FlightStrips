@@ -3,6 +3,7 @@ package services
 import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
@@ -149,6 +150,23 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 	if err != nil {
 		return err
 	}
+	if bay == shared.BAY_PUSH && stripAvailable && strip != nil && strip.Bay != shared.BAY_PUSH && strip.CdmData != nil && !pushbackWasValidated(ctx, session, callsign) {
+		latest, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+		if err != nil {
+			return err
+		}
+		owner := ""
+		if latest.Owner != nil {
+			owner = *latest.Owner
+		}
+		if err := s.validatePushbackTiming(ctx, session, latest, owner); err != nil {
+			return err
+		}
+		strip, err = s.stripReader.GetByCallsign(ctx, session, callsign)
+		if err != nil {
+			return err
+		}
+	}
 
 	previousBay := ""
 	if stripAvailable && strip != nil {
@@ -187,6 +205,11 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		}
 	}
 
+	if bay == shared.BAY_PUSH && previousBay != shared.BAY_PUSH && strip != nil && strip.CdmData != nil && s.cdmService != nil {
+		if err := s.cdmService.SyncAsatForGroundState(ctx, session, callsign, euroscope.GroundStatePush); err != nil {
+			return err
+		}
+	}
 	return s.applyBayChangeEffects(ctx, session, callsign, previousBay, bay, sendNotification)
 }
 

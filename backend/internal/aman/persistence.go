@@ -104,36 +104,6 @@ type ObservationSourceHealthSink interface {
 	ObserveSourceHealth(context.Context, DataStatus, time.Time) error
 }
 
-// VATSIMFlightIdentityBinder is the narrow durable identity capability needed
-// by an observation adapter. It finds the active binding for the normalized
-// network callsign, retaining CID as supporting metadata across reconnects.
-//
-// It deliberately does not offer aliases, merges, tombstones, or a general
-// identity lookup API.
-type VATSIMFlightIdentityBinder interface {
-	BindVATSIMFlight(context.Context, VATSIMFlightIdentity) (FlightID, error)
-}
-
-// VATSIMFlightIdentityRetirer releases an active callsign binding once the AMAN
-// lifecycle removes that flight. Lifecycle policy owns when to invoke this;
-// this narrow repository seam only makes a later flight with the same callsign able
-// to receive a new generated FlightID.
-type VATSIMFlightIdentityRetirer interface {
-	RetireVATSIMFlight(context.Context, FlightID) error
-}
-
-type VATSIMFlightIdentity struct {
-	VATSIMCID       string
-	CurrentCallsign string
-}
-
-func (i VATSIMFlightIdentity) Validate() error {
-	if !isTrimmedNonEmpty(i.VATSIMCID) || !isTrimmedNonEmpty(i.CurrentCallsign) {
-		return invalid("VATSIM flight identity is incomplete")
-	}
-	return nil
-}
-
 func (c StateCommit) Validate() error {
 	if err := c.State.Validate(); err != nil {
 		return err

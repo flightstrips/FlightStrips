@@ -31,12 +31,12 @@ describe("AMANWarningPanel", () => {
     const onNavigateToFlight = vi.fn(() => true);
     const warningCurrent: AMANCurrentWarnings = {snapshot: "available", items: [{
       id: "warning:spacing", source: "sequence", severity: "error", code: "spacing_conflict",
-      message: "Required spacing is unavailable", flight_id: "flight-1", related_flight_id: "flight-2",
+      message: "Required spacing is unavailable", callsign: "SAS101", related_callsign: "SAS202",
     }]};
     render(<AMANWarningPanel
       connectionState="connected"
       current={warningCurrent}
-      flights={[{flight_id: "flight-1", callsign: "SAS101"}, {flight_id: "flight-2", callsign: "SAS202"}]}
+      flights={[{callsign: "SAS101"}, {callsign: "SAS202"}]}
       onNavigateToFlight={onNavigateToFlight}
       presentationStatus="ready"
     />);
@@ -53,14 +53,14 @@ describe("AMANWarningPanel", () => {
     fireEvent.keyDown(list, {key: "Home"});
     expect(primary).toHaveFocus();
     fireEvent.click(related);
-    expect(onNavigateToFlight).toHaveBeenCalledWith("flight-2");
+    expect(onNavigateToFlight).toHaveBeenCalledWith("SAS202");
     expect(screen.getByText("Related flight SAS202 selected.")).toBeInTheDocument();
   });
 
   it("keeps absent flights explicit and restores focus when the focused warning resolves", () => {
     const warningCurrent: AMANCurrentWarnings = {snapshot: "available", items: [{
       id: "warning:flight", source: "sequence", severity: "warning", code: "late",
-      message: "Flight input is late", flight_id: "missing-flight",
+      message: "Flight input is late", callsign: "SAS303",
     }]};
     const {rerender} = render(<AMANWarningPanel
       connectionState="connected"
@@ -68,12 +68,12 @@ describe("AMANWarningPanel", () => {
       flights={[]}
       presentationStatus="ready"
     />);
-    expect(screen.getByLabelText("Primary flight missing-flight unavailable")).toHaveTextContent("unavailable");
+    expect(screen.getByLabelText("Primary flight SAS303 unavailable")).toHaveTextContent("unavailable");
 
     rerender(<AMANWarningPanel
       connectionState="connected"
       current={warningCurrent}
-      flights={[{flight_id: "missing-flight", callsign: "SAS303"}]}
+      flights={[{callsign: "SAS303"}]}
       onNavigateToFlight={() => true}
       presentationStatus="ready"
     />);

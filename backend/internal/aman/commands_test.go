@@ -11,7 +11,7 @@ import (
 func TestTypedCommandsValidateOnlyTheirOwnFields(t *testing.T) {
 	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
 	meta := aman.CommandMetadata{CommandID: "command-1", ExpectedRevision: 7}
-	before, after := aman.FlightID("before"), aman.FlightID("after")
+	before, after := aman.Callsign("before"), aman.Callsign("after")
 
 	tests := []struct {
 		name    string
@@ -19,12 +19,12 @@ func TestTypedCommandsValidateOnlyTheirOwnFields(t *testing.T) {
 		invalid func() error
 	}{
 		{"move", func() error {
-			return (aman.MoveFlightCommand{Metadata: meta, FlightID: "flight", RunwayGroupID: "A", BeforeFlightID: &before}).Validate()
+			return (aman.MoveFlightCommand{Metadata: meta, Callsign: "flight", RunwayGroupID: "A", BeforeCallsign: &before}).Validate()
 		}, func() error {
-			return (aman.MoveFlightCommand{Metadata: meta, FlightID: "flight", RunwayGroupID: "A", BeforeFlightID: &before, AfterFlightID: &after}).Validate()
+			return (aman.MoveFlightCommand{Metadata: meta, Callsign: "flight", RunwayGroupID: "A", BeforeCallsign: &before, AfterCallsign: &after}).Validate()
 		}},
-		{"lock", func() error { return (aman.LockFlightCommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.LockFlightCommand{Metadata: meta}).Validate() }},
-		{"unlock", func() error { return (aman.UnlockFlightCommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.UnlockFlightCommand{Metadata: meta}).Validate() }},
+		{"lock", func() error { return (aman.LockFlightCommand{Metadata: meta, Callsign: "flight"}).Validate() }, func() error { return (aman.LockFlightCommand{Metadata: meta}).Validate() }},
+		{"unlock", func() error { return (aman.UnlockFlightCommand{Metadata: meta, Callsign: "flight"}).Validate() }, func() error { return (aman.UnlockFlightCommand{Metadata: meta}).Validate() }},
 		{"rate", func() error {
 			return (aman.SetRateCommand{Metadata: meta, RunwayGroupID: "A", ArrivalsPerHour: 30, EffectiveAt: now}).Validate()
 		}, func() error {
@@ -40,39 +40,39 @@ func TestTypedCommandsValidateOnlyTheirOwnFields(t *testing.T) {
 		}, func() error {
 			return (aman.SetActiveRunwayGroupsCommand{Metadata: meta}).Validate()
 		}},
-		{"accept TETA", func() error { return (aman.AcceptTETACommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.AcceptTETACommand{Metadata: meta}).Validate() }},
-		{"keep FPL ETA", func() error { return (aman.KeepFPLETACommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.KeepFPLETACommand{Metadata: meta}).Validate() }},
+		{"accept TETA", func() error { return (aman.AcceptTETACommand{Metadata: meta, Callsign: "flight"}).Validate() }, func() error { return (aman.AcceptTETACommand{Metadata: meta}).Validate() }},
+		{"keep FPL ETA", func() error { return (aman.KeepFPLETACommand{Metadata: meta, Callsign: "flight"}).Validate() }, func() error { return (aman.KeepFPLETACommand{Metadata: meta}).Validate() }},
 		{"manual ETA", func() error {
-			return (aman.SetManualETACommand{Metadata: meta, FlightID: "flight", ManualETA: now.Add(time.Minute)}).Validate(now)
+			return (aman.SetManualETACommand{Metadata: meta, Callsign: "flight", ManualETA: now.Add(time.Minute)}).Validate(now)
 		}, func() error {
-			return (aman.SetManualETACommand{Metadata: meta, FlightID: "flight", ManualETA: now}).Validate(now)
+			return (aman.SetManualETACommand{Metadata: meta, Callsign: "flight", ManualETA: now}).Validate(now)
 		}},
-		{"reset TETA", func() error { return (aman.ResetTETAOverrideCommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.ResetTETAOverrideCommand{Metadata: meta}).Validate() }},
+		{"reset TETA", func() error { return (aman.ResetTETAOverrideCommand{Metadata: meta, Callsign: "flight"}).Validate() }, func() error { return (aman.ResetTETAOverrideCommand{Metadata: meta}).Validate() }},
 		{"manual feeder ETA", func() error {
-			return (aman.SetManualFeederETACommand{Metadata: meta, FlightID: "flight", FeederETA: now}).Validate()
+			return (aman.SetManualFeederETACommand{Metadata: meta, Callsign: "flight", FeederETA: now}).Validate()
 		}, func() error {
-			return (aman.SetManualFeederETACommand{Metadata: meta, FlightID: "flight", FeederETA: now.In(time.FixedZone("CEST", 2*60*60))}).Validate()
+			return (aman.SetManualFeederETACommand{Metadata: meta, Callsign: "flight", FeederETA: now.In(time.FixedZone("CEST", 2*60*60))}).Validate()
 		}},
 		{"reset manual feeder ETA", func() error {
-			return (aman.ResetManualFeederETACommand{Metadata: meta, FlightID: "flight"}).Validate()
+			return (aman.ResetManualFeederETACommand{Metadata: meta, Callsign: "flight"}).Validate()
 		}, func() error { return (aman.ResetManualFeederETACommand{Metadata: meta}).Validate() }},
 		{"recompute flight", func() error {
-			return (aman.RecomputeFlightCommand{Metadata: meta, FlightID: "flight"}).Validate()
+			return (aman.RecomputeFlightCommand{Metadata: meta, Callsign: "flight"}).Validate()
 		}, func() error { return (aman.RecomputeFlightCommand{Metadata: meta}).Validate() }},
 		{"go around", func() error {
-			return (aman.ReportGoAroundCommand{Metadata: meta, FlightID: "flight", DetectedAt: now.Add(-time.Second)}).Validate(now)
+			return (aman.ReportGoAroundCommand{Metadata: meta, Callsign: "flight", DetectedAt: now.Add(-time.Second)}).Validate(now)
 		}, func() error {
-			return (aman.ReportGoAroundCommand{Metadata: meta, FlightID: "flight", DetectedAt: now.Add(time.Second)}).Validate(now)
+			return (aman.ReportGoAroundCommand{Metadata: meta, Callsign: "flight", DetectedAt: now.Add(time.Second)}).Validate(now)
 		}},
 		{"confirm go around", func() error {
-			return (aman.ConfirmGoAroundCommand{Metadata: meta, FlightID: "flight", EpisodeID: "flight/go-around/1"}).Validate()
+			return (aman.ConfirmGoAroundCommand{Metadata: meta, Callsign: "flight", EpisodeID: "flight/go-around/1"}).Validate()
 		}, func() error {
-			return (aman.ConfirmGoAroundCommand{Metadata: meta, FlightID: "flight"}).Validate()
+			return (aman.ConfirmGoAroundCommand{Metadata: meta, Callsign: "flight"}).Validate()
 		}},
 		{"reject go around", func() error {
-			return (aman.RejectGoAroundCommand{Metadata: meta, FlightID: "flight", EpisodeID: "flight/go-around/1"}).Validate()
+			return (aman.RejectGoAroundCommand{Metadata: meta, Callsign: "flight", EpisodeID: "flight/go-around/1"}).Validate()
 		}, func() error {
-			return (aman.RejectGoAroundCommand{Metadata: meta, FlightID: "flight", EpisodeID: " go-around "}).Validate()
+			return (aman.RejectGoAroundCommand{Metadata: meta, Callsign: "flight", EpisodeID: " go-around "}).Validate()
 		}},
 	}
 

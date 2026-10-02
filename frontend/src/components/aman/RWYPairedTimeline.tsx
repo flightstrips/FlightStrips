@@ -39,9 +39,9 @@ function RunwaySide({lane, range, side, placement, renderTarget, status, gapRemo
             className={cn("absolute z-20 flex min-h-7 -translate-y-1/2 items-center", side === "left" && "-translate-x-full")}
             data-marker-time={marker.timestamp}
             data-sequence={marker.flight.order ?? marker.flight.slot?.sequence ?? undefined}
-            data-testid={`operational-marker-${marker.flight.flight_id}`}
+            data-testid={`operational-marker-${marker.flight.callsign}`}
             data-track={marker.track}
-            key={marker.flight.flight_id}
+            key={marker.flight.callsign}
             role="listitem"
             style={{left: rulerEdge, top: `calc(${top}% + ${offset}px)`}}
           >

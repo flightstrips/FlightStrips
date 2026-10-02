@@ -14,7 +14,7 @@ const range = {startMs: Date.parse("2026-07-22T10:00:00.000Z"), endMs: Date.pars
 
 function flight(id: string, order: number, time: string): AMANFlight {
   const value = structuredClone(golden.data.flights[0]);
-  value.flight_id = id;
+  value.callsign = id;
   value.callsign = id.toUpperCase();
   value.order = order;
   value.slot = {...value.slot!, sequence: order, time};

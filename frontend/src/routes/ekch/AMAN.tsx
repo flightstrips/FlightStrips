@@ -27,7 +27,7 @@ export default function AMAN() {
   const pendingCommands = useWebSocketStore((value) => value.amanPendingCommands);
   const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
   const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
-  const [selectedFlightID, setSelectedFlightID] = useState<string | null>(null);
+  const [selectedCallsign, setSelectedCallsign] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailAction, setDetailAction] = useState<"none" | "all" | "missed" | "remove">("none");
   const [flightActionsOpen, setFlightActionsOpen] = useState(false);
@@ -41,17 +41,17 @@ export default function AMAN() {
   const [focusedRunwayGroupID, setFocusedRunwayGroupID] = useState<string | null>(null);
   const stateAtMount = useRef(state);
 
-  const effectiveSelectedFlightID = state?.flights.some((flight) => flight.flight_id === selectedFlightID)
-    ? selectedFlightID
-    : state?.flights[0]?.flight_id ?? null;
-  const selectedFlight = state?.flights.find((flight) => flight.flight_id === effectiveSelectedFlightID) ?? null;
+  const effectiveSelectedCallsign = state?.flights.some((flight) => flight.callsign === selectedCallsign)
+    ? selectedCallsign
+    : state?.flights[0]?.callsign ?? null;
+  const selectedFlight = state?.flights.find((flight) => flight.callsign === effectiveSelectedCallsign) ?? null;
   const holdingInformation = state?.holding_information ?? [];
   const tmtHoldings = orderedEKCHTMTHoldings(holdingInformation);
   const mutationBlockReason = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority});
 
-  const navigateToWarningFlight = (flightID: string): boolean => {
-    if (!state?.flights.some((flight) => flight.flight_id === flightID)) return false;
-    setSelectedFlightID(flightID);
+  const navigateToWarningFlight = (callsign: string): boolean => {
+    if (!state?.flights.some((flight) => flight.callsign === callsign)) return false;
+    setSelectedCallsign(callsign);
     return true;
   };
 
@@ -73,20 +73,20 @@ export default function AMAN() {
             error={error}
             focusedRunwayGroupID={focusedRunwayGroupID}
             onOpenControls={() => setControlsOpen(true)}
-            onOpenFlightActions={(flightID) => {
-              setSelectedFlightID(flightID);
+            onOpenFlightActions={(callsign) => {
+              setSelectedCallsign(callsign);
               setFlightActionsOpen(true);
             }}
-            onOpenFlightDetails={(flightID) => {
-              setSelectedFlightID(flightID);
+            onOpenFlightDetails={(callsign) => {
+              setSelectedCallsign(callsign);
               setDetailAction("all");
               setMissedApproachCommandID(null);
               setRemovalCommandID(null);
               setDetailOpen(true);
             }}
-            onSelectFlight={setSelectedFlightID}
+            onSelectFlight={setSelectedCallsign}
             presentationStatus={presentationStatus}
-            selectedFlightID={effectiveSelectedFlightID}
+            selectedCallsign={effectiveSelectedCallsign}
             state={state}
           />
         )}
@@ -123,7 +123,7 @@ export default function AMAN() {
       <Dialog onOpenChange={setControlsOpen} open={controlsOpen}>
         <DialogContent className="max-h-[90dvh] w-[min(72rem,calc(100vw-2rem))] max-w-none overflow-y-auto border-slate-600 bg-slate-900 p-0 text-slate-100">
           <DialogTitle className="sr-only">AMAN FMP controls</DialogTitle>
-          <AMANControls hasFMPAuthority={hasFMPAuthority} onSelectedFlightIDChange={setSelectedFlightID} selectedFlightID={effectiveSelectedFlightID} />
+          <AMANControls hasFMPAuthority={hasFMPAuthority} onSelectedCallsignChange={setSelectedCallsign} selectedCallsign={effectiveSelectedCallsign} />
         </DialogContent>
       </Dialog>
       <Dialog onOpenChange={setFlightActionsOpen} open={flightActionsOpen}>
@@ -131,15 +131,15 @@ export default function AMAN() {
           <DialogTitle className="px-2 py-1 text-center text-xs font-bold text-[#bba8ee]">{selectedFlight?.callsign ?? "Unavailable"}</DialogTitle>
           <div className="grid gap-0">
             <button className="flex min-h-6 items-center rounded-md border border-[#dcdcdc] bg-[#a3d5e8] px-3 text-left text-[#10265c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => {
-              if (effectiveSelectedFlightID !== null) {
+              if (effectiveSelectedCallsign !== null) {
                 setFlightActionsOpen(false);
                 setDetailAction("none");
                 setDetailOpen(true);
               }
             }} type="button">Information</button>
-            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-50" disabled={mutationBlockReason !== null || effectiveSelectedFlightID === null} onClick={() => {
-              if (effectiveSelectedFlightID !== null) {
-                sendCommand({type: "aman.recompute_flight", flight_id: effectiveSelectedFlightID});
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-50" disabled={mutationBlockReason !== null || effectiveSelectedCallsign === null} onClick={() => {
+              if (effectiveSelectedCallsign !== null) {
+                sendCommand({type: "aman.recompute_flight", callsign: effectiveSelectedCallsign});
                 setFlightActionsOpen(false);
               }
             }} type="button">Recompute</button>
@@ -187,16 +187,16 @@ export default function AMAN() {
         open={quickGapOpen}
         rejection={Object.values(commandRejections).find((item) => item.command_type === "aman.create_gap")?.message ?? null}
       />
-      {coordinationOpen && state !== null && effectiveSelectedFlightID !== null && selectedFlight !== null && <AMANCoordinationRequestDialog
+      {coordinationOpen && state !== null && effectiveSelectedCallsign !== null && selectedFlight !== null && <AMANCoordinationRequestDialog
         callsign={selectedFlight.callsign}
         canSubmit={mutationBlockReason === null}
         onClose={() => setCoordinationOpen(false)}
-        onSubmit={(submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", flight_id: effectiveSelectedFlightID, ...submission}))}
+        onSubmit={(submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", callsign: effectiveSelectedCallsign, ...submission}))}
         rejection={coordinationCommandID ? commandRejections[coordinationCommandID]?.message : null}
-        requests={(state.coordination_requests ?? []).filter((request) => request.flight_id === effectiveSelectedFlightID)}
+        requests={(state.coordination_requests ?? []).filter((request) => request.callsign === effectiveSelectedCallsign)}
         submitting={coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined}
       />}
-      {detailOpen && state !== null && effectiveSelectedFlightID !== null && selectedFlight !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" ? undefined : {
+      {detailOpen && state !== null && effectiveSelectedCallsign !== null && selectedFlight !== null && <AMANFlightDetailDialog airport={state.airport} callsign={effectiveSelectedCallsign} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" ? undefined : {
         blockReason: mutationBlockReason,
         confirmation: selectedFlight.go_around_confirmation,
         confirmed: selectedFlight.lifecycle_state === "go_around",
@@ -205,21 +205,21 @@ export default function AMAN() {
         onConfirm: () => {
           const detection = selectedFlight.go_around_confirmation;
           setMissedApproachCommandID(sendCommand(detection?.status === "pending"
-            ? {type: "aman.confirm_go_around", flight_id: effectiveSelectedFlightID, episode_id: detection.episode_id}
-            : {type: "aman.report_go_around", flight_id: effectiveSelectedFlightID, detected_at: new Date().toISOString()}));
+            ? {type: "aman.confirm_go_around", callsign: effectiveSelectedCallsign, episode_id: detection.episode_id}
+            : {type: "aman.report_go_around", callsign: effectiveSelectedCallsign, detected_at: new Date().toISOString()}));
         },
       }} removal={detailAction === "none" ? undefined : {
         blockReason: mutationBlockReason,
         confirmed: selectedFlight.lifecycle_state === "removed",
         pending: removalCommandID !== null && pendingCommands[removalCommandID] !== undefined,
         rejection: removalCommandID ? commandRejections[removalCommandID] ?? null : null,
-        onConfirm: () => setRemovalCommandID(sendCommand({type: "aman.remove_flight", flight_id: effectiveSelectedFlightID})),
+        onConfirm: () => setRemovalCommandID(sendCommand({type: "aman.remove_flight", callsign: effectiveSelectedCallsign})),
       }} coordination={detailAction === "all" && hasFMPAuthority ? {
-        requests: (state.coordination_requests ?? []).filter((request) => request.flight_id === effectiveSelectedFlightID),
+        requests: (state.coordination_requests ?? []).filter((request) => request.callsign === effectiveSelectedCallsign),
         canSubmit: getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority}) === null,
         submitting: coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined,
         rejection: coordinationCommandID ? commandRejections[coordinationCommandID]?.message : null,
-        onSubmit: (submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", flight_id: effectiveSelectedFlightID, ...submission})),
+        onSubmit: (submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", callsign: effectiveSelectedCallsign, ...submission})),
       } : undefined} />}
     </>
   );

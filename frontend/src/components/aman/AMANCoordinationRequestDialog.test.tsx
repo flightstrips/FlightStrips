@@ -6,7 +6,7 @@ import type {AMANCoordinationRequest} from "@/api/aman";
 import {AMANCoordinationRequestDialog} from "./AMANCoordinationRequestDialog";
 
 const route: AMANCoordinationRequest = {
-  id: "route-1", flight_id: "flight-1", recipient_controller: "EKCH_APP", recipient_status: "assigned",
+  id: "route-1", callsign: "flight-1", recipient_controller: "EKCH_APP", recipient_status: "assigned",
   kind: "route_direct", state: "pending", payload: {route_direct: {direct_to: "TUDLO"}},
   created_at: "2026-09-12T10:00:00.000Z", updated_at: "2026-09-12T10:00:00.000Z",
 };

@@ -12,12 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSyncStripPublishesPersistedHoldingClearance(t *testing.T) {
+func TestSyncStripPublishesPersistedHoldingClearanceWithoutCID(t *testing.T) {
 	const session = int32(1)
-	cid := "123456"
 	altitude := int32(11000)
 	existing := &models.Strip{
-		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", VatsimCID: &cid,
+		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
 		ClearedAltitude: &altitude,
 	}
 	repo := &testutil.MockStripRepository{
@@ -37,6 +36,7 @@ func TestSyncStripPublishesPersistedHoldingClearance(t *testing.T) {
 	require.Equal(t, "enroute", observer.strips[0].HoldType)
 	require.Equal(t, "1422", observer.strips[0].HoldEat)
 	require.Equal(t, altitude, *observer.strips[0].ClearedAltitude)
+	require.Nil(t, observer.strips[0].VatsimCID)
 }
 
 func TestSyncHoldingClearancesAreSnapshottedAndFlushedAsOneBatch(t *testing.T) {
@@ -102,6 +102,8 @@ func TestStripSyncOnlyAcceptsHoldingFieldsFromPersistedTrackingController(t *tes
 				UpdateFn:        func(_ context.Context, strip *models.Strip) (int64, error) { persisted = strip; return 1, nil },
 			}
 			service, _, _ := newSyncTestFixture(t, existing, repo)
+			amanObserver := &amanStripObserverSpy{}
+			service.SetEuroScopeAMANStripObserver(amanObserver)
 			ctx := shared.WithStripSyncController(context.Background(), sender)
 			// Claiming tracking ownership in the incoming snapshot must not
 			// authorize its holding fields against a different persisted owner.
@@ -111,6 +113,7 @@ func TestStripSyncOnlyAcceptsHoldingFieldsFromPersistedTrackingController(t *tes
 			}, "EKCH")
 			require.NoError(t, err)
 			require.NotNil(t, persisted)
+			require.Len(t, amanObserver.strips, 1, "flight-plan observation must not depend on holding authority")
 			if sender == "EKCH_A_APP" {
 				require.Equal(t, "TIDVU", persisted.Hold)
 				require.Equal(t, "1450", persisted.HoldEat)
@@ -123,6 +126,13 @@ func TestStripSyncOnlyAcceptsHoldingFieldsFromPersistedTrackingController(t *tes
 }
 
 func (s *holdingObserverSpy) ObserveHoldingClearance(_ context.Context, strip *models.Strip) error {
+	s.strips = append(s.strips, strip)
+	return nil
+}
+
+type amanStripObserverSpy struct{ strips []*models.Strip }
+
+func (s *amanStripObserverSpy) ObserveEuroScopeStrip(_ context.Context, strip *models.Strip) error {
 	s.strips = append(s.strips, strip)
 	return nil
 }

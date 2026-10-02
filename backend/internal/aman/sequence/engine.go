@@ -79,13 +79,16 @@ type STARFamilyPolicy struct {
 // protected slot reference supplied by freeze/manual policy; CurrentSlot is
 // used only to report movements and never influences candidate generation.
 type Flight struct {
-	ID                  aman.FlightID
+	Callsign            aman.Callsign
 	RunwayGroupID       aman.RunwayGroupID
 	State               aman.FlightState
 	OperationalTETA     time.Time
 	InitialBaselineTETA *time.Time
-	WakeCategory        WakeCategory
-	STARFamily          string
+	// PromotionNotBefore is a physical lower bound for opportunistic earlier
+	// slots. Normal candidate generation continues to use OperationalTETA.
+	PromotionNotBefore *time.Time
+	WakeCategory       WakeCategory
+	STARFamily         string
 	// SelectedSTARFamily is the explicit terminal-path family identity used
 	// for holding-sequence policy. It deliberately remains separate from
 	// STARFamily, which may contain a legacy compatibility identity for
@@ -99,6 +102,15 @@ type Flight struct {
 	CurrentSlot           *aman.Slot
 	HoldingStackID        string
 	HoldingAltitudeFeet   *int
+	// HoldingQueueTime is the first observed or predicted entry into the
+	// selected hold. HoldingQueueID also covers flights still approaching it.
+	// HoldingTransit is the current physical time from that hold to landing.
+	HoldingQueueID   string
+	HoldingQueueTime *time.Time
+	HoldingTransit   time.Duration
+	// SlotNotBefore is an operational lower bound needed when an earlier
+	// entrant to the same hold lands on a different runway group.
+	SlotNotBefore *time.Time
 	// ProtectCurrentSlot is an operational policy constraint used for stable
 	// flights. It does not create a persisted freeze.
 	ProtectCurrentSlot bool
@@ -129,7 +141,7 @@ const (
 // CandidateEntry is an uncommitted slot candidate. It deliberately contains
 // no sequence revision; the transaction coordinator owns revision allocation.
 type CandidateEntry struct {
-	FlightID        aman.FlightID
+	Callsign        aman.Callsign
 	RunwayGroupID   aman.RunwayGroupID
 	Sequence        int
 	Time            time.Time
@@ -143,7 +155,7 @@ type CandidateEntry struct {
 // SlotMovement describes a candidate difference from the supplied current
 // slot. Nil From values mean this is a new assignment.
 type SlotMovement struct {
-	FlightID      aman.FlightID
+	Callsign      aman.Callsign
 	RunwayGroupID aman.RunwayGroupID
 	FromTime      *time.Time
 	FromSequence  *int
@@ -177,12 +189,12 @@ type Warning struct {
 	Severity        WarningSeverity
 	Code            WarningCode
 	RunwayGroupID   aman.RunwayGroupID
-	FlightID        aman.FlightID
-	RelatedFlightID *aman.FlightID
+	Callsign        aman.Callsign
+	RelatedCallsign *aman.Callsign
 	STARFamily      string
 }
 
-// Result is ordered canonically by runway group, slot, and flight ID. It uses
+// Result is ordered canonically by runway group, slot, and callsign. It uses
 // slices rather than maps so equivalent inputs marshal to byte-identical JSON.
 type Result struct {
 	Entries   []CandidateEntry
@@ -285,7 +297,7 @@ func IsGridOpportunity(input Input, groupID aman.RunwayGroupID, at time.Time) (b
 	return ok && candidate.Equal(at), nil
 }
 
-func generate(input Input, promotions map[aman.FlightID]aman.Slot) (Result, error) {
+func generate(input Input, promotions map[aman.Callsign]aman.Slot) (Result, error) {
 	starFamilies, err := prepareSTARFamilyPolicies(input.STARFamilyPolicies)
 	if err != nil {
 		return Result{}, err
@@ -316,7 +328,7 @@ func generate(input Input, promotions map[aman.FlightID]aman.Slot) (Result, erro
 		for index, entry := range entries {
 			sequence := index + 1
 			candidate := CandidateEntry{
-				FlightID: entry.flight.ID, RunwayGroupID: groupID, Sequence: sequence,
+				Callsign: entry.flight.Callsign, RunwayGroupID: groupID, Sequence: sequence,
 				Time: entry.time, OperationalTETA: entry.flight.OperationalTETA,
 				WakeCategory: entry.flight.category, FreezeReason: entry.flight.FreezeReason,
 				Protected: entry.flight.FreezeReason != aman.FreezeNone || entry.flight.ProtectCurrentSlot, Reason: entry.reason,
@@ -468,50 +480,59 @@ func preparePoliciesWithSTARFamilies(input []Policy, starFamilies preparedSTARFa
 
 func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPolicy) (map[aman.RunwayGroupID][]preparedFlight, error) {
 	result := make(map[aman.RunwayGroupID][]preparedFlight, len(policies))
-	seen := make(map[aman.FlightID]struct{}, len(input))
+	seen := make(map[aman.Callsign]struct{}, len(input))
 	for _, raw := range input {
-		if strings.TrimSpace(string(raw.ID)) == "" {
-			return nil, fmt.Errorf("sequence flight ID is required")
+		if strings.TrimSpace(string(raw.Callsign)) == "" {
+			return nil, fmt.Errorf("sequence callsign is required")
 		}
-		if _, duplicate := seen[raw.ID]; duplicate {
-			return nil, fmt.Errorf("duplicate sequence flight %q", raw.ID)
+		if _, duplicate := seen[raw.Callsign]; duplicate {
+			return nil, fmt.Errorf("duplicate sequence flight %q", raw.Callsign)
 		}
-		seen[raw.ID] = struct{}{}
+		seen[raw.Callsign] = struct{}{}
 		policy, ok := policies[raw.RunwayGroupID]
 		if !ok {
-			return nil, fmt.Errorf("flight %q references unknown runway group %q", raw.ID, raw.RunwayGroupID)
+			return nil, fmt.Errorf("flight %q references unknown runway group %q", raw.Callsign, raw.RunwayGroupID)
 		}
 		if !raw.State.Valid() || !raw.FreezeReason.Valid() || !validUTC(raw.OperationalTETA) {
-			return nil, fmt.Errorf("flight %q has invalid sequencing state", raw.ID)
+			return nil, fmt.Errorf("flight %q has invalid sequencing state", raw.Callsign)
 		}
 		if raw.InitialBaselineTETA != nil && !validUTC(*raw.InitialBaselineTETA) {
-			return nil, fmt.Errorf("flight %q has invalid initial baseline TETA", raw.ID)
+			return nil, fmt.Errorf("flight %q has invalid initial baseline TETA", raw.Callsign)
+		}
+		if raw.PromotionNotBefore != nil && !validUTC(*raw.PromotionNotBefore) {
+			return nil, fmt.Errorf("flight %q has invalid promotion lower bound", raw.Callsign)
 		}
 		if raw.ManualOrder != nil && *raw.ManualOrder < 1 {
-			return nil, fmt.Errorf("flight %q has invalid manual order", raw.ID)
+			return nil, fmt.Errorf("flight %q has invalid manual order", raw.Callsign)
 		}
 		if raw.CurrentSlot != nil {
 			if !validUTC(raw.CurrentSlot.Time) || raw.CurrentSlot.Sequence < 1 || raw.CurrentSlot.RunwayGroupID != raw.RunwayGroupID {
-				return nil, fmt.Errorf("flight %q has invalid current slot", raw.ID)
+				return nil, fmt.Errorf("flight %q has invalid current slot", raw.Callsign)
 			}
 		}
 		// A confirmed stack remains valid when the current CFL is unavailable.
 		// The comparator treats nil as non-comparable and preserves normal order.
 		if raw.HoldingAltitudeFeet != nil && *raw.HoldingAltitudeFeet < 0 {
-			return nil, fmt.Errorf("flight %q has invalid holding stack altitude", raw.ID)
+			return nil, fmt.Errorf("flight %q has invalid holding stack altitude", raw.Callsign)
+		}
+		if raw.HoldingQueueTime != nil && (!validUTC(*raw.HoldingQueueTime) || raw.HoldingQueueID == "" || raw.HoldingTransit < 0) {
+			return nil, fmt.Errorf("flight %q has invalid holding queue evidence", raw.Callsign)
+		}
+		if raw.SlotNotBefore != nil && !validUTC(*raw.SlotNotBefore) {
+			return nil, fmt.Errorf("flight %q has invalid slot lower bound", raw.Callsign)
 		}
 		if raw.ProtectCurrentSlot && raw.CurrentSlot == nil {
-			return nil, fmt.Errorf("flight %q protects a missing current slot", raw.ID)
+			return nil, fmt.Errorf("flight %q protects a missing current slot", raw.Callsign)
 		}
 		if raw.FreezeReason == aman.FreezeNone && raw.CapturedSlot != nil {
-			return nil, fmt.Errorf("flight %q has captured slot without freeze reason", raw.ID)
+			return nil, fmt.Errorf("flight %q has captured slot without freeze reason", raw.Callsign)
 		}
 		if raw.FreezeReason == aman.FreezeNone && (raw.FrozenAt != nil || raw.FrozenOperationalTETA != nil) {
-			return nil, fmt.Errorf("flight %q has freeze values without freeze reason", raw.ID)
+			return nil, fmt.Errorf("flight %q has freeze values without freeze reason", raw.Callsign)
 		}
 		if raw.FrozenAt != nil || raw.FrozenOperationalTETA != nil {
 			if raw.FrozenAt == nil || raw.FrozenOperationalTETA == nil || !validUTC(*raw.FrozenAt) || !validUTC(*raw.FrozenOperationalTETA) {
-				return nil, fmt.Errorf("flight %q has incomplete freeze values", raw.ID)
+				return nil, fmt.Errorf("flight %q has incomplete freeze values", raw.Callsign)
 			}
 		}
 		category := normalizeCategory(raw.WakeCategory)
@@ -538,21 +559,21 @@ func canonicalSTARFamily(value string) string {
 	return strings.ToUpper(strings.TrimSpace(value))
 }
 
-func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions map[aman.FlightID]aman.Slot) ([]allocatedEntry, []Warning, error) {
+func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions map[aman.Callsign]aman.Slot) ([]allocatedEntry, []Warning, error) {
 	warnings := []Warning{}
 	protected := []preparedFlight{}
 	movable := []preparedFlight{}
 	for _, flight := range flights {
 		if !flight.known {
-			warnings = append(warnings, Warning{Severity: SeverityDegraded, Code: WarningUnknownWakeCategory, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
+			warnings = append(warnings, Warning{Severity: SeverityDegraded, Code: WarningUnknownWakeCategory, RunwayGroupID: policy.RunwayGroupID, Callsign: flight.Callsign})
 		}
 		if policy.SameSTARSpacing.Enabled && flight.STARFamily == "" {
-			warnings = append(warnings, Warning{Severity: SeverityDegraded, Code: WarningUnknownSTARFamily, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
+			warnings = append(warnings, Warning{Severity: SeverityDegraded, Code: WarningUnknownSTARFamily, RunwayGroupID: policy.RunwayGroupID, Callsign: flight.Callsign})
 		}
 		if flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
 			continue
 		}
-		_, promoted := promotions[flight.ID]
+		_, promoted := promotions[flight.Callsign]
 		if flight.FreezeReason == aman.FreezeNone && !flight.ProtectCurrentSlot && !promoted {
 			movable = append(movable, flight)
 		} else {
@@ -567,16 +588,16 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 		if flight.ProtectCurrentSlot && flight.FreezeReason == aman.FreezeNone {
 			slot = flight.CurrentSlot
 		}
-		if promoted, ok := promotions[flight.ID]; ok {
+		if promoted, ok := promotions[flight.Callsign]; ok {
 			slot = &promoted
 		}
 		if slot == nil {
-			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSlotMissing, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
+			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSlotMissing, RunwayGroupID: policy.RunwayGroupID, Callsign: flight.Callsign})
 			continue
 		}
 		_, closed, _ := policy.blockingClosure(slot.Time)
 		if !validUTC(slot.Time) || slot.RunwayGroupID != policy.RunwayGroupID || slot.Sequence < 1 || policy.intervalAt(slot.Time) == 0 || closed {
-			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSlotInvalid, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
+			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSlotInvalid, RunwayGroupID: policy.RunwayGroupID, Callsign: flight.Callsign})
 			continue
 		}
 		reason := ReasonFreezeManual
@@ -584,7 +605,7 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 			reason = ReasonFreezeSuperstable
 		} else if flight.FreezeReason == aman.FreezeTMA {
 			reason = ReasonFreezeTMA
-		} else if _, ok := promotions[flight.ID]; ok {
+		} else if _, ok := promotions[flight.Callsign]; ok {
 			reason = ReasonQueuePromotion
 		} else if flight.ProtectCurrentSlot {
 			reason = ReasonStable
@@ -595,19 +616,18 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 	for index := 1; index < len(entries); index++ {
 		leading, trailing := entries[index-1], entries[index]
 		if !adjacentValid(policy, leading, trailing) {
-			related := leading.flight.ID
+			related := leading.flight.Callsign
 			code := WarningProtectedSpacing
 			family := ""
 			if sameSTARGap(policy, leading.flight, trailing.flight, trailing.time) > 0 && trailing.time.Sub(leading.time) < sameSTARGap(policy, leading.flight, trailing.flight, trailing.time) {
 				code = WarningProtectedSameSTAR
 				family = trailing.flight.STARFamily
 			}
-			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: code, RunwayGroupID: policy.RunwayGroupID, FlightID: trailing.flight.ID, RelatedFlightID: &related, STARFamily: family})
+			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: code, RunwayGroupID: policy.RunwayGroupID, Callsign: trailing.flight.Callsign, RelatedCallsign: &related, STARFamily: family})
 		}
 	}
 
-	sort.Slice(movable, func(i, j int) bool { return flightLess(movable[i], movable[j]) })
-	for _, flight := range movable {
+	for _, flight := range orderMovableFlights(movable) {
 		candidate, err := findCandidate(policy, entries, flight)
 		if err != nil {
 			return nil, nil, err
@@ -618,8 +638,47 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 	return entries, warnings, nil
 }
 
+// Keep the ordinary scheduling priority between unrelated holds. Within a
+// hold, an earlier entrant must be allocated before any later entrant so that
+// placement can enforce the release bound against its slot.
+func orderMovableFlights(flights []preparedFlight) []preparedFlight {
+	remaining := slices.Clone(flights)
+	sort.Slice(remaining, func(i, j int) bool { return flightLess(remaining[i], remaining[j]) })
+	ordered := make([]preparedFlight, 0, len(remaining))
+	for len(remaining) > 0 {
+		for i, flight := range remaining {
+			olderPending := false
+			for _, other := range remaining {
+				if flight.HoldingQueueTime != nil && other.HoldingQueueTime != nil &&
+					flight.HoldingQueueID == other.HoldingQueueID && other.HoldingQueueTime.Before(*flight.HoldingQueueTime) {
+					// Explicit manual or committed Stable order retains its
+					// existing precedence over the automatic hold queue.
+					if flight.ManualOrder != nil && (other.ManualOrder == nil || *flight.ManualOrder < *other.ManualOrder) {
+						continue
+					}
+					if flight.stableOrder != nil && other.stableOrder != nil && *flight.stableOrder < *other.stableOrder {
+						continue
+					}
+					olderPending = true
+					break
+				}
+			}
+			if olderPending {
+				continue
+			}
+			ordered = append(ordered, flight)
+			remaining = slices.Delete(remaining, i, i+1)
+			break
+		}
+	}
+	return ordered
+}
+
 func findCandidate(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight) (time.Time, error) {
 	lower := flight.OperationalTETA.Add(-policy.EarlyTolerance)
+	if flight.SlotNotBefore != nil && lower.Before(*flight.SlotNotBefore) {
+		lower = *flight.SlotNotBefore
+	}
 	if candidate, ok := previousGridAtOrBefore(policy, flight.OperationalTETA); ok && candidate.Before(flight.OperationalTETA) {
 		for !candidate.Before(lower) {
 			valid, earlier, _ := placement(policy, entries, flight, candidate)
@@ -637,9 +696,13 @@ func findCandidate(policy preparedPolicy, entries []allocatedEntry, flight prepa
 		}
 	}
 
-	candidate, ok := nextGridAtOrAfter(policy, flight.OperationalTETA)
+	target := flight.OperationalTETA
+	if target.Before(lower) {
+		target = lower
+	}
+	candidate, ok := nextGridAtOrAfter(policy, target)
 	if !ok {
-		return time.Time{}, fmt.Errorf("runway group %q has no slot grid at or after flight %q TETA", policy.RunwayGroupID, flight.ID)
+		return time.Time{}, fmt.Errorf("runway group %q has no slot grid at or after flight %q TETA", policy.RunwayGroupID, flight.Callsign)
 	}
 	for attempts := 0; attempts <= len(entries)+1; attempts++ {
 		valid, _, later := placement(policy, entries, flight, candidate)
@@ -655,7 +718,7 @@ func findCandidate(policy preparedPolicy, entries []allocatedEntry, flight prepa
 			break
 		}
 	}
-	return time.Time{}, fmt.Errorf("runway group %q could not allocate flight %q", policy.RunwayGroupID, flight.ID)
+	return time.Time{}, fmt.Errorf("runway group %q could not allocate flight %q", policy.RunwayGroupID, flight.Callsign)
 }
 
 // placement returns whether candidate is valid plus safe bounds for the next
@@ -673,6 +736,9 @@ func queuePlacement(policy preparedPolicy, entries []allocatedEntry, flight prep
 }
 
 func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time, preserveStableOrder bool) (bool, time.Time, time.Time) {
+	if flight.SlotNotBefore != nil && candidate.Before(*flight.SlotNotBefore) {
+		return false, candidate.Add(-time.Nanosecond), *flight.SlotNotBefore
+	}
 	if gap, blocked := policy.blockingGap(candidate); blocked {
 		return false, gap.Start.Add(-time.Nanosecond), gap.End
 	}
@@ -720,6 +786,33 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 			boundLater := trailing.time.Add(requiredGap(policy, trailing.flight, flight, trailing.time))
 			if boundLater.After(later) {
 				later = boundLater
+			}
+		}
+	}
+	if flight.HoldingQueueTime != nil {
+		for _, entry := range entries {
+			older := entry.flight
+			if older.HoldingQueueTime == nil || older.HoldingQueueID != flight.HoldingQueueID ||
+				!older.HoldingQueueTime.Before(*flight.HoldingQueueTime) {
+				continue
+			}
+			// A new aircraft cannot pass one already in this hold. Different
+			// physical transit times also require more than runway separation
+			// when the later slot would otherwise yield an earlier release.
+			minimum := entry.time.Add(requiredGap(policy, older, flight, candidate))
+			if older.HoldingTransit > 0 && flight.HoldingTransit > 0 {
+				// EAT is published as HHMM, so successive releases need a
+				// visible minute of separation.
+				releaseMinimum := entry.time.Add(flight.HoldingTransit - older.HoldingTransit + time.Minute)
+				if releaseMinimum.After(minimum) {
+					minimum = releaseMinimum
+				}
+			}
+			if candidate.Before(minimum) {
+				valid = false
+				if minimum.After(later) {
+					later = minimum
+				}
 			}
 		}
 	}
@@ -944,7 +1037,7 @@ func flightLess(a, b preparedFlight) bool {
 			return a.InitialBaselineTETA.Before(*b.InitialBaselineTETA)
 		}
 	}
-	return a.ID < b.ID
+	return a.Callsign < b.Callsign
 }
 
 func holdingAltitudeLess(a, b preparedFlight) (less, comparable bool) {
@@ -995,7 +1088,7 @@ func movementFor(flight preparedFlight, candidate CandidateEntry) *SlotMovement 
 	if flight.CurrentSlot != nil && flight.CurrentSlot.Time.Equal(candidate.Time) && flight.CurrentSlot.Sequence == candidate.Sequence {
 		return nil
 	}
-	movement := &SlotMovement{FlightID: flight.ID, RunwayGroupID: candidate.RunwayGroupID, ToTime: candidate.Time, ToSequence: candidate.Sequence}
+	movement := &SlotMovement{Callsign: flight.Callsign, RunwayGroupID: candidate.RunwayGroupID, ToTime: candidate.Time, ToSequence: candidate.Sequence}
 	if flight.CurrentSlot != nil {
 		fromTime, fromSequence := flight.CurrentSlot.Time, flight.CurrentSlot.Sequence
 		movement.FromTime, movement.FromSequence = &fromTime, &fromSequence
@@ -1009,8 +1102,8 @@ func sortWarnings(warnings []Warning) {
 		if a.RunwayGroupID != b.RunwayGroupID {
 			return a.RunwayGroupID < b.RunwayGroupID
 		}
-		if a.FlightID != b.FlightID {
-			return a.FlightID < b.FlightID
+		if a.Callsign != b.Callsign {
+			return a.Callsign < b.Callsign
 		}
 		if a.Severity != b.Severity {
 			return a.Severity < b.Severity
@@ -1018,14 +1111,14 @@ func sortWarnings(warnings []Warning) {
 		if a.Code != b.Code {
 			return a.Code < b.Code
 		}
-		if relatedID(a.RelatedFlightID) != relatedID(b.RelatedFlightID) {
-			return relatedID(a.RelatedFlightID) < relatedID(b.RelatedFlightID)
+		if relatedID(a.RelatedCallsign) != relatedID(b.RelatedCallsign) {
+			return relatedID(a.RelatedCallsign) < relatedID(b.RelatedCallsign)
 		}
 		return a.STARFamily < b.STARFamily
 	})
 }
 
-func relatedID(id *aman.FlightID) aman.FlightID {
+func relatedID(id *aman.Callsign) aman.Callsign {
 	if id == nil {
 		return ""
 	}

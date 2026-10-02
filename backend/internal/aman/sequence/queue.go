@@ -25,7 +25,7 @@ type QueueOfferCalculation struct {
 // VacancyPromotion records an automatic move from a flight's committed slot
 // into an earlier queue opportunity that became vacant.
 type VacancyPromotion struct {
-	FlightID aman.FlightID
+	Callsign aman.Callsign
 	From     aman.Slot
 	To       aman.Slot
 }
@@ -48,11 +48,12 @@ type offerKey struct {
 }
 
 // GenerateWithVacancyPromotions consumes revision-bound queue offers whose
-// candidate slots are no longer occupied, revalidates them against the current
-// sequence policy, and generates one authoritative result. Offers are only
-// evidence of queue order: every promotion is checked again for lifecycle,
-// TETA, runway, manual/freeze boundaries, Stable order, WTC, and same-STAR
-// spacing before it is applied.
+// candidate slots are no longer occupied and also compacts Stable flights into
+// any earlier legal runway-grid opportunity. Offers remain evidence of queue
+// order for Unstable traffic; a Stable flight no longer depends on a prior
+// offer for a slot which is already empty. Every promotion is checked again
+// for lifecycle, TETA, runway, manual/freeze boundaries, Stable order, WTC,
+// and same-STAR spacing before it is applied.
 func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at time.Time) (Result, []VacancyPromotion, error) {
 	if input.Revision == 0 {
 		return Result{}, nil, fmt.Errorf("vacancy promotion requires a committed airport revision")
@@ -88,10 +89,10 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		if a.QueuePosition != b.QueuePosition {
 			return a.QueuePosition < b.QueuePosition
 		}
-		return a.FlightID < b.FlightID
+		return a.Callsign < b.Callsign
 	})
 
-	promotionSlots := make(map[aman.FlightID]aman.Slot)
+	promotionSlots := make(map[aman.Callsign]aman.Slot)
 	promotions := make([]VacancyPromotion, 0)
 	groupIDs := make([]aman.RunwayGroupID, 0, len(prepared))
 	for group := range prepared {
@@ -110,19 +111,20 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 				offer.CandidateSlot.RunwayGroupID != group || !offer.ExpiresAt.After(at) {
 				continue
 			}
-			if _, alreadyPromoted := promotionSlots[offer.FlightID]; alreadyPromoted {
+			if _, alreadyPromoted := promotionSlots[offer.Callsign]; alreadyPromoted {
 				continue
 			}
 			if queueSlotOccupied(entries, offer.CandidateSlot) {
 				continue
 			}
-			targetIndex := queueEntryIndex(entries, offer.FlightID)
+			targetIndex := queueEntryIndex(entries, offer.Callsign)
 			if targetIndex < 0 {
 				continue
 			}
 			target := entries[targetIndex]
 			if !queueEligible(target.flight) || !offer.CandidateSlot.Time.Before(target.slot.Time) || !isGridSlot(policy, offer.CandidateSlot.Time) ||
-				offer.CandidateSlot.Time.Before(target.flight.OperationalTETA.Add(-policy.EarlyTolerance)) || crossesProtectedTime(entries, offer.CandidateSlot.Time, target.slot.Time) {
+				offer.CandidateSlot.Time.Before(promotionLowerBound(policy, target.flight, at)) || crossesProtectedTime(entries, offer.CandidateSlot.Time, target.slot.Time) ||
+				crossesStableOrder(entries, target.flight, offer.CandidateSlot.Time) {
 				continue
 			}
 			remaining := make([]allocatedEntry, 0, len(entries)-1)
@@ -141,8 +143,8 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 				continue
 			}
 			from, to := *target.flight.CurrentSlot, offer.CandidateSlot
-			promotionSlots[target.flight.ID] = to
-			promotions = append(promotions, VacancyPromotion{FlightID: target.flight.ID, From: from, To: to})
+			promotionSlots[target.flight.Callsign] = to
+			promotions = append(promotions, VacancyPromotion{Callsign: target.flight.Callsign, From: from, To: to})
 			entries[targetIndex].slot = to
 			sort.Slice(entries, func(i, j int) bool {
 				if !entries[i].slot.Time.Equal(entries[j].slot.Time) {
@@ -151,9 +153,10 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 				if entries[i].slot.Sequence != entries[j].slot.Sequence {
 					return entries[i].slot.Sequence < entries[j].slot.Sequence
 				}
-				return entries[i].flight.ID < entries[j].flight.ID
+				return entries[i].flight.Callsign < entries[j].flight.Callsign
 			})
 		}
+		promotions = compactStableFlights(policy, entries, promotionSlots, promotions, at)
 	}
 
 	result, err := generate(input, promotionSlots)
@@ -166,7 +169,7 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 	}
 	for index := range promotions {
 		for _, entry := range result.Entries {
-			if entry.FlightID != promotions[index].FlightID {
+			if entry.Callsign != promotions[index].Callsign {
 				continue
 			}
 			promotions[index].To = aman.Slot{
@@ -179,19 +182,136 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 	return result, promotions, nil
 }
 
+// compactStableFlights moves Stable flights monotonically earlier without
+// changing their committed relative order. A Superstable flight may accept an
+// earlier vacancy, but it cannot cross another freeze or manual-order boundary.
+// TMA and manual freezes remain immovable. The current slot is always retained
+// when no earlier opportunity satisfies the complete placement policy.
+func compactStableFlights(policy preparedPolicy, entries []queueEntry, promotionSlots map[aman.Callsign]aman.Slot, promotions []VacancyPromotion, at time.Time) []VacancyPromotion {
+	stableCallsigns := make([]aman.Callsign, 0, len(entries))
+	for _, entry := range entries {
+		if stablePromotionEligible(entry.flight) {
+			stableCallsigns = append(stableCallsigns, entry.flight.Callsign)
+		}
+	}
+
+	promotionIndexes := make(map[aman.Callsign]int, len(promotions))
+	for index := range promotions {
+		promotionIndexes[promotions[index].Callsign] = index
+	}
+	for _, callsign := range stableCallsigns {
+		targetIndex := queueEntryIndex(entries, callsign)
+		if targetIndex < 0 {
+			continue
+		}
+		target := entries[targetIndex]
+		remaining := make([]allocatedEntry, 0, len(entries)-1)
+		for index, entry := range entries {
+			if index == targetIndex {
+				continue
+			}
+			remaining = append(remaining, allocatedEntry{flight: entry.flight, time: entry.slot.Time, reason: CandidateReason(entry.slot.Reason)})
+		}
+
+		lower := promotionLowerBound(policy, target.flight, at)
+		candidate, ok := nextGridAtOrAfter(policy, lower)
+		for ok && candidate.Before(target.slot.Time) {
+			if !crossesProtectedTime(entries, candidate, target.slot.Time) && !crossesStableOrder(entries, target.flight, candidate) {
+				valid, _, later := placement(policy, remaining, target.flight, candidate)
+				if valid {
+					to := aman.Slot{
+						Time: candidate, RunwayGroupID: target.slot.RunwayGroupID,
+						Sequence: target.slot.Sequence, Revision: target.slot.Revision,
+						Reason: string(ReasonQueuePromotion),
+					}
+					promotionSlots[callsign] = to
+					if promotionIndex, promoted := promotionIndexes[callsign]; promoted {
+						promotions[promotionIndex].To = to
+					} else {
+						promotionIndexes[callsign] = len(promotions)
+						promotions = append(promotions, VacancyPromotion{Callsign: callsign, From: *target.flight.CurrentSlot, To: to})
+					}
+					entries[targetIndex].slot = to
+					sort.Slice(entries, func(i, j int) bool {
+						if !entries[i].slot.Time.Equal(entries[j].slot.Time) {
+							return entries[i].slot.Time.Before(entries[j].slot.Time)
+						}
+						if entries[i].slot.Sequence != entries[j].slot.Sequence {
+							return entries[i].slot.Sequence < entries[j].slot.Sequence
+						}
+						return entries[i].flight.Callsign < entries[j].flight.Callsign
+					})
+					break
+				}
+				if later.After(candidate) {
+					candidate, ok = nextGridAtOrAfter(policy, later)
+					continue
+				}
+			}
+			candidate, ok = nextGridAtOrAfter(policy, candidate.Add(time.Nanosecond))
+		}
+	}
+	return promotions
+}
+
+func stablePromotionEligible(flight preparedFlight) bool {
+	if flight.State != aman.StateStable || flight.ManualOrder != nil || flight.CurrentSlot == nil {
+		return false
+	}
+	switch flight.FreezeReason {
+	case aman.FreezeNone:
+		return flight.ProtectCurrentSlot
+	case aman.FreezeSuperstable:
+		return flight.CapturedSlot != nil
+	default:
+		return false
+	}
+}
+
+func promotionLowerBound(policy preparedPolicy, flight preparedFlight, at time.Time) time.Time {
+	lower := flight.OperationalTETA.Add(-policy.EarlyTolerance)
+	if !lower.After(at) {
+		lower = at.Add(time.Nanosecond)
+	}
+	if flight.PromotionNotBefore != nil && lower.Before(*flight.PromotionNotBefore) {
+		lower = *flight.PromotionNotBefore
+	}
+	return lower
+}
+
+// Stable order is committed by sequence number. The nearest time neighbor may
+// be Unstable, so checking only placement's adjacent neighbors is insufficient.
+func crossesStableOrder(entries []queueEntry, target preparedFlight, candidate time.Time) bool {
+	if target.stableOrder == nil {
+		return false
+	}
+	for _, entry := range entries {
+		if entry.flight.Callsign == target.Callsign || entry.flight.stableOrder == nil {
+			continue
+		}
+		if *entry.flight.stableOrder < *target.stableOrder && !candidate.After(entry.slot.Time) {
+			return true
+		}
+		if *entry.flight.stableOrder > *target.stableOrder && !candidate.Before(entry.slot.Time) {
+			return true
+		}
+	}
+	return false
+}
+
 func baselineQueueEntries(revision aman.SequenceRevision, group aman.RunwayGroupID, flights []preparedFlight, baseline Result) ([]queueEntry, error) {
-	byID := make(map[aman.FlightID]preparedFlight, len(flights))
+	byID := make(map[aman.Callsign]preparedFlight, len(flights))
 	for _, flight := range flights {
-		byID[flight.ID] = flight
+		byID[flight.Callsign] = flight
 	}
 	entries := make([]queueEntry, 0, len(flights))
 	for _, candidate := range baseline.Entries {
 		if candidate.RunwayGroupID != group {
 			continue
 		}
-		flight, exists := byID[candidate.FlightID]
+		flight, exists := byID[candidate.Callsign]
 		if !exists {
-			return nil, fmt.Errorf("baseline flight %q is missing from runway group %q", candidate.FlightID, group)
+			return nil, fmt.Errorf("baseline flight %q is missing from runway group %q", candidate.Callsign, group)
 		}
 		entries = append(entries, queueEntry{flight: flight, slot: aman.Slot{
 			Time: candidate.Time, RunwayGroupID: group, Sequence: candidate.Sequence,
@@ -201,9 +321,9 @@ func baselineQueueEntries(revision aman.SequenceRevision, group aman.RunwayGroup
 	return entries, nil
 }
 
-func queueEntryIndex(entries []queueEntry, flightID aman.FlightID) int {
+func queueEntryIndex(entries []queueEntry, callsign aman.Callsign) int {
 	for index := range entries {
-		if entries[index].flight.ID == flightID {
+		if entries[index].flight.Callsign == callsign {
 			return index
 		}
 	}
@@ -301,7 +421,7 @@ func CalculateQueueOffers(input Input, config QueueOfferConfig, at time.Time) ([
 				key := offerKey{group: group, sequence: candidate.slot.Sequence, at: candidate.slot.Time}
 				pending[key] = append(pending[key], pendingOffer{
 					offer: aman.QueueOffer{
-						FlightID: target.flight.ID, RunwayGroupID: group, CandidateSlot: candidate.slot,
+						Callsign: target.flight.Callsign, RunwayGroupID: group, CandidateSlot: candidate.slot,
 						ExpiresAt: expiresAt, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot,
 					},
 					assignedSequence: target.slot.Sequence,
@@ -338,7 +458,7 @@ func CalculateQueueOffers(input Input, config QueueOfferConfig, at time.Time) ([
 		if a.QueuePosition != b.QueuePosition {
 			return a.QueuePosition < b.QueuePosition
 		}
-		return a.FlightID < b.FlightID
+		return a.Callsign < b.Callsign
 	})
 	return offers, nil
 }
@@ -355,29 +475,29 @@ func ProjectQueueOffers(state aman.AirportState, input Input, config QueueOfferC
 	}
 	projected := state
 	projected.Flights = append([]aman.AMANFlight(nil), state.Flights...)
-	indexes := make(map[aman.FlightID]int, len(projected.Flights))
+	indexes := make(map[aman.Callsign]int, len(projected.Flights))
 	for index := range projected.Flights {
 		projected.Flights[index].QueueOffers = nil
-		indexes[projected.Flights[index].ID] = index
+		indexes[projected.Flights[index].Callsign] = index
 	}
-	inputFlights := make(map[aman.FlightID]Flight, len(input.Flights))
+	inputFlights := make(map[aman.Callsign]Flight, len(input.Flights))
 	for _, flight := range input.Flights {
-		inputFlights[flight.ID] = flight
-		index, exists := indexes[flight.ID]
+		inputFlights[flight.Callsign] = flight
+		index, exists := indexes[flight.Callsign]
 		if !exists || !slotsEqual(projected.Flights[index].Slot, flight.CurrentSlot) {
-			return aman.AirportState{}, fmt.Errorf("queue offer input flight %q does not match airport slot state", flight.ID)
+			return aman.AirportState{}, fmt.Errorf("queue offer input flight %q does not match airport slot state", flight.Callsign)
 		}
 	}
 	for _, flight := range projected.Flights {
-		inputFlight, exists := inputFlights[flight.ID]
+		inputFlight, exists := inputFlights[flight.Callsign]
 		if flight.SequenceDisposition.Participates() && flight.Slot != nil && (!exists || !slotsEqual(flight.Slot, inputFlight.CurrentSlot)) {
-			return aman.AirportState{}, fmt.Errorf("airport slot flight %q is missing from queue offer input", flight.ID)
+			return aman.AirportState{}, fmt.Errorf("airport slot flight %q is missing from queue offer input", flight.Callsign)
 		}
 	}
 	for _, offer := range offers {
-		index, exists := indexes[offer.FlightID]
+		index, exists := indexes[offer.Callsign]
 		if !exists {
-			return aman.AirportState{}, fmt.Errorf("queue offer flight %q does not match airport slot state", offer.FlightID)
+			return aman.AirportState{}, fmt.Errorf("queue offer flight %q does not match airport slot state", offer.Callsign)
 		}
 		projected.Flights[index].QueueOffers = append(projected.Flights[index].QueueOffers, offer)
 	}
@@ -415,7 +535,7 @@ func queueEntries(revision aman.SequenceRevision, flights []preparedFlight) ([]q
 		}
 		slot := *flight.CurrentSlot
 		if slot.Revision != revision || slot.Reason == "" {
-			return nil, fmt.Errorf("flight %q has a stale or incomplete committed slot", flight.ID)
+			return nil, fmt.Errorf("flight %q has a stale or incomplete committed slot", flight.Callsign)
 		}
 		entries = append(entries, queueEntry{flight: flight, slot: slot})
 	}
@@ -426,7 +546,7 @@ func queueEntries(revision aman.SequenceRevision, flights []preparedFlight) ([]q
 		if !entries[i].slot.Time.Equal(entries[j].slot.Time) {
 			return entries[i].slot.Time.Before(entries[j].slot.Time)
 		}
-		return entries[i].flight.ID < entries[j].flight.ID
+		return entries[i].flight.Callsign < entries[j].flight.Callsign
 	})
 	for index := range entries {
 		if index > 0 && (entries[index].slot.Sequence == entries[index-1].slot.Sequence || !entries[index].slot.Time.After(entries[index-1].slot.Time)) {

@@ -42,6 +42,7 @@ type StripService struct {
 	cdmService           StripCdmService
 	departureObserver    departurePositionObserver
 	arrivalObserver      arrivalPositionObserver
+	amanStripObserver    euroScopeAMANStripObserver
 	holdingObserver      holdingClearanceObserver
 	routeRefreshPending  sync.Map
 	positionTransitions  sync.Map
@@ -56,6 +57,17 @@ type departurePositionObserver interface {
 // remains usable when AMAN is disabled.
 type arrivalPositionObserver interface {
 	ObserveEuroScopePosition(ctx context.Context, session int32, strip *internalModels.Strip, latitude, longitude float64, altitude int32) error
+}
+
+// euroScopeAMANStripObserver receives every persisted EuroScope strip. It is
+// separate from holding-clearance authority because flight-plan facts are
+// source facts even when the syncing controller is not tracking the aircraft.
+type euroScopeAMANStripObserver interface {
+	ObserveEuroScopeStrip(context.Context, *internalModels.Strip) error
+}
+
+type euroScopeAMANStripRemovalObserver interface {
+	RemoveEuroScopeStrip(context.Context, int32, string) error
 }
 
 // holdingClearanceObserver receives the persisted authoritative strip view.
@@ -196,6 +208,18 @@ func (s *StripService) SetDeparturePositionObserver(observer departurePositionOb
 
 func (s *StripService) SetArrivalPositionObserver(observer arrivalPositionObserver) {
 	s.arrivalObserver = observer
+}
+
+func (s *StripService) SetEuroScopeAMANStripObserver(observer euroScopeAMANStripObserver) {
+	s.amanStripObserver = observer
+}
+
+func (s *StripService) RemoveEuroScopeAMANStrip(ctx context.Context, session int32, callsign string) error {
+	observer, ok := s.amanStripObserver.(euroScopeAMANStripRemovalObserver)
+	if !ok {
+		return nil
+	}
+	return observer.RemoveEuroScopeStrip(ctx, session, callsign)
 }
 
 func (s *StripService) SetHoldingClearanceObserver(observer holdingClearanceObserver) {

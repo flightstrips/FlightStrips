@@ -249,7 +249,7 @@ func predictionTime() time.Time {
 
 func predictionFlight(now time.Time) aman.AMANFlight {
 	holding := "north-hold"
-	return aman.AMANFlight{ID: "flight-1", VATSIMCID: "1234567", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, SelectedHolding: &holding, FreezeReason: aman.FreezeNone, UpdatedAt: now}
+	return aman.AMANFlight{Callsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, SelectedHolding: &holding, FreezeReason: aman.FreezeNone, UpdatedAt: now}
 }
 
 func rawPrediction(generatedAt, rawTETA time.Time) aman.Prediction {

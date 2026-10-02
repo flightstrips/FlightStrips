@@ -6,7 +6,6 @@ export interface AMANFlightDetail {
   revision: number;
   generated_at: string;
   flight: {
-    id: string;
     callsign: string;
     origin: string;
     destination: string;
@@ -145,8 +144,8 @@ export interface AMANHoldingPlan {
   post_holding_transit_seconds: number;
 }
 
-export async function fetchAMANFlightDetail(token: string, airport: string, flightID: string, signal?: AbortSignal): Promise<AMANFlightDetail> {
-  const response = await fetch(getApiUrl(`/api/aman/airports/${encodeURIComponent(airport)}/flights/${encodeURIComponent(flightID)}/detail`), {
+export async function fetchAMANFlightDetail(token: string, airport: string, callsign: string, signal?: AbortSignal): Promise<AMANFlightDetail> {
+  const response = await fetch(getApiUrl(`/api/aman/airports/${encodeURIComponent(airport)}/flights/${encodeURIComponent(callsign)}/detail`), {
     headers: {Authorization: `Bearer ${token}`}, signal,
   });
   if (!response.ok) {

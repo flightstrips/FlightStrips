@@ -119,7 +119,11 @@ func (e *Evaluator) EvaluateAirport(ctx context.Context, airport string, desired
 	if !isOperational(desired) {
 		return allowed(desired)
 	}
-	health := aman.EvaluateTechnicalHealth(desired, technical.VATSIM, technical.Navigation, technical.Weather, technical.Repository, technical.Predictor, technical.ReplayValidation)
+	source := technical.ObservationSource
+	if source.Status == "" {
+		source = technical.VATSIM
+	}
+	health := aman.EvaluateTechnicalHealth(desired, source, technical.Navigation, technical.Weather, technical.Repository, technical.Predictor, technical.ReplayValidation)
 	reasons := slices.Clone(health.BlockedReasons)
 	reasons = append(reasons, e.currentEvidenceReasons(ctx, airport)...)
 	if len(reasons) > 0 {

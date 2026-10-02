@@ -125,3 +125,23 @@ func TestBuildAddsAMANWorkersOnlyWhenEnabled(t *testing.T) {
 		}
 	}, time.Second, 10*time.Millisecond)
 }
+
+func TestBuildStartsEuroScopeOnlyAMANWithoutVATSIMSource(t *testing.T) {
+	poolConfig, err := pgxpool.ParseConfig("postgres://user:password@127.0.0.1:1/test")
+	require.NoError(t, err)
+	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	require.NoError(t, err)
+	t.Cleanup(dbPool.Close)
+
+	application, err := Build(context.Background(), Config{
+		Environment: "development", EnableCDMConfigStore: false, EnablePDC: false,
+		EnableECFMP: false, EnableECFMPAPI: false, EnablePilotAPI: false, EnableALB: false,
+		EnableMetar: false, EnableVATSIM: false, EnableTraffic: false, EnableDBSeed: false,
+		AMAN: aman.RuntimeConfig{Mode: " SHADOW ", SourceMode: " EuroScope ", EnabledAirports: []string{" ekch "}},
+	}, Dependencies{
+		DBPool: dbPool, AuthenticationService: services.NewTestAuthenticationService(), AMAN: amanAppTestDependencies(),
+	})
+	require.NoError(t, err)
+	require.True(t, application.AMANRuntime().Enabled())
+	require.Equal(t, aman.ObservationSourceEuroScope, application.AMANRuntime().Config().SourceMode)
+}

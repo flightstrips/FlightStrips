@@ -73,10 +73,10 @@ describe("AMAN command store", () => {
 
   it("submits coordination against its own revision and applies the authoritative replacement", () => {
     client._emit(EventType.FrontendAMANCoordinationState, {type: "aman.coordination_state", version: 1, revision: 3, requests: []});
-    const commandID = store.getState().sendAMANCommand({type: "aman.submit_coordination_request", flight_id: "flight-123", kind: "speed", requested: "220 KT"})!;
+    const commandID = store.getState().sendAMANCommand({type: "aman.submit_coordination_request", callsign: "SAS123", kind: "speed", requested: "220 KT"})!;
     expect(client.send).toHaveBeenLastCalledWith(expect.objectContaining({data: expect.objectContaining({expected_revision: 3, kind: "speed", requested: "220 KT"})}));
     client._emit(EventType.FrontendAMANCoordinationState, {type: "aman.coordination_state", version: 1, revision: 4, requests: [{
-      id: `coordination-request/${commandID}`, flight_id: "flight-123", recipient_controller: "", recipient_status: "unassigned",
+      id: `coordination-request/${commandID}`, callsign: "SAS123", recipient_controller: "", recipient_status: "unassigned",
       kind: "speed", state: "pending", payload: {speed: {requested: "220 KT"}}, created_at: "2026-07-22T12:00:00.000Z", updated_at: "2026-07-22T12:00:00.000Z",
     }]});
     expect(store.getState().amanPendingCommands[commandID]).toBeUndefined();
@@ -135,29 +135,41 @@ describe("AMAN command store", () => {
   });
 
   it("adds only command metadata to the matching typed request and tracks it as pending", () => {
-    const commandID = store.getState().sendAMANCommand({type: "aman.accept_teta", flight_id: "flight-123"});
+    const commandID = store.getState().sendAMANCommand({type: "aman.accept_teta", callsign: "SAS123"});
 
     expect(commandID).toEqual(expect.any(String));
     expect(client.send).toHaveBeenCalledWith({
       type: "aman.accept_teta",
       version: 1,
-      data: {command_id: commandID, expected_revision: 7, flight_id: "flight-123"},
+      data: {command_id: commandID, expected_revision: 7, callsign: "SAS123"},
     });
     expect(store.getState().amanPendingCommands[commandID!]).toEqual({
       command_id: commandID,
       type: "aman.accept_teta",
       expected_revision: 7,
-      flight_id: "flight-123",
+      callsign: "SAS123",
     });
     expect(store.getState().amanState?.revision).toBe(7);
   });
 
+  it("keeps an ES-only flight and commands it by callsign without CID state", () => {
+    const flight = store.getState().amanState?.flights[0];
+    expect(flight).toMatchObject({callsign: "SAS123"});
+    expect(flight).not.toHaveProperty("vatsim_cid");
+
+    const commandID = store.getState().sendAMANCommand({type: "aman.accept_teta", callsign: flight!.callsign});
+    expect(client.send).toHaveBeenLastCalledWith({
+      type: "aman.accept_teta", version: 1,
+      data: {command_id: commandID, expected_revision: 7, callsign: "SAS123"},
+    });
+  });
+
   it("tracks recompute until a server replacement confirms it", () => {
-    const commandID = store.getState().sendAMANCommand({type: "aman.recompute_flight", flight_id: "flight-123"})!;
+    const commandID = store.getState().sendAMANCommand({type: "aman.recompute_flight", callsign: "SAS123"})!;
 
     expect(client.send).toHaveBeenCalledWith({
       type: "aman.recompute_flight", version: 1,
-      data: {command_id: commandID, expected_revision: 7, flight_id: "flight-123"},
+      data: {command_id: commandID, expected_revision: 7, callsign: "SAS123"},
     });
     expect(store.getState().amanPendingCommands[commandID]?.type).toBe("aman.recompute_flight");
     client._emit(EventType.FrontendAMANState, replacement(8));
@@ -165,40 +177,40 @@ describe("AMAN command store", () => {
   });
 
   it("tracks a typed runway change through rejection and server confirmation", () => {
-    const rejectedID = store.getState().sendAMANCommand({type: "aman.change_runway", flight_id: "flight-123", runway_group_id: "ARRIVAL-04"})!;
+    const rejectedID = store.getState().sendAMANCommand({type: "aman.change_runway", callsign: "SAS123", runway_group_id: "ARRIVAL-04"})!;
     expect(client.send).toHaveBeenCalledWith({
       type: "aman.change_runway", version: 1,
-      data: {command_id: rejectedID, expected_revision: 7, flight_id: "flight-123", runway_group_id: "ARRIVAL-04"},
+      data: {command_id: rejectedID, expected_revision: 7, callsign: "SAS123", runway_group_id: "ARRIVAL-04"},
     });
     client._emit(EventType.FrontendAMANCommandRejected, {type: "aman.command_rejected", version: 1, data: {command_id: rejectedID, code: "invalid_transition", message: "protected conflict", current_revision: 7, retryable: false}});
     expect(store.getState().amanPendingCommands[rejectedID]).toBeUndefined();
     expect(store.getState().amanCommandRejections[rejectedID].command_type).toBe("aman.change_runway");
 
-    const confirmedID = store.getState().sendAMANCommand({type: "aman.change_runway", flight_id: "flight-123", runway_group_id: "ARRIVAL-04"})!;
+    const confirmedID = store.getState().sendAMANCommand({type: "aman.change_runway", callsign: "SAS123", runway_group_id: "ARRIVAL-04"})!;
     expect(store.getState().amanPendingCommands[confirmedID]).toMatchObject({type: "aman.change_runway", runway_group_id: "ARRIVAL-04"});
     client._emit(EventType.FrontendAMANState, replacement(8));
     expect(store.getState().amanPendingCommands[confirmedID]).toBeUndefined();
   });
 
   it("sends typed manual feeder ETA set and reset commands", () => {
-    const setID = store.getState().sendAMANCommand({type: "aman.set_manual_feeder_eta", flight_id: "flight-123", feeder_eta: "2026-07-22T12:10:00.000Z"})!;
-    const resetID = store.getState().sendAMANCommand({type: "aman.reset_manual_feeder_eta", flight_id: "flight-123"})!;
+    const setID = store.getState().sendAMANCommand({type: "aman.set_manual_feeder_eta", callsign: "SAS123", feeder_eta: "2026-07-22T12:10:00.000Z"})!;
+    const resetID = store.getState().sendAMANCommand({type: "aman.reset_manual_feeder_eta", callsign: "SAS123"})!;
 
     expect(client.send).toHaveBeenNthCalledWith(1, {
       type: "aman.set_manual_feeder_eta", version: 1,
-      data: {command_id: setID, expected_revision: 7, flight_id: "flight-123", feeder_eta: "2026-07-22T12:10:00.000Z"},
+      data: {command_id: setID, expected_revision: 7, callsign: "SAS123", feeder_eta: "2026-07-22T12:10:00.000Z"},
     });
     expect(client.send).toHaveBeenNthCalledWith(2, {
       type: "aman.reset_manual_feeder_eta", version: 1,
-      data: {command_id: resetID, expected_revision: 7, flight_id: "flight-123"},
+      data: {command_id: resetID, expected_revision: 7, callsign: "SAS123"},
     });
   });
 
   it("sends and confirms typed disposition commands without client-owned sequence results", () => {
-    const desequenceID = store.getState().sendAMANCommand({type: "aman.desequence_flight", flight_id: "flight-123"})!;
+    const desequenceID = store.getState().sendAMANCommand({type: "aman.desequence_flight", callsign: "SAS123"})!;
     expect(client.send).toHaveBeenLastCalledWith({
       type: "aman.desequence_flight", version: 1,
-      data: {command_id: desequenceID, expected_revision: 7, flight_id: "flight-123"},
+      data: {command_id: desequenceID, expected_revision: 7, callsign: "SAS123"},
     });
 
     const confirmed = replacement(8);
@@ -208,26 +220,26 @@ describe("AMAN command store", () => {
     expect(store.getState().amanState?.flights[0].sequence_disposition).toBe("desequenced");
 
     for (const type of ["aman.resume_flight", "aman.remove_flight"] as const) {
-      const commandID = store.getState().sendAMANCommand({type, flight_id: "flight-123"})!;
+      const commandID = store.getState().sendAMANCommand({type, callsign: "SAS123"})!;
       expect(client.send).toHaveBeenLastCalledWith({
-        type, version: 1, data: {command_id: commandID, expected_revision: 8, flight_id: "flight-123"},
+        type, version: 1, data: {command_id: commandID, expected_revision: 8, callsign: "SAS123"},
       });
     }
   });
 
   it("does not send while disconnected, unauthorized, read-only, non-authoritative, or unready", () => {
     store.getState().setAMANConnectionState("disconnected");
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
     store.getState().setAMANConnectionState("connected");
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
     client._emit(EventType.FrontendInitial, initialSnapshot(false));
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
     client._emit(EventType.FrontendInitial, initialSnapshot(true, true));
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
     store.setState({readOnly: false, amanState: {...store.getState().amanState!, authoritative: false, effective_mode: "read_only"}});
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
     store.setState({amanState: {...replacement(7).data, technical_health: {...replacement(7).data.technical_health, ready: false}}});
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
     expect(client.send).not.toHaveBeenCalled();
   });
 
@@ -248,7 +260,7 @@ describe("AMAN command store", () => {
   });
 
   it("keeps pending correlation through reconnect and clears it only on a newer replacement", () => {
-    const commandID = store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})!;
+    const commandID = store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})!;
     store.getState().setAMANConnectionState("disconnected");
     store.getState().setAMANConnectionState("connected");
     client._emit(EventType.FrontendAMANState, replacement(7));
@@ -277,7 +289,7 @@ describe("AMAN command store", () => {
   });
 
   it("turns a correlated rejection into a durable visible result, including conflicts", () => {
-    const commandID = store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})!;
+    const commandID = store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})!;
     client._emit(EventType.FrontendAMANCommandRejected, {
       type: "aman.command_rejected",
       version: 1,

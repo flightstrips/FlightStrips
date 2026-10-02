@@ -20,7 +20,7 @@ const golden = JSON.parse(readFileSync(
 
 function flight(id: string, order: number | null, minutes: number): AMANFlight {
   const value = structuredClone(golden.data.flights[0]);
-  value.flight_id = id;
+  value.callsign = id;
   value.callsign = id.toUpperCase();
   value.order = order;
   value.slot = value.slot && {
@@ -63,7 +63,7 @@ describe("AMAN presentation model", () => {
     const flights = [flight("third", 3, 3), flight("first-a", 1, 1), flight("first-b", 1, 2), flight("missing", null, 4)];
     flights[3].slot = null;
 
-    expect(orderAMANFlights(flights).map((value) => value.flight_id)).toEqual(["first-a", "first-b", "third", "missing"]);
+    expect(orderAMANFlights(flights).map((value) => value.callsign)).toEqual(["FIRST-A", "FIRST-B", "THIRD", "MISSING"]);
   });
 
   it("keeps declared, discovered, and unassigned runway groups deterministic", () => {
@@ -76,10 +76,10 @@ describe("AMAN presentation model", () => {
       {...flight("none", null, 3), runway_group_id: null, slot: null},
     ];
 
-    expect(buildAMANLanes(state).map((lane) => [lane.id, lane.flights.map((value) => value.flight_id)])).toEqual([
-      ["NORTH", ["north"]],
-      ["SOUTH", ["south-1", "south-2"]],
-      ["unassigned", ["none"]],
+    expect(buildAMANLanes(state).map((lane) => [lane.id, lane.flights.map((value) => value.callsign)])).toEqual([
+      ["NORTH", ["NORTH"]],
+      ["SOUTH", ["SOUTH-1", "SOUTH-2"]],
+      ["unassigned", ["NONE"]],
     ]);
   });
 
@@ -124,7 +124,7 @@ describe("AMAN presentation model", () => {
 
     const markers = layoutTimelineMarkers([earlierSecond, clipped, laterFirst], range);
 
-    expect(markers.map((marker) => marker.flight.flight_id)).toEqual(["first", "second"]);
+    expect(markers.map((marker) => marker.flight.callsign)).toEqual(["FIRST", "SECOND"]);
     expect(markers.map((marker) => marker.timestamp)).toEqual([laterFirst.slot!.time, earlierSecond.slot!.time]);
   });
 
@@ -139,6 +139,6 @@ describe("AMAN presentation model", () => {
     const lanes = buildAMANLanes(state);
     expect(lanes).toHaveLength(2);
     expect(lanes.flatMap((lane) => lane.flights)).toHaveLength(200);
-    expect(new Set(lanes.flatMap((lane) => lane.flights.map((value) => value.flight_id))).size).toBe(200);
+    expect(new Set(lanes.flatMap((lane) => lane.flights.map((value) => value.callsign))).size).toBe(200);
   });
 });

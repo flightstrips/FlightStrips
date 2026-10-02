@@ -135,6 +135,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, fmt.Errorf("initialize AMAN runtime: %w", err)
 	}
 	amanEnabled := cfg.AMAN.Mode != "" && cfg.AMAN.Mode != aman.ModeDisabled
+	amanNeedsVATSIM := amanEnabled && cfg.AMAN.SourceMode.UsesVATSIM()
 	amanOwnership := aman.OwnershipForRolloutGate(cfg.AMAN.Mode, true)
 	if amanOwnership.ControllerMutationAuthorized && deps.AMAN.ObservationSink != nil {
 		if _, ok := deps.AMAN.SequenceService.(aman.CommandService); !ok {
@@ -199,7 +200,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(cfg.CDMKey))
 
 	requireLiveCIDVerification := isLiveEnvironment(cfg.Environment)
-	vatsimGraph := assembleVATSIMSource(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready || amanEnabled)
+	vatsimGraph := assembleVATSIMSource(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready || amanNeedsVATSIM)
 
 	var fsServer *server.Server
 	transports := assembleTransports(cfg, deps, func(ctx context.Context) error {
@@ -237,10 +238,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}
 		return nil, fmt.Errorf("initialize AMAN runtime: %w", err)
 	}
-	if amanRuntime.Enabled() {
-		identityRepository := postgres.NewAMANRepository(dbpool)
+	if amanRuntime.Enabled() && cfg.AMAN.SourceMode.UsesEuroScope() {
 		euroScopeObserver, observerErr := operational.NewEuroScopePositionObserver(operational.EuroScopePositionObserverDependencies{
-			Sink: amanDependencies.ObservationSink, Identities: identityRepository, EnabledAirports: cfg.AMAN.EnabledAirports, Now: satNow,
+			Sink: amanDependencies.ObservationSink, EnabledAirports: cfg.AMAN.EnabledAirports, Now: satNow,
 		})
 		if observerErr != nil {
 			if closeDB {
@@ -249,9 +249,16 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			return nil, fmt.Errorf("initialize AMAN EuroScope surveillance: %w", observerErr)
 		}
 		stripService.SetArrivalPositionObserver(euroScopeObserver)
+		stripObserver, stripObserverErr := operational.NewEuroScopeStripObserver(operational.EuroScopeStripObserverDependencies{
+			Sink: amanDependencies.ObservationSink, EnabledAirports: cfg.AMAN.EnabledAirports, Now: satNow,
+		})
+		if stripObserverErr != nil {
+			return nil, fmt.Errorf("initialize AMAN EuroScope strips: %w", stripObserverErr)
+		}
+		stripService.SetEuroScopeAMANStripObserver(stripObserver)
 		if amanDependencies.HoldingClearanceSink != nil {
 			holdingObserver, holdingErr := operational.NewEuroScopeHoldingClearanceObserver(operational.EuroScopeHoldingClearanceObserverDependencies{
-				Sink: amanDependencies.HoldingClearanceSink, Identities: identityRepository, Now: satNow,
+				Sink: amanDependencies.HoldingClearanceSink, EnabledAirports: cfg.AMAN.EnabledAirports, Now: satNow,
 			})
 			if holdingErr != nil {
 				return nil, fmt.Errorf("initialize AMAN EuroScope holding clearances: %w", holdingErr)
@@ -384,7 +391,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		euroscopeHub.SetAircraftDisconnectRetainer(vatsimReconciler.RetainsStrip)
 	}
 	var amanObservationWorker *vatsim.ObservationWorker
-	if amanRuntime.Enabled() {
+	if amanRuntime.Enabled() && cfg.AMAN.SourceMode.UsesVATSIM() {
 		if vatsimGraph.source == nil {
 			if closeDB {
 				dbpool.Close()
@@ -392,8 +399,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			return nil, errors.New("initialize AMAN VATSIM observations: VATSIM source is unavailable")
 		}
 		amanObservationWorker, err = vatsim.NewObservationWorker(vatsim.ObservationWorkerDependencies{
-			Cache: vatsimGraph.source, Identities: postgres.NewAMANRepository(dbpool), Sink: amanDependencies.ObservationSink,
+			Cache: vatsimGraph.source, Sessions: sessionRepo, Sink: amanDependencies.ObservationSink,
 			EnabledAirports: cfg.AMAN.EnabledAirports, StaleAfter: satStaleAfter(deps.VATSIMPollInterval), Now: satNow,
+			OfflineReplay: cfg.EnableTestTools,
 		})
 		if err != nil {
 			if closeDB {
@@ -589,7 +597,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		app.addWorker(pdcService.Start)
 	}
 	if cfg.EnableVATSIM && vatsimGraph.cache != nil {
-		app.addWorker(vatsimGraph.cache.Start)
+		app.addWorker(func(ctx context.Context) { vatsimGraph.cache.StartForLiveSessions(ctx, sessionRepo) })
 	}
 	if vatsimReconciler != nil && !cfg.EnableTestTools {
 		app.addWorker(vatsimReconciler.Start)
@@ -1162,11 +1170,11 @@ func healthz(amanRuntime *aman.Runtime, readiness appconfig.StandAssignmentReadi
 
 func evaluateAMANHealth(runtime *aman.Runtime, cache vatsim.SnapshotSource, staleAfter time.Duration, now func() time.Time) aman.TechnicalHealth {
 	report := runtime.Health(context.Background())
-	if !report.Enabled {
+	if !report.Enabled || runtime.Config().SourceMode != aman.ObservationSourceVATSIM {
 		return report
 	}
-	report.VATSIM = amanVATSIMHealth(cache, staleAfter, now)
-	return aman.EvaluateTechnicalHealth(report.Mode, report.VATSIM, report.Navigation, report.Weather, report.Repository, report.Predictor, report.ReplayValidation)
+	source := amanVATSIMHealth(cache, staleAfter, now)
+	return aman.EvaluateTechnicalHealth(report.Mode, source, report.Navigation, report.Weather, report.Repository, report.Predictor, report.ReplayValidation)
 }
 
 func amanVATSIMHealth(cache vatsim.SnapshotSource, staleAfter time.Duration, now func() time.Time) aman.ComponentHealth {
@@ -1230,9 +1238,7 @@ func satStaleAfter(poll time.Duration) time.Duration {
 }
 
 func (cfg Config) withDefaults() Config {
-	if cfg.AMAN.Mode == "" {
-		cfg.AMAN.Mode = aman.ModeDisabled
-	}
+	cfg.AMAN = cfg.AMAN.Normalize()
 	if cfg.OIDCAudience == "" {
 		cfg.OIDCAudience = "backend-dev"
 	}

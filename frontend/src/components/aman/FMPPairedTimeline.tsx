@@ -52,8 +52,8 @@ function FeederSide({
             data-family={family}
             data-marker-time={marker.timestamp}
             data-track={marker.track}
-            data-testid={`operational-marker-${marker.flight.flight_id}`}
-            key={marker.flight.flight_id}
+            data-testid={`operational-marker-${marker.flight.callsign}`}
+            key={marker.flight.callsign}
             role="listitem"
             style={{left: rulerEdge, top: `calc(${top}% + ${offset}px)`}}
           >

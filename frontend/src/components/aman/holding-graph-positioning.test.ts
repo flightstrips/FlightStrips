@@ -10,10 +10,9 @@ import {
 
 const now = new Date("2026-09-11T23:58:00.000Z");
 
-function entry(flightID: string, eat: string | null, altitude: number | null): AMANHoldingEntry {
+function entry(callsign: string, eat: string | null, altitude: number | null): AMANHoldingEntry {
   return {
-    flight_id: flightID,
-    callsign: flightID.toUpperCase(),
+    callsign: callsign.toUpperCase(),
     holding: "OLPIB",
     eat,
     cleared_altitude: altitude,

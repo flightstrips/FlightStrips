@@ -417,7 +417,7 @@ func lifecycleTime() time.Time {
 
 func lifecycleFlight(now time.Time, state aman.FlightState) aman.AMANFlight {
 	return aman.AMANFlight{
-		ID: "flight-1", VATSIMCID: "1234567", CurrentCallsign: "SAS123", State: state,
+		Callsign: "SAS123", State: state,
 		DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now,
 	}
 }

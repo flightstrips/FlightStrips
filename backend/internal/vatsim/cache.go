@@ -216,6 +216,40 @@ func (c *Cache) Start(ctx context.Context) {
 	}
 }
 
+// StartForLiveSessions polls the public feed only while at least one LIVE
+// EuroScope session exists. Sweatbox and Playback must remain completely
+// independent of public VATSIM network data.
+func (c *Cache) StartForLiveSessions(ctx context.Context, sessions reconciliationSessionStore) {
+	_ = c.refreshForLiveSessions(ctx, sessions)
+
+	ticker := time.NewTicker(c.refreshInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = c.refreshForLiveSessions(ctx, sessions)
+		}
+	}
+}
+
+func (c *Cache) refreshForLiveSessions(ctx context.Context, sessions reconciliationSessionStore) error {
+	if sessions == nil {
+		return nil
+	}
+	items, err := sessions.List(ctx)
+	if err != nil {
+		return fmt.Errorf("list sessions before VATSIM refresh: %w", err)
+	}
+	for _, session := range items {
+		if isLiveSession(session) {
+			return c.refresh(ctx)
+		}
+	}
+	return nil
+}
+
 // Snapshot returns the current data and refresh health without initiating I/O.
 func (c *Cache) Snapshot() Snapshot {
 	c.mu.RLock()

@@ -19,13 +19,13 @@ func TestAMANGainLossGoldenFixture(t *testing.T) {
 		Airport: "EKCH", Revision: 42, GeneratedAt: now, PolicyVersion: "test", Mode: aman.ModeAuthoritative,
 		Authoritative: true,
 		Flights: []aman.AMANFlight{
-			{ID: "flight-1", VATSIMCID: "1", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, Slot: &slot,
+			{Callsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, Slot: &slot,
 				SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix, SelectedHolding: &holdingFix,
 				TMAEntry:   &aman.TMAEntryState{LastContainment: aman.TMAInside, LastObservedAt: now},
 				FeederETA:  &aman.FeederETAState{ETA: &feederETA, Source: aman.FeederETASourceHolding},
 				Prediction: &aman.Prediction{RawTETA: slot.Time.Add(90 * time.Second), OperationalTETA: slot.Time.Add(90 * time.Second), Publishable: true, Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}}}},
-			{ID: "flight-2", VATSIMCID: "2", CurrentCallsign: "DAT456", State: aman.StateUnstable, DataStatus: aman.DataStale, FreezeReason: aman.FreezeNone},
-			{ID: "flight-3", VATSIMCID: "3", CurrentCallsign: "SAS789", State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone,
+			{Callsign: "DAT456", State: aman.StateUnstable, DataStatus: aman.DataStale, FreezeReason: aman.FreezeNone},
+			{Callsign: "SAS789", State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone,
 				SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix,
 				FeederETA: &aman.FeederETAState{Source: aman.FeederETASourcePassed, Passed: true}},
 		},
@@ -50,7 +50,7 @@ func TestAMANGainLossGoldenFixture(t *testing.T) {
 	require.EqualValues(t, 42, decoded.Revision)
 	require.True(t, decoded.Authoritative)
 	require.Len(t, decoded.Values, 3)
-	require.Equal(t, "flight-1", decoded.Values[0].FlightId)
+	require.Empty(t, decoded.Values[0].FlightId, "the legacy wire field is no longer populated")
 	require.Equal(t, "TESPI", decoded.Values[0].GetStarFamily())
 	require.Equal(t, "TNO", decoded.Values[0].GetFeederFix())
 	require.Equal(t, "ROSBI", decoded.Values[0].GetHoldingFix())
@@ -86,7 +86,7 @@ func TestAMANGainLossUsesLiveRawTETAWhenOperationalTETAIsFrozen(t *testing.T) {
 	state := aman.AirportState{
 		Airport: "EKCH", GeneratedAt: now,
 		Flights: []aman.AMANFlight{{
-			ID: "flight-1", CurrentCallsign: "SAS123", DataStatus: aman.DataFresh, Slot: &slot,
+			Callsign: "SAS123", DataStatus: aman.DataFresh, Slot: &slot,
 			FreezeReason: aman.FreezeSuperstable,
 			Prediction: &aman.Prediction{
 				RawTETA: slot.Time.Add(20 * time.Second), OperationalTETA: slot.Time.Add(-9 * time.Minute), Publishable: true,
@@ -104,7 +104,7 @@ func TestAMANGainLossUsesLiveRawTETAWhenOperationalTETAIsFrozen(t *testing.T) {
 func TestAMANGainLossExcludesRemovedIdentitiesFromReplacement(t *testing.T) {
 	now := time.Date(2026, time.September, 14, 18, 0, 0, 0, time.UTC)
 	live := aman.AMANFlight{
-		ID: "live", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh,
+		Callsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh,
 		Slot: &aman.Slot{Time: now.Add(10 * time.Minute)},
 		Prediction: &aman.Prediction{
 			RawTETA: now.Add(11 * time.Minute), OperationalTETA: now.Add(11 * time.Minute), Publishable: true,
@@ -112,7 +112,7 @@ func TestAMANGainLossExcludesRemovedIdentitiesFromReplacement(t *testing.T) {
 		},
 	}
 	removed := live
-	removed.ID, removed.State, removed.Slot = "retired", aman.StateRemoved, nil
+	removed.State, removed.Slot = aman.StateRemoved, nil
 	for _, flights := range [][]aman.AMANFlight{{removed, live}, {live, removed}, {removed}} {
 		event, err := euroscope.NewAMANGainLossEvent(aman.AirportState{
 			Airport: "EKCH", Revision: 42, GeneratedAt: now, Flights: flights,
@@ -131,24 +131,24 @@ func TestAMANGainLossExcludesRemovedIdentitiesFromReplacement(t *testing.T) {
 		// EuroScope rejects the entire replacement on duplicate callsigns,
 		// even when the retired identity has no gain/loss value.
 		require.Len(t, decoded.Values, 1)
-		require.Equal(t, "live", decoded.Values[0].FlightId)
+		require.Empty(t, decoded.Values[0].FlightId)
 		require.EqualValues(t, 60, decoded.Values[0].GetGainLossSeconds())
 	}
 }
 
 func TestAMANGainLossPublishesOneCurrentRowPerNormalizedCallsign(t *testing.T) {
 	now := time.Date(2026, time.September, 14, 18, 0, 0, 0, time.UTC)
-	old := aman.AMANFlight{ID: "old", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, UpdatedAt: now.Add(-time.Minute)}
+	old := aman.AMANFlight{Callsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, UpdatedAt: now.Add(-time.Minute)}
 	current := old
-	current.ID, current.CurrentCallsign, current.UpdatedAt = "current", " sas123 ", now
+	current.Callsign, current.UpdatedAt = " sas123 ", now
 	other := old
-	other.ID, other.CurrentCallsign = "other", "DAT456"
+	other.Callsign = "DAT456"
 	for _, flights := range [][]aman.AMANFlight{{old, current, other}, {current, old, other}} {
 		event, err := euroscope.NewAMANGainLossEvent(aman.AirportState{Airport: "EKCH", GeneratedAt: now, Flights: flights})
 		require.NoError(t, err)
 		require.Len(t, event.Values, 2)
 		require.Equal(t, "SAS123", event.Values[0].Callsign)
-		require.Equal(t, "current", event.Values[0].FlightId)
+		require.Empty(t, event.Values[0].FlightId)
 		require.Equal(t, "DAT456", event.Values[1].Callsign)
 	}
 }

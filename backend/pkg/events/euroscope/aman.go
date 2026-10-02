@@ -16,32 +16,31 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 		Version: 1, Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
 		Authoritative: true, Values: make([]*AMANGainLossValue, 0, len(state.Flights)),
 	}
-	// Existing state may still contain duplicate active rows during migration.
-	// Publish only the most recently updated flight per network callsign, with
-	// a stable identity tie-breaker so slice order cannot change the result.
-	selected := make(map[string]int, len(state.Flights))
-	for index, flight := range state.Flights {
+	// Callsign is the AMAN identity. Keep one active projection per normalized
+	// callsign so an in-memory transition cannot make EuroScope reject the
+	// complete replacement as a duplicate.
+	active := make(map[string]aman.AMANFlight, len(state.Flights))
+	order := make([]string, 0, len(state.Flights))
+	for _, flight := range state.Flights {
+		// Commit results retain removed flights for lifecycle processing even
+		// though the repository excludes them from subsequent reads.
+		callsign := strings.ToUpper(strings.TrimSpace(flight.Callsign))
 		if flight.State == aman.StateRemoved {
 			continue
 		}
-		callsign := strings.ToUpper(strings.TrimSpace(flight.CurrentCallsign))
-		previous, exists := selected[callsign]
-		if !exists || flight.UpdatedAt.After(state.Flights[previous].UpdatedAt) ||
-			(flight.UpdatedAt.Equal(state.Flights[previous].UpdatedAt) && flight.ID > state.Flights[previous].ID) {
-			selected[callsign] = index
+		current, exists := active[callsign]
+		if !exists {
+			order = append(order, callsign)
+		}
+		if !exists || flight.UpdatedAt.After(current.UpdatedAt) {
+			flight.Callsign = callsign
+			active[callsign] = flight
 		}
 	}
-	for index, flight := range state.Flights {
-		// Commit results retain removed flights for lifecycle processing even
-		// though the repository excludes them from subsequent reads. Match that
-		// active projection: a retired callsign can belong to a new identity,
-		// and older EuroScope plugins reject duplicate callsigns outright.
-		callsign := strings.ToUpper(strings.TrimSpace(flight.CurrentCallsign))
-		if flight.State == aman.StateRemoved || selected[callsign] != index {
-			continue
-		}
+	for _, callsign := range order {
+		flight := active[callsign]
 		value := &AMANGainLossValue{
-			FlightId: string(flight.ID), Callsign: callsign, DataStatus: string(flight.DataStatus),
+			Callsign: callsign, DataStatus: string(flight.DataStatus),
 			StarFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		}
 		if flight.TMAEntry != nil {
@@ -52,7 +51,7 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			if flight.FeederETA.ETA != nil {
 				feederETA, formatErr := aman.FormatTime(*flight.FeederETA.ETA)
 				if formatErr != nil {
-					return AMANGainLossEvent{}, fmt.Errorf("map AMAN feeder ETA flight %q: %w", flight.ID, formatErr)
+					return AMANGainLossEvent{}, fmt.Errorf("map AMAN feeder ETA flight %q: %w", flight.Callsign, formatErr)
 				}
 				value.FeederFixEta = &feederETA
 			}
@@ -62,22 +61,22 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 		if flight.Prediction != nil && flight.Prediction.Publishable && flight.Slot != nil && flight.Prediction.Calculation != nil && len(flight.Prediction.Calculation.Legs) > 0 {
 			referencePoint := strings.TrimSpace(flight.Prediction.Calculation.Legs[len(flight.Prediction.Calculation.Legs)-1].To)
 			if referencePoint == "" {
-				return AMANGainLossEvent{}, fmt.Errorf("map AMAN gain/loss flight %q: terminal reference point is empty", flight.ID)
+				return AMANGainLossEvent{}, fmt.Errorf("map AMAN gain/loss flight %q: terminal reference point is empty", flight.Callsign)
 			}
 			// Gain/loss is live guidance against the committed target. The
 			// operational TETA may be frozen for sequencing, while RawTETA keeps
 			// following the aircraft's current physical trajectory.
 			seconds, secondsErr := aman.WholeSeconds(flight.Prediction.RawTETA.Sub(flight.Slot.Time).Round(time.Second))
 			if secondsErr != nil {
-				return AMANGainLossEvent{}, fmt.Errorf("map AMAN gain/loss flight %q: %w", flight.ID, secondsErr)
+				return AMANGainLossEvent{}, fmt.Errorf("map AMAN gain/loss flight %q: %w", flight.Callsign, secondsErr)
 			}
 			targetTime, targetErr := aman.FormatTime(flight.Slot.Time)
 			if targetErr != nil {
-				return AMANGainLossEvent{}, fmt.Errorf("map AMAN target time flight %q: %w", flight.ID, targetErr)
+				return AMANGainLossEvent{}, fmt.Errorf("map AMAN target time flight %q: %w", flight.Callsign, targetErr)
 			}
 			predictedTime, predictedErr := aman.FormatTime(flight.Prediction.RawTETA)
 			if predictedErr != nil {
-				return AMANGainLossEvent{}, fmt.Errorf("map AMAN predicted time flight %q: %w", flight.ID, predictedErr)
+				return AMANGainLossEvent{}, fmt.Errorf("map AMAN predicted time flight %q: %w", flight.Callsign, predictedErr)
 			}
 			value.GainLossSeconds = &seconds
 			value.ReferencePoint = &referencePoint

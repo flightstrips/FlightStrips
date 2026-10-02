@@ -46,10 +46,10 @@ func TestRunwayClosureCommandsNormalizeRetryAcrossRestartAndRemove(t *testing.T)
 	}
 	require.Len(t, repository.commits, 1)
 
-	anchorID := anchor.ID
+	anchorID := anchor.Callsign
 	after := aman.CreateRunwayClosureCommand{
 		Metadata: aman.CommandMetadata{CommandID: "closure-after", ExpectedRevision: 8},
-		Interval: aman.RunwayClosureIntervalInput{RunwayGroupID: group, AfterFlightID: &anchorID}, Reason: "works",
+		Interval: aman.RunwayClosureIntervalInput{RunwayGroupID: group, AfterCallsign: &anchorID}, Reason: "works",
 	}
 	afterCreated, err := actions.CreateRunwayClosure(ctx, auth, after)
 	require.NoError(t, err)
@@ -59,7 +59,7 @@ func TestRunwayClosureCommandsNormalizeRetryAcrossRestartAndRemove(t *testing.T)
 	var afterAudit map[string]any
 	require.NoError(t, json.Unmarshal(repository.commits[1].AuditRecords[0].Payload, &afterAudit))
 	require.Equal(t, "after_aircraft", afterAudit["input_provenance"].(map[string]any)["kind"])
-	require.Equal(t, "ANCHOR", afterAudit["input_provenance"].(map[string]any)["anchor_flight_id"])
+	require.Equal(t, "ANCHOR", afterAudit["input_provenance"].(map[string]any)["anchor_callsign"])
 
 	_, err = actions.RemoveRunwayClosure(ctx, auth, aman.RemoveRunwayClosureCommand{
 		Metadata: aman.CommandMetadata{CommandID: "stale-remove", ExpectedRevision: 8}, RunwayGroupID: group,

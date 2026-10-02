@@ -2,14 +2,15 @@ package frontend
 
 // Action type constants — messages sent from the frontend to the backend.
 const (
-	ActionCreateManualFPL      EventType = "create_manual_fpl"
-	ActionCreateVFRFPL         EventType = "create_vfr_fpl"
-	ActionCreateTacticalStrip  EventType = "create_tactical_strip"
-	ActionDeleteTacticalStrip  EventType = "delete_tactical_strip"
-	ActionConfirmTacticalStrip EventType = "confirm_tactical_strip"
+	ActionCreateManualFPL          EventType = "create_manual_fpl"
+	ActionCreateVFRFPL             EventType = "create_vfr_fpl"
+	ActionCreateTacticalStrip      EventType = "create_tactical_strip"
+	ActionDeleteTacticalStrip      EventType = "delete_tactical_strip"
+	ActionConfirmTacticalStrip     EventType = "confirm_tactical_strip"
 	ActionForceAssumeTacticalStrip EventType = "force_assume_tactical_strip"
-	ActionMarkTacticalStrip    EventType = "mark_tactical_strip"
-	ActionMoveTacticalStrip    EventType = "move_tactical_strip"
+	ActionMarkTacticalStrip        EventType = "mark_tactical_strip"
+	ActionStartTacticalTimer       EventType = "start_tactical_timer"
+	ActionMoveTacticalStrip        EventType = "move_tactical_strip"
 )
 
 // ---------- Manual FPL action payloads ----------
@@ -70,6 +71,11 @@ type MarkTacticalStripAction struct {
 	Type   EventType `json:"type"`
 	ID     int64     `json:"id"`
 	Marked bool      `json:"marked"`
+}
+
+type StartTacticalTimerAction struct {
+	Type EventType `json:"type"`
+	ID   int64     `json:"id"`
 }
 
 // MoveTacticalStripAction moves a tactical strip within or between bays.

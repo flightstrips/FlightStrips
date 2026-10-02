@@ -32,7 +32,7 @@ func TestRequestValidationRejectsIncompleteOrMismatchedAggregates(t *testing.T) 
 	valid := routeRequest(t, "command-1", testTime)
 	tests := map[string]func(*Request){
 		"derived identity": func(r *Request) { r.ID = "request-elsewhere" },
-		"flight identity":  func(r *Request) { r.FlightID = "" },
+		"flight identity":  func(r *Request) { r.Callsign = "" },
 		"recipient owner":  func(r *Request) { r.RecipientController = " EKCH_APP" },
 		"UTC timestamps":   func(r *Request) { r.CreatedAt = testTime.In(time.FixedZone("CET", 3600)) },
 		"matching payload": func(r *Request) { r.Payload.Speed = &SpeedPayload{Requested: "220 KT"} },
@@ -91,7 +91,7 @@ func TestRequestJSONIgnoresAdditiveFields(t *testing.T) {
 	var request Request
 	err := json.Unmarshal([]byte(`{
         "id":"coordination-request/command-1","command_id":"command-1","airport":"EKCH",
-        "flight_id":"flight-1","recipient_controller":"EKCH_APP","submitted_by":"1234567","submitted_role":"EKDK_FMP","kind":"route_direct","state":"pending",
+        "callsign":"flight-1","recipient_controller":"EKCH_APP","submitted_by":"1234567","submitted_role":"EKDK_FMP","kind":"route_direct","state":"pending",
         "payload":{"route_direct":{"direct_to":"MONAK","future_detail":"kept-by-new-writers"},"future_payload":true},
         "created_at":"2026-09-12T10:00:00Z","updated_at":"2026-09-12T10:00:00Z","future_top_level":42}`), &request)
 	require.NoError(t, err)

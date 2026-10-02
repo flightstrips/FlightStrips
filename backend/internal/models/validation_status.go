@@ -12,6 +12,7 @@ type ValidationStatus struct {
 	OwningPosition string            `json:"owning_position"`
 	Active         bool              `json:"active"`
 	ActivationKey  string            `json:"activation_key"`
+	ContextKey     string            `json:"context_key,omitempty"`
 	CustomAction   *ValidationAction `json:"custom_action,omitempty"`
 }
 

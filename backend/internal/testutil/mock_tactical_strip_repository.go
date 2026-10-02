@@ -13,6 +13,7 @@ type MockTacticalStripRepository struct {
 	ConfirmFn                func(ctx context.Context, id int64, sessionID int32, confirmedBy string) (*models.TacticalStrip, error)
 	ForceAssumeFn            func(ctx context.Context, id int64, sessionID int32, owner string) (*models.TacticalStrip, error)
 	UpdateMarkedFn           func(ctx context.Context, id int64, sessionID int32, marked bool) (*models.TacticalStrip, error)
+	StartTimerFn             func(ctx context.Context, id int64, sessionID int32, owner string) (*models.TacticalStrip, error)
 	UpdateBayAndSequenceFn   func(ctx context.Context, id int64, sessionID int32, bay string, sequence int32) (*models.TacticalStrip, error)
 	UpdateSequenceFn         func(ctx context.Context, id int64, sessionID int32, sequence int32) (*models.TacticalStrip, error)
 	GetSequenceByIDFn        func(ctx context.Context, id int64, sessionID int32) (int32, error)
@@ -69,6 +70,13 @@ func (m *MockTacticalStripRepository) UpdateMarked(ctx context.Context, id int64
 		panic("unexpected call to MockTacticalStripRepository.UpdateMarked")
 	}
 	return m.UpdateMarkedFn(ctx, id, sessionID, marked)
+}
+
+func (m *MockTacticalStripRepository) StartTimer(ctx context.Context, id int64, sessionID int32, owner string) (*models.TacticalStrip, error) {
+	if m.StartTimerFn == nil {
+		panic("unexpected call to MockTacticalStripRepository.StartTimer")
+	}
+	return m.StartTimerFn(ctx, id, sessionID, owner)
 }
 
 func (m *MockTacticalStripRepository) UpdateBayAndSequence(ctx context.Context, id int64, sessionID int32, bay string, sequence int32) (*models.TacticalStrip, error) {

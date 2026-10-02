@@ -40,7 +40,7 @@ func TestGoAroundDetectorConfirmsClimbOnceAndTransitionsThroughLifecycle(t *test
 
 	require.NotNil(t, confirmed)
 	require.Equal(t, lifecycle.GoAroundReasonClimb, confirmed.Reason)
-	require.Equal(t, "flight-1/go-around/1", confirmed.EpisodeID)
+	require.Equal(t, "SAS123/go-around/1", confirmed.EpisodeID)
 	require.Equal(t, confirmed.EpisodeID+"/confirmed", confirmed.ID)
 	require.Equal(t, []time.Time{base.Add(3 * time.Second), base.Add(4 * time.Second)}, confirmed.SupportingObservationTimes)
 	require.Equal(t, uint64(1), state.LastEmittedEpisode)
@@ -77,7 +77,7 @@ func TestGoAroundDetectorAcceptsAnAuthorizedControllerMarkWithoutSurveillance(t 
 	require.NoError(t, err)
 	require.NotNil(t, result.Confirmed)
 	require.Equal(t, lifecycle.GoAroundReasonController, result.Confirmed.Reason)
-	require.Equal(t, "flight-1/go-around/controller/command-1/confirmed", result.Confirmed.ID)
+	require.Equal(t, "SAS123/go-around/controller/command-1/confirmed", result.Confirmed.ID)
 	require.Equal(t, "1345678", *result.Confirmed.ControllerActor)
 	require.Empty(t, result.Confirmed.SupportingObservationTimes)
 	require.NoError(t, result.State.Validate())
@@ -255,7 +255,7 @@ func TestGoAroundDetectorRestartAtEveryObservationIsEquivalent(t *testing.T) {
 		state = result.State
 	}
 	wantState := state
-	wantEventID := "flight-1/go-around/1/confirmed"
+	wantEventID := "SAS123/go-around/1/confirmed"
 
 	for checkpoint := range inputs {
 		checkpointState := aman.GoAroundDetectionState{}
@@ -354,14 +354,14 @@ func newDetector(t *testing.T, config lifecycle.GoAroundConfig) lifecycle.GoArou
 
 func detectorInput(state aman.GoAroundDetectionState, current aman.FlightObservation, now time.Time) lifecycle.GoAroundInput {
 	return lifecycle.GoAroundInput{
-		FlightID: "flight-1", Observation: current, Corridor: finalCorridor(), Previous: state,
+		Callsign: "SAS123", Observation: current, Corridor: finalCorridor(), Previous: state,
 		PolicyVersion: "go-around-v1", Now: now, InScope: true,
 	}
 }
 
 func observation(sequence uint64, at time.Time, latitude, longitude float64, altitude int, groundspeed float64, track *float64) aman.FlightObservation {
 	return aman.FlightObservation{
-		FlightID: "flight-1", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
+		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
 		ReconciledAt: at, SourceStatus: aman.DataFresh,
 		Surveillance: &aman.SurveillanceFact{
 			LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitude,

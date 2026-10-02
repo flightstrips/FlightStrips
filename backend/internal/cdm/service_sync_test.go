@@ -67,7 +67,7 @@ func TestSyncCdmData_AcceptsAndClearsRequestedTobt(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/ifps/dpi":
 			value := r.URL.Query().Get("value")
-			if strings.HasPrefix(value, "TOBT/") {
+			if strings.HasPrefix(value, "OBT/") {
 				calls = append(calls, "push")
 			} else {
 				calls = append(calls, "clear")
@@ -1192,7 +1192,7 @@ func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testi
 
 	select {
 	case q := <-setCdmCh:
-		if q.Get("callsign") != callsign || q.Get("tobt") != times.TobtSeconds || q.Get("tsat") != times.Tsat || q.Get("ttot") != times.Ttot || q.Get("depInfo") != "22R" {
+		if q.Get("callsign") != callsign || q.Get("tobt") != times.TobtSeconds || q.Get("tsat") != times.Tsat || q.Get("ttot") != times.Ttot || q.Get("depInfo") != "22R/" {
 			t.Fatalf("unexpected setCdmData payload: %v", q)
 		}
 	case <-time.After(time.Second):

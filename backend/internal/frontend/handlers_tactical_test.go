@@ -8,6 +8,7 @@ import (
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -123,6 +124,49 @@ func TestHandleConfirmTacticalStrip_OwnerRejectedBeforeMutation(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "owner cannot confirm")
 	assert.False(t, confirmCalled)
+}
+
+func TestHandleStartTacticalTimer(t *testing.T) {
+	startedAt := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name      string
+		kind      string
+		owner     string
+		startedAt *time.Time
+		wantError string
+	}{
+		{name: "start", kind: models.TacticalStripTypeStart, owner: "EKCH_TWR"},
+		{name: "land", kind: models.TacticalStripTypeLand, owner: "EKCH_TWR"},
+		{name: "memory aid", kind: models.TacticalStripTypeMemaid, owner: "EKCH_TWR", wantError: "only valid for START and LAND"},
+		{name: "other owner", kind: models.TacticalStripTypeLand, owner: "EKCH_GND", wantError: "only the tactical strip owner"},
+		{name: "already started", kind: models.TacticalStripTypeStart, owner: "EKCH_TWR", startedAt: &startedAt, wantError: "already started"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			hub := buildTacticalRepoHub(&testutil.MockTacticalStripRepository{
+				GetByIDFn: func(_ context.Context, id int64, session int32) (*models.TacticalStrip, error) {
+					assert.Equal(t, int64(42), id)
+					assert.Equal(t, int32(1), session)
+					return &models.TacticalStrip{ID: id, SessionID: session, Type: tc.kind, Owner: tc.owner, TimerStart: tc.startedAt}, nil
+				},
+				StartTimerFn: func(_ context.Context, id int64, session int32, owner string) (*models.TacticalStrip, error) {
+					calls++
+					assert.Equal(t, "EKCH_TWR", owner)
+					return &models.TacticalStrip{ID: id, SessionID: session, Type: tc.kind, Owner: owner, TimerStart: &startedAt}, nil
+				},
+			})
+			client := buildFrontendTestClient(hub, 1, "EKCH")
+			client.position = "EKCH_TWR"
+			err := handleStartTacticalTimer(context.Background(), client, marshalMessage(t, frontend.StartTacticalTimerAction{ID: 42}))
+			if tc.wantError != "" {
+				require.ErrorContains(t, err, tc.wantError)
+				assert.Zero(t, calls)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, 1, calls)
+		})
+	}
 }
 
 func TestHandleCreateTacticalStrip_RunwayRules(t *testing.T) {

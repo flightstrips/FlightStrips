@@ -19,7 +19,7 @@ func (r *factIdentityRepository) LoadAirportState(ctx context.Context, airport s
 	r.loads++
 	return r.memoryRepository.LoadAirportState(ctx, airport)
 }
-func (r *factIdentityRepository) FindActiveFactFlight(context.Context, string, string) (aman.FlightID, error) {
+func (r *factIdentityRepository) FindActiveFactFlight(context.Context, string, string) (aman.Callsign, error) {
 	if r.missing {
 		return "", &aman.DomainError{Class: aman.ErrorNotFound}
 	}
@@ -32,7 +32,7 @@ func TestRouteFactNarrowReadAvoidsAggregateForSpeedAndMissingFlight(t *testing.T
 	svc, err := New(Dependencies{Repository: repo, Strips: &stripReader{strip: &models.Strip{Session: 42, Callsign: "SAS123", TrackingController: "EKCH_A_APP"}}, Geometry: geometry(now), Publisher: &publisher{}, Reconciler: &reconciler{}, Correlator: correlator, Now: func() time.Time { return now }})
 	require.NoError(t, err)
 	require.NoError(t, svc.ReportSpeed(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", "220 KT", now))
-	require.EqualValues(t, "flight-1", correlator.fact.FlightID)
+	require.EqualValues(t, "flight-1", correlator.fact.Callsign)
 	require.Zero(t, repo.loads)
 	repo.missing = true
 	fix := "KEMAX"

@@ -135,5 +135,8 @@ func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int3
 func (s *StripService) DeleteStrip(ctx context.Context, session int32, callsign string) error {
 	err := s.lifecycleStore.Delete(ctx, session, callsign)
 	s.publisher.SendAircraftDisconnect(session, callsign)
-	return err
+	if err != nil {
+		return err
+	}
+	return s.RemoveEuroScopeAMANStrip(ctx, session, callsign)
 }

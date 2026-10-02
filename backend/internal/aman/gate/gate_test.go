@@ -60,7 +60,7 @@ func TestEvaluatorBlocksOperationalModesWithoutLegacyFallback(t *testing.T) {
 	reader := &evidenceReader{values: []aman.ValidationEvidence{validationEvidence(t, gateNow, gateNow, true, "EKCH")}}
 	evaluator := newEvaluator(t, reader)
 	technical := readyTechnical()
-	technical.VATSIM = aman.ComponentHealth{Status: aman.HealthDegraded, Reason: "snapshot_stale"}
+	technical.ObservationSource = aman.ComponentHealth{Status: aman.HealthDegraded, Reason: "snapshot_stale"}
 
 	for _, desired := range []aman.RolloutMode{aman.ModeReadOnly, aman.ModeAuthoritative} {
 		t.Run(string(desired), func(t *testing.T) {
@@ -69,13 +69,13 @@ func TestEvaluatorBlocksOperationalModesWithoutLegacyFallback(t *testing.T) {
 			require.False(t, decision.AuthorityAllowed)
 			require.False(t, decision.Ownership.LegacyArrivalETAWriter)
 			require.False(t, decision.Ownership.AMANArrivalETAWriter)
-			require.Contains(t, decision.BlockedReasons, "vatsim:snapshot_stale")
+			require.Contains(t, decision.BlockedReasons, "observation_source:snapshot_stale")
 
 			health := decision.Apply(technical)
 			require.Equal(t, desired, health.DesiredMode)
 			require.Equal(t, aman.EffectiveBlocked, health.EffectiveMode)
 			require.False(t, health.AuthorityAllowed)
-			require.Contains(t, health.BlockedReasons, "vatsim:snapshot_stale")
+			require.Contains(t, health.BlockedReasons, "observation_source:snapshot_stale")
 		})
 	}
 }

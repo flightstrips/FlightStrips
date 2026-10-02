@@ -7,7 +7,7 @@
   "authoritative": true,
   "values": [
     {
-      "flight_id": "flight-1",
+      "callsign": "flight-1",
       "callsign": "SAS123",
       "gain_loss_seconds": 90,
       "reference_point": "ILS-22L-RUNWAY",
@@ -16,7 +16,7 @@
       "data_status": "fresh"
     },
     {
-      "flight_id": "flight-2",
+      "callsign": "flight-2",
       "callsign": "DAT456",
       "gain_loss_seconds": null,
       "reference_point": null,

@@ -1,5 +1,32 @@
 # Changelog
 
+## [3.1.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.0.0...backend/v3.1.0) (2026-09-28)
+
+
+### Features
+
+* **aman:** disable same STAR spacing at EKCH ([#788](https://github.com/flightstrips/FlightStrips/issues/788)) ([2b21c29](https://github.com/flightstrips/FlightStrips/commit/2b21c299f3d60092c350fbb33cf0d10d3424c753))
+
+## [3.0.0](https://github.com/flightstrips/FlightStrips/compare/backend/v2.3.0...backend/v3.0.0) (2026-09-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **aman:** Existing persisted AMAN sessions are cleared because generated flight identities and CID-backed projections are no longer supported.
+
+### Features
+
+* **aman:** promote stable arrivals into available slots ([#777](https://github.com/flightstrips/FlightStrips/issues/777)) ([385e0f9](https://github.com/flightstrips/FlightStrips/commit/385e0f9bad6174589f362b03e9faca63f0c605c5))
+* **aman:** use callsigns for EuroScope-only operation ([#780](https://github.com/flightstrips/FlightStrips/issues/780)) ([3172fb0](https://github.com/flightstrips/FlightStrips/commit/3172fb090bf17e5c102de98760ef043087819df2))
+* **cdm:** apply issue 779 timing and vIFF updates ([#785](https://github.com/flightstrips/FlightStrips/issues/785)) ([f5af428](https://github.com/flightstrips/FlightStrips/commit/f5af428a5a5ddb8cf73e4d3739e9a434e055aca9))
+* **strip:** restore tactical runway timers and square SI cells ([#787](https://github.com/flightstrips/FlightStrips/issues/787)) ([1aa62e8](https://github.com/flightstrips/FlightStrips/commit/1aa62e8b2c77045836108a4c77473877227d5f9b))
+
+
+### Bug Fixes
+
+* **aman:** retain holding EATs across ownership changes ([#778](https://github.com/flightstrips/FlightStrips/issues/778)) ([bb3daaf](https://github.com/flightstrips/FlightStrips/commit/bb3daaf75b1524f08be0b881b7ea8715c835ab94))
+* **websocket:** batch positions without blocking strip operations ([#775](https://github.com/flightstrips/FlightStrips/issues/775)) ([1099c6b](https://github.com/flightstrips/FlightStrips/commit/1099c6bb4d108976d4b35a08abb62f0fde939cad))
+
 ## [2.3.0](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.12...backend/v2.3.0) (2026-09-21)
 
 

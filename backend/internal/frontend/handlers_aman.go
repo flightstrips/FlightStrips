@@ -73,7 +73,7 @@ func handleAMANSubmitCoordination(ctx context.Context, client *Client, message M
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("unknown coordination request kind")))
 	}
 	result, err := client.hub.amanCoordination.Submit(ctx, coordinationrequest.CommandContext{Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, coordinationrequest.SubmitCommand{
-		CommandID: wire.Data.CommandID, ExpectedRevision: wire.Data.ExpectedRevision, FlightID: coordinationrequest.FlightID(wire.Data.FlightID), Kind: coordinationrequest.Kind(wire.Data.Kind), Payload: payload,
+		CommandID: wire.Data.CommandID, ExpectedRevision: wire.Data.ExpectedRevision, Callsign: coordinationrequest.Callsign(wire.Data.Callsign), Kind: coordinationrequest.Kind(wire.Data.Kind), Payload: payload,
 	})
 	if err != nil {
 		return rejectAMAN(ctx, client, wire.Data.CommandID, aman.SequenceRevision(result.Revision), err)
@@ -157,8 +157,8 @@ func handleAMANCreateRunwayClosure(ctx context.Context, client *Client, message 
 	if err := decodeAMANMessage(message, events.AMANCreateRunwayClosureType, &wire); err != nil {
 		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
 	}
-	if (wire.Data.Start == nil) == (wire.Data.AfterFlightID == nil) {
-		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("closure requires exactly one start or after_flight_id")))
+	if (wire.Data.Start == nil) == (wire.Data.AfterCallsign == nil) {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("closure requires exactly one start or after_callsign")))
 	}
 	interval := aman.RunwayClosureIntervalInput{RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID)}
 	if wire.Data.Start != nil {
@@ -168,9 +168,9 @@ func handleAMANCreateRunwayClosure(ctx context.Context, client *Client, message 
 		}
 		interval.Start = &value
 	}
-	if wire.Data.AfterFlightID != nil {
-		value := aman.FlightID(*wire.Data.AfterFlightID)
-		interval.AfterFlightID = &value
+	if wire.Data.AfterCallsign != nil {
+		value := aman.Callsign(*wire.Data.AfterCallsign)
+		interval.AfterCallsign = &value
 	}
 	if wire.Data.End != nil {
 		value, err := parseAMANTime(*wire.Data.End)
@@ -201,7 +201,7 @@ func handleAMANCreateCapacityReservation(ctx context.Context, client *Client, me
 	if err := decodeAMANMessage(message, events.AMANCreateCapacityReservationType, &wire); err != nil {
 		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
 	}
-	command := aman.CreateCapacityReservationCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), AfterFlightID: aman.FlightID(wire.Data.AfterFlightID), Label: wire.Data.Label, Reason: wire.Data.Reason}
+	command := aman.CreateCapacityReservationCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), AfterCallsign: aman.Callsign(wire.Data.AfterCallsign), Label: wire.Data.Label, Reason: wire.Data.Reason}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.CreateCapacityReservation(ctx, auth, command)
 	})
@@ -230,7 +230,7 @@ func handleAMANPlaceFlightAtTime(ctx context.Context, client *Client, message Me
 	if err != nil {
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
 	}
-	command := aman.PlaceFlightAtTimeCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), SlotTime: slotTime, AllowGap: *wire.Data.AllowGap}
+	command := aman.PlaceFlightAtTimeCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), SlotTime: slotTime, AllowGap: *wire.Data.AllowGap}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.PlaceFlightAtTime(ctx, auth, command)
 	})
@@ -242,9 +242,9 @@ func handleAMANMoveFlight(ctx context.Context, client *Client, message Message) 
 		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
 	}
 	command := aman.MoveFlightCommand{
-		Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID),
+		Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign),
 		RunwayGroupID:  aman.RunwayGroupID(wire.Data.RunwayGroupID),
-		BeforeFlightID: flightIDPointer(wire.Data.BeforeFlightID), AfterFlightID: flightIDPointer(wire.Data.AfterFlightID),
+		BeforeCallsign: callsignPointer(wire.Data.BeforeCallsign), AfterCallsign: callsignPointer(wire.Data.AfterCallsign),
 	}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.MoveFlight(ctx, auth, command)
@@ -253,49 +253,49 @@ func handleAMANMoveFlight(ctx context.Context, client *Client, message Message) 
 
 func handleAMANLockFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANLockFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.LockFlight(ctx, auth, aman.LockFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.LockFlight(ctx, auth, aman.LockFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
 func handleAMANUnlockFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANUnlockFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.UnlockFlight(ctx, auth, aman.UnlockFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.UnlockFlight(ctx, auth, aman.UnlockFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
 func handleAMANDesequenceFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANDesequenceFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.DesequenceFlight(ctx, auth, aman.DesequenceFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.DesequenceFlight(ctx, auth, aman.DesequenceFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
 func handleAMANResumeFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANResumeFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.ResumeFlight(ctx, auth, aman.ResumeFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.ResumeFlight(ctx, auth, aman.ResumeFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
 func handleAMANRemoveFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANRemoveFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.RemoveFlight(ctx, auth, aman.RemoveFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.RemoveFlight(ctx, auth, aman.RemoveFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
 func handleAMANAcceptTETA(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANAcceptTETAType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.AcceptTETA(ctx, auth, aman.AcceptTETACommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.AcceptTETA(ctx, auth, aman.AcceptTETACommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
 func handleAMANKeepFPLETA(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANKeepFPLETAType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.KeepFPLETA(ctx, auth, aman.KeepFPLETACommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.KeepFPLETA(ctx, auth, aman.KeepFPLETACommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
 func handleAMANResetTETAOverride(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANResetTETAOverrideType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.ResetTETAOverride(ctx, auth, aman.ResetTETAOverrideCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.ResetTETAOverride(ctx, auth, aman.ResetTETAOverrideCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
@@ -358,7 +358,7 @@ func handleAMANSetManualETA(ctx context.Context, client *Client, message Message
 	if err != nil {
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
 	}
-	command := aman.SetManualETACommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID), ManualETA: manualETA}
+	command := aman.SetManualETACommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), ManualETA: manualETA}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.SetManualETA(ctx, auth, command)
 	})
@@ -373,7 +373,7 @@ func handleAMANSetManualFeederETA(ctx context.Context, client *Client, message M
 	if err != nil {
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
 	}
-	command := aman.SetManualFeederETACommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID), FeederETA: feederETA}
+	command := aman.SetManualFeederETACommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), FeederETA: feederETA}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.SetManualFeederETA(ctx, auth, command)
 	})
@@ -381,13 +381,13 @@ func handleAMANSetManualFeederETA(ctx context.Context, client *Client, message M
 
 func handleAMANResetManualFeederETA(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANResetManualFeederETAType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.ResetManualFeederETA(ctx, auth, aman.ResetManualFeederETACommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.ResetManualFeederETA(ctx, auth, aman.ResetManualFeederETACommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
 func handleAMANRecomputeFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANRecomputeFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.RecomputeFlight(ctx, auth, aman.RecomputeFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+		return client.hub.amanCommandService.RecomputeFlight(ctx, auth, aman.RecomputeFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
@@ -396,7 +396,7 @@ func handleAMANChangeRunway(ctx context.Context, client *Client, message Message
 	if err := decodeAMANMessage(message, events.AMANChangeRunwayType, &wire); err != nil {
 		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
 	}
-	command := aman.ChangeRunwayCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID)}
+	command := aman.ChangeRunwayCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID)}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.ChangeRunway(ctx, auth, command)
 	})
@@ -411,7 +411,7 @@ func handleAMANReportGoAround(ctx context.Context, client *Client, message Messa
 	if err != nil {
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
 	}
-	command := aman.ReportGoAroundCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID), DetectedAt: detectedAt}
+	command := aman.ReportGoAroundCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), DetectedAt: detectedAt}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.ReportGoAround(ctx, auth, command)
 	})
@@ -419,13 +419,13 @@ func handleAMANReportGoAround(ctx context.Context, client *Client, message Messa
 
 func handleAMANConfirmGoAround(ctx context.Context, client *Client, message Message) error {
 	return handleAMANGoAroundDecision(ctx, client, message, events.AMANConfirmGoAroundType, func(auth aman.CommandContext, data events.AMANGoAroundDecisionRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.ConfirmGoAround(ctx, auth, aman.ConfirmGoAroundCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID), EpisodeID: data.EpisodeID})
+		return client.hub.amanCommandService.ConfirmGoAround(ctx, auth, aman.ConfirmGoAroundCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign), EpisodeID: data.EpisodeID})
 	})
 }
 
 func handleAMANRejectGoAround(ctx context.Context, client *Client, message Message) error {
 	return handleAMANGoAroundDecision(ctx, client, message, events.AMANRejectGoAroundType, func(auth aman.CommandContext, data events.AMANGoAroundDecisionRequest) (aman.CommandExecution, error) {
-		return client.hub.amanCommandService.RejectGoAround(ctx, auth, aman.RejectGoAroundCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID), EpisodeID: data.EpisodeID})
+		return client.hub.amanCommandService.RejectGoAround(ctx, auth, aman.RejectGoAroundCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign), EpisodeID: data.EpisodeID})
 	})
 }
 
@@ -616,11 +616,11 @@ func commandMetadata(value events.AMANCommandMeta) aman.CommandMetadata {
 	return aman.CommandMetadata{CommandID: value.CommandID, ExpectedRevision: aman.SequenceRevision(value.ExpectedRevision)}
 }
 
-func flightIDPointer(value *string) *aman.FlightID {
+func callsignPointer(value *string) *aman.Callsign {
 	if value == nil {
 		return nil
 	}
-	converted := aman.FlightID(*value)
+	converted := aman.Callsign(*value)
 	return &converted
 }
 

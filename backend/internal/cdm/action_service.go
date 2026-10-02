@@ -139,8 +139,73 @@ func (c *ActionService) prepareEobtUpdate(session int32, data *models.CdmData, e
 // initial session sync from bypassing master-session clamping and confirmation
 // metadata cleanup.
 func (c *ActionService) PrepareEuroscopeEobtSync(session int32, data *models.CdmData, eobt string, now time.Time) (*models.CdmData, string, bool) {
+	if data != nil && data.TobtAutoAdjusted && strings.TrimSpace(eobt) == helpers.ValueOrDefault(data.EffectiveEobt()) {
+		return data.Clone(), strings.TrimSpace(eobt), false
+	}
 	prepared := c.prepareEobtUpdate(session, data, strings.TrimSpace(eobt), now.UTC(), true)
 	return prepared.updated, prepared.normalizedEobt, prepared.clamped
+}
+
+// PrepareEuroscopeLogonSync initializes CDM timing without rewriting the filed
+// EOBT. An explicit estimate from a pilot or controller remains authoritative.
+func (c *ActionService) PrepareEuroscopeLogonSync(data *models.CdmData, eobt string, now time.Time) *models.CdmData {
+	updated := data.Clone()
+	eobt = truncateCDMClockValue(normalizeCalculationClock(eobt))
+	updated.Eobt = &eobt
+	if isExplicitlyConfirmedTobt(updated) {
+		return updated
+	}
+	tobt := eobt
+	adjusted := false
+	if _, valid := parseClock(eobt); valid && minutesBetween(timeToClock(now), toHHMMSS(eobt)) > 40 {
+		tobt = truncateCDMClockValue(addMinutes(timeToClock(now), 30))
+		adjusted = true
+	}
+	if tobt != helpers.ValueOrDefault(updated.EffectiveTobt()) {
+		applyAutoSyncedTobtUpdate(updated, tobt)
+		updated.TobtAutoAdjusted = adjusted
+		updated.MarkLocalRecalculationPending()
+	}
+	return updated
+}
+
+func (c *ActionService) HandleClearanceTobt(ctx context.Context, session int32, callsign string) error {
+	strip, data, err := c.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil || strip == nil || data == nil {
+		return err
+	}
+	now := time.Now().UTC()
+	current := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTobt()))
+	tobt, adjust := clearanceTobt(data, now)
+	if !adjust {
+		return nil
+	}
+	updated := data.Clone()
+	applyAutoSyncedTobtUpdate(updated, tobt)
+	if applyTobtRecalculationPolicy(updated, tobt) {
+		updated.MarkLocalRecalculationPending()
+	}
+	if err := c.service.persistCdmUpdate(ctx, session, callsign, snapshotCdm(data), updated); err != nil {
+		return err
+	}
+	c.service.TriggerRecalculate(ctx, session, strip.Origin)
+	c.pushTobtAsync(ctx, session, callsign, current, tobt)
+	return nil
+}
+
+func clearanceTobt(data *models.CdmData, now time.Time) (string, bool) {
+	if data == nil || isExplicitlyConfirmedTobt(data) {
+		return "", false
+	}
+	current := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTobt()))
+	if _, valid := parseClock(current); !valid || minutesBetween(timeToClock(now), current) <= 30 {
+		return "", false
+	}
+	return truncateCDMClockValue(addMinutes(timeToClock(now), 15)), true
+}
+
+func isExplicitlyConfirmedTobt(data *models.CdmData) bool {
+	return data != nil && !data.TobtAutoSynced && (data.TobtManuallyConfirmed || strings.TrimSpace(helpers.ValueOrDefault(data.TobtConfirmedBy)) != "")
 }
 
 func (c *ActionService) normalizeMasterEobtValue(session int32, eobt string, now time.Time) (string, bool) {
@@ -204,6 +269,9 @@ func (c *ActionService) normalizeMasterLookupEobts(ctx context.Context, session 
 func (c *ActionService) normalizeMasterFlightEobt(ctx context.Context, session int32, callsign string, data *models.CdmData, now time.Time) (bool, error) {
 	s := c.service
 	if data == nil {
+		return false, nil
+	}
+	if data.TobtAutoAdjusted {
 		return false, nil
 	}
 
@@ -432,22 +500,32 @@ func (c *ActionService) HandleCtotRemove(ctx context.Context, session int32, cal
 func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	s := c.service
 	now := time.Now().UTC()
-	tobt := now.Format("1504")
-	strip, before, updated, _, changed, shouldRecalculate, err := c.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, sourceRole, now)
+	strip, current, err := c.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil || strip == nil || current == nil {
+		return err
+	}
+	tobt, changeTobt := readyRequestTobt(current, now)
+	before := snapshotCdm(current)
+	updated := current.Clone()
+	changed, shouldRecalculate := false, false
+	if changeTobt {
+		_, before, updated, _, changed, shouldRecalculate, err = c.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, sourceRole, now)
+	}
 	if err != nil {
 		return err
 	}
 	if strip == nil || updated == nil {
 		return nil
 	}
+	readyTime := now.Format("1504")
 	if strings.TrimSpace(helpers.ValueOrDefault(updated.Asrt)) == "" {
-		updated.Asrt = &tobt
+		updated.Asrt = &readyTime
 	}
 	rea := "REA"
 	updated.Status = &rea
 	currentEobt := normalizeCalculationClock(helpers.ValueOrDefault(updated.EffectiveEobt()))
-	if currentEobt == "" || !isAfterOrEqual(tobt, currentEobt) {
-		updated.Eobt = &tobt
+	if currentEobt == "" || !isAfterOrEqual(readyTime, currentEobt) {
+		updated.Eobt = &readyTime
 	}
 	updated.ReadySyncPending = s.client.isValid && s.usesViffSession(session)
 	if changed || snapshotCdm(updated) != before || updated.ReadySyncPending {
@@ -467,6 +545,48 @@ func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, c
 	}
 	s.publisher.SendCdmWait(session, callsign)
 	return nil
+}
+
+func readyRequestTobt(data *models.CdmData, now time.Time) (string, bool) {
+	current := now.UTC().Format("1504")
+	if data == nil {
+		return current, true
+	}
+	tsat := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTsat()))
+	if _, ok := parseClock(tsat); !ok {
+		return current, true
+	}
+	delta := minutesBetween(timeToClock(now), tsat)
+	if delta < -8 {
+		return truncateCDMClockValue(addMinutes(timeToClock(now), 10)), true
+	}
+	if delta >= -8 && delta < 10 && strings.TrimSpace(helpers.ValueOrDefault(data.EffectiveCtot())) != "" {
+		return helpers.ValueOrDefault(data.EffectiveTobt()), false
+	}
+	return current, true
+}
+
+// ReadPushbackCtot reads only the vIFF CTOT. FlightStrips is authoritative for TSAT.
+func (c *ActionService) ReadPushbackCtot(ctx context.Context, session int32, callsign string) (string, error) {
+	s := c.service
+	if !s.client.isValid || !s.usesViffSession(session) {
+		return "", errors.New("vIFF is unavailable for pushback validation")
+	}
+	readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	payload, err := s.client.IFPSByCallsign(readCtx, callsign)
+	if err != nil {
+		return "", err
+	}
+	row, err := parseIFPSByCallsignResponse(payload)
+	if err != nil {
+		return "", err
+	}
+	if row == nil || !strings.EqualFold(row.Callsign, callsign) {
+		return "", errors.New("vIFF did not confirm the flight for pushback")
+	}
+	ctot, _ := effectiveIfpsCtotAndSource(*row)
+	return ctot, nil
 }
 
 func (c *ActionService) completeReadyViffSync(ctx context.Context, session int32, strip *models.Strip, data *models.CdmData, shouldRecalculate bool) error {
@@ -507,7 +627,7 @@ func (c *ActionService) RequestBetterTobt(ctx context.Context, session int32, ca
 	if !s.client.isValid {
 		return nil
 	}
-	now := time.Now()
+	now := time.Now().UTC()
 	format := now.Format("1504")
 	status := "REQTOBT/" + format + "/ATC"
 
@@ -673,6 +793,7 @@ func (c *ActionService) SyncAsatForGroundState(ctx context.Context, session int3
 
 	currentAsat := helpers.ValueOrDefault(cdmData.Asat)
 	shouldHaveAsat := groundStateAllowsAsat(groundState)
+	shouldRecordAobt := groundState == euroscopeEvents.GroundStatePush && helpers.ValueOrDefault(cdmData.Aobt) == ""
 
 	before := snapshotCdm(cdmData)
 	updated := cdmData.Clone()
@@ -682,33 +803,174 @@ func (c *ActionService) SyncAsatForGroundState(ctx context.Context, session int3
 	case shouldHaveAsat && currentAsat == "":
 		now := time.Now().UTC().Format("1504")
 		updated.Asat = &now
-		updated.Aobt = &now
 		changed = true
-		c.pushAobtAsync(ctx, session, callsign, now)
 	case !shouldHaveAsat && currentAsat != "":
 		updated.Asat = nil
-		updated.Aobt = nil
 		updated.MarkLocalRecalculationPending()
 		changed = true
-		c.pushAobtAsync(ctx, session, callsign, "")
+	}
+	if shouldRecordAobt {
+		now := time.Now().UTC().Format("1504")
+		updated.Aobt = &now
+		changed = true
 	}
 
 	if !changed {
 		return nil
 	}
 
-	return s.persistCdmUpdate(ctx, session, callsign, before, updated)
+	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
+		return err
+	}
+	if shouldRecordAobt {
+		c.pushAobtAsync(ctx, session, callsign, *updated.Aobt)
+	}
+	return nil
+}
+
+func (c *ActionService) RecordAobtForTransfer(ctx context.Context, session int32, callsign string) error {
+	_, data, err := c.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil || data == nil || helpers.ValueOrDefault(data.Aobt) != "" {
+		return err
+	}
+	now := time.Now().UTC().Format("1504")
+	updated := data.Clone()
+	updated.Aobt = &now
+	if err := c.service.persistCdmUpdate(ctx, session, callsign, snapshotCdm(data), updated); err != nil {
+		return err
+	}
+	c.pushAobtAsync(ctx, session, callsign, now)
+	return nil
+}
+
+func (c *ActionService) RecordTakeoffClearanceAtot(ctx context.Context, session int32, callsign string) error {
+	_, data, err := c.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil || data == nil {
+		return err
+	}
+	if helpers.ValueOrDefault(data.Atot) != "" {
+		c.pushPendingAtotAsync(ctx, session, callsign)
+		return nil
+	}
+	now := time.Now().UTC().Format("1504")
+	updated := data.Clone()
+	updated.Atot = &now
+	updated.AtotViffPending = c.service.client.isValid && c.service.usesViffSession(session)
+	if err := c.service.persistCdmUpdate(ctx, session, callsign, snapshotCdm(data), updated); err != nil {
+		return err
+	}
+	c.pushPendingAtotAsync(ctx, session, callsign)
+	return nil
+}
+
+func (c *ActionService) pushPendingAtotAsync(ctx context.Context, session int32, callsign string) {
+	if !c.service.client.isValid || !c.service.usesViffSession(session) {
+		return
+	}
+	asyncCtx := detachedContext(ctx)
+	go func() {
+		if err := c.sendPendingAtot(asyncCtx, session, callsign); err != nil {
+			slog.WarnContext(asyncCtx, "Failed to push ATOT to CDM backend", slog.String("callsign", callsign), slog.Any("error", err))
+		}
+	}()
+}
+
+func (c *ActionService) sendPendingAtot(ctx context.Context, session int32, callsign string) error {
+	s := c.service
+	key := viffPushKey(session, callsign)
+	if _, busy := s.atotPushInFlight.LoadOrStore(key, struct{}{}); busy {
+		return nil
+	}
+	defer s.atotPushInFlight.Delete(key)
+	data, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if data == nil || !data.AtotViffPending || helpers.ValueOrDefault(data.Atot) == "" {
+		return nil
+	}
+	if err := s.client.IFPSDpi(ctx, callsign, "ATOT/"+helpers.ValueOrDefault(data.Atot)); err != nil {
+		return err
+	}
+	updated := data.Clone()
+	updated.AtotViffPending = false
+	return s.persistCdmUpdateSilently(ctx, session, callsign, updated)
+}
+
+// PreparePushback updates an expired or premature TOBT and returns the final
+// local assignment together with whether vIFF acknowledged the proposal.
+func (c *ActionService) PreparePushback(ctx context.Context, session int32, callsign string) (string, string, bool, error) {
+	s := c.service
+	strip, data, err := c.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil || strip == nil || data == nil {
+		return "", "", false, err
+	}
+	now := time.Now().UTC()
+	tobt := now.Format("1504")
+	_, before, updated, _, changed, shouldRecalculate, err := c.prepareTobtUpdate(ctx, session, callsign, tobt, "FlightStrips", "ATC", now)
+	if err != nil {
+		return "", "", false, err
+	}
+	if shouldRecalculate {
+		// Startup approval sets ASAT before pushback. Allow this explicit
+		// correction to replace the old TSAT while the flight is still on block.
+		updated.PushbackRecalculate = true
+	}
+	if changed || shouldRecalculate {
+		if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
+			return "", "", false, err
+		}
+	}
+	if s.sequenceService == nil {
+		return "", "", false, nil
+	}
+	if err := s.sequenceService.RecalculateAirport(ctx, session, strip.Origin); err != nil {
+		return "", "", false, err
+	}
+	data, err = s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
+	if err != nil {
+		return "", "", false, err
+	}
+	if !s.client.isValid || !s.usesViffSession(session) {
+		return helpers.ValueOrDefault(data.EffectiveTsat()), helpers.ValueOrDefault(data.EffectiveCtot()), false, nil
+	}
+	verifyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := s.masterViffSync.pushAuthoritativeViffState(verifyCtx, callsign, strip, data); err != nil {
+		return helpers.ValueOrDefault(data.EffectiveTsat()), helpers.ValueOrDefault(data.EffectiveCtot()), false, nil
+	}
+	matched := 0
+	for attempt := 0; attempt < 3; attempt++ {
+		payload, readErr := s.client.IFPSByCallsign(verifyCtx, callsign)
+		if readErr == nil {
+			row, parseErr := parseIFPSByCallsignResponse(payload)
+			if parseErr == nil && row != nil && (truncateCDMClockValue(row.TOBT) == tobt || truncateCDMClockValue(row.CDMData.TOBT) == tobt) {
+				matched++
+				if err := s.masterViffSync.refreshMasterFlightFromViff(verifyCtx, session, callsign, strip.Origin); err == nil {
+					data, err = s.stripRepo.GetCdmDataForCallsign(verifyCtx, session, callsign)
+					if err == nil {
+						if helpers.ValueOrDefault(data.EffectiveCtot()) != "" || matched >= 2 {
+							return helpers.ValueOrDefault(data.EffectiveTsat()), helpers.ValueOrDefault(data.EffectiveCtot()), true, nil
+						}
+					}
+				}
+			}
+		}
+		select {
+		case <-verifyCtx.Done():
+			return helpers.ValueOrDefault(data.EffectiveTsat()), helpers.ValueOrDefault(data.EffectiveCtot()), false, nil
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+	return helpers.ValueOrDefault(data.EffectiveTsat()), helpers.ValueOrDefault(data.EffectiveCtot()), false, nil
 }
 
 func (c *ActionService) pushAobtAsync(ctx context.Context, session int32, callsign, aobt string) {
 	s := c.service
-	if !s.client.isValid || !s.usesViffSession(session) {
+	if aobt == "" || !s.client.isValid || !s.usesViffSession(session) {
 		return
 	}
-	value := "AOBT/NULL"
-	if aobt != "" {
-		value = "AOBT/" + aobt
-	}
+	value := "AOBT/" + aobt
 	asyncCtx := detachedContext(ctx)
 	go func() {
 		if err := s.client.IFPSDpi(asyncCtx, callsign, value); err != nil {
@@ -870,6 +1132,7 @@ func applyAutoSyncedTobtUpdate(updated *models.CdmData, tobt string) {
 	updated.TobtSetBy = nil
 	updated.TobtConfirmedBy = nil
 	updated.TobtAutoSynced = true
+	updated.TobtAutoAdjusted = false
 	updated.TobtManuallyConfirmed = false
 }
 

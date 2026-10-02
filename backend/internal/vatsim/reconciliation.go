@@ -225,7 +225,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) (resultErr error) {
 	}
 	var sessionErrors []error
 	for _, session := range sessions {
-		if session == nil || strings.TrimSpace(session.Airport) == "" {
+		if !isLiveSession(session) || strings.TrimSpace(session.Airport) == "" {
 			continue
 		}
 		if err := r.reconcileSession(ctx, snapshot, session); err != nil {
@@ -257,6 +257,10 @@ func (r *Reconciler) ReconcileSession(ctx context.Context, sessionID int32) erro
 		}
 	}
 	return fmt.Errorf("session %d not found", sessionID)
+}
+
+func isLiveSession(session *models.Session) bool {
+	return session != nil && strings.EqualFold(strings.TrimSpace(session.Name), "LIVE")
 }
 
 func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, session *models.Session) error {
@@ -683,10 +687,26 @@ func (r *Reconciler) applyFlight(strip *models.Strip, flight Flight, snapshotTim
 // RetainsStrip reports whether VATSIM or SAT is still responsible for keeping
 // a strip alive after EuroScope disconnects it.
 func (r *Reconciler) RetainsStrip(ctx context.Context, session int32, callsign string) bool {
-	if _, ok := r.cache.Snapshot().FlightByCallsign(callsign); ok {
-		return true
+	if r.isLiveSession(ctx, session) {
+		_, ok := r.cache.Snapshot().FlightByCallsign(callsign)
+		if ok {
+			return true
+		}
 	}
 	return r.isAssigned(ctx, session, callsign)
+}
+
+func (r *Reconciler) isLiveSession(ctx context.Context, sessionID int32) bool {
+	sessions, err := r.sessions.List(ctx)
+	if err != nil {
+		return false
+	}
+	for _, session := range sessions {
+		if session != nil && session.ID == sessionID {
+			return isLiveSession(session)
+		}
+	}
+	return false
 }
 
 func (r *Reconciler) isAssigned(ctx context.Context, session int32, callsign string) bool {

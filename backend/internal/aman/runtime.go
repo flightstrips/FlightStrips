@@ -21,6 +21,7 @@ var airportIdentifier = regexp.MustCompile(`^[A-Z]{4}$`)
 type RuntimeConfig struct {
 	EnabledAirports             []string
 	Mode                        RolloutMode
+	SourceMode                  ObservationSourceMode
 	ReconciliationInterval      time.Duration
 	SurveillanceInterval        time.Duration
 	EnableEuroScopeGainLoseTags bool
@@ -31,6 +32,7 @@ type RuntimeConfig struct {
 func DefaultRuntimeConfig() RuntimeConfig {
 	return RuntimeConfig{
 		Mode:                   ModeDisabled,
+		SourceMode:             ObservationSourceHybrid,
 		ReconciliationInterval: defaultReconciliationInterval,
 		SurveillanceInterval:   defaultSurveillanceInterval,
 	}
@@ -40,6 +42,9 @@ func (c RuntimeConfig) withDefaults() RuntimeConfig {
 	defaults := DefaultRuntimeConfig()
 	if c.Mode == "" {
 		c.Mode = defaults.Mode
+	}
+	if c.SourceMode == "" {
+		c.SourceMode = defaults.SourceMode
 	}
 	if c.ReconciliationInterval == 0 {
 		c.ReconciliationInterval = defaults.ReconciliationInterval
@@ -53,8 +58,16 @@ func (c RuntimeConfig) withDefaults() RuntimeConfig {
 func (c RuntimeConfig) normalize() RuntimeConfig {
 	c = c.withDefaults()
 	c.Mode = RolloutMode(strings.ToLower(strings.TrimSpace(string(c.Mode))))
+	c.SourceMode = ObservationSourceMode(strings.ToLower(strings.TrimSpace(string(c.SourceMode))))
 	c.EnabledAirports = normalizeAirports(c.EnabledAirports)
 	return c
+}
+
+// Normalize returns the canonical runtime configuration used by AMAN. The
+// application assembly must use this value after validation so source-mode
+// branching and runtime construction make the same decision.
+func (c RuntimeConfig) Normalize() RuntimeConfig {
+	return c.normalize()
 }
 
 // Validate rejects configuration that would make an enabled AMAN runtime
@@ -64,6 +77,9 @@ func (c RuntimeConfig) Validate() error {
 	c = original.normalize()
 	if !c.Mode.Valid() {
 		return fmt.Errorf("AMAN mode %q is invalid", c.Mode)
+	}
+	if !c.SourceMode.Valid() {
+		return fmt.Errorf("AMAN source mode %q is invalid", c.SourceMode)
 	}
 	if c.ReconciliationInterval <= 0 {
 		return fmt.Errorf("AMAN reconciliation interval must be greater than 0")

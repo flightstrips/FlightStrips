@@ -274,6 +274,7 @@ export interface WebSocketState {
   confirmTacticalStrip: (id: number) => void;
   forceAssumeTacticalStrip: (id: number) => void;
   markTacticalStrip: (id: number, marked: boolean) => void;
+  startTacticalTimer: (id: number) => void;
   moveTacticalStrip: (id: number, insertAfter: StripRef | null, bay?: Bay) => void;
 
   acknowledgeValidationStatus: (callsign: string, activationKey: string) => void;
@@ -466,7 +467,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
            command_id: commandID,
            type: message.type,
            expected_revision: message.data.expected_revision,
-           ...("flight_id" in message.data ? {flight_id: message.data.flight_id} : {}),
+           ...("callsign" in message.data ? {callsign: message.data.callsign} : {}),
            ...("runway_group_id" in message.data ? {runway_group_id: message.data.runway_group_id} : {}),
            ...("runway_group_ids" in message.data ? {runway_group_ids: message.data.runway_group_ids} : {}),
            ...("arrivals_per_hour" in message.data ? {arrivals_per_hour: message.data.arrivals_per_hour} : {}),
@@ -764,15 +765,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         return false;
       }
 
-      if (!sendIfWritable({ type: ActionType.FrontendStartReq, callsign, start_req: true })) {
+      if (!sendIfWritable({ type: ActionType.FrontendCoordinationTransferRequest, callsign, to: target, start_req_transfer: true })) {
         return false;
       }
-      updateLocalStartReq(callsign, true);
-
-      if (!sendIfWritable({ type: ActionType.FrontendCoordinationTransferRequest, callsign, to: target })) {
-        return false;
-      }
-      updateLocalStartReq(callsign, false);
       return true;
     },
     assumeStrip: (callsign) => {
@@ -923,6 +918,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     markTacticalStrip: (id, marked) => {
       sendIfWritable({ type: ActionType.FrontendMarkTacticalStrip, id, marked });
+    },
+    startTacticalTimer: (id) => {
+      sendIfWritable({ type: ActionType.FrontendStartTacticalTimer, id });
     },
     moveTacticalStrip: (id, insertAfter, bay) => set((state) => {
       const tacticalStrip = state.tacticalStrips.find((strip) => strip.id === id);

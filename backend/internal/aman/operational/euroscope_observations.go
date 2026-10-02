@@ -15,14 +15,12 @@ import (
 const euroScopeMaximumDerivedGroundspeed = 700.0
 
 // EuroScopePositionObserver maps authoritative EuroScope position reports to
-// the provider-neutral AMAN observation contract. It deliberately accepts
-// only strips that retain a VATSIM CID: AMAN's aggregate identity remains the
-// stable VATSIM flight identity while EuroScope supplies better surveillance.
+// the provider-neutral AMAN observation contract. AMAN identifies flights by
+// normalized callsign; the EuroScope session only isolates position history.
 type EuroScopePositionObserver struct {
-	sink       aman.ObservationSink
-	identities aman.VATSIMFlightIdentityBinder
-	airports   map[string]struct{}
-	now        func() time.Time
+	sink     aman.ObservationSink
+	airports map[string]struct{}
+	now      func() time.Time
 
 	mu       sync.Mutex
 	previous map[string]euroScopePosition
@@ -30,7 +28,6 @@ type EuroScopePositionObserver struct {
 
 type EuroScopePositionObserverDependencies struct {
 	Sink            aman.ObservationSink
-	Identities      aman.VATSIMFlightIdentityBinder
 	EnabledAirports []string
 	Now             func() time.Time
 }
@@ -44,9 +41,6 @@ func NewEuroScopePositionObserver(deps EuroScopePositionObserverDependencies) (*
 	if deps.Sink == nil {
 		return nil, fmt.Errorf("EuroScope AMAN position observer requires observation sink")
 	}
-	if deps.Identities == nil {
-		return nil, fmt.Errorf("EuroScope AMAN position observer requires VATSIM identity binder")
-	}
 	airports := map[string]struct{}{}
 	for _, airport := range deps.EnabledAirports {
 		if value := strings.ToUpper(strings.TrimSpace(airport)); value != "" {
@@ -59,13 +53,14 @@ func NewEuroScopePositionObserver(deps EuroScopePositionObserverDependencies) (*
 	if deps.Now == nil {
 		deps.Now = time.Now
 	}
-	return &EuroScopePositionObserver{sink: deps.Sink, identities: deps.Identities, airports: airports, now: deps.Now, previous: map[string]euroScopePosition{}}, nil
+	return &EuroScopePositionObserver{sink: deps.Sink, airports: airports, now: deps.Now, previous: map[string]euroScopePosition{}}, nil
 }
 
 // ObserveEuroScopePosition is called from the EuroScope strip path. The
-// first report establishes a reliable reference; every later coherent report
-// derives the ground speed and true track needed by the physical predictor.
-func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context, _ int32, strip *models.Strip, latitude, longitude float64, altitude int32) error {
+// first report creates the flight and establishes a reliable reference; every
+// later coherent report derives the ground speed and true track needed by the
+// physical predictor.
+func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context, session int32, strip *models.Strip, latitude, longitude float64, altitude int32) error {
 	if strip == nil {
 		return nil
 	}
@@ -73,52 +68,47 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 	if _, enabled := o.airports[destination]; !enabled {
 		return nil
 	}
-	cid := stripStringValue(strip.VatsimCID)
-	if cid == "" {
-		return nil
-	}
 	callsign, origin := strings.ToUpper(strings.TrimSpace(strip.Callsign)), strings.ToUpper(strings.TrimSpace(strip.Origin))
 	if callsign == "" || origin == "" {
 		return nil
 	}
 	filedRoute := optionalStripString(strip.Route)
-	if filedRoute == nil {
-		return nil
-	}
 	if latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 {
 		return fmt.Errorf("EuroScope AMAN position has invalid coordinates")
 	}
 	now := shared.ReceiptTime(ctx, o.now).UTC()
 	current := euroScopePosition{latitude: latitude, longitude: longitude, at: now}
+	if session == 0 {
+		session = strip.Session
+	}
+	positionKey := fmt.Sprintf("%d\x00%s", session, callsign)
 	o.mu.Lock()
-	previous, known := o.previous[callsign]
-	o.previous[callsign] = current
+	previous, known := o.previous[positionKey]
+	o.previous[positionKey] = current
 	o.mu.Unlock()
-	if !known || !current.at.After(previous.at) {
-		return nil
+	var groundspeed, track *float64
+	if known && current.at.After(previous.at) {
+		interval := current.at.Sub(previous.at)
+		if interval <= 2*time.Minute {
+			distance := geoDistanceNM(previous.latitude, previous.longitude, current.latitude, current.longitude)
+			derivedGroundspeed := distance / interval.Hours()
+			if derivedGroundspeed >= 1 && derivedGroundspeed <= euroScopeMaximumDerivedGroundspeed {
+				derivedTrack := geoBearingTrue(previous.latitude, previous.longitude, current.latitude, current.longitude)
+				groundspeed, track = &derivedGroundspeed, &derivedTrack
+			}
+		}
 	}
-	interval := current.at.Sub(previous.at)
-	if interval > 2*time.Minute {
-		return nil
-	}
-	distance := geoDistanceNM(previous.latitude, previous.longitude, current.latitude, current.longitude)
-	groundspeed := distance / interval.Hours()
-	if groundspeed < 1 || groundspeed > euroScopeMaximumDerivedGroundspeed {
-		return nil
-	}
-	track := geoBearingTrue(previous.latitude, previous.longitude, current.latitude, current.longitude)
 	altitudeFeet := int(altitude)
-	flightID, err := o.identities.BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: cid, CurrentCallsign: callsign})
-	if err != nil {
-		return fmt.Errorf("bind EuroScope AMAN flight identity: %w", err)
-	}
 	observation := aman.FlightObservation{
-		FlightID: flightID, VATSIMCID: cid, Callsign: callsign,
-		Origin: origin, Destination: destination,
+		Callsign: callsign,
+		Origin:   origin, Destination: destination,
 		AircraftType: optionalStripString(strip.AircraftType), FiledRoute: filedRoute, RequestedLevel: requestedLevel(strip.RequestedAltitude),
 		FlightPlan:         aman.FlightPlanFact{Revision: vatsimRevision(strip.VatsimRevision), ObservedAt: &now},
-		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitudeFeet, GroundspeedKnots: &groundspeed, TrackTrueDegrees: &track, ObservedAt: &now},
-		SurveillanceSource: aman.SurveillanceSourceEuroScope, ReconciledAt: now, SourceStatus: aman.DataFresh,
+		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitudeFeet, GroundspeedKnots: groundspeed, TrackTrueDegrees: track, ObservedAt: &now},
+		SurveillanceSource: aman.SurveillanceSourceEuroScope, Provider: aman.ObservationProviderEuroScope, ReconciledAt: now, SourceStatus: aman.DataFresh,
+	}
+	if groundspeed != nil && altitude > 1000 && *groundspeed > 40 {
+		observation.TakeoffDetected = &now
 	}
 	if err := observation.Validate(); err != nil {
 		return fmt.Errorf("map EuroScope AMAN observation: %w", err)

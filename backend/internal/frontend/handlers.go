@@ -161,9 +161,34 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		}
 		target = strip.NextOwners[0]
 	}
-
 	if err := client.hub.stripService.CreateCoordinationTransfer(ctx, client.session, req.Callsign, position, target); err != nil {
 		return err
+	}
+	if req.StartReqTransfer {
+		rollback := func(cause error) error {
+			if err := client.hub.stripService.CancelCoordinationTransfer(ctx, client.session, req.Callsign, position); err != nil {
+				return errors.Join(cause, err)
+			}
+			return cause
+		}
+		if err := s.GetCdmService().HandleReadyRequest(ctx, client.session, req.Callsign, position, "ATC"); err != nil {
+			return rollback(err)
+		}
+		if err := client.hub.stripService.UpdateStartReq(ctx, client.session, req.Callsign, true); err != nil {
+			return rollback(err)
+		}
+		if strip.Bay == shared.BAY_STAND {
+			if err := client.hub.stripService.UpdateStartReq(ctx, client.session, req.Callsign, false); err != nil {
+				return rollback(err)
+			}
+		}
+		if service, ok := any(s.GetCdmService()).(interface {
+			RecordAobtForTransfer(context.Context, int32, string) error
+		}); ok {
+			if err := service.RecordAobtForTransfer(ctx, client.session, req.Callsign); err != nil {
+				return rollback(err)
+			}
+		}
 	}
 
 	if strip.Marked {
@@ -485,7 +510,15 @@ func handleIssuePdcClearance(ctx context.Context, client *Client, message Messag
 		return err
 	}
 
-	return client.hub.pdcService.IssueClearance(ctx, req.Callsign, req.Remarks, client.GetCid(), client.session)
+	if err := client.hub.pdcService.IssueClearance(ctx, req.Callsign, req.Remarks, client.GetCid(), client.session); err != nil {
+		return err
+	}
+	if service, ok := any(client.hub.server.GetCdmService()).(interface {
+		HandleClearanceTobt(context.Context, int32, string) error
+	}); ok {
+		return service.HandleClearanceTobt(ctx, client.session, req.Callsign)
+	}
+	return nil
 }
 
 func handlePdcManualStateChange(ctx context.Context, client *Client, message Message) error {
@@ -682,6 +715,39 @@ func handleMarkTacticalStrip(ctx context.Context, client *Client, message Messag
 	}
 
 	ts, err = tacticalRepo.UpdateMarked(ctx, req.ID, client.session, req.Marked)
+	if err != nil {
+		return err
+	}
+	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	return nil
+}
+
+func handleStartTacticalTimer(ctx context.Context, client *Client, message Message) error {
+	var req frontend.StartTacticalTimerAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
+	if err != nil {
+		return err
+	}
+	if ts.Type != internalModels.TacticalStripTypeStart && ts.Type != internalModels.TacticalStripTypeLand {
+		return errors.New("timer is only valid for START and LAND strips")
+	}
+	if ts.Owner != client.position {
+		return errors.New("only the tactical strip owner can start its timer")
+	}
+	if ts.TimerStart != nil {
+		return errors.New("tactical strip timer has already started")
+	}
+
+	ts, err = tacticalRepo.StartTimer(ctx, req.ID, client.session, client.position)
 	if err != nil {
 		return err
 	}

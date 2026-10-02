@@ -30,7 +30,7 @@ func TestAMANStateEventMatchesSharedV1Golden(t *testing.T) {
 func TestAMANStateEventProjectsCanonicalGapAndAuditedException(t *testing.T) {
 	state := goldenAMANState()
 	state.RunwayGroups[0].Gaps = []aman.RunwayGap{{ID: "gap-union", Start: testTime(10, 17), End: testTime(10, 19), Label: "approach stop", CreatedAt: testTime(9, 59), CreatedBy: "fmp-1"}}
-	state.Flights[0].RunwayGapException = &aman.RunwayGapException{GapID: "gap-union", FlightID: state.Flights[0].ID, RunwayGroupID: state.RunwayGroups[0].ID, Opportunity: state.Flights[0].Slot.Time, CommandID: "manual-placement"}
+	state.Flights[0].RunwayGapException = &aman.RunwayGapException{GapID: "gap-union", Callsign: state.Flights[0].Callsign, RunwayGroupID: state.RunwayGroups[0].ID, Opportunity: state.Flights[0].Slot.Time, CommandID: "manual-placement"}
 
 	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
 	require.NoError(t, err)
@@ -42,7 +42,7 @@ func TestAMANStateEventProjectsAircraftTargetFacts(t *testing.T) {
 	state := goldenAMANState()
 	aircraftType, wakeCategory := "B38M", "M"
 	state.Flights[0].LatestObservation = &aman.FlightObservation{
-		FlightID: "flight-123", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
+		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
 		AircraftType: &aircraftType, WakeCategory: &wakeCategory, ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
 	}
 
@@ -93,7 +93,7 @@ func TestAMANStateEventSerializesOptionalHoldingFacts(t *testing.T) {
 	state := goldenAMANState()
 	altitude := int32(12000)
 	state.Flights[0].LatestObservation = &aman.FlightObservation{
-		FlightID: "flight-123", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: " ekch ",
+		Callsign: "SAS123", Origin: "ESSA", Destination: " ekch ",
 		ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
 	}
 	state.Flights[0].HoldingClearance = &aman.HoldingClearance{
@@ -105,19 +105,19 @@ func TestAMANStateEventSerializesOptionalHoldingFacts(t *testing.T) {
 	require.NoError(t, err)
 	expectedEAT := "2026-07-22T10:15:00.000Z"
 	require.Equal(t, []AMANHoldingEntry{{
-		FlightID: "flight-123", Callsign: "SAS123", Holding: "OLPIB", EAT: &expectedEAT,
+		Callsign: "SAS123", Holding: "OLPIB", EAT: &expectedEAT,
 		ClearedAltitude: &altitude, SourceStatus: "fresh", ObservedAt: "2026-07-22T10:00:00.000Z",
 	}}, event.Data.HoldingInformation)
 
 	encoded, err := event.Marshal()
 	require.NoError(t, err)
-	require.JSONEq(t, `{"flight_id":"flight-123","callsign":"SAS123","holding":"OLPIB","eat":"2026-07-22T10:15:00.000Z","cleared_altitude":12000,"source_status":"fresh","observed_at":"2026-07-22T10:00:00.000Z"}`, firstHoldingJSON(t, encoded))
+	require.JSONEq(t, `{"callsign":"SAS123","callsign":"SAS123","holding":"OLPIB","eat":"2026-07-22T10:15:00.000Z","cleared_altitude":12000,"source_status":"fresh","observed_at":"2026-07-22T10:00:00.000Z"}`, firstHoldingJSON(t, encoded))
 }
 
 func TestAMANStateEventSerializesMissingHoldingDataAsNull(t *testing.T) {
 	state := goldenAMANState()
 	state.Flights[0].LatestObservation = &aman.FlightObservation{
-		FlightID: "flight-123", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
+		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
 		ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
 	}
 	state.Flights[0].HoldingClearance = &aman.HoldingClearance{
@@ -213,19 +213,19 @@ func TestAMANStateEventIncludesRunwaySelectionStateAndSchedule(t *testing.T) {
 func TestAMANStateEventProjectsProtectedSameSTARWarningIdentity(t *testing.T) {
 	state := goldenAMANState()
 	state.RunwayGroups[0].SequenceWarnings = []aman.RunwayGroupSequenceWarning{{
-		Code: "protected_same_star_spacing", FlightID: "TRAIL", RelatedFlightID: "LEAD", STARFamily: "MONAK",
+		Code: "protected_same_star_spacing", Callsign: "TRAIL", RelatedCallsign: "LEAD", STARFamily: "MONAK",
 	}}
 	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
 	require.NoError(t, err)
 	require.Equal(t, []AMANRunwayGroupSequenceWarning{{
-		Code: "protected_same_star_spacing", FlightID: "TRAIL", RelatedFlightID: "LEAD", STARFamily: "MONAK",
+		Code: "protected_same_star_spacing", Callsign: "TRAIL", RelatedCallsign: "LEAD", STARFamily: "MONAK",
 	}}, event.Data.RunwayGroups[0].SequenceWarnings)
 }
 
 func TestAMANStateEventProjectsCompleteCurrentWarnings(t *testing.T) {
 	state := goldenAMANState()
 	state.RunwayGroups[0].SequenceWarnings = []aman.RunwayGroupSequenceWarning{{
-		Code: "protected_same_star_spacing", FlightID: "TRAIL", RelatedFlightID: "LEAD", STARFamily: "MONAK",
+		Code: "protected_same_star_spacing", Callsign: "TRAIL", RelatedCallsign: "LEAD", STARFamily: "MONAK",
 	}}
 	health := goldenAMANHealth()
 	reason := "airac_expired"
@@ -238,8 +238,8 @@ func TestAMANStateEventProjectsCompleteCurrentWarnings(t *testing.T) {
 	require.Equal(t, AMANWarning{
 		ID:     `warning:"sequence"/-/"protected_same_star_spacing"/"ARRIVAL-22"/"TRAIL"/"LEAD"`,
 		Source: "sequence", Severity: "error", Code: "protected_same_star_spacing",
-		RunwayGroupID: stringPointer(&state.RunwayGroups[0].ID), FlightID: stringPointer(&state.RunwayGroups[0].SequenceWarnings[0].FlightID),
-		RelatedFlightID: stringPointer(&state.RunwayGroups[0].SequenceWarnings[0].RelatedFlightID),
+		RunwayGroupID: stringPointer(&state.RunwayGroups[0].ID), Callsign: stringPointer(&state.RunwayGroups[0].SequenceWarnings[0].Callsign),
+		RelatedCallsign: stringPointer(&state.RunwayGroups[0].SequenceWarnings[0].RelatedCallsign),
 		Message:         "Flights TRAIL and LEAD conflict with protected MONAK spacing on runway group ARRIVAL-22",
 	}, event.Data.Warnings[0])
 	require.Equal(t, "technical_health", event.Data.Warnings[1].Source)
@@ -289,7 +289,7 @@ func TestAMANStateEventProjectsAuthoritativeHeaderSummaryWithoutInventingWind(t 
 	state := goldenAMANState()
 	altitude := 2_000
 	state.Flights[0].LatestObservation = &aman.FlightObservation{
-		FlightID: "flight-123", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
+		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
 		ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
 		Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude, ObservedAt: &state.GeneratedAt},
 	}
@@ -331,11 +331,11 @@ func TestAMANFlightProjectsTMAFreezeForNewAndLegacyV1Decoders(t *testing.T) {
 	encoded, err := json.Marshal(mapped)
 	require.NoError(t, err)
 	var legacy struct {
-		FlightID     string `json:"flight_id"`
+		Callsign     string `json:"callsign"`
 		FreezeReason string `json:"freeze_reason"`
 	}
 	require.NoError(t, json.Unmarshal(encoded, &legacy))
-	require.Equal(t, "flight-123", legacy.FlightID)
+	require.Equal(t, "SAS123", legacy.Callsign)
 	require.Equal(t, "tma", legacy.FreezeReason)
 }
 
@@ -349,10 +349,10 @@ func TestAMANFlightProjectsDesequencedDispositionAdditively(t *testing.T) {
 	encoded, err := json.Marshal(mapped)
 	require.NoError(t, err)
 	var legacy struct {
-		FlightID string `json:"flight_id"`
+		Callsign string `json:"callsign"`
 	}
 	require.NoError(t, json.Unmarshal(encoded, &legacy))
-	require.Equal(t, "flight-123", legacy.FlightID)
+	require.Equal(t, "SAS123", legacy.Callsign)
 }
 
 func TestAMANFlightRejectsUnknownFreezeReason(t *testing.T) {
@@ -506,8 +506,8 @@ func goldenAMANState() aman.AirportState {
 		Mode: aman.ModeAuthoritative, Authoritative: true,
 		RunwayGroups: []aman.RunwayGroupPolicy{{ID: runwayGroup, Selected: true}},
 		Flights: []aman.AMANFlight{{
-			ID: "flight-123", VATSIMCID: "1234567", CurrentCallsign: "SAS123",
-			State: aman.StateStable, DataStatus: aman.DataFresh, SelectedRunwayGroup: &runwayGroup,
+			Callsign: "SAS123",
+			State:    aman.StateStable, DataStatus: aman.DataFresh, SelectedRunwayGroup: &runwayGroup,
 			SelectedFeeder: &starFamily, SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix, SelectedHolding: &holding,
 			FeederETA:       &aman.FeederETAState{ETA: timePointer(now.Add(12 * time.Minute)), Source: aman.FeederETASourceRoute},
 			ActiveRouteFact: &aman.RouteFact{ID: "route-fact-1", Fix: "SOK", ObservedAt: now.Add(-2 * time.Minute), State: aman.RouteFactActive},

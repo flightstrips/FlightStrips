@@ -17,7 +17,7 @@ func TestManualFeederETAOverridesDerivedRecalculationsAndResetRestoresLatest(t *
 	service, state := manualFeederETAState(now, &aman.FeederETAState{ETA: &routeETA, Source: aman.FeederETASourceRoute})
 
 	set, err := service.SetManualFeederETA(aman.CommandContext{ReceivedAt: now}, aman.SetManualFeederETACommand{
-		Metadata: aman.CommandMetadata{CommandID: "manual-feeder-1"}, FlightID: "flight-1", FeederETA: manualETA,
+		Metadata: aman.CommandMetadata{CommandID: "manual-feeder-1"}, Callsign: "SAS123", FeederETA: manualETA,
 	})
 	require.NoError(t, err)
 	changed, err := set(state)
@@ -35,7 +35,7 @@ func TestManualFeederETAOverridesDerivedRecalculationsAndResetRestoresLatest(t *
 
 	changed.State.Flights[0] = flight
 	reset, err := service.ResetManualFeederETA(aman.CommandContext{ReceivedAt: now.Add(time.Minute)}, aman.ResetManualFeederETACommand{
-		Metadata: aman.CommandMetadata{CommandID: "manual-feeder-reset-1"}, FlightID: "flight-1",
+		Metadata: aman.CommandMetadata{CommandID: "manual-feeder-reset-1"}, Callsign: "SAS123",
 	})
 	require.NoError(t, err)
 	resetResult, err := reset(changed.State)
@@ -48,7 +48,7 @@ func TestManualFeederETAAcceptsPastOnlyAfterAuthoritativePassage(t *testing.T) {
 	now := time.Date(2026, time.September, 11, 20, 0, 0, 0, time.UTC)
 	past := now.Add(-time.Minute)
 	service, ahead := manualFeederETAState(now, nil)
-	command := aman.SetManualFeederETACommand{Metadata: aman.CommandMetadata{CommandID: "past-feeder"}, FlightID: "flight-1", FeederETA: past}
+	command := aman.SetManualFeederETACommand{Metadata: aman.CommandMetadata{CommandID: "past-feeder"}, Callsign: "SAS123", FeederETA: past}
 
 	set, err := service.SetManualFeederETA(aman.CommandContext{ReceivedAt: now}, command)
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestManualFeederETAPersistsAndReplaysDeterministically(t *testing.T) {
 	derived, manual := now.Add(18*time.Minute), now.Add(16*time.Minute)
 	service, state := manualFeederETAState(now, &aman.FeederETAState{ETA: &derived, Source: aman.FeederETASourceRoute})
 	set, err := service.SetManualFeederETA(aman.CommandContext{ReceivedAt: now}, aman.SetManualFeederETACommand{
-		Metadata: aman.CommandMetadata{CommandID: "replay-manual"}, FlightID: "flight-1", FeederETA: manual,
+		Metadata: aman.CommandMetadata{CommandID: "replay-manual"}, Callsign: "SAS123", FeederETA: manual,
 	})
 	require.NoError(t, err)
 	result, err := set(state)
@@ -114,7 +114,7 @@ func TestManualFeederETACommandRetryUsesPersistedCommandIdentity(t *testing.T) {
 	repository := &memoryRepository{state: state, has: true}
 	publisher := &recordingPublisher{}
 	command := aman.SetManualFeederETACommand{
-		Metadata: aman.CommandMetadata{CommandID: "manual-feeder-retry", ExpectedRevision: state.Revision}, FlightID: "flight-1", FeederETA: manual,
+		Metadata: aman.CommandMetadata{CommandID: "manual-feeder-retry", ExpectedRevision: state.Revision}, Callsign: "SAS123", FeederETA: manual,
 	}
 	coordinator, err := sequence.NewCoordinator(sequence.CoordinatorDependencies{
 		States: repository, Outcomes: repository, Committer: repository, Publisher: publisher, Now: func() time.Time { return now },
@@ -140,13 +140,13 @@ func TestManualFeederETACommandRetryUsesPersistedCommandIdentity(t *testing.T) {
 	require.False(t, retry.Changed)
 	require.Len(t, repository.commits, 1)
 	require.Equal(t, first.Outcome, retry.Outcome)
-	require.JSONEq(t, `{"action":"set_manual_feeder_eta","actor":"1234567","airport":"EKCH","changed":true,"feeder_eta":"2026-09-11T20:16:00Z","flight_id":"flight-1","received_at":"2026-09-11T20:00:00Z","role":"EKDK_FMP"}`, string(repository.commits[0].AuditRecords[0].Payload))
+	require.JSONEq(t, `{"action":"set_manual_feeder_eta","actor":"1234567","airport":"EKCH","changed":true,"feeder_eta":"2026-09-11T20:16:00Z","callsign":"SAS123","received_at":"2026-09-11T20:00:00Z","role":"EKDK_FMP"}`, string(repository.commits[0].AuditRecords[0].Payload))
 }
 
 func manualFeederETAState(now time.Time, derived *aman.FeederETAState) (*Service, aman.AirportState) {
 	family, fix := "TESPI", "TNO"
 	flight := aman.AMANFlight{
-		ID: "flight-1", VATSIMCID: "1234567", CurrentCallsign: "SAS123", State: aman.StateAirborne, DataStatus: aman.DataFresh,
+		Callsign: "SAS123", State: aman.StateAirborne, DataStatus: aman.DataFresh,
 		SelectedFeeder: &family, SelectedSTARFamily: &family, SelectedFeederFix: &fix,
 		FeederETA: cloneFeederETA(derived), DerivedFeederETA: cloneFeederETA(derived), FreezeReason: aman.FreezeNone, UpdatedAt: now,
 	}

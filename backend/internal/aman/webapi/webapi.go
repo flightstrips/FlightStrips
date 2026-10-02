@@ -37,7 +37,7 @@ func (a *WebAPI) WithNavigation(geometry navdata.GeometryReader, snapshots navda
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /aman/airports/{airport}/flights/{flightID}/detail", a.handleFlightDetail)
+	mux.HandleFunc("GET /aman/airports/{airport}/flights/{callsign}/detail", a.handleFlightDetail)
 }
 
 func (a *WebAPI) handleFlightDetail(w http.ResponseWriter, r *http.Request) {
@@ -49,9 +49,9 @@ func (a *WebAPI) handleFlightDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	airport := strings.ToUpper(strings.TrimSpace(r.PathValue("airport")))
-	flightID := strings.TrimSpace(r.PathValue("flightID"))
-	if airport == "" || flightID == "" {
-		writeError(w, http.StatusBadRequest, "airport and flight ID are required")
+	callsign := strings.TrimSpace(r.PathValue("callsign"))
+	if airport == "" || callsign == "" {
+		writeError(w, http.StatusBadRequest, "airport and callsign are required")
 		return
 	}
 	state, err := a.states.LoadAirportState(r.Context(), airport)
@@ -59,7 +59,7 @@ func (a *WebAPI) handleFlightDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "AMAN state is unavailable")
 		return
 	}
-	flight := findFlight(state.Flights, aman.FlightID(flightID))
+	flight := findFlight(state.Flights, aman.Callsign(callsign))
 	if flight == nil {
 		writeError(w, http.StatusNotFound, "AMAN flight was not found")
 		return
@@ -100,7 +100,6 @@ type flightDetail struct {
 }
 
 type flightSummary struct {
-	ID               string  `json:"id"`
 	Callsign         string  `json:"callsign"`
 	Origin           string  `json:"origin"`
 	Destination      string  `json:"destination"`
@@ -247,7 +246,7 @@ func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight 
 		star = flight.SelectedFeeder
 	}
 	result := flightDetail{Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt, Flight: flightSummary{
-		ID: string(flight.ID), Callsign: flight.CurrentCallsign, LifecycleState: string(flight.State), DataStatus: string(flight.DataStatus),
+		Callsign: flight.Callsign, LifecycleState: string(flight.State), DataStatus: string(flight.DataStatus),
 		RunwayGroupID: stringPointer(flight.SelectedRunwayGroup), Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(star), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 	}}
 	if observation := flight.LatestObservation; observation != nil {
@@ -454,16 +453,16 @@ func mapSlotBasis(state aman.AirportState, flight aman.AMANFlight) (slotBasis, e
 			if formatErr != nil {
 				return slotBasis{}, formatErr
 			}
-			result.PreviousFlight = &slotNeighbour{Callsign: candidate.CurrentCallsign, SlotTime: candidateTime}
+			result.PreviousFlight = &slotNeighbour{Callsign: candidate.Callsign, SlotTime: candidateTime}
 			break
 		}
 	}
 	return result, nil
 }
 
-func findFlight(flights []aman.AMANFlight, id aman.FlightID) *aman.AMANFlight {
+func findFlight(flights []aman.AMANFlight, id aman.Callsign) *aman.AMANFlight {
 	for i := range flights {
-		if flights[i].ID == id {
+		if flights[i].Callsign == id {
 			return &flights[i]
 		}
 	}

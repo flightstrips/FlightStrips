@@ -5,11 +5,11 @@ import type {AMANCoordinationRequest, AMANFlight} from "@/api/aman";
 import {AMANCoordinationInbox} from "./AMANCoordinationInbox";
 
 const request: AMANCoordinationRequest = {
-  id: "request-1", flight_id: "flight-1", recipient_controller: "EKCH_APP", recipient_status: "assigned",
+  id: "request-1", callsign: "flight-1", recipient_controller: "EKCH_APP", recipient_status: "assigned",
   kind: "route_direct", state: "pending", payload: {route_direct: {direct_to: "TUDLO"}},
   created_at: "2026-09-12T10:00:00Z", updated_at: "2026-09-12T10:00:00Z",
 };
-const flights = [{flight_id: "flight-1", callsign: "SAS123"}] as AMANFlight[];
+const flights = [{callsign: "SAS123"}] as AMANFlight[];
 
 describe("controller coordination inbox", () => {
   it("shows an explicit pending state and accepts agreement without a reason", () => {

@@ -14,7 +14,7 @@ const range = {startMs: Date.UTC(2026, 6, 22, 10), endMs: Date.UTC(2026, 6, 22, 
 
 function flight(id: string, runway: string, order: number, minute: number): AMANFlight {
   const value = structuredClone(golden.data.flights[0]);
-  value.flight_id = id;
+  value.callsign = id;
   value.callsign = id.toUpperCase();
   value.runway_group_id = runway;
   value.order = order;
@@ -37,7 +37,7 @@ function renderTimeline(state: AMANState, onSelect = vi.fn()) {
     clockMs={range.startMs}
     currentPosition={100}
     range={range}
-    renderTarget={(value) => <button onClick={() => onSelect(value.flight_id)} type="button">{value.callsign}</button>}
+    renderTarget={(value) => <button onClick={() => onSelect(value.callsign)} type="button">{value.callsign}</button>}
     state={state}
     status="fresh"
   />);

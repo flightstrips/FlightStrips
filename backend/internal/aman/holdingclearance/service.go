@@ -44,7 +44,7 @@ func (s *Service) ObserveHoldingClearances(ctx context.Context, facts []aman.Hol
 	var airports []string
 	for _, fact := range facts {
 		fact.Destination = strings.ToUpper(strings.TrimSpace(fact.Destination))
-		if fact.FlightID == "" || fact.Destination == "" || fact.ObservedAt.IsZero() || fact.ObservedAt.Location() != time.UTC {
+		if fact.Callsign == "" || fact.Destination == "" || fact.ObservedAt.IsZero() || fact.ObservedAt.Location() != time.UTC {
 			return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "AMAN holding clearance fact is incomplete"}
 		}
 		if _, exists := byAirport[fact.Destination]; !exists {
@@ -63,22 +63,22 @@ func (s *Service) ObserveHoldingClearances(ctx context.Context, facts []aman.Hol
 
 func (s *Service) observeAirportClearances(ctx context.Context, airport string, facts []aman.HoldingClearanceFact) error {
 	if reader, ok := s.deps.Repository.(aman.HoldingFactReader); ok {
-		ids := make([]aman.FlightID, len(facts))
+		ids := make([]aman.Callsign, len(facts))
 		for i, fact := range facts {
-			ids[i] = fact.FlightID
+			ids[i] = fact.Callsign
 		}
 		snapshots, err := reader.LoadHoldingFactSnapshots(ctx, airport, ids)
 		if err != nil {
 			return err
 		}
-		byID := make(map[aman.FlightID]aman.HoldingFactSnapshot, len(snapshots))
+		byID := make(map[aman.Callsign]aman.HoldingFactSnapshot, len(snapshots))
 		for _, snapshot := range snapshots {
-			byID[snapshot.FlightID] = snapshot
+			byID[snapshot.Callsign] = snapshot
 		}
 		changed := false
 		for _, fact := range facts {
-			current, exists := byID[fact.FlightID]
-			if !exists || current.VATSIMCID != strings.TrimSpace(fact.VATSIMCID) {
+			current, exists := byID[fact.Callsign]
+			if !exists {
 				continue
 			}
 			if !sameClearance(current.Clearance, normalize(fact)) && (current.Clearance == nil || fact.ObservedAt.After(current.Clearance.ObservedAt)) {
@@ -100,14 +100,14 @@ func (s *Service) observeAirportClearances(ctx context.Context, airport string, 
 			return err
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
-		indices := make(map[aman.FlightID]int, len(state.Flights))
+		indices := make(map[aman.Callsign]int, len(state.Flights))
 		for index, flight := range state.Flights {
-			indices[flight.ID] = index
+			indices[flight.Callsign] = index
 		}
 		changed := false
 		for _, fact := range facts {
-			index, exists := indices[fact.FlightID]
-			if !exists || state.Flights[index].VATSIMCID != strings.TrimSpace(fact.VATSIMCID) {
+			index, exists := indices[fact.Callsign]
+			if !exists {
 				continue
 			}
 			normalized := normalize(fact)

@@ -182,8 +182,8 @@ func reviewConfig() etareview.Config {
 func reviewFlight(now time.Time) aman.AMANFlight {
 	baseline := now.Add(20 * time.Minute)
 	return aman.AMANFlight{
-		ID: "flight-1", VATSIMCID: "1234567", CurrentCallsign: "SAS123",
-		State: aman.StateUnstable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now,
+		Callsign: "SAS123",
+		State:    aman.StateUnstable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now,
 		ArrivalBaseline: &aman.BaselineState{
 			ArrivalAt: baseline, AirborneSensedAt: now.Add(-time.Hour), Source: aman.BaselineSourceAirborneFiledEET,
 			Confidence: aman.ConfidenceMedium, FlightPlanObservedAt: now.Add(-time.Hour), ModelVersion: "baseline-v1", ConfigVersion: "baseline-config-v1",

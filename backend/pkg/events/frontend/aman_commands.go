@@ -43,20 +43,20 @@ type AMANCommandMeta struct {
 
 type AMANMoveFlightRequest struct {
 	AMANCommandMeta
-	FlightID       string  `json:"flight_id"`
+	Callsign       string  `json:"callsign"`
 	RunwayGroupID  string  `json:"runway_group_id"`
-	BeforeFlightID *string `json:"before_flight_id,omitempty"`
-	AfterFlightID  *string `json:"after_flight_id,omitempty"`
+	BeforeCallsign *string `json:"before_callsign,omitempty"`
+	AfterCallsign  *string `json:"after_callsign,omitempty"`
 }
 
 type AMANFlightRequest struct {
 	AMANCommandMeta
-	FlightID string `json:"flight_id"`
+	Callsign string `json:"callsign"`
 }
 
 type AMANChangeRunwayRequest struct {
 	AMANCommandMeta
-	FlightID      string `json:"flight_id"`
+	Callsign      string `json:"callsign"`
 	RunwayGroupID string `json:"runway_group_id"`
 }
 
@@ -80,25 +80,25 @@ type AMANSetActiveRunwayGroupsRequest struct {
 
 type AMANSetManualETARequest struct {
 	AMANCommandMeta
-	FlightID  string `json:"flight_id"`
+	Callsign  string `json:"callsign"`
 	ManualETA string `json:"manual_eta"`
 }
 
 type AMANSetManualFeederETARequest struct {
 	AMANCommandMeta
-	FlightID  string `json:"flight_id"`
+	Callsign  string `json:"callsign"`
 	FeederETA string `json:"feeder_eta"`
 }
 
 type AMANReportGoAroundRequest struct {
 	AMANCommandMeta
-	FlightID   string `json:"flight_id"`
+	Callsign   string `json:"callsign"`
 	DetectedAt string `json:"detected_at"`
 }
 
 type AMANGoAroundDecisionRequest struct {
 	AMANCommandMeta
-	FlightID  string `json:"flight_id"`
+	Callsign  string `json:"callsign"`
 	EpisodeID string `json:"episode_id"`
 }
 
@@ -121,7 +121,7 @@ type AMANCreateRunwayClosureRequest struct {
 	AMANCommandMeta
 	RunwayGroupID string  `json:"runway_group_id"`
 	Start         *string `json:"start,omitempty"`
-	AfterFlightID *string `json:"after_flight_id,omitempty"`
+	AfterCallsign *string `json:"after_callsign,omitempty"`
 	End           *string `json:"end,omitempty"`
 	Reason        string  `json:"reason"`
 }
@@ -136,7 +136,7 @@ type AMANRemoveRunwayClosureRequest struct {
 type AMANCreateCapacityReservationRequest struct {
 	AMANCommandMeta
 	RunwayGroupID string `json:"runway_group_id"`
-	AfterFlightID string `json:"after_flight_id"`
+	AfterCallsign string `json:"after_callsign"`
 	Label         string `json:"label,omitempty"`
 	Reason        string `json:"reason"`
 }
@@ -150,7 +150,7 @@ type AMANRemoveCapacityReservationRequest struct {
 
 type AMANPlaceFlightAtTimeRequest struct {
 	AMANCommandMeta
-	FlightID      string `json:"flight_id"`
+	Callsign      string `json:"callsign"`
 	RunwayGroupID string `json:"runway_group_id"`
 	SlotTime      string `json:"slot_time"`
 	AllowGap      *bool  `json:"allow_gap"`
@@ -158,7 +158,7 @@ type AMANPlaceFlightAtTimeRequest struct {
 
 type AMANSubmitCoordinationRequest struct {
 	AMANCommandMeta
-	FlightID  string `json:"flight_id"`
+	Callsign  string `json:"callsign"`
 	Kind      string `json:"kind"`
 	Route     string `json:"route,omitempty"`
 	DirectTo  string `json:"direct_to,omitempty"`

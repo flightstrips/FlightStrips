@@ -193,7 +193,6 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		)
 		return &pgconn.PgError{Code: "40001", Message: "position update exhausted version retries"}
 	}
-
 	// Route ownership can depend on aircraft position. Recalculate it from this
 	// coalesced position stream instead of every full EuroScope flight-plan
 	// callback, which may arrive many times for the same radar update.

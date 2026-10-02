@@ -54,6 +54,8 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
     void ApplyBackendSyncCdm(const std::string& callsign, const BackendSyncCdmData& cdmData);
     void ApplyBackendSyncHold(const std::string& callsign, const std::string& hold,
                               const std::string& holdType, const std::string& holdEat);
+    void CacheBackendHoldEatReplay(const std::string& callsign, const std::string& hold,
+                                   const std::string& holdType, const std::string& holdEat);
     void ApplyPdcStateChange(const std::string& callsign, const std::string& state, const std::string& requestRemarks = {});
 
     static std::string GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan& flightPlan);

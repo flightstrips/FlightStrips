@@ -7,8 +7,8 @@ export interface AMANWarningPanelProps {
   current: AMANCurrentWarnings;
   connectionState: AMANConnectionState;
   presentationStatus: AMANPresentationStatus;
-  flights?: readonly Pick<AMANFlight, "callsign" | "flight_id">[];
-  onNavigateToFlight?: (flightID: string) => boolean;
+  flights?: readonly Pick<AMANFlight, "callsign" | "callsign">[];
+  onNavigateToFlight?: (callsign: string) => boolean;
 }
 
 function sourceLabel(source: AMANWarning["source"]): string {
@@ -19,8 +19,8 @@ function warningScope(warning: AMANWarning): string {
   return [
     warning.component && `Component: ${warning.component}`,
     warning.runway_group_id && `Runway group: ${warning.runway_group_id}`,
-    warning.flight_id && `Flight: ${warning.flight_id}`,
-    warning.related_flight_id && `Related flight: ${warning.related_flight_id}`,
+    warning.callsign && `Flight: ${warning.callsign}`,
+    warning.related_callsign && `Related flight: ${warning.related_callsign}`,
   ].filter(Boolean).join(" · ");
 }
 
@@ -36,7 +36,7 @@ export function AMANWarningPanel(props: AMANWarningPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const focusedActionRef = useRef<HTMLButtonElement | null>(null);
   const [navigationStatus, setNavigationStatus] = useState("");
-  const flightsByID = new Map(flights.map((flight) => [flight.flight_id, flight.callsign]));
+  const flightsByCallsign = new Map(flights.map((flight) => [flight.callsign, flight.callsign]));
 
   useLayoutEffect(() => {
     if (focusedActionRef.current?.isConnected === false) {
@@ -59,10 +59,10 @@ export function AMANWarningPanel(props: AMANWarningPanelProps) {
     actions[nextIndex].focus();
   };
 
-  const flightAction = (kind: "Primary" | "Related", flightID: string) => {
-    const callsign = flightsByID.get(flightID);
+  const flightAction = (kind: "Primary" | "Related", requestedCallsign: string) => {
+    const callsign = flightsByCallsign.get(requestedCallsign);
     if (callsign === undefined) {
-      return <span aria-label={`${kind} flight ${flightID} unavailable`} className="border border-dashed border-slate-500 px-2 py-1 text-slate-300">{kind}: {flightID} · unavailable</span>;
+      return <span aria-label={`${kind} flight ${requestedCallsign} unavailable`} className="border border-dashed border-slate-500 px-2 py-1 text-slate-300">{kind}: {requestedCallsign} · unavailable</span>;
     }
     return (
       <button
@@ -70,7 +70,7 @@ export function AMANWarningPanel(props: AMANWarningPanelProps) {
         className="rounded border border-slate-400 px-2 py-1 text-left text-sky-100 hover:bg-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         data-warning-flight-action=""
         onClick={(event) => {
-          const navigated = onNavigateToFlight?.(flightID) ?? false;
+          const navigated = onNavigateToFlight?.(callsign) ?? false;
           setNavigationStatus(navigated ? `${kind} flight ${callsign} selected.` : `${kind} flight ${callsign} target is unavailable.`);
           if (!navigated) event.currentTarget.focus();
         }}
@@ -116,9 +116,9 @@ export function AMANWarningPanel(props: AMANWarningPanelProps) {
               </div>
               <p className="text-sm leading-snug">{warning.message}</p>
               <p className="mt-1 font-mono text-[11px] text-slate-300">{warningScope(warning)}</p>
-              {(warning.flight_id || warning.related_flight_id) && <div className="mt-2 flex flex-wrap gap-2 font-mono text-[11px]">
-                {warning.flight_id && flightAction("Primary", warning.flight_id)}
-                {warning.related_flight_id && flightAction("Related", warning.related_flight_id)}
+              {(warning.callsign || warning.related_callsign) && <div className="mt-2 flex flex-wrap gap-2 font-mono text-[11px]">
+                {warning.callsign && flightAction("Primary", warning.callsign)}
+                {warning.related_callsign && flightAction("Related", warning.related_callsign)}
               </div>}
             </li>
           ))}

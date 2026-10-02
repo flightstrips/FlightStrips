@@ -29,20 +29,19 @@ func TestEuroScopeHoldingClearanceObserverPublishesPolicyNeutralFacts(t *testing
 		t.Run(test.name, func(t *testing.T) {
 			sink := &holdingClearanceSink{}
 			observer, err := NewEuroScopeHoldingClearanceObserver(EuroScopeHoldingClearanceObserverDependencies{
-				Sink: sink, Identities: euroScopeIdentityBinder{}, Now: func() time.Time { return now },
+				Sink: sink, Now: func() time.Time { return now },
 			})
 			require.NoError(t, err)
-			cid := "123456"
 			altitude := int32(12000)
 			strip := &models.Strip{
-				Callsign: "SAS123", VatsimCID: &cid, Origin: test.origin, Destination: test.destination,
+				Callsign: "SAS123", Origin: test.origin, Destination: test.destination,
 				Hold: "OLPIB", HoldType: test.holdType, HoldEat: "1422", ClearedAltitude: &altitude,
 			}
 
 			require.NoError(t, observer.ObserveHoldingClearance(context.Background(), strip))
 			require.Len(t, sink.facts, 1, "eligibility remains downstream read-model policy")
 			fact := sink.facts[0]
-			require.Equal(t, aman.FlightID("aman-123456"), fact.FlightID)
+			require.Equal(t, "SAS123", fact.Callsign)
 			require.Equal(t, test.wantDestination, fact.Destination)
 			require.Equal(t, aman.HoldingClearanceType(test.holdType), fact.HoldType)
 			require.Equal(t, "1422", fact.HoldEAT, "the boundary must not resolve or normalize HHMM")
@@ -54,17 +53,42 @@ func TestEuroScopeHoldingClearanceObserverPublishesPolicyNeutralFacts(t *testing
 
 type holdingClearanceSink struct{ facts []aman.HoldingClearanceFact }
 
+func TestEuroScopeHoldingFactCreateUpdateAndCancelWithoutCID(t *testing.T) {
+	now := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
+	holds := &holdingClearanceSink{}
+	observer, err := NewEuroScopeHoldingClearanceObserver(EuroScopeHoldingClearanceObserverDependencies{
+		Sink: holds, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	route := "MONAK OLPIB"
+	strip := &models.Strip{ID: 77, Session: 12, Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", Route: &route, Hold: "OLPIB", HoldType: "enroute", HoldEat: "1015"}
+
+	require.NoError(t, observer.ObserveHoldingClearance(context.Background(), strip))
+	require.Len(t, holds.facts, 1)
+	require.Equal(t, "SAS123", holds.facts[0].Callsign)
+	require.Equal(t, "OLPIB", holds.facts[0].Hold)
+
+	now = now.Add(time.Minute)
+	strip.HoldEat = "1020"
+	require.NoError(t, observer.ObserveHoldingClearance(context.Background(), strip))
+	require.Equal(t, "1020", holds.facts[1].HoldEAT)
+
+	now = now.Add(time.Minute)
+	strip.Hold, strip.HoldType, strip.HoldEat = "", "enroute", "1030"
+	require.NoError(t, observer.ObserveHoldingClearance(context.Background(), strip))
+	require.Empty(t, holds.facts[2].Hold)
+}
+
 func TestEuroScopeHoldingClearanceObserverBatchesFactsWithOriginalObservationTimes(t *testing.T) {
 	now := time.Date(2026, 9, 14, 19, 0, 0, 0, time.UTC)
 	sink := &batchHoldingClearanceSink{}
 	observer, err := NewEuroScopeHoldingClearanceObserver(EuroScopeHoldingClearanceObserverDependencies{
-		Sink: sink, Identities: euroScopeIdentityBinder{}, Now: func() time.Time { return now.Add(time.Minute) },
+		Sink: sink, Now: func() time.Time { return now.Add(time.Minute) },
 	})
 	require.NoError(t, err)
-	cid1, cid2 := "1234567", "2345678"
 	err = observer.ObserveHoldingClearances(context.Background(), []shared.HoldingClearanceObservation{
-		{Strip: &models.Strip{Callsign: "SAS123", VatsimCID: &cid1, Destination: "ekch", Hold: "OLPIB"}, ObservedAt: now},
-		{Strip: &models.Strip{Callsign: "SAS456", VatsimCID: &cid2, Destination: "EKCH", Hold: "TIDVU"}, ObservedAt: now.Add(time.Second)},
+		{Strip: &models.Strip{Callsign: "SAS123", Destination: "ekch", Hold: "OLPIB"}, ObservedAt: now},
+		{Strip: &models.Strip{Callsign: "SAS456", Destination: "EKCH", Hold: "TIDVU"}, ObservedAt: now.Add(time.Second)},
 		{Strip: &models.Strip{Callsign: "no-identity"}, ObservedAt: now},
 	})
 	require.NoError(t, err)
@@ -73,7 +97,7 @@ func TestEuroScopeHoldingClearanceObserverBatchesFactsWithOriginalObservationTim
 	require.Len(t, sink.batch, 2)
 	require.Equal(t, now, sink.batch[0].ObservedAt)
 	require.Equal(t, now.Add(time.Second), sink.batch[1].ObservedAt)
-	require.Equal(t, aman.FlightID("aman-2345678"), sink.batch[1].FlightID)
+	require.Equal(t, "SAS456", sink.batch[1].Callsign)
 }
 
 type batchHoldingClearanceSink struct {

@@ -10,7 +10,7 @@ import (
 type Kind string
 type State string
 type RequestID string
-type FlightID string
+type Callsign string
 type ControllerID string
 type RecipientStatus string
 type ExpiryReason string
@@ -99,7 +99,7 @@ type Request struct {
 	ID                  RequestID           `json:"id"`
 	CommandID           string              `json:"command_id"`
 	Airport             string              `json:"airport"`
-	FlightID            FlightID            `json:"flight_id"`
+	Callsign            Callsign            `json:"callsign"`
 	RecipientController ControllerID        `json:"recipient_controller"`
 	RecipientStatus     RecipientStatus     `json:"recipient_status,omitempty"`
 	SubmittedBy         string              `json:"submitted_by"`
@@ -122,12 +122,12 @@ func IDForCommand(commandID string) RequestID {
 	return RequestID("coordination-request/" + commandID)
 }
 
-func New(commandID, airport string, flightID FlightID, recipient ControllerID, actor, role string, kind Kind, payload Payload, at time.Time) (Request, error) {
+func New(commandID, airport string, flightID Callsign, recipient ControllerID, actor, role string, kind Kind, payload Payload, at time.Time) (Request, error) {
 	status := RecipientAssigned
 	if recipient == "" {
 		status = RecipientUnassigned
 	}
-	r := Request{ID: IDForCommand(commandID), CommandID: commandID, Airport: airport, FlightID: flightID,
+	r := Request{ID: IDForCommand(commandID), CommandID: commandID, Airport: airport, Callsign: flightID,
 		RecipientController: recipient, RecipientStatus: status, SubmittedBy: actor, SubmittedRole: role,
 		Kind: kind, State: StatePending, Payload: payload, CreatedAt: at, UpdatedAt: at}
 	return r, r.Validate()
@@ -135,7 +135,7 @@ func New(commandID, airport string, flightID FlightID, recipient ControllerID, a
 
 func (r Request) Validate() error {
 	if !present(r.CommandID) || r.ID != IDForCommand(r.CommandID) || !present(r.Airport) ||
-		!present(string(r.FlightID)) || !present(r.SubmittedBy) || !present(r.SubmittedRole) {
+		!present(string(r.Callsign)) || !present(r.SubmittedBy) || !present(r.SubmittedRole) {
 		return errors.New("coordination request identity and ownership must be complete and trimmed")
 	}
 	// An omitted status is the rolling-upgrade representation written before

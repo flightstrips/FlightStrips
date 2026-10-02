@@ -604,10 +604,29 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
         // Never replay against a confirmation of another controller's ownership.
         if (_stricmp(flightPlan.GetTrackingControllerCallsign(), event.tracking_controller.c_str()) != 0) return;
         m_flightPlanService->ReplayTrackedHold(flightPlan);
+
+        // All operational clients retain the last authoritative EAT. Apply it
+        // now that this client has become the tracker; HOLD_EAT is transient
+        // and is not carried into this local TopSky holding list by ownership.
+        const auto cached = m_flightPlanService->GetFlightPlan(event.callsign);
+        if (cached != nullptr && cached->backend_hold_eat_replay.has_value()) {
+            const auto& replay = *cached->backend_hold_eat_replay;
+            WriteTopSkyHoldEat(flightPlan, HoldEvent{event.callsign, replay.hold, replay.hold_type, replay.eat});
+        }
     }
 
     void MessageService::HandleHoldEvent(const HoldEvent &event) const {
+        // Retain the authoritative value on every operational client. The
+        // client that later becomes tracker can then populate its own TopSky
+        // holding list without waiting for another AMAN calculation change.
+        m_flightPlanService->CacheBackendHoldEatReplay(event.callsign, event.hold, event.hold_type, event.hold_eat);
+
         auto flightPlan = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!flightPlan.IsValid()) return;
+        WriteTopSkyHoldEat(flightPlan, event);
+    }
+
+    void MessageService::WriteTopSkyHoldEat(EuroScopePlugIn::CFlightPlan flightPlan, const HoldEvent& event) const {
         if (!flightPlan.IsValid() || !flightPlan.GetTrackingControllerIsMe()) return;
 
         auto controllerData = flightPlan.GetControllerAssignedData();
@@ -616,8 +635,9 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
             flightplan::ParseTopSkyHoldAnnotation(annotation == nullptr ? "" : annotation), event.hold, event.hold_type, event.hold_eat);
         if (command.empty()) return;
 
-        const auto cached = m_flightPlanService->GetFlightPlan(event.callsign);
-        if (cached != nullptr && cached->hold == event.hold && cached->hold_type == event.hold_type && cached->hold_eat == event.hold_eat) return;
+        // Observed backend/TopSky state does not prove that this local TopSky
+        // instance received the transient command. Always apply a server replay
+        // after validating the live hold.
         m_plugin->UpdateViaScratchPad(event.callsign.c_str(), command.c_str());
     }
 

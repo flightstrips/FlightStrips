@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +32,13 @@ type operationalAMANAssembly struct {
 	dependencies aman.Dependencies
 	commands     aman.CommandService
 	transport    *amanTransport
+}
+
+type holdingEATProjection struct {
+	callsign string
+	hold     string
+	holdType string
+	eat      string
 }
 
 type sessionLister interface {
@@ -75,6 +83,7 @@ type amanTransport struct {
 	health            aman.TechnicalHealthReporter
 	vatsimSource      vatsim.SnapshotSource
 	vatsimStaleAfter  time.Duration
+	sourceMode        aman.ObservationSourceMode
 	now               func() time.Time
 	gainLossEnabled   bool
 	holdingEATEnabled bool
@@ -85,6 +94,9 @@ type amanTransport struct {
 	// lastGainLossAuthority tracks whether EuroScope has received the current
 	// authoritative transport marker for each airport.
 	lastGainLossAuthority map[string]bool
+	// lastHoldingEAT tracks the last complete authoritative projection so a
+	// later publication can explicitly withdraw values that disappeared.
+	lastHoldingEAT map[string]map[string]holdingEATProjection
 }
 
 func (*amanTransport) Name() string { return "AMAN frontend state publisher" }
@@ -112,16 +124,16 @@ func (p *amanTransport) CurrentAMANState(ctx context.Context, airport string) (f
 
 func (p *amanTransport) currentTechnicalHealth(ctx context.Context) aman.TechnicalHealth {
 	health := p.health.TechnicalHealth(ctx)
-	if p.vatsimSource == nil {
+	if p.vatsimSource == nil || p.sourceMode != aman.ObservationSourceVATSIM {
 		return health
 	}
 	now := time.Now
 	if p.now != nil {
 		now = p.now
 	}
-	health.VATSIM = amanVATSIMHealth(p.vatsimSource, p.vatsimStaleAfter, now)
+	sourceHealth := amanVATSIMHealth(p.vatsimSource, p.vatsimStaleAfter, now)
 	return aman.EvaluateTechnicalHealth(
-		health.Mode, health.VATSIM, health.Navigation, health.Weather,
+		health.Mode, sourceHealth, health.Navigation, health.Weather,
 		health.Repository, health.Predictor, health.ReplayValidation,
 	)
 }
@@ -173,6 +185,74 @@ func (p *amanTransport) newHoldingEATEvents(ctx context.Context, state aman.Airp
 	return p.holdingEATEvents(ctx, state, true)
 }
 
+func (p *amanTransport) newHoldingEATPublication(ctx context.Context, state aman.AirportState) []euroscopeEvents.HoldEvent {
+	geometry := sync.OnceValues(func() (navdata.ActiveGeometrySnapshot, error) {
+		return p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
+	})
+	return p.holdingEATPublicationWithGeometry(ctx, state, geometry)
+}
+
+func (p *amanTransport) holdingEATPublicationWithGeometry(ctx context.Context, state aman.AirportState, geometry func() (navdata.ActiveGeometrySnapshot, error)) []euroscopeEvents.HoldEvent {
+	currentEvents := p.holdingEATEventsWithGeometry(ctx, state, false, geometry)
+	requiredWrites := p.holdingEATEventsWithGeometry(ctx, state, true, geometry)
+	requiresWrite := make(map[string]struct{}, len(requiredWrites))
+	for _, event := range requiredWrites {
+		requiresWrite[holdingEATKey(event.Callsign)] = struct{}{}
+	}
+
+	current := make(map[string]holdingEATProjection, len(currentEvents))
+	order := make([]string, 0, len(currentEvents))
+	for _, event := range currentEvents {
+		key := holdingEATKey(event.Callsign)
+		if _, exists := current[key]; !exists {
+			order = append(order, key)
+		}
+		current[key] = holdingEATProjection{
+			callsign: event.Callsign, hold: event.Hold, holdType: event.HoldType, eat: event.HoldEat,
+		}
+	}
+
+	airport := strings.ToUpper(strings.TrimSpace(state.Airport))
+	p.mu.Lock()
+	previous := p.lastHoldingEAT[airport]
+	updates := make([]euroscopeEvents.HoldEvent, 0, len(current)+len(previous))
+	for _, key := range order {
+		projection := current[key]
+		prior, existed := previous[key]
+		_, writeRequired := requiresWrite[key]
+		if writeRequired || !existed || prior != projection {
+			updates = append(updates, projection.event())
+		}
+	}
+
+	withdrawn := make([]string, 0)
+	for key := range previous {
+		if _, exists := current[key]; !exists {
+			withdrawn = append(withdrawn, key)
+		}
+	}
+	sort.Strings(withdrawn)
+	for _, key := range withdrawn {
+		withdrawal := previous[key]
+		withdrawal.eat = ""
+		updates = append(updates, withdrawal.event())
+	}
+	if p.lastHoldingEAT == nil {
+		p.lastHoldingEAT = make(map[string]map[string]holdingEATProjection)
+	}
+	p.lastHoldingEAT[airport] = current
+	p.mu.Unlock()
+	return updates
+}
+
+func holdingEATKey(callsign string) string {
+	return strings.ToUpper(strings.TrimSpace(callsign))
+}
+
+func (p holdingEATProjection) event() euroscopeEvents.HoldEvent {
+	return euroscopeEvents.HoldEvent{Callsign: p.callsign, Hold: p.hold, HoldType: p.holdType, HoldEat: p.eat}
+}
+
 func (p *amanTransport) holdingEATEvents(ctx context.Context, state aman.AirportState, suppressCurrent bool) []euroscopeEvents.HoldEvent {
 	return p.holdingEATEventsWithGeometry(ctx, state, suppressCurrent, func() (navdata.ActiveGeometrySnapshot, error) {
 		return p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
@@ -197,13 +277,18 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 		clearance := flight.HoldingClearance
 		prediction := flight.Prediction
 		stack := flight.HoldingStack
+		// The first surveillance detection establishes entry. Do not wait for
+		// the second observation that marks the holding stack confirmed.
 		if clearance == nil || clearance.Hold == "" || clearance.HoldType != aman.HoldingClearanceEnroute ||
-			prediction == nil || prediction.HoldingPlan == nil || stack == nil || !stack.Confirmed ||
+			prediction == nil || prediction.HoldingPlan == nil || stack == nil ||
 			flight.SelectedHolding == nil || stack.HoldingID != *flight.SelectedHolding {
 			continue
 		}
 		selectedFix, found := holdingFixes[navdata.HoldingID(*flight.SelectedHolding)]
 		if !found || !strings.EqualFold(strings.TrimSpace(clearance.Hold), string(selectedFix)) {
+			continue
+		}
+		if holdingEATBlockedByEarlierEntrant(flight, state.Flights) {
 			continue
 		}
 
@@ -212,13 +297,42 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 			continue
 		}
 		events = append(events, euroscopeEvents.HoldEvent{
-			Callsign: flight.CurrentCallsign,
+			Callsign: flight.Callsign,
 			Hold:     clearance.Hold,
 			HoldType: string(clearance.HoldType),
 			HoldEat:  eat,
 		})
 	}
 	return events
+}
+
+// A fixed manual or protected slot can prevent the scheduler from repairing a
+// hold FIFO conflict. Withhold that EAT rather than instructing a new entrant
+// to pass aircraft already in the hold. The publication layer withdraws a
+// previously written value when this projection disappears.
+func holdingEATBlockedByEarlierEntrant(flight aman.AMANFlight, flights []aman.AMANFlight) bool {
+	stack := flight.HoldingStack
+	if stack == nil || stack.FirstObservedAt.IsZero() || flight.Prediction == nil || flight.Prediction.HoldingPlan == nil {
+		return false
+	}
+	release := flight.Prediction.HoldingPlan.ApproachReleaseTime
+	for _, older := range flights {
+		if older.Callsign == flight.Callsign || older.HoldingStack == nil ||
+			older.HoldingStack.HoldingID != stack.HoldingID ||
+			older.State == aman.StateLanded || older.State == aman.StateRemoved {
+			continue
+		}
+		olderEntry := older.HoldingStack.FirstObservedAt
+		if olderEntry.IsZero() && !older.HoldingStack.Confirmed ||
+			!olderEntry.IsZero() && !olderEntry.Before(stack.FirstObservedAt) {
+			continue
+		}
+		if older.Prediction == nil || older.Prediction.HoldingPlan == nil ||
+			!older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release.UTC().Truncate(time.Minute)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *amanTransport) newGainLossEvent(_ context.Context, state aman.AirportState) (euroscopeEvents.AMANGainLossEvent, error) {
@@ -252,7 +366,7 @@ func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.Airport
 		euroscopeHub.PublishAMANGainLoss(gainLoss)
 	}
 	if euroscopeHub != nil && p.holdingEATEnabled {
-		euroscopeHub.PublishAMANHoldingEAT(state.Airport, p.holdingEATEventsWithGeometry(ctx, state, true, geometry))
+		euroscopeHub.PublishAMANHoldingEAT(state.Airport, p.holdingEATPublicationWithGeometry(ctx, state, geometry))
 	}
 	return nil
 }
@@ -293,7 +407,7 @@ func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.Air
 		}
 	}
 	if hub != nil && p.holdingEATEnabled {
-		hub.PublishAMANHoldingEAT(state.Airport, p.newHoldingEATEvents(ctx, state))
+		hub.PublishAMANHoldingEAT(state.Airport, p.newHoldingEATPublication(ctx, state))
 	}
 	return nil
 }
@@ -316,6 +430,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 		mode:              config.Mode,
 		vatsimSource:      vatsimSource,
 		vatsimStaleAfter:  vatsimStaleAfter,
+		sourceMode:        config.SourceMode,
 		now:               now,
 		gainLossEnabled:   config.EnableEuroScopeGainLoseTags,
 		holdingEATEnabled: config.EnableHoldingEATWriteback,
@@ -325,10 +440,10 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 		return operationalAMANAssembly{}, err
 	}
 	service, err := operational.New(operational.Dependencies{
-		Repository: amanRepository, Retirer: amanRepository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
+		Repository: amanRepository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
 		Runways: sessionArrivalRunwaySource{sessions: postgres.NewSessionRepository(pool)}, AircraftEngines: aircraftEngines,
 		Terminal: terminalConfig, TMAVolumePath: terminal.DefaultEKCHTMAVolumePath,
-		Airports: config.EnabledAirports, Mode: config.Mode, Publisher: transport, Now: now,
+		Airports: config.EnabledAirports, Mode: config.Mode, SourceMode: config.SourceMode, Publisher: transport, Now: now,
 	})
 	if err != nil {
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN operational service: %w", err)

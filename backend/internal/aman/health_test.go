@@ -43,7 +43,7 @@ func TestEvaluateTechnicalHealthRestoresAfterFreshInput(t *testing.T) {
 		ComponentHealth{Status: HealthReady}, ComponentHealth{Status: HealthReady},
 		ComponentHealth{Status: HealthReady}, ComponentHealth{Status: HealthReady}, ComponentHealth{Status: HealthReady}, ComponentHealth{Status: HealthReady},
 	)
-	if stale.Ready || stale.BlockedReasons[0] != "vatsim:snapshot_stale" {
+	if stale.Ready || stale.BlockedReasons[0] != "observation_source:snapshot_stale" {
 		t.Fatalf("stale report = %#v", stale)
 	}
 	if !fresh.Ready || fresh.Status != HealthReady || len(fresh.BlockedReasons) != 0 {

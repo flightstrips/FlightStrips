@@ -235,6 +235,14 @@ func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) 
 	if normalized {
 		s.TriggerRecalculate(ctx, session.ID, airport)
 	}
+	for callsign, flight := range lookup {
+		if flight == nil || !flight.AtotViffPending {
+			continue
+		}
+		if err := s.actionService.sendPendingAtot(ctx, session.ID, callsign); err != nil {
+			slog.WarnContext(ctx, "Will retry vIFF ATOT on the next CDM sync", slog.String("callsign", callsign), slog.Any("error", err))
+		}
+	}
 
 	return nil
 }

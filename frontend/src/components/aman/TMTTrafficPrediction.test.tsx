@@ -19,7 +19,7 @@ function prediction(): AMANTrafficPrediction {
       selected_rate: index === 2 ? {runway_group_id: "22L", arrivals_per_hour: 40, effective_at: new Date(start).toISOString()} : null,
       bucket_high: index === 2, window_high: index === 2,
       alert: index === 1 ? "yellow" : index === 2 ? "red" : "none",
-      flights: index === 0 ? [{flight_id: "1", callsign: "SAS101", airborne: true, landing_at: "2026-07-22T20:32:00.000Z", timing_source: "aman", data_status: "fresh"}] : [],
+      flights: index === 0 ? [{callsign: "SAS101", airborne: true, landing_at: "2026-07-22T20:32:00.000Z", timing_source: "aman", data_status: "fresh"}] : [],
     })),
   };
 }
@@ -39,5 +39,15 @@ describe("TMTTrafficPrediction", () => {
 
     fireEvent.focus(buckets[0]);
     expect(screen.getByText(/SAS101 20:32/, {selector: ".sr-only"})).toBeInTheDocument();
+  });
+
+  it("labels approximate airborne position timing", () => {
+    const value = prediction();
+    value.degraded_reasons = ["position_estimate"];
+    value.buckets[0].flights[0].timing_source = "airborne_position";
+    render(<TMTTrafficPrediction prediction={value} />);
+
+    expect(screen.getByText(/approximate straight-line estimates/)).toBeInTheDocument();
+    expect(screen.getByLabelText("20:30 to 20:45: 3 arrivals, load factor 12")).toHaveAttribute("title", expect.stringContaining("airborne position estimate"));
   });
 });

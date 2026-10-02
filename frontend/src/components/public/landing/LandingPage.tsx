@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { useEffect } from "react";
 import "./landing.css";
 
 import { CONNECTIONS, HERO, OWNERSHIP, PHOTOS, SCOPE, SITE } from "./content";
@@ -7,7 +7,7 @@ import { LandingFooter } from "./LandingFooter";
 import { LandingHeader } from "./LandingHeader";
 import { PhotoPlate } from "./PhotoPlate";
 import { PositionExplorer } from "./PositionExplorer";
-import { Eyebrow, GuideColumns, Reveal, Section, SwapButton, SwapLink } from "./primitives";
+import { ActionButton, ActionLink, Eyebrow, GuideColumns, Reveal, Section } from "./primitives";
 import { ArrivalSpecimen, ClearedSpecimen } from "./StripSpecimen";
 import { SystemDiagram } from "./SystemDiagram";
 import { useLandingAuth } from "./useLandingAuth";
@@ -16,20 +16,20 @@ function PrimaryAction({ label = "Open the board" }: { label?: string }) {
   const { isAuthenticated, signIn } = useLandingAuth();
 
   if (isAuthenticated) {
-    return (
-      <Link to="/app" className="fsl-swap fsl-swap--primary">
-        <span className="fsl-swap__face fsl-swap__face--rest">{label}</span>
-        <span className="fsl-swap__face fsl-swap__face--hover" aria-hidden="true">
-          {label}
-        </span>
-      </Link>
-    );
+    return <ActionLink label={label} to="/app" />;
   }
 
-  return <SwapButton label="Sign in with VATSIM" onClick={signIn} />;
+  return <ActionButton label="Sign in with VATSIM" onClick={signIn} />;
 }
 
 export function LandingPage() {
+  // Arriving from another page with a section hash: the section did not exist
+  // when the browser tried to scroll to it, so do it once the page is mounted.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
+
   return (
     <div className="fsl min-h-screen">
       <LandingHeader />
@@ -52,7 +52,7 @@ export function LandingPage() {
                     <span className="fsl-mono text-[11px] uppercase tracking-[0.18em]">{HERO.badge}</span>
                   </div>
 
-                  <h1 className="fsl-display mb-7 max-w-[13ch] text-[42px] sm:text-[64px] lg:text-[84px] xl:text-[96px]">
+                  <h1 className="fsl-display mb-7 max-w-[18ch] text-[40px] sm:text-[56px] lg:text-[72px] xl:text-[84px]">
                     {HERO.headline}
                   </h1>
                 </Reveal>
@@ -64,7 +64,7 @@ export function LandingPage() {
 
                   <div className="flex flex-wrap gap-3">
                     <PrimaryAction />
-                    <SwapLink label="Read the docs" href={SITE.docs} variant="secondary" external />
+                    <ActionLink label="Read the docs" href={SITE.docs} variant="secondary" external />
                   </div>
 
                   <p className="fsl-mono mt-8 text-[11px] uppercase tracking-[0.18em] text-[var(--fsl-ink-muted)]">
@@ -246,7 +246,7 @@ export function LandingPage() {
           </Reveal>
 
           <div className="grid border-t border-[var(--fsl-line)] lg:grid-cols-2">
-            <Reveal className="border-b border-[var(--fsl-line)] bg-[var(--fsl-surface)] p-8 sm:p-10 lg:border-r">
+            <Reveal className="fsl-hoverbar border-b border-[var(--fsl-line)] bg-[var(--fsl-surface)] p-8 sm:p-10 lg:border-r">
               <p className="fsl-mono mb-4 text-[11px] uppercase tracking-[0.18em] text-[var(--fsl-brand-ink)]">
                 Live
               </p>
@@ -262,7 +262,7 @@ export function LandingPage() {
               </ul>
             </Reveal>
 
-            <Reveal delay={100} className="border-b border-[var(--fsl-line)] p-8 sm:p-10">
+            <Reveal delay={100} className="fsl-hoverbar border-b border-[var(--fsl-line)] p-8 sm:p-10">
               <p className="fsl-mono mb-4 text-[11px] uppercase tracking-[0.18em] text-[var(--fsl-ink-muted)]">
                 Planned — not built yet
               </p>
@@ -293,7 +293,7 @@ export function LandingPage() {
                     {SCOPE.onboarding.body}
                   </p>
                 </div>
-                <SwapLink
+                <ActionLink
                   label={`Email ${SITE.email}`}
                   href={`mailto:${SITE.email}`}
                   variant="secondary"
@@ -308,7 +308,7 @@ export function LandingPage() {
         {/* Full-bleed on purpose: the two cells meet at a single hairline. */}
         <section data-fsl-theme="dark">
           <div className="grid border-t border-[var(--fsl-line)] lg:grid-cols-2">
-            <div className="border-b border-[var(--fsl-line)] px-6 py-16 sm:px-12 sm:py-20 lg:border-b-0 lg:border-r">
+            <div className="fsl-hoverbar border-b border-[var(--fsl-line)] px-6 py-16 sm:px-12 sm:py-20 lg:border-b-0 lg:border-r">
               <Eyebrow className="mb-5">Controllers</Eyebrow>
               <h2 className="fsl-display mb-5 max-w-[16ch] text-[30px] sm:text-[40px]">
                 Sign in, load the plugin, work the strips.
@@ -320,7 +320,7 @@ export function LandingPage() {
               <PrimaryAction />
             </div>
 
-            <div className="px-6 py-16 sm:px-12 sm:py-20">
+            <div className="fsl-hoverbar px-6 py-16 sm:px-12 sm:py-20">
               <Eyebrow className="mb-5">Everyone else</Eyebrow>
               <h2 className="fsl-display mb-5 max-w-[16ch] text-[30px] sm:text-[40px]">
                 Read how it works, or read the code.
@@ -330,8 +330,8 @@ export function LandingPage() {
                 contributions from controllers and developers are welcome.
               </p>
               <div className="flex flex-wrap gap-3">
-                <SwapLink label="Documentation" href={SITE.docs} variant="secondary" external />
-                <SwapLink label="GitHub" href={SITE.github} variant="secondary" external />
+                <ActionLink label="Documentation" href={SITE.docs} variant="secondary" external />
+                <ActionLink label="GitHub" href={SITE.github} variant="secondary" external />
               </div>
             </div>
           </div>

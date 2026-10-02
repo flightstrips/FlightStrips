@@ -505,6 +505,15 @@ func (s *EuroscopeSyncService) syncStripsFromEvent(ctx context.Context, request 
 	if finalizer, ok := s.stripService.(interface{ FlushHoldingClearances(context.Context) error }); ok {
 		defer func() { resultErr = errors.Join(resultErr, finalizer.FlushHoldingClearances(ctx)) }()
 	}
+	if finalizer, ok := s.stripService.(interface {
+		FlushEuroScopeAMANStrips(context.Context, int32) error
+	}); ok {
+		defer func() {
+			if resultErr == nil {
+				resultErr = finalizer.FlushEuroScopeAMANStrips(ctx, request.Session)
+			}
+		}()
+	}
 	for _, strip := range strips {
 		recoveredFromPendingDisconnect := s.runtime != nil && s.runtime.CancelAircraftDisconnect(request.Session, strip.Callsign)
 		if err := s.stripService.SyncStrip(ctx, request.Session, request.CID, strip, request.Airport); err != nil {

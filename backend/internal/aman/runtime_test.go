@@ -62,6 +62,7 @@ func runtimeTestDependencies() Dependencies {
 func TestDefaultRuntimeConfigIsDisabledAndReleaseSafe(t *testing.T) {
 	config := DefaultRuntimeConfig()
 	require.Equal(t, ModeDisabled, config.Mode)
+	require.Equal(t, ObservationSourceHybrid, config.SourceMode)
 	require.False(t, config.EnableHoldingEATWriteback)
 	require.NoError(t, config.Validate())
 
@@ -100,6 +101,7 @@ func TestRuntimeRejectsInvalidConfiguration(t *testing.T) {
 		{"duplicate airport", func(c *RuntimeConfig) { c.EnabledAirports = []string{" EKCH ", "ekch"} }, "unique"},
 		{"reconciliation timing", func(c *RuntimeConfig) { c.ReconciliationInterval = -time.Second }, "reconciliation interval"},
 		{"surveillance timing", func(c *RuntimeConfig) { c.SurveillanceInterval = -time.Second }, "surveillance interval"},
+		{"source mode", func(c *RuntimeConfig) { c.SourceMode = "unknown" }, "source mode"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -143,10 +145,19 @@ func TestRuntimeStoresNormalizedConfiguration(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, RuntimeConfig{
 		Mode:                   ModeShadow,
+		SourceMode:             ObservationSourceHybrid,
 		EnabledAirports:        []string{"EKCH", "EKRN"},
 		ReconciliationInterval: 3 * time.Second,
 		SurveillanceInterval:   4 * time.Second,
 	}, runtime.Config())
+}
+
+func TestRuntimeConfigNormalizeCanonicalizesSourceModeForApplicationAssembly(t *testing.T) {
+	config := RuntimeConfig{Mode: " SHADOW ", SourceMode: " EuroScope ", EnabledAirports: []string{" ekch "}}.Normalize()
+
+	require.Equal(t, ModeShadow, config.Mode)
+	require.Equal(t, ObservationSourceEuroScope, config.SourceMode)
+	require.Equal(t, []string{"EKCH"}, config.EnabledAirports)
 }
 
 func TestRuntimeOwnershipFollowsRolloutMode(t *testing.T) {

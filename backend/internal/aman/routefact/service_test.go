@@ -15,11 +15,10 @@ import (
 
 func TestReportDirectToPersistsBackendOwnedFactAndPublishes(t *testing.T) {
 	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
-	cid := "1234567"
 	repository := &memoryRepository{state: aman.AirportState{
-		Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight(cid)},
+		Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight()},
 	}}
-	strips := &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &cid}}
+	strips := &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP"}}
 	publisher := &publisher{}
 	reconciler := &reconciler{}
 	correlator := &correlator{}
@@ -44,11 +43,11 @@ func TestReportDirectToPersistsBackendOwnedFactAndPublishes(t *testing.T) {
 	require.Equal(t, 1, reconciler.calls)
 	fact := repository.state.Flights[0].ActiveRouteFact
 	require.Equal(t, &aman.RouteFact{
-		ID: "fact-1", FlightID: "flight-1", Fix: "KEMAX", Issuer: "EKCH_A_APP",
+		ID: "fact-1", Callsign: "SAS123", Fix: "KEMAX", Issuer: "EKCH_A_APP",
 		ObservedAt: now.Add(-time.Minute), ReceivedAt: now,
 		DatasetVersion: "2608|revision-a|2026-08-19T12:00:00Z|2026-08-21T12:00:00Z", State: aman.RouteFactActive,
 	}, fact)
-	require.Equal(t, coordinationrequest.ClearanceFact{Airport: "EKCH", FlightID: "flight-1", FactID: "fact-1", Kind: coordinationrequest.KindRouteDirect,
+	require.Equal(t, coordinationrequest.ClearanceFact{Airport: "EKCH", Callsign: "SAS123", FactID: "fact-1", Kind: coordinationrequest.KindRouteDirect,
 		Value: "KEMAX", Issuer: "EKCH_A_APP", ObservedAt: now.Add(-time.Minute)}, correlator.fact)
 
 	// A repeated callback is idempotent across a fresh service instance because
@@ -75,17 +74,16 @@ func TestReportDirectToPersistsBackendOwnedFactAndPublishes(t *testing.T) {
 
 func TestReportDirectToDoesNotRestoreExpiredTargetOnClear(t *testing.T) {
 	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
-	cid := "1234567"
-	flight := routedFlight(cid)
+	flight := routedFlight()
 	flight.State = aman.StateGoAround
 	flight.ActiveRouteFact = &aman.RouteFact{
-		ID: "expired-direct", FlightID: flight.ID, Fix: "KEMAX", Issuer: "EKCH_A_APP",
+		ID: "expired-direct", Callsign: flight.Callsign, Fix: "KEMAX", Issuer: "EKCH_A_APP",
 		ObservedAt: now.Add(-time.Minute), ReceivedAt: now.Add(-time.Minute), State: aman.RouteFactExpired,
 	}
 	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{flight}}}
 	service, err := New(Dependencies{
 		Repository: repository,
-		Strips:     &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &cid}},
+		Strips:     &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP"}},
 		Geometry:   geometry(now), Publisher: &publisher{}, Reconciler: &reconciler{},
 		Now: func() time.Time { return now }, NewID: func() string { return "cleared-direct" },
 	})
@@ -109,9 +107,8 @@ func (c *correlator) ObserveClearance(_ context.Context, fact coordinationreques
 
 func TestReportDirectToEnforcesCurrentTrackingControllerAndNavigationSnapshot(t *testing.T) {
 	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
-	cid := "1234567"
-	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 2, Flights: []aman.AMANFlight{routedFlight(cid)}}}
-	strips := &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &cid}}
+	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 2, Flights: []aman.AMANFlight{routedFlight()}}}
+	strips := &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP"}}
 	service, err := New(Dependencies{
 		Repository: repository, Strips: strips, Geometry: geometry(now), Publisher: &publisher{}, Reconciler: &reconciler{},
 		Now: func() time.Time { return now }, NewID: func() string { return "fact" },
@@ -145,24 +142,23 @@ func TestReportDirectToEnforcesCurrentTrackingControllerAndNavigationSnapshot(t 
 	err = service.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", nil, now)
 	requireDomainClass(t, err, aman.ErrorUnauthorized)
 
-	// A callsign correction resolves the same persisted FlightID through the
+	// A callsign correction resolves the same persisted Callsign through the
 	// current strip/session binding.
-	repository.state.Flights[0].CurrentCallsign = "SAS124"
+	repository.state.Flights[0].Callsign = "SAS124"
 	strips.strip.Callsign = "SAS124"
 	require.NoError(t, service.ReportDirectTo(context.Background(), 42, "EKCH", "SAS124", "EKCH_B_APP", nil, now))
-	require.Equal(t, aman.FlightID("flight-1"), repository.state.Flights[0].ID)
+	require.Equal(t, aman.Callsign("SAS124"), repository.state.Flights[0].Callsign)
 	require.Equal(t, aman.RouteFactCleared, repository.state.Flights[0].ActiveRouteFact.State)
 }
 
 func TestReportDirectToToleratesBoundedControllerClockSkew(t *testing.T) {
 	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
-	cid := "1234567"
 	repository := &memoryRepository{state: aman.AirportState{
-		Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight(cid)},
+		Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight()},
 	}}
 	service, err := New(Dependencies{
 		Repository: repository,
-		Strips:     &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &cid}},
+		Strips:     &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP"}},
 		Geometry:   geometry(now),
 		Publisher:  &publisher{},
 		Reconciler: &reconciler{},
@@ -182,30 +178,28 @@ func TestReportDirectToToleratesBoundedControllerClockSkew(t *testing.T) {
 
 func TestReportSpeedCorrelatesWithoutChangingAMANInputs(t *testing.T) {
 	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
-	cid := "1234567"
-	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight(cid)}}}
+	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight()}}}
 	correlator := &correlator{}
 	service, err := New(Dependencies{Repository: repository,
-		Strips:   &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &cid}},
+		Strips:   &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP"}},
 		Geometry: geometry(now), Publisher: &publisher{}, Reconciler: &reconciler{}, Correlator: correlator,
 		Now: func() time.Time { return now }, NewID: func() string { return "speed-fact" }})
 	require.NoError(t, err)
 	require.NoError(t, service.ReportSpeed(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", "220 kt", now))
 	require.Zero(t, repository.commits)
 	require.Equal(t, aman.SequenceRevision(7), repository.state.Revision)
-	require.Equal(t, coordinationrequest.ClearanceFact{Airport: "EKCH", FlightID: "flight-1", FactID: "speed-fact", Kind: coordinationrequest.KindSpeed,
+	require.Equal(t, coordinationrequest.ClearanceFact{Airport: "EKCH", Callsign: "SAS123", FactID: "speed-fact", Kind: coordinationrequest.KindSpeed,
 		Value: "220 KT", Issuer: "EKCH_A_APP", ObservedAt: now}, correlator.fact)
 }
 
 func TestRouteFactsMatchActiveFlightByCallsignOnly(t *testing.T) {
 	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
-	amanCID, stripCID := "1234567", "7654321"
-	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight(amanCID)}}}
+	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight()}}}
 	correlator := &correlator{}
 	service, err := New(Dependencies{
 		Repository: repository,
 		Strips: &stripReader{strip: &internalModels.Strip{
-			Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &stripCID,
+			Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP",
 		}},
 		Geometry: geometry(now), Publisher: &publisher{}, Reconciler: &reconciler{}, Correlator: correlator,
 		Now: func() time.Time { return now }, NewID: func() string { return "fact" },
@@ -214,10 +208,10 @@ func TestRouteFactsMatchActiveFlightByCallsignOnly(t *testing.T) {
 
 	fix := "KEMAX"
 	require.NoError(t, service.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", &fix, now))
-	require.Equal(t, aman.FlightID("flight-1"), repository.state.Flights[0].ActiveRouteFact.FlightID)
+	require.Equal(t, aman.Callsign("SAS123"), repository.state.Flights[0].ActiveRouteFact.Callsign)
 
 	require.NoError(t, service.ReportSpeed(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", "220 KT", now))
-	require.Equal(t, coordinationrequest.FlightID("flight-1"), correlator.fact.FlightID)
+	require.Equal(t, coordinationrequest.Callsign("SAS123"), correlator.fact.Callsign)
 }
 
 type memoryRepository struct {
@@ -294,10 +288,10 @@ func geometry(now time.Time) geometryReader {
 	}}
 }
 
-func routedFlight(cid string) aman.AMANFlight {
+func routedFlight() aman.AMANFlight {
 	routeKey, feeder, group := "route-1", "FEEDER", aman.RunwayGroupID("GROUP")
 	return aman.AMANFlight{
-		ID: "flight-1", VATSIMCID: cid, CurrentCallsign: "SAS123", State: aman.StateAirborne,
+		Callsign: "SAS123", State: aman.StateAirborne,
 		ActiveRouteKey: &routeKey, SelectedFeeder: &feeder, SelectedRunwayGroup: &group,
 	}
 }

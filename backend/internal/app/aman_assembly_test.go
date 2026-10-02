@@ -41,13 +41,29 @@ func TestAMANTransportUsesLiveVATSIMCacheForFrontendHealth(t *testing.T) {
 		health:           testAMANHealthReporter{report: &lagging},
 		vatsimSource:     amanHealthSnapshotSource{snapshot: vatsim.Snapshot{Timestamp: now.Add(-10 * time.Second)}},
 		vatsimStaleAfter: time.Minute,
+		sourceMode:       aman.ObservationSourceVATSIM,
 		now:              func() time.Time { return now },
 	}
 
 	health := transport.currentTechnicalHealth(context.Background())
+	require.Equal(t, aman.HealthReady, health.ObservationSource.Status)
 	require.Equal(t, aman.HealthReady, health.VATSIM.Status)
 	require.True(t, health.Ready)
 	require.True(t, health.AuthorityAllowed)
+}
+
+func TestAMANTransportKeepsSelectedEuroScopeHealthInHybridMode(t *testing.T) {
+	now := time.Date(2026, time.September, 13, 18, 45, 10, 0, time.UTC)
+	ready := aman.ComponentHealth{Status: aman.HealthReady}
+	report := aman.EvaluateTechnicalHealth(aman.ModeAuthoritative, ready, ready, ready, ready, ready, ready)
+	transport := &amanTransport{
+		health: testAMANHealthReporter{report: &report}, sourceMode: aman.ObservationSourceHybrid,
+		vatsimSource: amanHealthSnapshotSource{}, vatsimStaleAfter: time.Minute, now: func() time.Time { return now },
+	}
+
+	health := transport.currentTechnicalHealth(context.Background())
+	require.True(t, health.Ready)
+	require.Equal(t, aman.HealthReady, health.ObservationSource.Status)
 }
 
 func TestAMANTransportAlwaysMarksGainLossAuthoritative(t *testing.T) {
@@ -62,27 +78,103 @@ func TestAMANTransportAlwaysMarksGainLossAuthoritative(t *testing.T) {
 	require.True(t, healthy.Authoritative)
 }
 
-func TestAMANTransportProjectsConfirmedHoldingReleaseAsTopSkyEAT(t *testing.T) {
+func TestAMANTransportProjectsHoldingReleaseOnFirstSurveillanceDetection(t *testing.T) {
 	release := time.Date(2026, time.September, 13, 14, 22, 37, 0, time.UTC)
 	holdingID := "EKCH-OLPIB-PRIMARY"
 	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{{
-		CurrentCallsign:  "SAS123",
+		Callsign:         "SAS123",
+		SelectedHolding:  &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
+		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},
+	}}}
+	transport := holdingEATTransport(holdingID, "OLPIB")
+	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state))
+
+	state.Flights[0].HoldingStack = &aman.HoldingStackState{HoldingID: holdingID, ConsecutiveObservations: 1}
+	events := transport.newHoldingEATPublication(context.Background(), state)
+
+	require.Equal(t, []euroscopeEvents.HoldEvent{{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}}, events)
+	state.Flights[0].HoldingClearance.HoldEAT = "1422"
+	state.Flights[0].HoldingStack.Confirmed = true
+	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state))
+}
+
+func TestAMANTransportWithdrawsEATThatWouldPassEarlierHoldEntrant(t *testing.T) {
+	start := time.Date(2026, time.September, 13, 14, 0, 0, 0, time.UTC)
+	holdingID := "EKCH-OLPIB-PRIMARY"
+	older := aman.AMANFlight{
+		Callsign: "OLDER", SelectedHolding: &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
+		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, FirstObservedAt: start, Confirmed: true},
+		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: start.Add(25 * time.Minute)}},
+	}
+	newer := aman.AMANFlight{
+		Callsign: "NEWER", SelectedHolding: &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
+		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, FirstObservedAt: start.Add(time.Minute), Confirmed: true},
+		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: start.Add(30 * time.Minute)}},
+	}
+	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{newer, older}}
+	transport := holdingEATTransport(holdingID, "OLPIB")
+	require.Len(t, transport.newHoldingEATPublication(context.Background(), state), 2)
+
+	state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime = start.Add(22 * time.Minute)
+	state.Flights[1].HoldingClearance.HoldEAT = "1425"
+	require.Equal(t, []euroscopeEvents.HoldEvent{{Callsign: "NEWER", Hold: "OLPIB", HoldType: "enroute"}},
+		transport.newHoldingEATPublication(context.Background(), state))
+	state.Flights[1].HoldingStack.FirstObservedAt = time.Time{} // legacy persisted stack
+	require.Empty(t, transport.newHoldingEATEvents(context.Background(), state))
+}
+
+func TestAMANTransportPublishesHoldingEATWithdrawalWhenProjectionDisappears(t *testing.T) {
+	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
+	holdingID := "EKCH-OLPIB-PRIMARY"
+	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{{
+		Callsign:         "SAS123",
 		SelectedHolding:  &holdingID,
 		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
 		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, Confirmed: true},
 		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},
 	}}}
+	transport := holdingEATTransport(holdingID, "OLPIB")
 
-	events := holdingEATTransport(holdingID, "OLPIB").newHoldingEATEvents(context.Background(), state)
+	require.Equal(t,
+		[]euroscopeEvents.HoldEvent{{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}},
+		transport.newHoldingEATPublication(context.Background(), state),
+	)
 
-	require.Equal(t, []euroscopeEvents.HoldEvent{{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}}, events)
+	state.Flights[0].HoldingStack = nil
+	require.Equal(t,
+		[]euroscopeEvents.HoldEvent{{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute"}},
+		transport.newHoldingEATPublication(context.Background(), state),
+	)
+	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state))
+}
+
+func TestAMANTransportPublishesInitialHoldingEATWhenClearanceAlreadyMatches(t *testing.T) {
+	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
+	holdingID := "EKCH-OLPIB-PRIMARY"
+	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{{
+		Callsign:         "SAS123",
+		SelectedHolding:  &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, HoldEAT: "1422"},
+		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, Confirmed: true},
+		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},
+	}}}
+	transport := holdingEATTransport(holdingID, "OLPIB")
+
+	require.Equal(t,
+		[]euroscopeEvents.HoldEvent{{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}},
+		transport.newHoldingEATPublication(context.Background(), state),
+	)
+	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state))
 }
 
 func TestAMANTransportSuppressesUnsafeOrDuplicateHoldingEAT(t *testing.T) {
 	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
 	holdingID := "EKCH-OLPIB-PRIMARY"
 	flight := aman.AMANFlight{
-		CurrentCallsign: "SAS123", SelectedHolding: &holdingID,
+		Callsign: "SAS123", SelectedHolding: &holdingID,
 		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
 		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, Confirmed: true},
 		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},
@@ -93,9 +185,14 @@ func TestAMANTransportSuppressesUnsafeOrDuplicateHoldingEAT(t *testing.T) {
 	transport.holdingEATEnabled = false
 	require.Empty(t, transport.newHoldingEATEvents(context.Background(), aman.AirportState{Authoritative: true, Flights: []aman.AMANFlight{flight}}))
 	transport.holdingEATEnabled = true
-	flight.HoldingStack.Confirmed = false
+	flight.HoldingStack = nil
 	require.Empty(t, transport.newHoldingEATEvents(context.Background(), aman.AirportState{Authoritative: true, Flights: []aman.AMANFlight{flight}}))
-	flight.HoldingStack.Confirmed = true
+	flight.HoldingStack = &aman.HoldingStackState{HoldingID: "EKCH-OTHER-PRIMARY", ConsecutiveObservations: 1}
+	require.Empty(t, transport.newHoldingEATEvents(context.Background(), aman.AirportState{Authoritative: true, Flights: []aman.AMANFlight{flight}}))
+	flight.HoldingStack = &aman.HoldingStackState{HoldingID: holdingID, ConsecutiveObservations: 1}
+	flight.HoldingClearance.HoldType = aman.HoldingClearanceTSA
+	require.Empty(t, transport.newHoldingEATEvents(context.Background(), aman.AirportState{Authoritative: true, Flights: []aman.AMANFlight{flight}}))
+	flight.HoldingClearance.HoldType = aman.HoldingClearanceEnroute
 	flight.HoldingClearance.HoldEAT = "1422"
 	require.Empty(t, transport.newHoldingEATEvents(context.Background(), aman.AirportState{Authoritative: true, Flights: []aman.AMANFlight{flight}}))
 }
@@ -104,9 +201,9 @@ func TestAMANTransportReplaysStoredHoldingEATOnReconnect(t *testing.T) {
 	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
 	holdingID := "EKCH-OLPIB-PRIMARY"
 	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{{
-		CurrentCallsign: "SAS123", SelectedHolding: &holdingID,
+		Callsign: "SAS123", SelectedHolding: &holdingID,
 		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, HoldEAT: "1422"},
-		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, Confirmed: true},
+		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, ConsecutiveObservations: 1},
 		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},
 	}}}
 	transport := holdingEATTransport(holdingID, "OLPIB")
@@ -122,7 +219,7 @@ func TestAMANTransportSuppressesEATWhenClearanceDoesNotMatchSelectedHoldingFix(t
 	holdingID := "EKCH-TIDVU-PRIMARY"
 	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
 	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{{
-		CurrentCallsign: "SAS123", SelectedHolding: &holdingID,
+		Callsign: "SAS123", SelectedHolding: &holdingID,
 		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
 		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, Confirmed: true},
 		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},

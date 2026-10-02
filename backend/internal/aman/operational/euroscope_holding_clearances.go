@@ -13,28 +13,31 @@ import (
 // EuroScopeHoldingClearanceObserver maps the persisted authoritative strip
 // fields to AMAN's policy-neutral holding fact boundary.
 type EuroScopeHoldingClearanceObserver struct {
-	sink       aman.HoldingClearanceSink
-	identities aman.VATSIMFlightIdentityBinder
-	now        func() time.Time
+	sink     aman.HoldingClearanceSink
+	airports map[string]struct{}
+	now      func() time.Time
 }
 
 type EuroScopeHoldingClearanceObserverDependencies struct {
-	Sink       aman.HoldingClearanceSink
-	Identities aman.VATSIMFlightIdentityBinder
-	Now        func() time.Time
+	Sink            aman.HoldingClearanceSink
+	EnabledAirports []string
+	Now             func() time.Time
 }
 
 func NewEuroScopeHoldingClearanceObserver(deps EuroScopeHoldingClearanceObserverDependencies) (*EuroScopeHoldingClearanceObserver, error) {
 	if deps.Sink == nil {
 		return nil, fmt.Errorf("EuroScope AMAN holding-clearance observer requires sink")
 	}
-	if deps.Identities == nil {
-		return nil, fmt.Errorf("EuroScope AMAN holding-clearance observer requires VATSIM identity binder")
-	}
 	if deps.Now == nil {
 		deps.Now = time.Now
 	}
-	return &EuroScopeHoldingClearanceObserver{sink: deps.Sink, identities: deps.Identities, now: deps.Now}, nil
+	airports := make(map[string]struct{}, len(deps.EnabledAirports))
+	for _, airport := range deps.EnabledAirports {
+		if airport = strings.ToUpper(strings.TrimSpace(airport)); airport != "" {
+			airports[airport] = struct{}{}
+		}
+	}
+	return &EuroScopeHoldingClearanceObserver{sink: deps.Sink, airports: airports, now: deps.Now}, nil
 }
 
 func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearance(ctx context.Context, strip *models.Strip) error {
@@ -44,7 +47,7 @@ func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearance(ctx context.
 func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearances(ctx context.Context, strips []shared.HoldingClearanceObservation) error {
 	facts := make([]aman.HoldingClearanceFact, 0, len(strips))
 	for _, observation := range strips {
-		fact, err := o.holdingClearanceFact(ctx, observation.Strip, observation.ObservedAt)
+		fact, err := o.projectStrip(observation.Strip, observation.ObservedAt)
 		if err != nil {
 			return err
 		}
@@ -65,28 +68,38 @@ func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearances(ctx context
 	return nil
 }
 
-func (o *EuroScopeHoldingClearanceObserver) holdingClearanceFact(ctx context.Context, strip *models.Strip, observedAt time.Time) (*aman.HoldingClearanceFact, error) {
+func (o *EuroScopeHoldingClearanceObserver) projectStrip(strip *models.Strip, observedAt time.Time) (*aman.HoldingClearanceFact, error) {
 	if strip == nil {
 		return nil, nil
 	}
-	cid := stripStringValue(strip.VatsimCID)
 	callsign := strings.ToUpper(strings.TrimSpace(strip.Callsign))
-	if cid == "" || callsign == "" {
+	destination := strings.ToUpper(strings.TrimSpace(strip.Destination))
+	if callsign == "" || destination == "" {
 		return nil, nil
 	}
-	flightID, err := o.identities.BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{
-		VATSIMCID: cid, CurrentCallsign: callsign,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("bind EuroScope AMAN holding-clearance identity: %w", err)
+	if len(o.airports) > 0 {
+		if _, enabled := o.airports[destination]; !enabled {
+			return nil, nil
+		}
 	}
 	fact := aman.HoldingClearanceFact{
-		FlightID: flightID, VATSIMCID: cid, Callsign: callsign,
-		Origin: strings.ToUpper(strings.TrimSpace(strip.Origin)), Destination: strings.ToUpper(strings.TrimSpace(strip.Destination)),
+		Callsign: callsign,
+		Origin:   strings.ToUpper(strings.TrimSpace(strip.Origin)), Destination: strings.ToUpper(strings.TrimSpace(strip.Destination)),
 		Hold: strip.Hold, HoldType: aman.HoldingClearanceType(strip.HoldType), HoldEAT: strip.HoldEat,
 		ClearedAltitude: cloneInt32(strip.ClearedAltitude), ObservedAt: observedAt,
 	}
 	return &fact, nil
+}
+
+func normalizedStripHoldingClearance(strip *models.Strip, observedAt time.Time) *aman.HoldingClearance {
+	hold := strings.ToUpper(strings.TrimSpace(strip.Hold))
+	holdType := aman.HoldingClearanceType(strings.ToLower(strings.TrimSpace(strip.HoldType)))
+	holdEAT := strings.TrimSpace(strip.HoldEat)
+	altitude := cloneInt32(strip.ClearedAltitude)
+	if hold == "" {
+		holdType, holdEAT, altitude = "", "", nil
+	}
+	return &aman.HoldingClearance{Hold: hold, HoldType: holdType, HoldEAT: holdEAT, ClearedAltitude: altitude, ObservedAt: observedAt}
 }
 
 func cloneInt32(value *int32) *int32 {

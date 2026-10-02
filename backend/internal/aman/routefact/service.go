@@ -174,7 +174,7 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 		current := state.Flights[flightIndex].ActiveRouteFact
 		if sameFact(current, fix) {
 			if fix != nil && s.deps.Correlator != nil {
-				return s.correlateDirect(context.WithoutCancel(ctx), report.Airport, state.Flights[flightIndex].ID, current.ID, *fix, current.Issuer, current.ObservedAt)
+				return s.correlateDirect(context.WithoutCancel(ctx), report.Airport, state.Flights[flightIndex].Callsign, current.ID, *fix, current.Issuer, current.ObservedAt)
 			}
 			return nil
 		}
@@ -189,7 +189,7 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 			factFix = current.Fix
 		}
 		state.Flights[flightIndex].ActiveRouteFact = &aman.RouteFact{
-			ID: s.deps.NewID(), FlightID: state.Flights[flightIndex].ID, Fix: factFix, Issuer: report.ControllerCallsign,
+			ID: s.deps.NewID(), Callsign: state.Flights[flightIndex].Callsign, Fix: factFix, Issuer: report.ControllerCallsign,
 			ObservedAt: report.ObservedAt, ReceivedAt: now, DatasetVersion: dataset, State: factState,
 		}
 		state.Revision++
@@ -211,16 +211,16 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 		// operational TETA/slot policy while updating raw drift.
 		s.deps.Reconciler.Reconcile(publishCtx)
 		if fix != nil && s.deps.Correlator != nil {
-			return s.correlateDirect(publishCtx, report.Airport, state.Flights[flightIndex].ID, state.Flights[flightIndex].ActiveRouteFact.ID, *fix, report.ControllerCallsign, report.ObservedAt)
+			return s.correlateDirect(publishCtx, report.Airport, state.Flights[flightIndex].Callsign, state.Flights[flightIndex].ActiveRouteFact.ID, *fix, report.ControllerCallsign, report.ObservedAt)
 		}
 		return nil
 	}
 	return domain(aman.ErrorRevisionConflict, "direct-to fact conflicted with concurrent AMAN updates")
 }
 
-func (s *Service) correlateDirect(ctx context.Context, airport string, flightID aman.FlightID, factID, fix, issuer string, observedAt time.Time) error {
+func (s *Service) correlateDirect(ctx context.Context, airport string, callsign aman.Callsign, factID, fix, issuer string, observedAt time.Time) error {
 	_, err := s.deps.Correlator.ObserveClearance(ctx, coordinationrequest.ClearanceFact{Airport: airport,
-		FlightID: coordinationrequest.FlightID(flightID), FactID: factID, Kind: coordinationrequest.KindRouteDirect,
+		Callsign: coordinationrequest.Callsign(callsign), FactID: factID, Kind: coordinationrequest.KindRouteDirect,
 		Value: fix, Issuer: issuer, ObservedAt: observedAt})
 	if err != nil {
 		return fmt.Errorf("correlate direct-to clearance: %w", err)
@@ -253,7 +253,7 @@ func (s *Service) ReportSpeed(ctx context.Context, session int32, airport, calls
 			return nil
 		}
 		_, err = s.deps.Correlator.ObserveClearance(context.WithoutCancel(ctx), coordinationrequest.ClearanceFact{
-			Airport: report.Airport, FlightID: coordinationrequest.FlightID(id), FactID: s.deps.NewID(), Kind: coordinationrequest.KindSpeed,
+			Airport: report.Airport, Callsign: coordinationrequest.Callsign(id), FactID: s.deps.NewID(), Kind: coordinationrequest.KindSpeed,
 			Value: value, Issuer: report.ControllerCallsign, ObservedAt: observedAt,
 		})
 		return err
@@ -268,7 +268,7 @@ func (s *Service) ReportSpeed(ctx context.Context, session int32, airport, calls
 				return nil
 			}
 			_, err = s.deps.Correlator.ObserveClearance(context.WithoutCancel(ctx), coordinationrequest.ClearanceFact{
-				Airport: report.Airport, FlightID: coordinationrequest.FlightID(flight.ID), FactID: s.deps.NewID(), Kind: coordinationrequest.KindSpeed,
+				Airport: report.Airport, Callsign: coordinationrequest.Callsign(flight.Callsign), FactID: s.deps.NewID(), Kind: coordinationrequest.KindSpeed,
 				Value: value, Issuer: report.ControllerCallsign, ObservedAt: observedAt,
 			})
 			return err
@@ -293,7 +293,7 @@ func (s *Service) authorize(ctx context.Context, report Report) (*internalModels
 }
 
 func matchesFlight(flight aman.AMANFlight, callsign string) bool {
-	return strings.EqualFold(strings.TrimSpace(flight.CurrentCallsign), strings.TrimSpace(callsign))
+	return strings.EqualFold(strings.TrimSpace(flight.Callsign), strings.TrimSpace(callsign))
 }
 
 func containsCompleteFix(snapshot navdata.ActiveGeometrySnapshot, identifier string) bool {

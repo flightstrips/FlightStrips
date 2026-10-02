@@ -124,7 +124,7 @@ func (c *MasterViffSync) pushViffDataAfterRecalc(ctx context.Context, session in
 		return
 	}
 
-	// Load strip for departure info (runway) needed by setCdmData
+	// Load strip for departure info (runway/SID) needed by setCdmData.
 	strip, _ := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	c.pushViffAfterRecalcAsync(ctx, session, callsign, strip, data)
 }
@@ -303,30 +303,34 @@ func masterFlightNeedsExport(local *models.CdmData, remote IFPSData) bool {
 		return !statusImpliesInvalidation(remote.CDMStatus)
 	}
 
-	localTsat := truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveTsat()))
+	localTsat := truncateCDMClockValue(helpers.ValueOrDefault(local.ViffProposalTsat))
+	if localTsat == "" && helpers.ValueOrDefault(local.CtotSource) == "" {
+		localTsat = truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveTsat()))
+	}
 	if localTsat == "" {
 		return false
 	}
 
 	localTobt := truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveTobt()))
-	localTtot := truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveTtot()))
-	localCtot := truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveCtot()))
+	localTtot := truncateCDMClockValue(helpers.ValueOrDefault(local.ViffProposalTtot))
+	if localTtot == "" && helpers.ValueOrDefault(local.CtotSource) == "" {
+		localTtot = truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveTtot()))
+	}
 	localAsrt := truncateCDMClockValue(helpers.ValueOrDefault(local.Asrt))
 	localReason := helpers.ValueOrDefault(local.EcfmpID)
+	compareReason := helpers.ValueOrDefault(local.CtotSource) == ""
 
 	remoteTobt := truncateCDMClockValue(remote.TOBT)
 	remoteTsat := truncateCDMClockValue(remote.CDMData.TSAT)
 	remoteTtot := truncateCDMClockValue(remote.CDMData.TTOT)
-	remoteCtot, _ := effectiveIfpsCtotAndSource(remote)
 	remoteAsrt := truncateCDMClockValue(remote.CDMData.ReqASRT)
 	remoteReason := remote.CDMData.Reason
 
 	return localTobt != remoteTobt ||
 		localTsat != remoteTsat ||
 		localTtot != remoteTtot ||
-		localCtot != remoteCtot ||
 		localAsrt != remoteAsrt ||
-		localReason != remoteReason
+		(compareReason && localReason != remoteReason)
 }
 
 func buildViffPushState(callsign string, strip *models.Strip, data *models.CdmData) (viffPushState, bool) {
@@ -337,25 +341,40 @@ func buildViffPushState(callsign string, strip *models.Strip, data *models.CdmDa
 		return viffPushState{Suspend: true}, true
 	}
 
-	tsat := normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTsat()))
+	tsat := normalizeViffCdmTime(helpers.ValueOrDefault(data.ViffProposalTsat))
+	ttot := normalizeViffCdmTime(helpers.ValueOrDefault(data.ViffProposalTtot))
+	if tsat == "" && helpers.ValueOrDefault(data.CtotSource) == "" {
+		tsat = normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTsat()))
+		ttot = normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTtot()))
+	}
 	if tsat == "" {
 		return viffPushState{}, false
 	}
 
 	depInfo := ""
-	if strip != nil && strip.Runway != nil {
-		depInfo = *strip.Runway
+	asrt := ""
+	if strip != nil {
+		depInfo = helpers.ValueOrDefault(strip.Runway) + "/" + helpers.ValueOrDefault(strip.Sid)
+		asrt = truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt))
 	}
 
+	ctot := ""
+	reason := ""
+	if data.HasManualCtot() {
+		ctot = truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot))
+		reason = helpers.ValueOrDefault(data.EcfmpID)
+	} else if helpers.ValueOrDefault(data.CtotSource) == "" {
+		reason = helpers.ValueOrDefault(data.EcfmpID)
+	}
 	return viffPushState{
 		Params: SetCdmDataParams{
 			Callsign: callsign,
 			Tobt:     normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTobt())),
 			Tsat:     tsat,
-			Ttot:     normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTtot())),
-			Ctot:     truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveCtot())),
-			Reason:   helpers.ValueOrDefault(data.EcfmpID),
-			Asrt:     normalizeViffCdmTime(helpers.ValueOrDefault(data.Asrt)),
+			Ttot:     ttot,
+			Ctot:     ctot,
+			Reason:   reason,
+			Asrt:     asrt,
 			DepInfo:  depInfo,
 		},
 	}, true

@@ -22,15 +22,15 @@ func IsFMPRole(role string) bool {
 
 type MoveFlightCommand struct {
 	Metadata       CommandMetadata
-	FlightID       FlightID
+	Callsign       Callsign
 	RunwayGroupID  RunwayGroupID
-	BeforeFlightID *FlightID
-	AfterFlightID  *FlightID
+	BeforeCallsign *Callsign
+	AfterCallsign  *Callsign
 }
 
 type PlaceFlightAtTimeCommand struct {
 	Metadata      CommandMetadata
-	FlightID      FlightID
+	Callsign      Callsign
 	RunwayGroupID RunwayGroupID
 	SlotTime      time.Time
 	AllowGap      bool
@@ -38,27 +38,27 @@ type PlaceFlightAtTimeCommand struct {
 
 type LockFlightCommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 type UnlockFlightCommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 type DesequenceFlightCommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 type ResumeFlightCommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 type RemoveFlightCommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 type SetRateCommand struct {
@@ -112,11 +112,11 @@ type RemoveRunwayClosureCommand struct {
 }
 
 // CreateCapacityReservationCommand reserves the first runway opportunity
-// strictly after AfterFlightID. The accepted interval is server-normalized.
+// strictly after AfterCallsign. The accepted interval is server-normalized.
 type CreateCapacityReservationCommand struct {
 	Metadata      CommandMetadata
 	RunwayGroupID RunwayGroupID
-	AfterFlightID FlightID
+	AfterCallsign Callsign
 	Label         string
 	Reason        string
 }
@@ -130,36 +130,36 @@ type RemoveCapacityReservationCommand struct {
 
 type AcceptTETACommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 type KeepFPLETACommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 type SetManualETACommand struct {
 	Metadata  CommandMetadata
-	FlightID  FlightID
+	Callsign  Callsign
 	ManualETA time.Time
 }
 
 type ResetTETAOverrideCommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 // SetManualFeederETACommand and ResetManualFeederETACommand are domain
 // commands used by the authenticated AMAN transport.
 type SetManualFeederETACommand struct {
 	Metadata  CommandMetadata
-	FlightID  FlightID
+	Callsign  Callsign
 	FeederETA time.Time
 }
 
 type ResetManualFeederETACommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 // RecomputeFlightCommand deliberately carries no prediction fields. The
@@ -167,32 +167,32 @@ type ResetManualFeederETACommand struct {
 // authoritative observation at the revision named by Metadata.
 type RecomputeFlightCommand struct {
 	Metadata CommandMetadata
-	FlightID FlightID
+	Callsign Callsign
 }
 
 // ChangeRunwayCommand assigns one flight to an explicitly requested active
 // runway group. Authority and timing remain server-owned CommandContext facts.
 type ChangeRunwayCommand struct {
 	Metadata      CommandMetadata
-	FlightID      FlightID
+	Callsign      Callsign
 	RunwayGroupID RunwayGroupID
 }
 
 type ReportGoAroundCommand struct {
 	Metadata   CommandMetadata
-	FlightID   FlightID
+	Callsign   Callsign
 	DetectedAt time.Time
 }
 
 type ConfirmGoAroundCommand struct {
 	Metadata  CommandMetadata
-	FlightID  FlightID
+	Callsign  Callsign
 	EpisodeID string
 }
 
 type RejectGoAroundCommand struct {
 	Metadata  CommandMetadata
-	FlightID  FlightID
+	Callsign  Callsign
 	EpisodeID string
 }
 
@@ -254,24 +254,24 @@ func (c MoveFlightCommand) Validate() error {
 	if err := validateCommandMetadata(c.Metadata); err != nil {
 		return err
 	}
-	if !trimmed(string(c.FlightID)) || !trimmed(string(c.RunwayGroupID)) {
+	if !trimmed(string(c.Callsign)) || !trimmed(string(c.RunwayGroupID)) {
 		return commandInvalid("move flight and runway group are required")
 	}
-	if (c.BeforeFlightID == nil) == (c.AfterFlightID == nil) {
+	if (c.BeforeCallsign == nil) == (c.AfterCallsign == nil) {
 		return commandInvalid("move requires exactly one before or after anchor")
 	}
-	anchor := c.BeforeFlightID
+	anchor := c.BeforeCallsign
 	if anchor == nil {
-		anchor = c.AfterFlightID
+		anchor = c.AfterCallsign
 	}
-	if !trimmed(string(*anchor)) || *anchor == c.FlightID {
+	if !trimmed(string(*anchor)) || *anchor == c.Callsign {
 		return commandInvalid("move anchor must identify another flight")
 	}
 	return nil
 }
 
 func (c PlaceFlightAtTimeCommand) Validate(receivedAt time.Time) error {
-	if err := validateFlightCommand(c.Metadata, c.FlightID); err != nil {
+	if err := validateFlightCommand(c.Metadata, c.Callsign); err != nil {
 		return err
 	}
 	if !trimmed(string(c.RunwayGroupID)) || !utc(c.SlotTime) || !c.SlotTime.After(receivedAt) {
@@ -280,21 +280,21 @@ func (c PlaceFlightAtTimeCommand) Validate(receivedAt time.Time) error {
 	return nil
 }
 
-func (c LockFlightCommand) Validate() error   { return validateFlightCommand(c.Metadata, c.FlightID) }
-func (c UnlockFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.FlightID) }
+func (c LockFlightCommand) Validate() error   { return validateFlightCommand(c.Metadata, c.Callsign) }
+func (c UnlockFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.Callsign) }
 func (c DesequenceFlightCommand) Validate() error {
-	return validateFlightCommand(c.Metadata, c.FlightID)
+	return validateFlightCommand(c.Metadata, c.Callsign)
 }
-func (c ResumeFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.FlightID) }
-func (c RemoveFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.FlightID) }
-func (c AcceptTETACommand) Validate() error   { return validateFlightCommand(c.Metadata, c.FlightID) }
-func (c KeepFPLETACommand) Validate() error   { return validateFlightCommand(c.Metadata, c.FlightID) }
+func (c ResumeFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.Callsign) }
+func (c RemoveFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.Callsign) }
+func (c AcceptTETACommand) Validate() error   { return validateFlightCommand(c.Metadata, c.Callsign) }
+func (c KeepFPLETACommand) Validate() error   { return validateFlightCommand(c.Metadata, c.Callsign) }
 func (c ResetTETAOverrideCommand) Validate() error {
-	return validateFlightCommand(c.Metadata, c.FlightID)
+	return validateFlightCommand(c.Metadata, c.Callsign)
 }
 
 func (c SetManualFeederETACommand) Validate() error {
-	if err := validateFlightCommand(c.Metadata, c.FlightID); err != nil {
+	if err := validateFlightCommand(c.Metadata, c.Callsign); err != nil {
 		return err
 	}
 	if !utc(c.FeederETA) {
@@ -304,15 +304,15 @@ func (c SetManualFeederETACommand) Validate() error {
 }
 
 func (c ResetManualFeederETACommand) Validate() error {
-	return validateFlightCommand(c.Metadata, c.FlightID)
+	return validateFlightCommand(c.Metadata, c.Callsign)
 }
 
 func (c RecomputeFlightCommand) Validate() error {
-	return validateFlightCommand(c.Metadata, c.FlightID)
+	return validateFlightCommand(c.Metadata, c.Callsign)
 }
 
 func (c ChangeRunwayCommand) Validate() error {
-	if err := validateFlightCommand(c.Metadata, c.FlightID); err != nil {
+	if err := validateFlightCommand(c.Metadata, c.Callsign); err != nil {
 		return err
 	}
 	if !trimmed(string(c.RunwayGroupID)) {
@@ -405,7 +405,7 @@ func (c CreateCapacityReservationCommand) Validate() error {
 	if err := validateCommandMetadata(c.Metadata); err != nil {
 		return err
 	}
-	if !trimmed(string(c.RunwayGroupID)) || !trimmed(string(c.AfterFlightID)) || (c.Label != "" && !trimmed(c.Label)) || !trimmed(c.Reason) {
+	if !trimmed(string(c.RunwayGroupID)) || !trimmed(string(c.AfterCallsign)) || (c.Label != "" && !trimmed(c.Label)) || !trimmed(c.Reason) {
 		return commandInvalid("capacity reservation requires a runway group, anchor flight, canonical optional label, and reason")
 	}
 	return nil
@@ -422,7 +422,7 @@ func (c RemoveCapacityReservationCommand) Validate() error {
 }
 
 func (c SetManualETACommand) Validate(receivedAt time.Time) error {
-	if err := validateFlightCommand(c.Metadata, c.FlightID); err != nil {
+	if err := validateFlightCommand(c.Metadata, c.Callsign); err != nil {
 		return err
 	}
 	if !utc(c.ManualETA) || !c.ManualETA.After(receivedAt) {
@@ -432,7 +432,7 @@ func (c SetManualETACommand) Validate(receivedAt time.Time) error {
 }
 
 func (c ReportGoAroundCommand) Validate(receivedAt time.Time) error {
-	if err := validateFlightCommand(c.Metadata, c.FlightID); err != nil {
+	if err := validateFlightCommand(c.Metadata, c.Callsign); err != nil {
 		return err
 	}
 	if !utc(c.DetectedAt) || c.DetectedAt.After(receivedAt) {
@@ -442,14 +442,14 @@ func (c ReportGoAroundCommand) Validate(receivedAt time.Time) error {
 }
 
 func (c ConfirmGoAroundCommand) Validate() error {
-	return validateGoAroundDecision(c.Metadata, c.FlightID, c.EpisodeID)
+	return validateGoAroundDecision(c.Metadata, c.Callsign, c.EpisodeID)
 }
 func (c RejectGoAroundCommand) Validate() error {
-	return validateGoAroundDecision(c.Metadata, c.FlightID, c.EpisodeID)
+	return validateGoAroundDecision(c.Metadata, c.Callsign, c.EpisodeID)
 }
 
-func validateGoAroundDecision(metadata CommandMetadata, flightID FlightID, episodeID string) error {
-	if err := validateFlightCommand(metadata, flightID); err != nil {
+func validateGoAroundDecision(metadata CommandMetadata, callsign Callsign, episodeID string) error {
+	if err := validateFlightCommand(metadata, callsign); err != nil {
 		return err
 	}
 	if !trimmed(episodeID) {
@@ -458,12 +458,12 @@ func validateGoAroundDecision(metadata CommandMetadata, flightID FlightID, episo
 	return nil
 }
 
-func validateFlightCommand(metadata CommandMetadata, flightID FlightID) error {
+func validateFlightCommand(metadata CommandMetadata, callsign Callsign) error {
 	if err := validateCommandMetadata(metadata); err != nil {
 		return err
 	}
-	if !trimmed(string(flightID)) {
-		return commandInvalid("flight ID is required")
+	if !trimmed(string(callsign)) {
+		return commandInvalid("callsign is required")
 	}
 	return nil
 }

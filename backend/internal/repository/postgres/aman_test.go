@@ -37,7 +37,7 @@ func TestAMANRepositoryWritesHundredFlightProjectionInOneStatement(t *testing.T)
 	state.Flights = nil
 	for i := 0; i < 100; i++ {
 		flight := amanState(1, fmt.Sprintf("CID-%03d", i), fmt.Sprintf("SAS%03d", i)).Flights[0]
-		flight.ID = aman.FlightID(fmt.Sprintf("flight-%03d", i))
+		flight.Callsign = aman.Callsign(fmt.Sprintf("flight-%03d", i))
 		flight.Slot.Sequence = i + 1
 		flight.Slot.Time = flight.Slot.Time.Add(time.Duration(i) * time.Minute)
 		flight.Order = intPtr(i + 1)
@@ -100,7 +100,7 @@ func TestAMANLifecycleTransitionsExpireBothCoordinationKindsAtomically(t *testin
 			initial := amanState(1, "CID-EXPIRY", "SAS604")
 			_, err := repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: initial})
 			require.NoError(t, err)
-			requests := expiryRequests(t, initial.Airport, initial.Flights[0].ID)
+			requests := expiryRequests(t, initial.Airport, initial.Flights[0].Callsign)
 			coordination := coordinationrequest.NewRepository(pool)
 			for _, request := range requests {
 				require.NoError(t, coordination.Save(ctx, request))
@@ -132,9 +132,9 @@ func TestAMANLifecycleTransitionsExpireBothCoordinationKindsAtomically(t *testin
 				}
 				require.Equal(t, original[request.ID], request, "terminal request history must be immutable")
 			}
-			factID := fmt.Sprintf("aman/%s/2/%s/%s", next.Airport, next.Flights[0].ID, test.reason)
+			factID := fmt.Sprintf("aman/%s/2/%s/%s", next.Airport, next.Flights[0].Callsign, test.reason)
 			replayedFact, err := coordinationrequest.NewRepository(pool).ExpirePending(ctx, coordinationrequest.ExpiryFact{
-				Airport: next.Airport, FlightID: coordinationrequest.FlightID(next.Flights[0].ID), FactID: factID,
+				Airport: next.Airport, Callsign: coordinationrequest.Callsign(next.Flights[0].Callsign), FactID: factID,
 				Revision: 2, Reason: test.reason, OccurredAt: next.GeneratedAt,
 			})
 			require.NoError(t, err)
@@ -159,7 +159,7 @@ func TestAMANTransitionAndCoordinationExpiryRollBackTogether(t *testing.T) {
 	initial := amanState(1, "CID-ROLLBACK", "SAS605")
 	_, err := repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: initial})
 	require.NoError(t, err)
-	request := expiryRequests(t, initial.Airport, initial.Flights[0].ID)[0]
+	request := expiryRequests(t, initial.Airport, initial.Flights[0].Callsign)[0]
 	coordination := coordinationrequest.NewRepository(pool)
 	require.NoError(t, coordination.Save(ctx, request))
 	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_coordination_expiry() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced expiry failure'; END $$;
@@ -178,14 +178,14 @@ func TestAMANTransitionAndCoordinationExpiryRollBackTogether(t *testing.T) {
 	require.Equal(t, []coordinationrequest.Request{request}, storedRequests)
 }
 
-func expiryRequests(t *testing.T, airport string, flightID aman.FlightID) []coordinationrequest.Request {
+func expiryRequests(t *testing.T, airport string, flightID aman.Callsign) []coordinationrequest.Request {
 	t.Helper()
 	newRequest := func(id string, kind coordinationrequest.Kind) coordinationrequest.Request {
 		payload := coordinationrequest.Payload{RouteDirect: &coordinationrequest.RouteDirectPayload{DirectTo: "MONAK"}}
 		if kind == coordinationrequest.KindSpeed {
 			payload = coordinationrequest.Payload{Speed: &coordinationrequest.SpeedPayload{Requested: "220 KT"}}
 		}
-		request, err := coordinationrequest.New(id, airport, coordinationrequest.FlightID(flightID), "EKCH_APP", "1234567", "EKDK_FMP", kind, payload, amanTestTime)
+		request, err := coordinationrequest.New(id, airport, coordinationrequest.Callsign(flightID), "EKCH_APP", "1234567", "EKDK_FMP", kind, payload, amanTestTime)
 		require.NoError(t, err)
 		return request
 	}
@@ -254,34 +254,17 @@ func TestAMANRepositoryRoundTripIdempotencyAndRollback(t *testing.T) {
 	require.NoError(t, err)
 	loaded, err = repo.LoadAirportState(ctx, first.Airport)
 	require.NoError(t, err)
-	require.Equal(t, aman.FlightID("flight-1"), loaded.Flights[0].ID, "callsign corrections must not rekey FlightID")
-	require.Equal(t, "SAS456", loaded.Flights[0].CurrentCallsign)
+	require.Equal(t, "SAS456", loaded.Flights[0].Callsign)
 
-	sharedCID := amanState(3, "CID-1", "SAS456")
-	second := sharedCID.Flights[0]
-	second.ID = "flight-2"
-	second.CurrentCallsign = "SAS789"
-	sharedCID.Flights = append(sharedCID.Flights, second)
-	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 2, State: sharedCID})
-	require.NoError(t, err, "distinct callsigns may share supporting CID metadata")
+	conflicting := amanState(3, "CID-1", "SAS456")
+	second := conflicting.Flights[0]
+	second.Callsign = "SAS456"
+	conflicting.Flights = append(conflicting.Flights, second)
+	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 2, State: conflicting})
+	requireDomainErrorClass(t, err, aman.ErrorInvalidArgument)
 	loaded, err = repo.LoadAirportState(ctx, first.Airport)
 	require.NoError(t, err)
-	require.Equal(t, sharedCID, loaded)
-
-	conflicting := amanState(4, "CID-1", "SAS456")
-	second = conflicting.Flights[0]
-	second.ID = "flight-2"
-	second.CurrentCallsign = "SAS789"
-	third := conflicting.Flights[0]
-	third.ID = "flight-3"
-	third.VATSIMCID = "CID-3"
-	third.CurrentCallsign = second.CurrentCallsign
-	conflicting.Flights = append(conflicting.Flights, second, third)
-	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 3, State: conflicting})
-	requireDomainErrorClass(t, err, aman.ErrorActiveFlightConflict)
-	loaded, err = repo.LoadAirportState(ctx, first.Airport)
-	require.NoError(t, err)
-	require.Equal(t, sharedCID, loaded, "a failed transaction must leave the complete prior aggregate")
+	require.Equal(t, corrected, loaded, "a failed transaction must leave the complete prior aggregate")
 }
 
 func TestAMANRepositoryRestartsWithActiveRunwaySetAndDecodesLegacySelection(t *testing.T) {
@@ -322,7 +305,7 @@ func TestAMANRepositoryRestartsWithProtectedSameSTARWarning(t *testing.T) {
 	ctx := context.Background()
 	state := amanState(1, "CID-WARNING", "SAS101")
 	state.RunwayGroups[0].SequenceWarnings = []aman.RunwayGroupSequenceWarning{{
-		Code: "protected_same_star_spacing", FlightID: "flight-2", RelatedFlightID: "flight-1", STARFamily: "MONAK",
+		Code: "protected_same_star_spacing", Callsign: "flight-2", RelatedCallsign: "flight-1", STARFamily: "MONAK",
 	}}
 
 	_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
@@ -435,7 +418,7 @@ func TestAMANRepositoryPersistsNoOpCommandWithoutAdvancingState(t *testing.T) {
 	require.Equal(t, state.Revision, audits[0].Revision)
 
 	invalidNoOp := loaded
-	invalidNoOp.Flights[0].CurrentCallsign = "SHOULD-NOT-PERSIST"
+	invalidNoOp.Flights[0].Callsign = "SHOULD-NOT-PERSIST"
 	_, err = restarted.Commit(ctx, aman.StateCommit{ExpectedRevision: state.Revision, State: invalidNoOp})
 	requireDomainErrorClass(t, err, aman.ErrorInvalidArgument)
 	loaded, err = restarted.LoadAirportState(ctx, state.Airport)
@@ -610,16 +593,14 @@ func TestAMANRepositoryRestoresRevisionBoundQueueOffers(t *testing.T) {
 	state := amanState(1, "CID-QUEUE-1", "SAS321")
 	first := state.Flights[0]
 	target := first
-	target.ID = "flight-2"
-	target.VATSIMCID = "CID-QUEUE-2"
-	target.CurrentCallsign = "SAS322"
+	target.Callsign = "SAS322"
 	target.Slot = &aman.Slot{
 		Time: first.Slot.Time.Add(time.Minute), RunwayGroupID: first.Slot.RunwayGroupID,
 		Sequence: 2, Revision: state.Revision, Reason: "rate_wtc",
 	}
 	target.Order = intPtr(2)
 	target.QueueOffers = []aman.QueueOffer{{
-		FlightID: target.ID, RunwayGroupID: first.Slot.RunwayGroupID, CandidateSlot: *first.Slot,
+		Callsign: target.Callsign, RunwayGroupID: first.Slot.RunwayGroupID, CandidateSlot: *first.Slot,
 		QueuePosition: 1, ExpiresAt: first.Slot.Time, AirportRevision: state.Revision,
 		Reason: aman.QueueOfferEarlierOccupiedSlot,
 	}}
@@ -648,7 +629,7 @@ func TestAMANRepositoryRestoresTMAEntryStateAndAcceptsLegacyFlightPayload(t *tes
 
 	// A payload written before TMAEntry existed has no field and must continue
 	// to load as an unobserved arrival episode.
-	_, err = pool.Exec(ctx, `UPDATE aman_flights SET payload = payload - 'TMAEntry' WHERE flight_id = $1`, string(state.Flights[0].ID))
+	_, err = pool.Exec(ctx, `UPDATE aman_flights SET payload = payload - 'TMAEntry' WHERE callsign = $1`, string(state.Flights[0].Callsign))
 	require.NoError(t, err)
 	legacy, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
 	require.NoError(t, err)
@@ -771,134 +752,6 @@ func TestAMANRepositoryCompareAndSwapAllocatesOneRevision(t *testing.T) {
 	require.Equal(t, aman.SequenceRevision(1), state.Revision)
 }
 
-func TestAMANVATSIMObservationIdentitySurvivesRestartAndCIDChangeAndRetires(t *testing.T) {
-	pool, _ := testdata.SetupTestDB(t)
-	ctx := context.Background()
-	firstRepository := NewAMANRepository(pool)
-	first, err := firstRepository.BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "123456", CurrentCallsign: "SAS123"})
-	require.NoError(t, err)
-	require.NotEmpty(t, first)
-
-	// A reconnect under the same normalized callsign retains the flight,
-	// including when its supporting CID changes.
-	secondRepository := NewAMANRepository(pool)
-	corrected, err := secondRepository.BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "654321", CurrentCallsign: " sas123 "})
-	require.NoError(t, err)
-	require.Equal(t, first, corrected)
-	var callsign, cid string
-	require.NoError(t, pool.QueryRow(ctx, "SELECT current_callsign, vatsim_cid FROM aman_vatsim_observation_identities WHERE flight_id = $1", string(first)).Scan(&callsign, &cid))
-	require.Equal(t, "SAS123", callsign)
-	require.Equal(t, "654321", cid)
-	different, err := secondRepository.BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "654321", CurrentCallsign: "SAS456"})
-	require.NoError(t, err)
-	require.NotEqual(t, first, different, "CID must not merge distinct callsigns")
-
-	require.NoError(t, secondRepository.RetireVATSIMFlight(ctx, first))
-	next, err := NewAMANRepository(pool).BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "123456", CurrentCallsign: "SAS123"})
-	require.NoError(t, err)
-	require.NotEqual(t, first, next, "a later flight from the same VATSIM user receives a new FlightID")
-	requireDomainErrorClass(t, secondRepository.RetireVATSIMFlight(ctx, first), aman.ErrorNotFound)
-}
-
-func TestAMANVATSIMObservationIdentityAllowsOnlyOneConcurrentActiveCallsign(t *testing.T) {
-	pool, _ := testdata.SetupTestDB(t)
-	ctx := context.Background()
-	start := make(chan struct{})
-	ids := make(chan aman.FlightID, 2)
-	errs := make(chan error, 2)
-	var wait sync.WaitGroup
-	for _, cid := range []string{"123456", "654321"} {
-		wait.Add(1)
-		go func(cid string) {
-			defer wait.Done()
-			<-start
-			id, err := NewAMANRepository(pool).BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: cid, CurrentCallsign: "SAS123"})
-			ids <- id
-			errs <- err
-		}(cid)
-	}
-	close(start)
-	wait.Wait()
-	close(ids)
-	close(errs)
-	for err := range errs {
-		require.NoError(t, err)
-	}
-	var observed []aman.FlightID
-	for id := range ids {
-		observed = append(observed, id)
-	}
-	require.Len(t, observed, 2)
-	require.Equal(t, observed[0], observed[1])
-	var activeCount int
-	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM aman_vatsim_observation_identities WHERE current_callsign = $1 AND retired_at IS NULL", "SAS123").Scan(&activeCount))
-	require.Equal(t, 1, activeCount)
-}
-
-func TestAMANCallsignMigrationRetiresDuplicateBindings(t *testing.T) {
-	pool, _ := testdata.SetupTestDB(t)
-	ctx := context.Background()
-	_, err := pool.Exec(ctx, `
-		DROP INDEX ux_aman_vatsim_observation_identities_active_callsign;
-		CREATE UNIQUE INDEX ux_aman_vatsim_observation_identities_active_cid
-		ON aman_vatsim_observation_identities (vatsim_cid) WHERE retired_at IS NULL;
-		INSERT INTO aman_vatsim_observation_identities
-		(flight_id, vatsim_cid, current_callsign, updated_at) VALUES
-		('old', '101', ' sas123 ', '2026-09-14T18:00:00Z'),
-		('current', '202', 'SAS123', '2026-09-14T19:00:00Z');`)
-	require.NoError(t, err)
-	_, sourceFile, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-	migration, err := os.ReadFile(filepath.Join(filepath.Dir(sourceFile), "..", "..", "..", "migrations", "0047-match-aman-identities-by-callsign.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, string(migration))
-	require.NoError(t, err)
-	id, err := NewAMANRepository(pool).BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "303", CurrentCallsign: "sas123"})
-	require.NoError(t, err)
-	require.Equal(t, aman.FlightID("current"), id)
-	var retired bool
-	require.NoError(t, pool.QueryRow(ctx, "SELECT retired_at IS NOT NULL FROM aman_vatsim_observation_identities WHERE flight_id = 'old'").Scan(&retired))
-	require.True(t, retired)
-}
-
-func TestAMANFlightProjectionCallsignMigrationKeepsNewestDuplicate(t *testing.T) {
-	pool, _ := testdata.SetupTestDB(t)
-	ctx := context.Background()
-	_, err := pool.Exec(ctx, `
-		DROP INDEX ux_aman_flights_active_callsign;
-		CREATE UNIQUE INDEX ux_aman_flights_active_vatsim_cid
-		ON aman_flights (vatsim_cid) WHERE state <> 'removed';`)
-	require.NoError(t, err)
-
-	state := amanState(1, "101", "SAS123")
-	newest := state.Flights[0]
-	newest.ID = "flight-2"
-	newest.VATSIMCID = "202"
-	newest.UpdatedAt = newest.UpdatedAt.Add(time.Minute)
-	state.Flights = append(state.Flights, newest)
-	_, err = NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
-	require.NoError(t, err)
-
-	_, sourceFile, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-	migration, err := os.ReadFile(filepath.Join(filepath.Dir(sourceFile), "..", "..", "..", "migrations", "0048-match-aman-flight-projection-by-callsign.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, string(migration))
-	require.NoError(t, err)
-
-	var flightIDs []string
-	rows, err := pool.Query(ctx, "SELECT flight_id FROM aman_flights ORDER BY flight_id")
-	require.NoError(t, err)
-	for rows.Next() {
-		var flightID string
-		require.NoError(t, rows.Scan(&flightID))
-		flightIDs = append(flightIDs, flightID)
-	}
-	require.NoError(t, rows.Err())
-	rows.Close()
-	require.Equal(t, []string{"flight-2"}, flightIDs)
-}
-
 func TestAMANPersistenceDoesNotDependOnTransportOrCreateOutbox(t *testing.T) {
 	_, sourceFile, _, ok := runtime.Caller(0)
 	require.True(t, ok)
@@ -917,14 +770,14 @@ func TestAMANPersistenceDoesNotDependOnTransportOrCreateOutbox(t *testing.T) {
 
 var amanTestTime = time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 
-func amanState(revision aman.SequenceRevision, vatsimCID, callsign string) aman.AirportState {
+func amanState(revision aman.SequenceRevision, _ string, callsign string) aman.AirportState {
 	flightTime := amanTestTime.Add(time.Duration(revision) * time.Minute)
 	return aman.AirportState{
 		Airport: "EKCH", Revision: revision, GeneratedAt: flightTime, PolicyVersion: "policy-v1",
 		Mode: aman.ModeShadow, RunwayGroups: []aman.RunwayGroupPolicy{{ID: "north"}},
 		Flights: []aman.AMANFlight{{
-			ID: aman.FlightID("flight-1"), VATSIMCID: vatsimCID, CurrentCallsign: callsign,
-			State: aman.StateStable, SequenceDisposition: aman.SequenceDispositionActive,
+			Callsign: callsign,
+			State:    aman.StateStable, SequenceDisposition: aman.SequenceDispositionActive,
 			DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone,
 			UpdatedAt: flightTime,
 			Prediction: &aman.Prediction{

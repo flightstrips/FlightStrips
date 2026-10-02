@@ -27,14 +27,14 @@ type RunwayGap struct {
 
 type RunwayGapException struct {
 	GapID         RunwayGapID
-	FlightID      FlightID
+	Callsign      Callsign
 	RunwayGroupID RunwayGroupID
 	Opportunity   time.Time
 	CommandID     string
 }
 
 func (e RunwayGapException) Validate() error {
-	if !isTrimmedNonEmpty(string(e.GapID)) || !isTrimmedNonEmpty(string(e.FlightID)) ||
+	if !isTrimmedNonEmpty(string(e.GapID)) || !isTrimmedNonEmpty(string(e.Callsign)) ||
 		!isTrimmedNonEmpty(string(e.RunwayGroupID)) || !isTrimmedNonEmpty(e.CommandID) {
 		return invalid("runway gap exception identity is incomplete")
 	}

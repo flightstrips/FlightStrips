@@ -16,9 +16,15 @@ const BTN_BASE: React.CSSProperties = {
 };
 
 const configuredLabels: string[] = [
+  "CROSSING AHEAD OF ↑",
+  "CROSSING BEHIND ↓",
+  "TAXI VIA K3",
+  "TAXI VIA K2",
+  "TAXI VIA D",
   "SEPARATION BETWEEN STARTS 3 MIN",
-  "STOP CLIMB AT 3000'",
-  "STOP CLIMB AT 4000'",
+  "CLIMB STRAIGHT AHEAD",
+  "STOP CLIMB AT 3000FT",
+  "STOP CLIMB AT 4000FT",
 ];
 
 interface Props {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -47,7 +46,7 @@ func TestReplayIsByteStableAndRestartsAtEveryCheckpoint(t *testing.T) {
 	require.Equal(t, dataset.Records[len(dataset.Records)-1].At, firstClock.current)
 }
 
-func TestReplayBindsCallsignCorrectionsAndAllowsCIDReuseAfterRetirement(t *testing.T) {
+func TestReplayPreservesCallsignFacts(t *testing.T) {
 	dataset := fixtureDataset()
 	processor := &recordingProcessor{}
 	runner := mustRunner(t, &recordingClock{}, processor)
@@ -61,10 +60,15 @@ func TestReplayBindsCallsignCorrectionsAndAllowsCIDReuseAfterRetirement(t *testi
 		}
 	}
 	require.Len(t, observations, 3)
-	require.Equal(t, aman.FlightID("fixture/0"), observations[0].FlightID)
-	require.Equal(t, observations[0].FlightID, observations[1].FlightID, "callsign correction must retain replay identity")
+	require.Equal(t, "SAS123", observations[0].Callsign)
 	require.Equal(t, "SAS124", observations[1].Callsign)
-	require.Equal(t, aman.FlightID("fixture/3"), observations[2].FlightID, "retired CID may start a separate lifetime")
+	require.Equal(t, "SAS125", observations[2].Callsign)
+}
+
+func TestReplayRequiresCallsignOnEveryObservation(t *testing.T) {
+	dataset := fixtureDataset()
+	dataset.Records[0].Observation.Callsign = ""
+	require.ErrorIs(t, dataset.Validate(), ErrInvalidDataset)
 }
 
 func TestDatasetRejectsCorruptAndIncompleteFixtures(t *testing.T) {
@@ -88,7 +92,7 @@ func TestDatasetRejectsCorruptAndIncompleteFixtures(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestCheckpointRejectsDatasetMismatchAndUnsortedBindings(t *testing.T) {
+func TestCheckpointRejectsDatasetMismatch(t *testing.T) {
 	dataset := fixtureDataset()
 	runner := mustRunner(t, &recordingClock{}, &recordingProcessor{})
 	partial, err := runner.ReplayTo(context.Background(), dataset, 1)
@@ -99,20 +103,11 @@ func TestCheckpointRejectsDatasetMismatchAndUnsortedBindings(t *testing.T) {
 	_, err = runner.Resume(context.Background(), changed, partial.Checkpoint)
 	require.ErrorIs(t, err, ErrInvalidCheckpoint)
 
-	partial.Checkpoint.Bindings = []CIDBinding{{VATSIMCID: "200", FlightID: "fixture/0"}, {VATSIMCID: "100", FlightID: "fixture/1"}}
-	_, err = runner.Resume(context.Background(), dataset, partial.Checkpoint)
-	require.ErrorIs(t, err, ErrInvalidCheckpoint)
 }
 
 type recordingClock struct{ current time.Time }
 
 func (c *recordingClock) Set(value time.Time) { c.current = value }
-
-type fixtureIDs struct{}
-
-func (fixtureIDs) FlightID(datasetID string, index uint64) aman.FlightID {
-	return aman.FlightID(fmt.Sprintf("%s/%d", datasetID, index))
-}
 
 type recordingProcessor struct {
 	inputs []Input
@@ -133,7 +128,7 @@ func (p *recordingProcessor) Restore(_ context.Context, snapshot []byte) error {
 
 func mustRunner(t *testing.T, clock Clock, processor Processor) *Runner {
 	t.Helper()
-	runner, err := NewRunner(Dependencies{Clock: clock, IDs: fixtureIDs{}, Processor: processor})
+	runner, err := NewRunner(Dependencies{Clock: clock, Processor: processor})
 	require.NoError(t, err)
 	return runner
 }
@@ -146,14 +141,14 @@ func fixtureDataset() Dataset {
 		Records: []Record{
 			{Index: 0, At: base, Observation: observation(base, "SAS123")},
 			{Index: 1, At: base.Add(time.Minute), Observation: observation(base.Add(time.Minute), "SAS124")},
-			{Index: 2, At: base.Add(2 * time.Minute), Retire: &Retirement{FlightID: "fixture/0", VATSIMCID: "100"}},
+			{Index: 2, At: base.Add(2 * time.Minute), Retire: &Retirement{Callsign: "SAS123"}},
 			{Index: 3, At: base.Add(3 * time.Minute), Observation: observation(base.Add(3*time.Minute), "SAS125")},
 		},
 	}
 }
 
 func observation(at time.Time, callsign string) *aman.FlightObservation {
-	return &aman.FlightObservation{VATSIMCID: "100", Callsign: callsign, Origin: "ESSA", Destination: "EKCH", ReconciledAt: at, SourceStatus: aman.DataFresh}
+	return &aman.FlightObservation{Callsign: callsign, Origin: "ESSA", Destination: "EKCH", ReconciledAt: at, SourceStatus: aman.DataFresh}
 }
 
 func TestOutputDigestDoesNotDependOnProcessorSliceCapacity(t *testing.T) {

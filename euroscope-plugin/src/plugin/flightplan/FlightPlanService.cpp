@@ -35,6 +35,12 @@ namespace FlightStrips::flightplan {
         switch (command.type) {
             case TopSkyHoldCommandType::Assign: {
                 plan.hold_command_observed = true;
+                if (plan.backend_hold_eat_replay.has_value() &&
+                    (plan.backend_hold_eat_replay->hold != command.value ||
+                     plan.backend_hold_eat_replay->hold_type != "enroute" ||
+                     (!command.eat.empty() && plan.backend_hold_eat_replay->eat != command.eat))) {
+                    plan.backend_hold_eat_replay.reset();
+                }
                 const auto sameHold = plan.hold == command.value && plan.hold_type == "enroute";
                 if (!sameHold) {
                     plan.hold = command.value;
@@ -48,9 +54,16 @@ namespace FlightStrips::flightplan {
             }
             case TopSkyHoldCommandType::Cancel:
                 plan.hold_command_observed = true;
+                plan.backend_hold_eat_replay.reset();
                 return ApplyHold(plan, {}, {});
             case TopSkyHoldCommandType::Eat:
                 if (plan.hold.empty() || plan.hold_type != "enroute") return false;
+                if (plan.backend_hold_eat_replay.has_value() &&
+                    (plan.backend_hold_eat_replay->hold != plan.hold ||
+                     plan.backend_hold_eat_replay->hold_type != plan.hold_type ||
+                     plan.backend_hold_eat_replay->eat != command.value)) {
+                    plan.backend_hold_eat_replay.reset();
+                }
                 return ApplyHold(plan, TopSkyHold{true, false, plan.hold}, command.value);
             case TopSkyHoldCommandType::None:
                 return false;
@@ -526,6 +539,16 @@ namespace FlightStrips::flightplan {
         plan.hold = hold;
         plan.hold_type = holdType;
         plan.hold_eat = holdEat;
+    }
+
+    void FlightPlanService::CacheBackendHoldEatReplay(const std::string& callsign, const std::string& hold,
+                                                      const std::string& holdType, const std::string& holdEat) {
+        auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+        if (hold.empty() || holdType.empty() || holdEat.empty()) {
+            plan.backend_hold_eat_replay.reset();
+            return;
+        }
+        plan.backend_hold_eat_replay = BackendHoldEatReplay{hold, holdType, holdEat};
     }
 
     void FlightPlanService::ApplyPdcStateChange(const std::string& callsign, const std::string& state, const std::string& requestRemarks) {

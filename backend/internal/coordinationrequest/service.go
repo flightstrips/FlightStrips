@@ -25,7 +25,7 @@ type CommandContext struct {
 type SubmitCommand struct {
 	CommandID        string
 	ExpectedRevision uint64
-	FlightID         FlightID
+	Callsign         Callsign
 	Kind             Kind
 	Payload          Payload
 }
@@ -109,7 +109,7 @@ func (s *Service) decide(ctx context.Context, auth CommandContext, command Decis
 	if err != nil {
 		return CommitResult{}, err
 	}
-	recipient, err := s.owners.TrackingController(ctx, auth.Airport, request.FlightID)
+	recipient, err := s.owners.TrackingController(ctx, auth.Airport, request.Callsign)
 	if err != nil {
 		return CommitResult{}, err
 	}
@@ -139,7 +139,7 @@ func (s *Service) validateContext(auth CommandContext) error {
 // TrackingControllerResolver reads the flight's current authoritative owner.
 // An empty controller with no error means that the flight is unassigned.
 type TrackingControllerResolver interface {
-	TrackingController(context.Context, string, FlightID) (ControllerID, error)
+	TrackingController(context.Context, string, Callsign) (ControllerID, error)
 }
 
 type Service struct {
@@ -159,14 +159,14 @@ func (s *Service) Submit(ctx context.Context, auth CommandContext, command Submi
 	if !aman.IsFMPRole(auth.Role) {
 		return CommitResult{}, ErrUnauthorized
 	}
-	recipient, err := s.owners.TrackingController(ctx, auth.Airport, command.FlightID)
+	recipient, err := s.owners.TrackingController(ctx, auth.Airport, command.Callsign)
 	if err != nil {
 		return CommitResult{}, err
 	}
 	if recipient != "" && string(recipient) != strings.TrimSpace(string(recipient)) {
 		return CommitResult{}, errors.New("authoritative tracking controller is invalid")
 	}
-	request, err := New(command.CommandID, auth.Airport, command.FlightID, recipient,
+	request, err := New(command.CommandID, auth.Airport, command.Callsign, recipient,
 		auth.Actor, auth.Role, command.Kind, command.Payload, auth.ReceivedAt)
 	if err != nil {
 		return CommitResult{}, err

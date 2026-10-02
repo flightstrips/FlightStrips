@@ -24,7 +24,8 @@ function alertColour(bucket: AMANTrafficBucket): string | null {
 function reasonLabel(reason: string): string {
   if (reason === "missing_selected_rate") return "Arrival rate unavailable; overload status is not estimated.";
   if (reason === "stale_flight_data") return "Some flight timing data is stale.";
-  if (reason === "vatsim_disconnected") return "VATSIM timing source is disconnected.";
+  if (reason === "source_disconnected") return "AMAN observation source is disconnected.";
+  if (reason === "position_estimate") return "Some airborne times are approximate straight-line estimates.";
   if (reason.startsWith("missing_timing:")) return `No usable timing for ${reason.slice("missing_timing:".length)}.`;
   return reason.replace(/_/g, " ");
 }
@@ -32,7 +33,7 @@ function reasonLabel(reason: string): string {
 function bucketDetails(bucket: AMANTrafficBucket): string {
   return bucket.flights.length === 0
     ? "No predicted arrivals"
-    : bucket.flights.map((flight) => `${flight.callsign} ${timeLabel(flight.landing_at)} · ${flight.timing_source.replace("vatsim_", "VATSIM ")} · ${flight.data_status}`).join("\n");
+    : bucket.flights.map((flight) => `${flight.callsign} ${timeLabel(flight.landing_at)} · ${flight.timing_source === "airborne_position" ? "airborne position estimate" : flight.timing_source.replace("vatsim_", "VATSIM ")} · ${flight.data_status}`).join("\n");
 }
 
 export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPrediction}) {

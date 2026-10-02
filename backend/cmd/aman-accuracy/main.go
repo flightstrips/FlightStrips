@@ -10,6 +10,7 @@ import (
 	"FlightStrips/internal/aman/operational"
 	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/aman/terminal"
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/vatsim"
 	"context"
@@ -22,7 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -96,8 +97,7 @@ func main() {
 	}
 	source := vatsim.NewSnapshotReplaySource()
 	fullTrackSource := vatsim.NewSnapshotReplaySource()
-	binder := &binder{ids: map[string]aman.FlightID{}}
-	worker, err := vatsim.NewObservationWorker(vatsim.ObservationWorkerDependencies{Cache: source, Identities: binder, Sink: service, EnabledAirports: []string{"EKCH"}, StaleAfter: time.Minute, Now: func() time.Time { return clock }})
+	worker, err := vatsim.NewObservationWorker(vatsim.ObservationWorkerDependencies{Cache: source, Sessions: liveSessionStore{}, Sink: service, EnabledAirports: []string{"EKCH"}, StaleAfter: time.Minute, Now: func() time.Time { return clock }})
 	if err != nil {
 		fail("create AMAN observation worker: %v", err)
 	}
@@ -108,6 +108,7 @@ func main() {
 	goAroundStates := map[string]aman.GoAroundDetectionState{}
 	goAroundDetections := map[string][]replayGoAroundDetection{}
 	callsigns := map[string]string{}
+	cidByCallsign := map[string]string{}
 	filedRoutes := map[string]string{}
 	availability := map[string]availabilityDiagnostic{}
 	publishableAtFiveMinutes := map[string]bool{}
@@ -162,6 +163,7 @@ func main() {
 			}
 			tracks[flight.CID] = appendTrackPoint(tracks[flight.CID], trackPoint{at: clock, latitude: flight.Latitude, longitude: flight.Longitude, altitudeFeet: flight.Altitude, groundspeedKnots: float64(flight.Groundspeed)})
 			callsigns[flight.CID] = flight.Callsign
+			cidByCallsign[strings.ToUpper(strings.TrimSpace(flight.Callsign))] = flight.CID
 			filedRoutes[flight.CID] = flight.FlightPlan.Route
 			wasAirborne := airborne[flight.CID]
 			isAirborne := flight.Altitude >= 1000 || flight.Groundspeed > 80
@@ -208,12 +210,13 @@ func main() {
 			fail("replay go-around detector: %v", err)
 		}
 		for _, flight := range repo.state.Flights {
-			if landingAt, candidate := landings[flight.VATSIMCID]; candidate && !clock.After(landingAt.Add(-5*time.Minute)) {
-				availability[flight.VATSIMCID] = availabilityDiagnosticFromFlight(flight)
-				publishableAtFiveMinutes[flight.VATSIMCID] = publishableAtFiveMinutes[flight.VATSIMCID] || (flight.Prediction != nil && flight.Prediction.Publishable)
+			cid := cidByCallsign[flight.Callsign]
+			if landingAt, candidate := landings[cid]; candidate && !clock.After(landingAt.Add(-5*time.Minute)) {
+				availability[cid] = availabilityDiagnosticFromFlight(flight)
+				publishableAtFiveMinutes[cid] = publishableAtFiveMinutes[cid] || (flight.Prediction != nil && flight.Prediction.Publishable)
 			}
 			if flight.Prediction != nil && flight.Prediction.Publishable && flight.State != aman.StateLanded && flight.State != aman.StateRemoved {
-				points[flight.VATSIMCID] = appendForecast(points[flight.VATSIMCID], forecastPointFromFlight(flight))
+				points[cid] = appendForecast(points[cid], forecastPointFromFlight(flight))
 			}
 		}
 	}
@@ -459,7 +462,7 @@ type availabilityDiagnostic struct {
 }
 
 func availabilityDiagnosticFromFlight(flight aman.AMANFlight) availabilityDiagnostic {
-	result := availabilityDiagnostic{callsign: flight.CurrentCallsign, state: flight.State, status: flight.DataStatus, reason: "no_prediction"}
+	result := availabilityDiagnostic{callsign: flight.Callsign, state: flight.State, status: flight.DataStatus, reason: "no_prediction"}
 	if flight.Prediction != nil && flight.Prediction.DegradationReason != nil {
 		result.reason = *flight.Prediction.DegradationReason
 	}
@@ -621,19 +624,19 @@ func updateReplayGoAroundDetections(
 			detectionAt = *observedAt
 		}
 		result, err := detector.Detect(lifecycle.GoAroundInput{
-			FlightID: flight.ID, Observation: *flight.LatestObservation, Corridor: corridor,
-			Previous: states[flight.VATSIMCID], PolicyVersion: replayGoAroundPolicyVersion,
+			Callsign: flight.Callsign, Observation: *flight.LatestObservation, Corridor: corridor,
+			Previous: states[flight.Callsign], PolicyVersion: replayGoAroundPolicyVersion,
 			Now: detectionAt, InScope: true, LandingConfirmed: flight.State == aman.StateLanded,
 		})
 		if err != nil {
-			return fmt.Errorf("%s: %w", flight.CurrentCallsign, err)
+			return fmt.Errorf("%s: %w", flight.Callsign, err)
 		}
-		states[flight.VATSIMCID] = result.State
+		states[flight.Callsign] = result.State
 		if result.Confirmed == nil {
 			continue
 		}
 		surveillance := flight.LatestObservation.Surveillance
-		detections[flight.VATSIMCID] = append(detections[flight.VATSIMCID], replayGoAroundDetection{
+		detections[flight.Callsign] = append(detections[flight.Callsign], replayGoAroundDetection{
 			at: result.Confirmed.ConfirmedAt, latitude: surveillance.LatitudeDegrees, longitude: surveillance.LongitudeDegrees,
 			reason: result.Confirmed.Reason, supportingObservationTimes: append([]time.Time(nil), result.Confirmed.SupportingObservationTimes...),
 		})
@@ -711,7 +714,7 @@ func writeReplayExport(path, runwayGroup string, corridor lifecycle.FinalPathCor
 		}
 		flight := replayMapFlight{
 			CID: cid, Callsign: callsigns[cid], FiledRoute: filedRoutes[cid], STAR: replaySTAR(points[cid]), LandedAt: landedAt,
-			Events:    replayEvents(tracks[cid], corridor, detections[cid], landedAt),
+			Events:    replayEvents(tracks[cid], corridor, detections[callsigns[cid]], landedAt),
 			Snapshots: make([]replayMapSnapshot, 0, len(points[cid])), Track: make([]replayMapPoint, 0, len(tracks[cid])),
 		}
 		for _, point := range points[cid] {
@@ -1010,22 +1013,10 @@ type discardPublisher struct{}
 
 func (discardPublisher) PublishAMANState(context.Context, aman.AirportState) error { return nil }
 
-type binder struct {
-	next int
-	ids  map[string]aman.FlightID
-}
+type liveSessionStore struct{}
 
-func (b *binder) BindVATSIMFlight(_ context.Context, identity aman.VATSIMFlightIdentity) (aman.FlightID, error) {
-	if err := identity.Validate(); err != nil {
-		return "", err
-	}
-	if id, ok := b.ids[identity.VATSIMCID]; ok {
-		return id, nil
-	}
-	b.next++
-	id := aman.FlightID("history-" + strconv.Itoa(b.next))
-	b.ids[identity.VATSIMCID] = id
-	return id, nil
+func (liveSessionStore) List(context.Context) ([]*models.Session, error) {
+	return []*models.Session{{ID: 1, Name: "LIVE", Airport: "EKCH"}}, nil
 }
 func distanceNM(a, b, c, d float64) float64 {
 	return math.Hypot((a-c)*60, (b-d)*60*math.Cos((a+c)*math.Pi/360))

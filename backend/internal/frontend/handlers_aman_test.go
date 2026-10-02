@@ -22,33 +22,33 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		payload   string
 		operation string
 	}{
-		{"move", frontendEvents.AMANMoveFlightType, `{"type":"aman.move_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","before_flight_id":"flight-2"}}`, "move"},
-		{"lock", frontendEvents.AMANLockFlightType, `{"type":"aman.lock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "lock"},
-		{"unlock", frontendEvents.AMANUnlockFlightType, `{"type":"aman.unlock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "unlock"},
-		{"desequence", frontendEvents.AMANDesequenceFlightType, `{"type":"aman.desequence_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "desequence"},
-		{"resume", frontendEvents.AMANResumeFlightType, `{"type":"aman.resume_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "resume"},
-		{"remove", frontendEvents.AMANRemoveFlightType, `{"type":"aman.remove_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "remove"},
+		{"move", frontendEvents.AMANMoveFlightType, `{"type":"aman.move_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","runway_group_id":"A","before_callsign":"flight-2"}}`, "move"},
+		{"lock", frontendEvents.AMANLockFlightType, `{"type":"aman.lock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "lock"},
+		{"unlock", frontendEvents.AMANUnlockFlightType, `{"type":"aman.unlock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "unlock"},
+		{"desequence", frontendEvents.AMANDesequenceFlightType, `{"type":"aman.desequence_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "desequence"},
+		{"resume", frontendEvents.AMANResumeFlightType, `{"type":"aman.resume_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "resume"},
+		{"remove", frontendEvents.AMANRemoveFlightType, `{"type":"aman.remove_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "remove"},
 		{"rate", frontendEvents.AMANSetRateType, `{"type":"aman.set_rate","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","arrivals_per_hour":30,"effective_at":"2026-07-22T12:05:00Z"}}`, "rate"},
 		{"runway selection", frontendEvents.AMANSelectRunwayGroupType, `{"type":"aman.select_runway_group","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","effective_at":"2026-07-22T12:05:00Z"}}`, "runway_selection"},
 		{"active runway set", frontendEvents.AMANSetActiveRunwayGroupsType, `{"type":"aman.set_active_runway_groups","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_ids":["A","B"]}}`, "set_active_runway_groups"},
-		{"accept", frontendEvents.AMANAcceptTETAType, `{"type":"aman.accept_teta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "accept"},
-		{"keep", frontendEvents.AMANKeepFPLETAType, `{"type":"aman.keep_fpl_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "keep"},
-		{"manual", frontendEvents.AMANSetManualETAType, `{"type":"aman.set_manual_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","manual_eta":"2026-07-22T12:10:00Z"}}`, "manual"},
-		{"reset", frontendEvents.AMANResetTETAOverrideType, `{"type":"aman.reset_teta_override","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "reset"},
-		{"manual feeder", frontendEvents.AMANSetManualFeederETAType, `{"type":"aman.set_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","feeder_eta":"2026-07-22T12:10:00Z"}}`, "manual_feeder"},
-		{"reset manual feeder", frontendEvents.AMANResetManualFeederETAType, `{"type":"aman.reset_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "reset_manual_feeder"},
-		{"recompute", frontendEvents.AMANRecomputeFlightType, `{"type":"aman.recompute_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "recompute"},
-		{"change runway", frontendEvents.AMANChangeRunwayType, `{"type":"aman.change_runway","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","runway_group_id":"B"}}`, "change_runway"},
-		{"go around", frontendEvents.AMANReportGoAroundType, `{"type":"aman.report_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","detected_at":"2026-07-22T11:59:00Z"}}`, "go_around"},
-		{"confirm go around", frontendEvents.AMANConfirmGoAroundType, `{"type":"aman.confirm_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","episode_id":"flight-1/go-around/1"}}`, "confirm_go_around"},
-		{"reject go around", frontendEvents.AMANRejectGoAroundType, `{"type":"aman.reject_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","episode_id":"flight-1/go-around/1"}}`, "reject_go_around"},
+		{"accept", frontendEvents.AMANAcceptTETAType, `{"type":"aman.accept_teta","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "accept"},
+		{"keep", frontendEvents.AMANKeepFPLETAType, `{"type":"aman.keep_fpl_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "keep"},
+		{"manual", frontendEvents.AMANSetManualETAType, `{"type":"aman.set_manual_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","manual_eta":"2026-07-22T12:10:00Z"}}`, "manual"},
+		{"reset", frontendEvents.AMANResetTETAOverrideType, `{"type":"aman.reset_teta_override","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "reset"},
+		{"manual feeder", frontendEvents.AMANSetManualFeederETAType, `{"type":"aman.set_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","feeder_eta":"2026-07-22T12:10:00Z"}}`, "manual_feeder"},
+		{"reset manual feeder", frontendEvents.AMANResetManualFeederETAType, `{"type":"aman.reset_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "reset_manual_feeder"},
+		{"recompute", frontendEvents.AMANRecomputeFlightType, `{"type":"aman.recompute_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "recompute"},
+		{"change runway", frontendEvents.AMANChangeRunwayType, `{"type":"aman.change_runway","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","runway_group_id":"B"}}`, "change_runway"},
+		{"go around", frontendEvents.AMANReportGoAroundType, `{"type":"aman.report_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","detected_at":"2026-07-22T11:59:00Z"}}`, "go_around"},
+		{"confirm go around", frontendEvents.AMANConfirmGoAroundType, `{"type":"aman.confirm_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","episode_id":"flight-1/go-around/1"}}`, "confirm_go_around"},
+		{"reject go around", frontendEvents.AMANRejectGoAroundType, `{"type":"aman.reject_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","episode_id":"flight-1/go-around/1"}}`, "reject_go_around"},
 		{"create GAP", frontendEvents.AMANCreateGapType, `{"type":"aman.create_gap","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","start":"2026-07-22T12:05:00Z","slot_count":2,"label":"approach stop"}}`, "create_runway_gap"},
 		{"remove GAP", frontendEvents.AMANRemoveGapType, `{"type":"aman.remove_gap","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","gap_id":"gap-1"}}`, "remove_runway_gap"},
-		{"create closure", frontendEvents.AMANCreateRunwayClosureType, `{"type":"aman.create_runway_closure","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","after_flight_id":"flight-1","reason":"inspection"}}`, "create_runway_closure"},
+		{"create closure", frontendEvents.AMANCreateRunwayClosureType, `{"type":"aman.create_runway_closure","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","after_callsign":"flight-1","reason":"inspection"}}`, "create_runway_closure"},
 		{"remove closure", frontendEvents.AMANRemoveRunwayClosureType, `{"type":"aman.remove_runway_closure","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","closure_id":"closure-1","reason":"inspection complete"}}`, "remove_runway_closure"},
-		{"create capacity", frontendEvents.AMANCreateCapacityReservationType, `{"type":"aman.create_capacity_reservation","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","after_flight_id":"flight-1","reason":"medevac"}}`, "create_capacity_reservation"},
+		{"create capacity", frontendEvents.AMANCreateCapacityReservationType, `{"type":"aman.create_capacity_reservation","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","after_callsign":"flight-1","reason":"medevac"}}`, "create_capacity_reservation"},
 		{"remove capacity", frontendEvents.AMANRemoveCapacityReservationType, `{"type":"aman.remove_capacity_reservation","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","reservation_id":"extra-1","reason":"released"}}`, "remove_capacity_reservation"},
-		{"place at time", frontendEvents.AMANPlaceFlightAtTimeType, `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z","allow_gap":true}}`, "place_at_time"},
+		{"place at time", frontendEvents.AMANPlaceFlightAtTimeType, `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z","allow_gap":true}}`, "place_at_time"},
 	}
 
 	for _, test := range tests {
@@ -69,8 +69,8 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 func TestAMANCoordinationTransportKeepsKindsDistinctAndReturnsFMPProjection(t *testing.T) {
 	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
 	for _, payload := range []string{
-		`{"type":"aman.submit_coordination_request","version":1,"data":{"command_id":"route","expected_revision":0,"flight_id":"flight-1","kind":"route_direct","direct_to":"TUDLO"}}`,
-		`{"type":"aman.submit_coordination_request","version":1,"data":{"command_id":"speed","expected_revision":0,"flight_id":"flight-1","kind":"speed","requested":"220 KT"}}`,
+		`{"type":"aman.submit_coordination_request","version":1,"data":{"command_id":"route","expected_revision":0,"callsign":"flight-1","kind":"route_direct","direct_to":"TUDLO"}}`,
+		`{"type":"aman.submit_coordination_request","version":1,"data":{"command_id":"speed","expected_revision":0,"callsign":"flight-1","kind":"speed","requested":"220 KT"}}`,
 	} {
 		repository := &coordinationRecorder{}
 		service := coordinationrequest.NewService(repository, coordinationOwner{})
@@ -128,7 +128,7 @@ func TestAMANCoordinationSnapshotAuthorizesFMPCallsignAtUnlistedFrequency(t *tes
 
 type coordinationOwner struct{}
 
-func (coordinationOwner) TrackingController(context.Context, string, coordinationrequest.FlightID) (coordinationrequest.ControllerID, error) {
+func (coordinationOwner) TrackingController(context.Context, string, coordinationrequest.Callsign) (coordinationrequest.ControllerID, error) {
 	return "EKCH_APP", nil
 }
 
@@ -177,7 +177,7 @@ func TestAMANGapTransportMapsOperationalFields(t *testing.T) {
 	}{
 		{frontendEvents.AMANCreateGapType, `{"type":"aman.create_gap","version":1,"data":{"command_id":"gap-create","expected_revision":7,"runway_group_id":"A","start":"2026-07-22T12:05:00Z","end":"2026-07-22T12:11:00Z","label":"approach stop"}}`},
 		{frontendEvents.AMANRemoveGapType, `{"type":"aman.remove_gap","version":1,"data":{"command_id":"gap-remove","expected_revision":8,"runway_group_id":"A","gap_id":"gap-create"}}`},
-		{frontendEvents.AMANPlaceFlightAtTimeType, `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"place","expected_revision":9,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:08:00Z","allow_gap":true}}`},
+		{frontendEvents.AMANPlaceFlightAtTimeType, `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"place","expected_revision":9,"callsign":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:08:00Z","allow_gap":true}}`},
 	}
 	for _, message := range messages {
 		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: message.type_, Message: []byte(message.payload)}))
@@ -194,8 +194,8 @@ func TestAMANGapTransportMapsOperationalFields(t *testing.T) {
 func TestAMANCapacityTransportMapsOnlyReservationFields(t *testing.T) {
 	service := &recordingAMANCommandService{}
 	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
-	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANCreateCapacityReservationType, Message: []byte(`{"type":"aman.create_capacity_reservation","version":1,"data":{"command_id":"extra-1","expected_revision":7,"runway_group_id":"A","after_flight_id":"flight-1","label":"VIP","reason":"medevac"}}`)}))
-	require.Equal(t, aman.CreateCapacityReservationCommand{Metadata: aman.CommandMetadata{CommandID: "extra-1", ExpectedRevision: 7}, RunwayGroupID: "A", AfterFlightID: "flight-1", Label: "VIP", Reason: "medevac"}, service.createCapacity)
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANCreateCapacityReservationType, Message: []byte(`{"type":"aman.create_capacity_reservation","version":1,"data":{"command_id":"extra-1","expected_revision":7,"runway_group_id":"A","after_callsign":"flight-1","label":"VIP","reason":"medevac"}}`)}))
+	require.Equal(t, aman.CreateCapacityReservationCommand{Metadata: aman.CommandMetadata{CommandID: "extra-1", ExpectedRevision: 7}, RunwayGroupID: "A", AfterCallsign: "flight-1", Label: "VIP", Reason: "medevac"}, service.createCapacity)
 	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANRemoveCapacityReservationType, Message: []byte(`{"type":"aman.remove_capacity_reservation","version":1,"data":{"command_id":"remove-1","expected_revision":8,"runway_group_id":"A","reservation_id":"extra-1","reason":"released"}}`)}))
 	require.Equal(t, aman.RemoveCapacityReservationCommand{Metadata: aman.CommandMetadata{CommandID: "remove-1", ExpectedRevision: 8}, RunwayGroupID: "A", ReservationID: "extra-1", Reason: "released"}, service.removeCapacity)
 }
@@ -220,7 +220,7 @@ func TestAMANGapTransportRejectsAmbiguousMalformedAndSpoofedFields(t *testing.T)
 func TestAMANPlacementTransportRequiresExplicitAllowGap(t *testing.T) {
 	service := &recordingAMANCommandService{}
 	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
-	payload := `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"bad","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z"}}`
+	payload := `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"bad","expected_revision":7,"callsign":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z"}}`
 	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANPlaceFlightAtTimeType, Message: []byte(payload)}))
 	require.Empty(t, service.operation)
 	require.Equal(t, string(aman.ErrorInvalidArgument), (<-client.send).(frontendEvents.AMANCommandRejectedEvent).Data.Code)
@@ -229,7 +229,7 @@ func TestAMANPlacementTransportRequiresExplicitAllowGap(t *testing.T) {
 func TestAMANGapTransportPreservesRetryIDAndStaleRevision(t *testing.T) {
 	service := &recordingAMANCommandService{execution: aman.CommandExecution{CurrentRevision: 12}, err: &aman.DomainError{Class: aman.ErrorRevisionConflict, Message: "revision changed"}}
 	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
-	payload := `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"stable-retry-id","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z","allow_gap":false}}`
+	payload := `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"stable-retry-id","expected_revision":7,"callsign":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z","allow_gap":false}}`
 	for range 2 {
 		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANPlaceFlightAtTimeType, Message: []byte(payload)}))
 		rejection := (<-client.send).(frontendEvents.AMANCommandRejectedEvent)
@@ -246,7 +246,7 @@ func TestAMANDispositionCommandsRejectClientOwnedResults(t *testing.T) {
 	for _, eventType := range []frontendEvents.EventType{frontendEvents.AMANDesequenceFlightType, frontendEvents.AMANResumeFlightType, frontendEvents.AMANRemoveFlightType} {
 		service := &recordingAMANCommandService{}
 		hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
-		payload := `{"type":"` + string(eventType) + `","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","slot":{"time":"2026-07-22T12:10:00Z"}}}`
+		payload := `{"type":"` + string(eventType) + `","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","slot":{"time":"2026-07-22T12:10:00Z"}}}`
 
 		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: eventType, Message: []byte(payload)}))
 		require.Empty(t, service.operation)
@@ -257,7 +257,7 @@ func TestAMANDispositionCommandsRejectClientOwnedResults(t *testing.T) {
 func TestAMANChangeRunwayRejectsSpoofedServerContextStrictly(t *testing.T) {
 	service := &recordingAMANCommandService{}
 	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
-	payload := `{"type":"aman.change_runway","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","runway_group_id":"B","airport":"ZZZZ","actor":"spoof","role":"ADMIN","received_at":"2026-07-22T12:00:00Z"}}`
+	payload := `{"type":"aman.change_runway","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","runway_group_id":"B","airport":"ZZZZ","actor":"spoof","role":"ADMIN","received_at":"2026-07-22T12:00:00Z"}}`
 	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANChangeRunwayType, Message: []byte(payload)}))
 	require.Empty(t, service.operation)
 	rejection := (<-client.send).(frontendEvents.AMANCommandRejectedEvent)
@@ -268,11 +268,11 @@ func TestAMANRecomputeRejectsSpoofedContextAndClientResultsStrictly(t *testing.T
 	for _, extra := range []string{
 		`,"airport":"ZZZZ","actor":"spoof","role":"ADMIN","received_at":"2026-07-22T12:00:00Z"`,
 		`,"teta":"2026-07-22T12:10:00Z"`, `,"result":{"raw_teta":"2026-07-22T12:10:00Z"}`,
-		`,"before_flight_id":"flight-2"`,
+		`,"before_callsign":"flight-2"`,
 	} {
 		service := &recordingAMANCommandService{}
 		hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
-		payload := `{"type":"aman.recompute_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"` + extra + `}}`
+		payload := `{"type":"aman.recompute_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"` + extra + `}}`
 		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANRecomputeFlightType, Message: []byte(payload)}))
 		require.Empty(t, service.operation)
 		rejection := (<-client.send).(frontendEvents.AMANCommandRejectedEvent)
@@ -285,7 +285,7 @@ func TestAMANRecomputeRejectsSpoofedContextAndClientResultsStrictly(t *testing.T
 func TestAMANSetManualFeederETARejectsNonUTCTimestamp(t *testing.T) {
 	service := &recordingAMANCommandService{}
 	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
-	payload := `{"type":"aman.set_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","feeder_eta":"2026-07-22T14:10:00+02:00"}}`
+	payload := `{"type":"aman.set_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","feeder_eta":"2026-07-22T14:10:00+02:00"}}`
 
 	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANSetManualFeederETAType, Message: []byte(payload)}))
 	require.Empty(t, service.operation)
@@ -310,7 +310,7 @@ func TestAMANHandlerRejectsObserverFMPAndReadOnlyBeforeCommandService(t *testing
 			service := &recordingAMANCommandService{}
 			hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
 			test.configure(hub, client)
-			payload := `{"type":"aman.change_runway","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","runway_group_id":"B"}}`
+			payload := `{"type":"aman.change_runway","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","runway_group_id":"B"}}`
 			require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANChangeRunwayType, Message: []byte(payload)}))
 			require.Empty(t, service.operation)
 			rejection := (<-client.send).(frontendEvents.AMANCommandRejectedEvent)
@@ -322,7 +322,7 @@ func TestAMANHandlerRejectsObserverFMPAndReadOnlyBeforeCommandService(t *testing
 func TestAMANRevisionConflictUsesCommandRejectionContract(t *testing.T) {
 	service := &recordingAMANCommandService{execution: aman.CommandExecution{CurrentRevision: 12}, err: &aman.DomainError{Class: aman.ErrorRevisionConflict, Message: "revision changed"}}
 	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
-	payload := `{"type":"aman.set_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","feeder_eta":"2026-07-22T12:10:00Z"}}`
+	payload := `{"type":"aman.set_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","feeder_eta":"2026-07-22T12:10:00Z"}}`
 
 	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANSetManualFeederETAType, Message: []byte(payload)}))
 	rejection := (<-client.send).(frontendEvents.AMANCommandRejectedEvent)

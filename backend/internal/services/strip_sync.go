@@ -124,6 +124,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	}
 
 	var validationStrip *internalModels.Strip
+	var amanStrip *internalModels.Strip
 	createdStrip := false
 	routeNeedsUpdate := false
 	needsStripBroadcast := false
@@ -132,10 +133,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	restartLifecycle := false
 	correctedEobt := ""
 	eobtClamped := false
+	observedPushback := false
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
 		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport, gndOnline)
+		observedPushback = bay == shared.BAY_PUSH && isLocalCdmDeparture(strip.Origin, airport)
 
 		isArrival := strip.Destination == airport
 		runwayForStrip := strip.Runway
@@ -153,7 +156,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		cdmData := internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil)
 		if isLocalCdmDeparture(strip.Origin, airport) {
 			var normalizedEobt string
-			cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeEobtSync(session, &internalModels.CdmData{}, strip.Eobt, time.Now().UTC())
+			cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeLogonSync(session, &internalModels.CdmData{}, strip.Eobt, time.Now().UTC())
 			if eobtClamped && normalizedEobt != strings.TrimSpace(strip.Eobt) {
 				correctedEobt = normalizedEobt
 			} else {
@@ -200,6 +203,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			StartReq:           false,
 		}
 		validationStrip = newStrip
+		amanStrip = newStrip
 		sequence, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
 		if err != nil {
 			return err
@@ -348,6 +352,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			if shouldPreservePdcBay(existingStrip, strip, bay) {
 				bay = existingStrip.Bay
 			}
+			observedPushback = existingStrip.Bay != shared.BAY_PUSH && bay == shared.BAY_PUSH &&
+				isLocalCdmDeparture(origin, airport)
 
 			runway = existingStrip.Runway
 			if strip.Runway != "" {
@@ -357,6 +363,23 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				if assigned := autoAssignRunway(isArrivalUpdate, sessionObj.ActiveRunways); assigned != "" {
 					runway = &assigned
 				}
+			}
+		}
+		if bay == shared.BAY_PUSH && existingStrip.Bay != shared.BAY_PUSH && isLocalCdmDeparture(origin, airport) && s.cdmService != nil && s.validationStore != nil {
+			latest, err := s.stripReader.GetByCallsign(ctx, session, strip.Callsign)
+			if err != nil {
+				return err
+			}
+			if err := s.validatePushbackTiming(ctx, session, latest, cid); err != nil {
+				return err
+			}
+			// Preparation may have changed the CDM assignment and validation state.
+			// Preserve those writes when this full snapshot is persisted below.
+			if refreshed, err := s.stripReader.GetByCallsign(ctx, session, strip.Callsign); err != nil {
+				return err
+			} else if refreshed != nil {
+				existingStrip.CdmData = refreshed.CdmData
+				existingStrip.ValidationStatus = refreshed.ValidationStatus
 			}
 		}
 		shouldClearOwnerForNotCleared := !restartLifecycle &&
@@ -413,7 +436,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			cdmData = internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil)
 			if isLocalCdmDeparture(origin, airport) {
 				var normalizedEobt string
-				cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeEobtSync(session, &internalModels.CdmData{}, strip.Eobt, time.Now().UTC())
+				cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeLogonSync(session, &internalModels.CdmData{}, strip.Eobt, time.Now().UTC())
 				if eobtClamped && normalizedEobt != strings.TrimSpace(strip.Eobt) {
 					correctedEobt = normalizedEobt
 				} else {
@@ -440,7 +463,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		} else if strip.Eobt != "" {
 			if isLocalCdmDeparture(origin, airport) {
 				var normalizedEobt string
-				cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeEobtSync(session, cdmData, strip.Eobt, time.Now().UTC())
+				if existingStrip.EuroscopeSeenAt == nil {
+					cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeLogonSync(session, cdmData, strip.Eobt, time.Now().UTC())
+				} else {
+					cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeEobtSync(session, cdmData, strip.Eobt, time.Now().UTC())
+				}
 				if eobtClamped && normalizedEobt != strings.TrimSpace(strip.Eobt) {
 					correctedEobt = normalizedEobt
 				} else {
@@ -538,6 +565,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			EuroscopeSeenAt:          euroscopeSeenAt,
 		}
 		validationStrip = updateStrip
+		amanStrip = updateStrip
 		registrationNeedsUpdate := restartLifecycle
 		registrationValue := ""
 		if restartLifecycle || existingStrip.Registration == nil || remarksContainsRegService(strip.Remarks) {
@@ -612,7 +640,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 
 		if !primaryChange {
 			s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
-			return s.observeHoldingClearance(ctx, existingStrip)
+			return s.observeSyncedStrip(ctx, amanStrip, existingStrip)
 		}
 
 		if primaryChange {
@@ -655,6 +683,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 	}
 
+	if observedPushback && s.cdmService != nil {
+		if err := s.cdmService.SyncAsatForGroundState(ctx, session, strip.Callsign, euroscope.GroundStatePush); err != nil {
+			return err
+		}
+	}
 	s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
 
 	if syncState != nil {
@@ -673,7 +706,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if needsStripBroadcast {
 			syncState.MarkStripUpdate(strip.Callsign)
 		}
-		return s.observeHoldingClearance(ctx, validationStrip)
+		return s.observeSyncedStrip(ctx, amanStrip, validationStrip)
 	}
 
 	if routeNeedsUpdate {
@@ -712,7 +745,80 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
 	}
 
-	return s.observeHoldingClearance(ctx, validationStrip)
+	return s.observeSyncedStrip(ctx, amanStrip, validationStrip)
+}
+
+type euroScopeAMANStripBatchObserver interface {
+	ObserveEuroScopeStrips(context.Context, int32, []shared.EuroScopeStripObservation) error
+}
+
+func (s *StripService) observeSyncedStrip(ctx context.Context, amanStrip, holdingStrip *internalModels.Strip) error {
+	if err := s.observeEuroScopeAMANStrip(ctx, amanStrip); err != nil {
+		return err
+	}
+	return s.observeHoldingClearance(ctx, holdingStrip)
+}
+
+func (s *StripService) observeEuroScopeAMANStrip(ctx context.Context, strip *internalModels.Strip) error {
+	if s.amanStripObserver == nil || strip == nil {
+		return nil
+	}
+	if state := shared.GetSyncState(ctx); state != nil {
+		if _, ok := s.amanStripObserver.(euroScopeAMANStripBatchObserver); ok {
+			if state.AMANStrips == nil {
+				state.AMANStrips = make(map[string]shared.EuroScopeStripObservation)
+			}
+			snapshot := snapshotEuroScopeAMANStrip(strip)
+			state.AMANStrips[strip.Callsign] = shared.EuroScopeStripObservation{Strip: snapshot, ObservedAt: time.Now().UTC()}
+			return nil
+		}
+	}
+	return s.amanStripObserver.ObserveEuroScopeStrip(ctx, strip)
+}
+
+func snapshotEuroScopeAMANStrip(strip *internalModels.Strip) *internalModels.Strip {
+	snapshot := *strip
+	snapshot.Route = cloneSyncPointer(strip.Route)
+	snapshot.AircraftType = cloneSyncPointer(strip.AircraftType)
+	snapshot.RequestedAltitude = cloneSyncPointer(strip.RequestedAltitude)
+	snapshot.ClearedAltitude = cloneSyncPointer(strip.ClearedAltitude)
+	snapshot.VatsimRevision = cloneSyncPointer(strip.VatsimRevision)
+	return &snapshot
+}
+
+func cloneSyncPointer[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+// FlushEuroScopeAMANStrips publishes a full replacement snapshot, including
+// an empty snapshot, so the observer can retract flights absent from a sync.
+func (s *StripService) FlushEuroScopeAMANStrips(ctx context.Context, session int32) error {
+	state := shared.GetSyncState(ctx)
+	if state == nil || s.amanStripObserver == nil {
+		return nil
+	}
+	observer, ok := s.amanStripObserver.(euroScopeAMANStripBatchObserver)
+	if !ok {
+		return fmt.Errorf("EuroScope AMAN strip batch observer is unavailable")
+	}
+	callsigns := make([]string, 0, len(state.AMANStrips))
+	for callsign := range state.AMANStrips {
+		callsigns = append(callsigns, callsign)
+	}
+	slices.Sort(callsigns)
+	strips := make([]shared.EuroScopeStripObservation, 0, len(callsigns))
+	for _, callsign := range callsigns {
+		strips = append(strips, state.AMANStrips[callsign])
+	}
+	if err := observer.ObserveEuroScopeStrips(ctx, session, strips); err != nil {
+		return err
+	}
+	state.AMANStrips = nil
+	return nil
 }
 
 type holdingClearanceBatchObserver interface {
@@ -781,6 +887,15 @@ func (s *StripService) prepareEuroscopeEobtSync(session int32, data *internalMod
 		return s.cdmService.PrepareEuroscopeEobtSync(session, data, eobt, now)
 	}
 	return prepareEuroscopeEobtWithoutCdm(data, eobt, now), strings.TrimSpace(eobt), false
+}
+
+func (s *StripService) prepareEuroscopeLogonSync(session int32, data *internalModels.CdmData, eobt string, now time.Time) (*internalModels.CdmData, string, bool) {
+	if service, ok := s.cdmService.(interface {
+		PrepareEuroscopeLogonSync(*internalModels.CdmData, string, time.Time) *internalModels.CdmData
+	}); ok {
+		return service.PrepareEuroscopeLogonSync(data, eobt, now), strings.TrimSpace(eobt), false
+	}
+	return s.prepareEuroscopeEobtSync(session, data, eobt, now)
 }
 
 func prepareEuroscopeEobtWithoutCdm(data *internalModels.CdmData, eobt string, now time.Time) *internalModels.CdmData {

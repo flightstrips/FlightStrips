@@ -164,7 +164,11 @@ func (m *AsyncSessionOwners) adoptIdleGenerationLocked(s *asyncSession, raw *Agg
 		return m.failure
 	}
 	if s.epoch == raw.Owner.Epoch {
-		return nil
+		// Effect/provider workers may advance the durable domain prefix without
+		// admitting a RAM command. Idle reads must see those facts immediately.
+		if s.pending != 0 || len(s.tail) != 0 || s.ram.Revision >= raw.Revision {
+			return nil
+		}
 	}
 	if s.pending != 0 || len(s.tail) != 0 {
 		m.failure = fmt.Errorf("async owner generation changed with pending tail")

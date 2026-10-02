@@ -51,7 +51,10 @@ func TestExternalCallFlushesPriorSessionRAMAndCallsProviderOnce(t *testing.T) {
 			}
 			request := command(ref, "provider result", 0)
 			request.CommandId = id
-			reply, _ := resultWriter.ExecuteFresh(run, request)
+			reply := resultWriter.Execute(run, request)
+			if reply.MemoryAccepted || reply.StreamSequence == nil {
+				t.Error("provider completion returned before its durable result")
+			}
 			return reply
 		}}
 	type result struct {

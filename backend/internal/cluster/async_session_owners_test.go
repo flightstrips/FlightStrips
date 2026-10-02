@@ -10,6 +10,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"net"
 	"strings"
 	"sync"
@@ -17,6 +18,59 @@ import (
 	"testing"
 	"time"
 )
+
+func TestAsyncOwnerIdleReadsRefreshDurableEffectAndDispatchOnce(t *testing.T) {
+	for _, first := range []string{"read", "active", "dispatch"} {
+		t.Run(first, func(t *testing.T) {
+			m, p, ref, gate, _ := asyncOwnersFixture(t)
+			defer close(gate)
+			id, connection := uuid.NewString(), uuid.NewString()
+			waiting := &pb.EffectRecord{CommandId: id, TargetCid: "111111", OwnerEpoch: 1, Status: pb.EffectRecord_WAITING,
+				ResultDeadline: timestamppb.New(time.Now().Add(time.Minute))}
+			key, _ := Subject(ref)
+			p.mu.Lock()
+			p.states[key].Effects[id] = waiting
+			p.presence = map[string]KVPresence{}
+			p.mu.Unlock()
+			require.NoError(t, m.Execute(context.Background(), ref, func(context.Context) error { return nil }))
+			old := m.Control(ref)
+			claimed := proto.Clone(waiting).(*pb.EffectRecord)
+			claimed.Status = pb.EffectRecord_DISPATCH_CLAIMED
+			claimed.DispatchConnectionId = &connection
+			// A durable effect worker publishes outside RAM command admission.
+			p.mu.Lock()
+			next, err := cloneAggregate(p.states[key])
+			require.NoError(t, err)
+			next.Revision++
+			next.StreamSequence++
+			next.SubjectSequence++
+			next.Effects[id] = claimed
+			p.states[key] = next
+			p.applied, p.highWater = next.StreamSequence, next.StreamSequence
+			p.mu.Unlock()
+			client := &pb.ClientPresence{SessionId: ref.GetSession().Id, ConnectionId: connection, NodeId: "node-a", Cid: "111111", Kind: pb.ClientPresence_EUROSCOPE, ConnectedAt: timestamppb.Now()}
+			putTestPresence(p, client)
+			var sends int
+			fanout := &SessionFanout{NC: m.owner.NC, Projection: p, NodeID: "node-a", sockets: map[string]*socketEntry{connection: {
+				presence: client, delivered: map[string]bool{}, socket: LocalSessionSocket{OnEffect: func(*pb.EffectRecord) error { sends++; return nil }},
+			}}}
+			if first == "active" {
+				require.True(t, m.Active(ref))
+			} else if first == "read" {
+				view, err := m.Read(ref)
+				require.NoError(t, err)
+				require.Equal(t, pb.EffectRecord_DISPATCH_CLAIMED, view.Effects[id].Status)
+			}
+			require.NoError(t, fanout.SendToCID(context.Background(), ref.GetSession().Id, claimed))
+			require.Error(t, fanout.SendToCID(context.Background(), ref.GetSession().Id, claimed))
+			require.Equal(t, 1, sends)
+			view, err := m.Read(ref)
+			require.NoError(t, err)
+			require.Equal(t, pb.EffectRecord_DISPATCH_CLAIMED, view.Effects[id].Status)
+			require.Equal(t, pb.EffectRecord_WAITING, old.Effects[id].Status, "published RAM views must remain immutable")
+		})
+	}
+}
 
 // This protocol stub supplies CONNECTED transport status only. It does not
 // implement JetStream; persistence in these unit tests is the CAS memory store.

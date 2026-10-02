@@ -270,7 +270,7 @@ func (f *SessionFanout) SendToCID(ctx context.Context, sessionID int32, effect *
 	if err != nil {
 		return err
 	}
-	state, err := f.Projection.Read(sessionRef(sessionID))
+	state, err := f.Projection.ReadDurable(sessionRef(sessionID))
 	if err != nil || state.Effects[effect.CommandId] == nil ||
 		!proto.Equal(state.Effects[effect.CommandId], effect) {
 		return fmt.Errorf("effect dispatch claim is not applied locally")
@@ -349,7 +349,7 @@ func (f *SessionFanout) deliverLocal(sessionID int32, effect *pb.EffectRecord) e
 		return fmt.Errorf("target socket is unavailable or already delivered")
 	}
 	f.mu.Unlock()
-	state, err := f.Projection.Read(sessionRef(sessionID))
+	state, err := f.Projection.ReadDurable(sessionRef(sessionID))
 	if err != nil {
 		return err
 	}

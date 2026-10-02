@@ -116,12 +116,13 @@ func (c *DeadlineCandidate) positionAccepted(ctx context.Context, id int32, conn
 	case <-ctx.Done():
 		return ctx.Err()
 	case receipt := <-result:
-		span.SetAttributes(attribute.Float64("position.queue_to_puback_ms", float64(time.Since(stage))/float64(time.Millisecond)))
+		span.SetAttributes(attribute.Float64("position.queue_to_accept_ms", float64(time.Since(stage))/float64(time.Millisecond)))
 		if receipt.Err != nil {
 			return receipt.Err
 		}
-		// The writer materializes the durably committed value on its owner before
-		// returning success. The raw fleet cursor remains a separate fence.
+		// The writer materializes the accepted value on its owner before
+		// returning success. In memory mode persistence follows independently;
+		// the raw fleet cursor remains a separate integrity fence.
 		if value != nil {
 			stage = time.Now()
 			deriveErr := c.derivePosition(ctx, id, w, key, receipt.Revision, value)

@@ -7,6 +7,23 @@ Operational transitions continue through the session owner and `FS_STATE`.
 Positions retain freshness, master/socket-generation checks, bounded work and
 ordered drainage. A received frame is not evidence of an accepted mutation.
 
+Stand planning reads the local state and position projections. Before publishing
+a lifecycle change, the session owner drains accepted position work and pauses
+later position writes. The lifecycle fence checks stream progress against the
+ordered position consumer, then compares the complete current-master aircraft
+set and each planning revision in memory. It does not enumerate position keys or
+fetch every aircraft from KV. Constant-size NATS metadata checks establish that
+the projection has applied the captured stream boundary; a successful PubAck
+cache alone cannot establish completeness.
+
+Replay tracks consumer identity, applied delivery sequences and retained keys,
+including deletion and purge markers. An incomplete replay, changed consumer
+generation, malformed observation or unverifiable retained-key set prevents a
+lifecycle commit. Ownership, master synchronization, leases and the conditional
+`FS_STATE` publication remain authoritative. The standby independently replays
+the committed result. Initial position writes and individual position-derived
+transitions retain their separate KV compare-and-set checks.
+
 The SQL dispatcher, pool budget, transaction batching and
 `POSITION_DB_BATCHING_ENABLED` controls have been retired. Historical benchmarks
 and their failed latency gates remain in the [SQL runtime record](performance/2026-09-16/sql-position-runtime.md).
@@ -29,7 +46,7 @@ on an identified topology. Task 22 owns overlapping-version/recovery qualificati
 The previous SQL measurements cannot establish NATS latency or multi-host safety.
 Landing validation and the disabled SAT scenario/replay runner remain disabled.
 
-## Initial NATS load harness (Task 23 draft)
+## Native NATS load qualification (Task 23 draft)
 
 `TestPositionLoadNATS` builds two backend executables and starts three native,
 test-owned brokers on random loopback ports with separate temporary stores,
@@ -65,10 +82,36 @@ SHA-256, process CPU/memory samples, backend metrics, NATS network/store counter
 and separate position/state PubAck percentiles. All brokers share one host and
 disk; these measurements cannot certify production placement or capacity.
 
-**Qualification remains incomplete.** The original landing/ALDT, arrival taxi,
-departure airborne and stand activation/release assertions still need an enabled
-lifecycle fixture. This initial fixture disables those providers. Backend-kill
-recovery with client reconnect, disk 70% alert/85% block and off-cluster restore
-are also pending, as are the affected Task 22 fault checks on this changed source.
-Reports always set `qualification=false`; `load_latency_pass` refers only to the
-implemented load gates. No full-duration results or Task 24 acceptance are claimed.
+The fixture enables synthetic VATSIM, local navigation/weather sources and stand
+assignment. Aircraft trajectories exercise landing/ALDT, arrival taxi, departure
+airborne, stand activation and stand release, with assertions in full runs. A
+separate recovery test measures five backend kills, client reconnects and fresh
+syncs. The native runner combines all six full patterns, recovery, disk checks
+and the complete Task 22 fault/restore suite:
+
+```powershell
+./backend/testdata/nats/task23.ps1 -NATSServerBinary 'C:/path/to/nats-server.exe'
+```
+
+Disk usage at 70% records an alert; 85% blocks release qualification while local
+tests continue. Per-pattern reports always set `qualification=false`; `load_pass`
+covers their load and lifecycle assertions. The runner's `run-result.json`
+requires every full pattern, recovery and fault test to pass. Aborted reports
+retain partial measurements and cannot establish capacity or qualification.
+
+**Qualification remains incomplete.** At revision `aa15f68f`, backend unit and
+contract checks passed and the full Task 22 fault/restore suite passed in 826.675
+seconds. All six load scenarios aborted on socket failures, and recovery failed
+during session-name lookup before any recovery trial. The partial mixed/even
+run reached receipt p95 2.59 ms/p99 37.16 ms over eight minutes; burst cases
+exceeded the latency targets. These partial results are diagnostics, not passing
+full-duration evidence. Disk usage also exceeded the 85% release threshold.
+Follow-up repairs replace lifecycle fleet reads with the verified memory fence,
+replan concurrent operational updates, defer genuine snapshot-index contention
+and repair recovery session lookup. The full backend unit suite and affected
+race suites pass. A native memory-fence regression also passes with the race
+detector, covering new neighbours, disconnects, deletes, silent purge detection,
+empty retained replay and fresh synchronization after restarting both backends.
+These correctness results do not replace the six full load patterns or the
+complete recovery and fault qualification on the repaired source.
+No Task 24 or multi-host acceptance is claimed.

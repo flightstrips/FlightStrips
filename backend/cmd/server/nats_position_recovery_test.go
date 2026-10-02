@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func TestPositionLoadBackendRecovery(t *testing.T) {
 	collector := httptest.NewServer(capture)
 	defer collector.Close()
 	f := newEntrypointFixtureConfigured(t, true, map[string]string{"OTEL_EXPORTER_OTLP_ENDPOINT": collector.URL, "OTEL_BSP_SCHEDULE_DELAY": "50", "OTEL_BSP_MAX_QUEUE_SIZE": "16384"})
-	name := "TASK23-RECOVERY-" + uuid.NewString()
+	name := "TASK23-RECOVERY-" + strings.ToUpper(uuid.NewString())
 	ref := sessionFaultRef(0)
 	strips := make([]*es.Strip, 200)
 	for i := range strips {
@@ -105,6 +106,7 @@ func TestPositionLoadBackendRecovery(t *testing.T) {
 			}
 		}
 		require.NotEqual(t, -1, ownerNode, "owner must map to a verified test-owned backend")
+		ownerEpochBefore := state.Owner.Epoch
 		killed := time.Now()
 		f.apps[ownerNode].stop()
 		_ = front.Close()
@@ -136,7 +138,7 @@ func TestPositionLoadBackendRecovery(t *testing.T) {
 		// exporter wait does not shorten the accepted-position completion time.
 		ms := float64(recovered.Sub(killed)) / float64(time.Millisecond)
 		timings = append(timings, ms)
-		timeline = append(timeline, map[string]any{"trial": trial, "killed_utc": killed.UTC(), "recovered_utc": recovered.UTC(), "position_completed_utc": completion.End.UTC(), "elapsed_ms": ms, "owner_epoch_before": state.Owner.Epoch - 1, "owner_epoch_after": state.Owner.Epoch, "killed_backend": ownerNode})
+		timeline = append(timeline, map[string]any{"trial": trial, "killed_utc": killed.UTC(), "recovered_utc": recovered.UTC(), "position_completed_utc": completion.End.UTC(), "elapsed_ms": ms, "owner_epoch_before": ownerEpochBefore, "owner_epoch_after": state.Owner.Epoch, "killed_backend": ownerNode})
 		_ = front.Close()
 		for _, p := range plugins {
 			_ = p.conn.Close()

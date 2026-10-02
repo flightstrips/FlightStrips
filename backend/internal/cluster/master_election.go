@@ -240,13 +240,21 @@ func (p *Projection) RequireMasterInbound(sessionID int32, connectionID, cid str
 	if p == nil || sessionID < 1 || connectionID == "" || cid == "" || epoch == 0 {
 		return fmt.Errorf("invalid socket authority")
 	}
-	ref := sessionRef(sessionID)
 	if err := p.readyForRead(); err != nil {
 		return err
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	subject, _ := Subject(ref)
+	if err := p.healthLocked(); err != nil {
+		return err
+	}
+	return p.requireMasterInboundLocked(sessionID, connectionID, cid, epoch, requireSync)
+}
+
+// Caller holds the projection read lock, so terms, presence and sync come from
+// the same accepted observation of authority.
+func (p *Projection) requireMasterInboundLocked(sessionID int32, connectionID, cid string, epoch uint64, requireSync bool) error {
+	subject := fmt.Sprintf("fs.v1.state.session.%d", sessionID)
 	state := p.states[subject]
 	if state == nil || state.Owner == nil || state.Master == nil || state.Master.ConnectionId != connectionID ||
 		state.Master.Cid != cid || state.Master.Epoch != epoch || state.Master.OwnerEpoch != state.Owner.Epoch {

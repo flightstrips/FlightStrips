@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/nats-io/nats.go"
@@ -16,6 +17,8 @@ import (
 const MaxObjectBytes = 32 << 20
 
 var ErrImmutableSnapshotCollision = errors.New("immutable snapshot name already contains different data")
+var ErrSnapshotIndexContended = errors.New("snapshot index update contended; retained log remains authoritative")
+
 var ErrSnapshotTooLarge = errors.New("history exceeds bounded snapshot size; retained log remains authoritative")
 
 // SnapshotStore publishes an index only after reading back and validating the
@@ -74,12 +77,18 @@ func (s SnapshotStore) Save(a *Aggregate) error {
 	if err != nil {
 		return err
 	}
+	return publishSnapshotIndex(s.Index, key, index, encoded)
+}
+
+// Replica checkpoint publishers may race. A failed CAS leaves the previous
+// verified pointer and authoritative log untouched; it is safe to defer only
+// genuine contention. Storage and transport failures remain readiness errors.
+func publishSnapshotIndex(kv nats.KeyValue, key string, index *pb.SnapshotIndex, encoded []byte) error {
+	var conflict error
 	for attempts := 0; attempts < 5; attempts++ {
-		previous, err := s.Index.Get(key)
+		previous, err := kv.Get(key)
 		if errors.Is(err, nats.ErrKeyNotFound) {
-			if _, err = s.Index.Create(key, encoded); err == nil {
-				return nil
-			}
+			_, err = kv.Create(key, encoded)
 		} else if err != nil {
 			return err
 		} else {
@@ -87,12 +96,21 @@ func (s SnapshotStore) Save(a *Aggregate) error {
 			if pb.UnmarshalStrict(previous.Value(), prior) == nil && prior.LastStreamSequence >= index.LastStreamSequence {
 				return nil
 			}
-			if _, err = s.Index.Update(key, encoded, previous.Revision()); err == nil {
-				return nil
-			}
+			_, err = kv.Update(key, encoded, previous.Revision())
+		}
+		if err == nil {
+			return nil
+		}
+		var api *nats.APIError
+		if !errors.Is(err, nats.ErrKeyExists) && !(errors.As(err, &api) && (api.ErrorCode == nats.JSErrCodeStreamWrongLastSequence || api.ErrorCode == 10164)) {
+			return fmt.Errorf("snapshot index publication failed: %w", err)
+		}
+		conflict = err
+		if attempts < 4 {
+			time.Sleep(time.Duration(attempts+1) * 5 * time.Millisecond)
 		}
 	}
-	return fmt.Errorf("snapshot index changed during update")
+	return fmt.Errorf("%w: %w", ErrSnapshotIndexContended, conflict)
 }
 
 // Load tries both retained index revisions. A corrupt newest object cannot

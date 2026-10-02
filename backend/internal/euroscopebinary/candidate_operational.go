@@ -17,20 +17,25 @@ func (c *DeadlineCandidate) AdmitOperational(ctx context.Context, id int32, conn
 		return err
 	}
 	if runway := frame.GetRunway(); runway != nil {
-		state, err := c.Router.Projection.Read(candidateRef(id))
-		if err != nil {
-			return err
-		}
-		seed := state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)]
-		session := proto.Clone(seed.Value.GetSession()).(*pb.Session)
-		session.Runways = nil
+		patch := &pb.Session{Id: id}
 		for _, v := range runway.Runways {
 			if v == nil {
 				return fmt.Errorf("absent runway")
 			}
-			session.Runways = append(session.Runways, &pb.Runway{Name: v.Name, Departure: v.Departure, Arrival: v.Arrival})
+			patch.Runways = append(patch.Runways, &pb.Runway{Name: v.Name, Departure: v.Departure, Arrival: v.Arrival})
 		}
-		return c.executeFrame(ctx, id, connection, cid, frame, "euroscope-session", seed.Key, &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: session}}, seed.Revision, "runways")
+		key := fmt.Sprint(id)
+		commandID, _ := cluster.ProviderEventCommandID("euroscope-event", connection, fmt.Sprintf("%s/runways/%s", frame.CommandId, key))
+		req := &pb.CommandRequest{ProtocolRevision: 1, CommandId: commandID, Aggregate: candidateRef(id), Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "euroscope-session"},
+			Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: key, Value: &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: patch}}}}}}}
+		writer := c.Router.Writer
+		writer.Plan = func(ctx context.Context, req *pb.CommandRequest, state *cluster.Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+			if err := c.Router.Projection.ValidateEuroScopeInbound(id, connection, cid, frame); err != nil {
+				return nil, pb.CommandReply_UNAUTHORIZED, 0, err
+			}
+			return planRunwayObservation(ctx, req, state, key, c.Planner)
+		}
+		return candidateReply(writer.Execute(ctx, req))
 	}
 	callsign := ""
 	apply := func(*pb.Strip) {}
@@ -105,16 +110,18 @@ func (c *DeadlineCandidate) AdmitOperational(ctx context.Context, id int32, conn
 	default:
 		return fmt.Errorf("not an inbound operational observation: %T", frame.Event)
 	}
-	old, err := c.Router.Projection.ReadEntity(candidateRef(id), pb.EntityKind_STRIP, callsign)
-	if err != nil {
-		return err
+	// Hash the incremental observation, then apply its named fields to the
+	// latest strip inside every subject-CAS attempt. Position derivation and
+	// provider reconciliation may legitimately change other strip fields.
+	req := stripObservationRequest(frame, id, connection, callsign, apply)
+	writer := c.Router.Writer
+	writer.Plan = func(ctx context.Context, req *pb.CommandRequest, state *cluster.Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		if err := c.Router.Projection.ValidateEuroScopeInbound(id, connection, cid, frame); err != nil {
+			return nil, pb.CommandReply_UNAUTHORIZED, 0, err
+		}
+		return planStripObservation(ctx, req, state, callsign, apply, c.Planner)
 	}
-	if old == nil {
-		return fmt.Errorf("observed strip unavailable")
-	}
-	strip := proto.Clone(old.Value.GetStrip()).(*pb.Strip)
-	apply(strip)
-	return c.executeFrame(ctx, id, connection, cid, frame, "euroscope-strip", callsign, &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: strip}}, old.Revision, "observation")
+	return candidateReply(writer.Execute(ctx, req))
 }
 
 // ExecuteClient evaluates policy only at the current session owner, and repeats
@@ -133,4 +140,65 @@ func (c *DeadlineCandidate) ExecuteClient(ctx context.Context, id int32, connect
 		return c.Router.Writer.Plan(ctx, r, state)
 	}
 	return writer.Execute(ctx, req)
+}
+
+// planStripObservation never carries a previous attempt's whole strip or
+// revision into a retry. The stable original request remains the ledger hash.
+func planStripObservation(ctx context.Context, req *pb.CommandRequest, state *cluster.Aggregate, callsign string, apply func(*pb.Strip), next cluster.Planner) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+	old := state.Indexes[pb.EntityKind_STRIP][callsign]
+	if old == nil || old.Value.GetStrip() == nil {
+		return nil, pb.CommandReply_NOT_FOUND, 0, fmt.Errorf("observed strip unavailable")
+	}
+	strip := proto.Clone(old.Value.GetStrip()).(*pb.Strip)
+	apply(strip)
+	planned := proto.Clone(req).(*pb.CommandRequest)
+	// Planning keeps the established EuroScope merge/deadline policy. The
+	// original request retains its event-specific identity in the outcome hash.
+	planned.Actor.Id = "euroscope-strip"
+	planned.ExpectedEntityRevision = &old.Revision
+	planned.GetSystem().GetUpdateEntity().Value = &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: strip}}
+	return next(ctx, planned, state)
+}
+
+// The hash patch expresses the original observation even when its operation
+// depends on the latest domain state.
+func stripObservationPatch(frame *es.Envelope, callsign string, apply func(*pb.Strip)) *pb.Strip {
+	patch := &pb.Strip{Callsign: callsign}
+	apply(patch)
+	// Clearance is conditional on the current bay. Its hash still must carry
+	// the original boolean when applying it to an empty patch is a no-op.
+	if cleared := frame.GetClearedFlag(); cleared != nil {
+		patch.Bay = shared.BAY_NOT_CLEARED
+		if cleared.Cleared {
+			patch.Bay = shared.BAY_CLEARED
+		}
+	}
+	return patch
+}
+
+// Runway frames replace runways alone. Fresh planning preserves concurrent
+// session settings and SID observations when a subject-CAS attempt retries.
+func planRunwayObservation(ctx context.Context, req *pb.CommandRequest, state *cluster.Aggregate, key string, next cluster.Planner) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+	old := state.Indexes[pb.EntityKind_SESSION][key]
+	if old == nil || old.Value.GetSession() == nil {
+		return nil, pb.CommandReply_NOT_FOUND, 0, fmt.Errorf("runway session unavailable")
+	}
+	planned := proto.Clone(req).(*pb.CommandRequest)
+	session := proto.Clone(old.Value.GetSession()).(*pb.Session)
+	session.Runways = planned.GetSystem().GetUpdateEntity().GetValue().GetSession().Runways
+	planned.ExpectedEntityRevision = &old.Revision
+	planned.GetSystem().GetUpdateEntity().Value = &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: session}}
+	return next(ctx, planned, state)
+}
+
+// Sparse typed patches can have identical bytes for distinct clear operations.
+// The trusted system actor records the original closed wire event kind so a
+// reused command ID cannot silently replay another operation's outcome.
+func stripObservationRequest(frame *es.Envelope, id int32, connection, callsign string, apply func(*pb.Strip)) *pb.CommandRequest {
+	patch := stripObservationPatch(frame, callsign, apply)
+	message := frame.ProtoReflect()
+	event := message.WhichOneof(message.Descriptor().Oneofs().ByName("event"))
+	commandID, _ := cluster.ProviderEventCommandID("euroscope-event", connection, fmt.Sprintf("%s/observation/%s", frame.CommandId, callsign))
+	return &pb.CommandRequest{ProtocolRevision: 1, CommandId: commandID, Aggregate: candidateRef(id), Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "euroscope-strip/" + string(event.Name())},
+		Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: callsign, Value: &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: patch}}}}}}}
 }

@@ -45,13 +45,15 @@ type Projection struct {
 	presence                                   map[string]KVPresence
 	syncFresh                                  map[string]bool
 	positionReady, presenceReady               bool
+	positionCursor                             positionCursor
 	observationErr                             error
-	positionChanged                            chan struct{}
+	positionWaiters                            map[string]*positionWaitNotification
 	stateChanged                               chan struct{}
 	watchers                                   sync.WaitGroup
 	snapshotJobs                               sync.WaitGroup
 	takeovers, staleEpochs, snapshotFailures   atomic.Uint64
 	snapshotSizeSkips                          atomic.Uint64
+	snapshotIndexContentions                   atomic.Uint64
 }
 
 type KVPosition struct {
@@ -138,6 +140,7 @@ func (p *Projection) Run(ctx context.Context) error {
 		state, err := p.Snapshots.Load(ref)
 		if err != nil {
 			p.snapshotFailures.Add(1)
+			p.wakeWaitersLocked()
 			return err
 		}
 		state.history = p.history
@@ -310,10 +313,20 @@ func (p *Projection) scheduleSnapshotLocked(subject string, state *Aggregate) {
 
 func (p *Projection) persistSnapshot(subject string, state *Aggregate) {
 	err := p.Snapshots.Save(state)
+	p.finishSnapshot(subject, err)
+}
+
+func (p *Projection) finishSnapshot(subject string, err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.snapshotErrors == nil {
 		p.snapshotErrors = make(map[string]error)
+	}
+	if errors.Is(err, ErrSnapshotIndexContended) {
+		p.snapshotIndexContentions.Add(1)
+		delete(p.snapshotErrors, subject)
+		p.lastSnapshot[subject] = time.Now().Add(-5*time.Minute + 5*time.Second)
+		return
 	}
 	if errors.Is(err, ErrSnapshotTooLarge) {
 		p.snapshotSizeSkips.Add(1)
@@ -324,6 +337,7 @@ func (p *Projection) persistSnapshot(subject string, state *Aggregate) {
 	if err != nil {
 		p.snapshotErrors[subject] = err
 		p.snapshotFailures.Add(1)
+		p.wakeWaitersLocked()
 		if errors.Is(err, ErrImmutableSnapshotCollision) {
 			p.lastSnapshot[subject] = time.Now()
 		} else {
@@ -477,13 +491,13 @@ func (p *Projection) refresh(ctx context.Context) {
 }
 
 func (p *Projection) wakeWaitersLocked() {
+	p.wakePositionCursorLocked()
 	if p.stateChanged != nil {
 		close(p.stateChanged)
 		p.stateChanged = nil
 	}
-	if p.positionChanged != nil {
-		close(p.positionChanged)
-		p.positionChanged = nil
+	for key := range p.positionWaiters {
+		p.wakePositionWaitersLocked(key)
 	}
 }
 

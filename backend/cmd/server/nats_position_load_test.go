@@ -46,6 +46,7 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 	fleet := newLoadFleet(t, arrivals)
 	navigation, provider := newAMANHTTPFixture(t)
 	f := newEntrypointFixtureConfigured(t, true, map[string]string{"OTEL_EXPORTER_OTLP_ENDPOINT": collector.URL, "OTEL_BSP_SCHEDULE_DELAY": "50", "OTEL_BSP_MAX_QUEUE_SIZE": "16384", "OTEL_METRIC_EXPORT_INTERVAL": "10000", "ENABLE_STAND_ASSIGNMENT": "true", "GRPLUGIN_ICAO_AIRCRAFT_JSON": "config/test/ICAO_Aircraft.json", "ENABLE_VATSIM": "true", "VATSIM_STATUS_URL": fleet.provider.URL + "/status", "VATSIM_POLL_INTERVAL": "5s", "NAVIGATION_SOURCE": "airacnet", "NAVIGATION_TERMINAL_GEOMETRY_PATH": navigation, "AMAN_MODE": "shadow", "AMAN_SOURCE_MODE": "euroscope", "AMAN_ENABLED_AIRPORTS": "EKCH", "TASK22_AIRAC_URL": provider + "/api/v1", "TASK22_WIND_URL": provider + "/wind"})
+	profilePositionLoad(t, f)
 	name := "LIVE"
 	plugins := f.concurrentPlugins(name)
 	ref := sessionFaultRef(f.session(name))
@@ -209,6 +210,7 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 	report["measurements"] = measurements
 	report["lifecycle"] = observed
 	report["puback"] = capture.PubAckReport()
+	report["position_stages_ms"] = capture.StageReport(measureStart, measureEnd)
 	data, err := json.MarshalIndent(report, "", "  ")
 	require.NoError(t, err)
 	completed = true

@@ -19,7 +19,7 @@ func (r *StandCapabilityRegistry) StandAtPosition(airport string, latitude, long
 	var closest Stand
 	found := false
 	for _, stand := range stands {
-		if stand.Radius <= 0 {
+		if stand.Radius <= 0 || latitudeDistanceExceeds(latitude, stand.Latitude, stand.Radius) {
 			continue
 		}
 		distance := greatCircleMetres(latitude, longitude, stand.Latitude, stand.Longitude)
@@ -40,7 +40,7 @@ func (r *StandCapabilityRegistry) PositionNearAirport(airport string, latitude, 
 	}
 	stands := r.byAirport[strings.ToUpper(strings.TrimSpace(airport))]
 	for _, stand := range stands {
-		if greatCircleMetres(latitude, longitude, stand.Latitude, stand.Longitude) <= maxDistanceMetres {
+		if !latitudeDistanceExceeds(latitude, stand.Latitude, maxDistanceMetres) && greatCircleMetres(latitude, longitude, stand.Latitude, stand.Longitude) <= maxDistanceMetres {
 			return true
 		}
 	}
@@ -53,4 +53,15 @@ func greatCircleMetres(lat1, lon1, lat2, lon2 float64) float64 {
 	dLat, dLon := lat2-lat1, lon2-lon1
 	a := math.Sin(dLat/2)*math.Sin(dLat/2) + math.Cos(lat1)*math.Cos(lat2)*math.Sin(dLon/2)*math.Sin(dLon/2)
 	return earthRadiusMetres * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+}
+
+// A spherical distance cannot be smaller than its latitude separation. Reject
+// distant stands with this lower bound before evaluating trigonometric distance.
+// Longitude remains unrestricted, including polar and antimeridian positions.
+// The small rounding allowance keeps the exact great-circle boundary decision.
+func latitudeDistanceExceeds(latitude, standLatitude, radius float64) bool {
+	if latitude < -90 || latitude > 90 || standLatitude < -90 || standLatitude > 90 {
+		return false
+	}
+	return math.Abs(latitude-standLatitude)*(earthRadiusMetres*math.Pi/180) > radius+0.000001
 }

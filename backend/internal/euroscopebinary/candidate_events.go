@@ -12,6 +12,8 @@ import (
 	pb "FlightStrips/pkg/events/cluster"
 	euroscope "FlightStrips/pkg/events/euroscope"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -64,16 +66,26 @@ func (c *DeadlineCandidate) positionWriter(ctx context.Context, id int32, connec
 			return c.Router.Projection.RequireMasterInbound(session, generation, cid, masterEpoch, false)
 		}, 32, 1024)
 	if err == nil {
+		err = w.SetLifecycleFence(c.Router.Projection.FenceLifecyclePositions)
+		if err != nil {
+			_ = w.Close(ctx)
+			return nil, err
+		}
 		c.writers[id] = w
 	}
 	return w, err
 }
 
 func (c *DeadlineCandidate) position(ctx context.Context, id int32, connection, key string, value *pb.AircraftPosition) error {
+	ctx, span := otel.Tracer("euroscopebinary").Start(ctx, "euroscope.position.processing")
+	defer span.End()
+	stage := time.Now()
 	w, err := c.positionWriter(ctx, id, connection)
+	span.SetAttributes(attribute.Float64("position.writer_lookup_ms", float64(time.Since(stage))/float64(time.Millisecond)))
 	if err != nil {
 		return err
 	}
+	stage = time.Now()
 	var result <-chan cluster.PositionWriteResult
 	if value == nil {
 		result, err = w.QueueDisconnect(ctx, key, c.clock())
@@ -87,17 +99,24 @@ func (c *DeadlineCandidate) position(ctx context.Context, id int32, connection, 
 	case <-ctx.Done():
 		return ctx.Err()
 	case receipt := <-result:
+		span.SetAttributes(attribute.Float64("position.queue_to_puback_ms", float64(time.Since(stage))/float64(time.Millisecond)))
 		if receipt.Err != nil {
 			return receipt.Err
 		}
 		// Wait for this replica to observe the KV commit before deriving its
 		// deadline. A crash here is repaired by Recover from the tombstone.
-		if err := c.Router.Projection.WaitPositionApplied(ctx, id, key, w.OwnerEpoch, receipt.Revision); err != nil {
-			return err
+		stage = time.Now()
+		projectionErr := c.Router.Projection.WaitPositionApplied(ctx, id, key, w.OwnerEpoch, receipt.Revision)
+		span.SetAttributes(attribute.Float64("position.projection_wait_ms", float64(time.Since(stage))/float64(time.Millisecond)))
+		if projectionErr != nil {
+			return projectionErr
 		}
 		if value != nil {
-			if err := c.derivePosition(ctx, id, w, key, receipt.Revision, value); err != nil {
-				return err
+			stage = time.Now()
+			deriveErr := c.derivePosition(ctx, id, w, key, receipt.Revision, value)
+			span.SetAttributes(attribute.Float64("position.derive_ms", float64(time.Since(stage))/float64(time.Millisecond)))
+			if deriveErr != nil {
+				return deriveErr
 			}
 			// A live position only cancels its own disconnect deadline. Full
 			// controller/squawk recovery runs at sync and in the owner worker;
@@ -347,7 +366,11 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 			return err
 		}
 	}
+	ctx, span := otel.Tracer("euroscopebinary").Start(ctx, "euroscope.position.processing")
+	defer span.End()
+	stage := time.Now()
 	w, err := c.positionWriter(ctx, id, connection)
+	span.SetAttributes(attribute.Float64("position.writer_lookup_ms", float64(time.Since(stage))/float64(time.Millisecond)))
 	if err != nil {
 		return err
 	}

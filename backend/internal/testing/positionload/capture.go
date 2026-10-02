@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -21,15 +22,22 @@ type Sent struct {
 	Position bool
 }
 type Completion struct {
-	ID               string
-	Receipt, End     time.Time
-	Position, Failed bool
+	ID                       string
+	Receipt, End             time.Time
+	Position, Failed         bool
+	ErrorType, ErrorReason   string
+	DispatchMS, ProcessingMS float64
+}
+type StageSample struct {
+	Start time.Time
+	MS    float64
 }
 type Capture struct {
 	mu                       sync.Mutex
 	Sent                     []Sent
 	Done                     map[string]Completion
 	PubAck                   map[string][]float64
+	Stages                   map[string][]StageSample
 	Duplicates, DecodeErrors int
 }
 
@@ -48,6 +56,25 @@ func (c *Capture) PubAckReport() map[string]any {
 	out := map[string]any{}
 	for name, samples := range c.PubAck {
 		out[name] = map[string]any{"count": len(samples), "p95_ms": Percentile(samples, .95), "p99_ms": Percentile(samples, .99)}
+	}
+	return out
+}
+
+// StageReport limits diagnostic stages to the measured window when supplied.
+// Warmup and overload samples must not distort steady-state percentiles.
+func (c *Capture) StageReport(window ...time.Time) map[string]any {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := map[string]any{}
+	for name, samples := range c.Stages {
+		values := make([]float64, 0, len(samples))
+		for _, sample := range samples {
+			if len(window) == 2 && (sample.Start.Before(window[0]) || !sample.Start.Before(window[1])) {
+				continue
+			}
+			values = append(values, sample.MS)
+		}
+		out[name] = map[string]any{"count": len(values), "p95_ms": Percentile(values, .95), "p99_ms": Percentile(values, .99)}
 	}
 	return out
 }
@@ -71,6 +98,18 @@ func (c *Capture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, rs := range req.ResourceSpans {
 		for _, ss := range rs.ScopeSpans {
 			for _, s := range ss.Spans {
+				if strings.HasPrefix(s.Name, "euroscope.position.") {
+					if c.Stages == nil {
+						c.Stages = make(map[string][]StageSample)
+					}
+					at := time.Unix(0, int64(s.StartTimeUnixNano))
+					c.Stages[s.Name+".total_ms"] = append(c.Stages[s.Name+".total_ms"], StageSample{Start: at, MS: float64(s.EndTimeUnixNano-s.StartTimeUnixNano) / float64(time.Millisecond)})
+					for _, a := range s.Attributes {
+						if strings.HasPrefix(a.Key, "position.") && strings.HasSuffix(a.Key, "_ms") {
+							c.Stages[a.Key] = append(c.Stages[a.Key], StageSample{Start: at, MS: a.Value.GetDoubleValue()})
+						}
+					}
+				}
 				if s.Name == "nats.positions.puback" || s.Name == "nats.state.puback" {
 					c.PubAck[s.Name] = append(c.PubAck[s.Name], float64(s.EndTimeUnixNano-s.StartTimeUnixNano)/float64(time.Millisecond))
 				}
@@ -84,6 +123,18 @@ func (c *Capture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 					if a.Key == "position" {
 						v.Position = a.Value.GetBoolValue()
+					}
+					if a.Key == "error_type" {
+						v.ErrorType = a.Value.GetStringValue()
+					}
+					if a.Key == "error_reason" {
+						v.ErrorReason = a.Value.GetStringValue()
+					}
+					if a.Key == "dispatch_wait_ms" {
+						v.DispatchMS = a.Value.GetDoubleValue()
+					}
+					if a.Key == "processing_ms" {
+						v.ProcessingMS = a.Value.GetDoubleValue()
 					}
 				}
 				if v.ID == "" {
@@ -116,6 +167,8 @@ func Percentile(v []float64, p float64) float64 {
 }
 
 type Report struct {
+	DispatchP95MS, DispatchP99MS, ProcessingP95MS, ProcessingP99MS                                                                                 float64
+	FailureReasons                                                                                                                                 map[string]int
 	OperationalP95MS, OperationalP99MS                                                                                                             float64
 	ScheduledGroupP95MS                                                                                                                            []float64
 	Sent, Completed, PositionsSent, PositionsCompleted, OperationalSent, OperationalCompleted, UnexpectedErrors, Missing, Duplicates, DecodeErrors int
@@ -129,7 +182,7 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	r := Report{Sent: len(c.Sent), Duplicates: c.Duplicates, DecodeErrors: c.DecodeErrors}
-	var receipt, scheduled, sender, operations []float64
+	var receipt, scheduled, sender, operations, dispatch, processing []float64
 	groups := make([][]float64, 5)
 	type change struct {
 		at    time.Time
@@ -151,11 +204,21 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 		r.Completed++
 		if d.Failed {
 			r.UnexpectedErrors++
+			if r.FailureReasons == nil {
+				r.FailureReasons = make(map[string]int)
+			}
+			reason := d.ErrorReason
+			if reason == "" {
+				reason = "unclassified"
+			}
+			r.FailureReasons[reason+":"+d.ErrorType]++
 		}
 		if s.Position {
 			r.PositionsCompleted++
 			changes = append(changes, change{s.At, 1}, change{d.End, -1})
 			if !s.Due.Before(start) && s.Due.Before(end) {
+				dispatch = append(dispatch, d.DispatchMS)
+				processing = append(processing, d.ProcessingMS)
 				receipt = append(receipt, float64(d.End.Sub(d.Receipt))/float64(time.Millisecond))
 				scheduled = append(scheduled, float64(d.End.Sub(s.Due))/float64(time.Millisecond))
 				group := ((r.PositionsSent - 1) % 100) / 20
@@ -195,6 +258,8 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 		r.ScheduledGroupP95MS = append(r.ScheduledGroupP95MS, Percentile(group, .95))
 	}
 	r.P95MS, r.P99MS = Percentile(receipt, .95), Percentile(receipt, .99)
+	r.DispatchP95MS, r.DispatchP99MS = Percentile(dispatch, .95), Percentile(dispatch, .99)
+	r.ProcessingP95MS, r.ProcessingP99MS = Percentile(processing, .95), Percentile(processing, .99)
 	r.ScheduledP95MS, r.ScheduledP99MS = Percentile(scheduled, .95), Percentile(scheduled, .99)
 	r.SenderP99LagMS = Percentile(sender, .99)
 	if len(receipt) == 0 {

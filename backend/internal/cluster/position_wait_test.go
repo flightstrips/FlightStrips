@@ -26,10 +26,7 @@ func TestPositionWaitRequiresExactEpochAndRevision(t *testing.T) {
 	}
 	p.mu.Lock()
 	p.positions["1.SAS123.2"] = KVPosition{Revision: 5}
-	if p.positionChanged != nil {
-		close(p.positionChanged)
-		p.positionChanged = nil
-	}
+	p.wakePositionWaitersLocked("1.SAS123.2")
 	p.mu.Unlock()
 	require.NoError(t, <-done)
 }
@@ -76,10 +73,27 @@ func TestProjectionFailureWakesCommitWaiters(t *testing.T) {
 		require.Eventually(t, func() bool {
 			p.mu.RLock()
 			defer p.mu.RUnlock()
-			return p.stateChanged != nil || p.positionChanged != nil
+			return p.stateChanged != nil || len(p.positionWaiters) != 0
 		}, time.Second, time.Millisecond)
 		p.failObservation(context.Canceled)
 		require.ErrorIs(t, <-done, context.Canceled)
 		cancel()
+	}
+}
+
+func TestAlreadyAppliedPositionWaitDoesNotRequireExclusiveLock(t *testing.T) {
+	p := readyPositionWaitFixture()
+	p.positions["1.SAS123.2"] = KVPosition{Revision: 5}
+	p.mu.RLock()
+	done := make(chan error, 1)
+	go func() { done <- p.WaitPositionApplied(context.Background(), 1, "SAS123", 2, 5) }()
+	select {
+	case err := <-done:
+		p.mu.RUnlock()
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		p.mu.RUnlock()
+		<-done
+		t.Fatal("already-applied exact revision waited for an exclusive projection lock")
 	}
 }

@@ -14,8 +14,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// StandState is the dormant session adapter. Production continues to use the
-// PostgreSQL allocator until the coordinated NATS activation.
+// StandState plans stand allocation from accepted session state and the local
+// position projection. The session owner conditionally publishes the result.
 type StandState struct {
 	Store      LifecycleStore
 	Projection *Projection // current FS_POSITIONS view for physical occupancy checks

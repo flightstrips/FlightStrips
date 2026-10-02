@@ -44,3 +44,30 @@ func TestReportSchedule(t *testing.T) {
 		}
 	}
 }
+
+func TestReportIncludesClassifiedFailureWithoutChangingGate(t *testing.T) {
+	start := time.Now()
+	c := New()
+	c.Send(Sent{ID: "failed", Due: start, At: start, Position: true})
+	c.Done["failed"] = Completion{ID: "failed", Receipt: start, End: start.Add(time.Millisecond), Position: true, Failed: true, ErrorType: "*nats.APIError", ErrorReason: "nats_revision_conflict"}
+	r := c.Report(start, start.Add(time.Second), start.Add(time.Second), 1)
+	require.Equal(t, 1, r.FailureReasons["nats_revision_conflict:*nats.APIError"])
+	require.Equal(t, 1, r.UnexpectedErrors)
+	require.Contains(t, r.Failures, "unexpected errors or duplicate/decode failures")
+}
+
+func TestStageReportExcludesWarmupAndOverload(t *testing.T) {
+	start := time.Now()
+	end := start.Add(time.Minute)
+	c := New()
+	c.Stages = map[string][]StageSample{"position.validation_ms": {
+		{Start: start.Add(-time.Second), MS: 1000},
+		{Start: start, MS: 1},
+		{Start: end.Add(-time.Second), MS: 2},
+		{Start: end, MS: 2000},
+	}}
+	measured := c.StageReport(start, end)["position.validation_ms"].(map[string]any)
+	require.Equal(t, 2, measured["count"])
+	require.Equal(t, 2., measured["p99_ms"])
+	require.Equal(t, 4, c.StageReport()["position.validation_ms"].(map[string]any)["count"])
+}

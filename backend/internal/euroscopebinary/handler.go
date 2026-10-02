@@ -2,6 +2,7 @@ package euroscopebinary
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	euroscope "FlightStrips/pkg/events/euroscope"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/nats-io/nats.go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -78,7 +80,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(maxFrame)
 	if err := h.serve(r.Context(), conn); err != nil {
 		if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-			slog.WarnContext(r.Context(), "EuroScope session failed", "error_type", fmt.Sprintf("%T", err))
+			slog.WarnContext(r.Context(), "EuroScope session failed", "error_type", fmt.Sprintf("%T", err), "error_reason", inboundFailureReason(err))
 		}
 		code := websocket.CloseTryAgainLater
 		if failure, ok := err.(socketFailure); ok {
@@ -270,6 +272,12 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 	for {
 		frame, err := read(conn)
 		if err != nil {
+			failureMu.Lock()
+			failure := positionFailure
+			failureMu.Unlock()
+			if failure != nil {
+				return failure
+			}
 			return err
 		}
 		received := time.Now()
@@ -285,7 +293,17 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 				return err
 			}
 		}
-		if err := h.Projection.ValidateEuroScopeInbound(session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
+		var admissionSpan trace.Span
+		if frame.GetAircraftPositionUpdate() != nil {
+			_, admissionSpan = otel.Tracer("euroscopebinary").Start(ctx, "euroscope.position.admission", trace.WithTimestamp(received))
+		}
+		validationStarted := time.Now()
+		validationErr := h.Projection.ValidateEuroScopeInbound(session.Id, lease.Client.ConnectionId, user.GetCid(), frame)
+		if admissionSpan != nil {
+			admissionSpan.SetAttributes(attribute.Float64("position.reader_validation_ms", float64(time.Since(validationStarted))/float64(time.Millisecond)))
+			admissionSpan.End()
+		}
+		if err := validationErr; err != nil {
 			slog.WarnContext(ctx, "candidate EuroScope inbound rejected", "session", session.Id, "error", err)
 			return socketFailure{websocket.ClosePolicyViolation}
 		}
@@ -357,11 +375,14 @@ func independentInboundKey(frame *euroscope.Envelope) string {
 }
 
 func (h Handler) tracedInbound(ctx context.Context, received time.Time, session int32, connection, cid string, frame *euroscope.Envelope) error {
+	processingStarted := time.Now()
 	ctx, span := otel.Tracer("euroscopebinary").Start(ctx, "euroscope.receipt_to_completion", trace.WithTimestamp(received))
-	span.SetAttributes(attribute.String("command_id", frame.CommandId), attribute.Bool("position", frame.GetAircraftPositionUpdate() != nil))
+	span.SetAttributes(attribute.String("command_id", frame.CommandId), attribute.Bool("position", frame.GetAircraftPositionUpdate() != nil), attribute.Float64("dispatch_wait_ms", float64(processingStarted.Sub(received))/float64(time.Millisecond)))
 	err := h.Inbound(ctx, session, connection, cid, frame)
+	span.SetAttributes(attribute.Float64("processing_ms", float64(time.Since(processingStarted))/float64(time.Millisecond)))
 	if err != nil {
-		span.SetStatus(codes.Error, "inbound failed")
+		span.SetStatus(codes.Error, inboundFailureReason(err))
+		span.SetAttributes(attribute.String("error_type", fmt.Sprintf("%T", err)), attribute.String("error_reason", inboundFailureReason(err)))
 	}
 	span.End()
 	return err
@@ -457,4 +478,40 @@ func stripDeltas(delta *pb.FrontendDelta) []*euroscope.Envelope {
 		}
 	}
 	return frames
+}
+
+// Only allowlisted classifications enter logs/telemetry; error strings may
+// contain callsigns, provider data, or authentication input.
+func inboundFailureReason(err error) string {
+	if errors.Is(err, context.Canceled) {
+		return "context_canceled"
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "context_deadline"
+	}
+	var api *nats.APIError
+	if errors.As(err, &api) {
+		return fmt.Sprintf("nats_api_%d", api.ErrorCode)
+	}
+	if errors.Is(err, cluster.ErrCAS) {
+		return "revision_conflict"
+	}
+	if err == nil {
+		return "none"
+	}
+	text := err.Error()
+	for _, reason := range []struct{ match, name string }{
+		{"REVISION_CONFLICT", "revision_conflict"},
+		{"stale strip revision", "revision_conflict"},
+		{"snapshot", "snapshot_unavailable"},
+		{"projection", "projection_unavailable"},
+		{"master", "master_authority"},
+		{"owner", "owner_authority"},
+		{"socket", "socket_authority"},
+	} {
+		if strings.Contains(text, reason.match) {
+			return reason.name
+		}
+	}
+	return "inbound_failure"
 }

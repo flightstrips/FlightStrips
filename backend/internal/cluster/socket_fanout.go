@@ -3,6 +3,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -109,6 +110,7 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 	go func() {
 		defer jobs.Done()
 		if err := lease.Run(socketCtx); err != nil && socketCtx.Err() == nil {
+			slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "presence_renewal", "error_type", fmt.Sprintf("%T", err))
 			closeSocket()
 		}
 	}()
@@ -139,15 +141,30 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 			case <-socketCtx.Done():
 				return
 			case <-ticker.C:
-				if updateRole() != nil {
+				if err := updateRole(); err != nil {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "role_refresh", "error_type", fmt.Sprintf("%T", err))
 					return
 				}
 			case delta, ok := <-sessionDeltas:
-				if !ok || deliverDelta(socket.OnDelta, delta, &lastSession) != nil || updateRole() != nil {
+				if !ok {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "session_listener_closed")
+					return
+				}
+				if err := deliverDelta(socket.OnDelta, delta, &lastSession); err != nil {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "session_delta", "error_type", fmt.Sprintf("%T", err))
+					return
+				}
+				if err := updateRole(); err != nil {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "role_after_delta", "error_type", fmt.Sprintf("%T", err))
 					return
 				}
 			case delta, ok := <-airportDeltas:
-				if !ok || deliverDelta(socket.OnDelta, delta, &lastAirport) != nil {
+				if !ok {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "airport_listener_closed")
+					return
+				}
+				if err := deliverDelta(socket.OnDelta, delta, &lastAirport); err != nil {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "airport_delta", "error_type", fmt.Sprintf("%T", err))
 					return
 				}
 			}

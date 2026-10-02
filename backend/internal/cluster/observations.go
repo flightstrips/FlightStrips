@@ -13,63 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func (p *Projection) watchPositions(ctx context.Context) {
-	watcher, err := p.Positions.WatchAll(nats.Context(ctx))
-	if err != nil {
-		p.failObservation(err)
-		return
-	}
-	defer watcher.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case entry, ok := <-watcher.Updates():
-			if !ok {
-				p.failObservation(fmt.Errorf("position watcher stopped"))
-				return
-			}
-			p.mu.Lock()
-			if entry == nil {
-				p.positionReady = true
-				p.mu.Unlock()
-				continue
-			}
-			if entry.Operation() != nats.KeyValuePut {
-				if old, ok := p.positions[entry.Key()]; ok {
-					p.publishObservationLocked(old.Value.SessionId, positionObservation(old, false, true))
-				}
-				delete(p.positions, entry.Key())
-				p.mu.Unlock()
-				continue
-			}
-			value := &pb.PositionValue{}
-			err := pb.UnmarshalStrict(entry.Value(), value)
-			if err == nil {
-				err = validateTyped(value.ProtoReflect())
-			}
-			if err == nil && (value.SchemaVersion != 1 || value.GetObservation() == nil || entry.Key() != fmt.Sprintf("%d.%s.%d", value.SessionId, value.AircraftKey, value.OwnerEpoch) || strings.Contains(value.AircraftKey, ".")) {
-				err = fmt.Errorf("position key or schema mismatch")
-			}
-			if err != nil {
-				p.observationErr = err
-				p.wakeWaitersLocked()
-				p.mu.Unlock()
-				return
-			}
-			p.positions[entry.Key()] = KVPosition{Value: value, Revision: entry.Revision(), Observed: entry.Created()}
-			if p.positionChanged != nil {
-				close(p.positionChanged)
-				p.positionChanged = nil
-			}
-			if selected, ok := p.selectedPositionLocked(value.SessionId, value.AircraftKey); ok && selected.Revision == entry.Revision() {
-				p.publishObservationLocked(value.SessionId, positionObservation(selected, selected.Stale, false))
-			}
-			p.mu.Unlock()
-		}
-	}
-}
-
 func (p *Projection) selectedPositionLocked(session int32, aircraft string) (KVPosition, bool) {
 	state := p.states[fmt.Sprintf("fs.v1.state.session.%d", session)]
 	epoch := uint64(0)
@@ -187,6 +130,19 @@ func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, air
 		if err := p.readyForRead(); err != nil {
 			return err
 		}
+		// PubAck often arrives after this watcher has already applied the value.
+		// Readers can satisfy that exact revision together without contending for
+		// the exclusive lock used only to register a notification for missing data.
+		p.mu.RLock()
+		if err := p.healthLocked(); err != nil {
+			p.mu.RUnlock()
+			return err
+		}
+		if item := p.positions[key]; item.Revision >= revision {
+			p.mu.RUnlock()
+			return nil
+		}
+		p.mu.RUnlock()
 		p.mu.Lock()
 		if err := p.healthLocked(); err != nil {
 			p.mu.Unlock()
@@ -196,15 +152,23 @@ func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, air
 			p.mu.Unlock()
 			return nil
 		}
-		if p.positionChanged == nil {
-			p.positionChanged = make(chan struct{})
+		if p.positionWaiters == nil {
+			p.positionWaiters = map[string]*positionWaitNotification{}
 		}
-		changed := p.positionChanged
+		waiter := p.positionWaiters[key]
+		if waiter == nil {
+			waiter = &positionWaitNotification{changed: make(chan struct{})}
+			p.positionWaiters[key] = waiter
+		}
+		waiter.users++
+		changed := waiter.changed
 		p.mu.Unlock()
 		select {
 		case <-ctx.Done():
+			p.releasePositionWaiter(key, waiter)
 			return ctx.Err()
 		case <-changed:
+			p.releasePositionWaiter(key, waiter)
 		}
 	}
 }
@@ -422,4 +386,30 @@ func (p *Projection) RequirePositionRevision(sessionID int32, aircraft string, e
 		}
 	}
 	return fmt.Errorf("source position observation changed")
+}
+
+// One accepted key wakes only callers waiting for that session/aircraft/epoch.
+// Errors still broadcast through wakeWaitersLocked. Reference counts remove
+// cancelled registrations even when the requested key never receives an update.
+type positionWaitNotification struct {
+	changed chan struct{}
+	users   int
+}
+
+func (p *Projection) wakePositionWaitersLocked(key string) {
+	if waiter := p.positionWaiters[key]; waiter != nil {
+		close(waiter.changed)
+		delete(p.positionWaiters, key)
+	}
+}
+
+func (p *Projection) releasePositionWaiter(key string, waiter *positionWaitNotification) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if current := p.positionWaiters[key]; current == waiter {
+		waiter.users--
+		if waiter.users == 0 {
+			delete(p.positionWaiters, key)
+		}
+	}
 }

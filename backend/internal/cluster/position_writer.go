@@ -13,6 +13,7 @@ import (
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/nats-io/nats.go"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -22,6 +23,11 @@ import (
 // waited behind earlier reports for the same aircraft.
 type PositionAuthority func(context.Context, int32, uint64, string) error
 
+// PositionLifecycleFence verifies the complete ordered position projection
+// against a freshly captured authoritative stream checkpoint. It is configured
+// once before this owner/master writer is exposed to operational admission.
+type PositionLifecycleFence func(context.Context, int32, uint64, string, []KVPosition) error
+
 type PositionWriteResult struct {
 	Revision uint64
 	Err      error
@@ -30,18 +36,19 @@ type PositionWriteResult struct {
 // PositionWriter is constructed only by the candidate NATS runtime. A single
 // writer accepts reports from one master connection in one owner epoch.
 type PositionWriter struct {
-	KV           nats.KeyValue
-	SessionID    int32
-	OwnerEpoch   uint64
-	Connection   string
-	Authority    PositionAuthority
-	dispatcher   *shared.PositionDispatcher
-	mu           sync.Mutex
-	revisionMu   sync.Mutex
-	revisions    map[string]uint64
-	barrierMu    sync.Mutex
-	closed       bool // guarded by barrierMu
-	disconnected map[string]bool
+	KV             nats.KeyValue
+	SessionID      int32
+	OwnerEpoch     uint64
+	Connection     string
+	Authority      PositionAuthority
+	lifecycleFence PositionLifecycleFence
+	dispatcher     *shared.PositionDispatcher
+	mu             sync.Mutex
+	revisionMu     sync.Mutex
+	revisions      map[string]uint64
+	barrierMu      sync.Mutex
+	closed         bool // guarded by barrierMu
+	disconnected   map[string]bool
 }
 
 func NewPositionWriter(kv nats.KeyValue, sessionID int32, epoch uint64, connection string, authority PositionAuthority, workers, pending int) (*PositionWriter, error) {
@@ -199,65 +206,48 @@ func (w *PositionWriter) ExecuteLifecycle(ctx context.Context, observations []KV
 	if w == nil || w.dispatcher == nil || run == nil {
 		return nil, fmt.Errorf("lifecycle position barrier unavailable")
 	}
+	ctx, span := otel.Tracer("cluster").Start(ctx, "euroscope.position.lifecycle_barrier")
+	defer span.End()
 	var reply *pb.CommandReply
 	var failure error
 	err := w.runBarrier(ctx, func() {
 		if failure = w.Authority(ctx, w.SessionID, w.OwnerEpoch, w.Connection); failure != nil {
 			return
 		}
-		for _, o := range observations {
-			if o.Stale {
-				continue
-			}
-			if o.Value.SessionId != w.SessionID || o.Value.OwnerEpoch != w.OwnerEpoch || o.Value.SourceConnectionId != w.Connection {
-				failure = fmt.Errorf("lifecycle observation belongs to another owner/master")
-				return
-			}
-			entry, err := w.KV.Get(positionKey(w.SessionID, o.Value.AircraftKey, w.OwnerEpoch))
-			if err != nil || entry.Revision() != o.Revision {
-				failure = fmt.Errorf("lifecycle position changed before commit")
-				return
-			}
+		stage := time.Now()
+		if w.lifecycleFence == nil {
+			failure = fmt.Errorf("verified position projection fence is unavailable")
+		} else {
+			failure = w.lifecycleFence(ctx, w.SessionID, w.OwnerEpoch, w.Connection, observations)
 		}
-		// A drained report may introduce an aircraft absent from the worker's
-		// snapshot. Watcher delivery can lag KV writes, so compare the complete
-		// current owner/master set directly while reports remain paused.
-		keys, keyErr := w.KV.Keys(nats.Context(ctx))
-		if keyErr != nil && !errors.Is(keyErr, nats.ErrNoKeysFound) {
-			failure = keyErr
+		span.SetAttributes(attribute.Float64("position.validation_ms", float64(time.Since(stage))/float64(time.Millisecond)))
+		if failure != nil {
 			return
 		}
-		expected := map[string]uint64{}
-		for _, o := range observations {
-			if !o.Stale {
-				expected[o.Value.AircraftKey] = o.Revision
-			}
-		}
-		for _, key := range keys {
-			if !strings.HasPrefix(key, fmt.Sprintf("%d.", w.SessionID)) || !strings.HasSuffix(key, fmt.Sprintf(".%d", w.OwnerEpoch)) {
-				continue
-			}
-			entry, err := w.KV.Get(key)
-			if err != nil {
-				failure = err
-				return
-			}
-			value := &pb.PositionValue{}
-			if err = pb.UnmarshalStrict(entry.Value(), value); err != nil {
-				failure = err
-				return
-			}
-			if value.SourceConnectionId == w.Connection && expected[value.AircraftKey] != entry.Revision() {
-				failure = fmt.Errorf("lifecycle position set changed before commit")
-				return
-			}
-		}
+		stage = time.Now()
 		reply, failure = run()
+		span.SetAttributes(attribute.Float64("position.lifecycle_commit_ms", float64(time.Since(stage))/float64(time.Millisecond)))
 	})
 	if err != nil {
 		return nil, err
 	}
 	return reply, failure
+}
+
+// SetLifecycleFence must complete before exposing a writer to admissions.
+// Rebinding an active generation is rejected, and the barrier mutex prevents
+// configuration from racing either lifecycle execution or generation closure.
+func (w *PositionWriter) SetLifecycleFence(fence PositionLifecycleFence) error {
+	if w == nil || fence == nil {
+		return fmt.Errorf("verified position projection fence is required")
+	}
+	w.barrierMu.Lock()
+	defer w.barrierMu.Unlock()
+	if w.closed || w.lifecycleFence != nil {
+		return fmt.Errorf("position lifecycle fence is already configured or writer is closed")
+	}
+	w.lifecycleFence = fence
+	return nil
 }
 
 // ExecuteDerived drains accepted position work and pauses later reports while

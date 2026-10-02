@@ -46,7 +46,7 @@ func TestLifecyclePendingOwnerRemovesDepartureBlockFromAcceptedPosition(t *testi
 	// The accepted live position is authoritative over a provider's stale location.
 	stand, _ := stands.Lookup("EKCH", "A1")
 	page.Flights[0].Latitude, page.Flights[0].Longitude = stand.Latitude, stand.Longitude
-	position := cluster.KVPosition{Revision: 1<<63 | 10, Value: &pb.PositionValue{SessionId: 42, AircraftKey: "SAS123", OwnerEpoch: 1, SourceConnectionId: "master", ObservedAt: timestamppb.New(now), Value: &pb.PositionValue_Position{Position: &pb.AircraftPosition{Latitude: stand.Latitude, Longitude: stand.Longitude, AltitudeFeet: 20}}}}
+	position := cluster.KVPosition{Revision: 1<<63 | 10, Value: &pb.PositionValue{SessionId: 42, AircraftKey: "SAS123", OwnerEpoch: 1, SourceConnectionId: "master", ObservedAt: timestamppb.New(now), Observation: &pb.PositionValue_Position{Position: &pb.AircraftPosition{Latitude: stand.Latitude, Longitude: stand.Longitude, AltitudeFeet: 20}}}}
 	require.True(t, lifecycleOwnerCanPlan(lifecyclePendingOwner{healthy: true, pending: true}, true, ref))
 	before := proto.Clone(assignment)
 	request := &pb.CommandRequest{CommandId: uuid.NewString(), Aggregate: ref}

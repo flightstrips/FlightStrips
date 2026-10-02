@@ -29,6 +29,7 @@ import (
 
 const Subprotocol = "flightstrips.euroscope.pb.v2"
 const maxFrame = 4 << 20
+const positionAwaitWorkers = 128
 
 // Handler is the opt-in NATS EuroScope endpoint. The current SQL hub does not
 // construct it. Domain adapters supplied at cutover consume validated frames.
@@ -261,7 +262,10 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			_ = h.Deadlines.Recover(recoverCtx, session.Id)
 		}()
 	}
-	positions := shared.NewPositionDispatcher(32, 1024, nil)
+	// Report callbacks hold a slot through PubAck and projection application.
+	// A bounded pool overlaps independent aircraft's I/O waits; the owner
+	// position writer keeps its separate 32-worker publication budget.
+	positions := shared.NewPositionDispatcher(positionAwaitWorkers, 1024, nil)
 	defer func() {
 		drain, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

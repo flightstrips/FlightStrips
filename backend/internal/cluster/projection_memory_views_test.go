@@ -65,3 +65,22 @@ func TestOwnerMemoryViewsDetachPendingStateAndDeliverOnce(t *testing.T) {
 	default:
 	}
 }
+
+func TestMemoryViewCannotOutliveRawOwnership(t *testing.T) {
+	owners, projection, ref, gate, _ := asyncOwnersFixture(t)
+	ctx := context.Background()
+	require.NoError(t, owners.Execute(ctx, ref, func(context.Context) error { return nil }))
+	subject, _ := Subject(ref)
+	memory := owners.Control(ref)
+	require.NotNil(t, memory)
+	projection.mu.Lock()
+	raw, err := cloneAggregate(projection.states[subject])
+	require.NoError(t, err)
+	raw.Owner.Epoch++
+	projection.states[subject] = raw
+	require.Same(t, raw, projection.acceptedStateLocked(subject))
+	projection.mu.Unlock()
+	require.Equal(t, uint64(1), memory.Owner.Epoch)
+	close(gate)
+	require.NoError(t, owners.Drain(ctx))
+}

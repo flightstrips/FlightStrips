@@ -3,6 +3,7 @@ package cluster
 import (
 	"context"
 	"testing"
+	"time"
 
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/stretchr/testify/require"
@@ -63,4 +64,31 @@ func TestProjectedCommittedOutcomeCanReturnWhileGlobalReplayLags(t *testing.T) {
 	require.Equal(t, pb.CommandReply_UNAUTHORIZED, router.projectedOutcome(foreign, hash).Status)
 	p.positionReady = false
 	require.Nil(t, router.projectedOutcome(request, hash), "known outcome must not bypass projection health")
+}
+
+func TestDurableRouteIgnoresMemoryOutcomeUntilPersisted(t *testing.T) {
+	owners, projection, ref, gate, _ := asyncOwnersFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	event := asyncDomainEvent(ref, 1)
+	require.NoError(t, owners.Execute(ctx, ref, func(turn context.Context) error {
+		base, err := owners.Read(ref)
+		if err != nil {
+			return err
+		}
+		_, err = owners.AcceptState(turn, base, event)
+		return err
+	}))
+	request := &pb.CommandRequest{CommandId: event.GetCommandId(), Aggregate: ref, Actor: event.Actor}
+	hash := event.GetDomainChanged().Outcome.RequestSha256
+	router := &CommandRouter{Projection: projection}
+	require.True(t, router.routeOutcome(ctx, request, hash).MemoryAccepted)
+	durableCtx := context.WithValue(ctx, durableExecutionKey{}, true)
+	require.Nil(t, router.routeOutcome(durableCtx, request, hash), "transport fallbacks must not accept volatile prerequisites")
+	close(gate)
+	require.NoError(t, owners.Drain(ctx))
+	reply := router.routeOutcome(durableCtx, request, hash)
+	require.NotNil(t, reply)
+	require.False(t, reply.MemoryAccepted)
+	require.Positive(t, reply.GetStreamSequence())
 }

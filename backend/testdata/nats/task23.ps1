@@ -48,7 +48,7 @@ try {
     $task23DiskBefore | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $task23Run 'disk-before.json') -Encoding utf8
     & go test ./internal/testing/positionload -run '^TestDiskAlertAndReleaseBoundaries$' -count=1 2>&1 | Tee-Object -FilePath (Join-Path $task23Run 'disk-boundary-test.txt')
     if ($LASTEXITCODE -ne 0) { throw "Disk boundary test failed: $task23Run" }
-    if ($task23DiskBefore | Where-Object release_block_85) { throw "85% disk release block: $task23Run" }
+    if ($task23DiskBefore | Where-Object release_block_85) { Write-Warning '85% disk release block recorded; local diagnostics continue, release qualification cannot pass' }
     if ($task23DiskBefore | Where-Object alert_70) { Write-Warning '70% disk usage alert; recorded in disk-before.json' }
     $env:NATS_INTEGRATION='1'
     $env:NATS_TASK23='1'

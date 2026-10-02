@@ -1,10 +1,8 @@
 package cluster
 
 import (
-	"context"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -15,14 +13,12 @@ import (
 // any snapshot payload. Abstract unit stores keep their own GetBytes behavior.
 type snapshotObjectReader struct {
 	nats.ObjectStore
-	timeout time.Duration
 }
 
 func (s snapshotObjectReader) GetBytes(name string, opts ...nats.GetObjectOpt) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
-	defer cancel()
-	options := append([]nats.GetObjectOpt{nats.Context(ctx)}, opts...)
-	result, err := s.ObjectStore.Get(name, options...)
+	// Keep the underlying client's per-read deadline and caller context. A new
+	// total deadline would reject large healthy objects that keep making progress.
+	result, err := s.ObjectStore.Get(name, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("snapshot object %s lookup: %w", name, err)
 	}
@@ -30,16 +26,18 @@ func (s snapshotObjectReader) GetBytes(name string, opts ...nats.GetObjectOpt) (
 	data, readErr := io.ReadAll(io.LimitReader(result, MaxObjectBytes+1))
 	closeErr := result.Close()
 	if readErr == nil && len(data) > MaxObjectBytes {
-		readErr = ErrSnapshotTooLarge
+		// This is invalid stored content, not a legitimate oversized snapshot
+		// materialization that the checkpoint scheduler may safely defer.
+		readErr = fmt.Errorf("stored snapshot exceeds size bound: %w", nats.ErrBadObjectMeta)
 	}
 	if readErr == nil {
 		readErr = closeErr
 	}
 	if readErr != nil {
 		if info == nil {
-			return nil, fmt.Errorf("snapshot object %s read actual_size=%d actual_sha256=%s result_error_type=%T: %w", name, len(data), digest(data), result.Error(), readErr)
+			return nil, fmt.Errorf("snapshot object %s read actual_size=%d actual_sha256=%s result_error=%v: %w", name, len(data), digest(data), result.Error(), readErr)
 		}
-		return nil, fmt.Errorf("snapshot object %s read nuid=%s chunks=%d expected_size=%d metadata_digest=%s actual_size=%d actual_sha256=%s result_error_type=%T: %w", name, info.NUID, info.Chunks, info.Size, info.Digest, len(data), digest(data), result.Error(), readErr)
+		return nil, fmt.Errorf("snapshot object %s read nuid=%s chunks=%d expected_size=%d metadata_digest=%s actual_size=%d actual_sha256=%s result_error=%v: %w", name, info.NUID, info.Chunks, info.Size, info.Digest, len(data), digest(data), result.Error(), readErr)
 	}
 	return data, nil
 }

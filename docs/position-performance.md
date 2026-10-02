@@ -182,6 +182,8 @@ operation's command ID.
 Tests cover acknowledgment before blocked publication, FIFO persistence, detached
 RAM reads, single deltas, lost ownership, lease reclamation, bounded admission,
 ordered drainage, disconnect revision translation and external-call barriers.
-The native crash/drain test and full load/recovery/fault qualification of this
-implementation are still being run. Older successful durability tests and short
+The native compiled-app test passed: acknowledgment completed while publication
+was blocked, a forced crash lost only the unpersisted tail, and drainage flushed
+successfully after blocked persistence resumed. Full load/recovery/fault
+qualification is still running. Older successful durability tests and short
 profiling windows do not qualify this new recovery policy.

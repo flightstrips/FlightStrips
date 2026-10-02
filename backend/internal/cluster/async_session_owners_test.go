@@ -298,3 +298,71 @@ func TestAsyncOwnerInvalidationCannotRepublishCapturedControl(t *testing.T) {
 	require.Nil(t, m.Control(ref), "a worker completion must not revive invalidated RAM authority")
 	require.Error(t, m.Drain(context.Background()))
 }
+
+func reclaimAsyncFixtureEpoch(t *testing.T, p *Projection, ref *pb.AggregateRef) {
+	t.Helper()
+	subject := mustAsyncSubject(ref)
+	p.mu.RLock()
+	old := p.states[subject]
+	seq := old.StreamSequence + 1
+	at := old.Owner.LeaseUntil.AsTime().Add(time.Millisecond)
+	p.mu.RUnlock()
+	claim := &pb.StateEvent{SchemaVersion: 1, EventId: uuid.NewString(), Aggregate: ref, AggregateRevision: old.Revision, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "node-a"}, Fact: &pb.StateEvent_OwnerClaimed{OwnerClaimed: &pb.OwnerTerm{NodeId: "node-a", Epoch: 2}}}
+	data, err := proto.Marshal(claim)
+	require.NoError(t, err)
+	require.NoError(t, p.apply(AppliedEvent{Subject: subject, StreamSequence: seq, SubjectSequence: seq, ServerTime: at, Data: data}))
+}
+func TestAsyncOwnerIdleReclaimedEpochRecoversReadAdmissionAndControl(t *testing.T) {
+	for _, first := range []string{"read", "active", "execute"} {
+		t.Run(first, func(t *testing.T) {
+			m, p, ref, gate, _ := asyncOwnersFixture(t)
+			close(gate)
+			require.NoError(t, m.Execute(context.Background(), ref, func(context.Context) error { return nil }))
+			previous := m.Control(ref)
+			require.Equal(t, uint64(1), previous.Owner.Epoch)
+			reclaimAsyncFixtureEpoch(t, p, ref)
+			switch first {
+			case "read":
+				a, err := m.Read(ref)
+				require.NoError(t, err)
+				require.Equal(t, uint64(2), a.Owner.Epoch)
+			case "active":
+				require.True(t, m.Active(ref))
+			case "execute":
+				require.NoError(t, m.Execute(context.Background(), ref, func(context.Context) error { return nil }))
+			}
+			require.True(t, m.Active(ref))
+			require.Equal(t, uint64(2), m.Control(ref).Owner.Epoch)
+			require.Equal(t, uint64(1), previous.Owner.Epoch, "old published control must remain immutable")
+			a, err := m.Read(ref)
+			require.NoError(t, err)
+			require.Equal(t, uint64(2), a.StreamSequence)
+			require.NoError(t, m.Err())
+			require.False(t, m.Pending(ref))
+			require.NoError(t, m.Drain(context.Background()))
+		})
+	}
+}
+func TestAsyncOwnerReclaimedEpochFreezesUnpersistedOldTail(t *testing.T) {
+	m, p, ref, gate, _ := asyncOwnersFixture(t)
+	started := make(chan struct{})
+	finished := make(chan struct{})
+	var later atomic.Int32
+	require.NoError(t, m.Execute(context.Background(), ref, func(turn context.Context) error {
+		if err := m.Append(turn, ref, func(context.Context) error { return nil }, func(ctx context.Context) error { close(started); <-ctx.Done(); close(finished); return ctx.Err() }); err != nil {
+			return err
+		}
+		return m.Append(turn, ref, func(context.Context) error { return nil }, func(context.Context) error { later.Add(1); return nil })
+	}))
+	<-started
+	reclaimAsyncFixtureEpoch(t, p, ref)
+	require.False(t, m.Active(ref))
+	require.ErrorContains(t, m.Err(), "pending tail")
+	require.Nil(t, m.Control(ref))
+	<-finished
+	close(gate)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	require.Error(t, m.Drain(ctx))
+	require.Zero(t, later.Load(), "new owner term must never persist the old queued tail")
+}

@@ -145,22 +145,43 @@ func (m *AsyncSessionOwners) checkpoint(ref *pb.AggregateRef) (*Aggregate, error
 	return a, nil
 }
 func (m *AsyncSessionOwners) Active(ref *pb.AggregateRef) bool {
-	if ref == nil || ref.GetSession() == nil || m.owner == nil || !m.owner.CanCommitLocal(ref) {
+	a, err := m.checkpoint(ref)
+	if err != nil {
 		return false
 	}
 	key, _ := Subject(ref)
-	m.projection.mu.RLock()
-	raw := m.projection.states[key]
-	epoch := uint64(0)
-	live := raw != nil && raw.Owner != nil && raw.Owner.LeaseUntil != nil && time.Now().Before(raw.Owner.LeaseUntil.AsTime())
-	if live {
-		epoch = raw.Owner.Epoch
-	}
-	m.projection.mu.RUnlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	s := m.sessions[key]
-	return live && m.failure == nil && (s == nil || s.epoch == epoch)
+	return m.failure == nil && (s == nil || m.adoptIdleGenerationLocked(s, a) == nil)
+}
+
+// A fully flushed incarnation may reclaim its lease in the same process. Its
+// provisional state is replaced by the new durable baseline, never carried
+// across terms. An old pending tail instead freezes admission and persistence.
+func (m *AsyncSessionOwners) adoptIdleGenerationLocked(s *asyncSession, raw *Aggregate) error {
+	if m.failure != nil {
+		return m.failure
+	}
+	if s.epoch == raw.Owner.Epoch {
+		return nil
+	}
+	if s.pending != 0 || len(s.tail) != 0 {
+		m.failure = fmt.Errorf("async owner generation changed with pending tail")
+		m.cancel()
+		m.controls.Range(func(key, value any) bool { m.controls.Delete(key); return true })
+		m.notifyLocked()
+		return m.failure
+	}
+	baseline, err := cloneAggregate(raw)
+	if err != nil {
+		return err
+	}
+	s.epoch = raw.Owner.Epoch
+	s.ram = baseline
+	s.durableStream, s.durableSubject = raw.StreamSequence, raw.SubjectSequence
+	m.publishControlLocked(s)
+	return nil
 }
 func (m *AsyncSessionOwners) Pending(ref *pb.AggregateRef) bool {
 	key, _ := Subject(ref)
@@ -199,8 +220,8 @@ func (m *AsyncSessionOwners) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 	if s == nil {
 		return nil, nil
 	}
-	if s.epoch != a.Owner.Epoch {
-		return nil, fmt.Errorf("async session owner generation changed")
+	if err = m.adoptIdleGenerationLocked(s, a); err != nil {
+		return nil, err
 	}
 	out, err := cloneAggregate(s.ram)
 	if err != nil {
@@ -262,11 +283,7 @@ func (m *AsyncSessionOwners) Execute(ctx context.Context, ref *pb.AggregateRef, 
 		return err
 	}
 	m.mu.Lock()
-	if s.epoch != a.Owner.Epoch || m.failure != nil {
-		err = m.failure
-		if err == nil {
-			err = fmt.Errorf("async session owner generation changed")
-		}
+	if err = m.adoptIdleGenerationLocked(s, a); err != nil {
 		m.mu.Unlock()
 		return err
 	}
@@ -298,8 +315,11 @@ func (m *AsyncSessionOwners) currentTurn(ctx context.Context, ref *pb.AggregateR
 	if err != nil {
 		return nil, err
 	}
-	if a.Owner.Epoch != t.session.epoch {
-		return nil, fmt.Errorf("async session owner generation changed")
+	m.mu.Lock()
+	err = m.adoptIdleGenerationLocked(t.session, a)
+	m.mu.Unlock()
+	if err != nil {
+		return nil, err
 	}
 	return t.session, nil
 }
@@ -396,15 +416,17 @@ func (m *AsyncSessionOwners) AcceptState(ctx context.Context, base *Aggregate, e
 		return nil, err
 	}
 	fresh, err := m.checkpoint(base.Ref)
-	if err != nil || fresh.Owner.Epoch != s.epoch {
+	if err != nil {
 		<-m.slots
-		if err == nil {
-			err = fmt.Errorf("async session owner generation changed")
-		}
 		return nil, err
 	}
 	queued := proto.Clone(event).(*pb.StateEvent)
 	m.mu.Lock()
+	if err = m.adoptIdleGenerationLocked(s, fresh); err != nil {
+		m.mu.Unlock()
+		<-m.slots
+		return nil, err
+	}
 	if m.failure != nil || s.ram.Revision != base.Revision || !proto.Equal(queued.Aggregate, base.Ref) {
 		err = m.failure
 		if err == nil {

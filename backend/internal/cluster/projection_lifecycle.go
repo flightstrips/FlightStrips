@@ -18,6 +18,35 @@ func (p *Projection) ReadLifecyclePlanning(ref *pb.AggregateRef) (*Aggregate, er
 // invocation and never modifies its protobuf inputs. Position, presence, source,
 // and clock inputs are still read fresh by the lifecycle planner on every use.
 func (p *Projection) ReadLifecyclePlanningCached(ref *pb.AggregateRef, previous *Aggregate) (*Aggregate, error) {
+	if memory, err := p.memoryControl(ref); err != nil || memory != nil {
+		if err != nil {
+			return nil, err
+		}
+		if previous != nil && proto.Equal(previous.Ref, ref) && previous.Revision == memory.Revision &&
+			previous.StreamSequence == memory.StreamSequence && previous.SubjectSequence == memory.SubjectSequence && previous.history == memory.history {
+			return previous, nil
+		}
+		out := NewAggregate(ref)
+		out.history = memory.history
+		out.Revision, out.StreamSequence, out.SubjectSequence = memory.Revision, memory.StreamSequence, memory.SubjectSequence
+		if memory.Owner != nil {
+			out.Owner = proto.Clone(memory.Owner).(*pb.OwnerTerm)
+		}
+		if memory.Master != nil {
+			out.Master = proto.Clone(memory.Master).(*pb.MasterTerm)
+		}
+		if memory.Sync != nil {
+			out.Sync = proto.Clone(memory.Sync).(*pb.SessionSync)
+		}
+		for key, entity := range memory.Entities {
+			out.Entities[key] = proto.Clone(entity).(*pb.EntitySnapshot)
+		}
+		for key, workflow := range memory.Workflows {
+			out.Workflows[key] = proto.Clone(workflow).(*pb.WorkflowRecord)
+		}
+		out.rebuildIndexes()
+		return out, nil
+	}
 	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err

@@ -34,6 +34,9 @@ message CommandReply {
   optional OwnerTerm current_owner = 7;
   optional CommandOutcome outcome = 8;
   string detail = 9;
+  // Domain execution succeeded on the session owner, but background persistence
+  // has not yet committed it. No stream_sequence is supplied in this case.
+  bool memory_accepted = 10;
 }
 
 // One claimed effect may be forwarded to its presence-selected backend. The

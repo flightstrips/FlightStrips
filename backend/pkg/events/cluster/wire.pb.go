@@ -342,8 +342,11 @@ type CommandReply struct {
 	CurrentOwner          *OwnerTerm             `protobuf:"bytes,7,opt,name=current_owner,json=currentOwner,proto3,oneof" json:"current_owner,omitempty"`
 	Outcome               *CommandOutcome        `protobuf:"bytes,8,opt,name=outcome,proto3,oneof" json:"outcome,omitempty"`
 	Detail                string                 `protobuf:"bytes,9,opt,name=detail,proto3" json:"detail,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Domain execution succeeded on the session owner, but background persistence
+	// has not yet committed it. No stream_sequence is supplied in this case.
+	MemoryAccepted bool `protobuf:"varint,10,opt,name=memory_accepted,json=memoryAccepted,proto3" json:"memory_accepted,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CommandReply) Reset() {
@@ -437,6 +440,13 @@ func (x *CommandReply) GetDetail() string {
 		return x.Detail
 	}
 	return ""
+}
+
+func (x *CommandReply) GetMemoryAccepted() bool {
+	if x != nil {
+		return x.MemoryAccepted
+	}
+	return false
 }
 
 // One claimed effect may be forwarded to its presence-selected backend. The
@@ -9117,7 +9127,7 @@ const file_wire_proto_rawDesc = "" +
 	" \x01(\v2&.flightstrips.cluster.v1.ClientCommandH\x00R\x06client\x12@\n" +
 	"\x06system\x18\v \x01(\v2&.flightstrips.cluster.v1.SystemCommandH\x00R\x06systemB\t\n" +
 	"\acommandB\x1b\n" +
-	"\x19_expected_entity_revision\"\xff\x05\n" +
+	"\x19_expected_entity_revision\"\xa8\x06\n" +
 	"\fCommandReply\x12+\n" +
 	"\x11protocol_revision\x18\x01 \x01(\rR\x10protocolRevision\x12\x1d\n" +
 	"\n" +
@@ -9128,7 +9138,9 @@ const file_wire_proto_rawDesc = "" +
 	"\x17current_entity_revision\x18\x06 \x01(\x04H\x02R\x15currentEntityRevision\x88\x01\x01\x12L\n" +
 	"\rcurrent_owner\x18\a \x01(\v2\".flightstrips.cluster.v1.OwnerTermH\x03R\fcurrentOwner\x88\x01\x01\x12F\n" +
 	"\aoutcome\x18\b \x01(\v2'.flightstrips.cluster.v1.CommandOutcomeH\x04R\aoutcome\x88\x01\x01\x12\x16\n" +
-	"\x06detail\x18\t \x01(\tR\x06detail\"\xaa\x01\n" +
+	"\x06detail\x18\t \x01(\tR\x06detail\x12'\n" +
+	"\x0fmemory_accepted\x18\n" +
+	" \x01(\bR\x0ememoryAccepted\"\xaa\x01\n" +
 	"\x06Status\x12\x16\n" +
 	"\x12STATUS_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tCOMMITTED\x10\x01\x12\v\n" +

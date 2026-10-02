@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	pb "FlightStrips/pkg/events/cluster"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -44,5 +45,35 @@ func TestCommittedOwnerReplyBindsDurableOutcome(t *testing.T) {
 	accepted.Status, accepted.Outcome.Status = pb.CommandReply_PENDING, pb.CommandOutcome_ACCEPTED
 	if !validCommittedReply(request, hash, accepted) {
 		t.Fatal("accepted provider effect rejected")
+	}
+}
+
+func TestMemoryAcceptedReplyRequiresExplicitOwnerAndNoBrokerCheckpoint(t *testing.T) {
+	request := command(sessionRef(1), "volatile", 0)
+	hash, err := RequestHash(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revision := uint64(1)
+	reply := &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: pb.CommandReply_COMMITTED,
+		AggregateRevision: &revision, MemoryAccepted: true, CurrentOwner: &pb.OwnerTerm{NodeId: uuid.NewString(), Epoch: 1},
+		Outcome: &pb.CommandOutcome{CommandId: request.CommandId, Actor: request.Actor, Aggregate: request.Aggregate, RequestSha256: hash, AggregateRevision: revision, Status: pb.CommandOutcome_SUCCEEDED}}
+	if !validCommittedReply(request, hash, reply) {
+		t.Fatal("explicit memory execution rejected")
+	}
+	for name, mutate := range map[string]func(*pb.CommandReply){
+		"missing owner":       func(r *pb.CommandReply) { r.CurrentOwner = nil },
+		"invalid owner":       func(r *pb.CommandReply) { r.CurrentOwner.NodeId = "unknown" },
+		"no epoch":            func(r *pb.CommandReply) { r.CurrentOwner.Epoch = 0 },
+		"fake checkpoint":     func(r *pb.CommandReply) { r.StreamSequence = proto.Uint64(1); r.Outcome.CommittedStreamSequence = 1 },
+		"missing memory flag": func(r *pb.CommandReply) { r.MemoryAccepted = false },
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := proto.Clone(reply).(*pb.CommandReply)
+			mutate(changed)
+			if validCommittedReply(request, hash, changed) {
+				t.Fatal("unverified execution reply accepted")
+			}
+		})
 	}
 }

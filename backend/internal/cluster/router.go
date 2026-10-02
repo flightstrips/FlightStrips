@@ -142,6 +142,10 @@ func (r *CommandRouter) Route(ctx context.Context, request *pb.CommandRequest) *
 		}
 		switch reply.Status {
 		case pb.CommandReply_COMMITTED, pb.CommandReply_PENDING:
+			if reply.MemoryAccepted && (reply.CurrentOwner == nil || reply.CurrentOwner.NodeId != target ||
+				(state.Owner != nil && reply.CurrentOwner.Epoch < state.Owner.Epoch)) {
+				return unavailable(request.CommandId)
+			}
 			if validCommittedReply(request, hash, reply) {
 				return reply
 			}
@@ -176,12 +180,19 @@ func validCommittedReply(request *pb.CommandRequest, hash string, reply *pb.Comm
 		return false
 	}
 	outcome := reply.Outcome
-	return outcome != nil && outcome.CommandId == request.CommandId && outcome.RequestSha256 == hash &&
+	bound := outcome != nil && outcome.CommandId == request.CommandId && outcome.RequestSha256 == hash &&
 		proto.Equal(outcome.Actor, request.Actor) && proto.Equal(outcome.Aggregate, request.Aggregate) &&
-		reply.StreamSequence != nil && reply.GetStreamSequence() > 0 && reply.GetStreamSequence() == outcome.CommittedStreamSequence &&
 		reply.AggregateRevision != nil && reply.GetAggregateRevision() > 0 && reply.GetAggregateRevision() == outcome.AggregateRevision &&
 		(outcome.Status == pb.CommandOutcome_SUCCEEDED || outcome.Status == pb.CommandOutcome_ACCEPTED || outcome.Status == pb.CommandOutcome_FAILED) &&
 		reply.Status == statusForOutcome(outcome)
+	if !bound {
+		return false
+	}
+	if reply.MemoryAccepted {
+		return request.Aggregate.GetSession() != nil && reply.StreamSequence == nil && outcome.CommittedStreamSequence == 0 &&
+			reply.CurrentOwner != nil && canonicalUUID(reply.CurrentOwner.NodeId) && reply.CurrentOwner.Epoch > 0
+	}
+	return reply.StreamSequence != nil && reply.GetStreamSequence() > 0 && reply.GetStreamSequence() == outcome.CommittedStreamSequence
 }
 
 func (r *CommandRouter) projectedOutcome(request *pb.CommandRequest, hash string) *pb.CommandReply {
@@ -202,9 +213,13 @@ func (r *CommandRouter) projectedOutcome(request *pb.CommandRequest, hash string
 	if old.RequestSha256 != hash {
 		return &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: pb.CommandReply_INVALID_ARGUMENT, Detail: "command ID has different content"}
 	}
-	return &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: statusForOutcome(old),
+	reply := &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: statusForOutcome(old),
 		AggregateRevision: &old.AggregateRevision, StreamSequence: &old.CommittedStreamSequence,
 		Outcome: proto.Clone(old).(*pb.CommandOutcome)}
+	if old.CommittedStreamSequence == 0 && r.Projection.Async != nil && request.Aggregate.GetSession() != nil {
+		reply.MemoryAccepted, reply.StreamSequence, reply.CurrentOwner = true, nil, state.Owner
+	}
+	return reply
 }
 
 func unavailable(id string) *pb.CommandReply {

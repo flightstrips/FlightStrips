@@ -74,7 +74,7 @@ func (s Effects) Sweep(ctx context.Context) error {
 		if !s.Owner.CanWrite(ref) {
 			continue
 		}
-		state, err := s.Owner.Projection.Read(ref)
+		state, err := s.Owner.Projection.ReadDurable(ref)
 		if err != nil {
 			return err
 		}
@@ -101,7 +101,7 @@ func (s Effects) Sweep(ctx context.Context) error {
 			switch effect.Status {
 			case pb.EffectRecord_WAITING:
 				if squawk := effect.GetGenerateSquawk(); squawk != nil {
-					fresh, err := s.Owner.Projection.Read(ref)
+					fresh, err := s.Owner.Projection.ReadDurable(ref)
 					if err != nil {
 						return err
 					}
@@ -181,7 +181,7 @@ func (s Effects) advance(ctx context.Context, ref *pb.AggregateRef, prior *pb.Ef
 	if !s.Owner.CanWrite(ref) {
 		return nil, fmt.Errorf("effect owner unavailable")
 	}
-	state, err := s.Owner.Projection.Read(ref)
+	state, err := s.Owner.Projection.ReadDurable(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func (s Effects) advance(ctx context.Context, ref *pb.AggregateRef, prior *pb.Ef
 	if err := s.Owner.Projection.WaitApplied(ctx, sequence); err != nil {
 		return nil, err
 	}
-	fresh, err := s.Owner.Projection.Read(ref)
+	fresh, err := s.Owner.Projection.ReadDurable(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func (s Effects) RecordResult(ctx context.Context, sessionID int32, connectionID
 		return err
 	}
 	for attempt := 0; attempt < 4; attempt++ {
-		state, err := s.Owner.Projection.Read(ref)
+		state, err := s.Owner.Projection.ReadDurable(ref)
 		if err != nil {
 			return err
 		}
@@ -302,7 +302,7 @@ func (s Effects) forwardResult(ctx context.Context, sessionID int32, connectionI
 	}
 	terminal := proto.Clone(claim).(*pb.EffectRecord)
 	terminal.Status, terminal.ReasonCode = status, reason
-	state, err := s.Owner.Projection.Read(sessionRef(sessionID))
+	state, err := s.Owner.Projection.ReadDurable(sessionRef(sessionID))
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func (s Effects) forwardResult(ctx context.Context, sessionID int32, connectionI
 				return nil
 			}
 		}
-		state, readErr := s.Owner.Projection.Read(sessionRef(sessionID))
+		state, readErr := s.Owner.Projection.ReadDurable(sessionRef(sessionID))
 		if readErr == nil {
 			stored, lookupErr := state.LookupEffect(claim.CommandId)
 			if lookupErr != nil {
@@ -379,7 +379,7 @@ func (s Effects) recordForwardedResult(ctx context.Context, request *pb.EffectDe
 		return err
 	}
 	for attempt := 0; attempt < 4; attempt++ {
-		state, err := s.Owner.Projection.Read(ref)
+		state, err := s.Owner.Projection.ReadDurable(ref)
 		if err != nil {
 			return err
 		}

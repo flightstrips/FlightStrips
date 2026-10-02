@@ -37,7 +37,7 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 		if p == nil || sessionID < 1 || connectionID == "" || cid == "" || envelope.MasterEpoch == 0 {
 			return fmt.Errorf("invalid socket authority")
 		}
-		if err := p.readyForRead(); err != nil {
+		if err := p.sessionReadHealth(sessionRef(sessionID)); err != nil {
 			return err
 		}
 		p.mu.RLock()
@@ -45,7 +45,7 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 		if err := p.healthLocked(); err != nil {
 			return err
 		}
-		state := p.states[fmt.Sprintf("fs.v1.state.session.%d", sessionID)]
+		state := p.acceptedStateLocked(fmt.Sprintf("fs.v1.state.session.%d", sessionID))
 		if envelope.SessionId != sessionID || state == nil || state.Owner == nil || envelope.OwnerEpoch != state.Owner.Epoch {
 			p.staleEpochs.Add(1)
 			return fmt.Errorf("master observation is missing current session terms")

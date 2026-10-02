@@ -240,7 +240,7 @@ func (p *Projection) RequireMasterInbound(sessionID int32, connectionID, cid str
 	if p == nil || sessionID < 1 || connectionID == "" || cid == "" || epoch == 0 {
 		return fmt.Errorf("invalid socket authority")
 	}
-	if err := p.readyForRead(); err != nil {
+	if err := p.sessionReadHealth(sessionRef(sessionID)); err != nil {
 		return err
 	}
 	p.mu.RLock()
@@ -255,7 +255,7 @@ func (p *Projection) RequireMasterInbound(sessionID int32, connectionID, cid str
 // the same accepted observation of authority.
 func (p *Projection) requireMasterInboundLocked(sessionID int32, connectionID, cid string, epoch uint64, requireSync bool) error {
 	subject := fmt.Sprintf("fs.v1.state.session.%d", sessionID)
-	state := p.states[subject]
+	state := p.acceptedStateLocked(subject)
 	if state == nil || state.Owner == nil || state.Master == nil || state.Master.ConnectionId != connectionID ||
 		state.Master.Cid != cid || state.Master.Epoch != epoch || state.Master.OwnerEpoch != state.Owner.Epoch {
 		p.staleEpochs.Add(1)
@@ -274,7 +274,7 @@ func (p *Projection) RequireLiveSocket(sessionID int32, connectionID, cid string
 	if p == nil {
 		return fmt.Errorf("projection unavailable")
 	}
-	if err := p.readyForRead(); err != nil {
+	if err := p.sessionReadHealth(sessionRef(sessionID)); err != nil {
 		return err
 	}
 	p.mu.RLock()

@@ -20,6 +20,7 @@ import (
 // Projection is a per-process, independent FS_STATE reader. Published state is
 // never exposed until a complete event has passed the reducer.
 type Projection struct {
+	Async                                      *AsyncSessionOwners // configured before command admission
 	history                                    *historyCache
 	NC                                         *nats.Conn
 	JS                                         nats.JetStreamContext
@@ -42,6 +43,7 @@ type Projection struct {
 	sinceSnapshot                              map[string]uint64
 	snapshotErrors                             map[string]error
 	positions                                  map[string]KVPosition
+	asyncPositions                             *asyncPositionState
 	positionRevision                           map[string]uint64 // materialized revisions, independent of raw cursor proof
 	presence                                   map[string]KVPresence
 	syncFresh                                  map[string]bool
@@ -51,6 +53,7 @@ type Projection struct {
 	positionWaitersMu                          sync.Mutex
 	positionWaiters                            map[string]*positionWaitNotification
 	stateChanged                               chan struct{}
+	memoryEvents                               sync.Map
 	watchers                                   sync.WaitGroup
 	snapshotJobs                               sync.WaitGroup
 	takeovers, staleEpochs, snapshotFailures   atomic.Uint64
@@ -298,6 +301,7 @@ func (p *Projection) applyEvent(entry AppliedEvent, expected *uint64) error {
 			return err
 		}
 		if e.GetOwnerClaimed() == nil && e.GetOwnerRenewed() == nil {
+			_, alreadyDelivered := p.memoryEvents.LoadAndDelete(e.EventId)
 			delta := &pb.FrontendDelta{Aggregate: proto.Clone(ref).(*pb.AggregateRef), AggregateRevision: clone.Revision, StreamSequence: entry.StreamSequence}
 			d := e.GetDomainChanged()
 			for _, change := range d.GetChanges() {
@@ -307,6 +311,9 @@ func (p *Projection) applyEvent(entry AppliedEvent, expected *uint64) error {
 				delta.Workflows = append(delta.Workflows, proto.Clone(workflow).(*pb.WorkflowRecord))
 			}
 			for id, listener := range p.listeners {
+				if alreadyDelivered {
+					continue
+				}
 				if listener.subject != entry.Subject {
 					continue
 				}
@@ -580,6 +587,14 @@ func (p *Projection) healthLocked() error {
 }
 
 func (p *Projection) Read(ref *pb.AggregateRef) (*Aggregate, error) {
+	if memory, err := p.readMemory(ref); err != nil || memory != nil {
+		return memory, err
+	}
+	return p.ReadDurable(ref)
+}
+
+// ReadDurable excludes the volatile tail from snapshots, leases and effects.
+func (p *Projection) ReadDurable(ref *pb.AggregateRef) (*Aggregate, error) {
 	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err
@@ -623,6 +638,13 @@ func (p *Projection) readyForRead() error {
 
 // ReadEntity returns a detached accepted entity through the readiness barrier.
 func (p *Projection) ReadEntity(ref *pb.AggregateRef, kind pb.EntityKind, key string) (*pb.EntitySnapshot, error) {
+	if memory, err := p.memoryControl(ref); err != nil || memory != nil {
+		if err != nil {
+			return nil, err
+		}
+		if value := memory.Indexes[kind][key]; value != nil { return proto.Clone(value).(*pb.EntitySnapshot), nil }
+		return nil, nil
+	}
 	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err
@@ -643,6 +665,14 @@ func (p *Projection) ReadEntity(ref *pb.AggregateRef, kind pb.EntityKind, key st
 // ReadOwner returns the detached accepted owner term through the readiness
 // barrier, without copying domain state or retained command history.
 func (p *Projection) ReadOwner(ref *pb.AggregateRef) (*pb.OwnerTerm, error) {
+	if err := p.sessionReadHealth(ref); err != nil {
+		return nil, err
+	}
+	if p.Async != nil {
+		if memory := p.Async.Control(ref); memory != nil && memory.Owner != nil {
+			return proto.Clone(memory.Owner).(*pb.OwnerTerm), nil
+		}
+	}
 	state, err := p.readOwner(ref)
 	if err != nil {
 		return nil, err
@@ -653,12 +683,12 @@ func (p *Projection) ReadOwner(ref *pb.AggregateRef) (*pb.OwnerTerm, error) {
 // ReadSessionTerms detaches only the accepted fencing terms used by position
 // admissions; high-rate observations do not need a copy of all strip history.
 func (p *Projection) ReadSessionTerms(id int32) (*pb.OwnerTerm, *pb.MasterTerm, error) {
-	if err := p.readyForRead(); err != nil {
+	if err := p.sessionReadHealth(sessionRef(id)); err != nil {
 		return nil, nil, err
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	state := p.states[fmt.Sprintf("fs.v1.state.session.%d", id)]
+	state := p.acceptedStateLocked(fmt.Sprintf("fs.v1.state.session.%d", id))
 	if state == nil || state.Owner == nil {
 		return nil, nil, fmt.Errorf("session terms unavailable")
 	}
@@ -672,6 +702,20 @@ func (p *Projection) ReadSessionTerms(id int32) (*pb.OwnerTerm, *pb.MasterTerm, 
 // ReadEntityKinds returns one coherent detached publication snapshot without
 // copying unrelated historical command/workflow records.
 func (p *Projection) ReadEntityKinds(ref *pb.AggregateRef, kinds ...pb.EntityKind) (*Aggregate, error) {
+	if memory, err := p.memoryControl(ref); err != nil || memory != nil {
+		if err != nil {
+			return nil, err
+		}
+		out := NewAggregate(ref)
+		out.Revision, out.StreamSequence, out.SubjectSequence = memory.Revision, memory.StreamSequence, memory.SubjectSequence
+		for _, kind := range kinds {
+			for _, entity := range memory.EntitiesByKind(kind) {
+				out.Entities[entitySlot(out.Entities, kind, entity.Key)] = proto.Clone(entity).(*pb.EntitySnapshot)
+			}
+		}
+		out.rebuildIndexes()
+		return out, nil
+	}
 	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err
@@ -705,6 +749,20 @@ func (p *Projection) committedCommandCheckpoint(ref *pb.AggregateRef, id string)
 }
 
 func (p *Projection) readCommandCheckpoint(ref *pb.AggregateRef, id string, completeReplay bool) (*Aggregate, error) {
+	if memory, err := p.memoryControl(ref); err != nil || memory != nil {
+		if err != nil { return nil, err }
+		out := NewAggregate(ref)
+		out.Revision, out.StreamSequence, out.SubjectSequence = memory.Revision, memory.StreamSequence, memory.SubjectSequence
+		out.Owner = proto.Clone(memory.Owner).(*pb.OwnerTerm)
+		value, err := memory.LookupOutcome(id)
+		if err != nil { return nil, err }
+		if value != nil { out.Ledger[id] = proto.Clone(value).(*pb.CommandOutcome) }
+		return out, nil
+	}
+	return p.readDurableCommandCheckpoint(ref, id, completeReplay)
+}
+
+func (p *Projection) readDurableCommandCheckpoint(ref *pb.AggregateRef, id string, completeReplay bool) (*Aggregate, error) {
 	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err
@@ -744,6 +802,14 @@ func (p *Projection) readCommandCheckpoint(ref *pb.AggregateRef, id string, comp
 // ReadEntities returns detached entities of one kind without copying retained
 // command outcomes or workflows. It uses the same readiness barrier as Read.
 func (p *Projection) ReadEntities(ref *pb.AggregateRef, kind pb.EntityKind) ([]*pb.EntitySnapshot, error) {
+	if memory, err := p.memoryControl(ref); err != nil || memory != nil {
+		if err != nil {
+			return nil, err
+		}
+		var entities []*pb.EntitySnapshot
+		for _, value := range memory.EntitiesByKind(kind) { entities = append(entities, proto.Clone(value).(*pb.EntitySnapshot)) }
+		return entities, nil
+	}
 	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err
@@ -778,7 +844,11 @@ func (p *Projection) Outcome(_ context.Context, commandID string, actor *pb.Acto
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	reply.Status = pb.CommandReply_NOT_FOUND
-	for _, state := range p.states {
+	for subject, persisted := range p.states {
+		state := persisted
+		if memory := p.acceptedStateLocked(subject); memory != nil {
+			state = memory
+		}
 		outcome, err := state.LookupOutcome(commandID)
 		if err != nil {
 			return unavailable(commandID)
@@ -795,6 +865,9 @@ func (p *Projection) Outcome(_ context.Context, commandID string, actor *pb.Acto
 		reply.Status = statusForOutcome(outcome)
 		reply.AggregateRevision, reply.StreamSequence = &outcome.AggregateRevision, &outcome.CommittedStreamSequence
 		reply.Outcome = proto.Clone(outcome).(*pb.CommandOutcome)
+		if outcome.CommittedStreamSequence == 0 && p.Async != nil && state.Ref.GetSession() != nil {
+			reply.MemoryAccepted, reply.StreamSequence, reply.CurrentOwner = true, nil, proto.Clone(state.Owner).(*pb.OwnerTerm)
+		}
 	}
 	return reply
 }
@@ -841,7 +914,8 @@ func (p *Projection) FindFlight(_ context.Context, callsign string) (*FlightSnap
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	var found *FlightSnapshot
-	for _, state := range p.states {
+	for subject := range p.states {
+		state := p.acceptedStateLocked(subject)
 		ref := state.Ref.GetSession()
 		if ref == nil {
 			continue
@@ -928,16 +1002,38 @@ func (p *Projection) WaitSubjectAdvance(ctx context.Context, subject string, pre
 // cannot be lost between initial read and live delivery. Channel overflow
 // closes delivery and requires the client to resynchronize.
 func (p *Projection) SubscribeInitial(ref *pb.AggregateRef) (*Aggregate, <-chan *pb.FrontendDelta, func(), error) {
+	if p.Async != nil && ref != nil && ref.GetSession() != nil && p.Async.Active(ref) {
+		var initial *Aggregate
+		var updates <-chan *pb.FrontendDelta
+		var closeSub func()
+		var readErr error
+		err := p.Async.Execute(context.Background(), ref, func(context.Context) error {
+			initial, updates, closeSub, readErr = p.subscribeInitial(ref)
+			return readErr
+		})
+		return initial, updates, closeSub, err
+	}
+	return p.subscribeInitial(ref)
+}
+
+func (p *Projection) subscribeInitial(ref *pb.AggregateRef) (*Aggregate, <-chan *pb.FrontendDelta, func(), error) {
 	subject, err := Subject(ref)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if err := p.readyForRead(); err != nil {
+	if err := p.sessionReadHealth(ref); err != nil {
+		return nil, nil, nil, err
+	}
+	memory, err := p.readMemory(ref)
+	if err != nil {
 		return nil, nil, nil, err
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	state := p.states[subject]
+	if memory != nil {
+		state = memory
+	}
 	if state == nil {
 		state = NewAggregate(ref)
 	}

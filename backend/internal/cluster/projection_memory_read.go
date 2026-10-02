@@ -3,6 +3,7 @@ package cluster
 import (
 	pb "FlightStrips/pkg/events/cluster"
 	"fmt"
+	"time"
 )
 
 func (p *Projection) memoryControl(ref *pb.AggregateRef) (*Aggregate, error) {
@@ -41,12 +42,15 @@ func (p *Projection) sessionReadHealth(ref *pb.AggregateRef) error {
 // acceptedStateLocked is safe under p.mu: Control returns an immutable published
 // view without acquiring the session executor or projection locks.
 func (p *Projection) acceptedStateLocked(subject string) *Aggregate {
+	raw := p.states[subject]
 	if p.Async != nil {
 		if ref, err := refFromSubject(subject); err == nil && ref.GetSession() != nil {
-			if memory := p.Async.Control(ref); memory != nil {
+			if memory := p.Async.Control(ref); memory != nil && memory.Owner != nil && raw != nil && raw.Owner != nil &&
+				memory.Owner.NodeId == raw.Owner.NodeId && memory.Owner.Epoch == raw.Owner.Epoch &&
+				raw.Owner.LeaseUntil != nil && time.Now().Before(raw.Owner.LeaseUntil.AsTime()) {
 				return memory
 			}
 		}
 	}
-	return p.states[subject]
+	return raw
 }

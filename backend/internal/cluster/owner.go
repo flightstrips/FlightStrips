@@ -91,6 +91,32 @@ func (o *OwnerRuntime) CanWrite(ref *pb.AggregateRef) bool {
 	return err == nil && state.Owner != nil && state.Owner.NodeId == o.NodeID
 }
 
+// CanCommitLocal permits only conditionally appended domain commands to plan
+// from the owner's materialized subject prefix. Subject CAS and the reducer's
+// broker timestamp still fence stale ownership. External effects, takeover and
+// lease maintenance continue to use the complete replay barrier in CanWrite.
+func (o *OwnerRuntime) CanCommitLocal(ref *pb.AggregateRef) bool {
+	subject, err := Subject(ref)
+	if err != nil || o == nil || o.NC == nil || o.NC.Status() != nats.CONNECTED || o.Projection == nil {
+		return false
+	}
+	o.mu.RLock()
+	renewed := o.lastRenew[subject]
+	healthy := !o.failed[subject] && !renewed.IsZero() && time.Since(renewed) < ownerLease/2
+	o.mu.RUnlock()
+	if !healthy {
+		return false
+	}
+	p := o.Projection
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.healthLocked() != nil || p.history != nil && p.history.check() != nil {
+		return false
+	}
+	state := p.states[subject]
+	return state != nil && state.Owner != nil && state.Owner.NodeId == o.NodeID
+}
+
 // Ready includes the lease renewal gate for every aggregate this node owns.
 func (o *OwnerRuntime) Ready() error {
 	if o == nil || o.NC == nil || o.NC.Status() != nats.CONNECTED || o.Projection == nil {

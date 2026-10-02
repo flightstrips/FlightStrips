@@ -158,3 +158,28 @@ Profiling keeps the two-minute warmup, then measures one minute and captures
 thirty seconds of CPU plus a five-second runtime trace. Private artifacts record
 the capture windows; profiled reports always have `full_duration=false`.
 The qualification runner clears profiling and retains fifteen-minute windows.
+
+## Session owner memory commits
+
+Each session already has one active backend owner. Clients may connect to either
+backend; the socket node routes mutations to that session's owner. The owner now
+plans domain commands from its detached local aggregate while its lease is fresh,
+conditionally appends the event, verifies the stored event and broker timestamp,
+and applies that committed subject prefix locally before replying. The forwarding
+node validates the complete command outcome and returns it without waiting for
+its own replay. PubAck alone is insufficient: an expired owner's event can be a
+committed no-op. Ambiguous acknowledgements retain the same command ID and resolve
+through the durable ledger.
+
+Local application does not advance the independent global replay cursor. The
+successful subject CAS proves there are no missing intervening events for that
+aggregate. Raw replay continues processing other aggregates and suppresses repeat
+application of the already verified prefix. Takeover, renewal and external effects
+retain their complete replay checks; command-only local admission does not grant
+an old owner permission to send external effects.
+
+Broker metadata verification remains a per-event read after the durable append;
+this change removes replay waits rather than eliminating broker acknowledgements.
+Focused tests cover interleaved replay, one frontend delta, waiter wakeups, expired
+leases, stale-owner facts, exact receipt identity and authenticated forwarded
+outcomes. Final load/recovery/fault validation of this implementation is pending.

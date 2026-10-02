@@ -50,6 +50,34 @@ func TestServerNATSOwnerMemoryAcceptanceDrainAndCrashTail(t *testing.T) {
 		frame := markedCommand(id, "SAS123", strip.Revision, value)
 		return &pb.CommandRequest{ProtocolRevision: 1, CommandId: id, Aggregate: ref, Actor: actor, ExpectedEntityRevision: frame.GetCommand().ExpectedEntityRevision, Command: &pb.CommandRequest_Client{Client: frame.GetCommand().Action}}
 	}
+	// A pinned older router sends no capability header and cannot decode the
+	// RAM acceptance field. The actual Serve subscription must give it a
+	// durable reply, while the opt-in fault trials below retain immediate RAM.
+	legacyRequest := marked(uuid.NewString(), false)
+	legacyData, err := proto.Marshal(legacyRequest)
+	require.NoError(t, err)
+	var legacyReply *pb.CommandReply
+	f.await("legacy command transport returns a durable receipt", func() bool {
+		state, err := f.projection.ReadDurable(ref)
+		if err != nil || state.Owner == nil {
+			return false
+		}
+		response, err := f.nc.Request("fs.v1.command."+state.Owner.NodeId, legacyData, 3*time.Second)
+		if err != nil {
+			return false
+		}
+		legacyReply = &pb.CommandReply{}
+		require.NoError(t, pb.UnmarshalStrict(response.Data, legacyReply))
+		return legacyReply.Status != pb.CommandReply_NOT_OWNER && legacyReply.Status != pb.CommandReply_UNAVAILABLE
+	})
+	require.Equal(t, pb.CommandReply_COMMITTED, legacyReply.Status)
+	require.False(t, legacyReply.MemoryAccepted)
+	require.Positive(t, legacyReply.GetStreamSequence())
+	f.await("legacy receipt independently replayed before RAM trials", func() bool {
+		state, err := f.projection.ReadDurable(ref)
+		return err == nil && state.Ledger[legacyRequest.CommandId] != nil && state.Ledger[legacyRequest.CommandId].CommittedStreamSequence == legacyReply.GetStreamSequence()
+	})
+	t.Logf("LEGACY_DURABLE_REPLY command_id=%s sequence=%d memory_accepted=false", legacyRequest.CommandId, legacyReply.GetStreamSequence())
 	assertBlockedReply := func(request *pb.CommandRequest) *pb.CommandReply {
 		f.arm("before-publish-domain", request.CommandId)
 		started := time.Now()

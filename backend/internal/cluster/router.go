@@ -30,10 +30,7 @@ func (r *CommandRouter) Serve(ctx context.Context) error {
 	_, closeSub, err := SubscribeJoined(r.NC, "fs.v1.command."+r.Lease.NodeID, func(msg *nats.Msg) {
 		commandCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
-		if msg.Header.Get("FS-Durable") == "1" {
-			commandCtx = context.WithValue(commandCtx, durableExecutionKey{}, true)
-		}
-		reply := r.handle(commandCtx, msg.Data)
+		reply := r.handleMessage(commandCtx, msg)
 		data, marshalErr := proto.Marshal(reply)
 		if marshalErr == nil && len(data) <= MaxStateBytes && msg.Reply != "" {
 			_ = r.NC.Publish(msg.Reply, data)
@@ -48,6 +45,15 @@ func (r *CommandRouter) Serve(ctx context.Context) error {
 	}
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+func (r *CommandRouter) handleMessage(ctx context.Context, msg *nats.Msg) *pb.CommandReply {
+	// Older routers cannot decode provisional replies. Immediate RAM
+	// acceptance is available only to callers which explicitly opt in.
+	if msg.Header.Get("FS-Durable") == "1" || msg.Header.Get("FS-Memory-Accepted") != "1" {
+		ctx = context.WithValue(ctx, durableExecutionKey{}, true)
+	}
+	return r.handle(ctx, msg.Data)
 }
 
 func (r *CommandRouter) handle(ctx context.Context, data []byte) *pb.CommandReply {
@@ -140,6 +146,8 @@ func (r *CommandRouter) Route(ctx context.Context, request *pb.CommandRequest) *
 			message.Data = data
 			if ctx.Value(durableExecutionKey{}) == true {
 				message.Header.Set("FS-Durable", "1")
+			} else {
+				message.Header.Set("FS-Memory-Accepted", "1")
 			}
 			msg, reqErr := r.NC.RequestMsgWithContext(hop, message)
 			cancel()

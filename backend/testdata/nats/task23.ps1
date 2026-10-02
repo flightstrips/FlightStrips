@@ -1,9 +1,9 @@
-param([string]$NATSServerBinary = '', [switch]$SkipFaultSuite)
+param([string]$NATSServerBinary = '', [switch]$SkipFaultSuite, [ValidateRange(1,6)][int]$ParallelPatterns = 1)
 $ErrorActionPreference = 'Stop'
 $task23Backend = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $task23Run = Join-Path $task23Backend ('.task23/runs/' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $task23Run | Out-Null
-$task23Names = @('NATS_INTEGRATION','NATS_TASK23','NATS_TASK23_SMOKE','NATS_TASK23_PATTERN','NATS_TASK23_OUTPUT','NATS_TASK23_PROFILE_NODE','NATS_SERVER_BINARY')
+$task23Names = @('NATS_INTEGRATION','NATS_TASK23','NATS_TASK23_SMOKE','NATS_TASK23_PATTERN','NATS_TASK23_OUTPUT','NATS_TASK23_PROFILE_NODE','NATS_TASK23_PARALLEL','NATS_SERVER_BINARY')
 $task23Saved = @{}
 foreach ($task23Name in $task23Names) { $task23Saved[$task23Name] = [Environment]::GetEnvironmentVariable($task23Name,'Process') }
 Push-Location $task23Backend
@@ -36,8 +36,10 @@ try {
         memory_bytes = $task23Machine.TotalPhysicalMemory
         disks = @(Get-PhysicalDisk | Select-Object FriendlyName,MediaType,BusType,Size)
         physical_failure_domains = 1
-        fixture = 'random loopback ports; verified owned child PIDs; separate temporary stores/cache/keys; native R3 AES-GCM; binary clients split between two locally compiled backends; sequential tests'
-        command = "go test ./cmd/server -run '^TestPositionLoad' -count=1 -timeout=2h30m -json"
+        concurrent_load_fixture_limit = $ParallelPatterns
+        shared_host_parallel_load = ($ParallelPatterns -gt 1)
+        fixture = "random loopback ports; verified owned child PIDs; separate temporary stores/cache/keys; native R3 AES-GCM; two compiled backends per fixture; up to $ParallelPatterns concurrent load fixtures share CPU/disk; recovery and faults sequential"
+        command = "go test ./cmd/server -run '^TestPositionLoad' -count=1 -timeout=2h30m -parallel $ParallelPatterns -json"
     }
     $task23Metadata | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $task23Run 'machine-source.json') -Encoding utf8
     $task23DriveNames = @([IO.Path]::GetPathRoot($task23Backend).TrimEnd('\'),[IO.Path]::GetPathRoot([IO.Path]::GetTempPath()).TrimEnd('\')) | Select-Object -Unique
@@ -55,9 +57,10 @@ try {
     $env:NATS_TASK23_SMOKE=$null
     $env:NATS_TASK23_PATTERN=$null
     $env:NATS_TASK23_PROFILE_NODE=$null
+    $env:NATS_TASK23_PARALLEL=[string]$ParallelPatterns
     $env:NATS_TASK23_OUTPUT=$task23Run
     $env:NATS_SERVER_BINARY=$NATSServerBinary
-    & go test ./cmd/server -run '^TestPositionLoad' -count=1 -timeout=2h30m -json 2>&1 | Tee-Object -FilePath (Join-Path $task23Run 'tests.jsonl')
+    & go test ./cmd/server -run '^TestPositionLoad' -count=1 -timeout=2h30m -parallel $ParallelPatterns -json 2>&1 | Tee-Object -FilePath (Join-Path $task23Run 'tests.jsonl')
     $task23LoadCode=$LASTEXITCODE
     $task23DiskAfter = @(Get-CimInstance Win32_LogicalDisk | Where-Object DeviceID -In $task23DriveNames | ForEach-Object {
         $task23Used = 100 * (1 - $_.FreeSpace / $_.Size)
@@ -81,7 +84,7 @@ try {
     $task23RecoveryPassed = (Test-Path -LiteralPath $task23RecoveryPath) -and (Get-Content -LiteralPath $task23RecoveryPath -Raw | ConvertFrom-Json).pass
     $task23DiskBlocked = [bool](@($task23DiskBefore) + @($task23DiskAfter) | Where-Object release_block_85)
     $task23Qualified = $task23ReportsComplete -and $task23RecoveryPassed -and !$task23DiskBlocked -and $task23LoadCode -eq 0 -and $task23FaultCode -eq 0 -and !$SkipFaultSuite
-    [ordered]@{ finished_utc=[DateTime]::UtcNow.ToString('o'); local_qualification_pass=$task23Qualified; all_six_full_patterns_passed=$task23ReportsComplete; recovery_passed=$task23RecoveryPassed; load_exit=$task23LoadCode; fault_exit=$task23FaultCode; fault_skipped=[bool]$SkipFaultSuite; disk_release_block=$task23DiskBlocked; run_directory=$task23Run } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $task23Run 'run-result.json') -Encoding utf8
+    [ordered]@{ finished_utc=[DateTime]::UtcNow.ToString('o'); local_qualification_pass=$task23Qualified; all_six_full_patterns_passed=$task23ReportsComplete; recovery_passed=$task23RecoveryPassed; load_exit=$task23LoadCode; fault_exit=$task23FaultCode; fault_skipped=[bool]$SkipFaultSuite; disk_release_block=$task23DiskBlocked; concurrent_load_fixture_limit=$ParallelPatterns; shared_host_parallel_load=($ParallelPatterns -gt 1); run_directory=$task23Run } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $task23Run 'run-result.json') -Encoding utf8
     if (!$task23ReportsComplete -or !$task23RecoveryPassed -or $task23LoadCode -ne 0 -or $task23FaultCode -eq 1 -or $task23DiskBlocked) { throw "Qualification failed; complete pass/fail artifacts: $task23Run" }
     Write-Host "Task23 load/recovery/disk checks passed; artifacts: $task23Run"
 } finally {

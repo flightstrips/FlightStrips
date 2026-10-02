@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -25,6 +26,8 @@ func TestPositionLoadNATS(t *testing.T) {
 	}
 	require.NotEmpty(t, os.Getenv("NATS_SERVER_BINARY"), "never use the default development brokers")
 	smoke := os.Getenv("NATS_TASK23_SMOKE") == "1"
+	parallel := positionLoadParallelism(t)
+	slots := make(chan struct{}, parallel)
 	for _, mix := range []struct {
 		name     string
 		arrivals int
@@ -34,9 +37,30 @@ func TestPositionLoadNATS(t *testing.T) {
 			if selected := os.Getenv("NATS_TASK23_PATTERN"); selected != "" && selected != mix.name+"-"+pattern {
 				continue
 			}
-			t.Run(label, func(t *testing.T) { runPositionLoad(t, mix.arrivals, pattern, smoke) })
+			t.Run(label, func(t *testing.T) {
+				if parallel > 1 {
+					t.Parallel()
+				}
+				slots <- struct{}{}
+				// Release only after the fixture's child processes and stores close.
+				t.Cleanup(func() { <-slots })
+				runPositionLoad(t, mix.arrivals, pattern, smoke)
+			})
 		}
 	}
+}
+
+func positionLoadParallelism(t *testing.T) int {
+	t.Helper()
+	value := os.Getenv("NATS_TASK23_PARALLEL")
+	if value == "" {
+		return 1
+	}
+	parallel, err := strconv.Atoi(value)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, parallel, 1)
+	require.LessOrEqual(t, parallel, 6)
+	return parallel
 }
 
 func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
@@ -211,6 +235,8 @@ func runPositionLoad(t *testing.T, arrivals int, pattern string, smoke bool) {
 	report["lifecycle"] = observed
 	report["puback"] = capture.PubAckReport()
 	report["position_stages_ms"] = capture.StageReport(measureStart, measureEnd)
+	report["concurrent_load_fixture_limit"] = positionLoadParallelism(t)
+	report["shared_host_parallel_load"] = positionLoadParallelism(t) > 1
 	data, err := json.MarshalIndent(report, "", "  ")
 	require.NoError(t, err)
 	completed = true

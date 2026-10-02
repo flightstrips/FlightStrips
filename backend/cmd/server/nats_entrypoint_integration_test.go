@@ -104,12 +104,33 @@ func (p *fixtureProcess) stop() {
 		<-p.done
 	}
 }
+
+var entrypointAddressesMu sync.Mutex
+var entrypointAddresses = map[string]bool{}
+
 func entrypointAddress(t *testing.T) string {
 	t.Helper()
-	l, e := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, e)
-	defer l.Close()
-	return l.Addr().String()
+	for {
+		l, e := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, e)
+		address := l.Addr().String()
+		entrypointAddressesMu.Lock()
+		reserved := entrypointAddresses[address]
+		if !reserved {
+			entrypointAddresses[address] = true
+		}
+		entrypointAddressesMu.Unlock()
+		_ = l.Close()
+		if reserved {
+			continue
+		}
+		t.Cleanup(func() {
+			entrypointAddressesMu.Lock()
+			delete(entrypointAddresses, address)
+			entrypointAddressesMu.Unlock()
+		})
+		return address
+	}
 }
 func fixtureEnv(values map[string]string) []string {
 	var env []string

@@ -39,7 +39,7 @@ func (f *entrypointFixture) startLoadMonitor() *loadMonitor {
 }
 func (m *loadMonitor) sample(f *entrypointFixture) {
 	sample := map[string]any{"utc": time.Now().UTC().Format(time.RFC3339Nano)}
-	var counters []any
+	var counters map[string]any
 	if runtime.GOOS == "windows" {
 		ids := []string{}
 		for _, p := range append(append([]*fixtureProcess{}, f.apps...), f.brokers...) {
@@ -48,7 +48,7 @@ func (m *loadMonitor) sample(f *entrypointFixture) {
 			}
 			ids = append(ids, strconv.Itoa(p.ownedPID))
 		}
-		command := "Get-Process -Id " + strings.Join(ids, ",") + " | Select-Object Id,CPU,WorkingSet64,PrivateMemorySize64 | ConvertTo-Json -Compress"
+		command := "@{ processes=@(Get-Process -Id " + strings.Join(ids, ",") + " | Select-Object Id,CPU,WorkingSet64,PrivateMemorySize64); host_cpu=@(Get-CimInstance Win32_Processor | Select-Object LoadPercentage,NumberOfLogicalProcessors); host_memory=(Get-CimInstance Win32_OperatingSystem | Select-Object FreePhysicalMemory,TotalVisibleMemorySize) } | ConvertTo-Json -Depth 4 -Compress"
 		bytes, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", command).Output()
 		if err != nil {
 			sample["process_error"] = err.Error()
@@ -56,7 +56,9 @@ func (m *loadMonitor) sample(f *entrypointFixture) {
 			if err = json.Unmarshal(bytes, &counters); err != nil {
 				sample["process_error"] = err.Error()
 			} else {
-				sample["processes"] = counters
+				sample["processes"] = counters["processes"]
+				sample["host_cpu"] = counters["host_cpu"]
+				sample["host_memory_kib"] = counters["host_memory"]
 			}
 		}
 	}

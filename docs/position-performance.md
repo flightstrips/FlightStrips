@@ -93,6 +93,16 @@ and the complete Task 22 fault/restore suite:
 ./backend/testdata/nats/task23.ps1 -NATSServerBinary 'C:/path/to/nats-server.exe'
 ```
 
+To reduce elapsed time, add `-ParallelPatterns 3` to run at most three independent
+load fixtures concurrently. Six seventeen-minute patterns then take about
+thirty-five minutes, followed by sequential recovery and fault checks. Each
+fixture owns its ports, processes, stores and keys; admission slots are released
+after cleanup. Direct Go runs can set `NATS_TASK23_PARALLEL` from 1 to 6.
+The default is 1. Reports record the concurrency limit and shared host, with
+host CPU and available memory alongside each fixture's measurements. Parallel
+fixtures compete for CPU and disk: a failed latency result remains a failure,
+and suspected host contention requires an isolated rerun to identify its cause.
+
 Disk usage at 70% records an alert; 85% blocks release qualification while local
 tests continue. Per-pattern reports always set `qualification=false`; `load_pass`
 covers their load and lifecycle assertions. The runner's `run-result.json`

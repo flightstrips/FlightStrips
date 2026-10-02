@@ -268,3 +268,33 @@ func TestAsyncOwnerAdmissionAllocationsDoNotScaleWithFleetSize(t *testing.T) {
 	t.Logf("owner turn allocations fleet8=%.0f fleet2048=%.0f", small, large)
 	require.LessOrEqual(t, large, small+10, "unchanged owner admission must not clone the complete fleet")
 }
+
+func TestAsyncOwnerInvalidationCannotRepublishCapturedControl(t *testing.T) {
+	m, _, ref, gate, _ := asyncOwnersFixture(t)
+	close(gate)
+	require.NoError(t, m.Execute(context.Background(), ref, func(context.Context) error { return nil }))
+	require.NotNil(t, m.Control(ref))
+	// A worker may have captured a valid durable checkpoint just before a
+	// different session invalidates the shared runtime. Resume that worker's
+	// final control publication only after invalidation has cleared all views.
+	captured := make(chan struct{})
+	resume := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		m.mu.Lock()
+		s := m.sessions[mustAsyncSubject(ref)]
+		m.mu.Unlock()
+		close(captured)
+		<-resume
+		m.mu.Lock()
+		m.publishControlLocked(s)
+		m.mu.Unlock()
+		close(done)
+	}()
+	<-captured
+	m.Invalidate(ref, errors.New("position replay generation changed"))
+	close(resume)
+	<-done
+	require.Nil(t, m.Control(ref), "a worker completion must not revive invalidated RAM authority")
+	require.Error(t, m.Drain(context.Background()))
+}

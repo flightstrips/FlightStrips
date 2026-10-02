@@ -71,6 +71,10 @@ func (m *AsyncSessionOwners) Control(ref *pb.AggregateRef) *Aggregate {
 	return v.(*Aggregate)
 }
 func (m *AsyncSessionOwners) publishControlLocked(s *asyncSession) {
+	if m.failure != nil {
+		m.controls.Delete(mustAsyncSubject(s.ref))
+		return
+	}
 	a := s.ram
 	copy := *a
 	view := &copy

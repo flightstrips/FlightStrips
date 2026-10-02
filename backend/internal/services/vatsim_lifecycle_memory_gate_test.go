@@ -46,15 +46,28 @@ func TestLifecyclePendingOwnerRemovesDepartureBlockFromAcceptedPosition(t *testi
 	// The accepted live position is authoritative over a provider's stale location.
 	stand, _ := stands.Lookup("EKCH", "A1")
 	page.Flights[0].Latitude, page.Flights[0].Longitude = stand.Latitude, stand.Longitude
-	position := cluster.KVPosition{Revision: 1<<63 | 10, Value: &pb.PositionValue{SessionId: 42, AircraftKey: "SAS123", OwnerEpoch: 1, SourceConnectionId: "master", ObservedAt: timestamppb.New(now), Value: &pb.PositionValue_Position{Position: &pb.AircraftPosition{Latitude: 56, Longitude: 13, AltitudeFeet: 3000}}}}
+	position := cluster.KVPosition{Revision: 1<<63 | 10, Value: &pb.PositionValue{SessionId: 42, AircraftKey: "SAS123", OwnerEpoch: 1, SourceConnectionId: "master", ObservedAt: timestamppb.New(now), Value: &pb.PositionValue_Position{Position: &pb.AircraftPosition{Latitude: stand.Latitude, Longitude: stand.Longitude, AltitudeFeet: 20}}}}
 	require.True(t, lifecycleOwnerCanPlan(lifecyclePendingOwner{healthy: true, pending: true}, true, ref))
 	before := proto.Clone(assignment)
-	change, err := candidate.plan(context.Background(), &pb.CommandRequest{CommandId: uuid.NewString(), Aggregate: ref}, state, "SAS123", true, 1, "source", page, []cluster.KVPosition{position}, false)
-	require.NoError(t, err)
-	removed := false
-	for _, entity := range change.Changes {
-		removed = removed || entity.Key == "SAS123" && entity.GetDelete().GetKind() == pb.EntityKind_STAND_ASSIGNMENT
+	request := &pb.CommandRequest{CommandId: uuid.NewString(), Aggregate: ref}
+	removesAssignment := func(change *pb.DomainChange) bool {
+		for _, entity := range change.Changes {
+			if entity.Key == "SAS123" && entity.GetDelete().GetKind() == pb.EntityKind_STAND_ASSIGNMENT {
+				return true
+			}
+		}
+		return false
 	}
-	require.True(t, removed, "departure away from configured stands must release the accepted block despite pending replication")
+	control, err := candidate.plan(context.Background(), request, state, "SAS123", true, 1, "source", page, []cluster.KVPosition{position}, false)
+	require.NoError(t, err)
+	require.False(t, removesAssignment(control), "the same strip and assignment must remain blocked while the accepted position is still at A1")
+	require.True(t, proto.Equal(before, assignment), "control planning must leave accepted input immutable")
+	// Keep owner, source, strip, assignment, timestamps and altitude identical.
+	// Only the accepted position coordinates now move away from every stand.
+	position.Value = proto.Clone(position.Value).(*pb.PositionValue)
+	position.Value.GetPosition().Latitude, position.Value.GetPosition().Longitude = 56, 13
+	change, err := candidate.plan(context.Background(), request, state, "SAS123", true, 1, "source", page, []cluster.KVPosition{position}, false)
+	require.NoError(t, err)
+	require.True(t, removesAssignment(change), "departure away from configured stands must release the accepted block despite pending replication")
 	require.True(t, proto.Equal(before, assignment), "planner must leave accepted input immutable")
 }

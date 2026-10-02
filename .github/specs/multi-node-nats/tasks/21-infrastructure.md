@@ -6,6 +6,8 @@
 
 ## Work
 
+**Preparation status:** [infrastructure PR #29](https://github.com/flightstrips/infrastructure/pull/29) is open and remains unmerged, with passing stack CI and local mTLS/bootstrap/quorum/encrypted restore checks. Its optional in-place key-rotation probe failed with store authentication/corruption errors on NATS 2.15.0. [Task 21a](21a-key-rotation.md) must qualify a safe procedure; do not treat ordinary backup/restore success or green CI as successful rotation. Production provisioning, pins and operator acceptance remain Task 24 gates.
+
 - Prepare an unmerged PR for `flightstrips/infrastructure/stacks/flightstrips.yml` that replaces PostgreSQL/migrator with three pinned `nats:2.15.0` services on distinct labeled hosts and separate persistent volumes. Configure routes, client/route TLS, JetStream encryption key, internal networking, health checks, and scoped versioned Swarm secrets. Add one-shot resource bootstrap; backend tasks only verify resources. Validate the rendered configuration and use the Task 20c local setup for rehearsals; do not deploy staging or production to complete this task.
 - Run two backend replicas with NATS URLs/credentials and Traefik `/readyz` service health checks at two-second interval/one-second timeout. Preserve provider, OIDC, aircraft config, frontend and docs settings. Use stop-first for the initial fresh cutover.
 - Remove infrastructure `.github/workflows/check-drift.yml` and migrator tag coupling. Validate rendered stack, placement labels, three file-backed replicas, external secrets/configs, pinned tags, and backup/restore instructions in its README.

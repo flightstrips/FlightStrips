@@ -2,6 +2,10 @@
 
 **Depends on:** 22. **Outcome:** repeatable local load checks and measurements on the user's machine, without building release candidates or deploying staging/production.
 
+**Dependency status:** Task 22 merged as [PR #829](https://github.com/flightstrips/FlightStrips/pull/829), with passing CI and a complete recorded native fault/restore run. Use [the final memory/fault qualification](22-memory-evidence.md), including the bounded disposable history index and latest source, rather than claiming qualification from earlier pre-fix captures. Infrastructure PR #29 stays open; its failed key-rotation check is handled by 21a and does not prevent local load work, but remains a Task 24 gate. Changes to broker versions/configuration or runtime behavior require affected checks to rerun.
+
+**Isolation:** build this task's source; do not benchmark the user's running default containers, which may contain an older executable. Use separately named disposable fixtures, verified ownership, isolated volumes/cache/key paths and non-conflicting ports. Preserve the user's development data/processes and confidential captures. Reuse Task 22's fixture/restore commands where applicable.
+
 **Release boundary:** harness code lands on the held integration branch; tests run against local builds, using the Task 20c setup and Task 22 configuration. Later behavior/configuration/harness changes require affected checks to rerun. Record the operator's own results only when supplied.
 
 ## Work

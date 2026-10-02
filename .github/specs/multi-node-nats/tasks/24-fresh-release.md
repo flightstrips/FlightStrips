@@ -2,6 +2,8 @@
 
 **Depends on:** 20–23. **Outcome:** merge, publish and deploy the matched new system empty under the operator's infrastructure repository.
 
+**Outstanding infrastructure qualification:** Task 21's draft infrastructure PR #29 remains unmerged. Its pinned-broker key-rotation probe failed; Task 21a must qualify a safe rotation/recovery procedure before this task proceeds. Passing ordinary backup/restore or stack CI does not close that failure. Actual production provisioning and operator manual acceptance remain required.
+
 ## Work
 
 - Confirm all prior implementation evidence and the user's reported local acceptance, including source revision, configuration, fault/load results and restore rehearsal. Verify three labeled production NATS hosts, secrets, encryption key, backup destination and the reviewed infrastructure stack PR. No release-candidate builds, promotion or staging evidence is required. Release/deployment actions require the operator's decision for this cutover; task completion alone does not authorize them.

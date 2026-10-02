@@ -64,6 +64,7 @@ An implementation that cannot maintain these conditions is reclassified **held**
 | 20b | No; held | No | Minimal migrator release cleanup; preserve ordinary releases and do not introduce release candidates or promotion. |
 | 20c | No; held | No | Installs the sole NATS runtime and removes SQL; completes Task 20 acceptance before Task 21. |
 | 21 | Infrastructure PR only | No | Prepare and validate the production stack PR; local rehearsal is sufficient for this plan. Do not merge/deploy it yet. |
+| 21a | Infrastructure PR only | No | Qualify the failed encryption-key rotation probe on isolated stores; unresolved failure blocks Task 24. |
 | 22 | Held test evidence | No | Run against local builds of the integrated application; no production stack change or mandatory staging. |
 | 23 | Held test evidence | No | Same locally tested source/configuration; record hardware and limits without claiming production-equivalent performance. |
 | 24 | Release PR merge | Coordinated deployment only | After local qualification, publish ordinary matched releases and merge the pinned production stack PR during the stop-first cutover. |

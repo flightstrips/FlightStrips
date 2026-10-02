@@ -523,6 +523,9 @@ func inboundFailureReason(err error) string {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return "context_deadline"
 	}
+	if errors.Is(err, cluster.ErrPositionIntegrityStale) {
+		return "position_integrity_stale"
+	}
 	var api *nats.APIError
 	if errors.As(err, &api) {
 		return fmt.Sprintf("nats_api_%d", api.ErrorCode)

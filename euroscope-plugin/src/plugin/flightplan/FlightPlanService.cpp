@@ -194,7 +194,7 @@ namespace FlightStrips::flightplan {
                 false, "",   // cleared, ground_state
                 0, 0, 0,    // cleared_altitude, requested_altitude, heading
                 "", "", "", // aircraft_type, aircraft_category, spoken_callsign
-                Position{aircraftPosition.m_Latitude, aircraftPosition.m_Longitude, position.GetPressureAltitude(), static_cast<double>(radarTarget.GetGS()), radarTarget.GetTrackHeading()},
+                Position{aircraftPosition.m_Latitude, aircraftPosition.m_Longitude, position.GetPressureAltitude(), static_cast<double>(radarTarget.GetGS())},
                 stand,
                 "", "", "",  // communication_type, capabilities, eobt
                 "",          // eldt
@@ -215,7 +215,7 @@ namespace FlightStrips::flightplan {
         // Queue position update instead of sending immediately
         m_pendingPositionUpdates.insert_or_assign(callsign, PositionEvent(callsign, aircraftPosition.m_Latitude,
                                                                           aircraftPosition.m_Longitude,
-                                                                          position.GetPressureAltitude(), static_cast<double>(radarTarget.GetGS()), radarTarget.GetTrackHeading()));
+                                                                          position.GetPressureAltitude(), static_cast<double>(radarTarget.GetGS())));
     }
 
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
@@ -282,7 +282,7 @@ namespace FlightStrips::flightplan {
             {flightPlanData.GetAircraftWtc()},
             ResolveSpokenCallsign(callsign, remarks),
             Position{
-                position.m_Latitude, position.m_Longitude, radarPosition.GetPressureAltitude(), static_cast<double>(radarTarget.GetGS()), radarTarget.GetTrackHeading()
+                position.m_Latitude, position.m_Longitude, radarPosition.GetPressureAltitude(), static_cast<double>(radarTarget.GetGS())
             },
             standName,
             {flightPlanData.GetCommunicationType()},

@@ -142,8 +142,8 @@ func TestBuildNATSAIRACWindAndAMANPolicy(t *testing.T) {
 		return true
 	})
 	f.get(1, "/api/aman/airports/EKCH/flights/"+callsign+"/detail", 200)
-	f.send(socket, &es.Envelope{Event: &es.Envelope_AircraftPositionUpdate{AircraftPositionUpdate: &es.AircraftPositionUpdateEvent{Callsign: callsign, Lat: 55.3, Lon: 11.3, Altitude: 12000, GroundSpeedKnots: 260, TrackDegrees: 95}}})
-	f.await("incremental radar speed and track reach both AMAN projections", func() bool {
+	f.send(socket, &es.Envelope{Event: &es.Envelope_AircraftPositionUpdate{AircraftPositionUpdate: &es.AircraftPositionUpdateEvent{Callsign: callsign, Lat: 55.29, Lon: 11.3, Altitude: 12000, GroundSpeedKnots: 260, TrackDegrees: -1}}})
+	f.await("backend derives southbound track despite an invalid transmitted heading", func() bool {
 		for _, app := range f.apps {
 			state, err := app.natsRuntime.projection.Read(airportNATSRef("EKCH"))
 			if err != nil {
@@ -151,7 +151,7 @@ func TestBuildNATSAIRACWindAndAMANPolicy(t *testing.T) {
 			}
 			flight := state.Indexes[pb.EntityKind_AMAN_FLIGHT][callsign].GetValue().GetAmanFlight()
 			observation := flight.GetLatestObservation().GetSurveillance()
-			if observation.GetGroundspeedKnots() != 260 || observation.GetTrackTrueDegrees() != 95 {
+			if observation.GetGroundspeedKnots() != 260 || observation.TrackTrueDegrees == nil || observation.GetTrackTrueDegrees() != 180 {
 				return false
 			}
 		}

@@ -201,9 +201,18 @@ func (w *Worker) acceptedInputs(ctx context.Context, airport string, board clust
 				a := p.Value.GetPosition()
 				observed = p.Value.ObservedAt.AsTime()
 				alt := int(a.AltitudeFeet)
-				speed, track := a.GroundSpeedKnots, a.TrackDegrees
+				speed := a.GroundSpeedKnots
 				seq := p.Revision
-				o.Surveillance = &aman.SurveillanceFact{LatitudeDegrees: a.Latitude, LongitudeDegrees: a.Longitude, AltitudeFeet: &alt, GroundspeedKnots: &speed, TrackTrueDegrees: &track, Sequence: &seq, ObservedAt: &observed}
+				o.Surveillance = &aman.SurveillanceFact{LatitudeDegrees: a.Latitude, LongitudeDegrees: a.Longitude, AltitudeFeet: &alt, GroundspeedKnots: &speed, Sequence: &seq, ObservedAt: &observed}
+				prior := previous[strip.Callsign][aman.ObservationProviderEuroScope]
+				if track, ok := aman.DerivedGroundTrack(&prior, o.Surveillance); ok {
+					o.Surveillance.TrackTrueDegrees = &track
+				} else if prior.Surveillance != nil && prior.Surveillance.ObservedAt != nil &&
+					observed.Equal(*prior.Surveillance.ObservedAt) &&
+					prior.Surveillance.LatitudeDegrees == a.Latitude && prior.Surveillance.LongitudeDegrees == a.Longitude {
+					// A worker pass rereading the same sample must retain its derived track.
+					o.Surveillance.TrackTrueDegrees = prior.Surveillance.TrackTrueDegrees
+				}
 				o.SurveillanceSource = aman.SurveillanceSourceEuroScope
 				o.ReconciledAt = observed
 				if alt > 1000 && speed > 40 {

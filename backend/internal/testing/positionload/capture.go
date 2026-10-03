@@ -174,6 +174,7 @@ func Percentile(v []float64, p float64) float64 {
 }
 
 type Report struct {
+	InvalidTimingSamples                                                                                                                           int
 	SenderToReceiptP95MS, SenderToReceiptP99MS, DeadlineToReceiptP95MS, DeadlineToReceiptP99MS                                                     float64
 	SenderToReceiptGroupP95MS, DeadlineToReceiptGroupP95MS                                                                                         []float64
 	IngressSamples                                                                                                                                 int
@@ -188,6 +189,19 @@ type Report struct {
 	Failures                                                                                                                                       []string
 }
 
+// Sender pacing uses Go's monotonic clock. OTLP timestamps retain only wall
+// time, so compare them with the actual send's wall time, then add the local
+// monotonic scheduling delay. A clock correction after the schedule was built
+// must not turn completion before an old wall deadline into negative latency.
+func pairedTiming(senderLag time.Duration, sentAt time.Time, d Completion) (receipt, scheduled, sentRead, dueRead time.Duration, valid bool) {
+	receipt = d.End.Sub(d.Receipt)
+	sentRead = d.Receipt.Sub(sentAt)
+	scheduled = senderLag + d.End.Sub(sentAt)
+	dueRead = senderLag + sentRead
+	valid = senderLag >= 0 && receipt >= 0 && sentRead >= 0
+	return
+}
+
 func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) Report {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -200,7 +214,7 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 		delta int
 	}
 	var changes []change
-	batches := map[int64]time.Time{}
+	batches := map[int64]float64{}
 	for _, s := range c.Sent {
 		if s.Position {
 			r.PositionsSent++
@@ -228,26 +242,31 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 			r.PositionsCompleted++
 			changes = append(changes, change{s.At, 1}, change{d.End, -1})
 			if !s.Due.Before(start) && s.Due.Before(end) {
+				senderLag := s.At.Sub(s.Due)
+				receiptLag, scheduledLag, sentReadLag, dueReadLag, valid := pairedTiming(senderLag, s.At, d)
+				if !valid {
+					r.InvalidTimingSamples++
+					continue
+				}
 				dispatch = append(dispatch, d.DispatchMS)
 				processing = append(processing, d.ProcessingMS)
-				receipt = append(receipt, float64(d.End.Sub(d.Receipt))/float64(time.Millisecond))
-				scheduled = append(scheduled, float64(d.End.Sub(s.Due))/float64(time.Millisecond))
+				receipt = append(receipt, float64(receiptLag)/float64(time.Millisecond))
+				scheduledMS := float64(scheduledLag) / float64(time.Millisecond)
+				scheduled = append(scheduled, scheduledMS)
 				group := ((r.PositionsSent - 1) % 100) / 20
-				groups[group] = append(groups[group], float64(d.End.Sub(s.Due))/float64(time.Millisecond))
+				groups[group] = append(groups[group], scheduledMS)
 				// Match timestamps by command ID before aggregation. Percentile
 				// differences cannot establish the time spent before receipt.
-				sentRead := float64(d.Receipt.Sub(s.At)) / float64(time.Millisecond)
-				dueRead := float64(d.Receipt.Sub(s.Due)) / float64(time.Millisecond)
+				sentRead := float64(sentReadLag) / float64(time.Millisecond)
+				dueRead := float64(dueReadLag) / float64(time.Millisecond)
 				senderToReceipt = append(senderToReceipt, sentRead)
 				deadlineToReceipt = append(deadlineToReceipt, dueRead)
 				senderReadGroups[group] = append(senderReadGroups[group], sentRead)
 				deadlineReadGroups[group] = append(deadlineReadGroups[group], dueRead)
 
-				sender = append(sender, float64(s.At.Sub(s.Due))/float64(time.Millisecond))
+				sender = append(sender, float64(senderLag)/float64(time.Millisecond))
 				key := s.Due.UnixNano()
-				if d.End.After(batches[key]) {
-					batches[key] = d.End
-				}
+				batches[key] = max(batches[key], scheduledMS)
 			}
 			if r.PositionsSent <= overloadTarget && d.End.After(overloadEnd) {
 				r.DrainMS = max(r.DrainMS, float64(d.End.Sub(overloadEnd))/float64(time.Millisecond))
@@ -255,7 +274,11 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 		} else {
 			r.OperationalCompleted++
 			if !s.Due.Before(start) && s.Due.Before(end) {
-				operations = append(operations, float64(d.End.Sub(d.Receipt))/float64(time.Millisecond))
+				if duration := d.End.Sub(d.Receipt); duration < 0 {
+					r.InvalidTimingSamples++
+				} else {
+					operations = append(operations, float64(duration)/float64(time.Millisecond))
+				}
 			}
 		}
 	}
@@ -270,8 +293,8 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 		depth += v.delta
 		r.MaxBacklog = max(r.MaxBacklog, depth)
 	}
-	for due, last := range batches {
-		r.MaxBatchMS = max(r.MaxBatchMS, float64(last.Sub(time.Unix(0, due)))/float64(time.Millisecond))
+	for _, duration := range batches {
+		r.MaxBatchMS = max(r.MaxBatchMS, duration)
 	}
 	r.OperationalP95MS, r.OperationalP99MS = Percentile(operations, .95), Percentile(operations, .99)
 	for _, group := range groups {
@@ -292,6 +315,9 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 
 	if len(receipt) == 0 {
 		r.Failures = append(r.Failures, "no steady position samples")
+	}
+	if r.InvalidTimingSamples != 0 {
+		r.Failures = append(r.Failures, "invalid negative latency measurements")
 	}
 	if r.Missing != 0 || r.Completed != r.Sent {
 		r.Failures = append(r.Failures, "sent/completed mismatch")

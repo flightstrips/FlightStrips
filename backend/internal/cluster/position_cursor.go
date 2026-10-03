@@ -61,7 +61,7 @@ func (p *Projection) watchPositions(ctx context.Context) {
 }
 func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 	stream := "KV_" + p.Config.Names.Positions
-	info, err := p.JS.StreamInfo(stream, nats.Context(ctx))
+	info, err := p.positionStreamInfo(ctx, stream)
 	if err != nil {
 		return fmt.Errorf("%w: initial stream metadata: %v", errPositionTransport, err)
 	}
@@ -116,6 +116,19 @@ func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 
 	}
 	return ctx.Err()
+}
+
+// nats.Context overrides the JetStream request timeout when the caller already
+// has a deadline. Watcher lifetimes are much longer than a metadata request;
+// bound each request so a lost response cannot prevent consumer reconstruction.
+func (p *Projection) positionStreamInfo(ctx context.Context, stream string) (*nats.StreamInfo, error) {
+	timeout := p.Config.RequestTimeout
+	if timeout <= 0 {
+		timeout = nats.DefaultTimeout
+	}
+	request, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return p.JS.StreamInfo(stream, nats.Context(request))
 }
 func (p *Projection) observationFailurePresent() bool {
 	p.mu.RLock()
@@ -185,7 +198,7 @@ func (p *Projection) provePositionCursor(ctx context.Context) (bool, error) {
 	if sub == nil {
 		return false, fmt.Errorf("position cursor unavailable")
 	}
-	info, err := p.JS.StreamInfo("KV_"+p.Config.Names.Positions, nats.Context(ctx))
+	info, err := p.positionStreamInfo(ctx, "KV_"+p.Config.Names.Positions)
 	if err != nil {
 		return false, fmt.Errorf("position stream metadata: %w", err)
 	}

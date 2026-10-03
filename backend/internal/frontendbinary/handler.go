@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net"
 	"net/http"
 	"sort"
 	"strings"
@@ -15,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -108,10 +112,13 @@ func readFrame(conn *websocket.Conn) (*pb.FrontendFrame, error) {
 }
 
 func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error) {
+	phase := "authenticate"
+	var lastSession, lastAirport uint64
 	ctx, cancel := context.WithCancel(ctx)
 	var jobs sync.WaitGroup
 	defer func() {
 		if result != nil {
+			logFrontendFailure(ctx, phase, result, lastSession, lastAirport)
 			var failure closeFailure
 			code, reason := websocket.CloseTryAgainLater, "projection unavailable"
 			if errors.As(result, &failure) {
@@ -136,6 +143,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error)
 	if err != nil || !user.IsValid() {
 		return closeFailure{websocket.ClosePolicyViolation, "authentication failed"}
 	}
+	phase = "resolve_session"
 	identity, err := h.resolve(&user, auth)
 	if err != nil {
 		return closeFailure{websocket.ClosePolicyViolation, "session unavailable"}
@@ -143,6 +151,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error)
 	_ = conn.SetReadDeadline(time.Time{})
 	var presenceErrors <-chan error
 	if h.NodeID != "" {
+		phase = "presence_initial"
 		projection, ok := h.Projection.(*cluster.Projection)
 		if !ok || projection.Presence == nil {
 			return fmt.Errorf("frontend presence unavailable")
@@ -162,16 +171,19 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error)
 		jobs.Add(1)
 		go func() { defer jobs.Done(); errs <- lease.Run(presenceCtx) }()
 	}
+	phase = "subscribe_session"
 	session, sessionUpdates, observations, stopSession, err := h.Projection.SubscribeObservedInitial(identity.id)
 	if err != nil {
 		return err
 	}
 	defer stopSession()
+	phase = "subscribe_airport"
 	airport, airportUpdates, stopAirport, err := h.Projection.SubscribeInitial(identity.airportRef)
 	if err != nil {
 		return err
 	}
 	defer stopAirport()
+	phase = "initial_delivery"
 	initial := buildInitial(identity, session, airport)
 	if err := send(conn, &pb.FrontendFrame_Initial{Initial: initial}); err != nil {
 		return err
@@ -195,9 +207,10 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error)
 			}
 		}
 	}()
-	lastSession, lastAirport := session.AggregateRevision, airport.Revision
+	lastSession, lastAirport = session.AggregateRevision, airport.Revision
 	pending := map[string]*pb.AggregateRef{}
 	for {
+		phase = "delivery_readiness"
 		if err := readyForDelivery(h.Projection); err != nil {
 			return err
 		}
@@ -205,35 +218,43 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error)
 		case <-ctx.Done():
 			return nil
 		case err := <-presenceErrors:
+			phase = "presence_renewal"
 			return fmt.Errorf("frontend presence renewal: %w", err)
 		case item := <-read:
+			phase = "input_read"
 			if item.err != nil {
 				return item.err
 			}
+			phase = "command_delivery"
 			if err := h.handleFrame(ctx, conn, identity, item.frame, pending); err != nil {
 				return err
 			}
 		case delta, ok := <-sessionUpdates:
+			phase = "session_delta"
 			if !ok {
 				return fmt.Errorf("session delivery overflow")
 			}
 			if err := sendDelta(conn, delta, &lastSession); err != nil {
 				return err
 			}
+			phase = "session_results"
 			if err := h.sendTerminalResults(conn, identity, pending, identity.sessionRef); err != nil {
 				return err
 			}
 		case delta, ok := <-airportUpdates:
+			phase = "airport_delta"
 			if !ok {
 				return fmt.Errorf("airport delivery overflow")
 			}
 			if err := sendDelta(conn, delta, &lastAirport); err != nil {
 				return err
 			}
+			phase = "airport_results"
 			if err := h.sendTerminalResults(conn, identity, pending, identity.airportRef); err != nil {
 				return err
 			}
 		case observation, ok := <-observations:
+			phase = "observation_delivery"
 			if !ok {
 				return fmt.Errorf("observation delivery overflow")
 			}
@@ -242,6 +263,78 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error)
 			}
 		}
 	}
+}
+
+// Diagnostic values are fixed classes and numeric checkpoints. Error text can
+// contain credentials or command content and must never be logged here.
+func logFrontendFailure(ctx context.Context, phase string, err error, session, airport uint64) {
+	slog.WarnContext(ctx, "frontend session failed", "phase", phase, "cause", frontendFailureCause(err), "error_type", fmt.Sprintf("%T", err), "session_revision", session, "airport_revision", airport)
+}
+
+func frontendFailureCause(err error) string {
+	var failure closeFailure
+	if errors.As(err, &failure) {
+		return "protocol_close"
+	}
+	switch {
+	case errors.Is(err, context.Canceled):
+		return "context_canceled"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "context_deadline"
+	case errors.Is(err, nats.ErrNoStreamResponse):
+		return "stream_no_response"
+	case errors.Is(err, nats.ErrNoResponders):
+		return "no_responders"
+	case errors.Is(err, nats.ErrTimeout):
+		return "nats_timeout"
+	case errors.Is(err, nats.ErrDisconnected), errors.Is(err, nats.ErrConnectionClosed):
+		return "nats_disconnected"
+	case errors.Is(err, cluster.ErrPositionIntegrityStale):
+		return "position_integrity_stale"
+	case errors.Is(err, nats.ErrDigestMismatch):
+		return "object_digest_mismatch"
+	case errors.Is(err, nats.ErrBadObjectMeta):
+		return "object_metadata_invalid"
+	case errors.Is(err, io.EOF):
+		return "peer_eof"
+	}
+	var transport net.Error
+	if errors.As(err, &transport) && transport.Timeout() {
+		return "network_timeout"
+	}
+	var api *nats.APIError
+	if errors.As(err, &api) && api.Code == 503 {
+		return "jetstream_unavailable"
+	}
+	var peer *websocket.CloseError
+	if errors.As(err, &peer) {
+		return "peer_close"
+	}
+	// These messages originate from local projection/delivery checks. Only a
+	// constant classification is emitted, never the matched text or suffix.
+	if err != nil {
+		switch err.Error() {
+		case "projection revision gap":
+			return "revision_gap"
+		case "empty projection delta":
+			return "empty_delta"
+		case "session delivery overflow", "airport delivery overflow", "observation delivery overflow":
+			return "delivery_overflow"
+		case "state metadata is stale":
+			return "state_metadata_stale"
+		case "KV observation replay incomplete":
+			return "kv_replay_incomplete"
+		case "projection not started":
+			return "projection_not_started"
+		}
+		if strings.HasPrefix(err.Error(), "replay behind stream:") {
+			return "state_replay_behind"
+		}
+		if strings.HasPrefix(err.Error(), "history cache unavailable:") {
+			return "history_unavailable"
+		}
+	}
+	return "unclassified"
 }
 
 // A normal in-flight commit can briefly put the replay consumer behind the

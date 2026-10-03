@@ -21,6 +21,7 @@ import (
 // never exposed until a complete event has passed the reducer.
 type Projection struct {
 	Async                                      *AsyncSessionOwners // configured before command admission
+	objectCache                                *VerifiedObjectCache
 	NC                                         *nats.Conn
 	JS                                         nats.JetStreamContext
 	Config                                     natsresources.Config
@@ -310,6 +311,7 @@ func (p *Projection) applyEvent(entry AppliedEvent, expected *uint64) error {
 	}
 
 	p.states[entry.Subject] = clone
+
 	if expected == nil {
 		p.applied = entry.StreamSequence
 		p.lastAppliedServerTime = entry.ServerTime
@@ -326,6 +328,16 @@ func (p *Projection) applyEvent(entry AppliedEvent, expected *uint64) error {
 		if err := pb.UnmarshalStrict(entry.Data, e); err != nil {
 			return err
 		}
+		if p.objectCache != nil {
+			for _, change := range e.GetDomainChanged().GetChanges() {
+				if checkpoint := change.GetUpsert().GetProviderCheckpoint(); checkpoint != nil {
+					p.objectCache.acceptProvider(entry.Subject, change.Key, checkpoint.ObjectName, change.Revision)
+				} else if change.GetDelete().GetKind() == pb.EntityKind_PROVIDER_CHECKPOINT {
+					p.objectCache.acceptProvider(entry.Subject, change.Key, "", change.Revision)
+				}
+			}
+		}
+
 		if e.GetOwnerClaimed() == nil && e.GetOwnerRenewed() == nil {
 			_, alreadyDelivered := p.memoryEvents.LoadAndDelete(e.EventId)
 			delta := &pb.FrontendDelta{Aggregate: proto.Clone(ref).(*pb.AggregateRef), AggregateRevision: clone.Revision, StreamSequence: entry.StreamSequence}
@@ -1170,4 +1182,16 @@ func refFromKey(key string) (*pb.AggregateRef, error) {
 		return ref, nil
 	}
 	return nil, fmt.Errorf("invalid aggregate key %q", key)
+}
+
+// SetObjectCache attaches after initial replay and seeds only current references.
+func (p *Projection) SetObjectCache(cache *VerifiedObjectCache) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.objectCache = cache
+	for scope, state := range p.states {
+		for key, entry := range state.Indexes[pb.EntityKind_PROVIDER_CHECKPOINT] {
+			cache.acceptProvider(scope, key, entry.Value.GetProviderCheckpoint().ObjectName, entry.Revision)
+		}
+	}
 }

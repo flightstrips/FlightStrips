@@ -30,6 +30,11 @@ type BinaryObjects interface {
 type NATSObjects struct{ Store nats.ObjectStore }
 
 func (o NATSObjects) GetBytes(name string) ([]byte, error) { return o.Store.GetBytes(name) }
+func (o NATSObjects) Delete(name string) error             { return o.Store.Delete(name) }
+func (o NATSObjects) List(ctx context.Context) ([]*nats.ObjectInfo, error) {
+	return o.Store.List(nats.Context(ctx))
+}
+
 func (o NATSObjects) PutBytes(name string, data []byte) (*nats.ObjectInfo, error) {
 	return o.Store.PutBytes(name, data)
 }
@@ -201,7 +206,7 @@ func (a NavigationWeather) PublishProvider(page *pb.ProviderPage) (string, strin
 		return "", "", err
 	}
 	sha := digest(b)
-	name := "provider/" + page.Provider + "/" + sha
+	name := "provider/" + page.Provider + "/" + digest([]byte(page.Resource)) + "/" + sha
 	_, err = a.put(name, value)
 	return name, sha, err
 }
@@ -614,7 +619,18 @@ func (a NavigationWeather) PutCheckpointFor(ctx context.Context, ref *pb.Aggrega
 		_, err := a.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, checkpoint.Provider, checkpoint.Resource)
 		return err
 	}
-	return a.upsert(ctx, ref, id, checkpoint.Provider+"."+checkpoint.Resource, &pb.EntityRecord{Value: &pb.EntityRecord_ProviderCheckpoint{ProviderCheckpoint: checkpoint}}, verify)
+	prior, _, err := a.providerCheckpointMetadata(ctx, ref, checkpoint.Provider, checkpoint.Resource)
+	if err != nil {
+		return nil, err
+	}
+	reply, err := a.upsert(context.WithValue(ctx, durableExecutionKey{}, true), ref, id, checkpoint.Provider+"."+checkpoint.Resource, &pb.EntityRecord{Value: &pb.EntityRecord_ProviderCheckpoint{ProviderCheckpoint: checkpoint}}, verify)
+	if err == nil && reply.Status == pb.CommandReply_COMMITTED && !reply.MemoryAccepted {
+		_, _, _ = a.providerCheckpointMetadata(ctx, ref, checkpoint.Provider, checkpoint.Resource)
+		if err = a.deleteReplacedProvider(ctx, ref, prior, checkpoint); err != nil {
+			return reply, err
+		}
+	}
+	return reply, err
 }
 
 func (a NavigationWeather) Checkpoint(ctx context.Context, airport, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, error) {
@@ -627,15 +643,29 @@ func (a NavigationWeather) CheckpointFor(ctx context.Context, ref *pb.AggregateR
 }
 
 func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, uint64, error) {
-	checkpoint, revision, err := a.CheckpointMetadataFor(ctx, ref, provider, resource)
-	if err != nil || checkpoint == nil || checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
-		return checkpoint, nil, revision, err
+	for attempt := 0; attempt < 3; attempt++ {
+		checkpoint, revision, err := a.CheckpointMetadataFor(ctx, ref, provider, resource)
+		if err != nil || checkpoint == nil || checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
+			return checkpoint, nil, revision, err
+		}
+		page, err := a.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, provider, resource)
+		if err == nil {
+			return checkpoint, page, revision, nil
+		}
+		if !errors.Is(err, nats.ErrObjectNotFound) {
+			return nil, nil, 0, err
+		}
+		if p := a.Writer.Projection; p != nil {
+			p.mu.RLock()
+			generation := p.metadataGeneration
+			p.mu.RUnlock()
+			p.refresh(ctx, generation)
+			if err := p.readyForRead(); err != nil {
+				return nil, nil, 0, err
+			}
+		}
 	}
-	page, err := a.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, provider, resource)
-	if err != nil {
-		return nil, nil, 0, err
-	}
-	return checkpoint, page, revision, nil
+	return nil, nil, 0, fmt.Errorf("provider checkpoint was replaced during read")
 }
 
 // CheckpointMetadataFor reads accepted identity without downloading its page.
@@ -671,6 +701,10 @@ func (a NavigationWeather) providerCheckpointMetadata(ctx context.Context, ref *
 	checkpoint := entry.GetValue().GetProviderCheckpoint()
 	if checkpoint == nil || checkpoint.Provider != provider || checkpoint.Resource != resource {
 		return nil, 0, fmt.Errorf("corrupt provider checkpoint")
+	}
+	scope, _ := Subject(ref)
+	if a.Writer.Projection == nil {
+		a.Cache.acceptProvider(scope, provider+"."+resource, checkpoint.ObjectName, entry.Revision)
 	}
 	return proto.Clone(checkpoint).(*pb.ProviderCheckpoint), entry.Revision, nil
 }
@@ -779,7 +813,8 @@ func (a NavigationWeather) FetchProviderPageReserved(ctx context.Context, worker
 	if reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
 		return true, fmt.Errorf("provider result commit: %s: %s", reply.Status, reply.Detail)
 	}
-	return true, nil
+	_, _, _ = a.providerCheckpointMetadata(ctx, ref, provider, resource)
+	return true, a.deleteReplacedProvider(ctx, ref, prior, next)
 }
 
 func (a NavigationWeather) writeProviderAttempt(ctx context.Context, writer Writer, ref *pb.AggregateRef, checkpoint *pb.ProviderCheckpoint, expected uint64, phase string) (*pb.CommandReply, bool) {

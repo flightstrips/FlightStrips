@@ -61,9 +61,43 @@ with no attempt fields remain readable. No JSON payloads are introduced.
   They do not reconstruct discarded terminal history.
 - Existing snapshots and events remain readable. Replay trims old materialized
   records using the same rules; old local bbolt caches are no longer opened.
-- Existing NATS log/object data and Docker volumes are preserved during this
-  migration. Automatic broker-log deletion is outside this change: safely
+- Existing domain logs, required navigation objects and Docker volumes are
+  preserved. Superseded provider payloads are pruned under the feed replacement
+  contract below. Automatic broker-log deletion is outside this change: safely
   compacting it requires a separate retention/replay migration, not a blind purge.
 - Validate memory bounds, snapshot/replay agreement, queue saturation, duplicate
   retries, uncertain provider reads and backend failover before restarting the
   user's retained local stack with the new binary.
+
+## Feed replacement and payload retention
+
+- Each accepted provider/resource checkpoint selects its current decoded page.
+  Every backend evicts the superseded page when it applies the new checkpoint.
+  Staged uploads and reads using older revisions cannot repopulate the cache.
+- New payload names are `provider/<provider>/<sha256(resource)>/<sha256(payload)>`.
+  Existing `provider/<provider>/<sha256(payload)>` names remain readable.
+- The owner publishes and verifies new chunks, durably commits the checkpoint,
+  then deletes the previous payload through NATS Object Store. This purges the
+  old chunks from the file-backed replicated object stream. Failed admission
+  preserves the last accepted page. A payload still selected by another live
+  aggregate remains required and is preserved.
+- On takeover and each minute, serialized global/airport provider supervisors
+  prune obsolete payload generations and legacy names. Uploads newer than the
+  accepted object are protected until a later successful replacement. Cleanup
+  errors are reported and retried; no retained payload is intentionally archived.
+- Readers overlapping deletion refresh checkpoint metadata and retry against
+  broker-confirmed state. Replay and snapshot loading apply metadata before any
+  provider reads, so old feed payloads are not required for recovery.
+- Obsolete snapshot objects older than the two indexed recovery checkpoints
+  are pruned. Concurrent uploads with newer sequence numbers are protected.
+- FS_STATE metadata, navigation objects required by current manifests/routes,
+  snapshots and pending effect ciphertext have their own recovery contracts.
+  They are not raw feed archives. Object deletion retains small NATS tombstones;
+  allocator and OS page-cache reclamation are asynchronous.
+- Backends receive narrowly scoped `$JS.API.STREAM.PURGE.OBJ_FS_OBJECTS`
+  permission for Object Store chunk deletion, without FS_STATE purge permission.
+
+Expired Open-Meteo resources are removed through durable checkpoint deletion
+with entity revision CAS before object deletion. A refresh racing expiration
+wins by changing the revision; pending attempts remain protected. A later sweep
+removes any expired unreferenced payload left by interrupted cleanup.

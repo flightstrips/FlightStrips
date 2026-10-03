@@ -37,6 +37,8 @@ func (p *Projection) WriteMetrics(out io.Writer, node string) {
 	fmt.Fprintf(out, "fs_owner_takeovers_total %d\nfs_stale_epoch_rejections_total %d\nfs_snapshot_verify_failures_total %d\n", p.takeovers.Load(), p.staleEpochs.Load(), p.snapshotFailures.Load())
 	fmt.Fprintf(out, "fs_snapshot_size_skips_total %d\nfs_snapshot_index_contentions_total %d\n", p.snapshotSizeSkips.Load(), p.snapshotIndexContentions.Load())
 	fmt.Fprintln(out, "fs_history_cache_bytes 0")
+	count, bytes := p.objectCache.providerStats()
+	fmt.Fprintf(out, "fs_provider_cache_entries %d\nfs_provider_cache_serialized_bytes %d\n", count, bytes)
 	hot := map[string]int{"outcome": 0, "workflow": 0, "effect": 0}
 	leases := map[string]float64{"global": 0, "airport": 0, "session": 0}
 	seen := map[string]bool{}

@@ -168,6 +168,7 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 		return nil, err
 	}
 	r.source = cluster.NavigationWeather{Writer: writer, Objects: cluster.NATSObjects{Store: objects}, Cache: cluster.NewVerifiedObjectCache(32 * 1024 * 1024)}
+	r.projection.SetObjectCache(r.source.Cache)
 	stage = "effect_secrets"
 	r.secrets, err = cluster.LoadEffectSecrets(objects, cfg.NATS.EffectKeyID, cfg.NATS.EffectKeyFiles)
 	if err != nil {

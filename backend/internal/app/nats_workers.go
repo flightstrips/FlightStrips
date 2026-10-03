@@ -115,6 +115,7 @@ func (r *natsRuntime) assembleProviders(cfg Config, deps Dependencies, transceiv
 	ecfmpFeed := ecfmp.CandidateFetch{Client: ecfmp.NewClient(ecfmpOpts...), State: r.source, Worker: external}
 	metarFeed := metar.Candidate{Provider: metar.NewCandidateProvider(deps.NATS.HTTPClient, deps.NATS.MetarBaseURL, deps.NATS.ATISURL), State: r.source, AirportWorker: external, GlobalWorker: external, Session: cluster.AtisSessionAdapter{Writer: writer}}
 	var globalEpoch uint64
+	var nextProviderSweep time.Time
 	r.supervisors = append(r.supervisors, func(ctx context.Context) error {
 		return periodic(ctx, time.Second, func(ctx context.Context, now time.Time) error {
 			if !r.owner.CanWrite(globalNATSRef()) {
@@ -129,7 +130,17 @@ func (r *natsRuntime) assembleProviders(cfg Config, deps Dependencies, transceiv
 				if err = external.Resume(ctx, globalNATSRef()); err != nil {
 					return err
 				}
+				nextProviderSweep = time.Time{}
 				globalEpoch = owner.GetEpoch()
+			}
+			if !now.Before(nextProviderSweep) {
+				if _, err = r.source.PruneProviderPages(ctx, globalNATSRef()); err != nil {
+					return err
+				}
+				if _, err = r.projection.Snapshots.Prune(ctx, globalNATSRef()); err != nil {
+					return err
+				}
+				nextProviderSweep = now.Add(time.Minute)
 			}
 			var failures []error
 			if cfg.EnableVATSIM {
@@ -204,6 +215,7 @@ func (r *natsRuntime) assembleProviders(cfg Config, deps Dependencies, transceiv
 		return fmt.Errorf("enabled AMAN requires navigation source")
 	}
 	epochs := map[string]uint64{}
+	airportSweeps := map[string]time.Time{}
 	r.supervisors = append(r.supervisors, func(ctx context.Context) error {
 		return periodic(ctx, time.Second, func(ctx context.Context, now time.Time) error {
 			airports, err := r.airports(append(cfg.NATS.Airports, cfg.AMAN.EnabledAirports...))
@@ -241,7 +253,19 @@ func (r *natsRuntime) assembleProviders(cfg Config, deps Dependencies, transceiv
 							continue
 						}
 					}
+					delete(airportSweeps, icao)
 					epochs[icao] = owner.GetEpoch()
+				}
+				if !now.Before(airportSweeps[icao]) {
+					if _, e = r.source.PruneProviderPages(ctx, ref); e != nil {
+						failures = append(failures, e)
+						continue
+					}
+					if _, e = r.projection.Snapshots.Prune(ctx, ref); e != nil {
+						failures = append(failures, e)
+						continue
+					}
+					airportSweeps[icao] = now.Add(time.Minute)
 				}
 				configPage, _, configErr := r.cdm.Config.Read(ctx, icao)
 				if cfg.EnableCDMConfigStore || configErr != nil || configPage == nil {

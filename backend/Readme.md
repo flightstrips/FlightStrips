@@ -265,5 +265,11 @@ No local history database is opened. Each aggregate retains 4,096 recent command
 receipts plus pending work, and 1,024 terminal workflow/effect records. Missing
 outcomes do not trigger automatic frontend resubmission. Routine provider-page
 polls retain their current attempt and last accepted generation in a typed
-checkpoint. Existing NATS log/object data and local volumes are preserved;
+checkpoint. Existing domain log/navigation data and local volumes are preserved;
 automatic broker compaction is not introduced by this migration.
+
+Provider feeds now replace their cached generation when a durable checkpoint
+advances. Superseded feed payloads are deleted from NATS Object Store after
+confirmation; startup/takeover and periodic cleanup remove legacy generations.
+The current payload survives failed refreshes. Metrics `fs_provider_cache_entries`
+and `fs_provider_cache_serialized_bytes` report the accepted-page cache.

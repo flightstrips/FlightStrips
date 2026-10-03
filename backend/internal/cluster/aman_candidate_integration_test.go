@@ -192,7 +192,7 @@ func TestAmanCandidateTwoReplicaObservationAndSupersessionNATS(t *testing.T) {
 		t.Fatalf("newer airport revision: %v", newer)
 	}
 	called := false
-	runner = AmanIntentRunner{AirportWriter: nodes[second].state.Writer, Step: func(*pb.WorkflowRecord) (*pb.CommandRequest, error) { called = true; return nil, nil }}
+	runner = AmanIntentRunner{AirportWriter: nodes[second].state.Writer, Destination: amanTestDestination{takeoverDestination}, Step: func(*pb.WorkflowRecord) (*pb.CommandRequest, error) { called = true; return nil, nil }}
 	if err := runner.Resume(ctx, icao); err != nil {
 		t.Fatal(err)
 	}

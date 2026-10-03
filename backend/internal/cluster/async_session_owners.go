@@ -546,7 +546,7 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 		seq, err := m.store.Publish(ctx, mustAsyncSubject(s.ref), state.SubjectSequence, data)
 		if errors.Is(err, ErrCAS) {
 			reconcile = true
-			if err = m.projection.WaitSubjectAdvance(ctx, mustAsyncSubject(s.ref), state.SubjectSequence); err != nil {
+			if err = m.persistenceSubjectAdvance(ctx, s.ref, s.epoch, state.SubjectSequence); err != nil {
 				return err
 			}
 			continue
@@ -576,7 +576,7 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 			return fmt.Errorf("async committed event identity mismatch")
 		}
 		if err = m.projection.applyCommitted(entry, state.SubjectSequence); err != nil {
-			if err = m.projection.WaitApplied(ctx, seq); err != nil {
+			if err = m.persistenceReplayApplied(ctx, seq); err != nil {
 				return err
 			}
 		}
@@ -715,6 +715,41 @@ func (m *AsyncSessionOwners) waitPersistenceReadRetry(ctx context.Context) error
 		return ctx.Err()
 	case <-time.After(100 * time.Millisecond):
 		return nil
+	}
+}
+
+// The receipt was already verified; this wait is read-only even if the owner
+// term expires. It never publishes or bypasses replay health/history checks.
+func (m *AsyncSessionOwners) persistenceReplayApplied(ctx context.Context, sequence uint64) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := m.projection.WaitApplied(ctx, sequence)
+		if err == nil || !asyncPersistenceHealthRetryable(err) {
+			return err
+		}
+		if retryErr := m.waitPersistenceReadRetry(ctx); retryErr != nil {
+			return retryErr
+		}
+	}
+}
+
+// A CAS conflict has not proved this command committed. Retain the original
+// predecessor and require its live owner term before retrying the subject wait;
+// the caller then reconciles exact event identity before any new publication.
+func (m *AsyncSessionOwners) persistenceSubjectAdvance(ctx context.Context, ref *pb.AggregateRef, epoch, previous uint64) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := m.projection.WaitSubjectAdvance(ctx, mustAsyncSubject(ref), previous)
+		if err == nil || !asyncPersistenceHealthRetryable(err) {
+			return err
+		}
+		if retryErr := m.waitPersistenceRetry(ctx, ref, epoch); retryErr != nil {
+			return retryErr
+		}
 	}
 }
 

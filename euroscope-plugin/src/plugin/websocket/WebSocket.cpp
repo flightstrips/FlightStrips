@@ -157,7 +157,9 @@ namespace FlightStrips::websocket {
                 exceptions::RunGuarded("WebSocket::OnOpen", [this, &hdl] {
                     status_ = WEBSOCKET_STATUS_CONNECTED;
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
-					if (con->get_subprotocol() != "flightstrips.euroscope.pb.v2") {
+					// websocketpp only populates get_subprotocol() when selecting a
+					// protocol on the server. Clients must inspect the response header.
+					if (con->get_response_header("Sec-WebSocket-Protocol") != "flightstrips.euroscope.pb.v2") {
 						Logger::Warning("Server did not negotiate EuroScope protobuf revision 2");
 						status_ = WEBSOCKET_STATUS_FAILED;
 						websocketpp::lib::error_code ec;

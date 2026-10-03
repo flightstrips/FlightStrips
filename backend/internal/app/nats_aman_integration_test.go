@@ -18,11 +18,14 @@ import (
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/cluster"
 	cr "FlightStrips/internal/coordinationrequest"
+	"FlightStrips/internal/frontendbinary"
 	"FlightStrips/internal/navigation"
 	pb "FlightStrips/pkg/events/cluster"
 	es "FlightStrips/pkg/events/euroscope"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -104,7 +107,7 @@ func TestBuildNATSAIRACWindAndAMANPolicy(t *testing.T) {
 	t.Cleanup(provider.Close)
 	f := newRuntimeFixture(t, func(cfg *Config, deps *Dependencies) {
 		cfg.Navigation = navigation.Config{Source: navigation.SourceAIRACNet, TerminalGeometryPath: filename}
-		cfg.AMAN = aman.RuntimeConfig{Mode: aman.ModeAuthoritative, SourceMode: aman.ObservationSourceEuroScope, EnabledAirports: []string{"EKCH"}, ReconciliationInterval: time.Second, SurveillanceInterval: time.Second}
+		cfg.AMAN = aman.RuntimeConfig{EnableEuroScopeGainLoseTags: true, Mode: aman.ModeAuthoritative, SourceMode: aman.ObservationSourceEuroScope, EnabledAirports: []string{"EKCH"}, ReconciliationInterval: time.Second, SurveillanceInterval: time.Second}
 		deps.NATS = NATSDependencies{HTTPClient: provider.Client(), AIRACBaseURL: provider.URL + "/api/v1", OpenMeteoBaseURL: provider.URL + "/wind"}
 	})
 	socket := f.socket(0, "111111", "EKCH_FMP", "119.905")
@@ -157,6 +160,58 @@ func TestBuildNATSAIRACWindAndAMANPolicy(t *testing.T) {
 		}
 		return true
 	})
+
+	f.await("authoritative AMAN replacement delivered over ES socket", func() bool {
+		socket.mu.Lock()
+		defer socket.mu.Unlock()
+		for _, frame := range socket.frames {
+			event := frame.GetAmanGainLoss()
+			if event == nil || !event.Authoritative {
+				continue
+			}
+			for _, value := range event.Values {
+				if value.Callsign == callsign && value.TargetTime != nil && value.PredictedTime != nil && value.GainLossSeconds != nil {
+					return true
+				}
+			}
+		}
+		return false
+	})
+	observer := f.socket(1, "222222", "EKCH_OBS", "", true)
+	f.await("AMAN initial replacement reaches observer on the other node", func() bool {
+		observer.mu.Lock()
+		defer observer.mu.Unlock()
+		for _, frame := range observer.frames {
+			if frame.GetAmanGainLoss().GetAuthoritative() && len(frame.GetAmanGainLoss().GetValues()) > 0 {
+				return true
+			}
+		}
+		return false
+	})
+	dialer := websocket.Dialer{Subprotocols: []string{frontendbinary.Subprotocol}}
+	front, _, frontErr := dialer.Dial("ws"+strings.TrimPrefix(f.servers[1].URL, "http")+"/frontEndEvents", nil)
+	require.NoError(t, frontErr)
+	defer front.Close()
+	authFrame, frontErr := proto.Marshal(&pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_Authenticate{Authenticate: &pb.FrontendAuthenticate{BearerToken: "111111", Airport: "EKCH", SessionName: f.name}}})
+	require.NoError(t, frontErr)
+	require.NoError(t, front.WriteMessage(websocket.BinaryMessage, authFrame))
+	require.NoError(t, front.SetReadDeadline(time.Now().Add(10*time.Second)))
+	_, frontData, frontErr := front.ReadMessage()
+	require.NoError(t, frontErr)
+	frontFrame := &pb.FrontendFrame{}
+	require.NoError(t, pb.UnmarshalStrict(frontData, frontFrame))
+	var delivered *pb.AmanAirport
+	for _, entity := range frontFrame.GetInitial().GetEntities() {
+		if entity.GetValue().GetAmanAirport() != nil {
+			delivered = entity.Value.GetAmanAirport()
+		}
+	}
+	require.NotNil(t, delivered)
+	require.NotNil(t, delivered.Header)
+	require.NotNil(t, delivered.TrafficPrediction)
+	require.True(t, delivered.Header.GetReadiness().GetReady())
+	require.NotEmpty(t, delivered.TrafficPrediction.Buckets)
+
 	require.Positive(t, airacCalls.Load())
 	require.Positive(t, windCalls.Load())
 	state, err := f.apps[1].natsRuntime.projection.Read(airportNATSRef("EKCH"))

@@ -14,6 +14,8 @@ x-backend: &backend
     SERVER_ADDR: 0.0.0.0:8090
     ENVIRONMENT: development
     AMAN_MODE: authoritative
+    ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS: "true"
+    ENABLE_AMAN_HOLDING_EAT_WRITEBACK: "true"
     NATS_URLS: nats://backend:backend-local-only@nats-1:4222,nats://backend:backend-local-only@nats-2:4222,nats://backend:backend-local-only@nats-3:4222
     NATS_EFFECT_ACTIVE_KEY_ID: v1
     NATS_EFFECT_KEY_FILES: v1=/run/secrets/nats_effect_v1

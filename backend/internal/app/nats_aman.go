@@ -4,8 +4,10 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/aman/predictor/openmeteo"
+	"FlightStrips/internal/amancandidate"
 	"FlightStrips/internal/cluster"
 	pb "FlightStrips/pkg/events/cluster"
+	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"errors"
 	"fmt"
@@ -117,4 +119,34 @@ func (w natsWind) WindProfile(ctx context.Context, request predictor.WindProfile
 		return predictor.WindProfile{}, err
 	}
 	return w.candidate.ProfileForRequest(ctx, w.airport, resource, request)
+}
+
+// amanRenderer publishes a full replacement to every ES client, including observers.
+// Rollout and health gates withdraw guidance through an empty replacement.
+func amanRenderer(enabled bool) func(*cluster.Aggregate) (*euroscope.Envelope, error) {
+	if !enabled {
+		return nil
+	}
+	return func(a *cluster.Aggregate) (*euroscope.Envelope, error) {
+		board, err := cluster.ReadAmanBoard(a)
+		if err != nil {
+			return nil, err
+		}
+		if board.Airport == nil {
+			return nil, nil
+		}
+		state, err := amancandidate.DecodeBoard(board)
+		if err != nil {
+			return nil, err
+		}
+		event, err := euroscope.NewAMANGainLossEvent(state)
+		if err != nil {
+			return nil, err
+		}
+		event.Authoritative = board.Airport.Authoritative && board.Airport.EffectiveMode == "authoritative" && board.Airport.GetHealth().GetReady()
+		if !event.Authoritative {
+			event.Values = nil
+		}
+		return &euroscope.Envelope{Event: &euroscope.Envelope_AmanGainLoss{AmanGainLoss: &event}}, nil
+	}
 }

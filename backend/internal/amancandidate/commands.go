@@ -129,6 +129,9 @@ func (w *Worker) PlanCommand(ctx context.Context, request *pb.CommandRequest, st
 	// Preserve accepted observations/projections that are outside policy state.
 	transition.Airport.ConfiguredMode = board.Airport.ConfiguredMode
 	transition.Airport.TimelineMappings = board.Airport.TimelineMappings
+	if err := refreshDisplay(transition.Airport, repo.commit.State, board.Airport); err != nil {
+		return nil, pb.CommandReply_UNAVAILABLE, current, err
+	}
 	for _, f := range transition.Flights {
 		for _, prior := range board.Flights {
 			if f.Callsign == prior.Callsign {

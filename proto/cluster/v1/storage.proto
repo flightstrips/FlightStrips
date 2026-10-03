@@ -397,6 +397,11 @@ message AmanAirport {
   AmanTechnicalHealth health = 8;
   google.protobuf.Timestamp generated_at = 9; bool authoritative = 10;
   string configured_mode = 11;
+  // Backend-owned display projections for every binary client. No embedded JSON.
+  AmanDisplayHeader header = 12;
+  AmanDisplayTrafficPrediction traffic_prediction = 13;
+  repeated AmanDisplayHoldingEntry holding_information = 14;
+  repeated AmanDisplayWarning warnings = 15;
 }
 message AmanRunwayGroup {
   string id = 1; bool selected = 2; uint32 active_rate_per_hour = 3;
@@ -1179,3 +1184,87 @@ message ViffCdmData {
 }
 message ViffMastersPage { google.protobuf.Timestamp fetched_at = 1; repeated ViffMaster masters = 2; }
 message ViffMaster { string airport = 1; string position = 2; }
+
+message AmanDisplayHeader {
+  repeated AmanDisplayHeaderRunwayGroup active_runway_groups = 1;
+  AmanDisplayHeaderReadiness readiness = 2;
+  AmanDisplayHeaderTrafficSummary traffic_summary = 3;
+  optional AmanDisplayHeaderWind wind = 4;
+}
+message AmanDisplayHeaderRunwayGroup {
+  string id = 1;
+  optional uint32 active_rate_per_hour = 2;
+  optional string rate_effective_at = 3;
+}
+message AmanDisplayHeaderReadiness {
+  string status = 1;
+  bool ready = 2;
+  repeated string blocked_reasons = 3;
+}
+message AmanDisplayHeaderTrafficSummary {
+  string status = 1;
+  int32 tma_above_1500_feet_count = 2;
+  int32 maestro_horizon_count = 3;
+}
+message AmanDisplayHeaderWind {
+  int32 surface_direction_degrees = 1;
+  int32 surface_speed_knots = 2;
+  int32 direction_10000_degrees = 3;
+  int32 speed_10000_knots = 4;
+  string observed_at = 5;
+  string source = 6;
+}
+message AmanDisplayTrafficPrediction {
+  string generated_at = 1;
+  string range_start = 2;
+  string range_end = 3;
+  int32 bucket_minutes = 4;
+  string source_status = 5;
+  string status = 6;
+  repeated string degraded_reasons = 7;
+  repeated AmanDisplayTrafficBucket buckets = 8;
+}
+message AmanDisplayTrafficBucket {
+  string start = 1;
+  string end = 2;
+  int32 planned_count = 3;
+  int32 airborne_count = 4;
+  int32 count = 5;
+  int32 load_factor = 6;
+  optional AmanDisplayTrafficSelectedRate selected_rate = 7;
+  bool bucket_high = 8;
+  bool window_high = 9;
+  string alert = 10;
+  repeated AmanDisplayTrafficFlight flights = 11;
+}
+message AmanDisplayTrafficSelectedRate {
+  string runway_group_id = 1;
+  uint32 arrivals_per_hour = 2;
+  string effective_at = 3;
+}
+message AmanDisplayTrafficFlight {
+  string callsign = 1;
+  bool airborne = 2;
+  string landing_at = 3;
+  string timing_source = 4;
+  string data_status = 5;
+}
+message AmanDisplayHoldingEntry {
+  string callsign = 1;
+  string holding = 2;
+  optional string eat = 3;
+  optional int32 cleared_altitude = 4;
+  string source_status = 5;
+  string observed_at = 6;
+}
+message AmanDisplayWarning {
+  string id = 1;
+  string source = 2;
+  optional string component = 3;
+  string severity = 4;
+  string code = 5;
+  optional string runway_group_id = 6;
+  optional string callsign = 7;
+  optional string related_callsign = 8;
+  string message = 9;
+}

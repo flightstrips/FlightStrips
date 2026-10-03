@@ -176,6 +176,9 @@ func (w *Worker) planCoordination(ctx context.Context, req *pb.CommandRequest, s
 	t.Airport.Health = board.Airport.Health
 	t.Airport.ConfiguredMode = board.Airport.ConfiguredMode
 	t.Airport.TimelineMappings = board.Airport.TimelineMappings
+	if err := refreshDisplay(t.Airport, initial, board.Airport); err != nil {
+		return nil, pb.CommandReply_UNAVAILABLE, current, err
+	}
 	for _, f := range t.Flights {
 		for _, prior := range board.Flights {
 			if f.Callsign == prior.Callsign {

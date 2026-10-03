@@ -44,6 +44,7 @@ type Handler struct {
 	Sync         cluster.SessionObservations
 	Controllers  cluster.ControllerSector
 	Inbound      func(context.Context, int32, string, string, *euroscope.Envelope) error
+	RenderAMAN   func(*cluster.Aggregate) (*euroscope.Envelope, error)
 	RenderDelta  func(*pb.FrontendDelta) []*euroscope.Envelope
 	RenderEffect func(int32, *pb.EffectRecord) (*euroscope.Envelope, error)
 	Effects      *cluster.Effects
@@ -204,10 +205,44 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		return nil
 	}
 	callbacks := cluster.LocalSessionSocket{
-		OnInitial: func(state, _ *cluster.Aggregate) error {
-			return writer.send(stripSync.initial(state))
+		OnInitial: func(state, airport *cluster.Aggregate) error {
+			if err := writer.send(stripSync.initial(state)); err != nil {
+				return err
+			}
+			if h.RenderAMAN != nil {
+				frame, err := h.RenderAMAN(airport)
+				if err != nil {
+					return err
+				}
+				if frame != nil {
+					return writer.send(frame)
+				}
+			}
+			return nil
 		},
 		OnDelta: func(delta *pb.FrontendDelta) error {
+			if h.RenderAMAN != nil && delta.Aggregate.GetAirport() != nil {
+				changed := false
+				for _, change := range delta.Changes {
+					if change.GetUpsert().GetAmanAirport() != nil {
+						changed = true
+						break
+					}
+				}
+				if changed {
+					airport, err := h.Projection.ReadDomain(delta.Aggregate)
+					if err != nil {
+						return err
+					}
+					frame, err := h.RenderAMAN(airport)
+					if err != nil {
+						return err
+					}
+					if frame != nil {
+						return writer.send(frame)
+					}
+				}
+			}
 			// Session changes include canonical runway updates from the master.
 			if len(delta.Changes) == 0 {
 				if err := checkRunways(); err != nil {

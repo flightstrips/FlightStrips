@@ -306,7 +306,7 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 	r.run("socket fanout", r.fanout.ServeTargeted)
 	r.run("aggregate discovery", r.discover)
 	front := frontendbinary.Handler{Projection: r.projection, Router: r, Auth: auth, NodeID: r.owner.NodeID}
-	euro := euroscopebinary.Handler{Projection: r.projection, Fanout: r.fanout, Sessions: natsSessions{r}, Auth: auth, Sync: cluster.SessionObservations{Store: routed}, Controllers: cluster.ControllerSector{Store: routed}, Inbound: r.deadlines.Inbound, Deadlines: r.deadlines, Effects: r.effects, RenderEffect: euroscopebinary.EffectRenderer(r.secrets)}
+	euro := euroscopebinary.Handler{Projection: r.projection, Fanout: r.fanout, Sessions: natsSessions{r}, Auth: auth, Sync: cluster.SessionObservations{Store: routed}, Controllers: cluster.ControllerSector{Store: routed}, Inbound: r.deadlines.Inbound, Deadlines: r.deadlines, Effects: r.effects, RenderEffect: euroscopebinary.EffectRenderer(r.secrets), RenderAMAN: amanRenderer(cfg.AMAN.EnableEuroScopeGainLoseTags)}
 	stage = "http_construct"
 	handler, err := r.buildHTTP(cfg, deps, auth, readiness, front, euro)
 	if err != nil {

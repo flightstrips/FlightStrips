@@ -200,6 +200,9 @@ func (w *Worker) evaluate(ctx context.Context, airport string, board cluster.Ama
 	}
 	health := service.TechnicalHealth(ctx)
 	result := encodeBoard(state, health)
+	if err := attachDisplay(result.Airport, state, health); err != nil {
+		return cluster.AmanTransition{}, err
+	}
 	result.Airport.ConfiguredMode = string(w.options.Mode)
 	desired := operational.HoldingEATs(state, health, w.options.HoldingEATEnabled, nav.snapshot)
 	for _, f := range result.Flights {

@@ -165,3 +165,6 @@ func encodeBoard(s aman.AirportState, h aman.TechnicalHealth) cluster.AmanTransi
 	}
 	return t
 }
+
+// DecodeBoard restores the coherent accepted airport policy state for typed transports.
+func DecodeBoard(board cluster.AmanBoard) (aman.AirportState, error) { return decodeBoard(board) }

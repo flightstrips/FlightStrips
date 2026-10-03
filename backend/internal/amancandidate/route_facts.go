@@ -133,6 +133,9 @@ func (w *Worker) PlanRouteFact(ctx context.Context, req *pb.CommandRequest, stat
 	}
 	transition := encodeBoard(next, aman.TechnicalHealth{})
 	preserveBoardMetadata(&transition, board)
+	if err := refreshDisplay(transition.Airport, next, board.Airport); err != nil {
+		return nil, pb.CommandReply_UNAVAILABLE, current, err
+	}
 	if reconcile.requested {
 		// Evaluate the fact and the resulting sequence in one accepted revision.
 		// The detached route service's intermediate commit is never published.

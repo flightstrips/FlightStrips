@@ -1,3 +1,4 @@
+import {displayAMANHeader, displayAMANTrafficPrediction, displayAMANHoldingEntry, displayAMANWarning} from "./aman-display-projection";
 import type {Timestamp} from "@bufbuild/protobuf/wkt";
 import type {AmanAirport, AmanCoordination, AmanFlight, EntitySnapshot} from "./generated/cluster/v1/storage_pb";
 import type {AMANComponentHealth, AMANFlight, AMANRunwayGroup, AMANSlot, AMANStateEvent, AMANTechnicalHealth} from "./aman";
@@ -35,8 +36,8 @@ function flight(value: AmanFlight): AMANFlight {
     route_fact: value.activeRouteFact ? {id: value.activeRouteFact.id, fix: value.activeRouteFact.fix,
       observed_at: iso(value.activeRouteFact.observedAt) ?? "", state: value.activeRouteFact.state as "active" | "cleared" | "expired"} : null,
     raw_teta: iso(prediction?.rawTeta), operational_teta: iso(prediction?.operationalTeta),
-    gain_loss_seconds: prediction?.rawTeta && prediction.operationalTeta
-      ? Number(prediction.operationalTeta.seconds - prediction.rawTeta.seconds) : null,
+    gain_loss_seconds: prediction?.publishable && prediction.rawTeta && value.slot?.time
+      ? Number(prediction.rawTeta.seconds - value.slot.time.seconds) : null,
     freeze_reason: value.freezeReason as AMANFlight["freeze_reason"], frozen_at: iso(value.frozenAt),
     confidence: (prediction?.confidence || null) as AMANFlight["confidence"],
     provenance: prediction ? {model_version: prediction.modelVersion, config_version: prediction.configVersion,
@@ -77,7 +78,7 @@ function health(value: AmanAirport): AMANTechnicalHealth {
   const component = (name: string) => components.get(name) ?? unavailable;
   return {status: (value.health?.status || "unavailable") as AMANTechnicalHealth["status"],
     ready: value.health?.ready ?? false, blocked_reasons: value.health?.blockedReasons ?? [],
-    vatsim: component("vatsim"), navigation: component("navigation"), weather: component("weather"),
+    vatsim: component("observation_source"), observation_source: component("observation_source"), navigation: component("navigation"), weather: component("weather"),
     repository: component("repository"), predictor: component("predictor"), replay_validation: component("replay_validation")};
 }
 
@@ -130,6 +131,9 @@ export function amanState(airport: string, entities: Iterable<EntitySnapshot>): 
     timeline_configuration: state.timelineMappings.length ? {version: state.policyVersion,
       mappings: state.timelineMappings.map(m => ({id: m.id, left: m.left ?? null, right: m.right ?? null}))}
       : undefined,
+    header: state.header ? displayAMANHeader(state.header) : undefined,
+    traffic_prediction: state.trafficPrediction ? displayAMANTrafficPrediction(state.trafficPrediction) : undefined,
+    holding_information: state.holdingInformation.map(displayAMANHoldingEntry), warnings: state.warnings.map(displayAMANWarning),
     technical_health: health(state), coordination_requests: coordinations.map(coordination),
     coordination_revision: num(state.revision)}};
 }

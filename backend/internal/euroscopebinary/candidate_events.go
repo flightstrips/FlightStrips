@@ -248,7 +248,7 @@ func (c *DeadlineCandidate) admit(ctx context.Context, id int32, connection, cid
 		if v.Altitude < math.MinInt32 || v.Altitude > math.MaxInt32 {
 			return fmt.Errorf("invalid position altitude")
 		}
-		return c.position(ctx, id, connection, v.Callsign, &pb.AircraftPosition{Latitude: v.Lat, Longitude: v.Lon, AltitudeFeet: int32(v.Altitude)})
+		return c.position(ctx, id, connection, v.Callsign, &pb.AircraftPosition{Latitude: v.Lat, Longitude: v.Lon, AltitudeFeet: int32(v.Altitude), GroundSpeedKnots: v.GroundSpeedKnots, TrackDegrees: v.TrackDegrees})
 	case *euroscope.Envelope_AircraftDisconnect:
 		return c.position(ctx, id, connection, event.AircraftDisconnect.Callsign, nil)
 	case *euroscope.Envelope_ControllerOnline:
@@ -402,7 +402,7 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 		return err
 	}
 	if observed.Position != nil {
-		if err := c.position(ctx, id, connection, observed.Callsign, &pb.AircraftPosition{Latitude: observed.Position.Lat, Longitude: observed.Position.Lon, AltitudeFeet: observed.Position.Altitude}); err != nil {
+		if err := c.position(ctx, id, connection, observed.Callsign, &pb.AircraftPosition{Latitude: observed.Position.Lat, Longitude: observed.Position.Lon, AltitudeFeet: observed.Position.Altitude, GroundSpeedKnots: observed.Position.GroundSpeedKnots, TrackDegrees: observed.Position.TrackDegrees}); err != nil {
 			return fmt.Errorf("position observation %s: %w", observed.Callsign, err)
 		}
 	}

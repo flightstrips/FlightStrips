@@ -144,6 +144,13 @@ First-party HTTP keeps `application/json` and current route/query/body shapes. M
 
 ## EuroScope effect state machine
 
+EuroScope surveillance carries ground speed in knots and true-north track in
+degrees `[0, 360)` on every full-sync strip position and incremental position
+update. `Position` fields 4/5 and `AircraftPositionUpdateEvent` fields 5/6 map
+directly to the typed shared `AircraftPosition` fields. Existing revision-2
+senders that omit these additive fields yield zero values; they must be updated
+to supply speed for EuroScope-only AMAN airborne detection and predictions.
+
 `EffectRecord` is part of the same session event as the backend state transition or a separate committed session event if the domain transition is deferred. It records command ID, target CID and connection generation if online, a typed effect oneof, `dispatch_deadline` 30 seconds after the request event's server timestamp, and status `WAITING`. The target CID is immutable. Store a private-message body as encrypted `ObjectValue.effect_secret` at `effect/<command-id>` before committing the request; its typed `PrivateMessageEffect` holds only object name and SHA-256. Garbage-collect an unreferenced object after 24 hours and a terminal effect object 24 hours after its result. A disconnected target may reconnect under a new connection generation with the **same CID** before the deadline. At dispatch deadline, an effect never claimed for dispatch becomes `EXPIRED`.
 
 For a browser `MessageAction.private_message`, `target_cid` carries the pilot callsign accepted by the existing browser action. The owner resolves the authenticated sender's controller CID as the immutable EuroScope effect target and stores the pilot callsign in `PrivateMessageEffect.recipient`. A plugin `EXECUTED` result means its local EuroScope message input accepted the send action; the browser displays that precise outcome and makes no claim about pilot receipt.

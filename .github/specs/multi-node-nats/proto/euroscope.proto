@@ -164,6 +164,9 @@ message Position {
   double lat = 1;
   double lon = 2;
   int32 altitude = 3;
+  // Radar ground speed in knots and true-north track in degrees [0, 360).
+  double ground_speed_knots = 4;
+  double track_degrees = 5;
 }
 
 message Controller {
@@ -362,7 +365,11 @@ message RequestedAltitudeEvent { string callsign = 1; int32 altitude = 2; }
 message CommunicationTypeEvent { string callsign = 1; string communication_type = 2; }
 message GroundStateEvent { string callsign = 1; string ground_state = 2; }
 message ClearedFlagEvent { string callsign = 1; bool cleared = 2; }
-message AircraftPositionUpdateEvent { string callsign = 1; double lat = 2; double lon = 3; int64 altitude = 4; }
+message AircraftPositionUpdateEvent {
+  string callsign = 1; double lat = 2; double lon = 3; int64 altitude = 4;
+  // Same units as Position; carried on every surveillance observation.
+  double ground_speed_knots = 5; double track_degrees = 6;
+}
 message HeadingEvent { string callsign = 1; int32 heading = 2; }
 message AircraftDisconnectEvent { string callsign = 1; }
 message ControllerOnlineEvent { string position = 1; string callsign = 2; }

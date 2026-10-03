@@ -57,6 +57,8 @@ namespace FlightStrips::websocket::protobuf {
             position->set_lat(source.position.lat);
             position->set_lon(source.position.lon);
             position->set_altitude(source.position.altitude);
+            position->set_ground_speed_knots(source.position.ground_speed_knots);
+            position->set_track_degrees(source.position.track_degrees);
             target->set_stand(source.stand);
             target->set_capabilities(source.capabilities);
             target->set_communication_type(source.communication_type);
@@ -146,6 +148,8 @@ namespace FlightStrips::websocket::protobuf {
             payload->set_lat(value.lat);
             payload->set_lon(value.lon);
             payload->set_altitude(value.altitude);
+            payload->set_ground_speed_knots(value.ground_speed_knots);
+            payload->set_track_degrees(value.track_degrees);
             break;
         }
         case EVENT_COORDINATION_RECEIVED: {

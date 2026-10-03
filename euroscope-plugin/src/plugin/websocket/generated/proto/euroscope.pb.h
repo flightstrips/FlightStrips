@@ -3023,6 +3023,8 @@ class Position final : public ::google::protobuf::MessageLite
   enum : int {
     kLatFieldNumber = 1,
     kLonFieldNumber = 2,
+    kGroundSpeedKnotsFieldNumber = 4,
+    kTrackDegreesFieldNumber = 5,
     kAltitudeFieldNumber = 3,
   };
   // double lat = 1;
@@ -3045,6 +3047,26 @@ class Position final : public ::google::protobuf::MessageLite
   void _internal_set_lon(double value);
 
   public:
+  // double ground_speed_knots = 4;
+  void clear_ground_speed_knots() ;
+  double ground_speed_knots() const;
+  void set_ground_speed_knots(double value);
+
+  private:
+  double _internal_ground_speed_knots() const;
+  void _internal_set_ground_speed_knots(double value);
+
+  public:
+  // double track_degrees = 5;
+  void clear_track_degrees() ;
+  double track_degrees() const;
+  void set_track_degrees(double value);
+
+  private:
+  double _internal_track_degrees() const;
+  void _internal_set_track_degrees(double value);
+
+  public:
   // int32 altitude = 3;
   void clear_altitude() ;
   ::int32_t altitude() const;
@@ -3060,7 +3082,7 @@ class Position final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 3, 0,
+      3, 5, 0,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -3078,6 +3100,8 @@ class Position final : public ::google::protobuf::MessageLite
                           ::google::protobuf::Arena* arena, const Impl_& from);
     double lat_;
     double lon_;
+    double ground_speed_knots_;
+    double track_degrees_;
     ::int32_t altitude_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -9376,6 +9400,8 @@ class AircraftPositionUpdateEvent final : public ::google::protobuf::MessageLite
     kLatFieldNumber = 2,
     kLonFieldNumber = 3,
     kAltitudeFieldNumber = 4,
+    kGroundSpeedKnotsFieldNumber = 5,
+    kTrackDegreesFieldNumber = 6,
   };
   // string callsign = 1;
   void clear_callsign() ;
@@ -9423,12 +9449,32 @@ class AircraftPositionUpdateEvent final : public ::google::protobuf::MessageLite
   void _internal_set_altitude(::int64_t value);
 
   public:
+  // double ground_speed_knots = 5;
+  void clear_ground_speed_knots() ;
+  double ground_speed_knots() const;
+  void set_ground_speed_knots(double value);
+
+  private:
+  double _internal_ground_speed_knots() const;
+  void _internal_set_ground_speed_knots(double value);
+
+  public:
+  // double track_degrees = 6;
+  void clear_track_degrees() ;
+  double track_degrees() const;
+  void set_track_degrees(double value);
+
+  private:
+  double _internal_track_degrees() const;
+  void _internal_set_track_degrees(double value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.AircraftPositionUpdateEvent)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 4, 0,
+      3, 6, 0,
       70, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -9448,6 +9494,8 @@ class AircraftPositionUpdateEvent final : public ::google::protobuf::MessageLite
     double lat_;
     double lon_;
     ::int64_t altitude_;
+    double ground_speed_knots_;
+    double track_degrees_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -20209,6 +20257,50 @@ inline void Position::_internal_set_altitude(::int32_t value) {
   _impl_.altitude_ = value;
 }
 
+// double ground_speed_knots = 4;
+inline void Position::clear_ground_speed_knots() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_speed_knots_ = 0;
+}
+inline double Position::ground_speed_knots() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Position.ground_speed_knots)
+  return _internal_ground_speed_knots();
+}
+inline void Position::set_ground_speed_knots(double value) {
+  _internal_set_ground_speed_knots(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.Position.ground_speed_knots)
+}
+inline double Position::_internal_ground_speed_knots() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.ground_speed_knots_;
+}
+inline void Position::_internal_set_ground_speed_knots(double value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_speed_knots_ = value;
+}
+
+// double track_degrees = 5;
+inline void Position::clear_track_degrees() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.track_degrees_ = 0;
+}
+inline double Position::track_degrees() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Position.track_degrees)
+  return _internal_track_degrees();
+}
+inline void Position::set_track_degrees(double value) {
+  _internal_set_track_degrees(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.Position.track_degrees)
+}
+inline double Position::_internal_track_degrees() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.track_degrees_;
+}
+inline void Position::_internal_set_track_degrees(double value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.track_degrees_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // Controller
@@ -28493,6 +28585,50 @@ inline ::int64_t AircraftPositionUpdateEvent::_internal_altitude() const {
 inline void AircraftPositionUpdateEvent::_internal_set_altitude(::int64_t value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.altitude_ = value;
+}
+
+// double ground_speed_knots = 5;
+inline void AircraftPositionUpdateEvent::clear_ground_speed_knots() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_speed_knots_ = 0;
+}
+inline double AircraftPositionUpdateEvent::ground_speed_knots() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AircraftPositionUpdateEvent.ground_speed_knots)
+  return _internal_ground_speed_knots();
+}
+inline void AircraftPositionUpdateEvent::set_ground_speed_knots(double value) {
+  _internal_set_ground_speed_knots(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AircraftPositionUpdateEvent.ground_speed_knots)
+}
+inline double AircraftPositionUpdateEvent::_internal_ground_speed_knots() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.ground_speed_knots_;
+}
+inline void AircraftPositionUpdateEvent::_internal_set_ground_speed_knots(double value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_speed_knots_ = value;
+}
+
+// double track_degrees = 6;
+inline void AircraftPositionUpdateEvent::clear_track_degrees() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.track_degrees_ = 0;
+}
+inline double AircraftPositionUpdateEvent::track_degrees() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AircraftPositionUpdateEvent.track_degrees)
+  return _internal_track_degrees();
+}
+inline void AircraftPositionUpdateEvent::set_track_degrees(double value) {
+  _internal_set_track_degrees(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AircraftPositionUpdateEvent.track_degrees)
+}
+inline double AircraftPositionUpdateEvent::_internal_track_degrees() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.track_degrees_;
+}
+inline void AircraftPositionUpdateEvent::_internal_set_track_degrees(double value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.track_degrees_ = value;
 }
 
 // -------------------------------------------------------------------

@@ -109,7 +109,7 @@ func TestBuildNATSAIRACWindAndAMANPolicy(t *testing.T) {
 	})
 	socket := f.socket(0, "111111", "EKCH_FMP", "119.905")
 	callsign := "A" + strings.ToUpper(uuid.NewString()[:6])
-	f.sync(socket, &es.Strip{Callsign: callsign, Origin: "EHAM", Destination: "EKCH", AircraftType: "A320", AssignedSquawk: "1001", Runway: "22L", Star: "SOK1P", Route: "DCT SOK", HasFp: true, Position: &es.Position{Lat: 55.3, Lon: 11.3, Altitude: 12000}, TrackingController: "EKCH_FMP"})
+	f.sync(socket, &es.Strip{Callsign: callsign, Origin: "EHAM", Destination: "EKCH", AircraftType: "A320", AssignedSquawk: "1001", Runway: "22L", Star: "SOK1P", Route: "DCT SOK", HasFp: true, Position: &es.Position{Lat: 55.3, Lon: 11.3, Altitude: 12000, GroundSpeedKnots: 250, TrackDegrees: 90}, TrackingController: "EKCH_FMP"})
 	t.Cleanup(func() {
 		if !t.Failed() {
 			return
@@ -133,7 +133,7 @@ func TestBuildNATSAIRACWindAndAMANPolicy(t *testing.T) {
 			}
 			found := false
 			for _, flight := range board.Flights {
-				found = found || flight.Callsign == callsign
+				found = found || flight.Callsign == callsign && flight.LatestObservation.GetSurveillance().GetGroundspeedKnots() == 250 && flight.Prediction != nil
 			}
 			if !found {
 				return false
@@ -142,6 +142,21 @@ func TestBuildNATSAIRACWindAndAMANPolicy(t *testing.T) {
 		return true
 	})
 	f.get(1, "/api/aman/airports/EKCH/flights/"+callsign+"/detail", 200)
+	f.send(socket, &es.Envelope{Event: &es.Envelope_AircraftPositionUpdate{AircraftPositionUpdate: &es.AircraftPositionUpdateEvent{Callsign: callsign, Lat: 55.3, Lon: 11.3, Altitude: 12000, GroundSpeedKnots: 260, TrackDegrees: 95}}})
+	f.await("incremental radar speed and track reach both AMAN projections", func() bool {
+		for _, app := range f.apps {
+			state, err := app.natsRuntime.projection.Read(airportNATSRef("EKCH"))
+			if err != nil {
+				return false
+			}
+			flight := state.Indexes[pb.EntityKind_AMAN_FLIGHT][callsign].GetValue().GetAmanFlight()
+			observation := flight.GetLatestObservation().GetSurveillance()
+			if observation.GetGroundspeedKnots() != 260 || observation.GetTrackTrueDegrees() != 95 {
+				return false
+			}
+		}
+		return true
+	})
 	require.Positive(t, airacCalls.Load())
 	require.Positive(t, windCalls.Load())
 	state, err := f.apps[1].natsRuntime.projection.Read(airportNATSRef("EKCH"))

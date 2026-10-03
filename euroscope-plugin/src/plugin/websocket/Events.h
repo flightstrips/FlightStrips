@@ -519,14 +519,16 @@ struct PositionEvent final : Event {
     double lat;
     double lon;
     int altitude;
+    double ground_speed_knots;
+    double track_degrees;
 
     explicit PositionEvent(std::string callsign, const double lat, const double lon,
-                           const int altitude) : Event(EVENT_AIRCRAFT_POSITION_UPDATE),
+                           const int altitude, const double groundSpeedKnots = 0, const double trackDegrees = 0) : Event(EVENT_AIRCRAFT_POSITION_UPDATE),
                                                  callsign(std::move(callsign)),
-                                                 lat(lat), lon(lon), altitude(altitude) {
+                                                 lat(lat), lon(lon), altitude(altitude), ground_speed_knots(groundSpeedKnots), track_degrees(trackDegrees) {
     }
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(PositionEvent, callsign, lat, lon, altitude, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(PositionEvent, callsign, lat, lon, altitude, ground_speed_knots, track_degrees, type);
 };
 
 struct AircraftDisconnectEvent final : Event {
@@ -543,11 +545,13 @@ struct Position final {
     double lat;
     double lon;
     int altitude;
+    double ground_speed_knots;
+    double track_degrees;
 
-    explicit Position(const double lat, const double lon, const int altitude) : lat(lat), lon(lon), altitude(altitude) {
+    explicit Position(const double lat, const double lon, const int altitude, const double groundSpeedKnots = 0, const double trackDegrees = 0) : lat(lat), lon(lon), altitude(altitude), ground_speed_knots(groundSpeedKnots), track_degrees(trackDegrees) {
     }
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Position, lat, lon, altitude);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Position, lat, lon, altitude, ground_speed_knots, track_degrees);
 };
 
 struct StripUpdateEvent final : Event {

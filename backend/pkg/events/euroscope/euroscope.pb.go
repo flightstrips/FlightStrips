@@ -1557,12 +1557,15 @@ func (x *SidEntry) GetRunway() string {
 }
 
 type Position struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Lat           float64                `protobuf:"fixed64,1,opt,name=lat,proto3" json:"lat,omitempty"`
-	Lon           float64                `protobuf:"fixed64,2,opt,name=lon,proto3" json:"lon,omitempty"`
-	Altitude      int32                  `protobuf:"varint,3,opt,name=altitude,proto3" json:"altitude,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Lat      float64                `protobuf:"fixed64,1,opt,name=lat,proto3" json:"lat,omitempty"`
+	Lon      float64                `protobuf:"fixed64,2,opt,name=lon,proto3" json:"lon,omitempty"`
+	Altitude int32                  `protobuf:"varint,3,opt,name=altitude,proto3" json:"altitude,omitempty"`
+	// Radar ground speed in knots and true-north track in degrees [0, 360).
+	GroundSpeedKnots float64 `protobuf:"fixed64,4,opt,name=ground_speed_knots,json=groundSpeedKnots,proto3" json:"ground_speed_knots,omitempty"`
+	TrackDegrees     float64 `protobuf:"fixed64,5,opt,name=track_degrees,json=trackDegrees,proto3" json:"track_degrees,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Position) Reset() {
@@ -1612,6 +1615,20 @@ func (x *Position) GetLon() float64 {
 func (x *Position) GetAltitude() int32 {
 	if x != nil {
 		return x.Altitude
+	}
+	return 0
+}
+
+func (x *Position) GetGroundSpeedKnots() float64 {
+	if x != nil {
+		return x.GroundSpeedKnots
+	}
+	return 0
+}
+
+func (x *Position) GetTrackDegrees() float64 {
+	if x != nil {
+		return x.TrackDegrees
 	}
 	return 0
 }
@@ -4161,13 +4178,16 @@ func (x *ClearedFlagEvent) GetCleared() bool {
 }
 
 type AircraftPositionUpdateEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Callsign      string                 `protobuf:"bytes,1,opt,name=callsign,proto3" json:"callsign,omitempty"`
-	Lat           float64                `protobuf:"fixed64,2,opt,name=lat,proto3" json:"lat,omitempty"`
-	Lon           float64                `protobuf:"fixed64,3,opt,name=lon,proto3" json:"lon,omitempty"`
-	Altitude      int64                  `protobuf:"varint,4,opt,name=altitude,proto3" json:"altitude,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Callsign string                 `protobuf:"bytes,1,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	Lat      float64                `protobuf:"fixed64,2,opt,name=lat,proto3" json:"lat,omitempty"`
+	Lon      float64                `protobuf:"fixed64,3,opt,name=lon,proto3" json:"lon,omitempty"`
+	Altitude int64                  `protobuf:"varint,4,opt,name=altitude,proto3" json:"altitude,omitempty"`
+	// Same units as Position; carried on every surveillance observation.
+	GroundSpeedKnots float64 `protobuf:"fixed64,5,opt,name=ground_speed_knots,json=groundSpeedKnots,proto3" json:"ground_speed_knots,omitempty"`
+	TrackDegrees     float64 `protobuf:"fixed64,6,opt,name=track_degrees,json=trackDegrees,proto3" json:"track_degrees,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *AircraftPositionUpdateEvent) Reset() {
@@ -4224,6 +4244,20 @@ func (x *AircraftPositionUpdateEvent) GetLon() float64 {
 func (x *AircraftPositionUpdateEvent) GetAltitude() int64 {
 	if x != nil {
 		return x.Altitude
+	}
+	return 0
+}
+
+func (x *AircraftPositionUpdateEvent) GetGroundSpeedKnots() float64 {
+	if x != nil {
+		return x.GroundSpeedKnots
+	}
+	return 0
+}
+
+func (x *AircraftPositionUpdateEvent) GetTrackDegrees() float64 {
+	if x != nil {
+		return x.TrackDegrees
 	}
 	return 0
 }
@@ -5764,11 +5798,13 @@ const file_euroscope_proto_rawDesc = "" +
 	"\aarrival\x18\x03 \x01(\bR\aarrival\"6\n" +
 	"\bSidEntry\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
-	"\x06runway\x18\x02 \x01(\tR\x06runway\"J\n" +
+	"\x06runway\x18\x02 \x01(\tR\x06runway\"\x9d\x01\n" +
 	"\bPosition\x12\x10\n" +
 	"\x03lat\x18\x01 \x01(\x01R\x03lat\x12\x10\n" +
 	"\x03lon\x18\x02 \x01(\x01R\x03lon\x12\x1a\n" +
-	"\baltitude\x18\x03 \x01(\x05R\baltitude\"D\n" +
+	"\baltitude\x18\x03 \x01(\x05R\baltitude\x12,\n" +
+	"\x12ground_speed_knots\x18\x04 \x01(\x01R\x10groundSpeedKnots\x12#\n" +
+	"\rtrack_degrees\x18\x05 \x01(\x01R\ftrackDegrees\"D\n" +
 	"\n" +
 	"Controller\x12\x1a\n" +
 	"\bposition\x18\x01 \x01(\tR\bposition\x12\x1a\n" +
@@ -6004,12 +6040,14 @@ const file_euroscope_proto_rawDesc = "" +
 	"\fground_state\x18\x02 \x01(\tR\vgroundState\"H\n" +
 	"\x10ClearedFlagEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x18\n" +
-	"\acleared\x18\x02 \x01(\bR\acleared\"y\n" +
+	"\acleared\x18\x02 \x01(\bR\acleared\"\xcc\x01\n" +
 	"\x1bAircraftPositionUpdateEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x10\n" +
 	"\x03lat\x18\x02 \x01(\x01R\x03lat\x12\x10\n" +
 	"\x03lon\x18\x03 \x01(\x01R\x03lon\x12\x1a\n" +
-	"\baltitude\x18\x04 \x01(\x03R\baltitude\"D\n" +
+	"\baltitude\x18\x04 \x01(\x03R\baltitude\x12,\n" +
+	"\x12ground_speed_knots\x18\x05 \x01(\x01R\x10groundSpeedKnots\x12#\n" +
+	"\rtrack_degrees\x18\x06 \x01(\x01R\ftrackDegrees\"D\n" +
 	"\fHeadingEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x18\n" +
 	"\aheading\x18\x02 \x01(\x05R\aheading\"5\n" +

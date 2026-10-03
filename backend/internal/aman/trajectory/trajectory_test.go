@@ -11,6 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRemainingOmitsCompletedLegAndCoincidentApproachJoin(t *testing.T) {
+	a := navdata.Coordinate{LatitudeDeg: 55, LongitudeDeg: 12}
+	b := navdata.Coordinate{LatitudeDeg: 55.1, LongitudeDeg: 12.1}
+	c := navdata.Coordinate{LatitudeDeg: 55.2, LongitudeDeg: 12.2}
+	legs := []leg{{id: "completed", a: a, b: b, distance: 10}, {id: "join", a: b, b: b}, {id: "approach", a: b, b: c, distance: 10}}
+	result := remaining(legs, 0, 10)
+	require.Len(t, result, 1)
+	require.Equal(t, "approach", result[0].ID)
+	require.Equal(t, float64(10), result[0].DistanceNM)
+}
+
 func TestReduceGoldenDTGMonotonicJitterAndCompatibilityReset(t *testing.T) {
 	snapshot, route, input := fixtureInput(t)
 	first := Reduce(snapshot, route, input, Config{})

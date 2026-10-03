@@ -958,6 +958,11 @@ func remaining(legs []leg, index int, along float64) []RemainingLeg {
 			_, bearing := wgs84Inverse(legs[i].a, legs[i].b)
 			start = wgs84Direct(legs[i].a, bearing, along)
 		}
+		// A filed route and approach can meet at the same fix. Such a join,
+		// or a completed first leg, adds no travel time to the prediction.
+		if d <= 0 {
+			continue
+		}
 		_, course := wgs84Inverse(start, legs[i].b)
 		out = append(out, RemainingLeg{ID: legs[i].id, From: legs[i].from, To: legs[i].to, DistanceNM: math.Max(0, d), CourseTrueDegrees: course * 180 / math.Pi, Start: start, End: legs[i].b})
 	}

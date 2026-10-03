@@ -354,6 +354,8 @@ inline constexpr Position::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : lat_{0},
         lon_{0},
+        ground_speed_knots_{0},
+        track_degrees_{0},
         altitude_{0},
         _cached_size_{0} {}
 
@@ -1213,6 +1215,8 @@ inline constexpr AircraftPositionUpdateEvent::Impl_::Impl_(
         lat_{0},
         lon_{0},
         altitude_{::int64_t{0}},
+        ground_speed_knots_{0},
+        track_degrees_{0},
         _cached_size_{0} {}
 
 template <typename>
@@ -6256,15 +6260,15 @@ const char* Position::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 3, 0, 0, 2> Position::_table_ = {
+const ::_pbi::TcParseTable<3, 5, 0, 0, 2> Position::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    3, 24,  // max_field_number, fast_idx_mask
+    5, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967288,  // skipmap
+    4294967264,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    3,  // num_field_entries
+    5,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_Position_default_instance_._instance,
@@ -6283,6 +6287,14 @@ const ::_pbi::TcParseTable<2, 3, 0, 0, 2> Position::_table_ = {
     // int32 altitude = 3;
     {::_pbi::TcParser::FastV32S1,
      {24, 63, 0, PROTOBUF_FIELD_OFFSET(Position, _impl_.altitude_)}},
+    // double ground_speed_knots = 4;
+    {::_pbi::TcParser::FastF64S1,
+     {33, 63, 0, PROTOBUF_FIELD_OFFSET(Position, _impl_.ground_speed_knots_)}},
+    // double track_degrees = 5;
+    {::_pbi::TcParser::FastF64S1,
+     {41, 63, 0, PROTOBUF_FIELD_OFFSET(Position, _impl_.track_degrees_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -6295,6 +6307,12 @@ const ::_pbi::TcParseTable<2, 3, 0, 0, 2> Position::_table_ = {
     // int32 altitude = 3;
     {PROTOBUF_FIELD_OFFSET(Position, _impl_.altitude_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // double ground_speed_knots = 4;
+    {PROTOBUF_FIELD_OFFSET(Position, _impl_.ground_speed_knots_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double track_degrees = 5;
+    {PROTOBUF_FIELD_OFFSET(Position, _impl_.track_degrees_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
   }},
   // no aux_entries
   {{
@@ -6339,6 +6357,30 @@ const ::_pbi::TcParseTable<2, 3, 0, 0, 2> Position::_table_ = {
             stream, this->_internal_altitude(), target);
   }
 
+  // double ground_speed_knots = 4;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_ground_speed_knots = this->_internal_ground_speed_knots();
+  ::uint64_t raw_ground_speed_knots;
+  memcpy(&raw_ground_speed_knots, &tmp_ground_speed_knots, sizeof(tmp_ground_speed_knots));
+  if (raw_ground_speed_knots != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        4, this->_internal_ground_speed_knots(), target);
+  }
+
+  // double track_degrees = 5;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_track_degrees = this->_internal_track_degrees();
+  ::uint64_t raw_track_degrees;
+  memcpy(&raw_track_degrees, &tmp_track_degrees, sizeof(tmp_track_degrees));
+  if (raw_track_degrees != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        5, this->_internal_track_degrees(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -6373,6 +6415,26 @@ const ::_pbi::TcParseTable<2, 3, 0, 0, 2> Position::_table_ = {
   ::uint64_t raw_lon;
   memcpy(&raw_lon, &tmp_lon, sizeof(tmp_lon));
   if (raw_lon != 0) {
+    total_size += 9;
+  }
+
+  // double ground_speed_knots = 4;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_ground_speed_knots = this->_internal_ground_speed_knots();
+  ::uint64_t raw_ground_speed_knots;
+  memcpy(&raw_ground_speed_knots, &tmp_ground_speed_knots, sizeof(tmp_ground_speed_knots));
+  if (raw_ground_speed_knots != 0) {
+    total_size += 9;
+  }
+
+  // double track_degrees = 5;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_track_degrees = this->_internal_track_degrees();
+  ::uint64_t raw_track_degrees;
+  memcpy(&raw_track_degrees, &tmp_track_degrees, sizeof(tmp_track_degrees));
+  if (raw_track_degrees != 0) {
     total_size += 9;
   }
 
@@ -6417,6 +6479,22 @@ void Position::MergeFrom(const Position& from) {
   memcpy(&raw_lon, &tmp_lon, sizeof(tmp_lon));
   if (raw_lon != 0) {
     _this->_impl_.lon_ = from._impl_.lon_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_ground_speed_knots = from._internal_ground_speed_knots();
+  ::uint64_t raw_ground_speed_knots;
+  memcpy(&raw_ground_speed_knots, &tmp_ground_speed_knots, sizeof(tmp_ground_speed_knots));
+  if (raw_ground_speed_knots != 0) {
+    _this->_impl_.ground_speed_knots_ = from._impl_.ground_speed_knots_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_track_degrees = from._internal_track_degrees();
+  ::uint64_t raw_track_degrees;
+  memcpy(&raw_track_degrees, &tmp_track_degrees, sizeof(tmp_track_degrees));
+  if (raw_track_degrees != 0) {
+    _this->_impl_.track_degrees_ = from._impl_.track_degrees_;
   }
   if (from._internal_altitude() != 0) {
     _this->_impl_.altitude_ = from._impl_.altitude_;
@@ -17320,9 +17398,9 @@ AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(
                offsetof(Impl_, lat_),
            reinterpret_cast<const char *>(&from._impl_) +
                offsetof(Impl_, lat_),
-           offsetof(Impl_, altitude_) -
+           offsetof(Impl_, track_degrees_) -
                offsetof(Impl_, lat_) +
-               sizeof(Impl_::altitude_));
+               sizeof(Impl_::track_degrees_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.AircraftPositionUpdateEvent)
 }
@@ -17337,9 +17415,9 @@ inline void AircraftPositionUpdateEvent::SharedCtor(::_pb::Arena* arena) {
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, lat_),
            0,
-           offsetof(Impl_, altitude_) -
+           offsetof(Impl_, track_degrees_) -
                offsetof(Impl_, lat_) +
-               sizeof(Impl_::altitude_));
+               sizeof(Impl_::track_degrees_));
 }
 AircraftPositionUpdateEvent::~AircraftPositionUpdateEvent() {
   // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.AircraftPositionUpdateEvent)
@@ -17379,8 +17457,8 @@ PROTOBUF_NOINLINE void AircraftPositionUpdateEvent::Clear() {
 
   _impl_.callsign_.ClearToEmpty();
   ::memset(&_impl_.lat_, 0, static_cast<::size_t>(
-      reinterpret_cast<char*>(&_impl_.altitude_) -
-      reinterpret_cast<char*>(&_impl_.lat_)) + sizeof(_impl_.altitude_));
+      reinterpret_cast<char*>(&_impl_.track_degrees_) -
+      reinterpret_cast<char*>(&_impl_.lat_)) + sizeof(_impl_.track_degrees_));
   _internal_metadata_.Clear<std::string>();
 }
 
@@ -17392,15 +17470,15 @@ const char* AircraftPositionUpdateEvent::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ = {
+const ::_pbi::TcParseTable<3, 6, 0, 70, 2> AircraftPositionUpdateEvent::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    4, 24,  // max_field_number, fast_idx_mask
+    6, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967280,  // skipmap
+    4294967232,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    4,  // num_field_entries
+    6,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_AircraftPositionUpdateEvent_default_instance_._instance,
@@ -17409,9 +17487,7 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
     ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::AircraftPositionUpdateEvent>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // int64 altitude = 4;
-    {::_pbi::TcParser::FastV64S1,
-     {32, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string callsign = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.callsign_)}},
@@ -17421,6 +17497,16 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
     // double lon = 3;
     {::_pbi::TcParser::FastF64S1,
      {25, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lon_)}},
+    // int64 altitude = 4;
+    {::_pbi::TcParser::FastV64S1,
+     {32, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_)}},
+    // double ground_speed_knots = 5;
+    {::_pbi::TcParser::FastF64S1,
+     {41, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.ground_speed_knots_)}},
+    // double track_degrees = 6;
+    {::_pbi::TcParser::FastF64S1,
+     {49, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.track_degrees_)}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -17436,6 +17522,12 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
     // int64 altitude = 4;
     {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kInt64)},
+    // double ground_speed_knots = 5;
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.ground_speed_knots_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double track_degrees = 6;
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.track_degrees_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
   }},
   // no aux_entries
   {{
@@ -17491,6 +17583,30 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
             stream, this->_internal_altitude(), target);
   }
 
+  // double ground_speed_knots = 5;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_ground_speed_knots = this->_internal_ground_speed_knots();
+  ::uint64_t raw_ground_speed_knots;
+  memcpy(&raw_ground_speed_knots, &tmp_ground_speed_knots, sizeof(tmp_ground_speed_knots));
+  if (raw_ground_speed_knots != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        5, this->_internal_ground_speed_knots(), target);
+  }
+
+  // double track_degrees = 6;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_track_degrees = this->_internal_track_degrees();
+  ::uint64_t raw_track_degrees;
+  memcpy(&raw_track_degrees, &tmp_track_degrees, sizeof(tmp_track_degrees));
+  if (raw_track_degrees != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        6, this->_internal_track_degrees(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -17540,6 +17656,26 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
         this->_internal_altitude());
   }
 
+  // double ground_speed_knots = 5;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_ground_speed_knots = this->_internal_ground_speed_knots();
+  ::uint64_t raw_ground_speed_knots;
+  memcpy(&raw_ground_speed_knots, &tmp_ground_speed_knots, sizeof(tmp_ground_speed_knots));
+  if (raw_ground_speed_knots != 0) {
+    total_size += 9;
+  }
+
+  // double track_degrees = 6;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_track_degrees = this->_internal_track_degrees();
+  ::uint64_t raw_track_degrees;
+  memcpy(&raw_track_degrees, &tmp_track_degrees, sizeof(tmp_track_degrees));
+  if (raw_track_degrees != 0) {
+    total_size += 9;
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
   }
@@ -17582,6 +17718,22 @@ void AircraftPositionUpdateEvent::MergeFrom(const AircraftPositionUpdateEvent& f
   if (from._internal_altitude() != 0) {
     _this->_impl_.altitude_ = from._impl_.altitude_;
   }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_ground_speed_knots = from._internal_ground_speed_knots();
+  ::uint64_t raw_ground_speed_knots;
+  memcpy(&raw_ground_speed_knots, &tmp_ground_speed_knots, sizeof(tmp_ground_speed_knots));
+  if (raw_ground_speed_knots != 0) {
+    _this->_impl_.ground_speed_knots_ = from._impl_.ground_speed_knots_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_track_degrees = from._internal_track_degrees();
+  ::uint64_t raw_track_degrees;
+  memcpy(&raw_track_degrees, &tmp_track_degrees, sizeof(tmp_track_degrees));
+  if (raw_track_degrees != 0) {
+    _this->_impl_.track_degrees_ = from._impl_.track_degrees_;
+  }
   _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
 }
 
@@ -17603,8 +17755,8 @@ void AircraftPositionUpdateEvent::InternalSwap(AircraftPositionUpdateEvent* PROT
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_)
-      + sizeof(AircraftPositionUpdateEvent::_impl_.altitude_)
+      PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.track_degrees_)
+      + sizeof(AircraftPositionUpdateEvent::_impl_.track_degrees_)
       - PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lat_)>(
           reinterpret_cast<char*>(&_impl_.lat_),
           reinterpret_cast<char*>(&other->_impl_.lat_));

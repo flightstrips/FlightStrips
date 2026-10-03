@@ -469,7 +469,7 @@ namespace FlightStrips::messages {
                 {flightPlanData.GetAircraftWtc()},
                 m_flightPlanService->ResolveSpokenCallsign(callsign, remarks),
                 Position{
-                    latitude, longitude, altitude
+                    latitude, longitude, altitude, hasRadarPosition ? static_cast<double>(radarTarget.GetGS()) : 0.0, hasRadarPosition ? radarTarget.GetTrackHeading() : 0.0
                 },
                 stand,
                 {flightPlanData.GetCommunicationType()},
@@ -519,7 +519,7 @@ namespace FlightStrips::messages {
                 false, "",   // cleared, ground_state
                 0, 0, 0,    // cleared_altitude, requested_altitude, heading
                 "", "", "", // aircraft_type, aircraft_category, spoken_callsign
-                Position{pos.m_Latitude, pos.m_Longitude, position.GetPressureAltitude()},
+                Position{pos.m_Latitude, pos.m_Longitude, position.GetPressureAltitude(), static_cast<double>(rt.GetGS()), rt.GetTrackHeading()},
                 stand,
                 "", "", "",  // communication_type, capabilities, eobt
                 "",          // eldt

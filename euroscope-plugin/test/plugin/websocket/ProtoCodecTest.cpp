@@ -5,6 +5,14 @@
 
 using namespace FlightStrips::websocket;
 
+TEST(ProtoCodecTest, CarriesRadarSpeedAndTrackOnPositionUpdates) {
+    const PositionEvent event("SAS123", 55.6, 12.6, 25000, 430.5, 271.0);
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    EXPECT_DOUBLE_EQ(envelope.aircraft_position_update().ground_speed_knots(), 430.5);
+    EXPECT_DOUBLE_EQ(envelope.aircraft_position_update().track_degrees(), 271.0);
+}
+
 TEST(ProtoCodecTest, DecodesTrackingOwnershipConfirmation) {
     protobuf::wire::TrackingControllerChangedEvent source;
     source.set_callsign("SAS123");

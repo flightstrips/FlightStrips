@@ -456,12 +456,9 @@ func (m *AsyncSessionOwners) AcceptState(ctx context.Context, base *Aggregate, e
 		<-m.slots
 		return nil, err
 	}
-	next, cloneErr := cloneAggregate(s.ram)
-	if cloneErr != nil {
-		m.mu.Unlock()
-		<-m.slots
-		return nil, cloneErr
-	}
+	// Reduction replaces changed records; retain immutable unchanged protobufs
+	// using the same copy contract as the durable projection reducer.
+	next := copyAggregateForApply(s.ram)
 	next.Owner = proto.Clone(fresh.Owner).(*pb.OwnerTerm)
 	data, marshalErr := proto.Marshal(queued)
 	effective := false

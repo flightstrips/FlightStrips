@@ -27,6 +27,22 @@ x-backend: &backend
   stop_grace_period: 30s
 
 services:
+  frontend:
+    image: flightstrips-frontend:development
+    build:
+      context: ../frontend
+    ports: ["127.0.0.1:5173:80"]
+    environment:
+      APP_VERSION: local-development
+      WS_URL: ws://localhost:8092/frontEndEvents
+      API_BASE_URL: http://localhost:8092
+      OIDC_FRONTEND_CLIENT_ID: mIjRYlbKHpTwnNAkhcu9plQP541Klwvn
+      OIDC_AUDIENCE: backend-dev
+      OIDC_CONNECTION: vatsim-dev
+      CHARTFOX_CLIENT_ID: 019f9418-0f93-73c8-b256-b587423759cf
+    networks: [nats-fixture]
+    depends_on: [backend-proxy]
+    restart: unless-stopped
   backend-proxy:
     image: haproxy:3.2-alpine
     ports: ["127.0.0.1:8092:8090"]

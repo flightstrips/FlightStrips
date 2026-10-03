@@ -40,7 +40,9 @@ Compose. Native builds use `v1=.local-secrets/effects-v1.key`. Retain old IDs an
 files when rotating keys until all retained encrypted effects are readable.
 
 The default Compose starts three `nats:2.15.0` nodes, each with a separate
-persistent volume, and two instances of the real backend image. Only the explicit
+persistent volume, two instances of the real backend image, a failover proxy,
+and the frontend at `http://localhost:5173`. `build` builds both application
+images, and `start` starts the frontend as well. Only the explicit
 `bootstrap` action uses administrator credentials. Backends always verify and
 use existing resources; they cannot create or repair resource configuration.
 The fixture credentials in `testdata/nats` are local-only.
@@ -62,6 +64,15 @@ collector. Configuration files resolve relative to `backend`, including
 `config/aman/ekch-terminal-2610.json` when terminal navigation is enabled.
 
 ## Frontend and EuroScope plugin
+
+Compose serves the frontend at `http://localhost:5173` using the existing
+development OIDC identity and the failover proxy at `localhost:8092` for HTTP
+and WebSockets. Its runtime configuration is set in `docker-compose.yaml`.
+For frontend hot reload instead, stop the Compose frontend first:
+
+```powershell
+docker compose -f backend/docker-compose.yaml -p flightstrips-local stop frontend
+```
 
 ```powershell
 Push-Location frontend
@@ -96,8 +107,9 @@ Copy-Item euroscope-plugin/src/config_dev.ini euroscope-plugin/build-local/bin/f
 ```
 
 Load `euroscope-plugin/build-local/bin/FlightStripsPluginCore.dll` with the runtime
-DLLs in that directory. `[api] baseurl` in `flightstrips_config.ini` selects A or
-B's `/euroscopeEvents`; keep its development authentication identity. The direct
+DLLs in that directory. `[api] baseurl` in `flightstrips_config.ini` defaults to
+the proxy's `/euroscopeEvents` on port 8092; use 8090 or 8091 to select A or B
+directly. Keep its development authentication identity. The direct
 core loading path uses the locally built artifact and avoids the release loader's
 update/download path. Normal published plugin loader behavior is unchanged.
 Connect with your normal development login; unload the plugin before replacing

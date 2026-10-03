@@ -39,11 +39,11 @@ try {
             if ((Get-Item -LiteralPath $keyPath).Length -ne 32) { throw 'Effect key must contain exactly 32 raw bytes' }
             Write-Output 'Shared local effect key exists; existing key preserved'
         }
-        'build' { Compose build backend-a }
+        'build' { Compose build backend-a frontend }
         'brokers' { Compose up -d nats-1 nats-2 nats-3 }
         'bootstrap' { Compose --profile bootstrap run --rm nats-bootstrap }
-        'start' { Compose up -d backend-a backend-b backend-proxy; Wait-Ready }
-        'stop' { Compose stop backend-proxy backend-a backend-b }
+        'start' { Compose up -d backend-a backend-b backend-proxy frontend; Wait-Ready }
+        'stop' { Compose stop frontend backend-proxy backend-a backend-b }
         'restart' { Compose restart backend-a backend-b; Wait-Ready }
         'down' { Compose down }
         'status' {

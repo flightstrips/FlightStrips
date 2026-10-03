@@ -784,13 +784,33 @@ TEST_F(WebSocketServiceOnTimerTest, IsPendingConnect_Initial_ReturnsFalse) {
     EXPECT_FALSE(svc->IsPendingConnect());
 }
 
-TEST_F(WebSocketServiceOnTimerTest, SendEvent_WhenObserver_AllowsRunwayValidationOnly) {
+TEST_F(WebSocketServiceOnTimerTest, SendEvent_WhenObserver_SuppressesMasterRunwayObservation) {
     state.observer = true;
     svc->SetSessionTerms(1, 2, 3);
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
 
-    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
     svc->SendEvent(RunwayEvent({}));
+}
+
+TEST_F(WebSocketServiceOnTimerTest, SlaveRoleWithCurrentEpochsCannotSendMasterObservationsBeforePromotion) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->SetSessionTerms(1, 4, 5);
+    svc->SetSessionState(STATE_SLAVE);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    // Login delivers the slave role before the election's master role. The
+    // slave handler reports runways; that must not close the new socket.
+    svc->SendEvent(RunwayEvent({}));
+    svc->SendEvent(SyncEvent{{}, {}, {}, {}});
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(mockImpl));
+    svc->SetSessionState(STATE_MASTER);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
+    svc->SendEvent(SyncEvent{{}, {}, {}, {}});
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(mockImpl));
+    svc->SetSessionState(STATE_SLAVE);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    svc->SendEvent(RunwayEvent({}));
+    svc->SendEvent(SyncEvent{{}, {}, {}, {}});
 }
 
 TEST_F(WebSocketServiceOnTimerTest, ShouldProcessServerMessageType_WhenObserver_AllowsMismatchAlerts) {

@@ -239,7 +239,7 @@ namespace FlightStrips::websocket {
                 case EVENT_SID:
                 case EVENT_AIRCRAFT_RUNWAY:
                 case EVENT_ASSIGNED_SQUAWK:
-                    if (master_epoch_ == 0) return false;
+                    if (master_epoch_ == 0 || !ShouldSend()) return false;
                     break;
                 default: break;
             }

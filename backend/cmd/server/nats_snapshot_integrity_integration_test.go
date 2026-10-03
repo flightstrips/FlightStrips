@@ -29,7 +29,9 @@ func TestServerNATSSnapshotMultiChunkIntegrity(t *testing.T) {
 
 // Keep the unmodified vendor read workload available as a strict diagnostic.
 // Its known early end-of-delivery bug is not the production snapshot read path.
-func TestServerNATSSnapshotVendorMultiChunkDiagnostic(t *testing.T) {
+// The TestNATS prefix excludes this opt-in probe from Task22's TestServerNATS
+// acceptance selector, which must continue to reject skipped required cases.
+func TestNATSSnapshotVendorMultiChunkDiagnostic(t *testing.T) {
 	if os.Getenv("NATS_TASK22_VENDOR_OBJECT_DIAGNOSTIC") != "1" {
 		t.Skip("requires explicit vendor object-reader diagnostic")
 	}

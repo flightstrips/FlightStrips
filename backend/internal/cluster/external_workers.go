@@ -65,7 +65,7 @@ func (w ExternalCallWorker) Run(ctx context.Context, spec ExternalCallSpec) (boo
 	if !fresh {
 		return false, nil
 	}
-	if w.Writer.Lease != nil && !w.Writer.Lease.CanWrite(spec.Source) {
+	if w.Writer.Lease != nil && !w.Writer.Lease.CanDispatchDurable(spec.Source) {
 		return false, fmt.Errorf("source owner lease lost before provider call")
 	}
 	if spec.Reserve != nil {
@@ -77,7 +77,7 @@ func (w ExternalCallWorker) Run(ctx context.Context, spec ExternalCallSpec) (boo
 			return false, err
 		}
 	}
-	if w.Writer.Lease != nil && !w.Writer.Lease.CanWrite(spec.Source) {
+	if w.Writer.Lease != nil && !w.Writer.Lease.CanDispatchDurable(spec.Source) {
 		return false, fmt.Errorf("source owner lease lost before provider call")
 	}
 	result, err := spec.Fetch(ctx)
@@ -85,7 +85,10 @@ func (w ExternalCallWorker) Run(ctx context.Context, spec ExternalCallSpec) (boo
 		_ = w.resolveOne(ctx, intent)
 		return true, fmt.Errorf("provider call uncertain: %v", err)
 	}
-	reply := spec.Commit(ctx, stepID, result)
+	// Provider completion is a durable prerequisite for resolving its one-shot
+	// intent. Production callbacks use the ordinary writer/router entry point;
+	// carry the durability requirement through that callback and any forwarding.
+	reply := spec.Commit(context.WithValue(ctx, durableExecutionKey{}, true), stepID, result)
 	if reply == nil || reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED || reply.StreamSequence == nil {
 		_ = w.resolveOne(ctx, intent)
 		return true, fmt.Errorf("provider result commit uncertain: %v", reply)

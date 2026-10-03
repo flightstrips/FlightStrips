@@ -61,6 +61,16 @@ func (w *SessionWork) clock() time.Time {
 	return time.Now().UTC()
 }
 
+// Pure session policy may plan from the healthy owner's accepted RAM tail.
+// Irreversible provider/effect work keeps its separate durable permission gate.
+func (w *SessionWork) canPlan(ref *pb.AggregateRef) bool {
+	if w.Projection != nil && w.Projection.Async != nil {
+		owner, ok := w.Owner.(interface{ CanCommitLocal(*pb.AggregateRef) bool })
+		return ok && owner.CanCommitLocal(ref)
+	}
+	return w.Owner.CanWrite(ref)
+}
+
 // ReconcileSession runs the same healthy owner pass as the registry supervisor.
 // Callers already holding an admitted session identity can use this entry point
 // without constructing a second timer or a separate deadline implementation.
@@ -71,7 +81,7 @@ func (w *SessionWork) ReconcileSession(ctx context.Context, id int32) error {
 	if err := w.Projection.Ready(); err != nil {
 		return err
 	}
-	if !w.Owner.CanWrite(sessionRef(id)) {
+	if !w.canPlan(sessionRef(id)) {
 		return fmt.Errorf("session lease unavailable")
 	}
 	return w.stepSession(ctx, &pb.SessionRegistry{Id: id}, time.Time{}, time.Time{}, 0)
@@ -152,7 +162,7 @@ func (w *SessionWork) Step(ctx context.Context) error {
 			}
 			continue
 		}
-		if !w.Owner.CanWrite(ref) {
+		if !w.canPlan(ref) {
 			continue
 		}
 		if err := w.stepSession(ctx, session, unhealthySince, recoveredAt, paused); err != nil && first == nil {
@@ -321,7 +331,7 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 		if run == nil {
 			continue
 		}
-		if !w.Owner.CanWrite(sessionRef(id)) {
+		if !w.canPlan(sessionRef(id)) {
 			return fmt.Errorf("session %d lease lost", id)
 		}
 		if err := run(ctx, id); err != nil {
@@ -394,7 +404,7 @@ func workerCommandID(id int32, kind, key string, revision uint64) string {
 }
 
 func (w *SessionWork) execute(ctx context.Context, request *pb.CommandRequest) error {
-	if !w.Owner.CanWrite(request.Aggregate) {
+	if !w.canPlan(request.Aggregate) {
 		return fmt.Errorf("session lease lost")
 	}
 	reply := w.Store.Execute(ctx, request)

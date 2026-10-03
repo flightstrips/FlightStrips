@@ -154,6 +154,41 @@ func TestPositionWriterDoesNotOverwriteCASConflict(t *testing.T) {
 	}
 }
 
+func TestPositionWriterCachedRevisionRejectsForeignWrite(t *testing.T) {
+	kv := &positionKVTest{values: map[string]positionKVEntry{}}
+	w, err := NewPositionWriter(kv, 1, 1, "conn", func(context.Context, int32, uint64, string) error { return nil }, 1, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close(context.Background())
+	ctx := context.Background()
+	first, err := w.QueuePosition(ctx, "SAS101", &pb.AircraftPosition{Latitude: 55}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := <-first
+	if initial.Err != nil {
+		t.Fatal(initial.Err)
+	}
+	key := positionKey(1, "SAS101", 1)
+	foreign := []byte("foreign publication")
+	foreignRevision, err := kv.Update(key, foreign, initial.Revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := w.QueuePosition(ctx, "SAS101", &pb.AircraftPosition{Latitude: 56}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result := <-next; result.Err == nil {
+		t.Fatal("cached CAS refreshed and overwrote a foreign publisher")
+	}
+	stored, err := kv.Get(key)
+	if err != nil || stored.Revision() != foreignRevision || string(stored.Value()) != string(foreign) {
+		t.Fatal("foreign publication changed")
+	}
+}
+
 func TestPositionDerivedCommandRechecksKVAndHoldsPositionBarrier(t *testing.T) {
 	kv := &positionKVTest{values: map[string]positionKVEntry{}}
 	w, err := NewPositionWriter(kv, 1, 1, "conn", func(context.Context, int32, uint64, string) error { return nil }, 1, 4)

@@ -9,63 +9,34 @@ import (
 
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func (p *Projection) watchPositions(ctx context.Context) {
-	watcher, err := p.Positions.WatchAll(nats.Context(ctx))
-	if err != nil {
-		p.failObservation(err)
-		return
+func (p *Projection) selectedPositionLocked(session int32, aircraft string) (KVPosition, bool) {
+	state := p.acceptedStateLocked(fmt.Sprintf("fs.v1.state.session.%d", session))
+	epoch := uint64(0)
+	if state == nil {
+		epoch = ^uint64(0)
+	} else if state.Owner != nil {
+		epoch = state.Owner.Epoch
 	}
-	defer watcher.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case entry, ok := <-watcher.Updates():
-			if !ok {
-				p.failObservation(fmt.Errorf("position watcher stopped"))
-				return
-			}
-			p.mu.Lock()
-			if entry == nil {
-				p.positionReady = true
-				p.mu.Unlock()
-				continue
-			}
-			if entry.Operation() != nats.KeyValuePut {
-				if old, ok := p.positions[entry.Key()]; ok {
-					p.publishObservationLocked(old.Value.SessionId, positionObservation(old, false, true))
-				}
-				delete(p.positions, entry.Key())
-				p.mu.Unlock()
-				continue
-			}
-			value := &pb.PositionValue{}
-			err := pb.UnmarshalStrict(entry.Value(), value)
-			if err == nil {
-				err = validateTyped(value.ProtoReflect())
-			}
-			if err == nil && (value.SchemaVersion != 1 || value.GetObservation() == nil || entry.Key() != fmt.Sprintf("%d.%s.%d", value.SessionId, value.AircraftKey, value.OwnerEpoch) || strings.Contains(value.AircraftKey, ".")) {
-				err = fmt.Errorf("position key or schema mismatch")
-			}
-			if err != nil {
-				p.observationErr = err
-				p.mu.Unlock()
-				return
-			}
-			p.positions[entry.Key()] = KVPosition{Value: value, Revision: entry.Revision(), Observed: entry.Created()}
-			for _, selected := range p.positionSnapshotLocked(value.SessionId) {
-				if selected.Revision == entry.Revision() {
-					p.publishObservationLocked(value.SessionId, positionObservation(selected, selected.Stale, false))
-					break
-				}
-			}
-			p.mu.Unlock()
+	fresh := p.operationalSyncLocked(state, session) != nil
+	var selected KVPosition
+	found := false
+	for _, item := range p.positionViewLocked() {
+		value := item.Value
+		if value == nil || value.SessionId != session || value.AircraftKey != aircraft || value.OwnerEpoch > epoch || (fresh && value.OwnerEpoch != epoch) {
+			continue
+		}
+		if !found || value.OwnerEpoch > selected.Value.OwnerEpoch || (value.OwnerEpoch == selected.Value.OwnerEpoch && item.Revision > selected.Revision) {
+			item.Stale = !fresh || value.OwnerEpoch != epoch || state.Master == nil || value.SourceConnectionId != state.Master.ConnectionId
+			selected, found = item, true
 		}
 	}
+	return selected, found
 }
 
 func (p *Projection) watchPresence(ctx context.Context) {
@@ -124,6 +95,7 @@ func (p *Projection) watchPresence(ctx context.Context) {
 			}
 			if err != nil {
 				p.observationErr = err
+				p.wakeWaitersLocked()
 				p.mu.Unlock()
 				return
 			}
@@ -134,12 +106,20 @@ func (p *Projection) watchPresence(ctx context.Context) {
 	}
 }
 
-func (p *Projection) failObservation(err error) { p.mu.Lock(); p.observationErr = err; p.mu.Unlock() }
+func (p *Projection) failObservation(err error) {
+	p.mu.Lock()
+	p.observationErr = err
+	if p.Async != nil {
+		p.Async.Invalidate(nil, err)
+	}
+	p.wakeWaitersLocked()
+	p.mu.Unlock()
+}
 
 // ObservationSnapshot keeps KV revisions separate from the FS_STATE stream
 // revision. Expired presence is filtered even if no delete notification arrived.
 func (p *Projection) ObservationSnapshot(sessionID int32) ([]KVPosition, []KVPresence, error) {
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return nil, nil, err
 	}
 	p.mu.RLock()
@@ -147,9 +127,84 @@ func (p *Projection) ObservationSnapshot(sessionID int32) ([]KVPosition, []KVPre
 	return p.positionSnapshotLocked(sessionID), p.presenceSnapshotLocked(sessionID), nil
 }
 
+// WaitPositionApplied observes the exact accepted KV revision without a polling
+// interval or cloning the entire position set for every single report.
+func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, aircraft string, epoch, revision uint64) error {
+	ctx, span := otel.Tracer("cluster").Start(ctx, "euroscope.position.wait_applied")
+	var ready, readLock, registerLock, notification time.Duration
+	var rechecks int64
+	defer func() {
+		span.SetAttributes(
+			attribute.Float64("position.wait_state_ready_ms", float64(ready)/float64(time.Millisecond)),
+			attribute.Float64("position.wait_read_lock_ms", float64(readLock)/float64(time.Millisecond)),
+			attribute.Float64("position.wait_register_lock_ms", float64(registerLock)/float64(time.Millisecond)),
+			attribute.Float64("position.wait_notification_ms", float64(notification)/float64(time.Millisecond)),
+			attribute.Int64("position.wait_rechecks", rechecks))
+		span.End()
+	}()
+	key := positionKey(session, aircraft, epoch)
+	for {
+		rechecks++
+		// One coherent read checks readiness and the exact revision. Only
+		// replay lag needs the existing bounded state-readiness barrier.
+		stage := time.Now()
+		p.mu.RLock()
+		readLock += time.Since(stage)
+		stage = time.Now()
+		if err := p.healthLocked(); err != nil {
+			ready += time.Since(stage)
+			p.mu.RUnlock()
+			return err
+		}
+		if p.applied < p.highWater {
+			p.mu.RUnlock()
+			if err := ctx.Err(); err != nil {
+				ready += time.Since(stage)
+				return err
+			}
+			readyErr := p.readyForRead()
+			ready += time.Since(stage)
+			if readyErr != nil {
+				return readyErr
+			}
+			continue
+		}
+		if p.history != nil {
+			if err := p.history.check(); err != nil {
+				ready += time.Since(stage)
+				p.mu.RUnlock()
+				return err
+			}
+		}
+		ready += time.Since(stage)
+		if item := p.positions[key]; item.Revision >= revision {
+			p.mu.RUnlock()
+			return nil
+		}
+		// Keep the publication read lock through registration. The watcher
+		// cannot publish and wake this key between the missing check and insertion.
+		// Notification bookkeeping never requires the publication write lock.
+		stage = time.Now()
+		waiter := p.registerPositionWaiterLocked(key)
+		registerLock += time.Since(stage)
+		changed := waiter.changed
+		p.mu.RUnlock()
+		stage = time.Now()
+		select {
+		case <-ctx.Done():
+			notification += time.Since(stage)
+			p.releasePositionWaiter(key, waiter)
+			return ctx.Err()
+		case <-changed:
+			notification += time.Since(stage)
+			p.releasePositionWaiter(key, waiter)
+		}
+	}
+}
+
 func (p *Projection) positionSnapshotLocked(sessionID int32) []KVPosition {
 	selected := map[string]KVPosition{}
-	state := p.states[fmt.Sprintf("fs.v1.state.session.%d", sessionID)]
+	state := p.acceptedStateLocked(fmt.Sprintf("fs.v1.state.session.%d", sessionID))
 	var epoch uint64
 	if state != nil && state.Owner != nil {
 		epoch = state.Owner.Epoch
@@ -159,7 +214,7 @@ func (p *Projection) positionSnapshotLocked(sessionID int32) []KVPosition {
 		epoch = ^uint64(0)
 	}
 	fresh := p.operationalSyncLocked(state, sessionID) != nil
-	for _, item := range p.positions {
+	for _, item := range p.positionViewLocked() {
 		if item.Value == nil || item.Value.SessionId != sessionID || item.Value.OwnerEpoch > epoch {
 			continue
 		}
@@ -219,19 +274,23 @@ func (p *Projection) OperationalSync(ref *pb.AggregateRef) (*pb.SessionSync, err
 	if err != nil {
 		return nil, err
 	}
-	if err := p.Ready(); err != nil {
+	if err := p.sessionReadHealth(ref); err != nil {
 		return nil, err
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.operationalSyncLocked(p.states[subject], ref.GetSession().GetId()), nil
+	return p.operationalSyncLocked(p.acceptedStateLocked(subject), ref.GetSession().GetId()), nil
 }
 
 func (p *Projection) operationalSyncLocked(state *Aggregate, sessionID int32) *pb.SessionSync {
 	if state == nil || state.Sync == nil || state.Master == nil {
 		return nil
 	}
-	if p.syncFresh != nil {
+	memoryControl := p.Async != nil && p.Async.Control(sessionRef(sessionID)) == state
+	if memoryControl && (state.Sync.CompletedAt == nil || state.Sync.CompletedAt.AsTime().Before(p.startedAt)) {
+		return nil
+	}
+	if !memoryControl && p.syncFresh != nil {
 		subject, _ := Subject(state.Ref)
 		if !p.syncFresh[subject] {
 			return nil
@@ -289,17 +348,44 @@ func (p *Projection) publishObservationLocked(sessionID int32, value *pb.Fronten
 // SubscribeObservedInitial takes the state checkpoint and both KV views under
 // one lock, after registering buffered delivery. State deltas and observations
 // produced later arrive on separate channels with their own revisions.
+// The active owner's session turn also covers its RAM checkpoint and listener
+// registration, so accepted revisions cannot disappear between them.
 func (p *Projection) SubscribeObservedInitial(sessionID int32) (*pb.FrontendInitial, <-chan *pb.FrontendDelta, <-chan *pb.FrontendObservation, func(), error) {
 	if sessionID < 1 {
 		return nil, nil, nil, nil, fmt.Errorf("invalid session")
 	}
-	if err := p.Ready(); err != nil {
+	ref := sessionRef(sessionID)
+	if p.Async != nil && p.Async.Active(ref) {
+		var initial *pb.FrontendInitial
+		var updates <-chan *pb.FrontendDelta
+		var observations <-chan *pb.FrontendObservation
+		var closeSub func()
+		err := p.Async.Execute(context.Background(), ref, func(context.Context) error {
+			var err error
+			initial, updates, observations, closeSub, err = p.subscribeObservedInitial(sessionID)
+			return err
+		})
+		return initial, updates, observations, closeSub, err
+	}
+	return p.subscribeObservedInitial(sessionID)
+}
+
+func (p *Projection) subscribeObservedInitial(sessionID int32) (*pb.FrontendInitial, <-chan *pb.FrontendDelta, <-chan *pb.FrontendObservation, func(), error) {
+	ref := sessionRef(sessionID)
+	if err := p.sessionReadHealth(ref); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	subject, _ := Subject(sessionRef(sessionID))
+	memory, err := p.readMemory(ref)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	subject, _ := Subject(ref)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	state := p.states[subject]
+	if memory != nil {
+		state = memory
+	}
 	if state == nil {
 		return nil, nil, nil, nil, fmt.Errorf("session not found")
 	}
@@ -360,4 +446,50 @@ func (p *Projection) RequirePositionRevision(sessionID int32, aircraft string, e
 		}
 	}
 	return fmt.Errorf("source position observation changed")
+}
+
+// One accepted key wakes only callers waiting for that session/aircraft/epoch.
+// Errors still broadcast through wakeWaitersLocked. Reference counts remove
+// cancelled registrations even when the requested key never receives an update.
+type positionWaitNotification struct {
+	changed chan struct{}
+	users   int
+}
+
+// Lock order is always publication mu (read or write), then positionWaitersMu.
+// The caller retains a publication read lock until registration is complete.
+func (p *Projection) registerPositionWaiterLocked(key string) *positionWaitNotification {
+	p.positionWaitersMu.Lock()
+	defer p.positionWaitersMu.Unlock()
+	if p.positionWaiters == nil {
+		p.positionWaiters = map[string]*positionWaitNotification{}
+	}
+	waiter := p.positionWaiters[key]
+	if waiter == nil {
+		waiter = &positionWaitNotification{changed: make(chan struct{})}
+		p.positionWaiters[key] = waiter
+	}
+	waiter.users++
+	return waiter
+}
+
+// Called after publication while holding the projection write lock.
+func (p *Projection) wakePositionWaitersLocked(key string) {
+	p.positionWaitersMu.Lock()
+	defer p.positionWaitersMu.Unlock()
+	if waiter := p.positionWaiters[key]; waiter != nil {
+		close(waiter.changed)
+		delete(p.positionWaiters, key)
+	}
+}
+
+func (p *Projection) releasePositionWaiter(key string, waiter *positionWaitNotification) {
+	p.positionWaitersMu.Lock()
+	defer p.positionWaitersMu.Unlock()
+	if current := p.positionWaiters[key]; current == waiter {
+		waiter.users--
+		if waiter.users == 0 {
+			delete(p.positionWaiters, key)
+		}
+	}
 }

@@ -121,6 +121,14 @@ func restoreFixtureStream(t *testing.T, nc *nats.Conn, stream fixtureBackupStrea
 }
 
 func (f *entrypointFixture) route(request *pb.CommandRequest) *pb.CommandReply {
+	return f.routeCommand(request, false)
+}
+
+func (f *entrypointFixture) routeDurable(request *pb.CommandRequest) *pb.CommandReply {
+	return f.routeCommand(request, true)
+}
+
+func (f *entrypointFixture) routeCommand(request *pb.CommandRequest, durable bool) *pb.CommandReply {
 	f.t.Helper()
 	data, err := proto.Marshal(request)
 	require.NoError(f.t, err)
@@ -130,7 +138,14 @@ func (f *entrypointFixture) route(request *pb.CommandRequest) *pb.CommandReply {
 		if e != nil || state.Owner == nil {
 			return false
 		}
-		response, e := f.nc.Request("fs.v1.command."+state.Owner.NodeId, data, 3*time.Second)
+		message := nats.NewMsg("fs.v1.command." + state.Owner.NodeId)
+		message.Data = data
+		if durable {
+			message.Header.Set("FS-Durable", "1")
+		} else {
+			message.Header.Set("FS-Memory-Accepted", "1")
+		}
+		response, e := f.nc.RequestMsg(message, 3*time.Second)
 		if e != nil {
 			return false
 		}
@@ -144,8 +159,10 @@ func (f *entrypointFixture) seedEntity(ref *pb.AggregateRef, key string, value *
 	f.t.Helper()
 	zero := uint64(0)
 	request := &pb.CommandRequest{ProtocolRevision: 1, CommandId: uuid.NewString(), Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "task22-seed"}, ExpectedEntityRevision: &zero, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: key, Value: value}}}}}
-	result := f.route(request)
+	result := f.routeDurable(request)
 	require.Equal(f.t, pb.CommandOutcome_SUCCEEDED, result.GetOutcome().GetStatus(), result)
+	require.False(f.t, result.MemoryAccepted, "fixture prerequisites must be durable")
+	require.NotZero(f.t, result.GetStreamSequence())
 	f.t.Logf("SEED id=%s sequence=%d key=%s", request.CommandId, result.GetStreamSequence(), key)
 }
 

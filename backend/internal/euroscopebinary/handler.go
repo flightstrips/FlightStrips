@@ -2,6 +2,7 @@ package euroscopebinary
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -17,12 +18,18 @@ import (
 	euroscope "FlightStrips/pkg/events/euroscope"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const Subprotocol = "flightstrips.euroscope.pb.v2"
 const maxFrame = 4 << 20
+const positionAwaitWorkers = 128
 
 // Handler is the opt-in NATS EuroScope endpoint. The current SQL hub does not
 // construct it. Domain adapters supplied at cutover consume validated frames.
@@ -74,7 +81,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(maxFrame)
 	if err := h.serve(r.Context(), conn); err != nil {
 		if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-			slog.WarnContext(r.Context(), "EuroScope session failed", "error_type", fmt.Sprintf("%T", err))
+			slog.WarnContext(r.Context(), "EuroScope session failed", "error_type", fmt.Sprintf("%T", err), "error_reason", inboundFailureReason(err))
 		}
 		code := websocket.CloseTryAgainLater
 		if failure, ok := err.(socketFailure); ok {
@@ -200,7 +207,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			if delta.Aggregate.GetSession() != nil {
 				for _, change := range delta.Changes {
 					if change.GetUpsert().GetStrip() != nil || change.GetUpsert().GetCdmState() != nil || change.GetUpsert().GetEcfmpState() != nil {
-						state, err := h.Projection.Read(delta.Aggregate)
+						state, err := h.Projection.ReadEntityKinds(delta.Aggregate, pb.EntityKind_STRIP, pb.EntityKind_CDM_STATE, pb.EntityKind_ECFMP_STATE)
 						if err != nil {
 							return err
 						}
@@ -255,14 +262,49 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			_ = h.Deadlines.Recover(recoverCtx, session.Id)
 		}()
 	}
+	// Report callbacks hold a slot through PubAck and projection application.
+	// A bounded pool overlaps independent aircraft's I/O waits; the owner
+	// position writer keeps its separate 32-worker publication budget.
+	positions := shared.NewPositionDispatcher(positionAwaitWorkers, 1024, nil)
+	defer func() {
+		drain, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = positions.Close(drain)
+	}()
+	var failureMu sync.Mutex
+	var positionFailure error
 	for {
 		frame, err := read(conn)
 		if err != nil {
+			failureMu.Lock()
+			failure := positionFailure
+			failureMu.Unlock()
+			if failure != nil {
+				return failure
+			}
 			return err
 		}
-		if err := h.Projection.ValidateEuroScopeInbound(session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
-			slog.WarnContext(ctx, "candidate EuroScope inbound rejected", "session", session.Id, "error", err)
-			return socketFailure{websocket.ClosePolicyViolation}
+		received := time.Now()
+		independent := independentInboundKey(frame)
+		if independent == "" {
+			if err := positions.Barrier(ctx); err != nil {
+				return err
+			}
+			failureMu.Lock()
+			err = positionFailure
+			failureMu.Unlock()
+			if err != nil {
+				return err
+			}
+		}
+		// Position jobs validate the same authority when their keyed lane runs.
+		// Keeping that check off the reader lets independent aircraft be received
+		// while earlier jobs await commit; heading and operational admission stay
+		// synchronous, after their existing barriers.
+		if frame.GetAircraftPositionUpdate() == nil || independent == "" {
+			if err := validateIngress(ctx, h.Projection, session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
+				return err
+			}
 		}
 		if frame.GetCommandResult() != nil {
 			if h.Effects == nil || h.Effects.RecordResult(ctx, session.Id, lease.Client.ConnectionId, user.GetCid(), frame) != nil {
@@ -275,7 +317,30 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			}
 			continue
 		}
-		if err := h.Inbound(ctx, session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
+		if independent != "" {
+			if err := positions.Submit(ctx, independent, func(run context.Context) {
+				var err error
+				if frame.GetAircraftPositionUpdate() != nil {
+					err = h.validatedPositionInbound(run, received, h.Projection, session.Id, lease.Client.ConnectionId, user.GetCid(), frame)
+				} else {
+					err = h.tracedInbound(run, received, session.Id, lease.Client.ConnectionId, user.GetCid(), frame)
+				}
+				if err != nil {
+					failureMu.Lock()
+					if positionFailure == nil {
+						positionFailure = err
+					}
+					failureMu.Unlock()
+					positions.Cancel()
+					_ = conn.Close()
+				}
+			}); err != nil {
+				return err
+			}
+			continue
+		}
+		err = h.tracedInbound(ctx, received, session.Id, lease.Client.ConnectionId, user.GetCid(), frame)
+		if err != nil {
 			return err
 		}
 		if frame.GetSync() != nil {
@@ -299,6 +364,62 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			}
 		}
 	}
+}
+
+type inboundAuthority interface {
+	ValidateEuroScopeInbound(int32, string, string, *euroscope.Envelope) error
+}
+
+func validateIngress(ctx context.Context, authority inboundAuthority, session int32, connection, cid string, frame *euroscope.Envelope) error {
+	if err := authority.ValidateEuroScopeInbound(session, connection, cid, frame); err != nil {
+		slog.WarnContext(ctx, "candidate EuroScope inbound rejected", "session", session, "error", err)
+		return socketFailure{websocket.ClosePolicyViolation}
+	}
+	return nil
+}
+
+func (h Handler) validatedPositionInbound(ctx context.Context, received time.Time, authority inboundAuthority, session int32, connection, cid string, frame *euroscope.Envelope) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	started := time.Now()
+	_, span := otel.Tracer("euroscopebinary").Start(ctx, "euroscope.position.admission", trace.WithTimestamp(received))
+	err := validateIngress(ctx, authority, session, connection, cid, frame)
+	span.SetAttributes(attribute.Bool("position.validation_deferred", true),
+		attribute.Float64("position.validation_queue_ms", float64(started.Sub(received))/float64(time.Millisecond)),
+		attribute.Float64("position.reader_validation_ms", float64(time.Since(started))/float64(time.Millisecond)))
+	span.End()
+	if err != nil {
+		return err
+	}
+	return h.tracedInbound(ctx, received, session, connection, cid, frame)
+}
+
+// Positions overlap across aircraft. Heading changes never derive position
+// state and share one serial commit lane to avoid competing subject CAS writes.
+// Every other operational frame drains both lanes before admission.
+func independentInboundKey(frame *euroscope.Envelope) string {
+	if v := frame.GetAircraftPositionUpdate(); v != nil {
+		return v.Callsign
+	}
+	if frame.GetHeading() != nil {
+		return "$heading"
+	}
+	return ""
+}
+
+func (h Handler) tracedInbound(ctx context.Context, received time.Time, session int32, connection, cid string, frame *euroscope.Envelope) error {
+	processingStarted := time.Now()
+	ctx, span := otel.Tracer("euroscopebinary").Start(ctx, "euroscope.receipt_to_completion", trace.WithTimestamp(received))
+	span.SetAttributes(attribute.String("command_id", frame.CommandId), attribute.Bool("position", frame.GetAircraftPositionUpdate() != nil), attribute.Float64("dispatch_wait_ms", float64(processingStarted.Sub(received))/float64(time.Millisecond)))
+	err := h.Inbound(ctx, session, connection, cid, frame)
+	span.SetAttributes(attribute.Float64("processing_ms", float64(time.Since(processingStarted))/float64(time.Millisecond)))
+	if err != nil {
+		span.SetStatus(codes.Error, inboundFailureReason(err))
+		span.SetAttributes(attribute.String("error_type", fmt.Sprintf("%T", err)), attribute.String("error_reason", inboundFailureReason(err)))
+	}
+	span.End()
+	return err
 }
 
 func (h Handler) putController(ctx context.Context, sessionID int32, cid string, login *euroscope.LoginEvent) error {
@@ -391,4 +512,43 @@ func stripDeltas(delta *pb.FrontendDelta) []*euroscope.Envelope {
 		}
 	}
 	return frames
+}
+
+// Only allowlisted classifications enter logs/telemetry; error strings may
+// contain callsigns, provider data, or authentication input.
+func inboundFailureReason(err error) string {
+	if errors.Is(err, context.Canceled) {
+		return "context_canceled"
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "context_deadline"
+	}
+	if errors.Is(err, cluster.ErrPositionIntegrityStale) {
+		return "position_integrity_stale"
+	}
+	var api *nats.APIError
+	if errors.As(err, &api) {
+		return fmt.Sprintf("nats_api_%d", api.ErrorCode)
+	}
+	if errors.Is(err, cluster.ErrCAS) {
+		return "revision_conflict"
+	}
+	if err == nil {
+		return "none"
+	}
+	text := err.Error()
+	for _, reason := range []struct{ match, name string }{
+		{"REVISION_CONFLICT", "revision_conflict"},
+		{"stale strip revision", "revision_conflict"},
+		{"snapshot", "snapshot_unavailable"},
+		{"projection", "projection_unavailable"},
+		{"master", "master_authority"},
+		{"owner", "owner_authority"},
+		{"socket", "socket_authority"},
+	} {
+		if strings.Contains(text, reason.match) {
+			return reason.name
+		}
+	}
+	return "inbound_failure"
 }

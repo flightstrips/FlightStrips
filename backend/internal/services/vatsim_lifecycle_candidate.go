@@ -49,8 +49,20 @@ func (c *VatsimLifecycleCandidate) Arrival(ctx context.Context, id int32) error 
 	return c.reconcile(ctx, id, false)
 }
 
+// Lifecycle planning consumes the accepted owner RAM view and enters the same
+// session turn as positions. Pending replication must not suspend that planner.
+// External provider calls and effect publication retain their durable gates.
+func lifecycleOwnerCanPlan(lease interface{ CanWrite(*pb.AggregateRef) bool }, memory bool, ref *pb.AggregateRef) bool {
+	if memory {
+		owner, ok := lease.(interface{ CanCommitLocal(*pb.AggregateRef) bool })
+		return ok && owner.CanCommitLocal(ref)
+	}
+	return lease.CanWrite(ref)
+}
+
 func (c *VatsimLifecycleCandidate) reconcile(ctx context.Context, id int32, departure bool) error {
-	if c.Writer.Lease != nil && !c.Writer.Lease.CanWrite(sessionRef(id)) {
+	ctx = context.WithValue(ctx, lifecycleGeometryContextKey{}, &lifecycleGeometry{})
+	if c.Writer.Lease != nil && !lifecycleOwnerCanPlan(c.Writer.Lease, c.Writer.Projection != nil && c.Writer.Projection.Async != nil, sessionRef(id)) {
 		return fmt.Errorf("VATSIM lifecycle session is not owned")
 	}
 	checkpoint, page, revision, err := c.Source.CheckpointRevisionFor(ctx, globalRef(), "vatsim", "network-data/v3")
@@ -64,17 +76,17 @@ func (c *VatsimLifecycleCandidate) reconcile(ctx context.Context, id int32, depa
 	if err = lifecycleReply(reply); err != nil {
 		return err
 	}
-	state, err := c.Writer.Read(ctx, sessionRef(id))
+	state, err := c.Writer.Projection.ReadLifecyclePlanning(sessionRef(id))
 	if err != nil {
 		return err
 	}
 	seed := state.Indexes[pb.EntityKind_SESSION][strconv.Itoa(int(id))].GetValue().GetSession()
 	flights := lifecycleFlights(page.GetVatsim(), seed.GetAirport())
 	keys := map[string]bool{}
-	for _, e := range state.EntitiesByKind(pb.EntityKind_STRIP) {
+	for _, e := range lifecycleEntities(state, pb.EntityKind_STRIP) {
 		keys[e.Key] = true
 	}
-	for _, e := range state.EntitiesByKind(pb.EntityKind_STAND_ASSIGNMENT) {
+	for _, e := range lifecycleEntities(state, pb.EntityKind_STAND_ASSIGNMENT) {
 		keys[e.Key] = true
 	}
 	ordered := make([]string, 0, len(keys))
@@ -130,26 +142,27 @@ func (c *VatsimLifecycleCandidate) reconcile(ctx context.Context, id int32, depa
 		}
 		return left < right
 	})
+	cached := state
 	passes := 1
 	if !departure {
 		passes = 5
 	}
 	for pass := 0; pass < passes; pass++ {
-		before, err := c.Writer.Read(ctx, sessionRef(id))
+		before, err := c.Writer.Projection.ReadLifecyclePlanning(sessionRef(id))
 		if err != nil {
 			return err
 		}
 		for _, key := range ordered {
 			if departure && flights[key] == nil {
-				if err = c.transition(ctx, id, key, false, revision, checkpoint.Sha256, page.GetVatsim()); err != nil {
+				if err = c.transitionWithSnapshot(ctx, id, key, false, revision, checkpoint.Sha256, page.GetVatsim(), &cached); err != nil {
 					return err
 				}
 			}
-			if err = c.transition(ctx, id, key, departure, revision, checkpoint.Sha256, page.GetVatsim()); err != nil {
+			if err = c.transitionWithSnapshot(ctx, id, key, departure, revision, checkpoint.Sha256, page.GetVatsim(), &cached); err != nil {
 				return err
 			}
 		}
-		after, err := c.Writer.Read(ctx, sessionRef(id))
+		after, err := c.Writer.Projection.ReadLifecyclePlanning(sessionRef(id))
 		if err != nil {
 			return err
 		}
@@ -160,7 +173,7 @@ func (c *VatsimLifecycleCandidate) reconcile(ctx context.Context, id int32, depa
 			return fmt.Errorf("SAT arrival reconciliation reached the fixed cap of %d passes", passes)
 		}
 	}
-	if err = c.transition(ctx, id, "", departure, revision, checkpoint.Sha256, page.GetVatsim()); err != nil {
+	if err = c.transitionWithSnapshot(ctx, id, "", departure, revision, checkpoint.Sha256, page.GetVatsim(), &cached); err != nil {
 		return err
 	}
 	return c.resumeStandEffects(ctx, id)
@@ -185,11 +198,17 @@ func lifecycleFlights(page *pb.VatsimPage, airport string) map[string]*vatsim.De
 }
 
 func (c *VatsimLifecycleCandidate) transition(ctx context.Context, id int32, key string, departure bool, revision uint64, sha string, page *pb.VatsimPage) error {
+	var cached *cluster.Aggregate
+	return c.transitionWithSnapshot(ctx, id, key, departure, revision, sha, page, &cached)
+}
+
+func (c *VatsimLifecycleCandidate) transitionWithSnapshot(ctx context.Context, id int32, key string, departure bool, revision uint64, sha string, page *pb.VatsimPage, cached **cluster.Aggregate) error {
 	for attempts := 0; attempts < 4; attempts++ {
-		state, err := c.Writer.Read(ctx, sessionRef(id))
+		state, err := c.Writer.Projection.ReadLifecyclePlanningCached(sessionRef(id), *cached)
 		if err != nil {
 			return err
 		}
+		*cached = state
 		positions, _, err := c.Writer.Projection.ObservationSnapshot(id)
 		if err != nil {
 			return err
@@ -235,8 +254,8 @@ func (c *VatsimLifecycleCandidate) transition(ctx context.Context, id int32, key
 			}
 			return changes, pb.CommandReply_COMMITTED, 0, nil
 		}
-		run := func() (*pb.CommandReply, error) {
-			reply := writer.Execute(ctx, request)
+		run := func(runCtx context.Context) (*pb.CommandReply, error) {
+			reply := writer.Execute(runCtx, request)
 			return reply, lifecycleReply(reply)
 		}
 		var result *pb.CommandReply
@@ -256,9 +275,9 @@ func (c *VatsimLifecycleCandidate) transition(ctx context.Context, id int32, key
 			if dispatcher == nil {
 				return fmt.Errorf("operational lifecycle requires position dispatcher")
 			}
-			result, err = dispatcher.ExecuteLifecycle(ctx, positions, run)
+			result, err = dispatcher.ExecuteLifecycleContext(ctx, positions, run)
 		} else {
-			result, err = run()
+			result, err = run(ctx)
 		}
 		if err == nil {
 			return nil
@@ -302,7 +321,7 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 	if w != nil && w.Status == pb.WorkflowRecord_COMPLETED {
 		p.ConsumedPrefiles[key] = true
 	}
-	for _, e := range state.EntitiesByKind(pb.EntityKind_STRIP) {
+	for _, e := range lifecycleEntities(state, pb.EntityKind_STRIP) {
 		p.Strips[e.Key] = lifecycleModelStrip(e.GetValue().GetStrip(), seed.Id)
 	}
 	flights := lifecycleFlights(page, seed.Airport)
@@ -335,7 +354,7 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 			}
 		}
 	}
-	for i, e := range state.EntitiesByKind(pb.EntityKind_STAND_ASSIGNMENT) {
+	for i, e := range lifecycleEntities(state, pb.EntityKind_STAND_ASSIGNMENT) {
 		p.Assignments[e.Key] = lifecycleModelAssignment(e.GetValue().GetStandAssignment(), seed.Id, int64(i+1))
 		p.AssignmentBlocks[e.Key] = append([]string(nil), e.GetValue().GetStandAssignment().BlockedStands...)
 	}
@@ -350,16 +369,27 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 			}
 		}
 	}
+	geometry := lifecycleGeometryFrom(ctx)
+	if geometry != nil {
+		geometry.prepare(p.Stands, seed.Airport, positions)
+	}
 	for _, o := range positions {
 		pos := o.Value.GetPosition()
 		if o.Stale || pos == nil || pos.AltitudeFeet > 1000 || p.Assignments[o.Value.AircraftKey] != nil {
 			continue
 		}
-		if stand, ok := p.Stands.StandAtPosition(seed.Airport, pos.Latitude, pos.Longitude); ok {
-			p.PhysicalOccupancy[o.Value.AircraftKey] = stand.Name
+		var stand string
+		var found bool
+		if geometry != nil {
+			stand, found = geometry.standAt(o.Value.AircraftKey, pos.Latitude, pos.Longitude)
+		} else {
+			stand, found = physicalStandAt(p.Stands, seed.Airport, pos.Latitude, pos.Longitude)
+		}
+		if found {
+			p.PhysicalOccupancy[o.Value.AircraftKey] = stand
 		}
 	}
-	for i, e := range state.EntitiesByKind(pb.EntityKind_STAND_BLOCK) {
+	for i, e := range lifecycleEntities(state, pb.EntityKind_STAND_BLOCK) {
 		b := e.GetValue().GetStandBlock()
 		p.BlockAdjacency[e.Key] = append([]string(nil), b.BlockedStands...)
 		p.Blocks[e.Key] = &models.StandBlock{ID: int64(i + 1), SessionID: seed.Id, Stand: b.Stand, BlockType: b.BlockType, Source: b.Source, Reason: &b.Reason, Callsign: b.Callsign, CreatedBy: &b.Actor, ExpiresAt: lifecycleTime(b.ExpiresAt), Manual: b.Manual, Version: int32(e.Revision), CreatedAt: b.CreatedAt.AsTime(), UpdatedAt: b.UpdatedAt.AsTime()}
@@ -394,24 +424,26 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 		}
 	}
 	change := &pb.DomainChange{}
-	for _, e := range state.EntitiesByKind(pb.EntityKind_STRIP) {
+	for _, e := range lifecycleEntities(state, pb.EntityKind_STRIP) {
 		s := p.Strips[e.Key]
-		copy := proto.Clone(e.GetValue().GetStrip()).(*pb.Strip)
-		if s != nil {
-			if e.Key == key && copy.VatsimOnly && copy.VatsimCid != "" && flights[key] == nil && p.Assignments[key] == nil && copy.OwnerCid == "" && len(copy.ControllerModifiedFields) == 0 {
-				change.Changes = append(change.Changes, candidateDelete(e.Key, e, pb.EntityKind_STRIP))
-				continue
-			}
-			copy.Stand = ""
-			if s.Stand != nil {
-				copy.Stand = *s.Stand
-			}
-			if !equalStripWithoutRevision(e.GetValue().GetStrip(), copy) {
-				change.Changes = append(change.Changes, stripChange(e, copy))
-			}
+		prior := e.GetValue().GetStrip()
+		if s == nil {
+			continue
+		}
+		if e.Key == key && prior.VatsimOnly && prior.VatsimCid != "" && flights[key] == nil && p.Assignments[key] == nil && prior.OwnerCid == "" && len(prior.ControllerModifiedFields) == 0 {
+			change.Changes = append(change.Changes, candidateDelete(e.Key, e, pb.EntityKind_STRIP))
+			continue
+		}
+		stand := valueString(s.Stand)
+		// SAT changes only the stand on the persisted strip. Copying and comparing
+		// the entire aircraft for an unchanged stand adds no planning information.
+		if stand != prior.Stand {
+			copy := proto.Clone(prior).(*pb.Strip)
+			copy.Stand = stand
+			change.Changes = append(change.Changes, stripChange(e, copy))
 		}
 	}
-	for _, e := range state.EntitiesByKind(pb.EntityKind_STAND_ASSIGNMENT) {
+	for _, e := range lifecycleEntities(state, pb.EntityKind_STAND_ASSIGNMENT) {
 		if p.Assignments[e.Key] == nil {
 			change.Changes = append(change.Changes, candidateDelete(e.Key, e, pb.EntityKind_STAND_ASSIGNMENT))
 		}
@@ -442,7 +474,7 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 			}
 		}
 	}
-	for _, e := range state.EntitiesByKind(pb.EntityKind_STAND_BLOCK) {
+	for _, e := range lifecycleEntities(state, pb.EntityKind_STAND_BLOCK) {
 		if p.Blocks[e.Key] == nil {
 			change.Changes = append(change.Changes, candidateDelete(e.Key, e, pb.EntityKind_STAND_BLOCK))
 		}
@@ -509,7 +541,7 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 }
 
 func (c *VatsimLifecycleCandidate) deliveryCID(state *cluster.Aggregate, id int32) string {
-	_, presence, err := c.Writer.Projection.ObservationSnapshot(id)
+	presence, err := c.Writer.Projection.PresenceSnapshot(id)
 	if err != nil {
 		return ""
 	}
@@ -525,7 +557,7 @@ func (c *VatsimLifecycleCandidate) deliveryCID(state *cluster.Aggregate, id int3
 		if client != nil && client.Kind == pb.ClientPresence_EUROSCOPE && !client.Observer && nodes[client.NodeId] {
 			position := client.Position
 			delivery := position == "DEL"
-			for _, e := range state.EntitiesByKind(pb.EntityKind_SECTOR_OWNER) {
+			for _, e := range lifecycleEntities(state, pb.EntityKind_SECTOR_OWNER) {
 				sector := e.GetValue().GetSectorOwner()
 				if sector.Sector == "DEL" && (sector.ControllerCid == client.Cid || sector.Position == position) {
 					delivery = true
@@ -552,7 +584,7 @@ func (c *VatsimLifecycleCandidate) deliveryCID(state *cluster.Aggregate, id int3
 }
 
 func (c *VatsimLifecycleCandidate) resumeStandEffects(ctx context.Context, id int32) error {
-	state, err := c.Writer.Read(ctx, sessionRef(id))
+	state, err := c.Writer.Projection.ReadLifecyclePlanning(sessionRef(id))
 	if err != nil {
 		return err
 	}
@@ -650,4 +682,20 @@ func (c *VatsimLifecycleCandidate) lifecycleAssignment(a *models.StandAssignment
 		sort.Strings(value.BlockedStands)
 	}
 	return value
+}
+
+// lifecycleEntities borrows records from the caller's detached planning snapshot.
+// The planner treats them as immutable; mutation is confined to its model copies.
+// Keeping sorted order preserves stable assignment IDs and allocation tie breaks.
+func lifecycleEntities(state *cluster.Aggregate, kind pb.EntityKind) []*pb.EntitySnapshot {
+	keys := make([]string, 0, len(state.Indexes[kind]))
+	for key := range state.Indexes[kind] {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	entities := make([]*pb.EntitySnapshot, 0, len(keys))
+	for _, key := range keys {
+		entities = append(entities, state.Indexes[kind][key])
+	}
+	return entities
 }

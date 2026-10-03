@@ -3,6 +3,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -109,6 +110,7 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 	go func() {
 		defer jobs.Done()
 		if err := lease.Run(socketCtx); err != nil && socketCtx.Err() == nil {
+			slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "presence_renewal", "error_type", fmt.Sprintf("%T", err))
 			closeSocket()
 		}
 	}()
@@ -121,16 +123,16 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 		updateRole := func() error {
-			state, err := f.Projection.Read(sessionRef(sessionID))
+			term, master, err := f.Projection.ReadSessionTerms(sessionID)
 			if err != nil {
 				return err
 			}
-			owner := ownerEpoch(state.Owner)
-			if !proto.Equal(lastMaster, state.Master) || lastOwner != owner {
-				if err := socket.OnRole(socketRole(lease.Client, state.Master), masterEpoch(state.Master), owner); err != nil {
+			owner := ownerEpoch(term)
+			if !proto.Equal(lastMaster, master) || lastOwner != owner {
+				if err := socket.OnRole(socketRole(lease.Client, master), masterEpoch(master), owner); err != nil {
 					return err
 				}
-				lastMaster, lastOwner = state.Master, owner
+				lastMaster, lastOwner = master, owner
 			}
 			return nil
 		}
@@ -139,15 +141,30 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 			case <-socketCtx.Done():
 				return
 			case <-ticker.C:
-				if updateRole() != nil {
+				if err := updateRole(); err != nil {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "role_refresh", "error_type", fmt.Sprintf("%T", err))
 					return
 				}
 			case delta, ok := <-sessionDeltas:
-				if !ok || deliverDelta(socket.OnDelta, delta, &lastSession) != nil || updateRole() != nil {
+				if !ok {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "session_listener_closed")
+					return
+				}
+				if err := deliverDelta(socket.OnDelta, delta, &lastSession); err != nil {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "session_delta", "error_type", fmt.Sprintf("%T", err))
+					return
+				}
+				if err := updateRole(); err != nil {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "role_after_delta", "error_type", fmt.Sprintf("%T", err))
 					return
 				}
 			case delta, ok := <-airportDeltas:
-				if !ok || deliverDelta(socket.OnDelta, delta, &lastAirport) != nil {
+				if !ok {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "airport_listener_closed")
+					return
+				}
+				if err := deliverDelta(socket.OnDelta, delta, &lastAirport); err != nil {
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "airport_delta", "error_type", fmt.Sprintf("%T", err))
 					return
 				}
 			}
@@ -253,7 +270,7 @@ func (f *SessionFanout) SendToCID(ctx context.Context, sessionID int32, effect *
 	if err != nil {
 		return err
 	}
-	state, err := f.Projection.Read(sessionRef(sessionID))
+	state, err := f.Projection.ReadDurable(sessionRef(sessionID))
 	if err != nil || state.Effects[effect.CommandId] == nil ||
 		!proto.Equal(state.Effects[effect.CommandId], effect) {
 		return fmt.Errorf("effect dispatch claim is not applied locally")
@@ -332,7 +349,7 @@ func (f *SessionFanout) deliverLocal(sessionID int32, effect *pb.EffectRecord) e
 		return fmt.Errorf("target socket is unavailable or already delivered")
 	}
 	f.mu.Unlock()
-	state, err := f.Projection.Read(sessionRef(sessionID))
+	state, err := f.Projection.ReadDurable(sessionRef(sessionID))
 	if err != nil {
 		return err
 	}

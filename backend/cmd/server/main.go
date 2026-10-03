@@ -135,8 +135,10 @@ func main() {
 		TransceiversInterval: envDuration("VATSIM_TRANSCEIVER_POLL_INTERVAL", 30*time.Second),
 	})
 	if err != nil {
-		// Transport errors can include credential-bearing URLs. Log only the type.
-		slog.Error("Failed to build application", "error_type", fmt.Sprintf("%T", err))
+		// Transport errors can contain credentials. Diagnostics contain only fixed
+		// stage/class labels and Go types, never the error message.
+		stage, class, causeType := app.StartupFailureDiagnostics(err)
+		slog.Error("Failed to build application", "error_type", fmt.Sprintf("%T", err), "stage", stage, "cause_class", class, "cause_type", causeType)
 		os.Exit(1)
 	}
 	defer func() {
@@ -165,13 +167,16 @@ func main() {
 
 	<-sigChan
 	slog.Info("Shutting down server...")
-	if err := application.DrainPositions(context.Background()); err != nil {
-		slog.Warn("Position shutdown drain cancelled", "error", err)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	// Close admissions and flush accepted work while ownership renewal,
+	// projection and NATS are still live. Cancelling the worker parent first
+	// would stop the persistence workers before an orderly drain could finish.
+	if err := application.Close(shutdownCtx); err != nil {
+		slog.Error("Application shutdown drain failed", "error", err)
+		os.Exit(1)
 	}
 	cancelWorkers()
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("Server shutdown failed", slog.Any("error", err))

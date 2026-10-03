@@ -38,7 +38,7 @@ func (c *TrafficCandidate) Traffic(ctx context.Context, id int32) error {
 	if err := c.Writer.Projection.Ready(); err != nil {
 		return err
 	}
-	if !c.Writer.Lease.CanWrite(ref) {
+	if !lifecycleOwnerCanPlan(c.Writer.Lease, c.Writer.Projection.Async != nil, ref) {
 		return fmt.Errorf("traffic session is not owned")
 	}
 	state, err := c.Writer.Projection.Read(ref)
@@ -58,7 +58,7 @@ func (c *TrafficCandidate) Traffic(ctx context.Context, id int32) error {
 	if err = c.Writer.Projection.Ready(); err != nil {
 		return err
 	}
-	if !c.Writer.Lease.CanWrite(ref) {
+	if !lifecycleOwnerCanPlan(c.Writer.Lease, c.Writer.Projection.Async != nil, ref) {
 		return fmt.Errorf("traffic lease lost before publication")
 	}
 	c.Record(ctx, seed.Name, seed.Airport, snapshot.onStand, snapshot.taxiing, snapshot.arr15m, snapshot.dep15m)

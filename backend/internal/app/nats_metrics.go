@@ -22,6 +22,18 @@ type measuredStore struct {
 	metrics *runtimeMetrics
 }
 
+// Preserve the exact committed-receipt capability through the metrics adapter.
+// Embedding EventStore alone exposes only Replay and Publish.
+func (s measuredStore) Committed(ctx context.Context, sequence uint64) (cluster.AppliedEvent, error) {
+	store, ok := s.EventStore.(interface {
+		Committed(context.Context, uint64) (cluster.AppliedEvent, error)
+	})
+	if !ok {
+		return cluster.AppliedEvent{}, fmt.Errorf("event store has no committed receipt reader")
+	}
+	return store.Committed(ctx, sequence)
+}
+
 func (s measuredStore) Publish(ctx context.Context, subject string, expected uint64, data []byte) (uint64, error) {
 	start := time.Now()
 	sequence, err := s.EventStore.Publish(ctx, subject, expected, data)

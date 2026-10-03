@@ -74,7 +74,7 @@ func (s Effects) Sweep(ctx context.Context) error {
 		if !s.Owner.CanWrite(ref) {
 			continue
 		}
-		state, err := s.Owner.Projection.Read(ref)
+		state, err := s.Owner.Projection.ReadDurable(ref)
 		if err != nil {
 			return err
 		}
@@ -101,7 +101,7 @@ func (s Effects) Sweep(ctx context.Context) error {
 			switch effect.Status {
 			case pb.EffectRecord_WAITING:
 				if squawk := effect.GetGenerateSquawk(); squawk != nil {
-					fresh, err := s.Owner.Projection.Read(ref)
+					fresh, err := s.Owner.Projection.ReadDurable(ref)
 					if err != nil {
 						return err
 					}
@@ -126,11 +126,7 @@ func (s Effects) Sweep(ctx context.Context) error {
 				if err != nil || client == nil || effect.GetGenerateSquawk() != nil && client.Observer {
 					continue
 				}
-				claimed, err := s.advance(ctx, ref, effect, pb.EffectRecord_DISPATCH_CLAIMED, client.ConnectionId, "")
-				if err == nil && claimed != nil && s.Owner.CanWrite(ref) {
-					// A lost reply is ambiguous. Never make a second socket write.
-					_ = s.Fanout.SendToCID(ctx, ref.GetSession().Id, claimed)
-				}
+				_ = s.claimAndDispatch(ctx, ref, effect, client.ConnectionId)
 			case pb.EffectRecord_DISPATCH_CLAIMED:
 				if effect.ResultDeadline != nil && !time.Now().Before(effect.ResultDeadline.AsTime()) {
 					_, _ = s.advance(ctx, ref, effect, pb.EffectRecord_UNKNOWN, "", "")
@@ -143,6 +139,32 @@ func (s Effects) Sweep(ctx context.Context) error {
 
 func (s Effects) selectTarget(sessionID int32, cid string) (*pb.ClientPresence, error) {
 	return selectLiveEffectTarget(s.Owner.Projection, sessionID, cid)
+}
+
+// Keep durable claim and its sole dispatch attempt in one owner turn. Later
+// RAM admissions must not invalidate the dispatch gate between those steps.
+func (s Effects) claimAndDispatch(ctx context.Context, ref *pb.AggregateRef, effect *pb.EffectRecord, connection string) error {
+	if owners := s.Owner.Projection.Async; owners != nil {
+		return owners.Execute(ctx, ref, func(turn context.Context) error {
+			if err := owners.FlushSession(turn, ref); err != nil {
+				return err
+			}
+			return s.claimAndDispatchDurable(turn, ref, effect, connection)
+		})
+	}
+	return s.claimAndDispatchDurable(ctx, ref, effect, connection)
+}
+
+func (s Effects) claimAndDispatchDurable(ctx context.Context, ref *pb.AggregateRef, effect *pb.EffectRecord, connection string) error {
+	claimed, err := s.advance(ctx, ref, effect, pb.EffectRecord_DISPATCH_CLAIMED, connection, "")
+	if err != nil {
+		return err
+	}
+	if claimed == nil || !s.Owner.CanWrite(ref) {
+		return fmt.Errorf("effect owner unavailable after claim")
+	}
+	// A lost reply is ambiguous. Never make a second socket write.
+	return s.Fanout.SendToCID(ctx, ref.GetSession().Id, claimed)
 }
 
 func selectLiveEffectTarget(projection *Projection, sessionID int32, cid string) (*pb.ClientPresence, error) {
@@ -178,10 +200,29 @@ func selectLiveEffectTarget(projection *Projection, sessionID int32, cid string)
 }
 
 func (s Effects) advance(ctx context.Context, ref *pb.AggregateRef, prior *pb.EffectRecord, status pb.EffectRecord_Status, connectionID, reason string) (*pb.EffectRecord, error) {
+	if owners := s.Owner.Projection.Async; owners != nil {
+		var committed *pb.EffectRecord
+		err := owners.Execute(ctx, ref, func(turn context.Context) error {
+			if err := owners.FlushSession(turn, ref); err != nil {
+				return err
+			}
+			var err error
+			committed, err = s.advanceDurable(turn, ref, prior, status, connectionID, reason)
+			if err != nil {
+				return err
+			}
+			return owners.RefreshDurable(turn, ref)
+		})
+		return committed, err
+	}
+	return s.advanceDurable(ctx, ref, prior, status, connectionID, reason)
+}
+
+func (s Effects) advanceDurable(ctx context.Context, ref *pb.AggregateRef, prior *pb.EffectRecord, status pb.EffectRecord_Status, connectionID, reason string) (*pb.EffectRecord, error) {
 	if !s.Owner.CanWrite(ref) {
 		return nil, fmt.Errorf("effect owner unavailable")
 	}
-	state, err := s.Owner.Projection.Read(ref)
+	state, err := s.Owner.Projection.ReadDurable(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +268,7 @@ func (s Effects) advance(ctx context.Context, ref *pb.AggregateRef, prior *pb.Ef
 	if err := s.Owner.Projection.WaitApplied(ctx, sequence); err != nil {
 		return nil, err
 	}
-	fresh, err := s.Owner.Projection.Read(ref)
+	fresh, err := s.Owner.Projection.ReadDurable(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +297,7 @@ func (s Effects) RecordResult(ctx context.Context, sessionID int32, connectionID
 		return err
 	}
 	for attempt := 0; attempt < 4; attempt++ {
-		state, err := s.Owner.Projection.Read(ref)
+		state, err := s.Owner.Projection.ReadDurable(ref)
 		if err != nil {
 			return err
 		}
@@ -302,7 +343,7 @@ func (s Effects) forwardResult(ctx context.Context, sessionID int32, connectionI
 	}
 	terminal := proto.Clone(claim).(*pb.EffectRecord)
 	terminal.Status, terminal.ReasonCode = status, reason
-	state, err := s.Owner.Projection.Read(sessionRef(sessionID))
+	state, err := s.Owner.Projection.ReadDurable(sessionRef(sessionID))
 	if err != nil {
 		return err
 	}
@@ -321,7 +362,7 @@ func (s Effects) forwardResult(ctx context.Context, sessionID int32, connectionI
 				return nil
 			}
 		}
-		state, readErr := s.Owner.Projection.Read(sessionRef(sessionID))
+		state, readErr := s.Owner.Projection.ReadDurable(sessionRef(sessionID))
 		if readErr == nil {
 			stored, lookupErr := state.LookupEffect(claim.CommandId)
 			if lookupErr != nil {
@@ -366,6 +407,18 @@ func (s Effects) ServeResults(ctx context.Context) error {
 }
 
 func (s Effects) recordForwardedResult(ctx context.Context, request *pb.EffectDeliveryRequest) error {
+	if owners := s.Owner.Projection.Async; owners != nil {
+		return owners.Execute(ctx, sessionRef(request.SessionId), func(turn context.Context) error {
+			if err := owners.FlushSession(turn, sessionRef(request.SessionId)); err != nil {
+				return err
+			}
+			return s.recordForwardedResultDurable(turn, request)
+		})
+	}
+	return s.recordForwardedResultDurable(ctx, request)
+}
+
+func (s Effects) recordForwardedResultDurable(ctx context.Context, request *pb.EffectDeliveryRequest) error {
 	terminal := request.Effect
 	ref := sessionRef(request.SessionId)
 	if request.ClaimStreamSequence == 0 || s.Owner.Projection.WaitApplied(ctx, request.ClaimStreamSequence) != nil {
@@ -379,7 +432,7 @@ func (s Effects) recordForwardedResult(ctx context.Context, request *pb.EffectDe
 		return err
 	}
 	for attempt := 0; attempt < 4; attempt++ {
-		state, err := s.Owner.Projection.Read(ref)
+		state, err := s.Owner.Projection.ReadDurable(ref)
 		if err != nil {
 			return err
 		}

@@ -55,6 +55,7 @@ type natsRuntime struct {
 	nc             *nats.Conn
 	projection     *cluster.Projection
 	owner          *cluster.OwnerRuntime
+	async          *cluster.AsyncSessionOwners
 	router         *cluster.CommandRouter
 	registry       cluster.SessionRegistry
 	source         cluster.NavigationWeather
@@ -92,6 +93,12 @@ func sessionNATSRef(id int32) *pb.AggregateRef {
 // admission can wait on accepted state. StartWorkers starts the domain/provider
 // supervisors once. Resources are verified, never created by the backend.
 func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App, err error) {
+	stage := "configuration"
+	defer func() {
+		if err != nil {
+			err = &startupStageError{stage: stage, cause: err}
+		}
+	}()
 	deps = faultDependencies(deps)
 	cfg = cfg.withDefaults()
 	cfg.Navigation = cfg.Navigation.Normalize()
@@ -107,10 +114,12 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 	if err = cfg.AMAN.Validate(); err != nil {
 		return nil, err
 	}
+	stage = "authentication"
 	auth, err := buildAuthenticationService(cfg, deps.AuthenticationService)
 	if err != nil {
 		return nil, err
 	}
+	stage = "transport_connect"
 	nc, err := natsresources.Connect(cfg.NATS.Resources)
 	if err != nil {
 		return nil, err
@@ -125,35 +134,45 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 			_ = r.close(cleanup)
 		}
 	}()
+	stage = "resource_verify"
 	if err = natsresources.Verify(ctx, nc, cfg.NATS.Resources); err != nil {
 		return nil, fmt.Errorf("verify NATS resources: %w", err)
 	}
+	stage = "projection_construct"
 	r.projection, err = cluster.NewProjection(nc, cfg.NATS.Resources)
 	if err != nil {
 		return nil, err
 	}
+	stage = "projection_replay"
 	r.run("projection", r.projection.Run)
 	if err = r.await(ctx, r.projection.Ready); err != nil {
 		return nil, err
 	}
 	store := measuredStore{EventStore: cluster.NATSStore{JS: r.projection.JS}, metrics: &r.metrics}
+	stage = "owner_construct"
 	r.owner, err = cluster.NewOwnerRuntime(nc, r.projection, store)
 	if err != nil {
 		return nil, err
 	}
+	r.async = cluster.NewAsyncSessionOwners(r.projection, r.owner, store)
+	r.projection.Async = r.async
+	r.async.RegisterPositionTranslator(r.projection.TranslatePositionSources)
 	writer := cluster.Writer{Store: store, Projection: r.projection, Lease: r.owner, NodeID: r.owner.NodeID}
 	r.router = &cluster.CommandRouter{NC: nc, Projection: r.projection, Lease: r.owner, Writer: writer}
 	routed := cluster.RoutedLifecycleStore{Router: r, Projection: r.projection}
 	r.registry = cluster.SessionRegistry{Store: routed}
+	stage = "objects_open"
 	objects, err := r.projection.JS.ObjectStore(cfg.NATS.Resources.Names.Objects)
 	if err != nil {
 		return nil, err
 	}
 	r.source = cluster.NavigationWeather{Writer: writer, Objects: cluster.NATSObjects{Store: objects}}
+	stage = "effect_secrets"
 	r.secrets, err = cluster.LoadEffectSecrets(objects, cfg.NATS.EffectKeyID, cfg.NATS.EffectKeyFiles)
 	if err != nil {
 		return nil, err
 	}
+	stage = "domain_construct"
 	readiness := configureStandAssignment(cfg.EnableStandAssignment, cfg.StandAssignmentAircraftJSON)
 	r.stands = cluster.StandState{Store: routed, Projection: r.projection, Stands: config.GetStandCapabilities(), Policy: config.GetAirlineAssignment(), Aircraft: config.GetAircraftReference(), Engines: config.GetAircraftEngineReference(), Borders: config.GetAirportCountries()}
 	transceivers, err := cluster.NewTransceiverSource(r.source)
@@ -164,7 +183,7 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 	if provider == nil && cfg.HoppieLogon != "" {
 		provider = pdc.NewClientWithTransport(cfg.HoppieLogon, deps.NATS.HoppieBaseURL, deps.NATS.HTTPClient)
 	}
-	base := cluster.SessionLifecyclePlanner(routed.Read)
+	base := cluster.SessionLifecyclePlanner(routed.ReadDurable)
 	sessionPlan := func(ctx context.Context, req *pb.CommandRequest, state *cluster.Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
 		if req.GetSystem().GetCreateSession() != nil || req.GetSystem().GetDeleteSession() != nil {
 			return base(ctx, req, state)
@@ -263,9 +282,11 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 		lifecycle.Positions = r.deadlines.Positions
 		r.work.Departure, r.work.Arrival = r.liveSessionWorker(lifecycle.Departure), r.liveSessionWorker(lifecycle.Arrival)
 	}
+	stage = "providers_construct"
 	if err = r.assembleProviders(cfg, deps, transceivers); err != nil {
 		return nil, err
 	}
+	stage = "owner_track"
 	if err = r.owner.Track(globalNATSRef()); err != nil {
 		return nil, err
 	}
@@ -274,6 +295,7 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 			return nil, err
 		}
 	}
+	stage = "runtime_supervisors"
 	r.run("owner", r.owner.Run)
 	r.run("router", r.router.Serve)
 	r.run("quota admissions", r.serveQuota)
@@ -282,6 +304,7 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 	r.run("aggregate discovery", r.discover)
 	front := frontendbinary.Handler{Projection: r.projection, Router: r, Auth: auth, NodeID: r.owner.NodeID}
 	euro := euroscopebinary.Handler{Projection: r.projection, Fanout: r.fanout, Sessions: natsSessions{r}, Auth: auth, Sync: cluster.SessionObservations{Store: routed}, Controllers: cluster.ControllerSector{Store: routed}, Inbound: r.deadlines.Inbound, Deadlines: r.deadlines, Effects: r.effects, RenderEffect: euroscopebinary.EffectRenderer(r.secrets)}
+	stage = "http_construct"
 	handler, err := r.buildHTTP(cfg, deps, auth, readiness, front, euro)
 	if err != nil {
 		return nil, err
@@ -343,6 +366,16 @@ func (r *natsRuntime) Route(ctx context.Context, req *pb.CommandRequest) *pb.Com
 		return r.cdmActions.Execute(ctx, req)
 	}
 	return r.router.Route(ctx, req)
+}
+
+// RouteDurable is the cross-aggregate lifecycle prerequisite boundary. Session
+// identity and deletion must survive before the global registry advances.
+func (r *natsRuntime) RouteDurable(ctx context.Context, req *pb.CommandRequest) *pb.CommandReply {
+	if r.closing.Load() || r.ctx.Err() != nil {
+		return &pb.CommandReply{ProtocolRevision: 1, CommandId: req.GetCommandId(), Status: pb.CommandReply_UNAVAILABLE}
+	}
+	_ = r.owner.Track(req.GetAggregate())
+	return r.router.RouteDurable(ctx, req)
 }
 func (r *natsRuntime) startWorkers(ctx context.Context) {
 	r.once.Do(func() {
@@ -481,6 +514,19 @@ func (r *natsRuntime) close(ctx context.Context) error {
 			r.cancel()
 			r.nc.Close()
 			return err
+		}
+	}
+	// Position writers may still append their already admitted work during
+	// their drain. Seal session turns afterwards, then flush all accepted RAM
+	// state while lease renewal, projection and the broker remain alive.
+	if r.async != nil {
+		r.async.BeginDrain()
+		if err := r.async.Drain(ctx); err != nil {
+			r.cancel()
+			if r.nc != nil {
+				r.nc.Close()
+			}
+			return fmt.Errorf("flush accepted session state: %w", err)
 		}
 	}
 	r.cancel()

@@ -28,13 +28,23 @@ func pdcReply(reply *pb.CommandReply) error {
 	return nil
 }
 
+// Poll/deadline policy can inspect accepted session RAM. The external worker
+// still requires a fresh durable intent before a provider poll or send.
+func pdcOwnerCanPlan(lease interface{ CanWrite(*pb.AggregateRef) bool }, memory bool, ref *pb.AggregateRef) bool {
+	if memory {
+		owner, ok := lease.(interface{ CanCommitLocal(*pb.AggregateRef) bool })
+		return ok && owner.CanCommitLocal(ref)
+	}
+	return lease.CanWrite(ref)
+}
+
 // PDC is the SessionWork callback. It starts no goroutine or local timer.
 // Every pass reconstructs accepted pages, one-shot calls and due timeouts.
 func (c *Candidate) PDC(ctx context.Context, id int32) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	ref := pdcRef(id)
-	if c.Writer.Lease == nil || !c.Writer.Lease.CanWrite(ref) {
+	if c.Writer.Lease == nil || !pdcOwnerCanPlan(c.Writer.Lease, c.Writer.Projection != nil && c.Writer.Projection.Async != nil, ref) {
 		return fmt.Errorf("PDC session is not owned")
 	}
 	worker := cluster.ExternalCallWorker{Writer: c.Writer}

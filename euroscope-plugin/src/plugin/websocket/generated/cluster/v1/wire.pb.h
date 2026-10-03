@@ -22831,6 +22831,7 @@ class CommandReply final : public ::google::protobuf::Message
     kAggregateRevisionFieldNumber = 4,
     kStreamSequenceFieldNumber = 5,
     kCurrentEntityRevisionFieldNumber = 6,
+    kMemoryAcceptedFieldNumber = 10,
   };
   // string command_id = 2;
   void clear_command_id() ;
@@ -22947,12 +22948,22 @@ class CommandReply final : public ::google::protobuf::Message
   void _internal_set_current_entity_revision(::uint64_t value);
 
   public:
+  // bool memory_accepted = 10;
+  void clear_memory_accepted() ;
+  bool memory_accepted() const;
+  void set_memory_accepted(bool value);
+
+  private:
+  bool _internal_memory_accepted() const;
+  void _internal_set_memory_accepted(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CommandReply)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 9, 2,
+      4, 10, 2,
       69, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -22979,6 +22990,7 @@ class CommandReply final : public ::google::protobuf::Message
     ::uint64_t aggregate_revision_;
     ::uint64_t stream_sequence_;
     ::uint64_t current_entity_revision_;
+    bool memory_accepted_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -27003,6 +27015,28 @@ inline void CommandReply::set_allocated_detail(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CommandReply.detail)
+}
+
+// bool memory_accepted = 10;
+inline void CommandReply::clear_memory_accepted() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.memory_accepted_ = false;
+}
+inline bool CommandReply::memory_accepted() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CommandReply.memory_accepted)
+  return _internal_memory_accepted();
+}
+inline void CommandReply::set_memory_accepted(bool value) {
+  _internal_set_memory_accepted(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CommandReply.memory_accepted)
+}
+inline bool CommandReply::_internal_memory_accepted() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.memory_accepted_;
+}
+inline void CommandReply::_internal_set_memory_accepted(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.memory_accepted_ = value;
 }
 
 // -------------------------------------------------------------------

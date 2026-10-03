@@ -183,7 +183,7 @@ func (p EuroScopeDeadlinePlanner) Recover(state *Aggregate) ([]*pb.EntityChange,
 			if old != nil {
 				changes = append(changes, candidateDelete(key, old, pb.EntityKind_SESSION_DEADLINE))
 			}
-		} else if old == nil || old.Value.GetSessionDeadline().SourceRevision != pos.Revision {
+		} else if old == nil || !p.Projection.PositionSourceMatches(old.Value.GetSessionDeadline().SourceRevision, pos.Revision) {
 			// The KV entry remains after a crash before this FS_STATE commit.
 			changes = append(changes, deadlineChange(state, key, "aircraft-disconnect", pos.Value.AircraftKey, pos.Revision, p.clock().Add(AircraftDisconnectGrace)))
 		}

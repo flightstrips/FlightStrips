@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -91,10 +92,41 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 // commit. A replayed command or uncertain PubAck is never permission to repeat
 // an external provider request, even when its durable outcome is successful.
 func (w Writer) ExecuteFresh(ctx context.Context, request *pb.CommandRequest) (*pb.CommandReply, bool) {
-	return w.execute(ctx, request)
+	return w.execute(context.WithValue(ctx, durableExecutionKey{}, true), request)
 }
 
+type durableExecutionKey struct{}
+
 func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.CommandReply, bool) {
+	if w.Projection != nil && w.Projection.Async != nil && request != nil && request.Aggregate.GetSession() != nil {
+		if _, err := RequestHash(request); err == nil {
+			var reply *pb.CommandReply
+			var fresh bool
+			err := w.Projection.Async.Execute(ctx, request.Aggregate, func(turn context.Context) error {
+				if turn.Value(durableExecutionKey{}) == true {
+					if err := w.Projection.Async.FlushSession(turn, request.Aggregate); err != nil {
+						return err
+					}
+				}
+				reply, fresh = w.executeTurn(turn, request)
+				if turn.Value(durableExecutionKey{}) == true && reply != nil && !reply.MemoryAccepted &&
+					(reply.Status == pb.CommandReply_COMMITTED || reply.Status == pb.CommandReply_PENDING) {
+					if err := w.Projection.Async.RefreshDurable(turn, request.Aggregate); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				return &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}, false
+			}
+			return reply, fresh
+		}
+	}
+	return w.executeTurn(ctx, request)
+}
+
+func (w Writer) executeTurn(ctx context.Context, request *pb.CommandRequest) (*pb.CommandReply, bool) {
 	published := false
 	reply := &pb.CommandReply{ProtocolRevision: 1}
 	if request != nil {
@@ -134,7 +166,7 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			reply.Status = pb.CommandReply_UNAVAILABLE
 			return reply, published
 		}
-		if w.Lease != nil && !w.Lease.CanWrite(request.Aggregate) {
+		if w.Lease != nil && !w.Lease.CanCommitLocal(request.Aggregate) {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
 			return reply, published
 		}
@@ -161,6 +193,9 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			reply.StreamSequence = &old.CommittedStreamSequence
 			reply.AggregateRevision = &old.AggregateRevision
 			reply.Outcome = proto.Clone(old).(*pb.CommandOutcome)
+			if old.CommittedStreamSequence == 0 && w.Projection != nil && w.Projection.Async != nil && request.Aggregate.GetSession() != nil {
+				reply.MemoryAccepted, reply.StreamSequence, reply.CurrentOwner = true, nil, state.Owner
+			}
 			return reply, published
 		}
 		// The server timestamp on the published event decides whether the
@@ -229,9 +264,18 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, "invalid or oversized event"
 			return reply, published
 		}
-		if w.Lease != nil && !w.Lease.CanWrite(request.Aggregate) {
+		if w.Lease != nil && !w.Lease.CanCommitLocal(request.Aggregate) {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
 			return reply, published
+		}
+		if ctx.Value(durableExecutionKey{}) != true && w.Projection != nil && w.Projection.Async != nil && request.Aggregate.GetSession() != nil {
+			accepted, err := w.Projection.Async.AcceptState(ctx, state, e)
+			if err != nil {
+				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
+				return reply, false
+			}
+			// In-memory acceptance never authorizes an external provider request.
+			return accepted, false
 		}
 		sequence, err := w.Store.Publish(ctx, subject, state.SubjectSequence, data)
 		if errors.Is(err, ErrCAS) {
@@ -254,13 +298,47 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 		}
 		published = true
 		if w.Projection != nil {
-			if waitErr := w.Projection.WaitApplied(ctx, sequence); waitErr != nil {
-				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, waitErr.Error()
+			// A PubAck proves persistence, but not reducer effectiveness: expired
+			// owner events are committed no-ops. Verify the broker timestamp and
+			// apply the exact event against its conditional predecessor in RAM.
+			var commitErr error
+			if store, ok := w.Store.(interface {
+				Committed(context.Context, uint64) (AppliedEvent, error)
+			}); ok {
+				entry, readErr := store.Committed(ctx, sequence)
+				commitErr = readErr
+				if commitErr == nil {
+					if entry.Subject != subject || entry.StreamSequence != sequence || !bytes.Equal(entry.Data, data) {
+						commitErr = fmt.Errorf("committed event identity mismatch")
+					} else {
+						commitErr = w.Projection.applyCommitted(entry, state.SubjectSequence)
+					}
+				}
+			} else {
+				commitErr = w.Projection.WaitApplied(ctx, sequence)
+			}
+			if commitErr != nil {
+				// Replay remains the authoritative recovery path for metadata loss
+				// or a concurrent local checkpoint change.
+				commitErr = w.Projection.WaitApplied(ctx, sequence)
+			}
+			if commitErr != nil {
+				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, commitErr.Error()
 				return reply, published
 			}
 		}
 		for ctx.Err() == nil {
-			fresh, err := w.load(ctx, subject, request.Aggregate)
+			var fresh *Aggregate
+			var err error
+			if w.Projection != nil {
+				if ctx.Value(durableExecutionKey{}) == true {
+					fresh, err = w.Projection.readDurableCommandCheckpoint(request.Aggregate, request.CommandId, false)
+				} else {
+					fresh, err = w.Projection.committedCommandCheckpoint(request.Aggregate, request.CommandId)
+				}
+			} else {
+				fresh, err = w.load(ctx, subject, request.Aggregate)
+			}
 			if err == nil && fresh.StreamSequence >= sequence {
 				old, lookupErr := fresh.LookupOutcome(request.CommandId)
 				if lookupErr != nil {
@@ -323,6 +401,12 @@ func statusForOutcome(outcome *pb.CommandOutcome) pb.CommandReply_Status {
 
 func (w Writer) load(ctx context.Context, subject string, ref *pb.AggregateRef) (*Aggregate, error) {
 	if w.Projection != nil {
+		if ctx.Value(durableExecutionKey{}) == true && w.Lease != nil && w.Lease.CanCommitLocal(ref) {
+			return w.Projection.readOwnedDurable(ref, w.NodeID)
+		}
+		if w.Lease != nil && w.Lease.CanCommitLocal(ref) {
+			return w.Projection.ReadOwned(ref, w.NodeID)
+		}
 		return w.Projection.Read(ref)
 	}
 	entries, err := w.Store.Replay(ctx, subject)

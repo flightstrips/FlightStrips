@@ -49,6 +49,7 @@ type entrypointFixture struct {
 	projection                  *cluster.Projection
 	stopProjection              context.CancelFunc
 	env, addresses              []string
+	monitorAddresses            []string
 	apps, brokers               []*fixtureProcess
 	startBroker                 func(int) *fixtureProcess
 	ready                       func()
@@ -103,12 +104,33 @@ func (p *fixtureProcess) stop() {
 		<-p.done
 	}
 }
+
+var entrypointAddressesMu sync.Mutex
+var entrypointAddresses = map[string]bool{}
+
 func entrypointAddress(t *testing.T) string {
 	t.Helper()
-	l, e := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, e)
-	defer l.Close()
-	return l.Addr().String()
+	for {
+		l, e := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, e)
+		address := l.Addr().String()
+		entrypointAddressesMu.Lock()
+		reserved := entrypointAddresses[address]
+		if !reserved {
+			entrypointAddresses[address] = true
+		}
+		entrypointAddressesMu.Unlock()
+		_ = l.Close()
+		if reserved {
+			continue
+		}
+		t.Cleanup(func() {
+			entrypointAddressesMu.Lock()
+			delete(entrypointAddresses, address)
+			entrypointAddressesMu.Unlock()
+		})
+		return address
+	}
 }
 func fixtureEnv(values map[string]string) []string {
 	var env []string
@@ -149,10 +171,18 @@ func sendEntrypointFrame(t *testing.T, c *websocket.Conn, v proto.Message) {
 // NATS_SERVER_BINARY optionally supplies a pinned native fixture owned entirely
 // by this test; otherwise the separately bootstrapped Compose fixture is used.
 func newEntrypointFixture(t *testing.T, fault bool) *entrypointFixture {
+	return newEntrypointFixtureConfigured(t, fault, nil)
+}
+
+func newEntrypointFixtureConfigured(t *testing.T, fault bool, overrides map[string]string) *entrypointFixture {
 	if os.Getenv("NATS_INTEGRATION") != "1" {
 		t.Skip("requires disposable three-node NATS fixture")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
+	lifetime := 12 * time.Minute
+	if overrides != nil {
+		lifetime = 40 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), lifetime)
 	t.Cleanup(cancel)
 	backend, err := filepath.Abs("../..")
 	require.NoError(t, err)
@@ -177,6 +207,7 @@ func newEntrypointFixture(t *testing.T, fault bool) *entrypointFixture {
 	t.Logf("BUILD binary_sha256=%s fault_build=%t go=%s", hex.EncodeToString(digest[:]), fault, runtime.Version())
 	urls := []string{}
 	brokers := []*fixtureProcess{}
+	monitorAddresses := []string{}
 	native := os.Getenv("NATS_SERVER_BINARY")
 	if fault {
 		require.NotEmpty(t, native, "fault suite requires test-owned native brokers")
@@ -202,6 +233,11 @@ func newEntrypointFixture(t *testing.T, fault bool) *entrypointFixture {
 			source, e := os.ReadFile(filepath.Join(backend, "testdata", "nats", fmt.Sprintf("nats-%d.conf", i+1)))
 			require.NoError(t, e)
 			conf := strings.ReplaceAll(string(source), "port: 4222", "listen: "+clients[i])
+			if overrides != nil {
+				monitor := entrypointAddress(t)
+				monitorAddresses = append(monitorAddresses, monitor)
+				conf += "\nhttp: " + monitor + "\n"
+			}
 			conf = strings.ReplaceAll(conf, "name: flightstrips-local", "name: task22-"+fixtureDigest([]byte(dir))[:12])
 			if fault {
 				conf = strings.ReplaceAll(conf, "jetstream {", "jetstream { max_memory_store: 64MB, max_file_store: 1GB, cipher: aes, key: $TASK22_STORE_KEY,")
@@ -271,6 +307,15 @@ func newEntrypointFixture(t *testing.T, fault bool) *entrypointFixture {
 	token, err := signed.SignedString(jwtKey)
 	require.NoError(t, err)
 	env := fixtureEnv(map[string]string{"NATS_HISTORY_CACHE_DIR": filepath.Join(dir, "history-cache"), "NATS_URLS": strings.Join(urls, ","), "NATS_EFFECT_ACTIVE_KEY_ID": "v1", "NATS_EFFECT_KEY_FILES": "v1=" + key, "OIDC_AUTHORITY": identity.URL, "OIDC_SIGNING_ALGO": "HS256", "OIDC_AUDIENCE": "backend-dev", "ENVIRONMENT": "test", "OTEL_EXPORTER_OTLP_ENDPOINT": "", "NAVIGATION_SOURCE": "", "NAVIGATION_TERMINAL_GEOMETRY_PATH": "", "AMAN_MODE": "disabled", "ENABLE_TEST_TOOLS": "false", "ENABLE_STAND_ASSIGNMENT": "false", "ENABLE_VATSIM": "false", "ENABLE_VATSIM_TRANSCEIVERS": "false", "ENABLE_METAR": "false", "ENABLE_ECFMP": "false", "CDM_KEY": "", "CDM_KEY_FILE": "", "HOPPIE_LOGON": "", "HOPPIE_LOGON_FILE": ""})
+	for key, value := range overrides {
+		for i, item := range env {
+			if strings.HasPrefix(item, key+"=") {
+				env = append(env[:i], env[i+1:]...)
+				break
+			}
+		}
+		env = append(env, key+"="+value)
+	}
 	addresses := []string{entrypointAddress(t), entrypointAddress(t)}
 	if fault {
 		require.NoError(t, os.Mkdir(filepath.Join(dir, "gate"), 0700))
@@ -290,7 +335,7 @@ func newEntrypointFixture(t *testing.T, fault bool) *entrypointFixture {
 		}, 60*time.Second, 100*time.Millisecond, "two compiled server processes ready: statuses=%v bodies=%v", &statuses, &bodies)
 	}
 	ready()
-	return &entrypointFixture{t: t, ctx: ctx, backend: backend, dir: dir, binary: binary, resources: resources, nc: nc, projection: projection, stopProjection: stopProjection, env: env, addresses: addresses, apps: apps, brokers: brokers, startBroker: startBroker, token: token, ready: ready}
+	return &entrypointFixture{t: t, ctx: ctx, backend: backend, dir: dir, binary: binary, resources: resources, nc: nc, projection: projection, stopProjection: stopProjection, env: env, addresses: addresses, apps: apps, brokers: brokers, startBroker: startBroker, token: token, ready: ready, monitorAddresses: monitorAddresses}
 }
 
 func TestServerNATSBinaryCrossNodeRestartAndReadiness(t *testing.T) {

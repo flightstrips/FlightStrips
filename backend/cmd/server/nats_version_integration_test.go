@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"FlightStrips/internal/cluster"
+	"FlightStrips/internal/frontendbinary"
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
@@ -60,10 +62,30 @@ func TestServerNATSVersionOverlap(t *testing.T) {
 	// Both compiled versions read and write schema v1 during overlap. Each
 	// command enters a different node; CAS/owner routing remains authoritative.
 	for node := 0; node < 2; node++ {
-		front := f.front(node, name)
+		front := f.dial(node, "/frontEndEvents", frontendbinary.Subprotocol)
+		sendEntrypointFrame(t, front, &pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_Authenticate{Authenticate: &pb.FrontendAuthenticate{BearerToken: f.token, Airport: "EKCH", SessionName: name}}})
+		_ = front.SetReadDeadline(time.Now().Add(20 * time.Second))
+		kind, data, err := front.ReadMessage()
+		require.NoError(t, err)
+		require.Equal(t, websocket.BinaryMessage, kind)
+		initial := &pb.FrontendFrame{}
+		require.NoError(t, pb.UnmarshalStrict(data, initial))
+		require.NotNil(t, initial.GetInitial())
 		id := uuid.NewString()
 		revision := f.state(ref).Indexes[pb.EntityKind_STRIP]["SAS123"].Revision
 		sendEntrypointFrame(t, front, markedCommand(id, "SAS123", revision, node == 0))
+		for {
+			kind, data, err := front.ReadMessage()
+			require.NoError(t, err)
+			require.Equal(t, websocket.BinaryMessage, kind)
+			frame := &pb.FrontendFrame{}
+			require.NoError(t, pb.UnmarshalStrict(data, frame))
+			if result := frame.GetActionResult(); result != nil && result.RequestId == id {
+				require.Equal(t, pb.CommandOutcome_SUCCEEDED, result.Status, "ingress_node=%d reason=%s detail=%s", node, result.ReasonCode, result.Detail)
+				break
+			}
+		}
+		require.NoError(t, front.Close())
 		f.await("compatible reader/writer outcome on both binaries", func() bool { return f.outcome(0, id) == "succeeded" && f.outcome(1, id) == "succeeded" })
 		t.Logf("OVERLAP_WRITE ingress_node=%d command_id=%s sequence=%d entity_revision=%d", node, id, f.state(ref).Ledger[id].CommittedStreamSequence, f.state(ref).Indexes[pb.EntityKind_STRIP]["SAS123"].Revision)
 	}

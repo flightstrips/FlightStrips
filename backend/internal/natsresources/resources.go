@@ -96,11 +96,13 @@ func Verify(ctx context.Context, nc *nats.Conn, c Config) error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
+	ctx, cancel := context.WithTimeout(ctx, c.RequestTimeout)
+	defer cancel()
 	js, err := jetStream(nc, c.RequestTimeout)
 	if err != nil {
 		return err
 	}
-	if _, err := js.AccountInfo(); err != nil {
+	if _, err := js.AccountInfo(nats.Context(ctx)); err != nil {
 		return fmt.Errorf("JetStream account: %w", err)
 	}
 	state := stateConfig(c.Names)
@@ -138,7 +140,7 @@ func verifyStream(ctx context.Context, js nats.JetStreamContext, name string, ch
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	info, err := js.StreamInfo(name)
+	info, err := js.StreamInfo(name, nats.Context(ctx))
 	if err != nil {
 		return fmt.Errorf("%s: inspect: %w", name, err)
 	}

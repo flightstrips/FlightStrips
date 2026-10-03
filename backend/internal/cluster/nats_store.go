@@ -9,11 +9,26 @@ import (
 	"FlightStrips/internal/faultgate"
 
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 )
 
 // NATSStore uses the existing, explicitly bootstrapped FS_STATE stream. It
 // creates no resources and makes no connection in the current SQL runtime.
 type NATSStore struct{ JS nats.JetStreamContext }
+
+// Committed returns broker metadata for one acknowledged event. In particular,
+// lease validity is decided by the server timestamp, never the owner's clock.
+func (s NATSStore) Committed(ctx context.Context, sequence uint64) (AppliedEvent, error) {
+	msg, err := s.JS.GetMsg("FS_STATE", sequence, nats.Context(ctx))
+	if err != nil {
+		return AppliedEvent{}, err
+	}
+	if msg == nil || msg.Sequence != sequence || msg.Time.IsZero() {
+		return AppliedEvent{}, fmt.Errorf("invalid committed event metadata")
+	}
+	return AppliedEvent{Subject: msg.Subject, StreamSequence: sequence, SubjectSequence: sequence, ServerTime: msg.Time, Data: msg.Data}, nil
+}
 
 func (s NATSStore) Replay(ctx context.Context, subject string) ([]AppliedEvent, error) {
 	entries := []AppliedEvent{}
@@ -68,7 +83,12 @@ func (s NATSStore) Publish(ctx context.Context, subject string, expected uint64,
 	message.Header.Set(nats.ExpectedLastSubjSeqHdr, strconv.FormatUint(expected, 10))
 	message.Data = data
 	faultgate.State("before-publish", data, 0)
+	_, span := otel.Tracer("cluster").Start(ctx, "nats.state.puback")
 	ack, err := s.JS.PublishMsg(message, nats.Context(ctx))
+	if err != nil {
+		span.SetStatus(codes.Error, "publish failed")
+	}
+	span.End()
 	if err != nil {
 		var api *nats.APIError
 		// nats.go names 10071; NATS 2.15 returns 10164 for the

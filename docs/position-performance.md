@@ -1,11 +1,27 @@
 # Aircraft position throughput
 
-The sole operational runtime uses NATS accepted state. Revision-2 EuroScope
+Each session has one active backend owner. Clients may connect to either backend;
+the socket node routes mutations to the session owner. Revision-2 EuroScope
 position frames enter `euroscopebinary.DeadlineCandidate` and the fenced
-`cluster.PositionWriter`; typed position observations use `FS_POSITIONS`.
-Operational transitions continue through the session owner and `FS_STATE`.
-Positions retain freshness, master/socket-generation checks, bounded work and
-ordered drainage. A received frame is not evidence of an accepted mutation.
+`cluster.PositionWriter`. The owner serializes session commands and positions,
+validates them against its in-memory state, and acknowledges accepted changes
+without waiting for a NATS publication. A received frame alone does not establish
+acceptance.
+
+A bounded FIFO queue persists accepted positions to `FS_POSITIONS` and domain
+changes to `FS_STATE`. Stand planning uses the owner's accepted position overlay
+and local aggregate. Initial replay and ownership establish the durable baseline;
+consumer identity, retained-key checks, freshness, socket generation and lease
+checks prevent using an incomplete or stale baseline. The background worker
+verifies broker receipts and applies committed prefixes independently of the RAM
+view. The standby follows the durable prefix.
+
+Orderly shutdown closes admission, drains accepted work while the lease and NATS
+connection remain live, then stops ownership and transport. An unexpected crash
+can lose the acknowledged but unpersisted tail. This is the selected session
+recovery policy. Publication failure closes admission and readiness; an old owner
+cannot keep accepting after losing its lease. Queue saturation applies bounded
+backpressure rather than growing RAM indefinitely.
 
 The SQL dispatcher, pool budget, transaction batching and
 `POSITION_DB_BATCHING_ENABLED` controls have been retired. Historical benchmarks
@@ -28,3 +44,231 @@ bounds, overload/recovery, operational traffic mix, CPU/memory and broker storag
 on an identified topology. Task 22 owns overlapping-version/recovery qualification.
 The previous SQL measurements cannot establish NATS latency or multi-host safety.
 Landing validation and the disabled SAT scenario/replay runner remain disabled.
+
+## Native NATS load qualification (Task 23 draft)
+
+`TestPositionLoadNATS` builds two backend executables and starts three native,
+test-owned brokers on random loopback ports with separate temporary stores,
+history caches and effect keys. It requires `NATS_SERVER_BINARY` and does not use
+the running development cluster. Both EuroScope and frontend clients use the
+existing binary protocol. OTLP completion spans measure accepted inbound work;
+reading a frame or writing it to a socket does not count as completion.
+
+From `backend`, using a pinned local NATS 2.15.0 executable:
+
+```powershell
+$env:NATS_INTEGRATION = '1'
+$env:NATS_TASK23 = '1'
+$env:NATS_SERVER_BINARY = 'C:/path/to/nats-server.exe'
+$env:NATS_TASK23_OUTPUT = Join-Path (Get-Location) '.task23/full'
+Remove-Item Env:NATS_TASK23_SMOKE, Env:NATS_TASK23_PATTERN -ErrorAction SilentlyContinue
+go test ./cmd/server -run '^TestPositionLoadNATS$' -count=1 -timeout=2h30m -v
+```
+
+The default schedule is two minutes of warmup and fifteen minutes measured at
+100 reports/second for 200 aircraft, followed by ten seconds at 200 reports/second
+and two seconds of continued 100-report/second drainage. It runs the 50%, 80% and
+20% arrival mixes with both even and once-per-second burst schedules. Each
+schedule adds five heading messages and one frontend action per second. Both
+receipt-to-completion and scheduled-send-to-completion retain p95 <=20 ms and
+p99 <=50 ms gates, with exact counts, zero unexpected errors, bounded backlog,
+two-second overload drainage and burst completion before the next second.
+
+For development only, set `NATS_TASK23_SMOKE=1` for two seconds of warmup and ten
+seconds measured, and optionally `NATS_TASK23_PATTERN=mixed-second-burst` to select
+one pattern. Smoke artifacts are named separately. Reports contain backend binary
+SHA-256, process CPU/memory samples, backend metrics, NATS network/store counters
+and separate position/state PubAck percentiles. All brokers share one host and
+disk; these measurements cannot certify production placement or capacity.
+
+The fixture enables synthetic VATSIM, local navigation/weather sources and stand
+assignment. Aircraft trajectories exercise landing/ALDT, arrival taxi, departure
+airborne, stand activation and stand release, with assertions in full runs. A
+separate recovery test measures five backend kills, client reconnects and fresh
+syncs. The native runner combines all six full patterns, recovery, disk checks
+and the complete Task 22 fault/restore suite:
+
+```powershell
+./backend/testdata/nats/task23.ps1 -NATSServerBinary 'C:/path/to/nats-server.exe'
+```
+
+To reduce elapsed time, add `-ParallelPatterns 3` to run at most three independent
+load fixtures concurrently. Six seventeen-minute patterns then take about
+thirty-five minutes, followed by sequential recovery and fault checks. Each
+fixture owns its ports, processes, stores and keys; admission slots are released
+after cleanup. Direct Go runs can set `NATS_TASK23_PARALLEL` from 1 to 6.
+The default is 1. Reports record the concurrency limit and shared host, with
+host CPU and available memory alongside each fixture's measurements. Parallel
+fixtures compete for CPU and disk: a failed latency result remains a failure,
+and suspected host contention requires an isolated rerun to identify its cause.
+
+Disk usage at 70% records an alert; 85% blocks release qualification while local
+tests continue. Per-pattern reports always set `qualification=false`; `load_pass`
+covers their load and lifecycle assertions. The runner's `run-result.json`
+requires every full pattern, recovery and fault test to pass. Aborted reports
+retain partial measurements and cannot establish capacity or qualification.
+
+**Qualification remains incomplete.** At revision `aa15f68f`, backend unit and
+contract checks passed and the full Task 22 fault/restore suite passed in 826.675
+seconds. All six load scenarios aborted on socket failures, and recovery failed
+during session-name lookup before any recovery trial. The partial mixed/even
+run reached receipt p95 2.59 ms/p99 37.16 ms over eight minutes; burst cases
+exceeded the latency targets. These partial results are diagnostics, not passing
+full-duration evidence. Disk usage also exceeded the 85% release threshold.
+Follow-up repairs replace lifecycle fleet reads with the verified memory fence,
+replan concurrent operational updates, defer genuine snapshot-index contention
+and repair recovery session lookup. The full backend unit suite and affected
+race suites pass. A native memory-fence regression also passes with the race
+detector, covering new neighbours, disconnects, deletes, silent purge detection,
+empty retained replay and fresh synchronization after restarting both backends.
+These correctness results do not replace the six full load patterns or the
+complete recovery and fault qualification on the repaired source.
+No Task 24 or multi-host acceptance is claimed.
+
+The complete run at `15a018db` used three concurrent load fixtures and finished
+the six scenarios in about thirty-five minutes. Arrival-heavy/even and
+departure-heavy/even passed, with all 109,368 and 109,392 messages completed;
+receipt p95 was 1.16 and 1.03 ms, and scheduled-send p95 was 1.72 and 1.40 ms.
+Arrival-heavy/burst completed every message without errors but failed p95
+latency (receipt 21.68 ms, scheduled-send 33.44 ms). Mixed/even, mixed/burst and
+departure-heavy/burst aborted; partial timing samples do not qualify them.
+All five recovery trials passed, with p95 11.27 seconds. The complete Task 22
+fault/restore suite, including the memory fence, passed in 837.836 seconds.
+
+Two aborted burst cases exposed concurrent snapshot object writes attempting an
+object-stream purge denied by the backend ACL. Snapshot publications now use
+unique immutable object names and conditional index updates, preserving verified
+newer pointers, same-checkpoint collision detection and legacy snapshot reads.
+Corrupt old pointers can still be repaired from the retained log. Unit/race
+checks and a native regression with sixteen simultaneous backend-ACL publishers
+pass without granting purge permission. Abort reports now retain monitoring and
+the original private readiness error.
+
+An owner CPU profile after the full warmup attributed about 44% of sampled CPU
+to lifecycle reconciliation and about 39% to garbage collection. Stand
+availability repeatedly resolved the same assignment block lists for each
+candidate. It now prepares those lists once per invocation; no values are
+cached across calls. Services unit and race checks pass. Full load qualification
+on these additional repairs is pending.
+
+For explicitly non-qualifying owner diagnostics, set
+`NATS_TASK23_PROFILE_NODE` to 0 or 1 and `NATS_TASK23_PROFILE_DELAY=150s`.
+Profiling keeps the two-minute warmup, then measures one minute and captures
+thirty seconds of CPU plus a five-second runtime trace. Private artifacts record
+the capture windows; profiled reports always have `full_duration=false`.
+The qualification runner clears profiling and retains fifteen-minute windows.
+
+## Session owner memory execution
+
+The owner replies with an explicit internal `memory_accepted` flag and no broker
+sequence when a command has executed in RAM. Forwarding nodes validate the request,
+actor, aggregate, outcome and owner term. Frontend deltas are delivered once from
+the accepted view; replay does not duplicate them. Pending RAM state never enters
+durable snapshots or advances independent replay cursors.
+
+Each session uses one ordered turn and one persistence worker. Position-derived
+changes and disconnect deadlines preserve that order; persistence translates
+local position revisions to broker revisions. Admission cost does not scale with
+the aircraft fleet. A same-node lease reclamation replaces an idle RAM baseline
+with the fresh durable aggregate. A reclamation with outstanding old work fails
+closed instead of carrying the old tail into the new term.
+
+Cross-aggregate session creation/deletion prerequisites and irreversible external
+provider claims retain explicit durable barriers. They flush preceding accepted
+work and verify publication before enabling the dependent operation. Missing
+replayed prerequisites are retryable rather than permanently poisoning the
+operation's command ID.
+
+Tests cover acknowledgment before blocked publication, FIFO persistence, detached
+RAM reads, single deltas, lost ownership, lease reclamation, bounded admission,
+ordered drainage, disconnect revision translation and external-call barriers.
+The native compiled-app test passed: acknowledgment completed while publication
+was blocked, a forced crash lost only the unpersisted tail, and drainage flushed
+successfully after blocked persistence resumed. Older successful durability tests
+and short profiling windows do not qualify this new recovery policy.
+
+The complete run at `8ac1f65a` finished all five recovery trials (p95 10.40 seconds)
+and passed the full Task 22 fault/restore suite, including its five-minute broker
+outage. Five load scenarios completed their full duration with zero unexpected
+transport errors, but failed departure stand lifecycle checks. Departure-heavy
+burst also missed scheduled p95 narrowly (20.2064 ms against 20 ms). Mixed/even
+had one explicitly rejected stale frontend revision. Departure-heavy/even aborted
+after 94,323 completed messages on an independent observer's snapshot object
+digest error; its partial measurements cannot qualify it.
+
+Pure session workers, lifecycle planning and session master elections now use
+fresh RAM ownership eligibility while replication is pending. Their previous
+durable permission gate could suspend policy indefinitely under continuous
+traffic. External calls and effects keep their separate durable intent checks.
+The load client now tracks revisions from its actual initial snapshot and deltas,
+retries only explicit revision conflicts after a newer revision, records those
+attempts and independently verifies durable outcomes for every logical action.
+Original logical counts, position/control schedules and qualification gates stay
+unchanged. Focused worker, reconnect and frontend race checks pass; complete
+native load qualification on these corrections remains pending.
+
+## Latest local evidence
+
+The clean `66c9f1dd` run used three concurrent fixtures, each with the original
+two-minute warmup and fifteen-minute measurement. All six scenarios passed:
+656,280 messages completed and 6,192 logical frontend actions independently
+verified durable. Missing, duplicate, decode, invalid-timing and unexpected-error
+counts were zero. Stand lifecycle, snapshot and integrity assertions passed.
+
+| Arrival aircraft | Schedule | Receipt p95 (ms) | Scheduled p95 (ms) |
+| --- | --- | ---: | ---: |
+| 100 | Even | 0.5036 | 0.8757 |
+| 100 | Second burst | 9.7674 | 12.0692 |
+| 160 | Even | 1.0293 | 1.3703 |
+| 160 | Second burst | 13.6918 | 15.9760 |
+| 40 | Even | 0.0000 | 0.8053 |
+| 40 | Second burst | 13.5960 | 16.0902 |
+
+The zero receipt percentile reflects Windows timer resolution, not physically
+instantaneous processing. All five backend recovery trials passed, with p95
+10.5237 seconds. The run retained its failed status: the full fault sequence
+exposed one permanent stale-metadata failure after quorum returned, and disk
+usage exceeded the existing 85% release threshold. Its private run ID is
+`20261003T035452Z-a1bd147a191c4f089718f58b14c67d7a`.
+
+Broker metadata proofs now run independently of ordered event replay and honor
+their shared request deadline. Pure stand geometry is reused only within one
+sequential reconciliation; current positions and planning eligibility are still
+evaluated for every command. Exact distance ties select the lexical stand name.
+
+The earlier receipt-replay repair, `e4016b47`, changes only error branches. A verified
+PubAck may await healthy raw replay without publishing again. A CAS conflict
+awaits subject advancement within the same live owner term before reconciling
+the immutable event. Both retain the original thirty-second job budget and the
+two-second metadata freshness gate. Changed stream identity, incomplete history,
+expired authority before publication and outstanding old-term tails remain
+failures; no global failure is cleared.
+
+Both missed branches reproduced the exact stale-metadata failure before repair.
+Full backend unit tests, affected race tests and five native repetitions of the
+original restart/readiness case passed on `e4016b47`, with GOMAXPROCS unset to
+match the complete fault suite. The repeated cases used separate owned fixtures
+alongside fault diagnostics; they are correctness evidence, not capacity tests.
+The complete fault-suite result and current validation are recorded in
+[PR #833](https://github.com/flightstrips/FlightStrips/pull/833).
+
+The final error-path repair, `460ec306`, permits read-only subject catchup after
+lease expiry. An uncertain acknowledgement may retire only after verifying its
+own durable outcome and exact immutable event receipt. Any new publication still
+requires the original live owner term. Foreign receipts and remaining old-term
+tails fail closed; structured diagnostics identify the failing phase and guard.
+Naturally expiring lease regressions passed normally and under the race detector.
+
+On clean `460ec306`, the full backend unit suite and complete cluster race suite
+passed. Ten original cross-node restart/readiness repetitions passed with default
+16-processor scheduling in 294.657 seconds; all 126 owned processes stopped. The
+strict fault wrapper passed in 879.812 seconds: all 24 required outcomes passed,
+with zero failures and zero skips. The optional vendor diagnostic is explicitly
+outside the required test prefix; skip rejection remains unchanged. These runs
+overlapped independent correctness fixtures, with no timed load/recovery overlap.
+The failed `be5babe9` restart run and earlier wrapper rejection remain preserved.
+
+These measurements describe one Windows host, not production failure domains.
+The load measurements belong to `66c9f1dd`; later error-path validation must not
+be relabeled as a new full performance run. Combined release qualification,
+multi-host placement and Task 24 acceptance are not claimed.

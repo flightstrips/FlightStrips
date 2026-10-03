@@ -2323,7 +2323,8 @@ inline constexpr CommandReply::Impl_::Impl_(
         status_{static_cast< ::flightstrips::cluster::v1::CommandReply_Status >(0)},
         aggregate_revision_{::uint64_t{0u}},
         stream_sequence_{::uint64_t{0u}},
-        current_entity_revision_{::uint64_t{0u}} {}
+        current_entity_revision_{::uint64_t{0u}},
+        memory_accepted_{false} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR CommandReply::CommandReply(::_pbi::ConstantInitialized)
@@ -2631,6 +2632,7 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CommandReply, _impl_.current_owner_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CommandReply, _impl_.outcome_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CommandReply, _impl_.detail_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CommandReply, _impl_.memory_accepted_),
         ~0u,
         ~0u,
         ~0u,
@@ -2639,6 +2641,7 @@ const ::uint32_t
         4,
         0,
         1,
+        ~0u,
         ~0u,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EffectDeliveryRequest, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EffectDeliveryRequest, _internal_metadata_),
@@ -4107,123 +4110,123 @@ const ::uint32_t
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, 16, -1, sizeof(::flightstrips::cluster::v1::CommandRequest)},
-        {23, 40, -1, sizeof(::flightstrips::cluster::v1::CommandReply)},
-        {49, 61, -1, sizeof(::flightstrips::cluster::v1::EffectDeliveryRequest)},
-        {65, -1, -1, sizeof(::flightstrips::cluster::v1::EffectDeliveryReply)},
-        {75, -1, -1, sizeof(::flightstrips::cluster::v1::FrontendFrame)},
-        {95, -1, -1, sizeof(::flightstrips::cluster::v1::FrontendAuthenticate)},
-        {106, 117, -1, sizeof(::flightstrips::cluster::v1::FrontendCommand)},
-        {120, -1, -1, sizeof(::flightstrips::cluster::v1::ActionStatusQuery)},
-        {129, 157, -1, sizeof(::flightstrips::cluster::v1::FrontendInitial)},
-        {177, 190, -1, sizeof(::flightstrips::cluster::v1::FrontendDelta)},
-        {195, 210, -1, sizeof(::flightstrips::cluster::v1::FrontendObservation)},
-        {216, 230, -1, sizeof(::flightstrips::cluster::v1::FrontendActionResult)},
-        {236, -1, -1, sizeof(::flightstrips::cluster::v1::ActionStatusMissing)},
-        {245, -1, -1, sizeof(::flightstrips::cluster::v1::FrontendError)},
-        {255, -1, -1, sizeof(::flightstrips::cluster::v1::FrontendHeartbeat)},
-        {264, -1, -1, sizeof(::flightstrips::cluster::v1::ClientCommand)},
-        {284, -1, -1, sizeof(::flightstrips::cluster::v1::StripAction)},
-        {310, 319, -1, sizeof(::flightstrips::cluster::v1::SetHeading)},
-        {320, -1, -1, sizeof(::flightstrips::cluster::v1::SetSquawk)},
-        {329, 338, -1, sizeof(::flightstrips::cluster::v1::SetAltitude)},
-        {339, -1, -1, sizeof(::flightstrips::cluster::v1::SetBay)},
-        {348, -1, -1, sizeof(::flightstrips::cluster::v1::SetReleasePoint)},
-        {357, -1, -1, sizeof(::flightstrips::cluster::v1::SetMarked)},
-        {366, -1, -1, sizeof(::flightstrips::cluster::v1::SetRunwayFlag)},
-        {375, -1, -1, sizeof(::flightstrips::cluster::v1::SetStartRequested)},
-        {384, -1, -1, sizeof(::flightstrips::cluster::v1::StripRef)},
-        {395, 404, -1, sizeof(::flightstrips::cluster::v1::SetStripOrder)},
-        {405, 416, -1, sizeof(::flightstrips::cluster::v1::MoveStrip)},
-        {419, -1, -1, sizeof(::flightstrips::cluster::v1::GenerateSquawk)},
-        {427, 445, -1, sizeof(::flightstrips::cluster::v1::UpdateStripData)},
-        {455, -1, -1, sizeof(::flightstrips::cluster::v1::MissedApproach)},
-        {463, -1, -1, sizeof(::flightstrips::cluster::v1::SetStripText)},
-        {473, -1, -1, sizeof(::flightstrips::cluster::v1::CoordinationAction)},
-        {490, -1, -1, sizeof(::flightstrips::cluster::v1::TransferCoordination)},
-        {499, -1, -1, sizeof(::flightstrips::cluster::v1::AssumeCoordination)},
-        {507, -1, -1, sizeof(::flightstrips::cluster::v1::ForceAssumeCoordination)},
-        {516, -1, -1, sizeof(::flightstrips::cluster::v1::FreeCoordination)},
-        {524, -1, -1, sizeof(::flightstrips::cluster::v1::CancelCoordination)},
-        {533, -1, -1, sizeof(::flightstrips::cluster::v1::TagCoordination)},
-        {543, -1, -1, sizeof(::flightstrips::cluster::v1::AcceptTagCoordination)},
-        {552, -1, -1, sizeof(::flightstrips::cluster::v1::TacticalAction)},
-        {569, -1, -1, sizeof(::flightstrips::cluster::v1::CreateTactical)},
-        {583, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteTactical)},
-        {591, -1, -1, sizeof(::flightstrips::cluster::v1::ConfirmTactical)},
-        {599, -1, -1, sizeof(::flightstrips::cluster::v1::ForceAssumeTactical)},
-        {607, -1, -1, sizeof(::flightstrips::cluster::v1::MarkTactical)},
-        {616, -1, -1, sizeof(::flightstrips::cluster::v1::StartTacticalTimer)},
-        {624, 634, -1, sizeof(::flightstrips::cluster::v1::MoveTactical)},
-        {636, 662, -1, sizeof(::flightstrips::cluster::v1::StandAction)},
-        {679, -1, -1, sizeof(::flightstrips::cluster::v1::OccupyStand)},
-        {687, -1, -1, sizeof(::flightstrips::cluster::v1::VacateStand)},
-        {695, -1, -1, sizeof(::flightstrips::cluster::v1::AutomaticStand)},
-        {703, -1, -1, sizeof(::flightstrips::cluster::v1::ManualStand)},
-        {712, -1, -1, sizeof(::flightstrips::cluster::v1::ConfirmStandOverride)},
-        {720, -1, -1, sizeof(::flightstrips::cluster::v1::AcknowledgeStand)},
-        {728, 738, -1, sizeof(::flightstrips::cluster::v1::CreateStandBlock)},
-        {740, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveStandBlock)},
-        {748, -1, -1, sizeof(::flightstrips::cluster::v1::CdmAction)},
-        {773, -1, -1, sizeof(::flightstrips::cluster::v1::CdmAutomaticAction)},
-        {781, -1, -1, sizeof(::flightstrips::cluster::v1::CdmGroundState)},
-        {790, 800, -1, sizeof(::flightstrips::cluster::v1::SetTobt)},
-        {802, -1, -1, sizeof(::flightstrips::cluster::v1::SetCdmReady)},
-        {811, -1, -1, sizeof(::flightstrips::cluster::v1::SetCdmDeice)},
-        {820, 829, -1, sizeof(::flightstrips::cluster::v1::SetCdmCtot)},
-        {830, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveCdmCtot)},
-        {838, -1, -1, sizeof(::flightstrips::cluster::v1::PdcAction)},
-        {852, -1, -1, sizeof(::flightstrips::cluster::v1::IssuePdc)},
-        {866, -1, -1, sizeof(::flightstrips::cluster::v1::RevertPdcToVoice)},
-        {874, -1, -1, sizeof(::flightstrips::cluster::v1::AcknowledgePdc)},
-        {882, -1, -1, sizeof(::flightstrips::cluster::v1::UnablePdc)},
-        {891, -1, -1, sizeof(::flightstrips::cluster::v1::MessageAction)},
-        {902, -1, -1, sizeof(::flightstrips::cluster::v1::BroadcastMessage)},
-        {912, -1, -1, sizeof(::flightstrips::cluster::v1::PrivateMessage)},
-        {922, -1, -1, sizeof(::flightstrips::cluster::v1::SessionAction)},
-        {934, -1, -1, sizeof(::flightstrips::cluster::v1::ChangeLayout)},
-        {943, -1, -1, sizeof(::flightstrips::cluster::v1::ChangeRunways)},
-        {952, -1, -1, sizeof(::flightstrips::cluster::v1::UpdateRunwayStatus)},
-        {962, -1, -1, sizeof(::flightstrips::cluster::v1::ValidationActionCommand)},
-        {976, -1, -1, sizeof(::flightstrips::cluster::v1::AcknowledgeUnexpectedChange)},
-        {985, -1, -1, sizeof(::flightstrips::cluster::v1::FlightPlanAction)},
-        {997, 1014, -1, sizeof(::flightstrips::cluster::v1::CreateManualFlightPlan)},
-        {1023, -1, -1, sizeof(::flightstrips::cluster::v1::CreateVfrFlightPlan)},
-        {1037, -1, -1, sizeof(::flightstrips::cluster::v1::AmanAction)},
-        {1077, -1, -1, sizeof(::flightstrips::cluster::v1::AmanFlightUnary)},
-        {1086, -1, -1, sizeof(::flightstrips::cluster::v1::AmanMoveFlight)},
-        {1099, 1110, -1, sizeof(::flightstrips::cluster::v1::AmanRate)},
-        {1113, 1123, -1, sizeof(::flightstrips::cluster::v1::AmanSelectRunway)},
-        {1125, -1, -1, sizeof(::flightstrips::cluster::v1::AmanActiveRunways)},
-        {1134, 1144, -1, sizeof(::flightstrips::cluster::v1::AmanManualEta)},
-        {1146, -1, -1, sizeof(::flightstrips::cluster::v1::AmanChangeRunway)},
-        {1156, 1166, -1, sizeof(::flightstrips::cluster::v1::AmanReportGoAround)},
-        {1168, -1, -1, sizeof(::flightstrips::cluster::v1::AmanDecideGoAround)},
-        {1178, 1192, -1, sizeof(::flightstrips::cluster::v1::AmanCreateGap)},
-        {1197, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRemoveGap)},
-        {1207, 1221, -1, sizeof(::flightstrips::cluster::v1::AmanCreateClosure)},
-        {1226, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRemoveClosure)},
-        {1237, 1249, -1, sizeof(::flightstrips::cluster::v1::AmanCreateReservation)},
-        {1253, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRemoveReservation)},
-        {1264, 1276, -1, sizeof(::flightstrips::cluster::v1::AmanPlaceFlight)},
-        {1280, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSubmitCoordination)},
-        {1293, 1303, -1, sizeof(::flightstrips::cluster::v1::AmanDecideCoordination)},
-        {1305, -1, -1, sizeof(::flightstrips::cluster::v1::SystemCommand)},
-        {1330, 1339, -1, sizeof(::flightstrips::cluster::v1::ApplyPdcProviderMessage)},
-        {1340, -1, -1, sizeof(::flightstrips::cluster::v1::CreateSession)},
-        {1352, -1, -1, sizeof(::flightstrips::cluster::v1::RequestSquawk)},
-        {1362, 1378, -1, sizeof(::flightstrips::cluster::v1::ReportAmanRouteFact)},
-        {1385, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteSession)},
-        {1395, 1405, -1, sizeof(::flightstrips::cluster::v1::UpdateEntity)},
-        {1407, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveEntity)},
-        {1417, -1, -1, sizeof(::flightstrips::cluster::v1::SetPositionLayout)},
-        {1427, -1, -1, sizeof(::flightstrips::cluster::v1::ReplaceSectorOwners)},
-        {1436, 1445, -1, sizeof(::flightstrips::cluster::v1::ClaimOwner)},
-        {1446, 1455, -1, sizeof(::flightstrips::cluster::v1::RenewOwner)},
-        {1456, 1465, -1, sizeof(::flightstrips::cluster::v1::AdvanceWorkflow)},
-        {1466, 1478, -1, sizeof(::flightstrips::cluster::v1::ApplyAmanSession)},
-        {1481, 1490, -1, sizeof(::flightstrips::cluster::v1::AdvanceEffect)},
-        {1491, 1500, -1, sizeof(::flightstrips::cluster::v1::RecordSessionSync)},
-        {1501, 1510, -1, sizeof(::flightstrips::cluster::v1::ElectSessionMaster)},
+        {23, 41, -1, sizeof(::flightstrips::cluster::v1::CommandReply)},
+        {51, 63, -1, sizeof(::flightstrips::cluster::v1::EffectDeliveryRequest)},
+        {67, -1, -1, sizeof(::flightstrips::cluster::v1::EffectDeliveryReply)},
+        {77, -1, -1, sizeof(::flightstrips::cluster::v1::FrontendFrame)},
+        {97, -1, -1, sizeof(::flightstrips::cluster::v1::FrontendAuthenticate)},
+        {108, 119, -1, sizeof(::flightstrips::cluster::v1::FrontendCommand)},
+        {122, -1, -1, sizeof(::flightstrips::cluster::v1::ActionStatusQuery)},
+        {131, 159, -1, sizeof(::flightstrips::cluster::v1::FrontendInitial)},
+        {179, 192, -1, sizeof(::flightstrips::cluster::v1::FrontendDelta)},
+        {197, 212, -1, sizeof(::flightstrips::cluster::v1::FrontendObservation)},
+        {218, 232, -1, sizeof(::flightstrips::cluster::v1::FrontendActionResult)},
+        {238, -1, -1, sizeof(::flightstrips::cluster::v1::ActionStatusMissing)},
+        {247, -1, -1, sizeof(::flightstrips::cluster::v1::FrontendError)},
+        {257, -1, -1, sizeof(::flightstrips::cluster::v1::FrontendHeartbeat)},
+        {266, -1, -1, sizeof(::flightstrips::cluster::v1::ClientCommand)},
+        {286, -1, -1, sizeof(::flightstrips::cluster::v1::StripAction)},
+        {312, 321, -1, sizeof(::flightstrips::cluster::v1::SetHeading)},
+        {322, -1, -1, sizeof(::flightstrips::cluster::v1::SetSquawk)},
+        {331, 340, -1, sizeof(::flightstrips::cluster::v1::SetAltitude)},
+        {341, -1, -1, sizeof(::flightstrips::cluster::v1::SetBay)},
+        {350, -1, -1, sizeof(::flightstrips::cluster::v1::SetReleasePoint)},
+        {359, -1, -1, sizeof(::flightstrips::cluster::v1::SetMarked)},
+        {368, -1, -1, sizeof(::flightstrips::cluster::v1::SetRunwayFlag)},
+        {377, -1, -1, sizeof(::flightstrips::cluster::v1::SetStartRequested)},
+        {386, -1, -1, sizeof(::flightstrips::cluster::v1::StripRef)},
+        {397, 406, -1, sizeof(::flightstrips::cluster::v1::SetStripOrder)},
+        {407, 418, -1, sizeof(::flightstrips::cluster::v1::MoveStrip)},
+        {421, -1, -1, sizeof(::flightstrips::cluster::v1::GenerateSquawk)},
+        {429, 447, -1, sizeof(::flightstrips::cluster::v1::UpdateStripData)},
+        {457, -1, -1, sizeof(::flightstrips::cluster::v1::MissedApproach)},
+        {465, -1, -1, sizeof(::flightstrips::cluster::v1::SetStripText)},
+        {475, -1, -1, sizeof(::flightstrips::cluster::v1::CoordinationAction)},
+        {492, -1, -1, sizeof(::flightstrips::cluster::v1::TransferCoordination)},
+        {501, -1, -1, sizeof(::flightstrips::cluster::v1::AssumeCoordination)},
+        {509, -1, -1, sizeof(::flightstrips::cluster::v1::ForceAssumeCoordination)},
+        {518, -1, -1, sizeof(::flightstrips::cluster::v1::FreeCoordination)},
+        {526, -1, -1, sizeof(::flightstrips::cluster::v1::CancelCoordination)},
+        {535, -1, -1, sizeof(::flightstrips::cluster::v1::TagCoordination)},
+        {545, -1, -1, sizeof(::flightstrips::cluster::v1::AcceptTagCoordination)},
+        {554, -1, -1, sizeof(::flightstrips::cluster::v1::TacticalAction)},
+        {571, -1, -1, sizeof(::flightstrips::cluster::v1::CreateTactical)},
+        {585, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteTactical)},
+        {593, -1, -1, sizeof(::flightstrips::cluster::v1::ConfirmTactical)},
+        {601, -1, -1, sizeof(::flightstrips::cluster::v1::ForceAssumeTactical)},
+        {609, -1, -1, sizeof(::flightstrips::cluster::v1::MarkTactical)},
+        {618, -1, -1, sizeof(::flightstrips::cluster::v1::StartTacticalTimer)},
+        {626, 636, -1, sizeof(::flightstrips::cluster::v1::MoveTactical)},
+        {638, 664, -1, sizeof(::flightstrips::cluster::v1::StandAction)},
+        {681, -1, -1, sizeof(::flightstrips::cluster::v1::OccupyStand)},
+        {689, -1, -1, sizeof(::flightstrips::cluster::v1::VacateStand)},
+        {697, -1, -1, sizeof(::flightstrips::cluster::v1::AutomaticStand)},
+        {705, -1, -1, sizeof(::flightstrips::cluster::v1::ManualStand)},
+        {714, -1, -1, sizeof(::flightstrips::cluster::v1::ConfirmStandOverride)},
+        {722, -1, -1, sizeof(::flightstrips::cluster::v1::AcknowledgeStand)},
+        {730, 740, -1, sizeof(::flightstrips::cluster::v1::CreateStandBlock)},
+        {742, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveStandBlock)},
+        {750, -1, -1, sizeof(::flightstrips::cluster::v1::CdmAction)},
+        {775, -1, -1, sizeof(::flightstrips::cluster::v1::CdmAutomaticAction)},
+        {783, -1, -1, sizeof(::flightstrips::cluster::v1::CdmGroundState)},
+        {792, 802, -1, sizeof(::flightstrips::cluster::v1::SetTobt)},
+        {804, -1, -1, sizeof(::flightstrips::cluster::v1::SetCdmReady)},
+        {813, -1, -1, sizeof(::flightstrips::cluster::v1::SetCdmDeice)},
+        {822, 831, -1, sizeof(::flightstrips::cluster::v1::SetCdmCtot)},
+        {832, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveCdmCtot)},
+        {840, -1, -1, sizeof(::flightstrips::cluster::v1::PdcAction)},
+        {854, -1, -1, sizeof(::flightstrips::cluster::v1::IssuePdc)},
+        {868, -1, -1, sizeof(::flightstrips::cluster::v1::RevertPdcToVoice)},
+        {876, -1, -1, sizeof(::flightstrips::cluster::v1::AcknowledgePdc)},
+        {884, -1, -1, sizeof(::flightstrips::cluster::v1::UnablePdc)},
+        {893, -1, -1, sizeof(::flightstrips::cluster::v1::MessageAction)},
+        {904, -1, -1, sizeof(::flightstrips::cluster::v1::BroadcastMessage)},
+        {914, -1, -1, sizeof(::flightstrips::cluster::v1::PrivateMessage)},
+        {924, -1, -1, sizeof(::flightstrips::cluster::v1::SessionAction)},
+        {936, -1, -1, sizeof(::flightstrips::cluster::v1::ChangeLayout)},
+        {945, -1, -1, sizeof(::flightstrips::cluster::v1::ChangeRunways)},
+        {954, -1, -1, sizeof(::flightstrips::cluster::v1::UpdateRunwayStatus)},
+        {964, -1, -1, sizeof(::flightstrips::cluster::v1::ValidationActionCommand)},
+        {978, -1, -1, sizeof(::flightstrips::cluster::v1::AcknowledgeUnexpectedChange)},
+        {987, -1, -1, sizeof(::flightstrips::cluster::v1::FlightPlanAction)},
+        {999, 1016, -1, sizeof(::flightstrips::cluster::v1::CreateManualFlightPlan)},
+        {1025, -1, -1, sizeof(::flightstrips::cluster::v1::CreateVfrFlightPlan)},
+        {1039, -1, -1, sizeof(::flightstrips::cluster::v1::AmanAction)},
+        {1079, -1, -1, sizeof(::flightstrips::cluster::v1::AmanFlightUnary)},
+        {1088, -1, -1, sizeof(::flightstrips::cluster::v1::AmanMoveFlight)},
+        {1101, 1112, -1, sizeof(::flightstrips::cluster::v1::AmanRate)},
+        {1115, 1125, -1, sizeof(::flightstrips::cluster::v1::AmanSelectRunway)},
+        {1127, -1, -1, sizeof(::flightstrips::cluster::v1::AmanActiveRunways)},
+        {1136, 1146, -1, sizeof(::flightstrips::cluster::v1::AmanManualEta)},
+        {1148, -1, -1, sizeof(::flightstrips::cluster::v1::AmanChangeRunway)},
+        {1158, 1168, -1, sizeof(::flightstrips::cluster::v1::AmanReportGoAround)},
+        {1170, -1, -1, sizeof(::flightstrips::cluster::v1::AmanDecideGoAround)},
+        {1180, 1194, -1, sizeof(::flightstrips::cluster::v1::AmanCreateGap)},
+        {1199, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRemoveGap)},
+        {1209, 1223, -1, sizeof(::flightstrips::cluster::v1::AmanCreateClosure)},
+        {1228, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRemoveClosure)},
+        {1239, 1251, -1, sizeof(::flightstrips::cluster::v1::AmanCreateReservation)},
+        {1255, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRemoveReservation)},
+        {1266, 1278, -1, sizeof(::flightstrips::cluster::v1::AmanPlaceFlight)},
+        {1282, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSubmitCoordination)},
+        {1295, 1305, -1, sizeof(::flightstrips::cluster::v1::AmanDecideCoordination)},
+        {1307, -1, -1, sizeof(::flightstrips::cluster::v1::SystemCommand)},
+        {1332, 1341, -1, sizeof(::flightstrips::cluster::v1::ApplyPdcProviderMessage)},
+        {1342, -1, -1, sizeof(::flightstrips::cluster::v1::CreateSession)},
+        {1354, -1, -1, sizeof(::flightstrips::cluster::v1::RequestSquawk)},
+        {1364, 1380, -1, sizeof(::flightstrips::cluster::v1::ReportAmanRouteFact)},
+        {1387, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteSession)},
+        {1397, 1407, -1, sizeof(::flightstrips::cluster::v1::UpdateEntity)},
+        {1409, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveEntity)},
+        {1419, -1, -1, sizeof(::flightstrips::cluster::v1::SetPositionLayout)},
+        {1429, -1, -1, sizeof(::flightstrips::cluster::v1::ReplaceSectorOwners)},
+        {1438, 1447, -1, sizeof(::flightstrips::cluster::v1::ClaimOwner)},
+        {1448, 1457, -1, sizeof(::flightstrips::cluster::v1::RenewOwner)},
+        {1458, 1467, -1, sizeof(::flightstrips::cluster::v1::AdvanceWorkflow)},
+        {1468, 1480, -1, sizeof(::flightstrips::cluster::v1::ApplyAmanSession)},
+        {1483, 1492, -1, sizeof(::flightstrips::cluster::v1::AdvanceEffect)},
+        {1493, 1502, -1, sizeof(::flightstrips::cluster::v1::RecordSessionSync)},
+        {1503, 1512, -1, sizeof(::flightstrips::cluster::v1::ElectSessionMaster)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_CommandRequest_default_instance_._instance,
@@ -4358,7 +4361,7 @@ const char descriptor_table_protodef_wire_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIA
     "strips.cluster.v1.ClientCommandH\000\0228\n\006sys"
     "tem\030\013 \001(\0132&.flightstrips.cluster.v1.Syst"
     "emCommandH\000B\t\n\007commandB\033\n\031_expected_enti"
-    "ty_revision\"\201\005\n\014CommandReply\022\031\n\021protocol"
+    "ty_revision\"\232\005\n\014CommandReply\022\031\n\021protocol"
     "_revision\030\001 \001(\r\022\022\n\ncommand_id\030\002 \001(\t\022<\n\006s"
     "tatus\030\003 \001(\0162,.flightstrips.cluster.v1.Co"
     "mmandReply.Status\022\037\n\022aggregate_revision\030"
@@ -4367,482 +4370,482 @@ const char descriptor_table_protodef_wire_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIA
     "\n\rcurrent_owner\030\007 \001(\0132\".flightstrips.clu"
     "ster.v1.OwnerTermH\003\210\001\001\022=\n\007outcome\030\010 \001(\0132"
     "\'.flightstrips.cluster.v1.CommandOutcome"
-    "H\004\210\001\001\022\016\n\006detail\030\t \001(\t\"\252\001\n\006Status\022\026\n\022STAT"
-    "US_UNSPECIFIED\020\000\022\r\n\tCOMMITTED\020\001\022\013\n\007PENDI"
-    "NG\020\002\022\024\n\020INVALID_ARGUMENT\020\003\022\020\n\014UNAUTHORIZ"
-    "ED\020\004\022\r\n\tNOT_FOUND\020\005\022\025\n\021REVISION_CONFLICT"
-    "\020\006\022\r\n\tNOT_OWNER\020\007\022\017\n\013UNAVAILABLE\020\010B\025\n\023_a"
-    "ggregate_revisionB\022\n\020_stream_sequenceB\032\n"
-    "\030_current_entity_revisionB\020\n\016_current_ow"
-    "nerB\n\n\010_outcome\"\230\001\n\025EffectDeliveryReques"
-    "t\022\022\n\nsession_id\030\001 \001(\005\022\025\n\rconnection_id\030\002"
-    " \001(\t\0225\n\006effect\030\003 \001(\0132%.flightstrips.clus"
-    "ter.v1.EffectRecord\022\035\n\025claim_stream_sequ"
-    "ence\030\004 \001(\004\";\n\023EffectDeliveryReply\022\022\n\ncom"
-    "mand_id\030\001 \001(\t\022\020\n\010accepted\030\002 \001(\010\"\300\005\n\rFron"
-    "tendFrame\022\031\n\021protocol_revision\030\001 \001(\r\022E\n\014"
-    "authenticate\030\002 \001(\0132-.flightstrips.cluste"
-    "r.v1.FrontendAuthenticateH\000\022;\n\007command\030\003"
-    " \001(\0132(.flightstrips.cluster.v1.FrontendC"
-    "ommandH\000\022B\n\014status_query\030\004 \001(\0132*.flights"
-    "trips.cluster.v1.ActionStatusQueryH\000\022;\n\007"
-    "initial\030\005 \001(\0132(.flightstrips.cluster.v1."
-    "FrontendInitialH\000\0227\n\005delta\030\006 \001(\0132&.fligh"
-    "tstrips.cluster.v1.FrontendDeltaH\000\022C\n\013ob"
-    "servation\030\007 \001(\0132,.flightstrips.cluster.v"
-    "1.FrontendObservationH\000\022F\n\raction_result"
-    "\030\010 \001(\0132-.flightstrips.cluster.v1.Fronten"
-    "dActionResultH\000\022F\n\016status_missing\030\t \001(\0132"
-    ",.flightstrips.cluster.v1.ActionStatusMi"
-    "ssingH\000\0227\n\005error\030\n \001(\0132&.flightstrips.cl"
-    "uster.v1.FrontendErrorH\000\022\?\n\theartbeat\030\013 "
-    "\001(\0132*.flightstrips.cluster.v1.FrontendHe"
-    "artbeatH\000B\007\n\005frame\"S\n\024FrontendAuthentica"
-    "te\022\024\n\014bearer_token\030\001 \001(\t\022\017\n\007airport\030\002 \001("
-    "\t\022\024\n\014session_name\030\003 \001(\t\"\241\001\n\017FrontendComm"
-    "and\022\022\n\nrequest_id\030\001 \001(\t\0226\n\006action\030\002 \001(\0132"
-    "&.flightstrips.cluster.v1.ClientCommand\022"
-    "%\n\030expected_entity_revision\030\003 \001(\004H\000\210\001\001B\033"
-    "\n\031_expected_entity_revision\"(\n\021ActionSta"
-    "tusQuery\022\023\n\013request_ids\030\001 \003(\t\"\370\005\n\017Fronte"
-    "ndInitial\022\022\n\nsession_id\030\001 \001(\005\022\017\n\007airport"
-    "\030\002 \001(\t\022\024\n\014session_name\030\003 \001(\t\022\032\n\022aggregat"
-    "e_revision\030\004 \001(\004\022\027\n\017stream_sequence\030\005 \001("
-    "\004\0229\n\010entities\030\006 \003(\0132\'.flightstrips.clust"
-    "er.v1.EntitySnapshot\0229\n\tpositions\030\007 \003(\0132"
-    "&.flightstrips.cluster.v1.PositionValue\022"
-    "8\n\007clients\030\010 \003(\0132\'.flightstrips.cluster."
-    "v1.ClientPresence\022\020\n\010writable\030\t \001(\010\022\021\n\tl"
-    "ayout_id\030\n \001(\t\022/\n\002me\030\013 \001(\0132#.flightstrip"
-    "s.cluster.v1.Controller\022\021\n\tread_only\030\014 \001"
-    "(\010\022\032\n\022position_available\030\r \001(\010\022\020\n\010aman_f"
-    "mp\030\016 \001(\010\0228\n\016available_sids\030\017 \003(\0132 .fligh"
-    "tstrips.cluster.v1.SidInfo\022A\n\025initial_cf"
-    "l_by_runway\030\020 \003(\0132\".flightstrips.cluster"
-    ".v1.RunwayCfl\022 \n\030transition_altitude_fee"
-    "t\030\021 \001(\005\022 \n\030stand_assignment_enabled\030\022 \001("
-    "\010\022I\n\023tagged_observations\030\023 \003(\0132,.flights"
-    "trips.cluster.v1.FrontendObservation\022\"\n\032"
-    "airport_aggregate_revision\030\024 \001(\004\"\362\001\n\rFro"
-    "ntendDelta\0228\n\taggregate\030\001 \001(\0132%.flightst"
-    "rips.cluster.v1.AggregateRef\022\032\n\022aggregat"
-    "e_revision\030\002 \001(\004\022\027\n\017stream_sequence\030\003 \001("
-    "\004\0226\n\007changes\030\004 \003(\0132%.flightstrips.cluste"
-    "r.v1.EntityChange\022:\n\tworkflows\030\005 \003(\0132\'.f"
-    "lightstrips.cluster.v1.WorkflowRecord\"\200\002"
-    "\n\023FrontendObservation\022:\n\010position\030\001 \001(\0132"
-    "&.flightstrips.cluster.v1.PositionValueH"
-    "\000\022:\n\010presence\030\002 \001(\0132&.flightstrips.clust"
-    "er.v1.PresenceValueH\000\022\027\n\017source_revision"
-    "\030\003 \001(\004\022\r\n\005stale\030\004 \001(\010\022/\n\013observed_at\030\005 \001"
-    "(\0132\032.google.protobuf.Timestamp\022\017\n\007remove"
-    "d\030\006 \001(\010B\007\n\005value\"\345\001\n\024FrontendActionResul"
-    "t\022\022\n\nrequest_id\030\001 \001(\t\022>\n\006status\030\002 \001(\0162.."
-    "flightstrips.cluster.v1.CommandOutcome.S"
-    "tatus\0228\n\taggregate\030\003 \001(\0132%.flightstrips."
-    "cluster.v1.AggregateRef\022\032\n\022aggregate_rev"
-    "ision\030\004 \001(\004\022\023\n\013reason_code\030\005 \001(\t\022\016\n\006deta"
-    "il\030\006 \001(\t\")\n\023ActionStatusMissing\022\022\n\nreque"
-    "st_id\030\001 \001(\t\"\351\001\n\rFrontendError\0229\n\004code\030\001 "
-    "\001(\0162+.flightstrips.cluster.v1.FrontendEr"
-    "ror.Code\022\016\n\006detail\030\002 \001(\t\"\214\001\n\004Code\022\024\n\020COD"
-    "E_UNSPECIFIED\020\000\022\021\n\rINVALID_FRAME\020\001\022\023\n\017UN"
-    "AUTHENTICATED\020\002\022\030\n\024UNSUPPORTED_REVISION\020"
-    "\003\022\032\n\026PROJECTION_UNAVAILABLE\020\004\022\020\n\014RATE_LI"
-    "MITED\020\005\";\n\021FrontendHeartbeat\022&\n\036latest_a"
-    "pplied_stream_sequence\030\001 \001(\004\"\244\005\n\rClientC"
-    "ommand\0225\n\005strip\030\001 \001(\0132$.flightstrips.clu"
-    "ster.v1.StripActionH\000\022C\n\014coordination\030\002 "
-    "\001(\0132+.flightstrips.cluster.v1.Coordinati"
-    "onActionH\000\022;\n\010tactical\030\003 \001(\0132\'.flightstr"
-    "ips.cluster.v1.TacticalActionH\000\0225\n\005stand"
-    "\030\004 \001(\0132$.flightstrips.cluster.v1.StandAc"
-    "tionH\000\0221\n\003cdm\030\005 \001(\0132\".flightstrips.clust"
-    "er.v1.CdmActionH\000\0221\n\003pdc\030\006 \001(\0132\".flights"
-    "trips.cluster.v1.PdcActionH\000\0223\n\004aman\030\007 \001"
-    "(\0132#.flightstrips.cluster.v1.AmanActionH"
-    "\000\0229\n\007message\030\010 \001(\0132&.flightstrips.cluste"
-    "r.v1.MessageActionH\000\0229\n\007session\030\t \001(\0132&."
-    "flightstrips.cluster.v1.SessionActionH\000\022"
-    "F\n\nvalidation\030\n \001(\01320.flightstrips.clust"
-    "er.v1.ValidationActionCommandH\000\022@\n\013fligh"
-    "t_plan\030\013 \001(\0132).flightstrips.cluster.v1.F"
-    "lightPlanActionH\000B\010\n\006action\"\260\010\n\013StripAct"
-    "ion\022\020\n\010callsign\030\001 \001(\t\022:\n\013set_heading\030\002 \001"
-    "(\0132#.flightstrips.cluster.v1.SetHeadingH"
-    "\000\0228\n\nset_squawk\030\003 \001(\0132\".flightstrips.clu"
-    "ster.v1.SetSquawkH\000\022F\n\026set_requested_alt"
-    "itude\030\004 \001(\0132$.flightstrips.cluster.v1.Se"
-    "tAltitudeH\000\022D\n\024set_cleared_altitude\030\005 \001("
-    "\0132$.flightstrips.cluster.v1.SetAltitudeH"
-    "\000\0222\n\007set_bay\030\006 \001(\0132\037.flightstrips.cluste"
-    "r.v1.SetBayH\000\022E\n\021set_release_point\030\007 \001(\013"
-    "2(.flightstrips.cluster.v1.SetReleasePoi"
-    "ntH\000\0228\n\nset_marked\030\010 \001(\0132\".flightstrips."
-    "cluster.v1.SetMarkedH\000\022D\n\022set_runway_cle"
-    "ared\030\t \001(\0132&.flightstrips.cluster.v1.Set"
-    "RunwayFlagH\000\022F\n\024set_runway_confirmed\030\n \001"
-    "(\0132&.flightstrips.cluster.v1.SetRunwayFl"
-    "agH\000\022I\n\023set_start_requested\030\013 \001(\0132*.flig"
-    "htstrips.cluster.v1.SetStartRequestedH\000\022"
-    ";\n\tset_order\030\014 \001(\0132&.flightstrips.cluste"
-    "r.v1.SetStripOrderH\000\0229\n\010set_text\030\r \001(\0132%"
-    ".flightstrips.cluster.v1.SetStripTextH\000\022"
-    "2\n\004move\030\016 \001(\0132\".flightstrips.cluster.v1."
-    "MoveStripH\000\022B\n\017generate_squawk\030\017 \001(\0132\'.f"
-    "lightstrips.cluster.v1.GenerateSquawkH\000\022"
-    "\?\n\013update_data\030\020 \001(\0132(.flightstrips.clus"
-    "ter.v1.UpdateStripDataH\000\022B\n\017missed_appro"
-    "ach\030\021 \001(\0132\'.flightstrips.cluster.v1.Miss"
-    "edApproachH\000B\010\n\006change\".\n\nSetHeading\022\024\n\007"
-    "degrees\030\001 \001(\005H\000\210\001\001B\n\n\010_degrees\"\031\n\tSetSqu"
-    "awk\022\014\n\004code\030\001 \001(\t\")\n\013SetAltitude\022\021\n\004feet"
-    "\030\001 \001(\005H\000\210\001\001B\007\n\005_feet\"\025\n\006SetBay\022\013\n\003bay\030\001 "
-    "\001(\t\" \n\017SetReleasePoint\022\r\n\005point\030\001 \001(\t\"\033\n"
-    "\tSetMarked\022\016\n\006marked\030\001 \001(\010\"\036\n\rSetRunwayF"
-    "lag\022\r\n\005value\030\001 \001(\010\"&\n\021SetStartRequested\022"
-    "\021\n\trequested\030\001 \001(\010\"H\n\010StripRef\022\031\n\017flight"
-    "_callsign\030\001 \001(\tH\000\022\025\n\013tactical_id\030\002 \001(\004H\000"
-    "B\n\n\010identity\"^\n\rSetStripOrder\022<\n\014insert_"
-    "after\030\001 \001(\0132!.flightstrips.cluster.v1.St"
-    "ripRefH\000\210\001\001B\017\n\r_insert_after\"t\n\tMoveStri"
-    "p\022\013\n\003bay\030\001 \001(\t\022\026\n\tclearance\030\002 \001(\010H\000\210\001\001\022\036"
-    "\n\021confirmed_removal\030\003 \001(\010H\001\210\001\001B\014\n\n_clear"
-    "anceB\024\n\022_confirmed_removal\"\020\n\016GenerateSq"
-    "uawk\"\203\003\n\017UpdateStripData\022\020\n\003sid\030\001 \001(\tH\000\210"
-    "\001\001\022-\n\004eobt\030\002 \001(\0132\032.google.protobuf.Times"
-    "tampH\001\210\001\001\022\022\n\005route\030\003 \001(\tH\002\210\001\001\022\024\n\007heading"
-    "\030\004 \001(\005H\003\210\001\001\022\032\n\raltitude_feet\030\005 \001(\005H\004\210\001\001\022"
-    "\022\n\005stand\030\006 \001(\tH\005\210\001\001\022\023\n\006runway\030\007 \001(\tH\006\210\001\001"
-    "\022\025\n\010on_block\030\010 \001(\010H\007\210\001\001\022\024\n\007remarks\030\t \001(\t"
-    "H\010\210\001\001\022\032\n\raircraft_type\030\n \001(\tH\t\210\001\001B\006\n\004_si"
-    "dB\007\n\005_eobtB\010\n\006_routeB\n\n\010_headingB\020\n\016_alt"
-    "itude_feetB\010\n\006_standB\t\n\007_runwayB\013\n\t_on_b"
-    "lockB\n\n\010_remarksB\020\n\016_aircraft_type\"\020\n\016Mi"
-    "ssedApproach\"\306\001\n\014SetStripText\022:\n\005field\030\001"
-    " \001(\0162+.flightstrips.cluster.v1.SetStripT"
-    "ext.Field\022\r\n\005value\030\002 \001(\t\"k\n\005Field\022\025\n\021FIE"
-    "LD_UNSPECIFIED\020\000\022\t\n\005ROUTE\020\001\022\013\n\007REMARKS\020\002"
-    "\022\007\n\003SID\020\003\022\n\n\006RUNWAY\020\004\022\020\n\014REGISTRATION\020\005\022"
-    "\014\n\010LANGUAGE\020\006\"\365\003\n\022CoordinationAction\022\020\n\010"
-    "callsign\030\001 \001(\t\022A\n\010transfer\030\002 \001(\0132-.fligh"
-    "tstrips.cluster.v1.TransferCoordinationH"
-    "\000\022=\n\006assume\030\003 \001(\0132+.flightstrips.cluster"
-    ".v1.AssumeCoordinationH\000\022H\n\014force_assume"
-    "\030\004 \001(\01320.flightstrips.cluster.v1.ForceAs"
-    "sumeCoordinationH\000\0229\n\004free\030\005 \001(\0132).fligh"
-    "tstrips.cluster.v1.FreeCoordinationH\000\022=\n"
-    "\006cancel\030\006 \001(\0132+.flightstrips.cluster.v1."
-    "CancelCoordinationH\000\0227\n\003tag\030\007 \001(\0132(.flig"
-    "htstrips.cluster.v1.TagCoordinationH\000\022D\n"
-    "\naccept_tag\030\010 \001(\0132..flightstrips.cluster"
-    ".v1.AcceptTagCoordinationH\000B\010\n\006change\"&\n"
-    "\024TransferCoordination\022\016\n\006to_cid\030\001 \001(\t\"\024\n"
-    "\022AssumeCoordination\"+\n\027ForceAssumeCoordi"
-    "nation\022\020\n\010from_cid\030\001 \001(\t\"\022\n\020FreeCoordina"
-    "tion\")\n\022CancelCoordination\022\023\n\013transfer_i"
-    "d\030\001 \001(\t\".\n\017TagCoordination\022\016\n\006to_cid\030\001 \001"
-    "(\t\022\013\n\003tag\030\002 \001(\t\"+\n\025AcceptTagCoordination"
-    "\022\022\n\nrequest_id\030\001 \001(\t\"\327\003\n\016TacticalAction\022"
-    "\020\n\010strip_id\030\001 \001(\004\0229\n\006create\030\002 \001(\0132\'.flig"
-    "htstrips.cluster.v1.CreateTacticalH\000\0229\n\006"
-    "delete\030\003 \001(\0132\'.flightstrips.cluster.v1.D"
-    "eleteTacticalH\000\022;\n\007confirm\030\004 \001(\0132(.fligh"
-    "tstrips.cluster.v1.ConfirmTacticalH\000\022D\n\014"
-    "force_assume\030\005 \001(\0132,.flightstrips.cluste"
-    "r.v1.ForceAssumeTacticalH\000\0225\n\004mark\030\006 \001(\013"
-    "2%.flightstrips.cluster.v1.MarkTacticalH"
-    "\000\022B\n\013start_timer\030\007 \001(\0132+.flightstrips.cl"
-    "uster.v1.StartTacticalTimerH\000\0225\n\004move\030\010 "
-    "\001(\0132%.flightstrips.cluster.v1.MoveTactic"
-    "alH\000B\010\n\006change\"i\n\016CreateTactical\022\r\n\005titl"
-    "e\030\001 \001(\t\022\014\n\004body\030\002 \001(\t\022\013\n\003bay\030\003 \001(\t\022\014\n\004ki"
-    "nd\030\004 \001(\t\022\r\n\005label\030\005 \001(\t\022\020\n\010aircraft\030\006 \001("
-    "\t\"\020\n\016DeleteTactical\"\021\n\017ConfirmTactical\"\025"
-    "\n\023ForceAssumeTactical\"\036\n\014MarkTactical\022\016\n"
-    "\006marked\030\001 \001(\010\"\024\n\022StartTacticalTimer\"w\n\014M"
-    "oveTactical\022\020\n\003bay\030\001 \001(\tH\000\210\001\001\022<\n\014insert_"
-    "after\030\002 \001(\0132!.flightstrips.cluster.v1.St"
-    "ripRefH\001\210\001\001B\006\n\004_bayB\017\n\r_insert_after\"\373\006\n"
-    "\013StandAction\022\020\n\010callsign\030\001 \001(\t\022\r\n\005stand\030"
-    "\002 \001(\t\0226\n\006occupy\030\003 \001(\0132$.flightstrips.clu"
-    "ster.v1.OccupyStandH\000\0226\n\006vacate\030\004 \001(\0132$."
-    "flightstrips.cluster.v1.VacateStandH\000\022<\n"
-    "\tautomatic\030\005 \001(\0132\'.flightstrips.cluster."
-    "v1.AutomaticStandH\000\0226\n\006manual\030\006 \001(\0132$.fl"
-    "ightstrips.cluster.v1.ManualStandH\000\022I\n\020c"
-    "onfirm_override\030\007 \001(\0132-.flightstrips.clu"
-    "ster.v1.ConfirmStandOverrideH\000\022@\n\013acknow"
-    "ledge\030\010 \001(\0132).flightstrips.cluster.v1.Ac"
-    "knowledgeStandH\000\022A\n\014create_block\030\t \001(\0132)"
-    ".flightstrips.cluster.v1.CreateStandBloc"
-    "kH\000\022A\n\014remove_block\030\n \001(\0132).flightstrips"
-    ".cluster.v1.RemoveStandBlockH\000\022\022\n\005stage\030"
-    "\013 \001(\tH\001\210\001\001\022,\n\003eta\030\014 \001(\0132\032.google.protobu"
-    "f.TimestampH\002\210\001\001\022\027\n\neta_source\030\r \001(\tH\003\210\001"
-    "\001\0223\n\nexpires_at\030\016 \001(\0132\032.google.protobuf."
-    "TimestampH\004\210\001\001\022\027\n\nvatsim_cid\030\017 \001(\003H\005\210\001\001\022"
-    "\034\n\017vatsim_revision\030\020 \001(\003H\006\210\001\001\022\033\n\016observe"
-    "d_stand\030\021 \001(\tH\007\210\001\001B\010\n\006changeB\010\n\006_stageB\006"
-    "\n\004_etaB\r\n\013_eta_sourceB\r\n\013_expires_atB\r\n\013"
-    "_vatsim_cidB\022\n\020_vatsim_revisionB\021\n\017_obse"
-    "rved_stand\"\r\n\013OccupyStand\"\r\n\013VacateStand"
-    "\"\020\n\016AutomaticStand\"\035\n\013ManualStand\022\016\n\006rea"
-    "son\030\001 \001(\t\"\026\n\024ConfirmStandOverride\"\022\n\020Ack"
-    "nowledgeStand\"f\n\020CreateStandBlock\022\016\n\006rea"
-    "son\030\001 \001(\t\0223\n\nexpires_at\030\002 \001(\0132\032.google.p"
-    "rotobuf.TimestampH\000\210\001\001B\r\n\013_expires_at\"\022\n"
-    "\020RemoveStandBlock\"\302\007\n\tCdmAction\022\020\n\010calls"
-    "ign\030\001 \001(\t\0224\n\010set_tobt\030\002 \001(\0132 .flightstri"
-    "ps.cluster.v1.SetTobtH\000\0229\n\tset_ready\030\003 \001"
-    "(\0132$.flightstrips.cluster.v1.SetCdmReady"
-    "H\000\0229\n\tset_deice\030\004 \001(\0132$.flightstrips.clu"
-    "ster.v1.SetCdmDeiceH\000\0227\n\010set_ctot\030\005 \001(\0132"
-    "#.flightstrips.cluster.v1.SetCdmCtotH\000\022="
-    "\n\013remove_ctot\030\006 \001(\0132&.flightstrips.clust"
-    "er.v1.RemoveCdmCtotH\000\0224\n\010set_eobt\030\007 \001(\0132"
-    " .flightstrips.cluster.v1.SetTobtH\000\0224\n\010s"
-    "et_asrt\030\010 \001(\0132 .flightstrips.cluster.v1."
-    "SetTobtH\000\0224\n\010set_tsac\030\t \001(\0132 .flightstri"
-    "ps.cluster.v1.SetTobtH\000\022E\n\016clearance_tob"
-    "t\030\n \001(\0132+.flightstrips.cluster.v1.CdmAut"
-    "omaticActionH\000\022\?\n\014ground_state\030\013 \001(\0132\'.f"
-    "lightstrips.cluster.v1.CdmGroundStateH\000\022"
-    "B\n\013record_aobt\030\014 \001(\0132+.flightstrips.clus"
-    "ter.v1.CdmAutomaticActionH\000\022B\n\013record_at"
-    "ot\030\r \001(\0132+.flightstrips.cluster.v1.CdmAu"
-    "tomaticActionH\000\022G\n\020prepare_pushback\030\016 \001("
-    "\0132+.flightstrips.cluster.v1.CdmAutomatic"
-    "ActionH\000\022B\n\013better_tobt\030\017 \001(\0132+.flightst"
-    "rips.cluster.v1.CdmAutomaticActionH\000\0226\n\n"
-    "logon_eobt\030\020 \001(\0132 .flightstrips.cluster."
-    "v1.SetTobtH\000B\010\n\006change\"\024\n\022CdmAutomaticAc"
-    "tion\"\037\n\016CdmGroundState\022\r\n\005state\030\001 \001(\t\"F\n"
-    "\007SetTobt\022)\n\005value\030\001 \001(\0132\032.google.protobu"
-    "f.Timestamp\022\020\n\010hhmm_utc\030\002 \001(\t\"\034\n\013SetCdmR"
-    "eady\022\r\n\005ready\030\001 \001(\010\"\033\n\013SetCdmDeice\022\014\n\004co"
-    "de\030\001 \001(\t\"7\n\nSetCdmCtot\022)\n\005value\030\001 \001(\0132\032."
-    "google.protobuf.Timestamp\"\017\n\rRemoveCdmCt"
-    "ot\"\227\002\n\tPdcAction\022\020\n\010callsign\030\001 \001(\t\0222\n\005is"
-    "sue\030\002 \001(\0132!.flightstrips.cluster.v1.Issu"
-    "ePdcH\000\022D\n\017revert_to_voice\030\003 \001(\0132).flight"
-    "strips.cluster.v1.RevertPdcToVoiceH\000\022>\n\013"
-    "acknowledge\030\004 \001(\0132\'.flightstrips.cluster"
-    ".v1.AcknowledgePdcH\000\0224\n\006unable\030\005 \001(\0132\".f"
-    "lightstrips.cluster.v1.UnablePdcH\000B\010\n\006ch"
-    "ange\"\203\001\n\010IssuePdc\022\021\n\tclearance\030\001 \001(\t\022\027\n\017"
-    "request_remarks\030\002 \001(\t\022\027\n\017request_channel"
-    "\030\003 \001(\t\022\014\n\004atis\030\004 \001(\t\022\r\n\005stand\030\005 \001(\t\022\025\n\ra"
-    "ircraft_type\030\006 \001(\t\"\022\n\020RevertPdcToVoice\"\020"
-    "\n\016AcknowledgePdc\"\033\n\tUnablePdc\022\016\n\006reason\030"
-    "\001 \001(\t\"\233\001\n\rMessageAction\022>\n\tbroadcast\030\001 \001"
-    "(\0132).flightstrips.cluster.v1.BroadcastMe"
-    "ssageH\000\022B\n\017private_message\030\002 \001(\0132\'.fligh"
-    "tstrips.cluster.v1.PrivateMessageH\000B\006\n\004s"
-    "end\"4\n\020BroadcastMessage\022\014\n\004text\030\001 \001(\t\022\022\n"
-    "\nrecipients\030\002 \003(\t\"2\n\016PrivateMessage\022\022\n\nt"
-    "arget_cid\030\001 \001(\t\022\014\n\004text\030\002 \001(\t\"\332\001\n\rSessio"
-    "nAction\0227\n\006layout\030\001 \001(\0132%.flightstrips.c"
-    "luster.v1.ChangeLayoutH\000\0229\n\007runways\030\002 \001("
-    "\0132&.flightstrips.cluster.v1.ChangeRunway"
-    "sH\000\022K\n\024update_runway_status\030\003 \001(\0132+.flig"
-    "htstrips.cluster.v1.UpdateRunwayStatusH\000"
-    "B\010\n\006change\"!\n\014ChangeLayout\022\021\n\tlayout_id\030"
-    "\001 \001(\t\"A\n\rChangeRunways\0220\n\007runways\030\001 \003(\0132"
-    "\037.flightstrips.cluster.v1.Runway\"2\n\022Upda"
-    "teRunwayStatus\022\014\n\004pair\030\001 \001(\t\022\016\n\006status\030\002"
-    " \001(\t\"\330\002\n\027ValidationActionCommand\022\020\n\010call"
-    "sign\030\001 \001(\t\022E\n\013acknowledge\030\002 \001(\0132..flight"
-    "strips.cluster.v1.AcknowledgeValidationH"
-    "\000\022B\n\014clx_override\030\003 \001(\0132*.flightstrips.c"
-    "luster.v1.ClxOverrideActionH\000\0227\n\013update_"
-    "tobt\030\004 \001(\0132 .flightstrips.cluster.v1.Set"
-    "TobtH\000\022]\n\035acknowledge_unexpected_change\030"
-    "\005 \001(\01324.flightstrips.cluster.v1.Acknowle"
-    "dgeUnexpectedChangeH\000B\010\n\006change\"1\n\033Ackno"
-    "wledgeUnexpectedChange\022\022\n\nfield_name\030\001 \001"
-    "(\t\"\256\001\n\020FlightPlanAction\022\020\n\010callsign\030\001 \001("
-    "\t\022A\n\006manual\030\002 \001(\0132/.flightstrips.cluster"
-    ".v1.CreateManualFlightPlanH\000\022;\n\003vfr\030\003 \001("
-    "\0132,.flightstrips.cluster.v1.CreateVfrFli"
-    "ghtPlanH\000B\010\n\006create\"\331\001\n\026CreateManualFlig"
-    "htPlan\022\023\n\013destination\030\001 \001(\t\022\013\n\003sid\030\002 \001(\t"
-    "\022\016\n\006squawk\030\003 \001(\t\022(\n\004eobt\030\004 \001(\0132\032.google."
-    "protobuf.Timestamp\022\025\n\raircraft_type\030\005 \001("
-    "\t\022\024\n\014flight_level\030\006 \001(\t\022\r\n\005route\030\007 \001(\t\022\r"
-    "\n\005stand\030\010 \001(\t\022\030\n\020departure_runway\030\t \001(\t\""
-    "\223\001\n\023CreateVfrFlightPlan\022\025\n\raircraft_type"
-    "\030\001 \001(\t\022\030\n\020persons_on_board\030\002 \001(\r\022\016\n\006squa"
-    "wk\030\003 \001(\t\022\030\n\020flight_plan_type\030\004 \001(\t\022\020\n\010la"
-    "nguage\030\005 \001(\t\022\017\n\007remarks\030\006 \001(\t\"\273\021\n\nAmanAc"
-    "tion\022!\n\031expected_airport_revision\030\001 \001(\004\022"
-    ">\n\013move_flight\030\002 \001(\0132\'.flightstrips.clus"
-    "ter.v1.AmanMoveFlightH\000\022\?\n\013lock_flight\030\003"
-    " \001(\0132(.flightstrips.cluster.v1.AmanFligh"
-    "tUnaryH\000\022A\n\runlock_flight\030\004 \001(\0132(.flight"
-    "strips.cluster.v1.AmanFlightUnaryH\000\022E\n\021d"
-    "esequence_flight\030\005 \001(\0132(.flightstrips.cl"
-    "uster.v1.AmanFlightUnaryH\000\022A\n\rresume_fli"
-    "ght\030\006 \001(\0132(.flightstrips.cluster.v1.Aman"
-    "FlightUnaryH\000\022A\n\rremove_flight\030\007 \001(\0132(.f"
-    "lightstrips.cluster.v1.AmanFlightUnaryH\000"
-    "\022\?\n\013accept_teta\030\010 \001(\0132(.flightstrips.clu"
-    "ster.v1.AmanFlightUnaryH\000\022@\n\014keep_fpl_et"
-    "a\030\t \001(\0132(.flightstrips.cluster.v1.AmanFl"
-    "ightUnaryH\000\022G\n\023reset_teta_override\030\n \001(\013"
+    "H\004\210\001\001\022\016\n\006detail\030\t \001(\t\022\027\n\017memory_accepted"
+    "\030\n \001(\010\"\252\001\n\006Status\022\026\n\022STATUS_UNSPECIFIED\020"
+    "\000\022\r\n\tCOMMITTED\020\001\022\013\n\007PENDING\020\002\022\024\n\020INVALID"
+    "_ARGUMENT\020\003\022\020\n\014UNAUTHORIZED\020\004\022\r\n\tNOT_FOU"
+    "ND\020\005\022\025\n\021REVISION_CONFLICT\020\006\022\r\n\tNOT_OWNER"
+    "\020\007\022\017\n\013UNAVAILABLE\020\010B\025\n\023_aggregate_revisi"
+    "onB\022\n\020_stream_sequenceB\032\n\030_current_entit"
+    "y_revisionB\020\n\016_current_ownerB\n\n\010_outcome"
+    "\"\230\001\n\025EffectDeliveryRequest\022\022\n\nsession_id"
+    "\030\001 \001(\005\022\025\n\rconnection_id\030\002 \001(\t\0225\n\006effect\030"
+    "\003 \001(\0132%.flightstrips.cluster.v1.EffectRe"
+    "cord\022\035\n\025claim_stream_sequence\030\004 \001(\004\";\n\023E"
+    "ffectDeliveryReply\022\022\n\ncommand_id\030\001 \001(\t\022\020"
+    "\n\010accepted\030\002 \001(\010\"\300\005\n\rFrontendFrame\022\031\n\021pr"
+    "otocol_revision\030\001 \001(\r\022E\n\014authenticate\030\002 "
+    "\001(\0132-.flightstrips.cluster.v1.FrontendAu"
+    "thenticateH\000\022;\n\007command\030\003 \001(\0132(.flightst"
+    "rips.cluster.v1.FrontendCommandH\000\022B\n\014sta"
+    "tus_query\030\004 \001(\0132*.flightstrips.cluster.v"
+    "1.ActionStatusQueryH\000\022;\n\007initial\030\005 \001(\0132("
+    ".flightstrips.cluster.v1.FrontendInitial"
+    "H\000\0227\n\005delta\030\006 \001(\0132&.flightstrips.cluster"
+    ".v1.FrontendDeltaH\000\022C\n\013observation\030\007 \001(\013"
+    "2,.flightstrips.cluster.v1.FrontendObser"
+    "vationH\000\022F\n\raction_result\030\010 \001(\0132-.flight"
+    "strips.cluster.v1.FrontendActionResultH\000"
+    "\022F\n\016status_missing\030\t \001(\0132,.flightstrips."
+    "cluster.v1.ActionStatusMissingH\000\0227\n\005erro"
+    "r\030\n \001(\0132&.flightstrips.cluster.v1.Fronte"
+    "ndErrorH\000\022\?\n\theartbeat\030\013 \001(\0132*.flightstr"
+    "ips.cluster.v1.FrontendHeartbeatH\000B\007\n\005fr"
+    "ame\"S\n\024FrontendAuthenticate\022\024\n\014bearer_to"
+    "ken\030\001 \001(\t\022\017\n\007airport\030\002 \001(\t\022\024\n\014session_na"
+    "me\030\003 \001(\t\"\241\001\n\017FrontendCommand\022\022\n\nrequest_"
+    "id\030\001 \001(\t\0226\n\006action\030\002 \001(\0132&.flightstrips."
+    "cluster.v1.ClientCommand\022%\n\030expected_ent"
+    "ity_revision\030\003 \001(\004H\000\210\001\001B\033\n\031_expected_ent"
+    "ity_revision\"(\n\021ActionStatusQuery\022\023\n\013req"
+    "uest_ids\030\001 \003(\t\"\370\005\n\017FrontendInitial\022\022\n\nse"
+    "ssion_id\030\001 \001(\005\022\017\n\007airport\030\002 \001(\t\022\024\n\014sessi"
+    "on_name\030\003 \001(\t\022\032\n\022aggregate_revision\030\004 \001("
+    "\004\022\027\n\017stream_sequence\030\005 \001(\004\0229\n\010entities\030\006"
+    " \003(\0132\'.flightstrips.cluster.v1.EntitySna"
+    "pshot\0229\n\tpositions\030\007 \003(\0132&.flightstrips."
+    "cluster.v1.PositionValue\0228\n\007clients\030\010 \003("
+    "\0132\'.flightstrips.cluster.v1.ClientPresen"
+    "ce\022\020\n\010writable\030\t \001(\010\022\021\n\tlayout_id\030\n \001(\t\022"
+    "/\n\002me\030\013 \001(\0132#.flightstrips.cluster.v1.Co"
+    "ntroller\022\021\n\tread_only\030\014 \001(\010\022\032\n\022position_"
+    "available\030\r \001(\010\022\020\n\010aman_fmp\030\016 \001(\010\0228\n\016ava"
+    "ilable_sids\030\017 \003(\0132 .flightstrips.cluster"
+    ".v1.SidInfo\022A\n\025initial_cfl_by_runway\030\020 \003"
+    "(\0132\".flightstrips.cluster.v1.RunwayCfl\022 "
+    "\n\030transition_altitude_feet\030\021 \001(\005\022 \n\030stan"
+    "d_assignment_enabled\030\022 \001(\010\022I\n\023tagged_obs"
+    "ervations\030\023 \003(\0132,.flightstrips.cluster.v"
+    "1.FrontendObservation\022\"\n\032airport_aggrega"
+    "te_revision\030\024 \001(\004\"\362\001\n\rFrontendDelta\0228\n\ta"
+    "ggregate\030\001 \001(\0132%.flightstrips.cluster.v1"
+    ".AggregateRef\022\032\n\022aggregate_revision\030\002 \001("
+    "\004\022\027\n\017stream_sequence\030\003 \001(\004\0226\n\007changes\030\004 "
+    "\003(\0132%.flightstrips.cluster.v1.EntityChan"
+    "ge\022:\n\tworkflows\030\005 \003(\0132\'.flightstrips.clu"
+    "ster.v1.WorkflowRecord\"\200\002\n\023FrontendObser"
+    "vation\022:\n\010position\030\001 \001(\0132&.flightstrips."
+    "cluster.v1.PositionValueH\000\022:\n\010presence\030\002"
+    " \001(\0132&.flightstrips.cluster.v1.PresenceV"
+    "alueH\000\022\027\n\017source_revision\030\003 \001(\004\022\r\n\005stale"
+    "\030\004 \001(\010\022/\n\013observed_at\030\005 \001(\0132\032.google.pro"
+    "tobuf.Timestamp\022\017\n\007removed\030\006 \001(\010B\007\n\005valu"
+    "e\"\345\001\n\024FrontendActionResult\022\022\n\nrequest_id"
+    "\030\001 \001(\t\022>\n\006status\030\002 \001(\0162..flightstrips.cl"
+    "uster.v1.CommandOutcome.Status\0228\n\taggreg"
+    "ate\030\003 \001(\0132%.flightstrips.cluster.v1.Aggr"
+    "egateRef\022\032\n\022aggregate_revision\030\004 \001(\004\022\023\n\013"
+    "reason_code\030\005 \001(\t\022\016\n\006detail\030\006 \001(\t\")\n\023Act"
+    "ionStatusMissing\022\022\n\nrequest_id\030\001 \001(\t\"\351\001\n"
+    "\rFrontendError\0229\n\004code\030\001 \001(\0162+.flightstr"
+    "ips.cluster.v1.FrontendError.Code\022\016\n\006det"
+    "ail\030\002 \001(\t\"\214\001\n\004Code\022\024\n\020CODE_UNSPECIFIED\020\000"
+    "\022\021\n\rINVALID_FRAME\020\001\022\023\n\017UNAUTHENTICATED\020\002"
+    "\022\030\n\024UNSUPPORTED_REVISION\020\003\022\032\n\026PROJECTION"
+    "_UNAVAILABLE\020\004\022\020\n\014RATE_LIMITED\020\005\";\n\021Fron"
+    "tendHeartbeat\022&\n\036latest_applied_stream_s"
+    "equence\030\001 \001(\004\"\244\005\n\rClientCommand\0225\n\005strip"
+    "\030\001 \001(\0132$.flightstrips.cluster.v1.StripAc"
+    "tionH\000\022C\n\014coordination\030\002 \001(\0132+.flightstr"
+    "ips.cluster.v1.CoordinationActionH\000\022;\n\010t"
+    "actical\030\003 \001(\0132\'.flightstrips.cluster.v1."
+    "TacticalActionH\000\0225\n\005stand\030\004 \001(\0132$.flight"
+    "strips.cluster.v1.StandActionH\000\0221\n\003cdm\030\005"
+    " \001(\0132\".flightstrips.cluster.v1.CdmAction"
+    "H\000\0221\n\003pdc\030\006 \001(\0132\".flightstrips.cluster.v"
+    "1.PdcActionH\000\0223\n\004aman\030\007 \001(\0132#.flightstri"
+    "ps.cluster.v1.AmanActionH\000\0229\n\007message\030\010 "
+    "\001(\0132&.flightstrips.cluster.v1.MessageAct"
+    "ionH\000\0229\n\007session\030\t \001(\0132&.flightstrips.cl"
+    "uster.v1.SessionActionH\000\022F\n\nvalidation\030\n"
+    " \001(\01320.flightstrips.cluster.v1.Validatio"
+    "nActionCommandH\000\022@\n\013flight_plan\030\013 \001(\0132)."
+    "flightstrips.cluster.v1.FlightPlanAction"
+    "H\000B\010\n\006action\"\260\010\n\013StripAction\022\020\n\010callsign"
+    "\030\001 \001(\t\022:\n\013set_heading\030\002 \001(\0132#.flightstri"
+    "ps.cluster.v1.SetHeadingH\000\0228\n\nset_squawk"
+    "\030\003 \001(\0132\".flightstrips.cluster.v1.SetSqua"
+    "wkH\000\022F\n\026set_requested_altitude\030\004 \001(\0132$.f"
+    "lightstrips.cluster.v1.SetAltitudeH\000\022D\n\024"
+    "set_cleared_altitude\030\005 \001(\0132$.flightstrip"
+    "s.cluster.v1.SetAltitudeH\000\0222\n\007set_bay\030\006 "
+    "\001(\0132\037.flightstrips.cluster.v1.SetBayH\000\022E"
+    "\n\021set_release_point\030\007 \001(\0132(.flightstrips"
+    ".cluster.v1.SetReleasePointH\000\0228\n\nset_mar"
+    "ked\030\010 \001(\0132\".flightstrips.cluster.v1.SetM"
+    "arkedH\000\022D\n\022set_runway_cleared\030\t \001(\0132&.fl"
+    "ightstrips.cluster.v1.SetRunwayFlagH\000\022F\n"
+    "\024set_runway_confirmed\030\n \001(\0132&.flightstri"
+    "ps.cluster.v1.SetRunwayFlagH\000\022I\n\023set_sta"
+    "rt_requested\030\013 \001(\0132*.flightstrips.cluste"
+    "r.v1.SetStartRequestedH\000\022;\n\tset_order\030\014 "
+    "\001(\0132&.flightstrips.cluster.v1.SetStripOr"
+    "derH\000\0229\n\010set_text\030\r \001(\0132%.flightstrips.c"
+    "luster.v1.SetStripTextH\000\0222\n\004move\030\016 \001(\0132\""
+    ".flightstrips.cluster.v1.MoveStripH\000\022B\n\017"
+    "generate_squawk\030\017 \001(\0132\'.flightstrips.clu"
+    "ster.v1.GenerateSquawkH\000\022\?\n\013update_data\030"
+    "\020 \001(\0132(.flightstrips.cluster.v1.UpdateSt"
+    "ripDataH\000\022B\n\017missed_approach\030\021 \001(\0132\'.fli"
+    "ghtstrips.cluster.v1.MissedApproachH\000B\010\n"
+    "\006change\".\n\nSetHeading\022\024\n\007degrees\030\001 \001(\005H\000"
+    "\210\001\001B\n\n\010_degrees\"\031\n\tSetSquawk\022\014\n\004code\030\001 \001"
+    "(\t\")\n\013SetAltitude\022\021\n\004feet\030\001 \001(\005H\000\210\001\001B\007\n\005"
+    "_feet\"\025\n\006SetBay\022\013\n\003bay\030\001 \001(\t\" \n\017SetRelea"
+    "sePoint\022\r\n\005point\030\001 \001(\t\"\033\n\tSetMarked\022\016\n\006m"
+    "arked\030\001 \001(\010\"\036\n\rSetRunwayFlag\022\r\n\005value\030\001 "
+    "\001(\010\"&\n\021SetStartRequested\022\021\n\trequested\030\001 "
+    "\001(\010\"H\n\010StripRef\022\031\n\017flight_callsign\030\001 \001(\t"
+    "H\000\022\025\n\013tactical_id\030\002 \001(\004H\000B\n\n\010identity\"^\n"
+    "\rSetStripOrder\022<\n\014insert_after\030\001 \001(\0132!.f"
+    "lightstrips.cluster.v1.StripRefH\000\210\001\001B\017\n\r"
+    "_insert_after\"t\n\tMoveStrip\022\013\n\003bay\030\001 \001(\t\022"
+    "\026\n\tclearance\030\002 \001(\010H\000\210\001\001\022\036\n\021confirmed_rem"
+    "oval\030\003 \001(\010H\001\210\001\001B\014\n\n_clearanceB\024\n\022_confir"
+    "med_removal\"\020\n\016GenerateSquawk\"\203\003\n\017Update"
+    "StripData\022\020\n\003sid\030\001 \001(\tH\000\210\001\001\022-\n\004eobt\030\002 \001("
+    "\0132\032.google.protobuf.TimestampH\001\210\001\001\022\022\n\005ro"
+    "ute\030\003 \001(\tH\002\210\001\001\022\024\n\007heading\030\004 \001(\005H\003\210\001\001\022\032\n\r"
+    "altitude_feet\030\005 \001(\005H\004\210\001\001\022\022\n\005stand\030\006 \001(\tH"
+    "\005\210\001\001\022\023\n\006runway\030\007 \001(\tH\006\210\001\001\022\025\n\010on_block\030\010 "
+    "\001(\010H\007\210\001\001\022\024\n\007remarks\030\t \001(\tH\010\210\001\001\022\032\n\raircra"
+    "ft_type\030\n \001(\tH\t\210\001\001B\006\n\004_sidB\007\n\005_eobtB\010\n\006_"
+    "routeB\n\n\010_headingB\020\n\016_altitude_feetB\010\n\006_"
+    "standB\t\n\007_runwayB\013\n\t_on_blockB\n\n\010_remark"
+    "sB\020\n\016_aircraft_type\"\020\n\016MissedApproach\"\306\001"
+    "\n\014SetStripText\022:\n\005field\030\001 \001(\0162+.flightst"
+    "rips.cluster.v1.SetStripText.Field\022\r\n\005va"
+    "lue\030\002 \001(\t\"k\n\005Field\022\025\n\021FIELD_UNSPECIFIED\020"
+    "\000\022\t\n\005ROUTE\020\001\022\013\n\007REMARKS\020\002\022\007\n\003SID\020\003\022\n\n\006RU"
+    "NWAY\020\004\022\020\n\014REGISTRATION\020\005\022\014\n\010LANGUAGE\020\006\"\365"
+    "\003\n\022CoordinationAction\022\020\n\010callsign\030\001 \001(\t\022"
+    "A\n\010transfer\030\002 \001(\0132-.flightstrips.cluster"
+    ".v1.TransferCoordinationH\000\022=\n\006assume\030\003 \001"
+    "(\0132+.flightstrips.cluster.v1.AssumeCoord"
+    "inationH\000\022H\n\014force_assume\030\004 \001(\01320.flight"
+    "strips.cluster.v1.ForceAssumeCoordinatio"
+    "nH\000\0229\n\004free\030\005 \001(\0132).flightstrips.cluster"
+    ".v1.FreeCoordinationH\000\022=\n\006cancel\030\006 \001(\0132+"
+    ".flightstrips.cluster.v1.CancelCoordinat"
+    "ionH\000\0227\n\003tag\030\007 \001(\0132(.flightstrips.cluste"
+    "r.v1.TagCoordinationH\000\022D\n\naccept_tag\030\010 \001"
+    "(\0132..flightstrips.cluster.v1.AcceptTagCo"
+    "ordinationH\000B\010\n\006change\"&\n\024TransferCoordi"
+    "nation\022\016\n\006to_cid\030\001 \001(\t\"\024\n\022AssumeCoordina"
+    "tion\"+\n\027ForceAssumeCoordination\022\020\n\010from_"
+    "cid\030\001 \001(\t\"\022\n\020FreeCoordination\")\n\022CancelC"
+    "oordination\022\023\n\013transfer_id\030\001 \001(\t\".\n\017TagC"
+    "oordination\022\016\n\006to_cid\030\001 \001(\t\022\013\n\003tag\030\002 \001(\t"
+    "\"+\n\025AcceptTagCoordination\022\022\n\nrequest_id\030"
+    "\001 \001(\t\"\327\003\n\016TacticalAction\022\020\n\010strip_id\030\001 \001"
+    "(\004\0229\n\006create\030\002 \001(\0132\'.flightstrips.cluste"
+    "r.v1.CreateTacticalH\000\0229\n\006delete\030\003 \001(\0132\'."
+    "flightstrips.cluster.v1.DeleteTacticalH\000"
+    "\022;\n\007confirm\030\004 \001(\0132(.flightstrips.cluster"
+    ".v1.ConfirmTacticalH\000\022D\n\014force_assume\030\005 "
+    "\001(\0132,.flightstrips.cluster.v1.ForceAssum"
+    "eTacticalH\000\0225\n\004mark\030\006 \001(\0132%.flightstrips"
+    ".cluster.v1.MarkTacticalH\000\022B\n\013start_time"
+    "r\030\007 \001(\0132+.flightstrips.cluster.v1.StartT"
+    "acticalTimerH\000\0225\n\004move\030\010 \001(\0132%.flightstr"
+    "ips.cluster.v1.MoveTacticalH\000B\010\n\006change\""
+    "i\n\016CreateTactical\022\r\n\005title\030\001 \001(\t\022\014\n\004body"
+    "\030\002 \001(\t\022\013\n\003bay\030\003 \001(\t\022\014\n\004kind\030\004 \001(\t\022\r\n\005lab"
+    "el\030\005 \001(\t\022\020\n\010aircraft\030\006 \001(\t\"\020\n\016DeleteTact"
+    "ical\"\021\n\017ConfirmTactical\"\025\n\023ForceAssumeTa"
+    "ctical\"\036\n\014MarkTactical\022\016\n\006marked\030\001 \001(\010\"\024"
+    "\n\022StartTacticalTimer\"w\n\014MoveTactical\022\020\n\003"
+    "bay\030\001 \001(\tH\000\210\001\001\022<\n\014insert_after\030\002 \001(\0132!.f"
+    "lightstrips.cluster.v1.StripRefH\001\210\001\001B\006\n\004"
+    "_bayB\017\n\r_insert_after\"\373\006\n\013StandAction\022\020\n"
+    "\010callsign\030\001 \001(\t\022\r\n\005stand\030\002 \001(\t\0226\n\006occupy"
+    "\030\003 \001(\0132$.flightstrips.cluster.v1.OccupyS"
+    "tandH\000\0226\n\006vacate\030\004 \001(\0132$.flightstrips.cl"
+    "uster.v1.VacateStandH\000\022<\n\tautomatic\030\005 \001("
+    "\0132\'.flightstrips.cluster.v1.AutomaticSta"
+    "ndH\000\0226\n\006manual\030\006 \001(\0132$.flightstrips.clus"
+    "ter.v1.ManualStandH\000\022I\n\020confirm_override"
+    "\030\007 \001(\0132-.flightstrips.cluster.v1.Confirm"
+    "StandOverrideH\000\022@\n\013acknowledge\030\010 \001(\0132).f"
+    "lightstrips.cluster.v1.AcknowledgeStandH"
+    "\000\022A\n\014create_block\030\t \001(\0132).flightstrips.c"
+    "luster.v1.CreateStandBlockH\000\022A\n\014remove_b"
+    "lock\030\n \001(\0132).flightstrips.cluster.v1.Rem"
+    "oveStandBlockH\000\022\022\n\005stage\030\013 \001(\tH\001\210\001\001\022,\n\003e"
+    "ta\030\014 \001(\0132\032.google.protobuf.TimestampH\002\210\001"
+    "\001\022\027\n\neta_source\030\r \001(\tH\003\210\001\001\0223\n\nexpires_at"
+    "\030\016 \001(\0132\032.google.protobuf.TimestampH\004\210\001\001\022"
+    "\027\n\nvatsim_cid\030\017 \001(\003H\005\210\001\001\022\034\n\017vatsim_revis"
+    "ion\030\020 \001(\003H\006\210\001\001\022\033\n\016observed_stand\030\021 \001(\tH\007"
+    "\210\001\001B\010\n\006changeB\010\n\006_stageB\006\n\004_etaB\r\n\013_eta_"
+    "sourceB\r\n\013_expires_atB\r\n\013_vatsim_cidB\022\n\020"
+    "_vatsim_revisionB\021\n\017_observed_stand\"\r\n\013O"
+    "ccupyStand\"\r\n\013VacateStand\"\020\n\016AutomaticSt"
+    "and\"\035\n\013ManualStand\022\016\n\006reason\030\001 \001(\t\"\026\n\024Co"
+    "nfirmStandOverride\"\022\n\020AcknowledgeStand\"f"
+    "\n\020CreateStandBlock\022\016\n\006reason\030\001 \001(\t\0223\n\nex"
+    "pires_at\030\002 \001(\0132\032.google.protobuf.Timesta"
+    "mpH\000\210\001\001B\r\n\013_expires_at\"\022\n\020RemoveStandBlo"
+    "ck\"\302\007\n\tCdmAction\022\020\n\010callsign\030\001 \001(\t\0224\n\010se"
+    "t_tobt\030\002 \001(\0132 .flightstrips.cluster.v1.S"
+    "etTobtH\000\0229\n\tset_ready\030\003 \001(\0132$.flightstri"
+    "ps.cluster.v1.SetCdmReadyH\000\0229\n\tset_deice"
+    "\030\004 \001(\0132$.flightstrips.cluster.v1.SetCdmD"
+    "eiceH\000\0227\n\010set_ctot\030\005 \001(\0132#.flightstrips."
+    "cluster.v1.SetCdmCtotH\000\022=\n\013remove_ctot\030\006"
+    " \001(\0132&.flightstrips.cluster.v1.RemoveCdm"
+    "CtotH\000\0224\n\010set_eobt\030\007 \001(\0132 .flightstrips."
+    "cluster.v1.SetTobtH\000\0224\n\010set_asrt\030\010 \001(\0132 "
+    ".flightstrips.cluster.v1.SetTobtH\000\0224\n\010se"
+    "t_tsac\030\t \001(\0132 .flightstrips.cluster.v1.S"
+    "etTobtH\000\022E\n\016clearance_tobt\030\n \001(\0132+.fligh"
+    "tstrips.cluster.v1.CdmAutomaticActionH\000\022"
+    "\?\n\014ground_state\030\013 \001(\0132\'.flightstrips.clu"
+    "ster.v1.CdmGroundStateH\000\022B\n\013record_aobt\030"
+    "\014 \001(\0132+.flightstrips.cluster.v1.CdmAutom"
+    "aticActionH\000\022B\n\013record_atot\030\r \001(\0132+.flig"
+    "htstrips.cluster.v1.CdmAutomaticActionH\000"
+    "\022G\n\020prepare_pushback\030\016 \001(\0132+.flightstrip"
+    "s.cluster.v1.CdmAutomaticActionH\000\022B\n\013bet"
+    "ter_tobt\030\017 \001(\0132+.flightstrips.cluster.v1"
+    ".CdmAutomaticActionH\000\0226\n\nlogon_eobt\030\020 \001("
+    "\0132 .flightstrips.cluster.v1.SetTobtH\000B\010\n"
+    "\006change\"\024\n\022CdmAutomaticAction\"\037\n\016CdmGrou"
+    "ndState\022\r\n\005state\030\001 \001(\t\"F\n\007SetTobt\022)\n\005val"
+    "ue\030\001 \001(\0132\032.google.protobuf.Timestamp\022\020\n\010"
+    "hhmm_utc\030\002 \001(\t\"\034\n\013SetCdmReady\022\r\n\005ready\030\001"
+    " \001(\010\"\033\n\013SetCdmDeice\022\014\n\004code\030\001 \001(\t\"7\n\nSet"
+    "CdmCtot\022)\n\005value\030\001 \001(\0132\032.google.protobuf"
+    ".Timestamp\"\017\n\rRemoveCdmCtot\"\227\002\n\tPdcActio"
+    "n\022\020\n\010callsign\030\001 \001(\t\0222\n\005issue\030\002 \001(\0132!.fli"
+    "ghtstrips.cluster.v1.IssuePdcH\000\022D\n\017rever"
+    "t_to_voice\030\003 \001(\0132).flightstrips.cluster."
+    "v1.RevertPdcToVoiceH\000\022>\n\013acknowledge\030\004 \001"
+    "(\0132\'.flightstrips.cluster.v1.Acknowledge"
+    "PdcH\000\0224\n\006unable\030\005 \001(\0132\".flightstrips.clu"
+    "ster.v1.UnablePdcH\000B\010\n\006change\"\203\001\n\010IssueP"
+    "dc\022\021\n\tclearance\030\001 \001(\t\022\027\n\017request_remarks"
+    "\030\002 \001(\t\022\027\n\017request_channel\030\003 \001(\t\022\014\n\004atis\030"
+    "\004 \001(\t\022\r\n\005stand\030\005 \001(\t\022\025\n\raircraft_type\030\006 "
+    "\001(\t\"\022\n\020RevertPdcToVoice\"\020\n\016AcknowledgePd"
+    "c\"\033\n\tUnablePdc\022\016\n\006reason\030\001 \001(\t\"\233\001\n\rMessa"
+    "geAction\022>\n\tbroadcast\030\001 \001(\0132).flightstri"
+    "ps.cluster.v1.BroadcastMessageH\000\022B\n\017priv"
+    "ate_message\030\002 \001(\0132\'.flightstrips.cluster"
+    ".v1.PrivateMessageH\000B\006\n\004send\"4\n\020Broadcas"
+    "tMessage\022\014\n\004text\030\001 \001(\t\022\022\n\nrecipients\030\002 \003"
+    "(\t\"2\n\016PrivateMessage\022\022\n\ntarget_cid\030\001 \001(\t"
+    "\022\014\n\004text\030\002 \001(\t\"\332\001\n\rSessionAction\0227\n\006layo"
+    "ut\030\001 \001(\0132%.flightstrips.cluster.v1.Chang"
+    "eLayoutH\000\0229\n\007runways\030\002 \001(\0132&.flightstrip"
+    "s.cluster.v1.ChangeRunwaysH\000\022K\n\024update_r"
+    "unway_status\030\003 \001(\0132+.flightstrips.cluste"
+    "r.v1.UpdateRunwayStatusH\000B\010\n\006change\"!\n\014C"
+    "hangeLayout\022\021\n\tlayout_id\030\001 \001(\t\"A\n\rChange"
+    "Runways\0220\n\007runways\030\001 \003(\0132\037.flightstrips."
+    "cluster.v1.Runway\"2\n\022UpdateRunwayStatus\022"
+    "\014\n\004pair\030\001 \001(\t\022\016\n\006status\030\002 \001(\t\"\330\002\n\027Valida"
+    "tionActionCommand\022\020\n\010callsign\030\001 \001(\t\022E\n\013a"
+    "cknowledge\030\002 \001(\0132..flightstrips.cluster."
+    "v1.AcknowledgeValidationH\000\022B\n\014clx_overri"
+    "de\030\003 \001(\0132*.flightstrips.cluster.v1.ClxOv"
+    "errideActionH\000\0227\n\013update_tobt\030\004 \001(\0132 .fl"
+    "ightstrips.cluster.v1.SetTobtH\000\022]\n\035ackno"
+    "wledge_unexpected_change\030\005 \001(\01324.flights"
+    "trips.cluster.v1.AcknowledgeUnexpectedCh"
+    "angeH\000B\010\n\006change\"1\n\033AcknowledgeUnexpecte"
+    "dChange\022\022\n\nfield_name\030\001 \001(\t\"\256\001\n\020FlightPl"
+    "anAction\022\020\n\010callsign\030\001 \001(\t\022A\n\006manual\030\002 \001"
+    "(\0132/.flightstrips.cluster.v1.CreateManua"
+    "lFlightPlanH\000\022;\n\003vfr\030\003 \001(\0132,.flightstrip"
+    "s.cluster.v1.CreateVfrFlightPlanH\000B\010\n\006cr"
+    "eate\"\331\001\n\026CreateManualFlightPlan\022\023\n\013desti"
+    "nation\030\001 \001(\t\022\013\n\003sid\030\002 \001(\t\022\016\n\006squawk\030\003 \001("
+    "\t\022(\n\004eobt\030\004 \001(\0132\032.google.protobuf.Timest"
+    "amp\022\025\n\raircraft_type\030\005 \001(\t\022\024\n\014flight_lev"
+    "el\030\006 \001(\t\022\r\n\005route\030\007 \001(\t\022\r\n\005stand\030\010 \001(\t\022\030"
+    "\n\020departure_runway\030\t \001(\t\"\223\001\n\023CreateVfrFl"
+    "ightPlan\022\025\n\raircraft_type\030\001 \001(\t\022\030\n\020perso"
+    "ns_on_board\030\002 \001(\r\022\016\n\006squawk\030\003 \001(\t\022\030\n\020fli"
+    "ght_plan_type\030\004 \001(\t\022\020\n\010language\030\005 \001(\t\022\017\n"
+    "\007remarks\030\006 \001(\t\"\273\021\n\nAmanAction\022!\n\031expecte"
+    "d_airport_revision\030\001 \001(\004\022>\n\013move_flight\030"
+    "\002 \001(\0132\'.flightstrips.cluster.v1.AmanMove"
+    "FlightH\000\022\?\n\013lock_flight\030\003 \001(\0132(.flightst"
+    "rips.cluster.v1.AmanFlightUnaryH\000\022A\n\runl"
+    "ock_flight\030\004 \001(\0132(.flightstrips.cluster."
+    "v1.AmanFlightUnaryH\000\022E\n\021desequence_fligh"
+    "t\030\005 \001(\0132(.flightstrips.cluster.v1.AmanFl"
+    "ightUnaryH\000\022A\n\rresume_flight\030\006 \001(\0132(.fli"
+    "ghtstrips.cluster.v1.AmanFlightUnaryH\000\022A"
+    "\n\rremove_flight\030\007 \001(\0132(.flightstrips.clu"
+    "ster.v1.AmanFlightUnaryH\000\022\?\n\013accept_teta"
+    "\030\010 \001(\0132(.flightstrips.cluster.v1.AmanFli"
+    "ghtUnaryH\000\022@\n\014keep_fpl_eta\030\t \001(\0132(.fligh"
+    "tstrips.cluster.v1.AmanFlightUnaryH\000\022G\n\023"
+    "reset_teta_override\030\n \001(\0132(.flightstrips"
+    ".cluster.v1.AmanFlightUnaryH\000\0225\n\010set_rat"
+    "e\030\013 \001(\0132!.flightstrips.cluster.v1.AmanRa"
+    "teH\000\022H\n\023select_runway_group\030\014 \001(\0132).flig"
+    "htstrips.cluster.v1.AmanSelectRunwayH\000\022N"
+    "\n\030set_active_runway_groups\030\r \001(\0132*.fligh"
+    "tstrips.cluster.v1.AmanActiveRunwaysH\000\022@"
+    "\n\016set_manual_eta\030\016 \001(\0132&.flightstrips.cl"
+    "uster.v1.AmanManualEtaH\000\022G\n\025set_manual_f"
+    "eeder_eta\030\017 \001(\0132&.flightstrips.cluster.v"
+    "1.AmanManualEtaH\000\022K\n\027reset_manual_feeder"
+    "_eta\030\020 \001(\0132(.flightstrips.cluster.v1.Ama"
+    "nFlightUnaryH\000\022D\n\020recompute_flight\030\021 \001(\013"
     "2(.flightstrips.cluster.v1.AmanFlightUna"
-    "ryH\000\0225\n\010set_rate\030\013 \001(\0132!.flightstrips.cl"
-    "uster.v1.AmanRateH\000\022H\n\023select_runway_gro"
-    "up\030\014 \001(\0132).flightstrips.cluster.v1.AmanS"
-    "electRunwayH\000\022N\n\030set_active_runway_group"
-    "s\030\r \001(\0132*.flightstrips.cluster.v1.AmanAc"
-    "tiveRunwaysH\000\022@\n\016set_manual_eta\030\016 \001(\0132&."
-    "flightstrips.cluster.v1.AmanManualEtaH\000\022"
-    "G\n\025set_manual_feeder_eta\030\017 \001(\0132&.flights"
-    "trips.cluster.v1.AmanManualEtaH\000\022K\n\027rese"
-    "t_manual_feeder_eta\030\020 \001(\0132(.flightstrips"
-    ".cluster.v1.AmanFlightUnaryH\000\022D\n\020recompu"
-    "te_flight\030\021 \001(\0132(.flightstrips.cluster.v"
-    "1.AmanFlightUnaryH\000\022B\n\rchange_runway\030\022 \001"
-    "(\0132).flightstrips.cluster.v1.AmanChangeR"
-    "unwayH\000\022G\n\020report_go_around\030\023 \001(\0132+.flig"
-    "htstrips.cluster.v1.AmanReportGoAroundH\000"
-    "\022H\n\021confirm_go_around\030\024 \001(\0132+.flightstri"
-    "ps.cluster.v1.AmanDecideGoAroundH\000\022G\n\020re"
-    "ject_go_around\030\025 \001(\0132+.flightstrips.clus"
-    "ter.v1.AmanDecideGoAroundH\000\022<\n\ncreate_ga"
-    "p\030\026 \001(\0132&.flightstrips.cluster.v1.AmanCr"
-    "eateGapH\000\022<\n\nremove_gap\030\027 \001(\0132&.flightst"
-    "rips.cluster.v1.AmanRemoveGapH\000\022K\n\025creat"
-    "e_runway_closure\030\030 \001(\0132*.flightstrips.cl"
-    "uster.v1.AmanCreateClosureH\000\022K\n\025remove_r"
-    "unway_closure\030\031 \001(\0132*.flightstrips.clust"
-    "er.v1.AmanRemoveClosureH\000\022U\n\033create_capa"
-    "city_reservation\030\032 \001(\0132..flightstrips.cl"
-    "uster.v1.AmanCreateReservationH\000\022U\n\033remo"
-    "ve_capacity_reservation\030\033 \001(\0132..flightst"
-    "rips.cluster.v1.AmanRemoveReservationH\000\022"
-    "H\n\024place_flight_at_time\030\034 \001(\0132(.flightst"
-    "rips.cluster.v1.AmanPlaceFlightH\000\022V\n\033sub"
-    "mit_coordination_request\030\035 \001(\0132/.flights"
-    "trips.cluster.v1.AmanSubmitCoordinationH"
-    "\000\022V\n\033accept_coordination_request\030\036 \001(\0132/"
-    ".flightstrips.cluster.v1.AmanDecideCoord"
-    "inationH\000\022V\n\033reject_coordination_request"
-    "\030\037 \001(\0132/.flightstrips.cluster.v1.AmanDec"
-    "ideCoordinationH\000B\010\n\006change\"#\n\017AmanFligh"
-    "tUnary\022\020\n\010callsign\030\001 \001(\t\"|\n\016AmanMoveFlig"
-    "ht\022\020\n\010callsign\030\001 \001(\t\022\027\n\017runway_group_id\030"
-    "\002 \001(\t\022\031\n\017before_callsign\030\003 \001(\tH\000\022\030\n\016afte"
-    "r_callsign\030\004 \001(\tH\000B\n\n\010neighbor\"p\n\010AmanRa"
-    "te\022\027\n\017runway_group_id\030\001 \001(\t\022\031\n\021arrivals_"
-    "per_hour\030\002 \001(\r\0220\n\014effective_at\030\003 \001(\0132\032.g"
-    "oogle.protobuf.Timestamp\"]\n\020AmanSelectRu"
-    "nway\022\027\n\017runway_group_id\030\001 \001(\t\0220\n\014effecti"
-    "ve_at\030\002 \001(\0132\032.google.protobuf.Timestamp\""
-    "-\n\021AmanActiveRunways\022\030\n\020runway_group_ids"
-    "\030\001 \003(\t\"L\n\rAmanManualEta\022\020\n\010callsign\030\001 \001("
-    "\t\022)\n\005value\030\002 \001(\0132\032.google.protobuf.Times"
-    "tamp\"=\n\020AmanChangeRunway\022\020\n\010callsign\030\001 \001"
-    "(\t\022\027\n\017runway_group_id\030\002 \001(\t\"W\n\022AmanRepor"
-    "tGoAround\022\020\n\010callsign\030\001 \001(\t\022/\n\013detected_"
-    "at\030\002 \001(\0132\032.google.protobuf.Timestamp\":\n\022"
-    "AmanDecideGoAround\022\020\n\010callsign\030\001 \001(\t\022\022\n\n"
-    "episode_id\030\002 \001(\t\"\255\001\n\rAmanCreateGap\022\027\n\017ru"
-    "nway_group_id\030\001 \001(\t\022)\n\005start\030\002 \001(\0132\032.goo"
-    "gle.protobuf.Timestamp\022\r\n\005label\030\003 \001(\t\022)\n"
-    "\003end\030\004 \001(\0132\032.google.protobuf.TimestampH\000"
-    "\022\024\n\nslot_count\030\005 \001(\rH\000B\010\n\006extent\"8\n\rAman"
-    "RemoveGap\022\027\n\017runway_group_id\030\001 \001(\t\022\016\n\006ga"
-    "p_id\030\002 \001(\t\"\306\001\n\021AmanCreateClosure\022\027\n\017runw"
-    "ay_group_id\030\001 \001(\t\022,\n\003end\030\002 \001(\0132\032.google."
-    "protobuf.TimestampH\001\210\001\001\022\016\n\006reason\030\003 \001(\t\022"
-    "+\n\005start\030\004 \001(\0132\032.google.protobuf.Timesta"
-    "mpH\000\022\030\n\016after_callsign\030\005 \001(\tH\000B\013\n\tplacem"
-    "entB\006\n\004_end\"P\n\021AmanRemoveClosure\022\027\n\017runw"
-    "ay_group_id\030\001 \001(\t\022\022\n\nclosure_id\030\002 \001(\t\022\016\n"
-    "\006reason\030\003 \001(\t\"v\n\025AmanCreateReservation\022\027"
-    "\n\017runway_group_id\030\001 \001(\t\022\026\n\016after_callsig"
-    "n\030\002 \001(\t\022\022\n\005label\030\003 \001(\tH\000\210\001\001\022\016\n\006reason\030\004 "
-    "\001(\tB\010\n\006_label\"X\n\025AmanRemoveReservation\022\027"
-    "\n\017runway_group_id\030\001 \001(\t\022\026\n\016reservation_i"
-    "d\030\002 \001(\t\022\016\n\006reason\030\003 \001(\t\"~\n\017AmanPlaceFlig"
-    "ht\022\020\n\010callsign\030\001 \001(\t\022\027\n\017runway_group_id\030"
-    "\002 \001(\t\022-\n\tslot_time\030\003 \001(\0132\032.google.protob"
-    "uf.Timestamp\022\021\n\tallow_gap\030\004 \001(\010\"\315\001\n\026Aman"
-    "SubmitCoordination\022\020\n\010callsign\030\001 \001(\t\022\037\n\027"
-    "coordination_request_id\030\002 \001(\t\022@\n\014route_d"
-    "irect\030\003 \001(\0132(.flightstrips.cluster.v1.Am"
-    "anRouteDirectH\000\0223\n\005speed\030\004 \001(\0132\".flights"
-    "trips.cluster.v1.AmanSpeedH\000B\t\n\007request\""
-    "Y\n\026AmanDecideCoordination\022\037\n\027coordinatio"
-    "n_request_id\030\001 \001(\t\022\023\n\006reason\030\002 \001(\tH\000\210\001\001B"
-    "\t\n\007_reason\"\372\010\n\rSystemCommand\022@\n\016create_s"
-    "ession\030\001 \001(\0132&.flightstrips.cluster.v1.C"
-    "reateSessionH\000\022@\n\016delete_session\030\002 \001(\0132&"
-    ".flightstrips.cluster.v1.DeleteSessionH\000"
-    "\022>\n\rupdate_entity\030\003 \001(\0132%.flightstrips.c"
-    "luster.v1.UpdateEntityH\000\022>\n\rremove_entit"
-    "y\030\004 \001(\0132%.flightstrips.cluster.v1.Remove"
-    "EntityH\000\022:\n\013claim_owner\030\005 \001(\0132#.flightst"
-    "rips.cluster.v1.ClaimOwnerH\000\022:\n\013renew_ow"
-    "ner\030\006 \001(\0132#.flightstrips.cluster.v1.Rene"
-    "wOwnerH\000\022D\n\020advance_workflow\030\007 \001(\0132(.fli"
-    "ghtstrips.cluster.v1.AdvanceWorkflowH\000\022@"
-    "\n\016advance_effect\030\010 \001(\0132&.flightstrips.cl"
-    "uster.v1.AdvanceEffectH\000\022A\n\013record_sync\030"
-    "\t \001(\0132*.flightstrips.cluster.v1.RecordSe"
-    "ssionSyncH\000\022I\n\023set_position_layout\030\n \001(\013"
-    "2*.flightstrips.cluster.v1.SetPositionLa"
-    "youtH\000\022M\n\025replace_sector_owners\030\013 \001(\0132,."
-    "flightstrips.cluster.v1.ReplaceSectorOwn"
-    "ersH\000\022K\n\024elect_session_master\030\014 \001(\0132+.fl"
-    "ightstrips.cluster.v1.ElectSessionMaster"
-    "H\000\022G\n\022apply_aman_session\030\r \001(\0132).flights"
-    "trips.cluster.v1.ApplyAmanSessionH\000\022V\n\032a"
-    "pply_pdc_provider_message\030\016 \001(\01320.flight"
-    "strips.cluster.v1.ApplyPdcProviderMessag"
-    "eH\000\022@\n\016request_squawk\030\017 \001(\0132&.flightstri"
-    "ps.cluster.v1.RequestSquawkH\000\022N\n\026report_"
-    "aman_route_fact\030\020 \001(\0132,.flightstrips.clu"
-    "ster.v1.ReportAmanRouteFactH\000B\010\n\006action\""
-    "W\n\027ApplyPdcProviderMessage\022<\n\007message\030\001 "
-    "\001(\0132+.flightstrips.cluster.v1.PdcProvide"
-    "rMessage\"O\n\rCreateSession\022\n\n\002id\030\001 \001(\005\022\017\n"
-    "\007airport\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\023\n\013workflow"
-    "_id\030\004 \001(\t\"5\n\rRequestSquawk\022\020\n\010callsign\030\001"
-    " \001(\t\022\022\n\ntarget_cid\030\002 \001(\t\"\325\001\n\023ReportAmanR"
-    "outeFact\022\025\n\rconnection_id\030\001 \001(\t\022\023\n\013owner"
-    "_epoch\030\002 \001(\004\022\024\n\014master_epoch\030\003 \001(\004\022\020\n\010ca"
-    "llsign\030\004 \001(\t\022/\n\013observed_at\030\005 \001(\0132\032.goog"
-    "le.protobuf.Timestamp\022\027\n\rdirect_to_fix\030\006"
-    " \001(\tH\000\022\030\n\016assigned_speed\030\007 \001(\tH\000B\006\n\004fact"
-    "\"0\n\rDeleteSession\022\n\n\002id\030\001 \001(\005\022\023\n\013workflo"
-    "w_id\030\002 \001(\t\"Q\n\014UpdateEntity\022\013\n\003key\030\001 \001(\t\022"
-    "4\n\005value\030\002 \001(\0132%.flightstrips.cluster.v1"
-    ".EntityRecord\"N\n\014RemoveEntity\022\013\n\003key\030\001 \001"
-    "(\t\0221\n\004kind\030\002 \001(\0162#.flightstrips.cluster."
-    "v1.EntityKind\"8\n\021SetPositionLayout\022\020\n\010po"
-    "sition\030\001 \001(\t\022\021\n\tlayout_id\030\002 \001(\t\"K\n\023Repla"
-    "ceSectorOwners\0224\n\006owners\030\001 \003(\0132$.flights"
-    "trips.cluster.v1.SectorOwner\"B\n\nClaimOwn"
-    "er\0224\n\010proposed\030\001 \001(\0132\".flightstrips.clus"
-    "ter.v1.OwnerTerm\"B\n\nRenewOwner\0224\n\010propos"
-    "ed\030\001 \001(\0132\".flightstrips.cluster.v1.Owner"
-    "Term\"L\n\017AdvanceWorkflow\0229\n\010workflow\030\001 \001("
-    "\0132\'.flightstrips.cluster.v1.WorkflowReco"
-    "rd\"\255\001\n\020ApplyAmanSession\0227\n\006intent\030\001 \001(\0132"
-    "\'.flightstrips.cluster.v1.WorkflowRecord"
-    "\022\020\n\010callsign\030\002 \001(\t\022D\n\013holding_eat\030\003 \001(\0132"
-    "-.flightstrips.cluster.v1.AmanHoldingCle"
-    "aranceH\000B\010\n\006action\"F\n\rAdvanceEffect\0225\n\006e"
-    "ffect\030\001 \001(\0132%.flightstrips.cluster.v1.Ef"
-    "fectRecord\"G\n\021RecordSessionSync\0222\n\004sync\030"
-    "\001 \001(\0132$.flightstrips.cluster.v1.SessionS"
-    "ync\"I\n\022ElectSessionMaster\0223\n\006master\030\001 \001("
-    "\0132#.flightstrips.cluster.v1.MasterTermB)"
-    "Z\'FlightStrips/pkg/events/cluster;cluste"
-    "rb\006proto3"
+    "ryH\000\022B\n\rchange_runway\030\022 \001(\0132).flightstri"
+    "ps.cluster.v1.AmanChangeRunwayH\000\022G\n\020repo"
+    "rt_go_around\030\023 \001(\0132+.flightstrips.cluste"
+    "r.v1.AmanReportGoAroundH\000\022H\n\021confirm_go_"
+    "around\030\024 \001(\0132+.flightstrips.cluster.v1.A"
+    "manDecideGoAroundH\000\022G\n\020reject_go_around\030"
+    "\025 \001(\0132+.flightstrips.cluster.v1.AmanDeci"
+    "deGoAroundH\000\022<\n\ncreate_gap\030\026 \001(\0132&.fligh"
+    "tstrips.cluster.v1.AmanCreateGapH\000\022<\n\nre"
+    "move_gap\030\027 \001(\0132&.flightstrips.cluster.v1"
+    ".AmanRemoveGapH\000\022K\n\025create_runway_closur"
+    "e\030\030 \001(\0132*.flightstrips.cluster.v1.AmanCr"
+    "eateClosureH\000\022K\n\025remove_runway_closure\030\031"
+    " \001(\0132*.flightstrips.cluster.v1.AmanRemov"
+    "eClosureH\000\022U\n\033create_capacity_reservatio"
+    "n\030\032 \001(\0132..flightstrips.cluster.v1.AmanCr"
+    "eateReservationH\000\022U\n\033remove_capacity_res"
+    "ervation\030\033 \001(\0132..flightstrips.cluster.v1"
+    ".AmanRemoveReservationH\000\022H\n\024place_flight"
+    "_at_time\030\034 \001(\0132(.flightstrips.cluster.v1"
+    ".AmanPlaceFlightH\000\022V\n\033submit_coordinatio"
+    "n_request\030\035 \001(\0132/.flightstrips.cluster.v"
+    "1.AmanSubmitCoordinationH\000\022V\n\033accept_coo"
+    "rdination_request\030\036 \001(\0132/.flightstrips.c"
+    "luster.v1.AmanDecideCoordinationH\000\022V\n\033re"
+    "ject_coordination_request\030\037 \001(\0132/.flight"
+    "strips.cluster.v1.AmanDecideCoordination"
+    "H\000B\010\n\006change\"#\n\017AmanFlightUnary\022\020\n\010calls"
+    "ign\030\001 \001(\t\"|\n\016AmanMoveFlight\022\020\n\010callsign\030"
+    "\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\022\031\n\017before"
+    "_callsign\030\003 \001(\tH\000\022\030\n\016after_callsign\030\004 \001("
+    "\tH\000B\n\n\010neighbor\"p\n\010AmanRate\022\027\n\017runway_gr"
+    "oup_id\030\001 \001(\t\022\031\n\021arrivals_per_hour\030\002 \001(\r\022"
+    "0\n\014effective_at\030\003 \001(\0132\032.google.protobuf."
+    "Timestamp\"]\n\020AmanSelectRunway\022\027\n\017runway_"
+    "group_id\030\001 \001(\t\0220\n\014effective_at\030\002 \001(\0132\032.g"
+    "oogle.protobuf.Timestamp\"-\n\021AmanActiveRu"
+    "nways\022\030\n\020runway_group_ids\030\001 \003(\t\"L\n\rAmanM"
+    "anualEta\022\020\n\010callsign\030\001 \001(\t\022)\n\005value\030\002 \001("
+    "\0132\032.google.protobuf.Timestamp\"=\n\020AmanCha"
+    "ngeRunway\022\020\n\010callsign\030\001 \001(\t\022\027\n\017runway_gr"
+    "oup_id\030\002 \001(\t\"W\n\022AmanReportGoAround\022\020\n\010ca"
+    "llsign\030\001 \001(\t\022/\n\013detected_at\030\002 \001(\0132\032.goog"
+    "le.protobuf.Timestamp\":\n\022AmanDecideGoAro"
+    "und\022\020\n\010callsign\030\001 \001(\t\022\022\n\nepisode_id\030\002 \001("
+    "\t\"\255\001\n\rAmanCreateGap\022\027\n\017runway_group_id\030\001"
+    " \001(\t\022)\n\005start\030\002 \001(\0132\032.google.protobuf.Ti"
+    "mestamp\022\r\n\005label\030\003 \001(\t\022)\n\003end\030\004 \001(\0132\032.go"
+    "ogle.protobuf.TimestampH\000\022\024\n\nslot_count\030"
+    "\005 \001(\rH\000B\010\n\006extent\"8\n\rAmanRemoveGap\022\027\n\017ru"
+    "nway_group_id\030\001 \001(\t\022\016\n\006gap_id\030\002 \001(\t\"\306\001\n\021"
+    "AmanCreateClosure\022\027\n\017runway_group_id\030\001 \001"
+    "(\t\022,\n\003end\030\002 \001(\0132\032.google.protobuf.Timest"
+    "ampH\001\210\001\001\022\016\n\006reason\030\003 \001(\t\022+\n\005start\030\004 \001(\0132"
+    "\032.google.protobuf.TimestampH\000\022\030\n\016after_c"
+    "allsign\030\005 \001(\tH\000B\013\n\tplacementB\006\n\004_end\"P\n\021"
+    "AmanRemoveClosure\022\027\n\017runway_group_id\030\001 \001"
+    "(\t\022\022\n\nclosure_id\030\002 \001(\t\022\016\n\006reason\030\003 \001(\t\"v"
+    "\n\025AmanCreateReservation\022\027\n\017runway_group_"
+    "id\030\001 \001(\t\022\026\n\016after_callsign\030\002 \001(\t\022\022\n\005labe"
+    "l\030\003 \001(\tH\000\210\001\001\022\016\n\006reason\030\004 \001(\tB\010\n\006_label\"X"
+    "\n\025AmanRemoveReservation\022\027\n\017runway_group_"
+    "id\030\001 \001(\t\022\026\n\016reservation_id\030\002 \001(\t\022\016\n\006reas"
+    "on\030\003 \001(\t\"~\n\017AmanPlaceFlight\022\020\n\010callsign\030"
+    "\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\022-\n\tslot_t"
+    "ime\030\003 \001(\0132\032.google.protobuf.Timestamp\022\021\n"
+    "\tallow_gap\030\004 \001(\010\"\315\001\n\026AmanSubmitCoordinat"
+    "ion\022\020\n\010callsign\030\001 \001(\t\022\037\n\027coordination_re"
+    "quest_id\030\002 \001(\t\022@\n\014route_direct\030\003 \001(\0132(.f"
+    "lightstrips.cluster.v1.AmanRouteDirectH\000"
+    "\0223\n\005speed\030\004 \001(\0132\".flightstrips.cluster.v"
+    "1.AmanSpeedH\000B\t\n\007request\"Y\n\026AmanDecideCo"
+    "ordination\022\037\n\027coordination_request_id\030\001 "
+    "\001(\t\022\023\n\006reason\030\002 \001(\tH\000\210\001\001B\t\n\007_reason\"\372\010\n\r"
+    "SystemCommand\022@\n\016create_session\030\001 \001(\0132&."
+    "flightstrips.cluster.v1.CreateSessionH\000\022"
+    "@\n\016delete_session\030\002 \001(\0132&.flightstrips.c"
+    "luster.v1.DeleteSessionH\000\022>\n\rupdate_enti"
+    "ty\030\003 \001(\0132%.flightstrips.cluster.v1.Updat"
+    "eEntityH\000\022>\n\rremove_entity\030\004 \001(\0132%.fligh"
+    "tstrips.cluster.v1.RemoveEntityH\000\022:\n\013cla"
+    "im_owner\030\005 \001(\0132#.flightstrips.cluster.v1"
+    ".ClaimOwnerH\000\022:\n\013renew_owner\030\006 \001(\0132#.fli"
+    "ghtstrips.cluster.v1.RenewOwnerH\000\022D\n\020adv"
+    "ance_workflow\030\007 \001(\0132(.flightstrips.clust"
+    "er.v1.AdvanceWorkflowH\000\022@\n\016advance_effec"
+    "t\030\010 \001(\0132&.flightstrips.cluster.v1.Advanc"
+    "eEffectH\000\022A\n\013record_sync\030\t \001(\0132*.flights"
+    "trips.cluster.v1.RecordSessionSyncH\000\022I\n\023"
+    "set_position_layout\030\n \001(\0132*.flightstrips"
+    ".cluster.v1.SetPositionLayoutH\000\022M\n\025repla"
+    "ce_sector_owners\030\013 \001(\0132,.flightstrips.cl"
+    "uster.v1.ReplaceSectorOwnersH\000\022K\n\024elect_"
+    "session_master\030\014 \001(\0132+.flightstrips.clus"
+    "ter.v1.ElectSessionMasterH\000\022G\n\022apply_ama"
+    "n_session\030\r \001(\0132).flightstrips.cluster.v"
+    "1.ApplyAmanSessionH\000\022V\n\032apply_pdc_provid"
+    "er_message\030\016 \001(\01320.flightstrips.cluster."
+    "v1.ApplyPdcProviderMessageH\000\022@\n\016request_"
+    "squawk\030\017 \001(\0132&.flightstrips.cluster.v1.R"
+    "equestSquawkH\000\022N\n\026report_aman_route_fact"
+    "\030\020 \001(\0132,.flightstrips.cluster.v1.ReportA"
+    "manRouteFactH\000B\010\n\006action\"W\n\027ApplyPdcProv"
+    "iderMessage\022<\n\007message\030\001 \001(\0132+.flightstr"
+    "ips.cluster.v1.PdcProviderMessage\"O\n\rCre"
+    "ateSession\022\n\n\002id\030\001 \001(\005\022\017\n\007airport\030\002 \001(\t\022"
+    "\014\n\004name\030\003 \001(\t\022\023\n\013workflow_id\030\004 \001(\t\"5\n\rRe"
+    "questSquawk\022\020\n\010callsign\030\001 \001(\t\022\022\n\ntarget_"
+    "cid\030\002 \001(\t\"\325\001\n\023ReportAmanRouteFact\022\025\n\rcon"
+    "nection_id\030\001 \001(\t\022\023\n\013owner_epoch\030\002 \001(\004\022\024\n"
+    "\014master_epoch\030\003 \001(\004\022\020\n\010callsign\030\004 \001(\t\022/\n"
+    "\013observed_at\030\005 \001(\0132\032.google.protobuf.Tim"
+    "estamp\022\027\n\rdirect_to_fix\030\006 \001(\tH\000\022\030\n\016assig"
+    "ned_speed\030\007 \001(\tH\000B\006\n\004fact\"0\n\rDeleteSessi"
+    "on\022\n\n\002id\030\001 \001(\005\022\023\n\013workflow_id\030\002 \001(\t\"Q\n\014U"
+    "pdateEntity\022\013\n\003key\030\001 \001(\t\0224\n\005value\030\002 \001(\0132"
+    "%.flightstrips.cluster.v1.EntityRecord\"N"
+    "\n\014RemoveEntity\022\013\n\003key\030\001 \001(\t\0221\n\004kind\030\002 \001("
+    "\0162#.flightstrips.cluster.v1.EntityKind\"8"
+    "\n\021SetPositionLayout\022\020\n\010position\030\001 \001(\t\022\021\n"
+    "\tlayout_id\030\002 \001(\t\"K\n\023ReplaceSectorOwners\022"
+    "4\n\006owners\030\001 \003(\0132$.flightstrips.cluster.v"
+    "1.SectorOwner\"B\n\nClaimOwner\0224\n\010proposed\030"
+    "\001 \001(\0132\".flightstrips.cluster.v1.OwnerTer"
+    "m\"B\n\nRenewOwner\0224\n\010proposed\030\001 \001(\0132\".flig"
+    "htstrips.cluster.v1.OwnerTerm\"L\n\017Advance"
+    "Workflow\0229\n\010workflow\030\001 \001(\0132\'.flightstrip"
+    "s.cluster.v1.WorkflowRecord\"\255\001\n\020ApplyAma"
+    "nSession\0227\n\006intent\030\001 \001(\0132\'.flightstrips."
+    "cluster.v1.WorkflowRecord\022\020\n\010callsign\030\002 "
+    "\001(\t\022D\n\013holding_eat\030\003 \001(\0132-.flightstrips."
+    "cluster.v1.AmanHoldingClearanceH\000B\010\n\006act"
+    "ion\"F\n\rAdvanceEffect\0225\n\006effect\030\001 \001(\0132%.f"
+    "lightstrips.cluster.v1.EffectRecord\"G\n\021R"
+    "ecordSessionSync\0222\n\004sync\030\001 \001(\0132$.flights"
+    "trips.cluster.v1.SessionSync\"I\n\022ElectSes"
+    "sionMaster\0223\n\006master\030\001 \001(\0132#.flightstrip"
+    "s.cluster.v1.MasterTermB)Z\'FlightStrips/"
+    "pkg/events/cluster;clusterb\006proto3"
 };
 static const ::_pbi::DescriptorTable* const descriptor_table_wire_2eproto_deps[2] =
     {
@@ -4853,7 +4856,7 @@ static ::absl::once_flag descriptor_table_wire_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_wire_2eproto = {
     false,
     false,
-    19809,
+    19834,
     descriptor_table_protodef_wire_2eproto,
     "wire.proto",
     &descriptor_table_wire_2eproto_once,
@@ -5522,9 +5525,9 @@ CommandReply::CommandReply(
                offsetof(Impl_, protocol_revision_),
            reinterpret_cast<const char *>(&from._impl_) +
                offsetof(Impl_, protocol_revision_),
-           offsetof(Impl_, current_entity_revision_) -
+           offsetof(Impl_, memory_accepted_) -
                offsetof(Impl_, protocol_revision_) +
-               sizeof(Impl_::current_entity_revision_));
+               sizeof(Impl_::memory_accepted_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.CommandReply)
 }
@@ -5540,9 +5543,9 @@ inline void CommandReply::SharedCtor(::_pb::Arena* arena) {
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, current_owner_),
            0,
-           offsetof(Impl_, current_entity_revision_) -
+           offsetof(Impl_, memory_accepted_) -
                offsetof(Impl_, current_owner_) +
-               sizeof(Impl_::current_entity_revision_));
+               sizeof(Impl_::memory_accepted_));
 }
 CommandReply::~CommandReply() {
   // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.CommandReply)
@@ -5600,6 +5603,7 @@ PROTOBUF_NOINLINE void CommandReply::Clear() {
         reinterpret_cast<char*>(&_impl_.current_entity_revision_) -
         reinterpret_cast<char*>(&_impl_.aggregate_revision_)) + sizeof(_impl_.current_entity_revision_));
   }
+  _impl_.memory_accepted_ = false;
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -5612,15 +5616,15 @@ const char* CommandReply::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 9, 2, 69, 2> CommandReply::_table_ = {
+const ::_pbi::TcParseTable<4, 10, 2, 69, 2> CommandReply::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(CommandReply, _impl_._has_bits_),
     0, // no _extensions_
-    9, 120,  // max_field_number, fast_idx_mask
+    10, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294966784,  // skipmap
+    4294966272,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    9,  // num_field_entries
+    10,  // num_field_entries
     2,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_CommandReply_default_instance_._instance,
@@ -5657,7 +5661,9 @@ const ::_pbi::TcParseTable<4, 9, 2, 69, 2> CommandReply::_table_ = {
     // string detail = 9;
     {::_pbi::TcParser::FastUS1,
      {74, 63, 0, PROTOBUF_FIELD_OFFSET(CommandReply, _impl_.detail_)}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // bool memory_accepted = 10;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(CommandReply, _impl_.memory_accepted_), 63>(),
+     {80, 63, 0, PROTOBUF_FIELD_OFFSET(CommandReply, _impl_.memory_accepted_)}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
@@ -5693,6 +5699,9 @@ const ::_pbi::TcParseTable<4, 9, 2, 69, 2> CommandReply::_table_ = {
     // string detail = 9;
     {PROTOBUF_FIELD_OFFSET(CommandReply, _impl_.detail_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool memory_accepted = 10;
+    {PROTOBUF_FIELD_OFFSET(CommandReply, _impl_.memory_accepted_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OwnerTerm>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CommandOutcome>()},
@@ -5775,6 +5784,13 @@ const ::_pbi::TcParseTable<4, 9, 2, 69, 2> CommandReply::_table_ = {
     target = stream->WriteStringMaybeAliased(9, _s, target);
   }
 
+  // bool memory_accepted = 10;
+  if (this->_internal_memory_accepted() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        10, this->_internal_memory_accepted(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -5851,6 +5867,11 @@ const ::_pbi::TcParseTable<4, 9, 2, 69, 2> CommandReply::_table_ = {
     }
 
   }
+  // bool memory_accepted = 10;
+  if (this->_internal_memory_accepted() != 0) {
+    total_size += 2;
+  }
+
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -5908,6 +5929,9 @@ void CommandReply::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::go
       _this->_impl_.current_entity_revision_ = from._impl_.current_entity_revision_;
     }
   }
+  if (from._internal_memory_accepted() != 0) {
+    _this->_impl_.memory_accepted_ = from._impl_.memory_accepted_;
+  }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
 }
@@ -5932,8 +5956,8 @@ void CommandReply::InternalSwap(CommandReply* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.command_id_, &other->_impl_.command_id_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.detail_, &other->_impl_.detail_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(CommandReply, _impl_.current_entity_revision_)
-      + sizeof(CommandReply::_impl_.current_entity_revision_)
+      PROTOBUF_FIELD_OFFSET(CommandReply, _impl_.memory_accepted_)
+      + sizeof(CommandReply::_impl_.memory_accepted_)
       - PROTOBUF_FIELD_OFFSET(CommandReply, _impl_.current_owner_)>(
           reinterpret_cast<char*>(&_impl_.current_owner_),
           reinterpret_cast<char*>(&other->_impl_.current_owner_));

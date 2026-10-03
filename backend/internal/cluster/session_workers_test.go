@@ -2,13 +2,106 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+func TestSessionPolicyRunsWithInitialAndSelfAcceptedRAMBacklog(t *testing.T) {
+	for _, initialBacklog := range []bool{false, true} {
+		t.Run(fmt.Sprintf("initial_backlog_%t", initialBacklog), func(t *testing.T) {
+			owners, p, ref, gate, store := asyncOwnersFixture(t)
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			defer func() {
+				close(gate)
+				cleanup, stop := context.WithTimeout(context.Background(), time.Second)
+				defer stop()
+				_ = owners.Drain(cleanup)
+			}()
+			key, _ := Subject(ref)
+			p.mu.Lock()
+			seed := &pb.EntitySnapshot{Key: "42", Revision: 1, Value: &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: &pb.Session{Id: 42, Airport: "EKCH", Name: "LIVE", NextStripId: 1}}}}
+			p.states[key].Entities["42"] = seed
+			p.states[key].Indexes[pb.EntityKind_SESSION] = map[string]*pb.EntitySnapshot{"42": seed}
+			p.mu.Unlock()
+			now := time.Now()
+			setWorkerPresence(p, now, now.Add(-time.Hour), pb.ClientPresence_EUROSCOPE)
+			p.presence["client.client-a"].Value.GetClient().SessionId = 42
+			accept := func(run context.Context) error {
+				return owners.Execute(run, ref, func(turn context.Context) error {
+					base, err := owners.Read(ref)
+					if err != nil {
+						return err
+					}
+					_, err = owners.AcceptState(turn, base, asyncDomainEvent(ref, base.Revision+1))
+					return err
+				})
+			}
+			if initialBacklog {
+				require.NoError(t, accept(ctx))
+				<-store.started
+				require.False(t, owners.owner.CanWrite(ref))
+			}
+			var calls []string
+			work := &SessionWork{Projection: p, Owner: owners.owner, Store: LocalLifecycleStore{Writer: Writer{Store: store, Projection: p, Lease: owners.owner, NodeID: owners.owner.NodeID}},
+				EuroScope: func(run context.Context, _ int32) error { calls = append(calls, "recover"); return accept(run) },
+				Departure: func(context.Context, int32) error { calls = append(calls, "SAT"); return nil },
+				Traffic:   func(context.Context, int32) error { calls = append(calls, "traffic"); return nil }}
+			// ReconcileSession uses the same entry gate and callback sequence as
+			// Step, without relying on a periodic timer's phase.
+			require.NoError(t, work.ReconcileSession(ctx, 42))
+			require.Equal(t, []string{"recover", "SAT", "traffic"}, calls)
+			require.True(t, owners.Pending(ref))
+			require.False(t, owners.owner.CanWrite(ref), "external durable work must still wait for persistence")
+			require.True(t, work.canPlan(ref))
+		})
+	}
+}
+
+func TestSessionRAMPolicyKeepsOwnerHealthFences(t *testing.T) {
+	for _, fault := range []string{"stale-renewal", "foreign-owner", "disconnected", "queue-error"} {
+		t.Run(fault, func(t *testing.T) {
+			owners, p, ref, gate, _ := asyncOwnersFixture(t)
+			defer close(gate)
+			key, _ := Subject(ref)
+			switch fault {
+			case "stale-renewal":
+				owners.owner.lastRenew[key] = time.Now().Add(-ownerLease)
+			case "foreign-owner":
+				p.states[key].Owner = proto.Clone(p.states[key].Owner).(*pb.OwnerTerm)
+				p.states[key].Owner.NodeId = "node-b"
+				p.states[key].Owner.Epoch++
+			case "disconnected":
+				owners.owner.NC.Close()
+			case "queue-error":
+				owners.Invalidate(ref, fmt.Errorf("persistence failed"))
+			}
+			called := false
+			work := &SessionWork{Projection: p, Owner: owners.owner, Store: LocalLifecycleStore{Writer: Writer{Store: owners.store}}, Traffic: func(context.Context, int32) error { called = true; return nil }}
+			require.False(t, work.canPlan(ref))
+			require.Error(t, work.ReconcileSession(context.Background(), 42))
+			require.False(t, called)
+		})
+	}
+}
+
+func TestSessionRAMPolicyRejectsUnsupportedOwnerGate(t *testing.T) {
+	owners, p, ref, gate, _ := asyncOwnersFixture(t)
+	defer close(gate)
+	owner := &workerLease{active: true}
+	work := &SessionWork{Projection: p, Owner: owner}
+	require.False(t, work.canPlan(ref), "a legacy writable gate cannot prove RAM owner eligibility")
+	p.Async = nil
+	require.True(t, work.canPlan(ref), "non-memory policy retains its legacy writable gate")
+	owners.Invalidate(ref, fmt.Errorf("fixture complete"))
+}
 
 type workerLease struct{ active bool }
 

@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"FlightStrips/internal/diagnostics"
 	"context"
 	"fmt"
 	"log/slog"
@@ -110,7 +111,7 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 	go func() {
 		defer jobs.Done()
 		if err := lease.Run(socketCtx); err != nil && socketCtx.Err() == nil {
-			slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "presence_renewal", "error_type", fmt.Sprintf("%T", err))
+			slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "presence_renewal", "error", diagnostics.Message(err))
 			closeSocket()
 		}
 	}()
@@ -142,7 +143,7 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 				return
 			case <-ticker.C:
 				if err := updateRole(); err != nil {
-					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "role_refresh", "error_type", fmt.Sprintf("%T", err))
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "role_refresh", "error", diagnostics.Message(err))
 					return
 				}
 			case delta, ok := <-sessionDeltas:
@@ -151,11 +152,11 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 					return
 				}
 				if err := deliverDelta(socket.OnDelta, delta, &lastSession); err != nil {
-					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "session_delta", "error_type", fmt.Sprintf("%T", err))
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "session_delta", "error", diagnostics.Message(err))
 					return
 				}
 				if err := updateRole(); err != nil {
-					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "role_after_delta", "error_type", fmt.Sprintf("%T", err))
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "role_after_delta", "error", diagnostics.Message(err))
 					return
 				}
 			case delta, ok := <-airportDeltas:
@@ -164,7 +165,7 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 					return
 				}
 				if err := deliverDelta(socket.OnDelta, delta, &lastAirport); err != nil {
-					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "airport_delta", "error_type", fmt.Sprintf("%T", err))
+					slog.WarnContext(socketCtx, "session socket delivery failed", "stage", "airport_delta", "error", diagnostics.Message(err))
 					return
 				}
 			}

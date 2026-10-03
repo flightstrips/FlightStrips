@@ -1,6 +1,7 @@
 package app
 
 import (
+	"FlightStrips/internal/diagnostics"
 	"context"
 	"errors"
 	"fmt"
@@ -19,7 +20,7 @@ func (e *startupStageError) Unwrap() error { return e.cause }
 
 // StartupFailureDiagnostics reports structural diagnostics without rendering
 // errors: transport errors may embed credential-bearing URLs or provider data.
-func StartupFailureDiagnostics(err error) (stage, class, causeType string) {
+func StartupFailureDiagnostics(err error) (stage, class, reason string) {
 	stage, class = "unknown", "other"
 	var startup *startupStageError
 	if errors.As(err, &startup) {
@@ -42,8 +43,9 @@ func StartupFailureDiagnostics(err error) (stage, class, causeType string) {
 			class = "timeout"
 		}
 	}
-	for errors.Unwrap(err) != nil {
-		err = errors.Unwrap(err)
+	var api *nats.APIError
+	if errors.As(err, &api) {
+		return stage, class, fmt.Sprintf("NATS API error (HTTP %d, code %d)", api.Code, api.ErrorCode)
 	}
-	return stage, class, fmt.Sprintf("%T", err)
+	return stage, class, diagnostics.Classification(class)
 }

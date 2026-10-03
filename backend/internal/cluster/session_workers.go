@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"FlightStrips/internal/diagnostics"
 	"context"
 	"errors"
 	"fmt"
@@ -101,7 +102,7 @@ func (w *SessionWork) Run(ctx context.Context) error {
 	for {
 		if err := w.Step(ctx); err != nil {
 			if err.Error() != lastError && ctx.Err() == nil {
-				slog.WarnContext(ctx, "session worker pass failed", slog.String("error_type", fmt.Sprintf("%T", err)))
+				slog.WarnContext(ctx, "session worker pass failed", slog.String("error", diagnostics.Message(err)))
 			}
 			lastError = err.Error()
 		} else if lastError != "" {
@@ -153,20 +154,18 @@ func (w *SessionWork) Step(ctx context.Context) error {
 		w.mu.Unlock()
 		return err
 	}
-	var first error
+	var failures []error
 	for _, session := range sessions {
 		ref := sessionRef(session.Id)
 		if err := w.Owner.Track(ref); err != nil {
-			if first == nil {
-				first = err
-			}
+			failures = append(failures, fmt.Errorf("session %d track ownership: %w", session.Id, err))
 			continue
 		}
 		if !w.canPlan(ref) {
 			continue
 		}
-		if err := w.stepSession(ctx, session, unhealthySince, recoveredAt, paused); err != nil && first == nil {
-			first = err
+		if err := w.stepSession(ctx, session, unhealthySince, recoveredAt, paused); err != nil {
+			failures = append(failures, fmt.Errorf("session %d: %w", session.Id, err))
 		}
 	}
 	// Keep the frozen recovery interval until every live session has either
@@ -200,15 +199,16 @@ func (w *SessionWork) Step(ctx context.Context) error {
 		w.recoveredAt = time.Time{}
 		w.mu.Unlock()
 	}
-	return first
+	return errors.Join(failures...)
 }
 
-func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegistry, unhealthySince, recoveredAt time.Time, paused time.Duration) error {
+func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegistry, unhealthySince, recoveredAt time.Time, paused time.Duration) (result error) {
 	id, now := registry.Id, w.clock()
 	var deferred []error
+	defer func() { result = errors.Join(append(deferred, result)...) }()
 	if w.EuroScope != nil {
 		if err := w.EuroScope(ctx, id); err != nil {
-			deferred = append(deferred, err)
+			deferred = append(deferred, fmt.Errorf("EuroScope reconciliation: %w", err))
 		}
 	}
 	state, err := w.Store.Read(ctx, sessionRef(id))
@@ -327,7 +327,13 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 			}
 		}
 	}
-	for _, run := range []func(context.Context, int32) error{w.PDC, w.Departure, w.Arrival, w.CDM, w.Traffic} {
+	for _, task := range []struct {
+		name string
+		run  func(context.Context, int32) error
+	}{
+		{"PDC", w.PDC}, {"departure", w.Departure}, {"arrival", w.Arrival}, {"CDM", w.CDM}, {"traffic", w.Traffic},
+	} {
+		run := task.run
 		if run == nil {
 			continue
 		}
@@ -335,7 +341,7 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 			return fmt.Errorf("session %d lease lost", id)
 		}
 		if err := run(ctx, id); err != nil {
-			deferred = append(deferred, err)
+			deferred = append(deferred, fmt.Errorf("%s reconciliation: %w", task.name, err))
 		}
 	}
 	if cleanupDue {
@@ -354,7 +360,7 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 		}
 		return w.Registry.FinalizeDeletion(ctx, id)
 	}
-	return errors.Join(deferred...)
+	return nil
 }
 
 type sessionPresence struct {

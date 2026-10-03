@@ -1,6 +1,7 @@
 package euroscopebinary
 
 import (
+	"FlightStrips/internal/diagnostics"
 	"context"
 	"fmt"
 	"log/slog"
@@ -297,7 +298,7 @@ func (c *DeadlineCandidate) Serve(ctx context.Context) error {
 				admitErr := c.admit(hop, int32(id), msg.Header.Get("FS-Connection"), msg.Header.Get("FS-CID"), frame)
 				result.Accepted = admitErr == nil
 				if admitErr != nil {
-					slog.WarnContext(hop, "EuroScope owner admission failed", "event_type", fmt.Sprintf("%T", frame.Event), "error_reason", inboundFailureReason(admitErr))
+					slog.WarnContext(hop, "EuroScope owner admission failed", "session_id", id, "event_type", diagnostics.OneofName(frame, "event"), "error", diagnostics.Message(admitErr), "error_reason", inboundFailureReason(admitErr))
 				}
 				cancel()
 			}

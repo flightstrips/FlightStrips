@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"FlightStrips/internal/diagnostics"
 	"context"
 	"errors"
 	"fmt"
@@ -729,9 +730,9 @@ func logAsyncPersistenceFailure(s *asyncSession, job asyncSessionJob, phase stri
 	if job.event != nil {
 		kind = "state"
 	}
-	attrs := []any{"job_kind", kind, "aggregate", mustAsyncSubject(s.ref), "expected_epoch", s.epoch, "pending_jobs", s.pending, "pending_domain_facts", len(s.tail), "phase", phase, "error_type", fmt.Sprintf("%T", err)}
+	attrs := []any{"job_kind", kind, "aggregate", mustAsyncSubject(s.ref), "expected_epoch", s.epoch, "pending_jobs", s.pending, "pending_domain_facts", len(s.tail), "phase", phase, "error", diagnostics.Message(err)}
 	if job.event != nil {
-		attrs = append(attrs, "event_kind", fmt.Sprintf("%T", job.event.GetFact()))
+		attrs = append(attrs, "event_kind", diagnostics.OneofName(job.event, "fact"))
 	}
 	var rejected *asyncRetryRejected
 	if errors.As(err, &rejected) {

@@ -131,7 +131,7 @@ func (c *Capture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					if a.Key == "position" {
 						v.Position = a.Value.GetBoolValue()
 					}
-					if a.Key == "error_type" {
+					if a.Key == "failure" || a.Key == "error_type" {
 						v.ErrorType = a.Value.GetStringValue()
 					}
 					if a.Key == "error_reason" {

@@ -2,6 +2,7 @@ package frontendbinary
 
 import (
 	"FlightStrips/internal/cluster"
+	"FlightStrips/internal/diagnostics"
 	"FlightStrips/internal/shared"
 	pb "FlightStrips/pkg/events/cluster"
 	"context"
@@ -268,7 +269,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error)
 // Diagnostic values are fixed classes and numeric checkpoints. Error text can
 // contain credentials or command content and must never be logged here.
 func logFrontendFailure(ctx context.Context, phase string, err error, session, airport uint64) {
-	slog.WarnContext(ctx, "frontend session failed", "phase", phase, "cause", frontendFailureCause(err), "error_type", fmt.Sprintf("%T", err), "session_revision", session, "airport_revision", airport)
+	slog.WarnContext(ctx, "frontend session failed", "phase", phase, "cause", frontendFailureCause(err), "failure", diagnostics.Classification(frontendFailureCause(err)), "session_revision", session, "airport_revision", airport)
 }
 
 func frontendFailureCause(err error) string {

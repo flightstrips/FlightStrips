@@ -44,7 +44,7 @@ func TestStartupFailureDiagnosticsPreserveCauseWithoutRenderingSecrets(t *testin
 		t.Fatal("startup stage must preserve the concrete API cause")
 	}
 	stage, class, causeType := StartupFailureDiagnostics(err)
-	if stage != "projection_construct" || class != "other" || causeType != "*nats.APIError" {
+	if stage != "projection_construct" || class != "other" || causeType != "NATS API error (HTTP 503, code 10008)" {
 		t.Fatalf("unexpected API diagnostics: %s %s %s", stage, class, causeType)
 	}
 }

@@ -1,6 +1,7 @@
 package euroscopebinary
 
 import (
+	"FlightStrips/internal/diagnostics"
 	"context"
 	"errors"
 	"fmt"
@@ -81,7 +82,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(maxFrame)
 	if err := h.serve(r.Context(), conn); err != nil {
 		if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-			slog.WarnContext(r.Context(), "EuroScope session failed", "error_type", fmt.Sprintf("%T", err), "error_reason", inboundFailureReason(err))
+			slog.WarnContext(r.Context(), "EuroScope session failed", "failure", diagnostics.Classification(inboundFailureReason(err)), "error_reason", inboundFailureReason(err))
 		}
 		code := websocket.CloseTryAgainLater
 		if failure, ok := err.(socketFailure); ok {
@@ -448,7 +449,7 @@ func (h Handler) tracedInbound(ctx context.Context, received time.Time, session 
 	span.SetAttributes(attribute.Float64("processing_ms", float64(time.Since(processingStarted))/float64(time.Millisecond)))
 	if err != nil {
 		span.SetStatus(codes.Error, inboundFailureReason(err))
-		span.SetAttributes(attribute.String("error_type", fmt.Sprintf("%T", err)), attribute.String("error_reason", inboundFailureReason(err)))
+		span.SetAttributes(attribute.String("failure", diagnostics.Classification(inboundFailureReason(err))), attribute.String("error_reason", inboundFailureReason(err)))
 	}
 	span.End()
 	return err

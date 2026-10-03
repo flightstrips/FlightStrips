@@ -1,6 +1,7 @@
 package main
 
 import (
+	"FlightStrips/internal/diagnostics"
 	"FlightStrips/internal/natsresources"
 	"context"
 	"fmt"
@@ -14,7 +15,7 @@ import (
 func main() {
 	cfg, err := natsresources.ConfigFromEnv()
 	if err != nil {
-		log.Fatalf("invalid resource configuration (%T)", err)
+		log.Fatalf("invalid resource configuration: %s", diagnostics.Message(err))
 	}
 	timeout := time.Minute
 	if value := os.Getenv("NATS_BOOTSTRAP_TIMEOUT"); value != "" {
@@ -28,7 +29,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	if err := bootstrap(ctx, cfg); err != nil {
-		log.Fatalf("NATS administrator bootstrap failed (%T)", err)
+		log.Fatalf("NATS administrator bootstrap failed: %s", diagnostics.Message(err))
 	}
 	log.Print("NATS resources verified")
 }

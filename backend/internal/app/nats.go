@@ -1,6 +1,7 @@
 package app
 
 import (
+	"FlightStrips/internal/diagnostics"
 	"context"
 	"errors"
 	"fmt"
@@ -326,7 +327,7 @@ func (r *natsRuntime) run(name string, fn func(context.Context) error) {
 		if err := fn(r.ctx); err != nil && r.ctx.Err() == nil {
 			wrapped := fmt.Errorf("%s: %w", name, err)
 			r.workerErr.Store(&wrapped)
-			slog.Error("NATS runtime stopped", "worker", name, "error_type", fmt.Sprintf("%T", err))
+			slog.Error("NATS runtime stopped", "worker", name, "error", diagnostics.Message(err))
 			r.cancel()
 		}
 	}()
@@ -428,7 +429,7 @@ func periodic(ctx context.Context, interval time.Duration, step func(context.Con
 			return ctx.Err()
 		}
 		if err := step(ctx, time.Now().UTC()); err != nil && ctx.Err() == nil {
-			slog.DebugContext(ctx, "owner pass deferred", "error_type", fmt.Sprintf("%T", err))
+			slog.DebugContext(ctx, "owner pass deferred", "error", diagnostics.Message(err))
 		}
 		select {
 		case <-ctx.Done():

@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/app"
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/diagnostics"
 	"FlightStrips/internal/envconfig"
 	"FlightStrips/internal/natsresources"
 	"FlightStrips/internal/navigation"
@@ -54,7 +55,7 @@ func main() {
 	}
 	natsConfig, err := natsConfigFromEnv()
 	if err != nil {
-		slog.Error("Invalid NATS configuration", "error_type", fmt.Sprintf("%T", err))
+		slog.Error("Invalid NATS configuration", "error", diagnostics.Message(err))
 		os.Exit(1)
 	}
 	environment := getEnv("ENVIRONMENT", "development")
@@ -136,9 +137,9 @@ func main() {
 	})
 	if err != nil {
 		// Transport errors can contain credentials. Diagnostics contain only fixed
-		// stage/class labels and Go types, never the error message.
-		stage, class, causeType := app.StartupFailureDiagnostics(err)
-		slog.Error("Failed to build application", "error_type", fmt.Sprintf("%T", err), "stage", stage, "cause_class", class, "cause_type", causeType)
+		// stage/class labels and API codes, never the error message.
+		stage, class, reason := app.StartupFailureDiagnostics(err)
+		slog.Error("Failed to build application", "failure", reason, "stage", stage, "cause_class", class)
 		os.Exit(1)
 	}
 	defer func() {

@@ -34,7 +34,9 @@ type Projection struct {
 	nextListener                               uint64
 	applied, highWater                         uint64
 	checked                                    time.Time
-	lastCheckAttempt                           time.Time
+	metadataMu                                 sync.Mutex
+	metadataGeneration                         uint64
+	stateStreamCreated                         time.Time
 	lastAppliedServerTime, highWaterServerTime time.Time
 	healthErr                                  error
 	started                                    bool
@@ -48,7 +50,7 @@ type Projection struct {
 	presence                                   map[string]KVPresence
 	syncFresh                                  map[string]bool
 	positionReady, presenceReady               bool
-	positionReplayProblem                     string
+	positionReplayProblem                      string
 	positionCursor                             positionCursor
 	observationErr                             error
 	positionWaitersMu                          sync.Mutex
@@ -114,9 +116,21 @@ func NewProjection(nc *nats.Conn, cfg natsresources.Config) (*Projection, error)
 // sequence. The subject CAS checkpoint is the last global stream sequence on
 // that subject, including events skipped through a verified snapshot.
 func (p *Projection) Run(ctx context.Context) error {
+	p.mu.Lock()
+	p.metadataGeneration++
+	p.started = false
+	p.checked = time.Time{}
+	generation := p.metadataGeneration
+	knownCreated := p.stateStreamCreated
+	p.mu.Unlock()
 	watchCtx, stopWatchers := context.WithCancel(ctx)
 	defer func() {
 		stopWatchers()
+		p.mu.Lock()
+		if p.metadataGeneration == generation {
+			p.metadataGeneration++
+		}
+		p.mu.Unlock()
 		p.watchers.Wait()
 		p.snapshotJobs.Wait()
 		if p.history != nil {
@@ -157,9 +171,14 @@ func (p *Projection) Run(ctx context.Context) error {
 		p.states[subject] = state
 		p.lastSnapshot[subject] = time.Now()
 	}
-	info, err := p.JS.StreamInfo(p.Config.Names.State, &nats.StreamInfoRequest{SubjectsFilter: "fs.v1.state.>"}, nats.Context(ctx))
+	metadataCtx, cancelMetadata := context.WithTimeout(ctx, p.Config.RequestTimeout)
+	info, err := p.JS.StreamInfo(p.Config.Names.State, &nats.StreamInfoRequest{SubjectsFilter: "fs.v1.state.>"}, nats.Context(metadataCtx))
+	cancelMetadata()
 	if err != nil {
 		return err
+	}
+	if !knownCreated.IsZero() && !info.Created.Equal(knownCreated) {
+		return fmt.Errorf("FS_STATE stream identity changed")
 	}
 	if info.State.Msgs > 0 && (info.State.FirstSeq != 1 || info.State.NumDeleted != 0) {
 		return fmt.Errorf("FS_STATE history is incomplete")
@@ -195,7 +214,19 @@ func (p *Projection) Run(ctx context.Context) error {
 	p.mu.Lock()
 	p.started = true
 	p.startedAt = time.Now()
+	p.stateStreamCreated = info.Created
 	p.mu.Unlock()
+	p.watchers.Add(1)
+	go func() { defer p.watchers.Done(); p.watchStateMetadata(watchCtx, generation) }()
+	return p.consumeState(ctx, sub)
+}
+
+// Metadata proof runs independently so broker latency cannot stop ordered replay.
+type stateMessages interface {
+	NextMsgWithContext(context.Context) (*nats.Msg, error)
+}
+
+func (p *Projection) consumeState(ctx context.Context, sub stateMessages) error {
 	for ctx.Err() == nil {
 		readCtx, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
 		msg, err := sub.NextMsgWithContext(readCtx)
@@ -203,11 +234,11 @@ func (p *Projection) Run(ctx context.Context) error {
 		if err == nil {
 			meta, e := msg.Metadata()
 			if e != nil {
-				p.fail(e)
+				p.failStateReplay(e)
 				return e
 			}
 			if e = p.apply(AppliedEvent{Subject: msg.Subject, StreamSequence: meta.Sequence.Stream, ServerTime: meta.Timestamp, Data: msg.Data}); e != nil {
-				p.fail(e)
+				p.failStateReplay(e)
 				return e
 			}
 		} else if (errors.Is(err, nats.ErrDisconnected) || errors.Is(err, nats.ErrConnectionReconnecting)) && ctx.Err() == nil {
@@ -217,14 +248,23 @@ func (p *Projection) Run(ctx context.Context) error {
 			case <-time.After(100 * time.Millisecond):
 			}
 		} else if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, nats.ErrTimeout) && ctx.Err() == nil {
-			p.fail(err)
+			p.failStateReplay(err)
 			return err
 		}
-		p.refresh(ctx)
 		p.maybeSnapshot()
 	}
-	p.fail(ctx.Err())
+	p.failStateReplay(ctx.Err())
 	return ctx.Err()
+}
+
+// Terminal replay errors invalidate in-flight metadata before publishing the
+// error; a late healthy broker proof cannot revive a stopped ordered reader.
+func (p *Projection) failStateReplay(err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.metadataGeneration++
+	p.healthErr = err
+	p.wakeWaitersLocked()
 }
 
 func (p *Projection) apply(entry AppliedEvent) error {
@@ -462,30 +502,51 @@ func (p *Projection) readOwner(ref *pb.AggregateRef) (*ownerState, error) {
 	return view, nil
 }
 
-func (p *Projection) refresh(ctx context.Context) {
+// Completion-based cadence guarantees a pause even when a proof takes longer
+// than its normal interval. Only this worker performs periodic state proofs.
+func (p *Projection) watchStateMetadata(ctx context.Context, generation uint64) {
+	for ctx.Err() == nil {
+		p.refresh(ctx, generation)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
+}
+
+func (p *Projection) refresh(ctx context.Context, generation uint64) {
+	p.metadataMu.Lock()
+	defer p.metadataMu.Unlock()
 	if ctx.Err() != nil {
 		return
 	}
-	// Poll resource/quorum metadata independently of event rate. Checking all
-	// five resources after every event otherwise prevents a busy projection
-	// from ever catching up to its own high-water mark.
-	p.mu.Lock()
-	if time.Since(p.lastCheckAttempt) < 250*time.Millisecond {
-		p.mu.Unlock()
+	p.mu.RLock()
+	created := p.stateStreamCreated
+	current := p.metadataGeneration == generation
+	p.mu.RUnlock()
+	if !current {
 		return
 	}
-	p.lastCheckAttempt = time.Now()
-	p.mu.Unlock()
+	fail := func(err error) {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		if ctx.Err() == nil && p.metadataGeneration == generation {
+			p.healthErr = err
+			p.wakeWaitersLocked()
+		}
+	}
 	// A metadata read is required for readiness; stale cached high-water can
 	// never keep a disconnected or minority node ready.
 	check, cancel := context.WithTimeout(ctx, p.Config.RequestTimeout)
 	defer cancel()
+	reconnects := p.NC.Stats().Reconnects
 	if p.NC.Status() != nats.CONNECTED {
-		p.fail(fmt.Errorf("NATS disconnected"))
+		fail(fmt.Errorf("NATS disconnected"))
 		return
 	}
 	if err := natsresources.Verify(check, p.NC, p.Config); err != nil {
-		p.fail(err)
+		fail(err)
 		return
 	}
 	var highWater uint64
@@ -493,7 +554,7 @@ func (p *Projection) refresh(ctx context.Context) {
 	for _, name := range []string{p.Config.Names.State, "KV_" + p.Config.Names.Positions, "KV_" + p.Config.Names.Presence, "KV_" + p.Config.Names.SnapshotIndex, "OBJ_" + p.Config.Names.Objects} {
 		info, err := p.JS.StreamInfo(name, nats.Context(check))
 		if err != nil {
-			p.fail(err)
+			fail(err)
 			return
 		}
 		current := 0
@@ -505,24 +566,42 @@ func (p *Projection) refresh(ctx context.Context) {
 			}
 		}
 		if info.Cluster == nil || info.Cluster.Leader == "" || len(info.Cluster.Replicas) != 2 || current < 1 {
-			p.fail(fmt.Errorf("%s has no current quorum", name))
+			fail(fmt.Errorf("%s has no current quorum", name))
 			return
 		}
 		if name == p.Config.Names.State {
+			if !created.IsZero() && !info.Created.Equal(created) {
+				fail(fmt.Errorf("FS_STATE stream identity changed"))
+				return
+			}
 			highWaterServerTime = info.State.LastTime
 			if info.State.Msgs > 0 && (info.State.FirstSeq != 1 || info.State.NumDeleted != 0) {
-				p.fail(fmt.Errorf("FS_STATE history is incomplete"))
+				fail(fmt.Errorf("FS_STATE history is incomplete"))
 				return
 			}
 			highWater = info.State.LastSeq
 		}
 	}
 	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.metadataGeneration != generation || ctx.Err() != nil {
+		return
+	}
+	if err := check.Err(); err != nil {
+		p.healthErr = err
+		p.wakeWaitersLocked()
+		return
+	}
+	if p.NC.Status() != nats.CONNECTED || p.NC.Stats().Reconnects != reconnects {
+		p.healthErr = fmt.Errorf("NATS disconnected")
+		p.wakeWaitersLocked()
+		return
+	}
 	p.highWater = highWater
 	p.checked = time.Now()
 	p.highWaterServerTime = highWaterServerTime
 	p.healthErr = nil
-	p.mu.Unlock()
+	p.wakeWaitersLocked()
 }
 
 func (p *Projection) wakeWaitersLocked() {

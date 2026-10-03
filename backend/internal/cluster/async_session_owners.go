@@ -701,6 +701,7 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 		// Refresh only the durable portion and reapply outstanding domain facts.
 		if err == nil {
 			durable, e := m.checkpoint(s.ref)
+			completedOnly := false
 			if e != nil {
 				// The final job was proved durable, so ownership loss cannot
 				// turn receipt retirement into a new write. No pending old-term
@@ -719,10 +720,12 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 					if health == nil && durable != nil {
 						if job.event == nil {
 							e = nil
+							completedOnly = true
 						} else {
 							outcome, lookupErr := durable.LookupOutcome(job.event.GetCommandId())
 							if lookupErr == nil && outcome != nil && outcome.CommittedStreamSequence > 0 && outcome.CommittedStreamSequence <= durable.StreamSequence {
 								e = nil
+								completedOnly = true
 							}
 						}
 					}
@@ -730,43 +733,51 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 			}
 			if e == nil {
 				m.mu.Lock()
-				s.durableStream, s.durableSubject = durable.StreamSequence, durable.SubjectSequence
-				if job.event == nil && durable.Revision+uint64(len(s.tail)) == s.ram.Revision {
-					updated := *s.ram
-					updated.Owner = proto.Clone(durable.Owner).(*pb.OwnerTerm)
-					s.ram = &updated
-					m.publishControlLocked(s)
+				if completedOnly && (m.failure != nil || s.pending != 1 || len(s.tail) != 0) {
+					// Admission can change the tail while the raw proof is read.
+					// Recheck under the lock that publishes the replacement view;
+					// this read-only retirement never rebases another pending job.
+					e = fmt.Errorf("async final receipt retirement requires an unchanged completed tail")
 					m.mu.Unlock()
 				} else {
-					durable, e = cloneAggregate(durable)
-					if e != nil {
-						m.mu.Unlock()
-						m.Invalidate(s.ref, e)
-						m.mu.Lock()
-						s.pending--
-						m.notifyLocked()
-						m.mu.Unlock()
-						<-m.slots
-						continue
-					}
-					for _, pending := range s.tail {
-						data, _ := proto.Marshal(pending)
-						effective, applyErr := durable.Apply(AppliedEvent{Subject: mustAsyncSubject(s.ref), StreamSequence: durable.StreamSequence + 1, SubjectSequence: durable.SubjectSequence + 1, ServerTime: time.Now(), Data: data})
-						if applyErr != nil || !effective {
-							e = fmt.Errorf("async pending state rebase failed")
-							break
-						}
-						if outcome := durable.Ledger[pending.GetCommandId()]; outcome != nil {
-							outcome.CommittedStreamSequence = 0
-						}
-					}
-					if e == nil {
-						s.ram = durable
-						// Pending reduction uses private counters; external views retain
-						// only the checkpoint captured before reapplying that tail.
+					s.durableStream, s.durableSubject = durable.StreamSequence, durable.SubjectSequence
+					if job.event == nil && durable.Revision+uint64(len(s.tail)) == s.ram.Revision {
+						updated := *s.ram
+						updated.Owner = proto.Clone(durable.Owner).(*pb.OwnerTerm)
+						s.ram = &updated
 						m.publishControlLocked(s)
+						m.mu.Unlock()
+					} else {
+						durable, e = cloneAggregate(durable)
+						if e != nil {
+							m.mu.Unlock()
+							m.Invalidate(s.ref, e)
+							m.mu.Lock()
+							s.pending--
+							m.notifyLocked()
+							m.mu.Unlock()
+							<-m.slots
+							continue
+						}
+						for _, pending := range s.tail {
+							data, _ := proto.Marshal(pending)
+							effective, applyErr := durable.Apply(AppliedEvent{Subject: mustAsyncSubject(s.ref), StreamSequence: durable.StreamSequence + 1, SubjectSequence: durable.SubjectSequence + 1, ServerTime: time.Now(), Data: data})
+							if applyErr != nil || !effective {
+								e = fmt.Errorf("async pending state rebase failed")
+								break
+							}
+							if outcome := durable.Ledger[pending.GetCommandId()]; outcome != nil {
+								outcome.CommittedStreamSequence = 0
+							}
+						}
+						if e == nil {
+							s.ram = durable
+							// Pending reduction uses private counters; external views retain
+							// only the checkpoint captured before reapplying that tail.
+							m.publishControlLocked(s)
+						}
+						m.mu.Unlock()
 					}
-					m.mu.Unlock()
 				}
 			}
 			if e != nil {

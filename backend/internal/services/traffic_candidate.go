@@ -41,7 +41,7 @@ func (c *TrafficCandidate) Traffic(ctx context.Context, id int32) error {
 	if !lifecycleOwnerCanPlan(c.Writer.Lease, c.Writer.Projection.Async != nil, ref) {
 		return fmt.Errorf("traffic session is not owned")
 	}
-	state, err := c.Writer.Projection.Read(ref)
+	state, err := c.Writer.Projection.ReadEntityKinds(ref, pb.EntityKind_SESSION, pb.EntityKind_STRIP)
 	if err != nil {
 		return err
 	}

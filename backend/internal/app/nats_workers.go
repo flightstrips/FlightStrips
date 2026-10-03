@@ -309,11 +309,11 @@ func (r *natsRuntime) assembleProviders(cfg Config, deps Dependencies, transceiv
 		if cfg.EnableTransceivers {
 			failures = append(failures, natsReply(sector.Reconcile(ctx, id)))
 		}
-		state, err := r.projection.Read(sessionNATSRef(id))
+		entry, err := r.projection.ReadEntity(sessionNATSRef(id), pb.EntityKind_SESSION, fmt.Sprint(id))
 		if err != nil {
 			return err
 		}
-		airport := state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)].Value.GetSession().Airport
+		airport := entry.GetValue().GetSession().GetAirport()
 		if cfg.EnableVATSIM && r.work.Departure == nil {
 			failures = append(failures, natsReply((cluster.VatsimSessionAdapter{Source: r.source, Writer: writer}).Reconcile(ctx, id)))
 		}
@@ -345,11 +345,11 @@ func containsAirport(values []string, icao string) bool {
 
 func (r *natsRuntime) liveSessionWorker(work func(context.Context, int32) error) func(context.Context, int32) error {
 	return func(ctx context.Context, id int32) error {
-		state, err := r.projection.Read(sessionNATSRef(id))
+		entry, err := r.projection.ReadEntity(sessionNATSRef(id), pb.EntityKind_SESSION, fmt.Sprint(id))
 		if err != nil {
 			return err
 		}
-		seed := state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)].GetValue().GetSession()
+		seed := entry.GetValue().GetSession()
 		if seed == nil || seed.Name != "LIVE" {
 			return nil
 		}

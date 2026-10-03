@@ -10,7 +10,7 @@ import (
 )
 
 func (r *natsRuntime) inbound(ctx context.Context, id int32, connection, cid string, frame *es.Envelope) error {
-	state, err := r.projection.Read(sessionNATSRef(id))
+	state, err := r.projection.ReadDomain(sessionNATSRef(id))
 	if err != nil {
 		return err
 	}

@@ -74,7 +74,7 @@ func (s Effects) Sweep(ctx context.Context) error {
 		if !s.Owner.CanWrite(ref) {
 			continue
 		}
-		state, err := s.Owner.Projection.ReadDurable(ref)
+		state, err := s.Owner.Projection.readPendingEffects(ref)
 		if err != nil {
 			return err
 		}

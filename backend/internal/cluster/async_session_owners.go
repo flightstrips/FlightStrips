@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sync"
 	"time"
 
@@ -192,7 +193,35 @@ func (m *AsyncSessionOwners) Pending(ref *pb.AggregateRef) bool {
 	s := m.sessions[key]
 	return s != nil && s.pending > 0
 }
+
+// readOnlyPlanningState borrows the immutable graph for an audited planner
+// inside the serialized owner turn. It never replays NATS or clones records.
+// Ordinary/public reads remain detached; durable commands retain their gate.
+func (m *AsyncSessionOwners) readOnlyPlanningState(ctx context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
+	s, err := m.currentTurn(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	a, err := m.checkpoint(ref)
+	if err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := m.adoptIdleGenerationLocked(s, a); err != nil {
+		return nil, err
+	}
+	view := *s.ram
+	view.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+	view.StreamSequence, view.SubjectSequence = a.StreamSequence, a.SubjectSequence
+	return &view, nil
+}
+
 func (m *AsyncSessionOwners) Read(ref *pb.AggregateRef) (*Aggregate, error) {
+	return m.read(ref, true)
+}
+
+func (m *AsyncSessionOwners) read(ref *pb.AggregateRef, receipts bool) (*Aggregate, error) {
 	if ref == nil {
 		return nil, nil
 	}
@@ -234,7 +263,7 @@ func (m *AsyncSessionOwners) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 	// potentially large read without blocking unrelated session admissions.
 	ram := s.ram
 	m.mu.Unlock()
-	out, err := cloneAggregate(ram)
+	out, err := cloneAggregateRecords(ram, receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -982,7 +1011,10 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 					m.mu.Unlock()
 				} else {
 					s.durableStream, s.durableSubject = durable.StreamSequence, durable.SubjectSequence
-					if job.event == nil && durable.Revision+uint64(len(s.tail)) == s.ram.Revision {
+					if !completedOnly && m.acknowledgeEcfmpLocked(s, job.event, durable) {
+						m.publishControlLocked(s)
+						m.mu.Unlock()
+					} else if job.event == nil && durable.Revision+uint64(len(s.tail)) == s.ram.Revision {
 						updated := *s.ram
 						updated.Owner = proto.Clone(durable.Owner).(*pb.OwnerTerm)
 						s.ram = &updated
@@ -990,19 +1022,10 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 						m.mu.Unlock()
 					} else {
 						phase = "final_rebase"
-						durable, e = cloneAggregate(durable)
-						if e != nil {
-							logAsyncPersistenceFailure(s, job, phase, e)
-							m.mu.Unlock()
-							m.Invalidate(s.ref, e)
-							m.mu.Lock()
-							s.pending--
-							m.notifyLocked()
-							m.mu.Unlock()
-							<-m.slots
-							cancel()
-							continue
-						}
+						// The durable graph is already verified and immutable. The
+						// reducer replaces records; detach maps as projection Apply
+						// does instead of cloning every retained protobuf receipt.
+						durable = copyAggregateForApply(durable)
 						for _, pending := range s.tail {
 							data, _ := proto.Marshal(pending)
 							effective, applyErr := durable.Apply(AppliedEvent{Subject: mustAsyncSubject(s.ref), StreamSequence: durable.StreamSequence + 1, SubjectSequence: durable.SubjectSequence + 1, ServerTime: time.Now(), Data: data})
@@ -1044,6 +1067,41 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 		cancel()
 	}
 }
+
+// ECFMP replacements contain no volatile position references or control facts.
+// Persistence of their exact event only advances receipts/counters; rebuilding
+// domain state and replaying the entire pending queue would apply them twice.
+func (m *AsyncSessionOwners) acknowledgeEcfmpLocked(s *asyncSession, event *pb.StateEvent, durable *Aggregate) bool {
+	if event == nil || event.GetActor().GetId() != "ecfmp-application" || durable.Revision+uint64(len(s.tail)) != s.ram.Revision {
+		return false
+	}
+	domain := event.GetDomainChanged()
+	if domain == nil || len(domain.Effects) != 0 || len(domain.Workflows) != 0 {
+		return false
+	}
+	for _, change := range domain.Changes {
+		kind, err := changeKind(change)
+		if err != nil || kind != pb.EntityKind_ECFMP_STATE {
+			return false
+		}
+	}
+	for _, pending := range s.tail {
+		if s.ram.Ledger[pending.GetCommandId()] == nil {
+			return false // Fall back to reconstruction if retention removed an intent.
+		}
+	}
+	updated := *s.ram
+	updated.Owner = proto.Clone(durable.Owner).(*pb.OwnerTerm)
+	updated.StreamSequence = durable.StreamSequence + uint64(len(s.tail))
+	updated.SubjectSequence = durable.SubjectSequence + uint64(len(s.tail))
+	updated.Ledger = maps.Clone(durable.Ledger)
+	for _, pending := range s.tail {
+		updated.Ledger[pending.GetCommandId()] = s.ram.Ledger[pending.GetCommandId()]
+	}
+	s.ram = &updated
+	return true
+}
+
 func (m *AsyncSessionOwners) BeginDrain() {
 	m.mu.Lock()
 	m.draining = true

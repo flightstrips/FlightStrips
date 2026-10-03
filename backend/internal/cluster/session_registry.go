@@ -94,6 +94,38 @@ func (s RoutedLifecycleStore) ReadEntities(_ context.Context, ref *pb.AggregateR
 	return s.Projection.ReadEntities(ref, kind)
 }
 
+func (s RoutedLifecycleStore) ReadDurableEntity(_ context.Context, ref *pb.AggregateRef, kind pb.EntityKind, key string) (*pb.EntitySnapshot, error) {
+	if s.Projection == nil {
+		return nil, fmt.Errorf("projection unavailable")
+	}
+	return s.Projection.ReadDurableEntity(ref, kind, key)
+}
+
+func (s LocalLifecycleStore) ReadDurableEntity(ctx context.Context, ref *pb.AggregateRef, kind pb.EntityKind, key string) (*pb.EntitySnapshot, error) {
+	if s.Writer.Projection != nil {
+		return s.Writer.Projection.ReadDurableEntity(ref, kind, key)
+	}
+	state, err := s.ReadDurable(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	return state.Indexes[kind][key], nil
+}
+
+func (r SessionRegistry) persistedSeed(ctx context.Context, id int32) (*pb.EntitySnapshot, error) {
+	key := strconv.Itoa(int(id))
+	if reader, ok := r.Store.(interface {
+		ReadDurableEntity(context.Context, *pb.AggregateRef, pb.EntityKind, string) (*pb.EntitySnapshot, error)
+	}); ok {
+		return reader.ReadDurableEntity(ctx, sessionRef(id), pb.EntityKind_SESSION, key)
+	}
+	state, err := r.read(ctx, sessionRef(id))
+	if err != nil {
+		return nil, err
+	}
+	return state.Indexes[pb.EntityKind_SESSION][key], nil
+}
+
 func (r SessionRegistry) registryEntities(ctx context.Context) ([]*pb.EntitySnapshot, error) {
 	if reader, ok := r.Store.(interface {
 		ReadEntities(context.Context, *pb.AggregateRef, pb.EntityKind) ([]*pb.EntitySnapshot, error)
@@ -332,11 +364,10 @@ func (r SessionRegistry) Recover(ctx context.Context) error {
 				return err
 			}
 		case pb.SessionRegistry_ACTIVE, pb.SessionRegistry_DELETING:
-			session, err := r.read(ctx, sessionRef(entry.Id))
+			seed, err := r.persistedSeed(ctx, entry.Id)
 			if err != nil {
 				return err
 			}
-			seed := session.Entities[strconv.Itoa(int(entry.Id))]
 			if seed != nil && seed.GetValue().GetSession().GetTombstoned() {
 				if err := r.FinalizeDeletion(ctx, entry.Id); err != nil {
 					return err

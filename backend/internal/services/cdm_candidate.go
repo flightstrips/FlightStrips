@@ -81,7 +81,7 @@ func (c *CdmCandidate) CDM(ctx context.Context, id int32) error {
 			return err
 		}
 	}
-	state, err := c.Writer.Read(ctx, sessionRef(id))
+	state, err := c.readDeadlineState(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func cdmDeadline(id int32, kind string, at time.Time, source uint64) *pb.Session
 	return &pb.SessionDeadline{Id: key, Kind: kind, DueAt: timestamppb.New(at), SourceRevision: source, CommandId: lifecycleID(fmt.Sprintf("cdm/%d/%s/%s/%d", id, kind, at.UTC().Format(time.RFC3339Nano), source), "slot")}
 }
 func (c *CdmCandidate) ensureDeadline(ctx context.Context, id int32, kind string) error {
-	state, err := c.Writer.Read(ctx, sessionRef(id))
+	state, err := c.readDeadlineState(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (c *CdmCandidate) fire(ctx context.Context, id int32, deadline *pb.EntitySn
 }
 
 func (c *CdmCandidate) fireAccepted(ctx context.Context, id int32, deadline *pb.EntitySnapshot) error {
-	state, err := c.Writer.Read(ctx, sessionRef(id))
+	state, err := c.Writer.ReadDomain(ctx, sessionRef(id))
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func (c *CdmCandidate) fireAccepted(ctx context.Context, id int32, deadline *pb.
 		if _, err = c.Reads.Flights(ctx, seed.Airport, id, d.DueAt.AsTime()); err != nil {
 			return err
 		}
-		state, err = c.Writer.Read(ctx, sessionRef(id))
+		state, err = c.Writer.ReadDomain(ctx, sessionRef(id))
 		if err != nil {
 			return err
 		}
@@ -411,7 +411,7 @@ func (c *CdmCandidate) recalculateAccepted(ctx context.Context, id int32) error 
 	if err := c.admission(id); err != nil {
 		return err
 	}
-	state, err := c.Writer.Read(ctx, sessionRef(id))
+	state, err := c.readDeadlineState(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -433,4 +433,12 @@ func (c *CdmCandidate) recalculateAccepted(ctx context.Context, id int32) error 
 		return cluster.PlanSystemEntity(ctx, req, current)
 	}
 	return cdmReply(w.Execute(ctx, request))
+}
+
+// Deadline checks need a coherent revision and session/deadline records only.
+func (c *CdmCandidate) readDeadlineState(ctx context.Context, id int32) (*cluster.Aggregate, error) {
+	if c.Writer.Projection != nil {
+		return c.Writer.Projection.ReadEntityKinds(sessionRef(id), pb.EntityKind_SESSION, pb.EntityKind_SESSION_DEADLINE)
+	}
+	return c.Writer.Read(ctx, sessionRef(id))
 }

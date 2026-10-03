@@ -49,7 +49,7 @@ func (e MasterElection) candidate(ctx context.Context, sessionID int32, airport 
 		}
 	}
 	order := []string{"EKDK_FMP", "EKDK_B_CTR", "EKDK_D_CTR", "EKDK_UC_CTR", "EKCH_A_TWR"}
-	if policy, err := e.Projection.Read(&pb.AggregateRef{Target: &pb.AggregateRef_Airport{Airport: &pb.AirportRef{Icao: airport}}}); err == nil {
+	if policy, err := e.Projection.ReadDomain(&pb.AggregateRef{Target: &pb.AggregateRef_Airport{Airport: &pb.AirportRef{Icao: airport}}}); err == nil {
 		if record := policy.Entities[airport]; record != nil && record.GetValue().GetAirportPolicy() != nil {
 			if configured := record.GetValue().GetAirportPolicy().MasterPositionOrder; len(configured) > 0 {
 				order = configured
@@ -102,7 +102,7 @@ func (e MasterElection) Reconcile(ctx context.Context, sessionID int32) (*pb.Mas
 	if e.Projection == nil || e.Router == nil || e.Lease == nil || !e.canPlan(sessionRef(sessionID)) {
 		return nil, fmt.Errorf("session owner is unavailable")
 	}
-	state, err := e.Projection.Read(sessionRef(sessionID))
+	state, err := e.Projection.ReadDomain(sessionRef(sessionID))
 	if err != nil {
 		return nil, err
 	}

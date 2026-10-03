@@ -18,17 +18,27 @@ type EcfmpSessionAdapter struct{ Writer Writer }
 
 func (a EcfmpSessionAdapter) Strips(ctx context.Context, sessionID int32) ([]*pb.Strip, error) {
 	ref := sessionRef(sessionID)
-	subject, err := Subject(ref)
-	if err != nil {
-		return nil, err
-	}
-	state, err := a.Writer.load(ctx, subject, ref)
-	if err != nil {
-		return nil, err
+	var entries []*pb.EntitySnapshot
+	if a.Writer.Projection != nil {
+		var err error
+		entries, err = a.Writer.Projection.ReadEntities(ref, pb.EntityKind_STRIP)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		subject, err := Subject(ref)
+		if err != nil {
+			return nil, err
+		}
+		state, err := a.Writer.load(ctx, subject, ref)
+		if err != nil {
+			return nil, err
+		}
+		entries = state.EntitiesByKind(pb.EntityKind_STRIP)
 	}
 	var strips []*pb.Strip
-	for _, entry := range state.EntitiesByKind(pb.EntityKind_STRIP) {
-		strips = append(strips, proto.Clone(entry.GetValue().GetStrip()).(*pb.Strip))
+	for _, entry := range entries {
+		strips = append(strips, entry.GetValue().GetStrip())
 	}
 	sort.Slice(strips, func(i, j int) bool { return strips[i].Callsign < strips[j].Callsign })
 	return strips, nil
@@ -65,6 +75,7 @@ func (a EcfmpSessionAdapter) Apply(ctx context.Context, sessionID int32, strip *
 	value := &pb.EcfmpState{Callsign: strip.Callsign, SourceRevision: sourceRevision, Restrictions: restrictions}
 	request := &pb.CommandRequest{ProtocolRevision: 1, CommandId: id, Aggregate: sessionRef(sessionID), Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "ecfmp-application"}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: strip.Callsign, Value: &pb.EntityRecord{Value: &pb.EntityRecord_EcfmpState{EcfmpState: value}}}}}}}
 	w := a.Writer
+	w.readOnlyPlan = true // This planner only inspects records and emits replacements.
 	w.Plan = func(_ context.Context, _ *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
 		currentStrip := state.Indexes[pb.EntityKind_STRIP][strip.Callsign]
 		if currentStrip == nil || currentStrip.Revision != strip.Revision || !proto.Equal(currentStrip.GetValue().GetStrip(), strip) {

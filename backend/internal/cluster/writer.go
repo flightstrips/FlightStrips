@@ -32,6 +32,16 @@ type Writer struct {
 	Plan       Planner
 	Projection *Projection
 	Lease      *OwnerRuntime
+	// Only audited package-local planners may borrow immutable owner records.
+	readOnlyPlan bool
+}
+
+// ReadDomain observes detached policy inputs without copying command receipts.
+func (w Writer) ReadDomain(ctx context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
+	if w.Projection != nil {
+		return w.Projection.ReadDomain(ref)
+	}
+	return w.Read(ctx, ref)
 }
 
 // Read returns the same coherent owner planning snapshot used by Execute.
@@ -198,12 +208,15 @@ func (w Writer) executeTurn(ctx context.Context, request *pb.CommandRequest) (*p
 		if lookupErr == nil && old == nil && w.Projection != nil {
 			// Planning a new command needs the full coherent aggregate. Recheck
 			// its ledger after loading in case an intervening commit won the race.
-			state, err = w.load(ctx, subject, request.Aggregate)
+			state, err = w.loadPlan(ctx, subject, request.Aggregate)
 			if err != nil {
 				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
 				return reply, published
 			}
 			old, lookupErr = state.LookupOutcome(request.CommandId)
+			if old != nil && w.readOnlyPlan {
+				old = proto.Clone(old).(*pb.CommandOutcome)
+			}
 		}
 		if lookupErr != nil {
 			reply.Status = pb.CommandReply_UNAVAILABLE
@@ -426,6 +439,13 @@ func statusForOutcome(outcome *pb.CommandOutcome) pb.CommandReply_Status {
 		return pb.CommandReply_PENDING
 	}
 	return pb.CommandReply_COMMITTED
+}
+
+func (w Writer) loadPlan(ctx context.Context, subject string, ref *pb.AggregateRef) (*Aggregate, error) {
+	if w.readOnlyPlan && ctx.Value(durableExecutionKey{}) != true && w.Projection != nil && w.Projection.Async != nil {
+		return w.Projection.Async.readOnlyPlanningState(ctx, ref)
+	}
+	return w.load(ctx, subject, ref)
 }
 
 func (w Writer) load(ctx context.Context, subject string, ref *pb.AggregateRef) (*Aggregate, error) {

@@ -134,7 +134,7 @@ func candidateReply(reply *pb.CommandReply) error {
 }
 func (c *DeadlineCandidate) sweep(ctx context.Context, id int32, actor string) error {
 	for i := 0; i < 8; i++ {
-		state, err := c.Router.Projection.Read(candidateRef(id))
+		state, err := c.Router.Projection.ReadDomain(candidateRef(id))
 		if err != nil {
 			return err
 		}
@@ -177,7 +177,7 @@ func (c *DeadlineCandidate) Recover(ctx context.Context, id int32) error {
 	if err := c.sweep(ctx, id, "euroscope-deadlines"); err != nil {
 		return err
 	}
-	state, err := c.Router.Projection.Read(candidateRef(id))
+	state, err := c.Router.Projection.ReadDomain(candidateRef(id))
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (c *DeadlineCandidate) Recover(ctx context.Context, id int32) error {
 		commandID := automaticSquawkID(id, s)
 		// An accepted intent, including claimed uncertainty or cancellation, is
 		// never recreated by recovery. A subsequent observation has a new ID.
-		prior, err := state.LookupOutcome(commandID)
+		prior, err := c.Router.Projection.ReadCommandOutcome(candidateRef(id), commandID)
 		if err != nil {
 			return err
 		}
@@ -261,7 +261,7 @@ func (c *DeadlineCandidate) commitDeadline(ctx context.Context, req *pb.CommandR
 		})
 	}
 	id := req.Aggregate.GetSession().Id
-	state, err := c.Router.Projection.Read(req.Aggregate)
+	state, err := c.Router.Projection.ReadDomain(req.Aggregate)
 	if err != nil {
 		return err
 	}
@@ -391,7 +391,7 @@ func (c *DeadlineCandidate) executeFrame(ctx context.Context, id int32, connecti
 }
 
 func (c *DeadlineCandidate) RequestSquawk(ctx context.Context, id int32, commandID, callsign string) *pb.CommandReply {
-	state, err := c.Router.Projection.Read(candidateRef(id))
+	state, err := c.Router.Projection.ReadDomain(candidateRef(id))
 	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE}
 	}

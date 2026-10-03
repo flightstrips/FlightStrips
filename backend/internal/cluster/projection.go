@@ -431,6 +431,10 @@ func (p *Projection) maybeSnapshot() {
 }
 
 func cloneAggregate(a *Aggregate) (*Aggregate, error) {
+	return cloneAggregateRecords(a, true)
+}
+
+func cloneAggregateRecords(a *Aggregate, receipts bool) (*Aggregate, error) {
 	// This state has already passed Apply or verified snapshot loading. An
 	// in-memory read needs detached values, not serialization, hashing and a
 	// second validation of the entire retained command history.
@@ -448,8 +452,10 @@ func cloneAggregate(a *Aggregate) (*Aggregate, error) {
 	for key, value := range a.Entities {
 		copy.Entities[key] = proto.Clone(value).(*pb.EntitySnapshot)
 	}
-	for key, value := range a.Ledger {
-		copy.Ledger[key] = proto.Clone(value).(*pb.CommandOutcome)
+	if receipts {
+		for key, value := range a.Ledger {
+			copy.Ledger[key] = proto.Clone(value).(*pb.CommandOutcome)
+		}
 	}
 	for key, value := range a.Workflows {
 		copy.Workflows[key] = proto.Clone(value).(*pb.WorkflowRecord)
@@ -664,6 +670,39 @@ func (p *Projection) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 	return p.ReadDurable(ref)
 }
 
+// ReadDomain returns detached domain records with the same coherent checkpoint
+// as Read, without command receipts. It is for policy observation, never command
+// deduplication, commit planning, snapshots or irreversible effect admission.
+func (p *Projection) ReadDomain(ref *pb.AggregateRef) (*Aggregate, error) {
+	if p.Async != nil {
+		if memory, err := p.Async.read(ref, false); err != nil || memory != nil {
+			return memory, err
+		}
+	}
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.readyForRead(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if state := p.states[subject]; state != nil {
+		return cloneAggregateRecords(state, false)
+	}
+	return NewAggregate(ref), nil
+}
+
+// ReadCommandOutcome detaches one receipt through the ordinary command barrier.
+func (p *Projection) ReadCommandOutcome(ref *pb.AggregateRef, id string) (*pb.CommandOutcome, error) {
+	state, err := p.commandCheckpoint(ref, id)
+	if err != nil {
+		return nil, err
+	}
+	return state.LookupOutcome(id)
+}
+
 // ReadDurable excludes the volatile tail from snapshots, leases and effects.
 func (p *Projection) ReadDurable(ref *pb.AggregateRef) (*Aggregate, error) {
 	subject, err := Subject(ref)
@@ -679,6 +718,54 @@ func (p *Projection) ReadDurable(ref *pb.AggregateRef) (*Aggregate, error) {
 		return cloneAggregate(state)
 	}
 	return NewAggregate(ref), nil
+}
+
+// readPendingEffects preserves the durable replay barrier and queue ordering,
+// without cloning terminal effects, unrelated receipts or domain records.
+// Dispatch and status transitions still perform their full durable checks.
+func (p *Projection) readPendingEffects(ref *pb.AggregateRef) (*Aggregate, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.readyForRead(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	out := NewAggregate(ref)
+	if state := p.states[subject]; state != nil {
+		for id, effect := range state.Effects {
+			if effect.Status != pb.EffectRecord_WAITING && effect.Status != pb.EffectRecord_DISPATCH_CLAIMED {
+				continue
+			}
+			out.Effects[id] = proto.Clone(effect).(*pb.EffectRecord)
+			if receipt := state.Ledger[id]; receipt != nil {
+				out.Ledger[id] = proto.Clone(receipt).(*pb.CommandOutcome)
+			}
+		}
+	}
+	return out, nil
+}
+
+// ReadDurableEntity retains the complete replay barrier while copying one
+// persisted entity. Registry recovery never needs unrelated session records.
+func (p *Projection) ReadDurableEntity(ref *pb.AggregateRef, kind pb.EntityKind, key string) (*pb.EntitySnapshot, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.readyForRead(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if state := p.states[subject]; state != nil {
+		if entity := state.Indexes[kind][key]; entity != nil {
+			return proto.Clone(entity).(*pb.EntitySnapshot), nil
+		}
+	}
+	return nil, nil
 }
 
 // A metadata refresh can discover an event just before its consumer applies it.

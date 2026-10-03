@@ -253,11 +253,11 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 	r.deadlines.BindWorker(r.work)
 	if r.pdc != nil {
 		r.work.PDC = func(ctx context.Context, id int32) error {
-			state, err := r.projection.Read(sessionNATSRef(id))
+			entry, err := r.projection.ReadEntity(sessionNATSRef(id), pb.EntityKind_SESSION, fmt.Sprint(id))
 			if err != nil {
 				return err
 			}
-			seed := state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)].GetValue().GetSession()
+			seed := entry.GetValue().GetSession()
 			// The production Hoppie service polls only LIVE sessions. A training
 			// session must never consume another session's airport inbox.
 			if seed == nil || seed.Name != "LIVE" {

@@ -169,3 +169,68 @@ func TestProjectionFocusedReadsDetachAndRejectLag(t *testing.T) {
 	_, err = p.ReadOwner(ref)
 	require.Error(t, err)
 }
+
+func TestDomainReadPreservesRecordsWithoutCopyingReceipts(t *testing.T) {
+	store, writer, ref := fixture(t)
+	ctx := context.Background()
+	request := command(ref, "Copenhagen", 0)
+	require.Equal(t, pb.CommandReply_COMMITTED, writer.Execute(ctx, request).Status)
+	subject, _ := Subject(ref)
+	entries, err := store.Replay(ctx, subject)
+	require.NoError(t, err)
+	state := NewAggregate(ref)
+	for _, entry := range entries {
+		_, err = state.Apply(entry)
+		require.NoError(t, err)
+	}
+	p := &Projection{states: map[string]*Aggregate{subject: state}, started: true, checked: time.Now(), positionReady: true, presenceReady: true, highWater: state.StreamSequence, applied: state.StreamSequence}
+	view, err := p.ReadDomain(ref)
+	require.NoError(t, err)
+	require.Empty(t, view.Ledger)
+	require.Equal(t, state.Revision, view.Revision)
+	for kind, index := range state.Indexes {
+		for key, entity := range index {
+			persisted, err := p.ReadDurableEntity(ref, kind, key)
+			require.NoError(t, err)
+			require.True(t, proto.Equal(entity, persisted))
+			persisted.Key = "changed"
+			require.NotEqual(t, "changed", entity.Key)
+		}
+	}
+	for key, value := range view.Entities {
+		require.True(t, proto.Equal(state.Entities[key], value))
+		value.Key = "changed"
+		require.NotEqual(t, "changed", state.Entities[key].Key)
+	}
+	receipt, err := p.ReadCommandOutcome(ref, request.CommandId)
+	require.NoError(t, err)
+	require.NotNil(t, receipt)
+	receipt.Actor.Id = "changed"
+	require.NotEqual(t, "changed", state.Ledger[request.CommandId].Actor.Id)
+	full, err := p.ReadDurable(ref)
+	require.NoError(t, err)
+	require.Len(t, full.Ledger, 1, "durable snapshots retain receipts")
+}
+
+func TestPendingEffectReadRetainsDurableQueueReceipts(t *testing.T) {
+	ref := sessionRef(42)
+	state := NewAggregate(ref)
+	for id, status := range map[string]pb.EffectRecord_Status{"waiting": pb.EffectRecord_WAITING, "claimed": pb.EffectRecord_DISPATCH_CLAIMED, "done": pb.EffectRecord_EXECUTED} {
+		state.Effects[id] = &pb.EffectRecord{CommandId: id, Status: status}
+		state.Ledger[id] = &pb.CommandOutcome{CommandId: id, CommittedStreamSequence: 7}
+	}
+	subject, _ := Subject(ref)
+	p := &Projection{states: map[string]*Aggregate{subject: state}, started: true, checked: time.Now(), positionReady: true, presenceReady: true}
+	view, err := p.readPendingEffects(ref)
+	require.NoError(t, err)
+	require.Len(t, view.Effects, 2)
+	require.Len(t, view.Ledger, 2)
+	require.Empty(t, view.Entities)
+	view.Effects["waiting"].Status = pb.EffectRecord_FAILED
+	view.Ledger["waiting"].CommittedStreamSequence++
+	require.Equal(t, pb.EffectRecord_WAITING, state.Effects["waiting"].Status)
+	require.Equal(t, uint64(7), state.Ledger["waiting"].CommittedStreamSequence)
+	p.highWater++
+	_, err = p.readPendingEffects(ref)
+	require.Error(t, err, "pending effect reads must retain the durable replay barrier")
+}

@@ -434,3 +434,88 @@ func TestAsyncOwnerReclaimedEpochFreezesUnpersistedOldTail(t *testing.T) {
 	require.Error(t, m.Drain(ctx))
 	require.Zero(t, later.Load(), "new owner term must never persist the old queued tail")
 }
+
+func TestReadOnlyOwnerPlanningBorrowsImmutableGraphWithinTurn(t *testing.T) {
+	m, p, ref, gate, store := asyncOwnersFixture(t)
+	defer close(gate)
+	_, err := m.readOnlyPlanningState(context.Background(), ref)
+	require.Error(t, err, "borrowed planning must require the serialized owner turn")
+	writer := Writer{Store: store, Projection: p, Lease: m.owner, NodeID: "node-a", readOnlyPlan: true}
+	var prior *Aggregate
+	writer.Plan = func(_ context.Context, _ *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		require.Equal(t, prior.Revision, state.Revision)
+		for key, receipt := range prior.Ledger {
+			require.Same(t, receipt, state.Ledger[key], "read-only planning must not clone retained protobuf records")
+		}
+		return &pb.DomainChange{}, pb.CommandReply_COMMITTED, 0, nil
+	}
+	for i := 0; i < 2; i++ {
+		require.NoError(t, m.Execute(context.Background(), ref, func(turn context.Context) error {
+			prior = m.Control(ref)
+			before := copyTestSnapshot(t, prior)
+			request := &pb.CommandRequest{ProtocolRevision: 1, CommandId: uuid.NewString(), Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "test"}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: "test", Value: &pb.EntityRecord{Value: &pb.EntityRecord_SessionDeadline{SessionDeadline: &pb.SessionDeadline{Id: "test"}}}}}}}}
+			reply := writer.Execute(turn, request)
+			require.True(t, reply.MemoryAccepted, "%v", reply)
+			require.True(t, proto.Equal(before, copyTestSnapshot(t, prior)), "acceptance must preserve the borrowed publication")
+			return nil
+		}))
+	}
+}
+
+func TestEcfmpPersistenceAcknowledgesWithoutReplayingRAMTail(t *testing.T) {
+	ref := sessionRef(42)
+	event := asyncDomainEvent(ref, 1)
+	event.Actor.Id = "ecfmp-application"
+	pending := asyncDomainEvent(ref, 2)
+	durable := NewAggregate(ref)
+	durable.Owner = &pb.OwnerTerm{NodeId: "node-a", Epoch: 1}
+	durable.Revision, durable.StreamSequence, durable.SubjectSequence = 1, 9, 3
+	durable.Ledger[event.GetCommandId()] = &pb.CommandOutcome{CommandId: event.GetCommandId(), CommittedStreamSequence: 9}
+	ram := NewAggregate(ref)
+	ram.Owner = proto.Clone(durable.Owner).(*pb.OwnerTerm)
+	ram.Revision = 2
+	ram.Ledger[event.GetCommandId()] = &pb.CommandOutcome{CommandId: event.GetCommandId()}
+	ram.Ledger[pending.GetCommandId()] = &pb.CommandOutcome{CommandId: pending.GetCommandId()}
+	ram.Entities["SAS123"] = &pb.EntitySnapshot{Key: "SAS123", Revision: 2, Value: &pb.EntityRecord{Value: &pb.EntityRecord_EcfmpState{EcfmpState: &pb.EcfmpState{Callsign: "SAS123"}}}}
+	s := &asyncSession{ram: ram, tail: []*pb.StateEvent{pending}}
+	m := &AsyncSessionOwners{}
+	require.True(t, m.acknowledgeEcfmpLocked(s, event, durable))
+	require.Same(t, ram.Entities["SAS123"], s.ram.Entities["SAS123"], "already accepted domain records must stay in RAM")
+	require.Equal(t, uint64(9), s.ram.Ledger[event.GetCommandId()].CommittedStreamSequence)
+	require.Zero(t, s.ram.Ledger[pending.GetCommandId()].CommittedStreamSequence)
+	require.Zero(t, ram.Ledger[event.GetCommandId()].CommittedStreamSequence, "prior publication remains immutable")
+	require.NotContains(t, durable.Ledger, pending.GetCommandId(), "pending commands must never become durable")
+	require.Equal(t, uint64(10), s.ram.StreamSequence)
+	require.Equal(t, uint64(4), s.ram.SubjectSequence)
+	durable.Revision++
+	require.False(t, m.acknowledgeEcfmpLocked(s, event, durable), "unexpected durable changes retain full reconciliation")
+	durable.Revision--
+	event.Actor.Id = "euroscope-deadlines"
+	require.False(t, m.acknowledgeEcfmpLocked(s, event, durable), "position-backed facts retain translation reconciliation")
+}
+
+func TestEcfmpRAMBacklogRetiresReceiptsInOrder(t *testing.T) {
+	m, p, ref, gate, store := asyncOwnersFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	writer := Writer{Store: store, Projection: p, Lease: m.owner, NodeID: "node-a", readOnlyPlan: true, Plan: func(context.Context, *pb.CommandRequest, *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		return &pb.DomainChange{}, pb.CommandReply_COMMITTED, 0, nil
+	}}
+	var ids []string
+	for i := 0; i < 50; i++ {
+		id := uuid.NewString()
+		ids = append(ids, id)
+		request := &pb.CommandRequest{ProtocolRevision: 1, CommandId: id, Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "ecfmp-application"}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: "test", Value: &pb.EntityRecord{Value: &pb.EntityRecord_SessionDeadline{SessionDeadline: &pb.SessionDeadline{Id: "test"}}}}}}}}
+		require.True(t, writer.Execute(ctx, request).MemoryAccepted)
+	}
+	before := m.Control(ref)
+	close(gate)
+	require.NoError(t, m.Drain(ctx))
+	after, err := m.Read(ref)
+	require.NoError(t, err)
+	require.Equal(t, uint64(50), after.Revision)
+	for _, id := range ids {
+		require.Zero(t, before.Ledger[id].CommittedStreamSequence)
+		require.Positive(t, after.Ledger[id].CommittedStreamSequence)
+	}
+}

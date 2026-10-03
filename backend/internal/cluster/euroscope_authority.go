@@ -55,7 +55,7 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 	if err := p.RequireLiveSocket(sessionID, connectionID, cid, pb.ClientPresence_EUROSCOPE); err != nil {
 		return err
 	}
-	state, err := p.Read(sessionRef(sessionID))
+	state, err := p.ReadDomain(sessionRef(sessionID))
 	if err != nil {
 		return err
 	}

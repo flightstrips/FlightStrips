@@ -120,3 +120,22 @@ func TestVatsimCursorFencesGenerationWithoutReceipt(t *testing.T) {
 	require.Equal(t, id, reply.CommandId)
 	require.Nil(t, retainedVatsimObservation(board, "EKCH/00000000000000000003/SAS123/new-digest", uuid.NewString()))
 }
+
+func TestSingleReceiptEvictionMatchesOrderingAndPreservesPins(t *testing.T) {
+	for _, bulk := range []bool{false, true} {
+		t.Run(fmt.Sprint(bulk), func(t *testing.T) {
+			values := map[string]uint64{"pinned": 0, "z": 1, "a": 1, "new": 2}
+			limit := 2
+			if bulk {
+				limit = 1
+			}
+			trimMap(values, limit, func(id string) bool { return id == "pinned" }, func(id string) uint64 { return values[id] })
+			require.Contains(t, values, "pinned")
+			require.Contains(t, values, "new")
+			require.NotContains(t, values, "a", "UUID breaks sequence ties")
+			if !bulk {
+				require.Contains(t, values, "z")
+			}
+		})
+	}
+}

@@ -61,6 +61,13 @@ func TestSessionPolicyRunsWithInitialAndSelfAcceptedRAMBacklog(t *testing.T) {
 			require.True(t, owners.Pending(ref))
 			require.False(t, owners.owner.CanWrite(ref), "external durable work must still wait for persistence")
 			require.True(t, work.canPlan(ref))
+			policy, err := work.readPolicy(ctx, ref)
+			require.NoError(t, err)
+			require.Empty(t, policy.Ledger, "timer reads must not clone retained receipts")
+			policy.Indexes[pb.EntityKind_SESSION]["42"].GetValue().GetSession().Name = "changed"
+			seed, err = p.ReadEntity(ref, pb.EntityKind_SESSION, "42")
+			require.NoError(t, err)
+			require.Equal(t, "LIVE", seed.GetValue().GetSession().Name, "policy records must remain detached")
 		})
 	}
 }

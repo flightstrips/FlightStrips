@@ -179,7 +179,7 @@ func (w *SessionWork) Step(ctx context.Context) error {
 	allRecorded := true
 	if paused > 0 {
 		for _, session := range sessions {
-			state, err := w.Store.Read(ctx, sessionRef(session.Id))
+			state, err := w.readPolicy(ctx, sessionRef(session.Id))
 			if err != nil {
 				allRecorded = false
 				break
@@ -205,6 +205,33 @@ func (w *SessionWork) Step(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
+// readPolicy detaches only the entity kinds consumed by the session timer.
+// Command receipts, effects and workflows remain in the owner graph and are
+// checked by the command planner; policy scheduling does not need copies of them.
+func (w *SessionWork) readPolicy(ctx context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
+	if w.Projection != nil && w.Projection.Async != nil {
+		if err := w.Projection.commandHealth(); err != nil {
+			return nil, err
+		}
+		memory, err := w.Projection.memoryControl(ref)
+		if err != nil {
+			return nil, err
+		}
+		if memory != nil {
+			view := NewAggregate(ref)
+			view.Revision = memory.Revision
+			for _, kind := range []pb.EntityKind{pb.EntityKind_SESSION, pb.EntityKind_SESSION_DEADLINE, pb.EntityKind_STAND_ASSIGNMENT, pb.EntityKind_STAND_BLOCK, pb.EntityKind_PDC_SEQUENCE, pb.EntityKind_CONTROLLER} {
+				for _, entity := range memory.EntitiesByKind(kind) {
+					view.Entities[entitySlot(view.Entities, kind, entity.Key)] = proto.Clone(entity).(*pb.EntitySnapshot)
+				}
+			}
+			view.rebuildIndexes()
+			return view, nil
+		}
+	}
+	return w.Store.Read(ctx, ref)
+}
+
 func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegistry, unhealthySince, recoveredAt time.Time, paused time.Duration) (result error) {
 	id, now := registry.Id, w.clock()
 	var deferred []error
@@ -219,7 +246,7 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 			deferred = append(deferred, fmt.Errorf("EuroScope reconciliation: %w", err))
 		}
 	}
-	state, err := w.Store.Read(ctx, sessionRef(id))
+	state, err := w.readPolicy(ctx, sessionRef(id))
 	if err != nil {
 		return err
 	}
@@ -307,7 +334,7 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 				return err
 			}
 		}
-		fresh, err := w.Store.Read(ctx, sessionRef(id))
+		fresh, err := w.readPolicy(ctx, sessionRef(id))
 		if err != nil {
 			return err
 		}
@@ -365,7 +392,7 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 	if cleanupDue {
 		// A deadline or reconciler may have changed the session revision in
 		// this pass. Recheck the source before asking the owner to tombstone.
-		fresh, err := w.Store.Read(ctx, sessionRef(id))
+		fresh, err := w.readPolicy(ctx, sessionRef(id))
 		if err != nil {
 			return err
 		}
@@ -495,7 +522,7 @@ func (w *SessionWork) ScheduleDeadline(ctx context.Context, sessionID int32, dea
 	if deadline == nil || deadline.SourceRevision == 0 || deadline.DueAt == nil || deadline.DueAt.CheckValid() != nil {
 		return fmt.Errorf("deadline needs due time and source revision")
 	}
-	state, err := w.Store.Read(ctx, sessionRef(sessionID))
+	state, err := w.readPolicy(ctx, sessionRef(sessionID))
 	if err != nil {
 		return err
 	}

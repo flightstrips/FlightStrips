@@ -13,6 +13,7 @@ import (
 	"FlightStrips/internal/cluster"
 	"FlightStrips/internal/models"
 	pb "FlightStrips/pkg/events/cluster"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -140,6 +141,19 @@ func (a CandidateApply) applySessionAccepted(ctx context.Context, sessionID int3
 				r.ExactLevels = append(r.ExactLevels, int32(level))
 			}
 			restrictions = append(restrictions, r)
+		}
+		if projection := a.Session.Writer.Projection; projection != nil && projection.Async != nil {
+			// This pass holds the owner turn. Identical accepted state needs no
+			// command, receipt, full-state copy or replicated no-op event.
+			ref := &pb.AggregateRef{Target: &pb.AggregateRef_Session{Session: &pb.SessionRef{Id: sessionID}}}
+			old, err := projection.ReadEntity(ref, pb.EntityKind_ECFMP_STATE, strip.Callsign)
+			if err != nil {
+				return err
+			}
+			wanted := &pb.EcfmpState{Callsign: strip.Callsign, SourceRevision: sourceVersion, Restrictions: restrictions}
+			if proto.Equal(old.GetValue().GetEcfmpState(), wanted) {
+				continue
+			}
 		}
 		reply := a.Session.Apply(ctx, sessionID, strip, sourceVersion, restrictions)
 		if reply == nil || reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {

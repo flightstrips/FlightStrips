@@ -98,6 +98,20 @@ func trimMap[T any](values map[string]T, limit int, pinned func(string) bool, se
 	if len(keys) <= limit {
 		return
 	}
+	if len(keys) == limit+1 {
+		// Steady-state receipt insertion evicts just one entry. A linear scan
+		// preserves the sequence/UUID ordering without sorting the whole window.
+		oldest := keys[0]
+		oldestSequence := sequence(oldest)
+		for _, id := range keys[1:] {
+			seq := sequence(id)
+			if seq < oldestSequence || seq == oldestSequence && id < oldest {
+				oldest, oldestSequence = id, seq
+			}
+		}
+		delete(values, oldest)
+		return
+	}
 	sort.Slice(keys, func(i, j int) bool {
 		left, right := sequence(keys[i]), sequence(keys[j])
 		if left == right {

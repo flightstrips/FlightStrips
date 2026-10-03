@@ -1,7 +1,9 @@
 package app
 
 import (
+	"FlightStrips/internal/cluster"
 	appconfig "FlightStrips/internal/config"
+	"FlightStrips/internal/ecfmp"
 	pb "FlightStrips/pkg/events/cluster"
 	es "FlightStrips/pkg/events/euroscope"
 	"context"
@@ -120,6 +122,18 @@ func TestBuildNATSProductionProvidersCDMSATAndPDC(t *testing.T) {
 		state := f.state()
 		return state.Indexes[pb.EntityKind_VATSIM_SESSION_CURSOR]["vatsim"] != nil && state.Indexes[pb.EntityKind_ATIS]["EKCH"] != nil && state.Indexes[pb.EntityKind_STAND_ASSIGNMENT][callsign] != nil
 	})
+	runtime := f.apps[f.owner(sessionNATSRef(f.session))].natsRuntime
+	require.NoError(t, runtime.projection.Async.Execute(f.ctx, sessionNATSRef(f.session), func(ctx context.Context) error {
+		apply := ecfmp.CandidateApply{Source: runtime.source, Session: cluster.EcfmpSessionAdapter{Writer: runtime.router.Writer}}
+		require.NoError(t, apply.ApplySession(ctx, f.session, time.Now().UTC()))
+		before, err := runtime.projection.Read(sessionNATSRef(f.session))
+		require.NoError(t, err)
+		require.NoError(t, apply.ApplySession(ctx, f.session, time.Now().UTC()))
+		after, err := runtime.projection.Read(sessionNATSRef(f.session))
+		require.NoError(t, err)
+		require.Equal(t, before.Revision, after.Revision, "unchanged ECFMP state must not append a receipt or event")
+		return nil
+	}))
 	f.send(socket, &es.Envelope{Event: &es.Envelope_CdmTobtUpdate{CdmTobtUpdate: &es.CdmTobtUpdateEvent{Callsign: callsign, Tobt: clock}}})
 	f.await("binary CDM action reaches actual policy", func() bool {
 		return f.state().Indexes[pb.EntityKind_CDM_STATE][callsign].GetValue().GetCdmState().GetTobt() != nil

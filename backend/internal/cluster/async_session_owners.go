@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pb "FlightStrips/pkg/events/cluster"
+	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -503,9 +504,33 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 			return err
 		}
 	}
+	reconcile := false
 	for ctx.Err() == nil {
+		var durable *Aggregate
+		if reconcile {
+			m.projection.mu.RLock()
+			durable = m.projection.states[mustAsyncSubject(s.ref)]
+			m.projection.mu.RUnlock()
+		}
+		if reconcile && durable != nil {
+			if outcome, lookupErr := durable.LookupOutcome(event.GetCommandId()); lookupErr != nil {
+				return lookupErr
+			} else if outcome != nil {
+				entry, receiptErr := m.stateReceipt(ctx, outcome.CommittedStreamSequence)
+				if receiptErr != nil {
+					return receiptErr
+				}
+				if entry.Subject != mustAsyncSubject(s.ref) || entry.StreamSequence != outcome.CommittedStreamSequence || !proto.Equal(event, decodeAsyncEvent(entry.Data)) {
+					return fmt.Errorf("async reconciled event identity mismatch")
+				}
+				return nil
+			}
+		}
 		state, err := m.checkpoint(s.ref)
 		if err != nil {
+			if retry := m.waitPersistenceRetry(ctx, s.ref, s.epoch); retry == nil {
+				continue
+			}
 			return err
 		}
 		if state.Owner.Epoch != s.epoch || event.OwnerEpoch != s.epoch {
@@ -520,21 +545,30 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 		}
 		seq, err := m.store.Publish(ctx, mustAsyncSubject(s.ref), state.SubjectSequence, data)
 		if errors.Is(err, ErrCAS) {
+			reconcile = true
 			if err = m.projection.WaitSubjectAdvance(ctx, mustAsyncSubject(s.ref), state.SubjectSequence); err != nil {
 				return err
 			}
 			continue
 		}
 		if err != nil {
+			if asyncTransportRetryable(err) {
+				reconcile = true
+				m.projection.mu.RLock()
+				advanced := m.projection.states[mustAsyncSubject(s.ref)]
+				m.projection.mu.RUnlock()
+				if advanced != nil {
+					if outcome, lookupErr := advanced.LookupOutcome(event.GetCommandId()); lookupErr == nil && outcome != nil {
+						continue
+					}
+				}
+			}
+			if asyncTransportRetryable(err) && m.waitPersistenceRetry(ctx, s.ref, s.epoch) == nil {
+				continue
+			}
 			return err
 		}
-		receipt, ok := m.store.(interface {
-			Committed(context.Context, uint64) (AppliedEvent, error)
-		})
-		if !ok {
-			return fmt.Errorf("async store lacks committed metadata")
-		}
-		entry, err := receipt.Committed(ctx, seq)
+		entry, err := m.stateReceipt(ctx, seq)
 		if err != nil {
 			return err
 		}
@@ -560,6 +594,70 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 		return nil
 	}
 	return ctx.Err()
+}
+
+func asyncTransportRetryable(err error) bool {
+	if errors.Is(err, nats.ErrNoStreamResponse) || errors.Is(err, nats.ErrTimeout) || errors.Is(err, nats.ErrNoResponders) || errors.Is(err, nats.ErrConnectionClosed) || errors.Is(err, nats.ErrDisconnected) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var api *nats.APIError
+	return errors.As(err, &api) && api.Code == 503
+}
+
+func (m *AsyncSessionOwners) waitPersistenceRetry(ctx context.Context, ref *pb.AggregateRef, epoch uint64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := m.Err(); err != nil {
+		return err
+	}
+	p := m.projection
+	p.mu.RLock()
+	a := p.states[mustAsyncSubject(ref)]
+	valid := p.observationErr == nil && a != nil && a.Owner != nil && a.Owner.NodeId == m.owner.NodeID && a.Owner.Epoch == epoch && a.Owner.LeaseUntil != nil && time.Now().Before(a.Owner.LeaseUntil.AsTime())
+	if p.healthErr != nil && !asyncTransportRetryable(p.healthErr) {
+		valid = false
+	}
+	if p.history != nil && p.history.check() != nil {
+		valid = false
+	}
+	for _, err := range p.snapshotErrors {
+		if !errors.Is(err, ErrImmutableSnapshotCollision) {
+			valid = false
+		}
+	}
+	p.mu.RUnlock()
+	if !valid {
+		return fmt.Errorf("async retry owner generation or integrity changed")
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(100 * time.Millisecond):
+		return nil
+	}
+}
+
+// Once a PubAck or matching replay outcome supplies the sequence, recovery is
+// read-only: retry receipt retrieval without publishing the event again.
+func (m *AsyncSessionOwners) stateReceipt(ctx context.Context, seq uint64) (AppliedEvent, error) {
+	receipt, ok := m.store.(interface {
+		Committed(context.Context, uint64) (AppliedEvent, error)
+	})
+	if !ok || seq == 0 {
+		return AppliedEvent{}, fmt.Errorf("async store lacks committed metadata")
+	}
+	for {
+		entry, err := receipt.Committed(ctx, seq)
+		if err == nil || !asyncTransportRetryable(err) {
+			return entry, err
+		}
+		select {
+		case <-ctx.Done():
+			return AppliedEvent{}, ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }
 func decodeAsyncEvent(data []byte) *pb.StateEvent {
 	e := &pb.StateEvent{}
@@ -603,6 +701,33 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 		// Refresh only the durable portion and reapply outstanding domain facts.
 		if err == nil {
 			durable, e := m.checkpoint(s.ref)
+			if e != nil {
+				// The final job was proved durable, so ownership loss cannot
+				// turn receipt retirement into a new write. No pending old-term
+				// facts may be rebased under this newer immutable checkpoint.
+				m.mu.Lock()
+				finishedTail := s.pending == 1 && len(s.tail) == 0
+				m.mu.Unlock()
+				if finishedTail {
+					m.projection.mu.RLock()
+					durable = m.projection.states[mustAsyncSubject(s.ref)]
+					health := m.projection.healthLocked()
+					if health == nil && m.projection.history != nil {
+						health = m.projection.history.check()
+					}
+					m.projection.mu.RUnlock()
+					if health == nil && durable != nil {
+						if job.event == nil {
+							e = nil
+						} else {
+							outcome, lookupErr := durable.LookupOutcome(job.event.GetCommandId())
+							if lookupErr == nil && outcome != nil && outcome.CommittedStreamSequence > 0 && outcome.CommittedStreamSequence <= durable.StreamSequence {
+								e = nil
+							}
+						}
+					}
+				}
+			}
 			if e == nil {
 				m.mu.Lock()
 				s.durableStream, s.durableSubject = durable.StreamSequence, durable.SubjectSequence

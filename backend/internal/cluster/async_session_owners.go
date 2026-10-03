@@ -580,7 +580,7 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 				return err
 			}
 		}
-		confirmed, err := m.projection.readDurableCommandCheckpoint(s.ref, event.GetCommandId(), false)
+		confirmed, err := m.persistenceConfirmation(ctx, s.ref, event.GetCommandId())
 		if err != nil {
 			return err
 		}
@@ -615,7 +615,7 @@ func (m *AsyncSessionOwners) waitPersistenceRetry(ctx context.Context, ref *pb.A
 	p.mu.RLock()
 	a := p.states[mustAsyncSubject(ref)]
 	valid := p.observationErr == nil && a != nil && a.Owner != nil && a.Owner.NodeId == m.owner.NodeID && a.Owner.Epoch == epoch && a.Owner.LeaseUntil != nil && time.Now().Before(a.Owner.LeaseUntil.AsTime())
-	if p.healthErr != nil && !asyncTransportRetryable(p.healthErr) {
+	if p.healthErr != nil && !asyncPersistenceHealthRetryable(p.healthErr) {
 		valid = false
 	}
 	if p.history != nil && p.history.check() != nil {
@@ -635,6 +635,104 @@ func (m *AsyncSessionOwners) waitPersistenceRetry(ctx context.Context, ref *pb.A
 		return ctx.Err()
 	case <-time.After(100 * time.Millisecond):
 		return nil
+	}
+}
+
+// Temporary proof unavailability keeps accepted work queued, but never makes a
+// stale view readable or permits retransmission outside its live owner term.
+func asyncPersistenceHealthRetryable(err error) bool {
+	if asyncTransportRetryable(err) {
+		return true
+	}
+	if err == nil {
+		return false
+	}
+	switch err.Error() {
+	case "state metadata is stale", "KV observation replay incomplete", "NATS disconnected":
+		return true
+	}
+	for _, stream := range []string{"FS_STATE", "KV_FS_POSITIONS", "KV_FS_PRESENCE", "KV_FS_SNAPSHOT_INDEX", "OBJ_FS_OBJECTS"} {
+		if err.Error() == stream+" has no current quorum" {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *AsyncSessionOwners) persistenceCheckpoint(ctx context.Context, ref *pb.AggregateRef, epoch uint64) (*Aggregate, error) {
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		a, err := m.checkpoint(ref)
+		if err == nil {
+			if a.Owner.Epoch != epoch {
+				return nil, fmt.Errorf("async persistence owner generation changed")
+			}
+			return a, nil
+		}
+		if retryErr := m.waitPersistenceRetry(ctx, ref, epoch); retryErr != nil {
+			return nil, retryErr
+		}
+	}
+}
+
+// A broker-verified receipt needs no new owner permission. Await only a fresh
+// healthy replay proof before inspecting its durable result or retiring it.
+func (m *AsyncSessionOwners) waitPersistenceReadRetry(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := m.Err(); err != nil {
+		return err
+	}
+	p := m.projection
+	p.mu.RLock()
+	err := p.healthLocked()
+	if p.observationErr != nil {
+		err = p.observationErr
+		p.mu.RUnlock()
+		return err
+	}
+	if p.history != nil {
+		if historyErr := p.history.check(); historyErr != nil {
+			p.mu.RUnlock()
+			return historyErr
+		}
+	}
+	for _, snapshotErr := range p.snapshotErrors {
+		if !errors.Is(snapshotErr, ErrImmutableSnapshotCollision) {
+			p.mu.RUnlock()
+			return snapshotErr
+		}
+	}
+	p.mu.RUnlock()
+	if err != nil && !asyncPersistenceHealthRetryable(err) {
+		return err
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(100 * time.Millisecond):
+		return nil
+	}
+}
+
+func (m *AsyncSessionOwners) persistenceConfirmation(ctx context.Context, ref *pb.AggregateRef, id string) (*Aggregate, error) {
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		a, err := m.projection.readDurableCommandCheckpoint(ref, id, false)
+		if err == nil {
+			return a, nil
+		}
+		if !asyncPersistenceHealthRetryable(err) {
+			return nil, err
+		}
+		if retryErr := m.waitPersistenceReadRetry(ctx); retryErr != nil {
+			return nil, retryErr
+		}
 	}
 }
 
@@ -669,15 +767,15 @@ func decodeAsyncEvent(data []byte) *pb.StateEvent {
 func (m *AsyncSessionOwners) worker(s *asyncSession) {
 	defer m.workers.Done()
 	for job := range s.jobs {
+		ctx, cancel := context.WithTimeout(m.ctx, 30*time.Second)
 		m.mu.Lock()
 		err := m.failure
 		m.mu.Unlock()
 		if err == nil {
-			ctx, cancel := context.WithTimeout(m.ctx, 30*time.Second)
 			if job.event != nil {
 				err = m.persistState(ctx, s, job.event)
 			} else {
-				a, e := m.checkpoint(s.ref)
+				a, e := m.persistenceCheckpoint(ctx, s.ref, s.epoch)
 				err = e
 				if err == nil && a.Owner.Epoch != s.epoch {
 					err = fmt.Errorf("async position owner generation changed")
@@ -686,7 +784,6 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 					err = job.persist(ctx)
 				}
 			}
-			cancel()
 		}
 		m.mu.Lock()
 		if err != nil && m.failure == nil {
@@ -700,7 +797,7 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 		m.mu.Unlock()
 		// Refresh only the durable portion and reapply outstanding domain facts.
 		if err == nil {
-			durable, e := m.checkpoint(s.ref)
+			durable, e := m.persistenceCheckpoint(ctx, s.ref, s.epoch)
 			completedOnly := false
 			if e != nil {
 				// The final job was proved durable, so ownership loss cannot
@@ -710,24 +807,34 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 				finishedTail := s.pending == 1 && len(s.tail) == 0
 				m.mu.Unlock()
 				if finishedTail {
-					m.projection.mu.RLock()
-					durable = m.projection.states[mustAsyncSubject(s.ref)]
-					health := m.projection.healthLocked()
-					if health == nil && m.projection.history != nil {
-						health = m.projection.history.check()
-					}
-					m.projection.mu.RUnlock()
-					if health == nil && durable != nil {
-						if job.event == nil {
-							e = nil
-							completedOnly = true
-						} else {
-							outcome, lookupErr := durable.LookupOutcome(job.event.GetCommandId())
-							if lookupErr == nil && outcome != nil && outcome.CommittedStreamSequence > 0 && outcome.CommittedStreamSequence <= durable.StreamSequence {
-								e = nil
-								completedOnly = true
+					for ctx.Err() == nil {
+						m.projection.mu.RLock()
+						durable = m.projection.states[mustAsyncSubject(s.ref)]
+						health := m.projection.healthLocked()
+						if health == nil && m.projection.history != nil {
+							health = m.projection.history.check()
+						}
+						m.projection.mu.RUnlock()
+						if health != nil && asyncPersistenceHealthRetryable(health) {
+							if retryErr := m.waitPersistenceReadRetry(ctx); retryErr == nil {
+								continue
+							} else {
+								e = retryErr
 							}
 						}
+						if health == nil && durable != nil {
+							if job.event == nil {
+								e = nil
+								completedOnly = true
+							} else {
+								outcome, lookupErr := durable.LookupOutcome(job.event.GetCommandId())
+								if lookupErr == nil && outcome != nil && outcome.CommittedStreamSequence > 0 && outcome.CommittedStreamSequence <= durable.StreamSequence {
+									e = nil
+									completedOnly = true
+								}
+							}
+						}
+						break
 					}
 				}
 			}
@@ -757,6 +864,7 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 							m.notifyLocked()
 							m.mu.Unlock()
 							<-m.slots
+							cancel()
 							continue
 						}
 						for _, pending := range s.tail {
@@ -796,6 +904,7 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 		m.notifyLocked()
 		m.mu.Unlock()
 		<-m.slots
+		cancel()
 	}
 }
 func (m *AsyncSessionOwners) BeginDrain() {

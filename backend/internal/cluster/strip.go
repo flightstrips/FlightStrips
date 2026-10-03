@@ -61,7 +61,7 @@ func (r StripState) ByCallsign(ctx context.Context, session int32, callsign stri
 		return nil, 0, err
 	}
 	key := strings.ToUpper(strings.TrimSpace(callsign))
-	if e := a.Entities[key]; e != nil && e.GetValue().GetStrip() != nil {
+	if e := a.Entities[entitySlot(a.Entities, pb.EntityKind_STRIP, key)]; e != nil && e.GetValue().GetStrip() != nil {
 		return proto.Clone(e.GetValue().GetStrip()).(*pb.Strip), a.Revision, nil
 	}
 	return nil, a.Revision, fmt.Errorf("strip %s not found", key)
@@ -180,7 +180,7 @@ func stripSession(request *pb.CommandRequest, state *Aggregate) (*pb.EntitySnaps
 	if ref == nil || state == nil {
 		return nil, fmt.Errorf("strip command requires a session")
 	}
-	e := state.Entities[fmt.Sprint(ref.Id)]
+	e := state.Entities[entitySlot(state.Entities, pb.EntityKind_SESSION, fmt.Sprint(ref.Id))]
 	if e == nil || e.GetValue().GetSession() == nil || e.GetValue().GetSession().Tombstoned {
 		return nil, fmt.Errorf("session is not active")
 	}
@@ -210,7 +210,7 @@ func planStripPut(request *pb.CommandRequest, state *Aggregate, update *pb.Updat
 		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("strip callsign/key mismatch")
 	}
 	incoming.Callsign = key
-	old := state.Entities[key]
+	old := state.Entities[entitySlot(state.Entities, pb.EntityKind_STRIP, key)]
 	current := uint64(0)
 	if old != nil {
 		current = old.Revision
@@ -273,7 +273,7 @@ func planStripDelete(request *pb.CommandRequest, state *Aggregate, deletion *pb.
 	if request.GetActor().GetKind() != pb.Actor_SYSTEM || request.ExpectedEntityRevision == nil {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("system strip revision required")
 	}
-	old := state.Entities[deletion.Key]
+	old := state.Entities[entitySlot(state.Entities, pb.EntityKind_STRIP, deletion.Key)]
 	if old == nil || old.GetValue().GetStrip() == nil {
 		return nil, pb.CommandReply_NOT_FOUND, 0, fmt.Errorf("strip not found")
 	}
@@ -410,13 +410,18 @@ func checkStripChanges(state *Aggregate, changes []*pb.EntityChange) error {
 		staged[key] = e
 	}
 	for _, c := range changes {
-		if err := validateChange(state.Ref, c, staged[c.Key]); err != nil {
+		kind, err := changeKind(c)
+		if err != nil {
+			return err
+		}
+		slot := entitySlot(staged, kind, c.Key)
+		if err := validateChange(state.Ref, c, staged[slot]); err != nil {
 			return err
 		}
 		if c.GetDelete() != nil {
-			delete(staged, c.Key)
+			delete(staged, slot)
 		} else {
-			staged[c.Key] = &pb.EntitySnapshot{Key: c.Key, Revision: c.Revision, Value: c.GetUpsert()}
+			staged[slot] = &pb.EntitySnapshot{Key: c.Key, Revision: c.Revision, Value: c.GetUpsert()}
 		}
 	}
 	return validateStripState(state.Ref, staged)
@@ -426,14 +431,15 @@ func validateStripState(ref *pb.AggregateRef, entities map[string]*pb.EntitySnap
 	if ref.GetSession() == nil {
 		return nil
 	}
-	session := entities[fmt.Sprint(ref.GetSession().Id)]
+	session := entities[entitySlot(entities, pb.EntityKind_SESSION, fmt.Sprint(ref.GetSession().Id))]
 	var next uint64
 	if session != nil && session.GetValue().GetSession() != nil {
 		next = session.GetValue().GetSession().NextStripId
 	}
 	ids := map[uint64]bool{}
 	orders := map[string]map[uint64]bool{}
-	for key, e := range entities {
+	for _, e := range entities {
+		key := e.Key
 		if tactical := e.GetValue().GetTacticalStrip(); tactical != nil {
 			if orders[tactical.Bay] == nil {
 				orders[tactical.Bay] = map[uint64]bool{}
@@ -471,8 +477,8 @@ func validateStripTransition(state *Aggregate, changes []*pb.EntityChange, stage
 		return nil
 	}
 	key := fmt.Sprint(state.Ref.GetSession().Id)
-	oldSession := state.Entities[key].GetValue().GetSession()
-	newSession := staged[key].GetValue().GetSession()
+	oldSession := state.Entities[entitySlot(state.Entities, pb.EntityKind_SESSION, key)].GetValue().GetSession()
+	newSession := staged[entitySlot(staged, pb.EntityKind_SESSION, key)].GetValue().GetSession()
 	if oldSession == nil || newSession == nil {
 		return nil
 	}
@@ -482,7 +488,7 @@ func validateStripTransition(state *Aggregate, changes []*pb.EntityChange, stage
 		if strip == nil {
 			continue
 		}
-		old := state.Entities[change.Key]
+		old := state.Entities[entitySlot(state.Entities, pb.EntityKind_STRIP, change.Key)]
 		if old == nil {
 			if strip.Id != oldSession.NextStripId+created {
 				return fmt.Errorf("strip ID was not allocated from session")

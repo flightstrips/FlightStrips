@@ -128,7 +128,7 @@ func (c *DeadlineCandidate) basePlan(ctx context.Context, req *pb.CommandRequest
 
 func candidateReply(reply *pb.CommandReply) error {
 	if reply == nil || reply.Status != pb.CommandReply_COMMITTED && reply.Status != pb.CommandReply_PENDING || reply.GetOutcome().GetStatus() == pb.CommandOutcome_FAILED {
-		return fmt.Errorf("EuroScope admission failed: %s %s", reply.GetStatus(), reply.GetDetail())
+		return fmt.Errorf("EuroScope admission failed: status=%s outcome=%s reason=%s detail=%s %s", reply.GetStatus(), reply.GetOutcome().GetStatus(), reply.GetOutcome().GetReasonCode(), reply.GetDetail(), reply.GetOutcome().GetDetail())
 	}
 	return nil
 }
@@ -342,9 +342,15 @@ func (c *DeadlineCandidate) executeFrame(ctx context.Context, id int32, connecti
 		if err := c.Router.Projection.ValidateEuroScopeInbound(id, connection, cid, frame); err != nil {
 			return nil, pb.CommandReply_UNAUTHORIZED, 0, err
 		}
-		return c.Planner(ctx, req, state)
+		if operation == "assigned-squawk" {
+			return planStripObservation(ctx, req, state, key, func(strip *pb.Strip) { strip.AssignedSquawk = record.GetStrip().AssignedSquawk }, c.Planner)
+		}
+		return planFrameObservation(ctx, req, state, c.Planner)
 	}
-	return candidateReply(w.Execute(ctx, req))
+	if err := candidateReply(w.Execute(ctx, req)); err != nil {
+		return fmt.Errorf("%s %s: %w", operation, key, err)
+	}
+	return nil
 }
 
 func (c *DeadlineCandidate) RequestSquawk(ctx context.Context, id int32, commandID, callsign string) *pb.CommandReply {

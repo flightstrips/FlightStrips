@@ -219,3 +219,50 @@ func stripObservationRequest(frame *es.Envelope, id int32, connection, callsign 
 	return &pb.CommandRequest{ProtocolRevision: 1, CommandId: commandID, Aggregate: candidateRef(id), Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "euroscope-strip/" + string(event.Name())},
 		Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: callsign, Value: &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: patch}}}}}}}
 }
+
+// Full sync observations are replanned against each owner attempt just like
+// incremental observations. The original request remains the immutable hash
+// input; provider/position work may advance entity revisions in between.
+func planFrameObservation(ctx context.Context, req *pb.CommandRequest, state *cluster.Aggregate, next cluster.Planner) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+	planned := proto.Clone(req).(*pb.CommandRequest)
+	update := planned.GetSystem().GetUpdateEntity()
+	if update == nil {
+		return next(ctx, req, state)
+	}
+	var old *pb.EntitySnapshot
+	switch req.GetActor().GetId() {
+	case "euroscope-strip":
+		old = state.Indexes[pb.EntityKind_STRIP][update.Key]
+		incoming := update.GetValue().GetStrip()
+		if incoming == nil {
+			return next(ctx, req, state)
+		}
+		incoming.Eobt = old.GetValue().GetStrip().GetEobt()
+		if incoming.Eldt == nil {
+			incoming.Eldt = old.GetValue().GetStrip().GetEldt()
+		}
+	case "euroscope-session":
+		old = state.Indexes[pb.EntityKind_SESSION][update.Key]
+		if old.GetValue().GetSession() == nil {
+			return next(ctx, req, state)
+		}
+		incoming := update.GetValue().GetSession()
+		latest := proto.Clone(old.GetValue().GetSession()).(*pb.Session)
+		latest.Runways, latest.AvailableSids = incoming.Runways, incoming.AvailableSids
+		update.Value = &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: latest}}
+	case "euroscope-controller", "euroscope-controller-offline":
+		old = state.Indexes[pb.EntityKind_CONTROLLER][update.Key]
+		if latest := old.GetValue().GetController(); latest != nil {
+			incoming := update.GetValue().GetController()
+			current := proto.Clone(latest).(*pb.Controller)
+			current.Position = incoming.Position
+			current.Revision = old.Revision + 1
+			update.Value = &pb.EntityRecord{Value: &pb.EntityRecord_Controller{Controller: current}}
+		}
+	default:
+		return next(ctx, req, state)
+	}
+	revision := old.GetRevision()
+	planned.ExpectedEntityRevision = &revision
+	return next(ctx, planned, state)
+}

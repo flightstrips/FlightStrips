@@ -29,6 +29,9 @@ type PositionAuthority func(context.Context, int32, uint64, string) error
 // once before this owner/master writer is exposed to operational admission.
 type PositionLifecycleFence func(context.Context, int32, uint64, string, []KVPosition) error
 
+// ErrAircraftDisconnected marks an observation superseded by an accepted disconnect.
+var ErrAircraftDisconnected = errors.New("aircraft already disconnected in owner epoch")
+
 type PositionWriteResult struct {
 	Revision uint64
 	Err      error
@@ -115,7 +118,7 @@ func (w *PositionWriter) enqueue(ctx context.Context, aircraft string, value *pb
 	admissionSpan.SetAttributes(attribute.Float64("position.owner_enqueue_lock_ms", float64(time.Since(stage))/float64(time.Millisecond)))
 	defer w.mu.Unlock()
 	if w.disconnected[aircraft] {
-		return nil, fmt.Errorf("aircraft already disconnected in owner epoch")
+		return nil, ErrAircraftDisconnected
 	}
 	if w.async != nil {
 		w.barrierMu.Lock()

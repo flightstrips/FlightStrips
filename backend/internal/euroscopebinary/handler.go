@@ -448,6 +448,7 @@ func (h Handler) tracedInbound(ctx context.Context, received time.Time, session 
 	err := h.Inbound(ctx, session, connection, cid, frame)
 	span.SetAttributes(attribute.Float64("processing_ms", float64(time.Since(processingStarted))/float64(time.Millisecond)))
 	if err != nil {
+		slog.WarnContext(ctx, "EuroScope inbound operation failed", "session_id", session, "event_type", diagnostics.OneofName(frame, "event"), "error", diagnostics.Message(err))
 		span.SetStatus(codes.Error, inboundFailureReason(err))
 		span.SetAttributes(attribute.String("failure", diagnostics.Classification(inboundFailureReason(err))), attribute.String("error_reason", inboundFailureReason(err)))
 	}

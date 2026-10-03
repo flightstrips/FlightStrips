@@ -2,6 +2,7 @@ package euroscopebinary
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -108,6 +109,11 @@ func (c *DeadlineCandidate) positionAccepted(ctx context.Context, id int32, conn
 		result, err = w.QueueDisconnect(ctx, key, c.clock())
 	} else {
 		result, err = w.QueuePosition(ctx, key, value, c.clock())
+	}
+	if errors.Is(err, cluster.ErrAircraftDisconnected) {
+		// Duplicate disconnects and late positions are already superseded. Keep
+		// the tombstone and socket; authority is still checked before accepting.
+		return w.Authority(ctx, id, w.OwnerEpoch, connection)
 	}
 	if err != nil {
 		return err
@@ -362,8 +368,7 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 		GroundState: observed.GroundState, EngineType: observed.EngineType, EuroscopeObservedAt: timestamppb.New(c.clock()), Hold: observed.Hold, HoldType: observed.HoldType, HoldEat: observed.HoldEat}
 	// The CDM adapter owns EOBT/ELDT admission; a socket observation must not
 	// erase its accepted timestamps while the adapters are composed at cutover.
-	strip.Eobt = old.GetValue().GetStrip().GetEobt()
-	strip.Eldt = old.GetValue().GetStrip().GetEldt()
+	// Preserve CDM values from the current owner attempt, not this advisory read.
 	if observed.Eldt != "" {
 		parsed, err := time.Parse("1504", observed.Eldt)
 		if err != nil {
@@ -382,7 +387,7 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 	}
 	if c.ObservedStrip != nil {
 		if err := c.ObservedStrip(ctx, id, connection, cid, frame, observed); err != nil {
-			return err
+			return fmt.Errorf("CDM observation %s: %w", observed.Callsign, err)
 		}
 	}
 	ctx, span := otel.Tracer("euroscopebinary").Start(ctx, "euroscope.position.processing")
@@ -398,7 +403,7 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 	}
 	if observed.Position != nil {
 		if err := c.position(ctx, id, connection, observed.Callsign, &pb.AircraftPosition{Latitude: observed.Position.Lat, Longitude: observed.Position.Lon, AltitudeFeet: observed.Position.Altitude}); err != nil {
-			return err
+			return fmt.Errorf("position observation %s: %w", observed.Callsign, err)
 		}
 	}
 	if observed.Origin == seed.GetValue().GetSession().Airport && !observed.Cleared && observed.GroundState == "" && !cluster.ValidAssignedSquawk(observed.AssignedSquawk) {

@@ -59,7 +59,16 @@ func (w Writer) Outcome(ctx context.Context, ref *pb.AggregateRef, commandID str
 		reply.Status = pb.CommandReply_UNAVAILABLE
 		return reply
 	}
-	state, err := w.load(ctx, subject, ref)
+	var state *Aggregate
+	if w.Projection != nil {
+		if ctx.Value(durableExecutionKey{}) == true && w.Lease != nil && w.Lease.CanCommitLocal(ref) {
+			state, err = w.Projection.readDurableCommandCheckpoint(ref, commandID, true)
+		} else {
+			state, err = w.Projection.commandCheckpoint(ref, commandID)
+		}
+	} else {
+		state, err = w.load(ctx, subject, ref)
+	}
 	if err != nil {
 		reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
 		return reply

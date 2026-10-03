@@ -50,9 +50,18 @@ func TestGlobalEcfmpFetchKeepsOneTypedCheckpoint(t *testing.T) {
 	if err != nil || !first || calls != 1 {
 		t.Fatalf("global fetch: %v %v calls=%d", first, err, calls)
 	}
+	// A completed polling slot must not download its saved provider page.
+	// Keep the durable checkpoint but make its object store unreadable.
+	savedObjects := nav.Objects
+	nav.Objects = nil
+	again, err := nav.FetchProviderPageFor(ctx, ExternalCallWorker{Writer: nav.Writer}, id, ref, "ecfmp", "flow-measure/active", fetch)
+	if err != nil || again || calls != 1 {
+		t.Fatalf("completed slot read provider storage: %v %v calls=%d", again, err, calls)
+	}
+	nav.Objects = savedObjects
 	handoffOwner(t, store, ref)
 	navB := NavigationWeather{Writer: Writer{Store: store, NodeID: "node-b"}, Objects: objects}
-	again, err := navB.FetchProviderPageFor(ctx, ExternalCallWorker{Writer: navB.Writer}, id, ref, "ecfmp", "flow-measure/active", fetch)
+	again, err = navB.FetchProviderPageFor(ctx, ExternalCallWorker{Writer: navB.Writer}, id, ref, "ecfmp", "flow-measure/active", fetch)
 	if err != nil || again || calls != 1 {
 		t.Fatalf("takeover refetched ECFMP: %v %v calls=%d", again, err, calls)
 	}

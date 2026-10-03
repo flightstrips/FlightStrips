@@ -26,12 +26,26 @@ func (w AmanCandidateWorker) ObserveVatsim(ctx context.Context, icao, callsign s
 	if evaluate == nil || icao == "" || icao != strings.ToUpper(icao) || callsign == "" {
 		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT}
 	}
-	checkpoint, page, revision, err := w.Source.CheckpointRevisionFor(ctx, globalRef(), "vatsim", "network-data/v3")
+	checkpoint, revision, err := w.Source.CheckpointMetadataFor(ctx, globalRef(), "vatsim", "network-data/v3")
 	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 	}
-	if checkpoint == nil || page == nil || page.GetVatsim() == nil || revision == 0 || checkpoint.Sha256 == "" {
+	if checkpoint == nil || revision == 0 || checkpoint.Sha256 == "" {
 		return &pb.CommandReply{Status: pb.CommandReply_NOT_FOUND, Detail: "committed VATSIM generation unavailable"}
+	}
+	observationID := fmt.Sprintf("%s/%020d/%s/%s", icao, revision, strings.ToUpper(callsign), checkpoint.Sha256)
+	commandID, err := AmanObservationCommandID("vatsim", observationID)
+	if err != nil {
+		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}
+	}
+	// Durable outcomes fence completed observations before reading their page
+	// or copying the full airport board on every supervisor pass.
+	if prior := w.State.Writer.Outcome(ctx, airportRef(icao), commandID, &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "vatsim-adapter"}); prior.Status != pb.CommandReply_NOT_FOUND {
+		return prior
+	}
+	page, err := w.Source.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, "vatsim", "network-data/v3")
+	if err != nil || page.GetVatsim() == nil {
+		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: fmt.Sprintf("committed VATSIM generation unavailable: %v", err)}
 	}
 	if err := validateProviderPage(page); err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}
@@ -54,15 +68,7 @@ func (w AmanCandidateWorker) ObserveVatsim(ctx context.Context, icao, callsign s
 	if board.Airport != nil {
 		prior = board.Airport.Revision
 	}
-	observationID := fmt.Sprintf("%s/%020d/%s/%s", icao, revision, flight.Callsign, checkpoint.Sha256)
 	observation := &pb.VatsimObservation{ProviderId: observationID, Callsign: flight.Callsign, Digest: checkpoint.Sha256, ObservedAt: page.GetVatsim().SnapshotAt}
-	commandID, err := AmanObservationCommandID("vatsim", observationID)
-	if err != nil {
-		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}
-	}
-	if prior := w.State.Writer.Outcome(ctx, airportRef(icao), commandID, &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "vatsim-adapter"}); prior.Status != pb.CommandReply_NOT_FOUND {
-		return prior
-	}
 	request, err := AmanVatsimObservationRequest(icao, observation, prior)
 	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}

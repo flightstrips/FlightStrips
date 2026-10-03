@@ -38,6 +38,34 @@ func TestProjectionApplyPreservesPublishedState(t *testing.T) {
 	require.True(t, proto.Equal(previous, copyTestSnapshot(t, state)), "lease renewal changed the previous published owner")
 }
 
+func TestWriterProjectionOutcomeIsDetachedAndActorBound(t *testing.T) {
+	store, writer, ref := fixture(t)
+	ctx := context.Background()
+	request := command(ref, "Copenhagen", 0)
+	committed := writer.Execute(ctx, request)
+	require.Equal(t, pb.CommandReply_COMMITTED, committed.Status)
+	subject, _ := Subject(ref)
+	entries, err := store.Replay(ctx, subject)
+	require.NoError(t, err)
+	state := NewAggregate(ref)
+	for _, entry := range entries {
+		_, err := state.Apply(entry)
+		require.NoError(t, err)
+	}
+	p := &Projection{states: map[string]*Aggregate{subject: state}, started: true, checked: time.Now(), positionReady: true, presenceReady: true, highWater: state.StreamSequence, applied: state.StreamSequence}
+	writer.Projection = p
+	got := writer.Outcome(ctx, ref, request.CommandId, request.Actor)
+	require.Equal(t, pb.CommandReply_COMMITTED, got.Status)
+	require.True(t, proto.Equal(committed.Outcome, got.Outcome))
+	got.Outcome.Actor.Id = "mutated"
+	require.Equal(t, pb.CommandReply_COMMITTED, writer.Outcome(ctx, ref, request.CommandId, request.Actor).Status)
+	other := proto.Clone(request.Actor).(*pb.Actor)
+	other.Id = "other"
+	require.Equal(t, pb.CommandReply_UNAUTHORIZED, writer.Outcome(ctx, ref, request.CommandId, other).Status)
+	p.positionReady = false
+	require.Equal(t, pb.CommandReply_UNAVAILABLE, writer.Outcome(ctx, ref, request.CommandId, request.Actor).Status)
+}
+
 func TestProjectionReadCopyDetachesValuesAndIndexes(t *testing.T) {
 	store, writer, ref := fixture(t)
 	require.Equal(t, pb.CommandReply_COMMITTED, writer.Execute(context.Background(), command(ref, "Copenhagen", 0)).Status)

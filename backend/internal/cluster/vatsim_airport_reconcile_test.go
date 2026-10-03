@@ -57,6 +57,14 @@ func TestVatsimAirportReconcilerRetractsMissingArrivalAndReplays(t *testing.T) {
 	if err := reconciler.Reconcile(ctx, "EKCH"); err != nil {
 		t.Fatal(err)
 	}
+	// A completed observation is answered from durable state even when its
+	// immutable provider payload cannot be read. New generations still read it.
+	withoutObjects := worker
+	withoutObjects.Source.Objects = nil
+	reply := withoutObjects.ObserveVatsim(ctx, "EKCH", "sas123", reconciler.EvaluatePresent)
+	if reply.Status != pb.CommandReply_COMMITTED || presentCalls != 1 {
+		t.Fatalf("completed observation read object storage: %v calls=%d", reply, presentCalls)
+	}
 	if err := reconciler.Reconcile(ctx, "EKCH"); err != nil {
 		t.Fatal(err)
 	}

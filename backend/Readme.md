@@ -47,6 +47,15 @@ images, and `start` starts the frontend as well. Only the explicit
 use existing resources; they cannot create or repair resource configuration.
 The fixture credentials in `testdata/nats` are local-only.
 
+An idle client does not stop configured provider feeds or shadow AMAN: the
+airport owner still consumes live VATSIM arrivals. Each backend caches verified,
+immutable Protobuf provider/navigation objects by their content-addressed names,
+with at most 128 entries and a 32 MiB serialized payload budget (decoded Go heap
+is larger). Accepted NATS checkpoint/manifest references select the generation;
+the cache does not select ownership or retain mutable session state. Restart or
+eviction causes a fresh checksum/strict Protobuf verification. Completed polling
+slots and VATSIM observations check durable outcomes before loading payloads.
+
 | Client | Node A | Node B |
 | --- | --- | --- |
 | JSON HTTP | `http://localhost:8090` | `http://localhost:8091` |

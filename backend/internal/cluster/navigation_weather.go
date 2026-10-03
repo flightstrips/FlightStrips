@@ -39,6 +39,7 @@ func (o NATSObjects) PutBytes(name string, data []byte) (*nats.ObjectInfo, error
 type NavigationWeather struct {
 	Writer  Writer
 	Objects BinaryObjects
+	Cache   *VerifiedObjectCache
 }
 
 func objectBytes(value *pb.ObjectValue) ([]byte, error) {
@@ -89,6 +90,9 @@ func (a NavigationWeather) readObject(name, sha string) (*pb.ObjectValue, error)
 	if a.Objects == nil || len(sha) != 64 || !strings.HasSuffix(name, "/"+sha) {
 		return nil, fmt.Errorf("invalid object reference")
 	}
+	if value := a.Cache.get(name); value != nil {
+		return value, nil
+	}
 	data, err := a.Objects.GetBytes(name)
 	if err != nil {
 		return nil, err
@@ -103,6 +107,7 @@ func (a NavigationWeather) readObject(name, sha string) (*pb.ObjectValue, error)
 	if _, err := objectBytes(value); err != nil {
 		return nil, err
 	}
+	a.Cache.put(name, value, len(data))
 	return value, nil
 }
 
@@ -613,8 +618,21 @@ func (a NavigationWeather) CheckpointFor(ctx context.Context, ref *pb.AggregateR
 }
 
 func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, uint64, error) {
+	checkpoint, revision, err := a.CheckpointMetadataFor(ctx, ref, provider, resource)
+	if err != nil || checkpoint == nil || checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
+		return checkpoint, nil, revision, err
+	}
+	page, err := a.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, provider, resource)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return checkpoint, page, revision, nil
+}
+
+// CheckpointMetadataFor reads accepted identity without downloading its page.
+func (a NavigationWeather) CheckpointMetadataFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, uint64, error) {
 	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && provider != "viff" && provider != "hoppie" {
-		return nil, nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF or Hoppie")
+		return nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF or Hoppie")
 	}
 	var entry *pb.EntitySnapshot
 	var err error
@@ -628,24 +646,16 @@ func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.Ag
 		}
 	}
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, 0, err
 	}
 	if entry == nil {
-		return nil, nil, 0, nil
+		return nil, 0, nil
 	}
 	checkpoint := entry.GetValue().GetProviderCheckpoint()
 	if checkpoint == nil || checkpoint.Provider != provider || checkpoint.Resource != resource {
-		return nil, nil, 0, fmt.Errorf("corrupt provider checkpoint")
+		return nil, 0, fmt.Errorf("corrupt provider checkpoint")
 	}
-	copy := proto.Clone(checkpoint).(*pb.ProviderCheckpoint)
-	if checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
-		return copy, nil, entry.Revision, nil
-	}
-	page, err := a.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, provider, resource)
-	if err != nil {
-		return nil, nil, 0, err
-	}
-	return copy, page, entry.Revision, nil
+	return proto.Clone(checkpoint).(*pb.ProviderCheckpoint), entry.Revision, nil
 }
 
 // FetchProviderPageFenced gives AIRAC and VATSIM importers a durable typed
@@ -669,16 +679,18 @@ func (a NavigationWeather) FetchProviderPageReserved(ctx context.Context, worker
 	if fetch == nil || provider == "" || resource == "" {
 		return false, fmt.Errorf("invalid fenced provider fetch")
 	}
-	prior, priorPage, err := a.CheckpointFor(ctx, ref, provider, resource)
-	if err != nil {
-		return false, err
-	}
 	var next *pb.ProviderCheckpoint
 	return worker.Run(ctx, ExternalCallSpec{
 		Source: ref, Destination: ref, WorkflowID: workflowID,
 		Step:    "external/provider/" + provider + "/" + resource,
 		Reserve: reserve,
 		Fetch: func(ctx context.Context) (proto.Message, error) {
+			// Completed polling slots never need the potentially large saved page.
+			// Read it only after the durable intent admits a new provider call.
+			prior, priorPage, err := a.CheckpointFor(ctx, ref, provider, resource)
+			if err != nil {
+				return nil, err
+			}
 			page, checkpoint, err := fetch(ctx, prior, priorPage)
 			if err != nil {
 				return nil, err

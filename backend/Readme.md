@@ -156,9 +156,17 @@ in EuroScope.
 
 ### Manual failover through one client address
 
-The included local HAProxy serves `http://localhost:8092` and the binary socket
-paths on `ws://localhost:8092`. It checks each backend's `/readyz` every second
-and routes new connections to ready nodes. See the [HAProxy health-check contract](https://docs.haproxy.org/3.2/configuration.html#option%20httpchk).
+The included local nginx serves `http://localhost:8092` and the binary socket
+paths on `ws://localhost:8092`, with one worker and Docker DNS re-resolution.
+It uses passive failure detection: eligible requests try the other node on
+connection failures or HTTP 502/503/504 responses, with a two-second failure
+timeout. The backend readiness gate returns 503 before admitting application work
+on an unready node. There is no separate periodic readiness poll in nginx.
+POST/PATCH requests already sent to a backend are not automatically retried;
+clients must handle an unsuccessful mutation response. See the
+[nginx retry contract](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_next_upstream).
+Production routing is provided by the infrastructure stack's Traefik service
+labels; this local proxy is not an additional production routing layer.
 Direct node ports remain 8090 and 8091 for diagnostics and cross-node checks.
 Both the frontend development config and copied plugin `config_dev.ini` use the
 proxy by default. Existing WebSockets reconnect after their backend stops;

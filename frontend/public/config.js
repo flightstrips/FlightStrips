@@ -1,7 +1,7 @@
 // Overwritten at container startup by entrypoint.sh
 window.__APP_CONFIG__ = {
-  wsUrl: "ws://localhost:8090/frontEndEvents",
-  apiBaseUrl: "http://localhost:8090",
+  wsUrl: "ws://localhost:8092/frontEndEvents",
+  apiBaseUrl: "http://localhost:8092",
   clientId: "mIjRYlbKHpTwnNAkhcu9plQP541Klwvn",
   audience: "backend-dev",
   connection: "vatsim-dev",

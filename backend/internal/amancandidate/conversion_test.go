@@ -14,7 +14,7 @@ import (
 )
 
 func TestCommittedTerminalPolicyPreservesOperationalSettings(t *testing.T) {
-	data, err := os.ReadFile("../../config/aman/ekch-terminal-2609.json")
+	data, err := os.ReadFile("../../config/aman/ekch-terminal-2610.json")
 	require.NoError(t, err)
 	var c terminal.Configuration
 	require.NoError(t, json.Unmarshal(data, &c))

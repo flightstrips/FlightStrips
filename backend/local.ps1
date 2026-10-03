@@ -42,8 +42,8 @@ try {
         'build' { Compose build backend-a }
         'brokers' { Compose up -d nats-1 nats-2 nats-3 }
         'bootstrap' { Compose --profile bootstrap run --rm nats-bootstrap }
-        'start' { Compose up -d backend-a backend-b; Wait-Ready }
-        'stop' { Compose stop backend-a backend-b }
+        'start' { Compose up -d backend-a backend-b backend-proxy; Wait-Ready }
+        'stop' { Compose stop backend-proxy backend-a backend-b }
         'restart' { Compose restart backend-a backend-b; Wait-Ready }
         'down' { Compose down }
         'status' {

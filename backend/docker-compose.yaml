@@ -27,6 +27,14 @@ x-backend: &backend
   stop_grace_period: 30s
 
 services:
+  backend-proxy:
+    image: haproxy:3.2-alpine
+    ports: ["127.0.0.1:8092:8090"]
+    volumes:
+      - ./testdata/nats/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks: [nats-fixture]
+    depends_on: [backend-a, backend-b]
+    restart: unless-stopped
   backend-a:
     <<: *backend
     ports: ["127.0.0.1:8090:8090"]

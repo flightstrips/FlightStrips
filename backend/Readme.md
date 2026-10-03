@@ -10,8 +10,10 @@ This setup uses local component builds and the committed revision-2 clients.
 
 The tracked `backend/.env` contains development defaults. Put personal overrides
 in `backend/.env.dev`; do not commit provider credentials. The existing development
-OIDC authority/audience and frontend/plugin client IDs must agree. The default
-local SAT aircraft source is the committed three-type fixture (A320/B738/C172).
+OIDC authority/audience and frontend/plugin client IDs must agree.
+If an existing `.env.dev` sets `NAVIGATION_TERMINAL_GEOMETRY_PATH` to the retired
+AIRAC 2609 file, update it to `config/aman/ekch-terminal-2610.json` before startup.
+The default local SAT aircraft source is the committed three-type fixture (A320/B738/C172).
 For full-fleet manual testing, copy your GRPlugin `ICAO_Aircraft.json` to ignored
 `backend/config/data/ICAO_Aircraft.json`, then set
 `GRPLUGIN_ICAO_AIRCRAFT_JSON=config/data/ICAO_Aircraft.json` in `.env.dev`.
@@ -57,7 +59,7 @@ bootstrap can run `go build -o bin/api.exe ./cmd/server` from `backend`, then
 Environment variables override `.env`; `.env.dev` loads after `.env` for native
 development. Set `OTEL_EXPORTER_OTLP_ENDPOINT=''` to disable the optional local
 collector. Configuration files resolve relative to `backend`, including
-`config/aman/ekch-terminal-2609.json` when terminal navigation is enabled.
+`config/aman/ekch-terminal-2610.json` when terminal navigation is enabled.
 
 ## Frontend and EuroScope plugin
 
@@ -71,7 +73,8 @@ Pop-Location
 ```
 
 Open the Vite URL printed by npm (normally `http://localhost:5173`).
-`frontend/public/config.js` defaults both API and socket to node A. To use node B,
+`frontend/public/config.js` defaults both API and socket to the failover proxy on
+`localhost:8092`. To connect directly to node B,
 change its `wsUrl` to `ws://localhost:8091/frontEndEvents` and `apiBaseUrl` to
 `http://localhost:8091`, then reload. These are temporary local configuration
 edits; retain the existing OIDC values. Use a frontend on B and EuroScope on A to
@@ -102,6 +105,45 @@ DLLs. Automated plugin tests do not claim that the operator has loaded/tested it
 in EuroScope.
 
 ## Stop, restart and replay retained data
+
+### Manual failover through one client address
+
+The included local HAProxy serves `http://localhost:8092` and the binary socket
+paths on `ws://localhost:8092`. It checks each backend's `/readyz` every second
+and routes new connections to ready nodes. See the [HAProxy health-check contract](https://docs.haproxy.org/3.2/configuration.html#option%20httpchk).
+Direct node ports remain 8090 and 8091 for diagnostics and cross-node checks.
+Both the frontend development config and copied plugin `config_dev.ini` use the
+proxy by default. Existing WebSockets reconnect after their backend stops;
+an established socket is not transferred between processes.
+
+After the initial build/bootstrap/start commands above, log in, open a session
+and make a strip change. Run these commands from the repository root:
+
+```powershell
+# Hold A down; observe reconnect and retained accepted state through port 8092.
+docker compose -f backend/docker-compose.yaml -p flightstrips-local stop backend-a
+Invoke-WebRequest http://localhost:8092/readyz -UseBasicParsing
+docker compose -f backend/docker-compose.yaml -p flightstrips-local start backend-a
+.\backend\local.ps1 status
+
+# Repeat for B; verify changes from a client on each node before killing it.
+docker compose -f backend/docker-compose.yaml -p flightstrips-local stop backend-b
+docker compose -f backend/docker-compose.yaml -p flightstrips-local start backend-b
+.\backend\local.ps1 status
+
+# One broker down should retain quorum and both backend readiness endpoints.
+docker compose -f backend/docker-compose.yaml -p flightstrips-local stop nats-1
+.\backend\local.ps1 status
+docker compose -f backend/docker-compose.yaml -p flightstrips-local start nats-1
+```
+
+Allow the readiness check and ownership takeover to finish before testing new
+commands. `/readyz` can briefly fail while the proxy detects a stopped node.
+Use `kill backend-a` (or `kill backend-b`) instead of `stop` to simulate an abrupt
+process exit, then inspect `ps` and explicitly restore it with `start`.
+Do not run both backend stop tests at once. Preserve broker volumes and the shared
+effect key; these commands do not reset data. Logs are available with
+`docker compose -f backend/docker-compose.yaml -p flightstrips-local logs --tail 100 backend-proxy backend-a backend-b`.
 
 ```powershell
 .\backend\local.ps1 stop       # stop both backends

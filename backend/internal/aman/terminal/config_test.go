@@ -63,7 +63,7 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 		require.NotNil(t, path.PublishedHeadingMagneticDeg, path.Feeder)
 		require.Equal(t, wantHeadings[path.RunwayGroup], *path.PublishedHeadingMagneticDeg, path.Feeder)
 	}
-	fragment, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Equal(t, []navdata.TimelineMapping{
 		{ID: 1, Left: starFamilyPtr("TESPI"), Right: starFamilyPtr("TUDLO")},
@@ -78,36 +78,36 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	require.Len(t, fragment.Paths, len(config.Feeders)*len(config.RunwayGroups))
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings))
 	wantDigests := map[string]string{
-		"TESPI/ARRIVAL-04L": "b36551ec04ea317e962a6a387766837a37de22cdd9f310eaa8066c98ae50945d",
-		"TESPI/ARRIVAL-04R": "6709e6977db555e004e3a4ab66aecb5b4d6150ead517eae0f7aa1de13e91bc53",
-		"TUDLO/ARRIVAL-04L": "afea9463dbfbb3be0416aaf8767f7d7b07a110028326b41c0c46842523b174c8",
-		"TUDLO/ARRIVAL-04R": "eaaccd972341f3a11c53d82be5a958c7d928eb374545b2c02136d3309b1a4899",
-		"MONAK/ARRIVAL-04L": "f3e4c217ae523b1899d4afb38734fb9a30f2775268997e76456e4e3ee6ab02c5",
-		"MONAK/ARRIVAL-04R": "b6185bb1602ec9e7a939750dc75177b22817729129c27f212465fa95b1794290",
-		"TIDVU/ARRIVAL-04L": "bc6c90f617601335dce823ba26541cf90a1130204b885ffe83f9157bf19c7def",
-		"TIDVU/ARRIVAL-04R": "8caefe0e12779b6b863ccc0e1de451fd01db9e9578a0819cb4f6ce68f8988ab5",
-		"ERNOV/ARRIVAL-04L": "6a1a40f768dd246322f7231c33c3cc8e2726ca5408cb0aa2c52443d9b868ed6d",
-		"ERNOV/ARRIVAL-04R": "915fd8dc82592a2b3fa5d16adb1578f5f0558160276dbe074b0c278527d24e88",
-		"TESPI/ARRIVAL-22L": "fbbe562469db2b0d5e475eb0bb6ac9949aa834f7f37e46287c70a202c3ea7dc2",
-		"TESPI/ARRIVAL-22R": "5b6008136dfb9ebba812b5c20f266e78badbf7d12792edc26592ece3a423ea13",
-		"TUDLO/ARRIVAL-22L": "4fca5dea8f96050cc65c6cb7b7f67876e984ea4987ffeef9851660dab263ca2a",
-		"TUDLO/ARRIVAL-22R": "e2e59b7681d7512cd43d1dfc8ea21666d3f332918589b3a628d35cb590511080",
-		"MONAK/ARRIVAL-22L": "2b5147523173f9fe83f2ef2319669175fe3fd80355085bab4e2ed1ad59cf7fe4",
-		"MONAK/ARRIVAL-22R": "356c4bf26f146420a60116570cdcd5850c7b902a21e5b9f5d7bb2d4637bd2b08",
-		"TIDVU/ARRIVAL-22L": "781d46d9fcd5f89a1d22aa21ef108c7ab7362e2bbf345c4072e0fdc3196b4533",
-		"TIDVU/ARRIVAL-22R": "e2f2932d063c8c1ef8dbf0278f7c2cf153d543f16e9aa654547205cf1d3ebf98",
-		"ERNOV/ARRIVAL-22L": "d5ad6a7b530ae2cf35bacd03749ab50d9e19dd810aef54a6dd88f0c9ffef93ae",
-		"ERNOV/ARRIVAL-22R": "60164b2c8a75007045769da64a559d87c4d137ef16d294a5e1a66dd38575c0ca",
-		"TESPI/ARRIVAL-12":  "9a06b68e62ed5f8a8e4c70a4db18cf8616f537756b7e509496983be38627a297",
-		"TUDLO/ARRIVAL-12":  "53a3f38819c27d68fe86e72da63f972ff5e2553caeea8bf6cf81d2d75c1ca074",
-		"MONAK/ARRIVAL-12":  "6722aa2d4830548cdd2ebc5d91e0d0a841e796010e86cadfbd8a2141ee8336f8",
-		"TIDVU/ARRIVAL-12":  "db59e1ef6043631e0e5281d3bc46d7ecbb520f5c6b2232f81cc73cd09c016101",
-		"ERNOV/ARRIVAL-12":  "3f964e636ce74a11bfe5a54de6cc1925e3ade33d952d84240e161998fbb2413e",
-		"TESPI/ARRIVAL-30":  "1c1822f31579b3067b865c962ac94d0a53ba4a823eddb6f2cf5dba73b38db790",
-		"TUDLO/ARRIVAL-30":  "3dfb8f60db6c0ddbefb8641d657d2e6c28a9824b0f6dc5194a4ba598fd79247a",
-		"MONAK/ARRIVAL-30":  "f49c201cce180a2891990cb0a8bd01a418ca8aaa9df13ed853280c6d8754d2ae",
-		"TIDVU/ARRIVAL-30":  "d6beaf540a90940ecdc7e739ceb6c50fa14a0c68eb2dcdbfffb7eba90595cf0a",
-		"ERNOV/ARRIVAL-30":  "47164855725d212cc550420e9f4a6e61b884e7a2ab9dedc1908f7ca73db5fbe9",
+		"TESPI/ARRIVAL-04L": "3b48d6a001085a20d6033b4de340ba84517076ac7b7dd117ffdd05f79ce634e8",
+		"TESPI/ARRIVAL-04R": "dd7fb39d1912a5aba7c95621ec7486b994099fbcee4919197113644e2f880e63",
+		"TUDLO/ARRIVAL-04L": "014237b4a810142259e64cc6ffec91e9ec24d7a28d8baef3a15767f5d40564b3",
+		"TUDLO/ARRIVAL-04R": "f0114be8a16a727b599aad9b7e60b4969a3b2186842fe21026e67dba26207205",
+		"MONAK/ARRIVAL-04L": "860265082ae1d227b7323aa47000ca937b4481de1c6ecf32e7e1b624c4fa9bc3",
+		"MONAK/ARRIVAL-04R": "2216ce482035b3c722c34b0d2a7d2901117832124337b8dde481a44638127103",
+		"TIDVU/ARRIVAL-04L": "e94bd1f3295b3ff2df8c5116781752f4d428a720aefd3f05574a5bd9d7240ba4",
+		"TIDVU/ARRIVAL-04R": "484e473e51b03a9bb87a37ba19ba8c0480aaf2bd2ed7040f5317ba653b33a71d",
+		"ERNOV/ARRIVAL-04L": "801f06f05e4ace98154aea2549c8bf131ada68e638ddb84ef922da463161de55",
+		"ERNOV/ARRIVAL-04R": "317b0017d88fc8a3de86b43acae78a6d230e1685c60475e58e6a1f7e9f9112d2",
+		"TESPI/ARRIVAL-22L": "7a402153e57233b46e260de6dbd1fbad079ce829ea3f1c140cb78acbf4060cd3",
+		"TESPI/ARRIVAL-22R": "1a2f0467430d552828881ad12e9eb8e279c6658cdccd1676774143a1c3b04bad",
+		"TUDLO/ARRIVAL-22L": "b73affba72dc568035e87685e100b14383fa4655a93ab04b6264c645f2bd4258",
+		"TUDLO/ARRIVAL-22R": "504790f21357091207b8f4a95a53149db94708211f4e7e0e52c6093ed524abc5",
+		"MONAK/ARRIVAL-22L": "14ce275296b2114de2afcbfa72d91fccd530b1d92692c7688aa391da42d48f5e",
+		"MONAK/ARRIVAL-22R": "8f6ef4ab11b5e4e898dd825a94d0416c6213ef6e8c3503d04db055c0f66ae9aa",
+		"TIDVU/ARRIVAL-22L": "a4263a471865108cca0b27c84e4b6f0401d9e1b3627db6d5da60fdee226b45b4",
+		"TIDVU/ARRIVAL-22R": "9f575b556b1e216720e80171d45235befbef9fbd1a1e56d182314e0f89f23fd2",
+		"ERNOV/ARRIVAL-22L": "5924a46df6fcccef4894f4e4db1ea9cf5ac3f3eeb8d516ac96a75c55fbc885f5",
+		"ERNOV/ARRIVAL-22R": "27d727ef25fe8fd868a68c92f0cf6dbe8aec80c48ee44f2f689bbfb3067f867f",
+		"TESPI/ARRIVAL-12":  "72d637df18a4cb5a67f06c3603483e58c7d3178922c60fefcfeb02d043bc3f72",
+		"TUDLO/ARRIVAL-12":  "717590e59eb41c4689acdac3389e2fa9911a8eca6b508cca97b0f3b9b697a004",
+		"MONAK/ARRIVAL-12":  "0c0b1deb9583899c0e1dab7627de25a34bf17877190ee0af7126099cbbaf68d8",
+		"TIDVU/ARRIVAL-12":  "6f14437839ac603aafdee21b369a9fac96c686c1f4514853a0b2f2dcd44699f2",
+		"ERNOV/ARRIVAL-12":  "8ffe5b4d273224659daba61454d7c431cd7cd62bcaf4e198374b87f6e6c34515",
+		"TESPI/ARRIVAL-30":  "7a568fb42c9f92d7be344ace7229099d9b0408bc6957ce9de0e4ffb916a83298",
+		"TUDLO/ARRIVAL-30":  "99e076317b1c442bb991c738be8c1cc395c944b3039b704f54965b657358b46b",
+		"MONAK/ARRIVAL-30":  "ec78e350cfb083a00de380d56f66a724d82e726be0dbd27df21531473bb0c42c",
+		"TIDVU/ARRIVAL-30":  "e244847a53a28939b2ba7d67122d4135c8fda8130e7fae53483cc5827968c370",
+		"ERNOV/ARRIVAL-30":  "8b5165b056e47cd54693261111ca67ae81e9f4716779fc2d29c487847b231d96",
 	}
 	for _, path := range fragment.Paths {
 		key := string(path.STARFamily) + "/" + string(path.RunwayGroup)
@@ -142,7 +142,7 @@ func TestLegacyFeederConfigurationMaterializesWithoutExplicitMetadata(t *testing
 	require.Empty(t, config.Paths[0].FeederFix)
 	require.Nil(t, config.Paths[0].HoldingToFeederSeconds)
 
-	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Equal(t, navdata.FeederID("TESPI"), fragment.Paths[0].Feeder)
 	require.Empty(t, fragment.Paths[0].STARFamily)
@@ -155,7 +155,7 @@ func TestCandidateMaterializesExplicitTerminalPathMetadata(t *testing.T) {
 	seconds := int64(3*60 + 15)
 	config.Paths[0].HoldingToFeederSeconds = &seconds
 
-	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	path := fragment.Paths[0]
 	require.Equal(t, navdata.FeederID("TESPI"), path.Feeder, "legacy family remains populated")
@@ -168,10 +168,10 @@ func TestCandidateMaterializesExplicitTerminalPathMetadata(t *testing.T) {
 
 func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) {
 	config := goldenConfig(t)
-	require.Equal(t, "EKCH-AIP-2609-V5", config.ConfigVersion)
-	require.Equal(t, "2609", config.Dataset.Cycle)
-	require.Equal(t, time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC), config.ApplicabilityFrom)
-	require.Equal(t, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), config.ApplicabilityUntil)
+	require.Equal(t, "EKCH-AIP-2610-V1", config.ConfigVersion)
+	require.Equal(t, "2610", config.Dataset.Cycle)
+	require.Equal(t, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), config.ApplicabilityFrom)
+	require.Equal(t, time.Date(2026, 10, 29, 0, 0, 0, 0, time.UTC), config.ApplicabilityUntil)
 	require.Equal(t, config.ApplicabilityFrom, config.Dataset.EffectiveFrom)
 	require.Equal(t, config.ApplicabilityUntil, config.Dataset.EffectiveUntil)
 	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R", "ARRIVAL-22L", "ARRIVAL-22R", "ARRIVAL-12", "ARRIVAL-30"}, groupIDs(config.RunwayGroups))
@@ -400,17 +400,17 @@ func TestSameSTARSpacingValidation(t *testing.T) {
 func TestSTARFamilyPolicyValidationAndDeterministicDigest(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
-	baseline, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	baseline, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
 	slices.Reverse(config.STARFamilyPolicies)
-	reordered, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	reordered, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Equal(t, baseline.Digest, reordered.Digest)
 	require.Equal(t, baseline.STARFamilyPolicies, reordered.STARFamilyPolicies)
 
 	config.STARFamilyPolicies[0].HoldingSequencePolicy = navdata.HoldingSequenceLowestAltitudeFirst
-	enabled, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	enabled, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.NotEqual(t, baseline.Digest, enabled.Digest)
 	require.Equal(t, navdata.HoldingSequenceLowestAltitudeFirst, enabled.STARFamilyPolicies[4].HoldingSequencePolicy)
@@ -428,18 +428,18 @@ func TestSTARFamilyPolicyValidationAndDeterministicDigest(t *testing.T) {
 func TestTimelineMappingValidationAndDeterministicDigest(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
-	baseline, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	baseline, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
 	slices.Reverse(config.TimelineMappings)
-	reordered, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	reordered, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Equal(t, baseline.Digest, reordered.Digest)
 	require.Equal(t, baseline.TimelineMappings, reordered.TimelineMappings)
 
 	changedFamily := navdata.STARFamilyID("MONAK")
 	config.TimelineMappings[0].Left = &changedFamily
-	changed, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	changed, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.NotEqual(t, baseline.Digest, changed.Digest)
 
@@ -565,7 +565,7 @@ func TestPublishedAndOverlayHoldingsNormalizeEquivalently(t *testing.T) {
 	second, err := navdata.HoldingDigest(config.OverlayHoldings[0].canonical())
 	require.NoError(t, err)
 	require.Equal(t, first, second)
-	fragment, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.NotContains(t, fragment.Holdings, published, "published canonical holding replaces identical AIP fallback")
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings)-1)
@@ -576,7 +576,7 @@ func TestCandidateUsesAirportScopedFixOverrideForERNOV22(t *testing.T) {
 	refs := referencesFor(t, config)
 	setFixPosition(refs.Fixes, "CH632", 26.327641, -83.227989)
 
-	fragment, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	pathIndex := slices.IndexFunc(fragment.Paths, func(path navdata.TerminalPath) bool {
 		return path.Feeder == "ERNOV" && path.RunwayGroup == "ARRIVAL-22L"
@@ -602,7 +602,7 @@ func TestLegacyCDAFixAliasNormalizesToCurrentOLPIB(t *testing.T) {
 		}
 	}
 	require.NoError(t, config.Validate(refs))
-	fragment, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	for _, path := range fragment.Paths {
 		for _, leg := range path.Legs {
@@ -692,7 +692,7 @@ func goldenConfig(t *testing.T) Configuration {
 func goldenConfigPath(t *testing.T) string {
 	_, file, _, ok := runtime.Caller(0)
 	require.True(t, ok)
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "config", "aman", "ekch-terminal-2609.json"))
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "config", "aman", "ekch-terminal-2610.json"))
 }
 
 func referencesFor(t *testing.T, config Configuration) ReferenceSet {

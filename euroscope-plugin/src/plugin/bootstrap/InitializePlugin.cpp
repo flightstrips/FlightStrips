@@ -93,6 +93,12 @@ namespace FlightStrips {
             [weakPlugin] {
                 const auto plugin = weakPlugin.lock();
                 return plugin ? plugin->GetConnectionState().relevant_airport : std::string{};
+            },
+            [weakPlugin] {
+                const auto plugin = weakPlugin.lock();
+                if (!plugin) return std::string{};
+                const auto controller = plugin->ControllerMyself();
+                return controller.IsValid() ? std::string(controller.GetCallsign()) : std::string{};
             });
         this->container->tagItemHandlers->RegisterHandler(
             this->container->amanGainLossHandler, TAG_ITEM_AMAN_GAIN_LOSS);

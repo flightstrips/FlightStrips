@@ -67,12 +67,13 @@ TEST(AMANGainLossHandlerTest, ColorsGuidanceByDisplayedLoseMinutes) {
 }
 
 TEST(AMANGainLossHandlerTest, HidesUnavailableGuidance) {
-    EXPECT_EQ(AMANGainLossHandler::Resolve(false, Snapshot(), "SAS123", "EKCH", "EKCH").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(false), "SAS123", "EKCH", "EKCH").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "stale"), "SAS123", "EKCH", "EKCH").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "disconnected"), "SAS123", "EKCH", "EKCH").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "fresh", std::nullopt), "SAS123", "EKCH", "EKCH").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), "MISSING", "EKCH", "EKCH").text, "----");
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(true, nullptr, "SAS123", "EKCH", "EKCH").text.empty());
+    EXPECT_EQ(AMANGainLossHandler::Resolve(false, Snapshot(), "SAS123", "EKCH", "EKCH").text, "");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(false), "SAS123", "EKCH", "EKCH").text, "");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "stale"), "SAS123", "EKCH", "EKCH").text, "");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "disconnected"), "SAS123", "EKCH", "EKCH").text, "");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "fresh", std::nullopt), "SAS123", "EKCH", "EKCH").text, "");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), "MISSING", "EKCH", "EKCH").text, "");
 }
 
 TEST(AMANGainLossHandlerTest, DoesNotRequireBackendFlightIdentity) {
@@ -80,4 +81,44 @@ TEST(AMANGainLossHandlerTest, DoesNotRequireBackendFlightIdentity) {
     snapshot->authoritative = true;
     snapshot->byCallsign["SAS123"] = {.callsign = "SAS123", .seconds = 90, .dataStatus = "fresh"};
     EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH").text, "G02");
+}
+
+TEST(AMANGainLossHandlerTest, HidesGuidanceUnlessTrackedByMe) {
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(
+        true, Snapshot(), "SAS123", "EKCH", "EKCH", false, false, "EKCH_APP").text.empty());
+    EXPECT_EQ(AMANGainLossHandler::Resolve(
+        true, Snapshot(), "SAS123", "EKCH", "EKCH", false, true, "EKCH_APP").text, "G02");
+}
+
+TEST(AMANGainLossHandlerTest, PreservesFmpGuidanceForUntrackedAircraft) {
+    EXPECT_EQ(AMANGainLossHandler::Resolve(
+        true, Snapshot(), "SAS123", "EKCH", "EKCH", false, false, " ekdk_fmp ").text, "G02");
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(
+        true, Snapshot(), "SAS123", "EKCH", "EKCH", false, false, "EKDK_FMP_OBS").text.empty());
+}
+
+TEST(AMANGainLossHandlerTest, PreservesFmpUnavailablePlaceholders) {
+    for (const bool trackedByMe : {false, true}) {
+        for (const auto& snapshot : {Snapshot(false), Snapshot(true, "stale"), Snapshot(true, "disconnected"),
+                                    Snapshot(true, "fresh", std::nullopt),
+                                    std::shared_ptr<FlightStrips::aman::GainLossSnapshot>{}}) {
+            EXPECT_EQ(AMANGainLossHandler::Resolve(
+                true, snapshot, "SAS123", "EKCH", "EKCH", false, trackedByMe, "EKDK_FMP").text, "----");
+        }
+        EXPECT_EQ(AMANGainLossHandler::Resolve(
+            false, Snapshot(), "SAS123", "EKCH", "EKCH", false, trackedByMe, "EKDK_FMP").text, "----");
+        EXPECT_EQ(AMANGainLossHandler::Resolve(
+            true, Snapshot(), "MISSING", "EKCH", "EKCH", false, trackedByMe, "EKDK_FMP").text, "----");
+    }
+}
+
+TEST(AMANGainLossHandlerTest, PreservesFmpArrivalHoldAndTmaFilters) {
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(
+        true, Snapshot(), "SAS123", "ESSA", "EKCH", false, false, "EKDK_FMP").text.empty());
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(
+        true, Snapshot(), "SAS123", "EKCH", "EKCH", true, false, "EKDK_FMP").text.empty());
+    auto snapshot = Snapshot();
+    snapshot->byCallsign["SAS123"].insideTMA = true;
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(
+        true, snapshot, "SAS123", "EKCH", "EKCH", false, false, "EKDK_FMP").text.empty());
 }

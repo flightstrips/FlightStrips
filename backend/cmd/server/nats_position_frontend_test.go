@@ -46,6 +46,7 @@ type loadFrontend struct {
 	actions    []*loadFrontendAction
 	jobs       sync.WaitGroup
 	readerDone chan struct{}
+	readerErr  error
 }
 
 func (f *entrypointFixture) loadFrontend(node int, name string) *loadFrontend {
@@ -75,6 +76,13 @@ func (f *entrypointFixture) loadFrontend(node int, name string) *loadFrontend {
 		for {
 			kind, data, err := c.ReadMessage()
 			if err != nil {
+				if ctx.Err() == nil {
+					client.mu.Lock()
+					client.readerErr = fmt.Errorf("frontend node %d reader: %w", node, err)
+					revision := client.revision
+					client.mu.Unlock()
+					f.t.Logf("FRONTEND_READER_FAILURE node=%d time=%s entity_revision=%d session_revision=%d airport_revision=%d error=%v", node, time.Now().UTC().Format(time.RFC3339Nano), revision, last["session"], last["airport"], err)
+				}
 				return
 			}
 			frame := &pb.FrontendFrame{}
@@ -130,10 +138,22 @@ func (c *loadFrontend) currentRevision(ctx context.Context, newerThan uint64) (u
 		}
 		select {
 		case <-ctx.Done():
-			return 0, ctx.Err()
+			return 0, c.actionError(ctx.Err())
 		case <-changed:
 		}
 	}
+}
+
+// Preserve the original connection failure instead of reducing every later
+// scheduled action to an unexplained context cancellation. This never retries
+// a closed socket or changes the final durable-success assertion.
+func (c *loadFrontend) actionError(err error) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.readerErr != nil {
+		return fmt.Errorf("%w: %v", err, c.readerErr)
+	}
+	return err
 }
 
 func (c *loadFrontend) marked(logicalID string, value bool) {
@@ -174,7 +194,7 @@ func (c *loadFrontend) marked(logicalID string, value bool) {
 				c.writeMu.Unlock()
 			}
 			if err != nil {
-				action.Err = err.Error()
+				action.Err = c.actionError(err).Error()
 				c.mu.Lock()
 				delete(c.waiters, id)
 				c.mu.Unlock()
@@ -184,7 +204,7 @@ func (c *loadFrontend) marked(logicalID string, value bool) {
 			select {
 			case result = <-waiter:
 			case <-ctx.Done():
-				action.Err = ctx.Err().Error()
+				action.Err = c.actionError(ctx.Err()).Error()
 				c.mu.Lock()
 				delete(c.waiters, id)
 				c.mu.Unlock()
@@ -213,7 +233,7 @@ func (c *loadFrontend) finish() []*loadFrontendAction {
 }
 
 func TestLoadFrontendWaitsForNewRevisionAndDoesNotRetryOtherFailures(t *testing.T) {
-	for _, reason := range []string{"REVISION_CONFLICT", "UNAUTHORIZED"} {
+	for _, reason := range []string{"REVISION_CONFLICT", "UNAUTHORIZED", "CONNECTION_CLOSED"} {
 		t.Run(reason, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -283,11 +303,23 @@ func TestLoadFrontendWaitsForNewRevisionAndDoesNotRetryOtherFailures(t *testing.
 				t.Fatal(ctx.Err())
 			}
 			require.Equal(t, uint64(7), first.GetExpectedEntityRevision())
-			send(&pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_ActionResult{ActionResult: &pb.FrontendActionResult{RequestId: first.RequestId, Status: pb.CommandOutcome_FAILED, ReasonCode: reason}}})
+			resultReason := reason
+			if reason == "CONNECTION_CLOSED" {
+				resultReason = "REVISION_CONFLICT"
+			}
+			send(&pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_ActionResult{ActionResult: &pb.FrontendActionResult{RequestId: first.RequestId, Status: pb.CommandOutcome_FAILED, ReasonCode: resultReason}}})
 			select {
 			case command := <-commands:
 				t.Fatalf("retried without a strictly newer revision: %v", command)
 			case <-time.After(20 * time.Millisecond):
+			}
+			if reason == "CONNECTION_CLOSED" {
+				require.NoError(t, conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseTryAgainLater, "projection unavailable"), time.Now().Add(time.Second)))
+				select {
+				case <-client.readerDone:
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				}
 			}
 			if reason == "REVISION_CONFLICT" {
 				send(&pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_Delta{Delta: &pb.FrontendDelta{Aggregate: ref, AggregateRevision: 2, Changes: []*pb.EntityChange{{Key: "SAS199", Revision: 8, Operation: &pb.EntityChange_Upsert{Upsert: &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: &pb.Strip{Callsign: "SAS199"}}}}}}}}})
@@ -310,6 +342,11 @@ func TestLoadFrontendWaitsForNewRevisionAndDoesNotRetryOtherFailures(t *testing.
 			} else {
 				require.NotEmpty(t, actions[0].Err)
 				require.Len(t, actions[0].Attempts, 1)
+				if reason == "CONNECTION_CLOSED" {
+					require.Contains(t, actions[0].Err, "1013")
+					require.Contains(t, actions[0].Err, "projection unavailable")
+					require.Contains(t, actions[0].Err, "frontend node 0")
+				}
 			}
 		})
 	}

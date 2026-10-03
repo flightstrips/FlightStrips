@@ -2,11 +2,13 @@ package cluster
 
 import (
 	pb "FlightStrips/pkg/events/cluster"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/nats-io/nats.go"
 	"go.opentelemetry.io/otel"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -245,6 +247,9 @@ func translatePositionSources(message protoreflect.Message, tokens map[uint64]ui
 }
 
 func (w *PositionWriter) writeAsyncDurable(ctx context.Context, key string, value *pb.PositionValue) (uint64, error) {
+	if value == nil || value.SchemaVersion != 1 || value.SessionId != w.SessionID || value.OwnerEpoch != w.OwnerEpoch || value.SourceConnectionId != w.Connection || key != positionKey(w.SessionID, value.AircraftKey, w.OwnerEpoch) {
+		return 0, fmt.Errorf("invalid async position identity")
+	}
 	data, err := proto.Marshal(value)
 	if err != nil {
 		return 0, err
@@ -257,19 +262,74 @@ func (w *PositionWriter) writeAsyncDurable(ctx context.Context, key string, valu
 	expected := w.projection.asyncPositions.durable[key]
 	w.projection.mu.RUnlock()
 	var revision uint64
-	_, publishSpan := otel.Tracer("cluster").Start(ctx, "nats.positions.puback")
-	if expected == 0 {
-		revision, err = w.KV.Create(key, data)
-	} else {
-		revision, err = w.KV.Update(key, data, expected)
+	ambiguous := false
+	for {
+		if err = ctx.Err(); err != nil {
+			return 0, err
+		}
+		if ambiguous {
+			// Read only after an unknown acknowledgement. An unchanged baseline
+			// permits the same CAS again; a different advanced value never does.
+			entry, getErr := w.KV.Get(key)
+			if getErr == nil {
+				if entry == nil || entry.Revision() < expected {
+					return 0, fmt.Errorf("position durable revision regressed")
+				}
+				if entry.Revision() > expected {
+					if !bytes.Equal(entry.Value(), data) {
+						return 0, fmt.Errorf("position ambiguous publication was superseded")
+					}
+					revision = entry.Revision()
+					break
+				}
+			} else if errors.Is(getErr, nats.ErrKeyNotFound) {
+				if expected != 0 {
+					return 0, fmt.Errorf("position ambiguous publication was deleted: %w", getErr)
+				}
+			} else if asyncTransportRetryable(getErr) {
+				select {
+				case <-ctx.Done():
+					return 0, ctx.Err()
+				case <-time.After(100 * time.Millisecond):
+				}
+				continue
+			} else {
+				return 0, getErr
+			}
+			if err = w.async.waitPersistenceRetry(ctx, sessionRef(w.SessionID), w.OwnerEpoch); err != nil {
+				return 0, err
+			}
+			a, checkErr := w.async.checkpoint(sessionRef(w.SessionID))
+			if checkErr != nil {
+				continue
+			} // next retry validates integrity and the live lease
+			if a.Owner.Epoch != w.OwnerEpoch {
+				return 0, fmt.Errorf("async position owner generation changed")
+			}
+		}
+		_, publishSpan := otel.Tracer("cluster").Start(ctx, "nats.positions.puback")
+		if expected == 0 {
+			revision, err = w.KV.Create(key, data)
+		} else {
+			revision, err = w.KV.Update(key, data, expected)
+		}
+		publishSpan.End()
+		if err == nil {
+			break
+		}
+		if asyncTransportRetryable(err) || (ambiguous && errors.Is(err, nats.ErrKeyExists)) {
+			ambiguous = true
+			continue
+		}
+		return 0, err
 	}
-	publishSpan.End()
-	if err == nil {
-		w.revisionMu.Lock()
-		w.revisions[key] = revision
-		w.revisionMu.Unlock()
+	if revision == 0 {
+		return 0, fmt.Errorf("invalid position acknowledgement")
 	}
-	return revision, err
+	w.revisionMu.Lock()
+	w.revisions[key] = revision
+	w.revisionMu.Unlock()
+	return revision, nil
 }
 
 func (p *Projection) checkAsyncPositionReplayLocked(key string, value *pb.PositionValue, revision uint64) error {

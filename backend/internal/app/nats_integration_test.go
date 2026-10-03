@@ -25,6 +25,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -202,7 +203,7 @@ func (s *runtimeSocket) send(t *testing.T, frame proto.Message) {
 	require.NoError(t, err)
 	require.NoError(t, s.conn.WriteMessage(websocket.BinaryMessage, data))
 }
-func (f *runtimeFixture) socket(node int, cid, callsign, position string) *runtimeSocket {
+func (f *runtimeFixture) socket(node int, cid, callsign, position string, observer ...bool) *runtimeSocket {
 	f.t.Helper()
 	dialer := websocket.Dialer{Subprotocols: []string{euroscopebinary.Subprotocol}}
 	conn, _, err := dialer.Dial("ws"+strings.TrimPrefix(f.servers[node].URL, "http")+"/euroscopeEvents", nil)
@@ -210,7 +211,7 @@ func (f *runtimeFixture) socket(node int, cid, callsign, position string) *runti
 	f.t.Cleanup(func() { _ = conn.Close() })
 	s := &runtimeSocket{conn: conn, cid: cid, node: f.apps[node].natsRuntime.owner.NodeID}
 	s.send(f.t, &es.Envelope{Event: &es.Envelope_Token{Token: &es.TokenEvent{Token: cid, ProtocolRevision: 2}}})
-	s.send(f.t, &es.Envelope{Event: &es.Envelope_Login{Login: &es.LoginEvent{Airport: "EKCH", Connection: f.name, Callsign: callsign, Position: position}}})
+	s.send(f.t, &es.Envelope{Event: &es.Envelope_Login{Login: &es.LoginEvent{Airport: "EKCH", Connection: f.name, Callsign: callsign, Position: position, Observer: len(observer) > 0 && observer[0]}}})
 	go func() {
 		for {
 			kind, data, e := conn.ReadMessage()
@@ -375,4 +376,49 @@ func TestBuildNATSTwoApplicationsBinaryHTTPAndTakeover(t *testing.T) {
 	reply := f.apps[old].natsRuntime.Route(context.Background(), &pb.CommandRequest{CommandId: uuid.NewString(), Aggregate: sessionNATSRef(f.session)})
 	require.Equal(t, pb.CommandReply_UNAVAILABLE, reply.Status)
 	require.True(t, f.apps[old].natsRuntime.nc.IsClosed())
+}
+
+func TestBuildNATSAllSocketsReportRunwaysWithoutReplacingMasterConfiguration(t *testing.T) {
+	f := newRuntimeFixture(t, nil)
+	master := f.socket(0, "111111", "EKCH_A_TWR", "118.100")
+	// An initial runway report may arrive before the first operational sync.
+	f.send(master, &es.Envelope{Event: &es.Envelope_Runway{Runway: &es.RunwayEvent{Runways: []*es.Runway{{Name: "22R", Departure: true}}}}})
+	f.sync(master)
+	slave := f.socket(1, "222222", "EKCH_GND", "121.600")
+	observer := f.socket(1, "333333", "EKCH_OBS", "", true)
+	for _, socket := range []*runtimeSocket{slave, observer} {
+		f.send(socket, &es.Envelope{Event: &es.Envelope_Runway{Runway: &es.RunwayEvent{Runways: []*es.Runway{{Name: "04L", Departure: true}}}}})
+		f.await("non-master receives runway mismatch without disconnection", func() bool {
+			socket.mu.Lock()
+			defer socket.mu.Unlock()
+			require.NoError(t, socket.err)
+			for _, frame := range socket.frames {
+				if alert := frame.GetRunwayMismatchAlert(); alert != nil {
+					require.Equal(t, []string{"22R"}, alert.ExpectedDeparture)
+					require.Equal(t, []string{"04L"}, alert.CurrentDeparture)
+					return true
+				}
+			}
+			return false
+		})
+	}
+	canonical := f.state().Indexes[pb.EntityKind_SESSION][fmt.Sprint(f.session)].Value.GetSession()
+	require.Equal(t, []*pb.Runway{{Name: "22R", Departure: true}, {Name: "22L", Arrival: true}}, canonical.Runways)
+	f.send(master, &es.Envelope{Event: &es.Envelope_Runway{Runway: &es.RunwayEvent{Runways: []*es.Runway{{Name: "18", Departure: true}}}}})
+	f.await("master change re-evaluates both remote reports", func() bool {
+		for _, socket := range []*runtimeSocket{slave, observer} {
+			socket.mu.Lock()
+			found := false
+			for _, frame := range socket.frames {
+				if alert := frame.GetRunwayMismatchAlert(); alert != nil && slices.Equal(alert.ExpectedDeparture, []string{"18"}) {
+					found = true
+				}
+			}
+			socket.mu.Unlock()
+			if !found {
+				return false
+			}
+		}
+		return true
+	})
 }

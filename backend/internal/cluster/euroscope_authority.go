@@ -22,7 +22,7 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 	case *euroscope.Envelope_Sync:
 		masterObservation, requireSync = true, false
 	case *euroscope.Envelope_AircraftPositionUpdate, *euroscope.Envelope_AircraftDisconnect,
-		*euroscope.Envelope_StripUpdate, *euroscope.Envelope_Runway,
+		*euroscope.Envelope_StripUpdate,
 		*euroscope.Envelope_Squawk, *euroscope.Envelope_RequestedAltitude,
 		*euroscope.Envelope_ClearedAltitude, *euroscope.Envelope_CommunicationType,
 		*euroscope.Envelope_GroundState, *euroscope.Envelope_ClearedFlag,
@@ -77,6 +77,11 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 		return fmt.Errorf("stale session owner epoch")
 	}
 	switch envelope.GetEvent().(type) {
+	case *euroscope.Envelope_Runway:
+		if envelope.SessionId != sessionID || envelope.OwnerEpoch != state.Owner.Epoch {
+			return fmt.Errorf("runway report is missing current session terms")
+		}
+		return nil
 	case *euroscope.Envelope_Sync:
 		if envelope.SessionId != sessionID || envelope.OwnerEpoch != state.Owner.Epoch {
 			return fmt.Errorf("sync is missing current session terms")
@@ -84,7 +89,7 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 		return p.RequireMasterInbound(sessionID, connectionID, cid, envelope.MasterEpoch, false)
 	case *euroscope.Envelope_AircraftPositionUpdate,
 		*euroscope.Envelope_AircraftDisconnect,
-		*euroscope.Envelope_StripUpdate, *euroscope.Envelope_Runway,
+		*euroscope.Envelope_StripUpdate,
 		*euroscope.Envelope_Squawk, *euroscope.Envelope_RequestedAltitude,
 		*euroscope.Envelope_ClearedAltitude, *euroscope.Envelope_CommunicationType,
 		*euroscope.Envelope_GroundState, *euroscope.Envelope_ClearedFlag,

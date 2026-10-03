@@ -223,7 +223,6 @@ namespace FlightStrips::websocket {
                 case EVENT_AIRCRAFT_POSITION_UPDATE:
                 case EVENT_AIRCRAFT_DISCONNECT:
                 case EVENT_STRIP_UPDATE:
-                case EVENT_RUNWAY:
                 case EVENT_SQUAWK:
                 case EVENT_REQUESTED_ALTITUDE:
                 case EVENT_CLEARED_ALTITUDE:

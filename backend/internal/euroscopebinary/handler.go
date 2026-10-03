@@ -190,11 +190,37 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		return socketFailure{websocket.ClosePolicyViolation}
 	}
 	writer := &socketWriter{conn: conn}
+	runways := &socketRunwayReports{}
+	checkRunways := func() error {
+		state, err := h.Projection.ReadRunwayConfiguration(session.Id)
+		if err != nil {
+			return err
+		}
+		if alert := runways.evaluate(state, lease.Client.ConnectionId); alert != nil {
+			return writer.send(alert)
+		}
+		return nil
+	}
 	callbacks := cluster.LocalSessionSocket{
 		OnInitial: func(state, _ *cluster.Aggregate) error {
 			return writer.send(backendSync(state))
 		},
 		OnDelta: func(delta *pb.FrontendDelta) error {
+			// Session changes include canonical runway updates from the master.
+			if len(delta.Changes) == 0 {
+				if err := checkRunways(); err != nil {
+					return err
+				}
+			} else {
+				for _, change := range delta.Changes {
+					if change.GetUpsert().GetSession() != nil {
+						if err := checkRunways(); err != nil {
+							return err
+						}
+						break
+					}
+				}
+			}
 			if h.RenderDelta != nil {
 				for _, frame := range h.RenderDelta(delta) {
 					if err := writer.send(frame); err != nil {
@@ -304,6 +330,21 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		if frame.GetAircraftPositionUpdate() == nil || independent == "" {
 			if err := validateIngress(ctx, h.Projection, session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
 				return err
+			}
+		}
+		if report := frame.GetRunway(); report != nil {
+			runways.replace(report)
+			state, err := h.Projection.ReadRunwayConfiguration(session.Id)
+			if err != nil {
+				return err
+			}
+			// All authenticated sockets report configuration. Only the current
+			// master with current terms may change the canonical session value.
+			if !runwayReportIsMaster(state, lease.Client.ConnectionId, frame.MasterEpoch) {
+				if err := checkRunways(); err != nil {
+					return err
+				}
+				continue
 			}
 		}
 		if frame.GetCommandResult() != nil {

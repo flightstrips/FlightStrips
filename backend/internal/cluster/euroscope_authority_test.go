@@ -96,3 +96,36 @@ func TestEuroScopeAuthorityDoesNotCombineDifferentPublishedTerms(t *testing.T) {
 		require.Error(t, p.ValidateEuroScopeInbound(1, "connection", "controller", f), "mixed terms must never acquire authority")
 	}
 }
+
+func TestEuroScopeRunwayReportsAllowNonMasterAndObserverSockets(t *testing.T) {
+	p, f := authorityProjection()
+	putTestPresence(p, &pb.ClientPresence{ConnectionId: "observer", NodeId: "node-a", SessionId: 1, Cid: "observer-cid", Kind: pb.ClientPresence_EUROSCOPE, Observer: true})
+	f.Event = &es.Envelope_Runway{Runway: &es.RunwayEvent{}}
+	f.MasterEpoch = 0
+	p.states["fs.v1.state.session.1"].Sync = nil
+	require.NoError(t, p.ValidateEuroScopeInbound(1, "observer", "observer-cid", f))
+	require.Error(t, p.ValidateEuroScopeInbound(1, "observer", "wrong-cid", f))
+	require.Error(t, p.ValidateEuroScopeInbound(1, "missing", "observer-cid", f))
+	f.OwnerEpoch = 0
+	require.Error(t, p.ValidateEuroScopeInbound(1, "observer", "observer-cid", f))
+	f.OwnerEpoch = 1
+	require.Error(t, p.ValidateEuroScopeInbound(1, "observer", "observer-cid", f))
+	f.OwnerEpoch = 2
+	f.SessionId = 0
+	require.Error(t, p.ValidateEuroScopeInbound(1, "observer", "observer-cid", f))
+}
+func TestReadRunwayConfigurationCopiesOnlyCoherentDetachedSessionState(t *testing.T) {
+	p, _ := authorityProjection()
+	state := p.states["fs.v1.state.session.1"]
+	session := &pb.Session{Id: 1, Runways: []*pb.Runway{{Name: "22L", Arrival: true}}}
+	state.Entities["session:1"] = &pb.EntitySnapshot{Key: "1", Value: &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: session}}}
+	state.rebuildIndexes()
+	copy, err := p.ReadRunwayConfiguration(1)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), copy.Owner.Epoch)
+	require.Equal(t, uint64(3), copy.Master.Epoch)
+	require.Equal(t, "connection", copy.Sync.ConnectionId)
+	require.Len(t, copy.Entities, 1)
+	copy.Indexes[pb.EntityKind_SESSION]["1"].Value.GetSession().Runways[0].Name = "04R"
+	require.Equal(t, "22L", session.Runways[0].Name)
+}

@@ -17,6 +17,9 @@ func (c *DeadlineCandidate) AdmitOperational(ctx context.Context, id int32, conn
 		return err
 	}
 	if runway := frame.GetRunway(); runway != nil {
+		if err := c.Router.Projection.RequireMasterInbound(id, connection, cid, frame.MasterEpoch, false); err != nil {
+			return err
+		}
 		patch := &pb.Session{Id: id}
 		for _, v := range runway.Runways {
 			if v == nil {
@@ -31,6 +34,9 @@ func (c *DeadlineCandidate) AdmitOperational(ctx context.Context, id int32, conn
 		writer := c.Router.Writer
 		writer.Plan = func(ctx context.Context, req *pb.CommandRequest, state *cluster.Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
 			if err := c.Router.Projection.ValidateEuroScopeInbound(id, connection, cid, frame); err != nil {
+				return nil, pb.CommandReply_UNAUTHORIZED, 0, err
+			}
+			if err := c.Router.Projection.RequireMasterInbound(id, connection, cid, frame.MasterEpoch, false); err != nil {
 				return nil, pb.CommandReply_UNAUTHORIZED, 0, err
 			}
 			return planRunwayObservation(ctx, req, state, key, c.Planner)

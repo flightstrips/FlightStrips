@@ -503,7 +503,7 @@ TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterConditionsLost_NextConnectUse
     svc->SimulateConnected();
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     state.relevant_airport = "";          // lose airport while connected
-    svc->OnTimer(1);                      // → Disconnect()
+    svc->OnTimer(1);                      // â†’ Disconnect()
 
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
     state.relevant_airport = "EKCH";     // conditions restored
@@ -532,7 +532,7 @@ TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterServerDrop_ConnectUsesFastDel
     EXPECT_LE(*delay, 5);
 }
 
-// Primary selected after ≥30 s online: connect immediately.
+// Primary selected after â‰¥30 s online: connect immediately.
 TEST_F(WebSocketServiceReconnectTest, OnTimer_PrimarySelectedAfter30sOnline_ConnectsImmediately) {
     state.relevant_airport = "EKCH";
     state.connection_type  = CONNECTION_TYPE_DIRECT;
@@ -784,12 +784,12 @@ TEST_F(WebSocketServiceOnTimerTest, IsPendingConnect_Initial_ReturnsFalse) {
     EXPECT_FALSE(svc->IsPendingConnect());
 }
 
-TEST_F(WebSocketServiceOnTimerTest, SendEvent_WhenObserver_SuppressesMasterRunwayObservation) {
+TEST_F(WebSocketServiceOnTimerTest, SendEvent_WhenObserver_AllowsRunwayValidationOnly) {
     state.observer = true;
     svc->SetSessionTerms(1, 2, 3);
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
 
-    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
     svc->SendEvent(RunwayEvent({}));
 }
 
@@ -797,7 +797,7 @@ TEST_F(WebSocketServiceOnTimerTest, SlaveRoleWithCurrentEpochsCannotSendMasterOb
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     svc->SetSessionTerms(1, 4, 5);
     svc->SetSessionState(STATE_SLAVE);
-    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
     // Login delivers the slave role before the election's master role. The
     // slave handler reports runways; that must not close the new socket.
     svc->SendEvent(RunwayEvent({}));
@@ -808,7 +808,7 @@ TEST_F(WebSocketServiceOnTimerTest, SlaveRoleWithCurrentEpochsCannotSendMasterOb
     svc->SendEvent(SyncEvent{{}, {}, {}, {}});
     ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(mockImpl));
     svc->SetSessionState(STATE_SLAVE);
-    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
     svc->SendEvent(RunwayEvent({}));
     svc->SendEvent(SyncEvent{{}, {}, {}, {}});
 }

@@ -30,15 +30,16 @@ func (r VatsimAirportReconciler) Reconcile(ctx context.Context, airport string) 
 	if checkpoint == nil || page == nil || page.GetVatsim() == nil || revision == 0 || checkpoint.Sha256 == "" {
 		return fmt.Errorf("committed VATSIM generation unavailable")
 	}
-	if err := validateProviderPage(page); err != nil {
-		return fmt.Errorf("invalid VATSIM generation: %w", err)
-	}
+	// CheckpointRevisionFor already verifies the entire typed page. Share this
+	// detached generation across the pass instead of loading it per arrival.
+	generation := &vatsimGeneration{checkpoint: checkpoint, revision: revision, page: page.GetVatsim(), flights: make(map[string]*pb.VatsimFlight)}
 	board, err := r.Worker.State.Read(ctx, airport)
 	if err != nil {
 		return err
 	}
 	present := map[string]bool{}
 	for _, flight := range page.GetVatsim().Flights {
+		generation.flights[flight.Callsign] = flight
 		if flight != nil && flight.FlightPlan != nil && strings.EqualFold(flight.FlightPlan.Destination, airport) {
 			present[flight.Callsign] = true
 		}
@@ -56,7 +57,7 @@ func (r VatsimAirportReconciler) Reconcile(ctx context.Context, airport string) 
 	sort.Strings(callsigns)
 	var failures []error
 	for _, callsign := range callsigns {
-		reply := r.Worker.ObserveMissingVatsim(ctx, airport, callsign, r.EvaluateMissing)
+		reply := r.Worker.observeMissingVatsim(ctx, airport, callsign, r.EvaluateMissing, generation)
 		if reply == nil || reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
 			failures = append(failures, fmt.Errorf("retract %s: %v", callsign, reply))
 		}
@@ -67,7 +68,7 @@ func (r VatsimAirportReconciler) Reconcile(ctx context.Context, airport string) 
 	}
 	sort.Strings(callsigns)
 	for _, callsign := range callsigns {
-		reply := r.Worker.ObserveVatsim(ctx, airport, callsign, r.EvaluatePresent)
+		reply := r.Worker.observeVatsim(ctx, airport, callsign, r.EvaluatePresent, generation)
 		if reply == nil || reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
 			failures = append(failures, fmt.Errorf("observe %s: %v", callsign, reply))
 		}

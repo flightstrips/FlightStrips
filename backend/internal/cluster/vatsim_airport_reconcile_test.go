@@ -86,3 +86,42 @@ func TestVatsimAirportReconcilerRetractsMissingArrivalAndReplays(t *testing.T) {
 		t.Fatalf("retracted board: %+v %v", board, err)
 	}
 }
+
+func TestVatsimAirportReconcilerPinsVerifiedGenerationForAllArrivals(t *testing.T) {
+	ctx := context.Background()
+	store, objects, source := navFixture(t)
+	at := timestamppb.Now()
+	page := &pb.ProviderPage{Provider: "vatsim", Resource: "network-data/v3", Parsed: &pb.ProviderPage_Vatsim{Vatsim: &pb.VatsimPage{SnapshotAt: at, Flights: []*pb.VatsimFlight{
+		{Cid: "12345", Callsign: "SAS123", State: "online", FlightPlan: &pb.VatsimFlightPlan{Origin: "EDDF", Destination: "EKCH", Revision: 1}},
+		{Cid: "23456", Callsign: "SAS456", State: "online", FlightPlan: &pb.VatsimFlightPlan{Origin: "EDDF", Destination: "EKCH", Revision: 1}},
+	}}}}
+	name, sha, err := source.PublishProvider(page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply, err := source.PutCheckpointFor(ctx, globalRef(), uuid.NewString(), &pb.ProviderCheckpoint{Provider: "vatsim", Resource: "network-data/v3", ObjectName: name, Sha256: sha}); err != nil || reply.Status != pb.CommandReply_COMMITTED {
+		t.Fatalf("checkpoint: %v %v", reply, err)
+	}
+	worker := AmanCandidateWorker{Source: source, State: AmanAdapter{Writer: Writer{Store: store, NodeID: "node-a"}}}
+	calls := 0
+	evaluate := func(_ context.Context, board AmanBoard, flight *pb.VatsimFlight, observation *pb.VatsimObservation, _ *pb.CommandRequest) (AmanTransition, error) {
+		calls++
+		if !proto.Equal(observation.ObservedAt, at) {
+			t.Fatal("evaluator mutated another arrival's source timestamp")
+		}
+		// Losing object availability during this pass must not split its source
+		// generation. Mutations at the evaluator edge must remain detached.
+		objects.remove(name)
+		flight.Callsign = "MUTATED"
+		observation.ObservedAt.Seconds++
+		revision := board.Airport.GetRevision() + 1
+		return AmanTransition{Airport: &pb.AmanAirport{Airport: "EKCH", Revision: revision, PolicyVersion: "v1", GeneratedAt: at}, Flights: board.Flights}, nil
+	}
+	r := VatsimAirportReconciler{Worker: worker, EvaluatePresent: evaluate, EvaluateMissing: evaluate}
+	if err := r.Reconcile(ctx, "EKCH"); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("evaluated %d arrivals", calls)
+	}
+}

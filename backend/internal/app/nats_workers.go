@@ -216,6 +216,7 @@ func (r *natsRuntime) assembleProviders(cfg Config, deps Dependencies, transceiv
 				_ = r.owner.Track(ref)
 				if !r.owner.CanWrite(ref) {
 					delete(epochs, icao)
+					delete(r.vatsimPasses, icao)
 					continue
 				}
 				owner, e := r.projection.ReadOwner(ref)

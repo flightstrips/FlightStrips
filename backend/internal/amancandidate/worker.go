@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"google.golang.org/protobuf/proto"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -35,8 +36,10 @@ type Options struct {
 	WindForAirport    func(string, time.Time) predictor.WindProfileReader
 }
 type Worker struct {
-	options   Options
-	candidate cluster.AmanCandidateWorker
+	options      Options
+	candidate    cluster.AmanCandidateWorker
+	vatsimMu     sync.Mutex
+	vatsimInputs *acceptedVatsimGeneration
 }
 
 func New(options Options) (*Worker, error) {

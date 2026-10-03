@@ -21,6 +21,45 @@ type acceptedInputs struct {
 	vatsimStatus aman.DataStatus
 }
 
+// Retain one verified generation's lookup model, private to this worker.
+// Every evaluation still reads checkpoint metadata through the readiness gate.
+type acceptedVatsimGeneration struct {
+	objectName, digest string
+	snapshot           vatsim.Snapshot
+	arrivals           []string
+}
+
+func (w *Worker) acceptedVatsim(ctx context.Context) (*pb.ProviderCheckpoint, *acceptedVatsimGeneration, error) {
+	checkpoint, _, err := w.options.Source.CheckpointMetadataFor(ctx, globalRef(), "vatsim", "network-data/v3")
+	if err != nil || checkpoint == nil {
+		return checkpoint, nil, err
+	}
+	w.vatsimMu.Lock()
+	defer w.vatsimMu.Unlock()
+	if cached := w.vatsimInputs; cached != nil && cached.objectName == checkpoint.ObjectName && cached.digest == checkpoint.Sha256 {
+		return checkpoint, cached, nil
+	}
+	if checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
+		return checkpoint, nil, nil
+	}
+	page, err := w.options.Source.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, "vatsim", "network-data/v3")
+	if err != nil {
+		return nil, nil, err
+	}
+	snapshot, err := vatsim.SnapshotFromPage(page)
+	if err != nil {
+		return nil, nil, err
+	}
+	value := &acceptedVatsimGeneration{objectName: checkpoint.ObjectName, digest: checkpoint.Sha256, snapshot: snapshot}
+	for _, flight := range page.GetVatsim().Flights {
+		if flight.FlightPlan != nil && strings.EqualFold(flight.FlightPlan.Destination, string(w.options.Terminal.Airport)) {
+			value.arrivals = append(value.arrivals, flight.Callsign)
+		}
+	}
+	w.vatsimInputs = value
+	return checkpoint, value, nil
+}
+
 func (i *acceptedInputs) ActiveArrivalRunway(context.Context, string) (string, error) {
 	active := map[string]bool{}
 	for _, s := range i.sessions {
@@ -65,33 +104,27 @@ func (w *Worker) acceptedInputs(ctx context.Context, airport string, board clust
 		}
 	}
 	if w.options.SourceMode.UsesVATSIM() {
-		checkpoint, page, _, err := w.options.Source.CheckpointRevisionFor(ctx, globalRef(), "vatsim", "network-data/v3")
+		checkpoint, generation, err := w.acceptedVatsim(ctx)
 		if err != nil {
 			return nil, err
 		}
-		if identity != nil && (checkpoint == nil || checkpoint.Sha256 != identity.Digest || page == nil || !page.GetVatsim().SnapshotAt.AsTime().Equal(identity.ObservedAt.AsTime())) {
+		if identity != nil && (checkpoint == nil || checkpoint.Sha256 != identity.Digest || generation == nil || !generation.snapshot.Timestamp.Equal(identity.ObservedAt.AsTime())) {
 			return nil, fmt.Errorf("VATSIM generation changed during evaluation")
 		}
-		if page != nil {
-			snapshot, err := vatsim.SnapshotFromPage(page)
-			if err != nil {
-				return nil, err
-			}
+		if generation != nil {
+			snapshot := generation.snapshot
 			result.vatsimAt = snapshot.Timestamp
 			result.vatsimStatus = aman.DataFresh
 			if at.Sub(snapshot.Timestamp) > w.options.VatsimStaleAfter || at.Before(snapshot.Timestamp) {
 				result.vatsimStatus = aman.DataStale
 			}
-			for _, typed := range page.GetVatsim().Flights {
-				if !strings.EqualFold(typed.FlightPlan.Destination, airport) {
-					continue
-				}
-				flight, found := snapshot.FlightByCallsign(typed.Callsign)
+			for _, callsign := range generation.arrivals {
+				flight, found := snapshot.FlightByCallsign(callsign)
 				if !found {
 					return nil, fmt.Errorf("VATSIM lookup unavailable")
 				}
 				var prior *aman.FlightObservation
-				if p, ok := previous[typed.Callsign][aman.ObservationProviderVATSIM]; ok {
+				if p, ok := previous[callsign][aman.ObservationProviderVATSIM]; ok {
 					copy := p
 					prior = &copy
 				}

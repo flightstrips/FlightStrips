@@ -56,6 +56,16 @@ the cache does not select ownership or retain mutable session state. Restart or
 eviction causes a fresh checksum/strict Protobuf verification. Completed polling
 slots and VATSIM observations check durable outcomes before loading payloads.
 
+The one-second airport supervisor checks VATSIM checkpoint metadata. After a
+successful complete pass, the same checkpoint revision/digest and airport owner
+epoch skip the payload scan. Failed passes retry; restart, ownership loss or a
+new epoch discards this local progress. Durable per-observation outcomes still
+fence replay. One verified page and callsign index serve all arrivals in a pass.
+The AMAN worker also retains only the latest generation's immutable VATSIM
+lookup model; each evaluation checks accepted checkpoint metadata before reuse.
+Timed AMAN reconciliation and source freshness evaluation keep their configured
+intervals, independently of this optimization.
+
 Open-Meteo NATS resources use `gfs-grid-v1/<sha256>`: hash the ordered list of
 existing provider cache keys (0.25-degree rounded latitude/longitude and UTC
 forecast hour), separated by U+001F. Sample order and count are preserved.

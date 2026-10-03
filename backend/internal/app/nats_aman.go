@@ -49,7 +49,7 @@ func (r *natsRuntime) planAMAN(ctx context.Context, req *pb.CommandRequest, stat
 func (r *natsRuntime) reconcileAMAN(ctx context.Context, airport string, now time.Time, cfg aman.RuntimeConfig) error {
 	var sourceErr error
 	if cfg.SourceMode.UsesVATSIM() {
-		sourceErr = r.aman.ReconcileVatsim(ctx, airport)
+		sourceErr = r.reconcileVatsimGeneration(ctx, airport)
 	}
 	interval := cfg.ReconciliationInterval
 	if interval <= 0 {
@@ -60,6 +60,46 @@ func (r *natsRuntime) reconcileAMAN(ctx context.Context, airport string, now tim
 		interval = cfg.SurveillanceInterval
 	}
 	return errors.Join(sourceErr, natsReply(r.aman.Reconcile(ctx, airport, slot(now, interval))))
+}
+
+// Only the single airport supervisor accesses this advisory cache. Durable
+// per-observation outcomes remain the authority after restart or takeover.
+type vatsimPass struct {
+	epoch, revision uint64
+	digest          string
+}
+
+func (r *natsRuntime) reconcileVatsimGeneration(ctx context.Context, airport string) error {
+	ref := airportNATSRef(airport)
+	if !r.owner.CanWrite(ref) {
+		delete(r.vatsimPasses, airport)
+		return fmt.Errorf("VATSIM airport owner unavailable")
+	}
+	owner, err := r.projection.ReadOwner(ref)
+	if err != nil {
+		return err
+	}
+	checkpoint, revision, err := r.source.CheckpointMetadataFor(ctx, globalNATSRef(), "vatsim", "network-data/v3")
+	if err != nil {
+		return err
+	}
+	if checkpoint == nil || revision == 0 || checkpoint.Sha256 == "" {
+		return fmt.Errorf("committed VATSIM generation unavailable")
+	}
+	pass := vatsimPass{epoch: owner.GetEpoch(), revision: revision, digest: checkpoint.Sha256}
+	if r.vatsimPasses[airport] == pass {
+		return nil
+	}
+	if err := r.aman.ReconcileVatsim(ctx, airport); err != nil {
+		return err
+	}
+	// A successful pass alone may be skipped. Failures retry every second;
+	// changing source identity or owner epoch always triggers another pass.
+	if r.vatsimPasses == nil {
+		r.vatsimPasses = make(map[string]vatsimPass)
+	}
+	r.vatsimPasses[airport] = pass
+	return nil
 }
 
 type natsWind struct {

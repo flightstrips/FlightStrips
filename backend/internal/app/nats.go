@@ -77,6 +77,7 @@ type natsRuntime struct {
 	closing        atomic.Bool
 	workerErr      atomic.Pointer[error]
 	metrics        runtimeMetrics
+	vatsimPasses   map[string]vatsimPass
 }
 
 func globalNATSRef() *pb.AggregateRef {

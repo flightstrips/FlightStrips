@@ -8,6 +8,7 @@ import (
 
 	pb "FlightStrips/pkg/events/cluster"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // AmanCandidateWorker consumes a committed global VATSIM generation on the
@@ -23,10 +24,30 @@ type AmanObservationEvaluator func(context.Context, AmanBoard, *pb.VatsimFlight,
 type AmanReconciliationEvaluator func(context.Context, AmanBoard, time.Time) (AmanTransition, error)
 
 func (w AmanCandidateWorker) ObserveVatsim(ctx context.Context, icao, callsign string, evaluate AmanObservationEvaluator) *pb.CommandReply {
+	return w.observeVatsim(ctx, icao, callsign, evaluate, nil)
+}
+
+// vatsimGeneration is private to this package: only a verified provider read
+// may construct a batch. The batch keeps all arrivals on one source identity.
+type vatsimGeneration struct {
+	checkpoint *pb.ProviderCheckpoint
+	revision   uint64
+	page       *pb.VatsimPage
+	flights    map[string]*pb.VatsimFlight
+}
+
+func (w AmanCandidateWorker) observeVatsim(ctx context.Context, icao, callsign string, evaluate AmanObservationEvaluator, generation *vatsimGeneration) *pb.CommandReply {
 	if evaluate == nil || icao == "" || icao != strings.ToUpper(icao) || callsign == "" {
 		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT}
 	}
-	checkpoint, revision, err := w.Source.CheckpointMetadataFor(ctx, globalRef(), "vatsim", "network-data/v3")
+	var checkpoint *pb.ProviderCheckpoint
+	var revision uint64
+	var err error
+	if generation != nil {
+		checkpoint, revision = generation.checkpoint, generation.revision
+	} else {
+		checkpoint, revision, err = w.Source.CheckpointMetadataFor(ctx, globalRef(), "vatsim", "network-data/v3")
+	}
 	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 	}
@@ -43,18 +64,21 @@ func (w AmanCandidateWorker) ObserveVatsim(ctx context.Context, icao, callsign s
 	if prior := w.State.Writer.Outcome(ctx, airportRef(icao), commandID, &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "vatsim-adapter"}); prior.Status != pb.CommandReply_NOT_FOUND {
 		return prior
 	}
-	page, err := w.Source.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, "vatsim", "network-data/v3")
-	if err != nil || page.GetVatsim() == nil {
-		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: fmt.Sprintf("committed VATSIM generation unavailable: %v", err)}
-	}
-	if err := validateProviderPage(page); err != nil {
-		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}
-	}
 	var flight *pb.VatsimFlight
-	for _, item := range page.GetVatsim().Flights {
-		if item.Callsign == strings.ToUpper(callsign) {
-			flight = item
-			break
+	var page *pb.VatsimPage
+	if generation != nil {
+		page, flight = generation.page, generation.flights[strings.ToUpper(callsign)]
+	} else {
+		provider, readErr := w.Source.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, "vatsim", "network-data/v3")
+		if readErr != nil || provider.GetVatsim() == nil {
+			return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: fmt.Sprintf("committed VATSIM generation unavailable: %v", readErr)}
+		}
+		page = provider.GetVatsim()
+		for _, item := range page.Flights {
+			if item.Callsign == strings.ToUpper(callsign) {
+				flight = item
+				break
+			}
 		}
 	}
 	if flight == nil || flight.FlightPlan == nil || !strings.EqualFold(flight.FlightPlan.Destination, icao) {
@@ -68,7 +92,7 @@ func (w AmanCandidateWorker) ObserveVatsim(ctx context.Context, icao, callsign s
 	if board.Airport != nil {
 		prior = board.Airport.Revision
 	}
-	observation := &pb.VatsimObservation{ProviderId: observationID, Callsign: flight.Callsign, Digest: checkpoint.Sha256, ObservedAt: page.GetVatsim().SnapshotAt}
+	observation := &pb.VatsimObservation{ProviderId: observationID, Callsign: flight.Callsign, Digest: checkpoint.Sha256, ObservedAt: proto.Clone(page.SnapshotAt).(*timestamppb.Timestamp)}
 	request, err := AmanVatsimObservationRequest(icao, observation, prior)
 	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}
@@ -86,20 +110,46 @@ func (w AmanCandidateWorker) ObserveVatsim(ctx context.Context, icao, callsign s
 // absent from a committed global generation. The evaluator receives a nil
 // flight and must retain or remove operational state according to AMAN policy.
 func (w AmanCandidateWorker) ObserveMissingVatsim(ctx context.Context, icao, callsign string, evaluate AmanObservationEvaluator) *pb.CommandReply {
+	return w.observeMissingVatsim(ctx, icao, callsign, evaluate, nil)
+}
+
+func (w AmanCandidateWorker) observeMissingVatsim(ctx context.Context, icao, callsign string, evaluate AmanObservationEvaluator, generation *vatsimGeneration) *pb.CommandReply {
 	if evaluate == nil || icao == "" || icao != strings.ToUpper(icao) || callsign == "" || callsign != strings.ToUpper(callsign) {
 		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT}
 	}
-	checkpoint, page, revision, err := w.Source.CheckpointRevisionFor(ctx, globalRef(), "vatsim", "network-data/v3")
+	var checkpoint *pb.ProviderCheckpoint
+	var revision uint64
+	var err error
+	if generation != nil {
+		checkpoint, revision = generation.checkpoint, generation.revision
+	} else {
+		checkpoint, revision, err = w.Source.CheckpointMetadataFor(ctx, globalRef(), "vatsim", "network-data/v3")
+	}
 	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 	}
-	if checkpoint == nil || page == nil || page.GetVatsim() == nil || revision == 0 || checkpoint.Sha256 == "" {
+	if checkpoint == nil || revision == 0 || checkpoint.Sha256 == "" {
 		return &pb.CommandReply{Status: pb.CommandReply_NOT_FOUND, Detail: "committed VATSIM generation unavailable"}
 	}
-	if err := validateProviderPage(page); err != nil {
+	observationID := fmt.Sprintf("%s/%020d/%s/%s/missing", icao, revision, callsign, checkpoint.Sha256)
+	commandID, err := AmanObservationCommandID("vatsim", observationID)
+	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}
 	}
-	for _, flight := range page.GetVatsim().Flights {
+	if outcome := w.State.Writer.Outcome(ctx, airportRef(icao), commandID, &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "vatsim-adapter"}); outcome.Status != pb.CommandReply_NOT_FOUND {
+		return outcome
+	}
+	var page *pb.VatsimPage
+	if generation != nil {
+		page = generation.page
+	} else {
+		provider, readErr := w.Source.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, "vatsim", "network-data/v3")
+		if readErr != nil || provider.GetVatsim() == nil {
+			return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: fmt.Sprintf("committed VATSIM generation unavailable: %v", readErr)}
+		}
+		page = provider.GetVatsim()
+	}
+	for _, flight := range page.Flights {
 		if flight != nil && flight.Callsign == callsign && flight.FlightPlan != nil && strings.EqualFold(flight.FlightPlan.Destination, icao) {
 			return &pb.CommandReply{Status: pb.CommandReply_REVISION_CONFLICT, Detail: "arrival remains in VATSIM generation"}
 		}
@@ -108,15 +158,7 @@ func (w AmanCandidateWorker) ObserveMissingVatsim(ctx context.Context, icao, cal
 	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 	}
-	observationID := fmt.Sprintf("%s/%020d/%s/%s/missing", icao, revision, callsign, checkpoint.Sha256)
-	observation := &pb.VatsimObservation{ProviderId: observationID, Callsign: callsign, Digest: checkpoint.Sha256, ObservedAt: page.GetVatsim().SnapshotAt}
-	commandID, err := AmanObservationCommandID("vatsim", observationID)
-	if err != nil {
-		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}
-	}
-	if outcome := w.State.Writer.Outcome(ctx, airportRef(icao), commandID, &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "vatsim-adapter"}); outcome.Status != pb.CommandReply_NOT_FOUND {
-		return outcome
-	}
+	observation := &pb.VatsimObservation{ProviderId: observationID, Callsign: callsign, Digest: checkpoint.Sha256, ObservedAt: proto.Clone(page.SnapshotAt).(*timestamppb.Timestamp)}
 	known := false
 	for _, flight := range board.Flights {
 		for _, source := range flight.SourceObservations {

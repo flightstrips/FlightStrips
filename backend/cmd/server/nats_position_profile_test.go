@@ -25,6 +25,10 @@ func profilePositionLoad(t *testing.T, f *entrypointFixture) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if raw == "owner" {
+		profileOwnerPositionLoad(t, f, delay)
+		return
+	}
 	node, err := strconv.Atoi(raw)
 	if err != nil || node < 0 || node >= len(f.apps) {
 		t.Fatalf("invalid profile fixture node %q", raw)

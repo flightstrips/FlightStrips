@@ -348,17 +348,44 @@ func (p *Projection) publishObservationLocked(sessionID int32, value *pb.Fronten
 // SubscribeObservedInitial takes the state checkpoint and both KV views under
 // one lock, after registering buffered delivery. State deltas and observations
 // produced later arrive on separate channels with their own revisions.
+// The active owner's session turn also covers its RAM checkpoint and listener
+// registration, so accepted revisions cannot disappear between them.
 func (p *Projection) SubscribeObservedInitial(sessionID int32) (*pb.FrontendInitial, <-chan *pb.FrontendDelta, <-chan *pb.FrontendObservation, func(), error) {
 	if sessionID < 1 {
 		return nil, nil, nil, nil, fmt.Errorf("invalid session")
 	}
-	if err := p.Ready(); err != nil {
+	ref := sessionRef(sessionID)
+	if p.Async != nil && p.Async.Active(ref) {
+		var initial *pb.FrontendInitial
+		var updates <-chan *pb.FrontendDelta
+		var observations <-chan *pb.FrontendObservation
+		var closeSub func()
+		err := p.Async.Execute(context.Background(), ref, func(context.Context) error {
+			var err error
+			initial, updates, observations, closeSub, err = p.subscribeObservedInitial(sessionID)
+			return err
+		})
+		return initial, updates, observations, closeSub, err
+	}
+	return p.subscribeObservedInitial(sessionID)
+}
+
+func (p *Projection) subscribeObservedInitial(sessionID int32) (*pb.FrontendInitial, <-chan *pb.FrontendDelta, <-chan *pb.FrontendObservation, func(), error) {
+	ref := sessionRef(sessionID)
+	if err := p.sessionReadHealth(ref); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	subject, _ := Subject(sessionRef(sessionID))
+	memory, err := p.readMemory(ref)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	subject, _ := Subject(ref)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	state := p.states[subject]
+	if memory != nil {
+		state = memory
+	}
 	if state == nil {
 		return nil, nil, nil, nil, fmt.Errorf("session not found")
 	}

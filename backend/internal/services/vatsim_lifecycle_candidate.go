@@ -43,6 +43,13 @@ func NewVatsimLifecycleCandidate(source cluster.NavigationWeather, writer cluste
 }
 
 func (c *VatsimLifecycleCandidate) Departure(ctx context.Context, id int32) error {
+	entry, err := c.Writer.Projection.ReadEntity(sessionRef(id), pb.EntityKind_SESSION, strconv.Itoa(int(id)))
+	if err != nil {
+		return err
+	}
+	if entry.GetValue().GetSession().GetName() != "LIVE" {
+		return c.observedDepartures(ctx, id)
+	}
 	return c.reconcile(ctx, id, true)
 }
 func (c *VatsimLifecycleCandidate) Arrival(ctx context.Context, id int32) error {

@@ -283,7 +283,7 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 		lifecycle.HoldDuration, lifecycle.BlockExtension = cfg.StandAssignmentHoldDuration, cfg.StandAssignmentBlockExtension
 		lifecycle.ESMessages = &cfg.EnableStandAssignmentESMessages
 		lifecycle.Positions = r.deadlines.Positions
-		r.work.Departure, r.work.Arrival = r.liveSessionWorker(lifecycle.Departure), r.liveSessionWorker(lifecycle.Arrival)
+		r.work.Departure, r.work.Arrival = lifecycle.Departure, r.liveSessionWorker(lifecycle.Arrival)
 	}
 	stage = "providers_construct"
 	if err = r.assembleProviders(cfg, deps, transceivers); err != nil {

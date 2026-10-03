@@ -221,6 +221,11 @@ func planStripPut(request *pb.CommandRequest, state *Aggregate, update *pb.Updat
 	if old != nil && old.GetValue().GetStrip() == nil {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("callsign key is occupied")
 	}
+	if request.Actor.Id == "euroscope-strip" && incoming.Departure == session.GetValue().GetSession().Airport {
+		// Departure stands are determined by backend geometry/allocation.
+		// A full report or echoed STAND event must not replace that decision.
+		incoming.Stand = old.GetValue().GetStrip().GetStand()
+	}
 	changes := make([]*pb.EntityChange, 0, 2)
 	if old == nil {
 		s := proto.Clone(session.GetValue().GetSession()).(*pb.Session)

@@ -3,6 +3,7 @@ package cluster
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -13,9 +14,15 @@ import (
 // any snapshot payload. Abstract unit stores keep their own GetBytes behavior.
 type snapshotObjectReader struct {
 	nats.ObjectStore
+	chunks  snapshotChunkBroker
+	bucket  string
+	timeout time.Duration
 }
 
 func (s snapshotObjectReader) GetBytes(name string, opts ...nats.GetObjectOpt) ([]byte, error) {
+	if s.chunks != nil {
+		return s.readImmutableChunks(name, opts...)
+	}
 	// Keep the underlying client's per-read deadline and caller context. A new
 	// total deadline would reject large healthy objects that keep making progress.
 	result, err := s.ObjectStore.Get(name, opts...)

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"FlightStrips/internal/cluster"
 	"FlightStrips/internal/natsresources"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
@@ -23,7 +24,7 @@ func TestServerNATSSnapshotMultiChunkIntegrity(t *testing.T) {
 		t.Skip("requires explicit disposable Task22 fixture")
 	}
 	f := newEntrypointFixture(t, true)
-	const workers, attempts, size = 2, 24, 768 * 1024
+	const workers, attempts = 2, 24
 	failures := make(chan error, workers)
 	var jobs sync.WaitGroup
 	for worker := 0; worker < workers; worker++ {
@@ -48,12 +49,21 @@ func TestServerNATSSnapshotMultiChunkIntegrity(t *testing.T) {
 				failures <- err
 				return
 			}
+			readerProjection, err := cluster.NewProjection(connection, config)
+			if err != nil {
+				failures <- err
+				return
+			}
 			for attempt := 0; attempt < attempts; attempt++ {
 				if f.ctx.Err() != nil {
 					failures <- f.ctx.Err()
 					return
 				}
-				data := make([]byte, size+attempt)
+				size := 708208
+				if attempt%2 != 0 {
+					size = 986409
+				}
+				data := make([]byte, size)
 				for i := range data {
 					data[i] = byte((i*31 + (i/(128*1024))*73 + worker*17 + attempt) % 251)
 				}
@@ -73,6 +83,11 @@ func TestServerNATSSnapshotMultiChunkIntegrity(t *testing.T) {
 				actualDigest, expectedDigest := sha256.Sum256(actual), sha256.Sum256(data)
 				if readErr != nil || closeErr != nil || actualDigest != expectedDigest || len(actual) != len(data) {
 					failures <- fmt.Errorf("read name=%s nuid=%s chunks=%d size=%d metadata_digest=%s expected_sha256=%x actual_size=%d actual_sha256=%x read_error=%v close_error=%v", name, info.NUID, info.Chunks, info.Size, info.Digest, expectedDigest, len(actual), actualDigest, readErr, closeErr)
+					return
+				}
+				verified, err := readerProjection.Snapshots.Objects.GetBytes(name, nats.Context(f.ctx))
+				if err != nil || sha256.Sum256(verified) != expectedDigest || len(verified) != len(data) {
+					failures <- fmt.Errorf("count-based read name=%s nuid=%s chunks=%d size=%d expected_sha256=%x actual_size=%d actual_sha256=%x: %v", name, info.NUID, info.Chunks, info.Size, expectedDigest, len(verified), sha256.Sum256(verified), err)
 					return
 				}
 			}

@@ -75,6 +75,16 @@ func AcceptedMeasures(ctx context.Context, source cluster.NavigationWeather) ([]
 }
 
 func (a CandidateApply) ApplySession(ctx context.Context, sessionID int32, at time.Time) error {
+	if a.Session.Writer.Projection != nil && a.Session.Writer.Projection.Async != nil {
+		ref := &pb.AggregateRef{Target: &pb.AggregateRef_Session{Session: &pb.SessionRef{Id: sessionID}}}
+		return a.Session.Writer.Projection.Async.Execute(ctx, ref, func(runCtx context.Context) error {
+			return a.applySessionAccepted(runCtx, sessionID, at)
+		})
+	}
+	return a.applySessionAccepted(ctx, sessionID, at)
+}
+
+func (a CandidateApply) applySessionAccepted(ctx context.Context, sessionID int32, at time.Time) error {
 	if at.IsZero() {
 		return fmt.Errorf("missing ECFMP application time")
 	}

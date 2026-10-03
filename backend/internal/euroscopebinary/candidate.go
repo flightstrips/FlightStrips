@@ -197,6 +197,13 @@ func (c *DeadlineCandidate) Recover(ctx context.Context, id int32) error {
 		if prior != nil {
 			continue
 		}
+		effect, err := state.LookupEffect(commandID)
+		if err != nil {
+			return err
+		}
+		if effect != nil {
+			continue // An effect can outlive the command receipt retention window.
+		}
 		reply := c.RequestSquawk(ctx, id, commandID, s.Callsign)
 		if reply.GetStatus() != pb.CommandReply_UNAVAILABLE && reply.GetOutcome().GetReasonCode() != "SQUAWK_ALREADY_PENDING" {
 			if err := candidateReply(reply); err != nil {

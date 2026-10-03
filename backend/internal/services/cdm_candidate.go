@@ -398,6 +398,16 @@ func cdmSort(changes []*pb.EntityChange) {
 // changes that affect sequencing. Its debounce is accepted durable work, and
 // a repeated callback without newer domain inputs cannot create a new episode.
 func (c *CdmCandidate) Recalculate(ctx context.Context, id int32) error {
+	if c.Writer.Projection != nil && c.Writer.Projection.Async != nil {
+		owners := c.Writer.Projection.Async
+		return owners.Execute(ctx, sessionRef(id), func(runCtx context.Context) error {
+			return c.recalculateAccepted(runCtx, id)
+		})
+	}
+	return c.recalculateAccepted(ctx, id)
+}
+
+func (c *CdmCandidate) recalculateAccepted(ctx context.Context, id int32) error {
 	if err := c.admission(id); err != nil {
 		return err
 	}

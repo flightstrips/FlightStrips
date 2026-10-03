@@ -61,6 +61,7 @@ func lifecycleOwnerCanPlan(lease interface{ CanWrite(*pb.AggregateRef) bool }, m
 }
 
 func (c *VatsimLifecycleCandidate) reconcile(ctx context.Context, id int32, departure bool) error {
+	ctx = context.WithValue(ctx, lifecycleGeometryContextKey{}, &lifecycleGeometry{})
 	if c.Writer.Lease != nil && !lifecycleOwnerCanPlan(c.Writer.Lease, c.Writer.Projection != nil && c.Writer.Projection.Async != nil, sessionRef(id)) {
 		return fmt.Errorf("VATSIM lifecycle session is not owned")
 	}
@@ -368,13 +369,24 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 			}
 		}
 	}
+	geometry := lifecycleGeometryFrom(ctx)
+	if geometry != nil {
+		geometry.prepare(p.Stands, seed.Airport, positions)
+	}
 	for _, o := range positions {
 		pos := o.Value.GetPosition()
 		if o.Stale || pos == nil || pos.AltitudeFeet > 1000 || p.Assignments[o.Value.AircraftKey] != nil {
 			continue
 		}
-		if stand, ok := p.Stands.StandAtPosition(seed.Airport, pos.Latitude, pos.Longitude); ok {
-			p.PhysicalOccupancy[o.Value.AircraftKey] = stand.Name
+		var stand string
+		var found bool
+		if geometry != nil {
+			stand, found = geometry.standAt(o.Value.AircraftKey, pos.Latitude, pos.Longitude)
+		} else {
+			stand, found = physicalStandAt(p.Stands, seed.Airport, pos.Latitude, pos.Longitude)
+		}
+		if found {
+			p.PhysicalOccupancy[o.Value.AircraftKey] = stand
 		}
 	}
 	for i, e := range lifecycleEntities(state, pb.EntityKind_STAND_BLOCK) {

@@ -9,7 +9,7 @@ const earthRadiusMetres = 6371000.0
 
 // StandAtPosition returns the closest physical stand whose configured radius
 // contains the supplied position. Overlapping radii are resolved by distance,
-// which makes the observed result deterministic.
+// with exact distance ties resolved by lexical stand name.
 func (r *StandCapabilityRegistry) StandAtPosition(airport string, latitude, longitude float64) (Stand, bool) {
 	if r == nil {
 		return Stand{}, false
@@ -23,7 +23,7 @@ func (r *StandCapabilityRegistry) StandAtPosition(airport string, latitude, long
 			continue
 		}
 		distance := greatCircleMetres(latitude, longitude, stand.Latitude, stand.Longitude)
-		if distance <= stand.Radius && distance < closestDistance {
+		if distance <= stand.Radius && (distance < closestDistance || found && distance == closestDistance && stand.Name < closest.Name) {
 			closest, closestDistance, found = stand, distance, true
 		}
 	}

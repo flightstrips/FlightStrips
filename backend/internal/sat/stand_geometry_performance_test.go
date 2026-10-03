@@ -16,7 +16,7 @@ func bruteStandAtPosition(registry *StandCapabilityRegistry, airport string, lat
 			continue
 		}
 		distance := greatCircleMetres(lat, lon, stand.Latitude, stand.Longitude)
-		if distance <= stand.Radius && distance < nearest {
+		if distance <= stand.Radius && (distance < nearest || found && distance == nearest && stand.Name < match.Name) {
 			match, nearest, found = stand, distance, true
 		}
 	}
@@ -37,7 +37,7 @@ func TestStandGeometryPrefilterPreservesExactSphericalDecisions(t *testing.T) {
 		t.Helper()
 		want, expected := bruteStandAtPosition(registry, "TEST", lat, lon)
 		got, found := registry.StandAtPosition("TEST", lat, lon)
-		if expected != found || found && greatCircleMetres(lat, lon, got.Latitude, got.Longitude) != greatCircleMetres(lat, lon, want.Latitude, want.Longitude) {
+		if expected != found || found && got.Name != want.Name {
 			t.Fatalf("nearest stand differs at (%g,%g): got %v/%v want %v/%v", lat, lon, got.Name, found, want.Name, expected)
 		}
 		near := false

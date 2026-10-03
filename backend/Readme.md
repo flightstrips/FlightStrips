@@ -55,8 +55,16 @@ container memory (filesystem cache and other overhead are additional). Set
 workloads. Restart brokers one at a time when applying a changed budget so the
 three-node cluster retains quorum.
 
-An idle client does not stop configured provider feeds or shadow AMAN: the
-airport owner still consumes live VATSIM arrivals. Each backend caches verified,
+The local `.env.dev` selects `AMAN_SOURCE_MODE=euroscope`: AMAN uses the active
+EuroScope session's arrival strips and position updates, without importing
+VATSIM feed arrivals into AMAN. Connect the plugin through port 8092 and open
+an EKCH session to supply observations. AMAN remains in shadow mode; authoritative
+actions and holding EAT writeback are not enabled by this source selection.
+Other configured consumers still poll the VATSIM feed independently of AMAN.
+Use `AMAN_SOURCE_MODE=hybrid` to combine sources or `vatsim` for feed-only testing.
+
+An idle client does not stop configured provider feeds or shadow AMAN.
+Each backend caches verified,
 immutable Protobuf provider/navigation objects by their content-addressed names,
 with at most 128 entries and a 32 MiB serialized payload budget (decoded Go heap
 is larger). Accepted NATS checkpoint/manifest references select the generation;

@@ -14,7 +14,7 @@ type startupStageError struct {
 	cause error
 }
 
-func (e *startupStageError) Error() string { return "application startup " + e.stage + " failed" }
+func (e *startupStageError) Error() string { return e.cause.Error() }
 func (e *startupStageError) Unwrap() error { return e.cause }
 
 // StartupFailureDiagnostics reports structural diagnostics without rendering

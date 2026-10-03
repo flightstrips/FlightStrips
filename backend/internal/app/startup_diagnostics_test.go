@@ -30,7 +30,10 @@ func TestStartupFailureDiagnosticsPreserveCauseWithoutRenderingSecrets(t *testin
 		if stage != "resource_verify" || class != test.class || causeType == "" {
 			t.Fatalf("unexpected structural diagnostics: %s %s %s", stage, class, causeType)
 		}
-		if strings.Contains(err.Error()+stage+class+causeType, "private-") {
+		if err.Error() != err.cause.Error() {
+			t.Fatal("startup wrapper changed the caller-facing cause message")
+		}
+		if strings.Contains(stage+class+causeType, "private-") {
 			t.Fatal("startup diagnostics leaked a credential-bearing message")
 		}
 	}

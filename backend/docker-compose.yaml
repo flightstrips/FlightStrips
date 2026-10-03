@@ -31,15 +31,12 @@ services:
     image: flightstrips-frontend:development
     build:
       context: ../frontend
-    ports: ["127.0.0.1:5173:80"]
-    environment:
-      APP_VERSION: local-development
-      WS_URL: ws://localhost:8092/frontEndEvents
-      API_BASE_URL: http://localhost:8092
-      OIDC_FRONTEND_CLIENT_ID: mIjRYlbKHpTwnNAkhcu9plQP541Klwvn
-      OIDC_AUDIENCE: backend-dev
-      OIDC_CONNECTION: vatsim-dev
-      CHARTFOX_CLIENT_ID: 019f9418-0f93-73c8-b256-b587423759cf
+      target: development
+    # Use Vite's local config and public/config.js, just like npm run dev.
+    ports: ["127.0.0.1:8080:8080", "127.0.0.1:5173:8080"]
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
     networks: [nats-fixture]
     depends_on: [backend-proxy]
     restart: unless-stopped

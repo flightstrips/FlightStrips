@@ -638,3 +638,44 @@ func TestDepartureStandExpiryRechecksPhysicalOccupancy(t *testing.T) {
 		t.Fatalf("vacated stand was not released: %v %v", change, err)
 	}
 }
+
+func TestSessionWorkerKeepsDeadlineRearmedByCallback(t *testing.T) {
+	_, w, _, p, now, _ := workerFixture(t)
+	ctx := context.Background()
+	setWorkerPresence(p, *now, now.Add(-time.Hour), pb.ClientPresence_EUROSCOPE)
+	d := &pb.SessionDeadline{Id: "session-update.1", Kind: "session-update", DueAt: timestamppb.New(now.Add(-time.Second)), SourceRevision: 1}
+	require.NoError(t, w.ScheduleDeadline(ctx, 1, d))
+	w.SessionUpdate = func(ctx context.Context, id int32) error {
+		next := proto.Clone(d).(*pb.SessionDeadline)
+		next.DueAt = timestamppb.New(now.Add(time.Minute))
+		return w.ScheduleDeadline(ctx, id, next)
+	}
+	require.NoError(t, w.Step(ctx))
+	current := workerState(t, w).Indexes[pb.EntityKind_SESSION_DEADLINE][d.Id]
+	require.NotNil(t, current)
+	require.Equal(t, now.Add(time.Minute), current.GetValue().GetSessionDeadline().DueAt.AsTime())
+}
+
+func TestSessionWorkerSamplesPresenceAfterRecovery(t *testing.T) {
+	_, w, _, p, now, _ := workerFixture(t)
+	w.EuroScope = func(context.Context, int32) error {
+		*now = now.Add(time.Second)
+		setWorkerPresence(p, *now, now.Add(-time.Hour), pb.ClientPresence_EUROSCOPE)
+		return nil
+	}
+	require.NoError(t, w.Step(context.Background()))
+	require.Nil(t, workerState(t, w).Indexes[pb.EntityKind_SESSION]["1"].GetValue().GetSession().FirstNoControllerAt)
+}
+
+func TestSessionWorkerRetriesPresenceChangeWithoutLosingOtherFailures(t *testing.T) {
+	store, w, planner, p, now, _ := workerFixture(t)
+	w.Store = LocalLifecycleStore{Writer: Writer{Store: store, NodeID: "node-a", Plan: func(ctx context.Context, req *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		setWorkerPresence(p, *now, now.Add(-time.Hour), pb.ClientPresence_EUROSCOPE)
+		return planner.Plan(ctx, req, state)
+	}}}
+	require.NoError(t, w.Step(context.Background()))
+	require.Nil(t, workerState(t, w).Indexes[pb.EntityKind_SESSION]["1"].GetValue().GetSession().FirstNoControllerAt)
+	setWorkerPresence(p, *now, now.Add(-time.Hour), pb.ClientPresence_FRONTEND)
+	w.EuroScope = func(context.Context, int32) error { return fmt.Errorf("genuine storage failure") }
+	require.ErrorContains(t, w.Step(context.Background()), "genuine storage failure")
+}

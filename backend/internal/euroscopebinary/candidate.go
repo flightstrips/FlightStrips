@@ -223,6 +223,36 @@ func (c *DeadlineCandidate) BindWorker(worker *cluster.SessionWork) {
 }
 
 func (c *DeadlineCandidate) commitDeadline(ctx context.Context, req *pb.CommandRequest, deadline *pb.SessionDeadline) error {
+	if owners := c.Router.Projection.Async; owners != nil {
+		// Position admission uses this same owner turn. The deadline planner
+		// validates the current observation and source atomically with expiry;
+		// cleanup must not require the disconnected source socket to be live.
+		return owners.Execute(ctx, req.Aggregate, func(runCtx context.Context) error {
+			positions, _, err := c.Router.Projection.ObservationSnapshot(req.Aggregate.GetSession().Id)
+			if err != nil {
+				return err
+			}
+			found := false
+			for _, position := range positions {
+				if position.Value.AircraftKey == deadline.Callsign {
+					if position.Stale {
+						return nil // Preserve expiry until the new master sync proves its source.
+					}
+					found = true
+					break
+				}
+			}
+			if !found {
+				return nil // Replay or the new master sync has not supplied this aircraft yet.
+			}
+			reply := c.Router.Route(runCtx, req)
+			if reply.GetStatus() == pb.CommandReply_COMMITTED && reply.GetOutcome().GetStatus() == pb.CommandOutcome_FAILED &&
+				(reply.GetOutcome().GetReasonCode() == "REVISION_CONFLICT" || reply.GetOutcome().GetReasonCode() == "NOT_FOUND") {
+				return nil // Reconsider the current deadline on the next pass.
+			}
+			return candidateReply(reply)
+		})
+	}
 	id := req.Aggregate.GetSession().Id
 	state, err := c.Router.Projection.Read(req.Aggregate)
 	if err != nil {

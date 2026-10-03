@@ -151,7 +151,7 @@ func (c *DeadlineCandidate) reconcileChanges(ctx context.Context, state *cluster
 		}
 	}
 	if len(session.ActiveRunways.ArrivalRunways) == 0 || len(session.ActiveRunways.DepartureRunways) == 0 {
-		return nil, fmt.Errorf("session reconciliation awaits active runways")
+		return nil, nil // Initial runway report has not arrived; keep current allocations.
 	}
 	coverage := []config.ControllerCoverage{}
 	roles := []*config.Position{}

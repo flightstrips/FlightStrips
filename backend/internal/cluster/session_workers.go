@@ -20,6 +20,9 @@ import (
 
 const sessionCleanupGrace = 5 * time.Minute
 
+// A rejected stale policy decision is reconsidered from fresh state next pass.
+var errSessionWorkSuperseded = errors.New("session work superseded")
+
 // SessionWork runs session policy through accepted ownership.
 // Every mutation goes through the session owner and its subject-CAS writer.
 // Tick is deliberately short: no local timer is an authority or a deadline.
@@ -205,7 +208,12 @@ func (w *SessionWork) Step(ctx context.Context) error {
 func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegistry, unhealthySince, recoveredAt time.Time, paused time.Duration) (result error) {
 	id, now := registry.Id, w.clock()
 	var deferred []error
-	defer func() { result = errors.Join(append(deferred, result)...) }()
+	defer func() {
+		if errors.Is(result, errSessionWorkSuperseded) {
+			result = nil
+		}
+		result = errors.Join(append(deferred, result)...)
+	}()
 	if w.EuroScope != nil {
 		if err := w.EuroScope(ctx, id); err != nil {
 			deferred = append(deferred, fmt.Errorf("EuroScope reconciliation: %w", err))
@@ -226,6 +234,8 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 	if err != nil {
 		return err
 	}
+	// Recovery can publish heartbeats while running. Sample time after the snapshot.
+	now = w.clock()
 	presence, err := operationalSessionPresence(entries, id, now)
 	if err != nil {
 		return err
@@ -297,7 +307,15 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 				return err
 			}
 		}
-		if err := w.fireDeadline(ctx, id, deadline); err != nil {
+		fresh, err := w.Store.Read(ctx, sessionRef(id))
+		if err != nil {
+			return err
+		}
+		current := fresh.Indexes[pb.EntityKind_SESSION_DEADLINE][deadline.Key]
+		if current == nil || current.Revision != deadline.Revision {
+			continue // A reconciler consumed or rearmed this deadline.
+		}
+		if err := w.fireDeadline(ctx, id, current); err != nil {
 			return err
 		}
 	}
@@ -417,6 +435,11 @@ func (w *SessionWork) execute(ctx context.Context, request *pb.CommandRequest) e
 	if reply == nil || reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() == pb.CommandOutcome_FAILED {
 		if reply == nil {
 			return fmt.Errorf("session worker received no reply")
+		}
+		if reply.Status == pb.CommandReply_REVISION_CONFLICT || reply.Status == pb.CommandReply_NOT_FOUND ||
+			reply.Status == pb.CommandReply_COMMITTED && reply.GetOutcome().GetStatus() == pb.CommandOutcome_FAILED &&
+				(reply.GetOutcome().GetReasonCode() == "REVISION_CONFLICT" || reply.GetOutcome().GetReasonCode() == "NOT_FOUND") {
+			return errSessionWorkSuperseded
 		}
 		return fmt.Errorf("session worker %s: %s: %s %s", request.CommandId, reply.Status, reply.Detail, reply.GetOutcome().GetDetail())
 	}

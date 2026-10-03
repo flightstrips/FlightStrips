@@ -142,6 +142,17 @@ func cdmReply(reply *pb.CommandReply) error {
 }
 
 func (c *CdmCandidate) fire(ctx context.Context, id int32, deadline *pb.EntitySnapshot) error {
+	if owners := c.Writer.Projection.Async; owners != nil {
+		// Capture inputs and calculate under the same owner dispatcher as the
+		// commit so live EuroScope traffic cannot continuously supersede them.
+		return owners.Execute(ctx, sessionRef(id), func(runCtx context.Context) error {
+			return c.fireAccepted(runCtx, id, deadline)
+		})
+	}
+	return c.fireAccepted(ctx, id, deadline)
+}
+
+func (c *CdmCandidate) fireAccepted(ctx context.Context, id int32, deadline *pb.EntitySnapshot) error {
 	state, err := c.Writer.Read(ctx, sessionRef(id))
 	if err != nil {
 		return err
@@ -255,10 +266,9 @@ func (c *CdmCandidate) plan(ctx context.Context, id int32, state *cluster.Aggreg
 	for _, e := range state.EntitiesByKind(pb.EntityKind_STRIP) {
 		m := cdmModel(state, e, id)
 		for _, pos := range positions {
-			if pos.Value.AircraftKey == m.Callsign && pos.Value.GetPosition() != nil {
-				if pos.Stale {
-					return nil, fmt.Errorf("CDM position awaits accepted owner sync")
-				}
+			if !pos.Stale && pos.Value.AircraftKey == m.Callsign && pos.Value.GetPosition() != nil {
+				// Missing or stale surveillance uses the configured taxi default;
+				// one retained aircraft must not block the entire CDM sequence.
 				p := pos.Value.GetPosition()
 				m.PositionLatitude, m.PositionLongitude = &p.Latitude, &p.Longitude
 			}

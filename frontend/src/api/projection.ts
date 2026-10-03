@@ -11,6 +11,7 @@ const number = (value: bigint): number => {
   return result;
 };
 const iso = (value?: Timestamp): string => value ? new Date(Number(value.seconds) * 1000 + Math.floor(value.nanos / 1e6)).toISOString() : "";
+const cdmTime = (value?: Timestamp): string => value ? iso(value).slice(11, 16).replace(":", "") : "";
 const legacy = (type: EventType, fields: object): WebSocketEvent => ({type, ...fields}) as WebSocketEvent;
 
 function runwaySetup(session?: Session): RunwayConfiguration {
@@ -35,9 +36,9 @@ function strip(value: Strip, cdm?: CdmState, pdc?: PdcSequence, stand?: StandAss
     heading: value.heading ?? 0, aircraft_type: value.aircraftType, aircraft_category: value.aircraftCategory,
     spoken_callsign: value.spokenCallsign, stand: stand?.stand ?? value.stand,
     capabilities: value.capabilities, communication_type: (value.communicationType || "") as CommunicationType,
-    eobt: iso(value.eobt), tobt: iso(cdm?.tobt ?? value.tobt), tsat: iso(cdm?.tsat ?? value.tsat),
-    ttot: iso(cdm?.ttot ?? value.ttot), ctot: iso(cdm?.ctot ?? value.ctot), eldt: "", aldt: "",
-    aobt: iso(value.aobt), asat: iso(value.asat), asrt: iso(value.asrt), tsac: iso(value.tsac),
+    eobt: cdmTime(value.eobt), tobt: cdmTime(cdm?.tobt ?? value.tobt), tsat: cdmTime(cdm?.tsat ?? value.tsat),
+    ttot: cdmTime(cdm?.ttot ?? value.ttot), ctot: cdmTime(cdm?.ctot ?? value.ctot), eldt: "", aldt: "",
+    aobt: cdmTime(value.aobt), asat: cdmTime(value.asat), asrt: cdmTime(value.asrt), tsac: cdmTime(value.tsac),
     status: value.operationalStatus, most_penalizing_airspace: value.mostPenalizingAirspace,
     ecfmp_id: value.ecfmpId, ctot_source: value.ctotSource,
     bay: value.bay, release_point: value.releasePoint, version: number(value.revision),
@@ -262,13 +263,13 @@ export class FrontendProjection {
       case "cdmState": {
         const currentStrip = this.entities.get(`strip.${item.value.callsign}`)?.value?.value;
         this.emit(legacy(EventType.FrontendCdmData, {callsign: item.value.callsign,
-          eobt: currentStrip?.case === "strip" ? iso(currentStrip.value.eobt) : "",
-          tobt: iso(item.value.tobt), tsat: iso(item.value.tsat),
-          ttot: iso(item.value.ttot), ctot: iso(item.value.ctot),
+          eobt: currentStrip?.case === "strip" ? cdmTime(currentStrip.value.eobt) : "",
+          tobt: cdmTime(item.value.tobt), tsat: cdmTime(item.value.tsat),
+          ttot: cdmTime(item.value.ttot), ctot: cdmTime(item.value.ctot),
           ...(currentStrip?.case === "strip" ? {
             tobt_set_by: currentStrip.value.tobtSetBy,
-            aobt: iso(currentStrip.value.aobt), asat: iso(currentStrip.value.asat),
-            asrt: iso(currentStrip.value.asrt), tsac: iso(currentStrip.value.tsac),
+            aobt: cdmTime(currentStrip.value.aobt), asat: cdmTime(currentStrip.value.asat),
+            asrt: cdmTime(currentStrip.value.asrt), tsac: cdmTime(currentStrip.value.tsac),
             status: currentStrip.value.operationalStatus,
             most_penalizing_airspace: currentStrip.value.mostPenalizingAirspace,
             ecfmp_id: currentStrip.value.ecfmpId, ctot_source: currentStrip.value.ctotSource,

@@ -20,6 +20,23 @@ const delta = (revision: bigint, route: string) => create(FrontendDeltaSchema, {
     operation: {case: "upsert", value: strip(route, revision - 2n).value!}}],
 });
 
+it("preserves UTC compact CDM clocks on snapshots and replacements", () => {
+  const events: WebSocketEvent[] = [];
+  const projection = new FrontendProjection(event => events.push(event));
+  const snapshot = initial();
+  const stamp = {$typeName: "google.protobuf.Timestamp" as const, seconds: 1790769600n, nanos: 0};
+  const record = snapshot.entities[0].value!.value;
+  if (record.case !== "strip") throw new Error("fixture");
+  record.value.eobt = stamp;
+  snapshot.entities.push(create(EntitySnapshotSchema, {key: "SAS123", revision: 1n,
+    value: {value: {case: "cdmState", value: {callsign: "SAS123", tobt: stamp, tsat: stamp, ttot: stamp, ctot: stamp}}}}));
+  projection.initial(snapshot);
+  expect(events[0]).toMatchObject({strips: [expect.objectContaining({eobt: "1200", tobt: "1200", tsat: "1200", ttot: "1200", ctot: "1200"})]});
+  projection.delta(create(FrontendDeltaSchema, {aggregate: {target: {case: "session", value: {id: 7}}}, aggregateRevision: 4n,
+    changes: [{key: "SAS123", revision: 2n, operation: {case: "upsert", value: {value: {case: "cdmState", value: {callsign: "SAS123", tobt: stamp, tsat: stamp, ttot: stamp}}}}}]}));
+  expect(events.at(-1)).toMatchObject({eobt: "1200", tobt: "1200", tsat: "1200", ttot: "1200", ctot: ""});
+});
+
 describe("typed frontend projection", () => {
   it("keeps actual times and status when an atomic CDM replacement is presented", () => {
     const events: WebSocketEvent[] = [];
@@ -37,7 +54,7 @@ describe("typed frontend projection", () => {
         {key: "SAS123", revision: 1n, operation: {case: "upsert", value: {value: {case: "cdmState", value: {callsign: "SAS123", ready: true}}}}},
       ],
     }));
-    expect(events.at(-1)).toMatchObject({type: EventType.FrontendCdmData, status: "REA", ctot_source: "Manual", aobt: "2026-09-30T12:00:00.000Z"});
+    expect(events.at(-1)).toMatchObject({type: EventType.FrontendCdmData, status: "REA", ctot_source: "Manual", aobt: "1200"});
     expect(projection.entityRevisions.get("cdm.SAS123")).toBe(1n);
   });
   it("rebuilds from an initial checkpoint and applies complete replacements", () => {

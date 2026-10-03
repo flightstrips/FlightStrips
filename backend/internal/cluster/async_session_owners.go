@@ -216,23 +216,39 @@ func (m *AsyncSessionOwners) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 		return nil, err
 	}
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if m.failure != nil {
-		return nil, m.failure
+		err = m.failure
+		m.mu.Unlock()
+		return nil, err
 	}
 	s := m.sessions[key]
 	if s == nil {
+		m.mu.Unlock()
 		return nil, nil
 	}
 	if err = m.adoptIdleGenerationLocked(s, a); err != nil {
+		m.mu.Unlock()
 		return nil, err
 	}
-	out, err := cloneAggregate(s.ram)
+	// Every RAM mutation publishes a replacement graph: reducers clone before
+	// applying facts, and control renewals replace the struct and owner term.
+	// Capture that immutable graph under the executor lock, then detach this
+	// potentially large read without blocking unrelated session admissions.
+	ram := s.ram
+	m.mu.Unlock()
+	out, err := cloneAggregate(ram)
 	if err != nil {
 		return nil, err
 	}
 	out.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
 	out.StreamSequence, out.SubjectSequence = a.StreamSequence, a.SubjectSequence
+	// An integrity failure during detachment must still reject the read.
+	m.mu.Lock()
+	err = m.failure
+	m.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 func (m *AsyncSessionOwners) Execute(ctx context.Context, ref *pb.AggregateRef, run func(context.Context) error) error {

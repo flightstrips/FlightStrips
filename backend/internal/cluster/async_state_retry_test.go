@@ -32,6 +32,9 @@ func (s *retryStateStore) Publish(ctx context.Context, subject string, expected 
 			copy.Owner.LeaseUntil = timestamppb.New(time.Now().Add(-time.Second))
 			s.p.states[subject] = copy
 			s.p.mu.Unlock()
+			// A later owner term proves that this uncommitted old-term CAS
+			// can no longer be published; no own outcome exists in replay.
+			reclaimAsyncFixtureEpoch(s.t, s.p, s.ref)
 		}
 		return 0, nats.ErrNoStreamResponse
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -505,6 +506,7 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 		}
 	}
 	reconcile := false
+	var attemptedSubject uint64
 	for ctx.Err() == nil {
 		var durable *Aggregate
 		if reconcile {
@@ -528,10 +530,14 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 		}
 		state, err := m.checkpoint(s.ref)
 		if err != nil {
-			if retry := m.waitPersistenceRetry(ctx, s.ref, s.epoch); retry == nil {
+			retry := m.waitPersistenceRetry(ctx, s.ref, s.epoch)
+			if retry == nil {
 				continue
 			}
-			return err
+			if reconcile && asyncRetryAuthorityLost(retry) {
+				return m.reconcileLostAuthorityReceipt(ctx, s, event, attemptedSubject, fmt.Errorf("%w; retry rejected: %w", err, retry))
+			}
+			return fmt.Errorf("%w; retry rejected: %w", err, retry)
 		}
 		if state.Owner.Epoch != s.epoch || event.OwnerEpoch != s.epoch {
 			return fmt.Errorf("async persistence owner generation changed")
@@ -543,6 +549,7 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 		if err != nil {
 			return err
 		}
+		attemptedSubject = state.SubjectSequence
 		seq, err := m.store.Publish(ctx, mustAsyncSubject(s.ref), state.SubjectSequence, data)
 		if errors.Is(err, ErrCAS) {
 			reconcile = true
@@ -563,8 +570,15 @@ func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, 
 					}
 				}
 			}
-			if asyncTransportRetryable(err) && m.waitPersistenceRetry(ctx, s.ref, s.epoch) == nil {
-				continue
+			if asyncTransportRetryable(err) {
+				retry := m.waitPersistenceRetry(ctx, s.ref, s.epoch)
+				if retry == nil {
+					continue
+				}
+				if asyncRetryAuthorityLost(retry) {
+					return m.reconcileLostAuthorityReceipt(ctx, s, event, state.SubjectSequence, fmt.Errorf("%w; retry rejected: %w", err, retry))
+				}
+				return fmt.Errorf("%w; retry rejected: %w", err, retry)
 			}
 			return err
 		}
@@ -604,6 +618,19 @@ func asyncTransportRetryable(err error) bool {
 	return errors.As(err, &api) && api.Code == 503
 }
 
+// Only fixed reasons and numeric checkpoint facts leave this guard; no command
+// contents, actor IDs, or underlying error text enter persistence diagnostics.
+type asyncRetryRejected struct {
+	reason                                       string
+	expectedEpoch, currentEpoch, subjectSequence uint64
+	ownerMatches                                 bool
+	leaseRemainingMS, metadataAgeMS              int64
+}
+
+func (e *asyncRetryRejected) Error() string {
+	return "async retry owner generation or integrity changed: " + e.reason
+}
+
 func (m *AsyncSessionOwners) waitPersistenceRetry(ctx context.Context, ref *pb.AggregateRef, epoch uint64) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -614,21 +641,47 @@ func (m *AsyncSessionOwners) waitPersistenceRetry(ctx context.Context, ref *pb.A
 	p := m.projection
 	p.mu.RLock()
 	a := p.states[mustAsyncSubject(ref)]
-	valid := p.observationErr == nil && a != nil && a.Owner != nil && a.Owner.NodeId == m.owner.NodeID && a.Owner.Epoch == epoch && a.Owner.LeaseUntil != nil && time.Now().Before(a.Owner.LeaseUntil.AsTime())
-	if p.healthErr != nil && !asyncPersistenceHealthRetryable(p.healthErr) {
-		valid = false
+	rejected := &asyncRetryRejected{expectedEpoch: epoch, metadataAgeMS: -1}
+	if !p.checked.IsZero() {
+		rejected.metadataAgeMS = time.Since(p.checked).Milliseconds()
 	}
-	if p.history != nil && p.history.check() != nil {
-		valid = false
+	if a != nil && a.Owner != nil {
+		rejected.currentEpoch = a.Owner.Epoch
+		rejected.subjectSequence = a.SubjectSequence
+		rejected.ownerMatches = a.Owner.NodeId == m.owner.NodeID
+		if a.Owner.LeaseUntil != nil {
+			rejected.leaseRemainingMS = time.Until(a.Owner.LeaseUntil.AsTime()).Milliseconds()
+		}
+	}
+	switch {
+	case p.observationErr != nil:
+		rejected.reason = "observation_integrity"
+	case p.healthErr != nil && !asyncPersistenceHealthRetryable(p.healthErr):
+		rejected.reason = "metadata_integrity"
+	case p.history != nil && p.history.check() != nil:
+		rejected.reason = "history_integrity"
 	}
 	for _, err := range p.snapshotErrors {
 		if !errors.Is(err, ErrImmutableSnapshotCollision) {
-			valid = false
+			rejected.reason = "snapshot_integrity"
+			break
+		}
+	}
+	if rejected.reason == "" {
+		switch {
+		case a == nil || a.Owner == nil:
+			rejected.reason = "owner_missing"
+		case !rejected.ownerMatches:
+			rejected.reason = "owner_node_changed"
+		case a.Owner.Epoch != epoch:
+			rejected.reason = "owner_epoch_changed"
+		case a.Owner.LeaseUntil == nil || !time.Now().Before(a.Owner.LeaseUntil.AsTime()):
+			rejected.reason = "owner_lease_expired"
 		}
 	}
 	p.mu.RUnlock()
-	if !valid {
-		return fmt.Errorf("async retry owner generation or integrity changed")
+	if rejected.reason != "" {
+		return rejected
 	}
 	select {
 	case <-ctx.Done():
@@ -636,6 +689,62 @@ func (m *AsyncSessionOwners) waitPersistenceRetry(ctx context.Context, ref *pb.A
 	case <-time.After(100 * time.Millisecond):
 		return nil
 	}
+}
+
+func asyncRetryAuthorityLost(err error) bool {
+	var rejected *asyncRetryRejected
+	if !errors.As(err, &rejected) {
+		return false
+	}
+	switch rejected.reason {
+	case "owner_missing", "owner_node_changed", "owner_epoch_changed", "owner_lease_expired":
+		return true
+	}
+	return false
+}
+
+// An unknown acknowledgement may already be durable. Once authority is lost,
+// no retransmission is possible: await healthy replay and verify the exact own
+// outcome/receipt, or reject. The final worker also rejects any remaining tail.
+func (m *AsyncSessionOwners) reconcileLostAuthorityReceipt(ctx context.Context, s *asyncSession, event *pb.StateEvent, previous uint64, rejected error) error {
+	if err := m.persistenceSubjectAdvance(ctx, s.ref, s.epoch, previous); err != nil {
+		return fmt.Errorf("%w; receipt reconciliation unavailable: %w", rejected, err)
+	}
+	state, err := m.persistenceConfirmation(ctx, s.ref, event.GetCommandId())
+	if err != nil {
+		return fmt.Errorf("%w; receipt reconciliation unavailable: %w", rejected, err)
+	}
+	outcome, err := state.LookupOutcome(event.GetCommandId())
+	if err != nil {
+		return fmt.Errorf("%w; receipt reconciliation unavailable: %w", rejected, err)
+	}
+	if outcome == nil || outcome.CommittedStreamSequence == 0 {
+		return rejected
+	}
+	entry, err := m.stateReceipt(ctx, outcome.CommittedStreamSequence)
+	if err != nil {
+		return fmt.Errorf("%w; receipt reconciliation unavailable: %w", rejected, err)
+	}
+	if entry.Subject != mustAsyncSubject(s.ref) || entry.StreamSequence != outcome.CommittedStreamSequence || !proto.Equal(event, decodeAsyncEvent(entry.Data)) {
+		return fmt.Errorf("%w; async authority-loss receipt identity mismatch", rejected)
+	}
+	return nil
+}
+
+func logAsyncPersistenceFailure(s *asyncSession, job asyncSessionJob, phase string, err error) {
+	kind := "position"
+	if job.event != nil {
+		kind = "state"
+	}
+	attrs := []any{"job_kind", kind, "session", s.ref.GetSession().Id, "expected_epoch", s.epoch, "pending_jobs", s.pending, "pending_domain_facts", len(s.tail), "phase", phase, "error_type", fmt.Sprintf("%T", err)}
+	if job.event != nil {
+		attrs = append(attrs, "event_kind", fmt.Sprintf("%T", job.event.GetFact()))
+	}
+	var rejected *asyncRetryRejected
+	if errors.As(err, &rejected) {
+		attrs = append(attrs, "guard_reason", rejected.reason, "raw_epoch", rejected.currentEpoch, "owner_matches", rejected.ownerMatches, "lease_remaining_ms", rejected.leaseRemainingMS, "metadata_age_ms", rejected.metadataAgeMS, "raw_subject_sequence", rejected.subjectSequence)
+	}
+	slog.Warn("async session persistence failed", attrs...)
 }
 
 // Temporary proof unavailability keeps accepted work queued, but never makes a
@@ -735,9 +844,9 @@ func (m *AsyncSessionOwners) persistenceReplayApplied(ctx context.Context, seque
 	}
 }
 
-// A CAS conflict has not proved this command committed. Retain the original
-// predecessor and require its live owner term before retrying the subject wait;
-// the caller then reconciles exact event identity before any new publication.
+// A CAS conflict has not proved this command committed. Waiting for replay is
+// read-only; after advancement the caller must either verify the exact stored
+// event or enter its live owner checkpoint before any new publication.
 func (m *AsyncSessionOwners) persistenceSubjectAdvance(ctx context.Context, ref *pb.AggregateRef, epoch, previous uint64) error {
 	for {
 		if err := ctx.Err(); err != nil {
@@ -747,7 +856,7 @@ func (m *AsyncSessionOwners) persistenceSubjectAdvance(ctx context.Context, ref 
 		if err == nil || !asyncPersistenceHealthRetryable(err) {
 			return err
 		}
-		if retryErr := m.waitPersistenceRetry(ctx, ref, epoch); retryErr != nil {
+		if retryErr := m.waitPersistenceReadRetry(ctx); retryErr != nil {
 			return retryErr
 		}
 	}
@@ -803,6 +912,7 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 	defer m.workers.Done()
 	for job := range s.jobs {
 		ctx, cancel := context.WithTimeout(m.ctx, 30*time.Second)
+		phase := "state_publish_or_reconcile"
 		m.mu.Lock()
 		err := m.failure
 		m.mu.Unlock()
@@ -810,18 +920,21 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 			if job.event != nil {
 				err = m.persistState(ctx, s, job.event)
 			} else {
+				phase = "position_initial_checkpoint"
 				a, e := m.persistenceCheckpoint(ctx, s.ref, s.epoch)
 				err = e
 				if err == nil && a.Owner.Epoch != s.epoch {
 					err = fmt.Errorf("async position owner generation changed")
 				}
 				if err == nil {
+					phase = "position_publish_or_reconcile"
 					err = job.persist(ctx)
 				}
 			}
 		}
 		m.mu.Lock()
 		if err != nil && m.failure == nil {
+			logAsyncPersistenceFailure(s, job, phase, err)
 			m.failure = fmt.Errorf("async session persistence: %w", err)
 			m.cancel()
 			m.controls.Range(func(key, value any) bool { m.controls.Delete(key); return true })
@@ -832,6 +945,7 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 		m.mu.Unlock()
 		// Refresh only the durable portion and reapply outstanding domain facts.
 		if err == nil {
+			phase = "final_checkpoint"
 			durable, e := m.persistenceCheckpoint(ctx, s.ref, s.epoch)
 			completedOnly := false
 			if e != nil {
@@ -890,8 +1004,10 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 						m.publishControlLocked(s)
 						m.mu.Unlock()
 					} else {
+						phase = "final_rebase"
 						durable, e = cloneAggregate(durable)
 						if e != nil {
+							logAsyncPersistenceFailure(s, job, phase, e)
 							m.mu.Unlock()
 							m.Invalidate(s.ref, e)
 							m.mu.Lock()
@@ -926,6 +1042,7 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 			if e != nil {
 				m.mu.Lock()
 				if m.failure == nil {
+					logAsyncPersistenceFailure(s, job, phase, e)
 					m.failure = e
 					m.cancel()
 					m.controls.Range(func(key, value any) bool { m.controls.Delete(key); return true })

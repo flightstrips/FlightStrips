@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"sync/atomic"
 	"testing"
@@ -37,6 +38,15 @@ func (s *staleReplayReceiptStore) stale(subject string) {
 }
 func (s *staleReplayReceiptStore) Publish(ctx context.Context, subject string, expected uint64, data []byte) (uint64, error) {
 	n := s.publishes.Add(1)
+	if n == 1 && s.mode == "expired-cas" {
+		event := decodeAsyncEvent(data)
+		foreign := asyncDomainEvent(event.Aggregate, event.AggregateRevision)
+		var marshalErr error
+		data, marshalErr = proto.Marshal(foreign)
+		if marshalErr != nil {
+			return 0, marshalErr
+		}
+	}
 	seq, err := s.asyncReceiptStore.Publish(ctx, subject, expected, data)
 	if s.mode == "cas" || s.mode == "expired-cas" {
 		if n == 1 && err == nil {
@@ -149,6 +159,17 @@ func TestAsyncReceiptReplayWaitRetainsIntegrityAndLeaseFences(t *testing.T) {
 				return err
 			}))
 			close(gate)
+			if mode == "expired-cas" {
+				select {
+				case <-store.entered:
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				}
+				entry, readErr := original.Committed(ctx, 2)
+				require.NoError(t, readErr)
+				require.NoError(t, p.apply(entry))
+				restoreAsyncMetadata(p)
+			}
 			require.Error(t, m.Drain(ctx))
 			require.Error(t, m.Err())
 			expectedPublishes := int32(1)

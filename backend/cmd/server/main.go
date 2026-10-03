@@ -135,8 +135,10 @@ func main() {
 		TransceiversInterval: envDuration("VATSIM_TRANSCEIVER_POLL_INTERVAL", 30*time.Second),
 	})
 	if err != nil {
-		// Transport errors can include credential-bearing URLs. Log only the type.
-		slog.Error("Failed to build application", "error_type", fmt.Sprintf("%T", err))
+		// Transport errors can contain credentials. Diagnostics contain only fixed
+		// stage/class labels and Go types, never the error message.
+		stage, class, causeType := app.StartupFailureDiagnostics(err)
+		slog.Error("Failed to build application", "error_type", fmt.Sprintf("%T", err), "stage", stage, "cause_class", class, "cause_type", causeType)
 		os.Exit(1)
 	}
 	defer func() {

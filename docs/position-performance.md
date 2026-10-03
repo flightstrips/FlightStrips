@@ -236,7 +236,7 @@ their shared request deadline. Pure stand geometry is reused only within one
 sequential reconciliation; current positions and planning eligibility are still
 evaluated for every command. Exact distance ties select the lexical stand name.
 
-The final receipt-replay repair, `e4016b47`, changes only error branches. A verified
+The earlier receipt-replay repair, `e4016b47`, changes only error branches. A verified
 PubAck may await healthy raw replay without publishing again. A CAS conflict
 awaits subject advancement within the same live owner term before reconciling
 the immutable event. Both retain the original thirty-second job budget and the
@@ -251,6 +251,22 @@ match the complete fault suite. The repeated cases used separate owned fixtures
 alongside fault diagnostics; they are correctness evidence, not capacity tests.
 The complete fault-suite result and current validation are recorded in
 [PR #833](https://github.com/flightstrips/FlightStrips/pull/833).
+
+The final error-path repair, `460ec306`, permits read-only subject catchup after
+lease expiry. An uncertain acknowledgement may retire only after verifying its
+own durable outcome and exact immutable event receipt. Any new publication still
+requires the original live owner term. Foreign receipts and remaining old-term
+tails fail closed; structured diagnostics identify the failing phase and guard.
+Naturally expiring lease regressions passed normally and under the race detector.
+
+On clean `460ec306`, the full backend unit suite and complete cluster race suite
+passed. Ten original cross-node restart/readiness repetitions passed with default
+16-processor scheduling in 294.657 seconds; all 126 owned processes stopped. The
+strict fault wrapper passed in 879.812 seconds: all 24 required outcomes passed,
+with zero failures and zero skips. The optional vendor diagnostic is explicitly
+outside the required test prefix; skip rejection remains unchanged. These runs
+overlapped independent correctness fixtures, with no timed load/recovery overlap.
+The failed `be5babe9` restart run and earlier wrapper rejection remain preserved.
 
 These measurements describe one Windows host, not production failure domains.
 The load measurements belong to `66c9f1dd`; later error-path validation must not

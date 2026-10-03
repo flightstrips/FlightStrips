@@ -2,6 +2,8 @@
 services:
   nats-1:
     image: nats:2.15.0
+    environment:
+      GOMEMLIMIT: ${NATS_GOMEMLIMIT:-128MiB}
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./testdata/nats/nats-1.conf:/etc/nats/nats.conf:ro
@@ -10,6 +12,8 @@ services:
     networks: [nats-fixture]
   nats-2:
     image: nats:2.15.0
+    environment:
+      GOMEMLIMIT: ${NATS_GOMEMLIMIT:-128MiB}
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./testdata/nats/nats-2.conf:/etc/nats/nats.conf:ro
@@ -18,6 +22,8 @@ services:
     networks: [nats-fixture]
   nats-3:
     image: nats:2.15.0
+    environment:
+      GOMEMLIMIT: ${NATS_GOMEMLIMIT:-128MiB}
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./testdata/nats/nats-3.conf:/etc/nats/nats.conf:ro

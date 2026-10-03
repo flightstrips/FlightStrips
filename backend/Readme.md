@@ -47,6 +47,14 @@ images, and `start` starts the frontend as well. Only the explicit
 use existing resources; they cannot create or repair resource configuration.
 The fixture credentials in `testdata/nats` are local-only.
 
+Each local broker uses `GOMEMLIMIT=128MiB` to encourage Go to reclaim spare
+file-block buffers and heap memory during continuous feed replacement. This is
+a soft runtime memory budget, not a limit on stored JetStream data or total
+container memory (filesystem cache and other overhead are additional). Set
+`NATS_GOMEMLIMIT` in the shell running Compose to override it for larger local
+workloads. Restart brokers one at a time when applying a changed budget so the
+three-node cluster retains quorum.
+
 An idle client does not stop configured provider feeds or shadow AMAN: the
 airport owner still consumes live VATSIM arrivals. Each backend caches verified,
 immutable Protobuf provider/navigation objects by their content-addressed names,

@@ -240,14 +240,17 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 		}
 		if s.Position {
 			r.PositionsCompleted++
-			changes = append(changes, change{s.At, 1}, change{d.End, -1})
+			senderLag := s.At.Sub(s.Due)
+			receiptLag, scheduledLag, sentReadLag, dueReadLag, valid := pairedTiming(senderLag, s.At, d)
+			if !valid {
+				r.InvalidTimingSamples++
+				continue
+			}
+			// Map the paired elapsed duration onto the sender's monotonic
+			// timeline for backlog ordering and the overload drain boundary.
+			completedAt := s.At.Add(d.End.Sub(s.At))
+			changes = append(changes, change{s.At, 1}, change{completedAt, -1})
 			if !s.Due.Before(start) && s.Due.Before(end) {
-				senderLag := s.At.Sub(s.Due)
-				receiptLag, scheduledLag, sentReadLag, dueReadLag, valid := pairedTiming(senderLag, s.At, d)
-				if !valid {
-					r.InvalidTimingSamples++
-					continue
-				}
 				dispatch = append(dispatch, d.DispatchMS)
 				processing = append(processing, d.ProcessingMS)
 				receipt = append(receipt, float64(receiptLag)/float64(time.Millisecond))
@@ -268,8 +271,8 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 				key := s.Due.UnixNano()
 				batches[key] = max(batches[key], scheduledMS)
 			}
-			if r.PositionsSent <= overloadTarget && d.End.After(overloadEnd) {
-				r.DrainMS = max(r.DrainMS, float64(d.End.Sub(overloadEnd))/float64(time.Millisecond))
+			if r.PositionsSent <= overloadTarget && completedAt.After(overloadEnd) {
+				r.DrainMS = max(r.DrainMS, float64(completedAt.Sub(overloadEnd))/float64(time.Millisecond))
 			}
 		} else {
 			r.OperationalCompleted++

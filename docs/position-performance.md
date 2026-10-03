@@ -206,3 +206,53 @@ attempts and independently verifies durable outcomes for every logical action.
 Original logical counts, position/control schedules and qualification gates stay
 unchanged. Focused worker, reconnect and frontend race checks pass; complete
 native load qualification on these corrections remains pending.
+
+## Latest local evidence
+
+The clean `66c9f1dd` run used three concurrent fixtures, each with the original
+two-minute warmup and fifteen-minute measurement. All six scenarios passed:
+656,280 messages completed and 6,192 logical frontend actions independently
+verified durable. Missing, duplicate, decode, invalid-timing and unexpected-error
+counts were zero. Stand lifecycle, snapshot and integrity assertions passed.
+
+| Arrival aircraft | Schedule | Receipt p95 (ms) | Scheduled p95 (ms) |
+| --- | --- | ---: | ---: |
+| 100 | Even | 0.5036 | 0.8757 |
+| 100 | Second burst | 9.7674 | 12.0692 |
+| 160 | Even | 1.0293 | 1.3703 |
+| 160 | Second burst | 13.6918 | 15.9760 |
+| 40 | Even | 0.0000 | 0.8053 |
+| 40 | Second burst | 13.5960 | 16.0902 |
+
+The zero receipt percentile reflects Windows timer resolution, not physically
+instantaneous processing. All five backend recovery trials passed, with p95
+10.5237 seconds. The run retained its failed status: the full fault sequence
+exposed one permanent stale-metadata failure after quorum returned, and disk
+usage exceeded the existing 85% release threshold. Its private run ID is
+`20261003T035452Z-a1bd147a191c4f089718f58b14c67d7a`.
+
+Broker metadata proofs now run independently of ordered event replay and honor
+their shared request deadline. Pure stand geometry is reused only within one
+sequential reconciliation; current positions and planning eligibility are still
+evaluated for every command. Exact distance ties select the lexical stand name.
+
+The final receipt-replay repair, `e4016b47`, changes only error branches. A verified
+PubAck may await healthy raw replay without publishing again. A CAS conflict
+awaits subject advancement within the same live owner term before reconciling
+the immutable event. Both retain the original thirty-second job budget and the
+two-second metadata freshness gate. Changed stream identity, incomplete history,
+expired authority before publication and outstanding old-term tails remain
+failures; no global failure is cleared.
+
+Both missed branches reproduced the exact stale-metadata failure before repair.
+Full backend unit tests, affected race tests and five native repetitions of the
+original restart/readiness case passed on `e4016b47`, with GOMAXPROCS unset to
+match the complete fault suite. The repeated cases used separate owned fixtures
+alongside fault diagnostics; they are correctness evidence, not capacity tests.
+The complete fault-suite result and current validation are recorded in
+[PR #833](https://github.com/flightstrips/FlightStrips/pull/833).
+
+These measurements describe one Windows host, not production failure domains.
+The load measurements belong to `66c9f1dd`; later error-path validation must not
+be relabeled as a new full performance run. Combined release qualification,
+multi-host placement and Task 24 acceptance are not claimed.

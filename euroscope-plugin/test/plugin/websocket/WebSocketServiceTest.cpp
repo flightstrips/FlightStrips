@@ -102,6 +102,7 @@ TEST_F(WebSocketServiceOnTimerTest, SlaveReplaysActiveAnnotationAndAuthoritative
     flightplan::ApplyHold(*plan, active, "1422");
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     socket->SetSessionState(STATE_SLAVE);
+    socket->SetSessionTerms(1, 2, 3);
     std::vector<protobuf::wire::HoldEvent> reports;
     EXPECT_CALL(*mockImpl, Send(_)).Times(3).WillRepeatedly(Invoke([&](const std::string& bytes) {
         protobuf::wire::Envelope envelope;
@@ -148,6 +149,7 @@ TEST_F(WebSocketServiceOnTimerTest, MasterReplaysPendingCommandWithoutTrackingOw
 
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     socket->SetSessionState(STATE_MASTER);
+    socket->SetSessionTerms(1, 2, 3);
     EXPECT_CALL(*mockImpl, Send(_)).WillOnce(Invoke([](const std::string& bytes) {
         protobuf::wire::Envelope envelope;
         ASSERT_TRUE(envelope.ParseFromString(bytes));
@@ -464,6 +466,37 @@ protected:
     }
 };
 
+TEST_F(WebSocketServiceReconnectTest, OperationalFramesWaitForFreshTermsAfterEveryConnection) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->SetSessionState(STATE_MASTER);
+    svc->SetSessionTerms(1, 2, 3);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2); // Only token and login.
+    svc->SimulateConnected();
+    EXPECT_EQ(svc->GetStats().role, STATE_UNKNOWN);
+    EXPECT_FALSE(svc->ShouldSend());
+    svc->SendEvent(SyncEvent{{}, {}, {}, {}});
+    svc->SendEvent(RunwayEvent({}));
+    svc->SetSessionTerms(1, 4, 0); // Election has not selected a master yet.
+    svc->SendEvent(SyncEvent{{}, {}, {}, {}});
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(mockImpl));
+    svc->SetSessionTerms(1, 4, 5);
+    svc->SetSessionState(STATE_MASTER);
+    EXPECT_CALL(*mockImpl, Send(_)).WillOnce(Invoke([](const std::string& bytes) {
+        protobuf::wire::Envelope envelope;
+        ASSERT_TRUE(envelope.ParseFromString(bytes));
+        EXPECT_TRUE(envelope.has_sync());
+        EXPECT_EQ(envelope.session_id(), 1);
+        EXPECT_EQ(envelope.owner_epoch(), 4);
+        EXPECT_EQ(envelope.master_epoch(), 5);
+    }));
+    svc->SendEvent(SyncEvent{{}, {}, {}, {}});
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(mockImpl));
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2);
+    svc->SimulateConnected();
+    svc->SendEvent(SyncEvent{{}, {}, {}, {}});
+    svc->SendEvent(RunwayEvent({}));
+}
+
 // Conditions were lost while the WebSocket was connected; next reconnect uses the fast delay.
 TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterConditionsLost_NextConnectUsesFastDelay) {
     SetShouldConnect();
@@ -753,6 +786,8 @@ TEST_F(WebSocketServiceOnTimerTest, IsPendingConnect_Initial_ReturnsFalse) {
 
 TEST_F(WebSocketServiceOnTimerTest, SendEvent_WhenObserver_AllowsRunwayValidationOnly) {
     state.observer = true;
+    svc->SetSessionTerms(1, 2, 3);
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
 
     EXPECT_CALL(*mockImpl, Send(_)).Times(1);
     svc->SendEvent(RunwayEvent({}));
@@ -1365,6 +1400,7 @@ TEST_F(WebSocketServiceOnTimerTest, TrackedAircraftFactsRequireTrackingButNotMas
 
 TEST_F(WebSocketServiceOnTimerTest, PositionEventsAreSuppressedAtSendBoundaryAfterMasterDemotion) {
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->SetSessionTerms(1, 2, 3);
     const PositionEvent position("SAS123", 55.6, 12.6, 5000);
     EXPECT_CALL(*mockImpl, Send(_)).Times(1);
     svc->SetSessionState(STATE_MASTER);

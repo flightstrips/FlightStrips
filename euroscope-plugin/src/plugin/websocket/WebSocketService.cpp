@@ -214,6 +214,36 @@ namespace FlightStrips::websocket {
     }
 
     bool WebSocketService::CanSendEventType(const EventType type) const {
+        if (type != EVENT_TOKEN && type != EVENT_LOGIN) {
+            if (!IsConnected()) return false;
+            std::lock_guard lock(terms_mutex_);
+            if (session_id_ <= 0 || owner_epoch_ == 0) return false;
+            switch (type) {
+                case EVENT_SYNC:
+                case EVENT_AIRCRAFT_POSITION_UPDATE:
+                case EVENT_AIRCRAFT_DISCONNECT:
+                case EVENT_STRIP_UPDATE:
+                case EVENT_RUNWAY:
+                case EVENT_SQUAWK:
+                case EVENT_REQUESTED_ALTITUDE:
+                case EVENT_CLEARED_ALTITUDE:
+                case EVENT_COMMUNICATION_TYPE:
+                case EVENT_GROUND_STATE:
+                case EVENT_CLEARED_FLAG:
+                case EVENT_HEADING:
+                case EVENT_STAND:
+                case EVENT_ROUTE:
+                case EVENT_REMARKS:
+                case EVENT_AIRCRAFT_INFO:
+                case EVENT_AIRCRAFT_INFO_REMARKS:
+                case EVENT_SID:
+                case EVENT_AIRCRAFT_RUNWAY:
+                case EVENT_ASSIGNED_SQUAWK:
+                    if (master_epoch_ == 0) return false;
+                    break;
+                default: break;
+            }
+        }
         if (type == EVENT_AIRCRAFT_POSITION_UPDATE) return ShouldSend();
         if (!(m_plugin->GetConnectionState().observer || client_state == STATE_OBSERVER)) {
             return true;
@@ -291,6 +321,11 @@ namespace FlightStrips::websocket {
     void WebSocketService::OnConnected() {
         exceptions::RunGuarded("WebSocketService::OnConnected", [this] {
 			SetSessionTerms(0, 0, 0);
+            client_state = STATE_UNKNOWN;
+            {
+                std::lock_guard lock(message_mutex_);
+                messages_.clear();
+            }
             tx = 0;
             rx = 0;
             pending_connect_ = false;

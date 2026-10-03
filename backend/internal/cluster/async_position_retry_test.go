@@ -17,6 +17,7 @@ type unknownPositionAckKV struct {
 	attempts  int
 	committed bool
 	after     func()
+	before    func()
 }
 
 func (kv *unknownPositionAckKV) publish(key string, data []byte, expected uint64) (uint64, error) {
@@ -24,6 +25,9 @@ func (kv *unknownPositionAckKV) publish(key string, data []byte, expected uint64
 	defer kv.lock.Unlock()
 	kv.attempts++
 	if kv.attempts == 1 {
+		if kv.before != nil {
+			kv.before()
+		}
 		if kv.committed {
 			var err error
 			if expected == 0 {
@@ -176,4 +180,81 @@ func TestAsyncPositionReconciledReceiptRemapsFIFOAliases(t *testing.T) {
 	require.Equal(t, uint64(2), p.asyncPositions.durable[positionKey(42, "SAS1", 1)])
 	require.Empty(t, p.asyncPositions.pending)
 	require.Equal(t, 2, kv.attempts, "unknown first acknowledgement must not duplicate the immutable position")
+}
+
+// A proven final receipt is retirement, not a new old-term publication. A
+// remaining accepted tail still requires the lease and must fail closed.
+func TestAsyncPositionFinalReceiptAfterLeaseExpiry(t *testing.T) {
+	for _, remaining := range []bool{false, true} {
+		t.Run(map[bool]string{false: "final proven receipt drains", true: "unpersisted tail stays fenced"}[remaining], func(t *testing.T) {
+			owners, p, ref, gate, _ := asyncOwnersFixture(t)
+			close(gate)
+			defer owners.owner.NC.Close()
+			p.positions = map[string]KVPosition{}
+			p.positionCursor.lastProved = time.Now()
+			p.asyncPositions = &asyncPositionState{values: map[string]KVPosition{}, durable: map[string]uint64{}, tokens: map[uint64]uint64{}, pending: map[uint64]*pb.PositionValue{}, baselines: map[string]bool{}}
+			started, release := make(chan struct{}), make(chan struct{})
+			var releaseOnce sync.Once
+			t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+			kv := &unknownPositionAckKV{positionKVTest: &positionKVTest{values: map[string]positionKVEntry{}}, committed: true, before: func() { close(started); <-release }}
+			w, err := NewPositionWriter(kv, 42, 1, "master", func(context.Context, int32, uint64, string) error { return nil }, 1, 8)
+			require.NoError(t, err)
+			defer w.Close(context.Background())
+			w.async, w.projection, w.baselineReady = owners, p, true
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			var tokens []uint64
+			require.NoError(t, owners.Execute(ctx, ref, func(turn context.Context) error {
+				ch, err := w.QueuePosition(turn, "SAS1", localPositionValue().GetPosition(), time.Now())
+				if err != nil {
+					return err
+				}
+				tokens = append(tokens, (<-ch).Revision)
+				return nil
+			}))
+			select {
+			case <-started:
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			if remaining {
+				require.NoError(t, owners.Execute(ctx, ref, func(turn context.Context) error {
+					ch, err := w.QueueDisconnect(turn, "SAS1", time.Now())
+					if err != nil {
+						return err
+					}
+					tokens = append(tokens, (<-ch).Revision)
+					return nil
+				}))
+			}
+			subject, _ := Subject(ref)
+			p.mu.Lock()
+			expired, err := cloneAggregate(p.states[subject])
+			require.NoError(t, err)
+			expired.Owner.LeaseUntil = timestamppb.New(time.Now().Add(-time.Second))
+			p.states[subject] = expired
+			p.mu.Unlock()
+			owners.BeginDrain()
+			releaseOnce.Do(func() { close(release) })
+			err = owners.Drain(ctx)
+			if remaining {
+				require.Error(t, err)
+				require.Error(t, owners.Err())
+			} else {
+				require.NoError(t, err)
+				require.NoError(t, owners.Err())
+				require.False(t, owners.Pending(ref))
+			}
+			require.False(t, owners.Active(ref), "receipt completion cannot make an expired owner eligible")
+			p.mu.RLock()
+			defer p.mu.RUnlock()
+			require.Equal(t, uint64(1), p.asyncPositions.tokens[tokens[0]])
+			if remaining {
+				require.Zero(t, p.asyncPositions.tokens[tokens[1]])
+			} else {
+				require.Empty(t, p.asyncPositions.pending)
+			}
+			require.Equal(t, 1, kv.attempts, "no old-term retransmission or tail publication")
+		})
+	}
 }

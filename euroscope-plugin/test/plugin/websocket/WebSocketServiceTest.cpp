@@ -150,6 +150,9 @@ TEST_F(WebSocketServiceOnTimerTest, MasterReplaysPendingCommandWithoutTrackingOw
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     socket->SetSessionState(STATE_MASTER);
     socket->SetSessionTerms(1, 2, 3);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
+    socket->SendEvent(SyncEvent{{}, {}, {}, {}});
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(mockImpl));
     EXPECT_CALL(*mockImpl, Send(_)).WillOnce(Invoke([](const std::string& bytes) {
         protobuf::wire::Envelope envelope;
         ASSERT_TRUE(envelope.ParseFromString(bytes));
@@ -1422,8 +1425,11 @@ TEST_F(WebSocketServiceOnTimerTest, PositionEventsAreSuppressedAtSendBoundaryAft
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     svc->SetSessionTerms(1, 2, 3);
     const PositionEvent position("SAS123", 55.6, 12.6, 5000);
-    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
     svc->SetSessionState(STATE_MASTER);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
+    svc->SendEvent(SyncEvent{{}, {}, {}, {}});
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(mockImpl));
+    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
     svc->SendEvent(position);
     svc->SetSessionState(STATE_SLAVE);
     svc->SendEvent(position);
@@ -1516,4 +1522,30 @@ TEST(SyncEventTest, PopulatedStripSerializesSpokenCallsignField) {
     EXPECT_EQ(j["strips"][0]["star"], "LUXAL2A");
     EXPECT_TRUE(j["strips"][0]["hold_supported"]);
     EXPECT_EQ(j["strips"][0]["hold"], "");
+}
+
+TEST_F(WebSocketServiceOnTimerTest, MasterQueuesInitialSyncBeforeOperationalCallbacks) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->SetSessionTerms(1, 2, 3);
+    svc->SetSessionState(STATE_MASTER);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    svc->SendEvent(AssignedSquawkEvent("SAS1", "1001"));
+    svc->SendEvent(GroundStateEvent("SAS1", "TAXI"));
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(mockImpl));
+    {
+        ::testing::InSequence order;
+        EXPECT_CALL(*mockImpl, Send(_)).WillOnce(Invoke([](const std::string& bytes) {
+            protobuf::wire::Envelope envelope;
+            ASSERT_TRUE(envelope.ParseFromString(bytes));
+            EXPECT_TRUE(envelope.has_sync());
+        }));
+        EXPECT_CALL(*mockImpl, Send(_)).Times(2);
+        svc->SendEvent(SyncEvent{{}, {}, {}, {}});
+        svc->SendEvent(AssignedSquawkEvent("SAS1", "1001"));
+        svc->SendEvent(GroundStateEvent("SAS1", "TAXI"));
+    }
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(mockImpl));
+    svc->SetSessionTerms(1, 2, 4);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    svc->SendEvent(GroundStateEvent("SAS1", "TAXI"));
 }

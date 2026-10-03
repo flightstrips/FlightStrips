@@ -98,6 +98,7 @@ namespace FlightStrips::websocket {
 		int32_t session_id_ = 0;
 		uint64_t owner_epoch_ = 0;
 		uint64_t master_epoch_ = 0;
+        bool initial_sync_sent_ = false;
 
         bool enabled;
 
@@ -135,6 +136,10 @@ void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
     ++tx;
     const auto bytes = AttachSessionTerms(protobuf::Serialize(event), event.type);
     webSocket->Send(bytes);
+    if (event.type == EVENT_SYNC) {
+        std::lock_guard lock(terms_mutex_);
+        initial_sync_sent_ = true;
+    }
     Logger::Debug("Sending protobuf event type {} ({} bytes)", static_cast<int>(event.type), bytes.size());
 }
 

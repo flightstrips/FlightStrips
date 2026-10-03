@@ -386,6 +386,7 @@ func TestBuildNATSAllSocketsReportRunwaysWithoutReplacingMasterConfiguration(t *
 	f.sync(master)
 	slave := f.socket(1, "222222", "EKCH_GND", "121.600")
 	observer := f.socket(1, "333333", "EKCH_OBS", "", true)
+	f.send(slave, &es.Envelope{Event: &es.Envelope_TrackingControllerChanged{TrackingControllerChanged: &es.TrackingControllerChangedEvent{Callsign: "NOTYETOBSERVED", TrackingController: "EKCH_GND"}}})
 	for _, socket := range []*runtimeSocket{slave, observer} {
 		f.send(socket, &es.Envelope{Event: &es.Envelope_Runway{Runway: &es.RunwayEvent{Runways: []*es.Runway{{Name: "04L", Departure: true}}}}})
 		f.await("non-master receives runway mismatch without disconnection", func() bool {
@@ -421,4 +422,57 @@ func TestBuildNATSAllSocketsReportRunwaysWithoutReplacingMasterConfiguration(t *
 		}
 		return true
 	})
+}
+
+func TestBuildNATSStripDeltaOnlyReplaysAffectedAircraft(t *testing.T) {
+	f := newRuntimeFixture(t, nil)
+	master := f.socket(0, "111111", "EKCH_A_TWR", "118.100")
+	f.sync(master, &es.Strip{Callsign: "SAS1", Origin: "EKCH", Destination: "EGLL", HasFp: true, AssignedSquawk: "1001"}, &es.Strip{Callsign: "SAS2", Origin: "EKCH", Destination: "EGLL", HasFp: true, AssignedSquawk: "1002"})
+	slave := f.socket(1, "222222", "EKCH_GND", "121.600")
+	f.await("initial snapshot received", func() bool {
+		slave.mu.Lock()
+		defer slave.mu.Unlock()
+		for _, frame := range slave.frames {
+			if len(frame.GetBackendSync().GetStrips()) == 2 {
+				return true
+			}
+		}
+		return false
+	})
+	slave.mu.Lock()
+	slave.frames = nil
+	slave.mu.Unlock()
+	f.send(master, &es.Envelope{Event: &es.Envelope_AssignedSquawk{AssignedSquawk: &es.AssignedSquawkEvent{Callsign: "SAS1", Squawk: "1234"}}})
+	f.await("only affected strip is delivered", func() bool {
+		slave.mu.Lock()
+		defer slave.mu.Unlock()
+		require.NoError(t, slave.err)
+		for _, frame := range slave.frames {
+			for _, strip := range frame.GetBackendSync().GetStrips() {
+				require.Equal(t, "SAS1", strip.Callsign, "unrelated aircraft must never be replayed")
+				if strip.AssignedSquawk == "1234" {
+					return true
+				}
+			}
+		}
+		return false
+	})
+}
+
+func TestBuildNATSReconnectSyncAcceptsEobtBeforePositionFreshness(t *testing.T) {
+	f := newRuntimeFixture(t, nil)
+	master := f.socket(0, "111111", "EKCH_A_TWR", "118.100")
+	strip := &es.Strip{Callsign: "SAS1", Origin: "EKCH", Destination: "EGLL", HasFp: true, AssignedSquawk: "1001", Position: &es.Position{Lat: 55.6, Lon: 12.65}}
+	f.sync(master, strip)
+	require.NoError(t, master.conn.Close())
+	next := f.socket(1, "111111", "EKCH_A_TWR", "118.100")
+	strip.Eobt = time.Now().UTC().Add(5 * time.Minute).Format("1504")
+	f.sync(next, strip)
+	f.await("EOBT observation accepted during bootstrap", func() bool {
+		value := f.state().Indexes[pb.EntityKind_STRIP]["SAS1"].Value.GetStrip().Eobt
+		return value != nil && value.AsTime().UTC().Format("1504") == strip.Eobt
+	})
+	next.mu.Lock()
+	defer next.mu.Unlock()
+	require.NoError(t, next.err)
 }

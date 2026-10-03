@@ -325,17 +325,24 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 	if observed == nil || observed.Callsign == "" || observed.Callsign != strings.ToUpper(strings.TrimSpace(observed.Callsign)) {
 		return fmt.Errorf("invalid observed strip")
 	}
-	state, err := c.Router.Projection.Read(candidateRef(id))
+	ref := candidateRef(id)
+	old, err := c.Router.Projection.ReadEntity(ref, pb.EntityKind_STRIP, observed.Callsign)
 	if err != nil {
 		return err
 	}
-	old := state.Indexes[pb.EntityKind_STRIP][observed.Callsign]
+	seed, err := c.Router.Projection.ReadEntity(ref, pb.EntityKind_SESSION, fmt.Sprint(id))
+	if err != nil {
+		return err
+	}
+	if seed.GetValue().GetSession() == nil {
+		return fmt.Errorf("observed session unavailable")
+	}
 	revision := old.GetRevision()
 	bay := shared.BAY_UNKNOWN
-	if observed.Destination == state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)].Value.GetSession().Airport {
+	if observed.Destination == seed.GetValue().GetSession().Airport {
 		bay = shared.BAY_ARR_HIDDEN
 	}
-	if observed.Origin == state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)].Value.GetSession().Airport {
+	if observed.Origin == seed.GetValue().GetSession().Airport {
 		bay = shared.BAY_NOT_CLEARED
 		if observed.Cleared {
 			bay = shared.BAY_CLEARED
@@ -394,7 +401,7 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 			return err
 		}
 	}
-	if observed.Origin == state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)].Value.GetSession().Airport && !observed.Cleared && observed.GroundState == "" && !cluster.ValidAssignedSquawk(observed.AssignedSquawk) {
+	if observed.Origin == seed.GetValue().GetSession().Airport && !observed.Cleared && observed.GroundState == "" && !cluster.ValidAssignedSquawk(observed.AssignedSquawk) {
 		commandID := automaticSquawkID(id, strip)
 		reply := c.RequestSquawk(ctx, id, commandID, observed.Callsign)
 		if reply.GetOutcome().GetReasonCode() != "SQUAWK_ALREADY_PENDING" {

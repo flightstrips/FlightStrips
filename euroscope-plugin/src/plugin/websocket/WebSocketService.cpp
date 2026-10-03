@@ -210,6 +210,8 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::SetSessionState(const ClientState state) {
+        std::lock_guard lock(terms_mutex_);
+        if (client_state != state) initial_sync_sent_ = false;
         client_state = state;
     }
 
@@ -218,6 +220,9 @@ namespace FlightStrips::websocket {
             if (!IsConnected()) return false;
             std::lock_guard lock(terms_mutex_);
             if (session_id_ <= 0 || owner_epoch_ == 0) return false;
+            // SDK callbacks during login can precede the full snapshot.
+            if (client_state == STATE_MASTER && !initial_sync_sent_ &&
+                type != EVENT_SYNC && type != EVENT_RUNWAY) return false;
             switch (type) {
                 case EVENT_SYNC:
                 case EVENT_AIRCRAFT_POSITION_UPDATE:
@@ -266,6 +271,9 @@ namespace FlightStrips::websocket {
 
 	void WebSocketService::SetSessionTerms(int32_t sessionId, uint64_t ownerEpoch, uint64_t masterEpoch) {
 		std::lock_guard lock(terms_mutex_);
+		if (session_id_ != sessionId || owner_epoch_ != ownerEpoch || master_epoch_ != masterEpoch) {
+            initial_sync_sent_ = false;
+        }
 		session_id_ = sessionId;
 		owner_epoch_ = ownerEpoch;
 		master_epoch_ = masterEpoch;

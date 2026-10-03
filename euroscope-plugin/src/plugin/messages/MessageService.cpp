@@ -363,22 +363,26 @@ namespace FlightStrips::messages {
         }
         m_webSocketService->SetSessionState(state);
 
-        // A tracking client may reconcile an active annotation after reconnect.
-        // Missing local annotation state is never inferred as a cancellation;
-        // an explicitly cached XHOLD remains authoritative and is replayed.
-        for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
-            if (m_plugin->IsRelevant(it)) m_flightPlanService->ReplayTrackedHold(it);
-        }
+        const auto replayHolds = [&] {
+            // A tracking client may reconcile an active annotation after reconnect.
+            // Missing local annotation state is never inferred as a cancellation;
+            // an explicitly cached XHOLD remains authoritative and is replayed.
+            for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
+                if (m_plugin->IsRelevant(it)) m_flightPlanService->ReplayTrackedHold(it);
+            }
 
-        // The master can repair commands observed during a backend outage even
-        // when the tracking controller is not running FlightStrips.
-        if (state == websocket::STATE_MASTER) {
-            m_flightPlanService->ReplayPendingHoldCommands();
-        }
+            // The master can repair commands observed during a backend outage even
+            // when the tracking controller is not running FlightStrips.
+            if (state == websocket::STATE_MASTER) {
+                m_flightPlanService->ReplayPendingHoldCommands();
+            }
+
+        };
 
         Logger::Debug("Is master: {}", state == websocket::STATE_MASTER);
 
         if (state != websocket::STATE_MASTER) {
+            replayHolds();
             // Send our runway config so the backend can detect conflicts with the master
             const auto airport = m_plugin->GetConnectionState().relevant_airport;
             if (!airport.empty()) {
@@ -533,6 +537,7 @@ namespace FlightStrips::messages {
             return sidEntries;
         }());
         m_webSocketService->SendEvent(syncEvent);
+        replayHolds();
     }
 
     void MessageService::HandleAssignedSquawkEvent(const AssignedSquawkEvent &event) const {
@@ -775,7 +780,8 @@ namespace FlightStrips::messages {
                 continue;
             }
 
-            if (!strip.assigned_squawk.empty()) {
+            if (!strip.assigned_squawk.empty() &&
+                strip.assigned_squawk != fp.GetControllerAssignedData().GetSquawk()) {
                 if (!fp.GetControllerAssignedData().SetSquawk(strip.assigned_squawk.c_str())) {
                     Logger::Warning("BackendSync: failed to set squawk {} for {}", strip.assigned_squawk, strip.callsign);
                 }
@@ -786,17 +792,17 @@ namespace FlightStrips::messages {
             }
 
             const auto* trackedPlan = m_flightPlanService->GetFlightPlan(strip.callsign);
-            if (ShouldMirrorClearedFlagToEuroScope(trackedPlan, strip.cleared)) {
-                m_plugin->SetClearenceFlag(strip.callsign, strip.cleared);
-            } else if (fp.GetClearenceFlag()) {
-                m_plugin->SetClearenceFlag(strip.callsign, false);
+            const bool desiredCleared = strip.cleared &&
+                ShouldMirrorClearedFlagToEuroScope(trackedPlan, strip.cleared);
+            if (fp.GetClearenceFlag() != desiredCleared) {
+                m_plugin->SetClearenceFlag(strip.callsign, desiredCleared);
             }
 
-            if (!strip.ground_state.empty()) {
+            if (!strip.ground_state.empty() && strip.ground_state != fp.GetGroundState()) {
                 m_plugin->UpdateViaScratchPad(strip.callsign.c_str(), strip.ground_state.c_str());
             }
 
-            if (!strip.stand.empty()) {
+            if (!strip.stand.empty() && (trackedPlan == nullptr || trackedPlan->stand != strip.stand)) {
                 const auto destination = std::string(fp.GetFlightPlanData().GetDestination());
                 if (destination == relevantAirport) {
                     m_plugin->SetArrivalStand(strip.callsign.c_str(), strip.stand);

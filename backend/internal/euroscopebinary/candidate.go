@@ -3,6 +3,7 @@ package euroscopebinary
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -293,7 +294,11 @@ func (c *DeadlineCandidate) Serve(ctx context.Context) error {
 					}
 				}
 				hop, cancel := context.WithTimeout(runCtx, timeout)
-				result.Accepted = c.admit(hop, int32(id), msg.Header.Get("FS-Connection"), msg.Header.Get("FS-CID"), frame) == nil
+				admitErr := c.admit(hop, int32(id), msg.Header.Get("FS-Connection"), msg.Header.Get("FS-CID"), frame)
+				result.Accepted = admitErr == nil
+				if admitErr != nil {
+					slog.WarnContext(hop, "EuroScope owner admission failed", "event_type", fmt.Sprintf("%T", frame.Event), "error_reason", inboundFailureReason(admitErr))
+				}
 				cancel()
 			}
 			data, _ := proto.Marshal(result)

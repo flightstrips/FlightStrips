@@ -191,6 +191,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 	}
 	writer := &socketWriter{conn: conn}
 	runways := &socketRunwayReports{}
+	stripSync := &socketStripSync{}
 	checkRunways := func() error {
 		state, err := h.Projection.ReadRunwayConfiguration(session.Id)
 		if err != nil {
@@ -203,7 +204,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 	}
 	callbacks := cluster.LocalSessionSocket{
 		OnInitial: func(state, _ *cluster.Aggregate) error {
-			return writer.send(backendSync(state))
+			return writer.send(stripSync.initial(state))
 		},
 		OnDelta: func(delta *pb.FrontendDelta) error {
 			// Session changes include canonical runway updates from the master.
@@ -229,24 +230,14 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 				}
 				return nil
 			}
-			frames := stripDeltas(delta)
-			if delta.Aggregate.GetSession() != nil {
-				for _, change := range delta.Changes {
-					if change.GetUpsert().GetStrip() != nil || change.GetUpsert().GetCdmState() != nil || change.GetUpsert().GetEcfmpState() != nil {
-						state, err := h.Projection.ReadEntityKinds(delta.Aggregate, pb.EntityKind_STRIP, pb.EntityKind_CDM_STATE, pb.EntityKind_ECFMP_STATE)
-						if err != nil {
-							return err
-						}
-						frames = []*euroscope.Envelope{backendSync(state)}
-						break
-					}
-				}
+			frame, err := stripSync.delta(h.Projection, delta)
+			if err != nil {
+				return err
 			}
-			for _, frame := range frames {
-				if err := writer.send(frame); err != nil {
-					return err
-				}
+			if frame != nil {
+				return writer.send(frame)
 			}
+
 			return nil
 		},
 		OnRole: func(role string, masterEpoch, ownerEpoch uint64) error {
@@ -539,22 +530,6 @@ func operationalStrip(strip *pb.Strip) bool {
 		strip.Bay != shared.BAY_ARR_HIDDEN
 }
 
-func stripDeltas(delta *pb.FrontendDelta) []*euroscope.Envelope {
-	if delta == nil {
-		return nil
-	}
-	var frames []*euroscope.Envelope
-	lat, lon := config.GetAirportCoordinates()
-	for _, change := range delta.Changes {
-		if strip := change.GetUpsert().GetStrip(); operationalStrip(strip) {
-			frames = append(frames, &euroscope.Envelope{Event: &euroscope.Envelope_BackendSync{
-				BackendSync: &euroscope.BackendSyncEvent{Latitude: lat, Longitude: lon,
-					Strips: []*euroscope.BackendSyncStrip{syncStrip(strip)}}}})
-		}
-	}
-	return frames
-}
-
 // Only allowlisted classifications enter logs/telemetry; error strings may
 // contain callsigns, provider data, or authentication input.
 func inboundFailureReason(err error) string {
@@ -579,6 +554,7 @@ func inboundFailureReason(err error) string {
 	}
 	text := err.Error()
 	for _, reason := range []struct{ match, name string }{
+		{"CDM position stale", "cdm_position_stale"},
 		{"REVISION_CONFLICT", "revision_conflict"},
 		{"stale strip revision", "revision_conflict"},
 		{"snapshot", "snapshot_unavailable"},

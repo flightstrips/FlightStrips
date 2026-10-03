@@ -181,6 +181,12 @@ func (c *CdmCandidate) planAction(ctx context.Context, request *pb.CommandReques
 	for _, p := range positions {
 		if p.Value.AircraftKey == key && p.Value.GetPosition() != nil {
 			if p.Stale {
+				// Clock observations arrive during master bootstrap, before
+				// the sync freshness marker. They do not depend on aircraft
+				// coordinates and must not prevent that sync from completing.
+				if operation.Kind == "eobt" || operation.Kind == "logon" {
+					continue
+				}
 				return nil, pb.CommandReply_UNAVAILABLE, expected, fmt.Errorf("CDM position stale")
 			}
 			pos := p.Value.GetPosition()

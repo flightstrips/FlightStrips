@@ -116,6 +116,17 @@ func (c *DeadlineCandidate) AdmitOperational(ctx context.Context, id int32, conn
 	default:
 		return fmt.Errorf("not an inbound operational observation: %T", frame.Event)
 	}
+	// Tracking callbacks can precede the master's first report of an aircraft.
+	// They are advisory; the complete strip carries the current tracker.
+	if frame.GetTrackingControllerChanged() != nil {
+		strip, err := c.Router.Projection.ReadEntity(candidateRef(id), pb.EntityKind_STRIP, callsign)
+		if err != nil {
+			return err
+		}
+		if strip == nil {
+			return nil
+		}
+	}
 	// Hash the incremental observation, then apply its named fields to the
 	// latest strip inside every subject-CAS attempt. Position derivation and
 	// provider reconciliation may legitimately change other strip fields.

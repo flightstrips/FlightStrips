@@ -3,7 +3,6 @@ package cluster
 import (
 	"fmt"
 	"io"
-	"os"
 	"runtime"
 	"sort"
 	"strings"
@@ -37,13 +36,7 @@ func (p *Projection) WriteMetrics(out io.Writer, node string) {
 	fmt.Fprintf(out, "fs_projection_lag_seconds{node=%q} %g\nfs_projection_behind_messages{node=%q} %d\n", node, lag, node, behind)
 	fmt.Fprintf(out, "fs_owner_takeovers_total %d\nfs_stale_epoch_rejections_total %d\nfs_snapshot_verify_failures_total %d\n", p.takeovers.Load(), p.staleEpochs.Load(), p.snapshotFailures.Load())
 	fmt.Fprintf(out, "fs_snapshot_size_skips_total %d\nfs_snapshot_index_contentions_total %d\n", p.snapshotSizeSkips.Load(), p.snapshotIndexContentions.Load())
-	var cacheBytes int64
-	if p.history != nil {
-		if info, err := os.Stat(p.history.path); err == nil {
-			cacheBytes = info.Size()
-		}
-	}
-	fmt.Fprintf(out, "fs_history_cache_bytes %d\n", cacheBytes)
+	fmt.Fprintln(out, "fs_history_cache_bytes 0")
 	hot := map[string]int{"outcome": 0, "workflow": 0, "effect": 0}
 	leases := map[string]float64{"global": 0, "airport": 0, "session": 0}
 	seen := map[string]bool{}

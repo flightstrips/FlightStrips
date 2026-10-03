@@ -239,12 +239,13 @@ export class WebSocketClient {
               break;
             }
             case "statusMissing": {
-              const pending = this.pending.get(frame.frame.value.requestId);
-              if (pending) this.writeBytes(pending.bytes);
-              else {
-                const previous = this.statuses.get(frame.frame.value.requestId);
-                if (previous) this.updateStatus({...previous, status: "not-confirmed"});
-              }
+              const id = frame.frame.value.requestId;
+              // Missing may mean that a completed receipt left the retry
+              // window. Refresh state before an operator issues another action.
+              this.pending.delete(id);
+              this.forceAssumeWait.delete(id);
+              const previous = this.statuses.get(id);
+              if (previous) this.updateStatus({...previous, status: "not-confirmed"});
               break;
             }
             case "error": throw new Error(frame.frame.value.detail || "frontend protocol error");

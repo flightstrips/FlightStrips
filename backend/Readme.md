@@ -252,3 +252,18 @@ separates automated results from pending operator acceptance. SQL and Redis are
 not needed. SAT scenario/replay tools and landing validation remain disabled.
 Production infrastructure, version overlap/capacity qualification and activation
 remain Tasks 21–24; initial activation is stop-first and is held from release.
+
+## Current-state synchronization
+
+See [the runtime contract](../.github/specs/multi-node-nats/simplification.md).
+Session, airport and global owners apply ordinary mutations to RAM and persist
+through an ordered, bounded background queue. A memory-accepted tail can be lost
+if its owner crashes before NATS confirms it. External-action admission and
+provider quota reservations still await durable confirmation.
+
+No local history database is opened. Each aggregate retains 4,096 recent command
+receipts plus pending work, and 1,024 terminal workflow/effect records. Missing
+outcomes do not trigger automatic frontend resubmission. Routine provider-page
+polls retain their current attempt and last accepted generation in a typed
+checkpoint. Existing NATS log/object data and local volumes are preserved;
+automatic broker compaction is not introduced by this migration.

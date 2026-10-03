@@ -218,7 +218,7 @@ func validCommittedReply(request *pb.CommandRequest, hash string, reply *pb.Comm
 		return false
 	}
 	if reply.MemoryAccepted {
-		return request.Aggregate.GetSession() != nil && reply.StreamSequence == nil && outcome.CommittedStreamSequence == 0 &&
+		return reply.StreamSequence == nil && outcome.CommittedStreamSequence == 0 &&
 			reply.CurrentOwner != nil && canonicalUUID(reply.CurrentOwner.NodeId) && reply.CurrentOwner.Epoch > 0
 	}
 	return reply.StreamSequence != nil && reply.GetStreamSequence() > 0 && reply.GetStreamSequence() == outcome.CommittedStreamSequence
@@ -255,7 +255,7 @@ func (r *CommandRouter) projectedOutcome(request *pb.CommandRequest, hash string
 	reply := &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: statusForOutcome(old),
 		AggregateRevision: &old.AggregateRevision, StreamSequence: &old.CommittedStreamSequence,
 		Outcome: proto.Clone(old).(*pb.CommandOutcome)}
-	if old.CommittedStreamSequence == 0 && r.Projection.Async != nil && request.Aggregate.GetSession() != nil {
+	if old.CommittedStreamSequence == 0 && r.Projection.Async != nil {
 		reply.MemoryAccepted, reply.StreamSequence, reply.CurrentOwner = true, nil, state.Owner
 	}
 	return reply

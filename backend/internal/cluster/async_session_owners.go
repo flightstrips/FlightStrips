@@ -123,7 +123,7 @@ func (m *AsyncSessionOwners) RegisterPositionTranslator(f func(*pb.StateEvent) e
 func (m *AsyncSessionOwners) checkpoint(ref *pb.AggregateRef) (*Aggregate, error) {
 	// Borrow a published immutable durable state. Any caller which reduces a
 	// fact against it must clone first; admission only needs its control terms.
-	if ref == nil || ref.GetSession() == nil || m.projection == nil || m.owner == nil || m.store == nil || !m.owner.CanCommitLocal(ref) {
+	if ref == nil || m.projection == nil || m.owner == nil || m.store == nil || !m.owner.CanCommitLocal(ref) {
 		return nil, fmt.Errorf("async session authority unavailable")
 	}
 	key, _ := Subject(ref)
@@ -131,11 +131,6 @@ func (m *AsyncSessionOwners) checkpoint(ref *pb.AggregateRef) (*Aggregate, error
 	defer m.projection.mu.RUnlock()
 	if err := m.projection.healthLocked(); err != nil {
 		return nil, err
-	}
-	if m.projection.history != nil {
-		if err := m.projection.history.check(); err != nil {
-			return nil, err
-		}
 	}
 	a := m.projection.states[key]
 	if a == nil || a.Owner == nil || a.Owner.NodeId != m.owner.NodeID {
@@ -197,7 +192,7 @@ func (m *AsyncSessionOwners) Pending(ref *pb.AggregateRef) bool {
 	return s != nil && s.pending > 0
 }
 func (m *AsyncSessionOwners) Read(ref *pb.AggregateRef) (*Aggregate, error) {
-	if ref == nil || ref.GetSession() == nil {
+	if ref == nil {
 		return nil, nil
 	}
 	key, _ := Subject(ref)
@@ -658,8 +653,6 @@ func (m *AsyncSessionOwners) waitPersistenceRetry(ctx context.Context, ref *pb.A
 		rejected.reason = "observation_integrity"
 	case p.healthErr != nil && !asyncPersistenceHealthRetryable(p.healthErr):
 		rejected.reason = "metadata_integrity"
-	case p.history != nil && p.history.check() != nil:
-		rejected.reason = "history_integrity"
 	}
 	for _, err := range p.snapshotErrors {
 		if !errors.Is(err, ErrImmutableSnapshotCollision) {
@@ -736,7 +729,7 @@ func logAsyncPersistenceFailure(s *asyncSession, job asyncSessionJob, phase stri
 	if job.event != nil {
 		kind = "state"
 	}
-	attrs := []any{"job_kind", kind, "session", s.ref.GetSession().Id, "expected_epoch", s.epoch, "pending_jobs", s.pending, "pending_domain_facts", len(s.tail), "phase", phase, "error_type", fmt.Sprintf("%T", err)}
+	attrs := []any{"job_kind", kind, "aggregate", mustAsyncSubject(s.ref), "expected_epoch", s.epoch, "pending_jobs", s.pending, "pending_domain_facts", len(s.tail), "phase", phase, "error_type", fmt.Sprintf("%T", err)}
 	if job.event != nil {
 		attrs = append(attrs, "event_kind", fmt.Sprintf("%T", job.event.GetFact()))
 	}
@@ -802,12 +795,6 @@ func (m *AsyncSessionOwners) waitPersistenceReadRetry(ctx context.Context) error
 		err = p.observationErr
 		p.mu.RUnlock()
 		return err
-	}
-	if p.history != nil {
-		if historyErr := p.history.check(); historyErr != nil {
-			p.mu.RUnlock()
-			return historyErr
-		}
 	}
 	for _, snapshotErr := range p.snapshotErrors {
 		if !errors.Is(snapshotErr, ErrImmutableSnapshotCollision) {
@@ -960,9 +947,6 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 						m.projection.mu.RLock()
 						durable = m.projection.states[mustAsyncSubject(s.ref)]
 						health := m.projection.healthLocked()
-						if health == nil && m.projection.history != nil {
-							health = m.projection.history.check()
-						}
 						m.projection.mu.RUnlock()
 						if health != nil && asyncPersistenceHealthRetryable(health) {
 							if retryErr := m.waitPersistenceReadRetry(ctx); retryErr == nil {

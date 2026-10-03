@@ -137,7 +137,7 @@ func (o *OwnerRuntime) CanCommitLocal(ref *pb.AggregateRef) bool {
 	p := o.Projection
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	if p.healthLocked() != nil || p.history != nil && p.history.check() != nil {
+	if p.healthLocked() != nil {
 		return false
 	}
 	state := p.states[subject]

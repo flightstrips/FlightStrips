@@ -1,5 +1,7 @@
 # State ownership and replacement map
 
+> Runtime amendment: [Current-state simplification](simplification.md) supersedes permanent materialized command history, local archives, provider-page attempt workflows and ordinary mutation admission in this document. Broker log retention remains unchanged.
+
 This is the exhaustive destination for the current PostgreSQL tables and shared hub state. Each aggregate is a deterministic map of typed entities plus command outcomes, deadlines and revisions. A command that changes several entities within one aggregate emits one event. A query uses an immutable projection snapshot and indexes maintained by the reducer; handlers never compose an operational read from different backends' private memory.
 
 ## Identity and aggregate boundaries

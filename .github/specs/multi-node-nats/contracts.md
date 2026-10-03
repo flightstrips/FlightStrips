@@ -1,5 +1,7 @@
 # NATS and client contracts
 
+> Runtime amendment: [Current-state simplification](simplification.md) supersedes permanent materialized command history, local archives, provider-page attempt workflows and ordinary mutation admission in this document. Broker log retention remains unchanged.
+
 The field-numbered `.proto` files in [proto](proto/) and [storage-contract.md](storage-contract.md) are normative for the new multi-node NATS values and frontend/EuroScope WebSocket frames. They are design artifacts for the new release; task 00 installs them into the root `proto/` build and generates bindings. These payloads use **binary Protobuf**. **ALB is outside this project: do not change its code, endpoint or protocol.** First-party HTTP APIs retain their JSON bodies and response shapes at the HTTP boundary, then translate mutations to typed internal commands; external provider/OIDC formats stay at their adapters. No `Any`, `Struct`, `Value`, generic maps, JSON string, or opaque JSON in `bytes` is permitted inside the new Protobuf schemas. The only `bytes` fields are authenticated-encryption ciphertext and nonce for a UTF-8 private-message body. `request_id` and `command_id` are canonical lowercase UUIDs generated once per logical action. Timestamps in Protobuf use `google.protobuf.Timestamp` in UTC; durations use `google.protobuf.Duration`. Unknown Protobuf fields and enum values are rejected. A contract change requires updating schema, this document, and affected task checks together.
 
 ## NATS resources and subjects

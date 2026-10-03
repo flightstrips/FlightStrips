@@ -8,8 +8,5 @@ func (p *Projection) commandHealth() error {
 	if err := p.healthLocked(); err != nil {
 		return err
 	}
-	if p.history != nil {
-		return p.history.check()
-	}
 	return nil
 }

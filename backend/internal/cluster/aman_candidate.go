@@ -64,6 +64,13 @@ func (w AmanCandidateWorker) observeVatsim(ctx context.Context, icao, callsign s
 	if prior := w.State.Writer.Outcome(ctx, airportRef(icao), commandID, &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "vatsim-adapter"}); prior.Status != pb.CommandReply_NOT_FOUND {
 		return prior
 	}
+	board, err := w.State.Read(ctx, icao)
+	if err != nil {
+		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
+	}
+	if prior := retainedVatsimObservation(board, observationID, commandID); prior != nil {
+		return prior
+	}
 	var flight *pb.VatsimFlight
 	var page *pb.VatsimPage
 	if generation != nil {
@@ -83,10 +90,6 @@ func (w AmanCandidateWorker) observeVatsim(ctx context.Context, icao, callsign s
 	}
 	if flight == nil || flight.FlightPlan == nil || !strings.EqualFold(flight.FlightPlan.Destination, icao) {
 		return &pb.CommandReply{Status: pb.CommandReply_NOT_FOUND, Detail: "arrival absent from VATSIM generation"}
-	}
-	board, err := w.State.Read(ctx, icao)
-	if err != nil {
-		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 	}
 	prior := uint64(0)
 	if board.Airport != nil {
@@ -158,6 +161,9 @@ func (w AmanCandidateWorker) observeMissingVatsim(ctx context.Context, icao, cal
 	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 	}
+	if prior := retainedVatsimObservation(board, observationID, commandID); prior != nil {
+		return prior
+	}
 	observation := &pb.VatsimObservation{ProviderId: observationID, Callsign: callsign, Digest: checkpoint.Sha256, ObservedAt: proto.Clone(page.SnapshotAt).(*timestamppb.Timestamp)}
 	known := false
 	for _, flight := range board.Flights {
@@ -189,6 +195,18 @@ func (w AmanCandidateWorker) observeMissingVatsim(ctx context.Context, icao, cal
 	transition.Request = request
 	transition.Observations = append(transition.Observations, observation)
 	return w.State.Commit(ctx, transition)
+}
+
+// A provider observation is latest-value state. Its cursor fences replay even
+// after its routine command receipt leaves the bounded retry window.
+func retainedVatsimObservation(board AmanBoard, observationID, commandID string) *pb.CommandReply {
+	for _, observation := range board.Observations {
+		if observation.ProviderId == observationID {
+			return &pb.CommandReply{ProtocolRevision: 1, CommandId: commandID, Status: pb.CommandReply_COMMITTED,
+				Outcome: &pb.CommandOutcome{CommandId: commandID, Status: pb.CommandOutcome_SUCCEEDED}}
+		}
+	}
+	return nil
 }
 
 // Reconcile evaluates one deadline from the latest airport board. The stable

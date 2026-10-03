@@ -39,7 +39,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("durable browser action results", () => {
-  it("queries after a lost reply, retries identical bytes, and never stores private text", async () => {
+  it("queries after a lost reply without resending a missing action or storing private text", async () => {
     const client = new WebSocketClient("ws://example/frontEndEvents");
     client.setToken("token");
     const firstConnect = client.connect();
@@ -47,7 +47,6 @@ describe("durable browser action results", () => {
     first.open(); await firstConnect;
     first.receive(initial);
     client.send({type: ActionType.FrontendSendPrivateMessage, callsign: "123456", message: "secret message"});
-    const commandBytes = first.sent.at(-1)!;
     const commandFrame = first.frames().at(-1)!.frame;
     if (commandFrame.case !== "command") throw new Error("expected command");
     const id = commandFrame.value.requestId;
@@ -58,8 +57,9 @@ describe("durable browser action results", () => {
     const second = FakeSocket.sockets[1];
     second.open(); second.receive(initial);
     expect(second.frames().at(-1)!.frame).toMatchObject({case: "statusQuery", value: {requestIds: [id]}});
+    const beforeMissing = second.sent.length;
     second.receive({protocolRevision: 2, frame: {case: "statusMissing", value: {requestId: id}}});
-    expect(second.sent.at(-1)).toEqual(commandBytes);
+    expect(second.sent).toHaveLength(beforeMissing);
     second.receive({protocolRevision: 2, frame: {case: "actionResult", value: {requestId: id, status: CommandOutcome_Status.ACCEPTED}}});
     expect(sessionStorage.getItem("flightstrips.pending-actions.v2.123456.7")).toContain(id);
     second.receive({protocolRevision: 2, frame: {case: "actionResult", value: {requestId: id, status: CommandOutcome_Status.EXPIRED}}});

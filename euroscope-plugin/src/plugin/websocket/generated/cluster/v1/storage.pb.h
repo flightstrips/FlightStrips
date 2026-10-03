@@ -846,6 +846,41 @@ inline bool AmanCapacityAudit_Kind_Parse(absl::string_view name, AmanCapacityAud
   return ::google::protobuf::internal::ParseNamedEnum<AmanCapacityAudit_Kind>(
       AmanCapacityAudit_Kind_descriptor(), name, value);
 }
+enum ProviderCheckpoint_AttemptStatus : int {
+  ProviderCheckpoint_AttemptStatus_ATTEMPT_STATUS_UNSPECIFIED = 0,
+  ProviderCheckpoint_AttemptStatus_PENDING = 1,
+  ProviderCheckpoint_AttemptStatus_COMPLETED = 2,
+  ProviderCheckpoint_AttemptStatus_FAILED = 3,
+  ProviderCheckpoint_AttemptStatus_ProviderCheckpoint_AttemptStatus_INT_MIN_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::min(),
+  ProviderCheckpoint_AttemptStatus_ProviderCheckpoint_AttemptStatus_INT_MAX_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::max(),
+};
+
+bool ProviderCheckpoint_AttemptStatus_IsValid(int value);
+extern const uint32_t ProviderCheckpoint_AttemptStatus_internal_data_[];
+constexpr ProviderCheckpoint_AttemptStatus ProviderCheckpoint_AttemptStatus_AttemptStatus_MIN = static_cast<ProviderCheckpoint_AttemptStatus>(0);
+constexpr ProviderCheckpoint_AttemptStatus ProviderCheckpoint_AttemptStatus_AttemptStatus_MAX = static_cast<ProviderCheckpoint_AttemptStatus>(3);
+constexpr int ProviderCheckpoint_AttemptStatus_AttemptStatus_ARRAYSIZE = 3 + 1;
+const ::google::protobuf::EnumDescriptor*
+ProviderCheckpoint_AttemptStatus_descriptor();
+template <typename T>
+const std::string& ProviderCheckpoint_AttemptStatus_Name(T value) {
+  static_assert(std::is_same<T, ProviderCheckpoint_AttemptStatus>::value ||
+                    std::is_integral<T>::value,
+                "Incorrect type passed to AttemptStatus_Name().");
+  return ProviderCheckpoint_AttemptStatus_Name(static_cast<ProviderCheckpoint_AttemptStatus>(value));
+}
+template <>
+inline const std::string& ProviderCheckpoint_AttemptStatus_Name(ProviderCheckpoint_AttemptStatus value) {
+  return ::google::protobuf::internal::NameOfDenseEnum<ProviderCheckpoint_AttemptStatus_descriptor,
+                                                 0, 3>(
+      static_cast<int>(value));
+}
+inline bool ProviderCheckpoint_AttemptStatus_Parse(absl::string_view name, ProviderCheckpoint_AttemptStatus* value) {
+  return ::google::protobuf::internal::ParseNamedEnum<ProviderCheckpoint_AttemptStatus>(
+      ProviderCheckpoint_AttemptStatus_descriptor(), name, value);
+}
 enum CommandOutcome_Status : int {
   CommandOutcome_Status_STATUS_UNSPECIFIED = 0,
   CommandOutcome_Status_ACCEPTED = 1,
@@ -4646,6 +4681,27 @@ class ProviderCheckpoint final : public ::google::protobuf::Message
  public:
   ::google::protobuf::Metadata GetMetadata() const final;
   // nested types ----------------------------------------------------
+  using AttemptStatus = ProviderCheckpoint_AttemptStatus;
+  static constexpr AttemptStatus ATTEMPT_STATUS_UNSPECIFIED = ProviderCheckpoint_AttemptStatus_ATTEMPT_STATUS_UNSPECIFIED;
+  static constexpr AttemptStatus PENDING = ProviderCheckpoint_AttemptStatus_PENDING;
+  static constexpr AttemptStatus COMPLETED = ProviderCheckpoint_AttemptStatus_COMPLETED;
+  static constexpr AttemptStatus FAILED = ProviderCheckpoint_AttemptStatus_FAILED;
+  static inline bool AttemptStatus_IsValid(int value) {
+    return ProviderCheckpoint_AttemptStatus_IsValid(value);
+  }
+  static constexpr AttemptStatus AttemptStatus_MIN = ProviderCheckpoint_AttemptStatus_AttemptStatus_MIN;
+  static constexpr AttemptStatus AttemptStatus_MAX = ProviderCheckpoint_AttemptStatus_AttemptStatus_MAX;
+  static constexpr int AttemptStatus_ARRAYSIZE = ProviderCheckpoint_AttemptStatus_AttemptStatus_ARRAYSIZE;
+  static inline const ::google::protobuf::EnumDescriptor* AttemptStatus_descriptor() {
+    return ProviderCheckpoint_AttemptStatus_descriptor();
+  }
+  template <typename T>
+  static inline const std::string& AttemptStatus_Name(T value) {
+    return ProviderCheckpoint_AttemptStatus_Name(value);
+  }
+  static inline bool AttemptStatus_Parse(absl::string_view name, AttemptStatus* value) {
+    return ProviderCheckpoint_AttemptStatus_Parse(name, value);
+  }
 
   // accessors -------------------------------------------------------
   enum : int {
@@ -4655,7 +4711,10 @@ class ProviderCheckpoint final : public ::google::protobuf::Message
     kLastModifiedFieldNumber = 4,
     kObjectNameFieldNumber = 6,
     kSha256FieldNumber = 7,
+    kAttemptIdFieldNumber = 8,
     kNextPageFieldNumber = 5,
+    kAttemptStatusFieldNumber = 9,
+    kAcceptedRevisionFieldNumber = 10,
   };
   // string provider = 1;
   void clear_provider() ;
@@ -4753,6 +4812,22 @@ class ProviderCheckpoint final : public ::google::protobuf::Message
   std::string* _internal_mutable_sha256();
 
   public:
+  // string attempt_id = 8;
+  void clear_attempt_id() ;
+  const std::string& attempt_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_attempt_id(Arg_&& arg, Args_... args);
+  std::string* mutable_attempt_id();
+  PROTOBUF_NODISCARD std::string* release_attempt_id();
+  void set_allocated_attempt_id(std::string* value);
+
+  private:
+  const std::string& _internal_attempt_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_attempt_id(
+      const std::string& value);
+  std::string* _internal_mutable_attempt_id();
+
+  public:
   // uint32 next_page = 5;
   void clear_next_page() ;
   ::uint32_t next_page() const;
@@ -4763,13 +4838,33 @@ class ProviderCheckpoint final : public ::google::protobuf::Message
   void _internal_set_next_page(::uint32_t value);
 
   public:
+  // .flightstrips.cluster.v1.ProviderCheckpoint.AttemptStatus attempt_status = 9;
+  void clear_attempt_status() ;
+  ::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus attempt_status() const;
+  void set_attempt_status(::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus value);
+
+  private:
+  ::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus _internal_attempt_status() const;
+  void _internal_set_attempt_status(::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus value);
+
+  public:
+  // uint64 accepted_revision = 10;
+  void clear_accepted_revision() ;
+  ::uint64_t accepted_revision() const;
+  void set_accepted_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_accepted_revision() const;
+  void _internal_set_accepted_revision(::uint64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.ProviderCheckpoint)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 7, 0,
-      101, 2>
+      4, 10, 0,
+      119, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -4790,7 +4885,10 @@ class ProviderCheckpoint final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr last_modified_;
     ::google::protobuf::internal::ArenaStringPtr object_name_;
     ::google::protobuf::internal::ArenaStringPtr sha256_;
+    ::google::protobuf::internal::ArenaStringPtr attempt_id_;
     ::uint32_t next_page_;
+    int attempt_status_;
+    ::uint64_t accepted_revision_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -106500,6 +106598,100 @@ inline void ProviderCheckpoint::set_allocated_sha256(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderCheckpoint.sha256)
 }
 
+// string attempt_id = 8;
+inline void ProviderCheckpoint::clear_attempt_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.attempt_id_.ClearToEmpty();
+}
+inline const std::string& ProviderCheckpoint::attempt_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ProviderCheckpoint.attempt_id)
+  return _internal_attempt_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ProviderCheckpoint::set_attempt_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.attempt_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ProviderCheckpoint.attempt_id)
+}
+inline std::string* ProviderCheckpoint::mutable_attempt_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_attempt_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ProviderCheckpoint.attempt_id)
+  return _s;
+}
+inline const std::string& ProviderCheckpoint::_internal_attempt_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.attempt_id_.Get();
+}
+inline void ProviderCheckpoint::_internal_set_attempt_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.attempt_id_.Set(value, GetArena());
+}
+inline std::string* ProviderCheckpoint::_internal_mutable_attempt_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.attempt_id_.Mutable( GetArena());
+}
+inline std::string* ProviderCheckpoint::release_attempt_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ProviderCheckpoint.attempt_id)
+  return _impl_.attempt_id_.Release();
+}
+inline void ProviderCheckpoint::set_allocated_attempt_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.attempt_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.attempt_id_.IsDefault()) {
+          _impl_.attempt_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderCheckpoint.attempt_id)
+}
+
+// .flightstrips.cluster.v1.ProviderCheckpoint.AttemptStatus attempt_status = 9;
+inline void ProviderCheckpoint::clear_attempt_status() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.attempt_status_ = 0;
+}
+inline ::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus ProviderCheckpoint::attempt_status() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ProviderCheckpoint.attempt_status)
+  return _internal_attempt_status();
+}
+inline void ProviderCheckpoint::set_attempt_status(::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus value) {
+  _internal_set_attempt_status(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ProviderCheckpoint.attempt_status)
+}
+inline ::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus ProviderCheckpoint::_internal_attempt_status() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return static_cast<::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus>(_impl_.attempt_status_);
+}
+inline void ProviderCheckpoint::_internal_set_attempt_status(::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.attempt_status_ = value;
+}
+
+// uint64 accepted_revision = 10;
+inline void ProviderCheckpoint::clear_accepted_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.accepted_revision_ = ::uint64_t{0u};
+}
+inline ::uint64_t ProviderCheckpoint::accepted_revision() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ProviderCheckpoint.accepted_revision)
+  return _internal_accepted_revision();
+}
+inline void ProviderCheckpoint::set_accepted_revision(::uint64_t value) {
+  _internal_set_accepted_revision(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ProviderCheckpoint.accepted_revision)
+}
+inline ::uint64_t ProviderCheckpoint::_internal_accepted_revision() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.accepted_revision_;
+}
+inline void ProviderCheckpoint::_internal_set_accepted_revision(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.accepted_revision_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // WeatherCache
@@ -134763,6 +134955,12 @@ struct is_proto_enum<::flightstrips::cluster::v1::AmanCapacityAudit_Kind> : std:
 template <>
 inline const EnumDescriptor* GetEnumDescriptor<::flightstrips::cluster::v1::AmanCapacityAudit_Kind>() {
   return ::flightstrips::cluster::v1::AmanCapacityAudit_Kind_descriptor();
+}
+template <>
+struct is_proto_enum<::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus> : std::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor<::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus>() {
+  return ::flightstrips::cluster::v1::ProviderCheckpoint_AttemptStatus_descriptor();
 }
 template <>
 struct is_proto_enum<::flightstrips::cluster::v1::CommandOutcome_Status> : std::true_type {};

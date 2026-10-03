@@ -169,13 +169,6 @@ func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, air
 			}
 			continue
 		}
-		if p.history != nil {
-			if err := p.history.check(); err != nil {
-				ready += time.Since(stage)
-				p.mu.RUnlock()
-				return err
-			}
-		}
 		ready += time.Since(stage)
 		if item := p.positions[key]; item.Revision >= revision {
 			p.mu.RUnlock()

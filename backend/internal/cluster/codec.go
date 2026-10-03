@@ -214,6 +214,15 @@ func Subject(ref *pb.AggregateRef) (string, error) {
 }
 
 func validateTyped(message protoreflect.Message) error {
+	if checkpoint, ok := message.Interface().(*pb.ProviderCheckpoint); ok {
+		legacy := checkpoint.AttemptId == "" && checkpoint.AttemptStatus == pb.ProviderCheckpoint_ATTEMPT_STATUS_UNSPECIFIED
+		if !legacy && (!canonicalUUID(checkpoint.AttemptId) || checkpoint.AttemptStatus == pb.ProviderCheckpoint_ATTEMPT_STATUS_UNSPECIFIED) {
+			return fmt.Errorf("invalid provider attempt identity/status")
+		}
+		if checkpoint.AcceptedRevision > 0 && (checkpoint.ObjectName == "" || checkpoint.Sha256 == "") {
+			return fmt.Errorf("accepted provider revision requires an object")
+		}
+	}
 	if state, ok := message.Interface().(*pb.CdmState); ok {
 		if err := validateCdmState(state); err != nil {
 			return err

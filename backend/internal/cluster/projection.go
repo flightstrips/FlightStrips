@@ -21,7 +21,6 @@ import (
 // never exposed until a complete event has passed the reducer.
 type Projection struct {
 	Async                                      *AsyncSessionOwners // configured before command admission
-	history                                    *historyCache
 	NC                                         *nats.Conn
 	JS                                         nats.JetStreamContext
 	Config                                     natsresources.Config
@@ -133,17 +132,9 @@ func (p *Projection) Run(ctx context.Context) error {
 		p.mu.Unlock()
 		p.watchers.Wait()
 		p.snapshotJobs.Wait()
-		if p.history != nil {
-			_ = p.history.close()
-		}
 	}()
 	if err := natsresources.Verify(ctx, p.NC, p.Config); err != nil {
 		return err
-	}
-	var historyErr error
-	p.history, historyErr = newHistoryCache()
-	if historyErr != nil {
-		return historyErr
 	}
 	p.watchers.Add(2)
 	go func() { defer p.watchers.Done(); p.watchPositions(watchCtx) }()
@@ -163,10 +154,7 @@ func (p *Projection) Run(ctx context.Context) error {
 			p.wakeWaitersLocked()
 			return err
 		}
-		state.history = p.history
-		if err := state.boundHistory(); err != nil {
-			return err
-		}
+		state.trimRecords()
 		subject, _ := Subject(ref)
 		p.states[subject] = state
 		p.lastSnapshot[subject] = time.Now()
@@ -292,7 +280,6 @@ func (p *Projection) applyEvent(entry AppliedEvent, expected *uint64) error {
 	state := p.states[entry.Subject]
 	if state == nil {
 		state = NewAggregate(ref)
-		state.history = p.history
 		p.lastSnapshot[entry.Subject] = time.Now()
 	}
 	if entry.StreamSequence <= state.StreamSequence {
@@ -321,9 +308,7 @@ func (p *Projection) applyEvent(entry AppliedEvent, expected *uint64) error {
 	if err != nil {
 		return fmt.Errorf("stream %d: %w", entry.StreamSequence, err)
 	}
-	if err := clone.boundHistory(); err != nil {
-		return err
-	}
+
 	p.states[entry.Subject] = clone
 	if expected == nil {
 		p.applied = entry.StreamSequence
@@ -438,7 +423,6 @@ func cloneAggregate(a *Aggregate) (*Aggregate, error) {
 	// in-memory read needs detached values, not serialization, hashing and a
 	// second validation of the entire retained command history.
 	copy := NewAggregate(a.Ref)
-	copy.history = a.history
 	copy.Revision, copy.StreamSequence, copy.SubjectSequence = a.Revision, a.StreamSequence, a.SubjectSequence
 	if a.Owner != nil {
 		copy.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
@@ -634,11 +618,6 @@ func (p *Projection) Ready() error {
 	if p.applied < p.highWater {
 		return fmt.Errorf("replay behind stream: %d < %d", p.applied, p.highWater)
 	}
-	if p.history != nil {
-		if err := p.history.check(); err != nil {
-			return fmt.Errorf("history cache unavailable: %w", err)
-		}
-	}
 	return nil
 }
 
@@ -702,9 +681,6 @@ func (p *Projection) readyForRead() error {
 		p.mu.RLock()
 		health := p.healthLocked()
 		behind := p.applied < p.highWater
-		if health == nil && !behind && p.history != nil {
-			health = p.history.check()
-		}
 		p.mu.RUnlock()
 		if health != nil || !behind {
 			return health
@@ -722,7 +698,9 @@ func (p *Projection) ReadEntity(ref *pb.AggregateRef, kind pb.EntityKind, key st
 		if err != nil {
 			return nil, err
 		}
-		if value := memory.Indexes[kind][key]; value != nil { return proto.Clone(value).(*pb.EntitySnapshot), nil }
+		if value := memory.Indexes[kind][key]; value != nil {
+			return proto.Clone(value).(*pb.EntitySnapshot), nil
+		}
 		return nil, nil
 	}
 	subject, err := Subject(ref)
@@ -830,13 +808,19 @@ func (p *Projection) committedCommandCheckpoint(ref *pb.AggregateRef, id string)
 
 func (p *Projection) readCommandCheckpoint(ref *pb.AggregateRef, id string, completeReplay bool) (*Aggregate, error) {
 	if memory, err := p.memoryControl(ref); err != nil || memory != nil {
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		out := NewAggregate(ref)
 		out.Revision, out.StreamSequence, out.SubjectSequence = memory.Revision, memory.StreamSequence, memory.SubjectSequence
 		out.Owner = proto.Clone(memory.Owner).(*pb.OwnerTerm)
 		value, err := memory.LookupOutcome(id)
-		if err != nil { return nil, err }
-		if value != nil { out.Ledger[id] = proto.Clone(value).(*pb.CommandOutcome) }
+		if err != nil {
+			return nil, err
+		}
+		if value != nil {
+			out.Ledger[id] = proto.Clone(value).(*pb.CommandOutcome)
+		}
 		return out, nil
 	}
 	return p.readDurableCommandCheckpoint(ref, id, completeReplay)
@@ -856,11 +840,6 @@ func (p *Projection) readDurableCommandCheckpoint(ref *pb.AggregateRef, id strin
 	defer p.mu.RUnlock()
 	if err := p.healthLocked(); err != nil {
 		return nil, err
-	}
-	if p.history != nil {
-		if err := p.history.check(); err != nil {
-			return nil, err
-		}
 	}
 	out := NewAggregate(ref)
 	if state := p.states[subject]; state != nil {
@@ -887,7 +866,9 @@ func (p *Projection) ReadEntities(ref *pb.AggregateRef, kind pb.EntityKind) ([]*
 			return nil, err
 		}
 		var entities []*pb.EntitySnapshot
-		for _, value := range memory.EntitiesByKind(kind) { entities = append(entities, proto.Clone(value).(*pb.EntitySnapshot)) }
+		for _, value := range memory.EntitiesByKind(kind) {
+			entities = append(entities, proto.Clone(value).(*pb.EntitySnapshot))
+		}
 		return entities, nil
 	}
 	subject, err := Subject(ref)
@@ -945,7 +926,7 @@ func (p *Projection) Outcome(_ context.Context, commandID string, actor *pb.Acto
 		reply.Status = statusForOutcome(outcome)
 		reply.AggregateRevision, reply.StreamSequence = &outcome.AggregateRevision, &outcome.CommittedStreamSequence
 		reply.Outcome = proto.Clone(outcome).(*pb.CommandOutcome)
-		if outcome.CommittedStreamSequence == 0 && p.Async != nil && state.Ref.GetSession() != nil {
+		if outcome.CommittedStreamSequence == 0 && p.Async != nil {
 			reply.MemoryAccepted, reply.StreamSequence, reply.CurrentOwner = true, nil, proto.Clone(state.Owner).(*pb.OwnerTerm)
 		}
 	}
@@ -1082,7 +1063,7 @@ func (p *Projection) WaitSubjectAdvance(ctx context.Context, subject string, pre
 // cannot be lost between initial read and live delivery. Channel overflow
 // closes delivery and requires the client to resynchronize.
 func (p *Projection) SubscribeInitial(ref *pb.AggregateRef) (*Aggregate, <-chan *pb.FrontendDelta, func(), error) {
-	if p.Async != nil && ref != nil && ref.GetSession() != nil && p.Async.Active(ref) {
+	if p.Async != nil && ref != nil && p.Async.Active(ref) {
 		var initial *Aggregate
 		var updates <-chan *pb.FrontendDelta
 		var closeSub func()

@@ -6,8 +6,8 @@ import (
 )
 
 // ReadLifecyclePlanning returns a detached, coherent SAT planning snapshot.
-// Lifecycle preflight needs every entity, term, and workflow, including archived
-// workflow lookup. Command outcomes and delivery effects are not planning inputs.
+// Lifecycle preflight includes entities, terms and retained workflows.
+// Command outcomes and delivery effects are not planning inputs.
 // Authoritative publication still uses Writer.Execute's complete snapshot.
 func (p *Projection) ReadLifecyclePlanning(ref *pb.AggregateRef) (*Aggregate, error) {
 	return p.ReadLifecyclePlanningCached(ref, nil)
@@ -23,11 +23,10 @@ func (p *Projection) ReadLifecyclePlanningCached(ref *pb.AggregateRef, previous 
 			return nil, err
 		}
 		if previous != nil && proto.Equal(previous.Ref, ref) && previous.Revision == memory.Revision &&
-			previous.StreamSequence == memory.StreamSequence && previous.SubjectSequence == memory.SubjectSequence && previous.history == memory.history {
+			previous.StreamSequence == memory.StreamSequence && previous.SubjectSequence == memory.SubjectSequence {
 			return previous, nil
 		}
 		out := NewAggregate(ref)
-		out.history = memory.history
 		out.Revision, out.StreamSequence, out.SubjectSequence = memory.Revision, memory.StreamSequence, memory.SubjectSequence
 		if memory.Owner != nil {
 			out.Owner = proto.Clone(memory.Owner).(*pb.OwnerTerm)
@@ -60,12 +59,11 @@ func (p *Projection) ReadLifecyclePlanningCached(ref *pb.AggregateRef, previous 
 		return nil, err
 	}
 	state := p.states[subject]
-	if state != nil && previous != nil && proto.Equal(previous.Ref, ref) && previous.Revision == state.Revision && previous.StreamSequence == state.StreamSequence && previous.SubjectSequence == state.SubjectSequence && previous.history == state.history {
+	if state != nil && previous != nil && proto.Equal(previous.Ref, ref) && previous.Revision == state.Revision && previous.StreamSequence == state.StreamSequence && previous.SubjectSequence == state.SubjectSequence {
 		return previous, nil
 	}
 	out := NewAggregate(ref)
 	if state != nil {
-		out.history = state.history
 		out.Revision, out.StreamSequence, out.SubjectSequence = state.Revision, state.StreamSequence, state.SubjectSequence
 		if state.Owner != nil {
 			out.Owner = proto.Clone(state.Owner).(*pb.OwnerTerm)

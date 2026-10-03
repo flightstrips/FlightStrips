@@ -28,11 +28,6 @@ func (p *Projection) readOwnedDurable(ref *pb.AggregateRef, nodeID string) (*Agg
 	if err := p.healthLocked(); err != nil {
 		return nil, err
 	}
-	if p.history != nil {
-		if err := p.history.check(); err != nil {
-			return nil, err
-		}
-	}
 	state := p.states[subject]
 	if nodeID == "" || state == nil || state.Owner == nil || state.Owner.NodeId != nodeID {
 		return nil, fmt.Errorf("local planning owner changed")

@@ -1,5 +1,7 @@
 # Binary storage and compatibility contract
 
+> Runtime amendment: [Current-state simplification](simplification.md) supersedes permanent materialized command history, local archives, provider-page attempt workflows and ordinary mutation admission in this document. Broker log retention remains unchanged.
+
 This document assigns a Protobuf message to every new multi-node durable or replicated byte value. The schemas in [proto/storage.proto](proto/storage.proto), [proto/wire.proto](proto/wire.proto), and [proto/euroscope.proto](proto/euroscope.proto) fix the field numbers and oneofs. ALB is outside this contract and remains unchanged. New values are raw binary `proto.Marshal` output with no JSON, gzip, text wrapper, or second serializer. Compression, if later needed, belongs to a separately versioned envelope and requires a reviewed schema change. Protobuf unknown fields are rejected rather than silently preserved or discarded.
 
 ## Resource value map

@@ -1,4 +1,6 @@
 ---
+
+> Runtime amendment: [Current-state simplification](simplification.md) supersedes permanent materialized command history, local archives, provider-page attempt workflows and ordinary mutation admission in this document. Broker log retention remains unchanged.
 title: Multi-node NATS-only backend implementation
 status: implementation-ready
 audience: maintainers-and-coding-agents

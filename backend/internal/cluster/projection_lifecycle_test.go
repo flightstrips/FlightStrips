@@ -34,14 +34,11 @@ func lifecyclePlanningFixture() (*Projection, *Aggregate) {
 
 func TestLifecyclePlanningPreservesDetachedInputsAndArchivedWorkflows(t *testing.T) {
 	p, state := lifecyclePlanningFixture()
-	state.history = testHistoryCache(t)
 	for i := 0; i < 1024; i++ {
 		key := fmt.Sprintf("workflow-%04d", i)
 		state.Workflows[key] = &pb.WorkflowRecord{WorkflowId: key, Step: "prefile-consumed", Status: pb.WorkflowRecord_COMPLETED}
 	}
-	if err := state.boundHistory(); err != nil {
-		t.Fatal(err)
-	}
+
 	read, err := p.ReadLifecyclePlanning(state.Ref)
 	if err != nil {
 		t.Fatal(err)
@@ -155,22 +152,6 @@ func TestLifecyclePlanningCacheRefreshesCommittedNeighborsAndFences(t *testing.T
 	p.healthErr = errors.New("quorum lost")
 	if _, err := p.ReadLifecyclePlanningCached(state.Ref, advanced); err == nil {
 		t.Fatal("unchanged cache bypassed failed health fence")
-	}
-}
-
-func TestLifecyclePlanningCacheChecksArchiveHealth(t *testing.T) {
-	p, state := lifecyclePlanningFixture()
-	state.history = testHistoryCache(t)
-	p.history = state.history
-	first, err := p.ReadLifecyclePlanning(state.Ref)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := p.history.db.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := p.ReadLifecyclePlanningCached(state.Ref, first); err == nil {
-		t.Fatal("unchanged cache bypassed unavailable archived workflow history")
 	}
 }
 

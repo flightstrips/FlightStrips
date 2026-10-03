@@ -107,7 +107,7 @@ func (w Writer) ExecuteFresh(ctx context.Context, request *pb.CommandRequest) (*
 type durableExecutionKey struct{}
 
 func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.CommandReply, bool) {
-	if w.Projection != nil && w.Projection.Async != nil && request != nil && request.Aggregate.GetSession() != nil {
+	if w.Projection != nil && w.Projection.Async != nil && request != nil {
 		if _, err := RequestHash(request); err == nil {
 			var reply *pb.CommandReply
 			var fresh bool
@@ -222,7 +222,7 @@ func (w Writer) executeTurn(ctx context.Context, request *pb.CommandRequest) (*p
 			reply.StreamSequence = &old.CommittedStreamSequence
 			reply.AggregateRevision = &old.AggregateRevision
 			reply.Outcome = proto.Clone(old).(*pb.CommandOutcome)
-			if old.CommittedStreamSequence == 0 && w.Projection != nil && w.Projection.Async != nil && request.Aggregate.GetSession() != nil {
+			if old.CommittedStreamSequence == 0 && w.Projection != nil && w.Projection.Async != nil {
 				reply.MemoryAccepted, reply.StreamSequence, reply.CurrentOwner = true, nil, state.Owner
 			}
 			return reply, published
@@ -297,7 +297,7 @@ func (w Writer) executeTurn(ctx context.Context, request *pb.CommandRequest) (*p
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
 			return reply, published
 		}
-		if ctx.Value(durableExecutionKey{}) != true && w.Projection != nil && w.Projection.Async != nil && request.Aggregate.GetSession() != nil {
+		if ctx.Value(durableExecutionKey{}) != true && w.Projection != nil && w.Projection.Async != nil {
 			accepted, err := w.Projection.Async.AcceptState(ctx, state, e)
 			if err != nil {
 				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()

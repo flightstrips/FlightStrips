@@ -768,6 +768,12 @@ message ProviderCheckpoint {
   string provider = 1; string resource = 2; string etag = 3;
   string last_modified = 4; uint32 next_page = 5;
   string object_name = 6; string sha256 = 7;
+  // One current read attempt; prior accepted object fields survive PENDING.
+  string attempt_id = 8;
+  enum AttemptStatus { ATTEMPT_STATUS_UNSPECIFIED = 0; PENDING = 1; COMPLETED = 2; FAILED = 3; }
+  AttemptStatus attempt_status = 9;
+  // Accepted page generation; unchanged during PENDING/FAILED attempts.
+  uint64 accepted_revision = 10;
 }
 message WeatherCache {
   string airport = 1; string provider = 2;

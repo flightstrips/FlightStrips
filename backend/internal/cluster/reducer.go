@@ -23,7 +23,6 @@ type AppliedEvent struct {
 	Data                            []byte
 }
 type Aggregate struct {
-	history                                   *historyCache
 	Ref                                       *pb.AggregateRef
 	Revision, StreamSequence, SubjectSequence uint64
 	Owner                                     *pb.OwnerTerm
@@ -303,6 +302,7 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 
 func (a *Aggregate) checkpoint(e AppliedEvent) {
 	a.StreamSequence, a.SubjectSequence = e.StreamSequence, e.SubjectSequence
+	a.trimRecords()
 }
 func (a *Aggregate) ownerEpoch() uint64 {
 	if a.Owner == nil {
@@ -354,6 +354,12 @@ func (a *Aggregate) EntitiesByKind(kind pb.EntityKind) []*pb.EntitySnapshot {
 
 // Snapshot returns a deterministic typed view. Task 03 owns object persistence.
 func (a *Aggregate) Snapshot() (*pb.Snapshot, error) {
+	current := copyAggregateForApply(a)
+	current.trimRecords()
+	return current.snapshotCurrent()
+}
+
+func (a *Aggregate) snapshotCurrent() (*pb.Snapshot, error) {
 	s := &pb.Snapshot{SchemaVersion: 1, Aggregate: proto.Clone(a.Ref).(*pb.AggregateRef), AggregateRevision: a.Revision, LastStreamSequence: a.StreamSequence, LastSubjectSequence: a.SubjectSequence}
 	if a.Owner != nil {
 		s.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
@@ -406,41 +412,6 @@ func (a *Aggregate) Snapshot() (*pb.Snapshot, error) {
 	size := proto.Size(s) + 128
 	if size > MaxObjectBytes {
 		return nil, ErrSnapshotTooLarge
-	}
-	for _, kind := range []string{"outcome", "workflow", "effect"} {
-		err := a.visitHistory(kind, func(id string, data []byte) error {
-			if kind == "outcome" && a.Ledger[id] != nil || kind == "workflow" && a.Workflows[id] != nil || kind == "effect" && a.Effects[id] != nil {
-				return nil
-			}
-			size += len(data) + 8
-			if size > MaxObjectBytes {
-				return ErrSnapshotTooLarge
-			}
-			switch kind {
-			case "outcome":
-				value := &pb.CommandOutcome{}
-				if err := pb.UnmarshalStrict(data, value); err != nil {
-					return err
-				}
-				s.Outcomes = append(s.Outcomes, value)
-			case "workflow":
-				value := &pb.WorkflowRecord{}
-				if err := pb.UnmarshalStrict(data, value); err != nil {
-					return err
-				}
-				s.Workflows = append(s.Workflows, value)
-			case "effect":
-				value := &pb.EffectRecord{}
-				if err := pb.UnmarshalStrict(data, value); err != nil {
-					return err
-				}
-				s.Effects = append(s.Effects, value)
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
 	}
 	sort.Slice(s.Outcomes, func(i, j int) bool { return s.Outcomes[i].CommandId < s.Outcomes[j].CommandId })
 	sort.Slice(s.Workflows, func(i, j int) bool { return s.Workflows[i].WorkflowId < s.Workflows[j].WorkflowId })

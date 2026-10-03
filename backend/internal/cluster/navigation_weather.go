@@ -640,6 +640,14 @@ func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.Ag
 
 // CheckpointMetadataFor reads accepted identity without downloading its page.
 func (a NavigationWeather) CheckpointMetadataFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, uint64, error) {
+	checkpoint, revision, err := a.providerCheckpointMetadata(ctx, ref, provider, resource)
+	if checkpoint != nil && checkpoint.AcceptedRevision != 0 {
+		revision = checkpoint.AcceptedRevision
+	}
+	return checkpoint, revision, err
+}
+
+func (a NavigationWeather) providerCheckpointMetadata(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, uint64, error) {
 	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && provider != "viff" && provider != "hoppie" {
 		return nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF or Hoppie")
 	}
@@ -681,52 +689,127 @@ func (a NavigationWeather) FetchProviderPageFor(ctx context.Context, worker Exte
 	return a.FetchProviderPageReserved(ctx, worker, workflowID, ref, provider, resource, nil, fetch)
 }
 
-// FetchProviderPageReserved commits the source intent before reserving a
-// global quota slot. An uncertain reservation or provider response is never
-// permission for the next owner to call again with the same workflow ID.
-func (a NavigationWeather) FetchProviderPageReserved(ctx context.Context, worker ExternalCallWorker, workflowID string, ref *pb.AggregateRef, provider, resource string, reserve func(context.Context) (bool, error), fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
-	if fetch == nil || provider == "" || resource == "" {
-		return false, fmt.Errorf("invalid fenced provider fetch")
+// FetchProviderPageReserved tracks one current read attempt in the provider
+// checkpoint. No general workflow or permanent attempt history is required.
+func (a NavigationWeather) FetchProviderPageReserved(ctx context.Context, worker ExternalCallWorker, attemptID string, ref *pb.AggregateRef, provider, resource string, reserve func(context.Context) (bool, error), fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
+	if fetch == nil || provider == "" || resource == "" || !canonicalUUID(attemptID) {
+		return false, fmt.Errorf("invalid provider read")
 	}
-	var next *pb.ProviderCheckpoint
-	return worker.Run(ctx, ExternalCallSpec{
-		Source: ref, Destination: ref, WorkflowID: workflowID,
-		Step:    "external/provider/" + provider + "/" + resource,
-		Reserve: reserve,
-		Fetch: func(ctx context.Context) (proto.Message, error) {
-			// Completed polling slots never need the potentially large saved page.
-			// Read it only after the durable intent admits a new provider call.
-			prior, priorPage, err := a.CheckpointFor(ctx, ref, provider, resource)
-			if err != nil {
-				return nil, err
+	if _, err := Subject(ref); err != nil {
+		return false, err
+	}
+	if ref.GetSession() != nil && provider != "viff" && provider != "hoppie" {
+		return false, fmt.Errorf("invalid provider aggregate")
+	}
+	if worker.Writer.Lease != nil && !worker.Writer.Lease.CanWrite(ref) {
+		return false, fmt.Errorf("provider owner unavailable")
+	}
+	prior, revision, err := a.providerCheckpointMetadata(ctx, ref, provider, resource)
+	if err != nil {
+		return false, err
+	}
+	if prior != nil && prior.AttemptId == attemptID {
+		return false, nil
+	}
+	// During migration, a retained old admission receipt still fences its one-shot call.
+	legacyID, _ := AmanIntentID(attemptID, "external-intent")
+	legacy := worker.Writer.Outcome(ctx, ref, legacyID, &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "external-worker"})
+	if legacy.Status == pb.CommandReply_UNAVAILABLE {
+		return false, fmt.Errorf("provider migration checkpoint unavailable")
+	}
+	if legacy.Status != pb.CommandReply_NOT_FOUND {
+		return false, nil
+	}
+	pending := &pb.ProviderCheckpoint{Provider: provider, Resource: resource}
+	if prior != nil {
+		pending = proto.Clone(prior).(*pb.ProviderCheckpoint)
+		if pending.AcceptedRevision == 0 && pending.ObjectName != "" {
+			pending.AcceptedRevision = revision
+		}
+	}
+	pending.AttemptId, pending.AttemptStatus = attemptID, pb.ProviderCheckpoint_PENDING
+	admitted, fresh := a.writeProviderAttempt(ctx, worker.Writer, ref, pending, revision, "pending")
+	if admitted.Status != pb.CommandReply_COMMITTED || admitted.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
+		return false, fmt.Errorf("provider read admission: %s: %s", admitted.Status, admitted.Detail)
+	}
+	if !fresh {
+		return false, nil
+	}
+	fail := func(cause error, sent bool) (bool, error) {
+		failed := proto.Clone(pending).(*pb.ProviderCheckpoint)
+		failed.AttemptStatus = pb.ProviderCheckpoint_FAILED
+		if worker.Writer.Lease == nil || worker.Writer.Lease.CanDispatchDurable(ref) {
+			a.writeProviderAttempt(ctx, worker.Writer, ref, failed, 0, "failed")
+		}
+		return sent, cause
+	}
+	if worker.Writer.Lease != nil && !worker.Writer.Lease.CanDispatchDurable(ref) {
+		return false, fmt.Errorf("provider owner changed")
+	}
+	if reserve != nil {
+		ok, err := reserve(ctx)
+		if err != nil || !ok {
+			return fail(err, false)
+		}
+	}
+	if worker.Writer.Lease != nil && !worker.Writer.Lease.CanDispatchDurable(ref) {
+		return false, fmt.Errorf("provider owner changed")
+	}
+	var priorPage *pb.ProviderPage
+	if prior != nil && prior.ObjectName != "" {
+		priorPage, err = a.ReadProvider(prior.ObjectName, prior.Sha256, provider, resource)
+		if err != nil {
+			return fail(err, false)
+		}
+	}
+	page, next, err := fetch(ctx, prior, priorPage)
+	if err != nil {
+		return fail(err, true)
+	}
+	if page == nil || next == nil || page.Provider != provider || page.Resource != resource || next.Provider != provider || next.Resource != resource {
+		return fail(fmt.Errorf("provider result identity mismatch"), true)
+	}
+	name, sha, err := a.PublishProvider(page)
+	if err != nil {
+		return fail(err, true)
+	}
+	next = proto.Clone(next).(*pb.ProviderCheckpoint)
+	next.ObjectName, next.Sha256, next.AttemptId, next.AttemptStatus = name, sha, attemptID, pb.ProviderCheckpoint_COMPLETED
+	reply, _ := a.writeProviderAttempt(ctx, worker.Writer, ref, next, 0, "completed")
+	if reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
+		return true, fmt.Errorf("provider result commit: %s: %s", reply.Status, reply.Detail)
+	}
+	return true, nil
+}
+
+func (a NavigationWeather) writeProviderAttempt(ctx context.Context, writer Writer, ref *pb.AggregateRef, checkpoint *pb.ProviderCheckpoint, expected uint64, phase string) (*pb.CommandReply, bool) {
+	id, err := AmanIntentID(checkpoint.AttemptId, "provider-read/"+phase)
+	if err != nil {
+		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}, false
+	}
+	key := checkpoint.Provider + "." + checkpoint.Resource
+	value := &pb.EntityRecord{Value: &pb.EntityRecord_ProviderCheckpoint{ProviderCheckpoint: checkpoint}}
+	request := &pb.CommandRequest{ProtocolRevision: 1, CommandId: id, Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "provider-read"}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: key, Value: value}}}}}
+	writer.Plan = func(_ context.Context, _ *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		entry := state.Indexes[pb.EntityKind_PROVIDER_CHECKPOINT][key]
+		revision := uint64(0)
+		if entry != nil {
+			revision = entry.Revision
+		}
+		if phase == "pending" {
+			if revision != expected {
+				return nil, pb.CommandReply_REVISION_CONFLICT, revision, fmt.Errorf("provider checkpoint changed")
 			}
-			page, checkpoint, err := fetch(ctx, prior, priorPage)
-			if err != nil {
-				return nil, err
-			}
-			if page == nil || page.Provider != provider || page.Resource != resource || checkpoint == nil || checkpoint.Provider != provider || checkpoint.Resource != resource {
-				return nil, fmt.Errorf("provider page or checkpoint identity mismatch")
-			}
-			next = proto.Clone(checkpoint).(*pb.ProviderCheckpoint)
-			return page, nil
-		},
-		Commit: func(ctx context.Context, commandID string, value proto.Message) *pb.CommandReply {
-			page, ok := value.(*pb.ProviderPage)
-			if !ok || next == nil {
-				return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT}
-			}
-			name, sha, err := a.PublishProvider(page)
-			if err != nil {
-				return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
-			}
-			next.ObjectName, next.Sha256 = name, sha
-			reply, err := a.PutCheckpointFor(ctx, ref, commandID, next)
-			if err != nil {
-				return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
-			}
-			return reply
-		},
-	})
+		} else if entry == nil || entry.Value.GetProviderCheckpoint().AttemptId != checkpoint.AttemptId || entry.Value.GetProviderCheckpoint().AttemptStatus != pb.ProviderCheckpoint_PENDING {
+			return nil, pb.CommandReply_REVISION_CONFLICT, revision, fmt.Errorf("provider attempt superseded")
+		}
+		stored := proto.Clone(value).(*pb.EntityRecord)
+		if phase == "completed" {
+			stored.GetProviderCheckpoint().AcceptedRevision = entry.Value.GetProviderCheckpoint().AcceptedRevision + 1
+		}
+		return &pb.DomainChange{Changes: []*pb.EntityChange{{Key: key, Revision: revision + 1, Operation: &pb.EntityChange_Upsert{Upsert: stored}}}}, pb.CommandReply_COMMITTED, revision, nil
+	}
+	return writer.ExecuteFresh(ctx, request)
 }
 
 func (a NavigationWeather) PutWeather(ctx context.Context, id string, cache *pb.WeatherCache) (*pb.CommandReply, error) {

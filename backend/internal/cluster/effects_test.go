@@ -259,6 +259,7 @@ func effectObjectRetentionCase(t *testing.T, cold bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	objects.times[secret.ObjectName] = terminalAt.Add(-48 * time.Hour)
 	state.Effects[id].Payload = &pb.EffectRecord_PrivateMessage{PrivateMessage: secret}
 	state.Effects[id].Status = pb.EffectRecord_EXECUTED
 	state.Ledger[id].Status = pb.CommandOutcome_SUCCEEDED
@@ -266,17 +267,10 @@ func effectObjectRetentionCase(t *testing.T, cold bool) {
 		Fact: &pb.StateEvent_EffectChanged{EffectChanged: state.Effects[id]}}
 	data, _ := proto.Marshal(terminal)
 	if cold {
-		state.history = testHistoryCache(t)
-		for i := 0; i < historyWorkingSet; i++ {
-			extra := fmt.Sprintf("ffffffff-ffff-4fff-8fff-%012x", i)
-			state.Effects[extra] = &pb.EffectRecord{CommandId: extra, Status: pb.EffectRecord_EXPIRED}
-		}
-		if err := state.boundHistory(); err != nil {
-			t.Fatal(err)
-		}
-		if state.Effects[id] != nil {
-			t.Fatal("terminal secret reference must be cold in this case")
-		}
+		// Terminal records may leave the recent retry window. Object cleanup
+		// still uses the durable terminal event and its broker timestamp.
+		delete(state.Effects, id)
+
 	}
 	subject, _ := Subject(state.Ref)
 	store := &memoryStore{entries: []AppliedEvent{{Subject: subject, StreamSequence: 1, SubjectSequence: 1, ServerTime: terminalAt, Data: data}}}

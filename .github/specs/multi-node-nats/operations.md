@@ -1,5 +1,7 @@
 # Deployment and operational contract
 
+> Runtime amendment: [Current-state simplification](simplification.md) supersedes permanent materialized command history, local archives, provider-page attempt workflows and ordinary mutation admission in this document. Broker log retention remains unchanged.
+
 ## Production topology
 
 The source of truth for deployment is the private `flightstrips/infrastructure` repository, `stacks/flightstrips.yml`, watched by Portainer. Deploy three separate `nats` services, each pinned to `nats:2.15.0`, each constrained to a different labeled Swarm host and its own local persistent volume. Give each server a unique name and clustered route configuration. Keep NATS client/route/monitoring ports on the internal overlay; only backend tasks connect. Enable JetStream file storage and [encryption at rest](https://docs.nats.io/learn/security/encryption) with a versioned Swarm secret, TLS for clients and routes, an application credential with narrowly scoped subjects/JetStream APIs, and a separate operator credential. The encrypted backup includes the matching key version and a tested rotation procedure. Do not expose NATS through Traefik.

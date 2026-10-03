@@ -124,7 +124,11 @@ func (s *asyncReceiptStore) Committed(ctx context.Context, seq uint64) (AppliedE
 }
 func asyncOwnersFixture(t *testing.T) (*AsyncSessionOwners, *Projection, *pb.AggregateRef, chan struct{}, *asyncReceiptStore) {
 	t.Helper()
-	ref := sessionRef(42)
+	return asyncAggregateFixture(t, sessionRef(42))
+}
+
+func asyncAggregateFixture(t *testing.T, ref *pb.AggregateRef) (*AsyncSessionOwners, *Projection, *pb.AggregateRef, chan struct{}, *asyncReceiptStore) {
+	t.Helper()
 	subject, _ := Subject(ref)
 	mem := &memoryStore{}
 	event := &pb.StateEvent{SchemaVersion: 1, EventId: uuid.NewString(), Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "node-a"}, Fact: &pb.StateEvent_OwnerClaimed{OwnerClaimed: &pb.OwnerTerm{NodeId: "node-a", Epoch: 1}}}
@@ -140,6 +144,38 @@ func asyncOwnersFixture(t *testing.T) (*AsyncSessionOwners, *Projection, *pb.Agg
 	owners := NewAsyncSessionOwners(p, owner, store)
 	p.Async = owners
 	return owners, p, ref, gate, store
+}
+
+func TestAsyncAirportAndGlobalMutationsUseRAMAndPersistInOrder(t *testing.T) {
+	for _, ref := range []*pb.AggregateRef{globalRef(), airportRef("EKCH")} {
+		t.Run(mustAsyncSubject(ref), func(t *testing.T) {
+			m, p, ref, gate, store := asyncAggregateFixture(t, ref)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			writer := Writer{Store: store, Projection: p, Lease: m.owner, NodeID: "node-a", Plan: func(context.Context, *pb.CommandRequest, *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+				return &pb.DomainChange{}, pb.CommandReply_COMMITTED, 0, nil
+			}}
+			request := &pb.CommandRequest{ProtocolRevision: 1, CommandId: uuid.NewString(), Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "test"}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: "ecfmp.test", Value: &pb.EntityRecord{Value: &pb.EntityRecord_ProviderCheckpoint{ProviderCheckpoint: &pb.ProviderCheckpoint{Provider: "ecfmp", Resource: "test"}}}}}}}}
+			first := writer.Execute(ctx, request)
+			require.True(t, first.MemoryAccepted, "%v", first)
+			require.Nil(t, first.StreamSequence)
+			<-store.started
+			request.CommandId = uuid.NewString()
+			second := writer.Execute(ctx, request)
+			require.True(t, second.MemoryAccepted, "%v", second)
+			view, err := p.Read(ref)
+			require.NoError(t, err)
+			require.Equal(t, uint64(2), view.Revision)
+			p.mu.RLock()
+			require.Zero(t, p.states[mustAsyncSubject(ref)].Revision, "queued mutations must not appear durable")
+			p.mu.RUnlock()
+			close(gate)
+			require.NoError(t, m.Drain(ctx))
+			p.mu.RLock()
+			require.Equal(t, uint64(2), p.states[mustAsyncSubject(ref)].Revision)
+			p.mu.RUnlock()
+		})
+	}
 }
 func asyncDomainEvent(ref *pb.AggregateRef, revision uint64) *pb.StateEvent {
 	id := uuid.NewString()
@@ -250,29 +286,8 @@ func TestAsyncOwnerReentrancyAndFailureFreeze(t *testing.T) {
 	require.ErrorIs(t, m.Drain(context.Background()), fault)
 }
 
-func TestAsyncOwnerReadsArchivedIdentityWithoutArchivingPendingFacts(t *testing.T) {
+func TestAsyncOwnerKeepsPendingReceiptOnlyInRAM(t *testing.T) {
 	m, p, ref, gate, store := asyncOwnersFixture(t)
-	cache := testHistoryCache(t)
-	p.mu.Lock()
-	p.history = cache
-	raw := p.states[mustAsyncSubject(ref)]
-	raw.history = cache
-	var oldIDs []string
-	for i := 0; i < historyWorkingSet+1; i++ {
-		id := uuid.NewString()
-		oldIDs = append(oldIDs, id)
-		raw.Ledger[id] = historyOutcome(ref, id, 1)
-	}
-	require.NoError(t, raw.boundHistory())
-	cold := ""
-	for _, id := range oldIDs {
-		if raw.Ledger[id] == nil {
-			cold = id
-			break
-		}
-	}
-	p.mu.Unlock()
-	require.NotEmpty(t, cold)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	event := asyncDomainEvent(ref, 1)
@@ -287,12 +302,11 @@ func TestAsyncOwnerReadsArchivedIdentityWithoutArchivingPendingFacts(t *testing.
 	<-store.started
 	ram, err := m.Read(ref)
 	require.NoError(t, err)
-	old, err := ram.LookupOutcome(cold)
-	require.NoError(t, err)
-	require.NotNil(t, old, "cold command identity must remain available while RAM tail is pending")
-	found, err := cache.get(ref, "outcome", event.GetCommandId(), ^uint64(0), &pb.CommandOutcome{})
-	require.NoError(t, err)
-	require.False(t, found, "pending facts must never enter history archive")
+	require.NotNil(t, ram.Ledger[event.GetCommandId()])
+	require.Zero(t, ram.Ledger[event.GetCommandId()].CommittedStreamSequence)
+	p.mu.RLock()
+	require.Nil(t, p.states[mustAsyncSubject(ref)].Ledger[event.GetCommandId()])
+	p.mu.RUnlock()
 	close(gate)
 	require.NoError(t, m.Drain(ctx))
 }

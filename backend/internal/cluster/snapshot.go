@@ -330,6 +330,7 @@ func aggregateFromSnapshot(snapshot *pb.Snapshot) (*Aggregate, error) {
 		last = effect.CommandId
 	}
 	state.rebuildIndexes()
+	state.trimRecords()
 	return state, nil
 }
 

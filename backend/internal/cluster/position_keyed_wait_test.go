@@ -219,19 +219,4 @@ func TestAppliedPositionWaitStillRequiresStateAndHistoryReadiness(t *testing.T) 
 		defer p.positionWaitersMu.Unlock()
 		require.Empty(t, p.positionWaiters)
 	})
-	t.Run("history failure", func(t *testing.T) {
-		t.Setenv("NATS_HISTORY_CACHE_DIR", t.TempDir())
-		history, err := newHistoryCache()
-		require.NoError(t, err)
-		require.NoError(t, history.close())
-		failure := history.check()
-		require.Error(t, failure)
-		p := readyPositionWaitFixture()
-		p.history = history
-		p.positions["1.SAS123.2"] = KVPosition{Revision: 5}
-		require.ErrorIs(t, p.WaitPositionApplied(context.Background(), 1, "SAS123", 2, 5), failure)
-		p.positionWaitersMu.Lock()
-		defer p.positionWaitersMu.Unlock()
-		require.Empty(t, p.positionWaiters)
-	})
 }

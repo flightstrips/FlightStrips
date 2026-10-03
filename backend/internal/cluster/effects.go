@@ -496,6 +496,58 @@ func (s Effects) GarbageCollect(ctx context.Context, now time.Time) (int, error)
 	if err != nil {
 		return 0, err
 	}
+	// Receipts can age out before ciphertext retention ends. Discover missing
+	// references from the retained broker log before treating an object as orphaned.
+	missing := false
+	for _, info := range objects {
+		if info != nil && strings.HasPrefix(info.Name, "effect/") {
+			if _, found := referenced[info.Name]; !found {
+				missing = true
+				break
+			}
+		}
+	}
+	if missing {
+		for _, state := range states {
+			subject, err := Subject(state.Ref)
+			if err != nil {
+				return 0, err
+			}
+			consume := func(entry AppliedEvent) error {
+				event := &pb.StateEvent{}
+				if err := pb.UnmarshalStrict(entry.Data, event); err != nil {
+					return err
+				}
+				if effect := event.GetEffectChanged(); effect != nil && effect.GetPrivateMessage() != nil {
+					name := effect.GetPrivateMessage().ObjectName
+					// Current records win over replay, which may lag a local commit.
+					if _, current := referenced[name]; !current {
+						referenced[name] = reference{commandID: effect.CommandId, terminal: terminalEffect(effect), ref: state.Ref}
+					} else if state.Effects[effect.CommandId] == nil {
+						referenced[name] = reference{commandID: effect.CommandId, terminal: terminalEffect(effect), ref: state.Ref}
+					}
+				}
+				return nil
+			}
+			if visitor, ok := s.Owner.Store.(interface {
+				Visit(context.Context, string, func(AppliedEvent) error) error
+			}); ok {
+				if err := visitor.Visit(ctx, subject, consume); err != nil {
+					return 0, err
+				}
+			} else {
+				entries, err := s.Owner.Store.Replay(ctx, subject)
+				if err != nil {
+					return 0, err
+				}
+				for _, entry := range entries {
+					if err := consume(entry); err != nil {
+						return 0, err
+					}
+				}
+			}
+		}
+	}
 	deleted := 0
 	for _, info := range objects {
 		if ctx.Err() != nil {

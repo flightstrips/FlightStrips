@@ -54,6 +54,20 @@ func TestWriterProjectionOutcomeIsDetachedAndActorBound(t *testing.T) {
 	}
 	p := &Projection{states: map[string]*Aggregate{subject: state}, started: true, checked: time.Now(), positionReady: true, presenceReady: true, highWater: state.StreamSequence, applied: state.StreamSequence}
 	writer.Projection = p
+	writer.Plan = func(context.Context, *pb.CommandRequest, *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		t.Fatal("duplicate command invoked planner")
+		return nil, pb.CommandReply_UNAVAILABLE, 0, nil
+	}
+	duplicate, fresh := writer.ExecuteFresh(ctx, request)
+	require.False(t, fresh)
+	require.Equal(t, pb.CommandReply_COMMITTED, duplicate.Status)
+	require.True(t, proto.Equal(committed.Outcome, duplicate.Outcome))
+	changed := command(ref, "Different content", 0)
+	changed.CommandId = request.CommandId
+	require.Equal(t, pb.CommandReply_INVALID_ARGUMENT, writer.Execute(ctx, changed).Status)
+	otherRequest := proto.Clone(request).(*pb.CommandRequest)
+	otherRequest.Actor.Id = "another actor"
+	require.Equal(t, pb.CommandReply_UNAUTHORIZED, writer.Execute(ctx, otherRequest).Status)
 	got := writer.Outcome(ctx, ref, request.CommandId, request.Actor)
 	require.Equal(t, pb.CommandReply_COMMITTED, got.Status)
 	require.True(t, proto.Equal(committed.Outcome, got.Outcome))

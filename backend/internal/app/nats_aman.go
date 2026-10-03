@@ -76,5 +76,5 @@ func (w natsWind) WindProfile(ctx context.Context, request predictor.WindProfile
 	if err != nil {
 		return predictor.WindProfile{}, err
 	}
-	return w.candidate.Profile(ctx, w.airport, resource)
+	return w.candidate.ProfileForRequest(ctx, w.airport, resource, request)
 }

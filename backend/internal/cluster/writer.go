@@ -179,12 +179,32 @@ func (w Writer) executeTurn(ctx context.Context, request *pb.CommandRequest) (*p
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
 			return reply, published
 		}
-		state, err := w.load(ctx, subject, request.Aggregate)
+		var state *Aggregate
+		var err error
+		if w.Projection != nil {
+			if ctx.Value(durableExecutionKey{}) == true && w.Lease != nil && w.Lease.CanCommitLocal(request.Aggregate) {
+				state, err = w.Projection.readDurableCommandCheckpoint(request.Aggregate, request.CommandId, true)
+			} else {
+				state, err = w.Projection.commandCheckpoint(request.Aggregate, request.CommandId)
+			}
+		} else {
+			state, err = w.load(ctx, subject, request.Aggregate)
+		}
 		if err != nil {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
 			return reply, published
 		}
 		old, lookupErr := state.LookupOutcome(request.CommandId)
+		if lookupErr == nil && old == nil && w.Projection != nil {
+			// Planning a new command needs the full coherent aggregate. Recheck
+			// its ledger after loading in case an intervening commit won the race.
+			state, err = w.load(ctx, subject, request.Aggregate)
+			if err != nil {
+				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
+				return reply, published
+			}
+			old, lookupErr = state.LookupOutcome(request.CommandId)
+		}
 		if lookupErr != nil {
 			reply.Status = pb.CommandReply_UNAVAILABLE
 			return reply, published

@@ -32,10 +32,10 @@ func ResourceForRequest(request predictor.WindProfileRequest) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		keys = append(keys, fmt.Sprintf("%s/%0.9f/%0.9f/%s", key, sample.Position.LatitudeDegrees, sample.Position.LongitudeDegrees, sample.At.UTC().Format(time.RFC3339Nano)))
+		keys = append(keys, key)
 	}
 	sum := sha256.Sum256([]byte(strings.Join(keys, "\x1f")))
-	return "gfs/" + hex.EncodeToString(sum[:]), nil
+	return "gfs-grid-v1/" + hex.EncodeToString(sum[:]), nil
 }
 
 func (a Candidate) Fetch(ctx context.Context, airport string, request predictor.WindProfileRequest, deadline time.Time, reserve func(context.Context, string) (bool, error)) (bool, string, error) {
@@ -61,7 +61,15 @@ func (a Candidate) Fetch(ctx context.Context, airport string, request predictor.
 	sent, err := a.State.FetchProviderPageReserved(ctx, a.Worker, id, ref, "openmeteo", resource,
 		func(ctx context.Context) (bool, error) { return reserve(ctx, id) },
 		func(ctx context.Context, _ *pb.ProviderCheckpoint, _ *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error) {
-			profile, err := a.Provider.CandidateProfile(ctx, request)
+			// Persist the provider's grid/hour identity, not one aircraft's
+			// transient coordinates. Return requested identities at the read edge.
+			canonical := request
+			canonical.Samples = append([]predictor.WindSampleRequest(nil), request.Samples...)
+			for i := range canonical.Samples {
+				canonical.Samples[i] = providerGridSample(canonical.Samples[i])
+				canonical.Samples[i].At = canonical.Samples[i].At.UTC().Truncate(time.Hour)
+			}
+			profile, err := a.Provider.CandidateProfile(ctx, canonical)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -78,6 +86,37 @@ func (a Candidate) Fetch(ctx context.Context, airport string, request predictor.
 				&pb.ProviderCheckpoint{Provider: "openmeteo", Resource: resource}, nil
 		})
 	return sent, resource, err
+}
+
+// ProfileForRequest projects accepted grid/hour levels onto the caller's sample
+// identities. Legacy exact-coordinate resources remain readable via Profile.
+func (a Candidate) ProfileForRequest(ctx context.Context, airport, resource string, request predictor.WindProfileRequest) (predictor.WindProfile, error) {
+	want, err := ResourceForRequest(request)
+	if err != nil || want != resource {
+		return predictor.WindProfile{}, fmt.Errorf("wind resource differs from request")
+	}
+	profile, err := a.Profile(ctx, airport, resource)
+	if err != nil {
+		return predictor.WindProfile{}, err
+	}
+	return projectGridProfile(profile, request)
+}
+
+func projectGridProfile(profile predictor.WindProfile, request predictor.WindProfileRequest) (predictor.WindProfile, error) {
+	if len(profile.Samples) != len(request.Samples) {
+		return predictor.WindProfile{}, fmt.Errorf("wind sample count differs from request")
+	}
+	profile.Samples = append([]predictor.WindSample(nil), profile.Samples...)
+	for i, sample := range request.Samples {
+		want, err := cacheKey(sample)
+		got, readErr := cacheKey(predictor.WindSampleRequest{Position: profile.Samples[i].Position, At: profile.Samples[i].At})
+		if err != nil || readErr != nil || want != got {
+			return predictor.WindProfile{}, fmt.Errorf("wind grid/hour differs from request")
+		}
+		profile.Samples[i].Position, profile.Samples[i].At = sample.Position, sample.At
+		profile.Samples[i].Levels = cloneLevels(profile.Samples[i].Levels)
+	}
+	return profile, nil
 }
 
 func (a Candidate) Profile(ctx context.Context, airport, resource string) (predictor.WindProfile, error) {

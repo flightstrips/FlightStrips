@@ -313,7 +313,12 @@ func (a AmanAdapter) Read(ctx context.Context, icao string) (AmanBoard, error) {
 	if err != nil {
 		return AmanBoard{}, err
 	}
-	state, err := a.Writer.load(ctx, subject, ref)
+	var state *Aggregate
+	if a.Writer.Projection != nil {
+		state, err = a.Writer.Projection.ReadEntityKinds(ref, pb.EntityKind_AMAN_AIRPORT, pb.EntityKind_AMAN_FLIGHT, pb.EntityKind_AMAN_COORDINATION, pb.EntityKind_AMAN_AUDIT, pb.EntityKind_AMAN_VALIDATION, pb.EntityKind_VATSIM_OBSERVATION)
+	} else {
+		state, err = a.Writer.load(ctx, subject, ref)
+	}
 	if err != nil {
 		return AmanBoard{}, err
 	}

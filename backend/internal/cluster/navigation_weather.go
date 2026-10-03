@@ -525,11 +525,20 @@ func (a NavigationWeather) ActivateManifest(ctx context.Context, id string, mani
 }
 
 func (a NavigationWeather) ActiveManifest(ctx context.Context, airport string) (*pb.NavManifest, error) {
-	state, err := a.read(ctx, airportRef(airport))
+	var entry *pb.EntitySnapshot
+	var err error
+	if a.Writer.Projection != nil {
+		entry, err = a.Writer.Projection.ReadEntity(airportRef(airport), pb.EntityKind_NAV_MANIFEST, airport)
+	} else {
+		var state *Aggregate
+		state, err = a.read(ctx, airportRef(airport))
+		if err == nil {
+			entry = state.Indexes[pb.EntityKind_NAV_MANIFEST][airport]
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
-	entry := state.Indexes[pb.EntityKind_NAV_MANIFEST][airport]
 	if entry == nil {
 		return nil, nil
 	}

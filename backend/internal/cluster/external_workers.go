@@ -146,7 +146,16 @@ func (w ExternalCallWorker) resolveOne(ctx context.Context, pending *pb.Workflow
 	if err != nil {
 		return err
 	}
-	destination, err := resultWriter.load(ctx, destinationSubject, record.Destination)
+	var destination *Aggregate
+	if resultWriter.Projection != nil {
+		if ctx.Value(durableExecutionKey{}) == true && resultWriter.Lease != nil && resultWriter.Lease.CanCommitLocal(record.Destination) {
+			destination, err = resultWriter.Projection.readDurableCommandCheckpoint(record.Destination, record.DerivedCommandId, true)
+		} else {
+			destination, err = resultWriter.Projection.commandCheckpoint(record.Destination, record.DerivedCommandId)
+		}
+	} else {
+		destination, err = resultWriter.load(ctx, destinationSubject, record.Destination)
+	}
 	if err != nil {
 		return err
 	}

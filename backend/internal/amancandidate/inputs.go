@@ -103,7 +103,13 @@ func (w *Worker) acceptedInputs(ctx context.Context, airport string, board clust
 			}
 		}
 	}
-	global, err := w.options.Sessions.Read(ctx, globalRef())
+	var global *cluster.Aggregate
+	var err error
+	if w.options.Projection != nil {
+		global, err = w.options.Projection.ReadEntityKinds(globalRef(), pb.EntityKind_SESSION_REGISTRY)
+	} else {
+		global, err = w.options.Sessions.Read(ctx, globalRef())
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +118,12 @@ func (w *Worker) acceptedInputs(ctx context.Context, airport string, board clust
 		if entry.Airport != airport || entry.State != pb.SessionRegistry_ACTIVE {
 			continue
 		}
-		s, err := w.options.Sessions.Read(ctx, sessionRef(entry.Id))
+		var s *cluster.Aggregate
+		if w.options.Projection != nil {
+			s, err = w.options.Projection.ReadEntityKinds(sessionRef(entry.Id), pb.EntityKind_SESSION, pb.EntityKind_STRIP)
+		} else {
+			s, err = w.options.Sessions.Read(ctx, sessionRef(entry.Id))
+		}
 		if err != nil {
 			return nil, err
 		}

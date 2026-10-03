@@ -56,6 +56,15 @@ the cache does not select ownership or retain mutable session state. Restart or
 eviction causes a fresh checksum/strict Protobuf verification. Completed polling
 slots and VATSIM observations check durable outcomes before loading payloads.
 
+Open-Meteo NATS resources use `gfs-grid-v1/<sha256>`: hash the ordered list of
+existing provider cache keys (0.25-degree rounded latitude/longitude and UTC
+forecast hour), separated by U+001F. Sample order and count are preserved.
+The stored typed samples use those grid coordinates and forecast hours; the
+read adapter verifies the same cells/hours and returns the caller's precise
+sample coordinates/times with the accepted wind levels. Cache expiry and the
+durable quota/one-attempt intent rules still apply. Old `gfs/<sha256>` resources
+remain readable; no retained object is rewritten or deleted.
+
 | Client | Node A | Node B |
 | --- | --- | --- |
 | JSON HTTP | `http://localhost:8090` | `http://localhost:8091` |

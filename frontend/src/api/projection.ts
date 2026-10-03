@@ -39,6 +39,7 @@ function strip(value: Strip, cdm?: CdmState, pdc?: PdcSequence, stand?: StandAss
     eobt: cdmTime(value.eobt), tobt: cdmTime(cdm?.tobt ?? value.tobt), tsat: cdmTime(cdm?.tsat ?? value.tsat),
     ttot: cdmTime(cdm?.ttot ?? value.ttot), ctot: cdmTime(cdm?.ctot ?? value.ctot), eldt: "", aldt: "",
     aobt: cdmTime(value.aobt), asat: cdmTime(value.asat), asrt: cdmTime(value.asrt), tsac: cdmTime(value.tsac),
+    tobt_set_by: value.tobtSetBy, phase: value.phase,
     status: value.operationalStatus, most_penalizing_airspace: value.mostPenalizingAirspace,
     ecfmp_id: value.ecfmpId, ctot_source: value.ctotSource,
     bay: value.bay, release_point: value.releasePoint, version: number(value.revision),

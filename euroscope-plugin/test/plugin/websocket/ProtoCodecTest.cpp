@@ -13,6 +13,17 @@ TEST(ProtoCodecTest, CarriesRadarSpeedAndTrackOnPositionUpdates) {
     EXPECT_DOUBLE_EQ(envelope.aircraft_position_update().track_degrees(), 271.0);
 }
 
+TEST(ProtoCodecTest, NormalizesUnavailableRadarMotionAndNorthTrack) {
+    const PositionEvent event("SAS123", 55.6, 12.6, 25000, -1, 360);
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    EXPECT_DOUBLE_EQ(envelope.aircraft_position_update().ground_speed_knots(), 0);
+    EXPECT_DOUBLE_EQ(envelope.aircraft_position_update().track_degrees(), 0);
+    const Position syncPosition(55.6, 12.6, 25000, -1, -1);
+    EXPECT_DOUBLE_EQ(syncPosition.ground_speed_knots, 0);
+    EXPECT_DOUBLE_EQ(syncPosition.track_degrees, 0);
+}
+
 TEST(ProtoCodecTest, DecodesTrackingOwnershipConfirmation) {
     protobuf::wire::TrackingControllerChangedEvent source;
     source.set_callsign("SAS123");

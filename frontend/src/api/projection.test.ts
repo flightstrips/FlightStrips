@@ -28,10 +28,12 @@ it("preserves UTC compact CDM clocks on snapshots and replacements", () => {
   const record = snapshot.entities[0].value!.value;
   if (record.case !== "strip") throw new Error("fixture");
   record.value.eobt = stamp;
+  record.value.tobtSetBy = "EKCH_DEL";
+  record.value.phase = "READY";
   snapshot.entities.push(create(EntitySnapshotSchema, {key: "SAS123", revision: 1n,
     value: {value: {case: "cdmState", value: {callsign: "SAS123", tobt: stamp, tsat: stamp, ttot: stamp, ctot: stamp}}}}));
   projection.initial(snapshot);
-  expect(events[0]).toMatchObject({strips: [expect.objectContaining({eobt: "1200", tobt: "1200", tsat: "1200", ttot: "1200", ctot: "1200"})]});
+  expect(events[0]).toMatchObject({strips: [expect.objectContaining({eobt: "1200", tobt: "1200", tsat: "1200", ttot: "1200", ctot: "1200", tobt_set_by: "EKCH_DEL", phase: "READY"})]});
   projection.delta(create(FrontendDeltaSchema, {aggregate: {target: {case: "session", value: {id: 7}}}, aggregateRevision: 4n,
     changes: [{key: "SAS123", revision: 2n, operation: {case: "upsert", value: {value: {case: "cdmState", value: {callsign: "SAS123", tobt: stamp, tsat: stamp, ttot: stamp}}}}}]}));
   expect(events.at(-1)).toMatchObject({eobt: "1200", tobt: "1200", tsat: "1200", ttot: "1200", ctot: ""});

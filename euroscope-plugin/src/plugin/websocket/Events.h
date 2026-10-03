@@ -2,6 +2,7 @@
 #define EVENTS_H
 #include <nlohmann/json.hpp>
 #include <utility>
+#include <cmath>
 #include "flightplan/FlightPlan.h"
 
 #define EVENT_UNKNOWN_NAME "unknown"
@@ -525,7 +526,8 @@ struct PositionEvent final : Event {
     explicit PositionEvent(std::string callsign, const double lat, const double lon,
                            const int altitude, const double groundSpeedKnots = 0, const double trackDegrees = 0) : Event(EVENT_AIRCRAFT_POSITION_UPDATE),
                                                  callsign(std::move(callsign)),
-                                                 lat(lat), lon(lon), altitude(altitude), ground_speed_knots(groundSpeedKnots), track_degrees(trackDegrees) {
+                                                 lat(lat), lon(lon), altitude(altitude), ground_speed_knots(std::isfinite(groundSpeedKnots) && groundSpeedKnots >= 0 ? groundSpeedKnots : 0),
+                                                 track_degrees(std::isfinite(trackDegrees) && trackDegrees >= 0 ? std::fmod(trackDegrees, 360.0) : 0) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(PositionEvent, callsign, lat, lon, altitude, ground_speed_knots, track_degrees, type);
@@ -548,7 +550,8 @@ struct Position final {
     double ground_speed_knots;
     double track_degrees;
 
-    explicit Position(const double lat, const double lon, const int altitude, const double groundSpeedKnots = 0, const double trackDegrees = 0) : lat(lat), lon(lon), altitude(altitude), ground_speed_knots(groundSpeedKnots), track_degrees(trackDegrees) {
+    explicit Position(const double lat, const double lon, const int altitude, const double groundSpeedKnots = 0, const double trackDegrees = 0) : lat(lat), lon(lon), altitude(altitude), ground_speed_knots(std::isfinite(groundSpeedKnots) && groundSpeedKnots >= 0 ? groundSpeedKnots : 0),
+                                                 track_degrees(std::isfinite(trackDegrees) && trackDegrees >= 0 ? std::fmod(trackDegrees, 360.0) : 0) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Position, lat, lon, altitude, ground_speed_knots, track_degrees);

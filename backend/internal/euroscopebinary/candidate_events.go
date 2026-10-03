@@ -116,6 +116,9 @@ func (c *DeadlineCandidate) positionAccepted(ctx context.Context, id int32, conn
 		return w.Authority(ctx, id, w.OwnerEpoch, connection)
 	}
 	if err != nil {
+		if value != nil {
+			return fmt.Errorf("position latitude=%g longitude=%g altitude=%d speed=%g track=%g: %w", value.Latitude, value.Longitude, value.AltitudeFeet, value.GroundSpeedKnots, value.TrackDegrees, err)
+		}
 		return err
 	}
 	select {

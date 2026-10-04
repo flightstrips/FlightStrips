@@ -29,6 +29,7 @@ func TestAMANCommandGateUsesCurrentTechnicalAuthority(t *testing.T) {
 
 	allowed = aman.EvaluateTechnicalHealth(aman.ModeAuthoritative, ready, ready,
 		aman.ComponentHealth{Status: aman.HealthUnavailable, Reason: "weather_refresh_failed"}, ready, ready, ready)
-	require.Equal(t, aman.HealthDegraded, allowed.Status)
+	require.Equal(t, aman.HealthReady, allowed.Status)
+	require.Equal(t, aman.HealthUnavailable, allowed.Weather.Status, "weather failure remains visible on its component")
 	require.NoError(t, gate.authorize(context.Background()), "weather fallback must not disable controller commands")
 }

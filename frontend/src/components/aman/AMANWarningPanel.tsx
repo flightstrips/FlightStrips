@@ -12,6 +12,7 @@ export interface AMANWarningPanelProps {
 }
 
 function sourceLabel(source: AMANWarning["source"]): string {
+  if (source === "traffic_prediction") return "Traffic prediction";
   return source === "technical_health" ? "Technical health" : "Sequence";
 }
 
@@ -26,7 +27,7 @@ function warningScope(warning: AMANWarning): string {
 
 function snapshotStatus({current, connectionState, presentationStatus}: AMANWarningPanelProps): string {
   if (connectionState === "disconnected") return "Disconnected — showing the last received warning snapshot.";
-  if (presentationStatus === "degraded") return "Stale — showing the latest warning snapshot with degraded AMAN data.";
+  if (presentationStatus === "degraded") return "Degraded — showing the latest warning snapshot with reduced AMAN data quality.";
   if (current.snapshot === "omitted") return "Warning snapshot unavailable from this AMAN publisher.";
   return current.items.length === 0 ? "No current warnings." : `${current.items.length} current warning${current.items.length === 1 ? "" : "s"}.`;
 }

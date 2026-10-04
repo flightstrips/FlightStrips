@@ -124,13 +124,15 @@ TEST(AMANGainLossStoreTest, AppliesSameRevisionProjectionUpdatesAndIgnoresOlderR
     EXPECT_EQ(store.FindByCallsign("new123")->flightId, "flight-1");
 }
 
-TEST(AMANGainLossStoreTest, InvalidReplacementClearsValuesUntilAValidSameRevisionReplacement) {
+TEST(AMANGainLossStoreTest, InvalidReplacementRetainsStaleValuesUntilAValidReplacement) {
     AMANGainLossStore store;
     store.OnMessages({Bytes(Event(2))});
     auto invalid = Event(3);
     invalid.mutable_aman_gain_loss()->mutable_values(0)->set_data_status("unknown");
     store.OnMessages({Bytes(invalid)});
-    EXPECT_TRUE(store.Snapshot()->byCallsign.empty());
+    ASSERT_TRUE(store.FindByCallsign("SAS123").has_value());
+    EXPECT_EQ(store.FindByCallsign("SAS123")->seconds, 90);
+    EXPECT_EQ(store.FindByCallsign("SAS123")->dataStatus, "stale");
     EXPECT_EQ(store.Snapshot()->revision, 2);
 
     store.OnMessages({Bytes(Event(2))});
@@ -167,18 +169,21 @@ TEST(AMANGainLossStoreTest, ReadersNeverObservePartialReplacement) {
     writer.join();
 }
 
-TEST(AMANGainLossStoreTest, ReconnectHidesOldValuesAndAcceptsTheNewConnectionRevision) {
+TEST(AMANGainLossStoreTest, ReconnectRetainsOldValuesAsDisconnectedAndAcceptsLowerRevision) {
     AMANGainLossStore store;
     store.OnMessages({Bytes(Event(42))});
 
     store.Online();
     EXPECT_FALSE(store.Snapshot()->hasRevision);
-    EXPECT_FALSE(store.Snapshot()->authoritative);
-    EXPECT_TRUE(store.Snapshot()->byCallsign.empty());
+    EXPECT_TRUE(store.Snapshot()->authoritative);
+    ASSERT_TRUE(store.FindByCallsign("SAS123").has_value());
+    EXPECT_EQ(store.FindByCallsign("SAS123")->seconds, 90);
+    EXPECT_EQ(store.FindByCallsign("SAS123")->dataStatus, "disconnected");
 
-    store.OnMessages({Bytes(Event(42, "NEW123"))});
+    store.OnMessages({Bytes(Event(1, "NEW123"))});
     EXPECT_TRUE(store.Snapshot()->hasRevision);
     EXPECT_TRUE(store.FindByCallsign("NEW123").has_value());
+    EXPECT_FALSE(store.FindByCallsign("SAS123").has_value()) << "complete replacement still retires old flights";
 }
 
 TEST(AMANGainLossStoreTest, SameRevisionAuthorityTransitionReplacesTheSnapshot) {

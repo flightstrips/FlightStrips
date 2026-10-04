@@ -10,6 +10,7 @@ namespace FlightStrips::TagItems {
     namespace {
         constexpr int TagColorRGBDefinedValue = 1;
         constexpr COLORREF ActiveTagColor = RGB(0, 192, 0);
+        constexpr COLORREF RetainedTagColor = RGB(160, 160, 160);
         constexpr COLORREF GainOrOnTimeTagColor = RGB(150, 215, 150);
         constexpr COLORREF ShortLossTagColor = RGB(240, 225, 41);
         constexpr COLORREF LongLossTagColor = RGB(156, 0, 0);
@@ -92,16 +93,18 @@ namespace FlightStrips::TagItems {
         if (!controllerCallsign.starts_with("EKDK_") && !isEsmmApproachOrCenter) return {"", ActiveTagColor};
         const auto isFmp = controllerCallsign.ends_with("_FMP");
         if (!trackedByMe && !isFmp) return {"", ActiveTagColor};
-        const auto unavailable = AMANGainLossPresentation{isFmp ? "----" : "", ActiveTagColor};
+        const auto unavailable = AMANGainLossPresentation{"----", RetainedTagColor};
         const auto normalizedAirport = Normalize(currentAirport);
         if (normalizedAirport.empty() || Normalize(destination) != normalizedAirport) return {"", ActiveTagColor};
         if (holding) return {"", ActiveTagColor};
-        if (!connected || !snapshot || !snapshot->authoritative) return unavailable;
+        if (!snapshot || !snapshot->authoritative ||
+            (!snapshot->airport.empty() && Normalize(snapshot->airport) != normalizedAirport)) return unavailable;
         const auto value = snapshot->byCallsign.find(Normalize(callsign));
         if (value != snapshot->byCallsign.end() && value->second.insideTMA) return {"", ActiveTagColor};
-        if (value == snapshot->byCallsign.end() || value->second.dataStatus != "fresh" || !value->second.seconds) {
+        if (value == snapshot->byCallsign.end() || !value->second.seconds) {
             return unavailable;
         }
-        return {Format(*value->second.seconds), GuidanceColor(*value->second.seconds)};
+        return {Format(*value->second.seconds), connected && value->second.dataStatus == "fresh"
+            ? GuidanceColor(*value->second.seconds) : RetainedTagColor};
     }
 }

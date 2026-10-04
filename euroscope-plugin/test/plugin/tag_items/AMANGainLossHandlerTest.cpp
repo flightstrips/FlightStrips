@@ -66,14 +66,32 @@ TEST(AMANGainLossHandlerTest, ColorsGuidanceByDisplayedLoseMinutes) {
     }
 }
 
-TEST(AMANGainLossHandlerTest, HidesUnavailableGuidance) {
-    EXPECT_TRUE(AMANGainLossHandler::Resolve(true, nullptr, "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text.empty());
-    EXPECT_EQ(AMANGainLossHandler::Resolve(false, Snapshot(), "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(false), "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "stale"), "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "disconnected"), "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "fresh", std::nullopt), "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), "MISSING", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "");
+TEST(AMANGainLossHandlerTest, DisplaysPlaceholderWhenGuidanceHasNeverBeenAvailable) {
+    for (const auto& snapshot : {Snapshot(false), Snapshot(true, "fresh", std::nullopt),
+                                std::shared_ptr<FlightStrips::aman::GainLossSnapshot>{}}) {
+        EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "----");
+    }
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), "MISSING", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "----");
+}
+
+TEST(AMANGainLossHandlerTest, RetainsInterruptedGuidanceInGrey) {
+    for (const std::string controller : {"EKDK_CTR", "EKDK_FMP"}) {
+        for (const std::string status : {"fresh", "stale", "disconnected"}) {
+            for (const bool connected : {false, true}) {
+                if (connected && status == "fresh") continue;
+                const auto presentation = AMANGainLossHandler::Resolve(
+                    connected, Snapshot(true, status, -120), "SAS123", "EKCH", "EKCH", false, true, controller);
+                EXPECT_EQ(presentation.text, "L02");
+                EXPECT_EQ(presentation.color, RGB(160, 160, 160));
+            }
+        }
+    }
+}
+
+TEST(AMANGainLossHandlerTest, DoesNotReuseGuidanceFromAnotherAirport) {
+    auto snapshot = Snapshot();
+    snapshot->airport = "ESSA";
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "----");
 }
 
 TEST(AMANGainLossHandlerTest, DoesNotRequireBackendFlightIdentity) {
@@ -129,14 +147,14 @@ TEST(AMANGainLossHandlerTest, NormalizesEkdkControllerCallsign) {
 
 TEST(AMANGainLossHandlerTest, PreservesFmpUnavailablePlaceholders) {
     for (const bool trackedByMe : {false, true}) {
-        for (const auto& snapshot : {Snapshot(false), Snapshot(true, "stale"), Snapshot(true, "disconnected"),
+        for (const auto& snapshot : {Snapshot(false),
                                     Snapshot(true, "fresh", std::nullopt),
                                     std::shared_ptr<FlightStrips::aman::GainLossSnapshot>{}}) {
             EXPECT_EQ(AMANGainLossHandler::Resolve(
                 true, snapshot, "SAS123", "EKCH", "EKCH", false, trackedByMe, "EKDK_FMP").text, "----");
         }
         EXPECT_EQ(AMANGainLossHandler::Resolve(
-            false, Snapshot(), "SAS123", "EKCH", "EKCH", false, trackedByMe, "EKDK_FMP").text, "----");
+            false, Snapshot(), "SAS123", "EKCH", "EKCH", false, trackedByMe, "EKDK_FMP").text, "G02");
         EXPECT_EQ(AMANGainLossHandler::Resolve(
             true, Snapshot(), "MISSING", "EKCH", "EKCH", false, trackedByMe, "EKDK_FMP").text, "----");
     }

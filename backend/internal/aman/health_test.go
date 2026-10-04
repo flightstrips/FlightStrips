@@ -8,6 +8,23 @@ import (
 
 type healthTestComponent struct{ report TechnicalHealth }
 
+func TestWeatherDegradationAllowsFallbackAuthorityButObservationOutageStillBlocks(t *testing.T) {
+	ready := ComponentHealth{Status: HealthReady}
+	for _, weather := range []ComponentHealth{
+		{Status: HealthUnavailable, Reason: "weather_refresh_failed"},
+		{Status: HealthDegraded, Reason: "weather_stale"},
+	} {
+		report := EvaluateTechnicalHealth(ModeAuthoritative, ready, ready, weather, ready, ready, ready)
+		if !report.Ready || !report.AuthorityAllowed || report.Status != HealthDegraded || len(report.BlockedReasons) != 0 || report.Weather != weather {
+			t.Fatalf("weather fallback must remain operational and visibly degraded: %#v", report)
+		}
+		outage := EvaluateTechnicalHealth(ModeAuthoritative, ComponentHealth{Status: HealthUnavailable, Reason: "source_disconnected"}, ready, weather, ready, ready, ready)
+		if outage.Ready || outage.AuthorityAllowed || len(outage.BlockedReasons) != 1 || outage.BlockedReasons[0] != "observation_source:source_disconnected" {
+			t.Fatalf("an actual observation outage must still block authority: %#v", outage)
+		}
+	}
+}
+
 func (healthTestComponent) Name() string                                      { return "test health" }
 func (c healthTestComponent) TechnicalHealth(context.Context) TechnicalHealth { return c.report }
 

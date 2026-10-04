@@ -204,6 +204,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 		validationStrip = newStrip
 		amanStrip = newStrip
+		amanStrip.FlightPlanEOBT = strip.GetEobt()
+		amanStrip.FlightPlanEET = strip.GetEnrouteDuration()
 		sequence, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
 		if err != nil {
 			return err
@@ -549,6 +551,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 		validationStrip = updateStrip
 		amanStrip = updateStrip
+		amanStrip.FlightPlanEOBT = strip.GetEobt()
+		amanStrip.FlightPlanEET = strip.GetEnrouteDuration()
 		registrationNeedsUpdate := restartLifecycle
 		registrationValue := ""
 		if restartLifecycle || existingStrip.Registration == nil || remarksContainsRegService(strip.Remarks) {
@@ -728,10 +732,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
 	}
 
-	if amanStrip != nil {
-		amanStrip.FlightPlanEOBT = strip.GetEobt()
-		amanStrip.FlightPlanEET = strip.GetEnrouteDuration()
-	}
 	return s.observeSyncedStrip(ctx, amanStrip, validationStrip)
 }
 

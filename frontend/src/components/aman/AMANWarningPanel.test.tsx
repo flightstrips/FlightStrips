@@ -13,6 +13,19 @@ const current: AMANCurrentWarnings = {
 };
 
 describe("AMANWarningPanel", () => {
+  it("shows traffic timing diagnostics with navigation to the affected flight", () => {
+    const onNavigateToFlight = vi.fn(() => true);
+    const warnings: AMANCurrentWarnings = {snapshot: "available", items: [{
+      id: 'warning:"traffic_prediction"/"traffic_prediction"/"missing_departure_time"/-/"BAW822"/-',
+      source: "traffic_prediction", component: "traffic_prediction", severity: "warning", callsign: "BAW822",
+      code: "missing_departure_time", message: "BAW822 is still planned at EGLL: no valid filed off-block time (EOBT). Last EuroScope observation: 12:00 UTC.",
+    }]};
+    render(<AMANWarningPanel current={warnings} connectionState="connected" presentationStatus="ready" flights={[{callsign: "BAW822"}]} onNavigateToFlight={onNavigateToFlight} />);
+    expect(screen.getByText("Source: Traffic prediction")).toBeInTheDocument();
+    expect(screen.getByText(/no valid filed off-block time/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Primary flight BAW822; select in AMAN"}));
+    expect(onNavigateToFlight).toHaveBeenCalledWith("BAW822");
+  });
   it("provides a keyboard-focusable named region and non-color warning cues", () => {
     render(<AMANWarningPanel connectionState="connected" current={current} presentationStatus="ready" />);
 
@@ -84,7 +97,7 @@ describe("AMANWarningPanel", () => {
   });
 
   it.each([
-    ["degraded", "connected", "Stale"],
+    ["degraded", "connected", "Degraded"],
     ["ready", "disconnected", "Disconnected"],
   ] as const)("announces %s data while %s", (presentationStatus, connectionState, expected) => {
     render(<AMANWarningPanel connectionState={connectionState} current={current} presentationStatus={presentationStatus} />);

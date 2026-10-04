@@ -125,6 +125,48 @@ func TestChangeRunwayPreservesEveryProtectedOrderingContract(t *testing.T) {
 	}
 }
 
+func TestHoldingReservationSurvivesAutomaticAndExplicitRunwayChanges(t *testing.T) {
+	for _, action := range []string{"active runways", "selected runway", "explicit flight runway"} {
+		t.Run(action, func(t *testing.T) {
+			service, state, now, alternate := changeRunwayFixture(t)
+			originalGroup := *state.Flights[0].SelectedRunwayGroup
+			state.RunwayGroups[0].Selected = true
+			service.deps.Terminal.ActiveRunwayGroupSets = [][]aman.RunwayGroupID{{alternate}}
+			flight := &state.Flights[0]
+			flight.State = aman.StateUnstable
+			flight.HoldingClearance = &aman.HoldingClearance{Hold: "TESPI", HoldType: aman.HoldingClearanceEnroute, ObservedAt: now}
+			flight.Slot.Time = flight.Slot.Time.Add(6 * time.Minute)
+			before := cloneGapState(t, state)
+			auth := aman.CommandContext{Airport: "EKCH", Role: "EKDK_FMP", ReceivedAt: now}
+			var mutation sequence.CommandMutation
+			var err error
+			switch action {
+			case "active runways":
+				mutation, err = service.SetActiveRunwayGroups(auth, aman.SetActiveRunwayGroupsCommand{RunwayGroupIDs: []aman.RunwayGroupID{alternate}})
+			case "selected runway":
+				mutation, err = service.SelectRunwayGroup(auth, aman.SelectRunwayGroupCommand{RunwayGroupID: alternate, EffectiveAt: now})
+			case "explicit flight runway":
+				mutation, err = service.ChangeRunway(auth, aman.ChangeRunwayCommand{Callsign: flight.Callsign, RunwayGroupID: alternate})
+			}
+			require.NoError(t, err)
+			change, err := mutation(state)
+			require.NoError(t, err)
+			updated := change.State.Flights[0]
+			require.Equal(t, before.Flights[0].Slot.Time, updated.Slot.Time)
+			if action == "explicit flight runway" {
+				require.Equal(t, alternate, *updated.SelectedRunwayGroup)
+			} else {
+				require.Equal(t, originalGroup, *updated.SelectedRunwayGroup)
+				selected, ok := service.selectedGroup(updated, change.State.RunwayGroups)
+				require.True(t, ok)
+				require.Equal(t, originalGroup, selected, "later observations must retain the protected runway too")
+			}
+			require.True(t, updated.SequenceDisposition.Participates())
+			require.Equal(t, before.Flights[0].HoldingClearance, updated.HoldingClearance)
+		})
+	}
+}
+
 func changeRunwayFixture(t *testing.T) (*Service, aman.AirportState, time.Time, aman.RunwayGroupID) {
 	t.Helper()
 	service, state, now := recomputeFlightFixture(t)

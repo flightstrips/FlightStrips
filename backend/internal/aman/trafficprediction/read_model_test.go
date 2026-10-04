@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/predictor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -192,9 +193,11 @@ func TestBuildPublishesStaleMissingTimingAndMissingRateDegradation(t *testing.T)
 	state.Flights = []aman.AMANFlight{planned("stale", "1", now.Add(time.Minute), aman.DataStale), {Callsign: "UNKNOWN", State: aman.StatePlanned, DataStatus: aman.DataDisconnected}}
 
 	model := Build(state, readyHealth())
-	require.Equal(t, StatusDisconnected, model.Status)
+	require.Equal(t, StatusDegraded, model.Status)
+	require.Equal(t, aman.DataFresh, model.SourceStatus)
 	require.Contains(t, model.DegradedReasons, "stale_flight_data")
-	require.Contains(t, model.DegradedReasons, "source_disconnected")
+	require.Contains(t, model.DegradedReasons, "disconnected_flight_data")
+	require.NotContains(t, model.DegradedReasons, "source_disconnected")
 	require.Contains(t, model.DegradedReasons, "missing_selected_rate")
 	require.Contains(t, model.DegradedReasons, "missing_timing:UNKNOWN")
 	require.Nil(t, model.Buckets[0].SelectedRate)
@@ -252,6 +255,19 @@ func TestBuildPublishesDisconnectedSourceWithoutFlights(t *testing.T) {
 	require.Contains(t, model.DegradedReasons, "source_disconnected")
 }
 
+func TestDisconnectedAircraftRetainsTimingWithoutDisconnectingHealthySource(t *testing.T) {
+	now := utc(2026, time.July, 22, 20, 44)
+	state := baseState(now, 20)
+	state.Flights = []aman.AMANFlight{airborne("retained", "1", now.Add(time.Minute), aman.StateStable, aman.DataDisconnected)}
+	model := Build(state, readyHealth())
+	require.Equal(t, aman.DataFresh, model.SourceStatus)
+	require.Equal(t, StatusDegraded, model.Status)
+	require.Contains(t, model.DegradedReasons, "disconnected_flight_data")
+	require.NotContains(t, model.DegradedReasons, "source_disconnected")
+	require.Equal(t, 1, model.Buckets[1].Count)
+	require.Equal(t, aman.DataDisconnected, model.Buckets[1].Flights[0].DataStatus)
+}
+
 func TestBuildDeduplicatesSameCallsign(t *testing.T) {
 	now := utc(2026, time.July, 22, 20, 44)
 	state := baseState(now, 20)
@@ -277,7 +293,7 @@ func readyHealth() aman.ComponentHealth { return aman.ComponentHealth{Status: am
 
 func planned(id, cid string, at time.Time, status aman.DataStatus) aman.AMANFlight {
 	duration := time.Hour
-	eobt := at.Add(-duration)
+	eobt := at.Add(-duration - predictor.DefaultEXOT)
 	return aman.AMANFlight{Callsign: stringsUpper(id), State: aman.StatePlanned, DataStatus: status, LatestObservation: &aman.FlightObservation{PlannedTiming: &aman.PlannedTiming{EstimatedOffBlockTime: &eobt, EstimatedEnrouteTime: &duration}}, UpdatedAt: at.Add(-time.Hour)}
 }
 

@@ -3,6 +3,7 @@ package sequence_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -452,6 +453,42 @@ func TestSuperstableFlightMayPromoteEarlierWithoutCrossingProtection(t *testing.
 	require.Len(t, promotions, 1)
 	require.Equal(t, start.Add(time.Minute), candidateEntry(result, target.Callsign).Time)
 	require.Equal(t, sequence.ReasonFreezeSuperstable, candidateEntry(result, target.Callsign).Reason)
+}
+
+func TestVacancyCompactionDoesNotDeadlockOnRetroactiveHoldingPriority(t *testing.T) {
+	for _, sameHold := range []bool{false, true} {
+		t.Run(fmt.Sprintf("same hold %v", sameHold), func(t *testing.T) {
+			start := testTime()
+			lead := queueFlight("LEAD", "A", start, "M", 1, start)
+			lead.ProtectCurrentSlot = true
+			incoming := queueFlight("COMMITTED", "A", start.Add(3*time.Minute), "M", 2, start.Add(30*time.Minute))
+			incoming.ProtectCurrentSlot = true
+			incoming.PromotionNotBefore = &incoming.OperationalTETA
+			incoming.HoldingQueueID = "HOLD-B"
+			arrives := start.Add(5 * time.Minute)
+			incoming.HoldingQueueTime, incoming.ArrivalQueueTime = &arrives, &arrives
+			held := queueFlight("HELD", "A", start.Add(4*time.Minute), "M", 3, start.Add(40*time.Minute))
+			held.ProtectCurrentSlot, held.HoldingSlotProtected, held.HoldingQueueID = true, true, "HOLD-A"
+			held.PromotionNotBefore = &held.OperationalTETA
+			entered := start.Add(-time.Minute)
+			held.HoldingQueueTime, held.ActiveHoldingSince, held.ArrivalQueueTime = &entered, &entered, &entered
+			if sameHold {
+				incoming.HoldingQueueID = held.HoldingQueueID
+			}
+			fresh := queueFlight("NEW", "A", start.Add(2*time.Minute), "M", 4, start.Add(2*time.Minute))
+			fresh.State, fresh.CurrentSlot, fresh.HoldingQueueID = aman.StateUnstable, nil, "HOLD-C"
+			fresh.ArrivalQueueTime = &arrives
+			input := sequence.Input{Revision: 33, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{fresh, held, incoming, lead}}
+			bindQueueRevision(&input)
+			result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
+			require.NoError(t, err)
+			require.False(t, result.HasConflicts())
+			require.Len(t, promotions, 2)
+			require.Equal(t, start.Add(3*time.Minute), candidateEntry(result, incoming.Callsign).Time)
+			require.Equal(t, start.Add(4*time.Minute), candidateEntry(result, held.Callsign).Time)
+			require.Equal(t, start.Add(5*time.Minute), candidateEntry(result, fresh.Callsign).Time, "a new arrival must still follow the occupied hold")
+		})
+	}
 }
 
 func TestVacancyCreatedByBaselineResequencePromotesQueuedStableFlight(t *testing.T) {

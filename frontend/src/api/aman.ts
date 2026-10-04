@@ -8,7 +8,7 @@ export type AMANFreezeReason = "none" | "superstable" | "tma" | "manual";
 export type AMANConfidence = "unknown" | "low" | "medium" | "high";
 export type AMANFeederETASource = "route" | "holding" | "manual" | "passed";
 export type AMANHealthStatus = "disabled" | "ready" | "degraded" | "unavailable";
-export type AMANWarningSource = "technical_health" | "sequence";
+export type AMANWarningSource = "technical_health" | "sequence" | "traffic_prediction";
 export type AMANWarningSeverity = "error" | "warning";
 
 export interface AMANStateEvent {
@@ -503,7 +503,7 @@ const routeFactStates = new Set(["active", "cleared", "expired"]);
 const trafficStatuses = new Set<AMANTrafficStatus>(["ready", "degraded", "disconnected"]);
 const trafficAlerts = new Set<AMANTrafficAlert>(["none", "yellow", "red"]);
 const trafficSources = new Set<AMANTrafficTimingSource>(["aman", "vatsim_planned", "vatsim_airborne", "airborne_position"]);
-const warningSources = new Set<AMANWarningSource>(["technical_health", "sequence"]);
+const warningSources = new Set<AMANWarningSource>(["technical_health", "sequence", "traffic_prediction"]);
 const warningSeverities = new Set<AMANWarningSeverity>(["error", "warning"]);
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -731,8 +731,17 @@ function warningIdentity(warning: AMANWarning): string {
 }
 
 function hasValidWarningScope(warning: AMANWarning): boolean {
+  if (warning.source === "traffic_prediction") {
+    return warning.component === "traffic_prediction" && warning.runway_group_id === undefined && warning.related_callsign === undefined;
+  }
   if (warning.source === "technical_health") {
     return warning.runway_group_id === undefined && warning.callsign === undefined && warning.related_callsign === undefined;
+  }
+
+  if (warning.source === "sequence" && warning.component === "holding_release") {
+    return warning.callsign !== undefined && warning.runway_group_id === undefined
+      && (warning.code === "holding_release_unavailable" && warning.related_callsign === undefined
+        || warning.code === "holding_release_order_conflict" && warning.related_callsign !== undefined);
   }
   return warning.component === undefined && warning.runway_group_id !== undefined
     && warning.callsign !== undefined && warning.related_callsign !== undefined;

@@ -52,9 +52,33 @@ func TestEuroScopeStripObserverMapsFiledTimingAndRetainsItAcrossPositionReports(
 }
 
 func TestEuroScopePlannedTimingRejectsMissingAndInvalidFields(t *testing.T) {
-	for _, pair := range [][2]string{{"", "0130"}, {"2500", "0130"}, {"1200", ""}, {"1200", "0000"}, {"1200", "0160"}, {"1200", "-130"}} {
-		require.Nil(t, euroScopePlannedTiming(pair[0], pair[1], time.Now().UTC()))
+	at := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	for _, eet := range []string{"", "0000", "0160", "-130"} {
+		timing := euroScopePlannedTiming("1200", eet, at)
+		require.NotNil(t, timing)
+		require.Equal(t, at, *timing.EstimatedOffBlockTime)
+		require.Nil(t, timing.EstimatedEnrouteTime)
 	}
+	for _, eobt := range []string{"", "2500"} {
+		timing := euroScopePlannedTiming(eobt, "0130", at)
+		require.NotNil(t, timing)
+		require.Nil(t, timing.EstimatedOffBlockTime)
+		require.Equal(t, 90*time.Minute, *timing.EstimatedEnrouteTime)
+	}
+	require.Nil(t, euroScopePlannedTiming("2500", "0160", at))
+}
+
+func TestEuroScopePartialTimingKeepsKnownFieldsAndAllowsAirborneBaseline(t *testing.T) {
+	at := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	previous := aman.FlightObservation{Provider: aman.ObservationProviderEuroScope, PlannedTiming: euroScopePlannedTiming("1200", "0130", at)}
+	updated := mergeSurveillanceObservation(previous, aman.FlightObservation{Provider: aman.ObservationProviderEuroScope, PlannedTiming: euroScopePlannedTiming("", "0140", at)})
+	require.Equal(t, at, *updated.PlannedTiming.EstimatedOffBlockTime)
+	require.Equal(t, 100*time.Minute, *updated.PlannedTiming.EstimatedEnrouteTime)
+	flight := aman.AMANFlight{}
+	observation := aman.FlightObservation{PlannedTiming: euroScopePlannedTiming("", "0130", at), TakeoffDetected: &at}
+	applyPreliminaryPrediction(&flight, observation, at)
+	require.NotNil(t, flight.Prediction)
+	require.Equal(t, at.Add(90*time.Minute), flight.Prediction.OperationalTETA)
 }
 
 func TestEuroScopeStripObserverRetractionReachesOperationalService(t *testing.T) {

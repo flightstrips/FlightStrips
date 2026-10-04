@@ -166,26 +166,27 @@ func (o *EuroScopeStripObserver) project(strip *models.Strip, observedAt time.Ti
 }
 
 func euroScopePlannedTiming(eobt, eet string, at time.Time) *aman.PlannedTiming {
-	eet = strings.TrimSpace(eet)
-	if len(eet) != 4 {
-		return nil
+	timing := &aman.PlannedTiming{}
+	if departure, err := holdingclearance.ResolveEATUTC(strings.TrimSpace(eobt), at); err == nil {
+		timing.EstimatedOffBlockTime = &departure
 	}
-	for _, digit := range eet {
-		if digit < '0' || digit > '9' {
-			return nil
+	eet = strings.TrimSpace(eet)
+	if len(eet) == 4 {
+		valid := true
+		for _, digit := range eet {
+			valid = valid && digit >= '0' && digit <= '9'
+		}
+		hours, _ := strconv.Atoi(eet[:2])
+		minutes, _ := strconv.Atoi(eet[2:])
+		if valid && minutes < 60 && hours <= 23 && (hours > 0 || minutes > 0) {
+			duration := time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute
+			timing.EstimatedEnrouteTime = &duration
 		}
 	}
-	hours, _ := strconv.Atoi(eet[:2])
-	minutes, _ := strconv.Atoi(eet[2:])
-	if minutes >= 60 || hours > 23 || hours == 0 && minutes == 0 {
+	if timing.EstimatedOffBlockTime == nil && timing.EstimatedEnrouteTime == nil {
 		return nil
 	}
-	departure, err := holdingclearance.ResolveEATUTC(eobt, at)
-	if err != nil {
-		return nil
-	}
-	duration := time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute
-	return &aman.PlannedTiming{EstimatedOffBlockTime: &departure, EstimatedEnrouteTime: &duration}
+	return timing
 }
 
 // RemoveEuroScopeStrip retracts one session's ownership of a callsign after an

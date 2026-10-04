@@ -181,6 +181,64 @@ func TestCreateRunwayGapAtomicallyDisplacesEveryProtectionClassAndAuditsReplay(t
 	require.Equal(t, firstJSON, secondJSON, "equivalent replay must produce the same state, outcome, and audit")
 }
 
+func TestCreateRunwayGapMovesStableAndHoldingSlotsAndKeepsNewTargets(t *testing.T) {
+	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	state := runwayGapDisplacementState(now)
+	effectiveAt := now.Add(-time.Minute)
+	state.RunwayGroups[0].RateEffectiveAt = &effectiveAt
+	state.RunwayGroups = append(state.RunwayGroups, aman.RunwayGroupPolicy{
+		ID: "south", ActiveRatePerHour: 60, RateEffectiveAt: &effectiveAt,
+	})
+	state.Flights = []aman.AMANFlight{
+		gapCommandFlight("LEADING", "north", effectiveAt, 1, aman.StateStable, aman.FreezeNone),
+		gapCommandFlight("STABLE", "north", now, 2, aman.StateStable, aman.FreezeNone),
+		gapCommandFlight("HOLDING", "north", now.Add(time.Minute), 3, aman.StateUnstable, aman.FreezeNone),
+		gapCommandFlight("TRAILING", "north", now.Add(2*time.Minute), 4, aman.StateStable, aman.FreezeNone),
+		gapCommandFlight("OTHER_RUNWAY", "south", now, 1, aman.StateStable, aman.FreezeNone),
+	}
+	state.Flights[2].HoldingClearance = &aman.HoldingClearance{Hold: "MONAK", HoldType: aman.HoldingClearanceEnroute, ObservedAt: now}
+	input := (&Service{}).sequenceInput(state)
+	for _, flight := range input.Flights {
+		require.True(t, flight.ProtectCurrentSlot, "all fixture flights own protected targets")
+	}
+
+	end := now.Add(2 * time.Minute)
+	repository := &memoryRepository{has: true, state: cloneGapState(t, state)}
+	result, err := runwayGapActions(t, repository, &recordingPublisher{}, now.Add(time.Second)).CreateRunwayGap(context.Background(), aman.CommandContext{
+		Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now,
+	}, aman.CreateRunwayGapCommand{
+		Metadata: aman.CommandMetadata{CommandID: "gap-protected-targets", ExpectedRevision: state.Revision}, RunwayGroupID: "north",
+		Interval: aman.RunwayGapIntervalInput{Start: now, End: &end}, Label: "approach stop",
+	})
+	require.NoError(t, err)
+	require.True(t, result.Changed)
+	for _, id := range []aman.Callsign{"LEADING", "OTHER_RUNWAY"} {
+		require.Equal(t, stateFlight(t, state, id).Slot.Time, stateFlight(t, repository.state, id).Slot.Time, "unaffected targets stay in place")
+	}
+	previous := stateFlight(t, repository.state, "LEADING").Slot.Time
+	for _, id := range []aman.Callsign{"STABLE", "HOLDING", "TRAILING"} {
+		flight := stateFlight(t, repository.state, id)
+		require.False(t, flight.Slot.Time.Before(end), id)
+		require.True(t, flight.Slot.Time.After(stateFlight(t, state, id).Slot.Time), "the gap shifts the protected cascade")
+		require.True(t, flight.Slot.Time.After(previous), "committed order survives the gap")
+		require.Nil(t, flight.ManualOrder, "the temporary displacement order must not become a controller override")
+		previous = flight.Slot.Time
+	}
+	require.Equal(t, state.Flights[2].HoldingClearance, stateFlight(t, repository.state, "HOLDING").HoldingClearance)
+
+	committed := cloneGapState(t, repository.state)
+	for index := range repository.state.Flights {
+		prediction := repository.state.Flights[index].Prediction
+		prediction.RawTETA = prediction.RawTETA.Add(15 * time.Minute)
+		prediction.OperationalTETA = prediction.OperationalTETA.Add(15 * time.Minute)
+	}
+	promotions := (&Service{}).resequence(&repository.state, now.Add(2*time.Second))
+	require.Empty(t, promotions)
+	for _, flight := range repository.state.Flights {
+		require.Equal(t, stateFlight(t, committed, flight.Callsign).Slot, flight.Slot, "routine ETA changes keep the GAP's new controller targets")
+	}
+}
+
 func TestCreateRunwayGapImpossibleCapacityRollsBackStateRevisionAndAudit(t *testing.T) {
 	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	state := runwayGapDisplacementState(now)
@@ -201,6 +259,39 @@ func TestCreateRunwayGapImpossibleCapacityRollsBackStateRevisionAndAudit(t *test
 	require.Equal(t, aman.SequenceRevision(7), repository.state.Revision)
 	require.Empty(t, repository.commits)
 	require.Empty(t, repository.outcomes)
+}
+
+func TestRemoveRunwayGapImmediatelyPromotesStableAndHoldingTargets(t *testing.T) {
+	for _, holding := range []bool{false, true} {
+		name := "stable"
+		if holding {
+			name = "holding"
+		}
+		t.Run(name, func(t *testing.T) {
+			now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+			state := runwayGapDisplacementState(now)
+			state.RunwayGroups[0].ActiveRatePerHour = 20
+			state.RunwayGroups[0].Gaps = []aman.RunwayGap{{ID: "gap", Start: now.Add(3 * time.Minute), End: now.Add(6 * time.Minute), CreatedAt: now, CreatedBy: "FMP", Label: "stop"}}
+			lead := gapCommandFlight("LEAD", "north", now, 1, aman.StateStable, aman.FreezeNone)
+			target := gapCommandFlight("TARGET", "north", now.Add(3*time.Minute), 2, aman.StateStable, aman.FreezeNone)
+			target.Slot.Time = now.Add(6 * time.Minute)
+			if holding {
+				target.State = aman.StateUnstable
+				target.HoldingClearance = &aman.HoldingClearance{Hold: "MONAK", HoldType: aman.HoldingClearanceEnroute, ObservedAt: now}
+			}
+			state.Flights = []aman.AMANFlight{lead, target}
+			repository := &memoryRepository{has: true, state: state}
+			_, err := runwayGapActions(t, repository, &recordingPublisher{}, now.Add(time.Second)).RemoveRunwayGap(context.Background(), aman.CommandContext{
+				Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now,
+			}, aman.RemoveRunwayGapCommand{
+				Metadata: aman.CommandMetadata{CommandID: "remove-gap", ExpectedRevision: state.Revision}, RunwayGroupID: "north", GapID: "gap",
+			})
+			require.NoError(t, err)
+			require.Empty(t, repository.state.RunwayGroups[0].Gaps)
+			require.Equal(t, now.Add(3*time.Minute), stateFlight(t, repository.state, "TARGET").Slot.Time)
+			require.Len(t, repository.commits[0].AuditRecords, 2, "removal and the resulting earlier promotion are committed together")
+		})
+	}
 }
 
 func TestRunwayGapPayloadHasNoAuditIdentityFields(t *testing.T) {

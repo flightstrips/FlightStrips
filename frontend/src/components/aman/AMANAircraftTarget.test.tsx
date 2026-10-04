@@ -44,9 +44,16 @@ describe("compact MAESTRO aircraft target", () => {
     expect(screen.getByText(label)).toHaveClass(tone);
   });
 
-  it("suppresses non-authoritative or stale guidance explicitly", () => {
+  it("retains stale guidance colours with an explanation", () => {
     render(<AMANAircraftTarget flight={flight({data_status: "stale"})} guidance={guidance} />);
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(screen.getByText("L02")).toHaveClass("text-[#f0e129]");
+    expect(screen.getByText("L02")).toHaveAttribute("title", "Last known gain/lose; awaiting current prediction");
+  });
+
+  it.each(["stale", "disconnected"] as const)("keeps long losses red with %s data", (dataStatus) => {
+    render(<AMANAircraftTarget flight={flight({data_status: dataStatus, gain_loss_seconds: -1800})} guidance={guidance} />);
+    expect(screen.getByText("L30")).toHaveClass("text-[#e65b5b]");
+    expect(screen.getByText("L30")).toHaveAttribute("title", "Last known gain/lose; awaiting current prediction");
   });
 
   it("uses the authoritative freeze reason for visible protection cues", () => {
@@ -62,7 +69,7 @@ describe("compact MAESTRO aircraft target", () => {
   it.each(["fresh", "stale", "disconnected"] as const)("announces TMA protection with %s surveillance data", (dataStatus) => {
     render(<AMANAircraftTarget flight={flight({data_status: dataStatus, freeze_reason: "tma", lifecycle_state: "stable"})} guidance={guidance} />);
     const target = screen.getByRole("button", {name: /TMA entry protection/});
-    expect(target).toHaveTextContent(dataStatus === "fresh" ? "L02" : "Unavailable");
+    expect(target).toHaveTextContent("L02");
     expect(screen.getByText("SAS123")).toHaveClass("text-[#96d796]");
   });
 

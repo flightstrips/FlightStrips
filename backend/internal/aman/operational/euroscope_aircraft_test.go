@@ -77,15 +77,14 @@ func TestEuroScopeMediumArrivalsUseFortyPerHourGrid(t *testing.T) {
 	require.Equal(t, 90*time.Second, result.Entries[1].Time.Sub(result.Entries[0].Time))
 }
 
-func TestStableGainResequenceStartsAboveTwoMinutes(t *testing.T) {
+func TestStableSlotProtectionDoesNotDependOnPredictionDrift(t *testing.T) {
 	now := time.Date(2026, 10, 4, 8, 0, 0, 0, time.UTC)
-	for _, test := range []struct {
-		drift  time.Duration
-		freeze aman.FreezeReason
-		want   bool
-	}{{2 * time.Minute, aman.FreezeNone, false}, {2*time.Minute + time.Second, aman.FreezeNone, true}, {10 * time.Minute, aman.FreezeSuperstable, false}, {10 * time.Minute, aman.FreezeTMA, false}} {
-		state := aman.AirportState{Flights: []aman.AMANFlight{{Callsign: "SAS123", State: aman.StateStable, FreezeReason: test.freeze, SequenceDisposition: aman.SequenceDispositionActive, Slot: &aman.Slot{Time: now}, Prediction: &aman.Prediction{Publishable: true, OperationalTETA: now.Add(test.drift)}}}}
-		_, found := releaseGainResequenceTargets(&state)["SAS123"]
-		require.Equal(t, test.want, found)
+	group := aman.RunwayGroupID("22L")
+	for _, drift := range []time.Duration{2 * time.Minute, 2*time.Minute + time.Second, 10 * time.Minute, 30 * time.Minute} {
+		state := aman.AirportState{Flights: []aman.AMANFlight{{Callsign: "SAS123", State: aman.StateStable, FreezeReason: aman.FreezeNone, SelectedRunwayGroup: &group,
+			Slot: &aman.Slot{Time: now, RunwayGroupID: group, Sequence: 1}, Prediction: &aman.Prediction{Publishable: true, OperationalTETA: now.Add(drift)}}}}
+		input := (&Service{}).sequenceInput(state)
+		require.Len(t, input.Flights, 1)
+		require.True(t, input.Flights[0].ProtectCurrentSlot)
 	}
 }

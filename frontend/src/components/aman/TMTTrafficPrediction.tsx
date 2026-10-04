@@ -21,15 +21,6 @@ function alertColour(bucket: AMANTrafficBucket): string | null {
   return null;
 }
 
-function reasonLabel(reason: string): string {
-  if (reason === "missing_selected_rate") return "Arrival rate unavailable; overload status is not estimated.";
-  if (reason === "stale_flight_data") return "Some flight timing data is stale.";
-  if (reason === "source_disconnected") return "AMAN observation source is disconnected.";
-  if (reason === "position_estimate") return "Some airborne times are approximate straight-line estimates.";
-  if (reason.startsWith("missing_timing:")) return `No usable timing for ${reason.slice("missing_timing:".length)}.`;
-  return reason.replace(/_/g, " ");
-}
-
 function bucketDetails(bucket: AMANTrafficBucket): string {
   return bucket.flights.length === 0
     ? "No predicted arrivals"
@@ -42,13 +33,6 @@ export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPredi
 
   return (
     <section aria-label="TMT traffic prediction" className="relative flex min-h-0 flex-col overflow-hidden border border-[#777] bg-[#3c3c3c] text-white">
-      {prediction.status !== "ready" && (
-        <div className="absolute right-1 top-1 z-20 max-w-[70%] border border-amber-300 bg-[#40200f] px-2 py-1 text-[10px] text-amber-100" role="status">
-          <strong className="mr-1 uppercase">{prediction.status}</strong>
-          {prediction.degraded_reasons.map(reasonLabel).join(" ")}
-        </div>
-      )}
-
       <div className="flex min-h-0 flex-1">
         <div aria-hidden="true" className="relative mb-6 mt-2 w-9 shrink-0 font-mono text-[10px] font-bold text-[#dcdcdc]">
           {TICKS.map((tick) => (

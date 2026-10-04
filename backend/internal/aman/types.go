@@ -166,6 +166,7 @@ const (
 	OperationalReasonSuperstableFreeze  OperationalReason = "superstable_freeze"
 	OperationalReasonTMAFreeze          OperationalReason = "tma_freeze"
 	OperationalReasonGoAround           OperationalReason = "go_around"
+	OperationalReasonHoldingPriority    OperationalReason = "holding_priority"
 )
 
 func (r OperationalReason) Valid() bool {
@@ -180,7 +181,8 @@ func (r OperationalReason) Valid() bool {
 		OperationalReasonManualOverride,
 		OperationalReasonSuperstableFreeze,
 		OperationalReasonTMAFreeze,
-		OperationalReasonGoAround:
+		OperationalReasonGoAround,
+		OperationalReasonHoldingPriority:
 		return true
 	default:
 		return false
@@ -404,6 +406,9 @@ type Prediction struct {
 	DistanceToGoNM *float64
 	HoldingFixETA  *time.Time
 	HoldingPlan    *HoldingPlan
+	// HoldingPlanBlockedBy identifies a protected earlier release that makes
+	// this flight's current runway slot incompatible with the holding queue.
+	HoldingPlanBlockedBy *Callsign
 
 	ModelVersion  string
 	ConfigVersion string
@@ -479,13 +484,31 @@ func (b PredictionBasis) Valid() bool {
 // HoldingPlan is the slot-derived arrival-management plan for a flight that
 // can still use its configured holding fix. It never moves the committed slot:
 // it explains how long the flight is expected to hold before being released
-// toward that fixed landing time. Its entry and transit times are recalculated
-// from the current surveillance altitude on every physical prediction.
+// toward that fixed landing time. Approaching traffic uses its live forecast;
+// confirmed holding uses the retained fix-to-landing release basis.
 type HoldingPlan struct {
 	HoldingEntryTime        time.Time
 	ApproachReleaseTime     time.Time
 	ExpectedHoldingDuration time.Duration
 	PostHoldingTransit      time.Duration
+}
+
+// HoldingReleaseBasis retains the fix-to-landing journey for one confirmed
+// holding episode. Surveillance around the racetrack must not revise an EAT.
+type HoldingReleaseBasis struct {
+	HoldingID          string
+	Fix                string
+	RunwayGroupID      RunwayGroupID
+	RouteDigest        string
+	HoldingEntryTime   time.Time
+	PostHoldingTransit time.Duration
+}
+
+func (b HoldingReleaseBasis) Validate() error {
+	if b.HoldingID == "" || b.Fix == "" || b.RunwayGroupID == "" || b.RouteDigest == "" || b.PostHoldingTransit <= 0 {
+		return invalid("holding release basis requires a hold, runway, route and positive transit")
+	}
+	return requireUTCTime("holding release entry time", b.HoldingEntryTime)
 }
 
 // HoldingStackState is a surveillance-derived operational fact. Confirmed is
@@ -926,6 +949,7 @@ type AMANFlight struct {
 	DerivedFeederETA     *FeederETAState
 	HoldingClearance     *HoldingClearance
 	HoldingStack         *HoldingStackState
+	HoldingReleaseBasis  *HoldingReleaseBasis
 	ActiveRouteFact      *RouteFact
 	ActiveRouteKey       *string
 	ActiveRouteDatasetID *string
@@ -1454,6 +1478,11 @@ func (f AMANFlight) Validate() error {
 			f.RunwayGapException.RunwayGroupID != f.Slot.RunwayGroupID ||
 			!f.RunwayGapException.Opportunity.Equal(f.Slot.Time) {
 			return invalid("runway gap exception does not match its flight slot")
+		}
+	}
+	if f.HoldingReleaseBasis != nil {
+		if err := f.HoldingReleaseBasis.Validate(); err != nil {
+			return err
 		}
 	}
 	if f.GoAroundDetection != nil {

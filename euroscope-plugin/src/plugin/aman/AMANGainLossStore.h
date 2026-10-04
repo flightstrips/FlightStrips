@@ -47,6 +47,6 @@ namespace FlightStrips::aman {
         static std::string NormalizeCallsign(std::string callsign);
         static std::shared_ptr<const GainLossSnapshot> Parse(
             const flightstrips::euroscope::v1::AMANGainLossEvent& message);
-        void Clear();
+        void MarkStale();
     };
 }

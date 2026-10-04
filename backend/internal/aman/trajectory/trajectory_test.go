@@ -616,6 +616,28 @@ func TestReduceHonorsHoldingClearanceWithoutResolvedHoldingGeometry(t *testing.T
 	require.Nil(t, result.HoldingCandidate)
 }
 
+func TestReduceKeepsClearedHoldingFixOutsideProximityWithoutInventingStackTraffic(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	holdID := navdata.HoldingID("B-HOLD")
+	snapshot.Holdings = []navdata.HoldingPattern{{ID: holdID, Fix: "B"}}
+	snapshot.TerminalPaths[0].HoldingIDs = []navdata.HoldingID{holdID}
+	input.HoldingClearanceFix = "B"
+	for _, longitude := range []float64{.6, 1.2, .9, 1.3} {
+		input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = .1, longitude
+		result := Reduce(snapshot, route, input, Config{})
+		require.Equal(t, Complete, result.Completeness)
+		require.Equal(t, navdata.FixID("B"), result.Remaining[0].To)
+		require.Equal(t, "HOLDING_TO:B", result.Remaining[0].ID)
+		require.NotNil(t, result.SelectedHolding)
+		require.Nil(t, result.HoldingCandidate, "a clearance must not fabricate physical holding evidence")
+		input.Prior = result.Progress
+	}
+	input.HoldingClearanceFix = ""
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = 0, 1.5
+	released := Reduce(snapshot, route, input, Config{MaxForwardSearchNM: 100})
+	require.NotEqual(t, navdata.FixID("B"), released.Remaining[0].To, "canceling the clearance restores normal route progress")
+}
+
 func TestReduceAdvancesPastHoldingFixWhenOnlyProximityIsObserved(t *testing.T) {
 	snapshot, route, input := fixtureInput(t)
 	holdID := navdata.HoldingID("B-HOLD")

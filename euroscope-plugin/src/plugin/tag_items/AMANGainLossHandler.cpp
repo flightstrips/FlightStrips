@@ -73,7 +73,7 @@ namespace FlightStrips::TagItems {
 
     auto AMANGainLossHandler::Format(const long long seconds) -> std::string {
         const auto magnitude = Magnitude(seconds);
-        if (magnitude < 30) return "=00";
+        if (magnitude < 30) return "G00";
         const auto minutes = DisplayedMinutes(seconds);
         const char prefix = seconds < 0 ? 'L' : 'G';
         if (minutes > 99) return std::format("{}99+", prefix);
@@ -86,7 +86,11 @@ namespace FlightStrips::TagItems {
                                       const std::string& currentAirport,
                                       const bool holding, const bool trackedByMe,
                                       const std::string& currentControllerCallsign) -> AMANGainLossPresentation {
-        const auto isFmp = Normalize(currentControllerCallsign).ends_with("_FMP");
+        const auto controllerCallsign = Normalize(currentControllerCallsign);
+        const auto isEsmmApproachOrCenter = controllerCallsign.starts_with("ESMM_") &&
+            (controllerCallsign.ends_with("_APP") || controllerCallsign.ends_with("_CTR"));
+        if (!controllerCallsign.starts_with("EKDK_") && !isEsmmApproachOrCenter) return {"", ActiveTagColor};
+        const auto isFmp = controllerCallsign.ends_with("_FMP");
         if (!trackedByMe && !isFmp) return {"", ActiveTagColor};
         const auto unavailable = AMANGainLossPresentation{isFmp ? "----" : "", ActiveTagColor};
         const auto normalizedAirport = Normalize(currentAirport);

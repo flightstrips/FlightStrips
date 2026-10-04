@@ -35,6 +35,10 @@ services:
     build:
       context: ../frontend
       target: development
+    # Poll Windows bind mounts so Vite invalidates changed modules.
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
     # Use Vite's local config and public/config.js, just like npm run dev.
     ports: ["127.0.0.1:8080:8080", "127.0.0.1:5173:8080"]
     volumes:

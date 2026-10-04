@@ -99,3 +99,23 @@ func TestAlreadyAppliedPositionWaitDoesNotRequireExclusiveLock(t *testing.T) {
 		t.Fatal("already-applied exact revision waited for an exclusive projection lock")
 	}
 }
+
+func TestSinglePositionSelectionPreservesRAMOverridesWithoutAllocatingView(t *testing.T) {
+	p := readyPositionWaitFixture()
+	for i, epoch := range []uint64{1, 2} {
+		key := positionKey(1, "SAS123", epoch)
+		p.positions[key] = KVPosition{Value: &pb.PositionValue{SessionId: 1, AircraftKey: "SAS123", OwnerEpoch: epoch}, Revision: uint64(i + 1)}
+	}
+	p.asyncPositions = &asyncPositionState{values: map[string]KVPosition{
+		positionKey(1, "SAS123", 2): {}, // A RAM tombstone masks the durable value.
+		positionKey(1, "SAS123", 1): {Value: &pb.PositionValue{SessionId: 1, AircraftKey: "SAS123", OwnerEpoch: 1}, Revision: 9},
+	}}
+	all := p.positionSnapshotLocked(1)
+	selected, ok := p.selectedPositionLocked(1, "SAS123")
+	require.True(t, ok)
+	require.Len(t, all, 1)
+	require.Equal(t, all[0], selected)
+	require.Equal(t, uint64(9), selected.Revision)
+	// State lookup may format its key; selection must not allocate a merged map.
+	require.LessOrEqual(t, testing.AllocsPerRun(100, func() { p.selectedPositionLocked(1, "SAS123") }), float64(1))
+}

@@ -209,11 +209,19 @@ export class FrontendProjection {
       if (previous && (position.ownerEpoch < previous.epoch ||
         (position.ownerEpoch === previous.epoch && value.sourceRevision <= previous.revision))) return;
       this.positionRevisions.set(position.aircraftKey, {epoch: position.ownerEpoch, revision: value.sourceRevision});
-      this.positionAltitudes.set(position.aircraftKey,
-        !value.stale && !value.removed && position.observation.case === "position"
-          ? position.observation.value.altitudeFeet : null);
-      // A position tombstone clears its overlay without removing the strip.
-      if (emit) this.publishStrip(position.aircraftKey);
+      const altitude = !value.stale && !value.removed && position.observation.case === "position"
+        ? position.observation.value.altitudeFeet : null;
+      const currentStrip = this.entities.get(`strip.${position.aircraftKey}`)?.value?.value;
+      const previousAltitude = this.positionAltitudes.has(position.aircraftKey)
+        ? this.positionAltitudes.get(position.aircraftKey) ?? null
+        : currentStrip?.case === "strip" ? currentStrip.value.positionAltitudeFeet ?? null : null;
+      this.positionAltitudes.set(position.aircraftKey, altitude);
+      // Observations must not replay persisted bay/order over optimistic moves.
+      // A tombstone clears only the altitude overlay, without removing the strip.
+      if (emit && altitude !== previousAltitude && currentStrip?.case === "strip") {
+        this.emit(legacy(EventType.FrontendPositionAltitude,
+          {callsign: position.aircraftKey, position_altitude: altitude}));
+      }
     } else if (value.value.case === "presence") {
       const client = value.value.value.present;
       if (client.case !== "client") return;

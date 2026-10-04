@@ -32,6 +32,7 @@ import {
   type FrontendStandAssignmentRemovedEvent,
   type FrontendStandBlockUpdateEvent,
   type FrontendStripUpdateEvent,
+  type FrontendPositionAltitudeEvent,
   type FrontendTacticalStripCreatedEvent,
   type FrontendTacticalStripDeletedEvent,
   type FrontendTacticalStripUpdatedEvent,
@@ -54,6 +55,7 @@ type EventMap = {
   [EventType.FrontendInitial]: FrontendInitialEvent;
   [EventType.FrontendGoAround]: FrontendGoAroundEvent;
   [EventType.FrontendStripUpdate]: FrontendStripUpdateEvent;
+  [EventType.FrontendPositionAltitude]: FrontendPositionAltitudeEvent;
   [EventType.FrontendControllerOnline]: FrontendControllerOnlineEvent;
   [EventType.FrontendControllerUpdate]: FrontendControllerUpdateEvent;
   [EventType.FrontendControllerOffline]: FrontendControllerOfflineEvent;

@@ -26,14 +26,29 @@ func (p *Projection) selectedPositionLocked(session int32, aircraft string) (KVP
 	fresh := p.operationalSyncLocked(state, session) != nil
 	var selected KVPosition
 	found := false
-	for _, item := range p.positionViewLocked() {
+	consider := func(item KVPosition) {
 		value := item.Value
 		if value == nil || value.SessionId != session || value.AircraftKey != aircraft || value.OwnerEpoch > epoch || (fresh && value.OwnerEpoch != epoch) {
-			continue
+			return
 		}
 		if !found || value.OwnerEpoch > selected.Value.OwnerEpoch || (value.OwnerEpoch == selected.Value.OwnerEpoch && item.Revision > selected.Revision) {
 			item.Stale = !fresh || value.OwnerEpoch != epoch || state.Master == nil || value.SourceConnectionId != state.Master.ConnectionId
 			selected, found = item, true
+		}
+	}
+	// Select one aircraft without allocating the merged view for every report.
+	// Accepted RAM entries override durable entries, including tombstones.
+	for key, item := range p.positions {
+		if p.asyncPositions != nil {
+			if _, overridden := p.asyncPositions.values[key]; overridden {
+				continue
+			}
+		}
+		consider(item)
+	}
+	if p.asyncPositions != nil {
+		for _, item := range p.asyncPositions.values {
+			consider(item)
 		}
 	}
 	return selected, found

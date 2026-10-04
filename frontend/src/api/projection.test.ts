@@ -40,6 +40,21 @@ it("preserves UTC compact CDM clocks on snapshots and replacements", () => {
 });
 
 describe("typed frontend projection", () => {
+  it("clears a persisted altitude when the first live observation is a tombstone", () => {
+    const events: WebSocketEvent[] = [];
+    const projection = new FrontendProjection(event => events.push(event));
+    const snapshot = initial();
+    const record = snapshot.entities[0].value!.value;
+    if (record.case !== "strip") throw new Error("fixture");
+    record.value.positionAltitudeFeet = 500;
+    projection.initial(snapshot);
+    projection.observation(create(FrontendObservationSchema, {sourceRevision: 1n,
+      value: {case: "position", value: {sessionId: 7, aircraftKey: "SAS123",
+        observation: {case: "tombstone", value: {}}}}}));
+    expect(events.at(-1)).toEqual({type: EventType.FrontendPositionAltitude,
+      callsign: "SAS123", position_altitude: null});
+  });
+
   it("keeps actual times and status when an atomic CDM replacement is presented", () => {
     const events: WebSocketEvent[] = [];
     const projection = new FrontendProjection(event => events.push(event));
@@ -99,11 +114,11 @@ describe("typed frontend projection", () => {
     }));
     expect(events.at(-1)).toMatchObject({type: EventType.FrontendCoordinationFreeBroadcast, callsign: "SAS123"});
     expect(projection.entityRevisions.get("strip.SAS123")).toBe(1n);
+    const beforeLoss = events.length;
     projection.observation(create(FrontendObservationSchema, {value: {case: "position", value: {
       sessionId: 7, aircraftKey: "SAS123", observation: {case: "tombstone", value: {}},
     }}}));
-    expect(events.at(-1)).toMatchObject({type: EventType.FrontendStripUpdate, callsign: "SAS123"});
-    expect((events.at(-1) as Extract<WebSocketEvent, {type: EventType.FrontendStripUpdate}>).position_altitude).toBeUndefined();
+    expect(events).toHaveLength(beforeLoss);
     expect(projection.entityRevisions.get("strip.SAS123")).toBe(1n);
   });
 
@@ -129,7 +144,7 @@ describe("typed frontend projection", () => {
     projection.observation(create(FrontendObservationSchema, {value: {case: "position", value: old}, sourceRevision: 8n}));
     expect(events).toHaveLength(1);
     projection.observation(create(FrontendObservationSchema, {value: {case: "position", value: fresh}, sourceRevision: 12n, removed: true}));
-    expect((events.at(-1) as Extract<WebSocketEvent, {type: EventType.FrontendStripUpdate}>).position_altitude).toBeUndefined();
+    expect(events.at(-1)).toEqual({type: EventType.FrontendPositionAltitude, callsign: "SAS123", position_altitude: null});
     projection.observation(create(FrontendObservationSchema, {value: {case: "presence", value: client}, sourceRevision: 3n, removed: true}));
     expect(events.at(-1)).toMatchObject({type: EventType.FrontendControllerOffline, callsign: "EKCH_TWR"});
   });

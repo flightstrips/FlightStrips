@@ -39,6 +39,7 @@ import {
   type FrontendStandStatusSnapshotEvent,
   type FrontendStrip,
   type FrontendStripUpdateEvent,
+  type FrontendPositionAltitudeEvent,
   type MessageReceived,
   type FrontendMessageReceivedEvent,
   type RunwayConfiguration,
@@ -1071,6 +1072,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     }
   };
 
+  const handlePositionAltitudeEvent = (data: FrontendPositionAltitudeEvent) => {
+    store.setState(produce((state: WebSocketState) => {
+      const strip = state.strips.find(item => item.callsign === data.callsign);
+      if (!strip) return;
+      if (data.position_altitude === null) delete strip.position_altitude;
+      else strip.position_altitude = data.position_altitude;
+    }));
+  };
+
   const handleStripUpdateEvent = (data: FrontendStripUpdateEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
@@ -1539,6 +1549,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendGoAround, handleGoAroundEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
+  wsClient.on(EventType.FrontendPositionAltitude, handlePositionAltitudeEvent);
   wsClient.on(EventType.FrontendControllerOnline, handleControllerOnlineEvent);
   wsClient.on(EventType.FrontendControllerUpdate, handleControllerOnlineEvent);
   wsClient.on(EventType.FrontendControllerOffline, handleControllerOfflineEvent);

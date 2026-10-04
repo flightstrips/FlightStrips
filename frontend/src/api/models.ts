@@ -4,6 +4,7 @@ export enum EventType {
   FrontendInitial = "initial",
   FrontendGoAround = "go_around",
   FrontendStripUpdate = "strip_update",
+  FrontendPositionAltitude = "position_altitude",
   FrontendControllerOnline = "controller_online",
   FrontendControllerUpdate = "controller_update",
   FrontendControllerOffline = "controller_offline",
@@ -313,6 +314,13 @@ export interface FrontendInitialEvent {
   capabilities?: {
     aman_fmp: boolean;
   };
+}
+
+// Local adapter event for a Protobuf position observation; never a wire command.
+export interface FrontendPositionAltitudeEvent {
+  type: EventType.FrontendPositionAltitude;
+  callsign: string;
+  position_altitude: number | null;
 }
 
 export interface FrontendStripUpdateEvent {
@@ -651,6 +659,7 @@ export type WebSocketEvent =
   | FrontendInitialEvent
   | FrontendGoAroundEvent
   | FrontendStripUpdateEvent
+  | FrontendPositionAltitudeEvent
   | FrontendControllerOnlineEvent
   | FrontendControllerUpdateEvent
   | FrontendControllerOfflineEvent

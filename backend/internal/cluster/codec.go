@@ -255,8 +255,8 @@ func validateTyped(message protoreflect.Message) error {
 				if strings.Contains(name, "longitude") && (x < -180 || x > 180) {
 					return fmt.Errorf("longitude out of range")
 				}
-				if (strings.Contains(name, "heading") || strings.Contains(name, "course") || strings.Contains(name, "track")) && (x < 0 || x >= 360) {
-					return fmt.Errorf("course out of range")
+				if strings.HasSuffix(name, "_degrees") && (strings.Contains(name, "heading") || strings.Contains(name, "course") || strings.Contains(name, "track")) && (x < 0 || x >= 360) {
+					return fmt.Errorf("angle out of range in %s: %g", field.FullName(), x)
 				}
 			case protoreflect.EnumKind:
 				if field.Enum().Values().ByNumber(item.Enum()) == nil {

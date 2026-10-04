@@ -461,7 +461,7 @@ func waitForReconciliationRetry(ctx context.Context, attempt int) error {
 }
 
 func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) error {
-	now := s.deps.Now().UTC().Truncate(time.Second)
+	now := s.deps.Now().UTC()
 	initializing := false
 	current, err := s.deps.Repository.LoadAirportState(ctx, airport)
 	if err != nil {
@@ -758,11 +758,15 @@ func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFligh
 }
 
 func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) (aman.AMANFlight, error) {
-	// Removed aggregates are terminal. Their final source observation can
-	// remain in the in-memory observation set until the VATSIM worker observes
-	// the disappearance; replaying it must not resurrect a retired identity.
+	// A fresh surveillance sample after automatic disappearance begins a new
+	// arrival episode. Manual removal and lingering old samples stay terminal.
 	if flight.State == aman.StateRemoved {
-		return flight, nil
+		if flight.Lifecycle == nil || flight.Lifecycle.Reason != aman.LifecycleReasonSourceDisappearance ||
+			observation.Missing || observation.SourceStatus != aman.DataFresh || observation.Surveillance == nil ||
+			observation.Surveillance.ObservedAt == nil || !observation.Surveillance.ObservedAt.After(flight.Lifecycle.EnteredAt) {
+			return flight, nil
+		}
+		flight = newFlight(observation, now)
 	}
 	previousObservation := flight.LatestObservation
 	copy := observation
@@ -789,6 +793,10 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	applyBaseline(&flight, observation, now)
 	applyPreliminaryPrediction(&flight, observation, now)
+	if degraded := s.observeTMAEntry(&flight, observation, now); degraded != "" {
+		markPredictionDegraded(&flight, degraded)
+		return flight, nil
+	}
 	if observation.Surveillance == nil || observation.Surveillance.GroundspeedKnots == nil || observation.Surveillance.AltitudeFeet == nil {
 		if flight.State != aman.StatePlanned {
 			markPredictionNonPublishable(&flight, unavailablePredictionReason(observation, missingEssentialReason(observation)))
@@ -799,10 +807,6 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		if flight.State != aman.StatePlanned {
 			markPredictionNonPublishable(&flight, unavailablePredictionReason(observation, invalid))
 		}
-		return flight, nil
-	}
-	if degraded := s.observeTMAEntry(&flight, observation, now); degraded != "" {
-		markPredictionDegraded(&flight, degraded)
 		return flight, nil
 	}
 	group, ok := s.selectedGroup(flight, state.RunwayGroups)

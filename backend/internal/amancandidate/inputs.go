@@ -205,6 +205,14 @@ func (w *Worker) acceptedInputs(ctx context.Context, airport string, board clust
 				seq := p.Revision
 				o.Surveillance = &aman.SurveillanceFact{LatitudeDegrees: a.Latitude, LongitudeDegrees: a.Longitude, AltitudeFeet: &alt, GroundspeedKnots: &speed, Sequence: &seq, ObservedAt: &observed}
 				prior := previous[strip.Callsign][aman.ObservationProviderEuroScope]
+				if speed == 0 {
+					if derived, ok := aman.DerivedGroundspeed(&prior, o.Surveillance); ok {
+						speed = derived
+					} else if prior.Surveillance != nil && prior.Surveillance.ObservedAt != nil && observed.Equal(*prior.Surveillance.ObservedAt) && prior.Surveillance.LatitudeDegrees == a.Latitude && prior.Surveillance.LongitudeDegrees == a.Longitude && prior.Surveillance.GroundspeedKnots != nil {
+						speed = *prior.Surveillance.GroundspeedKnots
+					}
+				}
+
 				if track, ok := aman.DerivedGroundTrack(&prior, o.Surveillance); ok {
 					o.Surveillance.TrackTrueDegrees = &track
 				} else if prior.Surveillance != nil && prior.Surveillance.ObservedAt != nil &&

@@ -113,7 +113,9 @@ func (w *Worker) EvaluateReconciliation(ctx context.Context, board cluster.AmanB
 	if err != nil {
 		return cluster.AmanTransition{}, err
 	}
-	return w.evaluate(ctx, airport, board, at, nil, id, &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "aman-reconcile"})
+	// The slot identifies an idempotent tick; fresh surveillance is compared
+	// with the actual evaluation clock, never the rounded slot boundary.
+	return w.evaluate(ctx, airport, board, w.options.Now().UTC(), nil, id, &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "aman-reconcile"})
 }
 
 // evaluationRepository captures the production policy's result for one CAS

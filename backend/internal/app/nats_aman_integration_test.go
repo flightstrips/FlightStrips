@@ -161,6 +161,20 @@ func TestBuildNATSAIRACWindAndAMANPolicy(t *testing.T) {
 		return true
 	})
 
+	f.send(socket, &es.Envelope{Event: &es.Envelope_AircraftPositionUpdate{AircraftPositionUpdate: &es.AircraftPositionUpdateEvent{Callsign: callsign, Lat: 55.291, Lon: 11.3, Altitude: 12000, GroundSpeedKnots: 0}}})
+	f.await("zero-speed ES motion gets a backend-derived speed on both nodes", func() bool {
+		for _, app := range f.apps {
+			state, err := app.natsRuntime.projection.ReadEntityKinds(airportNATSRef("EKCH"), pb.EntityKind_AMAN_FLIGHT)
+			if err != nil {
+				return false
+			}
+			observation := state.Indexes[pb.EntityKind_AMAN_FLIGHT][callsign].GetValue().GetAmanFlight().GetLatestObservation().GetSurveillance()
+			if observation.GetLatitudeDegrees() != 55.291 || observation.GetGroundspeedKnots() <= 0 {
+				return false
+			}
+		}
+		return true
+	})
 	f.await("authoritative AMAN replacement delivered over ES socket", func() bool {
 		socket.mu.Lock()
 		defer socket.mu.Unlock()

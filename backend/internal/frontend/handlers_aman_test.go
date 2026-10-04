@@ -118,11 +118,13 @@ func TestAMANCoordinationSnapshotAuthorizesFMPCallsignAtUnlistedFrequency(t *tes
 	hub.amanRoleForPosition = func(string) string { return "" }
 	client.position = "131.040"
 	client.callsign = "EKDK_FMP"
+	client.session = 42
 
 	hub.sendAMANCoordinationSnapshot(context.Background(), client)
 
 	event := (<-client.send).(frontendEvents.AMANCoordinationStateEvent)
 	require.Equal(t, []coordinationrequest.Request{request}, event.Requests)
+	require.Equal(t, client.session, repository.snapshotSession)
 	require.True(t, hub.hasAMANFMPAuthority(client))
 }
 
@@ -133,8 +135,9 @@ func (coordinationOwner) TrackingController(context.Context, string, coordinatio
 }
 
 type coordinationRecorder struct {
-	request  coordinationrequest.Request
-	decision coordinationrequest.Decision
+	request         coordinationrequest.Request
+	decision        coordinationrequest.Decision
+	snapshotSession int32
 }
 
 func (r *coordinationRecorder) Submit(_ context.Context, request coordinationrequest.Request, revision uint64) (coordinationrequest.CommitResult, error) {
@@ -155,7 +158,8 @@ func (r *coordinationRecorder) Decide(_ context.Context, _ coordinationrequest.R
 func (r *coordinationRecorder) TransferPending(context.Context, coordinationrequest.OwnershipFact) (coordinationrequest.TransferResult, error) {
 	return coordinationrequest.TransferResult{}, nil
 }
-func (r *coordinationRecorder) ReplayAirport(context.Context, string) ([]coordinationrequest.Request, error) {
+func (r *coordinationRecorder) ReplayAirport(ctx context.Context, _ string) ([]coordinationrequest.Request, error) {
+	r.snapshotSession = aman.SessionID(ctx)
 	return []coordinationrequest.Request{r.request}, nil
 }
 

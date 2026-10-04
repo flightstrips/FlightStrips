@@ -472,7 +472,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 
 func (hub *Hub) sendAMANCoordinationSnapshot(ctx context.Context, client *Client) {
 	result, err := hub.amanCoordination.Snapshot(ctx, coordinationrequest.CommandContext{
-		Airport: client.airport, Actor: client.GetCid(), Role: hub.amanRole(client), ReceivedAt: hub.amanNow().UTC(),
+		SessionID: client.session, Airport: client.airport, Actor: client.GetCid(), Role: hub.amanRole(client), ReceivedAt: hub.amanNow().UTC(),
 	})
 	if err != nil {
 		slog.Error("Failed to project AMAN coordination", slog.Any("error", err))

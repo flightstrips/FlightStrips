@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.0.0...frontend/v2.1.0) (2026-10-04)
+
+
+### Features
+
+* redesign public site navigation, footer and pages ([#818](https://github.com/flightstrips/FlightStrips/issues/818)) ([6e08da4](https://github.com/flightstrips/FlightStrips/commit/6e08da4e6709046bec8e0641e53ab3fe714ea5f7))
+
+
+### Bug Fixes
+
+* **aman:** estimate airborne traffic from fresh position ([#792](https://github.com/flightstrips/FlightStrips/issues/792)) ([e4b17b2](https://github.com/flightstrips/FlightStrips/commit/e4b17b252b6c058340497a44932421be2848ea89))
+* **aman:** retain session timing and restore holding updates ([#838](https://github.com/flightstrips/FlightStrips/issues/838)) ([718ceb9](https://github.com/flightstrips/FlightStrips/commit/718ceb9eb571b146bcd99e4f75c87b08ad0b351e))
+
 ## [2.0.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.6.0...frontend/v2.0.0) (2026-09-28)
 
 

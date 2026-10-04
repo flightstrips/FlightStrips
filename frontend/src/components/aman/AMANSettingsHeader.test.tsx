@@ -7,6 +7,7 @@ import {AMANSettingsHeader} from "./AMANSettingsHeader";
 const state = {
   airport: "EKCH", generated_at: "2026-09-12T10:00:00.000Z", authoritative: false, effective_mode: "read_only",
   flights: [{sequence_disposition: "desequenced"}],
+  technical_health: {vatsim: {status: "degraded"}},
   header: {
     active_runway_groups: [{id: "ARRIVAL-22", active_rate_per_hour: 30, rate_effective_at: null}],
     readiness: {status: "degraded", ready: false, blocked_reasons: ["predictor_stale"]},
@@ -16,6 +17,17 @@ const state = {
 } as unknown as AMANState;
 
 describe("AMANSettingsHeader", () => {
+  it("does not mark the header stale or degraded for weather fallback and an individual retained estimate", () => {
+    const current = structuredClone(state);
+    current.header!.readiness = {status: "ready", ready: true, blocked_reasons: []};
+    current.technical_health = {...current.technical_health, ready: true, status: "ready",
+      vatsim: {status: "ready", reason: null, updated_at: null, age_seconds: null},
+      weather: {status: "unavailable", reason: "weather_refresh_failed", updated_at: null, age_seconds: null}};
+    render(<AMANSettingsHeader commandRejections={{}} connectionState="connected" hasFMPAuthority={false} onCommand={vi.fn()} onRunwayGroupViewChange={vi.fn()} onViewChange={vi.fn()} pendingCommands={{}} presentationStatus="ready" readOnly={true} selectedRunwayGroupID="ARRIVAL-22" state={current} view="holds" />);
+    expect(screen.queryByText(/△ STALE|△ DEGRADED/)).not.toBeInTheDocument();
+    expect(screen.getByText("TMA 7 · Horizon 11")).toBeInTheDocument();
+  });
+
   it("renders authoritative projections with explicit non-color degraded and read-only cues", () => {
     render(<AMANSettingsHeader commandRejections={{}} connectionState="disconnected" hasFMPAuthority={false} onCommand={vi.fn()} onRunwayGroupViewChange={vi.fn()} onViewChange={vi.fn()} pendingCommands={{}} presentationStatus="degraded" readOnly={true} selectedRunwayGroupID="ARRIVAL-22" state={state} view="holds" />);
 

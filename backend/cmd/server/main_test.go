@@ -144,6 +144,31 @@ func TestAMANConfigFromEnvParsesConfiguredRuntime(t *testing.T) {
 	}
 }
 
+func TestAMANHoldingEATWritebackDefaultsToAuthoritativeMode(t *testing.T) {
+	for _, mode := range []aman.RolloutMode{aman.ModeDisabled, aman.ModeShadow, aman.ModeAuthoritative} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Setenv("AMAN_MODE", string(mode))
+			t.Setenv("AMAN_ENABLED_AIRPORTS", "EKCH")
+			t.Setenv("ENABLE_AMAN_HOLDING_EAT_WRITEBACK", "")
+			config, err := amanConfigFromEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.EnableHoldingEATWriteback != (mode == aman.ModeAuthoritative) {
+				t.Fatalf("holding EAT writeback = %v for %s", config.EnableHoldingEATWriteback, mode)
+			}
+			t.Setenv("ENABLE_AMAN_HOLDING_EAT_WRITEBACK", "false")
+			config, err = amanConfigFromEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.EnableHoldingEATWriteback {
+				t.Fatal("explicit opt-out was ignored")
+			}
+		})
+	}
+}
+
 func TestNavigationConfigFromEnvParsesConfiguredSource(t *testing.T) {
 	t.Setenv("NAVIGATION_SOURCE", " AIRACNET ")
 

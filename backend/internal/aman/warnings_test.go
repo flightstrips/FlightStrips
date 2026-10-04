@@ -66,13 +66,17 @@ func TestCurrentWarningSnapshotCombinesDeduplicatesAndOrders(t *testing.T) {
 	if len(snapshot.Warnings) != 5 {
 		t.Fatalf("warnings = %#v", snapshot.Warnings)
 	}
-	if snapshot.Warnings[4].Severity != WarningSeverityWarning || snapshot.Warnings[4].Component == nil || *snapshot.Warnings[4].Component != "navigation" {
+	if snapshot.Warnings[3].Severity != WarningSeverityWarning || snapshot.Warnings[3].Component == nil || *snapshot.Warnings[3].Component != "navigation" {
 		t.Fatalf("degraded warning must follow errors: %#v", snapshot.Warnings)
 	}
-	for index := 1; index < 4; index++ {
+	for index := 1; index < 3; index++ {
 		if snapshot.Warnings[index-1].Severity != WarningSeverityError || snapshot.Warnings[index-1].ID >= snapshot.Warnings[index].ID {
 			t.Fatalf("errors are not ordered by identity: %#v", snapshot.Warnings)
 		}
+	}
+	weather := snapshot.Warnings[4]
+	if weather.Severity != WarningSeverityWarning || weather.Component == nil || *weather.Component != "weather" {
+		t.Fatalf("optional weather failure must remain a warning: %#v", weather)
 	}
 	sources := []WarningSource{}
 	for _, warning := range snapshot.Warnings {

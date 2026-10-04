@@ -232,7 +232,7 @@ describe("complete AMAN timeline and strips", () => {
     current.flights[0].wake_category = "M";
     renderBoard(current);
 
-    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G02EAT 10:18HOLD 8mARRIVAL-22B38MM");
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G02ARRIVAL-22B38MM");
     fireEvent.click(screen.getAllByRole("button", {name: "Open target information preferences"})[0]);
     expect(screen.getByRole("dialog", {name: "Target Information"})).toBeInTheDocument();
   });

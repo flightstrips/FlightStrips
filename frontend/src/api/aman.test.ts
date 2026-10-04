@@ -37,7 +37,9 @@ describe("AMAN V1 full replacement contract", () => {
     event.data.technical_health.weather.reason = "weather_refresh_failed";
     event.data.header!.readiness = {status: "degraded", ready: true, blocked_reasons: []};
     const accepted = replaceAMANState(null, event);
-    expect(accepted).toMatchObject({accepted: true, status: "degraded"});
+    expect(accepted).toMatchObject({accepted: true, status: "ready"});
+    event.data.header!.traffic_summary.status = "degraded";
+    expect(getAMANHeaderReadModel(event.data).availability).toBe("ready");
     expect(getAMANMutationBlockReason({
       state: accepted.state, connection_state: "connected", read_only: false, has_fmp_authority: true,
     })).toBeNull();
@@ -153,7 +155,7 @@ describe("AMAN V1 full replacement contract", () => {
     const model = getAMANHeaderReadModel(replaceAMANState(null, event).state!);
 
     expect(model).toMatchObject({
-      availability: "degraded", airport: "EKCH", authoritative: true,
+      availability: "ready", airport: "EKCH", authoritative: true,
       traffic_summary: {tma_above_1500_feet_count: 7, maestro_horizon_count: 11},
       wind: null,
     });

@@ -15,8 +15,8 @@ func TestWeatherDegradationAllowsFallbackAuthorityButObservationOutageStillBlock
 		{Status: HealthDegraded, Reason: "weather_stale"},
 	} {
 		report := EvaluateTechnicalHealth(ModeAuthoritative, ready, ready, weather, ready, ready, ready)
-		if !report.Ready || !report.AuthorityAllowed || report.Status != HealthDegraded || len(report.BlockedReasons) != 0 || report.Weather != weather {
-			t.Fatalf("weather fallback must remain operational and visibly degraded: %#v", report)
+		if !report.Ready || !report.AuthorityAllowed || report.Status != HealthReady || len(report.BlockedReasons) != 0 || report.Weather != weather {
+			t.Fatalf("weather fallback must remain operational with a separate component warning: %#v", report)
 		}
 		outage := EvaluateTechnicalHealth(ModeAuthoritative, ComponentHealth{Status: HealthUnavailable, Reason: "source_disconnected"}, ready, weather, ready, ready, ready)
 		if outage.Ready || outage.AuthorityAllowed || len(outage.BlockedReasons) != 1 || outage.BlockedReasons[0] != "observation_source:source_disconnected" {

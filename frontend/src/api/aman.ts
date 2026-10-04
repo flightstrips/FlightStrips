@@ -836,12 +836,12 @@ export function getAMANHeaderReadModel(state: AMANState): AMANHeaderReadModel {
       traffic_summary: {status: "unavailable", tma_above_1500_feet_count: null, maestro_horizon_count: null},
     };
   }
-  const degraded = !state.header.readiness.ready || state.header.traffic_summary.status !== "ready";
+  const degraded = !state.header.readiness.ready;
   return {...context, ...state.header, availability: degraded ? "degraded" : "ready"};
 }
 
 function presentationStatus(state: AMANState): AMANPresentationStatus {
-  return state.technical_health.status === "degraded" || state.technical_health.status === "unavailable"
+  return !state.technical_health.ready && state.technical_health.status !== "disabled"
     ? "degraded"
     : "ready";
 }

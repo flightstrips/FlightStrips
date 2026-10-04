@@ -279,10 +279,10 @@ For an authoritative AMAN holding plan, the server can send the same event to
 EuroScope with the calculated release time in `hold_eat`. The tracking plugin
 then writes the transient TopSky `/HOLD_EAT/HHMM/` command, provided the
 tracking client has the matching en-route hold in TopSky. The backend can send
-the EAT on the first surveillance detection of entry into that hold, without
-waiting for a second observation to confirm the holding stack. Both live
+the estimated EAT before entry into that hold. Both live
 publication and reconnect replay are controlled centrally by the backend
-`ENABLE_AMAN_HOLDING_EAT_WRITEBACK` setting, which defaults to `false`.
+`ENABLE_AMAN_HOLDING_EAT_WRITEBACK` setting, which defaults to `true` in
+authoritative mode and `false` otherwise. An explicit `false` disables writeback.
 Operational clients retain the latest backend EAT even while they are not
 tracking the aircraft, then reapply the transient command when tracking
 ownership is confirmed so the new local TopSky holding list is populated.

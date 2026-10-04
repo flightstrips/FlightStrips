@@ -175,7 +175,8 @@ export function AMANBoardView({
     [range],
   );
   const nowPosition = AMANAxisTopPercent(axis.clockMs, range);
-  const axisStatus = connectionState === "disconnected" ? "disconnected" : presentationStatus === "degraded" ? "stale" : "fresh";
+  const sourceStatus = (state?.technical_health.observation_source ?? state?.technical_health.vatsim)?.status;
+  const axisStatus = connectionState === "disconnected" ? "disconnected" : sourceStatus === "degraded" || sourceStatus === "unavailable" ? "stale" : "fresh";
   const gainLossAuthoritative = state?.authoritative === true && state.effective_mode === "authoritative";
   const gapRemovalDisabled = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority}) !== null
     || Object.values(pendingCommands).some((command) => command.type === "aman.create_gap" || command.type === "aman.remove_gap");

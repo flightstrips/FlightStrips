@@ -39,8 +39,8 @@ type TechnicalHealth struct {
 	DesiredMode      RolloutMode          `json:"desired_mode"`
 	EffectiveMode    EffectiveRolloutMode `json:"effective_mode"`
 	AuthorityAllowed bool                 `json:"authority_allowed"`
-	// Ready means the prerequisites for operation are met. Status can still be
-	// degraded when optional weather accuracy is unavailable.
+	// Ready and Status describe operational prerequisites. Optional weather
+	// fallback remains visible in Weather without degrading overall readiness.
 	Ready             bool            `json:"ready"`
 	Status            HealthStatus    `json:"status"`
 	BlockedReasons    []string        `json:"blocked_reasons,omitempty"`
@@ -64,7 +64,7 @@ type TechnicalHealthReporter interface {
 
 // EvaluateTechnicalHealth creates one deterministic snapshot from concrete
 // component checks. Weather reduces prediction accuracy but has a supported
-// fallback, so it remains visible as degraded health without blocking authority.
+// fallback, so its component warning does not degrade overall readiness.
 func EvaluateTechnicalHealth(mode RolloutMode, observationSource, navigation, weather, repository, predictor, replay ComponentHealth) TechnicalHealth {
 	report := TechnicalHealth{
 		Enabled:           mode != ModeDisabled,
@@ -92,7 +92,7 @@ func EvaluateTechnicalHealth(mode RolloutMode, observationSource, navigation, we
 	}
 	report.Ready = len(report.BlockedReasons) == 0
 	report.AuthorityAllowed = report.Ready && operationalMode(mode)
-	if report.Ready && weather.Status == HealthReady {
+	if report.Ready {
 		report.Status = HealthReady
 	} else {
 		report.Status = HealthDegraded

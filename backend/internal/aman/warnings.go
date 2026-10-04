@@ -102,7 +102,7 @@ func CurrentWarningSnapshot(technical TechnicalHealth, state AirportState, addit
 				continue
 			}
 			severity := WarningSeverityError
-			if component.health.Status == HealthDegraded {
+			if component.health.Status == HealthDegraded || component.name == "weather" {
 				severity = WarningSeverityWarning
 			}
 			name := component.name
@@ -187,6 +187,9 @@ func technicalWarningMessage(component string, health ComponentHealth) string {
 	status := health.Status
 	if status == "" {
 		status = HealthUnavailable
+	}
+	if component == "weather" {
+		return fmt.Sprintf("AMAN weather is %s: %s. Arrival calculations use the supported weather fallback.", status, healthReason(health))
 	}
 	return fmt.Sprintf("AMAN %s is %s: %s", strings.ReplaceAll(component, "_", " "), status, healthReason(health))
 }

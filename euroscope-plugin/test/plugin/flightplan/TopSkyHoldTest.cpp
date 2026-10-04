@@ -7,6 +7,7 @@ using FlightStrips::flightplan::ParseTopSkyHoldEat;
 using FlightStrips::flightplan::TopSkyHold;
 using FlightStrips::flightplan::TopSkyHoldCommandType;
 using FlightStrips::flightplan::BuildTopSkyHoldEatCommand;
+using FlightStrips::flightplan::ResolveTopSkyHoldForEat;
 
 // Expected values were read off a live TopSky session:
 //   SP=[/HOLD/OLPIB/]  A6=[h/OLPIB/h]   at assignment
@@ -131,6 +132,23 @@ TEST(TopSkyHold, ParseEat_UnterminatedYieldsNothing) {
 
 TEST(TopSkyHold, BuildsBackendEatPulseForMatchingEnrouteHold) {
 	EXPECT_EQ(BuildTopSkyHoldEatCommand(TopSkyHold{true, false, "OLPIB"}, "OLPIB", "enroute", "1422"), "/HOLD_EAT/1422/");
+}
+
+TEST(TopSkyHold, WritesEatForLiveCommandWithoutLocalAnnotation) {
+    const auto hold = ResolveTopSkyHoldForEat({}, TopSkyHold{true, false, "OLPIB"}, true);
+    EXPECT_EQ(BuildTopSkyHoldEatCommand(hold, "OLPIB", "enroute", "1422"), "/HOLD_EAT/1422/");
+}
+
+TEST(TopSkyHold, LiveCancellationOrReassignmentOverridesStaleAnnotation) {
+    const auto annotation = TopSkyHold{true, false, "OLPIB"};
+    EXPECT_TRUE(BuildTopSkyHoldEatCommand(ResolveTopSkyHoldForEat(annotation, {}, true), "OLPIB", "enroute", "1422").empty());
+    EXPECT_TRUE(BuildTopSkyHoldEatCommand(ResolveTopSkyHoldForEat(annotation, TopSkyHold{true, false, "ERNOV"}, true), "OLPIB", "enroute", "1422").empty());
+}
+
+TEST(TopSkyHold, BackendSnapshotAloneDoesNotEstablishLocalHoldForEat) {
+    const auto cached = TopSkyHold{true, false, "OLPIB"};
+    EXPECT_TRUE(BuildTopSkyHoldEatCommand(ResolveTopSkyHoldForEat({}, cached, false), "OLPIB", "enroute", "1422").empty());
+    EXPECT_EQ(BuildTopSkyHoldEatCommand(ResolveTopSkyHoldForEat(cached, {}, false), "OLPIB", "enroute", "1422"), "/HOLD_EAT/1422/");
 }
 
 TEST(TopSkyHold, RejectsMismatchedOrInvalidBackendEatPulse) {

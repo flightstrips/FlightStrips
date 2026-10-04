@@ -14,6 +14,7 @@ func TestBuildReadModelSelectsOnlyAuthoritativeEnrouteArrivals(t *testing.T) {
 	now := time.Date(2026, 9, 11, 23, 50, 0, 0, time.UTC)
 	altitude := int32(12000)
 	eligible := readModelFlight("flight-2", " sas200 ", " ekch ", aman.HoldingClearanceEnroute, "OLPIB", "0005", &altitude, now)
+	eligible.Prediction = &aman.Prediction{Publishable: true, HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: now.Add(15 * time.Minute)}}
 	missing := readModelFlight("flight-1", "SAS100", "EKCH", aman.HoldingClearanceEnroute, "SOK", "", nil, now)
 	state := aman.AirportState{Airport: "ekch", Flights: []aman.AMANFlight{
 		eligible,
@@ -54,10 +55,55 @@ func TestBuildReadModelRetainsInvalidLegacyEATAsMissing(t *testing.T) {
 	require.Nil(t, model.Entries[0].EAT)
 }
 
+func TestBuildReadModelUsesCalculatedEATWithoutEuroScopeAssignment(t *testing.T) {
+	now := time.Date(2026, 10, 4, 23, 50, 0, 0, time.UTC)
+	release := now.Add(20 * time.Minute)
+	for _, assigned := range []string{"", "2355", "25:00"} {
+		t.Run("assignment="+assigned, func(t *testing.T) {
+			flight := readModelFlight("", "SAS123", "EKCH", aman.HoldingClearanceEnroute, "OLPIB", assigned, nil, now)
+			flight.Prediction = &aman.Prediction{Publishable: true, HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}}
+			model := BuildReadModel(aman.AirportState{Airport: "EKCH", Flights: []aman.AMANFlight{flight}})
+			require.Equal(t, &release, model.Entries[0].EAT)
+			require.Equal(t, assigned, flight.HoldingClearance.HoldEAT, "display must not change the assigned clearance")
+		})
+	}
+}
+
+func TestBuildReadModelDoesNotSubstituteAssignedEATForMissingPrediction(t *testing.T) {
+	now := time.Date(2026, 10, 4, 8, 0, 0, 0, time.UTC)
+	for _, prediction := range []*aman.Prediction{
+		nil,
+		{Publishable: true},
+		{Publishable: false, HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: now.Add(time.Minute)}},
+		{Publishable: true, HoldingPlan: &aman.HoldingPlan{}},
+	} {
+		flight := readModelFlight("", "SAS123", "EKCH", aman.HoldingClearanceEnroute, "OLPIB", "0810", nil, now)
+		flight.Prediction = prediction
+		model := BuildReadModel(aman.AirportState{Airport: "EKCH", Flights: []aman.AMANFlight{flight}})
+		require.Nil(t, model.Entries[0].EAT)
+	}
+}
+
 func readModelFlight(_ aman.Callsign, callsign, destination string, holdType aman.HoldingClearanceType, hold, eat string, altitude *int32, observedAt time.Time) aman.AMANFlight {
 	return aman.AMANFlight{
 		Callsign: callsign, DataStatus: aman.DataFresh,
 		LatestObservation: &aman.FlightObservation{Destination: destination},
 		HoldingClearance:  &aman.HoldingClearance{Hold: hold, HoldType: holdType, HoldEAT: eat, ClearedAltitude: altitude, ObservedAt: observedAt},
+	}
+}
+
+func TestBuildReadModelShowsRetainedEATDuringSourceOutage(t *testing.T) {
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	release := now.Add(20 * time.Minute)
+	for _, status := range []aman.DataStatus{aman.DataStale, aman.DataDisconnected} {
+		t.Run(string(status), func(t *testing.T) {
+			flight := readModelFlight("", "SAS123", "EKCH", aman.HoldingClearanceEnroute, "OLPIB", "", nil, now)
+			flight.DataStatus = status
+			flight.Prediction = &aman.Prediction{Publishable: true, GeneratedAt: now.Add(-15 * time.Minute), HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}}
+			model := BuildReadModel(aman.AirportState{Airport: "EKCH", GeneratedAt: now, Flights: []aman.AMANFlight{flight}})
+			require.Len(t, model.Entries, 1)
+			require.Equal(t, &release, model.Entries[0].EAT)
+			require.Equal(t, status, model.Entries[0].SourceStatus)
+		})
 	}
 }

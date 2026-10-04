@@ -2,11 +2,13 @@ package operational
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/holdingclearance"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -148,17 +150,42 @@ func (o *EuroScopeStripObserver) project(strip *models.Strip, observedAt time.Ti
 			return nil, nil
 		}
 	}
+	aircraftType, wakeCategory := euroScopeAircraft(strip.AircraftType)
 	observation := aman.FlightObservation{
 		Callsign: callsign, Origin: origin, Destination: destination,
-		AircraftType: optionalStripString(strip.AircraftType), FiledRoute: optionalStripString(strip.Route), RequestedLevel: requestedLevel(strip.RequestedAltitude),
+		AircraftType: aircraftType, WakeCategory: wakeCategory, FiledRoute: optionalStripString(strip.Route), RequestedLevel: requestedLevel(strip.RequestedAltitude),
 		FlightPlan:       aman.FlightPlanFact{Revision: vatsimRevision(strip.VatsimRevision), ObservedAt: &observedAt},
 		HoldingClearance: normalizedStripHoldingClearance(strip, observedAt), Provider: aman.ObservationProviderEuroScope,
-		ReconciledAt: observedAt, SourceStatus: aman.DataFresh,
+		PlannedTiming: euroScopePlannedTiming(strip.FlightPlanEOBT, strip.FlightPlanEET, observedAt),
+		ReconciledAt:  observedAt, SourceStatus: aman.DataFresh,
 	}
 	if err := observation.Validate(); err != nil {
 		return nil, fmt.Errorf("map EuroScope AMAN strip observation: %w", err)
 	}
 	return &observation, nil
+}
+
+func euroScopePlannedTiming(eobt, eet string, at time.Time) *aman.PlannedTiming {
+	eet = strings.TrimSpace(eet)
+	if len(eet) != 4 {
+		return nil
+	}
+	for _, digit := range eet {
+		if digit < '0' || digit > '9' {
+			return nil
+		}
+	}
+	hours, _ := strconv.Atoi(eet[:2])
+	minutes, _ := strconv.Atoi(eet[2:])
+	if minutes >= 60 || hours > 23 || hours == 0 && minutes == 0 {
+		return nil
+	}
+	departure, err := holdingclearance.ResolveEATUTC(eobt, at)
+	if err != nil {
+		return nil
+	}
+	duration := time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute
+	return &aman.PlannedTiming{EstimatedOffBlockTime: &departure, EstimatedEnrouteTime: &duration}
 }
 
 // RemoveEuroScopeStrip retracts one session's ownership of a callsign after an

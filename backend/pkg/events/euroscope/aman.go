@@ -4,7 +4,6 @@ import (
 	"FlightStrips/internal/aman"
 	"fmt"
 	"strings"
-	"time"
 )
 
 func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
@@ -66,7 +65,7 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			// Gain/loss is live guidance against the committed target. The
 			// operational TETA may be frozen for sequencing, while RawTETA keeps
 			// following the aircraft's current physical trajectory.
-			seconds, secondsErr := aman.WholeSeconds(flight.Prediction.RawTETA.Sub(flight.Slot.Time).Round(time.Second))
+			seconds, secondsErr := aman.GainLossGuidance(flight.Prediction.RawTETA, flight.Slot.Time)
 			if secondsErr != nil {
 				return AMANGainLossEvent{}, fmt.Errorf("map AMAN gain/loss flight %q: %w", flight.Callsign, secondsErr)
 			}

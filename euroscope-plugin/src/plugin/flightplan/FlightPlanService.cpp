@@ -287,7 +287,7 @@ namespace FlightStrips::flightplan {
             standName,
             {flightPlanData.GetCommunicationType()},
             flightPlanData.GetCapibilities() == 0 ? "?" : std::string{flightPlanData.GetCapibilities()},
-            isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
+            std::string(flightPlanData.GetEstimatedDepartureTime()),
             isArrival ? GetEstimatedLandingTime(flightPlan) : "",
             std::string(flightPlan.GetTrackingControllerCallsign()),
             {flightPlanData.GetEngineType()},
@@ -295,7 +295,8 @@ namespace FlightStrips::flightplan {
             flightPlan.GetTrackingControllerIsMe() ? plan.hold : "",
             flightPlan.GetTrackingControllerIsMe() ? plan.hold_type : "",
             flightPlan.GetTrackingControllerIsMe() ? plan.hold_eat : "",
-            flightPlan.GetTrackingControllerIsMe()
+            flightPlan.GetTrackingControllerIsMe(),
+            FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes())
         };
         m_websocketService->SendEvent(event);
         plan.strip_synchronized = true;
@@ -304,14 +305,16 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::ReplayTrackedHold(EuroScopePlugIn::CFlightPlan flightPlan) {
         if (!flightPlan.IsValid() || flightPlan.GetSimulated() ||
-            !m_websocketService->ShouldSendTrackedAircraft(flightPlan.GetTrackingControllerIsMe())) return;
+            (!m_websocketService->ShouldSend() &&
+             !m_websocketService->ShouldSendTrackedAircraft(flightPlan.GetTrackingControllerIsMe()))) return;
         const auto callsign = std::string(flightPlan.GetCallsign());
         ReplayTrackedHold(callsign, flightPlan.GetTrackingControllerIsMe(), ReadHold(flightPlan), {});
     }
 
     void FlightPlanService::ReplayTrackedHold(const std::string& callsign, bool trackingControllerIsMe,
                                              const TopSkyHold& hold, const std::string& eatPulse) {
-        if (!m_websocketService->ShouldSendTrackedAircraft(trackingControllerIsMe)) return;
+        if (!m_websocketService->ShouldSend() &&
+            !m_websocketService->ShouldSendTrackedAircraft(trackingControllerIsMe)) return;
         auto& plan = m_flightPlans.try_emplace(callsign).first->second;
         // A live command is authoritative even when it cleared the hold. Replay
         // that cached state rather than resurrecting a stale annotation.
@@ -320,10 +323,10 @@ namespace FlightStrips::flightplan {
             plan.hold_command_pending = false;
             return;
         }
-        if (!hold.active) return;
+        if (!hold.active && plan.hold.empty()) return;
         ReconcileTopSkyHoldAnnotation(plan, hold);
         if (!eatPulse.empty()) {
-            ApplyHold(plan, hold, eatPulse);
+            ApplyHold(plan, TopSkyHold{true, plan.hold_type == "tsa", plan.hold}, eatPulse);
         }
         // Replay even when the local cache is unchanged: an earlier report may
         // have been missed while disconnected or before ownership was stored.
@@ -533,9 +536,9 @@ namespace FlightStrips::flightplan {
     void FlightPlanService::ApplyBackendSyncHold(const std::string& callsign, const std::string& hold,
                                                  const std::string& holdType, const std::string& holdEat) {
         auto& plan = m_flightPlans.try_emplace(callsign).first->second;
-        // Preserve only commands observed while the backend was unavailable;
-        // otherwise the reconnect snapshot is the freshest durable state.
-        if (plan.hold_command_pending) return;
+        // An empty backend snapshot cannot cancel a locally known hold during
+        // reconnect. Explicit XHOLD still clears the local state immediately.
+        if (plan.hold_command_pending || (hold.empty() && !plan.hold.empty())) return;
         plan.hold = hold;
         plan.hold_type = holdType;
         plan.hold_eat = holdEat;
@@ -566,6 +569,18 @@ namespace FlightStrips::flightplan {
         gmtime_s(&ptm, &rawtime);
 
         return std::format("{:0>2}{:0>2}", ptm.tm_hour, ptm.tm_min);
+    }
+
+    std::string FlightPlanService::FiledEnrouteDuration(const char* hours, const char* minutes) {
+        if (hours == nullptr || minutes == nullptr) return {};
+        const std::string h(hours), m(minutes);
+        const auto digits = [](const std::string& value) {
+            return !value.empty() && value.size() <= 2 &&
+                std::all_of(value.begin(), value.end(), [](const char c) { return c >= '0' && c <= '9'; });
+        };
+        if (!digits(h) || !digits(m)) return {};
+        if (std::stoi(h) > 23 || std::stoi(m) > 59 || (std::stoi(h) == 0 && std::stoi(m) == 0)) return {};
+        return std::format("{:0>2}{:0>2}", h, m);
     }
 
     std::optional<std::string> FlightPlanService::NormalizeDirectToFix(const char* fix) {

@@ -795,7 +795,8 @@ export function replaceAMANState(current: AMANState | null, event: unknown): AMA
   if (!isAMANStateEvent(event)) {
     return {state: null, status: "degraded", error: "invalid_aman_state", accepted: false};
   }
-  if (current !== null && event.data.revision <= current.revision) {
+  if (current !== null && (event.data.revision < current.revision ||
+    event.data.revision === current.revision && Date.parse(event.data.generated_at) <= Date.parse(current.generated_at))) {
     return {state: current, status: presentationStatus(current), error: null, accepted: false};
   }
   const state = structuredClone(event.data);

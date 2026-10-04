@@ -189,6 +189,7 @@ export interface WebSocketState {
   amanPresentationStatus: AMANPresentationStatus;
   amanError: string | null;
   amanConnectionState: AMANConnectionState;
+  amanAwaitingSnapshot: boolean;
   amanWarnings: AMANCurrentWarnings;
   amanFMPAuthority: boolean;
   amanPendingCommands: Record<string, AMANPendingCommand>;
@@ -322,6 +323,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     amanPresentationStatus: "empty" as AMANPresentationStatus,
     amanError: null,
     amanConnectionState: "disconnected" as AMANConnectionState,
+    amanAwaitingSnapshot: true,
     amanWarnings: currentWarningsFromAMANState(null),
     amanFMPAuthority: false,
     amanPendingCommands: {},
@@ -436,6 +438,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      selectStrip: (callsign) => set({ selectedCallsign: callsign }),
      setAMANConnectionState: (connectionState) => set({
        amanConnectionState: connectionState,
+       amanAwaitingSnapshot: true,
        ...(connectionState === "disconnected" ? {amanFMPAuthority: false} : {}),
      }),
      setAMANSelectedView: (view) => {
@@ -1603,7 +1606,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendActionRejected, handleActionRejectedEvent);
 
   wsClient.on(EventType.FrontendAMANState, (event) => {
-    const previous = store.getState().amanState;
+    // Revisions belong to the current backend/session. A fresh connection
+    // must accept its first complete snapshot even if the revision restarted.
+    const previous = store.getState().amanAwaitingSnapshot ? null : store.getState().amanState;
     const replacement = replaceAMANState(previous, event);
     if (replacement.accepted && replacement.state && previous?.coordination_revision !== undefined) {
       replacement.state.coordination_revision = previous.coordination_revision;
@@ -1616,6 +1621,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       state.amanState = replacement.state;
       state.amanPresentationStatus = replacement.status;
       state.amanError = replacement.error;
+      if (replacement.accepted) state.amanAwaitingSnapshot = false;
       if (replacement.accepted || replacement.state === null) {
         state.amanWarnings = currentWarningsFromAMANState(replacement.state);
       }

@@ -118,6 +118,48 @@ func TestServiceRetractionRemovesOnlyOwningProvider(t *testing.T) {
 
 type euroScopeObservationSink struct{ observations []aman.FlightObservation }
 
+func TestRepeatedEuroScopePositionsPreserveFreshMotionAndNextSpeedBaseline(t *testing.T) {
+	now := time.Date(2026, 10, 4, 8, 0, 0, 0, time.UTC)
+	sink := &euroScopeObservationSink{}
+	observer, err := NewEuroScopePositionObserver(EuroScopePositionObserverDependencies{Sink: sink, EnabledAirports: []string{"EKCH"}, Now: func() time.Time { return now }})
+	require.NoError(t, err)
+	strip := &models.Strip{Session: 1, Callsign: "SAS71G", Origin: "ESSA", Destination: "EKCH"}
+	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55, 12, 9000))
+	now = now.Add(30 * time.Second)
+	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55.01, 12, 9000))
+	now = now.Add(20 * time.Second)
+	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55.01, 12, 9000))
+	repeated := sink.observations[2]
+	require.NotNil(t, repeated.Surveillance.GroundspeedKnots, "a duplicate must not remove speed and drop the AMAN slot")
+	require.InDelta(t, 72, *repeated.Surveillance.GroundspeedKnots, 1)
+	require.Equal(t, now, *repeated.Surveillance.ObservedAt)
+	now = now.Add(10 * time.Second)
+	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55.02, 12, 9000))
+	require.InDelta(t, 72, *sink.observations[3].Surveillance.GroundspeedKnots, 1, "duplicate timing must not inflate the next speed to 216 knots")
+
+	// Repeated reports cannot keep an old motion estimate fresh indefinitely.
+	now = now.Add(euroScopeSurveillanceFresh + time.Second)
+	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55.02, 12, 9000))
+	require.Nil(t, sink.observations[4].Surveillance.GroundspeedKnots)
+}
+
+func TestEuroScopeDelayedPositionDoesNotReplaceMotionBaseline(t *testing.T) {
+	now := time.Date(2026, 10, 4, 8, 0, 0, 0, time.UTC)
+	sink := &euroScopeObservationSink{}
+	observer, err := NewEuroScopePositionObserver(EuroScopePositionObserverDependencies{Sink: sink, EnabledAirports: []string{"EKCH"}, Now: func() time.Time { return now }})
+	require.NoError(t, err)
+	strip := &models.Strip{Session: 1, Callsign: "SAS71G", Origin: "ESSA", Destination: "EKCH"}
+	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55, 12, 9000))
+	now = now.Add(30 * time.Second)
+	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55.01, 12, 9000))
+	now = now.Add(-10 * time.Second)
+	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 54, 12, 9000))
+	require.Len(t, sink.observations, 2)
+	now = now.Add(40 * time.Second)
+	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55.02, 12, 9000))
+	require.InDelta(t, 72, *sink.observations[2].Surveillance.GroundspeedKnots, 1)
+}
+
 func (s *euroScopeObservationSink) Observe(_ context.Context, observation aman.FlightObservation) error {
 	s.observations = append(s.observations, observation)
 	return nil

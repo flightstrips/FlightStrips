@@ -103,7 +103,7 @@ func TestAMANStateEventSerializesOptionalHoldingFacts(t *testing.T) {
 
 	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
 	require.NoError(t, err)
-	expectedEAT := "2026-07-22T10:15:00.000Z"
+	expectedEAT := "2026-07-22T10:18:00.000Z"
 	require.Equal(t, []AMANHoldingEntry{{
 		Callsign: "SAS123", Holding: "OLPIB", EAT: &expectedEAT,
 		ClearedAltitude: &altitude, SourceStatus: "fresh", ObservedAt: "2026-07-22T10:00:00.000Z",
@@ -111,11 +111,12 @@ func TestAMANStateEventSerializesOptionalHoldingFacts(t *testing.T) {
 
 	encoded, err := event.Marshal()
 	require.NoError(t, err)
-	require.JSONEq(t, `{"callsign":"SAS123","callsign":"SAS123","holding":"OLPIB","eat":"2026-07-22T10:15:00.000Z","cleared_altitude":12000,"source_status":"fresh","observed_at":"2026-07-22T10:00:00.000Z"}`, firstHoldingJSON(t, encoded))
+	require.JSONEq(t, `{"callsign":"SAS123","callsign":"SAS123","holding":"OLPIB","eat":"2026-07-22T10:18:00.000Z","cleared_altitude":12000,"source_status":"fresh","observed_at":"2026-07-22T10:00:00.000Z"}`, firstHoldingJSON(t, encoded))
 }
 
 func TestAMANStateEventSerializesMissingHoldingDataAsNull(t *testing.T) {
 	state := goldenAMANState()
+	state.Flights[0].Prediction.HoldingPlan = nil
 	state.Flights[0].LatestObservation = &aman.FlightObservation{
 		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
 		ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
@@ -440,7 +441,7 @@ func TestAMANFlightRoundsLegacyFractionalInputAgeForWire(t *testing.T) {
 	require.Equal(t, "TNO", *mapped.FeederFix)
 	require.Equal(t, "ROSBI", *mapped.HoldingFix)
 	require.EqualValues(t, 121, *mapped.InputAgeSeconds)
-	require.EqualValues(t, 121, *mapped.GainLossSeconds)
+	require.EqualValues(t, 120, *mapped.GainLossSeconds)
 }
 
 func TestAMANFlightUsesLiveRawTETAForGainLossWhenOperationalTETAIsFrozen(t *testing.T) {

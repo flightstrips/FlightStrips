@@ -145,14 +145,10 @@ namespace FlightStrips::messages {
         // A tracking client may reconcile an active annotation after reconnect.
         // Missing local annotation state is never inferred as a cancellation;
         // an explicitly cached XHOLD remains authoritative and is replayed.
-        for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
-            if (m_plugin->IsRelevant(it)) m_flightPlanService->ReplayTrackedHold(it);
-        }
-
-        // The master can repair commands observed during a backend outage even
-        // when the tracking controller is not running FlightStrips.
-        if (state == websocket::STATE_MASTER) {
-            m_flightPlanService->ReplayPendingHoldCommands();
+        if (state != websocket::STATE_MASTER) {
+            for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
+                if (m_plugin->IsRelevant(it)) m_flightPlanService->ReplayTrackedHold(it);
+            }
         }
 
         Logger::Debug("Is master: {}", state == websocket::STATE_MASTER);
@@ -249,7 +245,7 @@ namespace FlightStrips::messages {
                 stand,
                 {flightPlanData.GetCommunicationType()},
                 flightPlanData.GetCapibilities() == 0 ? "?" : std::string {flightPlanData.GetCapibilities()},
-                isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
+                std::string(flightPlanData.GetEstimatedDepartureTime()),
                 isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : "",
                 std::string(it.GetTrackingControllerCallsign()),
                 {flightPlanData.GetEngineType()},
@@ -257,7 +253,8 @@ namespace FlightStrips::messages {
                 it.GetTrackingControllerIsMe() ? hold.point : "",
                 it.GetTrackingControllerIsMe() ? hold.TypeName() : "",
                 it.GetTrackingControllerIsMe() ? holdEat : "",
-                it.GetTrackingControllerIsMe()
+                it.GetTrackingControllerIsMe(),
+                flightplan::FlightPlanService::FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes())
             });
         }
 
@@ -312,6 +309,13 @@ namespace FlightStrips::messages {
             return sidEntries;
         }());
         m_webSocketService->SendEvent(syncEvent);
+        // Create/update strips before replaying holds: a reconnect may attach
+        // to a new session whose backend has no aircraft records yet. The
+        // master reports known holds even when nobody owns playback traffic.
+        for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
+            if (m_plugin->IsRelevant(it)) m_flightPlanService->ReplayTrackedHold(it);
+        }
+        m_flightPlanService->ReplayPendingHoldCommands();
     }
 
     void MessageService::HandleAssignedSquawkEvent(const AssignedSquawkEvent &event) const {

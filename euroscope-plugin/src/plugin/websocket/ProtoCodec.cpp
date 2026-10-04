@@ -69,6 +69,7 @@ namespace FlightStrips::websocket::protobuf {
             target->set_hold(source.hold);
             target->set_hold_type(source.hold_type);
             target->set_hold_eat(source.hold_eat);
+            target->set_enroute_duration(source.enroute_duration);
         }
 
 #define ENCODE_ONE(eventType, domainType, envelopeField, member) \

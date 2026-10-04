@@ -31,7 +31,7 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 			expectedTtot: "101000",
 		},
 		{
-			name: "uses eobt as floor when later than tobt",
+			name: "uses unconfirmed tobt even when eobt is later",
 			input: CalcInput{
 				Callsign: "SAS100B",
 				Origin:   "EKCH",
@@ -40,8 +40,8 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 				Tobt:     "1000",
 				TaxiMin:  10,
 			},
-			expectedTsat: "102000",
-			expectedTtot: "103000",
+			expectedTsat: "100000",
+			expectedTtot: "101000",
 		},
 		{
 			name: "authoritative tobt overrides later eobt floor",
@@ -94,7 +94,7 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 			expectedTtot: "103000",
 		},
 		{
-			name: "later eobt still dominates midnight tobt",
+			name: "uses midnight tobt even when eobt is later",
 			input: CalcInput{
 				Callsign: "SAS103",
 				Origin:   "EKCH",
@@ -103,8 +103,9 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 				Tobt:     "0000",
 				TaxiMin:  10,
 			},
-			expectedTsat: "102000",
-			expectedTtot: "103000",
+			expectedTsat: "000000",
+			expectedTtot: "001000",
+			now:          time.Date(2026, 3, 25, 23, 58, 0, 0, time.UTC),
 		},
 		{
 			name: "uses midnight as a valid base time",
@@ -788,7 +789,7 @@ func TestCalculate_ReturnsEmptyWhenTobtIsMoreThanFiveMinutesPastWithoutStartup(t
 	assertClockResult(t, result, "", "")
 }
 
-func TestCalculate_DoesNotInvalidateStaleTobtWhenLaterEobtExists(t *testing.T) {
+func TestCalculate_InvalidatesStaleTobtEvenWhenLaterEobtExists(t *testing.T) {
 	t.Parallel()
 
 	result := Calculate(CalcInput{
@@ -800,7 +801,7 @@ func TestCalculate_DoesNotInvalidateStaleTobtWhenLaterEobtExists(t *testing.T) {
 		TaxiMin:  10,
 	}, nil, NewDefaultAirportConfig("EKCH"), time.Date(2026, 3, 25, 10, 6, 0, 0, time.UTC))
 
-	assertClockResult(t, result, "102000", "103000")
+	assertClockResult(t, result, "", "")
 }
 
 func TestCalculate_ReturnsEmptyWhenTsatIsMoreThanFiveMinutesPastWithoutStartup(t *testing.T) {

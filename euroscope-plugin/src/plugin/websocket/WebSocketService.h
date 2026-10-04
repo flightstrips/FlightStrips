@@ -78,6 +78,8 @@ namespace FlightStrips::websocket {
         std::unique_ptr<WebSocket> webSocket;
         std::string primary;
         std::string session_name;
+        // Identifies the EuroScope playback, independently of the backend connection.
+        std::string playback_session_name_;
         bool observer = false;
         ClientState client_state = STATE_UNKNOWN;
         std::string local_ip_;
@@ -103,6 +105,8 @@ namespace FlightStrips::websocket {
         int rx = 0;
 
         void InitializeOnlineState();
+        void UpdatePlaybackSession(ConnectionType connectionType);
+        std::string GetLoginSessionName(const ConnectionState& state) const;
         void UpdateOnlineState(bool online, std::chrono::steady_clock::time_point now);
         std::optional<std::chrono::steady_clock::time_point> GetConnectNotBefore(std::chrono::steady_clock::time_point now) const;
         bool CanSendEventType(EventType type) const;

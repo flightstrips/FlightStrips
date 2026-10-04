@@ -365,23 +365,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				}
 			}
 		}
-		if bay == shared.BAY_PUSH && existingStrip.Bay != shared.BAY_PUSH && isLocalCdmDeparture(origin, airport) && s.cdmService != nil && s.validationStore != nil {
-			latest, err := s.stripReader.GetByCallsign(ctx, session, strip.Callsign)
-			if err != nil {
-				return err
-			}
-			if err := s.validatePushbackTiming(ctx, session, latest, cid); err != nil {
-				return err
-			}
-			// Preparation may have changed the CDM assignment and validation state.
-			// Preserve those writes when this full snapshot is persisted below.
-			if refreshed, err := s.stripReader.GetByCallsign(ctx, session, strip.Callsign); err != nil {
-				return err
-			} else if refreshed != nil {
-				existingStrip.CdmData = refreshed.CdmData
-				existingStrip.ValidationStatus = refreshed.ValidationStatus
-			}
-		}
 		shouldClearOwnerForNotCleared := !restartLifecycle &&
 			bay == shared.BAY_NOT_CLEARED &&
 			existingStrip.Bay != "" &&
@@ -897,7 +880,9 @@ func (s *StripService) prepareEuroscopeLogonSync(session int32, data *internalMo
 	if service, ok := s.cdmService.(interface {
 		PrepareEuroscopeLogonSync(*internalModels.CdmData, string, time.Time) *internalModels.CdmData
 	}); ok {
-		return service.PrepareEuroscopeLogonSync(data, eobt, now), strings.TrimSpace(eobt), false
+		updated := service.PrepareEuroscopeLogonSync(data, eobt, now)
+		normalizedEobt := helpers.ValueOrDefault(updated.EffectiveEobt())
+		return updated, normalizedEobt, normalizedEobt != strings.TrimSpace(eobt)
 	}
 	return s.prepareEuroscopeEobtSync(session, data, eobt, now)
 }

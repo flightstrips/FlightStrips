@@ -32,11 +32,12 @@ type Client struct {
 	hub         *Hub
 	user        shared.AuthenticatedUser
 
-	position string
-	callsign string
-	airport  string
-	version  string
-	readOnly bool
+	position       string
+	callsign       string
+	airport        string
+	version        string
+	readOnly       bool
+	initialPending bool // owned by the hub loop; retry until the snapshot is queued
 
 	// identityMu guards sessionName, airport and callsign. The hub goroutine
 	// rewrites them when a client is associated with a session or disconnected

@@ -146,8 +146,8 @@ func (c *ActionService) PrepareEuroscopeEobtSync(session int32, data *models.Cdm
 	return prepared.updated, prepared.normalizedEobt, prepared.clamped
 }
 
-// PrepareEuroscopeLogonSync initializes CDM timing without rewriting the filed
-// EOBT. An explicit estimate from a pilot or controller remains authoritative.
+// PrepareEuroscopeLogonSync initializes matching EOBT/TOBT values. An explicit
+// estimate from a pilot or controller remains authoritative and may differ.
 func (c *ActionService) PrepareEuroscopeLogonSync(data *models.CdmData, eobt string, now time.Time) *models.CdmData {
 	updated := data.Clone()
 	eobt = truncateCDMClockValue(normalizeCalculationClock(eobt))
@@ -161,7 +161,7 @@ func (c *ActionService) PrepareEuroscopeLogonSync(data *models.CdmData, eobt str
 		tobt = truncateCDMClockValue(addMinutes(timeToClock(now), 30))
 		adjusted = true
 	}
-	if tobt != helpers.ValueOrDefault(updated.EffectiveTobt()) {
+	if tobt != helpers.ValueOrDefault(updated.EffectiveTobt()) || tobt != eobt {
 		applyAutoSyncedTobtUpdate(updated, tobt)
 		updated.TobtAutoAdjusted = adjusted
 		updated.MarkLocalRecalculationPending()
@@ -187,6 +187,9 @@ func (c *ActionService) HandleClearanceTobt(ctx context.Context, session int32, 
 	}
 	if err := c.service.persistCdmUpdate(ctx, session, callsign, snapshotCdm(data), updated); err != nil {
 		return err
+	}
+	if helpers.ValueOrDefault(data.EffectiveEobt()) != tobt {
+		c.pushCorrectedEobtToEuroscope(ctx, session, callsign, tobt)
 	}
 	c.service.TriggerRecalculate(ctx, session, strip.Origin)
 	c.pushTobtAsync(ctx, session, callsign, current, tobt)
@@ -1129,6 +1132,7 @@ func applyAutoSyncedTobtUpdate(updated *models.CdmData, tobt string) {
 		return
 	}
 	updated.Tobt = &tobt
+	updated.Eobt = &tobt
 	updated.TobtSetBy = nil
 	updated.TobtConfirmedBy = nil
 	updated.TobtAutoSynced = true

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/flightstrips/FlightStrips/compare/docs/v1.0.1...docs/v1.0.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **aman:** stabilize arrival guidance and isolate session queues ([#842](https://github.com/flightstrips/FlightStrips/issues/842)) ([6935e16](https://github.com/flightstrips/FlightStrips/commit/6935e16a9931e00c14c6c5249a6e7731e26dc73e))
+
 ## [1.0.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.0.0...docs/v1.0.1) (2026-10-04)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.1.1...backend/v3.1.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **aman:** stabilize arrival guidance and isolate session queues ([#842](https://github.com/flightstrips/FlightStrips/issues/842)) ([6935e16](https://github.com/flightstrips/FlightStrips/commit/6935e16a9931e00c14c6c5249a6e7731e26dc73e))
+* correct CDM timing and recover controller sessions ([#839](https://github.com/flightstrips/FlightStrips/issues/839)) ([3e25066](https://github.com/flightstrips/FlightStrips/commit/3e25066224831f7098bcf8105b025117e407932f))
+
 ## [3.1.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.1.0...backend/v3.1.1) (2026-10-04)
 
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.1.7](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.6...plugin/v2.1.7) (2026-10-04)
+
+
+### Bug Fixes
+
+* **aman:** correct gain/loss display and controller visibility ([#841](https://github.com/flightstrips/FlightStrips/issues/841)) ([4db5521](https://github.com/flightstrips/FlightStrips/commit/4db5521ad31aebe0bd269295969a234ac6e2444d))
+* **aman:** stabilize arrival guidance and isolate session queues ([#842](https://github.com/flightstrips/FlightStrips/issues/842)) ([6935e16](https://github.com/flightstrips/FlightStrips/commit/6935e16a9931e00c14c6c5249a6e7731e26dc73e))
+* correct CDM timing and recover controller sessions ([#839](https://github.com/flightstrips/FlightStrips/issues/839)) ([3e25066](https://github.com/flightstrips/FlightStrips/commit/3e25066224831f7098bcf8105b025117e407932f))
+
 ## [2.1.6](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.5...plugin/v2.1.6) (2026-10-04)
 
 

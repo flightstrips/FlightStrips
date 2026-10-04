@@ -291,6 +291,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if stateReader, ok := amanDependencies.Repositories.(aman.AirportStateReader); ok && amanEnabled {
 		amanAPI = amanWebAPI.New(authService, stateReader)
+
 		if geometry, geometryOK := amanDependencies.NavigationReader.(navdata.GeometryReader); geometryOK {
 			if snapshots, snapshotOK := amanDependencies.NavigationReader.(navdata.GeometrySnapshotReader); snapshotOK {
 				amanAPI.WithNavigation(geometry, snapshots)
@@ -337,6 +338,23 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		amanCoordination.SetClearanceNotifier(frontendHub.RefreshAMANCoordination)
 	}
 	euroscopeHub := realtime.euroscope
+	if amanAPI != nil {
+		amanAPI.WithSessionResolver(func(ctx context.Context, cid, airport string) (int32, error) {
+			controller := euroscopeHub.GetFrontendController(cid)
+			if controller == nil {
+				return 0, fmt.Errorf("no connected EuroScope session")
+			}
+			session, err := sessionRepo.GetByID(ctx, controller.Session)
+			if err != nil {
+				return 0, err
+			}
+			if session.Airport != airport {
+				return 0, fmt.Errorf("controller belongs to another airport")
+			}
+			return session.ID, nil
+		})
+	}
+
 	if defaultAMAN.transport != nil {
 		defaultAMAN.transport.setHubs(frontendHub, euroscopeHub)
 	}

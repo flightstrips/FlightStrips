@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/groundplanning"
+	"FlightStrips/internal/aman/predictor"
 )
 
 const (
@@ -58,6 +60,7 @@ type ReadModel struct {
 	SourceStatus    aman.DataStatus
 	Status          Status
 	DegradedReasons []string
+	Warnings        []aman.Warning
 	Buckets         []Bucket
 }
 
@@ -90,11 +93,12 @@ type Flight struct {
 }
 
 type candidate struct {
-	flight        aman.AMANFlight
-	landingAt     time.Time
-	timingSource  TimingSource
-	authoritative bool
-	hasTiming     bool
+	flight         aman.AMANFlight
+	landingAt      time.Time
+	timingSource   TimingSource
+	authoritative  bool
+	hasTiming      bool
+	holdingBlocked bool
 }
 
 func Build(state aman.AirportState, sourceHealth aman.ComponentHealth) ReadModel {
@@ -114,9 +118,11 @@ func BuildWithAirportPosition(state aman.AirportState, sourceHealth aman.Compone
 	if sourceStatus == aman.DataDisconnected {
 		result.Status = StatusDisconnected
 		addReason(&result, "source_disconnected")
+		result.warn("source_disconnected", "", "Arrival traffic prediction is using retained timing because the observation source is disconnected. Counts may be incomplete until aircraft updates resume.")
 	}
 	if sourceStatus == aman.DataStale {
 		addReason(&result, "stale_observation_source")
+		result.warn("stale_observation_source", "", "Arrival traffic prediction is using a stale observation source. Aircraft timing may lag behind current traffic.")
 	}
 	for index := range result.Buckets {
 		bucketStart := start.Add(time.Duration(index) * BucketDuration)
@@ -132,12 +138,6 @@ func BuildWithAirportPosition(state aman.AirportState, sourceHealth aman.Compone
 		if flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
 			continue
 		}
-		if flight.DataStatus == aman.DataDisconnected {
-			result.Status = StatusDisconnected
-			addReason(&result, "source_disconnected")
-		} else if flight.DataStatus == aman.DataStale {
-			addReason(&result, "stale_flight_data")
-		}
 		landingAt, source, authoritative, ok := landingTime(flight, state.GeneratedAt, airport)
 		value := candidate{flight: flight, landingAt: landingAt, timingSource: source, authoritative: authoritative, hasTiming: ok}
 		key := normalizedCallsign(flight)
@@ -146,18 +146,59 @@ func BuildWithAirportPosition(state aman.AirportState, sourceHealth aman.Compone
 		}
 	}
 
+	planningState := state
+	planningState.Flights = make([]aman.AMANFlight, 0, len(deduplicated))
+	for _, value := range deduplicated {
+		planningState.Flights = append(planningState.Flights, value.flight)
+	}
+	plans := groundplanning.Plan(planningState, groundplanning.ProjectionInput(planningState), state.GeneratedAt)
+	for key, value := range deduplicated {
+		floor := groundplanning.Floor(planningState, value.flight)
+		if floor.IsZero() || !value.hasTiming || value.landingAt.After(floor) && (value.flight.Prediction == nil || value.flight.Prediction.OperationalReason != aman.OperationalReasonHoldingPriority) {
+			continue
+		}
+		if at, ok := plans[value.flight.Callsign]; ok {
+			value.landingAt, value.timingSource, value.authoritative = at, SourceVATSIMPlanned, false
+		} else {
+			value.hasTiming = false
+			value.holdingBlocked = true
+			addReason(&result, "ground_arrival_behind_holding")
+			result.warn("ground_arrival_behind_holding", value.flight.Callsign, fmt.Sprintf("%s has not departed. Its earlier arrival time cannot be used ahead of aircraft already holding for its runway. A provisional time behind the holding queue is unavailable under the current runway capacity constraints.", value.flight.Callsign))
+		}
+		deduplicated[key] = value
+	}
+
 	allFlights := make([]candidate, 0, len(deduplicated))
 	for _, value := range deduplicated {
 		if !value.hasTiming {
+			if value.holdingBlocked {
+				continue
+			}
 			addReason(&result, "missing_timing:"+strings.TrimSpace(value.flight.Callsign))
+			code, message := missingTimingDetail(value.flight, state.GeneratedAt, airport)
+			result.warn(code, value.flight.Callsign, message)
+			if value.flight.DataStatus == aman.DataDisconnected {
+				addReason(&result, "disconnected_flight_data")
+			} else if value.flight.DataStatus == aman.DataStale {
+				addReason(&result, "stale_flight_data")
+			}
 			continue
 		}
 		allFlights = append(allFlights, value)
 		if value.landingAt.Before(result.RangeStart) || !value.landingAt.Before(result.RangeEnd) {
 			continue
 		}
+		if value.flight.DataStatus == aman.DataDisconnected {
+			addReason(&result, "disconnected_flight_data")
+			result.warn("disconnected_flight_data", value.flight.Callsign, fmt.Sprintf("%s has stopped receiving aircraft updates. The traffic chart retains its last known arrival time %s; this is not a current estimate. %s", value.flight.Callsign, value.landingAt.UTC().Format("15:04 UTC"), observationDetail(value.flight, state.GeneratedAt)))
+		} else if value.flight.DataStatus == aman.DataStale {
+			addReason(&result, "stale_flight_data")
+			code, message := retainedTimingWarning(value.flight, value.landingAt, state.GeneratedAt)
+			result.warn(code, value.flight.Callsign, message)
+		}
 		if value.timingSource == SourceAirbornePosition {
 			addReason(&result, "position_estimate")
+			result.warn("position_estimate", value.flight.Callsign, fmt.Sprintf("%s has no usable route-based arrival estimate. The traffic chart uses an approximate straight-line estimate from its fresh position and groundspeed. %s", value.flight.Callsign, observationDetail(value.flight, state.GeneratedAt)))
 		}
 		index := int(value.landingAt.Sub(result.RangeStart) / BucketDuration)
 		bucket := &result.Buckets[index]
@@ -217,6 +258,10 @@ func BuildWithAirportPosition(state aman.AirportState, sourceHealth aman.Compone
 	if result.Status == StatusReady && len(result.DegradedReasons) > 0 {
 		result.Status = StatusDegraded
 	}
+	if slices.Contains(result.DegradedReasons, "missing_selected_rate") {
+		result.warn("missing_selected_rate", "", "An arrival rate is missing within the traffic prediction horizon. Arrival counts remain available, but overload alerts cannot be calculated for those periods. Select a runway group and arrival rate in FMP.")
+	}
+	slices.SortFunc(result.Warnings, func(left, right aman.Warning) int { return strings.Compare(left.ID, right.ID) })
 	return result
 }
 
@@ -240,6 +285,9 @@ func landingTime(flight aman.AMANFlight, now time.Time, airport AirportPosition)
 	authoritative := flight.Slot != nil || flight.State == aman.StateUnstable || flight.State == aman.StateStable || flight.FreezeReason == aman.FreezeSuperstable
 	positionAt, positionOK := airbornePositionTime(flight.LatestObservation, now, airport)
 	airborne := isAirborne(flight) || flight.DataStatus == aman.DataFresh && positionOK
+	if _, held := groundplanning.HoldingAt(flight); held && flight.Slot != nil && !flight.Slot.Time.IsZero() {
+		return flight.Slot.Time.UTC(), SourceAMAN, true, true
+	}
 	// Accepted AMAN timing uses the aircraft's current route and surveillance.
 	// A preliminary filed-duration estimate cannot stand in for current
 	// airborne position and speed in the traffic chart.
@@ -272,8 +320,8 @@ func landingTime(flight aman.AMANFlight, now time.Time, airport AirportPosition)
 	if flight.Prediction != nil && flight.Prediction.Publishable && !flight.Prediction.OperationalTETA.IsZero() {
 		return flight.Prediction.OperationalTETA.UTC(), SourceVATSIMPlanned, false, true
 	}
-	if observation := flight.LatestObservation; observation != nil && observation.PlannedTiming != nil && observation.PlannedTiming.EstimatedOffBlockTime != nil && observation.PlannedTiming.EstimatedEnrouteTime != nil {
-		return observation.PlannedTiming.EstimatedOffBlockTime.Add(*observation.PlannedTiming.EstimatedEnrouteTime).UTC(), SourceVATSIMPlanned, false, true
+	if observation := flight.LatestObservation; observation != nil && observation.PlannedTiming != nil && observation.PlannedTiming.EstimatedOffBlockTime != nil && !observation.PlannedTiming.EstimatedOffBlockTime.IsZero() && observation.PlannedTiming.EstimatedEnrouteTime != nil && *observation.PlannedTiming.EstimatedEnrouteTime > 0 {
+		return observation.PlannedTiming.EstimatedOffBlockTime.Add(predictor.DefaultEXOT).Add(*observation.PlannedTiming.EstimatedEnrouteTime).UTC(), SourceVATSIMPlanned, false, true
 	}
 	return time.Time{}, "", false, false
 }

@@ -290,6 +290,7 @@ export interface SidInfo {
 }
 
 export interface FrontendInitialEvent {
+  session_id?: number;
   type: EventType.FrontendInitial;
   controllers: FrontendController[];
   strips: FrontendStrip[];

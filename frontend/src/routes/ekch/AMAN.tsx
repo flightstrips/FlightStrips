@@ -13,7 +13,7 @@ import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
 import {getAMANMutationBlockReason} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
-import {orderedEKCHTMTHoldings} from "@/config/aman";
+import {EKCH_TMT_HOLDING_ORDER} from "@/config/aman";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 
 export default function AMAN() {
@@ -39,6 +39,7 @@ export default function AMAN() {
   const [controlsOpen, setControlsOpen] = useState(false);
   const [quickGapOpen, setQuickGapOpen] = useState(false);
   const [focusedRunwayGroupID, setFocusedRunwayGroupID] = useState<string | null>(null);
+  const [tmtTab, setTmtTab] = useState("holdings");
   const stateAtMount = useRef(state);
 
   const effectiveSelectedCallsign = state?.flights.some((flight) => flight.callsign === selectedCallsign)
@@ -46,7 +47,12 @@ export default function AMAN() {
     : state?.flights[0]?.callsign ?? null;
   const selectedFlight = state?.flights.find((flight) => flight.callsign === effectiveSelectedCallsign) ?? null;
   const holdingInformation = state?.holding_information ?? [];
-  const tmtHoldings = orderedEKCHTMTHoldings(holdingInformation);
+  const tmtTabs = [
+    {id: "holdings", label: "Holdings"},
+    {id: "warnings", label: `Warnings (${warnings.items.length})`},
+    ...(!hasFMPAuthority ? [{id: "coordination", label: `Coordination (${state?.coordination_requests?.filter(request => request.state === "pending").length ?? 0})`}] : []),
+  ];
+  const activeTmtTab = tmtTabs.some(tab => tab.id === tmtTab) ? tmtTab : "holdings";
   const mutationBlockReason = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority});
 
   const navigateToWarningFlight = (callsign: string): boolean => {
@@ -97,18 +103,44 @@ export default function AMAN() {
                 ? <TMTTrafficPrediction prediction={state.traffic_prediction} />
                 : <section className="aman-tmt-placeholder" aria-label="TMT traffic prediction unavailable"><b>TMT · TRAFFIC PREDICTION</b><span>Prediction data unavailable</span></section>}
             </div>
-            <div aria-label="TMT holding workspaces" className="aman-tmt-holdings">
-              {tmtHoldings.map((holding) => <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} />)}
+            <div aria-label="TMT views" className="my-2 flex gap-1" role="tablist">
+              {tmtTabs.map((tab, index) => <button
+                aria-controls={`tmt-${tab.id}-panel`}
+                aria-selected={activeTmtTab === tab.id}
+                className={`border border-[#777] px-3 py-1 font-display text-xs font-bold text-[#dcdcdc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${activeTmtTab === tab.id ? "bg-[#555355]" : "bg-[#292929]"}`}
+                id={`tmt-${tab.id}-tab`}
+                key={tab.id}
+                onClick={() => setTmtTab(tab.id)}
+                onKeyDown={event => {
+                  let next: number;
+                  if (event.key === "ArrowRight") next = (index + 1) % tmtTabs.length;
+                  else if (event.key === "ArrowLeft") next = (index - 1 + tmtTabs.length) % tmtTabs.length;
+                  else if (event.key === "Home") next = 0;
+                  else if (event.key === "End") next = tmtTabs.length - 1;
+                  else return;
+                  event.preventDefault();
+                  setTmtTab(tmtTabs[next].id);
+                  document.getElementById(`tmt-${tmtTabs[next].id}-tab`)?.focus();
+                }}
+                role="tab"
+                tabIndex={activeTmtTab === tab.id ? 0 : -1}
+                type="button"
+              >{tab.label}</button>)}
             </div>
-            <div className="aman-tmt-notices">
-              {!hasFMPAuthority && <AMANCoordinationInbox
+            {activeTmtTab === "holdings" && <div aria-label="TMT holding workspaces" aria-labelledby="tmt-holdings-tab" className="aman-tmt-holdings" id="tmt-holdings-panel" role="tabpanel" tabIndex={0}>
+              {EKCH_TMT_HOLDING_ORDER.map((holding) => <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} />)}
+            </div>}
+            {activeTmtTab === "coordination" && <div aria-labelledby="tmt-coordination-tab" className="aman-tmt-notices" id="tmt-coordination-panel" role="tabpanel" tabIndex={0}>
+              <AMANCoordinationInbox
               canDecide={getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: true}) === null}
               deciding={decisionCommandID !== null && pendingCommands[decisionCommandID] !== undefined}
               flights={state?.flights ?? []}
               onDecision={(requestID, decision, reason) => setDecisionCommandID(sendCommand({type: `aman.${decision}_coordination_request`, request_id: requestID, ...(reason ? {reason} : {})}))}
               rejection={decisionCommandID ? commandRejections[decisionCommandID]?.message : null}
               requests={state?.coordination_requests ?? []}
-              />}
+              />
+            </div>}
+            {activeTmtTab === "warnings" && <div aria-labelledby="tmt-warnings-tab" className="aman-tmt-notices" id="tmt-warnings-panel" role="tabpanel" tabIndex={0}>
               <AMANWarningPanel
               connectionState={connectionState}
               current={warnings}
@@ -116,7 +148,7 @@ export default function AMAN() {
               onNavigateToFlight={navigateToWarningFlight}
               presentationStatus={presentationStatus}
               />
-            </div>
+            </div>}
           </div>
         )}
       />

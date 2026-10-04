@@ -27,6 +27,51 @@ func TestAMANStateEventMatchesSharedV1Golden(t *testing.T) {
 	require.Equal(t, expectedJSON, actualJSON)
 }
 
+func TestAMANStateEventAcceptsPostgresMicrosecondRoundTripWithoutAcceptingFutureInput(t *testing.T) {
+	state := goldenAMANState()
+	state.GeneratedAt = state.GeneratedAt.Add(695806 * time.Microsecond)
+	state.Flights[0].Prediction.InputObservedAt = state.GeneratedAt.Add(700 * time.Nanosecond)
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err, "JSON retains source nanoseconds that the airport SQL timestamp loses")
+	require.Equal(t, int64(0), *event.Data.Flights[0].InputAgeSeconds)
+	state.Flights[0].Prediction.InputObservedAt = state.GeneratedAt.Add(time.Microsecond)
+	_, err = NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.ErrorContains(t, err, "prediction input time follows state generation")
+}
+
+func TestAMANStateEventRemovesExpiredDisconnectedAircraftFromControllerView(t *testing.T) {
+	state := goldenAMANState()
+	flight := &state.Flights[0]
+	flight.State, flight.DataStatus, flight.FreezeReason = aman.StateRemoved, aman.DataDisconnected, aman.FreezeNone
+	flight.Slot, flight.Order, flight.ManualOrder = nil, nil, nil
+	flight.FrozenSlot, flight.FrozenAt, flight.FrozenOperationalTETA = nil, nil, nil
+	flight.Lifecycle = &aman.LifecycleState{
+		EnteredAt: state.GeneratedAt, Reason: aman.LifecycleReasonSourceDisappearance,
+		LastEventID: "expiry", LastEventFingerprint: "expiry", LastEventAt: state.GeneratedAt,
+		Absence: &aman.AbsenceState{MissingSince: state.GeneratedAt.Add(-5 * time.Minute), RemovalDueAt: &state.GeneratedAt},
+	}
+	flight.LatestObservation = &aman.FlightObservation{Callsign: flight.Callsign, Origin: "ENGM", Destination: "EKCH", ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataDisconnected}
+	flight.HoldingClearance = &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, ObservedAt: state.GeneratedAt.Add(-10 * time.Minute)}
+	state.RunwayGroups[0].Selected, state.RunwayGroups[0].ActiveRatePerHour = true, 40
+
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Empty(t, event.Data.Flights)
+	require.Empty(t, event.Data.HoldingInformation)
+	for _, bucket := range event.Data.TrafficPrediction.Buckets {
+		require.Empty(t, bucket.Flights)
+	}
+	for _, warning := range event.Data.Warnings {
+		require.NotEqual(t, flight.Callsign, warning.Callsign)
+	}
+	// Mapping leaves the commit's removal marker available to lifecycle processing.
+	require.Len(t, state.Flights, 1)
+	flight.Lifecycle.Reason = aman.LifecycleReasonManualRemoval
+	event, err = NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Len(t, event.Data.Flights, 1, "manual removal still needs its command confirmation")
+}
+
 func TestAMANStateEventProjectsCanonicalGapAndAuditedException(t *testing.T) {
 	state := goldenAMANState()
 	state.RunwayGroups[0].Gaps = []aman.RunwayGap{{ID: "gap-union", Start: testTime(10, 17), End: testTime(10, 19), Label: "approach stop", CreatedAt: testTime(9, 59), CreatedBy: "fmp-1"}}
@@ -235,7 +280,7 @@ func TestAMANStateEventProjectsCompleteCurrentWarnings(t *testing.T) {
 
 	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, health)
 	require.NoError(t, err)
-	require.Len(t, event.Data.Warnings, 2)
+	require.Len(t, event.Data.Warnings, 3)
 	require.Equal(t, AMANWarning{
 		ID:     `warning:"sequence"/-/"protected_same_star_spacing"/"ARRIVAL-22"/"TRAIL"/"LEAD"`,
 		Source: "sequence", Severity: "error", Code: "protected_same_star_spacing",
@@ -247,7 +292,14 @@ func TestAMANStateEventProjectsCompleteCurrentWarnings(t *testing.T) {
 	require.Equal(t, "navigation", *event.Data.Warnings[1].Component)
 	require.Equal(t, "airac_expired", event.Data.Warnings[1].Code)
 
-	clearEvent, err := NewAMANStateEvent(goldenAMANState(), aman.EffectiveAuthoritative, goldenAMANHealth())
+	clearState := goldenAMANState()
+	for index := range clearState.RunwayGroups {
+		clearState.RunwayGroups[index].Selected = true
+		clearState.RunwayGroups[index].ActiveRatePerHour = 40
+		at := clearState.GeneratedAt.Add(-time.Hour)
+		clearState.RunwayGroups[index].RateEffectiveAt = &at
+	}
+	clearEvent, err := NewAMANStateEvent(clearState, aman.EffectiveAuthoritative, goldenAMANHealth())
 	require.NoError(t, err)
 	require.NotNil(t, clearEvent.Data.Warnings)
 	require.Empty(t, clearEvent.Data.Warnings)
@@ -271,6 +323,26 @@ func TestAMANWarningsAreAdditiveForLegacyV1Decoders(t *testing.T) {
 	require.NoError(t, json.Unmarshal(encoded, &legacy))
 	require.Equal(t, AMANWireVersion, legacy.Version)
 	require.Equal(t, "EKCH", legacy.Data.Airport)
+}
+
+func TestAMANStateEventPublishesTrafficTimingDetailsInCurrentWarnings(t *testing.T) {
+	state := goldenAMANState()
+	state.Flights = []aman.AMANFlight{{Callsign: "BAW822", State: aman.StatePlanned, DataStatus: aman.DataFresh,
+		FreezeReason: aman.FreezeNone, UpdatedAt: state.GeneratedAt}}
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	var timing *AMANWarning
+	for index := range event.Data.Warnings {
+		if event.Data.Warnings[index].Callsign != nil && *event.Data.Warnings[index].Callsign == "BAW822" {
+			timing = &event.Data.Warnings[index]
+		}
+	}
+	require.NotNil(t, timing)
+	require.Equal(t, "traffic_prediction", timing.Source)
+	require.Equal(t, "missing_departure_timing", timing.Code)
+	require.Contains(t, timing.Message, "off-block time (EOBT)")
+	require.Contains(t, timing.Message, "enroute duration (EET)")
+	require.Contains(t, event.Data.TrafficPrediction.DegradedReasons, "missing_timing:BAW822")
 }
 
 func TestAMANStateEventProjectsActiveRunwayGroupsInConfiguredOrder(t *testing.T) {
@@ -426,7 +498,7 @@ func TestAMANFlightOmitsNonPublishablePredictionData(t *testing.T) {
 	require.Nil(t, mapped.Provenance)
 	require.Nil(t, mapped.InputAgeSeconds)
 	require.Nil(t, mapped.DistanceToGoNM)
-	require.Nil(t, mapped.GainLossSeconds)
+	require.NotNil(t, mapped.GainLossSeconds, "retain guidance against the protected slot during temporary prediction loss")
 	require.NotNil(t, mapped.Slot, "protected slot publication is independent from prediction publication")
 }
 

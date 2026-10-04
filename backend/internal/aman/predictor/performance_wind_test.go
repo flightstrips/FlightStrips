@@ -431,6 +431,20 @@ func TestValidWindProfileFreshnessBoundaries(t *testing.T) {
 	require.False(t, validWindProfile(profile, requests, now))
 }
 
+func TestDelayedPositionUsesCurrentWeatherWithoutMovingItsETAClock(t *testing.T) {
+	input := performanceInput()
+	now := input.PredictionAt.Add(time.Minute)
+	input.WeatherEvaluationAt = now
+	result, err := EstimatePerformanceWind(context.Background(), nil, fixedWind{now: now}, input, PerformanceWindConfig{})
+	require.NoError(t, err)
+	require.NotContains(t, result.DegradationReasons, "WEATHER_UNAVAILABLE")
+	require.Equal(t, input.PredictionAt.Add(result.Duration), result.RawTETA)
+	input.WeatherEvaluationAt = now.Add(2*time.Hour + time.Second)
+	result, err = EstimatePerformanceWind(context.Background(), nil, fixedWind{now: now}, input, PerformanceWindConfig{})
+	require.NoError(t, err)
+	require.Contains(t, result.DegradationReasons, "WEATHER_UNAVAILABLE", "expired weather cannot become usable by anchoring to an old position")
+}
+
 func firstDescentDistance(segments []descentSegment) float64 {
 	distance := 0.0
 	for _, segment := range segments {

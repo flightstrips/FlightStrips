@@ -59,7 +59,7 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
   const traffic = header.traffic_summary.tma_above_1500_feet_count === null ? "Unavailable" : `TMA ${header.traffic_summary.tma_above_1500_feet_count} · Horizon ${header.traffic_summary.maestro_horizon_count}`;
   const stateCues = [
     connectionState === "disconnected" && "✕ DISCONNECTED",
-    presentationStatus === "degraded" && "△ STALE",
+    (state.technical_health?.observation_source ?? state.technical_health?.vatsim)?.status === "degraded" && "△ STALE",
     header.availability === "unavailable" && "— UNAVAILABLE",
     header.availability === "degraded" && "△ DEGRADED",
     (!header.authoritative || header.effective_mode !== "authoritative") && "▣ READ ONLY",

@@ -271,7 +271,11 @@ func (hub *Hub) Broadcast(session int32, message frontend.OutgoingMessage) {
 
 // PublishAMANStateEvent broadcasts one already-projected complete replacement
 // to authenticated frontend clients for the event airport.
-func (hub *Hub) PublishAMANStateEvent(event frontend.AMANStateEvent) {
+func (hub *Hub) PublishAMANStateEvent(event frontend.AMANStateEvent, session ...int32) {
+	if len(session) > 0 && session[0] > 0 {
+		hub.publish(internalMessage{session: session[0], message: event})
+		return
+	}
 	hub.publish(internalMessage{airport: event.Data.Airport, message: event})
 }
 
@@ -451,7 +455,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 	}
 	client.initialPending = false
 	if hub.amanStateProvider != nil {
-		amanState, stateErr := hub.amanStateProvider.CurrentAMANState(ctx, client.airport)
+		amanState, stateErr := hub.amanStateProvider.CurrentAMANState(aman.WithSession(ctx, client.session), client.airport)
 		if stateErr != nil {
 			slog.Error("Failed to load initial AMAN state", slog.Any("error", stateErr), slog.String("airport", client.airport))
 		} else {
@@ -468,7 +472,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 
 func (hub *Hub) sendAMANCoordinationSnapshot(ctx context.Context, client *Client) {
 	result, err := hub.amanCoordination.Snapshot(ctx, coordinationrequest.CommandContext{
-		Airport: client.airport, Actor: client.GetCid(), Role: hub.amanRole(client), ReceivedAt: hub.amanNow().UTC(),
+		SessionID: client.session, Airport: client.airport, Actor: client.GetCid(), Role: hub.amanRole(client), ReceivedAt: hub.amanNow().UTC(),
 	})
 	if err != nil {
 		slog.Error("Failed to project AMAN coordination", slog.Any("error", err))

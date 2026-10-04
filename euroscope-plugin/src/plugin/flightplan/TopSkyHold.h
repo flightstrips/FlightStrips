@@ -51,6 +51,10 @@ namespace FlightStrips::flightplan {
     // Retained for callers that only need the EAT value.
     std::string ParseTopSkyHoldEat(std::string_view scratchPad);
 
+    // A live HOLD/XHOLD command owns the clearance even when annotation 6 is
+    // absent or stale. Without a live command, reconcile from the annotation.
+    TopSkyHold ResolveTopSkyHoldForEat(const TopSkyHold& annotation, const TopSkyHold& observed, bool commandObserved);
+
     // Builds the transient TopSky command only when the backend update matches
     // the durable en-route hold currently present in EuroScope.
     std::string BuildTopSkyHoldEatCommand(

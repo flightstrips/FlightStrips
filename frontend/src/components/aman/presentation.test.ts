@@ -52,11 +52,16 @@ describe("AMAN presentation model", () => {
 
   it.each([
     ["missing", null, availableGuidance],
-    ["stale", 60, {...availableGuidance, fresh: false}],
-    ["disconnected", 60, {...availableGuidance, connected: false}],
     ["non-authoritative", 60, {...availableGuidance, authoritative: false}],
   ])("keeps %s guidance unavailable", (_condition, seconds, context) => {
     expect(formatGainLoss(seconds, context)).toBe("Unavailable");
+  });
+
+  it.each([
+    {...availableGuidance, fresh: false},
+    {...availableGuidance, connected: false},
+  ])("retains the last known guidance during interruptions", (context) => {
+    expect(formatGainLoss(-120, context)).toBe("L02");
   });
 
   it("uses only backend order/sequence and preserves wire order for ties", () => {

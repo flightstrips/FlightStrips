@@ -182,7 +182,7 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 	return result, promotions, nil
 }
 
-// compactStableFlights moves Stable flights monotonically earlier without
+// compactStableFlights moves Stable and holding flights monotonically earlier without
 // changing their committed relative order. A Superstable flight may accept an
 // earlier vacancy, but it cannot cross another freeze or manual-order boundary.
 // TMA and manual freezes remain immovable. The current slot is always retained
@@ -214,6 +214,22 @@ func compactStableFlights(policy preparedPolicy, entries []queueEntry, promotion
 		}
 
 		lower := promotionLowerBound(policy, target.flight, at)
+		// Start beyond order/freeze boundaries rather than iterating through
+		// the entire interval. Continuous spacing has no discrete next cell.
+		for _, entry := range entries {
+			if entry.flight.Callsign == callsign || !entry.slot.Time.Before(target.slot.Time) {
+				continue
+			}
+			protected := entry.flight.FreezeReason != aman.FreezeNone || entry.flight.ManualOrder != nil
+			priorStable := target.flight.stableOrder != nil && entry.flight.stableOrder != nil &&
+				*entry.flight.stableOrder < *target.flight.stableOrder
+			if protected || priorStable {
+				boundary := entry.slot.Time.Add(time.Nanosecond)
+				if boundary.After(lower) {
+					lower = boundary
+				}
+			}
+		}
 		candidate, ok := nextGridAtOrAfter(policy, lower)
 		for ok && candidate.Before(target.slot.Time) {
 			if !crossesProtectedTime(entries, candidate, target.slot.Time) && !crossesStableOrder(entries, target.flight, candidate) {
@@ -248,14 +264,18 @@ func compactStableFlights(policy preparedPolicy, entries []queueEntry, promotion
 					continue
 				}
 			}
-			candidate, ok = nextGridAtOrAfter(policy, candidate.Add(time.Nanosecond))
+			advance := time.Nanosecond
+			if policy.ContinuousSpacing {
+				advance = policy.intervalAt(candidate)
+			}
+			candidate, ok = nextGridAtOrAfter(policy, candidate.Add(advance))
 		}
 	}
 	return promotions
 }
 
 func stablePromotionEligible(flight preparedFlight) bool {
-	if flight.State != aman.StateStable || flight.ManualOrder != nil || flight.CurrentSlot == nil {
+	if (flight.State != aman.StateStable && !flight.HoldingSlotProtected) || flight.ManualOrder != nil || flight.CurrentSlot == nil {
 		return false
 	}
 	switch flight.FreezeReason {

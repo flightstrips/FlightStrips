@@ -270,9 +270,10 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 	holdCandidate := holdingCandidate(holding, fixes, input.Observation)
 	// A cleared racetrack can cross the outbound STAR repeatedly. Ordinary
 	// forward-only projection would then mark its fix as passed and remove
-	// the entry ETA needed to calculate EAT. Within the published footprint,
-	// the active clearance keeps the remaining route through that fix.
-	if holdCandidate != nil && holding.Fix == input.HoldingClearanceFix {
+	// the entry ETA needed to calculate EAT. An active clearance keeps the route
+	// through its holding fix even while approaching it or outside the proximity
+	// envelope. Proximity remains a separate requirement for confirming a stack.
+	if holding != nil && holding.Fix == input.HoldingClearanceFix {
 		if next := legEndingAt(legs, holding.Fix); next >= 0 {
 			result.Remaining = remainingFromNextWaypointWithPrefix(obs, legs, next, "HOLDING_TO:")
 			dtg := remainingLegDistance(result.Remaining)

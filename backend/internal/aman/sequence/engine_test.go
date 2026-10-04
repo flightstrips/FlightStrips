@@ -379,6 +379,23 @@ func TestHoldingQueueDoesNotReorderUnrelatedHolds(t *testing.T) {
 	require.Equal(t, start.Add(24*time.Minute), entryFor(t, result, "A").Time)
 }
 
+func TestOccupiedHoldReservesPriorityAcrossSTARsOnlyOnItsRunway(t *testing.T) {
+	start := testTime()
+	entered, incomingEntry := start.Add(-time.Minute), start.Add(5*time.Minute)
+	older := holdingFlight("HOLDING", start.Add(21*time.Minute), "MONAK", "HOLD-A", nil)
+	older.HoldingQueueID, older.ActiveHoldingSince, older.ArrivalQueueTime = "HOLD-A", &entered, &entered
+	incoming := holdingFlight("INCOMING", start.Add(20*time.Minute), "TESPI", "HOLD-B", nil)
+	incoming.HoldingQueueID, incoming.ArrivalQueueTime = "HOLD-B", &incomingEntry
+	result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{simplePolicy("A", start, 20)}, Flights: []sequence.Flight{incoming, older}})
+	require.NoError(t, err)
+	require.Equal(t, start.Add(21*time.Minute), entryFor(t, result, "HOLDING").Time)
+	require.Equal(t, start.Add(24*time.Minute), entryFor(t, result, "INCOMING").Time)
+	incoming.RunwayGroupID = "B"
+	result, err = sequence.Generate(sequence.Input{Policies: []sequence.Policy{simplePolicy("A", start, 20), simplePolicy("B", start, 20)}, Flights: []sequence.Flight{incoming, older}})
+	require.NoError(t, err)
+	require.Equal(t, start.Add(21*time.Minute), entryFor(t, result, "INCOMING").Time, "another runway does not inherit the holding reservation")
+}
+
 func rateIntervalForTest(rate uint32) time.Duration {
 	return time.Duration((uint64(time.Hour) + uint64(rate) - 1) / uint64(rate))
 }

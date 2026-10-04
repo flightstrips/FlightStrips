@@ -44,6 +44,7 @@ func (e AMANStateEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (AMANStateEvent) GetType() EventType         { return AMANStateType }
 
 type AMANState struct {
+	SessionID          int32                 `json:"session_id,omitempty"`
 	Airport            string                `json:"airport"`
 	Revision           uint64                `json:"revision"`
 	GeneratedAt        string                `json:"generated_at"`
@@ -401,9 +402,9 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		return AMANStateEvent{}, fmt.Errorf("map AMAN technical health: %w", err)
 	}
 	data := AMANState{
-		Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
+		SessionID: state.SessionID, Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
 		PolicyVersion: state.PolicyVersion, EffectiveMode: string(effectiveMode), Authoritative: state.Authoritative,
-		Flights: make([]AMANFlight, len(state.Flights)), RunwayGroups: make([]AMANRunwayGroup, len(state.RunwayGroups)),
+		Flights: make([]AMANFlight, 0, len(state.Flights)), RunwayGroups: make([]AMANRunwayGroup, len(state.RunwayGroups)),
 		TechnicalHealth: technicalHealth,
 	}
 	if state.ActiveRunwayGroups != nil {
@@ -417,21 +418,33 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 			}
 		}
 	}
-	data.HoldingInformation, err = mapAMANHoldingInformation(holdingclearance.BuildReadModel(state))
+	holding := holdingclearance.BuildReadModel(state)
+	data.HoldingInformation, err = mapAMANHoldingInformation(holding)
 	if err != nil {
 		return AMANStateEvent{}, fmt.Errorf("map AMAN holding information: %w", err)
 	}
-	data.Warnings = mapAMANWarnings(aman.CurrentWarningSnapshot(health, state))
 	latitude, longitude := config.GetAirportCoordinates()
-	data.TrafficPrediction, err = mapAMANTrafficPrediction(trafficprediction.BuildWithAirportPosition(state, health.VATSIM, trafficprediction.AirportPosition{LatitudeDegrees: latitude, LongitudeDegrees: longitude}))
+	sourceHealth := health.ObservationSource
+	if sourceHealth.Status == "" {
+		sourceHealth = health.VATSIM
+	}
+	traffic := trafficprediction.BuildWithAirportPosition(state, sourceHealth, trafficprediction.AirportPosition{LatitudeDegrees: latitude, LongitudeDegrees: longitude})
+	data.Warnings = mapAMANWarnings(aman.CurrentWarningSnapshot(health, state, append(traffic.Warnings, holding.Warnings...)...))
+	data.TrafficPrediction, err = mapAMANTrafficPrediction(traffic)
 	if err != nil {
 		return AMANStateEvent{}, fmt.Errorf("map AMAN traffic prediction: %w", err)
 	}
-	for i := range state.Flights {
-		data.Flights[i], err = mapAMANFlight(state.GeneratedAt, state.Flights[i])
-		if err != nil {
-			return AMANStateEvent{}, fmt.Errorf("map AMAN flight %q: %w", state.Flights[i].Callsign, err)
+	for _, flight := range state.Flights {
+		// Commit results include the removal marker for lifecycle processing;
+		// the expired aircraft is absent from the controller's current view.
+		if flight.State == aman.StateRemoved && flight.Lifecycle != nil && flight.Lifecycle.Reason == aman.LifecycleReasonSourceDisappearance {
+			continue
 		}
+		mapped, mapErr := mapAMANFlight(state.GeneratedAt, flight)
+		if mapErr != nil {
+			return AMANStateEvent{}, fmt.Errorf("map AMAN flight %q: %w", flight.Callsign, mapErr)
+		}
+		data.Flights = append(data.Flights, mapped)
 	}
 	for i, group := range state.RunwayGroups {
 		mapped := AMANRunwayGroup{
@@ -707,7 +720,10 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		confidence := string(prediction.Confidence)
 		result.Confidence = &confidence
 		result.Provenance = &AMANProvenance{ModelVersion: prediction.ModelVersion, ConfigVersion: prediction.ConfigVersion, PerformanceProfileID: cloneString(prediction.PerformanceProfileID), WeatherSource: cloneString(prediction.WeatherSource), Sources: append([]string(nil), prediction.Sources...)}
-		age := generatedAt.Sub(prediction.InputObservedAt)
+		// PostgreSQL airport timestamps retain microseconds while flight JSON
+		// retains nanoseconds. Compare at the shared persistence precision so
+		// loading an otherwise identical snapshot cannot make its input future.
+		age := generatedAt.Truncate(time.Microsecond).Sub(prediction.InputObservedAt.Truncate(time.Microsecond))
 		if age < 0 {
 			return AMANFlight{}, fmt.Errorf("prediction input time follows state generation")
 		}
@@ -730,12 +746,8 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 			return AMANFlight{}, mapErr
 		}
 		result.Slot = &mapped
-		if flight.Prediction != nil && flight.Prediction.Publishable {
-			// Guidance compares the current physical prediction with the target.
-			// OperationalTETA can be frozen near the feeder/TMA and remains the
-			// sequencing value, but using it here would keep showing the original
-			// loss after the aircraft has already absorbed that delay.
-			seconds, secondsErr := aman.GainLossGuidance(flight.Prediction.RawTETA, flight.Slot.Time)
+		if predicted, available := aman.GainLossPrediction(flight); available {
+			seconds, secondsErr := aman.GainLossGuidance(predicted, flight.Slot.Time)
 			if secondsErr != nil {
 				return AMANFlight{}, secondsErr
 			}

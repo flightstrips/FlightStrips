@@ -99,7 +99,11 @@ func (c PerformanceWindConfig) normalized() (PerformanceWindConfig, error) {
 }
 
 type PerformanceWindInput struct {
-	PredictionAt           time.Time
+	PredictionAt time.Time
+	// WeatherEvaluationAt checks provider freshness at processing time while
+	// PredictionAt anchors travel durations at the position's observation time.
+	// Zero keeps the original single-clock behavior for deterministic callers.
+	WeatherEvaluationAt    time.Time
 	AircraftICAO           string
 	WakeTurbulenceCategory AircraftCategory
 	AltitudeFeet           float64
@@ -203,6 +207,7 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 		return PerformanceWindResult{}, err
 	}
 	if !validPredictionInstant(input.PredictionAt) || !finite(input.AltitudeFeet) || input.AltitudeFeet < 0 || !finite(input.CruiseAltitudeFeet) || input.CruiseAltitudeFeet < 0 || !finite(input.CurrentGroundspeedKnots) || input.CurrentGroundspeedKnots <= 0 || len(input.Remaining) == 0 ||
+		(!input.WeatherEvaluationAt.IsZero() && (!validPredictionInstant(input.WeatherEvaluationAt) || input.WeatherEvaluationAt.Before(input.PredictionAt))) ||
 		(input.CurrentTrackTrueDegrees != nil && (!finite(*input.CurrentTrackTrueDegrees) || *input.CurrentTrackTrueDegrees < 0 || *input.CurrentTrackTrueDegrees >= 360)) {
 		return PerformanceWindResult{}, errPerformanceWindInput
 	}
@@ -244,7 +249,11 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 		return result, nil
 	}
 	weather, err := wind.WindProfile(ctx, WindProfileRequest{Samples: requests})
-	if err != nil || !validWindProfile(weather, requests, input.PredictionAt) {
+	weatherAt := input.WeatherEvaluationAt
+	if weatherAt.IsZero() {
+		weatherAt = input.PredictionAt
+	}
+	if err != nil || !validWindProfile(weather, requests, weatherAt) {
 		if estimated, ok := applySurveillanceWindFallback(result, input, segments, config); ok {
 			return estimated, nil
 		}

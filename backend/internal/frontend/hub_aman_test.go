@@ -32,3 +32,20 @@ func TestPublishAMANStateEventSendsCompleteReplacementOnlyToMatchingAirport(t *t
 	case <-time.After(20 * time.Millisecond):
 	}
 }
+
+func TestAMANPublicationDoesNotCrossSessionsAtSameAirport(t *testing.T) {
+	first := startQueuedTestClient(&Client{session: 1, airport: "EKCH", send: make(chan events.OutgoingMessage, 1)})
+	second := startQueuedTestClient(&Client{session: 2, airport: "EKCH", send: make(chan events.OutgoingMessage, 1)})
+	hub := &Hub{clients: map[*Client]bool{first: true, second: true}, send: make(chan internalMessage, 1)}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go hub.Run(ctx)
+	event := frontendEvents.AMANStateEvent{Version: 1, Data: frontendEvents.AMANState{SessionID: 1, Airport: "EKCH", Revision: 42}}
+	hub.PublishAMANStateEvent(event, 1)
+	require.Equal(t, event, waitForOutgoingMessage(t, first.send))
+	select {
+	case unexpected := <-second.send:
+		t.Fatalf("AMAN crossed sessions: %v", unexpected)
+	case <-time.After(20 * time.Millisecond):
+	}
+}

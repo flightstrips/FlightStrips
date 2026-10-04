@@ -45,24 +45,31 @@ func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearance(ctx context.
 }
 
 func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearances(ctx context.Context, strips []shared.HoldingClearanceObservation) error {
-	facts := make([]aman.HoldingClearanceFact, 0, len(strips))
+	bySession := make(map[int32][]aman.HoldingClearanceFact)
 	for _, observation := range strips {
 		fact, err := o.projectStrip(observation.Strip, observation.ObservedAt)
 		if err != nil {
 			return err
 		}
 		if fact != nil {
-			facts = append(facts, *fact)
+			id := observation.Strip.Session
+			bySession[id] = append(bySession[id], *fact)
 		}
 	}
-	if sink, ok := o.sink.(interface {
-		ObserveHoldingClearances(context.Context, []aman.HoldingClearanceFact) error
-	}); ok {
-		return sink.ObserveHoldingClearances(ctx, facts)
-	}
-	for _, fact := range facts {
-		if err := o.sink.ObserveHoldingClearance(ctx, fact); err != nil {
-			return fmt.Errorf("publish EuroScope AMAN holding clearance: %w", err)
+	for id, facts := range bySession {
+		scoped := aman.WithSession(ctx, id)
+		if sink, ok := o.sink.(interface {
+			ObserveHoldingClearances(context.Context, []aman.HoldingClearanceFact) error
+		}); ok {
+			if err := sink.ObserveHoldingClearances(scoped, facts); err != nil {
+				return err
+			}
+			continue
+		}
+		for _, fact := range facts {
+			if err := o.sink.ObserveHoldingClearance(scoped, fact); err != nil {
+				return fmt.Errorf("publish EuroScope AMAN holding clearance: %w", err)
+			}
 		}
 	}
 	return nil

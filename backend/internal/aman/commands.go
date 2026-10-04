@@ -9,6 +9,7 @@ import (
 // CommandContext contains authority and timing facts derived by the server.
 // None of these values are accepted from a command payload.
 type CommandContext struct {
+	SessionID  int32
 	Airport    string
 	Actor      string
 	Role       string

@@ -83,6 +83,17 @@ func TestRecomputeFlightPredictionFailureIsAtomic(t *testing.T) {
 	require.Equal(t, state, repository.state)
 }
 
+func TestReprocessingSamePositionDoesNotPushArrivalTimesBack(t *testing.T) {
+	service, state, now := recomputeFlightFixture(t)
+	previous := state.Flights[0]
+	updated, err := service.reconcileFlight(context.Background(), state, previous, *previous.LatestObservation, now)
+	require.NoError(t, err)
+	require.Equal(t, previous.Prediction.RawTETA, updated.Prediction.RawTETA)
+	require.Equal(t, previous.Prediction.RawRETA, updated.Prediction.RawRETA)
+	require.Equal(t, previous.DerivedFeederETA, updated.DerivedFeederETA)
+	require.Equal(t, now, updated.Prediction.GeneratedAt, "processing provenance remains separate from the position time")
+}
+
 func recomputeActions(t *testing.T, service *Service, repository *memoryRepository, publisher *recordingPublisher, now time.Time) *sequence.ActionService {
 	t.Helper()
 	coordinator, err := sequence.NewCoordinator(sequence.CoordinatorDependencies{States: repository, Outcomes: repository, Committer: repository, Publisher: publisher, Now: func() time.Time { return now }})

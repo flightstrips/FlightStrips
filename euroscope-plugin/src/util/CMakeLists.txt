@@ -26,7 +26,8 @@ source_group("src\\exceptions" FILES ${src__exceptions})
 set(ALL_FILES ${src__http} ${src__network} ${src__filesystem} ${src__exceptions} Logger.hpp )
 
 # Read version from file
-file(READ "${CMAKE_SOURCE_DIR}/VERSION.txt" PLUGIN_VERSION)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/version.txt")
+file(READ "${CMAKE_SOURCE_DIR}/version.txt" PLUGIN_VERSION)
 string(STRIP "${PLUGIN_VERSION}" PLUGIN_VERSION)
 
 # Configure the version header

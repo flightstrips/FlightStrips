@@ -635,13 +635,20 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
 
         auto controllerData = flightPlan.GetControllerAssignedData();
         const auto annotation = controllerData.GetFlightStripAnnotation(flightplan::TOPSKY_HOLD_ANNOTATION);
+        const auto cached = m_flightPlanService->GetFlightPlan(event.callsign);
+        const auto observed = cached == nullptr ? flightplan::TopSkyHold{} : flightplan::TopSkyHold{
+            !cached->hold.empty(), cached->hold_type == "tsa", cached->hold};
+        const auto current = flightplan::ResolveTopSkyHoldForEat(
+            flightplan::ParseTopSkyHoldAnnotation(annotation == nullptr ? "" : annotation), observed,
+            cached != nullptr && cached->hold_command_observed);
         const auto command = flightplan::BuildTopSkyHoldEatCommand(
-            flightplan::ParseTopSkyHoldAnnotation(annotation == nullptr ? "" : annotation), event.hold, event.hold_type, event.hold_eat);
+            current, event.hold, event.hold_type, event.hold_eat);
         if (command.empty()) return;
 
         // Observed backend/TopSky state does not prove that this local TopSky
         // instance received the transient command. Always apply a server replay
         // after validating the live hold.
+        Logger::Debug("Writing TopSky EAT for {}: {}", event.callsign, command);
         m_plugin->UpdateViaScratchPad(event.callsign.c_str(), command.c_str());
     }
 

@@ -100,6 +100,8 @@ func TestGoAroundPendingDecisionRejectsWithoutMutationAndConfirmsExactlyOnce(t *
 	require.NoError(t, err)
 	require.Equal(t, aman.StateGoAround, confirmed.State.Flights[0].State)
 	require.Equal(t, base.Add(10*time.Minute), confirmed.State.Flights[0].Prediction.OperationalTETA)
+	require.NotNil(t, confirmed.State.Flights[0].Slot)
+	require.True(t, confirmed.State.Flights[0].Slot.Time.After(flight.Slot.Time), "a confirmed go-around can replace the committed Stable target")
 	require.Equal(t, aman.GoAroundConfirmationConfirmed, confirmed.State.Flights[0].GoAroundConfirmation.Status)
 	_, _, err = pendingGoAround(confirmed.State, flight.Callsign, "SAS123/go-around/1")
 	require.Error(t, err)

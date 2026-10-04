@@ -25,6 +25,68 @@ export interface HoldingGraphPosition {
   altitudeTrack: number | null;
 }
 
+/** Stack each level vertically, keeping the stack centered on its altitude. */
+export function layoutHoldingLabels(positions: HoldingGraphPosition[], availableHeight: number, rowHeight: number) {
+  const gap = rowHeight + 1;
+  const sorted = positions.map((position, index) => ({position, index})).sort((left, right) =>
+    left.position.altitude.percent! - right.position.altitude.percent! ||
+    compareHoldingTimes(left.position, right.position) ||
+    compareKeys(left.position.entry.callsign, right.position.entry.callsign));
+  const groups: Array<{percent: number; indices: number[]}> = [];
+  sorted.forEach(({position, index}) => {
+    const previous = groups.at(-1);
+    if (previous?.percent === position.altitude.percent) previous.indices.push(index);
+    else groups.push({percent: position.altitude.percent!, indices: [index]});
+  });
+  const baseHeight = Math.max(availableHeight, gap * (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) / 10);
+  const byPercent = new Map(groups.map(group => [group.percent, group]));
+  const percents = [...new Set([
+    ...Array.from({length: 22}, (_, index) => index * 10 / (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) * 100),
+    ...groups.map(group => group.percent),
+  ])].sort((left, right) => left - right);
+  const anchors = new Map<number, number>();
+  let height = 0;
+  percents.forEach((percent, index) => {
+    if (index > 0) {
+      const previous = percents[index - 1];
+      const left = byPercent.get(previous);
+      const right = byPercent.get(percent);
+      const leftBand = left ? (left.indices.length - 1) * gap : 0;
+      const rightBand = right ? (right.indices.length - 1) * gap : 0;
+      height += Math.max((percent - previous) / 100 * baseHeight, left && right ? gap : 0) + (leftBand + rightBand) / 2;
+    }
+    anchors.set(percent, height);
+  });
+  function altitudeY(percent: number): number {
+    const exact = anchors.get(percent);
+    if (exact !== undefined) return exact;
+    const upperIndex = percents.findIndex(value => value > percent);
+    if (upperIndex <= 0) return percent <= 0 ? 0 : height;
+    const lower = percents[upperIndex - 1];
+    const upper = percents[upperIndex];
+    return anchors.get(lower)! + (percent - lower) / (upper - lower) * (anchors.get(upper)! - anchors.get(lower)!);
+  }
+  let edgePadding = rowHeight / 2 + 2;
+  groups.filter(group => group.percent === 0 || group.percent === 100).forEach(group => {
+    edgePadding = Math.max(edgePadding, ((group.indices.length - 1) * gap + rowHeight) / 2 + 2);
+  });
+  const labelY: number[] = [];
+  groups.forEach(group => group.indices.forEach((index, slot) => {
+    labelY[index] = altitudeY(group.percent) + (slot - (group.indices.length - 1) / 2) * gap;
+  }));
+  return {height, labelY, edgePadding, altitudeY};
+}
+
+function compareHoldingTimes(left: HoldingGraphPosition, right: HoldingGraphPosition): number {
+  const leftTime = left.entry.eat === null ? NaN : Date.parse(left.entry.eat);
+  const rightTime = right.entry.eat === null ? NaN : Date.parse(right.entry.eat);
+  if (!Number.isFinite(leftTime)) return Number.isFinite(rightTime) ? 1 : 0;
+  if (!Number.isFinite(rightTime)) return -1;
+  // The time axis runs from later at the top to earlier at the bottom. Keep
+  // labels at a shared level in that order so their connectors cannot cross.
+  return rightTime - leftTime;
+}
+
 interface TrackCandidate {
   index: number;
   percent: number;

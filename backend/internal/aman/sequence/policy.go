@@ -40,9 +40,6 @@ func ApplyMove(input Input, command MoveFlightCommand) (Decision, error) {
 	if target.FreezeReason != aman.FreezeNone {
 		return Decision{}, invalidTransition("move requires the flight freeze to be released first")
 	}
-	// A controller move explicitly overrides routine stable-slot protection.
-	working.Flights[targetIndex].ProtectCurrentSlot = false
-
 	current, err := Generate(working)
 	if err != nil {
 		return Decision{}, err
@@ -62,11 +59,17 @@ func ApplyMove(input Input, command MoveFlightCommand) (Decision, error) {
 		insertAt++
 	}
 	order = slices.Insert(order, insertAt, command.Callsign)
+	firstAffected := min(from, insertAt)
 
 	for position, id := range order {
 		index := flightIndex(working.Flights, id)
 		value := position + 1
 		working.Flights[index].ManualOrder = &value
+		// Controller reordering may shift the following Stable and holding
+		// reservations. Explicit freezes remain barriers to the move.
+		if position >= firstAffected && working.Flights[index].FreezeReason == aman.FreezeNone {
+			working.Flights[index].ProtectCurrentSlot = false
+		}
 	}
 	working.Flights[targetIndex].ManualOrder = intPointer(slices.Index(order, command.Callsign) + 1)
 
@@ -82,6 +85,9 @@ func ApplyMove(input Input, command MoveFlightCommand) (Decision, error) {
 	validAnchor := command.BeforeCallsign != nil && targetAt+1 == finalAnchorAt || command.AfterCallsign != nil && finalAnchorAt+1 == targetAt
 	if !validAnchor {
 		return Decision{}, invalidTransition("move cannot satisfy the requested anchor under rate and WTC policy")
+	}
+	for index := range working.Flights {
+		working.Flights[index].ProtectCurrentSlot = input.Flights[index].ProtectCurrentSlot
 	}
 	return Decision{Input: working, Candidate: candidate, Changed: !inputsEqualOrder(input, working) || len(candidate.Movements) > 0}, nil
 }
@@ -170,9 +176,32 @@ func ApplyRate(input Input, command SetRateCommand) (Decision, error) {
 	}
 	sort.Slice(rates, func(i, j int) bool { return rates[i].EffectiveAt.Before(rates[j].EffectiveAt) })
 	working.Policies[policyIndex].Rates = rates
+	if changed {
+		for index := range working.Flights {
+			flight := &working.Flights[index]
+			if flight.RunwayGroupID != command.RunwayGroupID || !flight.ProtectCurrentSlot || flight.FreezeReason != aman.FreezeNone ||
+				flight.CurrentSlot == nil || flight.CurrentSlot.Time.Before(command.EffectiveAt) {
+				continue
+			}
+			// An explicit capacity change overrides routine reservation
+			// protection from its effective time, retaining committed order.
+			flight.ProtectCurrentSlot = false
+			lower := command.EffectiveAt
+			if flight.PromotionNotBefore != nil && flight.PromotionNotBefore.After(lower) {
+				lower = *flight.PromotionNotBefore
+			}
+			if flight.SlotNotBefore == nil || flight.SlotNotBefore.Before(lower) {
+				flight.SlotNotBefore = &lower
+			}
+		}
+	}
 	candidate, err := Generate(working)
 	if err != nil {
 		return Decision{}, err
+	}
+	for index := range working.Flights {
+		working.Flights[index].ProtectCurrentSlot = input.Flights[index].ProtectCurrentSlot
+		working.Flights[index].SlotNotBefore = input.Flights[index].SlotNotBefore
 	}
 	return Decision{Input: working, Candidate: candidate, Changed: changed || len(candidate.Movements) > 0}, nil
 }
@@ -269,6 +298,13 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 			continue
 		}
 		index := flightIndex(working.Flights, entry.Callsign)
+		flight := working.Flights[index]
+		// Stable and holding reservations retain the cascade through their
+		// committed slots. A synthetic manual order would unnecessarily disable
+		// later vacancy promotions. Keep existing controller orders explicit.
+		if entry.Callsign != target.Callsign && flight.ManualOrder == nil && (flight.State == aman.StateStable || flight.HoldingSlotProtected) {
+			continue
+		}
 		working.Flights[index].ManualOrder = intPointer(entry.Sequence)
 	}
 	for _, entry := range result.Entries {

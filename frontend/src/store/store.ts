@@ -185,6 +185,7 @@ export interface WebSocketState {
 
   availableSids: SidInfo[];
 
+  amanSessionID: number | null;
   amanState: AMANState | null;
   amanPresentationStatus: AMANPresentationStatus;
   amanError: string | null;
@@ -319,6 +320,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     arrAtisCode: "",
     depAtisCode: "",
     availableSids: [],
+    amanSessionID: null,
     amanState: null,
     amanPresentationStatus: "empty" as AMANPresentationStatus,
     amanError: null,
@@ -1010,6 +1012,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     wsClient.setReadOnly(data.read_only ?? false);
     store.setState(
       produce((state: WebSocketState) => {
+        const sessionID = data.session_id ?? null;
+        if (state.amanSessionID !== sessionID) {
+          state.amanState = null;
+          state.amanWarnings = currentWarningsFromAMANState(null);
+          state.amanPresentationStatus = "empty";
+          state.amanError = null;
+          state.amanAwaitingSnapshot = true;
+          state.amanPendingCommands = {};
+          state.amanCommandRejections = {};
+          state.amanCommandTypes = {};
+        }
+        state.amanSessionID = sessionID;
         state.controllers = data.controllers.map(c => ({ ...c, owned_sectors: c.owned_sectors ?? [] }));
         state.strips = data.strips.map(strip => ({
           ...strip,
@@ -1610,7 +1624,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     // must accept its first complete snapshot even if the revision restarted.
     const previous = store.getState().amanAwaitingSnapshot ? null : store.getState().amanState;
     const replacement = replaceAMANState(previous, event);
-    if (replacement.accepted && replacement.state && previous?.coordination_revision !== undefined) {
+    if (replacement.state?.session_id !== undefined && store.getState().amanSessionID !== null &&
+      replacement.state.session_id !== store.getState().amanSessionID) return;
+    if (replacement.accepted && replacement.state && previous?.session_id === replacement.state.session_id && previous?.coordination_revision !== undefined) {
       replacement.state.coordination_revision = previous.coordination_revision;
       replacement.state.coordination_requests = previous.coordination_requests;
     }

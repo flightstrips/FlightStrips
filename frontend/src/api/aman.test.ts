@@ -6,6 +6,7 @@ import {
   createAMANCommand,
   getActiveAMANRunwayGroups,
   getAMANHeaderReadModel,
+  getAMANMutationBlockReason,
   isAMANCommandRejectedEvent,
 	isAMANCoordinationStateEvent,
   isAMANStateEvent,
@@ -27,6 +28,22 @@ function replacement(revision: number, callsign = "SAS123"): AMANStateEvent {
 }
 
 describe("AMAN V1 full replacement contract", () => {
+  it("keeps controller commands available with degraded weather and operational readiness", () => {
+    const event = replacement(8);
+    event.data.technical_health.status = "degraded";
+    event.data.technical_health.ready = true;
+    event.data.technical_health.blocked_reasons = [];
+    event.data.technical_health.weather.status = "unavailable";
+    event.data.technical_health.weather.reason = "weather_refresh_failed";
+    event.data.header!.readiness = {status: "degraded", ready: true, blocked_reasons: []};
+    const accepted = replaceAMANState(null, event);
+    expect(accepted).toMatchObject({accepted: true, status: "ready"});
+    event.data.header!.traffic_summary.status = "degraded";
+    expect(getAMANHeaderReadModel(event.data).availability).toBe("ready");
+    expect(getAMANMutationBlockReason({
+      state: accepted.state, connection_state: "connected", read_only: false, has_fmp_authority: true,
+    })).toBeNull();
+  });
 	it("accepts additive clearance correlation on the coordination V1 wire", () => {
 		expect(isAMANCoordinationStateEvent({type: "aman.coordination_state", version: 1, revision: 3, requests: [{
 			id: "request-1", callsign: "SAS123", recipient_controller: "EKCH_APP", recipient_status: "assigned",
@@ -138,7 +155,7 @@ describe("AMAN V1 full replacement contract", () => {
     const model = getAMANHeaderReadModel(replaceAMANState(null, event).state!);
 
     expect(model).toMatchObject({
-      availability: "degraded", airport: "EKCH", authoritative: true,
+      availability: "ready", airport: "EKCH", authoritative: true,
       traffic_summary: {tma_above_1500_feet_count: 7, maestro_horizon_count: 11},
       wind: null,
     });
@@ -167,6 +184,11 @@ describe("AMAN V1 full replacement contract", () => {
         message: "Flights TRAIL and LEAD conflict with protected MONAK spacing on runway group ARRIVAL-22",
       },
       {
+        id: 'warning:"traffic_prediction"/"traffic_prediction"/"missing_departure_time"/-/"BAW822"/-',
+        source: "traffic_prediction", component: "traffic_prediction", severity: "warning", code: "missing_departure_time",
+        callsign: "BAW822", message: "BAW822 has no valid filed departure time.",
+      },
+      {
         id: 'warning:"technical_health"/"navigation"/"airac_expired"/-/-/-',
         source: "technical_health", component: "navigation", severity: "warning", code: "airac_expired",
         message: "AMAN navigation is degraded: airac_expired",
@@ -178,6 +200,29 @@ describe("AMAN V1 full replacement contract", () => {
     const cleared = replacement(9);
     cleared.data.warnings = [];
     expect(replaceAMANState(accepted.state, cleared).state?.warnings).toEqual([]);
+  });
+
+  it("keeps the timeline available when holding release diagnostics are present", () => {
+    const event = replacement(8);
+    event.data.holding_information = [{callsign: "TRAIL", holding: "OLPIB", eat: null,
+      cleared_altitude: 12000, source_status: "fresh", observed_at: event.data.generated_at}];
+    event.data.warnings = [
+      {id: 'warning:"sequence"/"holding_release"/"holding_release_unavailable"/-/"TRAIL"/-',
+        source: "sequence", component: "holding_release", severity: "warning", code: "holding_release_unavailable",
+        callsign: "TRAIL", message: "TRAIL has no assigned runway slot."},
+      {id: 'warning:"sequence"/"holding_release"/"holding_release_order_conflict"/-/"TRAIL"/"LEAD"',
+        source: "sequence", component: "holding_release", severity: "warning", code: "holding_release_order_conflict",
+        callsign: "TRAIL", related_callsign: "LEAD", message: "TRAIL cannot be released ahead of LEAD."},
+    ];
+    expect(isAMANStateEvent(event)).toBe(true);
+    const result = replaceAMANState(null, event);
+    expect(result).toMatchObject({accepted: true, error: null});
+    expect(result.state?.warnings).toEqual(event.data.warnings);
+    expect(result.state?.flights).toHaveLength(event.data.flights.length);
+
+    event.data.warnings[1].related_callsign = undefined;
+    event.data.warnings[1].id = 'warning:"sequence"/"holding_release"/"holding_release_order_conflict"/-/"TRAIL"/-';
+    expect(isAMANStateEvent(event), "an order conflict still needs its blocking aircraft").toBe(false);
   });
 
   it.each([

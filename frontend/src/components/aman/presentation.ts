@@ -183,7 +183,7 @@ export function formatAMANTime(value: string | null): string {
 }
 
 export function formatGainLoss(seconds: number | null, context: AMANGainLossPresentationContext): string {
-  if (seconds === null || !context.authoritative || !context.connected || !context.fresh) return "Unavailable";
+  if (seconds === null || !context.authoritative) return "Unavailable";
 
   const absolute = Math.abs(seconds);
   if (absolute < 30) return "=00";

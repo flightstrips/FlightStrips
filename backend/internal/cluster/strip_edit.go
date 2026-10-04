@@ -28,7 +28,11 @@ func planStripEdit(request *pb.CommandRequest, state *Aggregate, action *pb.Stri
 		return nil, pb.CommandReply_NOT_FOUND, 0, fmt.Errorf("strip not found")
 	}
 	current := old.Revision
-	if request.ExpectedEntityRevision == nil || *request.ExpectedEntityRevision != current {
+	// Absolute intentions may omit a whole-strip revision. Their permissions,
+	// validation, bay transition and ordering are checked against this owner turn.
+	// Explicit CAS callers and state-dependent actions keep their revision fence.
+	if request.ExpectedEntityRevision == nil && !stripIntent(action) ||
+		request.ExpectedEntityRevision != nil && *request.ExpectedEntityRevision != current {
 		return nil, pb.CommandReply_REVISION_CONFLICT, current, fmt.Errorf("stale strip revision")
 	}
 	s := proto.Clone(old.GetValue().GetStrip()).(*pb.Strip)
@@ -349,4 +353,18 @@ func reorderStrip(state *Aggregate, target *pb.Strip, after *pb.StripRef) ([]*pb
 		return nil, nil
 	}
 	return []*pb.EntityChange{stripChange(state.Entities[target.Callsign], target)}, nil
+}
+
+func stripIntent(action *pb.StripAction) bool {
+	switch action.GetChange().(type) {
+	case *pb.StripAction_SetHeading, *pb.StripAction_SetSquawk,
+		*pb.StripAction_SetRequestedAltitude, *pb.StripAction_SetClearedAltitude,
+		*pb.StripAction_SetBay, *pb.StripAction_SetReleasePoint, *pb.StripAction_SetMarked,
+		*pb.StripAction_SetRunwayCleared, *pb.StripAction_SetRunwayConfirmed,
+		*pb.StripAction_SetStartRequested, *pb.StripAction_SetText,
+		*pb.StripAction_Move, *pb.StripAction_SetOrder, *pb.StripAction_UpdateData:
+		return true
+	default:
+		return false
+	}
 }

@@ -31,6 +31,7 @@ function createMockClient() {
     },
     setReadOnly: vi.fn(),
     reconnect: vi.fn(),
+    restoreOptimisticState: vi.fn(),
   } as unknown as WebSocketClient & {
     _emit: (eventType: string, data: unknown) => void;
   };
@@ -97,7 +98,7 @@ describe("stand store events", () => {
   });
 
   describe("stand assignment update", () => {
-    it("reconnects after a stale stand assignment version", () => {
+    it("restores accepted state after a stale stand assignment version", () => {
       client._emit(EventType.FrontendActionRejected, {
         type: EventType.FrontendActionRejected,
         action: "stand_assignment_manual_request",
@@ -107,7 +108,8 @@ describe("stand store events", () => {
         version: 2,
       });
 
-      expect(client.reconnect).toHaveBeenCalledOnce();
+      expect(client.restoreOptimisticState).toHaveBeenCalledOnce();
+      expect(client.reconnect).not.toHaveBeenCalled();
       expect(store.getState().standActionRejection?.code).toBe("stale_version");
     });
 

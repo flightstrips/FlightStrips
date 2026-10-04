@@ -230,3 +230,24 @@ throttle at JetStream server time while committing a dispatch claim and throttle
 atomically. Every delivery and result uses Task 17's exact-generation and
 UNKNOWN rules. Automatic intent IDs include the accepted observation timestamp;
 recovery cannot recreate an accepted intent after uncertainty.
+
+### Strip intentions and domain rejection recovery
+
+Absolute `StripAction` setters (`set_heading`, `set_squawk`, altitude setters,
+`set_bay`, `set_release_point`, `set_marked`, runway flags, `set_start_requested`,
+`set_text`, `move`, `set_order`, `update_data`) may omit `expected_entity_revision`.
+The session owner applies these intentions in admission order to its current
+accepted state, rechecking controller identity, ownership, validation locks,
+bay rules and the current ordering of the requested predecessor. Only fields
+named by the action change. Background ES/CDM updates and another earlier
+intention from the same browser do not create whole-strip revision conflicts.
+A supplied revision retains strict CAS semantics. State-dependent actions,
+including missed approach, coordination, validation, PDC and tactical actions,
+retain their existing preconditions. Idempotency hashes bind the original
+request, including revision absence; retries cannot change its contents.
+
+A domain rejection is an action result on the existing socket. The browser
+restores optimistic UI state from its current accepted entity and observation
+projection, retaining stream cursors and pending outcome queries. It does not
+reconnect for a domain rejection. Revision gaps and actual transport or
+projection-health failures retain the existing reconnect/resnapshot policy.

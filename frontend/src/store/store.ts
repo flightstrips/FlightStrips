@@ -1602,7 +1602,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     if (data.action.startsWith("stand_assignment_")) {
       store.setState({ standActionRejection: data });
       if (data.code === "stale_version") {
-        wsClient.reconnect();
+        wsClient.restoreOptimisticState();
       }
       return;
     }
@@ -1620,9 +1620,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       // rejection can be handled without reconnecting.
       return;
     }
-    // Most strip actions update the store optimistically. Reconnect to obtain an
-    // authoritative snapshot when the backend rejects one of those mutations.
-    wsClient.reconnect();
+    // Restore the accepted projection without dropping the healthy socket or
+    // losing command/delta ordering after an ordinary domain rejection.
+    wsClient.restoreOptimisticState();
   };
 
   wsClient.on(EventType.FrontendActionRejected, handleActionRejectedEvent);

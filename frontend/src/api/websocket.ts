@@ -262,6 +262,10 @@ export class WebSocketClient {
     });
   }
 
+  restoreOptimisticState(): void {
+    this.projection.restoreOptimisticState();
+  }
+
   reconnect(): void {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);

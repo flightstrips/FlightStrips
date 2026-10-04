@@ -53,6 +53,15 @@ const fixtures: FrontendSendEvent[] = [
 ];
 
 describe("frontend command coverage", () => {
+  it("sends ordinary strip intentions without a whole-strip CAS revision", () => {
+    const revisions = new Map([["strip.SAS123", 8n]]);
+    for (const event of fixtures.filter(event => [ActionType.FrontendMove,
+      ActionType.FrontendUpdateOrder, ActionType.FrontendMarked,
+      ActionType.FrontendUpdateStripData, ActionType.FrontendRunwayClearance].includes(event.type as never))) {
+      expect(encodeAction(event, revisions).expectedEntityRevision).toBeUndefined();
+    }
+    expect(encodeAction({type: ActionType.FrontendMissedApproach, ...flight}, revisions).expectedEntityRevision).toBe(8n);
+  });
   it("uses the CDM revision for READY while CLX keeps the strip revision", () => {
     const revisions = new Map([["strip.SAS123", 8n], ["cdm.SAS123", 3n]]);
     expect(encodeAction({type: ActionType.FrontendCdmReady, ...flight}, revisions).expectedEntityRevision).toBe(3n);

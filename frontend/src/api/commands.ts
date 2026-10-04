@@ -167,7 +167,11 @@ export function encodeAction(event: FrontendSendEvent, revisions: ReadonlyMap<st
       ? revisions.get(`cdm.${event.callsign.toUpperCase()}`) ?? 0n
     : action.action.case === "tactical" ? revisions.get(revisionKey) ?? 0n
     : revisions.get(revisionKey);
-  return {requestId, action, expectedEntityRevision};
+  // Absolute strip intentions are serialized and validated on current owner
+  // state. A browser revision also changes for unrelated ES/CDM updates.
+  const stripIntent = action.action.case === "strip" && action.action.value.change.case !== "missedApproach"
+    && action.action.value.change.case !== "generateSquawk";
+  return {requestId, action, expectedEntityRevision: stripIntent ? undefined : expectedEntityRevision};
 }
 
 function encodeAMAN(event: AMANCommandMessage): EncodedAction {

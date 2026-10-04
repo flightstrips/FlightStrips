@@ -1,7 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {create, fromBinary, toBinary} from "@bufbuild/protobuf";
 import {WebSocketClient} from "./websocket";
-import {ActionType} from "./models";
+import {ActionType, Bay} from "./models";
+import {createWebSocketStore} from "@/store/store";
 import {FrontendFrameSchema} from "./generated/cluster/v1/wire_pb";
 import {CommandOutcome_Status} from "./generated/cluster/v1/storage_pb";
 
@@ -39,6 +40,39 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("durable browser action results", () => {
+  it("restores rejected optimistic edits on the same socket and retains delta cursors", async () => {
+    const client = new WebSocketClient("ws://example/frontEndEvents");
+    const store = createWebSocketStore(client);
+    client.setToken("token");
+    const connected = client.connect();
+    const socket = FakeSocket.sockets[0]; socket.open(); await connected;
+    socket.receive({protocolRevision: 2, frame: {case: "initial", value: {
+      ...initial.frame.value, aggregateRevision: 1n,
+      entities: [{key: "SAS123", revision: 1n, value: {value: {case: "strip", value: {
+        id: 1n, callsign: "SAS123", bay: "CLEARED", sequence: 1000n, pdcState: "NONE",
+      }}}}],
+    }}});
+    store.getState().move("SAS123", Bay.Taxi);
+    expect(store.getState().strips[0].bay).toBe(Bay.Taxi);
+    const command = socket.frames().at(-1)!.frame;
+    if (command.case !== "command") throw new Error("fixture");
+    expect(command.value.expectedEntityRevision).toBeUndefined();
+    socket.receive({protocolRevision: 2, frame: {case: "actionResult", value: {
+      requestId: command.value.requestId, status: CommandOutcome_Status.FAILED,
+      reasonCode: "INVALID_ARGUMENT", detail: "strip is locked by validation",
+    }}});
+    expect(FakeSocket.sockets).toHaveLength(1);
+    expect(client.isConnected()).toBe(true);
+    expect(store.getState().strips[0].bay).toBe(Bay.Cleared);
+    socket.receive({protocolRevision: 2, frame: {case: "delta", value: {
+      aggregate: {target: {case: "session", value: {id: 7}}}, aggregateRevision: 2n,
+      changes: [{key: "SAS123", revision: 2n, operation: {case: "upsert", value: {
+        value: {case: "strip", value: {id: 1n, callsign: "SAS123", bay: "TAXI", sequence: 2000n, pdcState: "NONE"}},
+      }}}],
+    }}});
+    expect(store.getState().strips[0].bay).toBe(Bay.Taxi);
+    client.disconnect();
+  });
   it("queries after a lost reply without resending a missing action or storing private text", async () => {
     const client = new WebSocketClient("ws://example/frontEndEvents");
     client.setToken("token");

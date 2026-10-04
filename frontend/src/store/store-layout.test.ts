@@ -14,6 +14,7 @@ function createMockClient() {
     }),
     send: vi.fn(),
     reconnect: vi.fn(),
+    restoreOptimisticState: vi.fn(),
     setReadOnly: vi.fn(),
     _emit: (eventType: string, data: unknown) => {
       handlers.get(eventType)?.forEach((handler) => handler(data));
@@ -235,6 +236,7 @@ describe("manual companion layout behavior", () => {
       reason: "stale strip version",
     });
 
-    expect(client.reconnect).toHaveBeenCalledOnce();
+    expect(client.restoreOptimisticState).toHaveBeenCalledOnce();
+      expect(client.reconnect).not.toHaveBeenCalled();
   });
 });

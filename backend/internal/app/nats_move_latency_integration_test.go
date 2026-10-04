@@ -57,7 +57,6 @@ func TestBuildNATSStripMoveLatencyDuringPositionTraffic(t *testing.T) {
 		var worst time.Duration
 		for i := 0; i < 10; i++ {
 			state := f.state()
-			rev := state.Indexes[pb.EntityKind_STRIP][strips[0].Callsign].Revision
 			for _, strip := range strips {
 				socket.send(t, &es.Envelope{CommandId: uuid.NewString(), SessionId: f.session, OwnerEpoch: state.Owner.Epoch, MasterEpoch: state.Master.Epoch,
 					Event: &es.Envelope_AircraftPositionUpdate{AircraftPositionUpdate: &es.AircraftPositionUpdateEvent{Callsign: strip.Callsign, Lat: 55.6, Lon: 12.6, Altitude: 100, GroundSpeedKnots: 5}}})
@@ -68,7 +67,7 @@ func TestBuildNATSStripMoveLatencyDuringPositionTraffic(t *testing.T) {
 				bay = "TAXI"
 			}
 			start := time.Now()
-			write(&pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_Command{Command: &pb.FrontendCommand{RequestId: id, ExpectedEntityRevision: &rev,
+			write(&pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_Command{Command: &pb.FrontendCommand{RequestId: id,
 				Action: &pb.ClientCommand{Action: &pb.ClientCommand_Strip{Strip: &pb.StripAction{Callsign: strips[0].Callsign, Change: &pb.StripAction_Move{Move: &pb.MoveStrip{Bay: bay, Clearance: proto.Bool(i == 0), ConfirmedRemoval: proto.Bool(false)}}}}}}}})
 			delivered := false
 			for !delivered {
@@ -89,6 +88,24 @@ func TestBuildNATSStripMoveLatencyDuringPositionTraffic(t *testing.T) {
 			}
 			require.Less(t, elapsed, time.Second, "strip moves must not wait seconds behind observations")
 		}
+		// One browser can issue many commands before receiving any delta.
+		// Every intention must succeed despite the unchanged browser revision.
+		pending := map[string]bool{}
+		for i := 0; i < 20; i++ {
+			id := uuid.NewString()
+			pending[id] = true
+			write(&pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_Command{Command: &pb.FrontendCommand{RequestId: id,
+				Action: &pb.ClientCommand{Action: &pb.ClientCommand_Strip{Strip: &pb.StripAction{Callsign: strips[0].Callsign,
+					Change: &pb.StripAction_SetMarked{SetMarked: &pb.SetMarked{Marked: i%2 == 1}}}}}}}})
+		}
+		for len(pending) > 0 {
+			frame := read()
+			if result := frame.GetActionResult(); result != nil && pending[result.RequestId] {
+				require.Equal(t, pb.CommandOutcome_SUCCEEDED, result.Status, "%s: %s", result.ReasonCode, result.Detail)
+				delete(pending, result.RequestId)
+			}
+		}
+
 		t.Logf("node=%d owner=%d 300 strips, position batches: worst move delivery %s", node, owner, worst)
 	}
 }

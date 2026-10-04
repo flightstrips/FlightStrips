@@ -97,6 +97,7 @@ export class FrontendProjection {
   private sessionID = 0;
   private airport = "";
   private controllerPosition = "";
+  private initialMetadata?: FrontendInitial;
 
   constructor(private emit: Emit) {}
 
@@ -143,6 +144,16 @@ export class FrontendProjection {
         position.observation.case === "position" ? position.observation.value.altitudeFeet : null);
       for (const client of value.clients) this.presence.set(client.connectionId, {value: client, seen: Date.now()});
     }
+    // Keep presentation metadata, without retaining an obsolete entity/feed snapshot.
+    this.initialMetadata = {...value, entities: [], taggedObservations: [], positions: [], clients: []};
+    this.renderInitial(value);
+  }
+
+  restoreOptimisticState(): void {
+    if (this.initialMetadata) this.renderInitial(this.initialMetadata);
+  }
+
+  private renderInitial(value: FrontendInitial): void {
     const all = [...this.entities.values()];
     const records = (kind: EntityRecord["value"]["case"]) => all.filter(e => e.value?.value.case === kind).map(e => e.value!.value);
     const session = records("session")[0];

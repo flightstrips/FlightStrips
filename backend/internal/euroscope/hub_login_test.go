@@ -104,3 +104,44 @@ func TestGetClientLocalIP_ReturnsCidScopedValue(t *testing.T) {
 	assert.Empty(t, hub.GetClientLocalIP(42, "7654321"))
 	assert.Empty(t, hub.GetClientLocalIP(7, "1234567"))
 }
+
+func TestHandleLogin_PlaybackIdentitySurvivesHubRestart(t *testing.T) {
+	controllerRepo := &testutil.MockControllerRepository{
+		GetFn: func(_ context.Context, _ string, _ int32) (*internalModels.Controller, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, _ *internalModels.Controller) error { return nil },
+	}
+	sessions := map[string]int32{}
+	server := &testutil.MockServer{
+		ControllerRepoVal: controllerRepo,
+		GetOrCreateSessionFn: func(airport, name string) (shared.Session, error) {
+			require.Equal(t, "EKCH", airport)
+			id, ok := sessions[name]
+			if !ok {
+				id = int32(len(sessions) + 1)
+				sessions[name] = id
+			}
+			return shared.Session{Id: id, Airport: airport, Name: name}, nil
+		},
+	}
+	user := shared.NewAuthenticatedUser("1234567", 0, nil)
+	for _, name := range []string{
+		"PLAYBACK_0123456789ABCDEF0123456789ABCDEF",
+		"PLAYBACK_FEDCBA9876543210FEDCBA9876543210",
+	} {
+		payload, err := proto.Marshal(&euroscopeEvents.LoginEvent{
+			Connection: name, Airport: "EKCH", Callsign: "EKCH_GND", Position: "121.500",
+		})
+		require.NoError(t, err)
+		// A new hub has no memory of the previous login, as after a restart.
+		for attempt := 0; attempt < 2; attempt++ {
+			hub := &Hub{server: server}
+			event, id, err := hub.handleLogin(payload, user)
+			require.NoError(t, err)
+			assert.Equal(t, name, event.Connection)
+			assert.Equal(t, sessions[name], id)
+		}
+	}
+	assert.Len(t, sessions, 2)
+}

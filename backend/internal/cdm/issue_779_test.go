@@ -15,26 +15,85 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLogonTobtPreservesFiledEobtAndConfirmedEstimate(t *testing.T) {
+func TestLogonTobtAlignsEobtAndPreservesConfirmedEstimate(t *testing.T) {
 	now := time.Date(2026, 9, 26, 23, 50, 0, 0, time.UTC)
 	action := &ActionService{}
 	far := action.PrepareEuroscopeLogonSync(&models.CdmData{}, "0031", now)
 	require.NotNil(t, far.Eobt)
-	assert.Equal(t, "0031", *far.Eobt)
+	assert.Equal(t, "0020", *far.Eobt)
 	assert.Equal(t, "0020", *far.Tobt)
 	assert.True(t, far.TobtAutoAdjusted)
+	result := Calculate(CalcInput{Tobt: *far.Tobt, Eobt: *far.Eobt, TaxiMin: 10}, nil, nil, now)
+	assertClockResult(t, result, "002000", "003000")
 
 	boundary := action.PrepareEuroscopeLogonSync(&models.CdmData{}, "0030", now)
 	assert.Equal(t, "0030", *boundary.Tobt)
+	assert.Equal(t, "0030", *boundary.Eobt)
 	assert.False(t, boundary.TobtAutoAdjusted)
 
 	confirmed := "0110"
-	source := models.TobtConfirmedByPilot
-	manual := action.PrepareEuroscopeLogonSync(&models.CdmData{
-		Tobt: &confirmed, TobtConfirmedBy: &source, TobtManuallyConfirmed: true,
-	}, "0031", now)
-	assert.Equal(t, confirmed, *manual.Tobt)
-	assert.Equal(t, "0031", *manual.Eobt)
+	for _, source := range []string{models.TobtConfirmedByPilot, models.TobtConfirmedByATC} {
+		t.Run(source, func(t *testing.T) {
+			manual := action.PrepareEuroscopeLogonSync(&models.CdmData{
+				Tobt: &confirmed, TobtConfirmedBy: &source, TobtManuallyConfirmed: true,
+			}, "0031", now)
+			assert.Equal(t, confirmed, *manual.Tobt)
+			assert.Equal(t, "0031", *manual.Eobt)
+		})
+	}
+}
+
+func TestClearanceTobtAlignsEobtAfterPersistenceAndPreservesConfirmation(t *testing.T) {
+	for _, source := range []string{"", models.TobtConfirmedByPilot, models.TobtConfirmedByATC} {
+		t.Run("confirmation="+source, func(t *testing.T) {
+			future := time.Now().UTC().Add(40 * time.Minute).Format("1504")
+			data := &models.CdmData{Tobt: &future, Eobt: &future}
+			if source != "" {
+				data.TobtConfirmedBy = &source
+				data.TobtManuallyConfirmed = true
+			}
+			persisted := false
+			repo := &testutil.MockStripRepository{
+				GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+					return &models.Strip{Callsign: "SAS779", Origin: "EKCH"}, nil
+				},
+				GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) {
+					return data.Clone(), nil
+				},
+				SetCdmDataFn: func(_ context.Context, _ int32, _ string, updated *models.CdmData) (int64, error) {
+					data = updated.Clone()
+					persisted = true
+					return 1, nil
+				},
+			}
+			hub := &testutil.MockEuroscopeHub{
+				GetMasterCallsignFn: func(int32) string {
+					assert.True(t, persisted, "EOBT must be sent after persistence")
+					return "EKCH_DEL"
+				},
+			}
+			controllers := &testutil.MockControllerRepository{
+				GetByCallsignFn: func(context.Context, int32, string) (*models.Controller, error) {
+					return &models.Controller{Cid: stringPtr("12345")}, nil
+				},
+			}
+			service := newTestCdmService(newTestClientWithAirportMasters(nil), repo, &testutil.MockSessionRepository{}, controllers)
+			service.client.isValid = false
+			setTestCdmEuroscope(service, hub)
+			require.NoError(t, service.HandleClearanceTobt(context.Background(), 779, "SAS779"))
+			if source != "" {
+				assert.False(t, persisted)
+				assert.Empty(t, hub.Eobts)
+				assert.Equal(t, future, *data.Tobt)
+				return
+			}
+			require.True(t, persisted)
+			assert.Equal(t, *data.Tobt, *data.Eobt)
+			assert.InDelta(t, 15, minutesBetween(time.Now().UTC().Format("1504"), *data.Tobt), 1)
+			require.Len(t, hub.Eobts, 1)
+			assert.Equal(t, *data.Eobt, hub.Eobts[0].Eobt)
+		})
+	}
 }
 
 func TestTakeoffClearanceAtotIsSentOnceAfterPersistence(t *testing.T) {

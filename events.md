@@ -19,7 +19,10 @@
 
 Sent by: EuroScope
 
-`connection` can be `LIVE`, `SWEATBOX` or `PLAYBACK`
+`connection` can be `LIVE`, `SWEATBOX` or `PLAYBACK_<id>`. The ES plugin creates
+a unique ID for each playback and keeps it until playback stops, including across
+backend reconnects. The backend uses this name to resume the persisted session.
+Plain `PLAYBACK` from older plugins still creates a new session on each login.
 
 ```json
 {

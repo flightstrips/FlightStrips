@@ -226,6 +226,78 @@ func TestDirectPushbackEntryPointsValidateBeforeMutation(t *testing.T) {
 	}
 }
 
+func TestEuroscopePushbackAcceptsStateOutsideTsatWindow(t *testing.T) {
+	for _, fullSync := range []bool{false, true} {
+		name := "ground state event"
+		if fullSync {
+			name = "full strip update"
+		}
+		t.Run(name, func(t *testing.T) {
+			now := time.Now().UTC()
+			tobt, tsat := now.Format("1504"), now.Add(20*time.Minute).Format("1504")
+			state := euroscope.GroundStateStartup
+			strip := &models.Strip{Callsign: "SAS779", Origin: "EKCH", Destination: "ENGM",
+				Cleared: true, Bay: shared.BAY_CLEARED, State: &state,
+				CdmData: &models.CdmData{Tobt: &tobt, Tsat: &tsat}}
+			writes := 0
+			repo := &testutil.MockStripRepository{
+				GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil },
+				UpdateFn: func(_ context.Context, updated *models.Strip) (int64, error) {
+					writes++
+					strip = updated
+					return 1, nil
+				},
+				UpdateGroundStateFn: func(_ context.Context, _ int32, _ string, state *string, _ string, _ *int32) (int64, error) {
+					writes++
+					strip.State = state
+					return 1, nil
+				},
+				UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+					strip.Bay = bay
+					return 1, nil
+				},
+			}
+			svc, _, _ := newSyncTestFixture(t, strip, repo)
+			hub := &testutil.MockEuroscopeHub{}
+			svc.esCommander = hub
+			svc.validationStore = &validationStoreFake{setValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+				t.Fatal("EuroScope push must not activate a blocking TSAT warning")
+				return nil
+			}}
+			cdm := &spyStripCdmService{}
+			svc.cdmService = pushbackCdmStub{
+				StripCdmService: cdm,
+				prepare: func(context.Context, int32, string) (string, string, bool, error) {
+					t.Fatal("EuroScope push must not require TSAT preparation")
+					return "", "", false, nil
+				},
+				readCtot: func(context.Context, int32, string) (string, error) {
+					t.Fatal("EuroScope push must not wait for remote CTOT validation")
+					return "", nil
+				},
+			}
+			ctx := context.Background()
+			var err error
+			if fullSync {
+				err = svc.syncEuroscopeStrip(ctx, 779, "1234567", euroscope.Strip{
+					Callsign: strip.Callsign, Origin: strip.Origin, Destination: strip.Destination,
+					Cleared: true, GroundState: euroscope.GroundStatePush,
+				}, "EKCH")
+			} else {
+				err = svc.UpdateGroundState(ctx, 779, strip.Callsign, euroscope.GroundStatePush, "EKCH")
+			}
+			require.NoError(t, err)
+			assert.Positive(t, writes)
+			assert.Equal(t, shared.BAY_PUSH, strip.Bay)
+			assert.Equal(t, euroscope.GroundStatePush, *strip.State)
+			assert.Nil(t, strip.ValidationStatus)
+			assert.Empty(t, hub.GroundStates)
+			assert.True(t, cdm.called)
+			assert.Equal(t, euroscope.GroundStatePush, cdm.groundState)
+		})
+	}
+}
+
 func TestDirectBayPushbackRecordsAobt(t *testing.T) {
 	tobt, tsat := "1200", "1202"
 	strip := &models.Strip{Callsign: "SAS779", Origin: "EKCH", Bay: shared.BAY_CLEARED,

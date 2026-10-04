@@ -1,5 +1,7 @@
 #include "WebSocketService.h"
 
+#include <random>
+
 #include "ExceptionHandling.h"
 #include "Events.h"
 #include "Logger.hpp"
@@ -57,6 +59,7 @@ namespace FlightStrips::websocket {
     void WebSocketService::OnTimer(int time) {
         if (!enabled) return;
         const auto &state = m_plugin->GetConnectionState();
+        UpdatePlaybackSession(state.connection_type);
         const auto now = std::chrono::steady_clock::now();
         UpdateOnlineState(state.connection_type != CONNECTION_TYPE_NO, now);
 
@@ -127,8 +130,8 @@ namespace FlightStrips::websocket {
             return;
         }
 
-        if (!session_name.empty() && session_name != GetEffectiveSessionName(state)) {
-            Logger::Info("Session mode changed: '{}' -> '{}', reconnecting", session_name, GetEffectiveSessionName(state));
+        if (!session_name.empty() && session_name != GetLoginSessionName(state)) {
+            Logger::Info("Session mode changed: '{}' -> '{}', reconnecting", session_name, GetLoginSessionName(state));
             Reconnect();
             return;
         }
@@ -321,10 +324,37 @@ namespace FlightStrips::websocket {
         return connect_at;
     }
 
+    void WebSocketService::UpdatePlaybackSession(const ConnectionType connectionType) {
+        if (connectionType != CONNECTION_TYPE_PLAYBACK) {
+            playback_session_name_.clear();
+            return;
+        }
+        if (!playback_session_name_.empty()) return;
+
+        // A fresh 128-bit identifier for each playback. Never reset it on a
+        // WebSocket reconnect, frequency change, or backend restart.
+        std::random_device random;
+        std::uniform_int_distribution<int> byte(0, 255);
+        constexpr char hex[] = "0123456789ABCDEF";
+        std::string name = "PLAYBACK_";
+        for (int i = 0; i < 16; ++i) {
+            const auto value = byte(random);
+            name += hex[value >> 4];
+            name += hex[value & 0xF];
+        }
+        playback_session_name_ = std::move(name);
+    }
+
+    std::string WebSocketService::GetLoginSessionName(const ConnectionState& state) const {
+        return state.connection_type == CONNECTION_TYPE_PLAYBACK
+            ? playback_session_name_ : GetEffectiveSessionName(state);
+    }
+
     void WebSocketService::SendLoginEvent() {
         const auto& state = m_plugin->GetConnectionState();
+        UpdatePlaybackSession(state.connection_type);
         primary = state.primary_frequency;
-        session_name = GetEffectiveSessionName(state);
+        session_name = GetLoginSessionName(state);
         observer = state.observer;
 
         const auto login = LoginEvent(state.relevant_airport, session_name, state.primary_frequency, state.callsign,

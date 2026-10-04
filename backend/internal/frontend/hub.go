@@ -354,10 +354,9 @@ func (hub *Hub) newStripUpdateService() frontendStripUpdateUseCase {
 }
 
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser, authenticationEvent events.AuthenticationEvent) (*Client, error) {
-	controllerRepo := hub.server.GetControllerRepository()
 	sessionRepo := hub.server.GetSessionRepository()
 
-	controller, err := controllerRepo.GetByCid(context.Background(), user.GetCid())
+	controller, err := hub.frontendController(user.GetCid())
 
 	var session int32
 	var sessionName, position, airport, callsign string
@@ -430,6 +429,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 }
 
 func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
+	client.initialPending = true
 	builder := hub.getSnapshotBuilder()
 
 	event, cachedAtis, err := builder.Build(ctx, InitialSnapshotRequest{
@@ -446,7 +446,10 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 	}
 	event.Capabilities.AMANFMP = hub.hasAMANFMPAuthority(client)
 
-	client.Enqueue(event)
+	if !client.Enqueue(event) {
+		return
+	}
+	client.initialPending = false
 	if hub.amanStateProvider != nil {
 		amanState, stateErr := hub.amanStateProvider.CurrentAMANState(ctx, client.airport)
 		if stateErr != nil {
@@ -654,13 +657,15 @@ func (hub *Hub) CidDisconnect(cid string) {
 }
 
 func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
-	controllerRepo := hub.server.GetControllerRepository()
 	sessionRepo := hub.server.GetSessionRepository()
 
 	var controller *internalModels.Controller
 	var dbSession *internalModels.Session
 
-	if loadedController, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
+	if loadedController, err := hub.frontendController(msg.cid); err == nil {
+		if loadedController.Session != msg.session {
+			return nil // ignore a notification from an older ES connection
+		}
 		controller = loadedController
 		if loadedSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
 			dbSession = loadedSession
@@ -744,7 +749,7 @@ func (hub *Hub) associateWaitingClientIfSessionReady(client *Client) bool {
 		return false
 	}
 
-	controller, err := hub.server.GetControllerRepository().GetByCid(context.Background(), client.user.GetCid())
+	controller, err := hub.frontendController(client.user.GetCid())
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			slog.Error("Failed to recheck controller for waiting frontend client",
@@ -768,14 +773,57 @@ func (hub *Hub) associateWaitingClientIfSessionReady(client *Client) bool {
 	return hub.associateClientWithSession(client, controller.Session, controller, dbSession, esHub.IsObserverCid(client.user.GetCid()))
 }
 
+type liveFrontendControllerSource interface {
+	GetFrontendController(string) *internalModels.Controller
+}
+
+func (hub *Hub) frontendController(cid string) (*internalModels.Controller, error) {
+	if source, ok := hub.server.GetEuroscopeHub().(liveFrontendControllerSource); ok {
+		if controller := source.GetFrontendController(cid); controller != nil {
+			return controller, nil
+		}
+		return nil, pgx.ErrNoRows
+	}
+	return hub.server.GetControllerRepository().GetByCid(context.Background(), cid)
+}
+
+// Recover missed online notifications and transient snapshot failures without
+// requiring the user to reload or reconnect EuroScope.
+func (hub *Hub) retryPendingInitializations(ctx context.Context) {
+	for client := range hub.clients {
+		select {
+		case <-client.closed:
+			continue
+		default:
+		}
+		if client.session == WaitingForEuroscopeConnectionSessionId {
+			if !hub.associateWaitingClientIfSessionReady(client) {
+				continue
+			}
+			client.initialPending = true
+		}
+		if client.initialPending {
+			hub.sendInitialEvent(ctx, client)
+		}
+	}
+}
+
 func (hub *Hub) associateClientWithSession(client *Client, session int32, controller *internalModels.Controller, dbSession *internalModels.Session, readOnly bool) bool {
 	if client == nil || controller == nil || dbSession == nil {
 		return false
+	}
+	if source, ok := hub.server.GetEuroscopeHub().(liveFrontendControllerSource); ok {
+		liveController := source.GetFrontendController(client.user.GetCid())
+		if liveController == nil || liveController.Session != session {
+			return false
+		}
+		controller = liveController
 	}
 	oldSession := client.session
 	oldSessionName := client.sessionName
 	oldAirport := client.airport
 	oldCallsign := client.callsign
+	oldPosition := client.position
 	oldReadOnly := client.readOnly
 	oldAMANFMPAuthority := hub.hasAMANFMPAuthority(client)
 	wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
@@ -798,7 +846,9 @@ func (hub *Hub) associateClientWithSession(client *Client, session int32, contro
 		metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 	}
 
-	return wasWaiting || oldReadOnly != client.readOnly || oldAMANFMPAuthority != hub.hasAMANFMPAuthority(client)
+	return wasWaiting || oldSession != session || oldAirport != client.airport ||
+		oldCallsign != client.callsign || oldPosition != client.position ||
+		oldReadOnly != client.readOnly || oldAMANFMPAuthority != hub.hasAMANFMPAuthority(client)
 }
 
 func (hub *Hub) handleSessionSynced(session int32) {
@@ -843,6 +893,7 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 				metrics.ConnectionOpened(context.Background(), "", "", "frontend", "", client.version)
 			}
 			client.session = WaitingForEuroscopeConnectionSessionId
+			client.initialPending = false
 			client.position = WaitingForEuroscopeConnectionPosition
 			client.setIdentity("", WaitingForEuroscopeConnectionAirport, WaitingForEuroscopeConnectionCallsign)
 			client.Enqueue(frontend.DisconnectEvent{ReadOnly: readOnly})
@@ -1709,10 +1760,14 @@ func (hub *Hub) cachedAtisEvent(session int32) *frontend.AtisUpdateEvent {
 }
 
 func (hub *Hub) Run(ctx context.Context) {
+	retryTicker := time.NewTicker(5 * time.Second)
+	defer retryTicker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-retryTicker.C:
+			hub.retryPendingInitializations(ctx)
 		case client := <-hub.register:
 			hub.clients[client] = true
 			hub.OnRegister(client)

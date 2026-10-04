@@ -248,13 +248,8 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 		return nil
 	}
 	if groundState == euroscope.GroundStatePush && existingStrip.Bay != shared.BAY_PUSH && strings.EqualFold(existingStrip.Origin, airport) {
-		owner := ""
-		if existingStrip.Owner != nil {
-			owner = *existingStrip.Owner
-		}
-		if err := s.validatePushbackTiming(ctx, session, existingStrip, owner); err != nil {
-			return err
-		}
+		// EuroScope reports a push already initiated by the controller. Accept
+		// the observation without applying the FlightStrips TSAT action gate.
 		ctx = withValidatedPushback(ctx, session, callsign)
 	}
 

@@ -1283,6 +1283,22 @@ func (hub *Hub) IsSessionSynced(sessionId int32) bool {
 	return ok
 }
 
+// GetFrontendController resolves a CID from the live connections rather than
+// historical controller rows, which can contain the same CID in several sessions.
+func (hub *Hub) GetFrontendController(cid string) *internalModels.Controller {
+	for _, client := range hub.clientsSnapshot() {
+		if client.GetCid() != cid {
+			continue
+		}
+		identity := client.identitySnapshot()
+		return &internalModels.Controller{
+			Session: client.session, Callsign: identity.callsign,
+			Position: identity.position, Observer: identity.observer, Cid: &cid,
+		}
+	}
+	return nil
+}
+
 // IsAircraftDisconnectPending reports whether the latest master sync omitted
 // a strip and its disconnect grace period has not completed yet.
 func (hub *Hub) IsAircraftDisconnectPending(session int32, callsign string) bool {

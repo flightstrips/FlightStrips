@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -38,11 +39,14 @@ namespace FlightStrips::aman {
 
         void OnMessages(const std::vector<std::string>& messages) override;
         void Online() override;
+        void SessionChanged(const std::string& identity) override;
         [[nodiscard]] std::shared_ptr<const GainLossSnapshot> Snapshot() const;
         [[nodiscard]] std::optional<GainLossValue> FindByCallsign(const std::string& callsign) const;
 
     private:
         std::atomic<std::shared_ptr<const GainLossSnapshot>> snapshot_;
+        std::string sessionIdentity_;
+        std::mutex sessionMutex_;
 
         static std::string NormalizeCallsign(std::string callsign);
         static std::shared_ptr<const GainLossSnapshot> Parse(

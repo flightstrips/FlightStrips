@@ -93,12 +93,12 @@ func TestEuroScopeStripObserverRetractionReachesOperationalService(t *testing.T)
 	require.NoError(t, err)
 	strip := &models.Strip{Session: 12, Callsign: "OLD123", Origin: "ESSA", Destination: "EKCH"}
 	require.NoError(t, observer.ObserveEuroScopeStrips(context.Background(), 12, []shared.EuroScopeStripObservation{{Strip: strip, ObservedAt: now}}))
-	require.False(t, service.observations("EKCH")["OLD123"].Missing)
+	require.False(t, service.observations("12/EKCH")["OLD123"].Missing)
 	require.Equal(t, aman.HealthUnavailable, service.health.euroScope.Status, "strip facts alone are not surveillance readiness")
 
 	now = now.Add(time.Minute)
 	require.NoError(t, observer.ObserveEuroScopeStrips(context.Background(), 12, nil))
-	require.True(t, service.observations("EKCH")["OLD123"].Missing)
+	require.True(t, service.observations("12/EKCH")["OLD123"].Missing)
 }
 
 func TestEuroScopeStripObserverReplacementRetractsRemovedAndRenamedCallsigns(t *testing.T) {
@@ -139,18 +139,17 @@ func TestEuroScopeStripObserverKeepsReplacementSetsPerSession(t *testing.T) {
 
 	now = now.Add(time.Minute)
 	require.NoError(t, observer.ObserveEuroScopeStrips(context.Background(), 1, nil))
-	require.Len(t, sink.observations, 4, "the removed owner must be retracted before the surviving session is restored")
+	require.Len(t, sink.observations, 3, "removal stays inside its own session")
 	require.True(t, sink.observations[2].Missing)
-	require.False(t, sink.observations[3].Missing)
 	require.Len(t, observer.known[2], 1, "replacing one session must not retract another session")
 
 	require.NoError(t, observer.ObserveEuroScopeStrips(context.Background(), 2, nil))
-	require.Len(t, sink.observations, 5)
-	require.Equal(t, aman.Callsign("SAS123"), sink.observations[4].Callsign)
-	require.True(t, sink.observations[4].Missing)
+	require.Len(t, sink.observations, 4)
+	require.Equal(t, aman.Callsign("SAS123"), sink.observations[3].Callsign)
+	require.True(t, sink.observations[3].Missing)
 }
 
-func TestEuroScopeStripObserverRestoresSurvivingSessionFacts(t *testing.T) {
+func TestEuroScopeStripObserverLeavesOtherSessionFactsUntouched(t *testing.T) {
 	now := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
 	sink := &euroScopeObservationSink{}
 	observer, err := NewEuroScopeStripObserver(EuroScopeStripObserverDependencies{Sink: sink, Now: func() time.Time { return now }})
@@ -164,11 +163,10 @@ func TestEuroScopeStripObserverRestoresSurvivingSessionFacts(t *testing.T) {
 
 	now = now.Add(time.Minute)
 	require.NoError(t, observer.ObserveEuroScopeStrips(context.Background(), 2, nil))
-	require.Len(t, sink.observations, 4)
+	require.Len(t, sink.observations, 3)
 	require.True(t, sink.observations[2].Missing)
-	require.Equal(t, survivingRoute, *sink.observations[3].FiledRoute)
-	require.Equal(t, "OLPIB", sink.observations[3].HoldingClearance.Hold)
-	require.False(t, sink.observations[3].Missing)
+	require.Equal(t, survivingRoute, *observer.known[1]["SAS123"].FiledRoute)
+	require.Equal(t, "OLPIB", observer.known[1]["SAS123"].HoldingClearance.Hold)
 }
 
 func TestEuroScopeStripObserverClearsRemovedSessionSurveillance(t *testing.T) {
@@ -186,17 +184,18 @@ func TestEuroScopeStripObserverClearsRemovedSessionSurveillance(t *testing.T) {
 	now = now.Add(time.Minute)
 	require.NoError(t, observer.ObserveEuroScopeStrips(context.Background(), 2, []shared.EuroScopeStripObservation{{Strip: removed, ObservedAt: now}}))
 	altitude := 7000
-	require.NoError(t, service.Observe(context.Background(), aman.FlightObservation{
+	require.NoError(t, service.Observe(aman.WithSession(context.Background(), 2), aman.FlightObservation{
 		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", Provider: aman.ObservationProviderEuroScope,
 		SurveillanceSource: aman.SurveillanceSourceEuroScope,
 		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: 55.5, LongitudeDegrees: 12.5, AltitudeFeet: &altitude, ObservedAt: &now},
 		ReconciledAt:       now, SourceStatus: aman.DataFresh,
 	}))
-	require.NotNil(t, service.observations("EKCH")["SAS123"].Surveillance)
+	require.NotNil(t, service.observations("2/EKCH")["SAS123"].Surveillance)
 
 	now = now.Add(time.Minute)
 	require.NoError(t, observer.ObserveEuroScopeStrips(context.Background(), 2, nil))
-	restored := service.observations("EKCH")["SAS123"]
+	require.True(t, service.observations("2/EKCH")["SAS123"].Missing)
+	restored := service.observations("1/EKCH")["SAS123"]
 	require.Nil(t, restored.Surveillance, "surveillance from the removed session must not leak into the survivor")
 	require.Equal(t, survivingRoute, *restored.FiledRoute)
 	require.Equal(t, "OLPIB", restored.HoldingClearance.Hold)
@@ -259,12 +258,11 @@ func TestEuroScopeStripObserverRemovesIndividualDisconnectPerSession(t *testing.
 	require.NoError(t, observer.ObserveEuroScopeStrips(context.Background(), 2, []shared.EuroScopeStripObservation{{Strip: strip(2), ObservedAt: now}}))
 
 	require.NoError(t, observer.RemoveEuroScopeStrip(context.Background(), 1, "sas123"))
-	require.Len(t, sink.observations, 4, "the other session is republished as the active owner")
+	require.Len(t, sink.observations, 3, "no observations are copied between sessions")
 	require.True(t, sink.observations[2].Missing)
-	require.False(t, sink.observations[3].Missing)
 	now = now.Add(time.Minute)
 	require.NoError(t, observer.RemoveEuroScopeStrip(context.Background(), 2, "SAS123"))
-	require.Len(t, sink.observations, 5)
-	require.True(t, sink.observations[4].Missing)
-	require.Equal(t, now, sink.observations[4].ReconciledAt)
+	require.Len(t, sink.observations, 4)
+	require.True(t, sink.observations[3].Missing)
+	require.Equal(t, now, sink.observations[3].ReconciledAt)
 }

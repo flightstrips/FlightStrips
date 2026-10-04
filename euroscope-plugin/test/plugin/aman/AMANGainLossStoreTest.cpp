@@ -50,6 +50,20 @@ TEST(AMANGainLossStoreTest, ReadsProtobufReplacement) {
     EXPECT_TRUE(store.FindByCallsign("SAS123")->insideTMA);
 }
 
+TEST(AMANGainLossStoreTest, KeepsSameSessionReconnectButClearsDifferentSession) {
+    AMANGainLossStore store;
+    store.SessionChanged("EKCH/SWEATBOX-A");
+    store.OnMessages({Bytes(Event(42))});
+    store.SessionChanged("EKCH/SWEATBOX-A");
+    store.Online();
+    ASSERT_TRUE(store.FindByCallsign("SAS123").has_value());
+    store.SessionChanged("EKCH/SWEATBOX-B");
+    EXPECT_FALSE(store.FindByCallsign("SAS123").has_value());
+    store.OnMessages({Bytes(Event(1, "NEW123"))});
+    EXPECT_TRUE(store.FindByCallsign("NEW123").has_value());
+    EXPECT_FALSE(store.FindByCallsign("SAS123").has_value());
+}
+
 TEST(AMANGainLossStoreTest, MatchesCallsignAcrossReconnectAndBackendIdentityChanges) {
     AMANGainLossStore store;
     store.OnMessages({Bytes(Event(1))});

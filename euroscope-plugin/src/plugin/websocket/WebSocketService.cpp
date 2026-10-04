@@ -71,6 +71,11 @@ namespace FlightStrips::websocket {
                           || m_authentication_service->GetAuthenticationState() == authentication::REFRESH;
         const bool should_connect = airport_ok && conn_ok && auth_ok && freq_ok;
 
+        // Clear a different exercise's guidance even while waiting to connect.
+        if (airport_ok && conn_ok) {
+            m_connection_handlers->OnSessionChanged(state.relevant_airport + "/" + GetLoginSessionName(state));
+        }
+
         if (!should_connect && IsConnected()) {
             Logger::Warning("Disconnecting from server — reason: freq_ok={} (freq='{}') airport_ok={} (airport='{}') conn_ok={} (type={}) auth_ok={}",
                 freq_ok, state.primary_frequency,
@@ -131,6 +136,7 @@ namespace FlightStrips::websocket {
         }
 
         if (!session_name.empty() && session_name != GetLoginSessionName(state)) {
+			m_connection_handlers->OnSessionChanged(state.relevant_airport + "/" + GetLoginSessionName(state));
             Logger::Info("Session mode changed: '{}' -> '{}', reconnecting", session_name, GetLoginSessionName(state));
             Reconnect();
             return;
@@ -355,6 +361,7 @@ namespace FlightStrips::websocket {
         UpdatePlaybackSession(state.connection_type);
         primary = state.primary_frequency;
         session_name = GetLoginSessionName(state);
+		m_connection_handlers->OnSessionChanged(state.relevant_airport + "/" + session_name);
         observer = state.observer;
 
         const auto login = LoginEvent(state.relevant_airport, session_name, state.primary_frequency, state.callsign,

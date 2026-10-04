@@ -158,6 +158,7 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 	departureMismatch, arrivalMismatch, localIP := b.loadClientRuntimeState(request)
 
 	event := frontendEvents.InitialEvent{
+		SessionID:      request.SessionID,
 		Contsollers:    controllerModels,
 		Strips:         stripModels,
 		TacticalStrips: tacticalStripModels,

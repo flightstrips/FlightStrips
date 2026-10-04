@@ -130,7 +130,7 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 	if err := observation.Validate(); err != nil {
 		return fmt.Errorf("map EuroScope AMAN observation: %w", err)
 	}
-	if err := o.sink.Observe(ctx, observation); err != nil {
+	if err := o.sink.Observe(aman.WithSession(ctx, session), observation); err != nil {
 		return fmt.Errorf("publish EuroScope AMAN observation: %w", err)
 	}
 	return nil

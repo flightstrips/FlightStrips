@@ -3,7 +3,7 @@ import type {ReactNode} from "react";
 import type {AMANFlight} from "@/api/aman";
 import {cn} from "@/lib/utils";
 import {freezePresentation} from "./freeze-presentation";
-import {formatGainLoss, type AMANGainLossPresentationContext} from "./presentation";
+import {formatAMANTime, formatGainLoss, type AMANGainLossPresentationContext} from "./presentation";
 
 export type AMANAircraftTargetOptionalField =
   | "feeder-fix-eta"
@@ -20,7 +20,7 @@ export interface AMANAircraftTargetField {
 }
 
 export interface AMANAircraftTargetProps {
-  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "runway_gap_exception">;
+  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "runway_gap_exception"> & Partial<Pick<AMANFlight, "approach_release_time" | "expected_holding_seconds">>;
   guidance: Omit<AMANGainLossPresentationContext, "fresh">;
   selected?: boolean;
   disabled?: boolean;
@@ -116,6 +116,8 @@ export function AMANAircraftTarget({
       {delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{delay}</span>}
       <span className={cn("flex items-center truncate", compact ? "w-14 min-w-0 px-1.5" : "min-w-20 px-2", lifecycle.tone)}>{flight.callsign}</span>
       {!delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{delay}</span>}
+      {flight.approach_release_time && <span className="flex shrink-0 items-center px-1" title={retainedGuidance ? "Last known estimated approach time (UTC)" : "Estimated approach time (UTC)"}>EAT {formatAMANTime(flight.approach_release_time)}</span>}
+      {flight.approach_release_time && flight.expected_holding_seconds != null && <span className="flex shrink-0 items-center px-1" title={retainedGuidance ? "Last known estimated holding duration" : "Estimated holding duration"}>HOLD {Math.ceil(flight.expected_holding_seconds / 60)}m</span>}
       <TargetFields fields={trailingFields} />
       <span className="sr-only">{lifecycle.label}</span>
       {flight.runway_gap_exception && <span className="flex items-center border-l border-dashed border-amber-200 bg-amber-950 px-1 text-[9px] text-amber-100" title={`Audited manual placement inside GAP ${flight.runway_gap_exception.gap_id}`}>GAP EXCEPTION</span>}

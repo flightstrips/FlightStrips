@@ -85,6 +85,7 @@ func New(deps Dependencies) (*Service, error) {
 }
 
 func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, callsign, controllerCallsign string, directToFix *string, observedAt time.Time) error {
+	ctx = aman.WithSession(ctx, session)
 	report := Report{Session: session, Airport: airport, Callsign: callsign, ControllerCallsign: controllerCallsign, DirectToFix: directToFix, ObservedAt: observedAt}
 	report.Airport = strings.ToUpper(strings.TrimSpace(report.Airport))
 	report.Callsign = strings.ToUpper(strings.TrimSpace(report.Callsign))
@@ -231,6 +232,7 @@ func (s *Service) correlateDirect(ctx context.Context, airport string, callsign 
 // ReportSpeed correlates a controller-assigned EuroScope speed without using
 // agreement as, or introducing the value into, a prediction input.
 func (s *Service) ReportSpeed(ctx context.Context, session int32, airport, callsign, controllerCallsign, value string, observedAt time.Time) error {
+	ctx = aman.WithSession(ctx, session)
 	report := Report{Session: session, Airport: strings.ToUpper(strings.TrimSpace(airport)), Callsign: strings.ToUpper(strings.TrimSpace(callsign)),
 		ControllerCallsign: strings.ToUpper(strings.TrimSpace(controllerCallsign)), ObservedAt: observedAt}
 	value = strings.ToUpper(strings.TrimSpace(value))

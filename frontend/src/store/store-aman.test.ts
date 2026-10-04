@@ -71,6 +71,34 @@ describe("AMAN command store", () => {
     client._emit(EventType.FrontendAMANState, replacement(7));
   });
 
+  it("clears guidance and pending commands when the server changes sessions at the same airport", () => {
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 12});
+    const first = replacement(42);
+    first.data.session_id = 12;
+    client._emit(EventType.FrontendAMANState, first);
+    expect(store.getState().amanState?.revision).toBe(42);
+    store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"});
+    expect(Object.keys(store.getState().amanPendingCommands)).toHaveLength(1);
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 13});
+    expect(store.getState().amanState).toBeNull();
+    expect(store.getState().amanPendingCommands).toEqual({});
+    client._emit(EventType.FrontendAMANState, first);
+    expect(store.getState().amanState).toBeNull();
+    const second = replacement(1);
+    second.data.session_id = 13;
+    client._emit(EventType.FrontendAMANState, second);
+    expect(store.getState().amanState?.revision).toBe(1);
+  });
+
+  it("retains the same session's guidance when its initial snapshot is refreshed", () => {
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 12});
+    const event = replacement(42);
+    event.data.session_id = 12;
+    client._emit(EventType.FrontendAMANState, event);
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 12});
+    expect(store.getState().amanState?.revision).toBe(42);
+  });
+
   it("replaces missing timing reasons on an unchanged-revision websocket refresh", () => {
     const missing = replacement(8);
     missing.data.traffic_prediction!.degraded_reasons = ["missing_timing:AFR15", "missing_timing:SAS031"];

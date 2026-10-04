@@ -44,6 +44,7 @@ func (e AMANStateEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (AMANStateEvent) GetType() EventType         { return AMANStateType }
 
 type AMANState struct {
+	SessionID          int32                 `json:"session_id,omitempty"`
 	Airport            string                `json:"airport"`
 	Revision           uint64                `json:"revision"`
 	GeneratedAt        string                `json:"generated_at"`
@@ -401,7 +402,7 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		return AMANStateEvent{}, fmt.Errorf("map AMAN technical health: %w", err)
 	}
 	data := AMANState{
-		Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
+		SessionID: state.SessionID, Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
 		PolicyVersion: state.PolicyVersion, EffectiveMode: string(effectiveMode), Authoritative: state.Authoritative,
 		Flights: make([]AMANFlight, 0, len(state.Flights)), RunwayGroups: make([]AMANRunwayGroup, len(state.RunwayGroups)),
 		TechnicalHealth: technicalHealth,

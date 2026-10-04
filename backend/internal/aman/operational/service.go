@@ -91,6 +91,17 @@ type Dependencies struct {
 	SourceMode      aman.ObservationSourceMode
 	Publisher       sequence.FullStatePublisher
 	Now             func() time.Time
+	Sessions        SessionSource
+}
+
+type Session struct {
+	ID      int32
+	Airport string
+	Live    bool
+}
+
+type SessionSource interface {
+	AMANSessions(context.Context) ([]Session, error)
 }
 
 type Service struct {
@@ -99,11 +110,13 @@ type Service struct {
 	tmaVolume        *terminal.TMAVolume
 	tmaGeometryErr   error
 
-	mu                 sync.Mutex
-	observed           map[string]map[aman.Callsign]aman.FlightObservation
-	observedSources    map[string]map[aman.Callsign]map[aman.ObservationProvider]aman.FlightObservation
-	lastWeatherRefresh map[string]time.Time
-	health             serviceHealth
+	mu                  sync.Mutex
+	observed            map[string]map[aman.Callsign]aman.FlightObservation
+	observedSources     map[string]map[aman.Callsign]map[aman.ObservationProvider]aman.FlightObservation
+	lastWeatherRefresh  map[string]time.Time
+	health              serviceHealth
+	sessionSourceHealth map[int32]aman.ComponentHealth
+	liveSessions        map[int32]bool
 }
 
 type serviceHealth struct {
@@ -150,9 +163,11 @@ func New(deps Dependencies) (*Service, error) {
 	}
 	return &Service{
 		deps: deps, goAroundDetector: detector, tmaVolume: tmaVolume, tmaGeometryErr: tmaGeometryErr,
-		observed:           map[string]map[aman.Callsign]aman.FlightObservation{},
-		observedSources:    map[string]map[aman.Callsign]map[aman.ObservationProvider]aman.FlightObservation{},
-		lastWeatherRefresh: map[string]time.Time{},
+		observed:            map[string]map[aman.Callsign]aman.FlightObservation{},
+		observedSources:     map[string]map[aman.Callsign]map[aman.ObservationProvider]aman.FlightObservation{},
+		lastWeatherRefresh:  map[string]time.Time{},
+		sessionSourceHealth: map[int32]aman.ComponentHealth{},
+		liveSessions:        map[int32]bool{},
 		health: serviceHealth{
 			vatsim: pending("source_not_observed"), euroScope: pending("source_not_observed"), navigation: pending("navigation_not_refreshed"),
 			weather: pending("weather_not_observed"), repository: pending("repository_not_checked"),
@@ -163,15 +178,24 @@ func New(deps Dependencies) (*Service, error) {
 
 func (*Service) Name() string { return "AMAN-CPH operational service" }
 
-func (s *Service) TechnicalHealth(context.Context) aman.TechnicalHealth {
+func (s *Service) TechnicalHealth(ctx context.Context) aman.TechnicalHealth {
 	s.mu.Lock()
 	health := s.health
+	if id := aman.SessionID(ctx); id > 0 {
+		health.euroScope = s.sessionSourceHealth[id]
+		if health.euroScope.Status == "" {
+			health.euroScope = componentHealth(aman.HealthUnavailable, "source_not_observed", s.deps.Now().UTC())
+		}
+		if !s.liveSessions[id] {
+			health.vatsim = componentHealth(aman.HealthUnavailable, "session_has_no_network_source", s.deps.Now().UTC())
+		}
+	}
 	s.mu.Unlock()
 	health.euroScope = expireSourceHealth(health.euroScope, s.deps.Now().UTC(), euroScopeSurveillanceFresh)
 	return aman.EvaluateTechnicalHealth(s.deps.Mode, selectedSourceHealth(s.deps.SourceMode, health), health.navigation, health.weather, health.repository, health.predictor, health.replay)
 }
 
-func (s *Service) Observe(_ context.Context, observation aman.FlightObservation) error {
+func (s *Service) Observe(ctx context.Context, observation aman.FlightObservation) error {
 	if err := observation.Validate(); err != nil {
 		return err
 	}
@@ -180,6 +204,7 @@ func (s *Service) Observe(_ context.Context, observation aman.FlightObservation)
 	if !s.enabledAirport(airport) {
 		return nil
 	}
+	airport = aman.SessionAirportKey(ctx, airport)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.observed[airport] == nil {
@@ -217,6 +242,12 @@ func (s *Service) Observe(_ context.Context, observation aman.FlightObservation)
 	case aman.ObservationProviderEuroScope:
 		if observation.UsesEuroScopeSurveillance() && observation.Surveillance != nil {
 			s.health.euroScope = sourceComponentHealth(observation.SourceStatus, observation.ReconciledAt)
+			if id := aman.SessionID(ctx); id > 0 {
+				if s.sessionSourceHealth == nil {
+					s.sessionSourceHealth = make(map[int32]aman.ComponentHealth)
+				}
+				s.sessionSourceHealth[id] = s.health.euroScope
+			}
 		}
 	case aman.ObservationProviderVATSIM:
 		s.health.vatsim = sourceComponentHealth(observation.SourceStatus, observation.ReconciledAt)
@@ -348,6 +379,31 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 func (s *Service) Reconcile(ctx context.Context) { s.reconcileAll(ctx) }
 
 func (s *Service) reconcileAll(ctx context.Context) {
+	if s.deps.Sessions != nil {
+		sessions, err := s.deps.Sessions.AMANSessions(ctx)
+		if err != nil {
+			slog.WarnContext(ctx, "AMAN sessions unavailable", "error", err)
+			return
+		}
+		s.mu.Lock()
+		s.liveSessions = make(map[int32]bool, len(sessions))
+		for _, session := range sessions {
+			s.liveSessions[session.ID] = session.Live
+		}
+		s.mu.Unlock()
+		for _, session := range sessions {
+			if session.ID <= 0 || !s.enabledAirport(session.Airport) {
+				continue
+			}
+			scoped := aman.WithSession(ctx, session.ID)
+			s.observeNavigationCache(scoped, session.Airport)
+			s.refreshWeather(scoped, session.Airport, s.deps.Now().UTC())
+			if err := s.reconcileAirport(scoped, session.Airport); err != nil {
+				slog.WarnContext(ctx, "AMAN session reconciliation failed", "session", session.ID, "airport", session.Airport, "error", err)
+			}
+		}
+		return
+	}
 	for _, airport := range s.deps.Airports {
 		airport = strings.ToUpper(strings.TrimSpace(airport))
 		s.observeNavigationCache(ctx, airport)
@@ -485,11 +541,12 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 		}
 		s.setHealthComponent("repository", aman.HealthReady, "", now)
 		current = s.initialState(airport, now)
+		current.SessionID = aman.SessionID(ctx)
 		initializing = true
 	} else {
 		s.setHealthComponent("repository", aman.HealthReady, "", now)
 	}
-	observations := s.observations(airport)
+	observations := s.sessionObservations(ctx, airport)
 	// Compare observation timestamps with a precise clock sampled after the
 	// snapshot. Rounding down or sampling before the repository load can make
 	// freshly received positions appear to be from the future.
@@ -730,6 +787,32 @@ func (s *Service) observations(airport string) map[aman.Callsign]aman.FlightObse
 	result := make(map[aman.Callsign]aman.FlightObservation, len(s.observed[airport]))
 	for id, observation := range s.observed[airport] {
 		result[id] = observation
+	}
+	return result
+}
+
+func (s *Service) sessionObservations(ctx context.Context, airport string) map[aman.Callsign]aman.FlightObservation {
+	key := aman.SessionAirportKey(ctx, airport)
+	result := s.observations(key)
+	s.mu.Lock()
+	live := s.liveSessions[aman.SessionID(ctx)]
+	s.mu.Unlock()
+	if !live || key == airport {
+		return result
+	}
+	// Network traffic belongs only to LIVE sessions. Never inject real flights
+	// into training sessions, nor share another session's EuroScope facts.
+	for id, observation := range s.observations(airport) {
+		if observationOwner(observation) != aman.ObservationProviderVATSIM {
+			continue
+		}
+		if local, found := result[id]; found && !local.Missing {
+			result[id] = combineSourceObservations(map[aman.ObservationProvider]aman.FlightObservation{
+				aman.ObservationProviderVATSIM: observation, observationOwner(local): local,
+			})
+		} else if !found {
+			result[id] = observation
+		}
 	}
 	return result
 }
@@ -1637,6 +1720,13 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			pending := &input.Flights[len(input.Flights)-1]
 			pending.FreezeReason, pending.FrozenAt, pending.FrozenOperationalTETA = aman.FreezeNone, nil, nil
 			pending.ProtectCurrentSlot = false
+		}
+		pending := &input.Flights[len(input.Flights)-1]
+		if !retainedTimingUnavailable(flight) && !holdingSlotProtected(flight) && flight.Prediction.OperationalReason != aman.OperationalReasonManualOverride {
+			if earliest := promotionNotBefore(flight); earliest != nil {
+				lower := earliest.Add(-aman.MaxScheduledGain)
+				pending.SlotNotBefore = &lower
+			}
 		}
 	}
 	return input

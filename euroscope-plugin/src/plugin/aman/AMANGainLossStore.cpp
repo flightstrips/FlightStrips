@@ -53,12 +53,21 @@ namespace FlightStrips::aman {
     }
 
     void AMANGainLossStore::Online() {
+        std::lock_guard lock(sessionMutex_);
         // A reconnect starts a new revision stream. Keep the last complete
         // values visibly stale until the new connection supplies a replacement.
         auto retained = std::make_shared<GainLossSnapshot>(*Snapshot());
         retained->hasRevision = false;
         for (auto& [callsign, value] : retained->byCallsign) value.dataStatus = "disconnected";
         snapshot_.store(std::move(retained));
+    }
+
+    void AMANGainLossStore::SessionChanged(const std::string& identity) {
+        std::lock_guard lock(sessionMutex_);
+        if (sessionIdentity_ != identity) {
+            snapshot_.store(std::make_shared<const GainLossSnapshot>());
+            sessionIdentity_ = identity;
+        }
     }
 
     auto AMANGainLossStore::FindByCallsign(const std::string& callsign) const -> std::optional<GainLossValue> {

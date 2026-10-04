@@ -18,6 +18,17 @@ function flight(overrides: Partial<AMANFlight> = {}): AMANFlight {
 const guidance = {authoritative: true, connected: true};
 
 describe("compact MAESTRO aircraft target", () => {
+  it("shows estimated EAT and holding duration on approaching aircraft without optional fields", () => {
+    render(<AMANAircraftTarget flight={flight({
+      gain_loss_seconds: -1800,
+      approach_release_time: "2026-10-04T14:20:00Z",
+      expected_holding_seconds: 1800,
+    })} guidance={guidance} />);
+    expect(screen.getByTitle("Estimated approach time (UTC)")).toHaveTextContent("EAT 14:20");
+    expect(screen.getByTitle("Estimated holding duration")).toHaveTextContent("HOLD 30m");
+    expect(screen.getByText("L30")).toBeInTheDocument();
+  });
+
   it("presents desequenced disposition through colour and an accessible label", () => {
     render(<AMANAircraftTarget flight={flight({sequence_disposition: "desequenced"})} guidance={guidance} />);
 

@@ -275,6 +275,7 @@ type SyncCoordination struct {
 }
 
 type InitialEvent struct {
+	SessionID              int32                   `json:"session_id,omitempty"`
 	Contsollers            []Controller            `json:"controllers"`
 	Strips                 []Strip                 `json:"strips"`
 	TacticalStrips         []TacticalStripPayload  `json:"tactical_strips"`

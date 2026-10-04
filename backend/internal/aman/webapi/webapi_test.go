@@ -14,6 +14,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type sessionStateReader struct{ session int32 }
+
+func (s *sessionStateReader) LoadAirportState(ctx context.Context, airport string) (aman.AirportState, error) {
+	s.session = aman.SessionID(ctx)
+	return aman.AirportState{Airport: airport, Flights: []aman.AMANFlight{}}, nil
+}
+func TestFlightDetailUsesAuthenticatedSessionAndRejectsOtherAirport(t *testing.T) {
+	reader := &sessionStateReader{}
+	mux := http.NewServeMux()
+	New(testAuth{}, reader).WithSessionResolver(func(ctx context.Context, cid, airport string) (int32, error) {
+		if airport != "EKCH" {
+			return 0, errors.New("wrong airport")
+		}
+		return 12, nil
+	}).RegisterRoutes(mux)
+	for _, airport := range []string{"EKCH", "EKBI"} {
+		request := httptest.NewRequest(http.MethodGet, "/aman/airports/"+airport+"/flights/SAS123/detail", nil)
+		request.Header.Set("Authorization", "Bearer token")
+		response := httptest.NewRecorder()
+		mux.ServeHTTP(response, request)
+		if airport == "EKCH" {
+			require.Equal(t, http.StatusNotFound, response.Code)
+			require.Equal(t, int32(12), reader.session)
+		} else {
+			require.Equal(t, http.StatusForbidden, response.Code)
+		}
+	}
+}
+
 func TestFlightDetailReturnsOnDemandCalculationAndOperationalBasis(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 10, 0, 0, 0, time.UTC)
 	group := aman.RunwayGroupID("ARRIVAL-22")

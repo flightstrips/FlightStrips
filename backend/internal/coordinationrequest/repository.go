@@ -1,6 +1,7 @@
 package coordinationrequest
 
 import (
+	"FlightStrips/internal/aman"
 	"context"
 	"encoding/json"
 	"errors"
@@ -72,11 +73,11 @@ func (r *Repository) Save(ctx context.Context, request Request) error {
 		return fmt.Errorf("encode coordination request: %w", err)
 	}
 	tag, err := r.pool.Exec(ctx, `INSERT INTO aman_coordination_requests
-        (request_id, airport, command_id, created_at, payload) VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (request_id) DO UPDATE SET payload = EXCLUDED.payload
+        (request_id, airport, command_id, created_at, payload, session_id) VALUES ($1, $2, $3, $4, $5, NULLIF($6,0))
+        ON CONFLICT ((COALESCE(session_id,0)), request_id) DO UPDATE SET payload = EXCLUDED.payload
         WHERE aman_coordination_requests.airport = EXCLUDED.airport
           AND aman_coordination_requests.command_id = EXCLUDED.command_id`,
-		request.ID, request.Airport, request.CommandID, request.CreatedAt, payload)
+		request.ID, request.Airport, request.CommandID, request.CreatedAt, payload, aman.SessionID(ctx))
 	if err == nil && tag.RowsAffected() != 1 {
 		return errors.New("coordination request identity conflicts with persisted owner")
 	}
@@ -85,7 +86,7 @@ func (r *Repository) Save(ctx context.Context, request Request) error {
 
 func (r *Repository) Get(ctx context.Context, airport string, id RequestID) (Request, error) {
 	var raw []byte
-	err := r.pool.QueryRow(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 AND request_id=$2`, airport, id).Scan(&raw)
+	err := r.pool.QueryRow(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 AND request_id=$2 AND COALESCE(session_id,0)=$3`, airport, id, aman.SessionID(ctx)).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Request{}, fmt.Errorf("%w: %s", ErrRequestNotFound, id)
 	}
@@ -107,10 +108,10 @@ func (r *Repository) Decide(ctx context.Context, id RequestID, decision Decision
 		return CommitResult{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, decision.Airport); err != nil {
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, aman.SessionAirportKey(ctx, decision.Airport)); err != nil {
 		return CommitResult{}, err
 	}
-	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 ORDER BY created_at, request_id FOR UPDATE`, decision.Airport)
+	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 AND COALESCE(session_id,0)=$2 ORDER BY created_at, request_id FOR UPDATE`, decision.Airport, aman.SessionID(ctx))
 	if err != nil {
 		return CommitResult{}, err
 	}
@@ -207,7 +208,7 @@ func (r *Repository) CorrelateAccepted(ctx context.Context, fact ClearanceFact) 
 		return CommitResult{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fact.Airport); err != nil {
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, aman.SessionAirportKey(ctx, fact.Airport)); err != nil {
 		return CommitResult{}, err
 	}
 	current, err := lockedRequests(ctx, tx, fact.Airport)
@@ -249,7 +250,7 @@ func matchesClearance(request Request, value string) bool {
 }
 
 func lockedRequests(ctx context.Context, tx pgx.Tx, airport string) ([]Request, error) {
-	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 ORDER BY created_at, request_id FOR UPDATE`, airport)
+	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 AND COALESCE(session_id,0)=$2 ORDER BY created_at, request_id FOR UPDATE`, airport, aman.SessionID(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +295,7 @@ func ExpirePendingTx(ctx context.Context, tx pgx.Tx, fact ExpiryFact) (TransferR
 		!fact.Reason.valid() || !utc(fact.OccurredAt) {
 		return TransferResult{}, errors.New("authoritative coordination expiry fact is invalid")
 	}
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fact.Airport); err != nil {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, aman.SessionAirportKey(ctx, fact.Airport)); err != nil {
 		return TransferResult{}, err
 	}
 	current, err := lockedRequests(ctx, tx, fact.Airport)
@@ -346,7 +347,7 @@ func (r *Repository) TransferPending(ctx context.Context, fact OwnershipFact) (T
 		return TransferResult{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fact.Airport); err != nil {
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, aman.SessionAirportKey(ctx, fact.Airport)); err != nil {
 		return TransferResult{}, err
 	}
 	current, err := lockedRequests(ctx, tx, fact.Airport)
@@ -399,7 +400,7 @@ func (r *Repository) ReplayAirport(ctx context.Context, airport string) ([]Reque
 		return nil, errors.New("airport is required")
 	}
 	rows, err := r.pool.Query(ctx, `SELECT payload FROM aman_coordination_requests
-        WHERE airport = $1 ORDER BY created_at, request_id`, airport)
+        WHERE airport = $1 AND COALESCE(session_id,0)=$2 ORDER BY created_at, request_id`, airport, aman.SessionID(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -434,10 +435,10 @@ func (r *Repository) Submit(ctx context.Context, request Request, expectedRevisi
 		return CommitResult{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, request.Airport); err != nil {
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, aman.SessionAirportKey(ctx, request.Airport)); err != nil {
 		return CommitResult{}, err
 	}
-	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 ORDER BY created_at, request_id FOR UPDATE`, request.Airport)
+	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 AND COALESCE(session_id,0)=$2 ORDER BY created_at, request_id FOR UPDATE`, request.Airport, aman.SessionID(ctx))
 	if err != nil {
 		return CommitResult{}, err
 	}
@@ -510,7 +511,7 @@ func save(ctx context.Context, target executor, request Request) error {
 	if err != nil {
 		return err
 	}
-	_, err = target.Exec(ctx, `INSERT INTO aman_coordination_requests (request_id, airport, command_id, created_at, payload)
-        VALUES ($1,$2,$3,$4,$5) ON CONFLICT (request_id) DO UPDATE SET payload=EXCLUDED.payload`, request.ID, request.Airport, request.CommandID, request.CreatedAt, payload)
+	_, err = target.Exec(ctx, `INSERT INTO aman_coordination_requests (request_id, airport, command_id, created_at, payload, session_id)
+        VALUES ($1,$2,$3,$4,$5,NULLIF($6,0)) ON CONFLICT ((COALESCE(session_id,0)), request_id) DO UPDATE SET payload=EXCLUDED.payload`, request.ID, request.Airport, request.CommandID, request.CreatedAt, payload, aman.SessionID(ctx))
 	return err
 }

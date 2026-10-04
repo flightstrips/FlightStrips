@@ -18,14 +18,22 @@ import (
 )
 
 type WebAPI struct {
-	auth      shared.AuthenticationService
-	states    aman.AirportStateReader
-	geometry  navdata.GeometryReader
-	snapshots navdata.GeometrySnapshotReader
+	auth            shared.AuthenticationService
+	states          aman.AirportStateReader
+	geometry        navdata.GeometryReader
+	snapshots       navdata.GeometrySnapshotReader
+	sessionResolver func(context.Context, string, string) (int32, error)
 }
 
 func New(auth shared.AuthenticationService, states aman.AirportStateReader) *WebAPI {
 	return &WebAPI{auth: auth, states: states}
+}
+
+// WithSessionResolver uses authenticated server-side membership, never a
+// caller-supplied session ID, to scope inspection to the caller's session.
+func (a *WebAPI) WithSessionResolver(resolve func(context.Context, string, string) (int32, error)) *WebAPI {
+	a.sessionResolver = resolve
+	return a
 }
 
 // WithNavigation adds the cache-only readers needed to render the filed route
@@ -79,9 +87,19 @@ func (a *WebAPI) authenticate(w http.ResponseWriter, r *http.Request) bool {
 		writeError(w, http.StatusUnauthorized, "invalid authorization header")
 		return false
 	}
-	if _, err := a.auth.Validate(token); err != nil {
+	user, err := a.auth.Validate(token)
+	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid token")
 		return false
+	}
+	if a.sessionResolver != nil {
+		airport := strings.ToUpper(strings.TrimSpace(r.PathValue("airport")))
+		id, err := a.sessionResolver(r.Context(), user.GetCid(), airport)
+		if err != nil || id <= 0 {
+			writeError(w, http.StatusForbidden, "AMAN detail requires membership of this airport session")
+			return false
+		}
+		*r = *r.WithContext(aman.WithSession(r.Context(), id))
 	}
 	return true
 }

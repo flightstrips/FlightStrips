@@ -18,5 +18,13 @@ namespace FlightStrips::handlers {
     void ConnectionEventHandlers::RegisterHandler(const std::shared_ptr<ConnectionEventHandler> &handler) {
         m_handlers.push_back(handler);
     }
+
+    void ConnectionEventHandlers::OnSessionChanged(const std::string& identity) const {
+        for (const auto& handler : m_handlers) {
+            exceptions::RunGuarded("ConnectionEventHandlers::OnSessionChanged", [handler, &identity] {
+                handler->SessionChanged(identity);
+            });
+        }
+    }
 } // handlers
 // FlightStrip

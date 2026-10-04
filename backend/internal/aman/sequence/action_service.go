@@ -176,7 +176,7 @@ func (s *ActionService) ResetManualFeederETA(ctx context.Context, auth aman.Comm
 
 func (s *ActionService) RecomputeFlight(ctx context.Context, auth aman.CommandContext, command aman.RecomputeFlightCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) {
-		return s.mutations.RecomputeFlight(ctx, auth, command)
+		return s.mutations.RecomputeFlight(aman.WithSession(ctx, auth.SessionID), auth, command)
 	})
 }
 
@@ -207,6 +207,7 @@ func executeTyped(service *ActionService, ctx context.Context, auth aman.Command
 	if err != nil {
 		return aman.CommandExecution{}, err
 	}
+	ctx = aman.WithSession(ctx, auth.SessionID)
 	result, err := service.coordinator.ExecuteCommand(ctx, auth.Airport, metadata, mutation)
 	execution := aman.CommandExecution{
 		CurrentRevision: result.State.Revision,

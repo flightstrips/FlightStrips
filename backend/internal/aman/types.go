@@ -1004,6 +1004,7 @@ func (f AMANFlight) TerminalPathIdentity() (feederFix, legacySTARFamily string) 
 // AirportState is the sole source for one coherent AMAN replacement state.
 // Revisions are allocated only when a committed domain result changes it.
 type AirportState struct {
+	SessionID     int32
 	Airport       string
 	Revision      SequenceRevision
 	GeneratedAt   time.Time

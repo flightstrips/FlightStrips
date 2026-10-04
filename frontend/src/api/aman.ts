@@ -18,6 +18,7 @@ export interface AMANStateEvent {
 }
 
 export interface AMANState {
+  session_id?: number;
   airport: string;
   revision: number;
   generated_at: string;
@@ -785,6 +786,7 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
   if (!isObject(value) || value.type !== "aman.state" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
   const data = value.data;
   return isString(data.airport) && data.airport.length === 4 && isNonNegativeInteger(data.revision)
+    && (data.session_id === undefined || (isNonNegativeInteger(data.session_id) && data.session_id > 0))
     && isTimestamp(data.generated_at) && isString(data.policy_version) && isString(data.effective_mode)
     && effectiveModes.has(data.effective_mode as AMANEffectiveMode) && typeof data.authoritative === "boolean"
     && Array.isArray(data.flights) && data.flights.every(isFlight)
@@ -804,7 +806,7 @@ export function replaceAMANState(current: AMANState | null, event: unknown): AMA
   if (!isAMANStateEvent(event)) {
     return {state: null, status: "degraded", error: "invalid_aman_state", accepted: false};
   }
-  if (current !== null && (event.data.revision < current.revision ||
+  if (current !== null && current.session_id === event.data.session_id && (event.data.revision < current.revision ||
     event.data.revision === current.revision && Date.parse(event.data.generated_at) <= Date.parse(current.generated_at))) {
     return {state: current, status: presentationStatus(current), error: null, accepted: false};
   }

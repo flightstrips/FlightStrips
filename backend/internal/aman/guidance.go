@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+// MaxScheduledGain is the maximum time an automatic arrival target may ask
+// an aircraft to recover from its current physical prediction.
+const MaxScheduledGain = 2 * time.Minute
+
 // GainLossPrediction smooths live guidance independently of the operational
 // freeze. Retain the last physical estimate when inputs temporarily become
 // unusable; the flight's DataStatus still tells clients whether it is current.
@@ -35,5 +39,5 @@ func GainLossPrediction(flight AMANFlight) (time.Time, bool) {
 // prediction timestamps intact so clients can still inspect the actual drift.
 // Loss is not capped: hiding a large delay would conceal a sequencing problem.
 func GainLossGuidance(predicted, target time.Time) (int64, error) {
-	return WholeSeconds(min(predicted.Sub(target).Round(time.Second), 2*time.Minute))
+	return WholeSeconds(min(predicted.Sub(target).Round(time.Second), MaxScheduledGain))
 }

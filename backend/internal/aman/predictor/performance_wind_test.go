@@ -3,6 +3,7 @@ package predictor
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -348,6 +349,57 @@ func TestAMANCPHDoesNotInferWindWhileAircraftIsStillClimbing(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, result.WeatherSource)
 	require.Contains(t, result.DegradationReasons, "WEATHER_UNAVAILABLE")
+}
+
+func TestSurveillanceWindLimitDoesNotCreateAnETACliff(t *testing.T) {
+	for _, direction := range []float64{-1, 1} {
+		input := performanceInput()
+		input.AltitudeFeet, input.CruiseAltitudeFeet = 20_000, 20_000
+		input.Remaining[0].DistanceNM = 50
+		track := 90.0
+		input.CurrentTrackTrueDegrees = &track
+		modelSpeed := iasToTAS(currentModelIAS(input), input.AltitudeFeet)
+		input.CurrentGroundspeedKnots = modelSpeed + direction*(maxSurveillanceWindKnots-0.1)
+		before, err := EstimatePerformanceWind(context.Background(), nil, failingWind{}, input, PerformanceWindConfig{})
+		require.NoError(t, err)
+		input.CurrentGroundspeedKnots = modelSpeed + direction*(maxSurveillanceWindKnots+0.1)
+		after, err := EstimatePerformanceWind(context.Background(), nil, failingWind{}, input, PerformanceWindConfig{})
+		require.NoError(t, err)
+		require.Equal(t, pointerString(surveillanceWindFallbackSource), after.WeatherSource)
+		require.Contains(t, after.DegradationReasons, "WEATHER_SURVEILLANCE_WIND_CAPPED")
+		require.NotContains(t, after.DegradationReasons, "WEATHER_UNAVAILABLE")
+		require.InDelta(t, float64(before.Duration), float64(after.Duration), float64(time.Second), "crossing the wind limit must not discard the correction")
+		for _, segment := range after.Segments {
+			if segment.TailwindKnots != nil {
+				require.LessOrEqual(t, math.Abs(*segment.TailwindKnots), maxSurveillanceWindKnots)
+			}
+		}
+	}
+}
+
+func TestObservedCruiseWindFallbackStaysContinuousAcrossTOD(t *testing.T) {
+	input := performanceInput()
+	input.AircraftICAO, input.WakeTurbulenceCategory = "A333", CategoryHeavy
+	input.AltitudeFeet, input.CruiseAltitudeFeet = 41_000, 41_000
+	input.CurrentGroundspeedKnots = 460
+	input.UseObservedGroundspeedBeforeTOD = true
+	track := 90.0
+	input.CurrentTrackTrueDegrees = &track
+	todDistance := input.CruiseAltitudeFeet / descentFeetPerNM
+	input.Remaining[0].DistanceNM = todDistance + 0.01
+	before, err := EstimatePerformanceWind(context.Background(), nil, failingWind{}, input, PerformanceWindConfig{})
+	require.NoError(t, err)
+	input.Remaining[0].DistanceNM = todDistance - 0.01
+	after, err := EstimatePerformanceWind(context.Background(), nil, failingWind{}, input, PerformanceWindConfig{})
+	require.NoError(t, err)
+	require.InDelta(t, float64(before.Duration), float64(after.Duration), float64(time.Second), "TOD must not abruptly remove an invented cruise headwind")
+	for _, result := range []PerformanceWindResult{before, after} {
+		for _, segment := range result.Segments {
+			if segment.TailwindKnots != nil {
+				require.InDelta(t, 0, *segment.TailwindKnots, 0.001, "cruise groundspeed alone cannot distinguish airspeed from wind")
+			}
+		}
+	}
 }
 
 func TestInterpolateWindAndISAConversions(t *testing.T) {

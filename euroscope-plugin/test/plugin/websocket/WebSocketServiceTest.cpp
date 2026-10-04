@@ -758,6 +758,25 @@ TEST_F(WebSocketServiceOnTimerTest, SendEvent_WhenObserver_AllowsRunwayValidatio
     svc->SendEvent(RunwayEvent({}));
 }
 
+TEST_F(WebSocketServiceOnTimerTest, MasterReplaysUntrackedHoldAfterReconnect) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->SetSessionState(STATE_MASTER);
+    auto serviceSocket = std::shared_ptr<WebSocketService>(svc.get(), [](WebSocketService*) {});
+    flightplan::FlightPlanService plans(serviceSocket, nullptr, nullptr, nullptr, nullptr);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([](const std::string& bytes) {
+        flightstrips::euroscope::v1::Envelope event;
+        ASSERT_TRUE(event.ParseFromString(bytes));
+        ASSERT_TRUE(event.has_hold());
+        EXPECT_EQ(event.hold().callsign(), "SAS123");
+        EXPECT_EQ(event.hold().hold(), "OLPIB");
+        EXPECT_EQ(event.hold().hold_eat(), "1422");
+    }));
+    plans.ReplayTrackedHold("SAS123", false, {true, false, "OLPIB"}, "1422");
+    plans.ReplayTrackedHold("SAS123", false, {}, {}); // Cached hold survives absent remote annotation.
+    svc->SetSessionState(STATE_SLAVE);
+    plans.ReplayTrackedHold("SAS123", false, {true, false, "OLPIB"}, {});
+}
+
 TEST_F(WebSocketServiceOnTimerTest, ShouldProcessServerMessageType_WhenObserver_AllowsMismatchAlerts) {
     state.observer = true;
 

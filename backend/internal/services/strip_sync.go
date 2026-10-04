@@ -745,6 +745,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
 	}
 
+	if amanStrip != nil {
+		amanStrip.FlightPlanEOBT = strip.GetEobt()
+		amanStrip.FlightPlanEET = strip.GetEnrouteDuration()
+	}
 	return s.observeSyncedStrip(ctx, amanStrip, validationStrip)
 }
 

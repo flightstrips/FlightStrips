@@ -33,6 +33,30 @@ func TestEuroScopeStripObserverCreatesFlightWithoutCID(t *testing.T) {
 	require.Equal(t, aman.ObservationProviderEuroScope, observation.Provider)
 }
 
+func TestEuroScopeStripObserverMapsFiledTimingAndRetainsItAcrossPositionReports(t *testing.T) {
+	at := time.Date(2026, 10, 4, 23, 55, 0, 0, time.UTC)
+	service := &Service{observed: map[string]map[aman.Callsign]aman.FlightObservation{}}
+	observer, err := NewEuroScopeStripObserver(EuroScopeStripObserverDependencies{Sink: service, Now: func() time.Time { return at }})
+	require.NoError(t, err)
+	strip := &models.Strip{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", FlightPlanEOBT: "0010", FlightPlanEET: "0135"}
+	require.NoError(t, observer.ObserveEuroScopeStrip(t.Context(), strip))
+	first := service.observations("EKCH")["SAS123"]
+	require.Equal(t, 95*time.Minute, *first.PlannedTiming.EstimatedEnrouteTime)
+	require.Equal(t, at.Add(15*time.Minute), *first.PlannedTiming.EstimatedOffBlockTime)
+	merged := mergeSurveillanceObservation(first, aman.FlightObservation{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", Provider: aman.ObservationProviderEuroScope, ReconciledAt: at.Add(time.Second)})
+	require.Equal(t, first.PlannedTiming, merged.PlannedTiming)
+	flight := aman.AMANFlight{}
+	applyPreliminaryPrediction(&flight, merged, at)
+	require.NotNil(t, flight.Prediction)
+	require.True(t, flight.Prediction.Publishable)
+}
+
+func TestEuroScopePlannedTimingRejectsMissingAndInvalidFields(t *testing.T) {
+	for _, pair := range [][2]string{{"", "0130"}, {"2500", "0130"}, {"1200", ""}, {"1200", "0000"}, {"1200", "0160"}, {"1200", "-130"}} {
+		require.Nil(t, euroScopePlannedTiming(pair[0], pair[1], time.Now().UTC()))
+	}
+}
+
 func TestEuroScopeStripObserverRetractionReachesOperationalService(t *testing.T) {
 	now := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
 	service := &Service{

@@ -303,6 +303,16 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(malformed)).toBe(false);
   });
 
+  it("accepts a newer projection timestamp at the same revision", () => {
+    const initial = replaceAMANState(null, replacement(7));
+    const update = replacement(7);
+    update.data.generated_at = new Date(Date.parse(update.data.generated_at) + 15_000).toISOString();
+    const result = replaceAMANState(initial.state, update);
+    expect(result.accepted).toBe(true);
+    expect(result.state?.generated_at).toBe(update.data.generated_at);
+    expect(replaceAMANState(result.state, replacement(7)).accepted).toBe(false);
+  });
+
   it("ignores duplicate and older revisions, then atomically accepts any newer revision", () => {
     const initial = replaceAMANState(null, replacement(7));
     expect(initial.accepted).toBe(true);

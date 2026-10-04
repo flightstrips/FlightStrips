@@ -38,10 +38,12 @@ func BuildReadModel(state aman.AirportState) ReadModel {
 			ClearedAltitude: cloneAltitude(clearance.ClearedAltitude), SourceStatus: flight.DataStatus,
 			ObservedAt: clearance.ObservedAt,
 		}
-		if clearance.HoldEAT != "" {
-			if resolved, err := ResolveEATUTC(clearance.HoldEAT, clearance.ObservedAt); err == nil {
-				entry.EAT = &resolved
-			}
+		// Display AMAN's calculated release independently of EuroScope EAT
+		// writeback, which may be disabled or unavailable without tracking.
+		if prediction := flight.Prediction; prediction != nil && prediction.Publishable && prediction.HoldingPlan != nil &&
+			!prediction.HoldingPlan.ApproachReleaseTime.IsZero() {
+			release := prediction.HoldingPlan.ApproachReleaseTime.UTC()
+			entry.EAT = &release
 		}
 		result.Entries = append(result.Entries, entry)
 	}

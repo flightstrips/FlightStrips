@@ -237,7 +237,7 @@ func floorQuarter(value time.Time) time.Time {
 }
 
 func landingTime(flight aman.AMANFlight, now time.Time, airport AirportPosition) (time.Time, TimingSource, bool, bool) {
-	authoritative := flight.State == aman.StateUnstable || flight.State == aman.StateStable || flight.FreezeReason == aman.FreezeSuperstable
+	authoritative := flight.Slot != nil || flight.State == aman.StateUnstable || flight.State == aman.StateStable || flight.FreezeReason == aman.FreezeSuperstable
 	positionAt, positionOK := airbornePositionTime(flight.LatestObservation, now, airport)
 	airborne := isAirborne(flight) || flight.DataStatus == aman.DataFresh && positionOK
 	// Accepted AMAN timing uses the aircraft's current route and surveillance.
@@ -250,6 +250,12 @@ func landingTime(flight aman.AMANFlight, now time.Time, airport AirportPosition)
 		if airborne {
 			return prediction.OperationalTETA.UTC(), SourceVATSIMAirborne, false, true
 		}
+	}
+	// A committed assignment remains usable when prediction inputs are lost.
+	// Its source status still exposes the outage; never replace it with a
+	// fresh-looking position or flight-plan estimate.
+	if flight.Slot != nil && !flight.Slot.Time.IsZero() {
+		return flight.Slot.Time.UTC(), SourceAMAN, true, true
 	}
 	if airborne {
 		if flight.DataStatus != aman.DataFresh {

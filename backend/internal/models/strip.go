@@ -42,6 +42,10 @@ type ArrivalETA struct {
 }
 
 type Strip struct {
+	// Flight-plan timing forwarded directly from an ES snapshot to AMAN.
+	// AMAN persists it in its observation; it is not controller-owned CDM data.
+	FlightPlanEOBT           string
+	FlightPlanEET            string
 	ID                       int32
 	Version                  int32
 	Callsign                 string
@@ -105,9 +109,9 @@ type Strip struct {
 	EuroscopeSeenAt          *time.Time
 	ArrivalETA               *ArrivalETA
 	// TopSky holding clearance. Empty means not holding; HoldType is "enroute" or "tsa".
-	Hold                     string
-	HoldType                 string
-	HoldEat                  string
+	Hold     string
+	HoldType string
+	HoldEat  string
 }
 
 // IsValidationLocked returns true when the strip has a blocking validation

@@ -381,15 +381,27 @@ func (p *amanTransport) rememberGainLossAuthority(event euroscopeEvents.AMANGain
 }
 
 // PublishAMANAuthority is called on otherwise unchanged reconciliation ticks.
-// It ensures EuroScope has received the authoritative marker and reevaluates
-// holding EAT writeback without changing the aggregate revision or payload.
+// It refreshes frontend projections, ensures EuroScope has received the
+// authoritative marker, and reevaluates holding EAT without a state mutation.
 func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.AirportState) error {
-	if !p.gainLossEnabled && !p.holdingEATEnabled {
-		return nil
-	}
 	p.mu.RLock()
 	hub := p.euroscopeHub
+	frontendHub := p.frontendHub
 	p.mu.RUnlock()
+	if frontendHub != nil {
+		// Reproject time-dependent views and health even when no sequencing
+		// mutation occurred. This also repairs a previously missed snapshot.
+		view := state
+		view.GeneratedAt = time.Now().UTC()
+		if p.now != nil {
+			view.GeneratedAt = p.now().UTC()
+		}
+		event, err := p.newStateEvent(ctx, view, p.currentTechnicalHealth(ctx))
+		if err != nil {
+			return err
+		}
+		frontendHub.PublishAMANStateEvent(event)
+	}
 	if p.gainLossEnabled {
 		event, err := p.newGainLossEvent(ctx, state)
 		if err != nil {

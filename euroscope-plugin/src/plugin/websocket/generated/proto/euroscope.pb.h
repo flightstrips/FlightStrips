@@ -10005,6 +10005,7 @@ class Strip final : public ::google::protobuf::MessageLite
     kHoldFieldNumber = 30,
     kHoldTypeFieldNumber = 31,
     kHoldEatFieldNumber = 32,
+    kEnrouteDurationFieldNumber = 33,
     kPositionFieldNumber = 20,
     kClearedAltitudeFieldNumber = 14,
     kRequestedAltitudeFieldNumber = 15,
@@ -10413,6 +10414,22 @@ class Strip final : public ::google::protobuf::MessageLite
   std::string* _internal_mutable_hold_eat();
 
   public:
+  // string enroute_duration = 33;
+  void clear_enroute_duration() ;
+  const std::string& enroute_duration() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_enroute_duration(Arg_&& arg, Args_... args);
+  std::string* mutable_enroute_duration();
+  PROTOBUF_NODISCARD std::string* release_enroute_duration();
+  void set_allocated_enroute_duration(std::string* value);
+
+  private:
+  const std::string& _internal_enroute_duration() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_enroute_duration(
+      const std::string& value);
+  std::string* _internal_mutable_enroute_duration();
+
+  public:
   // .flightstrips.euroscope.v1.Position position = 20;
   bool has_position() const;
   void clear_position() ;
@@ -10493,8 +10510,8 @@ class Strip final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      5, 32, 1,
-      303, 2>
+      5, 33, 1,
+      319, 7>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -10536,6 +10553,7 @@ class Strip final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr hold_;
     ::google::protobuf::internal::ArenaStringPtr hold_type_;
     ::google::protobuf::internal::ArenaStringPtr hold_eat_;
+    ::google::protobuf::internal::ArenaStringPtr enroute_duration_;
     ::flightstrips::euroscope::v1::Position* position_;
     ::int32_t cleared_altitude_;
     ::int32_t requested_altitude_;
@@ -20911,6 +20929,56 @@ inline void Strip::set_allocated_hold_eat(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Strip.hold_eat)
+}
+
+// string enroute_duration = 33;
+inline void Strip::clear_enroute_duration() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.enroute_duration_.ClearToEmpty();
+}
+inline const std::string& Strip::enroute_duration() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Strip.enroute_duration)
+  return _internal_enroute_duration();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Strip::set_enroute_duration(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.enroute_duration_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.Strip.enroute_duration)
+}
+inline std::string* Strip::mutable_enroute_duration() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_enroute_duration();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Strip.enroute_duration)
+  return _s;
+}
+inline const std::string& Strip::_internal_enroute_duration() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.enroute_duration_.Get();
+}
+inline void Strip::_internal_set_enroute_duration(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.enroute_duration_.Set(value, GetArena());
+}
+inline std::string* Strip::_internal_mutable_enroute_duration() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.enroute_duration_.Mutable( GetArena());
+}
+inline std::string* Strip::release_enroute_duration() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Strip.enroute_duration)
+  return _impl_.enroute_duration_.Release();
+}
+inline void Strip::set_allocated_enroute_duration(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.enroute_duration_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.enroute_duration_.IsDefault()) {
+          _impl_.enroute_duration_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Strip.enroute_duration)
 }
 
 // -------------------------------------------------------------------

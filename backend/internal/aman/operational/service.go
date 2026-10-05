@@ -1078,6 +1078,20 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		legDurations = estimate.LegDurations
 	}
 	s.setHealthComponent("predictor", aman.HealthReady, "", now)
+	// INITIAL ETA-FF is RETA at the feeder, before holding/manual timing can
+	// replace the current model estimate. Preserve it across later updates.
+	if flight.InitialTiming == nil || flight.InitialTiming.FeederETA == nil {
+		if reta, retaErr := predictor.EstimateRETA(input, predictor.PerformanceWindConfig{}); retaErr == nil {
+			if feeder := routeFeederETA(predictionAt, reta.LegDurations, projection.Remaining, navdata.FixID(feederFix), projection.FeederProgress); feeder != nil && feeder.ETA != nil {
+				initial := aman.FlightInitialTiming{}
+				if flight.InitialTiming != nil {
+					initial = *flight.InitialTiming
+				}
+				initial.FeederETA = feeder.ETA
+				flight.InitialTiming = &initial
+			}
+		}
+	}
 	if previous := flight.Prediction; previous != nil && !previous.RawTETA.IsZero() && !isPreliminaryPrediction(previous) {
 		movement := raw.RawTETA.Sub(previous.RawTETA)
 		if movement >= 10*time.Minute || movement <= -10*time.Minute {
@@ -1311,6 +1325,11 @@ func applyResolvedTerminalIdentity(flight *aman.AMANFlight, path navdata.Termina
 }
 
 func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence.VacancyPromotion {
+	defer func() {
+		for index := range state.Flights {
+			aman.CaptureInitialTiming(&state.Flights[index])
+		}
+	}()
 	releaseGroundReservationsAheadOfHolding(state)
 	defer s.refreshGroundArrivalPlans(state, now)
 	defer s.refreshHoldingPlans(state)

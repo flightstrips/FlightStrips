@@ -290,7 +290,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		efbTerminal = navigationSource.Terminal
 	}
 	if stateReader, ok := amanDependencies.Repositories.(aman.AirportStateReader); ok && amanEnabled {
-		amanAPI = amanWebAPI.New(authService, stateReader)
+		amanAPI = amanWebAPI.New(authService, stateReader).WithTerminal(efbTerminal)
 
 		if geometry, geometryOK := amanDependencies.NavigationReader.(navdata.GeometryReader); geometryOK {
 			if snapshots, snapshotOK := amanDependencies.NavigationReader.(navdata.GeometrySnapshotReader); snapshotOK {

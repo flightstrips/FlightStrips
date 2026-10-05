@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.0.2...docs/v1.1.0) (2026-10-05)
+
+
+### Features
+
+* **aman:** add FMP control for EuroScope EAT writeback ([#843](https://github.com/flightstrips/FlightStrips/issues/843)) ([de08cbb](https://github.com/flightstrips/FlightStrips/commit/de08cbb8eab6c7af9c339c4233c3fd565b805e6a))
+
 ## [1.0.2](https://github.com/flightstrips/FlightStrips/compare/docs/v1.0.1...docs/v1.0.2) (2026-10-04)
 
 

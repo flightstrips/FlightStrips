@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.2.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.1.2...backend/v3.2.0) (2026-10-05)
+
+
+### Features
+
+* **aman:** add FMP control for EuroScope EAT writeback ([#843](https://github.com/flightstrips/FlightStrips/issues/843)) ([de08cbb](https://github.com/flightstrips/FlightStrips/commit/de08cbb8eab6c7af9c339c4233c3fd565b805e6a))
+
+
+### Bug Fixes
+
+* **aman:** align flight information with the design and timing data ([#845](https://github.com/flightstrips/FlightStrips/issues/845)) ([108cce9](https://github.com/flightstrips/FlightStrips/commit/108cce9cb081437fa1f47cf5408db8d0b8809a2c))
+
 ## [3.1.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.1.1...backend/v3.1.2) (2026-10-04)
 
 

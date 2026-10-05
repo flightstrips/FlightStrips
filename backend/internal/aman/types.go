@@ -946,7 +946,10 @@ type AMANFlight struct {
 	// DerivedFeederETA keeps the latest route/holding result while a manual
 	// override owns FeederETA. It is additive so legacy persisted JSON remains
 	// readable and reset can fall back to nil until the next derivation.
-	DerivedFeederETA     *FeederETAState
+	DerivedFeederETA *FeederETAState
+	// InitialTiming retains the first accepted estimates and scheduled times
+	// for flight information; live prediction/slot updates must not rewrite it.
+	InitialTiming        *FlightInitialTiming
 	HoldingClearance     *HoldingClearance
 	HoldingStack         *HoldingStackState
 	HoldingReleaseBasis  *HoldingReleaseBasis
@@ -1308,6 +1311,11 @@ func (s BaselineSource) holdsAirborneBaseline() bool {
 }
 
 func (f AMANFlight) Validate() error {
+	if f.InitialTiming != nil {
+		if err := f.InitialTiming.Validate(); err != nil {
+			return err
+		}
+	}
 	if strings.TrimSpace(f.Callsign) == "" {
 		return invalid("flight callsign is required")
 	}

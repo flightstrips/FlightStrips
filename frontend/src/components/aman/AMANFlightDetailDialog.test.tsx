@@ -33,6 +33,7 @@ const detail: AMANFlightDetail = {
     feeder_fix: "TNO",
     feeder_eta: "2026-07-22T10:12:00.000Z",
     derived_feeder_eta: "2026-07-22T10:11:00.000Z",
+    feeder_sta: "2026-07-22T10:14:00.000Z",
     direct_to: "TNO",
     holding_fix: null,
     aircraft_type: "A320",
@@ -75,16 +76,21 @@ describe("AMAN flight detail dialog integration", () => {
   it("maps operational flight data into the Figma flight-information strip", async () => {
     fetchDetail.mockResolvedValue({
       ...detail,
+      initial_timing: {feeder_eta: "2026-07-22T10:10:00.000Z", feeder_sta: "2026-07-22T10:13:00.000Z", runway_eta: "2026-07-22T10:18:00.000Z", runway_sta: "2026-07-22T10:20:00.000Z"},
+      star_route: [{fix: "CH626", eta: "2026-07-22T10:02:00.000Z"}],
       calculation: {
         no_wind_duration_seconds: 120, duration_seconds: 120, distance_to_go_nm: 35, segments: [],
-        legs: [{id: "leg-1", from: "AIRCRAFT", to: "CH626", start_latitude: 55.7, start_longitude: 12.2, end_latitude: 55.6, end_longitude: 12.4, distance_nm: 8, course_true_degrees: 120, no_wind_duration_seconds: 120, duration_seconds: 120}],
+        legs: [
+          {id: "leg-1", from: "AIRCRAFT", to: "CH626", start_latitude: 55.7, start_longitude: 12.2, end_latitude: 55.6, end_longitude: 12.4, distance_nm: 8, course_true_degrees: 120, no_wind_duration_seconds: 120, duration_seconds: 120},
+          {id: "leg-2", from: "CH626", to: "APPROACH-FIX", start_latitude: 55.6, start_longitude: 12.4, end_latitude: 55.5, end_longitude: 12.5, distance_nm: 8, course_true_degrees: 120, no_wind_duration_seconds: 120, duration_seconds: 120},
+        ],
       },
       teta_basis: {
         raw_teta: "2026-07-22T10:20:00.000Z", raw_reta: "2026-07-22T10:19:00.000Z", operational_teta: "2026-07-22T10:19:00.000Z", generated_at: detail.generated_at,
         input_observed_at: "2026-07-22T10:00:00.000Z", operational_reason: "predicted", freeze_reason: null, frozen_at: null, confidence: "high", model_version: "model-v1", config_version: "config-v1",
         prediction_basis: "performance_wind", performance_profile_id: "A320", weather_source: "metar", sources: ["surveillance"], degradation_reason: null, raw_samples: [], baseline: null, eta_review: null,
       },
-      slot_basis: {time: "2026-07-22T10:19:00.000Z", runway_group_id: "ARRIVAL-22L", reason: "rate_wtc", sequence: 2, revision: 17, rate_per_hour: 30, rate_effective_at: null, previous_flight: null, frozen: false, infeasible: false},
+      slot_basis: {time: "2026-07-22T10:24:00.000Z", runway_group_id: "ARRIVAL-22L", reason: "rate_wtc", sequence: 2, revision: 17, rate_per_hour: 30, rate_effective_at: null, previous_flight: null, frozen: false, infeasible: false},
       flight: {...detail.flight, runway_group_id: "ARRIVAL-22L", direct_to: null},
     });
     render(<Harness />);
@@ -94,10 +100,17 @@ describe("AMAN flight detail dialog integration", () => {
     expect(summary).toHaveTextContent("SAS123 / 2");
     expect(summary).toHaveTextContent("ESSA EKCH");
     expect(summary).toHaveTextContent("CH626");
+    expect(screen.getByLabelText("STAR waypoint estimates")).not.toHaveTextContent("APPROACH-FIX");
     expect(summary).toHaveTextContent("22L/2");
     expect(summary).toHaveTextContent("35nm");
-    expect(screen.getByLabelText("Initial ETA-FF")).toBeEmptyDOMElement();
-    expect(screen.getByLabelText("Current STA-FF")).toHaveTextContent("10:11:00");
+    expect(screen.getByLabelText("Initial ETA-FF")).toHaveTextContent("10:10:00");
+    expect(screen.getByLabelText("Initial STA-FF")).toHaveTextContent("10:13:00");
+    expect(screen.getByLabelText("Initial runway ETA")).toHaveTextContent("10:18:00");
+    expect(screen.getByLabelText("Initial runway STA")).toHaveTextContent("10:20:00");
+    expect(screen.getByLabelText("Current STA-FF")).toHaveTextContent("10:14:00");
+    expect(screen.getByLabelText("Initial total delay")).toHaveTextContent("−2′00″");
+    expect(screen.getByLabelText("Current total delay")).toHaveTextContent("−5′00″");
+    expect(screen.getByLabelText("Current accumulated delay")).toHaveTextContent("0′00″");
     expect(screen.getByLabelText("Route via CH626")).toHaveTextContent("ROUTE35nmCH626");
     expect(screen.getByRole("button", {name: "Technical evidence"})).toHaveTextContent("Trajectory");
   });
@@ -121,6 +134,30 @@ describe("AMAN flight detail dialog integration", () => {
     fireEvent.click(screen.getByRole("button", {name: "Technical evidence"}));
     expect(dialog).toHaveTextContent("Freeze protectionTMA entry protection");
     expect(screen.getByText("TMA entry protection")).toHaveClass("bg-cyan-950", "text-cyan-200");
+  });
+
+  it("retains every STAR waypoint and its time on longer arrivals", async () => {
+    const star_route = Array.from({length: 8}, (_, index) => ({fix: `CH${600 + index}`, eta: `2026-07-22T10:${String(index + 1).padStart(2, "0")}:00.000Z`}));
+    fetchDetail.mockResolvedValue({...detail, star_route});
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", {name: "Open SAS123"}));
+    await screen.findByText("CH607");
+    const route = screen.getByLabelText("STAR waypoint estimates");
+    for (const {fix, eta} of star_route) {
+      expect(route).toHaveTextContent(fix);
+      expect(route).toHaveTextContent(eta.slice(11, 16));
+    }
+  });
+
+  it("marks unavailable historical clocks rather than substituting current estimates", async () => {
+    fetchDetail.mockResolvedValue(detail);
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", {name: "Open SAS123"}));
+    await screen.findByText("A320");
+    expect(screen.getByLabelText("Initial ETA-FF")).toHaveTextContent("—");
+    expect(screen.getByLabelText("Initial runway ETA")).toHaveTextContent("—");
+    expect(screen.getByLabelText("Current ETA-FF")).toHaveTextContent("10:12:00");
+    expect(screen.getByLabelText("Current STA-FF")).toHaveTextContent("10:14:00");
   });
 
   it("requires confirmation before reporting a missed approach", async () => {

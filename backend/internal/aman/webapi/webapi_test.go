@@ -2,6 +2,8 @@ package webapi
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/shared"
 	"context"
 	"encoding/json"
@@ -129,6 +131,54 @@ func TestMapHoldingPlanExposesEntryDurationAndRelease(t *testing.T) {
 	require.Equal(t, "2026-07-23T10:18:00.000Z", mapped.ApproachReleaseTime)
 	require.EqualValues(t, 480, mapped.ExpectedHoldingSeconds)
 	require.EqualValues(t, 600, mapped.PostHoldingTransitSeconds)
+}
+
+func TestFlightDetailExposesInitialAndScheduledFeederTimes(t *testing.T) {
+	now := time.Date(2026, time.October, 5, 9, 0, 0, 0, time.UTC)
+	feeder := "ROSBI"
+	initialETA, initialSTA := now.Add(5*time.Minute), now.Add(8*time.Minute)
+	flight := aman.AMANFlight{
+		Callsign: "SAS123", State: aman.StateStable, SelectedFeederFix: &feeder,
+		InitialTiming: &aman.FlightInitialTiming{FeederETA: &initialETA, FeederSTA: &initialSTA, RunwayETA: timePointer(now.Add(15 * time.Minute)), RunwaySTA: timePointer(now.Add(18 * time.Minute))},
+		Prediction:    &aman.Prediction{Publishable: true, RawTETA: now.Add(20 * time.Minute), OperationalTETA: now.Add(20 * time.Minute), GeneratedAt: now, InputObservedAt: now, Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: feeder, Duration: 5 * time.Minute}, {To: "EKCH", Duration: 10 * time.Minute}}}},
+		Slot:          &aman.Slot{Time: now.Add(25 * time.Minute)},
+	}
+	mapped, err := New(nil, nil).mapDetail(context.Background(), aman.AirportState{Airport: "EKCH", GeneratedAt: now}, flight)
+	require.NoError(t, err)
+	require.NotNil(t, mapped.InitialTiming)
+	require.Equal(t, "2026-10-05T09:05:00.000Z", *mapped.InitialTiming.FeederETA)
+	require.Equal(t, "2026-10-05T09:08:00.000Z", *mapped.InitialTiming.FeederSTA)
+	require.Equal(t, "2026-10-05T09:15:00.000Z", *mapped.InitialTiming.RunwayETA)
+	require.Equal(t, "2026-10-05T09:18:00.000Z", *mapped.InitialTiming.RunwaySTA)
+	require.Equal(t, "2026-10-05T09:15:00.000Z", *mapped.Flight.FeederSTA)
+}
+
+func TestSTARRouteExcludesEnrouteApproachAndRunwayAndRetainsElapsedTime(t *testing.T) {
+	now := time.Date(2026, time.October, 5, 9, 0, 0, 0, time.UTC)
+	group, family, feeder := aman.RunwayGroupID("ARRIVAL-22L"), "TESPI", "TNO"
+	api := New(nil, nil).WithTerminal(terminal.Configuration{
+		ConfigVersion: "terminal-v1",
+		FixAliases:    []terminal.FixAlias{{Alias: "STAR-ALIAS", Canonical: "CH626"}},
+		Paths: []terminal.Path{
+			{Feeder: "TESPI", FeederFix: "TNO", RunwayGroup: "ARRIVAL-22R", Fixes: []navdata.FixID{"OTHER"}},
+			{Feeder: "TESPI", FeederFix: "TNO", RunwayGroup: group, Fixes: []navdata.FixID{"TESPI", "TNO", "STAR-ALIAS", "ABEGI"}},
+		},
+	})
+	flight := aman.AMANFlight{
+		SelectedRunwayGroup: &group, SelectedSTARFamily: &family, SelectedFeederFix: &feeder,
+		Prediction: &aman.Prediction{Publishable: true, ConfigVersion: "terminal-v1", InputObservedAt: now,
+			Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{
+				{To: "ENROUTE", Duration: 3 * time.Minute}, {To: "CH626", Duration: 2 * time.Minute},
+				{To: "ABEGI", Duration: time.Minute}, {To: "CH2LF", Duration: time.Minute}, {To: "RWY-22L", Duration: time.Minute},
+			}},
+		},
+	}
+	require.Equal(t, []starWaypoint{{Fix: "CH626", ETA: "2026-10-05T09:05:00.000Z"}, {Fix: "ABEGI", ETA: "2026-10-05T09:06:00.000Z"}}, api.mapSTARRoute(flight))
+	flight.Prediction.ConfigVersion = "old-config"
+	require.Empty(t, api.mapSTARRoute(flight), "a different configuration must not classify prediction legs")
+	flight.Prediction.ConfigVersion = "terminal-v1"
+	*flight.SelectedFeederFix = "UNRESOLVED"
+	require.Empty(t, api.mapSTARRoute(flight), "explicit feeder selection must not fall back to another STAR")
 }
 
 type stateReader struct{ state aman.AirportState }

@@ -207,6 +207,13 @@ before entry into a matching assigned en-route hold. The plugin validates the
 locally observed HOLD/XHOLD commands, falling back to annotation 6 when no live
 command has been observed.
 
+FMP controllers can use the **Settings** tab beside **Warnings** on the AMAN page to change **Write holding
+EAT to EuroScope** for their session. The setting starts enabled when the
+deployment flag is enabled and survives reconnects and backend restarts.
+Disabling it stops EuroScope writes while preserving existing EuroScope EAT
+values and AMAN calculations. An explicit
+deployment flag of `false` keeps this control disabled.
+
 Open `http://localhost:8080/test`, enter the absolute directory containing the
 saved `*.json` VATSIM v3 generations (for example
 `C:\vatsim-data2`), and click **Load**. Use **Play**, **Pause**, **Step**,

@@ -160,6 +160,8 @@ func (p *amanTransport) newStateEvent(ctx context.Context, state aman.AirportSta
 
 func (p *amanTransport) newStateEventWithGeometry(state aman.AirportState, health aman.TechnicalHealth, geometry func() (navdata.ActiveGeometrySnapshot, error)) (frontendEvents.AMANStateEvent, error) {
 	event, err := frontendEvents.NewAMANStateEvent(state, health.EffectiveMode, health)
+	event.Data.HoldingEATWritebackAvailable = p.holdingEATEnabled
+	event.Data.HoldingEATWritebackEnabled = p.holdingEATEnabled && (state.HoldingEATWritebackEnabled == nil || *state.HoldingEATWritebackEnabled)
 	if err != nil || p.geometry == nil {
 		return event, err
 	}
@@ -207,6 +209,15 @@ func (p *amanTransport) newHoldingEATPublication(ctx context.Context, state aman
 }
 
 func (p *amanTransport) holdingEATPublicationWithGeometry(ctx context.Context, state aman.AirportState, geometry func() (navdata.ActiveGeometrySnapshot, error)) []euroscopeEvents.HoldEvent {
+	if !p.holdingEATEnabled || (state.HoldingEATWritebackEnabled != nil && !*state.HoldingEATWritebackEnabled) {
+		// Disabling writeback relinquishes publication ownership without clearing
+		// EuroScope values. Re-enabling publishes the current projection afresh.
+		p.mu.Lock()
+		delete(p.lastHoldingEAT, aman.SessionAirportKey(ctx, strings.ToUpper(strings.TrimSpace(state.Airport))))
+		p.mu.Unlock()
+		return nil
+	}
+
 	currentEvents := p.holdingEATEventsWithGeometry(ctx, state, false, geometry)
 	requiredWrites := p.holdingEATEventsWithGeometry(ctx, state, true, geometry)
 	requiresWrite := make(map[string]struct{}, len(requiredWrites))
@@ -274,7 +285,7 @@ func (p *amanTransport) holdingEATEvents(ctx context.Context, state aman.Airport
 }
 
 func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state aman.AirportState, suppressCurrent bool, geometry func() (navdata.ActiveGeometrySnapshot, error)) []euroscopeEvents.HoldEvent {
-	if !p.holdingEATEnabled || !state.Authoritative || !p.currentTechnicalHealth(ctx).AuthorityAllowed || p.geometry == nil {
+	if !p.holdingEATEnabled || (state.HoldingEATWritebackEnabled != nil && !*state.HoldingEATWritebackEnabled) || !state.Authoritative || !p.currentTechnicalHealth(ctx).AuthorityAllowed || p.geometry == nil {
 		return nil
 	}
 	snapshot, err := geometry()

@@ -214,6 +214,17 @@ describe("AMAN route authorization", () => {
     expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS123"}));
   });
 
+  it("opens settings as a tab and sends the FMP writeback command", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = {...authoritativeState([]), holding_eat_writeback_available: true, holding_eat_writeback_enabled: true};
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("tab", {name: "Settings"}));
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Settings");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", {name: "Write holding EAT to EuroScope"}));
+    expect(storeState.sendAMANCommand).toHaveBeenCalledWith({type: "aman.set_holding_eat_writeback", enabled: false});
+  });
+
   it("switches TMT tabs with keyboard navigation and returns to holdings", () => {
     render(<AMAN />);
     const holdings = screen.getByRole("tab", {name: "Holdings"});
@@ -223,6 +234,8 @@ describe("AMAN route authorization", () => {
     expect(warnings).toHaveFocus();
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Warnings (0)");
     fireEvent.keyDown(warnings, {key: "ArrowRight"});
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Settings");
+    fireEvent.keyDown(screen.getByRole("tab", {name: "Settings"}), {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Coordination (0)");
     fireEvent.keyDown(screen.getByRole("tab", {name: "Coordination (0)"}), {key: "Home"});
     expect(holdings).toHaveFocus();

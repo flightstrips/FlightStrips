@@ -18,6 +18,8 @@ export interface AMANStateEvent {
 }
 
 export interface AMANState {
+  holding_eat_writeback_enabled?: boolean;
+  holding_eat_writeback_available?: boolean;
   session_id?: number;
   airport: string;
   revision: number;
@@ -369,6 +371,7 @@ export type AMANCommandType =
   | "aman.desequence_flight"
   | "aman.resume_flight"
   | "aman.remove_flight"
+  | "aman.set_holding_eat_writeback"
   | "aman.set_rate"
   | "aman.select_runway_group"
   | "aman.set_active_runway_groups"
@@ -403,6 +406,7 @@ export type AMANCommandIntent =
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; before_callsign: string}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; after_callsign: string}
   | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; callsign: string}
+  | {type: "aman.set_holding_eat_writeback"; enabled: boolean}
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
   | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
   | {type: "aman.set_active_runway_groups"; runway_group_ids: string[]}
@@ -788,6 +792,8 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
   return isString(data.airport) && data.airport.length === 4 && isNonNegativeInteger(data.revision)
     && (data.session_id === undefined || (isNonNegativeInteger(data.session_id) && data.session_id > 0))
     && isTimestamp(data.generated_at) && isString(data.policy_version) && isString(data.effective_mode)
+    && (data.holding_eat_writeback_enabled === undefined || typeof data.holding_eat_writeback_enabled === "boolean")
+    && (data.holding_eat_writeback_available === undefined || typeof data.holding_eat_writeback_available === "boolean")
     && effectiveModes.has(data.effective_mode as AMANEffectiveMode) && typeof data.authoritative === "boolean"
     && Array.isArray(data.flights) && data.flights.every(isFlight)
     && Array.isArray(data.runway_groups) && data.runway_groups.every(isRunwayGroup)

@@ -354,3 +354,27 @@ func TestSessionArrivalRunwaySourceRejectsAmbiguousArrivalRunways(t *testing.T) 
 type testSessionLister struct{ sessions []*models.Session }
 
 func (s testSessionLister) List(context.Context) ([]*models.Session, error) { return s.sessions, nil }
+
+func TestAMANHoldingEATSettingDefaultsToFeatureFlagAndControlsPublication(t *testing.T) {
+	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
+	holdingID := "EKCH-OLPIB-PRIMARY"
+	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{{
+		Callsign: "SAS123", SelectedHolding: &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
+		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},
+	}}}
+	transport := holdingEATTransport(holdingID, "OLPIB")
+	require.Len(t, transport.newHoldingEATPublication(context.Background(), state), 1)
+	disabled := false
+	state.HoldingEATWritebackEnabled = &disabled
+	require.Empty(t, transport.newHoldingEATEvents(context.Background(), state))
+	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state), "disabling must not clear existing EuroScope EAT")
+	require.Equal(t, release, state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime, "AMAN calculation remains available")
+	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state), "routine publications must stay silent while disabled")
+	require.Empty(t, transport.holdingEATEvents(context.Background(), state, false), "reconnect must respect disabled setting")
+	enabled := true
+	state.HoldingEATWritebackEnabled = &enabled
+	require.Len(t, transport.newHoldingEATPublication(context.Background(), state), 1)
+	transport.holdingEATEnabled = false
+	require.Empty(t, transport.newHoldingEATEvents(context.Background(), state), "setting cannot bypass deployment gate")
+}

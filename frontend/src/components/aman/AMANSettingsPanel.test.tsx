@@ -1,0 +1,30 @@
+import {fireEvent, render, screen} from "@testing-library/react";
+import {expect, it, vi} from "vitest";
+import type {AMANState} from "@/api/aman";
+import {AMANSettingsPanel} from "./AMANSettingsPanel";
+
+it("lets FMP toggle EAT writeback and waits for server confirmation", () => {
+  const state = {authoritative: true, effective_mode: "authoritative", technical_health: {ready: true}, holding_eat_writeback_available: true, holding_eat_writeback_enabled: true} as AMANState;
+  const onCommand = vi.fn();
+  const props = {state, connectionState: "connected" as const, hasFMPAuthority: true, readOnly: false, pendingCommands: {}, commandRejections: {}, onCommand};
+  const {rerender} = render(<AMANSettingsPanel {...props} />);
+  const checkbox = screen.getByRole("checkbox", {name: "Write holding EAT to EuroScope"});
+  expect(checkbox).toBeChecked();
+  fireEvent.click(checkbox);
+  expect(onCommand).toHaveBeenCalledWith({type: "aman.set_holding_eat_writeback", enabled: false});
+  expect(checkbox).toBeChecked();
+  rerender(<AMANSettingsPanel {...props} pendingCommands={{eat: {command_id: "eat", type: "aman.set_holding_eat_writeback", expected_revision: 7}}} />);
+  expect(checkbox).toBeDisabled();
+  expect(screen.getByText("Waiting for server confirmation.")).toBeInTheDocument();
+  rerender(<AMANSettingsPanel {...props} state={{...state, holding_eat_writeback_enabled: false}} />);
+  expect(checkbox).not.toBeChecked();
+  rerender(<AMANSettingsPanel {...props} hasFMPAuthority={false} />);
+  expect(checkbox).toBeDisabled();
+  rerender(<AMANSettingsPanel {...props} state={{...state, holding_eat_writeback_available: false, holding_eat_writeback_enabled: false}} />);
+  expect(checkbox).not.toBeChecked();
+  expect(checkbox).toBeDisabled();
+  expect(screen.getByText(/disabled by the deployment feature flag/)).toBeInTheDocument();
+  rerender(<AMANSettingsPanel {...props} state={null} />);
+  expect(checkbox).toBeDisabled();
+  expect(screen.getByText(/waiting for AMAN state/)).toBeInTheDocument();
+});

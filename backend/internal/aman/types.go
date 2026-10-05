@@ -1010,9 +1010,11 @@ type AirportState struct {
 	GeneratedAt   time.Time
 	PolicyVersion string
 	Mode          RolloutMode
-	Authoritative bool
-	Flights       []AMANFlight
-	RunwayGroups  []RunwayGroupPolicy
+	// Nil preserves the deployment feature flag default for existing sessions.
+	HoldingEATWritebackEnabled *bool
+	Authoritative              bool
+	Flights                    []AMANFlight
+	RunwayGroups               []RunwayGroupPolicy
 	// ActiveRunwayGroups is the canonical active landing-runway set. A nil slice
 	// denotes persisted legacy state that is still represented by Selected.
 	ActiveRunwayGroups []RunwayGroupID

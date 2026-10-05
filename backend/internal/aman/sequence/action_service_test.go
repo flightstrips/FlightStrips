@@ -126,6 +126,9 @@ func (m *recordingActionMutations) ResumeFlight(auth aman.CommandContext, _ aman
 func (m *recordingActionMutations) RemoveFlight(auth aman.CommandContext, _ aman.RemoveFlightCommand) (CommandMutation, error) {
 	return m.mutation("remove", auth)
 }
+func (m *recordingActionMutations) SetHoldingEATWriteback(auth aman.CommandContext, _ aman.SetHoldingEATWritebackCommand) (CommandMutation, error) {
+	return m.mutation("holding_eat_writeback", auth)
+}
 func (m *recordingActionMutations) SetRate(auth aman.CommandContext, _ aman.SetRateCommand) (CommandMutation, error) {
 	return m.mutation("rate", auth)
 }

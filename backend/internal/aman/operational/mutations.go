@@ -390,6 +390,18 @@ func lifecycleReason(flight aman.AMANFlight) aman.LifecycleReason {
 	return flight.Lifecycle.Reason
 }
 
+func (s *Service) SetHoldingEATWriteback(auth aman.CommandContext, command aman.SetHoldingEATWritebackCommand) (sequence.CommandMutation, error) {
+	if !aman.IsFMPRole(auth.Role) {
+		return nil, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "EAT writeback setting requires an FMP role"}
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		changed := state.HoldingEATWritebackEnabled == nil || *state.HoldingEATWritebackEnabled != command.Enabled
+		enabled := command.Enabled
+		state.HoldingEATWritebackEnabled = &enabled
+		return s.commandChange(state, changed, "set_holding_eat_writeback", "", map[string]any{"enabled": command.Enabled, "actor": auth.Actor})
+	}, nil
+}
+
 func (s *Service) SetRate(auth aman.CommandContext, command aman.SetRateCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
 		input := s.sequenceInput(state)

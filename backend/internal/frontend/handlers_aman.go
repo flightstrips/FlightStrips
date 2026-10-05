@@ -25,6 +25,7 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANDesequenceFlightType, handleAMANDesequenceFlight)
 	handlers.Add(events.AMANResumeFlightType, handleAMANResumeFlight)
 	handlers.Add(events.AMANRemoveFlightType, handleAMANRemoveFlight)
+	handlers.Add(events.AMANSetHoldingEATWritebackType, handleAMANSetHoldingEATWriteback)
 	handlers.Add(events.AMANSetRateType, handleAMANSetRate)
 	handlers.Add(events.AMANSelectRunwayGroupType, handleAMANSelectRunwayGroup)
 	handlers.Add(events.AMANSetActiveRunwayGroupsType, handleAMANSetActiveRunwayGroups)
@@ -296,6 +297,20 @@ func handleAMANKeepFPLETA(ctx context.Context, client *Client, message Message) 
 func handleAMANResetTETAOverride(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANResetTETAOverrideType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.ResetTETAOverride(ctx, auth, aman.ResetTETAOverrideCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
+	})
+}
+
+func handleAMANSetHoldingEATWriteback(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANSetHoldingEATWritebackMessage
+	if err := decodeAMANMessage(message, events.AMANSetHoldingEATWritebackType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	if wire.Data.Enabled == nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "enabled is required"})
+	}
+	command := aman.SetHoldingEATWritebackCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Enabled: *wire.Data.Enabled}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.SetHoldingEATWriteback(ctx, auth, command)
 	})
 }
 

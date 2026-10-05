@@ -9,6 +9,7 @@ const (
 	AMANDesequenceFlightType          EventType = "aman.desequence_flight"
 	AMANResumeFlightType              EventType = "aman.resume_flight"
 	AMANRemoveFlightType              EventType = "aman.remove_flight"
+	AMANSetHoldingEATWritebackType    EventType = "aman.set_holding_eat_writeback"
 	AMANSetRateType                   EventType = "aman.set_rate"
 	AMANSelectRunwayGroupType         EventType = "aman.select_runway_group"
 	AMANSetActiveRunwayGroupsType     EventType = "aman.set_active_runway_groups"
@@ -58,6 +59,17 @@ type AMANChangeRunwayRequest struct {
 	AMANCommandMeta
 	Callsign      string `json:"callsign"`
 	RunwayGroupID string `json:"runway_group_id"`
+}
+
+type AMANSetHoldingEATWritebackRequest struct {
+	AMANCommandMeta
+	Enabled *bool `json:"enabled"`
+}
+
+type AMANSetHoldingEATWritebackMessage struct {
+	Type    EventType                         `json:"type"`
+	Version int                               `json:"version"`
+	Data    AMANSetHoldingEATWritebackRequest `json:"data"`
 }
 
 type AMANSetRateRequest struct {

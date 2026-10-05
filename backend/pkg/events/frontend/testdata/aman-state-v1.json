@@ -8,6 +8,8 @@
     "policy_version": "ekch-aman-v1",
     "effective_mode": "authoritative",
     "authoritative": true,
+    "holding_eat_writeback_enabled": false,
+    "holding_eat_writeback_available": false,
     "flights": [
       {
         "callsign": "SAS123",

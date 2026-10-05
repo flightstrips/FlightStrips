@@ -44,22 +44,24 @@ func (e AMANStateEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (AMANStateEvent) GetType() EventType         { return AMANStateType }
 
 type AMANState struct {
-	SessionID          int32                 `json:"session_id,omitempty"`
-	Airport            string                `json:"airport"`
-	Revision           uint64                `json:"revision"`
-	GeneratedAt        string                `json:"generated_at"`
-	PolicyVersion      string                `json:"policy_version"`
-	EffectiveMode      string                `json:"effective_mode"`
-	Authoritative      bool                  `json:"authoritative"`
-	Flights            []AMANFlight          `json:"flights"`
-	RunwayGroups       []AMANRunwayGroup     `json:"runway_groups"`
-	ActiveRunwayGroups []string              `json:"active_runway_groups,omitempty"`
-	Header             *AMANHeader           `json:"header,omitempty"`
-	TimelineConfig     *AMANTimelineConfig   `json:"timeline_configuration,omitempty"`
-	TrafficPrediction  AMANTrafficPrediction `json:"traffic_prediction"`
-	HoldingInformation []AMANHoldingEntry    `json:"holding_information"`
-	Warnings           []AMANWarning         `json:"warnings"`
-	TechnicalHealth    AMANTechnicalHealth   `json:"technical_health"`
+	SessionID                    int32                 `json:"session_id,omitempty"`
+	Airport                      string                `json:"airport"`
+	Revision                     uint64                `json:"revision"`
+	GeneratedAt                  string                `json:"generated_at"`
+	PolicyVersion                string                `json:"policy_version"`
+	EffectiveMode                string                `json:"effective_mode"`
+	HoldingEATWritebackEnabled   bool                  `json:"holding_eat_writeback_enabled"`
+	HoldingEATWritebackAvailable bool                  `json:"holding_eat_writeback_available"`
+	Authoritative                bool                  `json:"authoritative"`
+	Flights                      []AMANFlight          `json:"flights"`
+	RunwayGroups                 []AMANRunwayGroup     `json:"runway_groups"`
+	ActiveRunwayGroups           []string              `json:"active_runway_groups,omitempty"`
+	Header                       *AMANHeader           `json:"header,omitempty"`
+	TimelineConfig               *AMANTimelineConfig   `json:"timeline_configuration,omitempty"`
+	TrafficPrediction            AMANTrafficPrediction `json:"traffic_prediction"`
+	HoldingInformation           []AMANHoldingEntry    `json:"holding_information"`
+	Warnings                     []AMANWarning         `json:"warnings"`
+	TechnicalHealth              AMANTechnicalHealth   `json:"technical_health"`
 }
 
 // AMANHeader is a display-ready projection of backend-owned state. It keeps

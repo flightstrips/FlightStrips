@@ -82,6 +82,13 @@ func (g *amanCommandGate) RemoveFlight(ctx context.Context, auth aman.CommandCon
 	return g.commands.RemoveFlight(ctx, auth, command)
 }
 
+func (g *amanCommandGate) SetHoldingEATWriteback(ctx context.Context, auth aman.CommandContext, command aman.SetHoldingEATWritebackCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.SetHoldingEATWriteback(ctx, auth, command)
+}
+
 func (g *amanCommandGate) SetRate(ctx context.Context, auth aman.CommandContext, command aman.SetRateCommand) (aman.CommandExecution, error) {
 	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
 		return aman.CommandExecution{}, err

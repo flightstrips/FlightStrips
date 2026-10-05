@@ -62,6 +62,13 @@ type RemoveFlightCommand struct {
 	Callsign Callsign
 }
 
+type SetHoldingEATWritebackCommand struct {
+	Metadata CommandMetadata
+	Enabled  bool
+}
+
+func (c SetHoldingEATWritebackCommand) Validate() error { return validateCommandMetadata(c.Metadata) }
+
 type SetRateCommand struct {
 	Metadata        CommandMetadata
 	RunwayGroupID   RunwayGroupID
@@ -219,6 +226,7 @@ type CommandService interface {
 	DesequenceFlight(context.Context, CommandContext, DesequenceFlightCommand) (CommandExecution, error)
 	ResumeFlight(context.Context, CommandContext, ResumeFlightCommand) (CommandExecution, error)
 	RemoveFlight(context.Context, CommandContext, RemoveFlightCommand) (CommandExecution, error)
+	SetHoldingEATWriteback(context.Context, CommandContext, SetHoldingEATWritebackCommand) (CommandExecution, error)
 	SetRate(context.Context, CommandContext, SetRateCommand) (CommandExecution, error)
 	SelectRunwayGroup(context.Context, CommandContext, SelectRunwayGroupCommand) (CommandExecution, error)
 	SetActiveRunwayGroups(context.Context, CommandContext, SetActiveRunwayGroupsCommand) (CommandExecution, error)

@@ -18,6 +18,7 @@ type ActionMutations interface {
 	DesequenceFlight(aman.CommandContext, aman.DesequenceFlightCommand) (CommandMutation, error)
 	ResumeFlight(aman.CommandContext, aman.ResumeFlightCommand) (CommandMutation, error)
 	RemoveFlight(aman.CommandContext, aman.RemoveFlightCommand) (CommandMutation, error)
+	SetHoldingEATWriteback(aman.CommandContext, aman.SetHoldingEATWritebackCommand) (CommandMutation, error)
 	SetRate(aman.CommandContext, aman.SetRateCommand) (CommandMutation, error)
 	SelectRunwayGroup(aman.CommandContext, aman.SelectRunwayGroupCommand) (CommandMutation, error)
 	SetActiveRunwayGroups(aman.CommandContext, aman.SetActiveRunwayGroupsCommand) (CommandMutation, error)
@@ -98,6 +99,10 @@ func (s *ActionService) ResumeFlight(ctx context.Context, auth aman.CommandConte
 
 func (s *ActionService) RemoveFlight(ctx context.Context, auth aman.CommandContext, command aman.RemoveFlightCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.RemoveFlight(auth, command) })
+}
+
+func (s *ActionService) SetHoldingEATWriteback(ctx context.Context, auth aman.CommandContext, command aman.SetHoldingEATWritebackCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.SetHoldingEATWriteback(auth, command) })
 }
 
 func (s *ActionService) SetRate(ctx context.Context, auth aman.CommandContext, command aman.SetRateCommand) (aman.CommandExecution, error) {

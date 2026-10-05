@@ -7,6 +7,7 @@ import {AMANCoordinationRequestDialog} from "@/components/aman/AMANCoordinationR
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
 import {AMANQuickGapDialog} from "@/components/aman/AMANQuickGapDialog";
 import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
+import {AMANSettingsPanel} from "@/components/aman/AMANSettingsPanel";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
@@ -50,6 +51,7 @@ export default function AMAN() {
   const tmtTabs = [
     {id: "holdings", label: "Holdings"},
     {id: "warnings", label: `Warnings (${warnings.items.length})`},
+    {id: "settings", label: "Settings"},
     ...(!hasFMPAuthority ? [{id: "coordination", label: `Coordination (${state?.coordination_requests?.filter(request => request.state === "pending").length ?? 0})`}] : []),
   ];
   const activeTmtTab = tmtTabs.some(tab => tab.id === tmtTab) ? tmtTab : "holdings";
@@ -139,6 +141,9 @@ export default function AMAN() {
               rejection={decisionCommandID ? commandRejections[decisionCommandID]?.message : null}
               requests={state?.coordination_requests ?? []}
               />
+            </div>}
+            {activeTmtTab === "settings" && <div aria-labelledby="tmt-settings-tab" className="aman-tmt-notices" id="tmt-settings-panel" role="tabpanel" tabIndex={0}>
+              <AMANSettingsPanel state={state} connectionState={connectionState} hasFMPAuthority={hasFMPAuthority} readOnly={readOnly} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
             </div>}
             {activeTmtTab === "warnings" && <div aria-labelledby="tmt-warnings-tab" className="aman-tmt-notices" id="tmt-warnings-panel" role="tabpanel" tabIndex={0}>
               <AMANWarningPanel

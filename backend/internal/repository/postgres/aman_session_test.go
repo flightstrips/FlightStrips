@@ -21,6 +21,8 @@ func TestAMANSessionQueuesRestartIsolationAndCleanup(t *testing.T) {
 	for i, ctx := range contexts {
 		state := amanState(1, "unused", "SAS123")
 		state.SessionID = aman.SessionID(ctx)
+		enabled := i == 0
+		state.HoldingEATWritebackEnabled = &enabled
 		state.RunwayGroups[0].ActiveRatePerHour = uint32(20 + i*20)
 		state.Flights[0].Slot.Time = state.Flights[0].Slot.Time.Add(time.Duration(i) * time.Hour)
 		state.Flights[0].HoldingClearance = &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, HoldEAT: []string{"1210", "1310"}[i], ObservedAt: state.GeneratedAt}

@@ -77,7 +77,7 @@ func TestClearanceTobtAlignsEobtAfterPersistenceAndPreservesConfirmation(t *test
 					return &models.Controller{Cid: stringPtr("12345")}, nil
 				},
 			}
-			service := newTestCdmService(newTestClientWithAirportMasters(nil), repo, &testutil.MockSessionRepository{}, controllers)
+			service := newTestCdmService(newTestClientWithAirportMasters(nil), withMilestoneAcknowledgements(repo), milestoneTestSessions(), controllers)
 			service.client.isValid = false
 			setTestCdmEuroscope(service, hub)
 			require.NoError(t, service.HandleClearanceTobt(context.Background(), 779, "SAS779"))
@@ -119,7 +119,7 @@ func TestTakeoffClearanceAtotIsSentOnceAfterPersistence(t *testing.T) {
 			return 1, nil
 		},
 	}
-	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), repo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withMilestoneAcknowledgements(repo), milestoneTestSessions(), &testutil.MockControllerRepository{})
 	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	markSessionLive(service, 779)
 	require.NoError(t, service.RecordTakeoffClearanceAtot(context.Background(), 779, "SAS779"))
@@ -159,6 +159,9 @@ func TestPendingAtotRetriesOnCdmSync(t *testing.T) {
 	}))
 	defer server.Close()
 	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS779", Origin: "EKCH"}, nil
+		},
 		GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
 			return []*models.CdmDataRow{{Callsign: "SAS779", Data: data.Clone()}}, nil
 		},
@@ -170,7 +173,7 @@ func TestPendingAtotRetriesOnCdmSync(t *testing.T) {
 			return 1, nil
 		},
 	}
-	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), repo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withMilestoneAcknowledgements(repo), milestoneTestSessions(), &testutil.MockControllerRepository{})
 	markSessionLive(service, 779)
 	require.ErrorContains(t, service.actionService.sendPendingAtot(context.Background(), 779, "SAS779"), "502")
 	assert.True(t, data.AtotViffPending)
@@ -187,7 +190,7 @@ func TestPushbackCtotReadIgnoresViffTsat(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"callsign":"SAS779","ctot":"1240","cdmData":{"tsat":"130000"}}`)
 	}))
 	defer server.Close()
-	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), &testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), &testutil.MockStripRepository{}, milestoneTestSessions(), &testutil.MockControllerRepository{})
 	markSessionLive(service, 779)
 	ctot, err := service.ReadPushbackCtot(context.Background(), 779, "SAS779")
 	require.NoError(t, err)
@@ -212,7 +215,7 @@ func TestTransferAobtIsNotReplacedAtPushback(t *testing.T) {
 			return 1, nil
 		},
 	}
-	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), repo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withMilestoneAcknowledgements(repo), milestoneTestSessions(), &testutil.MockControllerRepository{})
 	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	markSessionLive(service, 779)
 	require.NoError(t, service.RecordAobtForTransfer(context.Background(), 779, "SAS779"))
@@ -250,7 +253,7 @@ func TestStartupDoesNotRecordAobtBeforePushback(t *testing.T) {
 			return 1, nil
 		},
 	}
-	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), repo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withMilestoneAcknowledgements(repo), milestoneTestSessions(), &testutil.MockControllerRepository{})
 	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	markSessionLive(service, 779)
 	require.NoError(t, service.SyncAsatForGroundState(context.Background(), 779, "SAS779", "STUP"))

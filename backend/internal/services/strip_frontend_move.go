@@ -1,6 +1,7 @@
 package services
 
 import (
+	"FlightStrips/internal/cdm"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"context"
@@ -63,6 +64,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return err
 	}
 	if targetBay == shared.BAY_PUSH && strip.Bay != targetBay && strings.EqualFold(strip.Origin, airport) {
+		ctx = context.WithValue(ctx, pushbackTransitionContextKey{}, pushbackTransitionContext{source: "frontend", initial: snapshotPushbackTransitionTiming(strip)})
 		if err := s.validatePushbackTiming(ctx, session, strip, clientPosition); err != nil {
 			return err
 		}
@@ -208,11 +210,26 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 		return nil
 	}
 	now := time.Now().UTC()
+	initialTobt := valueOrEmptyStripTime(strip.EffectiveTobt())
+	initialTsat := valueOrEmptyStripTime(strip.EffectiveTsat())
+	initialCtot := valueOrEmptyStripTime(strip.EffectiveCtot())
 	remoteCtot, readErr := service.ReadPushbackCtot(ctx, session, strip.Callsign)
 	confirmed := readErr == nil
+	logRejection := func(updated *internalModels.Strip, reason string, verified bool, prepareErr error) {
+		slog.WarnContext(ctx, "Pushback timing validation blocked attempt",
+			slog.Int("session", int(session)), slog.String("callsign", strip.Callsign), slog.String("position", position),
+			slog.String("reason", reason), slog.String("initial_tobt", initialTobt), slog.String("initial_tsat", initialTsat),
+			slog.String("initial_ctot", initialCtot), slog.String("tobt", valueOrEmptyStripTime(updated.EffectiveTobt())),
+			slog.String("tsat", valueOrEmptyStripTime(updated.EffectiveTsat())), slog.String("ctot", valueOrEmptyStripTime(updated.EffectiveCtot())),
+			slog.String("remote_ctot", remoteCtot), slog.String("initial_window_state", pushbackWindowState(initialTsat, now)),
+			slog.String("window_state", pushbackWindowState(valueOrEmptyStripTime(updated.EffectiveTsat()), time.Now().UTC())),
+			slog.Bool("remote_confirmed", confirmed), slog.Bool("verified", verified),
+			slog.Any("read_error", readErr), slog.Any("verification_error", prepareErr))
+	}
 	contextKey := pushbackTimingContext(strip, remoteCtot, confirmed, now)
 	if strip.ValidationStatus != nil && strip.ValidationStatus.IssueType == pushbackTsatValidationIssueType && strip.ValidationStatus.ContextKey == contextKey {
 		if strip.ValidationStatus.Active {
+			logRejection(strip, "existing_validation", false, nil)
 			return errors.New("pushback requires TSAT override")
 		}
 		return nil
@@ -242,6 +259,8 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 		return err
 	}
 	if prepareErr != nil || !verified || remoteCtot != "" || !pushbackTsatWithinWindow(valueOrEmptyStripTime(updated.EffectiveTsat()), time.Now().UTC()) || valueOrEmptyStripTime(updated.EffectiveCtot()) != "" {
+		reason, message := pushbackRejectionDetails(updated, remoteCtot, verified, prepareErr, time.Now().UTC())
+		logRejection(updated, reason, verified, prepareErr)
 		if validationCandidateIsInhibited(updated.ValidationStatus, pushbackTsatValidationIssueType) {
 			return errors.New("pushback timing warning is waiting for another validation")
 		}
@@ -251,7 +270,7 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 		}
 		status := &internalModels.ValidationStatus{
 			IssueType:      pushbackTsatValidationIssueType,
-			Message:        "Aircraft pushed outside of TSAT window with/without CTOT.",
+			Message:        message,
 			OwningPosition: owner,
 			Active:         true,
 			ActivationKey:  uuid.New().String(),
@@ -270,6 +289,22 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 		shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
 	}
 	return nil
+}
+
+func pushbackRejectionDetails(strip *internalModels.Strip, remoteCtot string, verified bool, prepareErr error, now time.Time) (string, string) {
+	if prepareErr != nil && !errors.Is(prepareErr, cdm.ErrPushbackVerification) {
+		return "preparation_failed", "Pushback requires override: timing could not be prepared."
+	}
+	if prepareErr != nil || !verified {
+		return "viff_unconfirmed", "Pushback requires override: vIFF could not confirm the timing update or CTOT."
+	}
+	if remoteCtot != "" || valueOrEmptyStripTime(strip.EffectiveCtot()) != "" {
+		return "ctot_present", "Pushback requires override: aircraft has a CTOT."
+	}
+	if pushbackWindowState(valueOrEmptyStripTime(strip.EffectiveTsat()), now) == "unknown" {
+		return "tsat_unknown", "Pushback requires override: TSAT is missing or invalid."
+	}
+	return "tsat_outside_window", "Pushback requires override: aircraft is outside the TSAT window."
 }
 
 func valueOrEmptyStripTime(value *string) string {

@@ -226,4 +226,7 @@ func (s *Server) removeExpiredSession(ctx context.Context, session *models.Sessi
 		return
 	}
 	s.routeInputs.Delete(session.ID)
+	if lifecycle, ok := s.cdmService.(interface{ RemoveSession(int32) }); ok {
+		lifecycle.RemoveSession(session.ID)
+	}
 }

@@ -72,6 +72,7 @@ type CdmData struct {
 	Ctot                   *string            `json:"ctot,omitempty"`
 	CtotSource             *string            `json:"ctotSource,omitempty"`
 	Aobt                   *string            `json:"aobt,omitempty"`
+	AobtViffPending        bool               `json:"aobtViffPending,omitempty"`
 	Atot                   *string            `json:"atot,omitempty"`
 	AtotViffPending        bool               `json:"atotViffPending,omitempty"`
 	Asat                   *string            `json:"asat,omitempty"`

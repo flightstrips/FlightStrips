@@ -68,6 +68,7 @@ type StripRepository interface {
 	GetCdmData(ctx context.Context, session int32) ([]*models.CdmDataRow, error)
 	GetCdmDataForCallsign(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
 	SetCdmData(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error)
+	AcknowledgeCdmMilestone(ctx context.Context, session int32, callsign string, milestone string, value string) (int64, error)
 
 	// Arrival ETA
 	UpdateArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error)

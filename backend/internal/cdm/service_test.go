@@ -1293,7 +1293,7 @@ func TestSyncAsatForGroundState_SetsAndClearsCanonicalAsat(t *testing.T) {
 	euroscopeHub := &testutil.MockEuroscopeHub{}
 	service := newTestCdmService(
 		newTestClientWithAirportMasters(nil),
-		&testutil.MockStripRepository{
+		withMilestoneAcknowledgements(&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
 				assert.Equal(t, sessionID, session)
 				assert.Equal(t, callsign, cs)
@@ -1310,8 +1310,8 @@ func TestSyncAsatForGroundState_SetsAndClearsCanonicalAsat(t *testing.T) {
 				stored = data.Clone()
 				return 1, nil
 			},
-		},
-		&testutil.MockSessionRepository{},
+		}),
+		milestoneTestSessions(),
 		&testutil.MockControllerRepository{},
 	)
 	setTestCdmEuroscope(service, euroscopeHub)
@@ -2157,7 +2157,7 @@ func TestSyncAsatForGroundState_SetsAobtLocallyAndPushesToViff(t *testing.T) {
 
 	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
-		&testutil.MockStripRepository{
+		withMilestoneAcknowledgements(&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 				return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
 			},
@@ -2168,8 +2168,8 @@ func TestSyncAsatForGroundState_SetsAobtLocallyAndPushesToViff(t *testing.T) {
 				stored = data.Clone()
 				return 1, nil
 			},
-		},
-		&testutil.MockSessionRepository{},
+		}),
+		milestoneTestSessions(),
 		&testutil.MockControllerRepository{},
 	)
 
@@ -2243,6 +2243,58 @@ func TestPushViffAfterRecalcAsync_SendsSetCdmDataWhenTsatPresent(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 }
 
+func TestPushViffAfterRecalcAsync_ExportsLatestQueuedProposal(t *testing.T) {
+	for _, firstResponse := range []string{"true", "false"} {
+		t.Run(firstResponse, func(t *testing.T) {
+			requests := make(chan string, 3)
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				tsat := r.URL.Query().Get("tsat")
+				requests <- tsat
+				if tsat == "120000" {
+					<-release
+					fmt.Fprint(w, firstResponse)
+					return
+				}
+				fmt.Fprint(w, "true")
+			}))
+			defer server.Close()
+			defer releaseOnce.Do(func() { close(release) })
+			service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), nil, nil, nil)
+			markSessionLive(service, 1)
+			push := func(tsat string) {
+				service.pushViffAfterRecalcAsync(1, "SAS1", nil, &models.CdmData{
+					Tobt: stringPtr("1150"), Tsat: stringPtr(tsat), Ttot: stringPtr("1410"),
+				})
+			}
+			receive := func() string {
+				select {
+				case tsat := <-requests:
+					return tsat
+				case <-time.After(2 * time.Second):
+					t.Fatal("expected queued proposal to be exported without another sync")
+					return ""
+				}
+			}
+			push("120000")
+			require.Equal(t, "120000", receive())
+			push("130000")
+			push("140000")
+			releaseOnce.Do(func() { close(release) })
+			require.Equal(t, "140000", receive())
+			require.Eventually(t, func() bool {
+				tracker := &service.masterViffSync.pushRetries
+				tracker.mu.Lock()
+				defer tracker.mu.Unlock()
+				entry := tracker.entries[viffPushKey(1, "SAS1")]
+				return entry.inFlight == nil && entry.confirmed != nil && entry.confirmed.Params.Tsat == "140000"
+			}, 2*time.Second, time.Millisecond)
+			require.Empty(t, requests, "intermediate proposal is superseded")
+		})
+	}
+}
+
 func TestPushViffDataAfterRecalc_DoesNotBypassPendingReadyOrdering(t *testing.T) {
 	const sessionID = int32(81)
 	const callsign = "SASORDER"
@@ -2266,7 +2318,9 @@ func TestPushViffDataAfterRecalc_DoesNotBypassPendingReadyOrdering(t *testing.T)
 	markSessionLive(service, sessionID)
 
 	service.pushViffDataAfterRecalc(context.Background(), sessionID, callsign)
-	if _, queued := service.lastPushedViff.Load(viffPushKey(sessionID, callsign)); queued {
+	service.masterViffSync.pushRetries.mu.Lock()
+	defer service.masterViffSync.pushRetries.mu.Unlock()
+	if _, queued := service.masterViffSync.pushRetries.entries[viffPushKey(sessionID, callsign)]; queued {
 		t.Fatal("expected pending READY state to wait for its own REA/1")
 	}
 }

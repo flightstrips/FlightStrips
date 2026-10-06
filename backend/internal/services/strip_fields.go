@@ -261,9 +261,15 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 	}
 	bay := shared.GetDepartureBayFromGroundState(groundState, dbStrip, airport, s.isGndOnline(ctx, session))
 
-	_, err = s.fieldStore.UpdateGroundState(ctx, session, callsign, &groundState, bay, nil)
+	initialPushbackTiming := snapshotPushbackTransitionTiming(existingStrip)
+	previousBay := existingStrip.Bay
+	rows, err := s.fieldStore.UpdateGroundState(ctx, session, callsign, &groundState, bay, nil)
 	if err != nil {
 		return err
+	}
+	if rows == 1 && previousBay != shared.BAY_PUSH && bay == shared.BAY_PUSH {
+		logPushbackTransition(ctx, session, callsign, "euroscope", previousBay, initialPushbackTiming, existingStrip)
+		ctx = context.WithValue(ctx, pushbackTransitionLoggedContextKey{}, true)
 	}
 	if existingStrip.Bay != bay {
 		if err := s.MoveToBay(ctx, session, callsign, bay, true); err != nil {

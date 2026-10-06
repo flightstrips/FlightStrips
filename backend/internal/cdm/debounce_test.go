@@ -87,3 +87,58 @@ func TestRecalcDebounceKey_IsSessionScoped(t *testing.T) {
 		t.Fatalf("expected distinct debounce keys for different sessions, both were %q", first)
 	}
 }
+
+func TestRecalcDebouncerCancelSessionDropsPendingAndRerun(t *testing.T) {
+	d := newRecalcDebouncer(10 * time.Millisecond)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var runs atomic.Int32
+	d.Schedule("7:EKCH", func() {
+		if runs.Add(1) == 1 {
+			close(started)
+			<-release
+		}
+	})
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("run did not start")
+	}
+	d.Schedule("7:EKCH", func() { t.Error("unexpected replacement callback") })
+	d.Schedule("7:EKBI", func() { runs.Add(1) })
+	d.CancelPrefix("7:")
+	close(release)
+	other := make(chan struct{})
+	d.Schedule("8:EKCH", func() { close(other) })
+	select {
+	case <-other:
+	case <-time.After(time.Second):
+		t.Fatal("another session's work was cancelled")
+	}
+	time.Sleep(30 * time.Millisecond)
+	if runs.Load() != 1 {
+		t.Fatalf("cancelled work ran: %d", runs.Load())
+	}
+}
+
+func TestRecalcDebouncerCancelledRunningJobCannotConsumeReplacement(t *testing.T) {
+	d := newRecalcDebouncer(time.Millisecond)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	d.Schedule("7:EKCH", func() { close(started); <-release })
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("run did not start")
+	}
+	d.CancelPrefix("7:")
+	d.interval = 20 * time.Millisecond
+	replacement := make(chan struct{})
+	d.Schedule("7:EKCH", func() { close(replacement) })
+	close(release)
+	select {
+	case <-replacement:
+	case <-time.After(time.Second):
+		t.Fatal("old running job consumed its replacement")
+	}
+}

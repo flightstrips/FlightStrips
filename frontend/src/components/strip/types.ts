@@ -57,6 +57,8 @@ export interface StripProps {
   runwayConfirmed?: boolean;
   registration?: string;
   fullWidth?: boolean;
+  /** SEQ PLN STARTUP requires a valid TSAT before its SI can transfer. */
+  startupSiTransfer?: boolean;
   isManual?: boolean;
   validationStatus?: import("@/api/models").ValidationStatus;
   ecfmp_restrictions?: import("@/api/models").EcfmpRestriction[];

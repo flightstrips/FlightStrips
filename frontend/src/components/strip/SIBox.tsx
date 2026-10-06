@@ -1,6 +1,7 @@
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
 import { getSIBoxBorderStyle, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership } from "./shared";
+import { toast } from "sonner";
 
 /** Text colour for the next-controller identifier label. */
 const COLOR_SI_LABEL = "#8F8F8F";
@@ -22,6 +23,7 @@ export function SIBox({
   transferringTo,
   isTagRequest,
   baseBorderColor,
+  transferAllowed,
 }: {
   callsign: string;
   bay?: string;
@@ -42,6 +44,8 @@ export function SIBox({
   isTagRequest?: boolean;
   /** Base cell border color (defaults to the shared teal). Pass a custom color for strips with different border styling. */
   baseBorderColor?: string;
+  /** Checked at click time so the TSAT window works without waiting for a rerender. */
+  transferAllowed?: () => boolean;
 }) {
   const controllers = useControllers();
   const transferStrip = useWebSocketStore(s => s.transferStrip);
@@ -87,6 +91,10 @@ export function SIBox({
     } else if (isSendingTransfer) {
       cancelTransfer(callsign);
     } else if (isAssumed && nextPosition) {
+      if (transferAllowed && !transferAllowed()) {
+        toast.error("Startup transfer is only available within the TSAT window");
+        return;
+      }
       transferStrip(callsign, nextPosition);
     }
   };

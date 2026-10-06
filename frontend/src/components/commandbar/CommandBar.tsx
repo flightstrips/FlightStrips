@@ -29,7 +29,8 @@ const SCOPE_LABELS: Record<string, string> = {
   "CLX":  "CLR DEL",
   "AAAD": "AA + AD",
   "AD":   "APRON DEP",
-  "EST":  "SEQ PLN",
+  "EST":  "EST",
+  "SEQPLN": "SEQ PLN",
   "AMAN": "AMAN",
   "GEGW": "GE + GW",
   "TWTE": "TE + TW",
@@ -38,7 +39,8 @@ const SCOPE_LABELS: Record<string, string> = {
 
 const EKCH_SCOPES = [
   { label: "CLR DEL",    layout: "CLX" },
-  { label: "SEQ PLN",    layout: "EST" },
+  { label: "SEQ PLN",    layout: "SEQPLN" },
+  { label: "EST",        layout: "EST" },
   { label: "AMAN",       layout: "AMAN" },
   { label: "APRON DEP",  layout: "AD" },
   { label: "APRON ARR",  layout: "AA" },

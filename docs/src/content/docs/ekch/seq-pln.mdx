@@ -1,15 +1,13 @@
 ---
 title: SEQ PLN
-description: Kastrup Sequence Planner — startup sequencing when C-GND is online with B-GND.
+description: Kastrup Sequence Planner — clearance and startup sequencing.
 sidebar:
   order: 4
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-![Kastrup Sequence Planner](../../../assets/ekch/est.jpg)
-
-**SEQ PLN** uses logical frequency **121.905**. The controller carrying that frequency may be primed on it or carry it through cross-coupling. The layout uses the **GND aspect** (same family as [AA + AD](/ekch/aa-ad/) and [CLR DEL](/ekch/clr-del/)).
+**SEQ PLN** is the primary scope for **121.905** when **121.730** is primed. It is also the primary scope for **119.905** unless **121.905**, **121.630**, and **121.730** are all primed. The layout uses the **GND aspect** (same family as [AA + AD](/ekch/aa-ad/) and [CLR DEL](/ekch/clr-del/)).
 
 ## Bay overview
 
@@ -19,9 +17,9 @@ import { Aside } from '@astrojs/starlight/components';
 | **Final** | Arrival locked | Locked. |
 | **RWY ARR** | Arrival locked | Locked. |
 | **TWY ARR** | `APN-ARR` | Locked in this scope. |
-| **Startup (SEQ)** | Cleared | Active — same strip behaviour as Cleared in [CLR DEL](/ekch/clr-del/); SI rules differ. |
+| **Startup (SEQ)** | Cleared | Active — same strip as Cleared in [CLR DEL](/ekch/clr-del/); SI transfer follows TSAT. |
 | **Push back** | `APN-PUSH` | Matches Push back in [AA + AD](/ekch/aa-ad/). |
-| **TWY DEP** (upper / lower) | Departure locked | Locked. |
+| **TWY DEP** | Departure | Departure taxi bay. |
 | **Others** | Uncleared | Active — SEQ PLN can issue clearances directly. |
 | **SAS** | Uncleared | Same uncleared family. |
 | **Norwegian** | Uncleared | Same uncleared family. |
@@ -32,17 +30,17 @@ import { Aside } from '@astrojs/starlight/components';
 
 ## Startup (SEQ)
 
-All cleared departures sit in **Startup (SEQ)**. Clickspots match Cleared strips in CLR DEL.
+All cleared departures sit in **Startup (SEQ)**, sorted by TSAT with the earliest time at the bottom. A TSAT update automatically changes the order. Clickspots match Cleared strips in CLR DEL.
 
 <Aside>
-The SI box shows white when the strip is owned by SEQ PLN. **START+TRF** and manual SI create normal pending coordination to the resolved primary. Manual moves within this scope are limited to **Startup (SEQ)** ↔ **Push back**.
+The SI box shows white when the strip is owned by SEQ PLN. When the aircraft calls for startup, click SI within the TSAT startup window to transfer it to the next controller.
 </Aside>
 
 The next logical route steps are:
 
-- **East/South:** GE 121.830 → the applicable tower.
-- **West:** GW 118.580 → the applicable tower.
-- **North:** AD 121.730 → the configured ground/tower route.
+- **Any G stand or APRON SOUTH stand:** GE 121.830 → the applicable tower.
+- **W1, RI, RII, RIII:** GW 118.580 → the applicable tower.
+- **Other stands:** AD 121.730 → the configured ground/tower route.
 
 Unavailable steps are skipped. When consecutive steps are carried by the same primary, no self-transfer is created.
 

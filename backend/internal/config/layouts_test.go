@@ -49,15 +49,18 @@ func makePos(name, freq, section string) *Position {
 // ekchApronLayouts mirrors the relevant subset of the EKCH layouts config used in apron tests.
 func ekchApronLayouts() map[string][]LayoutVariant {
 	return map[string][]LayoutVariant{
+		"EKCH_DEL": {
+			{Online: []string{}, Offline: []string{}, Layout: "SEQPLN"},
+			{Online: []string{"EKCH_A_GND", "EKCH_B_GND", "EKCH_C_GND"}, Offline: []string{}, Layout: "CLX"},
+		},
 		"EKCH_A_GND": {
 			{Online: []string{"EKCH_B_GND", "EKCH_C_GND"}, Offline: []string{}, Layout: "AA"},
 			{Online: []string{"EKCH_B_GND"}, Offline: []string{"EKCH_C_GND"}, Layout: "AA"},
 			{Online: []string{}, Offline: []string{"EKCH_B_GND", "EKCH_C_GND"}, Layout: "AAAD"},
 		},
 		"EKCH_B_GND": {
-			{Online: []string{"EKCH_A_GND", "EKCH_C_GND"}, Offline: []string{}, Layout: "SEQPLN"},
+			{Online: []string{"EKCH_C_GND"}, Offline: []string{}, Layout: "SEQPLN"},
 			{Online: []string{"EKCH_A_GND"}, Offline: []string{"EKCH_C_GND"}, Layout: "AD"},
-			{Online: []string{"EKCH_C_GND"}, Offline: []string{"EKCH_A_GND"}, Layout: "AA"},
 			{Online: []string{}, Offline: []string{"EKCH_A_GND", "EKCH_C_GND"}, Layout: "AAAD"},
 		},
 		"EKCH_C_GND": {
@@ -144,6 +147,50 @@ func TestGetLayouts_AllThreeAprons_SplitViews(t *testing.T) {
 	assert.Equal(t, "SEQPLN", *result["121.905"])
 	require.NotNil(t, result["121.730"])
 	assert.Equal(t, "AD", *result["121.730"])
+}
+
+func TestGetLayouts_SequencePlanningCoverage(t *testing.T) {
+	setupApronLayouts(t)
+	for _, test := range []struct {
+		name      string
+		positions []*Position
+		expected  map[string]string
+	}{
+		{
+			name: "departure apron with C ground",
+			positions: []*Position{
+				makePos("EKCH_B_GND", "121.905", "GND"),
+				makePos("EKCH_C_GND", "121.730", "GND"),
+			},
+			expected: map[string]string{"121.905": "SEQPLN"},
+		},
+		{
+			name: "delivery before all apron positions are primed",
+			positions: []*Position{
+				makePos("EKCH_DEL", "119.905", "DEL"),
+				makePos("EKCH_B_GND", "121.905", "GND"),
+			},
+			expected: map[string]string{"119.905": "SEQPLN"},
+		},
+		{
+			name: "delivery after all apron positions are primed",
+			positions: []*Position{
+				makePos("EKCH_DEL", "119.905", "DEL"),
+				makePos("EKCH_A_GND", "121.630", "GND"),
+				makePos("EKCH_B_GND", "121.905", "GND"),
+				makePos("EKCH_C_GND", "121.730", "GND"),
+			},
+			expected: map[string]string{"119.905": "CLX"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := GetLayouts(test.positions, []string{"22L", "22R"})
+			for frequency, expected := range test.expected {
+				require.NotNil(t, result[frequency])
+				assert.Equal(t, expected, *result[frequency])
+			}
+		})
+	}
 }
 
 func TestGetLayouts_NoMutationAcrossCalls(t *testing.T) {

@@ -24,9 +24,29 @@ func (s Stand) Equal(o Stand) bool {
 
 // ParseStand parses strings like "A15" into a Stand.
 func ParseStand(s string) (Stand, error) {
-	str := strings.TrimSpace(s)
+	str := strings.ToUpper(strings.TrimSpace(s))
 	if str == "" {
 		return Stand{}, fmt.Errorf("empty stand")
+	}
+	// APRON SOUTH uses numbered stands, including a suffixed stand such as 273-1.
+	if number, err := strconv.Atoi(str); err == nil {
+		return Stand{Prefix: "#", Number: number}, nil
+	}
+	if parts := strings.Split(str, "-"); len(parts) == 2 {
+		if number, err := strconv.Atoi(parts[0]); err == nil {
+			if suffix, err := strconv.Atoi(parts[1]); err == nil && suffix >= 0 {
+				return Stand{Prefix: "#" + parts[1], Number: number}, nil
+			}
+		}
+	}
+	// Copenhagen's Roman apron stands use RI, RII and RIII rather than digits.
+	switch str {
+	case "RI":
+		return Stand{Prefix: "R", Number: 1}, nil
+	case "RII":
+		return Stand{Prefix: "R", Number: 2}, nil
+	case "RIII":
+		return Stand{Prefix: "R", Number: 3}, nil
 	}
 	// Split into leading letters and trailing digits (ASCII-oriented).
 	i := 0
@@ -60,6 +80,10 @@ func (r *StandRange) UnmarshalYAML(value *yaml.Node) error {
 	switch value.Kind {
 	case yaml.ScalarNode:
 		str := strings.TrimSpace(value.Value)
+		if st, err := ParseStand(str); err == nil {
+			*r = SingleStandRange(st.Prefix, st.Number)
+			return nil
+		}
 		if strings.Contains(str, "-") {
 			sr, err := ParseStandRange(str)
 			if err != nil {
@@ -68,13 +92,7 @@ func (r *StandRange) UnmarshalYAML(value *yaml.Node) error {
 			*r = sr
 			return nil
 		}
-		// treat single stand scalar as From==To
-		st, err := ParseStand(str)
-		if err != nil {
-			return err
-		}
-		*r = SingleStandRange(st.Prefix, st.Number)
-		return nil
+		return fmt.Errorf("invalid stand format: %q", str)
 	case yaml.MappingNode:
 		var aux struct {
 			Prefix string `yaml:"prefix"`

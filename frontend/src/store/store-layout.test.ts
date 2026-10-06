@@ -98,10 +98,10 @@ describe("manual companion layout behavior", () => {
     store = createWebSocketStore(client);
   });
 
-  it("automatically opens EST from the server recommendation", () => {
+  it("automatically opens the SEQ PLN scope from the server recommendation", () => {
     client._emit(EventType.FrontendInitial, initialEvent("SEQPLN"));
 
-    expect(store.getState().displayedLayout).toBe("EST");
+    expect(store.getState().displayedLayout).toBe("SEQPLN");
     expect(store.getState().followRecommendedLayout).toBe(true);
   });
 
@@ -112,14 +112,14 @@ describe("manual companion layout behavior", () => {
     expect(store.getState().followRecommendedLayout).toBe(true);
   });
 
-  it("follows a live EST server recommendation", () => {
+  it("follows a live SEQ PLN server recommendation", () => {
     client._emit(EventType.FrontendInitial, initialEvent("AD"));
     client._emit(EventType.FrontendLayoutUpdate, {
       type: EventType.FrontendLayoutUpdate,
       layout: "SEQPLN",
     });
 
-    expect(store.getState().displayedLayout).toBe("EST");
+    expect(store.getState().displayedLayout).toBe("SEQPLN");
     expect(store.getState().followRecommendedLayout).toBe(true);
   });
 

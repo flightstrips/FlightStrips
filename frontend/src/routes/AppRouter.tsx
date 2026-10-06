@@ -4,6 +4,7 @@ import EKCHAAAD from "@/routes/ekch/AAAD";
 import EKCHAA from "@/routes/ekch/AA";
 import EKCHAAD from "@/routes/ekch/AD";
 import EKCHEST from "@/routes/ekch/EST";
+import EKCHSEQPLN from "@/routes/ekch/SEQPLN";
 import EKCHGEGW from "@/routes/ekch/GEGW";
 import EKCHTWTE from "@/routes/ekch/TWTE";
 import EKCHTWRGND from "@/routes/ekch/TWRGND";
@@ -17,6 +18,7 @@ const LAYOUT_MAP: Record<string, React.ComponentType> = {
   AA: EKCHAA,
   AD: EKCHAAD,
   EST: EKCHEST,
+  SEQPLN: EKCHSEQPLN,
   GEGW: EKCHGEGW,
   TWTE: EKCHTWTE,
   TWRGND: EKCHTWRGND,

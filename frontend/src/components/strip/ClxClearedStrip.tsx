@@ -23,7 +23,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
-import { hasManualTobtSource } from "@/lib/cdmColors";
+import { hasManualTobtSource, isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
 // Height: 4.72dvh viewport-relative (intentional — matches DelStrip height)
@@ -71,6 +71,7 @@ export function ClxClearedStrip({
   selectable,
   marked = false,
   fullWidth = false,
+  startupSiTransfer = false,
   unexpectedChangeFields,
   controllerModifiedFields,
   isManual = false,
@@ -140,6 +141,7 @@ export function ClxClearedStrip({
           transferringTo={stripTransfers[callsign]?.to ?? ""}
           isTagRequest={isTagRequest}
           baseBorderColor={stripFrameColor}
+          transferAllowed={startupSiTransfer ? () => isTsatWithinStartRequestWindow(tsat ?? "", Date.now()) : undefined}
         />
 
         {/* ── Left half of 80% ── */}

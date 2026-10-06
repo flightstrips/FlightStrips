@@ -631,7 +631,25 @@ routes:
 
   - name: East and South stands to runway 22R
     forRunway: 22R
-    forStandRanges: &east_south_stands [G110-G137]
+    forStandRanges: &east_south_stands
+      - G1-G999
+      - 262
+      - 273-1
+      - 273
+      - 145
+      - 144
+      - 243
+      - 253
+      - 117
+      - 276
+      - 259
+      - 105
+      - 106
+      - 303
+      - 302
+      - 104
+      - 142
+      - 141
     active: [22R]
     path: [SQ, GE, GW, TE]
   - name: East and South stands to runway 04L
@@ -662,7 +680,7 @@ routes:
 
   - name: West stand to runway 22R
     forRunway: 22R
-    forStandRanges: &west_stands [W1]
+    forStandRanges: &west_stands [W1, RI, RII, RIII]
     active: [22R]
     path: [SQ, GW, TW]
   - name: West stand to runway 04L
@@ -858,6 +876,9 @@ layouts:
   EKCH_DEL:
     - online: []
       offline: []
+      layout: SEQPLN
+    - online: [EKCH_A_GND, EKCH_B_GND, EKCH_C_GND]
+      offline: []
       layout: CLX
 
   EKCH_A_GND:
@@ -872,15 +893,12 @@ layouts:
       layout: AAAD
 
   EKCH_B_GND:
-    - online: [EKCH_A_GND, EKCH_C_GND]
+    - online: [EKCH_C_GND]
       offline: []
       layout: SEQPLN
     - online: [EKCH_A_GND]
       offline: [EKCH_C_GND]
       layout: AD
-    - online: [EKCH_C_GND]
-      offline: [EKCH_A_GND]
-      layout: AA
     - online: []
       offline: [EKCH_A_GND, EKCH_C_GND]
       layout: AAAD

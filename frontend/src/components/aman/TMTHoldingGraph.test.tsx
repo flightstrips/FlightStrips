@@ -1,5 +1,5 @@
 import {fireEvent, render, screen, within} from "@testing-library/react";
-import {describe, expect, it} from "vitest";
+import {describe, expect, it, vi} from "vitest";
 
 import type {AMANHoldingEntry} from "@/api/aman";
 import {TMTHoldingGraph} from "./TMTHoldingGraph";
@@ -19,6 +19,27 @@ function entry(callsign: string, eat: string | null, clearedAltitude: number | n
 }
 
 describe("TMT holding graph", () => {
+  it.each([false, true])("opens the menu for positioned and missing-altitude aircraft (compact=%s)", (compact) => {
+    const onOpenFlightActions = vi.fn();
+    render(<TMTHoldingGraph compact={compact} entries={[
+      entry("TIMED", "2026-09-11T10:20:00.000Z", 12000),
+      entry("NOEAT", null, 11000),
+      entry("NOCFL", null, null),
+    ]} now={now} onOpenFlightActions={onOpenFlightActions} />);
+
+    for (const callsign of ["TIMED", "NOEAT", "NOCFL"]) {
+      const aircraft = screen.getByRole("button", {name: new RegExp(`^${callsign},`)});
+      fireEvent.click(aircraft);
+      fireEvent.keyDown(aircraft, {key: "Enter"});
+      fireEvent.keyDown(aircraft, {key: " "});
+      expect(onOpenFlightActions.mock.calls.slice(-3)).toEqual([[callsign], [callsign], [callsign]]);
+    }
+    expect(onOpenFlightActions).toHaveBeenCalledTimes(9);
+    fireEvent.keyDown(screen.getByRole("button", {name: /^TIMED,/}), {key: "ArrowDown"});
+    expect(screen.getByRole("button", {name: /^NOEAT,/})).toHaveFocus();
+    expect(onOpenFlightActions).toHaveBeenCalledTimes(9);
+  });
+
   it("renders fixed time and altitude axes with positioned authoritative entries", () => {
     render(<TMTHoldingGraph entries={[entry("SAS101", "2026-09-11T10:30:00.000Z", 19500)]} now={now} />);
 

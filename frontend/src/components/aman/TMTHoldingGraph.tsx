@@ -56,7 +56,7 @@ function accessibleEntryLabel(position: ReturnType<typeof layoutHoldingGraph>[nu
   ].join(", ");
 }
 
-export function TMTHoldingGraph({compact = false, entries, holding, now = new Date()}: {compact?: boolean; entries: AMANHoldingEntry[]; holding?: string; now?: Date}) {
+export function TMTHoldingGraph({compact = false, entries, holding, now = new Date(), onOpenFlightActions}: {compact?: boolean; entries: AMANHoldingEntry[]; holding?: string; now?: Date; onOpenFlightActions?: (callsign: string) => void}) {
   const positions = layoutHoldingGraph(entries, now);
   const placed = positions.filter(({altitude}) => altitude.percent !== null);
   const unplaced = positions.filter(({altitude}) => altitude.percent === null);
@@ -95,6 +95,11 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
   }
 
   function moveFocus(event: KeyboardEvent<HTMLLIElement>, callsign: string) {
+    if (onOpenFlightActions && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      onOpenFlightActions(callsign);
+      return;
+    }
     const current = positions.findIndex(({entry}) => entry.callsign === callsign);
     let target: number;
     if (event.key === "ArrowDown" || event.key === "ArrowRight") target = (current + 1) % positions.length;
@@ -112,7 +117,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
         <h2 className="font-display text-sm font-bold tracking-wide">TMT · HOLDING INFORMATION</h2>
         <span className="ml-auto font-mono text-[10px]">{entries.length} HOLDING</span>
       </header>}
-      <p className="sr-only" id={instructionsId}>Use Tab to enter the aircraft list. Use arrow keys to move between aircraft, or Home and End to jump to the first or last aircraft.</p>
+      <p className="sr-only" id={instructionsId}>Use Tab to enter the aircraft list. Use arrow keys to move between aircraft, or Home and End to jump to the first or last aircraft.{onOpenFlightActions && " Press Enter or Space to open the flight menu."}</p>
 
       <div aria-describedby={instructionsId} className={cn("relative min-h-0 flex-1 overflow-auto bg-[#3c3c3c]", !compact && "mx-1")} data-testid="holding-graph" ref={graphRef}>
         <div className="relative" style={{height: plotHeight + axisPadding * 2, width: contentWidth}}>
@@ -150,12 +155,15 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
             return (
               <li
                 aria-label={accessibleEntryLabel(position)}
-                aria-keyshortcuts="ArrowDown ArrowRight ArrowUp ArrowLeft Home End"
+                aria-keyshortcuts={`ArrowDown ArrowRight ArrowUp ArrowLeft Home End${onOpenFlightActions ? " Enter Space" : ""}`}
+                title={onOpenFlightActions ? `Open flight menu for ${position.entry.callsign}` : undefined}
                 data-altitude-y={labels.altitudeY(position.altitude.percent!)}
                 className={cn("absolute left-[34%] grid w-[51%] -translate-y-1/2 border border-[#cdcdcd] bg-[#3c3c3c] font-mono font-semibold hover:z-10 focus:z-20 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white", compact ? "grid-cols-[2.25rem_minmax(0,1fr)] text-[10px]" : "grid-cols-[54px_1fr_52px] text-[10px]")}
                 key={position.entry.callsign}
+                onClick={() => onOpenFlightActions?.(position.entry.callsign)}
                 onKeyDown={(event) => moveFocus(event, position.entry.callsign)}
                 ref={(element) => setEntryRef(position.entry.callsign, element)}
+                role={onOpenFlightActions ? "button" : undefined}
                 style={{height: rowHeight, top: labels.labelY[index], left: labelLeft, width: labelWidth - 2}}
                 tabIndex={0}
               >
@@ -186,11 +194,14 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
             const source = sourceState(entry);
             return <li
               aria-label={accessibleEntryLabel(position)}
-              aria-keyshortcuts="ArrowDown ArrowRight ArrowUp ArrowLeft Home End"
+              aria-keyshortcuts={`ArrowDown ArrowRight ArrowUp ArrowLeft Home End${onOpenFlightActions ? " Enter Space" : ""}`}
+              title={onOpenFlightActions ? `Open flight menu for ${entry.callsign}` : undefined}
               className="grid grid-cols-[1fr_55px_55px_55px_auto] gap-1 font-mono focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white"
               key={entry.callsign}
+              onClick={() => onOpenFlightActions?.(entry.callsign)}
               onKeyDown={(event) => moveFocus(event, entry.callsign)}
               ref={(element) => setEntryRef(entry.callsign, element)}
+              role={onOpenFlightActions ? "button" : undefined}
               tabIndex={0}
             ><b>{entry.callsign}</b><span>{entry.holding}</span><span>EAT {time.label}</span><span>CFL {altitude.label}</span><span className={source.tone}>{source.symbol} {source.symbol && source.label}</span></li>;
           })}

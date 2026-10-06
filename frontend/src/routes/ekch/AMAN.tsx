@@ -44,6 +44,7 @@ export default function AMAN() {
   const stateAtMount = useRef(state);
 
   const effectiveSelectedCallsign = state?.flights.some((flight) => flight.callsign === selectedCallsign)
+    || state?.holding_information?.some((entry) => entry.callsign === selectedCallsign)
     ? selectedCallsign
     : state?.flights[0]?.callsign ?? null;
   const selectedFlight = state?.flights.find((flight) => flight.callsign === effectiveSelectedCallsign) ?? null;
@@ -130,7 +131,10 @@ export default function AMAN() {
               >{tab.label}</button>)}
             </div>
             {activeTmtTab === "holdings" && <div aria-label="TMT holding workspaces" aria-labelledby="tmt-holdings-tab" className="aman-tmt-holdings" id="tmt-holdings-panel" role="tabpanel" tabIndex={0}>
-              {EKCH_TMT_HOLDING_ORDER.map((holding) => <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} />)}
+              {EKCH_TMT_HOLDING_ORDER.map((holding) => <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} onOpenFlightActions={(callsign) => {
+                setSelectedCallsign(callsign);
+                setFlightActionsOpen(true);
+              }} />)}
             </div>}
             {activeTmtTab === "coordination" && <div aria-labelledby="tmt-coordination-tab" className="aman-tmt-notices" id="tmt-coordination-panel" role="tabpanel" tabIndex={0}>
               <AMANCoordinationInbox
@@ -165,7 +169,7 @@ export default function AMAN() {
       </Dialog>
       <Dialog onOpenChange={setFlightActionsOpen} open={flightActionsOpen}>
         <DialogContent className="w-40 max-w-[calc(100vw-1rem)] gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-1 font-display text-[11px] font-bold text-white [&>button]:hidden">
-          <DialogTitle className="px-2 py-1 text-center text-xs font-bold text-[#bba8ee]">{selectedFlight?.callsign ?? "Unavailable"}</DialogTitle>
+          <DialogTitle className="px-2 py-1 text-center text-xs font-bold text-[#bba8ee]">{effectiveSelectedCallsign ?? "Unavailable"}</DialogTitle>
           <div className="grid gap-0">
             <button className="flex min-h-6 items-center rounded-md border border-[#dcdcdc] bg-[#a3d5e8] px-3 text-left text-[#10265c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => {
               if (effectiveSelectedCallsign !== null) {
@@ -233,21 +237,21 @@ export default function AMAN() {
         requests={(state.coordination_requests ?? []).filter((request) => request.callsign === effectiveSelectedCallsign)}
         submitting={coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined}
       />}
-      {detailOpen && state !== null && effectiveSelectedCallsign !== null && selectedFlight !== null && <AMANFlightDetailDialog airport={state.airport} callsign={effectiveSelectedCallsign} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" ? undefined : {
+      {detailOpen && state !== null && effectiveSelectedCallsign !== null && (selectedFlight !== null || detailAction === "none") && <AMANFlightDetailDialog airport={state.airport} callsign={effectiveSelectedCallsign} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" || selectedFlight === null ? undefined : {
         blockReason: mutationBlockReason,
-        confirmation: selectedFlight.go_around_confirmation,
-        confirmed: selectedFlight.lifecycle_state === "go_around",
+        confirmation: selectedFlight?.go_around_confirmation,
+        confirmed: selectedFlight?.lifecycle_state === "go_around",
         pending: missedApproachCommandID !== null && pendingCommands[missedApproachCommandID] !== undefined,
         rejection: missedApproachCommandID ? commandRejections[missedApproachCommandID] ?? null : null,
         onConfirm: () => {
-          const detection = selectedFlight.go_around_confirmation;
+          const detection = selectedFlight?.go_around_confirmation;
           setMissedApproachCommandID(sendCommand(detection?.status === "pending"
             ? {type: "aman.confirm_go_around", callsign: effectiveSelectedCallsign, episode_id: detection.episode_id}
             : {type: "aman.report_go_around", callsign: effectiveSelectedCallsign, detected_at: new Date().toISOString()}));
         },
-      }} removal={detailAction === "none" ? undefined : {
+      }} removal={detailAction === "none" || selectedFlight === null ? undefined : {
         blockReason: mutationBlockReason,
-        confirmed: selectedFlight.lifecycle_state === "removed",
+        confirmed: selectedFlight?.lifecycle_state === "removed",
         pending: removalCommandID !== null && pendingCommands[removalCommandID] !== undefined,
         rejection: removalCommandID ? commandRejections[removalCommandID] ?? null : null,
         onConfirm: () => setRemovalCommandID(sendCommand({type: "aman.remove_flight", callsign: effectiveSelectedCallsign})),

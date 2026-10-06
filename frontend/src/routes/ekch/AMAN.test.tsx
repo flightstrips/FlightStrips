@@ -2,7 +2,7 @@ import {fireEvent, render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {WebSocketState} from "@/store/store";
-import type {AMANState} from "@/api/aman";
+import type {AMANHoldingEntry, AMANState} from "@/api/aman";
 import AMAN from "./AMAN";
 
 const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.hoisted(() => ({
@@ -62,9 +62,9 @@ vi.mock("@/components/aman/TMTTrafficPrediction", () => ({
 }));
 
 vi.mock("@/components/aman/TMTHoldingGraph", () => ({
-  TMTHoldingGraph: (props: {compact?: boolean; entries: unknown; holding?: string}) => {
+  TMTHoldingGraph: (props: {compact?: boolean; entries: AMANHoldingEntry[]; holding?: string; onOpenFlightActions?: (callsign: string) => void}) => {
     holdingSpy(props);
-    return <div>TMT holding</div>;
+    return <div>TMT holding{props.entries.map(entry => <button key={entry.callsign} onClick={() => props.onOpenFlightActions?.(entry.callsign)} type="button">Holding {entry.callsign}</button>)}</div>;
   },
 }));
 
@@ -125,10 +125,29 @@ describe("AMAN route authorization", () => {
     expect(screen.getByText("TMT traffic")).toBeInTheDocument();
     expect(screen.getAllByText("TMT holding")).toHaveLength(5);
     expect(tmtSpy).toHaveBeenCalledWith({prediction: trafficPrediction});
-    expect(holdingSpy).toHaveBeenCalledWith({compact: true, entries: [holdingInformation[0]], holding: "OLPIB"});
+    expect(holdingSpy).toHaveBeenCalledWith(expect.objectContaining({compact: true, entries: [holdingInformation[0]], holding: "OLPIB", onOpenFlightActions: expect.any(Function)}));
     expect(holdingSpy.mock.calls.map(([props]) => props.holding)).toEqual(["TIDVU", "OLPIB", "LUGAS", "ROSBI", "ERNOV"]);
     expect(holdingSpy).not.toHaveBeenCalledWith(expect.objectContaining({holding: "NEWIX"}));
     expect(holdingSpy.mock.calls.flatMap(([props]) => props.entries)).toEqual([holdingInformation[0]]);
+  });
+
+  it.each([true, false])("opens the holding menu and information for the exact callsign with or without a sequence flight (sequenced=%s)", (sequenced) => {
+    storeState.amanState = {
+      ...authoritativeState([{callsign: "SAS123"}, ...(sequenced ? [{callsign: "SAS456"}] : [])]),
+      holding_information: [{callsign: "SAS456", holding: "OLPIB", eat: null, cleared_altitude: null, source_status: "fresh", observed_at: "2026-07-22T20:44:00.000Z"}],
+    };
+    render(<AMAN />);
+
+    fireEvent.click(screen.getByRole("button", {name: "Holding SAS456"}));
+    expect(screen.getByRole("dialog", {name: "SAS456"})).toBeInTheDocument();
+    expect(detailSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", {name: "Information"}));
+    expect(detailSpy).toHaveBeenLastCalledWith(expect.objectContaining({airport: "EKCH", callsign: "SAS456"}));
+    expect(detailSpy.mock.lastCall?.[0].missedApproach).toBeUndefined();
+    expect(detailSpy.mock.lastCall?.[0].removal).toBeUndefined();
+    expect(storeState.sendAMANCommand).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", {name: "Close mocked detail"}));
+    expect(screen.queryByRole("button", {name: "Close mocked detail"})).not.toBeInTheDocument();
   });
 
   it("opens and closes the existing detail view for the activated target", () => {

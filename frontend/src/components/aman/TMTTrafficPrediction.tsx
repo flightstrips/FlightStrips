@@ -96,6 +96,16 @@ export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPredi
         </div>
       </div>
 
+      <div aria-label="Traffic prediction legend" role="group" className="shrink-0 border-t border-[#777] px-2 py-1 text-[10px] leading-4 text-[#dcdcdc]">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 shrink-0 border border-black bg-[#96d796]" />Planned (not airborne)</span>
+          <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 shrink-0 border border-black bg-[#dcdcdc]" />Airborne</span>
+          <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 shrink-0 border border-black bg-[#f0e129]" />Over capacity: 15 min or 1 h</span>
+          <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 shrink-0 border border-black bg-[#9c0000]" />Over capacity: both periods</span>
+        </div>
+        <p>Warnings: &gt;10% above selected arrival capacity. Bars: 15 min; height: arrivals × 4 (per hour). Times: UTC.</p>
+      </div>
+
       <p className="sr-only" aria-live="polite">
         {activeBucket === null ? "Focus a quarter-hour bucket for flight details." : `${timeLabel(activeBucket.start)} to ${timeLabel(activeBucket.end)}. ${bucketDetails(activeBucket)}`}
       </p>

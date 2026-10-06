@@ -134,6 +134,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	correctedEobt := ""
 	eobtClamped := false
 	observedPushback := false
+	initialPushbackTiming := snapshotPushbackTransitionTiming(existingStrip)
+	previousPushbackBay := ""
+	if existingStrip != nil {
+		previousPushbackBay = existingStrip.Bay
+	}
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
@@ -241,6 +246,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			return err
 		}
 		shared.AddDBOperations(ctx, 1)
+		if observedPushback {
+			logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousPushbackBay, initialPushbackTiming, newStrip)
+		}
 		s.cacheStrip(ctx, newStrip)
 		if syncState != nil {
 			syncState.ChangedStrips++
@@ -631,17 +639,24 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		if primaryChange {
+			persisted := false
 			if appender, ok := s.lifecycleStore.(interface {
 				PersistAtEndOfBay(context.Context, *internalModels.Strip, bool, int32) error
 			}); ok && (bayChanged || restartLifecycle) {
 				err = appender.PersistAtEndOfBay(ctx, updateStrip, false, InitialOrderSpacing)
+				persisted = err == nil
 			} else {
-				_, err = s.lifecycleStore.Update(ctx, updateStrip)
+				var rows int64
+				rows, err = s.lifecycleStore.Update(ctx, updateStrip)
+				persisted = rows == 1
 			}
 			if err != nil {
 				return err
 			}
 			shared.AddDBOperations(ctx, 1)
+			if observedPushback && persisted {
+				logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousPushbackBay, initialPushbackTiming, updateStrip)
+			}
 			if syncState != nil {
 				syncState.ChangedStrips++
 				applySyncStripUpdate(existingStrip, updateStrip)

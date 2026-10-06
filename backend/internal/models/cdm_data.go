@@ -74,6 +74,7 @@ type CdmData struct {
 	// Retain network provenance after cancellation so a CDM echo cannot restore the slot.
 	LastViffAtfcmCtot      string             `json:"lastViffAtfcmCtot,omitempty"`
 	Aobt                   *string            `json:"aobt,omitempty"`
+	AobtViffPending        bool               `json:"aobtViffPending,omitempty"`
 	Atot                   *string            `json:"atot,omitempty"`
 	AtotViffPending        bool               `json:"atotViffPending,omitempty"`
 	Asat                   *string            `json:"asat,omitempty"`

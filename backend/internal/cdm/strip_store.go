@@ -12,6 +12,7 @@ type CdmStripStore interface {
 	GetCdmData(ctx context.Context, session int32) ([]*models.CdmDataRow, error)
 	GetCdmDataForCallsign(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
 	SetCdmData(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error)
+	AcknowledgeCdmMilestone(ctx context.Context, session int32, callsign string, milestone string, value string) (int64, error)
 }
 
 // CdmSequenceStripStore is the strip persistence surface needed by CDM sequencing.

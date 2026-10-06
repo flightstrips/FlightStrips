@@ -150,6 +150,7 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 	if err != nil {
 		return err
 	}
+	initialPushbackTiming := snapshotPushbackTransitionTiming(strip)
 	if bay == shared.BAY_PUSH && stripAvailable && strip != nil && strip.Bay != shared.BAY_PUSH && strip.CdmData != nil && !pushbackWasValidated(ctx, session, callsign) {
 		latest, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 		if err != nil {
@@ -205,6 +206,13 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		}
 	}
 
+	if bay == shared.BAY_PUSH && previousBay != shared.BAY_PUSH && strip != nil && ctx.Value(pushbackTransitionLoggedContextKey{}) != true {
+		source := "bay_move"
+		if provenance, ok := ctx.Value(pushbackTransitionContextKey{}).(pushbackTransitionContext); ok {
+			source, initialPushbackTiming = provenance.source, provenance.initial
+		}
+		logPushbackTransition(ctx, session, callsign, source, previousBay, initialPushbackTiming, strip)
+	}
 	if bay == shared.BAY_PUSH && previousBay != shared.BAY_PUSH && strip != nil && strip.CdmData != nil && s.cdmService != nil {
 		if err := s.cdmService.SyncAsatForGroundState(ctx, session, callsign, euroscope.GroundStatePush); err != nil {
 			return err

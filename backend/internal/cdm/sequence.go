@@ -125,6 +125,10 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			slog.Bool("notify", notify),
 			slog.Int("strips", stripCount),
 			slog.Duration("duration", duration),
+			slog.Bool("success", err == nil),
+		}
+		if err != nil {
+			attrs = append(attrs, slog.Any("error", err))
 		}
 		// A recalculation walks every strip at the airport, so it is the single
 		// largest unit of work a sync can trigger. Keep the existing info line

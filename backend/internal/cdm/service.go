@@ -32,8 +32,9 @@ type Service struct {
 	// sessionUsesViff tracks whether a session is allowed to exchange data with the vIFF network.
 	// Populated from session.Name during syncSessions and refreshed on demand for later runtime calls.
 	sessionUsesViff  sync.Map // map[int32]bool
-	lastPushedViff   sync.Map // map[string]viffPushState
 	atotPushInFlight sync.Map // map[session:callsign]struct{}
+	aobtPushInFlight sync.Map // map[session:callsign]struct{}
+	sessionWork      sync.Map // map[int32]*sessionWork; cancelled entries reject stale snapshots
 }
 
 type StripValidationReevaluator interface {
@@ -268,14 +269,6 @@ func (s *Service) pushViffState(ctx context.Context, callsign string, state viff
 	return s.masterViffSync.pushViffState(ctx, callsign, state)
 }
 
-func (s *Service) markViffPushPending(session int32, callsign string, state viffPushState) bool {
-	return s.masterViffSync.markViffPushPending(session, callsign, state)
-}
-
-func (s *Service) clearPendingViffPush(session int32, callsign string, state viffPushState) {
-	s.masterViffSync.clearPendingViffPush(session, callsign, state)
-}
-
 func (s *Service) pushLatestMasterCdmDataToViff(ctx context.Context, session int32, callsign string, strip *models.Strip) error {
 	return s.masterViffSync.pushLatestMasterCdmDataToViff(ctx, session, callsign, strip)
 }
@@ -332,10 +325,6 @@ func (s *Service) masterPosition() string {
 	return s.masterViffSync.masterPosition()
 }
 
-func (s *Service) registerMasterAsync(airport string) {
-	s.masterViffSync.registerMasterAsync(context.Background(), airport)
-}
-
 func (s *Service) finalizeClxTobtUpdate(ctx context.Context, session int32, callsign string, airport string, shouldTriggerRecalculate bool) error {
 	return s.actionService.finalizeClxTobtUpdate(ctx, session, callsign, airport, shouldTriggerRecalculate)
 }
@@ -370,6 +359,9 @@ func isViffEnabledSession(name string) bool {
 }
 
 func (s *Service) usesViffSession(sessionID int32) bool {
+	if s.isSessionRemoved(sessionID) {
+		return false
+	}
 	v, ok := s.sessionUsesViff.Load(sessionID)
 	if ok {
 		return v.(bool)

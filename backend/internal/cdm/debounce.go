@@ -1,6 +1,7 @@
 package cdm
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -54,10 +55,10 @@ func (d *recalcDebouncer) Schedule(key string, run func()) {
 	state.scheduled = true
 	d.mu.Unlock()
 
-	go d.runLoop(key, run)
+	go d.runLoop(key, state, run)
 }
 
-func (d *recalcDebouncer) runLoop(key string, run func()) {
+func (d *recalcDebouncer) runLoop(key string, expected *recalcDebounceState, run func()) {
 	for {
 		wait := d.waitDuration(key)
 		if wait > 0 {
@@ -66,7 +67,7 @@ func (d *recalcDebouncer) runLoop(key string, run func()) {
 
 		d.mu.Lock()
 		state, ok := d.pending[key]
-		if !ok {
+		if !ok || state != expected {
 			d.mu.Unlock()
 			return
 		}
@@ -85,7 +86,7 @@ func (d *recalcDebouncer) runLoop(key string, run func()) {
 
 		d.mu.Lock()
 		state, ok = d.pending[key]
-		if !ok {
+		if !ok || state != expected {
 			d.mu.Unlock()
 			return
 		}
@@ -117,4 +118,17 @@ func (d *recalcDebouncer) waitDuration(key string) time.Duration {
 		return 0
 	}
 	return wait
+}
+
+func (d *recalcDebouncer) CancelPrefix(prefix string) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for key := range d.pending {
+		if strings.HasPrefix(key, prefix) {
+			delete(d.pending, key)
+		}
+	}
 }

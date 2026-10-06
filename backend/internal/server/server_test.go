@@ -13,7 +13,10 @@ type expiredSessionCdmService struct {
 	constructorCdmService
 	airport string
 	err     error
+	removed int32
 }
+
+func (s *expiredSessionCdmService) RemoveSession(session int32) { s.removed = session }
 
 func (s *expiredSessionCdmService) DeregisterMasterAirport(_ context.Context, airport string) error {
 	s.airport = airport
@@ -102,5 +105,8 @@ func TestRemoveExpiredLiveSessionDeregistersMasterBeforeDelete(t *testing.T) {
 	}
 	if sessionRepo.deleted != 42 {
 		t.Fatalf("deleted session = %d, want 42", sessionRepo.deleted)
+	}
+	if cdmService.removed != 42 {
+		t.Fatalf("CDM work not cancelled: %d", cdmService.removed)
 	}
 }

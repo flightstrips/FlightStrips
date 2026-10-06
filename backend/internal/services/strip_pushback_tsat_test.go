@@ -1,11 +1,17 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
+	"FlightStrips/internal/cdm"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
@@ -14,6 +20,102 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPushbackRejectionExplainsTimingAndVerificationFailures(t *testing.T) {
+	now := time.Date(2026, 10, 5, 17, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name, tsat, ctot, remoteCtot, reason, message string
+		verified                                      bool
+		err                                           error
+	}{
+		{"remote CTOT within TSAT", "1700", "", "1720", "ctot_present", "aircraft has a CTOT", true, nil},
+		{"local CTOT", "1700", "1720", "", "ctot_present", "aircraft has a CTOT", true, nil},
+		{"late TSAT", "1654", "", "", "tsat_outside_window", "outside the TSAT window", true, nil},
+		{"missing TSAT", "", "", "", "tsat_unknown", "missing or invalid", true, nil},
+		{"unconfirmed within TSAT", "1700", "", "", "viff_unconfirmed", "vIFF could not confirm", false, nil},
+		{"failed export", "1700", "", "", "viff_unconfirmed", "vIFF could not confirm", false, fmt.Errorf("%w: vIFF declined update", cdm.ErrPushbackVerification)},
+		{"failed local preparation", "1700", "", "", "preparation_failed", "timing could not be prepared", false, errors.New("database unavailable")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			strip := &models.Strip{CdmData: &models.CdmData{Tsat: &tc.tsat, Ctot: &tc.ctot}}
+			reason, message := pushbackRejectionDetails(strip, tc.remoteCtot, tc.verified, tc.err, now)
+			assert.Equal(t, tc.reason, reason)
+			assert.Contains(t, message, tc.message)
+			assert.NotContains(t, message, "Aircraft pushed")
+		})
+	}
+}
+
+func TestPushbackDiagnosticPreservesInitialTimingAndExportError(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	now := time.Now().UTC()
+	tobt, tsat := now.Add(-10*time.Minute).Format("1504"), now.Add(20*time.Minute).Format("1504")
+	final := now.Format("1504")
+	strip := &models.Strip{Callsign: "SAS779", CdmData: &models.CdmData{Tobt: &tobt, Tsat: &tsat}}
+	svc := &StripService{
+		stripReader: &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil }},
+		validationStore: &validationStoreFake{setValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			strip.ValidationStatus = status
+			return nil
+		}},
+		publisher: &testutil.MockFrontendHub{},
+		cdmService: pushbackCdmStub{prepare: func(context.Context, int32, string) (string, string, bool, error) {
+			strip.CdmData.Tobt, strip.CdmData.Tsat = &final, &final
+			return final, "", false, fmt.Errorf("%w: vIFF did not confirm update: false", cdm.ErrPushbackVerification)
+		}},
+	}
+	require.ErrorContains(t, svc.validatePushbackTiming(context.Background(), 779, strip, "EKCH_GND"), "override")
+	var entry map[string]any
+	require.NoError(t, json.Unmarshal(output.Bytes(), &entry))
+	assert.Equal(t, "viff_unconfirmed", entry["reason"])
+	assert.Equal(t, tsat, entry["initial_tsat"])
+	assert.Equal(t, tobt, entry["initial_tobt"])
+	assert.Equal(t, final, entry["tsat"])
+	assert.Equal(t, "early", entry["initial_window_state"])
+	assert.Equal(t, "valid", entry["window_state"])
+	assert.Contains(t, entry["verification_error"], "vIFF did not confirm update: false")
+	assert.Contains(t, strip.ValidationStatus.Message, "vIFF could not confirm")
+}
+
+func TestPushbackOverrideLogOnlyFollowsSuccessfulAcknowledgement(t *testing.T) {
+	for _, rows := range []int64{0, 1} {
+		t.Run(fmt.Sprint(rows), func(t *testing.T) {
+			var output bytes.Buffer
+			previous := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+			t.Cleanup(func() { slog.SetDefault(previous) })
+			strip := &models.Strip{ValidationStatus: &models.ValidationStatus{IssueType: pushbackTsatValidationIssueType, OwningPosition: "EKCH_GND", ActivationKey: "current", Active: true}}
+			svc := &StripValidationService{
+				stripReader:     &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil }},
+				validationStore: &validationStoreFake{acknowledgeValidationStatusFn: func(context.Context, int32, string, string) (int64, error) { return rows, nil }},
+				publisher:       &testutil.MockFrontendHub{},
+			}
+			require.NoError(t, svc.AcknowledgeValidationStatus(context.Background(), 779, "SAS779", "current", "EKCH_GND"))
+			if rows == 0 {
+				assert.Empty(t, output.String(), "stale/no-op acknowledgement must not claim an override")
+			} else {
+				assert.Contains(t, output.String(), "Pushback timing override acknowledged")
+			}
+		})
+	}
+}
+
+func TestPushbackTransitionLogFollowsBayPersistenceOnlyOnce(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	fixture := newFrontendMoveFixture(&models.Strip{Callsign: "SAS779", Bay: shared.BAY_CLEARED, Origin: "EKCH"})
+	require.NoError(t, fixture.svc.MoveFrontendStrip(fixture.ctx, 779, "SAS779", shared.BAY_PUSH, "123", "EKCH", "EKCH_GND", false, false))
+	assert.Equal(t, shared.BAY_PUSH, fixture.strip.Bay)
+	assert.Equal(t, 1, strings.Count(output.String(), "Pushback bay transition recorded"))
+	assert.Contains(t, output.String(), `"source":"frontend"`)
+	require.NoError(t, fixture.svc.MoveFrontendStrip(fixture.ctx, 779, "SAS779", shared.BAY_PUSH, "123", "EKCH", "EKCH_GND", false, false))
+	assert.Equal(t, 1, strings.Count(output.String(), "Pushback bay transition recorded"))
+}
 
 type pushbackCdmStub struct {
 	StripCdmService
@@ -233,6 +335,10 @@ func TestEuroscopePushbackAcceptsStateOutsideTsatWindow(t *testing.T) {
 			name = "full strip update"
 		}
 		t.Run(name, func(t *testing.T) {
+			var output bytes.Buffer
+			previousLogger := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+			t.Cleanup(func() { slog.SetDefault(previousLogger) })
 			now := time.Now().UTC()
 			tobt, tsat := now.Format("1504"), now.Add(20*time.Minute).Format("1504")
 			state := euroscope.GroundStateStartup
@@ -294,6 +400,22 @@ func TestEuroscopePushbackAcceptsStateOutsideTsatWindow(t *testing.T) {
 			assert.Empty(t, hub.GroundStates)
 			assert.True(t, cdm.called)
 			assert.Equal(t, euroscope.GroundStatePush, cdm.groundState)
+			assert.Equal(t, 1, strings.Count(output.String(), "Pushback bay transition recorded"))
+			source := "euroscope"
+			if fullSync {
+				source = "euroscope_sync"
+			}
+			assert.Contains(t, output.String(), `"source":"`+source+`"`)
+			assert.NotContains(t, output.String(), `"source":"frontend"`)
+			assert.Contains(t, output.String(), `"initial_tsat":"`+tsat+`"`)
+			assert.Contains(t, output.String(), `"window_state":"early"`)
+			if fullSync {
+				err = svc.syncEuroscopeStrip(ctx, 779, "1234567", euroscope.Strip{Callsign: strip.Callsign, Origin: strip.Origin, Destination: strip.Destination, Cleared: true, GroundState: euroscope.GroundStatePush}, "EKCH")
+			} else {
+				err = svc.UpdateGroundState(ctx, 779, strip.Callsign, euroscope.GroundStatePush, "EKCH")
+			}
+			require.NoError(t, err)
+			assert.Equal(t, 1, strings.Count(output.String(), "Pushback bay transition recorded"), "repeated observation must not claim another transition")
 		})
 	}
 }

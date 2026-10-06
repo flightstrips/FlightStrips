@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/shared"
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
@@ -96,6 +97,13 @@ func (s *StripValidationService) AcknowledgeValidationStatus(ctx context.Context
 	if rows == 0 {
 		// Key mismatch or already acknowledged — not an error, just a no-op.
 		return nil
+	}
+	if strip.ValidationStatus.IssueType == pushbackTsatValidationIssueType {
+		slog.InfoContext(ctx, "Pushback timing override acknowledged",
+			slog.Int("session", int(session)), slog.String("callsign", callsign),
+			slog.String("position", requestingPosition), slog.String("activation_key", activationKey),
+			slog.String("timing_context", strip.ValidationStatus.ContextKey),
+			slog.String("validation_message", strip.ValidationStatus.Message))
 	}
 	s.sendStripUpdate(ctx, session, callsign)
 	return nil

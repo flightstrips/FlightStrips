@@ -1203,30 +1203,3 @@ func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testi
 		t.Fatal("expected master sync to push local CDM data to vIFF")
 	}
 }
-
-func TestMarkViffPushPending_DeduplicatesAndAllowsRetryAfterClear(t *testing.T) {
-	service := newTestCdmService(
-		NewClient(WithAPIKey("test-key"), WithHTTPClient(newFailingHTTPClient())),
-		&testutil.MockStripRepository{},
-		&testutil.MockSessionRepository{},
-		&testutil.MockControllerRepository{},
-	)
-	state := viffPushState{
-		Params: SetCdmDataParams{
-			Callsign: "SAS251",
-			Tsat:     "101500",
-		},
-	}
-
-	if !service.markViffPushPending(1, "SAS251", state) {
-		t.Fatal("expected first vIFF push state to be marked pending")
-	}
-	if service.markViffPushPending(1, "SAS251", state) {
-		t.Fatal("expected duplicate vIFF push state to be deduplicated")
-	}
-
-	service.clearPendingViffPush(1, "SAS251", state)
-	if !service.markViffPushPending(1, "SAS251", state) {
-		t.Fatal("expected cleared vIFF push state to be eligible for retry")
-	}
-}

@@ -898,7 +898,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	flight.LatestObservation = &copy
 	flight.Callsign, flight.DataStatus = observation.Callsign, observation.SourceStatus
 	if observation.HoldingClearance != nil && (flight.HoldingClearance == nil || observation.HoldingClearance.ObservedAt.After(flight.HoldingClearance.ObservedAt)) {
-		flight.HoldingClearance = cloneHoldingClearance(observation.HoldingClearance)
+		flight.ReplaceHoldingClearance(cloneHoldingClearance(observation.HoldingClearance))
 	}
 	if activeHoldingReleaseBasis(flight) == nil {
 		flight.HoldingReleaseBasis = nil
@@ -1865,22 +1865,30 @@ func explicitSTARFamily(value *string) string {
 const holdingConfirmationObservations = uint32(2)
 
 func updateFlightHoldingStack(flight aman.AMANFlight, projection trajectory.Result, at time.Time) *aman.HoldingStackState {
-	next := updateHoldingStack(flight.HoldingStack, projection.HoldingCandidate, at)
 	previous := flight.HoldingStack
-	if previous == nil || !previous.Confirmed || projection.SelectedHolding == nil ||
+	if previous != nil && flight.HoldingClearanceCanceledAt != nil &&
+		!previous.CandidateObservedAt.After(*flight.HoldingClearanceCanceledAt) {
+		previous = nil
+	}
+	next := updateHoldingStack(previous, projection.HoldingCandidate, at)
+	if previous == nil || projection.SelectedHolding == nil ||
 		previous.HoldingID != string(projection.SelectedHolding.ID) ||
 		operationalHoldingClearanceFix(flight) != projection.SelectedHolding.Fix {
 		return next
 	}
 	// A cleared racetrack can leave the proximity envelope on its outbound leg.
-	// Keep the established queue admission until the clearance is canceled;
+	// Keep the first observed queue admission until the clearance is canceled;
 	// briefly leaving that envelope must not turn an older held flight into a
 	// new arrival or erase the release plans of the aircraft behind it.
 	if next == nil {
 		copy := *previous
+		if !copy.Confirmed {
+			copy.ConsecutiveObservations = 0
+		}
 		return &copy
 	}
-	next.FirstObservedAt, next.Confirmed = previous.FirstObservedAt, true
+	next.FirstObservedAt = previous.FirstObservedAt
+	next.Confirmed = next.Confirmed || previous.Confirmed
 	return next
 }
 
@@ -1909,14 +1917,14 @@ func updateHoldingStack(previous *aman.HoldingStackState, candidate *trajectory.
 }
 
 func holdingStackID(flight aman.AMANFlight) string {
-	if flight.HoldingStack == nil || !flight.HoldingStack.Confirmed {
+	if flight.HoldingStack == nil || !flight.HoldingStack.Confirmed || supersededHoldingEvidence(flight) {
 		return ""
 	}
 	return flight.HoldingStack.HoldingID
 }
 
 func holdingQueueTime(flight aman.AMANFlight, traffic []aman.AMANFlight) *time.Time {
-	if holdingQueueID(flight) == "" {
+	if holdingQueueID(flight) == "" || supersededHoldingEvidence(flight) {
 		return nil
 	}
 	cleared := func(value aman.AMANFlight) bool {
@@ -1934,7 +1942,7 @@ func holdingQueueTime(flight aman.AMANFlight, traffic []aman.AMANFlight) *time.T
 	// Incoming traffic follows a real occupied/cleared hold, but unrelated
 	// route forecasts must not impose FIFO bounds on each other.
 	active := slices.ContainsFunc(traffic, func(other aman.AMANFlight) bool {
-		if other.State == aman.StateLanded || other.State == aman.StateRemoved || holdingQueueID(other) != holdingQueueID(flight) {
+		if other.State == aman.StateLanded || other.State == aman.StateRemoved || supersededHoldingEvidence(other) || holdingQueueID(other) != holdingQueueID(flight) {
 			return false
 		}
 		return cleared(other) || other.HoldingStack != nil && other.HoldingStack.Confirmed &&
@@ -1956,6 +1964,24 @@ func holdingQueueTime(flight aman.AMANFlight, traffic []aman.AMANFlight) *time.T
 		estimated = flight.Prediction.GeneratedAt
 	}
 	return &estimated
+}
+
+// An explicit cancellation supersedes the old surveillance/trajectory evidence
+// immediately, even when position updates stop. A later position can establish
+// new physical holding evidence; a retained pre-cancellation forecast cannot.
+func supersededHoldingEvidence(flight aman.AMANFlight) bool {
+	canceledAt := flight.HoldingClearanceCanceledAt
+	if canceledAt == nil {
+		return false
+	}
+	if flight.Prediction == nil {
+		return true
+	}
+	observed := flight.Prediction.InputObservedAt
+	if observed.IsZero() {
+		observed = flight.Prediction.GeneratedAt
+	}
+	return !observed.After(*canceledAt)
 }
 
 func holdingQueueID(flight aman.AMANFlight) string {

@@ -515,6 +515,8 @@ func (b HoldingReleaseBasis) Validate() error {
 // set only after consecutive observations inside the published holding
 // geometry, so an aircraft merely approaching the holding fix is never used
 // as stack traffic.
+// An unconfirmed cleared aircraft may retain its first sighting with zero
+// consecutive observations while outside the footprint on an outbound leg.
 type HoldingStackState struct {
 	HoldingID               string
 	FirstObservedAt         time.Time
@@ -949,15 +951,17 @@ type AMANFlight struct {
 	DerivedFeederETA *FeederETAState
 	// InitialTiming retains the first accepted estimates and scheduled times
 	// for flight information; live prediction/slot updates must not rewrite it.
-	InitialTiming        *FlightInitialTiming
-	HoldingClearance     *HoldingClearance
-	HoldingStack         *HoldingStackState
-	HoldingReleaseBasis  *HoldingReleaseBasis
-	ActiveRouteFact      *RouteFact
-	ActiveRouteKey       *string
-	ActiveRouteDatasetID *string
-	RouteProgress        *RouteProgress
-	TMAEntry             *TMAEntryState
+	InitialTiming       *FlightInitialTiming
+	HoldingClearance    *HoldingClearance
+	HoldingStack        *HoldingStackState
+	HoldingReleaseBasis *HoldingReleaseBasis
+	// HoldingClearanceCanceledAt retains the last actual cancellation time across blank strip snapshots.
+	HoldingClearanceCanceledAt *time.Time
+	ActiveRouteFact            *RouteFact
+	ActiveRouteKey             *string
+	ActiveRouteDatasetID       *string
+	RouteProgress              *RouteProgress
+	TMAEntry                   *TMAEntryState
 	// ManualSequenceIncluded is retained for persisted-state compatibility.
 	// WTC/L aircraft are automatically sequenceable regardless of engine.
 	ManualSequenceIncluded bool
@@ -1416,6 +1420,11 @@ func (f AMANFlight) Validate() error {
 			return invalid("holding clearance type is invalid")
 		}
 	}
+	if f.HoldingClearanceCanceledAt != nil {
+		if err := requireUTCTime("holding clearance canceled at", *f.HoldingClearanceCanceledAt); err != nil {
+			return err
+		}
+	}
 	if f.ActiveRouteKey != nil && strings.TrimSpace(*f.ActiveRouteKey) == "" {
 		return invalid("active route key cannot be empty")
 	}
@@ -1439,7 +1448,7 @@ func (f AMANFlight) Validate() error {
 		}
 	}
 	if f.HoldingStack != nil {
-		if !isTrimmedNonEmpty(f.HoldingStack.HoldingID) || f.HoldingStack.ConsecutiveObservations == 0 {
+		if !isTrimmedNonEmpty(f.HoldingStack.HoldingID) || f.HoldingStack.Confirmed && f.HoldingStack.ConsecutiveObservations == 0 {
 			return invalid("holding stack state is invalid")
 		}
 		if err := requireUTCTime("holding stack observation", f.HoldingStack.CandidateObservedAt); err != nil {

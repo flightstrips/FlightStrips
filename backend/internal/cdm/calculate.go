@@ -242,13 +242,6 @@ func selectCalculationBaseWithSource(input CalcInput) (string, string) {
 		}
 		return eobt, models.CdmCalculationBaseEobt
 	}
-	if source == models.CdmCalculationBaseTobt && input.TobtAuthoritative {
-		return base, source
-	}
-	if eobt != "" && !isAfterOrEqual(base, eobt) {
-		return eobt, models.CdmCalculationBaseEobt
-	}
-
 	return base, source
 }
 
@@ -259,10 +252,6 @@ func shouldInvalidateStaleTobt(input CalcInput, nowHHMMSS string) bool {
 
 	tobt := normalizeCalculationClock(input.Tobt)
 	if tobt == "" {
-		return false
-	}
-
-	if base := selectCalculationBase(input); base != "" && toHHMMSS(base) != toHHMMSS(tobt) {
 		return false
 	}
 

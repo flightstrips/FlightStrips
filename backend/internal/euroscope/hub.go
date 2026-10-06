@@ -1,6 +1,7 @@
 package euroscope
 
 import (
+	"FlightStrips/internal/aman"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/metrics"
@@ -269,16 +270,24 @@ func (hub *Hub) Broadcast(session int32, message euroscope.OutgoingMessage) {
 
 // PublishAMANGainLoss broadcasts a complete replacement only to authenticated
 // EuroScope connections for the event airport.
-func (hub *Hub) PublishAMANGainLoss(event euroscope.AMANGainLossEvent) {
+func (hub *Hub) PublishAMANGainLoss(event euroscope.AMANGainLossEvent, session ...int32) {
+	if len(session) > 0 && session[0] > 0 {
+		hub.publish(internalMessage{session: session[0], message: event})
+		return
+	}
 	hub.publish(internalMessage{airport: event.Airport, message: event})
 }
 
 // PublishAMANHoldingEAT sends authoritative holding release times to all
 // operational EuroScope clients for the airport. Each plugin independently
 // verifies that it is tracking the aircraft before producing the TopSky pulse.
-func (hub *Hub) PublishAMANHoldingEAT(airport string, updates []euroscope.HoldEvent) {
+func (hub *Hub) PublishAMANHoldingEAT(airport string, updates []euroscope.HoldEvent, session ...int32) {
 	for _, update := range updates {
-		hub.publish(internalMessage{airport: airport, message: update})
+		if len(session) > 0 && session[0] > 0 {
+			hub.publish(internalMessage{session: session[0], message: update})
+		} else {
+			hub.publish(internalMessage{airport: airport, message: update})
+		}
 	}
 }
 
@@ -360,7 +369,7 @@ func (hub *Hub) OnRegister(client *Client) {
 
 func (hub *Hub) sendInitialAMANGainLoss(client *Client) {
 	if hub.amanGainLoss != nil {
-		event, err := hub.amanGainLoss.CurrentAMANGainLoss(context.Background(), client.airport)
+		event, err := hub.amanGainLoss.CurrentAMANGainLoss(aman.WithSession(context.Background(), client.session), client.airport)
 		if err != nil {
 			slog.Error("Failed to load initial AMAN gain/loss", slog.String("airport", client.airport), slog.Any("error", err))
 		} else {
@@ -373,7 +382,7 @@ func (hub *Hub) sendInitialAMANHoldingEAT(client *Client) {
 	if hub.amanHoldingEAT == nil || client.identitySnapshot().observer {
 		return
 	}
-	events, err := hub.amanHoldingEAT.CurrentAMANHoldingEAT(context.Background(), client.airport)
+	events, err := hub.amanHoldingEAT.CurrentAMANHoldingEAT(aman.WithSession(context.Background(), client.session), client.airport)
 	if err != nil {
 		slog.Error("Failed to load initial AMAN holding EAT", slog.String("airport", client.airport), slog.Any("error", err))
 		return
@@ -1281,6 +1290,22 @@ func (hub *Hub) HasActiveClientForAirport(airport string) bool {
 func (hub *Hub) IsSessionSynced(sessionId int32) bool {
 	_, ok := hub.syncedSessions.Load(sessionId)
 	return ok
+}
+
+// GetFrontendController resolves a CID from the live connections rather than
+// historical controller rows, which can contain the same CID in several sessions.
+func (hub *Hub) GetFrontendController(cid string) *internalModels.Controller {
+	for _, client := range hub.clientsSnapshot() {
+		if client.GetCid() != cid {
+			continue
+		}
+		identity := client.identitySnapshot()
+		return &internalModels.Controller{
+			Session: client.session, Callsign: identity.callsign,
+			Position: identity.position, Observer: identity.observer, Cid: &cid,
+		}
+	}
+	return nil
 }
 
 // IsAircraftDisconnectPending reports whether the latest master sync omitted

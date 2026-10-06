@@ -268,6 +268,36 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 	}
 	obs := coordinate(input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees)
 	holdCandidate := holdingCandidate(holding, fixes, input.Observation)
+	// A cleared racetrack can cross the outbound STAR repeatedly. Ordinary
+	// forward-only projection would then mark its fix as passed and remove
+	// the entry ETA needed to calculate EAT. An active clearance keeps the route
+	// through its holding fix even while approaching it or outside the proximity
+	// envelope. Proximity remains a separate requirement for confirming a stack.
+	if holding != nil && holding.Fix == input.HoldingClearanceFix {
+		if next := legEndingAt(legs, holding.Fix); next >= 0 {
+			result.Remaining = remainingFromNextWaypointWithPrefix(obs, legs, next, "HOLDING_TO:")
+			dtg := remainingLegDistance(result.Remaining)
+			result.DistanceToGoNM = &dtg
+			result.SelectedHolding, result.HoldingCandidate = holding, holdCandidate
+			result.AlongTrackNM = progressAtLegStart(legs, next)
+			result.InTMA = terminalStart >= 0 && next >= terminalStart
+			result.Completeness, result.Reasons = Complete, reasons
+			if len(reasons) > 0 || route.Coverage != navdata.CoverageComplete {
+				result.Completeness = Partial
+			}
+			routeFactID := ""
+			if activeRouteFact(input.RouteFact) {
+				routeFactID = input.RouteFact.ID
+			}
+			result.Progress = &aman.RouteProgress{
+				GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest,
+				FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup,
+				LegIndex: next, RejoinLegIndex: next, AlongTrackNM: result.AlongTrackNM,
+			}
+			result.FeederProgress = feederProgress(legs, input.FeederFix, next, feederBypassed)
+			return result
+		}
+	}
 	best, ok, progressOutOfRange := projectForward(obs, legs, start, config.MaxCrossTrackNM, config.MaxForwardSearchNM, config.JitterToleranceNM, input.Prior, compatible)
 	if !ok {
 		// A position that is still on the route but implausibly far ahead is a

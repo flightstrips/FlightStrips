@@ -10,6 +10,10 @@ import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {AMANCoordinationRequestDialog} from "./AMANCoordinationRequestDialog";
 import {mapLongitude, mapRouteLegs, type MapRouteLeg} from "./aman-route-map";
 import {freezePresentation} from "./freeze-presentation";
+import divider130 from "@/assets/aman/divider-130.svg";
+import divider129 from "@/assets/aman/divider-129.svg";
+import headerDivider from "@/assets/aman/header-divider.svg";
+import closeDivider from "@/assets/aman/close-divider.svg";
 
 function displayTime(value: string | null | undefined): string {
   if (!value) return "Unavailable";
@@ -284,15 +288,15 @@ function PredictionSections({calculation}: {calculation: AMANCalculation | null}
 }
 
 function stripTime(value: string | null | undefined): string {
-  if (!value) return "";
+  if (!value) return "—";
   const parsed = new Date(value);
   return Number.isNaN(parsed.valueOf()) ? value : parsed.toISOString().slice(11, 19);
 }
 
 function stripDifference(left: string | null | undefined, right: string | null | undefined): string {
-  if (!left || !right) return "";
+  if (!left || !right) return "—";
   const seconds = Math.round((new Date(left).valueOf() - new Date(right).valueOf()) / 1000);
-  if (!Number.isFinite(seconds)) return "";
+  if (!Number.isFinite(seconds)) return "—";
   const absolute = Math.abs(seconds);
   const sign = seconds > 0 ? "+" : seconds < 0 ? "−" : "";
   return `${sign}${Math.floor(absolute / 60)}′${String(absolute % 60).padStart(2, "0")}″`;
@@ -315,82 +319,85 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
   const runwayAndSequence = sequence ? `${runway}/${sequence}` : runway;
   const callsignAndSequence = sequence ? `${flight?.callsign ?? callsign} / ${sequence}` : flight?.callsign ?? callsign;
   const feeder = flight?.feeder_fix ?? flight?.feeder ?? "—";
-  const initialRunwayETA = detail?.teta_basis?.eta_review?.initial_baseline_teta ?? detail?.teta_basis?.baseline?.arrival_at;
+  const initialRunwayETA = detail?.initial_timing?.runway_eta;
   const currentRunwayETA = detail?.teta_basis?.operational_teta;
   const runwaySTA = detail?.slot_basis?.time;
-  const feederSTA = flight?.derived_feeder_eta;
+  const feederSTA = flight?.feeder_sta;
   const currentFeederETA = flight?.feeder_eta;
-  const routeStart = detail?.teta_basis?.input_observed_at ?? detail?.generated_at;
-  const routeLegs = detail?.calculation?.legs ?? [];
-  const route = routeLegs.map((leg, index) => {
-    const elapsedSeconds = routeLegs.slice(0, index + 1).reduce((total, current) => total + current.duration_seconds, 0);
-    const timestamp = routeStart ? new Date(new Date(routeStart).valueOf() + elapsedSeconds * 1000).toISOString() : null;
-    return {fix: leg.to, time: stripTime(timestamp).slice(0, 5)};
-  }).slice(-6);
+  const route = (detail?.star_route ?? []).map(({fix, eta}) => ({fix, time: stripTime(eta).slice(0, 5)}));
   const directTo = flight?.direct_to;
-  const trajectoryKind = directTo ? "DCT" : route.length ? "ROUTE" : "—";
-  const trajectoryFix = directTo ?? route[0]?.fix ?? "—";
+  const trajectoryKind = directTo ? "DCT" : detail?.calculation?.legs.length ? "ROUTE" : "—";
+  const trajectoryFix = directTo ?? detail?.calculation?.legs[0]?.to ?? "—";
 
-  const headerCell = "grid place-items-center overflow-hidden border-b-[2px] border-[#eff1e9] bg-[#8ae1d9] px-[0.25cqw] text-center font-bold leading-none";
+  const headerCell = "grid min-w-0 place-items-center overflow-hidden bg-[#8ae1d9] text-center font-semibold leading-normal";
   const accentHeaderCell = `${headerCell} !bg-[#2dd3cc]`;
-  const bodyCell = "grid min-w-0 place-items-center overflow-hidden bg-[#eff1e9] px-[0.25cqw] text-center font-bold leading-none";
+  const bodyCell = "grid min-w-0 place-items-center overflow-hidden bg-[#eff1e9] text-center font-semibold leading-normal";
   const shadedBodyCell = `${bodyCell} !bg-[#c1d4c8]`;
-  const groupEnd = "border-r-[2px] border-[#eff1e9]";
 
   return <section aria-label="Flight information summary" className="[container-type:inline-size] w-full bg-[#313131] font-['Rubik',sans-serif] text-black">
-    <DialogTitle className="grid h-[2.1cqw] min-h-5 place-items-center bg-[#313131] text-[clamp(11px,1.2cqw,20px)] font-bold leading-none text-white">
+    <DialogTitle className="grid h-[2.111cqw] min-h-5 place-items-center bg-[#313131] pr-[4.825cqw] text-[clamp(11px,1.206cqw,20px)] font-semibold leading-normal tracking-normal text-white">
       <span aria-hidden="true">Flight Information</span><span className="sr-only">{flight?.callsign ?? callsign} — route &amp; prediction detail</span>
     </DialogTitle>
     <span className="sr-only">state revision {detail?.revision ?? "—"}</span>
     <div
-      className="grid h-[7.9cqw] min-h-[78px] max-h-[131px]"
+      className="relative grid h-[7.841cqw]"
       style={{gridTemplateColumns: "139fr 492fr 102fr 86fr 88fr 102fr 86fr 95fr 102fr 86fr 90fr 110fr 80fr", gridTemplateRows: "41fr 43fr 46fr"}}
     >
-      <div className={`${accentHeaderCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 1, gridRow: 1}}>{callsignAndSequence}</div>
-      <div className={`${bodyCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 1, gridRow: 2}}>{flight ? `${flight.origin || "—"} ${flight.destination || detail?.airport || "—"}` : ""}</div>
-      <div className={`${bodyCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 1, gridRow: 3}}>{flight && <span className="whitespace-nowrap"><span>{flight.aircraft_type ?? "—"}</span> / {flight.wake_category ?? "—"}</span>}</div>
+      <div className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 1, gridRow: 1}}>{callsignAndSequence}</div>
+      <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 1, gridRow: 2}}>{flight ? `${flight.origin || "—"} ${flight.destination || detail?.airport || "—"}` : ""}</div>
+      <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 1, gridRow: 3}}>{flight && <span className="whitespace-nowrap"><span>{flight.aircraft_type ?? "—"}</span> / {flight.wake_category ?? "—"}</span>}</div>
 
-      <div className={`${headerCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 2, gridRow: 1}}>ROUTE</div>
-      <div className={`${bodyCell} ${groupEnd} grid-cols-6 gap-[0.15cqw] px-[0.5cqw] text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 2, gridRow: 2}}>{route.map(({fix}) => <span className="truncate" key={fix}>{fix}</span>)}</div>
-      <div className={`${bodyCell} ${groupEnd} grid-cols-6 gap-[0.15cqw] px-[0.5cqw] text-[clamp(8px,1.08cqw,18px)] font-normal`} style={{gridColumn: 2, gridRow: 3}}>{route.map(({fix, time}) => <span className="truncate" key={fix}>{time}</span>)}</div>
+      <div className={`${headerCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 2, gridRow: 1}}>ROUTE</div>
+      <div aria-label="STAR waypoint estimates" className="flex min-w-0 overflow-x-auto overflow-y-hidden bg-[#eff1e9] text-center leading-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-black [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{gridColumn: 2, gridRow: "2 / 4"}} tabIndex={0}>
+        {route.map(({fix, time}, index) => <div className="grid h-full min-w-[4.945cqw] shrink-0 basis-1/6 grid-rows-[43fr_46fr] place-items-center px-[0.15cqw]" key={`${index}-${fix}`}>
+          <span className="max-w-full truncate text-[clamp(8px,1.206cqw,20px)] font-semibold">{fix}</span>
+          <span className="text-[clamp(8px,1.086cqw,18px)] font-normal">{time}</span>
+        </div>)}
+      </div>
 
-      <div className={`${accentHeaderCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 3, gridRow: 1}}>{feeder}</div>
-      <div className={`${shadedBodyCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 3, gridRow: 2}}>ETA-FF</div>
-      <div className={`${shadedBodyCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 3, gridRow: 3}}>STA-FF</div>
+      <div className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 3, gridRow: 1}}>{feeder}</div>
+      <div className={`${shadedBodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 3, gridRow: 2}}>ETA-FF</div>
+      <div className={`${shadedBodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 3, gridRow: 3}}>STA-FF</div>
 
-      <div className={`${headerCell} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 4, gridRow: 1}}>INITIAL</div>
-      <div aria-label="Initial ETA-FF" className={`${bodyCell} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 4, gridRow: 2}} />
-      <div className={`${bodyCell} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 4, gridRow: 3}} />
-      <div className={`${headerCell} ${groupEnd} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 5, gridRow: 1}}>CURRENT</div>
-      <div aria-label="Current ETA-FF" className={`${bodyCell} ${groupEnd} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 5, gridRow: 2}}>{stripTime(currentFeederETA)}</div>
-      <div aria-label="Current STA-FF" className={`${bodyCell} ${groupEnd} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 5, gridRow: 3}}>{stripTime(feederSTA)}</div>
+      <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 4, gridRow: 1}}>INITIAL</div>
+      <div aria-label="Initial ETA-FF" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 4, gridRow: 2}}>{stripTime(detail?.initial_timing?.feeder_eta)}</div>
+      <div aria-label="Initial STA-FF" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 4, gridRow: 3}}>{stripTime(detail?.initial_timing?.feeder_sta)}</div>
+      <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 5, gridRow: 1}}>CURRENT</div>
+      <div aria-label="Current ETA-FF" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 5, gridRow: 2}}>{stripTime(currentFeederETA)}</div>
+      <div aria-label="Current STA-FF" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 5, gridRow: 3}}>{stripTime(feederSTA)}</div>
 
-      <div className={`${accentHeaderCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 6, gridRow: 1}}>{runwayAndSequence}</div>
-      <div className={`${shadedBodyCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 6, gridRow: 2}}>ETA</div>
-      <div className={`${shadedBodyCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 6, gridRow: 3}}>STA</div>
+      <div className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 6, gridRow: 1}}>{runwayAndSequence}</div>
+      <div className={`${shadedBodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 6, gridRow: 2}}>ETA</div>
+      <div className={`${shadedBodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 6, gridRow: 3}}>STA</div>
 
-      <div className={`${headerCell} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 7, gridRow: 1}}>INITIAL</div>
-      <div className={`${bodyCell} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 7, gridRow: 2}}>{stripTime(initialRunwayETA)}</div>
-      <div className={`${bodyCell} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 7, gridRow: 3}} />
-      <div className={`${headerCell} ${groupEnd} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 8, gridRow: 1}}>CURRENT</div>
-      <div className={`${bodyCell} ${groupEnd} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 8, gridRow: 2}}>{stripTime(currentRunwayETA)}</div>
-      <div className={`${bodyCell} ${groupEnd} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 8, gridRow: 3}}>{stripTime(runwaySTA)}</div>
+      <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 7, gridRow: 1}}>INITIAL</div>
+      <div aria-label="Initial runway ETA" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 7, gridRow: 2}}>{stripTime(initialRunwayETA)}</div>
+      <div aria-label="Initial runway STA" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 7, gridRow: 3}}>{stripTime(detail?.initial_timing?.runway_sta)}</div>
+      <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 8, gridRow: 1}}>CURRENT</div>
+      <div aria-label="Current runway ETA" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 8, gridRow: 2}}>{stripTime(currentRunwayETA)}</div>
+      <div aria-label="Current runway STA" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 8, gridRow: 3}}>{stripTime(runwaySTA)}</div>
 
-      <div className={`${accentHeaderCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 9, gridRow: 1}}>{runwayAndSequence}</div>
-      <div className={`${bodyCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 9, gridRow: 2}}>TOTAL</div>
-      <div className={`${bodyCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)]`} style={{gridColumn: 9, gridRow: 3}}>ACC</div>
+      <div className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 9, gridRow: 1}}>{runwayAndSequence}</div>
+      <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 9, gridRow: 2}}>TOTAL</div>
+      <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 9, gridRow: 3}}>ACC</div>
 
-      <div className={`${headerCell} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 10, gridRow: 1}}>INITIAL</div>
-      <div className={`${bodyCell} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 10, gridRow: 2}}>{stripDifference(initialRunwayETA, runwaySTA)}</div>
-      <div className={`${bodyCell} text-[clamp(7px,0.72cqw,12px)]`} style={{gridColumn: 10, gridRow: 3}} />
-      <div className={`${headerCell} ${groupEnd} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 11, gridRow: 1}}>CURRENT</div>
-      <div className={`${bodyCell} ${groupEnd} text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 11, gridRow: 2}}>{stripDifference(currentRunwayETA, runwaySTA)}</div>
-      <div className={`${bodyCell} ${groupEnd} text-[clamp(7px,0.72cqw,12px)]`} style={{gridColumn: 11, gridRow: 3}}>{stripDifference(detail?.teta_basis?.raw_reta, currentRunwayETA)}</div>
+      <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 10, gridRow: 1}}>INITIAL</div>
+      <div aria-label="Initial total delay" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 10, gridRow: 2}}>{stripDifference(initialRunwayETA, detail?.initial_timing?.runway_sta)}</div>
+      <div aria-label="Initial accumulated delay" className={`${bodyCell} text-[clamp(7px,0.724cqw,12px)]`} style={{gridColumn: 10, gridRow: 3}}>{stripDifference(initialRunwayETA, initialRunwayETA)}</div>
+      <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 11, gridRow: 1}}>CURRENT</div>
+      <div aria-label="Current total delay" className={`${bodyCell} text-[clamp(7px,0.724cqw,12px)]`} style={{gridColumn: 11, gridRow: 2}}>{stripDifference(currentRunwayETA, runwaySTA)}</div>
+      <div aria-label="Current accumulated delay" className={`${bodyCell} text-[clamp(7px,0.724cqw,12px)]`} style={{gridColumn: 11, gridRow: 3}}>{stripDifference(detail?.teta_basis?.raw_reta, currentRunwayETA)}</div>
 
-      <button aria-expanded={technicalOpen} aria-label="Technical evidence" className={`${accentHeaderCell} ${groupEnd} text-[clamp(9px,1.2cqw,20px)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-black`} onClick={onToggleTechnical} style={{gridColumn: 12, gridRow: 1}} type="button">Trajectory</button>
-      <div aria-label={directTo ? `Direct to ${trajectoryFix}` : `Route via ${trajectoryFix}`} className={`${bodyCell} ${groupEnd} grid-rows-3 text-[clamp(8px,1.08cqw,18px)]`} style={{gridColumn: 12, gridRow: "2 / 4"}}><span>{trajectoryKind}</span><span className="font-normal">{detail?.calculation?.distance_to_go_nm === null || detail?.calculation?.distance_to_go_nm === undefined ? "—" : `${Math.round(detail.calculation.distance_to_go_nm)}nm`}</span><span>{trajectoryFix}</span></div>
+      <button aria-expanded={technicalOpen} aria-label="Technical evidence" className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-black`} onClick={onToggleTechnical} style={{gridColumn: 12, gridRow: 1}} type="button">Trajectory</button>
+      <div aria-label={directTo ? `Direct to ${trajectoryFix}` : `Route via ${trajectoryFix}`} className={`${bodyCell} grid-rows-3 text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 12, gridRow: "2 / 4"}}><span>{trajectoryKind}</span><span className="font-normal">{detail?.calculation?.distance_to_go_nm === null || detail?.calculation?.distance_to_go_nm === undefined ? "—" : `${Math.round(detail.calculation.distance_to_go_nm)}nm`}</span><span>{trajectoryFix}</span></div>
 
-      <div className="grid bg-[#555355] p-[0.6cqw]" style={{gridColumn: 13, gridRow: "1 / 4"}}><button autoFocus aria-label="Close flight detail" className="grid place-items-center bg-[#313131] text-[clamp(9px,1.2cqw,20px)] font-bold text-white hover:bg-[#3b3b3b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={onClose} type="button">Close</button></div>
+      <div className="grid bg-[#555355] pb-[0.784cqw] pl-[0.362cqw] pr-[0.422cqw] pt-[0.603cqw]" style={{gridColumn: 13, gridRow: "1 / 4"}}><button autoFocus aria-label="Close flight detail" className="grid place-items-center bg-[#313131] text-[clamp(9px,1.206cqw,20px)] font-semibold text-white hover:bg-[#3b3b3b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white" onClick={onClose} type="button">Close</button></div>
+      <div aria-hidden="true" className="pointer-events-none absolute left-0 top-0 h-[130px] w-[1658px] origin-top-left [zoom:calc(100cqw/1658px)]">
+        {[139, 631, 733, 1190, 1292, 1468].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider130} style={{left, top: 130}} />)}
+        {[907, 1011].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider129} style={{left, top: 129}} />)}
+        <img alt="" className="absolute left-[1578px] top-[130px] max-w-none origin-top-left -rotate-90" src={closeDivider} />
+        <img alt="" className="absolute left-0 top-[40px] max-w-none" src={headerDivider} />
+      </div>
     </div>
   </section>;
 }
@@ -453,7 +460,7 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
   };
 
   return <Dialog onOpenChange={(open) => !open && onClose()} open>
-    <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[min(1668px,calc(100vw-1rem))] max-w-none flex-col gap-0 overflow-hidden border-0 bg-[#555355] p-0 text-white shadow-2xl [&>button]:hidden">
+    <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[min(1658px,calc(100vw-1rem))] max-w-none flex-col gap-0 overflow-hidden border-0 bg-[#555355] p-0 text-white shadow-2xl [&>button]:hidden">
       <FlightInformationSummary callsign={callsign} detail={detail} onClose={onClose} onToggleTechnical={() => setTechnicalOpen((open) => !open)} technicalOpen={technicalOpen} />
       {(missedApproach || removal || coordination) && <header className="flex items-center justify-between border-t-2 border-[#dcdcdc] bg-[#555355] px-3 py-2 font-['Rubik',sans-serif]">
         <span className="text-xs">state revision {detail?.revision ?? "—"}</span>

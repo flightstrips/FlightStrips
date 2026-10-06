@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.1.7](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.6...plugin/v2.1.7) (2026-10-04)
+
+
+### Bug Fixes
+
+* **aman:** correct gain/loss display and controller visibility ([#841](https://github.com/flightstrips/FlightStrips/issues/841)) ([4db5521](https://github.com/flightstrips/FlightStrips/commit/4db5521ad31aebe0bd269295969a234ac6e2444d))
+* **aman:** stabilize arrival guidance and isolate session queues ([#842](https://github.com/flightstrips/FlightStrips/issues/842)) ([6935e16](https://github.com/flightstrips/FlightStrips/commit/6935e16a9931e00c14c6c5249a6e7731e26dc73e))
+* correct CDM timing and recover controller sessions ([#839](https://github.com/flightstrips/FlightStrips/issues/839)) ([3e25066](https://github.com/flightstrips/FlightStrips/commit/3e25066224831f7098bcf8105b025117e407932f))
+
+## [2.1.6](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.5...plugin/v2.1.6) (2026-10-04)
+
+
+### Bug Fixes
+
+* **aman:** hide gain-loss guidance for untracked aircraft ([#832](https://github.com/flightstrips/FlightStrips/issues/832)) ([47dad99](https://github.com/flightstrips/FlightStrips/commit/47dad993173ca920f1369dea05a5f160a2d31cb0))
+* **aman:** retain session timing and restore holding updates ([#838](https://github.com/flightstrips/FlightStrips/issues/838)) ([718ceb9](https://github.com/flightstrips/FlightStrips/commit/718ceb9eb571b146bcd99e4f75c87b08ad0b351e))
+
+## [2.1.5](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.4...plugin/v2.1.5) (2026-09-28)
+
+
+### Bug Fixes
+
+* **aman:** retain holding EATs across ownership changes ([#778](https://github.com/flightstrips/FlightStrips/issues/778)) ([bb3daaf](https://github.com/flightstrips/FlightStrips/commit/bb3daaf75b1524f08be0b881b7ea8715c835ab94))
+
 ## [2.1.4](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.3...plugin/v2.1.4) (2026-09-20)
 
 

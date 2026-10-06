@@ -28,7 +28,7 @@ func DefaultConfig() Config {
 		StableHorizon:        20 * time.Minute,
 		SuperstableHorizon:   10 * time.Minute,
 		MinimumUnstableDwell: 2 * time.Minute,
-		RemovalTimeout:       time.Minute,
+		RemovalTimeout:       5 * time.Minute,
 	}
 }
 

@@ -28,6 +28,7 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		{"desequence", frontendEvents.AMANDesequenceFlightType, `{"type":"aman.desequence_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "desequence"},
 		{"resume", frontendEvents.AMANResumeFlightType, `{"type":"aman.resume_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "resume"},
 		{"remove", frontendEvents.AMANRemoveFlightType, `{"type":"aman.remove_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "remove"},
+		{"holding EAT writeback", frontendEvents.AMANSetHoldingEATWritebackType, `{"type":"aman.set_holding_eat_writeback","version":1,"data":{"command_id":"command-1","expected_revision":7,"enabled":false}}`, "holding_eat_writeback"},
 		{"rate", frontendEvents.AMANSetRateType, `{"type":"aman.set_rate","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","arrivals_per_hour":30,"effective_at":"2026-07-22T12:05:00Z"}}`, "rate"},
 		{"runway selection", frontendEvents.AMANSelectRunwayGroupType, `{"type":"aman.select_runway_group","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","effective_at":"2026-07-22T12:05:00Z"}}`, "runway_selection"},
 		{"active runway set", frontendEvents.AMANSetActiveRunwayGroupsType, `{"type":"aman.set_active_runway_groups","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_ids":["A","B"]}}`, "set_active_runway_groups"},
@@ -118,11 +119,13 @@ func TestAMANCoordinationSnapshotAuthorizesFMPCallsignAtUnlistedFrequency(t *tes
 	hub.amanRoleForPosition = func(string) string { return "" }
 	client.position = "131.040"
 	client.callsign = "EKDK_FMP"
+	client.session = 42
 
 	hub.sendAMANCoordinationSnapshot(context.Background(), client)
 
 	event := (<-client.send).(frontendEvents.AMANCoordinationStateEvent)
 	require.Equal(t, []coordinationrequest.Request{request}, event.Requests)
+	require.Equal(t, client.session, repository.snapshotSession)
 	require.True(t, hub.hasAMANFMPAuthority(client))
 }
 
@@ -133,8 +136,9 @@ func (coordinationOwner) TrackingController(context.Context, string, coordinatio
 }
 
 type coordinationRecorder struct {
-	request  coordinationrequest.Request
-	decision coordinationrequest.Decision
+	request         coordinationrequest.Request
+	decision        coordinationrequest.Decision
+	snapshotSession int32
 }
 
 func (r *coordinationRecorder) Submit(_ context.Context, request coordinationrequest.Request, revision uint64) (coordinationrequest.CommitResult, error) {
@@ -155,7 +159,8 @@ func (r *coordinationRecorder) Decide(_ context.Context, _ coordinationrequest.R
 func (r *coordinationRecorder) TransferPending(context.Context, coordinationrequest.OwnershipFact) (coordinationrequest.TransferResult, error) {
 	return coordinationrequest.TransferResult{}, nil
 }
-func (r *coordinationRecorder) ReplayAirport(context.Context, string) ([]coordinationrequest.Request, error) {
+func (r *coordinationRecorder) ReplayAirport(ctx context.Context, _ string) ([]coordinationrequest.Request, error) {
+	r.snapshotSession = aman.SessionID(ctx)
 	return []coordinationrequest.Request{r.request}, nil
 }
 
@@ -395,6 +400,9 @@ func (s *recordingAMANCommandService) ResumeFlight(_ context.Context, auth aman.
 func (s *recordingAMANCommandService) RemoveFlight(_ context.Context, auth aman.CommandContext, command aman.RemoveFlightCommand) (aman.CommandExecution, error) {
 	return s.record("remove", auth, command.Metadata)
 }
+func (s *recordingAMANCommandService) SetHoldingEATWriteback(_ context.Context, auth aman.CommandContext, command aman.SetHoldingEATWritebackCommand) (aman.CommandExecution, error) {
+	return s.record("holding_eat_writeback", auth, command.Metadata)
+}
 func (s *recordingAMANCommandService) SetRate(_ context.Context, auth aman.CommandContext, command aman.SetRateCommand) (aman.CommandExecution, error) {
 	return s.record("rate", auth, command.Metadata)
 }
@@ -459,4 +467,17 @@ func (s *recordingAMANCommandService) ConfirmGoAround(_ context.Context, auth am
 }
 func (s *recordingAMANCommandService) RejectGoAround(_ context.Context, auth aman.CommandContext, command aman.RejectGoAroundCommand) (aman.CommandExecution, error) {
 	return s.record("reject_go_around", auth, command.Metadata)
+}
+
+func TestAMANHoldingEATWritebackRequiresExplicitBoolean(t *testing.T) {
+	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
+	for _, enabled := range []string{"", ",\"enabled\":null", ",\"enabled\":\"true\""} {
+		t.Run(enabled, func(t *testing.T) {
+			service := &recordingAMANCommandService{}
+			hub, client := newAMANCommandTestClient(service, now)
+			payload := "{\"type\":\"aman.set_holding_eat_writeback\",\"version\":1,\"data\":{\"command_id\":\"command-1\",\"expected_revision\":7" + enabled + "}}"
+			require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANSetHoldingEATWritebackType, Message: []byte(payload)}))
+			require.Empty(t, service.operation)
+		})
+	}
 }

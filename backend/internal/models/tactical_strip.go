@@ -22,6 +22,7 @@ type TacticalStrip struct {
 	ProducedBy  string
 	Owner       string
 	Marked      bool
+	TimerStart  *time.Time
 	Sequence    int32
 	Confirmed   bool
 	ConfirmedBy *string

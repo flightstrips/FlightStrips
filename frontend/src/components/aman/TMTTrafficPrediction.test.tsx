@@ -25,13 +25,20 @@ function prediction(): AMANTrafficPrediction {
 }
 
 describe("TMTTrafficPrediction", () => {
+  it("leaves traffic diagnostics in Current warnings without covering the chart", () => {
+    const value = prediction();
+    value.degraded_reasons = ["disconnected_flight_data", "missing_timing:SAS101"];
+    render(<TMTTrafficPrediction prediction={value} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(12);
+  });
   it("renders one continuous, accessible bucket chart with stacked and alert segments", () => {
     render(<TMTTrafficPrediction prediction={prediction()} />);
 
     const buckets = screen.getAllByRole("listitem");
     expect(buckets).toHaveLength(12);
     expect(screen.getByLabelText("20:30 to 20:45: 3 arrivals, load factor 12")).toBeInTheDocument();
-    expect(screen.getByText(/Arrival rate unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText(/Arrival rate unavailable/)).not.toBeInTheDocument();
     expect(screen.getByTestId("traffic-bar-20:30")).toBeInTheDocument();
     expect(screen.getByTestId("traffic-bar-21:00").querySelector('[data-alert="red"]')).toBeInTheDocument();
     expect(screen.queryByText("RATE —")).not.toBeInTheDocument();
@@ -39,5 +46,14 @@ describe("TMTTrafficPrediction", () => {
 
     fireEvent.focus(buckets[0]);
     expect(screen.getByText(/SAS101 20:32/, {selector: ".sr-only"})).toBeInTheDocument();
+  });
+
+  it("labels approximate airborne position timing", () => {
+    const value = prediction();
+    value.degraded_reasons = ["position_estimate"];
+    value.buckets[0].flights[0].timing_source = "airborne_position";
+    render(<TMTTrafficPrediction prediction={value} />);
+
+    expect(screen.getByLabelText("20:30 to 20:45: 3 arrivals, load factor 12")).toHaveAttribute("title", expect.stringContaining("airborne position estimate"));
   });
 });

@@ -46,7 +46,11 @@ type SeparationRule struct {
 
 // Policy contains all runway-group-local inputs needed by the pure engine.
 type Policy struct {
-	RunwayGroupID     aman.RunwayGroupID
+	RunwayGroupID aman.RunwayGroupID
+	// ContinuousSpacing applies the arrival rate as minimum time between
+	// landings. Wake spacing must not be rounded to an additional rate step.
+	// The nominal rate grid remains available for explicit grid commands.
+	ContinuousSpacing bool
 	Rates             []RatePoint
 	Gaps              []Gap
 	Closures          []aman.RunwayClosure
@@ -94,6 +98,7 @@ type Flight struct {
 	// STARFamily, which may contain a legacy compatibility identity for
 	// same-STAR spacing during migration.
 	SelectedSTARFamily    string
+	STARProgress          *STARProgress
 	ManualOrder           *int
 	FreezeReason          aman.FreezeReason
 	FrozenAt              *time.Time
@@ -102,9 +107,36 @@ type Flight struct {
 	CurrentSlot           *aman.Slot
 	HoldingStackID        string
 	HoldingAltitudeFeet   *int
+	// HoldingQueueTime is the first observed or predicted entry into the
+	// selected hold. HoldingQueueID also covers flights still approaching it.
+	// HoldingTransit is the current physical time from that hold to landing.
+	HoldingQueueID   string
+	HoldingQueueTime *time.Time
+	HoldingTransit   time.Duration
+	// ActiveHoldingSince reserves runway priority for traffic already holding,
+	// even when later arrivals use another holding fix on the same runway.
+	ActiveHoldingSince *time.Time
+	ArrivalQueueTime   *time.Time
+	// HoldingSlotProtected retains a controller's holding reservation even
+	// when a position update temporarily loses the confirmed stack footprint.
+	HoldingSlotProtected bool
+	// SlotNotBefore is an operational lower bound needed when an earlier
+	// entrant to the same hold lands on a different runway group.
+	SlotNotBefore *time.Time
 	// ProtectCurrentSlot is an operational policy constraint used for stable
 	// flights. It does not create a persisted freeze.
 	ProtectCurrentSlot bool
+}
+
+// STARProgress carries physical order evidence at a common terminal fix.
+// It is independent of the committed slot and operational landing estimate.
+type STARProgress struct {
+	Fix            string
+	ETA            *time.Time
+	Passed         bool
+	DistanceToGoNM float64
+	RemainingFixes []string
+	TerminalDigest string
 }
 
 // Input is a complete, point-in-time pure sequence calculation.
@@ -506,6 +538,15 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 		if raw.HoldingAltitudeFeet != nil && *raw.HoldingAltitudeFeet < 0 {
 			return nil, fmt.Errorf("flight %q has invalid holding stack altitude", raw.Callsign)
 		}
+		if raw.HoldingQueueTime != nil && (!validUTC(*raw.HoldingQueueTime) || raw.HoldingQueueID == "" || raw.HoldingTransit < 0) {
+			return nil, fmt.Errorf("flight %q has invalid holding queue evidence", raw.Callsign)
+		}
+		if raw.ActiveHoldingSince != nil && !validUTC(*raw.ActiveHoldingSince) || raw.ArrivalQueueTime != nil && !validUTC(*raw.ArrivalQueueTime) {
+			return nil, fmt.Errorf("flight %q has invalid runway holding priority evidence", raw.Callsign)
+		}
+		if raw.SlotNotBefore != nil && !validUTC(*raw.SlotNotBefore) {
+			return nil, fmt.Errorf("flight %q has invalid slot lower bound", raw.Callsign)
+		}
 		if raw.ProtectCurrentSlot && raw.CurrentSlot == nil {
 			return nil, fmt.Errorf("flight %q protects a missing current slot", raw.Callsign)
 		}
@@ -531,7 +572,7 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 			Flight: raw, category: category, known: known,
 			holdingSequencePolicy: policy.starFamilies.holdingSequencePolicyFor(raw.SelectedSTARFamily),
 		}
-		if raw.State == aman.StateStable && raw.ManualOrder == nil && raw.CurrentSlot != nil {
+		if (raw.State == aman.StateStable || raw.HoldingSlotProtected) && raw.ManualOrder == nil && raw.CurrentSlot != nil {
 			order := raw.CurrentSlot.Sequence
 			prepared.stableOrder = &order
 		}
@@ -598,6 +639,22 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 		entries = append(entries, allocatedEntry{flight: flight, time: slot.Time, reason: reason})
 	}
 	sortEntries(entries)
+
+	ordered := orderMovableFlights(movable)
+	allocated, err := allocateMovableFlights(policy, entries, ordered)
+	if err != nil {
+		return nil, nil, err
+	}
+	allocated = optimizeMovableOrder(policy, entries, ordered, allocated)
+	allocated = optimizeStableSameSTAR(policy, allocated)
+	// Validate protected spacing against the final slot order: a Stable
+	// exchange can resolve a conflict present in the captured reservations.
+	entries = nil
+	for _, entry := range allocated {
+		if entry.reason != ReasonRateWTC {
+			entries = append(entries, entry)
+		}
+	}
 	for index := 1; index < len(entries); index++ {
 		leading, trailing := entries[index-1], entries[index]
 		if !adjacentValid(policy, leading, trailing) {
@@ -612,20 +669,61 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 		}
 	}
 
-	sort.Slice(movable, func(i, j int) bool { return flightLess(movable[i], movable[j]) })
-	for _, flight := range movable {
+	return allocated, warnings, nil
+}
+
+func allocateMovableFlights(policy preparedPolicy, protected []allocatedEntry, ordered []preparedFlight) ([]allocatedEntry, error) {
+	entries := slices.Clone(protected)
+	for _, flight := range ordered {
 		candidate, err := findCandidate(policy, entries, flight)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		entries = append(entries, allocatedEntry{flight: flight, time: candidate, reason: ReasonRateWTC})
 		sortEntries(entries)
 	}
-	return entries, warnings, nil
+	return entries, nil
+}
+
+// Allocate earlier holding traffic before later entrants on the same runway,
+// so placement can enforce the holding priority against its assigned slot.
+func orderMovableFlights(flights []preparedFlight) []preparedFlight {
+	remaining := slices.Clone(flights)
+	sort.Slice(remaining, func(i, j int) bool { return flightLess(remaining[i], remaining[j]) })
+	ordered := make([]preparedFlight, 0, len(remaining))
+	for len(remaining) > 0 {
+		for i, flight := range remaining {
+			olderPending := false
+			for _, other := range remaining {
+				if HoldingPrecedes(other.Flight, flight.Flight) {
+					// Explicit manual or committed Stable order retains its
+					// existing precedence over the automatic hold queue.
+					if flight.ManualOrder != nil && (other.ManualOrder == nil || *flight.ManualOrder < *other.ManualOrder) {
+						continue
+					}
+					if flight.stableOrder != nil && other.stableOrder != nil && *flight.stableOrder < *other.stableOrder {
+						continue
+					}
+					olderPending = true
+					break
+				}
+			}
+			if olderPending {
+				continue
+			}
+			ordered = append(ordered, flight)
+			remaining = slices.Delete(remaining, i, i+1)
+			break
+		}
+	}
+	return ordered
 }
 
 func findCandidate(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight) (time.Time, error) {
 	lower := flight.OperationalTETA.Add(-policy.EarlyTolerance)
+	if flight.SlotNotBefore != nil && lower.Before(*flight.SlotNotBefore) {
+		lower = *flight.SlotNotBefore
+	}
 	if candidate, ok := previousGridAtOrBefore(policy, flight.OperationalTETA); ok && candidate.Before(flight.OperationalTETA) {
 		for !candidate.Before(lower) {
 			valid, earlier, _ := placement(policy, entries, flight, candidate)
@@ -643,7 +741,11 @@ func findCandidate(policy preparedPolicy, entries []allocatedEntry, flight prepa
 		}
 	}
 
-	candidate, ok := nextGridAtOrAfter(policy, flight.OperationalTETA)
+	target := flight.OperationalTETA
+	if target.Before(lower) {
+		target = lower
+	}
+	candidate, ok := nextGridAtOrAfter(policy, target)
 	if !ok {
 		return time.Time{}, fmt.Errorf("runway group %q has no slot grid at or after flight %q TETA", policy.RunwayGroupID, flight.Callsign)
 	}
@@ -679,6 +781,9 @@ func queuePlacement(policy preparedPolicy, entries []allocatedEntry, flight prep
 }
 
 func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time, preserveStableOrder bool) (bool, time.Time, time.Time) {
+	if flight.SlotNotBefore != nil && candidate.Before(*flight.SlotNotBefore) {
+		return false, candidate.Add(-time.Nanosecond), *flight.SlotNotBefore
+	}
 	if gap, blocked := policy.blockingGap(candidate); blocked {
 		return false, gap.Start.Add(-time.Nanosecond), gap.End
 	}
@@ -729,7 +834,57 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 			}
 		}
 	}
+	if flight.HoldingQueueTime != nil || flight.ArrivalQueueTime != nil {
+		for _, entry := range entries {
+			older := entry.flight
+			if !HoldingPrecedes(older.Flight, flight.Flight) {
+				continue
+			}
+			// Holding admission can be discovered after both targets have been
+			// committed. An earlier vacancy keeps that established order; do not
+			// impose the opposite holding order retroactively and deadlock both
+			// aircraft. New/unprotected arrivals still follow the occupied hold.
+			if flight.stableOrder != nil && flight.CurrentSlot != nil && older.CurrentSlot != nil &&
+				candidate.Before(flight.CurrentSlot.Time) && flight.CurrentSlot.Time.Before(older.CurrentSlot.Time) &&
+				flight.CurrentSlot.Sequence < older.CurrentSlot.Sequence {
+				continue
+			}
+			// An explicit controller order overrides automatic holding priority;
+			// the protected slot and runway separation checks still apply.
+			if flight.ManualOrder != nil && (older.ManualOrder == nil || *flight.ManualOrder < *older.ManualOrder) {
+				continue
+			}
+			// A new aircraft cannot pass one already in this hold. Different
+			// physical transit times also require more than runway separation
+			// when the later slot would otherwise yield an earlier release.
+			minimum := entry.time.Add(requiredGap(policy, older, flight, candidate))
+			if older.HoldingQueueID == flight.HoldingQueueID && older.HoldingTransit > 0 && flight.HoldingTransit > 0 {
+				// EAT is published as HHMM, so successive releases need a
+				// visible minute of separation.
+				releaseMinimum := entry.time.Add(flight.HoldingTransit - older.HoldingTransit + time.Minute)
+				if releaseMinimum.After(minimum) {
+					minimum = releaseMinimum
+				}
+			}
+			if candidate.Before(minimum) {
+				valid = false
+				if minimum.After(later) {
+					later = minimum
+				}
+			}
+		}
+	}
 	return valid, earlier, later
+}
+
+// HoldingPrecedes prevents later arrivals from passing traffic already holding
+// on the same runway, including traffic at a different holding fix.
+func HoldingPrecedes(older, later Flight) bool {
+	if older.HoldingQueueTime != nil && later.HoldingQueueTime != nil && older.HoldingQueueID == later.HoldingQueueID && older.HoldingQueueTime.Before(*later.HoldingQueueTime) {
+		return true
+	}
+	return older.RunwayGroupID == later.RunwayGroupID && older.HoldingQueueID != later.HoldingQueueID &&
+		older.ActiveHoldingSince != nil && later.ArrivalQueueTime != nil && older.ActiveHoldingSince.Before(*later.ArrivalQueueTime)
 }
 
 func orderAfter(candidate, existing *int) bool {
@@ -798,6 +953,16 @@ func rateInterval(rate uint32) time.Duration {
 func nextGridAtOrAfter(policy preparedPolicy, target time.Time) (time.Time, bool) {
 	for {
 		candidate, ok := nextRateGridAtOrAfter(policy, target)
+		if policy.ContinuousSpacing {
+			if target.Before(policy.rates[0].EffectiveAt) {
+				target = policy.rates[0].EffectiveAt
+			}
+			// Publish whole-second targets without rounding up to a rate cell.
+			candidate, ok = target.Truncate(time.Second), true
+			if candidate.Before(target) {
+				candidate = candidate.Add(time.Second)
+			}
+		}
 		if !ok {
 			return time.Time{}, false
 		}
@@ -842,6 +1007,10 @@ func nextRateGridAtOrAfter(policy preparedPolicy, target time.Time) (time.Time, 
 func previousGridAtOrBefore(policy preparedPolicy, target time.Time) (time.Time, bool) {
 	for {
 		candidate, ok := previousRateGridAtOrBefore(policy, target)
+		if policy.ContinuousSpacing {
+			candidate = target.Truncate(time.Second)
+			ok = !candidate.Before(policy.rates[0].EffectiveAt)
+		}
 		if !ok {
 			return time.Time{}, false
 		}
@@ -918,9 +1087,9 @@ func flightLess(a, b preparedFlight) bool {
 	// Stable order is retained from the last committed sequence. A stable
 	// aircraft may move into a legal vacancy, but recalculation never sorts two
 	// stable aircraft back by their changing TETAs or holding altitudes.
-	if a.State == aman.StateStable && b.State == aman.StateStable && a.CurrentSlot != nil && b.CurrentSlot != nil {
-		if a.CurrentSlot.Sequence != b.CurrentSlot.Sequence {
-			return a.CurrentSlot.Sequence < b.CurrentSlot.Sequence
+	if a.stableOrder != nil && b.stableOrder != nil {
+		if *a.stableOrder != *b.stableOrder {
+			return *a.stableOrder < *b.stableOrder
 		}
 		if !a.CurrentSlot.Time.Equal(b.CurrentSlot.Time) {
 			return a.CurrentSlot.Time.Before(b.CurrentSlot.Time)

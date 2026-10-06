@@ -101,6 +101,28 @@ func TestAMANGainLossUsesLiveRawTETAWhenOperationalTETAIsFrozen(t *testing.T) {
 	require.Equal(t, "2026-09-08T12:10:20.000Z", *event.Values[0].PredictedTime)
 }
 
+func TestAMANGainLossPublishesSmoothedRetainedGuidanceWithMatchingClock(t *testing.T) {
+	now := time.Date(2026, time.October, 4, 12, 0, 0, 0, time.UTC)
+	target := now.Add(20 * time.Minute)
+	flight := aman.AMANFlight{Callsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataStale,
+		Slot: &aman.Slot{Time: target}, Prediction: &aman.Prediction{RawTETA: target.Add(-15 * time.Minute), GeneratedAt: now,
+			Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}}},
+		RawTETASamples: []aman.RawTETASample{
+			{TETA: target.Add(-time.Minute), GeneratedAt: now.Add(-20 * time.Second)},
+			{TETA: target.Add(-50 * time.Second), GeneratedAt: now.Add(-10 * time.Second)},
+			{TETA: target.Add(-15 * time.Minute), GeneratedAt: now},
+		}}
+	event, err := euroscope.NewAMANGainLossEvent(aman.AirportState{Airport: "EKCH", GeneratedAt: now, Flights: []aman.AMANFlight{flight}})
+	require.NoError(t, err)
+	require.EqualValues(t, -60, *event.Values[0].GainLossSeconds)
+	require.Equal(t, "2026-10-04T12:19:00.000Z", *event.Values[0].PredictedTime)
+	require.Equal(t, "stale", event.Values[0].DataStatus)
+	flight.State = aman.StateLanded
+	event, err = euroscope.NewAMANGainLossEvent(aman.AirportState{Airport: "EKCH", GeneratedAt: now, Flights: []aman.AMANFlight{flight}})
+	require.NoError(t, err)
+	require.Nil(t, event.Values[0].GainLossSeconds)
+}
+
 func TestAMANGainLossExcludesRemovedIdentitiesFromReplacement(t *testing.T) {
 	now := time.Date(2026, time.September, 14, 18, 0, 0, 0, time.UTC)
 	live := aman.AMANFlight{

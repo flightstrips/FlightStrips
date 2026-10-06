@@ -37,6 +37,31 @@ func TestRunwayClearance_RejectsActiveValidation(t *testing.T) {
 	assert.Contains(t, err.Error(), "locked by an active validation")
 }
 
+func TestRunwayClearanceRecordsAtotForDepartureOnly(t *testing.T) {
+	for _, tc := range []struct {
+		name, origin, bay string
+		wantCalls         int
+	}{
+		{"departure", "EKCH", shared.BAY_DEPART, 1},
+		{"arrival", "ESSA", shared.BAY_RWY_ARR, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			strip := &models.Strip{Callsign: "SAS779", Origin: tc.origin, Bay: tc.bay}
+			repo := &testutil.MockStripRepository{
+				GetByCallsignFn:         func(context.Context, int32, string) (*models.Strip, error) { return strip, nil },
+				UpdateRunwayClearanceFn: func(context.Context, int32, string) (int64, error) { return 1, nil },
+				UpdateGroundStateFn:     func(context.Context, int32, string, *string, string, *int32) (int64, error) { return 1, nil },
+			}
+			cdm := &takeoffAtotCdmStub{spyStripCdmService: &spyStripCdmService{}}
+			svc := NewStripService(repo)
+			svc.SetCdmService(cdm)
+			svc.SetFrontendHub(&testutil.MockFrontendHub{})
+			require.NoError(t, svc.RunwayClearance(context.Background(), 779, "SAS779", "1234567", "EKCH"))
+			assert.Equal(t, tc.wantCalls, cdm.calls)
+		})
+	}
+}
+
 func TestRunwayClearance_AllowsLandingClearanceValidation(t *testing.T) {
 	t.Parallel()
 

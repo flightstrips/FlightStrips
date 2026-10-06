@@ -99,7 +99,11 @@ func (c PerformanceWindConfig) normalized() (PerformanceWindConfig, error) {
 }
 
 type PerformanceWindInput struct {
-	PredictionAt           time.Time
+	PredictionAt time.Time
+	// WeatherEvaluationAt checks provider freshness at processing time while
+	// PredictionAt anchors travel durations at the position's observation time.
+	// Zero keeps the original single-clock behavior for deterministic callers.
+	WeatherEvaluationAt    time.Time
 	AircraftICAO           string
 	WakeTurbulenceCategory AircraftCategory
 	AltitudeFeet           float64
@@ -203,6 +207,7 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 		return PerformanceWindResult{}, err
 	}
 	if !validPredictionInstant(input.PredictionAt) || !finite(input.AltitudeFeet) || input.AltitudeFeet < 0 || !finite(input.CruiseAltitudeFeet) || input.CruiseAltitudeFeet < 0 || !finite(input.CurrentGroundspeedKnots) || input.CurrentGroundspeedKnots <= 0 || len(input.Remaining) == 0 ||
+		(!input.WeatherEvaluationAt.IsZero() && (!validPredictionInstant(input.WeatherEvaluationAt) || input.WeatherEvaluationAt.Before(input.PredictionAt))) ||
 		(input.CurrentTrackTrueDegrees != nil && (!finite(*input.CurrentTrackTrueDegrees) || *input.CurrentTrackTrueDegrees < 0 || *input.CurrentTrackTrueDegrees >= 360)) {
 		return PerformanceWindResult{}, errPerformanceWindInput
 	}
@@ -244,7 +249,11 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 		return result, nil
 	}
 	weather, err := wind.WindProfile(ctx, WindProfileRequest{Samples: requests})
-	if err != nil || !validWindProfile(weather, requests, input.PredictionAt) {
+	weatherAt := input.WeatherEvaluationAt
+	if weatherAt.IsZero() {
+		weatherAt = input.PredictionAt
+	}
+	if err != nil || !validWindProfile(weather, requests, weatherAt) {
 		if estimated, ok := applySurveillanceWindFallback(result, input, segments, config); ok {
 			return estimated, nil
 		}
@@ -274,9 +283,14 @@ func applySurveillanceWindFallback(result PerformanceWindResult, input Performan
 	}
 	noWindGroundspeed := iasToTAS(currentModelIAS(input), input.AltitudeFeet)
 	alongTrackWind := input.CurrentGroundspeedKnots - noWindGroundspeed
-	if !finite(alongTrackWind) || math.Abs(alongTrackWind) > maxSurveillanceWindKnots {
+	if !finite(alongTrackWind) {
 		return result, false
 	}
+	// Limit an inferred wind rather than dropping its entire correction at
+	// the boundary. Small surveillance changes around the limit must not
+	// create multi-minute ETA jumps and repeated sequence changes.
+	windCapped := math.Abs(alongTrackWind) > maxSurveillanceWindKnots
+	alongTrackWind = clamp(alongTrackWind, -maxSurveillanceWindKnots, maxSurveillanceWindKnots)
 	trackRadians := *input.CurrentTrackTrueDegrees * math.Pi / 180
 	east := alongTrackWind * math.Sin(trackRadians)
 	north := alongTrackWind * math.Cos(trackRadians)
@@ -304,15 +318,23 @@ func applySurveillanceWindFallback(result PerformanceWindResult, input Performan
 	result.WeatherSource = pointerString(surveillanceWindFallbackSource)
 	result.WeatherSourceRevision = pointerString(amanCPHModelVersion)
 	result = degradeWind(result, "WEATHER_ESTIMATED_FROM_SURVEILLANCE")
+	if windCapped {
+		result = degradeWind(result, "WEATHER_SURVEILLANCE_WIND_CAPPED")
+	}
 	result.RawTETA = input.PredictionAt.Add(result.Duration)
 	return result, true
 }
 
 func currentModelIAS(input PerformanceWindInput) float64 {
+	// Match the trajectory's high-altitude speed basis on both sides of TOD.
+	// Established cruise uses observed-speed-derived IAS; mixing nominal
+	// cruise IAS with that observed basis invents a headwind that disappears
+	// abruptly when the aircraft crosses the descent boundary.
+	highIAS := highAltitudeIAS(input)
 	if !input.DescentConfirmed && routeDistance(input.Remaining) > predictionCruiseAltitude(input)/descentFeetPerNM {
-		return cruiseIAS(input.WakeTurbulenceCategory)
+		return highIAS
 	}
-	return descentIASForAircraft(input.AircraftICAO, input.WakeTurbulenceCategory, input.AltitudeFeet, cruiseIAS(input.WakeTurbulenceCategory))
+	return descentIASForAircraft(input.AircraftICAO, input.WakeTurbulenceCategory, input.AltitudeFeet, highIAS)
 }
 
 // withNoWindBreakdown keeps the no-wind side of the explanation tied to the

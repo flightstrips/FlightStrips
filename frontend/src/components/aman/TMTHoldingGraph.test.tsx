@@ -1,5 +1,5 @@
 import {fireEvent, render, screen, within} from "@testing-library/react";
-import {describe, expect, it} from "vitest";
+import {describe, expect, it, vi} from "vitest";
 
 import type {AMANHoldingEntry} from "@/api/aman";
 import {TMTHoldingGraph} from "./TMTHoldingGraph";
@@ -19,6 +19,27 @@ function entry(callsign: string, eat: string | null, clearedAltitude: number | n
 }
 
 describe("TMT holding graph", () => {
+  it.each([false, true])("opens the menu for positioned and missing-altitude aircraft (compact=%s)", (compact) => {
+    const onOpenFlightActions = vi.fn();
+    render(<TMTHoldingGraph compact={compact} entries={[
+      entry("TIMED", "2026-09-11T10:20:00.000Z", 12000),
+      entry("NOEAT", null, 11000),
+      entry("NOCFL", null, null),
+    ]} now={now} onOpenFlightActions={onOpenFlightActions} />);
+
+    for (const callsign of ["TIMED", "NOEAT", "NOCFL"]) {
+      const aircraft = screen.getByRole("button", {name: new RegExp(`^${callsign},`)});
+      fireEvent.click(aircraft);
+      fireEvent.keyDown(aircraft, {key: "Enter"});
+      fireEvent.keyDown(aircraft, {key: " "});
+      expect(onOpenFlightActions.mock.calls.slice(-3)).toEqual([[callsign], [callsign], [callsign]]);
+    }
+    expect(onOpenFlightActions).toHaveBeenCalledTimes(9);
+    fireEvent.keyDown(screen.getByRole("button", {name: /^TIMED,/}), {key: "ArrowDown"});
+    expect(screen.getByRole("button", {name: /^NOEAT,/})).toHaveFocus();
+    expect(onOpenFlightActions).toHaveBeenCalledTimes(9);
+  });
+
   it("renders fixed time and altitude axes with positioned authoritative entries", () => {
     render(<TMTHoldingGraph entries={[entry("SAS101", "2026-09-11T10:30:00.000Z", 19500)]} now={now} />);
 
@@ -60,11 +81,29 @@ describe("TMT holding graph", () => {
     ]} now={now} />);
 
     expect(screen.getByLabelText("EDGES, OLPIB, >300, EAT >60, SCHEDULED, LIVE DATA")).toBeVisible();
+    const graph = screen.getByTestId("holding-graph");
+    expect(within(graph).getByLabelText(/NOEAT, OLPIB, FL110, EAT unavailable/)).toBeVisible();
     const missing = screen.getByLabelText("Holding aircraft with missing values");
-    expect(within(missing).getByText("NOEAT")).toBeVisible();
-    expect(within(missing).getByText("EAT —")).toBeVisible();
+    expect(within(missing).queryByText("NOEAT")).not.toBeInTheDocument();
     expect(within(missing).getByText("NOCFL")).toBeVisible();
     expect(within(missing).getByText("CFL —")).toBeVisible();
+  });
+
+  it.each([false, true])("shows aircraft without EAT at their altitude without a time line (compact=%s)", (compact) => {
+    render(<TMTHoldingGraph compact={compact} entries={[
+      entry("NOEAT", null, 12000),
+      entry("TIMED", "2026-09-11T10:20:00.000Z", 12000),
+    ]} now={now} />);
+
+    const graph = screen.getByTestId("holding-graph");
+    const noEat = within(graph).getByLabelText(/NOEAT, OLPIB, FL120, EAT unavailable/);
+    const timed = within(graph).getByLabelText(/TIMED, OLPIB, FL120/);
+    expect(noEat).toBeVisible();
+    expect(noEat.style.top).not.toBe(timed.style.top);
+    expect(noEat.style.left).toBe(timed.style.left);
+    expect(noEat).toHaveTextContent("—");
+    expect(graph.querySelectorAll("svg line")).toHaveLength(1);
+    expect(screen.queryByLabelText("Holding aircraft with missing values")).not.toBeInTheDocument();
   });
 
   it("announces stale and disconnected source data with visible non-color cues", () => {
@@ -72,9 +111,9 @@ describe("TMT holding graph", () => {
     const disconnected = {...entry("LOST1", null, 13000), source_status: "disconnected" as const};
     render(<TMTHoldingGraph entries={[stale, disconnected]} now={now} />);
 
-    expect(screen.getByRole("status")).toHaveTextContent("2 AIRCRAFT STALE OR DISCONNECTED");
+    expect(screen.queryByText(/DEGRADED DATA/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/STALE1.*STALE DATA/)).toHaveTextContent("△");
-    expect(screen.getByLabelText(/LOST1.*EAT unavailable.*SOURCE DISCONNECTED/)).toHaveTextContent("× SOURCE DISCONNECTED");
+    expect(screen.getByLabelText(/LOST1.*EAT unavailable.*SOURCE DISCONNECTED/)).toHaveTextContent("×");
     expect(screen.getByText("△ STALE")).toBeVisible();
     expect(screen.getByText("× DISCONNECTED")).toBeVisible();
   });

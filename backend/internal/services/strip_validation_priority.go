@@ -15,6 +15,7 @@ var validationPriorityOrder = [][]string{
 	{runwayTypeValidationIssueType},
 	{taxiwayTypeValidationIssueType},
 	{ctotValidationIssueType},
+	{pushbackTsatValidationIssueType},
 	{internalModels.ValidationIssueTypeStandAssignment},
 }
 

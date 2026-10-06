@@ -16,6 +16,7 @@ var (
 // CommandContext contains only server-derived authentication and receipt
 // facts. Transports must never populate it from request payload data.
 type CommandContext struct {
+	SessionID  int32
 	Airport    string
 	Actor      string
 	Role       string
@@ -71,6 +72,7 @@ type replayRepository interface {
 
 // Snapshot returns the complete authoritative replacement visible to the caller.
 func (s *Service) Snapshot(ctx context.Context, auth CommandContext) (TransferResult, error) {
+	ctx = aman.WithSession(ctx, auth.SessionID)
 	if err := s.validateContext(auth); err != nil {
 		return TransferResult{}, err
 	}
@@ -102,6 +104,7 @@ func (s *Service) Reject(ctx context.Context, auth CommandContext, command Decis
 }
 
 func (s *Service) decide(ctx context.Context, auth CommandContext, command DecisionCommand, state State) (CommitResult, error) {
+	ctx = aman.WithSession(ctx, auth.SessionID)
 	if err := s.validateContext(auth); err != nil {
 		return CommitResult{}, err
 	}
@@ -153,6 +156,7 @@ func NewService(repository submitRepository, owners TrackingControllerResolver) 
 }
 
 func (s *Service) Submit(ctx context.Context, auth CommandContext, command SubmitCommand) (CommitResult, error) {
+	ctx = aman.WithSession(ctx, auth.SessionID)
 	if err := s.validateContext(auth); err != nil {
 		return CommitResult{}, err
 	}

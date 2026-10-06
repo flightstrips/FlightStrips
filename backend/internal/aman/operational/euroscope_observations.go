@@ -35,6 +35,7 @@ type EuroScopePositionObserverDependencies struct {
 type euroScopePosition struct {
 	latitude, longitude float64
 	at                  time.Time
+	groundspeed, track  *float64
 }
 
 func NewEuroScopePositionObserver(deps EuroScopePositionObserverDependencies) (*EuroScopePositionObserver, error) {
@@ -84,25 +85,41 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 	positionKey := fmt.Sprintf("%d\x00%s", session, callsign)
 	o.mu.Lock()
 	previous, known := o.previous[positionKey]
-	o.previous[positionKey] = current
-	o.mu.Unlock()
 	var groundspeed, track *float64
+	if known && !current.at.After(previous.at) {
+		o.mu.Unlock()
+		return nil
+	}
 	if known && current.at.After(previous.at) {
 		interval := current.at.Sub(previous.at)
 		if interval <= 2*time.Minute {
-			distance := geoDistanceNM(previous.latitude, previous.longitude, current.latitude, current.longitude)
-			derivedGroundspeed := distance / interval.Hours()
-			if derivedGroundspeed >= 1 && derivedGroundspeed <= euroScopeMaximumDerivedGroundspeed {
-				derivedTrack := geoBearingTrue(previous.latitude, previous.longitude, current.latitude, current.longitude)
-				groundspeed, track = &derivedGroundspeed, &derivedTrack
+			if current.latitude == previous.latitude && current.longitude == previous.longitude {
+				// Repeated radar reports are not evidence of zero speed. Keep
+				// the last motion estimate and its original freshness boundary;
+				// do not reset the position/time pair used for the next movement.
+				if interval <= euroScopeSurveillanceFresh {
+					groundspeed, track = previous.groundspeed, previous.track
+				}
+				current = previous
+			} else {
+				distance := geoDistanceNM(previous.latitude, previous.longitude, current.latitude, current.longitude)
+				derivedGroundspeed := distance / interval.Hours()
+				if derivedGroundspeed >= 1 && derivedGroundspeed <= euroScopeMaximumDerivedGroundspeed {
+					derivedTrack := geoBearingTrue(previous.latitude, previous.longitude, current.latitude, current.longitude)
+					groundspeed, track = &derivedGroundspeed, &derivedTrack
+				}
 			}
 		}
 	}
+	current.groundspeed, current.track = groundspeed, track
+	o.previous[positionKey] = current
+	o.mu.Unlock()
 	altitudeFeet := int(altitude)
+	aircraftType, wakeCategory := euroScopeAircraft(strip.AircraftType)
 	observation := aman.FlightObservation{
 		Callsign: callsign,
 		Origin:   origin, Destination: destination,
-		AircraftType: optionalStripString(strip.AircraftType), FiledRoute: filedRoute, RequestedLevel: requestedLevel(strip.RequestedAltitude),
+		AircraftType: aircraftType, WakeCategory: wakeCategory, FiledRoute: filedRoute, RequestedLevel: requestedLevel(strip.RequestedAltitude),
 		FlightPlan:         aman.FlightPlanFact{Revision: vatsimRevision(strip.VatsimRevision), ObservedAt: &now},
 		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitudeFeet, GroundspeedKnots: groundspeed, TrackTrueDegrees: track, ObservedAt: &now},
 		SurveillanceSource: aman.SurveillanceSourceEuroScope, Provider: aman.ObservationProviderEuroScope, ReconciledAt: now, SourceStatus: aman.DataFresh,
@@ -113,7 +130,7 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 	if err := observation.Validate(); err != nil {
 		return fmt.Errorf("map EuroScope AMAN observation: %w", err)
 	}
-	if err := o.sink.Observe(ctx, observation); err != nil {
+	if err := o.sink.Observe(aman.WithSession(ctx, session), observation); err != nil {
 		return fmt.Errorf("publish EuroScope AMAN observation: %w", err)
 	}
 	return nil
@@ -131,6 +148,26 @@ func optionalStripString(value *string) *string {
 		return &text
 	}
 	return nil
+}
+
+// EuroScope supplies ICAO item 9 with equipment, e.g. A320/M-SDE3/LB1.
+// Keep the type and explicit wake category separate for performance and spacing.
+func euroScopeAircraft(value *string) (*string, *string) {
+	text := strings.ToUpper(stripStringValue(value))
+	if text == "" {
+		return nil, nil
+	}
+	aircraft, equipment, found := strings.Cut(text, "/")
+	if !found || equipment == "" {
+		return &aircraft, nil
+	}
+	wake := equipment[:1]
+	switch wake {
+	case "L", "M", "H", "J":
+		return &aircraft, &wake
+	default:
+		return &aircraft, nil
+	}
 }
 
 func requestedLevel(value *int32) *int {

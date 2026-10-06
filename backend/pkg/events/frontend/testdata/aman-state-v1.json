@@ -8,6 +8,8 @@
     "policy_version": "ekch-aman-v1",
     "effective_mode": "authoritative",
     "authoritative": true,
+    "holding_eat_writeback_enabled": false,
+    "holding_eat_writeback_available": false,
     "flights": [
       {
         "callsign": "SAS123",
@@ -232,7 +234,14 @@
       ]
     },
     "holding_information": [],
-    "warnings": [],
+    "warnings": [{
+      "id": "warning:\"traffic_prediction\"/\"traffic_prediction\"/\"missing_selected_rate\"/-/-/-",
+      "source": "traffic_prediction",
+      "component": "traffic_prediction",
+      "severity": "warning",
+      "code": "missing_selected_rate",
+      "message": "An arrival rate is missing within the traffic prediction horizon. Arrival counts remain available, but overload alerts cannot be calculated for those periods. Select a runway group and arrival rate in FMP."
+    }],
     "technical_health": {
       "status": "ready",
       "ready": true,

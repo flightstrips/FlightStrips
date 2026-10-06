@@ -196,7 +196,7 @@ func (s *Service) ChangeRunway(auth aman.CommandContext, command aman.ChangeRunw
 		candidate.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		target := &candidate.Flights[index]
 		oldSlot, oldFrozenSlot, oldOrder, oldManualOrder := target.Slot, target.FrozenSlot, target.Order, target.ManualOrder
-		protected := target.State == aman.StateStable || target.FreezeReason != aman.FreezeNone || target.ManualOrder != nil
+		protected := runwayAssignmentProtected(*target)
 		if protected && oldSlot == nil {
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "protected flight has no committed slot to preserve"}
 		}
@@ -390,6 +390,18 @@ func lifecycleReason(flight aman.AMANFlight) aman.LifecycleReason {
 	return flight.Lifecycle.Reason
 }
 
+func (s *Service) SetHoldingEATWriteback(auth aman.CommandContext, command aman.SetHoldingEATWritebackCommand) (sequence.CommandMutation, error) {
+	if !aman.IsFMPRole(auth.Role) {
+		return nil, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "EAT writeback setting requires an FMP role"}
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		changed := state.HoldingEATWritebackEnabled == nil || *state.HoldingEATWritebackEnabled != command.Enabled
+		enabled := command.Enabled
+		state.HoldingEATWritebackEnabled = &enabled
+		return s.commandChange(state, changed, "set_holding_eat_writeback", "", map[string]any{"enabled": command.Enabled, "actor": auth.Actor})
+	}, nil
+}
+
 func (s *Service) SetRate(auth aman.CommandContext, command aman.SetRateCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
 		input := s.sequenceInput(state)
@@ -460,7 +472,7 @@ func (s *Service) SelectRunwayGroup(auth aman.CommandContext, command aman.Selec
 		protected := []aman.Callsign{}
 		for _, flight := range state.Flights {
 			if flight.SelectedRunwayGroup != nil && *flight.SelectedRunwayGroup != command.RunwayGroupID &&
-				(flight.State == aman.StateStable || flight.FreezeReason != aman.FreezeNone) {
+				runwayAssignmentProtected(flight) {
 				protected = append(protected, flight.Callsign)
 			}
 		}
@@ -646,6 +658,9 @@ func (s *Service) displaceFlightsFromRunwayGap(state *aman.AirportState, groupID
 			continue
 		}
 		original[input.Flights[index].Callsign] = input.Flights[index]
+		// An explicit runway GAP overrides committed slot protection for the
+		// displacement cascade. Restore that protection around the new slots
+		// after sequencing so routine prediction updates cannot undo the GAP.
 		input.Flights[index].FreezeReason = aman.FreezeNone
 		input.Flights[index].FrozenAt = nil
 		input.Flights[index].FrozenOperationalTETA = nil
@@ -756,12 +771,15 @@ func (s *Service) RemoveRunwayGap(auth aman.CommandContext, command aman.RemoveR
 				state.Flights[index].RunwayGapException = nil
 			}
 		}
-		return commandChange(state, true, "remove_runway_gap", "", map[string]any{
+		promotions := s.resequence(&state, auth.ReceivedAt)
+		change, err := s.commandChange(state, true, "remove_runway_gap", "", map[string]any{
 			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
 			"runway_group_id": command.RunwayGroupID, "gap_id": removed.ID,
 			"before_interval": gapIntervalAudit(removed.Start, removed.End), "after_interval": nil,
 			"removed_ids": []aman.RunwayGapID{removed.ID},
 		})
+		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
+		return change, err
 	}, nil
 }
 
@@ -799,7 +817,7 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 	protectedIncompatible := make([]aman.Callsign, 0)
 	desequencedIncompatible := make([]aman.Callsign, 0)
 	for _, flight := range state.Flights {
-		if flight.SelectedRunwayGroup == nil || (flight.State != aman.StateStable && flight.FreezeReason == aman.FreezeNone) ||
+		if flight.SelectedRunwayGroup == nil || !runwayAssignmentProtected(flight) ||
 			flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
 			continue
 		}
@@ -814,7 +832,7 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 			continue
 		}
 		operational := state.Flights[index]
-		if operational.State != aman.StateStable && operational.FreezeReason == aman.FreezeNone {
+		if !runwayAssignmentProtected(operational) {
 			movable = append(movable, flight)
 			continue
 		}
@@ -890,6 +908,7 @@ func (s *Service) runwayAssignmentCompatible(flight aman.AMANFlight, group aman.
 func assignFlightToRunwayGroup(flight *aman.AMANFlight, group aman.RunwayGroupID) {
 	flight.SelectedRunwayGroup = &group
 	flight.SelectedHolding, flight.HoldingStack = nil, nil
+	flight.HoldingReleaseBasis = nil
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
 	flight.Slot, flight.Order, flight.ManualOrder = nil, nil, nil
 	flight.QueueOffers = nil
@@ -989,7 +1008,7 @@ func upsertRunwayGroupSelection(schedule []aman.RunwayGroupSelectionPoint, point
 func reassignFlightsToGroup(state *aman.AirportState, selected aman.RunwayGroupID) {
 	for i := range state.Flights {
 		flight := &state.Flights[i]
-		if flight.State == aman.StateStable || flight.State == aman.StateLanded || flight.State == aman.StateRemoved || flight.FreezeReason != aman.FreezeNone {
+		if runwayAssignmentProtected(*flight) || flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
 			continue
 		}
 		if flight.SelectedRunwayGroup != nil && *flight.SelectedRunwayGroup == selected {
@@ -1151,6 +1170,8 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	expireActiveRouteFact(flight)
 	updatedPrediction := *flight.Prediction
+	flight.SelectedHolding, flight.HoldingStack, flight.HoldingReleaseBasis = nil, nil, nil
+	updatedPrediction.HoldingFixETA, updatedPrediction.HoldingPlan, updatedPrediction.HoldingPlanBlockedBy = nil, nil, nil
 	updatedPrediction.OperationalTETA = detectedAt.Add(DefaultGoAroundDelay)
 	updatedPrediction.OperationalReason = aman.OperationalReasonGoAround
 	updatedPrediction.Publishable = true
@@ -1231,6 +1252,14 @@ func (s *Service) flightMutationWithAudit(action string, callsign aman.Callsign,
 		state.Flights[index] = updated
 		var promotions []sequence.VacancyPromotion
 		if changed {
+			if manualETASlotPending(updated) && sequenceEligible(updated) {
+				input := s.sequenceInput(state)
+				candidate, err := sequence.Generate(input)
+				if err != nil || candidate.HasConflicts() {
+					return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "manual ETA cannot produce a legal atomic sequence"}
+				}
+				state = s.applyDecision(state, sequence.Decision{Input: input, Candidate: candidate, Changed: true})
+			}
 			promotions = s.resequence(&state, updated.UpdatedAt)
 		}
 		change, err := s.commandChange(state, changed, action, callsign, extra)
@@ -1240,12 +1269,20 @@ func (s *Service) flightMutationWithAudit(action string, callsign aman.Callsign,
 }
 
 func (s *Service) commandChange(state aman.AirportState, changed bool, action string, callsign aman.Callsign, extra map[string]any) (sequence.CommandChange, error) {
+	if changed {
+		state.Flights = slices.Clone(state.Flights)
+		s.refreshGroundArrivalPlans(&state, state.GeneratedAt)
+	}
 	change, err := commandChange(state, changed, action, callsign, extra)
 	if err != nil || !changed {
 		return change, err
 	}
+	input := s.sequenceInput(state)
+	if len(input.Flights) == 0 || len(input.Policies) == 0 {
+		return change, nil
+	}
 	change.QueueOffers = &sequence.QueueOfferCalculation{
-		Input:  s.sequenceInput(state),
+		Input:  input,
 		Config: sequence.QueueOfferConfig{Validity: queueOfferValidity},
 	}
 	return change, nil
@@ -1262,17 +1299,24 @@ func (s *Service) applyDecision(state aman.AirportState, decision sequence.Decis
 		entries[entry.Callsign] = entry
 	}
 	for i := range state.Flights {
+		pendingManualETA := manualETASlotPending(state.Flights[i])
 		if input, ok := inputFlights[state.Flights[i].Callsign]; ok {
-			state.Flights[i].FreezeReason = input.FreezeReason
-			state.Flights[i].FrozenAt = input.FrozenAt
-			state.Flights[i].FrozenOperationalTETA = input.FrozenOperationalTETA
-			state.Flights[i].FrozenSlot = input.CapturedSlot
+			if !pendingManualETA {
+				state.Flights[i].FreezeReason = input.FreezeReason
+				state.Flights[i].FrozenAt = input.FrozenAt
+				state.Flights[i].FrozenOperationalTETA = input.FrozenOperationalTETA
+				state.Flights[i].FrozenSlot = input.CapturedSlot
+			}
 			state.Flights[i].ManualOrder = input.ManualOrder
 		}
 		if entry, ok := entries[state.Flights[i].Callsign]; ok {
 			state.Flights[i].Slot = &aman.Slot{Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence, Revision: state.Revision, Reason: string(entry.Reason)}
 			order := entry.Sequence
 			state.Flights[i].Order = &order
+			if pendingManualETA {
+				captured := *state.Flights[i].Slot
+				state.Flights[i].FrozenSlot = &captured
+			}
 		}
 	}
 	clearInvalidRunwayGapExceptions(&state)

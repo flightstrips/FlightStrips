@@ -6,6 +6,7 @@ package webapi
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/aman/trajectory"
 	"FlightStrips/internal/shared"
 	"context"
@@ -18,14 +19,30 @@ import (
 )
 
 type WebAPI struct {
-	auth      shared.AuthenticationService
-	states    aman.AirportStateReader
-	geometry  navdata.GeometryReader
-	snapshots navdata.GeometrySnapshotReader
+	auth            shared.AuthenticationService
+	states          aman.AirportStateReader
+	geometry        navdata.GeometryReader
+	snapshots       navdata.GeometrySnapshotReader
+	terminal        terminal.Configuration
+	sessionResolver func(context.Context, string, string) (int32, error)
 }
 
 func New(auth shared.AuthenticationService, states aman.AirportStateReader) *WebAPI {
 	return &WebAPI{auth: auth, states: states}
+}
+
+// WithTerminal supplies the approved STAR point lists, separately from the
+// approach legs and en-route geometry composed into a prediction.
+func (a *WebAPI) WithTerminal(config terminal.Configuration) *WebAPI {
+	a.terminal = config
+	return a
+}
+
+// WithSessionResolver uses authenticated server-side membership, never a
+// caller-supplied session ID, to scope inspection to the caller's session.
+func (a *WebAPI) WithSessionResolver(resolve func(context.Context, string, string) (int32, error)) *WebAPI {
+	a.sessionResolver = resolve
+	return a
 }
 
 // WithNavigation adds the cache-only readers needed to render the filed route
@@ -79,9 +96,19 @@ func (a *WebAPI) authenticate(w http.ResponseWriter, r *http.Request) bool {
 		writeError(w, http.StatusUnauthorized, "invalid authorization header")
 		return false
 	}
-	if _, err := a.auth.Validate(token); err != nil {
+	user, err := a.auth.Validate(token)
+	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid token")
 		return false
+	}
+	if a.sessionResolver != nil {
+		airport := strings.ToUpper(strings.TrimSpace(r.PathValue("airport")))
+		id, err := a.sessionResolver(r.Context(), user.GetCid(), airport)
+		if err != nil || id <= 0 {
+			writeError(w, http.StatusForbidden, "AMAN detail requires membership of this airport session")
+			return false
+		}
+		*r = *r.WithContext(aman.WithSession(r.Context(), id))
 	}
 	return true
 }
@@ -97,6 +124,20 @@ type flightDetail struct {
 	TETABasis          *tetaBasis          `json:"teta_basis"`
 	SlotBasis          *slotBasis          `json:"slot_basis"`
 	HoldingPlan        *holdingPlan        `json:"holding_plan"`
+	InitialTiming      *initialTiming      `json:"initial_timing"`
+	STARRoute          []starWaypoint      `json:"star_route"`
+}
+
+type starWaypoint struct {
+	Fix string `json:"fix"`
+	ETA string `json:"eta"`
+}
+
+type initialTiming struct {
+	FeederETA *string `json:"feeder_eta"`
+	FeederSTA *string `json:"feeder_sta"`
+	RunwayETA *string `json:"runway_eta"`
+	RunwaySTA *string `json:"runway_sta"`
 }
 
 type flightSummary struct {
@@ -111,6 +152,7 @@ type flightSummary struct {
 	FeederFix        *string `json:"feeder_fix"`
 	FeederETA        *string `json:"feeder_eta"`
 	DerivedFeederETA *string `json:"derived_feeder_eta"`
+	FeederSTA        *string `json:"feeder_sta"`
 	DirectTo         *string `json:"direct_to"`
 	HoldingFix       *string `json:"holding_fix"`
 	AircraftType     *string `json:"aircraft_type"`
@@ -270,6 +312,35 @@ func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight 
 	if flight.ActiveRouteFact != nil && flight.ActiveRouteFact.State == aman.RouteFactActive {
 		result.Flight.DirectTo = cloneString(&flight.ActiveRouteFact.Fix)
 	}
+	if scheduled := aman.ScheduledFeederTime(flight); scheduled != nil {
+		value, formatErr := format(*scheduled)
+		if formatErr != nil {
+			return flightDetail{}, formatErr
+		}
+		result.Flight.FeederSTA = &value
+	}
+	if flight.InitialTiming != nil {
+		initial := &initialTiming{}
+		for _, clock := range []struct {
+			value  *time.Time
+			target **string
+		}{
+			{flight.InitialTiming.FeederETA, &initial.FeederETA},
+			{flight.InitialTiming.FeederSTA, &initial.FeederSTA},
+			{flight.InitialTiming.RunwayETA, &initial.RunwayETA},
+			{flight.InitialTiming.RunwaySTA, &initial.RunwaySTA},
+		} {
+			if clock.value == nil {
+				continue
+			}
+			value, formatErr := format(*clock.value)
+			if formatErr != nil {
+				return flightDetail{}, formatErr
+			}
+			*clock.target = &value
+		}
+		result.InitialTiming = initial
+	}
 	if observation := flight.LatestObservation; observation != nil && observation.Surveillance != nil {
 		observedAt, formatErr := format(*observation.Surveillance.ObservedAt)
 		if formatErr != nil {
@@ -300,7 +371,53 @@ func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight 
 		result.HoldingPlan = &plan
 	}
 	result.FiledRouteGeometry = a.mapFiledRouteGeometry(ctx, state, flight)
+	result.STARRoute = a.mapSTARRoute(flight)
 	return result, nil
+}
+
+func (a *WebAPI) mapSTARRoute(flight aman.AMANFlight) []starWaypoint {
+	result := []starWaypoint{}
+	prediction := flight.Prediction
+	if prediction == nil || !prediction.Publishable || prediction.Calculation == nil || flight.SelectedRunwayGroup == nil || prediction.ConfigVersion != a.terminal.ConfigVersion {
+		return result
+	}
+	canonical := func(fix navdata.FixID) navdata.FixID {
+		for _, alias := range a.terminal.FixAliases {
+			if alias.Alias == fix {
+				return alias.Canonical
+			}
+		}
+		return fix
+	}
+	fixes := map[string]bool{}
+	for _, path := range a.terminal.Paths {
+		family := string(path.STARFamily)
+		if family == "" {
+			family = string(path.Feeder)
+		}
+		if path.RunwayGroup != *flight.SelectedRunwayGroup || family != flight.STARFamilyIdentity() {
+			continue
+		}
+		if flight.SelectedFeederFix != nil && canonical(path.FeederFix) != navdata.FixID(*flight.SelectedFeederFix) {
+			continue
+		}
+		for _, fix := range path.Fixes {
+			fixes[string(canonical(fix))] = true
+		}
+		break
+	}
+	at := prediction.InputObservedAt
+	for _, leg := range prediction.Calculation.Legs {
+		at = at.Add(leg.Duration)
+		if !fixes[leg.To] {
+			continue
+		}
+		eta, err := format(at)
+		if err == nil {
+			result = append(result, starWaypoint{Fix: leg.To, ETA: eta})
+		}
+	}
+	return result
 }
 
 func mapHoldingPlan(plan aman.HoldingPlan) (holdingPlan, error) {

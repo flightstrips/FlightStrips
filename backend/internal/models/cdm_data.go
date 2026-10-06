@@ -63,12 +63,17 @@ type CdmData struct {
 	TobtSetBy              *string            `json:"tobtSetBy,omitempty"`
 	TobtConfirmedBy        *string            `json:"tobtConfirmedBy,omitempty"`
 	TobtAutoSynced         bool               `json:"tobtAutoSynced,omitempty"`
+	TobtAutoAdjusted       bool               `json:"tobtAutoAdjusted,omitempty"`
 	TobtManuallyConfirmed  bool               `json:"tobtManuallyConfirmed,omitempty"`
 	Tsat                   *string            `json:"tsat,omitempty"`
+	ViffProposalTsat       *string            `json:"viffProposalTsat,omitempty"`
+	ViffProposalTtot       *string            `json:"viffProposalTtot,omitempty"`
 	Ttot                   *string            `json:"ttot,omitempty"`
 	Ctot                   *string            `json:"ctot,omitempty"`
 	CtotSource             *string            `json:"ctotSource,omitempty"`
 	Aobt                   *string            `json:"aobt,omitempty"`
+	Atot                   *string            `json:"atot,omitempty"`
+	AtotViffPending        bool               `json:"atotViffPending,omitempty"`
 	Asat                   *string            `json:"asat,omitempty"`
 	Asrt                   *string            `json:"asrt,omitempty"`
 	Tsac                   *string            `json:"tsac,omitempty"`
@@ -83,6 +88,7 @@ type CdmData struct {
 	Calculation            *CdmCalculation    `json:"calculation,omitempty"`
 	Recalculate            bool               `json:"recalculate,omitempty"`
 	RecalculationMode      string             `json:"recalculationMode,omitempty"`
+	PushbackRecalculate    bool               `json:"pushbackRecalculate,omitempty"`
 	ReadySyncPending       bool               `json:"readySyncPending,omitempty"`
 	ViffRequestSyncPending bool               `json:"viffRequestSyncPending,omitempty"`
 }
@@ -115,10 +121,13 @@ func (d *CdmData) Clone() *CdmData {
 	clone.TobtSetBy = cloneStringPointer(d.TobtSetBy)
 	clone.TobtConfirmedBy = cloneStringPointer(d.TobtConfirmedBy)
 	clone.Tsat = cloneStringPointer(d.Tsat)
+	clone.ViffProposalTsat = cloneStringPointer(d.ViffProposalTsat)
+	clone.ViffProposalTtot = cloneStringPointer(d.ViffProposalTtot)
 	clone.Ttot = cloneStringPointer(d.Ttot)
 	clone.Ctot = cloneStringPointer(d.Ctot)
 	clone.CtotSource = cloneStringPointer(d.CtotSource)
 	clone.Aobt = cloneStringPointer(d.Aobt)
+	clone.Atot = cloneStringPointer(d.Atot)
 	clone.Asat = cloneStringPointer(d.Asat)
 	clone.Asrt = cloneStringPointer(d.Asrt)
 	clone.Tsac = cloneStringPointer(d.Tsac)
@@ -275,6 +284,7 @@ func (d *CdmData) ClearLocalRecalculationPending() {
 	}
 	d.Recalculate = false
 	d.RecalculationMode = ""
+	d.PushbackRecalculate = false
 }
 
 func (d *CdmData) IsImprovementOnlyRecalculation() bool {

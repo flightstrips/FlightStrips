@@ -88,6 +88,43 @@ func (s *holdingBatchObserverSpy) ObserveHoldingClearances(_ context.Context, ob
 
 type holdingObserverSpy struct{ strips []*models.Strip }
 
+func TestStripSyncForwardsAMANFiledTimingOnBatchAndUnchangedUpdates(t *testing.T) {
+	for _, batched := range []bool{false, true} {
+		t.Run(map[bool]string{false: "individual", true: "batch"}[batched], func(t *testing.T) {
+			existing := &models.Strip{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH"}
+			updates := 0
+			repo := &testutil.MockStripRepository{
+				GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return existing, nil },
+				UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+					updates++
+					existing = strip
+					return 1, nil
+				},
+			}
+			service, _, _ := newSyncTestFixture(t, existing, repo)
+			observer := &amanStripObserverSpy{}
+			service.SetEuroScopeAMANStripObserver(observer)
+			ctx := context.Background()
+			if batched {
+				ctx = shared.WithSyncState(ctx, &shared.SyncState{})
+			}
+			wire := euroscope.Strip{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", Eobt: "1800", EnrouteDuration: "0130"}
+			require.NoError(t, service.SyncStrip(ctx, 1, "", wire, "EKCH"))
+			require.Len(t, observer.strips, 1)
+			require.Equal(t, "1800", observer.strips[0].FlightPlanEOBT)
+			require.Equal(t, "0130", observer.strips[0].FlightPlanEET)
+			before := updates
+			// The wire timing can change without changing persisted strip fields.
+			wire.EnrouteDuration = "0140"
+			require.NoError(t, service.SyncStrip(ctx, 1, "", wire, "EKCH"))
+			require.Equal(t, before, updates, "exercise the unchanged-strip return")
+			require.Len(t, observer.strips, 2)
+			require.Equal(t, "1800", observer.strips[1].FlightPlanEOBT)
+			require.Equal(t, "0140", observer.strips[1].FlightPlanEET)
+		})
+	}
+}
+
 func TestStripSyncOnlyAcceptsHoldingFieldsFromPersistedTrackingController(t *testing.T) {
 	for _, sender := range []string{"EKCH_A_APP", "EKCH_TWR", ""} {
 		t.Run(sender, func(t *testing.T) {

@@ -149,7 +149,7 @@ export function SystemDiagram() {
           </text>
 
           {/* ── Users and clients ───────────────────────────── */}
-          <Box x={24} y={64} w={208} h={88} title="Controller" sub="Strip board in the browser" />
+          <Box x={24} y={64} w={208} h={88} title="Controller" sub="EFS in the browser" />
           <Box x={24} y={176} w={208} h={88} title="EuroScope" sub="FlightStrips plugin" />
           <Box x={24} y={288} w={208} h={88} title="Pilot" sub="Flight and EFB pages" />
 

@@ -51,13 +51,22 @@ func TestServicePersistsESOnlyClearanceCreateUpdateAndCancelWithoutCID(t *testin
 	fact.ObservedAt = now.Add(2 * time.Minute)
 	require.NoError(t, restarted.ObserveHoldingClearance(context.Background(), fact))
 	require.Equal(t, &aman.HoldingClearance{ObservedAt: fact.ObservedAt}, restartedRepository.state.Flights[0].HoldingClearance)
+	canceledAt := fact.ObservedAt
+	require.Equal(t, &canceledAt, restartedRepository.state.Flights[0].HoldingClearanceCanceledAt)
 	afterCancellation := restartedRepository.restart(t)
+	require.Equal(t, &canceledAt, afterCancellation.state.Flights[0].HoldingClearanceCanceledAt)
 	fact.Hold, fact.HoldType, fact.ObservedAt = "OLPIB", "enroute", now
 	replayed, err := New(Dependencies{Repository: afterCancellation, Publisher: publisher})
 	require.NoError(t, err)
 	require.NoError(t, replayed.ObserveHoldingClearance(context.Background(), fact))
 	require.Empty(t, afterCancellation.state.Flights[0].HoldingClearance.Hold)
 	require.Zero(t, afterCancellation.commits)
+	fact.Hold, fact.HoldType, fact.ObservedAt = "", "", now.Add(3*time.Minute)
+	require.NoError(t, replayed.ObserveHoldingClearance(context.Background(), fact))
+	require.Equal(t, &canceledAt, afterCancellation.state.Flights[0].HoldingClearanceCanceledAt)
+	fact.Hold, fact.HoldType, fact.ObservedAt = "OLPIB", "enroute", now.Add(4*time.Minute)
+	require.NoError(t, replayed.ObserveHoldingClearance(context.Background(), fact))
+	require.Nil(t, afterCancellation.state.Flights[0].HoldingClearanceCanceledAt)
 }
 
 func TestLegacyFlightJSONWithoutHoldingClearanceRemainsValid(t *testing.T) {

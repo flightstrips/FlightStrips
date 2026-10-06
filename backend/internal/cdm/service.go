@@ -31,8 +31,9 @@ type Service struct {
 	debouncer              *recalcDebouncer
 	// sessionUsesViff tracks whether a session is allowed to exchange data with the vIFF network.
 	// Populated from session.Name during syncSessions and refreshed on demand for later runtime calls.
-	sessionUsesViff sync.Map // map[int32]bool
-	lastPushedViff  sync.Map // map[string]viffPushState
+	sessionUsesViff  sync.Map // map[int32]bool
+	lastPushedViff   sync.Map // map[string]viffPushState
+	atotPushInFlight sync.Map // map[session:callsign]struct{}
 }
 
 type StripValidationReevaluator interface {
@@ -149,6 +150,14 @@ func (s *Service) HandleEobtUpdate(ctx context.Context, session int32, callsign 
 
 func (s *Service) PrepareEuroscopeEobtSync(session int32, data *models.CdmData, eobt string, now time.Time) (*models.CdmData, string, bool) {
 	return s.actionService.PrepareEuroscopeEobtSync(session, data, eobt, now)
+}
+
+func (s *Service) PrepareEuroscopeLogonSync(data *models.CdmData, eobt string, now time.Time) *models.CdmData {
+	return s.actionService.PrepareEuroscopeLogonSync(data, eobt, now)
+}
+
+func (s *Service) HandleClearanceTobt(ctx context.Context, session int32, callsign string) error {
+	return s.actionService.HandleClearanceTobt(ctx, session, callsign)
 }
 
 func (s *Service) normalizeMasterEobtValue(session int32, eobt string, now time.Time) (string, bool) {
@@ -285,6 +294,22 @@ func (s *Service) prepareTobtUpdate(ctx context.Context, session int32, callsign
 
 func (s *Service) SyncAsatForGroundState(ctx context.Context, session int32, callsign string, groundState string) error {
 	return s.actionService.SyncAsatForGroundState(ctx, session, callsign, groundState)
+}
+
+func (s *Service) RecordAobtForTransfer(ctx context.Context, session int32, callsign string) error {
+	return s.actionService.RecordAobtForTransfer(ctx, session, callsign)
+}
+
+func (s *Service) RecordTakeoffClearanceAtot(ctx context.Context, session int32, callsign string) error {
+	return s.actionService.RecordTakeoffClearanceAtot(ctx, session, callsign)
+}
+
+func (s *Service) PreparePushback(ctx context.Context, session int32, callsign string) (string, string, bool, error) {
+	return s.actionService.PreparePushback(ctx, session, callsign)
+}
+
+func (s *Service) ReadPushbackCtot(ctx context.Context, session int32, callsign string) (string, error) {
+	return s.actionService.ReadPushbackCtot(ctx, session, callsign)
 }
 
 func (s *Service) pushAobtAsync(session int32, callsign, aobt string) {

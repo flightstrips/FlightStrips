@@ -241,7 +241,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		calcInput := candidate.input
 
 		// TSAT specifically expired → mark strip as invalid, keep TOBT
-		if isTsatSpecificallyExpired(strip, now) {
+		if isTsatSpecificallyExpired(strip, now) && !dataAllowsStartedPushbackRecalculation(strip) {
 			// An improve-only flight's old slot was provisionally reserved while
 			// probing for an earlier gap. Once that assignment expires it must no
 			// longer block predecessors or following flights from using capacity.
@@ -301,11 +301,22 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			updated = (&models.CdmData{}).Normalize()
 		}
 		updated = updated.Clone()
+		beforeProposalTsat := valueOrEmpty(updated.ViffProposalTsat)
+		beforeProposalTtot := valueOrEmpty(updated.ViffProposalTtot)
 		beforeNeedsRecalc := updated.NeedsLocalRecalculation()
 		if keepExistingAssignment {
 			result.Tsat = beforeTsat
 			result.Ttot = beforeTtot
 		} else {
+			proposalInput := calcInput
+			if !updated.HasManualCtot() {
+				proposalInput.Ctot = ""
+				proposalInput.HasManCtot = false
+				proposalInput.ManCtot = ""
+			}
+			proposal := Calculate(proposalInput, slots, config, now)
+			updated.ViffProposalTsat = stringPointerIfPresent(proposal.Tsat)
+			updated.ViffProposalTtot = stringPointerIfPresent(proposal.Ttot)
 			updated.Phase = nil
 			updated.Tsat = stringPointerIfPresent(result.Tsat)
 			updated.Ttot = stringPointerIfPresent(result.Ttot)
@@ -314,7 +325,8 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		}
 		updated.ClearLocalRecalculationPending()
 
-		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updatedTaxiRunwayFromData(updated))) {
+		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updatedTaxiRunwayFromData(updated))) ||
+			beforeProposalTsat != valueOrEmpty(updated.ViffProposalTsat) || beforeProposalTtot != valueOrEmpty(updated.ViffProposalTtot) {
 			rows, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize())
 			if err != nil {
 				return err
@@ -537,7 +549,7 @@ func shouldRecalculateStrip(strip *models.Strip, now time.Time) bool {
 		return true
 	}
 	if stripHasStarted(strip) {
-		return false
+		return dataAllowsStartedPushbackRecalculation(strip)
 	}
 	if data.NeedsLocalRecalculation() {
 		return true
@@ -553,6 +565,12 @@ func shouldRecalculateStrip(strip *models.Strip, now time.Time) bool {
 		return true
 	}
 	return false
+}
+
+func dataAllowsStartedPushbackRecalculation(strip *models.Strip) bool {
+	return strip != nil && strip.CdmData != nil &&
+		strip.CdmData.PushbackRecalculate && strip.CdmData.NeedsLocalRecalculation() &&
+		valueOrEmpty(strip.EffectiveAobt()) == ""
 }
 
 func stripHasStarted(strip *models.Strip) bool {

@@ -17,6 +17,7 @@ export interface AMANFlightDetail {
     feeder_fix: string | null;
     feeder_eta: string | null;
     derived_feeder_eta: string | null;
+    feeder_sta?: string | null;
     direct_to: string | null;
     holding_fix: string | null;
     aircraft_type: string | null;
@@ -29,6 +30,13 @@ export interface AMANFlightDetail {
   teta_basis: AMANTETABasis | null;
   slot_basis: AMANSlotBasis | null;
   holding_plan: AMANHoldingPlan | null;
+  star_route?: {fix: string; eta: string}[];
+  initial_timing?: {
+    feeder_eta: string | null;
+    feeder_sta: string | null;
+    runway_eta: string | null;
+    runway_sta: string | null;
+  } | null;
 }
 
 export interface AMANPosition {

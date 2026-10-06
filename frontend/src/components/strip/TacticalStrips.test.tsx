@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Bay, type TacticalStrip } from "@/api/models";
 import { StartButton } from "./TacticalButtons";
@@ -12,6 +12,7 @@ const actions = {
   confirmTacticalStrip: vi.fn(),
   forceAssumeTacticalStrip: vi.fn(),
   markTacticalStrip: vi.fn(),
+  startTacticalTimer: vi.fn(),
 };
 
 let position = "EKCH_TWR";
@@ -43,6 +44,7 @@ function tactical(overrides: Partial<TacticalStrip> = {}): TacticalStrip {
     produced_by: "EKCH_TWR",
     owner: "EKCH_TWR",
     marked: false,
+    timer_start: null,
     sequence: 1000,
     confirmed: false,
     confirmed_by: "",
@@ -56,18 +58,48 @@ beforeEach(() => {
   Object.values(actions).forEach((mock) => mock.mockReset());
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("tactical strip ownership interactions", () => {
-  it("lets the owner mark and close a runway strip without a timer control", () => {
+  it("lets the owner start a runway timer without marking the strip", () => {
     const { container } = render(<TacticalRwyStrip strip={tactical()} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Start tactical timer" }));
+    expect(actions.startTacticalTimer).toHaveBeenCalledWith(42);
+    expect(actions.markTacticalStrip).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("START 22L"));
     expect(actions.markTacticalStrip).toHaveBeenCalledWith(42, true);
     expect(screen.getByText("✕")).toBeInTheDocument();
-    expect(screen.queryByText("⌛")).not.toBeInTheDocument();
+    expect(screen.getByText("⌛")).toBeInTheDocument();
     expect(container.firstElementChild).toHaveStyle({ backgroundColor: "#dd6a12" });
     expect(container.querySelector(".bg-white")).toHaveStyle({ borderRight: "2px solid #a04a00" });
+  });
+
+  it("includes message delivery time in the displayed timer", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-20T12:00:00Z"));
+    const { rerender } = render(<TacticalRwyStrip strip={tactical({ type: "LAND" })} />);
+
+    act(() => vi.advanceTimersByTime(70000));
+    rerender(<TacticalRwyStrip strip={tactical({ type: "LAND", timer_start: "2026-07-20T12:00:00Z" })} />);
+
+    expect(screen.getByText("01:10")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start tactical timer" })).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.getByText("01:11")).toBeInTheDocument();
+  });
+
+  it("shows the running timer to non-owners without offering its start action", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-20T12:01:05Z"));
+    position = "EKCH_GND";
+    render(<TacticalRwyStrip strip={tactical({ timer_start: "2026-07-20T12:00:00Z" })} />);
+
+    expect(screen.getByText("01:05")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start tactical timer" })).not.toBeInTheDocument();
   });
 
   it("opens force assume for a non-owner and omits SI/close controls", () => {

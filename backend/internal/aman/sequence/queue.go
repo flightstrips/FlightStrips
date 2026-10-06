@@ -65,13 +65,16 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 	if err != nil {
 		return Result{}, nil, err
 	}
-	prepared, err := prepareFlights(input.Flights, policies)
-	if err != nil {
-		return Result{}, nil, err
-	}
 	baseline, err := generate(input, nil)
 	if err != nil || baseline.HasConflicts() {
 		return baseline, nil, err
+	}
+	// Stable exchanges are already accepted in the baseline. Carry their
+	// reservations and order into compaction and the final regeneration.
+	working := vacancyBaselineInput(input, baseline)
+	prepared, err := prepareFlights(working.Flights, policies)
+	if err != nil {
+		return Result{}, nil, err
 	}
 
 	canonical := append([]aman.QueueOffer(nil), offers...)
@@ -159,7 +162,7 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		promotions = compactStableFlights(policy, entries, promotionSlots, promotions, at)
 	}
 
-	result, err := generate(input, promotionSlots)
+	result, err := generate(working, promotionSlots)
 	if err != nil {
 		return Result{}, nil, err
 	}
@@ -167,7 +170,20 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		fallback, fallbackErr := Generate(input)
 		return fallback, nil, fallbackErr
 	}
+	// Report changes against the original committed reservations, rather than
+	// the intermediate baseline used to validate vacancy opportunities.
+	originals := make(map[aman.Callsign]Flight, len(input.Flights))
+	for _, flight := range input.Flights {
+		originals[flight.Callsign] = flight
+	}
+	result.Movements = []SlotMovement{}
+	for _, entry := range result.Entries {
+		if movement := movementFor(preparedFlight{Flight: originals[entry.Callsign]}, entry); movement != nil {
+			result.Movements = append(result.Movements, *movement)
+		}
+	}
 	for index := range promotions {
+		promotions[index].From = *originals[promotions[index].Callsign].CurrentSlot
 		for _, entry := range result.Entries {
 			if entry.Callsign != promotions[index].Callsign {
 				continue
@@ -182,7 +198,31 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 	return result, promotions, nil
 }
 
-// compactStableFlights moves Stable flights monotonically earlier without
+func vacancyBaselineInput(input Input, baseline Result) Input {
+	working := cloneInput(input)
+	byCallsign := make(map[aman.Callsign]CandidateEntry, len(baseline.Entries))
+	for _, entry := range baseline.Entries {
+		byCallsign[entry.Callsign] = entry
+	}
+	for index, flight := range working.Flights {
+		if flight.CurrentSlot == nil || flight.ManualOrder != nil ||
+			(flight.State != aman.StateStable && !flight.HoldingSlotProtected) {
+			continue
+		}
+		entry, exists := byCallsign[flight.Callsign]
+		if !exists {
+			continue
+		}
+		flight.CurrentSlot.Sequence = entry.Sequence
+		if entry.Reason == ReasonStable {
+			flight.CurrentSlot.Time = entry.Time
+		}
+		working.Flights[index] = flight
+	}
+	return working
+}
+
+// compactStableFlights moves Stable and holding flights monotonically earlier without
 // changing their committed relative order. A Superstable flight may accept an
 // earlier vacancy, but it cannot cross another freeze or manual-order boundary.
 // TMA and manual freezes remain immovable. The current slot is always retained
@@ -214,6 +254,22 @@ func compactStableFlights(policy preparedPolicy, entries []queueEntry, promotion
 		}
 
 		lower := promotionLowerBound(policy, target.flight, at)
+		// Start beyond order/freeze boundaries rather than iterating through
+		// the entire interval. Continuous spacing has no discrete next cell.
+		for _, entry := range entries {
+			if entry.flight.Callsign == callsign || !entry.slot.Time.Before(target.slot.Time) {
+				continue
+			}
+			protected := entry.flight.FreezeReason != aman.FreezeNone || entry.flight.ManualOrder != nil
+			priorStable := target.flight.stableOrder != nil && entry.flight.stableOrder != nil &&
+				*entry.flight.stableOrder < *target.flight.stableOrder
+			if protected || priorStable {
+				boundary := entry.slot.Time.Add(time.Nanosecond)
+				if boundary.After(lower) {
+					lower = boundary
+				}
+			}
+		}
 		candidate, ok := nextGridAtOrAfter(policy, lower)
 		for ok && candidate.Before(target.slot.Time) {
 			if !crossesProtectedTime(entries, candidate, target.slot.Time) && !crossesStableOrder(entries, target.flight, candidate) {
@@ -248,14 +304,18 @@ func compactStableFlights(policy preparedPolicy, entries []queueEntry, promotion
 					continue
 				}
 			}
-			candidate, ok = nextGridAtOrAfter(policy, candidate.Add(time.Nanosecond))
+			advance := time.Nanosecond
+			if policy.ContinuousSpacing {
+				advance = policy.intervalAt(candidate)
+			}
+			candidate, ok = nextGridAtOrAfter(policy, candidate.Add(advance))
 		}
 	}
 	return promotions
 }
 
 func stablePromotionEligible(flight preparedFlight) bool {
-	if flight.State != aman.StateStable || flight.ManualOrder != nil || flight.CurrentSlot == nil {
+	if (flight.State != aman.StateStable && !flight.HoldingSlotProtected) || flight.ManualOrder != nil || flight.CurrentSlot == nil {
 		return false
 	}
 	switch flight.FreezeReason {

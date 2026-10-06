@@ -136,6 +136,7 @@ export class WebSocketClient {
       this.socket = socket;
 
       socket.onopen = () => {
+        if (this.socket !== socket) return;
         console.log('WebSocket connection established');
         this.reconnectAttempts = 0;
         if (this.token) {
@@ -164,6 +165,7 @@ export class WebSocketClient {
       };
 
       socket.onmessage = (event) => {
+        if (this.socket !== socket) return;
         try {
           const data = JSON.parse(event.data) as WebSocketEvent;
           const handlers = this.eventHandlers.get(data.type as EventType);

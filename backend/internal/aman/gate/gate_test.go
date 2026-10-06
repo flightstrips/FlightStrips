@@ -80,6 +80,17 @@ func TestEvaluatorBlocksOperationalModesWithoutLegacyFallback(t *testing.T) {
 	}
 }
 
+func TestEvaluatorAllowsWeatherFallbackWithValidReplayEvidence(t *testing.T) {
+	reader := &evidenceReader{values: []aman.ValidationEvidence{validationEvidence(t, gateNow, gateNow, true, "EKCH")}}
+	evaluator := newEvaluator(t, reader)
+	technical := readyTechnical()
+	technical.Weather = aman.ComponentHealth{Status: aman.HealthUnavailable, Reason: "weather_refresh_failed"}
+	decision := evaluator.EvaluateAirport(context.Background(), "EKCH", aman.ModeAuthoritative, technical)
+	require.True(t, decision.AuthorityAllowed)
+	require.Equal(t, aman.EffectiveAuthoritative, decision.EffectiveMode)
+	require.Empty(t, decision.BlockedReasons)
+}
+
 func TestEvaluatorRejectsInvalidValidationEvidence(t *testing.T) {
 	tests := []struct {
 		name   string

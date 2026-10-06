@@ -166,6 +166,7 @@ const (
 	OperationalReasonSuperstableFreeze  OperationalReason = "superstable_freeze"
 	OperationalReasonTMAFreeze          OperationalReason = "tma_freeze"
 	OperationalReasonGoAround           OperationalReason = "go_around"
+	OperationalReasonHoldingPriority    OperationalReason = "holding_priority"
 )
 
 func (r OperationalReason) Valid() bool {
@@ -180,7 +181,8 @@ func (r OperationalReason) Valid() bool {
 		OperationalReasonManualOverride,
 		OperationalReasonSuperstableFreeze,
 		OperationalReasonTMAFreeze,
-		OperationalReasonGoAround:
+		OperationalReasonGoAround,
+		OperationalReasonHoldingPriority:
 		return true
 	default:
 		return false
@@ -404,6 +406,9 @@ type Prediction struct {
 	DistanceToGoNM *float64
 	HoldingFixETA  *time.Time
 	HoldingPlan    *HoldingPlan
+	// HoldingPlanBlockedBy identifies a protected earlier release that makes
+	// this flight's current runway slot incompatible with the holding queue.
+	HoldingPlanBlockedBy *Callsign
 
 	ModelVersion  string
 	ConfigVersion string
@@ -479,8 +484,8 @@ func (b PredictionBasis) Valid() bool {
 // HoldingPlan is the slot-derived arrival-management plan for a flight that
 // can still use its configured holding fix. It never moves the committed slot:
 // it explains how long the flight is expected to hold before being released
-// toward that fixed landing time. Its entry and transit times are recalculated
-// from the current surveillance altitude on every physical prediction.
+// toward that fixed landing time. Approaching traffic uses its live forecast;
+// confirmed holding uses the retained fix-to-landing release basis.
 type HoldingPlan struct {
 	HoldingEntryTime        time.Time
 	ApproachReleaseTime     time.Time
@@ -488,12 +493,33 @@ type HoldingPlan struct {
 	PostHoldingTransit      time.Duration
 }
 
+// HoldingReleaseBasis retains the fix-to-landing journey for one confirmed
+// holding episode. Surveillance around the racetrack must not revise an EAT.
+type HoldingReleaseBasis struct {
+	HoldingID          string
+	Fix                string
+	RunwayGroupID      RunwayGroupID
+	RouteDigest        string
+	HoldingEntryTime   time.Time
+	PostHoldingTransit time.Duration
+}
+
+func (b HoldingReleaseBasis) Validate() error {
+	if b.HoldingID == "" || b.Fix == "" || b.RunwayGroupID == "" || b.RouteDigest == "" || b.PostHoldingTransit <= 0 {
+		return invalid("holding release basis requires a hold, runway, route and positive transit")
+	}
+	return requireUTCTime("holding release entry time", b.HoldingEntryTime)
+}
+
 // HoldingStackState is a surveillance-derived operational fact. Confirmed is
 // set only after consecutive observations inside the published holding
 // geometry, so an aircraft merely approaching the holding fix is never used
 // as stack traffic.
+// An unconfirmed cleared aircraft may retain its first sighting with zero
+// consecutive observations while outside the footprint on an outbound leg.
 type HoldingStackState struct {
 	HoldingID               string
+	FirstObservedAt         time.Time
 	CandidateObservedAt     time.Time
 	ConsecutiveObservations uint32
 	Confirmed               bool
@@ -922,14 +948,20 @@ type AMANFlight struct {
 	// DerivedFeederETA keeps the latest route/holding result while a manual
 	// override owns FeederETA. It is additive so legacy persisted JSON remains
 	// readable and reset can fall back to nil until the next derivation.
-	DerivedFeederETA     *FeederETAState
-	HoldingClearance     *HoldingClearance
-	HoldingStack         *HoldingStackState
-	ActiveRouteFact      *RouteFact
-	ActiveRouteKey       *string
-	ActiveRouteDatasetID *string
-	RouteProgress        *RouteProgress
-	TMAEntry             *TMAEntryState
+	DerivedFeederETA *FeederETAState
+	// InitialTiming retains the first accepted estimates and scheduled times
+	// for flight information; live prediction/slot updates must not rewrite it.
+	InitialTiming       *FlightInitialTiming
+	HoldingClearance    *HoldingClearance
+	HoldingStack        *HoldingStackState
+	HoldingReleaseBasis *HoldingReleaseBasis
+	// HoldingClearanceCanceledAt retains the last actual cancellation time across blank strip snapshots.
+	HoldingClearanceCanceledAt *time.Time
+	ActiveRouteFact            *RouteFact
+	ActiveRouteKey             *string
+	ActiveRouteDatasetID       *string
+	RouteProgress              *RouteProgress
+	TMAEntry                   *TMAEntryState
 	// ManualSequenceIncluded is retained for persisted-state compatibility.
 	// WTC/L aircraft are automatically sequenceable regardless of engine.
 	ManualSequenceIncluded bool
@@ -979,14 +1011,17 @@ func (f AMANFlight) TerminalPathIdentity() (feederFix, legacySTARFamily string) 
 // AirportState is the sole source for one coherent AMAN replacement state.
 // Revisions are allocated only when a committed domain result changes it.
 type AirportState struct {
+	SessionID     int32
 	Airport       string
 	Revision      SequenceRevision
 	GeneratedAt   time.Time
 	PolicyVersion string
 	Mode          RolloutMode
-	Authoritative bool
-	Flights       []AMANFlight
-	RunwayGroups  []RunwayGroupPolicy
+	// Nil preserves the deployment feature flag default for existing sessions.
+	HoldingEATWritebackEnabled *bool
+	Authoritative              bool
+	Flights                    []AMANFlight
+	RunwayGroups               []RunwayGroupPolicy
 	// ActiveRunwayGroups is the canonical active landing-runway set. A nil slice
 	// denotes persisted legacy state that is still represented by Selected.
 	ActiveRunwayGroups []RunwayGroupID
@@ -1280,6 +1315,11 @@ func (s BaselineSource) holdsAirborneBaseline() bool {
 }
 
 func (f AMANFlight) Validate() error {
+	if f.InitialTiming != nil {
+		if err := f.InitialTiming.Validate(); err != nil {
+			return err
+		}
+	}
 	if strings.TrimSpace(f.Callsign) == "" {
 		return invalid("flight callsign is required")
 	}
@@ -1380,6 +1420,11 @@ func (f AMANFlight) Validate() error {
 			return invalid("holding clearance type is invalid")
 		}
 	}
+	if f.HoldingClearanceCanceledAt != nil {
+		if err := requireUTCTime("holding clearance canceled at", *f.HoldingClearanceCanceledAt); err != nil {
+			return err
+		}
+	}
 	if f.ActiveRouteKey != nil && strings.TrimSpace(*f.ActiveRouteKey) == "" {
 		return invalid("active route key cannot be empty")
 	}
@@ -1403,11 +1448,19 @@ func (f AMANFlight) Validate() error {
 		}
 	}
 	if f.HoldingStack != nil {
-		if !isTrimmedNonEmpty(f.HoldingStack.HoldingID) || f.HoldingStack.ConsecutiveObservations == 0 {
+		if !isTrimmedNonEmpty(f.HoldingStack.HoldingID) || f.HoldingStack.Confirmed && f.HoldingStack.ConsecutiveObservations == 0 {
 			return invalid("holding stack state is invalid")
 		}
 		if err := requireUTCTime("holding stack observation", f.HoldingStack.CandidateObservedAt); err != nil {
 			return err
+		}
+		if !f.HoldingStack.FirstObservedAt.IsZero() {
+			if err := requireUTCTime("holding stack entry", f.HoldingStack.FirstObservedAt); err != nil {
+				return err
+			}
+			if f.HoldingStack.FirstObservedAt.After(f.HoldingStack.CandidateObservedAt) {
+				return invalid("holding stack entry follows latest observation")
+			}
 		}
 	}
 	if f.Lifecycle != nil {
@@ -1445,6 +1498,11 @@ func (f AMANFlight) Validate() error {
 			f.RunwayGapException.RunwayGroupID != f.Slot.RunwayGroupID ||
 			!f.RunwayGapException.Opportunity.Equal(f.Slot.Time) {
 			return invalid("runway gap exception does not match its flight slot")
+		}
+	}
+	if f.HoldingReleaseBasis != nil {
+		if err := f.HoldingReleaseBasis.Validate(); err != nil {
+			return err
 		}
 	}
 	if f.GoAroundDetection != nil {

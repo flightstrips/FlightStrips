@@ -106,3 +106,19 @@ func require_true(t *testing.T, v bool) {
 		t.Fatal("expected true")
 	}
 }
+
+func TestGetFrontendControllerUsesCurrentConnectionIdentity(t *testing.T) {
+	client := &Client{session: 42, callsign: "EKCH_A_TWR", position: "118.105", user: shared.NewAuthenticatedUser("1234567", 0, nil)}
+	hub := &Hub{clients: map[*Client]bool{client: true}}
+	controller := hub.GetFrontendController("1234567")
+	assert.Equal(t, int32(42), controller.Session)
+	assert.Equal(t, "EKCH_A_TWR", controller.Callsign)
+	assert.Equal(t, "118.105", controller.Position)
+	client.updateIdentity("121.730", "EKCH_C_GND", true, "")
+	controller = hub.GetFrontendController("1234567")
+	assert.Equal(t, "EKCH_C_GND", controller.Callsign)
+	assert.True(t, controller.Observer)
+	assert.Nil(t, hub.GetFrontendController("7654321"))
+	delete(hub.clients, client)
+	assert.Nil(t, hub.GetFrontendController("1234567"))
+}

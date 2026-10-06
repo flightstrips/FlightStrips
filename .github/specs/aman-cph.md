@@ -53,6 +53,10 @@ VATSIM supplies planning and surveillance information where available, including
 
 Planned and preliminary airborne predictions may use filed timing. Precise AMAN sequencing must use the route-aware trajectory prediction once sufficient operational data is available.
 
+EuroScope snapshots include filed EOBT and enroute duration for arrivals as well as departures. AMAN retains these planning inputs across subsequent position-only reports. Missing or invalid filed times remain unavailable. A TMA entry observed before timing/slot allocation records a pending freeze trigger; prediction and sequencing continue so capture can complete once usable timing exists.
+
+AMAN sends complete frontend state over the websocket, including periodically reprojected time-dependent views on unchanged reconciliation ticks. Within a connection, older revisions and duplicate projection timestamps are ignored; a newer projection timestamp at the same revision is accepted. The first complete snapshot after reconnect establishes the revision baseline for that connection.
+
 ### FlightStrips EuroScope inputs
 
 Controllers operating in the Danish FIR are expected to run the FlightStrips plugin. AMAN must therefore consume relevant controller-issued direct-to clearances from the plugin, not wait to infer them from aircraft track or assume that the filed route was rewritten.
@@ -224,6 +228,8 @@ Runway selection and arrival-rate changes remain independent commands as specifi
 
 The traffic-prediction tool shows 15-minute buckets from the nearest preceding quarter-hour through three hours ahead. For example, at 20:44 UTC the range begins at 20:30 and ends at 23:30.
 
+Traffic prediction uses accepted AMAN TETA when available. If an active arrival retains a committed slot while its prediction is unavailable, the slot time remains a usable AMAN timing source, with the original stale/disconnected status. Such an aircraft must not be reported as having no usable timing. An assignment outside the displayed horizon is omitted from buckets without classifying its timing as missing. Missing-timing warnings are current full-replacement state and clear on the next usable websocket projection.
+
 Flights already classified by AMAN as Unstable, Stable, or Superstable use their authoritative AMAN landing time. Other flights use available VATSIM/API planning or airborne timing. A flight must appear exactly once.
 
 Each bucket's displayed load factor is `aircraft count × 4`, expressing that quarter-hour at an equivalent hourly rate. Planned/not-airborne traffic is `#96D796`; airborne traffic is `#DCDCDC`.
@@ -244,6 +250,10 @@ The holding tool shows aircraft that are authoritatively cleared into a holding,
 - an altitude axis from FL090 through FL300;
 - a callsign box centered on the cleared level;
 - an EAT box and connector line from the aircraft to its EAT.
+
+The displayed EAT comes directly from AMAN's publishable holding plan approach-release time, independently of EuroScope's assigned holding EAT, tracking ownership, or EAT writeback success. This also applies during playback. A missing or unusable AMAN holding plan is displayed as unavailable; an assigned EuroScope EAT must not substitute for it.
+
+On reconnect, the EuroScope session master replays locally known holding assignments after its complete aircraft snapshot, including untracked playback aircraft. A tracking slave replays its own aircraft. Empty remote annotations or an empty backend reconnect snapshot do not cancel a known local hold; explicit cancellation commands remain authoritative.
 
 The EAT box is green when the EAT is within the next four minutes and yellow otherwise. The connector becomes more horizontal as the aircraft is both lower and closer to EAT, providing a visual comparison of stack position and expected release. The inspected Figma reference is `332.65 × 648.56`.
 
@@ -309,6 +319,8 @@ The approved mapping and nominal holding-to-feeder time are:
 ## Flight lifecycle
 
 Data freshness is separate from lifecycle state. A stale or disconnected source does not invent a lifecycle transition.
+
+Once an active arrival has a committed slot, feed loss, an incomplete reconnect snapshot, unavailable route/geometry, or a backend restart must retain its slot, accepted TETA, freeze captures, sequence membership, feeder timing, and last usable holding EAT. Retained timing remains visible with stale/disconnected source status and its original calculation provenance. The reservation continues to consume capacity, including when only the persisted slot is available; temporary unavailability must not trigger automatic gain/holding resequencing or overwrite accepted timing with a preliminary estimate. Assigned arrivals are not automatically retired by the source-disappearance timeout. Confirmed landing, confirmed go-around, explicit controller removal/desequencing, or an explicit runway configuration change follow their normal operational rules. Unassigned flights may still use the ordinary disappearance timeout.
 
 ### Planned
 
@@ -391,6 +403,12 @@ TMA freeze must not use entry into a configured terminal path as its boundary. T
 
 ### Holding-stack ordering
 
+A route's optional holding fix alone must not establish a holding FIFO queue. Queue release bounds activate only when an active aircraft is confirmed in that hold or has an active enroute holding clearance. Incoming aircraft may then queue behind that traffic. Unoccupied, uncleared route holdings must not propagate prediction outliers into other aircraft's landing slots.
+
+Repeated observations inside a holding footprint do not keep an uncleared aircraft in that queue after its predicted route has passed the holding fix. Such transit traffic must not suppress the release plans of aircraft with actual holding clearances. A genuinely cleared older holding aircraft with unavailable release timing still blocks an unsafe later release.
+
+An active enroute holding clearance keeps the predicted route through its selected holding fix while the aircraft is inside the published holding footprint, including when a racetrack crosses the outbound STAR or prior progress had passed the fix. This retains the holding-fix ETA used for EAT calculation without moving the assigned landing slot. Proximity alone does not override route progress.
+
 When two eligible aircraft are confirmed in the same holding stack, AMAN may use physical stack order to correct their sequence. The existing behavior prefers the lowest observed aircraft first after explicit manual order and protected-slot rules.
 
 This behavior must be configurable per STAR entry family. The minimum policy values are:
@@ -443,7 +461,7 @@ The AMAN frontend shows, at minimum:
 - gain/lose instruction;
 - queue opportunity, warnings, degraded data, manual overrides, and GAPs.
 
-Gain/lose is transported internally as signed seconds. Controller-facing presentation uses rounded whole minutes: `Gnn` for time to gain, `Lnn` for time to lose/delay, and `=00` when the absolute value is below 30 seconds. Absolute minutes are rounded with `floor((abs(seconds) + 30) / 60)`, zero-padded to two digits, and capped as `G99+` or `L99+`. Labels must consistently use **LOSE**, not **LOOSE**.
+Gain/lose is transported internally as signed seconds. Actionable gain is limited to +120 seconds (`G02`) in both the web and EuroScope projections. Target and predicted timestamps retain the actual drift for inspection; loss is not silently capped. Controller-facing presentation uses rounded whole minutes: `Gnn` for time to gain, `Lnn` for time to lose/delay, and `=00` when the absolute value is below 30 seconds. Absolute minutes are rounded with `floor((abs(seconds) + 30) / 60)`, zero-padded to two digits, and capped as `L99+` for extreme loss. Labels must consistently use **LOSE**, not **LOOSE**.
 
 Selecting/scheduling the active landing runway group and setting/scheduling a runway group's arrival rate are independent FMP operations. A rate command must never change runway selection or reassign flights; only the dedicated runway-selection command may perform selection-driven reassignment.
 

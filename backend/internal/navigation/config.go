@@ -9,7 +9,7 @@ import (
 
 const (
 	SourceAIRACNet              = "airacnet"
-	DefaultTerminalGeometryPath = "config/aman/ekch-terminal-2609.json"
+	DefaultTerminalGeometryPath = "config/aman/ekch-terminal-2610.json"
 )
 
 // Config identifies the navigation provider and the airport terminal

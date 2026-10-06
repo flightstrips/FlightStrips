@@ -40,10 +40,10 @@ namespace FlightStrips::aman {
                 }
             } catch (const std::exception& exception) {
                 Logger::Warning("Rejected AMAN gain/loss replacement: {}", exception.what());
-                Clear();
+                MarkStale();
             } catch (...) {
                 Logger::Warning("Rejected AMAN gain/loss replacement: unknown parsing error");
-                Clear();
+                MarkStale();
             }
         }
     }
@@ -53,9 +53,21 @@ namespace FlightStrips::aman {
     }
 
     void AMANGainLossStore::Online() {
-        // A reconnect starts a new revision stream. Hide the previous
-        // connection's values until this connection receives its replacement.
-        snapshot_.store(std::make_shared<const GainLossSnapshot>());
+        std::lock_guard lock(sessionMutex_);
+        // A reconnect starts a new revision stream. Keep the last complete
+        // values visibly stale until the new connection supplies a replacement.
+        auto retained = std::make_shared<GainLossSnapshot>(*Snapshot());
+        retained->hasRevision = false;
+        for (auto& [callsign, value] : retained->byCallsign) value.dataStatus = "disconnected";
+        snapshot_.store(std::move(retained));
+    }
+
+    void AMANGainLossStore::SessionChanged(const std::string& identity) {
+        std::lock_guard lock(sessionMutex_);
+        if (sessionIdentity_ != identity) {
+            snapshot_.store(std::make_shared<const GainLossSnapshot>());
+            sessionIdentity_ = identity;
+        }
     }
 
     auto AMANGainLossStore::FindByCallsign(const std::string& callsign) const -> std::optional<GainLossValue> {
@@ -123,13 +135,10 @@ namespace FlightStrips::aman {
         return result;
     }
 
-    void AMANGainLossStore::Clear() {
-        const auto current = Snapshot();
-        auto empty = std::make_shared<GainLossSnapshot>();
-        empty->revision = current->revision;
-        empty->hasRevision = current->hasRevision;
-        empty->authoritative = current->authoritative;
-        snapshot_.store(std::move(empty));
+    void AMANGainLossStore::MarkStale() {
+        auto retained = std::make_shared<GainLossSnapshot>(*Snapshot());
+        for (auto& [callsign, value] : retained->byCallsign) value.dataStatus = "stale";
+        snapshot_.store(std::move(retained));
     }
 
 }

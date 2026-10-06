@@ -8,7 +8,7 @@ export type AMANFreezeReason = "none" | "superstable" | "tma" | "manual";
 export type AMANConfidence = "unknown" | "low" | "medium" | "high";
 export type AMANFeederETASource = "route" | "holding" | "manual" | "passed";
 export type AMANHealthStatus = "disabled" | "ready" | "degraded" | "unavailable";
-export type AMANWarningSource = "technical_health" | "sequence";
+export type AMANWarningSource = "technical_health" | "sequence" | "traffic_prediction";
 export type AMANWarningSeverity = "error" | "warning";
 
 export interface AMANStateEvent {
@@ -18,6 +18,9 @@ export interface AMANStateEvent {
 }
 
 export interface AMANState {
+  holding_eat_writeback_enabled?: boolean;
+  holding_eat_writeback_available?: boolean;
+  session_id?: number;
   airport: string;
   revision: number;
   generated_at: string;
@@ -141,7 +144,7 @@ export interface AMANHoldingEntry {
 
 export type AMANTrafficStatus = "ready" | "degraded" | "disconnected";
 export type AMANTrafficAlert = "none" | "yellow" | "red";
-export type AMANTrafficTimingSource = "aman" | "vatsim_planned" | "vatsim_airborne";
+export type AMANTrafficTimingSource = "aman" | "vatsim_planned" | "vatsim_airborne" | "airborne_position";
 
 export interface AMANTrafficPrediction {
   generated_at: string;
@@ -368,6 +371,7 @@ export type AMANCommandType =
   | "aman.desequence_flight"
   | "aman.resume_flight"
   | "aman.remove_flight"
+  | "aman.set_holding_eat_writeback"
   | "aman.set_rate"
   | "aman.select_runway_group"
   | "aman.set_active_runway_groups"
@@ -402,6 +406,7 @@ export type AMANCommandIntent =
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; before_callsign: string}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; after_callsign: string}
   | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; callsign: string}
+  | {type: "aman.set_holding_eat_writeback"; enabled: boolean}
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
   | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
   | {type: "aman.set_active_runway_groups"; runway_group_ids: string[]}
@@ -502,8 +507,8 @@ const healthStatuses = new Set<AMANHealthStatus>(["disabled", "ready", "degraded
 const routeFactStates = new Set(["active", "cleared", "expired"]);
 const trafficStatuses = new Set<AMANTrafficStatus>(["ready", "degraded", "disconnected"]);
 const trafficAlerts = new Set<AMANTrafficAlert>(["none", "yellow", "red"]);
-const trafficSources = new Set<AMANTrafficTimingSource>(["aman", "vatsim_planned", "vatsim_airborne"]);
-const warningSources = new Set<AMANWarningSource>(["technical_health", "sequence"]);
+const trafficSources = new Set<AMANTrafficTimingSource>(["aman", "vatsim_planned", "vatsim_airborne", "airborne_position"]);
+const warningSources = new Set<AMANWarningSource>(["technical_health", "sequence", "traffic_prediction"]);
 const warningSeverities = new Set<AMANWarningSeverity>(["error", "warning"]);
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -731,8 +736,17 @@ function warningIdentity(warning: AMANWarning): string {
 }
 
 function hasValidWarningScope(warning: AMANWarning): boolean {
+  if (warning.source === "traffic_prediction") {
+    return warning.component === "traffic_prediction" && warning.runway_group_id === undefined && warning.related_callsign === undefined;
+  }
   if (warning.source === "technical_health") {
     return warning.runway_group_id === undefined && warning.callsign === undefined && warning.related_callsign === undefined;
+  }
+
+  if (warning.source === "sequence" && warning.component === "holding_release") {
+    return warning.callsign !== undefined && warning.runway_group_id === undefined
+      && (warning.code === "holding_release_unavailable" && warning.related_callsign === undefined
+        || warning.code === "holding_release_order_conflict" && warning.related_callsign !== undefined);
   }
   return warning.component === undefined && warning.runway_group_id !== undefined
     && warning.callsign !== undefined && warning.related_callsign !== undefined;
@@ -776,7 +790,10 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
   if (!isObject(value) || value.type !== "aman.state" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
   const data = value.data;
   return isString(data.airport) && data.airport.length === 4 && isNonNegativeInteger(data.revision)
+    && (data.session_id === undefined || (isNonNegativeInteger(data.session_id) && data.session_id > 0))
     && isTimestamp(data.generated_at) && isString(data.policy_version) && isString(data.effective_mode)
+    && (data.holding_eat_writeback_enabled === undefined || typeof data.holding_eat_writeback_enabled === "boolean")
+    && (data.holding_eat_writeback_available === undefined || typeof data.holding_eat_writeback_available === "boolean")
     && effectiveModes.has(data.effective_mode as AMANEffectiveMode) && typeof data.authoritative === "boolean"
     && Array.isArray(data.flights) && data.flights.every(isFlight)
     && Array.isArray(data.runway_groups) && data.runway_groups.every(isRunwayGroup)
@@ -795,7 +812,8 @@ export function replaceAMANState(current: AMANState | null, event: unknown): AMA
   if (!isAMANStateEvent(event)) {
     return {state: null, status: "degraded", error: "invalid_aman_state", accepted: false};
   }
-  if (current !== null && event.data.revision <= current.revision) {
+  if (current !== null && current.session_id === event.data.session_id && (event.data.revision < current.revision ||
+    event.data.revision === current.revision && Date.parse(event.data.generated_at) <= Date.parse(current.generated_at))) {
     return {state: current, status: presentationStatus(current), error: null, accepted: false};
   }
   const state = structuredClone(event.data);
@@ -824,12 +842,12 @@ export function getAMANHeaderReadModel(state: AMANState): AMANHeaderReadModel {
       traffic_summary: {status: "unavailable", tma_above_1500_feet_count: null, maestro_horizon_count: null},
     };
   }
-  const degraded = !state.header.readiness.ready || state.header.traffic_summary.status !== "ready";
+  const degraded = !state.header.readiness.ready;
   return {...context, ...state.header, availability: degraded ? "degraded" : "ready"};
 }
 
 function presentationStatus(state: AMANState): AMANPresentationStatus {
-  return state.technical_health.status === "degraded" || state.technical_health.status === "unavailable"
+  return !state.technical_health.ready && state.technical_health.status !== "disabled"
     ? "degraded"
     : "ready";
 }

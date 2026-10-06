@@ -111,6 +111,7 @@ const tacticalBase: TacticalStrip = {
   owner: "121.905",
   marked: false,
   sequence: 1,
+  timer_start: null,
   confirmed: false,
   confirmed_by: "",
   created_at: "2026-08-16T08:00:00Z",
@@ -387,6 +388,7 @@ function makeGallery(): GalleryItem[] {
       annotations: [
         { label: "Ownership", targetX: 4 },
         { label: "Start clearance", targetX: 45 },
+          { label: "Timer", targetX: 85, side: "bottom" },
         { label: "Delete", targetX: 93 },
       ],
       strip: <Strip strip={{ ...tacticalBase, id: 3, type: "START", label: "04L", aircraft: "SAS1234" }} width="95%" {...common} />,
@@ -398,6 +400,7 @@ function makeGallery(): GalleryItem[] {
       annotations: [
         { label: "Ownership", targetX: 4 },
         { label: "Landing clearance", targetX: 45 },
+          { label: "Timer", targetX: 85, side: "bottom" },
         { label: "Delete", targetX: 93 },
       ],
       strip: <Strip strip={{ ...tacticalBase, id: 4, type: "LAND", label: "04L", aircraft: "KLM18X" }} width="95%" {...common} />,

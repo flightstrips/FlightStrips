@@ -19,7 +19,21 @@ const STRIP_TYPES = [
   "message",
 ] as const;
 
-test("every strip type keeps its content inside the framed height", async ({ page }) => {
+test("tactical SI cells stay square at different viewport shapes", async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }, { width: 2560, height: 1080 }]) {
+    await page.setViewportSize(viewport);
+    for (const stripType of ["tactical-memaid", "tactical-crossing", "tactical-start", "tactical-land"]) {
+      await page.goto(`/strip-gallery?shot=${stripType}`);
+      const si = page.getByTestId(`strip-fixture-${stripType}`).locator(".bg-white");
+      await expect(si).toBeVisible();
+      const box = await si.boundingBox();
+      expect(box).not.toBeNull();
+      expect(Math.abs(box!.width - box!.height), `${stripType} at ${viewport.width}×${viewport.height}`).toBeLessThan(1);
+    }
+  }
+});
+
+test("every strip type keeps its content inside the framed height", async ({ page, browserName }) => {
   expect(page.viewportSize()).toEqual({ width: 1920, height: 1080 });
 
   for (const stripType of STRIP_TYPES) {
@@ -84,6 +98,11 @@ test("every strip type keeps its content inside the framed height", async ({ pag
     if (stripType === "apron-departure") {
       await expect(fixture.getByText("B738/M", { exact: true })).toBeVisible();
       await expect(fixture.getByText("PH-PJK", { exact: true })).toBeVisible();
+    } else if (process.platform === "win32" && browserName === "firefox" && stripType.startsWith("tactical-")) {
+      // Tactical pixel baselines run in both browsers on Linux and in Chromium on Windows.
+      if (stripType === "tactical-start" || stripType === "tactical-land") {
+        await expect(fixture.getByRole("button", { name: "Start tactical timer" })).toBeVisible();
+      }
     } else {
       await expect(bay).toHaveScreenshot(`${stripType}.png`, {
         animations: "disabled",

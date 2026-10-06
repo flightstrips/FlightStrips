@@ -71,6 +71,61 @@ describe("AMAN command store", () => {
     client._emit(EventType.FrontendAMANState, replacement(7));
   });
 
+  it("clears guidance and pending commands when the server changes sessions at the same airport", () => {
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 12});
+    const first = replacement(42);
+    first.data.session_id = 12;
+    client._emit(EventType.FrontendAMANState, first);
+    expect(store.getState().amanState?.revision).toBe(42);
+    store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"});
+    expect(Object.keys(store.getState().amanPendingCommands)).toHaveLength(1);
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 13});
+    expect(store.getState().amanState).toBeNull();
+    expect(store.getState().amanPendingCommands).toEqual({});
+    client._emit(EventType.FrontendAMANState, first);
+    expect(store.getState().amanState).toBeNull();
+    const second = replacement(1);
+    second.data.session_id = 13;
+    client._emit(EventType.FrontendAMANState, second);
+    expect(store.getState().amanState?.revision).toBe(1);
+  });
+
+  it("retains the same session's guidance when its initial snapshot is refreshed", () => {
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 12});
+    const event = replacement(42);
+    event.data.session_id = 12;
+    client._emit(EventType.FrontendAMANState, event);
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 12});
+    expect(store.getState().amanState?.revision).toBe(42);
+  });
+
+  it("replaces missing timing reasons on an unchanged-revision websocket refresh", () => {
+    const missing = replacement(8);
+    missing.data.traffic_prediction!.degraded_reasons = ["missing_timing:AFR15", "missing_timing:SAS031"];
+    client._emit(EventType.FrontendAMANState, missing);
+    expect(store.getState().amanState?.traffic_prediction?.degraded_reasons).toContain("missing_timing:AFR15");
+
+    const refreshed = structuredClone(missing);
+    refreshed.data.generated_at = new Date(Date.parse(missing.data.generated_at) + 15_000).toISOString();
+    refreshed.data.traffic_prediction!.degraded_reasons = [];
+    client._emit(EventType.FrontendAMANState, refreshed);
+    expect(store.getState().amanState?.traffic_prediction?.degraded_reasons).toEqual([]);
+    client._emit(EventType.FrontendAMANState, missing);
+    expect(store.getState().amanState?.traffic_prediction?.degraded_reasons).toEqual([]);
+  });
+
+  it("accepts a fresh reconnect snapshot when the backend revision restarts", () => {
+    store.getState().setAMANConnectionState("disconnected");
+    store.getState().setAMANConnectionState("connected");
+    client._emit(EventType.FrontendInitial, initialSnapshot(true));
+    client._emit(EventType.FrontendAMANState, replacement(1));
+    expect(store.getState().amanState?.revision).toBe(1);
+    client._emit(EventType.FrontendAMANState, replacement(2));
+    expect(store.getState().amanState?.revision).toBe(2);
+    client._emit(EventType.FrontendAMANState, replacement(1));
+    expect(store.getState().amanState?.revision).toBe(2);
+  });
+
   it("submits coordination against its own revision and applies the authoritative replacement", () => {
     client._emit(EventType.FrontendAMANCoordinationState, {type: "aman.coordination_state", version: 1, revision: 3, requests: []});
     const commandID = store.getState().sendAMANCommand({type: "aman.submit_coordination_request", callsign: "SAS123", kind: "speed", requested: "220 KT"})!;

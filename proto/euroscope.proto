@@ -193,6 +193,7 @@ message Strip {
   string hold = 30;
   string hold_type = 31;
   string hold_eat = 32;
+  string enroute_duration = 33;
 }
 
 message StripUpdateEvent {

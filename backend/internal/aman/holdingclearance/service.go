@@ -115,7 +115,7 @@ func (s *Service) observeAirportClearances(ctx context.Context, airport string, 
 			if sameClearance(current, normalized) || (current != nil && !fact.ObservedAt.After(current.ObservedAt)) {
 				continue
 			}
-			state.Flights[index].HoldingClearance = normalized
+			state.Flights[index].ReplaceHoldingClearance(normalized)
 			changed = true
 			if fact.ObservedAt.After(state.GeneratedAt) {
 				state.GeneratedAt = fact.ObservedAt

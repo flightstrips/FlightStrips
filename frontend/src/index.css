@@ -90,7 +90,8 @@ body {
 body.public-content-page {
   height: auto;
   min-height: 100%;
-  overflow-x: hidden;
+  /* `clip`, not `hidden`: hidden would make body a scroll container and break sticky headers. */
+  overflow-x: clip;
   overflow-y: visible;
   overscroll-behavior: auto;
 }
@@ -158,7 +159,7 @@ body.public-content-page {
 
   .aman-tmt-dashboard {
     display: grid;
-    grid-template-rows: minmax(0, 43.5%) minmax(0, 32.25%) minmax(0, 1fr) minmax(0, 15%);
+    grid-template-rows: minmax(0, 28%) auto minmax(0, 1fr);
     @apply h-full min-h-0;
   }
 
@@ -172,20 +173,15 @@ body.public-content-page {
 
   .aman-tmt-holdings {
     grid-template-columns: repeat(5, minmax(8rem, 1fr));
-    @apply mt-2 grid min-h-0 gap-1 overflow-x-auto overflow-y-hidden;
+    @apply grid min-h-0 gap-1 overflow-x-auto overflow-y-hidden;
   }
 
   .aman-tmt-notices {
-    grid-row: 4;
-    @apply grid min-h-0 grid-cols-2 gap-2 overflow-hidden;
+    @apply min-h-0 overflow-auto;
   }
 
   .aman-tmt-notices > * {
     @apply min-h-0 overflow-auto;
-  }
-
-  .aman-tmt-notices > :only-child {
-    @apply col-span-2;
   }
 
   .aman-tmt-placeholder {

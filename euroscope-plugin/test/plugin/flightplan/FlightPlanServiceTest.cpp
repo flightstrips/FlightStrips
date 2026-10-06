@@ -15,6 +15,15 @@ using FlightStrips::flightplan::ShouldReportTopSkyHoldCommand;
 using FlightStrips::flightplan::TopSkyHold;
 using FlightStrips::flightplan::TopSkyHoldCommandType;
 
+TEST(FlightPlanServiceStateTest, FiledEnrouteDurationNormalizesAndRejectsInvalidInput) {
+    EXPECT_EQ(FlightPlanService::FiledEnrouteDuration("1", "5"), "0105");
+    EXPECT_EQ(FlightPlanService::FiledEnrouteDuration("01", "35"), "0135");
+    EXPECT_EQ(FlightPlanService::FiledEnrouteDuration(nullptr, "35"), "");
+    EXPECT_EQ(FlightPlanService::FiledEnrouteDuration("", "35"), "");
+    EXPECT_EQ(FlightPlanService::FiledEnrouteDuration("1", "60"), "");
+    EXPECT_EQ(FlightPlanService::FiledEnrouteDuration("00", "00"), "");
+}
+
 TEST(FlightPlanServiceStateTest, ApplyHoldCachesEatUntilReconnectSnapshot) {
     FlightPlan plan;
     const TopSkyHold hold{true, false, "OLPIB"};
@@ -417,6 +426,16 @@ TEST(FlightPlanServiceStateTest, ApplyBackendSyncHold_DoesNotOverwriteOfflineCom
     EXPECT_TRUE(flightPlan->hold_type.empty());
     EXPECT_TRUE(flightPlan->hold_eat.empty());
     EXPECT_TRUE(flightPlan->hold_command_observed);
+}
+
+TEST(FlightPlanServiceStateTest, EmptyReconnectSnapshotDoesNotEraseExistingLocalHold) {
+    FlightPlanService service(nullptr, nullptr, nullptr, nullptr, nullptr);
+    service.ApplyBackendSyncHold("SAS123", "OLPIB", "enroute", "1422");
+    service.ApplyBackendSyncHold("SAS123", "", "", "");
+    EXPECT_EQ(service.GetFlightPlan("SAS123")->hold, "OLPIB");
+    EXPECT_EQ(service.GetFlightPlan("SAS123")->hold_eat, "1422");
+    ApplyTopSkyHoldCommand(*service.GetFlightPlan("SAS123"), {TopSkyHoldCommandType::Cancel, {}});
+    EXPECT_TRUE(service.GetFlightPlan("SAS123")->hold.empty());
 }
 
 TEST(FlightPlanServiceStateTest, ApplyPdcStateChange_SeedsTrackedState) {

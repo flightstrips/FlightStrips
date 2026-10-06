@@ -41,6 +41,9 @@ func tacticalStripToModel(db database.TacticalStrip) *models.TacticalStrip {
 	if db.CreatedAt.Valid {
 		m.CreatedAt = db.CreatedAt.Time
 	}
+	if db.TimerStart.Valid {
+		m.TimerStart = &db.TimerStart.Time
+	}
 	return m
 }
 
@@ -119,6 +122,16 @@ func (r *tacticalStripRepository) UpdateMarked(ctx context.Context, id int64, se
 		ID:        id,
 		SessionID: sessionID,
 		Marked:    marked,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return tacticalStripToModel(result), nil
+}
+
+func (r *tacticalStripRepository) StartTimer(ctx context.Context, id int64, sessionID int32, owner string) (*models.TacticalStrip, error) {
+	result, err := r.queries.StartTacticalStripTimer(ctx, database.StartTacticalStripTimerParams{
+		ID: id, SessionID: sessionID, Owner: owner,
 	})
 	if err != nil {
 		return nil, err

@@ -184,14 +184,10 @@ describe("manual companion layout behavior", () => {
 
     await expect(transfer).resolves.toBe(true);
     expect(client.send).toHaveBeenNthCalledWith(2, {
-      type: ActionType.FrontendStartReq,
-      callsign: "SAS123",
-      start_req: true,
-    });
-    expect(client.send).toHaveBeenNthCalledWith(3, {
       type: ActionType.FrontendCoordinationTransferRequest,
       callsign: "SAS123",
       to: "EKCH_C_GND",
+      start_req_transfer: true,
     });
   });
 
@@ -228,6 +224,7 @@ describe("manual companion layout behavior", () => {
       type: ActionType.FrontendCoordinationTransferRequest,
       callsign: "SAS456",
       to: "EKCH_C_GND",
+      start_req_transfer: true,
     });
   });
 

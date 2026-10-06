@@ -13,8 +13,9 @@ import (
 type WarningSource string
 
 const (
-	WarningSourceTechnicalHealth WarningSource = "technical_health"
-	WarningSourceSequence        WarningSource = "sequence"
+	WarningSourceTechnicalHealth   WarningSource = "technical_health"
+	WarningSourceSequence          WarningSource = "sequence"
+	WarningSourceTrafficPrediction WarningSource = "traffic_prediction"
 )
 
 // WarningSeverity orders conditions that prevent safe operation before
@@ -62,9 +63,10 @@ type WarningSnapshot struct {
 }
 
 // CurrentWarningSnapshot combines the current technical report with warnings
-// persisted on the committed airport state. Equivalent inputs always produce
+// persisted on the committed airport state and derived traffic diagnostics.
+// Equivalent inputs always produce
 // the same deduplicated ordering, including after restart or replay.
-func CurrentWarningSnapshot(technical TechnicalHealth, state AirportState) WarningSnapshot {
+func CurrentWarningSnapshot(technical TechnicalHealth, state AirportState, additional ...Warning) WarningSnapshot {
 	byID := make(map[string]Warning)
 	add := func(warning Warning) {
 		warning.ID = warning.Identity()
@@ -100,7 +102,7 @@ func CurrentWarningSnapshot(technical TechnicalHealth, state AirportState) Warni
 				continue
 			}
 			severity := WarningSeverityError
-			if component.health.Status == HealthDegraded {
+			if component.health.Status == HealthDegraded || component.name == "weather" {
 				severity = WarningSeverityWarning
 			}
 			name := component.name
@@ -130,6 +132,9 @@ func CurrentWarningSnapshot(technical TechnicalHealth, state AirportState) Warni
 				Message: fmt.Sprintf("Flights %s and %s conflict with protected %s spacing on runway group %s",
 					current.Callsign, current.RelatedCallsign, current.STARFamily, group.ID)})
 		}
+	}
+	for _, warning := range additional {
+		add(warning)
 	}
 
 	warnings := make([]Warning, 0, len(byID))
@@ -182,6 +187,9 @@ func technicalWarningMessage(component string, health ComponentHealth) string {
 	status := health.Status
 	if status == "" {
 		status = HealthUnavailable
+	}
+	if component == "weather" {
+		return fmt.Sprintf("AMAN weather is %s: %s. Arrival calculations use the supported weather fallback.", status, healthReason(health))
 	}
 	return fmt.Sprintf("AMAN %s is %s: %s", strings.ReplaceAll(component, "_", " "), status, healthReason(health))
 }

@@ -62,6 +62,34 @@ func TestGetOrCreateSessionCreatesAuthoritativeSession(t *testing.T) {
 	}
 }
 
+type persistedPlaybackRepository struct {
+	repository.SessionRepository
+	session models.Session
+}
+
+func (r *persistedPlaybackRepository) Get(_ context.Context, name, airport string) (*models.Session, error) {
+	if name != r.session.Name || airport != r.session.Airport {
+		return nil, pgx.ErrNoRows
+	}
+	return &r.session, nil
+}
+
+func TestGetOrCreateSessionResumesPersistedPlaybackAfterRestart(t *testing.T) {
+	sessionRepo := &persistedPlaybackRepository{session: models.Session{
+		ID: 42, Name: "PLAYBACK_0123456789ABCDEF0123456789ABCDEF", Airport: "EKCH",
+	}}
+	for attempt := 0; attempt < 2; attempt++ {
+		server := &Server{sessionRepo: sessionRepo}
+		session, err := server.GetOrCreateSession("EKCH", sessionRepo.session.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if session.Id != 42 || session.Name != sessionRepo.session.Name {
+			t.Fatalf("expected persisted playback session, got %#v", session)
+		}
+	}
+}
+
 func TestRemoveExpiredLiveSessionDeregistersMasterBeforeDelete(t *testing.T) {
 	cdmService := &expiredSessionCdmService{}
 	sessionRepo := &expiredSessionRepository{}

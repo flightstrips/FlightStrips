@@ -183,10 +183,12 @@ export interface WebSocketState {
 
   availableSids: SidInfo[];
 
+  amanSessionID: number | null;
   amanState: AMANState | null;
   amanPresentationStatus: AMANPresentationStatus;
   amanError: string | null;
   amanConnectionState: AMANConnectionState;
+  amanAwaitingSnapshot: boolean;
   amanWarnings: AMANCurrentWarnings;
   amanFMPAuthority: boolean;
   amanPendingCommands: Record<string, AMANPendingCommand>;
@@ -272,6 +274,7 @@ export interface WebSocketState {
   confirmTacticalStrip: (id: number) => void;
   forceAssumeTacticalStrip: (id: number) => void;
   markTacticalStrip: (id: number, marked: boolean) => void;
+  startTacticalTimer: (id: number) => void;
   moveTacticalStrip: (id: number, insertAfter: StripRef | null, bay?: Bay) => void;
 
   acknowledgeValidationStatus: (callsign: string, activationKey: string) => void;
@@ -315,10 +318,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     arrAtisCode: "",
     depAtisCode: "",
     availableSids: [],
+    amanSessionID: null,
     amanState: null,
     amanPresentationStatus: "empty" as AMANPresentationStatus,
     amanError: null,
     amanConnectionState: "disconnected" as AMANConnectionState,
+    amanAwaitingSnapshot: true,
     amanWarnings: currentWarningsFromAMANState(null),
     amanFMPAuthority: false,
     amanPendingCommands: {},
@@ -433,6 +438,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      selectStrip: (callsign) => set({ selectedCallsign: callsign }),
      setAMANConnectionState: (connectionState) => set({
        amanConnectionState: connectionState,
+       amanAwaitingSnapshot: true,
        ...(connectionState === "disconnected" ? {amanFMPAuthority: false} : {}),
      }),
      setAMANSelectedView: (view) => {
@@ -762,15 +768,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         return false;
       }
 
-      if (!sendIfWritable({ type: ActionType.FrontendStartReq, callsign, start_req: true })) {
+      if (!sendIfWritable({ type: ActionType.FrontendCoordinationTransferRequest, callsign, to: target, start_req_transfer: true })) {
         return false;
       }
-      updateLocalStartReq(callsign, true);
-
-      if (!sendIfWritable({ type: ActionType.FrontendCoordinationTransferRequest, callsign, to: target })) {
-        return false;
-      }
-      updateLocalStartReq(callsign, false);
       return true;
     },
     assumeStrip: (callsign) => {
@@ -922,6 +922,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     markTacticalStrip: (id, marked) => {
       sendIfWritable({ type: ActionType.FrontendMarkTacticalStrip, id, marked });
     },
+    startTacticalTimer: (id) => {
+      sendIfWritable({ type: ActionType.FrontendStartTacticalTimer, id });
+    },
     moveTacticalStrip: (id, insertAfter, bay) => set((state) => {
       const tacticalStrip = state.tacticalStrips.find((strip) => strip.id === id);
       if (!tacticalStrip || tacticalStrip.owner !== state.position) {
@@ -1007,6 +1010,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     wsClient.setReadOnly(data.read_only ?? false);
     store.setState(
       produce((state: WebSocketState) => {
+        const sessionID = data.session_id ?? null;
+        if (state.amanSessionID !== sessionID) {
+          state.amanState = null;
+          state.amanWarnings = currentWarningsFromAMANState(null);
+          state.amanPresentationStatus = "empty";
+          state.amanError = null;
+          state.amanAwaitingSnapshot = true;
+          state.amanPendingCommands = {};
+          state.amanCommandRejections = {};
+          state.amanCommandTypes = {};
+        }
+        state.amanSessionID = sessionID;
         state.controllers = data.controllers.map(c => ({ ...c, owned_sectors: c.owned_sectors ?? [] }));
         state.strips = data.strips.map(strip => ({
           ...strip,
@@ -1603,9 +1618,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendActionRejected, handleActionRejectedEvent);
 
   wsClient.on(EventType.FrontendAMANState, (event) => {
-    const previous = store.getState().amanState;
+    // Revisions belong to the current backend/session. A fresh connection
+    // must accept its first complete snapshot even if the revision restarted.
+    const previous = store.getState().amanAwaitingSnapshot ? null : store.getState().amanState;
     const replacement = replaceAMANState(previous, event);
-    if (replacement.accepted && replacement.state && previous?.coordination_revision !== undefined) {
+    if (replacement.state?.session_id !== undefined && store.getState().amanSessionID !== null &&
+      replacement.state.session_id !== store.getState().amanSessionID) return;
+    if (replacement.accepted && replacement.state && previous?.session_id === replacement.state.session_id && previous?.coordination_revision !== undefined) {
       replacement.state.coordination_revision = previous.coordination_revision;
       replacement.state.coordination_requests = previous.coordination_requests;
     }
@@ -1616,6 +1635,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       state.amanState = replacement.state;
       state.amanPresentationStatus = replacement.status;
       state.amanError = replacement.error;
+      if (replacement.accepted) state.amanAwaitingSnapshot = false;
       if (replacement.accepted || replacement.state === null) {
         state.amanWarnings = currentWarningsFromAMANState(replacement.state);
       }

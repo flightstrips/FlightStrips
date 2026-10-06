@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const DefaultBaseURL = "https://viff-system.network"
+const DefaultBaseURL = "https://api.viffsys.com"
 
 const defaultAirportMasterCacheTTL = 5 * time.Second
 
@@ -123,6 +123,7 @@ func (c *Client) doRequest(
 	query map[string]string,
 	headers map[string]string,
 	body any,
+	includeEmpty ...bool,
 ) ([]byte, error) {
 
 	u, err := url.Parse(c.baseURL + path)
@@ -133,7 +134,7 @@ func (c *Client) doRequest(
 	if len(query) > 0 {
 		q := u.Query()
 		for k, v := range query {
-			if v != "" {
+			if v != "" || (len(includeEmpty) > 0 && includeEmpty[0]) {
 				q.Set(k, v)
 			}
 		}

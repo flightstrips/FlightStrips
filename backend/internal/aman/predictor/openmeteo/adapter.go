@@ -5,6 +5,7 @@ package openmeteo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -22,10 +23,13 @@ import (
 )
 
 const (
-	defaultBaseURL   = "https://api.open-meteo.com/v1/gfs"
-	defaultTimeout   = 5 * time.Second
-	defaultCacheTTL  = 30 * time.Minute
-	maxResponseBytes = 1 << 20
+	defaultBaseURL      = "https://api.open-meteo.com/v1/gfs"
+	defaultTimeout      = 5 * time.Second
+	defaultCacheTTL     = 30 * time.Minute
+	maxResponseBytes    = 1 << 20
+	initialRetryDelay   = time.Minute
+	maximumRetryDelay   = 30 * time.Minute
+	rateLimitRetryDelay = 30 * time.Minute
 
 	// GFS pressure-level variables are published on a 0.25° grid. Caching at
 	// flight-position precision turns a moving aircraft into a new provider
@@ -68,16 +72,29 @@ type cacheEntry struct {
 	observedAt, expiresAt time.Time
 }
 type Adapter struct {
-	baseURL    string
-	client     *http.Client
-	now        func() time.Time
-	cacheTTL   time.Duration
-	persistent PersistentCache
-	mu         sync.RWMutex
-	cache      map[string]cacheEntry
-	requests   []time.Time
-	refreshes  singleflight.Group
+	baseURL     string
+	client      *http.Client
+	now         func() time.Time
+	cacheTTL    time.Duration
+	persistent  PersistentCache
+	mu          sync.RWMutex
+	cache       map[string]cacheEntry
+	requests    []time.Time
+	refreshes   singleflight.Group
+	fetchGate   chan struct{}
+	retryAt     time.Time
+	failures    int
+	lastFailure error
 }
+
+var errRequestBudget = errors.New("Open-Meteo request budget exhausted")
+
+type providerFailure struct {
+	status  int
+	retryAt time.Time
+}
+
+func (e *providerFailure) Error() string { return fmt.Sprintf("Open-Meteo status %d", e.status) }
 
 func New(config Config) *Adapter {
 	if strings.TrimSpace(config.BaseURL) == "" {
@@ -92,7 +109,7 @@ func New(config Config) *Adapter {
 	if config.CacheTTL <= 0 {
 		config.CacheTTL = defaultCacheTTL
 	}
-	return &Adapter{baseURL: config.BaseURL, client: config.Client, now: config.Now, cacheTTL: config.CacheTTL, persistent: config.Cache, cache: make(map[string]cacheEntry)}
+	return &Adapter{baseURL: config.BaseURL, client: config.Client, now: config.Now, cacheTTL: config.CacheTTL, persistent: config.Cache, cache: make(map[string]cacheEntry), fetchGate: make(chan struct{}, 1)}
 }
 
 // WindProfile caches each grid coordinate plus forecast hour. Returned samples
@@ -224,6 +241,63 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 }
 
 func (a *Adapter) fetchSamples(ctx context.Context, samples []predictor.WindSampleRequest) ([][]predictor.WindLevel, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := a.retryBlocked(); err != nil {
+		return nil, err
+	}
+	// Share the failure circuit across coordinates and forecast hours. A failed
+	// request must stop other aircraft's cache misses before they reserve quota.
+	select {
+	case a.fetchGate <- struct{}{}:
+		defer func() { <-a.fetchGate }()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := a.retryBlocked(); err != nil {
+		return nil, err
+	}
+	levels, err := a.fetchSamplesOnce(ctx, samples)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if err == nil {
+		a.failures, a.retryAt, a.lastFailure = 0, time.Time{}, nil
+		return levels, nil
+	}
+	a.failures++
+	delay := initialRetryDelay
+	for attempt := 1; attempt < a.failures && delay < maximumRetryDelay; attempt++ {
+		delay = min(delay*2, maximumRetryDelay)
+	}
+	a.retryAt = a.now().UTC().Add(delay)
+	if errors.Is(err, errRequestBudget) {
+		a.retryAt = a.now().UTC().Add(time.Hour)
+	}
+	var failure *providerFailure
+	if errors.As(err, &failure) && failure.retryAt.After(a.retryAt) {
+		a.retryAt = failure.retryAt
+	}
+	a.lastFailure = err
+	return nil, err
+}
+
+func (a *Adapter) retryBlocked() error {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if a.now().UTC().Before(a.retryAt) {
+		return fmt.Errorf("Open-Meteo refresh paused until %s: %w", a.retryAt.Format(time.RFC3339), a.lastFailure)
+	}
+	return nil
+}
+
+func (a *Adapter) fetchSamplesOnce(ctx context.Context, samples []predictor.WindSampleRequest) ([][]predictor.WindLevel, error) {
 	if len(samples) == 0 {
 		return nil, fmt.Errorf("wind fetch has no samples")
 	}
@@ -258,8 +332,24 @@ func (a *Adapter) fetchSamples(ctx context.Context, samples []predictor.WindSamp
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
-		return nil, fmt.Errorf("Open-Meteo status %d", response.StatusCode)
+		now := a.now().UTC()
+		failure := &providerFailure{status: response.StatusCode}
+		if seconds, parseErr := strconv.ParseInt(response.Header.Get("Retry-After"), 10, 64); parseErr == nil && seconds > 0 && seconds <= 7*24*60*60 {
+			failure.retryAt = now.Add(time.Duration(seconds) * time.Second)
+		} else if at, parseErr := http.ParseTime(response.Header.Get("Retry-After")); parseErr == nil && at.After(now) {
+			failure.retryAt = at.UTC()
+		}
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		if response.StatusCode == http.StatusTooManyRequests && failure.retryAt.IsZero() {
+			failure.retryAt = now.Add(rateLimitRetryDelay)
+			var details struct {
+				Reason string `json:"reason"`
+			}
+			if json.Unmarshal(body, &details) == nil && strings.Contains(strings.ToLower(details.Reason), "daily") {
+				failure.retryAt = now.Add(24 * time.Hour)
+			}
+		}
+		return nil, failure
 	}
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
 	if err != nil {
@@ -307,7 +397,7 @@ func (a *Adapter) reserveRequest(ctx context.Context, now time.Time) error {
 			return fmt.Errorf("reserve persisted Open-Meteo request: %w", err)
 		}
 		if !allowed {
-			return fmt.Errorf("Open-Meteo request budget exhausted")
+			return errRequestBudget
 		}
 		return nil
 	}
@@ -329,7 +419,7 @@ func (a *Adapter) reserveRequest(ctx context.Context, now time.Time) error {
 		}
 	}
 	if len(a.requests) >= maxRequestsPerDay || hour >= maxRequestsPerHour || minute >= maxRequestsPerMinute {
-		return fmt.Errorf("Open-Meteo request budget exhausted")
+		return errRequestBudget
 	}
 	a.requests = append(a.requests, now)
 	return nil

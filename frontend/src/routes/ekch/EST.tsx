@@ -8,7 +8,6 @@ import EstStandMenu, { type EstMenuAnchor } from "@/components/est/EstStandMenu"
 import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import EstViewButtons from "@/components/est/EstViewButtons";
 import { getEstDepartureTransferTarget, isEstDepartureTransferActive } from "@/components/est/transferState";
-import { isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
 import { deriveEstStandBlocking } from "@/components/est/standBlocking";
 import { deriveEstStandDisplay } from "@/components/est/standDisplay";
 import {
@@ -516,7 +515,7 @@ export default function EST() {
           strip={menuStrip}
           onClose={closeMenu}
           onStartTransfer={handleStartTransfer}
-          startTransferDisabled={startTransferPending || !isTsatWithinStartRequestWindow(menuStrip.tsat, nowMs)}
+          startTransferDisabled={startTransferPending}
           onStartRequest={handleStartRequest}
           onPush={handlePush}
           onTaxi={handleTaxi}

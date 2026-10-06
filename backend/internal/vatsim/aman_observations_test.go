@@ -129,6 +129,38 @@ func TestPlannedTimingIgnoresZeroEnrouteDuration(t *testing.T) {
 	require.Nil(t, timing.EstimatedEnrouteTime)
 }
 
+func TestPlannedTimingKeepsEnrouteDurationWithoutEOBT(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	for _, eobt := range []string{"", "invalid"} {
+		t.Run(eobt, func(t *testing.T) {
+			timing := plannedTiming(now, FlightPlan{EOBT: eobt, EnrouteDuration: "0145"})
+			require.NotNil(t, timing)
+			require.Nil(t, timing.EstimatedOffBlockTime)
+			require.Equal(t, time.Hour+45*time.Minute, *timing.EstimatedEnrouteTime)
+		})
+	}
+	require.Nil(t, plannedTiming(now, FlightPlan{EOBT: "", EnrouteDuration: "0000"}))
+}
+
+func TestObservationWorkerPublishesAirborneEETWithoutEOBT(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	cache := newReconciliationTestCache(now, Flight{
+		CID: "202", Callsign: "SAS202", State: FlightStateOnline,
+		Latitude: 55.1, Longitude: 12.1, Altitude: 18000, Groundspeed: 420, LastUpdated: now,
+		FlightPlan: FlightPlan{Origin: "EGLL", Destination: "EKCH", EnrouteDuration: "0200", Revision: 7},
+	})
+	sink := &observationTestSink{}
+	worker, _ := newObservationTestWorker(t, cache, &now, sink)
+
+	require.NoError(t, worker.Publish(context.Background()))
+	require.Len(t, sink.observations, 1)
+	observation := sink.observations[0]
+	require.NotNil(t, observation.TakeoffDetected)
+	require.NotNil(t, observation.PlannedTiming)
+	require.Nil(t, observation.PlannedTiming.EstimatedOffBlockTime)
+	require.Equal(t, 2*time.Hour, *observation.PlannedTiming.EstimatedEnrouteTime)
+}
+
 func TestWakeCategoryAndRequestedLevelMappingRejectInvalidSourceValues(t *testing.T) {
 	for _, test := range []struct {
 		aircraft, level string

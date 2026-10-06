@@ -43,7 +43,7 @@ func TestManualFreezeApplyReleaseAndRoutineRecompute(t *testing.T) {
 	require.Nil(t, value.CapturedSlot)
 }
 
-func TestSuperstableAndManualSlotsAreTheOnlyRoutineConstraints(t *testing.T) {
+func TestRateChangePreservesExplicitFrozenSlotsAndReportsSpacingConflict(t *testing.T) {
 	start := testTime()
 	superstable := protectedFlight("SUPER", "A", start, "M", start, aman.FreezeSuperstable)
 	manual := protectedFlight("MANUAL", "A", start.Add(2*time.Minute), "M", start.Add(2*time.Minute), aman.FreezeManual)
@@ -155,6 +155,98 @@ func TestManualMoveRejectsImpossibleWTCAndFrozenTarget(t *testing.T) {
 	requireDomainClass(t, err, aman.ErrorInvalidTransition)
 }
 
+func TestManualMoveCanDisplaceStableAndHoldingNeighbours(t *testing.T) {
+	start := testTime()
+	input := withCommittedSlots(t, sequence.Input{Revision: 11, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{
+		flight("STABLE", "A", start, "M"), flight("HOLDING", "A", start.Add(time.Minute), "M"), flight("TARGET", "A", start.Add(2*time.Minute), "M"),
+	}})
+	for index := range input.Flights {
+		input.Flights[index].State = aman.StateStable
+		input.Flights[index].ProtectCurrentSlot = true
+	}
+	input.Flights[1].State, input.Flights[1].HoldingSlotProtected = aman.StateUnstable, true
+	before := aman.Callsign("STABLE")
+	decision, err := sequence.ApplyMove(input, sequence.MoveFlightCommand{
+		Metadata: aman.CommandMetadata{CommandID: "move-protected", ExpectedRevision: 11}, Callsign: "TARGET", RunwayGroupID: "A", BeforeCallsign: &before,
+	})
+	require.NoError(t, err)
+	require.False(t, decision.Candidate.HasConflicts())
+	require.Equal(t, []aman.Callsign{"TARGET", "STABLE", "HOLDING"}, entryIDs(decision.Candidate))
+	require.True(t, entryFor(t, decision.Candidate, "STABLE").Time.After(input.Flights[0].CurrentSlot.Time))
+	require.True(t, entryFor(t, decision.Candidate, "HOLDING").Time.After(input.Flights[1].CurrentSlot.Time))
+}
+
+func TestManualMoveCanOverrideAutomaticHoldingPriorityWithoutMovingFrozenAnchor(t *testing.T) {
+	start := testTime()
+	held := protectedFlight("HOLDING", "A", start.Add(10*time.Minute), "M", start.Add(10*time.Minute), aman.FreezeManual)
+	held.CurrentSlot = slot(start.Add(10*time.Minute), "A", 1)
+	entered := start.Add(-time.Minute)
+	held.HoldingQueueID, held.ActiveHoldingSince = "HOLD", &entered
+	target := flight("TARGET", "A", start.Add(5*time.Minute), "M")
+	target.State, target.ProtectCurrentSlot = aman.StateStable, true
+	target.CurrentSlot = slot(start.Add(11*time.Minute), "A", 2)
+	target.ArrivalQueueTime = &start
+	input := sequence.Input{Revision: 7, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{held, target}}
+	before := held.Callsign
+	decision, err := sequence.ApplyMove(input, sequence.MoveFlightCommand{
+		Metadata: aman.CommandMetadata{CommandID: "override-hold-order", ExpectedRevision: 7}, Callsign: target.Callsign, RunwayGroupID: "A", BeforeCallsign: &before,
+	})
+	require.NoError(t, err)
+	require.Equal(t, []aman.Callsign{"TARGET", "HOLDING"}, entryIDs(decision.Candidate))
+	require.Equal(t, held.CapturedSlot.Time, entryFor(t, decision.Candidate, held.Callsign).Time)
+}
+
+func TestRateChangeMovesStableAndHoldingTargetsAndPreservesCommittedOrder(t *testing.T) {
+	start := testTime()
+	stable := flight("STABLE", "A", start.Add(time.Minute), "M")
+	stable.State, stable.ProtectCurrentSlot = aman.StateStable, true
+	stable.CurrentSlot = slot(start.Add(time.Minute), "A", 1)
+	holding := flight("HOLDING", "A", start, "M")
+	holding.HoldingSlotProtected, holding.ProtectCurrentSlot = true, true
+	holding.CurrentSlot = slot(start.Add(2*time.Minute), "A", 2)
+	input := sequence.Input{Revision: 7, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{holding, stable}}
+	command := sequence.SetRateCommand{
+		Metadata: aman.CommandMetadata{CommandID: "rate-protected", ExpectedRevision: 7}, RunwayGroupID: "A", ArrivalsPerHour: 30, EffectiveAt: start,
+	}
+	decision, err := sequence.ApplyRate(input, command)
+	require.NoError(t, err)
+	require.False(t, decision.Candidate.HasConflicts())
+	require.Equal(t, []aman.Callsign{"STABLE", "HOLDING"}, entryIDs(decision.Candidate))
+	require.Equal(t, start.Add(2*time.Minute), entryFor(t, decision.Candidate, "STABLE").Time)
+	require.Equal(t, start.Add(4*time.Minute), entryFor(t, decision.Candidate, "HOLDING").Time)
+	for _, flight := range decision.Input.Flights {
+		require.True(t, flight.ProtectCurrentSlot, "slot protection must survive the explicit rate override")
+	}
+	input.Flights = []sequence.Flight{stable, holding}
+	reordered, err := sequence.ApplyRate(input, command)
+	require.NoError(t, err)
+	require.Equal(t, decision.Candidate, reordered.Candidate, "input order must not reorder committed reservations")
+}
+
+func TestFutureRateChangeRetainsEarlierTargetsFrozenTimesAndOtherRunway(t *testing.T) {
+	start := testTime()
+	before := flight("BEFORE", "A", start.Add(20*time.Minute), "M")
+	before.State, before.ProtectCurrentSlot = aman.StateStable, true
+	before.CurrentSlot = slot(start.Add(time.Minute), "A", 1)
+	after := flight("AFTER", "A", start.Add(4*time.Minute), "M")
+	after.HoldingSlotProtected, after.ProtectCurrentSlot = true, true
+	after.CurrentSlot = slot(start.Add(4*time.Minute), "A", 2)
+	locked := protectedFlight("LOCKED", "A", start.Add(8*time.Minute), "M", start.Add(8*time.Minute), aman.FreezeManual)
+	other := flight("OTHER", "B", start.Add(20*time.Minute), "M")
+	other.State, other.ProtectCurrentSlot = aman.StateStable, true
+	other.CurrentSlot = slot(start.Add(time.Minute), "B", 1)
+	input := sequence.Input{Revision: 7, Policies: []sequence.Policy{simplePolicy("A", start, 60), simplePolicy("B", start, 60)}, Flights: []sequence.Flight{before, after, locked, other}}
+	decision, err := sequence.ApplyRate(input, sequence.SetRateCommand{
+		Metadata: aman.CommandMetadata{CommandID: "future-protected", ExpectedRevision: 7}, RunwayGroupID: "A", ArrivalsPerHour: 30, EffectiveAt: start.Add(3 * time.Minute),
+	})
+	require.NoError(t, err)
+	require.False(t, decision.Candidate.HasConflicts())
+	require.Equal(t, before.CurrentSlot.Time, entryFor(t, decision.Candidate, before.Callsign).Time)
+	require.Equal(t, start.Add(5*time.Minute), entryFor(t, decision.Candidate, after.Callsign).Time)
+	require.Equal(t, locked.CapturedSlot.Time, entryFor(t, decision.Candidate, locked.Callsign).Time)
+	require.Equal(t, other.CurrentSlot.Time, entryFor(t, decision.Candidate, other.Callsign).Time)
+}
+
 func TestGoAroundCascadeMovesStableAndSuperstableWithinBound(t *testing.T) {
 	start := testTime()
 	target := withState(flight("GO", "A", start, "M"), aman.StateGoAround)
@@ -163,6 +255,7 @@ func TestGoAroundCascadeMovesStableAndSuperstableWithinBound(t *testing.T) {
 	target.CurrentSlot = slot(start, "A", 1)
 	stable := withState(flight("STABLE", "A", start.Add(time.Minute), "M"), aman.StateStable)
 	stable.CurrentSlot = slot(start.Add(time.Minute), "A", 2)
+	stable.ProtectCurrentSlot = true
 	superstable := protectedFlight("SUPER", "A", start.Add(2*time.Minute), "M", start.Add(2*time.Minute), aman.FreezeSuperstable)
 	superstable.CurrentSlot = slot(start.Add(2*time.Minute), "A", 3)
 	input := sequence.Input{Revision: 9, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{target, stable, superstable}}
@@ -178,6 +271,49 @@ func TestGoAroundCascadeMovesStableAndSuperstableWithinBound(t *testing.T) {
 
 	_, err = sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: time.Minute, MaxCascade: 1}, command)
 	requireDomainClass(t, err, aman.ErrorInvalidTransition)
+}
+
+func TestGoAroundCascadeCanDisplaceProtectedUnstableHoldingSlot(t *testing.T) {
+	start := testTime()
+	target := withState(flight("GO", "A", start, "M"), aman.StateGoAround)
+	target.CurrentSlot = slot(start, "A", 1)
+	held := flight("HOLDING", "A", start.Add(time.Minute), "M")
+	held.CurrentSlot = slot(start.Add(time.Minute), "A", 2)
+	held.ProtectCurrentSlot, held.HoldingSlotProtected = true, true
+	input := sequence.Input{Revision: 7, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{target, held}}
+	decision, err := sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: time.Minute, MaxCascade: 1}, sequence.ApplyGoAroundCommand{
+		Metadata: aman.CommandMetadata{CommandID: "go-around-hold", ExpectedRevision: 7}, Callsign: "GO", DetectedAt: start,
+	})
+	require.NoError(t, err)
+	require.False(t, decision.Candidate.HasConflicts())
+	require.Equal(t, start.Add(2*time.Minute), entryFor(t, decision.Candidate, held.Callsign).Time)
+}
+
+func TestGoAroundDoesNotDisableLaterStableAndHoldingVacancyPromotions(t *testing.T) {
+	start := testTime()
+	goAround := withState(flight("GO", "A", start, "M"), aman.StateGoAround)
+	goAround.CurrentSlot = slot(start, "A", 1)
+	stable := withState(flight("STABLE", "A", start.Add(time.Minute), "M"), aman.StateStable)
+	stable.CurrentSlot, stable.ProtectCurrentSlot = slot(start.Add(time.Minute), "A", 2), true
+	held := flight("HOLDING", "A", start.Add(2*time.Minute), "M")
+	held.CurrentSlot = slot(start.Add(2*time.Minute), "A", 3)
+	held.ProtectCurrentSlot, held.HoldingSlotProtected = true, true
+	input := sequence.Input{Revision: 7, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{goAround, stable, held}}
+	decision, err := sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: time.Minute, MaxCascade: 2}, sequence.ApplyGoAroundCommand{
+		Metadata: aman.CommandMetadata{CommandID: "go-around-vacancy", ExpectedRevision: 7}, Callsign: "GO", DetectedAt: start,
+	})
+	require.NoError(t, err)
+	committed := decision.Input
+	for index := range committed.Flights {
+		entry := entryFor(t, decision.Candidate, committed.Flights[index].Callsign)
+		committed.Flights[index].CurrentSlot = slot(entry.Time, "A", entry.Sequence)
+	}
+	committed.Flights[0].State = aman.StateRemoved
+	result, promotions, err := sequence.GenerateWithVacancyPromotions(committed, nil, start)
+	require.NoError(t, err)
+	require.Len(t, promotions, 2)
+	require.Equal(t, start.Add(time.Minute), entryFor(t, result, "STABLE").Time)
+	require.Equal(t, start.Add(2*time.Minute), entryFor(t, result, "HOLDING").Time)
 }
 
 func TestGoAroundPreservesManualFreezeAndRestartsDeterministically(t *testing.T) {

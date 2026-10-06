@@ -353,6 +353,7 @@ type TacticalStrip struct {
 	CreatedAt   pgtype.Timestamptz
 	Owner       string
 	Marked      bool
+	TimerStart  pgtype.Timestamptz
 }
 
 type Version struct {

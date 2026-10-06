@@ -1,5 +1,64 @@
 # Changelog
 
+## [3.2.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.1.2...backend/v3.2.0) (2026-10-05)
+
+
+### Features
+
+* **aman:** add FMP control for EuroScope EAT writeback ([#843](https://github.com/flightstrips/FlightStrips/issues/843)) ([de08cbb](https://github.com/flightstrips/FlightStrips/commit/de08cbb8eab6c7af9c339c4233c3fd565b805e6a))
+
+
+### Bug Fixes
+
+* **aman:** align flight information with the design and timing data ([#845](https://github.com/flightstrips/FlightStrips/issues/845)) ([108cce9](https://github.com/flightstrips/FlightStrips/commit/108cce9cb081437fa1f47cf5408db8d0b8809a2c))
+
+## [3.1.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.1.1...backend/v3.1.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **aman:** stabilize arrival guidance and isolate session queues ([#842](https://github.com/flightstrips/FlightStrips/issues/842)) ([6935e16](https://github.com/flightstrips/FlightStrips/commit/6935e16a9931e00c14c6c5249a6e7731e26dc73e))
+* correct CDM timing and recover controller sessions ([#839](https://github.com/flightstrips/FlightStrips/issues/839)) ([3e25066](https://github.com/flightstrips/FlightStrips/commit/3e25066224831f7098bcf8105b025117e407932f))
+
+## [3.1.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.1.0...backend/v3.1.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **aman:** estimate airborne traffic from fresh position ([#792](https://github.com/flightstrips/FlightStrips/issues/792)) ([e4b17b2](https://github.com/flightstrips/FlightStrips/commit/e4b17b252b6c058340497a44932421be2848ea89))
+* **aman:** retain session timing and restore holding updates ([#838](https://github.com/flightstrips/FlightStrips/issues/838)) ([718ceb9](https://github.com/flightstrips/FlightStrips/commit/718ceb9eb571b146bcd99e4f75c87b08ad0b351e))
+* **aman:** send holding EAT on first entry detection ([#790](https://github.com/flightstrips/FlightStrips/issues/790)) ([14a18c0](https://github.com/flightstrips/FlightStrips/commit/14a18c0b9c4b3318b0b124588330596a334d6a8c))
+* **aman:** sequence holding releases in arrival order ([#794](https://github.com/flightstrips/FlightStrips/issues/794)) ([50e723c](https://github.com/flightstrips/FlightStrips/commit/50e723cb0f412fe54dde99b03f15ea4b399a26b0))
+* **aman:** update EKCH terminal data for AIRAC 2610 ([#831](https://github.com/flightstrips/FlightStrips/issues/831)) ([418d610](https://github.com/flightstrips/FlightStrips/commit/418d6106034e5474d489f7057f38c8fe03b321d5))
+* **cdm:** recalculate pushback timing after startup ([#793](https://github.com/flightstrips/FlightStrips/issues/793)) ([da28ef2](https://github.com/flightstrips/FlightStrips/commit/da28ef23298b3592a2aa9a5e79c14ea36d2ec421))
+
+## [3.1.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.0.0...backend/v3.1.0) (2026-09-28)
+
+
+### Features
+
+* **aman:** disable same STAR spacing at EKCH ([#788](https://github.com/flightstrips/FlightStrips/issues/788)) ([2b21c29](https://github.com/flightstrips/FlightStrips/commit/2b21c299f3d60092c350fbb33cf0d10d3424c753))
+
+## [3.0.0](https://github.com/flightstrips/FlightStrips/compare/backend/v2.3.0...backend/v3.0.0) (2026-09-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **aman:** Existing persisted AMAN sessions are cleared because generated flight identities and CID-backed projections are no longer supported.
+
+### Features
+
+* **aman:** promote stable arrivals into available slots ([#777](https://github.com/flightstrips/FlightStrips/issues/777)) ([385e0f9](https://github.com/flightstrips/FlightStrips/commit/385e0f9bad6174589f362b03e9faca63f0c605c5))
+* **aman:** use callsigns for EuroScope-only operation ([#780](https://github.com/flightstrips/FlightStrips/issues/780)) ([3172fb0](https://github.com/flightstrips/FlightStrips/commit/3172fb090bf17e5c102de98760ef043087819df2))
+* **cdm:** apply issue 779 timing and vIFF updates ([#785](https://github.com/flightstrips/FlightStrips/issues/785)) ([f5af428](https://github.com/flightstrips/FlightStrips/commit/f5af428a5a5ddb8cf73e4d3739e9a434e055aca9))
+* **strip:** restore tactical runway timers and square SI cells ([#787](https://github.com/flightstrips/FlightStrips/issues/787)) ([1aa62e8](https://github.com/flightstrips/FlightStrips/commit/1aa62e8b2c77045836108a4c77473877227d5f9b))
+
+
+### Bug Fixes
+
+* **aman:** retain holding EATs across ownership changes ([#778](https://github.com/flightstrips/FlightStrips/issues/778)) ([bb3daaf](https://github.com/flightstrips/FlightStrips/commit/bb3daaf75b1524f08be0b881b7ea8715c835ab94))
+* **websocket:** batch positions without blocking strip operations ([#775](https://github.com/flightstrips/FlightStrips/issues/775)) ([1099c6b](https://github.com/flightstrips/FlightStrips/commit/1099c6bb4d108976d4b35a08abb62f0fde939cad))
+
 ## [2.3.0](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.12...backend/v2.3.0) (2026-09-21)
 
 

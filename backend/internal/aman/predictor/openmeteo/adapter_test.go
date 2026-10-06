@@ -129,10 +129,149 @@ func TestAdapterDoesNotCallProviderWhenPersistentBudgetIsExhausted(t *testing.T)
 	persistent := &recordingPersistentCache{values: map[string]CachedSample{}}
 	request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{At: now, AltitudeFeet: 10000}}}
 
-	_, err := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent}).WindProfile(context.Background(), request)
+	adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent})
+	_, err := adapter.WindProfile(context.Background(), request)
 
 	require.ErrorContains(t, err, "request budget exhausted")
 	require.Zero(t, calls)
+	for range 20 {
+		request.Samples[0].Position.LatitudeDegrees++
+		_, err = adapter.WindProfile(context.Background(), request)
+		require.ErrorContains(t, err, "refresh paused")
+	}
+	require.Equal(t, 1, persistent.reservations, "budget rejection must not be retried for every aircraft")
+}
+
+func TestAdapterBacksOffAcrossCoordinatesAndRecovers(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	status, calls := http.StatusServiceUnavailable, 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		w.WriteHeader(status)
+		if status == http.StatusOK {
+			_, _ = w.Write([]byte(gfsPayload()))
+		}
+	}))
+	defer server.Close()
+	persistent := &recordingPersistentCache{allowed: true, values: map[string]CachedSample{}}
+	adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent})
+	request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{At: now}}}
+	_, err := adapter.WindProfile(context.Background(), request)
+	require.ErrorContains(t, err, "status 503")
+	for range 20 {
+		request.Samples[0].Position.LatitudeDegrees++
+		_, err = adapter.WindProfile(context.Background(), request)
+		require.ErrorContains(t, err, "refresh paused")
+	}
+	require.Equal(t, 1, calls)
+	require.Equal(t, 1, persistent.reservations)
+	now = now.Add(time.Minute)
+	_, err = adapter.WindProfile(context.Background(), request)
+	require.Error(t, err)
+	now = now.Add(time.Minute)
+	_, err = adapter.WindProfile(context.Background(), request)
+	require.ErrorContains(t, err, "refresh paused", "second failure doubles the cooldown")
+	now = now.Add(time.Minute)
+	status = http.StatusOK
+	_, err = adapter.WindProfile(context.Background(), request)
+	require.NoError(t, err)
+	require.Equal(t, 3, calls)
+	// Success clears the circuit for a different uncached aircraft immediately.
+	request.Samples[0].Position.LatitudeDegrees++
+	_, err = adapter.WindProfile(context.Background(), request)
+	require.NoError(t, err)
+	require.Equal(t, 4, calls)
+}
+
+func TestAdapterRateLimitCooldownHonoursRetryAfterAndDailyQuota(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		name, header, body string
+		delay              time.Duration
+	}{
+		{"seconds", "600", "", 10 * time.Minute},
+		{"date", now.Add(time.Hour).Format(http.TimeFormat), "", time.Hour},
+		{"unspecified", "", "", rateLimitRetryDelay},
+		{"daily", "", `{"reason":"Daily API request limit exceeded. Please try again tomorrow."}`, 24 * time.Hour},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			calls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls++
+				w.Header().Set("Retry-After", test.header)
+				w.WriteHeader(http.StatusTooManyRequests)
+				_, _ = w.Write([]byte(test.body))
+			}))
+			defer server.Close()
+			adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }})
+			request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{At: now}}}
+			_, err := adapter.WindProfile(context.Background(), request)
+			require.ErrorContains(t, err, "status 429")
+			require.Equal(t, now.Add(test.delay), adapter.retryAt)
+			request.Samples[0].At = now.Add(time.Hour)
+			_, err = adapter.WindProfile(context.Background(), request)
+			require.ErrorContains(t, err, "refresh paused")
+			require.Equal(t, 1, calls, "different forecast hours must share the cooldown")
+		})
+	}
+}
+
+func TestAdapterConcurrentDifferentCacheMissesShareFailureCircuit(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }})
+	var group sync.WaitGroup
+	results := make(chan error, 24)
+	for i := range 24 {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			_, err := adapter.WindProfile(context.Background(), predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{Position: predictor.WindCoordinate{LatitudeDegrees: float64(i)}, At: now}}})
+			results <- err
+		}()
+	}
+	group.Wait()
+	close(results)
+	for err := range results {
+		require.Error(t, err)
+	}
+	require.Equal(t, int32(1), calls.Load())
+	require.Len(t, adapter.requests, 1)
+}
+
+func TestAdapterFreshCacheWorksDuringCooldownAndCancellationDoesNotTripCircuit(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	status, calls := http.StatusOK, 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		w.WriteHeader(status)
+		if status == http.StatusOK {
+			_, _ = w.Write([]byte(gfsPayload()))
+		}
+	}))
+	defer server.Close()
+	adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }})
+	request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{At: now}}}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := adapter.WindProfile(ctx, request)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Zero(t, calls)
+	first, err := adapter.WindProfile(context.Background(), request)
+	require.NoError(t, err)
+	status = http.StatusServiceUnavailable
+	missing := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{Position: predictor.WindCoordinate{LatitudeDegrees: 1}, At: now}}}
+	_, err = adapter.WindProfile(context.Background(), missing)
+	require.Error(t, err)
+	cached, err := adapter.WindProfile(context.Background(), request)
+	require.NoError(t, err)
+	require.Equal(t, first, cached)
+	require.Equal(t, 2, calls)
 }
 
 func TestAdapterUsesGeopotentialHeightAtHighAltitude(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/predictor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,6 +64,103 @@ func TestBuildDoesNotFallBackToVATSIMWhenAuthoritativeAMANTimingIsMissing(t *tes
 	}
 }
 
+func TestBuildUsesFreshLiveArrivalForNearbyAirborneFlightWithoutFiledTiming(t *testing.T) {
+	now := utc(2026, time.July, 22, 20, 44)
+	state := baseState(now, 20)
+	altitude, groundspeed := 18000, 420.0
+	airport := AirportPosition{LatitudeDegrees: 55.618, LongitudeDegrees: 12.656}
+	flight := aman.AMANFlight{
+		Callsign: "SAS202", State: aman.StateAirborne, DataStatus: aman.DataFresh,
+		LatestObservation: &aman.FlightObservation{
+			Surveillance: &aman.SurveillanceFact{
+				LatitudeDegrees: 55.1, LongitudeDegrees: 12.1, AltitudeFeet: &altitude,
+				GroundspeedKnots: &groundspeed, ObservedAt: &now,
+			},
+		},
+	}
+	state.Flights = []aman.AMANFlight{flight}
+
+	model := BuildWithAirportPosition(state, readyHealth(), airport)
+	require.NotContains(t, model.DegradedReasons, "missing_timing:SAS202")
+	require.Equal(t, 1, model.Buckets[1].Count)
+	require.Equal(t, SourceAirbornePosition, model.Buckets[1].Flights[0].TimingSource)
+	require.Contains(t, model.DegradedReasons, "position_estimate")
+
+	flight.Prediction = &aman.Prediction{OperationalTETA: now.Add(90 * time.Minute), Publishable: true, ModelVersion: "aman-airborne-takeoff-eet-v1"}
+	state.Flights[0] = flight
+	model = BuildWithAirportPosition(state, readyHealth(), airport)
+	require.Equal(t, 1, model.Buckets[1].Count, "current position must supersede an airborne flight-plan estimate")
+
+	flight.State = aman.StateUnstable
+	state.Flights[0] = flight
+	model = BuildWithAirportPosition(state, readyHealth(), airport)
+	require.Equal(t, SourceAirbornePosition, model.Buckets[1].Flights[0].TimingSource, "a preliminary estimate is not authoritative AMAN timing")
+	flight.State = aman.StateAirborne
+
+	// An accepted route prediction still wins; an expired position observation
+	// cannot stand in for current airborne timing.
+	flight.Prediction = &aman.Prediction{OperationalTETA: now.Add(20 * time.Minute), Publishable: true, Basis: aman.PredictionBasisPerformanceWind}
+	state.Flights[0] = flight
+	model = BuildWithAirportPosition(state, readyHealth(), airport)
+	require.Equal(t, 0, model.Buckets[1].Count)
+	require.Equal(t, 1, model.Buckets[2].Count)
+
+	flight.Prediction = nil
+	staleObserved := now.Add(-3 * time.Minute)
+	flight.LatestObservation.Surveillance.ObservedAt = &staleObserved
+	state.Flights[0] = flight
+	model = BuildWithAirportPosition(state, readyHealth(), airport)
+	require.Contains(t, model.DegradedReasons, "missing_timing:SAS202")
+}
+
+func TestBuildNeverUsesEOBTForAnAirborneFlight(t *testing.T) {
+	now := utc(2026, time.July, 22, 20, 44)
+	eobt, eet := now.Add(-time.Hour), 90*time.Minute
+	flight := aman.AMANFlight{
+		Callsign: "SAS202", State: aman.StateAirborne, DataStatus: aman.DataFresh,
+		Prediction:        &aman.Prediction{OperationalTETA: eobt.Add(eet), Publishable: true, ModelVersion: "aman-planned-eobt-exot-eet-v1"},
+		LatestObservation: &aman.FlightObservation{PlannedTiming: &aman.PlannedTiming{EstimatedOffBlockTime: &eobt, EstimatedEnrouteTime: &eet}},
+	}
+	state := baseState(now, 20)
+	state.Flights = []aman.AMANFlight{flight}
+
+	model := BuildWithAirportPosition(state, readyHealth(), AirportPosition{LatitudeDegrees: 55.618, LongitudeDegrees: 12.656})
+	require.Contains(t, model.DegradedReasons, "missing_timing:SAS202")
+	for _, bucket := range model.Buckets {
+		require.Zero(t, bucket.Count)
+	}
+}
+
+func TestBuildTreatsMovingPositionAsAirborneEvenWithPlannedLifecycle(t *testing.T) {
+	now := utc(2026, time.July, 22, 20, 44)
+	eobt, eet := now.Add(-time.Hour), 90*time.Minute
+	altitude, groundspeed := 3000, 70.0
+	flight := aman.AMANFlight{
+		Callsign: "SAS202", State: aman.StatePlanned, DataStatus: aman.DataFresh,
+		LatestObservation: &aman.FlightObservation{
+			PlannedTiming: &aman.PlannedTiming{EstimatedOffBlockTime: &eobt, EstimatedEnrouteTime: &eet},
+			Surveillance: &aman.SurveillanceFact{
+				LatitudeDegrees: 55.5, LongitudeDegrees: 12.5, AltitudeFeet: &altitude,
+				GroundspeedKnots: &groundspeed, ObservedAt: &now,
+			},
+		},
+	}
+	state := baseState(now, 20)
+	state.Flights = []aman.AMANFlight{flight}
+
+	model := BuildWithAirportPosition(state, readyHealth(), AirportPosition{LatitudeDegrees: 55.618, LongitudeDegrees: 12.656})
+	require.NotContains(t, model.DegradedReasons, "missing_timing:SAS202")
+	count := 0
+	for _, bucket := range model.Buckets {
+		count += bucket.AirborneCount
+		for _, entry := range bucket.Flights {
+			require.Equal(t, SourceAirbornePosition, entry.TimingSource)
+			require.True(t, entry.Airborne)
+		}
+	}
+	require.Equal(t, 1, count)
+}
+
 func TestBuildThresholdEqualityAndOneHourWindow(t *testing.T) {
 	now := utc(2026, time.July, 22, 20, 30)
 	state := baseState(now, 40)
@@ -95,9 +193,11 @@ func TestBuildPublishesStaleMissingTimingAndMissingRateDegradation(t *testing.T)
 	state.Flights = []aman.AMANFlight{planned("stale", "1", now.Add(time.Minute), aman.DataStale), {Callsign: "UNKNOWN", State: aman.StatePlanned, DataStatus: aman.DataDisconnected}}
 
 	model := Build(state, readyHealth())
-	require.Equal(t, StatusDisconnected, model.Status)
+	require.Equal(t, StatusDegraded, model.Status)
+	require.Equal(t, aman.DataFresh, model.SourceStatus)
 	require.Contains(t, model.DegradedReasons, "stale_flight_data")
-	require.Contains(t, model.DegradedReasons, "source_disconnected")
+	require.Contains(t, model.DegradedReasons, "disconnected_flight_data")
+	require.NotContains(t, model.DegradedReasons, "source_disconnected")
 	require.Contains(t, model.DegradedReasons, "missing_selected_rate")
 	require.Contains(t, model.DegradedReasons, "missing_timing:UNKNOWN")
 	require.Nil(t, model.Buckets[0].SelectedRate)
@@ -155,6 +255,19 @@ func TestBuildPublishesDisconnectedSourceWithoutFlights(t *testing.T) {
 	require.Contains(t, model.DegradedReasons, "source_disconnected")
 }
 
+func TestDisconnectedAircraftRetainsTimingWithoutDisconnectingHealthySource(t *testing.T) {
+	now := utc(2026, time.July, 22, 20, 44)
+	state := baseState(now, 20)
+	state.Flights = []aman.AMANFlight{airborne("retained", "1", now.Add(time.Minute), aman.StateStable, aman.DataDisconnected)}
+	model := Build(state, readyHealth())
+	require.Equal(t, aman.DataFresh, model.SourceStatus)
+	require.Equal(t, StatusDegraded, model.Status)
+	require.Contains(t, model.DegradedReasons, "disconnected_flight_data")
+	require.NotContains(t, model.DegradedReasons, "source_disconnected")
+	require.Equal(t, 1, model.Buckets[1].Count)
+	require.Equal(t, aman.DataDisconnected, model.Buckets[1].Flights[0].DataStatus)
+}
+
 func TestBuildDeduplicatesSameCallsign(t *testing.T) {
 	now := utc(2026, time.July, 22, 20, 44)
 	state := baseState(now, 20)
@@ -180,7 +293,7 @@ func readyHealth() aman.ComponentHealth { return aman.ComponentHealth{Status: am
 
 func planned(id, cid string, at time.Time, status aman.DataStatus) aman.AMANFlight {
 	duration := time.Hour
-	eobt := at.Add(-duration)
+	eobt := at.Add(-duration - predictor.DefaultEXOT)
 	return aman.AMANFlight{Callsign: stringsUpper(id), State: aman.StatePlanned, DataStatus: status, LatestObservation: &aman.FlightObservation{PlannedTiming: &aman.PlannedTiming{EstimatedOffBlockTime: &eobt, EstimatedEnrouteTime: &duration}}, UpdatedAt: at.Add(-time.Hour)}
 }
 
@@ -204,3 +317,43 @@ func utc(year int, month time.Month, day, hour, minute int) time.Time {
 }
 func timePtr(value time.Time) *time.Time { return &value }
 func stringsUpper(value string) string   { return strings.ToUpper(value) }
+
+func TestBuildRetainsCommittedAssignmentsWhenPredictionIsUnavailable(t *testing.T) {
+	now := utc(2026, time.October, 4, 12, 0)
+	for _, status := range []aman.DataStatus{aman.DataFresh, aman.DataStale, aman.DataDisconnected} {
+		for _, kind := range []string{"missing", "unpublishable", "retained"} {
+			t.Run(string(status)+"/"+kind, func(t *testing.T) {
+				state := baseState(now, 40)
+				at := now.Add(20 * time.Minute)
+				flight := aman.AMANFlight{Callsign: "AFR15", State: aman.StateAirborne, DataStatus: status, Slot: &aman.Slot{Time: at}}
+				if kind != "missing" {
+					flight.Prediction = &aman.Prediction{OperationalTETA: now.Add(35 * time.Minute), Publishable: kind == "retained"}
+				}
+				state.Flights = []aman.AMANFlight{flight}
+				model := Build(state, readyHealth())
+				require.NotContains(t, model.DegradedReasons, "missing_timing:AFR15")
+				index := 1
+				if kind == "retained" {
+					index = 2
+					at = flight.Prediction.OperationalTETA
+				}
+				require.Len(t, model.Buckets[index].Flights, 1)
+				got := model.Buckets[index].Flights[0]
+				require.Equal(t, at, got.LandingAt)
+				require.Equal(t, SourceAMAN, got.TimingSource)
+				require.Equal(t, status, got.DataStatus)
+			})
+		}
+	}
+}
+
+func TestBuildDoesNotReportPastCommittedSlotAsMissingTiming(t *testing.T) {
+	now := utc(2026, time.October, 4, 12, 0)
+	state := baseState(now, 40)
+	state.Flights = []aman.AMANFlight{{Callsign: "AFR15", State: aman.StateStable, DataStatus: aman.DataDisconnected, Slot: &aman.Slot{Time: now.Add(-time.Hour)}}}
+	model := Build(state, readyHealth())
+	require.NotContains(t, model.DegradedReasons, "missing_timing:AFR15")
+	for _, bucket := range model.Buckets {
+		require.Empty(t, bucket.Flights)
+	}
+}

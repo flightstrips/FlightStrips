@@ -143,8 +143,8 @@ describe("complete AMAN timeline and strips", () => {
     renderBoard(degraded, {presentationStatus: "degraded", connectionState: "disconnected"});
     expect(screen.getAllByText("degraded").length).toBeGreaterThan(0);
     expect(screen.getByText("predictor stale")).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: /Select SAS123; go around; current delay Unavailable/})).toBeInTheDocument();
-    expect(screen.getByTestId("operational-marker-SAS123")).toHaveTextContent("Unavailable");
+    expect(screen.getByRole("button", {name: /Select SAS123; go around; current delay G02/})).toBeInTheDocument();
+    expect(screen.getByTestId("operational-marker-SAS123")).toHaveTextContent("G02");
   });
 
   it("does not show guidance from a non-authoritative AMAN state", () => {

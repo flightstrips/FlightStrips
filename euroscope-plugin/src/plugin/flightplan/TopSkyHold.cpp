@@ -99,6 +99,10 @@ namespace FlightStrips::flightplan {
         return command.type == TopSkyHoldCommandType::Assign ? command.eat : std::string{};
     }
 
+    TopSkyHold ResolveTopSkyHoldForEat(const TopSkyHold& annotation, const TopSkyHold& observed, const bool commandObserved) {
+        return commandObserved ? observed : annotation;
+    }
+
     std::string BuildTopSkyHoldEatCommand(
         const TopSkyHold& current,
         const std::string_view expectedPoint,

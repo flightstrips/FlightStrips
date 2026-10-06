@@ -18,6 +18,7 @@ type ActionMutations interface {
 	DesequenceFlight(aman.CommandContext, aman.DesequenceFlightCommand) (CommandMutation, error)
 	ResumeFlight(aman.CommandContext, aman.ResumeFlightCommand) (CommandMutation, error)
 	RemoveFlight(aman.CommandContext, aman.RemoveFlightCommand) (CommandMutation, error)
+	SetHoldingEATWriteback(aman.CommandContext, aman.SetHoldingEATWritebackCommand) (CommandMutation, error)
 	SetRate(aman.CommandContext, aman.SetRateCommand) (CommandMutation, error)
 	SelectRunwayGroup(aman.CommandContext, aman.SelectRunwayGroupCommand) (CommandMutation, error)
 	SetActiveRunwayGroups(aman.CommandContext, aman.SetActiveRunwayGroupsCommand) (CommandMutation, error)
@@ -100,6 +101,10 @@ func (s *ActionService) RemoveFlight(ctx context.Context, auth aman.CommandConte
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.RemoveFlight(auth, command) })
 }
 
+func (s *ActionService) SetHoldingEATWriteback(ctx context.Context, auth aman.CommandContext, command aman.SetHoldingEATWritebackCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.SetHoldingEATWriteback(auth, command) })
+}
+
 func (s *ActionService) SetRate(ctx context.Context, auth aman.CommandContext, command aman.SetRateCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.SetRate(auth, command) })
 }
@@ -176,7 +181,7 @@ func (s *ActionService) ResetManualFeederETA(ctx context.Context, auth aman.Comm
 
 func (s *ActionService) RecomputeFlight(ctx context.Context, auth aman.CommandContext, command aman.RecomputeFlightCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) {
-		return s.mutations.RecomputeFlight(ctx, auth, command)
+		return s.mutations.RecomputeFlight(aman.WithSession(ctx, auth.SessionID), auth, command)
 	})
 }
 
@@ -207,6 +212,7 @@ func executeTyped(service *ActionService, ctx context.Context, auth aman.Command
 	if err != nil {
 		return aman.CommandExecution{}, err
 	}
+	ctx = aman.WithSession(ctx, auth.SessionID)
 	result, err := service.coordinator.ExecuteCommand(ctx, auth.Airport, metadata, mutation)
 	execution := aman.CommandExecution{
 		CurrentRevision: result.State.Revision,

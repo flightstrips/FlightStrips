@@ -10,6 +10,7 @@ namespace FlightStrips::TagItems {
     namespace {
         constexpr int TagColorRGBDefinedValue = 1;
         constexpr COLORREF ActiveTagColor = RGB(0, 192, 0);
+        constexpr COLORREF RetainedTagColor = RGB(160, 160, 160);
         constexpr COLORREF GainOrOnTimeTagColor = RGB(150, 215, 150);
         constexpr COLORREF ShortLossTagColor = RGB(240, 225, 41);
         constexpr COLORREF LongLossTagColor = RGB(156, 0, 0);
@@ -43,8 +44,10 @@ namespace FlightStrips::TagItems {
 
     AMANGainLossHandler::AMANGainLossHandler(std::shared_ptr<aman::AMANGainLossStore> store,
                                              std::function<bool()> connected,
-                                             std::function<std::string()> currentAirport)
-        : store_(std::move(store)), connected_(std::move(connected)), currentAirport_(std::move(currentAirport)) {}
+                                             std::function<std::string()> currentAirport,
+                                             std::function<std::string()> currentControllerCallsign)
+        : store_(std::move(store)), connected_(std::move(connected)), currentAirport_(std::move(currentAirport)),
+          currentControllerCallsign_(std::move(currentControllerCallsign)) {}
 
     void AMANGainLossHandler::Handle(EuroScopePlugIn::CFlightPlan flightPlan, EuroScopePlugIn::CRadarTarget,
                                      int, int, char sItemString[16], int* pColorCode,
@@ -60,7 +63,9 @@ namespace FlightStrips::TagItems {
         const auto currentAirport = currentAirport_ ? currentAirport_() : std::string{};
         const auto presentation = Resolve(
             connected_ && connected_(), store_ ? store_->Snapshot() : nullptr, callsign, destination, currentAirport,
-            holding);
+            holding, flightPlan.IsValid() && flightPlan.GetTrackingControllerIsMe(),
+            currentControllerCallsign_ ? currentControllerCallsign_() : std::string{});
+        sItemString[0] = '\0';
         if (presentation.text.empty()) return;
         std::snprintf(sItemString, 16, "%s", presentation.text.c_str());
         if (pColorCode != nullptr) *pColorCode = TagColorRGBDefinedValue;
@@ -69,7 +74,7 @@ namespace FlightStrips::TagItems {
 
     auto AMANGainLossHandler::Format(const long long seconds) -> std::string {
         const auto magnitude = Magnitude(seconds);
-        if (magnitude < 30) return "=00";
+        if (magnitude < 30) return "G00";
         const auto minutes = DisplayedMinutes(seconds);
         const char prefix = seconds < 0 ? 'L' : 'G';
         if (minutes > 99) return std::format("{}99+", prefix);
@@ -80,16 +85,26 @@ namespace FlightStrips::TagItems {
                                       const std::shared_ptr<const aman::GainLossSnapshot>& snapshot,
                                       const std::string& callsign, const std::string& destination,
                                       const std::string& currentAirport,
-                                      const bool holding) -> AMANGainLossPresentation {
+                                      const bool holding, const bool trackedByMe,
+                                      const std::string& currentControllerCallsign) -> AMANGainLossPresentation {
+        const auto controllerCallsign = Normalize(currentControllerCallsign);
+        const auto isEsmmApproachOrCenter = controllerCallsign.starts_with("ESMM_") &&
+            (controllerCallsign.ends_with("_APP") || controllerCallsign.ends_with("_CTR"));
+        if (!controllerCallsign.starts_with("EKDK_") && !isEsmmApproachOrCenter) return {"", ActiveTagColor};
+        const auto isFmp = controllerCallsign.ends_with("_FMP");
+        if (!trackedByMe && !isFmp) return {"", ActiveTagColor};
+        const auto unavailable = AMANGainLossPresentation{"----", RetainedTagColor};
         const auto normalizedAirport = Normalize(currentAirport);
         if (normalizedAirport.empty() || Normalize(destination) != normalizedAirport) return {"", ActiveTagColor};
         if (holding) return {"", ActiveTagColor};
-        if (!connected || !snapshot || !snapshot->authoritative) return {"----", ActiveTagColor};
+        if (!snapshot || !snapshot->authoritative ||
+            (!snapshot->airport.empty() && Normalize(snapshot->airport) != normalizedAirport)) return unavailable;
         const auto value = snapshot->byCallsign.find(Normalize(callsign));
         if (value != snapshot->byCallsign.end() && value->second.insideTMA) return {"", ActiveTagColor};
-        if (value == snapshot->byCallsign.end() || value->second.dataStatus != "fresh" || !value->second.seconds) {
-            return {"----", ActiveTagColor};
+        if (value == snapshot->byCallsign.end() || !value->second.seconds) {
+            return unavailable;
         }
-        return {Format(*value->second.seconds), GuidanceColor(*value->second.seconds)};
+        return {Format(*value->second.seconds), connected && value->second.dataStatus == "fresh"
+            ? GuidanceColor(*value->second.seconds) : RetainedTagColor};
     }
 }

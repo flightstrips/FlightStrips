@@ -650,7 +650,66 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_PlaybackConnection_OverridesMa
 
     ASSERT_EQ(sent.size(), 2u);
     EXPECT_TRUE(sent[1].has_login());
-    EXPECT_EQ(sent[1].login().connection(), "PLAYBACK");
+    const auto& name = sent[1].login().connection();
+    EXPECT_THAT(name, ::testing::StartsWith("PLAYBACK_"));
+    EXPECT_EQ(name.size(), 41u);
+    EXPECT_EQ(name.find_first_not_of("0123456789ABCDEF", 9), std::string::npos);
+}
+
+TEST_F(WebSocketServiceReconnectTest, PlaybackSessionSurvivesBackendAndManualReconnects) {
+    SetShouldConnect();
+    state.connection_type = CONNECTION_TYPE_PLAYBACK;
+    std::vector<std::string> names;
+    EXPECT_CALL(*mockImpl, Send(_)).WillRepeatedly(Invoke([&names](const std::string& payload) {
+        flightstrips::euroscope::v1::Envelope envelope;
+        ASSERT_TRUE(envelope.ParseFromString(payload));
+        if (envelope.has_login()) names.push_back(envelope.login().connection());
+    }));
+
+    svc->OnTimer(1);
+    svc->SimulateConnected();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    EXPECT_CALL(*mockImpl, Disconnect()).Times(1);
+    svc->OnTimer(1); // The playback ID must not be mistaken for a mode change.
+    state.primary_frequency = "121.600";
+    svc->OnTimer(2); // Position changes must reuse the same playback ID.
+
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+    svc->OnTimer(3); // Backend restart while EuroScope continues playback.
+    svc->SimulateConnected();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->Reconnect();
+    svc->SimulateConnected();
+
+    ASSERT_EQ(names.size(), 4u);
+    for (const auto& name : names) EXPECT_EQ(name, names.front());
+}
+
+TEST_F(WebSocketServiceReconnectTest, PlaybackSessionResetsAfterStopWhileBackendIsDisconnected) {
+    SetShouldConnect();
+    state.connection_type = CONNECTION_TYPE_PLAYBACK;
+    std::vector<std::string> names;
+    EXPECT_CALL(*mockImpl, Send(_)).WillRepeatedly(Invoke([&names](const std::string& payload) {
+        flightstrips::euroscope::v1::Envelope envelope;
+        ASSERT_TRUE(envelope.ParseFromString(payload));
+        if (envelope.has_login()) names.push_back(envelope.login().connection());
+    }));
+
+    svc->SimulateConnected();
+    state.relevant_airport.clear();
+    svc->OnTimer(1); // Losing backend connection prerequisites is not a playback stop.
+    state.relevant_airport = "EKCH";
+    svc->SimulateConnected();
+
+    state.connection_type = CONNECTION_TYPE_NO;
+    svc->OnTimer(2); // Stop while the backend remains disconnected.
+    state.connection_type = CONNECTION_TYPE_PLAYBACK;
+    svc->OnTimer(3);
+    svc->SimulateConnected();
+
+    ASSERT_EQ(names.size(), 3u);
+    EXPECT_EQ(names[0], names[1]);
+    EXPECT_NE(names[0], names[2]);
 }
 
 TEST_F(WebSocketServiceReconnectTest, OnConnected_ObserverLoginIncludesObserverFlag) {
@@ -756,6 +815,25 @@ TEST_F(WebSocketServiceOnTimerTest, SendEvent_WhenObserver_AllowsRunwayValidatio
 
     EXPECT_CALL(*mockImpl, Send(_)).Times(1);
     svc->SendEvent(RunwayEvent({}));
+}
+
+TEST_F(WebSocketServiceOnTimerTest, MasterReplaysUntrackedHoldAfterReconnect) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->SetSessionState(STATE_MASTER);
+    auto serviceSocket = std::shared_ptr<WebSocketService>(svc.get(), [](WebSocketService*) {});
+    flightplan::FlightPlanService plans(serviceSocket, nullptr, nullptr, nullptr, nullptr);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([](const std::string& bytes) {
+        flightstrips::euroscope::v1::Envelope event;
+        ASSERT_TRUE(event.ParseFromString(bytes));
+        ASSERT_TRUE(event.has_hold());
+        EXPECT_EQ(event.hold().callsign(), "SAS123");
+        EXPECT_EQ(event.hold().hold(), "OLPIB");
+        EXPECT_EQ(event.hold().hold_eat(), "1422");
+    }));
+    plans.ReplayTrackedHold("SAS123", false, {true, false, "OLPIB"}, "1422");
+    plans.ReplayTrackedHold("SAS123", false, {}, {}); // Cached hold survives absent remote annotation.
+    svc->SetSessionState(STATE_SLAVE);
+    plans.ReplayTrackedHold("SAS123", false, {true, false, "OLPIB"}, {});
 }
 
 TEST_F(WebSocketServiceOnTimerTest, ShouldProcessServerMessageType_WhenObserver_AllowsMismatchAlerts) {

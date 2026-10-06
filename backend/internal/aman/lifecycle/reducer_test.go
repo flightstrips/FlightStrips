@@ -103,6 +103,7 @@ func TestReduceKeepsDataStatusOrthogonalAndBlocksStaleAdvancement(t *testing.T) 
 func TestReduceRestartsDisconnectedAndReconcilesBeforeResumingRemoval(t *testing.T) {
 	now := lifecycleTime()
 	config := lifecycle.DefaultConfig()
+	config.RemovalTimeout = time.Minute
 	flight := lifecycleFlight(now, aman.StateAirborne)
 
 	missing, err := lifecycle.Reduce(config, flight, event("missing", lifecycle.EventFlightMissing, now.Add(time.Minute)))

@@ -34,6 +34,26 @@ func TestTMAFreezeCapturesFirstFreshOutsideToInsideEdgeOnce(t *testing.T) {
 	require.Equal(t, base.Add(21*time.Minute), flight.FrozenSlot.Time)
 }
 
+func TestTMAFreezeDefersCaptureUntilPredictionAndSlotExist(t *testing.T) {
+	base := time.Date(2026, time.September, 11, 12, 0, 0, 0, time.UTC)
+	service := testTMAService(t)
+	flight := testTMAFlight(base)
+	flight.Prediction, flight.Slot = nil, nil
+	flight.DataStatus = aman.DataFresh
+	require.Empty(t, service.observeTMAEntry(&flight, tmaObservation(base, 1, 3, 10_000), base))
+	require.Empty(t, service.observeTMAEntry(&flight, tmaObservation(base.Add(time.Second), 1, 1, 10_000), base.Add(time.Second)))
+	require.True(t, flight.TMAEntry.FreezeTriggered)
+	require.Equal(t, aman.FreezeNone, flight.FreezeReason)
+	ready := testTMAFlight(base)
+	flight.Prediction, flight.Slot = ready.Prediction, ready.Slot
+	capturePendingTMAFreeze(&flight, base.Add(2*time.Second))
+	require.Equal(t, aman.FreezeTMA, flight.FreezeReason)
+	frozen := flight.FrozenSlot.Time
+	flight.Slot.Time = base.Add(40 * time.Minute)
+	capturePendingTMAFreeze(&flight, base.Add(3*time.Second))
+	require.Equal(t, frozen, flight.FrozenSlot.Time)
+}
+
 func TestTMAFreezeUsesApprovedHorizontalAndStrictAltitudeEdges(t *testing.T) {
 	base := time.Date(2026, time.September, 11, 12, 0, 0, 0, time.UTC)
 	for _, test := range []struct {

@@ -25,6 +25,7 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANDesequenceFlightType, handleAMANDesequenceFlight)
 	handlers.Add(events.AMANResumeFlightType, handleAMANResumeFlight)
 	handlers.Add(events.AMANRemoveFlightType, handleAMANRemoveFlight)
+	handlers.Add(events.AMANSetHoldingEATWritebackType, handleAMANSetHoldingEATWriteback)
 	handlers.Add(events.AMANSetRateType, handleAMANSetRate)
 	handlers.Add(events.AMANSelectRunwayGroupType, handleAMANSelectRunwayGroup)
 	handlers.Add(events.AMANSetActiveRunwayGroupsType, handleAMANSetActiveRunwayGroups)
@@ -72,7 +73,7 @@ func handleAMANSubmitCoordination(ctx context.Context, client *Client, message M
 	default:
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("unknown coordination request kind")))
 	}
-	result, err := client.hub.amanCoordination.Submit(ctx, coordinationrequest.CommandContext{Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, coordinationrequest.SubmitCommand{
+	result, err := client.hub.amanCoordination.Submit(ctx, coordinationrequest.CommandContext{SessionID: client.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, coordinationrequest.SubmitCommand{
 		CommandID: wire.Data.CommandID, ExpectedRevision: wire.Data.ExpectedRevision, Callsign: coordinationrequest.Callsign(wire.Data.Callsign), Kind: coordinationrequest.Kind(wire.Data.Kind), Payload: payload,
 	})
 	if err != nil {
@@ -299,6 +300,20 @@ func handleAMANResetTETAOverride(ctx context.Context, client *Client, message Me
 	})
 }
 
+func handleAMANSetHoldingEATWriteback(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANSetHoldingEATWritebackMessage
+	if err := decodeAMANMessage(message, events.AMANSetHoldingEATWritebackType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	if wire.Data.Enabled == nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "enabled is required"})
+	}
+	command := aman.SetHoldingEATWritebackCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Enabled: *wire.Data.Enabled}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.SetHoldingEATWriteback(ctx, auth, command)
+	})
+}
+
 func handleAMANSetRate(ctx context.Context, client *Client, message Message) error {
 	var wire events.AMANSetRateMessage
 	if err := decodeAMANMessage(message, events.AMANSetRateType, &wire); err != nil {
@@ -468,7 +483,7 @@ func (hub *Hub) amanContext(client *Client) (aman.CommandContext, error) {
 	if !hub.hasAMANFMPAuthority(client) {
 		return aman.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "AMAN command requires an FMP role"}
 	}
-	return aman.CommandContext{Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, nil
+	return aman.CommandContext{SessionID: client.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, nil
 }
 
 func (hub *Hub) coordinationContext(client *Client) (coordinationrequest.CommandContext, error) {
@@ -486,7 +501,7 @@ func (hub *Hub) coordinationContext(client *Client) (coordinationrequest.Command
 	if hub.amanNow != nil {
 		now = hub.amanNow
 	}
-	return coordinationrequest.CommandContext{Airport: client.airport, Actor: client.GetCid(), Role: role, ReceivedAt: now().UTC()}, nil
+	return coordinationrequest.CommandContext{SessionID: client.session, Airport: client.airport, Actor: client.GetCid(), Role: role, ReceivedAt: now().UTC()}, nil
 }
 
 func (hub *Hub) amanRole(client *Client) string {
@@ -531,7 +546,7 @@ func rejectDecodedAMAN(ctx context.Context, client *Client, commandID string, er
 	}
 	revision := aman.SequenceRevision(0)
 	if client != nil && client.hub != nil && client.hub.amanCommandService != nil && client.airport != "" {
-		if current, currentErr := client.hub.amanCommandService.CurrentRevision(ctx, client.airport); currentErr == nil {
+		if current, currentErr := client.hub.amanCommandService.CurrentRevision(aman.WithSession(ctx, client.session), client.airport); currentErr == nil {
 			revision = current
 		}
 	}

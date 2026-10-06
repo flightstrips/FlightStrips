@@ -247,6 +247,11 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 	if existingStrip.Bay == shared.BAY_AIRBORNE && groundState == euroscope.GroundStateTaxi {
 		return nil
 	}
+	if groundState == euroscope.GroundStatePush && existingStrip.Bay != shared.BAY_PUSH && strings.EqualFold(existingStrip.Origin, airport) {
+		// EuroScope reports a push already initiated by the controller. Accept
+		// the observation without applying the FlightStrips TSAT action gate.
+		ctx = withValidatedPushback(ctx, session, callsign)
+	}
 
 	dbStrip := database.Strip{
 		Origin:      existingStrip.Origin,
@@ -331,9 +336,22 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 	}
 
 	if existingStrip.Bay != bay {
-		return s.MoveToBay(ctx, session, callsign, bay, true)
+		if err := s.MoveToBay(ctx, session, callsign, bay, true); err != nil {
+			return err
+		}
 	}
+	if cleared {
+		return s.adjustTobtForClearance(ctx, session, callsign)
+	}
+	return nil
+}
 
+func (s *StripService) adjustTobtForClearance(ctx context.Context, session int32, callsign string) error {
+	if service, ok := s.cdmService.(interface {
+		HandleClearanceTobt(context.Context, int32, string) error
+	}); ok {
+		return service.HandleClearanceTobt(ctx, session, callsign)
+	}
 	return nil
 }
 
@@ -487,6 +505,21 @@ func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, s
 // UpdateGroundStateForMove handles the frontend "move to general bay" action.
 // It computes the new ground state, updates the DB, and notifies EuroScope.
 func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int32, callsign string, bay string, cid string, airport string) error {
+	if bay == shared.BAY_PUSH {
+		strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+		if err != nil {
+			return err
+		}
+		if strip.Bay != shared.BAY_PUSH && strings.EqualFold(strip.Origin, airport) {
+			owner := ""
+			if strip.Owner != nil {
+				owner = *strip.Owner
+			}
+			if err := s.validatePushbackTiming(ctx, session, strip, owner); err != nil {
+				return err
+			}
+		}
+	}
 	state, err := s.updateGroundStateForMoveWithOptions(ctx, session, callsign, bay, cid, airport, bay, true)
 	if err != nil {
 		return err

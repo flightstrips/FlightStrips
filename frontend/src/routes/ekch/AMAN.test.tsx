@@ -2,7 +2,7 @@ import {fireEvent, render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {WebSocketState} from "@/store/store";
-import type {AMANState} from "@/api/aman";
+import type {AMANHoldingEntry, AMANState} from "@/api/aman";
 import AMAN from "./AMAN";
 
 const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.hoisted(() => ({
@@ -62,9 +62,9 @@ vi.mock("@/components/aman/TMTTrafficPrediction", () => ({
 }));
 
 vi.mock("@/components/aman/TMTHoldingGraph", () => ({
-  TMTHoldingGraph: (props: {compact?: boolean; entries: unknown; holding?: string}) => {
+  TMTHoldingGraph: (props: {compact?: boolean; entries: AMANHoldingEntry[]; holding?: string; onOpenFlightActions?: (callsign: string) => void}) => {
     holdingSpy(props);
-    return <div>TMT holding</div>;
+    return <div>TMT holding{props.entries.map(entry => <button key={entry.callsign} onClick={() => props.onOpenFlightActions?.(entry.callsign)} type="button">Holding {entry.callsign}</button>)}</div>;
   },
 }));
 
@@ -97,6 +97,8 @@ describe("AMAN route authorization", () => {
     expect(screen.getByRole("region", {name: "MAESTRO sequence workspace"})).toContainElement(screen.getByText("AMAN board"));
     expect(screen.getByText("AMAN board")).toBeInTheDocument();
     expect(screen.queryByText("AMAN controls")).not.toBeInTheDocument();
+    expect(screen.queryByText("AMAN warnings")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", {name: "Warnings (0)"}));
     expect(screen.getByText("AMAN warnings")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", {name: "AMAN board"}));
     expect(screen.getByText("AMAN controls")).toBeInTheDocument();
@@ -121,10 +123,31 @@ describe("AMAN route authorization", () => {
     render(<AMAN />);
 
     expect(screen.getByText("TMT traffic")).toBeInTheDocument();
-    expect(screen.getAllByText("TMT holding")).toHaveLength(6);
+    expect(screen.getAllByText("TMT holding")).toHaveLength(5);
     expect(tmtSpy).toHaveBeenCalledWith({prediction: trafficPrediction});
-    expect(holdingSpy).toHaveBeenCalledWith({compact: true, entries: [holdingInformation[0]], holding: "OLPIB"});
-    expect(holdingSpy).toHaveBeenCalledWith({compact: true, entries: [holdingInformation[1]], holding: "NEWIX"});
+    expect(holdingSpy).toHaveBeenCalledWith(expect.objectContaining({compact: true, entries: [holdingInformation[0]], holding: "OLPIB", onOpenFlightActions: expect.any(Function)}));
+    expect(holdingSpy.mock.calls.map(([props]) => props.holding)).toEqual(["TIDVU", "OLPIB", "LUGAS", "ROSBI", "ERNOV"]);
+    expect(holdingSpy).not.toHaveBeenCalledWith(expect.objectContaining({holding: "NEWIX"}));
+    expect(holdingSpy.mock.calls.flatMap(([props]) => props.entries)).toEqual([holdingInformation[0]]);
+  });
+
+  it.each([true, false])("opens the holding menu and information for the exact callsign with or without a sequence flight (sequenced=%s)", (sequenced) => {
+    storeState.amanState = {
+      ...authoritativeState([{callsign: "SAS123"}, ...(sequenced ? [{callsign: "SAS456"}] : [])]),
+      holding_information: [{callsign: "SAS456", holding: "OLPIB", eat: null, cleared_altitude: null, source_status: "fresh", observed_at: "2026-07-22T20:44:00.000Z"}],
+    };
+    render(<AMAN />);
+
+    fireEvent.click(screen.getByRole("button", {name: "Holding SAS456"}));
+    expect(screen.getByRole("dialog", {name: "SAS456"})).toBeInTheDocument();
+    expect(detailSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", {name: "Information"}));
+    expect(detailSpy).toHaveBeenLastCalledWith(expect.objectContaining({airport: "EKCH", callsign: "SAS456"}));
+    expect(detailSpy.mock.lastCall?.[0].missedApproach).toBeUndefined();
+    expect(detailSpy.mock.lastCall?.[0].removal).toBeUndefined();
+    expect(storeState.sendAMANCommand).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", {name: "Close mocked detail"}));
+    expect(screen.queryByRole("button", {name: "Close mocked detail"})).not.toBeInTheDocument();
   });
 
   it("opens and closes the existing detail view for the activated target", () => {
@@ -190,6 +213,7 @@ describe("AMAN route authorization", () => {
   it("selects primary and related warning flights by authoritative identity without a command", () => {
     storeState.amanState = authoritativeState([{callsign: "SAS123"}, {callsign: "SAS456"}]);
     render(<AMAN />);
+    fireEvent.click(screen.getByRole("tab", {name: "Warnings (0)"}));
 
     fireEvent.click(screen.getByRole("button", {name: "Warning primary"}));
     expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS123"}));
@@ -200,11 +224,41 @@ describe("AMAN route authorization", () => {
   it("leaves selection and focus stable when a warning references an absent flight", () => {
     storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
     render(<AMAN />);
+    fireEvent.click(screen.getByRole("tab", {name: "Warnings (0)"}));
     const missing = screen.getByRole("button", {name: "Warning missing"});
     missing.focus();
     fireEvent.click(missing);
 
     expect(missing).toHaveFocus();
     expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS123"}));
+  });
+
+  it("opens settings as a tab and sends the FMP writeback command", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = {...authoritativeState([]), holding_eat_writeback_available: true, holding_eat_writeback_enabled: true};
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("tab", {name: "Settings"}));
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Settings");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", {name: "Write holding EAT to EuroScope"}));
+    expect(storeState.sendAMANCommand).toHaveBeenCalledWith({type: "aman.set_holding_eat_writeback", enabled: false});
+  });
+
+  it("switches TMT tabs with keyboard navigation and returns to holdings", () => {
+    render(<AMAN />);
+    const holdings = screen.getByRole("tab", {name: "Holdings"});
+    expect(holdings).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(holdings, {key: "ArrowRight"});
+    const warnings = screen.getByRole("tab", {name: "Warnings (0)"});
+    expect(warnings).toHaveFocus();
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Warnings (0)");
+    fireEvent.keyDown(warnings, {key: "ArrowRight"});
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Settings");
+    fireEvent.keyDown(screen.getByRole("tab", {name: "Settings"}), {key: "ArrowRight"});
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Coordination (0)");
+    fireEvent.keyDown(screen.getByRole("tab", {name: "Coordination (0)"}), {key: "Home"});
+    expect(holdings).toHaveFocus();
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Holdings");
+    expect(screen.queryByText("AMAN warnings")).not.toBeInTheDocument();
   });
 });

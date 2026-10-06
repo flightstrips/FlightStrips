@@ -1383,6 +1383,9 @@ inline constexpr Strip::Impl_::Impl_(
         hold_eat_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        enroute_duration_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         position_{nullptr},
         cleared_altitude_{0},
         requested_altitude_{0},
@@ -6277,7 +6280,8 @@ inline PROTOBUF_NDEBUG_INLINE Strip::Impl_::Impl_(
         engine_type_(arena, from.engine_type_),
         hold_(arena, from.hold_),
         hold_type_(arena, from.hold_type_),
-        hold_eat_(arena, from.hold_eat_) {}
+        hold_eat_(arena, from.hold_eat_),
+        enroute_duration_(arena, from.enroute_duration_) {}
 
 Strip::Strip(
     ::google::protobuf::Arena* arena,
@@ -6330,7 +6334,8 @@ inline PROTOBUF_NDEBUG_INLINE Strip::Impl_::Impl_(
         engine_type_(arena),
         hold_(arena),
         hold_type_(arena),
-        hold_eat_(arena) {}
+        hold_eat_(arena),
+        enroute_duration_(arena) {}
 
 inline void Strip::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
@@ -6373,6 +6378,7 @@ inline void Strip::SharedDtor() {
   _impl_.hold_.Destroy();
   _impl_.hold_type_.Destroy();
   _impl_.hold_eat_.Destroy();
+  _impl_.enroute_duration_.Destroy();
   delete _impl_.position_;
   _impl_.~Impl_();
 }
@@ -6427,6 +6433,7 @@ PROTOBUF_NOINLINE void Strip::Clear() {
   _impl_.hold_.ClearToEmpty();
   _impl_.hold_type_.ClearToEmpty();
   _impl_.hold_eat_.ClearToEmpty();
+  _impl_.enroute_duration_.ClearToEmpty();
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(_impl_.position_ != nullptr);
@@ -6447,15 +6454,15 @@ const char* Strip::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<5, 32, 1, 303, 2> Strip::_table_ = {
+const ::_pbi::TcParseTable<5, 33, 1, 319, 7> Strip::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(Strip, _impl_._has_bits_),
     0, // no _extensions_
-    32, 248,  // max_field_number, fast_idx_mask
+    33, 248,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
     0,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    32,  // num_field_entries
+    33,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_Strip_default_instance_._instance,
@@ -6559,6 +6566,8 @@ const ::_pbi::TcParseTable<5, 32, 1, 303, 2> Strip::_table_ = {
     {::_pbi::TcParser::FastUS2,
      {506, 63, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.hold_type_)}},
   }}, {{
+    33, 0, 1,
+    65534, 32,
     65535, 65535
   }}, {{
     // string callsign = 1;
@@ -6657,10 +6666,13 @@ const ::_pbi::TcParseTable<5, 32, 1, 303, 2> Strip::_table_ = {
     // string hold_eat = 32;
     {PROTOBUF_FIELD_OFFSET(Strip, _impl_.hold_eat_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string enroute_duration = 33;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.enroute_duration_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::Position>()},
   }}, {{
-    "\37\10\6\13\11\5\7\6\6\17\3\4\0\14\0\0\0\15\21\17\0\5\14\22\4\4\23\13\0\0\4\11\10\0\0\0\0\0\0\0"
+    "\37\10\6\13\11\5\7\6\6\17\3\4\0\14\0\0\0\15\21\17\0\5\14\22\4\4\23\13\0\0\4\11\10\20\0\0\0\0\0\0"
     "flightstrips.euroscope.v1.Strip"
     "callsign"
     "origin"
@@ -6687,6 +6699,7 @@ const ::_pbi::TcParseTable<5, 32, 1, 303, 2> Strip::_table_ = {
     "hold"
     "hold_type"
     "hold_eat"
+    "enroute_duration"
   }},
 };
 
@@ -6946,6 +6959,14 @@ const ::_pbi::TcParseTable<5, 32, 1, 303, 2> Strip::_table_ = {
     target = stream->WriteStringMaybeAliased(32, _s, target);
   }
 
+  // string enroute_duration = 33;
+  if (!this->_internal_enroute_duration().empty()) {
+    const std::string& _s = this->_internal_enroute_duration();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.Strip.enroute_duration");
+    target = stream->WriteStringMaybeAliased(33, _s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -7113,6 +7134,12 @@ const ::_pbi::TcParseTable<5, 32, 1, 303, 2> Strip::_table_ = {
                                     this->_internal_hold_eat());
   }
 
+  // string enroute_duration = 33;
+  if (!this->_internal_enroute_duration().empty()) {
+    total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_enroute_duration());
+  }
+
   // .flightstrips.euroscope.v1.Position position = 20;
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
@@ -7249,6 +7276,9 @@ void Strip::MergeFrom(const Strip& from) {
   if (!from._internal_hold_eat().empty()) {
     _this->_internal_set_hold_eat(from._internal_hold_eat());
   }
+  if (!from._internal_enroute_duration().empty()) {
+    _this->_internal_set_enroute_duration(from._internal_enroute_duration());
+  }
   cached_has_bits = from._impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(from._impl_.position_ != nullptr);
@@ -7323,6 +7353,7 @@ void Strip::InternalSwap(Strip* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_, &other->_impl_.hold_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_type_, &other->_impl_.hold_type_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_eat_, &other->_impl_.hold_eat_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.enroute_duration_, &other->_impl_.enroute_duration_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Strip, _impl_.hold_supported_)
       + sizeof(Strip::_impl_.hold_supported_)

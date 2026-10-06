@@ -33,6 +33,9 @@ func NewAMANRepository(pool *pgxpool.Pool) *amanRepository {
 func (*amanRepository) Name() string { return "postgres AMAN repository" }
 
 func (r *amanRepository) LoadAirportState(ctx context.Context, airport string) (aman.AirportState, error) {
+	if aman.SessionID(ctx) > 0 {
+		return loadAMANSessionState(ctx, r.pool, airport)
+	}
 	state, err := loadAMANAirportState(ctx, r.queries, airport)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return aman.AirportState{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN airport state was not found"}
@@ -41,6 +44,9 @@ func (r *amanRepository) LoadAirportState(ctx context.Context, airport string) (
 }
 
 func (r *amanRepository) LoadCommandOutcome(ctx context.Context, commandID string) (aman.CommandOutcome, error) {
+	if aman.SessionID(ctx) > 0 {
+		return loadAMANSessionOutcome(ctx, r.pool, commandID)
+	}
 	row, err := r.queries.GetAMANCommandOutcome(ctx, commandID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return aman.CommandOutcome{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN command outcome was not found"}
@@ -52,6 +58,9 @@ func (r *amanRepository) LoadCommandOutcome(ctx context.Context, commandID strin
 }
 
 func (r *amanRepository) ListAuditRecords(ctx context.Context, airport string) ([]aman.AuditRecord, error) {
+	if aman.SessionID(ctx) > 0 {
+		return sessionAMANRecords[aman.AuditRecord](ctx, r, `SELECT payload FROM aman_session_audit_records WHERE session_id=$1 AND airport=$2 ORDER BY id`, airport)
+	}
 	rows, err := r.queries.ListAMANAuditRecords(ctx, airport)
 	if err != nil {
 		return nil, err
@@ -70,6 +79,9 @@ func (r *amanRepository) ListAuditRecords(ctx context.Context, airport string) (
 }
 
 func (r *amanRepository) ListValidationEvidence(ctx context.Context, airport string) ([]aman.ValidationEvidence, error) {
+	if aman.SessionID(ctx) > 0 {
+		return sessionAMANRecords[aman.ValidationEvidence](ctx, r, `SELECT payload FROM aman_session_validation_evidence WHERE session_id=$1 AND airport=$2 ORDER BY evidence_id`, airport)
+	}
 	rows, err := r.queries.ListAMANValidationEvidence(ctx, airport)
 	if err != nil {
 		return nil, err
@@ -91,6 +103,9 @@ func (r *amanRepository) ListValidationEvidence(ctx context.Context, airport str
 // may be published by the caller because the database transaction has already
 // committed. This repository deliberately performs no transport delivery.
 func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (aman.CommitResult, error) {
+	if aman.SessionID(ctx) > 0 {
+		return r.commitSession(ctx, commit)
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return aman.CommitResult{}, err

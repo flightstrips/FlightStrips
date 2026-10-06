@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.1.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.0.2...docs/v1.1.0) (2026-10-05)
+
+
+### Features
+
+* **aman:** add FMP control for EuroScope EAT writeback ([#843](https://github.com/flightstrips/FlightStrips/issues/843)) ([de08cbb](https://github.com/flightstrips/FlightStrips/commit/de08cbb8eab6c7af9c339c4233c3fd565b805e6a))
+
+## [1.0.2](https://github.com/flightstrips/FlightStrips/compare/docs/v1.0.1...docs/v1.0.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **aman:** stabilize arrival guidance and isolate session queues ([#842](https://github.com/flightstrips/FlightStrips/issues/842)) ([6935e16](https://github.com/flightstrips/FlightStrips/commit/6935e16a9931e00c14c6c5249a6e7731e26dc73e))
+
+## [1.0.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.0.0...docs/v1.0.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **aman:** send holding EAT on first entry detection ([#790](https://github.com/flightstrips/FlightStrips/issues/790)) ([14a18c0](https://github.com/flightstrips/FlightStrips/commit/14a18c0b9c4b3318b0b124588330596a334d6a8c))
+
+## [1.0.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.21.2...docs/v1.0.0) (2026-09-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **aman:** Existing persisted AMAN sessions are cleared because generated flight identities and CID-backed projections are no longer supported.
+
+### Features
+
+* **aman:** use callsigns for EuroScope-only operation ([#780](https://github.com/flightstrips/FlightStrips/issues/780)) ([3172fb0](https://github.com/flightstrips/FlightStrips/commit/3172fb090bf17e5c102de98760ef043087819df2))
+
+
+### Bug Fixes
+
+* **websocket:** batch positions without blocking strip operations ([#775](https://github.com/flightstrips/FlightStrips/issues/775)) ([1099c6b](https://github.com/flightstrips/FlightStrips/commit/1099c6bb4d108976d4b35a08abb62f0fde939cad))
+
 ## [0.21.2](https://github.com/flightstrips/FlightStrips/compare/docs/v0.21.1...docs/v0.21.2) (2026-09-17)
 
 

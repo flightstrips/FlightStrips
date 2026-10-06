@@ -29,12 +29,30 @@ type recordingCdmService struct {
 	triggerRecalculateFn             func(ctx context.Context, session int32, airport string)
 	syncAirportLvoFromRunwayStatusFn func(ctx context.Context, airport string, runwayStatus map[string]string)
 	handleEobtUpdateFn               func(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error
+	handleReadyRequestFn             func(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error
+	recordAobtForTransferFn          func(ctx context.Context, session int32, callsign string) error
 }
 
 type transferStripService struct {
 	noOpStripService
 	createCoordinationTransferFn func(ctx context.Context, session int32, callsign string, from string, to string) error
+	cancelCoordinationTransferFn func(ctx context.Context, session int32, callsign string, position string) error
 	updateMarkedFn               func(ctx context.Context, session int32, callsign string, marked bool) error
+	updateStartReqFn             func(ctx context.Context, session int32, callsign string, startReq bool) error
+}
+
+func (s *transferStripService) CancelCoordinationTransfer(ctx context.Context, session int32, callsign string, position string) error {
+	if s.cancelCoordinationTransferFn != nil {
+		return s.cancelCoordinationTransferFn(ctx, session, callsign, position)
+	}
+	return nil
+}
+
+func (s *transferStripService) UpdateStartReq(ctx context.Context, session int32, callsign string, startReq bool) error {
+	if s.updateStartReqFn != nil {
+		return s.updateStartReqFn(ctx, session, callsign, startReq)
+	}
+	return nil
 }
 
 func (s *transferStripService) CreateCoordinationTransfer(ctx context.Context, session int32, callsign string, from string, to string) error {
@@ -65,7 +83,17 @@ func (s *recordingCdmService) SyncAirportLvoFromRunwayStatus(ctx context.Context
 
 func (*recordingCdmService) DeregisterMasterAirport(context.Context, string) error { return nil }
 
-func (*recordingCdmService) HandleReadyRequest(context.Context, int32, string, string, string) error {
+func (s *recordingCdmService) HandleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	if s.handleReadyRequestFn != nil {
+		return s.handleReadyRequestFn(ctx, session, callsign, sourcePosition, sourceRole)
+	}
+	return nil
+}
+
+func (s *recordingCdmService) RecordAobtForTransfer(ctx context.Context, session int32, callsign string) error {
+	if s.recordAobtForTransferFn != nil {
+		return s.recordAobtForTransferFn(ctx, session, callsign)
+	}
 	return nil
 }
 
@@ -232,6 +260,123 @@ func TestHandleCoordinationTransferRequest_ClearsMarkForMarkedStrip(t *testing.T
 
 	assert.True(t, createCalled)
 	assert.True(t, updateMarkedCalled)
+}
+
+func TestHandleCoordinationTransferRequest_StartReqTransferIsOneServerAction(t *testing.T) {
+	const owner = "EKCH_B_GND"
+	const callsign = "SAS779"
+	steps := []string{}
+	cdm := &recordingCdmService{
+		handleReadyRequestFn: func(_ context.Context, _ int32, gotCallsign, gotPosition, gotRole string) error {
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, owner, gotPosition)
+			assert.Equal(t, "ATC", gotRole)
+			steps = append(steps, "ready")
+			return nil
+		},
+		recordAobtForTransferFn: func(_ context.Context, _ int32, gotCallsign string) error {
+			assert.Equal(t, callsign, gotCallsign)
+			steps = append(steps, "aobt")
+			return nil
+		},
+	}
+	stripService := &transferStripService{
+		updateStartReqFn: func(_ context.Context, _ int32, gotCallsign string, enabled bool) error {
+			assert.Equal(t, callsign, gotCallsign)
+			assert.True(t, enabled)
+			steps = append(steps, "start req")
+			return nil
+		},
+		createCoordinationTransferFn: func(_ context.Context, _ int32, gotCallsign, from, to string) error {
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, owner, from)
+			assert.Equal(t, "EKCH_C_GND", to)
+			steps = append(steps, "transfer")
+			return nil
+		},
+	}
+	server := &testutil.MockServer{
+		StripRepoVal: &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+			return &models.Strip{Callsign: callsign, Owner: ptr(owner)}, nil
+		}},
+		CdmServiceVal: cdm,
+	}
+	client := &Client{session: 779, position: owner, hub: &Hub{server: server, stripService: stripService}}
+	for _, startReqTransfer := range []bool{true, false} {
+		steps = nil
+		payload, err := json.Marshal(frontendEvents.CoordinationTransferRequestEvent{
+			Type: string(frontendEvents.CoordinationTransferRequestType), Callsign: callsign,
+			To: "EKCH_C_GND", StartReqTransfer: startReqTransfer,
+		})
+		require.NoError(t, err)
+		require.NoError(t, handleCoordinationTransferRequest(context.Background(), client, Message{
+			Type: frontendEvents.CoordinationTransferRequestType, Message: payload,
+		}))
+		if startReqTransfer {
+			assert.Equal(t, []string{"transfer", "ready", "start req", "aobt"}, steps)
+		} else {
+			assert.Equal(t, []string{"transfer"}, steps)
+		}
+	}
+}
+
+func TestHandleCoordinationTransferRequest_DoesNotStartReadyWhenTransferFails(t *testing.T) {
+	const owner = "EKCH_B_GND"
+	readyCalls := 0
+	server := &testutil.MockServer{
+		StripRepoVal: &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS779", Owner: ptr(owner)}, nil
+		}},
+		CdmServiceVal: &recordingCdmService{handleReadyRequestFn: func(context.Context, int32, string, string, string) error {
+			readyCalls++
+			return nil
+		}},
+	}
+	stripService := &transferStripService{createCoordinationTransferFn: func(context.Context, int32, string, string, string) error {
+		return errors.New("coordination unavailable")
+	}}
+	client := &Client{session: 779, position: owner, hub: &Hub{server: server, stripService: stripService}}
+	payload, err := json.Marshal(frontendEvents.CoordinationTransferRequestEvent{
+		Type: string(frontendEvents.CoordinationTransferRequestType), Callsign: "SAS779",
+		To: "EKCH_C_GND", StartReqTransfer: true,
+	})
+	require.NoError(t, err)
+	err = handleCoordinationTransferRequest(context.Background(), client, Message{Type: frontendEvents.CoordinationTransferRequestType, Message: payload})
+	require.ErrorContains(t, err, "coordination unavailable")
+	assert.Zero(t, readyCalls)
+}
+
+func TestHandleCoordinationTransferRequest_CancelsTransferWhenReadyFails(t *testing.T) {
+	const owner = "EKCH_B_GND"
+	steps := []string{}
+	server := &testutil.MockServer{
+		StripRepoVal: &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS779", Owner: ptr(owner)}, nil
+		}},
+		CdmServiceVal: &recordingCdmService{handleReadyRequestFn: func(context.Context, int32, string, string, string) error {
+			steps = append(steps, "ready")
+			return errors.New("vIFF unavailable")
+		}},
+	}
+	stripService := &transferStripService{
+		createCoordinationTransferFn: func(context.Context, int32, string, string, string) error {
+			steps = append(steps, "transfer")
+			return nil
+		},
+		cancelCoordinationTransferFn: func(context.Context, int32, string, string) error {
+			steps = append(steps, "cancel")
+			return nil
+		},
+	}
+	client := &Client{session: 779, position: owner, hub: &Hub{server: server, stripService: stripService}}
+	payload, err := json.Marshal(frontendEvents.CoordinationTransferRequestEvent{
+		Type: string(frontendEvents.CoordinationTransferRequestType), Callsign: "SAS779",
+		To: "EKCH_C_GND", StartReqTransfer: true,
+	})
+	require.NoError(t, err)
+	err = handleCoordinationTransferRequest(context.Background(), client, Message{Type: frontendEvents.CoordinationTransferRequestType, Message: payload})
+	require.ErrorContains(t, err, "vIFF unavailable")
+	assert.Equal(t, []string{"transfer", "ready", "cancel"}, steps)
 }
 
 func TestHandleCoordinationTransferRequest_UsesNextOwnerWhenTargetIsOmitted(t *testing.T) {

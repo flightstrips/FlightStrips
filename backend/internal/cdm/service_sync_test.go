@@ -1076,12 +1076,13 @@ func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPendin
 		case "/ifps/depAirport":
 			_, _ = fmt.Fprintf(w, `[{
 				"callsign":"SAS133",
+				"atfcmData":{"mostPenalisingRegulation":"REGUL"},
 				"departure":"EKCH",
 				"eobt":%q,
 				"tobt":%q,
 				"ctot":%q,
 				"cdmSts":"REA",
-				"cdmData":{"reason":"REGUL"}
+				"cdmData":{"reason":"OLD_REG"}
 			}]`, times.Eobt, times.Tobt, times.Ctot)
 		case "/ifps/setCdmData":
 			setCdmCh <- struct{}{}
@@ -1128,6 +1129,9 @@ func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPendin
 	}
 	if persisted == nil || !persisted.Recalculate {
 		t.Fatalf("expected recalculation-pending state, got %#v", persisted)
+	}
+	if got := valueOrEmpty(persisted.EcfmpID); got != "REGUL" {
+		t.Fatalf("expected ATFCM regulation to take precedence over CDM reason, got %q", got)
 	}
 
 	select {

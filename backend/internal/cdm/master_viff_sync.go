@@ -52,6 +52,12 @@ func (c *MasterViffSync) mergeMasterViffFlight(ctx context.Context, session int3
 	}
 
 	ctotChanged := helpers.ValueOrDefault(flight.Ctot) != nextCtot
+	lastAtfcm := flight.LastViffAtfcmCtot
+	if nextCtotSource == models.CtotSourceATFCM {
+		lastAtfcm = nextCtot
+	} else if lastAtfcm == "" && valueOrEmpty(flight.CtotSource) == models.CtotSourceATFCM {
+		lastAtfcm = truncateCDMClockValue(valueOrEmpty(flight.Ctot))
+	}
 	requestedTobt := truncateCDMClockValue(strings.TrimSpace(row.CDMData.ReqTOBT))
 	requestSource := strings.ToUpper(strings.TrimSpace(row.CDMData.ReqTOBTType))
 	if requestSource == "" {
@@ -61,20 +67,21 @@ func (c *MasterViffSync) mergeMasterViffFlight(ctx context.Context, session int3
 		(helpers.ValueOrDefault(flight.Tobt) != requestedTobt ||
 			helpers.ValueOrDefault(flight.TobtSetBy) != "vIFF" ||
 			helpers.ValueOrDefault(flight.TobtConfirmedBy) != requestSource)
-	changed := ctotChanged || requestChanged ||
+	changed := ctotChanged || requestChanged || lastAtfcm != flight.LastViffAtfcmCtot ||
 		helpers.ValueOrDefault(flight.MostPenalizingAirspace) != row.MostPenalizingAirspace ||
-		helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
+		helpers.ValueOrDefault(flight.EcfmpID) != row.regulationReason()
 	if !changed {
 		return flight, false, nil
 	}
 
 	before := snapshotCdm(flight)
 	updated := flight.Clone()
+	updated.LastViffAtfcmCtot = lastAtfcm
 	if nextCtot != "" {
 		updated.Ctot = &nextCtot
 		updated.CtotSource = &nextCtotSource
 		updated.MostPenalizingAirspace = stringPointerIfPresent(row.MostPenalizingAirspace)
-		updated.EcfmpID = stringPointerIfPresent(row.CDMData.Reason)
+		updated.EcfmpID = stringPointerIfPresent(row.regulationReason())
 	} else if !flight.HasManualCtot() {
 		updated.Ctot = nil
 		updated.CtotSource = nil
@@ -247,7 +254,7 @@ func (c *MasterViffSync) refreshMasterFlightFromViff(ctx context.Context, sessio
 		return err
 	}
 
-	nextCtot, nextCtotSource := effectiveIfpsCtotAndSource(*row)
+	nextCtot, nextCtotSource := effectiveIfpsCtotAndSource(*row, flight)
 	_, needsRecalculate, err := s.mergeMasterViffFlight(ctx, session, callsign, flight, *row, nextCtot, nextCtotSource)
 	if err != nil {
 		return err
@@ -358,14 +365,10 @@ func buildViffPushState(callsign string, strip *models.Strip, data *models.CdmDa
 		asrt = truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt))
 	}
 
-	ctot := ""
-	reason := ""
-	if data.HasManualCtot() {
-		ctot = truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot))
-		reason = helpers.ValueOrDefault(data.EcfmpID)
-	} else if helpers.ValueOrDefault(data.CtotSource) == "" {
-		reason = helpers.ValueOrDefault(data.EcfmpID)
-	}
+	// Return the received CTOT and regulation alongside the local proposal.
+	// Explicit manual assignments use the same fields and remain authoritative.
+	ctot := truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot))
+	reason := helpers.ValueOrDefault(data.EcfmpID)
 	return viffPushState{
 		Params: SetCdmDataParams{
 			Callsign: callsign,

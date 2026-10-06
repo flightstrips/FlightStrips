@@ -162,7 +162,7 @@ func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) 
 			continue
 		}
 
-		nextCtot, nextCtotSource := effectiveIfpsCtotAndSource(row)
+		nextCtot, nextCtotSource := effectiveIfpsCtotAndSource(row, flight)
 		current, recalculatedAirport, err := c.syncMasterFlight(ctx, session, row, flight, nextCtot, nextCtotSource)
 		if err != nil {
 			return err
@@ -467,11 +467,20 @@ func (c *SyncService) schedulePeriodicCtotValidationReevaluation(ctx context.Con
 	return nil
 }
 
-func effectiveIfpsCtotAndSource(row IFPSData) (string, string) {
+func effectiveIfpsCtotAndSource(row IFPSData, local *models.CdmData) (string, string) {
 	if ctot := truncateCDMClockValue(row.CTOT); ctot != "" {
 		return ctot, models.CtotSourceATFCM
 	}
 	if ctot := truncateCDMClockValue(row.CDMData.CTOT); ctot != "" {
+		if local != nil {
+			lastAtfcm := local.LastViffAtfcmCtot
+			if lastAtfcm == "" && valueOrEmpty(local.CtotSource) == models.CtotSourceATFCM {
+				lastAtfcm = valueOrEmpty(local.Ctot)
+			}
+			if ctot == truncateCDMClockValue(lastAtfcm) {
+				return "", ""
+			}
+		}
 		return ctot, models.CtotSourceEvent
 	}
 	return "", ""

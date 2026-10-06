@@ -5,6 +5,18 @@
 
 using namespace FlightStrips::websocket;
 
+TEST(ProtoCodecTest, SharedScratchPadRoundTripsEditAndClear) {
+    for (const auto& text : {"CALL OPS", ""}) {
+        protobuf::wire::Envelope envelope;
+        ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(FsScratchPadEvent{"SAS123", text}), envelope));
+        EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_FS_SCRATCH_PAD);
+        FsScratchPadEvent decoded;
+        protobuf::Decode(envelope.fs_scratch_pad(), decoded);
+        EXPECT_EQ(decoded.callsign, "SAS123");
+        EXPECT_EQ(decoded.text, text);
+    }
+}
+
 TEST(ProtoCodecTest, DecodesTrackingOwnershipConfirmation) {
     protobuf::wire::TrackingControllerChangedEvent source;
     source.set_callsign("SAS123");

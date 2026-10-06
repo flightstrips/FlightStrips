@@ -337,6 +337,7 @@ type Strip struct {
 	HoldEat                  string
 	NextDisplayLabel         *string
 	NextDisplayFrequency     *string
+	FsScratchPad             string
 }
 
 type TacticalStrip struct {

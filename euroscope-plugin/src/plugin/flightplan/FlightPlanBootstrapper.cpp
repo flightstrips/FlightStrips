@@ -14,5 +14,6 @@ namespace FlightStrips::flightplan {
         container.radarTargetEventHandlers->RegisterHandler(container.flightPlanService);
         container.flightPlanEventHandlers->RegisterHandler(container.flightPlanService);
         container.timedEventHandlers->RegisterHandler(container.flightPlanService);
+        container.connectionEventHandlers->RegisterHandler(container.flightPlanService);
     }
 }

@@ -25,6 +25,8 @@ namespace FlightStrips::messages {
         }
 
         void OnMessages(const std::vector<std::string> &messages) override;
+        bool SendFsScratchPad(const std::string& callsign, const std::string& text) const;
+        void HandleFsScratchPad(const FsScratchPadEvent& event) const;
         bool SendCdmTobtUpdate(const std::string& callsign, const std::string& tobt) const;
         bool SendCdmAsrtToggle(const std::string& callsign, const std::string& asrt) const;
         bool SendCdmTsacUpdate(const std::string& callsign, const std::string& tsac) const;

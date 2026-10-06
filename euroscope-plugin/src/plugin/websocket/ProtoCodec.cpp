@@ -92,6 +92,7 @@ namespace FlightStrips::websocket::protobuf {
     std::string Serialize(const Event& event) {
         wire::Envelope envelope;
         switch (event.type) {
+        ENCODE_TWO(EVENT_FS_SCRATCH_PAD, FsScratchPadEvent, fs_scratch_pad, callsign, text)
         case EVENT_TOKEN: {
             const auto& value = static_cast<const TokenEvent&>(event);
             auto* payload = envelope.mutable_token();
@@ -310,6 +311,11 @@ namespace FlightStrips::websocket::protobuf {
         target.remarks = source.remarks();
     }
 
+    void Decode(const wire::FsScratchPadEvent& source, FsScratchPadEvent& target) {
+        target.callsign = source.callsign();
+        target.text = source.text();
+    }
+
     void Decode(const wire::BackendSyncEvent& source, BackendSyncEvent& target) {
         target.latitude = source.latitude();
         target.longitude = source.longitude();
@@ -327,6 +333,7 @@ namespace FlightStrips::websocket::protobuf {
             decoded.hold = strip.hold();
             decoded.hold_type = strip.hold_type();
             decoded.hold_eat = strip.hold_eat();
+            decoded.fs_scratch_pad = strip.fs_scratch_pad();
             if (strip.has_cdm()) {
                 const auto& cdm = strip.cdm();
                 decoded.cdm.eobt = cdm.eobt();

@@ -22,6 +22,7 @@
 #include "messages/MessageService.h"
 #include "runway/RunwayService.h"
 #include "tag_items/CdmStateHandler.h"
+#include "tag_items/SharedFieldHandler.h"
 #include "tag_items/DeIceHandler.h"
 #include "tag_items/ClearanceStatusHandler.h"
 #include "graphics/PdcClearancePopupState.h"
@@ -106,6 +107,10 @@ namespace FlightStrips {
             std::make_shared<handlers::EkytApproachTrackingHandler>(this->container->plugin));
         flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
         this->container->deIceHandler->SetFlightPlanService(this->container->flightPlanService);
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::SharedFieldHandler>(this->container->flightPlanService, TagItems::SharedFieldHandler::Field::Eat), TAG_ITEM_EAT);
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::SharedFieldHandler>(this->container->flightPlanService, TagItems::SharedFieldHandler::Field::ScratchPad), TAG_ITEM_FS_SCRATCH_PAD);
         this->container->tagItemHandlers->RegisterHandler(
             std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Eobt),
             TAG_ITEM_CDM_EOBT

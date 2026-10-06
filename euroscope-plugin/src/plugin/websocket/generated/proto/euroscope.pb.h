@@ -163,6 +163,9 @@ extern EnvelopeDefaultTypeInternal _Envelope_default_instance_;
 class EobtEvent;
 struct EobtEventDefaultTypeInternal;
 extern EobtEventDefaultTypeInternal _EobtEvent_default_instance_;
+class FsScratchPadEvent;
+struct FsScratchPadEventDefaultTypeInternal;
+extern FsScratchPadEventDefaultTypeInternal _FsScratchPadEvent_default_instance_;
 class GenerateSquawkEvent;
 struct GenerateSquawkEventDefaultTypeInternal;
 extern GenerateSquawkEventDefaultTypeInternal _GenerateSquawkEvent_default_instance_;
@@ -306,6 +309,7 @@ enum EventType : int {
   EVENT_HOLD = 50,
   EVENT_AMAN_GAIN_LOSS = 51,
   EVENT_AMAN_ROUTE_FACT = 52,
+  EVENT_FS_SCRATCH_PAD = 53,
   EventType_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   EventType_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -315,8 +319,8 @@ enum EventType : int {
 bool EventType_IsValid(int value);
 extern const uint32_t EventType_internal_data_[];
 constexpr EventType EventType_MIN = static_cast<EventType>(0);
-constexpr EventType EventType_MAX = static_cast<EventType>(52);
-constexpr int EventType_ARRAYSIZE = 52 + 1;
+constexpr EventType EventType_MAX = static_cast<EventType>(53);
+constexpr int EventType_ARRAYSIZE = 53 + 1;
 const std::string& EventType_Name(EventType value);
 template <typename T>
 const std::string& EventType_Name(T value) {
@@ -4308,6 +4312,180 @@ class GenerateSquawkEvent final : public ::google::protobuf::MessageLite
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr callsign_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
+class FsScratchPadEvent final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.FsScratchPadEvent) */ {
+ public:
+  inline FsScratchPadEvent() : FsScratchPadEvent(nullptr) {}
+  ~FsScratchPadEvent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR FsScratchPadEvent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline FsScratchPadEvent(const FsScratchPadEvent& from) : FsScratchPadEvent(nullptr, from) {}
+  inline FsScratchPadEvent(FsScratchPadEvent&& from) noexcept
+      : FsScratchPadEvent(nullptr, std::move(from)) {}
+  inline FsScratchPadEvent& operator=(const FsScratchPadEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline FsScratchPadEvent& operator=(FsScratchPadEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const FsScratchPadEvent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const FsScratchPadEvent* internal_default_instance() {
+    return reinterpret_cast<const FsScratchPadEvent*>(
+        &_FsScratchPadEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 64;
+  friend void swap(FsScratchPadEvent& a, FsScratchPadEvent& b) { a.Swap(&b); }
+  inline void Swap(FsScratchPadEvent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(FsScratchPadEvent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  FsScratchPadEvent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<FsScratchPadEvent>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const FsScratchPadEvent& from);
+  void MergeFrom(const FsScratchPadEvent& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(FsScratchPadEvent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.FsScratchPadEvent"; }
+
+ protected:
+  explicit FsScratchPadEvent(::google::protobuf::Arena* arena);
+  FsScratchPadEvent(::google::protobuf::Arena* arena, const FsScratchPadEvent& from);
+  FsScratchPadEvent(::google::protobuf::Arena* arena, FsScratchPadEvent&& from) noexcept
+      : FsScratchPadEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kCallsignFieldNumber = 1,
+    kTextFieldNumber = 2,
+  };
+  // string callsign = 1;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // string text = 2;
+  void clear_text() ;
+  const std::string& text() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_text(Arg_&& arg, Args_... args);
+  std::string* mutable_text();
+  PROTOBUF_NODISCARD std::string* release_text();
+  void set_allocated_text(std::string* value);
+
+  private:
+  const std::string& _internal_text() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_text(
+      const std::string& value);
+  std::string* _internal_mutable_text();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.FsScratchPadEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      1, 2, 0,
+      64, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::internal::ArenaStringPtr text_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -12735,6 +12913,7 @@ class BackendSyncStrip final : public ::google::protobuf::MessageLite
     kHoldFieldNumber = 9,
     kHoldTypeFieldNumber = 10,
     kHoldEatFieldNumber = 11,
+    kFsScratchPadFieldNumber = 12,
     kCdmFieldNumber = 6,
     kClearedFieldNumber = 3,
   };
@@ -12882,6 +13061,22 @@ class BackendSyncStrip final : public ::google::protobuf::MessageLite
   std::string* _internal_mutable_hold_eat();
 
   public:
+  // string fs_scratch_pad = 12;
+  void clear_fs_scratch_pad() ;
+  const std::string& fs_scratch_pad() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_fs_scratch_pad(Arg_&& arg, Args_... args);
+  std::string* mutable_fs_scratch_pad();
+  PROTOBUF_NODISCARD std::string* release_fs_scratch_pad();
+  void set_allocated_fs_scratch_pad(std::string* value);
+
+  private:
+  const std::string& _internal_fs_scratch_pad() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_fs_scratch_pad(
+      const std::string& value);
+  std::string* _internal_mutable_fs_scratch_pad();
+
+  public:
   // .flightstrips.euroscope.v1.BackendSyncCdmData cdm = 6;
   bool has_cdm() const;
   void clear_cdm() ;
@@ -12912,8 +13107,8 @@ class BackendSyncStrip final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 11, 1,
-      148, 2>
+      4, 12, 1,
+      162, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -12939,6 +13134,7 @@ class BackendSyncStrip final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr hold_;
     ::google::protobuf::internal::ArenaStringPtr hold_type_;
     ::google::protobuf::internal::ArenaStringPtr hold_eat_;
+    ::google::protobuf::internal::ArenaStringPtr fs_scratch_pad_;
     ::flightstrips::euroscope::v1::BackendSyncCdmData* cdm_;
     bool cleared_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -13392,6 +13588,7 @@ class Envelope final : public ::google::protobuf::MessageLite
     kHold = 50,
     kAmanGainLoss = 51,
     kAmanRouteFact = 52,
+    kFsScratchPad = 53,
     EVENT_NOT_SET = 0,
   };
   static inline const Envelope* internal_default_instance() {
@@ -13512,6 +13709,7 @@ class Envelope final : public ::google::protobuf::MessageLite
     kHoldFieldNumber = 50,
     kAmanGainLossFieldNumber = 51,
     kAmanRouteFactFieldNumber = 52,
+    kFsScratchPadFieldNumber = 53,
   };
   // .flightstrips.euroscope.v1.TokenEvent token = 1;
   bool has_token() const;
@@ -14501,6 +14699,25 @@ class Envelope final : public ::google::protobuf::MessageLite
   ::flightstrips::euroscope::v1::AMANRouteFactEvent* _internal_mutable_aman_route_fact();
 
   public:
+  // .flightstrips.euroscope.v1.FsScratchPadEvent fs_scratch_pad = 53;
+  bool has_fs_scratch_pad() const;
+  private:
+  bool _internal_has_fs_scratch_pad() const;
+
+  public:
+  void clear_fs_scratch_pad() ;
+  const ::flightstrips::euroscope::v1::FsScratchPadEvent& fs_scratch_pad() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::FsScratchPadEvent* release_fs_scratch_pad();
+  ::flightstrips::euroscope::v1::FsScratchPadEvent* mutable_fs_scratch_pad();
+  void set_allocated_fs_scratch_pad(::flightstrips::euroscope::v1::FsScratchPadEvent* value);
+  void unsafe_arena_set_allocated_fs_scratch_pad(::flightstrips::euroscope::v1::FsScratchPadEvent* value);
+  ::flightstrips::euroscope::v1::FsScratchPadEvent* unsafe_arena_release_fs_scratch_pad();
+
+  private:
+  const ::flightstrips::euroscope::v1::FsScratchPadEvent& _internal_fs_scratch_pad() const;
+  ::flightstrips::euroscope::v1::FsScratchPadEvent* _internal_mutable_fs_scratch_pad();
+
+  public:
   void clear_event();
   EventCase event_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.Envelope)
@@ -14558,11 +14775,12 @@ class Envelope final : public ::google::protobuf::MessageLite
   void set_has_hold();
   void set_has_aman_gain_loss();
   void set_has_aman_route_fact();
+  void set_has_fs_scratch_pad();
   inline bool has_event() const;
   inline void clear_has_event();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 52, 52,
+      0, 53, 53,
       0, 9>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -14633,6 +14851,7 @@ class Envelope final : public ::google::protobuf::MessageLite
       ::flightstrips::euroscope::v1::HoldEvent* hold_;
       ::flightstrips::euroscope::v1::AMANGainLossEvent* aman_gain_loss_;
       ::flightstrips::euroscope::v1::AMANRouteFactEvent* aman_route_fact_;
+      ::flightstrips::euroscope::v1::FsScratchPadEvent* fs_scratch_pad_;
     } event_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -18659,6 +18878,83 @@ inline ::flightstrips::euroscope::v1::AMANRouteFactEvent* Envelope::_internal_mu
 inline ::flightstrips::euroscope::v1::AMANRouteFactEvent* Envelope::mutable_aman_route_fact() ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::flightstrips::euroscope::v1::AMANRouteFactEvent* _msg = _internal_mutable_aman_route_fact();
   // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.aman_route_fact)
+  return _msg;
+}
+
+// .flightstrips.euroscope.v1.FsScratchPadEvent fs_scratch_pad = 53;
+inline bool Envelope::has_fs_scratch_pad() const {
+  return event_case() == kFsScratchPad;
+}
+inline bool Envelope::_internal_has_fs_scratch_pad() const {
+  return event_case() == kFsScratchPad;
+}
+inline void Envelope::set_has_fs_scratch_pad() {
+  _impl_._oneof_case_[0] = kFsScratchPad;
+}
+inline void Envelope::clear_fs_scratch_pad() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (event_case() == kFsScratchPad) {
+    if (GetArena() == nullptr) {
+      delete _impl_.event_.fs_scratch_pad_;
+    }
+    clear_has_event();
+  }
+}
+inline ::flightstrips::euroscope::v1::FsScratchPadEvent* Envelope::release_fs_scratch_pad() {
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.fs_scratch_pad)
+  if (event_case() == kFsScratchPad) {
+    clear_has_event();
+    auto* temp = _impl_.event_.fs_scratch_pad_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.event_.fs_scratch_pad_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::euroscope::v1::FsScratchPadEvent& Envelope::_internal_fs_scratch_pad() const {
+  return event_case() == kFsScratchPad ? *_impl_.event_.fs_scratch_pad_ : reinterpret_cast<::flightstrips::euroscope::v1::FsScratchPadEvent&>(::flightstrips::euroscope::v1::_FsScratchPadEvent_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::FsScratchPadEvent& Envelope::fs_scratch_pad() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.fs_scratch_pad)
+  return _internal_fs_scratch_pad();
+}
+inline ::flightstrips::euroscope::v1::FsScratchPadEvent* Envelope::unsafe_arena_release_fs_scratch_pad() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.euroscope.v1.Envelope.fs_scratch_pad)
+  if (event_case() == kFsScratchPad) {
+    clear_has_event();
+    auto* temp = _impl_.event_.fs_scratch_pad_;
+    _impl_.event_.fs_scratch_pad_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Envelope::unsafe_arena_set_allocated_fs_scratch_pad(::flightstrips::euroscope::v1::FsScratchPadEvent* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_event();
+  if (value) {
+    set_has_fs_scratch_pad();
+    _impl_.event_.fs_scratch_pad_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.fs_scratch_pad)
+}
+inline ::flightstrips::euroscope::v1::FsScratchPadEvent* Envelope::_internal_mutable_fs_scratch_pad() {
+  if (event_case() != kFsScratchPad) {
+    clear_event();
+    set_has_fs_scratch_pad();
+    _impl_.event_.fs_scratch_pad_ =
+        ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::FsScratchPadEvent>(GetArena());
+  }
+  return _impl_.event_.fs_scratch_pad_;
+}
+inline ::flightstrips::euroscope::v1::FsScratchPadEvent* Envelope::mutable_fs_scratch_pad() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::euroscope::v1::FsScratchPadEvent* _msg = _internal_mutable_fs_scratch_pad();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.fs_scratch_pad)
   return _msg;
 }
 
@@ -24164,6 +24460,56 @@ inline void BackendSyncStrip::set_allocated_hold_eat(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.BackendSyncStrip.hold_eat)
+}
+
+// string fs_scratch_pad = 12;
+inline void BackendSyncStrip::clear_fs_scratch_pad() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.fs_scratch_pad_.ClearToEmpty();
+}
+inline const std::string& BackendSyncStrip::fs_scratch_pad() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.BackendSyncStrip.fs_scratch_pad)
+  return _internal_fs_scratch_pad();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void BackendSyncStrip::set_fs_scratch_pad(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.fs_scratch_pad_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.BackendSyncStrip.fs_scratch_pad)
+}
+inline std::string* BackendSyncStrip::mutable_fs_scratch_pad() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_fs_scratch_pad();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.BackendSyncStrip.fs_scratch_pad)
+  return _s;
+}
+inline const std::string& BackendSyncStrip::_internal_fs_scratch_pad() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.fs_scratch_pad_.Get();
+}
+inline void BackendSyncStrip::_internal_set_fs_scratch_pad(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.fs_scratch_pad_.Set(value, GetArena());
+}
+inline std::string* BackendSyncStrip::_internal_mutable_fs_scratch_pad() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.fs_scratch_pad_.Mutable( GetArena());
+}
+inline std::string* BackendSyncStrip::release_fs_scratch_pad() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.BackendSyncStrip.fs_scratch_pad)
+  return _impl_.fs_scratch_pad_.Release();
+}
+inline void BackendSyncStrip::set_allocated_fs_scratch_pad(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.fs_scratch_pad_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.fs_scratch_pad_.IsDefault()) {
+          _impl_.fs_scratch_pad_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.BackendSyncStrip.fs_scratch_pad)
 }
 
 // -------------------------------------------------------------------
@@ -30782,6 +31128,110 @@ inline void AMANRouteFactEvent::set_allocated_data(::flightstrips::euroscope::v1
 
   _impl_.data_ = reinterpret_cast<::flightstrips::euroscope::v1::AMANRouteFactData*>(value);
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.AMANRouteFactEvent.data)
+}
+
+// -------------------------------------------------------------------
+
+// FsScratchPadEvent
+
+// string callsign = 1;
+inline void FsScratchPadEvent::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& FsScratchPadEvent::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.FsScratchPadEvent.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void FsScratchPadEvent::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.FsScratchPadEvent.callsign)
+}
+inline std::string* FsScratchPadEvent::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.FsScratchPadEvent.callsign)
+  return _s;
+}
+inline const std::string& FsScratchPadEvent::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void FsScratchPadEvent::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* FsScratchPadEvent::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* FsScratchPadEvent::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.FsScratchPadEvent.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void FsScratchPadEvent::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.FsScratchPadEvent.callsign)
+}
+
+// string text = 2;
+inline void FsScratchPadEvent::clear_text() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.text_.ClearToEmpty();
+}
+inline const std::string& FsScratchPadEvent::text() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.FsScratchPadEvent.text)
+  return _internal_text();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void FsScratchPadEvent::set_text(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.text_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.FsScratchPadEvent.text)
+}
+inline std::string* FsScratchPadEvent::mutable_text() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_text();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.FsScratchPadEvent.text)
+  return _s;
+}
+inline const std::string& FsScratchPadEvent::_internal_text() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.text_.Get();
+}
+inline void FsScratchPadEvent::_internal_set_text(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.text_.Set(value, GetArena());
+}
+inline std::string* FsScratchPadEvent::_internal_mutable_text() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.text_.Mutable( GetArena());
+}
+inline std::string* FsScratchPadEvent::release_text() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.FsScratchPadEvent.text)
+  return _impl_.text_.Release();
+}
+inline void FsScratchPadEvent::set_allocated_text(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.text_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.text_.IsDefault()) {
+          _impl_.text_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.FsScratchPadEvent.text)
 }
 
 #ifdef __GNUC__

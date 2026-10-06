@@ -15,6 +15,57 @@ using FlightStrips::flightplan::ShouldReportTopSkyHoldCommand;
 using FlightStrips::flightplan::TopSkyHold;
 using FlightStrips::flightplan::TopSkyHoldCommandType;
 
+TEST(FlightPlanServiceStateTest, SessionChangeClearsSharedTextButPreservesAircraftFields) {
+    auto service = std::make_shared<FlightPlanService>(nullptr, nullptr, nullptr, nullptr, nullptr);
+    FlightStrips::handlers::ConnectionEventHandlers handlers;
+    handlers.RegisterHandler(service);
+    handlers.OnSessionChanged("EKCH/SESSION-A");
+    service->SetStand("SAS123", "A12");
+    service->ApplyFsScratchPad("SAS123", "CALL OPS");
+    service->ApplyFsScratchPad("SAS456", "SECOND NOTE");
+    auto* plan = service->GetFlightPlan("SAS123");
+    plan->squawk = "1234";
+    service->ApplyBackendSyncHold("SAS123", "MONAK", "enroute", "1215");
+
+    handlers.OnSessionChanged("EKCH/SESSION-A");
+    EXPECT_EQ(plan->fs_scratch_pad, "CALL OPS");
+    handlers.OnSessionChanged("EKCH/SESSION-B");
+    EXPECT_TRUE(plan->fs_scratch_pad.empty());
+    EXPECT_TRUE(service->GetFlightPlan("SAS456")->fs_scratch_pad.empty());
+    EXPECT_EQ(plan->stand, "A12");
+    EXPECT_EQ(plan->squawk, "1234");
+    EXPECT_EQ(plan->hold, "MONAK");
+    EXPECT_EQ(plan->hold_eat, "1215");
+
+    service->ApplyFsScratchPad("SAS123", "NEW SESSION");
+    handlers.OnSessionChanged("EKCH/SESSION-B");
+    EXPECT_EQ(plan->fs_scratch_pad, "NEW SESSION");
+    handlers.OnSessionChanged("EKYT/SESSION-B");
+    EXPECT_TRUE(plan->fs_scratch_pad.empty());
+}
+
+TEST(FlightPlanServiceStateTest, StandAndSharedScratchPadRemainIndependent) {
+    FlightPlanService service(nullptr, nullptr, nullptr, nullptr, nullptr);
+    service.SetStand("SAS123", "A12");
+    auto* plan = service.GetFlightPlan("SAS123");
+    ASSERT_NE(plan, nullptr);
+    EXPECT_EQ(plan->stand, "A12");
+    EXPECT_TRUE(plan->fs_scratch_pad.empty());
+    plan->squawk = "1234";
+
+    service.ApplyFsScratchPad("SAS123", "CALL OPS");
+    EXPECT_EQ(plan->stand, "A12");
+    EXPECT_EQ(plan->squawk, "1234");
+    service.SetStand("SAS123", "B10");
+    EXPECT_EQ(plan->stand, "B10");
+    EXPECT_EQ(plan->squawk, "1234");
+    EXPECT_EQ(plan->fs_scratch_pad, "CALL OPS");
+    service.ApplyFsScratchPad("SAS123", "");
+    EXPECT_EQ(plan->stand, "B10");
+    EXPECT_EQ(plan->squawk, "1234");
+    EXPECT_TRUE(plan->fs_scratch_pad.empty());
+}
+
 TEST(FlightPlanServiceStateTest, FiledEnrouteDurationNormalizesAndRejectsInvalidInput) {
     EXPECT_EQ(FlightPlanService::FiledEnrouteDuration("1", "5"), "0105");
     EXPECT_EQ(FlightPlanService::FiledEnrouteDuration("01", "35"), "0135");

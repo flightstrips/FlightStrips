@@ -12,6 +12,7 @@ import (
 // MockStripRepository is a configurable mock for repository.StripRepository.
 // Set function fields before each test; unset fields panic on call.
 type MockStripRepository struct {
+	UpdateFsScratchPadFn            func(context.Context, int32, string, string) (int64, error)
 	CreateFn                        func(ctx context.Context, strip *models.Strip) error
 	GetByCallsignFn                 func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
 	LockByCallsignFn                func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
@@ -568,4 +569,11 @@ func (m *MockStripRepository) ClearValidationStatus(ctx context.Context, session
 		panic("unexpected call to MockStripRepository.ClearValidationStatus")
 	}
 	return m.ClearValidationStatusFn(ctx, session, callsign)
+}
+
+func (m *MockStripRepository) UpdateFsScratchPad(ctx context.Context, session int32, callsign, text string) (int64, error) {
+	if m.UpdateFsScratchPadFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateFsScratchPad")
+	}
+	return m.UpdateFsScratchPadFn(ctx, session, callsign, text)
 }

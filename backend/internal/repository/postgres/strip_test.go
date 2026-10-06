@@ -16,6 +16,42 @@ type ownerWriteRecorder struct {
 	arguments [][]any
 }
 
+func TestSharedScratchPadPersistsAcrossStripUpdateAndClear(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	session := testdata.SeedTestSessionNamedWithSectors(t, queries, "SCRATCH-PAD", nil)
+	testdata.SeedTestStrip(t, queries, session, "SAS123")
+	repo := NewStripRepository(pool)
+	ctx := context.Background()
+
+	count, err := repo.UpdateFsScratchPad(ctx, session, "SAS123", "CALL OPS")
+	require.NoError(t, err)
+	require.EqualValues(t, 1, count)
+	strip, err := repo.GetByCallsign(ctx, session, "SAS123")
+	require.NoError(t, err)
+	require.Equal(t, "CALL OPS", strip.FsScratchPad)
+
+	// A stale ES snapshot must never replace the backend-owned text.
+	strip.FsScratchPad = ""
+	strip.Destination = "EKCH"
+	_, err = repo.Update(ctx, strip)
+	require.NoError(t, err)
+	strip, err = repo.GetByCallsign(ctx, session, "SAS123")
+	require.NoError(t, err)
+	require.Equal(t, "CALL OPS", strip.FsScratchPad)
+	count, err = repo.UpdateFsScratchPad(ctx, session, "SAS123", "CALL OPS")
+	require.NoError(t, err)
+	require.Zero(t, count)
+	count, err = repo.UpdateFsScratchPad(ctx, session+1, "SAS123", "OTHER")
+	require.NoError(t, err)
+	require.Zero(t, count, "shared text is scoped to the current session")
+	count, err = repo.UpdateFsScratchPad(ctx, session, "SAS123", "")
+	require.NoError(t, err)
+	require.EqualValues(t, 1, count)
+	strip, err = repo.GetByCallsign(ctx, session, "SAS123")
+	require.NoError(t, err)
+	require.Empty(t, strip.FsScratchPad)
+}
+
 func (r *ownerWriteRecorder) Exec(_ context.Context, _ string, args ...any) (pgconn.CommandTag, error) {
 	r.arguments = append(r.arguments, args)
 	return pgconn.CommandTag{}, nil

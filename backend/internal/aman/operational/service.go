@@ -1704,6 +1704,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			PromotionNotBefore: promotionNotBefore(flight),
 			WakeCategory:       sequence.WakeCategory(wakeCategory), STARFamily: flight.STARFamilyIdentity(),
 			SelectedSTARFamily: explicitSTARFamily(flight.SelectedSTARFamily),
+			STARProgress:       sequenceSTARProgress(flight),
 			ManualOrder:        flight.ManualOrder,
 			FreezeReason:       flight.FreezeReason, FrozenAt: flight.FrozenAt, FrozenOperationalTETA: flight.FrozenOperationalTETA,
 			CapturedSlot: flight.FrozenSlot, CurrentSlot: flight.Slot,

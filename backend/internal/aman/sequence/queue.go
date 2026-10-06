@@ -65,13 +65,16 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 	if err != nil {
 		return Result{}, nil, err
 	}
-	prepared, err := prepareFlights(input.Flights, policies)
-	if err != nil {
-		return Result{}, nil, err
-	}
 	baseline, err := generate(input, nil)
 	if err != nil || baseline.HasConflicts() {
 		return baseline, nil, err
+	}
+	// Stable exchanges are already accepted in the baseline. Carry their
+	// reservations and order into compaction and the final regeneration.
+	working := vacancyBaselineInput(input, baseline)
+	prepared, err := prepareFlights(working.Flights, policies)
+	if err != nil {
+		return Result{}, nil, err
 	}
 
 	canonical := append([]aman.QueueOffer(nil), offers...)
@@ -159,7 +162,7 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		promotions = compactStableFlights(policy, entries, promotionSlots, promotions, at)
 	}
 
-	result, err := generate(input, promotionSlots)
+	result, err := generate(working, promotionSlots)
 	if err != nil {
 		return Result{}, nil, err
 	}
@@ -167,7 +170,20 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		fallback, fallbackErr := Generate(input)
 		return fallback, nil, fallbackErr
 	}
+	// Report changes against the original committed reservations, rather than
+	// the intermediate baseline used to validate vacancy opportunities.
+	originals := make(map[aman.Callsign]Flight, len(input.Flights))
+	for _, flight := range input.Flights {
+		originals[flight.Callsign] = flight
+	}
+	result.Movements = []SlotMovement{}
+	for _, entry := range result.Entries {
+		if movement := movementFor(preparedFlight{Flight: originals[entry.Callsign]}, entry); movement != nil {
+			result.Movements = append(result.Movements, *movement)
+		}
+	}
 	for index := range promotions {
+		promotions[index].From = *originals[promotions[index].Callsign].CurrentSlot
 		for _, entry := range result.Entries {
 			if entry.Callsign != promotions[index].Callsign {
 				continue
@@ -180,6 +196,30 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		}
 	}
 	return result, promotions, nil
+}
+
+func vacancyBaselineInput(input Input, baseline Result) Input {
+	working := cloneInput(input)
+	byCallsign := make(map[aman.Callsign]CandidateEntry, len(baseline.Entries))
+	for _, entry := range baseline.Entries {
+		byCallsign[entry.Callsign] = entry
+	}
+	for index, flight := range working.Flights {
+		if flight.CurrentSlot == nil || flight.ManualOrder != nil ||
+			(flight.State != aman.StateStable && !flight.HoldingSlotProtected) {
+			continue
+		}
+		entry, exists := byCallsign[flight.Callsign]
+		if !exists {
+			continue
+		}
+		flight.CurrentSlot.Sequence = entry.Sequence
+		if entry.Reason == ReasonStable {
+			flight.CurrentSlot.Time = entry.Time
+		}
+		working.Flights[index] = flight
+	}
+	return working
 }
 
 // compactStableFlights moves Stable and holding flights monotonically earlier without

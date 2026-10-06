@@ -18,10 +18,16 @@ func continuousCPHPolicy(start time.Time) sequence.Policy {
 func TestContinuousSpacingDoesNotAccumulateRateGridRoundingAfterHeavies(t *testing.T) {
 	start := testTime()
 	policy := continuousCPHPolicy(start)
-	result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{
+	flights := []sequence.Flight{
 		flight("ONE", "A", start, "H"), flight("TWO", "A", start.Add(time.Second), "H"),
 		flight("THREE", "A", start.Add(2*time.Second), "M"), flight("FOUR", "A", start.Add(3*time.Second), "M"),
-	}})
+	}
+	// Keep the wake sequence fixed so this regression isolates rate rounding.
+	for i := range flights {
+		order := i + 1
+		flights[i].ManualOrder = &order
+	}
+	result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: flights})
 	require.NoError(t, err)
 	require.False(t, result.HasConflicts())
 	require.Equal(t, []time.Time{start, start.Add(2 * time.Minute), start.Add(4 * time.Minute), start.Add(330 * time.Second)}, entryTimes(result))
@@ -51,7 +57,8 @@ func TestContinuousSpacingRespectsGapsClosuresAndRateChanges(t *testing.T) {
 			}})
 			require.NoError(t, err)
 			require.False(t, result.HasConflicts())
-			require.Equal(t, []time.Time{start, start.Add(3 * time.Minute), start.Add(6 * time.Minute)}, entryTimes(result))
+			require.Equal(t, []aman.Callsign{"THREE", "ONE", "TWO"}, entryIDs(result))
+			require.Equal(t, []time.Time{start, start.Add(90 * time.Second), start.Add(270 * time.Second)}, entryTimes(result))
 		})
 	}
 }

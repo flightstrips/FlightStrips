@@ -388,9 +388,11 @@ func TestSequenceInputIncludesEligibleLightAircraftRegardlessOfEngine(t *testing
 func TestLightFollowerKeepsThreeMinuteSeparation(t *testing.T) {
 	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	group := aman.RunwayGroupID("ARRIVAL-22")
+	// Fix the controller order to test a light follower's directional spacing.
+	leaderOrder, followerOrder := 1, 2
 	result, err := sequence.Generate(sequence.Input{
 		Policies: []sequence.Policy{{RunwayGroupID: group, Rates: []sequence.RatePoint{{EffectiveAt: start, ArrivalsPerHour: 60}}, EarlyTolerance: 30 * time.Second, SeparationRules: amanCPHSeparations(), UnknownSeparation: 3 * time.Minute}},
-		Flights:  []sequence.Flight{{Callsign: "LEADER", RunwayGroupID: group, State: aman.StateUnstable, OperationalTETA: start, WakeCategory: "M", FreezeReason: aman.FreezeNone}, {Callsign: "LIGHT", RunwayGroupID: group, State: aman.StateUnstable, OperationalTETA: start, WakeCategory: "L", FreezeReason: aman.FreezeNone}},
+		Flights:  []sequence.Flight{{Callsign: "LEADER", RunwayGroupID: group, State: aman.StateUnstable, OperationalTETA: start, WakeCategory: "M", FreezeReason: aman.FreezeNone, ManualOrder: &leaderOrder}, {Callsign: "LIGHT", RunwayGroupID: group, State: aman.StateUnstable, OperationalTETA: start, WakeCategory: "L", FreezeReason: aman.FreezeNone, ManualOrder: &followerOrder}},
 	})
 	require.NoError(t, err)
 	require.Len(t, result.Entries, 2)

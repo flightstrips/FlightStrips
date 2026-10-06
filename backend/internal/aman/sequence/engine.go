@@ -98,6 +98,7 @@ type Flight struct {
 	// STARFamily, which may contain a legacy compatibility identity for
 	// same-STAR spacing during migration.
 	SelectedSTARFamily    string
+	STARProgress          *STARProgress
 	ManualOrder           *int
 	FreezeReason          aman.FreezeReason
 	FrozenAt              *time.Time
@@ -125,6 +126,17 @@ type Flight struct {
 	// ProtectCurrentSlot is an operational policy constraint used for stable
 	// flights. It does not create a persisted freeze.
 	ProtectCurrentSlot bool
+}
+
+// STARProgress carries physical order evidence at a common terminal fix.
+// It is independent of the committed slot and operational landing estimate.
+type STARProgress struct {
+	Fix            string
+	ETA            *time.Time
+	Passed         bool
+	DistanceToGoNM float64
+	RemainingFixes []string
+	TerminalDigest string
 }
 
 // Input is a complete, point-in-time pure sequence calculation.
@@ -627,6 +639,22 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 		entries = append(entries, allocatedEntry{flight: flight, time: slot.Time, reason: reason})
 	}
 	sortEntries(entries)
+
+	ordered := orderMovableFlights(movable)
+	allocated, err := allocateMovableFlights(policy, entries, ordered)
+	if err != nil {
+		return nil, nil, err
+	}
+	allocated = optimizeMovableOrder(policy, entries, ordered, allocated)
+	allocated = optimizeStableSameSTAR(policy, allocated)
+	// Validate protected spacing against the final slot order: a Stable
+	// exchange can resolve a conflict present in the captured reservations.
+	entries = nil
+	for _, entry := range allocated {
+		if entry.reason != ReasonRateWTC {
+			entries = append(entries, entry)
+		}
+	}
 	for index := 1; index < len(entries); index++ {
 		leading, trailing := entries[index-1], entries[index]
 		if !adjacentValid(policy, leading, trailing) {
@@ -641,15 +669,20 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 		}
 	}
 
-	for _, flight := range orderMovableFlights(movable) {
+	return allocated, warnings, nil
+}
+
+func allocateMovableFlights(policy preparedPolicy, protected []allocatedEntry, ordered []preparedFlight) ([]allocatedEntry, error) {
+	entries := slices.Clone(protected)
+	for _, flight := range ordered {
 		candidate, err := findCandidate(policy, entries, flight)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		entries = append(entries, allocatedEntry{flight: flight, time: candidate, reason: ReasonRateWTC})
 		sortEntries(entries)
 	}
-	return entries, warnings, nil
+	return entries, nil
 }
 
 // Allocate earlier holding traffic before later entrants on the same runway,

@@ -588,7 +588,15 @@ func (c *ActionService) ReadPushbackCtot(ctx context.Context, session int32, cal
 	if row == nil || !strings.EqualFold(row.Callsign, callsign) {
 		return "", errors.New("vIFF did not confirm the flight for pushback")
 	}
-	ctot, _ := effectiveIfpsCtotAndSource(*row)
+	if truncateCDMClockValue(row.CTOT) != "" || truncateCDMClockValue(row.CDMData.CTOT) == "" {
+		ctot, _ := effectiveIfpsCtotAndSource(*row, nil)
+		return ctot, nil
+	}
+	local, err := s.stripRepo.GetCdmDataForCallsign(readCtx, session, callsign)
+	if err != nil {
+		return "", err
+	}
+	ctot, _ := effectiveIfpsCtotAndSource(*row, local)
 	return ctot, nil
 }
 

@@ -314,7 +314,7 @@ func TestClearanceTobtThresholdAndConfirmation(t *testing.T) {
 	assert.False(t, changed)
 }
 
-func TestViffExportUsesProposalAndDoesNotEchoCtot(t *testing.T) {
+func TestViffExportUsesProposalAndReceivedCtotReason(t *testing.T) {
 	tobt, proposalTsat, proposalTtot := "1200", "120500", "121500"
 	effectiveTsat, effectiveTtot, ctot := "123000", "124000", "1240"
 	source := models.CtotSourceATFCM
@@ -328,8 +328,8 @@ func TestViffExportUsesProposalAndDoesNotEchoCtot(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, proposalTsat, state.Params.Tsat)
 	assert.Equal(t, proposalTtot, state.Params.Ttot)
-	assert.Empty(t, state.Params.Ctot)
-	assert.Empty(t, state.Params.Reason)
+	assert.Equal(t, ctot, state.Params.Ctot)
+	assert.Equal(t, reason, state.Params.Reason)
 	assert.False(t, masterFlightNeedsExport(data, IFPSData{
 		TOBT: "1200", CTOT: ctot,
 		CDMData: CDMData{TSAT: "1205", TTOT: "1215", Reason: reason},
@@ -357,4 +357,26 @@ func TestViffExportIncludesManualCtotReason(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, ctot, state.Params.Ctot)
 	assert.Equal(t, reason, state.Params.Reason)
+}
+
+func TestViffExportLeavesUnassignedCtotAndReasonEmpty(t *testing.T) {
+	tobt, tsat, ttot := "1200", "120500", "121500"
+	data := &models.CdmData{Tobt: &tobt, ViffProposalTsat: &tsat, ViffProposalTtot: &ttot}
+	state, ok := buildViffPushState("SAS779", nil, data)
+	require.True(t, ok)
+	assert.Empty(t, state.Params.Ctot)
+	assert.Empty(t, state.Params.Reason)
+	assert.False(t, masterFlightNeedsExport(data, IFPSData{
+		TOBT: tobt, CDMData: CDMData{TSAT: tsat, TTOT: ttot},
+	}))
+
+	reason := "LOCAL_REG"
+	data.EcfmpID = &reason
+	state, ok = buildViffPushState("SAS779", nil, data)
+	require.True(t, ok)
+	assert.Empty(t, state.Params.Ctot)
+	assert.Equal(t, reason, state.Params.Reason)
+	assert.True(t, masterFlightNeedsExport(data, IFPSData{
+		TOBT: tobt, CDMData: CDMData{TSAT: tsat, TTOT: ttot, Reason: "VIFF_REG"},
+	}))
 }

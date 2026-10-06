@@ -59,18 +59,20 @@ type EcfmpRestriction struct {
 }
 
 type CdmData struct {
-	Tobt                   *string            `json:"tobt,omitempty"`
-	TobtSetBy              *string            `json:"tobtSetBy,omitempty"`
-	TobtConfirmedBy        *string            `json:"tobtConfirmedBy,omitempty"`
-	TobtAutoSynced         bool               `json:"tobtAutoSynced,omitempty"`
-	TobtAutoAdjusted       bool               `json:"tobtAutoAdjusted,omitempty"`
-	TobtManuallyConfirmed  bool               `json:"tobtManuallyConfirmed,omitempty"`
-	Tsat                   *string            `json:"tsat,omitempty"`
-	ViffProposalTsat       *string            `json:"viffProposalTsat,omitempty"`
-	ViffProposalTtot       *string            `json:"viffProposalTtot,omitempty"`
-	Ttot                   *string            `json:"ttot,omitempty"`
-	Ctot                   *string            `json:"ctot,omitempty"`
-	CtotSource             *string            `json:"ctotSource,omitempty"`
+	Tobt                  *string `json:"tobt,omitempty"`
+	TobtSetBy             *string `json:"tobtSetBy,omitempty"`
+	TobtConfirmedBy       *string `json:"tobtConfirmedBy,omitempty"`
+	TobtAutoSynced        bool    `json:"tobtAutoSynced,omitempty"`
+	TobtAutoAdjusted      bool    `json:"tobtAutoAdjusted,omitempty"`
+	TobtManuallyConfirmed bool    `json:"tobtManuallyConfirmed,omitempty"`
+	Tsat                  *string `json:"tsat,omitempty"`
+	ViffProposalTsat      *string `json:"viffProposalTsat,omitempty"`
+	ViffProposalTtot      *string `json:"viffProposalTtot,omitempty"`
+	Ttot                  *string `json:"ttot,omitempty"`
+	Ctot                  *string `json:"ctot,omitempty"`
+	CtotSource            *string `json:"ctotSource,omitempty"`
+	// Retain network provenance after cancellation so a CDM echo cannot restore the slot.
+	LastViffAtfcmCtot      string             `json:"lastViffAtfcmCtot,omitempty"`
 	Aobt                   *string            `json:"aobt,omitempty"`
 	Atot                   *string            `json:"atot,omitempty"`
 	AtotViffPending        bool               `json:"atotViffPending,omitempty"`

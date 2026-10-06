@@ -51,8 +51,10 @@ type Hub struct {
 	controllerService     shared.ControllerService
 	pdcService            shared.PdcService
 	authenticationService shared.AuthenticationService
-	clientsMu             sync.RWMutex
-	clients               map[*Client]bool
+	// Serialize shared edits and their broadcasts so every client sees the database order.
+	scratchPadMu sync.Mutex
+	clientsMu    sync.RWMutex
+	clients      map[*Client]bool
 
 	// airportClientsMu guards airportClientCount for concurrent reads from other goroutines.
 	airportClientsMu   sync.RWMutex
@@ -182,6 +184,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(euroscope.ClearedFlag, handleClearedFlag)
 	handlers.Add(euroscope.Stand, handleStand)
 	handlers.Add(euroscope.Hold, handleHold)
+	handlers.Add(euroscope.FsScratchPad, handleFsScratchPad)
 	handlers.Add(euroscope.RequestedAltitude, handleRequestedAltitude)
 	handlers.Add(euroscope.ClearedAltitude, handleClearedAltitude)
 	handlers.Add(euroscope.PositionUpdate, handlePositionUpdate)
@@ -396,6 +399,8 @@ func (hub *Hub) sendInitialAMANHoldingEAT(client *Client) {
 // and sends a BackendSyncEvent to the client so it can apply the backend-authoritative
 // state to EuroScope before assuming master or slave duties.
 func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
+	hub.scratchPadMu.Lock()
+	defer hub.scratchPadMu.Unlock()
 	stripRepo := hub.server.GetStripRepository()
 	strips, err := stripRepo.List(context.Background(), client.session)
 	if err != nil {
@@ -406,14 +411,18 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 	syncStrips := make([]*euroscope.BackendSyncStrip, 0, len(strips))
 	for _, strip := range strips {
 		if !shouldIncludeInBackendSync(strip) {
+			if strip != nil {
+				client.Enqueue(euroscope.FsScratchPadEvent{Callsign: strip.Callsign, Text: strip.FsScratchPad})
+			}
 			continue
 		}
 		entry := euroscope.BackendSyncStrip{
-			Callsign: strip.Callsign,
-			Cleared:  strip.Cleared,
-			Hold:     strip.Hold,
-			HoldType: strip.HoldType,
-			HoldEat:  strip.HoldEat,
+			Callsign:     strip.Callsign,
+			Cleared:      strip.Cleared,
+			Hold:         strip.Hold,
+			HoldType:     strip.HoldType,
+			HoldEat:      strip.HoldEat,
+			FsScratchPad: strip.FsScratchPad,
 		}
 		if strip.AssignedSquawk != nil {
 			entry.AssignedSquawk = *strip.AssignedSquawk

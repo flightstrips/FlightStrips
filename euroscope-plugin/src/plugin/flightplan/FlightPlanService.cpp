@@ -32,6 +32,7 @@ namespace FlightStrips::flightplan {
     }
 
     bool ApplyTopSkyHoldCommand(FlightPlan& plan, const TopSkyHoldCommand& command) {
+        if (command.type != TopSkyHoldCommandType::None) plan.published_hold_eat.reset();
         switch (command.type) {
             case TopSkyHoldCommandType::Assign: {
                 plan.hold_command_observed = true;
@@ -148,8 +149,8 @@ namespace FlightStrips::flightplan {
         }
 
         FlightPlan plan = {
-            std::string(position.GetSquawk()),
-            stand
+            .squawk = std::string(position.GetSquawk()),
+            .stand = stand
         };
 
         if (isRangeOnly) {
@@ -484,7 +485,7 @@ namespace FlightStrips::flightplan {
     }
 
     void FlightPlanService::SetStand(const std::string &callsign, const std::string &stand) {
-        FlightPlan plan{{}, stand};
+        FlightPlan plan{.stand = stand};
         if (const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan}); !inserted) {
             if (pair->second.stand != plan.stand) {
                 pair->second.stand = plan.stand;
@@ -533,6 +534,16 @@ namespace FlightStrips::flightplan {
         ApplyCdmUpdate(event);
     }
 
+    void FlightPlanService::ApplyFsScratchPad(const std::string& callsign, const std::string& text) {
+        m_flightPlans.try_emplace(callsign).first->second.fs_scratch_pad = text;
+    }
+
+    void FlightPlanService::SessionChanged(const std::string& identity) {
+        if (m_sessionIdentity == identity) return;
+        for (auto& [callsign, plan] : m_flightPlans) plan.fs_scratch_pad.clear();
+        m_sessionIdentity = identity;
+    }
+
     void FlightPlanService::ApplyBackendSyncHold(const std::string& callsign, const std::string& hold,
                                                  const std::string& holdType, const std::string& holdEat) {
         auto& plan = m_flightPlans.try_emplace(callsign).first->second;
@@ -547,6 +558,7 @@ namespace FlightStrips::flightplan {
     void FlightPlanService::CacheBackendHoldEatReplay(const std::string& callsign, const std::string& hold,
                                                       const std::string& holdType, const std::string& holdEat) {
         auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+        plan.published_hold_eat = hold.empty() ? std::string{} : holdEat;
         if (hold.empty() || holdType.empty() || holdEat.empty()) {
             plan.backend_hold_eat_replay.reset();
             return;

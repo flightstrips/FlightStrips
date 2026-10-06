@@ -31,6 +31,19 @@ The release workflow publishes those two files together. The INI file contains t
 
 ## Connect for a session
 
+### Tag and list fields
+
+Select the Flight Strips plugin as the provider in EuroScope's tag editor or flight-list column setup. The same item works in both places:
+
+| Item | Value | Edit function |
+| --- | --- | --- |
+| EAT | Holding release time (estimated approach time), in UTC HHMM | Managed by the holding/AMAN workflow |
+| FS scratch pad | Shared controller text, up to 15 bytes (the EuroScope item limit) | Edit FS scratch pad |
+
+Any connected operational controller can edit the FS scratch pad, including controllers who do not track the aircraft. Submit an empty value to clear it. Flight Strips saves edits in its database and pushes the saved value to the other controllers in the session. Reconnecting restores the saved text. This field is separate from EuroScope's native scratch pad.
+
+### Sign in
+
 <Steps>
 
 1. **Connect EuroScope normally.** Use the callsign and primary frequency for the position you are working. The plugin derives the relevant airport and position from the EuroScope connection.

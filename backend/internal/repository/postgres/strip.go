@@ -114,6 +114,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		ID:                       db.ID,
 		Version:                  db.Version,
 		Callsign:                 db.Callsign,
+		FsScratchPad:             db.FsScratchPad,
 		Session:                  db.Session,
 		Origin:                   db.Origin,
 		Destination:              db.Destination,
@@ -1322,4 +1323,8 @@ func (r *stripRepository) UpdateRunwayClearanceAtEndOfBay(ctx context.Context, s
 		}
 	}
 	return n, tx.Commit(ctx)
+}
+
+func (r *stripRepository) UpdateFsScratchPad(ctx context.Context, session int32, callsign, text string) (int64, error) {
+	return r.queries.UpdateStripFsScratchPad(ctx, database.UpdateStripFsScratchPadParams{Session: session, Callsign: callsign, Text: text})
 }

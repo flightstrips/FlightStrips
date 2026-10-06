@@ -501,6 +501,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Hold:                     hold,
 			HoldType:                 holdType,
 			HoldEat:                  holdEat,
+			FsScratchPad:             existingStrip.FsScratchPad,
 			Alternative:              &strip.Alternate,
 			Route:                    &strip.Route,
 			Remarks:                  &strip.Remarks,

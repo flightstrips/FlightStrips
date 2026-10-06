@@ -65,6 +65,7 @@ set(ALL_FILES
 
         # Tag Items
         tag_items/CdmStateHandlerTest.cpp
+        tag_items/SharedFieldHandlerTest.cpp
         tag_items/DeIceHandlerTest.cpp
         tag_items/ClearanceStatusHandlerTest.cpp
 		tag_items/AMANGainLossHandlerTest.cpp

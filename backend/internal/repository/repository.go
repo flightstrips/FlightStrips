@@ -36,6 +36,7 @@ type StripRepository interface {
 	GetPrevSequence(ctx context.Context, session int32, bay string, sequence int32, excludeCallsign string) (int32, error)
 
 	// Field updates
+	UpdateFsScratchPad(ctx context.Context, session int32, callsign, text string) (int64, error)
 	UpdateSquawk(ctx context.Context, session int32, callsign string, squawk *string, version *int32) (int64, error)
 	UpdateAssignedSquawk(ctx context.Context, session int32, callsign string, assignedSquawk *string, version *int32) (int64, error)
 	UpdateClearedAltitude(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error)

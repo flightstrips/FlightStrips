@@ -8,6 +8,7 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
+	outgoing "FlightStrips/pkg/events"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 
 	"github.com/stretchr/testify/assert"
@@ -81,12 +82,19 @@ func TestSendBackendSyncIfNeeded_ExcludesVatsimOnlyPlanningStrips(t *testing.T) 
 
 	hub := &Hub{server: &testutil.MockServer{StripRepoVal: stripRepo}}
 	client := startQueuedTestClient(&Client{
+		send:    make(chan outgoing.OutgoingMessage, 4),
 		session: session,
 		user:    shared.NewAuthenticatedUser("1234567", 0, nil),
 	})
 
 	hub.sendBackendSyncIfNeeded(client)
 
+	for _, callsign := range []string{"PREFILE1", "INBOUND1", "UNSYNCED1"} {
+		textEvent, ok := (<-client.send).(euroscopeEvents.FsScratchPadEvent)
+		require.True(t, ok)
+		require.Equal(t, callsign, textEvent.Callsign)
+		require.Empty(t, textEvent.Text)
+	}
 	message := <-client.send
 	syncEvent, ok := message.(euroscopeEvents.BackendSyncEvent)
 	require.True(t, ok)

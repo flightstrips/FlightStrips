@@ -106,6 +106,7 @@ namespace FlightStrips::messages {
             HANDLE_PROTO(kPdcStateChange, pdc_state_change, PdcStateChangeEvent, HandlePdcStateChangeEvent, EVENT_PDC_STATE_CHANGE_NAME)
             HANDLE_PROTO(kSendPrivateMessage, send_private_message, SendPrivateMessageEvent, HandleSendPrivateMessageEvent, EVENT_SEND_PRIVATE_MESSAGE_NAME)
             HANDLE_PROTO(kHold, hold, HoldEvent, HandleHoldEvent, EVENT_HOLD_NAME)
+            HANDLE_PROTO(kFsScratchPad, fs_scratch_pad, FsScratchPadEvent, HandleFsScratchPad, EVENT_FS_SCRATCH_PAD_NAME)
             HANDLE_PROTO(kTrackingControllerChanged, tracking_controller_changed, TrackingControllerChangedEvent, HandleTrackingControllerChangedEvent, EVENT_TRACKING_CONTROLLER_CHANGED_NAME)
             case websocket::protobuf::wire::Envelope::kAmanGainLoss:
                 // Consumed by AMANGainLossStore, which is registered separately.
@@ -548,6 +549,9 @@ namespace FlightStrips::messages {
 
     void MessageService::HandleBackendSyncEvent(const BackendSyncEvent &event) const {
         m_plugin->SetAirportCoordinates(event.latitude, event.longitude);
+        for (const auto& strip : event.strips) {
+            m_flightPlanService->ApplyFsScratchPad(strip.callsign, strip.fs_scratch_pad);
+        }
 
 
         const auto relevantAirport = m_plugin->GetConnectionState().relevant_airport;
@@ -650,6 +654,17 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
         // after validating the live hold.
         Logger::Debug("Writing TopSky EAT for {}: {}", event.callsign, command);
         m_plugin->UpdateViaScratchPad(event.callsign.c_str(), command.c_str());
+    }
+
+    void MessageService::HandleFsScratchPad(const FsScratchPadEvent& event) const {
+        m_flightPlanService->ApplyFsScratchPad(event.callsign, event.text);
+    }
+
+    bool MessageService::SendFsScratchPad(const std::string& callsign, const std::string& text) const {
+        if (!m_webSocketService->IsConnected() || m_plugin->GetConnectionState().observer || text.size() > 15 ||
+            text.find_first_of("\r\n") != std::string::npos) return false;
+        m_webSocketService->SendEvent(FsScratchPadEvent(callsign, text));
+        return true;
     }
 
     bool MessageService::SendCdmTobtUpdate(const std::string& callsign, const std::string& tobt) const {

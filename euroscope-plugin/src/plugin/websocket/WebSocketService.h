@@ -152,3 +152,5 @@ template void FlightStrips::websocket::WebSocketService::SendEvent<StripUpdateEv
 template void FlightStrips::websocket::WebSocketService::SendEvent<SyncEvent>(const SyncEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<CoordinationReceivedEvent>(const CoordinationReceivedEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<AMANRouteFactEvent>(const AMANRouteFactEvent & event);
+
+template void FlightStrips::websocket::WebSocketService::SendEvent<FsScratchPadEvent>(const FsScratchPadEvent & event);

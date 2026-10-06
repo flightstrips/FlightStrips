@@ -54,6 +54,7 @@
 #define EVENT_ISSUE_PDC_CLEARANCE_NAME "issue_pdc_clearance"
 #define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
 #define EVENT_SEND_PRIVATE_MESSAGE_NAME "send_private_message"
+#define EVENT_FS_SCRATCH_PAD_NAME "fs_scratch_pad"
 #define EVENT_HOLD_NAME "hold"
 #define EVENT_AMAN_GAIN_LOSS_NAME "aman_gain_loss"
 #define EVENT_AMAN_ROUTE_FACT_NAME "aman.route_fact"
@@ -113,6 +114,7 @@ enum EventType {
     EVENT_HOLD,
     EVENT_AMAN_GAIN_LOSS,
     EVENT_AMAN_ROUTE_FACT,
+    EVENT_FS_SCRATCH_PAD,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -169,6 +171,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                              {EVENT_HOLD, EVENT_HOLD_NAME},
                              {EVENT_AMAN_GAIN_LOSS, EVENT_AMAN_GAIN_LOSS_NAME},
                              {EVENT_AMAN_ROUTE_FACT, EVENT_AMAN_ROUTE_FACT_NAME},
+                             {EVENT_FS_SCRATCH_PAD, EVENT_FS_SCRATCH_PAD_NAME},
                                  })
 
 struct Event {
@@ -670,6 +673,15 @@ struct StandEvent final : Event {
  * A holding clearance issued through TopSky, read off the EuroScope scratch
  * pad. An empty hold means the clearance was cancelled or never existed.
  */
+struct FsScratchPadEvent final : Event {
+    std::string callsign;
+    std::string text;
+    FsScratchPadEvent() : Event(EVENT_FS_SCRATCH_PAD) {}
+    FsScratchPadEvent(std::string callsign, std::string text)
+        : Event(EVENT_FS_SCRATCH_PAD), callsign(std::move(callsign)), text(std::move(text)) {}
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(FsScratchPadEvent, callsign, text, type);
+};
+
 struct HoldEvent final : Event {
     std::string callsign;
     std::string hold;
@@ -1059,9 +1071,10 @@ struct BackendSyncStrip final {
     std::string hold_type{};
     std::string hold_eat{};
 
+    std::string fs_scratch_pad{};
     BackendSyncStrip() = default;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand, cdm, pdc_state, pdc_request_remarks, hold, hold_type, hold_eat);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand, cdm, pdc_state, pdc_request_remarks, hold, hold_type, hold_eat, fs_scratch_pad);
 };
 
 struct BackendSyncEvent final : Event {

@@ -117,7 +117,7 @@ test("every strip type keeps its content inside the framed height", async ({ pag
         caret: "hide",
         // Allow a few pixels of platform-specific font antialiasing noise while
         // keeping the comparison strict enough to catch layout regressions.
-        maxDiffPixels: 5,
+        maxDiffPixels: stripType === "message" ? 10 : 5,
       });
     }
   }

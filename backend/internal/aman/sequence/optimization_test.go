@@ -25,14 +25,24 @@ func TestAutomaticOrderReducesSameSTARDelay(t *testing.T) {
 		flights[i].HoldingQueueID = flights[i].STARFamily
 		flights[i].ArrivalQueueTime = &flights[i].OperationalTETA
 	}
+	// Three delayed arrivals contribute to the same predicted bank without
+	// joining the local ordering comparison.
+	for i := range flights {
+		flights[i].DemandArrivalAt = &start
+	}
+	for _, id := range []aman.Callsign{"LATE1", "LATE2", "LATE3"} {
+		f := flight(string(id), "A", start.Add(time.Hour), "M")
+		f.DemandArrivalAt = &start
+		flights = append(flights, f)
+	}
 	input := sequence.Input{Policies: []sequence.Policy{policy}, Flights: flights}
 	result, err := sequence.Generate(input)
 	require.NoError(t, err)
 	require.False(t, result.HasConflicts())
-	require.Equal(t, []aman.Callsign{"KLM25J", "SAS367", "AFR89SR"}, entryIDs(result))
-	require.Equal(t, []time.Time{start, start.Add(2 * time.Minute), start.Add(4 * time.Minute)}, entryTimes(result))
+	require.Equal(t, []aman.Callsign{"KLM25J", "SAS367", "AFR89SR"}, entryIDs(result)[:3])
+	require.Equal(t, []time.Time{start, start.Add(2 * time.Minute), start.Add(4 * time.Minute)}, entryTimes(result)[:3])
 	// The original order landed at 0, 4 and 6 minutes (seven minutes of delay).
-	require.Equal(t, 3*time.Minute, totalDelay(result))
+	require.Equal(t, 3*time.Minute, totalDelay(sequence.Result{Entries: result.Entries[:3]}))
 	slices.Reverse(input.Flights)
 	replayed, err := sequence.Generate(input)
 	require.NoError(t, err)

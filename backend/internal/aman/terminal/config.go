@@ -118,8 +118,8 @@ type RunwayGroup struct {
 	SameSTARSpacing *SameSTARSpacing          `json:"sameStarSpacing,omitempty"`
 }
 
-// SameSTARSpacing prevents consecutive high-rate slot opportunities from
-// being occupied by arrivals using the same terminal entry family. The
+// SameSTARSpacing adds spacing within a terminal entry family when predicted
+// demand reaches ActivationRatePerHour or that family has active holding. The
 // canonical feeder is the family identity (for example MONAK or TUDLO).
 type SameSTARSpacing struct {
 	Enabled               bool   `json:"enabled"`

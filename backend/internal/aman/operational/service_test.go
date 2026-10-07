@@ -59,7 +59,7 @@ func TestSequenceInputCarriesConfiguredSTARFamilySpacingAndWTC(t *testing.T) {
 	result, err := sequence.Generate(input)
 	require.NoError(t, err)
 	require.Len(t, result.Entries, 2)
-	require.Equal(t, 6*time.Minute, result.Entries[1].Time.Sub(result.Entries[0].Time))
+	require.Equal(t, 3*time.Minute, result.Entries[1].Time.Sub(result.Entries[0].Time))
 }
 
 func TestSequenceInputExcludesDesequencedFlightsAcrossProtectedLifecycleState(t *testing.T) {
@@ -244,6 +244,7 @@ func TestResequencePersistsAndResolvesProtectedSameSTARWarnings(t *testing.T) {
 		protectedOperationalFlight("LEAD", group, "MONAK", "M", start, 1, aman.FreezeManual),
 		protectedOperationalFlight("TRAIL", group, "MONAK", "M", start.Add(3*time.Minute), 2, aman.FreezeSuperstable),
 	}
+	confirmSpacingHolding(&state.Flights[0], start)
 	want := []aman.RunwayGroupSequenceWarning{{
 		Code: string(sequence.WarningProtectedSameSTAR), Callsign: "TRAIL", RelatedCallsign: "LEAD", STARFamily: "MONAK",
 	}}
@@ -255,10 +256,10 @@ func TestResequencePersistsAndResolvesProtectedSameSTARWarnings(t *testing.T) {
 	service.resequence(&state, start.Add(time.Minute))
 	require.Equal(t, want, state.RunwayGroups[0].SequenceWarnings, "reconciliation replaces rather than duplicates warnings")
 
-	state.RunwayGroups[0].ActiveRatePerHour = 19
+	state.Flights[0].HoldingClearanceCanceledAt = &start
 	service.resequence(&state, start.Add(2*time.Minute))
-	require.Empty(t, state.RunwayGroups[0].SequenceWarnings, "falling below the activation rate resolves the warning")
-	state.RunwayGroups[0].ActiveRatePerHour = 20
+	require.Empty(t, state.RunwayGroups[0].SequenceWarnings, "clearing active holding resolves the warning in light traffic")
+	state.Flights[0].HoldingClearanceCanceledAt = nil
 	state.Flights[1].SelectedFeeder = stringPointer("TUDLO")
 	service.resequence(&state, start.Add(3*time.Minute))
 	require.Empty(t, state.RunwayGroups[0].SequenceWarnings, "different STAR families do not conflict")
@@ -2007,6 +2008,7 @@ func TestRateChangeRejectsProtectedSameSTARConflict(t *testing.T) {
 	wake, feeder := "M", "MONAK"
 	lead := protectedOperationalFlight("LEAD", "ARRIVAL-22", feeder, wake, now, 1, aman.FreezeManual)
 	trail := protectedOperationalFlight("TRAIL", "ARRIVAL-22", feeder, wake, now.Add(3*time.Minute), 2, aman.FreezeSuperstable)
+	confirmSpacingHolding(&lead, now)
 	state.Flights = []aman.AMANFlight{lead, trail}
 
 	mutation, err := service.SetRate(aman.CommandContext{ReceivedAt: now}, aman.SetRateCommand{
@@ -2972,4 +2974,12 @@ func requireDomainClass(t *testing.T, err error, class aman.ErrorClass) {
 	var domain *aman.DomainError
 	require.ErrorAs(t, err, &domain)
 	require.Equal(t, class, domain.Class)
+}
+
+func confirmSpacingHolding(flight *aman.AMANFlight, at time.Time) {
+	id := "MONAK"
+	flight.SelectedHolding = &id
+	flight.HoldingStack = &aman.HoldingStackState{HoldingID: id, Confirmed: true, FirstObservedAt: at}
+	flight.Prediction.HoldingFixETA = &at
+	flight.Prediction.GeneratedAt = at
 }

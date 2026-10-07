@@ -744,3 +744,36 @@ func cloneQueueSlot(slot *aman.Slot) *aman.Slot {
 	copy := *slot
 	return &copy
 }
+
+func TestQueueOffersAndVacanciesUseFamilyHoldingActivation(t *testing.T) {
+	start := testTime()
+	for _, active := range []bool{false, true} {
+		input := sequence.Input{Revision: 7, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, STARFamilyPolicies: []sequence.STARFamilyPolicy{{STARFamily: "MONAK", SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}}}, Flights: []sequence.Flight{
+			queueFlight("LEAD", "A", start, "M", 1, start),
+			queueFlight("OCCUPIED", "A", start.Add(time.Minute), "M", 2, start.Add(time.Minute)),
+			queueFlight("TARGET", "A", start.Add(time.Minute), "M", 3, start.Add(4*time.Minute)),
+		}}
+		input.Flights[0].STARFamily = "MONAK"
+		input.Flights[2].STARFamily = "MONAK"
+		if active {
+			input.Flights[0].ActiveHoldingSince = &start
+		}
+		offers, err := sequence.CalculateQueueOffers(input, sequence.QueueOfferConfig{Validity: time.Minute}, start.Add(-time.Minute))
+		require.NoError(t, err)
+		found := false
+		for _, offer := range offers {
+			if offer.Callsign == "TARGET" && offer.CandidateSlot.Sequence == 2 {
+				found = true
+			}
+		}
+		require.Equal(t, !active, found, "occupied slot offer must use the family holding trigger")
+		input.Flights = []sequence.Flight{input.Flights[0], input.Flights[2]}
+		result, _, err := sequence.GenerateWithVacancyPromotions(input, nil, start.Add(-time.Minute))
+		require.NoError(t, err)
+		want := start.Add(time.Minute)
+		if active {
+			want = start.Add(2 * time.Minute)
+		}
+		require.Equal(t, want, entryFor(t, result, "TARGET").Time, "vacancy compaction must use the same activation")
+	}
+}

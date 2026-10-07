@@ -1,13 +1,14 @@
 import {useAuth0} from "@auth0/auth0-react";
 import {useEffect, useMemo, useRef, useState} from "react";
 import {divIcon, type LatLngTuple} from "leaflet";
-import {CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap} from "react-leaflet";
+import {CircleMarker, MapContainer, Marker, Polyline, useMap} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 import type {AMANCoordinationRequest, AMANGoAroundConfirmation, AMANMutationBlockReason} from "@/api/aman";
 import {fetchAMANFlightDetail, type AMANCalculation, type AMANCalculationLeg, type AMANCalculationSegment, type AMANFlightDetail} from "@/api/aman-detail";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {AMANCoordinationRequestDialog} from "./AMANCoordinationRequestDialog";
+import {AMANBasemap} from "./AMANBasemap";
 import {mapLongitude, mapRouteLegs, type MapRouteLeg} from "./aman-route-map";
 import {freezePresentation} from "./freeze-presentation";
 import divider130 from "@/assets/aman/divider-130.svg";
@@ -218,7 +219,7 @@ function RouteMap({detail}: {detail: AMANFlightDetail}) {
   return (
     <div className="relative min-h-[360px] overflow-hidden border border-slate-600 bg-slate-950" data-testid="aman-route-map">
       <MapContainer aria-label="OpenStreetMap aircraft route" center={initialCenter} className="h-full min-h-[360px] w-full" scrollWheelZoom worldCopyJump zoom={8}>
-        <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' keepBuffer={4} url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+        <AMANBasemap />
         <FitRoute coordinates={allCoordinates} />
         {filedMapLegs.map((leg) => <Polyline key={`filed-${leg.id}`} pathOptions={{color: "#94a3b8", dashArray: "7 9", weight: 2.5, opacity: 0.8}} positions={[leg.start, leg.end]} />)}
         {routeMapLegs.map((leg, index) => <Polyline key={leg.id} pathOptions={{color: index === 0 ? "#f3d02e" : "#0891b2", weight: 4, opacity: 0.9}} positions={[leg.start, leg.end]} />)}

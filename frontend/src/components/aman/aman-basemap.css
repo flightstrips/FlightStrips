@@ -1,0 +1,4 @@
+/* Apply the dark palette only to tiles, preserving overlay and control colors. */
+.aman-basemap {
+  filter: grayscale(1) invert(1) brightness(0.7) contrast(0.9);
+}

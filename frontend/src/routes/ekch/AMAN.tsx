@@ -2,6 +2,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from "react";
 
 import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
+import {AMANExcludedFlights} from "@/components/aman/AMANExcludedFlights";
 import {AMANCoordinationInbox} from "@/components/aman/AMANCoordinationInbox";
 import {AMANCoordinationRequestDialog} from "@/components/aman/AMANCoordinationRequestDialog";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
@@ -11,7 +12,7 @@ import {AMANSettingsPanel} from "@/components/aman/AMANSettingsPanel";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
-import {getAMANMutationBlockReason} from "@/api/aman";
+import {getAMANMutationBlockReason, isExcludedAMANFlight} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {EKCH_TMT_HOLDING_ORDER} from "@/config/aman";
@@ -53,6 +54,7 @@ export default function AMAN() {
     {id: "holdings", label: "Holdings"},
     {id: "warnings", label: `Warnings (${warnings.items.length})`},
     {id: "settings", label: "Settings"},
+    {id: "excluded", label: `Excluded (${state?.flights.filter(isExcludedAMANFlight).length ?? 0})`},
     ...(!hasFMPAuthority ? [{id: "coordination", label: `Coordination (${state?.coordination_requests?.filter(request => request.state === "pending").length ?? 0})`}] : []),
   ];
   const activeTmtTab = tmtTabs.some(tab => tab.id === tmtTab) ? tmtTab : "holdings";
@@ -148,6 +150,9 @@ export default function AMAN() {
             </div>}
             {activeTmtTab === "settings" && <div aria-labelledby="tmt-settings-tab" className="aman-tmt-notices" id="tmt-settings-panel" role="tabpanel" tabIndex={0}>
               <AMANSettingsPanel state={state} connectionState={connectionState} hasFMPAuthority={hasFMPAuthority} readOnly={readOnly} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
+            </div>}
+            {activeTmtTab === "excluded" && <div aria-labelledby="tmt-excluded-tab" id="tmt-excluded-panel" role="tabpanel" tabIndex={0}>
+              <AMANExcludedFlights flights={state?.flights ?? []} disabled={mutationBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
             </div>}
             {activeTmtTab === "warnings" && <div aria-labelledby="tmt-warnings-tab" className="aman-tmt-notices" id="tmt-warnings-panel" role="tabpanel" tabIndex={0}>
               <AMANWarningPanel

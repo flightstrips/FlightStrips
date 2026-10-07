@@ -102,7 +102,7 @@ func (r *amanRepository) commitSession(ctx context.Context, commit aman.StateCom
 		stored := cloneAirportState(commit.State)
 		stored.Flights = []aman.AMANFlight{}
 		for _, flight := range commit.State.Flights {
-			if flight.State != aman.StateRemoved {
+			if retainAMANFlight(flight) {
 				stored.Flights = append(stored.Flights, flight)
 			}
 		}

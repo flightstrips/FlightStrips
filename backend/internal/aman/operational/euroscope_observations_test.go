@@ -19,10 +19,11 @@ func TestEuroScopePositionObserverPublishesDerivedSurveillance(t *testing.T) {
 	})
 	require.NoError(t, err)
 	aircraft, route := "A320", "MONAK OLPIB"
-	strip := &models.Strip{ID: 42, Session: 1, Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", AircraftType: &aircraft, Route: &route}
+	strip := &models.Strip{ID: 42, Session: 1, Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", AircraftType: &aircraft, Route: &route, Star: stringPointer("TESPI1A")}
 
 	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55.0, 12.0, 9000))
 	require.Len(t, sink.observations, 1, "the first report establishes the flight and speed/track reference")
+	require.Equal(t, "TESPI1A", *sink.observations[0].AssignedSTAR)
 	require.Nil(t, sink.observations[0].Surveillance.GroundspeedKnots)
 	now = now.Add(30 * time.Second)
 	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55.01, 12.0, 8800))
@@ -52,13 +53,14 @@ func TestEuroScopeSurveillanceOverlaysVATSIMUntilItExpires(t *testing.T) {
 	merged := mergeSurveillanceObservation(previous, incoming)
 	require.Equal(t, aman.SurveillanceSourceEuroScope, merged.SurveillanceSource)
 	require.Equal(t, 55.5, merged.Surveillance.LatitudeDegrees)
-	require.Equal(t, newRoute, *merged.FiledRoute, "the VATSIM flight plan remains current")
+	require.Equal(t, "OLD ROUTE", *merged.FiledRoute, "EuroScope remains authoritative for the filed route")
 
 	incoming.ReconciledAt = now.Add(euroScopeSurveillanceFresh + time.Second)
 	*incoming.Surveillance.ObservedAt = incoming.ReconciledAt
 	fallback := mergeSurveillanceObservation(previous, incoming)
 	require.Equal(t, aman.SurveillanceSourceVATSIM, fallback.SurveillanceSource)
 	require.Equal(t, 55.6, fallback.Surveillance.LatitudeDegrees)
+	require.Equal(t, "OLD ROUTE", *fallback.FiledRoute, "surveillance fallback cannot replace EuroScope flight-plan facts")
 }
 
 func TestServiceAdmitsEuroScopeWithoutVATSIMAndStillMergesLiveMetadata(t *testing.T) {

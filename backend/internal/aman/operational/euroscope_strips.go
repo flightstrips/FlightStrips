@@ -128,15 +128,11 @@ func (o *EuroScopeStripObserver) project(strip *models.Strip, observedAt time.Ti
 	if callsign == "" || origin == "" || destination == "" {
 		return nil, nil
 	}
-	if len(o.airports) > 0 {
-		if _, enabled := o.airports[destination]; !enabled {
-			return nil, nil
-		}
-	}
 	aircraftType, wakeCategory := euroScopeAircraft(strip.AircraftType)
 	observation := aman.FlightObservation{
 		Callsign: callsign, Origin: origin, Destination: destination,
 		AircraftType: aircraftType, WakeCategory: wakeCategory, FiledRoute: optionalStripString(strip.Route), RequestedLevel: requestedLevel(strip.RequestedAltitude),
+		AssignedSTAR:     optionalStripString(strip.Star),
 		FlightPlan:       aman.FlightPlanFact{Revision: vatsimRevision(strip.VatsimRevision), ObservedAt: &observedAt},
 		HoldingClearance: normalizedStripHoldingClearance(strip, observedAt), Provider: aman.ObservationProviderEuroScope,
 		PlannedTiming: euroScopePlannedTiming(strip.FlightPlanEOBT, strip.FlightPlanEET, observedAt),

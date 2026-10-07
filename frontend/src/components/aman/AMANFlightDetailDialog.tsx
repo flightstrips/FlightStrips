@@ -54,6 +54,7 @@ function RemovalConfirmation({action, onClose}: {action: RemovalAction; onClose:
   return <section aria-labelledby="remove-flight-title" className="grid gap-3 border-b border-red-500 bg-red-950 px-5 py-4 text-sm text-red-50" id="remove-flight-confirmation">
     <h2 className="font-semibold" id="remove-flight-title">Confirm AMAN removal</h2>
     <p>This marks the flight as removed, clears its committed slot and recalculates the remaining sequence.</p>
+    <p>You can add the flight back from the Excluded tab during this session.</p>
     <p className="text-xs text-red-200">The authoritative server applies and audits the removal. There is no client-side sequence mutation.</p>
     {action.blockReason && <div role="status">Unavailable: {mutationBlockLabels[action.blockReason]}</div>}
     {action.pending && <div aria-live="polite" role="status">Waiting for server confirmation</div>}

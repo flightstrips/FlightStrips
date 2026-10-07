@@ -69,3 +69,33 @@ func TestAMANSessionQueuesRestartIsolationAndCleanup(t *testing.T) {
 	_, err = NewAMANRepository(pool).LoadAirportState(aman.WithSession(context.Background(), replacement), "EKCH")
 	requireDomainErrorClass(t, err, aman.ErrorNotFound)
 }
+
+func TestAMANSessionRemovalPersistsOnlyWithinOwningSession(t *testing.T) {
+	for _, reason := range []aman.LifecycleReason{aman.LifecycleReasonManualRemoval, aman.LifecycleReasonDiverted, aman.LifecycleReasonSourceDisappearance} {
+		t.Run(string(reason), func(t *testing.T) {
+			pool, queries := testdata.SetupTestDB(t)
+			session := testdata.SeedTestSession(t, queries)
+			ctx := aman.WithSession(t.Context(), session)
+			state := amanState(1, "unused", "SAS123")
+			state.SessionID = session
+			flight := &state.Flights[0]
+			flight.State = aman.StateRemoved
+			flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
+			flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
+			flight.Lifecycle = &aman.LifecycleState{EnteredAt: state.GeneratedAt, Reason: reason, LastEventAt: state.GeneratedAt, LastEventID: "remove", LastEventFingerprint: "test"}
+			_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{State: state})
+			require.NoError(t, err)
+			loaded, err := NewAMANRepository(pool).LoadAirportState(ctx, "EKCH")
+			require.NoError(t, err)
+			if reason == aman.LifecycleReasonSourceDisappearance {
+				require.Empty(t, loaded.Flights)
+			} else {
+				require.Equal(t, state.Flights, loaded.Flights)
+			}
+			var replacement int32
+			require.NoError(t, pool.QueryRow(t.Context(), `INSERT INTO sessions(name,airport) VALUES('NEXT','EKCH') RETURNING id`).Scan(&replacement))
+			_, err = NewAMANRepository(pool).LoadAirportState(aman.WithSession(t.Context(), replacement), "EKCH")
+			requireDomainErrorClass(t, err, aman.ErrorNotFound)
+		})
+	}
+}

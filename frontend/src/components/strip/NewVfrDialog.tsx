@@ -9,7 +9,7 @@ const BG = "#D5D5D5";
 const BTN_GRAY = "#9E989C";
 const BTN_DARK = "#3F3F3F";
 const INPUT_BG = "#EDEDED";
-const FONT = "'Rubik', sans-serif";
+const FONT = "var(--font-bay)";
 
 function btnGray(width: number, height = 26): React.CSSProperties {
   return {

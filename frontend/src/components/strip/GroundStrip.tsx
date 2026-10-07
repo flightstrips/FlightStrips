@@ -1,3 +1,4 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, getStripFrameColor, SELECTION_COLOR, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
@@ -77,7 +78,7 @@ export function GroundStrip({
         onContextMenu={handleContextMenu}
       >
         <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
-          <span className="truncate w-full" style={{ fontWeight: "bold", fontSize: "1.04vw" }}>{callsign}</span>
+          <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{callsign}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -85,7 +86,7 @@ export function GroundStrip({
       {/* A/C type — 80px split (bottom reserved for registration) */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: "4.17vw", height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center border-b-2" style={{ height: TOP_H, borderBottomColor: cellBorderColor }}>
-          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontWeight: 600, fontSize: "0.63vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
+          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.63vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -93,7 +94,7 @@ export function GroundStrip({
       {/* Stand — 80px */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: "4.17vw", height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw" }}>{stand}</span>
+          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{stand}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -101,7 +102,7 @@ export function GroundStrip({
       {/* Clearance limit — 80px */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: "4.17vw", height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw" }}>{taxiway ?? holdingPoint}</span>
+          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{taxiway ?? holdingPoint}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -109,7 +110,7 @@ export function GroundStrip({
       {/* RWY — 80px */}
       <div className="flex-shrink-0 flex flex-col overflow-hidden" style={{ width: "4.17vw", height: "100%" }}>
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw" }}>{runway}</span>
+          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{runway}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

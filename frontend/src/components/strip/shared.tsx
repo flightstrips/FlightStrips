@@ -11,6 +11,7 @@ import type { PdcStatus } from "@/api/models";
 import type { ValidationStatus } from "@/api/models";
 import { isValidationActiveForPosition, isValidationBlockingForPosition } from "@/lib/validation-status";
 import { getAircraftTypeWithWtc } from "@/lib/utils";
+import { useDragState } from "@/components/bays/DragStateContext";
 
 export { isPdcValidationStatus, isValidationActiveForPosition, isValidationBlockingForPosition } from "@/lib/validation-status";
 
@@ -18,7 +19,9 @@ export const SELECTION_COLOR = "var(--color-strip-selection)";
 export const STRIP_FRAME_COLOR = "var(--color-strip-frame)";
 export const ARRIVAL_STRIP_FRAME_COLOR = "var(--color-cell-border-arr)";
 const STRIP_INNER_EDGE_COLOR = "#CCCCCC";
-const STRIP_OUTER_EDGE_COLOR = "#CECECE";
+const STRIP_BEVEL_EDGE_COLOR = "#DBDBDB";
+const STRIP_EDGE_DARK = "#8E8E8E";
+const STRIP_EDGE_MID = "#ABABAB";
 const VALIDATION_BLINK_CYCLE_MS = 1000;
 const PDC_CLEARED_CALLSIGN_BLINK_INTERVAL_MS = 500;
 const PDC_CLEARED_CALLSIGN_BLINK_DURATION_MS = 7000;
@@ -37,9 +40,11 @@ export function getStripFrameColor(isArrival: boolean): string {
 export function useStripSelection(callsign: string, selectable?: boolean) {
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
-  const isSelected = !!selectable && selectedCallsign === callsign;
+  const { activeId } = useDragState();
+  const isClickSelected = !!selectable && selectedCallsign === callsign;
+  const isSelected = isClickSelected || activeId === callsign;
   const handleClick = selectable
-    ? () => selectStrip(isSelected ? null : callsign)
+    ? () => selectStrip(isClickSelected ? null : callsign)
     : undefined;
   return { isSelected, handleClick };
 }
@@ -163,7 +168,9 @@ export function useStripCallsignInteraction({
 
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
 
-  const isSelected = !!selectable && selectedCallsign === callsign;
+  const { activeId } = useDragState();
+  const isClickSelected = !!selectable && selectedCallsign === callsign;
+  const isSelected = isClickSelected || activeId === callsign;
   const openContextMenuOnClick = canOpenStripContextMenu(bay, owner, myPosition);
   const canRequestTag = canRequestTagForStrip({
     owner,
@@ -200,7 +207,7 @@ export function useStripCallsignInteraction({
       return;
     }
 
-    selectStrip(isSelected ? null : callsign);
+    selectStrip(isClickSelected ? null : callsign);
   };
 
   const handleContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
@@ -246,39 +253,35 @@ export function useValidationBlink(callsign: string): CSSProperties {
  * Width, height, and borderBottom overrides must be applied by the caller.
  * Pass `marked` when that state is available.
  */
+const STRIP_BEVEL_SHADOW = `inset 0 0 0 0.5625px ${STRIP_EDGE_DARK}, inset 0 0 0 1.125px ${STRIP_EDGE_MID}, inset 0 0 0 1.6875px ${STRIP_BEVEL_EDGE_COLOR}, inset 0 0 0 2.6875px ${STRIP_INNER_EDGE_COLOR}, 2px 2px 3px -1px rgba(0,0,0,0.45)`;
+
 export function getFramedStripStyle(marked: boolean, frameColor = STRIP_FRAME_COLOR): CSSProperties {
-  if (marked) {
-    return {
-      backgroundColor: SELECTION_COLOR,
-      boxSizing: "border-box",
-      padding: "3px",
-      border: `1px solid ${STRIP_OUTER_EDGE_COLOR}`,
-      boxShadow: `inset 0 0 0 1px ${STRIP_INNER_EDGE_COLOR}, 2px 0 0 0 ${COLOR_SHADOW}, 0 -2px 0 0 ${COLOR_SHADOW}`,
-    };
-  }
+  // The edge is drawn with inset shadows (no border), so the padding reserves the edge plus the coloured frame.
   return {
-    backgroundColor: frameColor,
+    backgroundColor: marked ? SELECTION_COLOR : frameColor,
     boxSizing: "border-box",
-    padding: "3px",
-    border: `1px solid ${STRIP_OUTER_EDGE_COLOR}`,
-    boxShadow: `inset 0 0 0 1px ${STRIP_INNER_EDGE_COLOR}, 2px 0 0 0 ${COLOR_SHADOW}, 0 -2px 0 0 ${COLOR_SHADOW}`,
+    padding: "3.4375px",
+    border: 0,
+    fontFamily: FONT,
+    boxShadow: STRIP_BEVEL_SHADOW,
   };
 }
 
 /**
- * Outer border/shadow style for flat strips. The padding reserves space for
- * the white/grey edge and coloured inner frame so cells cannot paint over it.
+ * Outer edge/shadow style for flat strips. The padding reserves space for
+ * the bevelled edge and coloured inner frame so cells cannot paint over it.
  */
 export function getFlatStripBorderStyle(contentColor: string, frameColor = STRIP_FRAME_COLOR): CSSProperties {
   return {
     boxSizing: "border-box",
-    padding: "3px",
-    border: `1px solid ${STRIP_OUTER_EDGE_COLOR}`,
+    padding: "3.4375px",
+    border: 0,
+    fontFamily: FONT,
     backgroundColor: frameColor,
     backgroundImage: `linear-gradient(${contentColor}, ${contentColor})`,
     backgroundOrigin: "content-box",
     backgroundRepeat: "no-repeat",
-    boxShadow: `inset 0 0 0 1px ${STRIP_INNER_EDGE_COLOR}, 2px 0 0 0 ${COLOR_SHADOW}, 0 -2px 0 0 ${COLOR_SHADOW}`,
+    boxShadow: STRIP_BEVEL_SHADOW,
   };
 }
 
@@ -296,7 +299,8 @@ export function getSIBoxBorderStyle(marked: boolean, baseColor = STRIP_FRAME_COL
 
 // ── Shared font ───────────────────────────────────────────────────────────────
 
-export const FONT = "'Arial', sans-serif";
+export const FONT = "var(--font-bay)";
+export const SEMI_BOLD_STROKE = "0.5px currentColor";
 
 // ── Shared palette ────────────────────────────────────────────────────────────
 
@@ -459,7 +463,7 @@ export const CLS_HEADER_SHADOW = "shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_
 /** Dark section header bar. */
 export const CLS_HEADER = `bg-bay-header h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 ${CLS_HEADER_SHADOW}`;
 /** Standard header label text. */
-export const CLS_LABEL = "text-white font-bold text-[0.94vw]";
+export const CLS_LABEL = "text-[#CECECE] font-bay tracking-[0.06em] [-webkit-text-stroke:0.5px_currentColor] text-[0.9306vw]";
 
 /** Horizontal separator between sections within a column. */
 export const CLS_COL_SEP = "border-t-[6px] border-bay-border";
@@ -492,9 +496,22 @@ export const CLS_CALLSIGN_ACTIVE = "active:bg-[var(--color-strip-callsign)]";
 // ── Button class variants ─────────────────────────────────────────────────────
 
 /** Large variant used in the CommandBar toolbar. */
-export const CLS_CMDBTN = "bg-bay-btn text-[1.41vw] font-bold h-[3.42dvh] my-[0.65dvh] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)] outline-none";
+// Bevelled bottom-bar button edge: light top/left, dark bottom/right, fading inward.
+export const CLS_CMD_BEVEL = "border-2 border-t-[#CECECE] border-l-[#CECECE] border-b-[#393939] border-r-[#393939] shadow-[inset_2px_2px_2px_-1px_rgba(206,206,206,0.55),inset_-2px_-2px_2px_-1px_rgba(57,57,57,0.55)] font-bay font-normal";
+export const CLS_CMDBTN = `bg-bay-btn text-[1.0575vw] h-[3.42dvh] my-[0.65dvh] w-[3.52vw] flex items-center justify-center ${CLS_CMD_BEVEL} outline-none`;
 const CLS_HEADER_BTN_BASE = "inline-flex h-[2.22dvh] items-center justify-center whitespace-nowrap border-2 px-[0.625vw] text-[0.73vw] leading-[1.04vw] font-bold";
 export const CLS_BTN        = `${CLS_HEADER_BTN_BASE} bg-bay-btn text-white border-white active:bg-[#424242]`;
-export const CLS_BTN_ORANGE = `${CLS_HEADER_BTN_BASE} bg-runway-low-vis text-white border-white active:bg-[#424242]`;
-export const CLS_BTN_BLUE   = `${CLS_HEADER_BTN_BASE} bg-[var(--color-half-mem-aid)] text-white border-white active:bg-[#424242]`;
-export const CLS_BTN_YELLOW = `${CLS_HEADER_BTN_BASE} bg-btn-yellow text-black border-white active:bg-[#424242]`;
+// Bevelled header button: 2px stroke (light top/left, dark bottom/right) fading into the fill via inset shadows.
+// Height is 80% of the visible header area; `width` is a literal class (width = ratio x height) so Tailwind can see it.
+const bevelBtn = (width: string, fill: string) =>
+  `${CLS_HEADER_BTN_BASE.replace("font-bold", "font-normal").replace("h-[2.22dvh]", `h-[calc(2.96dvh-4.8px)] ${width}`).replace("px-[0.625vw]", "px-0")} ${fill} font-bay border-t-[#CECECE] border-l-[#CECECE] border-b-[#393939] border-r-[#393939] shadow-[inset_2px_2px_2px_-1px_rgba(206,206,206,0.55),inset_-2px_-2px_2px_-1px_rgba(57,57,57,0.55)] active:bg-[#424242]`;
+export const CLS_BTN_ORANGE = bevelBtn("w-[calc(6.91dvh-11.2px)]", "bg-runway-low-vis text-white");
+export const CLS_BTN_BLUE   = bevelBtn("w-[calc(8.88dvh-14.4px)]", "bg-[var(--color-half-mem-aid)] text-white");
+const GREY_FILL = "bg-bay-btn text-white";
+export const CLS_BTN_NEW     = bevelBtn("w-[calc(6.66dvh-10.8px)]", GREY_FILL);
+export const CLS_BTN_PLANNED = bevelBtn("w-[calc(10.36dvh-16.8px)]", GREY_FILL);
+export const CLS_BTN_MISSED  = bevelBtn("w-[calc(11.84dvh-19.2px)]", GREY_FILL);
+export const CLS_BTN_ARR     = bevelBtn("w-[calc(6.66dvh-10.8px)]", GREY_FILL);
+export const CLS_BTN_DI      = bevelBtn("w-[calc(6.66dvh-10.8px)]", GREY_FILL);
+export const CLS_BTN_FIND    = bevelBtn("w-[calc(6.66dvh-10.8px)]", GREY_FILL);
+export const CLS_BTN_YELLOW = bevelBtn("w-[calc(4.44dvh-7.2px)]", "bg-btn-yellow text-black");

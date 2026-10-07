@@ -414,7 +414,7 @@ function makeGallery(): GalleryItem[] {
         { label: "Message text", targetX: 45 },
         { label: "Dismiss", targetX: 97 },
       ],
-      strip: <div className="w-[95%]"><MessageStrip msg={message} /></div>,
+      strip: <MessageStrip msg={message} />,
     },
   ];
 }

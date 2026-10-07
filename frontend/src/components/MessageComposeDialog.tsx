@@ -27,7 +27,7 @@ const ALWAYS_RED = new Set(["GND EAST"]);
 const DROP_SHADOW = `0 ${scalePx(4)} ${scalePx(4)} rgba(0,0,0,0.25)`;
 
 const BTN: React.CSSProperties = {
-  fontFamily: "Rubik, sans-serif",
+  fontFamily: "var(--font-bay)",
   fontWeight: 600,
   fontSize: scalePx(24),
   border: "none",
@@ -111,7 +111,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
         {/* FREE TEXT — centered title */}
         <div style={{
           textAlign: "center",
-          fontFamily: "Rubik, sans-serif",
+          fontFamily: "var(--font-bay)",
           fontSize: scalePx(24),
           fontWeight: 300,
           marginBottom: scalePx(16),
@@ -126,7 +126,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
             height: scalePx(113),
             background: "#FCFCFC",
             border: "1px solid black",
-            fontFamily: "Rubik, sans-serif",
+            fontFamily: "var(--font-bay)",
             fontSize: scalePx(24),
             padding: `${scalePx(8)} ${scalePx(12)}`,
             resize: "none",
@@ -208,7 +208,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                     style={{
                       textAlign: "left",
                       padding: `0 ${scalePx(12)}`,
-                      fontFamily: "Rubik, sans-serif",
+                      fontFamily: "var(--font-bay)",
                       fontSize: scalePx(24),
                       fontWeight: 400,
                       border: "none",
@@ -232,7 +232,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                     height: scalePx(70),
                     background: "#3F3F3F",
                     color: "#fff",
-                    fontFamily: "Rubik, sans-serif",
+                    fontFamily: "var(--font-bay)",
                     fontWeight: 600,
                     fontSize: scalePx(32),
                     border: "none",
@@ -249,7 +249,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                     height: scalePx(70),
                     background: "#3F3F3F",
                     color: "#fff",
-                    fontFamily: "Rubik, sans-serif",
+                    fontFamily: "var(--font-bay)",
                     fontWeight: 600,
                     fontSize: scalePx(32),
                     border: "none",

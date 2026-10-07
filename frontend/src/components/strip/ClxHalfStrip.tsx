@@ -1,8 +1,9 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import type { StripProps } from "./types";
 import { getStripBg } from "./types";
 import { AircraftTypeLabel, FONT, getFramedStripStyle, getSIBoxBorderStyle, getStripFrameColor, useStripBg } from "./shared";
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
-const F_SI       = 8;
+const F_SI       = 8 * 0.9;
 const F_CALLSIGN = 25;
 const F_TYPE     = 25 * (2 / 3);
 const F_RUNWAY   = 25 * (1 / 2);
@@ -38,7 +39,7 @@ export function ClxHalfStrip({
         {/* OB — 8% */}
         <div className="flex flex-col overflow-hidden" style={{ flex: `${F_SI} 0 0%`, height: "100%", minWidth: 0, ...getSIBoxBorderStyle(false, stripFrameColor) }}>
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
-            <span className="font-bold" style={{ fontFamily: FONT, fontSize: FONT_SIZE }}>
+            <span className="font-normal [-webkit-text-stroke:0.5px_currentColor]" style={{ fontFamily: FONT, fontSize: FONT_SIZE }}>
               OB
             </span>
           </div>
@@ -50,7 +51,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center pl-[0.42vw]" style={{ height: "100%" }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: FONT_SIZE }}>
               {callsign}
             </span>
           </div>
@@ -72,7 +73,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_RUNWAY} 0 0%`, height: "100%", minWidth: 0, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center justify-center"  style={{ height: "100%" }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
+            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: FONT_SIZE }}>
               {runway}
             </span>
           </div>
@@ -84,7 +85,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_SID} 0 0%`, height: "100%", minWidth: 0, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
+            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: FONT_SIZE }}>
               {sid}
             </span>
           </div>
@@ -96,7 +97,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0 }}
         >
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
-            <span className="truncate" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
+            <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: FONT_SIZE }}>
               {stand}
             </span>
           </div>

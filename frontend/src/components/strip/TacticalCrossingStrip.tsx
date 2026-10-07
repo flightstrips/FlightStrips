@@ -19,7 +19,7 @@ export function TacticalCrossingStrip({ strip, width }: Props) {
       backgroundColor={STRIP_BG}
       borderColor={CELL_BORDER_CLR}
       textColor="black"
-      deleteHoverClass="hover:bg-yellow-400"
+      deleteHoverClass=""
     >
       {label}
     </TacticalStripShell>

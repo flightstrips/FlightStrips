@@ -5,17 +5,23 @@ import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackS
 import {stripDndId, type AnyStrip, type FrontendStrip} from "@/api/models.ts";
 import { useMessages, useMyPosition } from "@/store/store-hooks.ts";
 import { useState } from "react";
-import { CLS_BTN } from "@/components/strip/shared";
+import { CLS_BTN_MISSED, CLS_BTN_NEW, CLS_BTN_PLANNED } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
-import { PRODUCTION_BAY_CLASS } from "./productionBayLayouts";
+import { useBayResize } from "@/components/bays/useBayResize";
+import { BayResizeHandle } from "@/components/bays/BayResizeHandle";
 import { AutoAlignedBay } from "@/components/bays/SortableBay";
 
 const col         = "w-1/4 bay-col";
-const lockedLabel  = "text-white font-bold text-lg";
+const lockedLabel  = "text-[#CECECE] font-bay tracking-[0.06em] [-webkit-text-stroke:0.5px_currentColor] text-[1.11375rem]";
 const activeLabel  = "text-bay-header font-bold text-lg";
-const primaryLabel = "text-gray-100 font-bold text-lg";
+const primaryLabel = "text-[#CECECE] font-bay tracking-[0.06em] [-webkit-text-stroke:0.5px_currentColor] text-[1.11375rem]";
 const scrollAreaRaw = "w-full min-h-0 bg-bay-panel flex flex-col overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
+
+// Default bay heights (% of column); the last bay of each column fills the rest.
+const SAS_DEFAULTS = { sas: 62 };
+const CLEARED_DEFAULTS = { cleared: 62 };
+const PUSHBACK_DEFAULTS = { pushback: 40 };
 
 export default function DEL() {
   const myPosition = useMyPosition();
@@ -29,6 +35,9 @@ export default function DEL() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [plannedOpen, setPlannedOpen] = useState(false);
+  const sasResize = useBayResize("clx-bay-heights-sas", SAS_DEFAULTS);
+  const clearedResize = useBayResize("clx-bay-heights-cleared", CLEARED_DEFAULTS);
+  const pushbackResize = useBayResize("clx-bay-heights-pushback", PUSHBACK_DEFAULTS);
 
   const mapToStrip = (strip: AnyStrip, status: string) => (
     <Strip
@@ -50,58 +59,61 @@ export default function DEL() {
         <div className={col}>
           <div className="bay-col-header justify-between">
             <span className={lockedLabel}>OTHERS</span>
-            <span className="flex gap-2">
-              <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
-              <button className={CLS_BTN} onClick={() => setPlannedOpen(true)}>PLANNED</button>
+            <span className="flex gap-1">
+              <button className={CLS_BTN_NEW} onClick={() => setNewOpen(true)}>NEW</button>
+              <button className={CLS_BTN_PLANNED} onClick={() => setPlannedOpen(true)}>PLANNED</button>
             </span>
           </div>
           <div className="h-[calc(100%-2.5rem)] bay-scroll-area">
             {otherStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
         </div>
-        <div className={col}>
+        <div style={sasResize.columnStyle} className={col}>
           <div className="bay-col-header justify-between">
             <span className={lockedLabel}>SAS</span>
           </div>
-          <div className={PRODUCTION_BAY_CLASS.clxCleared}>
+          <div className="h-[var(--bay-h-sas)] bay-scroll-area">
             {sasStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
           <div className="bay-col-header bay-col-sep justify-between">
+            <BayResizeHandle {...sasResize.handleProps("sas")} />
             <span className={lockedLabel}>NORWEGIAN</span>
           </div>
-          <div className="h-[calc(33%-2.5rem)] bay-scroll-area">
+          <div className="flex-1 bay-scroll-area">
             {norgewianStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
         </div>
-        <div className={col}>
+        <div style={clearedResize.columnStyle} className={col}>
           <div className="bay-col-header justify-between">
             <span className={primaryLabel}>CLEARED</span>
           </div>
-          <div className="h-[calc(67%-2.5rem)] bay-scroll-area">
+          <div className="h-[var(--bay-h-cleared)] bay-scroll-area">
             {cleared.map(strip => mapToStrip(strip, "CLROK"))}
           </div>
           <div className="bay-col-header-primary bay-col-sep justify-between">
+            <BayResizeHandle {...clearedResize.handleProps("cleared")} />
             <span className={primaryLabel}>MESSAGES</span>
-            <button className={CLS_BTN} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
+            <button className={CLS_BTN_MISSED} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
           </div>
-          <div className={`h-[calc(33%-6rem)] ${scrollAreaRaw}`}>
+          <div className={`flex-1 ${scrollAreaRaw}`}>
             {messages.map(msg => (
               <MessageStrip key={msg.id} msg={msg} />
             ))}
           </div>
           <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
         </div>
-        <div className={col}>
+        <div style={pushbackResize.columnStyle} className={col}>
           <div className="bay-col-header-light justify-between">
             <span className={activeLabel}>PUSHBACK</span>
           </div>
-          <AutoAlignedBay className={PRODUCTION_BAY_CLASS.clxPushback} dependencyKey={`pushback:${pushback.length}`}>
+          <AutoAlignedBay className="h-[var(--bay-h-pushback)] bay-scroll-area-bottom" dependencyKey={`pushback:${pushback.length}`}>
             {pushback.map(strip => mapToHalfStrip(strip))}
           </AutoAlignedBay>
           <div className="bay-col-header-light bay-col-sep justify-between">
+            <BayResizeHandle {...pushbackResize.handleProps("pushback")} />
             <span className={activeLabel}>TWY DEP</span>
           </div>
-          <AutoAlignedBay className="h-[calc(60%-5rem)] bay-scroll-area-bottom" dependencyKey={`taxidep:${taxidep.length}`}>
+          <AutoAlignedBay className="flex-1 bay-scroll-area-bottom" dependencyKey={`taxidep:${taxidep.length}`}>
             {taxidep.map(strip => mapToHalfStrip(strip))}
           </AutoAlignedBay>
         </div>

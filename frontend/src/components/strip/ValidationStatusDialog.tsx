@@ -28,7 +28,7 @@ const rootStyle: CSSProperties = {
   border: "1px solid #000",
   backgroundColor: "#B3B3B3",
   color: "#000",
-  fontFamily: "Rubik, sans-serif",
+  fontFamily: "var(--font-bay)",
   padding: 0,
 };
 
@@ -47,7 +47,7 @@ const sharedButtonStyle: CSSProperties = {
   color: "#FFF",
   border: "none",
   boxShadow: DIALOG_SHADOW,
-  fontFamily: "Rubik, sans-serif",
+  fontFamily: "var(--font-bay)",
   fontSize: toVMin(18),
   fontWeight: 600,
   lineHeight: 1.15,

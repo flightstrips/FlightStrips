@@ -11,19 +11,19 @@ import RunwayStsDialog, { type RunwayStatus } from "./RunwayStsDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import MetarHelper from "@/components/MetarHelper";
 import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useSetMarkArmed, useStrips, useWebSocketStore, useStrip } from "@/store/store-hooks";
-import { CLS_CMDBTN } from "@/components/strip/shared";
+import { CLS_CMDBTN, CLS_CMD_BEVEL } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
 
 // Bar height matches strip height (4.72dvh). Inner elements: calc(4.72dvh - 14px) + 7px top/bottom margin.
-const CLS_BAR = "h-[4.72dvh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border";
+const CLS_BAR = "h-[4.72dvh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-2px_2px_rgba(0,0,0,0.35)]";
 
 // Inner value boxes — same margin rhythm as CLS_CMDBTN
 // Font sizes derived from SVG (2560px base): large values 36px→1.41vw, labels 24px→0.94vw
-const CLS_VAL_WHITE = "bg-bay-light text-black text-[1.41vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
-const CLS_VAL_DARK  = "bg-bay-dark text-white  text-[1.41vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
-const CLS_VAL_ALERT = "bg-[#F43A3A] text-white text-[1.41vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
-const CLS_LABEL     = "text-[0.94vw] font-bold text-bay-light px-3";
+const CLS_VAL_WHITE = "bg-bay-light text-black text-[1.0575vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
+const CLS_VAL_DARK  = "bg-bay-dark text-white  text-[1.0575vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
+const CLS_VAL_ALERT = "bg-[#F43A3A] text-white text-[1.0575vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
+const CLS_LABEL     = "text-[0.705vw] font-bold text-bay-light px-3";
 
 const SCOPE_LABELS: Record<string, string> = {
   "CLX":  "CLR DEL",
@@ -157,19 +157,19 @@ export default function CommandBar() {
         {/* Scope — green station box, clicks open layout dialog */}
         <button
           onClick={() => setLayoutOpen(true)}
-          className={`${scopeButtonClass} flex flex-col justify-center items-center mx-2 font-bold h-[calc(4.72dvh-14px)] my-[7px] w-[9.73vw] text-center leading-tight outline-none active:brightness-90`}
+          className={`${scopeButtonClass} flex flex-col justify-center items-center mx-2 h-[calc(4.72dvh-14px)] my-[7px] w-[9.73vw] text-center leading-tight outline-none active:brightness-90 ${CLS_CMD_BEVEL}`}
         >
-          <span className="text-[0.78vw] font-semibold">{scopeLabel}</span>
-          {positionLabel && <span className="text-[0.63vw] font-medium">{positionLabel}</span>}
+          <span className="text-[0.585vw] font-normal">{scopeLabel}</span>
+          {positionLabel && <span className="text-[0.4725vw] font-normal">{positionLabel}</span>}
         </button>
 
         {/* DEP runway */}
         <span className={CLS_LABEL}>DEP</span>
-        <span className={`${depRunwayClass} w-[3.13vw]`}>{depRwy}</span>
+        <span className={`${depRunwayClass} w-[3.13vw] !font-normal`}>{depRwy}</span>
 
         {/* ARR runway */}
         <span className={CLS_LABEL}>ARR</span>
-        <span className={`${arrRunwayClass} w-[3.13vw]`}>{arrRwy}</span>
+        <span className={`${arrRunwayClass} w-[3.13vw] !font-normal`}>{arrRwy}</span>
 
         {/* QNH */}
         <span className={CLS_LABEL}>QNH</span>
@@ -183,8 +183,8 @@ export default function CommandBar() {
         </div>
 
         {/* Wind: ATIS code + compact value */}
-        <span className={`${CLS_VAL_WHITE} w-[3.36vw] mx-1`}>{atisCode || "—"}</span>
-        <span className={`${CLS_VAL_WHITE} w-[5.55vw] px-2 !text-[0.94vw]`}>{parseWindCompact(metar)}</span>
+        <span className={`${CLS_VAL_WHITE} w-[3.36vw] mx-1 !text-[1.321875vw]`}>{atisCode || "—"}</span>
+        <span className={`${CLS_VAL_WHITE} w-[5.55vw] px-2 !text-[0.88125vw]`}>{parseWindCompact(metar)}</span>
 
       </div>
 
@@ -198,7 +198,7 @@ export default function CommandBar() {
               key={pair}
               onClick={() => setRwyDlgPair(pair)}
               style={{ backgroundColor: bg, width: vw }}
-              className="text-white text-[0.94vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_-2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow),_inset_0_-2px_0_var(--color-bay-shadow)] outline-none"
+              className="text-white text-[0.88125vw] font-normal h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_-2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow),_inset_0_-2px_0_var(--color-bay-shadow)] outline-none"
             >
               {pair}
             </button>
@@ -223,7 +223,7 @@ export default function CommandBar() {
           <VACSBTN />
         </div>
         <CommandBarSettings />
-        <div className="bg-bay-light text-black h-[calc(4.72dvh-14px)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.75vw] font-bold shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)]">
+        <div className="bg-bay-light text-black h-[calc(4.72dvh-14px)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.5625vw] font-bold shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)]">
           <Time />
         </div>
       </div>
@@ -253,7 +253,7 @@ export default function CommandBar() {
                bottom: "0.20dvh",
                zIndex: 1,
                fontSize: "0.58vw",
-               fontFamily: "Rubik, sans-serif",
+               fontFamily: "var(--font-bay)",
              }}
            >
              VERSION {FRONTEND_VERSION}
@@ -281,7 +281,7 @@ export default function CommandBar() {
                       fontWeight: 500,
                       height: "100%",
                       boxShadow: "2px 4px 4px rgba(0,0,0,0.25)",
-                      fontFamily: "Rubik, sans-serif",
+                      fontFamily: "var(--font-bay)",
                     }}
                   >
                     {scope.label}
@@ -302,7 +302,7 @@ export default function CommandBar() {
                   fontSize: "1.25vw",
                   fontWeight: 600,
                   boxShadow: "2px 4px 4px rgba(0,0,0,0.25)",
-                  fontFamily: "Rubik, sans-serif",
+                  fontFamily: "var(--font-bay)",
                 }}
               >
                 OK

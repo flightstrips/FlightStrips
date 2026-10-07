@@ -36,14 +36,14 @@ interface StripRenderProps {
 // Maps each strip status to the internal width used by the corresponding flight strip component.
 // Used so tactical strips (memaid, crossing, etc.) match the width of flight strips in the same bay.
 const STATUS_DEFAULT_WIDTH: Partial<Record<StripStatus, string>> = {
-  "ARR":      "90%",   // ApnArrStrip
+  "ARR":      "95%",   // ApnArrStrip
   "FINAL-ARR":"95%",   // FinalArrStrip
-  "PUSH":     "90%",   // ApnPushStrip (non-fullWidth)
+  "PUSH":     "95%",   // ApnPushStrip (non-fullWidth)
   "TWY-DEP":  "95%",   // TwyDepStrip
-  "TAXI-DEP": "90%",   // ApnTaxiDepStrip
-  "CLR":      "80%",   // DelStrip (non-fullWidth)
-  "CLX-HALF": "80%",   // ClxHalfStrip (non-fullWidth)
-  "CLROK":    "88.44%",// ClxClearedStrip (non-fullWidth)
+  "TAXI-DEP": "95%",   // ApnTaxiDepStrip
+  "CLR":      "95%",   // DelStrip (non-fullWidth)
+  "CLX-HALF": "95%",   // ClxHalfStrip (non-fullWidth)
+  "CLROK":    "95%",// ClxClearedStrip (non-fullWidth)
 };
 
 export function Strip({ strip, status, halfStripVariant, myPosition, selectable, delegateCallsignClick, onStripMoved, width, fullWidth }: StripRenderProps) {

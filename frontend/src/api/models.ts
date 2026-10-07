@@ -823,6 +823,8 @@ export interface FrontendMoveEvent {
   bay: Bay;
   clearance?: boolean;
   confirmed_removal?: boolean;
+  ordered?: boolean;
+  insert_after?: StripRef | null;
 }
 
 export interface FrontendGenerateSquawkEvent {
@@ -1027,6 +1029,7 @@ export interface FrontendClxOverrideValidationEvent {
 export interface FrontendClxUpdateTobtEvent {
   type: ActionType.FrontendClxUpdateTobt;
   callsign: string;
+  tobt?: string;
 }
 
 // Union type for all events that can be sent

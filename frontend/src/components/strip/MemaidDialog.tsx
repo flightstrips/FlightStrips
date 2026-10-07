@@ -7,7 +7,7 @@ import { scalePx, toVw } from "@/lib/viewportScale";
 const DROP_SHADOW = `0 ${scalePx(4)} ${scalePx(4)} rgba(0,0,0,0.25)`;
 
 const BTN_BASE: React.CSSProperties = {
-  fontFamily: "Rubik, sans-serif",
+  fontFamily: "var(--font-bay)",
   fontWeight: 600,
   fontSize: scalePx(20),
   border: "none",
@@ -94,7 +94,7 @@ export function MemaidDialog({ open, bay, onOpenChange }: Props) {
             height: scalePx(44),
             background: "#FCFCFC",
             border: "1px solid black",
-            fontFamily: "Rubik, sans-serif",
+            fontFamily: "var(--font-bay)",
             fontSize: scalePx(20),
             padding: `0 ${scalePx(12)}`,
             boxSizing: "border-box",

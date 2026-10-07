@@ -16,7 +16,7 @@ const S: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 0,
-    fontFamily: "'Rubik', sans-serif",
+    fontFamily: "var(--font-bay)",
   },
   title: { fontWeight: 300, fontSize: scalePx(24), textAlign: "center", marginBottom: scalePx(8) },
   inner: {
@@ -39,7 +39,7 @@ const S: Record<string, React.CSSProperties> = {
     padding: `0 ${scalePx(8)}`,
     boxShadow: DROP_SHADOW,
     textTransform: "uppercase" as const,
-    fontFamily: "'Rubik', sans-serif",
+    fontFamily: "var(--font-bay)",
   },
   noFpl: { color: "#FF0000", fontSize: scalePx(32), textAlign: "center" as const, lineHeight: 1.4, fontWeight: 400 },
   btn: {

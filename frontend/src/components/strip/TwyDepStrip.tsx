@@ -1,3 +1,4 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import { AircraftTypeLabel, COLOR_UNEXPECTED_YELLOW, getValidationBlockedCursor } from "./shared";
 import { useStripTransfers, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks";
@@ -26,7 +27,7 @@ const HALF_H = "50%";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Values match the original pixel widths: SI=40, Callsign=120, Type/Squawk=60, Stand=60, Small×3=53, SID/Dest/CTOT=80
-const F_SI         = 40;
+const F_SI         = 40 * 0.9;
 const F_CALLSIGN   = 120;
 const F_TYPE_SQ    = 60;
 const F_STAND      = 60;
@@ -53,6 +54,7 @@ export function TwyDepStrip({
   squawk,
   assignedSquawk,
   stand,
+  eobt,
   ctot,
   runway,
   holdingPoint,
@@ -151,6 +153,7 @@ export function TwyDepStrip({
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
         baseBorderColor={stripFrameColor}
+        hideLabel
       />
 
       {/* Callsign; top 2/3 = callsign, bottom 1/3 = :freq */}
@@ -164,12 +167,12 @@ export function TwyDepStrip({
           className="flex items-center pl-[0.42vw] overflow-hidden"
           style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}
         >
-          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw" }}>
+          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>
             {callsign}
           </span>
         </div>
         <div className="flex items-center pl-[0.42vw]" style={{ height: BOT_H }}>
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw" }}>{nextFreq}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>{nextFreq}</span>
         </div>
       </div>
 
@@ -179,7 +182,7 @@ export function TwyDepStrip({
         style={{ flexGrow: F_TYPE_SQ, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
-          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
+          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.68vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
         </div>
         <div
           className="flex items-center justify-center overflow-hidden"
@@ -191,7 +194,7 @@ export function TwyDepStrip({
         </div>
       </div>
 
-      {/* Stand / empty; the lower half is intentionally reserved */}
+      {/* Stand on top, EOBT below */}
       <div
         className="flex flex-col border-r-2 min-w-0"
         style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
@@ -201,11 +204,15 @@ export function TwyDepStrip({
           style={{ height: HALF_H, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined }}
           onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
         >
-          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.936vw", lineHeight: 1, color: getCellTextColor("stand", controllerModifiedFields) }}>
             {stand}
           </span>
         </div>
-        <div style={{ height: HALF_H }} />
+        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 300, fontSize: "0.68vw" }}>
+            {eobt}
+          </span>
+        </div>
       </div>
 
       {/* TWY label; whole cell clickable → taxi map */}
@@ -221,8 +228,10 @@ export function TwyDepStrip({
         }}
         onClick={(e) => guardValidationAction(e, () => setShowTaxiMap(true))}
       >
-        <div className="flex items-center justify-center h-full">
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", opacity: twyDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+        {/* Top half reserved for a future box; no divider between the halves */}
+        <div style={{ flex: "1 1 0%", minHeight: 0 }} />
+        <div className="flex items-center justify-center" style={{ flex: "1 1 0%", minHeight: 0 }}>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", opacity: twyDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
             {twyDisplay || "TWY"}
           </span>
         </div>
@@ -244,7 +253,7 @@ export function TwyDepStrip({
             }
           }) : undefined}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.936vw", lineHeight: 1, color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>
         <div aria-hidden="true" style={{ height: "2px", flexShrink: 0, backgroundColor: cellBorderColor }} />
         <div
@@ -252,7 +261,7 @@ export function TwyDepStrip({
           style={{ flex: "1 1 0%", minHeight: 0, backgroundColor: releasePointYellow && isHp ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => setShowHpMap(true))}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
             {hpDisplay || "HP"}
           </span>
         </div>
@@ -263,11 +272,12 @@ export function TwyDepStrip({
         className="flex flex-col border-r-2 min-w-0"
         style={{ flexGrow: F_SMALL, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
-        <div className="flex items-center justify-center" style={{ height: HALF_H, ...(flViolated ? { backgroundColor: "#FF0000", color: "white" } : {}) }}>
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw" }}>{fl}</span>
+        <div className="flex items-center justify-center" style={{ flex: "1 1 0%", minHeight: 0, ...(flViolated ? { backgroundColor: "#FF0000", color: "white" } : {}) }}>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.68vw" }}>{fl}</span>
         </div>
-        <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw" }}>{hdg}</span>
+        <div aria-hidden="true" style={{ height: "2px", flexShrink: 0, backgroundColor: cellBorderColor }} />
+        <div className="flex items-center justify-center" style={{ flex: "1 1 0%", minHeight: 0 }}>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.68vw", opacity: hdg ? 1 : 0.2 }}>{hdg || "HDG"}</span>
         </div>
       </div>
 
@@ -278,12 +288,12 @@ export function TwyDepStrip({
         onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
       >
         <div className="flex items-center justify-center pl-[0.21vw] overflow-hidden" style={{ height: TOP_HALF_H }}>
-          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: "0.63vw", color: getCellTextColor("sid", controllerModifiedFields) }}>
+          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: "0.693vw", color: getCellTextColor("sid", controllerModifiedFields) }}>
             {sid}
           </span>
         </div>
         <div className="flex items-center justify-center pl-[0.21vw] overflow-hidden" style={{ height: TOP_HALF_H, ...(hasGroundStop ? { backgroundColor: "#FF0000", color: "white" } : {}) }}>
-          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: "0.63vw" }}>
+          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal",           fontSize: "0.567vw" }}>
             {destination}
           </span>
         </div>

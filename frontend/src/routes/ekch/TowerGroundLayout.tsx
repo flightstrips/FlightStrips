@@ -36,21 +36,30 @@ import {
 } from "@/store/store-hooks.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
-import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
-import { CLS_BTN, CLS_BTN_BLUE, CLS_BTN_ORANGE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
+import { StripListPopup } from "@/components/StripListPopup.tsx";
+import { arrivalSortModes, startupSortModes as startupSortModesShared } from "@/lib/stripSortModes";
+import { CLS_BTN_BLUE, CLS_BTN_ORANGE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_MISSED, CLS_BTN_NEW, CLS_BTN_FIND, CLS_BTN_PLANNED, CLS_BTN_DI, CLS_BTN_ARR } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { NewVfrDialog } from "@/components/strip/NewVfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 import { FindDialog } from "@/components/strip/FindDialog";
-import { PRODUCTION_BAY_CLASS, TOWER_COLUMN_CLASSES } from "./productionBayLayouts";
+import { TOWER_COLUMN_CLASSES } from "./productionBayLayouts";
+import { useBayResize } from "@/components/bays/useBayResize";
+import { BayResizeHandle } from "@/components/bays/BayResizeHandle";
 
 // Column widths
 const [COL_ARR, COL_DEP, COL_CENTER, COL_RIGHT] = TOWER_COLUMN_CLASSES;
 
-const btn = CLS_BTN;
 const btnOrange = CLS_BTN_ORANGE;
 const btnBlue = CLS_BTN_BLUE;
 const btnYellow = CLS_BTN_YELLOW;
+
+// Default bay heights (% of column); the last bay of each column fills the rest.
+const ARR_DEFAULTS = { final: 35, rwyArr: 20 };
+const DEP_DEFAULTS = { twyDep: 35, rwyDep: 20 };
+const CENTER_STARTUP_DEFAULTS = { controlzone: 21.65, pushback: 33 };
+const CENTER_DEFAULTS = { controlzone: 35, pushback: 35 };
+const RIGHT_DEFAULTS = { clrDel: 45, deIce: 25 };
 
 export type TowerGroundLayoutVariant = "TWTE" | "TWRGND";
 
@@ -71,6 +80,10 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
   const [plannedOpen, setPlannedOpen] = useState(false);
   const [newVfrOpen, setNewVfrOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
+  const arrResize = useBayResize("tower-bay-heights-arr", ARR_DEFAULTS);
+  const depResize = useBayResize("tower-bay-heights-dep", DEP_DEFAULTS);
+  const centerResize = useBayResize(`tower-bay-heights-center-${variant}`, showStartupBay ? CENTER_STARTUP_DEFAULTS : CENTER_DEFAULTS);
+  const rightResize = useBayResize("tower-bay-heights-right", RIGHT_DEFAULTS);
   const lowerPositionOnline = useLowerPositionOnline();
   const ctwrOnline = useCtwrOnline();
   // TE/TW is responsible for clearances only when no lower position AND no CTWR is online.
@@ -118,17 +131,9 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
     selectStrip(null);
   }, [selectedStrip, canMissedApproach, missedApproach, selectStrip]);
 
-  const startupSortModes: SortMode<FrontendStrip>[] = [
-    { key: "EOBT", label: "EOBT", compareFn: (a, b) => a.eobt.localeCompare(b.eobt) },
-    { key: "CALLSIGN", label: "CALLSIGN", compareFn: (a, b) => a.callsign.localeCompare(b.callsign) },
-    { key: "ADES", label: "ADES", compareFn: (a, b) => a.destination.localeCompare(b.destination) },
-  ];
+  const startupSortModes = startupSortModesShared;
 
-  const arrSortModes: SortMode<FrontendStrip>[] = [
-    { key: "ETA", label: "ETA", compareFn: (a, b) => a.eldt.localeCompare(b.eldt) },
-    { key: "CALLSIGN", label: "CALLSIGN", compareFn: (a, b) => a.callsign.localeCompare(b.callsign) },
-    { key: "ADEP", label: "ADEP", compareFn: (a, b) => a.origin.localeCompare(b.origin) },
-  ];
+  const arrSortModes = arrivalSortModes;
 
   const bayStripMap: Record<string, { strips: AnyStrip[]; targetBay: Bay; descending?: boolean }> = {
     "FINAL": { strips: finalStrips, targetBay: Bay.Final, descending: true },
@@ -169,9 +174,9 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
         if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, insertAfter);
         else updateOrder(activeRef.callsign!, insertAfter);
       }}
-      onMove={(activeRef, bay) => {
-        if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, null, bay);
-        else move(activeRef.callsign!, bay);
+      onMove={(activeRef, bay, insertAfter) => {
+        if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, insertAfter ?? null, bay);
+        else move(activeRef.callsign!, bay, false, false, insertAfter);
       }}
       renderDragOverlay={(strip: AnyStrip) => {
         if (!isFlight(strip)) return <Strip strip={strip} width={TWY_DEP_STRIP_WIDTH} />;
@@ -195,11 +200,11 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
       <div className="bay-page-wrapper">
 
         {/* Column 1 – FINAL + RWY ARR + TWY ARR */}
-        <div className={COL_ARR}>
+        <div style={arrResize.columnStyle} className={COL_ARR}>
           <div className="bay-col-header justify-between">
             <span className={CLS_LABEL}>FINAL</span>
-            <span className="flex gap-1">
-              <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
+            <span className="flex gap-0.5">
+              <button className={CLS_BTN_ARR} onClick={() => setArrOpen(true)}>ARR</button>
             </span>
           </div>
           <SortableBay
@@ -207,7 +212,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="FINAL"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className={PRODUCTION_BAY_CLASS.towerFinal}
+            className="h-[var(--bay-h-final)] bay-scroll-area-bottom"
           >
             {(strip) => (
               <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} selectable={true} />
@@ -215,10 +220,11 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           </SortableBay>
 
           <div className="bay-col-header bay-col-sep justify-between">
+            <BayResizeHandle {...arrResize.handleProps("final")} />
             <span className={CLS_LABEL}>RWY ARR</span>
-            <span className="flex gap-1">
+            <span className="flex gap-0.5">
               <button
-                className={canMissedApproach ? btn : `${btn} opacity-40 cursor-not-allowed`}
+                className={canMissedApproach ? CLS_BTN_MISSED : `${CLS_BTN_MISSED} opacity-40 cursor-not-allowed`}
                 onClick={handleMissedApproach}
                 disabled={!canMissedApproach}
               >
@@ -234,7 +240,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="RWY-ARR"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className={PRODUCTION_BAY_CLASS.towerRunwayArrival}
+            className="h-[var(--bay-h-rwyArr)] bay-scroll-area-dark"
           >
             {(strip) => (
               <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} selectable={true} />
@@ -242,8 +248,9 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           </SortableBay>
 
           <div className="bay-col-header bay-col-sep justify-between">
+            <BayResizeHandle {...arrResize.handleProps("rwyArr")} />
             <span className={CLS_LABEL}>TWY ARR</span>
-            <span className="flex gap-1">
+            <span className="flex gap-0.5">
               <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
               <LandButton bay={Bay.TwyArr} className={btnOrange} />
               <StartButton bay={Bay.TwyArr} className={btnOrange} />
@@ -264,12 +271,12 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
         </div>
 
         {/* Column 2 – TWY DEP + RWY DEP + AIRBORNE */}
-        <div className={COL_DEP}>
+        <div style={depResize.columnStyle} className={COL_DEP}>
           <div className="bay-col-header justify-between">
             <span className={CLS_LABEL}>TWY DEP</span>
-            <span className="flex gap-1">
+            <span className="flex gap-0.5">
               {!showStartupBay && (
-                <button className={btn} onClick={() => setStartupOpen(true)}>STARTUP</button>
+                <button className={CLS_BTN_PLANNED} onClick={() => setStartupOpen(true)}>STARTUP</button>
               )}
               <MemAidButton bay={Bay.TaxiLwr} className={btnBlue} />
               <LandButton bay={Bay.TaxiLwr} className={btnOrange} />
@@ -282,7 +289,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="TWY-DEP"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className={PRODUCTION_BAY_CLASS.towerTaxiDeparture}
+            className="h-[var(--bay-h-twyDep)] bay-scroll-area-bottom"
           >
             {(strip) => (
               <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
@@ -290,8 +297,9 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           </SortableBay>
 
           <div className="bay-col-header bay-col-sep justify-between">
+            <BayResizeHandle {...depResize.handleProps("twyDep")} />
             <span className={CLS_LABEL}>RWY DEP</span>
-            <span className="flex gap-1">
+            <span className="flex gap-0.5">
               <LandButton bay={Bay.Depart} className={btnOrange} />
               <StartButton bay={Bay.Depart} className={btnOrange} />
               <CrossingButton bay={Bay.Depart} className={btnYellow} />
@@ -302,7 +310,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="RWY-DEP"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className="h-[20%] bay-scroll-area-dark"
+            className="h-[var(--bay-h-rwyDep)] bay-scroll-area-dark"
           >
             {(strip) => (
               <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
@@ -310,6 +318,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           </SortableBay>
 
           <div className="bay-col-header bay-col-sep">
+            <BayResizeHandle {...depResize.handleProps("rwyDep")} />
             <span className={CLS_LABEL}>AIRBORNE</span>
           </div>
           <SortableBay
@@ -329,7 +338,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
 
           {!showStartupBay && startupOpen && (
             <StripListPopup
-              title="STARTUP"
+              title="STARTUP" rowHalfStripVariant="LOCKED-DEP"
               strips={startupFlightStrips}
               sortModes={startupSortModes}
               onRowClick={(strip) => {
@@ -345,7 +354,6 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
               title="ARR"
               strips={inboundStrips}
               sortModes={arrSortModes}
-              rowStripStatus="FINAL-ARR"
               onRowClick={(strip) => {
                 pickupStrip(strip.callsign, Bay.Final);
                 setArrOpen(false);
@@ -357,12 +365,12 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
         </div>
 
         {/* Column 3 – CONTROLZONE + STARTUP/PUSHBACK + MESSAGES */}
-        <div className={COL_CENTER}>
+        <div style={centerResize.columnStyle} className={COL_CENTER}>
           <div className="bay-col-header justify-between">
             <span className={CLS_LABEL}>CONTROLZONE</span>
-            <span className="flex gap-1">
-              <button className={btn} onClick={() => setNewVfrOpen(true)}>NEW</button>
-              <button className={btn} onClick={() => setFindOpen(true)}>FIND</button>
+            <span className="flex gap-0.5">
+              <button className={CLS_BTN_NEW} onClick={() => setNewVfrOpen(true)}>NEW</button>
+              <button className={CLS_BTN_FIND} onClick={() => setFindOpen(true)}>FIND</button>
             </span>
           </div>
           <SortableBay
@@ -370,7 +378,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="CONTROLZONE"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className={showStartupBay ? PRODUCTION_BAY_CLASS.towerControlZoneWithStartup : PRODUCTION_BAY_CLASS.towerTaxiDeparture}
+            className="h-[var(--bay-h-controlzone)] bay-scroll-area-bottom"
           >
             {(strip) => <Strip strip={strip} status="CONTROLZONE" myPosition={myPosition} selectable={true} />}
           </SortableBay>
@@ -378,6 +386,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           {showStartupBay ? (
             <>
               <div className="bay-col-header bay-col-sep">
+                <BayResizeHandle {...centerResize.handleProps("controlzone")} />
                 <span className={CLS_LABEL}>PUSHBACK</span>
               </div>
               <SortableBay
@@ -385,11 +394,12 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
                 bayId="PUSHBACK"
                 isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
                 standalone={false}
-                className="flex-1 bay-scroll-area-bottom"
+                className="h-[var(--bay-h-pushback)] bay-scroll-area-bottom"
               >
                 {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
               </SortableBay>
               <div className="bay-col-header bay-col-sep">
+                <BayResizeHandle {...centerResize.handleProps("pushback")} />
                 <span className={CLS_LABEL}>STARTUP</span>
               </div>
               <SortableBay
@@ -405,6 +415,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           ) : (
             <>
               <div className="bay-col-header bay-col-sep">
+                <BayResizeHandle {...centerResize.handleProps("controlzone")} />
                 <span className={CLS_LABEL}>PUSHBACK</span>
               </div>
               <SortableBay
@@ -412,16 +423,17 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
                 bayId="PUSHBACK"
                 isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
                 standalone={false}
-                className={PRODUCTION_BAY_CLASS.towerTaxiDeparture}
+                className="h-[var(--bay-h-pushback)] bay-scroll-area-bottom"
               >
                 {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
               </SortableBay>
-              <div className="bg-primary h-10 flex items-center px-2 shrink-0 justify-between bay-col-sep">
+              <div className="bg-primary h-10 flex items-center px-2 shrink-0 justify-between bay-col-sep relative">
+                <BayResizeHandle {...centerResize.handleProps("pushback")} />
                 <span className={CLS_LABEL}>MESSAGES</span>
-                <span className="flex gap-1">
-                  <button className={btn} onClick={() => setComposeOpen(true)}>INFO</button>
-                  <button className={btn} onClick={() => setComposeOpen(true)}>MISC.</button>
-                  <button className={btn} onClick={() => setComposeOpen(true)}>EQUIP</button>
+                <span className="flex gap-0.5">
+                  <button className={CLS_BTN_NEW} onClick={() => setComposeOpen(true)}>INFO</button>
+                  <button className={CLS_BTN_NEW} onClick={() => setComposeOpen(true)}>MISC.</button>
+                  <button className={CLS_BTN_NEW} onClick={() => setComposeOpen(true)}>EQUIP</button>
                 </span>
               </div>
               <div className="flex-1 bay-scroll-area">
@@ -436,24 +448,25 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
         </div>
 
         {/* Column 4 – CLRDEL + DE-ICE A + STAND */}
-        <div className={COL_RIGHT}>
+        <div style={rightResize.columnStyle} className={COL_RIGHT}>
           <div className="bay-col-header justify-between">
             <span className={CLS_LABEL}>CLRDEL</span>
-            <span className="flex gap-1">
-              <button className={btn} onClick={() => setNewIfrOpen(true)}>NEW</button>
-              <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
+            <span className="flex gap-0.5">
+              <button className={CLS_BTN_NEW} onClick={() => setNewIfrOpen(true)}>NEW</button>
+              <button className={CLS_BTN_PLANNED} onClick={() => setPlannedOpen(true)}>PLANNED</button>
             </span>
           </div>
-          <SortableBay strips={nonClearedStrips} bayId="CLRDEL" standalone={false} className={PRODUCTION_BAY_CLASS.towerClearanceDelivery}>
+          <SortableBay strips={nonClearedStrips} bayId="CLRDEL" standalone={false} className="h-[var(--bay-h-clrDel)] bay-scroll-area">
             {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} fullWidth={true} myPosition={myPosition} />}
           </SortableBay>
 
           <div className="bay-col-header bay-col-sep justify-between">
+            <BayResizeHandle {...rightResize.handleProps("clrDel")} />
             <span className={CLS_LABEL}>DE-ICE A</span>
-            <span className="flex gap-1">
-              <button className={btn}>DI A</button>
-              <button className={btn}>DI B</button>
-              <button className={btn}>DI V</button>
+            <span className="flex gap-0.5">
+              <button className={CLS_BTN_DI}>DI A</button>
+              <button className={CLS_BTN_DI}>DI B</button>
+              <button className={CLS_BTN_DI}>DI V</button>
             </span>
           </div>
           <SortableBay
@@ -461,12 +474,13 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="DE-ICE"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className="h-[25%] bay-scroll-area-bottom"
+            className="h-[var(--bay-h-deIce)] bay-scroll-area-bottom"
           >
             {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
           </SortableBay>
 
           <div className="bay-col-header bay-col-sep">
+            <BayResizeHandle {...rightResize.handleProps("deIce")} />
             <span className={CLS_LABEL}>STAND</span>
           </div>
           <SortableBay

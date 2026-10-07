@@ -1,3 +1,4 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import type { StripProps } from "./types";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
@@ -17,7 +18,7 @@ const BOT_H = "33.3333%";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Values match the original pixel widths: SI=40, Callsign=120, Type=80, RWY=54, HS=54, Stand=80
-const F_SI       = 40;
+const F_SI       = 40 * 0.9;
 const F_CALLSIGN = 120;
 const F_TYPE     = 80;
 const F_RWY      = 54;
@@ -27,7 +28,7 @@ const F_STAND    = 80;
 /**
  * ApnArrStrip — APN-TAXI-ARR strip used in TWY ARR and STAND bays (status="ARR").
  *
- * 4.72dvh strip (51px at 1080p), 90% of bay width, with 2/3 top row / 1/3 bottom row:
+ * 4.72dvh strip (51px at 1080p), 95% of bay width, with 2/3 top row / 1/3 bottom row:
  *   [SI] | [callsign] | [actype↑ / reg↓] | [RWY] | [HS] | [stand]
  *
  * Background: yellow (var(--color-strip-arr-bg)).
@@ -92,7 +93,7 @@ export function ApnArrStrip({
       className={`flex ${textWhite ? "text-white" : "text-black"} select-none`}
       style={{
         height: "4.72dvh",
-        width: "90%",
+        width: "95%",
         backgroundColor: bg,
         cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle(bg, stripFrameColor),
@@ -120,17 +121,17 @@ export function ApnArrStrip({
         onContextMenu={handleContextMenu}
       >
         <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
-          <span className="truncate w-full" style={{ fontWeight: "bold", fontSize: "1.04vw", color: manualBlue }}>{callsign}</span>
+          <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: manualBlue }}>{callsign}</span>
         </div>
         <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
-          <span className="truncate w-full" style={{ fontWeight: "bold", fontSize: "0.57vw" }}>{nextFreq}</span>
+          <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>{nextFreq}</span>
         </div>
       </div>
 
       {/* A/C type / Registration */}
       <div className="flex flex-col border-r-2 min-w-0" style={{ flexGrow: F_TYPE, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontWeight: 600, fontSize: "0.63vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
+          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.63vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
         </div>
         <div className="flex items-center justify-center overflow-hidden" style={{ height: BOT_H }}>
           <span className="truncate px-[0.21vw]" style={{ fontSize: "0.63vw" }}>{registration}</span>
@@ -150,7 +151,7 @@ export function ApnArrStrip({
         })}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw" }}>{runway}</span>
+          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{runway}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -162,7 +163,7 @@ export function ApnArrStrip({
         onClick={(e) => guardValidationAction(e, () => setTaxiMapOpen(true))}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          {(() => { const twy = taxiway ?? holdingPoint; return <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw", opacity: twy ? 1 : 0.2 }}>{twy || "TWY"}</span>; })()}
+          {(() => { const twy = taxiway ?? holdingPoint; return <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", opacity: twy ? 1 : 0.2 }}>{twy || "TWY"}</span>; })()}
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -183,7 +184,7 @@ export function ApnArrStrip({
         })}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw", color: satStandStyle.color ?? getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: satStandStyle.color ?? getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

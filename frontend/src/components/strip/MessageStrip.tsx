@@ -9,8 +9,6 @@ const COLOR_STRIP_BG       = "#285A5C"; // teal background for message strips
 const COLOR_SI_BROADCAST   = "#FF6D4D"; // sent-by-me broadcast indicator
 const COLOR_TEXT_MAIN      = "#E9E9E9"; // primary text / button border color
 const COLOR_TEXT_ON_LIGHT  = "#1a1a1a"; // dark text when SI background is light
-// Tailwind class constants (hex must be literal strings for JIT)
-const CLS_DISMISS_BTN = "flex items-center justify-center shrink-0 border border-[#E9E9E9] m-[0.37dvh] font-bold text-[#E9E9E9] hover:bg-[#1e4547] active:bg-[#163638]";
 
 function getMessageSI(msg: MessageReceived, currentPosition: string): { color: string; initials: string } {
   if (msg.sender === "SYSTEM") return { color: COLOR_SI_CONCERNED, initials: "SY" };
@@ -43,11 +41,11 @@ export function MessageStrip({ msg }: MessageStripProps) {
   return (
     <div
       className="flex items-stretch shrink-0"
-      style={{ minHeight: "4.72dvh", ...getFramedStripStyle(false, COLOR_STRIP_BG) }}
+      style={{ minHeight: "2.83dvh", width: "95%", ...getFramedStripStyle(false, COLOR_STRIP_BG) }}
     >
       {/* SI box */}
       <div
-        className="flex items-center justify-center shrink-0 font-bold"
+        className="flex items-center justify-center shrink-0 font-normal [-webkit-text-stroke:0.5px_currentColor]"
         style={{ width: "1.88vw", background: si.color, color: si.color === COLOR_SI_ASSUMED ? COLOR_TEXT_ON_LIGHT : "white", fontSize: "0.73vw" }}
       >
         {si.initials}
@@ -55,21 +53,21 @@ export function MessageStrip({ msg }: MessageStripProps) {
 
       {/* Message text */}
       <div
-        className="flex-1 flex items-center px-[0.42vw] py-[0.74dvh]"
-        style={{ fontFamily: "Rubik, sans-serif", fontSize: "0.73vw", color: COLOR_TEXT_MAIN }}
+        className="flex-1 flex items-center px-[0.42vw] py-[0.3dvh]"
+        style={{ fontFamily: "var(--font-bay)", fontSize: "0.73vw", color: COLOR_TEXT_MAIN }}
       >
         <span className="break-words min-w-0 w-full">{msg.text}</span>
       </div>
 
-      {/* X button */}
-      <button
-        className={CLS_DISMISS_BTN}
-        style={{ width: "1.56vw", height: "2.78dvh", fontSize: "0.73vw" }}
+      {/* X button — same square-and-cross as the tactical strips */}
+      <div
+        className="flex-shrink-0 flex items-center justify-center cursor-pointer"
+        style={{ width: "1.25vw", color: COLOR_TEXT_MAIN }}
         onClick={() => dismissMessage(msg.id)}
         title="Dismiss"
       >
-        X
-      </button>
+        <span style={{ fontFamily: "var(--font-bay)", fontSize: "1.1dvh", lineHeight: 1, width: "1.7dvh", height: "1.7dvh", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid currentColor", borderRadius: "0.4dvh", boxSizing: "border-box" }}>✕</span>
+      </div>
     </div>
   );
 }

@@ -29,7 +29,7 @@ const ROW_HEIGHT = 15;
 const LABEL_FONT_SIZE = 20;
 const DETAILS_FONT_SIZE = 14;
 const CONTENT_FONT_SIZE = 12;
-const CONTENT_FONT = "Rubik, sans-serif";
+const CONTENT_FONT = "var(--font-bay)";
 
 interface EstStandCellProps {
   stand: { label: string; column?: number; row?: number } | EstCanvasStand;

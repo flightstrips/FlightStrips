@@ -1,3 +1,4 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import type { StripProps } from "./types";
 import {
@@ -6,7 +7,6 @@ import {
   getCellBorderColor,
   getStripFrameColor,
   SELECTION_COLOR,
-  FONT,
   COLOR_UNEXPECTED_YELLOW,
   COLOR_MANUAL_BLUE,
   AircraftTypeLabel,
@@ -46,10 +46,14 @@ const F_STAND    = F_BASE * (2 / 3);         // 2/3 of callsign width  ~16.67
 const F_TSAT     = F_BASE * (2 / 3);         // 2/3 of callsign width  ~16.67
 const F_RWY      = F_BASE * (2 / 3) * (2 / 3); // 4/9 of callsign width ~11.11
 
+// Test: PUSH strips use the bundled COOPANS font instead of the shared Arial FONT.
+const FONT = "var(--font-bay)";
+// The font has a single weight, so "semi bold" is regular plus a thin stroke (as in the bay headers).
+
 /**
  * ApnPushStrip — APNPUSH strip for STARTUP, PUSH BACK and DE-ICE bays (status="PUSH").
  *
- * Width: 90% of bay. Cells use flex proportions:
+ * Width: 95% of bay. Cells use flex proportions:
  *   SI 8 | Callsign 25 | Type+Reg 25*(2/3) | Stand 25*(2/3) | TSAT/CTOT 25*(2/3) | RWY 25*(2/3)*(2/3)
  *
  * Background: cyan (var(--color-strip-dep-bg)).
@@ -122,7 +126,7 @@ export function ApnPushStrip({
       className="select-none"
       style={{
         height: "4.72dvh",
-        width: fullWidth ? "100%" : "90%",
+        width: fullWidth ? "100%" : "95%",
         cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
       }}
@@ -151,12 +155,12 @@ export function ApnPushStrip({
           onContextMenu={delegateCallsignClick ? undefined : handleContextMenu}
         >
           <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: manualBlue }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: manualBlue }}>
               {callsign}
             </span>
           </div>
           <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw" }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>
               {nextFreq}
             </span>
           </div>
@@ -174,7 +178,7 @@ export function ApnPushStrip({
 
         {/* Stand / Release Point — 25%*(2/3) */}
         <div
-          className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:bg-cyan-200"
+          className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer"
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48dvh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => {
             if (standYellow) {
@@ -190,7 +194,7 @@ export function ApnPushStrip({
             }
           })}
         >
-          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
             {holdingPoint || stand}
           </span>
         </div>
@@ -228,7 +232,7 @@ export function ApnPushStrip({
             } : undefined}
           >
             <span className="shrink-0" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>TSAT</span>
-            <span className="truncate" style={{ fontFamily: FONT, fontSize: "0.63vw", fontWeight: emphasizeDisplayedTime ? 700 : undefined }}>{tsat}</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: "0.63vw", ...(emphasizeDisplayedTime ? { fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE } : {}) }}>{tsat}</span>
           </div>
           <div
             className="flex items-center gap-[0.21vw] px-[0.21vw]"
@@ -245,7 +249,7 @@ export function ApnPushStrip({
 
         {/* RWY — 25%*(2/3)*(2/3) */}
         <div
-          className="flex items-center justify-center overflow-hidden cursor-pointer hover:bg-cyan-200"
+          className="flex items-center justify-center overflow-hidden cursor-pointer"
           style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48dvh", minWidth: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => {
             if (runwayYellow) {
@@ -255,7 +259,7 @@ export function ApnPushStrip({
             }
           })}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>
       </div>
 

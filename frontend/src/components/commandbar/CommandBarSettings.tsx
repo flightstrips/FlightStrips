@@ -14,6 +14,7 @@ import { useAudioSettings } from "@/hooks/useAudioSettings";
 import { useVacsSettings } from "@/hooks/useVacsSettings";
 import { FRONTEND_VERSION } from "@/lib/app-version";
 import { useLocalIp } from "@/store/store-hooks";
+import { CLS_CMD_BEVEL } from "@/components/strip/shared";
 
 const CLS_DIALOG = "sm:max-w-[400px] bg-[#b3b3b3]";
 
@@ -40,7 +41,7 @@ export default function CommandBarSettings() {
       <DialogTrigger asChild>
         <button
           type="button"
-          className={`h-[3.42dvh] my-[0.65dvh] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)] outline-none ${
+          className={`h-[3.42dvh] my-[0.65dvh] w-[3.52vw] flex items-center justify-center ${CLS_CMD_BEVEL} outline-none ${
             muted ? "bg-[#FF4444] text-white" : "bg-bay-btn text-white"
           }`}
           aria-label="Settings"

@@ -1,3 +1,4 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import type { StripProps } from "./types";
 import {
@@ -34,12 +35,12 @@ const F_STAND    = 25 * (2 / 3);            // ~16.67
 const F_HP       = 25 * (2 / 3) * (2 / 3); // ~11.11
 const F_RWY      = 25 * (2 / 3);            // ~16.67
 
-export const APN_TAXI_DEP_STRIP_WIDTH = "90%";
+export const APN_TAXI_DEP_STRIP_WIDTH = "95%";
 
 /**
  * ApnTaxiDepStrip — APN-TAXI-DEP strip (status="TAXI-DEP").
  *
- * Width: 90% of bay. Cells use flex proportions:
+ * Width: 95% of bay. Cells use flex proportions:
  *   SI 8 | Callsign 25 | Type+Reg 25*(2/3) | Stand 25*(2/3) | HP 25*(2/3)*(2/3) | RWY 25*(2/3)
  *
  * Background: cyan (var(--color-strip-dep-bg)).
@@ -99,7 +100,7 @@ export function ApnTaxiDepStrip({
     <div
       className="select-none"
       style={{
-        height: "4.44dvh",
+        height: "4.72dvh",
         width: APN_TAXI_DEP_STRIP_WIDTH,
         cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
@@ -130,10 +131,10 @@ export function ApnTaxiDepStrip({
           onContextMenu={handleContextMenu}
         >
           <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw" }}>{callsign}</span>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{callsign}</span>
           </div>
           <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw" }}>{nextFreq}</span>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>{nextFreq}</span>
           </div>
         </div>
 
@@ -156,10 +157,10 @@ export function ApnTaxiDepStrip({
           onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
         >
           <div className="flex items-center justify-center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: BOT_H, borderBottom: showCtot ? `2px solid ${cellBorderColor}` : undefined }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
           </div>
           <div className="flex items-center justify-center" style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: BOT_H, backgroundColor: showCtot ? ctotBg || undefined : undefined, color: showCtot ? ctotColor : undefined }}>
-            {showCtot && <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.52vw" }}>{ctot}</span>}
+            {showCtot && <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.52vw" }}>{ctot}</span>}
           </div>
         </div>
 
@@ -169,13 +170,13 @@ export function ApnTaxiDepStrip({
           style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
           onClick={(e) => guardValidationAction(e, () => setShowTaxiMap(true))}
         >
-          <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw", opacity: hasTwy ? 1 : 0.15, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+          <div className="flex items-center justify-center" style={{ height: HALF_H }}>
+            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.754vw", opacity: hasTwy ? 1 : 0.15, color: getCellTextColor("release_point", controllerModifiedFields) }}>
               {hasTwy ? hpValue : "TWY"}
             </span>
           </div>
           <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw", opacity: hasTwy ? 0.15 : 1, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.754vw", opacity: hasTwy || !hpValue ? 0.15 : 1, color: getCellTextColor("release_point", controllerModifiedFields) }}>
               {hasTwy ? "HP" : hpValue || "HP"}
             </span>
           </div>
@@ -189,9 +190,9 @@ export function ApnTaxiDepStrip({
         >
           <div className="flex" style={{ height: HALF_H }}>
             <div className="flex items-center justify-center" style={{ flex: "2 0 0%", height: "100%" }}>
-              <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
+              <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
             </div>
-            <div style={{ flexShrink: 0, width: HALF_H, height: "100%", borderLeft: `1px solid ${cellBorderColor}`, borderBottom: `1px solid ${cellBorderColor}` }} />
+            <div style={{ flexShrink: 0, width: "2.36dvh", height: "100%", borderLeft: `1px solid ${cellBorderColor}`, borderBottom: `1px solid ${cellBorderColor}` }} />
           </div>
           <div style={{ height: HALF_H }} />
         </div>

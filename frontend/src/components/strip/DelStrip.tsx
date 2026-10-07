@@ -1,3 +1,4 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
@@ -111,7 +112,7 @@ export function DelStrip({
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition) }}
+          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
@@ -124,12 +125,12 @@ export function DelStrip({
           style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <CLXBtn callsign={callsign}>
-            <div className="flex items-center justify-center border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", color: manualBlue, borderBottomColor: "transparent" }}>
+            <div className="flex items-center justify-center border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", color: manualBlue, borderBottomColor: "transparent" }}>
               {destination}
             </div>
             <div
               className="flex items-center justify-center overflow-hidden"
-              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined, color: manualBlue ?? getCellTextColor("stand", controllerModifiedFields) }}
+              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined, color: manualBlue ?? getCellTextColor("stand", controllerModifiedFields) }}
               onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
             >
               {stand}
@@ -167,7 +168,7 @@ export function DelStrip({
               }}
             >
               <span className="shrink-0">TOBT</span>
-              <span style={{ fontWeight: emphasizeTobtTime ? 700 : undefined }}>{tobt}</span>
+              <span style={{ ...(emphasizeTobtTime ? { fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE } : {}) }}>{tobt}</span>
             </div>
             <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
               onClick={(e) => {

@@ -122,6 +122,26 @@ function nextSequenceAtEndOfBay(strips: FrontendStrip[], tacticalStrips: Tactica
   return Math.max(maxFlight, maxTactical) + 1000;
 }
 
+/** Midpoint sequence for placing a strip right after `insertAfter` (null = top) in `bay`, or null if the reference is unknown. */
+function sequenceAfter(strips: FrontendStrip[], tacticalStrips: TacticalStrip[], bay: Bay, movingCallsign: string, insertAfter: StripRef | null): number | null {
+  const baySeqs = [
+    ...strips.filter((s) => s.bay === bay && s.callsign !== movingCallsign).map((s) => s.sequence),
+    ...tacticalStrips.filter((t) => t.bay === bay).map((t) => t.sequence),
+  ].sort((a, b) => a - b);
+
+  let prevSeq = 0;
+  if (insertAfter !== null) {
+    const ref = insertAfter.kind === "flight"
+      ? strips.find((s) => s.callsign === insertAfter.callsign)
+      : tacticalStrips.find((t) => t.id === insertAfter.id);
+    if (!ref) return null;
+    prevSeq = ref.sequence;
+  }
+
+  const nextSeq = baySeqs.find((seq) => seq > prevSeq) ?? null;
+  return nextSeq === null ? prevSeq + 100 : Math.floor((prevSeq + nextSeq) / 2);
+}
+
 function runwayClearanceTargetBay(bay: string): Bay | null {
   if (bay === Bay.TaxiLwr) return Bay.Depart;
   if (bay === Bay.Final) return Bay.RwyArr;
@@ -232,7 +252,7 @@ export interface WebSocketState {
   clearStandActionRejection: () => void;
 
   // actions
-  move: (callsign: string, bay: Bay, clearance?: boolean, confirmedRemoval?: boolean) => void;
+  move: (callsign: string, bay: Bay, clearance?: boolean, confirmedRemoval?: boolean, insertAfter?: StripRef | null) => void;
   moveToControlzone: (callsign: string) => void;
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
@@ -257,7 +277,7 @@ export interface WebSocketState {
   runwayClearance: (callsign: string) => void;
   runwayConfirmation: (callsign: string) => void;
   cdmReady: (callsign: string) => void;
-  clxUpdateTobt: (callsign: string) => void;
+  clxUpdateTobt: (callsign: string, tobt?: string) => void;
   clxOverrideValidation: (callsign: string, overrideKey: string) => void;
   assignRunway: (callsign: string, runway: string) => void;
 
@@ -505,8 +525,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     closeStripContextMenu: () => set({ contextMenu: null }),
     openValidationDialog,
     closeValidationDialog: () => set({ validationDialogCallsign: null }),
-     move: (callsign, bay, clearance = false, confirmedRemoval = false) => set((state) => {
-          if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay, clearance, confirmed_removal: confirmedRemoval})) {
+     move: (callsign, bay, clearance = false, confirmedRemoval = false, insertAfter) => set((state) => {
+          if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay, clearance, confirmed_removal: confirmedRemoval, ...(insertAfter !== undefined ? { ordered: true, insert_after: insertAfter } : {})})) {
             return state;
           }
 
@@ -515,7 +535,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
               if (stripIndex !== -1) {
                 const currentBay = state.strips[stripIndex].bay;
                 state.strips[stripIndex].bay = bay;
-                state.strips[stripIndex].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, bay, callsign);
+                state.strips[stripIndex].sequence = (insertAfter !== undefined ? sequenceAfter(state.strips, state.tacticalStrips, bay, callsign, insertAfter) : null)
+                  ?? nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, bay, callsign);
                 if (currentBay === Bay.Stand && bay !== Bay.Stand) {
                   state.strips[stripIndex].start_req = false;
                 }
@@ -813,8 +834,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     cdmReady: (callsign) => {
       sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign });
     },
-    clxUpdateTobt: (callsign) => {
-      sendIfWritable({ type: ActionType.FrontendClxUpdateTobt, callsign });
+    clxUpdateTobt: (callsign, tobt) => {
+      sendIfWritable({ type: ActionType.FrontendClxUpdateTobt, callsign, ...(tobt ? { tobt } : {}) });
     },
     clxOverrideValidation: (callsign, overrideKey) => {
       sendIfWritable({ type: ActionType.FrontendClxOverrideValidation, callsign, override_key: overrideKey });

@@ -10,7 +10,18 @@ import { scalePx, toDvh, toVw } from "@/lib/viewportScale";
 // Pre-defined headings from HDG.svg (360, 090, 120, 300, 040, 220) in 2-column layout
 const HDG_PRESETS = [360, 90, 120, 300, 40, 220];
 
-const DIALOG_SHADOW = `0 ${scalePx(4)} ${scalePx(4)} rgba(0,0,0,0.25)`;
+const RAISED: CSSProperties = {
+  border: "2px solid",
+  borderColor: "#CECECE #666666 #666666 #CECECE",
+  boxShadow: "inset 2px 2px 2px -1px rgba(206,206,206,0.55), inset -2px -2px 2px -1px rgba(102,102,102,0.55)",
+  boxSizing: "border-box",
+};
+const INSET: CSSProperties = {
+  border: "2px solid",
+  borderColor: "#666666 #CECECE #CECECE #666666",
+  boxShadow: "inset 2px 2px 2px -1px rgba(102,102,102,0.55), inset -2px -2px 2px -1px rgba(206,206,206,0.55)",
+  boxSizing: "border-box",
+};
 const dialogContentClassName = "max-w-none max-h-none gap-0 overflow-hidden p-0 [&>button]:hidden";
 
 const panelStyle: CSSProperties = {
@@ -38,22 +49,20 @@ const hdgButtonStyle: CSSProperties = {
   color: "black",
   fontWeight: 600,
   fontSize: toVw(28),
-  boxShadow: DIALOG_SHADOW,
+  ...RAISED,
   outline: "none",
   borderRadius: 0,
-  border: 0,
 };
 
 const customInputStyle: CSSProperties = {
   width: "100%",
   height: toDvh(54),
   background: "#FDFDFD",
-  border: 0,
   color: "black",
   fontWeight: 600,
   fontSize: toVw(28),
   textAlign: "center",
-  boxShadow: DIALOG_SHADOW,
+  ...INSET,
   outline: "none",
   borderRadius: 0,
   marginTop: scalePx(16),
@@ -73,11 +82,10 @@ const bottomButtonStyle: CSSProperties = {
   background: "#3F3F3F",
   color: "white",
   fontWeight: 600,
-  fontSize: toVw(28),
-  boxShadow: DIALOG_SHADOW,
+  fontSize: toVw(23.8),
+  ...RAISED,
   outline: "none",
   borderRadius: 0,
-  border: 0,
 };
 
 function formatHdg(n: number): string {
@@ -193,8 +201,8 @@ export function HdgSelectDialog({
               }}
               style={{
                 ...customInputStyle,
-                fontFamily: "Rubik, Arial, sans-serif",
-                ...(customInvalid ? { border: "2px solid #b91c1c", boxShadow: "0 0 0 1px #b91c1c" } : {}),
+                fontFamily: "var(--font-bay)",
+                ...(customInvalid ? { borderColor: "#b91c1c", boxShadow: "0 0 0 1px #b91c1c" } : {}),
               }}
               aria-invalid={customInvalid}
               aria-describedby={customInvalid ? "hdg-custom-error" : undefined}

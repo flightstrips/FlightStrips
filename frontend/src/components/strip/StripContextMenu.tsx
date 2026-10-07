@@ -18,7 +18,7 @@ const COLOR_PANEL_BG  = "#B3B3B3"; // outer panel
 const COLOR_ITEM_BG   = "#D6D6D6"; // button cards
 const COLOR_ESC_BG    = "#3F3F3F"; // ESC button
 const COLOR_DISABLED  = "#A4A4A4"; // greyed text (disabled)
-const FONT            = "'Arial', sans-serif";
+const FONT            = "var(--font-bay)";
 
 /** Drop shadow matching design filters (drop shadow dy=4, blur=2, opacity=0.25). */
 const DROP_SHADOW = "0 4px 4px rgba(0,0,0,0.25)";

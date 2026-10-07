@@ -12,7 +12,7 @@ import { scalePx } from "@/lib/viewportScale";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 
 // Exactly mirrors FlightPlanDialog constants
-const FONT_FAMILY      = "Arial";
+const FONT_FAMILY      = "var(--font-bay)";
 const FONT_SIZE_FIELD  = scalePx(20);
 const FONT_SIZE_LABEL  = scalePx(16);
 const FONT_SIZE_BUTTON = scalePx(24);
@@ -295,10 +295,10 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
             <Input disabled className={`${CLS_DISABLED} w-full`} style={{ ...F }} />
           </div>
 
-          {/* Row 6: NITOS REMARKS | IATA TYPE */}
+          {/* Row 6: FLIGHTSTRIPS REMARKS | IATA TYPE */}
           <div className="flex" style={rowStyle}>
             <div className="grid items-center" style={groupStyle}>
-              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>NITOS REMARKS</Label>
+              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>FLIGHTSTRIPS REMARKS</Label>
               <Input
                 disabled
                 className={CLS_DISABLED}

@@ -256,6 +256,8 @@ type ClxOverrideValidationAction struct {
 
 type ClxUpdateTobtAction struct {
 	Callsign string `json:"callsign"`
+	// Tobt is an optional manually entered HHMM time; when empty the TOBT is set from the current time.
+	Tobt string `json:"tobt,omitempty"`
 }
 
 type Controller struct {
@@ -552,6 +554,9 @@ type MoveEvent struct {
 	Bay              string    `json:"bay"`
 	Clearance        bool      `json:"clearance,omitempty"`
 	ConfirmedRemoval bool      `json:"confirmed_removal,omitempty"`
+	// Ordered makes the strip land immediately after InsertAfter (nil = top of bay) in the target bay.
+	Ordered          bool      `json:"ordered,omitempty"`
+	InsertAfter      *StripRef `json:"insert_after,omitempty"`
 }
 
 type GenerateSquawkRequest struct {

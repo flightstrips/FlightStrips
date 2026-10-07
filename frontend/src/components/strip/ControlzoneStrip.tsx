@@ -1,3 +1,4 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import { useMemo, useState } from "react";
 import { Bay, type FrontendStrip } from "@/api/models";
 import { useAirport, useMetar } from "@/store/store-hooks";
@@ -18,10 +19,10 @@ const FULL_H = "4.72dvh";
 const TOP_H = "66.6667%";
 const BOT_H = "33.3333%";
 const HALF_H = "50%";
-const STRIP_W = "90%";
+const STRIP_W = "95%";
 
 // Ratios taken from the 1080p controlzone.svg design: 34 | 120 | 80 | 52 | 60 | 76
-const F_SI = 34;
+const F_SI = 34 * 0.9;
 const F_CALLSIGN = 120;
 const F_SQUAWK = 80;
 const F_META = 52;
@@ -95,7 +96,7 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
           <div className="flex items-center px-[0.42vw] overflow-hidden" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
             <span
               className="truncate w-full"
-              style={{ fontFamily: FONT, fontSize: CALLSIGN_FONT, fontWeight: 700, color: COLOR_MANUAL_BLUE }}
+              style={{ fontFamily: FONT, fontSize: CALLSIGN_FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, color: COLOR_MANUAL_BLUE }}
             >
               {strip.callsign}
             </span>
@@ -118,7 +119,7 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
           <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
             <span
               className="truncate px-[0.21vw]"
-              style={{ fontFamily: FONT, fontSize: SQUAWK_FONT, fontWeight: 600, color: COLOR_MANUAL_BLUE }}
+              style={{ fontFamily: FONT, fontSize: SQUAWK_FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, color: COLOR_MANUAL_BLUE }}
             >
               {squawk}
             </span>
@@ -131,11 +132,11 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
         >
           <div className="flex items-center gap-[0.16vw] px-[0.21vw]" style={{ height: HALF_H }}>
             <span style={{ fontFamily: FONT, fontSize: META_LABEL_FONT, lineHeight: 1 }}>QNH:</span>
-            <span style={{ fontFamily: FONT, fontSize: META_VALUE_FONT, fontWeight: 700, lineHeight: 1 }}>{qnh}</span>
+            <span style={{ fontFamily: FONT, fontSize: META_VALUE_FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, lineHeight: 1 }}>{qnh}</span>
           </div>
           <div className="flex items-center gap-[0.16vw] px-[0.21vw]" style={{ height: HALF_H }}>
             <span style={{ fontFamily: FONT, fontSize: META_LABEL_FONT, lineHeight: 1 }}>POB:</span>
-            <span style={{ fontFamily: FONT, fontSize: META_VALUE_FONT, fontWeight: 700, lineHeight: 1 }}>{personsOnBoard}</span>
+            <span style={{ fontFamily: FONT, fontSize: META_VALUE_FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, lineHeight: 1 }}>{personsOnBoard}</span>
           </div>
         </div>
 
@@ -144,18 +145,18 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
           style={{ flex: `${F_STATUS} 0 0%`, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
-            <span style={{ fontFamily: FONT, fontSize: PRIMARY_FONT, fontWeight: 700 }}>
+            <span style={{ fontFamily: FONT, fontSize: PRIMARY_FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE }}>
               {statusLabel}
             </span>
           </div>
           <div className="flex border-t-2" style={{ height: HALF_H, borderTopColor: stripFrameColor }}>
             <div className="flex items-center justify-center overflow-hidden border-r-2" style={{ flex: "1 0 0%", borderRightColor: stripFrameColor }}>
-              <span style={{ fontFamily: FONT, fontSize: PRIMARY_FONT, fontWeight: 700, textTransform: "uppercase" }}>
+              <span style={{ fontFamily: FONT, fontSize: PRIMARY_FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, textTransform: "uppercase" }}>
                 {language}
               </span>
             </div>
             <div className="flex items-center justify-center overflow-hidden" style={{ flex: "1 0 0%" }}>
-              <span style={{ fontFamily: FONT, fontSize: PRIMARY_FONT, fontWeight: 700, textTransform: "uppercase" }}>
+              <span style={{ fontFamily: FONT, fontSize: PRIMARY_FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, textTransform: "uppercase" }}>
                 {fplType}
               </span>
             </div>

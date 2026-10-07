@@ -1,3 +1,4 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { TacticalStrip } from "@/api/models";
@@ -5,14 +6,16 @@ import { useControllers, useMyPosition, useWebSocketStore } from "@/store/store-
 import { STRIP_CONTEXT_MENU_WIDTH } from "./StripContextMenu";
 import { FONT, SELECTION_COLOR, getFlatStripBorderStyle, getSIBoxBorderStyle } from "./shared";
 
-const HEIGHT = "2.36dvh";
+const HEIGHT = "2.596dvh";
 const W_BTN = "1.25vw";
+// 90% of the share the SI box takes on flight strips: 8 / (8 + 25 + 3 x 25*2/3 + 25*4/9).
+const SI_WIDTH_PERCENT = (8 / (8 + 25 + 3 * ((25 * 2) / 3) + (25 * 4) / 9)) * 100 * 0.9 * 0.9;
 const TACTICAL_MENU_HEIGHT = 254;
 const MENU_VIEWPORT_MARGIN = 8;
 const MENU_BG = "#B3B3B3";
 const MENU_ITEM_BG = "#D6D6D6";
 const MENU_DISABLED = "#A4A4A4";
-const MENU_FONT = "'Arial', sans-serif";
+const MENU_FONT = "var(--font-bay)";
 const MENU_SHADOW = "0 4px 4px rgba(0,0,0,0.25)";
 
 const menuItemStyle: CSSProperties = {
@@ -22,7 +25,7 @@ const menuItemStyle: CSSProperties = {
   backgroundColor: MENU_ITEM_BG,
   color: "black",
   fontFamily: MENU_FONT,
-  fontWeight: 600,
+  fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE,
   fontSize: 16,
   cursor: "pointer",
   userSelect: "none",
@@ -41,7 +44,6 @@ interface TacticalStripShellProps {
 }
 
 export function TacticalActionCell({
-  borderColor,
   color,
   children,
   onClick,
@@ -49,7 +51,6 @@ export function TacticalActionCell({
   width = W_BTN,
   ariaLabel,
 }: {
-  borderColor: string;
   color: string;
   children: ReactNode;
   onClick?: () => void;
@@ -64,14 +65,13 @@ export function TacticalActionCell({
 
   return (
     <div
-      className="flex-shrink-0 flex items-center justify-center border-l-2"
+      className="flex-shrink-0 flex items-center justify-center"
       role={clickable ? "button" : undefined}
       aria-label={ariaLabel}
       tabIndex={clickable ? 0 : undefined}
       style={{
         width,
         height: "100%",
-        borderLeftColor: borderColor,
         color,
         cursor: clickable ? "pointer" : "default",
       }}
@@ -265,16 +265,16 @@ export function TacticalStripShell({
         {isOwner && (
           <div
             className="flex-shrink-0 bg-white"
-            style={{ height: "100%", aspectRatio: "1 / 1", ...getSIBoxBorderStyle(false, borderColor) }}
+            style={{ height: "100%", flex: `0 0 ${SI_WIDTH_PERCENT}%`, ...getSIBoxBorderStyle(false, borderColor) }}
           />
         )}
 
         <div
-          className="flex-1 flex items-center justify-center px-[0.42vw] overflow-hidden font-bold"
+          className="flex-1 flex items-center justify-center px-[0.42vw] overflow-hidden font-normal"
           style={{
             fontFamily: FONT,
             color: textColor,
-            fontSize: "0.63vw",
+            fontSize: "0.945vw",
             backgroundColor: strip.marked ? SELECTION_COLOR : undefined,
           }}
         >
@@ -285,14 +285,14 @@ export function TacticalStripShell({
 
         {isOwner && (
           <div
-            className={`flex-shrink-0 flex items-center justify-center border-l-2 cursor-pointer ${deleteHoverClass}`}
-            style={{ width: W_BTN, height: "100%", borderLeftColor: borderColor, color: textColor }}
+            className={`flex-shrink-0 flex items-center justify-center cursor-pointer ${deleteHoverClass}`}
+            style={{ width: W_BTN, height: "100%", color: textColor }}
             onClick={(event) => {
               event.stopPropagation();
               deleteTacticalStrip(strip.id);
             }}
           >
-            <span style={{ fontFamily: FONT, fontSize: "0.68vw" }}>✕</span>
+            <span style={{ fontFamily: FONT, fontSize: "1.1dvh", lineHeight: 1, width: "1.7dvh", height: "1.7dvh", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid currentColor", borderRadius: "0.4dvh", boxSizing: "border-box" }}>✕</span>
           </div>
         )}
       </div>

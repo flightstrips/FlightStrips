@@ -56,7 +56,7 @@ export function MandatoryRouteDialog({
         >
           <div
             style={{
-              fontFamily: "Rubik, Arial, sans-serif",
+              fontFamily: "var(--font-bay)",
               fontSize: scalePx(32),
               fontWeight: 400,
               color: "#FF0000",
@@ -80,7 +80,7 @@ export function MandatoryRouteDialog({
                 height: BUTTON_HEIGHT,
                 backgroundColor: "#3F3F3F",
                 color: "white",
-                fontFamily: "Rubik, Arial, sans-serif",
+                fontFamily: "var(--font-bay)",
                 fontSize: scalePx(32),
                 fontWeight: 600,
                 textAlign: "center",
@@ -98,7 +98,7 @@ export function MandatoryRouteDialog({
                 height: BUTTON_HEIGHT,
                 backgroundColor: "#3F3F3F",
                 color: "white",
-                fontFamily: "Rubik, Arial, sans-serif",
+                fontFamily: "var(--font-bay)",
                 fontSize: scalePx(32),
                 fontWeight: 600,
                 textAlign: "center",

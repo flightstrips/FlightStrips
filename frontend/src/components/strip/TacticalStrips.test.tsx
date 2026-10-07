@@ -73,7 +73,7 @@ describe("tactical strip ownership interactions", () => {
     fireEvent.click(screen.getByText("START 22L"));
     expect(actions.markTacticalStrip).toHaveBeenCalledWith(42, true);
     expect(screen.getByText("✕")).toBeInTheDocument();
-    expect(screen.getByText("⌛")).toBeInTheDocument();
+    expect(screen.getByAltText("Hourglass")).toBeInTheDocument();
     expect(container.firstElementChild).toHaveStyle({ backgroundColor: "#dd6a12" });
     expect(container.querySelector(".bg-white")).toHaveStyle({ borderRight: "2px solid #a04a00" });
   });
@@ -124,7 +124,7 @@ describe("tactical strip ownership interactions", () => {
     position = "EKCH_GND";
     render(<TacticalMemaidStrip strip={tactical({ type: "MEMAID", label: "STOP CLIMB" })} />);
 
-    fireEvent.click(screen.getByText("⌛"));
+    fireEvent.click(screen.getByAltText("Hourglass"));
     expect(actions.confirmTacticalStrip).toHaveBeenCalledWith(42);
     expect(screen.queryByRole("button", { name: "FORCE ASSUME" })).not.toBeInTheDocument();
   });

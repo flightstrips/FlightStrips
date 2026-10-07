@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { TacticalStrip } from "@/api/models";
 import { useMyPosition, useWebSocketStore } from "@/store/store-hooks";
 import { FONT } from "./shared";
+import hourglassIcon from "@/assets/hourglass.svg";
 import { TacticalActionCell, TacticalStripShell } from "./TacticalStripShell";
 
 const STRIP_BG = "#dd6a12";
@@ -30,9 +31,10 @@ export function TacticalRwyStrip({ strip, width }: Props) {
   const timerText = strip.timer_start
     ? `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`
     : null;
+  const typeText = strip.type === "LAND" ? "LANDING" : strip.type;
   const label = strip.aircraft
-    ? `${strip.type}${strip.label ? ` ${strip.label}` : ""} (${strip.aircraft})`
-    : `${strip.type}${strip.label ? ` ${strip.label}` : ""}`;
+    ? `${typeText}${strip.label ? ` ${strip.label}` : ""} (${strip.aircraft})`
+    : `${typeText}${strip.label ? ` ${strip.label}` : ""}`;
 
   return (
     <TacticalStripShell
@@ -43,19 +45,18 @@ export function TacticalRwyStrip({ strip, width }: Props) {
       textColor="white"
       action={(
         <TacticalActionCell
-          borderColor={CELL_BORDER_CLR}
           color="white"
           width={timerText ? "2.5vw" : undefined}
           clickable={strip.owner === myPosition && !timerText}
           ariaLabel={strip.owner === myPosition && !timerText ? "Start tactical timer" : undefined}
           onClick={strip.owner === myPosition && !timerText ? () => startTacticalTimer(strip.id) : undefined}
         >
-          <span style={{ fontFamily: FONT, fontSize: timerText ? "0.57vw" : "0.68vw" }}>
-            {timerText ?? "⌛"}
+          <span style={{ fontFamily: FONT, fontSize: timerText ? "0.855vw" : "1.02vw" }}>
+            {timerText ?? <img src={hourglassIcon} alt="Hourglass" draggable={false} style={{ height: "1.1vw", width: "auto" }} />}
           </span>
         </TacticalActionCell>
       )}
-      deleteHoverClass="hover:bg-orange-600"
+      deleteHoverClass=""
     >
       {label}
     </TacticalStripShell>

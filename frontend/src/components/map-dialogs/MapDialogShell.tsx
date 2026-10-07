@@ -17,7 +17,7 @@ const CONTROL_GAP = "0.52cqh";
 // eslint-disable-next-line react-refresh/only-export-components
 export const MAP_BTN_BASE: React.CSSProperties = {
   backgroundColor: COLOR_MAP_BTN_BG,
-  fontFamily: "Arial, sans-serif",
+  fontFamily: "var(--font-bay)",
   fontWeight: "bold",
   color: "black",
   border: "none",
@@ -92,7 +92,7 @@ export function MapEraseControls({ onOk, onErase, onClose, btnStyle, maxLength =
           style={{
             width: CONTROL_NARROW_BTN_WIDTH,
             height: btnStyle.height,
-            fontFamily: "Arial, sans-serif",
+            fontFamily: "var(--font-bay)",
             fontWeight: "bold",
             fontSize: "2cqh",
             textAlign: "center",
@@ -198,6 +198,7 @@ export function MapDialogShell({
         />
 
         <DialogPrimitive.Content
+          className="animate-dialog-zoom-in"
           style={DIALOG_CONTENT_STYLE}
           onClick={(e) => e.stopPropagation()}
         >

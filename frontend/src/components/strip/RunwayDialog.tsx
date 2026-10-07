@@ -27,7 +27,7 @@ const BUTTON_STYLE: CSSProperties = {
   color: "#000",
   border: 0,
   boxShadow: `0 ${scalePx(4)} ${scalePx(4)} rgba(0, 0, 0, 0.25)`,
-  fontFamily: "Rubik, sans-serif",
+  fontFamily: "var(--font-bay)",
   fontSize: scalePx(16),
   fontWeight: 600,
   cursor: "pointer",
@@ -139,7 +139,7 @@ export function RunwayDialog(props: Props) {
               height: scalePx(49.09),
               border: 0,
               boxShadow: `0 ${scalePx(4)} ${scalePx(4)} rgba(0, 0, 0, 0.25)`,
-              fontFamily: "Rubik, sans-serif",
+              fontFamily: "var(--font-bay)",
               fontSize: scalePx(18),
               fontWeight: 600,
             }}

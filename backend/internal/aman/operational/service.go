@@ -1720,6 +1720,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		}
 		input.Flights = append(input.Flights, sequence.Flight{
 			Callsign: flight.Callsign, RunwayGroupID: *flight.SelectedRunwayGroup, State: flight.State, OperationalTETA: teta,
+			DemandArrivalAt:    aman.SequenceDemandArrivalAt(flight),
 			PromotionNotBefore: promotionNotBefore(flight),
 			WakeCategory:       sequence.WakeCategory(wakeCategory), STARFamily: flight.STARFamilyIdentity(),
 			SelectedSTARFamily: explicitSTARFamily(flight.SelectedSTARFamily),
@@ -1993,12 +1994,7 @@ func holdingQueueID(flight aman.AMANFlight) string {
 }
 
 func activeHoldingSince(flight aman.AMANFlight) *time.Time {
-	if flight.HoldingStack == nil || !flight.HoldingStack.Confirmed || holdingStackID(flight) != holdingQueueID(flight) ||
-		flight.HoldingStack.FirstObservedAt.IsZero() || flight.Prediction == nil || flight.Prediction.HoldingFixETA == nil {
-		return nil
-	}
-	entered := flight.HoldingStack.FirstObservedAt
-	return &entered
+	return aman.ConfirmedActiveHoldingSince(flight)
 }
 
 func arrivalQueueTime(flight aman.AMANFlight) *time.Time {

@@ -177,6 +177,7 @@ func ProjectionInput(state aman.AirportState) sequence.Input {
 			continue
 		}
 		input.Flights = append(input.Flights, sequence.Flight{Callsign: flight.Callsign, State: flight.State, RunwayGroupID: runwayGroup(state, flight),
+			DemandArrivalAt: aman.SequenceDemandArrivalAt(flight), ActiveHoldingSince: aman.ConfirmedActiveHoldingSince(flight),
 			OperationalTETA: at, CurrentSlot: flight.Slot, FreezeReason: aman.FreezeNone, WakeCategory: wakeCategory(flight), STARFamily: flight.STARFamilyIdentity()})
 	}
 	return input

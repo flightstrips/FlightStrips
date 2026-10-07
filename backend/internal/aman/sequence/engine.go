@@ -61,8 +61,8 @@ type Policy struct {
 }
 
 // SameSTARSpacing applies an additional grid gap between flights using the
-// same canonical STAR entry family once the active arrival rate reaches the
-// configured threshold.
+// same canonical STAR entry family when predicted demand reaches the configured
+// threshold or that family has confirmed active holding.
 type SameSTARSpacing struct {
 	Enabled               bool
 	ActivationRatePerHour uint32
@@ -83,9 +83,12 @@ type STARFamilyPolicy struct {
 // protected slot reference supplied by freeze/manual policy; CurrentSlot is
 // used only to report movements and never influences candidate generation.
 type Flight struct {
-	Callsign            aman.Callsign
-	RunwayGroupID       aman.RunwayGroupID
-	State               aman.FlightState
+	Callsign      aman.Callsign
+	RunwayGroupID aman.RunwayGroupID
+	State         aman.FlightState
+	// DemandArrivalAt is prediction timing captured before allocation, never a slot.
+	// Nil excludes the flight from demand counts.
+	DemandArrivalAt     *time.Time
 	OperationalTETA     time.Time
 	InitialBaselineTETA *time.Time
 	// PromotionNotBefore is a physical lower bound for opportunistic earlier
@@ -233,11 +236,13 @@ func (r Result) HasConflicts() bool {
 
 type preparedPolicy struct {
 	Policy
-	rates        []RatePoint
-	spacing      map[categoryPair]time.Duration
-	categories   map[WakeCategory]struct{}
-	fallback     time.Duration
-	starFamilies preparedSTARFamilyPolicies
+	rates                 []RatePoint
+	spacing               map[categoryPair]time.Duration
+	categories            map[WakeCategory]struct{}
+	fallback              time.Duration
+	starFamilies          preparedSTARFamilyPolicies
+	demandTimes           []time.Time
+	activeHoldingFamilies map[string]bool
 }
 
 type categoryPair struct{ leading, trailing WakeCategory }
@@ -321,15 +326,7 @@ func IsGridOpportunity(input Input, groupID aman.RunwayGroupID, at time.Time) (b
 }
 
 func generate(input Input, promotions map[aman.Callsign]aman.Slot) (Result, error) {
-	starFamilies, err := prepareSTARFamilyPolicies(input.STARFamilyPolicies)
-	if err != nil {
-		return Result{}, err
-	}
-	policies, err := preparePoliciesWithSTARFamilies(input.Policies, starFamilies)
-	if err != nil {
-		return Result{}, err
-	}
-	flights, err := prepareFlights(input.Flights, policies)
+	policies, flights, err := prepareInput(input)
 	if err != nil {
 		return Result{}, err
 	}
@@ -518,6 +515,9 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 		}
 		if !raw.State.Valid() || !raw.FreezeReason.Valid() || !validUTC(raw.OperationalTETA) {
 			return nil, fmt.Errorf("flight %q has invalid sequencing state", raw.Callsign)
+		}
+		if raw.DemandArrivalAt != nil && !validUTC(*raw.DemandArrivalAt) {
+			return nil, fmt.Errorf("flight %q has invalid demand arrival time", raw.Callsign)
 		}
 		if raw.InitialBaselineTETA != nil && !validUTC(*raw.InitialBaselineTETA) {
 			return nil, fmt.Errorf("flight %q has invalid initial baseline TETA", raw.Callsign)
@@ -923,7 +923,10 @@ func sameSTARGap(policy preparedPolicy, leading, trailing preparedFlight, traili
 		return 0
 	}
 	rate := policy.rateAt(trailingAt)
-	if rate < spacing.ActivationRatePerHour {
+	if rate == 0 {
+		return 0
+	}
+	if !policy.activeHoldingFamilies[leading.STARFamily] && !policy.demandBusy(trailing.DemandArrivalAt, spacing.ActivationRatePerHour) {
 		return 0
 	}
 	return time.Duration(spacing.MinimumEmptySlots+1) * rateInterval(rate)

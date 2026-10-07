@@ -441,6 +441,18 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(desequenced)).toBe(false);
   });
 
+  it("accepts additive manual removal and diversion reasons and rejects unknown reasons", () => {
+    const event = replacement(9);
+    expect(isAMANStateEvent(event)).toBe(true);
+    event.data.flights[0].lifecycle_state = "removed";
+    event.data.flights[0].lifecycle_reason = "manual_removal";
+    expect(isAMANStateEvent(event)).toBe(true);
+    event.data.flights[0].lifecycle_reason = "diverted";
+    expect(isAMANStateEvent(event)).toBe(true);
+    event.data.flights[0].lifecycle_reason = "unknown" as "diverted";
+    expect(isAMANStateEvent(event)).toBe(false);
+  });
+
   it("accepts an explicit disabled-mode health replacement", () => {
     const disabled = replacement(8);
     disabled.data.effective_mode = "disabled";

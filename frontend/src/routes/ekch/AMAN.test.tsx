@@ -255,6 +255,8 @@ describe("AMAN route authorization", () => {
     fireEvent.keyDown(warnings, {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Settings");
     fireEvent.keyDown(screen.getByRole("tab", {name: "Settings"}), {key: "ArrowRight"});
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Excluded (0)");
+    fireEvent.keyDown(screen.getByRole("tab", {name: "Excluded (0)"}), {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Coordination (0)");
     fireEvent.keyDown(screen.getByRole("tab", {name: "Coordination (0)"}), {key: "Home"});
     expect(holdings).toHaveFocus();

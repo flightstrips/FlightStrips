@@ -39,6 +39,23 @@ func TestAMANStateEventAcceptsPostgresMicrosecondRoundTripWithoutAcceptingFuture
 	require.ErrorContains(t, err, "prediction input time follows state generation")
 }
 
+func TestAMANStateEventIncludesManualRemovalAndDiversionReason(t *testing.T) {
+	for _, reason := range []aman.LifecycleReason{aman.LifecycleReasonManualRemoval, aman.LifecycleReasonDiverted} {
+		t.Run(string(reason), func(t *testing.T) {
+			state := goldenAMANState()
+			flight := &state.Flights[0]
+			flight.State, flight.FreezeReason = aman.StateRemoved, aman.FreezeNone
+			flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
+			flight.FrozenAt, flight.FrozenSlot, flight.FrozenOperationalTETA = nil, nil, nil
+			flight.Lifecycle = &aman.LifecycleState{EnteredAt: state.GeneratedAt, Reason: reason, LastEventAt: state.GeneratedAt, LastEventID: "remove", LastEventFingerprint: "test"}
+			event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+			require.NoError(t, err)
+			require.Equal(t, "removed", event.Data.Flights[0].LifecycleState)
+			require.Equal(t, string(reason), event.Data.Flights[0].LifecycleReason)
+		})
+	}
+}
+
 func TestAMANStateEventRemovesExpiredDisconnectedAircraftFromControllerView(t *testing.T) {
 	state := goldenAMANState()
 	flight := &state.Flights[0]

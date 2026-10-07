@@ -2,6 +2,9 @@ export const AMAN_WIRE_VERSION = 1 as const;
 
 export type AMANEffectiveMode = "disabled" | "shadow" | "read_only" | "authoritative" | "blocked";
 export type AMANLifecycleState = "planned" | "airborne" | "unstable" | "stable" | "landed" | "go_around" | "removed";
+const lifecycleReasonValues = ["initial", "airborne_detected", "unstable_horizon", "stable_horizon", "go_around_confirmed", "landing_confirmed", "sudden_appearance", "manual_removal", "diverted", "landed_timeout", "planned_cancellation", "source_disappearance"] as const;
+export type AMANLifecycleReason = typeof lifecycleReasonValues[number];
+const lifecycleReasons = new Set<string>(lifecycleReasonValues);
 export type AMANSequenceDisposition = "active" | "desequenced";
 export type AMANDataStatus = "fresh" | "stale" | "disconnected";
 export type AMANFreezeReason = "none" | "superstable" | "tma" | "manual";
@@ -192,6 +195,7 @@ export interface AMANFlight {
   /** Optional for compatibility with older AMAN state publishers. */
   wake_category?: string;
   lifecycle_state: AMANLifecycleState;
+  lifecycle_reason?: AMANLifecycleReason;
   /** Missing on older V1 publishers and therefore interpreted as active. */
   sequence_disposition?: AMANSequenceDisposition;
   data_status: AMANDataStatus;
@@ -577,6 +581,7 @@ function isFlight(value: unknown): value is AMANFlight {
     && (value.aircraft_type === undefined || isIdentity(value.aircraft_type))
     && (value.wake_category === undefined || isIdentity(value.wake_category))
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
+    && (value.lifecycle_reason === undefined || (isString(value.lifecycle_reason) && lifecycleReasons.has(value.lifecycle_reason)))
     && (value.sequence_disposition === undefined || (isString(value.sequence_disposition) && sequenceDispositions.has(value.sequence_disposition as AMANSequenceDisposition)))
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)
     && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star)
@@ -827,6 +832,12 @@ export function getActiveAMANRunwayGroups(state: AMANState): AMANRunwayGroup[] {
   const active = new Set(state.active_runway_groups
     ?? state.runway_groups.filter((group) => group.selected).map((group) => group.id));
   return state.runway_groups.filter((group) => active.has(group.id));
+}
+
+export function isExcludedAMANFlight(flight: AMANFlight): boolean {
+  return flight.lifecycle_state === "removed"
+    ? flight.lifecycle_reason === "manual_removal"
+    : flight.lifecycle_state !== "landed" && flight.sequence_disposition === "desequenced";
 }
 
 /** Return only backend-projected header values; operational counts are never reconstructed in React. */

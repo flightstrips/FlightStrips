@@ -426,24 +426,34 @@ func TestAMANRepositoryPersistsNoOpCommandWithoutAdvancingState(t *testing.T) {
 	require.Equal(t, state, loaded)
 }
 
-func TestAMANRepositoryDoesNotPersistRemovedFlights(t *testing.T) {
-	pool, _ := testdata.SetupTestDB(t)
-	ctx := context.Background()
-	state := amanState(1, "CID-REMOVED", "SAS999")
-	removed := state.Flights[0]
-	removed.State = aman.StateRemoved
-	removed.Slot, removed.Order, removed.ManualOrder, removed.QueueOffers = nil, nil, nil, nil
-	removed.FreezeReason, removed.FrozenAt, removed.FrozenOperationalTETA, removed.FrozenSlot = aman.FreezeNone, nil, nil, nil
-	state.Flights = []aman.AMANFlight{removed}
+func TestAMANRepositoryPersistsManualRemovalAndDiversionButPrunesAutomaticExpiry(t *testing.T) {
+	for _, reason := range []aman.LifecycleReason{aman.LifecycleReasonManualRemoval, aman.LifecycleReasonDiverted, aman.LifecycleReasonSourceDisappearance} {
+		t.Run(string(reason), func(t *testing.T) {
+			pool, _ := testdata.SetupTestDB(t)
+			ctx := context.Background()
+			state := amanState(1, "CID-REMOVED", "SAS999")
+			removed := state.Flights[0]
+			removed.State = aman.StateRemoved
+			removed.Lifecycle = &aman.LifecycleState{EnteredAt: state.GeneratedAt, Reason: reason, LastEventAt: state.GeneratedAt, LastEventID: "remove", LastEventFingerprint: "test"}
+			removed.Slot, removed.Order, removed.ManualOrder, removed.QueueOffers = nil, nil, nil, nil
+			removed.FreezeReason, removed.FrozenAt, removed.FrozenOperationalTETA, removed.FrozenSlot = aman.FreezeNone, nil, nil, nil
+			state.Flights = []aman.AMANFlight{removed}
 
-	_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
-	require.NoError(t, err)
-	var count int
-	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM aman_flights WHERE state = 'removed'").Scan(&count))
-	require.Zero(t, count)
-	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
-	require.NoError(t, err)
-	require.Empty(t, restored.Flights)
+			_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+			require.NoError(t, err)
+			var count int
+			require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM aman_flights WHERE state = 'removed'").Scan(&count))
+			restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+			require.NoError(t, err)
+			if reason == aman.LifecycleReasonSourceDisappearance {
+				require.Zero(t, count)
+				require.Empty(t, restored.Flights)
+			} else {
+				require.Equal(t, 1, count)
+				require.Equal(t, state.Flights, restored.Flights)
+			}
+		})
+	}
 }
 
 func TestAMANRepositoryRollsBackInvalidAuditAndCommitsStructuredAudit(t *testing.T) {

@@ -294,7 +294,7 @@ export function AMANControlsView({
           <Dialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
             <DialogContent className="w-[28rem] max-w-[calc(100vw-2rem)] border-slate-600 bg-slate-900 text-slate-100">
               <DialogHeader><DialogTitle>Confirm removal · {selectedFlight?.callsign}</DialogTitle></DialogHeader>
-              <p className="text-sm">This permanently removes the flight from AMAN. It cannot be resumed.</p>
+              <p className="text-sm">This removes the flight from the sequence for this session. Use the Excluded tab to add it back.</p>
               <DialogFooter className="gap-2">
                 <button className={controlClass} onClick={() => setRemoveDialogOpen(false)}>Cancel removal</button>
                 <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => {

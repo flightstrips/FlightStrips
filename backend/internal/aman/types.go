@@ -53,6 +53,7 @@ const (
 	LifecycleReasonLandingConfirmed    LifecycleReason = "landing_confirmed"
 	LifecycleReasonSuddenAppearance    LifecycleReason = "sudden_appearance"
 	LifecycleReasonManualRemoval       LifecycleReason = "manual_removal"
+	LifecycleReasonDiverted            LifecycleReason = "diverted"
 	LifecycleReasonLandedTimeout       LifecycleReason = "landed_timeout"
 	LifecycleReasonPlannedCancellation LifecycleReason = "planned_cancellation"
 	LifecycleReasonSourceDisappearance LifecycleReason = "source_disappearance"
@@ -68,6 +69,7 @@ func (r LifecycleReason) Valid() bool {
 		LifecycleReasonLandingConfirmed,
 		LifecycleReasonSuddenAppearance,
 		LifecycleReasonManualRemoval,
+		LifecycleReasonDiverted,
 		LifecycleReasonLandedTimeout,
 		LifecycleReasonPlannedCancellation,
 		LifecycleReasonSourceDisappearance:
@@ -262,12 +264,14 @@ func (r FreezeReason) Valid() bool {
 // FlightObservation is the provider-neutral reconciliation input. Adapters
 // map their vendor data to this value before it reaches AMAN.
 type FlightObservation struct {
-	Callsign       string
-	Origin         string
-	Destination    string
-	AircraftType   *string
-	WakeCategory   *string
-	FiledRoute     *string
+	Callsign     string
+	Origin       string
+	Destination  string
+	AircraftType *string
+	WakeCategory *string
+	FiledRoute   *string
+	// AssignedSTAR is the authoritative EuroScope assignment; nil clears it.
+	AssignedSTAR   *string
 	RequestedLevel *int
 	PlannedTiming  *PlannedTiming
 	FlightPlan     FlightPlanFact
@@ -961,7 +965,10 @@ type AMANFlight struct {
 	ActiveRouteKey             *string
 	ActiveRouteDatasetID       *string
 	RouteProgress              *RouteProgress
-	TMAEntry                   *TMAEntryState
+	// ArrivalPathChanged survives temporary prediction outages so reassignment
+	// cannot bypass a destination holding queue when navigation recovers.
+	ArrivalPathChanged bool
+	TMAEntry           *TMAEntryState
 	// ManualSequenceIncluded is retained for persisted-state compatibility.
 	// WTC/L aircraft are automatically sequenceable regardless of engine.
 	ManualSequenceIncluded bool
@@ -1802,7 +1809,7 @@ func (f AMANFlight) lifecycleReasonMatchesState() bool {
 		return f.State == StateLanded
 	case LifecycleReasonSuddenAppearance:
 		return f.State == StateAirborne || f.State == StateUnstable || f.State == StateStable
-	case LifecycleReasonManualRemoval, LifecycleReasonLandedTimeout, LifecycleReasonPlannedCancellation:
+	case LifecycleReasonManualRemoval, LifecycleReasonDiverted, LifecycleReasonLandedTimeout, LifecycleReasonPlannedCancellation:
 		return f.State == StateRemoved
 	case LifecycleReasonSourceDisappearance:
 		return f.State == StateRemoved

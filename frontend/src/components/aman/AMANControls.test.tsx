@@ -86,7 +86,7 @@ describe("AMAN FMP controls", () => {
     ]);
   });
 
-  it("shows authoritative disposition and confirms permanent removal accessibly", () => {
+  it("shows authoritative disposition and confirms session removal accessibly", () => {
     const desequenced = state();
     desequenced.flights[0].sequence_disposition = "desequenced";
     const {onCommand} = renderControls({state: desequenced});
@@ -94,7 +94,7 @@ describe("AMAN FMP controls", () => {
     expect(screen.getByLabelText("SAS123 sequence disposition")).toHaveTextContent("Server-confirmed disposition: desequenced");
     fireEvent.click(screen.getByRole("button", {name: "Resume at earliest legal opportunity"}));
     fireEvent.click(screen.getByRole("button", {name: "Remove flight…"}));
-    expect(screen.getByRole("dialog", {name: "Confirm removal · SAS123"})).toHaveTextContent("cannot be resumed");
+    expect(screen.getByRole("dialog", {name: "Confirm removal · SAS123"})).toHaveTextContent("Use the Excluded tab to add it back");
     fireEvent.click(screen.getByRole("button", {name: "Confirm remove flight"}));
 
     expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.resume_flight", callsign: "SAS123"});

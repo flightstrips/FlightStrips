@@ -1,0 +1,114 @@
+.stand-assignment-frame {
+  width: min(878px, calc(100vw - 32px), calc((100dvh - 32px) * 878 / 768));
+  aspect-ratio: 878 / 768;
+  container-type: inline-size;
+  font-family: Arial, sans-serif;
+}
+
+.stand-assignment-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.stand-assignment-title {
+  margin: 0;
+  font-size: 1.82cqw;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.stand-assignment-outline,
+.stand-assignment-panel {
+  border: 1px solid #777;
+}
+
+.stand-assignment-outline {
+  pointer-events: none;
+}
+
+.stand-assignment-pier {
+  background: #9e999d;
+  box-shadow: 0 2px 3px #00000020;
+  pointer-events: none;
+}
+
+.stand-assignment-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid;
+  border-color: #cecece #393939 #393939 #cecece;
+  border-radius: 0;
+  font-size: 2.05cqw;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: inset 1px 1px 1px rgba(206, 206, 206, 0.55), inset -1px -1px 1px rgba(57, 57, 57, 0.55);
+}
+
+.stand-assignment-button-light,
+.stand-assignment-button-selector {
+  color: #000;
+  background: #ccc;
+}
+
+.stand-assignment-button-area,
+.stand-assignment-button-auto {
+  color: #000;
+  background: #B3B3B3;
+}
+
+.stand-assignment-button-dark {
+  color: #fff;
+  background: #3f3f3f;
+}
+
+.stand-assignment-button-light[aria-pressed="true"],
+.stand-assignment-button-area[aria-pressed="true"],
+.stand-assignment-button-selector[aria-pressed="true"],
+.stand-assignment-button-auto[aria-pressed="true"] {
+  background: #70ED45;
+}
+
+.stand-assignment-button-auto[aria-pressed="true"] {
+  outline: 2px solid #393939;
+  outline-offset: 2px;
+}
+
+.stand-assignment-button:active:not(:disabled) {
+  transform: translateY(2px);
+}
+
+.stand-assignment-button:focus-visible,
+.stand-assignment-input:focus-visible {
+  outline: 2px solid #333;
+  outline-offset: 2px;
+}
+
+.stand-assignment-button:disabled {
+  cursor: not-allowed;
+}
+
+.stand-assignment-input {
+  padding: 0 6px;
+  border: 1px solid;
+  border-color: #393939 #cecece #cecece #393939;
+  color: #000;
+  background: #fff;
+  box-shadow: inset 1px 1px 1px rgba(57, 57, 57, 0.55), inset -1px -1px 1px rgba(206, 206, 206, 0.55);
+  font-size: 2.05cqw;
+  font-weight: 700;
+  text-align: center;
+}
+
+.stand-assignment-input::placeholder {
+  color: #929292;
+}
+
+.stand-assignment-warning .stand-assignment-button {
+  min-height: 48px;
+  padding: 0 20px;
+  font-size: 18px;
+}

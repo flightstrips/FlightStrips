@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog.tsx";
+import { MENU_BUTTON_BEVEL, MENU_INPUT_BEVEL } from "@/components/ui/menuControlStyle";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 import { MESSAGE_MAX_CHARS } from "@/components/strip/MessageStrip.tsx";
 import { scalePx, toVw } from "@/lib/viewportScale";
@@ -24,16 +25,13 @@ const AREA_PAIRS: [string, string][] = [
 
 const ALWAYS_RED = new Set(["GND EAST"]);
 
-const DROP_SHADOW = `0 ${scalePx(4)} ${scalePx(4)} rgba(0,0,0,0.25)`;
-
 const BTN: React.CSSProperties = {
+  ...MENU_BUTTON_BEVEL,
   fontFamily: "var(--font-bay)",
   fontWeight: 600,
   fontSize: scalePx(24),
-  border: "none",
   cursor: "pointer",
   color: "#000",
-  boxShadow: DROP_SHADOW,
 };
 
 interface Props {
@@ -122,16 +120,15 @@ export function MessageComposeDialog({ open, onClose }: Props) {
         {/* Text input — width:100% fills the same content area as the main row below */}
         <textarea
           style={{
+            ...MENU_INPUT_BEVEL,
             width: "100%",
             height: scalePx(113),
             background: "#FCFCFC",
-            border: "1px solid black",
             fontFamily: "var(--font-bay)",
             fontSize: scalePx(24),
             padding: `${scalePx(8)} ${scalePx(12)}`,
             resize: "none",
             boxSizing: "border-box",
-            boxShadow: DROP_SHADOW,
             marginBottom: scalePx(28),
           }}
           maxLength={MESSAGE_MAX_CHARS}
@@ -206,17 +203,16 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                   <button
                     key={i}
                     style={{
+                      ...MENU_BUTTON_BEVEL,
                       textAlign: "left",
                       padding: `0 ${scalePx(12)}`,
                       fontFamily: "var(--font-bay)",
                       fontSize: scalePx(24),
                       fontWeight: 400,
-                      border: "none",
                       cursor: "pointer",
                       height: scalePx(42),
                       background: selectedPredefined === i ? "#1BFF16" : "#D6D6D6",
                       color: "#000",
-                      boxShadow: DROP_SHADOW,
                     }}
                     onClick={() => handlePredefined(i)}
                   >
@@ -228,6 +224,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
               <div style={{ display: "flex", gap: scalePx(37), marginTop: scalePx(11) }}>
                 <button
                   style={{
+                    ...MENU_BUTTON_BEVEL,
                     width: scalePx(200),
                     height: scalePx(70),
                     background: "#3F3F3F",
@@ -235,9 +232,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                     fontFamily: "var(--font-bay)",
                     fontWeight: 600,
                     fontSize: scalePx(32),
-                    border: "none",
                     cursor: "pointer",
-                    boxShadow: DROP_SHADOW,
                   }}
                   onClick={handleErase}
                 >
@@ -245,6 +240,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                 </button>
                 <button
                   style={{
+                    ...MENU_BUTTON_BEVEL,
                     width: scalePx(200),
                     height: scalePx(70),
                     background: "#3F3F3F",
@@ -252,9 +248,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                     fontFamily: "var(--font-bay)",
                     fontWeight: 600,
                     fontSize: scalePx(32),
-                    border: "none",
                     cursor: "pointer",
-                    boxShadow: DROP_SHADOW,
                   }}
                   onClick={handleOk}
                 >

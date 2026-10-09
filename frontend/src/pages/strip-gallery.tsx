@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Strip } from "@/components/strip/Strip";
 import { MessageStrip } from "@/components/strip/MessageStrip";
 import { WebSocketClient } from "@/api/websocket";
-import { Bay, CommunicationType, type FrontendStrip, type MessageReceived, type TacticalStrip } from "@/api/models";
+import { ActionType, Bay, CommunicationType, EventType, type FrontendStrip, type MessageReceived, type TacticalStrip } from "@/api/models";
 import { createWebSocketStore } from "@/store/store";
 import { WebSocketStoreContext } from "@/store/store-context";
 import {
@@ -131,7 +131,7 @@ function AnnotatedStrip({ id, title, bayTitle, annotations, children }: { id: st
 
   return (
     <section data-shot={id} className="relative h-[337px] w-[675px] overflow-hidden border-x-2 border-t-2 border-bay-border bg-bay-panel shadow-sm">
-      <div className="bay-col-header">
+      <div className={id === "message" ? "bay-col-header-teal" : "bay-col-header"}>
         <span className="text-[0.94vw] font-bold text-white">{bayTitle}</span>
         <span className="ml-auto text-[0.63vw] font-normal text-slate-300">{title}</span>
       </div>
@@ -176,7 +176,7 @@ function ProductionBayFixture({ item }: { item: GalleryItem }) {
           <div key={`${item.id}-column-${index}`} className={columnClassName}>
             {index === context.column && (
               <>
-                <div className="bay-col-header justify-between">
+                <div className={`${item.id === "message" ? "bay-col-header-teal" : "bay-col-header"} justify-between`}>
                   <span className="text-[0.94vw] font-bold text-white">{item.bayTitle}</span>
                   <span className="text-[0.63vw] font-normal text-slate-300">{context.route}</span>
                 </div>
@@ -423,6 +423,17 @@ export default function StripGalleryPage() {
   const [store] = useState(() => {
     const nextStore = createWebSocketStore(new WebSocketClient("ws://127.0.0.1/unused"));
     const galleryFlights = [baseFlight];
+    const rejectPreviewStandRequest = (action: ActionType, callsign: string) => {
+      nextStore.setState({
+        standActionRejection: {
+          type: EventType.FrontendActionRejected,
+          action,
+          callsign,
+          code: "preview_only",
+          reason: "PREVIEW ONLY: use the live controller app to assign a stand.",
+        },
+      });
+    };
     nextStore.setState({
       position: "121.905",
       identifier: "AD",
@@ -439,6 +450,10 @@ export default function StripGalleryPage() {
       transitionAltitude: 5000,
       initialCflByRunway: { "22R": 7000 },
       standAssignments: [],
+      satEnabled: true,
+      requestAutomaticStand: callsign => rejectPreviewStandRequest(ActionType.FrontendStandAssignmentAutomaticRequest, callsign),
+      requestManualStand: callsign => rejectPreviewStandRequest(ActionType.FrontendStandAssignmentManualRequest, callsign),
+      confirmStandOverride: callsign => rejectPreviewStandRequest(ActionType.FrontendStandAssignmentConfirmedOverride, callsign),
     });
     return nextStore;
   });

@@ -36,11 +36,6 @@ npm run test:visual:report
 The EST fixture can also be inspected without the backend. Start `npm run dev`, then open
 `http://127.0.0.1:8080/visual-tests/est-preview.html`.
 
-The strip gallery enables automatic/manual selection for previewing the stand assignment dialog,
-but submission displays a preview-only warning; it does not connect to the allocator.
-User-facing stand assignment instructions are in
-[Strip anatomy and types](../docs/src/content/docs/concepts/strip-anatomy.md#arrival-stand-assignment).
-
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:

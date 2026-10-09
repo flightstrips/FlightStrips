@@ -164,7 +164,7 @@ export function FinalArrStrip({
         title={satStandStyle.blocked ? satAssignment?.conflict_reason : undefined}
         onClick={isAssumed ? (e) => guardValidationAction(e, () => {
           if (satStandStyle.changed && satAssignment?.version !== undefined) acknowledgeStandAssignment(callsign, satAssignment.version);
-          else setStandOpen(true);
+          setStandOpen(true);
         }) : undefined}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>

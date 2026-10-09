@@ -26,10 +26,10 @@ const F_HS       = 54;
 const F_STAND    = 80;
 
 /**
- * ApnArrStrip — APN-TAXI-ARR strip used in TWY ARR and STAND bays (status="ARR").
+ * ApnArrStrip â€” APN-TAXI-ARR strip used in TWY ARR and STAND bays (status="ARR").
  *
  * 4.72dvh strip (51px at 1080p), 95% of bay width, with 2/3 top row / 1/3 bottom row:
- *   [SI] | [callsign] | [actype↑ / reg↓] | [RWY] | [HS] | [stand]
+ *   [SI] | [callsign] | [actypeâ†‘ / regâ†“] | [RWY] | [HS] | [stand]
  *
  * Background: yellow (var(--color-strip-arr-bg)).
  */
@@ -178,9 +178,8 @@ export function ApnArrStrip({
             acknowledgeStandAssignment(callsign, satAssignment.version);
           } else if (standYellow) {
             acknowledgeUnexpectedChange(callsign, "stand");
-          } else {
-            setStandOpen(true);
           }
+          setStandOpen(true);
         })}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>

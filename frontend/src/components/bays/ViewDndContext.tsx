@@ -309,7 +309,7 @@ export function ViewDndContext({
       return;
     }
     // Same logical bay, different visual bay: use sequence-aware insertion.
-    // For descending bays, dragging "above" the bay hits another bay's strip (low seq) — instead
+    // For descending bays, dragging "above" the bay hits another bay's strip (low seq) â€” instead
     // insert after the current top strip (highest seq) to go to the visual top.
     const sourceStrips = bayStripMap[sourceBayId].strips;
     const sourceDescending = bayStripMap[sourceBayId].descending ?? false;
@@ -317,7 +317,7 @@ export function ViewDndContext({
     if (dropInsertAfter !== undefined) {
       crossInsertAfter = dropInsertAfter;
     } else if (sourceDescending) {
-      // Find the highest-seq strip in the source bay (excluding the active strip) → that becomes the predecessor for visual top
+      // Find the highest-seq strip in the source bay (excluding the active strip) â†’ that becomes the predecessor for visual top
       const topStrip = sourceStrips
         .filter(s => stripDndId(s) !== dndId && s.sequence !== undefined)
         .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
@@ -328,7 +328,7 @@ export function ViewDndContext({
     onReorder(makeStripRef(dndId)!, crossInsertAfter);
   }
 
-  // Resolve activeId string → AnyStrip for the drag overlay callback
+  // Resolve activeId string â†’ AnyStrip for the drag overlay callback
   function resolveActiveStrip(): AnyStrip | null {
     if (!activeId) return null;
     for (const { strips } of Object.values(bayStripMap)) {
@@ -345,7 +345,7 @@ export function ViewDndContext({
           <DragStateContext value={{ activeId, isValidTarget }}>
             {children}
             {renderDragOverlay && (
-              <DragOverlay style={{ opacity: 0.5, touchAction: "none" }}>
+              <DragOverlay dropAnimation={{ duration: 100 }} style={{ opacity: 0.5, touchAction: "none" }}>
                 {activeId ? (() => {
                   const strip = resolveActiveStrip();
                   return strip ? renderDragOverlay(strip) : null;

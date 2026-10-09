@@ -1,18 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import EstStandCell from "@/components/est/EstStandCell";
-import EstViewButtons from "@/components/est/EstViewButtons";
-import {
-  EST_BOARD_HEIGHT,
-  EST_BOARD_WIDTH,
-  getDefaultEstViewForStand,
-  getEstBackgroundBoxesForView,
-  getEstStandsForView,
-  type EstView,
-} from "@/components/est/metadata";
-import { ActionType, Bay, type FrontendStrip } from "@/api/models";
-import { useStrips, useWebSocketStore } from "@/store/store-hooks";
-
-const COLOR_LABEL_DEFAULT = "#202020";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { ActionType } from "@/api/models";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useWebSocketStore } from "@/store/store-hooks";
+import { STAND_ASSIGNMENT_LAYOUTS, STAND_ASSIGNMENT_LETTERS as LETTERS } from "./standAssignmentLayouts";
+import "./ArrStandDialog.css";
 
 interface Props {
   open: boolean;
@@ -21,251 +12,198 @@ interface Props {
   currentStand?: string;
 }
 
-export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: Props) {
-  const satEnabled = useWebSocketStore(s => s.satEnabled);
-  return satEnabled
-    ? <SatStandAssignmentMenu open={open} onOpenChange={onOpenChange} callsign={callsign} />
-    : <LegacyArrStandDialog open={open} onOpenChange={onOpenChange} callsign={callsign} currentStand={currentStand} />;
+function position(left: number, top: number, width: number, height: number, frameWidth = 878, frameHeight = 768): CSSProperties {
+  return {
+    position: "absolute",
+    left: `${left / frameWidth * 100}%`,
+    top: `${top / frameHeight * 100}%`,
+    width: `${width / frameWidth * 100}%`,
+    height: `${height / frameHeight * 100}%`,
+  };
 }
 
-function SatStandAssignmentMenu({ open, onOpenChange, callsign }: Omit<Props, "currentStand">) {
-  const [manualStand, setManualStand] = useState("");
+type StandGroup = (typeof LETTERS)[number];
+
+function defaultGroup(stand: string): StandGroup | null {
+  if (stand.startsWith("HANGAR") || stand.startsWith("RUNUP")) return null;
+  return LETTERS.find(letter => stand.startsWith(letter)) ?? null;
+}
+
+function MenuButton({ children, onClick, style, selected = false, tone = "light", disabled = false, title }: {
+  children: ReactNode;
+  onClick: () => void;
+  style?: CSSProperties;
+  selected?: boolean;
+  tone?: "light" | "area" | "selector" | "dark" | "auto";
+  disabled?: boolean;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={`stand-assignment-button stand-assignment-button-${tone}`}
+      style={style}
+      aria-pressed={tone !== "dark" ? selected : undefined}
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function ArrStandDialog(props: Props) {
+  return props.open ? <StandAssignmentMenu {...props} /> : null;
+}
+
+function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
+  const satEnabled = useWebSocketStore(s => s.satEnabled);
   const assignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
   const rejection = useWebSocketStore(s => s.standActionRejection);
   const requestAutomatic = useWebSocketStore(s => s.requestAutomaticStand);
   const requestManual = useWebSocketStore(s => s.requestManualStand);
   const confirmOverride = useWebSocketStore(s => s.confirmStandOverride);
   const clearRejection = useWebSocketStore(s => s.clearStandActionRejection);
+  const updateStrip = useWebSocketStore(s => s.updateStrip);
+  const initialStand = (satEnabled ? assignment?.stand : undefined) ?? currentStand ?? "";
+  const [manualStand, setManualStand] = useState(initialStand);
+  const [automaticSelected, setAutomaticSelected] = useState(satEnabled);
+  const [group, setGroup] = useState<StandGroup | null>(() => defaultGroup(initialStand));
   const submittedVersion = useRef<number | null>(null);
   const version = assignment?.version ?? 0;
-  const relevantRejection = rejection?.callsign === callsign ? rejection : null;
+  const relevantRejection = satEnabled && rejection?.callsign === callsign ? rejection : null;
   const unsafeManual = relevantRejection?.action === ActionType.FrontendStandAssignmentManualRequest
     && relevantRejection.code === "incompatible_or_occupied";
 
   useEffect(() => {
-    if (open && submittedVersion.current !== null && assignment?.version !== submittedVersion.current) {
+    if (submittedVersion.current !== null && assignment && assignment.version !== submittedVersion.current) {
       submittedVersion.current = null;
       onOpenChange(false);
     }
-  }, [assignment?.version, onOpenChange, open]);
-
-  if (!open) return null;
+  }, [assignment, onOpenChange]);
 
   const close = () => {
-    setManualStand("");
     submittedVersion.current = null;
     clearRejection();
     onOpenChange(false);
   };
-  const send = () => {
+  const automatic = () => {
+    setAutomaticSelected(true);
     submittedVersion.current = version;
-    const stand = manualStand.trim().toUpperCase();
-    if (stand) requestManual(callsign, stand, version);
-    else requestAutomatic(callsign, version);
+    requestAutomatic(callsign, version);
   };
+  const selectManualStand = (stand: string) => {
+    setAutomaticSelected(false);
+    setManualStand(stand);
+  };
+  const selectGroup = (nextGroup: StandGroup) => {
+    setAutomaticSelected(false);
+    setManualStand("");
+    setGroup(nextGroup);
+  };
+  const selectDirectStand = (stand: string) => {
+    selectManualStand(stand);
+    setGroup(null);
+  };
+  const selectAutomatic = () => {
+    if (automaticSelected) automatic();
+    else setAutomaticSelected(true);
+  };
+  const erase = () => {
+    setManualStand("");
+    setGroup(null);
+    setAutomaticSelected(satEnabled);
+  };
+  const send = () => {
+    const stand = manualStand.trim().toUpperCase();
+    if (satEnabled && automaticSelected) {
+      automatic();
+    } else if (!satEnabled) {
+      updateStrip(callsign, { stand });
+      close();
+    } else if (stand) {
+      submittedVersion.current = version;
+      requestManual(callsign, stand, version);
+    }
+  };
+  const panel = group === "C" || group === "D" ? "C+D" : group;
+  const stands = panel === null ? [] : STAND_ASSIGNMENT_LAYOUTS[panel].map(([label, left, top]) => ({
+      label,
+      displayLabel: label,
+      style: position(left - 11, top - 7, 72, 96, 774, 751),
+    }));
 
-  if (relevantRejection) {
-    return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/25" onMouseDown={close}>
-        <div className="animate-dialog-zoom-in w-[38rem] border border-black bg-[#e4e4e4] p-5 text-center shadow-lg" onMouseDown={e => e.stopPropagation()} role="alertdialog" aria-label="Stand assignment warning">
-          <h2 className="mb-5 text-2xl font-light">STAND ASSIGNMENT</h2>
-          <p className="mb-6 text-2xl text-red-600">{relevantRejection.code === "invalid_stand" ? "STAND NOT FOUND" : relevantRejection.reason}</p>
+  return (
+    <Dialog open onOpenChange={nextOpen => { if (!nextOpen) close(); }}>
+      {relevantRejection ? (
+        <DialogContent className="stand-assignment-warning rounded-none border-black bg-[#e4e4e4] text-black [&>button]:hidden">
+          <DialogTitle>STAND ASSIGNMENT</DialogTitle>
+          <p className="text-center text-2xl text-red-600">
+            {relevantRejection.code === "invalid_stand" ? "STAND NOT FOUND" : relevantRejection.reason}
+          </p>
           <div className="flex justify-center gap-4">
-            <MenuButton onClick={close}>ESC</MenuButton>
-            {unsafeManual && <MenuButton onClick={() => { submittedVersion.current = version; requestAutomatic(callsign, version); }}>AUTO ASSIGN</MenuButton>}
-            {unsafeManual && <MenuButton onClick={() => { submittedVersion.current = version; confirmOverride(callsign, manualStand.trim().toUpperCase(), version, relevantRejection.reason); }}>YES</MenuButton>}
+            <MenuButton tone="dark" onClick={close}>ESC</MenuButton>
+            {unsafeManual && <MenuButton tone="auto" onClick={automatic}>AUTO ASSIGN</MenuButton>}
+            {unsafeManual && <MenuButton tone="dark" onClick={() => {
+              submittedVersion.current = version;
+              confirmOverride(callsign, manualStand.trim().toUpperCase(), version, relevantRejection.reason);
+            }}>YES</MenuButton>}
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onMouseDown={close}>
-      <div className="animate-dialog-zoom-in w-[17.8rem] border border-black bg-[#b3b3b3] p-4 shadow-lg" onMouseDown={e => e.stopPropagation()} role="dialog" aria-label="Stand assignment">
-        <h2 className="mb-2 text-center text-2xl font-light">STAND ASSIGNMENT</h2>
-        <div className="flex flex-col gap-2">
-          <MenuButton onClick={send}>SEND REQ</MenuButton>
-          <button className={`h-[4.4rem] text-3xl ${manualStand ? "bg-[#3f3f3f] text-white" : "bg-[#00ff26] text-black"}`} onClick={() => setManualStand("")}>AUTOMATIC</button>
-          <input
-            className="h-[4.4rem] bg-[#fcfcfc] px-3 text-center text-3xl uppercase text-black outline-none"
-            aria-label="Manual stand"
-            value={manualStand}
-            maxLength={8}
-            onChange={e => setManualStand(e.target.value.toUpperCase())}
-            onKeyDown={e => { if (e.key === "Enter") send(); if (e.key === "Escape") close(); }}
-            autoFocus
-          />
-          <MenuButton onClick={close}>ESC</MenuButton>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MenuButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return <button className="h-[4.4rem] bg-[#3f3f3f] px-5 text-2xl font-semibold text-white shadow" onClick={onClick}>{children}</button>;
-}
-
-function LegacyArrStandDialog({ open, onOpenChange, callsign, currentStand }: Props) {
-  const updateStrip = useWebSocketStore(s => s.updateStrip);
-  const strips = useStrips();
-  const [boardScale, setBoardScale] = useState(1);
-  const [boardViewOverride, setBoardViewOverride] = useState<EstView | null>(null);
-  const boardFrameRef = useRef<HTMLDivElement>(null);
-  const [nowMs] = useState(() => Date.now());
-  const defaultBoardView: EstView = getDefaultEstViewForStand(currentStand);
-  const boardView = boardViewOverride ?? defaultBoardView;
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setBoardViewOverride(null);
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [open, onOpenChange]);
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    const element = boardFrameRef.current;
-    if (!element) {
-      return undefined;
-    }
-
-    const updateScale = () => {
-      const { width, height } = element.getBoundingClientRect();
-      if (!width || !height) {
-        return;
-      }
-      setBoardScale(Math.min(width / EST_BOARD_WIDTH, height / EST_BOARD_HEIGHT));
-    };
-
-    updateScale();
-
-    const observer = new ResizeObserver(updateScale);
-    observer.observe(element);
-    window.addEventListener("resize", updateScale);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", updateScale);
-    };
-  }, [open]);
-
-  const stripByStand = useMemo(() => {
-    const mapping = new Map<string, FrontendStrip>();
-    for (const strip of strips) {
-      if (!strip.stand || strip.bay === Bay.Hidden || strip.bay === Bay.HiddenDep || strip.bay === Bay.ArrHidden) {
-        continue;
-      }
-      mapping.set(strip.stand, strip);
-    }
-    return mapping;
-  }, [strips]);
-  const visibleStands = useMemo(() => getEstStandsForView(boardView), [boardView]);
-
-  if (!open) {
-    return null;
-  }
-
-  function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen) {
-      setBoardViewOverride(null);
-    }
-
-    onOpenChange(nextOpen);
-  }
-
-  function handleStandClick(stand: string) {
-    updateStrip(callsign, { stand });
-    handleOpenChange(false);
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 bg-[#767676]" onMouseDown={() => handleOpenChange(false)}>
-      <div
-        ref={boardFrameRef}
-        className="relative h-full w-full overflow-hidden"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div
-          className="absolute left-1/2 top-1/2"
-          style={{
-            width: EST_BOARD_WIDTH * boardScale,
-            height: EST_BOARD_HEIGHT * boardScale,
-            transform: "translate(-50%, -50%)",
-          }}
-        >
-          <div
-            className="relative origin-top-left"
-            style={{
-              width: EST_BOARD_WIDTH,
-              height: EST_BOARD_HEIGHT,
-              transform: `scale(${boardScale})`,
-            }}
-          >
-            {getEstBackgroundBoxesForView(boardView).map((box) => (
-              <div
-                key={`${box.x}-${box.y}`}
-                className="absolute flex items-center justify-center font-bold"
-                style={{
-                  left: box.x,
-                  top: box.y,
-                  width: box.width,
-                  height: box.height,
-                  borderRadius: box.radius ?? 0,
-                  backgroundColor: box.fill,
-                  color: box.labelColor ?? COLOR_LABEL_DEFAULT,
-                  fontSize: box.label ? 32 : undefined,
-                }}
-                >
-                  {box.label}
-                </div>
-              ))}
-
-            <EstViewButtons
-              view={boardView}
-              onViewChange={(nextView) => setBoardViewOverride(nextView === defaultBoardView ? null : nextView)}
+        </DialogContent>
+      ) : (
+        <DialogContent className="stand-assignment-frame block max-w-none gap-0 rounded-none border-black bg-[#e4e4e4] p-0 text-black [&>button]:hidden">
+          <div className="stand-assignment-content">
+            <DialogTitle className="stand-assignment-title" style={position(0, 48, 878, 22)}>STAND ASSIGNMENT</DialogTitle>
+            <div className="stand-assignment-outline" style={position(14, 72, 815, 677)} />
+            {["RI", "RII", "RIII"].map((stand, index) => (
+              <MenuButton key={stand} tone="area" selected={!automaticSelected && manualStand === stand} style={position(39 + index * 95, 87, 86, 48)} onClick={() => selectDirectStand(stand)}>{stand}</MenuButton>
+            ))}
+            {["W1", "SAS", "SOUTH", "WEST"].map((stand, index) => (
+              <MenuButton key={stand} tone="area" selected={!automaticSelected && manualStand === stand} style={position(38, 147 + index * 57, 86, 48)} onClick={() => selectDirectStand(stand)}>{stand}</MenuButton>
+            ))}
+            <MenuButton tone="area" selected={!automaticSelected && manualStand === "HANGAR"} style={position(38, 375, 86, 48)} onClick={() => selectDirectStand("HANGAR")}>HANGAR</MenuButton>
+            {LETTERS.map((letter, index) => (
+              <MenuButton key={letter} tone="selector" selected={!automaticSelected && group === letter} style={position(142, 153 + index * 57, 73, 48)} onClick={() => selectGroup(letter)}>{letter}</MenuButton>
+            ))}
+            <MenuButton tone="dark" style={position(519, 87, 127, 47)} onClick={erase}>ERASE</MenuButton>
+            <input
+              className="stand-assignment-input"
+              style={position(666, 87, 127, 47)}
+              aria-label="Manual stand"
+              placeholder="e.g. C39"
+              value={manualStand}
+              maxLength={8}
+              onChange={e => selectManualStand(e.target.value.toUpperCase())}
+              onKeyDown={e => { if (e.key === "Enter") send(); }}
+              autoFocus
             />
-
-            {visibleStands.map((stand) => {
-              const strip = stripByStand.get(stand.label);
-              const isCurrent = stand.label === currentStand;
-
-              return (
-                <EstStandCell
-                  key={`${stand.label}-${stand.left}-${stand.top}`}
-                  stand={stand}
-                  strip={strip}
-                  selected={isCurrent}
-                  blocked={false}
-                  actionActive={isCurrent}
-                  blinking={false}
-                  startReqActive={false}
-                  ctotImproved={false}
-                  nowMs={nowMs}
-                  containerStyle={{
-                    position: "absolute",
-                    left: stand.left,
-                    top: stand.top,
-                  }}
-                  onClick={(standLabel) => handleStandClick(standLabel)}
+            <div className="stand-assignment-panel" role="group" aria-label={panel ? `${panel} stands` : "Stand selection"} style={position(272, 153, 520, 505)}>
+              {panel === "E" && (
+                <div
+                  className="stand-assignment-pier"
+                  aria-hidden="true"
+                  style={position(188 - 11, 25 - 7, 31, 422, 774, 751)}
                 />
-              );
-            })}
+              )}
+              {stands.map(stand => (
+                <MenuButton key={stand.label} selected={!automaticSelected && manualStand === stand.label} style={stand.style} onClick={() => selectManualStand(stand.label)}>{stand.displayLabel}</MenuButton>
+              ))}
+            </div>
+            <MenuButton tone="dark" style={position(272, 683, 162, 47)} onClick={close}>ESC</MenuButton>
+            <MenuButton tone="auto" selected={automaticSelected} style={position(448, 683, 162, 47)} onClick={selectAutomatic} disabled={!satEnabled} title={!satEnabled ? "Automatic stand assignment is not enabled for this session" : undefined}>AUTO ASSIGN</MenuButton>
+            <MenuButton tone="dark" style={position(627, 683, 166, 47)} onClick={send} disabled={satEnabled && !automaticSelected && !manualStand.trim()}>
+              ASSIGN
+              {" "}
+              {(automaticSelected || manualStand.trim()) && (
+                <span style={{ fontSize: "0.75em", marginLeft: "0.35em" }}>
+                  ({automaticSelected ? "AUTO" : manualStand.trim().toUpperCase()})
+                </span>
+              )}
+            </MenuButton>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogContent>
+      )}
+    </Dialog>
   );
 }

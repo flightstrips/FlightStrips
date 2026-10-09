@@ -90,7 +90,7 @@ export default function DEL() {
           <div className="h-[var(--bay-h-cleared)] bay-scroll-area">
             {cleared.map(strip => mapToStrip(strip, "CLROK"))}
           </div>
-          <div className="bay-col-header-primary bay-col-sep justify-between">
+          <div className="bay-col-header-teal bay-col-sep justify-between">
             <BayResizeHandle {...clearedResize.handleProps("cleared")} />
             <span className={primaryLabel}>MESSAGES</span>
             <button className={CLS_BTN_MISSED} onClick={() => setComposeOpen(true)}>FREE TEXT</button>

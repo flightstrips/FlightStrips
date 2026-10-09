@@ -327,7 +327,7 @@ export default function GEGW() {
           )}
         </SortableBay>
 
-        <div className="bay-col-header-primary bay-col-sep justify-between">
+        <div className="bay-col-header-teal bay-col-sep justify-between">
           <span className="text-[#CECECE] font-bay tracking-[0.06em] [-webkit-text-stroke:0.5px_currentColor] text-[1.11375rem]">MESSAGES</span>
           <BayResizeHandle {...clrDelResize.handleProps("deIce")} />
           <span className="flex gap-0.5">

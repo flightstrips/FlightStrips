@@ -893,15 +893,12 @@ layouts:
       layout: AAAD
 
   EKCH_B_GND:
-    - online: [EKCH_A_GND, EKCH_C_GND]
+    - online: [EKCH_C_GND]
       offline: []
       layout: SEQPLN
     - online: [EKCH_A_GND]
       offline: [EKCH_C_GND]
       layout: AD
-    - online: [EKCH_C_GND]
-      offline: [EKCH_A_GND]
-      layout: AA
     - online: []
       offline: [EKCH_A_GND, EKCH_C_GND]
       layout: AAAD

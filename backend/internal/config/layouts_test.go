@@ -59,9 +59,8 @@ func ekchApronLayouts() map[string][]LayoutVariant {
 			{Online: []string{}, Offline: []string{"EKCH_B_GND", "EKCH_C_GND"}, Layout: "AAAD"},
 		},
 		"EKCH_B_GND": {
-			{Online: []string{"EKCH_A_GND", "EKCH_C_GND"}, Offline: []string{}, Layout: "SEQPLN"},
+			{Online: []string{"EKCH_C_GND"}, Offline: []string{}, Layout: "SEQPLN"},
 			{Online: []string{"EKCH_A_GND"}, Offline: []string{"EKCH_C_GND"}, Layout: "AD"},
-			{Online: []string{"EKCH_C_GND"}, Offline: []string{"EKCH_A_GND"}, Layout: "AA"},
 			{Online: []string{}, Offline: []string{"EKCH_A_GND", "EKCH_C_GND"}, Layout: "AAAD"},
 		},
 		"EKCH_C_GND": {
@@ -158,12 +157,12 @@ func TestGetLayouts_SequencePlanningCoverage(t *testing.T) {
 		expected  map[string]string
 	}{
 		{
-			name: "B ground covers arrivals with C ground while A ground is offline",
+			name: "B ground gets sequence planning with C ground while A ground is offline",
 			positions: []*Position{
 				makePos("EKCH_B_GND", "121.905", "GND"),
 				makePos("EKCH_C_GND", "121.730", "GND"),
 			},
-			expected: map[string]string{"121.905": "AA", "121.730": "AD"},
+			expected: map[string]string{"121.905": "SEQPLN", "121.730": "AD"},
 		},
 		{
 			name: "delivery before all apron positions are primed",

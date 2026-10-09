@@ -85,7 +85,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
 
   function populateFromStrip(cs: string) {
     const strip = strips.find(s => s.callsign.toUpperCase() === cs.toUpperCase());
-    if (!strip) { setCallsignError("Callsign not found – strip will be created locally"); return; }
+    if (!strip) { setCallsignError("Callsign not connected"); return; }
     setCallsignError(null);
     if (strip.destination)        setAdes(strip.destination);
     if (strip.sid)                setSid(strip.sid);
@@ -106,7 +106,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
   }
 
   function handleOk() {
-    if (!callsign.trim()) return;
+    if (callsignError || !callsign.trim()) return;
     createManualFPL(
       callsign.trim().toUpperCase(),
       ades.trim().toUpperCase(),
@@ -122,7 +122,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
     onOpenChange(false);
   }
 
-  const canSubmit = callsign.trim().length > 0;
+  const canSubmit = !callsignError && callsign.trim().length > 0;
   const F = { fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD, height: FIELD_HEIGHT };
   const fieldStyle = (width: number) => ({ width: scalePx(width), ...F });
   const rowStyle = { width: CONTENT_WIDTH, gap: FIELD_GAP };

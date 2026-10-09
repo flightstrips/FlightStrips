@@ -244,7 +244,7 @@ export default function AD() {
         <SortableBay
           strips={deIceBStrips}
           bayId="DE-ICE-B"
-          isDragDisabled={() => false}
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="h-[var(--bay-h-deIceB)] bay-scroll-area-bottom"
         >

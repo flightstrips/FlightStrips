@@ -35,21 +35,10 @@ func buildManualFPLService(t *testing.T, stripRepo *testutil.MockStripRepository
 
 // --- CreateManualFPL tests ---
 
-func TestCreateManualFPL_CallsignNotFound_CreatesLocalStrip(t *testing.T) {
-	var created *models.Strip
+func TestCreateManualFPL_CallsignNotFound_ReturnsError(t *testing.T) {
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return nil, pgx.ErrNoRows
-		},
-		CreateFn: func(_ context.Context, strip *models.Strip) error {
-			created = strip
-			return nil
-		},
-		UpdateIFRManualFPLFieldsFn: func(_ context.Context, _ int32, _ string, _ string, _ *string, _ *string, _ *string, _ *string, _ *int32, _ *string, _ *string, _ *string) (int64, error) {
-			return 1, nil
-		},
-		GetSequenceFn: func(_ context.Context, _ int32, _ string, _ string) (int32, error) {
-			return 0, errors.New("not found")
 		},
 	}
 	esHub := &testutil.MockEuroscopeHub{}
@@ -61,12 +50,8 @@ func TestCreateManualFPL_CallsignNotFound_CreatesLocalStrip(t *testing.T) {
 		ADES:     "EKBI",
 	}, "cid1", "EKCH")
 
-	require.NoError(t, err)
-	require.NotNil(t, created)
-	assert.Equal(t, "SAS123", created.Callsign)
-	assert.Equal(t, "EKCH", created.Origin)
-	assert.Nil(t, created.VatsimCID)
-	assert.Empty(t, esHub.CreateFPLCalls, "local strips must not be pushed to EuroScope")
+	require.Error(t, err)
+	assert.Empty(t, esHub.CreateFPLCalls, "no EuroScope event should be sent on error")
 }
 
 func TestCreateManualFPL_Success(t *testing.T) {

@@ -156,7 +156,7 @@ export default function AAAD() {
       {/* ── Col 1: MESSAGES / FINAL (locked) / RWY ARR (locked) / STAND ── */}
       <div style={col1Resize.columnStyle} className="bay-col-flex">
 
-        <div className="bay-col-header justify-between">
+        <div className="bay-col-header-teal justify-between">
           <span className={CLS_LABEL}>MESSAGES</span>
           <button className={CLS_BTN_MISSED} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
         </div>

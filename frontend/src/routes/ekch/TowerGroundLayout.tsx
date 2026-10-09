@@ -436,7 +436,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
               >
                 {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
               </SortableBay>
-              <div className="bay-col-header bay-col-sep justify-between">
+              <div className="bay-col-header-teal bay-col-sep justify-between">
                 <BayResizeHandle {...centerResize.handleProps("pushback")} />
                 <span className={CLS_LABEL}>MESSAGES</span>
                 <span className="flex gap-0.5">

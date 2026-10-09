@@ -436,6 +436,7 @@ export function SortableStrip({
     id: callsign,
     data: bayId != null ? { bayId, dropArea: "strip" } : undefined,
     disabled: effectiveDragDisabled,
+    transition: { duration: 150, easing: "ease" },
   });
   const { active } = useDndContext();
 

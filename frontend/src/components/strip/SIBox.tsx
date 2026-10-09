@@ -6,7 +6,7 @@ import { toast } from "sonner";
 /** Text colour for the next-controller identifier label. */
 const COLOR_SI_LABEL = "#8F8F8F";
 
-const F_SI = 8;
+const F_SI = 8 * 0.9;
 
 /** SI / ownership indicator. Purple = unassumed, white = assumed, orange = transferred away. */
 export function SIBox({
@@ -25,6 +25,7 @@ export function SIBox({
   baseBorderColor,
   transferAllowed,
   startRequestTransfer = false,
+  hideLabel = false,
 }: {
   callsign: string;
   bay?: string;
@@ -49,6 +50,8 @@ export function SIBox({
   transferAllowed?: () => boolean;
   /** Use the combined startup request and transfer action after the TSAT check. */
   startRequestTransfer?: boolean;
+  /** Hide the next-controller letter; the box keeps its ownership colour and click behaviour. */
+  hideLabel?: boolean;
 }) {
   const controllers = useControllers();
   const transferStrip = useWebSocketStore(s => s.transferStrip);
@@ -134,7 +137,7 @@ export function SIBox({
 
   return (
     <div
-      className="flex items-center justify-center font-bold"
+      className="flex items-center justify-center font-normal [-webkit-text-stroke:0.5px_currentColor]"
       style={{
         flex: `${flexGrow} 0 0%`,
         height: "100%",
@@ -148,7 +151,7 @@ export function SIBox({
       }}
       onClick={isClickable ? handleClick : undefined}
     >
-      {nextLabel}
+      {hideLabel ? null : nextLabel}
     </div>
   );
 }

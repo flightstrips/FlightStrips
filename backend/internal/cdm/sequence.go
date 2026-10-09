@@ -125,6 +125,10 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			slog.Bool("notify", notify),
 			slog.Int("strips", stripCount),
 			slog.Duration("duration", duration),
+			slog.Bool("success", err == nil),
+		}
+		if err != nil {
+			attrs = append(attrs, slog.Any("error", err))
 		}
 		// A recalculation walks every strip at the airport, so it is the single
 		// largest unit of work a sync can trigger. Keep the existing info line
@@ -467,9 +471,46 @@ func buildCalcInput(strip *models.Strip, config *CdmAirportConfig) CalcInput {
 		Asat:              normalizeCalculationClock(valueOrEmpty(data.EffectiveAsat())),
 		TaxiMin:           resolveTaxiMinutesForStrip(strip, config),
 		DeIceMin:          deiceTypeToMinutes(config, valueOrEmpty(data.DeIce)),
+		DeiceTaxiMin:      resolveDeiceTaxiMinutesForStrip(strip, config),
 		HasManCtot:        data.HasManualCtot(),
 		ManCtot:           valueOrEmpty(data.Ctot),
 	}
+}
+
+func resolveDeiceTaxiMinutesForStrip(strip *models.Strip, config *CdmAirportConfig) int {
+	if strip == nil || strip.CdmData == nil || config == nil {
+		return 0
+	}
+	return resolveDeiceTaxiMinutes(strip, config, valueOrEmpty(strip.CdmData.DeicePlatform))
+}
+
+func resolveDeiceTaxiMinutes(strip *models.Strip, config *CdmAirportConfig, platform string) int {
+	if strip == nil || config == nil {
+		return 0
+	}
+	if platform == "" {
+		return 0
+	}
+
+	depRwy := valueOrEmpty(strip.Runway)
+	if strip.PositionLatitude != nil && strip.PositionLongitude != nil {
+		if minutes, ok := config.DeiceTaxiMinutesForPosition(
+			depRwy,
+			platform,
+			*strip.PositionLatitude,
+			*strip.PositionLongitude,
+		); ok {
+			return minutes
+		}
+	}
+
+	if minutes, ok := config.DeiceTaxiMinutesForRunway(depRwy, platform); ok {
+		return minutes
+	}
+	if minutes, ok := config.DeiceMinutesForPlatform(platform); ok {
+		return minutes
+	}
+	return 0
 }
 
 func resolveTaxiMinutesForStrip(strip *models.Strip, config *CdmAirportConfig) int {

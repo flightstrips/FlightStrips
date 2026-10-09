@@ -9,9 +9,10 @@ import { useVacs } from "@/hooks/useVacs";
 import { useVacsSettings } from "@/hooks/useVacsSettings";
 import type { VacsState } from "@/vacs/types";
 import VacsDialModal from "./VacsDialModal";
+import { CLS_CMD_BEVEL } from "@/components/strip/shared";
 
 const BTN_BASE =
-  "relative h-[3.42dvh] my-[0.65dvh] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)] outline-none";
+  `relative h-[3.42dvh] my-[0.65dvh] w-[3.52vw] flex items-center justify-center ${CLS_CMD_BEVEL} outline-none`;
 
 const ENDING_FLASH_MS = 700;
 
@@ -170,7 +171,7 @@ export default function VACSBTN() {
           >
             <Phone className="w-[1.6vw] h-[1.6vw]" />
             {incomingCount > 1 && (
-              <span className="absolute -top-1 -right-1 min-w-[1.1em] h-[1.1em] px-0.5 rounded-full bg-black text-white text-[0.55vw] font-bold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 min-w-[1.1em] h-[1.1em] px-0.5 rounded-full bg-black text-white text-[0.4125vw] font-bold flex items-center justify-center">
                 {incomingCount}
               </span>
             )}

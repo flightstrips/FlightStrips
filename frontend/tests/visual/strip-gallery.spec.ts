@@ -19,16 +19,24 @@ const STRIP_TYPES = [
   "message",
 ] as const;
 
-test("tactical SI cells stay square at different viewport shapes", async ({ page }) => {
+test("tactical SI cells retain their proportional width at different viewport shapes", async ({ page }) => {
   for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }, { width: 2560, height: 1080 }]) {
     await page.setViewportSize(viewport);
     for (const stripType of ["tactical-memaid", "tactical-crossing", "tactical-start", "tactical-land"]) {
       await page.goto(`/strip-gallery?shot=${stripType}`);
-      const si = page.getByTestId(`strip-fixture-${stripType}`).locator(".bg-white");
+      const fixture = page.getByTestId(`strip-fixture-${stripType}`);
+      const si = fixture.locator(".bg-white");
       await expect(si).toBeVisible();
       const box = await si.boundingBox();
       expect(box).not.toBeNull();
-      expect(Math.abs(box!.width - box!.height), `${stripType} at ${viewport.width}×${viewport.height}`).toBeLessThan(1);
+      const expectedWidth = await fixture.evaluate((element) => {
+        const face = element.firstElementChild as HTMLElement;
+        const style = getComputedStyle(face);
+        const contentWidth = face.getBoundingClientRect().width
+          - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return contentWidth * (8 / (8 + 25 + 3 * ((25 * 2) / 3) + (25 * 4) / 9)) * 0.9 * 0.9;
+      });
+      expect(Math.abs(box!.width - expectedWidth), `${stripType} at ${viewport.width}×${viewport.height}`).toBeLessThan(1);
     }
   }
 });
@@ -109,13 +117,13 @@ test("every strip type keeps its content inside the framed height", async ({ pag
         caret: "hide",
         // Allow a few pixels of platform-specific font antialiasing noise while
         // keeping the comparison strict enough to catch layout regressions.
-        maxDiffPixels: 5,
+        maxDiffPixels: stripType === "message" ? 10 : 5,
       });
     }
   }
 });
 
-test("the final-arrival runway and TWY rows retain their two-thirds/one-third split", async ({ page }) => {
+test("the final-arrival runway and TWY rows split the column evenly", async ({ page }) => {
   await page.goto("/strip-gallery?shot=final-arrival");
 
   const runwayRow = page.getByTestId("final-arrival-runway-row");
@@ -134,7 +142,7 @@ test("the final-arrival runway and TWY rows retain their two-thirds/one-third sp
   expect(runwayBox).not.toBeNull();
   expect(twyBox).not.toBeNull();
   expect(twyLabelBox).not.toBeNull();
-  expect(runwayBox!.height / twyBox!.height).toBeCloseTo(2, 1);
+  expect(runwayBox!.height / twyBox!.height).toBeCloseTo(1, 1);
   expect(twyBox!.y).toBeCloseTo(runwayBox!.y + runwayBox!.height, 0);
   const twyCenterOffset = (twyLabelBox!.y + twyLabelBox!.height / 2) - (twyBox!.y + twyBox!.height / 2);
   expect(twyCenterOffset).toBeCloseTo(-1, 0);

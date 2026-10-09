@@ -61,7 +61,7 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 	if !validUTC(at) {
 		return Result{}, nil, fmt.Errorf("vacancy promotion time must be UTC")
 	}
-	policies, err := preparePolicies(input.Policies)
+	policies, _, err := prepareInput(input)
 	if err != nil {
 		return Result{}, nil, err
 	}
@@ -429,11 +429,7 @@ func CalculateQueueOffers(input Input, config QueueOfferConfig, at time.Time) ([
 	if !validUTC(at) {
 		return nil, fmt.Errorf("queue offer calculation time must be UTC")
 	}
-	policies, err := preparePolicies(input.Policies)
-	if err != nil {
-		return nil, err
-	}
-	prepared, err := prepareFlights(input.Flights, policies)
+	policies, prepared, err := prepareInput(input)
 	if err != nil {
 		return nil, err
 	}

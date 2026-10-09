@@ -24,6 +24,7 @@ export enum EventType {
   FrontendCdmData = "cdm_data",
   FrontendCdmDataBatch = "cdm_data_batch",
   FrontendCdmWait = "cdm_wait",
+  FrontendCdmDeicePlatformUpdate = "cdm_deice_platform_update",
   FrontendReleasePoint = "release_point",
   FrontendPdcStateChange = "pdc_state_change",
   FrontendMarked = "marked",
@@ -195,6 +196,8 @@ export interface FrontendStrip {
   ecfmp_id?: string;
   ctot_source?: string;
   phase?: string;
+  deice_platform?: string;
+  deice_platform_acknowledged?: boolean;
   ecfmp_restrictions?: EcfmpRestriction[];
   eldt: string;
   aldt?: string;
@@ -528,6 +531,8 @@ export interface FrontendCdmDataEvent {
   ecfmp_id?: string;
   ctot_source?: string;
   phase?: string;
+  deice_platform?: string;
+  deice_platform_acknowledged?: boolean;
   ecfmp_restrictions?: EcfmpRestriction[];
 }
 
@@ -539,6 +544,12 @@ export interface FrontendCdmDataBatchEvent {
 export interface FrontendCdmWaitEvent {
   type: EventType.FrontendCdmWait;
   callsign: string;
+}
+
+export interface FrontendCdmDeicePlatformUpdateEvent {
+  type: EventType.FrontendCdmDeicePlatformUpdate;
+  callsign: string;
+  platform: string;
 }
 
 export interface FrontendReleasePointEvent {
@@ -671,6 +682,7 @@ export type WebSocketEvent =
   | FrontendCdmDataEvent
   | FrontendCdmDataBatchEvent
   | FrontendCdmWaitEvent
+  | FrontendCdmDeicePlatformUpdateEvent
   | FrontendReleasePointEvent
   | FrontendMarkedEvent
   | FrontendPdcStateUpdateEvent
@@ -823,6 +835,8 @@ export interface FrontendMoveEvent {
   bay: Bay;
   clearance?: boolean;
   confirmed_removal?: boolean;
+  ordered?: boolean;
+  insert_after?: StripRef | null;
 }
 
 export interface FrontendGenerateSquawkEvent {
@@ -1027,10 +1041,11 @@ export interface FrontendClxOverrideValidationEvent {
 export interface FrontendClxUpdateTobtEvent {
   type: ActionType.FrontendClxUpdateTobt;
   callsign: string;
+  tobt?: string;
 }
 
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendSendPrivateMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendForceAssumeTacticalStripAction | FrontendMarkTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent | FrontendStandOccupyAction | FrontendStandVacateAction | FrontendStandAutomaticRequestAction | FrontendStandManualRequestAction | FrontendStandConfirmedOverrideAction | FrontendStandAcknowledgeAction | FrontendStandBlockCreateAction | FrontendStandBlockRemoveAction | AMANCommandMessage;
+export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendSendPrivateMessageEvent | FrontendCdmReadyEvent | FrontendCdmDeicePlatformUpdateEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendForceAssumeTacticalStripAction | FrontendMarkTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent | FrontendStandOccupyAction | FrontendStandVacateAction | FrontendStandAutomaticRequestAction | FrontendStandManualRequestAction | FrontendStandConfirmedOverrideAction | FrontendStandAcknowledgeAction | FrontendStandBlockCreateAction | FrontendStandBlockRemoveAction | AMANCommandMessage;
 
 export type AnyStrip = FrontendStrip | TacticalStrip;
 export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;

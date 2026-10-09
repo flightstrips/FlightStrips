@@ -1,7 +1,8 @@
 import {useEffect, useMemo, useState} from "react";
 import type {LatLngTuple} from "leaflet";
-import {CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap} from "react-leaflet";
+import {CircleMarker, MapContainer, Polyline, Tooltip, useMap} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import {AMANBasemap} from "@/components/aman/AMANBasemap";
 import {operationalErrorReference, type OperationalErrorReference} from "./aman-replay-errors";
 
 type ReplayPoint = {at: string; latitude: number; longitude: number; altitude_feet: number; groundspeed_knots: number};
@@ -208,7 +209,7 @@ export default function AMANReplayPage() {
           <div className="flex items-center gap-2"><button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-cyan-400 hover:text-cyan-200" onClick={() => document.getElementById("prediction-history")?.scrollIntoView({behavior: "smooth", block: "start"})} type="button">Prediction history ↓</button><span className="rounded bg-cyan-950 px-2 py-1 font-mono text-xs text-cyan-200">{data.runway_group}</span></div>
         </header>
         <MapContainer aria-label="AMAN replay route map" center={fullTrack[0] ?? [55.6, 12.6]} className="h-[76vh] min-h-[560px] w-full" scrollWheelZoom={false} worldCopyJump zoom={8}>
-          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' keepBuffer={4} url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+          <AMANBasemap />
           <FitReplay coordinates={fullTrack} />
           {snapshot?.route.map((leg, index) => <Polyline key={leg.id} pathOptions={index === 0 && directTarget ? {color: "#facc15", dashArray: "10 7", opacity: 1, weight: 5} : index === 0 && candidateTarget ? {color: "#fb923c", dashArray: "4 8", opacity: 1, weight: 4} : {color: "#22d3ee", opacity: 0.9, weight: 4}} positions={[leg.from, leg.to]}><Tooltip sticky>{leg.id} · leg average {formatSpeed(leg.expected_groundspeed_knots)} · {leg.distance_nm.toFixed(1)} NM / {Math.round(leg.duration_seconds)}s</Tooltip></Polyline>)}
           <Polyline pathOptions={{color: "#f97316", dashArray: "4 8", opacity: 0.32, weight: 2}} positions={fullTrack} />

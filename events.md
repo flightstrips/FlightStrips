@@ -1,5 +1,34 @@
 # Events
 
+## Frontend CDM de-icing platform
+
+Sent by: Frontend
+
+Selects the remote de-icing platform used for the flight's EXOT calculation.
+`platform` must be `A`, `B`, `V`, or an empty string to clear the selection.
+
+```json
+{
+    "type": "cdm_deice_platform_update",
+    "callsign": "SAS123",
+    "platform": "B"
+}
+```
+
+The server persists the selection and includes it as `deice_platform` in
+`cdm_data`, `cdm_data_batch`, and initial strip payloads. The accompanying
+`deice_platform_acknowledged` flag becomes `true` when the strip enters a
+de-icing bay and returns to `false` whenever a platform is selected again.
+The values after
+the base taxi time in each taxi-zone row correspond to platforms A, B, and V:
+
+```text
+EKCH:22R:<polygon coordinates>:11,2,3,5
+```
+
+Here the base taxi time is 11 minutes; the extra times are 2 minutes for A,
+3 minutes for B, and 5 minutes for V.
+
 ## Authentication event
 
 1. Server and client connects

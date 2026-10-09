@@ -551,6 +551,30 @@ struct GenerateSquawkEventDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 GenerateSquawkEventDefaultTypeInternal _GenerateSquawkEvent_default_instance_;
 
+inline constexpr FsScratchPadEvent::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        text_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR FsScratchPadEvent::FsScratchPadEvent(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct FsScratchPadEventDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR FsScratchPadEventDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~FsScratchPadEventDefaultTypeInternal() {}
+  union {
+    FsScratchPadEvent _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 FsScratchPadEventDefaultTypeInternal _FsScratchPadEvent_default_instance_;
+
 inline constexpr EobtEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : callsign_(
@@ -1713,6 +1737,9 @@ inline constexpr BackendSyncStrip::Impl_::Impl_(
         hold_eat_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        fs_scratch_pad_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         cdm_{nullptr},
         cleared_{false} {}
 
@@ -1797,12 +1824,12 @@ namespace flightstrips {
 namespace euroscope {
 namespace v1 {
 PROTOBUF_CONSTINIT const uint32_t EventType_internal_data_[] = {
-    3473408u, 0u, };
+    3538944u, 0u, };
 bool EventType_IsValid(int value) {
-  return 0 <= value && value <= 52;
+  return 0 <= value && value <= 53;
 }
 static ::google::protobuf::internal::ExplicitlyConstructed<std::string>
-    EventType_strings[53] = {};
+    EventType_strings[54] = {};
 
 static const char EventType_names[] = {
     "EVENT_AIRCRAFT_DISCONNECT"
@@ -1835,6 +1862,7 @@ static const char EventType_names[] = {
     "EVENT_CREATE_FPL"
     "EVENT_DROP_TRACKING"
     "EVENT_EOBT"
+    "EVENT_FS_SCRATCH_PAD"
     "EVENT_GENERATE_SQUAWK"
     "EVENT_GROUND_STATE"
     "EVENT_HEADING"
@@ -1892,61 +1920,62 @@ static const ::google::protobuf::internal::EnumEntry EventType_entries[] =
         {{&EventType_names[585], 16}, 36},
         {{&EventType_names[601], 19}, 34},
         {{&EventType_names[620], 10}, 23},
-        {{&EventType_names[630], 21}, 22},
-        {{&EventType_names[651], 18}, 11},
-        {{&EventType_names[669], 13}, 14},
-        {{&EventType_names[682], 10}, 50},
-        {{&EventType_names[692], 25}, 47},
-        {{&EventType_names[717], 11}, 2},
-        {{&EventType_names[728], 25}, 48},
-        {{&EventType_names[753], 22}, 46},
-        {{&EventType_names[775], 13}, 25},
-        {{&EventType_names[788], 24}, 8},
-        {{&EventType_names[812], 11}, 24},
-        {{&EventType_names[823], 12}, 19},
-        {{&EventType_names[835], 27}, 21},
-        {{&EventType_names[862], 26}, 49},
-        {{&EventType_names[888], 18}, 20},
-        {{&EventType_names[906], 9}, 28},
-        {{&EventType_names[915], 12}, 7},
-        {{&EventType_names[927], 11}, 16},
-        {{&EventType_names[938], 18}, 18},
-        {{&EventType_names[956], 10}, 5},
-        {{&EventType_names[966], 11}, 1},
-        {{&EventType_names[977], 33}, 17},
-        {{&EventType_names[1010], 13}, 0},
+        {{&EventType_names[630], 20}, 53},
+        {{&EventType_names[650], 21}, 22},
+        {{&EventType_names[671], 18}, 11},
+        {{&EventType_names[689], 13}, 14},
+        {{&EventType_names[702], 10}, 50},
+        {{&EventType_names[712], 25}, 47},
+        {{&EventType_names[737], 11}, 2},
+        {{&EventType_names[748], 25}, 48},
+        {{&EventType_names[773], 22}, 46},
+        {{&EventType_names[795], 13}, 25},
+        {{&EventType_names[808], 24}, 8},
+        {{&EventType_names[832], 11}, 24},
+        {{&EventType_names[843], 12}, 19},
+        {{&EventType_names[855], 27}, 21},
+        {{&EventType_names[882], 26}, 49},
+        {{&EventType_names[908], 18}, 20},
+        {{&EventType_names[926], 9}, 28},
+        {{&EventType_names[935], 12}, 7},
+        {{&EventType_names[947], 11}, 16},
+        {{&EventType_names[958], 18}, 18},
+        {{&EventType_names[976], 10}, 5},
+        {{&EventType_names[986], 11}, 1},
+        {{&EventType_names[997], 33}, 17},
+        {{&EventType_names[1030], 13}, 0},
 };
 
 static const int EventType_entries_by_number[] = {
-    52,  // 0 -> EVENT_UNKNOWN
-    50,  // 1 -> EVENT_TOKEN
-    35,  // 2 -> EVENT_LOGIN
+    53,  // 0 -> EVENT_UNKNOWN
+    51,  // 1 -> EVENT_TOKEN
+    36,  // 2 -> EVENT_LOGIN
     24,  // 3 -> EVENT_CONTROLLER_ONLINE
     23,  // 4 -> EVENT_CONTROLLER_OFFLINE
-    49,  // 5 -> EVENT_SYNC
+    50,  // 5 -> EVENT_SYNC
     7,  // 6 -> EVENT_ASSIGNED_SQUAWK
-    46,  // 7 -> EVENT_SQUAWK
-    39,  // 8 -> EVENT_REQUESTED_ALTITUDE
+    47,  // 7 -> EVENT_SQUAWK
+    40,  // 8 -> EVENT_REQUESTED_ALTITUDE
     20,  // 9 -> EVENT_CLEARED_ALTITUDE
     22,  // 10 -> EVENT_COMMUNICATION_TYPE
-    31,  // 11 -> EVENT_GROUND_STATE
+    32,  // 11 -> EVENT_GROUND_STATE
     21,  // 12 -> EVENT_CLEARED_FLAG
     3,  // 13 -> EVENT_AIRCRAFT_POSITION_UPDATE
-    32,  // 14 -> EVENT_HEADING
+    33,  // 14 -> EVENT_HEADING
     0,  // 15 -> EVENT_AIRCRAFT_DISCONNECT
-    47,  // 16 -> EVENT_STAND
-    51,  // 17 -> EVENT_TRACKING_CONTROLLER_CHANGED
-    48,  // 18 -> EVENT_STRIP_UPDATE
-    41,  // 19 -> EVENT_RUNWAY
-    44,  // 20 -> EVENT_SESSION_INFO
-    42,  // 21 -> EVENT_RUNWAY_MISMATCH_ALERT
-    30,  // 22 -> EVENT_GENERATE_SQUAWK
+    48,  // 16 -> EVENT_STAND
+    52,  // 17 -> EVENT_TRACKING_CONTROLLER_CHANGED
+    49,  // 18 -> EVENT_STRIP_UPDATE
+    42,  // 19 -> EVENT_RUNWAY
+    45,  // 20 -> EVENT_SESSION_INFO
+    43,  // 21 -> EVENT_RUNWAY_MISMATCH_ALERT
+    31,  // 22 -> EVENT_GENERATE_SQUAWK
     29,  // 23 -> EVENT_EOBT
-    40,  // 24 -> EVENT_ROUTE
-    38,  // 25 -> EVENT_REMARKS
+    41,  // 24 -> EVENT_ROUTE
+    39,  // 25 -> EVENT_REMARKS
     1,  // 26 -> EVENT_AIRCRAFT_INFO
     2,  // 27 -> EVENT_AIRCRAFT_INFO_REMARKS
-    45,  // 28 -> EVENT_SID
+    46,  // 28 -> EVENT_SID
     4,  // 29 -> EVENT_AIRCRAFT_RUNWAY
     25,  // 30 -> EVENT_COORDINATION_HANDOVER
     26,  // 31 -> EVENT_COORDINATION_RECEIVED
@@ -1964,24 +1993,25 @@ static const int EventType_entries_by_number[] = {
     14,  // 43 -> EVENT_CDM_MANUAL_CTOT
     12,  // 44 -> EVENT_CDM_CTOT_REMOVE
     15,  // 45 -> EVENT_CDM_READY
-    37,  // 46 -> EVENT_PDC_STATE_CHANGE
-    34,  // 47 -> EVENT_ISSUE_PDC_CLEARANCE
-    36,  // 48 -> EVENT_PDC_REVERT_TO_VOICE
-    43,  // 49 -> EVENT_SEND_PRIVATE_MESSAGE
-    33,  // 50 -> EVENT_HOLD
+    38,  // 46 -> EVENT_PDC_STATE_CHANGE
+    35,  // 47 -> EVENT_ISSUE_PDC_CLEARANCE
+    37,  // 48 -> EVENT_PDC_REVERT_TO_VOICE
+    44,  // 49 -> EVENT_SEND_PRIVATE_MESSAGE
+    34,  // 50 -> EVENT_HOLD
     5,  // 51 -> EVENT_AMAN_GAIN_LOSS
     6,  // 52 -> EVENT_AMAN_ROUTE_FACT
+    30,  // 53 -> EVENT_FS_SCRATCH_PAD
 };
 
 const std::string& EventType_Name(EventType value) {
   static const bool kDummy =
       ::google::protobuf::internal::InitializeEnumStrings(
           EventType_entries, EventType_entries_by_number,
-          53, EventType_strings);
+          54, EventType_strings);
   (void)kDummy;
 
   int idx = ::google::protobuf::internal::LookUpEnumName(
-      EventType_entries, EventType_entries_by_number, 53,
+      EventType_entries, EventType_entries_by_number, 54,
       value);
   return idx == -1 ? ::google::protobuf::internal::GetEmptyString()
                    : EventType_strings[idx].get();
@@ -1990,7 +2020,7 @@ const std::string& EventType_Name(EventType value) {
 bool EventType_Parse(absl::string_view name, EventType* value) {
   int int_value;
   bool success = ::google::protobuf::internal::LookUpEnumValue(
-      EventType_entries, 53, name, &int_value);
+      EventType_entries, 54, name, &int_value);
   if (success) {
     *value = static_cast<EventType>(int_value);
   }
@@ -2680,6 +2710,19 @@ void Envelope::set_allocated_aman_route_fact(::flightstrips::euroscope::v1::AMAN
   }
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.aman_route_fact)
 }
+void Envelope::set_allocated_fs_scratch_pad(::flightstrips::euroscope::v1::FsScratchPadEvent* fs_scratch_pad) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_event();
+  if (fs_scratch_pad) {
+    ::google::protobuf::Arena* submessage_arena = fs_scratch_pad->GetArena();
+    if (message_arena != submessage_arena) {
+      fs_scratch_pad = ::google::protobuf::internal::GetOwnedMessage(message_arena, fs_scratch_pad, submessage_arena);
+    }
+    set_has_fs_scratch_pad();
+    _impl_.event_.fs_scratch_pad_ = fs_scratch_pad;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.fs_scratch_pad)
+}
 Envelope::Envelope(::google::protobuf::Arena* arena)
     : ::google::protobuf::MessageLite(arena) {
   SharedCtor(arena);
@@ -2859,6 +2902,9 @@ Envelope::Envelope(
         break;
       case kAmanRouteFact:
         _impl_.event_.aman_route_fact_ = ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::AMANRouteFactEvent>(arena, *from._impl_.event_.aman_route_fact_);
+        break;
+      case kFsScratchPad:
+        _impl_.event_.fs_scratch_pad_ = ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::FsScratchPadEvent>(arena, *from._impl_.event_.fs_scratch_pad_);
         break;
   }
 
@@ -3203,6 +3249,12 @@ void Envelope::clear_event() {
       }
       break;
     }
+    case kFsScratchPad: {
+      if (GetArena() == nullptr) {
+        delete _impl_.event_.fs_scratch_pad_;
+      }
+      break;
+    }
     case EVENT_NOT_SET: {
       break;
     }
@@ -3248,16 +3300,16 @@ const char* Envelope::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 52, 52, 0, 9> Envelope::_table_ = {
+const ::_pbi::TcParseTable<0, 53, 53, 0, 9> Envelope::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    52, 0,  // max_field_number, fast_idx_mask
+    53, 0,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
     0,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    52,  // num_field_entries
-    52,  // num_aux_entries
+    53,  // num_field_entries
+    53,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_Envelope_default_instance_._instance,
     ::_pbi::TcParser::GenericFallbackLite,  // fallback
@@ -3268,7 +3320,7 @@ const ::_pbi::TcParseTable<0, 52, 52, 0, 9> Envelope::_table_ = {
     {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     33, 0, 2,
-    0, 32, 65520, 48,
+    0, 32, 65504, 48,
     65535, 65535
   }}, {{
     // .flightstrips.euroscope.v1.TokenEvent token = 1;
@@ -3427,6 +3479,9 @@ const ::_pbi::TcParseTable<0, 52, 52, 0, 9> Envelope::_table_ = {
     // .flightstrips.euroscope.v1.AMANRouteFactEvent aman_route_fact = 52;
     {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.event_.aman_route_fact_), _Internal::kOneofCaseOffset + 0, 51,
     (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.euroscope.v1.FsScratchPadEvent fs_scratch_pad = 53;
+    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.event_.fs_scratch_pad_), _Internal::kOneofCaseOffset + 0, 52,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::TokenEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::LoginEvent>()},
@@ -3480,6 +3535,7 @@ const ::_pbi::TcParseTable<0, 52, 52, 0, 9> Envelope::_table_ = {
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::HoldEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::AMANGainLossEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::AMANRouteFactEvent>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::FsScratchPadEvent>()},
   }}, {{
   }},
 };
@@ -3750,6 +3806,11 @@ const ::_pbi::TcParseTable<0, 52, 52, 0, 9> Envelope::_table_ = {
     case kAmanRouteFact: {
       target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
           52, *_impl_.event_.aman_route_fact_, _impl_.event_.aman_route_fact_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kFsScratchPad: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          53, *_impl_.event_.fs_scratch_pad_, _impl_.event_.fs_scratch_pad_->GetCachedSize(), target, stream);
       break;
     }
     default:
@@ -4083,6 +4144,12 @@ const ::_pbi::TcParseTable<0, 52, 52, 0, 9> Envelope::_table_ = {
     case kAmanRouteFact: {
       total_size +=
           2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.event_.aman_route_fact_);
+      break;
+    }
+    // .flightstrips.euroscope.v1.FsScratchPadEvent fs_scratch_pad = 53;
+    case kFsScratchPad: {
+      total_size +=
+          2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.event_.fs_scratch_pad_);
       break;
     }
     case EVENT_NOT_SET: {
@@ -4586,6 +4653,15 @@ void Envelope::MergeFrom(const Envelope& from) {
               ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::AMANRouteFactEvent>(arena, *from._impl_.event_.aman_route_fact_);
         } else {
           _this->_impl_.event_.aman_route_fact_->MergeFrom(from._internal_aman_route_fact());
+        }
+        break;
+      }
+      case kFsScratchPad: {
+        if (oneof_needs_init) {
+          _this->_impl_.event_.fs_scratch_pad_ =
+              ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::FsScratchPadEvent>(arena, *from._impl_.event_.fs_scratch_pad_);
+        } else {
+          _this->_impl_.event_.fs_scratch_pad_->MergeFrom(from._internal_fs_scratch_pad());
         }
         break;
       }
@@ -10172,7 +10248,8 @@ inline PROTOBUF_NDEBUG_INLINE BackendSyncStrip::Impl_::Impl_(
         pdc_request_remarks_(arena, from.pdc_request_remarks_),
         hold_(arena, from.hold_),
         hold_type_(arena, from.hold_type_),
-        hold_eat_(arena, from.hold_eat_) {}
+        hold_eat_(arena, from.hold_eat_),
+        fs_scratch_pad_(arena, from.fs_scratch_pad_) {}
 
 BackendSyncStrip::BackendSyncStrip(
     ::google::protobuf::Arena* arena,
@@ -10203,7 +10280,8 @@ inline PROTOBUF_NDEBUG_INLINE BackendSyncStrip::Impl_::Impl_(
         pdc_request_remarks_(arena),
         hold_(arena),
         hold_type_(arena),
-        hold_eat_(arena) {}
+        hold_eat_(arena),
+        fs_scratch_pad_(arena) {}
 
 inline void BackendSyncStrip::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
@@ -10230,6 +10308,7 @@ inline void BackendSyncStrip::SharedDtor() {
   _impl_.hold_.Destroy();
   _impl_.hold_type_.Destroy();
   _impl_.hold_eat_.Destroy();
+  _impl_.fs_scratch_pad_.Destroy();
   delete _impl_.cdm_;
   _impl_.~Impl_();
 }
@@ -10268,6 +10347,7 @@ PROTOBUF_NOINLINE void BackendSyncStrip::Clear() {
   _impl_.hold_.ClearToEmpty();
   _impl_.hold_type_.ClearToEmpty();
   _impl_.hold_eat_.ClearToEmpty();
+  _impl_.fs_scratch_pad_.ClearToEmpty();
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(_impl_.cdm_ != nullptr);
@@ -10286,15 +10366,15 @@ const char* BackendSyncStrip::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 11, 1, 148, 2> BackendSyncStrip::_table_ = {
+const ::_pbi::TcParseTable<4, 12, 1, 162, 2> BackendSyncStrip::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_._has_bits_),
     0, // no _extensions_
-    11, 120,  // max_field_number, fast_idx_mask
+    12, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294965248,  // skipmap
+    4294963200,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    11,  // num_field_entries
+    12,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_BackendSyncStrip_default_instance_._instance,
@@ -10337,7 +10417,9 @@ const ::_pbi::TcParseTable<4, 11, 1, 148, 2> BackendSyncStrip::_table_ = {
     // string hold_eat = 11;
     {::_pbi::TcParser::FastUS1,
      {90, 63, 0, PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.hold_eat_)}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // string fs_scratch_pad = 12;
+    {::_pbi::TcParser::FastUS1,
+     {98, 63, 0, PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.fs_scratch_pad_)}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
@@ -10377,10 +10459,13 @@ const ::_pbi::TcParseTable<4, 11, 1, 148, 2> BackendSyncStrip::_table_ = {
     // string hold_eat = 11;
     {PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.hold_eat_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string fs_scratch_pad = 12;
+    {PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.fs_scratch_pad_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::BackendSyncCdmData>()},
   }}, {{
-    "\52\10\17\0\14\5\0\11\23\4\11\10\0\0\0\0"
+    "\52\10\17\0\14\5\0\11\23\4\11\10\16\0\0\0"
     "flightstrips.euroscope.v1.BackendSyncStrip"
     "callsign"
     "assigned_squawk"
@@ -10391,6 +10476,7 @@ const ::_pbi::TcParseTable<4, 11, 1, 148, 2> BackendSyncStrip::_table_ = {
     "hold"
     "hold_type"
     "hold_eat"
+    "fs_scratch_pad"
   }},
 };
 
@@ -10487,6 +10573,14 @@ const ::_pbi::TcParseTable<4, 11, 1, 148, 2> BackendSyncStrip::_table_ = {
     target = stream->WriteStringMaybeAliased(11, _s, target);
   }
 
+  // string fs_scratch_pad = 12;
+  if (!this->_internal_fs_scratch_pad().empty()) {
+    const std::string& _s = this->_internal_fs_scratch_pad();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.BackendSyncStrip.fs_scratch_pad");
+    target = stream->WriteStringMaybeAliased(12, _s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -10558,6 +10652,12 @@ const ::_pbi::TcParseTable<4, 11, 1, 148, 2> BackendSyncStrip::_table_ = {
                                     this->_internal_hold_eat());
   }
 
+  // string fs_scratch_pad = 12;
+  if (!this->_internal_fs_scratch_pad().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_fs_scratch_pad());
+  }
+
   // .flightstrips.euroscope.v1.BackendSyncCdmData cdm = 6;
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
@@ -10618,6 +10718,9 @@ void BackendSyncStrip::MergeFrom(const BackendSyncStrip& from) {
   if (!from._internal_hold_eat().empty()) {
     _this->_internal_set_hold_eat(from._internal_hold_eat());
   }
+  if (!from._internal_fs_scratch_pad().empty()) {
+    _this->_internal_set_fs_scratch_pad(from._internal_fs_scratch_pad());
+  }
   cached_has_bits = from._impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(from._impl_.cdm_ != nullptr);
@@ -10661,6 +10764,7 @@ void BackendSyncStrip::InternalSwap(BackendSyncStrip* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_, &other->_impl_.hold_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_type_, &other->_impl_.hold_type_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_eat_, &other->_impl_.hold_eat_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.fs_scratch_pad_, &other->_impl_.fs_scratch_pad_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.cleared_)
       + sizeof(BackendSyncStrip::_impl_.cleared_)
@@ -22991,6 +23095,239 @@ void AMANRouteFactEvent::InternalSwap(AMANRouteFactEvent* PROTOBUF_RESTRICT othe
       - PROTOBUF_FIELD_OFFSET(AMANRouteFactEvent, _impl_.data_)>(
           reinterpret_cast<char*>(&_impl_.data_),
           reinterpret_cast<char*>(&other->_impl_.data_));
+}
+
+// ===================================================================
+
+class FsScratchPadEvent::_Internal {
+ public:
+};
+
+FsScratchPadEvent::FsScratchPadEvent(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.FsScratchPadEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE FsScratchPadEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : callsign_(arena, from.callsign_),
+        text_(arena, from.text_),
+        _cached_size_{0} {}
+
+FsScratchPadEvent::FsScratchPadEvent(
+    ::google::protobuf::Arena* arena,
+    const FsScratchPadEvent& from)
+    : ::google::protobuf::MessageLite(arena) {
+  FsScratchPadEvent* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.FsScratchPadEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE FsScratchPadEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : callsign_(arena),
+        text_(arena),
+        _cached_size_{0} {}
+
+inline void FsScratchPadEvent::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+FsScratchPadEvent::~FsScratchPadEvent() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.FsScratchPadEvent)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void FsScratchPadEvent::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.callsign_.Destroy();
+  _impl_.text_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+FsScratchPadEvent::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[44];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(FsScratchPadEvent, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.FsScratchPadEvent",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void FsScratchPadEvent::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.FsScratchPadEvent)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.callsign_.ClearToEmpty();
+  _impl_.text_.ClearToEmpty();
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* FsScratchPadEvent::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 64, 2> FsScratchPadEvent::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_FsScratchPadEvent_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::FsScratchPadEvent>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string text = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(FsScratchPadEvent, _impl_.text_)}},
+    // string callsign = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(FsScratchPadEvent, _impl_.callsign_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string callsign = 1;
+    {PROTOBUF_FIELD_OFFSET(FsScratchPadEvent, _impl_.callsign_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string text = 2;
+    {PROTOBUF_FIELD_OFFSET(FsScratchPadEvent, _impl_.text_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\53\10\4\0\0\0\0\0"
+    "flightstrips.euroscope.v1.FsScratchPadEvent"
+    "callsign"
+    "text"
+  }},
+};
+
+::uint8_t* FsScratchPadEvent::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.FsScratchPadEvent)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    const std::string& _s = this->_internal_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.FsScratchPadEvent.callsign");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string text = 2;
+  if (!this->_internal_text().empty()) {
+    const std::string& _s = this->_internal_text();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.FsScratchPadEvent.text");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.FsScratchPadEvent)
+  return target;
+}
+
+::size_t FsScratchPadEvent::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.FsScratchPadEvent)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_callsign());
+  }
+
+  // string text = 2;
+  if (!this->_internal_text().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_text());
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void FsScratchPadEvent::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const FsScratchPadEvent*>(
+      &from));
+}
+
+void FsScratchPadEvent::MergeFrom(const FsScratchPadEvent& from) {
+  FsScratchPadEvent* const _this = this;
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.FsScratchPadEvent)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_callsign().empty()) {
+    _this->_internal_set_callsign(from._internal_callsign());
+  }
+  if (!from._internal_text().empty()) {
+    _this->_internal_set_text(from._internal_text());
+  }
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void FsScratchPadEvent::CopyFrom(const FsScratchPadEvent& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.FsScratchPadEvent)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool FsScratchPadEvent::IsInitialized() const {
+  return true;
+}
+
+void FsScratchPadEvent::InternalSwap(FsScratchPadEvent* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.text_, &other->_impl_.text_, arena);
 }
 
 // @@protoc_insertion_point(namespace_scope)

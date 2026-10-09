@@ -11,22 +11,34 @@ import (
 type BulkIFPSData []IFPSData
 
 type IFPSData struct {
-	Callsign               string  `json:"callsign"`
-	CID                    string  `json:"cid"`
-	Departure              string  `json:"departure"`
-	Arrival                string  `json:"arrival"`
-	EOBT                   string  `json:"eobt"` // Estimated Off-Block Time
-	TOBT                   string  `json:"tobt"` // Target Off-Block Time
-	ReqTOBT                string  `json:"reqTobt"`
-	Taxi                   int     `json:"taxi"`
-	CTOT                   string  `json:"ctot"` // Calculated Take-Off Time
-	AOBT                   string  `json:"aobt"` // Actual Off-Block Time
-	ATOT                   string  `json:"atot"` // Actual Take-Off Time
-	ETA                    string  `json:"eta"`
-	MostPenalizingAirspace string  `json:"mostPenalizingAirspace"`
-	CDMStatus              string  `json:"cdmSts"`
-	ATFCMStatus            string  `json:"atfcmStatus"`
-	CDMData                CDMData `json:"cdmData"`
+	Callsign               string    `json:"callsign"`
+	CID                    string    `json:"cid"`
+	Departure              string    `json:"departure"`
+	Arrival                string    `json:"arrival"`
+	EOBT                   string    `json:"eobt"` // Estimated Off-Block Time
+	TOBT                   string    `json:"tobt"` // Target Off-Block Time
+	ReqTOBT                string    `json:"reqTobt"`
+	Taxi                   int       `json:"taxi"`
+	CTOT                   string    `json:"ctot"` // Calculated Take-Off Time
+	AOBT                   string    `json:"aobt"` // Actual Off-Block Time
+	ATOT                   string    `json:"atot"` // Actual Take-Off Time
+	ETA                    string    `json:"eta"`
+	MostPenalizingAirspace string    `json:"mostPenalizingAirspace"`
+	CDMStatus              string    `json:"cdmSts"`
+	ATFCMStatus            string    `json:"atfcmStatus"`
+	CDMData                CDMData   `json:"cdmData"`
+	ATFCMData              ATFCMData `json:"atfcmData"`
+}
+
+type ATFCMData struct {
+	MostPenalisingRegulation string `json:"mostPenalisingRegulation"`
+}
+
+func (d IFPSData) regulationReason() string {
+	if reason := strings.TrimSpace(d.ATFCMData.MostPenalisingRegulation); reason != "" {
+		return reason
+	}
+	return d.CDMData.Reason
 }
 
 type CDMData struct {

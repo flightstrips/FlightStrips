@@ -197,6 +197,9 @@ namespace FlightStrips {
         RegisterTagItemType("TSAC", TAG_ITEM_CDM_TSAC);
         RegisterTagItemType("ASAT", TAG_ITEM_CDM_ASAT);
         RegisterTagItemType("AMAN G/L", TAG_ITEM_AMAN_GAIN_LOSS);
+        RegisterTagItemType("EAT", TAG_ITEM_EAT);
+        RegisterTagItemType("FS scratch pad", TAG_ITEM_FS_SCRATCH_PAD);
+        RegisterTagItemFunction("Edit FS scratch pad", TAG_FUNC_EDIT_FS_SCRATCH_PAD);
 
         RegisterTagItemFunction("Edit EOBT", TAG_FUNC_CDM_EOBT_ACTION);
         RegisterTagItemFunction("E/TOBT Options", TAG_FUNC_CDM_E_TOBT_OPTIONS);
@@ -797,6 +800,14 @@ namespace FlightStrips {
         };
 
         switch (FunctionId) {
+            case TAG_FUNC_EDIT_FS_SCRATCH_PAD:
+                if (!GetConnectionState().observer && container->webSocketService->IsConnected()) {
+                    OpenPopupEdit(Area, TAG_FUNC_SET_FS_SCRATCH_PAD, tracked == nullptr ? "" : tracked->fs_scratch_pad.c_str());
+                }
+                break;
+            case TAG_FUNC_SET_FS_SCRATCH_PAD:
+                if (ItemString != nullptr) container->messageService->SendFsScratchPad(callsign, ItemString);
+                break;
             case TAG_FUNC_CDM_EOBT_ACTION:
                 openEobtActions();
                 break;

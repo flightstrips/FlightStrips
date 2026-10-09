@@ -198,10 +198,9 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 		}
 		rows := database.UpsertAMANFlightsParams{Airport: commit.State.Airport}
 		for _, flight := range commit.State.Flights {
-			// Removed flights have completed their lifecycle and are retained in
-			// audit records, not in the active AMAN projection. Keeping them here
-			// makes old CID/callsign histories look like duplicate live slots.
-			if flight.State == aman.StateRemoved {
+			// Keep manual exclusions and diversion evidence across reloads. Only
+			// automatically expired lifecycle records leave the active projection.
+			if !retainAMANFlight(flight) {
 				continue
 			}
 			payload, err := json.Marshal(flight)
@@ -263,6 +262,11 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 		result.CommandOutcome = &outcome
 	}
 	return result, nil
+}
+
+func retainAMANFlight(flight aman.AMANFlight) bool {
+	return flight.State != aman.StateRemoved || flight.Lifecycle != nil &&
+		(flight.Lifecycle.Reason == aman.LifecycleReasonManualRemoval || flight.Lifecycle.Reason == aman.LifecycleReasonDiverted)
 }
 
 func coordinationExpiryFacts(previous, next aman.AirportState) []coordinationrequest.ExpiryFact {

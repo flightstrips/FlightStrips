@@ -16,6 +16,8 @@ export type HalfStripVariant =
 
 export interface StripProps {
   halfStripVariant?: HalfStripVariant;
+  /** Rendered as a half strip because this controller used LCL HIDE. */
+  localHidden?: boolean;
   bay?: Bay;
   callsign: string;
   delegateCallsignClick?: boolean;
@@ -32,6 +34,8 @@ export interface StripProps {
   tsat?: string;
   ctot?: string;
   phase?: string;
+  deicePlatform?: string;
+  deicePlatformAcknowledged?: boolean;
   aircraftType?: string;
   aircraftCategory?: string;
   squawk?: string;

@@ -59,38 +59,43 @@ type EcfmpRestriction struct {
 }
 
 type CdmData struct {
-	Tobt                   *string            `json:"tobt,omitempty"`
-	TobtSetBy              *string            `json:"tobtSetBy,omitempty"`
-	TobtConfirmedBy        *string            `json:"tobtConfirmedBy,omitempty"`
-	TobtAutoSynced         bool               `json:"tobtAutoSynced,omitempty"`
-	TobtAutoAdjusted       bool               `json:"tobtAutoAdjusted,omitempty"`
-	TobtManuallyConfirmed  bool               `json:"tobtManuallyConfirmed,omitempty"`
-	Tsat                   *string            `json:"tsat,omitempty"`
-	ViffProposalTsat       *string            `json:"viffProposalTsat,omitempty"`
-	ViffProposalTtot       *string            `json:"viffProposalTtot,omitempty"`
-	Ttot                   *string            `json:"ttot,omitempty"`
-	Ctot                   *string            `json:"ctot,omitempty"`
-	CtotSource             *string            `json:"ctotSource,omitempty"`
-	Aobt                   *string            `json:"aobt,omitempty"`
-	Atot                   *string            `json:"atot,omitempty"`
-	AtotViffPending        bool               `json:"atotViffPending,omitempty"`
-	Asat                   *string            `json:"asat,omitempty"`
-	Asrt                   *string            `json:"asrt,omitempty"`
-	Tsac                   *string            `json:"tsac,omitempty"`
-	Eobt                   *string            `json:"eobt,omitempty"`
-	Aldt                   *string            `json:"aldt,omitempty"`
-	Status                 *string            `json:"status,omitempty"`
-	DeIce                  *string            `json:"deIce,omitempty"`
-	MostPenalizingAirspace *string            `json:"mostPenalizingAirspace,omitempty"`
-	EcfmpID                *string            `json:"ecfmpId,omitempty"`
-	Phase                  *string            `json:"phase,omitempty"`
-	EcfmpRestrictions      []EcfmpRestriction `json:"ecfmpRestrictions,omitempty"`
-	Calculation            *CdmCalculation    `json:"calculation,omitempty"`
-	Recalculate            bool               `json:"recalculate,omitempty"`
-	RecalculationMode      string             `json:"recalculationMode,omitempty"`
-	PushbackRecalculate    bool               `json:"pushbackRecalculate,omitempty"`
-	ReadySyncPending       bool               `json:"readySyncPending,omitempty"`
-	ViffRequestSyncPending bool               `json:"viffRequestSyncPending,omitempty"`
+	Tobt                  *string `json:"tobt,omitempty"`
+	TobtSetBy             *string `json:"tobtSetBy,omitempty"`
+	TobtConfirmedBy       *string `json:"tobtConfirmedBy,omitempty"`
+	TobtAutoSynced        bool    `json:"tobtAutoSynced,omitempty"`
+	TobtAutoAdjusted      bool    `json:"tobtAutoAdjusted,omitempty"`
+	TobtManuallyConfirmed bool    `json:"tobtManuallyConfirmed,omitempty"`
+	Tsat                  *string `json:"tsat,omitempty"`
+	ViffProposalTsat      *string `json:"viffProposalTsat,omitempty"`
+	ViffProposalTtot      *string `json:"viffProposalTtot,omitempty"`
+	Ttot                  *string `json:"ttot,omitempty"`
+	Ctot                  *string `json:"ctot,omitempty"`
+	CtotSource            *string `json:"ctotSource,omitempty"`
+	// Retain network provenance after cancellation so a CDM echo cannot restore the slot.
+	LastViffAtfcmCtot         string             `json:"lastViffAtfcmCtot,omitempty"`
+	Aobt                      *string            `json:"aobt,omitempty"`
+	AobtViffPending           bool               `json:"aobtViffPending,omitempty"`
+	Atot                      *string            `json:"atot,omitempty"`
+	AtotViffPending           bool               `json:"atotViffPending,omitempty"`
+	Asat                      *string            `json:"asat,omitempty"`
+	Asrt                      *string            `json:"asrt,omitempty"`
+	Tsac                      *string            `json:"tsac,omitempty"`
+	Eobt                      *string            `json:"eobt,omitempty"`
+	Aldt                      *string            `json:"aldt,omitempty"`
+	Status                    *string            `json:"status,omitempty"`
+	DeIce                     *string            `json:"deIce,omitempty"`
+	DeicePlatform             *string            `json:"deicePlatform,omitempty"`
+	DeicePlatformAcknowledged bool               `json:"deicePlatformAcknowledged,omitempty"`
+	MostPenalizingAirspace    *string            `json:"mostPenalizingAirspace,omitempty"`
+	EcfmpID                   *string            `json:"ecfmpId,omitempty"`
+	Phase                     *string            `json:"phase,omitempty"`
+	EcfmpRestrictions         []EcfmpRestriction `json:"ecfmpRestrictions,omitempty"`
+	Calculation               *CdmCalculation    `json:"calculation,omitempty"`
+	Recalculate               bool               `json:"recalculate,omitempty"`
+	RecalculationMode         string             `json:"recalculationMode,omitempty"`
+	PushbackRecalculate       bool               `json:"pushbackRecalculate,omitempty"`
+	ReadySyncPending          bool               `json:"readySyncPending,omitempty"`
+	ViffRequestSyncPending    bool               `json:"viffRequestSyncPending,omitempty"`
 }
 
 type CdmDataRow struct {
@@ -135,6 +140,7 @@ func (d *CdmData) Clone() *CdmData {
 	clone.Aldt = cloneStringPointer(d.Aldt)
 	clone.Status = cloneStringPointer(d.Status)
 	clone.DeIce = cloneStringPointer(d.DeIce)
+	clone.DeicePlatform = cloneStringPointer(d.DeicePlatform)
 	clone.MostPenalizingAirspace = cloneStringPointer(d.MostPenalizingAirspace)
 	clone.EcfmpID = cloneStringPointer(d.EcfmpID)
 	clone.Phase = cloneStringPointer(d.Phase)

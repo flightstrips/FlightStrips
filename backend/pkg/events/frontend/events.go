@@ -68,10 +68,11 @@ const (
 	SendPrivateMessage EventType = "send_private_message"
 	MessageReceived    EventType = "message_received"
 
-	CdmWait      EventType = "cdm_wait"
-	CdmData      EventType = "cdm_data"
-	CdmDataBatch EventType = "cdm_data_batch"
-	CdmReady     EventType = "cdm_ready"
+	CdmWait                EventType = "cdm_wait"
+	CdmData                EventType = "cdm_data"
+	CdmDataBatch           EventType = "cdm_data_batch"
+	CdmReady               EventType = "cdm_ready"
+	CdmDeicePlatformUpdate EventType = "cdm_deice_platform_update"
 
 	ReleasePoint EventType = "release_point"
 
@@ -138,74 +139,76 @@ type RunwayConfiguration struct {
 }
 
 type Strip struct {
-	Callsign                 string                `json:"callsign"`
-	Origin                   string                `json:"origin"`
-	Destination              string                `json:"destination"`
-	Alternate                string                `json:"alternate"`
-	Route                    string                `json:"route"`
-	Remarks                  string                `json:"remarks"`
-	Runway                   string                `json:"runway"`
-	Squawk                   string                `json:"squawk"`
-	AssignedSquawk           string                `json:"assigned_squawk"`
-	Sid                      string                `json:"sid"`
-	Star                     string                `json:"star"`
-	ClearedAltitude          int32                 `json:"cleared_altitude"`
-	Hold                     string                `json:"hold"`
-	HoldType                 string                `json:"hold_type"`
-	HoldEat                  string                `json:"hold_eat"`
-	RequestedAltitude        int32                 `json:"requested_altitude"`
-	Heading                  int32                 `json:"heading"`
-	PositionAltitude         int32                 `json:"position_altitude"`
-	AircraftType             string                `json:"aircraft_type"`
-	AircraftCategory         string                `json:"aircraft_category"`
-	SpokenCallsign           string                `json:"spoken_callsign,omitempty"`
-	Stand                    string                `json:"stand"`
-	Capabilities             string                `json:"capabilities"`
-	CommunicationType        string                `json:"communication_type"`
-	Eobt                     string                `json:"eobt"`
-	Eldt                     string                `json:"eldt"`
-	Bay                      string                `json:"bay"`
-	ReleasePoint             string                `json:"release_point"`
-	Version                  int32                 `json:"version"`
-	Sequence                 int32                 `json:"sequence"`
-	NextControllers          []string              `json:"next_controllers"`
-	PreviousControllers      []string              `json:"previous_controllers"`
-	NextDisplay              *NextDisplay          `json:"next_display,omitempty"`
-	Owner                    string                `json:"owner"`
-	Tobt                     string                `json:"tobt"`
-	TobtSetBy                string                `json:"tobt_set_by"`
-	Tsat                     string                `json:"tsat"`
-	Ttot                     string                `json:"ttot,omitempty"`
-	Ctot                     string                `json:"ctot"`
-	Aobt                     string                `json:"aobt,omitempty"`
-	Asat                     string                `json:"asat,omitempty"`
-	Asrt                     string                `json:"asrt,omitempty"`
-	Tsac                     string                `json:"tsac,omitempty"`
-	Status                   string                `json:"status,omitempty"`
-	MostPenalizingAirspace   string                `json:"most_penalizing_airspace,omitempty"`
-	EcfmpID                  string                `json:"ecfmp_id,omitempty"`
-	CtotSource               string                `json:"ctot_source,omitempty"`
-	Phase                    string                `json:"phase,omitempty"`
-	EcfmpRestrictions        []EcfmpRestrictionDTO `json:"ecfmp_restrictions,omitempty"`
-	PdcState                 string                `json:"pdc_state"`
-	PdcRequestRemarks        string                `json:"pdc_request_remarks,omitempty"`
-	StartReq                 bool                  `json:"start_req"`
-	Marked                   bool                  `json:"marked"`
-	Registration             string                `json:"registration"`
-	TrackingController       string                `json:"tracking_controller"`
-	RunwayCleared            bool                  `json:"runway_cleared"`
-	RunwayConfirmed          bool                  `json:"runway_confirmed"`
-	Aldt                     string                `json:"aldt"`
-	UnexpectedChangeFields   []string              `json:"unexpected_change_fields"`
-	ControllerModifiedFields []string              `json:"controller_modified_fields"`
-	IsManual                 bool                  `json:"is_manual"`
-	PersonsOnBoard           int32                 `json:"persons_on_board"`
-	FplType                  string                `json:"fpl_type"`
-	Language                 string                `json:"language"`
-	HasFP                    bool                  `json:"has_fp"`
-	ValidationStatus         *ValidationStatus     `json:"validation_status,omitempty"`
-	ClxValidation            *ClxValidation        `json:"clx_validation,omitempty"`
-	StandAssignment          *StandAssignmentEntry `json:"stand_assignment,omitempty"`
+	Callsign                  string                `json:"callsign"`
+	Origin                    string                `json:"origin"`
+	Destination               string                `json:"destination"`
+	Alternate                 string                `json:"alternate"`
+	Route                     string                `json:"route"`
+	Remarks                   string                `json:"remarks"`
+	Runway                    string                `json:"runway"`
+	Squawk                    string                `json:"squawk"`
+	AssignedSquawk            string                `json:"assigned_squawk"`
+	Sid                       string                `json:"sid"`
+	Star                      string                `json:"star"`
+	ClearedAltitude           int32                 `json:"cleared_altitude"`
+	Hold                      string                `json:"hold"`
+	HoldType                  string                `json:"hold_type"`
+	HoldEat                   string                `json:"hold_eat"`
+	RequestedAltitude         int32                 `json:"requested_altitude"`
+	Heading                   int32                 `json:"heading"`
+	PositionAltitude          int32                 `json:"position_altitude"`
+	AircraftType              string                `json:"aircraft_type"`
+	AircraftCategory          string                `json:"aircraft_category"`
+	SpokenCallsign            string                `json:"spoken_callsign,omitempty"`
+	Stand                     string                `json:"stand"`
+	Capabilities              string                `json:"capabilities"`
+	CommunicationType         string                `json:"communication_type"`
+	Eobt                      string                `json:"eobt"`
+	Eldt                      string                `json:"eldt"`
+	Bay                       string                `json:"bay"`
+	ReleasePoint              string                `json:"release_point"`
+	Version                   int32                 `json:"version"`
+	Sequence                  int32                 `json:"sequence"`
+	NextControllers           []string              `json:"next_controllers"`
+	PreviousControllers       []string              `json:"previous_controllers"`
+	NextDisplay               *NextDisplay          `json:"next_display,omitempty"`
+	Owner                     string                `json:"owner"`
+	Tobt                      string                `json:"tobt"`
+	TobtSetBy                 string                `json:"tobt_set_by"`
+	Tsat                      string                `json:"tsat"`
+	Ttot                      string                `json:"ttot,omitempty"`
+	Ctot                      string                `json:"ctot"`
+	Aobt                      string                `json:"aobt,omitempty"`
+	Asat                      string                `json:"asat,omitempty"`
+	Asrt                      string                `json:"asrt,omitempty"`
+	Tsac                      string                `json:"tsac,omitempty"`
+	Status                    string                `json:"status,omitempty"`
+	DeicePlatform             string                `json:"deice_platform"`
+	DeicePlatformAcknowledged bool                  `json:"deice_platform_acknowledged"`
+	MostPenalizingAirspace    string                `json:"most_penalizing_airspace,omitempty"`
+	EcfmpID                   string                `json:"ecfmp_id,omitempty"`
+	CtotSource                string                `json:"ctot_source,omitempty"`
+	Phase                     string                `json:"phase,omitempty"`
+	EcfmpRestrictions         []EcfmpRestrictionDTO `json:"ecfmp_restrictions,omitempty"`
+	PdcState                  string                `json:"pdc_state"`
+	PdcRequestRemarks         string                `json:"pdc_request_remarks,omitempty"`
+	StartReq                  bool                  `json:"start_req"`
+	Marked                    bool                  `json:"marked"`
+	Registration              string                `json:"registration"`
+	TrackingController        string                `json:"tracking_controller"`
+	RunwayCleared             bool                  `json:"runway_cleared"`
+	RunwayConfirmed           bool                  `json:"runway_confirmed"`
+	Aldt                      string                `json:"aldt"`
+	UnexpectedChangeFields    []string              `json:"unexpected_change_fields"`
+	ControllerModifiedFields  []string              `json:"controller_modified_fields"`
+	IsManual                  bool                  `json:"is_manual"`
+	PersonsOnBoard            int32                 `json:"persons_on_board"`
+	FplType                   string                `json:"fpl_type"`
+	Language                  string                `json:"language"`
+	HasFP                     bool                  `json:"has_fp"`
+	ValidationStatus          *ValidationStatus     `json:"validation_status,omitempty"`
+	ClxValidation             *ClxValidation        `json:"clx_validation,omitempty"`
+	StandAssignment           *StandAssignmentEntry `json:"stand_assignment,omitempty"`
 }
 
 type NextDisplay struct {
@@ -256,6 +259,8 @@ type ClxOverrideValidationAction struct {
 
 type ClxUpdateTobtAction struct {
 	Callsign string `json:"callsign"`
+	// Tobt is an optional manually entered HHMM time; when empty the TOBT is set from the current time.
+	Tobt string `json:"tobt,omitempty"`
 }
 
 type Controller struct {
@@ -552,6 +557,9 @@ type MoveEvent struct {
 	Bay              string    `json:"bay"`
 	Clearance        bool      `json:"clearance,omitempty"`
 	ConfirmedRemoval bool      `json:"confirmed_removal,omitempty"`
+	// Ordered makes the strip land immediately after InsertAfter (nil = top of bay) in the target bay.
+	Ordered     bool      `json:"ordered,omitempty"`
+	InsertAfter *StripRef `json:"insert_after,omitempty"`
 }
 
 type GenerateSquawkRequest struct {
@@ -816,23 +824,25 @@ type EcfmpRestrictionDTO struct {
 }
 
 type CdmDataEvent struct {
-	Callsign               string                `json:"callsign"`
-	Eobt                   string                `json:"eobt"`
-	Tobt                   string                `json:"tobt"`
-	TobtSetBy              string                `json:"tobt_set_by"`
-	Tsat                   string                `json:"tsat"`
-	Ttot                   string                `json:"ttot,omitempty"`
-	Ctot                   string                `json:"ctot"`
-	Aobt                   string                `json:"aobt,omitempty"`
-	Asat                   string                `json:"asat,omitempty"`
-	Asrt                   string                `json:"asrt,omitempty"`
-	Tsac                   string                `json:"tsac,omitempty"`
-	Status                 string                `json:"status,omitempty"`
-	MostPenalizingAirspace string                `json:"most_penalizing_airspace,omitempty"`
-	EcfmpID                string                `json:"ecfmp_id,omitempty"`
-	CtotSource             string                `json:"ctot_source,omitempty"`
-	Phase                  string                `json:"phase"`
-	EcfmpRestrictions      []EcfmpRestrictionDTO `json:"ecfmp_restrictions,omitempty"`
+	Callsign                  string                `json:"callsign"`
+	Eobt                      string                `json:"eobt"`
+	Tobt                      string                `json:"tobt"`
+	TobtSetBy                 string                `json:"tobt_set_by"`
+	Tsat                      string                `json:"tsat"`
+	Ttot                      string                `json:"ttot,omitempty"`
+	Ctot                      string                `json:"ctot"`
+	Aobt                      string                `json:"aobt,omitempty"`
+	Asat                      string                `json:"asat,omitempty"`
+	Asrt                      string                `json:"asrt,omitempty"`
+	Tsac                      string                `json:"tsac,omitempty"`
+	Status                    string                `json:"status,omitempty"`
+	DeicePlatform             string                `json:"deice_platform"`
+	DeicePlatformAcknowledged bool                  `json:"deice_platform_acknowledged"`
+	MostPenalizingAirspace    string                `json:"most_penalizing_airspace,omitempty"`
+	EcfmpID                   string                `json:"ecfmp_id,omitempty"`
+	CtotSource                string                `json:"ctot_source,omitempty"`
+	Phase                     string                `json:"phase"`
+	EcfmpRestrictions         []EcfmpRestrictionDTO `json:"ecfmp_restrictions,omitempty"`
 }
 
 func (c CdmDataEvent) Marshal() ([]byte, error) {
@@ -857,6 +867,11 @@ func (c CdmDataBatchEvent) GetType() EventType {
 
 type CdmReadyEvent struct {
 	Callsign string `json:"callsign"`
+}
+
+type CdmDeicePlatformUpdateEvent struct {
+	Callsign string `json:"callsign"`
+	Platform string `json:"platform"`
 }
 
 type ReleasePointEvent struct {

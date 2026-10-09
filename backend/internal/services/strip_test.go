@@ -28,6 +28,8 @@ type spyStripCdmService struct {
 	prepareEobtSyncFn    func(session int32, data *models.CdmData, eobt string, now time.Time) (*models.CdmData, string, bool)
 	syncAsatErr          error
 	syncAsatFn           func()
+	deiceAcknowledged    bool
+	deiceAckCallsign     string
 }
 
 func (s *spyStripCdmService) TriggerRecalculate(_ context.Context, session int32, airport string) {
@@ -68,6 +70,9 @@ func (s *spyStripCdmService) HandleClxTobtUpdate(_ context.Context, _ int32, _ s
 func (s *spyStripCdmService) HandleDeiceUpdate(_ context.Context, _ int32, _ string, _ string) error {
 	panic("unexpected")
 }
+func (s *spyStripCdmService) HandleDeicePlatformUpdate(_ context.Context, _ int32, _ string, _ string) error {
+	panic("unexpected")
+}
 func (s *spyStripCdmService) HandleAsrtToggle(_ context.Context, _ int32, _ string, _ string) error {
 	panic("unexpected")
 }
@@ -91,6 +96,11 @@ func (s *spyStripCdmService) SyncAsatForGroundState(_ context.Context, _ int32, 
 }
 func (s *spyStripCdmService) RequestBetterTobt(_ context.Context, _ int32, _ string) error {
 	panic("unexpected")
+}
+func (s *spyStripCdmService) AcknowledgeDeicePlatform(_ context.Context, _ int32, callsign string) error {
+	s.deiceAcknowledged = true
+	s.deiceAckCallsign = callsign
+	return nil
 }
 
 // ---- MoveToBay ----

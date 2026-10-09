@@ -9,9 +9,15 @@ interface EstViewButtonsProps {
   onViewChange: (view: EstView) => void;
 }
 
-function getNextView(buttonId: EstViewButtonId, currentView: EstView) {
+function getNextView(buttonId: EstViewButtonId, currentView: EstView): EstView {
   if (buttonId === "CARGO") {
     return currentView === "CARGO" ? "MAIN" : "CARGO";
+  }
+  if (buttonId === "HANGAR") {
+    return currentView === "HANGAR" ? "MAIN" : "HANGAR";
+  }
+  if (buttonId === "TWY_C") {
+    return currentView === "TWY_C" ? "MAIN" : "TWY_C";
   }
 
   return currentView;
@@ -21,7 +27,7 @@ export default function EstViewButtons({ view, onViewChange }: EstViewButtonsPro
   return (
     <>
       {EST_VIEW_BUTTONS.map((button) => {
-        const active = button.id === "CARGO" && view === "CARGO";
+        const active = button.id === view;
         const disabled = !!button.disabled;
 
         return (
@@ -49,7 +55,7 @@ export default function EstViewButtons({ view, onViewChange }: EstViewButtonsPro
               cursor: disabled ? "not-allowed" : "pointer",
             }}
           >
-            {button.id === "CARGO" && view === "CARGO" ? "APRON" : button.label}
+            {active ? "APRON" : button.label}
           </button>
         );
       })}

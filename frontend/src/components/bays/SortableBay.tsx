@@ -3,6 +3,7 @@ import {
   closestCenter,
   useDroppable,
   useDndMonitor,
+  useDndContext,
   type DragEndEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
@@ -266,7 +267,9 @@ function DroppableContainer({
   const isDragging = activeId !== null;
   const canDrop = isValidTarget(bayId);
 
-  const depthShadow = "inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07)";
+  const depthShadow = className?.includes("bay-no-top-shadow")
+    ? "inset -1px -1px 2px rgba(255,255,255,0.07)"
+    : "inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07)";
   let hoverStyle: CSSProperties = { boxShadow: depthShadow };
   if (isDragging && isOver) {
     hoverStyle = canDrop
@@ -385,7 +388,9 @@ export function DropIndicatorBay({
   const isDragging = activeId !== null;
   const canDrop = isValidTarget(bayId);
 
-  const depthShadow = "inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07)";
+  const depthShadow = className?.includes("bay-no-top-shadow")
+    ? "inset -1px -1px 2px rgba(255,255,255,0.07)"
+    : "inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07)";
   let hoverStyle: CSSProperties = { boxShadow: depthShadow };
   if (isDragging && isOver) {
     hoverStyle = canDrop
@@ -427,14 +432,36 @@ export function SortableStrip({
   onValidationClick?: (callsign: string) => void;
 }) {
   const effectiveDragDisabled = dragDisabled || validationBlocked;
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, index, items, over } = useSortable({
     id: callsign,
     data: bayId != null ? { bayId, dropArea: "strip" } : undefined,
     disabled: effectiveDragDisabled,
   });
+  const { active } = useDndContext();
+
+  // The stock sortable strategy disables displacement for strips dragged in from another
+  // bay, so open a gap at the insertion point ourselves. The gap is real layout space (not a
+  // transform) so strips below are not pushed out of the bay: bottom-aligned bays absorb it
+  // in their spacer and full bays grow their scroll area.
+  let gapBefore = 0;
+  let gapAfter = 0;
+  const activeHeight = active?.rect.current.initial?.height ?? 0;
+  const activeTop = active?.rect.current.translated;
+  if (active && !items.includes(active.id) && over && bayId != null && over.data.current?.bayId === bayId && activeTop) {
+    const overIndex = items.indexOf(over.id);
+    if (overIndex !== -1) {
+      const below = activeTop.top + activeTop.height / 2 > over.rect.top + over.rect.height / 2;
+      const insertIndex = overIndex + (below ? 1 : 0);
+      if (index === insertIndex) gapBefore = activeHeight;
+      else if (insertIndex >= items.length && index === items.length - 1) gapAfter = activeHeight;
+    }
+  }
+
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: active && !items.includes(active.id) ? "margin 150ms ease" : transition,
+    marginTop: gapBefore || undefined,
+    marginBottom: gapAfter || undefined,
     opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
     cursor: validationBlocked ? "pointer" : effectiveDragDisabled ? "not-allowed" : undefined,
     touchAction: "auto",

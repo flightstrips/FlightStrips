@@ -35,6 +35,7 @@ func TestContinuousSpacingDoesNotAccumulateRateGridRoundingAfterHeavies(t *testi
 	policy.SameSTARSpacing = sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
 	first, second := flight("ONE", "A", start, "H"), flight("TWO", "A", start, "M")
 	first.STARFamily, second.STARFamily = "MONAK", "MONAK"
+	first.ActiveHoldingSince = &start
 	result, err = sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{first, second}})
 	require.NoError(t, err)
 	require.Equal(t, start.Add(3*time.Minute), entryFor(t, result, "TWO").Time, "same-STAR capacity remains enforced")

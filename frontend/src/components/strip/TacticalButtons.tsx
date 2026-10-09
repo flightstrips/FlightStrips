@@ -3,6 +3,7 @@ import { Bay } from "@/api/models";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { MemaidDialog } from "./MemaidDialog";
 import { RunwayDialog } from "./RunwayDialog";
+import { buildDeiceLaneLabel, buildDeicePlatformLabel, type DeiceHeaderArea } from "@/lib/deiceLane";
 
 export function MemAidButton({ bay, className }: { bay: Bay; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -75,6 +76,48 @@ export function CrossingButton({
       onClick={() => createTacticalStrip("CROSSING", bay, CROSSING_LABEL, selectedAircraft ?? "")}
     >
       X
+    </button>
+  );
+}
+
+export function DeiceLaneButton({
+  area,
+  lane,
+  frequency,
+  className,
+}: {
+  area: Extract<DeiceHeaderArea, "A" | "B">;
+  lane: number;
+  frequency: string;
+  className?: string;
+}) {
+  const createTacticalStrip = useWebSocketStore((state) => state.createTacticalStrip);
+
+  return (
+    <button
+      className={className}
+      onClick={() => createTacticalStrip("MEMAID", Bay.DeIce, buildDeiceLaneLabel(area, lane, frequency), "")}
+    >
+      LANE{lane}
+    </button>
+  );
+}
+
+export function DeicePlatformButton({
+  platform,
+  className,
+}: {
+  platform: "A" | "B" | "V";
+  className?: string;
+}) {
+  const createTacticalStrip = useWebSocketStore((state) => state.createTacticalStrip);
+
+  return (
+    <button
+      className={className}
+      onClick={() => createTacticalStrip("MEMAID", Bay.DeIce, buildDeicePlatformLabel(platform), "")}
+    >
+      DI {platform}
     </button>
   );
 }

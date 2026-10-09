@@ -126,11 +126,27 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 	if status != aman.DataDisconnected && !snapshot.Timestamp.IsZero() {
 		for _, flight := range snapshot.Flights() {
 			destination := strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Destination))
-			if _, enabled := liveAirports[destination]; !enabled {
-				continue
-			}
 			callsign := strings.ToUpper(strings.TrimSpace(flight.Callsign))
 			previous, known := w.known[callsign]
+			if _, enabled := liveAirports[destination]; !enabled {
+				if known && previous.Destination != destination && destination != "" {
+					diversion := previous
+					diversion.Destination, diversion.ReconciledAt, diversion.SourceStatus = destination, now, status
+					observedAt := flight.LastUpdated.UTC()
+					if observedAt.IsZero() {
+						observedAt = snapshot.Timestamp.UTC()
+					}
+					diversion.FlightPlan = flightPlanFact(flight.FlightPlan.Revision, observedAt)
+					diversion.Missing = false
+					if err := w.sink.Observe(ctx, diversion); err != nil {
+						failed[callsign] = struct{}{}
+						publishErrors = append(publishErrors, err)
+					} else {
+						delete(w.known, callsign)
+					}
+				}
+				continue
+			}
 			if known && previous.Destination != destination {
 				missing := previous
 				missing.Missing = true

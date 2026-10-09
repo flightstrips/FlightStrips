@@ -61,6 +61,7 @@ const (
 	Hold                      = EventType_EVENT_HOLD
 	AMANGainLoss              = EventType_EVENT_AMAN_GAIN_LOSS
 	AMANRouteFact             = EventType_EVENT_AMAN_ROUTE_FACT
+	FsScratchPad              = EventType_EVENT_FS_SCRATCH_PAD
 )
 
 type SyncRunway = Runway
@@ -321,3 +322,6 @@ func (e HoldEvent) GetType() EventType { return Hold }
 func (e HoldEvent) Marshal() ([]byte, error) {
 	return marshalMessage(&e)
 }
+
+func (e FsScratchPadEvent) GetType() EventType       { return FsScratchPad }
+func (e FsScratchPadEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }

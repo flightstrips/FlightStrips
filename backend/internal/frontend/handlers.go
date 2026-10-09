@@ -88,7 +88,22 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
-	return client.hub.stripService.MoveFrontendStrip(ctx, client.session, move.Callsign, move.Bay, client.GetCid(), client.airport, client.position, move.Clearance, move.ConfirmedRemoval)
+	if err := client.hub.stripService.MoveFrontendStrip(ctx, client.session, move.Callsign, move.Bay, client.GetCid(), client.airport, client.position, move.Clearance, move.ConfirmedRemoval); err != nil {
+		return err
+	}
+
+	if !move.Ordered {
+		return nil
+	}
+
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, move.Callsign)
+	if err != nil {
+		return err
+	}
+	if strip.Bay != move.Bay {
+		return nil
+	}
+	return client.hub.stripService.MoveStripBetween(ctx, client.session, move.Callsign, move.InsertAfter, move.Bay)
 }
 
 func handleStripUpdate(ctx context.Context, client *Client, message Message) error {
@@ -371,6 +386,20 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC")
 }
 
+func handleCdmDeicePlatformUpdate(ctx context.Context, client *Client, message Message) error {
+	var event frontend.CdmDeicePlatformUpdateEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	return client.hub.server.GetCdmService().HandleDeicePlatformUpdate(
+		ctx,
+		client.session,
+		event.Callsign,
+		event.Platform,
+	)
+}
+
 func handleClxOverrideValidation(ctx context.Context, client *Client, message Message) error {
 	var event frontend.ClxOverrideValidationAction
 	if err := message.JsonUnmarshal(&event); err != nil {
@@ -400,11 +429,27 @@ func handleClxUpdateTobt(ctx context.Context, client *Client, message Message) e
 	}
 
 	tobt := roundedClxTobt(time.Now().UTC())
+	if manual := strings.ReplaceAll(strings.TrimSpace(event.Tobt), ":", ""); manual != "" {
+		if len(manual) != 4 || !isDigits(manual) || manual[:2] > "23" || manual[2:] > "59" {
+			client.hub.SendStripUpdate(client.session, event.Callsign)
+			return nil
+		}
+		tobt = manual
+	}
 	if err := cdmService.HandleClxTobtUpdate(ctx, client.session, event.Callsign, tobt, client.position, "ATC"); err != nil {
 		return err
 	}
 	client.hub.SendStripUpdate(client.session, event.Callsign)
 	return nil
+}
+
+func isDigits(value string) bool {
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func roundedClxTobt(now time.Time) string {

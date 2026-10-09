@@ -113,6 +113,7 @@ type Service struct {
 	mu                  sync.Mutex
 	observed            map[string]map[aman.Callsign]aman.FlightObservation
 	observedSources     map[string]map[aman.Callsign]map[aman.ObservationProvider]aman.FlightObservation
+	destinationFacts    map[string]map[aman.ObservationProvider]aman.FlightObservation
 	lastWeatherRefresh  map[string]time.Time
 	health              serviceHealth
 	sessionSourceHealth map[int32]aman.ComponentHealth
@@ -199,14 +200,30 @@ func (s *Service) Observe(ctx context.Context, observation aman.FlightObservatio
 	if err := observation.Validate(); err != nil {
 		return err
 	}
+	observation.Callsign = strings.ToUpper(strings.TrimSpace(observation.Callsign))
+	observation.Origin = strings.ToUpper(strings.TrimSpace(observation.Origin))
+	observation.Destination = strings.ToUpper(strings.TrimSpace(observation.Destination))
 	owner := observationOwner(observation)
 	airport := strings.ToUpper(strings.TrimSpace(observation.Destination))
-	if !s.enabledAirport(airport) {
-		return nil
-	}
 	airport = aman.SessionAirportKey(ctx, airport)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !observation.Missing {
+		if s.destinationFacts == nil {
+			s.destinationFacts = map[string]map[aman.ObservationProvider]aman.FlightObservation{}
+		}
+		key := aman.SessionAirportKey(ctx, observation.Callsign)
+		if s.destinationFacts[key] == nil {
+			s.destinationFacts[key] = map[aman.ObservationProvider]aman.FlightObservation{}
+		}
+		if previous, found := s.destinationFacts[key][owner]; found && observationFactTime(observation).Before(observationFactTime(previous)) {
+			return nil
+		}
+		s.destinationFacts[key][owner] = observation
+	}
+	if !s.enabledAirport(observation.Destination) {
+		return nil
+	}
 	if s.observed[airport] == nil {
 		s.observed[airport] = map[aman.Callsign]aman.FlightObservation{}
 	}
@@ -283,11 +300,10 @@ func combineSourceObservations(sources map[aman.ObservationProvider]aman.FlightO
 	return combined
 }
 
-// mergeSurveillanceObservation preserves a fresh EuroScope track while
-// accepting source-neutral strip flight-plan facts and optional newer VATSIM
-// metadata.
+// EuroScope owns flight-plan facts once observed. Network metadata and
+// surveillance may supplement them, but cannot change the controller's plan.
 func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) aman.FlightObservation {
-	if incoming.Missing {
+	if incoming.Missing && !(observationOwner(incoming) == aman.ObservationProviderVATSIM && observationOwner(previous) == aman.ObservationProviderEuroScope) {
 		return incoming
 	}
 	if observationOwner(incoming) == aman.ObservationProviderEuroScope {
@@ -305,6 +321,11 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 			merged.FiledRoute = incoming.FiledRoute
 		}
 		merged.FlightPlan = incoming.FlightPlan
+		if merged.FlightPlan.ObservedAt == nil {
+			at := observationFactTime(incoming)
+			merged.FlightPlan.ObservedAt = &at
+		}
+		merged.AssignedSTAR = incoming.AssignedSTAR
 		if incoming.HoldingClearance != nil {
 			merged.HoldingClearance = incoming.HoldingClearance
 		}
@@ -334,12 +355,85 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 		merged.SourceStatus, merged.Missing = aman.DataFresh, false
 		return merged
 	}
-	if freshEuroScopeSurveillance(previous, incoming.ReconciledAt) {
+	if !incoming.Missing && freshEuroScopeSurveillance(previous, incoming.ReconciledAt) {
 		incoming.Surveillance = previous.Surveillance
 		incoming.SurveillanceSource = aman.SurveillanceSourceEuroScope
 		incoming.SourceStatus, incoming.Missing = aman.DataFresh, false
 	}
+	if observationOwner(previous) == aman.ObservationProviderEuroScope {
+		incoming.Origin, incoming.Destination = previous.Origin, previous.Destination
+		incoming.FlightPlan = previous.FlightPlan
+		if incoming.FlightPlan.ObservedAt == nil {
+			at := observationFactTime(previous)
+			incoming.FlightPlan.ObservedAt = &at
+		}
+		if previous.FiledRoute != nil {
+			incoming.FiledRoute = previous.FiledRoute
+		}
+		if previous.RequestedLevel != nil {
+			incoming.RequestedLevel = previous.RequestedLevel
+		}
+		if previous.PlannedTiming != nil {
+			incoming.PlannedTiming = previous.PlannedTiming
+		}
+		incoming.AssignedSTAR = previous.AssignedSTAR
+		incoming.Provider = aman.ObservationProviderEuroScope
+	}
 	return incoming
+}
+
+// destinationObservation also sees unsupported airports. Network observations
+// are shared only with live sessions; EuroScope facts remain session-local.
+func (s *Service) destinationObservation(ctx context.Context, callsign string, _ time.Time) (aman.FlightObservation, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	local := s.destinationFacts[aman.SessionAirportKey(ctx, callsign)]
+	network := local[aman.ObservationProviderVATSIM]
+	if s.liveSessions[aman.SessionID(ctx)] {
+		if shared := s.destinationFacts[callsign][aman.ObservationProviderVATSIM]; observationFactTime(shared).After(observationFactTime(network)) {
+			network = shared
+		}
+	}
+	es, exists := local[aman.ObservationProviderEuroScope]
+	if exists {
+		return es, true
+	}
+	if !network.ReconciledAt.IsZero() {
+		return network, true
+	}
+	legacy, exists := local[""]
+	return legacy, exists
+}
+
+func applyDestinationObservation(observation, fact aman.FlightObservation) aman.FlightObservation {
+	if observation.Destination == fact.Destination && observationOwner(observation) == observationOwner(fact) &&
+		!observationFactTime(fact).After(observationFactTime(observation)) {
+		return observation
+	}
+	// Missing reports must retain disappearance semantics. Replaying the last
+	// known fact for the same destination would otherwise revive disconnected flights.
+	if observation.Missing && observation.Destination == fact.Destination &&
+		!observationFactTime(fact).After(observationFactTime(observation)) {
+		return observation
+	}
+	if observationOwner(fact) == aman.ObservationProviderEuroScope {
+		merged := mergeSurveillanceObservation(observation, fact)
+		// Replaying controller facts does not establish source presence. Only a
+		// current live ES report or fresh ES surveillance can improve freshness.
+		if fact.SourceStatus != aman.DataFresh || (fact.ReconciledAt.Before(observation.ReconciledAt) &&
+			!freshEuroScopeSurveillance(fact, observation.ReconciledAt)) {
+			merged.SourceStatus, merged.Missing = observation.SourceStatus, observation.Missing
+		}
+		return merged
+	}
+	return fact
+}
+
+func observationFactTime(observation aman.FlightObservation) time.Time {
+	if observation.FlightPlan.ObservedAt != nil {
+		return *observation.FlightPlan.ObservedAt
+	}
+	return observation.ReconciledAt
 }
 
 func freshEuroScopeSurveillance(observation aman.FlightObservation, at time.Time) bool {
@@ -546,6 +640,9 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 	} else {
 		s.setHealthComponent("repository", aman.HealthReady, "", now)
 	}
+	if err := s.restoreDestinationAuthority(ctx, current); err != nil {
+		return err
+	}
 	observations := s.sessionObservations(ctx, airport)
 	// Compare observation timestamps with a precise clock sampled after the
 	// snapshot. Rounding down or sampling before the repository load can make
@@ -594,16 +691,34 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 	indexes := make(map[aman.Callsign]int, len(next.Flights))
 	for i := range next.Flights {
 		indexes[next.Flights[i].Callsign] = i
+		if fact, known := s.destinationObservation(ctx, next.Flights[i].Callsign, now); known {
+			if observation, seen := observations[next.Flights[i].Callsign]; seen {
+				observations[next.Flights[i].Callsign] = applyDestinationObservation(observation, fact)
+			} else if fact.Destination != airport {
+				observations[next.Flights[i].Callsign] = fact
+			}
+		}
 	}
 
 	for _, observation := range observations {
+		if fact, known := s.destinationObservation(ctx, observation.Callsign, now); known {
+			observation = applyDestinationObservation(observation, fact)
+			observations[observation.Callsign] = observation
+		}
 		index, found := indexes[observation.Callsign]
 		if !found {
 			// Removed flights are excluded from subsequent repository reads.
 			// Cached missing/stale records must not recreate them and reserve
 			// capacity again; require a current fresh observation to re-enter.
-			if observation.Missing || observation.SourceStatus != aman.DataFresh ||
+			if observation.Destination != airport || observation.Missing || observation.SourceStatus != aman.DataFresh ||
 				!observation.ReconciledAt.After(now.Add(-lifecycle.DefaultConfig().RemovalTimeout)) {
+				continue
+			}
+			excluded, err := s.manuallyExcludedElsewhere(ctx, airport, observation.Callsign)
+			if err != nil {
+				return err
+			}
+			if excluded {
 				continue
 			}
 			next.Flights = append(next.Flights, newFlight(observation, now))
@@ -883,17 +998,144 @@ func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFligh
 	}
 }
 
+// Restore session-wide controller facts before processing network arrivals.
+// Loading only the current airport would allow admission at another airport
+// after a restart, before the original airport has been reconciled.
+func (s *Service) restoreDestinationAuthority(ctx context.Context, current aman.AirportState) error {
+	states := []aman.AirportState{current}
+	for _, airport := range s.deps.Airports {
+		if airport == current.Airport {
+			continue
+		}
+		state, err := s.deps.Repository.LoadAirportState(ctx, airport)
+		if err != nil {
+			var domain *aman.DomainError
+			if errors.As(err, &domain) && domain.Class == aman.ErrorNotFound {
+				continue
+			}
+			return err
+		}
+		states = append(states, state)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, state := range states {
+		if state.SessionID != aman.SessionID(ctx) {
+			continue
+		}
+		for _, flight := range state.Flights {
+			if flight.LatestObservation == nil || observationOwner(*flight.LatestObservation) != aman.ObservationProviderEuroScope {
+				continue
+			}
+			fact := *flight.LatestObservation
+			key := aman.SessionAirportKey(ctx, flight.Callsign)
+			if previous, found := s.destinationFacts[key][aman.ObservationProviderEuroScope]; found &&
+				!observationFactTime(fact).After(observationFactTime(previous)) {
+				continue
+			}
+			// Restore control facts, not old surveillance or disappearance reports.
+			at := observationFactTime(fact)
+			fact.FlightPlan.ObservedAt = &at
+			fact.Surveillance, fact.TakeoffDetected = nil, nil
+			fact.Missing = false
+			fact.SourceStatus = aman.DataStale
+			if s.destinationFacts == nil {
+				s.destinationFacts = map[string]map[aman.ObservationProvider]aman.FlightObservation{}
+			}
+			if s.destinationFacts[key] == nil {
+				s.destinationFacts[key] = map[aman.ObservationProvider]aman.FlightObservation{}
+			}
+			s.destinationFacts[key][aman.ObservationProviderEuroScope] = fact
+		}
+	}
+	return nil
+}
+
+func (s *Service) manuallyExcludedElsewhere(ctx context.Context, airport, callsign string) (bool, error) {
+	for _, other := range s.deps.Airports {
+		if other == airport {
+			continue
+		}
+		state, err := s.deps.Repository.LoadAirportState(ctx, other)
+		if err != nil {
+			var domain *aman.DomainError
+			if errors.As(err, &domain) && domain.Class == aman.ErrorNotFound {
+				continue
+			}
+			return false, err
+		}
+		for _, flight := range state.Flights {
+			if flight.Callsign == callsign && flight.State == aman.StateRemoved && flight.Lifecycle != nil && flight.Lifecycle.Reason == aman.LifecycleReasonManualRemoval {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) (aman.AMANFlight, error) {
+	if previous := flight.LatestObservation; previous != nil {
+		incomingOwner, previousOwner := observationOwner(observation), observationOwner(*previous)
+		if incomingOwner == aman.ObservationProviderVATSIM && previousOwner == aman.ObservationProviderEuroScope {
+			// Persisted EuroScope facts remain authoritative after source caches reset.
+			observation = mergeSurveillanceObservation(*previous, observation)
+		} else if incomingOwner == aman.ObservationProviderEuroScope {
+			if previousOwner == aman.ObservationProviderEuroScope && observationFactTime(observation).Before(observationFactTime(*previous)) {
+				return flight, nil
+			}
+		} else if observation.ReconciledAt.Before(previous.ReconciledAt) ||
+			(observation.Destination != previous.Destination && observationFactTime(observation).Before(observationFactTime(*previous))) {
+			return flight, nil
+		}
+	}
+	if flight.State == aman.StateRemoved && flight.Lifecycle != nil && flight.Lifecycle.Reason == aman.LifecycleReasonManualRemoval {
+		copy := observation
+		flight.LatestObservation, flight.DataStatus, flight.UpdatedAt = &copy, observation.SourceStatus, now
+		return flight, nil
+	}
+	if observation.Destination != state.Airport && state.Airport != "" && !observation.Missing && observation.SourceStatus == aman.DataFresh {
+		copy := observation
+		flight.LatestObservation, flight.DataStatus, flight.UpdatedAt = &copy, observation.SourceStatus, now
+		flight.State = aman.StateRemoved
+		clearSequencingState(&flight)
+		expireActiveRouteFact(&flight)
+		invalidateLiveGoAroundEpisode(&flight)
+		if flight.Lifecycle == nil || flight.Lifecycle.Reason != aman.LifecycleReasonDiverted {
+			flight.Lifecycle = &aman.LifecycleState{EnteredAt: now, Reason: aman.LifecycleReasonDiverted,
+				LastEventID: fmt.Sprintf("diverted-%d", now.UnixNano()), LastEventFingerprint: modelVersion, LastEventAt: now}
+		}
+		return flight, nil
+	}
 	// A new observation after automatic expiry may recreate the aircraft, with
 	// a new slot. Manual removals and replayed old observations remain terminal.
 	if flight.State == aman.StateRemoved {
-		if flight.Lifecycle == nil || flight.Lifecycle.Reason != aman.LifecycleReasonSourceDisappearance ||
-			observation.Missing || observation.SourceStatus != aman.DataFresh || !observation.ReconciledAt.After(flight.Lifecycle.EnteredAt) {
+		boundary := time.Time{}
+		reappearedAt := observation.ReconciledAt
+		if flight.Lifecycle != nil {
+			boundary = flight.Lifecycle.EnteredAt
+			if flight.Lifecycle.Reason == aman.LifecycleReasonDiverted && flight.LatestObservation != nil {
+				boundary = observationFactTime(*flight.LatestObservation)
+				reappearedAt = observationFactTime(observation)
+			}
+		}
+		if flight.Lifecycle == nil || (flight.Lifecycle.Reason != aman.LifecycleReasonSourceDisappearance && flight.Lifecycle.Reason != aman.LifecycleReasonDiverted) ||
+			observation.Missing || observation.SourceStatus != aman.DataFresh || !reappearedAt.After(boundary) {
 			return flight, nil
 		}
 		flight = newFlight(observation, now)
 	}
 	previousObservation := flight.LatestObservation
+	starChanged := previousObservation != nil && stringValue(previousObservation.AssignedSTAR) != stringValue(observation.AssignedSTAR)
+	routeChanged := previousObservation != nil && stringValue(previousObservation.FiledRoute) != stringValue(observation.FiledRoute)
+	if routeChanged {
+		group, _ := s.selectedGroup(flight, state.RunwayGroups)
+		previousFeeder, previousKnown := s.observationFeeder(*previousObservation, group)
+		currentFeeder, currentKnown := s.observationFeeder(observation, group)
+		routeChanged = previousFeeder != currentFeeder || previousKnown != currentKnown
+	}
+	if starChanged || routeChanged {
+		flight.ArrivalPathChanged = true
+	}
 	copy := observation
 	flight.LatestObservation = &copy
 	flight.Callsign, flight.DataStatus = observation.Callsign, observation.SourceStatus
@@ -913,6 +1155,9 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		return flight, nil
 	}
 	flight.Lifecycle = clearAbsence(flight.Lifecycle)
+	if flight.ArrivalPathChanged {
+		invalidateArrivalPath(&flight)
+	}
 	if groundedSurveillance(observation.Surveillance) {
 		invalidateLiveGoAroundEpisode(&flight)
 		return applyGroundedObservation(flight, observation, now), nil
@@ -956,7 +1201,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		}
 		return flight, nil
 	}
-	feeder, ok := s.feeder(*observation.FiledRoute, group)
+	feeder, ok := s.observationFeeder(observation, group)
 	if !ok {
 		markUnknownSTARFamily(&flight, now)
 		return flight, nil
@@ -1110,6 +1355,13 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	flight.HoldingStack = updateFlightHoldingStack(flight, projection, observedAt(observation.Surveillance, now))
 	flight.RouteProgress = projection.Progress
+	if flight.ArrivalPathChanged {
+		queueCandidate := flight
+		queueCandidate.Prediction = &raw
+		if holdingQueueTime(queueCandidate, state.Flights) != nil {
+			clearSequencingState(&flight)
+		}
+	}
 	if err := s.captureHoldingReleaseBasis(ctx, &flight, projection, input); err != nil {
 		return flight, fmt.Errorf("holding fix-to-landing prediction: %w", err)
 	}
@@ -1121,6 +1373,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	reduced, err := prediction.Reduce(prediction.DefaultConfig(), flight, prediction.Input{
 		Raw:                          raw,
 		State:                        nextState,
+		RouteRevision:                flight.ArrivalPathChanged,
 		Slot:                         flight.Slot,
 		ReplacePreliminaryPrediction: isPreliminaryPrediction(flight.Prediction),
 	})
@@ -1128,6 +1381,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		return flight, err
 	}
 	updated := reduced.Flight
+	updated.ArrivalPathChanged = false
 	updateLifecycle(&updated, previousState, nextState, now)
 	applySuperstable(lifecycle.DefaultConfig(), &updated, previousFreeze, now)
 	return updated, nil
@@ -1300,6 +1554,48 @@ func (s *Service) feeder(route string, runwayGroup aman.RunwayGroupID) (navdata.
 		}
 	}
 	return "", false
+}
+
+func (s *Service) observationFeeder(observation aman.FlightObservation, group aman.RunwayGroupID) (navdata.FeederID, bool) {
+	assigned := strings.ToUpper(strings.TrimSpace(stringValue(observation.AssignedSTAR)))
+	if assigned == "" {
+		return s.feeder(stringValue(observation.FiledRoute), group)
+	}
+	for _, configured := range s.deps.Terminal.Feeders {
+		for _, family := range append([]navdata.FeederID{configured.ID}, configured.Aliases...) {
+			name := string(family)
+			if assigned == name || (strings.HasPrefix(assigned, name) && validProcedureSuffix(strings.TrimPrefix(assigned, name))) {
+				return configured.ID, true
+			}
+		}
+	}
+	return "", false
+}
+
+func validProcedureSuffix(suffix string) bool {
+	if len(suffix) < 2 || suffix[len(suffix)-1] < 'A' || suffix[len(suffix)-1] > 'Z' {
+		return false
+	}
+	for _, digit := range suffix[:len(suffix)-1] {
+		if digit < '0' || digit > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func invalidateArrivalPath(flight *aman.AMANFlight) {
+	flight.RawTETASamples = nil
+	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
+	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
+	flight.FeederETA, flight.DerivedFeederETA = nil, nil
+	flight.SelectedHolding, flight.HoldingStack, flight.HoldingReleaseBasis = nil, nil, nil
+	expireActiveRouteFact(flight)
+	if flight.Prediction != nil {
+		copy := *flight.Prediction
+		copy.HoldingFixETA, copy.HoldingPlan = nil, nil
+		flight.Prediction = &copy
+	}
 }
 
 // applyResolvedTerminalIdentity keeps the deployed SelectedFeeder field as a
@@ -1720,6 +2016,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		}
 		input.Flights = append(input.Flights, sequence.Flight{
 			Callsign: flight.Callsign, RunwayGroupID: *flight.SelectedRunwayGroup, State: flight.State, OperationalTETA: teta,
+			DemandArrivalAt:    aman.SequenceDemandArrivalAt(flight),
 			PromotionNotBefore: promotionNotBefore(flight),
 			WakeCategory:       sequence.WakeCategory(wakeCategory), STARFamily: flight.STARFamilyIdentity(),
 			SelectedSTARFamily: explicitSTARFamily(flight.SelectedSTARFamily),
@@ -1993,12 +2290,7 @@ func holdingQueueID(flight aman.AMANFlight) string {
 }
 
 func activeHoldingSince(flight aman.AMANFlight) *time.Time {
-	if flight.HoldingStack == nil || !flight.HoldingStack.Confirmed || holdingStackID(flight) != holdingQueueID(flight) ||
-		flight.HoldingStack.FirstObservedAt.IsZero() || flight.Prediction == nil || flight.Prediction.HoldingFixETA == nil {
-		return nil
-	}
-	entered := flight.HoldingStack.FirstObservedAt
-	return &entered
+	return aman.ConfirmedActiveHoldingSince(flight)
 }
 
 func arrivalQueueTime(flight aman.AMANFlight) *time.Time {

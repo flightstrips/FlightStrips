@@ -46,7 +46,9 @@ interface ViewDndContextProps {
   /** Maps source bay ID to every other registered visual bay ID. */
   transferRules: Record<string, string[]>;
   onReorder: (activeRef: StripRef, above: StripRef | null) => void;
-  onMove: (strip: StripRef, bay: Bay) => void;
+  onMove: (strip: StripRef, bay: Bay, insertAfter?: StripRef | null) => void;
+  /** Called (before onMove/onReorder) when a strip lands in a different visual bay. */
+  onBayDrop?: (strip: StripRef, targetBayId: string) => void;
   /** Renders the floating drag preview that follows the cursor across bay boundaries. */
   renderDragOverlay?: (strip: AnyStrip) => ReactNode;
 }
@@ -57,6 +59,7 @@ export function ViewDndContext({
   transferRules,
   onReorder,
   onMove,
+  onBayDrop,
   renderDragOverlay,
 }: ViewDndContextProps) {
   const selectedCallsign = useSelectedCallsign();
@@ -125,7 +128,10 @@ export function ViewDndContext({
 
     function getBayScopedCollisions(targetBayId: string) {
       const targetContainers = args.droppableContainers.filter((container) => !container.disabled && getDroppableBayId(container) === targetBayId);
-      return closestCenter({ ...args, droppableContainers: targetContainers });
+      // Prefer the strips themselves so the drop can land between them; the bay-wide
+      // container zone is centred on the bay and would otherwise always win.
+      const stripContainers = targetContainers.filter((container) => !isContainerDropArea(container) && container.data.current?.dropArea !== "spacer");
+      return closestCenter({ ...args, droppableContainers: stripContainers.length > 0 ? stripContainers : targetContainers });
     }
 
     const containingBayContainer = args.droppableContainers.find((container) => {
@@ -183,12 +189,39 @@ export function ViewDndContext({
     if (!targetConfig) return;
     if (!canStripMoveToBay(strip, targetConfig.targetBay, airport)) return;
 
+    onBayDrop?.({ kind: "flight", callsign: selectedCallsign }, clickedBayId);
+    if (targetConfig.targetBay === bayStripMap[sourceBayId]?.targetBay) {
+      selectStrip(null);
+      return;
+    }
     onMove({ kind: "flight", callsign: selectedCallsign }, targetConfig.targetBay);
     selectStrip(null);
   }
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(event.active.id as string);
+  }
+
+  /**
+   * Resolves the predecessor for a drop onto a strip in the target bay, using the
+   * dragged strip's position relative to the strip it is over. Returns undefined
+   * when the drop is not on a strip (append to the end of the bay).
+   */
+  function resolveDropInsertAfter(event: DragEndEvent, targetStrips: AnyStrip[], descending: boolean, overId: string, activeDndId: string): StripRef | null | undefined {
+    const overStrip = targetStrips.find(s => stripDndId(s) === overId);
+    const activeRect = event.active.rect.current.translated;
+    if (!overStrip || !event.over || !activeRect) return undefined;
+
+    const pointerBelow = activeRect.top + activeRect.height / 2 > event.over.rect.top + event.over.rect.height / 2;
+    // Descending bays render the highest sequence at the top, so "below" means a lower sequence.
+    const afterOverInSequence = descending ? !pointerBelow : pointerBelow;
+    if (afterOverInSequence || overStrip.sequence === undefined) return makeStripRef(overId);
+
+    const overSequence = overStrip.sequence;
+    const prevStrip = targetStrips
+      .filter(s => stripDndId(s) !== activeDndId && s.sequence !== undefined && s.sequence < overSequence)
+      .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
+    return prevStrip ? makeStripRef(stripDndId(prevStrip)) : null;
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -269,8 +302,10 @@ export function ViewDndContext({
     // the response echoes the old bay back, reverting the optimistic move and
     // causing the strip to disappear. Send only FrontendMove; the backend assigns
     // the sequence as part of the move operation.
+    const dropInsertAfter = resolveDropInsertAfter(event, targetStrips, targetDescending, overId, dndId);
+    onBayDrop?.(makeStripRef(dndId)!, targetBayId);
     if (sourceBay !== targetBay) {
-      onMove(makeStripRef(dndId)!, targetBay);
+      onMove(makeStripRef(dndId)!, targetBay, dropInsertAfter);
       return;
     }
     // Same logical bay, different visual bay: use sequence-aware insertion.
@@ -279,7 +314,9 @@ export function ViewDndContext({
     const sourceStrips = bayStripMap[sourceBayId].strips;
     const sourceDescending = bayStripMap[sourceBayId].descending ?? false;
     let crossInsertAfter: StripRef | null;
-    if (sourceDescending) {
+    if (dropInsertAfter !== undefined) {
+      crossInsertAfter = dropInsertAfter;
+    } else if (sourceDescending) {
       // Find the highest-seq strip in the source bay (excluding the active strip) → that becomes the predecessor for visual top
       const topStrip = sourceStrips
         .filter(s => stripDndId(s) !== dndId && s.sequence !== undefined)

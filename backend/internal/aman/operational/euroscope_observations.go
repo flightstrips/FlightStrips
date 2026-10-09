@@ -66,9 +66,6 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 		return nil
 	}
 	destination := strings.ToUpper(strings.TrimSpace(strip.Destination))
-	if _, enabled := o.airports[destination]; !enabled {
-		return nil
-	}
 	callsign, origin := strings.ToUpper(strings.TrimSpace(strip.Callsign)), strings.ToUpper(strings.TrimSpace(strip.Origin))
 	if callsign == "" || origin == "" {
 		return nil
@@ -120,6 +117,7 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 		Callsign: callsign,
 		Origin:   origin, Destination: destination,
 		AircraftType: aircraftType, WakeCategory: wakeCategory, FiledRoute: filedRoute, RequestedLevel: requestedLevel(strip.RequestedAltitude),
+		AssignedSTAR:       optionalStripString(strip.Star),
 		FlightPlan:         aman.FlightPlanFact{Revision: vatsimRevision(strip.VatsimRevision), ObservedAt: &now},
 		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitudeFeet, GroundspeedKnots: groundspeed, TrackTrueDegrees: track, ObservedAt: &now},
 		SurveillanceSource: aman.SurveillanceSourceEuroScope, Provider: aman.ObservationProviderEuroScope, ReconciledAt: now, SourceStatus: aman.DataFresh,

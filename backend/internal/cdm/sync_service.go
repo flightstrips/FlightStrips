@@ -3,6 +3,7 @@ package cdm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -109,8 +110,9 @@ func (c *SyncService) syncSessions(ctx context.Context) error {
 		return err
 	}
 
+	var syncErrors []error
 	for _, session := range sessions {
-		if session == nil {
+		if session == nil || s.isSessionRemoved(session.ID) {
 			continue
 		}
 
@@ -119,20 +121,27 @@ func (c *SyncService) syncSessions(ctx context.Context) error {
 		slog.DebugContext(ctx, "Syncing CDM data", slog.String("session", session.Name), slog.Int("id", int(session.ID)), slog.String("airport", session.Airport))
 
 		if usesViff {
-			s.masterViffSync.registerMasterAsync(ctx, session.Airport)
+			s.masterViffSync.registerMasterAsync(ctx, session.ID, session.Airport)
 		}
 		s.SyncAirportLvoFromRunwayStatus(ctx, session.Airport, session.ActiveRunways.RunwayStatus)
 
 		if usesViff {
-			if err := s.syncCdmData(ctx, session); err != nil {
-				return err
+			sessionCtx, cancel := s.sessionContext(ctx, session.ID)
+			err := s.syncCdmData(sessionCtx, session)
+			cancel()
+			if err != nil {
+				if s.sessionDisappeared(ctx, session.ID, err) {
+					continue
+				}
+				syncErrors = append(syncErrors, fmt.Errorf("sync CDM session %d (%s): %w", session.ID, session.Airport, err))
+				continue
 			}
 		}
 
 		s.TriggerRecalculate(ctx, session.ID, session.Airport)
 	}
 
-	return nil
+	return errors.Join(syncErrors...)
 }
 
 func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) error {
@@ -162,10 +171,17 @@ func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) 
 			continue
 		}
 
-		nextCtot, nextCtotSource := effectiveIfpsCtotAndSource(row)
+		nextCtot, nextCtotSource := effectiveIfpsCtotAndSource(row, flight)
 		current, recalculatedAirport, err := c.syncMasterFlight(ctx, session, row, flight, nextCtot, nextCtotSource)
 		if err != nil {
-			return err
+			if errors.Is(err, pgx.ErrNoRows) {
+				_, lookupErr := s.stripRepo.GetByCallsign(ctx, session.ID, row.Callsign)
+				if errors.Is(lookupErr, pgx.ErrNoRows) {
+					delete(lookup, row.Callsign)
+					continue
+				}
+			}
+			return fmt.Errorf("sync CDM flight %s: %w", row.Callsign, err)
 		}
 		if recalculatedAirport {
 			// RecalculateAirport can update every departure. Refresh the complete
@@ -236,11 +252,22 @@ func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) 
 		s.TriggerRecalculate(ctx, session.ID, airport)
 	}
 	for callsign, flight := range lookup {
+		if flight != nil && flight.AobtViffPending {
+			if err := s.actionService.sendPendingAobt(ctx, session.ID, callsign); err != nil {
+				if s.sessionDisappeared(ctx, session.ID, err) {
+					return nil
+				}
+				slog.WarnContext(ctx, "Will retry vIFF AOBT on the next CDM sync", slog.Int("session", int(session.ID)), slog.String("callsign", callsign), slog.Any("error", err))
+			}
+		}
 		if flight == nil || !flight.AtotViffPending {
 			continue
 		}
 		if err := s.actionService.sendPendingAtot(ctx, session.ID, callsign); err != nil {
-			slog.WarnContext(ctx, "Will retry vIFF ATOT on the next CDM sync", slog.String("callsign", callsign), slog.Any("error", err))
+			if s.sessionDisappeared(ctx, session.ID, err) {
+				return nil
+			}
+			slog.WarnContext(ctx, "Will retry vIFF ATOT on the next CDM sync", slog.Int("session", int(session.ID)), slog.String("callsign", callsign), slog.Any("error", err))
 		}
 	}
 
@@ -467,11 +494,20 @@ func (c *SyncService) schedulePeriodicCtotValidationReevaluation(ctx context.Con
 	return nil
 }
 
-func effectiveIfpsCtotAndSource(row IFPSData) (string, string) {
+func effectiveIfpsCtotAndSource(row IFPSData, local *models.CdmData) (string, string) {
 	if ctot := truncateCDMClockValue(row.CTOT); ctot != "" {
 		return ctot, models.CtotSourceATFCM
 	}
 	if ctot := truncateCDMClockValue(row.CDMData.CTOT); ctot != "" {
+		if local != nil {
+			lastAtfcm := local.LastViffAtfcmCtot
+			if lastAtfcm == "" && valueOrEmpty(local.CtotSource) == models.CtotSourceATFCM {
+				lastAtfcm = valueOrEmpty(local.Ctot)
+			}
+			if ctot == truncateCDMClockValue(lastAtfcm) {
+				return "", ""
+			}
+		}
 		return ctot, models.CtotSourceEvent
 	}
 	return "", ""

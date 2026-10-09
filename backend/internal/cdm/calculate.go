@@ -24,6 +24,7 @@ type CalcInput struct {
 	Asat              string
 	TaxiMin           int
 	DeIceMin          int
+	DeiceTaxiMin      int
 	HasManCtot        bool
 	ManCtot           string
 }
@@ -193,7 +194,7 @@ func calculateWithTrace(input CalcInput, slots []SlotEntry, config *CdmAirportCo
 		}
 
 		if !changed {
-			tsat := subtractMinutes(ttot, float64(input.TaxiMin))
+			tsat := subtractMinutes(ttot, float64(input.exotMinutes()))
 			if shouldInvalidateStaleTsat(input, tsat, nowHHMMSS) {
 				return CalcResult{}, trace
 			}
@@ -211,7 +212,7 @@ func unconstrainedTtot(input CalcInput, config *CdmAirportConfig, now time.Time)
 		return ""
 	}
 
-	ttot := addMinutes(toHHMMSS(base), float64(input.TaxiMin+input.DeIceMin))
+	ttot := addMinutes(toHHMMSS(base), float64(input.exotMinutes()))
 	if input.HasManCtot && strings.TrimSpace(input.ManCtot) != "" {
 		manual := toHHMMSS(input.ManCtot)
 		if !isAfterOrEqual(ttot, manual) {
@@ -225,6 +226,10 @@ func unconstrainedTtot(input CalcInput, config *CdmAirportConfig, now time.Time)
 	}
 
 	return applyAdverseConditionFloor(ttot, resolveAdverseConditionImpact(input, config, now))
+}
+
+func (input CalcInput) exotMinutes() int {
+	return input.TaxiMin + input.DeIceMin + input.DeiceTaxiMin
 }
 
 func selectCalculationBase(input CalcInput) string {

@@ -287,6 +287,29 @@ func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlig
 			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		before := state.Flights[index]
+		auditBefore := before
+		if before.State == aman.StateLanded {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "landed flight cannot be restored"}
+		}
+		if before.State == aman.StateRemoved {
+			if before.Lifecycle == nil || before.Lifecycle.Reason != aman.LifecycleReasonManualRemoval || before.LatestObservation == nil {
+				return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "flight cannot be restored"}
+			}
+			observation := *before.LatestObservation
+			if observation.Destination != state.Airport || observation.Missing || observation.SourceStatus != aman.DataFresh ||
+				!observation.ReconciledAt.After(auth.ReceivedAt.Add(-tmaSurveillanceFresh)) {
+				return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "restoration requires current arrival observations"}
+			}
+			restored, err := s.reconcileFlight(aman.WithSession(context.Background(), auth.SessionID), state, newFlight(observation, auth.ReceivedAt), observation, auth.ReceivedAt)
+			clearSequencingState(&restored)
+			if err != nil || !sequenceEligible(restored) {
+				return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "restoration requires a usable operational prediction"}
+			}
+			restored.SequenceDisposition = aman.SequenceDispositionDesequenced
+			state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+			state.Flights[index] = restored
+			before = restored
+		}
 		if before.SequenceDisposition.Participates() {
 			return s.dispositionChange(state, false, "resume_flight", auth, before, before)
 		}
@@ -328,7 +351,7 @@ func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlig
 			order := *after.Order
 			after.ManualOrder = &order
 		}
-		return s.dispositionChange(candidate, true, "resume_flight", auth, before, *after)
+		return s.dispositionChange(candidate, true, "resume_flight", auth, auditBefore, *after)
 	}, nil
 }
 

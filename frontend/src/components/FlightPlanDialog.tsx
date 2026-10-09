@@ -10,9 +10,9 @@ import { formatAltitude, getAircraftTypeWithWtc } from "@/lib/utils";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
-import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
+import { MOCK_SIDS } from "@/components/strip/sidConstants";
+import { SidRnavDialog } from "@/components/strip/SidRnavDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
-import { RnavSelectDialog } from "@/components/strip/RnavSelectDialog";
 import { useAvailableSids, useInitialCflByRunway, useStrip, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks.ts";
 import { scalePx } from "@/lib/viewportScale";
 import { buildRnavUpdate, type RnavCapability } from "@/lib/rnav";
@@ -21,8 +21,11 @@ import { CDM_RED } from "@/lib/cdmColors";
 import { getCtotSlotDisplay, getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 import { MandatoryRouteDialog } from "@/components/MandatoryRouteDialog";
 import { ManualPdcBypassDialog } from "@/components/ManualPdcBypassDialog";
+import EstDeIceDialog from "@/components/est/EstDeIceDialog";
+import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatDeIceIndication } from "@/components/est/deiceIndication";
+import { EST_RAISED_BUTTON_EDGE, EST_RAISED_EDGE } from "@/components/est/bevel";
 
-const FONT_FAMILY = "Arial";
+const FONT_FAMILY = "var(--font-bay)";
 const FONT_SIZE_FIELD = scalePx(20);
 const FONT_SIZE_LABEL = scalePx(16);
 const FONT_SIZE_BUTTON = scalePx(24);
@@ -45,18 +48,19 @@ const MIN_FITTED_FIELD_FONT_SIZE = 9;
 const NITOS_SINGLE_LINE_FIT_LENGTH = 70;
 const NITOS_MULTILINE_LENGTH = 105;
 const NITOS_REMARKS_INLINE_PADDING = scalePx(8);
+const NITOS_BASE_FONT_SIZE = 17;
 const SPOKEN_CS_FIT_LENGTH = 8;
 
 // Tailwind class constants (hex must be literal strings for JIT)
 const CLS_DIALOG            = "bg-[#d4d4d4] rounded-none flex flex-col gap-0";
 const CLS_DIALOG_LABEL      = "absolute bg-[#d4d4d4] text-black font-bold";
-const CLS_BTN_DISABLED      = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
-const CLS_BTN_DISABLED_LEFT = "border border-r-0 border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
-const CLS_BTN_DISABLED_NRM  = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
-const CLS_BTN_EDITABLE      = "border border-black rounded-none bg-[#ededed] text-black font-bold text-center";
-const CLS_BTN_EDITABLE_LOCK = "border border-black rounded-none bg-[#ededed] text-black font-bold disabled:opacity-100 text-center select-none hover:bg-[#ededed]";
-const CLS_NITOS_REMARKS     = "resize-none overflow-hidden border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
-const CLS_TEXTAREA_EDITABLE = "border border-black rounded-none bg-[#ededed] text-black font-normal text-center break-words resize-none w-full";
+const CLS_BTN_DISABLED      = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
+const CLS_BTN_DISABLED_LEFT = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] border-r-0 rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
+const CLS_BTN_DISABLED_NRM  = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
+const CLS_BTN_EDITABLE      = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#ededed] text-black font-bold text-center";
+const CLS_BTN_EDITABLE_LOCK = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#ededed] text-black font-bold disabled:opacity-100 text-center select-none hover:bg-[#ededed]";
+const CLS_NITOS_REMARKS     = "resize-none overflow-hidden border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#b3b3b3] text-black font-normal text-center disabled:opacity-60";
+const CLS_TEXTAREA_EDITABLE = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#ededed] text-black font-normal text-center break-words resize-none w-full";
 const CLS_CLX_DIALOG        = "rounded-none border border-black bg-[#B3B3B3] text-black";
 const CLS_CLX_PANEL         = "border border-black bg-[#D6D6D6]";
 // Style-prop color constants (used in CSSProperties, not Tailwind)
@@ -194,8 +198,8 @@ function fittedNitosRemarksStyle(value: string) {
   const multiline = compactLength > NITOS_MULTILINE_LENGTH;
   const fitLength = multiline ? NITOS_MULTILINE_LENGTH * 2 : NITOS_SINGLE_LINE_FIT_LENGTH;
   const fontSize = compactLength > fitLength
-    ? Math.max(MIN_FITTED_FIELD_FONT_SIZE, Math.floor((20 * fitLength * 10) / compactLength) / 10)
-    : 20;
+    ? Math.max(MIN_FITTED_FIELD_FONT_SIZE, Math.floor((NITOS_BASE_FONT_SIZE * fitLength * 10) / compactLength) / 10)
+    : NITOS_BASE_FONT_SIZE;
 
   return {
     fontSize: scalePx(fontSize),
@@ -249,6 +253,7 @@ export default function FlightPlanDialog({
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
   const clxUpdateTobt = useWebSocketStore((state) => state.clxUpdateTobt);
   const clxOverrideValidation = useWebSocketStore((state) => state.clxOverrideValidation);
+  const cdmDeicePlatformUpdate = useWebSocketStore((state) => state.cdmDeicePlatformUpdate);
   const sendPrivateMessage = useWebSocketStore((state) => state.sendPrivateMessage);
 
   const [internalOpen, setInternalOpen] = useState(false);
@@ -270,7 +275,6 @@ export default function FlightPlanDialog({
   });
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
-  const [rnavDialogOpen, setRnavDialogOpen] = useState(false);
   const [rwyDialogOpen, setRwyDialogOpen] = useState(false);
   const availableSids = useAvailableSids();
   const mandatoryRouteSid = strip
@@ -280,6 +284,7 @@ export default function FlightPlanDialog({
   const [ssrGenerating, setSsrGenerating] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
   const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(displayedEobt);
+  const [tobt, setTobt, _tobtFocused, setTobtFocused] = useEditableField(displayedTobt);
 
   // Clear SSR loading state when the backend updates assigned_squawk
   const prevSquawkRef = useRef(strip?.assigned_squawk);
@@ -290,10 +295,16 @@ export default function FlightPlanDialog({
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [altDialogOpen, setAltDialogOpen] = useState(false);
+  const [deIceDialogOpen, setDeIceDialogOpen] = useState(false);
+  const deIceIndication = formatDeIceIndication(strip?.deice_platform);
   const [mandatoryRouteDialogOpen, setMandatoryRouteDialogOpen] = useState(false);
   const [manualPdcBypassDialogOpen, setManualPdcBypassDialogOpen] = useState(false);
   const defaultClearedAltitude = strip?.runway ? initialCflByRunway[strip.runway] : undefined;
   const commitEobt = () => updateStrip(callsign, { eobt: normalizeCdmTime(eobt) });
+  const commitTobt = () => {
+    const next = normalizeCdmTime(tobt.replace(":", ""));
+    if (/^([01]\d|2[0-3])[0-5]\d$/.test(next) && next !== displayedTobt) clxUpdateTobt(callsign, next);
+  };
   const sidFault = hasClxFieldFault(strip, "sid");
   const runwayFault = hasClxFieldFault(strip, "runway");
   const rnavFault = hasClxFieldFault(strip, "rnav");
@@ -323,6 +334,7 @@ export default function FlightPlanDialog({
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
+    ...EST_RAISED_BUTTON_EDGE,
   };
 
   const handleRnavChange = (capability: RnavCapability) => {
@@ -346,13 +358,13 @@ export default function FlightPlanDialog({
         {strip ? (
         <DialogContent
           className={CLS_DIALOG}
-          style={{ width: DIALOG_WIDTH, maxWidth: DIALOG_WIDTH, height: isViewMode ? VIEW_DIALOG_HEIGHT : CLEARANCE_DIALOG_HEIGHT, maxHeight: isViewMode ? VIEW_DIALOG_HEIGHT : CLEARANCE_DIALOG_HEIGHT, padding: DIALOG_PADDING }}
+          style={{ width: DIALOG_WIDTH, maxWidth: DIALOG_WIDTH, height: isViewMode ? VIEW_DIALOG_HEIGHT : CLEARANCE_DIALOG_HEIGHT, maxHeight: isViewMode ? VIEW_DIALOG_HEIGHT : CLEARANCE_DIALOG_HEIGHT, padding: DIALOG_PADDING, ...EST_RAISED_EDGE }}
         >
           <VisuallyHidden.Root>
             <DialogTitle>Flight plan</DialogTitle>
           </VisuallyHidden.Root>
           <div
-            className={`relative border-2 border-black flex flex-col items-center ${isViewMode ? "" : "flex-1 min-h-0"}`}
+            className={`relative border border-black flex flex-col items-center ${isViewMode ? "" : "flex-1 min-h-0"}`}
             style={{ gap: PANEL_PADDING, paddingTop: PANEL_PADDING, paddingBottom: PANEL_PADDING, color: "black" }}
           >
           <span
@@ -385,18 +397,12 @@ export default function FlightPlanDialog({
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RNAV</Label>
               <button
                 type="button"
-                onClick={() => setRnavDialogOpen(true)}
+                onClick={() => setSidDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ ...fieldStyle(75), ...clxFieldStyle(rnavFault) }}
               >
                 {strip.capabilities ?? "NIL"}
               </button>
-              <RnavSelectDialog
-                open={rnavDialogOpen}
-                onOpenChange={setRnavDialogOpen}
-                value={strip.capabilities}
-                onSelect={handleRnavChange}
-              />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SID</Label>
@@ -408,18 +414,22 @@ export default function FlightPlanDialog({
               >
                 {strip.sid ?? ""}
               </button>
-              <SidSelectDialog
+              <SidRnavDialog
                 open={sidDialogOpen}
                 onOpenChange={setSidDialogOpen}
-                value={strip.sid}
-                onSelect={(sid) => {
+                sid={strip.sid}
+                sids={(availableSids.length > 0 ? availableSids.filter(s => s.runway === strip.runway).map(s => s.name) : MOCK_SIDS)}
+                capabilities={strip.capabilities}
+                rnavFault={rnavFault}
+                onSelectSid={(sid) => {
                   if (sid === strip.sid && sidOverride) {
                     clxOverrideValidation(callsign, sidOverride);
                     return;
                   }
                   updateStrip(callsign, { sid });
                 }}
-                sids={availableSids.length > 0 ? availableSids.filter(s => s.runway === strip.runway).map(s => s.name) : undefined}
+                onSelectRnav={handleRnavChange}
+                onErase={() => updateStrip(callsign, { sid: "" })}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -442,19 +452,19 @@ export default function FlightPlanDialog({
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>CTOT</Label>
-              <div className="flex">
+              <div className="flex" style={{ gap: scalePx(4) }}>
                 <input
                   value={ctotSlotDisplay.restrictionLabel}
                   title={ctotSlotDisplay.restrictionLabel}
                   disabled
-                  className={CLS_BTN_DISABLED_LEFT}
-                  style={fieldStyle(100)}
+                  className={CLS_BTN_DISABLED_NRM}
+                  style={fieldStyle(98)}
                 />
                 <input
                   value={ctotSlotDisplay.ctot}
                   disabled
                   className={CLS_BTN_DISABLED}
-                  style={{ ...fieldStyle(100), ...(ctotSlotDisplay.hasCtot ? ecfmpStyle("yellow") : {}) }}
+                  style={{ ...fieldStyle(98), ...(ctotSlotDisplay.hasCtot ? ecfmpStyle("yellow") : {}) }}
                 />
               </div>
             </div>
@@ -479,21 +489,35 @@ export default function FlightPlanDialog({
               </div>
               <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TOBT</Label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (tobtFault) clxUpdateTobt(callsign);
+                <input
+                  value={tobt}
+                  maxLength={5}
+                  onChange={(event) => setTobt(event.target.value)}
+                  onFocus={() => setTobtFocused(true)}
+                  onBlur={() => {
+                    setTobtFocused(false);
+                    commitTobt();
                   }}
-                  className={CLS_BTN_DISABLED}
-                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), ...invalidPhaseTobtStyle(strip.phase), cursor: tobtFault ? "pointer" : undefined }}
-                >
-                  {displayedTobt}
-                </button>
+                  onKeyDown={(event) => event.key === "Enter" && commitTobt()}
+                  className={CLS_BTN_EDITABLE}
+                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), ...invalidPhaseTobtStyle(strip.phase) }}
+                />
               </div>
               <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TSAT</Label>
+                <button
+                  type="button"
+                  onClick={() => clxUpdateTobt(callsign)}
+                  className={`${CLS_BTN_DISABLED} cursor-pointer`}
+                  style={fieldStyle(100)}
+                >
+                  {displayedTsat}
+                </button>
+              </div>
+              <div className="grid items-center" style={gridGroupStyle}>
+                <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TTOT</Label>
                 <Input
-                  value={displayedTsat}
+                  value=""
                   disabled
                   className={CLS_BTN_DISABLED}
                   style={fieldStyle(100)}
@@ -587,7 +611,7 @@ export default function FlightPlanDialog({
           </div>
 
           <div className="flex flex-col" style={{ width: CONTENT_WIDTH, gap: FIELD_GAP }}>
-            <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>COOPANS REMARKS</Label>
+            <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>EXTERNAL REMARKS</Label>
             <Input
               value={strip.remarks}
               disabled
@@ -598,9 +622,9 @@ export default function FlightPlanDialog({
 
           <div className="flex" style={rowStyle}>
             <div className="grid items-center" style={gridGroupStyle}>
-              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>NITOS REMARKS</Label>
+              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>INTERNAL REMARKS</Label>
               <textarea
-                aria-label="NITOS remarks"
+                aria-label="INTERNAL remarks"
                 title={nitosRemarks}
                 value={nitosRemarks}
                 disabled
@@ -683,11 +707,24 @@ export default function FlightPlanDialog({
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>DE-ICE</Label>
-              <Input
-                defaultValue=""
-                disabled
-                className={CLS_BTN_DISABLED}
-                style={fieldStyle(125)}
+              <button
+                type="button"
+                onClick={() => setDeIceDialogOpen(true)}
+                className={CLS_BTN_EDITABLE}
+                style={{
+                  ...fieldStyle(125),
+                  ...(deIceIndication ? { backgroundColor: DEICE_INDICATION_BG, color: DEICE_INDICATION_FG } : {}),
+                }}
+              >
+                {deIceIndication}
+              </button>
+              <EstDeIceDialog
+                open={deIceDialogOpen}
+                strip={strip}
+                selectedPlatform={strip.deice_platform}
+                onOpenChange={setDeIceDialogOpen}
+                onSelectPlatform={(platform) => cdmDeicePlatformUpdate(callsign, platform)}
+                onErase={() => cdmDeicePlatformUpdate(callsign, "")}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -711,7 +748,7 @@ export default function FlightPlanDialog({
                   setDialogOpen(false);
                   setStandOpen(true);
                 }}
-                className="border-black rounded-none text-black font-bold w-full text-center cursor-pointer"
+                className={`${CLS_BTN_EDITABLE} w-full cursor-pointer`}
                 style={{ height: FIELD_HEIGHT, fontFamily: FONT_FAMILY, fontSize: scalePx(18) }}
               />
             </div>
@@ -815,6 +852,7 @@ export default function FlightPlanDialog({
                         fontFamily: FONT_FAMILY,
                         fontWeight: "bold",
                         fontSize: FONT_SIZE_BUTTON,
+                        ...EST_RAISED_BUTTON_EDGE,
                         backgroundColor: COLOR_REVERT_BTN,
                         color: "black",
                         padding: `${scalePx(4)} ${scalePx(12)}`,
@@ -856,7 +894,7 @@ export default function FlightPlanDialog({
           </div>
         </DialogContent>
         ) : (
-        <DialogContent className={CLS_CLX_DIALOG} style={{ width: CLX_FALLBACK_WIDTH, padding: scalePx(16) }}>
+        <DialogContent className={CLS_CLX_DIALOG} style={{ width: CLX_FALLBACK_WIDTH, padding: scalePx(16), ...EST_RAISED_EDGE }}>
           <VisuallyHidden.Root>
             <DialogTitle>Flight plan unavailable</DialogTitle>
           </VisuallyHidden.Root>
@@ -868,7 +906,7 @@ export default function FlightPlanDialog({
               The selected strip is no longer visible in the active bays.
             </p>
             <div style={{ marginTop: scalePx(16) }}>
-              <Button variant="darkaction" className="w-full" style={{ height: CLX_FALLBACK_BUTTON_HEIGHT, fontSize: FONT_SIZE_BUTTON }} onClick={() => setDialogOpen(false)}>
+              <Button variant="darkaction" className="w-full" style={{ height: CLX_FALLBACK_BUTTON_HEIGHT, fontSize: FONT_SIZE_BUTTON, ...EST_RAISED_BUTTON_EDGE }} onClick={() => setDialogOpen(false)}>
                 ESC
               </Button>
             </div>
@@ -880,7 +918,10 @@ export default function FlightPlanDialog({
       {strip && (
         <ArrStandDialog
           open={standOpen}
-          onOpenChange={setStandOpen}
+          onOpenChange={(nextOpen) => {
+            setStandOpen(nextOpen);
+            if (!nextOpen) setDialogOpen(true);
+          }}
           callsign={callsign}
           currentStand={strip.stand}
         />

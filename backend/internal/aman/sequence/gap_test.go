@@ -85,6 +85,7 @@ func TestRunwayGapContinuesWakeAndSTARSpacingAfterBlockedCapacity(t *testing.T) 
 	spacing := sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
 	first := flight("FIRST", "A", start, "H")
 	first.STARFamily = "MONAK"
+	first.ActiveHoldingSince = &start
 	second := flight("SECOND", "A", start, "M")
 	second.STARFamily = "MONAK"
 

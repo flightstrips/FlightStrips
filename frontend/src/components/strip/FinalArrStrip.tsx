@@ -1,3 +1,4 @@
+import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
@@ -9,6 +10,7 @@ import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
+import { getDefaultExitTaxiway } from "./defaultExitTaxiway";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
 
 // Heights — 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom
@@ -17,7 +19,7 @@ const BOT_H = "33.3333%";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Values match the original pixel widths: SI=40, Callsign=120, Type=80, Taxiway=80, RWY=54, Stand=80
-const F_SI       = 40;
+const F_SI       = 40 * 0.9;
 const F_CALLSIGN = 120;
 const F_TYPE     = 80;
 const F_TAXIWAY  = 80;
@@ -74,6 +76,8 @@ export function FinalArrStrip({
   const acknowledgeStandAssignment = useWebSocketStore(s => s.acknowledgeStandAssignment);
   const satStandStyle = getStandAssignmentStyle(satEnabled ? satAssignment : undefined);
 
+  const defaultTwy = holdingPoint ? "" : getDefaultExitTaxiway(runway, stand);
+
   // RWY cell color — only when cleared in RWY_ARR bay:
   // - runway_confirmed = true: green (controller acknowledged)
   // - runway_cleared = true, runway_confirmed = false: red (new/incoming, needs attention)
@@ -123,12 +127,12 @@ export function FinalArrStrip({
           className="flex items-center pl-[0.42vw] overflow-hidden"
           style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}
         >
-          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw" }}>
+          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>
             {callsign}
           </span>
         </div>
         <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
-          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw" }}>
+          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>
             {nextFreq}
           </span>
         </div>
@@ -136,11 +140,12 @@ export function FinalArrStrip({
 
       {/* Type / Squawk */}
       <div
-        className="flex flex-col border-r-2 min-w-0"
+        className="flex flex-col border-r-2 min-w-0 cursor-pointer"
         style={{ flexGrow: F_TYPE, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
+        onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 600, fontSize: "0.63vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
+          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.63vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
         </div>
         <div
           className="flex items-center justify-center"
@@ -163,7 +168,7 @@ export function FinalArrStrip({
         }) : undefined}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 600, fontSize: "0.83vw", color: satStandStyle.color }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.83vw", color: satStandStyle.color }}>
             {stand}
           </span>
         </div>
@@ -179,7 +184,7 @@ export function FinalArrStrip({
           data-testid="final-arrival-runway-row"
           className={`flex items-center justify-center${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
           style={{
-            height: TOP_H,
+            height: "50%",
             backgroundColor: rwyColor,
             cursor: (bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined,
           }}
@@ -191,27 +196,33 @@ export function FinalArrStrip({
             }
           }) : undefined}
         >
-          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.94vw" }}>
+          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.94vw" }}>
             {runway}
           </span>
         </div>
         <div
           data-testid="final-arrival-twy-row"
           className="flex items-center justify-center cursor-pointer"
-          style={{ height: BOT_H, cursor: getValidationBlockedCursor(isValidationActive) }}
+          style={{ height: "50%", cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => setTaxiMapOpen(true))}
         >
-          <span data-testid="final-arrival-twy-label" style={{ fontFamily: FONT, fontSize: "0.63vw", lineHeight: 1, opacity: holdingPoint ? 1 : 0.2, transform: "translateY(-1px)" }}>
-            {holdingPoint || "TWY"}
+          <span className="relative inline-flex items-center justify-center" style={{ fontFamily: FONT, fontSize: "0.63vw", lineHeight: 1, transform: "translateY(-1px)" }}>
+            <span data-testid="final-arrival-twy-label" style={{ opacity: holdingPoint ? 1 : 0.1 }}>
+              {holdingPoint || "TWY"}
+            </span>
+            {!holdingPoint && defaultTwy && (
+              <span data-testid="final-arrival-twy-default" className="absolute inset-0 flex items-center justify-center" style={{ color: "black", fontSize: "0.693vw", fontWeight: "bold" }}>
+                {defaultTwy}
+              </span>
+            )}
           </span>
         </div>
       </div>
 
-      {/* Stand (reserved) — clickable to open flight plan */}
+      {/* STAR (inactive) */}
       <div
-        className="flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%", cursor: "pointer" }}
-        onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
+        className="flex flex-col overflow-hidden min-w-0"
+        style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%" }}
       />
     </div>
 

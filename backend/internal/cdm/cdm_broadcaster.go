@@ -18,9 +18,9 @@ type CdmBroadcaster struct {
 }
 
 type cdmSnapshot struct {
-	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, MostPenalizingAirspace, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
-	EcfmpRestrictionsJSON                                                                                                                        string
-	TobtAutoSynced, TobtManuallyConfirmed                                                                                                        bool
+	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, DeicePlatform, MostPenalizingAirspace, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
+	EcfmpRestrictionsJSON                                                                                                                                       string
+	TobtAutoSynced, TobtManuallyConfirmed, DeicePlatformAcknowledged                                                                                            bool
 }
 
 func (c *CdmBroadcaster) broadcastIfChanged(session int32, callsign string, before, after cdmSnapshot) {
@@ -30,20 +30,22 @@ func (c *CdmBroadcaster) broadcastIfChanged(session int32, callsign string, befo
 	}
 
 	cdmData := &models.CdmData{
-		Eobt:                   stringPointerIfPresent(after.Eobt),
-		Tobt:                   stringPointerIfPresent(after.Tobt),
-		Tsat:                   stringPointerIfPresent(after.Tsat),
-		Ttot:                   stringPointerIfPresent(after.Ttot),
-		Ctot:                   stringPointerIfPresent(after.Ctot),
-		CtotSource:             stringPointerIfPresent(after.CtotSource),
-		Aobt:                   stringPointerIfPresent(after.Aobt),
-		Asat:                   stringPointerIfPresent(after.Asat),
-		Asrt:                   stringPointerIfPresent(after.Asrt),
-		Tsac:                   stringPointerIfPresent(after.Tsac),
-		Status:                 stringPointerIfPresent(after.Status),
-		MostPenalizingAirspace: stringPointerIfPresent(after.MostPenalizingAirspace),
-		EcfmpID:                stringPointerIfPresent(after.EcfmpID),
-		Phase:                  stringPointerIfPresent(after.Phase),
+		Eobt:                      stringPointerIfPresent(after.Eobt),
+		Tobt:                      stringPointerIfPresent(after.Tobt),
+		Tsat:                      stringPointerIfPresent(after.Tsat),
+		Ttot:                      stringPointerIfPresent(after.Ttot),
+		Ctot:                      stringPointerIfPresent(after.Ctot),
+		CtotSource:                stringPointerIfPresent(after.CtotSource),
+		Aobt:                      stringPointerIfPresent(after.Aobt),
+		Asat:                      stringPointerIfPresent(after.Asat),
+		Asrt:                      stringPointerIfPresent(after.Asrt),
+		Tsac:                      stringPointerIfPresent(after.Tsac),
+		Status:                    stringPointerIfPresent(after.Status),
+		DeicePlatform:             stringPointerIfPresent(after.DeicePlatform),
+		DeicePlatformAcknowledged: after.DeicePlatformAcknowledged,
+		MostPenalizingAirspace:    stringPointerIfPresent(after.MostPenalizingAirspace),
+		EcfmpID:                   stringPointerIfPresent(after.EcfmpID),
+		Phase:                     stringPointerIfPresent(after.Phase),
 	}
 	if before.EcfmpRestrictionsJSON != after.EcfmpRestrictionsJSON {
 		storedData, err := s.stripRepo.GetCdmDataForCallsign(context.Background(), session, callsign)
@@ -97,25 +99,27 @@ func snapshotCdm(data *models.CdmData) cdmSnapshot {
 	}
 	ecfmpJSON, _ := json.Marshal(data.EcfmpRestrictions)
 	return cdmSnapshot{
-		Eobt:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Eobt)),
-		Tobt:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Tobt)),
-		Tsat:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Tsat)),
-		Ctot:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
-		CtotSource:             helpers.ValueOrDefault(data.CtotSource),
-		Ttot:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Ttot)),
-		Asat:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Asat)),
-		Asrt:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt)),
-		Tsac:                   helpers.ValueOrDefault(data.Tsac),
-		Aobt:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
-		Status:                 helpers.ValueOrDefault(data.Status),
-		MostPenalizingAirspace: helpers.ValueOrDefault(data.MostPenalizingAirspace),
-		EcfmpID:                helpers.ValueOrDefault(data.EcfmpID),
-		TobtSetBy:              helpers.ValueOrDefault(data.TobtSetBy),
-		TobtConfirmedBy:        helpers.ValueOrDefault(data.TobtConfirmedBy),
-		Phase:                  helpers.ValueOrDefault(data.Phase),
-		EcfmpRestrictionsJSON:  string(ecfmpJSON),
-		TobtAutoSynced:         data.TobtAutoSynced,
-		TobtManuallyConfirmed:  data.TobtManuallyConfirmed,
+		Eobt:                      truncateCDMClockValue(helpers.ValueOrDefault(data.Eobt)),
+		Tobt:                      truncateCDMClockValue(helpers.ValueOrDefault(data.Tobt)),
+		Tsat:                      truncateCDMClockValue(helpers.ValueOrDefault(data.Tsat)),
+		Ctot:                      truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
+		CtotSource:                helpers.ValueOrDefault(data.CtotSource),
+		Ttot:                      truncateCDMClockValue(helpers.ValueOrDefault(data.Ttot)),
+		Asat:                      truncateCDMClockValue(helpers.ValueOrDefault(data.Asat)),
+		Asrt:                      truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt)),
+		Tsac:                      helpers.ValueOrDefault(data.Tsac),
+		Aobt:                      truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
+		Status:                    helpers.ValueOrDefault(data.Status),
+		DeicePlatform:             helpers.ValueOrDefault(data.DeicePlatform),
+		DeicePlatformAcknowledged: data.DeicePlatformAcknowledged,
+		MostPenalizingAirspace:    helpers.ValueOrDefault(data.MostPenalizingAirspace),
+		EcfmpID:                   helpers.ValueOrDefault(data.EcfmpID),
+		TobtSetBy:                 helpers.ValueOrDefault(data.TobtSetBy),
+		TobtConfirmedBy:           helpers.ValueOrDefault(data.TobtConfirmedBy),
+		Phase:                     helpers.ValueOrDefault(data.Phase),
+		EcfmpRestrictionsJSON:     string(ecfmpJSON),
+		TobtAutoSynced:            data.TobtAutoSynced,
+		TobtManuallyConfirmed:     data.TobtManuallyConfirmed,
 	}
 }
 

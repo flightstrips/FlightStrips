@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import DeleteConfirmDialog from "@/components/commandbar/DeleteConfirmDialog";
 import { Bay, type FrontendStrip } from "@/api/models";
+import { EST_RAISED_BUTTON_EDGE, EST_RAISED_EDGE, EST_SUNKEN_EDGE } from "@/components/est/bevel";
 import type { EstMenuAnchor } from "@/components/est/EstStandMenu";
 import { getBridgeStatus, getVgdsStatus } from "@/components/est/metadata";
 import { scalePx } from "@/lib/viewportScale";
@@ -114,25 +115,25 @@ export default function EstStandStatusDialog({
       <div className="fixed inset-0 z-40" onMouseDown={onClose}>
         <div
           className={CLS_POPUP}
-          style={{ ...position, width: scalePx(MENU_WIDTH), padding: scalePx(8) }}
+          style={{ ...position, width: scalePx(MENU_WIDTH), padding: scalePx(8), ...EST_RAISED_EDGE }}
           onMouseDown={(event) => event.stopPropagation()}
         >
           <div className="flex text-black" style={{ gap: scalePx(24), padding: scalePx(12) }}>
             <div className="flex shrink-0 flex-col" style={{ width: scalePx(COMMAND_WIDTH), gap: scalePx(6) }}>
               <div className="text-center" style={{ fontSize: scalePx(10) }}>STAND</div>
-              <div className="border border-black bg-[#A1A1A1] text-center shadow" style={{ padding: scalePx(5), fontSize: scalePx(14) }}>{stand}</div>
+              <div className="bg-[#A1A1A1] text-center" style={{ padding: scalePx(5), fontSize: scalePx(14), ...EST_SUNKEN_EDGE }}>{stand}</div>
               <div className="text-center" style={{ marginTop: scalePx(4), fontSize: scalePx(10) }}>OPERATIONAL</div>
 
-              <Button variant="trf" className="font-semibold" style={{ height: scalePx(32), fontSize: scalePx(14) }} onClick={onOccupied}>
+              <Button variant="trf" className="font-semibold" style={{ height: scalePx(32), fontSize: scalePx(14), ...EST_RAISED_BUTTON_EDGE }} onClick={onOccupied}>
                 OCCUPIED
               </Button>
-              <Button variant="trf" className="font-semibold" style={{ height: scalePx(32), fontSize: scalePx(14) }} onClick={handleVacantClick}>
+              <Button variant="trf" className="font-semibold" style={{ height: scalePx(32), fontSize: scalePx(14), ...EST_RAISED_BUTTON_EDGE }} onClick={handleVacantClick}>
                 VACANT
               </Button>
               <Button
                 variant="trf"
                 className="font-semibold"
-                style={{ height: scalePx(32), fontSize: scalePx(14) }}
+                style={{ height: scalePx(32), fontSize: scalePx(14), ...EST_RAISED_BUTTON_EDGE }}
                 onClick={onCleared}
                 disabled={strip?.bay !== Bay.NotCleared}
               >
@@ -141,23 +142,23 @@ export default function EstStandStatusDialog({
               <Button
                 variant="trf"
                 className="font-semibold"
-                style={{ height: scalePx(32), fontSize: scalePx(14) }}
+                style={{ height: scalePx(32), fontSize: scalePx(14), ...EST_RAISED_BUTTON_EDGE }}
                 onClick={onPlannedDeparture}
-                disabled={strip?.bay !== Bay.Cleared}
+                disabled={strip ? strip.bay !== Bay.Cleared : blocked}
               >
                 PLANNED DEP
               </Button>
               <Button
                 variant="trf"
                 className="font-semibold"
-                style={{ height: scalePx(32), fontSize: scalePx(14) }}
+                style={{ height: scalePx(32), fontSize: scalePx(14), ...EST_RAISED_BUTTON_EDGE }}
                 onClick={() => setConfirmAction("clear-fpl")}
                 disabled={!strip}
               >
                 CLEAR FPL
               </Button>
 
-              <Button variant="darkaction" className="self-center" style={{ marginTop: scalePx(2), width: scalePx(78), height: scalePx(32), fontSize: scalePx(18) }} onClick={onClose}>
+              <Button variant="darkaction" className="self-center" style={{ marginTop: scalePx(2), width: scalePx(78), height: scalePx(32), fontSize: scalePx(18), ...EST_RAISED_BUTTON_EDGE }} onClick={onClose}>
                 ESC
               </Button>
             </div>
@@ -184,12 +185,12 @@ export default function EstStandStatusDialog({
 function StatusField({ label, value, testId }: { label: string; value: string; testId?: string }) {
   return (
     <fieldset className="border border-black" style={{ padding: `${scalePx(5)} ${scalePx(7)} ${scalePx(7)}` }}>
-      <legend style={{ padding: `0 ${scalePx(6)}`, fontSize: scalePx(10) }}>{label}</legend>
+      <legend className="mx-auto" style={{ padding: `0 ${scalePx(6)}`, fontSize: scalePx(10) }}>{label}</legend>
       <div style={{ fontSize: scalePx(10) }}>STATUS</div>
       <div
         className={CLS_STATUS_VALUE}
         data-testid={testId}
-        style={{ minHeight: scalePx(24), padding: `${scalePx(5)} ${scalePx(3)}`, fontSize: scalePx(10) }}
+        style={{ minHeight: scalePx(24), padding: `${scalePx(5)} ${scalePx(3)}`, fontSize: scalePx(10), ...EST_SUNKEN_EDGE }}
       >
         {value}
       </div>

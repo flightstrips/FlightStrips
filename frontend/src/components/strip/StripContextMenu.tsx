@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useIsClrDel, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { canForceAssumeStrip } from "./shared";
+import { EST_RAISED_EDGE, EST_SUNKEN_EDGE } from "@/components/est/bevel";
+import { useIsLocallyHidden, useLocalHiddenStrips } from "@/store/localHiddenStrips";
 
 export interface StripContextMenuProps {
   callsign: string;
@@ -10,18 +12,21 @@ export interface StripContextMenuProps {
 }
 
 // From design SVG: 167px wide panel
-export const STRIP_CONTEXT_MENU_WIDTH = 167;
-export const STRIP_CONTEXT_MENU_HEIGHT = 373;
+export const STRIP_CONTEXT_MENU_WIDTH = 107;
+export const STRIP_CONTEXT_MENU_HEIGHT = 401;
 
 // Colours from design SVG
 const COLOR_PANEL_BG  = "#B3B3B3"; // outer panel
 const COLOR_ITEM_BG   = "#D6D6D6"; // button cards
 const COLOR_ESC_BG    = "#3F3F3F"; // ESC button
 const COLOR_DISABLED  = "#A4A4A4"; // greyed text (disabled)
-const FONT            = "'Arial', sans-serif";
+const FONT            = "var(--font-bay)";
 
 /** Drop shadow matching design filters (drop shadow dy=4, blur=2, opacity=0.25). */
 const DROP_SHADOW = "0 4px 4px rgba(0,0,0,0.25)";
+
+const RAISED_3D: React.CSSProperties = { ...EST_RAISED_EDGE, boxShadow: `${EST_RAISED_EDGE.boxShadow}, ${DROP_SHADOW}` };
+const SUNKEN_3D: React.CSSProperties = { ...EST_SUNKEN_EDGE };
 
 /** Base style for interactive button rows. */
 const itemStyle: React.CSSProperties = {
@@ -32,10 +37,12 @@ const itemStyle: React.CSSProperties = {
   color: "black",
   fontFamily: FONT,
   fontWeight: 600,
-  fontSize: 16,
+  fontSize: 14,
+  lineHeight: 1.1,
+  textAlign: "center",
   cursor: "pointer",
   userSelect: "none",
-  boxShadow: DROP_SHADOW,
+  ...RAISED_3D,
 };
 
 const disabledStyle: React.CSSProperties = {
@@ -47,9 +54,10 @@ const disabledStyle: React.CSSProperties = {
 /** Simple SVG person silhouette — matches the image in the design. */
 function ManIcon() {
   return (
-    <svg width="14" height="37" viewBox="0 0 14 37" fill="black" aria-hidden="true">
-      <ellipse cx="7" cy="6" rx="5" ry="6" />
-      <path d="M0 22c0-4 3-8 7-8s7 4 7 8v15H0V22z" />
+    <svg width="15" height="40" viewBox="0 0 24 64" fill="black" aria-hidden="true" shapeRendering="crispEdges">
+      <circle cx="12" cy="6" r="5" shapeRendering="geometricPrecision" />
+      <path d="M4 13h16l2 2v26H2V15z" />
+      <rect x="8" y="41" width="8" height="23" />
     </svg>
   );
 }
@@ -63,6 +71,8 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
   const updateStrip = useWebSocketStore((s) => s.updateStrip);
 
   const isClrDel = useIsClrDel();
+  const localHidden = useIsLocallyHidden(callsign);
+  const setLocalHidden = useLocalHiddenStrips((s) => s.setHidden);
   const [showFpl, setShowFpl] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -155,7 +165,7 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
         display: "flex",
         flexDirection: "column",
         // Inner frame padding — matches the inset rect in SVG (7.5px sides, ~13px top)
-        padding: "13px 7px 13px 7px",
+        padding: "13px 4px 13px 4px",
         gap: 4,
       }}
     >
@@ -170,7 +180,8 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
           color: "#AFAFAF",
           fontFamily: FONT,
           fontWeight: 300,
-          fontSize: 16,
+          fontSize: 14,
+          overflow: "hidden",
           userSelect: "none",
           boxShadow: DROP_SHADOW,
         }}
@@ -184,9 +195,7 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
           ...itemStyle,
           height: 23,
           // Inset shadow matches filter4_i in design (inner shadow dy=4, blur=2)
-          boxShadow: isOb
-            ? "inset 0 4px 4px rgba(0,0,0,0.25)"
-            : DROP_SHADOW,
+          ...(isOb ? SUNKEN_3D : RAISED_3D),
         }}
         onClick={handleObToggle}
       >
@@ -212,7 +221,7 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
           justifyContent: "center",
           height: 50,
           backgroundColor: COLOR_ITEM_BG,
-          boxShadow: DROP_SHADOW,
+          ...RAISED_3D,
         }}
         aria-hidden="true"
       >
@@ -238,8 +247,18 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
         VIEW FPL
       </div>
 
-      {/* Spacer before ESC — matches the ~38px gap in design */}
-      <div style={{ height: 34, flexShrink: 0 }} />
+      {/* LCL HIDE / LCL SHOW — local-only half-strip toggle */}
+      <div
+        style={{ ...itemStyle, height: 44 }}
+        onClick={() => {
+          setLocalHidden(callsign, !localHidden);
+          onClose();
+        }}
+      >
+        {localHidden ? "LCL SHOW" : "LCL HIDE"}
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0 }} />
 
       {/* ESC — dark background, white text, font-size 18 */}
       <div
@@ -248,7 +267,7 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
           height: 43,
           backgroundColor: COLOR_ESC_BG,
           color: "white",
-          fontSize: 18,
+          fontSize: 16,
         }}
         onClick={onClose}
       >

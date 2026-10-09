@@ -12,6 +12,7 @@ import (
 // MockStripRepository is a configurable mock for repository.StripRepository.
 // Set function fields before each test; unset fields panic on call.
 type MockStripRepository struct {
+	UpdateFsScratchPadFn            func(context.Context, int32, string, string) (int64, error)
 	CreateFn                        func(ctx context.Context, strip *models.Strip) error
 	GetByCallsignFn                 func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
 	LockByCallsignFn                func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
@@ -58,6 +59,7 @@ type MockStripRepository struct {
 	GetCdmDataFn                    func(ctx context.Context, session int32) ([]*models.CdmDataRow, error)
 	GetCdmDataForCallsignFn         func(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
 	SetCdmDataFn                    func(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error)
+	AcknowledgeCdmMilestoneFn       func(ctx context.Context, session int32, callsign string, milestone string, value string) (int64, error)
 	UpdateArrivalETAFn              func(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error)
 	ClearArrivalETAFn               func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateReleasePointFn            func(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
@@ -450,6 +452,13 @@ func (m *MockStripRepository) SetCdmData(ctx context.Context, session int32, cal
 	return m.SetCdmDataFn(ctx, session, callsign, data)
 }
 
+func (m *MockStripRepository) AcknowledgeCdmMilestone(ctx context.Context, session int32, callsign string, milestone string, value string) (int64, error) {
+	if m.AcknowledgeCdmMilestoneFn == nil {
+		panic("unexpected call to MockStripRepository.AcknowledgeCdmMilestone")
+	}
+	return m.AcknowledgeCdmMilestoneFn(ctx, session, callsign, milestone, value)
+}
+
 func (m *MockStripRepository) UpdateArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error) {
 	if m.UpdateArrivalETAFn == nil {
 		panic("unexpected call to MockStripRepository.UpdateArrivalETA")
@@ -560,4 +569,11 @@ func (m *MockStripRepository) ClearValidationStatus(ctx context.Context, session
 		panic("unexpected call to MockStripRepository.ClearValidationStatus")
 	}
 	return m.ClearValidationStatusFn(ctx, session, callsign)
+}
+
+func (m *MockStripRepository) UpdateFsScratchPad(ctx context.Context, session int32, callsign, text string) (int64, error) {
+	if m.UpdateFsScratchPadFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateFsScratchPad")
+	}
+	return m.UpdateFsScratchPadFn(ctx, session, callsign, text)
 }

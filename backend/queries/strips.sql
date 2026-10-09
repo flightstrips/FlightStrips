@@ -519,3 +519,8 @@ SELECT sqlc.embed(s),
      WHERE a.session_id = s.session AND a.callsign = s.callsign) AS assignment
 FROM strips s
 WHERE s.session = $1 AND s.callsign = $2;
+
+-- name: UpdateStripFsScratchPad :execrows
+UPDATE strips SET fs_scratch_pad = sqlc.arg(text), version = version + 1
+WHERE session = sqlc.arg(session) AND callsign = sqlc.arg(callsign)
+  AND fs_scratch_pad IS DISTINCT FROM sqlc.arg(text);

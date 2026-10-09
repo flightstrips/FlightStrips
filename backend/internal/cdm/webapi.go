@@ -503,6 +503,9 @@ func buildBaseReason(candidate sequencingCandidate) sequenceReasonResponse {
 	if candidate.input.DeIceMin > 0 {
 		taxiParts = append(taxiParts, strconv.Itoa(candidate.input.DeIceMin)+" min de-ice")
 	}
+	if candidate.input.DeiceTaxiMin > 0 {
+		taxiParts = append(taxiParts, strconv.Itoa(candidate.input.DeiceTaxiMin)+" min de-ice taxi")
+	}
 
 	message := fmt.Sprintf("Base time %s %s drives the natural TTOT %s.", sourceLabel, truncateSequenceClock(baseTime), truncateSequenceClock(candidate.naturalTtot))
 	if len(taxiParts) > 0 {

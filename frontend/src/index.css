@@ -1,13 +1,24 @@
 @import "tailwindcss";
 @custom-variant dark (&:is(.dark *));
 
+/* VATSIM-only font (see copyright in the font file), used for bay header titles. */
+@font-face {
+  font-family: "EuroScope DK";
+  src: url("./assets/fonts/EuroScope_DK_COOPANS.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
+  --font-bay: "EuroScope DK", Arial, sans-serif;
   /* ── Bay structural colors ─────────────────────────── */
-  --color-bay-border:       #999999; /* column/section borders + command bar borders */
+  --color-bay-border:       #CECECE; /* column/section borders + command bar borders */
+  --bay-edge-dark:          #8e8e8e; /* darker gray at the outer edges of bay dividers */
   --color-bay-panel:        #555355; /* main bay column background */
   --color-bay-panel-dark:   #444244; /* darkened panel (3D inset effect) */
   --color-bay-header:       #393939; /* dark section headers */
-  --color-bay-commandbar:   #3c3c3c; /* command bar background */
+  --color-bay-commandbar:   #393939; /* command bar background */
   --color-bay-dark:         #212121; /* dark bay areas (e.g. de-ice) */
   --color-bay-teal:         #285a5c; /* messages header / scrollbar thumb */
   --color-bay-header-light: #b3b3b3; /* light section headers */
@@ -80,7 +91,7 @@ html.public-content-page {
 }
 
 body {
-  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-family: var(--font-bay);
   --asd: 0.5rem;
   height: 100dvh;
   overflow: hidden;
@@ -190,49 +201,126 @@ body.public-content-page {
 
   /* ── Bay page wrapper ───────────────────────────────────────────────────── */
   .bay-page-wrapper {
-    @apply bg-bay-border w-screen h-[95.28dvh] min-h-0 overflow-hidden flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border;
+    @apply bg-bay-border w-screen h-[95.28dvh] min-h-0 overflow-hidden flex divide-x-[6px] divide-bay-border border-x-[3px] border-t-[3px] border-bay-border;
+    /* Outer screen edges: 3px, darkening toward the side facing the bays; the corners stay flat. */
+    background-origin: border-box;
+    background-image:
+      linear-gradient(to right, var(--color-bay-border) 35%, var(--bay-edge-dark)),
+      linear-gradient(to left, var(--color-bay-border) 35%, var(--bay-edge-dark)),
+      linear-gradient(to bottom, var(--color-bay-border) 35%, var(--bay-edge-dark));
+    background-position: left 3px, right 3px, 3px top;
+    background-size: 3px calc(100% - 3px), 3px calc(100% - 3px), calc(100% - 6px) 3px;
+    background-repeat: no-repeat;
   }
 
   /* ── Bay column layout ──────────────────────────────────────────────────── */
   .bay-col {
-    @apply h-full min-h-0 bg-bay-panel flex flex-col;
+    @apply h-full min-h-0 bg-bay-panel flex flex-col relative;
   }
   .bay-col-flex {
-    @apply flex-1 h-full min-h-0 bg-bay-panel flex flex-col min-w-0;
+    @apply flex-1 h-full min-h-0 bg-bay-panel flex flex-col min-w-0 relative;
+  }
+  /* Bevelled divider: the 6px column border fades to dark gray at both edges. */
+  .bay-col:not(:last-child)::after,
+  .bay-col-flex:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -6px;
+    width: 6px;
+    z-index: 10;
+    pointer-events: none;
+    background: linear-gradient(to right, var(--bay-edge-dark), var(--color-bay-border) 35%, var(--color-bay-border) 65%, var(--bay-edge-dark));
   }
 
   /* ── Section headers ────────────────────────────────────────────────────── */
+  .bay-col-header,
+  .bay-col-header-light,
+  .bay-col-header-teal,
+  .bay-col-header-primary {
+    box-shadow:
+      inset 2px 0 3px -1px rgba(0,0,0,0.45),
+      inset -2px 0 3px -1px rgba(0,0,0,0.35),
+      inset 0 2px 3px -1px rgba(0,0,0,0.45),
+      inset 1px 1px 0 rgba(0,0,0,0.35),
+      inset -1px -1px 0 rgba(255,255,255,0.12);
+  }
   .bay-col-header {
-    @apply bg-bay-header h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
+    @apply bg-bay-header h-[3.15dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
   }
   .bay-col-header-light {
-    @apply bg-bay-header-light h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
+    @apply bg-bay-header-light h-[3.15dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
   }
   .bay-col-header-teal {
-    @apply bg-bay-teal h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
+    @apply bg-bay-teal h-[3.15dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
   }
   .bay-col-header-primary {
-    @apply bg-primary h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
+    @apply bg-primary h-[3.15dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
   }
   .bay-col-sep {
     @apply border-t-[6px] border-bay-border;
+  }
+  /* Where a separator meets a column divider the 6px square stays flat (no bevel). */
+  .bay-col:not(:first-child) > .bay-col-sep,
+  .bay-col-flex:not(:first-child) > .bay-col-sep {
+    --sep-l: 6px;
+  }
+  .bay-col:not(:last-child) > .bay-col-sep,
+  .bay-col-flex:not(:last-child) > .bay-col-sep {
+    --sep-r: 6px;
+  }
+  .bay-col-sep::before,
+  .bay-tab-bar::before {
+    content: "";
+    position: absolute;
+    left: calc(-1 * var(--sep-l, 0px));
+    right: calc(-1 * var(--sep-r, 0px));
+    top: -6px;
+    height: 6px;
+    pointer-events: none;
+    background:
+      linear-gradient(var(--color-bay-border), var(--color-bay-border)) left / var(--sep-l, 0px) 100% no-repeat,
+      linear-gradient(var(--color-bay-border), var(--color-bay-border)) right / var(--sep-r, 0px) 100% no-repeat,
+      linear-gradient(to bottom, var(--bay-edge-dark), var(--color-bay-border) 35%, var(--color-bay-border) 65%, var(--bay-edge-dark));
   }
 
   /* ── Scroll areas ───────────────────────────────────────────────────────── */
   .bay-scroll-area {
     @apply w-full min-h-0 bg-bay-panel p-0.5 flex flex-col gap-px overflow-y-auto overscroll-y-contain;
     @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
-    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.55), inset -1px -1px 1px rgba(255,255,255,0.07);
+    box-shadow:
+      inset 2px 0 3px -1px rgba(0,0,0,0.45),
+      inset -2px 0 3px -1px rgba(0,0,0,0.35),
+      inset 0 2px 3px -1px rgba(0,0,0,0.45),
+      inset 1px 1px 0 rgba(0,0,0,0.35),
+      inset -1px -1px 0 rgba(255,255,255,0.12);
   }
   .bay-scroll-area-bottom {
     @apply w-full min-h-0 bg-bay-panel p-0.5 flex flex-col gap-px overflow-y-auto overscroll-y-contain;
     @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
-    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.55), inset -1px -1px 1px rgba(255,255,255,0.07);
+    box-shadow:
+      inset 2px 0 3px -1px rgba(0,0,0,0.45),
+      inset -2px 0 3px -1px rgba(0,0,0,0.35),
+      inset 0 2px 3px -1px rgba(0,0,0,0.45),
+      inset 1px 1px 0 rgba(0,0,0,0.35),
+      inset -1px -1px 0 rgba(255,255,255,0.12);
   }
   .bay-scroll-area-dark {
     @apply w-full min-h-0 bg-bay-dark p-0.5 flex flex-col gap-px overflow-y-auto overscroll-y-contain;
     @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
-    box-shadow: inset 2px 2px 4px rgba(0,0,0,0.85), inset -1px -1px 2px rgba(255,255,255,0.05);
+    box-shadow:
+      inset 3px 0 4px -1px rgba(0,0,0,0.65),
+      inset -3px 0 4px -1px rgba(0,0,0,0.55),
+      inset 0 3px 4px -1px rgba(0,0,0,0.65),
+      inset 1px 1px 0 rgba(0,0,0,0.5),
+      inset -1px -1px 0 rgba(255,255,255,0.1);
+  }
+  .bay-no-top-shadow {
+    box-shadow:
+      inset 2px 0 3px -1px rgba(0,0,0,0.45),
+      inset -2px 0 3px -1px rgba(0,0,0,0.35),
+      inset -1px -1px 0 rgba(255,255,255,0.12);
   }
   .bay-scroll-fill {
     @apply justify-end overflow-y-hidden;
@@ -240,10 +328,10 @@ body.public-content-page {
 
   /* ── Tab bar ────────────────────────────────────────────────────────────── */
   .bay-tab-bar {
-    @apply flex shrink-0 border-t-8 border-bay-border;
+    @apply flex shrink-0 items-start justify-center gap-[0.4vw] px-[0.5vw] py-[0.6dvh] bg-bay-panel border-t-[6px] border-bay-border;
   }
   .bay-tab-btn {
-    @apply flex-1 bg-bay-header text-white font-bold text-sm border border-white hover:bg-[#4a4a4a];
+    @apply shrink-0 basis-[calc((100%-1.2vw)*0.2025)] min-w-0 aspect-[3.5/1] items-center justify-center bg-bay-header text-white font-bay font-normal text-sm border-2 border-t-[#CECECE] border-l-[#CECECE] border-b-[#393939] border-r-[#393939] shadow-[inset_2px_2px_2px_-1px_rgba(206,206,206,0.55),inset_-2px_-2px_2px_-1px_rgba(57,57,57,0.55)] outline-none active:brightness-125;
   }
 }
 
@@ -596,4 +684,13 @@ body.public-content-page {
 
 .animate-vacs-pulse {
   animation: vacs-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dialog-zoom-in {
+  from { scale: 0.92; opacity: 0; }
+  to { scale: 1; opacity: 1; }
+}
+
+.animate-dialog-zoom-in {
+  animation: dialog-zoom-in 100ms ease-out;
 }

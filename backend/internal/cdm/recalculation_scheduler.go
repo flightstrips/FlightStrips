@@ -20,9 +20,16 @@ func (c *RecalculationScheduler) TriggerRecalculate(ctx context.Context, session
 		return
 	}
 	normalizedAirport := strings.ToUpper(strings.TrimSpace(airport))
-	recalcCtx := detachedContext(ctx)
 	s.debouncer.Schedule(recalcDebounceKey(session, normalizedAirport), func() {
+		if s.isSessionRemoved(session) {
+			return
+		}
+		recalcCtx, cancel := s.sessionContext(detachedContext(ctx), session)
+		defer cancel()
 		if err := s.sequenceService.RecalculateAirport(recalcCtx, session, airport); err != nil {
+			if s.sessionDisappeared(ctx, session, err) {
+				return
+			}
 			slog.ErrorContext(recalcCtx, "CDM recalculation failed", slog.Int("session", int(session)), slog.String("airport", airport), slog.Any("error", err))
 		}
 	})
@@ -77,7 +84,7 @@ func (c *RecalculationScheduler) schedulePeriodicRecalculate(ctx context.Context
 }
 
 func (c *RecalculationScheduler) canRunLocalRecalculation(session int32) bool {
-	return true
+	return !c.service.isSessionRemoved(session)
 }
 
 func recalcDebounceKey(session int32, airport string) string {

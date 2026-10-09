@@ -138,7 +138,7 @@ func TestParseSidIntervalData_SourceFormat(t *testing.T) {
 func TestParseTaxiZoneData_SourceFormat(t *testing.T) {
 	t.Parallel()
 
-	zones, err := parseTaxiZoneData([]byte("EKCH:04L:55.1:12.1:55.2:12.2:55.3:12.3:55.4:12.4:12:7,9\n"))
+	zones, err := parseTaxiZoneData([]byte("EKCH:04L:55.1:12.1:55.2:12.2:55.3:12.3:55.4:12.4:12,2,3,5\n"))
 	if err != nil {
 		t.Fatalf("parseTaxiZoneData returned error: %v", err)
 	}
@@ -154,8 +154,24 @@ func TestParseTaxiZoneData_SourceFormat(t *testing.T) {
 	if len(zone.Polygon) != 4 {
 		t.Fatalf("expected 4 polygon points, got %d", len(zone.Polygon))
 	}
-	if len(zone.RemoteTaxiMinutes) != 2 || zone.RemoteTaxiMinutes[0] != 7 || zone.RemoteTaxiMinutes[1] != 9 {
+	if len(zone.RemoteTaxiMinutes) != 3 ||
+		zone.RemoteTaxiMinutes[0] != 2 ||
+		zone.RemoteTaxiMinutes[1] != 3 ||
+		zone.RemoteTaxiMinutes[2] != 5 {
 		t.Fatalf("unexpected remote taxi minutes: %#v", zone.RemoteTaxiMinutes)
+	}
+}
+
+func TestParseTaxiZoneData_LegacyRemoteTaxiField(t *testing.T) {
+	t.Parallel()
+
+	zones, err := parseTaxiZoneData([]byte("EKCH:04L:55.1:12.1:55.2:12.2:55.3:12.3:55.4:12.4:12:7,9\n"))
+	if err != nil {
+		t.Fatalf("parseTaxiZoneData returned error: %v", err)
+	}
+
+	if len(zones) != 1 || len(zones[0].RemoteTaxiMinutes) != 2 {
+		t.Fatalf("unexpected taxi zones: %#v", zones)
 	}
 }
 

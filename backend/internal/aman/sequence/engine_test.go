@@ -96,7 +96,7 @@ func TestUnknownCategoryUsesConservativeSpacingAndWarns(t *testing.T) {
 	require.False(t, result.HasConflicts())
 }
 
-func TestSameSTARSpacingActivatesAtConfiguredRate(t *testing.T) {
+func TestSameSTARSpacingDoesNotActivateFromSelectedRate(t *testing.T) {
 	start := testTime()
 	for _, test := range []struct {
 		name string
@@ -104,8 +104,8 @@ func TestSameSTARSpacingActivatesAtConfiguredRate(t *testing.T) {
 		want time.Duration
 	}{
 		{name: "below threshold", rate: 19, want: rateIntervalForTest(19)},
-		{name: "at threshold", rate: 20, want: 6 * time.Minute},
-		{name: "above threshold", rate: 30, want: 4 * time.Minute},
+		{name: "at threshold", rate: 20, want: 3 * time.Minute},
+		{name: "above threshold", rate: 30, want: 2 * time.Minute},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			policy := simplePolicy("A", start, test.rate)
@@ -127,6 +127,7 @@ func TestSameSTARSpacingAllowsDifferentFamiliesAndCountsWTCGap(t *testing.T) {
 	policy.SameSTARSpacing = sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
 	monak := flight("MONAK", "A", start, "H")
 	monak.STARFamily = "MONAK"
+	monak.ActiveHoldingSince = &start
 	tudlo := flight("TUDLO", "A", start, "M")
 	tudlo.STARFamily = "TUDLO"
 	secondMonak := flight("MONAK-2", "A", start, "M")
@@ -141,6 +142,7 @@ func TestSameSTARSpacingAllowsDifferentFamiliesAndCountsWTCGap(t *testing.T) {
 	policy.SameSTARSpacing = sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
 	lead := protectedFlight("LEAD", "A", start, "J", start, aman.FreezeManual)
 	lead.STARFamily = "MONAK"
+	lead.ActiveHoldingSince = &start
 	trail := flight("TRAIL", "A", start, "M")
 	trail.STARFamily = "MONAK"
 	result, err = sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{lead, trail}})
@@ -154,6 +156,7 @@ func TestSameSTARSpacingWarningsAreDeterministic(t *testing.T) {
 	policy.SameSTARSpacing = sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
 	lead := protectedFlight("LEAD", "A", start, "M", start, aman.FreezeManual)
 	lead.STARFamily = "MONAK"
+	lead.ActiveHoldingSince = &start
 	trail := protectedFlight("TRAIL", "A", start.Add(3*time.Minute), "M", start.Add(3*time.Minute), aman.FreezeSuperstable)
 	trail.STARFamily = "MONAK"
 	unknown := flight("UNKNOWN", "A", start.Add(9*time.Minute), "M")
@@ -609,7 +612,7 @@ func TestSTARFamilyPoliciesAllocateDeterministicSpacing(t *testing.T) {
 			want: 3 * time.Minute,
 		},
 		{
-			name: "below activation rate uses base interval", rate: 19,
+			name: "light demand uses base interval", rate: 19,
 			firstFamily: "TESPI", secondFamily: "TESPI",
 			families: []sequence.STARFamilyPolicy{{STARFamily: "TESPI", SameSTARSpacing: enabled}},
 			want:     rateIntervalForTest(19),
@@ -644,6 +647,9 @@ func TestSTARFamilyPoliciesAllocateDeterministicSpacing(t *testing.T) {
 			}
 			first := flight("ONE", "A", start, "M")
 			first.STARFamily = test.firstFamily
+			if test.name != "light demand uses base interval" {
+				first.ActiveHoldingSince = &start
+			}
 			second := flight("TWO", "A", start.Add(test.secondTETA), "M")
 			second.STARFamily = test.secondFamily
 			input := sequence.Input{Policies: []sequence.Policy{policy}, STARFamilyPolicies: test.families, Flights: []sequence.Flight{second, first}}

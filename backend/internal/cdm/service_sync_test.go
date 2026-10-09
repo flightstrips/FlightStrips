@@ -1076,12 +1076,13 @@ func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPendin
 		case "/ifps/depAirport":
 			_, _ = fmt.Fprintf(w, `[{
 				"callsign":"SAS133",
+				"atfcmData":{"mostPenalisingRegulation":"REGUL"},
 				"departure":"EKCH",
 				"eobt":%q,
 				"tobt":%q,
 				"ctot":%q,
 				"cdmSts":"REA",
-				"cdmData":{"reason":"REGUL"}
+				"cdmData":{"reason":"OLD_REG"}
 			}]`, times.Eobt, times.Tobt, times.Ctot)
 		case "/ifps/setCdmData":
 			setCdmCh <- struct{}{}
@@ -1128,6 +1129,9 @@ func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPendin
 	}
 	if persisted == nil || !persisted.Recalculate {
 		t.Fatalf("expected recalculation-pending state, got %#v", persisted)
+	}
+	if got := valueOrEmpty(persisted.EcfmpID); got != "REGUL" {
+		t.Fatalf("expected ATFCM regulation to take precedence over CDM reason, got %q", got)
 	}
 
 	select {
@@ -1197,32 +1201,5 @@ func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testi
 		}
 	case <-time.After(time.Second):
 		t.Fatal("expected master sync to push local CDM data to vIFF")
-	}
-}
-
-func TestMarkViffPushPending_DeduplicatesAndAllowsRetryAfterClear(t *testing.T) {
-	service := newTestCdmService(
-		NewClient(WithAPIKey("test-key"), WithHTTPClient(newFailingHTTPClient())),
-		&testutil.MockStripRepository{},
-		&testutil.MockSessionRepository{},
-		&testutil.MockControllerRepository{},
-	)
-	state := viffPushState{
-		Params: SetCdmDataParams{
-			Callsign: "SAS251",
-			Tsat:     "101500",
-		},
-	}
-
-	if !service.markViffPushPending(1, "SAS251", state) {
-		t.Fatal("expected first vIFF push state to be marked pending")
-	}
-	if service.markViffPushPending(1, "SAS251", state) {
-		t.Fatal("expected duplicate vIFF push state to be deduplicated")
-	}
-
-	service.clearPendingViffPush(1, "SAS251", state)
-	if !service.markViffPushPending(1, "SAS251", state) {
-		t.Fatal("expected cleared vIFF push state to be eligible for retry")
 	}
 }

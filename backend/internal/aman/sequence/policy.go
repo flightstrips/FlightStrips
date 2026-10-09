@@ -224,14 +224,11 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 	if target.CurrentSlot == nil {
 		return Decision{}, invalidTransition("go-around sequence policy requires a current slot")
 	}
-	policies, err := preparePolicies(working.Policies)
+	policies, prepared, err := prepareInput(working)
 	if err != nil {
 		return Decision{}, err
 	}
-	prepared, err := prepareFlights(working.Flights, policies)
-	if err != nil {
-		return Decision{}, err
-	}
+
 	groupPolicy := policies[target.RunwayGroupID]
 	groupFlights := prepared[target.RunwayGroupID]
 	var moving preparedFlight
@@ -427,6 +424,7 @@ func cloneInput(input Input) Input {
 	}
 	for index, flight := range input.Flights {
 		copy.Flights[index] = flight
+		copy.Flights[index].DemandArrivalAt = cloneTime(flight.DemandArrivalAt)
 		copy.Flights[index].InitialBaselineTETA = cloneTime(flight.InitialBaselineTETA)
 		copy.Flights[index].PromotionNotBefore = cloneTime(flight.PromotionNotBefore)
 		if flight.STARProgress != nil {

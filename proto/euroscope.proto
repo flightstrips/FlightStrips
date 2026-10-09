@@ -61,6 +61,7 @@ enum EventType {
   EVENT_HOLD = 50;
   EVENT_AMAN_GAIN_LOSS = 51;
   EVENT_AMAN_ROUTE_FACT = 52;
+  EVENT_FS_SCRATCH_PAD = 53;
 }
 
 // Every websocket frame contains exactly one event. Using a oneof makes the
@@ -120,6 +121,7 @@ message Envelope {
     HoldEvent hold = 50;
     AMANGainLossEvent aman_gain_loss = 51;
     AMANRouteFactEvent aman_route_fact = 52;
+    FsScratchPadEvent fs_scratch_pad = 53;
   }
 }
 
@@ -281,6 +283,7 @@ message BackendSyncStrip {
   string hold = 9;
   string hold_type = 10;
   string hold_eat = 11;
+  string fs_scratch_pad = 12;
 }
 
 message BackendSyncEvent {
@@ -400,4 +403,10 @@ message AssignedSpeed {
 message AMANRouteFactEvent {
   int32 version = 1;
   AMANRouteFactData data = 2;
+}
+
+// Backend-owned shared text. Empty text explicitly clears the field.
+message FsScratchPadEvent {
+  string callsign = 1;
+  string text = 2;
 }

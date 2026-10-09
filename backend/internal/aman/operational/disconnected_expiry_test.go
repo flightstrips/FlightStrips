@@ -148,6 +148,7 @@ func TestAutomaticExpiryAcceptsNewObservationButRejectsReplayAndManualRemoval(t 
 		require.Equal(t, removed, got)
 	}
 	observation.ReconciledAt = now.Add(time.Second)
+	observation.FlightPlan.ObservedAt = &base
 	got, err := service.reconcileFlight(context.Background(), state, removed, observation, observation.ReconciledAt)
 	require.NoError(t, err)
 	require.NotEqual(t, aman.StateRemoved, got.State)
@@ -156,7 +157,10 @@ func TestAutomaticExpiryAcceptsNewObservationButRejectsReplayAndManualRemoval(t 
 	removed.Lifecycle.Reason = aman.LifecycleReasonManualRemoval
 	got, err = service.reconcileFlight(context.Background(), state, removed, observation, observation.ReconciledAt)
 	require.NoError(t, err)
-	require.Equal(t, removed, got)
+	require.Equal(t, aman.StateRemoved, got.State)
+	require.Equal(t, removed.Lifecycle, got.Lifecycle)
+	require.Equal(t, observation, *got.LatestObservation)
+	require.Nil(t, got.Slot)
 }
 
 func TestLegacyPausedDisappearanceStillExpiresAtOriginalDeadline(t *testing.T) {

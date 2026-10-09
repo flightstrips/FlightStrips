@@ -5,8 +5,32 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <filesystem>
+#include <vector>
 
 namespace FlightStrips::flightplan {
+    namespace {
+        // EuroScope keeps its airline telephony list in %APPDATA%\EuroScope\DataFiles; prefer it over the plugin-relative config path.
+        std::string ResolveAirlinesFilePath(filesystem::FileSystem* fileSystem, const std::string& configuredFile) {
+            std::vector<std::filesystem::path> candidates;
+            char appData[MAX_PATH + 1] = {0};
+            if (const auto len = GetEnvironmentVariableA("APPDATA", appData, MAX_PATH); len > 0 && len <= MAX_PATH) {
+                candidates.push_back(std::filesystem::path(appData) / "EuroScope" / "DataFiles" / "ICAO_Airlines.txt");
+            }
+            char exePath[MAX_PATH + 1] = {0};
+            if (GetModuleFileNameA(nullptr, exePath, MAX_PATH) > 0) {
+                candidates.push_back(std::filesystem::path(exePath).remove_filename() / "DataFiles" / "ICAO_Airlines.txt");
+            }
+            for (const auto& candidate : candidates) {
+                if (std::error_code ec; std::filesystem::exists(candidate, ec)) {
+                    return candidate.string();
+                }
+            }
+
+            return fileSystem->GetLocalFilePath(configuredFile).string();
+        }
+    }
+
     // Returns whether the hold changed; the scratch pad callback fires on edits
     // that have nothing to do with holding.
     bool ApplyHold(FlightPlan& plan, const TopSkyHold& hold, const std::string& eatPulse) {
@@ -32,6 +56,7 @@ namespace FlightStrips::flightplan {
     }
 
     bool ApplyTopSkyHoldCommand(FlightPlan& plan, const TopSkyHoldCommand& command) {
+        if (command.type != TopSkyHoldCommandType::None) plan.published_hold_eat.reset();
         switch (command.type) {
             case TopSkyHoldCommandType::Assign: {
                 plan.hold_command_observed = true;
@@ -112,9 +137,9 @@ namespace FlightStrips::flightplan {
                                                                       m_standService(standService),
                                                                       m_appConfig(appConfig),
                                                                       m_airlineCallsignService(std::make_unique<AirlineCallsignService>(
-                                                                          fileSystem == nullptr
+                                                                          fileSystem == nullptr || m_appConfig == nullptr
                                                                               ? ""
-                                                                              : fileSystem->GetLocalFilePath(m_appConfig->GetAirlinesFile()).string())),
+                                                                              : ResolveAirlinesFilePath(fileSystem, m_appConfig->GetAirlinesFile()))),
                                                                       m_flightPlans({}) {
     }
 
@@ -148,8 +173,8 @@ namespace FlightStrips::flightplan {
         }
 
         FlightPlan plan = {
-            std::string(position.GetSquawk()),
-            stand
+            .squawk = std::string(position.GetSquawk()),
+            .stand = stand
         };
 
         if (isRangeOnly) {
@@ -484,7 +509,7 @@ namespace FlightStrips::flightplan {
     }
 
     void FlightPlanService::SetStand(const std::string &callsign, const std::string &stand) {
-        FlightPlan plan{{}, stand};
+        FlightPlan plan{.stand = stand};
         if (const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan}); !inserted) {
             if (pair->second.stand != plan.stand) {
                 pair->second.stand = plan.stand;
@@ -533,6 +558,16 @@ namespace FlightStrips::flightplan {
         ApplyCdmUpdate(event);
     }
 
+    void FlightPlanService::ApplyFsScratchPad(const std::string& callsign, const std::string& text) {
+        m_flightPlans.try_emplace(callsign).first->second.fs_scratch_pad = text;
+    }
+
+    void FlightPlanService::SessionChanged(const std::string& identity) {
+        if (m_sessionIdentity == identity) return;
+        for (auto& [callsign, plan] : m_flightPlans) plan.fs_scratch_pad.clear();
+        m_sessionIdentity = identity;
+    }
+
     void FlightPlanService::ApplyBackendSyncHold(const std::string& callsign, const std::string& hold,
                                                  const std::string& holdType, const std::string& holdEat) {
         auto& plan = m_flightPlans.try_emplace(callsign).first->second;
@@ -547,6 +582,7 @@ namespace FlightStrips::flightplan {
     void FlightPlanService::CacheBackendHoldEatReplay(const std::string& callsign, const std::string& hold,
                                                       const std::string& holdType, const std::string& holdEat) {
         auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+        plan.published_hold_eat = hold.empty() ? std::string{} : holdEat;
         if (hold.empty() || holdType.empty() || holdEat.empty()) {
             plan.backend_hold_eat_replay.reset();
             return;

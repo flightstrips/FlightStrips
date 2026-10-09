@@ -25,6 +25,7 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 			Asrt:                   testStringPointer("103500"),
 			Tsac:                   testStringPointer("103500"),
 			Status:                 testStringPointer("READY"),
+			DeicePlatform:          testStringPointer("B"),
 			MostPenalizingAirspace: testStringPointer("DK-E"),
 			EcfmpID:                testStringPointer("REGUL"),
 			CtotSource:             testStringPointer("ATFCM"),
@@ -44,6 +45,7 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 	assert.Equal(t, "1035", model.Asrt)
 	assert.Equal(t, "1035", model.Tsac)
 	assert.Equal(t, "READY", model.Status)
+	assert.Equal(t, "B", model.DeicePlatform)
 	assert.Equal(t, "DK-E", model.MostPenalizingAirspace)
 	assert.Equal(t, "REGUL", model.EcfmpID)
 	assert.Equal(t, "ATFCM", model.CtotSource)

@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import EstStandCell from "@/components/est/EstStandCell";
 import EstViewButtons from "@/components/est/EstViewButtons";
 import {
-  EST_BACKGROUND_BOXES,
   EST_BOARD_HEIGHT,
   EST_BOARD_WIDTH,
+  getDefaultEstViewForStand,
+  getEstBackgroundBoxesForView,
   getEstStandsForView,
-  isCargoStand,
   type EstView,
 } from "@/components/est/metadata";
 import { ActionType, Bay, type FrontendStrip } from "@/api/models";
@@ -67,7 +67,7 @@ function SatStandAssignmentMenu({ open, onOpenChange, callsign }: Omit<Props, "c
   if (relevantRejection) {
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/25" onMouseDown={close}>
-        <div className="w-[38rem] border border-black bg-[#e4e4e4] p-5 text-center shadow-lg" onMouseDown={e => e.stopPropagation()} role="alertdialog" aria-label="Stand assignment warning">
+        <div className="animate-dialog-zoom-in w-[38rem] border border-black bg-[#e4e4e4] p-5 text-center shadow-lg" onMouseDown={e => e.stopPropagation()} role="alertdialog" aria-label="Stand assignment warning">
           <h2 className="mb-5 text-2xl font-light">STAND ASSIGNMENT</h2>
           <p className="mb-6 text-2xl text-red-600">{relevantRejection.code === "invalid_stand" ? "STAND NOT FOUND" : relevantRejection.reason}</p>
           <div className="flex justify-center gap-4">
@@ -82,7 +82,7 @@ function SatStandAssignmentMenu({ open, onOpenChange, callsign }: Omit<Props, "c
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onMouseDown={close}>
-      <div className="w-[17.8rem] border border-black bg-[#b3b3b3] p-4 shadow-lg" onMouseDown={e => e.stopPropagation()} role="dialog" aria-label="Stand assignment">
+      <div className="animate-dialog-zoom-in w-[17.8rem] border border-black bg-[#b3b3b3] p-4 shadow-lg" onMouseDown={e => e.stopPropagation()} role="dialog" aria-label="Stand assignment">
         <h2 className="mb-2 text-center text-2xl font-light">STAND ASSIGNMENT</h2>
         <div className="flex flex-col gap-2">
           <MenuButton onClick={send}>SEND REQ</MenuButton>
@@ -114,7 +114,7 @@ function LegacyArrStandDialog({ open, onOpenChange, callsign, currentStand }: Pr
   const [boardViewOverride, setBoardViewOverride] = useState<EstView | null>(null);
   const boardFrameRef = useRef<HTMLDivElement>(null);
   const [nowMs] = useState(() => Date.now());
-  const defaultBoardView: EstView = currentStand && isCargoStand(currentStand) ? "CARGO" : "MAIN";
+  const defaultBoardView: EstView = getDefaultEstViewForStand(currentStand);
   const boardView = boardViewOverride ?? defaultBoardView;
 
   useEffect(() => {
@@ -214,7 +214,7 @@ function LegacyArrStandDialog({ open, onOpenChange, callsign, currentStand }: Pr
               transform: `scale(${boardScale})`,
             }}
           >
-            {boardView !== "CARGO" && EST_BACKGROUND_BOXES.map((box) => (
+            {getEstBackgroundBoxesForView(boardView).map((box) => (
               <div
                 key={`${box.x}-${box.y}`}
                 className="absolute flex items-center justify-center font-bold"

@@ -12,10 +12,13 @@ import { ClxHalfStrip } from "./ClxHalfStrip";
 import { TacticalMemaidStrip } from "./TacticalMemaidStrip";
 import { TacticalCrossingStrip } from "./TacticalCrossingStrip";
 import { TacticalRwyStrip } from "./TacticalRwyStrip";
+import { TacticalDeiceLaneStrip } from "./TacticalDeiceLaneStrip";
+import { isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
 import { ControlzoneStrip } from "./ControlzoneStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 import { useAirport } from "@/store/store-hooks";
+import { useIsLocallyHidden } from "@/store/localHiddenStrips";
 
 export type { StripStatus };
 export type { StripProps };
@@ -37,21 +40,25 @@ interface StripRenderProps {
 // Maps each strip status to the internal width used by the corresponding flight strip component.
 // Used so tactical strips (memaid, crossing, etc.) match the width of flight strips in the same bay.
 const STATUS_DEFAULT_WIDTH: Partial<Record<StripStatus, string>> = {
-  "ARR":      "90%",   // ApnArrStrip
+  "ARR":      "95%",   // ApnArrStrip
   "FINAL-ARR":"95%",   // FinalArrStrip
-  "PUSH":     "90%",   // ApnPushStrip (non-fullWidth)
+  "PUSH":     "95%",   // ApnPushStrip (non-fullWidth)
   "TWY-DEP":  "95%",   // TwyDepStrip
-  "TAXI-DEP": "90%",   // ApnTaxiDepStrip
-  "CLR":      "80%",   // DelStrip (non-fullWidth)
-  "CLX-HALF": "80%",   // ClxHalfStrip (non-fullWidth)
-  "CLROK":    "88.44%",// ClxClearedStrip (non-fullWidth)
+  "TAXI-DEP": "95%",   // ApnTaxiDepStrip
+  "CLR":      "95%",   // DelStrip (non-fullWidth)
+  "CLX-HALF": "95%",   // ClxHalfStrip (non-fullWidth)
+  "CLROK":    "95%",// ClxClearedStrip (non-fullWidth)
 };
 
 export function Strip({ strip, status, halfStripVariant, myPosition, selectable, delegateCallsignClick, onStripMoved, width, fullWidth, startupSiTransfer }: StripRenderProps) {
   const airport = useAirport();
+  const localHidden = useIsLocallyHidden(isFlight(strip) ? strip.callsign : "");
 
   if (!isFlight(strip)) {
     const effectiveWidth = width ?? (status ? STATUS_DEFAULT_WIDTH[status] : undefined);
+    if (isDeiceHeaderTacticalStrip(strip)) {
+      return <TacticalDeiceLaneStrip strip={strip} width={width ?? "100%"} />;
+    }
     switch (strip.type) {
       case "MEMAID":
         return <TacticalMemaidStrip strip={strip} width={effectiveWidth} />;
@@ -65,7 +72,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     }
   }
 
-  if (status === "CONTROLZONE") {
+  if (status === "CONTROLZONE" && !localHidden) {
     return <ControlzoneStrip strip={strip} selectable={selectable} />;
   }
 
@@ -82,6 +89,8 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     tsat: normalizeCdmTime(strip.tsat),
     ctot: normalizeCdmTime(strip.ctot),
     phase: strip.phase,
+    deicePlatform: strip.deice_platform,
+    deicePlatformAcknowledged: strip.deice_platform_acknowledged,
     aircraftType: strip.aircraft_type,
     aircraftCategory: strip.aircraft_category,
     squawk: strip.squawk,
@@ -116,6 +125,10 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     requested_altitude: strip.requested_altitude,
     arrival: strip.destination === airport && strip.origin !== airport,
   };
+
+  if (localHidden && status !== "HALF" && status !== "CLX-HALF") {
+    return <HalfStrip {...props} halfStripVariant={props.arrival ? "APN-ARR" : "APN-PUSH"} localHidden fullWidth={false} />;
+  }
 
   switch (status) {
     case "CLR":

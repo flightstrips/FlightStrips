@@ -45,7 +45,7 @@
         "04L"
       ],
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       },
@@ -81,7 +81,7 @@
         "04R"
       ],
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       },
@@ -117,7 +117,7 @@
         "22L"
       ],
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       },
@@ -153,7 +153,7 @@
         "22R"
       ],
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       },
@@ -189,7 +189,7 @@
         "12"
       ],
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       },
@@ -225,7 +225,7 @@
         "30"
       ],
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       },
@@ -268,7 +268,7 @@
       "starFamily": "ERNOV",
       "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       }
@@ -277,7 +277,7 @@
       "starFamily": "MONAK",
       "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       }
@@ -286,7 +286,7 @@
       "starFamily": "TESPI",
       "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       }
@@ -295,7 +295,7 @@
       "starFamily": "TIDVU",
       "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       }
@@ -304,7 +304,7 @@
       "starFamily": "TUDLO",
       "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
-        "enabled": false,
+        "enabled": true,
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       }

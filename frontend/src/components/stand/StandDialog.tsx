@@ -34,7 +34,7 @@ export default function StandDialog({ value, onSelect }: StandDialogProps) {
             value={value}
             readOnly
             className="border-black rounded-none text-black font-bold w-full text-center cursor-pointer"
-            style={{ fontFamily: 'Arial', fontSize: scalePx(18), height: scalePx(50) }}
+            style={{ fontFamily: 'var(--font-bay)', fontSize: scalePx(18), height: scalePx(50) }}
           />
         </div>
       </DialogTrigger>

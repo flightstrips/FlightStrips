@@ -3,15 +3,12 @@ import type { CSSProperties } from "react";
 import { Bay, type FrontendStrip } from "@/api/models";
 import { SELECTION_COLOR } from "@/components/strip/shared";
 import { cn, getSimpleAircraftType } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CDM_GREEN, CDM_RED, CTOT_BLUE, computeCDMColors, computeCTOTColors, hasManualTobtSource, isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
+import { CDM_GREEN, CDM_RED, CTOT_BLUE, computeCDMColors, computeCTOTColors, isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
 
 import {
   EST_CELL_HEIGHT,
   EST_CELL_WIDTH,
   formatTimeLabel,
-  getBridgeStatus,
-  getVgdsStatus,
   type EstCanvasStand,
 } from "@/components/est/metadata";
 
@@ -26,10 +23,21 @@ const TOBT_ROW_TOP = 88;
 const TSAT_ROW_TOP = 105;
 const CTOT_ROW_TOP = 121;
 const ROW_HEIGHT = 15;
-const LABEL_FONT_SIZE = 20;
+const LABEL_FONT_SIZE = 18;
 const DETAILS_FONT_SIZE = 14;
 const CONTENT_FONT_SIZE = 12;
-const CONTENT_FONT = "Rubik, sans-serif";
+const TIME_FONT_SIZE = 13.5;
+const CALLSIGN_FONT_SIZE = 17;
+const CONTENT_FONT = "var(--font-bay)";
+
+const NON_DEPARTURE_STAND_BAYS = new Set<string>([
+  Bay.Push,
+  Bay.Stand,
+  Bay.Final,
+  Bay.RwyArr,
+  Bay.TwyArr,
+  Bay.ArrHidden,
+]);
 
 interface EstStandCellProps {
   stand: { label: string; column?: number; row?: number } | EstCanvasStand;
@@ -51,7 +59,7 @@ export default function EstStandCell({
   stand,
   strip,
   blocked,
-  blockReason,
+  blockReason: _blockReason,
   actionActive,
   blinking,
   startReqActive,
@@ -65,16 +73,15 @@ export default function EstStandCell({
   // marker. The backend reconciles that marker, but the board must remain
   // usable while websocket updates are in flight or after a missed update.
   const effectivelyBlocked = blocked && !strip;
-  const vgdsStatus = getVgdsStatus(stand.label);
-  const bridgeStatus = getBridgeStatus(stand.label);
-  const tooltipContent = [vgdsStatus, bridgeStatus, effectivelyBlocked ? blockReason : undefined].filter(Boolean).join(" \u2022 ");
   const gridStyle =
     "column" in stand && "row" in stand && stand.column !== undefined && stand.row !== undefined
       ? { gridColumn: stand.column, gridRow: stand.row }
       : undefined;
 
-  const isDeparture = !!strip && (strip.bay === Bay.NotCleared || strip.bay === Bay.Cleared);
-  const isClearedDeparture = isDeparture && strip.bay !== Bay.NotCleared;
+  // Departures parked by default can sit in bays other than NOT_CLEARED (e.g. DEP_HIDDEN/UNKNOWN);
+  // anything on a stand that isn't arriving or already moving counts as a departure.
+  const isDeparture = !!strip && !NON_DEPARTURE_STAND_BAYS.has(strip.bay);
+  const isClearedDeparture = isDeparture && strip.bay === Bay.Cleared;
   const isReady = isDeparture && !!strip?.start_req && !departureTransferActive;
   const isPushing = strip?.bay === Bay.Push;
   const isArrival = strip?.bay === Bay.Stand;
@@ -101,7 +108,7 @@ export default function EstStandCell({
     backgroundClass = "bg-[#FFF28E]";
     textClass = "text-black";
   } else if (isDeparture) {
-    backgroundClass = "bg-[#D9D9D9]";
+    backgroundClass = "bg-[#959595]";
     textClass = "text-black";
   }
 
@@ -109,7 +116,6 @@ export default function EstStandCell({
     ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay, strip.phase)
     : { tobtBg: "", tsatBg: "" };
   const ctotColors = strip ? computeCTOTColors(strip.ctot, nowMs) : null;
-	const emphasizeTobtTime = strip ? hasManualTobtSource(strip.tobt_set_by) : false;
 
   const showTobt = isDeparture && !departureTransferActive && !!strip && strip.tobt !== "";
   const showTsat = isDeparture && !departureTransferActive && !!strip && strip.tsat !== "";
@@ -128,7 +134,7 @@ export default function EstStandCell({
 
   const showMark = isClearedDeparture && !departureTransferActive && !!strip?.marked;
   const showCtotText = ctotLabel !== "";
-  const boxShadows: string[] = [];
+  const boxShadows: string[] = ["inset 2px 2px 2px rgba(0, 0, 0, 0.25)"];
   if (showReady) {
     const tsatWithinWindow = isTsatWithinStartRequestWindow(strip?.tsat ?? "", nowMs);
     boxShadows.push(`inset 0 0 0 2px ${tsatWithinWindow ? CDM_GREEN : CDM_RED}`);
@@ -137,20 +143,18 @@ export default function EstStandCell({
     boxShadows.push(`0 0 0 4px ${SELECTION_COLOR}`);
   }
   const buttonStyle: CSSProperties = {
-    width: EST_CELL_WIDTH,
+    width: "width" in stand && stand.width ? stand.width : EST_CELL_WIDTH,
     height: EST_CELL_HEIGHT,
     boxShadow: boxShadows.length > 0 ? boxShadows.join(", ") : undefined,
   };
 
   return (
     <div style={containerStyle ?? gridStyle} className="relative">
-      <Tooltip>
-        <TooltipTrigger asChild>
           <button
             type="button"
             onClick={(event) => onClick(stand.label, strip, event.currentTarget)}
             className={cn(
-              "relative overflow-hidden rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white",
+              "relative overflow-hidden rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-white",
               backgroundClass,
               textClass,
               blinking && "animate-pulse",
@@ -196,18 +200,18 @@ export default function EstStandCell({
                 fontSize: LABEL_FONT_SIZE,
               }}
             >
-              {stand.label}
+              {"displayLabel" in stand && stand.displayLabel ? stand.displayLabel : stand.label}
             </div>
 
             {/* Callsign */}
             {strip && (
                <div
-                 className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center font-bold"
+                 className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center"
                  style={{
                   top: CALLSIGN_ROW_TOP,
                   height: CALLSIGN_ROW_HEIGHT,
                   fontFamily: CONTENT_FONT,
-                  fontSize: DETAILS_FONT_SIZE,
+                  fontSize: CALLSIGN_FONT_SIZE,
                   backgroundColor: showMark ? SELECTION_COLOR : undefined,
                   color: showMark ? "#000000" : undefined,
                 }}
@@ -253,10 +257,10 @@ export default function EstStandCell({
              {showTobt && (
                 <div
                   className="absolute left-0 right-0 flex items-center justify-center gap-1"
-                  style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE, color: tobtBarColor === CDM_GREEN ? "#000000" : undefined }}
+                  style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: TIME_FONT_SIZE, color: tobtBarColor === CDM_GREEN ? "#000000" : undefined }}
                 >
                   <span>TOBT:</span>
-                  <span style={{ fontWeight: emphasizeTobtTime ? 700 : undefined }}>
+                  <span>
                     {formatTimeLabel(strip!.tobt).replace(":", "")}
                   </span>
                 </div>
@@ -266,7 +270,7 @@ export default function EstStandCell({
             {showTsat && (
                <div
                  className="absolute left-0 right-0 flex items-center justify-center"
-                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE, color: tsatBarColor === CDM_GREEN ? "#000000" : undefined }}
+                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: TIME_FONT_SIZE, color: tsatBarColor === CDM_GREEN ? "#000000" : undefined }}
                >
                  {`TSAT: ${formatTimeLabel(strip!.tsat).replace(":", "")}`}
                </div>
@@ -275,20 +279,13 @@ export default function EstStandCell({
             {/* CTOT text */}
             {showCtotText && (
               <div
-                className="absolute left-0 right-0 flex items-center justify-center font-bold"
-                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE, color: ctotTextColor }}
+                className="absolute left-0 right-0 flex items-center justify-center"
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: TIME_FONT_SIZE, color: ctotTextColor }}
               >
                 {ctotLabel}
               </div>
             )}
           </button>
-        </TooltipTrigger>
-        {tooltipContent ? (
-          <TooltipContent sideOffset={6} className="max-w-48 text-center">
-            {tooltipContent}
-          </TooltipContent>
-        ) : null}
-      </Tooltip>
     </div>
   );
 }

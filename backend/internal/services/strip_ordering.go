@@ -150,6 +150,7 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 	if err != nil {
 		return err
 	}
+	initialPushbackTiming := snapshotPushbackTransitionTiming(strip)
 	if bay == shared.BAY_PUSH && stripAvailable && strip != nil && strip.Bay != shared.BAY_PUSH && strip.CdmData != nil && !pushbackWasValidated(ctx, session, callsign) {
 		latest, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 		if err != nil {
@@ -205,12 +206,35 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		}
 	}
 
+	if bay == shared.BAY_PUSH && previousBay != shared.BAY_PUSH && strip != nil && ctx.Value(pushbackTransitionLoggedContextKey{}) != true {
+		source := "bay_move"
+		if provenance, ok := ctx.Value(pushbackTransitionContextKey{}).(pushbackTransitionContext); ok {
+			source, initialPushbackTiming = provenance.source, provenance.initial
+		}
+		logPushbackTransition(ctx, session, callsign, source, previousBay, initialPushbackTiming, strip)
+	}
 	if bay == shared.BAY_PUSH && previousBay != shared.BAY_PUSH && strip != nil && strip.CdmData != nil && s.cdmService != nil {
 		if err := s.cdmService.SyncAsatForGroundState(ctx, session, callsign, euroscope.GroundStatePush); err != nil {
 			return err
 		}
 	}
+	if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, bay); err != nil {
+		return err
+	}
 	return s.applyBayChangeEffects(ctx, session, callsign, previousBay, bay, sendNotification)
+}
+
+func (s *StripService) acknowledgeDeicePlatformInBay(ctx context.Context, session int32, callsign string, bay string) error {
+	if bay != shared.BAY_TAXI_TWR {
+		return nil
+	}
+	service, ok := s.cdmService.(interface {
+		AcknowledgeDeicePlatform(context.Context, int32, string) error
+	})
+	if !ok {
+		return nil
+	}
+	return service.AcknowledgeDeicePlatform(ctx, session, callsign)
 }
 
 func (s *StripService) applyBayChangeEffects(ctx context.Context, session int32, callsign string, previousBay string, bay string, sendNotification bool) error {
@@ -316,6 +340,9 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 		if err := s.updateStripSequence(ctx, session, callsign, newOrder, bay, false); err != nil {
 			return err
 		}
+		if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, bay); err != nil {
+			return err
+		}
 		if err := s.recalculateAllStripSequences(ctx, session, bay); err != nil {
 			return err
 		}
@@ -325,6 +352,9 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 		return nil
 	}
 	if err := s.updateStripSequence(ctx, session, callsign, newOrder, bay, true); err != nil {
+		return err
+	}
+	if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, bay); err != nil {
 		return err
 	}
 	if landingClearanceValidationRelevantBay(bay) {

@@ -80,12 +80,16 @@ namespace FlightStrips::flightplan {
 
     struct FlightPlan {
     public:
+        std::string fs_scratch_pad{};
         std::string squawk{};
         std::string stand{};
         /// TopSky holding clearance. An empty point means not holding.
         std::string hold{};
         std::string hold_type{};
         std::string hold_eat{};
+        /// Last server EAT for display, including an explicit empty value.
+        /// Kept separate from observed TopSky state used for reporting/replay.
+        std::optional<std::string> published_hold_eat{};
         /// A live HOLD or XHOLD command has established authoritative state.
         bool hold_command_observed{false};
         /// A live command was observed while the backend connection was down.

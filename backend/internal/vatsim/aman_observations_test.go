@@ -319,6 +319,24 @@ func TestObservationWorkerRetractsPreviousAirportOnDestinationChange(t *testing.
 	require.Equal(t, "EKBI", worker.known["SAS101"].Destination)
 }
 
+func TestObservationWorkerPublishesDiversionToUnsupportedAirport(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	worker, _ := newObservationTestWorker(t, cache, &now, sink)
+	require.NoError(t, worker.Publish(t.Context()))
+	now = now.Add(time.Second)
+	flight.LastUpdated, flight.FlightPlan.Destination = now, "ESGG"
+	setObservationCacheSnapshot(cache, now, nil, flight)
+	require.NoError(t, worker.Publish(t.Context()))
+	require.Len(t, sink.observations, 2)
+	require.Equal(t, "ESGG", sink.observations[1].Destination)
+	require.False(t, sink.observations[1].Missing)
+	require.Equal(t, now, *sink.observations[1].FlightPlan.ObservedAt)
+	require.Empty(t, worker.known)
+}
+
 func TestObservationWorkerIgnoresCIDChanges(t *testing.T) {
 	now := time.Date(2026, time.September, 14, 18, 0, 0, 0, time.UTC)
 	flight := Flight{CID: "101", Callsign: "SAS123", State: FlightStateOnline, LastUpdated: now,

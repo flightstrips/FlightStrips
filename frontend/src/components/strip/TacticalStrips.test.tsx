@@ -1,8 +1,9 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Bay, type TacticalStrip } from "@/api/models";
-import { StartButton } from "./TacticalButtons";
+import { DeiceLaneButton, DeicePlatformButton, StartButton } from "./TacticalButtons";
 import { TacticalCrossingStrip } from "./TacticalCrossingStrip";
+import { TacticalDeiceLaneStrip } from "./TacticalDeiceLaneStrip";
 import { TacticalMemaidStrip } from "./TacticalMemaidStrip";
 import { TacticalRwyStrip } from "./TacticalRwyStrip";
 
@@ -64,6 +65,47 @@ afterEach(() => {
 });
 
 describe("tactical strip ownership interactions", () => {
+  it("creates and renders a de-ice lane without ownership actions", () => {
+    const { container } = render(
+      <>
+        <DeiceLaneButton area="A" lane={1} frequency="130.650" />
+        <TacticalDeiceLaneStrip
+          strip={tactical({ type: "MEMAID", bay: Bay.DeIce, label: "DEICE_HEADER:A:LANE 1 \u2013 130.650MHz" })}
+        />
+      </>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "LANE1" }));
+    expect(actions.createTacticalStrip).toHaveBeenCalledWith(
+      "MEMAID",
+      Bay.DeIce,
+      "DEICE_HEADER:A:LANE 1 \u2013 130.650MHz",
+      "",
+    );
+    const laneLabel = screen.getByText("LANE 1 \u2013 130.650MHz");
+    expect(laneLabel).toHaveClass("text-[#CECECE]");
+    expect(laneLabel.parentElement).toHaveClass("justify-start");
+    expect(container.querySelector(".bay-col-header")).toHaveClass("bay-col-sep", "!h-[2.775dvh]");
+    expect(container.querySelector(".bay-col-header")).toHaveStyle({ width: "100%" });
+    expect(screen.getByRole("button", { name: "Close LANE 1 \u2013 130.650MHz" })).toHaveClass("text-[#CECECE]");
+    fireEvent.click(screen.getByText("LANE 1 \u2013 130.650MHz"));
+    expect(actions.markTacticalStrip).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Tactical strip actions" })).not.toBeInTheDocument();
+  });
+
+  it("creates a TWR/GND de-ice platform header strip", () => {
+    render(<DeicePlatformButton platform="V" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "DI V" }));
+
+    expect(actions.createTacticalStrip).toHaveBeenCalledWith(
+      "MEMAID",
+      Bay.DeIce,
+      "DEICE_HEADER:TWRGND:DE-ICE V",
+      "",
+    );
+  });
+
   it("lets the owner start a runway timer without marking the strip", () => {
     const { container } = render(<TacticalRwyStrip strip={tactical()} />);
 
@@ -73,7 +115,7 @@ describe("tactical strip ownership interactions", () => {
     fireEvent.click(screen.getByText("START 22L"));
     expect(actions.markTacticalStrip).toHaveBeenCalledWith(42, true);
     expect(screen.getByText("✕")).toBeInTheDocument();
-    expect(screen.getByText("⌛")).toBeInTheDocument();
+    expect(screen.getByAltText("Hourglass")).toBeInTheDocument();
     expect(container.firstElementChild).toHaveStyle({ backgroundColor: "#dd6a12" });
     expect(container.querySelector(".bg-white")).toHaveStyle({ borderRight: "2px solid #a04a00" });
   });
@@ -124,7 +166,7 @@ describe("tactical strip ownership interactions", () => {
     position = "EKCH_GND";
     render(<TacticalMemaidStrip strip={tactical({ type: "MEMAID", label: "STOP CLIMB" })} />);
 
-    fireEvent.click(screen.getByText("⌛"));
+    fireEvent.click(screen.getByAltText("Hourglass"));
     expect(actions.confirmTacticalStrip).toHaveBeenCalledWith(42);
     expect(screen.queryByRole("button", { name: "FORCE ASSUME" })).not.toBeInTheDocument();
   });

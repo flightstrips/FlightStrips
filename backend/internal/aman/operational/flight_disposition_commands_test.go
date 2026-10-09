@@ -55,7 +55,7 @@ func TestDesequenceAndResumeAreAuditedDurableAndEarliestLegal(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, resumed.Changed)
 	require.Equal(t, aman.SequenceDispositionActive, repository.state.Flights[0].SequenceDisposition)
-	require.Equal(t, now.Add(12*time.Minute), repository.state.Flights[0].Slot.Time, "resume must skip the GAP and satisfy wake/STAR spacing from the protected slot")
+	require.Equal(t, now.Add(9*time.Minute), repository.state.Flights[0].Slot.Time, "resume must skip the GAP and satisfy wake spacing without extra STAR spacing in light traffic")
 	require.NotEqual(t, target.Slot.Time, repository.state.Flights[0].Slot.Time, "former slot must not be reserved")
 	require.Len(t, repository.state.Flights, 2)
 

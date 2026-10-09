@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
@@ -19,7 +20,8 @@ import (
 )
 
 type MasterViffSync struct {
-	service *Service
+	service     *Service
+	pushRetries viffPushRetryTracker
 }
 
 type viffPushState struct {
@@ -52,6 +54,12 @@ func (c *MasterViffSync) mergeMasterViffFlight(ctx context.Context, session int3
 	}
 
 	ctotChanged := helpers.ValueOrDefault(flight.Ctot) != nextCtot
+	lastAtfcm := flight.LastViffAtfcmCtot
+	if nextCtotSource == models.CtotSourceATFCM {
+		lastAtfcm = nextCtot
+	} else if lastAtfcm == "" && valueOrEmpty(flight.CtotSource) == models.CtotSourceATFCM {
+		lastAtfcm = truncateCDMClockValue(valueOrEmpty(flight.Ctot))
+	}
 	requestedTobt := truncateCDMClockValue(strings.TrimSpace(row.CDMData.ReqTOBT))
 	requestSource := strings.ToUpper(strings.TrimSpace(row.CDMData.ReqTOBTType))
 	if requestSource == "" {
@@ -61,20 +69,21 @@ func (c *MasterViffSync) mergeMasterViffFlight(ctx context.Context, session int3
 		(helpers.ValueOrDefault(flight.Tobt) != requestedTobt ||
 			helpers.ValueOrDefault(flight.TobtSetBy) != "vIFF" ||
 			helpers.ValueOrDefault(flight.TobtConfirmedBy) != requestSource)
-	changed := ctotChanged || requestChanged ||
+	changed := ctotChanged || requestChanged || lastAtfcm != flight.LastViffAtfcmCtot ||
 		helpers.ValueOrDefault(flight.MostPenalizingAirspace) != row.MostPenalizingAirspace ||
-		helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
+		helpers.ValueOrDefault(flight.EcfmpID) != row.regulationReason()
 	if !changed {
 		return flight, false, nil
 	}
 
 	before := snapshotCdm(flight)
 	updated := flight.Clone()
+	updated.LastViffAtfcmCtot = lastAtfcm
 	if nextCtot != "" {
 		updated.Ctot = &nextCtot
 		updated.CtotSource = &nextCtotSource
 		updated.MostPenalizingAirspace = stringPointerIfPresent(row.MostPenalizingAirspace)
-		updated.EcfmpID = stringPointerIfPresent(row.CDMData.Reason)
+		updated.EcfmpID = stringPointerIfPresent(row.regulationReason())
 	} else if !flight.HasManualCtot() {
 		updated.Ctot = nil
 		updated.CtotSource = nil
@@ -104,7 +113,7 @@ func (c *MasterViffSync) mergeMasterViffFlight(ctx context.Context, session int3
 
 func (c *MasterViffSync) pushViffDataAfterRecalc(ctx context.Context, session int32, callsign string) {
 	s := c.service
-	if !s.client.isValid || !s.usesViffSession(session) {
+	if !s.client.isValid || !s.usesViffSession(session) || s.isSessionRemoved(session) {
 		return
 	}
 
@@ -154,21 +163,39 @@ func (c *MasterViffSync) pushCdmDataAfterRecalc(ctx context.Context, session int
 
 func (c *MasterViffSync) pushViffAfterRecalcAsync(ctx context.Context, session int32, callsign string, strip *models.Strip, data *models.CdmData) {
 	s := c.service
-	if !s.client.isValid || !s.usesViffSession(session) {
+	if !s.client.isValid || !s.usesViffSession(session) || s.isSessionRemoved(session) {
 		return
 	}
 	state, ok := buildViffPushState(callsign, strip, data)
-	if !ok || !s.markViffPushPending(session, callsign, state) {
+	if !ok {
 		return
 	}
-	asyncCtx := detachedContext(ctx)
+	attempt := c.pushRetries.begin(session, callsign, state, time.Now())
+	if attempt == nil {
+		return
+	}
+	asyncCtx, cleanup := s.sessionContext(detachedContext(ctx), session)
 	go func() {
-		if err := s.pushViffState(asyncCtx, callsign, state); err != nil {
-			s.clearPendingViffPush(session, callsign, state)
-			slog.WarnContext(asyncCtx, "Failed to push CDM data to CDM backend",
-				slog.String("callsign", callsign),
-				slog.Any("error", err),
-			)
+		defer cleanup()
+		for attempt != nil && asyncCtx.Err() == nil {
+			state := attempt.state
+			err := s.pushViffState(asyncCtx, callsign, state)
+			if err != nil && asyncCtx.Err() == nil {
+				slog.WarnContext(asyncCtx, "Failed to push CDM data to CDM backend",
+					slog.Int("session", int(session)),
+					slog.String("callsign", callsign),
+					slog.Bool("suspend", state.Suspend),
+					slog.String("tobt", state.Params.Tobt),
+					slog.String("tsat", state.Params.Tsat),
+					slog.String("ttot", state.Params.Ttot),
+					slog.String("ctot", state.Params.Ctot),
+					slog.String("reason", state.Params.Reason),
+					slog.String("asrt", state.Params.Asrt),
+					slog.String("dep_info", state.Params.DepInfo),
+					slog.Any("error", err),
+				)
+			}
+			attempt = c.pushRetries.complete(attempt, err == nil, time.Now())
 		}
 	}()
 }
@@ -201,24 +228,8 @@ func (c *MasterViffSync) pushViffState(ctx context.Context, callsign string, sta
 	return s.client.IFPSSetCdmData(ctx, state.Params)
 }
 
-func (c *MasterViffSync) markViffPushPending(session int32, callsign string, state viffPushState) bool {
-	s := c.service
-	key := viffPushKey(session, callsign)
-	current, ok := s.lastPushedViff.Load(key)
-	if ok && current.(viffPushState) == state {
-		return false
-	}
-	s.lastPushedViff.Store(key, state)
-	return true
-}
-
-func (c *MasterViffSync) clearPendingViffPush(session int32, callsign string, state viffPushState) {
-	s := c.service
-	key := viffPushKey(session, callsign)
-	current, ok := s.lastPushedViff.Load(key)
-	if ok && current.(viffPushState) == state {
-		s.lastPushedViff.Delete(key)
-	}
+func (c *MasterViffSync) clearViffPushSession(session int32) {
+	c.pushRetries.removeSession(session)
 }
 
 func (c *MasterViffSync) pushLatestMasterCdmDataToViff(ctx context.Context, session int32, callsign string, strip *models.Strip) error {
@@ -247,7 +258,7 @@ func (c *MasterViffSync) refreshMasterFlightFromViff(ctx context.Context, sessio
 		return err
 	}
 
-	nextCtot, nextCtotSource := effectiveIfpsCtotAndSource(*row)
+	nextCtot, nextCtotSource := effectiveIfpsCtotAndSource(*row, flight)
 	_, needsRecalculate, err := s.mergeMasterViffFlight(ctx, session, callsign, flight, *row, nextCtot, nextCtotSource)
 	if err != nil {
 		return err
@@ -267,16 +278,24 @@ func (c *MasterViffSync) masterPosition() string {
 	return DefaultMasterPosition
 }
 
-func (c *MasterViffSync) registerMasterAsync(ctx context.Context, airport string) {
+func (c *MasterViffSync) registerMasterAsync(ctx context.Context, session int32, airport string) {
 	s := c.service
-	if !s.client.isValid || airport == "" {
+	if !s.client.isValid || airport == "" || s.isSessionRemoved(session) {
 		return
 	}
 	position := s.masterPosition()
-	asyncCtx := detachedContext(ctx)
+	asyncCtx, cancel := s.sessionContext(detachedContext(ctx), session)
 	go func() {
+		defer cancel()
+		if asyncCtx.Err() != nil {
+			return
+		}
 		if err := s.client.SetMasterAirport(asyncCtx, airport, position); err != nil {
+			if s.sessionDisappeared(ctx, session, err) {
+				return
+			}
 			slog.Warn("Failed to register CDM master airport",
+				slog.Int("session", int(session)),
 				slog.String("airport", airport),
 				slog.String("position", position),
 				slog.Any("error", err),
@@ -358,14 +377,10 @@ func buildViffPushState(callsign string, strip *models.Strip, data *models.CdmDa
 		asrt = truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt))
 	}
 
-	ctot := ""
-	reason := ""
-	if data.HasManualCtot() {
-		ctot = truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot))
-		reason = helpers.ValueOrDefault(data.EcfmpID)
-	} else if helpers.ValueOrDefault(data.CtotSource) == "" {
-		reason = helpers.ValueOrDefault(data.EcfmpID)
-	}
+	// Return the received CTOT and regulation alongside the local proposal.
+	// Explicit manual assignments use the same fields and remain authoritative.
+	ctot := truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot))
+	reason := helpers.ValueOrDefault(data.EcfmpID)
 	return viffPushState{
 		Params: SetCdmDataParams{
 			Callsign: callsign,

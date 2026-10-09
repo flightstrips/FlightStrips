@@ -13,6 +13,7 @@
 #include "websocket/WebSocketService.h"
 #include "websocket/Events.h"
 #include "handlers/TimedEventHandler.h"
+#include "handlers/ConnectionEventHandler.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "filesystem/FileSystem.h"
 
@@ -22,7 +23,7 @@ namespace FlightStrips::flightplan {
     bool ShouldReportTopSkyHoldCommand(const TopSkyHoldCommand& command, bool stateChanged);
     bool ReconcileTopSkyHoldAnnotation(FlightPlan& plan, const TopSkyHold& hold);
 
-class FlightPlanService final : public handlers::FlightPlanEventHandler, public handlers::RadarTargetEventHandler, public handlers::TimedEventHandler  {
+class FlightPlanService final : public handlers::FlightPlanEventHandler, public handlers::RadarTargetEventHandler, public handlers::TimedEventHandler, public handlers::ConnectionEventHandler {
     public:
 
     explicit FlightPlanService(const std::shared_ptr<websocket::WebSocketService> &websocketService,
@@ -41,6 +42,8 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
     void FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
     void OnTimer(int counter) override;
+    void Online() override {}
+    void SessionChanged(const std::string& identity) override;
 
     void ReplayTrackedHold(EuroScopePlugIn::CFlightPlan flightPlan);
     void ReplayTrackedHold(const std::string& callsign, bool trackingControllerIsMe,
@@ -52,6 +55,7 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
     void SetStand(const std::string& callsign, const std::string& stand);
     void ApplyCdmUpdate(const CdmUpdateEvent& event);
     void ApplyBackendSyncCdm(const std::string& callsign, const BackendSyncCdmData& cdmData);
+    void ApplyFsScratchPad(const std::string& callsign, const std::string& text);
     void ApplyBackendSyncHold(const std::string& callsign, const std::string& hold,
                               const std::string& holdType, const std::string& holdEat);
     void CacheBackendHoldEatReplay(const std::string& callsign, const std::string& hold,
@@ -71,6 +75,7 @@ private:
     std::shared_ptr<configuration::AppConfig> m_appConfig;
     std::unique_ptr<AirlineCallsignService> m_airlineCallsignService;
     std::unordered_map<std::string, FlightPlan> m_flightPlans = {};
+    std::string m_sessionIdentity{};
     std::unordered_map<std::string, PositionEvent> m_pendingPositionUpdates = {};
     std::unordered_set<std::string> m_rangeTrackedCallsigns = {};
     int m_lastPositionFlushCounter = 0;

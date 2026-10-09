@@ -5,6 +5,28 @@ import (
 	"testing"
 )
 
+func TestParseStand_CopenhagenRomanApronStands(t *testing.T) {
+	for stand, number := range map[string]int{"RI": 1, "RII": 2, "RIII": 3} {
+		parsed, err := ParseStand(stand)
+		if err != nil || parsed.Prefix != "R" || parsed.Number != number {
+			t.Fatalf("ParseStand(%q) = %#v, %v", stand, parsed, err)
+		}
+	}
+}
+
+func TestParseStand_NumberedSouthApronStands(t *testing.T) {
+	for stand, expected := range map[string]Stand{
+		"262":   {Prefix: "#", Number: 262},
+		"273":   {Prefix: "#", Number: 273},
+		"273-1": {Prefix: "#1", Number: 273},
+	} {
+		parsed, err := ParseStand(stand)
+		if err != nil || !parsed.Equal(expected) {
+			t.Fatalf("ParseStand(%q) = %#v, %v", stand, parsed, err)
+		}
+	}
+}
+
 func TestGetArrivalTowerSector_ReturnsFirstSectorOfMatchingRoute(t *testing.T) {
 	original := standRoutes
 	t.Cleanup(func() { standRoutes = original })

@@ -87,12 +87,10 @@ import {
 } from "@/lib/aman-view-preference";
 
 const MANUAL_COMPANION_LAYOUTS = new Set(["EST", "AMAN"]);
-const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", ...MANUAL_COMPANION_LAYOUTS, "GEGW", "TWTE", "TWRGND"]);
+const KNOWN_LAYOUTS = new Set(["CLX", "SEQPLN", "AAAD", "AA", "AD", ...MANUAL_COMPANION_LAYOUTS, "GEGW", "TWTE", "TWRGND"]);
 
 function normalizeLayout(layout: string) {
   switch (layout.trim().toUpperCase()) {
-    case "SEQPLN":
-      return "EST";
     case "TETW":
       return "TWTE";
     case "TWR+GND":
@@ -106,7 +104,7 @@ function isServerSelectableLayout(layout: string) {
   const serverLayout = layout.trim().toUpperCase();
   const normalizedLayout = normalizeLayout(serverLayout);
 
-  return serverLayout === "SEQPLN" || normalizedLayout === "AMAN" || (
+  return normalizedLayout === "AMAN" || (
     KNOWN_LAYOUTS.has(normalizedLayout) && !MANUAL_COMPANION_LAYOUTS.has(normalizedLayout)
   );
 }

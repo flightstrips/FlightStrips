@@ -1,6 +1,7 @@
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
 import { getSIBoxBorderStyle, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership } from "./shared";
+import { toast } from "sonner";
 
 /** Text colour for the next-controller identifier label. */
 const COLOR_SI_LABEL = "#8F8F8F";
@@ -22,6 +23,8 @@ export function SIBox({
   transferringTo,
   isTagRequest,
   baseBorderColor,
+  transferAllowed,
+  startRequestTransfer = false,
   hideLabel = false,
 }: {
   callsign: string;
@@ -43,11 +46,16 @@ export function SIBox({
   isTagRequest?: boolean;
   /** Base cell border color (defaults to the shared teal). Pass a custom color for strips with different border styling. */
   baseBorderColor?: string;
+  /** Checked at click time so the TSAT window works without waiting for a rerender. */
+  transferAllowed?: () => boolean;
+  /** Use the combined startup request and transfer action after the TSAT check. */
+  startRequestTransfer?: boolean;
   /** Hide the next-controller letter; the box keeps its ownership colour and click behaviour. */
   hideLabel?: boolean;
 }) {
   const controllers = useControllers();
   const transferStrip = useWebSocketStore(s => s.transferStrip);
+  const startRequestAndTransfer = useWebSocketStore(s => s.startRequestAndTransfer);
   const assumeStrip = useWebSocketStore(s => s.assumeStrip);
   const cancelTransfer = useWebSocketStore(s => s.cancelTransfer);
   const acceptTagRequest = useWebSocketStore(s => s.acceptTagRequest);
@@ -90,7 +98,15 @@ export function SIBox({
     } else if (isSendingTransfer) {
       cancelTransfer(callsign);
     } else if (isAssumed && nextPosition) {
-      transferStrip(callsign, nextPosition);
+      if (transferAllowed && !transferAllowed()) {
+        toast.error("Startup transfer is only available within the TSAT window");
+        return;
+      }
+      if (startRequestTransfer) {
+        void startRequestAndTransfer(callsign);
+      } else {
+        transferStrip(callsign, nextPosition);
+      }
     }
   };
 

@@ -29,6 +29,71 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestSequencePlanningNextOwnerByStand(t *testing.T) {
+	const sequencePosition = "121.905"
+	owners := []*models.SectorOwner{
+		{Sector: []string{"SQ"}, Position: sequencePosition},
+		{Sector: []string{"AD"}, Position: "121.730"},
+		{Sector: []string{"GE"}, Position: "121.830"},
+		{Sector: []string{"GWD"}, Position: "118.580"},
+		{Sector: []string{"TW"}, Position: "118.105"},
+		{Sector: []string{"TE"}, Position: "119.355"},
+	}
+	session := &models.Session{
+		ID:            42,
+		Airport:       "EKCH",
+		ActiveRunways: pkgModels.ActiveRunways{DepartureRunways: []string{"22R"}},
+	}
+	for _, test := range []struct {
+		stand string
+		want  string
+	}{
+		{"G105", "121.830"},
+		{"G120", "121.830"},
+		{"262", "121.830"},
+		{"273-1", "121.830"},
+		{"W1", "118.580"},
+		{"RI", "118.580"},
+		{"RII", "118.580"},
+		{"RIII", "118.580"},
+		{"A18", "121.730"},
+	} {
+		t.Run(test.stand, func(t *testing.T) {
+			strip := &models.Strip{
+				Origin: "EKCH", Destination: "ENGM", Runway: stringPtr("22R"),
+				Stand: stringPtr(test.stand), Owner: stringPtr(sequencePosition),
+			}
+			route, updated, err := computeRouteStateForStrip(strip, session, owners, routeRadioState{})
+			require.NoError(t, err)
+			require.True(t, updated)
+			require.NotEmpty(t, route.NextOwners)
+			assert.Equal(t, test.want, route.NextOwners[0])
+		})
+	}
+}
+
+func TestEKCHSequencePlanningConfiguredLayouts(t *testing.T) {
+	positions := []*config.Position{
+		{Name: "EKCH_DEL", Frequency: "119.905"},
+		{Name: "EKCH_A_GND", Frequency: "121.630"},
+		{Name: "EKCH_B_GND", Frequency: "121.905"},
+		{Name: "EKCH_C_GND", Frequency: "121.730"},
+	}
+	all := config.GetLayouts(positions, []string{"22R"})
+	require.NotNil(t, all["119.905"])
+	assert.Equal(t, "CLX", *all["119.905"])
+	require.NotNil(t, all["121.905"])
+	assert.Equal(t, "SEQPLN", *all["121.905"])
+
+	withoutArrivalApron := config.GetLayouts([]*config.Position{positions[0], positions[2], positions[3]}, []string{"22R"})
+	require.NotNil(t, withoutArrivalApron["119.905"])
+	assert.Equal(t, "SEQPLN", *withoutArrivalApron["119.905"])
+	require.NotNil(t, withoutArrivalApron["121.905"])
+	assert.Equal(t, "SEQPLN", *withoutArrivalApron["121.905"])
+	require.NotNil(t, withoutArrivalApron["121.730"])
+	assert.Equal(t, "AD", *withoutArrivalApron["121.730"])
+}
+
 type routeTransceiverStub map[string][]string
 
 func (s routeTransceiverStub) GetFrequencies(callsign string) []string {

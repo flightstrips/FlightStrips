@@ -9,7 +9,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 ![Clearance Delivery overview](../../../assets/ekch-clr-del-view.jpg)
 
-**CLR DEL** is the scope for **EKCH_DEL**. Uncleared departures sit in airline bays; issuing a clearance automatically moves the strip to **Cleared**.
+**CLR DEL** is the scope for **EKCH_DEL** when **121.905**, **121.630**, and **121.730** are all primed. Otherwise delivery uses [SEQ PLN](/ekch/seq-pln/). Uncleared departures sit in airline bays; issuing a clearance automatically moves the strip to **Cleared**.
 
 <Aside type="caution">
 Uncleared strips cannot be manually moved to another bay — only issuing a clearance via the ATC clearance window moves them.
@@ -32,9 +32,9 @@ Uncleared strips cannot be manually moved to another bay — only issuing a clea
 
 Completing the clearance directly assigns the strip to the first carried step in its complete departure route. This is an ownership change, not pending coordination. A logical step is carried when its frequency is primed or cross-coupled:
 
-- **East/South stands (G110–G137):** GE 121.830 → the applicable tower.
-- **West stand (W1):** GW 118.580 → the applicable tower.
-- **North stands:** SEQ PLN 121.905 → AD 121.730 → the configured ground/tower route. If AD and SEQ PLN are carried by the same primary, the strip is assigned as **AD** and the displayed frequency is **121.905**.
+- **Any G or APRON SOUTH stand:** SEQ PLN 121.905 → GE 121.830 → the applicable tower.
+- **W1, RI, RII, RIII:** SEQ PLN 121.905 → GW 118.580 → the applicable tower.
+- **Other stands:** SEQ PLN 121.905 → AD 121.730 → the configured ground/tower route. If AD and SEQ PLN are carried by the same primary, the strip is assigned as **AD** and the displayed frequency is **121.905**.
 
 When a logical frequency is carried, cross-coupling changes the primary position that receives the strip while the SI label continues to show the logical identifier frequency. Otherwise, the sector's configured fallback owner receives the strip with that controller's identifier and frequency. A step is skipped only when neither radio carriage nor configured sector ownership resolves it.
 

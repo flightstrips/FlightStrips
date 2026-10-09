@@ -27,7 +27,7 @@ namespace FlightStrips::flightplan {
                 }
             }
 
-            return fileSystem == nullptr ? "" : fileSystem->GetLocalFilePath(configuredFile).string();
+            return fileSystem->GetLocalFilePath(configuredFile).string();
         }
     }
 
@@ -137,7 +137,9 @@ namespace FlightStrips::flightplan {
                                                                       m_standService(standService),
                                                                       m_appConfig(appConfig),
                                                                       m_airlineCallsignService(std::make_unique<AirlineCallsignService>(
-                                                                          ResolveAirlinesFilePath(fileSystem, m_appConfig->GetAirlinesFile()))),
+                                                                          fileSystem == nullptr || m_appConfig == nullptr
+                                                                              ? ""
+                                                                              : ResolveAirlinesFilePath(fileSystem, m_appConfig->GetAirlinesFile()))),
                                                                       m_flightPlans({}) {
     }
 

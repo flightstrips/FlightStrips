@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.1.0...docs/v1.2.0) (2026-10-09)
+
+
+### Features
+
+* add SEQ PLN scope ([#860](https://github.com/flightstrips/FlightStrips/issues/860)) ([df1af26](https://github.com/flightstrips/FlightStrips/commit/df1af263401b3e093003bcfa18e4c7fcd97b71c7))
+* **strip:** add arrival stand assignment menu and beveled dialog controls ([#859](https://github.com/flightstrips/FlightStrips/issues/859)) ([5762711](https://github.com/flightstrips/FlightStrips/commit/576271103f9fd1d990e60f52ef61939a0181f7fb))
+* **strip:** add EAT and shared scratch pad tag items ([#853](https://github.com/flightstrips/FlightStrips/issues/853)) ([6c9c33d](https://github.com/flightstrips/FlightStrips/commit/6c9c33d6781ba30e03249b39e4fee3c4646fbdff))
+
 ## [1.1.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.0.2...docs/v1.1.0) (2026-10-05)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.7...plugin/v2.2.0) (2026-10-09)
+
+
+### Features
+
+* **cdm:** add de-icing workflow and controller UI polish ([#858](https://github.com/flightstrips/FlightStrips/issues/858)) ([9373bb3](https://github.com/flightstrips/FlightStrips/commit/9373bb3ef2512ffb60d17f01cc018ff52d88072e))
+* **strip:** add EAT and shared scratch pad tag items ([#853](https://github.com/flightstrips/FlightStrips/issues/853)) ([6c9c33d](https://github.com/flightstrips/FlightStrips/commit/6c9c33d6781ba30e03249b39e4fee3c4646fbdff))
+
 ## [2.1.7](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.6...plugin/v2.1.7) (2026-10-04)
 
 

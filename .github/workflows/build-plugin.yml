@@ -28,7 +28,7 @@ jobs:
         working-directory: ./euroscope-plugin
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Visual Studio Shell
         uses: egor-tensin/vs-shell@v2

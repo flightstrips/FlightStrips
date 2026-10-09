@@ -24,6 +24,7 @@ export function SIBox({
   isTagRequest,
   baseBorderColor,
   transferAllowed,
+  startRequestTransfer = false,
 }: {
   callsign: string;
   bay?: string;
@@ -46,9 +47,12 @@ export function SIBox({
   baseBorderColor?: string;
   /** Checked at click time so the TSAT window works without waiting for a rerender. */
   transferAllowed?: () => boolean;
+  /** Use the combined startup request and transfer action after the TSAT check. */
+  startRequestTransfer?: boolean;
 }) {
   const controllers = useControllers();
   const transferStrip = useWebSocketStore(s => s.transferStrip);
+  const startRequestAndTransfer = useWebSocketStore(s => s.startRequestAndTransfer);
   const assumeStrip = useWebSocketStore(s => s.assumeStrip);
   const cancelTransfer = useWebSocketStore(s => s.cancelTransfer);
   const acceptTagRequest = useWebSocketStore(s => s.acceptTagRequest);
@@ -95,7 +99,11 @@ export function SIBox({
         toast.error("Startup transfer is only available within the TSAT window");
         return;
       }
-      transferStrip(callsign, nextPosition);
+      if (startRequestTransfer) {
+        void startRequestAndTransfer(callsign);
+      } else {
+        transferStrip(callsign, nextPosition);
+      }
     }
   };
 

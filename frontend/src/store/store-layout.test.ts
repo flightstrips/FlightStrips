@@ -160,6 +160,22 @@ describe("manual companion layout behavior", () => {
     expect(store.getState().followRecommendedLayout).toBe(false);
   });
 
+  it("sends a combined startup request and transfer for an owned SEQ PLN strip", async () => {
+    store.setState({
+      displayedLayout: "SEQPLN",
+      position: "EKCH_B_GND",
+      strips: [{ ...foreignStrip(), owner: "EKCH_B_GND", bay: Bay.Cleared }],
+    });
+
+    await expect(store.getState().startRequestAndTransfer("SAS123")).resolves.toBe(true);
+    expect(client.send).toHaveBeenCalledWith({
+      type: ActionType.FrontendCoordinationTransferRequest,
+      callsign: "SAS123",
+      to: "EKCH_C_GND",
+      start_req_transfer: true,
+    });
+  });
+
   it("waits for the force-assume route before sending EST ready and transfer", async () => {
     store.setState({
       displayedLayout: "EST",

@@ -89,7 +89,9 @@ func TestEKCHSequencePlanningConfiguredLayouts(t *testing.T) {
 	require.NotNil(t, withoutArrivalApron["119.905"])
 	assert.Equal(t, "SEQPLN", *withoutArrivalApron["119.905"])
 	require.NotNil(t, withoutArrivalApron["121.905"])
-	assert.Equal(t, "SEQPLN", *withoutArrivalApron["121.905"])
+	assert.Equal(t, "AA", *withoutArrivalApron["121.905"])
+	require.NotNil(t, withoutArrivalApron["121.730"])
+	assert.Equal(t, "AD", *withoutArrivalApron["121.730"])
 }
 
 type routeTransceiverStub map[string][]string

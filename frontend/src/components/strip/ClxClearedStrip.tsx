@@ -142,6 +142,7 @@ export function ClxClearedStrip({
           isTagRequest={isTagRequest}
           baseBorderColor={stripFrameColor}
           transferAllowed={startupSiTransfer ? () => isTsatWithinStartRequestWindow(tsat ?? "", Date.now()) : undefined}
+          startRequestTransfer={startupSiTransfer}
         />
 
         {/* ── Left half of 80% ── */}

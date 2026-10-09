@@ -115,6 +115,9 @@ func (s *recordingCdmService) HandleClxTobtUpdate(context.Context, int32, string
 func (s *recordingCdmService) HandleDeiceUpdate(context.Context, int32, string, string) error {
 	return nil
 }
+func (s *recordingCdmService) HandleDeicePlatformUpdate(context.Context, int32, string, string) error {
+	return nil
+}
 
 func (s *recordingCdmService) HandleAsrtToggle(context.Context, int32, string, string) error {
 	return nil

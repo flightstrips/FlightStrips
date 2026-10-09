@@ -384,6 +384,66 @@ func (c *ActionService) HandleDeiceUpdate(ctx context.Context, session int32, ca
 	return nil
 }
 
+func (c *ActionService) HandleDeicePlatformUpdate(ctx context.Context, session int32, callsign string, platform string) error {
+	s := c.service
+	callsign = strings.TrimSpace(callsign)
+	platform = strings.ToUpper(strings.TrimSpace(platform))
+	if callsign == "" {
+		return errors.New("callsign is required")
+	}
+	if !isValidDeicePlatform(platform) {
+		return fmt.Errorf("invalid de-icing platform %q", platform)
+	}
+
+	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if strip == nil || cdmData == nil {
+		return nil
+	}
+
+	before := snapshotCdm(cdmData)
+	updated := cdmData.Clone()
+	if helpers.ValueOrDefault(updated.DeicePlatform) == platform && !updated.DeicePlatformAcknowledged {
+		return nil
+	}
+	if platform == "" {
+		updated.DeicePlatform = nil
+	} else {
+		updated.DeicePlatform = &platform
+	}
+	updated.DeicePlatformAcknowledged = false
+	updated.MarkLocalRecalculationPending()
+
+	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
+		return err
+	}
+	s.TriggerRecalculate(ctx, session, strip.Origin)
+	return nil
+}
+
+func (c *ActionService) AcknowledgeDeicePlatform(ctx context.Context, session int32, callsign string) error {
+	s := c.service
+	callsign = strings.TrimSpace(callsign)
+	if callsign == "" {
+		return errors.New("callsign is required")
+	}
+
+	_, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if cdmData == nil || cdmData.DeicePlatform == nil || cdmData.DeicePlatformAcknowledged {
+		return nil
+	}
+
+	before := snapshotCdm(cdmData)
+	updated := cdmData.Clone()
+	updated.DeicePlatformAcknowledged = true
+	return s.persistCdmUpdate(ctx, session, callsign, before, updated)
+}
+
 func (c *ActionService) HandleAsrtToggle(ctx context.Context, session int32, callsign string, asrt string) error {
 	s := c.service
 	callsign = strings.TrimSpace(callsign)
@@ -730,7 +790,8 @@ func (c *ActionService) prepareTobtUpdate(ctx context.Context, session int32, ca
 	if prospective.RecalculationMode == models.CdmRecalculationRequired && prospective.HasManualCtot() {
 		configSnapshot := c.configSnapshotForStrip(strip)
 		taxiAndDeiceMinutes := resolveTaxiMinutesForStrip(strip, configSnapshot) +
-			deiceTypeToMinutes(configSnapshot, helpers.ValueOrDefault(prospective.DeIce))
+			deiceTypeToMinutes(configSnapshot, helpers.ValueOrDefault(prospective.DeIce)) +
+			resolveDeiceTaxiMinutes(strip, configSnapshot, helpers.ValueOrDefault(prospective.DeicePlatform))
 		earliestTtot := addMinutes(toHHMMSS(tobt), float64(taxiAndDeiceMinutes))
 		manualCtot := toHHMMSS(helpers.ValueOrDefault(prospective.Ctot))
 		if earliestTtot != "" && manualCtot != "" && minutesBetween(manualCtot, earliestTtot) > 0 {
@@ -1142,6 +1203,15 @@ func isValidHHMM(value string) bool {
 func isValidDeiceType(value string) bool {
 	switch value {
 	case "", "L", "M", "H", "J":
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidDeicePlatform(value string) bool {
+	switch value {
+	case "", "A", "B", "V":
 		return true
 	default:
 		return false

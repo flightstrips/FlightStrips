@@ -13,6 +13,7 @@ type CdmService interface {
 	HandleTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string) error
 	HandleClxTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string) error
 	HandleDeiceUpdate(ctx context.Context, session int32, callsign string, deiceType string) error
+	HandleDeicePlatformUpdate(ctx context.Context, session int32, callsign string, platform string) error
 	HandleAsrtToggle(ctx context.Context, session int32, callsign string, asrt string) error
 	HandleTsacUpdate(ctx context.Context, session int32, callsign string, tsac string) error
 	HandleManualCtot(ctx context.Context, session int32, callsign string, ctot string) error

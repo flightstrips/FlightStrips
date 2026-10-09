@@ -467,7 +467,12 @@ func parseTaxiZoneData(data []byte) ([]CdmTaxiZone, error) {
 			continue
 		}
 
-		minutes, err := strconv.Atoi(strings.TrimSpace(parts[10]))
+		minuteValues := splitList(parts[10])
+		if len(minuteValues) == 0 {
+			continue
+		}
+
+		minutes, err := strconv.Atoi(minuteValues[0])
 		if err != nil {
 			return nil, err
 		}
@@ -490,6 +495,16 @@ func parseTaxiZoneData(data []byte) ([]CdmTaxiZone, error) {
 			Runway:  strings.TrimSpace(parts[1]),
 			Minutes: minutes,
 			Polygon: polygon,
+		}
+		for _, remoteValue := range minuteValues[1:] {
+			if remoteValue == "" {
+				continue
+			}
+			minutes, err := strconv.Atoi(remoteValue)
+			if err != nil {
+				return nil, err
+			}
+			zone.RemoteTaxiMinutes = append(zone.RemoteTaxiMinutes, minutes)
 		}
 		if len(parts) == 12 {
 			for _, remoteValue := range splitList(parts[11]) {

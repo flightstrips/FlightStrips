@@ -10,6 +10,7 @@ import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
 import { scalePx } from "@/lib/viewportScale";
 import { normalizeCdmTime } from "@/lib/cdmTime";
+import { EST_RAISED_BUTTON_EDGE, EST_RAISED_EDGE } from "@/components/est/bevel";
 
 // Exactly mirrors FlightPlanDialog constants
 const FONT_FAMILY      = "var(--font-bay)";
@@ -27,10 +28,10 @@ const LABEL_OFFSET     = scalePx(11);
 const FIELD_GAP        = scalePx(5);
 const CLS_DIALOG       = "bg-[#d4d4d4] rounded-none flex flex-col gap-0";
 const CLS_DIALOG_LABEL = "absolute bg-[#d4d4d4] text-black font-bold";
-const CLS_DISABLED     = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
-const CLS_EDITABLE     = "border border-black rounded-none bg-[#ededed] text-black font-bold text-center focus-visible:outline-none focus-visible:ring-0";
-const CLS_EDITABLE_BTN = "border border-black rounded-none bg-[#ededed] text-black font-bold text-center";
-const CLS_TEXTAREA     = "border border-black rounded-none bg-[#ededed] text-black font-normal text-center break-words resize-none w-full focus:outline-none";
+const CLS_DISABLED     = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
+const CLS_EDITABLE     = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#ededed] text-black font-bold text-center focus-visible:outline-none focus-visible:ring-0";
+const CLS_EDITABLE_BTN = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#ededed] text-black font-bold text-center";
+const CLS_TEXTAREA     = "border border-t-[#393939] border-l-[#393939] border-b-[#CECECE] border-r-[#CECECE] shadow-[inset_1px_1px_1px_rgba(57,57,57,0.55),inset_-1px_-1px_1px_rgba(206,206,206,0.55)] rounded-none bg-[#ededed] text-black font-normal text-center break-words resize-none w-full focus:outline-none";
 const COLOR_DARK_BTN   = "#3F3F3F";
 
 // All physical runways — same constant as RunwayDialog
@@ -84,7 +85,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
 
   function populateFromStrip(cs: string) {
     const strip = strips.find(s => s.callsign.toUpperCase() === cs.toUpperCase());
-    if (!strip) { setCallsignError("Callsign not connected"); return; }
+    if (!strip) { setCallsignError("Callsign not found – strip will be created locally"); return; }
     setCallsignError(null);
     if (strip.destination)        setAdes(strip.destination);
     if (strip.sid)                setSid(strip.sid);
@@ -105,7 +106,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
   }
 
   function handleOk() {
-    if (callsignError || !callsign.trim()) return;
+    if (!callsign.trim()) return;
     createManualFPL(
       callsign.trim().toUpperCase(),
       ades.trim().toUpperCase(),
@@ -121,7 +122,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
     onOpenChange(false);
   }
 
-  const canSubmit = !callsignError && callsign.trim().length > 0;
+  const canSubmit = callsign.trim().length > 0;
   const F = { fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD, height: FIELD_HEIGHT };
   const fieldStyle = (width: number) => ({ width: scalePx(width), ...F });
   const rowStyle = { width: CONTENT_WIDTH, gap: FIELD_GAP };
@@ -136,13 +137,14 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
+    ...EST_RAISED_BUTTON_EDGE,
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={CLS_DIALOG}
-        style={{ width: DIALOG_WIDTH, maxWidth: DIALOG_WIDTH, height: DIALOG_HEIGHT, maxHeight: DIALOG_HEIGHT, padding: DIALOG_PADDING }}
+        style={{ width: DIALOG_WIDTH, maxWidth: DIALOG_WIDTH, height: DIALOG_HEIGHT, maxHeight: DIALOG_HEIGHT, padding: DIALOG_PADDING, ...EST_RAISED_EDGE }}
       >
         <VisuallyHidden.Root>
           <DialogTitle>New IFR flight plan</DialogTitle>
@@ -167,8 +169,14 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
                 className={CLS_EDITABLE}
                 style={fieldStyle(180)}
                 value={callsign}
-                onChange={e => setCallsign(e.target.value.toUpperCase())}
+                onChange={e => {
+                  const value = e.target.value.toUpperCase();
+                  setCallsign(value);
+                  if (strips.some(s => s.callsign.toUpperCase() === value.trim())) populateFromStrip(value.trim());
+                  else setCallsignError(null);
+                }}
                 onBlur={handleCallsignBlur}
+                onKeyDown={e => { if (e.key === "Enter") handleCallsignBlur(); }}
                 autoFocus
               />
             </div>
@@ -289,16 +297,16 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
             />
           </div>
 
-          {/* Row 5: COOPANS REMARKS */}
+          {/* Row 5: EXTERNAL REMARKS */}
           <div className="flex flex-col" style={{ width: CONTENT_WIDTH, gap: FIELD_GAP }}>
-            <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>COOPANS REMARKS</Label>
+            <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>EXTERNAL REMARKS</Label>
             <Input disabled className={`${CLS_DISABLED} w-full`} style={{ ...F }} />
           </div>
 
-          {/* Row 6: FLIGHTSTRIPS REMARKS | IATA TYPE */}
+          {/* Row 6: INTERNAL REMARKS | IATA TYPE */}
           <div className="flex" style={rowStyle}>
             <div className="grid items-center" style={groupStyle}>
-              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>FLIGHTSTRIPS REMARKS</Label>
+              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>INTERNAL REMARKS</Label>
               <Input
                 disabled
                 className={CLS_DISABLED}

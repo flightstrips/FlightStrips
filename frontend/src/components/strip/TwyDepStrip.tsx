@@ -16,6 +16,7 @@ import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getGroundStopRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 import { computeTwyDepCTOTColors } from "@/lib/cdmColors";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
+import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatDeIceIndication } from "@/components/est/deiceIndication";
 
 // Heights— 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
 const TOP_H      = "66.6667%";
@@ -56,6 +57,8 @@ export function TwyDepStrip({
   stand,
   eobt,
   ctot,
+  deicePlatform,
+  deicePlatformAcknowledged = false,
   runway,
   holdingPoint,
   clearedAltitude,
@@ -122,6 +125,8 @@ export function TwyDepStrip({
   const twyDisplay = !isHp ? (holdingPoint ?? "") : "";
 
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
+  const deiceIndication = formatDeIceIndication(deicePlatform);
+  const deiceIndicationActive = !!deiceIndication && !deicePlatformAcknowledged;
 
   // Cleared altitude display: use FL notation above transition altitude, feet below.
   const fl = clearedAltitude ? formatAltitude(clearedAltitude, transitionAltitude) : "";
@@ -228,8 +233,21 @@ export function TwyDepStrip({
         }}
         onClick={(e) => guardValidationAction(e, () => setShowTaxiMap(true))}
       >
-        {/* Top half reserved for a future box; no divider between the halves */}
-        <div style={{ flex: "1 1 0%", minHeight: 0 }} />
+        <div
+          className="flex items-center justify-center overflow-hidden"
+          style={{
+            flex: "1 1 0%",
+            minHeight: 0,
+            backgroundColor: deiceIndicationActive ? DEICE_INDICATION_BG : undefined,
+            color: deiceIndicationActive ? DEICE_INDICATION_FG : "#000000",
+          }}
+        >
+          {deiceIndication && (
+            <span className="truncate px-[0.05vw]" style={{ fontFamily: FONT, fontSize: "0.47vw" }}>
+              {deiceIndication}
+            </span>
+          )}
+        </div>
         <div className="flex items-center justify-center" style={{ flex: "1 1 0%", minHeight: 0 }}>
           <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", opacity: twyDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
             {twyDisplay || "TWY"}

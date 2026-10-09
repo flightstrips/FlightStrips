@@ -1,13 +1,17 @@
 package services
 
 import (
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // CreateManualFPL processes a create_manual_fpl action from the frontend.
@@ -16,7 +20,18 @@ import (
 // to the correct uncleared bay, and notifies both the frontend and EuroScope.
 func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req frontend.CreateManualFPLAction, cid string, airport string) error {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, req.Callsign)
-	if err != nil {
+	localOnly := false
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Unknown callsign: create a purely local strip that is never pushed to EuroScope.
+		if s.lifecycleStore == nil {
+			return fmt.Errorf("callsign %q not found in session: %w", req.Callsign, err)
+		}
+		strip = &internalModels.Strip{Callsign: req.Callsign, Session: session, Origin: airport, Destination: req.ADES, Bay: shared.BAY_HIDDEN, HasFP: true}
+		if err := s.lifecycleStore.Create(ctx, strip); err != nil {
+			return fmt.Errorf("create local strip %q: %w", req.Callsign, err)
+		}
+		localOnly = true
+	} else if err != nil {
 		return fmt.Errorf("callsign %q not found in session: %w", req.Callsign, err)
 	}
 
@@ -66,6 +81,10 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 
 	// Broadcast full strip update to all frontend clients.
 	shared.PublishStripUpdate(ctx, s.publisher, session, req.Callsign)
+
+	if localOnly {
+		return nil
+	}
 
 	// Notify EuroScope so it can create the FPL in its session.
 	s.esCommander.SendCreateFPL(session, cid, euroscope.CreateFPLEvent{

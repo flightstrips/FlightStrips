@@ -386,6 +386,20 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC")
 }
 
+func handleCdmDeicePlatformUpdate(ctx context.Context, client *Client, message Message) error {
+	var event frontend.CdmDeicePlatformUpdateEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	return client.hub.server.GetCdmService().HandleDeicePlatformUpdate(
+		ctx,
+		client.session,
+		event.Callsign,
+		event.Platform,
+	)
+}
+
 func handleClxOverrideValidation(ctx context.Context, client *Client, message Message) error {
 	var event frontend.ClxOverrideValidationAction
 	if err := message.JsonUnmarshal(&event); err != nil {

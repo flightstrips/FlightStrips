@@ -30,6 +30,9 @@ func (constructorCdmService) HandleClxTobtUpdate(context.Context, int32, string,
 func (constructorCdmService) HandleDeiceUpdate(context.Context, int32, string, string) error {
 	return nil
 }
+func (constructorCdmService) HandleDeicePlatformUpdate(context.Context, int32, string, string) error {
+	return nil
+}
 func (constructorCdmService) HandleAsrtToggle(context.Context, int32, string, string) error {
 	return nil
 }

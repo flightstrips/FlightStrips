@@ -12,10 +12,13 @@ import { ClxHalfStrip } from "./ClxHalfStrip";
 import { TacticalMemaidStrip } from "./TacticalMemaidStrip";
 import { TacticalCrossingStrip } from "./TacticalCrossingStrip";
 import { TacticalRwyStrip } from "./TacticalRwyStrip";
+import { TacticalDeiceLaneStrip } from "./TacticalDeiceLaneStrip";
+import { isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
 import { ControlzoneStrip } from "./ControlzoneStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 import { useAirport } from "@/store/store-hooks";
+import { useIsLocallyHidden } from "@/store/localHiddenStrips";
 
 export type { StripStatus };
 export type { StripProps };
@@ -48,9 +51,13 @@ const STATUS_DEFAULT_WIDTH: Partial<Record<StripStatus, string>> = {
 
 export function Strip({ strip, status, halfStripVariant, myPosition, selectable, delegateCallsignClick, onStripMoved, width, fullWidth }: StripRenderProps) {
   const airport = useAirport();
+  const localHidden = useIsLocallyHidden(isFlight(strip) ? strip.callsign : "");
 
   if (!isFlight(strip)) {
     const effectiveWidth = width ?? (status ? STATUS_DEFAULT_WIDTH[status] : undefined);
+    if (isDeiceHeaderTacticalStrip(strip)) {
+      return <TacticalDeiceLaneStrip strip={strip} width={width ?? "100%"} />;
+    }
     switch (strip.type) {
       case "MEMAID":
         return <TacticalMemaidStrip strip={strip} width={effectiveWidth} />;
@@ -64,7 +71,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     }
   }
 
-  if (status === "CONTROLZONE") {
+  if (status === "CONTROLZONE" && !localHidden) {
     return <ControlzoneStrip strip={strip} selectable={selectable} />;
   }
 
@@ -81,6 +88,8 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     tsat: normalizeCdmTime(strip.tsat),
     ctot: normalizeCdmTime(strip.ctot),
     phase: strip.phase,
+    deicePlatform: strip.deice_platform,
+    deicePlatformAcknowledged: strip.deice_platform_acknowledged,
     aircraftType: strip.aircraft_type,
     aircraftCategory: strip.aircraft_category,
     squawk: strip.squawk,
@@ -114,6 +123,10 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     requested_altitude: strip.requested_altitude,
     arrival: strip.destination === airport && strip.origin !== airport,
   };
+
+  if (localHidden && status !== "HALF" && status !== "CLX-HALF") {
+    return <HalfStrip {...props} halfStripVariant={props.arrival ? "APN-ARR" : "APN-PUSH"} localHidden fullWidth={false} />;
+  }
 
   switch (status) {
     case "CLR":

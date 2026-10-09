@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { MemAidButton, CrossingButton, StartButton, LandButton } from "@/components/strip/TacticalButtons.tsx";
+import { MemAidButton, CrossingButton, StartButton, LandButton, DeiceLaneButton } from "@/components/strip/TacticalButtons.tsx";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import {
@@ -26,15 +26,17 @@ import { useWebSocketStore, useMyPosition, useMessages, useDelOnline, useApronOn
 import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { arrivalSortModes } from "@/lib/stripSortModes";
 import { useState } from "react";
+import { useDefaultHidePlannedDepartures } from "@/store/localHiddenStrips";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
-import { CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
+import { CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_LANE, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 import { shouldShowInGegwApronBay } from "@/config/ekchStandGroups";
 import { GEGW_COLUMN_CLASSES } from "./productionBayLayouts";
 import { useBayResize } from "@/components/bays/useBayResize";
 import { BayResizeHandle } from "@/components/bays/BayResizeHandle";
+import { getDeiceHeaderArea, isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
 
 // Column widths
 const [COL_ARR, COL_DEP, COL_CLRDEL, COL_STAND] = GEGW_COLUMN_CLASSES;
@@ -46,6 +48,7 @@ const CLRDEL_DEFAULTS = { startup: 33, deIce: 33 };
 const STAND_DEFAULTS = { clrDel: 75 };
 
 export default function GEGW() {
+  useDefaultHidePlannedDepartures();
   const myPosition = useMyPosition();
   const messages   = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
@@ -65,7 +68,12 @@ export default function GEGW() {
   const twyDepDesc     = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
   const rwyDepStrips   = useDepartStrips().sort((a, b) => b.sequence - a.sequence);
   const airborneStrips = useAirborneStrips().sort((a, b) => b.sequence - a.sequence);
-  const deIceStrips    = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
+  const deIceStrips    = useDeIceStrips()
+    .filter((strip) => {
+      if (isFlight(strip) || !isDeiceHeaderTacticalStrip(strip)) return true;
+      return getDeiceHeaderArea(strip) === "A";
+    })
+    .sort((a, b) => b.sequence - a.sequence);
   const standStrips    = useStandStrips().sort((a, b) => b.sequence - a.sequence);
 
   const inboundStrips = useInboundStrips();
@@ -125,7 +133,7 @@ export default function GEGW() {
         if (strip.bay === Bay.TaxiLwr)   return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
         if (strip.bay === Bay.Depart)    return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
         if (strip.bay === Bay.Airborne)  return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
-        if (strip.bay === Bay.DeIce)     return <Strip strip={strip} status="PUSH" myPosition={myPosition} />;
+        if (strip.bay === Bay.DeIce)     return <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} />;
         if (strip.bay === Bay.Stand)     return <Strip strip={strip} status="ARR" myPosition={myPosition} />;
         if (strip.bay === Bay.Final)     return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
         if (strip.bay === Bay.RwyArr)    return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
@@ -294,13 +302,18 @@ export default function GEGW() {
           className="h-[var(--bay-h-startup)] bay-scroll-area-bottom"
         >
           {(strip) => (
-            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className="bay-col-header bay-col-sep">
+        <div className="bay-col-header bay-col-sep justify-between">
           <span className={CLS_LABEL}>DE-ICE A</span>
           <BayResizeHandle {...clrDelResize.handleProps("startup")} />
+          <span className="flex gap-0.5">
+            <DeiceLaneButton area="A" lane={1} frequency="130.650" className={CLS_BTN_LANE} />
+            <DeiceLaneButton area="A" lane={2} frequency="130.650" className={CLS_BTN_LANE} />
+            <DeiceLaneButton area="A" lane={3} frequency="123.400" className={CLS_BTN_LANE} />
+          </span>
         </div>
         <SortableBay
           strips={deIceStrips}
@@ -310,7 +323,7 @@ export default function GEGW() {
           className="h-[var(--bay-h-deIce)] bay-scroll-area-bottom"
         >
           {(strip) => (
-            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 

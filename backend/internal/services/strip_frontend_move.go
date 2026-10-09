@@ -79,7 +79,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 	}
 
 	if strip.Bay == targetBay {
-		return nil
+		return s.acknowledgeDeicePlatformInBay(ctx, session, callsign, targetBay)
 	}
 
 	previousBay := strip.Bay

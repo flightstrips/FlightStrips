@@ -70,6 +70,20 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 			expectedTtot: "095000",
 		},
 		{
+			name: "includes de-icing duration and platform taxi in exot",
+			input: CalcInput{
+				Callsign:     "SASDEICE",
+				Origin:       "EKCH",
+				DepRwy:       "22R",
+				Tobt:         "1000",
+				TaxiMin:      11,
+				DeIceMin:     5,
+				DeiceTaxiMin: 3,
+			},
+			expectedTsat: "100000",
+			expectedTtot: "101900",
+		},
+		{
 			name: "uses eobt when tobt missing and eobt is later",
 			input: CalcInput{
 				Callsign: "SAS101B",

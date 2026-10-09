@@ -24,6 +24,7 @@ import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog"
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
+import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatDeIceIndication } from "@/components/est/deiceIndication";
 const TOP_H  = "66.6667%";
 const BOT_H  = "33.3333%";
 const HALF_H = "50%";
@@ -55,6 +56,8 @@ export function ApnTaxiDepStrip({
   holdingPoint,
   runway,
   ctot,
+  deicePlatform,
+  deicePlatformAcknowledged = false,
   owner,
   nextControllers,
   previousControllers,
@@ -92,6 +95,8 @@ export function ApnTaxiDepStrip({
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
   const isCoordinationMode = (!!owner && !!myPosition && owner !== myPosition) || !!releasePointYellow;
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
+  const deiceIndication = formatDeIceIndication(deicePlatform);
+  const deiceIndicationActive = !!deiceIndication && !deicePlatformAcknowledged;
 
   const hpValue = holdingPoint ?? "";
   const hasTwy = hpValue.includes("/");
@@ -156,11 +161,24 @@ export function ApnTaxiDepStrip({
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined, position: "relative" }}
           onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
         >
-          <div className="flex items-center justify-center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: BOT_H, borderBottom: showCtot ? `2px solid ${cellBorderColor}` : undefined }}>
+          <div className="flex items-center justify-center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: BOT_H, borderBottom: showCtot && !deiceIndication ? `2px solid ${cellBorderColor}` : undefined }}>
             <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
           </div>
-          <div className="flex items-center justify-center" style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: BOT_H, backgroundColor: showCtot ? ctotBg || undefined : undefined, color: showCtot ? ctotColor : undefined }}>
-            {showCtot && <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.52vw" }}>{ctot}</span>}
+          <div
+            className="flex items-center justify-center overflow-hidden"
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: BOT_H,
+              backgroundColor: deiceIndication ? (deiceIndicationActive ? DEICE_INDICATION_BG : undefined) : (showCtot ? ctotBg || undefined : undefined),
+              color: deiceIndication ? (deiceIndicationActive ? DEICE_INDICATION_FG : "#000000") : (showCtot ? ctotColor : undefined),
+            }}
+          >
+            {deiceIndication
+              ? <span className="truncate px-[0.1vw]" style={{ fontFamily: FONT, fontSize: "0.52vw" }}>{deiceIndication}</span>
+              : showCtot && <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.52vw" }}>{ctot}</span>}
           </div>
         </div>
 

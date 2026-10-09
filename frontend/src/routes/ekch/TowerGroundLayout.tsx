@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { MemAidButton, CrossingButton, StartButton, LandButton } from "@/components/strip/TacticalButtons.tsx";
+import { MemAidButton, CrossingButton, StartButton, LandButton, DeiceLaneButton, DeicePlatformButton } from "@/components/strip/TacticalButtons.tsx";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import {
@@ -35,10 +35,11 @@ import {
   useWebSocketStore,
 } from "@/store/store-hooks.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useDefaultHidePlannedDepartures } from "@/store/localHiddenStrips";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { arrivalSortModes, startupSortModes as startupSortModesShared } from "@/lib/stripSortModes";
-import { CLS_BTN_BLUE, CLS_BTN_ORANGE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_MISSED, CLS_BTN_NEW, CLS_BTN_FIND, CLS_BTN_PLANNED, CLS_BTN_DI, CLS_BTN_ARR } from "@/components/strip/shared";
+import { CLS_BTN_BLUE, CLS_BTN_ORANGE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_MISSED, CLS_BTN_NEW, CLS_BTN_LANE, CLS_BTN_FIND, CLS_BTN_PLANNED, CLS_BTN_DI, CLS_BTN_ARR } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { NewVfrDialog } from "@/components/strip/NewVfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
@@ -46,6 +47,7 @@ import { FindDialog } from "@/components/strip/FindDialog";
 import { TOWER_COLUMN_CLASSES } from "./productionBayLayouts";
 import { useBayResize } from "@/components/bays/useBayResize";
 import { BayResizeHandle } from "@/components/bays/BayResizeHandle";
+import { getDeiceHeaderArea, isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
 
 // Column widths
 const [COL_ARR, COL_DEP, COL_CENTER, COL_RIGHT] = TOWER_COLUMN_CLASSES;
@@ -68,6 +70,7 @@ type TowerGroundLayoutProps = {
 };
 
 export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
+  useDefaultHidePlannedDepartures();
   const showStartupBay = variant === "TWRGND";
 
   const myPosition = useMyPosition();
@@ -103,7 +106,13 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
   const airborneDesc = useAirborneStrips().sort((a, b) => b.sequence - a.sequence);
   const standStrips = useStandStrips().sort((a, b) => b.sequence - a.sequence);
   const pushStrips = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
-  const deIceStrips = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
+  const deIceHeaderArea = variant === "TWTE" ? "A" : "TWRGND";
+  const deIceStrips = useDeIceStrips()
+    .filter((strip) => {
+      if (isFlight(strip) || !isDeiceHeaderTacticalStrip(strip)) return true;
+      return getDeiceHeaderArea(strip) === deIceHeaderArea;
+    })
+    .sort((a, b) => b.sequence - a.sequence);
   const controlzoneStrips = useControlzoneStrips().sort((a, b) => b.sequence - a.sequence);
   const startupStrips = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
   const startupFlightStrips = startupStrips.filter(isFlight);
@@ -161,7 +170,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
     "AIRBORNE": "TWY-DEP",
     "STAND": "ARR",
     "PUSHBACK": "PUSH",
-    "DE-ICE": "PUSH",
+    "DE-ICE": "TAXI-DEP",
     "CONTROLZONE": "CONTROLZONE",
     ...(showStartupBay ? { STARTUP: "PUSH" } : {}),
   };
@@ -427,7 +436,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
               >
                 {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
               </SortableBay>
-              <div className="bg-primary h-10 flex items-center px-2 shrink-0 justify-between bay-col-sep relative">
+              <div className="bay-col-header bay-col-sep justify-between">
                 <BayResizeHandle {...centerResize.handleProps("pushback")} />
                 <span className={CLS_LABEL}>MESSAGES</span>
                 <span className="flex gap-0.5">
@@ -447,7 +456,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           )}
         </div>
 
-        {/* Column 4 – CLRDEL + DE-ICE A + STAND */}
+        {/* Column 4 – CLRDEL + DE-ICE + STAND */}
         <div style={rightResize.columnStyle} className={COL_RIGHT}>
           <div className="bay-col-header justify-between">
             <span className={CLS_LABEL}>CLRDEL</span>
@@ -462,11 +471,21 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
 
           <div className="bay-col-header bay-col-sep justify-between">
             <BayResizeHandle {...rightResize.handleProps("clrDel")} />
-            <span className={CLS_LABEL}>DE-ICE A</span>
+            <span className={CLS_LABEL}>{variant === "TWTE" ? "DE-ICE A" : "DE-ICE"}</span>
             <span className="flex gap-0.5">
-              <button className={CLS_BTN_DI}>DI A</button>
-              <button className={CLS_BTN_DI}>DI B</button>
-              <button className={CLS_BTN_DI}>DI V</button>
+              {variant === "TWTE" ? (
+                <>
+                  <DeiceLaneButton area="A" lane={1} frequency="130.650" className={CLS_BTN_LANE} />
+                  <DeiceLaneButton area="A" lane={2} frequency="130.650" className={CLS_BTN_LANE} />
+                  <DeiceLaneButton area="A" lane={3} frequency="123.400" className={CLS_BTN_LANE} />
+                </>
+              ) : (
+                <>
+                  <DeicePlatformButton platform="A" className={CLS_BTN_DI} />
+                  <DeicePlatformButton platform="B" className={CLS_BTN_DI} />
+                  <DeicePlatformButton platform="V" className={CLS_BTN_DI} />
+                </>
+              )}
             </span>
           </div>
           <SortableBay
@@ -476,7 +495,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             standalone={false}
             className="h-[var(--bay-h-deIce)] bay-scroll-area-bottom"
           >
-            {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
+            {(strip) => <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />}
           </SortableBay>
 
           <div className="bay-col-header bay-col-sep">

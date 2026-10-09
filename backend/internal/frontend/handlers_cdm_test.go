@@ -16,15 +16,16 @@ import (
 )
 
 type spyCdmService struct {
-	session     int32
-	callsign    string
-	sourcePos   string
-	sourceRole  string
-	called      bool
-	clxSession  int32
-	clxCallsign string
-	clxTobt     string
-	clxCalled   bool
+	session       int32
+	callsign      string
+	sourcePos     string
+	sourceRole    string
+	called        bool
+	clxSession    int32
+	clxCallsign   string
+	clxTobt       string
+	clxCalled     bool
+	deicePlatform string
 }
 
 func (s *spyCdmService) TriggerRecalculate(_ context.Context, _ int32, _ string) {
@@ -66,6 +67,13 @@ func (s *spyCdmService) HandleClxTobtUpdate(_ context.Context, session int32, ca
 
 func (s *spyCdmService) HandleDeiceUpdate(_ context.Context, _ int32, _ string, _ string) error {
 	panic("HandleDeiceUpdate should not be called directly from handleCdmReady")
+}
+
+func (s *spyCdmService) HandleDeicePlatformUpdate(_ context.Context, session int32, callsign string, platform string) error {
+	s.session = session
+	s.callsign = callsign
+	s.deicePlatform = platform
+	return nil
 }
 
 func (s *spyCdmService) HandleAsrtToggle(_ context.Context, _ int32, _ string, _ string) error {
@@ -111,6 +119,28 @@ func TestHandleCdmReady_UsesOrchestrationMethod(t *testing.T) {
 	assert.Equal(t, "SAS321", cdmService.callsign)
 	assert.Equal(t, "EKCH_DEL", cdmService.sourcePos)
 	assert.Equal(t, "ATC", cdmService.sourceRole)
+}
+
+func TestHandleCdmDeicePlatformUpdate_UsesOrchestrationMethod(t *testing.T) {
+	cdmService := &spyCdmService{}
+	server := &testutil.MockServer{
+		CdmServiceVal:  cdmService,
+		FrontendHubVal: &testutil.MockFrontendHub{},
+	}
+	hub := &Hub{server: server}
+	client := &Client{hub: hub, session: 42}
+
+	payload, err := json.Marshal(frontendEvents.CdmDeicePlatformUpdateEvent{
+		Callsign: "SAS321",
+		Platform: "B",
+	})
+	require.NoError(t, err)
+
+	err = handleCdmDeicePlatformUpdate(context.Background(), client, Message{Message: payload})
+	require.NoError(t, err)
+	assert.Equal(t, int32(42), cdmService.session)
+	assert.Equal(t, "SAS321", cdmService.callsign)
+	assert.Equal(t, "B", cdmService.deicePlatform)
 }
 
 func TestHandleStartReq_ReportsReadyAndPersistsStartRequest(t *testing.T) {

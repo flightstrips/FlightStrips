@@ -1,4 +1,7 @@
+import { useState } from "react";
 import type { HalfStripVariant, StripProps } from "./types";
+import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
+import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { AircraftTypeLabel, useStripSelection, getCellBorderColor, getFlatStripBorderStyle, getSIBoxBorderStyle, SELECTION_COLOR, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { getStripBg } from "./types";
@@ -49,6 +52,7 @@ export function HalfStrip({
   pdcStatus,
   bay,
   fullWidth = false,
+  localHidden = false,
 }: StripProps) {
   const isLocked = LOCKED_VARIANTS.includes(halfStripVariant);
   const isFreeText = FREE_TEXT_VARIANTS.includes(halfStripVariant);
@@ -56,11 +60,15 @@ export function HalfStrip({
   const isSelectable = selectable && !isLocked;
   const { isSelected, handleClick } = useStripSelection(callsign, isSelectable);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const standYellow = unexpectedChangeFields?.includes("stand");
   const isArrivalVariant = halfStripVariant === "APN-ARR" || halfStripVariant === "LOCKED-ARR";
   const stripFrameColor = getHalfStripFrameColor(halfStripVariant, arrival ?? isArrivalVariant);
+  const isDepartureHalf = !isFreeText && !(isArrivalVariant || arrival);
+  const [fplOpen, setFplOpen] = useState(false);
+  const [fplViewOpen, setFplViewOpen] = useState(false);
   const baseCellBorderColor = isFreeText ? HALF_CELL_BASE : stripFrameColor;
 
   const cellBorderColor = getCellBorderColor(marked, baseCellBorderColor);
@@ -101,14 +109,16 @@ export function HalfStrip({
         /* Structured variants: callsign + flight data cells */
         <>
           <div
-            className={`h-full w-[6.77vw] border-r-2 flex items-center pl-[0.42vw] font-normal [-webkit-text-stroke:0.5px_currentColor] truncate ${textColor}`}
-            style={{ borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue }}
+            className={`h-full ${isArrivalVariant || arrival ? "w-[6.77vw]" : "w-[5.03vw]"} border-r-2 flex items-center pl-[0.42vw] font-normal [-webkit-text-stroke:0.5px_currentColor] truncate ${textColor}`}
+            style={{ borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue, cursor: localHidden ? "pointer" : undefined }}
+            onClick={localHidden ? (e) => { e.stopPropagation(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); } : undefined}
           >
             {callsign}
           </div>
           <div
-            className={`h-full w-[2.92vw] border-r-2 flex items-center justify-center text-[0.63vw] ${textColor}`}
-            style={{ borderRightColor: cellBorderColor }}
+            className={`h-full ${isArrivalVariant || arrival ? "w-[2.92vw]" : "w-[3.22vw]"} border-r-2 flex items-center justify-center text-[0.63vw] ${textColor}`}
+            style={{ borderRightColor: cellBorderColor, cursor: isDepartureHalf ? "pointer" : undefined }}
+            onClick={isDepartureHalf ? (e) => { e.stopPropagation(); setFplViewOpen(true); } : undefined}
           >
             <AircraftTypeLabel aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
           </div>
@@ -124,19 +134,29 @@ export function HalfStrip({
           >
             {taxiway}
           </div>
-          <div
-            className={`h-full w-[2.08vw] border-r-2 flex items-center justify-center text-[0.63vw] ${textColor}`}
-            style={{ borderRightColor: cellBorderColor }}
-          >
-            {holdingPoint}
-          </div>
+          {isArrivalVariant || arrival ? (
+            <div
+              className={`h-full w-[2.08vw] border-r-2 flex items-center justify-center text-[0.63vw] ${textColor}`}
+              style={{ borderRightColor: cellBorderColor }}
+            >
+              {holdingPoint}
+            </div>
+          ) : null}
           <div
             className={`h-full ${fullWidth ? "flex-1" : "w-[2.92vw]"} flex items-center justify-center font-normal [-webkit-text-stroke:0.5px_currentColor] ${textColor}`}
-            style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: getCellTextColor("stand", controllerModifiedFields) }}
-            onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
+            style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow || isDepartureHalf ? "pointer" : undefined, color: getCellTextColor("stand", controllerModifiedFields) }}
+            onClick={standYellow
+              ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); }
+              : isDepartureHalf ? (e) => { e.stopPropagation(); setFplOpen(true); } : undefined}
           >
             {stand}
           </div>
+          {isDepartureHalf && (
+            <>
+              <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} />
+              <FlightPlanDialog callsign={callsign} open={fplViewOpen} onOpenChange={setFplViewOpen} mode="view" />
+            </>
+          )}
         </>
       )}
     </div>

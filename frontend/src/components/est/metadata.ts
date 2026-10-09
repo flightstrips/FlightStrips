@@ -1,7 +1,7 @@
 import { Bay, type FrontendStrip } from "@/api/models";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 
-export type EstView = "MAIN" | "CARGO";
+export type EstView = "MAIN" | "CARGO" | "TWY_C" | "HANGAR";
 export type EstViewButtonId = "HANGAR" | "CARGO" | "TWY_C";
 
 interface RawStandDefinition {
@@ -13,6 +13,9 @@ interface RawStandDefinition {
 export interface EstCanvasStand extends RawStandDefinition {
   left: number;
   top: number;
+  // Label shown on the board when it differs from the stand name in the stand file.
+  displayLabel?: string;
+  width?: number;
 }
 
 export interface EstBackgroundBox {
@@ -66,7 +69,7 @@ const RAW_STANDS: RawStandDefinition[] = [
   { label: "E29", x: 1935.48, y: 320.626 },
   { label: "E24", x: 1844, y: 473.626 },
   { label: "E31", x: 1934.48, y: 473.939 },
-  { label: "E26", x: 1844, y: 626.939 },
+  { label: "E36", x: 1844, y: 626.939 },
   { label: "E33", x: 1935.48, y: 627.252 },
   { label: "E35", x: 1935.48, y: 780.565 },
   { label: "H105", x: 2180, y: 320.313 },
@@ -171,7 +174,6 @@ export const EST_VIEW_BUTTONS: EstViewButton[] = [
     fill: "#3D3D3D",
     label: "HANGAR",
     labelColor: "#FFFFFF",
-    disabled: true,
   },
   {
     id: "CARGO",
@@ -194,7 +196,6 @@ export const EST_VIEW_BUTTONS: EstViewButton[] = [
     fill: "#3D3D3D",
     label: "TWY C",
     labelColor: "#FFFFFF",
-    disabled: true,
   },
 ];
 
@@ -228,16 +229,100 @@ const CARGO_VIEW_STANDS: EstCanvasStand[] = [
   { label: 'G112', x: 63,   y: 681, left: 63,   top: 681 },
   { label: 'G111', x: 31,   y: 839, left: 31,   top: 839 },
   { label: 'G110', x: 32,   y: 997, left: 32,   top: 997 },
+  // Right column — G15–G19 top to bottom
+  { label: 'G15',  x: 2330, y: 363, left: 2330, top: 363 },
+  { label: 'G16',  x: 2330, y: 522, left: 2330, top: 522 },
+  { label: 'G17',  x: 2330, y: 681, left: 2330, top: 681 },
+  { label: 'G18',  x: 2330, y: 839, left: 2330, top: 839 },
+  { label: 'G19',  x: 2330, y: 997, left: 2330, top: 997 },
 ];
 
+const twyCStand = (label: string, left: number, top: number, displayLabel?: string): EstCanvasStand =>
+  ({ label, x: left, y: top, left, top, displayLabel });
+
+// Taxiway C stand positions — EST board coordinates
+const TWY_C_VIEW_STANDS: EstCanvasStand[] = [
+  twyCStand("C", 304, 572),
+  twyCStand("142", 1516, 198),
+  twyCStand("141", 1679, 198),
+  twyCStand("262", 700, 572),
+  twyCStand("273-1", 862, 572),
+  twyCStand("273", 1025, 572, "273-2"),
+  twyCStand("303", 1516, 572),
+  twyCStand("302", 1679, 572),
+  twyCStand("104", 1841, 572),
+  twyCStand("105", 2020, 645),
+  twyCStand("106", 2248, 645),
+  twyCStand("145", 862, 1032),
+  twyCStand("144", 1025, 1032),
+  twyCStand("243", 1516, 1032),
+  twyCStand("253", 1841, 1032),
+  twyCStand("117", 2004, 1032),
+  twyCStand("276", 2167, 1032),
+];
+
+const TWY_C_TAXIWAY_FILL = "#959595";
+
+const TWY_C_BACKGROUND_BOXES: EstBackgroundBox[] = [
+  { x: 304, y: 9, width: 84, height: 555, radius: 12, fill: TWY_C_TAXIWAY_FILL },
+  { x: 304, y: 728, width: 84, height: 240, radius: 12, fill: TWY_C_TAXIWAY_FILL },
+  { x: 2143, y: 9, width: 68, height: 968, radius: 12, fill: TWY_C_TAXIWAY_FILL },
+  { x: 1516, y: 345, width: 695, height: 42, radius: 12, fill: TWY_C_TAXIWAY_FILL },
+  { x: 29, y: 805, width: 2150, height: 42, radius: 12, fill: TWY_C_TAXIWAY_FILL },
+  { x: 46, y: 935, width: 2165, height: 42, radius: 12, fill: TWY_C_TAXIWAY_FILL },
+];
+
+const hangarStand = (label: string, left: number, top: number, width: number, displayLabel: string): EstCanvasStand =>
+  ({ label, x: left, y: top, left, top, width, displayLabel });
+
+// Hangar area stand positions � EST board coordinates
+const HANGAR_VIEW_STANDS: EstCanvasStand[] = [
+  hangarStand("HANGAR3", 682, 829, 119, "HANGAR 3"),
+  hangarStand("HANGAR4", 885, 829, 119, "HANGAR 4"),
+  hangarStand("HANGAR5", 1090, 829, 119, "HANGAR 5"),
+  hangarStand("HANGAR2", 1498, 829, 253, "HANGAR 2"),
+  hangarStand("HANGAR1", 1833, 829, 253, "HANGAR 1"),
+  hangarStand("RUNUP1", 2156, 360, 253, "RUN-UP 1"),
+  hangarStand("RUNUP2", 2156, 583, 253, "RUN-UP 2"),
+];
+
+const HANGAR_BACKGROUND_BOXES: EstBackgroundBox[] = [
+  { x: 682, y: 75, width: 548, height: 235, radius: 12, fill: TWY_C_TAXIWAY_FILL },
+  { x: 1278, y: 75, width: 468, height: 235, radius: 12, fill: TWY_C_TAXIWAY_FILL },
+  { x: 1813, y: 75, width: 274, height: 235, radius: 12, fill: TWY_C_TAXIWAY_FILL },
+];
+
+const HANGAR_VIEW_STAND_LABELS = new Set(HANGAR_VIEW_STANDS.map(({ label }) => label));
 const CARGO_VIEW_STAND_LABELS = new Set(CARGO_VIEW_STANDS.map(({ label }) => label));
+const TWY_C_VIEW_STAND_LABELS = new Set(TWY_C_VIEW_STANDS.map(({ label }) => label));
 
 export function isCargoStand(stand: string) {
   return CARGO_VIEW_STAND_LABELS.has(stand);
 }
 
+export function isTwyCStand(stand: string) {
+  return TWY_C_VIEW_STAND_LABELS.has(stand);
+}
+
+export function getDefaultEstViewForStand(stand: string | undefined): EstView {
+  if (stand && isCargoStand(stand)) return "CARGO";
+  if (stand && isTwyCStand(stand)) return "TWY_C";
+  if (stand && HANGAR_VIEW_STAND_LABELS.has(stand)) return "HANGAR";
+  return "MAIN";
+}
+
 export function getEstStandsForView(view: EstView) {
-  return view === "CARGO" ? CARGO_VIEW_STANDS : EST_STANDS;
+  if (view === "CARGO") return CARGO_VIEW_STANDS;
+  if (view === "TWY_C") return TWY_C_VIEW_STANDS;
+  if (view === "HANGAR") return HANGAR_VIEW_STANDS;
+  return EST_STANDS;
+}
+
+export function getEstBackgroundBoxesForView(view: EstView): EstBackgroundBox[] {
+  if (view === "CARGO") return [];
+  if (view === "TWY_C") return TWY_C_BACKGROUND_BOXES;
+  if (view === "HANGAR") return HANGAR_BACKGROUND_BOXES;
+  return EST_BACKGROUND_BOXES;
 }
 
 export function getVgdsStatus(stand: string): string | null {

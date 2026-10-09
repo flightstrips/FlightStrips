@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import EstStandCell from "@/components/est/EstStandCell";
 import EstViewButtons from "@/components/est/EstViewButtons";
 import {
-  EST_BACKGROUND_BOXES,
   EST_BOARD_HEIGHT,
   EST_BOARD_WIDTH,
+  getDefaultEstViewForStand,
+  getEstBackgroundBoxesForView,
   getEstStandsForView,
-  isCargoStand,
   type EstView,
 } from "@/components/est/metadata";
 import { ActionType, Bay, type FrontendStrip } from "@/api/models";
@@ -114,7 +114,7 @@ function LegacyArrStandDialog({ open, onOpenChange, callsign, currentStand }: Pr
   const [boardViewOverride, setBoardViewOverride] = useState<EstView | null>(null);
   const boardFrameRef = useRef<HTMLDivElement>(null);
   const [nowMs] = useState(() => Date.now());
-  const defaultBoardView: EstView = currentStand && isCargoStand(currentStand) ? "CARGO" : "MAIN";
+  const defaultBoardView: EstView = getDefaultEstViewForStand(currentStand);
   const boardView = boardViewOverride ?? defaultBoardView;
 
   useEffect(() => {
@@ -214,7 +214,7 @@ function LegacyArrStandDialog({ open, onOpenChange, callsign, currentStand }: Pr
               transform: `scale(${boardScale})`,
             }}
           >
-            {boardView !== "CARGO" && EST_BACKGROUND_BOXES.map((box) => (
+            {getEstBackgroundBoxesForView(boardView).map((box) => (
               <div
                 key={`${box.x}-${box.y}`}
                 className="absolute flex items-center justify-center font-bold"

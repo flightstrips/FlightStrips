@@ -15,6 +15,20 @@ describe("getStandAssignmentStyle", () => {
     expect(getStandAssignmentStyle(assignment({ blocked_by: ["A22"] })).backgroundColor).toBe(SAT_BLOCKED_ORANGE);
   });
 
+  it("keeps pending automatic assignments transparent without losing acknowledgement", () => {
+    const style = getStandAssignmentStyle(assignment({ pending_acknowledgement: true }));
+    expect(style.backgroundColor).toBeUndefined();
+    expect(style.changed).toBe(true);
+  });
+
+  it("preserves conflict orange for pending automatic assignments", () => {
+    expect(getStandAssignmentStyle(assignment({ pending_acknowledgement: true, blocked_by: ["A22"] })).backgroundColor).toBe(SAT_BLOCKED_ORANGE);
+  });
+
+  it("highlights a pending manually selected stand yellow", () => {
+    expect(getStandAssignmentStyle(assignment({ source: "MANUAL", pending_acknowledgement: true })).backgroundColor).toBe(SAT_CHANGED_YELLOW);
+  });
+
   it("gives changed yellow precedence while preserving manual blue text", () => {
     const style = getStandAssignmentStyle(assignment({ source: "MANUAL_OVERRIDE", manual: true, conflict_reason: "occupied", pending_acknowledgement: true }));
     expect(style.backgroundColor).toBe(SAT_CHANGED_YELLOW);

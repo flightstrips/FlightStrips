@@ -33,6 +33,20 @@ beforeEach(() => {
 });
 
 describe("arrival stand assignment dialog", () => {
+  it("shows the assignment mode or stand in smaller parentheses", () => {
+    state.satEnabled = true;
+    show();
+    expect(screen.getByRole("button", { name: "ASSIGN (AUTO)" })).toBeInTheDocument();
+    expect(screen.getByText("(AUTO)")).toHaveStyle({ fontSize: "0.75em" });
+    fireEvent.click(screen.getByRole("button", { name: "B" }));
+    expect(screen.getByRole("button", { name: "ASSIGN" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "B6" }));
+    expect(screen.getByRole("button", { name: "ASSIGN (B6)" })).toBeEnabled();
+    expect(screen.getByText("(B6)")).toHaveStyle({ fontSize: "0.75em" });
+    fireEvent.click(screen.getByRole("button", { name: "AUTO ASSIGN" }));
+    expect(screen.getByRole("button", { name: "ASSIGN (AUTO)" })).toBeInTheDocument();
+  });
+
   it("opens with an empty panel when no stand is assigned", () => {
     show("");
     expect(within(screen.getByRole("group", { name: "Stand selection" })).queryAllByRole("button")).toHaveLength(0);
@@ -99,7 +113,7 @@ describe("arrival stand assignment dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "W1" }));
     expect(screen.getByRole("textbox")).toHaveValue("W1");
     expect(state.updateStrip).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
     expect(state.updateStrip).toHaveBeenCalledWith("SAS123", { stand: "W1" });
   });
 
@@ -134,7 +148,7 @@ describe("arrival stand assignment dialog", () => {
       expect(screen.getByRole("textbox")).toHaveValue(stand);
       expect(within(screen.getByRole("group", { name: "Stand selection" })).queryAllByRole("button")).toHaveLength(0);
       expect(state.requestManualStand).not.toHaveBeenCalled();
-      fireEvent.click(screen.getByRole("button", { name: "OK" }));
+      fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
       expect(state.requestManualStand).toHaveBeenCalledWith("SAS123", stand, 0);
     },
   );
@@ -155,12 +169,12 @@ describe("arrival stand assignment dialog", () => {
     expect(screen.getByRole("button", { name: "HANGAR" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("stages a selected stand until OK and preserves direct updates", () => {
+  it("stages a selected stand until ASSIGN and preserves direct updates", () => {
     const { onOpenChange } = show();
     fireEvent.click(screen.getByRole("button", { name: "A23" }));
     expect(screen.getByRole("textbox", { name: "Manual stand" })).toHaveValue("A23");
     expect(state.updateStrip).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
     expect(state.updateStrip).toHaveBeenCalledWith("SAS123", { stand: "A23" });
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
@@ -227,7 +241,7 @@ describe("arrival stand assignment dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "ERASE" }));
     expect(screen.getByRole("textbox")).toHaveValue("");
     expect(state.updateStrip).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
     expect(state.updateStrip).toHaveBeenCalledWith("SAS123", { stand: "" });
   });
 
@@ -259,7 +273,7 @@ describe("arrival stand assignment dialog", () => {
     state.standAssignments = [{ callsign: "SAS123", stand: "A18", direction: "ARRIVAL", stage: "RESERVED", source: "AUTOMATIC", version: 4 }];
     const { onOpenChange, rerender, props } = show();
     fireEvent.click(screen.getByRole("button", { name: "A23" }));
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
     expect(state.requestManualStand).toHaveBeenCalledWith("SAS123", "A23", 4);
     expect(state.updateStrip).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalled();
@@ -276,12 +290,12 @@ describe("arrival stand assignment dialog", () => {
     expect(state.requestManualStand).not.toHaveBeenCalled();
   });
 
-  it.each(["", "A18"])("defaults OK to automatic assignment with current stand '%s'", currentStand => {
+  it.each(["", "A18"])("defaults ASSIGN to automatic assignment with current stand '%s'", currentStand => {
     state.satEnabled = true;
     const { onOpenChange } = show(currentStand);
     expect(screen.getByRole("button", { name: "AUTO ASSIGN" })).toHaveAttribute("aria-pressed", "true");
     expect(state.requestAutomaticStand).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
     expect(state.requestAutomaticStand).toHaveBeenCalledWith("SAS123", 0);
     expect(state.requestManualStand).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalled();
@@ -292,7 +306,7 @@ describe("arrival stand assignment dialog", () => {
     show();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "c39" } });
     expect(screen.getByRole("button", { name: "AUTO ASSIGN" })).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
     expect(state.requestManualStand).toHaveBeenCalledWith("SAS123", "C39", 0);
     expect(state.requestAutomaticStand).not.toHaveBeenCalled();
   });
@@ -305,7 +319,7 @@ describe("arrival stand assignment dialog", () => {
     rerender(<ArrStandDialog {...props} open={false} />);
     rerender(<ArrStandDialog {...props} />);
     expect(screen.getByRole("button", { name: "AUTO ASSIGN" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
     expect(state.requestAutomaticStand).toHaveBeenCalledWith("SAS123", 0);
   });
 
@@ -318,20 +332,20 @@ describe("arrival stand assignment dialog", () => {
     expect(screen.getByRole("textbox")).toHaveValue("");
     expect(screen.getAllByRole("button", { pressed: true })).toEqual([screen.getByRole("button", { name: "AUTO ASSIGN" })]);
     expect(within(screen.getByRole("group", { name: "Stand selection" })).queryAllByRole("button")).toHaveLength(0);
-    expect(screen.getByRole("button", { name: "OK" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^ASSIGN/ })).toBeEnabled();
     expect(state.requestAutomaticStand).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
     expect(state.requestAutomaticStand).toHaveBeenCalledWith("SAS123", 0);
     expect(state.updateStrip).not.toHaveBeenCalled();
   });
 
-  it.each(["AUTO ASSIGN", "OK"])("reactivates automatic mode before submitting with %s", submit => {
+  it.each(["AUTO ASSIGN", "ASSIGN"])("reactivates automatic mode before submitting with %s", submit => {
     state.satEnabled = true;
     show("");
     fireEvent.click(screen.getByRole("button", { name: "B" }));
     expect(screen.getByRole("button", { name: "B" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "AUTO ASSIGN" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "OK" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^ASSIGN/ })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "B6" }));
     expect(screen.getByRole("textbox")).toHaveValue("B6");
     expect(state.requestManualStand).not.toHaveBeenCalled();
@@ -339,7 +353,7 @@ describe("arrival stand assignment dialog", () => {
     expect(screen.getByRole("button", { name: "AUTO ASSIGN" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "B" })).toHaveAttribute("aria-pressed", "false");
     expect(state.requestAutomaticStand).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: submit }));
+    fireEvent.click(screen.getByRole("button", { name: submit === "ASSIGN" ? /^ASSIGN/ : submit }));
     expect(state.requestAutomaticStand).toHaveBeenCalledWith("SAS123", 0);
     expect(state.requestManualStand).not.toHaveBeenCalled();
   });
@@ -348,7 +362,7 @@ describe("arrival stand assignment dialog", () => {
     state.satEnabled = true;
     const { rerender, props } = show();
     fireEvent.click(screen.getByRole("button", { name: "A23" }));
-    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
     state.standActionRejection = {
       type: EventType.FrontendActionRejected,
       callsign: "SAS123",

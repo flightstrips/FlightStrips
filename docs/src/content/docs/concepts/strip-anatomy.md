@@ -141,6 +141,49 @@ Compact strips are used where a full strip is not required. The left identifier 
 
 The implemented controller layouts currently show `OB` for compact pushback traffic and `LA` for locked arrival traffic. A locked arrival strip is read-only.
 
+### Arrival stand assignment
+
+Click an arrival strip's **Stand** box to open the stand assignment dialog.
+Existing ownership and validation restrictions still apply. The inner panel opens
+empty when no stand is assigned; otherwise, the assigned stand's area opens.
+
+Select **A-H** to display the stands in that area. **C** and **D** both show the
+combined C+D panel. **RI**, **RII**, **RIII**, **W1**, **SAS**, **SOUTH**, **WEST**,
+and **HANGAR** are direct options: selecting one clears the inner panel and
+highlights only that option. HANGAR assigns the general hangar area, not a
+specific spot.
+
+When automatic stand assignment is enabled:
+
+- **AUTO ASSIGN** is selected in green by default, even if a stand is already
+  assigned. Click it or **ASSIGN (AUTO)** to request automatic assignment.
+- Selecting an area or editing the stand switches to manual mode. The selected
+  area turns green and AUTO ASSIGN turns grey.
+- Selecting a stand highlights it in green and fills the white field. Nothing is
+  assigned until **ASSIGN** is pressed. Its label shows the stand in smaller
+  parentheses, for example **ASSIGN (B6)**. ASSIGN is disabled if the manual field
+  is empty.
+- Clicking AUTO ASSIGN from manual mode reactivates automatic mode without
+  submitting. Click it again, or ASSIGN, to request allocation.
+- **ERASE** clears the entry and panel, removes other highlights, and restores
+  AUTO ASSIGN's green selection without submitting.
+- A pending manual assignment highlights the strip's stand box yellow.
+  Automatic assignments do not receive that yellow highlight. Conflicts retain
+  their orange background, and incompatible manual requests still require
+  explicit override confirmation.
+
+**ESC** or Escape cancels. Enter submits the current selection. Without automatic
+stand assignment enabled, AUTO ASSIGN is disabled and ASSIGN updates the stand
+directly; an empty entry clears the stand.
+
+### Dialog controls and dragging
+
+Stand assignment, MEM AID, and MESSAGES dialogs use raised button bevels with
+light top/left edges and dark bottom/right edges, and recessed text fields.
+
+When dragging strips, the released strip settles in 100 ms. Other strips slide
+and cross-bay insertion gaps open in 150 ms.
+
 ## Control-zone strip
 
 The control-zone strip is a separate VFR-oriented presentation:

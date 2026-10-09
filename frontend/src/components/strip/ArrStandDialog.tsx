@@ -192,7 +192,15 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
             </div>
             <MenuButton tone="dark" style={position(272, 683, 162, 47)} onClick={close}>ESC</MenuButton>
             <MenuButton tone="auto" selected={automaticSelected} style={position(448, 683, 162, 47)} onClick={selectAutomatic} disabled={!satEnabled} title={!satEnabled ? "Automatic stand assignment is not enabled for this session" : undefined}>AUTO ASSIGN</MenuButton>
-            <MenuButton tone="dark" style={position(627, 683, 166, 47)} onClick={send} disabled={satEnabled && !automaticSelected && !manualStand.trim()}>OK</MenuButton>
+            <MenuButton tone="dark" style={position(627, 683, 166, 47)} onClick={send} disabled={satEnabled && !automaticSelected && !manualStand.trim()}>
+              ASSIGN
+              {" "}
+              {(automaticSelected || manualStand.trim()) && (
+                <span style={{ fontSize: "0.75em", marginLeft: "0.35em" }}>
+                  ({automaticSelected ? "AUTO" : manualStand.trim().toUpperCase()})
+                </span>
+              )}
+            </MenuButton>
           </div>
         </DialogContent>
       )}

@@ -11,6 +11,7 @@ import { PlannedDialog } from "@/components/strip/PlannedDialog";
 import { useBayResize } from "@/components/bays/useBayResize";
 import { BayResizeHandle } from "@/components/bays/BayResizeHandle";
 import { AutoAlignedBay } from "@/components/bays/SortableBay";
+import { orderStripsByTsat } from "@/lib/tsatOrder";
 
 const col         = "w-1/4 bay-col";
 const lockedLabel  = "text-[#CECECE] font-bay tracking-[0.06em] [-webkit-text-stroke:0.5px_currentColor] text-[1.11375rem]";
@@ -28,7 +29,7 @@ export default function DEL() {
   const sasStrips = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norgewianStrips = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
-  const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
+  const cleared = orderStripsByTsat(useClearedStrips(), "ascending");
   const pushback = usePushbackStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
   const taxidep = useTaxiDepStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
   const messages = useMessages();

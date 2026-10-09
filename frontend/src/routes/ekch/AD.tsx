@@ -24,6 +24,7 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { allBayTransferRules } from "@/components/bays/stripMovement";
 import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { arrivalSortModes } from "@/lib/stripSortModes";
+import { orderStripsByTsat } from "@/lib/tsatOrder";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
 import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_LANE, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
@@ -67,7 +68,7 @@ export default function AD() {
   const twyDepUpr    = useTaxiDepStrips().sort((a, b) => b.sequence - a.sequence);
   const twyDepLwr    = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
   const twyArrStrips  = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
-  const startupStrips = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
+  const startupStrips = orderStripsByTsat(useClearedStrips(), "descending");
   const deIceStrips   = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
   const deIceVStrips  = deIceStrips.filter((strip) => {
     if (isFlight(strip)) return strip.deice_platform?.trim().toUpperCase() === "V";

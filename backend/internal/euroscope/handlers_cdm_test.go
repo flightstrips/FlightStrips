@@ -59,6 +59,9 @@ func (s *spyLocalCdmService) HandleClxTobtUpdate(_ context.Context, _ int32, _ s
 func (s *spyLocalCdmService) HandleDeiceUpdate(_ context.Context, _ int32, _ string, _ string) error {
 	panic("HandleDeiceUpdate should not be called in this test")
 }
+func (s *spyLocalCdmService) HandleDeicePlatformUpdate(_ context.Context, _ int32, _ string, _ string) error {
+	panic("HandleDeicePlatformUpdate should not be called in this test")
+}
 
 func (s *spyLocalCdmService) HandleAsrtToggle(_ context.Context, _ int32, _ string, _ string) error {
 	panic("HandleAsrtToggle should not be called in this test")

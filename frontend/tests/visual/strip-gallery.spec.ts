@@ -123,7 +123,7 @@ test("every strip type keeps its content inside the framed height", async ({ pag
   }
 });
 
-test("the final-arrival runway and TWY rows retain their two-thirds/one-third split", async ({ page }) => {
+test("the final-arrival runway and TWY rows split the column evenly", async ({ page }) => {
   await page.goto("/strip-gallery?shot=final-arrival");
 
   const runwayRow = page.getByTestId("final-arrival-runway-row");
@@ -142,7 +142,7 @@ test("the final-arrival runway and TWY rows retain their two-thirds/one-third sp
   expect(runwayBox).not.toBeNull();
   expect(twyBox).not.toBeNull();
   expect(twyLabelBox).not.toBeNull();
-  expect(runwayBox!.height / twyBox!.height).toBeCloseTo(2, 1);
+  expect(runwayBox!.height / twyBox!.height).toBeCloseTo(1, 1);
   expect(twyBox!.y).toBeCloseTo(runwayBox!.y + runwayBox!.height, 0);
   const twyCenterOffset = (twyLabelBox!.y + twyLabelBox!.height / 2) - (twyBox!.y + twyBox!.height / 2);
   expect(twyCenterOffset).toBeCloseTo(-1, 0);

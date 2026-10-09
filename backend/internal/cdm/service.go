@@ -185,6 +185,14 @@ func (s *Service) HandleDeiceUpdate(ctx context.Context, session int32, callsign
 	return s.actionService.HandleDeiceUpdate(ctx, session, callsign, deiceType)
 }
 
+func (s *Service) HandleDeicePlatformUpdate(ctx context.Context, session int32, callsign string, platform string) error {
+	return s.actionService.HandleDeicePlatformUpdate(ctx, session, callsign, platform)
+}
+
+func (s *Service) AcknowledgeDeicePlatform(ctx context.Context, session int32, callsign string) error {
+	return s.actionService.AcknowledgeDeicePlatform(ctx, session, callsign)
+}
+
 func (s *Service) HandleAsrtToggle(ctx context.Context, session int32, callsign string, asrt string) error {
 	return s.actionService.HandleAsrtToggle(ctx, session, callsign, asrt)
 }

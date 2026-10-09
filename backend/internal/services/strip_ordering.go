@@ -218,7 +218,23 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 			return err
 		}
 	}
+	if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, bay); err != nil {
+		return err
+	}
 	return s.applyBayChangeEffects(ctx, session, callsign, previousBay, bay, sendNotification)
+}
+
+func (s *StripService) acknowledgeDeicePlatformInBay(ctx context.Context, session int32, callsign string, bay string) error {
+	if bay != shared.BAY_TAXI_TWR {
+		return nil
+	}
+	service, ok := s.cdmService.(interface {
+		AcknowledgeDeicePlatform(context.Context, int32, string) error
+	})
+	if !ok {
+		return nil
+	}
+	return service.AcknowledgeDeicePlatform(ctx, session, callsign)
 }
 
 func (s *StripService) applyBayChangeEffects(ctx context.Context, session int32, callsign string, previousBay string, bay string, sendNotification bool) error {
@@ -324,6 +340,9 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 		if err := s.updateStripSequence(ctx, session, callsign, newOrder, bay, false); err != nil {
 			return err
 		}
+		if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, bay); err != nil {
+			return err
+		}
 		if err := s.recalculateAllStripSequences(ctx, session, bay); err != nil {
 			return err
 		}
@@ -333,6 +352,9 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 		return nil
 	}
 	if err := s.updateStripSequence(ctx, session, callsign, newOrder, bay, true); err != nil {
+		return err
+	}
+	if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, bay); err != nil {
 		return err
 	}
 	if landingClearanceValidationRelevantBay(bay) {

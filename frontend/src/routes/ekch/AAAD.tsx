@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
+import { DeiceLaneButton, MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import { useMyPosition, useMessages, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
@@ -29,12 +29,12 @@ import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { arrivalSortModes } from "@/lib/stripSortModes";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
+import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_LANE, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
+import { getDeiceHeaderArea, isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
+import { useDeiceBayDrop } from "@/lib/deiceBayDrop";
 
-const primaryHeader = `bg-primary h-10 flex items-center px-2 shrink-0`;
-const primaryLabel  = "text-[#CECECE] font-bay tracking-[0.06em] [-webkit-text-stroke:0.5px_currentColor] text-[1.11375rem]";
 const btnBlue = CLS_BTN_BLUE;
 
 import { useBayResize } from "@/components/bays/useBayResize";
@@ -72,6 +72,14 @@ export default function AAAD() {
   const startupStrips = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
   const pushStrips    = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
   const deIceStrips   = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
+  const deIceVStrips  = deIceStrips.filter((strip) =>
+    isFlight(strip) && strip.deice_platform?.trim().toUpperCase() === "V"
+  );
+  const deIceBStrips  = deIceStrips.filter((strip) => {
+    if (isFlight(strip)) return strip.deice_platform?.trim().toUpperCase() !== "V";
+    if (isDeiceHeaderTacticalStrip(strip)) return getDeiceHeaderArea(strip) === "B";
+    return true;
+  });
   const otherStrips   = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norStrips     = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
@@ -82,6 +90,7 @@ export default function AAAD() {
   const move              = useWebSocketStore(state => state.move);
   const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
   const pickupStrip       = useWebSocketStore(state => state.pickupStrip);
+  const handleDeiceBayDrop = useDeiceBayDrop();
 
   const arrSortModes = arrivalSortModes;
 
@@ -92,7 +101,8 @@ export default function AAAD() {
     "STAND":       { strips: standStrips,  targetBay: Bay.Stand,    descending: true },
     "STARTUP":     { strips: startupStrips, targetBay: Bay.Cleared, descending: true },
     "PUSHBACK":    { strips: pushStrips,    targetBay: Bay.Push,     descending: true },
-    "DE-ICE":      { strips: deIceStrips,   targetBay: Bay.DeIce,    descending: true },
+    "DE-ICE-B":    { strips: deIceBStrips,  targetBay: Bay.DeIce,    descending: true },
+    "DE-ICE-V":    { strips: deIceVStrips,  targetBay: Bay.DeIce,    descending: true },
     "FINAL":       { strips: finalStrips,   targetBay: Bay.Final,    descending: true },
     "RWY-ARR":     { strips: rwyArrStrips,  targetBay: Bay.RwyArr,   descending: true },
     "SAS":         { strips: sasStrips,     targetBay: Bay.NotCleared },
@@ -109,7 +119,8 @@ export default function AAAD() {
     "STAND":    "ARR",
     "STARTUP":  "PUSH",
     "PUSHBACK": "PUSH",
-    "DE-ICE":   "PUSH",
+    "DE-ICE-B": "TAXI-DEP",
+    "DE-ICE-V": "TAXI-DEP",
   };
 
   return (
@@ -124,6 +135,7 @@ export default function AAAD() {
         if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, insertAfter ?? null, bay);
         else move(activeRef.callsign!, bay, false, false, insertAfter);
       }}
+      onBayDrop={handleDeiceBayDrop}
       renderDragOverlay={(strip: AnyStrip) => {
         if (!isFlight(strip)) return <Strip strip={strip} width={APN_TAXI_DEP_STRIP_WIDTH} />;
         const bayEntry = Object.entries(bayStripMap).find(([, c]) =>
@@ -144,8 +156,8 @@ export default function AAAD() {
       {/* ── Col 1: MESSAGES / FINAL (locked) / RWY ARR (locked) / STAND ── */}
       <div style={col1Resize.columnStyle} className="bay-col-flex">
 
-        <div className={primaryHeader + " justify-between"}>
-          <span className={primaryLabel}>MESSAGES</span>
+        <div className="bay-col-header justify-between">
+          <span className={CLS_LABEL}>MESSAGES</span>
           <button className={CLS_BTN_MISSED} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
         </div>
         <div className="h-[var(--bay-h-messages)] bay-scroll-area">
@@ -273,7 +285,7 @@ export default function AAAD() {
 
       </div>
 
-      {/* ── Col 3: STARTUP / PUSH BACK / DE-ICE ── */}
+      {/* ── Col 3: STARTUP / PUSH BACK / DE-ICE B / DE-ICE V ── */}
       <div style={col3Resize.columnStyle} className="bay-col-flex">
 
         <div className="bay-col-header">
@@ -307,19 +319,38 @@ export default function AAAD() {
           )}
         </SortableBay>
 
-        <div className="bay-col-header bay-col-sep">
+        <div className="bay-col-header bay-col-sep justify-between">
           <BayResizeHandle {...col3Resize.handleProps("pushback")} />
-          <span className={CLS_LABEL}>DE-ICE</span>
+          <span className={CLS_LABEL}>DE-ICE B</span>
+          <span className="flex gap-0.5">
+            <DeiceLaneButton area="B" lane={1} frequency="131.650" className={CLS_BTN_LANE} />
+            <DeiceLaneButton area="B" lane={2} frequency="131.975" className={CLS_BTN_LANE} />
+          </span>
         </div>
         <SortableBay
-          strips={deIceStrips}
-          bayId="DE-ICE"
+          strips={deIceBStrips}
+          bayId="DE-ICE-B"
           isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="flex-1 bay-scroll-area-bottom"
         >
           {(strip) => (
-            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />
+          )}
+        </SortableBay>
+
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>DE-ICE V</span>
+        </div>
+        <SortableBay
+          strips={deIceVStrips}
+          bayId="DE-ICE-V"
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
+          standalone={false}
+          className="flex-1 bay-scroll-area-bottom"
+        >
+          {(strip) => (
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 

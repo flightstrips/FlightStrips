@@ -208,6 +208,33 @@ func TestMoveToBay_WithSyncStateMarksPdcValidationAfterLeavingNotClearedBay(t *t
 	assert.Contains(t, syncState.PdcValidationStrips, callsign)
 }
 
+func TestMoveStripBetween_InDeiceAcknowledgesPlatform(t *testing.T) {
+	const session = int32(1)
+	const callsign = "SAS123D"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetNextSequenceFn: func(_ context.Context, _ int32, bay string, _ int32) (int32, error) {
+			assert.Equal(t, shared.BAY_TAXI_TWR, bay)
+			return 0, pgx.ErrNoRows
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, updatedCallsign string, bay string, _ int32) (int64, error) {
+			assert.Equal(t, callsign, updatedCallsign)
+			assert.Equal(t, shared.BAY_TAXI_TWR, bay)
+			return 1, nil
+		},
+	}
+	cdmService := &spyStripCdmService{}
+	svc := NewStripService(stripRepo)
+	svc.SetCdmService(cdmService)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+
+	err := svc.MoveStripBetween(context.Background(), session, callsign, nil, shared.BAY_TAXI_TWR)
+
+	require.NoError(t, err)
+	assert.True(t, cdmService.deiceAcknowledged)
+	assert.Equal(t, callsign, cdmService.deiceAckCallsign)
+}
+
 func TestMoveTacticalStripBetween_UpdatesTargetBayAndSequence(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

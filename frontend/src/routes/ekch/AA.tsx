@@ -36,6 +36,7 @@ const btnYellow = CLS_BTN_YELLOW;
 
 import { useBayResize } from "@/components/bays/useBayResize";
 import { BayResizeHandle } from "@/components/bays/BayResizeHandle";
+import { isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
 
 // Default bay heights (% of column); the last bay of each column fills the rest.
 const COL1_DEFAULTS = { final: 30, rwyArr: 25 };
@@ -65,7 +66,9 @@ export default function AA() {
   const twyDepLwr     = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
   const twyArrStrips  = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
   const pushStrips    = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
-  const deIceStrips   = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
+  const deIceStrips   = useDeIceStrips()
+    .filter((strip) => isFlight(strip) || !isDeiceHeaderTacticalStrip(strip))
+    .sort((a, b) => b.sequence - a.sequence);
   const otherStrips   = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norStrips     = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
@@ -101,7 +104,7 @@ export default function AA() {
     "TWY-ARR":  "ARR",
     "STAND":    "ARR",
     "PUSHBACK": "PUSH",
-    "DE-ICE":   "PUSH",
+    "DE-ICE":   "TAXI-DEP",
   };
 
   return (
@@ -198,7 +201,7 @@ export default function AA() {
           className="h-[var(--bay-h-deIce)] bay-scroll-area-bottom"
         >
           {(strip) => (
-            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 

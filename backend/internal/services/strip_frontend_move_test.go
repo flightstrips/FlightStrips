@@ -496,6 +496,37 @@ func TestMoveFrontendStrip_CoordinationTransferExceptionAllowsMove(t *testing.T)
 	assert.Equal(t, []string{shared.BAY_TAXI_TWR}, fixture.updateBayTargets)
 }
 
+func TestMoveFrontendStrip_ToDeiceAcknowledgesPlatform(t *testing.T) {
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign: "SAS129D",
+		Bay:      shared.BAY_TAXI,
+	})
+	cdmService := &spyStripCdmService{}
+	fixture.svc.SetCdmService(cdmService)
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS129D", shared.BAY_TAXI_TWR, "1234567", "EKCH", "EKCH_A_GND", false, false)
+
+	require.NoError(t, err)
+	assert.True(t, cdmService.deiceAcknowledged)
+	assert.Equal(t, "SAS129D", cdmService.deiceAckCallsign)
+}
+
+func TestMoveFrontendStrip_AlreadyInDeiceAcknowledgesPlatform(t *testing.T) {
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign: "SAS129E",
+		Bay:      shared.BAY_TAXI_TWR,
+	})
+	cdmService := &spyStripCdmService{}
+	fixture.svc.SetCdmService(cdmService)
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS129E", shared.BAY_TAXI_TWR, "1234567", "EKCH", "EKCH_A_GND", false, false)
+
+	require.NoError(t, err)
+	assert.True(t, cdmService.deiceAcknowledged)
+	assert.Equal(t, "SAS129E", cdmService.deiceAckCallsign)
+	assert.Empty(t, fixture.updateBayTargets)
+}
+
 func TestMoveFrontendStrip_ToClearedWithActivePdcConfirmsVoiceClearance(t *testing.T) {
 	fixture := newFrontendMoveFixture(&internalModels.Strip{
 		Callsign:    "SAS130",

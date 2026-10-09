@@ -7,18 +7,20 @@ import EstStandCell from "@/components/est/EstStandCell";
 import EstStandMenu, { type EstMenuAnchor } from "@/components/est/EstStandMenu";
 import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import EstViewButtons from "@/components/est/EstViewButtons";
+import { StripListPopup } from "@/components/StripListPopup.tsx";
+import { plannedDepartureSortModes } from "@/lib/stripSortModes";
 import { getEstDepartureTransferTarget, isEstDepartureTransferActive } from "@/components/est/transferState";
 import { deriveEstStandBlocking } from "@/components/est/standBlocking";
 import { deriveEstStandDisplay } from "@/components/est/standDisplay";
 import {
-  EST_BACKGROUND_BOXES,
   EST_BOARD_HEIGHT,
   EST_BOARD_WIDTH,
+  getEstBackgroundBoxesForView,
   getEstStandsForView,
   parseTimestampMs,
   type EstView,
 } from "@/components/est/metadata";
-import { useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandAssignments, useStandBlocks, useOccupyStand, useVacateStand, useStripTransfers } from "@/store/store-hooks.ts";
+import { useAirport, useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandAssignments, useStandBlocks, useOccupyStand, useVacateStand, useStripTransfers } from "@/store/store-hooks.ts";
 
 const PAGE_BG = "bg-bay-est";
 const COLOR_LABEL_DEFAULT = "#202020";
@@ -105,9 +107,12 @@ export default function EST() {
   const strips = useWebSocketStore((state) => state.strips);
   const move = useWebSocketStore((state) => state.move);
   const pickupStrip = useWebSocketStore((state) => state.pickupStrip);
+  const cdmDeicePlatformUpdate = useWebSocketStore((state) => state.cdmDeicePlatformUpdate);
   const startRequestAndTransfer = useWebSocketStore((state) => state.startRequestAndTransfer);
   const setStartReq = useWebSocketStore((state) => state.setStartReq);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
+  const updateStrip = useWebSocketStore((state) => state.updateStrip);
+  const airport = useAirport();
   const myPosition = useMyPosition();
   const markArmed = useMarkArmed();
   const selectedCallsign = useSelectedCallsign();
@@ -122,8 +127,12 @@ export default function EST() {
   const [menuState, setMenuState] = useState<{ stand: string; anchor: EstMenuAnchor } | null>(null);
   const [statusStand, setStatusStand] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<EstMenuAnchor | null>(null);
+  const [plannedDepStand, setPlannedDepStand] = useState<string | null>(null);
+  const departureStrips = useMemo(
+    () => strips.filter((strip) => strip.origin === airport),
+    [strips, airport],
+  );
   const [deIceOpen, setDeIceOpen] = useState(false);
-  const [deIcePlatforms, setDeIcePlatforms] = useState<Record<string, string>>({});
   const [flightPlanCallsign, setFlightPlanCallsign] = useState<string | null>(null);
   const [blockedStands, setBlockedStands] = useState<Record<string, true>>({});
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -334,7 +343,6 @@ export default function EST() {
     }
 
     setFlightPlanCallsign(menuStrip.callsign);
-    setMenuState(null);
   }
 
   function handleStandOccupied() {
@@ -348,7 +356,6 @@ export default function EST() {
       setBlockedStands((current) => ({ ...current, [statusStand]: true }));
     }
     setStatusStand(null);
-    setMenuState(null);
   }
 
   function handleStandVacant() {
@@ -383,7 +390,6 @@ export default function EST() {
 
     move(statusStrip.callsign, Bay.Cleared, true);
     setStatusStand(null);
-    setMenuState(null);
   }
 
   function handleClearFpl() {
@@ -397,13 +403,23 @@ export default function EST() {
   }
 
   function handlePlannedDeparture() {
-    if (!statusStand || statusStrip?.bay !== Bay.Cleared) {
+    if (!statusStand) {
+      return;
+    }
+
+    if (!statusStrip) {
+      setPlannedDepStand(statusStand);
+      setStatusStand(null);
+      setStatusAnchor(null);
+      return;
+    }
+
+    if (statusStrip.bay !== Bay.Cleared) {
       return;
     }
 
     move(statusStrip.callsign, Bay.NotCleared);
     setStatusStand(null);
-    setMenuState(null);
   }
 
   function handleSelectDeIcePlatform(platform: string) {
@@ -411,11 +427,7 @@ export default function EST() {
       return;
     }
 
-    setDeIcePlatforms((current) => ({
-      ...current,
-      [menuStrip.callsign]: platform,
-    }));
-    closeAllOverlays();
+    cdmDeicePlatformUpdate(menuStrip.callsign, platform);
   }
 
   function handleEraseDeIcePlatform() {
@@ -423,12 +435,7 @@ export default function EST() {
       return;
     }
 
-    setDeIcePlatforms((current) => {
-      const next = { ...current };
-      delete next[menuStrip.callsign];
-      return next;
-    });
-    closeAllOverlays();
+    cdmDeicePlatformUpdate(menuStrip.callsign, "");
   }
 
   return (
@@ -450,7 +457,7 @@ export default function EST() {
               transform: `scale(${boardScale})`,
             }}
           >
-            {boardView !== "CARGO" && EST_BACKGROUND_BOXES.map((box) => (
+            {getEstBackgroundBoxesForView(boardView).map((box) => (
               <div
                 key={`${box.x}-${box.y}-${box.width}-${box.height}`}
                 className="absolute flex items-center justify-center font-bold"
@@ -549,11 +556,33 @@ export default function EST() {
         />
       )}
 
+      {plannedDepStand && (
+        <StripListPopup
+          title="PLANNED DEP"
+          rowHalfStripVariant="LOCKED-DEP"
+          strips={departureStrips}
+          sortModes={plannedDepartureSortModes}
+          onRowClick={(strip) => {
+            updateStrip(strip.callsign, { stand: plannedDepStand });
+            setPlannedDepStand(null);
+          }}
+          onDismiss={() => setPlannedDepStand(null)}
+          myPosition={myPosition}
+        />
+      )}
+
       <EstDeIceDialog
         open={deIceOpen}
         strip={menuStrip}
-        selectedPlatform={menuStrip ? deIcePlatforms[menuStrip.callsign] : undefined}
-        onOpenChange={setDeIceOpen}
+        selectedPlatform={menuStrip?.deice_platform}
+        onOpenChange={(next) => {
+          if (next) {
+            setDeIceOpen(true);
+            return;
+          }
+
+          setDeIceOpen(false);
+        }}
         onSelectPlatform={handleSelectDeIcePlatform}
         onErase={handleEraseDeIcePlatform}
       />

@@ -247,16 +247,16 @@ body.public-content-page {
       inset -1px -1px 0 rgba(255,255,255,0.12);
   }
   .bay-col-header {
-    @apply bg-bay-header h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
+    @apply bg-bay-header h-[3.15dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
   }
   .bay-col-header-light {
-    @apply bg-bay-header-light h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
+    @apply bg-bay-header-light h-[3.15dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
   }
   .bay-col-header-teal {
-    @apply bg-bay-teal h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
+    @apply bg-bay-teal h-[3.15dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
   }
   .bay-col-header-primary {
-    @apply bg-primary h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
+    @apply bg-primary h-[3.15dvh] flex items-center px-[0.42vw] shrink-0 relative z-20;
   }
   .bay-col-sep {
     @apply border-t-[6px] border-bay-border;

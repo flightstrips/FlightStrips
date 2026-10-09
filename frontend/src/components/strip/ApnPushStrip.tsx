@@ -31,6 +31,7 @@ import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
+import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatDeIceIndication } from "@/components/est/deiceIndication";
 
 // Height: 4.72dvh(51px at 1080p)
 const HALF_H = "50%";
@@ -72,6 +73,8 @@ export function ApnPushStrip({
   tobtSetBy,
   ctot,
   phase,
+  deicePlatform,
+  deicePlatformAcknowledged = false,
   runway,
   arrival,
   owner,
@@ -120,6 +123,8 @@ export function ApnPushStrip({
 	const emphasizeDisplayedTime = hasManualTobtSource(tobtSetBy);
   const canSendCdmReady = bay === Bay.Cleared;
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
+  const deiceIndication = formatDeIceIndication(deicePlatform);
+  const deiceIndicationActive = !!deiceIndication && !deicePlatformAcknowledged;
 
   return (
     <div
@@ -178,8 +183,8 @@ export function ApnPushStrip({
 
         {/* Stand / Release Point — 25%*(2/3) */}
         <div
-          className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer"
-          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48dvh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+          className="overflow-hidden border-r-2 cursor-pointer"
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive), position: "relative" }}
           onClick={(e) => guardValidationAction(e, () => {
             if (standYellow) {
               acknowledgeUnexpectedChange(callsign, "stand");
@@ -194,9 +199,27 @@ export function ApnPushStrip({
             }
           })}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
-            {holdingPoint || stand}
-          </span>
+          <div className="flex items-center justify-center" style={{ position: "absolute", inset: 0, bottom: BOT_H }}>
+            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
+              {holdingPoint || stand}
+            </span>
+          </div>
+          {deiceIndication && (
+            <div
+              className="flex items-center justify-center overflow-hidden"
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: BOT_H,
+                backgroundColor: deiceIndicationActive ? DEICE_INDICATION_BG : undefined,
+                color: deiceIndicationActive ? DEICE_INDICATION_FG : "#000000",
+              }}
+            >
+              <span className="truncate px-[0.1vw]" style={{ fontFamily: FONT, fontSize: "0.52vw" }}>{deiceIndication}</span>
+            </div>
+          )}
         </div>
 
         <PushbackMapDialog

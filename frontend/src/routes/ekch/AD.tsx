@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
+import { DeiceLaneButton, MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { useMyPosition, useMessages, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
 import {
   useClearedStrips,
@@ -26,14 +26,14 @@ import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { arrivalSortModes } from "@/lib/stripSortModes";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
+import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_LANE, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
+import { getDeiceHeaderArea, isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
+import { useDeiceBayDrop } from "@/lib/deiceBayDrop";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 
-const primaryHeader = `bg-primary h-10 flex items-center px-2 shrink-0`;
-const primaryLabel  = "text-[#CECECE] font-bay tracking-[0.06em] [-webkit-text-stroke:0.5px_currentColor] text-[1.11375rem]";
 const btnBlue = CLS_BTN_BLUE;
 
 import { useBayResize } from "@/components/bays/useBayResize";
@@ -69,6 +69,14 @@ export default function AD() {
   const twyArrStrips  = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
   const startupStrips = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
   const deIceStrips   = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
+  const deIceVStrips  = deIceStrips.filter((strip) => {
+    if (isFlight(strip)) return strip.deice_platform?.trim().toUpperCase() === "V";
+    return !isDeiceHeaderTacticalStrip(strip) || getDeiceHeaderArea(strip) !== "B";
+  });
+  const deIceBStrips  = deIceStrips.filter((strip) => {
+    if (isFlight(strip)) return strip.deice_platform?.trim().toUpperCase() !== "V";
+    return isDeiceHeaderTacticalStrip(strip) && getDeiceHeaderArea(strip) === "B";
+  });
   const pushStrips    = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
   const otherStrips   = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
@@ -80,12 +88,13 @@ export default function AD() {
   const move              = useWebSocketStore(state => state.move);
   const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
   const pickupStrip       = useWebSocketStore(state => state.pickupStrip);
+  const handleDeiceBayDrop = useDeiceBayDrop();
 
   const arrSortModes = arrivalSortModes;
 
   const bayStripMap = {
-    "DE-ICE-V":    { strips: deIceStrips,   targetBay: Bay.DeIce,    descending: true },
-    "DE-ICE-B":    { strips: [],            targetBay: Bay.DeIce,    descending: true },
+    "DE-ICE-V":    { strips: deIceVStrips,  targetBay: Bay.DeIce,    descending: true },
+    "DE-ICE-B":    { strips: deIceBStrips,  targetBay: Bay.DeIce,    descending: true },
     "TWY-DEP-UPR": { strips: twyDepUpr,    targetBay: Bay.Taxi,     descending: true },
     "TWY-DEP-LWR": { strips: twyDepLwr,    targetBay: Bay.TaxiLwr,  descending: true },
     "TWY-ARR":     { strips: twyArrStrips, targetBay: Bay.TwyArr,   descending: true },
@@ -101,8 +110,8 @@ export default function AD() {
   const transferRules = allBayTransferRules(Object.keys(bayStripMap));
 
   const statusForBay: Record<string, StripStatus> = {
-    "DE-ICE-V":    "PUSH",
-    "DE-ICE-B":    "PUSH",
+    "DE-ICE-V":    "TAXI-DEP",
+    "DE-ICE-B":    "TAXI-DEP",
     "TWY-DEP-UPR": "TAXI-DEP",
     "TWY-DEP-LWR": "TAXI-DEP",
     "TWY-ARR":  "ARR",
@@ -122,6 +131,7 @@ export default function AD() {
         if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, insertAfter ?? null, bay);
         else move(activeRef.callsign!, bay, false, false, insertAfter);
       }}
+      onBayDrop={handleDeiceBayDrop}
       renderDragOverlay={(strip: AnyStrip) => {
         if (!isFlight(strip)) return <Strip strip={strip} width={APN_TAXI_DEP_STRIP_WIDTH} />;
         const bayEntry = Object.entries(bayStripMap).find(([, c]) =>
@@ -142,8 +152,8 @@ export default function AD() {
       {/* ── Col 1: MESSAGES / FINAL (locked) / RWY ARR (locked) / TWY ARR ── */}
       <div style={col1Resize.columnStyle} className="bay-col-flex">
 
-        <div className={primaryHeader + " justify-between"}>
-          <span className={primaryLabel}>MESSAGES</span>
+        <div className="bay-col-header justify-between">
+          <span className={CLS_LABEL}>MESSAGES</span>
           <button className={CLS_BTN_MISSED} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
         </div>
         <div className="h-[var(--bay-h-messages)] bay-scroll-area">
@@ -212,30 +222,34 @@ export default function AD() {
           <span className={CLS_LABEL}>DE-ICE V</span>
         </div>
         <SortableBay
-          strips={deIceStrips}
+          strips={deIceVStrips}
           bayId="DE-ICE-V"
           isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="h-[var(--bay-h-deIceV)] bay-scroll-area-bottom"
         >
           {(strip) => (
-            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className="bay-col-header bay-col-sep">
+        <div className="bay-col-header bay-col-sep justify-between">
           <BayResizeHandle {...col2Resize.handleProps("deIceV")} />
           <span className={CLS_LABEL}>DE-ICE B</span>
+          <span className="flex gap-0.5">
+            <DeiceLaneButton area="B" lane={1} frequency="131.650" className={CLS_BTN_LANE} />
+            <DeiceLaneButton area="B" lane={2} frequency="131.975" className={CLS_BTN_LANE} />
+          </span>
         </div>
         <SortableBay
-          strips={[]}
+          strips={deIceBStrips}
           bayId="DE-ICE-B"
-          isDragDisabled={() => false}
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="h-[var(--bay-h-deIceB)] bay-scroll-area-bottom"
         >
           {(strip) => (
-            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 

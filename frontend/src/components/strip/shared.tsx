@@ -461,7 +461,7 @@ export const CLS_COL_FLEX = "flex-1 h-full bg-bay-panel flex flex-col min-w-0";
 export const CLS_HEADER_SHADOW = "shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_1px_0_rgba(0,0,0,0.9)] relative z-10";
 
 /** Dark section header bar. */
-export const CLS_HEADER = `bg-bay-header h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 ${CLS_HEADER_SHADOW}`;
+export const CLS_HEADER = `bg-bay-header h-[3.15dvh] flex items-center px-[0.42vw] shrink-0 ${CLS_HEADER_SHADOW}`;
 /** Standard header label text. */
 export const CLS_LABEL = "text-[#CECECE] font-bay tracking-[0.06em] [-webkit-text-stroke:0.5px_currentColor] text-[0.9306vw]";
 
@@ -499,19 +499,20 @@ export const CLS_CALLSIGN_ACTIVE = "active:bg-[var(--color-strip-callsign)]";
 // Bevelled bottom-bar button edge: light top/left, dark bottom/right, fading inward.
 export const CLS_CMD_BEVEL = "border-2 border-t-[#CECECE] border-l-[#CECECE] border-b-[#393939] border-r-[#393939] shadow-[inset_2px_2px_2px_-1px_rgba(206,206,206,0.55),inset_-2px_-2px_2px_-1px_rgba(57,57,57,0.55)] font-bay font-normal";
 export const CLS_CMDBTN = `bg-bay-btn text-[1.0575vw] h-[3.42dvh] my-[0.65dvh] w-[3.52vw] flex items-center justify-center ${CLS_CMD_BEVEL} outline-none`;
-const CLS_HEADER_BTN_BASE = "inline-flex h-[2.22dvh] items-center justify-center whitespace-nowrap border-2 px-[0.625vw] text-[0.73vw] leading-[1.04vw] font-bold";
+const CLS_HEADER_BTN_BASE = "inline-flex h-[1.89dvh] items-center justify-center whitespace-nowrap border-2 px-[0.625vw] text-[0.62vw] leading-[0.88vw] font-bold";
 export const CLS_BTN        = `${CLS_HEADER_BTN_BASE} bg-bay-btn text-white border-white active:bg-[#424242]`;
 // Bevelled header button: 2px stroke (light top/left, dark bottom/right) fading into the fill via inset shadows.
 // Height is 80% of the visible header area; `width` is a literal class (width = ratio x height) so Tailwind can see it.
 const bevelBtn = (width: string, fill: string) =>
-  `${CLS_HEADER_BTN_BASE.replace("font-bold", "font-normal").replace("h-[2.22dvh]", `h-[calc(2.96dvh-4.8px)] ${width}`).replace("px-[0.625vw]", "px-0")} ${fill} font-bay border-t-[#CECECE] border-l-[#CECECE] border-b-[#393939] border-r-[#393939] shadow-[inset_2px_2px_2px_-1px_rgba(206,206,206,0.55),inset_-2px_-2px_2px_-1px_rgba(57,57,57,0.55)] active:bg-[#424242]`;
-export const CLS_BTN_ORANGE = bevelBtn("w-[calc(6.91dvh-11.2px)]", "bg-runway-low-vis text-white");
-export const CLS_BTN_BLUE   = bevelBtn("w-[calc(8.88dvh-14.4px)]", "bg-[var(--color-half-mem-aid)] text-white");
+  `${CLS_HEADER_BTN_BASE.replace("font-bold", "font-normal").replace("h-[1.89dvh]", `h-[calc(2.52dvh-4.08px)] ${width}`).replace("px-[0.625vw]", "px-0")} ${fill} font-bay border-t-[#CECECE] border-l-[#CECECE] border-b-[#393939] border-r-[#393939] shadow-[inset_2px_2px_2px_-1px_rgba(206,206,206,0.55),inset_-2px_-2px_2px_-1px_rgba(57,57,57,0.55)] active:bg-[#424242]`;
+export const CLS_BTN_ORANGE = bevelBtn("w-[calc(5.87dvh-9.52px)]", "bg-runway-low-vis text-white");
+export const CLS_BTN_BLUE   = bevelBtn("w-[calc(7.55dvh-12.24px)]", "bg-[var(--color-half-mem-aid)] text-white");
 const GREY_FILL = "bg-bay-btn text-white";
-export const CLS_BTN_NEW     = bevelBtn("w-[calc(6.66dvh-10.8px)]", GREY_FILL);
-export const CLS_BTN_PLANNED = bevelBtn("w-[calc(10.36dvh-16.8px)]", GREY_FILL);
-export const CLS_BTN_MISSED  = bevelBtn("w-[calc(11.84dvh-19.2px)]", GREY_FILL);
-export const CLS_BTN_ARR     = bevelBtn("w-[calc(6.66dvh-10.8px)]", GREY_FILL);
-export const CLS_BTN_DI      = bevelBtn("w-[calc(6.66dvh-10.8px)]", GREY_FILL);
-export const CLS_BTN_FIND    = bevelBtn("w-[calc(6.66dvh-10.8px)]", GREY_FILL);
-export const CLS_BTN_YELLOW = bevelBtn("w-[calc(4.44dvh-7.2px)]", "bg-btn-yellow text-black");
+export const CLS_BTN_NEW     = bevelBtn("w-[calc(5.66dvh-9.18px)]", GREY_FILL);
+export const CLS_BTN_LANE    = `${CLS_BTN_NEW} !w-[calc(6.51dvh-10.56px)]`;
+export const CLS_BTN_PLANNED = bevelBtn("w-[calc(8.81dvh-14.28px)]", GREY_FILL);
+export const CLS_BTN_MISSED  = bevelBtn("w-[calc(10.06dvh-16.32px)]", GREY_FILL);
+export const CLS_BTN_ARR     = bevelBtn("w-[calc(5.66dvh-9.18px)]", GREY_FILL);
+export const CLS_BTN_DI      = bevelBtn("w-[calc(5.66dvh-9.18px)]", GREY_FILL);
+export const CLS_BTN_FIND    = bevelBtn("w-[calc(5.66dvh-9.18px)]", GREY_FILL);
+export const CLS_BTN_YELLOW = bevelBtn("w-[calc(3.77dvh-6.12px)]", "bg-btn-yellow text-black");

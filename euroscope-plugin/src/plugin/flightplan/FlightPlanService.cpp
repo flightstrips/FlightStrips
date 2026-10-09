@@ -5,8 +5,32 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <filesystem>
+#include <vector>
 
 namespace FlightStrips::flightplan {
+    namespace {
+        // EuroScope keeps its airline telephony list in %APPDATA%\EuroScope\DataFiles; prefer it over the plugin-relative config path.
+        std::string ResolveAirlinesFilePath(filesystem::FileSystem* fileSystem, const std::string& configuredFile) {
+            std::vector<std::filesystem::path> candidates;
+            char appData[MAX_PATH + 1] = {0};
+            if (const auto len = GetEnvironmentVariableA("APPDATA", appData, MAX_PATH); len > 0 && len <= MAX_PATH) {
+                candidates.push_back(std::filesystem::path(appData) / "EuroScope" / "DataFiles" / "ICAO_Airlines.txt");
+            }
+            char exePath[MAX_PATH + 1] = {0};
+            if (GetModuleFileNameA(nullptr, exePath, MAX_PATH) > 0) {
+                candidates.push_back(std::filesystem::path(exePath).remove_filename() / "DataFiles" / "ICAO_Airlines.txt");
+            }
+            for (const auto& candidate : candidates) {
+                if (std::error_code ec; std::filesystem::exists(candidate, ec)) {
+                    return candidate.string();
+                }
+            }
+
+            return fileSystem->GetLocalFilePath(configuredFile).string();
+        }
+    }
+
     // Returns whether the hold changed; the scratch pad callback fires on edits
     // that have nothing to do with holding.
     bool ApplyHold(FlightPlan& plan, const TopSkyHold& hold, const std::string& eatPulse) {
@@ -113,9 +137,9 @@ namespace FlightStrips::flightplan {
                                                                       m_standService(standService),
                                                                       m_appConfig(appConfig),
                                                                       m_airlineCallsignService(std::make_unique<AirlineCallsignService>(
-                                                                          fileSystem == nullptr
+                                                                          fileSystem == nullptr || m_appConfig == nullptr
                                                                               ? ""
-                                                                              : fileSystem->GetLocalFilePath(m_appConfig->GetAirlinesFile()).string())),
+                                                                              : ResolveAirlinesFilePath(fileSystem, m_appConfig->GetAirlinesFile()))),
                                                                       m_flightPlans({}) {
     }
 

@@ -202,6 +202,54 @@ func (c *CdmAirportConfig) TaxiMinutesForPosition(depRwy string, lat, lon float6
 	return 0, false
 }
 
+func (c *CdmAirportConfig) DeiceTaxiMinutesForPosition(depRwy, platform string, lat, lon float64) (int, bool) {
+	if c == nil || !isUsableTaxiPosition(lat, lon) {
+		return 0, false
+	}
+
+	point := s2.PointFromLatLng(s2.LatLngFromDegrees(lat, lon))
+	for _, zone := range c.TaxiZones {
+		if !strings.EqualFold(zone.Runway, depRwy) || len(zone.Polygon) < 3 {
+			continue
+		}
+		if taxiZoneContainsPoint(zone.Polygon, point) {
+			return zone.deiceTaxiMinutes(platform)
+		}
+	}
+
+	return 0, false
+}
+
+func (c *CdmAirportConfig) DeiceTaxiMinutesForRunway(depRwy, platform string) (int, bool) {
+	if c == nil {
+		return 0, false
+	}
+
+	for _, zone := range c.TaxiZones {
+		if strings.EqualFold(zone.Runway, depRwy) {
+			return zone.deiceTaxiMinutes(platform)
+		}
+	}
+
+	return 0, false
+}
+
+func (z CdmTaxiZone) deiceTaxiMinutes(platform string) (int, bool) {
+	index := -1
+	switch normalizeToken(platform) {
+	case "A":
+		index = 0
+	case "B":
+		index = 1
+	case "V":
+		index = 2
+	}
+	if index < 0 || index >= len(z.RemoteTaxiMinutes) {
+		return 0, false
+	}
+	return z.RemoteTaxiMinutes[index], true
+}
+
 func (c *CdmAirportConfig) SidIntervalMinutes(depRwy, sid1, sid2 string) float64 {
 	if c == nil {
 		return 0

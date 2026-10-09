@@ -184,7 +184,7 @@ export function FinalArrStrip({
           data-testid="final-arrival-runway-row"
           className={`flex items-center justify-center${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
           style={{
-            height: TOP_H,
+            height: "50%",
             backgroundColor: rwyColor,
             cursor: (bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined,
           }}
@@ -203,7 +203,7 @@ export function FinalArrStrip({
         <div
           data-testid="final-arrival-twy-row"
           className="flex items-center justify-center cursor-pointer"
-          style={{ height: BOT_H, cursor: getValidationBlockedCursor(isValidationActive) }}
+          style={{ height: "50%", cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => setTaxiMapOpen(true))}
         >
           <span className="relative inline-flex items-center justify-center" style={{ fontFamily: FONT, fontSize: "0.63vw", lineHeight: 1, transform: "translateY(-1px)" }}>

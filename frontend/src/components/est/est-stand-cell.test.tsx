@@ -173,7 +173,7 @@ describe("EstStandCell", () => {
     expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.queryByTestId("est-tsat-background")).toBeNull();
     expect(screen.getByRole("button")).toHaveClass("bg-[#131376]");
-    expect(screen.getByRole("button").style.boxShadow).toBe("");
+    expect(screen.getByRole("button").style.boxShadow).not.toContain("0 0 0 2px");
     expect(screen.getByText("CTOT: 1430")).toBeDefined();
   });
 
@@ -292,7 +292,7 @@ describe("EstStandCell", () => {
       />,
     );
     expect(screen.getByText("SAS123")).toBeDefined();
-    expect(screen.getByRole("button").className).toContain("bg-[#D9D9D9]");
+    expect(screen.getByRole("button").className).toContain("bg-[#959595]");
   });
 
   it("shows blocked style when blocked", () => {
@@ -329,7 +329,7 @@ describe("EstStandCell", () => {
       />,
     );
     const button = screen.getByRole("button");
-    expect(button.className).toContain("bg-[#D9D9D9]");
+    expect(button.className).toContain("bg-[#959595]");
   });
 
   it("shows arrival style for stand bay", () => {

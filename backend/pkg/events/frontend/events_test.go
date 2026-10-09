@@ -64,6 +64,56 @@ func TestCdmDataEventMarshal_IncludesEmptyTobtSourceFields(t *testing.T) {
 	}
 }
 
+func TestCdmDataEventMarshal_IncludesEmptyDeicePlatform(t *testing.T) {
+	t.Parallel()
+
+	payload, err := (CdmDataEvent{
+		Callsign:      "SAS123",
+		Eobt:          "1015",
+		Tobt:          "1020",
+		Tsat:          "1030",
+		Ctot:          "1045",
+		DeicePlatform: "",
+	}).Marshal()
+	if err != nil {
+		t.Fatalf("Marshal returned error: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("Unmarshal returned error: %v", err)
+	}
+
+	deicePlatform, ok := decoded["deice_platform"]
+	if !ok {
+		t.Fatal("expected marshaled CDM event to include deice_platform field")
+	}
+	if deicePlatform != "" {
+		t.Fatalf("expected empty deice_platform, got %#v", deicePlatform)
+	}
+}
+
+func TestCdmDataEventMarshal_IncludesDeicePlatformAcknowledged(t *testing.T) {
+	t.Parallel()
+
+	payload, err := (CdmDataEvent{
+		Callsign:                  "SAS123",
+		DeicePlatform:             "A",
+		DeicePlatformAcknowledged: true,
+	}).Marshal()
+	if err != nil {
+		t.Fatalf("Marshal returned error: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("Unmarshal returned error: %v", err)
+	}
+	if acknowledged, ok := decoded["deice_platform_acknowledged"]; !ok || acknowledged != true {
+		t.Fatalf("expected acknowledged de-ice platform, got %#v", acknowledged)
+	}
+}
+
 func TestStandAssignmentUpdateMarshalIncludesAuthoritativeMetadata(t *testing.T) {
 	rule, conflict := "cargo", "occupied by SAS123"
 	tier, version := int32(2), int32(7)

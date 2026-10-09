@@ -47,6 +47,8 @@ interface ViewDndContextProps {
   transferRules: Record<string, string[]>;
   onReorder: (activeRef: StripRef, above: StripRef | null) => void;
   onMove: (strip: StripRef, bay: Bay, insertAfter?: StripRef | null) => void;
+  /** Called (before onMove/onReorder) when a strip lands in a different visual bay. */
+  onBayDrop?: (strip: StripRef, targetBayId: string) => void;
   /** Renders the floating drag preview that follows the cursor across bay boundaries. */
   renderDragOverlay?: (strip: AnyStrip) => ReactNode;
 }
@@ -57,6 +59,7 @@ export function ViewDndContext({
   transferRules,
   onReorder,
   onMove,
+  onBayDrop,
   renderDragOverlay,
 }: ViewDndContextProps) {
   const selectedCallsign = useSelectedCallsign();
@@ -186,6 +189,11 @@ export function ViewDndContext({
     if (!targetConfig) return;
     if (!canStripMoveToBay(strip, targetConfig.targetBay, airport)) return;
 
+    onBayDrop?.({ kind: "flight", callsign: selectedCallsign }, clickedBayId);
+    if (targetConfig.targetBay === bayStripMap[sourceBayId]?.targetBay) {
+      selectStrip(null);
+      return;
+    }
     onMove({ kind: "flight", callsign: selectedCallsign }, targetConfig.targetBay);
     selectStrip(null);
   }
@@ -295,6 +303,7 @@ export function ViewDndContext({
     // causing the strip to disappear. Send only FrontendMove; the backend assigns
     // the sequence as part of the move operation.
     const dropInsertAfter = resolveDropInsertAfter(event, targetStrips, targetDescending, overId, dndId);
+    onBayDrop?.(makeStripRef(dndId)!, targetBayId);
     if (sourceBay !== targetBay) {
       onMove(makeStripRef(dndId)!, targetBay, dropInsertAfter);
       return;

@@ -277,6 +277,7 @@ export interface WebSocketState {
   runwayClearance: (callsign: string) => void;
   runwayConfirmation: (callsign: string) => void;
   cdmReady: (callsign: string) => void;
+  cdmDeicePlatformUpdate: (callsign: string, platform: string) => void;
   clxUpdateTobt: (callsign: string, tobt?: string) => void;
   clxOverrideValidation: (callsign: string, overrideKey: string) => void;
   assignRunway: (callsign: string, runway: string) => void;
@@ -833,6 +834,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     cdmReady: (callsign) => {
       sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign });
+    },
+    cdmDeicePlatformUpdate: (callsign, platform) => {
+      sendIfWritable({
+        type: EventType.FrontendCdmDeicePlatformUpdate,
+        callsign,
+        platform,
+      });
     },
     clxUpdateTobt: (callsign, tobt) => {
       sendIfWritable({ type: ActionType.FrontendClxUpdateTobt, callsign, ...(tobt ? { tobt } : {}) });
@@ -1409,6 +1417,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       if (data.ecfmp_id !== undefined) state.strips[stripIndex].ecfmp_id = data.ecfmp_id
       if (data.ctot_source !== undefined) state.strips[stripIndex].ctot_source = data.ctot_source
       if (data.phase !== undefined) state.strips[stripIndex].phase = data.phase
+      if (data.deice_platform !== undefined) state.strips[stripIndex].deice_platform = data.deice_platform
+      if (data.deice_platform_acknowledged !== undefined) state.strips[stripIndex].deice_platform_acknowledged = data.deice_platform_acknowledged
       if (data.ecfmp_restrictions !== undefined) state.strips[stripIndex].ecfmp_restrictions = data.ecfmp_restrictions
     }
   };

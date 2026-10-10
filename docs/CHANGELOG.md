@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.2.0...docs/v1.2.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **clearance:** align ownership and PDC frequency with staffing ([#883](https://github.com/flightstrips/FlightStrips/issues/883)) ([b3ff67b](https://github.com/flightstrips/FlightStrips/commit/b3ff67b816854480ec179dee3a12c3fc29999910))
+
 ## [1.2.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.1.0...docs/v1.2.0) (2026-10-09)
 
 

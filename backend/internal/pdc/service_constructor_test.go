@@ -1,6 +1,7 @@
 package pdc
 
 import (
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
 	"context"
 	"testing"
@@ -20,14 +21,15 @@ func (constructorHoppieClient) SendTelex(context.Context, string, string, string
 
 func validPdcServiceDependencies() ServiceDependencies {
 	return ServiceDependencies{
-		Client:       constructorHoppieClient{},
-		Sessions:     &testutil.MockSessionRepository{},
-		Strips:       &testutil.MockStripRepository{},
-		Sectors:      &testutil.MockSectorOwnerRepository{},
-		Controllers:  &testutil.MockControllerRepository{},
-		Frontend:     &mockPdcFrontendHub{},
-		Euroscope:    &mockPdcEuroscopeHub{},
-		StripService: &mockPdcStripService{},
+		Client:                 constructorHoppieClient{},
+		Sessions:               &testutil.MockSessionRepository{},
+		Strips:                 &testutil.MockStripRepository{},
+		Sectors:                &testutil.MockSectorOwnerRepository{},
+		Controllers:            &testutil.MockControllerRepository{},
+		Frontend:               &mockPdcFrontendHub{},
+		Euroscope:              &mockPdcEuroscopeHub{},
+		StripService:           &mockPdcStripService{},
+		ClearanceOwnerResolver: clearanceOwnerResolverFunc(func(context.Context, *models.Strip, int32) (string, bool, error) { return "118.105", true, nil }),
 	}
 }
 
@@ -44,6 +46,7 @@ func TestNewPDCServiceRejectsMissingRequiredDependencies(t *testing.T) {
 		{"frontend", func(d *ServiceDependencies) { d.Frontend = nil }, "pdc service requires frontend publisher"},
 		{"euroscope", func(d *ServiceDependencies) { d.Euroscope = nil }, "pdc service requires EuroScope commander"},
 		{"strip service", func(d *ServiceDependencies) { d.StripService = nil }, "pdc service requires strip service"},
+		{"clearance owner resolver", func(d *ServiceDependencies) { d.ClearanceOwnerResolver = nil }, "pdc service requires clearance owner resolver"},
 	}
 
 	for _, test := range tests {

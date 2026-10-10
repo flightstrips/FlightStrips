@@ -766,6 +766,19 @@ func resolveRouteStage(
 	if normalizedSector == "" {
 		return resolvedRouteStage{}, false
 	}
+	// Keep route trimming aligned with clearance assignment, including CLR DEL
+	// carrying the planner role. Legacy callers without radio state still use
+	// the configured sector ownership below.
+	if !isArrival && normalizedSector == "SQ" && strings.EqualFold(session.Airport, "EKCH") && radio.coverage != nil {
+		resolution := resolveStaffedSequenceTarget(radio)
+		if resolution == nil {
+			return resolvedRouteStage{}, false
+		}
+		return resolvedRouteStage{
+			Identifier: resolution.Identifier, Owner: resolution.Owner,
+			Display: cloneNextDisplay(resolution.Display), LogicalCarried: resolution.LogicalCarried,
+		}, true
+	}
 
 	if overrideTarget, ok := ownerOverrides[normalizedSector]; ok {
 		owner, ok := ownership.sectorToOwner[normalizeRouteSectorRef(overrideTarget)]

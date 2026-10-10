@@ -2,6 +2,7 @@ package services
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 	"context"
 	"testing"
@@ -12,13 +13,44 @@ import (
 
 type clearedHandoverRouteStub struct {
 	target             string
+	resolveCalls       int
 	resolvedStrip      *models.Strip
 	ownerAtRouteUpdate string
 }
 
 func (s *clearedHandoverRouteStub) ResolveClearedStripOwnerContext(_ context.Context, strip *models.Strip, _ int32) (string, bool, error) {
+	s.resolveCalls++
 	s.resolvedStrip = strip
 	return s.target, true, nil
+}
+
+func TestRepeatedClearanceDoesNotReclaimTransferredDeparture(t *testing.T) {
+	for _, source := range []string{"frontend", "euroscope", "pdc confirmation"} {
+		t.Run(source, func(t *testing.T) {
+			owner := "121.730"
+			strip := &models.Strip{Callsign: "SAS123", Origin: "EKCH", Destination: "ENGM", Bay: shared.BAY_CLEARED, Cleared: true, Owner: &owner, PdcState: "CONFIRMED"}
+			repo := &testutil.MockStripRepository{
+				GetByCallsignFn:     func(context.Context, int32, string) (*models.Strip, error) { return strip, nil },
+				UpdateClearedFlagFn: func(context.Context, int32, string, bool, string, *int32) (int64, error) { return 1, nil },
+			}
+			route := &clearedHandoverRouteStub{target: "121.905"}
+			hub := &testutil.MockFrontendHub{}
+			service := NewStripService(repo, WithRouteRecalculator(route), WithStripEventPublisher(hub))
+			var err error
+			switch source {
+			case "frontend":
+				err = service.UpdateClearedFlagForMove(context.Background(), 42, strip.Callsign, true, shared.BAY_CLEARED, "CID")
+			case "euroscope":
+				err = service.UpdateClearedFlag(context.Background(), 42, strip.Callsign, true)
+			case "pdc confirmation":
+				err = service.ConfirmPdcClearance(context.Background(), 42, strip.Callsign, shared.BAY_CLEARED, "CID")
+			}
+			require.NoError(t, err)
+			assert.Zero(t, route.resolveCalls)
+			assert.Equal(t, "121.730", *strip.Owner)
+			assert.Empty(t, hub.OwnersUpdates)
+		})
+	}
 }
 
 func (s *clearedHandoverRouteStub) UpdateRouteForStrip(string, int32, bool) error {

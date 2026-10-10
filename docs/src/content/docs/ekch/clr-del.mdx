@@ -30,13 +30,15 @@ Uncleared strips cannot be manually moved to another bay — only issuing a clea
 
 ## Cleared strips
 
-Completing the clearance directly assigns the strip to the first carried step in its complete departure route. This is an ownership change, not pending coordination. A logical step is carried when its frequency is primed or cross-coupled:
+Completing a voice clearance immediately assigns the strip to SEQ PLN when **121.905** or **119.905** is primed or cross-coupled, preferring coverage of **121.905**. For PDC, ownership changes only after the pilot acknowledges. The issuing scope does not change this selection. No receiving-controller acceptance is required.
 
-- **Any G or APRON SOUTH stand:** SEQ PLN 121.905 → GE 121.830 → the applicable tower.
-- **W1, RI, RII, RIII:** SEQ PLN 121.905 → GW 118.580 → the applicable tower.
-- **Other stands:** SEQ PLN 121.905 → AD 121.730 → the configured ground/tower route. If AD and SEQ PLN are carried by the same primary, the strip is assigned as **AD** and the displayed frequency is **121.905**.
+- **Any G or APRON SOUTH stand:** SEQ PLN → GE 121.830 → the applicable tower.
+- **W1, RI, RII, RIII:** SEQ PLN → GW 118.580 → the applicable tower.
+- **Other stands:** SEQ PLN → AD 121.730 → the configured ground/tower route. Consecutive steps carried by the same primary do not create a self-transfer.
 
-When a logical frequency is carried, cross-coupling changes the primary position that receives the strip while the SI label continues to show the logical identifier frequency. Otherwise, the sector's configured fallback owner receives the strip with that controller's identifier and frequency. A step is skipped only when neither radio carriage nor configured sector ownership resolves it.
+CLR DEL on **119.905** acts as SEQ PLN when no controller carries **121.905**. If neither planner frequency is carried, SQ is skipped and the strip goes directly to the stand's **AD**, **GE**, or **GW** controller, using configured combined coverage when needed. Inheriting the SQ sector alone does not count as planner staffing. If no route or recipient can be resolved, ownership stays unchanged.
+
+The strip remains in **Cleared** here and appears simultaneously in **STARTUP** on SEQ PLN and apron. Cross-coupled coverage assigns the controller's primary frequency as owner.
 
 ## Issue a clearance
 
@@ -65,6 +67,8 @@ When a logical frequency is carried, cross-coupling changes the primary position
 
 CLR DEL only needs to act when a PDC request raises a validation or contains manual remarks.
 
+**NEXT FRQ** uses the same stand-specific recipient selection as automatic clearance ownership, including combined and cross-coupled coverage. It is the receiving controller's primary frequency. If no route or recipient resolves, PDC cannot be issued. Ownership still changes only after pilot acknowledgment; the frequency is selected when the clearance is issued.
+
 | State | Strip | Action |
 | --- | --- | --- |
 | PDC invalid | Callsign blinks grey | **OPEN DCL MENU** in the validation dialog |
@@ -78,5 +82,5 @@ See [Pre-departure clearance](/concepts/pre-departure-clearance/) and [Validatio
 ## Related
 
 - [AA + AD](/ekch/aa-ad/) — combined apron after handoff
-- [SEQ PLN](/ekch/seq-pln/) — startup sequencing for North stands
+- [SEQ PLN](/ekch/seq-pln/) — startup sequencing
 - [Apron Departure](/ekch/apn-dep/) — B/C_GND split layout

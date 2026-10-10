@@ -47,57 +47,87 @@ func (s staticTransceiverLookup) GetFrequencies(callsign string) []string {
 	return append([]string(nil), s.frequenciesByCallsign[callsign]...)
 }
 
-// ── getNextFrequency (NEXT FRQ in clearance = SQ / DEL controller) ────────────
+type clearanceOwnerResolverFunc func(context.Context, *models.Strip, int32) (string, bool, error)
 
-func TestGetNextFrequency_SQOwnerOnline(t *testing.T) {
-	t.Parallel()
-
-	dbPool, queries := testdata.SetupTestDB(t)
-
-	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
-		{Sector: []string{"SQ", "DEL"}, Position: "119.905", Identifier: "DEL"},
-		// Airborne also online — must NOT affect NEXT FRQ
-		{Sector: []string{"K_DEP"}, Position: "124.980", Identifier: "K_DEP"},
-	})
-
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
-
-	freq, err := svc.getNextFrequency(context.Background(), sessionID)
-	require.NoError(t, err)
-	assert.Equal(t, "119.905", freq)
+func (f clearanceOwnerResolverFunc) ResolveClearedStripOwnerContext(ctx context.Context, strip *models.Strip, session int32) (string, bool, error) {
+	return f(ctx, strip, session)
 }
 
-func TestGetNextFrequency_FallbackToDEL(t *testing.T) {
-	t.Parallel()
-
-	dbPool, queries := testdata.SetupTestDB(t)
-
-	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
-		// Only DEL, no SQ
-		{Sector: []string{"DEL"}, Position: "119.905", Identifier: "DEL"},
-	})
-
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
-
-	freq, err := svc.getNextFrequency(context.Background(), sessionID)
-	require.NoError(t, err)
-	assert.Equal(t, "119.905", freq)
+type clearanceSequenceRepository struct {
+	*testutil.MockSessionRepository
 }
 
-func TestGetNextFrequency_NoSQOrDEL_ReturnsError(t *testing.T) {
-	t.Parallel()
+func (clearanceSequenceRepository) IncrementPdcSequence(context.Context, int32) (int32, error) {
+	return 1, nil
+}
+func (clearanceSequenceRepository) IncrementPdcMessageSequence(context.Context, int32) (int32, error) {
+	return 1, nil
+}
 
-	dbPool, queries := testdata.SetupTestDB(t)
+func TestClearanceTextUsesStripSpecificRecipient(t *testing.T) {
+	for _, test := range []struct{ name, stand, frequency string }{
+		{"planner", "G120", "121.905"},
+		{"delivery as planner", "G120", "119.905"},
+		{"north apron", "A12", "121.730"},
+		{"south ground", "273-1", "121.830"},
+		{"west ground", "RII", "118.580"},
+		{"cross coupled primary", "G120", "121.630"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			strip := &models.Strip{
+				Callsign: "SAS123", Origin: "EKCH", Destination: "ENGM",
+				Stand: &test.stand, Runway: stringPtr("22R"), Sid: stringPtr("ODDON1F"),
+				AssignedSquawk: stringPtr("2401"),
+				PdcData:        (&models.PdcData{Web: &models.PdcWebData{}}).Normalize(),
+			}
+			calls := 0
+			svc := &Service{
+				sessionRepo:    clearanceSequenceRepository{&testutil.MockSessionRepository{}},
+				controllerRepo: emptyFrequencyTestControllerRepository(),
+				sectorRepo:     &testutil.MockSectorOwnerRepository{ListBySessionFn: func(context.Context, int32) ([]*models.SectorOwner, error) { return nil, nil }},
+				frontendHub:    &mockPdcFrontendHub{},
+				clearanceOwnerResolver: clearanceOwnerResolverFunc(func(_ context.Context, got *models.Strip, session int32) (string, bool, error) {
+					calls++
+					require.Same(t, strip, got)
+					require.Equal(t, int32(42), session)
+					return test.frequency, true, nil
+				}),
+			}
+			for _, web := range []bool{false, true} {
+				options, err := svc.BuildClearanceOptions(context.Background(), sessionInformation{id: 42}, strip, "", web, nil)
+				require.NoError(t, err)
+				assert.Equal(t, test.frequency, options.NextFrequency)
+				assert.Contains(t, buildPDCClearance(options), "NEXT FRQ: @"+test.frequency+"@")
+				assert.Contains(t, buildWebPDCClearance(options), "NEXT FRQ: "+test.frequency)
+				assert.False(t, strip.Cleared, "building a clearance must not assume it before acknowledgment")
+			}
+			assert.Equal(t, 2, calls)
+		})
+	}
+}
 
-	// Only airborne, no ground controller with SQ or DEL
-	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
-		{Sector: []string{"K_DEP"}, Position: "124.980", Identifier: "K_DEP"},
-	})
-
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
-
-	_, err := svc.getNextFrequency(context.Background(), sessionID)
-	assert.Error(t, err)
+func TestGetNextFrequencyRejectsUnresolvedRecipient(t *testing.T) {
+	lookupErr := errors.New("controller lookup failed")
+	for _, test := range []struct {
+		name     string
+		resolver ClearanceOwnerResolver
+		want     string
+	}{
+		{"missing resolver", nil, "clearance owner resolver is unavailable"},
+		{"no route or recipient", clearanceOwnerResolverFunc(func(context.Context, *models.Strip, int32) (string, bool, error) { return "", false, nil }), "no clearance recipient frequency found"},
+		{"empty frequency", clearanceOwnerResolverFunc(func(context.Context, *models.Strip, int32) (string, bool, error) { return "", true, nil }), "no clearance recipient frequency found"},
+		{"lookup error", clearanceOwnerResolverFunc(func(context.Context, *models.Strip, int32) (string, bool, error) { return "", false, lookupErr }), "failed to resolve clearance owner: controller lookup failed"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			svc := &Service{clearanceOwnerResolver: test.resolver}
+			freq, err := svc.getNextFrequency(context.Background(), 42, &models.Strip{Callsign: "SAS123"})
+			require.EqualError(t, err, test.want)
+			assert.Empty(t, freq)
+			if test.name == "lookup error" {
+				assert.ErrorIs(t, err, lookupErr)
+			}
+		})
+	}
 }
 
 // ── getAirborneFrequency (Departure frequency in clearance = SID-specific airborne sector) ─

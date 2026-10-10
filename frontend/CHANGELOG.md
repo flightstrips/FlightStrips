@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.3.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.2.0...frontend/v2.3.0) (2026-10-09)
+
+
+### Features
+
+* add SEQ PLN scope ([#860](https://github.com/flightstrips/FlightStrips/issues/860)) ([df1af26](https://github.com/flightstrips/FlightStrips/commit/df1af263401b3e093003bcfa18e4c7fcd97b71c7))
+* **aman:** add traffic prediction legend ([#846](https://github.com/flightstrips/FlightStrips/issues/846)) ([710f924](https://github.com/flightstrips/FlightStrips/commit/710f924e0603e6b17d5751306f9eb04d491ed5a0))
+* **cdm:** add de-icing workflow and controller UI polish ([#858](https://github.com/flightstrips/FlightStrips/issues/858)) ([9373bb3](https://github.com/flightstrips/FlightStrips/commit/9373bb3ef2512ffb60d17f01cc018ff52d88072e))
+* **strip:** add arrival stand assignment menu and beveled dialog controls ([#859](https://github.com/flightstrips/FlightStrips/issues/859)) ([5762711](https://github.com/flightstrips/FlightStrips/commit/576271103f9fd1d990e60f52ef61939a0181f7fb))
+* **strip:** restyle bays, strips and dialogs with bevelled look ([#857](https://github.com/flightstrips/FlightStrips/issues/857)) ([117c7eb](https://github.com/flightstrips/FlightStrips/commit/117c7ebd0d47eb7151a722d4e1f4e17e5e520c4c))
+
+
+### Bug Fixes
+
+* **aman:** handle STAR changes, diversions, and session exclusions ([#855](https://github.com/flightstrips/FlightStrips/issues/855)) ([0a4526e](https://github.com/flightstrips/FlightStrips/commit/0a4526eca304112b843c3ab60d0ab17ddf06aab7))
+* **aman:** open the flight menu from holding entries ([#848](https://github.com/flightstrips/FlightStrips/issues/848)) ([6cf0d8f](https://github.com/flightstrips/FlightStrips/commit/6cf0d8f9d79a30b3b0d806e9616fd189034a4e8a))
+* **aman:** replace key-required basemap with OpenStreetMap ([#856](https://github.com/flightstrips/FlightStrips/issues/856)) ([7229e1b](https://github.com/flightstrips/FlightStrips/commit/7229e1bae737cf62092b3487529746039c82e48d))
+* **strip:** sort clearance and startup bays by TSAT ([#882](https://github.com/flightstrips/FlightStrips/issues/882)) ([1b5a128](https://github.com/flightstrips/FlightStrips/commit/1b5a128350d4d9ce217e308c3131d615203da829))
+
 ## [2.2.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.1.1...frontend/v2.2.0) (2026-10-05)
 
 

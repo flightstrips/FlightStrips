@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.3.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.2.0...backend/v3.3.0) (2026-10-09)
+
+
+### Features
+
+* add SEQ PLN scope ([#860](https://github.com/flightstrips/FlightStrips/issues/860)) ([df1af26](https://github.com/flightstrips/FlightStrips/commit/df1af263401b3e093003bcfa18e4c7fcd97b71c7))
+* **aman:** reduce arrival delay and restore STAR order ([#849](https://github.com/flightstrips/FlightStrips/issues/849)) ([f7c6e49](https://github.com/flightstrips/FlightStrips/commit/f7c6e49d101f5b9193e6df8267151be695b6780f))
+* **cdm:** add de-icing workflow and controller UI polish ([#858](https://github.com/flightstrips/FlightStrips/issues/858)) ([9373bb3](https://github.com/flightstrips/FlightStrips/commit/9373bb3ef2512ffb60d17f01cc018ff52d88072e))
+* **strip:** add EAT and shared scratch pad tag items ([#853](https://github.com/flightstrips/FlightStrips/issues/853)) ([6c9c33d](https://github.com/flightstrips/FlightStrips/commit/6c9c33d6781ba30e03249b39e4fee3c4646fbdff))
+* **strip:** restyle bays, strips and dialogs with bevelled look ([#857](https://github.com/flightstrips/FlightStrips/issues/857)) ([117c7eb](https://github.com/flightstrips/FlightStrips/commit/117c7ebd0d47eb7151a722d4e1f4e17e5e520c4c))
+
+
+### Bug Fixes
+
+* **aman:** handle STAR changes, diversions, and session exclusions ([#855](https://github.com/flightstrips/FlightStrips/issues/855)) ([0a4526e](https://github.com/flightstrips/FlightStrips/commit/0a4526eca304112b843c3ab60d0ab17ddf06aab7))
+* **aman:** preserve holding admission and handle actual cancellations ([#850](https://github.com/flightstrips/FlightStrips/issues/850)) ([1669466](https://github.com/flightstrips/FlightStrips/commit/1669466dc8d5b18854b8f54516e2bd3aa210ee15))
+* **aman:** restore demand-aware per-STAR spacing ([#854](https://github.com/flightstrips/FlightStrips/issues/854)) ([e7ab21b](https://github.com/flightstrips/FlightStrips/commit/e7ab21bd56bcb08b5b8ee3ac65e64575862335ea))
+* **cdm:** harden exports and log pushback timing decisions ([#852](https://github.com/flightstrips/FlightStrips/issues/852)) ([4872819](https://github.com/flightstrips/FlightStrips/commit/4872819ca240f2734d9378f59fb67d5ac916cf86))
+* **cdm:** sync vIFF CTOT and regulation without restoring cancelled slots ([#851](https://github.com/flightstrips/FlightStrips/issues/851)) ([c6a439c](https://github.com/flightstrips/FlightStrips/commit/c6a439ca356fa5f0ebc707fbdd8c6db419fa0a64))
+
 ## [3.2.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.1.2...backend/v3.2.0) (2026-10-05)
 
 

@@ -3,6 +3,7 @@ package server
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 	pkgModels "FlightStrips/pkg/models"
 	"context"
@@ -546,6 +547,107 @@ func TestCompleteRouteDoesNotDependOnBay(t *testing.T) {
 			continue
 		}
 		assert.Equal(t, expected, state)
+	}
+}
+
+func TestClearanceSequenceStaffingAndStandFallback(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		coverage      map[string]map[string]struct{}
+		sequenceOwner string
+	}{
+		{"dedicated planner", handoverCoverage("121.905", "119.905"), "121.905"},
+		{"delivery acts as planner", handoverCoverage("119.905"), "119.905"},
+		{"cross coupled planner", map[string]map[string]struct{}{"121.630": {"121.905": {}}}, "121.630"},
+		{"cross coupled delivery", map[string]map[string]struct{}{"121.630": {"119.905": {}}}, "121.630"},
+		{"direct planner beats another carrier", map[string]map[string]struct{}{"121.905": {}, "121.630": {"121.905": {}}}, "121.905"},
+		{"inherited SQ is not staffing", handoverCoverage("121.730", "121.830", "118.580"), ""},
+		{"tower only", handoverCoverage("119.355"), ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			for _, stand := range []struct{ name, sector, owner string }{
+				{"A12", "AD", "121.730"},
+				{"G105", "GE", "121.830"},
+				{"G120", "GE", "121.830"},
+				{"262", "GE", "121.830"},
+				{"273-1", "GE", "121.830"},
+				{"W1", "GWD", "118.580"},
+				{"RI", "GWD", "118.580"},
+				{"RII", "GWD", "118.580"},
+				{"RIII", "GWD", "118.580"},
+			} {
+				t.Run(stand.name, func(t *testing.T) {
+					session := handoverSession()
+					strip := &models.Strip{Origin: "EKCH", Destination: "ENGM", Stand: handoverStringPtr(stand.name), Runway: handoverStringPtr("22R"), Bay: "CLEARED"}
+					apronOwner := stand.owner
+					if test.name == "tower only" {
+						apronOwner = "119.355"
+					}
+					// SQ ownership deliberately points at apron. Radio staffing must
+					// override it, or skip it when no planner frequency is carried.
+					ownership := handoverOwnership(map[string]string{"SQ": "121.730", stand.sector: apronOwner}, map[string]string{apronOwner: stand.sector})
+					radio := handoverRadio(test.coverage)
+					route, ok := config.ComputeDepartureRoute([]string{"22R"}, stand.name, "22R")
+					require.True(t, ok)
+					got := resolveClearedRouteTarget(route.Path, strip, session, ownership, radio)
+					require.NotNil(t, got)
+					want := test.sequenceOwner
+					if want == "" {
+						want = apronOwner
+					}
+					assert.Equal(t, want, got.Owner)
+					if test.sequenceOwner != "" {
+						assert.Equal(t, "SEQ PLN", got.Display.Label)
+						strip.Owner = handoverStringPtr(got.Owner)
+						state, updated, err := computeRouteStateForStrip(strip, session, []*models.SectorOwner{
+							{Position: "121.730", Sector: []string{"SQ"}},
+							{Position: apronOwner, Sector: []string{stand.sector}},
+						}, radio)
+						require.NoError(t, err)
+						require.True(t, updated)
+						require.NotEmpty(t, state.NextOwners)
+						assert.Equal(t, apronOwner, state.NextOwners[0])
+						assert.NotContains(t, state.NextOwners, got.Owner)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestClearanceWithoutOperationalRecipientIsUnresolved(t *testing.T) {
+	strip := &models.Strip{Origin: "EKCH", Stand: handoverStringPtr("A12"), Runway: handoverStringPtr("22R")}
+	// An inherited SQ owner alone must not make an unstaffed planner available.
+	ownership := handoverOwnership(map[string]string{"SQ": "121.730"}, nil)
+	assert.Nil(t, resolveClearedRouteTarget([]string{"SQ", "AD"}, strip, handoverSession(), ownership, handoverRadio(handoverCoverage("121.730"))))
+}
+
+func TestResolveClearedStripOwnerUsesOperationalRadioState(t *testing.T) {
+	session := handoverSession()
+	session.ID = 42
+	ctx := shared.WithSyncState(context.Background(), &shared.SyncState{
+		Session: session,
+		SectorOwners: map[string]*models.SectorOwner{
+			"121.730": {Position: "121.730", Sector: []string{"SQ", "AD"}},
+		},
+	})
+	for _, test := range []struct{ name, callsign, stand, want string }{
+		{"delivery coverage overrides inherited SQ", "EKCH_DEL", "A12", "119.905"},
+		{"observer is not planner coverage", "EKCH_OBS", "A12", "121.730"},
+		{"unknown stand leaves ownership unresolved", "EKCH_DEL", "Z999", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s := &Server{controllerRepo: &testutil.MockControllerRepository{
+				ListFn: func(context.Context, int32) ([]*models.Controller, error) {
+					return []*models.Controller{{Callsign: test.callsign, Position: "119.905", Observer: test.callsign == "EKCH_OBS"}}, nil
+				},
+			}}
+			strip := &models.Strip{Origin: "EKCH", Destination: "ENGM", Stand: handoverStringPtr(test.stand), Runway: handoverStringPtr("22R")}
+			owner, resolved, err := s.ResolveClearedStripOwnerContext(ctx, strip, 42)
+			require.NoError(t, err)
+			assert.Equal(t, test.want, owner)
+			assert.Equal(t, test.want != "", resolved)
+		})
 	}
 }
 

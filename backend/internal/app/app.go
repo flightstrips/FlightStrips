@@ -476,6 +476,27 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, err
 	}
 
+	fsServer, err = server.NewServer(server.Dependencies{
+		DBPool:             dbpool,
+		Euroscope:          euroscopeHub,
+		Frontend:           frontendHub,
+		CDM:                cdmService,
+		FrequencyProviders: serverFrequencyProviders,
+		Strips:             stripRepo,
+		Controllers:        controllerRepo,
+		Sessions:           sessionRepo,
+		Sectors:            sectorRepo,
+		Coordinations:      coordRepo,
+		TacticalStrips:     tacticalStripRepo,
+		StandAssignments:   standAssignmentRepo,
+	})
+	if err != nil {
+		if closeDB {
+			dbpool.Close()
+		}
+		return nil, fmt.Errorf("initialize server: %w", err)
+	}
+
 	var pdcService *pdc.Service
 	if cfg.EnablePDC {
 		pdcService, err = buildPDCService(
@@ -488,6 +509,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			frontendHub,
 			euroscopeHub,
 			stripService,
+			fsServer,
 			pdcFrequencyProviders,
 		)
 		if err != nil {
@@ -509,27 +531,6 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			}
 			return nil, fmt.Errorf("register EuroScope PDC handlers: %w", err)
 		}
-	}
-
-	fsServer, err = server.NewServer(server.Dependencies{
-		DBPool:             dbpool,
-		Euroscope:          euroscopeHub,
-		Frontend:           frontendHub,
-		CDM:                cdmService,
-		FrequencyProviders: serverFrequencyProviders,
-		Strips:             stripRepo,
-		Controllers:        controllerRepo,
-		Sessions:           sessionRepo,
-		Sectors:            sectorRepo,
-		Coordinations:      coordRepo,
-		TacticalStrips:     tacticalStripRepo,
-		StandAssignments:   standAssignmentRepo,
-	})
-	if err != nil {
-		if closeDB {
-			dbpool.Close()
-		}
-		return nil, fmt.Errorf("initialize server: %w", err)
 	}
 
 	frontendHub.SetServer(fsServer)
@@ -950,6 +951,7 @@ func buildPDCService(
 	frontendHub shared.FrontendHub,
 	euroscopeHub shared.EuroscopeHub,
 	stripService shared.StripService,
+	clearanceOwnerResolver pdc.ClearanceOwnerResolver,
 	transceiverProviders []pdc.TransceiverLookup,
 ) (*pdc.Service, error) {
 	if client == nil {
@@ -962,16 +964,17 @@ func buildPDCService(
 	}
 
 	service, err := pdc.NewPDCService(pdc.ServiceDependencies{
-		Client:               client,
-		Sessions:             sessionRepo,
-		Strips:               stripRepo,
-		Sectors:              sectorRepo,
-		Controllers:          controllerRepo,
-		Frontend:             frontendHub,
-		Euroscope:            euroscopeHub,
-		StripService:         stripService,
-		TransceiverProviders: transceiverProviders,
-		WebLookupLiveOnly:    cfg.PDCWebLookupLiveOnly,
+		Client:                 client,
+		Sessions:               sessionRepo,
+		Strips:                 stripRepo,
+		Sectors:                sectorRepo,
+		Controllers:            controllerRepo,
+		Frontend:               frontendHub,
+		Euroscope:              euroscopeHub,
+		StripService:           stripService,
+		ClearanceOwnerResolver: clearanceOwnerResolver,
+		TransceiverProviders:   transceiverProviders,
+		WebLookupLiveOnly:      cfg.PDCWebLookupLiveOnly,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize PDC service: %w", err)

@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"go.opentelemetry.io/otel"
 	"log/slog"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +28,10 @@ type HoppieClientInterface interface {
 
 type TransceiverLookup interface {
 	GetFrequencies(callsign string) []string
+}
+
+type ClearanceOwnerResolver interface {
+	ResolveClearedStripOwnerContext(context.Context, *models.Strip, int32) (string, bool, error)
 }
 
 type FrontendNotifier interface {
@@ -48,16 +51,17 @@ type EuroscopeCommander interface {
 }
 
 type ServiceDependencies struct {
-	Client               HoppieClientInterface
-	Sessions             repository.SessionRepository
-	Strips               PdcStripStore
-	Sectors              repository.SectorOwnerRepository
-	Controllers          repository.ControllerRepository
-	Frontend             FrontendNotifier
-	Euroscope            EuroscopeCommander
-	StripService         shared.StripService
-	TransceiverProviders []TransceiverLookup
-	WebLookupLiveOnly    bool
+	Client                 HoppieClientInterface
+	Sessions               repository.SessionRepository
+	Strips                 PdcStripStore
+	Sectors                repository.SectorOwnerRepository
+	Controllers            repository.ControllerRepository
+	Frontend               FrontendNotifier
+	Euroscope              EuroscopeCommander
+	StripService           shared.StripService
+	ClearanceOwnerResolver ClearanceOwnerResolver
+	TransceiverProviders   []TransceiverLookup
+	WebLookupLiveOnly      bool
 }
 
 type timeoutTracker struct {
@@ -93,19 +97,20 @@ type PdcRequestOutcome struct {
 }
 
 type Service struct {
-	client             HoppieClientInterface
-	sessionRepo        repository.SessionRepository
-	stripRepo          PdcStripStore
-	sectorRepo         repository.SectorOwnerRepository
-	controllerRepo     repository.ControllerRepository
-	frontendHub        FrontendNotifier
-	euroscopeHub       EuroscopeCommander
-	stripService       shared.StripService
-	transceiverLookups []TransceiverLookup
-	timeouts           map[string]*timeoutTracker
-	timeoutsMutex      sync.RWMutex
-	timeoutConfig      time.Duration
-	webLookupLiveOnly  bool
+	client                 HoppieClientInterface
+	sessionRepo            repository.SessionRepository
+	stripRepo              PdcStripStore
+	sectorRepo             repository.SectorOwnerRepository
+	controllerRepo         repository.ControllerRepository
+	frontendHub            FrontendNotifier
+	euroscopeHub           EuroscopeCommander
+	stripService           shared.StripService
+	clearanceOwnerResolver ClearanceOwnerResolver
+	transceiverLookups     []TransceiverLookup
+	timeouts               map[string]*timeoutTracker
+	timeoutsMutex          sync.RWMutex
+	timeoutConfig          time.Duration
+	webLookupLiveOnly      bool
 }
 
 func NewPDCService(deps ServiceDependencies) (*Service, error) {
@@ -120,6 +125,7 @@ func NewPDCService(deps ServiceDependencies) (*Service, error) {
 		{"frontend publisher", deps.Frontend},
 		{"EuroScope commander", deps.Euroscope},
 		{"strip service", deps.StripService},
+		{"clearance owner resolver", deps.ClearanceOwnerResolver},
 	}
 	for _, dependency := range required {
 		if dependencies.IsNil(dependency.value) {
@@ -133,18 +139,19 @@ func NewPDCService(deps ServiceDependencies) (*Service, error) {
 	}
 
 	return &Service{
-		client:             deps.Client,
-		sessionRepo:        deps.Sessions,
-		stripRepo:          deps.Strips,
-		sectorRepo:         deps.Sectors,
-		controllerRepo:     deps.Controllers,
-		frontendHub:        deps.Frontend,
-		euroscopeHub:       deps.Euroscope,
-		stripService:       deps.StripService,
-		transceiverLookups: append([]TransceiverLookup(nil), deps.TransceiverProviders...),
-		timeouts:           make(map[string]*timeoutTracker),
-		timeoutConfig:      10 * time.Minute,
-		webLookupLiveOnly:  deps.WebLookupLiveOnly,
+		client:                 deps.Client,
+		sessionRepo:            deps.Sessions,
+		stripRepo:              deps.Strips,
+		sectorRepo:             deps.Sectors,
+		controllerRepo:         deps.Controllers,
+		frontendHub:            deps.Frontend,
+		euroscopeHub:           deps.Euroscope,
+		stripService:           deps.StripService,
+		clearanceOwnerResolver: deps.ClearanceOwnerResolver,
+		transceiverLookups:     append([]TransceiverLookup(nil), deps.TransceiverProviders...),
+		timeouts:               make(map[string]*timeoutTracker),
+		timeoutConfig:          10 * time.Minute,
+		webLookupLiveOnly:      deps.WebLookupLiveOnly,
 	}, nil
 }
 
@@ -784,7 +791,7 @@ func (s *Service) BuildClearanceOptions(ctx context.Context, sessionInfo session
 		return ClearanceOptions{}, fmt.Errorf("strip missing required clearance data: %w", err)
 	}
 
-	nextFreq, err := s.getNextFrequency(ctx, sessionInfo.id)
+	nextFreq, err := s.getNextFrequency(ctx, sessionInfo.id, strip)
 	if err != nil {
 		return ClearanceOptions{}, fmt.Errorf("failed to get next frequency: %w", err)
 	}
@@ -988,34 +995,18 @@ func (s *Service) ConfirmVoiceClearance(ctx context.Context, callsign string, se
 	return nil
 }
 
-func (s *Service) getNextFrequency(ctx context.Context, sessionID int32) (string, error) {
-	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
+func (s *Service) getNextFrequency(ctx context.Context, sessionID int32, strip *models.Strip) (string, error) {
+	if s.clearanceOwnerResolver == nil {
+		return "", errors.New("clearance owner resolver is unavailable")
+	}
+	owner, resolved, err := s.clearanceOwnerResolver.ResolveClearedStripOwnerContext(ctx, strip, sessionID)
 	if err != nil {
-		return "", fmt.Errorf("failed to get sector owners: %w", err)
+		return "", fmt.Errorf("failed to resolve clearance owner: %w", err)
 	}
-
-	// Find the owner of SQ (sequence controller).
-	nextFrequency := ""
-	for _, owner := range owners {
-		if slices.Contains(owner.Sector, "SQ") {
-			nextFrequency = owner.Position
-		}
+	if !resolved || strings.TrimSpace(owner) == "" {
+		return "", errors.New("no clearance recipient frequency found")
 	}
-
-	// Fallback: DEL sector owner.
-	if nextFrequency == "" {
-		for _, owner := range owners {
-			if slices.Contains(owner.Sector, "DEL") {
-				nextFrequency = owner.Position
-			}
-		}
-	}
-
-	if nextFrequency == "" {
-		return "", fmt.Errorf("no frequency found for sector SQ or DEL")
-	}
-
-	return nextFrequency, nil
+	return owner, nil
 }
 
 // getAirborneFrequency returns the frequency of the highest-priority controller

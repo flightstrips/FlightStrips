@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/vatsim"
 	"context"
+	"slices"
 	"strings"
 )
 
@@ -113,12 +114,51 @@ func resolveClearedRouteTarget(path []string, strip *models.Strip, session *mode
 }
 
 func resolveOwnedHandoverTarget(identifier string, strip *models.Strip, session *models.Session, ownership routeOwnership, radio routeRadioState) *resolvedHandover {
+	if strings.EqualFold(identifier, "SQ") && session != nil && strings.EqualFold(session.Airport, "EKCH") {
+		return resolveStaffedSequenceTarget(radio)
+	}
 	ownerSector := resolveConfiguredRouteSector(identifier, strip, session)
 	owner, ok := resolveRouteSectorOwner(ownerSector, ownership.sectorToOwner, nil)
 	if !ok {
 		return nil
 	}
 	return resolveHandoverTargetForOwner(identifier, owner, strip, session, ownership, radio)
+}
+
+// SQ can be inherited by apron or tower without either planner frequency being
+// staffed. Only actual radio coverage qualifies for clearance assignment.
+func resolveStaffedSequenceTarget(radio routeRadioState) *resolvedHandover {
+	frequencies := make([]string, 0, 2)
+	for _, name := range []string{"EKCH_B_GND", "EKCH_DEL"} {
+		if position, err := config.GetPositionByName(name); err == nil {
+			frequencies = append(frequencies, vatsim.NormalizeFrequency(position.Frequency))
+		}
+	}
+	carriers := make([]string, 0, len(radio.coverage))
+	for primary := range radio.coverage {
+		carriers = append(carriers, primary)
+	}
+	slices.Sort(carriers)
+	for _, frequency := range frequencies {
+		owner := ""
+		if _, primed := radio.coverage[frequency]; primed {
+			owner = frequency
+		} else {
+			for _, primary := range carriers {
+				if ownerCarriesFrequency(primary, frequency, radio.coverage) {
+					owner = primary
+					break
+				}
+			}
+		}
+		if owner != "" {
+			return &resolvedHandover{
+				Identifier: "SQ", Owner: owner, LogicalCarried: true,
+				Display: &models.NextDisplay{Label: config.GetSectorDisplayName("SQ"), Frequency: frequency},
+			}
+		}
+	}
+	return nil
 }
 
 func resolveHandoverTargetForOwner(identifier string, owner string, strip *models.Strip, session *models.Session, ownership routeOwnership, radio routeRadioState) *resolvedHandover {

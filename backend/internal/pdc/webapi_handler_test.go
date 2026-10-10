@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/database"
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/shared"
@@ -52,16 +53,17 @@ func setupHandlerTest(t *testing.T) *handlerTestSetup {
 
 	adapter := &hoppieClientAdapter{HoppieClient: mockHoppie}
 	service := &Service{
-		client:         adapter,
-		sessionRepo:    sessionRepo,
-		stripRepo:      stripRepo,
-		sectorRepo:     sectorRepo,
-		controllerRepo: controllerRepo,
-		frontendHub:    mockFrontend,
-		euroscopeHub:   testPdcEuroscope{},
-		stripService:   mockStrip,
-		timeouts:       make(map[string]*timeoutTracker),
-		timeoutConfig:  30 * time.Second,
+		client:                 adapter,
+		sessionRepo:            sessionRepo,
+		stripRepo:              stripRepo,
+		sectorRepo:             sectorRepo,
+		controllerRepo:         controllerRepo,
+		frontendHub:            mockFrontend,
+		euroscopeHub:           testPdcEuroscope{},
+		stripService:           mockStrip,
+		clearanceOwnerResolver: clearanceOwnerResolverFunc(func(context.Context, *models.Strip, int32) (string, bool, error) { return "118.105", true, nil }),
+		timeouts:               make(map[string]*timeoutTracker),
+		timeoutConfig:          30 * time.Second,
 	}
 	mockStrip.On("ReevaluatePdcInvalidValidation", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	mockStrip.On("ClearMandatoryRouteCdm", mock.Anything, mock.Anything, mock.Anything).Maybe()

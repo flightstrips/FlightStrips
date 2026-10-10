@@ -104,16 +104,17 @@ func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 	// Create service with mocks
 	adapter := &hoppieClientAdapter{HoppieClient: suite.mockHoppie}
 	suite.service = &Service{
-		client:         adapter,
-		sessionRepo:    sessionRepo,
-		stripRepo:      stripRepo,
-		sectorRepo:     sectorRepo,
-		controllerRepo: controllerRepo,
-		frontendHub:    suite.mockFrontend,
-		euroscopeHub:   testPdcEuroscope{},
-		stripService:   suite.mockStrip,
-		timeouts:       make(map[string]*timeoutTracker),
-		timeoutConfig:  30 * time.Second, // Long timeout to prevent firing during test
+		client:                 adapter,
+		sessionRepo:            sessionRepo,
+		stripRepo:              stripRepo,
+		sectorRepo:             sectorRepo,
+		controllerRepo:         controllerRepo,
+		frontendHub:            suite.mockFrontend,
+		euroscopeHub:           testPdcEuroscope{},
+		stripService:           suite.mockStrip,
+		clearanceOwnerResolver: clearanceOwnerResolverFunc(func(context.Context, *models.Strip, int32) (string, bool, error) { return "118.105", true, nil }),
+		timeouts:               make(map[string]*timeoutTracker),
+		timeoutConfig:          30 * time.Second, // Long timeout to prevent firing during test
 	}
 	suite.mockStrip.On("ReevaluatePdcRequestValidations", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	suite.mockStrip.On("ClearMandatoryRouteCdm", mock.Anything, mock.Anything, mock.Anything).Maybe()

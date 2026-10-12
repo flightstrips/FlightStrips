@@ -7,6 +7,19 @@ Currently, two official plugins are available:
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
 - [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
+## Fullscreen and scope controls
+
+The station box opens the scope selector. The fullscreen button to the left of
+the up-arrow toggles fullscreen in supported browsers and installed PWAs.
+Press Esc or click the button again to exit. The button is disabled when the
+browser does not support fullscreen; rejected requests display an error.
+
+The up-arrow reveals additional scopes. TOWER EAST and TOWER WEST are disabled
+placeholders beside APRON DEP and APRON ARR until those scopes are available.
+EST (NEW WINDOW), to the left of APRON DEP, opens `/app?layout=EST` in a new
+window without changing the current scope. Allow popups for FlightStrips to use
+this button. The new window selects EST on startup and retains it on reconnect.
+
 ## Browser visual tests
 
 Install Chromium once after installing the frontend dependencies:

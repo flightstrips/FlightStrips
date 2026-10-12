@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState, type CSSProperties } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Maximize, Minimize } from "lucide-react";
+import { toast } from "sonner";
 import Time from "@/components/Time";
 import MRKBTN from "./MRKBTN";
 import VACSBTN from "./VACSBTN";
@@ -135,6 +136,28 @@ export default function CommandBar() {
   // Layout chooser dialog (dismissable, triggered from station box)
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [upperScopesOpen, setUpperScopesOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(() => !!document.fullscreenElement);
+  const fullscreenSupported = document.fullscreenEnabled === true;
+
+  useEffect(() => {
+    const updateFullscreen = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", updateFullscreen);
+    return () => document.removeEventListener("fullscreenchange", updateFullscreen);
+  }, []);
+
+  const handleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (error) {
+      toast.error("Could not change fullscreen mode", {
+        description: error instanceof Error ? error.message : "The browser rejected the fullscreen request.",
+      });
+    }
+  };
 
   // Runway status dialog
   const [rwyDlgPair, setRwyDlgPair] = useState<string | null>(null);
@@ -179,6 +202,17 @@ export default function CommandBar() {
   const handleReset = () => {
     resetLayout();
     setLayoutOpen(false);
+  };
+
+  const handleOpenEST = () => {
+    const url = new URL("/app", window.location.origin);
+    url.searchParams.set("layout", "EST");
+    const newWindow = window.open(url.href, "_blank", "popup");
+    if (!newWindow) {
+      toast.error("Could not open EST", { description: "Allow popups for FlightStrips and try again." });
+      return;
+    }
+    newWindow.opener = null;
   };
 
   return (
@@ -301,17 +335,30 @@ export default function CommandBar() {
                 border: "1px solid black",
               }}
             >
-              {/* RESET / level toggle — two half-height buttons */}
-              <div className="flex flex-col gap-[0.74dvh] ml-[0.66vw] py-[0.74dvh]" style={{ width: "4.4vw", height: "10.24dvh" }}>
-                <button
-                  onClick={() => setUpperScopesOpen((open) => !open)}
-                  aria-label={upperScopesOpen ? "Hide more scopes" : "Show more scopes"}
-                  aria-expanded={upperScopesOpen}
-                  className="flex-1 flex items-center justify-center min-h-0"
-                  style={{ ...SCOPE_BEVEL_STYLE, background: "#D6D6D6", color: "black" }}
-                >
-                  {upperScopesOpen ? <ChevronDown className="h-[60%] w-auto" /> : <ChevronUp className="h-[60%] w-auto" />}
-                </button>
+              {/* Fullscreen / level toggle above RESET */}
+              <div className="flex flex-col gap-[0.74dvh] ml-[0.66vw] py-[0.74dvh]" style={{ width: "6.6vw", height: "10.24dvh" }}>
+                <div className="flex flex-1 min-h-0">
+                  <button
+                    onClick={handleFullscreen}
+                    disabled={!fullscreenSupported}
+                    aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                    aria-pressed={fullscreen}
+                    title={fullscreenSupported ? (fullscreen ? "Exit fullscreen" : "Enter fullscreen") : "Fullscreen is not supported in this browser"}
+                    className="w-1/2 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ ...SCOPE_BEVEL_STYLE, background: "#D6D6D6", color: "black" }}
+                  >
+                    {fullscreen ? <Minimize className="h-[60%] w-auto" /> : <Maximize className="h-[60%] w-auto" />}
+                  </button>
+                  <button
+                    onClick={() => setUpperScopesOpen((open) => !open)}
+                    aria-label={upperScopesOpen ? "Hide more scopes" : "Show more scopes"}
+                    aria-expanded={upperScopesOpen}
+                    className="w-1/2 flex items-center justify-center"
+                    style={{ ...SCOPE_BEVEL_STYLE, background: "#D6D6D6", color: "black" }}
+                  >
+                    {upperScopesOpen ? <ChevronDown className="h-[60%] w-auto" /> : <ChevronUp className="h-[60%] w-auto" />}
+                  </button>
+                </div>
                 <button
                   onClick={handleReset}
                   className="flex-1 min-h-0"
@@ -339,7 +386,13 @@ export default function CommandBar() {
                       {UPPER_SCOPES[0].label}
                     </button>
                     <div role="separator" aria-orientation="vertical" className="h-full border-l-2 border-black/50" />
-                    <div className="flex gap-[0.88vw] h-full" style={{ gridColumn: 5, justifySelf: "center", width: "max-content" }}>
+                    <div className="flex gap-[0.88vw] h-full" style={{ gridColumn: "3 / span 5", width: "max-content", transform: "translateX(calc((8.25vw + 0.88vw) / 2))" }}>
+                      <button
+                        onClick={handleOpenEST}
+                        style={{ ...SCOPE_BTN_STYLE, background: "#D6D6D6" }}
+                      >
+                        <span>EST<br /><span className="text-[0.8vw]">(NEW WINDOW)</span></span>
+                      </button>
                       {UPPER_SCOPES.slice(1).map((scope) => (
                         <button
                           key={scope.layout}
@@ -347,6 +400,17 @@ export default function CommandBar() {
                           style={{ ...SCOPE_BTN_STYLE, background: currentLayout === scope.layout ? "#1BFF16" : "#D6D6D6" }}
                         >
                           {scope.label}
+                        </button>
+                      ))}
+                      {["TOWER EAST", "TOWER WEST"].map((label) => (
+                        <button
+                          key={label}
+                          disabled
+                          title="This scope is not yet available"
+                          className="cursor-not-allowed"
+                          style={{ ...SCOPE_BTN_STYLE, background: "#D6D6D6", color: "#999999" }}
+                        >
+                          {label}
                         </button>
                       ))}
                     </div>

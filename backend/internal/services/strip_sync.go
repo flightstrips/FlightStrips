@@ -205,6 +205,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			EngineType:         strip.EngineType,
 			SpokenCallsign:     &strip.SpokenCallsign,
 			HasFP:              strip.HasFp,
+			FlightRules:        strip.FlightRules,
 			StartReq:           false,
 		}
 		validationStrip = newStrip
@@ -492,6 +493,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			holdEat = strip.HoldEat
 		}
 
+		flightRules := strip.FlightRules
+		if flightRules == "" && !restartLifecycle {
+			// Older plugin snapshots do not include flight rules.
+			flightRules = existingStrip.FlightRules
+		}
 		updateStrip := &internalModels.Strip{
 			ID:                       existingStrip.ID,
 			Callsign:                 strip.Callsign,
@@ -544,6 +550,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			UnexpectedChangeFields:   unexpectedChangeFields,
 			ValidationStatus:         validationStatus,
 			HasFP:                    strip.HasFp,
+			FlightRules:              flightRules,
 			ReleasePoint:             releasePoint,
 			Marked:                   marked,
 			RunwayCleared:            runwayCleared,
@@ -1090,6 +1097,7 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		!reflect.DeepEqual(existingStrip.FplType, updateStrip.FplType) ||
 		!reflect.DeepEqual(existingStrip.Language, updateStrip.Language) ||
 		existingStrip.HasFP != updateStrip.HasFP ||
+		existingStrip.FlightRules != updateStrip.FlightRules ||
 		existingStrip.Hold != updateStrip.Hold ||
 		existingStrip.HoldType != updateStrip.HoldType ||
 		existingStrip.HoldEat != updateStrip.HoldEat ||
@@ -1184,6 +1192,7 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.FplType = updateStrip.FplType
 	existingStrip.Language = updateStrip.Language
 	existingStrip.HasFP = updateStrip.HasFP
+	existingStrip.FlightRules = updateStrip.FlightRules
 	existingStrip.Hold = updateStrip.Hold
 	existingStrip.HoldType = updateStrip.HoldType
 	existingStrip.HoldEat = updateStrip.HoldEat

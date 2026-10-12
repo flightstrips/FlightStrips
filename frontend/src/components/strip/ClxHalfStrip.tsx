@@ -2,6 +2,8 @@ import { SEMI_BOLD_STROKE } from "./shared";
 import type { StripProps } from "./types";
 import { getStripBg } from "./types";
 import { AircraftTypeLabel, FONT, getFramedStripStyle, getSIBoxBorderStyle, getStripFrameColor, useStripBg } from "./shared";
+import { Bay } from "@/api/models";
+import { HALF_STRIP_VARIANT_BG, LIGHT_GRAY_STRIP_FRAME } from "./halfStripFrame";
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_SI       = 8 * 0.9;
 const F_CALLSIGN = 25;
@@ -24,8 +26,13 @@ export function ClxHalfStrip({
   arrival,
   fullWidth
 }: StripProps) {
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), false, false, pdcStatus, bay);
-  const stripFrameColor = getStripFrameColor(arrival ?? false);
+  const normalBg = bay === Bay.Push || bay === Bay.Taxi
+    ? HALF_STRIP_VARIANT_BG["APN-PUSH"]
+    : getStripBg(pdcStatus, arrival, bay);
+  const { bg, textWhite } = useStripBg(runway, normalBg, false, false, pdcStatus, bay);
+  const stripFrameColor = bay === Bay.Push || bay === Bay.Taxi
+    ? LIGHT_GRAY_STRIP_FRAME
+    : getStripFrameColor(arrival ?? false);
 
   return (
     <div style={{

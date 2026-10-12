@@ -321,7 +321,8 @@ namespace FlightStrips::flightplan {
             flightPlan.GetTrackingControllerIsMe() ? plan.hold_type : "",
             flightPlan.GetTrackingControllerIsMe() ? plan.hold_eat : "",
             flightPlan.GetTrackingControllerIsMe(),
-            FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes())
+            FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes()),
+            std::string(flightPlanData.GetPlanType())
         };
         m_websocketService->SendEvent(event);
         plan.strip_synchronized = true;

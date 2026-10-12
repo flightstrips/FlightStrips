@@ -196,6 +196,7 @@ message Strip {
   string hold_type = 31;
   string hold_eat = 32;
   string enroute_duration = 33;
+  string flight_rules = 34;
 }
 
 message StripUpdateEvent {

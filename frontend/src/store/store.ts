@@ -40,6 +40,7 @@ import {
   type FrontendStrip,
   type FrontendStripUpdateEvent,
   type MessageReceived,
+  type MessageFormat,
   type FrontendMessageReceivedEvent,
   type RunwayConfiguration,
   type StripRef,
@@ -189,6 +190,7 @@ export interface WebSocketState {
   localIp: string;
   followRecommendedLayout: boolean;
   layoutChooserOpen: boolean;
+  layoutResetNonce: number;
   runwaySetup: RunwayConfiguration;
   initialCflByRunway: Record<string, number>;
   transitionAltitude: number;
@@ -228,6 +230,7 @@ export interface WebSocketState {
   setMarkArmed: (armed: boolean) => void;
   setDisplayedLayout: (layout: string) => void;
   setLayoutChooserOpen: (open: boolean) => void;
+  resetLayout: () => void;
 
   contextMenu: { callsign: string; x: number; y: number } | null;
   openStripContextMenu: (callsign: string, pos: { x: number; y: number }) => void;
@@ -254,7 +257,7 @@ export interface WebSocketState {
   moveToControlzone: (callsign: string) => void;
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
-  sendMessage: (text: string, recipients: string[]) => void;
+  sendMessage: (text: string, recipients: string[], format?: MessageFormat) => void;
   sendPrivateMessage: (callsign: string, message: string) => void;
   dismissMessage: (id: number) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
@@ -274,7 +277,7 @@ export interface WebSocketState {
   toggleMarked: (callsign: string, marked: boolean) => void;
   runwayClearance: (callsign: string) => void;
   runwayConfirmation: (callsign: string) => void;
-  cdmReady: (callsign: string) => void;
+  cdmReady: (callsign: string, rea?: boolean) => void;
   cdmDeicePlatformUpdate: (callsign: string, platform: string) => void;
   clxUpdateTobt: (callsign: string, tobt?: string) => void;
   clxOverrideValidation: (callsign: string, overrideKey: string) => void;
@@ -325,6 +328,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     localIp: '',
     followRecommendedLayout: true,
     layoutChooserOpen: false,
+    layoutResetNonce: 0,
     runwaySetup: {
       departure: [],
       arrival: []
@@ -519,6 +523,17 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         followRecommendedLayout: !MANUAL_COMPANION_LAYOUTS.has(normalizedLayout) && normalizedLayout === get().layout,
       });
     },
+    resetLayout: () => {
+      for (const key of Object.keys(sessionStorage)) {
+        if (key.includes("-bay-heights-")) sessionStorage.removeItem(key);
+      }
+      const recommended = get().layout;
+      set({
+        displayedLayout: recommended,
+        followRecommendedLayout: true,
+        layoutResetNonce: get().layoutResetNonce + 1,
+      });
+    },
     setLayoutChooserOpen: (open) => set({ layoutChooserOpen: open }),
     openStripContextMenu: (callsign, pos) => set({ contextMenu: { callsign, x: pos.x, y: pos.y } }),
     closeStripContextMenu: () => set({ contextMenu: null }),
@@ -676,8 +691,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           : Math.floor((prevSeq + nextSeq) / 2);
       })(state)
     }),
-    sendMessage: (text, recipients) => {
-      sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients});
+    sendMessage: (text, recipients, format = "AUTO") => {
+      sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients, format});
     },
     sendPrivateMessage: (callsign, message) => {
       sendIfWritable({type: ActionType.FrontendSendPrivateMessage, callsign, message});
@@ -830,8 +845,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     acceptTagRequest: (callsign) => {
       sendGuardedStripEvent(callsign, { type: "coordination_accept_tag_request" }, { type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
     },
-    cdmReady: (callsign) => {
-      sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign });
+    cdmReady: (callsign, rea = false) => {
+      sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign, ...(rea ? { rea: true } : {}) });
     },
     cdmDeicePlatformUpdate: (callsign, platform) => {
       sendIfWritable({

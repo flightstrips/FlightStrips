@@ -26,12 +26,12 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { allBayTransferRules } from "@/components/bays/stripMovement";
 import {
   useAirport,
-  useCtwrOnline,
-  useLowerPositionOnline,
+  useApronOnline,
   useMessages,
   useMyPosition,
   useSelectStrip,
   useSelectedCallsign,
+  useRunwaySetup,
   useWebSocketStore,
 } from "@/store/store-hooks.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -39,7 +39,7 @@ import { useDefaultHidePlannedDepartures } from "@/store/localHiddenStrips";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { arrivalSortModes, startupSortModes as startupSortModesShared } from "@/lib/stripSortModes";
-import { CLS_BTN_BLUE, CLS_BTN_ORANGE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_MISSED, CLS_BTN_NEW, CLS_BTN_LANE, CLS_BTN_FIND, CLS_BTN_PLANNED, CLS_BTN_DI, CLS_BTN_ARR } from "@/components/strip/shared";
+import { CLS_BTN_BLUE, CLS_BTN_ORANGE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_MISSED, CLS_BTN_NEW, CLS_BTN_LANE, CLS_BTN_FIND, CLS_BTN_PLANNED, CLS_BTN_DI, CLS_BTN_ARR, CLS_BTN_ARR_LARGE } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { NewVfrDialog } from "@/components/strip/NewVfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
@@ -61,7 +61,8 @@ const ARR_DEFAULTS = { final: 35, rwyArr: 20 };
 const DEP_DEFAULTS = { twyDep: 35, rwyDep: 20 };
 const CENTER_STARTUP_DEFAULTS = { controlzone: 21.65, pushback: 33 };
 const CENTER_DEFAULTS = { controlzone: 35, pushback: 35 };
-const RIGHT_DEFAULTS = { clrDel: 45, deIce: 25 };
+const RIGHT_DEFAULTS = { clrDel: 80, deIce: 10 };
+const RIGHT_TWRGND_DEFAULTS = { clrDel: 60, deIce: 15 };
 
 export type TowerGroundLayoutVariant = "TWTE" | "TWRGND";
 
@@ -75,6 +76,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
 
   const myPosition = useMyPosition();
   const airport = useAirport();
+  const runwaySetup = useRunwaySetup();
   const messages = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
   const [startupOpen, setStartupOpen] = useState(false);
@@ -86,11 +88,9 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
   const arrResize = useBayResize("tower-bay-heights-arr", ARR_DEFAULTS);
   const depResize = useBayResize("tower-bay-heights-dep", DEP_DEFAULTS);
   const centerResize = useBayResize(`tower-bay-heights-center-${variant}`, showStartupBay ? CENTER_STARTUP_DEFAULTS : CENTER_DEFAULTS);
-  const rightResize = useBayResize("tower-bay-heights-right", RIGHT_DEFAULTS);
-  const lowerPositionOnline = useLowerPositionOnline();
-  const ctwrOnline = useCtwrOnline();
-  // TE/TW is responsible for clearances only when no lower position AND no CTWR is online.
-  const clrDelActive = !lowerPositionOnline && !ctwrOnline;
+  const rightResize = useBayResize("tower-bay-heights-right", variant === "TWRGND" ? RIGHT_TWRGND_DEFAULTS : RIGHT_DEFAULTS);
+  const apronOnline = useApronOnline();
+  const clrDelActive = !apronOnline;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -143,6 +143,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
   const startupSortModes = startupSortModesShared;
 
   const arrSortModes = arrivalSortModes;
+  const twyArrControllerLabel = runwaySetup.arrival.includes("22L") ? "TW" : "TE";
 
   const bayStripMap: Record<string, { strips: AnyStrip[]; targetBay: Bay; descending?: boolean }> = {
     "FINAL": { strips: finalStrips, targetBay: Bay.Final, descending: true },
@@ -195,7 +196,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
         if (!bayEntry) return null;
         const [bayId] = bayEntry;
         if (bayId === "CLRDEL") {
-          return <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} fullWidth={true} myPosition={myPosition} />;
+          return <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} fullWidth={true} myPosition={myPosition} />;
         }
         return (
           <Strip
@@ -256,22 +257,33 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             )}
           </SortableBay>
 
-          <div className="bay-col-header bay-col-sep justify-between">
-            <BayResizeHandle {...arrResize.handleProps("rwyArr")} />
-            <span className={CLS_LABEL}>TWY ARR</span>
-            <span className="flex gap-0.5">
-              <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
-              <LandButton bay={Bay.TwyArr} className={btnOrange} />
-              <StartButton bay={Bay.TwyArr} className={btnOrange} />
-              <CrossingButton bay={Bay.TwyArr} className={btnYellow} />
-            </span>
+          <div
+            className={`bay-col-header bay-col-sep justify-between${variant === "TWTE" ? " !h-[6.6dvh] !flex-col !items-stretch !justify-center gap-[0.3dvh]" : ""}`}
+          >
+            <div className="flex w-full items-center justify-between">
+              <BayResizeHandle {...arrResize.handleProps("rwyArr")} />
+              <span className={CLS_LABEL}>TWY ARR</span>
+              <span className="flex gap-0.5">
+                <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
+                <LandButton bay={Bay.TwyArr} className={btnOrange} />
+                <StartButton bay={Bay.TwyArr} className={btnOrange} />
+                <CrossingButton bay={Bay.TwyArr} className={btnYellow} />
+              </span>
+            </div>
+            {variant === "TWTE" && (
+              <span className="flex w-[85%] self-center gap-[1dvh]">
+                <button type="button" className={`${CLS_BTN_ARR_LARGE} !w-0 flex-1 !border !border-white !shadow-none`}>AA</button>
+                <button type="button" className={`${CLS_BTN_ARR_LARGE} !w-0 flex-1 !border !border-white !shadow-none`}>GE</button>
+                <button type="button" className={`${CLS_BTN_ARR_LARGE} !w-0 flex-1 !border !border-white !shadow-none`}>{twyArrControllerLabel}</button>
+              </span>
+            )}
           </div>
           <SortableBay
             strips={twyArrStrips}
             bayId="TWY-ARR"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className="flex-1 bay-scroll-area-bottom"
+            className="flex-1 min-h-0 bay-scroll-area-bottom"
           >
             {(strip) => (
               <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} selectable={true} />
@@ -466,7 +478,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             </span>
           </div>
           <SortableBay strips={nonClearedStrips} bayId="CLRDEL" standalone={false} className="h-[var(--bay-h-clrDel)] bay-scroll-area">
-            {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} fullWidth={true} myPosition={myPosition} />}
+            {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} fullWidth={true} myPosition={myPosition} />}
           </SortableBay>
 
           <div className="bay-col-header bay-col-sep justify-between">

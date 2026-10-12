@@ -28,7 +28,7 @@ Cleared departure strips are **not listed as normal strips** in this scope. Use 
 | **Control zone** | Control zone | VFR strips only — no SI transfers. |
 | **Push back (TWR)** | `APNPUSH` | Can be REQ. |
 | **Messages** | Messages | Coordination / free-text. |
-| **CLR DEL** | *(passive)* | Passive when delivery + apron scopes are online. |
+| **CLR DEL** | Uncleared | Small strips while another apron controller is online; full-size otherwise. Cannot be selected or dragged. The same rule applies to TWR + GND. |
 | **De-ice A** | `APNPUSH` | Same strip family as other pushback/taxi strips. |
 | **Stand** | `APN-ARR` | At gate / stand. |
 
@@ -50,6 +50,8 @@ Cleared departure strips are **not listed as normal strips** in this scope. Use 
 ## Control zone
 
 Use **New** / **Find** in the bay header for VFR strips only. No transfers.
+
+**FIND** opens a scrollable list of filed VFR flights across the session, including arrivals, departures, and transits. Sort by callsign, departure airport, or destination. Selecting a flight adds it to **Control zone**; **DISMISS** closes the list without moving a flight. Use **NEW** for an aircraft without a filed flight plan. This dialogue is also available in **TWR + GND**.
 
 ## Related
 

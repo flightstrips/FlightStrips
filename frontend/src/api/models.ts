@@ -224,6 +224,7 @@ export interface FrontendStrip {
   fpl_type?: string;
   language?: string;
   has_fp?: boolean;
+  flight_rules?: string;
   validation_status?: ValidationStatus;
   clx_validation?: ClxValidation;
 }
@@ -279,12 +280,15 @@ export interface FrontendController {
   observer?: boolean;
 }
 
+export type MessageFormat = "SMALL" | "AUTO" | "LARGE";
+
 export interface MessageReceived {
   id: number;
   sender: string;
   text: string;
   is_broadcast: boolean;
   recipients: string[];
+  format?: MessageFormat;
 }
 
 export interface SidInfo {
@@ -869,6 +873,7 @@ export interface FrontendSendMessageEvent {
   type: ActionType.FrontendSendMessage;
   text: string;
   recipients: string[];
+  format?: MessageFormat;
 }
 
 export interface FrontendSendPrivateMessageEvent {
@@ -880,6 +885,7 @@ export interface FrontendSendPrivateMessageEvent {
 export interface FrontendCdmReadyEvent {
   type: ActionType.FrontendCdmReady;
   callsign: string;
+  rea?: boolean;
 }
 
 export interface FrontendSendReleasePointEvent {

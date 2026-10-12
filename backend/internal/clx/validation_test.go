@@ -108,6 +108,7 @@ func TestValidateRnavFaults(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			strip := testStrip()
 			strip.Sid = tt.sid
+			strip.AircraftType = ptr("C172/L-R")
 			strip.Route = ptr(tt.route)
 			strip.Remarks = ptr(tt.remarks)
 
@@ -121,6 +122,7 @@ func TestValidateRnavFaults(t *testing.T) {
 
 func TestValidateRnavFaultSuppressedForHeadingVectorAtOrBelowFL280(t *testing.T) {
 	strip := testStrip()
+	strip.AircraftType = ptr("C172/L-R")
 	strip.Remarks = ptr("REG/OYABC")
 	strip.Heading = ptr(int32(40))
 	strip.RequestedAltitude = ptr(int32(28000))
@@ -130,8 +132,19 @@ func TestValidateRnavFaultSuppressedForHeadingVectorAtOrBelowFL280(t *testing.T)
 	assertNoFault(t, validation, "rnav_nil")
 }
 
+func TestValidateAssumedRNAV1AircraftDoesNotHaveRNAVFaults(t *testing.T) {
+	for _, remarks := range []string{"", "PBN/A1", "PBN/B1", "PBN/C1"} {
+		strip := testStrip()
+		strip.Remarks = ptr(remarks)
+		validation := Validate(strip, testContext())
+		assertNoFault(t, validation, "rnav_nil")
+		assertNoFault(t, validation, "rnav_insufficient")
+	}
+}
+
 func TestValidateRnavFaultStillAppliesForHeadingVectorAboveFL280(t *testing.T) {
 	strip := testStrip()
+	strip.AircraftType = ptr("C172/L-R")
 	strip.Remarks = ptr("REG/OYABC")
 	strip.Heading = ptr(int32(40))
 	strip.RequestedAltitude = ptr(int32(29000))

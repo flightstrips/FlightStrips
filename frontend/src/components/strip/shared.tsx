@@ -503,8 +503,8 @@ const CLS_HEADER_BTN_BASE = "inline-flex h-[1.89dvh] items-center justify-center
 export const CLS_BTN        = `${CLS_HEADER_BTN_BASE} bg-bay-btn text-white border-white active:bg-[#424242]`;
 // Bevelled header button: 2px stroke (light top/left, dark bottom/right) fading into the fill via inset shadows.
 // Height is 80% of the visible header area; `width` is a literal class (width = ratio x height) so Tailwind can see it.
-const bevelBtn = (width: string, fill: string) =>
-  `${CLS_HEADER_BTN_BASE.replace("font-bold", "font-normal").replace("h-[1.89dvh]", `h-[calc(2.52dvh-4.08px)] ${width}`).replace("px-[0.625vw]", "px-0")} ${fill} font-bay border-t-[#CECECE] border-l-[#CECECE] border-b-[#393939] border-r-[#393939] shadow-[inset_2px_2px_2px_-1px_rgba(206,206,206,0.55),inset_-2px_-2px_2px_-1px_rgba(57,57,57,0.55)] active:bg-[#424242]`;
+const bevelBtn = (width: string, fill: string, height = "h-[calc(2.52dvh-4.08px)]", textSize = "text-[0.62vw] leading-[0.88vw]") =>
+  `${CLS_HEADER_BTN_BASE.replace("font-bold", "font-normal").replace("h-[1.89dvh]", `${height} ${width}`).replace("text-[0.62vw] leading-[0.88vw]", textSize).replace("px-[0.625vw]", "px-0")} ${fill} font-bay border-t-[#CECECE] border-l-[#CECECE] border-b-[#393939] border-r-[#393939] shadow-[inset_2px_2px_2px_-1px_rgba(206,206,206,0.55),inset_-2px_-2px_2px_-1px_rgba(57,57,57,0.55)] active:bg-[#424242]`;
 export const CLS_BTN_ORANGE = bevelBtn("w-[calc(5.87dvh-9.52px)]", "bg-runway-low-vis text-white");
 export const CLS_BTN_BLUE   = bevelBtn("w-[calc(7.55dvh-12.24px)]", "bg-[var(--color-half-mem-aid)] text-white");
 const GREY_FILL = "bg-bay-btn text-white";
@@ -513,6 +513,7 @@ export const CLS_BTN_LANE    = `${CLS_BTN_NEW} !w-[calc(6.51dvh-10.56px)]`;
 export const CLS_BTN_PLANNED = bevelBtn("w-[calc(8.81dvh-14.28px)]", GREY_FILL);
 export const CLS_BTN_MISSED  = bevelBtn("w-[calc(10.06dvh-16.32px)]", GREY_FILL);
 export const CLS_BTN_ARR     = bevelBtn("w-[calc(5.66dvh-9.18px)]", GREY_FILL);
+export const CLS_BTN_ARR_LARGE = bevelBtn("w-[calc(8.49dvh-13.77px)]", GREY_FILL, "h-[calc(3dvh-5.5px)]", "text-[0.9vw] leading-[1.1vw]");
 export const CLS_BTN_DI      = bevelBtn("w-[calc(5.66dvh-9.18px)]", GREY_FILL);
 export const CLS_BTN_FIND    = bevelBtn("w-[calc(5.66dvh-9.18px)]", GREY_FILL);
 export const CLS_BTN_YELLOW = bevelBtn("w-[calc(3.77dvh-6.12px)]", "bg-btn-yellow text-black");

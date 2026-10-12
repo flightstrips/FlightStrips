@@ -7,6 +7,7 @@ import EstStandCell from "@/components/est/EstStandCell";
 import EstStandMenu, { type EstMenuAnchor } from "@/components/est/EstStandMenu";
 import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import EstViewButtons from "@/components/est/EstViewButtons";
+import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { plannedDepartureSortModes } from "@/lib/stripSortModes";
 import { getEstDepartureTransferTarget, isEstDepartureTransferActive } from "@/components/est/transferState";
@@ -133,6 +134,7 @@ export default function EST() {
     [strips, airport],
   );
   const [deIceOpen, setDeIceOpen] = useState(false);
+  const [pushbackCallsign, setPushbackCallsign] = useState<string | null>(null);
   const [flightPlanCallsign, setFlightPlanCallsign] = useState<string | null>(null);
   const [blockedStands, setBlockedStands] = useState<Record<string, true>>({});
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -218,6 +220,7 @@ export default function EST() {
     setStatusStand(null);
     setStatusAnchor(null);
     setDeIceOpen(false);
+    setPushbackCallsign(null);
     setFlightPlanCallsign(null);
   }
 
@@ -315,6 +318,7 @@ export default function EST() {
 
     setActionState(menuState.stand, menuStrip);
     pickupStrip(menuStrip.callsign, Bay.Push);
+    setPushbackCallsign(menuStrip.callsign);
     closeMenu();
   }
 
@@ -560,6 +564,7 @@ export default function EST() {
         <StripListPopup
           title="PLANNED DEP"
           rowHalfStripVariant="LOCKED-DEP"
+          allowClearanceFromPlannedDepartures
           strips={departureStrips}
           sortModes={plannedDepartureSortModes}
           onRowClick={(strip) => {
@@ -585,6 +590,17 @@ export default function EST() {
         }}
         onSelectPlatform={handleSelectDeIcePlatform}
         onErase={handleEraseDeIcePlatform}
+      />
+
+      <PushbackMapDialog
+        open={!!pushbackCallsign}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPushbackCallsign(null);
+          }
+        }}
+        callsign={pushbackCallsign ?? ""}
+        initialReleasePoint={strips.find((strip) => strip.callsign === pushbackCallsign)?.release_point}
       />
 
       {flightPlanCallsign && (

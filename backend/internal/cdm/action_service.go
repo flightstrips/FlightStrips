@@ -566,13 +566,21 @@ func (c *ActionService) HandleCtotRemove(ctx context.Context, session int32, cal
 }
 
 func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	return c.handleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole, readyRequestTobt)
+}
+
+func (c *ActionService) HandleReaRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	return c.handleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole, reaRequestTobt)
+}
+
+func (c *ActionService) handleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string, chooseTobt func(*models.CdmData, time.Time) (string, bool)) error {
 	s := c.service
 	now := time.Now().UTC()
 	strip, current, err := c.loadCdmActionTarget(ctx, session, callsign)
 	if err != nil || strip == nil || current == nil {
 		return err
 	}
-	tobt, changeTobt := readyRequestTobt(current, now)
+	tobt, changeTobt := chooseTobt(current, now)
 	before := snapshotCdm(current)
 	updated := current.Clone()
 	changed, shouldRecalculate := false, false
@@ -613,6 +621,20 @@ func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, c
 	}
 	s.publisher.SendCdmWait(session, callsign)
 	return nil
+}
+
+func reaRequestTobt(data *models.CdmData, now time.Time) (string, bool) {
+	if data == nil {
+		return "", false
+	}
+	tobt := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTobt()))
+	if _, ok := parseClock(tobt); !ok {
+		return tobt, false
+	}
+	if minutesBetween(timeToClock(now), tobt) > 6 {
+		return now.UTC().Format("1504"), true
+	}
+	return tobt, false
 }
 
 func readyRequestTobt(data *models.CdmData, now time.Time) (string, bool) {

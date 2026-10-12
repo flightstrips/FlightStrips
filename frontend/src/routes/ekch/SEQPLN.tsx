@@ -61,6 +61,7 @@ export default function SEQPLN() {
         myPosition={myPosition}
         selectable={!passive}
         startupSiTransfer={status === "CLROK" && isFlight(strip) && strip.bay === Bay.Cleared}
+        grayTwyDepAppearance={status === "TAXI-DEP" && strip.bay === Bay.Taxi}
       />
     </div>
   );

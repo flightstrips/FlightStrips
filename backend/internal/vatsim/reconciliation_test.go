@@ -19,6 +19,23 @@ func TestApiDepartureBayPreservesCompletedDepartureAfterEuroscopeDisconnect(t *t
 	assert.Empty(t, apiDepartureBay(strip, flight, "EKCH"))
 }
 
+func TestVatsimFlightRulesFollowSourceAuthority(t *testing.T) {
+	now := time.Now().UTC()
+	strip := &models.Strip{FlightRules: "I"}
+	flight := Flight{LastUpdated: now, FlightPlan: FlightPlan{FlightRules: "V"}}
+	reconciler := &Reconciler{}
+
+	assert.True(t, reconciler.applyFlight(strip, flight, now))
+	assert.Equal(t, "V", strip.FlightRules)
+	assert.Equal(t, "V", vatsimSource(flight, now).FlightRules)
+
+	later := now.Add(time.Minute)
+	strip.EuroscopeSeenAt = &later
+	flight.FlightPlan.FlightRules = "I"
+	reconciler.applyFlight(strip, flight, now)
+	assert.Equal(t, "V", strip.FlightRules)
+}
+
 func TestApiDepartureBayDoesNotClassifyLocalArrivalAsDeparture(t *testing.T) {
 	strip := &models.Strip{Bay: hiddenArrivalBay}
 	flight := Flight{State: FlightStateOnline, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EKCH"}}

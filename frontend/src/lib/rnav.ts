@@ -1,3 +1,5 @@
+import type { ClxValidationFault, FrontendStrip } from "@/api/models";
+
 export type RnavCapability = "1" | "2" | "5" | "10" | "NIL";
 
 const PBN_BY_CAPABILITY: Record<Exclude<RnavCapability, "NIL">, string> = {
@@ -8,8 +10,27 @@ const PBN_BY_CAPABILITY: Record<Exclude<RnavCapability, "NIL">, string> = {
 };
 
 const PBN_TOKEN_PATTERN = /^PBN\/[A-Z0-9]+$/i;
+const ASSUMED_RNAV1_AIRCRAFT_PATTERN = /^(?:A3[A-Z0-9]{2}|B73[6-9]|B38M|B74[48]|B75[23]|B76[234]|B77[A-Z0-9]|B78[A-Z0-9]|BCS3|AT[A-Z0-9]{2}|DH8D|CRJ[A-Z0-9]|E[A-Z0-9]{3}|MD8[A-Z0-9])$/;
 
 export const RNAV_CAPABILITIES: RnavCapability[] = ["1", "2", "5", "10", "NIL"];
+
+export function effectiveRnavCapability(aircraftInfo: string, remarks: string): RnavCapability {
+  const aircraft = aircraftInfo.trim().toUpperCase().split(/[/\s-]/, 1)[0];
+  return ASSUMED_RNAV1_AIRCRAFT_PATTERN.test(aircraft) ? "1" : deriveRnavCapability(aircraftInfo, remarks);
+}
+
+export function rnavAssumptionRemark(aircraftInfo: string, remarks: string): string {
+  if (effectiveRnavCapability(aircraftInfo, remarks) !== "1" || deriveRnavCapability(aircraftInfo, remarks) === "1") return "";
+  return "Aircraft filed without RNAV capability, but corrected based on A/C Type. Consider verification if deemed relevant.";
+}
+
+export function effectiveClxFaults(
+  strip: Pick<FrontendStrip, "aircraft_type" | "remarks" | "clx_validation"> | undefined,
+): ClxValidationFault[] {
+  const faults = strip?.clx_validation?.faults ?? [];
+  if (!strip || effectiveRnavCapability(strip.aircraft_type, strip.remarks) !== "1") return faults;
+  return faults.filter(fault => !fault.fields.includes("rnav") || fault.fields.some(field => field !== "rnav"));
+}
 
 export function deriveRnavCapability(aircraftInfo: string, remarks: string): RnavCapability {
   if (!hasEquipmentMarkerR(aircraftInfo)) return "NIL";
@@ -33,7 +54,7 @@ export function buildRnavUpdate(
     return {
       aircraft_type: aircraftInfo,
       remarks: replacePbnTokens(remarks, ""),
-      capabilities: "NIL",
+      capabilities: effectiveRnavCapability(aircraftInfo, replacePbnTokens(remarks, "")),
     };
   }
 
@@ -43,7 +64,7 @@ export function buildRnavUpdate(
   return {
     aircraft_type,
     remarks: updatedRemarks,
-    capabilities: deriveRnavCapability(aircraft_type, updatedRemarks),
+    capabilities: effectiveRnavCapability(aircraft_type, updatedRemarks),
   };
 }
 

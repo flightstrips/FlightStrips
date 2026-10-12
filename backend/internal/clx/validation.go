@@ -156,7 +156,7 @@ func rnavFault(strip *models.Strip, rules cfgpkg.ClxValidationConfig) (Fault, bo
 		return Fault{}, false
 	}
 
-	capability := rnav.DeriveCapability(value(strip.AircraftType), value(strip.Remarks))
+	capability := rnav.EffectiveCapability(value(strip.AircraftType), value(strip.Remarks))
 	switch capability {
 	case "NIL":
 		if rules.RnavRules.Nil.Code == "" || rules.RnavRules.Nil.Message == "" {

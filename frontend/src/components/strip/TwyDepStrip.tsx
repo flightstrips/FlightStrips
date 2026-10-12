@@ -17,6 +17,10 @@ import { getGroundStopRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 import { computeTwyDepCTOTColors } from "@/lib/cdmColors";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
 import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatDeIceIndication } from "@/components/est/deiceIndication";
+import { HALF_STRIP_VARIANT_BG, LIGHT_GRAY_STRIP_FRAME } from "./halfStripFrame";
+import { AltSelectDialog } from "./AltSelectDialog";
+import { HdgSelectDialog, type HdgTurnDirection } from "./HdgSelectDialog";
+import { useInitialCflByRunway } from "@/store/store-hooks";
 
 // Heights— 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
 const TOP_H      = "66.6667%";
@@ -79,19 +83,30 @@ export function TwyDepStrip({
   ecfmp_restrictions,
   requested_altitude,
   arrival,
+  grayTwyDepAppearance = false,
 }: StripProps) {
   const { isSelected, isValidationActive, handleClick, handleContextMenu, guardValidationAction, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripTransfers = useStripTransfers();
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "", computeTwyDepCTOTColors);
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
-  const stripFrameColor = getStripFrameColor(arrival ?? false);
+  const stripFrameColor = grayTwyDepAppearance
+    ? LIGHT_GRAY_STRIP_FRAME
+    : getStripFrameColor(arrival ?? false);
   const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const normalBg = grayTwyDepAppearance
+    ? HALF_STRIP_VARIANT_BG["APN-PUSH"]
+    : getStripBg(pdcStatus, arrival, bay);
+  const { bg, textWhite } = useStripBg(runway, normalBg, isTagRequest, isUnconcerned, pdcStatus, bay);
   const transitionAltitude = useTransitionAltitude();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
+  const [altDialogOpen, setAltDialogOpen] = useState(false);
+  const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
+  const [hdgTurnDirection, setHdgTurnDirection] = useState<HdgTurnDirection>();
+  const initialCflByRunway = useInitialCflByRunway();
+  const updateStrip = useWebSocketStore(s => s.updateStrip);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
@@ -290,13 +305,30 @@ export function TwyDepStrip({
         className="flex flex-col border-r-2 min-w-0"
         style={{ flexGrow: F_SMALL, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
-        <div className="flex items-center justify-center" style={{ flex: "1 1 0%", minHeight: 0, ...(flViolated ? { backgroundColor: "#FF0000", color: "white" } : {}) }}>
+        <button
+          type="button"
+          aria-label="Cleared altitude"
+          className="flex w-full items-center justify-center border-0 bg-transparent p-0 cursor-pointer"
+          style={{ flex: "1 1 0%", minHeight: 0, ...(flViolated ? { backgroundColor: "#FF0000", color: "white" } : {}) }}
+          onClick={(event) => guardValidationAction(event, () => setAltDialogOpen(true))}
+        >
           <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.68vw" }}>{fl}</span>
-        </div>
+        </button>
         <div aria-hidden="true" style={{ height: "2px", flexShrink: 0, backgroundColor: cellBorderColor }} />
-        <div className="flex items-center justify-center" style={{ flex: "1 1 0%", minHeight: 0 }}>
+        <button
+          type="button"
+          aria-label="Heading"
+          className="flex w-full items-center justify-center gap-[0.2vw] border-0 bg-transparent p-0 cursor-pointer"
+          style={{ flex: "1 1 0%", minHeight: 0 }}
+          onClick={(event) => guardValidationAction(event, () => setHdgDialogOpen(true))}
+        >
           <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.68vw", opacity: hdg ? 1 : 0.2 }}>{hdg || "HDG"}</span>
-        </div>
+          {hdgTurnDirection && (
+            <span aria-label={`Turn ${hdgTurnDirection}`} style={{ fontSize: "0.68vw", lineHeight: 1 }}>
+              {hdgTurnDirection === "left" ? "←" : "→"}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* SID / Destination in the top 2/3; CTOT in the bottom 1/3 */}
@@ -339,6 +371,25 @@ export function TwyDepStrip({
       coordinationMode={isCoordinationMode}
     />
     <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} />
+    <AltSelectDialog
+      open={altDialogOpen}
+      onOpenChange={setAltDialogOpen}
+      value={clearedAltitude}
+      onSelect={(altitude) => {
+        updateStrip(callsign, {
+          altitude: altitude ?? (runway ? initialCflByRunway[runway] : undefined) ?? clearedAltitude,
+        });
+      }}
+    />
+    <HdgSelectDialog
+      open={hdgDialogOpen}
+      onOpenChange={setHdgDialogOpen}
+      value={heading}
+      runway={runway}
+      turnDirection={hdgTurnDirection}
+      onTurnDirectionChange={setHdgTurnDirection}
+      onSelect={(selectedHeading) => updateStrip(callsign, { heading: selectedHeading ?? 0 })}
+    />
     {validationStatus && (
       <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
     )}

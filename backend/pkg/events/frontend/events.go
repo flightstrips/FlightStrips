@@ -206,6 +206,7 @@ type Strip struct {
 	FplType                   string                `json:"fpl_type"`
 	Language                  string                `json:"language"`
 	HasFP                     bool                  `json:"has_fp"`
+	FlightRules               string                `json:"flight_rules"`
 	ValidationStatus          *ValidationStatus     `json:"validation_status,omitempty"`
 	ClxValidation             *ClxValidation        `json:"clx_validation,omitempty"`
 	StandAssignment           *StandAssignmentEntry `json:"stand_assignment,omitempty"`
@@ -780,6 +781,7 @@ func (l BroadcastEvent) GetType() EventType {
 type SendMessageEvent struct {
 	Text       string   `json:"text"`
 	Recipients []string `json:"recipients"`
+	Format     string   `json:"format,omitempty"`
 }
 
 type MessageReceivedEvent struct {
@@ -788,6 +790,7 @@ type MessageReceivedEvent struct {
 	Text        string   `json:"text"`
 	IsBroadcast bool     `json:"is_broadcast"`
 	Recipients  []string `json:"recipients"`
+	Format      string   `json:"format,omitempty"`
 }
 
 func (m MessageReceivedEvent) Marshal() ([]byte, error) {
@@ -867,6 +870,7 @@ func (c CdmDataBatchEvent) GetType() EventType {
 
 type CdmReadyEvent struct {
 	Callsign string `json:"callsign"`
+	Rea      bool   `json:"rea,omitempty"`
 }
 
 type CdmDeicePlatformUpdateEvent struct {

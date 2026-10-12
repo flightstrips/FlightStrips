@@ -73,6 +73,7 @@ export function ClxClearedStrip({
   marked = false,
   fullWidth = false,
   startupSiTransfer = false,
+  ignoreOwnershipBackground = false,
   unexpectedChangeFields,
   controllerModifiedFields,
   isManual = false,
@@ -96,7 +97,7 @@ export function ClxClearedStrip({
     runway,
     getStripBg(stripBackgroundPdcStatus, arrival, bay),
     isTagRequest,
-    isUnconcerned,
+    isUnconcerned && !ignoreOwnershipBackground,
     stripBackgroundPdcStatus,
     bay,
   );

@@ -65,6 +65,7 @@ namespace FlightStrips::websocket::protobuf {
             target->set_tracking_controller(source.tracking_controller);
             target->set_engine_type(source.engine_type);
             target->set_has_fp(source.has_fp);
+            target->set_flight_rules(source.flight_rules);
             target->set_hold_supported(source.hold_supported);
             target->set_hold(source.hold);
             target->set_hold_type(source.hold_type);

@@ -1529,6 +1529,7 @@ type Strip struct {
 	HoldType           string                 `protobuf:"bytes,31,opt,name=hold_type,json=holdType,proto3" json:"hold_type,omitempty"`
 	HoldEat            string                 `protobuf:"bytes,32,opt,name=hold_eat,json=holdEat,proto3" json:"hold_eat,omitempty"`
 	EnrouteDuration    string                 `protobuf:"bytes,33,opt,name=enroute_duration,json=enrouteDuration,proto3" json:"enroute_duration,omitempty"`
+	FlightRules        string                 `protobuf:"bytes,34,opt,name=flight_rules,json=flightRules,proto3" json:"flight_rules,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1790,6 +1791,13 @@ func (x *Strip) GetHoldEat() string {
 func (x *Strip) GetEnrouteDuration() string {
 	if x != nil {
 		return x.EnrouteDuration
+	}
+	return ""
+}
+
+func (x *Strip) GetFlightRules() string {
+	if x != nil {
+		return x.FlightRules
 	}
 	return ""
 }
@@ -5530,7 +5538,7 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
 	"Controller\x12\x1a\n" +
 	"\bposition\x18\x01 \x01(\tR\bposition\x12\x1a\n" +
-	"\bcallsign\x18\x02 \x01(\tR\bcallsign\"\xaf\b\n" +
+	"\bcallsign\x18\x02 \x01(\tR\bcallsign\"\xd2\b\n" +
 	"\x05Strip\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x16\n" +
 	"\x06origin\x18\x02 \x01(\tR\x06origin\x12 \n" +
@@ -5566,7 +5574,8 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x04hold\x18\x1e \x01(\tR\x04hold\x12\x1b\n" +
 	"\thold_type\x18\x1f \x01(\tR\bholdType\x12\x19\n" +
 	"\bhold_eat\x18  \x01(\tR\aholdEat\x12)\n" +
-	"\x10enroute_duration\x18! \x01(\tR\x0fenrouteDuration\"J\n" +
+	"\x10enroute_duration\x18! \x01(\tR\x0fenrouteDuration\x12!\n" +
+	"\fflight_rules\x18\" \x01(\tR\vflightRules\"J\n" +
 	"\x10StripUpdateEvent\x126\n" +
 	"\x05strip\x18\x01 \x01(\v2 .flightstrips.euroscope.v1.StripR\x05strip\"\x84\x02\n" +
 	"\tSyncEvent\x12G\n" +

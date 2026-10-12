@@ -17,7 +17,7 @@ import { useDragState } from "@/components/bays/DragStateContext";
 import { useBayClick } from "./BayClickContext";
 import { Children, useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { AnyStrip, StripRef } from "@/api/models.ts";
-import { stripDndId, isFlight } from "@/api/models.ts";
+import { Bay, stripDndId, isFlight } from "@/api/models.ts";
 import { isValidationBlockingForPosition } from "@/components/strip/shared";
 import { useMyPosition, useOpenValidationDialog } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
@@ -162,7 +162,7 @@ export function SortableBay({
   const validationBlocked = (strip: AnyStrip) =>
     isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition);
   const dragDisabled = (strip: AnyStrip) =>
-    (!isFlight(strip) && strip.owner !== myPosition) || validationBlocked(strip) || isDragDisabled?.(strip) === true;
+    (isFlight(strip) ? strip.bay === Bay.NotCleared : strip.owner !== myPosition) || validationBlocked(strip) || isDragDisabled?.(strip) === true;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;

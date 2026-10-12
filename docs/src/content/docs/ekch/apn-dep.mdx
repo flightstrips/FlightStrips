@@ -16,6 +16,10 @@ import { Aside } from '@astrojs/starlight/components';
 
 Strip behaviour matches [AA + AD](/ekch/aa-ad/) in general, but this scope has a smaller set of bays and some columns are locked.
 
+In **STARTUP** and **PUSH BACK**, strips do not display the next frequency below the callsign. SI ownership indicators and transfer actions are unchanged.
+
+Selecting **K2**, **K3**, **A**, **F**, **D**, **B**, **V2**, or **V1** on the apron taxi map moves the strip to **TWY DEP-LWR**, regardless of other controllers being online. The existing **K1** lower-bay routing is unchanged.
+
 <Aside type="caution">
 **RWY ARR** holds **ARR-LOCKED** strips in a locked bay here — not the `TWY-ARR` REQ strip used in [AA + AD](/ekch/aa-ad/) and [Apron Arrival](/ekch/apn-arr/). **Push back** is also locked; there is no separate **TWY DEP** or **Startup** column in this scope.
 </Aside>
@@ -31,7 +35,7 @@ Strip behaviour matches [AA + AD](/ekch/aa-ad/) in general, but this scope has a
 | **TWY ARR** | `APN-ARR` | Apron arrival taxi; active. |
 | **De-ice** | `APN-TAXI-DEP` | Active — taxi / de-ice routing. |
 | **Push back** | `APNPUSH` | Locked — not accessible in this scope. |
-| **SAS** | Uncleared | Locked if CLR DEL, DEL+SEQ, or SEQ PLN is online. |
+| **SAS** | Uncleared | Small strips while another controller covers CLR DEL; full-size otherwise. Cannot be selected or dragged. |
 | **Norwegian** | Uncleared | Same as SAS. |
 | **Others** | Uncleared | Same family as [CLR DEL](/ekch/clr-del/). |
 

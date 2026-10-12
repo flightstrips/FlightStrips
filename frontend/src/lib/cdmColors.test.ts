@@ -4,11 +4,15 @@ import { Bay } from "@/api/models";
 import {
   CDM_GREEN,
   CDM_YELLOW,
+  CDM_RED,
+  CDM_ORANGE,
+  CTOT_YELLOW,
   TWY_DEP_CTOT_BLUE,
   TWY_DEP_CTOT_ORANGE,
   TWY_DEP_CTOT_RED,
   TWY_DEP_CTOT_YELLOW,
   computeCDMColors,
+  computeCTOTColors,
   computeTwyDepCTOTColors,
   hasManualTobtSource,
   isTsatWithinStartRequestWindow,
@@ -47,6 +51,33 @@ describe("isTsatWithinStartRequestWindow", () => {
 });
 
 describe("computeCDMColors", () => {
+  it.each([
+    ["startup window", "1003", "0955", ""],
+    ["last minute", "0955", "0950", ""],
+    ["expired TSAT", "0950", "0950", ""],
+    ["TOBT discrepancy", "1020", "1000", ""],
+    ["invalid phase", "1003", "0955", "I"],
+    ["invalid phase without TSAT", "", "0955", "I"],
+  ])("does not color planned departures during %s", (_description, tsat, tobt, phase) => {
+    expect(computeCDMColors(tsat, tobt, Date.UTC(2026, 6, 14, 10, 0), Bay.NotCleared, phase)).toEqual({
+      tobtBg: "", tsatBg: "",
+    });
+  });
+
+  it.each([
+    ["0950", "0950", "", CDM_RED],
+    ["1020", "1000", "", CDM_ORANGE],
+    ["", "0955", "I", CDM_RED],
+  ])("retains cleared departure TOBT coloring for TSAT %s and phase %s", (tsat, tobt, phase, tobtBg) => {
+    expect(computeCDMColors(tsat, tobt, Date.UTC(2026, 6, 14, 10, 0), Bay.Cleared, phase)).toEqual({ tobtBg, tsatBg: "" });
+  });
+
+  it("leaves CTOT coloring active while planned TOBT and TSAT are neutral", () => {
+    const now = Date.UTC(2026, 6, 14, 10, 0);
+    expect(computeCDMColors("1003", "0955", now, Bay.NotCleared)).toEqual({ tobtBg: "", tsatBg: "" });
+    expect(computeCTOTColors("1020", now)).toEqual({ ctotBg: CTOT_YELLOW, ctotColor: "black", showCtot: true });
+  });
+
   it("uses the design green token", () => {
     expect(CDM_GREEN).toBe("#00FF26");
   });

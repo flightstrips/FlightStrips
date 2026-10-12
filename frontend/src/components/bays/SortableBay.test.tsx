@@ -1,23 +1,46 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { SortableStrip } from "./SortableBay";
+import { Bay, type FrontendStrip } from "@/api/models";
+import { useSortable } from "@dnd-kit/sortable";
+import { SortableBay, SortableStrip } from "./SortableBay";
+
+vi.mock("@/store/store-hooks", () => ({
+  useMyPosition: () => "118.105",
+  useOpenValidationDialog: () => vi.fn(),
+}));
 
 vi.mock("@dnd-kit/sortable", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@dnd-kit/sortable")>();
   return {
     ...actual,
-    useSortable: () => ({
+    useSortable: vi.fn(() => ({
       attributes: {},
       listeners: {},
       setNodeRef: vi.fn(),
       transform: null,
       transition: undefined,
       isDragging: false,
-    }),
+    })),
   };
 });
 
 describe("SortableStrip", () => {
+  it.each([Bay.NotCleared, Bay.Cleared])("locks dragging only for planned departures (%s)", (bay) => {
+    const strip = { callsign: "SAS123", bay } as FrontendStrip;
+    vi.mocked(useSortable).mockClear();
+
+    render(
+      <SortableBay strips={[strip]}>
+        {() => <span>{strip.callsign}</span>}
+      </SortableBay>,
+    );
+
+    expect(useSortable).toHaveBeenLastCalledWith(expect.objectContaining({
+      id: "SAS123",
+      disabled: bay === Bay.NotCleared,
+    }));
+  });
+
   it("opens an active validation problem before child strip interactions run", () => {
     const onValidationClick = vi.fn();
     const onChildClick = vi.fn();

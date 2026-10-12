@@ -213,6 +213,10 @@ func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsig
 	return s.actionService.HandleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole)
 }
 
+func (s *Service) HandleReaRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	return s.actionService.HandleReaRequest(ctx, session, callsign, sourcePosition, sourceRole)
+}
+
 func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign string) error {
 	return s.actionService.RequestBetterTobt(ctx, session, callsign)
 }

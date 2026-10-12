@@ -63,6 +63,11 @@ export interface StripProps {
   fullWidth?: boolean;
   /** SEQ PLN STARTUP requires a valid TSAT before its SI can transfer. */
   startupSiTransfer?: boolean;
+  clearanceFromPlannedBay?: boolean;
+  /** Keep CLR DEL's cleared strips blue after ownership passes to SEQ PLN. */
+  ignoreOwnershipBackground?: boolean;
+  /** Use the CLR DEL gray styling for SEQ PLN TWY DEP strips. */
+  grayTwyDepAppearance?: boolean;
   isManual?: boolean;
   validationStatus?: import("@/api/models").ValidationStatus;
   ecfmp_restrictions?: import("@/api/models").EcfmpRestriction[];

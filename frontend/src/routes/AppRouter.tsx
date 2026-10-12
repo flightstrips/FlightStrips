@@ -29,6 +29,7 @@ export default function AppRouter() {
   const displayedLayout = useWebSocketStore((s) => s.displayedLayout);
   const readOnly = useWebSocketStore((s) => s.readOnly);
   const positionAvailable = useWebSocketStore((s) => s.positionAvailable);
+  const layoutResetNonce = useWebSocketStore((s) => s.layoutResetNonce);
   const Component = LAYOUT_MAP[displayedLayout];
 
   if (!Component) {
@@ -38,5 +39,5 @@ export default function AppRouter() {
     return <ChooseLayoutScreen />;
   }
 
-  return <Component />;
+  return <Component key={layoutResetNonce} />;
 }

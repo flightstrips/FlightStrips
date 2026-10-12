@@ -357,6 +357,9 @@ func handleSendMessage(ctx context.Context, client *Client, message Message) err
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
+	if req.Format != "" && req.Format != "AUTO" && req.Format != "SMALL" && req.Format != "LARGE" {
+		return errors.New("invalid message format")
+	}
 
 	recipients := req.Recipients
 	if recipients == nil {
@@ -369,6 +372,7 @@ func handleSendMessage(ctx context.Context, client *Client, message Message) err
 		Text:        req.Text,
 		IsBroadcast: len(recipients) == 0,
 		Recipients:  recipients,
+		Format:      req.Format,
 	}
 
 	client.hub.storeMessage(client.session, msg)
@@ -383,6 +387,15 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	}
 
 	cdmService := client.hub.server.GetCdmService()
+	if event.Rea {
+		reaService, ok := cdmService.(interface {
+			HandleReaRequest(context.Context, int32, string, string, string) error
+		})
+		if !ok {
+			return errors.New("CDM REA service not available")
+		}
+		return reaService.HandleReaRequest(ctx, client.session, event.Callsign, client.position, "ATC")
+	}
 	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC")
 }
 

@@ -5,7 +5,7 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
                      registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req,
                      vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at,
-                     hold, hold_type, hold_eat, next_display_label, next_display_frequency)
+                     hold, hold_type, hold_eat, next_display_label, next_display_frequency, flight_rules)
 VALUES (
     1,
     sqlc.arg(callsign),
@@ -53,7 +53,8 @@ VALUES (
     sqlc.arg(hold_type),
     sqlc.arg(hold_eat),
     sqlc.narg(next_display_label),
-    sqlc.narg(next_display_frequency)
+    sqlc.narg(next_display_frequency),
+    sqlc.arg(flight_rules)
 );
 
 -- name: UpdateStrip :execrows
@@ -103,6 +104,7 @@ SET version = version + 1,
     fpl_type = sqlc.arg(fpl_type),
     language = sqlc.arg(language),
     has_fp = sqlc.arg(has_fp),
+    flight_rules = sqlc.arg(flight_rules),
     pdc_data = sqlc.arg(pdc_data),
     validation_status = sqlc.arg(validation_status),
     start_req = sqlc.arg(start_req),
@@ -148,6 +150,7 @@ SET
     vatsim_cid = sqlc.arg(vatsim_cid),
     vatsim_revision = sqlc.arg(vatsim_revision),
     vatsim_seen_at = sqlc.arg(vatsim_seen_at),
+    flight_rules = CASE WHEN sqlc.arg(flight_rules)::text <> '' AND NOT ('flight_rules' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(flight_rules) ELSE flight_rules END,
     origin = CASE WHEN NOT ('origin' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(origin) ELSE origin END,
     destination = CASE WHEN NOT ('destination' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(destination) ELSE destination END,
     alternative = CASE WHEN NOT ('alternative' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(alternative) ELSE alternative END,

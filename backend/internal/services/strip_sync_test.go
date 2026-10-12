@@ -45,6 +45,10 @@ func TestSyncStripChangedIgnoringPosition(t *testing.T) {
 	changedRoute.Destination = "ENGM"
 	assert.True(t, syncStripChangedIgnoringPosition(existing, &changedRoute))
 	assert.True(t, syncStripRouteChanged(existing, &changedRoute))
+
+	changedRules := moved
+	changedRules.FlightRules = "V"
+	assert.True(t, syncStripChangedIgnoringPosition(existing, &changedRules))
 }
 
 func (s *syncRouteComputerTestServer) ComputeNextOwnersForStripContext(ctx context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error) {
@@ -73,13 +77,15 @@ func TestSyncEuroscopeStrip_NewLocalDepartureWithoutPositionStartsInNotCleared(t
 	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
 
 	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
-		Callsign: callsign,
-		Origin:   "EKCH",
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		FlightRules: "V",
 	}, "EKCH")
 	require.NoError(t, err)
 	require.NotNil(t, createdStrip)
 	assert.Equal(t, callsign, createdStrip.Callsign)
 	assert.Equal(t, shared.BAY_NOT_CLEARED, createdStrip.Bay)
+	assert.Equal(t, "V", createdStrip.FlightRules)
 }
 
 func TestSyncEuroscopeStrip_NewStripPersistsHold(t *testing.T) {
@@ -130,6 +136,7 @@ func TestSyncEuroscopeStrip_ExistingStripPreservesHoldWhenPluginOmitsHoldFields(
 		HoldType:    "enroute",
 		HoldEat:     "1422",
 		NextDisplay: &models.NextDisplay{Label: "AD", Frequency: "121.730"},
+		FlightRules: "V",
 	}
 	var updatedStrip *models.Strip
 	stripRepo := &testutil.MockStripRepository{
@@ -156,6 +163,7 @@ func TestSyncEuroscopeStrip_ExistingStripPreservesHoldWhenPluginOmitsHoldFields(
 	assert.Equal(t, existingStrip.Hold, updatedStrip.Hold)
 	assert.Equal(t, existingStrip.HoldType, updatedStrip.HoldType)
 	assert.Equal(t, existingStrip.HoldEat, updatedStrip.HoldEat)
+	assert.Equal(t, "V", updatedStrip.FlightRules)
 	require.Equal(t, existingStrip.NextDisplay, updatedStrip.NextDisplay)
 	assert.NotSame(t, existingStrip.NextDisplay, updatedStrip.NextDisplay)
 }

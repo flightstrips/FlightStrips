@@ -1,5 +1,23 @@
 # Events
 
+## Frontend messages
+
+`send_message` carries `text`, `recipients` (configured area names; an empty
+array means broadcast), and optional `format`: `AUTO`, `SMALL`, or `LARGE`.
+`message_received` carries the same fields plus `id`, `sender`, and
+`is_broadcast`. Format is retained in the session message history and initial
+snapshot. Missing format is equivalent to `AUTO`: a single targeted recipient
+uses large text; broadcast and multiple recipients use small text. Explicit
+`SMALL` or `LARGE` overrides recipient-based sizing.
+
+## Frontend flight-plan REA
+
+`cdm_ready` accepts optional `rea: true` for the flight-plan REA control. This
+uses the normal persisted ready/status flow, but changes TOBT to current UTC
+only if the effective TOBT is more than six minutes ahead. Without `rea`, the
+existing READY timing policy is unchanged. The returned CDM `status: "REA"`
+drives the flight-plan indication.
+
 ## Frontend CDM de-icing platform
 
 Sent by: Frontend
@@ -334,6 +352,12 @@ a withdrawal of the retained backend EAT without changing the live clearance.
 Sent by: EuroScope
 
 Strip update
+
+The protobuf strip payload includes `flight_rules` (field 34), containing the filed
+`I` (IFR) or `V` (VFR) value from EuroScope. The same field is included in frontend
+strip snapshots and updates. CONTROLZONE FIND uses `V` to list filed VFR flights,
+not squawk, route, or remarks. Older plugins omit this field; an existing stored
+value is preserved until an authoritative flight-rules update is received.
 
 ```json
 {

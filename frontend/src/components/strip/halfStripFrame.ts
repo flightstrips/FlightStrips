@@ -6,6 +6,8 @@ import {
   getStripFrameColor,
 } from "./shared";
 
+export const LIGHT_GRAY_STRIP_FRAME = "#d9d9d9";
+
 export const HALF_STRIP_VARIANT_BG: Record<HalfStripVariant, string> = {
   "APN-PUSH": "var(--color-strip-push-bg)",
   "APN-ARR": COLOR_ARR_YELLOW,

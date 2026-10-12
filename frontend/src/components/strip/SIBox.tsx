@@ -145,7 +145,7 @@ export function SIBox({
         minWidth: 0,
         ...getSIBoxBorderStyle(!!marked, baseBorderColor),
         fontFamily: FONT,
-        fontSize: "1.15vw",
+        fontSize: "0.98vw",
         color: COLOR_SI_LABEL,
         cursor: isClickable ? "pointer" : "default",
       }}

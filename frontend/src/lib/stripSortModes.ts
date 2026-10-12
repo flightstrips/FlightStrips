@@ -31,3 +31,9 @@ export const plannedDepartureSortModes: StripSortMode[] = [
   { key: "EOBT", label: "EOBT", compareFn: byText((s) => s.eobt) },
   { key: "ADES", label: "ADES", compareFn: byText((s) => s.destination) },
 ];
+
+export const vfrSortModes: StripSortMode[] = [
+  { key: "CALLSIGN", label: "CALLSIGN", compareFn: byText((s) => s.callsign) },
+  { key: "ADEP", label: "ADEP", compareFn: byText((s) => s.origin) },
+  { key: "ADES", label: "ADES", compareFn: byText((s) => s.destination) },
+];

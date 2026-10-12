@@ -22,6 +22,12 @@ describe("startup SI transfer", () => {
     startRequestAndTransfer.mockClear();
   });
 
+  it("uses the reduced font size for the SI indicator", () => {
+    const { container } = render(<SIBox callsign="SAS123" />);
+
+    expect(container.firstElementChild).toHaveStyle({ fontSize: "0.98vw" });
+  });
+
   it("waits for the TSAT window and sends a startup request with the transfer", () => {
     const allowed = vi.fn(() => false);
     const { container } = render(

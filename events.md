@@ -10,6 +10,12 @@ snapshot. Missing format is equivalent to `AUTO`: a single targeted recipient
 uses large text; broadcast and multiple recipients use small text. Explicit
 `SMALL` or `LARGE` overrides recipient-based sizing.
 
+Targeted areas resolve to an online operational controller at the area's primary
+configured frequency, or otherwise to the current owner of its sector. Ground
+west coverage includes both `GWA` and `GWD`. Static fallback positions without
+the selected area's coverage do not receive the message. Observers are excluded;
+the sender also receives a copy.
+
 ## Frontend next-controller selection
 
 `next_controller_select` accepts `callsign` and `sector` (`AA`, `GE`, `GW`,
@@ -372,6 +378,11 @@ The protobuf strip payload includes `flight_rules` (field 34), containing the fi
 strip snapshots and updates. CONTROLZONE FIND uses `V` to list filed VFR flights,
 not squawk, route, or remarks. Older plugins omit this field; an existing stored
 value is preserved until an authoritative flight-rules update is received.
+
+If the stored value is still empty, VATSIM may backfill known flight rules even
+when an older plugin has supplied a newer EuroScope observation. This does not
+override known rules from a newer EuroScope observation or controller-protected
+fields, and an empty VATSIM value never clears known rules.
 
 ```json
 {

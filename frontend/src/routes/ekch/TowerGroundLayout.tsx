@@ -262,8 +262,8 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <div
             className={`bay-col-header bay-col-sep justify-between${variant === "TWTE" ? " !h-[6.6dvh] !flex-col !items-stretch !justify-center gap-[0.3dvh]" : ""}`}
           >
+            <BayResizeHandle {...arrResize.handleProps("rwyArr")} />
             <div className="flex w-full items-center justify-between">
-              <BayResizeHandle {...arrResize.handleProps("rwyArr")} />
               <span className={CLS_LABEL}>TWY ARR</span>
               <span className="flex gap-0.5">
                 <MemAidButton bay={Bay.TwyArr} className={btnBlue} />

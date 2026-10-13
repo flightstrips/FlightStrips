@@ -2123,7 +2123,7 @@ SET
     vatsim_cid = $1,
     vatsim_revision = $2,
     vatsim_seen_at = $3,
-    flight_rules = CASE WHEN $4::text <> '' AND NOT ('flight_rules' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $4 ELSE flight_rules END,
+    flight_rules = CASE WHEN $4::text <> '' AND NOT ('flight_rules' = ANY(controller_modified_fields)) AND (flight_rules = '' OR euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $4 ELSE flight_rules END,
     origin = CASE WHEN NOT ('origin' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $5 ELSE origin END,
     destination = CASE WHEN NOT ('destination' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $6 ELSE destination END,
     alternative = CASE WHEN NOT ('alternative' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $7 ELSE alternative END,

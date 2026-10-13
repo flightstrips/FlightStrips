@@ -666,13 +666,16 @@ func (r *Reconciler) applyFlight(strip *models.Strip, flight Flight, snapshotTim
 		strip.VatsimSeenAt = timeptr(seenAt)
 		changed = true
 	}
+	// Older plugins never supply flight rules, even in a newer observation.
+	if flight.FlightPlan.FlightRules != "" && (strip.FlightRules == "" || strip.EuroscopeSeenAt == nil || !strip.EuroscopeSeenAt.After(seenAt)) {
+		changed = setSourceString(strip, "flight_rules", &strip.FlightRules, flight.FlightPlan.FlightRules) || changed
+	}
 	if strip.EuroscopeSeenAt != nil && strip.EuroscopeSeenAt.After(seenAt) {
 		return changed
 	}
 
 	changed = setSourceString(strip, "origin", &strip.Origin, flight.FlightPlan.Origin) || changed
 	changed = setSourceString(strip, "destination", &strip.Destination, flight.FlightPlan.Destination) || changed
-	changed = setSourceString(strip, "flight_rules", &strip.FlightRules, flight.FlightPlan.FlightRules) || changed
 	changed = setSourcePointer(strip, "alternative", &strip.Alternative, flight.FlightPlan.Alternate) || changed
 	changed = setSourcePointer(strip, "route", &strip.Route, flight.FlightPlan.Route) || changed
 	changed = setSourcePointer(strip, "remarks", &strip.Remarks, flight.FlightPlan.Remarks) || changed

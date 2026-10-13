@@ -36,6 +36,41 @@ func TestVatsimFlightRulesFollowSourceAuthority(t *testing.T) {
 	assert.Equal(t, "V", strip.FlightRules)
 }
 
+func TestVatsimFlightRulesBackfillOlderPlugin(t *testing.T) {
+	now := time.Now().UTC()
+	later := now.Add(time.Minute)
+	for _, tc := range []struct {
+		name     string
+		rules    string
+		incoming string
+		modified []string
+		want     string
+	}{
+		{name: "unknown", incoming: "V", want: "V"},
+		{name: "known EuroScope rules", rules: "I", incoming: "V", want: "I"},
+		{name: "controller protected", incoming: "V", modified: []string{"flight_rules"}, want: ""},
+		{name: "missing VATSIM rules", rules: "V", want: "V"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			strip := &models.Strip{
+				FlightRules: tc.rules, EuroscopeSeenAt: &later,
+				ControllerModifiedFields: tc.modified, Origin: "EKCH",
+			}
+			flight := Flight{LastUpdated: now, FlightPlan: FlightPlan{FlightRules: tc.incoming, Origin: "ESSA"}}
+			(&Reconciler{}).applyFlight(strip, flight, now)
+			assert.Equal(t, tc.want, strip.FlightRules)
+			assert.Equal(t, "EKCH", strip.Origin, "backfilling must not bypass freshness for other fields")
+		})
+	}
+}
+
+func TestVatsimMissingFlightRulesPreserveKnownValue(t *testing.T) {
+	now := time.Now().UTC()
+	strip := &models.Strip{FlightRules: "V"}
+	(&Reconciler{}).applyFlight(strip, Flight{LastUpdated: now}, now)
+	assert.Equal(t, "V", strip.FlightRules)
+}
+
 func TestApiDepartureBayDoesNotClassifyLocalArrivalAsDeparture(t *testing.T) {
 	strip := &models.Strip{Bay: hiddenArrivalBay}
 	flight := Flight{State: FlightStateOnline, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EKCH"}}

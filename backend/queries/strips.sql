@@ -151,7 +151,7 @@ SET
     vatsim_cid = sqlc.arg(vatsim_cid),
     vatsim_revision = sqlc.arg(vatsim_revision),
     vatsim_seen_at = sqlc.arg(vatsim_seen_at),
-    flight_rules = CASE WHEN sqlc.arg(flight_rules)::text <> '' AND NOT ('flight_rules' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(flight_rules) ELSE flight_rules END,
+    flight_rules = CASE WHEN sqlc.arg(flight_rules)::text <> '' AND NOT ('flight_rules' = ANY(controller_modified_fields)) AND (flight_rules = '' OR euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(flight_rules) ELSE flight_rules END,
     origin = CASE WHEN NOT ('origin' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(origin) ELSE origin END,
     destination = CASE WHEN NOT ('destination' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(destination) ELSE destination END,
     alternative = CASE WHEN NOT ('alternative' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(alternative) ELSE alternative END,

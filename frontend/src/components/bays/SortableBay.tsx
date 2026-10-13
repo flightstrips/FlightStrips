@@ -464,7 +464,7 @@ export function SortableStrip({
     marginTop: gapBefore || undefined,
     marginBottom: gapAfter || undefined,
     opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
-    cursor: validationBlocked ? "pointer" : effectiveDragDisabled ? "not-allowed" : undefined,
+    cursor: validationBlocked || !effectiveDragDisabled ? "pointer" : undefined,
     touchAction: "auto",
   };
   return (

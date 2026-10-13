@@ -43,6 +43,7 @@ Strips are organised into **bays**. A bay is either **ACTIVE** or **LOCKED**. St
 
 ## REQ and transfers
 
+- Select an owned aircraft's callsign, then use **TW**, **TE**, **GW**, or **GE** in **TWY DEP** to change its next-controller SI target without starting a transfer. Click **SI** separately to initiate the handoff. The selection survives routing updates until ownership changes. The buttons retain their normal colors regardless of controller availability. If the target is offline, the existing SI value is unchanged; a blank SI stays blank.
 - Bays marked **Can be REQ** allow requesting a strip you do not own.
 - **TWY DEP-LWR** SI creates normal pending coordination to the next carried step in the configured route:
   - 22R/04L: AD → GW → TW

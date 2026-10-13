@@ -69,5 +69,26 @@ describe("SortableStrip", () => {
     );
 
     expect(screen.getByText("SAS456").parentElement?.style.touchAction).toBe("auto");
+    expect(screen.getByText("SAS456").parentElement?.style.cursor).toBe("pointer");
+  });
+
+  it("shows no cursor on a strip that cannot be dragged", () => {
+    render(
+      <SortableStrip callsign="SAS789" dragDisabled>
+        <span>SAS789</span>
+      </SortableStrip>,
+    );
+
+    expect(screen.getByText("SAS789").parentElement?.style.cursor).toBe("");
+  });
+
+  it("keeps the hand cursor when clicking opens a validation problem", () => {
+    render(
+      <SortableStrip callsign="SAS012" validationBlocked onValidationClick={vi.fn()}>
+        <span>SAS012</span>
+      </SortableStrip>,
+    );
+
+    expect(screen.getByText("SAS012").parentElement?.style.cursor).toBe("pointer");
   });
 });

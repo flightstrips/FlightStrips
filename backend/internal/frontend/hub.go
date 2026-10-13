@@ -47,8 +47,9 @@ const (
 )
 
 type layoutUpdateMessage struct {
-	session   int32
-	layoutMap map[string]string
+	session        int32
+	layoutMap      map[string]string
+	resetLayoutMap map[string]string
 }
 
 type cidOnlineMessage struct {
@@ -147,6 +148,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.Move, handleMove)
 	handlers.Add(frontend.UpdateStripData, handleStripUpdate)
 	handlers.Add(frontend.CoordinationTransferRequestType, handleCoordinationTransferRequest)
+	handlers.Add(frontend.NextControllerSelect, handleNextControllerSelect)
 	handlers.Add(frontend.CoordinationAssumeRequestType, handleCoordinationAssumeRequest)
 	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
@@ -1569,8 +1571,12 @@ func mapNextDisplayToDTO(nextDisplay *internalModels.NextDisplay) *frontend.Next
 	}
 }
 
-func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
-	hub.layoutUpdates <- layoutUpdateMessage{session: session, layoutMap: layoutMap}
+func (hub *Hub) SendLayoutUpdates(session int32, layoutMap, resetLayoutMap map[string]string) {
+	hub.layoutUpdates <- layoutUpdateMessage{
+		session:        session,
+		layoutMap:      layoutMap,
+		resetLayoutMap: resetLayoutMap,
+	}
 }
 
 func (hub *Hub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) {
@@ -1830,8 +1836,16 @@ func (hub *Hub) Run(ctx context.Context) {
 			started := time.Now()
 			fanout := 0
 			for client := range hub.clients {
-				if layout, ok := msg.layoutMap[client.position]; client.session == msg.session && ok {
-					client.Enqueue(frontend.LayoutUpdateEvent{Layout: layout})
+				if client.session != msg.session {
+					continue
+				}
+				layout, hasLayout := msg.layoutMap[client.position]
+				resetLayout, hasResetLayout := msg.resetLayoutMap[client.position]
+				if hasLayout || hasResetLayout {
+					client.Enqueue(frontend.LayoutUpdateEvent{
+						Layout:      layout,
+						ResetLayout: resetLayout,
+					})
 					fanout++
 				}
 			}

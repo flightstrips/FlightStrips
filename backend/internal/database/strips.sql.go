@@ -254,7 +254,7 @@ func (q *Queries) GetNextSequenceUnified(ctx context.Context, arg GetNextSequenc
 }
 
 const getPositionSnapshot = `-- name: GetPositionSnapshot :one
-SELECT s.id, s.version, s.callsign, s.session, s.origin, s.destination, s.alternative, s.route, s.remarks, s.assigned_squawk, s.squawk, s.sid, s.cleared_altitude, s.heading, s.aircraft_type, s.runway, s.requested_altitude, s.capabilities, s.communication_type, s.aircraft_category, s.stand, s.sequence, s.state, s.cleared, s.owner, s.bay, s.position_latitude, s.position_longitude, s.position_altitude, s.next_owners, s.previous_owners, s.release_point, s.marked, s.registration, s.tracking_controller, s.runway_cleared, s.unexpected_change_fields, s.controller_modified_fields, s.engine_type, s.is_manual, s.persons_on_board, s.fpl_type, s.language, s.has_fp, s.cdm_data, s.runway_confirmed, s.pdc_data, s.validation_status, s.start_req, s.spoken_callsign, s.vatsim_cid, s.vatsim_revision, s.vatsim_seen_at, s.euroscope_seen_at, s.arrival_eta, s.star, s.hold, s.hold_type, s.hold_eat, s.next_display_label, s.next_display_frequency, s.fs_scratch_pad, s.flight_rules,
+SELECT s.id, s.version, s.callsign, s.session, s.origin, s.destination, s.alternative, s.route, s.remarks, s.assigned_squawk, s.squawk, s.sid, s.cleared_altitude, s.heading, s.aircraft_type, s.runway, s.requested_altitude, s.capabilities, s.communication_type, s.aircraft_category, s.stand, s.sequence, s.state, s.cleared, s.owner, s.bay, s.position_latitude, s.position_longitude, s.position_altitude, s.next_owners, s.previous_owners, s.release_point, s.marked, s.registration, s.tracking_controller, s.runway_cleared, s.unexpected_change_fields, s.controller_modified_fields, s.engine_type, s.is_manual, s.persons_on_board, s.fpl_type, s.language, s.has_fp, s.cdm_data, s.runway_confirmed, s.pdc_data, s.validation_status, s.start_req, s.spoken_callsign, s.vatsim_cid, s.vatsim_revision, s.vatsim_seen_at, s.euroscope_seen_at, s.arrival_eta, s.star, s.hold, s.hold_type, s.hold_eat, s.next_display_label, s.next_display_frequency, s.fs_scratch_pad, s.flight_rules, s.next_controller_sector,
     (SELECT to_jsonb(a) FROM stand_assignments a
      WHERE a.session_id = s.session AND a.callsign = s.callsign) AS assignment
 FROM strips s
@@ -338,6 +338,7 @@ func (q *Queries) GetPositionSnapshot(ctx context.Context, arg GetPositionSnapsh
 		&i.Strip.NextDisplayFrequency,
 		&i.Strip.FsScratchPad,
 		&i.Strip.FlightRules,
+		&i.Strip.NextControllerSector,
 		&i.Assignment,
 	)
 	return i, err
@@ -424,7 +425,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat, next_display_label, next_display_frequency, fs_scratch_pad, flight_rules
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat, next_display_label, next_display_frequency, fs_scratch_pad, flight_rules, next_controller_sector
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -501,6 +502,7 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.NextDisplayFrequency,
 		&i.FsScratchPad,
 		&i.FlightRules,
+		&i.NextControllerSector,
 	)
 	return i, err
 }
@@ -706,7 +708,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat, next_display_label, next_display_frequency, fs_scratch_pad, flight_rules
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat, next_display_label, next_display_frequency, fs_scratch_pad, flight_rules, next_controller_sector
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -785,6 +787,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.NextDisplayFrequency,
 			&i.FsScratchPad,
 			&i.FlightRules,
+			&i.NextControllerSector,
 		); err != nil {
 			return nil, err
 		}
@@ -797,7 +800,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat, next_display_label, next_display_frequency, fs_scratch_pad, flight_rules
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat, next_display_label, next_display_frequency, fs_scratch_pad, flight_rules, next_controller_sector
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -881,6 +884,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.NextDisplayFrequency,
 			&i.FsScratchPad,
 			&i.FlightRules,
+			&i.NextControllerSector,
 		); err != nil {
 			return nil, err
 		}
@@ -893,7 +897,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 }
 
 const lockStrip = `-- name: LockStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat, next_display_label, next_display_frequency, fs_scratch_pad, flight_rules
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat, next_display_label, next_display_frequency, fs_scratch_pad, flight_rules, next_controller_sector
 FROM strips
 WHERE callsign = $1 AND session = $2
 FOR UPDATE
@@ -971,6 +975,7 @@ func (q *Queries) LockStrip(ctx context.Context, arg LockStripParams) (Strip, er
 		&i.NextDisplayFrequency,
 		&i.FsScratchPad,
 		&i.FlightRules,
+		&i.NextControllerSector,
 	)
 	return i, err
 }
@@ -1113,6 +1118,43 @@ func (q *Queries) SetNextAndPreviousOwners(ctx context.Context, arg SetNextAndPr
 	return err
 }
 
+const setNextControllerSelection = `-- name: SetNextControllerSelection :execrows
+UPDATE strips
+SET next_controller_sector = $1,
+    next_owners = $2::jsonb,
+    next_display_label = $3,
+    next_display_frequency = $4
+WHERE strips.session = $5 AND strips.callsign = $6
+  AND strips.owner = $7
+  AND NOT EXISTS (SELECT 1 FROM coordinations WHERE coordinations.strip_id = strips.id AND coordinations.session = strips.session)
+`
+
+type SetNextControllerSelectionParams struct {
+	Sector               *string
+	NextOwners           []byte
+	NextDisplayLabel     *string
+	NextDisplayFrequency *string
+	Session              int32
+	Callsign             string
+	Owner                *string
+}
+
+func (q *Queries) SetNextControllerSelection(ctx context.Context, arg SetNextControllerSelectionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setNextControllerSelection,
+		arg.Sector,
+		arg.NextOwners,
+		arg.NextDisplayLabel,
+		arg.NextDisplayFrequency,
+		arg.Session,
+		arg.Callsign,
+		arg.Owner,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setPdcData = `-- name: SetPdcData :exec
 UPDATE strips SET pdc_data = $3 WHERE session = $1 AND callsign = $2
 `
@@ -1174,7 +1216,8 @@ func (q *Queries) SetRouteState(ctx context.Context, arg SetRouteStateParams) er
 
 const setStripOwner = `-- name: SetStripOwner :execrows
 UPDATE strips
-SET owner   = $1,
+SET owner   = $1::varchar,
+    next_controller_sector = CASE WHEN owner IS DISTINCT FROM $1::varchar THEN NULL ELSE next_controller_sector END,
     version = version + 1
 WHERE callsign = $2 AND session = $3 AND version = $4
 `
@@ -1295,7 +1338,8 @@ SET version = version + 1,
     sequence = $19,
     state = $20,
     cleared = $21,
-    owner = $22,
+    owner = $22::varchar,
+    next_controller_sector = CASE WHEN owner IS DISTINCT FROM $22::varchar THEN NULL ELSE next_controller_sector END,
     bay = $23,
     position_latitude = $24,
     position_longitude = $25,

@@ -126,17 +126,18 @@ func TestSyncEuroscopeStrip_ExistingStripPreservesHoldWhenPluginOmitsHoldFields(
 	oldRemarks := "old remarks"
 
 	existingStrip := &models.Strip{
-		Callsign:    "SAS127",
-		Origin:      "EKCH",
-		Destination: "EGLL",
-		Bay:         shared.BAY_PUSH,
-		Sequence:    &sequence,
-		Remarks:     &oldRemarks,
-		Hold:        "OLPIB",
-		HoldType:    "enroute",
-		HoldEat:     "1422",
-		NextDisplay: &models.NextDisplay{Label: "AD", Frequency: "121.730"},
-		FlightRules: "V",
+		Callsign:             "SAS127",
+		Origin:               "EKCH",
+		Destination:          "EGLL",
+		Bay:                  shared.BAY_PUSH,
+		Sequence:             &sequence,
+		Remarks:              &oldRemarks,
+		Hold:                 "OLPIB",
+		HoldType:             "enroute",
+		HoldEat:              "1422",
+		NextDisplay:          &models.NextDisplay{Label: "AD", Frequency: "121.730"},
+		NextControllerSector: ptr("TW"),
+		FlightRules:          "V",
 	}
 	var updatedStrip *models.Strip
 	stripRepo := &testutil.MockStripRepository{
@@ -166,6 +167,7 @@ func TestSyncEuroscopeStrip_ExistingStripPreservesHoldWhenPluginOmitsHoldFields(
 	assert.Equal(t, "V", updatedStrip.FlightRules)
 	require.Equal(t, existingStrip.NextDisplay, updatedStrip.NextDisplay)
 	assert.NotSame(t, existingStrip.NextDisplay, updatedStrip.NextDisplay)
+	assert.Equal(t, existingStrip.NextControllerSector, updatedStrip.NextControllerSector)
 }
 
 func TestSyncEuroscopeStrip_ExistingStripClearsHoldWhenSupportedPluginReportsEmpty(t *testing.T) {

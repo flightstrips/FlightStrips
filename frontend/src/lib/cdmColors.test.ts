@@ -52,6 +52,17 @@ describe("isTsatWithinStartRequestWindow", () => {
 
 describe("computeCDMColors", () => {
   it.each([
+    Bay.Taxi, Bay.TaxiLwr, Bay.DeIce, Bay.Depart, Bay.Airborne, Bay.HiddenDep,
+    Bay.DepHidden, Bay.Final, Bay.RwyArr, Bay.TwyArr, Bay.Stand, Bay.ArrHidden, Bay.Controlzone,
+  ])("disables TOBT timing and invalid-phase colors in %s", (bay) => {
+    for (const phase of ["", "I"]) {
+      expect(computeCDMColors("0950", "0900", Date.UTC(2026, 6, 14, 10, 0), bay, phase)).toEqual({
+        tobtBg: "", tsatBg: "",
+      });
+    }
+  });
+
+  it.each([
     ["startup window", "1003", "0955", ""],
     ["last minute", "0955", "0950", ""],
     ["expired TSAT", "0950", "0950", ""],

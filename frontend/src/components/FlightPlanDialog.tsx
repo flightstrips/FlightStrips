@@ -17,7 +17,7 @@ import { useAvailableSids, useInitialCflByRunway, useStrip, useTransitionAltitud
 import { scalePx } from "@/lib/viewportScale";
 import { buildRnavUpdate, effectiveClxFaults, effectiveRnavCapability, rnavAssumptionRemark, type RnavCapability } from "@/lib/rnav";
 import { normalizeCdmTime } from "@/lib/cdmTime";
-import { CDM_RED } from "@/lib/cdmColors";
+import { CDM_RED, isTobtRelevant } from "@/lib/cdmColors";
 import { getCtotSlotDisplay, getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 import { MandatoryRouteDialog } from "@/components/MandatoryRouteDialog";
 import { ManualPdcBypassDialog } from "@/components/ManualPdcBypassDialog";
@@ -508,7 +508,7 @@ export default function FlightPlanDialog({
                   }}
                   onKeyDown={(event) => event.key === "Enter" && commitTobt()}
                   className={CLS_BTN_EDITABLE}
-                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), ...(strip.bay !== Bay.NotCleared ? invalidPhaseTobtStyle(strip.phase) : {}) }}
+                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), ...(isTobtRelevant(strip.bay) && strip.bay !== Bay.NotCleared ? invalidPhaseTobtStyle(strip.phase) : {}) }}
                 />
               </div>
               <div className="grid items-center" style={gridGroupStyle}>

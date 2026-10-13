@@ -48,6 +48,8 @@ import { TOWER_COLUMN_CLASSES } from "./productionBayLayouts";
 import { useBayResize } from "@/components/bays/useBayResize";
 import { BayResizeHandle } from "@/components/bays/BayResizeHandle";
 import { getDeiceHeaderArea, isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
+import { TransferControllerButton } from "@/components/TransferControllerButton";
+import { TRANSFER_CONTROLLER_STATIONS } from "@/lib/transferControllerStations";
 
 // Column widths
 const [COL_ARR, COL_DEP, COL_CENTER, COL_RIGHT] = TOWER_COLUMN_CLASSES;
@@ -272,9 +274,21 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             </div>
             {variant === "TWTE" && (
               <span className="flex w-[85%] self-center gap-[1dvh]">
-                <button type="button" className={`${CLS_BTN_ARR_LARGE} !w-0 flex-1 !border !border-white !shadow-none`}>AA</button>
-                <button type="button" className={`${CLS_BTN_ARR_LARGE} !w-0 flex-1 !border !border-white !shadow-none`}>GE</button>
-                <button type="button" className={`${CLS_BTN_ARR_LARGE} !w-0 flex-1 !border !border-white !shadow-none`}>{twyArrControllerLabel}</button>
+                <TransferControllerButton
+                  label="AA"
+                  station={TRANSFER_CONTROLLER_STATIONS.AA}
+                  className={`${CLS_BTN_ARR_LARGE} !w-0 flex-1 !border !border-white !shadow-none`}
+                />
+                <TransferControllerButton
+                  label="GW"
+                  station={TRANSFER_CONTROLLER_STATIONS.GW}
+                  className={`${CLS_BTN_ARR_LARGE} !w-0 flex-1 !border !border-white !shadow-none`}
+                />
+                <TransferControllerButton
+                  label={twyArrControllerLabel}
+                  station={TRANSFER_CONTROLLER_STATIONS[twyArrControllerLabel]}
+                  className={`${CLS_BTN_ARR_LARGE} !w-0 flex-1 !border !border-white !shadow-none`}
+                />
               </span>
             )}
           </div>

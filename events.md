@@ -10,11 +10,25 @@ snapshot. Missing format is equivalent to `AUTO`: a single targeted recipient
 uses large text; broadcast and multiple recipients use small text. Explicit
 `SMALL` or `LARGE` overrides recipient-based sizing.
 
+## Frontend next-controller selection
+
+`next_controller_select` accepts `callsign` and `sector` (`AA`, `GE`, `GW`,
+`TE`, or `TW`). The strip must be assumed by the sender, unlocked, and have
+no pending coordination. The backend resolves the selected sector through
+normal routing and radio coverage, persists it, and broadcasts `owners_update`
+with the updated SI target and frequency. This does not create coordination,
+change ownership, move the strip, or initiate a EuroScope handover.
+The selection survives route recalculation and reconnects, and clears when
+ownership changes. Selecting an unavailable target is rejected without
+changing the existing SI. If a selected target later goes offline, SI becomes
+blank until that sector is available again.
+
 ## Frontend flight-plan REA
 
 `cdm_ready` accepts optional `rea: true` for the flight-plan REA control. This
 uses the normal persisted ready/status flow, but changes TOBT to current UTC
-only if the effective TOBT is more than six minutes ahead. Without `rea`, the
+only if the effective TOBT is more than six minutes in the past or future.
+TOBT within six minutes of now is unchanged. Without `rea`, the
 existing READY timing policy is unchanged. The returned CDM `status: "REA"`
 drives the flight-plan indication.
 

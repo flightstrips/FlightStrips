@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Bay } from "@/api/models";
+import { Bay, type ClxValidationFault } from "@/api/models";
 import FlightPlanDialog from "./FlightPlanDialog";
 
 const state = vi.hoisted(() => ({
@@ -10,6 +10,8 @@ const state = vi.hoisted(() => ({
     bay: "NOT_CLEARED", runway: "22R", sid: "LANGO2C", remarks: "", route: "",
     assigned_squawk: "1000", release_point: "J4", pdc_state: "NONE", deice_platform: "",
     requested_altitude: 34000,
+    phase: "",
+    clx_validation: { faults: [] as ClxValidationFault[] },
   },
   cdmReady: vi.fn(),
   clxUpdateTobt: vi.fn(),
@@ -34,9 +36,32 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.strip.status = "";
   state.strip.bay = Bay.NotCleared;
+  state.strip.phase = "";
+  state.strip.clx_validation.faults = [];
 });
 
 describe("flight-plan TSAT and REA controls", () => {
+  it.each([Bay.Taxi, Bay.TaxiLwr, Bay.DeIce, Bay.Depart, Bay.Airborne, Bay.Final, Bay.RwyArr, Bay.TwyArr, Bay.Stand, Bay.Controlzone])(
+    "removes TOBT colors and warnings when moving into %s even before validation refreshes",
+    (bay) => {
+      state.strip.bay = Bay.Cleared;
+      state.strip.phase = "I";
+      state.strip.clx_validation.faults = [{
+        code: "eobt_tobt_past", message: "TOBT and EOBT are in the past",
+        nitos_remark: "TOBT and EOBT are in the past", fields: ["eobt", "tobt"],
+      }];
+      const { rerender } = render(<FlightPlanDialog callsign="SAS123" open />);
+      expect(screen.getByDisplayValue("1505").style.backgroundColor).toBe("rgb(220, 38, 38)");
+      expect(screen.getByDisplayValue(/TOBT and EOBT are in the past/)).toBeInTheDocument();
+
+      state.strip.bay = bay;
+      rerender(<FlightPlanDialog callsign="SAS123" open />);
+      expect(screen.getByDisplayValue("1505").style.backgroundColor).toBe("");
+      expect(screen.getByDisplayValue("1450").style.backgroundColor).toBe("");
+      expect(screen.queryByDisplayValue(/TOBT and EOBT are in the past/)).not.toBeInTheDocument();
+    },
+  );
+
   it("makes TSAT read-only with the same disabled styling as TTOT", () => {
     render(<FlightPlanDialog callsign="SAS123" open />);
     const tsat = screen.getByRole("textbox", { name: "TSAT" });

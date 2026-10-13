@@ -536,6 +536,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			NextOwners:               nextOwners,
 			PreviousOwners:           previousOwners,
 			NextDisplay:              cloneStripNextDisplay(existingStrip.NextDisplay),
+			NextControllerSector:     existingStrip.NextControllerSector,
 			Registration:             registration,
 			Owner:                    owner,
 			PdcState:                 pdcData.State,
@@ -581,6 +582,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if shouldClearOwnerForNotCleared {
 			updateStrip.Owner = nil
 			updateStrip.PreviousOwners = []string{}
+		}
+		if restartLifecycle || helpers.ValueOrDefault(updateStrip.Owner) != helpers.ValueOrDefault(existingStrip.Owner) {
+			updateStrip.NextControllerSector = nil
 		}
 
 		unexpectedStandChange := !restartLifecycle && strip.Stand != "" && existingStrip.Stand != nil && *existingStrip.Stand != "" && *existingStrip.Stand != strip.Stand
@@ -1169,6 +1173,7 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.CdmData = updateStrip.CdmData
 	existingStrip.PdcData = updateStrip.PdcData
 	existingStrip.NextOwners = slices.Clone(updateStrip.NextOwners)
+	existingStrip.NextControllerSector = updateStrip.NextControllerSector
 	existingStrip.PreviousOwners = slices.Clone(updateStrip.PreviousOwners)
 	existingStrip.ReleasePoint = updateStrip.ReleasePoint
 	existingStrip.Marked = updateStrip.Marked

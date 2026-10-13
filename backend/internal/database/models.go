@@ -369,6 +369,7 @@ type Strip struct {
 	NextDisplayFrequency     *string
 	FsScratchPad             string
 	FlightRules              string
+	NextControllerSector     *string
 }
 
 type TacticalStrip struct {

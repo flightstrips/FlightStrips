@@ -4,6 +4,11 @@ import { findStationController } from "./controllerStations";
 
 const controller: FrontendController = { callsign: "EKCH_A_TWR", position: "118.105", identifier: "TW", section: "TWR", owned_sectors: ["TW", "TE", "GWD"] };
 describe("station availability", () => {
+  it("matches sector-only shortcuts by ownership rather than a fixed primary frequency", () => {
+    const west = { ...controller, position: "119.355", owned_sectors: ["TW"] };
+    const east = { ...controller, position: "118.105", owned_sectors: ["TE"] };
+    expect(findStationController({ sectors: ["TW"] }, [east, west], "119.905", "EKCH_DEL")).toBe(west);
+  });
   it("finds direct and cross-coupled stations, normalizing ground west", () => {
     for (const station of [{ frequency: "118.105", sectors: ["TW"] }, { frequency: "119.355", sectors: ["TE"] }, { frequency: "118.580", sectors: ["GW"] }]) {
       expect(findStationController(station, [controller], "119.905", "EKCH_DEL")).toBe(controller);

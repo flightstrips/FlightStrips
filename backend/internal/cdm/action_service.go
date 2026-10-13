@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/helpers"
 
@@ -569,6 +570,47 @@ func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, c
 	return c.handleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole, readyRequestTobt)
 }
 
+func (c *ActionService) HandleReadyTransfer(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string, allowOverride bool) error {
+	s := c.service
+	strip, data, err := c.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil || strip == nil || data == nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	tobt, autoUpdate, outsideWindow := readyTransferTobt(data, now)
+	tsat := helpers.ValueOrDefault(data.EffectiveTsat())
+	chooseTobt := func(current *models.CdmData, at time.Time) (string, bool) {
+		tobt, autoUpdate, outsideWindow = readyTransferTobt(current, at)
+		return tobt, autoUpdate
+	}
+	if err := c.handleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole, chooseTobt); err != nil {
+		return err
+	}
+
+	if autoUpdate {
+		if s.sequenceService == nil {
+			return errors.New("ready-transfer TSAT verification requires local CDM sequencing")
+		}
+		if err := s.sequenceService.RecalculateAirport(ctx, session, strip.Origin); err != nil {
+			return fmt.Errorf("recalculate ready-transfer TSAT for %s: %w", callsign, err)
+		}
+		data, err = s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
+		if err != nil {
+			return fmt.Errorf("read recalculated ready-transfer TSAT for %s: %w", callsign, err)
+		}
+		tsat = ""
+		if data != nil {
+			tsat = helpers.ValueOrDefault(data.EffectiveTsat())
+		}
+		outsideWindow = !tsatWithinFiveMinutes(tsat, time.Now().UTC())
+	}
+	if outsideWindow && !allowOverride {
+		return fmt.Errorf("%w: TSAT %q", shared.ErrReadyTransferTsatOutsideWindow, tsat)
+	}
+	return nil
+}
+
 func (c *ActionService) HandleReaRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	return c.handleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole, reaRequestTobt)
 }
@@ -623,6 +665,40 @@ func (c *ActionService) handleReadyRequest(ctx context.Context, session int32, c
 	return nil
 }
 
+func validReadyTransferTsat(tsat string, now time.Time) bool {
+	tsat = normalizeCalculationClock(tsat)
+	if _, ok := parseClock(tsat); !ok {
+		return false
+	}
+	delta := minutesBetween(timeToClock(now), tsat)
+	return delta < 6 && delta > -8
+}
+
+func readyTransferTobt(data *models.CdmData, now time.Time) (string, bool, bool) {
+	if data == nil {
+		return "", false, true
+	}
+	tobt := helpers.ValueOrDefault(data.EffectiveTobt())
+	tsat := helpers.ValueOrDefault(data.EffectiveTsat())
+	autoUpdate := false
+	if _, valid := parseClock(tsat); valid {
+		autoUpdate = minutesBetween(timeToClock(now), tsat) > 6
+	}
+	returnTobt := tobt
+	if autoUpdate {
+		returnTobt = now.UTC().Format("1504")
+	}
+	return returnTobt, autoUpdate, !validReadyTransferTsat(tsat, now)
+}
+
+func tsatWithinFiveMinutes(tsat string, now time.Time) bool {
+	tsat = normalizeCalculationClock(tsat)
+	if _, ok := parseClock(tsat); !ok {
+		return false
+	}
+	return math.Abs(minutesBetween(timeToClock(now), tsat)) <= 5
+}
+
 func reaRequestTobt(data *models.CdmData, now time.Time) (string, bool) {
 	if data == nil {
 		return "", false
@@ -631,7 +707,8 @@ func reaRequestTobt(data *models.CdmData, now time.Time) (string, bool) {
 	if _, ok := parseClock(tobt); !ok {
 		return tobt, false
 	}
-	if minutesBetween(timeToClock(now), tobt) > 6 {
+	delta := minutesBetween(timeToClock(now), tobt)
+	if delta > 6 || delta < -6 {
 		return now.UTC().Format("1504"), true
 	}
 	return tobt, false

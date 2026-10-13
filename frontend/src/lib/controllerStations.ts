@@ -1,7 +1,7 @@
 import type { FrontendController } from "@/api/models";
 
 export interface ControllerStation {
-  frequency: string;
+  frequency?: string;
   sectors: string[];
 }
 
@@ -19,6 +19,6 @@ export function findStationController(
     controller.position !== ownPosition &&
     controller.callsign.toUpperCase() !== ownCallsign.toUpperCase(),
   );
-  return candidates.find(controller => controller.position === station.frequency) ??
+  return candidates.find(controller => !!station.frequency && controller.position === station.frequency) ??
     candidates.find(controller => (controller.owned_sectors ?? []).some(sector => station.sectors.includes(normalizeSector(sector))));
 }

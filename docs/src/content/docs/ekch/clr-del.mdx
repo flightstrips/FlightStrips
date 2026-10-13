@@ -70,12 +70,14 @@ The strip remains blue in **Cleared** here after ownership passes to SEQ PLN and
 In the flight-plan dialog, **TSAT** is read-only and uses the same background
 as **TTOT**. The white **REA** field sends a ready request and displays **REA**
 after confirmation. It sets TOBT to the current UTC time only when TOBT is
-more than six minutes in the future; otherwise TOBT is unchanged. Other READY
+more than six minutes in the past or future; otherwise TOBT is unchanged. Other READY
 controls retain their existing timing rules.
 
 TOBT and TSAT have no timing or invalid-phase coloring while a departure is
 in a planned departure bay. Coloring activates after clearance. This applies
-across all scopes and EST; CTOT coloring is unchanged.
+across all scopes and EST. TOBT colors and past-TOBT/EOBT warnings stop once
+a departure enters TWY DEP and remain disabled for later stages and inbounds.
+CTOT coloring is unchanged.
 
 ### RNAV indication
 

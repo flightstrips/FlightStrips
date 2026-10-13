@@ -1,4 +1,5 @@
 import type { ClxValidationFault, FrontendStrip } from "@/api/models";
+import { isTobtRelevant } from "@/lib/cdmColors";
 
 export type RnavCapability = "1" | "2" | "5" | "10" | "NIL";
 
@@ -25,9 +26,11 @@ export function rnavAssumptionRemark(aircraftInfo: string, remarks: string): str
 }
 
 export function effectiveClxFaults(
-  strip: Pick<FrontendStrip, "aircraft_type" | "remarks" | "clx_validation"> | undefined,
+  strip: (Pick<FrontendStrip, "aircraft_type" | "remarks" | "clx_validation"> & Partial<Pick<FrontendStrip, "bay">>) | undefined,
 ): ClxValidationFault[] {
-  const faults = strip?.clx_validation?.faults ?? [];
+  const faults = (strip?.clx_validation?.faults ?? []).filter(
+    fault => strip?.bay === undefined || isTobtRelevant(strip.bay) || fault.code !== "eobt_tobt_past",
+  );
   if (!strip || effectiveRnavCapability(strip.aircraft_type, strip.remarks) !== "1") return faults;
   return faults.filter(fault => !fault.fields.includes("rnav") || fault.fields.some(field => field !== "rnav"));
 }

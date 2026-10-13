@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ClxValidationFault } from "@/api/models";
+import { Bay, type ClxValidationFault } from "@/api/models";
 import { buildRnavUpdate, effectiveClxFaults, effectiveRnavCapability, rnavAssumptionRemark } from "./rnav";
 
 describe("effective RNAV capability", () => {
@@ -17,6 +17,22 @@ describe("effective RNAV capability", () => {
   describe("effective clearance faults", () => {
     const rnavFault: ClxValidationFault = { code: "RNAV_NIL", message: "No RNAV", nitos_remark: "NON RNAV", fields: ["rnav"] };
     const sidFault: ClxValidationFault = { code: "SID", message: "Invalid SID", nitos_remark: "CHECK SID", fields: ["sid"] };
+    const tobtFault: ClxValidationFault = { code: "eobt_tobt_past", message: "Past TOBT", nitos_remark: "PAST TOBT", fields: ["eobt", "tobt"] };
+
+    it.each([
+      Bay.Taxi, Bay.TaxiLwr, Bay.DeIce, Bay.Depart, Bay.Airborne,
+      Bay.Final, Bay.RwyArr, Bay.TwyArr, Bay.Stand, Bay.ArrHidden, Bay.Controlzone,
+    ])("removes stale TOBT warnings immediately in %s without hiding other faults", (bay) => {
+      expect(effectiveClxFaults({
+        aircraft_type: "B738", remarks: "", bay, clx_validation: { faults: [tobtFault, sidFault] },
+      })).toEqual([sidFault]);
+    });
+
+    it.each([Bay.NotCleared, Bay.Cleared, Bay.Push])("retains TOBT warnings before taxi in %s", (bay) => {
+      expect(effectiveClxFaults({
+        aircraft_type: "B738", remarks: "", bay, clx_validation: { faults: [tobtFault] },
+      })).toEqual([tobtFault]);
+    });
 
     it.each(["A320", "B738", "AT72", "DH8D", "CRJ9", "E190"])("removes stale RNAV warnings for %s without hiding other faults", (aircraft_type) => {
       expect(effectiveClxFaults({ aircraft_type, remarks: "", clx_validation: { faults: [rnavFault, sidFault] } })).toEqual([sidFault]);

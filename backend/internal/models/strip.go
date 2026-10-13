@@ -82,6 +82,7 @@ type Strip struct {
 	NextOwners               []string
 	PreviousOwners           []string
 	NextDisplay              *NextDisplay
+	NextControllerSector     *string
 	ReleasePoint             *string
 	PdcState                 string
 	PdcRequestRemarks        *string

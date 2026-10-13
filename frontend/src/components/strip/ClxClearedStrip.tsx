@@ -24,7 +24,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
-import { hasManualTobtSource, isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
+import { hasManualTobtSource } from "@/lib/cdmColors";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
 // Height: 4.72dvh viewport-relative (intentional — matches DelStrip height)
@@ -121,7 +121,6 @@ export function ClxClearedStrip({
       style={{
         height: FULL_H,
         width: fullWidth ? "100%" : CLX_CLEARED_STRIP_WIDTH,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >
@@ -143,7 +142,6 @@ export function ClxClearedStrip({
           transferringTo={stripTransfers[callsign]?.to ?? ""}
           isTagRequest={isTagRequest}
           baseBorderColor={stripFrameColor}
-          transferAllowed={startupSiTransfer ? () => isTsatWithinStartRequestWindow(tsat ?? "", Date.now()) : undefined}
           startRequestTransfer={startupSiTransfer}
         />
 

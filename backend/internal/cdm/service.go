@@ -213,6 +213,10 @@ func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsig
 	return s.actionService.HandleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole)
 }
 
+func (s *Service) HandleReadyTransfer(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string, allowOverride bool) error {
+	return s.actionService.HandleReadyTransfer(ctx, session, callsign, sourcePosition, sourceRole, allowOverride)
+}
+
 func (s *Service) HandleReaRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	return s.actionService.HandleReaRequest(ctx, session, callsign, sourcePosition, sourceRole)
 }

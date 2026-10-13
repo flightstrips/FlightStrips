@@ -81,7 +81,8 @@ SET version = version + 1,
     sequence = sqlc.arg(sequence),
     state = sqlc.arg(state),
     cleared = sqlc.arg(cleared),
-    owner = sqlc.arg(owner),
+    owner = sqlc.narg(owner)::varchar,
+    next_controller_sector = CASE WHEN owner IS DISTINCT FROM sqlc.narg(owner)::varchar THEN NULL ELSE next_controller_sector END,
     bay = sqlc.arg(bay),
     position_latitude = sqlc.arg(position_latitude),
     position_longitude = sqlc.arg(position_longitude),
@@ -301,9 +302,10 @@ ORDER BY callsign;
 
 -- name: SetStripOwner :execrows
 UPDATE strips
-SET owner   = $1,
+SET owner   = sqlc.narg(owner)::varchar,
+    next_controller_sector = CASE WHEN owner IS DISTINCT FROM sqlc.narg(owner)::varchar THEN NULL ELSE next_controller_sector END,
     version = version + 1
-WHERE callsign = $2 AND session = $3 AND version = $4;
+WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session) AND version = sqlc.arg(version);
 
 -- name: SetRouteState :exec
 UPDATE strips
@@ -311,6 +313,16 @@ SET next_owners = sqlc.arg(next_owners)::jsonb,
     next_display_label = sqlc.narg(next_display_label),
     next_display_frequency = sqlc.narg(next_display_frequency)
 WHERE session = sqlc.arg(session) AND callsign = sqlc.arg(callsign);
+
+-- name: SetNextControllerSelection :execrows
+UPDATE strips
+SET next_controller_sector = sqlc.arg(sector),
+    next_owners = sqlc.arg(next_owners)::jsonb,
+    next_display_label = sqlc.narg(next_display_label),
+    next_display_frequency = sqlc.narg(next_display_frequency)
+WHERE strips.session = sqlc.arg(session) AND strips.callsign = sqlc.arg(callsign)
+  AND strips.owner = sqlc.arg(owner)
+  AND NOT EXISTS (SELECT 1 FROM coordinations WHERE coordinations.strip_id = strips.id AND coordinations.session = strips.session);
 
 -- name: SetNextAndPreviousOwners :exec
 UPDATE strips

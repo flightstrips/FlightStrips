@@ -135,7 +135,6 @@ export function ApnPushStrip({
       style={{
         height: "4.72dvh",
         width: fullWidth ? "100%" : "95%",
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >

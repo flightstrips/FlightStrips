@@ -51,12 +51,16 @@ export function hasManualTobtSource(tobtSetBy?: string): boolean {
 	return Boolean(tobtSetBy?.trim());
 }
 
+export function isTobtRelevant(bay?: Bay | string): boolean {
+  return bay === Bay.NotCleared || bay === Bay.Cleared || bay === Bay.Push;
+}
+
 /**
  * Compute TOBT/TSAT cell background colours.
  * Returns empty string (no colour) when a cell should be transparent.
  *
  * Rules (first match wins):
- *   - In NOT_CLEARED bay                  → "" / ""
+ *   - Planned, taxiing, or inbound        → "" / ""
  *   - Invalid phase after clearance      → red / ""
  *   - Not in CLEARED bay, or no tsat      → "" / ""
  *   - now > TSAT + 5 min                  → red / ""
@@ -72,7 +76,7 @@ export function computeCDMColors(
   bay?: Bay,
   phase?: string,
 ): CDMColors {
-  if (bay === Bay.NotCleared) return { tobtBg: "", tsatBg: "" };
+  if (!isTobtRelevant(bay) || bay === Bay.NotCleared) return { tobtBg: "", tsatBg: "" };
   const normalizedTsat = normalizeCdmTime(tsat);
   const normalizedTobt = normalizeCdmTime(tobt);
 

@@ -107,7 +107,6 @@ export function ApnTaxiDepStrip({
       style={{
         height: "4.72dvh",
         width: APN_TAXI_DEP_STRIP_WIDTH,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >

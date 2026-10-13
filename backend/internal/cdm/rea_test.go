@@ -23,7 +23,12 @@ func TestReaRequestTobtSixMinuteBoundary(t *testing.T) {
 		{"145601", true},
 		{"1457", true},
 		{"1450", false},
-		{"1440", false},
+		{"1445", false},
+		{"1444", false},
+		{"144400", false},
+		{"144359", true},
+		{"1443", true},
+		{"1440", true},
 		{"", false},
 		{"2500", false},
 	} {
@@ -48,10 +53,17 @@ func TestReaRequestTobtAcrossMidnight(t *testing.T) {
 	assert.Equal(t, "2358", tobt)
 	_, change = reaRequestTobt(&models.CdmData{Tobt: stringPtr("0004")}, now)
 	assert.False(t, change)
+
+	now = time.Date(2026, 10, 13, 0, 2, 0, 0, time.UTC)
+	tobt, change = reaRequestTobt(&models.CdmData{Tobt: stringPtr("2355")}, now)
+	assert.True(t, change)
+	assert.Equal(t, "0002", tobt)
+	_, change = reaRequestTobt(&models.CdmData{Tobt: stringPtr("2356")}, now)
+	assert.False(t, change)
 }
 
-func TestHandleReaRequestPersistsStatusAndOnlyChangesFutureTobt(t *testing.T) {
-	for _, offset := range []time.Duration{-10 * time.Minute, 5 * time.Minute, 15 * time.Minute} {
+func TestHandleReaRequestPersistsStatusAndChangesTobtOutsideSixMinuteWindow(t *testing.T) {
+	for _, offset := range []time.Duration{-10 * time.Minute, -5 * time.Minute, 5 * time.Minute, 15 * time.Minute} {
 		t.Run(offset.String(), func(t *testing.T) {
 			initialTobt := time.Now().UTC().Add(offset).Format("1504")
 			var persisted *models.CdmData
@@ -85,7 +97,7 @@ func TestHandleReaRequestPersistsStatusAndOnlyChangesFutureTobt(t *testing.T) {
 			require.NotNil(t, persisted.Status)
 			assert.Equal(t, "REA", *persisted.Status)
 			require.NotNil(t, persisted.Tobt)
-			if offset > 6*time.Minute {
+			if offset > 6*time.Minute || offset < -6*time.Minute {
 				assert.Contains(t, []string{before, after}, *persisted.Tobt)
 			} else {
 				assert.Equal(t, initialTobt, *persisted.Tobt)

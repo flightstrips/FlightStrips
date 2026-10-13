@@ -95,7 +95,7 @@ export function getValidationBlockedCursor(
   defaultCursor: CSSProperties["cursor"] = "pointer",
   allowDuringValidation = false,
 ): CSSProperties["cursor"] {
-  return isValidationActive && !allowDuringValidation ? "not-allowed" : defaultCursor;
+  return isValidationActive && !allowDuringValidation ? undefined : defaultCursor;
 }
 
 export function useNextFrequencyDisplay(nextDisplay?: NextDisplay, nextControllers?: string[], myPosition?: string): string {

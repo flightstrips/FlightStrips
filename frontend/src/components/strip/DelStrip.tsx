@@ -99,7 +99,6 @@ export function DelStrip({
       style={{
         height: FULL_H,
         width: fullWidth ? "100%" : "80%",
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >

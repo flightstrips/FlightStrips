@@ -57,7 +57,8 @@ const (
 	CoordinationTagRequestBroadcastType EventType = "coordination_tag_request_broadcast"
 	CoordinationForceAssumeResultType   EventType = "coordination_force_assume_result"
 
-	OwnersUpdate EventType = "owners_update"
+	OwnersUpdate         EventType = "owners_update"
+	NextControllerSelect EventType = "next_controller_select"
 
 	UpdateOrder EventType = "update_order"
 
@@ -287,6 +288,7 @@ type InitialEvent struct {
 	TacticalStrips         []TacticalStripPayload  `json:"tactical_strips"`
 	Me                     Controller              `json:"me"`
 	Layout                 string                  `json:"layout"`
+	ResetLayout            string                  `json:"reset_layout"`
 	Airport                string                  `json:"airport"`
 	Callsign               string                  `json:"callsign"`
 	RunwaySetup            RunwayConfiguration     `json:"runway_setup"`
@@ -597,6 +599,11 @@ type CoordinationTransferRequestEvent struct {
 	StartReqTransfer bool   `json:"start_req_transfer,omitempty"`
 }
 
+type NextControllerSelectEvent struct {
+	Callsign string `json:"callsign"`
+	Sector   string `json:"sector"`
+}
+
 type CoordinationTransferBroadcastEvent struct {
 	From     string `json:"from"`
 	To       string `json:"to"`
@@ -754,7 +761,8 @@ func (o UpdateOrderEvent) GetType() EventType {
 }
 
 type LayoutUpdateEvent struct {
-	Layout string `json:"layout"`
+	Layout      string `json:"layout,omitempty"`
+	ResetLayout string `json:"reset_layout,omitempty"`
 }
 
 func (l LayoutUpdateEvent) Marshal() ([]byte, error) {

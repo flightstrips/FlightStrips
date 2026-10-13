@@ -147,6 +147,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		NextOwners:               db.NextOwners,
 		PreviousOwners:           db.PreviousOwners,
 		NextDisplay:              nextDisplayFromColumns(db.NextDisplayLabel, db.NextDisplayFrequency),
+		NextControllerSector:     db.NextControllerSector,
 		ReleasePoint:             db.ReleasePoint,
 		PdcState:                 pdcData.State,
 		PdcRequestRemarks:        pdcData.RequestRemarks,
@@ -840,6 +841,18 @@ func (r *stripRepository) SetRouteState(ctx context.Context, session int32, call
 		NextOwners:           nextOwnersJSON,
 		NextDisplayLabel:     label,
 		NextDisplayFrequency: frequency,
+	})
+}
+
+func (r *stripRepository) SetNextControllerSelection(ctx context.Context, session int32, callsign, owner, sector string, nextOwners []string, nextDisplay *models.NextDisplay) (int64, error) {
+	nextOwnersJSON, err := marshalOwners(nextOwners)
+	if err != nil {
+		return 0, err
+	}
+	label, frequency := nextDisplayColumns(nextDisplay)
+	return r.queries.SetNextControllerSelection(ctx, database.SetNextControllerSelectionParams{
+		Session: session, Callsign: callsign, Owner: &owner, Sector: &sector,
+		NextOwners: nextOwnersJSON, NextDisplayLabel: label, NextDisplayFrequency: frequency,
 	})
 }
 

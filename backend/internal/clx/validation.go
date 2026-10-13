@@ -4,6 +4,7 @@ import (
 	cfgpkg "FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/rnav"
+	"FlightStrips/internal/shared"
 	"fmt"
 	"regexp"
 	"slices"
@@ -221,6 +222,11 @@ func routeOverrideKey(strip *models.Strip, code string) string {
 }
 
 func pastEobtTobtFault(strip *models.Strip, now time.Time) (Fault, bool) {
+	switch strip.Bay {
+	case shared.BAY_NOT_CLEARED, shared.BAY_CLEARED, shared.BAY_PUSH:
+	default:
+		return Fault{}, false
+	}
 	eobt := value(strip.EffectiveEobt())
 	tobt := value(strip.EffectiveTobt())
 	if eobt == "" || tobt == "" {

@@ -3,6 +3,7 @@ package clx
 import (
 	cfgpkg "FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"slices"
 	"strings"
 	"testing"
@@ -236,6 +237,30 @@ func TestValidatePastEobtAndTobtHandlesMidnightRollover(t *testing.T) {
 	requireFault(t, validation, "eobt_tobt_past")
 }
 
+func TestValidatePastEobtAndTobtOnlyBeforeTaxi(t *testing.T) {
+	for _, bay := range []string{
+		shared.BAY_NOT_CLEARED, shared.BAY_CLEARED, shared.BAY_PUSH,
+		shared.BAY_TAXI, shared.BAY_TAXI_LWR, shared.BAY_TAXI_TWR,
+		shared.BAY_DEPART, shared.BAY_AIRBORNE, shared.BAY_HIDDEN_DEP,
+		shared.BAY_FINAL, shared.BAY_RWY_ARR, shared.BAY_TWY_ARR,
+		shared.BAY_STAND, shared.BAY_ARR_HIDDEN, shared.BAY_CONTROLZONE,
+	} {
+		t.Run(bay, func(t *testing.T) {
+			strip := testStrip()
+			strip.Bay = bay
+			strip.CdmData = &models.CdmData{Eobt: ptr("1000"), Tobt: ptr("1005")}
+			strip.Sid = ptr("KOPEX2A")
+			validation := Validate(strip, Context{Now: testNow().Add(10 * time.Minute), Rules: testRules()})
+			if bay == shared.BAY_NOT_CLEARED || bay == shared.BAY_CLEARED || bay == shared.BAY_PUSH {
+				requireFault(t, validation, "eobt_tobt_past")
+			} else {
+				assertNoFault(t, validation, "eobt_tobt_past")
+			}
+			requireFault(t, validation, "sid_aircraft_type")
+		})
+	}
+}
+
 func TestValidateReturnsNilWithoutConfiguredRules(t *testing.T) {
 	strip := testStrip()
 	strip.Sid = ptr("KOPEX2A")
@@ -254,6 +279,7 @@ func TestValidateReturnsNilWithoutConfiguredRules(t *testing.T) {
 func testStrip() *models.Strip {
 	return &models.Strip{
 		Callsign:     "SAS123",
+		Bay:          shared.BAY_NOT_CLEARED,
 		AircraftType: ptr("B738/M-SDE2FGHIRWY/LB1"),
 		Remarks:      ptr("PBN/A1B1C1D1S1S2"),
 		Route:        ptr("DCT"),

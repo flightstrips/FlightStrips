@@ -1164,6 +1164,40 @@ func (q *Queries) SetRouteState(ctx context.Context, arg SetRouteStateParams) er
 	return err
 }
 
+const setRwyArrRunwayStatusOnEntry = `-- name: SetRwyArrRunwayStatusOnEntry :execrows
+UPDATE strips AS arriving
+SET runway_cleared = true,
+    runway_confirmed = NOT EXISTS (
+      SELECT 1
+      FROM strips AS other
+      WHERE other.session = arriving.session
+        AND other.callsign <> arriving.callsign
+        AND other.bay = 'RWY_ARR'
+    ) AND NOT EXISTS (
+      SELECT 1
+      FROM tactical_strips AS tactical
+      WHERE tactical.session_id = arriving.session
+        AND tactical.bay = 'RWY_ARR'
+    ),
+    version = version + 1
+WHERE arriving.callsign = $1
+  AND arriving.session = $2
+  AND arriving.bay = 'RWY_ARR'
+`
+
+type SetRwyArrRunwayStatusOnEntryParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) SetRwyArrRunwayStatusOnEntry(ctx context.Context, arg SetRwyArrRunwayStatusOnEntryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setRwyArrRunwayStatusOnEntry, arg.Callsign, arg.Session)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setStripOwner = `-- name: SetStripOwner :execrows
 UPDATE strips
 SET owner   = $1,
@@ -1246,6 +1280,7 @@ func (q *Queries) UpdateRunwayClearance(ctx context.Context, arg UpdateRunwayCle
 const updateRunwayConfirmation = `-- name: UpdateRunwayConfirmation :execrows
 UPDATE strips
 SET runway_confirmed = true,
+    runway_cleared   = CASE WHEN bay = 'RWY_ARR' THEN true ELSE runway_cleared END,
     version          = version + 1
 WHERE callsign = $1 AND session = $2
 `

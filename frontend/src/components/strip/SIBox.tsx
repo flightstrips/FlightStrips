@@ -57,7 +57,7 @@ export function SIBox({
   const transferStrip = useWebSocketStore(s => s.transferStrip);
   const startRequestAndTransfer = useWebSocketStore(s => s.startRequestAndTransfer);
   const assumeStrip = useWebSocketStore(s => s.assumeStrip);
-  const cancelTransfer = useWebSocketStore(s => s.cancelTransfer);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const acceptTagRequest = useWebSocketStore(s => s.acceptTagRequest);
 
   const { isAssumed, isTransferredAway, isConcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
@@ -66,6 +66,7 @@ export function SIBox({
   const targetedToMe = !!myPosition && !!transferringTo && transferringTo === myPosition;
   const isSendingTransfer = initiatedByMe && !isTagRequest;
   const isReceivingTransfer = targetedToMe && !isTagRequest;
+  const hasActiveHandover = !!transferFrom && !isTagRequest;
   const isUnownedAndNext = !owner && isConcerned;
   const isStand = bay === "STAND";
 
@@ -91,12 +92,14 @@ export function SIBox({
     if (isStand) {
       return;
     }
+    if (hasActiveHandover) {
+      openStripContextMenu(callsign, { x: e.clientX, y: e.clientY });
+      return;
+    }
     if (isTagRequestOwner) {
       acceptTagRequest(callsign);
     } else if (isReceivingTransfer || isUnownedAndNext) {
       assumeStrip(callsign);
-    } else if (isSendingTransfer) {
-      cancelTransfer(callsign);
     } else if (isAssumed && nextPosition) {
       if (transferAllowed && !transferAllowed()) {
         toast.error("Startup transfer is only available within the TSAT window");
@@ -110,7 +113,7 @@ export function SIBox({
     }
   };
 
-  const isClickable = !isStand && (isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner));
+  const isClickable = !isStand && (hasActiveHandover || isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner));
 
   let background: string;
   if (isStand) {

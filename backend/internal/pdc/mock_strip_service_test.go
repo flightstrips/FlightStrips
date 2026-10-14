@@ -232,6 +232,11 @@ func (m *mockPdcStripService) RunwayConfirmation(ctx context.Context, session in
 	return args.Error(0)
 }
 
+func (m *mockPdcStripService) ResetRunwayClearance(ctx context.Context, session int32, callsign string) error {
+	args := m.Called(ctx, session, callsign)
+	return args.Error(0)
+}
+
 func (m *mockPdcStripService) PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error {
 	args := m.Called(ctx, session, airport, oldRunways, newRunways)
 	return args.Error(0)

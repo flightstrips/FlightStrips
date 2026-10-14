@@ -53,6 +53,7 @@ import {
   type SidInfo,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
+import { hasOtherRwyArrStrip } from '../lib/rwyArrRunway.ts';
 import {
   createAMANCommand, isAMANCoordinationStateEvent,
   getAMANMutationBlockReason,
@@ -151,7 +152,7 @@ function shouldResetRunwayClearanceOnMove(currentBay: string, targetBay: Bay): b
     return targetBay !== Bay.Depart && targetBay !== Bay.Airborne;
   }
 
-  return currentBay === Bay.RwyArr && targetBay === Bay.Final;
+  return currentBay === Bay.RwyArr && targetBay !== Bay.RwyArr;
 }
 
 export interface UpdateStrip {
@@ -274,6 +275,7 @@ export interface WebSocketState {
   toggleMarked: (callsign: string, marked: boolean) => void;
   runwayClearance: (callsign: string) => void;
   runwayConfirmation: (callsign: string) => void;
+  resetRunwayClearance: (callsign: string) => void;
   cdmReady: (callsign: string) => void;
   cdmDeicePlatformUpdate: (callsign: string, platform: string) => void;
   clxUpdateTobt: (callsign: string, tobt?: string) => void;
@@ -456,7 +458,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
     return {
      ...initialState,
-     selectStrip: (callsign) => set({ selectedCallsign: callsign }),
+     selectStrip: (callsign) => set((state) => {
+       const transfer = callsign ? state.stripTransfers[callsign] : undefined;
+       return { selectedCallsign: transfer && !transfer.isTagRequest ? null : callsign };
+     }),
      setAMANConnectionState: (connectionState) => set({
        amanConnectionState: connectionState,
        amanAwaitingSnapshot: true,
@@ -539,10 +544,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
                 if (currentBay === Bay.Stand && bay !== Bay.Stand) {
                   state.strips[stripIndex].start_req = false;
                 }
-                if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
+                if (currentBay !== Bay.RwyArr && bay === Bay.RwyArr) {
+                  state.strips[stripIndex].runway_cleared = true;
+                  state.strips[stripIndex].runway_confirmed = !hasOtherRwyArrStrip(callsign, state.strips, state.tacticalStrips);
+                } else if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
                   state.strips[stripIndex].runway_cleared = false;
                   state.strips[stripIndex].runway_confirmed = false;
-               }
+                }
              }
              return state;
            })(state)
@@ -882,8 +890,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
              const thisRunway = state.strips[idx].runway;
              const hasConfirmed = !!thisRunway && state.strips.some(s => s.callsign !== callsign && s.runway_confirmed && s.runway === thisRunway);
              const targetBay = runwayClearanceTargetBay(state.strips[idx].bay);
+             const hasRwyArrOccupant = targetBay === Bay.RwyArr && hasOtherRwyArrStrip(callsign, state.strips, state.tacticalStrips);
              state.strips[idx].runway_cleared = true;
-             state.strips[idx].runway_confirmed = !hasConfirmed;
+             state.strips[idx].runway_confirmed = targetBay === Bay.RwyArr ? !hasRwyArrOccupant : !hasConfirmed;
              if (targetBay !== null) {
                state.strips[idx].bay = targetBay;
                state.strips[idx].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, targetBay, callsign);
@@ -893,7 +902,32 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
        );
      },
      runwayConfirmation: (callsign) => {
+      const state = get();
+      const strip = state.strips.find(candidate => candidate.callsign === callsign);
+      if (
+        strip?.bay === Bay.RwyArr &&
+        state.strips.some(candidate =>
+          candidate.callsign !== callsign &&
+          candidate.bay === Bay.RwyArr &&
+          candidate.runway_cleared &&
+          candidate.runway_confirmed
+        )
+      ) {
+        return;
+      }
       if (!sendGuardedStripEvent(callsign, { type: "runway_confirmation" }, { type: ActionType.FrontendRunwayConfirmation, callsign })) {
+        return;
+      }
+      if (strip?.bay === Bay.RwyArr) {
+        store.setState(
+          produce((state: WebSocketState) => {
+            const idx = state.strips.findIndex(s => s.callsign === callsign);
+            if (idx !== -1) {
+              state.strips[idx].runway_cleared = true;
+              state.strips[idx].runway_confirmed = true;
+            }
+          })
+        );
         return;
       }
       store.setState(
@@ -903,6 +937,20 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             state.strips[idx].runway_confirmed = true;
           }
         })
+      );
+    },
+    resetRunwayClearance: (callsign) => {
+      if (!sendGuardedStripEvent(callsign, { type: "runway_clearance" }, { type: ActionType.FrontendResetRunwayClearance, callsign })) {
+       return;
+      }
+      store.setState(
+       produce((state: WebSocketState) => {
+         const idx = state.strips.findIndex(strip => strip.callsign === callsign);
+         if (idx !== -1) {
+           state.strips[idx].runway_cleared = false;
+           state.strips[idx].runway_confirmed = false;
+         }
+       })
       );
     },
     acknowledgeUnexpectedChange: (callsign, fieldName) => {
@@ -1478,6 +1526,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     store.setState(
       produce((state: WebSocketState) => {
         state.stripTransfers[data.callsign] = { from: data.from, to: data.to, isTagRequest: false };
+        if (state.selectedCallsign === data.callsign) {
+          state.selectedCallsign = null;
+        }
       })
     );
   };

@@ -442,6 +442,7 @@ WHERE callsign = $1 AND session = $2;
 -- name: UpdateRunwayConfirmation :execrows
 UPDATE strips
 SET runway_confirmed = true,
+    runway_cleared   = CASE WHEN bay = 'RWY_ARR' THEN true ELSE runway_cleared END,
     version          = version + 1
 WHERE callsign = $1 AND session = $2;
 
@@ -451,6 +452,26 @@ SET runway_cleared   = false,
     runway_confirmed = false,
     version          = version + 1
 WHERE callsign = $1 AND session = $2;
+
+-- name: SetRwyArrRunwayStatusOnEntry :execrows
+UPDATE strips AS arriving
+SET runway_cleared = true,
+    runway_confirmed = NOT EXISTS (
+      SELECT 1
+      FROM strips AS other
+      WHERE other.session = arriving.session
+        AND other.callsign <> arriving.callsign
+        AND other.bay = 'RWY_ARR'
+    ) AND NOT EXISTS (
+      SELECT 1
+      FROM tactical_strips AS tactical
+      WHERE tactical.session_id = arriving.session
+        AND tactical.bay = 'RWY_ARR'
+    ),
+    version = version + 1
+WHERE arriving.callsign = $1
+  AND arriving.session = $2
+  AND arriving.bay = 'RWY_ARR';
 
 -- name: GetMaxSequenceInBayUnified :one
 -- Returns the maximum sequence value across BOTH strips and tactical_strips for a bay.

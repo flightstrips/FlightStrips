@@ -163,6 +163,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.Marked, handleMarked)
 	handlers.Add(frontend.RunwayClearance, handleRunwayClearance)
 	handlers.Add(frontend.RunwayConfirmation, handleRunwayConfirmation)
+	handlers.Add(frontend.ResetRunwayClearance, handleResetRunwayClearance)
 	handlers.Add(frontend.AcknowledgeUnexpectedChange, handleAcknowledgeUnexpectedChange)
 	handlers.Add(frontend.ActionCreateTacticalStrip, handleCreateTacticalStrip)
 	handlers.Add(frontend.ActionDeleteTacticalStrip, handleDeleteTacticalStrip)

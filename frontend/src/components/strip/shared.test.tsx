@@ -8,6 +8,8 @@ const storeState = vi.hoisted(() => ({
   openStripContextMenu: vi.fn(),
   requestTag: vi.fn(),
   toggleMarked: vi.fn(),
+  selectStrip: vi.fn(),
+  stripTransfers: {} as Record<string, { from: string; to: string; isTagRequest: boolean }>,
 }));
 
 vi.mock("@/store/store-hooks", () => ({
@@ -28,10 +30,10 @@ vi.mock("@/store/store-hooks", () => ({
     },
   ],
   useSelectedCallsign: () => null,
-  useSelectStrip: () => vi.fn(),
+  useSelectStrip: () => storeState.selectStrip,
   useTagRequestArmed: () => false,
   useMarkArmed: () => false,
-  useStripTransfers: () => ({}),
+  useStripTransfers: () => storeState.stripTransfers,
   useWebSocketStore: (selector: (state: typeof storeState) => unknown) => selector(storeState),
 }));
 
@@ -76,6 +78,30 @@ describe("canForceAssumeStrip", () => {
 });
 
 describe("useStripCallsignInteraction", () => {
+  it("opens the context menu instead of selecting a strip during an active handover", () => {
+    storeState.stripTransfers = {
+      SAS123: { from: "118.105", to: "121.905", isTagRequest: false },
+    };
+    const { result } = renderHook(() => useStripCallsignInteraction({
+      callsign: "SAS123",
+      selectable: true,
+      bay: "CLEARED",
+      owner: "118.105",
+      myPosition: "118.105",
+    }));
+    const stopPropagation = vi.fn();
+
+    act(() => result.current.handleClick({
+      stopPropagation,
+      clientX: 120,
+      clientY: 80,
+    } as unknown as ReactMouseEvent<HTMLElement>));
+
+    expect(storeState.openStripContextMenu).toHaveBeenCalledWith("SAS123", { x: 120, y: 80 });
+    expect(storeState.selectStrip).not.toHaveBeenCalled();
+    storeState.stripTransfers = {};
+  });
+
   it("opens a non-blocking validation advisory without blocking other guarded actions", () => {
     storeState.strips = [{
       callsign: "SAS123",

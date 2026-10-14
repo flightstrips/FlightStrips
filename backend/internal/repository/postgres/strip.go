@@ -1177,6 +1177,13 @@ func (r *stripRepository) ResetRunwayClearance(ctx context.Context, session int3
 	})
 }
 
+func (r *stripRepository) SetRwyArrRunwayStatusOnEntry(ctx context.Context, session int32, callsign string) (int64, error) {
+	return r.queries.SetRwyArrRunwayStatusOnEntry(ctx, database.SetRwyArrRunwayStatusOnEntryParams{
+		Callsign: callsign,
+		Session:  session,
+	})
+}
+
 // SetValidationStatus persists a new validation status for a strip, generating a fresh
 // activation key to prevent stale acks. status must not be nil.
 func (r *stripRepository) SetValidationStatus(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error {

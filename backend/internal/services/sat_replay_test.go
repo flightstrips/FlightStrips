@@ -37,6 +37,8 @@ func TestSATPhaseOneReplay(t *testing.T) {
 
 	// EuroScope/live enrichment drives all remaining arrival stages.
 	clock.set(eta.Add(-10 * time.Minute))
+	_, err = strips.UpdateAircraftPosition(ctx, session, callsign, posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+	require.NoError(t, err)
 	flight := arrivalFlight(callsign, 2)
 	flight.Online = true
 	require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, callsign), flight))
@@ -45,6 +47,8 @@ func TestSATPhaseOneReplay(t *testing.T) {
 	assert.Equal(t, StageAssigned, assigned.Stage)
 
 	clock.set(eta.Add(-2 * time.Minute))
+	_, err = strips.UpdateAircraftPosition(ctx, session, callsign, posPtr(55.8), posPtr(12.642625), altPtr(3000), "FINAL", nil)
+	require.NoError(t, err)
 	require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, callsign), flight))
 	confirmed, err := assignments.GetAssignment(ctx, session, callsign)
 	require.NoError(t, err)

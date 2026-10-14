@@ -204,6 +204,8 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	airportFilter := strings.TrimSpace(r.URL.Query().Get("airport"))
+	sessionFilter := strings.TrimSpace(r.URL.Query().Get("session_name"))
 	now := a.now().UTC()
 	response := standStatusResponse{
 		GeneratedAt:   now.Format(time.RFC3339),
@@ -218,7 +220,8 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 			cutoff := now.Add(-2 * time.Hour)
 			recent := make([]standdiagnostics.AllocationFailure, 0, len(failures))
 			for _, failure := range failures {
-				if !failure.OccurredAt.Before(cutoff) {
+				if sessionFilter == "" && !failure.OccurredAt.Before(cutoff) &&
+					(airportFilter == "" || strings.EqualFold(failure.Airport, airportFilter)) {
 					recent = append(recent, failure)
 				}
 			}
@@ -233,7 +236,9 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, session := range sessions {
-			if session == nil {
+			if session == nil ||
+				(airportFilter != "" && !strings.EqualFold(session.Airport, airportFilter)) ||
+				(sessionFilter != "" && session.Name != sessionFilter) {
 				continue
 			}
 			assignments, err := a.config.Assignments.ListAssignments(r.Context(), session.ID)

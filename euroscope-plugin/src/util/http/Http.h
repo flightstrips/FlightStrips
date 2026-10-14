@@ -11,7 +11,7 @@ namespace FlightStrips::http {
   class Http {
   public:
     static HttpResponse PostUrlEncoded(const std::string& url, const std::string& params);
-    static HttpResponse Get(const std::string& url);
+    static HttpResponse Get(const std::string& url, const std::string& token = "", long timeoutSeconds = 15);
     static bool DownloadFile(const std::string& url, const std::string& outputPath);
 
   private:

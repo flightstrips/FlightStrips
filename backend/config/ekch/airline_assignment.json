@@ -292,10 +292,10 @@
           "A6": 4,
           "A8": 6,
           "A9": 8,
-          "EchoHigh": 2
         },
         "tier2": {
-          "Bravo": 100
+          "Bravo": 100,
+          "EchoHigh": 2
         },
         "tier3": {
           "Delta": 100

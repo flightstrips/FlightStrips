@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ActionType } from "@/api/models";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { STAND_ASSIGNMENT_LAYOUTS, STAND_ASSIGNMENT_LETTERS as LETTERS } from "./standAssignmentLayouts";
+import { deriveStandAvailability, type StandBadge } from "./standAvailability";
+import StandStatusPage from "@/pages/stand-status";
 import "./ArrStandDialog.css";
 
 interface Props {
@@ -29,7 +31,39 @@ function defaultGroup(stand: string): StandGroup | null {
   return LETTERS.find(letter => stand.startsWith(letter)) ?? null;
 }
 
-function MenuButton({ children, onClick, style, selected = false, tone = "light", disabled = false, title }: {
+function CallsignBadge({ badge }: { badge: StandBadge }) {
+  const badgeRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const container = badgeRef.current;
+    if (!container) return;
+    const fit = () => {
+      container.style.fontSize = "";
+      const styles = getComputedStyle(container);
+      const fontSize = parseFloat(styles.fontSize);
+      const availableWidth = container.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+      if (availableWidth <= 0) return;
+      const range = document.createRange();
+      range.selectNodeContents(container);
+      const textWidth = range.getBoundingClientRect().width;
+      if (availableWidth > 0 && textWidth > availableWidth) {
+        container.style.fontSize = `${fontSize * (availableWidth - 1) / textWidth}px`;
+      }
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    if (container.parentElement) observer.observe(container.parentElement);
+    return () => observer.disconnect();
+  }, [badge.label]);
+
+  return (
+    <span ref={badgeRef} title={badge.label} className={`stand-assignment-badge stand-assignment-badge-${badge.blocked ? "blocked" : "assigned"}`}>
+      {badge.label}
+    </span>
+  );
+}
+
+function MenuButton({ children, onClick, style, selected = false, tone = "light", disabled = false, title, badges, label }: {
   children: ReactNode;
   onClick: () => void;
   style?: CSSProperties;
@@ -37,18 +71,28 @@ function MenuButton({ children, onClick, style, selected = false, tone = "light"
   tone?: "light" | "area" | "selector" | "dark" | "auto";
   disabled?: boolean;
   title?: string;
+  badges?: StandBadge[];
+  label?: string;
 }) {
   return (
     <button
       type="button"
-      className={`stand-assignment-button stand-assignment-button-${tone}`}
+      className={`stand-assignment-button stand-assignment-button-${tone}${badges?.length ? " stand-assignment-button-with-badges" : ""}`}
       style={style}
       aria-pressed={tone !== "dark" ? selected : undefined}
       disabled={disabled}
       title={title}
+      aria-label={label}
       onClick={onClick}
     >
       {children}
+      {badges?.length ? (
+        <span className="stand-assignment-badges">
+          {badges.map(badge => (
+            <CallsignBadge key={badge.label} badge={badge} />
+          ))}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -59,7 +103,11 @@ export function ArrStandDialog(props: Props) {
 
 function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   const satEnabled = useWebSocketStore(s => s.satEnabled);
+  const sessionId = useWebSocketStore(s => s.amanSessionID);
   const assignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
+  const assignments = useWebSocketStore(s => s.standAssignments);
+  const blocks = useWebSocketStore(s => s.standBlocks);
+  const strips = useWebSocketStore(s => s.strips);
   const rejection = useWebSocketStore(s => s.standActionRejection);
   const requestAutomatic = useWebSocketStore(s => s.requestAutomaticStand);
   const requestManual = useWebSocketStore(s => s.requestManualStand);
@@ -68,6 +116,7 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   const updateStrip = useWebSocketStore(s => s.updateStrip);
   const initialStand = (satEnabled ? assignment?.stand : undefined) ?? currentStand ?? "";
   const [manualStand, setManualStand] = useState(initialStand);
+  const [graphicOpen, setGraphicOpen] = useState(false);
   const [automaticSelected, setAutomaticSelected] = useState(satEnabled);
   const [group, setGroup] = useState<StandGroup | null>(() => defaultGroup(initialStand));
   const submittedVersion = useRef<number | null>(null);
@@ -75,6 +124,10 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   const relevantRejection = satEnabled && rejection?.callsign === callsign ? rejection : null;
   const unsafeManual = relevantRejection?.action === ActionType.FrontendStandAssignmentManualRequest
     && relevantRejection.code === "incompatible_or_occupied";
+  const standAvailability = useMemo(
+    () => deriveStandAvailability(strips, assignments, blocks, callsign),
+    [assignments, blocks, callsign, strips],
+  );
 
   useEffect(() => {
     if (submittedVersion.current !== null && assignment && assignment.version !== submittedVersion.current) {
@@ -157,12 +210,12 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
             <DialogTitle className="stand-assignment-title" style={position(0, 48, 878, 22)}>STAND ASSIGNMENT</DialogTitle>
             <div className="stand-assignment-outline" style={position(14, 72, 815, 677)} />
             {["RI", "RII", "RIII"].map((stand, index) => (
-              <MenuButton key={stand} tone="area" selected={!automaticSelected && manualStand === stand} style={position(39 + index * 95, 87, 86, 48)} onClick={() => selectDirectStand(stand)}>{stand}</MenuButton>
+              <MenuButton key={stand} label={stand} badges={standAvailability[stand]} tone="area" selected={!automaticSelected && manualStand === stand} style={position(39 + index * 95, 87, 86, 48)} onClick={() => selectDirectStand(stand)}>{stand}</MenuButton>
             ))}
             {["W1", "SAS", "SOUTH", "WEST"].map((stand, index) => (
-              <MenuButton key={stand} tone="area" selected={!automaticSelected && manualStand === stand} style={position(38, 147 + index * 57, 86, 48)} onClick={() => selectDirectStand(stand)}>{stand}</MenuButton>
+              <MenuButton key={stand} label={stand} badges={standAvailability[stand]} tone="area" selected={!automaticSelected && manualStand === stand} style={position(38, 147 + index * 57, 86, 48)} onClick={() => selectDirectStand(stand)}>{stand}</MenuButton>
             ))}
-            <MenuButton tone="area" selected={!automaticSelected && manualStand === "HANGAR"} style={position(38, 375, 86, 48)} onClick={() => selectDirectStand("HANGAR")}>HANGAR</MenuButton>
+            <MenuButton label="HANGAR" badges={standAvailability.HANGAR} tone="area" selected={!automaticSelected && manualStand === "HANGAR"} style={position(38, 375, 86, 48)} onClick={() => selectDirectStand("HANGAR")}>HANGAR</MenuButton>
             {LETTERS.map((letter, index) => (
               <MenuButton key={letter} tone="selector" selected={!automaticSelected && group === letter} style={position(142, 153 + index * 57, 73, 48)} onClick={() => selectGroup(letter)}>{letter}</MenuButton>
             ))}
@@ -187,10 +240,11 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
                 />
               )}
               {stands.map(stand => (
-                <MenuButton key={stand.label} selected={!automaticSelected && manualStand === stand.label} style={stand.style} onClick={() => selectManualStand(stand.label)}>{stand.displayLabel}</MenuButton>
+                <MenuButton key={stand.label} label={stand.label} badges={standAvailability[stand.label]} selected={!automaticSelected && manualStand === stand.label} style={stand.style} onClick={() => selectManualStand(stand.label)}>{stand.displayLabel}</MenuButton>
               ))}
             </div>
             <MenuButton tone="dark" style={position(272, 683, 162, 47)} onClick={close}>ESC</MenuButton>
+            <MenuButton tone="dark" style={position(38, 683, 177, 47)} onClick={() => setGraphicOpen(true)}>GRAPHIC</MenuButton>
             <MenuButton tone="auto" selected={automaticSelected} style={position(448, 683, 162, 47)} onClick={selectAutomatic} disabled={!satEnabled} title={!satEnabled ? "Automatic stand assignment is not enabled for this session" : undefined}>AUTO ASSIGN</MenuButton>
             <MenuButton tone="dark" style={position(627, 683, 166, 47)} onClick={send} disabled={satEnabled && !automaticSelected && !manualStand.trim()}>
               ASSIGN
@@ -204,6 +258,17 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
           </div>
         </DialogContent>
       )}
+      <Dialog open={graphicOpen} onOpenChange={setGraphicOpen}>
+        {graphicOpen && (
+          <DialogContent className="block w-[min(640px,calc(100vw-32px))] max-h-[calc(100dvh-32px)] overflow-y-auto border-[#777] bg-[#3f3f3f] p-0 text-white">
+            <div className="flex items-center justify-between bg-[#272727] px-3 py-2">
+              <DialogTitle className="text-sm">STAND GRAPHIC</DialogTitle>
+              <button type="button" className="border border-[#777] px-3 py-1 text-xs text-white" onClick={() => setGraphicOpen(false)}>BACK</button>
+            </div>
+            <StandStatusPage compactSessionId={sessionId ?? null} initialStand={manualStand.trim().toUpperCase()} />
+          </DialogContent>
+        )}
+      </Dialog>
     </Dialog>
   );
 }

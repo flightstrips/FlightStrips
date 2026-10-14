@@ -73,11 +73,11 @@ type StandAllocationRequest struct {
 	ExpiresAt       *time.Time
 	// DepartureTOBT is a fallback estimate used only when ExpiresAt does not
 	// already describe the departure's effective stand hold.
-	DepartureTOBT *time.Time
-	DepartureTSAT *time.Time
-	// DepartureReady is operational evidence such as START REQ or PUSH. For a
-	// ready aircraft, the later of TOBT and TSAT is the expected start of stand
-	// release, so START REQ can never bypass a substantially later TSAT.
+	DepartureTOBT               *time.Time
+	DepartureTSAT               *time.Time
+	DepartureStartupRequestedAt *time.Time
+	// DepartureReady indicates an assigned PUSH bay or ground state, which
+	// removes the buffer from TSAT (or TOBT when TSAT is missing).
 	DepartureReady bool
 	VatsimCID      *int64
 	VatsimRevision *int64
@@ -590,12 +590,19 @@ func requestOccupancyWindow(request StandAllocationRequest, now time.Time, depar
 }
 
 func projectedDepartureRelease(request StandAllocationRequest, departureReleaseBuffer time.Duration) *time.Time {
-	release := request.DepartureTOBT
-	if request.DepartureTSAT != nil && (release == nil || request.DepartureTSAT.After(*release)) {
-		release = request.DepartureTSAT
+	release := request.DepartureTSAT
+	if release == nil {
+		release = request.DepartureTOBT
 	}
 	if release == nil {
 		return nil
+	}
+	if request.DepartureStartupRequestedAt != nil && !request.DepartureReady {
+		effectiveRelease := release.Add(-5 * time.Minute)
+		if request.DepartureStartupRequestedAt.After(effectiveRelease) {
+			effectiveRelease = *request.DepartureStartupRequestedAt
+		}
+		return &effectiveRelease
 	}
 	effectiveRelease := *release
 	if !request.DepartureReady {
@@ -1103,28 +1110,29 @@ func (s *StandAllocationService) recordAllocationFailure(command StandAllocation
 		reason = err.Error()
 	}
 	s.failures.Record(standdiagnostics.AllocationFailure{
-		OccurredAt:     now().UTC(),
-		SessionID:      request.SessionID,
-		Airport:        request.Airport,
-		Callsign:       request.Callsign,
-		Command:        string(command),
-		Outcome:        outcome,
-		Severity:       standdiagnostics.SeverityForStage(request.Stage),
-		Reason:         reason,
-		Direction:      string(request.Direction),
-		Stage:          request.Stage,
-		AttemptedStand: request.Stand,
-		AircraftType:   request.AssignmentFacts.AircraftType,
-		EngineType:     string(request.FlightFacts.EngineType),
-		WTC:            request.FlightFacts.WTC,
-		BorderStatus:   string(request.FlightFacts.BorderStatus),
-		ETA:            cloneTimePointer(request.ETA),
-		ETASource:      valueString(request.ETASource),
-		ExpiresAt:      cloneTimePointer(request.ExpiresAt),
-		DepartureTOBT:  cloneTimePointer(request.DepartureTOBT),
-		DepartureTSAT:  cloneTimePointer(request.DepartureTSAT),
-		DepartureReady: request.DepartureReady,
-		Attempts:       attempts,
+		OccurredAt:                  now().UTC(),
+		SessionID:                   request.SessionID,
+		Airport:                     request.Airport,
+		Callsign:                    request.Callsign,
+		Command:                     string(command),
+		Outcome:                     outcome,
+		Severity:                    standdiagnostics.SeverityForStage(request.Stage),
+		Reason:                      reason,
+		Direction:                   string(request.Direction),
+		Stage:                       request.Stage,
+		AttemptedStand:              request.Stand,
+		AircraftType:                request.AssignmentFacts.AircraftType,
+		EngineType:                  string(request.FlightFacts.EngineType),
+		WTC:                         request.FlightFacts.WTC,
+		BorderStatus:                string(request.FlightFacts.BorderStatus),
+		ETA:                         cloneTimePointer(request.ETA),
+		ETASource:                   valueString(request.ETASource),
+		ExpiresAt:                   cloneTimePointer(request.ExpiresAt),
+		DepartureTOBT:               cloneTimePointer(request.DepartureTOBT),
+		DepartureTSAT:               cloneTimePointer(request.DepartureTSAT),
+		DepartureStartupRequestedAt: cloneTimePointer(request.DepartureStartupRequestedAt),
+		DepartureReady:              request.DepartureReady,
+		Attempts:                    attempts,
 	})
 }
 

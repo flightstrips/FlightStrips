@@ -163,6 +163,31 @@ func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {
 	require.Equal(t, "maintenance", *payload.Sessions[0].Blocks[0].Reason)
 }
 
+func TestStandStatusFiltersSessionsForScopeTimeline(t *testing.T) {
+	t.Parallel()
+
+	api := NewWebAPI(WebAPIConfig{
+		Auth: standStatusAuthStub{},
+		Sessions: standStatusSessionStub{sessions: []*models.Session{
+			{ID: 7, Name: "LIVE", Airport: "EKCH"},
+			{ID: 8, Name: "SWEATBOX", Airport: "EKCH"},
+			{ID: 9, Name: "LIVE", Airport: "EKYT"},
+		}},
+		Assignments: standStatusAssignmentStub{},
+	})
+	request := httptest.NewRequest(http.MethodGet, "/stand/status?airport=ekch&session_name=LIVE", nil)
+	request.Header.Set("Authorization", "Bearer ******")
+	recorder := httptest.NewRecorder()
+	api.handleStatus(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	var payload standStatusResponse
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&payload))
+	require.Len(t, payload.Sessions, 1)
+	require.Equal(t, "LIVE", payload.Sessions[0].Name)
+	require.Equal(t, "EKCH", payload.Sessions[0].Airport)
+}
+
 func TestStandStatusCoalescesRepeatedUnchangedFailures(t *testing.T) {
 	t.Parallel()
 

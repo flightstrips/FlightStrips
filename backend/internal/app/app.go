@@ -1279,7 +1279,7 @@ func (cfg Config) withDefaults() Config {
 		cfg.StandAssignmentHoldDuration = 15 * time.Minute
 	}
 	if cfg.StandAssignmentBlockExtension <= 0 {
-		cfg.StandAssignmentBlockExtension = 10 * time.Minute
+		cfg.StandAssignmentBlockExtension = 5 * time.Minute
 	}
 	if cfg.StandAssignmentSweepInterval <= 0 {
 		cfg.StandAssignmentSweepInterval = 30 * time.Second

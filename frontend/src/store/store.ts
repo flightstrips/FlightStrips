@@ -226,6 +226,8 @@ export interface WebSocketState {
   setTagRequestArmed: (armed: boolean) => void;
   markArmed: boolean;
   setMarkArmed: (armed: boolean) => void;
+  localMarked: Record<string, boolean>;
+  setLocalMarked: (callsign: string, marked: boolean) => void;
   setDisplayedLayout: (layout: string) => void;
   setLayoutChooserOpen: (open: boolean) => void;
 
@@ -354,6 +356,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     selectedCallsign: null,
     tagRequestArmed: false,
     markArmed: false,
+    localMarked: {},
     contextMenu: null,
     validationDialogCallsign: null,
     standAssignments: [],
@@ -510,6 +513,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      })),
      setTagRequestArmed: (armed) => set({ tagRequestArmed: armed, markArmed: armed ? false : get().markArmed, contextMenu: null }),
      setMarkArmed: (armed) => set({ markArmed: armed, tagRequestArmed: armed ? false : get().tagRequestArmed, contextMenu: null }),
+    setLocalMarked: (callsign, marked) => set(produce((state: WebSocketState) => {
+      state.localMarked[callsign] = marked;
+    })),
     setDisplayedLayout: (layout) => {
       const normalizedLayout = normalizeLayout(layout);
       set({
@@ -852,6 +858,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       }
       store.setState(
         produce((state: WebSocketState) => {
+          delete state.localMarked[callsign];
           const idx = state.strips.findIndex(s => s.callsign === callsign);
           if (idx !== -1) state.strips[idx].runway = runway;
         })

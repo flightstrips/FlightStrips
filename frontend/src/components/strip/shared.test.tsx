@@ -8,6 +8,10 @@ const storeState = vi.hoisted(() => ({
   openStripContextMenu: vi.fn(),
   requestTag: vi.fn(),
   toggleMarked: vi.fn(),
+  setLocalMarked: vi.fn(),
+  setMarkArmed: vi.fn(),
+  markArmed: false,
+  localMarked: {} as Record<string, boolean>,
 }));
 
 vi.mock("@/store/store-hooks", () => ({
@@ -30,7 +34,7 @@ vi.mock("@/store/store-hooks", () => ({
   useSelectedCallsign: () => null,
   useSelectStrip: () => vi.fn(),
   useTagRequestArmed: () => false,
-  useMarkArmed: () => false,
+  useMarkArmed: () => storeState.markArmed,
   useStripTransfers: () => ({}),
   useWebSocketStore: (selector: (state: typeof storeState) => unknown) => selector(storeState),
 }));
@@ -76,6 +80,27 @@ describe("canForceAssumeStrip", () => {
 });
 
 describe("useStripCallsignInteraction", () => {
+  it("marks an unowned, non-selectable strip locally when MRK is armed", () => {
+    storeState.markArmed = true;
+    storeState.localMarked = {};
+    storeState.strips = [{ callsign: "SAS123", marked: false }];
+    const { result } = renderHook(() => useStripCallsignInteraction({
+      callsign: "SAS123",
+      selectable: false,
+      owner: "121.905",
+      myPosition: "118.105",
+    }));
+
+    act(() => result.current.handleClick({
+      stopPropagation: vi.fn(),
+    } as unknown as ReactMouseEvent<HTMLElement>));
+
+    expect(storeState.setLocalMarked).toHaveBeenCalledWith("SAS123", true);
+    expect(storeState.setMarkArmed).toHaveBeenCalledWith(false);
+    expect(storeState.toggleMarked).not.toHaveBeenCalled();
+    storeState.markArmed = false;
+  });
+
   it("opens a non-blocking validation advisory without blocking other guarded actions", () => {
     storeState.strips = [{
       callsign: "SAS123",

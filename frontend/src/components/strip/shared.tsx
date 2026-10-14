@@ -155,13 +155,16 @@ export function useStripCallsignInteraction({
 }) {
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
+  const setMarkArmed = useWebSocketStore((state) => state.setMarkArmed);
+  const setLocalMarked = useWebSocketStore((state) => state.setLocalMarked);
   const tagRequestArmed = useTagRequestArmed();
   const markArmed = useMarkArmed();
   const stripTransfers = useStripTransfers();
   const openStripContextMenu = useWebSocketStore((state) => state.openStripContextMenu);
   const requestTag = useWebSocketStore((state) => state.requestTag);
-  const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
-  const marked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
+  const serverMarked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
+  const localMarked = useWebSocketStore((state) => state.localMarked[callsign]);
+  const marked = localMarked ?? serverMarked;
   const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
   const isValidationVisible = isValidationActiveForPosition(validationStatus, myPosition);
   const isValidationActive = isValidationBlockingForPosition(validationStatus, myPosition);
@@ -181,6 +184,12 @@ export function useStripCallsignInteraction({
   const handleClick = (event: ReactMouseEvent<HTMLElement>) => {
     event.stopPropagation();
 
+    if (markArmed) {
+      setLocalMarked(callsign, !marked);
+      setMarkArmed(false);
+      return;
+    }
+
     if (isValidationVisible) {
       setValidationDialogOpen(true);
       return;
@@ -190,11 +199,6 @@ export function useStripCallsignInteraction({
       if (canRequestTag) {
         requestTag(callsign);
       }
-      return;
-    }
-
-    if (markArmed) {
-      toggleMarked(callsign, !marked);
       return;
     }
 

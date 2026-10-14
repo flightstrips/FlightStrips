@@ -59,7 +59,7 @@ export default function SEQPLN() {
         status={status}
         halfStripVariant={status === "HALF" ? "LOCKED-ARR" : undefined}
         myPosition={myPosition}
-        selectable={!passive}
+        selectable={!passive && status !== "CLROK"}
         startupSiTransfer={status === "CLROK" && isFlight(strip) && strip.bay === Bay.Cleared}
       />
     </div>

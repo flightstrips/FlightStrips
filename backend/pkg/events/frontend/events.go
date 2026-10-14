@@ -867,6 +867,7 @@ func (c CdmDataBatchEvent) GetType() EventType {
 
 type CdmReadyEvent struct {
 	Callsign string `json:"callsign"`
+	Rea      bool   `json:"rea,omitempty"`
 }
 
 type CdmDeicePlatformUpdateEvent struct {

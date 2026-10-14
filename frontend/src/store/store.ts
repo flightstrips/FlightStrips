@@ -276,7 +276,7 @@ export interface WebSocketState {
   toggleMarked: (callsign: string, marked: boolean) => void;
   runwayClearance: (callsign: string) => void;
   runwayConfirmation: (callsign: string) => void;
-  cdmReady: (callsign: string) => void;
+  cdmReady: (callsign: string, rea?: boolean) => void;
   cdmDeicePlatformUpdate: (callsign: string, platform: string) => void;
   clxUpdateTobt: (callsign: string, tobt?: string) => void;
   clxOverrideValidation: (callsign: string, overrideKey: string) => void;
@@ -836,8 +836,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     acceptTagRequest: (callsign) => {
       sendGuardedStripEvent(callsign, { type: "coordination_accept_tag_request" }, { type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
     },
-    cdmReady: (callsign) => {
-      sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign });
+    cdmReady: (callsign, rea = false) => {
+      sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign, ...(rea ? { rea: true } : {}) });
     },
     cdmDeicePlatformUpdate: (callsign, platform) => {
       sendIfWritable({

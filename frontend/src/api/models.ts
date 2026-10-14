@@ -880,6 +880,7 @@ export interface FrontendSendPrivateMessageEvent {
 export interface FrontendCdmReadyEvent {
   type: ActionType.FrontendCdmReady;
   callsign: string;
+  rea?: boolean;
 }
 
 export interface FrontendSendReleasePointEvent {

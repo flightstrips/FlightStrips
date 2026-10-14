@@ -252,6 +252,7 @@ export default function FlightPlanDialog({
   const revertToVoice = useWebSocketStore((state) => state.revertToVoice);
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
   const clxUpdateTobt = useWebSocketStore((state) => state.clxUpdateTobt);
+  const cdmReady = useWebSocketStore((state) => state.cdmReady);
   const clxOverrideValidation = useWebSocketStore((state) => state.clxOverrideValidation);
   const cdmDeicePlatformUpdate = useWebSocketStore((state) => state.cdmDeicePlatformUpdate);
   const sendPrivateMessage = useWebSocketStore((state) => state.sendPrivateMessage);
@@ -408,6 +409,7 @@ export default function FlightPlanDialog({
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SID</Label>
               <button
                 type="button"
+                aria-label="SID"
                 onClick={() => setSidDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ ...fieldStyle(150), ...clxFieldStyle(sidFault) }}
@@ -424,9 +426,10 @@ export default function FlightPlanDialog({
                 onSelectSid={(sid) => {
                   if (sid === strip.sid && sidOverride) {
                     clxOverrideValidation(callsign, sidOverride);
+                    if (strip.heading) updateStrip(callsign, { heading: 0 });
                     return;
                   }
-                  updateStrip(callsign, { sid });
+                  updateStrip(callsign, { sid, heading: 0 });
                 }}
                 onSelectRnav={handleRnavChange}
                 onErase={() => updateStrip(callsign, { sid: "" })}
@@ -545,12 +548,15 @@ export default function FlightPlanDialog({
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>REA</Label>
-              <Input
-                value={strip.release_point}
-                disabled
-                className={CLS_BTN_DISABLED}
-                style={fieldStyle(100)}
-              />
+              <button
+                type="button"
+                aria-label="REA"
+                onClick={() => cdmReady(callsign, true)}
+                className={CLS_BTN_EDITABLE}
+                style={{ ...fieldStyle(100), backgroundColor: "#FCFCFC" }}
+              >
+                {strip.status === "REA" ? "REA" : ""}
+              </button>
             </div>
           </div>
 
@@ -671,6 +677,7 @@ export default function FlightPlanDialog({
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>HDG</Label>
               <button
                 type="button"
+                aria-label="HDG"
                 onClick={() => setHdgDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={fieldStyle(125)}
@@ -681,7 +688,9 @@ export default function FlightPlanDialog({
                 open={hdgDialogOpen}
                 onOpenChange={setHdgDialogOpen}
                 value={strip.heading}
-                onSelect={(heading) => updateStrip(callsign, { heading: heading ?? 0 })}
+                onSelect={(heading) => updateStrip(callsign, heading
+                  ? { heading, sid: "" }
+                  : { heading: 0 })}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -942,7 +951,7 @@ export default function FlightPlanDialog({
               clearPdc(strip.callsign, null);
             } else {
               if (mandatoryRouteSidMismatch) {
-                updateStrip(callsign, { sid: mandatoryRouteSid });
+                updateStrip(callsign, { sid: mandatoryRouteSid, heading: 0 });
               }
               if (mandatoryRouteToClear && mandatoryRouteToClear !== strip.route?.trim().toUpperCase()) {
                 updateStrip(callsign, { route: mandatoryRouteToClear });

@@ -383,6 +383,15 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	}
 
 	cdmService := client.hub.server.GetCdmService()
+	if event.Rea {
+		reaService, ok := cdmService.(interface {
+			HandleReaRequest(context.Context, int32, string, string, string) error
+		})
+		if !ok {
+			return errors.New("CDM REA service not available")
+		}
+		return reaService.HandleReaRequest(ctx, client.session, event.Callsign, client.position, "ATC")
+	}
 	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC")
 }
 

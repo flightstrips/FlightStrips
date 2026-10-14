@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useStrips, useWebSocketStore, useAvailableSids, useRunwaySetup } from "@/store/store-hooks";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
-import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
+import { HdgSelectDialog, type HdgTurnDirection } from "@/components/strip/HdgSelectDialog";
 import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
 import { scalePx } from "@/lib/viewportScale";
@@ -62,6 +62,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
   const [stand, setStand]                 = useState("");
   const [rwyDep, setRwyDep]               = useState(RUNWAYS[0]);
   const [hdg, setHdg]                     = useState<number | undefined>(undefined);
+  const [hdgTurnDirection, setHdgTurnDirection] = useState<HdgTurnDirection>();
   const [alt, setAlt]                     = useState<number | undefined>(undefined);
 
   // Sub-dialog open states
@@ -78,7 +79,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
       setCallsignError(null);
       setAdes(""); setSid(""); setSsr(""); setEobt("");
       setAircraftType(""); setFl(""); setRoute(""); setStand("");
-      setRwyDep(runwaySetup.departure[0] ?? RUNWAYS[0]); setHdg(undefined); setAlt(undefined);
+      setRwyDep(runwaySetup.departure[0] ?? RUNWAYS[0]); setHdg(undefined); setHdgTurnDirection(undefined); setAlt(undefined);
       if (cs) populateFromStrip(cs);
     }
   }
@@ -331,15 +332,23 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
               <button
                 type="button"
                 className={CLS_EDITABLE_BTN}
-                style={fieldStyle(125)}
+                style={{ ...fieldStyle(125), display: "flex", alignItems: "center", justifyContent: "center", gap: scalePx(4) }}
                 onClick={() => setHdgOpen(true)}
               >
-                {hdg != null ? hdg.toString().padStart(3, "0") : ""}
+                {hdg != null ? <span>{hdg.toString().padStart(3, "0")}</span> : ""}
+                {hdgTurnDirection && (
+                  <span aria-label={`Turn ${hdgTurnDirection}`} style={{ fontSize: scalePx(15), lineHeight: 1 }}>
+                    {hdgTurnDirection === "left" ? "←" : "→"}
+                  </span>
+                )}
               </button>
               <HdgSelectDialog
                 open={hdgOpen}
                 onOpenChange={setHdgOpen}
                 value={hdg}
+                runway={rwyDep}
+                turnDirection={hdgTurnDirection}
+                onTurnDirectionChange={setHdgTurnDirection}
                 onSelect={setHdg}
               />
             </div>

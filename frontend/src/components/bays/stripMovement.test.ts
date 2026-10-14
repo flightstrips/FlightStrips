@@ -26,10 +26,10 @@ describe("strip bay movement eligibility", () => {
     expect(canStripMoveToBay(flight("EKCH", "EKCH"), Bay.NotCleared, "EKCH")).toBe(true);
   });
 
-  it("keeps non-cleared strips within bays mapped to NOT CLEARED", () => {
+  it("prevents moving non-cleared strips even between planned-departure bays", () => {
     const nonCleared = flight("EKCH", "ESSA", Bay.NotCleared);
 
-    expect(canStripMoveToBay(nonCleared, Bay.NotCleared, "EKCH")).toBe(true);
+    expect(canStripMoveToBay(nonCleared, Bay.NotCleared, "EKCH")).toBe(false);
     expect(canStripMoveToBay(nonCleared, Bay.Cleared, "EKCH")).toBe(false);
     expect(canStripMoveToBay(nonCleared, Bay.Controlzone, "EKCH")).toBe(false);
     expect(canStripMoveToBay(nonCleared, Bay.Push, "EKCH")).toBe(false);

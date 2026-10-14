@@ -28,6 +28,29 @@ type spyCdmService struct {
 	deicePlatform string
 }
 
+type spyReaService struct {
+	spyCdmService
+	reaCalled bool
+}
+
+func (s *spyReaService) HandleReaRequest(_ context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	s.reaCalled = true
+	s.session, s.callsign, s.sourcePos, s.sourceRole = session, callsign, sourcePosition, sourceRole
+	return nil
+}
+
+func TestHandleCdmReadyRoutesFlightPlanReaSeparately(t *testing.T) {
+	service := &spyReaService{}
+	client := &Client{hub: &Hub{server: &testutil.MockServer{CdmServiceVal: service}}, session: 42, position: "119.905"}
+	data, err := json.Marshal(frontendEvents.CdmReadyEvent{Callsign: "SAS123", Rea: true})
+	require.NoError(t, err)
+	require.NoError(t, handleCdmReady(context.Background(), client, Message{Message: data}))
+	assert.True(t, service.reaCalled)
+	assert.False(t, service.called)
+	assert.Equal(t, "119.905", service.sourcePos)
+	assert.Equal(t, "SAS123", service.callsign)
+}
+
 func (s *spyCdmService) TriggerRecalculate(_ context.Context, _ int32, _ string) {
 	panic("TriggerRecalculate should not be called directly from handleCdmReady")
 }

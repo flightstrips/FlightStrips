@@ -627,7 +627,8 @@ func vatsimSource(flight Flight, snapshotTime time.Time) models.VatsimStripSourc
 		seenAt = snapshotTime
 	}
 	return models.VatsimStripSource{
-		CID: flight.CID, Revision: flight.FlightPlan.Revision, SeenAt: seenAt.UTC(),
+		FlightRules: flight.FlightPlan.FlightRules,
+		CID:         flight.CID, Revision: flight.FlightPlan.Revision, SeenAt: seenAt.UTC(),
 		Origin: flight.FlightPlan.Origin, Destination: flight.FlightPlan.Destination,
 		Alternate: flight.FlightPlan.Alternate, Route: flight.FlightPlan.Route,
 		Remarks: flight.FlightPlan.Remarks, AssignedSquawk: flight.FlightPlan.AssignedSquawk,
@@ -664,6 +665,10 @@ func (r *Reconciler) applyFlight(strip *models.Strip, flight Flight, snapshotTim
 	if strip.VatsimSeenAt == nil || strip.VatsimSeenAt.Before(seenAt) {
 		strip.VatsimSeenAt = timeptr(seenAt)
 		changed = true
+	}
+	// Older plugins never supply flight rules, even in a newer observation.
+	if flight.FlightPlan.FlightRules != "" && (strip.FlightRules == "" || strip.EuroscopeSeenAt == nil || !strip.EuroscopeSeenAt.After(seenAt)) {
+		changed = setSourceString(strip, "flight_rules", &strip.FlightRules, flight.FlightPlan.FlightRules) || changed
 	}
 	if strip.EuroscopeSeenAt != nil && strip.EuroscopeSeenAt.After(seenAt) {
 		return changed

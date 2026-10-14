@@ -9,6 +9,20 @@ import (
 const NilCapability = "NIL"
 
 var pbnTokenPattern = regexp.MustCompile(`(?i)^PBN/[A-Z0-9]+$`)
+var assumedRNAV1AircraftPattern = regexp.MustCompile(`^(?:A3[A-Z0-9]{2}|B73[6-9]|B38M|B74[48]|B75[23]|B76[234]|B77[A-Z0-9]|B78[A-Z0-9]|BCS3|AT[A-Z0-9]{2}|DH8D|CRJ[A-Z0-9]|E[A-Z0-9]{3}|MD8[A-Z0-9])$`)
+
+// EffectiveCapability applies the aircraft-type RNAV 1 assumption without
+// changing the filed equipment or PBN remarks.
+func EffectiveCapability(aircraftInfo, remarks string) string {
+	aircraft := strings.ToUpper(strings.TrimSpace(aircraftInfo))
+	if end := strings.IndexAny(aircraft, "/- \t"); end >= 0 {
+		aircraft = aircraft[:end]
+	}
+	if assumedRNAV1AircraftPattern.MatchString(aircraft) {
+		return "1"
+	}
+	return DeriveCapability(aircraftInfo, remarks)
+}
 
 var saveRemarksByCapability = map[string]string{
 	"10": "PBN/A1",

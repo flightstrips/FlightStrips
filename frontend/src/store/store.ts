@@ -40,6 +40,7 @@ import {
   type FrontendStrip,
   type FrontendStripUpdateEvent,
   type MessageReceived,
+  type MessageFormat,
   type FrontendMessageReceivedEvent,
   type RunwayConfiguration,
   type StripRef,
@@ -183,12 +184,14 @@ export interface WebSocketState {
   airport: string;
   callsign: string;
   layout: string;
+  resetLayoutRecommendation: string;
   displayedLayout: string;
   readOnly: boolean;
   positionAvailable: boolean;
   localIp: string;
   followRecommendedLayout: boolean;
   layoutChooserOpen: boolean;
+  layoutResetNonce: number;
   runwaySetup: RunwayConfiguration;
   initialCflByRunway: Record<string, number>;
   transitionAltitude: number;
@@ -228,6 +231,7 @@ export interface WebSocketState {
   setMarkArmed: (armed: boolean) => void;
   setDisplayedLayout: (layout: string) => void;
   setLayoutChooserOpen: (open: boolean) => void;
+  resetLayout: () => void;
 
   contextMenu: { callsign: string; x: number; y: number } | null;
   openStripContextMenu: (callsign: string, pos: { x: number; y: number }) => void;
@@ -254,7 +258,7 @@ export interface WebSocketState {
   moveToControlzone: (callsign: string) => void;
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
-  sendMessage: (text: string, recipients: string[]) => void;
+  sendMessage: (text: string, recipients: string[], format?: MessageFormat) => void;
   sendPrivateMessage: (callsign: string, message: string) => void;
   dismissMessage: (id: number) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
@@ -263,6 +267,7 @@ export interface WebSocketState {
   issuePdcClearance: (callsign: string, remarks: string | null) => void;
   revertToVoice: (callsign: string) => void;
   transferStrip: (callsign: string, toPosition?: string) => void;
+  selectNextController: (callsign: string, sector: string) => void;
   startRequestAndTransfer: (callsign: string) => Promise<boolean>;
   assumeStrip: (callsign: string) => void;
   forceAssumeStrip: (callsign: string) => void;
@@ -274,7 +279,7 @@ export interface WebSocketState {
   toggleMarked: (callsign: string, marked: boolean) => void;
   runwayClearance: (callsign: string) => void;
   runwayConfirmation: (callsign: string) => void;
-  cdmReady: (callsign: string) => void;
+  cdmReady: (callsign: string, rea?: boolean) => void;
   cdmDeicePlatformUpdate: (callsign: string, platform: string) => void;
   clxUpdateTobt: (callsign: string, tobt?: string) => void;
   clxOverrideValidation: (callsign: string, overrideKey: string) => void;
@@ -319,12 +324,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     airport: '',
     callsign: '',
     layout: '',
+    resetLayoutRecommendation: '',
     displayedLayout: '',
     readOnly: false,
     positionAvailable: true,
     localIp: '',
     followRecommendedLayout: true,
     layoutChooserOpen: false,
+    layoutResetNonce: 0,
     runwaySetup: {
       departure: [],
       arrival: []
@@ -519,6 +526,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         followRecommendedLayout: !MANUAL_COMPANION_LAYOUTS.has(normalizedLayout) && normalizedLayout === get().layout,
       });
     },
+    resetLayout: () => {
+      for (const key of Object.keys(sessionStorage)) {
+        if (key.includes("-bay-heights-")) sessionStorage.removeItem(key);
+      }
+      const state = get();
+      const recommended = state.resetLayoutRecommendation || state.layout;
+      set({
+        displayedLayout: recommended,
+        followRecommendedLayout: false,
+        layoutResetNonce: get().layoutResetNonce + 1,
+      });
+    },
     setLayoutChooserOpen: (open) => set({ layoutChooserOpen: open }),
     openStripContextMenu: (callsign, pos) => set({ contextMenu: { callsign, x: pos.x, y: pos.y } }),
     closeStripContextMenu: () => set({ contextMenu: null }),
@@ -676,8 +695,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           : Math.floor((prevSeq + nextSeq) / 2);
       })(state)
     }),
-    sendMessage: (text, recipients) => {
-      sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients});
+    sendMessage: (text, recipients, format = "AUTO") => {
+      sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients, format});
     },
     sendPrivateMessage: (callsign, message) => {
       sendIfWritable({type: ActionType.FrontendSendPrivateMessage, callsign, message});
@@ -730,6 +749,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.strips[stripIndex].pdc_state = "REVERT_TO_VOICE"
         }
       })
+    },
+    selectNextController: (callsign, sector) => {
+      sendGuardedStripEvent(callsign, { type: "coordination_transfer_request" }, {
+        type: ActionType.FrontendNextControllerSelect, callsign, sector,
+      });
     },
     transferStrip: (callsign, toPosition) => {
       const strip = get().strips.find((candidate) => candidate.callsign === callsign);
@@ -830,8 +854,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     acceptTagRequest: (callsign) => {
       sendGuardedStripEvent(callsign, { type: "coordination_accept_tag_request" }, { type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
     },
-    cdmReady: (callsign) => {
-      sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign });
+    cdmReady: (callsign, rea = false) => {
+      sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign, ...(rea ? { rea: true } : {}) });
     },
     cdmDeicePlatformUpdate: (callsign, platform) => {
       sendIfWritable({
@@ -1071,6 +1095,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.localIp = data.local_ip ?? "";
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
+        state.resetLayoutRecommendation = normalizeLayout(data.reset_layout || data.layout);
         if (MANUAL_COMPANION_LAYOUTS.has(state.displayedLayout) && !state.followRecommendedLayout) {
           // Preserve a manually opened companion board across reconnects.
           state.followRecommendedLayout = false;
@@ -1347,15 +1372,20 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const handleLayoutUpdateEvent = (data: FrontendLayoutUpdateEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const normalizedLayout = normalizeLayout(data.layout);
-        state.layout = normalizedLayout;
-        if (isServerSelectableLayout(data.layout)) {
-          if (state.followRecommendedLayout) {
-            state.displayedLayout = normalizedLayout;
-          }
-        } else {
-          if (state.followRecommendedLayout) {
-            state.displayedLayout = "";
+        if (data.reset_layout !== undefined || data.layout !== undefined) {
+          state.resetLayoutRecommendation = normalizeLayout(data.reset_layout || data.layout || state.layout);
+        }
+        if (data.layout !== undefined) {
+          const normalizedLayout = normalizeLayout(data.layout);
+          state.layout = normalizedLayout;
+          if (isServerSelectableLayout(data.layout)) {
+            if (state.followRecommendedLayout) {
+              state.displayedLayout = normalizedLayout;
+            }
+          } else {
+            if (state.followRecommendedLayout) {
+              state.displayedLayout = "";
+            }
           }
         }
       })

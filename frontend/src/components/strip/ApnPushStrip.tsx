@@ -122,6 +122,9 @@ export function ApnPushStrip({
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 	const emphasizeDisplayedTime = hasManualTobtSource(tobtSetBy);
   const canSendCdmReady = bay === Bay.Cleared;
+  const displayedLayout = useWebSocketStore(s => s.displayedLayout);
+  const hideNextFrequency = (displayedLayout === "AAAD" || displayedLayout === "AD")
+    && (bay === Bay.Cleared || bay === Bay.Push);
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
   const deiceIndication = formatDeIceIndication(deicePlatform);
   const deiceIndicationActive = !!deiceIndication && !deicePlatformAcknowledged;
@@ -132,7 +135,6 @@ export function ApnPushStrip({
       style={{
         height: "4.72dvh",
         width: fullWidth ? "100%" : "95%",
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >
@@ -166,7 +168,7 @@ export function ApnPushStrip({
           </div>
           <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>
-              {nextFreq}
+              {hideNextFrequency ? null : nextFreq}
             </span>
           </div>
         </div>

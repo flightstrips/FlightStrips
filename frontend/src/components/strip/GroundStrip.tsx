@@ -53,7 +53,6 @@ export function GroundStrip({
         height: "4.44dvh",
         width: "25vw",
         backgroundColor: bg,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >

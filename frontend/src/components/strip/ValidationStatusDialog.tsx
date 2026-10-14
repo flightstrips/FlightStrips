@@ -356,7 +356,7 @@ export function ValidationStatusDialog({
               }}
               onClick={handleAcknowledge}
             >
-              {status.issue_type === "TSAT PUSHBACK" ? "OVERRIDE" : "ACKNOWLEDGE"}
+              {status.issue_type === "TSAT PUSHBACK" || status.issue_type === "TSAT START REQUEST" ? "OVERRIDE" : "ACKNOWLEDGE"}
             </button>
             <button
               type="button"

@@ -32,6 +32,7 @@ export function ApronTaxiMapDialog({
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const move = useWebSocketStore((s) => s.move);
+  const displayedLayout = useWebSocketStore((s) => s.displayedLayout);
   const apronOnline = useApronOnline();
   const twrOnline = useTwrOnline();
   const isTwr = useIsTwr();
@@ -49,8 +50,8 @@ export function ApronTaxiMapDialog({
     if (!noMove) {
       // AUTO-LOCAL routing:
       // - Solo TWR (no separate apron): all points → TWY DEP-LWR so TWR can see them.
-      // - Split ops (separate apron or TWR online): final hold points → TWY DEP-LWR, others → TWY DEP-UPR.
-      const splitOps = apronOnline || twrOnline;
+      // - Apron scopes or split ops: final hold points → TWY DEP-LWR, others → TWY DEP-UPR.
+      const splitOps = displayedLayout === "AAAD" || displayedLayout === "AD" || apronOnline || twrOnline;
       const soloTwr = isTwr && !apronOnline;
       const targetBay = (soloTwr || (splitOps && LWR_HOLD_POINTS.has(label)))
         ? Bay.TaxiLwr

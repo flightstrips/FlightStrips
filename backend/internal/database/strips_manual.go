@@ -63,6 +63,7 @@ SET destination        = $3,
     runway             = COALESCE($11, runway),
     is_manual          = TRUE,
     has_fp             = TRUE,
+    flight_rules       = 'I',
     version            = version + 1
 WHERE session = $1 AND callsign = $2`
 
@@ -103,6 +104,7 @@ SET aircraft_type   = COALESCE($3, aircraft_type),
     remarks         = COALESCE($8, remarks),
     is_manual       = TRUE,
     has_fp          = TRUE,
+    flight_rules    = 'V',
     bay             = $9,
     version         = version + 1
 WHERE session = $1 AND callsign = $2`

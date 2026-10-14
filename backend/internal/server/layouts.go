@@ -47,6 +47,8 @@ func (s *Server) updateLayoutsContextUnlocked(ctx context.Context, sessionId int
 	}
 
 	result := make(map[string]string)
+	resetLayouts := config.GetLayoutsByFrequency(positions, active)
+	resetResult := make(map[string]string)
 
 	for position, layout := range layouts {
 		if layout == nil {
@@ -60,7 +62,13 @@ func (s *Server) updateLayoutsContextUnlocked(ctx context.Context, sessionId int
 		result[position] = *layout
 	}
 
-	s.frontendHub.SendLayoutUpdates(sessionId, result)
+	for position, layout := range resetLayouts {
+		if layout != nil {
+			resetResult[position] = *layout
+		}
+	}
+
+	s.frontendHub.SendLayoutUpdates(sessionId, result, resetResult)
 
 	return nil
 }

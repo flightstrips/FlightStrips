@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useIsClrDel, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useControllers, useIsClrDel, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { canForceAssumeStrip } from "./shared";
 import { EST_RAISED_EDGE, EST_SUNKEN_EDGE } from "@/components/est/bevel";
@@ -64,6 +64,7 @@ function ManIcon() {
 
 export function StripContextMenu({ callsign, position, onClose }: StripContextMenuProps) {
   const strip = useStrip(callsign);
+  const controllers = useControllers();
   const myPosition = useWebSocketStore((s) => s.position);
   const stripTransfers = useStripTransfers();
   const forceAssumeStrip = useWebSocketStore((s) => s.forceAssumeStrip);
@@ -148,6 +149,10 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
   }
 
   const isOb = strip?.ob ?? false;
+  const owner = strip?.owner ?? "";
+  const ownerController = controllers.find((controller) => controller.position === owner);
+  const hasFrequencyOwner = ownerController !== undefined || /^\d{3}\.\d{1,3}$/.test(owner);
+  const ownerLabel = ownerController?.identifier ?? (hasFrequencyOwner ? "—" : owner || "—");
 
   return (
     <div
@@ -186,21 +191,23 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
           boxShadow: DROP_SHADOW,
         }}
       >
-        {strip?.owner || "—"}
+        {ownerLabel}
       </div>
 
-      {/* OB / IB — inset shadow when active (toggled state) */}
-      <div
-        style={{
-          ...itemStyle,
-          height: 23,
-          // Inset shadow matches filter4_i in design (inner shadow dy=4, blur=2)
-          ...(isOb ? SUNKEN_3D : RAISED_3D),
-        }}
-        onClick={handleObToggle}
-      >
-        {isOb ? "IB" : "OB"}
-      </div>
+      {!hasFrequencyOwner && (
+        /* OB / IB — inset shadow when active (toggled state) */
+        <div
+          style={{
+            ...itemStyle,
+            height: 23,
+            // Inset shadow matches filter4_i in design (inner shadow dy=4, blur=2)
+            ...(isOb ? SUNKEN_3D : RAISED_3D),
+          }}
+          onClick={handleObToggle}
+        >
+          {isOb ? "IB" : "OB"}
+        </div>
+      )}
 
       {/* FORCE ASSUME — ~50px tall */}
       <div
@@ -276,4 +283,3 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
     </div>
   );
 }
-

@@ -95,7 +95,6 @@ export function FinalArrStrip({
         height: "4.72dvh",
         width: "95%",
         backgroundColor: bg,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >

@@ -5,6 +5,17 @@
 
 using namespace FlightStrips::websocket;
 
+TEST(ProtoCodecTest, SerializesFiledFlightRules) {
+    StripUpdateEvent event(
+        "OYABC", "EKRK", "EKCH", "", "", "", "", "7000", "7000", "", "",
+        false, "", 0, 0, 0, "C172", "L", "", Position{0, 0, 1000},
+        "", "V", "", "", "", "", "");
+    event.flight_rules = "V";
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    EXPECT_EQ(envelope.strip_update().strip().flight_rules(), "V");
+}
+
 TEST(ProtoCodecTest, SharedScratchPadRoundTripsEditAndClear) {
     for (const auto& text : {"CALL OPS", ""}) {
         protobuf::wire::Envelope envelope;

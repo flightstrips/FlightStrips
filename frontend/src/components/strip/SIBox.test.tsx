@@ -22,8 +22,13 @@ describe("startup SI transfer", () => {
     startRequestAndTransfer.mockClear();
   });
 
-  it("waits for the TSAT window and sends a startup request with the transfer", () => {
-    const allowed = vi.fn(() => false);
+  it("uses the reduced font size for the SI indicator", () => {
+    const { container } = render(<SIBox callsign="SAS123" />);
+
+    expect(container.firstElementChild).toHaveStyle({ fontSize: "0.98vw" });
+  });
+
+  it("sends a startup request with the transfer for backend TSAT validation", () => {
     const { container } = render(
       <SIBox
         callsign="SAS123"
@@ -31,17 +36,10 @@ describe("startup SI transfer", () => {
         owner="121.905"
         nextControllers={["121.730"]}
         myPosition="121.905"
-        transferAllowed={allowed}
         startRequestTransfer
       />,
     );
     const si = container.firstElementChild!;
-    fireEvent.click(si);
-    expect(allowed).toHaveBeenCalledOnce();
-    expect(transferStrip).not.toHaveBeenCalled();
-    expect(startRequestAndTransfer).not.toHaveBeenCalled();
-
-    allowed.mockReturnValue(true);
     fireEvent.click(si);
     expect(startRequestAndTransfer).toHaveBeenCalledWith("SAS123");
     expect(transferStrip).not.toHaveBeenCalled();

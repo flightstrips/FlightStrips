@@ -255,7 +255,8 @@ namespace FlightStrips::messages {
                 it.GetTrackingControllerIsMe() ? hold.TypeName() : "",
                 it.GetTrackingControllerIsMe() ? holdEat : "",
                 it.GetTrackingControllerIsMe(),
-                flightplan::FlightPlanService::FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes())
+                flightplan::FlightPlanService::FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes()),
+                std::string(flightPlanData.GetPlanType())
             });
         }
 

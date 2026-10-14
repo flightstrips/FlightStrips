@@ -1,5 +1,43 @@
 # Events
 
+## Frontend messages
+
+`send_message` carries `text`, `recipients` (configured area names; an empty
+array means broadcast), and optional `format`: `AUTO`, `SMALL`, or `LARGE`.
+`message_received` carries the same fields plus `id`, `sender`, and
+`is_broadcast`. Format is retained in the session message history and initial
+snapshot. Missing format is equivalent to `AUTO`: a single targeted recipient
+uses large text; broadcast and multiple recipients use small text. Explicit
+`SMALL` or `LARGE` overrides recipient-based sizing.
+
+Targeted areas resolve to an online operational controller at the area's primary
+configured frequency, or otherwise to the current owner of its sector. Ground
+west coverage includes both `GWA` and `GWD`. Static fallback positions without
+the selected area's coverage do not receive the message. Observers are excluded;
+the sender also receives a copy.
+
+## Frontend next-controller selection
+
+`next_controller_select` accepts `callsign` and `sector` (`AA`, `GE`, `GW`,
+`TE`, or `TW`). The strip must be assumed by the sender, unlocked, and have
+no pending coordination. The backend resolves the selected sector through
+normal routing and radio coverage, persists it, and broadcasts `owners_update`
+with the updated SI target and frequency. This does not create coordination,
+change ownership, move the strip, or initiate a EuroScope handover.
+The selection survives route recalculation and reconnects, and clears when
+ownership changes. Selecting an unavailable target is rejected without
+changing the existing SI. If a selected target later goes offline, SI becomes
+blank until that sector is available again.
+
+## Frontend flight-plan REA
+
+`cdm_ready` accepts optional `rea: true` for the flight-plan REA control. This
+uses the normal persisted ready/status flow, but changes TOBT to current UTC
+only if the effective TOBT is more than six minutes in the past or future.
+TOBT within six minutes of now is unchanged. Without `rea`, the
+existing READY timing policy is unchanged. The returned CDM `status: "REA"`
+drives the flight-plan indication.
+
 ## Frontend CDM de-icing platform
 
 Sent by: Frontend
@@ -334,6 +372,17 @@ a withdrawal of the retained backend EAT without changing the live clearance.
 Sent by: EuroScope
 
 Strip update
+
+The protobuf strip payload includes `flight_rules` (field 34), containing the filed
+`I` (IFR) or `V` (VFR) value from EuroScope. The same field is included in frontend
+strip snapshots and updates. CONTROLZONE FIND uses `V` to list filed VFR flights,
+not squawk, route, or remarks. Older plugins omit this field; an existing stored
+value is preserved until an authoritative flight-rules update is received.
+
+If the stored value is still empty, VATSIM may backfill known flight rules even
+when an older plugin has supplied a newer EuroScope observation. This does not
+override known rules from a newer EuroScope observation or controller-protected
+fields, and an empty VATSIM value never clears known rules.
 
 ```json
 {

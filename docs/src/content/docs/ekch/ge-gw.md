@@ -25,7 +25,7 @@ Strips live in **bays** that are **ACTIVE** or **LOCKED**. Use **REQ** where the
 | **RWY DEP** | `TWR-DEP` | Departures on the runway segment. |
 | **Airborne** | `TWR-DEP` | After departure. |
 | **De-ice A** | `APNPUSH` | Same strip family; mostly manual moves between active bays. |
-| **CLR DEL** | *(passive)* | Passive if CLR DEL, DEL+SEQ, or SEQ PLN is online. |
+| **CLR DEL** | Uncleared | Small strips while another apron controller is online; full-size otherwise. Cannot be selected or dragged. |
 | **Stand** | `APN-ARR` | Gate / stand; active. |
 
 ## Departures

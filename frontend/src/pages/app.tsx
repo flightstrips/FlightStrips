@@ -37,7 +37,7 @@ export default function AppPage() {
   }
 
   if (!isAuthenticated) {
-    loginWithRedirect({ appState: { returnTo: "/app" } });
+    loginWithRedirect({ appState: { returnTo: `/app${window.location.search}` } });
     return null;
   }
 

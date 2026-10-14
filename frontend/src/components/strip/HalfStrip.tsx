@@ -53,6 +53,7 @@ export function HalfStrip({
   bay,
   fullWidth = false,
   localHidden = false,
+  clearanceFromPlannedBay = false,
 }: StripProps) {
   const isLocked = LOCKED_VARIANTS.includes(halfStripVariant);
   const isFreeText = FREE_TEXT_VARIANTS.includes(halfStripVariant);
@@ -153,7 +154,7 @@ export function HalfStrip({
           </div>
           {isDepartureHalf && (
             <>
-              <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} />
+              <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} allowClearanceFromPlannedBay={clearanceFromPlannedBay} />
               <FlightPlanDialog callsign={callsign} open={fplViewOpen} onOpenChange={setFplViewOpen} mode="view" />
             </>
           )}

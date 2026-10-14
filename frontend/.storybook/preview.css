@@ -1,0 +1,9 @@
+html, body {
+  height: auto;
+  min-height: 100%;
+  overflow: auto;
+}
+
+.sbdocs-wrapper {
+  font-family: Arial, sans-serif;
+}

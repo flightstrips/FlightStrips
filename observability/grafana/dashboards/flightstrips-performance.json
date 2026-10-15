@@ -914,7 +914,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(process_runtime_go_goroutines{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
+                        "expr": "sum(go_goroutine_count{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "goroutines"
                       }
                     },
@@ -1364,8 +1364,8 @@
         "kind": "Panel",
         "spec": {
           "id": 8,
-          "title": "Heap, Goroutines and Threads",
-          "description": "Heap size drives collection frequency, goroutine count drives scheduler load, and the operating system thread count grows when goroutines block in syscalls.",
+          "title": "Runtime Memory, Goroutines and Threads",
+          "description": "Runtime memory includes heap, stacks, and other runtime allocations. Goroutine count drives scheduler load, and the operating system thread count grows when goroutines block in syscalls.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1382,8 +1382,8 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(process_runtime_go_mem_heap_alloc_bytes{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
-                        "legendFormat": "heap allocated (bytes)"
+                        "expr": "sum(go_memory_used_bytes{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
+                        "legendFormat": "runtime memory (bytes)"
                       }
                     },
                     "refId": "A",
@@ -1401,7 +1401,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(process_runtime_go_goroutines{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
+                        "expr": "sum(go_goroutine_count{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "goroutines"
                       }
                     },

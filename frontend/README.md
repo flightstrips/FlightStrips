@@ -1,4 +1,26 @@
-# React + TypeScript + Vite
+# FlightStrips frontend
+
+## Component catalogue (Storybook)
+
+From this directory, run `npm ci` and `npm run storybook`, then open the local URL printed in the terminal (normally http://127.0.0.1:6006). No backend, account or environment secrets are needed. Start with **Start here** for non-developer review instructions. Copy a story URL when reporting a visual problem, together with a screenshot, viewport size, changed controls and expected behavior.
+
+The catalogue imports production components and `src/index.css`, including the controller font and Tailwind tokens. It covers every shared UI primitive, all nine layouts dispatched by `FlightStrip`, ownership indicators, shared strip cells, tactical strips and AMAN warning states. It is an initial catalogue: composed application screens, service-dependent dialogs, maps and live workflows are not fully covered.
+
+`npm run build-storybook` produces `storybook-static`, suitable for static hosting, including at a subpath. CI builds it and uploads a **storybook** artifact on frontend pull requests. Extract the artifact and serve it over HTTP; opening `index.html` directly from disk is unsupported. A stable hosted review URL is recommended for non-developers; this change prepares the artifact without choosing or changing production hosting.
+
+After building, run `npx playwright install chromium` once and `npm run test:storybook` to render every story and check dialog keyboard behavior. The Accessibility panel provides additional checks; existing accessibility findings are not treated as a clean bill of health or a new CI gate.
+
+### Adding examples
+
+- Import the real component in a colocated `*.stories.tsx` file. Use typed `Meta` and `StoryObj`, named states and plain-language descriptions. Search this catalogue before introducing a new control.
+- Cover default, selected, disabled, empty, error and long-text states where relevant. Use `fn()` from `storybook/test` for callbacks so reviewers can inspect Actions.
+- Use `StoryStore` for components that require the operational Zustand store. Each story gets a new real store backed by a client whose connect/reconnect are disabled and whose send action is recorded. It does not simulate backend responses. Add explicit fixtures for server-dependent states; never mount the live session provider.
+- Keep time-sensitive fixtures deterministic. Operational strip dimensions use viewport units, so compare them at the intended controller resolution; the browser checks use 1920×1080.
+- Storybook has its own Vite config so the application's PWA and MDX pipeline do not run in the catalogue. Shared CSS and aliases are applied in `.storybook/main.ts`; only preview scrolling is overridden.
+
+### Implementation review
+
+The existing split between `components/ui`, reusable strip cells and the `FlightStrip` dispatcher is a useful catalogue boundary. Keeping stories attached to those production exports makes visual changes visible without maintaining a second implementation. Composed examples show how primitives fit together. The real store with an inert transport preserves selectors and initial state while avoiding authentication and websocket connections. Additional AMAN, EST and dialog coverage should follow this pattern as those areas change; avoid broad module mocks that can hide integration errors.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.app.json",
+  "include": [".storybook", "src/vite-env.d.ts", "src/**/*.stories.tsx", "src/stories"]
+}

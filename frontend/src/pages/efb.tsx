@@ -1,3 +1,4 @@
+import { requireAccessToken } from "@/lib/authenticated-fetch";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getApiUrl } from '@/lib/api-url';
@@ -182,7 +183,7 @@ export default function EFBPage() {
   } : unavailableFlightData;
 
   const authorizedFetch = useCallback(async (path: string, init?: RequestInit) => {
-    const token = await getAccessTokenSilently();
+    const token = requireAccessToken(await getAccessTokenSilently());
     const response = await fetch(getApiUrl(path), { ...init, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) } });
     const body = await response.json().catch(() => null);
     if (!response.ok) throw new ApiRequestError(body?.error || `Request failed (${response.status})`, response.status);

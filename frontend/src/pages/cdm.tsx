@@ -1,3 +1,4 @@
+import { requireAccessToken } from "@/lib/authenticated-fetch";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getApiUrl } from "@/lib/api-url";
@@ -148,7 +149,7 @@ export default function CdmPage() {
   const [loading, setLoading] = useState(true);
 
   const authorizedFetch = useCallback(async (path: string) => {
-    const token = await getAccessTokenSilently();
+    const token = requireAccessToken(await getAccessTokenSilently());
     const response = await fetch(getApiUrl(path), {
       headers: {
         Authorization: `Bearer ${token}`,

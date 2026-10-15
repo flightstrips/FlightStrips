@@ -1,3 +1,4 @@
+import { requireAccessToken } from "@/lib/authenticated-fetch";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { AlertTriangle, Clock3, FlaskConical, Plane, RefreshCw, Trash2 } from "lucide-react";
@@ -104,7 +105,7 @@ export default function TestToolsPage() {
   const [replayDirectory, setReplayDirectory] = useState("recordings");
 
   const authorizedFetch = useCallback(async (path: string, init?: RequestInit) => {
-    const token = await getAccessTokenSilently();
+    const token = requireAccessToken(await getAccessTokenSilently());
     const response = await fetch(getApiUrl(path), {
       ...init,
       headers: {

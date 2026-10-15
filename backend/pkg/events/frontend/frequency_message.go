@@ -15,15 +15,16 @@ type SendFrequencyMessageEvent struct {
 }
 
 type FrequencyMessageResultEvent struct {
-	Stand           string    `json:"stand,omitempty"`
-	Prepared        bool      `json:"prepared,omitempty"`
-	RunwayConfirmed bool      `json:"runway_confirmed,omitempty"`
-	Type            EventType `json:"type"`
-	RequestID       string    `json:"request_id"`
-	Callsign        string    `json:"callsign"`
-	Submitted       bool      `json:"submitted"`
-	Error           string    `json:"error,omitempty"`
-	AppliedActions  int32     `json:"applied_actions"`
+	ValidationBlocked bool      `json:"validation_blocked,omitempty"`
+	Stand             string    `json:"stand,omitempty"`
+	Prepared          bool      `json:"prepared,omitempty"`
+	RunwayConfirmed   bool      `json:"runway_confirmed,omitempty"`
+	Type              EventType `json:"type"`
+	RequestID         string    `json:"request_id"`
+	Callsign          string    `json:"callsign"`
+	Submitted         bool      `json:"submitted"`
+	Error             string    `json:"error,omitempty"`
+	AppliedActions    int32     `json:"applied_actions"`
 }
 
 func (e FrequencyMessageResultEvent) GetType() EventType { return FrequencyMessageResult }

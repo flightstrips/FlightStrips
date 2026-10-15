@@ -1,6 +1,8 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { isTextPilot, textTaxiActions } from "@/lib/text-pilot";
 import { useStrip, useWebSocketStore } from "@/store/store-hooks";
-import { Bay } from "@/api/models";
+import { ActionType, Bay } from "@/api/models";
 import { RELEASE_POINTS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
@@ -21,13 +23,43 @@ const BTN_STYLE: React.CSSProperties = {
 };
 
 export function PushbackMapDialog({ open, onOpenChange, callsign, initialReleasePoint, onStripMoved }: PushbackMapDialogProps) {
+  const [checking, setChecking] = useState(false);
+  const attempt = useRef(0);
+  const cancelPreparation = useCallback(() => {
+    attempt.current++;
+    setChecking(false);
+  }, []);
+  useEffect(() => {
+    if (!open) cancelPreparation();
+    return cancelPreparation;
+  }, [open, cancelPreparation]);
+  const sendFrequencyMessage = useWebSocketStore(s => s.sendFrequencyMessage);
+  const openValidationDialog = useWebSocketStore(s => s.openValidationDialog);
+  const handleOpenChange = (next: boolean) => {
+    if (!next) cancelPreparation();
+    onOpenChange(next);
+  };
   const openTextPilotMenu = useWebSocketStore(s => s.openTextPilotMenu);
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const strip = useStrip(callsign);
   const move = useWebSocketStore((s) => s.move);
 
-  const handleSelect = (label: string) => {
+  const handleSelect = async (label: string) => {
+    if (checking) return;
     if (isTextPilot(strip)) {
+      const current = ++attempt.current;
+      setChecking(true);
+      const result = await sendFrequencyMessage(callsign, "", [{ type: ActionType.FrontendMove, callsign, bay: Bay.Push }], false, true);
+      if (attempt.current !== current || !open) return;
+      setChecking(false);
+      if (!result.prepared) {
+        if (result.validation_blocked) {
+          handleOpenChange(false);
+          openValidationDialog(callsign);
+        }
+        else toast.error(result.error ?? "Pushback validation was not accepted");
+        return;
+      }
       openTextPilotMenu({ callsign, variant: "push", point: label, actions: textTaxiActions(callsign, label, Bay.Push), onSubmitted: () => { onOpenChange(false); onStripMoved?.(); } });
       return;
     }
@@ -40,7 +72,7 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
   return (
     <MapDialogShell
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       title="Select Release Point"
       imageSrc="/apron_push.webp"
       imageAlt="Apron pushback map"
@@ -64,6 +96,7 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
           gap: "0.63cqw",
         }}
       >
+        {checking && <span role="status">Checking pushback timing...</span>}
         {/* Direction quick-select */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.52cqh" }}>
           <button onClick={() => handleSelect("N")} style={BTN_STYLE}>N</button>
@@ -76,7 +109,7 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
 
         {/* ERASE / input / OK — offset down to align with W/E row */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.52cqh", marginTop: "4.43cqh", width: "fit-content" }}>
-          <MapEraseControls onOk={handleSelect} onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE} maxLength={4} />
+          <MapEraseControls onOk={handleSelect} onClose={() => handleOpenChange(false)} btnStyle={BTN_STYLE} maxLength={4} />
         </div>
       </div>
     </MapDialogShell>

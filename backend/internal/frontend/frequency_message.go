@@ -2,6 +2,7 @@ package frontend
 
 import (
 	models "FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"context"
@@ -10,6 +11,10 @@ import (
 	"fmt"
 	"strings"
 )
+
+type pushbackPreparer interface {
+	PrepareFrontendPushback(context.Context, int32, string, string, string, string) error
+}
 
 type frequencyMessageRouter interface {
 	FrequencyMessageSender(int32, string, string) func(euroscope.SendFrequencyMessageEvent) bool
@@ -31,7 +36,7 @@ func validateFrequencyMessage(req frontend.SendFrequencyMessageEvent) error {
 		return errors.New("message must be a single line of text, not a command")
 	}
 	if req.Prepare && (req.Clearance || len(req.Actions) != 1) {
-		return errors.New("preparation requires exactly one stand/runway action")
+		return errors.New("preparation requires exactly one stand/runway/pushback action")
 	}
 	if len(req.Actions) > 4 {
 		return errors.New("too many operational actions")
@@ -64,7 +69,24 @@ func validateFrequencyMessage(req frontend.SendFrequencyMessageEvent) error {
 			if !req.Prepare || len(req.Actions) != 1 {
 				return errors.New("stand/runway actions require a preparation request")
 			}
-		case frontend.ReleasePoint, frontend.Move, frontend.CoordinationTransferRequestType, frontend.CoordinationCancelTransferRequest, frontend.AcknowledgeUnexpectedChange:
+		case frontend.Move:
+			if req.Prepare {
+				var move frontend.MoveEvent
+				if err := json.Unmarshal(raw, &move); err != nil {
+					return err
+				}
+				if move.Bay != shared.BAY_PUSH {
+					return errors.New("only pushback moves support preparation")
+				}
+				var fields map[string]json.RawMessage
+				_ = json.Unmarshal(raw, &fields)
+				for key := range fields {
+					if key != "type" && key != "callsign" && key != "bay" {
+						return errors.New("pushback preparation cannot change other fields")
+					}
+				}
+			}
+		case frontend.ReleasePoint, frontend.CoordinationTransferRequestType, frontend.CoordinationCancelTransferRequest, frontend.AcknowledgeUnexpectedChange:
 			if req.Prepare {
 				return errors.New("unsupported preparation action")
 			}
@@ -81,8 +103,15 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 		return err
 	}
 	var applied int32
+	var inspectedStrip *models.Strip
 	reject := func(err error) error {
-		client.Enqueue(frontend.FrequencyMessageResultEvent{RequestID: req.RequestID, Callsign: req.Callsign, Error: err.Error(), AppliedActions: applied})
+		blocked := false
+		if inspectedStrip != nil {
+			if current, readErr := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign); readErr == nil {
+				blocked = current.IsValidationLocked()
+			}
+		}
+		client.Enqueue(frontend.FrequencyMessageResultEvent{RequestID: req.RequestID, Callsign: req.Callsign, Error: err.Error(), AppliedActions: applied, ValidationBlocked: blocked})
 		return nil
 	}
 	if err := validateFrequencyMessage(req); err != nil {
@@ -106,6 +135,7 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 	if err != nil {
 		return reject(err)
 	}
+	inspectedStrip = strip
 	if !strip.IsTextOnly() {
 		return reject(errors.New("aircraft is not text-only"))
 	}
@@ -121,6 +151,16 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 			Type frontend.EventType `json:"type"`
 		}
 		_ = json.Unmarshal(raw, &action)
+		if req.Prepare && action.Type == frontend.Move {
+			preparer, ok := client.hub.stripService.(pushbackPreparer)
+			if !ok {
+				return reject(errors.New("pushback preparation is unavailable"))
+			}
+			if err := preparer.PrepareFrontendPushback(ctx, client.session, req.Callsign, client.GetCid(), client.airport, client.position); err != nil {
+				return reject(err)
+			}
+			continue // Validation only: no operational action was applied.
+		}
 		if err := client.hub.handlers.Handle(ctx, client, Message{Type: action.Type, Message: raw}); err != nil {
 			return reject(err)
 		}

@@ -17,6 +17,7 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
   const controllers = useWebSocketStore(s => s.controllers);
   const position = useWebSocketStore(s => s.position);
   const transfer = useWebSocketStore(s => s.stripTransfers[draft.callsign]);
+  const openValidationDialog = useWebSocketStore(s => s.openValidationDialog);
   const close = useWebSocketStore(s => s.closeTextPilotMenu);
   const sendMessage = useWebSocketStore(s => s.sendFrequencyMessage);
   const markReadback = useWebSocketStore(s => s.markTextPilotReadback);
@@ -119,6 +120,11 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
     setPending(false);
     setRemainingActions(actions.slice(result.applied_actions));
     if (result.applied_actions > 0) setActionsApplied(true);
+    if (!result.submitted && draft.variant === "push" && result.validation_blocked) {
+      close();
+      openValidationDialog(draft.callsign);
+      return;
+    }
     if (!result.submitted) { setError(`${result.error ?? "Text was not submitted"}${actionsApplied || result.applied_actions > 0 ? ". Strip changes were accepted; retry this message or close and reopen to change instructions." : ""}`); return; }
     if (draft.readbackKey && selected.includes("readback")) markReadback(draft.readbackKey);
     draft.onSubmitted?.();

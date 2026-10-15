@@ -26,7 +26,7 @@ Clearance text chooses SID, flight-plan route, or radar vectors, then destinatio
 
 ## Transport and failure handling
 
-Frontend `send_frequency_message` carries request ID, callsign, message, optional accepted-action batch, `clearance`, and `prepare`. Preparation is restricted to one stand or runway action. The backend rejects commands, multiline/empty/oversize text, mismatched callsigns, unsupported actions, non-text aircraft, and observer operations. Operational actions use existing service validation; partial success is reported as `applied_actions`. They are not a database transaction.
+Frontend `send_frequency_message` carries request ID, callsign, message, optional accepted-action batch, `clearance`, and `prepare`. Preparation is restricted to one stand/runway action or a validation-only PUSH move. Pushback preparation checks ownership and backend TSAT validation before opening the text composer, without moving the strip or setting its release point. A blocking validation returns `validation_blocked`; the controller must resolve it and retry. SEND rechecks timing, closing the composer and opening validation if conditions have changed. The backend rejects commands, multiline/empty/oversize text, mismatched callsigns, unsupported actions, non-text aircraft, and observer operations. Operational actions use existing service validation; partial success is reported as `applied_actions`. They are not a database transaction.
 
 EuroScope protobuf events 54/55 carry the request and result. The plugin advertises `frequency_messages` on its token. Routing requires the same session, CID and primary position, a non-observer connection, and that capability. The chosen connection is pinned; the session master is not used and requests are not replayed after reconnect.
 
@@ -78,7 +78,7 @@ FREQ dispatch is pinned to numpad Multiply. The former `text_pilot.frequency_key
 ## Latest verification (2026-10-15)
 
 - Win32 Debug plugin build and all 472 CTest cases pass, including native numpad scan-code input and deferred submission acknowledgement checks.
-- Frontend production build and 112 focused frontend tests pass.
+- Frontend production build and the full frontend suite (834 tests across 93 files) pass with the rebased main dependencies. The Chromium pushback map/composer check also passes.
 - Backend communication normalization, frequency messages, pushback/move validation and handover tests pass.
 - The user confirmed that native numpad Multiply submission works in their local EuroScope session. Automated tests do not independently verify pilot/network receipt; the remaining multi-controller and failure-path manual checks above still apply.
 - Docker-based backend integration tests could not run in this Windows setup (`rootless Docker is not supported on Windows`).

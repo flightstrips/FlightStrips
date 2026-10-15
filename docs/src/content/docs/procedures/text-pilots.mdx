@@ -11,6 +11,8 @@ Connect an updated FlightStrips EuroScope plugin on your primary frequency. Mess
 
 Select a pushback point, taxi hold-short point or holding point to open the appropriate text menu. Choose phrase buttons to add instructions; choose them again to remove their wording. The selected route limit stays at the end while taxi instructions are inserted before it. You can edit the white message field directly or use **ERASE**.
 
+For pushback, the backend checks TSAT and active validations before opening the text menu. Resolve or acknowledge the validation first, then select the pushback point again. Timing is checked again on **SEND**; a new blocking validation closes the text menu without sending the message.
+
 **SEND** applies staged map actions and submits the text. After successful submission, both menus close. **ESC** discards staged map actions and closes the text menu; the map remains available.
 
 ## Handover and readback

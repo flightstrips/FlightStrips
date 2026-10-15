@@ -169,3 +169,56 @@ func TestFrequencyMessageAcceptsTextTypeInEitherCase(t *testing.T) {
 		})
 	}
 }
+
+type frequencyPushbackPreparer struct {
+	noOpStripService
+	prepare func() error
+}
+
+func (s *frequencyPushbackPreparer) PrepareFrontendPushback(context.Context, int32, string, string, string, string) error {
+	return s.prepare()
+}
+func TestFrequencyPushbackPreparationDoesNotApplyMoveOrSend(t *testing.T) {
+	text := "T"
+	strip := &models.Strip{Callsign: "SAS123", CommunicationType: &text, Bay: shared.BAY_CLEARED}
+	repo := &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil }}
+	router := &frequencyTestRouter{}
+	server := mockServerWithStripRepo(repo)
+	server.EuroscopeHubVal = router
+	blocked := true
+	calls := 0
+	service := &frequencyPushbackPreparer{prepare: func() error {
+		calls++
+		if blocked {
+			strip.ValidationStatus = &models.ValidationStatus{Active: true, IssueType: "TSAT PUSHBACK"}
+			return errors.New("pushback requires TSAT override")
+		}
+		strip.ValidationStatus.Active = false
+		return nil
+	}}
+	hub := buildFrontendTestHub(server, service)
+	client := buildFrontendTestClient(hub, 42, "EKCH")
+	client.SetUser(shared.NewAuthenticatedUser("1234567", 0, nil))
+	client.send = make(chan pkgEvents.OutgoingMessage, 1)
+	client.closed = make(chan struct{})
+	req := events.SendFrequencyMessageEvent{RequestID: "prepare-1", Callsign: "SAS123", Prepare: true, Actions: []json.RawMessage{[]byte(`{"type":"move","callsign":"SAS123","bay":"PUSH"}`)}}
+	require.NoError(t, handleSendFrequencyMessage(context.Background(), client, marshalMessage(t, req)))
+	result := (<-client.send).(events.FrequencyMessageResultEvent)
+	require.True(t, result.ValidationBlocked)
+	require.False(t, result.Prepared)
+	blocked = false
+	req.RequestID = "prepare-2"
+	require.NoError(t, handleSendFrequencyMessage(context.Background(), client, marshalMessage(t, req)))
+	result = (<-client.send).(events.FrequencyMessageResultEvent)
+	require.True(t, result.Prepared)
+	require.Zero(t, result.AppliedActions)
+	require.False(t, result.Submitted)
+	require.Empty(t, router.sent)
+	require.Equal(t, shared.BAY_CLEARED, strip.Bay)
+	require.Equal(t, 2, calls)
+}
+func TestFrequencyPushbackPreparationRejectsOtherMoves(t *testing.T) {
+	for _, raw := range []string{`{"type":"move","callsign":"SAS123","bay":"TAXI"}`, `{"type":"move","callsign":"SAS123","bay":"PUSH","clearance":true}`} {
+		require.Error(t, validateFrequencyMessage(events.SendFrequencyMessageEvent{RequestID: "prepare", Callsign: "SAS123", Prepare: true, Actions: []json.RawMessage{[]byte(raw)}}))
+	}
+}

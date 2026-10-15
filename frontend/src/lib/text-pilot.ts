@@ -26,6 +26,7 @@ export interface FrequencyMessageResult {
   submitted: boolean;
   error?: string;
   applied_actions: number;
+  validation_blocked?: boolean;
   prepared?: boolean;
   stand?: string;
   runway_confirmed?: boolean;

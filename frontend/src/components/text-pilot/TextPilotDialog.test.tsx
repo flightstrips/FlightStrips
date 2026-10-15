@@ -10,7 +10,7 @@ const state = vi.hoisted(() => ({
   metar: "EKCH 101220Z 24012KT CAVOK 12/10 Q1013",
   controllers: [{ callsign: "EKCH_AD_GND", position: "121.730", owned_sectors: ["AD"] }],
   position: "121.905", stripTransfers: {} as Record<string, { from?: string; to?: string }>,
-  closeTextPilotMenu: vi.fn(), markTextPilotReadback: vi.fn(), sendFrequencyMessage: vi.fn(),
+  openValidationDialog: vi.fn(), closeTextPilotMenu: vi.fn(), markTextPilotReadback: vi.fn(), sendFrequencyMessage: vi.fn(),
 }));
 vi.mock("@/store/store-hooks", () => ({ useWebSocketStore: (selector: (s: typeof state) => unknown) => selector(state) }));
 
@@ -125,6 +125,14 @@ describe("text pilot composer", () => {
   it("discards staged actions on ESC", () => {
     render(<TextPilotDialog />); fireEvent.click(screen.getByRole("button", { name: "ESC" }));
     expect(state.closeTextPilotMenu).toHaveBeenCalledOnce(); expect(state.sendFrequencyMessage).not.toHaveBeenCalled();
+  });
+  it("closes push instructions and opens validation if timing changes before SEND", async () => {
+    state.textPilotDraft = { callsign: "SAS123", variant: "push", point: "J4" };
+    state.sendFrequencyMessage.mockResolvedValueOnce({ submitted: false, validation_blocked: true, applied_actions: 0 });
+    render(<TextPilotDialog />);
+    fireEvent.click(screen.getByRole("button", { name: "SEND" }));
+    await waitFor(() => expect(state.openValidationDialog).toHaveBeenCalledWith("SAS123"));
+    expect(state.closeTextPilotMenu).toHaveBeenCalledOnce();
   });
   it("retains text on failure and retries without already-applied actions", async () => {
     state.sendFrequencyMessage.mockResolvedValueOnce({ submitted: false, applied_actions: 1, error: "Input busy" });

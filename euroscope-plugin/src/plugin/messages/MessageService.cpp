@@ -52,6 +52,17 @@ namespace FlightStrips::messages {
         }
     }
 
+    void MessageService::OnTimer(int) {
+        if (!m_pendingFrequencyMessage) return;
+        const auto outcome = PrivateMessageSender::PollFrequencySubmission(m_pendingFrequencyMessage->submission);
+        if (!outcome) return;
+        auto result = m_pendingFrequencyMessage->result;
+        m_pendingFrequencyMessage.reset();
+        result.error = *outcome;
+        result.submitted = result.error.empty();
+        m_webSocketService->SendEvent(result);
+    }
+
     void MessageService::OnMessages(const std::vector<std::string> &messages) {
         for (const auto &message: messages) {
             HandleMessage(message);
@@ -105,6 +116,7 @@ namespace FlightStrips::messages {
             HANDLE_PROTO(kCreateFpl, create_fpl, CreateFPLEvent, HandleCreateFPLEvent, EVENT_CREATE_FPL_NAME)
             HANDLE_PROTO(kPdcStateChange, pdc_state_change, PdcStateChangeEvent, HandlePdcStateChangeEvent, EVENT_PDC_STATE_CHANGE_NAME)
             HANDLE_PROTO(kSendPrivateMessage, send_private_message, SendPrivateMessageEvent, HandleSendPrivateMessageEvent, EVENT_SEND_PRIVATE_MESSAGE_NAME)
+            HANDLE_PROTO(kSendFrequencyMessage, send_frequency_message, SendFrequencyMessageEvent, HandleSendFrequencyMessageEvent, EVENT_SEND_FREQUENCY_MESSAGE_NAME)
             HANDLE_PROTO(kHold, hold, HoldEvent, HandleHoldEvent, EVENT_HOLD_NAME)
             HANDLE_PROTO(kFsScratchPad, fs_scratch_pad, FsScratchPadEvent, HandleFsScratchPad, EVENT_FS_SCRATCH_PAD_NAME)
             HANDLE_PROTO(kTrackingControllerChanged, tracking_controller_changed, TrackingControllerChangedEvent, HandleTrackingControllerChangedEvent, EVENT_TRACKING_CONTROLLER_CHANGED_NAME)
@@ -244,7 +256,7 @@ namespace FlightStrips::messages {
                     latitude, longitude, altitude
                 },
                 stand,
-                {flightPlanData.GetCommunicationType()},
+                flightplan::FlightPlanService::ResolveCommunicationType(flightPlanData.GetCommunicationType(), controllerAssignedData.GetCommunicationType()),
                 flightPlanData.GetCapibilities() == 0 ? "?" : std::string {flightPlanData.GetCapibilities()},
                 std::string(flightPlanData.GetEstimatedDepartureTime()),
                 isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : "",
@@ -605,6 +617,25 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
     void MessageService::HandleSendPrivateMessageEvent(const SendPrivateMessageEvent &event) const {
         Logger::Info("Sending private message to {}: {}", event.callsign, event.message);
         PrivateMessageSender::SendPrivateMessage(event.callsign, event.message);
+    }
+
+    void MessageService::HandleSendFrequencyMessageEvent(const SendFrequencyMessageEvent& event) const {
+        FrequencyMessageResultEvent result;
+        result.request_id = event.request_id;
+        result.callsign = event.callsign;
+        result.applied_actions = event.applied_actions;
+        if (m_pendingFrequencyMessage) {
+            result.error = "Another frequency message is awaiting EuroScope confirmation";
+            m_webSocketService->SendEvent(result);
+            return;
+        }
+        PendingFrequencySubmission submission;
+        result.error = PrivateMessageSender::SendFrequencyMessage(*m_plugin, event.callsign, event.message, m_plugin->GetFrequencyMessageKey(), event.primary_frequency, submission);
+        if (!result.error.empty()) {
+            m_webSocketService->SendEvent(result);
+            return;
+        }
+        m_pendingFrequencyMessage = PendingFrequencyMessage{submission, result};
     }
 
     void MessageService::HandleTrackingControllerChangedEvent(const TrackingControllerChangedEvent& event) const {

@@ -54,6 +54,8 @@
 #define EVENT_ISSUE_PDC_CLEARANCE_NAME "issue_pdc_clearance"
 #define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
 #define EVENT_SEND_PRIVATE_MESSAGE_NAME "send_private_message"
+#define EVENT_SEND_FREQUENCY_MESSAGE_NAME "send_frequency_message"
+#define EVENT_FREQUENCY_MESSAGE_RESULT_NAME "frequency_message_result"
 #define EVENT_FS_SCRATCH_PAD_NAME "fs_scratch_pad"
 #define EVENT_HOLD_NAME "hold"
 #define EVENT_AMAN_GAIN_LOSS_NAME "aman_gain_loss"
@@ -115,6 +117,8 @@ enum EventType {
     EVENT_AMAN_GAIN_LOSS,
     EVENT_AMAN_ROUTE_FACT,
     EVENT_FS_SCRATCH_PAD,
+    EVENT_SEND_FREQUENCY_MESSAGE,
+    EVENT_FREQUENCY_MESSAGE_RESULT,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -168,6 +172,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                  {EVENT_ISSUE_PDC_CLEARANCE, EVENT_ISSUE_PDC_CLEARANCE_NAME},
                                  {EVENT_PDC_REVERT_TO_VOICE, EVENT_PDC_REVERT_TO_VOICE_NAME},
                                  {EVENT_SEND_PRIVATE_MESSAGE, EVENT_SEND_PRIVATE_MESSAGE_NAME},
+                                 {EVENT_SEND_FREQUENCY_MESSAGE, EVENT_SEND_FREQUENCY_MESSAGE_NAME},
+                                 {EVENT_FREQUENCY_MESSAGE_RESULT, EVENT_FREQUENCY_MESSAGE_RESULT_NAME},
                              {EVENT_HOLD, EVENT_HOLD_NAME},
                              {EVENT_AMAN_GAIN_LOSS, EVENT_AMAN_GAIN_LOSS_NAME},
                              {EVENT_AMAN_ROUTE_FACT, EVENT_AMAN_ROUTE_FACT_NAME},
@@ -479,6 +485,9 @@ struct CommunicationTypeEvent final : Event {
     explicit
     CommunicationTypeEvent(std::string callsign, const char communicationType) : Event(EVENT_COMMUNICATION_TYPE),
         callsign(std::move(callsign)), communication_type({communicationType}) {
+    }
+    CommunicationTypeEvent(std::string callsign, std::string communicationType) : Event(EVENT_COMMUNICATION_TYPE),
+        callsign(std::move(callsign)), communication_type(std::move(communicationType)) {
     }
     CommunicationTypeEvent() = default;
 
@@ -1157,6 +1166,21 @@ struct SendPrivateMessageEvent final : Event {
         : Event(EVENT_SEND_PRIVATE_MESSAGE), callsign(std::move(callsign)), message(std::move(message)) {}
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SendPrivateMessageEvent, callsign, message, type);
+};
+
+
+struct SendFrequencyMessageEvent final : Event {
+    std::string request_id, callsign, message, primary_frequency;
+    int applied_actions = 0;
+    SendFrequencyMessageEvent() : Event(EVENT_SEND_FREQUENCY_MESSAGE) {}
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SendFrequencyMessageEvent, request_id, callsign, message, primary_frequency, applied_actions, type);
+};
+struct FrequencyMessageResultEvent final : Event {
+    std::string request_id, callsign, error;
+    bool submitted = false;
+    int applied_actions = 0;
+    FrequencyMessageResultEvent() : Event(EVENT_FREQUENCY_MESSAGE_RESULT) {}
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(FrequencyMessageResultEvent, request_id, callsign, submitted, error, applied_actions, type);
 };
 
 #endif //EVENTS_H

@@ -81,6 +81,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
 
   const props: StripProps = {
     callsign: strip.callsign,
+    communicationType: strip.communication_type,
     bay: strip.bay as Bay,
     pdcStatus: strip.pdc_state ?? ("NONE" as PdcStatus),
     destination: strip.destination,

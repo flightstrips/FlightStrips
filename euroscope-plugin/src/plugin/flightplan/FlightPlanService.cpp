@@ -31,6 +31,17 @@ namespace FlightStrips::flightplan {
         }
     }
 
+    std::string FlightPlanService::ResolveCommunicationType(char filed, char assigned) {
+        filed = static_cast<char>(std::toupper(static_cast<unsigned char>(filed)));
+        assigned = static_cast<char>(std::toupper(static_cast<unsigned char>(assigned)));
+        const auto supported = [](char value) { return value == 'T' || value == 'R' || value == 'V'; };
+        // EuroScope uses zero for an unassigned controller override. Never send
+        // that NUL byte; use the filed preference until an override is assigned.
+        if (supported(assigned)) return std::string(1, assigned);
+        if (supported(filed)) return std::string(1, filed);
+        return "";
+    }
+
     // Returns whether the hold changed; the scratch pad callback fires on edits
     // that have nothing to do with holding.
     bool ApplyHold(FlightPlan& plan, const TopSkyHold& hold, const std::string& eatPulse) {
@@ -310,7 +321,7 @@ namespace FlightStrips::flightplan {
                 position.m_Latitude, position.m_Longitude, radarPosition.GetPressureAltitude()
             },
             standName,
-            {flightPlanData.GetCommunicationType()},
+            ResolveCommunicationType(flightPlanData.GetCommunicationType(), controllerAssignedData.GetCommunicationType()),
             flightPlanData.GetCapibilities() == 0 ? "?" : std::string{flightPlanData.GetCapibilities()},
             std::string(flightPlanData.GetEstimatedDepartureTime()),
             isArrival ? GetEstimatedLandingTime(flightPlan) : "",
@@ -415,7 +426,7 @@ namespace FlightStrips::flightplan {
                 break;
             case EuroScopePlugIn::CTR_DATA_TYPE_COMMUNICATION_TYPE:
                 m_websocketService->SendEvent(
-                    CommunicationTypeEvent(callsign, flightPlan.GetControllerAssignedData().GetCommunicationType()));
+                    CommunicationTypeEvent(callsign, ResolveCommunicationType(flightPlan.GetFlightPlanData().GetCommunicationType(), flightPlan.GetControllerAssignedData().GetCommunicationType())));
                 break;
             case EuroScopePlugIn::CTR_DATA_TYPE_GROUND_STATE:
                 // TODO maybe get the ground state from topsky instead

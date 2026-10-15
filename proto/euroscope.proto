@@ -62,6 +62,8 @@ enum EventType {
   EVENT_AMAN_GAIN_LOSS = 51;
   EVENT_AMAN_ROUTE_FACT = 52;
   EVENT_FS_SCRATCH_PAD = 53;
+  EVENT_SEND_FREQUENCY_MESSAGE = 54;
+  EVENT_FREQUENCY_MESSAGE_RESULT = 55;
 }
 
 // Every websocket frame contains exactly one event. Using a oneof makes the
@@ -122,12 +124,15 @@ message Envelope {
     AMANGainLossEvent aman_gain_loss = 51;
     AMANRouteFactEvent aman_route_fact = 52;
     FsScratchPadEvent fs_scratch_pad = 53;
+    SendFrequencyMessageEvent send_frequency_message = 54;
+    FrequencyMessageResultEvent frequency_message_result = 55;
   }
 }
 
 message TokenEvent {
   string token = 1;
   string version = 2;
+  bool frequency_messages = 3;
 }
 
 message LoginEvent {
@@ -410,4 +415,20 @@ message AMANRouteFactEvent {
 message FsScratchPadEvent {
   string callsign = 1;
   string text = 2;
+}
+
+// Submitted means EuroScope accepted the command input, not pilot receipt.
+message SendFrequencyMessageEvent {
+  string request_id = 1;
+  string callsign = 2;
+  string message = 3;
+  string primary_frequency = 4;
+  int32 applied_actions = 5;
+}
+message FrequencyMessageResultEvent {
+  string request_id = 1;
+  string callsign = 2;
+  bool submitted = 3;
+  string error = 4;
+  int32 applied_actions = 5;
 }

@@ -38,6 +38,37 @@ TOBT within six minutes of now is unchanged. Without `rea`, the
 existing READY timing policy is unchanged. The returned CDM `status: "REA"`
 drives the flight-plan indication.
 
+## Text pilot frequency messages
+
+Frontend sends `send_frequency_message` with `request_id`, `callsign`, `message`,
+optional `actions`, `clearance` and `prepare`. `actions` is an ordered batch of
+existing operational events for the same aircraft. `clearance` generates text
+from the accepted strip. `prepare` accepts one stand/runway action and returns
+its state without sending text.
+
+```json
+{
+  "type": "send_frequency_message",
+  "request_id": "unique-request-id",
+  "callsign": "SAS123",
+  "message": "Taxi via TWY A, Hold short of TWY B.",
+  "actions": [{"type": "release_point", "callsign": "SAS123", "release_point": "A/B"}]
+}
+```
+
+The frontend receives `frequency_message_result`: `request_id`, `callsign`,
+`submitted`, `error` and `applied_actions`. Preparation responses also contain
+`prepared`, `stand` and `runway_confirmed`. `submitted` confirms EuroScope command
+consumption, not pilot receipt. Partial action counts prevent retrying accepted
+operations. No automatic text resend occurs after timeout or reconnect.
+
+EuroScope advertises token capability `frequency_messages` (protobuf field 3).
+Backend sends protobuf `SEND_FREQUENCY_MESSAGE` (54), including the controller's
+`primary_frequency`; the plugin responds with `FREQUENCY_MESSAGE_RESULT` (55).
+These events route to the same session/CID/position, never the session master.
+See the [behavior and acceptance specification](.github/specs/text-pilot-support.md).
+
+
 ## Frontend CDM de-icing platform
 
 Sent by: Frontend

@@ -176,6 +176,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.MissedApproachRequestType, handleMissedApproach)
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
 	handlers.Add(frontend.SendPrivateMessage, handleSendPrivateMessage)
+	handlers.Add(frontend.SendFrequencyMessage, handleSendFrequencyMessage)
 	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 	handlers.Add(frontend.UpdateRunwayStatus, handleUpdateRunwayStatus)
 	handlers.Add(frontend.AcknowledgeValidationStatus, handleAcknowledgeValidationStatus)
@@ -556,7 +557,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		SpokenCallsign:            helpers.ValueOrDefault(strip.SpokenCallsign),
 		Stand:                     helpers.ValueOrDefault(strip.Stand),
 		Capabilities:              rnav.EffectiveCapability(helpers.ValueOrDefault(strip.AircraftType), helpers.ValueOrDefault(strip.Remarks)),
-		CommunicationType:         helpers.ValueOrDefault(strip.CommunicationType),
+		CommunicationType:         internalModels.NormalizeCommunicationType(helpers.ValueOrDefault(strip.CommunicationType)),
 		Bay:                       strip.Bay,
 		ReleasePoint:              helpers.ValueOrDefault(strip.ReleasePoint),
 		Version:                   strip.Version,
@@ -1435,7 +1436,7 @@ func (hub *Hub) SendSetHeadingEventWithStrip(session int32, callsign string, hea
 func (hub *Hub) SendCommunicationTypeEvent(session int32, callsign string, communicationType string) {
 	event := frontend.CommunicationTypeEvent{
 		Callsign:          callsign,
-		CommunicationType: communicationType,
+		CommunicationType: internalModels.NormalizeCommunicationType(communicationType),
 	}
 	hub.Broadcast(session, event)
 }

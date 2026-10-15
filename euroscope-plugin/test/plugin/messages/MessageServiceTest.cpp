@@ -145,3 +145,48 @@ TEST(MessageServiceEventsTest, DropTrackingEventSerializesExpectedShape) {
     EXPECT_EQ(json.at("type").get<std::string>(), EVENT_DROP_TRACKING_NAME);
     EXPECT_EQ(json.at("callsign").get<std::string>(), "EIN123");
 }
+
+#include "messages/PrivateMessageSender.h"
+
+TEST(FrequencyKeyTest, NativeInputUsesOnlyNumpadMultiplyScanCode) {
+    const auto keys = FlightStrips::messages::PrivateMessageSender::NumpadMultiplyInputs();
+    ASSERT_EQ(keys.size(), 2u);
+    for (const auto& key : keys) {
+        EXPECT_EQ(key.type, static_cast<DWORD>(INPUT_KEYBOARD));
+        EXPECT_EQ(key.ki.wVk, 0); // scan-code input, not a typed character or VK_PACKET
+        EXPECT_EQ(key.ki.wScan, 0x37);
+        EXPECT_NE(key.ki.dwFlags & KEYEVENTF_SCANCODE, 0u);
+        EXPECT_EQ(key.ki.dwFlags & (KEYEVENTF_UNICODE | KEYEVENTF_EXTENDEDKEY), 0u);
+    }
+    EXPECT_EQ(keys[0].ki.dwFlags & KEYEVENTF_KEYUP, 0u);
+    EXPECT_NE(keys[1].ki.dwFlags & KEYEVENTF_KEYUP, 0u);
+}
+
+TEST(FrequencyKeyTest, WaitsForConsumptionBeforeReportingSubmission) {
+    using FlightStrips::messages::PrivateMessageSender;
+    const auto input = CreateWindowA("EDIT", "queued instruction", WS_POPUP, 0, 0, 100, 20,
+        nullptr, nullptr, GetModuleHandleA(nullptr), nullptr);
+    ASSERT_NE(input, nullptr);
+    const FlightStrips::messages::PendingFrequencySubmission pending{input, 1000};
+    EXPECT_FALSE(PrivateMessageSender::PollFrequencySubmission(pending, 1000).has_value());
+    EXPECT_FALSE(PrivateMessageSender::PollFrequencySubmission(pending, 2999).has_value());
+    SetWindowTextA(input, "");
+    const auto result = PrivateMessageSender::PollFrequencySubmission(pending, 1500);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+    DestroyWindow(input);
+}
+
+TEST(FrequencyKeyTest, TimeoutLeavesControllerInputIntactWithoutResending) {
+    using FlightStrips::messages::PrivateMessageSender;
+    const auto input = CreateWindowA("EDIT", "queued instruction", WS_POPUP, 0, 0, 100, 20,
+        nullptr, nullptr, GetModuleHandleA(nullptr), nullptr);
+    ASSERT_NE(input, nullptr);
+    const FlightStrips::messages::PendingFrequencySubmission pending{input, 1000};
+    const auto result = PrivateMessageSender::PollFrequencySubmission(pending, 3000);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result->empty());
+    EXPECT_EQ(GetWindowTextLengthA(input), 18);
+    DestroyWindow(input);
+    EXPECT_FALSE(PrivateMessageSender::PollFrequencySubmission(pending, 3100)->empty());
+}

@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import { AircraftTypeLabel, COLOR_UNEXPECTED_YELLOW, getValidationBlockedCursor } from "./shared";
@@ -51,6 +52,7 @@ const F_SID_DEST   = 80;
 // -----------------------------------------------------------------------------
 
 export function TwyDepStrip({
+  communicationType,
   callsign,
   bay,
   pdcStatus,
@@ -177,11 +179,12 @@ export function TwyDepStrip({
 
       {/* Callsign; top 2/3 = callsign, bottom 1/3 = :freq */}
       <div
-        className="flex flex-col border-r-2 min-w-0 cursor-pointer"
+        className="relative flex flex-col border-r-2 min-w-0 cursor-pointer"
         style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
+        <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
         <div
           className="flex items-center pl-[0.42vw] overflow-hidden"
           style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}

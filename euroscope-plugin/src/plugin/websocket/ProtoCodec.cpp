@@ -99,6 +99,7 @@ namespace FlightStrips::websocket::protobuf {
             auto* payload = envelope.mutable_token();
             payload->set_token(value.token);
             payload->set_version(value.version);
+            payload->set_frequency_messages(true);
             break;
         }
         case EVENT_LOGIN: {
@@ -214,6 +215,16 @@ namespace FlightStrips::websocket::protobuf {
         ENCODE_TWO(EVENT_ISSUE_PDC_CLEARANCE, IssuePdcClearanceEvent, issue_pdc_clearance, callsign, remarks)
         ENCODE_ONE(EVENT_PDC_REVERT_TO_VOICE, PdcRevertToVoiceEvent, pdc_revert_to_voice, callsign)
         ENCODE_TWO(EVENT_SEND_PRIVATE_MESSAGE, SendPrivateMessageEvent, send_private_message, callsign, message)
+        case EVENT_FREQUENCY_MESSAGE_RESULT: {
+            const auto& value = static_cast<const FrequencyMessageResultEvent&>(event);
+            auto* payload = envelope.mutable_frequency_message_result();
+            payload->set_request_id(value.request_id);
+            payload->set_callsign(value.callsign);
+            payload->set_submitted(value.submitted);
+            payload->set_error(value.error);
+            payload->set_applied_actions(value.applied_actions);
+            break;
+        }
         default:
             throw std::runtime_error("unsupported protobuf event type");
         }
@@ -262,6 +273,11 @@ namespace FlightStrips::websocket::protobuf {
     DECODE_ONE(DropTrackingEvent, DropTrackingEvent, callsign)
     DECODE_TWO(TrackingControllerChangedEvent, TrackingControllerChangedEvent, callsign, tracking_controller)
     DECODE_TWO(SendPrivateMessageEvent, SendPrivateMessageEvent, callsign, message)
+    void Decode(const wire::SendFrequencyMessageEvent& source, SendFrequencyMessageEvent& target) {
+        target.request_id = source.request_id(); target.callsign = source.callsign();
+        target.message = source.message(); target.primary_frequency = source.primary_frequency();
+        target.applied_actions = source.applied_actions();
+    }
 
     void Decode(const wire::HoldEvent& source, HoldEvent& target) {
 		target.callsign = source.callsign();

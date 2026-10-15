@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import type { StripProps } from "./types";
 import { getStripBg } from "./types";
@@ -15,6 +16,7 @@ const F_STAND    = 25 * (1 / 2);
 const FONT_SIZE = "0.63vw";
 
 export function ClxHalfStrip({
+  communicationType,
   callsign,
   bay,
   aircraftType,
@@ -54,9 +56,10 @@ export function ClxHalfStrip({
 
         {/* Callsign — 25% */}
         <div
-          className="flex flex-col overflow-hidden border-r-2"
+          className="relative flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: stripFrameColor }}
         >
+          <TextPilotIndicator type={communicationType} borderColor={stripFrameColor} />
           <div className="flex items-center pl-[0.42vw]" style={{ height: "100%" }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: FONT_SIZE }}>
               {callsign}

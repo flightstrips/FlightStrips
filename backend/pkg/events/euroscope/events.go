@@ -61,6 +61,8 @@ const (
 	Hold                      = EventType_EVENT_HOLD
 	AMANGainLoss              = EventType_EVENT_AMAN_GAIN_LOSS
 	AMANRouteFact             = EventType_EVENT_AMAN_ROUTE_FACT
+	SendFrequencyMessage      = EventType_EVENT_SEND_FREQUENCY_MESSAGE
+	FrequencyMessageResult    = EventType_EVENT_FREQUENCY_MESSAGE_RESULT
 	FsScratchPad              = EventType_EVENT_FS_SCRATCH_PAD
 )
 
@@ -325,3 +327,9 @@ func (e HoldEvent) Marshal() ([]byte, error) {
 
 func (e FsScratchPadEvent) GetType() EventType       { return FsScratchPad }
 func (e FsScratchPadEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
+
+func (e SendFrequencyMessageEvent) GetType() EventType       { return SendFrequencyMessage }
+func (e SendFrequencyMessageEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
+
+func (e FrequencyMessageResultEvent) GetType() EventType       { return FrequencyMessageResult }
+func (e FrequencyMessageResultEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }

@@ -48,7 +48,28 @@ TEST(ProtoCodecTest, SerializesTokenAsOneofEnvelope) {
     EXPECT_EQ(envelope.event_case(), protobuf::wire::Envelope::kToken);
     EXPECT_EQ(envelope.token().token(), "access-token");
     EXPECT_EQ(envelope.token().version(), "2.4.0");
+    EXPECT_TRUE(envelope.token().frequency_messages());
     EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_TOKEN);
+}
+
+TEST(ProtoCodecTest, DecodesFrequencyMessageAndAcknowledgesSubmission) {
+    protobuf::wire::SendFrequencyMessageEvent source;
+    source.set_request_id("request-1"); source.set_callsign("SAS123");
+    source.set_message("Taxi via TWY A."); source.set_primary_frequency("121.905"); source.set_applied_actions(2);
+    SendFrequencyMessageEvent decoded;
+    protobuf::Decode(source, decoded);
+    EXPECT_EQ(decoded.request_id, "request-1"); EXPECT_EQ(decoded.callsign, "SAS123");
+    EXPECT_EQ(decoded.message, "Taxi via TWY A."); EXPECT_EQ(decoded.primary_frequency, "121.905"); EXPECT_EQ(decoded.applied_actions, 2);
+    FrequencyMessageResultEvent result;
+    result.request_id = decoded.request_id; result.callsign = decoded.callsign;
+    result.applied_actions = decoded.applied_actions; result.submitted = false; result.error = "Command input busy";
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(result), envelope));
+    EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_FREQUENCY_MESSAGE_RESULT);
+    EXPECT_EQ(envelope.frequency_message_result().request_id(), "request-1");
+    EXPECT_EQ(envelope.frequency_message_result().applied_actions(), 2);
+    EXPECT_FALSE(envelope.frequency_message_result().submitted());
+    EXPECT_EQ(envelope.frequency_message_result().error(), "Command input busy");
 }
 
 TEST(ProtoCodecTest, SerializesLoginPayloadWithoutASeparateTypeHeader) {

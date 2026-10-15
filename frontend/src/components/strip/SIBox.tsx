@@ -1,3 +1,5 @@
+import { isTextPilot, stationController, TEXT_STATIONS } from "@/lib/text-pilot";
+import { Bay } from "@/api/models";
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
 import { getSIBoxBorderStyle, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership } from "./shared";
@@ -50,6 +52,11 @@ export function SIBox({
   hideLabel?: boolean;
 }) {
   const controllers = useControllers();
+  const strip = useWebSocketStore(s => s.strips.find(s => s.callsign === callsign));
+  const openTextPilotMenu = useWebSocketStore(s => s.openTextPilotMenu);
+  const readbacks = useWebSocketStore(s => s.textPilotReadbacks);
+  const layout = useWebSocketStore(s => s.displayedLayout || s.layout);
+  const ownCallsign = useWebSocketStore(s => s.callsign);
   const transferStrip = useWebSocketStore(s => s.transferStrip);
   const startRequestAndTransfer = useWebSocketStore(s => s.startRequestAndTransfer);
   const assumeStrip = useWebSocketStore(s => s.assumeStrip);
@@ -84,9 +91,25 @@ export function SIBox({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isStand) {
+    if (isTextPilot(strip) && !isReceivingTransfer && !isTagRequestOwner && !isTagRequestRequester) {
+      const initialSelected: string[] = [];
+      const readbackKey = `${ownCallsign}:${callsign}`;
+      const seq = /SEQ|PLN/.test(layout);
+      const del = layout === "CLX" || /CLR|DEL/.test(layout);
+      if (seq && !readbacks[readbackKey]) initialSelected.push("readback");
+      else {
+        if (del && bay === Bay.Cleared) initialSelected.push("readback");
+        const nextFreq = nextDisplay?.frequency || nextControllers?.find(p => p !== myPosition);
+        if (isAssumed && nextFreq && TEXT_STATIONS.some(s => s.frequency === nextFreq)) initialSelected.push(`freq:${nextFreq}`);
+        if (del && bay === Bay.Cleared && stationController("121.905", controllers)) {
+          initialSelected.splice(initialSelected.findIndex(id => id.startsWith("freq:")) < 0 ? initialSelected.length : initialSelected.findIndex(id => id.startsWith("freq:")), 1);
+          initialSelected.push("freq:121.905");
+        }
+      }
+      openTextPilotMenu({ callsign, variant: "si", initialSelected, readbackKey: seq ? readbackKey : undefined, startRequestTransfer: startRequestTransfer });
       return;
     }
+    if (isStand) return;
     if (isTagRequestOwner) {
       acceptTagRequest(callsign);
     } else if (isReceivingTransfer || isUnownedAndNext) {
@@ -102,7 +125,7 @@ export function SIBox({
     }
   };
 
-  const isClickable = !isStand && (isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner));
+  const isClickable = (isTextPilot(strip) || !isStand && ( isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner)));
 
   let background: string;
   if (isStand) {

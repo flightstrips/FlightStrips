@@ -64,10 +64,12 @@ const (
 
 	LayoutUpdate = "layout_update"
 
-	Broadcast          EventType = "broadcast"
-	SendMessage        EventType = "send_message"
-	SendPrivateMessage EventType = "send_private_message"
-	MessageReceived    EventType = "message_received"
+	Broadcast              EventType = "broadcast"
+	SendMessage            EventType = "send_message"
+	SendPrivateMessage     EventType = "send_private_message"
+	SendFrequencyMessage   EventType = "send_frequency_message"
+	FrequencyMessageResult EventType = "frequency_message_result"
+	MessageReceived        EventType = "message_received"
 
 	CdmWait                EventType = "cdm_wait"
 	CdmData                EventType = "cdm_data"

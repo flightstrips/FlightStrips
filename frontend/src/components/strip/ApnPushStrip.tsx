@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import type { StripProps } from "./types";
@@ -60,6 +61,7 @@ const FONT = "var(--font-bay)";
  * Background: cyan (var(--color-strip-dep-bg)).
  */
 export function ApnPushStrip({
+  communicationType,
   callsign,
   bay,
   pdcStatus,
@@ -175,10 +177,11 @@ export function ApnPushStrip({
 
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
         <div
-          className="flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
+          className="relative flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48dvh", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
+          <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
           <AircraftTypeLabel className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
           <span className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw" }}>{registration}</span>
         </div>

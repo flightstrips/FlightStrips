@@ -1,3 +1,4 @@
+import { TextPilotDialog } from "@/components/text-pilot/TextPilotDialog";
 import { useAuth0 } from "@auth0/auth0-react";
 import { WebSocketProvider } from "@/providers/websocket-provider";
 import { VacsProvider } from "@/providers/vacs-provider";
@@ -50,6 +51,7 @@ export default function AppPage() {
           <div>
             <AppRouter />
             <CommandBar />
+            <TextPilotDialog />
             <ContextMenuOverlay />
             <ValidationStatusDialogOverlay />
             {/* <CustomCursor /> */}

@@ -1,3 +1,4 @@
+import { isTextPilot, textTaxiActions } from "@/lib/text-pilot";
 import { useWebSocketStore, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
 import { APRON_TAXI_POINTS, COORDINATION_APRON_TAXI_POINTS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
@@ -29,6 +30,7 @@ export function ApronTaxiMapDialog({
   noMove = false,
   coordinationMode = false,
 }: ApronTaxiMapDialogProps) {
+  const openTextPilotMenu = useWebSocketStore(s => s.openTextPilotMenu);
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const move = useWebSocketStore((s) => s.move);
@@ -37,12 +39,20 @@ export function ApronTaxiMapDialog({
   const twrOnline = useTwrOnline();
   const isTwr = useIsTwr();
   const strip = useStrip(callsign);
+  const airport = useWebSocketStore(s => s.airport);
   const myPosition = useMyPosition();
 
   const shouldAcknowledgeReleasePoint =
     strip?.unexpected_change_fields?.includes("release_point") && !!myPosition && strip.owner === myPosition;
 
   const handleSelect = (label: string) => {
+    if (isTextPilot(strip)) {
+      const splitOps = apronOnline || twrOnline;
+      const soloTwr = isTwr && !apronOnline;
+      const targetBay = noMove ? undefined : (soloTwr || (splitOps && LWR_HOLD_POINTS.has(label))) ? Bay.TaxiLwr : Bay.Taxi;
+      openTextPilotMenu({ callsign, variant: strip?.destination === airport && strip?.origin !== airport ? "apron-in" : "apron-out", point: label, actions: textTaxiActions(callsign, label, targetBay, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
+      return;
+    }
     if (label !== strip?.release_point) {
       setReleasePoint(callsign, label);
     }

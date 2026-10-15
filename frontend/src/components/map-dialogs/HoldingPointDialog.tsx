@@ -1,3 +1,4 @@
+import { isTextPilot, textTaxiActions } from "@/lib/text-pilot";
 import { useMyPosition, useStrip, useWebSocketStore } from "@/store/store-hooks";
 import { HOLDING_POINT_RUNWAYS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapCloseButton, MapDialogShell } from "./MapDialogShell";
@@ -18,6 +19,7 @@ export function HoldingPointDialog({
   runway,
   coordinationMode = false,
 }: HoldingPointDialogProps) {
+  const openTextPilotMenu = useWebSocketStore(s => s.openTextPilotMenu);
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const strip = useStrip(callsign);
@@ -40,6 +42,10 @@ export function HoldingPointDialog({
     && strip.owner === myPosition;
 
   const handleSelect = (label: string) => {
+    if (isTextPilot(strip)) {
+      openTextPilotMenu({ callsign, variant: "tower-out", point: label, holdingPoint: true, actions: textTaxiActions(callsign, label, undefined, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
+      return;
+    }
     if (label !== strip?.release_point) {
       setReleasePoint(callsign, label);
     }

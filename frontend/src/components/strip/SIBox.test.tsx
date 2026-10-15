@@ -1,16 +1,26 @@
 import { fireEvent, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { FrontendController } from "@/api/models";
 import { SIBox } from "./SIBox";
 
+const state = vi.hoisted(() => ({
+  strips: [] as { callsign: string; communication_type: string }[],
+  controllers: [] as FrontendController[],
+  textPilotReadbacks: {} as Record<string, boolean>, layout: "", displayedLayout: "", callsign: "EKCH_GND",
+}));
+const openTextPilotMenu = vi.hoisted(() => vi.fn());
+const assumeStrip = vi.hoisted(() => vi.fn());
 const transferStrip = vi.hoisted(() => vi.fn());
 const startRequestAndTransfer = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 
 vi.mock("@/store/store-hooks", () => ({
-  useControllers: () => [],
+  useControllers: () => state.controllers,
   useWebSocketStore: (selector: (state: Record<string, unknown>) => unknown) => selector({
+    ...state,
+    openTextPilotMenu,
     transferStrip,
     startRequestAndTransfer,
-    assumeStrip: vi.fn(),
+    assumeStrip,
     cancelTransfer: vi.fn(),
     acceptTagRequest: vi.fn(),
   }),
@@ -18,6 +28,8 @@ vi.mock("@/store/store-hooks", () => ({
 
 describe("startup SI transfer", () => {
   beforeEach(() => {
+    state.strips = []; state.controllers = []; state.layout = ""; state.textPilotReadbacks = {};
+    openTextPilotMenu.mockClear(); assumeStrip.mockClear();
     transferStrip.mockClear();
     startRequestAndTransfer.mockClear();
   });
@@ -53,5 +65,41 @@ describe("startup SI transfer", () => {
     fireEvent.click(container.firstElementChild!);
     expect(transferStrip).toHaveBeenCalledWith("SAS123", "121.730");
     expect(startRequestAndTransfer).not.toHaveBeenCalled();
+  });
+});
+
+describe("text-pilot SI entry points", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    state.strips = [{ callsign: "SAS123", communication_type: "T" }];
+    state.controllers = []; state.layout = ""; state.textPilotReadbacks = {};
+  });
+  it.each(["121.905", "121.730", ""])("opens the text menu with owner=%s without an immediate transfer", owner => {
+    const { container } = render(<SIBox callsign="SAS123" owner={owner} myPosition="121.905" nextControllers={["121.730"]} />);
+    fireEvent.click(container.firstElementChild!);
+    expect(openTextPilotMenu).toHaveBeenCalledWith(expect.objectContaining({ variant: "si" }));
+    expect(transferStrip).not.toHaveBeenCalled(); expect(assumeStrip).not.toHaveBeenCalled();
+  });
+  it("assumes an incoming transfer without opening the text menu", () => {
+    const { container } = render(<SIBox callsign="SAS123" owner="121.730" myPosition="121.905" transferFrom="121.730" transferringTo="121.905" />);
+    fireEvent.click(container.firstElementChild!);
+    expect(assumeStrip).toHaveBeenCalledWith("SAS123"); expect(openTextPilotMenu).not.toHaveBeenCalled();
+  });
+  it("preselects readback only on the first SEQ/PLN submission", () => {
+    state.layout = "SEQPLN";
+    const props = { callsign: "SAS123", owner: "121.905", myPosition: "121.905", nextControllers: ["121.730"] };
+    const { container, rerender } = render(<SIBox {...props} />);
+    fireEvent.click(container.firstElementChild!);
+    expect(openTextPilotMenu).toHaveBeenLastCalledWith(expect.objectContaining({ initialSelected: ["readback"], readbackKey: "EKCH_GND:SAS123" }));
+    state.textPilotReadbacks["EKCH_GND:SAS123"] = true;
+    rerender(<SIBox {...props} />); fireEvent.click(container.firstElementChild!);
+    expect(openTextPilotMenu).toHaveBeenLastCalledWith(expect.objectContaining({ initialSelected: ["freq:121.730"] }));
+  });
+  it("preselects readback and covered apron in delivery's cleared bay", () => {
+    state.layout = "CLX";
+    state.controllers = [{ callsign: "EKCH_TWR", position: "118.105", owned_sectors: ["SEQ"] }] as FrontendController[];
+    const { container } = render(<SIBox callsign="SAS123" bay="CLEARED" owner="121.905" myPosition="121.905" />);
+    fireEvent.click(container.firstElementChild!);
+    expect(openTextPilotMenu).toHaveBeenCalledWith(expect.objectContaining({ initialSelected: ["readback", "freq:121.905"] }));
   });
 });

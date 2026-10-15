@@ -110,6 +110,7 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 	}
 
 	client.SetUser(user)
+	client.frequencyMessages.Store(event.FrequencyMessages)
 	if version := strings.TrimSpace(event.Version); version != "" {
 		client.version = version
 	}

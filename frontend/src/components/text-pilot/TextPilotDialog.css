@@ -1,0 +1,72 @@
+/* Rubik is registered under a feature-specific family to preserve other views.
+   Source: google/fonts ofl/rubik; license: fonts/OFL.txt. */
+@font-face {
+  font-family: "FlightStrips Text Pilot";
+  src: url("./fonts/Rubik.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+.fs-text-pilot-dialog {
+  z-index: 60;
+  width: min(90vw, 105dvh); max-width: none; max-height: 94dvh; overflow-y: auto;
+  display: block; border: 1px solid black; border-radius: 0; padding: 2.5%;
+  background: #e4e4e4; color: #000; font-family: "FlightStrips Text Pilot", sans-serif;
+}
+.fs-text-pilot-outline { border: 1px solid black; padding: 1.3vw; }
+.fs-text-pilot-outline h2 { margin: 0 0 1.4vw; font-size: clamp(14px,1.4vw,24px); font-weight: 300; }
+.fs-text-pilot-editor { display: flex; gap: 1vw; margin-bottom: 1.4vw; }
+.fs-text-pilot-editor textarea { flex: 1; min-width: 0; min-height: 5.7vw; resize: vertical; background: #fff; color: #000; padding: .4vw; font-weight: 700; font-size: clamp(12px,.94vw,18px); }
+.fs-text-pilot-erase { width: 8vw; background: #ff6d4d; color: white; font-size: clamp(16px,1.7vw,32px); font-weight: 600; }
+.fs-text-pilot-button { min-height: 2.6vw; white-space: pre-line; padding: .3vw; font-size: clamp(12px,1.25vw,24px); font-weight: 400; line-height: 1.2; box-shadow: 2px 2px 4px #0004; }
+.fs-text-pilot-light { background: #d6d6d6; color: #000; }
+.fs-text-pilot-phrase { background: #918973; color: white; }
+.fs-text-pilot-point { background: #7a766e; color: white; }
+.fs-text-pilot-button[aria-pressed="true"] { background: #70ed45; color: #000; }
+.fs-text-pilot-button:disabled { opacity: .55; cursor: default; }
+.fs-text-pilot-phrases { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: .7vw; }
+.fs-text-pilot-dialog-push .fs-text-pilot-phrases { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.fs-text-pilot-si { display: grid; grid-template-columns: 1fr 1.6fr; gap: 1.5vw; }
+.fs-text-pilot-si-phrases { display: grid; gap: 1vw; }
+.fs-text-pilot-si-stations { display: grid; grid-template-columns: 1fr 1fr; gap: .7vw; }
+.fs-text-pilot-contact { grid-column: span 2; background: #9e989c; color: white; text-align: center; font-size: 1.25vw; }
+.fs-text-pilot-contact[data-selected="true"] { background: #70ed45; color: black; }
+.fs-text-pilot-runway { display: grid; gap: 1.6vw; }
+.fs-text-pilot-runway-instructions { display: grid; grid-template-columns: repeat(4,1fr); gap: .8vw; }
+.fs-text-pilot-runway-instructions button { min-height: 4vw; }
+.fs-text-pilot-runways { display: grid; grid-template-columns: repeat(6,1fr); gap: .8vw; }
+.fs-text-pilot-runways button { min-height: 3.5vw; }
+.fs-text-pilot-runway-extras { display: grid; grid-template-columns: 1fr 1fr; gap: .6vw; }
+.fs-text-pilot-actions { display: flex; justify-content: center; gap: 1vw; margin-top: 1vw; }
+.fs-text-pilot-actions button { background: #3f3f3f; color: white; min-width: 11vw; padding: .3vw 1vw; font-size: clamp(18px,1.7vw,32px); font-weight: 600; }
+.fs-text-pilot-error { color: #a00; font-size: 1vw; margin-top: .8vw; }
+.fs-text-pilot-dialog button:disabled { cursor: default; opacity: .55; }
+.fs-text-pilot-dialog button:focus-visible { outline: 2px solid black; outline-offset: 2px; }
+
+/* Geometry from the recovered Figma storyboards, scaled as one frame. */
+.fs-text-pilot-storyboard { padding: 0; overflow: visible; }
+.fs-text-pilot-stage { position: relative; width: 100%; container-type: inline-size; }
+.fs-text-pilot-frame { position: absolute; border: 1px solid black; pointer-events: none; }
+.fs-text-pilot-stage .fs-text-pilot-stage-title { position: absolute; left: 6%; top: 6.8%; width: 88%; text-align: center; font-size: 1.73cqw; font-weight: 300; display: flex; align-items: center; justify-content: center; }
+.fs-text-pilot-stage-editor { background: white; color: black; font-weight: 700; padding: .7cqw; resize: none; }
+.fs-text-pilot-stage-action { background: #3f3f3f; color: white; font-weight: 600; }
+.fs-text-pilot-stage .fs-text-pilot-button { min-height: 0; padding: .3cqw; }
+.fs-text-pilot-stage-error { position: absolute; bottom: 0; left: 4%; width: 92%; color: #a00; background: #e4e4e4; font-size: 1.25cqw; }
+
+.fs-text-pilot-stage-group { display: flex; align-items: center; justify-content: center; text-align: center; }
+.fs-text-pilot-station-name { display: block; font-size: .83333em; font-weight: 600; }
+.fs-text-pilot-station-frequency { display: block; font-weight: 500; }
+
+.fs-text-pilot-stage .fs-text-pilot-button { box-shadow: none; }
+
+.fs-text-pilot-stage .fs-text-pilot-station { padding: 0; }
+.fs-text-pilot-stage .fs-text-pilot-station > span { height: 50%; display: flex; align-items: center; justify-content: center; }
+
+/* Tower-out geometry is supplied by the user export; text stays native. */
+.fs-text-pilot-dialog-tower-out .fs-text-pilot-stage button,
+.fs-text-pilot-dialog-tower-out .fs-text-pilot-stage-editor { box-shadow: 0 2px 4px #0004; }
+
+.fs-text-pilot-dialog-tower-out .fs-text-pilot-stage-editor { padding-top: calc(3.4597cqw - .6em); line-height: 1.2; }
+
+.fs-text-pilot-divider { pointer-events: none; }

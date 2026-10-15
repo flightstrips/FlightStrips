@@ -163,6 +163,9 @@ extern EnvelopeDefaultTypeInternal _Envelope_default_instance_;
 class EobtEvent;
 struct EobtEventDefaultTypeInternal;
 extern EobtEventDefaultTypeInternal _EobtEvent_default_instance_;
+class FrequencyMessageResultEvent;
+struct FrequencyMessageResultEventDefaultTypeInternal;
+extern FrequencyMessageResultEventDefaultTypeInternal _FrequencyMessageResultEvent_default_instance_;
 class FsScratchPadEvent;
 struct FsScratchPadEventDefaultTypeInternal;
 extern FsScratchPadEventDefaultTypeInternal _FsScratchPadEvent_default_instance_;
@@ -211,6 +214,9 @@ extern RunwayEventDefaultTypeInternal _RunwayEvent_default_instance_;
 class RunwayMismatchAlertEvent;
 struct RunwayMismatchAlertEventDefaultTypeInternal;
 extern RunwayMismatchAlertEventDefaultTypeInternal _RunwayMismatchAlertEvent_default_instance_;
+class SendFrequencyMessageEvent;
+struct SendFrequencyMessageEventDefaultTypeInternal;
+extern SendFrequencyMessageEventDefaultTypeInternal _SendFrequencyMessageEvent_default_instance_;
 class SendPrivateMessageEvent;
 struct SendPrivateMessageEventDefaultTypeInternal;
 extern SendPrivateMessageEventDefaultTypeInternal _SendPrivateMessageEvent_default_instance_;
@@ -310,6 +316,8 @@ enum EventType : int {
   EVENT_AMAN_GAIN_LOSS = 51,
   EVENT_AMAN_ROUTE_FACT = 52,
   EVENT_FS_SCRATCH_PAD = 53,
+  EVENT_SEND_FREQUENCY_MESSAGE = 54,
+  EVENT_FREQUENCY_MESSAGE_RESULT = 55,
   EventType_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   EventType_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -319,8 +327,8 @@ enum EventType : int {
 bool EventType_IsValid(int value);
 extern const uint32_t EventType_internal_data_[];
 constexpr EventType EventType_MIN = static_cast<EventType>(0);
-constexpr EventType EventType_MAX = static_cast<EventType>(53);
-constexpr int EventType_ARRAYSIZE = 53 + 1;
+constexpr EventType EventType_MAX = static_cast<EventType>(55);
+constexpr int EventType_ARRAYSIZE = 55 + 1;
 const std::string& EventType_Name(EventType value);
 template <typename T>
 const std::string& EventType_Name(T value) {
@@ -620,6 +628,7 @@ class TokenEvent final : public ::google::protobuf::MessageLite
   enum : int {
     kTokenFieldNumber = 1,
     kVersionFieldNumber = 2,
+    kFrequencyMessagesFieldNumber = 3,
   };
   // string token = 1;
   void clear_token() ;
@@ -653,12 +662,22 @@ class TokenEvent final : public ::google::protobuf::MessageLite
   std::string* _internal_mutable_version();
 
   public:
+  // bool frequency_messages = 3;
+  void clear_frequency_messages() ;
+  bool frequency_messages() const;
+  void set_frequency_messages(bool value);
+
+  private:
+  bool _internal_frequency_messages() const;
+  void _internal_set_frequency_messages(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.TokenEvent)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      1, 2, 0,
+      2, 3, 0,
       57, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -676,6 +695,7 @@ class TokenEvent final : public ::google::protobuf::MessageLite
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr token_;
     ::google::protobuf::internal::ArenaStringPtr version_;
+    bool frequency_messages_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -1702,6 +1722,228 @@ class SendPrivateMessageEvent final : public ::google::protobuf::MessageLite
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr callsign_;
     ::google::protobuf::internal::ArenaStringPtr message_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
+class SendFrequencyMessageEvent final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.SendFrequencyMessageEvent) */ {
+ public:
+  inline SendFrequencyMessageEvent() : SendFrequencyMessageEvent(nullptr) {}
+  ~SendFrequencyMessageEvent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR SendFrequencyMessageEvent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline SendFrequencyMessageEvent(const SendFrequencyMessageEvent& from) : SendFrequencyMessageEvent(nullptr, from) {}
+  inline SendFrequencyMessageEvent(SendFrequencyMessageEvent&& from) noexcept
+      : SendFrequencyMessageEvent(nullptr, std::move(from)) {}
+  inline SendFrequencyMessageEvent& operator=(const SendFrequencyMessageEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SendFrequencyMessageEvent& operator=(SendFrequencyMessageEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const SendFrequencyMessageEvent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const SendFrequencyMessageEvent* internal_default_instance() {
+    return reinterpret_cast<const SendFrequencyMessageEvent*>(
+        &_SendFrequencyMessageEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 65;
+  friend void swap(SendFrequencyMessageEvent& a, SendFrequencyMessageEvent& b) { a.Swap(&b); }
+  inline void Swap(SendFrequencyMessageEvent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SendFrequencyMessageEvent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  SendFrequencyMessageEvent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<SendFrequencyMessageEvent>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const SendFrequencyMessageEvent& from);
+  void MergeFrom(const SendFrequencyMessageEvent& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(SendFrequencyMessageEvent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.SendFrequencyMessageEvent"; }
+
+ protected:
+  explicit SendFrequencyMessageEvent(::google::protobuf::Arena* arena);
+  SendFrequencyMessageEvent(::google::protobuf::Arena* arena, const SendFrequencyMessageEvent& from);
+  SendFrequencyMessageEvent(::google::protobuf::Arena* arena, SendFrequencyMessageEvent&& from) noexcept
+      : SendFrequencyMessageEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kRequestIdFieldNumber = 1,
+    kCallsignFieldNumber = 2,
+    kMessageFieldNumber = 3,
+    kPrimaryFrequencyFieldNumber = 4,
+    kAppliedActionsFieldNumber = 5,
+  };
+  // string request_id = 1;
+  void clear_request_id() ;
+  const std::string& request_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_request_id(Arg_&& arg, Args_... args);
+  std::string* mutable_request_id();
+  PROTOBUF_NODISCARD std::string* release_request_id();
+  void set_allocated_request_id(std::string* value);
+
+  private:
+  const std::string& _internal_request_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_request_id(
+      const std::string& value);
+  std::string* _internal_mutable_request_id();
+
+  public:
+  // string callsign = 2;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // string message = 3;
+  void clear_message() ;
+  const std::string& message() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_message(Arg_&& arg, Args_... args);
+  std::string* mutable_message();
+  PROTOBUF_NODISCARD std::string* release_message();
+  void set_allocated_message(std::string* value);
+
+  private:
+  const std::string& _internal_message() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_message(
+      const std::string& value);
+  std::string* _internal_mutable_message();
+
+  public:
+  // string primary_frequency = 4;
+  void clear_primary_frequency() ;
+  const std::string& primary_frequency() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_primary_frequency(Arg_&& arg, Args_... args);
+  std::string* mutable_primary_frequency();
+  PROTOBUF_NODISCARD std::string* release_primary_frequency();
+  void set_allocated_primary_frequency(std::string* value);
+
+  private:
+  const std::string& _internal_primary_frequency() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_primary_frequency(
+      const std::string& value);
+  std::string* _internal_mutable_primary_frequency();
+
+  public:
+  // int32 applied_actions = 5;
+  void clear_applied_actions() ;
+  ::int32_t applied_actions() const;
+  void set_applied_actions(::int32_t value);
+
+  private:
+  ::int32_t _internal_applied_actions() const;
+  void _internal_set_applied_actions(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 5, 0,
+      102, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr request_id_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::internal::ArenaStringPtr message_;
+    ::google::protobuf::internal::ArenaStringPtr primary_frequency_;
+    ::int32_t applied_actions_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -4486,6 +4728,222 @@ class FsScratchPadEvent final : public ::google::protobuf::MessageLite
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr callsign_;
     ::google::protobuf::internal::ArenaStringPtr text_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
+class FrequencyMessageResultEvent final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.FrequencyMessageResultEvent) */ {
+ public:
+  inline FrequencyMessageResultEvent() : FrequencyMessageResultEvent(nullptr) {}
+  ~FrequencyMessageResultEvent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR FrequencyMessageResultEvent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline FrequencyMessageResultEvent(const FrequencyMessageResultEvent& from) : FrequencyMessageResultEvent(nullptr, from) {}
+  inline FrequencyMessageResultEvent(FrequencyMessageResultEvent&& from) noexcept
+      : FrequencyMessageResultEvent(nullptr, std::move(from)) {}
+  inline FrequencyMessageResultEvent& operator=(const FrequencyMessageResultEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline FrequencyMessageResultEvent& operator=(FrequencyMessageResultEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const FrequencyMessageResultEvent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const FrequencyMessageResultEvent* internal_default_instance() {
+    return reinterpret_cast<const FrequencyMessageResultEvent*>(
+        &_FrequencyMessageResultEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 66;
+  friend void swap(FrequencyMessageResultEvent& a, FrequencyMessageResultEvent& b) { a.Swap(&b); }
+  inline void Swap(FrequencyMessageResultEvent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(FrequencyMessageResultEvent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  FrequencyMessageResultEvent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<FrequencyMessageResultEvent>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const FrequencyMessageResultEvent& from);
+  void MergeFrom(const FrequencyMessageResultEvent& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(FrequencyMessageResultEvent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.FrequencyMessageResultEvent"; }
+
+ protected:
+  explicit FrequencyMessageResultEvent(::google::protobuf::Arena* arena);
+  FrequencyMessageResultEvent(::google::protobuf::Arena* arena, const FrequencyMessageResultEvent& from);
+  FrequencyMessageResultEvent(::google::protobuf::Arena* arena, FrequencyMessageResultEvent&& from) noexcept
+      : FrequencyMessageResultEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kRequestIdFieldNumber = 1,
+    kCallsignFieldNumber = 2,
+    kErrorFieldNumber = 4,
+    kSubmittedFieldNumber = 3,
+    kAppliedActionsFieldNumber = 5,
+  };
+  // string request_id = 1;
+  void clear_request_id() ;
+  const std::string& request_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_request_id(Arg_&& arg, Args_... args);
+  std::string* mutable_request_id();
+  PROTOBUF_NODISCARD std::string* release_request_id();
+  void set_allocated_request_id(std::string* value);
+
+  private:
+  const std::string& _internal_request_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_request_id(
+      const std::string& value);
+  std::string* _internal_mutable_request_id();
+
+  public:
+  // string callsign = 2;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // string error = 4;
+  void clear_error() ;
+  const std::string& error() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_error(Arg_&& arg, Args_... args);
+  std::string* mutable_error();
+  PROTOBUF_NODISCARD std::string* release_error();
+  void set_allocated_error(std::string* value);
+
+  private:
+  const std::string& _internal_error() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_error(
+      const std::string& value);
+  std::string* _internal_mutable_error();
+
+  public:
+  // bool submitted = 3;
+  void clear_submitted() ;
+  bool submitted() const;
+  void set_submitted(bool value);
+
+  private:
+  bool _internal_submitted() const;
+  void _internal_set_submitted(bool value);
+
+  public:
+  // int32 applied_actions = 5;
+  void clear_applied_actions() ;
+  ::int32_t applied_actions() const;
+  void set_applied_actions(::int32_t value);
+
+  private:
+  ::int32_t _internal_applied_actions() const;
+  void _internal_set_applied_actions(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 5, 0,
+      85, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr request_id_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::internal::ArenaStringPtr error_;
+    bool submitted_;
+    ::int32_t applied_actions_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -13607,6 +14065,8 @@ class Envelope final : public ::google::protobuf::MessageLite
     kAmanGainLoss = 51,
     kAmanRouteFact = 52,
     kFsScratchPad = 53,
+    kSendFrequencyMessage = 54,
+    kFrequencyMessageResult = 55,
     EVENT_NOT_SET = 0,
   };
   static inline const Envelope* internal_default_instance() {
@@ -13728,6 +14188,8 @@ class Envelope final : public ::google::protobuf::MessageLite
     kAmanGainLossFieldNumber = 51,
     kAmanRouteFactFieldNumber = 52,
     kFsScratchPadFieldNumber = 53,
+    kSendFrequencyMessageFieldNumber = 54,
+    kFrequencyMessageResultFieldNumber = 55,
   };
   // .flightstrips.euroscope.v1.TokenEvent token = 1;
   bool has_token() const;
@@ -14736,6 +15198,44 @@ class Envelope final : public ::google::protobuf::MessageLite
   ::flightstrips::euroscope::v1::FsScratchPadEvent* _internal_mutable_fs_scratch_pad();
 
   public:
+  // .flightstrips.euroscope.v1.SendFrequencyMessageEvent send_frequency_message = 54;
+  bool has_send_frequency_message() const;
+  private:
+  bool _internal_has_send_frequency_message() const;
+
+  public:
+  void clear_send_frequency_message() ;
+  const ::flightstrips::euroscope::v1::SendFrequencyMessageEvent& send_frequency_message() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* release_send_frequency_message();
+  ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* mutable_send_frequency_message();
+  void set_allocated_send_frequency_message(::flightstrips::euroscope::v1::SendFrequencyMessageEvent* value);
+  void unsafe_arena_set_allocated_send_frequency_message(::flightstrips::euroscope::v1::SendFrequencyMessageEvent* value);
+  ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* unsafe_arena_release_send_frequency_message();
+
+  private:
+  const ::flightstrips::euroscope::v1::SendFrequencyMessageEvent& _internal_send_frequency_message() const;
+  ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* _internal_mutable_send_frequency_message();
+
+  public:
+  // .flightstrips.euroscope.v1.FrequencyMessageResultEvent frequency_message_result = 55;
+  bool has_frequency_message_result() const;
+  private:
+  bool _internal_has_frequency_message_result() const;
+
+  public:
+  void clear_frequency_message_result() ;
+  const ::flightstrips::euroscope::v1::FrequencyMessageResultEvent& frequency_message_result() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* release_frequency_message_result();
+  ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* mutable_frequency_message_result();
+  void set_allocated_frequency_message_result(::flightstrips::euroscope::v1::FrequencyMessageResultEvent* value);
+  void unsafe_arena_set_allocated_frequency_message_result(::flightstrips::euroscope::v1::FrequencyMessageResultEvent* value);
+  ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* unsafe_arena_release_frequency_message_result();
+
+  private:
+  const ::flightstrips::euroscope::v1::FrequencyMessageResultEvent& _internal_frequency_message_result() const;
+  ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* _internal_mutable_frequency_message_result();
+
+  public:
   void clear_event();
   EventCase event_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.Envelope)
@@ -14794,11 +15294,13 @@ class Envelope final : public ::google::protobuf::MessageLite
   void set_has_aman_gain_loss();
   void set_has_aman_route_fact();
   void set_has_fs_scratch_pad();
+  void set_has_send_frequency_message();
+  void set_has_frequency_message_result();
   inline bool has_event() const;
   inline void clear_has_event();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 53, 53,
+      0, 55, 55,
       0, 9>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -14870,6 +15372,8 @@ class Envelope final : public ::google::protobuf::MessageLite
       ::flightstrips::euroscope::v1::AMANGainLossEvent* aman_gain_loss_;
       ::flightstrips::euroscope::v1::AMANRouteFactEvent* aman_route_fact_;
       ::flightstrips::euroscope::v1::FsScratchPadEvent* fs_scratch_pad_;
+      ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* send_frequency_message_;
+      ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* frequency_message_result_;
     } event_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -18976,6 +19480,160 @@ inline ::flightstrips::euroscope::v1::FsScratchPadEvent* Envelope::mutable_fs_sc
   return _msg;
 }
 
+// .flightstrips.euroscope.v1.SendFrequencyMessageEvent send_frequency_message = 54;
+inline bool Envelope::has_send_frequency_message() const {
+  return event_case() == kSendFrequencyMessage;
+}
+inline bool Envelope::_internal_has_send_frequency_message() const {
+  return event_case() == kSendFrequencyMessage;
+}
+inline void Envelope::set_has_send_frequency_message() {
+  _impl_._oneof_case_[0] = kSendFrequencyMessage;
+}
+inline void Envelope::clear_send_frequency_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (event_case() == kSendFrequencyMessage) {
+    if (GetArena() == nullptr) {
+      delete _impl_.event_.send_frequency_message_;
+    }
+    clear_has_event();
+  }
+}
+inline ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* Envelope::release_send_frequency_message() {
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.send_frequency_message)
+  if (event_case() == kSendFrequencyMessage) {
+    clear_has_event();
+    auto* temp = _impl_.event_.send_frequency_message_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.event_.send_frequency_message_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::euroscope::v1::SendFrequencyMessageEvent& Envelope::_internal_send_frequency_message() const {
+  return event_case() == kSendFrequencyMessage ? *_impl_.event_.send_frequency_message_ : reinterpret_cast<::flightstrips::euroscope::v1::SendFrequencyMessageEvent&>(::flightstrips::euroscope::v1::_SendFrequencyMessageEvent_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::SendFrequencyMessageEvent& Envelope::send_frequency_message() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.send_frequency_message)
+  return _internal_send_frequency_message();
+}
+inline ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* Envelope::unsafe_arena_release_send_frequency_message() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.euroscope.v1.Envelope.send_frequency_message)
+  if (event_case() == kSendFrequencyMessage) {
+    clear_has_event();
+    auto* temp = _impl_.event_.send_frequency_message_;
+    _impl_.event_.send_frequency_message_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Envelope::unsafe_arena_set_allocated_send_frequency_message(::flightstrips::euroscope::v1::SendFrequencyMessageEvent* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_event();
+  if (value) {
+    set_has_send_frequency_message();
+    _impl_.event_.send_frequency_message_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.send_frequency_message)
+}
+inline ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* Envelope::_internal_mutable_send_frequency_message() {
+  if (event_case() != kSendFrequencyMessage) {
+    clear_event();
+    set_has_send_frequency_message();
+    _impl_.event_.send_frequency_message_ =
+        ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::SendFrequencyMessageEvent>(GetArena());
+  }
+  return _impl_.event_.send_frequency_message_;
+}
+inline ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* Envelope::mutable_send_frequency_message() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* _msg = _internal_mutable_send_frequency_message();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.send_frequency_message)
+  return _msg;
+}
+
+// .flightstrips.euroscope.v1.FrequencyMessageResultEvent frequency_message_result = 55;
+inline bool Envelope::has_frequency_message_result() const {
+  return event_case() == kFrequencyMessageResult;
+}
+inline bool Envelope::_internal_has_frequency_message_result() const {
+  return event_case() == kFrequencyMessageResult;
+}
+inline void Envelope::set_has_frequency_message_result() {
+  _impl_._oneof_case_[0] = kFrequencyMessageResult;
+}
+inline void Envelope::clear_frequency_message_result() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (event_case() == kFrequencyMessageResult) {
+    if (GetArena() == nullptr) {
+      delete _impl_.event_.frequency_message_result_;
+    }
+    clear_has_event();
+  }
+}
+inline ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* Envelope::release_frequency_message_result() {
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.frequency_message_result)
+  if (event_case() == kFrequencyMessageResult) {
+    clear_has_event();
+    auto* temp = _impl_.event_.frequency_message_result_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.event_.frequency_message_result_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::euroscope::v1::FrequencyMessageResultEvent& Envelope::_internal_frequency_message_result() const {
+  return event_case() == kFrequencyMessageResult ? *_impl_.event_.frequency_message_result_ : reinterpret_cast<::flightstrips::euroscope::v1::FrequencyMessageResultEvent&>(::flightstrips::euroscope::v1::_FrequencyMessageResultEvent_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::FrequencyMessageResultEvent& Envelope::frequency_message_result() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.frequency_message_result)
+  return _internal_frequency_message_result();
+}
+inline ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* Envelope::unsafe_arena_release_frequency_message_result() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.euroscope.v1.Envelope.frequency_message_result)
+  if (event_case() == kFrequencyMessageResult) {
+    clear_has_event();
+    auto* temp = _impl_.event_.frequency_message_result_;
+    _impl_.event_.frequency_message_result_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Envelope::unsafe_arena_set_allocated_frequency_message_result(::flightstrips::euroscope::v1::FrequencyMessageResultEvent* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_event();
+  if (value) {
+    set_has_frequency_message_result();
+    _impl_.event_.frequency_message_result_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.frequency_message_result)
+}
+inline ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* Envelope::_internal_mutable_frequency_message_result() {
+  if (event_case() != kFrequencyMessageResult) {
+    clear_event();
+    set_has_frequency_message_result();
+    _impl_.event_.frequency_message_result_ =
+        ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::FrequencyMessageResultEvent>(GetArena());
+  }
+  return _impl_.event_.frequency_message_result_;
+}
+inline ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* Envelope::mutable_frequency_message_result() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* _msg = _internal_mutable_frequency_message_result();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.frequency_message_result)
+  return _msg;
+}
+
 inline bool Envelope::has_event() const {
   return event_case() != EVENT_NOT_SET;
 }
@@ -19087,6 +19745,28 @@ inline void TokenEvent::set_allocated_version(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.TokenEvent.version)
+}
+
+// bool frequency_messages = 3;
+inline void TokenEvent::clear_frequency_messages() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_messages_ = false;
+}
+inline bool TokenEvent::frequency_messages() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.TokenEvent.frequency_messages)
+  return _internal_frequency_messages();
+}
+inline void TokenEvent::set_frequency_messages(bool value) {
+  _internal_set_frequency_messages(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.TokenEvent.frequency_messages)
+}
+inline bool TokenEvent::_internal_frequency_messages() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.frequency_messages_;
+}
+inline void TokenEvent::_internal_set_frequency_messages(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_messages_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -31300,6 +31980,430 @@ inline void FsScratchPadEvent::set_allocated_text(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.FsScratchPadEvent.text)
+}
+
+// -------------------------------------------------------------------
+
+// SendFrequencyMessageEvent
+
+// string request_id = 1;
+inline void SendFrequencyMessageEvent::clear_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.ClearToEmpty();
+}
+inline const std::string& SendFrequencyMessageEvent::request_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.SendFrequencyMessageEvent.request_id)
+  return _internal_request_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SendFrequencyMessageEvent::set_request_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.SendFrequencyMessageEvent.request_id)
+}
+inline std::string* SendFrequencyMessageEvent::mutable_request_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_request_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.SendFrequencyMessageEvent.request_id)
+  return _s;
+}
+inline const std::string& SendFrequencyMessageEvent::_internal_request_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.request_id_.Get();
+}
+inline void SendFrequencyMessageEvent::_internal_set_request_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.Set(value, GetArena());
+}
+inline std::string* SendFrequencyMessageEvent::_internal_mutable_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.request_id_.Mutable( GetArena());
+}
+inline std::string* SendFrequencyMessageEvent::release_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.SendFrequencyMessageEvent.request_id)
+  return _impl_.request_id_.Release();
+}
+inline void SendFrequencyMessageEvent::set_allocated_request_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.request_id_.IsDefault()) {
+          _impl_.request_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.SendFrequencyMessageEvent.request_id)
+}
+
+// string callsign = 2;
+inline void SendFrequencyMessageEvent::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& SendFrequencyMessageEvent::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.SendFrequencyMessageEvent.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SendFrequencyMessageEvent::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.SendFrequencyMessageEvent.callsign)
+}
+inline std::string* SendFrequencyMessageEvent::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.SendFrequencyMessageEvent.callsign)
+  return _s;
+}
+inline const std::string& SendFrequencyMessageEvent::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void SendFrequencyMessageEvent::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* SendFrequencyMessageEvent::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* SendFrequencyMessageEvent::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.SendFrequencyMessageEvent.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void SendFrequencyMessageEvent::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.SendFrequencyMessageEvent.callsign)
+}
+
+// string message = 3;
+inline void SendFrequencyMessageEvent::clear_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_.ClearToEmpty();
+}
+inline const std::string& SendFrequencyMessageEvent::message() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.SendFrequencyMessageEvent.message)
+  return _internal_message();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SendFrequencyMessageEvent::set_message(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.SendFrequencyMessageEvent.message)
+}
+inline std::string* SendFrequencyMessageEvent::mutable_message() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_message();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.SendFrequencyMessageEvent.message)
+  return _s;
+}
+inline const std::string& SendFrequencyMessageEvent::_internal_message() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.message_.Get();
+}
+inline void SendFrequencyMessageEvent::_internal_set_message(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_.Set(value, GetArena());
+}
+inline std::string* SendFrequencyMessageEvent::_internal_mutable_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.message_.Mutable( GetArena());
+}
+inline std::string* SendFrequencyMessageEvent::release_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.SendFrequencyMessageEvent.message)
+  return _impl_.message_.Release();
+}
+inline void SendFrequencyMessageEvent::set_allocated_message(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.message_.IsDefault()) {
+          _impl_.message_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.SendFrequencyMessageEvent.message)
+}
+
+// string primary_frequency = 4;
+inline void SendFrequencyMessageEvent::clear_primary_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.primary_frequency_.ClearToEmpty();
+}
+inline const std::string& SendFrequencyMessageEvent::primary_frequency() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.SendFrequencyMessageEvent.primary_frequency)
+  return _internal_primary_frequency();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SendFrequencyMessageEvent::set_primary_frequency(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.primary_frequency_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.SendFrequencyMessageEvent.primary_frequency)
+}
+inline std::string* SendFrequencyMessageEvent::mutable_primary_frequency() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_primary_frequency();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.SendFrequencyMessageEvent.primary_frequency)
+  return _s;
+}
+inline const std::string& SendFrequencyMessageEvent::_internal_primary_frequency() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.primary_frequency_.Get();
+}
+inline void SendFrequencyMessageEvent::_internal_set_primary_frequency(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.primary_frequency_.Set(value, GetArena());
+}
+inline std::string* SendFrequencyMessageEvent::_internal_mutable_primary_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.primary_frequency_.Mutable( GetArena());
+}
+inline std::string* SendFrequencyMessageEvent::release_primary_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.SendFrequencyMessageEvent.primary_frequency)
+  return _impl_.primary_frequency_.Release();
+}
+inline void SendFrequencyMessageEvent::set_allocated_primary_frequency(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.primary_frequency_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.primary_frequency_.IsDefault()) {
+          _impl_.primary_frequency_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.SendFrequencyMessageEvent.primary_frequency)
+}
+
+// int32 applied_actions = 5;
+inline void SendFrequencyMessageEvent::clear_applied_actions() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.applied_actions_ = 0;
+}
+inline ::int32_t SendFrequencyMessageEvent::applied_actions() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.SendFrequencyMessageEvent.applied_actions)
+  return _internal_applied_actions();
+}
+inline void SendFrequencyMessageEvent::set_applied_actions(::int32_t value) {
+  _internal_set_applied_actions(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.SendFrequencyMessageEvent.applied_actions)
+}
+inline ::int32_t SendFrequencyMessageEvent::_internal_applied_actions() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.applied_actions_;
+}
+inline void SendFrequencyMessageEvent::_internal_set_applied_actions(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.applied_actions_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// FrequencyMessageResultEvent
+
+// string request_id = 1;
+inline void FrequencyMessageResultEvent::clear_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.ClearToEmpty();
+}
+inline const std::string& FrequencyMessageResultEvent::request_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.FrequencyMessageResultEvent.request_id)
+  return _internal_request_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void FrequencyMessageResultEvent::set_request_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.FrequencyMessageResultEvent.request_id)
+}
+inline std::string* FrequencyMessageResultEvent::mutable_request_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_request_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.FrequencyMessageResultEvent.request_id)
+  return _s;
+}
+inline const std::string& FrequencyMessageResultEvent::_internal_request_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.request_id_.Get();
+}
+inline void FrequencyMessageResultEvent::_internal_set_request_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.Set(value, GetArena());
+}
+inline std::string* FrequencyMessageResultEvent::_internal_mutable_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.request_id_.Mutable( GetArena());
+}
+inline std::string* FrequencyMessageResultEvent::release_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.FrequencyMessageResultEvent.request_id)
+  return _impl_.request_id_.Release();
+}
+inline void FrequencyMessageResultEvent::set_allocated_request_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.request_id_.IsDefault()) {
+          _impl_.request_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.FrequencyMessageResultEvent.request_id)
+}
+
+// string callsign = 2;
+inline void FrequencyMessageResultEvent::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& FrequencyMessageResultEvent::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.FrequencyMessageResultEvent.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void FrequencyMessageResultEvent::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.FrequencyMessageResultEvent.callsign)
+}
+inline std::string* FrequencyMessageResultEvent::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.FrequencyMessageResultEvent.callsign)
+  return _s;
+}
+inline const std::string& FrequencyMessageResultEvent::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void FrequencyMessageResultEvent::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* FrequencyMessageResultEvent::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* FrequencyMessageResultEvent::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.FrequencyMessageResultEvent.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void FrequencyMessageResultEvent::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.FrequencyMessageResultEvent.callsign)
+}
+
+// bool submitted = 3;
+inline void FrequencyMessageResultEvent::clear_submitted() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.submitted_ = false;
+}
+inline bool FrequencyMessageResultEvent::submitted() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.FrequencyMessageResultEvent.submitted)
+  return _internal_submitted();
+}
+inline void FrequencyMessageResultEvent::set_submitted(bool value) {
+  _internal_set_submitted(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.FrequencyMessageResultEvent.submitted)
+}
+inline bool FrequencyMessageResultEvent::_internal_submitted() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.submitted_;
+}
+inline void FrequencyMessageResultEvent::_internal_set_submitted(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.submitted_ = value;
+}
+
+// string error = 4;
+inline void FrequencyMessageResultEvent::clear_error() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.error_.ClearToEmpty();
+}
+inline const std::string& FrequencyMessageResultEvent::error() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.FrequencyMessageResultEvent.error)
+  return _internal_error();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void FrequencyMessageResultEvent::set_error(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.error_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.FrequencyMessageResultEvent.error)
+}
+inline std::string* FrequencyMessageResultEvent::mutable_error() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_error();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.FrequencyMessageResultEvent.error)
+  return _s;
+}
+inline const std::string& FrequencyMessageResultEvent::_internal_error() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.error_.Get();
+}
+inline void FrequencyMessageResultEvent::_internal_set_error(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.error_.Set(value, GetArena());
+}
+inline std::string* FrequencyMessageResultEvent::_internal_mutable_error() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.error_.Mutable( GetArena());
+}
+inline std::string* FrequencyMessageResultEvent::release_error() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.FrequencyMessageResultEvent.error)
+  return _impl_.error_.Release();
+}
+inline void FrequencyMessageResultEvent::set_allocated_error(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.error_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.error_.IsDefault()) {
+          _impl_.error_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.FrequencyMessageResultEvent.error)
+}
+
+// int32 applied_actions = 5;
+inline void FrequencyMessageResultEvent::clear_applied_actions() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.applied_actions_ = 0;
+}
+inline ::int32_t FrequencyMessageResultEvent::applied_actions() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.FrequencyMessageResultEvent.applied_actions)
+  return _internal_applied_actions();
+}
+inline void FrequencyMessageResultEvent::set_applied_actions(::int32_t value) {
+  _internal_set_applied_actions(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.FrequencyMessageResultEvent.applied_actions)
+}
+inline ::int32_t FrequencyMessageResultEvent::_internal_applied_actions() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.applied_actions_;
+}
+inline void FrequencyMessageResultEvent::_internal_set_applied_actions(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.applied_actions_ = value;
 }
 
 #ifdef __GNUC__

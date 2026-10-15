@@ -20,6 +20,7 @@ export interface StripProps {
   localHidden?: boolean;
   bay?: Bay;
   callsign: string;
+  communicationType?: import("@/api/models").CommunicationType;
   delegateCallsignClick?: boolean;
   onStripMoved?: () => void;
   pdcStatus?: PdcStatus;

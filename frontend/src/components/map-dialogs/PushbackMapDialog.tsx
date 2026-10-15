@@ -1,4 +1,5 @@
-import { useWebSocketStore } from "@/store/store-hooks";
+import { isTextPilot, textTaxiActions } from "@/lib/text-pilot";
+import { useStrip, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import { RELEASE_POINTS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
@@ -20,10 +21,16 @@ const BTN_STYLE: React.CSSProperties = {
 };
 
 export function PushbackMapDialog({ open, onOpenChange, callsign, initialReleasePoint, onStripMoved }: PushbackMapDialogProps) {
+  const openTextPilotMenu = useWebSocketStore(s => s.openTextPilotMenu);
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
+  const strip = useStrip(callsign);
   const move = useWebSocketStore((s) => s.move);
 
   const handleSelect = (label: string) => {
+    if (isTextPilot(strip)) {
+      openTextPilotMenu({ callsign, variant: "push", point: label, actions: textTaxiActions(callsign, label, Bay.Push), onSubmitted: () => { onOpenChange(false); onStripMoved?.(); } });
+      return;
+    }
     setReleasePoint(callsign, label);
     move(callsign, Bay.Push);
     onOpenChange(false);

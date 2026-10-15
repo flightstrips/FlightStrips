@@ -23,14 +23,15 @@ const (
 
 // Client represents a frontend gorilla client
 type Client struct {
-	conn        *gorilla.Conn
-	session     int32
-	sessionName string
-	send        chan events.OutgoingMessage
-	closeOnce   sync.Once
-	closed      chan struct{}
-	hub         *Hub
-	user        shared.AuthenticatedUser
+	frequencyRequests sync.Map
+	conn              *gorilla.Conn
+	session           int32
+	sessionName       string
+	send              chan events.OutgoingMessage
+	closeOnce         sync.Once
+	closed            chan struct{}
+	hub               *Hub
+	user              shared.AuthenticatedUser
 
 	position       string
 	callsign       string

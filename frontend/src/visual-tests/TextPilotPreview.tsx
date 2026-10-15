@@ -26,7 +26,15 @@ const store = createWebSocketStore({ on() {}, send() { return false; }, isConnec
 store.setState({
   ...(mapEntry ? { sendFrequencyMessage: async () => ({ type: "frequency_message_result" as const, request_id: "preview", callsign: "SAS123", submitted: false, prepared: true, applied_actions: 0 }) } : {}),
   readOnly: false, position: "121.905", metar: "EKCH 101220Z 24012KT CAVOK 12/10 Q1013",
-  strips: [{ callsign: "SAS123", runway: "22R", owner: "121.905", communication_type: CommunicationType.Text }] as FrontendStrip[],
+  strips: [{
+    callsign: "SAS123", origin: "EKCH", destination: "EGLL", alternate: "", route: "", remarks: "",
+    runway: "22R", squawk: "", assigned_squawk: "", sid: "", star: "", cleared_altitude: 0,
+    requested_altitude: 0, heading: 0, aircraft_type: "B738", aircraft_category: "M", stand: "", capabilities: "",
+    communication_type: CommunicationType.Text, eobt: "", tobt: "", tsat: "", ctot: "", eldt: "",
+    bay: "CLX", release_point: "", version: 1, sequence: 1, next_controllers: [], previous_controllers: [],
+    owner: "121.905", pdc_state: "NONE", start_req: false, marked: false, runway_cleared: false,
+    runway_confirmed: false, registration: "",
+  } satisfies FrontendStrip],
   textPilotDraft: mapEntry || indicatorEntry ? null : { callsign: "SAS123", variant, point: variant === "push" ? "J4" : variant === "tower-in" ? "K3" : "A/B", splitTowerDefaults: true, stand: variant === "apron-in" ? "A18" : undefined, confirmed: true, initialSelected: variant === "si" ? ["readback", "freq:121.730"] : undefined },
 });
 function Preview() {

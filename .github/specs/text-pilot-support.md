@@ -78,7 +78,7 @@ FREQ dispatch is pinned to numpad Multiply. The former `text_pilot.frequency_key
 ## Latest verification (2026-10-15)
 
 - Win32 Debug plugin build and all 472 CTest cases pass, including native numpad scan-code input and deferred submission acknowledgement checks.
-- Frontend production build and the full frontend suite (834 tests across 93 files) pass with the rebased main dependencies. The Chromium pushback map/composer check also passes.
+- Frontend production build and the full frontend suite (834 tests across 93 files) pass with the rebased main dependencies. The full Linux Chromium/Firefox browser suite passes (61 tests, one existing skip), including pushback map layering and indicator placement.
 - Backend communication normalization, frequency messages, pushback/move validation and handover tests pass.
 - The user confirmed that native numpad Multiply submission works in their local EuroScope session. Automated tests do not independently verify pilot/network receipt; the remaining multi-controller and failure-path manual checks above still apply.
 - Docker-based backend integration tests could not run in this Windows setup (`rootless Docker is not supported on Windows`).

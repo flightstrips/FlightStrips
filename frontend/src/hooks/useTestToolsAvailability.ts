@@ -1,3 +1,4 @@
+import { requireAccessToken } from "@/lib/authenticated-fetch";
 import { useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { getApiUrl } from "@/lib/api-url";
@@ -13,7 +14,7 @@ export function useTestToolsAvailability() {
     let cancelled = false;
     void (async () => {
       try {
-        const token = await getAccessTokenSilently();
+        const token = requireAccessToken(await getAccessTokenSilently());
         const response = await fetch(getApiUrl("/api/test/status"), {
           headers: { Authorization: `Bearer ${token}` },
         });

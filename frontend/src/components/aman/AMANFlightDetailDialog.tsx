@@ -1,3 +1,4 @@
+import { requireAccessToken } from "@/lib/authenticated-fetch";
 import {useAuth0} from "@auth0/auth0-react";
 import {useEffect, useMemo, useRef, useState} from "react";
 import {divIcon, type LatLngTuple} from "leaflet";
@@ -433,7 +434,7 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
     void (async () => {
       setLoading(true); setError(null); setDetail(null);
       try {
-        const token = await getAccessTokenSilently();
+        const token = requireAccessToken(await getAccessTokenSilently());
         const value = await fetchAMANFlightDetail(token, airport, callsign, abort.signal);
         if (!abort.signal.aborted) setDetail(value);
       } catch (reason) {

@@ -188,6 +188,15 @@ describe("AMAN route authorization", () => {
     expect(storeState.sendAMANCommand).toHaveBeenCalledWith({type: "aman.remove_flight", callsign: "SAS123"});
   });
 
+  it("expedites the selected flight from its action menu", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = authoritativeState([{callsign: "SAS123", lifecycle_state: "stable", slot: {time: "2026-07-22T20:50:00.000Z"}}]);
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    fireEvent.click(screen.getByRole("button", {name: "Expedite"}));
+    expect(storeState.sendAMANCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.expedite_flight", callsign: "SAS123"});
+  });
+
   it("opens the compact GAP workflow from the target action menu", () => {
     storeState.amanFMPAuthority = true;
     storeState.amanState = {

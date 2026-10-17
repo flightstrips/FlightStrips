@@ -91,10 +91,11 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
   return (
     <header aria-label="MAESTRO settings" className="aman-settings-header">
       <span className="sr-only">{state.airport}</span><span className="sr-only">{presentationStatus}</span><span className="sr-only">{connectionState}</span><span className="sr-only">{header.effective_mode}</span>
-      <div className="grid min-h-0 grid-cols-[minmax(4.5rem,0.7fr)_minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-1 overflow-hidden">
+      <div className={cn("grid min-h-0 gap-1 overflow-hidden", header.release_buffer ? "grid-cols-[minmax(4.5rem,0.7fr)_minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.8fr)]" : "grid-cols-[minmax(4.5rem,0.7fr)_minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.8fr)]")}>
         <HeaderField className="bg-[#f3d02e]" label="RIU" value={<button aria-haspopup="dialog" className="w-full truncate text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-black" onClick={openRunways} type="button">{header.active_runway_groups.map((group) => group.id).join(" + ") || "Unavailable"}{runwayPending ? " · PENDING" : ""}</button>} />
         <HeaderField className="bg-[#f3d02e]" label="Runway rate" value={<button aria-haspopup="dialog" className="w-full truncate text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-black" onClick={openRate} type="button">{rates}{ratePending ? " · PENDING" : ""}</button>} />
         <HeaderField label="Wind surface / 10,000 ft" value={wind} />
+        {header.release_buffer && <HeaderField label={`Approach buffer · ${header.release_buffer.status}`} value={`${header.release_buffer.projected}/${header.release_buffer.target} · ${header.release_buffer.reserved} reserved${(header.release_buffer.blocked_reasons?.length ?? 0) > 0 ? " · Review approach timing" : ""}`} />}
         <HeaderField label={`Traffic · ${header.traffic_summary.status}`} value={traffic} />
         <HeaderField label="Current view" value={view === "acc" && selectedACCView !== undefined && onACCViewChange !== undefined
           ? <select aria-label="ACC STAR family emphasis" className="w-full appearance-none bg-transparent font-display font-semibold outline-none" onChange={(event) => onACCViewChange(event.target.value)} value={selectedACCView}>{accViewOptions.map((option) => <option className="text-black" key={option} value={option}>{option}</option>)}</select>
@@ -127,7 +128,7 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
           <div className="grid min-h-24 gap-1 px-4 py-3">
             {desequencedFlights.length === 0 && <p className="place-self-center text-sm">No desequenced aircraft</p>}
             {desequencedFlights.map((flight) => <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2" key={flight.callsign}>
-              <b>{flight.callsign}</b>
+              <b>{flight.callsign}{flight.expedited ? " · Expedited" : ""}</b>
               <button className="border border-[#dcdcdc] bg-[#6b7f9f] px-3 py-1 text-sm font-bold hover:bg-[#a3d5e8] disabled:opacity-50" disabled={blocked} onClick={() => onCommand({type: "aman.resume_flight", callsign: flight.callsign})} type="button">RESUME</button>
               <button className="border border-[#dcdcdc] bg-[#6b7f9f] px-3 py-1 text-sm font-bold hover:bg-[#a3d5e8] disabled:opacity-50" disabled={blocked} onClick={() => { if (window.confirm(`Remove ${flight.callsign} from AMAN for this session? Use the Excluded tab to add it back.`)) onCommand({type: "aman.remove_flight", callsign: flight.callsign}); }} type="button">REMOVE</button>
             </div>)}

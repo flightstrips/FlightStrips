@@ -11,6 +11,14 @@ const flights = [
 ] as AMANFlight[];
 
 describe("excluded aircraft", () => {
+  it("shows expedited aircraft and lets FMP put them back in the sequence", () => {
+    const onCommand = vi.fn().mockReturnValue("resume-expedite");
+    render(<AMANExcludedFlights flights={[{...flights[1], expedited: true}]} disabled={false} pendingCommands={{}} commandRejections={{}} onCommand={onCommand} />);
+    expect(screen.getByText(/Expedited/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Add back to sequence"}));
+    expect(onCommand).toHaveBeenCalledWith({type: "aman.resume_flight", callsign: "DESEQUENCED"});
+  });
+
   it("restores manual exclusions through the existing resume command", () => {
     const onCommand = vi.fn().mockReturnValue("restore-1");
     render(<AMANExcludedFlights flights={flights} disabled={false} pendingCommands={{}} commandRejections={{}} onCommand={onCommand} />);

@@ -131,6 +131,11 @@ func New(deps Dependencies) (*Service, error) {
 	if deps.Terminal.Airport == "" || len(deps.Terminal.RunwayGroups) == 0 {
 		return nil, errors.New("AMAN operational service requires terminal configuration")
 	}
+	if deps.Terminal.ApproachRelease != nil {
+		if err := deps.Terminal.ApproachRelease.Validate(); err != nil {
+			return nil, fmt.Errorf("configure approach releases: %w", err)
+		}
+	}
 	if deps.Now == nil {
 		deps.Now = time.Now
 	}
@@ -824,6 +829,7 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 		return fmt.Errorf("project AMAN queue offers: %w", err)
 	}
 	auditRecords = append(auditRecords, vacancyPromotionAuditRecords(next, promotions, now)...)
+	auditRecords = append(auditRecords, sequence.ApproachReleaseAuditRecords(current, next, now)...)
 	committed, err := s.deps.Repository.Commit(ctx, aman.StateCommit{
 		ExpectedRevision: current.Revision,
 		State:            next,
@@ -1074,6 +1080,8 @@ func (s *Service) manuallyExcludedElsewhere(ctx context.Context, airport, callsi
 }
 
 func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) (aman.AMANFlight, error) {
+	discardAutomaticPreliminarySlot(&flight)
+	flight = s.captureLegacyApproachRelease(flight, now)
 	if previous := flight.LatestObservation; previous != nil {
 		incomingOwner, previousOwner := observationOwner(observation), observationOwner(*previous)
 		if incomingOwner == aman.ObservationProviderVATSIM && previousOwner == aman.ObservationProviderEuroScope {
@@ -1238,6 +1246,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		flight.ActiveRouteKey = &activeKey
 		flight.ActiveRouteDatasetID = &datasetID
 	}
+	directChanged := flight.ActiveRouteFact != nil && (flight.RouteProgress == nil || flight.RouteProgress.RouteFactID != flight.ActiveRouteFact.ID)
 	feederFix, legacySTARFamily := flight.TerminalPathIdentity()
 	projection, err := trajectory.Project(ctx, trajectory.Readers{Geometry: s.deps.Geometry, Snapshot: s.deps.Geometry}, trajectory.Input{
 		Airport: navdata.AirportID(observation.Destination), RouteKey: key,
@@ -1251,6 +1260,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	if projection.DistanceToGoNM == nil || len(projection.Remaining) == 0 || projection.Completeness == trajectory.Unresolved || projection.Completeness == trajectory.OffRoute {
 		return flight, fmt.Errorf("route geometry is not publishable: %s", projection.Completeness)
 	}
+	directChanged = directChanged && flight.ActiveRouteFact.State == aman.RouteFactActive && slices.ContainsFunc(projection.Remaining, func(leg trajectory.RemainingLeg) bool { return leg.ID == "DIRECT_TO:"+flight.ActiveRouteFact.Fix })
 	descentConfirmed, descentEvidenceSamples := descentStateForRoute(flight.RouteProgress, previousObservation, observation, projection.InTMA)
 	if projection.Progress != nil {
 		projection.Progress.DescentConfirmed = descentConfirmed
@@ -1322,6 +1332,10 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		}
 		legDurations = estimate.LegDurations
 	}
+	raw.RemainingRouteFixes = make([]string, len(projection.Remaining))
+	for i, leg := range projection.Remaining {
+		raw.RemainingRouteFixes[i] = string(leg.To)
+	}
 	s.setHealthComponent("predictor", aman.HealthReady, "", now)
 	// INITIAL ETA-FF is RETA at the feeder, before holding/manual timing can
 	// replace the current model estimate. Preserve it across later updates.
@@ -1362,6 +1376,11 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 			clearSequencingState(&flight)
 		}
 	}
+	// A confirmed downstream direct with publishable physical progress can
+	// supersede the holding journey; an unavailable route cannot.
+	if directChanged && flight.ActiveRouteFact.State == aman.RouteFactActive && raw.HoldingFixETA == nil && projection.HoldingCandidate == nil {
+		flight.HoldingReleaseBasis = nil
+	}
 	if err := s.captureHoldingReleaseBasis(ctx, &flight, projection, input); err != nil {
 		return flight, fmt.Errorf("holding fix-to-landing prediction: %w", err)
 	}
@@ -1373,7 +1392,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	reduced, err := prediction.Reduce(prediction.DefaultConfig(), flight, prediction.Input{
 		Raw:                          raw,
 		State:                        nextState,
-		RouteRevision:                flight.ArrivalPathChanged,
+		RouteRevision:                flight.ArrivalPathChanged || directChanged,
 		Slot:                         flight.Slot,
 		ReplacePreliminaryPrediction: isPreliminaryPrediction(flight.Prediction),
 	})
@@ -1464,7 +1483,7 @@ func capturePendingTMAFreeze(flight *aman.AMANFlight, now time.Time) {
 }
 
 func captureTMAFreeze(flight *aman.AMANFlight, capturedAt time.Time) bool {
-	if flight.FreezeReason != aman.FreezeNone || flight.Prediction == nil || !flight.Prediction.Publishable || flight.Slot == nil {
+	if flight.FreezeReason != aman.FreezeNone || flight.Prediction == nil || isPreliminaryPrediction(flight.Prediction) || !flight.Prediction.Publishable || flight.Slot == nil {
 		return false
 	}
 	frozenTETA, frozenSlot := flight.Prediction.OperationalTETA, *flight.Slot
@@ -1485,6 +1504,7 @@ func markPredictionDegraded(flight *aman.AMANFlight, reason string) {
 // capture in the single airport reconciliation commit owned by the caller.
 func applySuperstable(config lifecycle.Config, flight *aman.AMANFlight, previousFreeze aman.FreezeReason, now time.Time) bool {
 	if flight.State != aman.StateStable || previousFreeze != aman.FreezeNone || flight.Slot == nil || flight.Prediction == nil ||
+		isPreliminaryPrediction(flight.Prediction) ||
 		(flight.FreezeReason != aman.FreezeNone && flight.FreezeReason != aman.FreezeTMA) ||
 		!lifecycle.SuperstableFeederEligible(flight.FeederETA, now, config.SuperstableHorizon) {
 		return false
@@ -1621,12 +1641,15 @@ func applyResolvedTerminalIdentity(flight *aman.AMANFlight, path navdata.Termina
 }
 
 func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence.VacancyPromotion {
+	releaseGroundReservationsAheadOfHolding(state)
+	for i := range state.Flights {
+		discardAutomaticPreliminarySlot(&state.Flights[i])
+	}
 	defer func() {
 		for index := range state.Flights {
 			aman.CaptureInitialTiming(&state.Flights[index])
 		}
 	}()
-	releaseGroundReservationsAheadOfHolding(state)
 	defer s.refreshGroundArrivalPlans(state, now)
 	defer s.refreshHoldingPlans(state)
 	input := s.sequenceInput(*state)
@@ -1790,8 +1813,15 @@ func vacancyPromotionAuditEntries(promotions []sequence.VacancyPromotion) []sequ
 // refreshHoldingPlans follows genuine slot changes. Confirmed holds retain
 // their fix-to-landing transit; approaching traffic uses its live route forecast.
 func (s *Service) refreshHoldingPlans(state *aman.AirportState) {
+	at := state.GeneratedAt
+	if s.deps.Now != nil {
+		at = s.deps.Now().UTC()
+	}
 	for index := range state.Flights {
 		flight := &state.Flights[index]
+		if !at.IsZero() {
+			*flight = s.captureLegacyApproachRelease(*flight, at)
+		}
 		if activeHoldingReleaseBasis(*flight) == nil {
 			flight.HoldingReleaseBasis = nil
 		}
@@ -1800,6 +1830,12 @@ func (s *Service) refreshHoldingPlans(state *aman.AirportState) {
 			continue
 		}
 		prediction := *flight.Prediction
+		if flight.Expedited {
+			prediction.HoldingPlan, prediction.HoldingPlanBlockedBy = nil, nil
+			applyDerivedFeederETA(flight, holdingFeederETA(state.Authoritative, *flight, prediction, s.deps.Terminal))
+			flight.Prediction = &prediction
+			continue
+		}
 		if flight.Slot != nil && retainedTimingUnavailable(*flight) {
 			// Keep the last accepted EAT/feeder clock during a data outage.
 			// Its source status conveys staleness; it is not a fresh calculation.
@@ -1811,6 +1847,9 @@ func (s *Service) refreshHoldingPlans(state *aman.AirportState) {
 		flight.Prediction = &prediction
 	}
 	s.suppressOutOfOrderHoldingPlans(state)
+	if !at.IsZero() {
+		s.refreshApproachReleases(state, at)
+	}
 }
 
 func (s *Service) suppressOutOfOrderHoldingPlans(state *aman.AirportState) {
@@ -1987,8 +2026,9 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			continue
 		}
 		policy := sequence.Policy{
-			ContinuousSpacing: true,
-			RunwayGroupID:     group.ID, Rates: rates, Gaps: sequenceGaps(group.Gaps, group.CapacityReservations), Closures: append([]aman.RunwayClosure(nil), group.Closures...),
+			ContinuousSpacing:        true,
+			AllowCrossFeederOvertake: config.ApproachRelease != nil && config.ApproachRelease.Enabled,
+			RunwayGroupID:            group.ID, Rates: rates, Gaps: sequenceGaps(group.Gaps, group.CapacityReservations), Closures: append([]aman.RunwayClosure(nil), group.Closures...),
 			EarlyTolerance: 30 * time.Second, SeparationRules: amanCPHSeparations(), UnknownSeparation: 3 * time.Minute,
 		}
 		if spacing := group.SameSTARSpacing; spacing != nil {
@@ -2074,6 +2114,7 @@ func promotionNotBefore(flight aman.AMANFlight) *time.Time {
 
 func sequenceEligible(flight aman.AMANFlight) bool {
 	return flight.SequenceDisposition.Participates() &&
+		(!isPreliminaryPrediction(flight.Prediction) || flight.FreezeReason == aman.FreezeManual) &&
 		flight.SelectedRunwayGroup != nil &&
 		flight.State != aman.StatePlanned &&
 		flight.State != aman.StateLanded &&
@@ -2088,7 +2129,7 @@ func retainedTimingUnavailable(flight aman.AMANFlight) bool {
 }
 
 func holdingSlotProtected(flight aman.AMANFlight) bool {
-	return flight.Slot != nil && (holdingStackID(flight) != "" ||
+	return !isPreliminaryPrediction(flight.Prediction) && flight.Slot != nil && (holdingStackID(flight) != "" ||
 		flight.HoldingClearance != nil && flight.HoldingClearance.HoldType == aman.HoldingClearanceEnroute && strings.TrimSpace(flight.HoldingClearance.Hold) != "")
 }
 

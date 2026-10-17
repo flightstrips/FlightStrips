@@ -441,6 +441,15 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(desequenced)).toBe(false);
   });
 
+  it("accepts an optional expedite flag and rejects malformed values", () => {
+    const event = replacement(9);
+    event.data.flights[0].sequence_disposition = "desequenced";
+    event.data.flights[0].expedited = true;
+    expect(isAMANStateEvent(event)).toBe(true);
+    (event.data.flights[0] as unknown as {expedited: unknown}).expedited = "true";
+    expect(isAMANStateEvent(event)).toBe(false);
+  });
+
   it("accepts additive manual removal and diversion reasons and rejects unknown reasons", () => {
     const event = replacement(9);
     expect(isAMANStateEvent(event)).toBe(true);
@@ -510,5 +519,21 @@ describe("AMAN V1 full replacement contract", () => {
       version: 1,
       data: {command_id: "", code: "revision_conflict", message: "revision changed", current_revision: 9, retryable: true},
     })).toBe(false);
+  });
+});
+
+
+describe("approach release buffer contract", () => {
+  it("accepts additive buffer and absorption fields and rejects inconsistent counts", () => {
+    const event = replacement(8);
+    event.data.header!.release_buffer = {status: "ready", target: 10, in_approach: 2, reserved: 4, incoming: 1, projected: 7, unknown: 0};
+    event.data.flights[0].additional_approach_seconds = 450;
+    expect(isAMANStateEvent(event)).toBe(true);
+    expect(getAMANHeaderReadModel(event.data).release_buffer?.reserved).toBe(4);
+    event.data.header!.release_buffer.projected = 8;
+    expect(isAMANStateEvent(event)).toBe(false);
+    event.data.header!.release_buffer.projected = 7;
+    event.data.flights[0].additional_approach_seconds = -1;
+    expect(isAMANStateEvent(event)).toBe(false);
   });
 });

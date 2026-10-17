@@ -2,6 +2,7 @@ import type { TextPilotDraft, FrequencyMessageResult } from "@/lib/text-pilot";
 import { isTextPilot } from "@/lib/text-pilot";
 import {createStore} from 'zustand/vanilla';
 import {produce} from 'immer';
+import type {InboundDeparturesSnapshot} from "@/api/inbound-departures";
 import {
   ActionType,
   type ActionRejectedEvent,
@@ -179,6 +180,7 @@ export interface BroadcastNotification {
 
 // Define the state interface for our store
 export interface WebSocketState {
+  inboundDepartures: InboundDeparturesSnapshot | null;
   controllers: FrontendController[];
   strips: FrontendStrip[];
   tacticalStrips: TacticalStrip[];
@@ -329,6 +331,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const initialState = {
     textPilotDraft: null,
     textPilotReadbacks: {},
+    inboundDepartures: null as InboundDeparturesSnapshot | null,
     controllers: [],
     strips: [],
     tacticalStrips: [],
@@ -1194,6 +1197,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.amanCommandTypes = {};
         }
         state.amanSessionID = sessionID;
+        state.inboundDepartures = data.inbound_departures ?? null;
         state.controllers = data.controllers.map(c => ({ ...c, owned_sectors: c.owned_sectors ?? [] }));
         state.strips = data.strips.map(strip => ({
           ...strip,
@@ -1742,6 +1746,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
   wsClient.on(EventType.FrontendBroadcast, handleBroadcastEvent);
   wsClient.on(EventType.FrontendCdmData, handleCdmUpdateEvent);
+  wsClient.on(EventType.FrontendInboundDepartures, data => {
+    const state = store.getState();
+    if (data.airport !== state.airport || data.session_id !== state.amanSessionID) return;
+    store.setState({inboundDepartures: data});
+  });
   wsClient.on(EventType.FrontendCdmDataBatch, handleCdmBatchUpdateEvent);
   wsClient.on(EventType.FrontendCdmWait, handleCdmWaitEvent);
   wsClient.on(EventType.FrontendReleasePoint, handleReleasePointEvent);

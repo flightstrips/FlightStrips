@@ -1,4 +1,5 @@
 import type {AMANCommandMessage} from "./aman";
+import type {InboundDeparturesEvent, InboundDeparturesSnapshot} from "./inbound-departures";
 
 export enum EventType {
   FrontendInitial = "initial",
@@ -23,6 +24,7 @@ export enum EventType {
   FrontendLayoutUpdate = "layout_update",
   FrontendBroadcast = "broadcast",
   FrontendCdmData = "cdm_data",
+  FrontendInboundDepartures = "inbound_departures",
   FrontendCdmDataBatch = "cdm_data_batch",
   FrontendCdmWait = "cdm_wait",
   FrontendCdmDeicePlatformUpdate = "cdm_deice_platform_update",
@@ -301,6 +303,7 @@ export interface SidInfo {
 }
 
 export interface FrontendInitialEvent {
+  inbound_departures?: InboundDeparturesSnapshot;
   session_id?: number;
   type: EventType.FrontendInitial;
   controllers: FrontendController[];
@@ -674,6 +677,7 @@ export interface FrontendAtisUpdateEvent {
 
 // Union type for all events that can be received
 export type WebSocketEvent =
+  | InboundDeparturesEvent
   | FrontendInitialEvent
   | FrontendGoAroundEvent
   | FrontendStripUpdateEvent

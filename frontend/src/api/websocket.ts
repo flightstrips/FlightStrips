@@ -42,11 +42,13 @@ import {
   type AvailableSidsEvent,
 } from "./models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
+import type {InboundDeparturesEvent} from "./inbound-departures";
 import type {AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEvent} from "./aman";
 
 
 type EventMap = {
   [EventType.FrontendFrequencyMessageResult]: import("@/lib/text-pilot").FrequencyMessageResult;
+  [EventType.FrontendInboundDepartures]: InboundDeparturesEvent;
   [EventType.FrontendInitial]: FrontendInitialEvent;
   [EventType.FrontendGoAround]: FrontendGoAroundEvent;
   [EventType.FrontendStripUpdate]: FrontendStripUpdateEvent;

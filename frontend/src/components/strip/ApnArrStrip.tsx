@@ -14,6 +14,7 @@ import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
 import { Bay } from "@/api/models";
 import { getRwyArrRunwayColor } from "./finalArrRunwayColor";
+import {InboundCtotFlag} from "./InboundCtotFlag";
 
 // Height: 4.72dvh (51px at 1080p), matches FinalArrStrip ATC arrival strip spec
 const TOP_H = "66.6667%";
@@ -134,6 +135,7 @@ export function ApnArrStrip({
       >
         <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
           <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: manualBlue }}>{callsign}</span>
+          <InboundCtotFlag callsign={callsign} />
         </div>
         <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
           <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>{nextFreq}</span>

@@ -2,6 +2,7 @@ package efb
 
 import (
 	"FlightStrips/internal/cdm"
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
@@ -57,13 +58,9 @@ func (a *WebAPI) handleNetworkFlight(w http.ResponseWriter, r *http.Request, use
 		a.writeResolveError(w, err)
 		return
 	}
-	airport := string(a.terminal.Airport)
-	if airport == "" {
-		airport = "EKCH"
-	}
+	airport := a.airport()
 	departure := strings.EqualFold(flight.FlightPlan.Origin, airport)
-	if !departure && !strings.EqualFold(flight.FlightPlan.Destination, airport) {
-		writeError(w, http.StatusUnprocessableEntity, "EFB is available for flights departing from or arriving at "+airport)
+	if !a.validateNetworkAirport(w, flight) {
 		return
 	}
 	phase := "ARRIVAL"
@@ -94,12 +91,12 @@ func (a *WebAPI) handleNetworkFlight(w http.ResponseWriter, r *http.Request, use
 	timing, err := a.networkTiming(r.Context(), flight.Callsign)
 	if err != nil {
 		slog.WarnContext(r.Context(), "EFB vIFF timing lookup failed", "callsign", flight.Callsign, "error", err)
-		result.DataErrors = append(result.DataErrors, "vIFF timing is unavailable; TOBT updates are disabled.")
+		result.DataErrors = append(result.DataErrors, "vIFF timing is unavailable; remote TOBT updates are disabled.")
 	} else {
 		result.TOBT = viffClock(timing.CDMData.TOBT, timing.TOBT)
 		result.TSAT = viffClock(timing.CDMData.TSAT)
 		result.CTOT = viffClock(timing.CTOT, timing.CDMData.CTOT)
-		result.Capabilities.TOBT = true
+		result.Capabilities.TOBT = !strings.EqualFold(result.Origin, "EKCH")
 	}
 	if departure {
 		result.SID = filedSIDIndicator(flight.FlightPlan.Route, flight.FlightPlan.Origin)
@@ -117,6 +114,7 @@ func (a *WebAPI) handleNetworkFlight(w http.ResponseWriter, r *http.Request, use
 	applyDepartureRules(&result)
 	if a.callsignLookup {
 		result.Capabilities = capabilities{}
+		result.PDCAvailable, result.PDCCanSubmit, result.PDCRequiresPilotAction = false, false, false
 	}
 	writeJSON(w, http.StatusOK, result)
 }
@@ -172,6 +170,17 @@ func (a *WebAPI) addNetworkStripData(ctx context.Context, result *snapshot) {
 		return
 	}
 	if result.Phase == "DEPARTURE" {
+		if strings.EqualFold(result.Origin, "EKCH") && a.cdm != nil {
+			if _, err := a.networkCDMSession(ctx, match, result.Origin, result.Destination); err != nil {
+				slog.WarnContext(ctx, "EFB authoritative CDM lookup failed", "callsign", result.Callsign, "error", err)
+				result.DataErrors = append(result.DataErrors, "Local CDM timing is unavailable; TOBT updates are disabled.")
+			} else {
+				result.TOBT = normalizeClock(match.Strip.EffectiveTobt())
+				result.TSAT = normalizeClock(match.Strip.EffectiveTsat())
+				result.TTOT = normalizeClock(match.Strip.EffectiveTtot())
+				result.Capabilities.TOBT = a.cdmReady
+			}
+		}
 		state := match.Strip.PdcState
 		if state == "REQUESTED_WITH_FAULTS" {
 			state = "REQUESTED"
@@ -307,6 +316,31 @@ func (a *WebAPI) handleNetworkTobt(w http.ResponseWriter, r *http.Request, user 
 		a.writeResolveError(w, err)
 		return
 	}
+	if !a.validateNetworkAirport(w, flight) {
+		return
+	}
+	if strings.EqualFold(flight.FlightPlan.Origin, "EKCH") {
+		if a.cdm == nil || !a.cdmReady || a.flights == nil {
+			writeError(w, http.StatusServiceUnavailable, "authoritative CDM TOBT updates unavailable")
+			return
+		}
+		match, err := a.flights.FindWebStripByCallsign(r.Context(), flight.Callsign)
+		if err == nil {
+			_, err = a.networkCDMSession(r.Context(), match, flight.FlightPlan.Origin, flight.FlightPlan.Destination)
+		}
+		if err != nil {
+			slog.WarnContext(r.Context(), "EFB authoritative CDM flight lookup failed", "callsign", flight.Callsign, "error", err)
+			writeError(w, http.StatusServiceUnavailable, "a matching LIVE departure is required for authoritative CDM TOBT updates")
+			return
+		}
+		if err := a.cdm.HandleTobtUpdate(r.Context(), match.SessionID, flight.Callsign, tobt, "EFB:"+user.GetCid(), "PILOT"); err != nil {
+			slog.WarnContext(r.Context(), "EFB authoritative CDM TOBT update failed", "callsign", flight.Callsign, "error", err)
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"callsign": flight.Callsign, "tobt": tobt})
+		return
+	}
 	timing, err := a.networkTiming(r.Context(), flight.Callsign)
 	if err == nil {
 		err = a.viff.IFPSSetTobt(r.Context(), flight.Callsign, tobt, timing.Taxi)
@@ -317,4 +351,27 @@ func (a *WebAPI) handleNetworkTobt(w http.ResponseWriter, r *http.Request, user 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"callsign": flight.Callsign, "tobt": tobt})
+}
+
+func (a *WebAPI) validateNetworkAirport(w http.ResponseWriter, flight vatsim.Flight) bool {
+	airport := a.airport()
+	if !strings.EqualFold(flight.FlightPlan.Origin, airport) && !strings.EqualFold(flight.FlightPlan.Destination, airport) {
+		writeError(w, http.StatusUnprocessableEntity, "EFB is available for flights departing from or arriving at "+airport)
+		return false
+	}
+	return true
+}
+
+func (a *WebAPI) networkCDMSession(ctx context.Context, match pdc.WebStripMatch, origin, destination string) (*models.Session, error) {
+	if match.Strip == nil || !strings.EqualFold(match.Strip.Origin, origin) || !strings.EqualFold(match.Strip.Destination, destination) || a.sessions == nil {
+		return nil, errors.New("matching CDM departure is unavailable")
+	}
+	session, err := a.sessions.GetByID(ctx, match.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	if session == nil || !strings.EqualFold(session.Name, "LIVE") || !strings.EqualFold(session.Airport, origin) {
+		return nil, errors.New("CDM departure requires a matching LIVE airport session")
+	}
+	return session, nil
 }

@@ -897,9 +897,15 @@ useEffect(() => {
     void handleAtisPrimaryClick('M3');
   };
 
+  const pdcActionsAvailable = !apiFlight?.read_only && Boolean(apiFlight?.capabilities.pdc);
+
   const handleL3M2Click = () => {
     if (isArrival || !showFlightplanElements) return;
 
+    if (!pdcActionsAvailable && pdcStatus !== 'NOATIS') {
+      setActionError('PDC actions are currently unavailable');
+      return;
+    }
     if (pdcStatus === 'NOATIS') {
       setActionError('Current ATIS is required before requesting PDC');
       return;
@@ -924,12 +930,18 @@ useEffect(() => {
   };
 
   const handlePdcConfirm = async () => {
+    if (!pdcActionsAvailable || !apiFlight?.pdc_requires_pilot_action) {
+      throw new Error('PDC actions are currently unavailable');
+    }
     await authorizedFetch('/api/pdc/acknowledge', { method: 'POST', body: JSON.stringify({ callsign: flightData.callsign }) });
     setPdcStatus('CONFIRMED');
     await refreshFlight();
   };
 
   const handlePdcUnable = async () => {
+    if (!pdcActionsAvailable || !apiFlight?.pdc_requires_pilot_action) {
+      throw new Error('PDC actions are currently unavailable');
+    }
     await authorizedFetch('/api/pdc/unable', { method: 'POST', body: JSON.stringify({ callsign: flightData.callsign }) });
     setPdcStatus('NOREQ');
     await refreshFlight();

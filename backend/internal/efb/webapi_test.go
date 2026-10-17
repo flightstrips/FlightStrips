@@ -38,14 +38,14 @@ func TestDepartureDoesNotSubstituteSensedStandForPilotReservation(t *testing.T) 
 			tobt, tsat, ctot := "2010", "201500", "2030"
 			api := NewWebAPI(WebAPIConfig{
 				Network: networkTestFlight(t, true, time.Now(), "SAS123", "EKCH", "EDDF"),
-				Auth:    authStub{}, CDMReady: true, ATIS: &atisLookupStub{},
+				Auth:    authStub{}, CDM: &cdmStub{}, CDMReady: true, ATIS: &atisLookupStub{},
 				Assignments: assignmentLookupStub{assignment: &models.StandAssignment{Stand: "B4", Stage: "RESERVED", Version: 8}},
 				Flights: &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: &models.Strip{
 					Callsign: "SAS123", Origin: "EKCH", Destination: "EDDF", Stand: &sensedStand,
 					CdmData: &models.CdmData{Tobt: &tobt, Tsat: &tsat, Ctot: &ctot},
 				}}},
 				Sessions: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) {
-					return &models.Session{ID: 7, Airport: "EKCH"}, nil
+					return &models.Session{ID: 7, Name: "LIVE", Airport: "EKCH"}, nil
 				}},
 				Viff: &networkTimingStub{},
 			})
@@ -60,8 +60,8 @@ func TestDepartureDoesNotSubstituteSensedStandForPilotReservation(t *testing.T) 
 			if flight.Stand != nil || flight.StandState == nil || *flight.StandState != standAssignmentUnavailable {
 				t.Fatalf("must not substitute a sensed/planned stand when the pilot allocator is unavailable: %s", rec.Body.String())
 			}
-			if flight.TOBT == nil || *flight.TOBT != "1935" || flight.TSAT == nil || *flight.TSAT != "1940" || flight.CTOT == nil || *flight.CTOT != "1950" || !flight.Capabilities.TOBT {
-				t.Fatalf("departure must use vIFF, not local CDM timings: %s", rec.Body.String())
+			if flight.TOBT == nil || *flight.TOBT != tobt || flight.TSAT == nil || *flight.TSAT != "2015" || flight.CTOT == nil || *flight.CTOT != "1950" || !flight.Capabilities.TOBT {
+				t.Fatalf("EKCH departure must use authoritative local TOBT/TSAT and vIFF CTOT: %s", rec.Body.String())
 			}
 			if flight.ATIS == nil || flight.ATIS.Callsign != "EKCH_D_ATIS" || flight.StandVersion != nil {
 				t.Fatalf("incorrect departure data: %s", rec.Body.String())
@@ -209,6 +209,7 @@ type finderStub struct {
 type departureFrequencyStub struct{ frequency string }
 
 type cdmStub struct {
+	err       error
 	calls     int
 	session   int32
 	callsign  string
@@ -237,7 +238,7 @@ func (s *standActionsStub) AvailableForPilot(_ context.Context, session int32, a
 func (s *cdmStub) HandleTobtUpdate(_ context.Context, session int32, callsign, tobt, updatedBy, source string) error {
 	s.calls++
 	s.session, s.callsign, s.tobt, s.updatedBy, s.source = session, callsign, tobt, updatedBy, source
-	return nil
+	return s.err
 }
 
 func (s departureFrequencyStub) ComputeDepartureFrequencyForStripContext(context.Context, *models.Strip, int32) (*string, error) {
@@ -464,7 +465,7 @@ func TestTobtReturnsUnavailableWithoutVATSIMSource(t *testing.T) {
 	}
 }
 
-func TestDepartureTobtDoesNotUseCDM(t *testing.T) {
+func TestDepartureTobtUsesAuthoritativeCDM(t *testing.T) {
 	updater := &cdmStub{}
 	finder := &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: &models.Strip{
 		Callsign: "SAS123", Origin: "EKCH", Destination: "EDDF",
@@ -473,7 +474,7 @@ func TestDepartureTobtDoesNotUseCDM(t *testing.T) {
 		Network: networkTestFlight(t, true, time.Now(), "SAS123", "EKCH", "EDDF"),
 		Auth:    authStub{}, Live: true, Callsigns: callsignStub{callsign: "SAS123", found: true},
 		Flights: finder, Sessions: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) {
-			return &models.Session{ID: 7, Airport: "EKCH"}, nil
+			return &models.Session{ID: 7, Name: "LIVE", Airport: "EKCH"}, nil
 		}},
 		CDM: updater, CDMReady: true, Viff: &networkTimingStub{},
 	})
@@ -481,11 +482,11 @@ func TestDepartureTobtDoesNotUseCDM(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer test")
 	rec := httptest.NewRecorder()
 	api.handleTobt(rec, req)
-	if rec.Code != http.StatusOK || finder.requested != "" {
-		t.Fatalf("departure TOBT must not require FlightStrips: %d %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK || finder.requested != "SAS123" {
+		t.Fatalf("departure TOBT must resolve the authenticated pilot's LIVE strip: %d %s", rec.Code, rec.Body.String())
 	}
-	if updater.calls != 0 {
-		t.Fatalf("departure TOBT must use vIFF, not CDM: %+v", updater)
+	if updater.calls != 1 || updater.tobt != "2040" || updater.updatedBy != "EFB:1234567" || updater.source != "PILOT" {
+		t.Fatalf("departure TOBT must use the authoritative CDM action: %+v", updater)
 	}
 }
 

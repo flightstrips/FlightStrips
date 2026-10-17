@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/cdm"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
+	"FlightStrips/internal/testutil"
 	"FlightStrips/internal/vatsim"
 	"context"
 	"encoding/json"
@@ -105,7 +106,7 @@ func TestNetworkFlightDoesNotRequireFlightStrips(t *testing.T) {
 				t.Fatalf("missing integration error: %s", rec.Body.String())
 			}
 			if tc.viff.err == nil {
-				if got.TOBT == nil || *got.TOBT != "1935" || got.TSAT == nil || *got.TSAT != "1940" || got.CTOT == nil || *got.CTOT != "1950" || !got.Capabilities.TOBT {
+				if got.TOBT == nil || *got.TOBT != "1935" || got.TSAT == nil || *got.TSAT != "1940" || got.CTOT == nil || *got.CTOT != "1950" || got.Capabilities.TOBT {
 					t.Fatalf("expected direct vIFF timings: %s", rec.Body.String())
 				}
 			} else if got.TOBT != nil || got.Capabilities.TOBT {
@@ -121,7 +122,13 @@ func TestNetworkFlightDoesNotRequireFlightStrips(t *testing.T) {
 func TestNetworkProfileAndTobtUseAccountNotRequestedCallsign(t *testing.T) {
 	source := networkTestSource(t, true, time.Now())
 	timing := &networkTimingStub{}
-	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Network: source, Viff: timing})
+	local := &cdmStub{}
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Network: source, Viff: timing, CDM: local, CDMReady: true,
+		Flights: &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: &models.Strip{Callsign: "SAS99X", Origin: "EKCH", Destination: "EKYT"}}},
+		Sessions: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+			return &models.Session{ID: 7, Name: "LIVE", Airport: "EKCH"}, nil
+		}},
+	})
 	profile := httptest.NewRequest(http.MethodGet, "/efb/me?callsign=OTHER", nil)
 	profile.Header.Set("Authorization", "Bearer test")
 	rec := httptest.NewRecorder()
@@ -138,8 +145,98 @@ func TestNetworkProfileAndTobtUseAccountNotRequestedCallsign(t *testing.T) {
 	update.Header.Set("Authorization", "Bearer test")
 	rec = httptest.NewRecorder()
 	api.handleTobt(rec, update)
-	if rec.Code != 200 || timing.callsign != "SAS99X" || timing.tobt != "2000" || timing.taxi != 12 {
-		t.Fatalf("expected direct vIFF update for account flight: %d %s %+v", rec.Code, rec.Body.String(), timing)
+	if rec.Code != 200 || local.calls != 1 || local.session != 7 || local.callsign != "SAS99X" || local.tobt != "2000" || local.updatedBy != "EFB:1234567" || local.source != "PILOT" || timing.callsign != "" || timing.tobt != "" {
+		t.Fatalf("expected authoritative CDM update for account flight without direct vIFF calls: %d %s local=%+v timing=%+v", rec.Code, rec.Body.String(), local, timing)
+	}
+}
+
+func TestNetworkDepartureTobtDoesNotFallBackToRemoteWrites(t *testing.T) {
+	source := networkTestSource(t, true, time.Now())
+	for _, name := range []string{"missing CDM", "CDM disabled", "missing strip", "lookup failed", "different route", "missing session", "session failed", "training session", "different airport", "CDM failed"} {
+		t.Run(name, func(t *testing.T) {
+			timing, local := &networkTimingStub{}, &cdmStub{}
+			finder := &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: &models.Strip{Callsign: "SAS99X", Origin: "EKCH", Destination: "EKYT"}}}
+			session := &models.Session{ID: 7, Name: "LIVE", Airport: "EKCH"}
+			var sessionErr error
+			cfg := WebAPIConfig{Auth: authStub{}, Network: source, Viff: timing, CDM: local, CDMReady: true, Flights: finder,
+				Sessions: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) { return session, sessionErr }},
+			}
+			wantStatus := http.StatusServiceUnavailable
+			switch name {
+			case "missing CDM":
+				cfg.CDM = nil
+			case "CDM disabled":
+				cfg.CDMReady = false
+			case "missing strip":
+				finder.err = pdc.ErrWebStripNotFound
+			case "lookup failed":
+				finder.err = errors.New("database offline")
+			case "different route":
+				finder.match.Strip.Destination = "EDDF"
+			case "missing session":
+				session = nil
+			case "session failed":
+				sessionErr = errors.New("session database offline")
+			case "training session":
+				session.Name = "SWEATBOX"
+			case "different airport":
+				session.Airport = "EKYT"
+			case "CDM failed":
+				local.err = errors.New("CDM update failed")
+				wantStatus = http.StatusConflict
+			}
+			api := NewWebAPI(cfg)
+			req := httptest.NewRequest(http.MethodPut, "/efb/tobt", strings.NewReader(`{"tobt":"2000"}`))
+			req.Header.Set("Authorization", "Bearer token")
+			rec := httptest.NewRecorder()
+			api.handleTobt(rec, req)
+			if rec.Code != wantStatus || timing.callsign != "" || timing.tobt != "" || name != "CDM failed" && local.calls != 0 {
+				t.Fatalf("invalid local updates must not reach vIFF: %d %s local=%+v remote=%+v", rec.Code, rec.Body.String(), local, timing)
+			}
+		})
+	}
+}
+
+func TestNetworkArrivalTobtStillUsesOriginViffTiming(t *testing.T) {
+	timing, local := &networkTimingStub{}, &cdmStub{}
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Network: networkTestFlight(t, true, time.Now(), "SAS99X", "EDDF", "EKCH"), Viff: timing, CDM: local, CDMReady: true})
+	req := httptest.NewRequest(http.MethodPut, "/efb/tobt", strings.NewReader(`{"callsign":"OTHER","tobt":"2000"}`))
+	req.Header.Set("Authorization", "Bearer token")
+	rec := httptest.NewRecorder()
+	api.handleTobt(rec, req)
+	if rec.Code != http.StatusOK || timing.callsign != "SAS99X" || timing.tobt != "2000" || timing.taxi != 12 || local.calls != 0 {
+		t.Fatalf("arrival TOBT belongs to its origin, not EKCH CDM: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCallsignLookupDisablesEveryPDCAction(t *testing.T) {
+	for _, state := range []string{"NONE", "CLEARED"} {
+		t.Run(state, func(t *testing.T) {
+			api := NewWebAPI(WebAPIConfig{Auth: authStub{}, CallsignLookup: true, PDCReady: true, Viff: &networkTimingStub{},
+				Network: networkTestSource(t, true, time.Now()),
+				Flights: &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: &models.Strip{Origin: "EKCH", Destination: "EKYT", PdcState: state}}},
+			})
+			req := httptest.NewRequest(http.MethodGet, "/efb/flight?callsign=SAS99X", nil)
+			req.Header.Set("Authorization", "Bearer token")
+			rec := httptest.NewRecorder()
+			api.handleFlight(rec, req)
+			var got snapshot
+			if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &got) != nil || !got.ReadOnly || got.Capabilities.PDC || got.PDCAvailable || got.PDCCanSubmit || got.PDCRequiresPilotAction {
+				t.Fatalf("read-only flight must not expose PDC actions: %d %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestNetworkTobtRejectsUnrelatedAirportBeforeAnyTimingAccess(t *testing.T) {
+	timing, local := &networkTimingStub{}, &cdmStub{}
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Network: networkTestFlight(t, true, time.Now(), "SAS99X", "EDDF", "ESSA"), Viff: timing, CDM: local, CDMReady: true})
+	req := httptest.NewRequest(http.MethodPut, "/efb/tobt", strings.NewReader(`{"tobt":"2000"}`))
+	req.Header.Set("Authorization", "Bearer token")
+	rec := httptest.NewRecorder()
+	api.handleTobt(rec, req)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "departing from or arriving at EKCH") || timing.callsign != "" || local.calls != 0 {
+		t.Fatalf("out-of-scope flight must not access timing or perform updates: %d %s", rec.Code, rec.Body.String())
 	}
 }
 

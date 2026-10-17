@@ -31,6 +31,10 @@ airport (EKCH by default) as departures and flights destined there as arrivals.
 Flights unrelated to that airport receive an explicit unsupported-flight message.
 Matching departure strips also provide PDC availability, request/clearance state,
 and the clearance text; without a matching strip PDC remains unavailable.
+The same airport restriction is enforced on TOBT writes before any timing access.
+EKCH departure TOBT edits require a matching LIVE strip and the authoritative
+local CDM workflow; missing CDM or strip data disables editing rather than
+performing a remote-only update that the master would later overwrite.
 
 ### Live deployment
 
@@ -98,6 +102,9 @@ field then reads any online or prefiled plan from the same VATSIM feed, rather
 than matching the login's CID. A banner identifies the selected flight as ONLINE
 or PREFILED and READ ONLY. Available vIFF timing and ATIS remain visible, but
 TOBT and stand writes are rejected server-side for the entire lookup mode.
+PDC action flags are cleared in lookup responses, and the frontend checks both
+read-only mode and the PDC capability before requesting, acknowledging or
+rejecting a clearance, including when permissions change with the dialog open.
 The flag defaults to false and the backend refuses it in production.
 Login is still required; no real-account credentials are needed to view another
 callsign's public plan in this local mode.
@@ -229,11 +236,17 @@ and persists across page refreshes and backend restarts.
   failures are reported without hiding the underlying flight. If no compatible
   alternative exists, the allocator rejects the operation; arrival-relocation
   failures use the existing controller diagnostic/logging path.
+  Background pilot reconciliation treats normal allocation shortages like the
+  ordinary departure lifecycle: they remain recorded in allocator diagnostics
+  but do not prevent later departures or arrivals from being processed.
+  Infrastructure errors still propagate.
 
 Arbitrary-callsign evaluation remains read-only and never starts this workflow.
 Sweatbox retains its existing isolated stand behavior, including SENSED display.
-Departure TOBT, TSAT, and CTOT are sourced directly from vIFF;
-TOBT edits do not require FlightStrips CDM.
+EKCH departure TOBT and TSAT prefer the matching LIVE strip's authoritative local
+CDM data; CTOT remains sourced from vIFF. TOBT edits use the local CDM action,
+which persists pilot confirmation, requests recalculation when needed, and
+synchronizes vIFF through the existing master workflow.
 The same current-UTC time picker is used for both departure and arrival.
 
 For an account test, the backend must run the updated code with `ENABLE_EFB=true`
@@ -284,10 +297,12 @@ on the ground and in the air.
 
 ## EFB vIFF timing
 
-For live arrival and departure flights, the EFB reads TOBT, TSAT, and CTOT from the existing
-server-side vIFF integration by callsign, regardless of departure airport.
-No FlightStrips session is needed. Requests use the authenticated pilot's
-online callsign rather than trusting a supplied callsign.
+The EFB reads available timing from the server-side vIFF integration by callsign.
+EKCH departures prefer authoritative local TOBT/TSAT from a matching LIVE strip
+and must use local CDM for edits. Without that strip, vIFF timings may still be
+viewed, but editing is disabled. Arrivals from other airports continue to read
+and update their origin's timing through vIFF without requiring an EKCH strip.
+Requests use the authenticated pilot's callsign rather than a supplied callsign.
 The backend requires its existing `CDM_KEY`; no vIFF credentials are sent to the browser.
 
 Sensed departure stands use the EFB green fill for both the stand number and status.
@@ -341,9 +356,11 @@ and background, without an outer outline (M2 for departures, L3 for arrivals).
 UPDATE TOBT opens a UTC time picker initialized to the current time, with current
 TOBT and CTOT above the input, quick-set buttons, and side-by-side Update/Cancel actions. The +5/-5 controls
 adjust it by five minutes, including across midnight. Confirming submits the
-new TOBT to vIFF using that flight's taxi time; errors leave the menu open.
-If vIFF is unavailable, the flight remains visible with an explicit warning,
-empty timing fields, and TOBT updates disabled.
+new TOBT through authoritative local CDM for EKCH departures, or to vIFF using
+the origin flight's taxi time for arrivals; errors leave the menu open.
+If vIFF is unavailable, the flight remains visible with an explicit warning.
+Available local departure timing remains editable when local CDM is ready;
+remote timing edits are disabled.
 The simulated arrival can open the picker, but submission is disabled.
 
 ## Fullscreen and scope controls

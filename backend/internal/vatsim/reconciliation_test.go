@@ -588,14 +588,19 @@ func TestReconcileFollowsOpenedPilotDepartureBeforeEuroscope(t *testing.T) {
 	cache := newReconciliationTestCache(now,
 		Flight{CID: "1", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}},
 		Flight{CID: "2", Callsign: "SAS202", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EDDF", Revision: 5}},
+		Flight{CID: "3", Callsign: "SAS303", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "ESSA", Revision: 1}},
+		Flight{CID: "4", Callsign: "SAS404", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ESSA", Destination: "EKCH", Revision: 1}},
 	)
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}
 	lifecycle := &reconciliationPilotDepartureLifecycle{}
 	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 	reconciler.lifecycle = lifecycle
+	arrivals := &reconciliationTestArrivalLifecycle{}
+	reconciler.arrivalLifecycle = arrivals
 	require.NoError(t, reconciler.Reconcile(context.Background()))
-	assert.ElementsMatch(t, []string{"SAS101", "SAS202"}, lifecycle.observed)
-	assert.Empty(t, lifecycle.processed, "unopened API-only flights retain their old behavior")
+	assert.ElementsMatch(t, []string{"SAS101", "SAS202", "SAS303"}, lifecycle.observed)
+	assert.Equal(t, []string{"SAS303"}, lifecycle.processed, "later prefiles still process after managed pilot departures")
+	assert.Equal(t, []string{"SAS404"}, arrivals.processed, "arrival processing must follow managed pilot departures")
 	assert.Empty(t, lifecycle.released)
 }
 

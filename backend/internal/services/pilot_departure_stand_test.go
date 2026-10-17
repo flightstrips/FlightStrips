@@ -319,6 +319,34 @@ func TestPilotDepartureStandMismatchResetsWhenLeaving(t *testing.T) {
 	assert.Equal(t, f.clock.now, *state.MismatchSince)
 }
 
+func TestReconcilePilotDepartureSuppressesNormalStandShortages(t *testing.T) {
+	f := newPilotStandFixture(t)
+	ctx := context.Background()
+	flight := onlineFlight("SAS123", 1)
+	flight.Latitude, flight.Longitude = 55, 12
+	state, err := f.service.Open(ctx, f.session, f.strip, flight)
+	require.NoError(t, err)
+	require.Equal(t, PilotStandNotDetected, state.State)
+	for _, stand := range []string{"A1", "A2", "B1"} {
+		require.NoError(t, f.assignments.CreateBlock(ctx, &models.StandBlock{
+			SessionID: f.session, Stand: stand, Manual: true, BlockType: "MANUAL", Source: "CONTROLLER",
+		}))
+	}
+	flight = onlineFlight("SAS123", 2)
+	_, err = f.service.Open(ctx, f.session, f.strip, flight)
+	require.ErrorIs(t, err, ErrNoAvailableStand, "explicit pilot actions must still report the shortage")
+	for i := 0; i < 2; i++ {
+		managed, err := f.lifecycle.ReconcilePilotDeparture(ctx, f.session, f.strip, flight)
+		require.NoError(t, err, "normal stand shortages must not abort airport reconciliation")
+		require.True(t, managed, "a managed flight must not enter the ordinary departure allocator again")
+	}
+	_, err = f.pool.Exec(ctx, "ALTER TABLE efb_departure_stands RENAME TO unavailable_efb_departure_stands")
+	require.NoError(t, err)
+	_, err = f.lifecycle.ReconcilePilotDeparture(ctx, f.session, f.strip, flight)
+	require.Error(t, err, "infrastructure failures must still propagate")
+	require.Contains(t, err.Error(), "does not exist")
+}
+
 func TestPilotDepartureStandConcurrentFirstOpen(t *testing.T) {
 	f := newPilotStandFixture(t)
 	ctx := context.Background()

@@ -182,7 +182,8 @@ func (s *DepartureLifecycleService) CancelPilotDeparture(ctx context.Context, se
 }
 
 // ReconcilePilotDeparture follows EFB aircraft even before EuroScope has seen them.
-func (s *DepartureLifecycleService) ReconcilePilotDeparture(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
+func (s *DepartureLifecycleService) ReconcilePilotDeparture(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (managed bool, err error) {
+	defer func() { err = suppressAutomaticAllocationError(err) }()
 	if s.pilotStands == nil {
 		return false, nil
 	}

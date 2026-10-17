@@ -591,6 +591,52 @@ describe('EFB page interactions', () => {
     expect(text.style.getPropertyValue('--pdc-label-size')).toBe(`${100 / (label.length * 0.75)}cqw`);
   });
 
+  it.each([
+    [true, true, false, 'REQ PDC'],
+    [true, true, true, 'VIEW PDC'],
+    [false, false, false, 'REQ PDC'],
+    [false, false, true, 'VIEW PDC'],
+  ])('blocks PDC mutations with read-only=%s and capability=%s even if action flags are set', async (readOnly, capability, cleared, label) => {
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes('/me')) return jsonResponse({ live_mode: true, online_callsign: 'SAS123' });
+      return jsonResponse({
+        callsign: 'SAS123', origin: 'EKCH', destination: 'EDDF', phase: 'DEPARTURE', read_only: readOnly,
+        atis: { code: 'A', text: ['ATIS A'] }, pdc_state: cleared ? 'CLEARED' : 'NONE',
+        pdc_can_submit: !cleared, pdc_requires_pilot_action: cleared, pdc_clearance_text: 'TEST CLEARANCE',
+        capabilities: { pdc: capability, tobt_update: false, stand_reassignment: false },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<EFBPage />);
+    fireEvent.click(await screen.findByRole('button', { name: label }));
+    expect(await screen.findByText('PDC actions are currently unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'CONFIRM' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'UNABLE' })).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/pdc/'))).toBe(false);
+  });
+
+  it.each(['CONFIRM', 'UNABLE'])('blocks %s if PDC becomes read-only while the clearance dialog is open', async (action) => {
+    let readOnly = false;
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes('/me')) return jsonResponse({ live_mode: true, online_callsign: 'SAS123' });
+      return jsonResponse({
+        callsign: 'SAS123', origin: 'EKCH', destination: 'EDDF', phase: 'DEPARTURE', read_only: readOnly,
+        atis: { code: 'A', text: ['ATIS A'] }, pdc_state: 'CLEARED', pdc_requires_pilot_action: true,
+        pdc_clearance_text: 'TEST CLEARANCE', capabilities: { pdc: true, tobt_update: false, stand_reassignment: false },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    render(<EFBPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'VIEW PDC' }));
+    await screen.findByRole('button', { name: action });
+    readOnly = true;
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    fireEvent.click(screen.getByRole('button', { name: action }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('PDC actions are currently unavailable');
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/pdc/'))).toBe(false);
+  });
+
   it('keeps the ATIS and PDC requests separate when ATIS is missing', async () => {
     const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
       if (String(input).includes('/api/efb/me')) return jsonResponse({ live_mode: true, online_callsign: 'SAS123' });

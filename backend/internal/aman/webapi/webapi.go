@@ -271,6 +271,7 @@ type holdingPlan struct {
 	HoldingEntryTime          string `json:"holding_entry_time"`
 	ApproachReleaseTime       string `json:"approach_release_time"`
 	ExpectedHoldingSeconds    int64  `json:"expected_holding_seconds"`
+	AdditionalApproachSeconds int64  `json:"additional_approach_seconds,omitempty"`
 	PostHoldingTransitSeconds int64  `json:"post_holding_transit_seconds"`
 }
 type slotNeighbour struct {
@@ -426,7 +427,7 @@ func mapHoldingPlan(plan aman.HoldingPlan) (holdingPlan, error) {
 	if entryErr != nil || releaseErr != nil {
 		return holdingPlan{}, errors.Join(entryErr, releaseErr)
 	}
-	return holdingPlan{HoldingEntryTime: entry, ApproachReleaseTime: release, ExpectedHoldingSeconds: seconds(plan.ExpectedHoldingDuration), PostHoldingTransitSeconds: seconds(plan.PostHoldingTransit)}, nil
+	return holdingPlan{HoldingEntryTime: entry, ApproachReleaseTime: release, ExpectedHoldingSeconds: seconds(plan.ExpectedHoldingDuration), PostHoldingTransitSeconds: seconds(plan.PostHoldingTransit), AdditionalApproachSeconds: seconds(plan.AdditionalApproachTime)}, nil
 }
 
 func (a *WebAPI) mapFiledRouteGeometry(ctx context.Context, state aman.AirportState, flight aman.AMANFlight) *filedRouteGeometry {

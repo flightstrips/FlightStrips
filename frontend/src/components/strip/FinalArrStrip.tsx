@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
@@ -37,6 +38,7 @@ const F_STAND    = 80;
  * Background: yellow (var(--color-strip-arr-bg)). Cell borders: gold (var(--color-cell-border-arr)).
  */
 export function FinalArrStrip({
+  communicationType,
   callsign,
   bay,
   aircraftType,
@@ -92,7 +94,6 @@ export function FinalArrStrip({
         height: "4.72dvh",
         width: "95%",
         backgroundColor: bg,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >
@@ -222,9 +223,11 @@ export function FinalArrStrip({
 
       {/* STAR (inactive) */}
       <div
-        className="flex flex-col overflow-hidden min-w-0"
+        className="relative flex flex-col overflow-hidden min-w-0"
         style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%" }}
-      />
+      >
+        <TextPilotIndicator divider={false} type={communicationType} borderColor={stripFrameColor} />
+      </div>
     </div>
 
     <ArrStandDialog

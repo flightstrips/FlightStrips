@@ -80,6 +80,8 @@ const (
 	EventType_EVENT_AMAN_GAIN_LOSS              EventType = 51
 	EventType_EVENT_AMAN_ROUTE_FACT             EventType = 52
 	EventType_EVENT_FS_SCRATCH_PAD              EventType = 53
+	EventType_EVENT_SEND_FREQUENCY_MESSAGE      EventType = 54
+	EventType_EVENT_FREQUENCY_MESSAGE_RESULT    EventType = 55
 )
 
 // Enum value maps for EventType.
@@ -139,6 +141,8 @@ var (
 		51: "EVENT_AMAN_GAIN_LOSS",
 		52: "EVENT_AMAN_ROUTE_FACT",
 		53: "EVENT_FS_SCRATCH_PAD",
+		54: "EVENT_SEND_FREQUENCY_MESSAGE",
+		55: "EVENT_FREQUENCY_MESSAGE_RESULT",
 	}
 	EventType_value = map[string]int32{
 		"EVENT_UNKNOWN":                     0,
@@ -195,6 +199,8 @@ var (
 		"EVENT_AMAN_GAIN_LOSS":              51,
 		"EVENT_AMAN_ROUTE_FACT":             52,
 		"EVENT_FS_SCRATCH_PAD":              53,
+		"EVENT_SEND_FREQUENCY_MESSAGE":      54,
+		"EVENT_FREQUENCY_MESSAGE_RESULT":    55,
 	}
 )
 
@@ -285,6 +291,8 @@ type Envelope struct {
 	//	*Envelope_AmanGainLoss
 	//	*Envelope_AmanRouteFact
 	//	*Envelope_FsScratchPad
+	//	*Envelope_SendFrequencyMessage
+	//	*Envelope_FrequencyMessageResult
 	Event         isEnvelope_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -804,6 +812,24 @@ func (x *Envelope) GetFsScratchPad() *FsScratchPadEvent {
 	return nil
 }
 
+func (x *Envelope) GetSendFrequencyMessage() *SendFrequencyMessageEvent {
+	if x != nil {
+		if x, ok := x.Event.(*Envelope_SendFrequencyMessage); ok {
+			return x.SendFrequencyMessage
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetFrequencyMessageResult() *FrequencyMessageResultEvent {
+	if x != nil {
+		if x, ok := x.Event.(*Envelope_FrequencyMessageResult); ok {
+			return x.FrequencyMessageResult
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Event interface {
 	isEnvelope_Event()
 }
@@ -1020,6 +1046,14 @@ type Envelope_FsScratchPad struct {
 	FsScratchPad *FsScratchPadEvent `protobuf:"bytes,53,opt,name=fs_scratch_pad,json=fsScratchPad,proto3,oneof"`
 }
 
+type Envelope_SendFrequencyMessage struct {
+	SendFrequencyMessage *SendFrequencyMessageEvent `protobuf:"bytes,54,opt,name=send_frequency_message,json=sendFrequencyMessage,proto3,oneof"`
+}
+
+type Envelope_FrequencyMessageResult struct {
+	FrequencyMessageResult *FrequencyMessageResultEvent `protobuf:"bytes,55,opt,name=frequency_message_result,json=frequencyMessageResult,proto3,oneof"`
+}
+
 func (*Envelope_Token) isEnvelope_Event() {}
 
 func (*Envelope_Login) isEnvelope_Event() {}
@@ -1126,12 +1160,17 @@ func (*Envelope_AmanRouteFact) isEnvelope_Event() {}
 
 func (*Envelope_FsScratchPad) isEnvelope_Event() {}
 
+func (*Envelope_SendFrequencyMessage) isEnvelope_Event() {}
+
+func (*Envelope_FrequencyMessageResult) isEnvelope_Event() {}
+
 type TokenEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Token             string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Version           string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	FrequencyMessages bool                   `protobuf:"varint,3,opt,name=frequency_messages,json=frequencyMessages,proto3" json:"frequency_messages,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *TokenEvent) Reset() {
@@ -1176,6 +1215,13 @@ func (x *TokenEvent) GetVersion() string {
 		return x.Version
 	}
 	return ""
+}
+
+func (x *TokenEvent) GetFrequencyMessages() bool {
+	if x != nil {
+		return x.FrequencyMessages
+	}
+	return false
 }
 
 type LoginEvent struct {
@@ -1529,6 +1575,7 @@ type Strip struct {
 	HoldType           string                 `protobuf:"bytes,31,opt,name=hold_type,json=holdType,proto3" json:"hold_type,omitempty"`
 	HoldEat            string                 `protobuf:"bytes,32,opt,name=hold_eat,json=holdEat,proto3" json:"hold_eat,omitempty"`
 	EnrouteDuration    string                 `protobuf:"bytes,33,opt,name=enroute_duration,json=enrouteDuration,proto3" json:"enroute_duration,omitempty"`
+	FlightRules        string                 `protobuf:"bytes,34,opt,name=flight_rules,json=flightRules,proto3" json:"flight_rules,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1790,6 +1837,13 @@ func (x *Strip) GetHoldEat() string {
 func (x *Strip) GetEnrouteDuration() string {
 	if x != nil {
 		return x.EnrouteDuration
+	}
+	return ""
+}
+
+func (x *Strip) GetFlightRules() string {
+	if x != nil {
+		return x.FlightRules
 	}
 	return ""
 }
@@ -5437,11 +5491,164 @@ func (x *FsScratchPadEvent) GetText() string {
 	return ""
 }
 
+// Submitted means EuroScope accepted the command input, not pilot receipt.
+type SendFrequencyMessageEvent struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RequestId        string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Callsign         string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	Message          string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	PrimaryFrequency string                 `protobuf:"bytes,4,opt,name=primary_frequency,json=primaryFrequency,proto3" json:"primary_frequency,omitempty"`
+	AppliedActions   int32                  `protobuf:"varint,5,opt,name=applied_actions,json=appliedActions,proto3" json:"applied_actions,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SendFrequencyMessageEvent) Reset() {
+	*x = SendFrequencyMessageEvent{}
+	mi := &file_proto_euroscope_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SendFrequencyMessageEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SendFrequencyMessageEvent) ProtoMessage() {}
+
+func (x *SendFrequencyMessageEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SendFrequencyMessageEvent.ProtoReflect.Descriptor instead.
+func (*SendFrequencyMessageEvent) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *SendFrequencyMessageEvent) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *SendFrequencyMessageEvent) GetCallsign() string {
+	if x != nil {
+		return x.Callsign
+	}
+	return ""
+}
+
+func (x *SendFrequencyMessageEvent) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *SendFrequencyMessageEvent) GetPrimaryFrequency() string {
+	if x != nil {
+		return x.PrimaryFrequency
+	}
+	return ""
+}
+
+func (x *SendFrequencyMessageEvent) GetAppliedActions() int32 {
+	if x != nil {
+		return x.AppliedActions
+	}
+	return 0
+}
+
+type FrequencyMessageResultEvent struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	RequestId      string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Callsign       string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	Submitted      bool                   `protobuf:"varint,3,opt,name=submitted,proto3" json:"submitted,omitempty"`
+	Error          string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	AppliedActions int32                  `protobuf:"varint,5,opt,name=applied_actions,json=appliedActions,proto3" json:"applied_actions,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *FrequencyMessageResultEvent) Reset() {
+	*x = FrequencyMessageResultEvent{}
+	mi := &file_proto_euroscope_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FrequencyMessageResultEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FrequencyMessageResultEvent) ProtoMessage() {}
+
+func (x *FrequencyMessageResultEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FrequencyMessageResultEvent.ProtoReflect.Descriptor instead.
+func (*FrequencyMessageResultEvent) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *FrequencyMessageResultEvent) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *FrequencyMessageResultEvent) GetCallsign() string {
+	if x != nil {
+		return x.Callsign
+	}
+	return ""
+}
+
+func (x *FrequencyMessageResultEvent) GetSubmitted() bool {
+	if x != nil {
+		return x.Submitted
+	}
+	return false
+}
+
+func (x *FrequencyMessageResultEvent) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *FrequencyMessageResultEvent) GetAppliedActions() int32 {
+	if x != nil {
+		return x.AppliedActions
+	}
+	return 0
+}
+
 var File_proto_euroscope_proto protoreflect.FileDescriptor
 
 const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
-	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\xe1#\n" +
+	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\xc3%\n" +
 	"\bEnvelope\x12=\n" +
 	"\x05token\x18\x01 \x01(\v2%.flightstrips.euroscope.v1.TokenEventH\x00R\x05token\x12=\n" +
 	"\x05login\x18\x02 \x01(\v2%.flightstrips.euroscope.v1.LoginEventH\x00R\x05login\x12_\n" +
@@ -5499,12 +5706,15 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x04hold\x182 \x01(\v2$.flightstrips.euroscope.v1.HoldEventH\x00R\x04hold\x12T\n" +
 	"\x0eaman_gain_loss\x183 \x01(\v2,.flightstrips.euroscope.v1.AMANGainLossEventH\x00R\famanGainLoss\x12W\n" +
 	"\x0faman_route_fact\x184 \x01(\v2-.flightstrips.euroscope.v1.AMANRouteFactEventH\x00R\ramanRouteFact\x12T\n" +
-	"\x0efs_scratch_pad\x185 \x01(\v2,.flightstrips.euroscope.v1.FsScratchPadEventH\x00R\ffsScratchPadB\a\n" +
-	"\x05event\"<\n" +
+	"\x0efs_scratch_pad\x185 \x01(\v2,.flightstrips.euroscope.v1.FsScratchPadEventH\x00R\ffsScratchPad\x12l\n" +
+	"\x16send_frequency_message\x186 \x01(\v24.flightstrips.euroscope.v1.SendFrequencyMessageEventH\x00R\x14sendFrequencyMessage\x12r\n" +
+	"\x18frequency_message_result\x187 \x01(\v26.flightstrips.euroscope.v1.FrequencyMessageResultEventH\x00R\x16frequencyMessageResultB\a\n" +
+	"\x05event\"k\n" +
 	"\n" +
 	"TokenEvent\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\"\xcb\x01\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x12-\n" +
+	"\x12frequency_messages\x18\x03 \x01(\bR\x11frequencyMessages\"\xcb\x01\n" +
 	"\n" +
 	"LoginEvent\x12\x18\n" +
 	"\aairport\x18\x01 \x01(\tR\aairport\x12\x1e\n" +
@@ -5530,7 +5740,7 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
 	"Controller\x12\x1a\n" +
 	"\bposition\x18\x01 \x01(\tR\bposition\x12\x1a\n" +
-	"\bcallsign\x18\x02 \x01(\tR\bcallsign\"\xaf\b\n" +
+	"\bcallsign\x18\x02 \x01(\tR\bcallsign\"\xd2\b\n" +
 	"\x05Strip\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x16\n" +
 	"\x06origin\x18\x02 \x01(\tR\x06origin\x12 \n" +
@@ -5566,7 +5776,8 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x04hold\x18\x1e \x01(\tR\x04hold\x12\x1b\n" +
 	"\thold_type\x18\x1f \x01(\tR\bholdType\x12\x19\n" +
 	"\bhold_eat\x18  \x01(\tR\aholdEat\x12)\n" +
-	"\x10enroute_duration\x18! \x01(\tR\x0fenrouteDuration\"J\n" +
+	"\x10enroute_duration\x18! \x01(\tR\x0fenrouteDuration\x12!\n" +
+	"\fflight_rules\x18\" \x01(\tR\vflightRules\"J\n" +
 	"\x10StripUpdateEvent\x126\n" +
 	"\x05strip\x18\x01 \x01(\v2 .flightstrips.euroscope.v1.StripR\x05strip\"\x84\x02\n" +
 	"\tSyncEvent\x12G\n" +
@@ -5859,8 +6070,21 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x04data\x18\x02 \x01(\v2,.flightstrips.euroscope.v1.AMANRouteFactDataR\x04data\"C\n" +
 	"\x11FsScratchPadEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04text*\xe2\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\"\xc6\x01\n" +
+	"\x19SendFrequencyMessageEvent\x12\x1d\n" +
 	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1a\n" +
+	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x12+\n" +
+	"\x11primary_frequency\x18\x04 \x01(\tR\x10primaryFrequency\x12'\n" +
+	"\x0fapplied_actions\x18\x05 \x01(\x05R\x0eappliedActions\"\xb5\x01\n" +
+	"\x1bFrequencyMessageResultEvent\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1a\n" +
+	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12\x1c\n" +
+	"\tsubmitted\x18\x03 \x01(\bR\tsubmitted\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\x12'\n" +
+	"\x0fapplied_actions\x18\x05 \x01(\x05R\x0eappliedActions*\xa8\v\n" +
 	"\tEventType\x12\x11\n" +
 	"\rEVENT_UNKNOWN\x10\x00\x12\x0f\n" +
 	"\vEVENT_TOKEN\x10\x01\x12\x0f\n" +
@@ -5919,7 +6143,9 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"EVENT_HOLD\x102\x12\x18\n" +
 	"\x14EVENT_AMAN_GAIN_LOSS\x103\x12\x19\n" +
 	"\x15EVENT_AMAN_ROUTE_FACT\x104\x12\x18\n" +
-	"\x14EVENT_FS_SCRATCH_PAD\x105B/H\x03Z+FlightStrips/pkg/events/euroscope;euroscopeb\x06proto3"
+	"\x14EVENT_FS_SCRATCH_PAD\x105\x12 \n" +
+	"\x1cEVENT_SEND_FREQUENCY_MESSAGE\x106\x12\"\n" +
+	"\x1eEVENT_FREQUENCY_MESSAGE_RESULT\x107B/H\x03Z+FlightStrips/pkg/events/euroscope;euroscopeb\x06proto3"
 
 var (
 	file_proto_euroscope_proto_rawDescOnce sync.Once
@@ -5934,7 +6160,7 @@ func file_proto_euroscope_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_euroscope_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_euroscope_proto_msgTypes = make([]protoimpl.MessageInfo, 65)
+var file_proto_euroscope_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
 var file_proto_euroscope_proto_goTypes = []any{
 	(EventType)(0),                         // 0: flightstrips.euroscope.v1.EventType
 	(*Envelope)(nil),                       // 1: flightstrips.euroscope.v1.Envelope
@@ -6002,6 +6228,8 @@ var file_proto_euroscope_proto_goTypes = []any{
 	(*AssignedSpeed)(nil),                  // 63: flightstrips.euroscope.v1.AssignedSpeed
 	(*AMANRouteFactEvent)(nil),             // 64: flightstrips.euroscope.v1.AMANRouteFactEvent
 	(*FsScratchPadEvent)(nil),              // 65: flightstrips.euroscope.v1.FsScratchPadEvent
+	(*SendFrequencyMessageEvent)(nil),      // 66: flightstrips.euroscope.v1.SendFrequencyMessageEvent
+	(*FrequencyMessageResultEvent)(nil),    // 67: flightstrips.euroscope.v1.FrequencyMessageResultEvent
 }
 var file_proto_euroscope_proto_depIdxs = []int32{
 	2,  // 0: flightstrips.euroscope.v1.Envelope.token:type_name -> flightstrips.euroscope.v1.TokenEvent
@@ -6057,26 +6285,28 @@ var file_proto_euroscope_proto_depIdxs = []int32{
 	61, // 50: flightstrips.euroscope.v1.Envelope.aman_gain_loss:type_name -> flightstrips.euroscope.v1.AMANGainLossEvent
 	64, // 51: flightstrips.euroscope.v1.Envelope.aman_route_fact:type_name -> flightstrips.euroscope.v1.AMANRouteFactEvent
 	65, // 52: flightstrips.euroscope.v1.Envelope.fs_scratch_pad:type_name -> flightstrips.euroscope.v1.FsScratchPadEvent
-	6,  // 53: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
-	8,  // 54: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
-	7,  // 55: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
-	8,  // 56: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
-	4,  // 57: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	5,  // 58: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
-	4,  // 59: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	12, // 60: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	13, // 61: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
-	12, // 62: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	15, // 63: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
-	16, // 64: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
-	60, // 65: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
-	63, // 66: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
-	62, // 67: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
-	68, // [68:68] is the sub-list for method output_type
-	68, // [68:68] is the sub-list for method input_type
-	68, // [68:68] is the sub-list for extension type_name
-	68, // [68:68] is the sub-list for extension extendee
-	0,  // [0:68] is the sub-list for field type_name
+	66, // 53: flightstrips.euroscope.v1.Envelope.send_frequency_message:type_name -> flightstrips.euroscope.v1.SendFrequencyMessageEvent
+	67, // 54: flightstrips.euroscope.v1.Envelope.frequency_message_result:type_name -> flightstrips.euroscope.v1.FrequencyMessageResultEvent
+	6,  // 55: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
+	8,  // 56: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
+	7,  // 57: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
+	8,  // 58: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
+	4,  // 59: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	5,  // 60: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
+	4,  // 61: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	12, // 62: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	13, // 63: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
+	12, // 64: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	15, // 65: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
+	16, // 66: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
+	60, // 67: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
+	63, // 68: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
+	62, // 69: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
+	70, // [70:70] is the sub-list for method output_type
+	70, // [70:70] is the sub-list for method input_type
+	70, // [70:70] is the sub-list for extension type_name
+	70, // [70:70] is the sub-list for extension extendee
+	0,  // [0:70] is the sub-list for field type_name
 }
 
 func init() { file_proto_euroscope_proto_init() }
@@ -6138,6 +6368,8 @@ func file_proto_euroscope_proto_init() {
 		(*Envelope_AmanGainLoss)(nil),
 		(*Envelope_AmanRouteFact)(nil),
 		(*Envelope_FsScratchPad)(nil),
+		(*Envelope_SendFrequencyMessage)(nil),
+		(*Envelope_FrequencyMessageResult)(nil),
 	}
 	file_proto_euroscope_proto_msgTypes[11].OneofWrappers = []any{}
 	file_proto_euroscope_proto_msgTypes[59].OneofWrappers = []any{}
@@ -6152,7 +6384,7 @@ func file_proto_euroscope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_euroscope_proto_rawDesc), len(file_proto_euroscope_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   65,
+			NumMessages:   67,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

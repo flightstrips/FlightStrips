@@ -35,7 +35,7 @@ type FrontendHub interface {
 	SendCoordinationFree(session int32, callsign string)
 	SendCoordinationTagRequest(session int32, callsign, from, to string)
 	SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string, nextDisplay *internalModels.NextDisplay)
-	SendLayoutUpdates(session int32, layoutMap map[string]string)
+	SendLayoutUpdates(session int32, layoutMap, resetLayoutMap map[string]string)
 	SendCdmUpdate(session int32, event frontend.CdmDataEvent)
 	SendCdmUpdates(session int32, events []frontend.CdmDataEvent)
 	SendCdmWait(session int32, callsign string)

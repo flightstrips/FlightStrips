@@ -203,6 +203,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 	handlers.Add(euroscope.SendPrivateMessage, handleSendPrivateMessage)
+	handlers.Add(euroscope.FrequencyMessageResult, handleFrequencyMessageResult)
 	if deps.AMANRouteFacts != nil {
 		handlers.Add(euroscope.AMANRouteFact, handleAMANRouteFact)
 	}
@@ -501,7 +502,7 @@ func (hub *Hub) DecodeAuthentication(frameType int, message []byte) (events.Auth
 	if err := euroscope.UnmarshalEvent(message, euroscope.Authentication, &event); err != nil {
 		return events.AuthenticationEvent{}, err
 	}
-	return events.AuthenticationEvent{Token: event.Token, Version: event.Version}, nil
+	return events.AuthenticationEvent{Token: event.Token, Version: event.Version, FrequencyMessages: event.FrequencyMessages}, nil
 }
 
 func (hub *Hub) GetServer() shared.Server {
@@ -571,6 +572,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		observer:    event.Observer,
 		localIP:     event.LocalIp,
 	}
+	client.frequencyMessages.Store(authenticationEvent.FrequencyMessages)
 
 	if !event.Observer {
 		// The initial websocket login can revive an existing controller row before the

@@ -147,6 +147,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		NextOwners:               db.NextOwners,
 		PreviousOwners:           db.PreviousOwners,
 		NextDisplay:              nextDisplayFromColumns(db.NextDisplayLabel, db.NextDisplayFrequency),
+		NextControllerSector:     db.NextControllerSector,
 		ReleasePoint:             db.ReleasePoint,
 		PdcState:                 pdcData.State,
 		PdcRequestRemarks:        pdcData.RequestRemarks,
@@ -171,6 +172,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		FplType:                  db.FplType,
 		Language:                 db.Language,
 		HasFP:                    db.HasFp,
+		FlightRules:              db.FlightRules,
 		ValidationStatus:         validationStatus,
 		VatsimCID:                db.VatsimCid,
 		VatsimRevision:           db.VatsimRevision,
@@ -248,6 +250,7 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		EngineType:           strip.EngineType,
 		SpokenCallsign:       strip.SpokenCallsign,
 		HasFp:                strip.HasFP,
+		FlightRules:          strip.FlightRules,
 		StartReq:             strip.StartReq,
 		VatsimCid:            strip.VatsimCID,
 		VatsimRevision:       strip.VatsimRevision,
@@ -457,6 +460,7 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		FplType:                  strip.FplType,
 		Language:                 strip.Language,
 		HasFp:                    strip.HasFP,
+		FlightRules:              strip.FlightRules,
 		PdcData:                  pdcData,
 		ValidationStatus:         validationStatus,
 		StartReq:                 strip.StartReq,
@@ -840,6 +844,18 @@ func (r *stripRepository) SetRouteState(ctx context.Context, session int32, call
 	})
 }
 
+func (r *stripRepository) SetNextControllerSelection(ctx context.Context, session int32, callsign, owner, sector string, nextOwners []string, nextDisplay *models.NextDisplay) (int64, error) {
+	nextOwnersJSON, err := marshalOwners(nextOwners)
+	if err != nil {
+		return 0, err
+	}
+	label, frequency := nextDisplayColumns(nextDisplay)
+	return r.queries.SetNextControllerSelection(ctx, database.SetNextControllerSelectionParams{
+		Session: session, Callsign: callsign, Owner: &owner, Sector: &sector,
+		NextOwners: nextOwnersJSON, NextDisplayLabel: label, NextDisplayFrequency: frequency,
+	})
+}
+
 // SetPreviousOwners sets the previous owners of a strip
 func (r *stripRepository) SetPreviousOwners(ctx context.Context, session int32, callsign string, previousOwners []string) error {
 	previousOwnersJSON, err := marshalOwners(previousOwners)
@@ -1124,6 +1140,7 @@ func (r *stripRepository) UpdateVatsimSource(ctx context.Context, session int32,
 	}
 
 	return r.queries.UpdateStripVatsimSource(ctx, database.UpdateStripVatsimSourceParams{
+		FlightRules:       source.FlightRules,
 		VatsimCid:         &cid,
 		VatsimRevision:    &revision,
 		VatsimSeenAt:      TimeToPgTimestamptz(&source.SeenAt),

@@ -432,9 +432,11 @@ func TestAMANFlightProjectsTMAFreezeForNewAndLegacyV1Decoders(t *testing.T) {
 func TestAMANFlightProjectsDesequencedDispositionAdditively(t *testing.T) {
 	state := goldenAMANState()
 	state.Flights[0].SequenceDisposition = aman.SequenceDispositionDesequenced
+	state.Flights[0].Expedited = true
 	mapped, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
 	require.NoError(t, err)
 	require.Equal(t, "desequenced", mapped.SequenceDisposition)
+	require.True(t, mapped.Expedited)
 
 	encoded, err := json.Marshal(mapped)
 	require.NoError(t, err)

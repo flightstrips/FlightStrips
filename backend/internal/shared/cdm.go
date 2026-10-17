@@ -2,7 +2,10 @@ package shared
 
 import (
 	"context"
+	"errors"
 )
+
+var ErrReadyTransferTsatOutsideWindow = errors.New("ready transfer TSAT is outside the permitted window")
 
 type CdmService interface {
 	TriggerRecalculate(ctx context.Context, session int32, airport string)

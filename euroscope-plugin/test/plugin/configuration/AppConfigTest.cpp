@@ -191,3 +191,9 @@ TEST(AppConfigTest, GetDeIceConfig_SecondCall_ReturnsSameReference) {
     const auto& second = cfg.GetDeIceConfig();
     EXPECT_EQ(&first, &second);
 }
+
+TEST(AppConfigTest, FrequencyMessageKeyAlwaysUsesNumpadMultiply) {
+    EXPECT_EQ(MakeDefault().GetFrequencyMessageKey(), 0x6A);
+    EXPECT_EQ(MakeConfigured("[text_pilot]\nfrequency_key=42\n").GetFrequencyMessageKey(), 0x6A);
+    EXPECT_EQ(MakeConfigured("[text_pilot]\nfrequency_key=56\n").GetFrequencyMessageKey(), 0x6A);
+}

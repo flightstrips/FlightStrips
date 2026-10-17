@@ -22,6 +22,7 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANMoveFlightType, handleAMANMoveFlight)
 	handlers.Add(events.AMANLockFlightType, handleAMANLockFlight)
 	handlers.Add(events.AMANUnlockFlightType, handleAMANUnlockFlight)
+	handlers.Add(events.AMANExpediteFlightType, handleAMANExpediteFlight)
 	handlers.Add(events.AMANDesequenceFlightType, handleAMANDesequenceFlight)
 	handlers.Add(events.AMANResumeFlightType, handleAMANResumeFlight)
 	handlers.Add(events.AMANRemoveFlightType, handleAMANRemoveFlight)
@@ -261,6 +262,12 @@ func handleAMANLockFlight(ctx context.Context, client *Client, message Message) 
 func handleAMANUnlockFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANUnlockFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.UnlockFlight(ctx, auth, aman.UnlockFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
+	})
+}
+
+func handleAMANExpediteFlight(ctx context.Context, client *Client, message Message) error {
+	return handleAMANFlightCommand(ctx, client, message, events.AMANExpediteFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.ExpediteFlight(ctx, auth, aman.ExpediteFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 

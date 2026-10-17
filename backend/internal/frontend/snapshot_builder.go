@@ -127,6 +127,7 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 	}
 
 	controllerModels, me, layout, positionAvailable := b.buildControllerModels(request, controllers, sectorsMap)
+	resetLayout := b.buildFrequencyLayout(request.Position, controllers, dbSession.ActiveRunways.GetAllActiveRunways())
 
 	if b.populateNextStrips != nil {
 		b.populateNextStrips(ctx, strips, request.SessionID)
@@ -166,6 +167,7 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 		Callsign:       request.Callsign,
 		Airport:        request.Airport,
 		Layout:         layout,
+		ResetLayout:    resetLayout,
 		RunwaySetup: frontendEvents.RunwayConfiguration{
 			Departure:         cloneStringSlice(dbSession.ActiveRunways.DepartureRunways),
 			Arrival:           cloneStringSlice(dbSession.ActiveRunways.ArrivalRunways),
@@ -206,6 +208,35 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 	}
 
 	return event, b.cachedAtisEvent(request.SessionID), nil
+}
+
+func (b *SnapshotBuilder) buildFrequencyLayout(position string, controllers []*internalModels.Controller, activeRunways []string) string {
+	positions := make([]*config.Position, 0, len(controllers))
+	for _, controller := range controllers {
+		if controller == nil || isObserverController(controller, b.euroscopeHub) {
+			continue
+		}
+
+		role, err := config.GetPositionBasedOnFrequency(controller.Position)
+		if err != nil {
+			role, err = config.GetPositionByName(controller.Callsign)
+		}
+		if err != nil {
+			continue
+		}
+
+		primary := *role
+		if controller.Position != "" {
+			primary.Frequency = controller.Position
+		}
+		positions = append(positions, &primary)
+	}
+
+	layouts := config.GetLayoutsByFrequency(positions, activeRunways)
+	if layout := layouts[position]; layout != nil {
+		return *layout
+	}
+	return ""
 }
 
 func (b *SnapshotBuilder) buildControllerModels(request InitialSnapshotRequest, controllers []*internalModels.Controller, sectorsMap map[string]*internalModels.SectorOwner) ([]frontendEvents.Controller, frontendEvents.Controller, string, bool) {

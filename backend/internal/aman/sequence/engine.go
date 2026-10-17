@@ -50,14 +50,15 @@ type Policy struct {
 	// ContinuousSpacing applies the arrival rate as minimum time between
 	// landings. Wake spacing must not be rounded to an additional rate step.
 	// The nominal rate grid remains available for explicit grid commands.
-	ContinuousSpacing bool
-	Rates             []RatePoint
-	Gaps              []Gap
-	Closures          []aman.RunwayClosure
-	EarlyTolerance    time.Duration
-	SeparationRules   []SeparationRule
-	UnknownSeparation time.Duration
-	SameSTARSpacing   SameSTARSpacing
+	ContinuousSpacing        bool
+	AllowCrossFeederOvertake bool
+	Rates                    []RatePoint
+	Gaps                     []Gap
+	Closures                 []aman.RunwayClosure
+	EarlyTolerance           time.Duration
+	SeparationRules          []SeparationRule
+	UnknownSeparation        time.Duration
+	SameSTARSpacing          SameSTARSpacing
 }
 
 // SameSTARSpacing applies an additional grid gap between flights using the
@@ -640,7 +641,7 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 	}
 	sortEntries(entries)
 
-	ordered := orderMovableFlights(movable)
+	ordered := orderMovableFlights(policy, movable)
 	allocated, err := allocateMovableFlights(policy, entries, ordered)
 	if err != nil {
 		return nil, nil, err
@@ -687,7 +688,7 @@ func allocateMovableFlights(policy preparedPolicy, protected []allocatedEntry, o
 
 // Allocate earlier holding traffic before later entrants on the same runway,
 // so placement can enforce the holding priority against its assigned slot.
-func orderMovableFlights(flights []preparedFlight) []preparedFlight {
+func orderMovableFlights(policy preparedPolicy, flights []preparedFlight) []preparedFlight {
 	remaining := slices.Clone(flights)
 	sort.Slice(remaining, func(i, j int) bool { return flightLess(remaining[i], remaining[j]) })
 	ordered := make([]preparedFlight, 0, len(remaining))
@@ -695,7 +696,7 @@ func orderMovableFlights(flights []preparedFlight) []preparedFlight {
 		for i, flight := range remaining {
 			olderPending := false
 			for _, other := range remaining {
-				if HoldingPrecedes(other.Flight, flight.Flight) {
+				if policy.holdingPrecedes(other.Flight, flight.Flight) {
 					// Explicit manual or committed Stable order retains its
 					// existing precedence over the automatic hold queue.
 					if flight.ManualOrder != nil && (other.ManualOrder == nil || *flight.ManualOrder < *other.ManualOrder) {
@@ -837,7 +838,7 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 	if flight.HoldingQueueTime != nil || flight.ArrivalQueueTime != nil {
 		for _, entry := range entries {
 			older := entry.flight
-			if !HoldingPrecedes(older.Flight, flight.Flight) {
+			if !policy.holdingPrecedes(older.Flight, flight.Flight) {
 				continue
 			}
 			// Holding admission can be discovered after both targets have been
@@ -879,6 +880,13 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 
 // HoldingPrecedes prevents later arrivals from passing traffic already holding
 // on the same runway, including traffic at a different holding fix.
+func (p preparedPolicy) holdingPrecedes(older, later Flight) bool {
+	if p.AllowCrossFeederOvertake && older.HoldingQueueID != later.HoldingQueueID {
+		return false
+	}
+	return HoldingPrecedes(older, later)
+}
+
 func HoldingPrecedes(older, later Flight) bool {
 	if older.HoldingQueueTime != nil && later.HoldingQueueTime != nil && older.HoldingQueueID == later.HoldingQueueID && older.HoldingQueueTime.Before(*later.HoldingQueueTime) {
 		return true

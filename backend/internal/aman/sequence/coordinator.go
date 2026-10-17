@@ -270,6 +270,7 @@ func prepareCommit(current aman.AirportState, metadata aman.CommandMetadata, cha
 			Payload: append([]byte(nil), entry.Payload...), RecordedAt: recordedAt,
 		})
 	}
+	audits = append(audits, ApproachReleaseAuditRecords(current, next, recordedAt)...)
 	return aman.StateCommit{
 		ExpectedRevision: current.Revision, State: next, CommandOutcome: &outcome, AuditRecords: audits,
 	}, nil

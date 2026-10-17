@@ -24,7 +24,7 @@ Strips sit in **bays** that are **ACTIVE** or **LOCKED**. Traffic you do not own
 | **Startup** | `APNPUSH` | Cleared departures after clearance dialogue; can be REQ in some cases. |
 | **Push back** | `APNPUSH` | Active — pushback / release flow. |
 | **De-ice** | `APN-TAXI-DEP` | Same family as TWY DEP; routing via hold-short links De-ice and TWY DEP bays. |
-| **SAS** | Uncleared | Locked if CLR DEL, DEL+SEQ, or SEQ PLN is online. |
+| **SAS** | Uncleared | Small strips while another controller covers CLR DEL; full-size otherwise. Cannot be selected or dragged. |
 | **Norwegian** | Uncleared | Same as SAS. |
 | **Others** | Uncleared | Same rules as [CLR DEL](/ekch/clr-del/); sorted top-down. |
 

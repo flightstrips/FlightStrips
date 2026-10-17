@@ -17,7 +17,7 @@ import { useDragState } from "@/components/bays/DragStateContext";
 import { useBayClick } from "./BayClickContext";
 import { Children, useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { AnyStrip, StripRef } from "@/api/models.ts";
-import { stripDndId, isFlight } from "@/api/models.ts";
+import { Bay, stripDndId, isFlight } from "@/api/models.ts";
 import { isActiveStripTransfer, isValidationBlockingForPosition } from "@/components/strip/shared";
 import { useMyPosition, useOpenValidationDialog, useStripTransfers } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
@@ -164,7 +164,7 @@ export function SortableBay({
     isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition);
   const dragDisabled = (strip: AnyStrip) =>
     (isFlight(strip)
-      ? isActiveStripTransfer(stripTransfers[strip.callsign])
+      ? strip.bay === Bay.NotCleared || isActiveStripTransfer(stripTransfers[strip.callsign])
       : strip.owner !== myPosition) ||
     validationBlocked(strip) ||
     isDragDisabled?.(strip) === true;
@@ -471,7 +471,7 @@ export function SortableStrip({
     marginTop: gapBefore || undefined,
     marginBottom: gapAfter || undefined,
     opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
-    cursor: validationBlocked ? "pointer" : effectiveDragDisabled ? "not-allowed" : undefined,
+    cursor: validationBlocked || !effectiveDragDisabled ? "pointer" : undefined,
     touchAction: "auto",
   };
   return (

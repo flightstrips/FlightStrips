@@ -63,6 +63,7 @@ type StripRepository interface {
 	// Owner management
 	SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
 	SetRouteState(ctx context.Context, session int32, callsign string, nextOwners []string, nextDisplay *models.NextDisplay) error
+	SetNextControllerSelection(ctx context.Context, session int32, callsign, owner, sector string, nextOwners []string, nextDisplay *models.NextDisplay) (int64, error)
 	SetPreviousOwners(ctx context.Context, session int32, callsign string, previousOwners []string) error
 	SetNextAndPreviousOwners(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error
 

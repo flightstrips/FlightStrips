@@ -263,6 +263,13 @@
     ["ARRIVAL-12"],
     ["ARRIVAL-30"]
   ],
+  "approachRelease": {
+    "enabled": true,
+    "targetBuffer": 10,
+    "taperStart": 6,
+    "maxAdvanceSeconds": 600,
+    "lookaheadSeconds": 120
+  },
   "starFamilyPolicies": [
     {
       "starFamily": "ERNOV",

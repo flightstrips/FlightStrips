@@ -57,7 +57,7 @@ clx_validation:
         MICOS: Reclear on NEXEN T503 MICOS... as filed
         ALS: Reclear on LANGO P999 AMRAK... as filed
         ALASA: Reclear on LANGO M611 ALASA... as filed
-      default_recommendation: Reclear on LANGO DCT... as filed
+      default_recommendation: Reclear on Either NEXEN or LANGO DCT as filed.
     - code: sid_aircraft_type
       sid_families:
         - LANGO

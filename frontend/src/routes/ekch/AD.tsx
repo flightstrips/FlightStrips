@@ -34,6 +34,8 @@ import { getDeiceHeaderArea, isDeiceHeaderTacticalStrip } from "@/lib/deiceLane"
 import { useDeiceBayDrop } from "@/lib/deiceBayDrop";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
+import { TransferControllerButton } from "@/components/TransferControllerButton";
+import { TRANSFER_CONTROLLER_STATIONS } from "@/lib/transferControllerStations";
 
 const btnBlue = CLS_BTN_BLUE;
 
@@ -278,12 +280,12 @@ export default function AD() {
         <div className="bay-tab-bar relative">
           <BayResizeHandle {...col2Resize.handleProps("twyDepUpr")} />
           {["TW", "TE", "GW", "GE"].map(tab => (
-            <button
+            <TransferControllerButton
               key={tab}
+              label={tab}
+              station={TRANSFER_CONTROLLER_STATIONS[tab]}
               className="bay-tab-btn"
-            >
-              {tab}
-            </button>
+            />
           ))}
         </div>
 

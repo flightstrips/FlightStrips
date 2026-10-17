@@ -2,6 +2,8 @@ import { Strip } from "@/components/strip/Strip.tsx";
 import { DeiceLaneButton, MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
+import { TransferControllerButton } from "@/components/TransferControllerButton";
+import { TRANSFER_CONTROLLER_STATIONS } from "@/lib/transferControllerStations";
 import { useMyPosition, useMessages, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
 import {
   useClearedStrips,
@@ -243,12 +245,12 @@ export default function AAAD() {
         <div className="bay-tab-bar relative">
           <BayResizeHandle {...col2Resize.handleProps("twyDepUpr")} />
           {["TW", "TE", "GW", "GE"].map(tab => (
-            <button
+            <TransferControllerButton
               key={tab}
+              label={tab}
+              station={TRANSFER_CONTROLLER_STATIONS[tab]}
               className="bay-tab-btn"
-            >
-              {tab}
-            </button>
+            />
           ))}
         </div>
 

@@ -51,11 +51,16 @@ export function hasManualTobtSource(tobtSetBy?: string): boolean {
 	return Boolean(tobtSetBy?.trim());
 }
 
+export function isTobtRelevant(bay?: Bay | string): boolean {
+  return bay === Bay.NotCleared || bay === Bay.Cleared || bay === Bay.Push;
+}
+
 /**
  * Compute TOBT/TSAT cell background colours.
  * Returns empty string (no colour) when a cell should be transparent.
  *
- * TOBT is red only while it differs from TSAT by more than five minutes.
+ * Planned, taxiing, and inbound strips remain neutral.
+ * Cleared TOBT is red only while it differs from TSAT by more than five minutes.
  * TSAT is colored according to its start-request window.
  */
 export function computeCDMColors(
@@ -65,10 +70,11 @@ export function computeCDMColors(
   bay?: Bay,
   phase?: string,
 ): CDMColors {
+  if (!isTobtRelevant(bay) || bay === Bay.NotCleared) return { tobtBg: "", tsatBg: "" };
   const normalizedTsat = normalizeCdmTime(tsat);
   const normalizedTobt = normalizeCdmTime(tobt);
 
-  if (bay !== Bay.NotCleared && bay !== Bay.Cleared) return { tobtBg: "", tsatBg: "" };
+  if (bay !== Bay.Cleared) return { tobtBg: "", tsatBg: "" };
 
   const tobtOutsideLimits = !!normalizedTsat && !!normalizedTobt &&
     Math.abs(parseHHMM(normalizedTsat, nowMs) - parseHHMM(normalizedTobt, nowMs)) > 5 * MINUTE_MS;

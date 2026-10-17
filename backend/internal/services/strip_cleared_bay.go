@@ -111,6 +111,7 @@ func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int3
 		if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
 			if existing := syncState.ExistingStrips[callsign]; existing != nil {
 				existing.Owner = nil
+				existing.NextControllerSector = nil
 				existing.Version++
 			}
 		}

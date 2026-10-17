@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useMemo, useState } from "react";
 import { Bay, type FrontendStrip } from "@/api/models";
@@ -90,9 +91,10 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
         />
 
         <div
-          className="flex flex-col overflow-hidden border-r-2"
+          className="relative flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_CALLSIGN} 0 0%`, borderRightColor: stripFrameColor }}
         >
+          <TextPilotIndicator type={strip.communication_type} borderColor={stripFrameColor} />
           <div className="flex items-center px-[0.42vw] overflow-hidden" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
             <span
               className="truncate w-full"

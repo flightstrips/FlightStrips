@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import BriefingDialog from './BriefingDialog';
 
 const briefingImages = import.meta.glob<string>('../../../assets/efb/arrival-briefing/*.webp', {
   eager: true,
@@ -31,6 +32,7 @@ interface ArrivalBriefProps {
   holdingDetail: string;
   terminalFix: string;
   arrivalHeading: string;
+  expected?: boolean;
 }
 
 interface StarData {
@@ -48,7 +50,7 @@ interface StarData {
 
 const normalize = (value: string) => value.trim().toUpperCase();
 
-const runwayVariant = (runway: string): RunwayVariant => normalize(runway).includes('22') ? '22' : '04';
+const runwayVariant = (runway: string): RunwayVariant | null => normalize(runway) === '22L' ? '22' : normalize(runway) === '04L' ? '04' : null;
 
 const STAR_DATA: StarData[] = [
   { family: 'TUDLO', holdingFix: 'LUGAS', holdingCourse: '073', holdingTurn: 'left', speedFix: 'KOR', altitudeFix: { '04': 'CH751', '22': 'CH654' }, intermediateFix: { '04': 'CH727', '22': 'CH626' }, terminalFix: { '04': 'ERPUK', '22': 'ABEGI' }, downwindHeading: { '04': '217', '22': '037' }, introVariation: 1 },
@@ -61,7 +63,7 @@ const STAR_DATA: StarData[] = [
 const KILO_STANDS = new Set(['A4', 'A6', 'A8', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A25', 'A26', 'A27', 'A28', 'A30', 'A31', 'A32', 'A33', 'A34']);
 const ALPHA_STANDS = new Set(['A7', 'A9', 'A11', 'A12', 'A14', 'A15', 'B4', 'B6', 'B8', 'B10', 'B15', 'B17', 'B19']);
 
-const starData = (star: string): StarData => STAR_DATA.find(({ family }) => normalize(star).startsWith(family)) ?? STAR_DATA[0];
+const starData = (star: string): StarData | undefined => STAR_DATA.find(({ family }) => normalize(star).startsWith(family));
 
 const standGroup = (stand: string) => {
   const normalized = normalize(stand);
@@ -97,6 +99,11 @@ const taxiInBriefing = (runway: RunwayVariant, stand: string): Pick<ArrivalBrief
 const briefingPages = ({ stand, star, runway, holdingFix, holdingDetail, terminalFix, arrivalHeading }: Omit<ArrivalBriefProps, 'isOpen' | 'onClose'>): ArrivalBriefPage[] => {
   const variant = runwayVariant(runway);
   const data = starData(star);
+  if (!variant || !data) return [{
+    id: 'unavailable', image: image('intro-variation-1'), imageAlt: 'Arrival briefing introduction',
+    title: 'Arrival guidance unavailable',
+    description: ['This briefing covers recognised STAR families for runway 04L or 22L only. Check the current charts and confirm your arrival with ATC if your runway or STAR is unavailable or unsupported. No procedure has been assumed.'],
+  }];
   const finalRunway = variant === '22' ? '22L' : '04L';
   const holding = holdingFix || data.holdingFix;
   const [course = data.holdingCourse, turn = data.holdingTurn.toUpperCase()] = holdingDetail.split('/');
@@ -105,7 +112,7 @@ const briefingPages = ({ stand, star, runway, holdingFix, holdingDetail, termina
   const taxi = taxiInBriefing(variant, stand);
   const completeVariation = standGroup(stand) === 'kilo' ? 2 : standGroup(stand) === 'alpha' ? 4 : variant === '04' ? 3 : 1;
 
-  return [
+  const pages: ArrivalBriefPage[] = [
     {
       id: 'introduction', image: image(`intro-variation-${data.introVariation}`), imageAlt: 'Arrival briefing introduction', title: 'Welcome to Copenhagen',
       description: ['Flying into EKCH, especially during peak periods, can be challenging. This briefing covers published holdings, STAR restrictions, final vectors, ILS speeds, expeditious runway vacation, taxi routing, and arriving on stand.', 'Pay close attention and use the arrows to continue.'],
@@ -136,6 +143,7 @@ const briefingPages = ({ stand, star, runway, holdingFix, holdingDetail, termina
       description: ['Follow ATC instructions. These routes are standard guidance, but you may be given a different routing. Keep the apron taxi charts available and ask for clarification if in doubt.', 'Thanks for flying into Copenhagen Airport. We hope to see you again soon.'],
     },
   ];
+  return ['NIL', 'TBA', ''].includes(normalize(stand)) ? pages.filter(page => page.id !== 'taxi-in') : pages;
 };
 
 function D1ArrivalBriefContent({ isOpen, onClose, ...briefing }: ArrivalBriefProps) {
@@ -144,32 +152,8 @@ function D1ArrivalBriefContent({ isOpen, onClose, ...briefing }: ArrivalBriefPro
 
   if (!isOpen) return null;
 
-  const page = pages[currentPage];
-  const handlePrevious = () => setCurrentPage((previous) => (previous === 0 ? pages.length - 1 : previous - 1));
-  const handleNext = () => setCurrentPage((previous) => (previous === pages.length - 1 ? 0 : previous + 1));
-
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label="Arrival briefing" className="relative flex aspect-[3/2] max-h-[85vh] w-[95%] overflow-hidden rounded-lg border-2 border-[#011328] bg-[#000109]" onClick={(event) => event.stopPropagation()}>
-        <div className="flex h-full w-[80%] items-center justify-center border-r-2 border-[#000109] bg-[#000109] p-[10px] pb-20">
-          <img src={page.image} alt={page.imageAlt} className="box-border h-full w-full border-2 border-[#011328] object-contain" />
-        </div>
-        <div className="flex h-full w-[20%] flex-col bg-[#000109] pb-20">
-          <div className="flex-1 overflow-auto border-b-[10px] border-[#000109] p-5 text-[#dfebeb]">
-            <h2 className="mt-0 mb-[15px] text-[clamp(16px,2.5vh,24px)] font-bold">{page.title}</h2>
-            {page.description.map((paragraph) => <p key={paragraph} className="mb-4 text-[clamp(12px,1.5vh,16px)] leading-[1.6] text-[#E0E0E0] last:mb-0">{paragraph}</p>)}
-          </div>
-          <button type="button" className="box-border flex min-h-20 cursor-pointer items-center justify-center border-[25px] border-[#000109] bg-[#dfebeb]" onClick={onClose}><span className="text-[clamp(14px,5vh,20px)] font-bold text-black">CLICK TO CLOSE</span></button>
-        </div>
-        <div className="absolute right-0 bottom-0 left-0 box-border flex h-20 items-center justify-center gap-5 border-t-[10px] border-[#1D293D] bg-[#000109] p-[15px]">
-          <button type="button" aria-label="Previous briefing page" onClick={handlePrevious} className="flex h-[50px] w-[50px] cursor-pointer items-center justify-center rounded-full border-[3px] border-[#1D293D] bg-[#dfebeb] text-[28px] font-bold text-black">←</button>
-          <div className="flex gap-3" aria-label={`Briefing page ${currentPage + 1} of ${pages.length}`}>
-            {pages.map((briefingPage, index) => <button key={briefingPage.id} type="button" aria-label={`Go to ${briefingPage.title}`} onClick={() => setCurrentPage(index)} className={`h-4 w-4 cursor-pointer rounded-full border-2 border-[#dfebeb] transition-all duration-300 ${currentPage === index ? 'bg-[#dfebeb]' : 'bg-[#666666]'}`} />)}
-          </div>
-          <button type="button" aria-label="Next briefing page" onClick={handleNext} className="flex h-[50px] w-[50px] cursor-pointer items-center justify-center rounded-full border-[3px] border-[#1D293D] bg-[#dfebeb] text-[28px] font-bold text-black">→</button>
-        </div>
-      </div>
-    </div>
+    <BriefingDialog title="Arrival briefing" context={`${briefing.expected ? 'EXPECTED FROM ROUTE / ATIS - NOT AN ATC CLEARANCE  /  ' : ''}STAR ${briefing.star}  /  RWY ${briefing.runway}  /  STAND ${briefing.stand}`} pages={pages} currentPage={currentPage} onPageChange={setCurrentPage} onClose={onClose} />
   );
 }
 

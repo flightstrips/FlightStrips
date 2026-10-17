@@ -47,6 +47,11 @@ type UnlockFlightCommand struct {
 	Callsign Callsign
 }
 
+type ExpediteFlightCommand struct {
+	Metadata CommandMetadata
+	Callsign Callsign
+}
+
 type DesequenceFlightCommand struct {
 	Metadata CommandMetadata
 	Callsign Callsign
@@ -223,6 +228,7 @@ type CommandService interface {
 	PlaceFlightAtTime(context.Context, CommandContext, PlaceFlightAtTimeCommand) (CommandExecution, error)
 	LockFlight(context.Context, CommandContext, LockFlightCommand) (CommandExecution, error)
 	UnlockFlight(context.Context, CommandContext, UnlockFlightCommand) (CommandExecution, error)
+	ExpediteFlight(context.Context, CommandContext, ExpediteFlightCommand) (CommandExecution, error)
 	DesequenceFlight(context.Context, CommandContext, DesequenceFlightCommand) (CommandExecution, error)
 	ResumeFlight(context.Context, CommandContext, ResumeFlightCommand) (CommandExecution, error)
 	RemoveFlight(context.Context, CommandContext, RemoveFlightCommand) (CommandExecution, error)
@@ -291,6 +297,9 @@ func (c PlaceFlightAtTimeCommand) Validate(receivedAt time.Time) error {
 
 func (c LockFlightCommand) Validate() error   { return validateFlightCommand(c.Metadata, c.Callsign) }
 func (c UnlockFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.Callsign) }
+func (c ExpediteFlightCommand) Validate() error {
+	return validateFlightCommand(c.Metadata, c.Callsign)
+}
 func (c DesequenceFlightCommand) Validate() error {
 	return validateFlightCommand(c.Metadata, c.Callsign)
 }

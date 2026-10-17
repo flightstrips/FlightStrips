@@ -1,0 +1,93 @@
+{
+  "feature": "FMP expedite, issue 887",
+  "checks": {
+    "backend": "go run ./internal/testing/testdb ./... passed, including PostgreSQL persistence",
+    "frontend": "292 tests passed across 28 AMAN component, route, API and store files",
+    "final_label_check": "30 AMANControls tests passed after adding the former-slot history label",
+    "build": "npm run build passed",
+    "lint": "npm run lint passed with existing warnings and no errors",
+    "diff": "git diff --check passed"
+  },
+  "command_regressions": [
+    "One freed slot cascades through two following aircraft, preserving a manual protection boundary.",
+    "FMP-only typed command uses server authority, durable ID, revision conflict detection and actor audit.",
+    "Retry after restart is idempotent; Resume clears expedited status and uses a new legal opportunity.",
+    "Planned, landed, removed, desequenced, advisory and unslotted aircraft cannot be expedited.",
+    "Held expedited aircraft count once across restart and stale observations, then stop counting after landing.",
+    "Future automated EATs are canceled, due commitments retained, former-slot holding plans suppressed, and controller holding clearances unchanged.",
+    "Menu and controls emit the command, pending actions disable exclusion controls, status is server-confirmed, and excluded aircraft can be restored."
+  ],
+  "replay_setup": {
+    "rate_per_hour": 40,
+    "update_interval": "1m",
+    "cache_only": true,
+    "release_buffer": true,
+    "baseline": "release-review-fixes-session{1,2,3}",
+    "manual_expedite_commands": 0
+  },
+  "binary_sha256": "c7eb16dae871c410187017d33f68d57737cdbf03b372a265a16fbf41b6f078f4",
+  "sessions": [
+    {
+      "recording": "C:/vatsim-data",
+      "snapshots": 151,
+      "all_horizon_accuracy_lines_identical": true,
+      "observed_occupancy_identical": true,
+      "release_targets_identical": true,
+      "release_buffer_metrics_identical": true,
+      "landing_slot_mae_seconds_by_horizon_minutes": {
+        "5": 745,
+        "10": 772,
+        "15": 785,
+        "20": 793,
+        "30": 826
+      },
+      "publishable_flight_samples": {
+        "before": 7651,
+        "after": 7651
+      }
+    },
+    {
+      "recording": "C:/vatsim-data1",
+      "snapshots": 324,
+      "all_horizon_accuracy_lines_identical": true,
+      "observed_occupancy_identical": true,
+      "release_targets_identical": true,
+      "release_buffer_metrics_identical": true,
+      "landing_slot_mae_seconds_by_horizon_minutes": {
+        "5": 310,
+        "10": 309,
+        "15": 309,
+        "20": 309,
+        "30": 321
+      },
+      "publishable_flight_samples": {
+        "before": 2095,
+        "after": 2091
+      }
+    },
+    {
+      "recording": "C:/vatsim-data2",
+      "snapshots": 233,
+      "all_horizon_accuracy_lines_identical": true,
+      "observed_occupancy_identical": true,
+      "release_targets_identical": true,
+      "release_buffer_metrics_identical": true,
+      "landing_slot_mae_seconds_by_horizon_minutes": {
+        "5": 598,
+        "10": 598,
+        "15": 603,
+        "20": 614,
+        "30": 1101
+      },
+      "publishable_flight_samples": {
+        "before": 12875,
+        "after": 12900
+      }
+    }
+  ],
+  "limitations": [
+    "Replay checks cover regressions while Expedite is unused. Recorded trajectories cannot follow hypothetical FMP releases or establish their operational benefit.",
+    "Manual Expedite behavior is covered separately by deterministic command, cascade, intake, persistence and UI tests.",
+    "Report any publishable-sample-count differences separately; they are not landing-slot accuracy or release-target changes."
+  ]
+}

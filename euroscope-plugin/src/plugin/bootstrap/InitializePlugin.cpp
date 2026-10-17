@@ -196,6 +196,7 @@ namespace FlightStrips {
             this->container->plugin, this->container->webSocketService, this->container->flightPlanService,
             this->container->standService, this->container->routeService, this->container->runwayService);
         this->container->messageHandlers->RegisterHandler(this->container->messageService);
+        this->container->timedEventHandlers->RegisterHandler(this->container->messageService);
         this->container->authenticationEventHandlers->RegisterHandler(this->container->webSocketService);
 
         this->container->plugin->Information(std::format("Loaded plugin version {}.", PLUGIN_VERSION));

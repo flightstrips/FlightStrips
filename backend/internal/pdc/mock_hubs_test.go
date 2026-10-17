@@ -144,7 +144,7 @@ func (m *mockPdcFrontendHub) SendOwnersUpdate(session int32, callsign string, ow
 	m.Called(session, callsign, owner, nextOwners, previousOwners, nextDisplay)
 }
 
-func (m *mockPdcFrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
+func (m *mockPdcFrontendHub) SendLayoutUpdates(session int32, layoutMap, resetLayoutMap map[string]string) {
 	m.Called(session, layoutMap)
 }
 

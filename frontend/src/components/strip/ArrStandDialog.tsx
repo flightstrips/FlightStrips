@@ -1,3 +1,6 @@
+import { toast } from "sonner";
+import { isTextPilot } from "@/lib/text-pilot";
+import { useIsTwr, useStrip } from "@/store/store-hooks";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ActionType } from "@/api/models";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -102,6 +105,12 @@ export function ArrStandDialog(props: Props) {
 }
 
 function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
+  const strip = useStrip(callsign);
+  const isTower = useIsTwr();
+  const openTextPilotMenu = useWebSocketStore(s => s.openTextPilotMenu);
+  const sendFrequencyMessage = useWebSocketStore(s => s.sendFrequencyMessage);
+  const [legacyPending, setLegacyPending] = useState(false);
+  const submittedStand = useRef(false);
   const satEnabled = useWebSocketStore(s => s.satEnabled);
   const sessionId = useWebSocketStore(s => s.amanSessionID);
   const assignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
@@ -133,8 +142,12 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
     if (submittedVersion.current !== null && assignment && assignment.version !== submittedVersion.current) {
       submittedVersion.current = null;
       onOpenChange(false);
+      if (submittedStand.current && assignment.stand && isTextPilot(strip)) {
+        submittedStand.current = false;
+        openTextPilotMenu({ callsign, variant: isTower ? "tower-in" : "apron-in", stand: assignment.stand });
+      }
     }
-  }, [assignment, onOpenChange]);
+  }, [assignment, onOpenChange, strip, openTextPilotMenu, callsign, isTower]);
 
   const close = () => {
     submittedVersion.current = null;
@@ -142,6 +155,7 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
     onOpenChange(false);
   };
   const automatic = () => {
+    submittedStand.current = true;
     setAutomaticSelected(true);
     submittedVersion.current = version;
     requestAutomatic(callsign, version);
@@ -169,12 +183,24 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
     setAutomaticSelected(satEnabled);
   };
   const send = () => {
+    if (legacyPending) return;
+    submittedStand.current = true;
     const stand = manualStand.trim().toUpperCase();
     if (satEnabled && automaticSelected) {
       automatic();
     } else if (!satEnabled) {
-      updateStrip(callsign, { stand });
-      close();
+      if (isTextPilot(strip)) {
+        setLegacyPending(true);
+        void sendFrequencyMessage(callsign, "", [{ type: ActionType.FrontendUpdateStripData, callsign, stand }], false, true).then(result => {
+          setLegacyPending(false);
+          if (!result.prepared) { toast.error(result.error ?? "Stand assignment rejected"); return; }
+          close();
+          if (result.stand) openTextPilotMenu({ callsign, variant: isTower ? "tower-in" : "apron-in", stand: result.stand });
+        });
+      } else {
+        updateStrip(callsign, { stand });
+        close();
+      }
     } else if (stand) {
       submittedVersion.current = version;
       requestManual(callsign, stand, version);
@@ -246,8 +272,8 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
             <MenuButton tone="dark" style={position(272, 683, 162, 47)} onClick={close}>ESC</MenuButton>
             <MenuButton tone="dark" style={position(38, 683, 177, 47)} onClick={() => setGraphicOpen(true)}>GRAPHIC</MenuButton>
             <MenuButton tone="auto" selected={automaticSelected} style={position(448, 683, 162, 47)} onClick={selectAutomatic} disabled={!satEnabled} title={!satEnabled ? "Automatic stand assignment is not enabled for this session" : undefined}>AUTO ASSIGN</MenuButton>
-            <MenuButton tone="dark" style={position(627, 683, 166, 47)} onClick={send} disabled={satEnabled && !automaticSelected && !manualStand.trim()}>
-              ASSIGN
+            <MenuButton tone="dark" style={position(627, 683, 166, 47)} onClick={send} disabled={legacyPending || (satEnabled && !automaticSelected && !manualStand.trim())}>
+              {isTextPilot(strip) ? "SEND REQ" : "ASSIGN"}
               {" "}
               {(automaticSelected || manualStand.trim()) && (
                 <span style={{ fontSize: "0.75em", marginLeft: "0.35em" }}>

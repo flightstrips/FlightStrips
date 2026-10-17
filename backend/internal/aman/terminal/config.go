@@ -209,16 +209,17 @@ func (p Path) holdingToFeederDuration() *time.Duration {
 }
 
 type Configuration struct {
-	SchemaVersion      string               `json:"schemaVersion"`
-	ConfigVersion      string               `json:"configVersion"`
-	Airport            navdata.AirportID    `json:"airport"`
-	ApplicabilityFrom  time.Time            `json:"applicabilityFrom"`
-	ApplicabilityUntil time.Time            `json:"applicabilityUntil"`
-	Dataset            DatasetCompatibility `json:"dataset"`
-	Sources            []Source             `json:"sources"`
-	RunwayGroups       []RunwayGroup        `json:"runwayGroups"`
-	STARFamilyPolicies []STARFamilyPolicy   `json:"starFamilyPolicies,omitempty"`
-	TimelineMappings   []TimelineMapping    `json:"timelineMappings,omitempty"`
+	SchemaVersion      string                      `json:"schemaVersion"`
+	ConfigVersion      string                      `json:"configVersion"`
+	Airport            navdata.AirportID           `json:"airport"`
+	ApplicabilityFrom  time.Time                   `json:"applicabilityFrom"`
+	ApplicabilityUntil time.Time                   `json:"applicabilityUntil"`
+	Dataset            DatasetCompatibility        `json:"dataset"`
+	Sources            []Source                    `json:"sources"`
+	RunwayGroups       []RunwayGroup               `json:"runwayGroups"`
+	ApproachRelease    *aman.ApproachReleasePolicy `json:"approachRelease,omitempty"`
+	STARFamilyPolicies []STARFamilyPolicy          `json:"starFamilyPolicies,omitempty"`
+	TimelineMappings   []TimelineMapping           `json:"timelineMappings,omitempty"`
 	// ActiveRunwayGroupSets declares the complete operationally compatible
 	// combinations accepted by the atomic runway-set command.
 	ActiveRunwayGroupSets [][]aman.RunwayGroupID `json:"activeRunwayGroupSets,omitempty"`
@@ -300,6 +301,11 @@ func LoadFile(path string) (Configuration, error) {
 // sequencing settings that must fail startup before navigation acquisition.
 func (c Configuration) ValidateOperationalSettings() error {
 	var errs ValidationErrors
+	if c.ApproachRelease != nil {
+		if err := c.ApproachRelease.Validate(); err != nil {
+			add(&errs, "approachRelease", err.Error())
+		}
+	}
 	groups := make(map[aman.RunwayGroupID]struct{}, len(c.RunwayGroups))
 	for i, group := range c.RunwayGroups {
 		groups[group.ID] = struct{}{}

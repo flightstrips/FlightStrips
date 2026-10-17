@@ -1,5 +1,5 @@
 import React from "react";
-import { useRoutes } from "react-router-dom";
+import { useRoutes } from "react-router";
 
 // Dynamically import all MDX pages under /docs
 const pages = import.meta.glob("/src/docs/**/*.mdx", { eager: true });

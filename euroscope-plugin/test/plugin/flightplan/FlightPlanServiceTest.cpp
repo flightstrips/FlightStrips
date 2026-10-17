@@ -506,3 +506,28 @@ TEST(FlightPlanServiceStateTest, ApplyPdcStateChange_SeedsTrackedState) {
     EXPECT_TRUE(flightPlan->IsPdcCleared());
     EXPECT_TRUE(flightPlan->KeepsEuroScopeStripUncleared());
 }
+
+TEST(FlightPlanServiceStateTest, CommunicationTypeUsesControllerOverrideForSnapshotsAndUpdates) {
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('V', 'T'), "T");
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('V', 'R'), "R");
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('T', 'V'), "V");
+}
+TEST(FlightPlanServiceStateTest, UnassignedCommunicationOverrideFallsBackToFiledPreference) {
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('T', 0), "T");
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('R', 0), "R");
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('V', 0), "V");
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('T', '?'), "T");
+}
+TEST(FlightPlanServiceStateTest, UnknownCommunicationTypeNeverEmitsANulCharacter) {
+    EXPECT_TRUE(FlightPlanService::ResolveCommunicationType('?', 0).empty());
+    EXPECT_TRUE(FlightPlanService::ResolveCommunicationType(0, 0).empty());
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('?', 'T'), "T");
+}
+
+TEST(FlightPlanServiceStateTest, CommunicationTypeNormalizesLowercaseEuroScopeValues) {
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('t', 0), "T");
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('r', 0), "R");
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('v', 0), "V");
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('v', 't'), "T");
+    EXPECT_EQ(FlightPlanService::ResolveCommunicationType('t', 'v'), "V");
+}

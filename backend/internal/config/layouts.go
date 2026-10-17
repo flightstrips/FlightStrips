@@ -42,6 +42,24 @@ func GetLayouts(controllers []*Position, active []string) map[string]*string {
 	return result
 }
 
+// GetLayoutsByFrequency resolves each controller's configured role from its
+// primary frequency before applying the normal layout rules.
+func GetLayoutsByFrequency(controllers []*Position, active []string) map[string]*string {
+	positions := make([]*Position, 0, len(controllers))
+	for _, controller := range controllers {
+		if controller == nil {
+			continue
+		}
+		position := *controller
+		if configuredPosition, err := GetPositionBasedOnFrequency(controller.Frequency); err == nil {
+			position.Name = configuredPosition.Name
+			position.Section = configuredPosition.Section
+		}
+		positions = append(positions, &position)
+	}
+	return GetLayouts(positions, active)
+}
+
 func matchesControllers(controllers []*Position, required []string, offline bool) bool {
 	if len(required) == 0 {
 		return true

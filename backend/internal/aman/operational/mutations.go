@@ -251,6 +251,39 @@ func (s *Service) UnlockFlight(auth aman.CommandContext, command aman.UnlockFlig
 	}), nil
 }
 
+func (s *Service) ExpediteFlight(auth aman.CommandContext, command aman.ExpediteFlightCommand) (sequence.CommandMutation, error) {
+	if err := s.authorizeFlightDisposition(auth); err != nil {
+		return nil, err
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index := flightIndex(state.Flights, command.Callsign)
+		if index < 0 {
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
+		}
+		before := state.Flights[index]
+		if before.Expedited && !before.SequenceDisposition.Participates() && before.State != aman.StateRemoved && before.State != aman.StateLanded {
+			return s.dispositionChange(state, false, "expedite_flight", auth, before, before)
+		}
+		if !before.SequenceDisposition.Participates() || before.Slot == nil || before.Prediction == nil || isPreliminaryPrediction(before.Prediction) ||
+			(before.State != aman.StateUnstable && before.State != aman.StateStable && before.State != aman.StateGoAround) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "expedite requires an active airborne flight with a physical landing slot"}
+		}
+		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		after := &state.Flights[index]
+		after.SequenceDisposition, after.Expedited = aman.SequenceDispositionDesequenced, true
+		after.QueueOffers = nil
+		after.UpdatedAt = auth.ReceivedAt
+		// A future automated offer is withdrawn. Due/observed admissions remain facts.
+		if r := after.ApproachRelease; r != nil && r.ReleasedAt == nil && r.ReleaseAt.After(auth.ReceivedAt) {
+			after.ApproachRelease = nil
+		}
+		promotions := s.resequence(&state, auth.ReceivedAt)
+		change, err := s.dispositionChange(state, true, "expedite_flight", auth, before, state.Flights[index])
+		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
+		return change, err
+	}, nil
+}
+
 func (s *Service) DesequenceFlight(auth aman.CommandContext, command aman.DesequenceFlightCommand) (sequence.CommandMutation, error) {
 	if err := s.authorizeFlightDisposition(auth); err != nil {
 		return nil, err
@@ -323,6 +356,7 @@ func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlig
 		candidate := state
 		candidate.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		candidate.Flights[index].SequenceDisposition = aman.SequenceDispositionActive
+		candidate.Flights[index].Expedited = false
 		input := s.sequenceInput(candidate)
 		for i := range input.Flights {
 			if input.Flights[i].Callsign != command.Callsign {
@@ -392,6 +426,7 @@ func (s *Service) authorizeFlightDisposition(auth aman.CommandContext) error {
 func (s *Service) dispositionChange(state aman.AirportState, changed bool, action string, auth aman.CommandContext, before, after aman.AMANFlight) (sequence.CommandChange, error) {
 	return s.commandChange(state, changed, action, before.Callsign, map[string]any{
 		"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
+		"before_expedited": before.Expedited, "after_expedited": after.Expedited,
 		"before_disposition": before.SequenceDisposition.OrDefault(), "after_disposition": after.SequenceDisposition.OrDefault(),
 		"before_slot": slotAudit(before.Slot), "after_slot": slotAudit(after.Slot), "before_state": before.State, "after_state": after.State,
 		"before_removed": before.State == aman.StateRemoved, "after_removed": after.State == aman.StateRemoved,
@@ -1227,6 +1262,7 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	state = s.applyDecision(state, decision)
 	updated := &state.Flights[index]
 	updated.FeederETA, updated.DerivedFeederETA, updated.TMAEntry = nil, nil, nil
+	updated.ApproachRelease = nil
 	if entry != nil {
 		recaptured := *entry
 		recaptured.FreezeTriggered = false
@@ -1295,6 +1331,7 @@ func (s *Service) commandChange(state aman.AirportState, changed bool, action st
 	if changed {
 		state.Flights = slices.Clone(state.Flights)
 		s.refreshGroundArrivalPlans(&state, state.GeneratedAt)
+		s.refreshHoldingPlans(&state)
 	}
 	change, err := commandChange(state, changed, action, callsign, extra)
 	if err != nil || !changed {

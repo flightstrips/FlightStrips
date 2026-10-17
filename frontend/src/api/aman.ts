@@ -74,6 +74,17 @@ export interface AMANCoordinationStateEvent {
   requests: AMANCoordinationRequest[];
 }
 
+export interface AMANReleaseBuffer {
+  blocked_reasons?: string[];
+  status: "ready" | "degraded" | "disabled";
+  target: number;
+  in_approach: number;
+  reserved: number;
+  incoming: number;
+  projected: number;
+  unknown: number;
+}
+
 export interface AMANHeader {
   active_runway_groups: AMANHeaderRunwayGroup[];
   readiness: {status: AMANHealthStatus; ready: boolean; blocked_reasons: string[]};
@@ -82,6 +93,7 @@ export interface AMANHeader {
     tma_above_1500_feet_count: number;
     maestro_horizon_count: number;
   };
+  release_buffer?: AMANReleaseBuffer;
   wind: AMANHeaderWind | null;
 }
 
@@ -110,6 +122,7 @@ export interface AMANHeaderReadModel {
   active_runway_groups: AMANHeaderRunwayGroup[];
   readiness: AMANHeader["readiness"];
   traffic_summary: AMANHeader["traffic_summary"] | {status: "unavailable"; tma_above_1500_feet_count: null; maestro_horizon_count: null};
+  release_buffer?: AMANReleaseBuffer;
   wind: AMANHeaderWind | null;
 }
 
@@ -198,6 +211,7 @@ export interface AMANFlight {
   lifecycle_reason?: AMANLifecycleReason;
   /** Missing on older V1 publishers and therefore interpreted as active. */
   sequence_disposition?: AMANSequenceDisposition;
+  expedited?: boolean;
   data_status: AMANDataStatus;
   runway_group_id: string | null;
   /** @deprecated Deployed alias for the STAR family; retained for older V1 clients. */
@@ -220,6 +234,7 @@ export interface AMANFlight {
   approach_release_time: string | null;
   expected_holding_seconds: number | null;
   post_holding_transit_seconds: number | null;
+  additional_approach_seconds?: number;
   route_fact: AMANRouteFact | null;
   raw_teta: string | null;
   operational_teta: string | null;
@@ -372,6 +387,7 @@ export type AMANCommandType =
   | "aman.move_flight"
   | "aman.lock_flight"
   | "aman.unlock_flight"
+  | "aman.expedite_flight"
   | "aman.desequence_flight"
   | "aman.resume_flight"
   | "aman.remove_flight"
@@ -409,7 +425,7 @@ export interface AMANCommandMeta {
 export type AMANCommandIntent =
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; before_callsign: string}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; after_callsign: string}
-  | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; callsign: string}
+  | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.expedite_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; callsign: string}
   | {type: "aman.set_holding_eat_writeback"; enabled: boolean}
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
   | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
@@ -583,11 +599,13 @@ function isFlight(value: unknown): value is AMANFlight {
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
     && (value.lifecycle_reason === undefined || (isString(value.lifecycle_reason) && lifecycleReasons.has(value.lifecycle_reason)))
     && (value.sequence_disposition === undefined || (isString(value.sequence_disposition) && sequenceDispositions.has(value.sequence_disposition as AMANSequenceDisposition)))
+    && (value.expedited === undefined || typeof value.expedited === "boolean")
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)
     && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star)
     && isOptionalNullableIdentity(value.star_family) && isOptionalNullableIdentity(value.feeder_fix) && isNullableIdentity(value.holding_fix)
     && hasValidFeederETA(value)
     && isNullableTimestamp(value.holding_fix_eta) && isNullableTimestamp(value.holding_entry_time) && isNullableTimestamp(value.approach_release_time)
+    && (value.additional_approach_seconds === undefined || isNonNegativeInteger(value.additional_approach_seconds))
     && isNullableFiniteNumber(value.expected_holding_seconds) && isNullableFiniteNumber(value.post_holding_transit_seconds) && (value.route_fact === null || isRouteFact(value.route_fact))
     && isNullableTimestamp(value.raw_teta) && isNullableTimestamp(value.operational_teta)
     && isNullableFiniteNumber(value.gain_loss_seconds) && isString(value.freeze_reason)
@@ -652,6 +670,14 @@ function isHeaderWind(value: unknown): value is AMANHeaderWind {
     && isTimestamp(value.observed_at) && isIdentity(value.source);
 }
 
+function isReleaseBuffer(value: unknown): value is AMANReleaseBuffer {
+  return isObject(value) && ["ready", "degraded", "disabled"].includes(value.status as string)
+    && [value.target, value.in_approach, value.reserved, value.incoming, value.projected, value.unknown].every(isNonNegativeInteger)
+    && (value.blocked_reasons === undefined || isStringArray(value.blocked_reasons))
+    && (value.target as number) > 0
+    && value.projected === (value.in_approach as number) + (value.reserved as number) + (value.incoming as number);
+}
+
 function hasValidHeader(data: Record<string, unknown>): boolean {
   if (data.header === undefined) return true;
   if (!isObject(data.header) || !Array.isArray(data.header.active_runway_groups)
@@ -678,6 +704,7 @@ function hasValidHeader(data: Record<string, unknown>): boolean {
     && isString(traffic.status) && trafficStatuses.has(traffic.status as AMANTrafficStatus)
     && (data.traffic_prediction === undefined || traffic.status === (data.traffic_prediction as AMANTrafficPrediction).status)
     && isNonNegativeInteger(traffic.tma_above_1500_feet_count) && isNonNegativeInteger(traffic.maestro_horizon_count)
+    && (header.release_buffer === undefined || isReleaseBuffer(header.release_buffer))
     && (header.wind === null || isHeaderWind(header.wind));
 }
 

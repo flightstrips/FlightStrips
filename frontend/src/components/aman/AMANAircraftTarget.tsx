@@ -20,7 +20,7 @@ export interface AMANAircraftTargetField {
 }
 
 export interface AMANAircraftTargetProps {
-  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "runway_gap_exception">;
+  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "expedited" | "runway_gap_exception">;
   guidance: Omit<AMANGainLossPresentationContext, "fresh">;
   selected?: boolean;
   disabled?: boolean;
@@ -34,7 +34,7 @@ export interface AMANAircraftTargetProps {
 
 function lifecyclePresentation(flight: AMANAircraftTargetProps["flight"]): {label: string; tone: string} {
   if (flight.sequence_disposition === "desequenced") {
-    return {label: "Desequenced", tone: "text-violet-300"};
+    return {label: flight.expedited ? "Expedited" : "Desequenced", tone: "text-violet-300"};
   }
   const freeze = freezePresentation(flight.freeze_reason);
   if (freeze && flight.freeze_reason === "superstable") {

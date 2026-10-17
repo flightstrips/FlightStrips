@@ -19,6 +19,58 @@ func TestApiDepartureBayPreservesCompletedDepartureAfterEuroscopeDisconnect(t *t
 	assert.Empty(t, apiDepartureBay(strip, flight, "EKCH"))
 }
 
+func TestVatsimFlightRulesFollowSourceAuthority(t *testing.T) {
+	now := time.Now().UTC()
+	strip := &models.Strip{FlightRules: "I"}
+	flight := Flight{LastUpdated: now, FlightPlan: FlightPlan{FlightRules: "V"}}
+	reconciler := &Reconciler{}
+
+	assert.True(t, reconciler.applyFlight(strip, flight, now))
+	assert.Equal(t, "V", strip.FlightRules)
+	assert.Equal(t, "V", vatsimSource(flight, now).FlightRules)
+
+	later := now.Add(time.Minute)
+	strip.EuroscopeSeenAt = &later
+	flight.FlightPlan.FlightRules = "I"
+	reconciler.applyFlight(strip, flight, now)
+	assert.Equal(t, "V", strip.FlightRules)
+}
+
+func TestVatsimFlightRulesBackfillOlderPlugin(t *testing.T) {
+	now := time.Now().UTC()
+	later := now.Add(time.Minute)
+	for _, tc := range []struct {
+		name     string
+		rules    string
+		incoming string
+		modified []string
+		want     string
+	}{
+		{name: "unknown", incoming: "V", want: "V"},
+		{name: "known EuroScope rules", rules: "I", incoming: "V", want: "I"},
+		{name: "controller protected", incoming: "V", modified: []string{"flight_rules"}, want: ""},
+		{name: "missing VATSIM rules", rules: "V", want: "V"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			strip := &models.Strip{
+				FlightRules: tc.rules, EuroscopeSeenAt: &later,
+				ControllerModifiedFields: tc.modified, Origin: "EKCH",
+			}
+			flight := Flight{LastUpdated: now, FlightPlan: FlightPlan{FlightRules: tc.incoming, Origin: "ESSA"}}
+			(&Reconciler{}).applyFlight(strip, flight, now)
+			assert.Equal(t, tc.want, strip.FlightRules)
+			assert.Equal(t, "EKCH", strip.Origin, "backfilling must not bypass freshness for other fields")
+		})
+	}
+}
+
+func TestVatsimMissingFlightRulesPreserveKnownValue(t *testing.T) {
+	now := time.Now().UTC()
+	strip := &models.Strip{FlightRules: "V"}
+	(&Reconciler{}).applyFlight(strip, Flight{LastUpdated: now}, now)
+	assert.Equal(t, "V", strip.FlightRules)
+}
+
 func TestApiDepartureBayDoesNotClassifyLocalArrivalAsDeparture(t *testing.T) {
 	strip := &models.Strip{Bay: hiddenArrivalBay}
 	flight := Flight{State: FlightStateOnline, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EKCH"}}
@@ -189,6 +241,21 @@ type reconciliationTestDepartureLifecycle struct {
 	cancelled []string
 	processed []string
 	released  []string
+}
+
+type reconciliationPilotDepartureLifecycle struct {
+	reconciliationTestDepartureLifecycle
+	observed []string
+}
+
+func (l *reconciliationPilotDepartureLifecycle) CancelPilotDeparture(_ context.Context, _ int32, callsign string) error {
+	l.cancelled = append(l.cancelled, callsign)
+	return nil
+}
+
+func (l *reconciliationPilotDepartureLifecycle) ReconcilePilotDeparture(_ context.Context, _ int32, strip *models.Strip, _ DepartureFlightInfo) (bool, error) {
+	l.observed = append(l.observed, strip.Callsign)
+	return strip.Callsign == "SAS101", nil
 }
 
 func (l *reconciliationTestDepartureLifecycle) ProcessDeparture(_ context.Context, _ int32, strip *models.Strip, _ DepartureFlightInfo) error {
@@ -503,6 +570,7 @@ func TestReconcileRequiresEuroscopeStripBeforeOnlineDepartureBlock(t *testing.T)
 		case "SAS202":
 			prefileStrip = strip
 		}
+
 	}
 	require.NotNil(t, onlineStrip)
 	require.NotNil(t, prefileStrip)
@@ -513,6 +581,27 @@ func TestReconcileRequiresEuroscopeStripBeforeOnlineDepartureBlock(t *testing.T)
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, []string{"SAS101"}, lifecycle.processed,
 		"the online departure may enter the block path after EuroScope has supplied the strip, while an ES-owned prefile must not reset that state")
+}
+
+func TestReconcileFollowsOpenedPilotDepartureBeforeEuroscope(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	cache := newReconciliationTestCache(now,
+		Flight{CID: "1", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}},
+		Flight{CID: "2", Callsign: "SAS202", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EDDF", Revision: 5}},
+		Flight{CID: "3", Callsign: "SAS303", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "ESSA", Revision: 1}},
+		Flight{CID: "4", Callsign: "SAS404", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ESSA", Destination: "EKCH", Revision: 1}},
+	)
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}
+	lifecycle := &reconciliationPilotDepartureLifecycle{}
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler.lifecycle = lifecycle
+	arrivals := &reconciliationTestArrivalLifecycle{}
+	reconciler.arrivalLifecycle = arrivals
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.ElementsMatch(t, []string{"SAS101", "SAS202", "SAS303"}, lifecycle.observed)
+	assert.Equal(t, []string{"SAS303"}, lifecycle.processed, "later prefiles still process after managed pilot departures")
+	assert.Equal(t, []string{"SAS404"}, arrivals.processed, "arrival processing must follow managed pilot departures")
+	assert.Empty(t, lifecycle.released)
 }
 
 func TestReconcileReleasesPushDepartureAfterLifecycleProcessing(t *testing.T) {
@@ -623,6 +712,21 @@ func TestReconcileCancelsDepartureLifecycleWhenFlightDisappears(t *testing.T) {
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, []string{"SAS505"}, lifecycle.cancelled)
+}
+
+func TestReconcileCancelsPilotOccupancyWhenEuroscopeStillOwnsStrip(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	cid := "5"
+	strip := &models.Strip{
+		Callsign: "SAS506", Session: 7, Origin: "EKCH",
+		VatsimCID: &cid, VatsimSeenAt: &now, EuroscopeSeenAt: &now,
+	}
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {strip}}}
+	reconciler := newTestReconciler(newReconciliationTestCache(now), reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	lifecycle := &reconciliationPilotDepartureLifecycle{}
+	reconciler.lifecycle = lifecycle
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Equal(t, []string{"SAS506"}, lifecycle.cancelled)
 }
 
 func TestReconcileDoesNotCancelEuroscopeOwnedDepartureLifecycleWhenFlightDisappears(t *testing.T) {

@@ -2,7 +2,10 @@ package models
 
 import "encoding/json"
 
-const ValidationIssueTypeStandAssignment = "STAND ASSIGNMENT"
+const (
+	ValidationIssueTypeStandAssignment   = "STAND ASSIGNMENT"
+	ValidationIssueTypeReadyTransferTsat = "TSAT START REQUEST"
+)
 
 // ValidationStatus represents an active validation issue on a strip.
 // It is set by backend services and acknowledged by frontend controllers.

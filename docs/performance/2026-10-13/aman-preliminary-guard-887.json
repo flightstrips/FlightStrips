@@ -1,0 +1,670 @@
+{
+  "schema": "aman-preliminary-guard-validation/v1",
+  "issue": 887,
+  "requirement": "Startup estimates must never become automatic landing-slot commitments or be protected by holding, Stable, Superstable or TMA entry.",
+  "recorded_case": {
+    "callsign": "SAS506",
+    "departure": "EGLL",
+    "destination": "EKCH",
+    "alternate": "EKBI",
+    "first_observed_airborne_at": "2026-07-20T18:10:26.7815415Z",
+    "filed_eet_seconds": 5940,
+    "preliminary_eta": "2026-07-20T19:49:26.7815415Z"
+  },
+  "cause": "The first observed airborne time plus the full filed EET was used for advisory timing. It was incorrectly admitted into the automatic landing sequence. The old slot then survived the replacement of the preliminary prediction with physical route timing and acquired holding/freeze protection.",
+  "fix": [
+    "Preliminary predictions are excluded from automatic sequencing.",
+    "Preliminary predictions cannot activate holding-slot protection, TMA capture or Superstable capture.",
+    "Legacy automatic preliminary slots/freezes are discarded before reconciliation accepts a physical prediction and before resequencing.",
+    "Explicit manual timing and accepted physical commitments retained through outages remain protected."
+  ],
+  "checks": {
+    "backend": "Full go run ./internal/testing/testdb ./... passed",
+    "regressions": [
+      "EGLL first seen mid-flight",
+      "short EKBI flight",
+      "planned and airborne preliminary timing",
+      "holding and near-feeder protection cannot capture provisional timing",
+      "persisted preliminary TMA/Superstable recovery before physical prediction",
+      "manual and physical commitments remain protected"
+    ]
+  },
+  "binary_sha256": "1df285b4e09c3d81628f745f5ecf1d54418aaf22063694331061546db630b7d2",
+  "sessions": [
+    {
+      "recording": "C:/vatsim-data",
+      "metrics": {
+        "snapshots": 151,
+        "publishable_flight_samples": 7651,
+        "holding_plan_samples": 2944,
+        "advanced_plan_samples": 2,
+        "holding_seconds_sum": 5698604.950882578,
+        "additional_approach_seconds_sum": 22.751191355,
+        "max_projected_buffer": 17,
+        "buffer_degraded_samples": 115
+      },
+      "accuracy": {
+        "original_main": {
+          "5": {
+            "predictions": 101.0,
+            "availability_percent": 98.1,
+            "operational_bias_seconds": -1695.0,
+            "operational_mae_seconds": 1714.0,
+            "raw_bias_seconds": -180.0,
+            "raw_mae_seconds": 196.0,
+            "slot_bias_seconds": -73.0,
+            "slot_mae_seconds": 774.0,
+            "slot_samples": 101.0
+          },
+          "10": {
+            "predictions": 98.0,
+            "availability_percent": 95.1,
+            "operational_bias_seconds": -1747.0,
+            "operational_mae_seconds": 1765.0,
+            "raw_bias_seconds": -174.0,
+            "raw_mae_seconds": 259.0,
+            "slot_bias_seconds": -92.0,
+            "slot_mae_seconds": 780.0,
+            "slot_samples": 98.0
+          },
+          "15": {
+            "predictions": 96.0,
+            "availability_percent": 93.2,
+            "operational_bias_seconds": -1761.0,
+            "operational_mae_seconds": 1824.0,
+            "raw_bias_seconds": -157.0,
+            "raw_mae_seconds": 265.0,
+            "slot_bias_seconds": -77.0,
+            "slot_mae_seconds": 809.0,
+            "slot_samples": 96.0
+          },
+          "20": {
+            "predictions": 93.0,
+            "availability_percent": 90.3,
+            "operational_bias_seconds": -1849.0,
+            "operational_mae_seconds": 1849.0,
+            "raw_bias_seconds": -368.0,
+            "raw_mae_seconds": 370.0,
+            "slot_bias_seconds": -144.0,
+            "slot_mae_seconds": 766.0,
+            "slot_samples": 93.0
+          },
+          "30": {
+            "predictions": 89.0,
+            "availability_percent": 86.4,
+            "operational_bias_seconds": -1903.0,
+            "operational_mae_seconds": 1911.0,
+            "raw_bias_seconds": -798.0,
+            "raw_mae_seconds": 806.0,
+            "slot_bias_seconds": -135.0,
+            "slot_mae_seconds": 809.0,
+            "slot_samples": 89.0
+          }
+        },
+        "before_guard": {
+          "5": {
+            "predictions": 101.0,
+            "availability_percent": 98.1,
+            "operational_bias_seconds": -1695.0,
+            "operational_mae_seconds": 1714.0,
+            "raw_bias_seconds": -180.0,
+            "raw_mae_seconds": 196.0,
+            "slot_bias_seconds": -496.0,
+            "slot_mae_seconds": 902.0,
+            "slot_samples": 101.0
+          },
+          "10": {
+            "predictions": 98.0,
+            "availability_percent": 95.1,
+            "operational_bias_seconds": -1747.0,
+            "operational_mae_seconds": 1765.0,
+            "raw_bias_seconds": -174.0,
+            "raw_mae_seconds": 259.0,
+            "slot_bias_seconds": -510.0,
+            "slot_mae_seconds": 929.0,
+            "slot_samples": 98.0
+          },
+          "15": {
+            "predictions": 96.0,
+            "availability_percent": 93.2,
+            "operational_bias_seconds": -1761.0,
+            "operational_mae_seconds": 1824.0,
+            "raw_bias_seconds": -157.0,
+            "raw_mae_seconds": 265.0,
+            "slot_bias_seconds": -494.0,
+            "slot_mae_seconds": 973.0,
+            "slot_samples": 96.0
+          },
+          "20": {
+            "predictions": 93.0,
+            "availability_percent": 90.3,
+            "operational_bias_seconds": -1849.0,
+            "operational_mae_seconds": 1849.0,
+            "raw_bias_seconds": -368.0,
+            "raw_mae_seconds": 370.0,
+            "slot_bias_seconds": -535.0,
+            "slot_mae_seconds": 975.0,
+            "slot_samples": 93.0
+          },
+          "30": {
+            "predictions": 89.0,
+            "availability_percent": 86.4,
+            "operational_bias_seconds": -1903.0,
+            "operational_mae_seconds": 1911.0,
+            "raw_bias_seconds": -798.0,
+            "raw_mae_seconds": 806.0,
+            "slot_bias_seconds": -614.0,
+            "slot_mae_seconds": 937.0,
+            "slot_samples": 89.0
+          }
+        },
+        "after_guard": {
+          "5": {
+            "predictions": 101.0,
+            "availability_percent": 98.1,
+            "operational_bias_seconds": -1695.0,
+            "operational_mae_seconds": 1714.0,
+            "raw_bias_seconds": -180.0,
+            "raw_mae_seconds": 196.0,
+            "slot_bias_seconds": -379.0,
+            "slot_mae_seconds": 745.0,
+            "slot_samples": 101.0
+          },
+          "10": {
+            "predictions": 98.0,
+            "availability_percent": 95.1,
+            "operational_bias_seconds": -1747.0,
+            "operational_mae_seconds": 1765.0,
+            "raw_bias_seconds": -174.0,
+            "raw_mae_seconds": 259.0,
+            "slot_bias_seconds": -383.0,
+            "slot_mae_seconds": 772.0,
+            "slot_samples": 98.0
+          },
+          "15": {
+            "predictions": 96.0,
+            "availability_percent": 93.2,
+            "operational_bias_seconds": -1761.0,
+            "operational_mae_seconds": 1824.0,
+            "raw_bias_seconds": -157.0,
+            "raw_mae_seconds": 265.0,
+            "slot_bias_seconds": -404.0,
+            "slot_mae_seconds": 785.0,
+            "slot_samples": 95.0
+          },
+          "20": {
+            "predictions": 93.0,
+            "availability_percent": 90.3,
+            "operational_bias_seconds": -1849.0,
+            "operational_mae_seconds": 1849.0,
+            "raw_bias_seconds": -368.0,
+            "raw_mae_seconds": 370.0,
+            "slot_bias_seconds": -419.0,
+            "slot_mae_seconds": 793.0,
+            "slot_samples": 93.0
+          },
+          "30": {
+            "predictions": 89.0,
+            "availability_percent": 86.4,
+            "operational_bias_seconds": -1903.0,
+            "operational_mae_seconds": 1911.0,
+            "raw_bias_seconds": -798.0,
+            "raw_mae_seconds": 806.0,
+            "slot_bias_seconds": -418.0,
+            "slot_mae_seconds": 826.0,
+            "slot_samples": 88.0
+          }
+        }
+      },
+      "advisory_samples_without_physical_route": 798,
+      "advisory_samples_with_slots": 0,
+      "examples": [
+        {
+          "callsign": "SAS506",
+          "landed_at": "2026-07-20T18:32:00.0013657Z",
+          "first_snapshot": {
+            "at": "2026-07-20T18:10:30.0018944Z",
+            "raw_teta": "2026-07-20T19:49:26.7815415Z",
+            "slot_time": null,
+            "freeze_reason": "none"
+          },
+          "first_physical_snapshot": {
+            "at": "2026-07-20T18:11:45.005227Z",
+            "raw_teta": "2026-07-20T18:26:38.398986045Z",
+            "slot_time": "2026-07-20T18:28:09Z",
+            "freeze_reason": "none"
+          },
+          "slot_before_guard": "2026-07-20T19:47:09Z",
+          "slot_after_guard": "2026-07-20T18:28:09Z",
+          "error_before_guard_seconds": 4508.999,
+          "error_after_guard_seconds": -231.001
+        },
+        {
+          "callsign": "SAS62L",
+          "landed_at": "2026-07-20T18:38:00.0021002Z",
+          "first_snapshot": {
+            "at": "2026-07-20T18:10:30.0018944Z",
+            "raw_teta": "2026-07-20T19:14:26.1704166Z",
+            "slot_time": null,
+            "freeze_reason": "none"
+          },
+          "first_physical_snapshot": {
+            "at": "2026-07-20T18:11:45.005227Z",
+            "raw_teta": "2026-07-20T18:29:13.809438552Z",
+            "slot_time": "2026-07-20T18:35:39Z",
+            "freeze_reason": "none"
+          },
+          "slot_before_guard": "2026-07-20T19:19:09Z",
+          "slot_after_guard": "2026-07-20T18:35:39Z",
+          "error_before_guard_seconds": 2468.998,
+          "error_after_guard_seconds": -141.002
+        },
+        {
+          "callsign": "SAS2861",
+          "landed_at": "2026-07-20T18:48:00.0075479Z",
+          "first_snapshot": {
+            "at": "2026-07-20T18:11:45.005227Z",
+            "raw_teta": "2026-07-20T18:33:05.086734554Z",
+            "slot_time": "2026-07-20T18:40:09Z",
+            "freeze_reason": "none"
+          },
+          "first_physical_snapshot": {
+            "at": "2026-07-20T18:11:45.005227Z",
+            "raw_teta": "2026-07-20T18:33:05.086734554Z",
+            "slot_time": "2026-07-20T18:40:09Z",
+            "freeze_reason": "none"
+          },
+          "slot_before_guard": "2026-07-20T19:22:39Z",
+          "slot_after_guard": "2026-07-20T18:40:09Z",
+          "error_before_guard_seconds": 2078.992,
+          "error_after_guard_seconds": -471.008
+        }
+      ]
+    },
+    {
+      "recording": "C:/vatsim-data1",
+      "metrics": {
+        "snapshots": 324,
+        "publishable_flight_samples": 2094,
+        "holding_plan_samples": 439,
+        "advanced_plan_samples": 7,
+        "holding_seconds_sum": 13917.31360569599,
+        "additional_approach_seconds_sum": 414.58120366400004,
+        "max_projected_buffer": 5,
+        "buffer_degraded_samples": 61
+      },
+      "accuracy": {
+        "original_main": {
+          "5": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": 6.0,
+            "raw_mae_seconds": 86.0,
+            "slot_bias_seconds": -297.0,
+            "slot_mae_seconds": 310.0,
+            "slot_samples": 18.0
+          },
+          "10": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -83.0,
+            "raw_mae_seconds": 194.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "15": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -102.0,
+            "raw_mae_seconds": 192.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "20": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -152.0,
+            "raw_mae_seconds": 249.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "30": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -159.0,
+            "operational_mae_seconds": 331.0,
+            "raw_bias_seconds": -140.0,
+            "raw_mae_seconds": 309.0,
+            "slot_bias_seconds": -316.0,
+            "slot_mae_seconds": 321.0,
+            "slot_samples": 16.0
+          }
+        },
+        "before_guard": {
+          "5": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": 6.0,
+            "raw_mae_seconds": 86.0,
+            "slot_bias_seconds": -297.0,
+            "slot_mae_seconds": 310.0,
+            "slot_samples": 18.0
+          },
+          "10": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -83.0,
+            "raw_mae_seconds": 194.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "15": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -102.0,
+            "raw_mae_seconds": 192.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "20": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -152.0,
+            "raw_mae_seconds": 249.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "30": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -159.0,
+            "operational_mae_seconds": 331.0,
+            "raw_bias_seconds": -140.0,
+            "raw_mae_seconds": 309.0,
+            "slot_bias_seconds": -316.0,
+            "slot_mae_seconds": 321.0,
+            "slot_samples": 16.0
+          }
+        },
+        "after_guard": {
+          "5": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": 6.0,
+            "raw_mae_seconds": 86.0,
+            "slot_bias_seconds": -297.0,
+            "slot_mae_seconds": 310.0,
+            "slot_samples": 18.0
+          },
+          "10": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -83.0,
+            "raw_mae_seconds": 194.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "15": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -102.0,
+            "raw_mae_seconds": 192.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "20": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -152.0,
+            "raw_mae_seconds": 249.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "30": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -159.0,
+            "operational_mae_seconds": 331.0,
+            "raw_bias_seconds": -140.0,
+            "raw_mae_seconds": 309.0,
+            "slot_bias_seconds": -316.0,
+            "slot_mae_seconds": 321.0,
+            "slot_samples": 16.0
+          }
+        }
+      },
+      "advisory_samples_without_physical_route": 404,
+      "advisory_samples_with_slots": 0
+    },
+    {
+      "recording": "C:/vatsim-data2",
+      "metrics": {
+        "snapshots": 233,
+        "publishable_flight_samples": 12861,
+        "holding_plan_samples": 4623,
+        "advanced_plan_samples": 10,
+        "holding_seconds_sum": 4064125.652880062,
+        "additional_approach_seconds_sum": 799.5368863939999,
+        "max_projected_buffer": 15,
+        "buffer_degraded_samples": 206
+      },
+      "accuracy": {
+        "original_main": {
+          "5": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -978.0,
+            "operational_mae_seconds": 1035.0,
+            "raw_bias_seconds": -37.0,
+            "raw_mae_seconds": 116.0,
+            "slot_bias_seconds": -519.0,
+            "slot_mae_seconds": 616.0,
+            "slot_samples": 123.0
+          },
+          "10": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -978.0,
+            "operational_mae_seconds": 1035.0,
+            "raw_bias_seconds": -111.0,
+            "raw_mae_seconds": 176.0,
+            "slot_bias_seconds": -515.0,
+            "slot_mae_seconds": 615.0,
+            "slot_samples": 123.0
+          },
+          "15": {
+            "predictions": 123.0,
+            "availability_percent": 98.4,
+            "operational_bias_seconds": -1003.0,
+            "operational_mae_seconds": 1057.0,
+            "raw_bias_seconds": -163.0,
+            "raw_mae_seconds": 183.0,
+            "slot_bias_seconds": -556.0,
+            "slot_mae_seconds": 624.0,
+            "slot_samples": 120.0
+          },
+          "20": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1044.0,
+            "operational_mae_seconds": 1056.0,
+            "raw_bias_seconds": -256.0,
+            "raw_mae_seconds": 271.0,
+            "slot_bias_seconds": -586.0,
+            "slot_mae_seconds": 614.0,
+            "slot_samples": 118.0
+          },
+          "30": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1055.0,
+            "operational_mae_seconds": 1064.0,
+            "raw_bias_seconds": -590.0,
+            "raw_mae_seconds": 598.0,
+            "slot_bias_seconds": -96.0,
+            "slot_mae_seconds": 1102.0,
+            "slot_samples": 118.0
+          }
+        },
+        "before_guard": {
+          "5": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -978.0,
+            "operational_mae_seconds": 1035.0,
+            "raw_bias_seconds": -37.0,
+            "raw_mae_seconds": 116.0,
+            "slot_bias_seconds": -519.0,
+            "slot_mae_seconds": 616.0,
+            "slot_samples": 123.0
+          },
+          "10": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -978.0,
+            "operational_mae_seconds": 1035.0,
+            "raw_bias_seconds": -111.0,
+            "raw_mae_seconds": 176.0,
+            "slot_bias_seconds": -515.0,
+            "slot_mae_seconds": 615.0,
+            "slot_samples": 123.0
+          },
+          "15": {
+            "predictions": 123.0,
+            "availability_percent": 98.4,
+            "operational_bias_seconds": -1003.0,
+            "operational_mae_seconds": 1057.0,
+            "raw_bias_seconds": -163.0,
+            "raw_mae_seconds": 183.0,
+            "slot_bias_seconds": -556.0,
+            "slot_mae_seconds": 624.0,
+            "slot_samples": 120.0
+          },
+          "20": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1044.0,
+            "operational_mae_seconds": 1056.0,
+            "raw_bias_seconds": -256.0,
+            "raw_mae_seconds": 271.0,
+            "slot_bias_seconds": -586.0,
+            "slot_mae_seconds": 614.0,
+            "slot_samples": 118.0
+          },
+          "30": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1055.0,
+            "operational_mae_seconds": 1064.0,
+            "raw_bias_seconds": -590.0,
+            "raw_mae_seconds": 598.0,
+            "slot_bias_seconds": -96.0,
+            "slot_mae_seconds": 1102.0,
+            "slot_samples": 118.0
+          }
+        },
+        "after_guard": {
+          "5": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -999.0,
+            "operational_mae_seconds": 1015.0,
+            "raw_bias_seconds": -37.0,
+            "raw_mae_seconds": 116.0,
+            "slot_bias_seconds": -534.0,
+            "slot_mae_seconds": 598.0,
+            "slot_samples": 123.0
+          },
+          "10": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -999.0,
+            "operational_mae_seconds": 1015.0,
+            "raw_bias_seconds": -111.0,
+            "raw_mae_seconds": 176.0,
+            "slot_bias_seconds": -530.0,
+            "slot_mae_seconds": 598.0,
+            "slot_samples": 123.0
+          },
+          "15": {
+            "predictions": 123.0,
+            "availability_percent": 98.4,
+            "operational_bias_seconds": -1024.0,
+            "operational_mae_seconds": 1036.0,
+            "raw_bias_seconds": -163.0,
+            "raw_mae_seconds": 183.0,
+            "slot_bias_seconds": -576.0,
+            "slot_mae_seconds": 603.0,
+            "slot_samples": 120.0
+          },
+          "20": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1044.0,
+            "operational_mae_seconds": 1056.0,
+            "raw_bias_seconds": -256.0,
+            "raw_mae_seconds": 271.0,
+            "slot_bias_seconds": -584.0,
+            "slot_mae_seconds": 614.0,
+            "slot_samples": 118.0
+          },
+          "30": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1055.0,
+            "operational_mae_seconds": 1064.0,
+            "raw_bias_seconds": -590.0,
+            "raw_mae_seconds": 598.0,
+            "slot_bias_seconds": -95.0,
+            "slot_mae_seconds": 1101.0,
+            "slot_samples": 118.0
+          }
+        }
+      },
+      "advisory_samples_without_physical_route": 2581,
+      "advisory_samples_with_slots": 0
+    }
+  ],
+  "limitations": [
+    "All three recordings were replayed with the release buffer and independent-feeder overtaking enabled. Historical slot MAE is descriptive and does not measure pilot/controller compliance with FS release offers.",
+    "Navigation cache, rate 40/h, one-minute recalculation and ground-observation retention match the earlier comparisons.",
+    "Raw before/after files and binaries are preserved in the sibling issue887-validation folder."
+  ],
+  "review_fixes_validation": {
+    "report": "aman-release-review-fixes-887.json",
+    "change": "Future readiness revalidation, accepted EAT preservation without a fresh holding plan, and release-time rate/wake spacing."
+  }
+}

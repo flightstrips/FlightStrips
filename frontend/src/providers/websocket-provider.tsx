@@ -3,7 +3,7 @@ import {WebSocketClient, createWebSocketClient} from '@/api/websocket';
 import {WebSocketStoreProvider} from '@/store/store-provider';
 import {UserRatingContext} from '@/store/user-rating-context';
 import {useAuth0} from '@auth0/auth0-react';
-import {requiresLoginPrompt} from '@/lib/authenticated-fetch';
+import {requireAccessToken, requiresLoginPrompt} from '@/lib/authenticated-fetch';
 
 interface WebSocketProviderProps {
   children: ReactNode;
@@ -141,7 +141,7 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
     if (!isAuthenticated || reauthenticatingRef.current) return;
 
     try {
-      const token = await getAccessTokenSilently();
+      const token = requireAccessToken(await getAccessTokenSilently());
       wsClient.setToken(token);
       setUserRating(getTokenRating(token));
       scheduleTokenRefresh(token);
@@ -160,7 +160,7 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
     const getAndSetTokenAndConnect = async () => {
       if (isAuthenticated && !isLoading && wsClient && !reauthenticatingRef.current) {
         try {
-          const token = await getAccessTokenSilently();
+          const token = requireAccessToken(await getAccessTokenSilently());
           wsClient.setToken(token);
           setUserRating(getTokenRating(token));
           scheduleTokenRefresh(token);

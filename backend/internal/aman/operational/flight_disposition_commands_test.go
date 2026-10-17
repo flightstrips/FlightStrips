@@ -159,7 +159,7 @@ func TestRemoveFlightUsesLifecycleAndPersistsIdempotentAudit(t *testing.T) {
 
 func TestFlightDispositionCommandsRejectSpoofablePayloadsAndNonFMP(t *testing.T) {
 	for _, command := range []reflect.Type{
-		reflect.TypeFor[aman.DesequenceFlightCommand](), reflect.TypeFor[aman.ResumeFlightCommand](), reflect.TypeFor[aman.RemoveFlightCommand](),
+		reflect.TypeFor[aman.ExpediteFlightCommand](), reflect.TypeFor[aman.DesequenceFlightCommand](), reflect.TypeFor[aman.ResumeFlightCommand](), reflect.TypeFor[aman.RemoveFlightCommand](),
 	} {
 		for _, forbidden := range []string{"Airport", "Actor", "Role", "ReceivedAt", "AuditIdentity"} {
 			_, present := command.FieldByName(forbidden)
@@ -170,6 +170,10 @@ func TestFlightDispositionCommandsRejectSpoofablePayloadsAndNonFMP(t *testing.T)
 	group := aman.RunwayGroupID("north")
 	unauthorized := aman.CommandContext{Airport: "EKCH", Actor: "7654321", Role: "EKCH_TWR", ReceivedAt: now}
 	for name, invoke := range map[string]func(*sequence.ActionService) error{
+		"expedite": func(actions *sequence.ActionService) error {
+			_, err := actions.ExpediteFlight(context.Background(), unauthorized, aman.ExpediteFlightCommand{Metadata: aman.CommandMetadata{CommandID: "unauthorized-expedite", ExpectedRevision: 5}, Callsign: "DSEQ"})
+			return err
+		},
 		"desequence": func(actions *sequence.ActionService) error {
 			_, err := actions.DesequenceFlight(context.Background(), unauthorized, aman.DesequenceFlightCommand{Metadata: aman.CommandMetadata{CommandID: "unauthorized-dseq", ExpectedRevision: 5}, Callsign: "DSEQ"})
 			return err

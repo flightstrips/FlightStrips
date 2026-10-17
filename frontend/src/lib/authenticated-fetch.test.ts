@@ -1,8 +1,36 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchWithAccessTokenRetry, requiresLoginPrompt } from "./authenticated-fetch";
+import { fetchWithAccessTokenRetry, requireAccessToken, requiresLoginPrompt } from "./authenticated-fetch";
 
 describe("authenticated fetch", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it.each([undefined, ""])("requires a new login for a missing token (%s)", (token) => {
+    try {
+      requireAccessToken(token);
+      expect.fail("Missing tokens must be rejected");
+    } catch (error) {
+      expect(requiresLoginPrompt(error)).toBe(true);
+    }
+  });
+
+  it("does not send a request without an access token", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchWithAccessTokenRetry(vi.fn().mockResolvedValue(undefined), "/api/stand/status"))
+      .rejects.toMatchObject({ error: "login_required" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not replay an unauthorized request if token refresh returns no token", async () => {
+    const getAccessToken = vi.fn().mockResolvedValueOnce("expired-token").mockResolvedValueOnce(undefined);
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchWithAccessTokenRetry(getAccessToken, "/api/stand/status"))
+      .rejects.toMatchObject({ error: "login_required" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 
   it("force-refreshes the token and retries once after an unauthorized response", async () => {
     const getAccessToken = vi.fn()

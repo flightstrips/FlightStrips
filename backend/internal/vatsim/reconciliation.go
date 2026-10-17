@@ -91,6 +91,11 @@ type departureStandReleaser interface {
 	ReleaseDepartureStand(ctx context.Context, session int32, callsign string) error
 }
 
+type pilotDepartureLifecycle interface {
+	ReconcilePilotDeparture(context.Context, int32, *models.Strip, DepartureFlightInfo) (bool, error)
+	CancelPilotDeparture(context.Context, int32, string) error
+}
+
 // ArrivalLifecycle drives the ESTIMATED → ASSIGNED → CONFIRMED transitions
 // for an arrival the reconciler has just applied. The reconciler owns feed
 // timing; the lifecycle owns allocation timing and persistence.
@@ -348,6 +353,11 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 				return err
 			}
 		}
+		if pilot, ok := r.lifecycle.(pilotDepartureLifecycle); ok && strip.EuroscopeSeenAt != nil && strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
+			if err := pilot.CancelPilotDeparture(ctx, session.ID, callsign); err != nil {
+				return err
+			}
+		}
 		if r.arrivalLifecycle != nil && strings.EqualFold(strings.TrimSpace(strip.Destination), airport) {
 			if err := r.arrivalLifecycle.CancelArrival(ctx, session.ID, callsign); err != nil {
 				return err
@@ -362,6 +372,15 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	for _, flight := range relevantFlights {
 		strip := existing[flight.Callsign]
 		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
+			if pilotLifecycle, ok := r.lifecycle.(pilotDepartureLifecycle); ok {
+				managed, err := pilotLifecycle.ReconcilePilotDeparture(ctx, session.ID, strip, departureFlightInfo(flight))
+				if err != nil {
+					return err
+				}
+				if managed {
+					continue
+				}
+			}
 			// Prefiles may reserve a stand before EuroScope sees the flight, but
 			// an online VATSIM record alone must not create a departure block.
 			// EuroScope supplies the operational strip that makes the block
@@ -627,7 +646,8 @@ func vatsimSource(flight Flight, snapshotTime time.Time) models.VatsimStripSourc
 		seenAt = snapshotTime
 	}
 	return models.VatsimStripSource{
-		CID: flight.CID, Revision: flight.FlightPlan.Revision, SeenAt: seenAt.UTC(),
+		FlightRules: flight.FlightPlan.FlightRules,
+		CID:         flight.CID, Revision: flight.FlightPlan.Revision, SeenAt: seenAt.UTC(),
 		Origin: flight.FlightPlan.Origin, Destination: flight.FlightPlan.Destination,
 		Alternate: flight.FlightPlan.Alternate, Route: flight.FlightPlan.Route,
 		Remarks: flight.FlightPlan.Remarks, AssignedSquawk: flight.FlightPlan.AssignedSquawk,
@@ -664,6 +684,10 @@ func (r *Reconciler) applyFlight(strip *models.Strip, flight Flight, snapshotTim
 	if strip.VatsimSeenAt == nil || strip.VatsimSeenAt.Before(seenAt) {
 		strip.VatsimSeenAt = timeptr(seenAt)
 		changed = true
+	}
+	// Older plugins never supply flight rules, even in a newer observation.
+	if flight.FlightPlan.FlightRules != "" && (strip.FlightRules == "" || strip.EuroscopeSeenAt == nil || !strip.EuroscopeSeenAt.After(seenAt)) {
+		changed = setSourceString(strip, "flight_rules", &strip.FlightRules, flight.FlightPlan.FlightRules) || changed
 	}
 	if strip.EuroscopeSeenAt != nil && strip.EuroscopeSeenAt.After(seenAt) {
 		return changed

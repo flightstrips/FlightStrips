@@ -1,10 +1,13 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, EventType } from "@/api/models";
 import type { WebSocketState } from "@/store/store";
 import { ArrStandDialog } from "./ArrStandDialog";
 
 const state = vi.hoisted(() => ({
+  strip: undefined as { communication_type: string } | undefined,
+  openTextPilotMenu: vi.fn(),
+  sendFrequencyMessage: vi.fn(),
   satEnabled: false,
   amanSessionID: 7,
   strips: [] as WebSocketState["strips"],
@@ -26,6 +29,8 @@ const auth = vi.hoisted(() => ({
 vi.mock("@auth0/auth0-react", () => ({ useAuth0: () => auth }));
 
 vi.mock("@/store/store-hooks", () => ({
+  useStrip: () => state.strip,
+  useIsTwr: () => false,
   useWebSocketStore: (selector: (store: typeof state) => unknown) => selector(state),
 }));
 
@@ -41,6 +46,7 @@ beforeEach(() => {
     observe() {}
     disconnect() {}
   });
+  state.strip = undefined;
   state.satEnabled = false;
   state.strips = [];
   state.standAssignments = [];
@@ -548,5 +554,25 @@ describe("arrival stand assignment dialog", () => {
     expect(screen.getByText("Stand is occupied")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "YES" }));
     expect(state.confirmStandOverride).toHaveBeenCalledWith("SAS123", "A23", 0, "Stand is occupied");
+  });
+});
+
+
+describe("text-pilot stand requests", () => {
+  it("opens taxi-in only after the legacy assignment is accepted", async () => {
+    state.strip = { communication_type: "T" };
+    state.sendFrequencyMessage.mockResolvedValue({ prepared: true, stand: "A18" });
+    show();
+    fireEvent.click(screen.getByRole("button", { name: "SEND REQ (A18)" }));
+    expect(state.updateStrip).not.toHaveBeenCalled();
+    await waitFor(() => expect(state.openTextPilotMenu).toHaveBeenCalledWith({ callsign: "SAS123", variant: "apron-in", stand: "A18" }));
+  });
+  it("does not open taxi-in when assignment is rejected", async () => {
+    state.strip = { communication_type: "T" };
+    state.sendFrequencyMessage.mockResolvedValue({ prepared: false, error: "Stand assignment rejected" });
+    const { onOpenChange } = show();
+    fireEvent.click(screen.getByRole("button", { name: "SEND REQ (A18)" }));
+    await waitFor(() => expect(state.sendFrequencyMessage).toHaveBeenCalled());
+    expect(state.openTextPilotMenu).not.toHaveBeenCalled(); expect(onOpenChange).not.toHaveBeenCalled();
   });
 });

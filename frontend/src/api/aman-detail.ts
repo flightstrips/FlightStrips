@@ -150,6 +150,7 @@ export interface AMANHoldingPlan {
   approach_release_time: string;
   expected_holding_seconds: number;
   post_holding_transit_seconds: number;
+  additional_approach_seconds?: number;
 }
 
 export async function fetchAMANFlightDetail(token: string, airport: string, callsign: string, signal?: AbortSignal): Promise<AMANFlightDetail> {

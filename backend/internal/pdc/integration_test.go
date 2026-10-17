@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -553,6 +555,35 @@ func TestIssueClearance_UsesAssignedSquawkInMessage(t *testing.T) {
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
 	require.NoError(t, err)
+}
+
+func TestIssueClearance_HoppieRejectionDoesNotMarkClearanceSent(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("error {callsign already in use}"))
+	}))
+	t.Cleanup(server.Close)
+	client := NewClient("testlogon")
+	client.baseURL = server.URL
+	suite.service.client = client
+	ctx := context.Background()
+	before, err := suite.queries.GetStrip(ctx, database.GetStripParams{Session: 1, Callsign: "SAS123"})
+	require.NoError(t, err)
+
+	err = suite.service.IssueClearance(ctx, "SAS123", "", "CID123", 1)
+	require.ErrorContains(t, err, "callsign already in use")
+	after, err := suite.queries.GetStrip(ctx, database.GetStripParams{Session: 1, Callsign: "SAS123"})
+	require.NoError(t, err)
+	require.Equal(t, before.PdcData, after.PdcData)
+	require.Equal(t, before.Cleared, after.Cleared)
+	require.Equal(t, before.Bay, after.Bay)
+	suite.service.timeoutsMutex.RLock()
+	require.Empty(t, suite.service.timeouts)
+	suite.service.timeoutsMutex.RUnlock()
+	suite.mockStrip.AssertNotCalled(t, "MoveToBay", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	suite.mockFrontend.AssertNotCalled(t, "SendPdcStateChange", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestHandleWilcoFlow(t *testing.T) {

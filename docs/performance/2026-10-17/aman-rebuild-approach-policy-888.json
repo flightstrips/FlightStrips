@@ -1,0 +1,255 @@
+{
+  "feature": "Arrival sequence rebuild approach-release integration, issue 888",
+  "validated_at": "2026-10-17T17:19:14.457371+00:00",
+  "base_commit": "603c8c7f05250fd3c1d416827c64340d03ed11d1",
+  "branch": "codex/aman-arrival-rebuild-888",
+  "fixes": [
+    "Replace future automatic approach offers and stale holding plans before applying rebuilt slots; retain manual/unavailable timing and due/observed admissions.",
+    "Recheck rebuilt holding release order after approach-buffer planning; withhold unsafe EATs while retaining capacity commitments and reporting exceptions.",
+    "Prioritize reconnect instructions when publication requires recovery and its snapshot is missing; clear the instruction when the snapshot arrives."
+  ],
+  "tests": {
+    "backend": "go test ./... PASS (including PostgreSQL and end-to-end tests)",
+    "backend_log": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\approach-final-go-tests.txt",
+    "frontend": "120 tests PASS across AMANControls, store-aman, api/aman and TMTHoldingGraph",
+    "lint": "ESLint on changed controls and tests PASS",
+    "build": "npm run build PASS; existing CSS placeholder and chunk-size warnings",
+    "regressions_before_fix": "Lowest-first EAT integration and publication recovery tests both failed before the fixes",
+    "regressions_after_fix": "Future offers, imminent offer recapture, repeat no-op, routine reconciliation, due commitment retention/unsafe EAT suppression, manual/unavailable/observed protection and snapshot recovery all PASS"
+  },
+  "replay_setup": {
+    "release_buffer": true,
+    "rate_per_hour": 40,
+    "update_interval": "1m",
+    "cache_only": true,
+    "tma_volume": "config/aman/boundaries/EKCH.json",
+    "isolated_navigation_database": "flightstrips_888_replay_a135",
+    "binary": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\approach-review-validated.exe",
+    "binary_sha256": "7ce7e63a969a1006aba1f7167f7e616f8c5a613e4c5ae87bb53e18e425ddd08b",
+    "scenarios_per_snapshot": [
+      "automatic captures moved 10 minutes into the past; retain due admissions",
+      "automatic captures moved 2 hours into the future; retain due admissions",
+      "automatic captures moved 2 hours into the future; simulate stale future automatic offers for held aircraft without observed release"
+    ],
+    "command": "go run ./cmd/aman-accuracy -input <recording> -dsn <isolated navigation-cache DSN> -cache-only -release-buffer -tma-volume config/aman/boundaries/EKCH.json -minimum-update-interval 1m -rebuild-snapshots 8 -rebuild-seed 888",
+    "holding_command_difference": "Use dense-subset with -holding-level-overlay -rebuild-snapshots 5 -rebuild-seed 42"
+  },
+  "sessions": [
+    {
+      "recording": "C:\\vatsim-data",
+      "snapshots": 698,
+      "seed": 888,
+      "synthetic_holding_clearances_and_levels": false,
+      "report": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\approach-validated-data.txt",
+      "stats": {
+        "retained_due_approach_admissions": 0,
+        "injected_future_approach_offers": 0,
+        "reset_future_approach_offers": 0,
+        "approach_reservation_violations": 0,
+        "states": {
+          "airborne": 111,
+          "confirmed_holding": 288,
+          "landed": 120,
+          "planned": 99,
+          "removed": 969,
+          "stable": 1005,
+          "unstable": 114,
+          "with_slot": 1230,
+          "with_surveillance": 2409
+        },
+        "attempts": 24,
+        "applied": 24,
+        "unchanged": 0,
+        "rejected": 0,
+        "ranked_holding_flights": 0,
+        "diagnostics": 66,
+        "repeated_result_violations": 0,
+        "release_order_violations": 0,
+        "timing_usability_violations": 0,
+        "refreshed_automatic_timings": 1164,
+        "refreshed_tma_timings": 231,
+        "snapshot_checks": 24,
+        "snapshot_times": [
+          "2026-07-20T18:53:14.9996405Z",
+          "2026-07-20T18:56:45.0149072Z",
+          "2026-07-20T19:13:00.018139Z",
+          "2026-07-20T19:13:30.0015808Z",
+          "2026-07-20T19:51:45.0050418Z",
+          "2026-07-20T19:59:00.0249431Z",
+          "2026-07-20T20:01:45.0018521Z",
+          "2026-07-20T20:15:15.0012344Z"
+        ],
+        "snapshot_rejections": 0,
+        "injected_automatic_captures": 534
+      }
+    },
+    {
+      "recording": "C:\\vatsim-data1",
+      "snapshots": 1501,
+      "seed": 888,
+      "synthetic_holding_clearances_and_levels": false,
+      "report": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\approach-validated-data1.txt",
+      "stats": {
+        "retained_due_approach_admissions": 3,
+        "injected_future_approach_offers": 0,
+        "reset_future_approach_offers": 3,
+        "approach_reservation_violations": 0,
+        "states": {
+          "airborne": 69,
+          "landed": 18,
+          "planned": 24,
+          "removed": 96,
+          "stable": 45,
+          "unstable": 21,
+          "with_slot": 135,
+          "with_surveillance": 273
+        },
+        "attempts": 24,
+        "applied": 24,
+        "unchanged": 0,
+        "rejected": 0,
+        "ranked_holding_flights": 0,
+        "diagnostics": 3,
+        "repeated_result_violations": 0,
+        "release_order_violations": 0,
+        "timing_usability_violations": 0,
+        "refreshed_automatic_timings": 135,
+        "refreshed_tma_timings": 15,
+        "snapshot_checks": 24,
+        "snapshot_times": [
+          "2026-07-28T08:15:53.6484579Z",
+          "2026-07-28T08:32:38.6497002Z",
+          "2026-07-28T09:09:53.648101Z",
+          "2026-07-28T09:33:08.6480192Z",
+          "2026-07-28T11:20:23.6502541Z",
+          "2026-07-28T11:33:53.6495191Z",
+          "2026-07-28T12:02:53.646854Z",
+          "2026-07-28T12:48:53.6518728Z"
+        ],
+        "snapshot_rejections": 0,
+        "injected_automatic_captures": 30
+      }
+    },
+    {
+      "recording": "C:\\vatsim-data2",
+      "snapshots": 1072,
+      "seed": 888,
+      "synthetic_holding_clearances_and_levels": false,
+      "report": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\approach-validated-data2.txt",
+      "stats": {
+        "retained_due_approach_admissions": 42,
+        "injected_future_approach_offers": 0,
+        "reset_future_approach_offers": 6,
+        "approach_reservation_violations": 0,
+        "states": {
+          "airborne": 357,
+          "confirmed_holding": 42,
+          "landed": 114,
+          "planned": 498,
+          "removed": 1215,
+          "stable": 456,
+          "unstable": 180,
+          "with_slot": 981,
+          "with_surveillance": 2673
+        },
+        "attempts": 24,
+        "applied": 24,
+        "unchanged": 0,
+        "rejected": 0,
+        "ranked_holding_flights": 0,
+        "diagnostics": 114,
+        "repeated_result_violations": 0,
+        "release_order_violations": 0,
+        "timing_usability_violations": 0,
+        "refreshed_automatic_timings": 927,
+        "refreshed_tma_timings": 150,
+        "snapshot_checks": 24,
+        "snapshot_times": [
+          "2026-08-03T17:23:25.7748404Z",
+          "2026-08-03T17:26:55.7719885Z",
+          "2026-08-03T17:43:55.778376Z",
+          "2026-08-03T18:22:40.774578Z",
+          "2026-08-03T18:29:55.7785122Z",
+          "2026-08-03T18:46:25.773006Z",
+          "2026-08-03T20:34:55.7739963Z",
+          "2026-08-03T20:48:10.7722046Z"
+        ],
+        "snapshot_rejections": 0,
+        "injected_automatic_captures": 246
+      }
+    },
+    {
+      "recording": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\dense-subset",
+      "snapshots": 100,
+      "seed": 42,
+      "synthetic_holding_clearances_and_levels": true,
+      "report": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\approach-validated-holding.txt",
+      "stats": {
+        "retained_due_approach_admissions": 6,
+        "injected_future_approach_offers": 7,
+        "reset_future_approach_offers": 7,
+        "approach_reservation_violations": 0,
+        "states": {
+          "confirmed_holding": 39,
+          "landed": 54,
+          "removed": 39,
+          "stable": 87,
+          "with_slot": 87,
+          "with_surveillance": 180
+        },
+        "attempts": 15,
+        "applied": 15,
+        "unchanged": 0,
+        "rejected": 0,
+        "ranked_holding_flights": 21,
+        "diagnostics": 15,
+        "repeated_result_violations": 0,
+        "release_order_violations": 0,
+        "timing_usability_violations": 0,
+        "refreshed_automatic_timings": 84,
+        "refreshed_tma_timings": 48,
+        "snapshot_checks": 15,
+        "snapshot_times": [
+          "2026-07-20T18:14:15.011069Z",
+          "2026-07-20T18:16:30.003335Z",
+          "2026-07-20T18:26:00.007521Z",
+          "2026-07-20T18:28:00.0022732Z",
+          "2026-07-20T18:30:00.0115204Z"
+        ],
+        "snapshot_rejections": 0,
+        "injected_automatic_captures": 81
+      }
+    }
+  ],
+  "totals": {
+    "snapshot_checks": 87,
+    "applied": 87,
+    "ranked_holding_flights": 21,
+    "injected_future_approach_offers": 7,
+    "reset_future_approach_offers": 16,
+    "retained_due_approach_admissions": 51,
+    "refreshed_automatic_timings": 2310,
+    "refreshed_tma_timings": 444,
+    "repeated_result_violations": 0,
+    "release_order_violations": 0,
+    "timing_usability_violations": 0,
+    "approach_reservation_violations": 0
+  },
+  "before_fix_playback": {
+    "report": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\approach-before-final-holding.txt",
+    "method": "Same updated checker and due-admission diagnostics; Go overlay disables the future-offer reset and final safety pass, without changing repository files.",
+    "expected_exit_code": 1,
+    "obsolete_offer_reservation_violations": 7,
+    "after_fix_violations": 0
+  },
+  "routine_playback_comparison": {
+    "source": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\dense-subset",
+    "release_buffer": true,
+    "rebuilds": false,
+    "byte_identical": true,
+    "sha256": "c2f4b567466b172f6ae4472314d7c23881a062ff7d0ac6b49403bea1774bfaf9",
+    "before": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\approach-normal-before-final.txt",
+    "after": "C:\\Users\\fsr19\\AppData\\Local\\Temp\\flightstrips-888-evidence\\approach-normal-review-validated.txt"
+  },
+  "scope": "Snapshot checks exercise feasible model timing and deterministic release order; they do not assume recorded pilots follow the hypothetical plan. The public feed omits controller holding clearances and CFLs; those are explicitly simulated only in the holding scenario. Counts are repeated scenario checks, not unique aircraft. Due/observed approach admissions retain their capacity commitment and accepted EAT as an explicit exception; landing slots still refresh."
+}

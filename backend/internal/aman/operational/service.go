@@ -1367,6 +1367,15 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		flight.SelectedHolding = &holding
 		raw.HoldingFixETA = holdingETA(predictionAt, legDurations, projection.Remaining, projection.SelectedHolding.Fix)
 	}
+	observeHoldingEpisode(&flight, projection, observation, now)
+	if operationalHoldingClearanceFix(flight) == "" && raw.HoldingFixETA == nil {
+		// Prediction timestamps are rounded to seconds; entry evidence is not.
+		endedAt := now
+		if observation.Surveillance.ObservedAt != nil {
+			endedAt = *observation.Surveillance.ObservedAt
+		}
+		aman.EndHoldingEpisodeFromObservation(&flight, endedAt)
+	}
 	flight.HoldingStack = updateFlightHoldingStack(flight, projection, observedAt(observation.Surveillance, now))
 	flight.RouteProgress = projection.Progress
 	if flight.ArrivalPathChanged {
@@ -1740,16 +1749,19 @@ func enforceCrossGroupHoldingOrder(input *sequence.Input, result sequence.Result
 		for _, older := range input.Flights {
 			olderSlot, ok := entries[older.Callsign]
 			if !ok || older.HoldingQueueTime == nil || older.HoldingTransit <= 0 ||
-				older.HoldingQueueID != later.HoldingQueueID || older.RunwayGroupID == later.RunwayGroupID ||
-				!older.HoldingQueueTime.Before(*later.HoldingQueueTime) {
+				older.RunwayGroupID == later.RunwayGroupID ||
+				(!sequence.HoldingPrecedes(older, *later)) {
 				continue
 			}
 			olderRelease := olderSlot.Time.Add(-older.HoldingTransit).UTC().Truncate(time.Minute)
 			laterRelease := laterSlot.Time.Add(-later.HoldingTransit).UTC().Truncate(time.Minute)
-			if laterRelease.After(olderRelease) {
+			if laterRelease.After(olderRelease) || older.HoldingQueueID != later.HoldingQueueID && !laterRelease.Before(olderRelease) {
 				continue
 			}
 			minimum := olderRelease.Add(time.Minute + later.HoldingTransit)
+			if older.HoldingQueueID != later.HoldingQueueID {
+				minimum = olderSlot.Time.Add(later.HoldingTransit - older.HoldingTransit)
+			}
 			if later.ProtectCurrentSlot {
 				// Existing controller targets cannot be delayed to repair a hold
 				// conflict. Block an unsafe earlier vacancy promotion instead.
@@ -1849,10 +1861,17 @@ func (s *Service) refreshHoldingPlans(state *aman.AirportState) {
 	s.suppressOutOfOrderHoldingPlans(state)
 	if !at.IsZero() {
 		s.refreshApproachReleases(state, at)
+		// Retained admissions may restore an EAT after the first safety pass.
+		// Keep their capacity commitment, but withhold unsafe rebuilt plans.
+		s.suppressHoldingPlans(state, true)
 	}
 }
 
 func (s *Service) suppressOutOfOrderHoldingPlans(state *aman.AirportState) {
+	s.suppressHoldingPlans(state, false)
+}
+
+func (s *Service) suppressHoldingPlans(state *aman.AirportState, rebuiltOnly bool) {
 	indices := make([]int, 0, len(state.Flights))
 	for i := range state.Flights {
 		flight := state.Flights[i]
@@ -1867,22 +1886,28 @@ func (s *Service) suppressOutOfOrderHoldingPlans(state *aman.AirportState) {
 		}
 		return state.Flights[indices[a]].Callsign < state.Flights[indices[b]].Callsign
 	})
-	for position, i := range indices {
+	for _, i := range indices {
 		later := &state.Flights[i]
 		laterEntry := holdingQueueTime(*later, state.Flights)
 		if later.Prediction == nil || later.Prediction.HoldingPlan == nil || retainedTimingUnavailable(*later) {
 			continue
 		}
 		release := later.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute)
-		for _, j := range indices[:position] {
+		for _, j := range indices {
+			if i == j {
+				continue
+			}
 			older := &state.Flights[j]
 			olderEntry := holdingQueueTime(*older, state.Flights)
-			if olderEntry == nil || holdingQueueID(*older) != holdingQueueID(*later) ||
-				!olderEntry.Before(*laterEntry) {
+			precedes, rebuilt := aman.RebuiltHoldingPrecedes(*older, *later)
+			if rebuiltOnly && !rebuilt {
+				continue
+			}
+			if rebuilt && !precedes || !rebuilt && (olderEntry == nil || holdingQueueID(*older) != holdingQueueID(*later) || !olderEntry.Before(*laterEntry)) {
 				continue
 			}
 			if older.Prediction != nil && older.Prediction.HoldingPlan != nil &&
-				older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release) {
+				(older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release) || rebuilt && holdingQueueID(*older) != holdingQueueID(*later) && !older.Prediction.HoldingPlan.ApproachReleaseTime.After(later.Prediction.HoldingPlan.ApproachReleaseTime)) {
 				continue
 			}
 			// An immovable slot can make a safe EAT impossible. Do not expose
@@ -2069,7 +2094,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			HoldingSlotProtected: holdingSlotProtected(flight),
 			HoldingStackID:       holdingStackID(flight), HoldingAltitudeFeet: holdingStackAltitude(flight),
 			HoldingQueueID: holdingQueueID(flight), HoldingQueueTime: holdingQueueTime(flight, state.Flights), HoldingTransit: holdingTransit(flight),
-			ActiveHoldingSince: activeHoldingSince(flight), ArrivalQueueTime: arrivalQueueTime(flight),
+			ActiveHoldingSince: activeHoldingSince(flight), ArrivalQueueTime: arrivalQueueTime(flight), ReleaseRank: holdingReleaseRank(flight),
 		})
 		if manualETASlotPending(flight) {
 			// A manual ETA freezes an operational prediction first. Allocate
@@ -2854,6 +2879,7 @@ func repairSuperstableFreeze(flight *aman.AMANFlight) {
 }
 
 func setGroundedLifecycle(flight *aman.AMANFlight, reason aman.LifecycleReason, now time.Time) {
+	aman.EndHoldingEpisode(flight, now)
 	enteredAt := now
 	if flight.Lifecycle != nil && flight.Lifecycle.Reason == reason {
 		enteredAt = flight.Lifecycle.EnteredAt

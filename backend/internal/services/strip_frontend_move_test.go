@@ -165,6 +165,35 @@ func newFrontendMoveFixture(strip *internalModels.Strip) *frontendMoveFixture {
 	return fixture
 }
 
+func TestMoveFrontendStrip_FinalToRwyArrInitializesRunwayStatus(t *testing.T) {
+	owner := "TWR"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign: "SAS901", Origin: "ESSA", Destination: "EKCH", Bay: shared.BAY_FINAL, Owner: &owner,
+	})
+	fixture.repo.UpdateGroundStateFn = func(_ context.Context, _ int32, _ string, state *string, bay string, _ *int32) (int64, error) {
+		fixture.strip.Bay = bay
+		if state != nil {
+			value := *state
+			fixture.strip.State = &value
+		}
+		return 1, nil
+	}
+	statusInitializations := 0
+	fixture.repo.SetRwyArrRunwayStatusOnEntryFn = func(_ context.Context, _ int32, callsign string) (int64, error) {
+		statusInitializations++
+		assert.Equal(t, "SAS901", callsign)
+		fixture.strip.RunwayCleared = true
+		fixture.strip.RunwayConfirmed = false
+		return 1, nil
+	}
+
+	require.NoError(t, fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS901", shared.BAY_RWY_ARR, "1234567", "EKCH", "TWR", false, false))
+	assert.Equal(t, shared.BAY_RWY_ARR, fixture.strip.Bay)
+	assert.True(t, fixture.strip.RunwayCleared)
+	assert.False(t, fixture.strip.RunwayConfirmed)
+	assert.Equal(t, 1, statusInitializations)
+}
+
 func TestMoveFrontendStrip_ToClearedBayUsesSingleBayWrite(t *testing.T) {
 	fixture := newFrontendMoveFixture(&internalModels.Strip{
 		Callsign:    "SAS123",

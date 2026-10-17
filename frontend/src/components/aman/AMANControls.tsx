@@ -4,6 +4,7 @@ import {
   getActiveAMANRunwayGroups,
   getAMANMutationBlockReason,
   type AMANCommandIntent,
+  type AMANRebuildResult,
   type AMANCommandRejection,
   type AMANConnectionState,
   type AMANFlight,
@@ -37,6 +38,7 @@ export interface AMANControlsViewProps {
   pendingCommands: Record<string, AMANPendingCommand>;
   commandRejections: Record<string, AMANCommandRejection>;
   onCommand: (intent: AMANCommandIntent) => void;
+  rebuildResult?: AMANRebuildResult | null;
   onDismissRejection?: (commandID: string) => void;
   selectedCallsign?: string | null;
   onSelectedCallsignChange?: (callsign: string) => void;
@@ -98,6 +100,7 @@ function FlightStatus({flight}: {flight: AMANFlight}) {
         </div>
       )}
 
+      {flight.holding_started_at && <div>Holding since {displayTime(flight.holding_started_at)}{flight.holding_start_source === "estimated_detection" ? " (estimated)" : ""} · {Math.floor((flight.holding_elapsed_seconds ?? 0) / 60)} minutes</div>}
       {flight.go_around_confirmation && flight.go_around_confirmation.status !== "pending" && (
         <div className="rounded border border-slate-600 p-2 text-xs text-slate-300">
           Go-around detection {flight.go_around_confirmation.status} by {flight.go_around_confirmation.decided_by ?? "unknown"}.
@@ -115,6 +118,7 @@ export function AMANControlsView({
   pendingCommands,
   commandRejections,
   onCommand,
+  rebuildResult,
   onDismissRejection,
   selectedCallsign,
   onSelectedCallsignChange,
@@ -215,6 +219,16 @@ export function AMANControlsView({
           </div>
         </section>
       ))}
+
+      <section aria-label="Arrival sequence rebuild" className="grid gap-2 rounded border border-slate-600 p-3">
+        <p className="text-sm">Rebuild all arrival runways: refresh automatic timings from current positions, keep TMA priority, release lower cleared levels first, and prioritize the longest-held eligible aircraft across holds. Replace existing order and automatic reservations; retain manual protections.</p>
+        <button className={controlClass} disabled={disabled || pending.some((command) => command.type === "aman.rebuild_arrival_sequence") || Boolean(rebuildResult && state && rebuildResult.revision > state.revision)} onClick={() => onCommand({type: "aman.rebuild_arrival_sequence"})}>Rebuild arrival sequence</button>
+        {rebuildResult && <div role="status" aria-live="polite">
+          {rebuildResult.publication_status === "recovery_required" && (!state || state.revision < rebuildResult.revision) ? "Rebuild committed; reconnect to recover the displayed sequence" : state && state.revision < rebuildResult.revision ? "Waiting for rebuilt sequence snapshot" : !rebuildResult.changed || rebuildResult.duplicate ? "Already rebuilt" : rebuildResult.diagnostics.length > 0 ? "Rebuilt with exceptions" : "Rebuilt"}
+          {rebuildResult.release_order.length > 0 && <div className="text-sm">Release priority: {rebuildResult.release_order.join(" → ")}</div>}
+          {rebuildResult.diagnostics.map((diagnostic, index) => <div className="text-sm text-amber-200" key={index}>{diagnostic.callsign}: {diagnostic.message}</div>)}
+        </div>}
+      </section>
 
       {pending.length > 0 && (
         <div aria-live="polite" className="rounded border border-sky-600 bg-sky-950 p-2 text-sm">
@@ -412,6 +426,7 @@ export function AMANControls({
   const readOnly = useWebSocketStore((value) => value.readOnly);
   const pendingCommands = useWebSocketStore((value) => value.amanPendingCommands);
   const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
+  const rebuildResult = useWebSocketStore((value) => value.amanRebuildResult);
   const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
   const dismissRejection = useWebSocketStore((value) => value.dismissAMANCommandRejection);
 
@@ -424,6 +439,7 @@ export function AMANControls({
       pendingCommands={pendingCommands}
       commandRejections={commandRejections}
       onCommand={(intent) => { sendCommand(intent); }}
+      rebuildResult={rebuildResult}
       onDismissRejection={dismissRejection}
       selectedCallsign={selectedCallsign}
       onSelectedCallsignChange={onSelectedCallsignChange}

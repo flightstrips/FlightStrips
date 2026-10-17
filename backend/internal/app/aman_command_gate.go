@@ -237,3 +237,10 @@ func (g *amanCommandGate) RejectGoAround(ctx context.Context, auth aman.CommandC
 }
 
 var _ aman.CommandService = (*amanCommandGate)(nil)
+
+func (g *amanCommandGate) RebuildArrivalSequence(ctx context.Context, auth aman.CommandContext, command aman.RebuildArrivalSequenceCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.RebuildArrivalSequence(ctx, auth, command)
+}

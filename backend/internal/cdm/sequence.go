@@ -26,16 +26,17 @@ import (
 const slowRecalculationThreshold = 250 * time.Millisecond
 
 type sequencingCandidate struct {
-	strip       *models.Strip
-	input       CalcInput
-	baseTime    string
-	naturalTtot string
-	slot        SlotEntry
-	hasSlot     bool
-	hasCtot     bool
-	improvement bool
-	started     bool
-	staleBase   bool
+	strip         *models.Strip
+	input         CalcInput
+	baseTime      string
+	naturalTtot   string
+	slot          SlotEntry
+	hasSlot       bool
+	hasCtot       bool
+	improvement   bool
+	started       bool
+	staleBase     bool
+	recoveredEobt string
 }
 
 type SequenceService struct {
@@ -161,19 +162,24 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		if strip == nil || shouldSkipStrip(strip) {
 			continue
 		}
+		recoveredEobt := ""
+		if recoverExpiredTsat(strip, now) {
+			recoveredEobt = valueOrEmpty(strip.CdmData.EffectiveEobt())
+		}
 		calcInput := buildCalcInput(strip, config)
 		slot, hasSlot := existingSlotEntry(strip)
 		candidates = append(candidates, sequencingCandidate{
-			strip:       strip,
-			input:       calcInput,
-			baseTime:    selectCalculationBase(calcInput),
-			naturalTtot: unconstrainedTtot(calcInput, config, now),
-			slot:        slot,
-			hasSlot:     hasSlot,
-			hasCtot:     strings.TrimSpace(valueOrEmpty(strip.EffectiveCtot())) != "",
-			improvement: strip.CdmData != nil && strip.CdmData.IsImprovementOnlyRecalculation(),
-			started:     stripHasStarted(strip),
-			staleBase:   shouldInvalidateStaleTobt(calcInput, nowHHMMSS),
+			strip:         strip,
+			input:         calcInput,
+			baseTime:      selectCalculationBase(calcInput),
+			naturalTtot:   unconstrainedTtot(calcInput, config, now),
+			slot:          slot,
+			hasSlot:       hasSlot,
+			hasCtot:       strings.TrimSpace(valueOrEmpty(strip.EffectiveCtot())) != "",
+			improvement:   strip.CdmData != nil && strip.CdmData.IsImprovementOnlyRecalculation(),
+			started:       stripHasStarted(strip),
+			staleBase:     shouldInvalidateStaleTobt(calcInput, nowHHMMSS),
+			recoveredEobt: recoveredEobt,
 		})
 	}
 	span.SetAttributes(attribute.Int("candidate_count", len(candidates)))
@@ -245,7 +251,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		calcInput := candidate.input
 
 		// TSAT specifically expired → mark strip as invalid, keep TOBT
-		if isTsatSpecificallyExpired(strip, now) && !dataAllowsStartedPushbackRecalculation(strip) {
+		if isTsatSpecificallyExpired(strip, now) && !dataAllowsStartedRecalculation(strip) {
 			// An improve-only flight's old slot was provisionally reserved while
 			// probing for an earlier gap. Once that assignment expires it must no
 			// longer block predecessors or following flights from using capacity.
@@ -261,6 +267,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 				updated := data.Clone()
 				phase := "I"
 				updated.Phase = &phase
+				updated.ExpiredTsat = stringPointerIfPresent(valueOrEmpty(data.EffectiveTsat()))
 				updated.Tsat = nil
 				updated.Ttot = nil
 				applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), models.CdmInvalidReasonStaleTsat)
@@ -323,8 +330,18 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			updated.ViffProposalTtot = stringPointerIfPresent(proposal.Ttot)
 			updated.Phase = nil
 			updated.Tsat = stringPointerIfPresent(result.Tsat)
+			invalidReason := calculationInvalidReason(calcInput, result, now)
+			if result.Tsat == "" && valueOrEmpty(updated.ExpiredTsat) != "" {
+				// A CTOT or other non-TOBT change can recalculate an invalid
+				// flight before recovery is due. Keep its original expiry signal
+				// until a replacement assignment or TOBT update supersedes it.
+				invalidReason = models.CdmInvalidReasonStaleTsat
+				updated.Phase = stringPointerIfPresent("I")
+			} else {
+				updated.ExpiredTsat = nil
+			}
 			updated.Ttot = stringPointerIfPresent(result.Ttot)
-			applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), calculationInvalidReason(calcInput, result, now))
+			applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), invalidReason)
 			setCalculationReasonMarkers(updated, movementReasonMarkersFromTrace(trace))
 		}
 		updated.ClearLocalRecalculationPending()
@@ -339,6 +356,15 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 				return fmt.Errorf("failed to persist recalculated CDM data for %s session %d", strip.Callsign, session)
 			}
 			strip.CdmData = updated
+			if candidate.recoveredEobt != "" {
+				// CDM updates only change the plugin's timing cache. Correct the
+				// flight plan too, including during silent recalculation, so the
+				// next EuroScope strip sync cannot undo this persisted recovery.
+				s.euroscopeHub.Broadcast(session, euroscopeEvents.EobtEvent{
+					Callsign: strip.Callsign,
+					Eobt:     candidate.recoveredEobt,
+				})
+			}
 			if notify {
 				frontendUpdates = append(frontendUpdates, shared.BuildFrontendCdmDataEvent(strip.Callsign, updated))
 				euroscopeUpdates = append(euroscopeUpdates, shared.BuildEuroscopeCdmUpdateEvent(strip.Callsign, updated))
@@ -590,7 +616,7 @@ func shouldRecalculateStrip(strip *models.Strip, now time.Time) bool {
 		return true
 	}
 	if stripHasStarted(strip) {
-		return dataAllowsStartedPushbackRecalculation(strip)
+		return dataAllowsStartedRecalculation(strip)
 	}
 	if data.NeedsLocalRecalculation() {
 		return true
@@ -608,10 +634,11 @@ func shouldRecalculateStrip(strip *models.Strip, now time.Time) bool {
 	return false
 }
 
-func dataAllowsStartedPushbackRecalculation(strip *models.Strip) bool {
+func dataAllowsStartedRecalculation(strip *models.Strip) bool {
 	return strip != nil && strip.CdmData != nil &&
-		strip.CdmData.PushbackRecalculate && strip.CdmData.NeedsLocalRecalculation() &&
-		valueOrEmpty(strip.EffectiveAobt()) == ""
+		strip.CdmData.NeedsLocalRecalculation() &&
+		((strip.CdmData.CtotRecalculate && stripHasStarted(strip)) ||
+			(strip.CdmData.PushbackRecalculate && valueOrEmpty(strip.EffectiveAobt()) == ""))
 }
 
 func stripHasStarted(strip *models.Strip) bool {
@@ -622,6 +649,32 @@ func stripHasStarted(strip *models.Strip) bool {
 		return true
 	}
 	return groundStateAllowsAsat(valueOrEmpty(strip.State))
+}
+
+// Keep the expired assignment through the five-minute invalidation period so
+// periodic sequencing can recover it after eight minutes without START REQ.
+func recoverExpiredTsat(strip *models.Strip, now time.Time) bool {
+	if strip == nil || strip.CdmData == nil || stripHasStarted(strip) || strip.CdmData.NeedsLocalRecalculation() {
+		return false
+	}
+	data := strip.CdmData
+	tsat := normalizeCalculationClock(valueOrEmpty(data.EffectiveTsat()))
+	if tsat == "" && data.Calculation != nil && valueOrEmpty(data.Calculation.InvalidReason) == models.CdmInvalidReasonStaleTsat {
+		tsat = normalizeCalculationClock(valueOrEmpty(data.ExpiredTsat))
+	}
+	if _, valid := parseClock(tsat); !valid || !isMoreThanMinutesPast(tsat, timeToClock(now), 8) {
+		return false
+	}
+	updated := data.Clone()
+	applyAutoSyncedTobtUpdate(updated, truncateCDMClockValue(addMinutes(timeToClock(now), 10)))
+	updated.TobtAutoAdjusted = true
+	updated.Tsat = nil
+	updated.Ttot = nil
+	updated.ExpiredTsat = nil
+	updated.Phase = nil
+	updated.MarkLocalRecalculationPending()
+	strip.CdmData = updated
+	return true
 }
 
 func isTsatSpecificallyExpired(strip *models.Strip, now time.Time) bool {

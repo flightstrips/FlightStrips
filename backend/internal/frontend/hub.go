@@ -165,6 +165,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.Marked, handleMarked)
 	handlers.Add(frontend.RunwayClearance, handleRunwayClearance)
 	handlers.Add(frontend.RunwayConfirmation, handleRunwayConfirmation)
+	handlers.Add(frontend.ResetRunwayClearance, handleResetRunwayClearance)
 	handlers.Add(frontend.AcknowledgeUnexpectedChange, handleAcknowledgeUnexpectedChange)
 	handlers.Add(frontend.ActionCreateTacticalStrip, handleCreateTacticalStrip)
 	handlers.Add(frontend.ActionDeleteTacticalStrip, handleDeleteTacticalStrip)
@@ -453,6 +454,12 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 		return
 	}
 	event.Capabilities.AMANFMP = hub.hasAMANFMPAuthority(client)
+	if provider, ok := hub.server.GetCdmService().(interface {
+		CurrentInboundDepartures(int32, string) frontend.InboundDeparturesEvent
+	}); ok {
+		snapshot := provider.CurrentInboundDepartures(client.session, client.airport)
+		event.InboundDepartures = &snapshot
+	}
 
 	if !client.Enqueue(event) {
 		return
@@ -1599,6 +1606,10 @@ func (hub *Hub) SendCdmWait(session int32, callsign string) {
 	event := frontend.CdmWaitEvent{
 		Callsign: callsign,
 	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendInboundDepartures(session int32, event frontend.InboundDeparturesEvent) {
 	hub.Broadcast(session, event)
 }
 

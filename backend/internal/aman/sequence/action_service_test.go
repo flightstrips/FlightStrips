@@ -192,3 +192,7 @@ func (m *recordingActionMutations) ConfirmGoAround(auth aman.CommandContext, _ a
 func (m *recordingActionMutations) RejectGoAround(auth aman.CommandContext, _ aman.RejectGoAroundCommand) (CommandMutation, error) {
 	return m.mutation("reject_go_around", auth)
 }
+
+func (m *recordingActionMutations) RebuildArrivalSequence(_ context.Context, auth aman.CommandContext, _ aman.RebuildArrivalSequenceCommand) (CommandMutation, error) {
+	return m.mutation("rebuild", auth)
+}

@@ -61,6 +61,35 @@ describe("AMAN FMP controls", () => {
     renderControls({hasFMPAuthority: false});
     expect(screen.getByRole("button", {name: "Expedite flight"})).toBeDisabled();
   });
+ it("submits one airport rebuild and shows correlated exceptions", () => {
+  const {onCommand} = renderControls({rebuildResult: {command_id: "done",revision: golden.data.revision,changed: true,duplicate: false,publication_status: "published",release_order: ["SAS123"],diagnostics: [{code: "estimated_holding_start",callsign: "SAS123",message: "Estimated entry"}]}});
+  fireEvent.click(screen.getByRole("button",{name: "Rebuild arrival sequence"}));
+  expect(onCommand).toHaveBeenCalledWith({type: "aman.rebuild_arrival_sequence"});
+  expect(screen.getByText("Rebuilt with exceptions")).toBeInTheDocument();
+  expect(screen.getByText(/SAS123: Estimated entry/)).toBeInTheDocument();
+ });
+ it("disables rebuild while pending and while its snapshot is outstanding", () => {
+  renderControls({pendingCommands: {pending: {command_id: "pending",type: "aman.rebuild_arrival_sequence",expected_revision: 7}}});
+  expect(screen.getByRole("button",{name: "Rebuild arrival sequence"})).toBeDisabled();
+  cleanup();
+  renderControls({rebuildResult: {command_id: "done",revision: golden.data.revision + 1,changed: true,duplicate: false,publication_status: "published",release_order: [],diagnostics: []}});
+  expect(screen.getByText("Waiting for rebuilt sequence snapshot")).toBeInTheDocument();
+  expect(screen.getByRole("button",{name: "Rebuild arrival sequence"})).toBeDisabled();
+ });
+
+  it("shows recovery instructions when publication failed and the rebuilt snapshot is missing", () => {
+    renderControls({rebuildResult: {command_id: "done", revision: golden.data.revision + 1, changed: true, duplicate: false, publication_status: "recovery_required", release_order: [], diagnostics: []}});
+    expect(screen.getByText("Rebuild committed; reconnect to recover the displayed sequence")).toBeInTheDocument();
+    expect(screen.queryByText("Waiting for rebuilt sequence snapshot")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Rebuild arrival sequence"})).toBeDisabled();
+  });
+
+  it("clears the recovery instruction once the rebuilt snapshot has arrived", () => {
+    renderControls({rebuildResult: {command_id: "done", revision: golden.data.revision, changed: true, duplicate: false, publication_status: "recovery_required", release_order: [], diagnostics: []}});
+    expect(screen.queryByText(/reconnect to recover/)).not.toBeInTheDocument();
+    expect(screen.getByText("Rebuilt")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Rebuild arrival sequence"})).toBeEnabled();
+  });
 
   it("creates capacity without a fake flight and exposes pending, rejection, and displacement states", () => {
     const current = state();

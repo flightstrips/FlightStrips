@@ -1186,9 +1186,60 @@ func (r *stripRepository) UpdateRunwayConfirmation(ctx context.Context, session 
 	})
 }
 
+// UpdateArrivalRunwayConfirmation serializes arrivals within a session so only
+// one RWY ARR strip can be green, even when confirmations reach different
+// backend processes at the same time.
+func (r *stripRepository) UpdateArrivalRunwayConfirmation(ctx context.Context, session int32, callsign string) (int64, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var lockedSession int32
+	if err := tx.QueryRow(ctx, `SELECT id FROM sessions WHERE id = $1 FOR UPDATE`, session).Scan(&lockedSession); err != nil {
+		return 0, err
+	}
+
+	var anotherConfirmed bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM strips
+			WHERE session = $1 AND callsign <> $2 AND bay = 'RWY_ARR'
+			  AND runway_cleared AND runway_confirmed
+		)`, session, callsign).Scan(&anotherConfirmed); err != nil {
+		return 0, err
+	}
+	if anotherConfirmed {
+		if err := tx.Commit(ctx); err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE strips
+		SET runway_confirmed = true, runway_cleared = true, version = version + 1
+		WHERE session = $1 AND callsign = $2 AND bay = 'RWY_ARR'`, session, callsign)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // ResetRunwayClearance clears runway_cleared back to false (e.g. when a strip is moved backward from rwy-dep).
 func (r *stripRepository) ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error) {
 	return r.queries.ResetRunwayClearance(ctx, database.ResetRunwayClearanceParams{
+		Callsign: callsign,
+		Session:  session,
+	})
+}
+
+func (r *stripRepository) SetRwyArrRunwayStatusOnEntry(ctx context.Context, session int32, callsign string) (int64, error) {
+	return r.queries.SetRwyArrRunwayStatusOnEntry(ctx, database.SetRwyArrRunwayStatusOnEntryParams{
 		Callsign: callsign,
 		Session:  session,
 	})

@@ -13,6 +13,7 @@ import {
   type FrontendDisconnectEvent,
   type FrontendGoAroundEvent,
   type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent, type FrontendCoordinationForceAssumeResultEvent,
+  type FrontendMasterInfoEvent,
   type FrontendPdcStateUpdateEvent,
   type FrontendReleasePointEvent,
   type FrontendMarkedEvent,
@@ -42,11 +43,14 @@ import {
   type AvailableSidsEvent,
 } from "./models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
-import type {AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEvent} from "./aman";
+import type {InboundDeparturesEvent} from "./inbound-departures";
+import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEvent} from "./aman";
 
 
 type EventMap = {
+  [EventType.FrontendMasterInfo]: FrontendMasterInfoEvent;
   [EventType.FrontendFrequencyMessageResult]: import("@/lib/text-pilot").FrequencyMessageResult;
+  [EventType.FrontendInboundDepartures]: InboundDeparturesEvent;
   [EventType.FrontendInitial]: FrontendInitialEvent;
   [EventType.FrontendGoAround]: FrontendGoAroundEvent;
   [EventType.FrontendStripUpdate]: FrontendStripUpdateEvent;
@@ -95,6 +99,7 @@ type EventMap = {
   [EventType.FrontendStandBlockUpdate]: FrontendStandBlockUpdateEvent;
   [EventType.FrontendAMANState]: AMANStateEvent;
   [EventType.FrontendAMANCommandRejected]: AMANCommandRejectedEvent;
+ [EventType.FrontendAMANArrivalSequenceRebuilt]: AMANArrivalSequenceRebuiltEvent;
   [EventType.FrontendAMANCoordinationState]: AMANCoordinationStateEvent;
 };
 

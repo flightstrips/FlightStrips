@@ -35,6 +35,21 @@ func TestOutgoingMessageMarshalWrapsPayloadInEnvelope(t *testing.T) {
 	require.Equal(t, SessionInfo, eventType)
 }
 
+func TestMasterMetadataAndRunwayAlertRoundTrip(t *testing.T) {
+	encoded, err := (MasterInfoEvent{MasterCallsign: "EKDK_FMP"}).Marshal()
+	require.NoError(t, err)
+	var master MasterInfoEvent
+	require.NoError(t, UnmarshalEvent(encoded, MasterInfo, &master))
+	require.Equal(t, "EKDK_FMP", master.MasterCallsign)
+
+	encoded, err = (RunwayMismatchAlertEvent{MasterCallsign: "EKDK_FMP", ExpectedDeparture: []string{"22R"}}).Marshal()
+	require.NoError(t, err)
+	var alert RunwayMismatchAlertEvent
+	require.NoError(t, UnmarshalEvent(encoded, RunwayMismatchAlert, &alert))
+	require.Equal(t, "EKDK_FMP", alert.MasterCallsign)
+	require.Equal(t, []string{"22R"}, alert.ExpectedDeparture)
+}
+
 func TestHoldEventCanBeSentToEuroScope(t *testing.T) {
 	encoded, err := (HoldEvent{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}).Marshal()
 	require.NoError(t, err)

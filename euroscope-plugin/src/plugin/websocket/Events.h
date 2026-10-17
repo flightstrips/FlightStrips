@@ -25,6 +25,7 @@
 #define EVENT_STRIP_UPDATE_NAME "strip_update"
 #define EVENT_RUNWAY_NAME "runway"
 #define EVENT_SESSION_INFO_NAME "session_info"
+#define EVENT_MASTER_INFO_NAME "master_info"
 #define EVENT_RUNWAY_MISMATCH_ALERT_NAME "runway_mismatch_alert"
 #define EVENT_GENERATE_SQUAWK_NAME "generate_squawk"
 #define EVENT_EOBT_NAME "eobt"
@@ -119,10 +120,12 @@ enum EventType {
     EVENT_FS_SCRATCH_PAD,
     EVENT_SEND_FREQUENCY_MESSAGE,
     EVENT_FREQUENCY_MESSAGE_RESULT,
+    EVENT_MASTER_INFO,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                              {EVENT_UNKNOWN, EVENT_UNKNOWN_NAME},
+                             {EVENT_MASTER_INFO, EVENT_MASTER_INFO_NAME},
                              {EVENT_TOKEN, EVENT_TOKEN_NAME},
                              {EVENT_LOGIN, EVENT_LOGIN_NAME},
                              {EVENT_CONTROLLER_ONLINE, EVENT_CONTROLLER_ONLINE_NAME},
@@ -891,7 +894,14 @@ struct SessionInfoEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SessionInfoEvent, role, type);
 };
 
+struct MasterInfoEvent final : Event {
+    std::string master_callsign;
+    MasterInfoEvent() : Event(EVENT_MASTER_INFO) {}
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(MasterInfoEvent, master_callsign, type);
+};
+
 struct RunwayMismatchAlertEvent final : Event {
+    std::string master_callsign;
     std::vector<std::string> expected_departure;
     std::vector<std::string> expected_arrival;
     std::vector<std::string> current_departure;
@@ -902,6 +912,7 @@ struct RunwayMismatchAlertEvent final : Event {
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(
         RunwayMismatchAlertEvent,
+        master_callsign,
         expected_departure,
         expected_arrival,
         current_departure,

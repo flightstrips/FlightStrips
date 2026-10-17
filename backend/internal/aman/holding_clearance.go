@@ -9,6 +9,9 @@ func (flight *AMANFlight) ReplaceHoldingClearance(clearance *HoldingClearance) {
 	active := func(value *HoldingClearance) bool {
 		return value != nil && value.HoldType == HoldingClearanceEnroute && strings.TrimSpace(value.Hold) != ""
 	}
+	if active(flight.HoldingClearance) && clearance != nil && (!active(clearance) || clearance.Hold != flight.HoldingClearance.Hold) {
+		EndHoldingEpisode(flight, clearance.ObservedAt)
+	}
 	if active(clearance) {
 		flight.HoldingClearanceCanceledAt = nil
 	} else if active(flight.HoldingClearance) && clearance != nil && !clearance.ObservedAt.IsZero() {

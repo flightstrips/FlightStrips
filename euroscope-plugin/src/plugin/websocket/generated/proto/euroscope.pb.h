@@ -187,6 +187,9 @@ extern IssuePdcClearanceEventDefaultTypeInternal _IssuePdcClearanceEvent_default
 class LoginEvent;
 struct LoginEventDefaultTypeInternal;
 extern LoginEventDefaultTypeInternal _LoginEvent_default_instance_;
+class MasterInfoEvent;
+struct MasterInfoEventDefaultTypeInternal;
+extern MasterInfoEventDefaultTypeInternal _MasterInfoEvent_default_instance_;
 class PdcRevertToVoiceEvent;
 struct PdcRevertToVoiceEventDefaultTypeInternal;
 extern PdcRevertToVoiceEventDefaultTypeInternal _PdcRevertToVoiceEvent_default_instance_;
@@ -318,6 +321,7 @@ enum EventType : int {
   EVENT_FS_SCRATCH_PAD = 53,
   EVENT_SEND_FREQUENCY_MESSAGE = 54,
   EVENT_FREQUENCY_MESSAGE_RESULT = 55,
+  EVENT_MASTER_INFO = 56,
   EventType_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   EventType_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -327,8 +331,8 @@ enum EventType : int {
 bool EventType_IsValid(int value);
 extern const uint32_t EventType_internal_data_[];
 constexpr EventType EventType_MIN = static_cast<EventType>(0);
-constexpr EventType EventType_MAX = static_cast<EventType>(55);
-constexpr int EventType_ARRAYSIZE = 55 + 1;
+constexpr EventType EventType_MAX = static_cast<EventType>(56);
+constexpr int EventType_ARRAYSIZE = 56 + 1;
 const std::string& EventType_Name(EventType value);
 template <typename T>
 const std::string& EventType_Name(T value) {
@@ -2064,6 +2068,7 @@ class RunwayMismatchAlertEvent final : public ::google::protobuf::MessageLite
     kExpectedArrivalFieldNumber = 2,
     kCurrentDepartureFieldNumber = 3,
     kCurrentArrivalFieldNumber = 4,
+    kMasterCallsignFieldNumber = 5,
   };
   // repeated string expected_departure = 1;
   int expected_departure_size() const;
@@ -2177,13 +2182,29 @@ class RunwayMismatchAlertEvent final : public ::google::protobuf::MessageLite
   ::google::protobuf::RepeatedPtrField<std::string>* _internal_mutable_current_arrival();
 
   public:
+  // string master_callsign = 5;
+  void clear_master_callsign() ;
+  const std::string& master_callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_master_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_master_callsign();
+  PROTOBUF_NODISCARD std::string* release_master_callsign();
+  void set_allocated_master_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_master_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_master_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_master_callsign();
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.RunwayMismatchAlertEvent)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 4, 0,
-      125, 2>
+      3, 5, 0,
+      140, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -2202,6 +2223,7 @@ class RunwayMismatchAlertEvent final : public ::google::protobuf::MessageLite
     ::google::protobuf::RepeatedPtrField<std::string> expected_arrival_;
     ::google::protobuf::RepeatedPtrField<std::string> current_departure_;
     ::google::protobuf::RepeatedPtrField<std::string> current_arrival_;
+    ::google::protobuf::internal::ArenaStringPtr master_callsign_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -3420,6 +3442,162 @@ class PdcRevertToVoiceEvent final : public ::google::protobuf::MessageLite
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr callsign_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
+class MasterInfoEvent final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.MasterInfoEvent) */ {
+ public:
+  inline MasterInfoEvent() : MasterInfoEvent(nullptr) {}
+  ~MasterInfoEvent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR MasterInfoEvent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline MasterInfoEvent(const MasterInfoEvent& from) : MasterInfoEvent(nullptr, from) {}
+  inline MasterInfoEvent(MasterInfoEvent&& from) noexcept
+      : MasterInfoEvent(nullptr, std::move(from)) {}
+  inline MasterInfoEvent& operator=(const MasterInfoEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline MasterInfoEvent& operator=(MasterInfoEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const MasterInfoEvent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const MasterInfoEvent* internal_default_instance() {
+    return reinterpret_cast<const MasterInfoEvent*>(
+        &_MasterInfoEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 67;
+  friend void swap(MasterInfoEvent& a, MasterInfoEvent& b) { a.Swap(&b); }
+  inline void Swap(MasterInfoEvent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(MasterInfoEvent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  MasterInfoEvent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<MasterInfoEvent>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const MasterInfoEvent& from);
+  void MergeFrom(const MasterInfoEvent& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(MasterInfoEvent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.MasterInfoEvent"; }
+
+ protected:
+  explicit MasterInfoEvent(::google::protobuf::Arena* arena);
+  MasterInfoEvent(::google::protobuf::Arena* arena, const MasterInfoEvent& from);
+  MasterInfoEvent(::google::protobuf::Arena* arena, MasterInfoEvent&& from) noexcept
+      : MasterInfoEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kMasterCallsignFieldNumber = 1,
+  };
+  // string master_callsign = 1;
+  void clear_master_callsign() ;
+  const std::string& master_callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_master_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_master_callsign();
+  PROTOBUF_NODISCARD std::string* release_master_callsign();
+  void set_allocated_master_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_master_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_master_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_master_callsign();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.MasterInfoEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      0, 1, 0,
+      65, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr master_callsign_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -14067,6 +14245,7 @@ class Envelope final : public ::google::protobuf::MessageLite
     kFsScratchPad = 53,
     kSendFrequencyMessage = 54,
     kFrequencyMessageResult = 55,
+    kMasterInfo = 56,
     EVENT_NOT_SET = 0,
   };
   static inline const Envelope* internal_default_instance() {
@@ -14190,6 +14369,7 @@ class Envelope final : public ::google::protobuf::MessageLite
     kFsScratchPadFieldNumber = 53,
     kSendFrequencyMessageFieldNumber = 54,
     kFrequencyMessageResultFieldNumber = 55,
+    kMasterInfoFieldNumber = 56,
   };
   // .flightstrips.euroscope.v1.TokenEvent token = 1;
   bool has_token() const;
@@ -15236,6 +15416,25 @@ class Envelope final : public ::google::protobuf::MessageLite
   ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* _internal_mutable_frequency_message_result();
 
   public:
+  // .flightstrips.euroscope.v1.MasterInfoEvent master_info = 56;
+  bool has_master_info() const;
+  private:
+  bool _internal_has_master_info() const;
+
+  public:
+  void clear_master_info() ;
+  const ::flightstrips::euroscope::v1::MasterInfoEvent& master_info() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::MasterInfoEvent* release_master_info();
+  ::flightstrips::euroscope::v1::MasterInfoEvent* mutable_master_info();
+  void set_allocated_master_info(::flightstrips::euroscope::v1::MasterInfoEvent* value);
+  void unsafe_arena_set_allocated_master_info(::flightstrips::euroscope::v1::MasterInfoEvent* value);
+  ::flightstrips::euroscope::v1::MasterInfoEvent* unsafe_arena_release_master_info();
+
+  private:
+  const ::flightstrips::euroscope::v1::MasterInfoEvent& _internal_master_info() const;
+  ::flightstrips::euroscope::v1::MasterInfoEvent* _internal_mutable_master_info();
+
+  public:
   void clear_event();
   EventCase event_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.Envelope)
@@ -15296,11 +15495,12 @@ class Envelope final : public ::google::protobuf::MessageLite
   void set_has_fs_scratch_pad();
   void set_has_send_frequency_message();
   void set_has_frequency_message_result();
+  void set_has_master_info();
   inline bool has_event() const;
   inline void clear_has_event();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 55, 55,
+      0, 56, 56,
       0, 9>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -15374,6 +15574,7 @@ class Envelope final : public ::google::protobuf::MessageLite
       ::flightstrips::euroscope::v1::FsScratchPadEvent* fs_scratch_pad_;
       ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* send_frequency_message_;
       ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* frequency_message_result_;
+      ::flightstrips::euroscope::v1::MasterInfoEvent* master_info_;
     } event_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -19631,6 +19832,83 @@ inline ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* Envelope::_in
 inline ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* Envelope::mutable_frequency_message_result() ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* _msg = _internal_mutable_frequency_message_result();
   // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.frequency_message_result)
+  return _msg;
+}
+
+// .flightstrips.euroscope.v1.MasterInfoEvent master_info = 56;
+inline bool Envelope::has_master_info() const {
+  return event_case() == kMasterInfo;
+}
+inline bool Envelope::_internal_has_master_info() const {
+  return event_case() == kMasterInfo;
+}
+inline void Envelope::set_has_master_info() {
+  _impl_._oneof_case_[0] = kMasterInfo;
+}
+inline void Envelope::clear_master_info() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (event_case() == kMasterInfo) {
+    if (GetArena() == nullptr) {
+      delete _impl_.event_.master_info_;
+    }
+    clear_has_event();
+  }
+}
+inline ::flightstrips::euroscope::v1::MasterInfoEvent* Envelope::release_master_info() {
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.master_info)
+  if (event_case() == kMasterInfo) {
+    clear_has_event();
+    auto* temp = _impl_.event_.master_info_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.event_.master_info_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::euroscope::v1::MasterInfoEvent& Envelope::_internal_master_info() const {
+  return event_case() == kMasterInfo ? *_impl_.event_.master_info_ : reinterpret_cast<::flightstrips::euroscope::v1::MasterInfoEvent&>(::flightstrips::euroscope::v1::_MasterInfoEvent_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::MasterInfoEvent& Envelope::master_info() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.master_info)
+  return _internal_master_info();
+}
+inline ::flightstrips::euroscope::v1::MasterInfoEvent* Envelope::unsafe_arena_release_master_info() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.euroscope.v1.Envelope.master_info)
+  if (event_case() == kMasterInfo) {
+    clear_has_event();
+    auto* temp = _impl_.event_.master_info_;
+    _impl_.event_.master_info_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Envelope::unsafe_arena_set_allocated_master_info(::flightstrips::euroscope::v1::MasterInfoEvent* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_event();
+  if (value) {
+    set_has_master_info();
+    _impl_.event_.master_info_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.master_info)
+}
+inline ::flightstrips::euroscope::v1::MasterInfoEvent* Envelope::_internal_mutable_master_info() {
+  if (event_case() != kMasterInfo) {
+    clear_event();
+    set_has_master_info();
+    _impl_.event_.master_info_ =
+        ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::MasterInfoEvent>(GetArena());
+  }
+  return _impl_.event_.master_info_;
+}
+inline ::flightstrips::euroscope::v1::MasterInfoEvent* Envelope::mutable_master_info() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::euroscope::v1::MasterInfoEvent* _msg = _internal_mutable_master_info();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.master_info)
   return _msg;
 }
 
@@ -25767,6 +26045,56 @@ inline ::google::protobuf::RepeatedPtrField<std::string>*
 RunwayMismatchAlertEvent::_internal_mutable_current_arrival() {
   PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
   return &_impl_.current_arrival_;
+}
+
+// string master_callsign = 5;
+inline void RunwayMismatchAlertEvent::clear_master_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_callsign_.ClearToEmpty();
+}
+inline const std::string& RunwayMismatchAlertEvent::master_callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.RunwayMismatchAlertEvent.master_callsign)
+  return _internal_master_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void RunwayMismatchAlertEvent::set_master_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.RunwayMismatchAlertEvent.master_callsign)
+}
+inline std::string* RunwayMismatchAlertEvent::mutable_master_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_master_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.RunwayMismatchAlertEvent.master_callsign)
+  return _s;
+}
+inline const std::string& RunwayMismatchAlertEvent::_internal_master_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.master_callsign_.Get();
+}
+inline void RunwayMismatchAlertEvent::_internal_set_master_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_callsign_.Set(value, GetArena());
+}
+inline std::string* RunwayMismatchAlertEvent::_internal_mutable_master_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.master_callsign_.Mutable( GetArena());
+}
+inline std::string* RunwayMismatchAlertEvent::release_master_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.RunwayMismatchAlertEvent.master_callsign)
+  return _impl_.master_callsign_.Release();
+}
+inline void RunwayMismatchAlertEvent::set_allocated_master_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.master_callsign_.IsDefault()) {
+          _impl_.master_callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.RunwayMismatchAlertEvent.master_callsign)
 }
 
 // -------------------------------------------------------------------
@@ -32404,6 +32732,60 @@ inline ::int32_t FrequencyMessageResultEvent::_internal_applied_actions() const 
 inline void FrequencyMessageResultEvent::_internal_set_applied_actions(::int32_t value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.applied_actions_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// MasterInfoEvent
+
+// string master_callsign = 1;
+inline void MasterInfoEvent::clear_master_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_callsign_.ClearToEmpty();
+}
+inline const std::string& MasterInfoEvent::master_callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MasterInfoEvent.master_callsign)
+  return _internal_master_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void MasterInfoEvent::set_master_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MasterInfoEvent.master_callsign)
+}
+inline std::string* MasterInfoEvent::mutable_master_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_master_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.MasterInfoEvent.master_callsign)
+  return _s;
+}
+inline const std::string& MasterInfoEvent::_internal_master_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.master_callsign_.Get();
+}
+inline void MasterInfoEvent::_internal_set_master_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_callsign_.Set(value, GetArena());
+}
+inline std::string* MasterInfoEvent::_internal_mutable_master_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.master_callsign_.Mutable( GetArena());
+}
+inline std::string* MasterInfoEvent::release_master_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.MasterInfoEvent.master_callsign)
+  return _impl_.master_callsign_.Release();
+}
+inline void MasterInfoEvent::set_allocated_master_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.master_callsign_.IsDefault()) {
+          _impl_.master_callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.MasterInfoEvent.master_callsign)
 }
 
 #ifdef __GNUC__

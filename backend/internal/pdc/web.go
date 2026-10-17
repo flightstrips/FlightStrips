@@ -94,11 +94,20 @@ func WebPDCCanSubmit(state string) bool {
 	}
 }
 
-func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis string, stand string, remarks string, aircraftType string) error {
+func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis string, stand string, remarks string, aircraftType string) (requestErr error) {
 	normalizedCallsign := strings.ToUpper(strings.TrimSpace(callsign))
 	normalizedAtis := strings.ToUpper(strings.TrimSpace(atis))
 	trimmedRemarks := strings.TrimSpace(remarks)
 	normalizedAircraftType := strings.ToUpper(strings.TrimSpace(aircraftType))
+	logger := slog.With("callsign", normalizedCallsign, "channel", models.PdcChannelWeb,
+		"requested_aircraft_type", normalizedAircraftType, "requested_stand", stand,
+		"atis", normalizedAtis, "has_remarks", trimmedRemarks != "")
+	logger.InfoContext(ctx, "PDC Service: Request received")
+	defer func() {
+		if requestErr != nil {
+			logger.WarnContext(ctx, "PDC Service: Request processing failed", "error", requestErr)
+		}
+	}()
 
 	if len(normalizedAtis) != 1 || normalizedAtis[0] < 'A' || normalizedAtis[0] > 'Z' {
 		return ErrWebInvalidAtis
@@ -111,6 +120,10 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 	if err != nil {
 		return err
 	}
+	logger = logger.With("session", match.SessionID, "expected_origin", match.Strip.Origin,
+		"expected_destination", match.Strip.Destination, "has_fp", match.Strip.HasFP,
+		"expected_aircraft_type", normalizedStripAircraftType(match.Strip),
+		"state", match.Strip.PdcState, "cleared", match.Strip.Cleared)
 
 	sessionInfo := sessionInformation{}
 	if info, infoErr := s.getSessionInfo(ctx, match.SessionID); infoErr == nil {
@@ -178,6 +191,7 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 		if err := s.PersistPdcRequestOutcome(ctx, match.SessionID, normalizedCallsign, requestedAt, outcome); err != nil {
 			return err
 		}
+		logPendingPdcRequest(ctx, logger, outcome)
 		return nil
 	}
 
@@ -188,16 +202,17 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 			MetricOutcome: "requested_auto_issue_failed",
 		}
 		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, fallbackOutcome.MetricOutcome)
-		slog.WarnContext(ctx, "Web PDC auto-issue failed, leaving request pending", slog.String("callsign", normalizedCallsign), slog.Any("error", err))
 		if err := s.PersistPdcRequestOutcome(ctx, match.SessionID, normalizedCallsign, requestedAt, fallbackOutcome); err != nil {
 			return err
 		}
 		if err := s.stripService.SetPdcAutoIssueFailureValidation(ctx, match.SessionID, normalizedCallsign, true); err != nil {
 			return err
 		}
+		logger.WarnContext(ctx, "Web PDC auto-issue failed, leaving request pending", "outcome", fallbackOutcome.MetricOutcome, "pending_state", fallbackOutcome.State, "error", err)
 		return nil
 	}
 
 	sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, outcome.MetricOutcome)
+	logger.InfoContext(ctx, "PDC Service: PDC clearance auto-issued", "outcome", outcome.MetricOutcome)
 	return nil
 }

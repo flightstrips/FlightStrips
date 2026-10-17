@@ -149,6 +149,7 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 	session, err := sessionRepo.Get(context.Background(), name, airport)
 
 	if err == nil {
+		s.registerInboundSession(session.ID, session.Name, session.Airport)
 		return shared.Session{Name: session.Name, Airport: session.Airport, Id: session.ID}, nil
 	}
 
@@ -162,6 +163,7 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				session, err = sessionRepo.Get(context.Background(), name, airport)
 				if err == nil {
+					s.registerInboundSession(session.ID, session.Name, session.Airport)
 					return shared.Session{Name: session.Name, Airport: session.Airport, Id: session.ID}, nil
 				}
 			}
@@ -170,6 +172,7 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 
 		}
 
+		s.registerInboundSession(id, name, airport)
 		return shared.Session{Name: name, Airport: airport, Id: id}, nil
 	}
 
@@ -201,6 +204,12 @@ func (s *Server) StartSessionMonitor(ctx context.Context) {
 			return
 		case <-ticker.C:
 		}
+	}
+}
+
+func (s *Server) registerInboundSession(id int32, name, airport string) {
+	if lifecycle, ok := s.cdmService.(interface{ RegisterInboundSession(int32, string, string) }); ok {
+		lifecycle.RegisterInboundSession(id, name, airport)
 	}
 }
 

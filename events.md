@@ -98,6 +98,24 @@ EKCH:22R:<polygon coordinates>:11,2,3,5
 Here the base taxi time is 11 minutes; the extra times are 2 minutes for A,
 3 minutes for B, and 5 minutes for V.
 
+## Frontend RWY ARR landing clearance
+
+Sent by: Frontend
+
+Clears both runway-clearance flags for an aircraft in RWY ARR. Requests outside
+RWY ARR or while the strip has a blocking validation are rejected.
+
+```json
+{
+    "type": "reset_runway_clearance",
+    "callsign": "SAS123"
+}
+```
+
+The existing `runway_confirmation` event restores both flags in RWY ARR,
+including after a reset, unless another RWY ARR aircraft already has a confirmed
+clearance. The server broadcasts the updated strip after a successful change.
+
 ## Authentication event
 
 1. Server and client connects

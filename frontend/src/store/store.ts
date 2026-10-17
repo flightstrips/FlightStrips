@@ -2,6 +2,7 @@ import type { TextPilotDraft, FrequencyMessageResult } from "@/lib/text-pilot";
 import { isTextPilot } from "@/lib/text-pilot";
 import {createStore} from 'zustand/vanilla';
 import {produce} from 'immer';
+import type {InboundDeparturesSnapshot} from "@/api/inbound-departures";
 import {
   ActionType,
   type ActionRejectedEvent,
@@ -56,10 +57,13 @@ import {
   type SidInfo,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
+import { hasOtherRwyArrStrip } from '../lib/rwyArrRunway.ts';
 import {
   createAMANCommand, isAMANCoordinationStateEvent,
   getAMANMutationBlockReason,
   isAMANCommandRejectedEvent,
+  isAMANArrivalSequenceRebuiltEvent,
+  type AMANRebuildResult,
   replaceAMANState,
   type AMANCommandIntent,
   type AMANCommandRejection,
@@ -154,7 +158,7 @@ function shouldResetRunwayClearanceOnMove(currentBay: string, targetBay: Bay): b
     return targetBay !== Bay.Depart && targetBay !== Bay.Airborne;
   }
 
-  return currentBay === Bay.RwyArr && targetBay === Bay.Final;
+  return currentBay === Bay.RwyArr && targetBay !== Bay.RwyArr;
 }
 
 export interface UpdateStrip {
@@ -178,6 +182,7 @@ export interface BroadcastNotification {
 
 // Define the state interface for our store
 export interface WebSocketState {
+  inboundDepartures: InboundDeparturesSnapshot | null;
   controllers: FrontendController[];
   strips: FrontendStrip[];
   tacticalStrips: TacticalStrip[];
@@ -191,6 +196,7 @@ export interface WebSocketState {
   readOnly: boolean;
   positionAvailable: boolean;
   localIp: string;
+  masterCallsign: string;
   followRecommendedLayout: boolean;
   layoutChooserOpen: boolean;
   layoutResetNonce: number;
@@ -217,6 +223,7 @@ export interface WebSocketState {
   amanWarnings: AMANCurrentWarnings;
   amanFMPAuthority: boolean;
   amanPendingCommands: Record<string, AMANPendingCommand>;
+  amanRebuildResult: AMANRebuildResult | null;
   amanCommandTypes: Record<string, AMANCommandType>;
   amanCommandRejections: Record<string, AMANCommandRejection>;
   amanSelectedView: AMANView;
@@ -289,6 +296,7 @@ export interface WebSocketState {
   toggleMarked: (callsign: string, marked: boolean) => void;
   runwayClearance: (callsign: string) => void;
   runwayConfirmation: (callsign: string) => void;
+  resetRunwayClearance: (callsign: string) => void;
   cdmReady: (callsign: string, rea?: boolean) => void;
   cdmDeicePlatformUpdate: (callsign: string, platform: string) => void;
   clxUpdateTobt: (callsign: string, tobt?: string) => void;
@@ -329,6 +337,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const initialState = {
     textPilotDraft: null,
     textPilotReadbacks: {},
+    inboundDepartures: null as InboundDeparturesSnapshot | null,
     controllers: [],
     strips: [],
     tacticalStrips: [],
@@ -342,6 +351,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     readOnly: false,
     positionAvailable: true,
     localIp: '',
+    masterCallsign: '',
     followRecommendedLayout: true,
     layoutChooserOpen: false,
     layoutResetNonce: 0,
@@ -368,6 +378,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     amanWarnings: currentWarningsFromAMANState(null),
     amanFMPAuthority: false,
     amanPendingCommands: {},
+    amanRebuildResult: null,
     amanCommandTypes: {},
     amanCommandRejections: {},
     amanSelectedView: readAMANViewPreference() ?? AMAN_ALL_VIEW,
@@ -477,7 +488,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
     return {
      ...initialState,
-     selectStrip: (callsign) => set({ selectedCallsign: callsign }),
+     selectStrip: (callsign) => set((state) => {
+       const transfer = callsign ? state.stripTransfers[callsign] : undefined;
+       return { selectedCallsign: transfer && !transfer.isTagRequest ? null : callsign };
+     }),
      setAMANConnectionState: (connectionState) => set({
        amanConnectionState: connectionState,
        amanAwaitingSnapshot: true,
@@ -508,6 +522,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
        });
        wsClient.send(message);
        set(produce((draft: WebSocketState) => {
+         if (message.type === "aman.rebuild_arrival_sequence") draft.amanRebuildResult = null;
          draft.amanPendingCommands[commandID] = {
            command_id: commandID,
            type: message.type,
@@ -561,6 +576,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     openValidationDialog,
     closeValidationDialog: () => set({ validationDialogCallsign: null }),
      move: (callsign, bay, clearance = false, confirmedRemoval = false, insertAfter) => set((state) => {
+          const transfer = state.stripTransfers[callsign];
+          if (transfer && !transfer.isTagRequest) return state;
           if (clearance && isTextPilot(state.strips.find(s => s.callsign === callsign))) {
             void get().sendFrequencyMessage(callsign, "", [{ type: ActionType.FrontendMove, callsign, bay, clearance: true }], true).then(result => {
               if (!result.submitted) {
@@ -584,10 +601,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
                 if (currentBay === Bay.Stand && bay !== Bay.Stand) {
                   state.strips[stripIndex].start_req = false;
                 }
-                if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
+                if (currentBay !== Bay.RwyArr && bay === Bay.RwyArr) {
+                  state.strips[stripIndex].runway_cleared = true;
+                  state.strips[stripIndex].runway_confirmed = !hasOtherRwyArrStrip(callsign, state.strips, state.tacticalStrips);
+                } else if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
                   state.strips[stripIndex].runway_cleared = false;
                   state.strips[stripIndex].runway_confirmed = false;
-               }
+                }
              }
              return state;
            })(state)
@@ -595,6 +615,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      ),
      moveToControlzone: (callsign) => set((state) => {
          const bay = Bay.Controlzone;
+         const transfer = state.stripTransfers[callsign];
+         if (transfer && !transfer.isTagRequest) return state;
          if (!sendGuardedStripEvent(callsign, { type: "move" }, { type: ActionType.FrontendMove, callsign, bay })) {
            return state;
          }
@@ -872,6 +894,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     // pickupStrip: assume if needed, then move to bay in one action (used when selecting from ARR/startup popups)
     pickupStrip: (callsign, bay) => {
+      const transfer = get().stripTransfers[callsign];
+      if (transfer && !transfer.isTagRequest) return;
       const strip = get().strips.find((candidate) => candidate.callsign === callsign);
       const myPosition = get().position;
       if (!strip || !myPosition || strip.owner !== myPosition) {
@@ -959,8 +983,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
              const thisRunway = state.strips[idx].runway;
              const hasConfirmed = !!thisRunway && state.strips.some(s => s.callsign !== callsign && s.runway_confirmed && s.runway === thisRunway);
              const targetBay = runwayClearanceTargetBay(state.strips[idx].bay);
+             const hasRwyArrOccupant = targetBay === Bay.RwyArr && hasOtherRwyArrStrip(callsign, state.strips, state.tacticalStrips);
              state.strips[idx].runway_cleared = true;
-             state.strips[idx].runway_confirmed = !hasConfirmed;
+             state.strips[idx].runway_confirmed = targetBay === Bay.RwyArr ? !hasRwyArrOccupant : !hasConfirmed;
              if (targetBay !== null) {
                state.strips[idx].bay = targetBay;
                state.strips[idx].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, targetBay, callsign);
@@ -970,6 +995,22 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
        );
      },
      runwayConfirmation: (callsign) => {
+      const state = get();
+      const strip = state.strips.find(candidate => candidate.callsign === callsign);
+      if (strip?.bay === Bay.RwyArr && (!state.position || strip.owner !== state.position)) {
+        return;
+      }
+      if (
+        strip?.bay === Bay.RwyArr &&
+        state.strips.some(candidate =>
+          candidate.callsign !== callsign &&
+          candidate.bay === Bay.RwyArr &&
+          candidate.runway_cleared &&
+          candidate.runway_confirmed
+        )
+      ) {
+        return;
+      }
        if (isTextPilot(get().strips.find(s => s.callsign === callsign))) {
          void get().sendFrequencyMessage(callsign, "", [{ type: ActionType.FrontendRunwayConfirmation, callsign }], false, true).then(result => {
            const strip = get().strips.find(s => s.callsign === callsign);
@@ -982,6 +1023,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       if (!sendGuardedStripEvent(callsign, { type: "runway_confirmation" }, { type: ActionType.FrontendRunwayConfirmation, callsign })) {
         return;
       }
+      if (strip?.bay === Bay.RwyArr) {
+        store.setState(
+          produce((state: WebSocketState) => {
+            const idx = state.strips.findIndex(s => s.callsign === callsign);
+            if (idx !== -1) {
+              state.strips[idx].runway_cleared = true;
+              state.strips[idx].runway_confirmed = true;
+            }
+          })
+        );
+        return;
+      }
       store.setState(
         produce((state: WebSocketState) => {
           const idx = state.strips.findIndex(s => s.callsign === callsign);
@@ -989,6 +1042,23 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             state.strips[idx].runway_confirmed = true;
           }
         })
+      );
+    },
+    resetRunwayClearance: (callsign) => {
+      const state = get();
+      const strip = state.strips.find(candidate => candidate.callsign === callsign);
+      if (strip?.bay === Bay.RwyArr && (!state.position || strip.owner !== state.position)) return;
+      if (!sendGuardedStripEvent(callsign, { type: "runway_clearance" }, { type: ActionType.FrontendResetRunwayClearance, callsign })) {
+       return;
+      }
+      store.setState(
+       produce((state: WebSocketState) => {
+         const idx = state.strips.findIndex(strip => strip.callsign === callsign);
+         if (idx !== -1) {
+           state.strips[idx].runway_cleared = false;
+           state.strips[idx].runway_confirmed = false;
+         }
+       })
       );
     },
     acknowledgeUnexpectedChange: (callsign, fieldName) => {
@@ -1136,10 +1206,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.amanError = null;
           state.amanAwaitingSnapshot = true;
           state.amanPendingCommands = {};
+          state.amanRebuildResult = null;
           state.amanCommandRejections = {};
           state.amanCommandTypes = {};
         }
         state.amanSessionID = sessionID;
+        state.inboundDepartures = data.inbound_departures ?? null;
         state.controllers = data.controllers.map(c => ({ ...c, owned_sectors: c.owned_sectors ?? [] }));
         state.strips = data.strips.map(strip => ({
           ...strip,
@@ -1158,6 +1230,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.amanFMPAuthority = data.capabilities?.aman_fmp ?? false;
         state.positionAvailable = data.position_available ?? true;
         state.localIp = data.local_ip ?? "";
+        state.masterCallsign = data.master_callsign ?? "";
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
         state.resetLayoutRecommendation = normalizeLayout(data.reset_layout || data.layout);
@@ -1573,6 +1646,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     store.setState(
       produce((state: WebSocketState) => {
         state.stripTransfers[data.callsign] = { from: data.from, to: data.to, isTagRequest: false };
+        if (state.selectedCallsign === data.callsign) {
+          state.selectedCallsign = null;
+        }
       })
     );
   };
@@ -1664,6 +1740,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
+  wsClient.on(EventType.FrontendMasterInfo, (data) => {
+    store.setState({ masterCallsign: data.master_callsign });
+  });
   wsClient.on(EventType.FrontendGoAround, handleGoAroundEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
   wsClient.on(EventType.FrontendControllerOnline, handleControllerOnlineEvent);
@@ -1685,6 +1764,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
   wsClient.on(EventType.FrontendBroadcast, handleBroadcastEvent);
   wsClient.on(EventType.FrontendCdmData, handleCdmUpdateEvent);
+  wsClient.on(EventType.FrontendInboundDepartures, data => {
+    const state = store.getState();
+    if (data.airport !== state.airport || data.session_id !== state.amanSessionID) return;
+    store.setState({inboundDepartures: data});
+  });
   wsClient.on(EventType.FrontendCdmDataBatch, handleCdmBatchUpdateEvent);
   wsClient.on(EventType.FrontendCdmWait, handleCdmWaitEvent);
   wsClient.on(EventType.FrontendReleasePoint, handleReleasePointEvent);
@@ -1770,11 +1854,22 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       }
       if (replacement.accepted && replacement.state !== null) {
         for (const [commandID, pending] of Object.entries(state.amanPendingCommands)) {
-          if (!pending.type.includes("coordination_request") && replacement.state.revision > pending.expected_revision) {
+          if (pending.type !== "aman.rebuild_arrival_sequence" && !pending.type.includes("coordination_request") && replacement.state.revision > pending.expected_revision) {
             delete state.amanPendingCommands[commandID];
           }
         }
       }
+    }));
+  });
+
+  wsClient.on(EventType.FrontendAMANArrivalSequenceRebuilt, (event) => {
+    if (!isAMANArrivalSequenceRebuiltEvent(event)) return;
+    const current = store.getState();
+    if (current.amanCommandTypes[event.data.command_id] !== "aman.rebuild_arrival_sequence"
+      || (!current.amanPendingCommands[event.data.command_id] && current.amanRebuildResult?.command_id !== event.data.command_id)) return;
+    store.setState(produce((state: WebSocketState) => {
+      state.amanRebuildResult = event.data;
+      delete state.amanPendingCommands[event.data.command_id];
     }));
   });
 

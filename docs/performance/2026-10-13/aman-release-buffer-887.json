@@ -1,0 +1,612 @@
+{
+  "schema": "aman-release-buffer-validation/v1",
+  "issue": 887,
+  "base_commit": "b3ff67b816854480ec179dee3a12c3fc29999910",
+  "branch": "codex/aman-release-buffer-887",
+  "configuration": {
+    "target_buffer": 10,
+    "taper_start": 6,
+    "max_advance_seconds": 600,
+    "lookahead_seconds": 120,
+    "arrival_rate": 40
+  },
+  "navigation": {
+    "cycle": "2610",
+    "source_revision": "airac.net-2610",
+    "terminal_digest": "93a00e44b8ca9eaf1c118b982cf6524b96812b4f2a3a7f77403fcd35e6487cc7",
+    "fix_digest": "f71427685687a418feea30da79140be4bd8dd56b99d0b8795d32b994f2d3a4fb",
+    "weather": "historical provider wind unavailable; existing surveillance/nominal fallback"
+  },
+  "binaries": {
+    "before": "a9f0def1f3acd2d13b86755ec0828921efaee38b8f8bb9cfe17ea6c3e65fbb0b",
+    "after": "fe6530bf551133233f254ac83a2e6fd82a89f0cbb6afc4629a1d08e8b88c1ce4"
+  },
+  "sessions": [
+    {
+      "directory": "C:/vatsim-data",
+      "json_files": 698,
+      "snapshots": 151,
+      "publishable_flight_samples_before": 7651,
+      "publishable_flight_samples_after": 7651,
+      "holding_plan_samples_before": 2938,
+      "holding_plan_samples_after": 2904,
+      "observed_touchdown_proxy_count": 103,
+      "observed_touchdown_proxy_rate": 35.6,
+      "observed_tma_peak": 11,
+      "observed_tma_series_unchanged": true,
+      "matched_plan_samples": 2893,
+      "mean_planned_holding_before_seconds": 2341.662,
+      "mean_planned_holding_after_seconds": 1674.021,
+      "mean_release_advance_seconds": 667.65,
+      "maximum_release_advance_seconds": 2718.0,
+      "samples_with_earlier_landing_slot": 2772,
+      "additional_approach_samples": 6,
+      "additional_approach_aircraft": [
+        "DLH25C",
+        "DLH830",
+        "EJU5261",
+        "EZY21YK"
+      ],
+      "maximum_additional_approach_seconds": 18.005163637,
+      "max_projected_buffer": 17,
+      "buffer_degraded_samples": 115,
+      "accuracy_by_horizon_minutes": {
+        "before": {
+          "5": {
+            "predictions": 101.0,
+            "availability_percent": 98.1,
+            "operational_bias_seconds": -1695.0,
+            "operational_mae_seconds": 1714.0,
+            "raw_bias_seconds": -180.0,
+            "raw_mae_seconds": 196.0,
+            "slot_bias_seconds": -73.0,
+            "slot_mae_seconds": 774.0,
+            "slot_samples": 101.0
+          },
+          "10": {
+            "predictions": 98.0,
+            "availability_percent": 95.1,
+            "operational_bias_seconds": -1747.0,
+            "operational_mae_seconds": 1765.0,
+            "raw_bias_seconds": -174.0,
+            "raw_mae_seconds": 259.0,
+            "slot_bias_seconds": -92.0,
+            "slot_mae_seconds": 780.0,
+            "slot_samples": 98.0
+          },
+          "15": {
+            "predictions": 96.0,
+            "availability_percent": 93.2,
+            "operational_bias_seconds": -1761.0,
+            "operational_mae_seconds": 1824.0,
+            "raw_bias_seconds": -157.0,
+            "raw_mae_seconds": 265.0,
+            "slot_bias_seconds": -77.0,
+            "slot_mae_seconds": 809.0,
+            "slot_samples": 96.0
+          },
+          "20": {
+            "predictions": 93.0,
+            "availability_percent": 90.3,
+            "operational_bias_seconds": -1849.0,
+            "operational_mae_seconds": 1849.0,
+            "raw_bias_seconds": -368.0,
+            "raw_mae_seconds": 370.0,
+            "slot_bias_seconds": -144.0,
+            "slot_mae_seconds": 766.0,
+            "slot_samples": 93.0
+          },
+          "30": {
+            "predictions": 89.0,
+            "availability_percent": 86.4,
+            "operational_bias_seconds": -1903.0,
+            "operational_mae_seconds": 1911.0,
+            "raw_bias_seconds": -798.0,
+            "raw_mae_seconds": 806.0,
+            "slot_bias_seconds": -135.0,
+            "slot_mae_seconds": 809.0,
+            "slot_samples": 89.0
+          }
+        },
+        "after": {
+          "5": {
+            "predictions": 101.0,
+            "availability_percent": 98.1,
+            "operational_bias_seconds": -1695.0,
+            "operational_mae_seconds": 1714.0,
+            "raw_bias_seconds": -180.0,
+            "raw_mae_seconds": 196.0,
+            "slot_bias_seconds": -496.0,
+            "slot_mae_seconds": 902.0,
+            "slot_samples": 101.0
+          },
+          "10": {
+            "predictions": 98.0,
+            "availability_percent": 95.1,
+            "operational_bias_seconds": -1747.0,
+            "operational_mae_seconds": 1765.0,
+            "raw_bias_seconds": -174.0,
+            "raw_mae_seconds": 259.0,
+            "slot_bias_seconds": -510.0,
+            "slot_mae_seconds": 929.0,
+            "slot_samples": 98.0
+          },
+          "15": {
+            "predictions": 96.0,
+            "availability_percent": 93.2,
+            "operational_bias_seconds": -1761.0,
+            "operational_mae_seconds": 1824.0,
+            "raw_bias_seconds": -157.0,
+            "raw_mae_seconds": 265.0,
+            "slot_bias_seconds": -494.0,
+            "slot_mae_seconds": 973.0,
+            "slot_samples": 96.0
+          },
+          "20": {
+            "predictions": 93.0,
+            "availability_percent": 90.3,
+            "operational_bias_seconds": -1849.0,
+            "operational_mae_seconds": 1849.0,
+            "raw_bias_seconds": -368.0,
+            "raw_mae_seconds": 370.0,
+            "slot_bias_seconds": -535.0,
+            "slot_mae_seconds": 975.0,
+            "slot_samples": 93.0
+          },
+          "30": {
+            "predictions": 89.0,
+            "availability_percent": 86.4,
+            "operational_bias_seconds": -1903.0,
+            "operational_mae_seconds": 1911.0,
+            "raw_bias_seconds": -798.0,
+            "raw_mae_seconds": 806.0,
+            "slot_bias_seconds": -614.0,
+            "slot_mae_seconds": 937.0,
+            "slot_samples": 89.0
+          }
+        }
+      },
+      "examples": [
+        {
+          "at": "2026-07-20T18:11:45.005227Z",
+          "callsign": "DLH87MA",
+          "star": "TUDLO",
+          "before_release": "2026-07-20T19:01:48.400498495Z",
+          "after_release": "2026-07-20T18:16:30.400498495Z",
+          "before_slot": "2026-07-20T19:22:27Z",
+          "after_slot": "2026-07-20T18:37:09Z",
+          "release_advance_seconds": 2718.0,
+          "additional_approach_seconds": 0
+        },
+        {
+          "at": "2026-07-20T18:49:45.0103522Z",
+          "callsign": "AUA114",
+          "star": "TIDVU",
+          "before_release": "2026-07-20T19:44:01.683193238Z",
+          "after_release": "2026-07-20T19:02:49.683193238Z",
+          "before_slot": "2026-07-20T19:58:51Z",
+          "after_slot": "2026-07-20T19:17:39Z",
+          "release_advance_seconds": 2472.0,
+          "additional_approach_seconds": 0
+        },
+        {
+          "at": "2026-07-20T19:09:30.0075038Z",
+          "callsign": "DLH595",
+          "star": "TIDVU",
+          "before_release": "2026-07-20T20:10:52.23372538Z",
+          "after_release": "2026-07-20T19:30:40.23372538Z",
+          "before_slot": "2026-07-20T20:25:21Z",
+          "after_slot": "2026-07-20T19:45:09Z",
+          "release_advance_seconds": 2412.0,
+          "additional_approach_seconds": 0
+        }
+      ]
+    },
+    {
+      "directory": "C:/vatsim-data1",
+      "json_files": 1501,
+      "snapshots": 324,
+      "publishable_flight_samples_before": 2096,
+      "publishable_flight_samples_after": 2094,
+      "holding_plan_samples_before": 439,
+      "holding_plan_samples_after": 439,
+      "observed_touchdown_proxy_count": 18,
+      "observed_touchdown_proxy_rate": 4.1,
+      "observed_tma_peak": 5,
+      "observed_tma_series_unchanged": true,
+      "matched_plan_samples": 439,
+      "mean_planned_holding_before_seconds": 32.344,
+      "mean_planned_holding_after_seconds": 31.702,
+      "mean_release_advance_seconds": 0.944,
+      "maximum_release_advance_seconds": 127.389878,
+      "samples_with_earlier_landing_slot": 0,
+      "additional_approach_samples": 7,
+      "additional_approach_aircraft": [
+        "FLI452",
+        "SAS540",
+        "SAS62L",
+        "SAS926",
+        "SWR44X"
+      ],
+      "maximum_additional_approach_seconds": 127.38987882,
+      "max_projected_buffer": 5,
+      "buffer_degraded_samples": 61,
+      "accuracy_by_horizon_minutes": {
+        "before": {
+          "5": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": 6.0,
+            "raw_mae_seconds": 86.0,
+            "slot_bias_seconds": -297.0,
+            "slot_mae_seconds": 310.0,
+            "slot_samples": 18.0
+          },
+          "10": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -83.0,
+            "raw_mae_seconds": 194.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "15": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -102.0,
+            "raw_mae_seconds": 192.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "20": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -152.0,
+            "raw_mae_seconds": 249.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "30": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -159.0,
+            "operational_mae_seconds": 331.0,
+            "raw_bias_seconds": -140.0,
+            "raw_mae_seconds": 309.0,
+            "slot_bias_seconds": -316.0,
+            "slot_mae_seconds": 321.0,
+            "slot_samples": 16.0
+          }
+        },
+        "after": {
+          "5": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": 6.0,
+            "raw_mae_seconds": 86.0,
+            "slot_bias_seconds": -297.0,
+            "slot_mae_seconds": 310.0,
+            "slot_samples": 18.0
+          },
+          "10": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -83.0,
+            "raw_mae_seconds": 194.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "15": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -102.0,
+            "raw_mae_seconds": 192.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "20": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -152.0,
+            "raw_mae_seconds": 249.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "30": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -159.0,
+            "operational_mae_seconds": 331.0,
+            "raw_bias_seconds": -140.0,
+            "raw_mae_seconds": 309.0,
+            "slot_bias_seconds": -316.0,
+            "slot_mae_seconds": 321.0,
+            "slot_samples": 16.0
+          }
+        }
+      },
+      "examples": [
+        {
+          "at": "2026-07-28T09:07:38.647475Z",
+          "callsign": "SAS926",
+          "star": "TESPI",
+          "before_release": "2026-07-28T09:10:45.38987882Z",
+          "after_release": "2026-07-28T09:08:38Z",
+          "before_slot": "2026-07-28T09:25:16Z",
+          "after_slot": "2026-07-28T09:25:16Z",
+          "release_advance_seconds": 127.39,
+          "additional_approach_seconds": 127.38987882
+        },
+        {
+          "at": "2026-07-28T11:39:23.6500607Z",
+          "callsign": "SAS540",
+          "star": "TESPI",
+          "before_release": "2026-07-28T11:40:25.01396016Z",
+          "after_release": "2026-07-28T11:38:59Z",
+          "before_slot": "2026-07-28T11:57:02Z",
+          "after_slot": "2026-07-28T11:57:02Z",
+          "release_advance_seconds": 86.014,
+          "additional_approach_seconds": 86.01396016
+        },
+        {
+          "at": "2026-07-28T11:38:08.648683Z",
+          "callsign": "SAS540",
+          "star": "TESPI",
+          "before_release": "2026-07-28T11:40:19.49625625Z",
+          "after_release": "2026-07-28T11:38:59Z",
+          "before_slot": "2026-07-28T11:57:02Z",
+          "after_slot": "2026-07-28T11:57:02Z",
+          "release_advance_seconds": 80.496,
+          "additional_approach_seconds": 80.49625625
+        }
+      ]
+    },
+    {
+      "directory": "C:/vatsim-data2",
+      "json_files": 1072,
+      "snapshots": 233,
+      "publishable_flight_samples_before": 12876,
+      "publishable_flight_samples_after": 12911,
+      "holding_plan_samples_before": 4610,
+      "holding_plan_samples_after": 4610,
+      "observed_touchdown_proxy_count": 125,
+      "observed_touchdown_proxy_rate": 29.4,
+      "observed_tma_peak": 11,
+      "observed_tma_series_unchanged": true,
+      "matched_plan_samples": 4610,
+      "mean_planned_holding_before_seconds": 881.201,
+      "mean_planned_holding_after_seconds": 881.042,
+      "mean_release_advance_seconds": 0.16,
+      "maximum_release_advance_seconds": 175.955762,
+      "samples_with_earlier_landing_slot": 0,
+      "additional_approach_samples": 11,
+      "additional_approach_aircraft": [
+        "ACA1238",
+        "AFR72UQ",
+        "BAW822",
+        "DLH6VT",
+        "EJU5261",
+        "NSZ6NF",
+        "RYR6KC",
+        "SWR3TA"
+      ],
+      "maximum_additional_approach_seconds": 175.955762026,
+      "max_projected_buffer": 15,
+      "buffer_degraded_samples": 206,
+      "accuracy_by_horizon_minutes": {
+        "before": {
+          "5": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -978.0,
+            "operational_mae_seconds": 1035.0,
+            "raw_bias_seconds": -37.0,
+            "raw_mae_seconds": 116.0,
+            "slot_bias_seconds": -519.0,
+            "slot_mae_seconds": 616.0,
+            "slot_samples": 123.0
+          },
+          "10": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -978.0,
+            "operational_mae_seconds": 1035.0,
+            "raw_bias_seconds": -111.0,
+            "raw_mae_seconds": 176.0,
+            "slot_bias_seconds": -515.0,
+            "slot_mae_seconds": 615.0,
+            "slot_samples": 123.0
+          },
+          "15": {
+            "predictions": 123.0,
+            "availability_percent": 98.4,
+            "operational_bias_seconds": -1003.0,
+            "operational_mae_seconds": 1057.0,
+            "raw_bias_seconds": -163.0,
+            "raw_mae_seconds": 183.0,
+            "slot_bias_seconds": -556.0,
+            "slot_mae_seconds": 624.0,
+            "slot_samples": 120.0
+          },
+          "20": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1044.0,
+            "operational_mae_seconds": 1056.0,
+            "raw_bias_seconds": -256.0,
+            "raw_mae_seconds": 271.0,
+            "slot_bias_seconds": -586.0,
+            "slot_mae_seconds": 614.0,
+            "slot_samples": 118.0
+          },
+          "30": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1055.0,
+            "operational_mae_seconds": 1064.0,
+            "raw_bias_seconds": -590.0,
+            "raw_mae_seconds": 598.0,
+            "slot_bias_seconds": -96.0,
+            "slot_mae_seconds": 1102.0,
+            "slot_samples": 118.0
+          }
+        },
+        "after": {
+          "5": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -978.0,
+            "operational_mae_seconds": 1035.0,
+            "raw_bias_seconds": -37.0,
+            "raw_mae_seconds": 116.0,
+            "slot_bias_seconds": -519.0,
+            "slot_mae_seconds": 616.0,
+            "slot_samples": 123.0
+          },
+          "10": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -978.0,
+            "operational_mae_seconds": 1035.0,
+            "raw_bias_seconds": -111.0,
+            "raw_mae_seconds": 176.0,
+            "slot_bias_seconds": -515.0,
+            "slot_mae_seconds": 615.0,
+            "slot_samples": 123.0
+          },
+          "15": {
+            "predictions": 123.0,
+            "availability_percent": 98.4,
+            "operational_bias_seconds": -1003.0,
+            "operational_mae_seconds": 1057.0,
+            "raw_bias_seconds": -163.0,
+            "raw_mae_seconds": 183.0,
+            "slot_bias_seconds": -556.0,
+            "slot_mae_seconds": 624.0,
+            "slot_samples": 120.0
+          },
+          "20": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1044.0,
+            "operational_mae_seconds": 1056.0,
+            "raw_bias_seconds": -256.0,
+            "raw_mae_seconds": 271.0,
+            "slot_bias_seconds": -586.0,
+            "slot_mae_seconds": 614.0,
+            "slot_samples": 118.0
+          },
+          "30": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1055.0,
+            "operational_mae_seconds": 1064.0,
+            "raw_bias_seconds": -590.0,
+            "raw_mae_seconds": 598.0,
+            "slot_bias_seconds": -96.0,
+            "slot_mae_seconds": 1102.0,
+            "slot_samples": 118.0
+          }
+        }
+      },
+      "examples": [
+        {
+          "at": "2026-08-03T16:48:25.7698619Z",
+          "callsign": "SWR3TA",
+          "star": "MONAK",
+          "before_release": "2026-08-03T16:52:29.955762026Z",
+          "after_release": "2026-08-03T16:49:34Z",
+          "before_slot": "2026-08-03T17:03:48Z",
+          "after_slot": "2026-08-03T17:03:48Z",
+          "release_advance_seconds": 175.956,
+          "additional_approach_seconds": 175.955762026
+        },
+        {
+          "at": "2026-08-03T16:49:25.7740675Z",
+          "callsign": "SWR3TA",
+          "star": "MONAK",
+          "before_release": "2026-08-03T16:52:22.948123518Z",
+          "after_release": "2026-08-03T16:49:34Z",
+          "before_slot": "2026-08-03T17:03:48Z",
+          "after_slot": "2026-08-03T17:03:48Z",
+          "release_advance_seconds": 168.948,
+          "additional_approach_seconds": 168.948123518
+        },
+        {
+          "at": "2026-08-03T17:40:55.7699646Z",
+          "callsign": "NSZ6NF",
+          "star": "MONAK",
+          "before_release": "2026-08-03T17:44:27.66360484Z",
+          "after_release": "2026-08-03T17:41:54Z",
+          "before_slot": "2026-08-03T17:57:01Z",
+          "after_slot": "2026-08-03T17:57:01Z",
+          "release_advance_seconds": 153.664,
+          "additional_approach_seconds": 153.66360484
+        }
+      ]
+    }
+  ],
+  "replay_artifacts_directory": "C:\\Users\\fsr19\\.codex\\worktrees\\aman-release-buffer-887\\issue887-validation",
+  "replay_database": "localhost:5432/aman_issue887 (isolated navigation cache)",
+  "reproduction": {
+    "baseline_build": "go build -overlay <artifacts>/baseline-overlay.json -o <artifacts>/aman-before.exe ./cmd/aman-accuracy",
+    "after_build": "go build -o <artifacts>/aman-after.exe ./cmd/aman-accuracy",
+    "shared_flags": "-input <directory> -dsn <isolated-cache-dsn> -cache-only -minimum-update-interval 1m -release-metrics <metrics.json> -export <export.json>",
+    "after_extra_flag": "-release-buffer"
+  },
+  "limitations": [
+    "API snapshots contain surveillance and filed flight plans, not authoritative holding/direct clearances or compliance with hypothetical EATs.",
+    "Earlier targets and scheduled holding are counterfactual plans; this report does not claim improved actual landing throughput or actual holding time.",
+    "The benchmark selects arrivals with an observed touchdown proxy in the recording and uses current pinned 2610 geometry rather than a historical navigation/weather reconstruction.",
+    "Sampling is one minute; the same ground-observation retention fix and TMA boundary are used in both executables.",
+    "The baseline overlays operational/service.go, operational/mutations.go, sequence/engine.go and sequence/coordinator.go from the main base commit; additive reporting types and CLI instrumentation are shared.",
+    "Mean values over matched flight/snapshot pairs are sample-weighted and are not mean delay per completed flight."
+  ],
+  "checks": {
+    "backend": "full go suite passes using internal/testing/testdb, including PostgreSQL and end-to-end tests",
+    "frontend_aman": "253 AMAN component and contract tests pass; changed TypeScript files pass ESLint; TypeScript and production build pass",
+    "frontend_full": "565/566 pass; unchanged TacticalStrips.test.tsx:158 expects popup width 167px, actual 107px; isolated rerun reproduces the failure",
+    "synthetic": [
+      "six independent streams receive immediate release targets with unchanged slots",
+      "five streams plus a sixth sharing one stream use only the 90-second base entry spacing",
+      "blocked stream does not block independent feeders",
+      "buffer taper, incoming deduplication, restart, overdue EAT, uncertainty and disabled policy",
+      "hold reassignment does not retire admission before confirmed reholding",
+      "capacity changes postpone future offers; due targets persist and excessive absorption blocks new advancement",
+      "legacy imminent manual EAT is reserved before prediction refresh",
+      "due EAT retains accepted transit when a longer refreshed journey conflicts; new advancement is blocked",
+      "confirmed shorter direct promotes eligible slot; unresolved direct and TMA freeze retain protections",
+      "session-scoped reservation and summary survive PostgreSQL restart"
+    ]
+  },
+  "follow_up_validation": {
+    "report": "aman-preliminary-guard-887.json",
+    "change": "Preliminary filed-duration predictions cannot create automatic slot commitments or trigger automatic protection; legacy automatic preliminary slots are discarded before physical replacement."
+  },
+  "review_fixes_validation": {
+    "report": "aman-release-review-fixes-887.json",
+    "change": "Future readiness revalidation, accepted EAT preservation without a fresh holding plan, and release-time rate/wake spacing."
+  }
+}

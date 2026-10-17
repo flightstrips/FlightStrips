@@ -7,8 +7,10 @@ import EstStandCell from "@/components/est/EstStandCell";
 import EstStandMenu, { type EstMenuAnchor } from "@/components/est/EstStandMenu";
 import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import EstViewButtons from "@/components/est/EstViewButtons";
+import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { plannedDepartureSortModes } from "@/lib/stripSortModes";
+import { isActiveStripTransfer } from "@/components/strip/shared";
 import { getEstDepartureTransferTarget, isEstDepartureTransferActive } from "@/components/est/transferState";
 import { deriveEstStandBlocking } from "@/components/est/standBlocking";
 import { deriveEstStandDisplay } from "@/components/est/standDisplay";
@@ -133,6 +135,7 @@ export default function EST() {
     [strips, airport],
   );
   const [deIceOpen, setDeIceOpen] = useState(false);
+  const [pushbackCallsign, setPushbackCallsign] = useState<string | null>(null);
   const [flightPlanCallsign, setFlightPlanCallsign] = useState<string | null>(null);
   const [blockedStands, setBlockedStands] = useState<Record<string, true>>({});
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -218,6 +221,7 @@ export default function EST() {
     setStatusStand(null);
     setStatusAnchor(null);
     setDeIceOpen(false);
+    setPushbackCallsign(null);
     setFlightPlanCallsign(null);
   }
 
@@ -273,6 +277,11 @@ export default function EST() {
       return;
     }
 
+    if (isActiveStripTransfer(stripTransfers[strip.callsign])) {
+      setMenuState(null);
+      return;
+    }
+
     if (selectedCallsign !== strip.callsign) {
       selectStrip(strip.callsign);
     }
@@ -312,14 +321,23 @@ export default function EST() {
     if (!menuStrip || !menuState) {
       return;
     }
+    if (isActiveStripTransfer(stripTransfers[menuStrip.callsign])) {
+      closeMenu();
+      return;
+    }
 
     setActionState(menuState.stand, menuStrip);
     pickupStrip(menuStrip.callsign, Bay.Push);
+    setPushbackCallsign(menuStrip.callsign);
     closeMenu();
   }
 
   function handleTaxi() {
     if (!menuStrip || !menuState) {
+      return;
+    }
+    if (isActiveStripTransfer(stripTransfers[menuStrip.callsign])) {
+      closeMenu();
       return;
     }
 
@@ -560,6 +578,7 @@ export default function EST() {
         <StripListPopup
           title="PLANNED DEP"
           rowHalfStripVariant="LOCKED-DEP"
+          allowClearanceFromPlannedDepartures
           strips={departureStrips}
           sortModes={plannedDepartureSortModes}
           onRowClick={(strip) => {
@@ -585,6 +604,17 @@ export default function EST() {
         }}
         onSelectPlatform={handleSelectDeIcePlatform}
         onErase={handleEraseDeIcePlatform}
+      />
+
+      <PushbackMapDialog
+        open={!!pushbackCallsign}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPushbackCallsign(null);
+          }
+        }}
+        callsign={pushbackCallsign ?? ""}
+        initialReleasePoint={strips.find((strip) => strip.callsign === pushbackCallsign)?.release_point}
       />
 
       {flightPlanCallsign && (

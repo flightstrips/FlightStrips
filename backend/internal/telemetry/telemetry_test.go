@@ -89,6 +89,7 @@ func findInt64MetricValue(t *testing.T, rm metricdata.ResourceMetrics, metricNam
 func TestStartRuntimeMetricsRegistersGoRuntimeMetrics(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
 
 	if err := startRuntimeMetrics(provider); err != nil {
 		t.Fatalf("start runtime metrics: %v", err)
@@ -96,15 +97,53 @@ func TestStartRuntimeMetricsRegistersGoRuntimeMetrics(t *testing.T) {
 
 	rm := collectMetrics(t, reader)
 
-	if got := findInt64MetricValue(t, rm, "process.runtime.go.goroutines"); got < 1 {
+	if got := findInt64MetricValue(t, rm, "go.goroutine.count"); got < 1 {
 		t.Fatalf("expected goroutine metric to be positive, got %d", got)
 	}
 
-	if got := findInt64MetricValue(t, rm, "process.runtime.go.mem.heap_alloc"); got <= 0 {
-		t.Fatalf("expected heap allocation metric to be positive, got %d", got)
+	if got := findInt64MetricValue(t, rm, "go.memory.allocated"); got <= 0 {
+		t.Fatalf("expected cumulative heap allocation metric to be positive, got %d", got)
 	}
 
-	if got := findInt64MetricValue(t, rm, "process.runtime.go.gc.count"); got < 0 {
+	if got := findInt64MetricValue(t, rm, "go.memory.used"); got <= 0 {
+		t.Fatalf("expected runtime memory metric to be positive, got %d", got)
+	}
+
+	if got := findInt64MetricValue(t, rm, "go.gc.cycles"); got < 0 {
 		t.Fatalf("expected gc count metric to be non-negative, got %d", got)
+	}
+
+	// Dashboard gauges must use current values, not cumulative allocations.
+	// Runtime memory is split across stack/other points that the query sums.
+	for name, unit := range map[string]string{"go.memory.used": "By", "go.goroutine.count": "{goroutine}"} {
+		var found bool
+		for _, scope := range rm.ScopeMetrics {
+			for _, metric := range scope.Metrics {
+				if metric.Name != name {
+					continue
+				}
+				found = true
+				data, ok := metric.Data.(metricdata.Sum[int64])
+				if !ok || data.IsMonotonic || metric.Unit != unit {
+					t.Fatalf("%s must be a non-monotonic sum with unit %q: %+v", name, unit, metric)
+				}
+				if name == "go.memory.used" {
+					types := map[string]bool{}
+					for _, point := range data.DataPoints {
+						value, ok := point.Attributes.Value("go.memory.type")
+						if !ok {
+							t.Fatal("runtime memory point is missing go.memory.type")
+						}
+						types[value.AsString()] = true
+					}
+					if !types["stack"] || !types["other"] {
+						t.Fatalf("runtime memory must include stack and other allocations: %v", types)
+					}
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("dashboard metric %q not found", name)
+		}
 	}
 }

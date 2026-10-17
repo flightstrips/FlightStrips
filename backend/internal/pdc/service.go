@@ -469,6 +469,8 @@ func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int
 	strip.PdcData = pdcData
 	strip.PdcState = string(StateConfirmed)
 	strip.PdcRequestRemarks = nil
+	pdcRequestLogger(sessionID, strip.Callsign, pdcRequestChannel(strip)).InfoContext(ctx,
+		"PDC Service: Pilot acknowledged clearance", "message_sequence", pdcData.MessageSequence)
 
 	return nil
 }
@@ -577,13 +579,14 @@ func (s *Service) pollAndProcessForSession(ctx context.Context, session sessionI
 	slog.DebugContext(ctx, "PDC Service: Polling for messages", slog.String("callsign", session.callsign), slog.Int("session", int(session.id)))
 	messages, err := client.Poll(ctx, session.callsign)
 	if err != nil {
-		return fmt.Errorf("failed to poll: %w", err)
+		return fmt.Errorf("failed to poll Hoppie for session %d (%s): %w", session.id, session.callsign, err)
 	}
 	slog.DebugContext(ctx, "PDC Service: Polling returned", slog.String("callsign", session.callsign), slog.Int("messages", len(messages)))
 
 	for _, msg := range messages {
 		if err := s.HandleIncomingMessage(ctx, &msg, session); err != nil {
-			slog.ErrorContext(ctx, "PDC Service: Error handling message", slog.String("from", msg.From), slog.Any("error", err))
+			pdcRequestLogger(session.id, msg.From, models.PdcChannelCPDLC).ErrorContext(ctx,
+				"PDC Service: Error handling message", "from", msg.From, "error", err)
 		}
 	}
 
@@ -615,7 +618,14 @@ func (s *Service) HandleIncomingMessage(ctx context.Context, msg *Message, sessi
 }
 
 // ProcessPDCRequest handles a pilot's PDC request
-func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, session sessionInformation) error {
+func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, session sessionInformation) (requestErr error) {
+	logger := pdcRequestLogger(session.id, msg.From, models.PdcChannelCPDLC).With("from", msg.From, "airport", session.airport)
+	logger.InfoContext(ctx, "PDC Service: Request received")
+	defer func() {
+		if requestErr != nil {
+			logger.WarnContext(ctx, "PDC Service: Request processing failed", "error", requestErr)
+		}
+	}()
 	session.recordPDCRequestReceived(ctx, models.PdcChannelCPDLC)
 	req, err := parsePDCRequest(msg.Payload)
 	if err != nil {
@@ -626,6 +636,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		return fmt.Errorf("failed to parse PDC request: %w", err)
 	}
 
+	logger = logger.With("requested_callsign", req.Callsign, "requested_origin", req.Departure,
+		"requested_destination", req.Destination, "requested_aircraft_type", req.Aircraft,
+		"requested_stand", req.Stand, "atis", req.Atis, "has_remarks", strings.TrimSpace(req.Remarks) != "")
 	if req.Callsign != msg.From {
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		return fmt.Errorf("callsign in request does not match from field in message")
@@ -646,6 +659,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		return s.sendErrorAndReturn(ctx, session, req.Callsign, err, buildPDCUnavailable)
 	}
+	logger = logger.With("expected_origin", strip.Origin, "expected_destination", strip.Destination,
+		"expected_aircraft_type", normalizedStripAircraftType(strip), "has_fp", strip.HasFP,
+		"state", strip.PdcState, "cleared", strip.Cleared)
 
 	if strip.Cleared {
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
@@ -681,13 +697,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		if err := s.PersistPdcRequestOutcome(ctx, session.id, strip.Callsign, requestedAt, outcome); err != nil {
 			return err
 		}
+		logPendingPdcRequest(ctx, logger, outcome)
 		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
 			return fmt.Errorf("failed to send status ack: %w", err)
-		}
-		if outcome.Transition == PdcRequestTransitionRequestedWithFaults {
-			slog.InfoContext(ctx, "PDC Service: PDC request has faults", slog.String("callsign", req.Callsign), slog.Any("faults", outcome.Faults))
-		} else {
-			slog.InfoContext(ctx, "PDC Service: PDC request requires manual review due to request remarks", slog.String("callsign", req.Callsign))
 		}
 		return nil
 	}
@@ -705,13 +717,13 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		if err := s.stripService.SetPdcAutoIssueFailureValidation(ctx, session.id, strip.Callsign, true); err != nil {
 			return err
 		}
+		logger.WarnContext(ctx, "PDC Service: Automatic PDC issuance failed; request requires manual review", "outcome", fallbackOutcome.MetricOutcome, "pending_state", fallbackOutcome.State, "error", issueErr)
 		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
 			return fmt.Errorf("failed to send status ack: %w", err)
 		}
-		slog.WarnContext(ctx, "PDC Service: Automatic PDC issuance failed; request requires manual review", slog.String("callsign", req.Callsign), slog.Any("error", issueErr))
 	} else {
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, outcome.MetricOutcome)
-		slog.InfoContext(ctx, "PDC Service: PDC clearance auto-issued", slog.String("callsign", req.Callsign))
+		logger.InfoContext(ctx, "PDC Service: PDC clearance auto-issued", "outcome", outcome.MetricOutcome)
 	}
 	return nil
 }
@@ -734,7 +746,14 @@ func (s *Service) SendStatusAck(ctx context.Context, session sessionInformation,
 
 // IssueClearance sends a PDC clearance to a pilot
 // The clearance data (runway, sid, squawk) should already be in the strip table
-func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid string, sessionID int32) error {
+func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid string, sessionID int32) (issueErr error) {
+	logger := slog.With("session", sessionID, "callsign", callsign, "issued_by_cid", cid)
+	stage := "lookup"
+	defer func() {
+		if issueErr != nil {
+			logger.WarnContext(ctx, "PDC Service: Clearance issuance failed", "stage", stage, "error", issueErr)
+		}
+	}()
 	sessionInfo, err := s.getSessionInfo(ctx, sessionID)
 	if err != nil {
 		return err
@@ -745,12 +764,14 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 	if err != nil {
 		return fmt.Errorf("strip not found for PDC clearance: %w", err)
 	}
+	logger = logger.With("channel", pdcRequestChannel(strip))
 
 	sessionData, err := s.sessionRepo.GetByID(ctx, sessionInfo.id)
 	if err != nil {
 		return fmt.Errorf("failed to get session: %w", err)
 	}
 
+	stage = "route_review"
 	mandatoryRouteReview, err := s.applyMandatoryRouteReview(ctx, sessionData, strip)
 	if err != nil {
 		return err
@@ -758,24 +779,29 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 
 	webDelivery := isWebPDCRequest(strip)
 
+	stage = "build"
 	options, err := s.BuildClearanceOptions(ctx, sessionInfo, strip, remarks, webDelivery, mandatoryRouteReview)
 	if err != nil {
 		return err
 	}
+	logger = logger.With("message_sequence", options.Sequence, "pdc_sequence", options.PdcSequence)
+	stage = "delivery"
 	if err := s.deliverPdcClearance(ctx, sessionInfo, callsign, options, webDelivery); err != nil {
 		return err
 	}
+	stage = "persistence"
 	if err := s.persistIssuedPdcClearance(ctx, sessionInfo.id, callsign, cid, options, webDelivery); err != nil {
 		return err
 	}
 
 	s.moveIssuedPdcStrip(ctx, sessionInfo.id, callsign)
 	s.StartClearanceTimeout(ctx, strip.Origin, callsign, options.Sequence, sessionInfo, cid, webDelivery)
+	stage = "notification"
 	if err := s.notifyIssuedPdcClearance(ctx, sessionInfo.id, callsign); err != nil {
 		return err
 	}
 
-	slog.DebugContext(ctx, "PDC Service: Clearance issued", slog.String("callsign", callsign), slog.Int("sequence", int(options.Sequence)))
+	logger.InfoContext(ctx, "PDC Service: Clearance issued", "awaiting_pilot_acknowledgement", true)
 	return nil
 }
 
@@ -962,7 +988,7 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 		return fmt.Errorf("failed to set PDC failed: %w", err)
 	}
 
-	slog.DebugContext(ctx, "PDC Service: Reverting to voice", slog.String("callsign", callsign))
+	pdcRequestLogger(sessionId, callsign, pdcRequestChannel(strip)).InfoContext(ctx, "PDC Service: Reverting to voice", "previous_state", strip.PdcState, "cid", cid)
 	return nil
 }
 
@@ -1372,6 +1398,9 @@ func (s *Service) handleTimeout(ctx context.Context, delay time.Duration, callsi
 		err = s.setPdcFailed(ctx, callsign, session.id, StateNoResponse, tracker.cid)
 		if err != nil {
 			slog.ErrorContext(ctx, "PDC Service: Failed to revert cleared flag", slog.String("callsign", callsign), slog.Any("error", err))
+		} else {
+			pdcRequestLogger(session.id, callsign, pdcRequestChannel(strip)).InfoContext(ctx,
+				"PDC Service: Pilot acknowledgement timed out", "message_sequence", messageId, "state", StateNoResponse)
 		}
 
 		if !tracker.web {

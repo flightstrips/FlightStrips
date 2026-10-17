@@ -5,6 +5,36 @@
 
 using namespace FlightStrips::websocket;
 
+TEST(ProtoCodecTest, DecodesMasterMetadataWithoutRoleChange) {
+    protobuf::wire::Envelope envelope;
+    envelope.mutable_master_info()->set_master_callsign("EKDK_FMP");
+    EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_MASTER_INFO);
+    MasterInfoEvent event;
+    protobuf::Decode(envelope.master_info(), event);
+    EXPECT_EQ(event.master_callsign, "EKDK_FMP");
+}
+
+TEST(ProtoCodecTest, DecodesRunwayMismatchMasterCallsign) {
+    protobuf::wire::RunwayMismatchAlertEvent source;
+    source.set_master_callsign("EKCH_A_TWR");
+    source.add_expected_departure("22R");
+    RunwayMismatchAlertEvent event;
+    protobuf::Decode(source, event);
+    EXPECT_EQ(event.master_callsign, "EKCH_A_TWR");
+    EXPECT_EQ(event.expected_departure, std::vector<std::string>{"22R"});
+}
+
+TEST(ProtoCodecTest, SerializesFiledFlightRules) {
+    StripUpdateEvent event(
+        "OYABC", "EKRK", "EKCH", "", "", "", "", "7000", "7000", "", "",
+        false, "", 0, 0, 0, "C172", "L", "", Position{0, 0, 1000},
+        "", "V", "", "", "", "", "");
+    event.flight_rules = "V";
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    EXPECT_EQ(envelope.strip_update().strip().flight_rules(), "V");
+}
+
 TEST(ProtoCodecTest, SharedScratchPadRoundTripsEditAndClear) {
     for (const auto& text : {"CALL OPS", ""}) {
         protobuf::wire::Envelope envelope;
@@ -37,7 +67,28 @@ TEST(ProtoCodecTest, SerializesTokenAsOneofEnvelope) {
     EXPECT_EQ(envelope.event_case(), protobuf::wire::Envelope::kToken);
     EXPECT_EQ(envelope.token().token(), "access-token");
     EXPECT_EQ(envelope.token().version(), "2.4.0");
+    EXPECT_TRUE(envelope.token().frequency_messages());
     EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_TOKEN);
+}
+
+TEST(ProtoCodecTest, DecodesFrequencyMessageAndAcknowledgesSubmission) {
+    protobuf::wire::SendFrequencyMessageEvent source;
+    source.set_request_id("request-1"); source.set_callsign("SAS123");
+    source.set_message("Taxi via TWY A."); source.set_primary_frequency("121.905"); source.set_applied_actions(2);
+    SendFrequencyMessageEvent decoded;
+    protobuf::Decode(source, decoded);
+    EXPECT_EQ(decoded.request_id, "request-1"); EXPECT_EQ(decoded.callsign, "SAS123");
+    EXPECT_EQ(decoded.message, "Taxi via TWY A."); EXPECT_EQ(decoded.primary_frequency, "121.905"); EXPECT_EQ(decoded.applied_actions, 2);
+    FrequencyMessageResultEvent result;
+    result.request_id = decoded.request_id; result.callsign = decoded.callsign;
+    result.applied_actions = decoded.applied_actions; result.submitted = false; result.error = "Command input busy";
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(result), envelope));
+    EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_FREQUENCY_MESSAGE_RESULT);
+    EXPECT_EQ(envelope.frequency_message_result().request_id(), "request-1");
+    EXPECT_EQ(envelope.frequency_message_result().applied_actions(), 2);
+    EXPECT_FALSE(envelope.frequency_message_result().submitted());
+    EXPECT_EQ(envelope.frequency_message_result().error(), "Command input busy");
 }
 
 TEST(ProtoCodecTest, SerializesLoginPayloadWithoutASeparateTypeHeader) {

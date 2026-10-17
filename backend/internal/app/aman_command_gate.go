@@ -61,6 +61,13 @@ func (g *amanCommandGate) UnlockFlight(ctx context.Context, auth aman.CommandCon
 	return g.commands.UnlockFlight(ctx, auth, command)
 }
 
+func (g *amanCommandGate) ExpediteFlight(ctx context.Context, auth aman.CommandContext, command aman.ExpediteFlightCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.ExpediteFlight(ctx, auth, command)
+}
+
 func (g *amanCommandGate) DesequenceFlight(ctx context.Context, auth aman.CommandContext, command aman.DesequenceFlightCommand) (aman.CommandExecution, error) {
 	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
 		return aman.CommandExecution{}, err
@@ -230,3 +237,10 @@ func (g *amanCommandGate) RejectGoAround(ctx context.Context, auth aman.CommandC
 }
 
 var _ aman.CommandService = (*amanCommandGate)(nil)
+
+func (g *amanCommandGate) RebuildArrivalSequence(ctx context.Context, auth aman.CommandContext, command aman.RebuildArrivalSequenceCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.RebuildArrivalSequence(ctx, auth, command)
+}

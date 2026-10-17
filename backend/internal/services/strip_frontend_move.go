@@ -84,6 +84,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 
 	previousBay := strip.Bay
 	previousCleared := strip.Cleared
+	previousRunwayCleared := strip.RunwayCleared
 	shouldConfirmVoiceClearance := targetBay == shared.BAY_CLEARED &&
 		strip.PdcState != "" &&
 		strip.PdcState != internalModels.PdcStateNone
@@ -93,7 +94,18 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return err
 	}
 
-	if err := s.MoveToBay(ctx, session, callsign, targetBay, true); err != nil {
+	// applyFrontendMoveState persists the target bay before MoveToBay runs, so
+	// preserve the original source bay to initialize/reset RWY ARR state here.
+	updatedRwyArrStatus, err := s.updateRwyArrClearanceOnMove(ctx, session, callsign, previousBay, targetBay, previousRunwayCleared)
+	if err != nil {
+		return err
+	}
+	if updatedRwyArrStatus {
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+	}
+
+	moveCtx := context.WithValue(ctx, frontendMoveRwyArrTransitionHandledKey{}, true)
+	if err := s.MoveToBay(moveCtx, session, callsign, targetBay, true); err != nil {
 		return err
 	}
 
@@ -144,6 +156,8 @@ func pushbackWasValidated(ctx context.Context, session int32, callsign string) b
 	flight, ok := ctx.Value(validatedPushbackContextKey{}).(validatedPushbackFlight)
 	return ok && flight.session == session && flight.callsign == callsign
 }
+
+type frontendMoveRwyArrTransitionHandledKey struct{}
 
 func pushbackTsatWithinWindow(tsat string, now time.Time) bool {
 	ts := strings.TrimSpace(tsat)
@@ -234,7 +248,7 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 		}
 		return nil
 	}
-	if confirmed && remoteCtot == "" && pushbackTsatWithinWindow(valueOrEmptyStripTime(strip.EffectiveTsat()), now) {
+	if confirmed && pushbackTsatWithinWindow(valueOrEmptyStripTime(strip.EffectiveTsat()), now) {
 		if strip.ValidationStatus != nil && strip.ValidationStatus.IssueType == pushbackTsatValidationIssueType {
 			if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 				return err

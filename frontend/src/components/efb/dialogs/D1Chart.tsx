@@ -41,6 +41,7 @@ interface D1ChartProps {
   runway: string;
   procedure: string;
   arrival: boolean;
+  expected?: boolean;
 }
 
 function normalise(value: string) {
@@ -112,7 +113,7 @@ function isApproachChart(chart: ChartOverview) {
   return ['APP', 'IAP', 'APPROACH', 'ILS', 'LOC', 'RNP', 'VOR', 'NDB'].includes(chart.type_key.toUpperCase());
 }
 
-export default function D1Chart({ isOpen, onClose, airport, runway, procedure, arrival }: D1ChartProps) {
+export default function D1Chart({ isOpen, onClose, airport, runway, procedure, arrival, expected = false }: D1ChartProps) {
   const [chartRecords, setChartRecords] = useState<ChartOverview[]>([]);
   const [loadedChart, setLoadedChart] = useState<ChartData | null>(null);
   const [selectedSection, setSelectedSection] = useState<ChartSection>('procedure');
@@ -214,7 +215,7 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
   const loading = loadingOverview || (loadingChart && !cachedSelectedChart);
   const sections: Array<{ id: ChartSection; label: string; description: string; count: number; Icon: LucideIcon }> = [
     { id: 'taxi', label: 'AIRPORT / TAXI', description: 'Ground movement and apron charts', count: taxiFamilies.length, Icon: MapIcon },
-    { id: 'procedure', label: `ASSIGNED ${chartType}`, description: validProcedure || 'Published procedure', count: procedureFamilies.length, Icon: Navigation },
+    { id: 'procedure', label: `${expected ? 'EXPECTED' : 'ASSIGNED'} ${chartType}`, description: validProcedure || 'Published procedure', count: procedureFamilies.length, Icon: Navigation },
     ...(arrival ? [{ id: 'approach' as const, label: 'APPROACH', description: runway !== 'NIL' ? `Procedures for runway ${runway}` : 'Runway-specific procedures', count: approachFamilies.length, Icon: PlaneLanding }] : []),
   ];
   const chartContext = [validAirport || null, runway !== 'NIL' ? `runway ${runway}` : null].filter(Boolean).join(', ');
@@ -247,6 +248,7 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
               <p className="m-0 text-[11px] font-bold tracking-[0.18em] text-[#8ed7ec]">EFB CHARTS</p>
               <h2 id="efb-chart-title" className="mt-1 mb-0 text-[clamp(18px,2.5vh,24px)] font-bold">{validAirport || 'CHARTS'}</h2>
               <p className="mt-1 mb-0 text-sm text-[#c7d9e5]">{chartContext || 'Relevant charts for this flight'}</p>
+              {expected && <p className="mt-2 mb-0 text-sm font-bold text-[#ffcc80]">Expected from route / ATIS, not an ATC clearance. Confirm the procedure and version with ATC.</p>}
             </div>
             <div className="p-5">
               <p className="m-0 text-[11px] font-bold tracking-[0.16em] text-[#8ed7ec]">CHART SECTIONS</p>

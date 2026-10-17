@@ -147,6 +147,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		NextOwners:               db.NextOwners,
 		PreviousOwners:           db.PreviousOwners,
 		NextDisplay:              nextDisplayFromColumns(db.NextDisplayLabel, db.NextDisplayFrequency),
+		NextControllerSector:     db.NextControllerSector,
 		ReleasePoint:             db.ReleasePoint,
 		PdcState:                 pdcData.State,
 		PdcRequestRemarks:        pdcData.RequestRemarks,
@@ -171,6 +172,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		FplType:                  db.FplType,
 		Language:                 db.Language,
 		HasFP:                    db.HasFp,
+		FlightRules:              db.FlightRules,
 		ValidationStatus:         validationStatus,
 		VatsimCID:                db.VatsimCid,
 		VatsimRevision:           db.VatsimRevision,
@@ -248,6 +250,7 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		EngineType:           strip.EngineType,
 		SpokenCallsign:       strip.SpokenCallsign,
 		HasFp:                strip.HasFP,
+		FlightRules:          strip.FlightRules,
 		StartReq:             strip.StartReq,
 		VatsimCid:            strip.VatsimCID,
 		VatsimRevision:       strip.VatsimRevision,
@@ -457,6 +460,7 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		FplType:                  strip.FplType,
 		Language:                 strip.Language,
 		HasFp:                    strip.HasFP,
+		FlightRules:              strip.FlightRules,
 		PdcData:                  pdcData,
 		ValidationStatus:         validationStatus,
 		StartReq:                 strip.StartReq,
@@ -840,6 +844,18 @@ func (r *stripRepository) SetRouteState(ctx context.Context, session int32, call
 	})
 }
 
+func (r *stripRepository) SetNextControllerSelection(ctx context.Context, session int32, callsign, owner, sector string, nextOwners []string, nextDisplay *models.NextDisplay) (int64, error) {
+	nextOwnersJSON, err := marshalOwners(nextOwners)
+	if err != nil {
+		return 0, err
+	}
+	label, frequency := nextDisplayColumns(nextDisplay)
+	return r.queries.SetNextControllerSelection(ctx, database.SetNextControllerSelectionParams{
+		Session: session, Callsign: callsign, Owner: &owner, Sector: &sector,
+		NextOwners: nextOwnersJSON, NextDisplayLabel: label, NextDisplayFrequency: frequency,
+	})
+}
+
 // SetPreviousOwners sets the previous owners of a strip
 func (r *stripRepository) SetPreviousOwners(ctx context.Context, session int32, callsign string, previousOwners []string) error {
 	previousOwnersJSON, err := marshalOwners(previousOwners)
@@ -1124,6 +1140,7 @@ func (r *stripRepository) UpdateVatsimSource(ctx context.Context, session int32,
 	}
 
 	return r.queries.UpdateStripVatsimSource(ctx, database.UpdateStripVatsimSourceParams{
+		FlightRules:       source.FlightRules,
 		VatsimCid:         &cid,
 		VatsimRevision:    &revision,
 		VatsimSeenAt:      TimeToPgTimestamptz(&source.SeenAt),
@@ -1167,6 +1184,50 @@ func (r *stripRepository) UpdateRunwayConfirmation(ctx context.Context, session 
 		Callsign: callsign,
 		Session:  session,
 	})
+}
+
+// UpdateArrivalRunwayConfirmation serializes arrivals within a session so only
+// one RWY ARR strip can be green, even when confirmations reach different
+// backend processes at the same time.
+func (r *stripRepository) UpdateArrivalRunwayConfirmation(ctx context.Context, session int32, callsign string) (int64, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var lockedSession int32
+	if err := tx.QueryRow(ctx, `SELECT id FROM sessions WHERE id = $1 FOR UPDATE`, session).Scan(&lockedSession); err != nil {
+		return 0, err
+	}
+
+	var anotherConfirmed bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM strips
+			WHERE session = $1 AND callsign <> $2 AND bay = 'RWY_ARR'
+			  AND runway_cleared AND runway_confirmed
+		)`, session, callsign).Scan(&anotherConfirmed); err != nil {
+		return 0, err
+	}
+	if anotherConfirmed {
+		if err := tx.Commit(ctx); err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE strips
+		SET runway_confirmed = true, runway_cleared = true, version = version + 1
+		WHERE session = $1 AND callsign = $2 AND bay = 'RWY_ARR'`, session, callsign)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 // ResetRunwayClearance clears runway_cleared back to false (e.g. when a strip is moved backward from rwy-dep).

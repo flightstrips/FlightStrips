@@ -110,6 +110,7 @@ interface StripListPopupProps<T extends FrontendStrip> {
   onDismiss: () => void;
   myPosition: string;
   rowHalfStripVariant?: HalfStripVariant;
+  allowClearanceFromPlannedDepartures?: boolean;
 }
 
 export function StripListPopup<T extends FrontendStrip>({
@@ -120,6 +121,7 @@ export function StripListPopup<T extends FrontendStrip>({
   onDismiss,
   myPosition,
   rowHalfStripVariant = "LOCKED-ARR",
+  allowClearanceFromPlannedDepartures = false,
 }: StripListPopupProps<T>) {
   const selectStrip = useWebSocketStore((state) => state.selectStrip);
   const listRef = useRef<HTMLDivElement>(null);
@@ -257,7 +259,7 @@ export function StripListPopup<T extends FrontendStrip>({
                   style={{ background: COLOR_POPUP_BG, height: "2.36dvh", overflow: "hidden", flexShrink: 0 }}
                   onClick={() => handleRowClick(strip)}
                 >
-                  <div style={{ height: "100%", pointerEvents: "none" }}>
+                  <div style={{ height: "100%", pointerEvents: allowClearanceFromPlannedDepartures ? "auto" : "none" }}>
                     <Strip
                       strip={strip}
                       status="HALF"
@@ -267,6 +269,7 @@ export function StripListPopup<T extends FrontendStrip>({
                       delegateCallsignClick={true}
                       fullWidth={true}
                       onStripMoved={handleDismiss}
+                      clearanceFromPlannedBay={allowClearanceFromPlannedDepartures}
                     />
                   </div>
                 </div>

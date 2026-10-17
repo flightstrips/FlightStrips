@@ -40,6 +40,24 @@ func TestMatchesControllers_EmptyRequired(t *testing.T) {
 	assert.True(t, matchesControllers(controllers, []string{}, true))
 }
 
+func TestGetLayoutsByFrequency_UsesConfiguredFrequencyRole(t *testing.T) {
+	t.Cleanup(SetPositionsForTest([]Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.105", Section: "TWR"},
+		{Name: "EKCH_B_GND", Frequency: "121.905", Section: "GND"},
+	}))
+	t.Cleanup(SetLayoutsForTest(map[string][]LayoutVariant{
+		"EKCH_A_TWR": {{Layout: "TWTE"}},
+		"EKCH_B_GND": {{Layout: "SEQPLN"}},
+	}))
+
+	layouts := GetLayoutsByFrequency([]*Position{
+		{Name: "EKCH_A_TWR", Frequency: "121.905", Section: "TWR"},
+	}, []string{"22R"})
+
+	require.NotNil(t, layouts["121.905"])
+	assert.Equal(t, "SEQPLN", *layouts["121.905"])
+}
+
 // ---- GetLayouts — EKCH apron single-controller AAAD ----
 
 func makePos(name, freq, section string) *Position {

@@ -391,6 +391,34 @@ The initial EKCH policy enables same-STAR-family spacing independently per STAR 
 
 This is sometimes described as requiring an “alternating arrival,” but the policy does not require another aircraft to occupy the intervening opportunity; it can remain empty. Below the configured activation rate for that STAR family, the additional spacing is inactive. Future changes may configure or disable individual families without silently changing the others.
 
+### Approach release buffer (#887)
+
+Approach intake is planned separately from landing slots. With quiet approach, ready aircraft on independent STAR/feeder streams may receive immediate EATs while retaining valid landing slots. A blocked stream must not block other streams. Eligible new or movable traffic may also use legal runway opportunities around another holding; same-hold order and existing manual, Stable and freeze protection remain in force.
+
+The versioned terminal `approachRelease` policy uses a desired buffer of 10, full allowance through six aircraft, at most 600 seconds of additional approach time, and a 120-second admission lookahead. Counts are configurable planning settings, not hard airspace limits. Allowance tapers linearly from 600 seconds at six projected aircraft to zero at ten. At or above the target, normal intake may continue without additional advancement.
+
+The buffer deduplicates aircraft progressing toward approach/landing, committed imminent or overdue releases, and other predicted entries within the lookahead. Unreleased holding aircraft do not count unless the FMP has explicitly expedited them. Accepted reservations persist across missing observations, EAT expiry and restart; a cancellation alone does not prove physical release, and a landing-slot time alone does not prove departure. Future offers postponed beyond the lookahead by a capacity change cease consuming the current buffer but retain their persisted target. Due or observed releases cannot be recalled; if a capacity change makes their additional approach time exceed the budget, publish a degraded buffer and stop new advancement pending review.
+
+During buildup, omit only the extra same-STAR **release** gap. Aircraft sharing a hold, STAR family or feeder fix still retain base-rate/wake entry spacing and physical order. Runway-rate, wake and same-STAR **landing** constraints continue to apply. Published EATs record physical transit separately from additional downstream approach time; raw physical prediction and manual feeder timing remain independent.
+
+Confirmed directs and fresh route progress may shorten the calculated journey and permit an earlier legal landing opportunity. No quiet-TMA time discount or assumed direct is applied. Existing freeze captures are retained. Missing geometry or uncertain unaccounted traffic suppresses new early admissions; accepted targets remain visible. Enable the policy only after all AMAN server instances support durable release reservations.
+
+Accepted future release offers are revalidated against fresh holding readiness and rate-based entry spacing, propagating a postponement through the same stream. Entry spacing uses the rate effective at the candidate release and is recalculated across scheduled rate boundaries; observed releases later than their EAT provide the spacing origin. Due or observed releases remain irrevocable. Their entry spacing is still checked against late observed departures using the rate effective at the fixed entry time and directional wake spacing. Rate schedules remain available independently of holding plans, holding-fix ETAs, holding release bases and fresh prediction availability; if the current runway assignment is unavailable, the accepted reservation supplies its runway group. A conflict keeps the accepted EAT unchanged, degrades intake and stops additional advances across all feeders. Elapsed time alone does not resolve it; an observed follower departure satisfying spacing can resolve it without rewriting the original EAT. Their accepted EAT and journey stay visible even when the fresh slot/transit calculation cannot produce a holding plan; timing conflicts degrade intake and stop additional advancement.
+
+Unresolved airborne arrivals remain part of workload uncertainty even before their first physical prediction succeeds. Only fresh physical route timing may establish that an outside arrival is beyond the admission lookahead; a preliminary filed estimate, an unavailable route or a retained prediction older than current surveillance cannot establish spare intake capacity. Planned, landed and removed flights do not add airborne uncertainty.
+
+Accepted absorption is rechecked from retained release time and transit against the current slot after holding timing disappears, including when the aircraft is already in approach or its fresh prediction is unavailable. An excessive budget degrades intake and stops additional advances while preserving the accepted admission. All physical predictions retain their remaining route-fix identities independently of the performance calculation, so RETA aircraft can also acquire an observed release time. Followers are spaced from a late observed departure rather than the earlier offered EAT; missing/stale geometry and a canceled hold alone never prove release.
+
+### FMP expedite
+
+`aman.expedite_flight` admits an active airborne aircraft outside the managed runway sequence. It uses the normal FMP authority, expected revision, durable command ID and audit path. It does not issue a clearance, mark the aircraft landed or remove its arrival lifecycle. The former slot is retained as non-capacity history, with an additive `expedited` flag on the existing `desequenced` disposition so older V1 clients remain compatible.
+
+The freed opportunity cascades to following eligible traffic at the earliest legal times. Physical readiness, landing rate and wake/STAR spacing, GAPs, runway closures and manually/TMA-protected slots remain constraints; a follower that cannot use the vacancy does not force an unsafe shift. Independent feeders can fill legal vacancies around blocked traffic.
+
+An expedited arrival immediately consumes one approach-buffer place, including while surveillance still shows it holding. Existing due/observed admissions are retained and deduplicated; future automatic EAT offers are withdrawn, and the former slot no longer generates a holding plan or EAT writeback. The aircraft stays counted across restart, stale observations and expiry of its former slot until landing/removal or a successful resume. The FMP coordinates the actual release with approach.
+
+The aircraft action menu and FMP controls expose **Expedite**. Excluded aircraft and desequenced lists distinguish **Expedited** traffic. **Add back to sequence** / **Resume** rejoins at the earliest legal opportunity, clears expedited status and does not reclaim the former slot. Client views wait for server-confirmed state and display pending/rejected commands.
+
 ## Sequence protection and queueing
 
 Unstable aircraft are ordered by the earliest physically achievable, policy-valid slot. They cannot displace Stable or frozen aircraft.
@@ -399,9 +427,64 @@ Stable aircraft retain their established relative order. When an earlier legal s
 
 Superstable and manually frozen aircraft retain their captured slot except under a specifically authorized manual workflow or a confirmed go-around. A late raw TETA is informational and must never automatically release Superstable or change its captured operational TETA and slot. Queue offers are removed when they can no longer be used or when the aircraft becomes fully frozen.
 
-TMA freeze must not use entry into a configured terminal path as its boundary. The approved horizontal boundary is the EKCH Copenhagen Approach `MultiPolygon` from the SimAware TRACON project, vendored from [`Boundaries/EKCH/EKCH.json` at commit `d860ed77135b057168148184880a41cc183bf881`](https://github.com/vatsimnetwork/simaware-tracon-project/blob/d860ed77135b057168148184880a41cc183bf881/Boundaries/EKCH/EKCH.json). Edges and vertices are inside. The operational volume extends from the surface to strictly below FL195; an observation at FL195 or above is outside it. The first fresh outside-to-inside observation captures the slot/TETA once and the freeze remains sticky after exit. A confirmed go-around atomically releases the old capture, applies the ten-minute delay, allocates a new slot, and immediately captures that slot as TMA-protected because the aircraft normally remains inside. This operator-approved boundary remains valid until explicitly superseded and does not cycle automatically with AIRAC data. Production configuration must use a validated local/versioned copy with source provenance rather than fetching the mutable upstream file during runtime.
+TMA freeze must not use entry into a configured terminal path as its boundary. The approved horizontal boundary is the EKCH Copenhagen Approach `MultiPolygon` from the SimAware TRACON project, vendored from [`Boundaries/EKCH/EKCH.json` at commit `d860ed77135b057168148184880a41cc183bf881`](https://github.com/vatsimnetwork/simaware-tracon-project/blob/d860ed77135b057168148184880a41cc183bf881/Boundaries/EKCH/EKCH.json). Edges and vertices are inside. The operational volume extends from the surface to strictly below FL195; an observation at FL195 or above is outside it. The first fresh outside-to-inside observation captures the slot/TETA once and the freeze remains sticky after exit. An explicitly authorized arrival sequence rebuild may replace automatic TMA captures with freshly calculated timings as described below. A confirmed go-around atomically releases the old capture, applies the ten-minute delay, allocates a new slot, and immediately captures that slot as TMA-protected because the aircraft normally remains inside. This operator-approved boundary remains valid until explicitly superseded and does not cycle automatically with AIRAC data. Production configuration must use a validated local/versioned copy with source provenance rather than fetching the mutable upstream file during runtime.
+
 
 ### Holding-stack ordering
+
+#### Explicit arrival sequence rebuild (#888)
+
+An authorized FMP controller can rebuild all participating arrival runways in
+one airport/session command. Current validated TMA traffic keeps priority over
+holding releases, but its automatic ETA and slot are rebuilt from the latest
+fresh position-based prediction. Old automatic TMA, Stable and Superstable
+captures cannot reserve slots the aircraft can no longer use. TMA order follows
+the current physical arrival estimates. Old manual order may be replaced; manual
+freezes, ETA overrides, exclusions, runway assignments and unavailable-data
+reservations remain protected. A valid feasible result is applied atomically; exceptions name
+their blockers. Runway separation and unsafe physical-stack release order cannot
+be waived by this action.
+
+Future automatic approach-release offers are rebuilt with their landing slots.
+Due or physically observed approach admissions retain their capacity commitment
+and accepted EAT, with an explicit exception diagnostic. A final safety pass
+after approach-buffer planning withholds EATs that violate the rebuilt order.
+
+Within each physical hold, lower **cleared** holding levels release first.
+Across all holds and runway groups, compare the holding duration of each
+eligible stack head, release the longest-held first, then expose that stack's
+next aircraft. Equal starts/levels use callsign as a deterministic tie-breaker.
+Release priority is separate from landing order: different fix-to-runway
+transits can produce different landing order and identical EATs in different
+holds. The existing minimum release separation still applies within one hold.
+
+Elapsed holding starts at the first observed fix crossing or observation within
+1 NM of the fix, with interpolation between coherent radar reports no more than
+two minutes apart. Assignment, a predicted fix ETA and entry into the broader
+holding footprint are not holding-start evidence. Already-confirmed legacy
+holding with missing crossing evidence uses a labelled detection estimate.
+Repeated laps, restart and reconnect retain the episode clock; accepted release,
+cancellation, departure and subsequent re-entry establish a new episode.
+
+The rebuild bypasses old automatic captures and routine smoothing, publishes
+refreshed operational ETAs and slots, and recaptures automatic protection around
+those new timings. Smoothing restarts from the latest raw prediction. The
+physical prediction is retried when fresh radar is available but the stored
+estimate is stale or predates that radar report. Historical separation conflicts
+between reservations entirely in the past cannot block the future rebuild;
+conflicts involving current or future retained reservations still reject it.
+Actual holding-entry clocks are retained. Aircraft actively holding remain in the hold
+queue even when the holding pattern lies within the TMA volume. Releases cannot
+precede the current predicted arrival back at the holding fix. Missing or
+expired physical estimates are retained with an explicit exception instead of
+being presented as fresh usable timings.
+
+The rebuild recalculates slots, holding plans and derived feeder timing using
+current rates, wake/STAR spacing, gaps, closures and capacity reservations.
+Old queue offers are discarded and replaced at the new revision. A correlated
+command result distinguishes changed, unchanged, duplicate and committed-but-
+unpublished outcomes. An unrelated revision is not proof that a reset succeeded.
+Normal automatic holding strategy configuration remains unchanged.
 
 A route's optional holding fix alone must not establish a holding FIFO queue. Queue release bounds activate only when an active aircraft is confirmed in that hold or has an active enroute holding clearance. Incoming aircraft may then queue behind that traffic. Unoccupied, uncleared route holdings must not propagate prediction outliers into other aircraft's landing slots.
 
@@ -536,3 +619,7 @@ Implementation work is tracked in GitHub issues under the AMAN epic. Issues shou
 The 2026-09-08 code-audit corrections are tracked by #560 (Superstable immutability), #561 (altitude-bounded TMA volume), #562 (automatic vacancy promotion), #563 (independent runway selection), #564 (WTC/L RETA policy), #565 (confirmed live go-around detection), #566 (server-backed FMP controls), #334 (EuroScope Gain/Lose formatting), and #567 (web Gain/Lose formatting).
 
 The frontend design is tracked by parent feature #584 and its focused child issues: #585 (workspace shell/settings), #586 (FMP/RWY/ACC timelines), #587 (targets/dialogs), #588 (DSEQ/closure/reserved capacity), #589 (TMT traffic prediction), #590 (TMT holding information), and #591 (TMT warning decision and implementation).
+
+### Preliminary timing protection
+
+Filed EOBT/EXOT/EET and first-observed-airborne/EET estimates remain advisory until a publishable physical route prediction exists. They cannot automatically reserve a landing slot or become protected by holding, Stable, Superstable, or TMA entry. Reconciliation discards legacy automatic slots/freezes still carrying a preliminary prediction before accepting the first physical result. Explicit manual timing commitments and accepted physical slots retained during a source outage keep their existing protections. This applies equally to short domestic flights and aircraft first observed mid-flight.

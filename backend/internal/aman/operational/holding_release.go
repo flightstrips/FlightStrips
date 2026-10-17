@@ -103,14 +103,18 @@ func holdingPlanForFlight(flight aman.AMANFlight, prediction aman.Prediction) *a
 	if !prediction.Publishable || flight.Slot == nil || flight.Slot.RunwayGroupID != basis.RunwayGroupID {
 		return nil
 	}
+	entry := basis.HoldingEntryTime
+	if episode := aman.ActiveHoldingEpisode(flight); episode != nil {
+		entry = *episode.StartedAt
+	}
 	release := flight.Slot.Time.Add(-basis.PostHoldingTransit)
-	if !release.After(basis.HoldingEntryTime) {
+	if !release.After(entry) {
 		return nil
 	}
 	// Passing the EAT is a missed controller target, not a reason to erase it.
 	// A real slot change moves this clock by exactly the same amount.
 	return &aman.HoldingPlan{
-		HoldingEntryTime: basis.HoldingEntryTime, ApproachReleaseTime: release,
-		ExpectedHoldingDuration: release.Sub(basis.HoldingEntryTime), PostHoldingTransit: basis.PostHoldingTransit,
+		HoldingEntryTime: entry, ApproachReleaseTime: release,
+		ExpectedHoldingDuration: release.Sub(entry), PostHoldingTransit: basis.PostHoldingTransit,
 	}
 }

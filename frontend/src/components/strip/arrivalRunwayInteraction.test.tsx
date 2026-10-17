@@ -5,6 +5,8 @@ import { ApnArrStrip } from "./ApnArrStrip";
 import { FinalArrStrip } from "./FinalArrStrip";
 
 const store = vi.hoisted(() => ({
+  strips: [],
+  inboundDepartures: null,
   runwayClearance: vi.fn(),
   runwayConfirmation: vi.fn(),
   resetRunwayClearance: vi.fn(),
@@ -43,7 +45,7 @@ vi.mock("./shared", () => ({
   getCellBorderColor: () => "#000000",
   getFlatStripBorderStyle: () => ({}),
   getStripFrameColor: () => "#000000",
-  getStripOwnership: () => ({ isUnconcerned: false, isAssumed: true }),
+  getStripOwnership: (myPosition?: string, owner?: string) => ({ isUnconcerned: false, isAssumed: !!myPosition && myPosition === owner }),
   getCellTextColor: () => "#000000",
   useStripBg: () => ({ bg: "#ffff00", textWhite: false }),
   getValidationBlinkStyle: () => ({}),
@@ -67,7 +69,7 @@ beforeEach(() => {
 
 describe.each([ApnArrStrip, FinalArrStrip])("%s runway field", Strip => {
   it("removes green clearance and requests it again on the next click", () => {
-    const props = { callsign: "SAS123", bay: Bay.RwyArr, runway: "22L" };
+    const props = { callsign: "SAS123", bay: Bay.RwyArr, runway: "22L", owner: "TWR", myPosition: "TWR" };
     const { rerender } = render(<Strip {...props} runwayCleared runwayConfirmed />);
 
     fireEvent.click(screen.getByText("22L"));
@@ -80,4 +82,14 @@ describe.each([ApnArrStrip, FinalArrStrip])("%s runway field", Strip => {
     expect(store.runwayClearance).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog", { name: "Runway menu" })).not.toBeInTheDocument();
   });
+
+  it("does not change RWY ARR clearance for a non-owning controller", () => {
+    render(<Strip callsign="SAS456" bay={Bay.RwyArr} runway="22L" owner="TWR" myPosition="APN" runwayCleared runwayConfirmed />);
+
+    fireEvent.click(screen.getByText("22L"));
+
+    expect(store.resetRunwayClearance).not.toHaveBeenCalled();
+    expect(store.runwayConfirmation).not.toHaveBeenCalled();
+  });
+
 });

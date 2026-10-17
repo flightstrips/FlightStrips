@@ -58,6 +58,7 @@ type DepartureLifecycleService struct {
 	standPublisher observedStandPublisher
 	warningMu      sync.Mutex
 	warnings       map[string]string
+	pilotStands    *PilotDepartureStandService
 }
 
 type wrongStandMessenger interface {
@@ -86,6 +87,9 @@ func (s *DepartureLifecycleService) SetStandPublisher(publisher observedStandPub
 // disappears from the live feed.
 func (s *DepartureLifecycleService) CancelDeparture(ctx context.Context, session int32, callsign string) error {
 	s.clearUnassignedStandWarning(session, callsign)
+	if err := s.CancelPilotDeparture(ctx, session, callsign); err != nil {
+		return err
+	}
 	return s.cancelWrongStandEpisode(ctx, session, callsign)
 }
 
@@ -170,14 +174,33 @@ func NewDepartureLifecycleService(
 	return service, nil
 }
 
-// ProcessDeparture is the reconciler entry point. It dispatches to the
-// reservation path while the aircraft is offline and to the block path once it
-// is online. Both paths are idempotent: repeated feed polls with no change in
-// revision or timing leave the persisted assignment untouched.
+func (s *DepartureLifecycleService) CancelPilotDeparture(ctx context.Context, session int32, callsign string) error {
+	if s.pilotStands == nil {
+		return nil
+	}
+	return s.pilotStands.cancelDeparture(ctx, session, callsign)
+}
+
+// ReconcilePilotDeparture follows EFB aircraft even before EuroScope has seen them.
+func (s *DepartureLifecycleService) ReconcilePilotDeparture(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (managed bool, err error) {
+	defer func() { err = suppressAutomaticAllocationError(err) }()
+	if s.pilotStands == nil {
+		return false, nil
+	}
+	return s.pilotStands.reconcile(ctx, session, strip, flight)
+}
+
+// ProcessDeparture dispatches offline reservations and observed online blocks.
+// Repeated feed polls without changes leave the assignment untouched.
 func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (err error) {
 	defer func() { err = suppressAutomaticAllocationError(err) }()
 	if strip == nil || strings.TrimSpace(strip.Callsign) == "" {
 		return nil
+	}
+	if s.pilotStands != nil {
+		if managed, err := s.pilotStands.reconcile(ctx, session, strip, flight); managed || err != nil {
+			return err
+		}
 	}
 	if flight.Online {
 		activated, err := s.activateObservedBlock(ctx, session, strip, flight)
@@ -217,6 +240,11 @@ func (s *DepartureLifecycleService) releaseOfflinePrefileReservation(ctx context
 func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context, session int32, strip *models.Strip, latitude, longitude float64) error {
 	if strip == nil || strings.TrimSpace(strip.Callsign) == "" {
 		return nil
+	}
+	if s.pilotStands != nil {
+		if managed, err := s.pilotStands.opened(ctx, session, strip); managed || err != nil {
+			return err
+		}
 	}
 	activated, err := s.activateObservedBlock(ctx, session, strip, vatsim.DepartureFlightInfo{
 		Callsign: strip.Callsign, Online: true, Origin: strip.Origin,
@@ -721,6 +749,11 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 		err := s.allocations.releaseAssignment(ctx, assignment, true)
 		recordSATExpiry(ctx, assignment, "strip_removed", err)
 		return err
+	}
+	if s.pilotStands != nil {
+		if managed, err := s.pilotStands.opened(ctx, session, strip); managed || err != nil {
+			return err
+		}
 	}
 	if assignment.Stage == StageDepartureBlock && s.stripIsAtAssignedStand(strip, assignment.Stand) &&
 		(assignment.ConflictReason == nil ||

@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { useState } from "react";
 import type { HalfStripVariant, StripProps } from "./types";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
@@ -6,6 +7,7 @@ import { AircraftTypeLabel, useStripSelection, getCellBorderColor, getFlatStripB
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { getStripBg } from "./types";
 import { HALF_STRIP_VARIANT_BG, getHalfStripFrameColor } from "./halfStripFrame";
+import {InboundCtotFlag} from "./InboundCtotFlag";
 
 /** Short label shown in the left identifier box. */
 const VARIANT_LABEL: Record<HalfStripVariant, string> = {
@@ -35,6 +37,7 @@ const HALF_CELL_BASE = "#d9d9d9";
  * Supports multiple visual variants with different background colours and content layouts.
  */
 export function HalfStrip({
+  communicationType,
   callsign,
   aircraftType,
   aircraftCategory,
@@ -53,6 +56,7 @@ export function HalfStrip({
   bay,
   fullWidth = false,
   localHidden = false,
+  clearanceFromPlannedBay = false,
 }: StripProps) {
   const isLocked = LOCKED_VARIANTS.includes(halfStripVariant);
   const isFreeText = FREE_TEXT_VARIANTS.includes(halfStripVariant);
@@ -109,11 +113,13 @@ export function HalfStrip({
         /* Structured variants: callsign + flight data cells */
         <>
           <div
-            className={`h-full ${isArrivalVariant || arrival ? "w-[6.77vw]" : "w-[5.03vw]"} border-r-2 flex items-center pl-[0.42vw] font-normal [-webkit-text-stroke:0.5px_currentColor] truncate ${textColor}`}
+            className={`relative h-full ${isArrivalVariant || arrival ? "w-[6.77vw]" : "w-[5.03vw]"} border-r-2 flex items-center pl-[0.42vw] font-normal [-webkit-text-stroke:0.5px_currentColor] truncate ${textColor}`}
             style={{ borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue, cursor: localHidden ? "pointer" : undefined }}
             onClick={localHidden ? (e) => { e.stopPropagation(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); } : undefined}
           >
+          <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
             {callsign}
+            {(isArrivalVariant || arrival) && <InboundCtotFlag callsign={callsign} />}
           </div>
           <div
             className={`h-full ${isArrivalVariant || arrival ? "w-[2.92vw]" : "w-[3.22vw]"} border-r-2 flex items-center justify-center text-[0.63vw] ${textColor}`}
@@ -153,7 +159,7 @@ export function HalfStrip({
           </div>
           {isDepartureHalf && (
             <>
-              <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} />
+              <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} allowClearanceFromPlannedBay={clearanceFromPlannedBay} />
               <FlightPlanDialog callsign={callsign} open={fplViewOpen} onOpenChange={setFplViewOpen} mode="view" />
             </>
           )}

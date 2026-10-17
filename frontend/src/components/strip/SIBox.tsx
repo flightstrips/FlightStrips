@@ -1,7 +1,8 @@
+import { isTextPilot, stationController, TEXT_STATIONS } from "@/lib/text-pilot";
+import { Bay } from "@/api/models";
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
 import { getSIBoxBorderStyle, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership } from "./shared";
-import { toast } from "sonner";
 
 /** Text colour for the next-controller identifier label. */
 const COLOR_SI_LABEL = "#8F8F8F";
@@ -23,7 +24,6 @@ export function SIBox({
   transferringTo,
   isTagRequest,
   baseBorderColor,
-  transferAllowed,
   startRequestTransfer = false,
   hideLabel = false,
 }: {
@@ -46,14 +46,17 @@ export function SIBox({
   isTagRequest?: boolean;
   /** Base cell border color (defaults to the shared teal). Pass a custom color for strips with different border styling. */
   baseBorderColor?: string;
-  /** Checked at click time so the TSAT window works without waiting for a rerender. */
-  transferAllowed?: () => boolean;
-  /** Use the combined startup request and transfer action after the TSAT check. */
+  /** Use the combined startup request and transfer action. */
   startRequestTransfer?: boolean;
   /** Hide the next-controller letter; the box keeps its ownership colour and click behaviour. */
   hideLabel?: boolean;
 }) {
   const controllers = useControllers();
+  const strip = useWebSocketStore(s => s.strips.find(s => s.callsign === callsign));
+  const openTextPilotMenu = useWebSocketStore(s => s.openTextPilotMenu);
+  const readbacks = useWebSocketStore(s => s.textPilotReadbacks);
+  const layout = useWebSocketStore(s => s.displayedLayout || s.layout);
+  const ownCallsign = useWebSocketStore(s => s.callsign);
   const transferStrip = useWebSocketStore(s => s.transferStrip);
   const startRequestAndTransfer = useWebSocketStore(s => s.startRequestAndTransfer);
   const assumeStrip = useWebSocketStore(s => s.assumeStrip);
@@ -89,22 +92,34 @@ export function SIBox({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isStand) {
-      return;
-    }
-    if (hasActiveHandover) {
+    if (hasActiveHandover && !isStand) {
       openStripContextMenu(callsign, { x: e.clientX, y: e.clientY });
       return;
     }
+    if (isTextPilot(strip) && !isReceivingTransfer && !isTagRequestOwner && !isTagRequestRequester) {
+      const initialSelected: string[] = [];
+      const readbackKey = `${ownCallsign}:${callsign}`;
+      const seq = /SEQ|PLN/.test(layout);
+      const del = layout === "CLX" || /CLR|DEL/.test(layout);
+      if (seq && !readbacks[readbackKey]) initialSelected.push("readback");
+      else {
+        if (del && bay === Bay.Cleared) initialSelected.push("readback");
+        const nextFreq = nextDisplay?.frequency || nextControllers?.find(p => p !== myPosition);
+        if (isAssumed && nextFreq && TEXT_STATIONS.some(s => s.frequency === nextFreq)) initialSelected.push(`freq:${nextFreq}`);
+        if (del && bay === Bay.Cleared && stationController("121.905", controllers)) {
+          initialSelected.splice(initialSelected.findIndex(id => id.startsWith("freq:")) < 0 ? initialSelected.length : initialSelected.findIndex(id => id.startsWith("freq:")), 1);
+          initialSelected.push("freq:121.905");
+        }
+      }
+      openTextPilotMenu({ callsign, variant: "si", initialSelected, readbackKey: seq ? readbackKey : undefined, startRequestTransfer: startRequestTransfer });
+      return;
+    }
+    if (isStand) return;
     if (isTagRequestOwner) {
       acceptTagRequest(callsign);
     } else if (isReceivingTransfer || isUnownedAndNext) {
       assumeStrip(callsign);
     } else if (isAssumed && nextPosition) {
-      if (transferAllowed && !transferAllowed()) {
-        toast.error("Startup transfer is only available within the TSAT window");
-        return;
-      }
       if (startRequestTransfer) {
         void startRequestAndTransfer(callsign);
       } else {
@@ -113,7 +128,7 @@ export function SIBox({
     }
   };
 
-  const isClickable = !isStand && (hasActiveHandover || isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner));
+  const isClickable = isTextPilot(strip) || !isStand && (hasActiveHandover || isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner));
 
   let background: string;
   if (isStand) {
@@ -148,7 +163,7 @@ export function SIBox({
         minWidth: 0,
         ...getSIBoxBorderStyle(!!marked, baseBorderColor),
         fontFamily: FONT,
-        fontSize: "1.15vw",
+        fontSize: "0.98vw",
         color: COLOR_SI_LABEL,
         cursor: isClickable ? "pointer" : "default",
       }}

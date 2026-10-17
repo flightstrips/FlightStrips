@@ -249,9 +249,12 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 	}
 
 	wasRunwayCleared := strip != nil && strip.RunwayCleared
-	updatedRwyArrStatus, err := s.updateRwyArrClearanceOnMove(ctx, session, callsign, previousBay, bay, wasRunwayCleared)
-	if err != nil {
-		return err
+	updatedRwyArrStatus := false
+	if ctx.Value(frontendMoveRwyArrTransitionHandledKey{}) != true {
+		updatedRwyArrStatus, err = s.updateRwyArrClearanceOnMove(ctx, session, callsign, previousBay, bay, wasRunwayCleared)
+		if err != nil {
+			return err
+		}
 	}
 	if updatedRwyArrStatus {
 		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)

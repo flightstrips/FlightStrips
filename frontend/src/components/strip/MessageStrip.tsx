@@ -37,6 +37,8 @@ export function MessageStrip({ msg }: MessageStripProps) {
   const position = useWebSocketStore(s => s.position);
   const dismissMessage = useWebSocketStore(s => s.dismissMessage);
   const si = getMessageSI(msg, position);
+  const largeText = msg.format === "LARGE" ||
+    ((!msg.format || msg.format === "AUTO") && !msg.is_broadcast && msg.recipients.length === 1);
 
   return (
     <div
@@ -54,7 +56,7 @@ export function MessageStrip({ msg }: MessageStripProps) {
       {/* Message text */}
       <div
         className="flex-1 flex items-center px-[0.42vw] py-[0.3dvh]"
-        style={{ fontFamily: "var(--font-bay)", fontSize: "0.73vw", color: COLOR_TEXT_MAIN }}
+        style={{ fontFamily: "var(--font-bay)", fontSize: largeText ? "1.04vw" : "0.73vw", color: COLOR_TEXT_MAIN }}
       >
         <span className="break-words min-w-0 w-full">{msg.text}</span>
       </div>

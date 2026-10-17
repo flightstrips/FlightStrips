@@ -11,7 +11,7 @@ describe("runway clearance actions", () => {
   const store = createWebSocketStore(client as unknown as WebSocketClient);
 
   const makeStrip = (callsign: string, bay: Bay, cleared = false, confirmed = false) =>
-    ({ callsign, bay, sequence: 1, runway: "22L", runway_cleared: cleared, runway_confirmed: confirmed }) as FrontendStrip;
+    ({ callsign, bay, owner: "TWR", sequence: 1, runway: "22L", runway_cleared: cleared, runway_confirmed: confirmed }) as FrontendStrip;
 
   beforeEach(() => {
     client.send.mockClear();
@@ -19,6 +19,8 @@ describe("runway clearance actions", () => {
       strips: [],
       tacticalStrips: [],
       readOnly: false,
+      position: "TWR",
+      stripTransfers: {},
     } as Partial<WebSocketState>);
   });
 
@@ -79,6 +81,45 @@ describe("runway clearance actions", () => {
       runway_cleared: false,
       runway_confirmed: false,
     });
+  });
+
+  it("blocks RWY ARR clearance changes for non-owning controllers", () => {
+    store.setState({
+      position: "APN",
+      strips: [makeStrip("FIRST", Bay.RwyArr, true, true)],
+    });
+
+    store.getState().resetRunwayClearance("FIRST");
+    store.getState().runwayConfirmation("FIRST");
+
+    expect(client.send).not.toHaveBeenCalled();
+    expect(store.getState().strips[0]).toMatchObject({ runway_cleared: true, runway_confirmed: true });
+  });
+
+  it("blocks moves through bay actions and pickup during a non-tag transfer", () => {
+    store.setState({
+      strips: [makeStrip("HANDOVER", Bay.Final)],
+      stripTransfers: { HANDOVER: { from: "TWR", to: "APP", isTagRequest: false } },
+    });
+
+    store.getState().move("HANDOVER", Bay.RwyArr);
+    store.getState().moveToControlzone("HANDOVER");
+    store.getState().pickupStrip("HANDOVER", Bay.Push);
+
+    expect(client.send).not.toHaveBeenCalled();
+    expect(store.getState().strips[0].bay).toBe(Bay.Final);
+  });
+
+  it("keeps movement available during a tag request", () => {
+    store.setState({
+      strips: [makeStrip("TAG", Bay.Final)],
+      stripTransfers: { TAG: { from: "TWR", to: "APP", isTagRequest: true } },
+    });
+
+    store.getState().move("TAG", Bay.RwyArr);
+
+    expect(client.send).toHaveBeenCalled();
+    expect(store.getState().strips[0].bay).toBe(Bay.RwyArr);
   });
 
   it("restores landing clearance after toggling green off", () => {

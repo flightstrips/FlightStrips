@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { FrontendController } from "@/api/models";
+import { findStationController } from "@/lib/controllerStations";
 
 // Laid out on the 841x394 design frame and scaled against a 1920 px wide screen.
 const px = (n: number) => `${((n * 0.8 / 1920) * 100).toFixed(3)}vw`;
@@ -33,28 +34,6 @@ const RAISED: CSSProperties = {
   boxShadow: "inset 2px 2px 2px -1px rgba(206,206,206,0.55), inset -2px -2px 2px -1px rgba(102,102,102,0.55)",
   boxSizing: "border-box",
 };
-
-const normalizeSector = (sector: string) => (sector === "GWA" || sector === "GWD" ? "GW" : sector);
-
-/** The online controller that currently covers a station: its own position, or a cross-coupled controller. */
-function findStationController(
-  station: Station,
-  controllers: FrontendController[],
-  ownPosition: string,
-  ownCallsign: string,
-): FrontendController | undefined {
-  const candidates = controllers.filter(
-    (c) =>
-      c.observer !== true &&
-      !c.callsign.toUpperCase().endsWith("_OBS") &&
-      c.position !== ownPosition &&
-      c.callsign.toUpperCase() !== ownCallsign.toUpperCase(),
-  );
-  return (
-    candidates.find((c) => c.position === station.frequency) ??
-    candidates.find((c) => (c.owned_sectors ?? []).some((s) => station.sectors.includes(normalizeSector(s))))
-  );
-}
 
 interface ManualTransferDialogProps {
   open: boolean;

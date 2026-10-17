@@ -151,6 +151,29 @@ retried serialization conflicts and deadlocks are counted separately by
 
 ## Traces
 
+### Investigating PDC delivery
+
+PDC request and clearance lifecycle logs include the aircraft `callsign`, `session`
+and `channel` (`CPDLC` or `WEB`). Request failures include the available requested
+and expected airports and aircraft type, plus the strip's flight-plan and clearance
+state. Pending requests record `outcome`, `pending_state`, validation `faults` and
+whether the pilot supplied remarks. Issuance failures identify the failing `stage`.
+
+`PDC Hoppie: Message accepted` means Hoppie returned a successful application
+response; pilot receipt is established separately by `Pilot acknowledged clearance`.
+Sends log `from`, `to`, `message_type`, `message_sequence` and `response_to` when
+available. Invalid HTTP responses, provider rejections and malformed poll responses
+are errors. Diagnostic responses are bounded and the Hoppie logon code is redacted.
+
+Callsigns are structured log metadata, so filter the fields rather than searching
+only the message text. Include both the reported callsign and a suspected stale
+callsign when investigating an aircraft logon mismatch:
+
+```logql
+{service_name="flightstrips-backend",deployment_environment="production"}
+  | callsign=~"AUA996|AUA998" or from=~"AUA996|AUA998" or to=~"AUA996|AUA998"
+```
+
 ### AMAN work during strip synchronization
 
 Full EuroScope syncs collect holding-clearance observations and apply them in

@@ -7,6 +7,7 @@
 namespace flightstrips::euroscope::v1 {
     class Envelope;
     class SessionInfoEvent;
+    class MasterInfoEvent;
     class RunwayMismatchAlertEvent;
     class CdmUpdateEvent;
     class CdmUpdateBatchEvent;
@@ -35,6 +36,8 @@ namespace flightstrips::euroscope::v1 {
     class CreateFPLEvent;
     class PdcStateChangeEvent;
     class SendPrivateMessageEvent;
+    class SendFrequencyMessageEvent;
+    class FrequencyMessageResultEvent;
     class HoldEvent;
     class FsScratchPadEvent;
 }
@@ -47,6 +50,7 @@ namespace FlightStrips::websocket::protobuf {
     EventType GetEventType(const wire::Envelope& envelope);
 
     void Decode(const wire::SessionInfoEvent& source, SessionInfoEvent& target);
+    void Decode(const wire::MasterInfoEvent& source, MasterInfoEvent& target);
     void Decode(const wire::RunwayMismatchAlertEvent& source, RunwayMismatchAlertEvent& target);
     void Decode(const wire::CdmUpdateEvent& source, CdmUpdateEvent& target);
     void Decode(const wire::CdmUpdateBatchEvent& source, CdmUpdateBatchEvent& target);
@@ -75,6 +79,7 @@ namespace FlightStrips::websocket::protobuf {
     void Decode(const wire::CreateFPLEvent& source, CreateFPLEvent& target);
     void Decode(const wire::PdcStateChangeEvent& source, PdcStateChangeEvent& target);
     void Decode(const wire::SendPrivateMessageEvent& source, SendPrivateMessageEvent& target);
+    void Decode(const wire::SendFrequencyMessageEvent& source, SendFrequencyMessageEvent& target);
     void Decode(const wire::HoldEvent& source, HoldEvent& target);
     void Decode(const wire::FsScratchPadEvent& source, FsScratchPadEvent& target);
 }

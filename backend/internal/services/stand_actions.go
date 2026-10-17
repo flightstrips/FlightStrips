@@ -86,6 +86,10 @@ func (s *StandActionService) AvailableForPilot(ctx context.Context, session int3
 	if err != nil {
 		return nil, err
 	}
+	if req.Direction == sat.AssignmentDirectionDeparture {
+		expiry := time.Now().UTC().Add(pilotStandHold)
+		req.ExpiresAt, req.Stage, req.ProtectReservations = &expiry, StageReserved, true
+	}
 	return s.allocations.AvailableStands(ctx, req)
 }
 
@@ -96,13 +100,15 @@ func (s *StandActionService) AssignManually(ctx context.Context, session int32, 
 		return nil, err
 	}
 	req.Stand = stand
+	if req.Direction == sat.AssignmentDirectionArrival {
+		req.Stage, req.ExpiresAt = StageAssigned, nil
+	}
 	return s.allocations.AssignManually(ctx, req)
 }
 
-// AssignForPilot applies a pilot-selected stand through the same compatibility,
-// occupancy and optimistic-concurrency rules as a controller assignment. It
-// deliberately cannot invoke the incompatible override path.
-func (s *StandActionService) AssignForPilot(ctx context.Context, session int32, airport, cid, callsign, stand string, version int32) (*StandAllocationResult, error) {
+// AssignForPilot permits confirmed suitability exceptions, but never bypasses
+// occupancy, controller blocks, or optimistic concurrency.
+func (s *StandActionService) AssignForPilot(ctx context.Context, session int32, airport, cid, callsign, stand string, version int32, allowUnsuitable bool) (*StandAllocationResult, error) {
 	if strings.TrimSpace(cid) == "" {
 		s.recordRequestFailure(CompatibleManualStand, session, airport, callsign, stand, ErrStandActionUnauthorized)
 		return nil, ErrStandActionUnauthorized
@@ -113,6 +119,10 @@ func (s *StandActionService) AssignForPilot(ctx context.Context, session int32, 
 		return nil, err
 	}
 	req.Stand, req.RequestStandSync = stand, true
+	req.AllowUnsuitable, req.ProtectReservations = allowUnsuitable, true
+	if req.Direction == sat.AssignmentDirectionArrival {
+		req.Stage, req.ExpiresAt = StageAssigned, nil
+	}
 	return s.allocations.AssignManually(ctx, req)
 }
 
@@ -123,6 +133,9 @@ func (s *StandActionService) Override(ctx context.Context, session int32, airpor
 		return nil, err
 	}
 	req.Stand, req.ConflictReason = stand, strings.TrimSpace(reason)
+	if req.Direction == sat.AssignmentDirectionArrival {
+		req.Stage, req.ExpiresAt = StageAssigned, nil
+	}
 	if req.ConflictReason == "" {
 		err := errors.New("confirmed override requires a reason")
 		s.allocations.recordAllocationFailure(IncompatibleManualOverride, req, "invalid_request", err, 0)

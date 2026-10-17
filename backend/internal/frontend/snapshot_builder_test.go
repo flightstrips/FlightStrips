@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/testutil"
@@ -12,6 +13,24 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSnapshotBuilder_BuildFrequencyLayout_UsesSelectedFrequency(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.105", Section: "TWR"},
+		{Name: "EKCH_B_GND", Frequency: "121.905", Section: "GND"},
+	}))
+	t.Cleanup(config.SetLayoutsForTest(map[string][]config.LayoutVariant{
+		"EKCH_A_TWR": {{Layout: "TWTE"}},
+		"EKCH_B_GND": {{Layout: "SEQPLN"}},
+	}))
+
+	builder := NewSnapshotBuilder(SnapshotBuilderDependencies{})
+	layout := builder.buildFrequencyLayout("121.905", []*internalModels.Controller{
+		{Callsign: "EKCH_A_TWR", Position: "121.905"},
+	}, []string{"22R"})
+
+	assert.Equal(t, "SEQPLN", layout)
+}
 
 type snapshotPendingDisconnectHub struct {
 	*testutil.MockEuroscopeHub
@@ -80,6 +99,10 @@ func TestSnapshotBuilder_Build_IncludesAssociatedLocalIP(t *testing.T) {
 			},
 		},
 		EuroscopeHub: &testutil.MockEuroscopeHub{
+			GetMasterCallsignFn: func(session int32) string {
+				assert.Equal(t, int32(42), session)
+				return "EKDK_FMP"
+			},
 			GetClientLocalIPFn: func(session int32, cid string) string {
 				assert.Equal(t, int32(42), session)
 				assert.Equal(t, "1234567", cid)
@@ -100,6 +123,7 @@ func TestSnapshotBuilder_Build_IncludesAssociatedLocalIP(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, cachedAtis)
 	assert.Equal(t, "192.168.1.25", event.LocalIP)
+	assert.Equal(t, "EKDK_FMP", event.MasterCallsign)
 }
 
 func TestSnapshotBuilder_Build_ExcludesStripsOmittedByLatestEuroscopeSync(t *testing.T) {

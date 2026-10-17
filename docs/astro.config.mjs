@@ -21,27 +21,27 @@ export default defineConfig({
 				},
 				{
 					label: 'Concepts',
-					autogenerate: { directory: 'concepts' }
+					items: [{ autogenerate: { directory: 'concepts' } }],
 				},
 				{
 					label: 'Procedures',
-					autogenerate: { directory: 'procedures' }
+					items: [{ autogenerate: { directory: 'procedures' } }],
 				},
 				{
 					label: 'Kastrup',
-					autogenerate: { directory: 'ekch' }
+					items: [{ autogenerate: { directory: 'ekch' } }],
 				},
 				{
 					label: 'Troubleshooting',
-					autogenerate: { directory: 'troubleshooting' }
+					items: [{ autogenerate: { directory: 'troubleshooting' } }],
 				},
 				{
 					label: 'Development',
-					autogenerate: { directory: 'dev' }
+					items: [{ autogenerate: { directory: 'dev' } }],
 				},
 				{
 					label: 'Reference',
-					autogenerate: { directory: 'reference' },
+					items: [{ autogenerate: { directory: 'reference' } }],
 				},
 			],
 		}),

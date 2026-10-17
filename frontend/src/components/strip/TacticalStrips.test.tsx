@@ -155,7 +155,7 @@ describe("tactical strip ownership interactions", () => {
     expect(container.firstElementChild).toHaveStyle({ backgroundColor: "#fcc800" });
     fireEvent.click(screen.getByText("CROSSING TRAFFIC"), { clientX: 100, clientY: 120 });
 
-    expect(screen.getByRole("dialog", { name: "Tactical strip actions" })).toHaveStyle({ width: "167px" });
+    expect(screen.getByRole("dialog", { name: "Tactical strip actions" })).toHaveStyle({ width: "107px" });
     expect(screen.getByRole("dialog", { name: "Tactical strip actions" }).style.height).toBe("");
     expect(screen.getByText("TE")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "FORCE ASSUME" }));

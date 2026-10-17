@@ -1,0 +1,40 @@
+---
+title: Text pilots
+description: Send frequency instructions to text-only pilots from FlightStrips.
+---
+
+Text-only pilots have a red **t** in the corner of their strip. **r** identifies a pilot who receives voice; their strip actions retain the normal voice workflow.
+
+Connect an updated FlightStrips EuroScope plugin on your primary frequency. Messages are broadcast using EuroScope's FREQ command with the addressed aircraft selected. Read pilot replies in EuroScope.
+
+## Compose an instruction
+
+Select a pushback point, taxi hold-short point or holding point to open the appropriate text menu. Choose phrase buttons to add instructions; choose them again to remove their wording. The selected route limit stays at the end while taxi instructions are inserted before it. You can edit the white message field directly or use **ERASE**.
+
+For pushback, the backend checks TSAT and active validations before opening the text menu. Resolve or acknowledge the validation first, then select the pushback point again. Timing is checked again on **SEND**; a new blocking validation closes the text menu without sending the message.
+
+**SEND** applies staged map actions and submits the text. After successful submission, both menus close. **ESC** discards staged map actions and closes the text menu; the map remains available.
+
+## Handover and readback
+
+Click SI to compose readback, startup or handover text. A selected station transfers an owned strip when you SEND. For an outgoing transfer, **REMAIN ON THIS FREQUENCY** cancels the transfer when you SEND. Other ownership states send text without changing ownership. Incoming split SI keeps its usual assume behavior.
+
+SEQPLN initially selects **READBACK CORRECT** until a readback message is successfully submitted for that flight. Cleared CLX strips also default to readback, with apron 121.905 when that station is covered.
+
+## Stand, runway and clearance
+
+For a text pilot, **SEND REQ** in stand assignment opens taxi-in after the stand is accepted. Cancelling the text leaves the assignment in place.
+
+The runway button first applies its usual action. The resulting red state defaults to line-up-and-wait or continue-approach; green defaults to the recorded wind and cleared-for-takeoff or cleared-to-land. Cancelling the text leaves the accepted runway state in place. Check the message, runway and wind before SEND.
+
+Manual ATC clearance sends text using the accepted destination, SID/route/vectors, initial climb, squawk and applicable heading/straight-ahead instruction. PDC retains its existing workflow.
+
+## Submission failures
+
+A submission result confirms that EuroScope consumed the command input; it does not confirm pilot receipt. Failure leaves the composer available with your edited text. Actions already accepted are retained, so inspect the strip before retrying.
+
+If submission is unconfirmed, check EuroScope before sending again. FlightStrips does not automatically resend after a timeout or reconnect. Keep the EuroScope command input empty when using SEND; FlightStrips refuses to overwrite existing controller input. If FREQ fails, inspect any text left there.
+
+The plugin always uses the numeric-keypad Multiply (`*`) key for FREQ: Windows `VK_MULTIPLY` (`0x6A`), scan code `0x37`. Bind FREQ to that key in EuroScope. The old `text_pilot.frequency_key` setting is ignored; a typed asterisk or Shift+8 is not used.
+
+SEND brings EuroScope to the foreground and sends a native numpad Multiply keypress. Release Shift/Ctrl/Alt/Windows modifiers before sending. FlightStrips waits for EuroScope to consume the input before reporting submission, and leaves unconsumed text for inspection if it fails.

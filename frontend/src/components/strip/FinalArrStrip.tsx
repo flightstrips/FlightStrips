@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
@@ -13,6 +14,7 @@ import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getDefaultExitTaxiway } from "./defaultExitTaxiway";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
 import { getRwyArrRunwayColor } from "./finalArrRunwayColor";
+import {InboundCtotFlag} from "./InboundCtotFlag";
 
 // Heights — 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom
 const TOP_H = "66.6667%";
@@ -37,6 +39,7 @@ const F_STAND    = 80;
  * Background: yellow (var(--color-strip-arr-bg)). Cell borders: gold (var(--color-cell-border-arr)).
  */
 export function FinalArrStrip({
+  communicationType,
   callsign,
   bay,
   aircraftType,
@@ -92,7 +95,6 @@ export function FinalArrStrip({
         height: "4.72dvh",
         width: "95%",
         backgroundColor: bg,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >
@@ -127,6 +129,7 @@ export function FinalArrStrip({
           <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>
             {callsign}
           </span>
+          <InboundCtotFlag callsign={callsign} />
         </div>
         <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
           <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>
@@ -222,9 +225,11 @@ export function FinalArrStrip({
 
       {/* STAR (inactive) */}
       <div
-        className="flex flex-col overflow-hidden min-w-0"
+        className="relative flex flex-col overflow-hidden min-w-0"
         style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%" }}
-      />
+      >
+        <TextPilotIndicator divider={false} type={communicationType} borderColor={stripFrameColor} />
+      </div>
     </div>
 
     <ArrStandDialog

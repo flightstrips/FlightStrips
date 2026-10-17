@@ -49,12 +49,14 @@ type MockStripRepository struct {
 	UpdateMarkedFn                  func(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error)
 	UpdateRunwayClearanceFn         func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRunwayConfirmationFn      func(ctx context.Context, session int32, callsign string) (int64, error)
+	ArrivalRunwayConfirmationFn     func(ctx context.Context, session int32, callsign string) (int64, error)
 	ResetRunwayClearanceFn          func(ctx context.Context, session int32, callsign string) (int64, error)
 	SetRwyArrRunwayStatusOnEntryFn  func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRegistrationFn            func(ctx context.Context, session int32, callsign string, registration string) error
 	UpdateTrackingControllerFn      func(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
 	SetOwnerFn                      func(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
 	SetRouteStateFn                 func(ctx context.Context, session int32, callsign string, nextOwners []string, nextDisplay *models.NextDisplay) error
+	SetNextControllerSelectionFn    func(ctx context.Context, session int32, callsign, owner, sector string, nextOwners []string, nextDisplay *models.NextDisplay) (int64, error)
 	SetPreviousOwnersFn             func(ctx context.Context, session int32, callsign string, previousOwners []string) error
 	SetNextAndPreviousOwnersFn      func(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error
 	GetCdmDataFn                    func(ctx context.Context, session int32) ([]*models.CdmDataRow, error)
@@ -383,6 +385,13 @@ func (m *MockStripRepository) UpdateRunwayConfirmation(ctx context.Context, sess
 	return m.UpdateRunwayConfirmationFn(ctx, session, callsign)
 }
 
+func (m *MockStripRepository) UpdateArrivalRunwayConfirmation(ctx context.Context, session int32, callsign string) (int64, error) {
+	if m.ArrivalRunwayConfirmationFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateArrivalRunwayConfirmation")
+	}
+	return m.ArrivalRunwayConfirmationFn(ctx, session, callsign)
+}
+
 func (m *MockStripRepository) ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error) {
 	if m.ResetRunwayClearanceFn == nil {
 		panic("unexpected call to MockStripRepository.ResetRunwayClearance")
@@ -430,6 +439,13 @@ func (m *MockStripRepository) SetPreviousOwners(ctx context.Context, session int
 		panic("unexpected call to MockStripRepository.SetPreviousOwners")
 	}
 	return m.SetPreviousOwnersFn(ctx, session, callsign, previousOwners)
+}
+
+func (m *MockStripRepository) SetNextControllerSelection(ctx context.Context, session int32, callsign, owner, sector string, nextOwners []string, nextDisplay *models.NextDisplay) (int64, error) {
+	if m.SetNextControllerSelectionFn == nil {
+		panic("unexpected call to MockStripRepository.SetNextControllerSelection")
+	}
+	return m.SetNextControllerSelectionFn(ctx, session, callsign, owner, sector, nextOwners, nextDisplay)
 }
 
 func (m *MockStripRepository) SetNextAndPreviousOwners(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error {

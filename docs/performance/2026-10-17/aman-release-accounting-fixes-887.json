@@ -1,0 +1,163 @@
+{
+  "fixes": [
+    "Include unresolved airborne arrivals in workload uncertainty; only fresh physical entry timing can establish that they are beyond the admission horizon.",
+    "Recheck retained accepted absorption against the current slot after holding timing disappears, including stale/unpublishable predictions.",
+    "Persist remaining route-fix evidence for RETA and performance predictions; late observed departures constrain follower release spacing."
+  ],
+  "checks": {
+    "red_phase": "All three review defects reproduced with regression tests before production fixes.",
+    "focused": "go test ./internal/aman/operational ./internal/aman/release -count=1 passed",
+    "backend": "go run ./internal/testing/testdb ./... passed, including PostgreSQL persistence of remaining-route evidence",
+    "build": "aman-accuracy binary compiled successfully",
+    "diff": "git diff --check passed"
+  },
+  "regression_tests": [
+    "TestUnresolvedAirborneArrivalBlocksAdditionalIntake: missing, unpublishable, preliminary and stale predictions; fresh far/imminent arrivals; planned/landed/removed controls.",
+    "TestReleasedReservationRechecksBudgetWithoutHoldingTiming: in-approach/observed releases, stale surveillance and unavailable predictions preserve accepted timing, expose the excess and block independent advancement.",
+    "TestRETALateReleaseSpacesFollowersFromObservedDeparture: real WTC/L prediction, persistence round-trip, three-minute observed entry spacing, two-minute admission lookahead, and latched departure across later observations.",
+    "TestRETAReleaseRequiresFreshPhysicalRouteEvidence: remaining hold fix, holding ETA, stale prediction, future EAT, missing geometry and legacy performance-geometry fallback."
+  ],
+  "replay_setup": {
+    "baseline": "expedite-session{1,2,3}",
+    "rate_per_hour": 40,
+    "update_interval": "1m",
+    "cache_only": true,
+    "release_buffer": true
+  },
+  "binary_sha256": "808f850c4d945c3c43069e6f4b00e9e557f537c819f355085adce2416f7d482a",
+  "sessions": [
+    {
+      "recording": "C:/vatsim-data",
+      "all_horizon_accuracy_lines_identical": true,
+      "observed_occupancy_identical": true,
+      "landing_slot_mae_seconds_by_horizon_minutes": {
+        "before": {
+          "5": 745,
+          "10": 772,
+          "15": 785,
+          "20": 793,
+          "30": 826
+        },
+        "after": {
+          "5": 745,
+          "10": 772,
+          "15": 785,
+          "20": 793,
+          "30": 826
+        }
+      },
+      "metrics": {
+        "before": {
+          "snapshots": 151,
+          "publishable_flight_samples": 7651,
+          "holding_plan_samples": 3005,
+          "advanced_plan_samples": 43,
+          "holding_seconds_sum": 5698898.762438355,
+          "additional_approach_seconds_sum": 9927.710702050004,
+          "max_projected_buffer": 17,
+          "buffer_degraded_samples": 123
+        },
+        "after": {
+          "snapshots": 151,
+          "publishable_flight_samples": 7651,
+          "holding_plan_samples": 2961,
+          "advanced_plan_samples": 19,
+          "holding_seconds_sum": 5698741.460840708,
+          "additional_approach_seconds_sum": 223.35928181299988,
+          "max_projected_buffer": 15,
+          "buffer_degraded_samples": 138
+        }
+      }
+    },
+    {
+      "recording": "C:/vatsim-data1",
+      "all_horizon_accuracy_lines_identical": true,
+      "observed_occupancy_identical": true,
+      "landing_slot_mae_seconds_by_horizon_minutes": {
+        "before": {
+          "5": 310,
+          "10": 309,
+          "15": 309,
+          "20": 309,
+          "30": 321
+        },
+        "after": {
+          "5": 310,
+          "10": 309,
+          "15": 309,
+          "20": 309,
+          "30": 321
+        }
+      },
+      "metrics": {
+        "before": {
+          "snapshots": 324,
+          "publishable_flight_samples": 2091,
+          "holding_plan_samples": 525,
+          "advanced_plan_samples": 76,
+          "holding_seconds_sum": 15662.951998870016,
+          "additional_approach_seconds_sum": 3134.5960315349944,
+          "max_projected_buffer": 5,
+          "buffer_degraded_samples": 69
+        },
+        "after": {
+          "snapshots": 324,
+          "publishable_flight_samples": 2095,
+          "holding_plan_samples": 525,
+          "advanced_plan_samples": 32,
+          "holding_seconds_sum": 18407.214932614028,
+          "additional_approach_seconds_sum": 360.24347721600003,
+          "max_projected_buffer": 5,
+          "buffer_degraded_samples": 300
+        }
+      }
+    },
+    {
+      "recording": "C:/vatsim-data2",
+      "all_horizon_accuracy_lines_identical": true,
+      "observed_occupancy_identical": true,
+      "landing_slot_mae_seconds_by_horizon_minutes": {
+        "before": {
+          "5": 598,
+          "10": 598,
+          "15": 603,
+          "20": 614,
+          "30": 1101
+        },
+        "after": {
+          "5": 598,
+          "10": 598,
+          "15": 603,
+          "20": 614,
+          "30": 1101
+        }
+      },
+      "metrics": {
+        "before": {
+          "snapshots": 233,
+          "publishable_flight_samples": 12900,
+          "holding_plan_samples": 4998,
+          "advanced_plan_samples": 93,
+          "holding_seconds_sum": 4094770.4534629863,
+          "additional_approach_seconds_sum": 7055.406479902993,
+          "max_projected_buffer": 15,
+          "buffer_degraded_samples": 209
+        },
+        "after": {
+          "snapshots": 233,
+          "publishable_flight_samples": 12903,
+          "holding_plan_samples": 4998,
+          "advanced_plan_samples": 66,
+          "holding_seconds_sum": 4098416.5183195556,
+          "additional_approach_seconds_sum": 3387.604128569999,
+          "max_projected_buffer": 14,
+          "buffer_degraded_samples": 231
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Recorded trajectories do not follow hypothetical FS release commands; changes in offered release targets are planning effects, not measured operational improvements.",
+    "Deterministic regressions cover the reported failures, including delayed physical release and capacity changes absent from these fixed-rate API recordings."
+  ]
+}

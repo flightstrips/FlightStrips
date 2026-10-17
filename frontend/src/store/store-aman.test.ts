@@ -59,6 +59,24 @@ function createMockClient() {
 }
 
 describe("AMAN command store", () => {
+ it("does not complete rebuild on unrelated revisions, and acknowledges unchanged results", () => {
+  const client = createMockClient();
+  const store = createWebSocketStore(client);
+  store.getState().setAMANConnectionState("connected");
+  client._emit(EventType.FrontendInitial, initialSnapshot(true));
+  client._emit(EventType.FrontendAMANState, replacement(7));
+  const commandID = store.getState().sendAMANCommand({type: "aman.rebuild_arrival_sequence"})!;
+  client._emit(EventType.FrontendAMANState, replacement(8));
+  expect(store.getState().amanPendingCommands[commandID]).toBeDefined();
+  client._emit(EventType.FrontendAMANArrivalSequenceRebuilt, {type: "aman.arrival_sequence_rebuilt",version: 1,data: {command_id: commandID,revision: 8,changed: false,duplicate: false,publication_status: "published",release_order: [],diagnostics: []}});
+  expect(store.getState().amanPendingCommands[commandID]).toBeUndefined();
+  expect(store.getState().amanRebuildResult?.changed).toBe(false);
+  const nextID = store.getState().sendAMANCommand({type: "aman.rebuild_arrival_sequence"})!;
+  client._emit(EventType.FrontendAMANArrivalSequenceRebuilt, {type: "aman.arrival_sequence_rebuilt",version: 1,data: {command_id: commandID,revision: 8,changed: false,duplicate: true,publication_status: "published",release_order: [],diagnostics: []}});
+  expect(store.getState().amanRebuildResult).toBeNull();
+  expect(store.getState().amanPendingCommands[nextID]).toBeDefined();
+ });
+
   let client: ReturnType<typeof createMockClient>;
   let store: StoreApi<WebSocketState>;
 
@@ -261,18 +279,20 @@ describe("AMAN command store", () => {
     });
   });
 
-  it("sends and confirms typed disposition commands without client-owned sequence results", () => {
-    const desequenceID = store.getState().sendAMANCommand({type: "aman.desequence_flight", callsign: "SAS123"})!;
+  it.each(["aman.desequence_flight", "aman.expedite_flight"] as const)("sends and confirms %s without client-owned sequence results", (type) => {
+    const desequenceID = store.getState().sendAMANCommand({type, callsign: "SAS123"})!;
     expect(client.send).toHaveBeenLastCalledWith({
-      type: "aman.desequence_flight", version: 1,
+      type, version: 1,
       data: {command_id: desequenceID, expected_revision: 7, callsign: "SAS123"},
     });
 
     const confirmed = replacement(8);
     confirmed.data.flights[0].sequence_disposition = "desequenced";
+    confirmed.data.flights[0].expedited = type === "aman.expedite_flight";
     client._emit(EventType.FrontendAMANState, confirmed);
     expect(store.getState().amanPendingCommands[desequenceID]).toBeUndefined();
     expect(store.getState().amanState?.flights[0].sequence_disposition).toBe("desequenced");
+    expect(store.getState().amanState?.flights[0].expedited).toBe(type === "aman.expedite_flight");
 
     for (const type of ["aman.resume_flight", "aman.remove_flight"] as const) {
       const commandID = store.getState().sendAMANCommand({type, callsign: "SAS123"})!;

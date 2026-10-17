@@ -2,13 +2,15 @@
 #include "flightplan/FlightPlanService.h"
 #include "flightplan/RouteService.h"
 #include "handlers/MessageHandler.h"
+#include "handlers/TimedEventHandler.h"
+#include "PrivateMessageSender.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "websocket/WebSocketService.h"
 #include "stands/StandService.h"
 #include "runway/RunwayService.h"
 
 namespace FlightStrips::messages {
-    class MessageService final : public handlers::MessageHandler {
+    class MessageService final : public handlers::MessageHandler, public handlers::TimedEventHandler {
     public:
         MessageService(const std::shared_ptr<FlightStripsPlugin> &m_plugin,
             const std::shared_ptr<websocket::WebSocketService> &m_web_socket_service,
@@ -24,6 +26,7 @@ namespace FlightStrips::messages {
               m_runwayService(m_runway_service) {
         }
 
+        void OnTimer(int time) override;
         void OnMessages(const std::vector<std::string> &messages) override;
         bool SendFsScratchPad(const std::string& callsign, const std::string& text) const;
         void HandleFsScratchPad(const FsScratchPadEvent& event) const;
@@ -35,6 +38,11 @@ namespace FlightStrips::messages {
         bool SendCdmCtotRemove(const std::string& callsign) const;
 		bool SendCdmReady(const std::string& callsign) const;
     private:
+        struct PendingFrequencyMessage {
+            PendingFrequencySubmission submission;
+            FrequencyMessageResultEvent result;
+        };
+        mutable std::optional<PendingFrequencyMessage> m_pendingFrequencyMessage;
         std::shared_ptr<FlightStripsPlugin> m_plugin;
         std::shared_ptr<websocket::WebSocketService> m_webSocketService;
         std::shared_ptr<flightplan::FlightPlanService> m_flightPlanService;
@@ -46,6 +54,7 @@ namespace FlightStrips::messages {
         void HandleCdmUpdateEvent(const CdmUpdateEvent& event) const;
         void HandleCdmUpdateBatchEvent(const CdmUpdateBatchEvent& event) const;
         void HandleSessionInfoEvent(const SessionInfoEvent& event) const;
+        void HandleMasterInfoEvent(const MasterInfoEvent& event) const;
         void HandleRunwayMismatchAlertEvent(const RunwayMismatchAlertEvent& event) const;
         void HandleAssignedSquawkEvent(const AssignedSquawkEvent& event) const;
         void HandleRequestedAltitudeEvent(const RequestedAltitudeEvent& event) const;
@@ -71,6 +80,7 @@ namespace FlightStrips::messages {
         void HandleCreateFPLEvent(const CreateFPLEvent& event) const;
         void HandlePdcStateChangeEvent(const PdcStateChangeEvent& event) const;
         void HandleSendPrivateMessageEvent(const SendPrivateMessageEvent& event) const;
+        void HandleSendFrequencyMessageEvent(const SendFrequencyMessageEvent& event) const;
         void HandleHoldEvent(const HoldEvent& event) const;
         void HandleTrackingControllerChangedEvent(const TrackingControllerChangedEvent& event) const;
         void WriteTopSkyHoldEat(EuroScopePlugIn::CFlightPlan flightPlan, const HoldEvent& event) const;

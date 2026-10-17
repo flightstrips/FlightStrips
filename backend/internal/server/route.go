@@ -849,12 +849,10 @@ func resolveRouteStage(
 		}, true
 	}
 
-	ownerSector := resolveConfiguredRouteSector(sector, strip, session)
-	owner, ok := resolveRouteSectorOwner(ownerSector, ownership.sectorToOwner, nil)
-	if !ok {
+	resolution := resolveOwnedHandoverTarget(sector, strip, session, ownership, radio)
+	if resolution == nil {
 		return resolvedRouteStage{}, false
 	}
-	resolution := resolveHandoverTargetForOwner(sector, owner, strip, session, ownership, radio)
 	return resolvedRouteStage{
 		Identifier:     resolution.Identifier,
 		Owner:          resolution.Owner,

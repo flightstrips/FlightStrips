@@ -238,6 +238,8 @@ export interface WebSocketState {
   setTagRequestArmed: (armed: boolean) => void;
   markArmed: boolean;
   setMarkArmed: (armed: boolean) => void;
+  localMarked: Record<string, boolean>;
+  setLocalMarked: (callsign: string, marked: boolean) => void;
   setDisplayedLayout: (layout: string) => void;
   setLayoutChooserOpen: (open: boolean) => void;
   resetLayout: () => void;
@@ -383,6 +385,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     selectedCallsign: null,
     tagRequestArmed: false,
     markArmed: false,
+    localMarked: {},
     contextMenu: null,
     validationDialogCallsign: null,
     standAssignments: [],
@@ -543,6 +546,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      })),
      setTagRequestArmed: (armed) => set({ tagRequestArmed: armed, markArmed: armed ? false : get().markArmed, contextMenu: null }),
      setMarkArmed: (armed) => set({ markArmed: armed, tagRequestArmed: armed ? false : get().tagRequestArmed, contextMenu: null }),
+    setLocalMarked: (callsign, marked) => set(produce((state: WebSocketState) => {
+      state.localMarked[callsign] = marked;
+    })),
     setDisplayedLayout: (layout) => {
       const normalizedLayout = normalizeLayout(layout);
       set({

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import CommandBar from "./CommandBar";
-import type { RunwayConfiguration } from "@/api/models";
+import type { FrontendStrip, RunwayConfiguration } from "@/api/models";
 
 const runway = vi.hoisted(() => ({ departure: [], arrival: [] } as RunwayConfiguration));
 
@@ -13,6 +13,11 @@ const state = vi.hoisted(() => ({
   readOnly: false,
   positionAvailable: true,
   masterCallsign: "EKCH_A_TWR",
+  selectedCallsign: null as string | null,
+  strips: [] as FrontendStrip[],
+  localMarked: {} as Record<string, boolean>,
+  setLocalMarked: vi.fn(),
+  toggleMarked: vi.fn(),
 }));
 
 vi.mock("@/store/store-hooks", () => ({
@@ -20,17 +25,16 @@ vi.mock("@/store/store-hooks", () => ({
   useMetar: () => null,
   useAtisCode: () => "",
   useRunwaySetup: () => runway,
-  useSelectedCallsign: () => null,
+  useSelectedCallsign: () => state.selectedCallsign,
   useSelectStrip: () => vi.fn(),
-  useStrips: () => [],
+  useStrips: () => state.strips,
   useMarkArmed: () => false,
   useSetMarkArmed: () => vi.fn(),
-  useStrip: () => undefined,
+  useStrip: (callsign: string) => state.strips.find((strip) => strip.callsign === callsign),
 }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 vi.mock("@/components/Time", () => ({ default: () => null }));
 vi.mock("@/components/MetarHelper", () => ({ default: () => null }));
-vi.mock("./MRKBTN", () => ({ default: () => null }));
 vi.mock("./VACSBTN", () => ({ default: () => null }));
 vi.mock("./CommandBarSettings", () => ({ default: () => null }));
 vi.mock("./TRFBRN", () => ({ default: () => null }));
@@ -57,6 +61,9 @@ beforeEach(() => {
   runway.departure_mismatch = false;
   runway.arrival_mismatch = false;
   state.masterCallsign = "EKCH_A_TWR";
+  state.selectedCallsign = null;
+  state.strips = [];
+  state.localMarked = {};
   Object.defineProperty(document, "fullscreenEnabled", { configurable: true, get: () => true });
   Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => null });
   Object.defineProperty(document, "exitFullscreen", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
@@ -74,6 +81,25 @@ afterAll(() => {
     if (descriptor) Object.defineProperty(target, key, descriptor);
     else Reflect.deleteProperty(target, key);
   }
+});
+
+describe("selected-strip marking", () => {
+  it.each([
+    { serverMarked: false, localMarked: true, nextMarked: false },
+    { serverMarked: true, localMarked: false, nextMarked: true },
+  ])("renders and toggles the effective local override: $localMarked", ({ serverMarked, localMarked, nextMarked }) => {
+    state.selectedCallsign = "SAS123";
+    state.strips = [{ callsign: "SAS123", marked: serverMarked } as FrontendStrip];
+    state.localMarked = { SAS123: localMarked };
+    render(<CommandBar />);
+
+    const markButton = screen.getByRole("button", { name: "MRK" });
+    expect(markButton).toHaveClass(localMarked ? "bg-[#FF00F5]" : "bg-bay-btn");
+    fireEvent.click(markButton);
+
+    expect(state.setLocalMarked).toHaveBeenCalledWith("SAS123", nextMarked);
+    expect(state.toggleMarked).not.toHaveBeenCalled();
+  });
 });
 
 describe("scope selector controls", () => {

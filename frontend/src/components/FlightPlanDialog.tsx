@@ -416,6 +416,7 @@ export default function FlightPlanDialog({
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SID</Label>
               <button
                 type="button"
+                aria-label="SID"
                 onClick={() => setSidDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ ...fieldStyle(150), ...clxFieldStyle(sidFault) }}
@@ -432,9 +433,10 @@ export default function FlightPlanDialog({
                 onSelectSid={(sid) => {
                   if (sid === strip.sid && sidOverride) {
                     clxOverrideValidation(callsign, sidOverride);
+                    if (strip.heading) updateStrip(callsign, { heading: 0 });
                     return;
                   }
-                  updateStrip(callsign, { sid });
+                  updateStrip(callsign, { sid, heading: 0 });
                 }}
                 onSelectRnav={handleRnavChange}
                 onErase={() => updateStrip(callsign, { sid: "" })}
@@ -682,6 +684,7 @@ export default function FlightPlanDialog({
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>HDG</Label>
               <button
                 type="button"
+                aria-label="HDG"
                 onClick={() => setHdgDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ ...fieldStyle(125), display: "flex", alignItems: "center", justifyContent: "center", gap: scalePx(4) }}
@@ -700,7 +703,9 @@ export default function FlightPlanDialog({
                 runway={strip.runway}
                 turnDirection={hdgTurnDirection}
                 onTurnDirectionChange={setHdgTurnDirection}
-                onSelect={(heading) => updateStrip(callsign, { heading: heading ?? 0 })}
+                onSelect={(heading) => updateStrip(callsign, heading
+                  ? { heading, sid: "" }
+                  : { heading: 0 })}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -961,7 +966,7 @@ export default function FlightPlanDialog({
               clearPdc(strip.callsign, null);
             } else {
               if (mandatoryRouteSidMismatch) {
-                updateStrip(callsign, { sid: mandatoryRouteSid });
+                updateStrip(callsign, { sid: mandatoryRouteSid, heading: 0 });
               }
               if (mandatoryRouteToClear && mandatoryRouteToClear !== strip.route?.trim().toUpperCase()) {
                 updateStrip(callsign, { route: mandatoryRouteToClear });

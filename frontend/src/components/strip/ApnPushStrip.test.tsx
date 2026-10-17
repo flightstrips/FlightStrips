@@ -6,6 +6,7 @@ import { ApnPushStrip } from "./ApnPushStrip";
 const state = vi.hoisted(() => ({
   displayedLayout: "AAAD",
   strips: [],
+  localMarked: {} as Record<string, boolean>,
   transferStrip: vi.fn(),
 }));
 

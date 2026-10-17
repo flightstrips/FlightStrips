@@ -16,6 +16,7 @@ import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsig
 import { CLS_CMDBTN, CLS_CMD_BEVEL } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
+import { effectiveStripMarked, toggleEffectiveStripMark } from "@/lib/strip-marking";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -118,6 +119,8 @@ export default function CommandBar() {
   const setMarkArmed = useSetMarkArmed();
   const move = useWebSocketStore((state) => state.move);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
+  const setLocalMarked = useWebSocketStore((state) => state.setLocalMarked);
+  const localMarked = useWebSocketStore((state) => selectedCallsign ? state.localMarked[selectedCallsign] : undefined);
   const updateRunwayStatus = useWebSocketStore((state) => state.updateRunwayStatus);
   const strip = useStrip(selectedCallsign ?? "");
 
@@ -135,7 +138,7 @@ export default function CommandBar() {
   const scopeButtonClass = readOnly ? "bg-[#FFD84D] text-black" : "bg-[#1bff16] text-black";
   const positionLabel = myPosition ? `${myPosition}${readOnly ? " (OBS)" : ""}` : "";
   const isOwner = !!selectedCallsign && !!myPosition && strip?.owner === myPosition;
-  const isMarked = strip?.marked ?? false;
+  const isMarked = effectiveStripMarked(strip?.marked, localMarked);
   const canMark = !!selectedCallsign || strips.length > 0;
 
   // Layout chooser dialog (dismissable, triggered from station box)
@@ -178,7 +181,7 @@ export default function CommandBar() {
 
   const handleMark = () => {
     if (selectedCallsign) {
-      toggleMarked(selectedCallsign, !isMarked);
+      toggleEffectiveStripMark(selectedCallsign, strip?.marked, localMarked, setLocalMarked, toggleMarked);
       return;
     }
 

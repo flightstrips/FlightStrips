@@ -19,7 +19,8 @@ func TestDepartureRoutingSequencingEligibility(t *testing.T) {
 	gw := target{"118.580", "GW", "118.580"}
 	tw := target{"119.355", "TW", "119.355"}
 	sequence := target{"121.905", "SEQ PLN", "121.905"}
-	delivery := target{"119.905", "DEL", "119.905"}
+	delivery := target{"119.905", "SEQ PLN", "119.905"}
+	carriedDelivery := target{"118.105", "SEQ PLN", "119.905"}
 	carriedSequence := target{"118.105", "SEQ PLN", "121.905"}
 	carriedGW := target{"118.105", "GW", "118.580"}
 	carriedGE := target{"118.105", "GE", "121.830"}
@@ -91,7 +92,7 @@ func TestDepartureRoutingSequencingEligibility(t *testing.T) {
 		{
 			name:        "genuine DEL carriage preserves sequencing eligibility",
 			carry:       []string{"119.905"},
-			want:        [3]target{{"118.105", "TE", "118.105"}, {"118.105", "TE", "118.105"}, {"118.105", "TE", "118.105"}},
+			want:        [3]target{carriedDelivery, carriedDelivery, carriedDelivery},
 			wantAfterAD: []string{"118.580", "119.355"}, wantAfterShow: gw,
 		},
 		{

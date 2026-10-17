@@ -287,6 +287,7 @@ type SyncCoordination struct {
 
 type InitialEvent struct {
 	MasterCallsign         string                  `json:"master_callsign"`
+	InboundDepartures      *InboundDeparturesEvent `json:"inbound_departures,omitempty"`
 	SessionID              int32                   `json:"session_id,omitempty"`
 	Contsollers            []Controller            `json:"controllers"`
 	Strips                 []Strip                 `json:"strips"`

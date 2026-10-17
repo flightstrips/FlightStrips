@@ -65,6 +65,33 @@ func TestGetOrCreateSessionCreatesAuthoritativeSession(t *testing.T) {
 	}
 }
 
+type inboundSessionCdmService struct {
+	constructorCdmService
+	registered models.Session
+}
+
+func (s *inboundSessionCdmService) RegisterInboundSession(id int32, name, airport string) {
+	s.registered = models.Session{ID: id, Name: name, Airport: airport}
+}
+
+func TestGetOrCreateSessionRegistersInboundMonitoringImmediately(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		var repo repository.SessionRepository = &createSessionRepository{id: 42}
+		if existing {
+			repo = &persistedPlaybackRepository{session: models.Session{ID: 42, Name: "LIVE", Airport: "EKCH"}}
+		}
+		cdmService := &inboundSessionCdmService{}
+		server := &Server{sessionRepo: repo, cdmService: cdmService}
+		_, err := server.GetOrCreateSession("EKCH", "LIVE")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cdmService.registered.ID != 42 || cdmService.registered.Airport != "EKCH" || cdmService.registered.Name != "LIVE" {
+			t.Fatalf("session was not registered for immediate inbound monitoring: %#v", cdmService.registered)
+		}
+	}
+}
+
 type persistedPlaybackRepository struct {
 	repository.SessionRepository
 	session models.Session

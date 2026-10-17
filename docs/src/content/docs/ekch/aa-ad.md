@@ -51,6 +51,7 @@ Strips are organised into **bays**. A bay is either **ACTIVE** or **LOCKED**. St
   - 22L: AD → TE
   - 12: AD → TW
 - Cross-coupled targets use the carrying primary while displaying the logical identifier frequency. For example, when TW or GE carries GW, AD transfers to that primary but the strip shows **GW 118.580**. When GW is not carried and GE is the configured owner of the GW sector, AD transfers to GE and the strip shows **GE 121.830**.
+- A controller primed on the sector frequency takes precedence over another controller carrying that same frequency. When the sector frequency is not carried, a staffed configured fallback primary takes precedence over a controller carrying only a fallback frequency.
 - Manual moves are allowed between **ACTIVE** bays.
 
 For clearance dialogue, PDC strip colours, and delivery workflow, see [CLR DEL](/ekch/clr-del/) and [Pre-departure clearance](/concepts/pre-departure-clearance/).

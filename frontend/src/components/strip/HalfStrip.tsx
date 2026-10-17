@@ -7,6 +7,7 @@ import { AircraftTypeLabel, useStripSelection, getCellBorderColor, getFlatStripB
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { getStripBg } from "./types";
 import { HALF_STRIP_VARIANT_BG, getHalfStripFrameColor } from "./halfStripFrame";
+import {InboundCtotFlag} from "./InboundCtotFlag";
 
 /** Short label shown in the left identifier box. */
 const VARIANT_LABEL: Record<HalfStripVariant, string> = {
@@ -118,6 +119,7 @@ export function HalfStrip({
           >
           <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
             {callsign}
+            {(isArrivalVariant || arrival) && <InboundCtotFlag callsign={callsign} />}
           </div>
           <div
             className={`h-full ${isArrivalVariant || arrival ? "w-[2.92vw]" : "w-[3.22vw]"} border-r-2 flex items-center justify-center text-[0.63vw] ${textColor}`}

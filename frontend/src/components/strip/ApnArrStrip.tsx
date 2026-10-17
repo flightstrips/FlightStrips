@@ -90,7 +90,7 @@ export function ApnArrStrip({
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
-  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const runwayBg = runwayYellow
     ? COLOR_UNEXPECTED_YELLOW
@@ -157,6 +157,7 @@ export function ApnArrStrip({
           if (runwayYellow) {
             acknowledgeUnexpectedChange(callsign, "runway");
           } else if (bay === Bay.RwyArr) {
+            if (!isAssumed) return;
             if (runwayCleared && runwayConfirmed) {
               resetRunwayClearance(callsign);
             } else {

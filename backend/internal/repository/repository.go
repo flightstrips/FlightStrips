@@ -57,6 +57,7 @@ type StripRepository interface {
 	UpdateTrackingController(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
 	UpdateRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRunwayConfirmation(ctx context.Context, session int32, callsign string) (int64, error)
+	UpdateArrivalRunwayConfirmation(ctx context.Context, session int32, callsign string) (int64, error)
 	ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error)
 
 	// Owner management

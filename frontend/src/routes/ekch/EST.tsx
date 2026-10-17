@@ -9,6 +9,7 @@ import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import EstViewButtons from "@/components/est/EstViewButtons";
 import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { plannedDepartureSortModes } from "@/lib/stripSortModes";
+import { isActiveStripTransfer } from "@/components/strip/shared";
 import { getEstDepartureTransferTarget, isEstDepartureTransferActive } from "@/components/est/transferState";
 import { deriveEstStandBlocking } from "@/components/est/standBlocking";
 import { deriveEstStandDisplay } from "@/components/est/standDisplay";
@@ -273,6 +274,11 @@ export default function EST() {
       return;
     }
 
+    if (isActiveStripTransfer(stripTransfers[strip.callsign])) {
+      setMenuState(null);
+      return;
+    }
+
     if (selectedCallsign !== strip.callsign) {
       selectStrip(strip.callsign);
     }
@@ -312,6 +318,10 @@ export default function EST() {
     if (!menuStrip || !menuState) {
       return;
     }
+    if (isActiveStripTransfer(stripTransfers[menuStrip.callsign])) {
+      closeMenu();
+      return;
+    }
 
     setActionState(menuState.stand, menuStrip);
     pickupStrip(menuStrip.callsign, Bay.Push);
@@ -320,6 +330,10 @@ export default function EST() {
 
   function handleTaxi() {
     if (!menuStrip || !menuState) {
+      return;
+    }
+    if (isActiveStripTransfer(stripTransfers[menuStrip.callsign])) {
+      closeMenu();
       return;
     }
 

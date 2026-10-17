@@ -108,7 +108,7 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 
 // RunwayConfirmation marks a cleared strip as runway-confirmed (green) and broadcasts the update.
 // In RWY ARR this also restores a previously removed landing clearance.
-func (s *StripService) RunwayConfirmation(ctx context.Context, session int32, callsign string) error {
+func (s *StripService) RunwayConfirmation(ctx context.Context, session int32, callsign string, clientPosition string) error {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
@@ -116,21 +116,27 @@ func (s *StripService) RunwayConfirmation(ctx context.Context, session int32, ca
 	if strip.IsValidationLocked() {
 		return errors.New("strip is locked by an active validation")
 	}
+	var affected int64
 	if strip.Bay == shared.BAY_RWY_ARR {
-		strips, err := s.stripReader.List(ctx, session)
+		if strip.Owner == nil || *strip.Owner != clientPosition {
+			return errors.New("not authorized: runway confirmation requires strip ownership")
+		}
+		affected, err = s.fieldStore.UpdateArrivalRunwayConfirmation(ctx, session, callsign)
 		if err != nil {
 			return err
 		}
-		for _, other := range strips {
-			if other != nil && other.Callsign != callsign && other.Bay == shared.BAY_RWY_ARR && other.RunwayCleared && other.RunwayConfirmed {
-				return nil
-			}
+		if affected == 0 {
+			// The database rejected a stale confirmation because another arrival
+			// already owns the single green RWY ARR clearance. Correct optimistic
+			// client state with the persisted strip.
+			shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+			return nil
 		}
-	}
-
-	affected, err := s.fieldStore.UpdateRunwayConfirmation(ctx, session, callsign)
-	if err != nil {
-		return err
+	} else {
+		affected, err = s.fieldStore.UpdateRunwayConfirmation(ctx, session, callsign)
+		if err != nil {
+			return err
+		}
 	}
 	if affected != 1 {
 		return errors.New("failed to update runway confirmation")
@@ -139,13 +145,16 @@ func (s *StripService) RunwayConfirmation(ctx context.Context, session int32, ca
 	return nil
 }
 
-func (s *StripService) ResetRunwayClearance(ctx context.Context, session int32, callsign string) error {
+func (s *StripService) ResetRunwayClearance(ctx context.Context, session int32, callsign string, clientPosition string) error {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 	if strip.Bay != shared.BAY_RWY_ARR {
 		return errors.New("runway clearance can only be reset in RWY ARR")
+	}
+	if strip.Owner == nil || *strip.Owner != clientPosition {
+		return errors.New("not authorized: runway clearance reset requires strip ownership")
 	}
 	if strip.IsValidationLocked() {
 		return errors.New("strip is locked by an active validation")

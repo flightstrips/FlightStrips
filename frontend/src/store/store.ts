@@ -530,6 +530,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     openValidationDialog,
     closeValidationDialog: () => set({ validationDialogCallsign: null }),
      move: (callsign, bay, clearance = false, confirmedRemoval = false, insertAfter) => set((state) => {
+          const transfer = state.stripTransfers[callsign];
+          if (transfer && !transfer.isTagRequest) return state;
           if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay, clearance, confirmed_removal: confirmedRemoval, ...(insertAfter !== undefined ? { ordered: true, insert_after: insertAfter } : {})})) {
             return state;
           }
@@ -558,6 +560,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      ),
      moveToControlzone: (callsign) => set((state) => {
          const bay = Bay.Controlzone;
+         const transfer = state.stripTransfers[callsign];
+         if (transfer && !transfer.isTagRequest) return state;
          if (!sendGuardedStripEvent(callsign, { type: "move" }, { type: ActionType.FrontendMove, callsign, bay })) {
            return state;
          }
@@ -812,6 +816,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     // pickupStrip: assume if needed, then move to bay in one action (used when selecting from ARR/startup popups)
     pickupStrip: (callsign, bay) => {
+      const transfer = get().stripTransfers[callsign];
+      if (transfer && !transfer.isTagRequest) return;
       const strip = get().strips.find((candidate) => candidate.callsign === callsign);
       const myPosition = get().position;
       if (!strip || !myPosition || strip.owner !== myPosition) {
@@ -904,6 +910,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      runwayConfirmation: (callsign) => {
       const state = get();
       const strip = state.strips.find(candidate => candidate.callsign === callsign);
+      if (strip?.bay === Bay.RwyArr && (!state.position || strip.owner !== state.position)) {
+        return;
+      }
       if (
         strip?.bay === Bay.RwyArr &&
         state.strips.some(candidate =>
@@ -940,6 +949,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       );
     },
     resetRunwayClearance: (callsign) => {
+      const state = get();
+      const strip = state.strips.find(candidate => candidate.callsign === callsign);
+      if (strip?.bay === Bay.RwyArr && (!state.position || strip.owner !== state.position)) return;
       if (!sendGuardedStripEvent(callsign, { type: "runway_clearance" }, { type: ActionType.FrontendResetRunwayClearance, callsign })) {
        return;
       }

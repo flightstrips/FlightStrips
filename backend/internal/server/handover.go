@@ -122,7 +122,16 @@ func resolveOwnedHandoverTarget(identifier string, strip *models.Strip, session 
 	if !ok {
 		return nil
 	}
-	return resolveHandoverTargetForOwner(identifier, owner, strip, session, ownership, radio)
+	resolution := resolveHandoverTargetForOwner(identifier, owner, strip, session, ownership, radio)
+	if strings.EqualFold(identifier, "SQ") && !resolution.LogicalCarried {
+		// Generic sector fallback is not sequencing staffing. Delivery is the
+		// intentional exception: it sequences departures on its own frequency.
+		deliveryFrequency, ok := resolveLogicalSectorFrequency("DEL", strip, session)
+		if !ok || !ownerCarriesFrequency(owner, deliveryFrequency, radio.coverage) {
+			return nil
+		}
+	}
+	return resolution
 }
 
 // SQ can be inherited by apron or tower without either planner frequency being

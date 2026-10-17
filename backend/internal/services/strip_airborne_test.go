@@ -35,7 +35,7 @@ func TestResolveAirborneController_NilSID(t *testing.T) {
 	svc := NewStripService(&testutil.MockStripRepository{})
 	strip := &models.Strip{Sid: nil}
 
-	controller, err := svc.resolveAirborneController(strip, []*models.Controller{})
+	controller, err := svc.resolveAirborneController(context.Background(), 1, strip, []*models.Controller{})
 	require.NoError(t, err)
 	assert.Nil(t, controller, "no controller should be returned for a strip without a SID")
 }
@@ -46,19 +46,18 @@ func TestResolveAirborneController_EmptySID(t *testing.T) {
 	empty := ""
 	strip := &models.Strip{Sid: &empty}
 
-	controller, err := svc.resolveAirborneController(strip, []*models.Controller{})
+	controller, err := svc.resolveAirborneController(context.Background(), 1, strip, []*models.Controller{})
 	require.NoError(t, err)
 	assert.Nil(t, controller, "no controller should be returned for a strip with an empty SID")
 }
 
 // TestResolveAirborneController_UnknownSID verifies that an unconfigured SID returns nil without error.
-// config package variables are empty during unit tests, so any SID will be unknown.
 func TestResolveAirborneController_UnknownSID(t *testing.T) {
 	svc := NewStripService(&testutil.MockStripRepository{})
 	sid := "NOSUCHSID9A"
 	strip := &models.Strip{Sid: &sid}
 
-	controller, err := svc.resolveAirborneController(strip, []*models.Controller{})
+	controller, err := svc.resolveAirborneController(context.Background(), 1, strip, []*models.Controller{})
 	require.NoError(t, err, "unknown SID must not return an error — it falls back to nil")
 	assert.Nil(t, controller, "no controller should be returned for an unknown SID")
 }
@@ -99,29 +98,26 @@ func TestAutoTransferAirborneStrip_SkipsWhenNoOwner(t *testing.T) {
 // owner controller has no CID is not auto-transferred. A CID is required to send the
 // EuroScope handover event — without it the transfer cannot be initiated.
 func TestAutoTransferAirborneStrip_SkipsWhenOwnerCidMissing(t *testing.T) {
-	// resolveAirborneController always returns nil in unit tests (no config loaded),
-	// so the function exits before reaching the CID check. This test documents
-	// the skip-when-no-owner path as a proxy; the CID guard is exercised in integration
-	// tests where a SID route is configured.
 	hub := &testutil.MockFrontendHub{}
 	controllerRepo := &testutil.MockControllerRepository{
 		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
 			// Owner controller present but no CID set.
-			owner := "EKCH_TWR"
-			return []*models.Controller{{Position: owner, Cid: nil}}, nil
+			return []*models.Controller{
+				{Callsign: "EKCH_A_TWR", Position: "118.105", Cid: nil},
+				{Callsign: "EKCH_K_DEP", Position: "124.980"},
+			}, nil
 		},
 	}
 
-	owner := "EKCH_TWR"
+	owner, sid := "118.105", "NEXEN2A"
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return &models.Strip{ID: 1, Callsign: "SAS001", Bay: shared.BAY_AIRBORNE, Owner: &owner}, nil
+			return &models.Strip{ID: 1, Callsign: "SAS001", Bay: shared.BAY_AIRBORNE, Owner: &owner, Sid: &sid}, nil
 		},
 	})
 	svc.SetFrontendHub(hub)
 	svc.SetControllerRepo(controllerRepo)
 
-	// With no SID the function exits before the CID check — no error expected.
 	err := svc.AutoTransferAirborneStrip(context.Background(), 1, "SAS001")
 	require.NoError(t, err)
 }

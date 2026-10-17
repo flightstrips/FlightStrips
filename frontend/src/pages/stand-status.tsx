@@ -67,6 +67,7 @@ type StandAssignment = {
 type StandBlock = {
   id: number;
   stand: string;
+  blocks?: string[];
   block_type: string;
   source: string;
   reason?: string;
@@ -337,7 +338,7 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
     if (!start || !block.stand) return [];
     const end = timelineDate(block.expires_at);
     const active = entryIsActive(block.expires_at, now);
-    return [{
+    const item = {
       id: `block-${block.id}`,
       stand: block.stand.toUpperCase(),
       label: block.callsign || formatStatus(block.block_type || "block"),
@@ -349,7 +350,18 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
       tone: !active
         ? "border-violet-400/70 bg-violet-500/70 text-white dark:border-violet-300/60 dark:bg-violet-400/70 dark:text-slate-950"
         : "border-amber-600/60 bg-amber-500/90 text-amber-950 dark:border-amber-300/60 dark:bg-amber-400/80 dark:text-slate-950",
-    } satisfies StandTimelineItem];
+    } satisfies StandTimelineItem;
+    const blockedStands = [...new Set((block.blocks ?? []).map((blocked) => blocked.trim().toUpperCase()).filter(Boolean))];
+    return [
+      item,
+      ...blockedStands.filter((blocked) => blocked !== item.stand).map((blocked) => ({
+        ...item,
+        id: `${item.id}-blocks-${blocked}`,
+        stand: blocked,
+        label: `${item.label} blocks`,
+        detail: `${item.detail} · blocked by ${item.stand}`,
+      })),
+    ];
   });
   return [...assignments, ...blocks].sort((left, right) => left.stand.localeCompare(right.stand) || left.start.getTime() - right.start.getTime());
 }

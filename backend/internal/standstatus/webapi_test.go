@@ -100,6 +100,33 @@ STAND:EKCH:A20:N055.37.43.000:E012.38.34.000:20
 	require.Equal(t, []string{"A18", "A20"}, unknownVariant)
 }
 
+func TestStandBlockBlockedStands(t *testing.T) {
+	t.Parallel()
+
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A19:N055.37.42.710:E012.38.33.450:30
+STAND:EKCH:A19:N055.37.42.710:E012.38.33.450:30
+BLOCKS:A18,A20
+STAND:EKCH:A18:N055.37.42.000:E012.38.33.000:20
+BLOCKS:A19
+STAND:EKCH:A20:N055.37.43.000:E012.38.34.000:20
+STAND:EKCH:A21:N055.37.44.000:E012.38.35.000:20
+BLOCKS:A20
+STAND:EKYT:A22:N057.05.00.000:E009.51.00.000:20
+`))
+	require.NoError(t, err)
+
+	// Use the union across A19 variants and deduplicate reciprocal relationships.
+	require.Equal(t, []string{"A18", "A20"}, standBlockBlockedStands(registry, "ekch", " a19 "))
+	// A20 has no outgoing BLOCKS: incoming relationships still block A19 and A21.
+	require.Equal(t, []string{"A19", "A21"}, standBlockBlockedStands(registry, "EKCH", "A20"))
+	// Blocking is not transitive; A21's neighbor A20 does not block A19 in turn.
+	require.Equal(t, []string{"A20"}, standBlockBlockedStands(registry, "EKCH", "A21"))
+	require.Empty(t, standBlockBlockedStands(registry, "EKYT", "A19"))
+	require.Empty(t, standBlockBlockedStands(registry, "EKCH", "UNKNOWN"))
+	require.Empty(t, standBlockBlockedStands(nil, "EKCH", "A19"))
+}
+
 func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {
 	t.Parallel()
 

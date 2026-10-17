@@ -146,6 +146,7 @@ type standStatusAssignmentResponse struct {
 type standStatusBlockResponse struct {
 	ID        int64      `json:"id"`
 	Stand     string     `json:"stand"`
+	Blocks    []string   `json:"blocks"`
 	BlockType string     `json:"block_type"`
 	Source    string     `json:"source"`
 	Reason    *string    `json:"reason,omitempty"`
@@ -432,6 +433,7 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 		}
 		response.Blocks = append(response.Blocks, standStatusBlockResponse{
 			ID: block.ID, Stand: block.Stand, BlockType: block.BlockType, Source: block.Source,
+			Blocks: standBlockBlockedStands(config.GetStandCapabilities(), session.Airport, block.Stand),
 			Reason: block.Reason, Callsign: block.Callsign, CreatedBy: block.CreatedBy,
 			ExpiresAt: block.ExpiresAt, Manual: block.Manual, Version: block.Version,
 			CreatedAt: block.CreatedAt, UpdatedAt: block.UpdatedAt,
@@ -447,6 +449,32 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 		return response.Blocks[i].ID < response.Blocks[j].ID
 	})
 	return response
+}
+
+func standBlockBlockedStands(registry *sat.StandCapabilityRegistry, airport, blockedStand string) []string {
+	blockedStand = strings.ToUpper(strings.TrimSpace(blockedStand))
+	stand, _ := registry.Lookup(airport, blockedStand)
+	blocked := make(map[string]bool, len(stand.Blocks))
+	for _, neighbor := range stand.Blocks {
+		blocked[neighbor] = true
+	}
+	// Manual blocks have no matched aircraft variant. Like the allocator, use
+	// all configured variants and consider blocking relationships in both directions.
+	for _, candidate := range registry.Stands(airport) {
+		for _, neighbor := range candidate.Blocks {
+			if neighbor == blockedStand {
+				blocked[candidate.Name] = true
+				break
+			}
+		}
+	}
+	delete(blocked, blockedStand)
+	result := make([]string, 0, len(blocked))
+	for neighbor := range blocked {
+		result = append(result, neighbor)
+	}
+	sort.Strings(result)
+	return result
 }
 
 func standAssignmentBlockedStands(registry *sat.StandCapabilityRegistry, airport string, assignment *models.StandAssignment) []string {

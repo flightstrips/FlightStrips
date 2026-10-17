@@ -21,10 +21,4 @@ namespace FlightStrips::graphics::InfoScreenObjectIds {
     inline constexpr int PdcFieldCfl = 18;
     inline constexpr int PdcFieldSquawk = 19;
     inline constexpr int PdcFieldRemarks = 20;
-
-    inline constexpr int StandTimelineButton = 30;
-    inline constexpr int StandTimelinePopupWindow = 31;
-    inline constexpr int StandTimelinePopupBackground = 32;
-    inline constexpr int StandTimelinePopupClose = 33;
-    inline constexpr int StandTimelinePopupRefresh = 34;
 }

@@ -7,14 +7,7 @@
 #include "plugin/FlightStripsPlugin.h"
 #include "websocket/Events.h"
 
-#include <exception>
-#include <future>
-
 namespace FlightStrips::graphics {
-    namespace {
-        constexpr auto StandTimelineRefreshInterval = std::chrono::seconds(15);
-    }
-
     namespace {
         constexpr wchar_t OpenAppUrl[] = L"https://flightstrips.dk/app";
         constexpr int ResetWindowInset = 20;
@@ -38,7 +31,6 @@ namespace FlightStrips::graphics {
                            const std::shared_ptr<flightplan::FlightPlanService>& flightPlanService,
                            const std::shared_ptr<runway::RunwayService>& runwayService,
                            std::shared_ptr<PdcClearancePopupState> pdcPopup,
-                           const std::shared_ptr<configuration::AppConfig>& appConfig,
                            FlightStripsPlugin* plugin)
         : authService(authenticationService),
           userConfig(config),
@@ -46,7 +38,6 @@ namespace FlightStrips::graphics {
           m_flightPlanService(flightPlanService),
           m_runwayService(runwayService),
           m_pdcPopup(std::move(pdcPopup)),
-          m_appConfig(appConfig),
           m_plugin(plugin) {
         const auto state = userConfig->GetWindowState();
         menubar = {state.x, state.y, state.x + width, state.y + height};
@@ -73,15 +64,11 @@ namespace FlightStrips::graphics {
         }
 
         const auto panelData = BuildInfoPanelData();
-        UpdateStandTimelineData();
         const auto popupData = GetPdcPopupData();
         KeepWindowsInsideRadarArea(panelData, popupData);
 
         DrawInfoPanel(*this, graphics, colors, menubar, panelData, isMinimized);
         if (isMinimized) {
-            if (m_standTimelinePopup.isOpen) {
-                DrawStandTimelinePopup(*this, graphics, colors, m_standTimelinePopup, m_standTimelineData, m_standTimelineLoading);
-            }
             canClick = true;
             return;
         }
@@ -92,9 +79,6 @@ namespace FlightStrips::graphics {
             } else {
                 m_pdcPopup->isOpen = false;
             }
-        }
-        if (m_standTimelinePopup.isOpen) {
-            DrawStandTimelinePopup(*this, graphics, colors, m_standTimelinePopup, m_standTimelineData, m_standTimelineLoading);
         }
 
         canClick = true;
@@ -147,31 +131,20 @@ namespace FlightStrips::graphics {
             userConfig->SetWindowState({menubar.left, menubar.top, isMinimized});
         }
 
-        if (m_pdcPopup != nullptr && m_pdcPopup->isOpen && popupData) {
-            const auto popupSize = CalculatePdcPopupSize(*popupData);
-            const RECT popupRect = {
-                m_pdcPopup->posX,
-                m_pdcPopup->posY,
-                m_pdcPopup->posX + popupSize.width,
-                m_pdcPopup->posY + popupSize.height,
-            };
-            const RECT clampedPopup = ClampRectToBounds(popupRect, radarArea);
-            m_pdcPopup->posX = clampedPopup.left;
-            m_pdcPopup->posY = clampedPopup.top;
+        if (m_pdcPopup == nullptr || !m_pdcPopup->isOpen || !popupData) {
+            return;
         }
 
-        if (m_standTimelinePopup.isOpen) {
-            const auto popupSize = CalculateStandTimelinePopupSize(m_standTimelineData);
-            const RECT popupRect = {
-                m_standTimelinePopup.posX,
-                m_standTimelinePopup.posY,
-                m_standTimelinePopup.posX + popupSize.width,
-                m_standTimelinePopup.posY + popupSize.height,
-            };
-            const RECT clampedPopup = ClampRectToBounds(popupRect, radarArea);
-            m_standTimelinePopup.posX = clampedPopup.left;
-            m_standTimelinePopup.posY = clampedPopup.top;
-        }
+        const auto popupSize = CalculatePdcPopupSize(*popupData);
+        const RECT popupRect = {
+            m_pdcPopup->posX,
+            m_pdcPopup->posY,
+            m_pdcPopup->posX + popupSize.width,
+            m_pdcPopup->posY + popupSize.height,
+        };
+        const RECT clampedPopup = ClampRectToBounds(popupRect, radarArea);
+        m_pdcPopup->posX = clampedPopup.left;
+        m_pdcPopup->posY = clampedPopup.top;
     }
 
     void InfoScreen::ResetWindowPosition() {
@@ -206,10 +179,6 @@ namespace FlightStrips::graphics {
             m_pdcPopup->posX = Area.left;
             m_pdcPopup->posY = Area.top;
             RequestRefresh();
-        } else if (ObjectType == InfoScreenObjectIds::StandTimelinePopupWindow) {
-            m_standTimelinePopup.posX = Area.left;
-            m_standTimelinePopup.posY = Area.top;
-            RequestRefresh();
         }
     }
 
@@ -219,23 +188,7 @@ namespace FlightStrips::graphics {
         }
 
         canClick = false;
-        if (HandleWindowChromeClick(ObjectType) ||
-            HandleSessionModeClick(ObjectType) ||
-            HandlePdcPopupClick(ObjectType, Pt, Area) ||
-            HandleStandTimelinePopupClick(ObjectType)) {
-            return;
-        }
-
-        if (ObjectType == InfoScreenObjectIds::StandTimelineButton) {
-            if (m_pdcPopup) {
-                m_pdcPopup->isOpen = false;
-            }
-            m_standTimelinePopup.isOpen = true;
-            m_standTimelinePopup.posX = menubar.right + 8;
-            m_standTimelinePopup.posY = menubar.top;
-            m_standTimelineData = {};
-            m_standTimelineLastFetch = {};
-            RequestRefresh();
+        if (HandleWindowChromeClick(ObjectType) || HandleSessionModeClick(ObjectType) || HandlePdcPopupClick(ObjectType, Pt, Area)) {
             return;
         }
 
@@ -267,75 +220,6 @@ namespace FlightStrips::graphics {
         }
 
         return false;
-    }
-
-    bool InfoScreen::HandleStandTimelinePopupClick(const int objectType) {
-        if (!m_standTimelinePopup.isOpen) {
-            return false;
-        }
-        if (objectType == InfoScreenObjectIds::StandTimelinePopupClose) {
-            m_standTimelinePopup.isOpen = false;
-            RequestRefresh();
-            return true;
-        }
-        if (objectType == InfoScreenObjectIds::StandTimelinePopupRefresh) {
-            m_standTimelineLastFetch = std::chrono::steady_clock::now() - StandTimelineRefreshInterval;
-            RequestRefresh();
-            return true;
-        }
-        return objectType == InfoScreenObjectIds::StandTimelinePopupBackground ||
-            objectType == InfoScreenObjectIds::StandTimelinePopupWindow;
-    }
-
-    void InfoScreen::UpdateStandTimelineData() {
-        if (m_standTimelineFetch.valid() &&
-            m_standTimelineFetch.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-            try {
-                m_standTimelineData = m_standTimelineFetch.get();
-            } catch (const std::exception& error) {
-                m_standTimelineData = {.error = std::format("Stand timeline request failed: {}", error.what())};
-            }
-            m_standTimelineLoading = false;
-        }
-
-        if (!m_standTimelinePopup.isOpen || m_standTimelineLoading) {
-            return;
-        }
-
-        const auto now = std::chrono::steady_clock::now();
-        if (m_standTimelineLastFetch.time_since_epoch().count() != 0 &&
-            now - m_standTimelineLastFetch < StandTimelineRefreshInterval) {
-            return;
-        }
-
-        m_standTimelineLastFetch = now;
-        const auto connection = m_plugin->GetConnectionState();
-        const auto airport = connection.relevant_airport;
-        const auto sessionName = GetEffectiveSessionName(connection);
-        const auto token = authService->GetAccessToken();
-        if (token.empty()) {
-            m_standTimelineData = {.error = "Sign in to FlightStrips to view stand activity."};
-            return;
-        }
-        if (airport.empty() || sessionName.empty()) {
-            m_standTimelineData = {.error = "Connect to a session to view stand activity."};
-            return;
-        }
-
-        if (!m_appConfig) {
-            m_standTimelineData = {.error = "Stand timeline configuration is unavailable."};
-            return;
-        }
-        const auto baseUrl = m_appConfig->GetBaseUrl();
-        m_standTimelineLoading = true;
-        try {
-            m_standTimelineFetch = std::async(std::launch::async, [baseUrl, airport, sessionName, token] {
-                return FetchStandTimeline(baseUrl, airport, sessionName, token);
-            });
-        } catch (const std::exception& error) {
-            m_standTimelineLoading = false;
-            m_standTimelineData = {.error = std::format("Could not start stand timeline request: {}", error.what())};
-        }
     }
 
     bool InfoScreen::HandleSessionModeClick(const int objectType) {

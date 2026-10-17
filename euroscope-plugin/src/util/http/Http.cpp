@@ -1,6 +1,5 @@
 #include "Http.h"
 #include "Version.h"
-#include <algorithm>
 #include <curl/curl.h>
 #include <fstream>
 
@@ -38,40 +37,28 @@ namespace FlightStrips::http {
         return {http_code, resultBuffer};
     }
 
-    HttpResponse Http::Get(const std::string &url, const std::string& token, const long timeoutSeconds) {
+    HttpResponse Http::Get(const std::string &url) {
         const auto curl = curl_easy_init();
         if (!curl) return {-1, "curl_easy_init failed"};
 
         std::string resultBuffer;
-        curl_slist* headers = nullptr;
-        if (!token.empty()) {
-            headers = curl_slist_append(headers, ("Authorization: Bearer " + token).c_str());
-            if (headers == nullptr) {
-                curl_easy_cleanup(curl);
-                return {-1, "failed to allocate authorization header"};
-            }
-            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        }
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &resultBuffer);
-        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, token.empty() ? 1L : 0L);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, GetUserAgent());
-        const auto boundedTimeout = std::max(1L, timeoutSeconds);
-        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, std::min(3L, boundedTimeout));
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, boundedTimeout);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
 
         const auto result = curl_easy_perform(curl);
 
         if (result != CURLE_OK) {
-            curl_slist_free_all(headers);
             curl_easy_cleanup(curl);
             return {-1, curl_easy_strerror(result)};
         }
 
         int http_code = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-        curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
 
         return {http_code, resultBuffer};

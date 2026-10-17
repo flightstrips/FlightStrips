@@ -3,17 +3,12 @@
 //
 
 #pragma once
-#include <chrono>
-#include <future>
-
 #include "Colors.h"
 #include "Graphics.h"
 #include "InfoPanel.h"
 #include "PdcPopup.h"
 #include "PdcClearancePopupState.h"
-#include "StandTimelinePopup.h"
 #include "authentication/AuthenticationService.h"
-#include "configuration/AppConfig.h"
 #include "websocket/WebSocketService.h"
 
 namespace FlightStrips {
@@ -35,7 +30,6 @@ namespace FlightStrips::graphics {
                             const std::shared_ptr<flightplan::FlightPlanService>& flightPlanService,
                             const std::shared_ptr<runway::RunwayService>& runwayService,
                             std::shared_ptr<PdcClearancePopupState> pdcPopup,
-                            const std::shared_ptr<configuration::AppConfig>& appConfig,
                             FlightStripsPlugin* plugin);
 
 
@@ -64,12 +58,6 @@ namespace FlightStrips::graphics {
         std::weak_ptr<flightplan::FlightPlanService> m_flightPlanService;
         std::weak_ptr<runway::RunwayService> m_runwayService;
         std::shared_ptr<PdcClearancePopupState> m_pdcPopup;
-        std::shared_ptr<configuration::AppConfig> m_appConfig;
-        StandTimelinePopupState m_standTimelinePopup;
-        StandTimelineData m_standTimelineData;
-        std::future<StandTimelineData> m_standTimelineFetch;
-        std::chrono::steady_clock::time_point m_standTimelineLastFetch{};
-        bool m_standTimelineLoading{false};
         FlightStripsPlugin *m_plugin;
 
         RECT menubar;
@@ -79,11 +67,9 @@ namespace FlightStrips::graphics {
 
         [[nodiscard]] InfoPanelData BuildInfoPanelData() const;
         [[nodiscard]] std::optional<PdcPopupData> GetPdcPopupData() const;
-        void UpdateStandTimelineData();
         bool HandleWindowChromeClick(int objectType);
         bool HandleSessionModeClick(int objectType);
         bool HandlePdcPopupClick(int objectType, POINT pt, RECT area);
-        bool HandleStandTimelinePopupClick(int objectType);
         bool HandlePdcFieldClick(int objectType, POINT pt, RECT area);
         void KeepWindowsInsideRadarArea(const InfoPanelData& panelData, const std::optional<PdcPopupData>& popupData);
         void ResetWindowPosition();

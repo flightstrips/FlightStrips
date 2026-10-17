@@ -12,7 +12,7 @@ namespace FlightStrips::graphics {
     }
 
     int CalculateInfoPanelContentHeight(const InfoPanelData& data) {
-        int contentHeight = 99 + (data.sessionSelectable ? 28 : 16) + 25 + 5;
+        int contentHeight = 83 + (data.sessionSelectable ? 28 : 16) + 25 + 5;
         if (data.showStats) {
             if (data.connected) {
                 contentHeight += 39;
@@ -149,13 +149,8 @@ namespace FlightStrips::graphics {
         }
 
         y += 58;
-        const RECT standTimelineButtonRect{left, y, right, y + 16};
-        graphics.FillRect(colors.headerBrush.get(), standTimelineButtonRect);
-        graphics.DrawRect(colors.buttonPen.get(), standTimelineButtonRect);
-        graphics.DrawString("GRAPHIC", standTimelineButtonRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentCenter);
-        screen.AddScreenObject(InfoScreenObjectIds::StandTimelineButton, "", standTimelineButtonRect, false, nullptr);
-        graphics.DrawHLine(colors.separatorPen.get(), menubar.left + 3, y + 20, menubar.right - 3);
-        y += 25;
+        graphics.DrawHLine(colors.separatorPen.get(), menubar.left + 3, y + 4, menubar.right - 3);
+        y += 9;
 
         if (data.sessionSelectable) {
             const RECT sessionLabelRect = {left, y, right, y + 12};

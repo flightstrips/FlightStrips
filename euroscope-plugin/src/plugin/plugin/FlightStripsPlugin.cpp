@@ -642,7 +642,6 @@ namespace FlightStrips {
                     ptr->flightPlanService,
                     ptr->runwayService,
                     ptr->pdcPopup,
-                    ptr->appConfig,
                     this);
             }
 

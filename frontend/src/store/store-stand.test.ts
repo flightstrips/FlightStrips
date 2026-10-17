@@ -94,6 +94,17 @@ describe("stand store events", () => {
       expect(store.getState().standAssignments).toEqual(assignments);
       expect(store.getState().standBlocks).toEqual(blocks);
     });
+
+    it("preserves a local MRK override when assigning a runway", () => {
+      store.setState({
+        localMarked: { SAS123: true },
+        readOnly: false,
+      });
+
+      store.getState().assignRunway("SAS123", "22R");
+
+      expect(store.getState().localMarked.SAS123).toBe(true);
+    });
   });
 
   describe("stand assignment update", () => {

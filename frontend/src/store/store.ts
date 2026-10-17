@@ -858,7 +858,6 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       }
       store.setState(
         produce((state: WebSocketState) => {
-          delete state.localMarked[callsign];
           const idx = state.strips.findIndex(s => s.callsign === callsign);
           if (idx !== -1) state.strips[idx].runway = runway;
         })

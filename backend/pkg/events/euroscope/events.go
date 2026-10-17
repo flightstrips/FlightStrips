@@ -29,6 +29,7 @@ const (
 	StripUpdate               = EventType_EVENT_STRIP_UPDATE
 	RunwayType                = EventType_EVENT_RUNWAY
 	SessionInfo               = EventType_EVENT_SESSION_INFO
+	MasterInfo                = EventType_EVENT_MASTER_INFO
 	RunwayMismatchAlert       = EventType_EVENT_RUNWAY_MISMATCH_ALERT
 	GenerateSquawk            = EventType_EVENT_GENERATE_SQUAWK
 	Eobt                      = EventType_EVENT_EOBT
@@ -144,6 +145,9 @@ func (e SessionInfoEvent) GetType() EventType { return SessionInfo }
 func (e SessionInfoEvent) Marshal() ([]byte, error) {
 	return marshalMessage(&e)
 }
+
+func (e MasterInfoEvent) GetType() EventType       { return MasterInfo }
+func (e MasterInfoEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
 
 func (e RunwayMismatchAlertEvent) GetType() EventType { return RunwayMismatchAlert }
 func (e RunwayMismatchAlertEvent) Marshal() ([]byte, error) {

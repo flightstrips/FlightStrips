@@ -16,6 +16,8 @@ import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsig
 import { CLS_CMDBTN, CLS_CMD_BEVEL } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // Bar height matches strip height (4.72dvh). Inner elements: calc(4.72dvh - 14px) + 7px top/bottom margin.
 const CLS_BAR = "h-[4.72dvh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-2px_2px_rgba(0,0,0,0.35)]";
@@ -107,6 +109,8 @@ export default function CommandBar() {
   const readOnly = useWebSocketStore((state) => state.readOnly);
   const positionAvailable = useWebSocketStore((state) => state.positionAvailable);
   const runwaySetup = useRunwaySetup();
+  const masterCallsign = useWebSocketStore((state) => state.masterCallsign);
+  const [runwayMismatchOpen, setRunwayMismatchOpen] = useState(false);
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
   const strips = useStrips();
@@ -125,6 +129,7 @@ export default function CommandBar() {
   const runwayStatus = runwaySetup.runway_status ?? {};
   const depRunwayClass = runwaySetup.departure_mismatch ? CLS_VAL_ALERT : CLS_VAL_WHITE;
   const arrRunwayClass = runwaySetup.arrival_mismatch ? CLS_VAL_ALERT : CLS_VAL_WHITE;
+  const mismatchMessage = `Runway configuration differs from FS Master ${masterCallsign || "(unknown)"}.`;
 
   const myPosition = useWebSocketStore((state) => state.position);
   const scopeButtonClass = readOnly ? "bg-[#FFD84D] text-black" : "bg-[#1bff16] text-black";
@@ -231,11 +236,19 @@ export default function CommandBar() {
 
         {/* DEP runway */}
         <span className={CLS_LABEL}>DEP</span>
-        <span className={`${depRunwayClass} w-[3.13vw] !font-normal`}>{depRwy}</span>
+        {runwaySetup.departure_mismatch ? (
+          <button type="button" className={`${depRunwayClass} w-[3.13vw] !font-normal`}
+            title={mismatchMessage} aria-label={`Departure runway mismatch. ${mismatchMessage}`}
+            onClick={() => setRunwayMismatchOpen(true)}>{depRwy}</button>
+        ) : <span className={`${depRunwayClass} w-[3.13vw] !font-normal`}>{depRwy}</span>}
 
         {/* ARR runway */}
         <span className={CLS_LABEL}>ARR</span>
-        <span className={`${arrRunwayClass} w-[3.13vw] !font-normal`}>{arrRwy}</span>
+        {runwaySetup.arrival_mismatch ? (
+          <button type="button" className={`${arrRunwayClass} w-[3.13vw] !font-normal`}
+            title={mismatchMessage} aria-label={`Arrival runway mismatch. ${mismatchMessage}`}
+            onClick={() => setRunwayMismatchOpen(true)}>{arrRwy}</button>
+        ) : <span className={`${arrRunwayClass} w-[3.13vw] !font-normal`}>{arrRwy}</span>}
 
         {/* QNH */}
         <span className={CLS_LABEL}>QNH</span>
@@ -461,6 +474,19 @@ export default function CommandBar() {
         </>
       )}
 
+      {/* ── Runway mismatch details ───────────────────────── */}
+      <Dialog open={runwayMismatchOpen} onOpenChange={setRunwayMismatchOpen}>
+        <DialogContent className="sm:max-w-[440px] bg-[#b3b3b3] text-black">
+          <DialogTitle>Runway configuration mismatch</DialogTitle>
+          <DialogDescription className="text-black">
+            {mismatchMessage} Check your EuroScope runway configuration, or contact the master if the shared configuration is incorrect.
+          </DialogDescription>
+          <p>Expected DEP {runwaySetup.departure.join(", ") || "None"} / ARR {runwaySetup.arrival.join(", ") || "None"}</p>
+          <DialogClose asChild>
+            <Button variant="darkaction" className="mx-auto w-4/5">ESC</Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
       {/* ── Delete confirmation dialog ────────────────────── */}
       {deleteConfirmOpen && (
         <DeleteConfirmDialog

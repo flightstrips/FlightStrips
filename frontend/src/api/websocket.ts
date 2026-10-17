@@ -13,6 +13,7 @@ import {
   type FrontendDisconnectEvent,
   type FrontendGoAroundEvent,
   type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent, type FrontendCoordinationForceAssumeResultEvent,
+  type FrontendMasterInfoEvent,
   type FrontendPdcStateUpdateEvent,
   type FrontendReleasePointEvent,
   type FrontendMarkedEvent,
@@ -47,6 +48,7 @@ import type {AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEven
 
 
 type EventMap = {
+  [EventType.FrontendMasterInfo]: FrontendMasterInfoEvent;
   [EventType.FrontendFrequencyMessageResult]: import("@/lib/text-pilot").FrequencyMessageResult;
   [EventType.FrontendInboundDepartures]: InboundDeparturesEvent;
   [EventType.FrontendInitial]: FrontendInitialEvent;

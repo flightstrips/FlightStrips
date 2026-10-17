@@ -194,6 +194,7 @@ export interface WebSocketState {
   readOnly: boolean;
   positionAvailable: boolean;
   localIp: string;
+  masterCallsign: string;
   followRecommendedLayout: boolean;
   layoutChooserOpen: boolean;
   layoutResetNonce: number;
@@ -345,6 +346,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     readOnly: false,
     positionAvailable: true,
     localIp: '',
+    masterCallsign: '',
     followRecommendedLayout: true,
     layoutChooserOpen: false,
     layoutResetNonce: 0,
@@ -1216,6 +1218,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.amanFMPAuthority = data.capabilities?.aman_fmp ?? false;
         state.positionAvailable = data.position_available ?? true;
         state.localIp = data.local_ip ?? "";
+        state.masterCallsign = data.master_callsign ?? "";
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
         state.resetLayoutRecommendation = normalizeLayout(data.reset_layout || data.layout);
@@ -1725,6 +1728,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
+  wsClient.on(EventType.FrontendMasterInfo, (data) => {
+    store.setState({ masterCallsign: data.master_callsign });
+  });
   wsClient.on(EventType.FrontendGoAround, handleGoAroundEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
   wsClient.on(EventType.FrontendControllerOnline, handleControllerOnlineEvent);

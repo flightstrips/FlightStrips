@@ -252,6 +252,7 @@ namespace FlightStrips::websocket::protobuf {
     }
 
     DECODE_ONE(SessionInfoEvent, SessionInfoEvent, role)
+    DECODE_ONE(MasterInfoEvent, MasterInfoEvent, master_callsign)
     DECODE_TWO(AssignedSquawkEvent, AssignedSquawkEvent, callsign, squawk)
     DECODE_TWO(RequestedAltitudeEvent, RequestedAltitudeEvent, callsign, altitude)
     DECODE_TWO(ClearedAltitudeEvent, ClearedAltitudeEvent, callsign, altitude)
@@ -287,6 +288,7 @@ namespace FlightStrips::websocket::protobuf {
 	}
 
     void Decode(const wire::RunwayMismatchAlertEvent& source, RunwayMismatchAlertEvent& target) {
+        target.master_callsign = source.master_callsign();
         target.expected_departure.assign(source.expected_departure().begin(), source.expected_departure().end());
         target.expected_arrival.assign(source.expected_arrival().begin(), source.expected_arrival().end());
         target.current_departure.assign(source.current_departure().begin(), source.current_departure().end());

@@ -27,6 +27,7 @@ namespace FlightStrips::websocket {
         int rx = 0;
         int queued = 0;
         ClientState role = STATE_UNKNOWN;
+        std::string masterCallsign;
     };
 
     class WebSocketService : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler {
@@ -53,6 +54,7 @@ namespace FlightStrips::websocket {
         bool ShouldProcessServerMessageType(const std::string& type) const;
         void Reconnect();
         void SetSessionState(ClientState state);
+        void SetMasterCallsign(const std::string& callsign);
         Stats GetStats() const;
         std::optional<int> GetDelaySecondsRemaining() const;
 
@@ -82,6 +84,7 @@ namespace FlightStrips::websocket {
         std::string playback_session_name_;
         bool observer = false;
         ClientState client_state = STATE_UNKNOWN;
+        std::string master_callsign_;
         std::string local_ip_;
 
         mutable std::mutex message_mutex_;

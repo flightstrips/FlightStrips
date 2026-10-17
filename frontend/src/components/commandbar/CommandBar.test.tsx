@@ -2,6 +2,9 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import CommandBar from "./CommandBar";
+import type { RunwayConfiguration } from "@/api/models";
+
+const runway = vi.hoisted(() => ({ departure: [], arrival: [] } as RunwayConfiguration));
 
 const state = vi.hoisted(() => ({
   displayedLayout: "AAAD",
@@ -9,13 +12,14 @@ const state = vi.hoisted(() => ({
   resetLayout: vi.fn(),
   readOnly: false,
   positionAvailable: true,
+  masterCallsign: "EKCH_A_TWR",
 }));
 
 vi.mock("@/store/store-hooks", () => ({
   useWebSocketStore: (selector: (value: typeof state) => unknown) => selector(state),
   useMetar: () => null,
   useAtisCode: () => "",
-  useRunwaySetup: () => ({ departure: [], arrival: [] }),
+  useRunwaySetup: () => runway,
   useSelectedCallsign: () => null,
   useSelectStrip: () => vi.fn(),
   useStrips: () => [],
@@ -48,6 +52,11 @@ const fullscreenDescriptors = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  runway.departure = [];
+  runway.arrival = [];
+  runway.departure_mismatch = false;
+  runway.arrival_mismatch = false;
+  state.masterCallsign = "EKCH_A_TWR";
   Object.defineProperty(document, "fullscreenEnabled", { configurable: true, get: () => true });
   Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => null });
   Object.defineProperty(document, "exitFullscreen", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
@@ -68,6 +77,22 @@ afterAll(() => {
 });
 
 describe("scope selector controls", () => {
+  it("identifies the master and expected runways from either mismatch indicator", () => {
+    runway.departure = ["22R"];
+    runway.arrival = ["22L"];
+    runway.departure_mismatch = true;
+    runway.arrival_mismatch = true;
+    const { rerender } = render(<CommandBar />);
+    fireEvent.click(screen.getByRole("button", { name: /Departure runway mismatch/ }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("FS Master EKCH_A_TWR");
+    expect(screen.getByRole("dialog")).toHaveTextContent("Expected DEP 22R / ARR 22L");
+    state.masterCallsign = "EKDK_FMP";
+    rerender(<CommandBar />);
+    expect(screen.getByRole("dialog")).toHaveTextContent("FS Master EKDK_FMP");
+    fireEvent.click(screen.getByRole("button", { name: "ESC" }));
+    fireEvent.click(screen.getByRole("button", { name: /Arrival runway mismatch/ }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("FS Master EKDK_FMP");
+  });
   it("enters fullscreen and synchronizes external exits", async () => {
     const request = vi.spyOn(document.documentElement, "requestFullscreen");
     render(<CommandBar />);

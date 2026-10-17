@@ -54,6 +54,7 @@ namespace FlightStrips::messages {
         void HandleCdmUpdateEvent(const CdmUpdateEvent& event) const;
         void HandleCdmUpdateBatchEvent(const CdmUpdateBatchEvent& event) const;
         void HandleSessionInfoEvent(const SessionInfoEvent& event) const;
+        void HandleMasterInfoEvent(const MasterInfoEvent& event) const;
         void HandleRunwayMismatchAlertEvent(const RunwayMismatchAlertEvent& event) const;
         void HandleAssignedSquawkEvent(const AssignedSquawkEvent& event) const;
         void HandleRequestedAltitudeEvent(const RequestedAltitudeEvent& event) const;

@@ -60,7 +60,7 @@ export function SIBox({
   const transferStrip = useWebSocketStore(s => s.transferStrip);
   const startRequestAndTransfer = useWebSocketStore(s => s.startRequestAndTransfer);
   const assumeStrip = useWebSocketStore(s => s.assumeStrip);
-  const cancelTransfer = useWebSocketStore(s => s.cancelTransfer);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const acceptTagRequest = useWebSocketStore(s => s.acceptTagRequest);
 
   const { isAssumed, isTransferredAway, isConcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
@@ -69,6 +69,7 @@ export function SIBox({
   const targetedToMe = !!myPosition && !!transferringTo && transferringTo === myPosition;
   const isSendingTransfer = initiatedByMe && !isTagRequest;
   const isReceivingTransfer = targetedToMe && !isTagRequest;
+  const hasActiveHandover = !!transferFrom && !isTagRequest;
   const isUnownedAndNext = !owner && isConcerned;
   const isStand = bay === "STAND";
 
@@ -91,6 +92,10 @@ export function SIBox({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (hasActiveHandover && !isStand) {
+      openStripContextMenu(callsign, { x: e.clientX, y: e.clientY });
+      return;
+    }
     if (isTextPilot(strip) && !isReceivingTransfer && !isTagRequestOwner && !isTagRequestRequester) {
       const initialSelected: string[] = [];
       const readbackKey = `${ownCallsign}:${callsign}`;
@@ -114,8 +119,6 @@ export function SIBox({
       acceptTagRequest(callsign);
     } else if (isReceivingTransfer || isUnownedAndNext) {
       assumeStrip(callsign);
-    } else if (isSendingTransfer) {
-      cancelTransfer(callsign);
     } else if (isAssumed && nextPosition) {
       if (startRequestTransfer) {
         void startRequestAndTransfer(callsign);
@@ -125,7 +128,7 @@ export function SIBox({
     }
   };
 
-  const isClickable = (isTextPilot(strip) || !isStand && ( isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner)));
+  const isClickable = isTextPilot(strip) || !isStand && (hasActiveHandover || isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner));
 
   let background: string;
   if (isStand) {

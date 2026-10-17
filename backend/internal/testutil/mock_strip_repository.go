@@ -49,7 +49,9 @@ type MockStripRepository struct {
 	UpdateMarkedFn                  func(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error)
 	UpdateRunwayClearanceFn         func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRunwayConfirmationFn      func(ctx context.Context, session int32, callsign string) (int64, error)
+	ArrivalRunwayConfirmationFn     func(ctx context.Context, session int32, callsign string) (int64, error)
 	ResetRunwayClearanceFn          func(ctx context.Context, session int32, callsign string) (int64, error)
+	SetRwyArrRunwayStatusOnEntryFn  func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRegistrationFn            func(ctx context.Context, session int32, callsign string, registration string) error
 	UpdateTrackingControllerFn      func(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
 	SetOwnerFn                      func(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
@@ -383,11 +385,25 @@ func (m *MockStripRepository) UpdateRunwayConfirmation(ctx context.Context, sess
 	return m.UpdateRunwayConfirmationFn(ctx, session, callsign)
 }
 
+func (m *MockStripRepository) UpdateArrivalRunwayConfirmation(ctx context.Context, session int32, callsign string) (int64, error) {
+	if m.ArrivalRunwayConfirmationFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateArrivalRunwayConfirmation")
+	}
+	return m.ArrivalRunwayConfirmationFn(ctx, session, callsign)
+}
+
 func (m *MockStripRepository) ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error) {
 	if m.ResetRunwayClearanceFn == nil {
 		panic("unexpected call to MockStripRepository.ResetRunwayClearance")
 	}
 	return m.ResetRunwayClearanceFn(ctx, session, callsign)
+}
+
+func (m *MockStripRepository) SetRwyArrRunwayStatusOnEntry(ctx context.Context, session int32, callsign string) (int64, error) {
+	if m.SetRwyArrRunwayStatusOnEntryFn == nil {
+		panic("unexpected call to MockStripRepository.SetRwyArrRunwayStatusOnEntry")
+	}
+	return m.SetRwyArrRunwayStatusOnEntryFn(ctx, session, callsign)
 }
 
 func (m *MockStripRepository) UpdateRegistration(ctx context.Context, session int32, callsign string, registration string) error {

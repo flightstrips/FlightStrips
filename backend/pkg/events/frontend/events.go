@@ -85,6 +85,7 @@ const (
 
 	RunwayClearance    EventType = "runway_clearance"
 	RunwayConfirmation EventType = "runway_confirmation"
+	ResetRunwayClearance EventType = "reset_runway_clearance"
 
 	PdcManualStateChange EventType = "pdc_manual_state_change"
 	PdcStateChange       EventType = "pdc_state_change"
@@ -941,6 +942,18 @@ func (r RunwayConfirmationEvent) Marshal() ([]byte, error) {
 
 func (r RunwayConfirmationEvent) GetType() EventType {
 	return RunwayConfirmation
+}
+
+type ResetRunwayClearanceEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (r ResetRunwayClearanceEvent) Marshal() ([]byte, error) {
+	return marshall(r)
+}
+
+func (r ResetRunwayClearanceEvent) GetType() EventType {
+	return ResetRunwayClearance
 }
 
 type UpdateRunwayStatusAction struct {

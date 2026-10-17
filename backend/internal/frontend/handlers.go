@@ -598,7 +598,15 @@ func handleRunwayConfirmation(ctx context.Context, client *Client, message Messa
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.RunwayConfirmation(ctx, client.session, event.Callsign)
+	return client.hub.stripService.RunwayConfirmation(ctx, client.session, event.Callsign, client.position)
+}
+
+func handleResetRunwayClearance(ctx context.Context, client *Client, message Message) error {
+	var event frontend.ResetRunwayClearanceEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.stripService.ResetRunwayClearance(ctx, client.session, event.Callsign, client.position)
 }
 
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {

@@ -13,6 +13,7 @@ import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getDefaultExitTaxiway } from "./defaultExitTaxiway";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
+import { getRwyArrRunwayColor } from "./finalArrRunwayColor";
 
 // Heights — 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom
 const TOP_H = "66.6667%";
@@ -69,6 +70,7 @@ export function FinalArrStrip({
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
+  const resetRunwayClearance = useWebSocketStore(s => s.resetRunwayClearance);
   const [standOpen, setStandOpen] = useState(false);
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
@@ -80,14 +82,9 @@ export function FinalArrStrip({
 
   const defaultTwy = holdingPoint ? "" : getDefaultExitTaxiway(runway, stand);
 
-  // RWY cell color — only when cleared in RWY_ARR bay:
-  // - runway_confirmed = true: green (controller acknowledged)
-  // - runway_cleared = true, runway_confirmed = false: red (new/incoming, needs attention)
-  // - not yet cleared: no background (default strip color)
-  let rwyColor: string | undefined;
-  if (bay === Bay.RwyArr && runwayCleared) {
-    rwyColor = runwayConfirmed ? "var(--color-runway-confirmed)" : "var(--color-runway-closed)";
-  }
+  const rwyColor = bay === Bay.RwyArr
+    ? getRwyArrRunwayColor({ runwayCleared, runwayConfirmed })
+    : undefined;
 
   return (
     <>
@@ -190,10 +187,14 @@ export function FinalArrStrip({
             cursor: (bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined,
           }}
           onClick={(bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? (e) => guardValidationAction(e, () => {
-            if (runwayCleared && !runwayConfirmed) {
+            if (bay === Bay.RwyArr && runwayCleared && runwayConfirmed) {
+              resetRunwayClearance(callsign);
+            } else if (bay === Bay.RwyArr || (runwayCleared && !runwayConfirmed)) {
               runwayConfirmation(callsign);
             } else {
-              runwayClearance(callsign);
+              if (bay === Bay.Final) {
+                runwayClearance(callsign);
+              }
             }
           }) : undefined}
         >

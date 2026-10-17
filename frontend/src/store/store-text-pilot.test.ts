@@ -53,4 +53,38 @@ describe("frequency message requests", () => {
     expect(client.send).toHaveBeenCalledWith(expect.objectContaining({ type: ActionType.FrontendSendFrequencyMessage, clearance: true, actions: [{ type: ActionType.FrontendMove, callsign: "SAS123", bay: Bay.Cleared, clearance: true }] }));
     result({ applied_actions: 1 }); await Promise.resolve(); expect(client.send).toHaveBeenCalledTimes(1);
   });
+  it("does not send a text clearance while a non-tag handover is active", () => {
+    store.setState({ stripTransfers: { SAS123: { from: "121.905", to: "121.730", isTagRequest: false } } });
+    store.getState().move("SAS123", Bay.Cleared, true);
+    expect(client.send).not.toHaveBeenCalled();
+    expect(store.getState().strips[0].bay).toBe(Bay.NotCleared);
+  });
+  it("prepares an owned text arrival runway action without an optimistic confirmation", async () => {
+    store.setState({
+      position: "118.105",
+      airport: "EKCH",
+      strips: [{ callsign: "SAS123", communication_type: CommunicationType.Text, bay: Bay.RwyArr, owner: "118.105", origin: "EKBI", destination: "EKCH", runway_cleared: true, runway_confirmed: false }] as FrontendStrip[],
+    });
+    store.getState().runwayConfirmation("SAS123");
+    expect(client.send).toHaveBeenCalledWith(expect.objectContaining({
+      type: ActionType.FrontendSendFrequencyMessage,
+      prepare: true,
+      actions: [{ type: ActionType.FrontendRunwayConfirmation, callsign: "SAS123" }],
+    }));
+    expect(store.getState().strips[0].runway_confirmed).toBe(false);
+    result({ prepared: true, runway_confirmed: true });
+    await Promise.resolve();
+    expect(store.getState().textPilotDraft).toMatchObject({ callsign: "SAS123", variant: "runway", confirmed: true, arrival: true });
+  });
+  it.each(["different owner", "another green arrival"])("blocks text runway preparation for %s", reason => {
+    store.setState({
+      position: "118.105",
+      strips: [
+        { callsign: "SAS123", communication_type: CommunicationType.Text, bay: Bay.RwyArr, owner: reason === "different owner" ? "121.905" : "118.105" } as FrontendStrip,
+        ...(reason === "another green arrival" ? [{ callsign: "SAS456", bay: Bay.RwyArr, runway_cleared: true, runway_confirmed: true } as FrontendStrip] : []),
+      ],
+    });
+    store.getState().runwayConfirmation("SAS123");
+    expect(client.send).not.toHaveBeenCalled();
+  });
 });

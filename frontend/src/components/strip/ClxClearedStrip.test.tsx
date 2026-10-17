@@ -7,6 +7,7 @@ import { COLOR_CLOSED_RWY, COLOR_UNCONCERNED_BG, SELECTION_COLOR } from "./share
 
 const state = vi.hoisted(() => ({
   strips: [],
+  localMarked: {} as Record<string, boolean>,
   runwayStatus: {} as Record<string, string>,
   transfers: {} as Record<string, { from: string; to: string; isTagRequest: boolean }>,
 }));

@@ -152,18 +152,21 @@ func (c *ActionService) PrepareEuroscopeEobtSync(session int32, data *models.Cdm
 	return prepared.updated, prepared.normalizedEobt, prepared.clamped
 }
 
-// PrepareEuroscopeLogonSync initializes matching EOBT/TOBT values. An explicit
-// estimate from a pilot or controller remains authoritative and may differ.
+// PrepareEuroscopeLogonSync applies the initial logon threshold to the filed
+// estimate, including a pilot- or controller-confirmed TOBT.
 func (c *ActionService) PrepareEuroscopeLogonSync(data *models.CdmData, eobt string, now time.Time) *models.CdmData {
 	updated := data.Clone()
 	eobt = truncateCDMClockValue(normalizeCalculationClock(eobt))
 	updated.Eobt = &eobt
-	if isExplicitlyConfirmedTobt(updated) {
-		return updated
-	}
 	tobt := eobt
+	if isExplicitlyConfirmedTobt(updated) {
+		tobt = normalizeCalculationClock(helpers.ValueOrDefault(updated.EffectiveTobt()))
+		if _, valid := parseClock(tobt); !valid || minutesBetween(timeToClock(now), tobt) <= 40 {
+			return updated
+		}
+	}
 	adjusted := false
-	if _, valid := parseClock(eobt); valid && minutesBetween(timeToClock(now), toHHMMSS(eobt)) > 40 {
+	if _, valid := parseClock(tobt); valid && minutesBetween(timeToClock(now), toHHMMSS(tobt)) > 40 {
 		tobt = truncateCDMClockValue(addMinutes(timeToClock(now), 30))
 		adjusted = true
 	}
@@ -203,7 +206,7 @@ func (c *ActionService) HandleClearanceTobt(ctx context.Context, session int32, 
 }
 
 func clearanceTobt(data *models.CdmData, now time.Time) (string, bool) {
-	if data == nil || isExplicitlyConfirmedTobt(data) {
+	if data == nil {
 		return "", false
 	}
 	current := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTobt()))
@@ -523,7 +526,7 @@ func (c *ActionService) HandleManualCtot(ctx context.Context, session int32, cal
 	updated.Ctot = &ctot
 	src := models.CtotSourceManual
 	updated.CtotSource = &src
-	updated.MarkLocalRecalculationPending()
+	updated.MarkCtotRecalculationPending()
 
 	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
@@ -556,7 +559,7 @@ func (c *ActionService) HandleCtotRemove(ctx context.Context, session int32, cal
 	updated := cdmData.Clone()
 	updated.Ctot = nil
 	updated.CtotSource = nil
-	updated.MarkLocalRecalculationPending()
+	updated.MarkCtotRecalculationPending()
 
 	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
@@ -720,6 +723,9 @@ func readyRequestTobt(data *models.CdmData, now time.Time) (string, bool) {
 		return current, true
 	}
 	tsat := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTsat()))
+	if tsat == "" && data.Calculation != nil && valueOrEmpty(data.Calculation.InvalidReason) == models.CdmInvalidReasonStaleTsat {
+		tsat = normalizeCalculationClock(valueOrEmpty(data.ExpiredTsat))
+	}
 	if _, ok := parseClock(tsat); !ok {
 		return current, true
 	}
@@ -916,6 +922,7 @@ func applyTobtRecalculationPolicy(updated *models.CdmData, tobt string) bool {
 	if updated == nil {
 		return false
 	}
+	updated.ExpiredTsat = nil
 	wasPending := updated.NeedsLocalRecalculation()
 	previousMode := updated.RecalculationMode
 	ts := normalizeCalculationClock(helpers.ValueOrDefault(updated.EffectiveTsat()))
@@ -1360,6 +1367,7 @@ func applyAutoSyncedTobtUpdate(updated *models.CdmData, tobt string) {
 		return
 	}
 	updated.Tobt = &tobt
+	updated.ExpiredTsat = nil
 	updated.Eobt = &tobt
 	updated.TobtSetBy = nil
 	updated.TobtConfirmedBy = nil

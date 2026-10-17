@@ -66,6 +66,7 @@ type CdmData struct {
 	TobtAutoAdjusted      bool    `json:"tobtAutoAdjusted,omitempty"`
 	TobtManuallyConfirmed bool    `json:"tobtManuallyConfirmed,omitempty"`
 	Tsat                  *string `json:"tsat,omitempty"`
+	ExpiredTsat           *string `json:"expiredTsat,omitempty"`
 	ViffProposalTsat      *string `json:"viffProposalTsat,omitempty"`
 	ViffProposalTtot      *string `json:"viffProposalTtot,omitempty"`
 	Ttot                  *string `json:"ttot,omitempty"`
@@ -94,6 +95,7 @@ type CdmData struct {
 	Recalculate               bool               `json:"recalculate,omitempty"`
 	RecalculationMode         string             `json:"recalculationMode,omitempty"`
 	PushbackRecalculate       bool               `json:"pushbackRecalculate,omitempty"`
+	CtotRecalculate           bool               `json:"ctotRecalculate,omitempty"`
 	ReadySyncPending          bool               `json:"readySyncPending,omitempty"`
 	ViffRequestSyncPending    bool               `json:"viffRequestSyncPending,omitempty"`
 }
@@ -126,6 +128,7 @@ func (d *CdmData) Clone() *CdmData {
 	clone.TobtSetBy = cloneStringPointer(d.TobtSetBy)
 	clone.TobtConfirmedBy = cloneStringPointer(d.TobtConfirmedBy)
 	clone.Tsat = cloneStringPointer(d.Tsat)
+	clone.ExpiredTsat = cloneStringPointer(d.ExpiredTsat)
 	clone.ViffProposalTsat = cloneStringPointer(d.ViffProposalTsat)
 	clone.ViffProposalTtot = cloneStringPointer(d.ViffProposalTtot)
 	clone.Ttot = cloneStringPointer(d.Ttot)
@@ -284,6 +287,15 @@ func (d *CdmData) MarkLocalImprovementPending() {
 	d.RecalculationMode = CdmRecalculationImproveOnly
 }
 
+// CTOT updates must refresh operational timing even after startup or off-block.
+func (d *CdmData) MarkCtotRecalculationPending() {
+	if d == nil {
+		return
+	}
+	d.MarkLocalRecalculationPending()
+	d.CtotRecalculate = true
+}
+
 func (d *CdmData) ClearLocalRecalculationPending() {
 	if d == nil {
 		return
@@ -291,6 +303,7 @@ func (d *CdmData) ClearLocalRecalculationPending() {
 	d.Recalculate = false
 	d.RecalculationMode = ""
 	d.PushbackRecalculate = false
+	d.CtotRecalculate = false
 }
 
 func (d *CdmData) IsImprovementOnlyRecalculation() bool {

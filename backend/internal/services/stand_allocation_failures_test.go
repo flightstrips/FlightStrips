@@ -61,7 +61,7 @@ func TestStandAllocationRecordsRejectedRequest(t *testing.T) {
 			WTC:        "M",
 		},
 		AssignmentFacts: sat.AssignmentFlightFacts{AircraftType: "A320", BorderStatus: sat.BorderStatusSchengen},
-		ETA:             &eta, ETASource: &etaSource, DepartureTOBT: &tobt, DepartureTSAT: &tsat, DepartureReady: true,
+		ETA:             &eta, ETASource: &etaSource, DepartureTOBT: &tobt, DepartureTSAT: &tsat, DepartureStartupRequestedAt: &now, DepartureReady: true,
 	})
 	require.Error(t, err)
 
@@ -76,6 +76,7 @@ func TestStandAllocationRecordsRejectedRequest(t *testing.T) {
 	require.Equal(t, "EAT", recorded[0].ETASource)
 	require.Equal(t, tobt, *recorded[0].DepartureTOBT)
 	require.Equal(t, tsat, *recorded[0].DepartureTSAT)
+	require.Equal(t, now, *recorded[0].DepartureStartupRequestedAt)
 	require.True(t, recorded[0].DepartureReady)
 }
 

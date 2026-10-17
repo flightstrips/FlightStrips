@@ -735,15 +735,41 @@ func TestDepartureLifecycle(t *testing.T) {
 		if assignment, err := assignments.GetAssignment(ctx, session, "SAS701"); assert.NoError(t, err) {
 			assert.Nil(t, assignment.ExpiresAt, "the active block should not retain a TSAT expiry")
 			require.NotNil(t, assignment.ProjectedReleaseAt)
-			assert.Equal(t, time.Date(2026, 7, 12, 10, 40, 0, 0, time.UTC), assignment.ProjectedReleaseAt.UTC(),
+			assert.Equal(t, time.Date(2026, 7, 12, 10, 35, 0, 0, time.UTC), assignment.ProjectedReleaseAt.UTC(),
 				"availability retains TSAT plus the configured buffer separately from physical expiry")
 		}
 
 		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS701")
-		require.NoError(t, err, "the occupied stand remains assigned after TSAT+10")
+		require.NoError(t, err, "the occupied stand remains assigned after TSAT+5")
 		assert.Nil(t, assignment.ExpiresAt)
+	})
+
+	t.Run("startup projection does not release physical occupancy", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SASSTART1")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		tsat, asrt := "1030", "1000"
+		_, err := strips.SetCdmData(ctx, session, "SASSTART1", &models.CdmData{Tsat: &tsat, Asrt: &asrt})
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SASSTART1"), onlineFlight("SASSTART1", 1)))
+		assignment, err := assignments.GetAssignment(ctx, session, "SASSTART1")
+		require.NoError(t, err)
+		require.NotNil(t, assignment.ProjectedReleaseAt)
+		assert.Equal(t, time.Date(2026, 7, 12, 10, 25, 0, 0, time.UTC), assignment.ProjectedReleaseAt.UTC())
+		assert.Nil(t, assignment.ExpiresAt)
+
+		clock.advance(26 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SASSTART1"), onlineFlight("SASSTART1", 2)))
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		retained, err := assignments.GetAssignment(ctx, session, "SASSTART1")
+		require.NoError(t, err)
+		assert.Equal(t, assignment.ProjectedReleaseAt, retained.ProjectedReleaseAt, "startup projection is not moved forward on each poll")
+		assert.Nil(t, retained.ExpiresAt)
+		_, end, active := assignmentOccupancyWindow(retained, clock.current())
+		assert.True(t, active)
+		assert.Nil(t, end, "missed projection cannot overrule observed occupancy")
 	})
 
 	t.Run("TOBT does not release an occupied departure block", func(t *testing.T) {
@@ -761,12 +787,12 @@ func TestDepartureLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		assert.Nil(t, block.ExpiresAt, "an online aircraft on its assigned stand has no TOBT expiry")
 		require.NotNil(t, block.ProjectedReleaseAt)
-		assert.Equal(t, time.Date(2026, 7, 12, 10, 40, 0, 0, time.UTC), block.ProjectedReleaseAt.UTC())
+		assert.Equal(t, time.Date(2026, 7, 12, 10, 35, 0, 0, time.UTC), block.ProjectedReleaseAt.UTC())
 
 		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		_, err = assignments.GetAssignment(ctx, session, "SAS801")
-		require.NoError(t, err, "the occupied stand remains assigned after TOBT+10")
+		require.NoError(t, err, "the occupied stand remains assigned after TOBT+5")
 	})
 
 	t.Run("stale TOBT does not recreate an already expired online block", func(t *testing.T) {
@@ -864,23 +890,108 @@ func TestDepartureLifecycle(t *testing.T) {
 	})
 }
 
-func TestDepartureBlockExpiryUsesReadinessAndLaterSlotTime(t *testing.T) {
+func TestDepartureBlockExpiryUsesReadinessAndTSAT(t *testing.T) {
 	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
 	tobt, tsat := "1005", "1100"
 	strip := &models.Strip{StartReq: true, CdmData: &models.CdmData{Tobt: &tobt, Tsat: &tsat}}
 	lifecycle := &DepartureLifecycleService{
 		now:            func() time.Time { return now },
-		blockExtension: 10 * time.Minute,
+		blockExtension: defaultDepartureBlockExtension,
 	}
 
-	readyExpiry := lifecycle.computeBlockExpiry(strip)
-	require.NotNil(t, readyExpiry)
-	assert.Equal(t, time.Date(2026, 7, 12, 11, 0, 0, 0, time.UTC), *readyExpiry, "START REQ uses the later TSAT without an additional buffer")
-
-	strip.StartReq = false
 	bufferedExpiry := lifecycle.computeBlockExpiry(strip)
 	require.NotNil(t, bufferedExpiry)
-	assert.Equal(t, time.Date(2026, 7, 12, 11, 10, 0, 0, time.UTC), *bufferedExpiry, "a non-ready departure retains the configured safety buffer")
+	assert.Equal(t, time.Date(2026, 7, 12, 10, 55, 0, 0, time.UTC), *bufferedExpiry, "START REQ projects TSAT minus five minutes")
+
+	strip.State = strp("PUSH")
+	readyExpiry := lifecycle.computeBlockExpiry(strip)
+	require.NotNil(t, readyExpiry)
+	assert.Equal(t, time.Date(2026, 7, 12, 11, 0, 0, 0, time.UTC), *readyExpiry, "PUSH removes the buffer")
+	strip.State = nil
+	strip.Bay = "PUSH"
+	assert.Equal(t, readyExpiry, lifecycle.computeBlockExpiry(strip), "an assigned PUSH bay also removes the buffer")
+}
+
+func TestDepartureProjectionUsesTSATWithTOBTFallback(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name string
+		tobt string
+		tsat string
+		want string
+	}{
+		{"TSAT later than TOBT", "1005", "1100", "1105"},
+		{"TSAT earlier than TOBT", "1100", "1005", "1010"},
+		{"missing TSAT", "1005", "", "1010"},
+		{"invalid TSAT", "1005", "invalid", "1010"},
+		{"missing TOBT", "", "1005", "1010"},
+		{"missing both", "", "", ""},
+	}
+	lifecycle := &DepartureLifecycleService{
+		now: func() time.Time { return now }, blockExtension: defaultDepartureBlockExtension,
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			strip := &models.Strip{CdmData: &models.CdmData{Tobt: &tt.tobt, Tsat: &tt.tsat}}
+			expiry := lifecycle.computeBlockExpiry(strip)
+			request := StandAllocationRequest{
+				DepartureTOBT: departureTobtTime(strip, now),
+				DepartureTSAT: departureTsatTime(strip, now),
+			}
+			assert.Equal(t, expiry, projectedDepartureRelease(request, 0), "allocation and lifecycle must use the same projection")
+			if tt.want == "" {
+				assert.Nil(t, expiry)
+			} else {
+				require.NotNil(t, expiry)
+				assert.Equal(t, tt.want, expiry.UTC().Format("1504"))
+			}
+		})
+	}
+}
+
+func TestDepartureStartupProjection(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 30, 0, 0, time.UTC)
+	tests := []struct {
+		name     string
+		tobt     string
+		tsat     string
+		asrt     string
+		startReq bool
+		want     string
+	}{
+		{"request before TSAT window", "1000", "1100", "1020", true, "1055"},
+		{"request after TSAT window", "1000", "1030", "1028", true, "1028"},
+		{"transfer clears flag but retains request", "1000", "1030", "1028", false, "1028"},
+		{"missing TSAT uses TOBT window", "1100", "", "1020", true, "1055"},
+		{"request after TOBT window", "1030", "", "1028", true, "1028"},
+		{"no request uses normal TSAT buffer", "1000", "1100", "", false, "1105"},
+		{"legacy request flag without ASRT uses current time", "1000", "1030", "", true, "1030"},
+		{"ASRT retained across midnight", "0010", "0010", "2358", false, "0005"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			current := now
+			if tt.name == "ASRT retained across midnight" {
+				current = time.Date(2026, 7, 13, 0, 0, 0, 0, time.UTC)
+			}
+			strip := &models.Strip{
+				StartReq: tt.startReq,
+				CdmData:  &models.CdmData{Tobt: &tt.tobt, Tsat: &tt.tsat, Asrt: &tt.asrt},
+			}
+			lifecycle := &DepartureLifecycleService{
+				now: func() time.Time { return current }, blockExtension: defaultDepartureBlockExtension,
+			}
+			expiry := lifecycle.computeBlockExpiry(strip)
+			require.NotNil(t, expiry)
+			assert.Equal(t, tt.want, expiry.UTC().Format("1504"))
+			request := lifecycle.buildRequest(1, strip, vatsim.DepartureFlightInfo{}, StageDepartureBlock, nil)
+			assert.Equal(t, expiry, projectedDepartureRelease(request, 0), "allocator and lifecycle projections agree")
+			if tt.asrt == "1028" {
+				current = current.Add(time.Minute)
+				assert.Equal(t, expiry, lifecycle.computeBlockExpiry(strip), "polls must not shift the recorded request time")
+			}
+		})
+	}
 }
 
 func TestObservedDepartureConflictPreservesPriorReason(t *testing.T) {

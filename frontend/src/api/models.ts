@@ -50,6 +50,7 @@ export enum EventType {
   FrontendStandBlockUpdate = "stand_block_update",
   FrontendAMANState = "aman.state",
   FrontendAMANCommandRejected = "aman.command_rejected",
+ FrontendAMANArrivalSequenceRebuilt = "aman.arrival_sequence_rebuilt",
   FrontendAMANCoordinationState = "aman.coordination_state",
 }
 

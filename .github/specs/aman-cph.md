@@ -427,10 +427,64 @@ Stable aircraft retain their established relative order. When an earlier legal s
 
 Superstable and manually frozen aircraft retain their captured slot except under a specifically authorized manual workflow or a confirmed go-around. A late raw TETA is informational and must never automatically release Superstable or change its captured operational TETA and slot. Queue offers are removed when they can no longer be used or when the aircraft becomes fully frozen.
 
-TMA freeze must not use entry into a configured terminal path as its boundary. The approved horizontal boundary is the EKCH Copenhagen Approach `MultiPolygon` from the SimAware TRACON project, vendored from [`Boundaries/EKCH/EKCH.json` at commit `d860ed77135b057168148184880a41cc183bf881`](https://github.com/vatsimnetwork/simaware-tracon-project/blob/d860ed77135b057168148184880a41cc183bf881/Boundaries/EKCH/EKCH.json). Edges and vertices are inside. The operational volume extends from the surface to strictly below FL195; an observation at FL195 or above is outside it. The first fresh outside-to-inside observation captures the slot/TETA once and the freeze remains sticky after exit. A confirmed go-around atomically releases the old capture, applies the ten-minute delay, allocates a new slot, and immediately captures that slot as TMA-protected because the aircraft normally remains inside. This operator-approved boundary remains valid until explicitly superseded and does not cycle automatically with AIRAC data. Production configuration must use a validated local/versioned copy with source provenance rather than fetching the mutable upstream file during runtime.
+TMA freeze must not use entry into a configured terminal path as its boundary. The approved horizontal boundary is the EKCH Copenhagen Approach `MultiPolygon` from the SimAware TRACON project, vendored from [`Boundaries/EKCH/EKCH.json` at commit `d860ed77135b057168148184880a41cc183bf881`](https://github.com/vatsimnetwork/simaware-tracon-project/blob/d860ed77135b057168148184880a41cc183bf881/Boundaries/EKCH/EKCH.json). Edges and vertices are inside. The operational volume extends from the surface to strictly below FL195; an observation at FL195 or above is outside it. The first fresh outside-to-inside observation captures the slot/TETA once and the freeze remains sticky after exit. An explicitly authorized arrival sequence rebuild may replace automatic TMA captures with freshly calculated timings as described below. A confirmed go-around atomically releases the old capture, applies the ten-minute delay, allocates a new slot, and immediately captures that slot as TMA-protected because the aircraft normally remains inside. This operator-approved boundary remains valid until explicitly superseded and does not cycle automatically with AIRAC data. Production configuration must use a validated local/versioned copy with source provenance rather than fetching the mutable upstream file during runtime.
 
 
 ### Holding-stack ordering
+
+#### Explicit arrival sequence rebuild (#888)
+
+An authorized FMP controller can rebuild all participating arrival runways in
+one airport/session command. Current validated TMA traffic keeps priority over
+holding releases, but its automatic ETA and slot are rebuilt from the latest
+fresh position-based prediction. Old automatic TMA, Stable and Superstable
+captures cannot reserve slots the aircraft can no longer use. TMA order follows
+the current physical arrival estimates. Old manual order may be replaced; manual
+freezes, ETA overrides, exclusions, runway assignments and unavailable-data
+reservations remain protected. A valid feasible result is applied atomically; exceptions name
+their blockers. Runway separation and unsafe physical-stack release order cannot
+be waived by this action.
+
+Future automatic approach-release offers are rebuilt with their landing slots.
+Due or physically observed approach admissions retain their capacity commitment
+and accepted EAT, with an explicit exception diagnostic. A final safety pass
+after approach-buffer planning withholds EATs that violate the rebuilt order.
+
+Within each physical hold, lower **cleared** holding levels release first.
+Across all holds and runway groups, compare the holding duration of each
+eligible stack head, release the longest-held first, then expose that stack's
+next aircraft. Equal starts/levels use callsign as a deterministic tie-breaker.
+Release priority is separate from landing order: different fix-to-runway
+transits can produce different landing order and identical EATs in different
+holds. The existing minimum release separation still applies within one hold.
+
+Elapsed holding starts at the first observed fix crossing or observation within
+1 NM of the fix, with interpolation between coherent radar reports no more than
+two minutes apart. Assignment, a predicted fix ETA and entry into the broader
+holding footprint are not holding-start evidence. Already-confirmed legacy
+holding with missing crossing evidence uses a labelled detection estimate.
+Repeated laps, restart and reconnect retain the episode clock; accepted release,
+cancellation, departure and subsequent re-entry establish a new episode.
+
+The rebuild bypasses old automatic captures and routine smoothing, publishes
+refreshed operational ETAs and slots, and recaptures automatic protection around
+those new timings. Smoothing restarts from the latest raw prediction. The
+physical prediction is retried when fresh radar is available but the stored
+estimate is stale or predates that radar report. Historical separation conflicts
+between reservations entirely in the past cannot block the future rebuild;
+conflicts involving current or future retained reservations still reject it.
+Actual holding-entry clocks are retained. Aircraft actively holding remain in the hold
+queue even when the holding pattern lies within the TMA volume. Releases cannot
+precede the current predicted arrival back at the holding fix. Missing or
+expired physical estimates are retained with an explicit exception instead of
+being presented as fresh usable timings.
+
+The rebuild recalculates slots, holding plans and derived feeder timing using
+current rates, wake/STAR spacing, gaps, closures and capacity reservations.
+Old queue offers are discarded and replaced at the new revision. A correlated
+command result distinguishes changed, unchanged, duplicate and committed-but-
+unpublished outcomes. An unrelated revision is not proof that a reset succeeded.
+Normal automatic holding strategy configuration remains unchanged.
 
 A route's optional holding fix alone must not establish a holding FIFO queue. Queue release bounds activate only when an active aircraft is confirmed in that hold or has an active enroute holding clearance. Incoming aircraft may then queue behind that traffic. Unoccupied, uncleared route holdings must not propagate prediction outliers into other aircraft's landing slots.
 

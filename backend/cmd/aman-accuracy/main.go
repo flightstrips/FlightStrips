@@ -41,6 +41,11 @@ func main() {
 	exportPath := flag.String("export", "", "optional path for replay-map JSON")
 	releaseMetricsPath := flag.String("release-metrics", "", "optional JSON report of planned approach release targets")
 	releaseBuffer := flag.Bool("release-buffer", false, "enable approach buffer policy for this offline replay")
+	rebuildEvery := flag.Duration("rebuild-every", 0, "exercise arrival rebuild at this replay-clock interval (zero disables)")
+	holdingLevelOverlay := flag.Bool("holding-level-overlay", false, "TEST ONLY: simulate route-holding clearances and cleared levels from recorded altitude")
+	rebuildSnapshots := flag.Int("rebuild-snapshots", 0, "validate detached rebuilds at this many seeded random playback snapshots, injecting obsolete automatic captures")
+	rebuildSeed := flag.Int64("rebuild-seed", 888, "seed for random rebuild snapshot selection")
+	tmaVolumePath := flag.String("tma-volume", terminal.DefaultEKCHTMAVolumePath, "optional validated TMA volume file (use config/aman/boundaries/EKCH.json for production TMA behavior)")
 	flag.Parse()
 	if *rate == 0 || *rate > uint(^uint32(0)) {
 		fail("rate must be in [1,%d]", ^uint32(0))
@@ -48,11 +53,20 @@ func main() {
 	if *minimumUpdateInterval < 0 {
 		fail("minimum-update-interval must be non-negative")
 	}
+	if *rebuildSnapshots < 0 || *rebuildEvery < 0 {
+		fail("rebuild-snapshots and rebuild-every must be non-negative")
+	}
 	files, err := filepath.Glob(filepath.Join(*input, "*.json"))
 	if err != nil || len(files) == 0 {
 		fail("find history files: %v", err)
 	}
 	sort.Strings(files)
+	rebuildSampleIndices := selectRebuildSnapshots(len(files), *rebuildSnapshots, *rebuildSeed)
+	if *tmaVolumePath != "" {
+		if _, err := terminal.LoadTMAVolume(*tmaVolumePath); err != nil {
+			fail("load replay TMA volume: %v", err)
+		}
+	}
 	pool, err := pgxpool.New(context.Background(), *dsn)
 	if err != nil {
 		fail("connect to navigation cache: %v", err)
@@ -83,7 +97,7 @@ func main() {
 	if *minimumUpdateInterval > 0 {
 		label += fmt.Sprintf(", AMAN recalculated every %s", *minimumUpdateInterval)
 	}
-	service, err := operational.New(operational.Dependencies{Repository: repo, Materializer: routes, Geometry: navigationSource.Geometry, Wind: unavailableWind{}, Publisher: discardPublisher{}, Terminal: navigationSource.Terminal, TMAVolumePath: terminal.DefaultEKCHTMAVolumePath, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return clock }})
+	service, err := operational.New(operational.Dependencies{Repository: repo, Materializer: routes, Geometry: navigationSource.Geometry, Wind: unavailableWind{}, Publisher: discardPublisher{}, Terminal: navigationSource.Terminal, TMAVolumePath: *tmaVolumePath, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return clock }})
 	if err != nil {
 		fail("create operational AMAN service: %v", err)
 	}
@@ -120,7 +134,9 @@ func main() {
 	samples := make(map[time.Duration][]accuracySample, len(horizons))
 	replayConfigured := false
 	lastUpdate := time.Time{}
-	for _, path := range files {
+	lastRebuild := time.Time{}
+	rebuildStats := replayRebuildStats{}
+	for fileIndex, path := range files {
 		file, openErr := os.Open(path)
 		if openErr != nil {
 			fail("open %q: %v", path, openErr)
@@ -192,7 +208,7 @@ func main() {
 				airborne[flight.CID] = true
 			}
 		}
-		if !lastUpdate.IsZero() && clock.Sub(lastUpdate) < *minimumUpdateInterval {
+		if !lastUpdate.IsZero() && clock.Sub(lastUpdate) < *minimumUpdateInterval && !rebuildSampleIndices[fileIndex] {
 			continue
 		}
 		if err := worker.Publish(context.Background()); err != nil {
@@ -209,6 +225,16 @@ func main() {
 			// first group (04L) before the replay rate is applied.
 			service.Reconcile(context.Background())
 			replayConfigured = true
+		}
+		if *holdingLevelOverlay {
+			applyReplayHoldingLevels(&repo.state, clock)
+		}
+		if *rebuildEvery > 0 && (lastRebuild.IsZero() || clock.Sub(lastRebuild) >= *rebuildEvery) {
+			rebuildStats.Apply(service, repo, clock)
+			lastRebuild = clock
+		}
+		if rebuildSampleIndices[fileIndex] {
+			rebuildStats.ApplySnapshot(service, repo, clock)
 		}
 		metrics.record(repo.state, clock)
 		if err := updateReplayGoAroundDetections(goAroundDetector, goAroundCorridor, aman.RunwayGroupID(*runwayGroup), repo.state, clock, goAroundStates, goAroundDetections); err != nil {
@@ -232,6 +258,16 @@ func main() {
 	}
 	if len(samples[5*time.Minute]) == 0 {
 		fail("no landing candidates had a publishable AMAN prediction from the current navigation cache")
+	}
+	if *rebuildEvery > 0 || *rebuildSnapshots > 0 {
+		if rebuildStats.RepeatedResultViolations > 0 || rebuildStats.ReleaseOrderViolations > 0 || rebuildStats.TimingUsabilityViolations > 0 || rebuildStats.SnapshotRejections > 0 || rebuildStats.ApproachReservationViolations > 0 {
+			fail("arrival rebuild replay violated repeatability or release order: %+v", rebuildStats)
+		}
+		if *rebuildSnapshots > 0 && (rebuildStats.InjectedAutomaticCaptures == 0 || rebuildStats.Applied == 0) {
+			fail("random snapshot validation did not exercise any obsolete automatic captures")
+		}
+		report, _ := json.Marshal(rebuildStats)
+		fmt.Printf("Arrival rebuild replay (approach-release-policy=%t, synthetic cleared-level overlay=%t): %s\n", *releaseBuffer, *holdingLevelOverlay, report)
 	}
 	printLandingRate(landings)
 	printUnavailableCandidates(landings, publishableAtFiveMinutes, availability)

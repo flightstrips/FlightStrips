@@ -59,6 +59,24 @@ function createMockClient() {
 }
 
 describe("AMAN command store", () => {
+ it("does not complete rebuild on unrelated revisions, and acknowledges unchanged results", () => {
+  const client = createMockClient();
+  const store = createWebSocketStore(client);
+  store.getState().setAMANConnectionState("connected");
+  client._emit(EventType.FrontendInitial, initialSnapshot(true));
+  client._emit(EventType.FrontendAMANState, replacement(7));
+  const commandID = store.getState().sendAMANCommand({type: "aman.rebuild_arrival_sequence"})!;
+  client._emit(EventType.FrontendAMANState, replacement(8));
+  expect(store.getState().amanPendingCommands[commandID]).toBeDefined();
+  client._emit(EventType.FrontendAMANArrivalSequenceRebuilt, {type: "aman.arrival_sequence_rebuilt",version: 1,data: {command_id: commandID,revision: 8,changed: false,duplicate: false,publication_status: "published",release_order: [],diagnostics: []}});
+  expect(store.getState().amanPendingCommands[commandID]).toBeUndefined();
+  expect(store.getState().amanRebuildResult?.changed).toBe(false);
+  const nextID = store.getState().sendAMANCommand({type: "aman.rebuild_arrival_sequence"})!;
+  client._emit(EventType.FrontendAMANArrivalSequenceRebuilt, {type: "aman.arrival_sequence_rebuilt",version: 1,data: {command_id: commandID,revision: 8,changed: false,duplicate: true,publication_status: "published",release_order: [],diagnostics: []}});
+  expect(store.getState().amanRebuildResult).toBeNull();
+  expect(store.getState().amanPendingCommands[nextID]).toBeDefined();
+ });
+
   let client: ReturnType<typeof createMockClient>;
   let store: StoreApi<WebSocketState>;
 

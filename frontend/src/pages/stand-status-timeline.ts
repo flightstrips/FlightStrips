@@ -43,3 +43,17 @@ export function assignmentTimelineTiming(assignment: TimelineAssignment, now = n
 export function timelineRangeEnd(now: Date): Date {
   return new Date(now.getTime() + TIMELINE_FUTURE_MS);
 }
+
+export function formatTimelineTimestamp(value?: string): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], {
+    timeZone: "UTC",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    day: "2-digit",
+    month: "short",
+  });
+}

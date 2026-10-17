@@ -2,7 +2,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getApiUrl } from "@/lib/api-url";
 import { fetchWithAccessTokenRetry, requiresLoginPrompt } from "@/lib/authenticated-fetch";
-import { assignmentTimelineTiming, timelineRangeEnd } from "./stand-status-timeline";
+import { assignmentTimelineTiming, formatTimelineTimestamp, timelineRangeEnd } from "./stand-status-timeline";
 import { STAND_ASSIGNMENT_LAYOUTS, STAND_ASSIGNMENT_LETTERS } from "@/components/strip/standAssignmentLayouts";
 
 type StandSection = (typeof STAND_ASSIGNMENT_LETTERS)[number];
@@ -54,6 +54,7 @@ type StandAssignment = {
   expires_at?: string;
   manual: boolean;
   acknowledged: boolean;
+  blocks?: string[];
   acknowledged_at?: string;
   acknowledged_by?: string;
   vatsim_cid?: number;
@@ -294,20 +295,20 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
     const active = entryIsActive(assignment.expires_at, now);
     const timing = assignment.direction === "DEPARTURE"
       ? `TOBT ${clockValue(assignment.departure_tobt)} · TSAT ${clockValue(assignment.departure_tsat)}`
-      : `ETA ${formatTimestamp(assignment.eta)}`;
-    return [{
+      : `ETA ${formatTimelineTimestamp(assignment.eta)}`;
+    const item = {
       id: `assignment-${assignment.id}`,
       stand: assignment.stand.toUpperCase(),
       label: assignment.callsign,
       detail: `${formatStatus(assignment.direction)} · ${formatStatus(assignment.stage)}${assignment.rule_id ? ` · ${assignment.rule_id}` : ""}`,
       secondary: `${timing} · ${assignment.expires_at && displayEnd
-        ? `ends ${formatTimestamp(displayEnd.toISOString())}`
+        ? `ends ${formatTimelineTimestamp(displayEnd.toISOString())}`
         : timelineTiming.plannedRelease
-          ? `planned release ${formatTimestamp(timelineTiming.plannedRelease.toISOString())}`
+          ? `planned release ${formatTimelineTimestamp(timelineTiming.plannedRelease.toISOString())}`
           : assignment.direction === "DEPARTURE"
             ? "active occupancy"
             : displayEnd
-              ? `ends ${formatTimestamp(displayEnd.toISOString())}`
+              ? `ends ${formatTimelineTimestamp(displayEnd.toISOString())}`
               : "open-ended"}`,
       start,
       end: displayEnd,
@@ -318,7 +319,18 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
         : assignment.direction === "ARRIVAL"
           ? "border-sky-600/60 bg-sky-600/85 text-white dark:border-sky-300/60 dark:bg-sky-400/80 dark:text-slate-950"
           : "border-emerald-700/60 bg-emerald-600/85 text-white dark:border-emerald-300/60 dark:bg-emerald-400/80 dark:text-slate-950",
-    } satisfies StandTimelineItem];
+    } satisfies StandTimelineItem;
+    const blockedStands = [...new Set((assignment.blocks ?? []).map((blocked) => blocked.trim().toUpperCase()).filter(Boolean))];
+    return [
+      item,
+      ...blockedStands.filter((blocked) => blocked !== item.stand).map((blocked) => ({
+        ...item,
+        id: `${item.id}-blocks-${blocked}`,
+        stand: blocked,
+        label: `${assignment.callsign} blocks`,
+        detail: `${formatStatus(assignment.stage)} · blocked by ${item.stand}`,
+      })),
+    ];
   });
   const blocks = session.blocks.flatMap((block) => {
     const start = timelineDate(block.created_at);
@@ -330,7 +342,7 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
       stand: block.stand.toUpperCase(),
       label: block.callsign || formatStatus(block.block_type || "block"),
       detail: `${formatStatus(block.block_type || "block")} · ${formatStatus(block.source || "system")}${block.manual ? " · manual" : ""}`,
-      secondary: `${block.reason || "No reason supplied"}${block.callsign ? ` · ${block.callsign}` : ""} · ${end ? `ends ${formatTimestamp(end.toISOString())}` : "open-ended"}`,
+      secondary: `${block.reason || "No reason supplied"}${block.callsign ? ` · ${block.callsign}` : ""} · ${end ? `ends ${formatTimelineTimestamp(end.toISOString())}` : "open-ended"}`,
       start,
       end,
       active,
@@ -408,8 +420,8 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand, c
           <div className="grid grid-cols-[7rem_1fr] border-b bg-muted/40 text-xs text-muted-foreground">
             <div className="px-3 py-2 font-medium uppercase tracking-wide">Stand</div>
             <div className="flex justify-between px-3 py-2">
-              <span>{formatTimestamp(rangeStart.toISOString())}</span>
-              <span>{formatTimestamp(rangeEnd.toISOString())}</span>
+              <span>{formatTimelineTimestamp(rangeStart.toISOString())}</span>
+              <span>{formatTimelineTimestamp(rangeEnd.toISOString())}</span>
             </div>
           </div>
           <div className={`${layout.height} overflow-y-auto`}>
@@ -444,7 +456,7 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand, c
                           </div>
                           {item.plannedEnd && item.plannedEnd >= rangeStart && item.plannedEnd <= rangeEnd ? (
                             <div
-                              title={`Planned release ${formatTimestamp(item.plannedEnd.toISOString())}`}
+                              title={`Planned release ${formatTimelineTimestamp(item.plannedEnd.toISOString())}`}
                               className="absolute z-20 border-l-2 border-dashed border-emerald-950/70 dark:border-emerald-100/80"
                               style={{ left: `${offset(item.plannedEnd)}%`, top: `${6 + index * layout.laneHeight}px`, height: `${layout.laneHeight - 6}px` }}
                             />

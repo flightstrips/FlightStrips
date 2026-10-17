@@ -1,7 +1,9 @@
 package standstatus
 
 import (
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/sat"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/standdiagnostics"
@@ -121,6 +123,7 @@ type standStatusAssignmentResponse struct {
 	RuleID           *string    `json:"rule_id,omitempty"`
 	Tier             *int32     `json:"tier,omitempty"`
 	MatchedVariant   *string    `json:"matched_variant,omitempty"`
+	Blocks           []string   `json:"blocks"`
 	ConflictReason   *string    `json:"conflict_reason,omitempty"`
 	ETA              *time.Time `json:"eta,omitempty"`
 	ETASource        *string    `json:"eta_source,omitempty"`
@@ -402,6 +405,7 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 			ID: assignment.ID, Callsign: assignment.Callsign, Stand: assignment.Stand,
 			Direction: assignment.Direction, Stage: assignment.Stage, Source: assignment.Source,
 			RuleID: assignment.RuleID, Tier: assignment.Tier, MatchedVariant: assignment.MatchedVariant,
+			Blocks:         standAssignmentBlockedStands(config.GetStandCapabilities(), session.Airport, assignment),
 			ConflictReason: assignment.ConflictReason, ETA: assignment.ETA, ETASource: assignment.ETASource,
 			AssignedAt: assignment.AssignedAt, ExpiresAt: assignment.ExpiresAt, Manual: assignment.Manual,
 			Acknowledged: assignment.Acknowledged, AcknowledgedAt: assignment.AcknowledgedAt,
@@ -409,6 +413,7 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 			VatsimRevision: assignment.VatsimRevision, Version: assignment.Version,
 			CreatedAt: assignment.CreatedAt, UpdatedAt: assignment.UpdatedAt,
 		}
+
 		if assignment.Direction == "DEPARTURE" {
 			mapped.PlannedReleaseAt = assignment.ProjectedReleaseAt
 			if strip := stripsByCallsign[strings.ToUpper(strings.TrimSpace(assignment.Callsign))]; strip != nil {
@@ -442,6 +447,29 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 		return response.Blocks[i].ID < response.Blocks[j].ID
 	})
 	return response
+}
+
+func standAssignmentBlockedStands(registry *sat.StandCapabilityRegistry, airport string, assignment *models.StandAssignment) []string {
+	if registry == nil || assignment == nil {
+		return []string{}
+	}
+	stand, ok := registry.Lookup(airport, assignment.Stand)
+	if !ok {
+		return []string{}
+	}
+	if assignment.MatchedVariant != nil {
+		matched := strings.TrimSpace(*assignment.MatchedVariant)
+		for _, variant := range stand.Variants {
+			key := strings.ToUpper(strings.TrimSpace(airport)) + ":" +
+				strings.ToUpper(strings.TrimSpace(assignment.Stand)) + ":" + strconv.Itoa(variant.Line)
+			if strings.EqualFold(matched, key) {
+				return append([]string{}, variant.Blocks...)
+			}
+		}
+	}
+	// If the stored variant is unavailable, the union is conservative: it avoids
+	// presenting a neighboring stand as free when any configured variant blocks it.
+	return append([]string{}, stand.Blocks...)
 }
 
 // scheduledDepartureReleaseAt mirrors the operational display rule: TSAT takes

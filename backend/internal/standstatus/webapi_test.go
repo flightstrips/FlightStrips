@@ -2,6 +2,7 @@ package standstatus
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/sat"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/standdiagnostics"
 	"FlightStrips/internal/vatsim"
@@ -10,6 +11,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,6 +72,32 @@ func TestStandStatusRequiresAuthorization(t *testing.T) {
 	api.handleStatus(recorder, httptest.NewRequest(http.MethodGet, "/stand/status", nil))
 
 	require.Equal(t, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestStandAssignmentBlockedStandsUseMatchedVariant(t *testing.T) {
+	t.Parallel()
+
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A19:N055.37.42.710:E012.38.33.450:30
+BLOCKS:A18,A20
+STAND:EKCH:A18:N055.37.42.000:E012.38.33.000:20
+STAND:EKCH:A20:N055.37.43.000:E012.38.34.000:20
+`))
+	require.NoError(t, err)
+
+	matchedVariant := "EKCH:A19:1"
+	blocked := standAssignmentBlockedStands(registry, "EKCH", &models.StandAssignment{
+		Stand:          "A19",
+		MatchedVariant: &matchedVariant,
+	})
+	require.Equal(t, []string{"A18", "A20"}, blocked)
+
+	unknownMatchedVariant := "EKCH:A19:999"
+	unknownVariant := standAssignmentBlockedStands(registry, "EKCH", &models.StandAssignment{
+		Stand:          "A19",
+		MatchedVariant: &unknownMatchedVariant,
+	})
+	require.Equal(t, []string{"A18", "A20"}, unknownVariant)
 }
 
 func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {

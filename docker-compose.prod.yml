@@ -43,8 +43,11 @@ services:
       # Local-only synthetic data console. The backend also refuses to start
       # if this is enabled while ENVIRONMENT is production.
       ENABLE_TEST_TOOLS: "false"
-      # Release EFB code disabled until the authenticated pilot surface is ready.
-      ENABLE_EFB: ${ENABLE_EFB:-false}
+      # Authenticated pilots use their own current VATSIM flight at /efb.
+      # Set ENABLE_EFB=false for rollback without changing other pilot services.
+      ENABLE_EFB: ${ENABLE_EFB:-true}
+      EFB_CALLSIGN_LOOKUP: "false"
+      EFB_TRAINING: "false"
       # Navigation data is independently available to the EFB and AMAN.
       NAVIGATION_SOURCE: ${NAVIGATION_SOURCE:-}
       # Local-only Go heap and goroutine profiling. It listens on 127.0.0.1:6060

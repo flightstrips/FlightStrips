@@ -41,7 +41,7 @@ func TestPilotStandRequestSyncsEuroscopeWhenTheStripAlreadyHasTheSelectedStand(t
 	require.EqualValues(t, 1, updated)
 	actions := NewStandActionService(allocation, assignments, postgres.NewStripRepository(pool), nil, nil, nil)
 
-	result, err := actions.AssignForPilot(context.Background(), session, "EKCH", "1234567", "SAS803", stand, 0)
+	result, err := actions.AssignForPilot(context.Background(), session, "EKCH", "1234567", "SAS803", stand, 0, false)
 
 	require.NoError(t, err)
 	assert.False(t, result.StandChanged)

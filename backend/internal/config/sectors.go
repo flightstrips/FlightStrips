@@ -112,7 +112,15 @@ func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active [
 
 	for _, entry := range byKey {
 		s := entry.sector
-		if frequency, ok := resolveSectorOwnerFrequency(s.Owner, directLookup, primaryNameByFrequency, coverageByFrequency); ok {
+		// Delivery can perform sequencing on its own frequency, as well as
+		// through carriage of the sequencing frequency.
+		var equivalentOwners []string
+		if strings.EqualFold(s.KeyOrName(), "SQ") {
+			if delivery, ok := getSectorByIdentifier(active, "DEL", false); ok && len(delivery.Owner) > 0 {
+				equivalentOwners = []string{delivery.Owner[0]}
+			}
+		}
+		if frequency, ok := resolveSectorOwnerFrequency(s.Owner, directLookup, primaryNameByFrequency, coverageByFrequency, equivalentOwners...); ok {
 			result[frequency] = append(result[frequency], s)
 			continue
 		}
@@ -124,8 +132,37 @@ func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active [
 	return result
 }
 
-func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string, primaryNameByFrequency map[string]string, coverageByFrequency map[string][]string) (string, bool) {
+func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string, primaryNameByFrequency map[string]string, coverageByFrequency map[string][]string, equivalentOwners ...string) (string, bool) {
+	// Carriage of the sector's own frequency takes precedence over fallback
+	// staffing. Carriage of a fallback frequency does not: a staffed configured
+	// primary has greater responsibility than that indirect claimant.
+	carriedOwners := append(slices.Clone(owners[:min(1, len(owners))]), equivalentOwners...)
+	if frequency, ok := resolveCoveredOwnerFrequency(carriedOwners, owners, directLookup, primaryNameByFrequency, coverageByFrequency); ok {
+		return frequency, true
+	}
 	for _, owner := range owners {
+		position, err := GetPositionByName(owner)
+		if err != nil {
+			continue
+		}
+		frequency, ok := directLookup[owner]
+		if ok && vatsim.NormalizeFrequency(frequency) == vatsim.NormalizeFrequency(position.Frequency) {
+			return frequency, true
+		}
+	}
+	if frequency, ok := resolveCoveredOwnerFrequency(owners, owners, directLookup, primaryNameByFrequency, coverageByFrequency); ok {
+		return frequency, true
+	}
+	for _, owner := range owners {
+		if frequency, ok := directLookup[owner]; ok {
+			return frequency, true
+		}
+	}
+	return "", false
+}
+
+func resolveCoveredOwnerFrequency(carriedOwners []string, owners []string, directLookup map[string]string, primaryNameByFrequency map[string]string, coverageByFrequency map[string][]string) (string, bool) {
+	for _, owner := range carriedOwners {
 		position, err := GetPositionByName(owner)
 		if err != nil {
 			continue
@@ -137,12 +174,6 @@ func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string
 				return frequency, true
 			}
 			return frequencies[0], true
-		}
-	}
-
-	for _, owner := range owners {
-		if frequency, ok := directLookup[owner]; ok {
-			return frequency, true
 		}
 	}
 

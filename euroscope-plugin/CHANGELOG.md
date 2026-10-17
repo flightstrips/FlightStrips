@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.3.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.2.0...plugin/v2.3.0) (2026-10-17)
+
+
+### Features
+
+* **session:** show the FS master across controller interfaces ([#918](https://github.com/flightstrips/FlightStrips/issues/918)) ([52fbeac](https://github.com/flightstrips/FlightStrips/commit/52fbeacc85ee96f67d503871facd6ae49d1eecf1))
+* **strip:** add text-pilot messaging workflows ([#907](https://github.com/flightstrips/FlightStrips/issues/907)) ([b809cea](https://github.com/flightstrips/FlightStrips/commit/b809cea428ce2f014e8b1012a6abdabe9b09e397))
+* **strip:** refine controller workflows and departure controls ([#885](https://github.com/flightstrips/FlightStrips/issues/885)) ([b33f1ad](https://github.com/flightstrips/FlightStrips/commit/b33f1ad33f6985c0b61325535b1a28ebeaf4b0e9))
+
 ## [2.2.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.7...plugin/v2.2.0) (2026-10-09)
 
 

@@ -105,6 +105,7 @@ func TestOnUnregister_LastOperationalClientDisconnectsObserverFrontends(t *testi
 	}
 
 	hub.clients[observer] = true
+	startQueuedTestClient(observer)
 	hub.master[42] = master
 	hub.markSessionSynced(42)
 

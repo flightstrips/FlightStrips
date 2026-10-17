@@ -840,8 +840,18 @@ TEST_F(WebSocketServiceOnTimerTest, ShouldProcessServerMessageType_WhenObserver_
     state.observer = true;
 
     EXPECT_TRUE(svc->ShouldProcessServerMessageType(EVENT_SESSION_INFO_NAME));
+    EXPECT_TRUE(svc->ShouldProcessServerMessageType(EVENT_MASTER_INFO_NAME));
     EXPECT_TRUE(svc->ShouldProcessServerMessageType(EVENT_RUNWAY_MISMATCH_ALERT_NAME));
     EXPECT_FALSE(svc->ShouldProcessServerMessageType(EVENT_BACKEND_SYNC_NAME));
+}
+
+TEST_F(WebSocketServiceOnTimerTest, MasterMetadataDoesNotChangeRoleAndClearsOnReconnect) {
+    svc->SetSessionState(STATE_SLAVE);
+    svc->SetMasterCallsign("EKDK_FMP");
+    EXPECT_EQ(svc->GetStats().masterCallsign, "EKDK_FMP");
+    EXPECT_EQ(svc->GetStats().role, STATE_SLAVE);
+    svc->Reconnect();
+    EXPECT_TRUE(svc->GetStats().masterCallsign.empty());
 }
 
 // ---------------------------------------------------------------------------

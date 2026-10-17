@@ -15,6 +15,7 @@ import {
 } from "./shared";
 import { getStripBg } from "./types";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
+import {InboundCtotFlag} from "./InboundCtotFlag";
 
 const FULL_H = "4.72dvh";
 const TOP_H = "66.6667%";
@@ -102,6 +103,7 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
             >
               {strip.callsign}
             </span>
+            <InboundCtotFlag callsign={strip.callsign} />
           </div>
           <div className="flex items-center px-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
             <span

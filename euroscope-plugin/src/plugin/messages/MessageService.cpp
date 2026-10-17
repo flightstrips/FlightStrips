@@ -89,6 +89,7 @@ namespace FlightStrips::messages {
             Logger::Info("Received protobuf event type {}", static_cast<int>(envelope.event_case()));
             switch (envelope.event_case()) {
             HANDLE_PROTO(kSessionInfo, session_info, SessionInfoEvent, HandleSessionInfoEvent, EVENT_SESSION_INFO_NAME)
+            HANDLE_PROTO(kMasterInfo, master_info, MasterInfoEvent, HandleMasterInfoEvent, EVENT_MASTER_INFO_NAME)
             HANDLE_PROTO(kRunwayMismatchAlert, runway_mismatch_alert, RunwayMismatchAlertEvent, HandleRunwayMismatchAlertEvent, EVENT_RUNWAY_MISMATCH_ALERT_NAME)
             HANDLE_PROTO(kCdmUpdate, cdm_update, CdmUpdateEvent, HandleCdmUpdateEvent, EVENT_CDM_UPDATE_NAME)
             HANDLE_PROTO(kCdmUpdateBatch, cdm_update_batch, CdmUpdateBatchEvent, HandleCdmUpdateBatchEvent, EVENT_CDM_UPDATE_BATCH_NAME)
@@ -340,9 +341,14 @@ namespace FlightStrips::messages {
         }
     }
 
+    void MessageService::HandleMasterInfoEvent(const MasterInfoEvent &event) const {
+        m_webSocketService->SetMasterCallsign(event.master_callsign);
+    }
+
     void MessageService::HandleRunwayMismatchAlertEvent(const RunwayMismatchAlertEvent &event) const {
         m_plugin->Error(std::format(
-            "Runway mismatch vs master. Reconfigure EuroScope. Expected DEP {} / ARR {}; current DEP {} / ARR {}.",
+            "Runway mismatch vs FS Master {}. Reconfigure EuroScope. Expected DEP {} / ARR {}; current DEP {} / ARR {}.",
+            event.master_callsign.empty() ? "(unknown)" : event.master_callsign,
             JoinRunways(event.expected_departure),
             JoinRunways(event.expected_arrival),
             JoinRunways(event.current_departure),

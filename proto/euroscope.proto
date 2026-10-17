@@ -64,6 +64,7 @@ enum EventType {
   EVENT_FS_SCRATCH_PAD = 53;
   EVENT_SEND_FREQUENCY_MESSAGE = 54;
   EVENT_FREQUENCY_MESSAGE_RESULT = 55;
+  EVENT_MASTER_INFO = 56;
 }
 
 // Every websocket frame contains exactly one event. Using a oneof makes the
@@ -126,6 +127,7 @@ message Envelope {
     FsScratchPadEvent fs_scratch_pad = 53;
     SendFrequencyMessageEvent send_frequency_message = 54;
     FrequencyMessageResultEvent frequency_message_result = 55;
+    MasterInfoEvent master_info = 56;
   }
 }
 
@@ -303,6 +305,7 @@ message RunwayMismatchAlertEvent {
   repeated string expected_arrival = 2;
   repeated string current_departure = 3;
   repeated string current_arrival = 4;
+  string master_callsign = 5;
 }
 
 message CreateFPLEvent {
@@ -431,4 +434,9 @@ message FrequencyMessageResultEvent {
   bool submitted = 3;
   string error = 4;
   int32 applied_actions = 5;
+}
+
+// Session metadata; updating this must not trigger an operational sync.
+message MasterInfoEvent {
+  string master_callsign = 1;
 }

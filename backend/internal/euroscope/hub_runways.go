@@ -157,9 +157,10 @@ func (hub *Hub) evaluateClientRunwayState(session int32, cid, callsign string, c
 		if !state.DepartureMismatch && !state.ArrivalMismatch {
 			state.LastAlertSignature = ""
 		} else {
-			signature := runwayMismatchSignature(master, current)
+			signature := hub.GetMasterCallsign(session) + "|" + runwayMismatchSignature(master, current)
 			if state.LastAlertSignature != signature {
 				alert := buildRunwayMismatchAlert(master, current)
+				alert.MasterCallsign = hub.GetMasterCallsign(session)
 				evaluation.Alert = &alert
 				state.LastAlertSignature = signature
 			}
@@ -210,9 +211,10 @@ func (hub *Hub) resyncSessionRunwayMismatchTargets(session int32, masterCID stri
 			ArrivalMismatch:   state.ArrivalMismatch,
 		}
 
-		signature := runwayMismatchSignature(master, current)
+		signature := hub.GetMasterCallsign(session) + "|" + runwayMismatchSignature(master, current)
 		if state.LastAlertSignature != signature {
 			alert := buildRunwayMismatchAlert(master, current)
+			alert.MasterCallsign = hub.GetMasterCallsign(session)
 			evaluation.Alert = &alert
 			state.LastAlertSignature = signature
 		}

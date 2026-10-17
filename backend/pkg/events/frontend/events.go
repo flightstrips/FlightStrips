@@ -20,6 +20,7 @@ const (
 	Token EventType = "token"
 
 	Initial            EventType = "initial"
+	MasterInfo         EventType = "master_info"
 	StripUpdate        EventType = "strip_update"
 	ControllerOnline   EventType = "controller_online"
 	ControllerUpdate   EventType = "controller_update"
@@ -83,8 +84,8 @@ const (
 
 	Marked EventType = "marked"
 
-	RunwayClearance    EventType = "runway_clearance"
-	RunwayConfirmation EventType = "runway_confirmation"
+	RunwayClearance      EventType = "runway_clearance"
+	RunwayConfirmation   EventType = "runway_confirmation"
 	ResetRunwayClearance EventType = "reset_runway_clearance"
 
 	PdcManualStateChange EventType = "pdc_manual_state_change"
@@ -285,6 +286,8 @@ type SyncCoordination struct {
 }
 
 type InitialEvent struct {
+	MasterCallsign         string                  `json:"master_callsign"`
+	InboundDepartures      *InboundDeparturesEvent `json:"inbound_departures,omitempty"`
 	SessionID              int32                   `json:"session_id,omitempty"`
 	Contsollers            []Controller            `json:"controllers"`
 	Strips                 []Strip                 `json:"strips"`
@@ -308,6 +311,13 @@ type InitialEvent struct {
 	StandBlocks            []StandBlockEntry       `json:"stand_blocks"`
 	Capabilities           FrontendCapabilities    `json:"capabilities"`
 }
+
+type MasterInfoEvent struct {
+	MasterCallsign string `json:"master_callsign"`
+}
+
+func (e MasterInfoEvent) GetType() EventType       { return MasterInfo }
+func (e MasterInfoEvent) Marshal() ([]byte, error) { return marshall(e) }
 
 // FrontendCapabilities contains server-derived permissions for the authenticated
 // frontend session. These are presentation hints only; command handlers must

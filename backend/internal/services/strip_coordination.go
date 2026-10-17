@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
+	"FlightStrips/internal/vatsim"
 	"context"
 	"errors"
 	"log/slog"
@@ -127,7 +128,7 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 				if c.Position == from && c.Cid != nil && *c.Cid != "" {
 					ownerCid = c.Cid
 				}
-				if c.Position == to {
+				if resolvedTargetCallsign == "" && c.Position == to {
 					targetCallsign = c.Callsign
 				}
 			}
@@ -287,7 +288,7 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return err
 	}
 
-	targetController, err := s.resolveAirborneController(strip, controllers)
+	targetController, err := s.resolveAirborneController(ctx, session, strip, controllers)
 	if err != nil {
 		return err
 	}
@@ -298,7 +299,7 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 
 	var ownerController *internalModels.Controller
 	for _, c := range controllers {
-		if c.Position == *strip.Owner {
+		if shared.IsOperationalPositionController(c) && vatsim.NormalizeFrequency(c.Position) == vatsim.NormalizeFrequency(*strip.Owner) {
 			ownerController = c
 			break
 		}
@@ -309,7 +310,7 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return nil
 	}
 
-	if ownerController.Position == targetController.Position {
+	if vatsim.NormalizeFrequency(ownerController.Position) == vatsim.NormalizeFrequency(targetController.Position) {
 		slog.DebugContext(ctx, "Skipping automatic AIRBORNE transfer because target controller is the same as strip owner", slog.String("callsign", callsign))
 		return nil
 	}
@@ -330,7 +331,7 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return err
 	}
 
-	if err := s.CreateCoordinationTransfer(ctx, session, callsign, *strip.Owner, targetController.Position); err != nil {
+	if err := s.CreateCoordinationTransfer(ctx, session, callsign, ownerController.Position, targetController.Position); err != nil {
 		slog.ErrorContext(ctx, "Failed to create coordination transfer for automatic AIRBORNE transfer", slog.String("callsign", callsign), slog.String("from", *strip.Owner), slog.String("to", targetController.Position), slog.Any("error", err))
 		return err
 	}
@@ -338,7 +339,7 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 	return nil
 }
 
-func (s *StripService) resolveAirborneController(strip *internalModels.Strip, controllers []*internalModels.Controller) (*internalModels.Controller, error) {
+func (s *StripService) resolveAirborneController(ctx context.Context, session int32, strip *internalModels.Strip, controllers []*internalModels.Controller) (*internalModels.Controller, error) {
 	if strip.Sid == nil || *strip.Sid == "" {
 		return nil, nil
 	}
@@ -362,8 +363,24 @@ func (s *StripService) resolveAirborneController(strip *internalModels.Strip, co
 		if err != nil {
 			continue
 		}
+		// Resolve each logical frequency before advancing to the next fallback.
+		// A controller carrying DEP must win over a lower-priority APP primary.
+		if s.coordTargetResolver != nil {
+			primary, targetCallsign, ok, err := s.coordTargetResolver.ResolveCoordinationTargetContext(ctx, session, position.Frequency)
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				slog.DebugContext(ctx, "Matched airborne controller",
+					slog.String("sid", *strip.Sid),
+					slog.String("matched_callsign", targetCallsign),
+					slog.String("controller_position", primary))
+				return &internalModels.Controller{Position: primary, Callsign: targetCallsign}, nil
+			}
+			continue
+		}
 		for _, controller := range controllers {
-			if controller.Position == position.Frequency {
+			if shared.IsOperationalControllerForPosition(controller, position) && vatsim.NormalizeFrequency(controller.Position) == vatsim.NormalizeFrequency(position.Frequency) {
 				slog.Debug("Matched airborne controller",
 					slog.String("sid", *strip.Sid),
 					slog.String("matched_callsign", callsign),

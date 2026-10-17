@@ -5,6 +5,25 @@
 
 using namespace FlightStrips::websocket;
 
+TEST(ProtoCodecTest, DecodesMasterMetadataWithoutRoleChange) {
+    protobuf::wire::Envelope envelope;
+    envelope.mutable_master_info()->set_master_callsign("EKDK_FMP");
+    EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_MASTER_INFO);
+    MasterInfoEvent event;
+    protobuf::Decode(envelope.master_info(), event);
+    EXPECT_EQ(event.master_callsign, "EKDK_FMP");
+}
+
+TEST(ProtoCodecTest, DecodesRunwayMismatchMasterCallsign) {
+    protobuf::wire::RunwayMismatchAlertEvent source;
+    source.set_master_callsign("EKCH_A_TWR");
+    source.add_expected_departure("22R");
+    RunwayMismatchAlertEvent event;
+    protobuf::Decode(source, event);
+    EXPECT_EQ(event.master_callsign, "EKCH_A_TWR");
+    EXPECT_EQ(event.expected_departure, std::vector<std::string>{"22R"});
+}
+
 TEST(ProtoCodecTest, SerializesFiledFlightRules) {
     StripUpdateEvent event(
         "OYABC", "EKRK", "EKCH", "", "", "", "", "7000", "7000", "", "",

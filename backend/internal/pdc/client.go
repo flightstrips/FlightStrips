@@ -2,8 +2,10 @@ package pdc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -51,24 +53,12 @@ func (c *Client) Poll(ctx context.Context, callsign string) ([]Message, error) {
 	params.Set("type", "poll")
 	params.Set("packet", "")
 
-	reqURL := fmt.Sprintf("%s?%s", c.baseURL, params.Encode())
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	body, err := c.request(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create poll request: %w", err)
+		return nil, err
 	}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to poll Hoppie: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read poll response: %w", err)
-	}
-
-	return c.parseResponse(string(body)), nil
+	return c.parseResponse(body)
 }
 
 // SendTelex sends a telex message
@@ -81,7 +71,20 @@ func (c *Client) SendCPDLC(ctx context.Context, from, to, packet string) error {
 	return c.sendMessage(ctx, from, to, "cpdlc", packet)
 }
 
-func (c *Client) sendMessage(ctx context.Context, from, to, msgType, packet string) error {
+func (c *Client) sendMessage(ctx context.Context, from, to, msgType, packet string) (err error) {
+	// Acceptance by Hoppie does not establish receipt by the pilot.
+	logger := slog.With("from", from, "to", to, "channel", "CPDLC", "message_type", msgType)
+	if parts := strings.SplitN(packet, "/", 6); len(parts) == 6 && parts[1] == "data2" {
+		logger = logger.With("message_sequence", parts[2], "response_to", parts[3])
+	}
+	defer func() {
+		if err != nil {
+			logger.WarnContext(ctx, "PDC Hoppie: Message send failed", "error", err, "outcome", "failed")
+		} else {
+			logger.InfoContext(ctx, "PDC Hoppie: Message accepted", "outcome", "accepted")
+		}
+	}()
+
 	params := url.Values{}
 	params.Set("logon", c.logon)
 	params.Set("from", from)
@@ -89,69 +92,127 @@ func (c *Client) sendMessage(ctx context.Context, from, to, msgType, packet stri
 	params.Set("type", msgType)
 	params.Set("packet", packet)
 
+	body, err := c.request(ctx, params)
+	if err != nil {
+		return err
+	}
+	if body != "ok" {
+		return fmt.Errorf("unexpected Hoppie send response: %s", c.responseSummary(body))
+	}
+	return nil
+}
+
+const maxHoppieResponseBytes = 1024 * 1024
+
+// request validates HTTP status and the provider's application-level status.
+// Never expose the request URL: its query includes the secret logon code.
+func (c *Client) request(ctx context.Context, params url.Values) (string, error) {
 	reqURL := fmt.Sprintf("%s?%s", c.baseURL, params.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create send request: %w", err)
+		return "", fmt.Errorf("failed to create Hoppie request: %s", c.responseSummary(err.Error()))
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
+		for {
+			var urlErr *url.Error
+			if !errors.As(err, &urlErr) {
+				break
+			}
+			err = urlErr.Err
+		}
+		return "", &hoppieTransportError{cause: err, summary: c.responseSummary(err.Error())}
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("hoppie returned error: %s", string(body))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxHoppieResponseBytes+1))
+	if err != nil {
+		return "", fmt.Errorf("failed to read Hoppie response: %s", c.responseSummary(err.Error()))
 	}
+	if len(body) > maxHoppieResponseBytes {
+		return "", fmt.Errorf("Hoppie response exceeds %d bytes", maxHoppieResponseBytes)
+	}
+	text := strings.TrimSpace(string(body))
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Hoppie HTTP status %d: %s", resp.StatusCode, c.responseSummary(text))
+	}
+	if text != "ok" && (len(text) < 3 || text[:2] != "ok" || !strings.ContainsAny(text[2:3], " \t\r\n")) {
+		return "", fmt.Errorf("Hoppie rejected request or returned an invalid response: %s", c.responseSummary(text))
+	}
+	return text, nil
+}
 
-	return nil
+type hoppieTransportError struct {
+	cause   error
+	summary string
+}
+
+func (e *hoppieTransportError) Error() string { return "Hoppie request failed: " + e.summary }
+func (e *hoppieTransportError) Unwrap() error { return e.cause }
+
+func (c *Client) responseSummary(body string) string {
+	if c.logon != "" {
+		body = strings.ReplaceAll(body, c.logon, "[REDACTED]")
+		body = strings.ReplaceAll(body, url.QueryEscape(c.logon), "[REDACTED]")
+	}
+	if len(body) > 512 {
+		body = body[:512] + "..."
+	}
+	return fmt.Sprintf("%q", body)
 }
 
 // parseResponse parses the poll response into messages
 // Format: "ok {MESSAGE1} {MESSAGE2} ..."
 // Each MESSAGE is "{FROM TYPE {CONTENT}}"
-func (c *Client) parseResponse(body string) []Message {
+func (c *Client) parseResponse(body string) ([]Message, error) {
 	var messages []Message
 
 	body = strings.TrimSpace(body)
-	if body == "ok" || body == "" {
-		return messages
+	if body == "ok" {
+		return messages, nil
 	}
-
-	// Remove "ok " prefix if present
-	body = strings.TrimPrefix(body, "ok ")
+	if len(body) < 3 || body[:2] != "ok" || !strings.ContainsAny(body[2:3], " \t\r\n") {
+		return nil, fmt.Errorf("invalid Hoppie poll response: %s", c.responseSummary(body))
+	}
+	body = strings.TrimSpace(body[2:])
 
 	// Extract top-level brace-enclosed blocks
 	var blocks []string
 	start := -1
 	depth := 0
 	for i, char := range body {
-		switch char {
-			case '{':
-
-				if depth == 0 {
-					start = i
-				}
-				depth++
-			case '}':
-				depth--
-				if depth == 0 && start != -1 {
-					blocks = append(blocks, body[start+1:i])
-					start = -1
-				}
+		if depth == 0 && char != '{' && !strings.ContainsRune(" \t\r\n", char) {
+			return nil, errors.New("invalid Hoppie poll response: unexpected text outside message")
 		}
+		switch char {
+		case '{':
+
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		case '}':
+			depth--
+			if depth == 0 && start != -1 {
+				blocks = append(blocks, body[start+1:i])
+				start = -1
+			}
+		}
+	}
+	if depth != 0 {
+		return nil, errors.New("invalid Hoppie poll response: incomplete message")
 	}
 
 	for _, block := range blocks {
 		msg := c.parseMessage(block)
-		if msg != nil {
-			messages = append(messages, *msg)
+		if msg == nil {
+			return nil, errors.New("invalid Hoppie poll response: malformed message")
 		}
+		messages = append(messages, *msg)
 	}
 
-	return messages
+	return messages, nil
 }
 
 func (c *Client) parseMessage(content string) *Message {
@@ -171,9 +232,9 @@ func (c *Client) parseMessage(content string) *Message {
 	header := strings.TrimSpace(content[:idx])
 	remaining := content[idx:]
 
-	// Header should contain FROM and TO
+	// Header contains FROM and message type.
 	headerParts := strings.Fields(header)
-	if len(headerParts) < 2 {
+	if len(headerParts) != 2 {
 		return nil
 	}
 
@@ -198,6 +259,9 @@ func (c *Client) parseMessage(content string) *Message {
 			depth--
 			if depth == 0 && start != -1 {
 				packet = remaining[start+1 : i]
+				if strings.TrimSpace(remaining[i+1:]) != "" {
+					return nil
+				}
 				break
 			}
 		}

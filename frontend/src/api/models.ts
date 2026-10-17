@@ -1,6 +1,8 @@
 import type {AMANCommandMessage} from "./aman";
+import type {InboundDeparturesEvent, InboundDeparturesSnapshot} from "./inbound-departures";
 
 export enum EventType {
+  FrontendMasterInfo = "master_info",
   FrontendInitial = "initial",
   FrontendFrequencyMessageResult = "frequency_message_result",
   FrontendGoAround = "go_around",
@@ -23,6 +25,7 @@ export enum EventType {
   FrontendLayoutUpdate = "layout_update",
   FrontendBroadcast = "broadcast",
   FrontendCdmData = "cdm_data",
+  FrontendInboundDepartures = "inbound_departures",
   FrontendCdmDataBatch = "cdm_data_batch",
   FrontendCdmWait = "cdm_wait",
   FrontendCdmDeicePlatformUpdate = "cdm_deice_platform_update",
@@ -302,6 +305,8 @@ export interface SidInfo {
 }
 
 export interface FrontendInitialEvent {
+  master_callsign?: string;
+  inbound_departures?: InboundDeparturesSnapshot;
   session_id?: number;
   type: EventType.FrontendInitial;
   controllers: FrontendController[];
@@ -327,6 +332,11 @@ export interface FrontendInitialEvent {
   capabilities?: {
     aman_fmp: boolean;
   };
+}
+
+export interface FrontendMasterInfoEvent {
+  type: EventType.FrontendMasterInfo;
+  master_callsign: string;
 }
 
 export interface FrontendStripUpdateEvent {
@@ -675,6 +685,8 @@ export interface FrontendAtisUpdateEvent {
 
 // Union type for all events that can be received
 export type WebSocketEvent =
+  | FrontendMasterInfoEvent
+  | InboundDeparturesEvent
   | FrontendInitialEvent
   | FrontendGoAroundEvent
   | FrontendStripUpdateEvent

@@ -99,6 +99,10 @@ func TestSnapshotBuilder_Build_IncludesAssociatedLocalIP(t *testing.T) {
 			},
 		},
 		EuroscopeHub: &testutil.MockEuroscopeHub{
+			GetMasterCallsignFn: func(session int32) string {
+				assert.Equal(t, int32(42), session)
+				return "EKDK_FMP"
+			},
 			GetClientLocalIPFn: func(session int32, cid string) string {
 				assert.Equal(t, int32(42), session)
 				assert.Equal(t, "1234567", cid)
@@ -119,6 +123,7 @@ func TestSnapshotBuilder_Build_IncludesAssociatedLocalIP(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, cachedAtis)
 	assert.Equal(t, "192.168.1.25", event.LocalIP)
+	assert.Equal(t, "EKDK_FMP", event.MasterCallsign)
 }
 
 func TestSnapshotBuilder_Build_ExcludesStripsOmittedByLatestEuroscopeSync(t *testing.T) {

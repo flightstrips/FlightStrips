@@ -248,7 +248,7 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 		}
 		return nil
 	}
-	if confirmed && remoteCtot == "" && pushbackTsatWithinWindow(valueOrEmptyStripTime(strip.EffectiveTsat()), now) {
+	if confirmed && pushbackTsatWithinWindow(valueOrEmptyStripTime(strip.EffectiveTsat()), now) {
 		if strip.ValidationStatus != nil && strip.ValidationStatus.IssueType == pushbackTsatValidationIssueType {
 			if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 				return err

@@ -21,6 +21,10 @@ func IsFMPRole(role string) bool {
 	return strings.HasSuffix(strings.ToUpper(strings.TrimSpace(role)), "_FMP")
 }
 
+type RebuildArrivalSequenceCommand struct{ Metadata CommandMetadata }
+
+func (c RebuildArrivalSequenceCommand) Validate() error { return validateCommandMetadata(c.Metadata) }
+
 type MoveFlightCommand struct {
 	Metadata       CommandMetadata
 	Callsign       Callsign
@@ -224,6 +228,7 @@ type CommandExecution struct {
 type CommandService interface {
 	Component
 	CurrentRevision(context.Context, string) (SequenceRevision, error)
+	RebuildArrivalSequence(context.Context, CommandContext, RebuildArrivalSequenceCommand) (CommandExecution, error)
 	MoveFlight(context.Context, CommandContext, MoveFlightCommand) (CommandExecution, error)
 	PlaceFlightAtTime(context.Context, CommandContext, PlaceFlightAtTimeCommand) (CommandExecution, error)
 	LockFlight(context.Context, CommandContext, LockFlightCommand) (CommandExecution, error)

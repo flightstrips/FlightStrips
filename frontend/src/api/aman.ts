@@ -230,6 +230,9 @@ export interface AMANFlight {
   feeder_fix_passed?: boolean;
   holding_fix: string | null;
   holding_fix_eta: string | null;
+  holding_started_at?: string;
+  holding_start_source?: "fix_crossing" | "near_fix" | "estimated_detection";
+  holding_elapsed_seconds?: number;
   holding_entry_time: string | null;
   approach_release_time: string | null;
   expected_holding_seconds: number | null;
@@ -384,6 +387,7 @@ export interface AMANCommandRejection {
 }
 
 export type AMANCommandType =
+  | "aman.rebuild_arrival_sequence"
   | "aman.move_flight"
   | "aman.lock_flight"
   | "aman.unlock_flight"
@@ -423,6 +427,7 @@ export interface AMANCommandMeta {
 }
 
 export type AMANCommandIntent =
+  | {type: "aman.rebuild_arrival_sequence"}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; before_callsign: string}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; after_callsign: string}
   | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.expedite_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; callsign: string}
@@ -604,6 +609,9 @@ function isFlight(value: unknown): value is AMANFlight {
     && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star)
     && isOptionalNullableIdentity(value.star_family) && isOptionalNullableIdentity(value.feeder_fix) && isNullableIdentity(value.holding_fix)
     && hasValidFeederETA(value)
+    && (value.holding_started_at === undefined || isTimestamp(value.holding_started_at))
+    && (value.holding_start_source === undefined || ["fix_crossing", "near_fix", "estimated_detection"].includes(String(value.holding_start_source)))
+    && (value.holding_elapsed_seconds === undefined || isNonNegativeInteger(value.holding_elapsed_seconds))
     && isNullableTimestamp(value.holding_fix_eta) && isNullableTimestamp(value.holding_entry_time) && isNullableTimestamp(value.approach_release_time)
     && (value.additional_approach_seconds === undefined || isNonNegativeInteger(value.additional_approach_seconds))
     && isNullableFiniteNumber(value.expected_holding_seconds) && isNullableFiniteNumber(value.post_holding_transit_seconds) && (value.route_fact === null || isRouteFact(value.route_fact))
@@ -895,4 +903,27 @@ export function isAMANCommandRejectedEvent(value: unknown): value is AMANCommand
     && isObject(value.data) && isString(value.data.command_id) && value.data.command_id !== ""
     && isString(value.data.code) && isString(value.data.message)
     && isNonNegativeInteger(value.data.current_revision) && typeof value.data.retryable === "boolean";
+}
+
+export interface AMANRebuildResult {
+  command_id: string;
+  revision: number;
+  changed: boolean;
+  duplicate: boolean;
+  publication_status: "published" | "snapshot_required" | "recovery_required";
+  release_order: string[];
+  diagnostics: Array<{code: string; callsign: string; blocker?: string; message: string}>;
+}
+export interface AMANArrivalSequenceRebuiltEvent {
+  type: "aman.arrival_sequence_rebuilt";
+  version: typeof AMAN_WIRE_VERSION;
+  data: AMANRebuildResult;
+}
+export function isAMANArrivalSequenceRebuiltEvent(value: unknown): value is AMANArrivalSequenceRebuiltEvent {
+  if (!isObject(value) || value.type !== "aman.arrival_sequence_rebuilt" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
+  const d = value.data;
+  return isIdentity(d.command_id) && isNonNegativeInteger(d.revision) && typeof d.changed === "boolean" && typeof d.duplicate === "boolean"
+    && ["published", "snapshot_required", "recovery_required"].includes(String(d.publication_status))
+    && Array.isArray(d.release_order) && d.release_order.every(isIdentity)
+    && Array.isArray(d.diagnostics) && d.diagnostics.every((item: unknown) => isObject(item) && isIdentity(item.code) && isIdentity(item.callsign) && isString(item.message) && (item.blocker === undefined || isIdentity(item.blocker)));
 }

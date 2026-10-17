@@ -66,6 +66,7 @@ func (s *Service) MoveFlight(_ aman.CommandContext, command aman.MoveFlightComma
 			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		invalidateHoldingRebuild(&state, command.Callsign)
 		decision, err := sequence.ApplyMove(s.sequenceInput(state), sequence.MoveFlightCommand{Metadata: command.Metadata, Callsign: command.Callsign, RunwayGroupID: command.RunwayGroupID, BeforeCallsign: command.BeforeCallsign, AfterCallsign: command.AfterCallsign})
 		if err != nil {
 			return sequence.CommandChange{}, err
@@ -135,6 +136,7 @@ func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.Place
 		target.FrozenOperationalTETA = &frozenTETA
 		target.FrozenSlot = &aman.Slot{Time: command.SlotTime, RunwayGroupID: command.RunwayGroupID, Sequence: 1, Revision: state.Revision, Reason: string(sequence.ReasonFreezeManual)}
 		target.ManualOrder, target.RunwayGapException, target.UpdatedAt = nil, nil, auth.ReceivedAt
+		invalidateHoldingRebuild(&candidate, command.Callsign)
 		input = s.sequenceInput(candidate)
 		result, err := sequence.Generate(input)
 		if err != nil || result.HasConflicts() {
@@ -205,6 +207,7 @@ func (s *Service) ChangeRunway(auth aman.CommandContext, command aman.ChangeRunw
 			target.Slot, target.FrozenSlot, target.Order, target.ManualOrder = retargetSlot(oldSlot, command.RunwayGroupID), retargetSlot(oldFrozenSlot, command.RunwayGroupID), oldOrder, oldManualOrder
 		}
 		target.UpdatedAt = auth.ReceivedAt
+		invalidateHoldingRebuild(&candidate, command.Callsign)
 		input := s.sequenceInput(candidate)
 		result, err := sequence.Generate(input)
 		if err != nil || result.HasConflicts() {
@@ -1228,6 +1231,7 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	expireActiveRouteFact(flight)
 	updatedPrediction := *flight.Prediction
+	aman.EndHoldingEpisode(flight, auth.ReceivedAt)
 	flight.SelectedHolding, flight.HoldingStack, flight.HoldingReleaseBasis = nil, nil, nil
 	updatedPrediction.HoldingFixETA, updatedPrediction.HoldingPlan, updatedPrediction.HoldingPlanBlockedBy = nil, nil, nil
 	updatedPrediction.OperationalTETA = detectedAt.Add(DefaultGoAroundDelay)
@@ -1259,6 +1263,7 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	if err != nil {
 		return sequence.CommandChange{}, err
 	}
+	invalidateHoldingRebuild(&state, state.Flights[index].Callsign)
 	state = s.applyDecision(state, decision)
 	updated := &state.Flights[index]
 	updated.FeederETA, updated.DerivedFeederETA, updated.TMAEntry = nil, nil, nil
@@ -1311,6 +1316,7 @@ func (s *Service) flightMutationWithAudit(action string, callsign aman.Callsign,
 		state.Flights[index] = updated
 		var promotions []sequence.VacancyPromotion
 		if changed {
+			invalidateHoldingRebuild(&state, callsign)
 			if manualETASlotPending(updated) && sequenceEligible(updated) {
 				input := s.sequenceInput(state)
 				candidate, err := sequence.Generate(input)

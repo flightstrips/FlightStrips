@@ -485,3 +485,26 @@ func TestAMANHoldingEATWritebackRequiresExplicitBoolean(t *testing.T) {
 		})
 	}
 }
+
+func (s *recordingAMANCommandService) RebuildArrivalSequence(_ context.Context, auth aman.CommandContext, command aman.RebuildArrivalSequenceCommand) (aman.CommandExecution, error) {
+	return s.record("rebuild", auth, command.Metadata)
+}
+
+func TestAMANRebuildReturnsCorrelatedNoOpAndRejectsSpoofedEvidence(t *testing.T) {
+	now := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
+	service := &recordingAMANCommandService{execution: aman.CommandExecution{CurrentRevision: 7, Outcome: aman.CommandOutcome{Revision: 7, Payload: []byte("{\"release_order\":[],\"diagnostics\":[]}")}}}
+	hub, client := newAMANCommandTestClient(service, now)
+	payload := []byte("{\"type\":\"aman.rebuild_arrival_sequence\",\"version\":1,\"data\":{\"command_id\":\"rebuild\",\"expected_revision\":7}}")
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANRebuildArrivalSequenceType, Message: payload}))
+	require.Equal(t, "rebuild", service.operation)
+	response := <-client.send
+	require.IsType(t, frontendEvents.AMANArrivalSequenceRebuiltEvent{}, response)
+	result := response.(frontendEvents.AMANArrivalSequenceRebuiltEvent)
+	require.Equal(t, "rebuild", result.Data.CommandID)
+	require.False(t, result.Data.Changed)
+	require.Equal(t, uint64(7), result.Data.Revision)
+	payload = []byte("{\"type\":\"aman.rebuild_arrival_sequence\",\"version\":1,\"data\":{\"command_id\":\"bad\",\"expected_revision\":7,\"holding_duration\":999}}")
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANRebuildArrivalSequenceType, Message: payload}))
+	require.Equal(t, 1, service.calls)
+	require.IsType(t, frontendEvents.AMANCommandRejectedEvent{}, <-client.send)
+}

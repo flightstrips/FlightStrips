@@ -44,7 +44,7 @@ import {
 } from "./models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
 import type {InboundDeparturesEvent} from "./inbound-departures";
-import type {AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEvent} from "./aman";
+import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEvent} from "./aman";
 
 
 type EventMap = {
@@ -99,6 +99,7 @@ type EventMap = {
   [EventType.FrontendStandBlockUpdate]: FrontendStandBlockUpdateEvent;
   [EventType.FrontendAMANState]: AMANStateEvent;
   [EventType.FrontendAMANCommandRejected]: AMANCommandRejectedEvent;
+ [EventType.FrontendAMANArrivalSequenceRebuilt]: AMANArrivalSequenceRebuiltEvent;
   [EventType.FrontendAMANCoordinationState]: AMANCoordinationStateEvent;
 };
 

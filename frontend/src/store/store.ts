@@ -62,6 +62,8 @@ import {
   createAMANCommand, isAMANCoordinationStateEvent,
   getAMANMutationBlockReason,
   isAMANCommandRejectedEvent,
+  isAMANArrivalSequenceRebuiltEvent,
+  type AMANRebuildResult,
   replaceAMANState,
   type AMANCommandIntent,
   type AMANCommandRejection,
@@ -221,6 +223,7 @@ export interface WebSocketState {
   amanWarnings: AMANCurrentWarnings;
   amanFMPAuthority: boolean;
   amanPendingCommands: Record<string, AMANPendingCommand>;
+  amanRebuildResult: AMANRebuildResult | null;
   amanCommandTypes: Record<string, AMANCommandType>;
   amanCommandRejections: Record<string, AMANCommandRejection>;
   amanSelectedView: AMANView;
@@ -373,6 +376,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     amanWarnings: currentWarningsFromAMANState(null),
     amanFMPAuthority: false,
     amanPendingCommands: {},
+    amanRebuildResult: null,
     amanCommandTypes: {},
     amanCommandRejections: {},
     amanSelectedView: readAMANViewPreference() ?? AMAN_ALL_VIEW,
@@ -515,6 +519,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
        });
        wsClient.send(message);
        set(produce((draft: WebSocketState) => {
+         if (message.type === "aman.rebuild_arrival_sequence") draft.amanRebuildResult = null;
          draft.amanPendingCommands[commandID] = {
            command_id: commandID,
            type: message.type,
@@ -1195,6 +1200,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.amanError = null;
           state.amanAwaitingSnapshot = true;
           state.amanPendingCommands = {};
+          state.amanRebuildResult = null;
           state.amanCommandRejections = {};
           state.amanCommandTypes = {};
         }
@@ -1842,11 +1848,22 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       }
       if (replacement.accepted && replacement.state !== null) {
         for (const [commandID, pending] of Object.entries(state.amanPendingCommands)) {
-          if (!pending.type.includes("coordination_request") && replacement.state.revision > pending.expected_revision) {
+          if (pending.type !== "aman.rebuild_arrival_sequence" && !pending.type.includes("coordination_request") && replacement.state.revision > pending.expected_revision) {
             delete state.amanPendingCommands[commandID];
           }
         }
       }
+    }));
+  });
+
+  wsClient.on(EventType.FrontendAMANArrivalSequenceRebuilt, (event) => {
+    if (!isAMANArrivalSequenceRebuiltEvent(event)) return;
+    const current = store.getState();
+    if (current.amanCommandTypes[event.data.command_id] !== "aman.rebuild_arrival_sequence"
+      || (!current.amanPendingCommands[event.data.command_id] && current.amanRebuildResult?.command_id !== event.data.command_id)) return;
+    store.setState(produce((state: WebSocketState) => {
+      state.amanRebuildResult = event.data;
+      delete state.amanPendingCommands[event.data.command_id];
     }));
   });
 

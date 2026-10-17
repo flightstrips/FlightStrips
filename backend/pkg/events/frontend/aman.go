@@ -225,6 +225,9 @@ type AMANFlight struct {
 	FeederFixPassed           *bool                     `json:"feeder_fix_passed,omitempty"`
 	HoldingFix                *string                   `json:"holding_fix"`
 	HoldingFixETA             *string                   `json:"holding_fix_eta"`
+	HoldingStartedAt          *string                   `json:"holding_started_at,omitempty"`
+	HoldingStartSource        *string                   `json:"holding_start_source,omitempty"`
+	HoldingElapsedSeconds     *int64                    `json:"holding_elapsed_seconds,omitempty"`
 	HoldingEntryTime          *string                   `json:"holding_entry_time"`
 	ApproachReleaseTime       *string                   `json:"approach_release_time"`
 	ExpectedHoldingSeconds    *int64                    `json:"expected_holding_seconds"`
@@ -715,6 +718,17 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 			state = aman.RouteFactActive
 		}
 		result.RouteFact = &AMANRouteFact{ID: flight.ActiveRouteFact.ID, Fix: flight.ActiveRouteFact.Fix, ObservedAt: observedAt, State: string(state)}
+	}
+	if episode := aman.ActiveHoldingEpisode(flight); episode != nil && !episode.StartedAt.After(generatedAt) {
+		value, err := aman.FormatTime(*episode.StartedAt)
+		if err != nil {
+			return AMANFlight{}, err
+		}
+		source := episode.Source
+		elapsed := int64(generatedAt.Sub(*episode.StartedAt) / time.Second)
+		result.HoldingStartedAt = &value
+		result.HoldingStartSource = &source
+		result.HoldingElapsedSeconds = &elapsed
 	}
 	if flight.Prediction != nil && flight.Prediction.Publishable {
 		prediction := flight.Prediction

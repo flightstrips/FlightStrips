@@ -16,6 +16,22 @@ import (
 
 type appTestHoppieClient struct{}
 
+func TestBuildRejectsEFBCallsignLookupInProduction(t *testing.T) {
+	_, err := Build(context.Background(), Config{Environment: "production", EFBCallsignLookup: true}, Dependencies{})
+	require.EqualError(t, err, "EFB_CALLSIGN_LOOKUP cannot be enabled in a live environment")
+}
+
+func TestBuildRejectsEFBTrainingInProduction(t *testing.T) {
+	_, err := Build(context.Background(), Config{Environment: "production", EFBTraining: true}, Dependencies{})
+	require.EqualError(t, err, "EFB_TRAINING cannot be enabled in a live environment")
+}
+
+func TestEFBEnablesVATSIMCacheWithoutLiveSessions(t *testing.T) {
+	require.NotNil(t, buildVATSIMCache(Config{EnableEFB: true, EnableVATSIM: true}, Dependencies{}, false, false))
+	require.Nil(t, buildVATSIMCache(Config{EnableVATSIM: true}, Dependencies{}, false, false))
+	require.Nil(t, buildVATSIMCache(Config{EnableEFB: true}, Dependencies{}, false, false))
+}
+
 func (appTestHoppieClient) Poll(context.Context, string) ([]pdc.Message, error) { return nil, nil }
 func (appTestHoppieClient) SendCPDLC(context.Context, string, string, string) error {
 	return nil
@@ -164,6 +180,7 @@ func TestBuildAssemblesPDCOnlyWithInjectedRealClientBoundary(t *testing.T) {
 }
 
 func TestBuildGatesEFBAPIBehindFeatureFlag(t *testing.T) {
+	t.Chdir(filepath.Join("..", ".."))
 	poolConfig, err := pgxpool.ParseConfig("postgres://user:password@127.0.0.1:1/test")
 	require.NoError(t, err)
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)

@@ -1,4 +1,5 @@
 import { useWebSocketStore } from "@/store/store-hooks";
+import { useEffect } from "react";
 import EKCHDEL from "@/routes/ekch/CLX";
 import EKCHAAAD from "@/routes/ekch/AAAD";
 import EKCHAA from "@/routes/ekch/AA";
@@ -26,9 +27,17 @@ const LAYOUT_MAP: Record<string, React.ComponentType> = {
 };
 
 export default function AppRouter() {
+  const setDisplayedLayout = useWebSocketStore((s) => s.setDisplayedLayout);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("layout") === "EST") {
+      setDisplayedLayout("EST");
+    }
+  }, [setDisplayedLayout]);
+
   const displayedLayout = useWebSocketStore((s) => s.displayedLayout);
   const readOnly = useWebSocketStore((s) => s.readOnly);
   const positionAvailable = useWebSocketStore((s) => s.positionAvailable);
+  const layoutResetNonce = useWebSocketStore((s) => s.layoutResetNonce);
   const Component = LAYOUT_MAP[displayedLayout];
 
   if (!Component) {
@@ -38,5 +47,5 @@ export default function AppRouter() {
     return <ChooseLayoutScreen />;
   }
 
-  return <Component />;
+  return <Component key={layoutResetNonce} />;
 }

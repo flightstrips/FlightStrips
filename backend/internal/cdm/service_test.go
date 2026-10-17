@@ -404,6 +404,36 @@ func TestHandleTobtUpdate_PersistsAuthoritativeOverride(t *testing.T) {
 	assert.Equal(t, updatedTobt, frontendHub.CdmUpdates[0].Tobt)
 }
 
+func TestPilotTobtUpdateSurvivesMasterViffSynchronization(t *testing.T) {
+	const sessionID = int32(31)
+	const callsign = "SAS123"
+	flight := &models.CdmData{Tobt: stringPtr("1935"), Tsat: stringPtr("1940"), Ttot: stringPtr("1952")}
+	strip := &models.Strip{Callsign: callsign, Origin: "EKCH"}
+	service := newTestCdmService(NewClient(), &testutil.MockStripRepository{
+		GetByCallsignFn:         func(context.Context, int32, string) (*models.Strip, error) { return strip, nil },
+		GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) { return flight.Clone(), nil },
+		SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+			flight = data.Clone()
+			return 1, nil
+		},
+	}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	require.NoError(t, service.HandleTobtUpdate(context.Background(), sessionID, callsign, "2000", "EFB:1234567", "PILOT"))
+	require.Equal(t, "2000", valueOrEmpty(flight.Tobt))
+	require.Equal(t, "EFB:1234567", valueOrEmpty(flight.TobtSetBy))
+	require.Equal(t, models.TobtConfirmedByPilot, valueOrEmpty(flight.TobtConfirmedBy))
+
+	remote := IFPSData{Callsign: callsign, TOBT: "1935", CDMData: CDMData{TOBT: "1935", TSAT: "194000", TTOT: "195200"}}
+	updated, _, err := service.mergeMasterViffFlight(context.Background(), sessionID, callsign, flight, remote, "", "")
+	require.NoError(t, err)
+	require.Equal(t, "2000", valueOrEmpty(updated.Tobt), "a stale remote TOBT must not replace the pilot's authoritative update")
+	require.True(t, updated.NeedsLocalRecalculation())
+	updated.Tsat, updated.Ttot = stringPtr("2000"), stringPtr("2012")
+	updated.ClearLocalRecalculationPending()
+	state, ok := buildViffPushState(callsign, strip, updated)
+	require.True(t, ok)
+	require.Equal(t, "200000", state.Params.Tobt, "master synchronization must export the new pilot TOBT, never the previous local value")
+}
+
 func TestHandleTobtUpdate_EarlierValueRequestsImprovement(t *testing.T) {
 	const sessionID = int32(142)
 	const callsign = "SAS124"

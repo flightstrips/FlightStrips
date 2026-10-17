@@ -54,6 +54,8 @@
 #define EVENT_ISSUE_PDC_CLEARANCE_NAME "issue_pdc_clearance"
 #define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
 #define EVENT_SEND_PRIVATE_MESSAGE_NAME "send_private_message"
+#define EVENT_SEND_FREQUENCY_MESSAGE_NAME "send_frequency_message"
+#define EVENT_FREQUENCY_MESSAGE_RESULT_NAME "frequency_message_result"
 #define EVENT_FS_SCRATCH_PAD_NAME "fs_scratch_pad"
 #define EVENT_HOLD_NAME "hold"
 #define EVENT_AMAN_GAIN_LOSS_NAME "aman_gain_loss"
@@ -115,6 +117,8 @@ enum EventType {
     EVENT_AMAN_GAIN_LOSS,
     EVENT_AMAN_ROUTE_FACT,
     EVENT_FS_SCRATCH_PAD,
+    EVENT_SEND_FREQUENCY_MESSAGE,
+    EVENT_FREQUENCY_MESSAGE_RESULT,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -168,6 +172,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                  {EVENT_ISSUE_PDC_CLEARANCE, EVENT_ISSUE_PDC_CLEARANCE_NAME},
                                  {EVENT_PDC_REVERT_TO_VOICE, EVENT_PDC_REVERT_TO_VOICE_NAME},
                                  {EVENT_SEND_PRIVATE_MESSAGE, EVENT_SEND_PRIVATE_MESSAGE_NAME},
+                                 {EVENT_SEND_FREQUENCY_MESSAGE, EVENT_SEND_FREQUENCY_MESSAGE_NAME},
+                                 {EVENT_FREQUENCY_MESSAGE_RESULT, EVENT_FREQUENCY_MESSAGE_RESULT_NAME},
                              {EVENT_HOLD, EVENT_HOLD_NAME},
                              {EVENT_AMAN_GAIN_LOSS, EVENT_AMAN_GAIN_LOSS_NAME},
                              {EVENT_AMAN_ROUTE_FACT, EVENT_AMAN_ROUTE_FACT_NAME},
@@ -480,6 +486,9 @@ struct CommunicationTypeEvent final : Event {
     CommunicationTypeEvent(std::string callsign, const char communicationType) : Event(EVENT_COMMUNICATION_TYPE),
         callsign(std::move(callsign)), communication_type({communicationType}) {
     }
+    CommunicationTypeEvent(std::string callsign, std::string communicationType) : Event(EVENT_COMMUNICATION_TYPE),
+        callsign(std::move(callsign)), communication_type(std::move(communicationType)) {
+    }
     CommunicationTypeEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(CommunicationTypeEvent, callsign, communication_type, type);
@@ -554,7 +563,7 @@ struct StripUpdateEvent final : Event {
           std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
           std::string tracking_controller, std::string engine_type, bool has_fp = true,
-          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {}, bool hold_supported = true, std::string enroute_duration = {})
+          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {}, bool hold_supported = true, std::string enroute_duration = {}, std::string flight_rules = {})
         : Event(EVENT_STRIP_UPDATE), callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -586,7 +595,7 @@ struct StripUpdateEvent final : Event {
           hold(std::move(hold)),
           hold_type(std::move(hold_type)),
           hold_eat(std::move(hold_eat)),
-          hold_supported(hold_supported), enroute_duration(std::move(enroute_duration)) {
+          hold_supported(hold_supported), enroute_duration(std::move(enroute_duration)), flight_rules(std::move(flight_rules)) {
     }
 
     std::string callsign;
@@ -626,12 +635,13 @@ struct StripUpdateEvent final : Event {
     /// Whether empty hold fields represent an authoritative not-holding state.
     bool hold_supported;
     std::string enroute_duration;
+    std::string flight_rules;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, star, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
                                    capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, hold, hold_type, hold_eat,
-                                   hold_supported, enroute_duration, type);
+                                   hold_supported, enroute_duration, flight_rules, type);
 
 };
 
@@ -722,7 +732,7 @@ struct Strip final {
           std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
           std::string tracking_controller, std::string engine_type, bool has_fp = true,
-          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {}, bool hold_supported = true, std::string enroute_duration = {})
+          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {}, bool hold_supported = true, std::string enroute_duration = {}, std::string flight_rules = {})
         : callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -754,7 +764,7 @@ struct Strip final {
           hold(std::move(hold)),
           hold_type(std::move(hold_type)),
           hold_eat(std::move(hold_eat)),
-          hold_supported(hold_supported), enroute_duration(std::move(enroute_duration)) {
+          hold_supported(hold_supported), enroute_duration(std::move(enroute_duration)), flight_rules(std::move(flight_rules)) {
     }
 
     std::string callsign;
@@ -794,12 +804,13 @@ struct Strip final {
     /// Whether empty hold fields represent an authoritative not-holding state.
     bool hold_supported;
     std::string enroute_duration;
+    std::string flight_rules;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, star, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
                                    capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, hold, hold_type, hold_eat,
-                                   hold_supported, enroute_duration);
+                                   hold_supported, enroute_duration, flight_rules);
 };
 
 struct AMANAssignedSpeed {
@@ -1155,6 +1166,21 @@ struct SendPrivateMessageEvent final : Event {
         : Event(EVENT_SEND_PRIVATE_MESSAGE), callsign(std::move(callsign)), message(std::move(message)) {}
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SendPrivateMessageEvent, callsign, message, type);
+};
+
+
+struct SendFrequencyMessageEvent final : Event {
+    std::string request_id, callsign, message, primary_frequency;
+    int applied_actions = 0;
+    SendFrequencyMessageEvent() : Event(EVENT_SEND_FREQUENCY_MESSAGE) {}
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SendFrequencyMessageEvent, request_id, callsign, message, primary_frequency, applied_actions, type);
+};
+struct FrequencyMessageResultEvent final : Event {
+    std::string request_id, callsign, error;
+    bool submitted = false;
+    int applied_actions = 0;
+    FrequencyMessageResultEvent() : Event(EVENT_FREQUENCY_MESSAGE_RESULT) {}
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(FrequencyMessageResultEvent, request_id, callsign, submitted, error, applied_actions, type);
 };
 
 #endif //EVENTS_H

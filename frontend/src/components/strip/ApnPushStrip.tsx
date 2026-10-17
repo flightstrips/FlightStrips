@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import type { StripProps } from "./types";
@@ -60,6 +61,7 @@ const FONT = "var(--font-bay)";
  * Background: cyan (var(--color-strip-dep-bg)).
  */
 export function ApnPushStrip({
+  communicationType,
   callsign,
   bay,
   pdcStatus,
@@ -122,6 +124,9 @@ export function ApnPushStrip({
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 	const emphasizeDisplayedTime = hasManualTobtSource(tobtSetBy);
   const canSendCdmReady = bay === Bay.Cleared;
+  const displayedLayout = useWebSocketStore(s => s.displayedLayout);
+  const hideNextFrequency = (displayedLayout === "AAAD" || displayedLayout === "AD")
+    && (bay === Bay.Cleared || bay === Bay.Push);
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
   const deiceIndication = formatDeIceIndication(deicePlatform);
   const deiceIndicationActive = !!deiceIndication && !deicePlatformAcknowledged;
@@ -132,7 +137,6 @@ export function ApnPushStrip({
       style={{
         height: "4.72dvh",
         width: fullWidth ? "100%" : "95%",
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >
@@ -166,17 +170,18 @@ export function ApnPushStrip({
           </div>
           <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>
-              {nextFreq}
+              {hideNextFrequency ? null : nextFreq}
             </span>
           </div>
         </div>
 
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
         <div
-          className="flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
+          className="relative flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48dvh", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
+          <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
           <AircraftTypeLabel className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
           <span className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw" }}>{registration}</span>
         </div>

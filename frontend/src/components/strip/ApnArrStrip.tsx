@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import type { StripProps } from "./types";
@@ -34,6 +35,7 @@ const F_STAND    = 80;
  * Background: yellow (var(--color-strip-arr-bg)).
  */
 export function ApnArrStrip({
+  communicationType,
   callsign,
   bay,
   aircraftType,
@@ -95,7 +97,6 @@ export function ApnArrStrip({
         height: "4.72dvh",
         width: "95%",
         backgroundColor: bg,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >
@@ -170,7 +171,7 @@ export function ApnArrStrip({
 
       {/* Stand */}
       <div
-        className="flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
+        className="relative flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
         style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%", backgroundColor: satStandStyle.backgroundColor ?? (standYellow ? COLOR_UNEXPECTED_YELLOW : undefined), cursor: getValidationBlockedCursor(isValidationActive) }}
         title={satStandStyle.blocked ? satAssignment?.conflict_reason : undefined}
         onClick={(e) => guardValidationAction(e, () => {
@@ -182,6 +183,7 @@ export function ApnArrStrip({
           setStandOpen(true);
         })}
       >
+        <TextPilotIndicator divider={false} type={communicationType} borderColor={cellBorderColor} />
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: satStandStyle.color ?? getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
         </div>

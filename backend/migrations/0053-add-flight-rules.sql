@@ -1,0 +1,1 @@
+ALTER TABLE strips ADD COLUMN flight_rules TEXT NOT NULL DEFAULT '';

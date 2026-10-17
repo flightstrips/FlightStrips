@@ -1,16 +1,13 @@
 import { useState, type CSSProperties } from 'react';
-
-interface RawStandDefinition {
-  label: string;
-  x: number;
-  y: number;
-}
+import * as Dialog from '@radix-ui/react-dialog';
+import { Check, X } from 'lucide-react';
+import standArrow from '@/assets/stand-arrow.png';
 
 interface D1StandProps {
   isOpen: boolean;
   onClose: () => void;
   stand: string;
-  onRequest?: (stand: string) => Promise<void>;
+  onRequest?: (stand: string, allowUnsuitable?: boolean) => Promise<void>;
   availability?: StandAvailability[];
   availabilityLoading?: boolean;
   availabilityUnavailable?: boolean;
@@ -20,19 +17,20 @@ export interface StandAvailability {
   stand: string;
   available: boolean;
   reason?: string;
+  reserved_by?: string[];
+  unsuitable?: boolean;
+  selectable?: boolean;
 }
 
 const EST_BOARD_WIDTH = 2560;
 const EST_BOARD_HEIGHT = 1440;
-
-const RAW_STANDS: RawStandDefinition[] = [
+const RAW_STANDS = [
   { label: 'A18', x: 461.851, y: 229 },
   { label: 'A19', x: 371.48, y: 229 },
   { label: 'A20', x: 281.11, y: 229 },
   { label: 'A21', x: 190.74, y: 229 },
   { label: 'A22', x: 100.37, y: 229 },
   { label: 'A23', x: 10, y: 229 },
-  { label: 'A50', x: 247, y: 556 },
   { label: 'W1', x: 16, y: 1015.94 },
   { label: 'RI', x: 16, y: 862.626 },
   { label: 'RII', x: 16, y: 709.313 },
@@ -54,7 +52,7 @@ const RAW_STANDS: RawStandDefinition[] = [
   { label: 'E29', x: 1935.48, y: 320.626 },
   { label: 'E24', x: 1844, y: 473.626 },
   { label: 'E31', x: 1934.48, y: 473.939 },
-  { label: 'E26', x: 1844, y: 626.939 },
+  { label: 'E36', x: 1844, y: 626.939 },
   { label: 'E33', x: 1935.48, y: 627.252 },
   { label: 'E35', x: 1935.48, y: 780.565 },
   { label: 'H105', x: 2180, y: 320.313 },
@@ -102,7 +100,6 @@ const RAW_STANDS: RawStandDefinition[] = [
   { label: 'C35', x: 1391, y: 626 },
   { label: 'C37', x: 1391, y: 779 },
   { label: 'C39', x: 1391, y: 932 },
-  { label: 'C26', x: 1300, y: 197 },
   { label: 'C28', x: 1300, y: 350 },
   { label: 'C30', x: 1301, y: 503 },
   { label: 'C32', x: 1301, y: 656 },
@@ -112,10 +109,7 @@ const RAW_STANDS: RawStandDefinition[] = [
   { label: 'B8', x: 895, y: 795 },
   { label: 'B10', x: 896, y: 948 },
   { label: 'B19', x: 892, y: 1101.42 },
-  { label: 'B16', x: 802, y: 1104 },
   { label: 'B17', x: 982.76, y: 1101.42 },
-  { label: 'B5', x: 988, y: 593.313 },
-  { label: 'B3', x: 988, y: 440 },
   { label: 'B15', x: 1073.13, y: 1101 },
   { label: 'B7', x: 988, y: 746.626 },
   { label: 'B9', x: 988, y: 899.939 },
@@ -136,25 +130,67 @@ const RAW_STANDS: RawStandDefinition[] = [
   { label: 'A34', x: 13, y: 56 },
 ];
 
+const CARGO_STANDS = [
+  { label: 'G117', x: 185, y: 12 },
+  { label: 'G118', x: 239, y: 34 },
+  { label: 'G119', x: 293, y: 12 },
+  { label: 'G120', x: 359, y: 12 },
+  { label: 'G121', x: 412, y: 34 },
+  { label: 'G122', x: 466, y: 12 },
+  { label: 'G123', x: 532, y: 12 },
+  { label: 'G124', x: 586, y: 34 },
+  { label: 'G125', x: 639, y: 12 },
+  { label: 'G126', x: 705, y: 12 },
+  { label: 'G127', x: 759, y: 34 },
+  { label: 'G128', x: 813, y: 12 },
+  { label: 'G129', x: 879, y: 12 },
+  { label: 'G130', x: 932, y: 34 },
+  { label: 'G131', x: 986, y: 12 },
+  { label: 'G132', x: 1052, y: 12 },
+  { label: 'G133', x: 1106, y: 34 },
+  { label: 'G134', x: 1159, y: 12 },
+  { label: 'G135', x: 1225, y: 12 },
+  { label: 'G136', x: 1279, y: 34 },
+  { label: 'G137', x: 1333, y: 12 },
+  { label: 'G114', x: 98, y: 212 },
+  { label: 'G113', x: 98, y: 307 },
+  { label: 'G112', x: 98, y: 402 },
+  { label: 'G111', x: 78, y: 497 },
+  { label: 'G110', x: 78, y: 591 },
+  { label: 'G15', x: 1451, y: 212 },
+  { label: 'G16', x: 1451, y: 307 },
+  { label: 'G17', x: 1451, y: 402 },
+  { label: 'G18', x: 1451, y: 497 },
+  { label: 'G19', x: 1451, y: 591 },
+];
+
 export default function D1Stand({ isOpen, onClose, stand, onRequest, availability, availabilityLoading = false, availabilityUnavailable = false }: D1StandProps) {
-  const [selectedStand, setSelectedStand] = useState<string>(stand);
+  const [showCargo, setShowCargo] = useState(() => CARGO_STANDS.some((entry) => entry.label === stand));
+  const [selectedStand, setSelectedStand] = useState(stand);
+  const [previousStand, setPreviousStand] = useState(stand);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
-  const availabilityByStand = new Map<string, StandAvailability>(availability?.map((entry) => [entry.stand, entry]) ?? []);
-  const isStandUnavailable = (standId: string) => availability !== undefined && availabilityByStand.get(standId)?.available !== true;
+  const [confirmUnsuitable, setConfirmUnsuitable] = useState(false);
+  const checking = availabilityLoading || availability === undefined;
+  const selected = availability?.find((entry) => entry.stand === selectedStand);
+  const selectedSelectable = selected?.available === true || (selected?.unsuitable === true && selected?.selectable === true);
+  const canSubmit = selectedSelectable && !checking && !availabilityUnavailable && !isSubmitting && onRequest !== undefined;
+  const availabilityByStand = new Map(availability?.map((entry) => [entry.stand, entry]));
+  const displayedStands = showCargo ? CARGO_STANDS : RAW_STANDS;
+  const availableCount = displayedStands.filter((entry) => availabilityByStand.get(entry.label)?.available).length;
 
-  const handleStandClick = (standId: string) => {
-    if (availabilityLoading || availabilityUnavailable || isStandUnavailable(standId)) return;
-    setSelectedStand(standId);
-    setRequestError(null);
-  };
-
-  const handleRequestNewStand = async () => {
-    if (!selectedStand || isSubmitting || availabilityLoading || availabilityUnavailable || isStandUnavailable(selectedStand)) return;
+  const handleRequest = async (confirmed = false) => {
+    if (!canSubmit || !onRequest) return;
+    if (selected?.unsuitable && !confirmed) {
+      setConfirmUnsuitable(true);
+      return;
+    }
+    setConfirmUnsuitable(false);
     setIsSubmitting(true);
     setRequestError(null);
     try {
-      await onRequest?.(selectedStand);
+      if (selected?.unsuitable) await onRequest(selectedStand, true);
+      else await onRequest(selectedStand);
       onClose();
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : 'Stand request was rejected');
@@ -163,81 +199,125 @@ export default function D1Stand({ isOpen, onClose, stand, onRequest, availabilit
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70" onClick={onClose}>
-      <div
-        className="relative box-border flex aspect-[3/2] max-h-[85vh] w-[95%] flex-col overflow-hidden rounded-lg border-2 border-[#1D293D] bg-[#011328] p-[10px]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Stand map board */}
-        <div className="relative mx-[5%] h-[90%] w-[90%] box-border overflow-hidden border-[10px] border-[#1D293D] bg-[#7b7b7b]">
-          {RAW_STANDS.map((standDef) => {
-            const isSelected = selectedStand === standDef.label;
-            const availabilityEntry = availabilityByStand.get(standDef.label);
-            const isUnavailable = isStandUnavailable(standDef.label);
-            const isDisabled = availabilityLoading || availabilityUnavailable || isUnavailable;
-            const dotColor = availabilityUnavailable || availabilityLoading ? 'bg-[#6B7280]' : isUnavailable ? 'bg-[#B63F3F]' : isSelected ? 'bg-[#43C6E7]' : availabilityEntry?.available ? 'bg-[#3FA66B]' : 'bg-[#6B7280]';
-            const availabilityTitle = availabilityLoading
-              ? 'Checking availability…'
-              : availabilityUnavailable
-                ? 'Availability is currently unavailable'
-                : isUnavailable
-                  ? `Unavailable: ${availabilityEntry?.reason || 'not configured for this flight'}`
-                  : availabilityEntry?.available
-                    ? 'Available for this flight'
-                    : 'Availability is not configured for this stand';
-            const standPosition = {
-              '--stand-left': `${(standDef.x / EST_BOARD_WIDTH) * 100}%`,
-              '--stand-top': `${(standDef.y / EST_BOARD_HEIGHT) * 100}%`,
-            } as CSSProperties;
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open && !isSubmitting) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[1000] bg-black/75 backdrop-blur-sm" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 z-[1001] flex h-[96dvh] w-[98vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-[#B8D9F0]/30 bg-[#011328] text-white shadow-2xl">
+          <header className="flex shrink-0 items-start justify-between gap-[12.8px] border-b border-white/10 px-4 py-[12.8px] sm:px-[22.4px]">
+            <div>
+              <Dialog.Title className="flex items-center gap-2 text-xl font-bold tracking-wide">
+                <img src={standArrow} alt="" className="h-6 w-6 shrink-0 object-contain" />
+                SELECT STAND
+              </Dialog.Title>
+              <Dialog.Description className="sr-only">
+                Choose a stand on the map. Gray stands require suitability confirmation; reserved or blocked stands cannot be selected.
+              </Dialog.Description>
+            </div>
+            <Dialog.Close disabled={isSubmitting} aria-label="Close stand selection" className="rounded-lg border border-white/20 p-[6.4px] text-[#B8D9F0] transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#9BE9FF] disabled:opacity-40">
+              <X size={20} aria-hidden="true" />
+            </Dialog.Close>
+          </header>
 
-            return (
-              <button
-                key={standDef.label}
-                type="button"
-                onClick={() => handleStandClick(standDef.label)}
-                disabled={isDisabled}
-                title={`${standDef.label}: ${availabilityTitle}`}
-                style={standPosition}
-                className={`absolute [left:var(--stand-left)] [top:var(--stand-top)] flex h-[10%] w-[3%] translate-[10%] flex-col items-center justify-between rounded-md bg-[#f0f0f0] px-1 py-1.5 text-sm leading-none font-bold text-[#111] ${isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${isSelected ? 'border-2 border-[#9be9ff]' : 'border border-[#9ea3a8]'}`}
-                aria-label={`Stand ${standDef.label}`}
-              >
-                <span>{standDef.label}</span>
-                <span className={`mb-0.5 block h-3.5 w-3.5 rounded-full ${dotColor} ${isSelected ? 'border-2 border-[#9be9ff]' : 'border border-[#0a1f2d]'}`} />
+          <div className="flex shrink-0 flex-wrap items-center gap-x-[19.2px] gap-y-[6.4px] border-b border-white/10 bg-white/[0.03] px-4 py-[9.6px] text-sm sm:px-[22.4px]">
+            <span className="text-[#B8D9F0]">CURRENT <strong className="ml-2 text-white">{stand || 'TBA'}</strong></span>
+            <span className="text-[#B8D9F0]">SELECTED <strong className="ml-2 text-[#9BE9FF]">{selectedSelectable ? selectedStand : 'NONE'}</strong></span>
+            <div className="flex flex-wrap items-center gap-4 text-xs sm:ml-auto" role="status" aria-label="Stand availability summary">
+              <span className="flex items-center gap-2"><span className="h-3 w-3 rounded bg-[#41826E]" />{availabilityUnavailable ? 'UNAVAILABLE' : checking ? 'CHECKING AVAILABILITY' : `${availableCount} AVAILABLE`}</span>
+              <span className="flex items-center gap-2"><span className="h-3 w-3 rounded bg-[#9E4852]" />RESERVED</span>
+              <span className="flex items-center gap-2"><span className="h-3 w-3 rounded bg-[#374151]" />NOT SUITABLE</span>
+              <span className="flex items-center gap-2"><span className="h-3 w-3 rounded bg-[#172333]" />BLOCKED</span>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-[9.6px] px-4 py-[12.8px] sm:px-[22.4px]" aria-busy={checking && !availabilityUnavailable}>
+            {availabilityUnavailable ? (
+              <p role="alert" className="rounded-lg border border-[#D9C01E]/40 bg-[#D9C01E]/10 p-4 text-[#F4DF79]">Stand availability is currently unavailable. Close this window and try again.</p>
+            ) : checking ? (
+              <p className="py-12 text-center text-[#B8D9F0]">Checking stand availability...</p>
+            ) : null}
+            <div role="group" aria-label={showCargo ? 'Cargo stand map' : 'Airport stand map'} className="relative mx-auto min-h-0 w-full flex-1 border border-[#B8D9F0]/25 bg-[#7b7b7b]">
+                    {displayedStands.map((standDef) => {
+                      const entry = availabilityByStand.get(standDef.label);
+                      const isSelected = selectedStand === standDef.label;
+                      const available = !checking && !availabilityUnavailable && entry?.available === true;
+                      const reserved = !checking && !availabilityUnavailable && !available && !!entry?.reserved_by?.length;
+                      const unsuitable = !checking && !availabilityUnavailable && entry?.unsuitable === true && entry?.selectable === true && !reserved;
+                      const disabled = (!available && !unsuitable) || isSubmitting;
+                      const title = availabilityUnavailable ? 'Availability is currently unavailable' : checking ? 'Checking availability...' : available ? 'Available for this flight' : `${unsuitable ? 'Not suitable' : 'Unavailable'}: ${entry?.reason || 'not configured for this flight'}`;
+                      const color = available ? 'border-[#70BBA1] bg-[#41826E] hover:bg-[#4B947D]' : reserved ? 'border-[#BE6A73] bg-[#622E3A]' : unsuitable ? 'border-[#556274] bg-[#374151] text-[#B8C5D5] hover:bg-[#465368]' : 'border-[#556274] bg-[#172333] text-[#B8C5D5]';
+                      const position = {
+                        '--stand-left': `${(standDef.x / (showCargo ? 1566 : EST_BOARD_WIDTH)) * 100}%`,
+                        '--stand-top': `${(standDef.y / (showCargo ? 707 : EST_BOARD_HEIGHT)) * 100}%`,
+                      } as CSSProperties;
+                      return (
+                        <button
+                          key={standDef.label}
+                          type="button"
+                          aria-label={`Stand ${standDef.label}`}
+                          aria-pressed={isSelected}
+                          disabled={disabled}
+                          title={`${standDef.label}: ${title}`}
+                          style={position}
+                          onClick={() => {
+                            if (!selected?.unsuitable) setPreviousStand(selectedStand);
+                            setSelectedStand(standDef.label);
+                            setRequestError(null);
+                            setConfirmUnsuitable(false);
+                          }}
+                          className={`absolute [left:var(--stand-left)] [top:var(--stand-top)] flex ${showCargo ? 'h-[12.45%] w-[3.2%]' : 'h-[10%] w-[3%] translate-[10%]'} flex-col items-center justify-between overflow-hidden rounded-md border px-0.5 py-1 text-center [container-type:inline-size] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9BE9FF] ${color} ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} ${isSelected ? 'z-10 ring-2 ring-[#9BE9FF] ring-offset-1 ring-offset-[#011328]' : ''}`}
+                        >
+                          <span className="text-[clamp(10px,0.85vw,15px)] font-bold leading-tight">{standDef.label}</span>
+                          {reserved && <span className="w-full">
+                            {entry?.reserved_by?.map((callsign) => (
+                              <span key={callsign} className="block whitespace-nowrap font-mono font-semibold leading-tight" style={{ fontSize: `min(11px, ${100 / (Math.max(1, callsign.length) * 0.65)}cqw)` }}>{callsign}</span>
+                            ))}
+                          </span>}
+                          {isSelected && <span className="flex h-[45%] w-full items-center justify-center rounded-sm bg-[#70BBA1]/40">
+                            <Check size={14} role="img" aria-label="Selected stand" />
+                          </span>}
+                        </button>
+                      );
+                    })}
+            </div>
+          </div>
+
+          <footer className="shrink-0 border-t border-white/10 bg-[#071D33] px-4 py-[12.8px] sm:px-[22.4px]">
+            {requestError && <div role="alert" className="mb-3 rounded-lg border border-red-400/40 bg-[#622E3A] px-4 py-3 text-sm font-semibold">{requestError}</div>}
+            <div className="flex flex-wrap items-center justify-between gap-[9.6px]">
+              <button type="button" disabled={isSubmitting} onClick={() => setShowCargo((current) => !current)} className="min-w-32 rounded-lg border border-[#B8D9F0]/35 px-4 py-[9.6px] text-sm font-bold hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#9BE9FF] disabled:opacity-40">
+                {showCargo ? 'APRON' : 'CARGO'}
               </button>
-            );
-          })}
-        </div>
-
-        <div className="mx-[5%] mt-1 flex items-center gap-3 text-xs font-bold text-white" aria-live="polite">
-          <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#3FA66B]" />AVAILABLE</span>
-          <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#B63F3F]" />UNAVAILABLE</span>
-          {availabilityLoading && <span>CHECKING AVAILABILITY…</span>}
-          {availabilityUnavailable && <span>AVAILABILITY UNAVAILABLE</span>}
-        </div>
-
-        {requestError && <div role="alert" className="absolute bottom-[10%] left-[5%] z-10 w-[90%] bg-[#B63F3F] px-3 py-2 text-center font-bold text-white">{requestError}</div>}
-
-        {/* Bottom controls */}
-        <div className="mx-[5%] mt-[10px] flex h-[10%] w-[90%] gap-[10px]">
-          <button
-            onClick={handleRequestNewStand}
-            disabled={!selectedStand || isSubmitting || availabilityLoading || availabilityUnavailable || isStandUnavailable(selectedStand)}
-            className={`box-border h-full w-[61%] rounded border-[10px] border-[#1D293D] text-[clamp(12px,1.5vh,18px)] font-bold text-white transition-colors duration-200 ${!selectedStand || isSubmitting || availabilityLoading || availabilityUnavailable || isStandUnavailable(selectedStand) ? 'cursor-not-allowed bg-[#3a4c58]' : 'cursor-pointer bg-[#1A475F]'}`}
-          >
-            {isSubmitting ? 'CHECKING STAND' : availabilityLoading ? 'LOADING AVAILABILITY' : 'REQUEST NEW STAND'}
-          </button>
-
-          <button
-            onClick={onClose}
-            className="box-border h-full w-[29%] cursor-pointer rounded border-[10px] border-[#1D293D] bg-white text-[clamp(12px,1.5vh,18px)] font-bold text-black transition-colors duration-200"
-          >
-            CLICK TO CANCEL
-          </button>
-        </div>
-      </div>
-    </div>
+              <div className="flex gap-[9.6px]">
+                <Dialog.Close disabled={isSubmitting} className="rounded-lg border border-[#B8D9F0]/35 px-4 py-[9.6px] text-sm font-bold hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#9BE9FF] disabled:opacity-40">CANCEL</Dialog.Close>
+                <button type="button" onClick={() => void handleRequest()} disabled={!canSubmit} className="rounded-lg border border-[#70BBA1]/60 bg-[#41826E] px-4 py-[9.6px] text-sm font-bold transition-colors hover:bg-[#4B947D] focus-visible:outline-2 focus-visible:outline-[#9BE9FF] disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-[#293A4C] disabled:text-[#93A5B9]">
+                  {isSubmitting ? 'CHECKING STAND' : checking && !availabilityUnavailable ? 'LOADING AVAILABILITY' : 'REQUEST NEW STAND'}
+                </button>
+              </div>
+            </div>
+          </footer>
+          <Dialog.Root open={confirmUnsuitable} onOpenChange={(open) => {
+            setConfirmUnsuitable(open);
+            if (!open) {
+              setSelectedStand(previousStand);
+              setShowCargo(CARGO_STANDS.some((entry) => entry.label === previousStand));
+            }
+          }}>
+            <Dialog.Portal>
+              <Dialog.Overlay className="fixed inset-0 z-[1002] bg-black/70" />
+              <Dialog.Content className="fixed top-1/2 left-1/2 z-[1003] w-[min(92vw,480px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[#D9C01E]/60 bg-[#071D33] p-6 text-white shadow-2xl">
+                <Dialog.Title className="text-lg font-bold text-[#F4DF79]">Stand not suitable</Dialog.Title>
+                <Dialog.Description className="mt-3 text-[#B8D9F0]">This stand is not suitable for your flight. Select anyway?</Dialog.Description>
+                <p className="mt-2 text-sm text-[#B8D9F0]">{selectedStand}: {selected?.reason}</p>
+                <div className="mt-6 flex justify-end gap-3">
+                  <Dialog.Close autoFocus className="rounded-lg border border-[#B8D9F0]/35 px-4 py-3 text-sm font-bold hover:bg-white/10">CANCEL</Dialog.Close>
+                  <button type="button" onClick={() => void handleRequest(true)} className="rounded-lg border border-[#D9C01E]/60 bg-[#D9C01E]/20 px-4 py-3 text-sm font-bold text-[#F4DF79] hover:bg-[#D9C01E]/30">SELECT ANYWAY</button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

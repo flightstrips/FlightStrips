@@ -38,6 +38,7 @@ public:
     [[nodiscard]] std::vector<int> GetRedirectPorts();
     [[nodiscard]] std::string GetBaseUrl();
     [[nodiscard]] bool GetApiEnabled();
+    [[nodiscard]] int GetFrequencyMessageKey();
     [[nodiscard]] std::string GetLogLevel();
     [[nodiscard]] CallsignAirportMap& GetCallsignAirportMap();
     [[nodiscard]] std::vector<AirportFallbackPoint>& GetAirportFallbackPoints();

@@ -25,6 +25,7 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		{"move", frontendEvents.AMANMoveFlightType, `{"type":"aman.move_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","runway_group_id":"A","before_callsign":"flight-2"}}`, "move"},
 		{"lock", frontendEvents.AMANLockFlightType, `{"type":"aman.lock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "lock"},
 		{"unlock", frontendEvents.AMANUnlockFlightType, `{"type":"aman.unlock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "unlock"},
+		{"expedite", frontendEvents.AMANExpediteFlightType, `{"type":"aman.expedite_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "expedite"},
 		{"desequence", frontendEvents.AMANDesequenceFlightType, `{"type":"aman.desequence_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "desequence"},
 		{"resume", frontendEvents.AMANResumeFlightType, `{"type":"aman.resume_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "resume"},
 		{"remove", frontendEvents.AMANRemoveFlightType, `{"type":"aman.remove_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "remove"},
@@ -248,7 +249,7 @@ func TestAMANGapTransportPreservesRetryIDAndStaleRevision(t *testing.T) {
 }
 
 func TestAMANDispositionCommandsRejectClientOwnedResults(t *testing.T) {
-	for _, eventType := range []frontendEvents.EventType{frontendEvents.AMANDesequenceFlightType, frontendEvents.AMANResumeFlightType, frontendEvents.AMANRemoveFlightType} {
+	for _, eventType := range []frontendEvents.EventType{frontendEvents.AMANExpediteFlightType, frontendEvents.AMANDesequenceFlightType, frontendEvents.AMANResumeFlightType, frontendEvents.AMANRemoveFlightType} {
 		service := &recordingAMANCommandService{}
 		hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
 		payload := `{"type":"` + string(eventType) + `","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","slot":{"time":"2026-07-22T12:10:00Z"}}}`
@@ -390,6 +391,9 @@ func (s *recordingAMANCommandService) LockFlight(_ context.Context, auth aman.Co
 }
 func (s *recordingAMANCommandService) UnlockFlight(_ context.Context, auth aman.CommandContext, command aman.UnlockFlightCommand) (aman.CommandExecution, error) {
 	return s.record("unlock", auth, command.Metadata)
+}
+func (s *recordingAMANCommandService) ExpediteFlight(_ context.Context, auth aman.CommandContext, command aman.ExpediteFlightCommand) (aman.CommandExecution, error) {
+	return s.record("expedite", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) DesequenceFlight(_ context.Context, auth aman.CommandContext, command aman.DesequenceFlightCommand) (aman.CommandExecution, error) {
 	return s.record("desequence", auth, command.Metadata)

@@ -35,6 +35,9 @@ interface StripRenderProps {
   width?: number | string;
   fullWidth?: boolean;
   startupSiTransfer?: boolean;
+  clearanceFromPlannedBay?: boolean;
+  ignoreOwnershipBackground?: boolean;
+  grayTwyDepAppearance?: boolean;
 }
 
 // Maps each strip status to the internal width used by the corresponding flight strip component.
@@ -50,7 +53,7 @@ const STATUS_DEFAULT_WIDTH: Partial<Record<StripStatus, string>> = {
   "CLROK":    "95%",// ClxClearedStrip (non-fullWidth)
 };
 
-export function Strip({ strip, status, halfStripVariant, myPosition, selectable, delegateCallsignClick, onStripMoved, width, fullWidth, startupSiTransfer }: StripRenderProps) {
+export function Strip({ strip, status, halfStripVariant, myPosition, selectable, delegateCallsignClick, onStripMoved, width, fullWidth, startupSiTransfer, clearanceFromPlannedBay, ignoreOwnershipBackground, grayTwyDepAppearance }: StripRenderProps) {
   const airport = useAirport();
   const localHidden = useIsLocallyHidden(isFlight(strip) ? strip.callsign : "");
   const localMarked = useWebSocketStore((state) => isFlight(strip) ? state.localMarked[strip.callsign] : undefined);
@@ -79,6 +82,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
 
   const props: StripProps = {
     callsign: strip.callsign,
+    communicationType: strip.communication_type,
     bay: strip.bay as Bay,
     pdcStatus: strip.pdc_state ?? ("NONE" as PdcStatus),
     destination: strip.destination,
@@ -109,7 +113,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     nextDisplay: strip.next_display,
     halfStripVariant,
     myPosition,
-    selectable,
+    selectable: strip.bay === Bay.NotCleared ? false : selectable,
     delegateCallsignClick,
     onStripMoved,
     marked: localMarked ?? strip.marked,
@@ -118,6 +122,9 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     registration: strip.registration,
     fullWidth,
     startupSiTransfer,
+    clearanceFromPlannedBay,
+    ignoreOwnershipBackground,
+    grayTwyDepAppearance,
     unexpectedChangeFields: strip.unexpected_change_fields,
     controllerModifiedFields: strip.controller_modified_fields,
     isManual: strip.is_manual,
@@ -137,7 +144,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     case "CLROK":
       return <ClxClearedStrip {...props} />;
     case "HALF":
-      return <HalfStrip {...props} />;
+      return <HalfStrip {...props} clearanceFromPlannedBay={clearanceFromPlannedBay} />;
     case "PUSH":
       return <ApnPushStrip {...props} />;
     case "ARR":

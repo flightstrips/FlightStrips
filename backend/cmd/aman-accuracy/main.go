@@ -39,6 +39,8 @@ func main() {
 	rate := flag.Uint("rate", 40, "arrival rate used for the replay")
 	minimumUpdateInterval := flag.Duration("minimum-update-interval", 0, "minimum interval between AMAN recalculations (zero uses every snapshot)")
 	exportPath := flag.String("export", "", "optional path for replay-map JSON")
+	releaseMetricsPath := flag.String("release-metrics", "", "optional JSON report of planned approach release targets")
+	releaseBuffer := flag.Bool("release-buffer", false, "enable approach buffer policy for this offline replay")
 	flag.Parse()
 	if *rate == 0 || *rate > uint(^uint32(0)) {
 		fail("rate must be in [1,%d]", ^uint32(0))
@@ -68,6 +70,8 @@ func main() {
 			fail("refresh AIRAC.NET navigation cache: %v", err)
 		}
 	}
+	navigationSource.Terminal.ApproachRelease = &aman.ApproachReleasePolicy{Enabled: *releaseBuffer, TargetBuffer: 10, TaperStart: 6, MaxAdvanceSeconds: 600, LookaheadSeconds: 120}
+	metrics := releaseMetrics{}
 	clock := time.Time{}
 	repo := &memoryRepository{}
 	var routes routeMaterializer = &memoizingMaterializer{source: navigationSource, results: map[string]materializedRoute{}}
@@ -79,7 +83,7 @@ func main() {
 	if *minimumUpdateInterval > 0 {
 		label += fmt.Sprintf(", AMAN recalculated every %s", *minimumUpdateInterval)
 	}
-	service, err := operational.New(operational.Dependencies{Repository: repo, Materializer: routes, Geometry: navigationSource.Geometry, Wind: unavailableWind{}, Publisher: discardPublisher{}, Terminal: navigationSource.Terminal, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return clock }})
+	service, err := operational.New(operational.Dependencies{Repository: repo, Materializer: routes, Geometry: navigationSource.Geometry, Wind: unavailableWind{}, Publisher: discardPublisher{}, Terminal: navigationSource.Terminal, TMAVolumePath: terminal.DefaultEKCHTMAVolumePath, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return clock }})
 	if err != nil {
 		fail("create operational AMAN service: %v", err)
 	}
@@ -138,7 +142,7 @@ func main() {
 		}
 		if err := source.LoadFiltered(file, clock, func(snapshotAt time.Time, flight vatsim.Flight) bool {
 			landingAt, ok := landings[flight.CID]
-			return ok && !snapshotAt.After(landingAt)
+			return ok && !snapshotAt.After(landingAt.Add(*minimumUpdateInterval+time.Minute))
 		}); err != nil {
 			_ = file.Close()
 			fail("load %q: %v", path, err)
@@ -206,6 +210,7 @@ func main() {
 			service.Reconcile(context.Background())
 			replayConfigured = true
 		}
+		metrics.record(repo.state, clock)
 		if err := updateReplayGoAroundDetections(goAroundDetector, goAroundCorridor, aman.RunwayGroupID(*runwayGroup), repo.state, clock, goAroundStates, goAroundDetections); err != nil {
 			fail("replay go-around detector: %v", err)
 		}
@@ -218,6 +223,11 @@ func main() {
 			if flight.Prediction != nil && flight.Prediction.Publishable && flight.State != aman.StateLanded && flight.State != aman.StateRemoved {
 				points[cid] = appendForecast(points[cid], forecastPointFromFlight(flight))
 			}
+		}
+	}
+	if *releaseMetricsPath != "" {
+		if err := metrics.write(*releaseMetricsPath); err != nil {
+			fail("write release metrics: %v", err)
 		}
 	}
 	if len(samples[5*time.Minute]) == 0 {

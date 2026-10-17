@@ -100,3 +100,11 @@ describe("AMANSettingsHeader", () => {
     expect(screen.getByRole("button", {name: "Replace active set"})).toBeDisabled();
   });
 });
+
+
+it("shows committed approach reservations separately from observed TMA traffic", () => {
+  const buffered = structuredClone(state) as AMANState;
+  buffered.header!.release_buffer = {status: "ready", target: 10, in_approach: 2, reserved: 4, incoming: 0, projected: 6, unknown: 0};
+  render(<AMANSettingsHeader commandRejections={{}} connectionState="connected" hasFMPAuthority={false} onCommand={vi.fn()} onRunwayGroupViewChange={vi.fn()} onViewChange={vi.fn()} pendingCommands={{}} presentationStatus="ready" readOnly={true} selectedRunwayGroupID="ARRIVAL-22" state={buffered} view="holds" />);
+  expect(screen.getByText("6/10 · 4 reserved")).toBeInTheDocument();
+});

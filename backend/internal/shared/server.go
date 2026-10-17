@@ -50,6 +50,7 @@ type Server interface {
 	RecalculateSessionContext(ctx context.Context, sessionId int32, sendUpdate bool) ([]SectorChange, error)
 	UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRouteForStripContext(ctx context.Context, callsign string, sessionId int32, sendUpdate bool) error
+	SelectNextControllerContext(ctx context.Context, session int32, callsign, owner, sector string) error
 	UpdateRoutesForSession(sessionId int32, sendUpdate bool) error
 	UpdateLayouts(sessionId int32) error
 }

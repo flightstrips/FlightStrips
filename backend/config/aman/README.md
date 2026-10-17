@@ -11,3 +11,12 @@ The nominal holding-to-feeder duration is deliberately absent for these paths be
 - `TIDVU/ARRIVAL-30`: `TIDVU` to `WUPJA`
 
 TODO(#553): add `holdingToFeederSeconds` only after an operator supplies the missing values. Do not substitute zero, another runway's duration, or another ETA.
+
+
+## Approach admission policy
+
+`approachRelease` configures #887 independently from landing throughput. EKCH uses `targetBuffer: 10`, `taperStart: 6`, `maxAdvanceSeconds: 600`, and `lookaheadSeconds: 120`. These counts are desired buffer settings, not airspace hard limits. Unreleased holds are excluded; outstanding imminent/overdue releases consume the buffer before their aircraft enter the TMA. Disabling the policy stops new advances and retains existing release commitments.
+
+Deploy reservation-aware AMAN servers before enabling the policy on every server. Older V1 clients can ignore the optional buffer and additional-approach fields. No migration is required: reservations and the session buffer use the existing persisted JSON state.
+
+For recorded VATSIM validation, run `go run ./cmd/aman-accuracy -input <recording-directory> -cache-only -minimum-update-interval 1m -release-buffer -release-metrics <report.json>`. Pin the same navigation-cache database and configuration for both runs. Omit `-release-buffer` for a disabled-policy comparison. The API recordings contain no authoritative holding/direct clearances, so reports compare planned targets and observed traffic, not actual compliance with hypothetical EATs. The replay retains grounded observations through the following calculation tick.

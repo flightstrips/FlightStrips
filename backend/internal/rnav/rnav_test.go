@@ -12,6 +12,29 @@ func TestDeriveCapabilityRequiresEquipmentMarkerR(t *testing.T) {
 	assert.Equal(t, "1", DeriveCapability("B738/M-SDE2FGHIRWY/LB1", "PBN/A1B1C1D1S1S2"))
 }
 
+func TestEffectiveCapabilityAssumesRNAV1ForListedAircraft(t *testing.T) {
+	for _, aircraft := range []string{
+		"A320", "A359", "A3N9", "B736", "B737", "B738", "B739", "B38M",
+		"B744", "B748", "B752", "B753", "B762", "B763", "B764", "B77W",
+		"B789", "BCS3", "AT72", "AT8A", "DH8D", "CRJ9", "E190", "E75L", "MD82", "MD88", "MD8A",
+	} {
+		t.Run(aircraft, func(t *testing.T) {
+			for _, remarks := range []string{"", "PBN/A1", "PBN/A1B1", "PBN/A1B1C1", "PBN/A1B1C1D1"} {
+				assert.Equal(t, "1", EffectiveCapability(aircraft+"/M-R/LB1", remarks))
+			}
+			assert.Equal(t, "1", EffectiveCapability(aircraft, ""))
+		})
+	}
+}
+
+func TestEffectiveCapabilityDoesNotMatchOtherAircraft(t *testing.T) {
+	for _, aircraft := range []string{"A20N", "B735", "B734", "B743", "B741", "B761", "BCS1", "DH8C", "C172", "A3200", "AT7", "CRJ", "E19", "E1900", "E!90", "MD90", "MD8", "MD820"} {
+		assert.Equal(t, NilCapability, EffectiveCapability(aircraft, ""), aircraft)
+		assert.Equal(t, "2", EffectiveCapability(aircraft+"/M-R", "PBN/C1"), aircraft)
+	}
+	assert.Equal(t, "1", EffectiveCapability("  b738/m-s  ", ""))
+}
+
 func TestDeriveCapabilityUsesFirstPBNTokenAndPriority(t *testing.T) {
 	aircraftInfo := "A20N/M-SDE2FGHIRWY/LB1"
 

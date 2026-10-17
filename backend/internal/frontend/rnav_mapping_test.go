@@ -38,6 +38,14 @@ func TestMapStripToFrontendModelRNAVIsNilWhenEquipmentMarkerRAbsent(t *testing.T
 	assert.Equal(t, "NIL", strip.Capabilities)
 }
 
+func TestMapStripToFrontendModelAssumesRNAV1ForListedAircraft(t *testing.T) {
+	for _, remarks := range []string{"", "PBN/A1", "PBN/A1B1C1"} {
+		aircraft := "B738/M-S/LB1"
+		strip := MapStripToFrontendModel(&models.Strip{AircraftType: &aircraft, Remarks: &remarks})
+		assert.Equal(t, "1", strip.Capabilities)
+	}
+}
+
 func TestMapStripToFrontendModelMapsStoredSpokenCallsign(t *testing.T) {
 	spokenCallsign := "ALPACA"
 

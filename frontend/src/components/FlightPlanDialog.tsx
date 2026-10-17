@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
-import { Bay, type SidInfo } from "@/api/models.ts";
+import { Bay, type FrontendStrip, type SidInfo } from "@/api/models.ts";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -9,15 +9,15 @@ import { Label } from "@/components/ui/label";
 import { formatAltitude, getAircraftTypeWithWtc } from "@/lib/utils";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
-import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
+import { HdgSelectDialog, type HdgTurnDirection } from "@/components/strip/HdgSelectDialog";
 import { MOCK_SIDS } from "@/components/strip/sidConstants";
 import { SidRnavDialog } from "@/components/strip/SidRnavDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
 import { useAvailableSids, useInitialCflByRunway, useStrip, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks.ts";
 import { scalePx } from "@/lib/viewportScale";
-import { buildRnavUpdate, type RnavCapability } from "@/lib/rnav";
+import { buildRnavUpdate, effectiveClxFaults, effectiveRnavCapability, rnavAssumptionRemark, type RnavCapability } from "@/lib/rnav";
 import { normalizeCdmTime } from "@/lib/cdmTime";
-import { CDM_RED } from "@/lib/cdmColors";
+import { CDM_RED, isTobtRelevant } from "@/lib/cdmColors";
 import { getCtotSlotDisplay, getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 import { MandatoryRouteDialog } from "@/components/MandatoryRouteDialog";
 import { ManualPdcBypassDialog } from "@/components/ManualPdcBypassDialog";
@@ -93,8 +93,9 @@ const ecfmpStyle = (type: "yellow" | "red") => type === "yellow"
 
 type ClxField = "sid" | "runway" | "rnav" | "eobt" | "tobt";
 
-function hasClxFieldFault(strip: { clx_validation?: { faults: { fields: string[] }[] } } | undefined, field: ClxField) {
-  return strip?.clx_validation?.faults.some(fault => fault.fields.includes(field)) ?? false;
+function hasClxFieldFault(strip: FrontendStrip | undefined, field: ClxField) {
+  if (field === "rnav" && strip && effectiveRnavCapability(strip.aircraft_type, strip.remarks) === "1") return false;
+  return effectiveClxFaults(strip).some(fault => fault.fields.includes(field));
 }
 
 function clxFieldStyle(hasFault: boolean) {
@@ -182,13 +183,17 @@ function selectMandatoryRoute(currentRoute: string | undefined, routes: string[]
   return normalizedRoutes[0] ?? "";
 }
 
-function clxNitosRemarks(strip: { clx_validation?: { faults: { nitos_remark: string }[] }, pdc_request_remarks?: string, ecfmp_restrictions?: import("@/api/models").EcfmpRestriction[] } | undefined) {
+function clxNitosRemarks(strip: FrontendStrip | undefined) {
   const ecfmpRemarks = getEcfmpNitosRemarks(strip?.ecfmp_restrictions);
-  const clxRemarks = strip?.clx_validation?.faults
+  const clxRemarks = effectiveClxFaults(strip)
     .map(fault => fault.nitos_remark.trim())
-    .filter(Boolean) ?? [];
+    .filter(Boolean);
   const pdcRemarks = strip?.pdc_request_remarks?.trim();
   const remarks = [...ecfmpRemarks, ...clxRemarks];
+  if (strip) {
+    const rnavRemark = rnavAssumptionRemark(strip.aircraft_type, strip.remarks);
+    if (rnavRemark) remarks.push(rnavRemark);
+  }
   if (pdcRemarks) remarks.push(pdcRemarks);
   return Array.from(new Set(remarks)).join(" ");
 }
@@ -295,6 +300,7 @@ export default function FlightPlanDialog({
   }
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
+  const [hdgTurnDirection, setHdgTurnDirection] = useState<HdgTurnDirection>();
   const [altDialogOpen, setAltDialogOpen] = useState(false);
   const [deIceDialogOpen, setDeIceDialogOpen] = useState(false);
   const deIceIndication = formatDeIceIndication(strip?.deice_platform);
@@ -310,7 +316,7 @@ export default function FlightPlanDialog({
   const runwayFault = hasClxFieldFault(strip, "runway");
   const rnavFault = hasClxFieldFault(strip, "rnav");
   const eobtFault = hasClxFieldFault(strip, "eobt");
-  const tobtFault = hasClxFieldFault(strip, "tobt");
+  const tobtFault = strip?.bay !== Bay.NotCleared && hasClxFieldFault(strip, "tobt");
   const sidOverride = sidOverrideKey(strip);
   const nitosRemarks = clxNitosRemarks(strip);
   const nitosRemarksFit = fittedNitosRemarksStyle(nitosRemarks);
@@ -398,11 +404,12 @@ export default function FlightPlanDialog({
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RNAV</Label>
               <button
                 type="button"
+                aria-label="RNAV capability"
                 onClick={() => setSidDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ ...fieldStyle(75), ...clxFieldStyle(rnavFault) }}
               >
-                {strip.capabilities ?? "NIL"}
+                {effectiveRnavCapability(strip.aircraft_type ?? "", strip.remarks ?? "") === "1" ? "" : "NON"}
               </button>
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -421,7 +428,7 @@ export default function FlightPlanDialog({
                 onOpenChange={setSidDialogOpen}
                 sid={strip.sid}
                 sids={(availableSids.length > 0 ? availableSids.filter(s => s.runway === strip.runway).map(s => s.name) : MOCK_SIDS)}
-                capabilities={strip.capabilities}
+                capabilities={effectiveRnavCapability(strip.aircraft_type ?? "", strip.remarks ?? "")}
                 rnavFault={rnavFault}
                 onSelectSid={(sid) => {
                   if (sid === strip.sid && sidOverride) {
@@ -503,23 +510,23 @@ export default function FlightPlanDialog({
                   }}
                   onKeyDown={(event) => event.key === "Enter" && commitTobt()}
                   className={CLS_BTN_EDITABLE}
-                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), ...invalidPhaseTobtStyle(strip.phase) }}
+                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), ...(isTobtRelevant(strip.bay) && strip.bay !== Bay.NotCleared ? invalidPhaseTobtStyle(strip.phase) : {}) }}
                 />
               </div>
               <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TSAT</Label>
-                <button
-                  type="button"
-                  onClick={() => clxUpdateTobt(callsign)}
-                  className={`${CLS_BTN_DISABLED} cursor-pointer`}
+                <Input
+                  aria-label="TSAT"
+                  value={displayedTsat}
+                  disabled
+                  className={CLS_BTN_DISABLED}
                   style={fieldStyle(100)}
-                >
-                  {displayedTsat}
-                </button>
+                />
               </div>
               <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TTOT</Label>
                 <Input
+                  aria-label="TTOT"
                   value=""
                   disabled
                   className={CLS_BTN_DISABLED}
@@ -680,14 +687,22 @@ export default function FlightPlanDialog({
                 aria-label="HDG"
                 onClick={() => setHdgDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
-                style={fieldStyle(125)}
+                style={{ ...fieldStyle(125), display: "flex", alignItems: "center", justifyContent: "center", gap: scalePx(4) }}
               >
-                {strip.heading ? strip.heading.toString().padStart(3, "0") : ""}
+                {strip.heading ? <span>{strip.heading.toString().padStart(3, "0")}</span> : ""}
+                {hdgTurnDirection && (
+                  <span aria-label={`Turn ${hdgTurnDirection}`} style={{ fontSize: scalePx(15), lineHeight: 1 }}>
+                    {hdgTurnDirection === "left" ? "←" : "→"}
+                  </span>
+                )}
               </button>
               <HdgSelectDialog
                 open={hdgDialogOpen}
                 onOpenChange={setHdgDialogOpen}
                 value={strip.heading}
+                runway={strip.runway}
+                turnDirection={hdgTurnDirection}
+                onTurnDirectionChange={setHdgTurnDirection}
                 onSelect={(heading) => updateStrip(callsign, heading
                   ? { heading, sid: "" }
                   : { heading: 0 })}

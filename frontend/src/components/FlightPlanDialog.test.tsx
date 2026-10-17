@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Bay } from "@/api/models";
+import { Bay, type ClxValidationFault } from "@/api/models";
 import FlightPlanDialog from "./FlightPlanDialog";
 
 const state = vi.hoisted(() => ({
@@ -10,6 +10,8 @@ const state = vi.hoisted(() => ({
     bay: "NOT_CLEARED", runway: "22R", sid: "LANGO2C", heading: 0, remarks: "", route: "",
     assigned_squawk: "1000", release_point: "J4", pdc_state: "NONE", deice_platform: "",
     requested_altitude: 34000,
+    phase: "",
+    clx_validation: { faults: [] as ClxValidationFault[] },
   },
   cdmReady: vi.fn(),
   clxUpdateTobt: vi.fn(),
@@ -44,6 +46,8 @@ beforeEach(() => {
   state.strip.bay = Bay.NotCleared;
   state.strip.sid = "LANGO2C";
   state.strip.heading = 0;
+  state.strip.phase = "";
+  state.strip.clx_validation.faults = [];
 });
 
 describe("clearance SID, heading, and REA controls", () => {
@@ -74,5 +78,53 @@ describe("clearance SID, heading, and REA controls", () => {
 
     expect(state.cdmReady).toHaveBeenNthCalledWith(1, "SAS123", true);
     expect(state.cdmReady).toHaveBeenNthCalledWith(2, "SAS123", true);
+  });
+});
+
+describe("flight-plan TSAT and REA controls", () => {
+  it.each([Bay.Taxi, Bay.TaxiLwr, Bay.DeIce, Bay.Depart, Bay.Airborne, Bay.Final, Bay.RwyArr, Bay.TwyArr, Bay.Stand, Bay.Controlzone])(
+    "removes TOBT colors and warnings when moving into %s even before validation refreshes",
+    (bay) => {
+      state.strip.bay = Bay.Cleared;
+      state.strip.phase = "I";
+      state.strip.clx_validation.faults = [{
+        code: "eobt_tobt_past", message: "TOBT and EOBT are in the past",
+        nitos_remark: "TOBT and EOBT are in the past", fields: ["eobt", "tobt"],
+      }];
+      const { rerender } = render(<FlightPlanDialog callsign="SAS123" open />);
+      expect(screen.getByDisplayValue("1505").style.backgroundColor).toBe("rgb(220, 38, 38)");
+      expect(screen.getByDisplayValue(/TOBT and EOBT are in the past/)).toBeInTheDocument();
+
+      state.strip.bay = bay;
+      rerender(<FlightPlanDialog callsign="SAS123" open />);
+      expect(screen.getByDisplayValue("1505").style.backgroundColor).toBe("");
+      expect(screen.getByDisplayValue("1450").style.backgroundColor).toBe("");
+      expect(screen.queryByDisplayValue(/TOBT and EOBT are in the past/)).not.toBeInTheDocument();
+    },
+  );
+
+  it("makes TSAT read-only with the same disabled styling as TTOT", () => {
+    render(<FlightPlanDialog callsign="SAS123" open />);
+    const tsat = screen.getByRole("textbox", { name: "TSAT" });
+    const ttot = screen.getByRole("textbox", { name: "TTOT" });
+    expect(tsat).toBeDisabled();
+    expect(tsat).toHaveValue("1500");
+    expect(tsat.className).toBe(ttot.className);
+    fireEvent.click(tsat);
+    expect(state.clxUpdateTobt).not.toHaveBeenCalled();
+    expect(state.cdmReady).not.toHaveBeenCalled();
+  });
+
+  it("uses a white REA clickspot and renders the persisted REA status instead of a release point", () => {
+    const { rerender } = render(<FlightPlanDialog callsign="SAS123" open />);
+    const rea = screen.getByRole("button", { name: "REA" });
+    expect(rea).toHaveTextContent("");
+    expect(rea.style.backgroundColor).toBe("rgb(252, 252, 252)");
+    fireEvent.click(rea);
+    expect(state.cdmReady).toHaveBeenCalledExactlyOnceWith("SAS123", true);
+    expect(state.clxUpdateTobt).not.toHaveBeenCalled();
+    state.strip.status = "REA";
+    rerender(<FlightPlanDialog callsign="SAS123" open />);
+    expect(screen.getByRole("button", { name: "REA" })).toHaveTextContent("REA");
   });
 });

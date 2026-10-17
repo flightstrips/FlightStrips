@@ -10,7 +10,7 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu.tsx"
-import {Link} from "react-router-dom";
+import {Link} from "react-router";
 import {Button} from "@/components/ui/button";
 import {useAuth0} from "@auth0/auth0-react";
 

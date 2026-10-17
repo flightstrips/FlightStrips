@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { canForceAssumeStrip, getStripFrameColor, useNextFrequencyDisplay, useStripCallsignInteraction } from "./shared";
+import { canForceAssumeStrip, getStripFrameColor, getValidationBlockedCursor, useNextFrequencyDisplay, useStripCallsignInteraction } from "./shared";
 
 const storeState = vi.hoisted(() => ({
   strips: [] as Array<Record<string, unknown>>,
@@ -65,6 +65,17 @@ describe("getStripFrameColor", () => {
   it("keeps departure and arrival frames tied to the flight direction", () => {
     expect(getStripFrameColor(false)).toBe("var(--color-strip-frame)");
     expect(getStripFrameColor(true)).toBe("var(--color-cell-border-arr)");
+  });
+});
+
+describe("getValidationBlockedCursor", () => {
+  it("shows no cursor for actions blocked by validation", () => {
+    expect(getValidationBlockedCursor(true)).toBeUndefined();
+  });
+
+  it("keeps the hand cursor for available actions", () => {
+    expect(getValidationBlockedCursor(false)).toBe("pointer");
+    expect(getValidationBlockedCursor(true, "pointer", true)).toBe("pointer");
   });
 });
 

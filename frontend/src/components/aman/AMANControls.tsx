@@ -76,7 +76,7 @@ function FlightStatus({flight}: {flight: AMANFlight}) {
 
       <div className="grid gap-1 sm:grid-cols-2">
         <span>Operational TETA: <b>{displayTime(flight.operational_teta)}</b></span>
-        <span>Operational slot: <b>{displayTime(flight.slot?.time ?? null)}{flight.freeze_reason !== "none" ? ` (fixed by ${flight.freeze_reason} freeze)` : ""}</b></span>
+        <span>{flight.expedited ? "Former slot (outside sequence)" : "Operational slot"}: <b>{displayTime(flight.slot?.time ?? null)}{!flight.expedited && flight.freeze_reason !== "none" ? ` (fixed by ${flight.freeze_reason} freeze)` : ""}</b></span>
         <span className={flight.raw_teta !== flight.operational_teta ? "text-amber-300" : ""}>Raw TETA (informational): <b>{displayTime(flight.raw_teta)}</b></span>
         <span>Freeze: <b className={flight.freeze_reason === "superstable" ? "text-cyan-300" : flight.freeze_reason === "manual" ? "text-fuchsia-300" : ""}>{flight.freeze_reason}</b></span>
         <span>STAR family: <b>{flight.star_family ?? "Unavailable"}</b></span>
@@ -159,7 +159,7 @@ export function AMANControlsView({
   const runwayPending = pending.some((command) => command.type === "aman.change_runway" && command.callsign === effectiveSelectedCallsign);
   const runwayRejection = rejections.find((rejection) => rejection.command_type === "aman.change_runway");
   const dispositionPending = pending.some((command) => command.callsign === effectiveSelectedCallsign
-    && (command.type === "aman.desequence_flight" || command.type === "aman.resume_flight" || command.type === "aman.remove_flight"));
+    && (command.type === "aman.expedite_flight" || command.type === "aman.desequence_flight" || command.type === "aman.resume_flight" || command.type === "aman.remove_flight"));
   const disposition = selectedFlight?.sequence_disposition ?? "active";
   const alternateRunwayGroups = activeRunwayGroups.filter((group) => group.id !== selectedFlight?.runway_group_id);
   const effectiveAlternateRunwayGroupID = alternateRunwayGroups.some((group) => group.id === alternateRunwayGroupID)
@@ -281,13 +281,16 @@ export function AMANControlsView({
           {selectedFlight && <FlightStatus flight={selectedFlight} />}
 
           {selectedFlight && <section aria-label={`${selectedFlight.callsign} sequence disposition`} className="grid gap-2 rounded border border-violet-500/70 bg-violet-950/40 p-3 text-sm">
-            <div>Server-confirmed disposition: <b>{selectedFlight.lifecycle_state === "removed" ? "removed" : disposition}</b></div>
+            <div>Server-confirmed disposition: <b>{selectedFlight.lifecycle_state === "removed" ? "removed" : selectedFlight.expedited ? "expedited" : disposition}</b></div>
             {selectedFlight.lifecycle_state !== "removed" && <div className="flex flex-wrap gap-2">
-              {disposition === "active" ? <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.desequence_flight", callsign: selectedFlight.callsign})}>Desequence flight</button> : <>
+              {disposition === "active" ? <>
+                <button className={controlClass} disabled={disabled || dispositionPending || !selectedFlight.slot || !["unstable", "stable", "go_around"].includes(selectedFlight.lifecycle_state)} onClick={() => onCommand({type: "aman.expedite_flight", callsign: selectedFlight.callsign})}>Expedite flight</button>
+                <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.desequence_flight", callsign: selectedFlight.callsign})}>Desequence flight</button></> : <>
                 <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.resume_flight", callsign: selectedFlight.callsign})}>Resume at earliest legal opportunity</button>
                 <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => setRemoveDialogOpen(true)}>Remove flight…</button>
               </>}
             </div>}
+            <p>Expedite takes the aircraft out of the managed sequence and brings following traffic forward where spacing allows. Coordinate its release with approach; the aircraft still counts in the approach buffer.</p>
             {dispositionPending && <div aria-live="polite" role="status" className="text-sky-200">Waiting for server-confirmed disposition</div>}
           </section>}
 

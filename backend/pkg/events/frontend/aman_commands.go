@@ -6,6 +6,7 @@ const (
 	AMANMoveFlightType                EventType = "aman.move_flight"
 	AMANLockFlightType                EventType = "aman.lock_flight"
 	AMANUnlockFlightType              EventType = "aman.unlock_flight"
+	AMANExpediteFlightType            EventType = "aman.expedite_flight"
 	AMANDesequenceFlightType          EventType = "aman.desequence_flight"
 	AMANResumeFlightType              EventType = "aman.resume_flight"
 	AMANRemoveFlightType              EventType = "aman.remove_flight"

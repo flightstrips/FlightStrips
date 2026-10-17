@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
@@ -24,7 +25,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
-import { hasManualTobtSource, isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
+import { hasManualTobtSource } from "@/lib/cdmColors";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
 // Height: 4.72dvh viewport-relative (intentional — matches DelStrip height)
@@ -51,6 +52,7 @@ export const CLX_CLEARED_STRIP_WIDTH = "88.44%";
  *             | Right 50% of 80: EOBT/CTOT (left) + TOBT/TSAT (right)
  */
 export function ClxClearedStrip({
+  communicationType,
   callsign,
   bay,
   pdcStatus,
@@ -73,6 +75,7 @@ export function ClxClearedStrip({
   marked = false,
   fullWidth = false,
   startupSiTransfer = false,
+  ignoreOwnershipBackground = false,
   unexpectedChangeFields,
   controllerModifiedFields,
   isManual = false,
@@ -96,7 +99,7 @@ export function ClxClearedStrip({
     runway,
     getStripBg(stripBackgroundPdcStatus, arrival, bay),
     isTagRequest,
-    isUnconcerned,
+    isUnconcerned && !ignoreOwnershipBackground,
     stripBackgroundPdcStatus,
     bay,
   );
@@ -120,7 +123,6 @@ export function ClxClearedStrip({
       style={{
         height: FULL_H,
         width: fullWidth ? "100%" : CLX_CLEARED_STRIP_WIDTH,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >
@@ -142,7 +144,6 @@ export function ClxClearedStrip({
           transferringTo={stripTransfers[callsign]?.to ?? ""}
           isTagRequest={isTagRequest}
           baseBorderColor={stripFrameColor}
-          transferAllowed={startupSiTransfer ? () => isTsatWithinStartRequestWindow(tsat ?? "", Date.now()) : undefined}
           startRequestTransfer={startupSiTransfer}
         />
 
@@ -150,11 +151,13 @@ export function ClxClearedStrip({
 
         {/* Callsign — 2/3 of left half */}
         <button
-          className={`flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
+          aria-label={callsign}
+          className={`relative flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
+          <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
           <span className="truncate w-full">{callsign}</span>
         </button>
 

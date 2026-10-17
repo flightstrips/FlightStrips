@@ -27,12 +27,20 @@ type MockServer struct {
 	RecalculateSessionContextFn         func(ctx context.Context, sessionId int32, sendUpdate bool) ([]shared.SectorChange, error)
 	UpdateRouteForStripFn               func(callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRouteForStripCtxFn            func(ctx context.Context, callsign string, sessionId int32, sendUpdate bool) error
+	SelectNextControllerContextFn       func(ctx context.Context, session int32, callsign, owner, sector string) error
 	UpdateRoutesForSessionFn            func(sessionId int32, sendUpdate bool) error
 	UpdateLayoutsFn                     func(sessionId int32) error
 	ComputeNextDisplayForStripContextFn func(ctx context.Context, strip *internalModels.Strip, sessionId int32) (*internalModels.NextDisplay, error)
 }
 
 func (m *MockServer) GetDatabasePool() *pgxpool.Pool { return nil }
+
+func (m *MockServer) SelectNextControllerContext(ctx context.Context, session int32, callsign, owner, sector string) error {
+	if m.SelectNextControllerContextFn == nil {
+		panic("unexpected call to MockServer.SelectNextControllerContext")
+	}
+	return m.SelectNextControllerContextFn(ctx, session, callsign, owner, sector)
+}
 
 func (m *MockServer) GetEuroscopeHub() shared.EuroscopeHub { return m.EuroscopeHubVal }
 

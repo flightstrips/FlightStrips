@@ -1,6 +1,7 @@
 import type {AMANCommandMessage} from "./aman";
 
 export enum EventType {
+  FrontendMasterInfo = "master_info",
   FrontendInitial = "initial",
   FrontendFrequencyMessageResult = "frequency_message_result",
   FrontendGoAround = "go_around",
@@ -301,6 +302,7 @@ export interface SidInfo {
 }
 
 export interface FrontendInitialEvent {
+  master_callsign?: string;
   session_id?: number;
   type: EventType.FrontendInitial;
   controllers: FrontendController[];
@@ -326,6 +328,11 @@ export interface FrontendInitialEvent {
   capabilities?: {
     aman_fmp: boolean;
   };
+}
+
+export interface FrontendMasterInfoEvent {
+  type: EventType.FrontendMasterInfo;
+  master_callsign: string;
 }
 
 export interface FrontendStripUpdateEvent {
@@ -674,6 +681,7 @@ export interface FrontendAtisUpdateEvent {
 
 // Union type for all events that can be received
 export type WebSocketEvent =
+  | FrontendMasterInfoEvent
   | FrontendInitialEvent
   | FrontendGoAroundEvent
   | FrontendStripUpdateEvent

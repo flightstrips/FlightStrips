@@ -90,6 +90,25 @@ function foreignStrip(): FrontendStrip {
   };
 }
 
+describe("session master metadata", () => {
+  it("loads the snapshot, follows changes and clears on disconnect or a legacy snapshot", () => {
+    const client = createMockClient();
+    const store = createWebSocketStore(client);
+    client._emit(EventType.FrontendInitial, { ...initialEvent("SEQPLN"), master_callsign: "EKCH_A_TWR" });
+    expect(store.getState().masterCallsign).toBe("EKCH_A_TWR");
+    client._emit(EventType.FrontendMasterInfo, { master_callsign: "EKDK_FMP" });
+    expect(store.getState().masterCallsign).toBe("EKDK_FMP");
+    client._emit(EventType.FrontendMasterInfo, { master_callsign: "" });
+    expect(store.getState().masterCallsign).toBe("");
+    client._emit(EventType.FrontendMasterInfo, { master_callsign: "EKDK_FMP" });
+    client._emit(EventType.FrontendInitial, initialEvent("SEQPLN"));
+    expect(store.getState().masterCallsign).toBe("");
+    client._emit(EventType.FrontendMasterInfo, { master_callsign: "EKDK_FMP" });
+    client._emit(EventType.FrontendDisconnect, { reason: "ES disconnected" });
+    expect(store.getState().masterCallsign).toBe("");
+  });
+});
+
 describe("manual companion layout behavior", () => {
   let client: ReturnType<typeof createMockClient>;
   let store: StoreApi<WebSocketState>;

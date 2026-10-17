@@ -13,6 +13,7 @@ namespace FlightStrips::graphics {
 
     int CalculateInfoPanelContentHeight(const InfoPanelData& data) {
         int contentHeight = 83 + (data.sessionSelectable ? 28 : 16) + 25 + 5;
+        if (data.connected) contentHeight += 16;
         if (data.showStats) {
             if (data.connected) {
                 contentHeight += 39;
@@ -195,6 +196,13 @@ namespace FlightStrips::graphics {
         const RECT statusLabelRect = {left + 13, y, right, y + 16};
         graphics.DrawString(statusText, statusLabelRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
         y += 19;
+
+        if (data.connected) {
+            const RECT masterRect = {left, y, right, y + 16};
+            graphics.DrawString(data.stats.masterCallsign.empty() ? "Master: None" : std::format("Master: {}", data.stats.masterCallsign),
+                                masterRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+            y += 16;
+        }
 
         graphics.DrawHLine(colors.separatorPen.get(), menubar.left + 3, y + 3, menubar.right - 3);
         y += 8;

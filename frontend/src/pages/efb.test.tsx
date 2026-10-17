@@ -14,6 +14,11 @@ function jsonResponse(body: unknown, status = 200) {
   }));
 }
 
+function utcClockAfter(minutes: number): string {
+  const value = new Date(Date.now() + minutes * 60_000);
+  return `${String(value.getUTCHours()).padStart(2, '0')}${String(value.getUTCMinutes()).padStart(2, '0')}`;
+}
+
 function previewResponse(input: RequestInfo | URL) {
   if (String(input).includes('afv-atis-data.json')) {
     return jsonResponse([{
@@ -1089,6 +1094,8 @@ describe('EFB page interactions', () => {
 
   it('submits an arrival TOBT and refreshes the vIFF timing snapshot', async () => {
     let updated = false;
+    const tsat = utcClockAfter(20);
+    const ctot = utcClockAfter(30);
     const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).includes('/api/efb/me')) return jsonResponse({ live_mode: false, online_callsign: null });
       if (String(input).includes('/api/efb/tobt')) {
@@ -1099,7 +1106,7 @@ describe('EFB page interactions', () => {
       }
       return jsonResponse({
         callsign: 'SAS123', aircraft_type: 'A320', origin: 'EDDF', destination: 'EKCH', phase: 'ARRIVAL',
-        tobt: updated ? '2010' : '1935', tsat: '1940', ctot: '1950',
+        tobt: updated ? '2010' : '1935', tsat, ctot,
         capabilities: { pdc: false, tobt_update: true, stand_reassignment: false },
       });
     });

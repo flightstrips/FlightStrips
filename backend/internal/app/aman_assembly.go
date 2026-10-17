@@ -346,6 +346,12 @@ func holdingEATBlockedByEarlierEntrant(flight aman.AMANFlight, flights []aman.AM
 	}
 	release := flight.Prediction.HoldingPlan.ApproachReleaseTime
 	for _, older := range flights {
+		if precedes, rebuilt := aman.RebuiltHoldingPrecedes(older, flight); rebuilt {
+			if precedes && (older.Prediction == nil || older.Prediction.HoldingPlan == nil || older.Prediction.HoldingPlan.ApproachReleaseTime.After(release) || older.SelectedHolding != nil && *older.SelectedHolding == *flight.SelectedHolding && !older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release.UTC().Truncate(time.Minute))) {
+				return true
+			}
+			continue
+		}
 		if older.Callsign == flight.Callsign || older.HoldingStack == nil ||
 			older.HoldingStack.HoldingID != *flight.SelectedHolding ||
 			older.State == aman.StateLanded || older.State == aman.StateRemoved {

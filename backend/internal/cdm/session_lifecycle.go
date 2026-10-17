@@ -47,6 +47,9 @@ func (s *Service) isSessionRemoved(session int32) bool {
 // Session IDs are never reused, so the cancelled lifecycle marker is retained.
 func (s *Service) RemoveSession(session int32) {
 	s.workForSession(session).cancel()
+	if s.inbound != nil {
+		s.inbound.removeSession(session)
+	}
 	s.sessionUsesViff.Delete(session)
 	prefix := strconv.Itoa(int(session)) + ":"
 	s.debouncer.CancelPrefix(prefix)

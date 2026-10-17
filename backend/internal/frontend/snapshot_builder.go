@@ -184,6 +184,9 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 		PositionAvailable:  positionAvailable,
 		LocalIP:            localIP,
 	}
+	if b.euroscopeHub != nil {
+		event.MasterCallsign = b.euroscopeHub.GetMasterCallsign(request.SessionID)
+	}
 
 	if b.standAssignmentEnabled && b.standAssignmentRepo != nil {
 		event.StandAssignmentEnabled = true

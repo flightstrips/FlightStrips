@@ -38,6 +38,8 @@ If the expected layout is not displayed, select the station box, choose the corr
 
 The command bar displays the first configured departure and arrival runway. A runway value uses an alert background when Flight Strips has detected a mismatch with the runway configuration reported through EuroScope.
 
+Select a red runway value to see the expected departure and arrival runways and the **FS Master** callsign. You can also find the current master in **Settings**, beside the version information. The callsign updates automatically when the master changes.
+
 Resolve a mismatch before relying on runway-dependent layouts, routes or validations. The runway-pair buttons also expose the shared **OPEN**, **LOW VIS** and **CLOSED** status used by the board; change them only under the applicable procedure.
 
 ## 5. Read the board before clicking

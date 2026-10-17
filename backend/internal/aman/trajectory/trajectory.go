@@ -112,18 +112,19 @@ const (
 )
 
 type Result struct {
-	Remaining        []RemainingLeg
-	AlongTrackNM     float64
-	CrossTrackNM     float64
-	DistanceToGoNM   *float64
-	Completeness     Completeness
-	Reasons          []string
-	GeometryDigest   string
-	SelectedHolding  *navdata.HoldingPattern
-	HoldingCandidate *HoldingCandidate
-	Progress         *aman.RouteProgress
-	FeederProgress   FeederProgress
-	InTMA            bool
+	Remaining          []RemainingLeg
+	AlongTrackNM       float64
+	CrossTrackNM       float64
+	DistanceToGoNM     *float64
+	Completeness       Completeness
+	Reasons            []string
+	GeometryDigest     string
+	SelectedHolding    *navdata.HoldingPattern
+	HoldingCandidate   *HoldingCandidate
+	HoldingFixPosition *navdata.Coordinate
+	Progress           *aman.RouteProgress
+	FeederProgress     FeederProgress
+	InTMA              bool
 }
 
 // HoldingCandidate is a geometric observation inside the published holding
@@ -268,6 +269,12 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 	}
 	obs := coordinate(input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees)
 	holdCandidate := holdingCandidate(holding, fixes, input.Observation)
+	if holding != nil {
+		if fix, ok := fixes[holding.Fix]; ok {
+			position := fix.Position
+			result.HoldingFixPosition = &position
+		}
+	}
 	// A cleared racetrack can cross the outbound STAR repeatedly. Ordinary
 	// forward-only projection would then mark its fix as passed and remove
 	// the entry ETA needed to calculate EAT. An active clearance keeps the route

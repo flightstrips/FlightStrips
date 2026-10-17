@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +17,14 @@ import (
 const DefaultBaseURL = "https://api.viffsys.com"
 
 const defaultAirportMasterCacheTTL = 5 * time.Second
+
+type APIError struct {
+	StatusCode int
+	Body       string
+	RetryAfter time.Duration
+}
+
+func (e *APIError) Error() string { return fmt.Sprintf("cdm api error (%d): %s", e.StatusCode, e.Body) }
 
 type Client struct {
 	baseURL    string
@@ -179,7 +188,13 @@ func (c *Client) doRequest(
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("cdm api error (%d): %s", resp.StatusCode, string(data))
+		retryAfter := time.Duration(0)
+		if seconds, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && seconds > 0 {
+			retryAfter = time.Duration(seconds) * time.Second
+		} else if until, err := http.ParseTime(resp.Header.Get("Retry-After")); err == nil {
+			retryAfter = time.Until(until)
+		}
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: string(data), RetryAfter: retryAfter}
 	}
 
 	return data, nil

@@ -112,7 +112,8 @@ type StripService interface {
 	UpdateStartReq(ctx context.Context, session int32, callsign string, startReq bool) error
 	UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error
 	RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error
-	RunwayConfirmation(ctx context.Context, session int32, callsign string) error
+	RunwayConfirmation(ctx context.Context, session int32, callsign string, clientPosition string) error
+	ResetRunwayClearance(ctx context.Context, session int32, callsign string, clientPosition string) error
 	PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error
 
 	// Manual FPL creation

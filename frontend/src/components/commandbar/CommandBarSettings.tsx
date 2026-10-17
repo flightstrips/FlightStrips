@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { useAudioSettings } from "@/hooks/useAudioSettings";
 import { useVacsSettings } from "@/hooks/useVacsSettings";
 import { FRONTEND_VERSION } from "@/lib/app-version";
-import { useLocalIp } from "@/store/store-hooks";
+import { useLocalIp, useWebSocketStore } from "@/store/store-hooks";
 import { CLS_CMD_BEVEL } from "@/components/strip/shared";
 
 const CLS_DIALOG = "sm:max-w-[400px] bg-[#b3b3b3]";
@@ -22,6 +22,7 @@ export default function CommandBarSettings() {
   const { muted, toggleMute } = useAudioSettings();
   const { vacsEnabled, setVacsEnabled, vacsHost, setVacsHost } = useVacsSettings();
   const localIp = useLocalIp();
+  const masterCallsign = useWebSocketStore((state) => state.masterCallsign);
   const [hostDraft, setHostDraft] = useState(vacsHost);
 
   const commitHost = () => {
@@ -60,6 +61,11 @@ export default function CommandBarSettings() {
             <div className="text-sm text-black">
               <span className="font-semibold">Version:</span>{" "}
               <span>{FRONTEND_VERSION}</span>
+            </div>
+
+            <div className="text-sm text-black">
+              <span className="font-semibold">FS Master:</span>{" "}
+              <span>{masterCallsign || "No active master"}</span>
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer text-sm text-black">

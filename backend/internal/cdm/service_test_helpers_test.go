@@ -10,9 +10,10 @@ import (
 
 type testCdmPublisher struct{}
 
-func (testCdmPublisher) SendCdmUpdate(int32, frontendEvents.CdmDataEvent)    {}
-func (testCdmPublisher) SendCdmUpdates(int32, []frontendEvents.CdmDataEvent) {}
-func (testCdmPublisher) SendCdmWait(int32, string)                           {}
+func (testCdmPublisher) SendCdmUpdate(int32, frontendEvents.CdmDataEvent)                   {}
+func (testCdmPublisher) SendCdmUpdates(int32, []frontendEvents.CdmDataEvent)                {}
+func (testCdmPublisher) SendCdmWait(int32, string)                                          {}
+func (testCdmPublisher) SendInboundDepartures(int32, frontendEvents.InboundDeparturesEvent) {}
 
 type testCdmEuroscope struct{}
 

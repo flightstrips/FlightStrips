@@ -12,6 +12,7 @@ const openTextPilotMenu = vi.hoisted(() => vi.fn());
 const assumeStrip = vi.hoisted(() => vi.fn());
 const transferStrip = vi.hoisted(() => vi.fn());
 const startRequestAndTransfer = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+const openStripContextMenu = vi.hoisted(() => vi.fn());
 
 vi.mock("@/store/store-hooks", () => ({
   useControllers: () => state.controllers,
@@ -21,7 +22,7 @@ vi.mock("@/store/store-hooks", () => ({
     transferStrip,
     startRequestAndTransfer,
     assumeStrip,
-    cancelTransfer: vi.fn(),
+    openStripContextMenu,
     acceptTagRequest: vi.fn(),
   }),
 }));
@@ -32,6 +33,7 @@ describe("startup SI transfer", () => {
     openTextPilotMenu.mockClear(); assumeStrip.mockClear();
     transferStrip.mockClear();
     startRequestAndTransfer.mockClear();
+    openStripContextMenu.mockClear();
   });
 
   it("uses the reduced font size for the SI indicator", () => {
@@ -66,6 +68,24 @@ describe("startup SI transfer", () => {
     expect(transferStrip).toHaveBeenCalledWith("SAS123", "121.730");
     expect(startRequestAndTransfer).not.toHaveBeenCalled();
   });
+
+  it("opens the callsign menu instead of changing handover state while a transfer is active", () => {
+    const { container } = render(
+      <SIBox
+        callsign="SAS123"
+        bay="CLEARED"
+        owner="121.905"
+        myPosition="121.905"
+        transferFrom="121.905"
+        transferringTo="121.730"
+      />,
+    );
+
+    fireEvent.click(container.firstElementChild!, { clientX: 120, clientY: 80 });
+
+    expect(openStripContextMenu).toHaveBeenCalledWith("SAS123", { x: 120, y: 80 });
+    expect(transferStrip).not.toHaveBeenCalled();
+  });
 });
 
 describe("text-pilot SI entry points", () => {
@@ -80,10 +100,19 @@ describe("text-pilot SI entry points", () => {
     expect(openTextPilotMenu).toHaveBeenCalledWith(expect.objectContaining({ variant: "si" }));
     expect(transferStrip).not.toHaveBeenCalled(); expect(assumeStrip).not.toHaveBeenCalled();
   });
-  it("assumes an incoming transfer without opening the text menu", () => {
+  it("opens the callsign menu for an incoming handover without opening the text menu", () => {
     const { container } = render(<SIBox callsign="SAS123" owner="121.730" myPosition="121.905" transferFrom="121.730" transferringTo="121.905" />);
     fireEvent.click(container.firstElementChild!);
-    expect(assumeStrip).toHaveBeenCalledWith("SAS123"); expect(openTextPilotMenu).not.toHaveBeenCalled();
+    expect(openStripContextMenu).toHaveBeenCalledWith("SAS123", { x: 0, y: 0 });
+    expect(assumeStrip).not.toHaveBeenCalled();
+    expect(openTextPilotMenu).not.toHaveBeenCalled();
+  });
+  it("opens the callsign menu for an outgoing text-pilot handover", () => {
+    const { container } = render(<SIBox callsign="SAS123" owner="121.905" myPosition="121.905" transferFrom="121.905" transferringTo="121.730" />);
+    fireEvent.click(container.firstElementChild!);
+    expect(openStripContextMenu).toHaveBeenCalledWith("SAS123", { x: 0, y: 0 });
+    expect(openTextPilotMenu).not.toHaveBeenCalled();
+    expect(transferStrip).not.toHaveBeenCalled();
   });
   it("preselects readback only on the first SEQ/PLN submission", () => {
     state.layout = "SEQPLN";

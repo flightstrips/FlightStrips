@@ -8,6 +8,10 @@ import (
 	"sync"
 )
 
+func (m *MockFrontendHub) SendInboundDepartures(session int32, event frontend.InboundDeparturesEvent) {
+	m.Broadcast(session, event)
+}
+
 // ControllerOnlineCall records arguments to SendControllerOnline.
 type ControllerOnlineCall struct {
 	Session      int32

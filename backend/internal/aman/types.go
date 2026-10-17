@@ -966,11 +966,13 @@ type AMANFlight struct {
 	DerivedFeederETA *FeederETAState
 	// InitialTiming retains the first accepted estimates and scheduled times
 	// for flight information; live prediction/slot updates must not rewrite it.
-	InitialTiming       *FlightInitialTiming
-	HoldingClearance    *HoldingClearance
-	HoldingStack        *HoldingStackState
-	HoldingReleaseBasis *HoldingReleaseBasis
-	ApproachRelease     *ApproachReleaseReservation
+	InitialTiming             *FlightInitialTiming
+	HoldingClearance          *HoldingClearance
+	HoldingStack              *HoldingStackState
+	HoldingEpisode            *HoldingEpisode
+	HoldingReleaseReservation *HoldingReleaseReservation
+	HoldingReleaseBasis       *HoldingReleaseBasis
+	ApproachRelease           *ApproachReleaseReservation
 	// HoldingClearanceCanceledAt retains the last actual cancellation time across blank strip snapshots.
 	HoldingClearanceCanceledAt *time.Time
 	ActiveRouteFact            *RouteFact
@@ -1466,6 +1468,14 @@ func (f AMANFlight) Validate() error {
 		if err := f.TMAEntry.Validate(); err != nil {
 			return err
 		}
+	}
+	if f.HoldingEpisode != nil {
+		if err := f.HoldingEpisode.Validate(); err != nil {
+			return err
+		}
+	}
+	if r := f.HoldingReleaseReservation; r != nil && (r.CommandID == "" || r.EpisodeID == "" || r.HoldingID == "" || r.Level < 0 || r.Rank < 1) {
+		return invalid("invalid rebuilt holding release reservation")
 	}
 	if f.HoldingStack != nil {
 		if !isTrimmedNonEmpty(f.HoldingStack.HoldingID) || f.HoldingStack.Confirmed && f.HoldingStack.ConsecutiveObservations == 0 {

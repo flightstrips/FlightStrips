@@ -143,9 +143,9 @@ describe("EstStandCell", () => {
     );
 
     expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #00FF26");
-    expect(screen.getByTestId("est-tobt-background").style.top).toBe("88px");
+    expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.getByTestId("est-tsat-background").style.top).toBe("105px");
-    expect(screen.getByText("TOBT:").parentElement?.style.color).toBe("rgb(0, 0, 0)");
+    expect(screen.getByText("TOBT:").parentElement?.style.color).toBe("");
     expect(screen.getByText("TSAT: 1425").style.color).toBe("rgb(0, 0, 0)");
   });
 

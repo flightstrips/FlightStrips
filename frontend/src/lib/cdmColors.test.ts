@@ -5,7 +5,6 @@ import {
   CDM_GREEN,
   CDM_YELLOW,
   CDM_RED,
-  CDM_ORANGE,
   CTOT_YELLOW,
   TWY_DEP_CTOT_BLUE,
   TWY_DEP_CTOT_ORANGE,
@@ -52,6 +51,15 @@ describe("isTsatWithinStartRequestWindow", () => {
 
 describe("computeCDMColors", () => {
   it.each([
+    ["1020", "1000", "", CDM_RED],
+    ["1004", "1000", "", ""],
+    ["0950", "0950", "", ""],
+    ["", "0955", "I", ""],
+  ])("colors TOBT only while it is outside its limits for TSAT %s and phase %s", (tsat, tobt, phase, tobtBg) => {
+    expect(computeCDMColors(tsat, tobt, Date.UTC(2026, 6, 14, 10, 0), Bay.Cleared, phase).tobtBg).toBe(tobtBg);
+  });
+
+  it.each([
     Bay.Taxi, Bay.TaxiLwr, Bay.DeIce, Bay.Depart, Bay.Airborne, Bay.HiddenDep,
     Bay.DepHidden, Bay.Final, Bay.RwyArr, Bay.TwyArr, Bay.Stand, Bay.ArrHidden, Bay.Controlzone,
   ])("disables TOBT timing and invalid-phase colors in %s", (bay) => {
@@ -75,14 +83,6 @@ describe("computeCDMColors", () => {
     });
   });
 
-  it.each([
-    ["0950", "0950", "", CDM_RED],
-    ["1020", "1000", "", CDM_ORANGE],
-    ["", "0955", "I", CDM_RED],
-  ])("retains cleared departure TOBT coloring for TSAT %s and phase %s", (tsat, tobt, phase, tobtBg) => {
-    expect(computeCDMColors(tsat, tobt, Date.UTC(2026, 6, 14, 10, 0), Bay.Cleared, phase)).toEqual({ tobtBg, tsatBg: "" });
-  });
-
   it("leaves CTOT coloring active while planned TOBT and TSAT are neutral", () => {
     const now = Date.UTC(2026, 6, 14, 10, 0);
     expect(computeCDMColors("1003", "0955", now, Bay.NotCleared)).toEqual({ tobtBg: "", tsatBg: "" });
@@ -93,22 +93,29 @@ describe("computeCDMColors", () => {
     expect(CDM_GREEN).toBe("#00FF26");
   });
 
-  it("makes both TOBT and TSAT green inside the startup window", () => {
+  it("keeps TOBT unfilled and colors TSAT green inside the startup window", () => {
     const now = Date.UTC(2026, 6, 14, 10, 0, 0);
 
-    expect(computeCDMColors("1003", "0955", now, Bay.Cleared)).toEqual({
-      tobtBg: CDM_GREEN,
+    expect(computeCDMColors("1003", "1000", now, Bay.Cleared)).toEqual({
+      tobtBg: "",
       tsatBg: CDM_GREEN,
     });
   });
 
-  it("keeps TOBT green and makes TSAT yellow in the last minute", () => {
+  it("keeps TOBT unfilled and makes TSAT yellow in the last minute", () => {
     const now = Date.UTC(2026, 6, 14, 10, 5, 0);
 
     expect(computeCDMColors("1000", "0955", now, Bay.Cleared)).toEqual({
-      tobtBg: CDM_GREEN,
+      tobtBg: "",
       tsatBg: CDM_YELLOW,
     });
+  });
+
+  it("removes the TOBT warning as soon as it returns within the five-minute limit", () => {
+    const now = Date.UTC(2026, 6, 14, 10, 0, 0);
+
+    expect(computeCDMColors("1000", "1006", now, Bay.Cleared).tobtBg).toBe(CDM_RED);
+    expect(computeCDMColors("1000", "1005", now, Bay.Cleared).tobtBg).toBe("");
   });
 });
 

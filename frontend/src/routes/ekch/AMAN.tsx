@@ -202,6 +202,11 @@ export default function AMAN() {
               setCoordinationOpen(true);
             }} type="button">Coordination</button>
             <div className="mx-1 my-0.5 border-t-2 border-white" />
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || selectedFlight === null || !selectedFlight.slot || selectedFlight.sequence_disposition === "desequenced" || !["unstable", "stable", "go_around"].includes(selectedFlight.lifecycle_state) || Object.values(pendingCommands).some(command => command.callsign === effectiveSelectedCallsign && ["aman.expedite_flight", "aman.desequence_flight", "aman.resume_flight", "aman.remove_flight"].includes(command.type))} onClick={() => {
+              if (selectedFlight) sendCommand({type: "aman.expedite_flight", callsign: selectedFlight.callsign});
+              setFlightActionsOpen(false);
+              setControlsOpen(true);
+            }} type="button">Expedite</button>
             {["Missed Approach", "De-Sequence", "Insert Closure", "Insert Gap"].map((label) => (
               <button className="flex min-h-5 items-center justify-between px-3 text-left hover:bg-[#6685c2]" key={label} onClick={() => {
                 setFlightActionsOpen(false);

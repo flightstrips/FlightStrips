@@ -117,6 +117,9 @@ func (m *recordingActionMutations) LockFlight(auth aman.CommandContext, _ aman.L
 func (m *recordingActionMutations) UnlockFlight(auth aman.CommandContext, _ aman.UnlockFlightCommand) (CommandMutation, error) {
 	return m.mutation("unlock", auth)
 }
+func (m *recordingActionMutations) ExpediteFlight(auth aman.CommandContext, _ aman.ExpediteFlightCommand) (CommandMutation, error) {
+	return m.mutation("expedite", auth)
+}
 func (m *recordingActionMutations) DesequenceFlight(auth aman.CommandContext, _ aman.DesequenceFlightCommand) (CommandMutation, error) {
 	return m.mutation("deselect", auth)
 }

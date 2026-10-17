@@ -1,0 +1,161 @@
+{
+  "change": "Populate stream rate schedules independently of holding/prediction timing; retain effective base-rate spacing for due and observed admissions without changing accepted EATs.",
+  "checks": {
+    "red_phase": "The operational regression reproduced missing base-rate conflicts for due and observed reservations before the fix.",
+    "focused": "go test ./internal/aman/operational ./internal/aman/release -count=1 passed",
+    "backend": "go run ./internal/testing/testdb ./... passed",
+    "build": "aman-accuracy binary compiled successfully",
+    "diff": "git diff --check passed"
+  },
+  "regression_test": "TestRetainedReleaseBaseSpacingSurvivesMissingHoldingTiming",
+  "regression_cases": [
+    "Due and observed M-to-M entries 90 seconds apart at 20/hour require 180 seconds even after both flights lose all holding timing; the buffer degrades and an independent advance is blocked.",
+    "Accepted EATs and observed departure facts remain unchanged.",
+    "The same 90-second gap remains legal at 40/hour.",
+    "A scheduled rate decrease is evaluated at the actual fixed entry time, using observed departure time when present rather than a later current rate.",
+    "Missing or unpublishable predictions and stale surveillance do not erase the rate schedule.",
+    "A missing current runway assignment falls back to the accepted reservation runway group."
+  ],
+  "replay_setup": {
+    "baseline": "due-eat-spacing-session{1,2,3}",
+    "rate_per_hour": 40,
+    "update_interval": "1m",
+    "cache_only": true,
+    "release_buffer": true
+  },
+  "binary_sha256": "f62d22ac1ce19629c61ea89fd935b5bf7d3ce60cc7f409c9b7948cc4875f16e5",
+  "sessions": [
+    {
+      "recording": "C:/vatsim-data",
+      "all_horizon_accuracy_lines_identical": true,
+      "observed_occupancy_identical": true,
+      "landing_slot_mae_seconds_by_horizon_minutes": {
+        "before": {
+          "5": 745,
+          "10": 772,
+          "15": 785,
+          "20": 793,
+          "30": 826
+        },
+        "after": {
+          "5": 745,
+          "10": 772,
+          "15": 785,
+          "20": 793,
+          "30": 826
+        }
+      },
+      "metrics": {
+        "before": {
+          "snapshots": 151,
+          "publishable_flight_samples": 7651,
+          "holding_plan_samples": 2961,
+          "advanced_plan_samples": 19,
+          "holding_seconds_sum": 5698741.460840709,
+          "additional_approach_seconds_sum": 223.35928181299988,
+          "max_projected_buffer": 15,
+          "buffer_degraded_samples": 138
+        },
+        "after": {
+          "snapshots": 151,
+          "publishable_flight_samples": 7651,
+          "holding_plan_samples": 2961,
+          "advanced_plan_samples": 19,
+          "holding_seconds_sum": 5698741.460840709,
+          "additional_approach_seconds_sum": 223.35928181299988,
+          "max_projected_buffer": 15,
+          "buffer_degraded_samples": 138
+        }
+      }
+    },
+    {
+      "recording": "C:/vatsim-data1",
+      "all_horizon_accuracy_lines_identical": true,
+      "observed_occupancy_identical": true,
+      "landing_slot_mae_seconds_by_horizon_minutes": {
+        "before": {
+          "5": 310,
+          "10": 309,
+          "15": 309,
+          "20": 309,
+          "30": 321
+        },
+        "after": {
+          "5": 310,
+          "10": 309,
+          "15": 309,
+          "20": 309,
+          "30": 321
+        }
+      },
+      "metrics": {
+        "before": {
+          "snapshots": 324,
+          "publishable_flight_samples": 2091,
+          "holding_plan_samples": 525,
+          "advanced_plan_samples": 32,
+          "holding_seconds_sum": 18407.214932614028,
+          "additional_approach_seconds_sum": 360.24347721600003,
+          "max_projected_buffer": 5,
+          "buffer_degraded_samples": 300
+        },
+        "after": {
+          "snapshots": 324,
+          "publishable_flight_samples": 2091,
+          "holding_plan_samples": 525,
+          "advanced_plan_samples": 32,
+          "holding_seconds_sum": 18407.214932614028,
+          "additional_approach_seconds_sum": 360.24347721600003,
+          "max_projected_buffer": 5,
+          "buffer_degraded_samples": 300
+        }
+      }
+    },
+    {
+      "recording": "C:/vatsim-data2",
+      "all_horizon_accuracy_lines_identical": true,
+      "observed_occupancy_identical": true,
+      "landing_slot_mae_seconds_by_horizon_minutes": {
+        "before": {
+          "5": 598,
+          "10": 598,
+          "15": 603,
+          "20": 614,
+          "30": 1101
+        },
+        "after": {
+          "5": 598,
+          "10": 598,
+          "15": 603,
+          "20": 614,
+          "30": 1101
+        }
+      },
+      "metrics": {
+        "before": {
+          "snapshots": 233,
+          "publishable_flight_samples": 12895,
+          "holding_plan_samples": 4998,
+          "advanced_plan_samples": 66,
+          "holding_seconds_sum": 4098416.5183195546,
+          "additional_approach_seconds_sum": 3387.604128569999,
+          "max_projected_buffer": 14,
+          "buffer_degraded_samples": 231
+        },
+        "after": {
+          "snapshots": 233,
+          "publishable_flight_samples": 12911,
+          "holding_plan_samples": 4998,
+          "advanced_plan_samples": 66,
+          "holding_seconds_sum": 4098416.518319555,
+          "additional_approach_seconds_sum": 3387.604128569999,
+          "max_projected_buffer": 14,
+          "buffer_degraded_samples": 231
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Recorded API trajectories do not follow hypothetical holding releases; deterministic regressions validate the missing-rate failure rather than claiming operational benefits from these logs."
+  ]
+}

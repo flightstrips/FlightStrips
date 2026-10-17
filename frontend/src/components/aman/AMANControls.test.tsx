@@ -35,6 +35,33 @@ function renderControls(overrides: Partial<AMANControlsViewProps> = {}) {
 }
 
 describe("AMAN FMP controls", () => {
+  it("expedites through a typed command and keeps the slot server-confirmed", () => {
+    const {onCommand, props} = renderControls();
+    fireEvent.click(screen.getByRole("button", {name: "Expedite flight"}));
+    expect(onCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.expedite_flight", callsign: "SAS123"});
+    expect(props.state!.flights[0].sequence_disposition ?? "active").toBe("active");
+    expect(screen.getByText(/aircraft still counts in the approach buffer/)).toBeInTheDocument();
+    cleanup();
+    const confirmed = state();
+    confirmed.flights[0].sequence_disposition = "desequenced";
+    confirmed.flights[0].expedited = true;
+    const resume = renderControls({state: confirmed});
+    expect(screen.getByText("expedited")).toBeInTheDocument();
+    expect(screen.getByText(/Former slot \(outside sequence\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Resume at earliest legal opportunity"}));
+    expect(resume.onCommand).toHaveBeenLastCalledWith({type: "aman.resume_flight", callsign: "SAS123"});
+  });
+
+  it("blocks expedite while pending or without FMP authority", () => {
+    renderControls({pendingCommands: {exp: {command_id: "exp", type: "aman.expedite_flight", callsign: "SAS123", expected_revision: 7}}});
+    expect(screen.getByRole("button", {name: "Expedite flight"})).toBeDisabled();
+    expect(screen.getByRole("button", {name: "Desequence flight"})).toBeDisabled();
+    expect(screen.getByText("Waiting for server-confirmed disposition")).toBeInTheDocument();
+    cleanup();
+    renderControls({hasFMPAuthority: false});
+    expect(screen.getByRole("button", {name: "Expedite flight"})).toBeDisabled();
+  });
+
   it("creates capacity without a fake flight and exposes pending, rejection, and displacement states", () => {
     const current = state();
     current.flights[1].freeze_reason = "tma";

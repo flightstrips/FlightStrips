@@ -261,18 +261,20 @@ describe("AMAN command store", () => {
     });
   });
 
-  it("sends and confirms typed disposition commands without client-owned sequence results", () => {
-    const desequenceID = store.getState().sendAMANCommand({type: "aman.desequence_flight", callsign: "SAS123"})!;
+  it.each(["aman.desequence_flight", "aman.expedite_flight"] as const)("sends and confirms %s without client-owned sequence results", (type) => {
+    const desequenceID = store.getState().sendAMANCommand({type, callsign: "SAS123"})!;
     expect(client.send).toHaveBeenLastCalledWith({
-      type: "aman.desequence_flight", version: 1,
+      type, version: 1,
       data: {command_id: desequenceID, expected_revision: 7, callsign: "SAS123"},
     });
 
     const confirmed = replacement(8);
     confirmed.data.flights[0].sequence_disposition = "desequenced";
+    confirmed.data.flights[0].expedited = type === "aman.expedite_flight";
     client._emit(EventType.FrontendAMANState, confirmed);
     expect(store.getState().amanPendingCommands[desequenceID]).toBeUndefined();
     expect(store.getState().amanState?.flights[0].sequence_disposition).toBe("desequenced");
+    expect(store.getState().amanState?.flights[0].expedited).toBe(type === "aman.expedite_flight");
 
     for (const type of ["aman.resume_flight", "aman.remove_flight"] as const) {
       const commandID = store.getState().sendAMANCommand({type, callsign: "SAS123"})!;

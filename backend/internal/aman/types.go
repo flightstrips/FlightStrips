@@ -408,8 +408,12 @@ type Prediction struct {
 	DatasetVersion string
 	GeometryDigest string
 	DistanceToGoNM *float64
-	HoldingFixETA  *time.Time
-	HoldingPlan    *HoldingPlan
+	// RemainingRouteFixes records accepted physical route progress at
+	// InputObservedAt for every prediction basis, including RETA, which has
+	// no performance Calculation. An absent list supplies no release evidence.
+	RemainingRouteFixes []string
+	HoldingFixETA       *time.Time
+	HoldingPlan         *HoldingPlan
 	// HoldingPlanBlockedBy identifies a protected earlier release that makes
 	// this flight's current runway slot incompatible with the holding queue.
 	HoldingPlanBlockedBy *Callsign
@@ -495,6 +499,7 @@ type HoldingPlan struct {
 	ApproachReleaseTime     time.Time
 	ExpectedHoldingDuration time.Duration
 	PostHoldingTransit      time.Duration
+	AdditionalApproachTime  time.Duration
 }
 
 // HoldingReleaseBasis retains the fix-to-landing journey for one confirmed
@@ -535,6 +540,9 @@ func (p HoldingPlan) Validate() error {
 	}
 	if err := requireUTCTime("approach release time", p.ApproachReleaseTime); err != nil {
 		return err
+	}
+	if p.AdditionalApproachTime < 0 {
+		return invalid("additional approach time cannot be negative")
 	}
 	if !p.ApproachReleaseTime.After(p.HoldingEntryTime) || p.ExpectedHoldingDuration <= 0 || p.PostHoldingTransit <= 0 {
 		return invalid("holding plan timing is invalid")
@@ -936,6 +944,9 @@ type AMANFlight struct {
 	Callsign            string
 	State               FlightState
 	SequenceDisposition SequenceDisposition
+	// Expedited records an FMP admission outside the managed runway sequence.
+	// Keep the compatible desequenced disposition, and count the arrival in intake.
+	Expedited           bool
 	DataStatus          DataStatus
 	Prediction          *Prediction
 	RawTETASamples      []RawTETASample
@@ -959,6 +970,7 @@ type AMANFlight struct {
 	HoldingClearance    *HoldingClearance
 	HoldingStack        *HoldingStackState
 	HoldingReleaseBasis *HoldingReleaseBasis
+	ApproachRelease     *ApproachReleaseReservation
 	// HoldingClearanceCanceledAt retains the last actual cancellation time across blank strip snapshots.
 	HoldingClearanceCanceledAt *time.Time
 	ActiveRouteFact            *RouteFact
@@ -1032,6 +1044,7 @@ type AirportState struct {
 	// ActiveRunwayGroups is the canonical active landing-runway set. A nil slice
 	// denotes persisted legacy state that is still represented by Selected.
 	ActiveRunwayGroups []RunwayGroupID
+	ReleaseBuffer      *ReleaseBufferSummary
 }
 
 // CommandMetadata is shared by typed command values. It deliberately does not
@@ -1507,6 +1520,11 @@ func (f AMANFlight) Validate() error {
 			return invalid("runway gap exception does not match its flight slot")
 		}
 	}
+	if f.ApproachRelease != nil {
+		if err := f.ApproachRelease.Validate(); err != nil {
+			return err
+		}
+	}
 	if f.HoldingReleaseBasis != nil {
 		if err := f.HoldingReleaseBasis.Validate(); err != nil {
 			return err
@@ -1887,6 +1905,11 @@ func (o QueueOffer) validate() error {
 }
 
 func (s AirportState) Validate() error {
+	if s.ReleaseBuffer != nil {
+		if err := s.ReleaseBuffer.Validate(); err != nil {
+			return err
+		}
+	}
 	if strings.TrimSpace(s.Airport) == "" || strings.TrimSpace(s.PolicyVersion) == "" || !s.Mode.Valid() {
 		return invalid("airport state is incomplete")
 	}

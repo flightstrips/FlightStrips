@@ -778,6 +778,13 @@ func (c *ActionService) completeReadyViffSync(ctx context.Context, session int32
 	if strip == nil || data == nil || !s.client.isValid || !s.usesViffSession(session) {
 		return nil
 	}
+	ctx, cancel := s.sessionContext(ctx, session)
+	defer cancel()
+	unlock, err := s.masterViffSync.lockFlightExport(ctx, session, strip.Callsign)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	// REA/1 must be acknowledged before the READY-derived TOBT is exported;
 	// otherwise upstream may assign a later CTOT while processing the TOBT.
 	if err := s.client.IFPSDpi(ctx, strip.Callsign, "REA/1"); err != nil {
@@ -796,6 +803,11 @@ func (c *ActionService) completeReadyViffSync(ctx context.Context, session int32
 	if err := s.masterViffSync.pushAuthoritativeViffState(ctx, strip.Callsign, strip, data); err != nil {
 		return err
 	}
+	var confirmed *viffPushState
+	if state, ok := buildViffPushState(strip.Callsign, strip, data); ok {
+		confirmed = &state
+	}
+	s.masterViffSync.pushRetries.confirmExport(session, strip.Callsign, confirmed)
 	if data.ReadySyncPending {
 		updated := data.Clone()
 		updated.ReadySyncPending = false
@@ -848,6 +860,13 @@ func (c *ActionService) PushTobt(ctx context.Context, session int32, callsign st
 	if !s.client.isValid || !s.usesViffSession(session) {
 		return nil
 	}
+	ctx, cancel := s.sessionContext(ctx, session)
+	defer cancel()
+	unlock, err := s.masterViffSync.lockFlightExport(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
@@ -857,7 +876,11 @@ func (c *ActionService) PushTobt(ctx context.Context, session int32, callsign st
 		return err
 	}
 	taxiMinutes := s.resolveTaxiMinutes(strip)
-	return s.client.IFPSSetTobt(ctx, callsign, tobt, taxiMinutes)
+	if err := s.client.IFPSSetTobt(ctx, callsign, tobt, taxiMinutes); err != nil {
+		return err
+	}
+	s.masterViffSync.pushRetries.requireRefresh(session, callsign)
+	return nil
 }
 
 func (c *ActionService) loadCdmActionTarget(ctx context.Context, session int32, callsign string) (*models.Strip, *models.CdmData, error) {

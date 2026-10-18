@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"FlightStrips/internal/models"
@@ -22,6 +23,25 @@ import (
 type MasterViffSync struct {
 	service     *Service
 	pushRetries viffPushRetryTracker
+	exportLocks sync.Map // map[session:callsign]chan struct{}
+}
+
+// Serialize READY and TOBT with asynchronous writes for this flight, including
+// payload refresh. Older requests must finish before newer writes succeed.
+func (c *MasterViffSync) lockFlightExport(ctx context.Context, session int32, callsign string) (func(), error) {
+	key := viffPushKey(session, callsign)
+	lock, _ := c.exportLocks.LoadOrStore(key, make(chan struct{}, 1))
+	gate := lock.(chan struct{})
+	select {
+	case gate <- struct{}{}:
+		if err := ctx.Err(); err != nil {
+			<-gate
+			return nil, err
+		}
+		return func() { <-gate }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 type viffPushState struct {
@@ -192,25 +212,88 @@ func (c *MasterViffSync) pushViffAfterRecalcAsync(ctx context.Context, session i
 	asyncCtx, cleanup := s.sessionContext(detachedContext(ctx), session)
 	go func() {
 		defer cleanup()
+		defer func() { c.pushRetries.discard(attempt) }()
 		for attempt != nil && asyncCtx.Err() == nil {
-			state := attempt.state
-			err := s.pushViffState(asyncCtx, callsign, state)
-			if err != nil && asyncCtx.Err() == nil {
-				slog.WarnContext(asyncCtx, "Failed to push CDM data to CDM backend",
-					slog.Int("session", int(session)),
-					slog.String("callsign", callsign),
-					slog.Bool("suspend", state.Suspend),
-					slog.String("tobt", state.Params.Tobt),
-					slog.String("tsat", state.Params.Tsat),
-					slog.String("ttot", state.Params.Ttot),
-					slog.String("ctot", state.Params.Ctot),
-					slog.String("reason", state.Params.Reason),
-					slog.String("asrt", state.Params.Asrt),
-					slog.String("dep_info", state.Params.DepInfo),
-					slog.Any("error", err),
-				)
+			if delay := time.Until(attempt.notBefore); delay > 0 {
+				timer := time.NewTimer(delay)
+				select {
+				case <-asyncCtx.Done():
+					timer.Stop()
+					return
+				case <-timer.C:
+				}
 			}
-			attempt = c.pushRetries.complete(attempt, err == nil, time.Now())
+			if asyncCtx.Err() != nil || !s.usesViffSession(session) {
+				return
+			}
+			if !func() bool {
+				unlock, err := c.lockFlightExport(asyncCtx, session, callsign)
+				if err != nil {
+					return false
+				}
+				defer unlock()
+				attempt = c.pushRetries.prepare(attempt, time.Now())
+				if attempt == nil {
+					return false
+				}
+				state := attempt.state
+				if attempt.refreshRequired && s.stripRepo != nil {
+					var strip *models.Strip
+					strip, err = s.stripRepo.GetByCallsign(asyncCtx, session, callsign)
+					if errors.Is(err, pgx.ErrNoRows) || (err == nil && strip == nil) {
+						return false
+					}
+					if err == nil {
+						var current *models.CdmData
+						current, err = s.stripRepo.GetCdmDataForCallsign(asyncCtx, session, callsign)
+						if errors.Is(err, pgx.ErrNoRows) || (err == nil && (current == nil || current.ReadySyncPending)) {
+							// READY owns its ordered REA/1 then CDM export. A worker
+							// started before READY must not bypass that ordering.
+							return false
+						}
+						if err == nil {
+							var ok bool
+							state, ok = buildViffPushState(callsign, strip, current)
+							if !ok {
+								return false
+							}
+							attempt = c.pushRetries.refresh(attempt, state)
+							if attempt == nil {
+								return false
+							}
+						}
+					}
+				}
+				if err == nil {
+					err = s.pushViffState(asyncCtx, callsign, state)
+				}
+				result := c.pushRetries.complete(attempt, err, time.Now())
+				if err != nil && asyncCtx.Err() == nil {
+					message := "Failed to push CDM data to CDM backend"
+					if result.next == nil && result.failures > 0 {
+						message = "Failed to push CDM data to vIFF within five minutes; giving up"
+					}
+					slog.Log(asyncCtx, result.level, message,
+						slog.Int("session", int(session)),
+						slog.String("callsign", callsign),
+						slog.Bool("suspend", state.Suspend),
+						slog.String("tobt", state.Params.Tobt),
+						slog.String("tsat", state.Params.Tsat),
+						slog.String("ttot", state.Params.Ttot),
+						slog.String("ctot", state.Params.Ctot),
+						slog.String("reason", state.Params.Reason),
+						slog.String("asrt", state.Params.Asrt),
+						slog.String("dep_info", state.Params.DepInfo),
+						slog.Uint64("attempts", uint64(result.failures)),
+						slog.Duration("failing_for", result.failingFor),
+						slog.Any("error", err),
+					)
+				}
+				attempt = result.next
+				return true
+			}() {
+				return
+			}
 		}
 	}()
 }
@@ -245,6 +328,13 @@ func (c *MasterViffSync) pushViffState(ctx context.Context, callsign string, sta
 
 func (c *MasterViffSync) clearViffPushSession(session int32) {
 	c.pushRetries.removeSession(session)
+	prefix := strconv.Itoa(int(session)) + ":"
+	c.exportLocks.Range(func(key, _ any) bool {
+		if strings.HasPrefix(key.(string), prefix) {
+			c.exportLocks.Delete(key)
+		}
+		return true
+	})
 }
 
 func (c *MasterViffSync) pushLatestMasterCdmDataToViff(ctx context.Context, session int32, callsign string, strip *models.Strip) error {

@@ -248,6 +248,9 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 		allocated[f.RunwayGroupID] = append(allocated[f.RunwayGroupID], allocatedEntry{flight: f, time: candidate, reason: ReasonRateWTC})
 		sortEntries(allocated[f.RunwayGroupID])
 	}
+	// A rebuilt automatic sequence is not a controller-imposed manual order.
+	// Slots and holding release ranks retain its reservations; later
+	// reconciliation must still be able to fill unused capacity.
 	result := Result{Entries: []CandidateEntry{}, Movements: []SlotMovement{}, Warnings: []Warning{}}
 	groupIDs := make([]aman.RunwayGroupID, 0, len(allocated))
 	for id := range allocated {
@@ -255,14 +258,21 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 	}
 	slices.Sort(groupIDs)
 	for _, group := range groupIDs {
+		for i := range allocated[group] {
+			f := &allocated[group][i].flight
+			if f.ReleaseRank == nil && !f.RebuildTMA && !isRetained(*f) {
+				// The initial placement follows held traffic. That administrative
+				// bound must not hide an otherwise reachable cross-stream gap.
+				f.SlotNotBefore = byID[f.Callsign].SlotNotBefore
+			}
+		}
+		allocated[group] = fillSTARSpacingGaps(policies[group], allocated[group], at)
 		for i, e := range allocated[group] {
 			entry := CandidateEntry{Callsign: e.flight.Callsign, RunwayGroupID: group, Sequence: i + 1, Time: e.time, OperationalTETA: e.flight.OperationalTETA, WakeCategory: e.flight.category, FreezeReason: e.flight.FreezeReason, Protected: isRetained(e.flight), Reason: e.reason}
 			result.Entries = append(result.Entries, entry)
 			if movement := movementFor(e.flight, entry); movement != nil {
 				result.Movements = append(result.Movements, *movement)
 			}
-			order := i + 1
-			working.Flights[flightIndex(working.Flights, e.flight.Callsign)].ManualOrder = &order
 		}
 	}
 	sort.Slice(outcome.Diagnostics, func(i, j int) bool {

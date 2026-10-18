@@ -18,6 +18,32 @@ func rebuildTestInput() (Input, time.Time) {
 	return Input{Revision: 7, Policies: policies}, at
 }
 
+func TestRebuildFillsSTARSpacingGapWithoutCreatingManualOrders(t *testing.T) {
+	input, at := rebuildTestInput()
+	input.Policies = input.Policies[:1]
+	input.Policies[0].AllowCrossFeederOvertake = true
+	input.Policies[0].SameSTARSpacing = SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	lead := rebuildHeld("HELD1", "A", "ERNOV", 10000, 20, at, 10*time.Minute)
+	tail := rebuildHeld("HELD2", "A", "ERNOV", 12000, 10, at, 10*time.Minute)
+	lead.STARFamily, tail.STARFamily = "ERNOV", "ERNOV"
+	lead.ActiveHoldingSince = &at
+	physical := at.Add(12*time.Minute + time.Second)
+	inbound := Flight{Callsign: "INBOUND", RunwayGroupID: "A", State: aman.StateUnstable, FreezeReason: aman.FreezeNone,
+		OperationalTETA: physical, PromotionNotBefore: &physical, WakeCategory: "M", STARFamily: "MONAK"}
+	input.Flights = []Flight{lead, tail, inbound}
+	decision, err := ApplyArrivalSequenceRebuild(input, at)
+	require.NoError(t, err)
+	require.Equal(t, []aman.Callsign{"HELD1", "INBOUND", "HELD2"}, []aman.Callsign{
+		decision.Candidate.Entries[0].Callsign, decision.Candidate.Entries[1].Callsign, decision.Candidate.Entries[2].Callsign})
+	require.Equal(t, at.Add(10*time.Minute+time.Second), decision.Candidate.Entries[0].Time)
+	require.Equal(t, physical, decision.Candidate.Entries[1].Time)
+	require.Equal(t, at.Add(14*time.Minute+time.Second), decision.Candidate.Entries[2].Time)
+	require.Equal(t, []aman.Callsign{"HELD1", "HELD2"}, decision.Outcome.ReleaseOrder)
+	for _, flight := range decision.Input.Flights {
+		require.Nil(t, flight.ManualOrder, "an automatic rebuild must allow future gap filling")
+	}
+}
+
 func rebuildHeld(id aman.Callsign, group aman.RunwayGroupID, hold string, level, minutes int, at time.Time, transit time.Duration) Flight {
 	started := at.Add(-time.Duration(minutes) * time.Minute)
 	return Flight{Callsign: id, RunwayGroupID: group, State: aman.StateStable, FreezeReason: aman.FreezeNone, OperationalTETA: at.Add(30 * time.Minute), WakeCategory: "M", HoldingStackID: hold, HoldingQueueID: hold, HoldingAltitudeFeet: &level, HoldingStartedAt: &started, HoldingTransit: transit, ProtectCurrentSlot: true, CurrentSlot: &aman.Slot{Time: at.Add(30 * time.Minute), RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "stable"}}

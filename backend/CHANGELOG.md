@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.4.0...backend/v3.4.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **cdm:** tolerate delayed vIFF flight processing ([#922](https://github.com/flightstrips/FlightStrips/issues/922)) ([f54e80e](https://github.com/flightstrips/FlightStrips/commit/f54e80e7250ef3bdaff6cd13b9d06d460c5b1203))
+
 ## [3.4.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.3.0...backend/v3.4.0) (2026-10-18)
 
 

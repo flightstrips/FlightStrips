@@ -2,6 +2,7 @@ package trajectory
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
@@ -243,8 +244,14 @@ func TestOffRouteArrivalCanRejoinAfterProvisionalProgress(t *testing.T) {
 				result := Reduce(snapshot, route, input, config)
 				require.NotNil(t, result.DistanceToGoNM)
 				require.Equal(t, "C", result.Progress.RecoveryCandidateFix)
+				require.True(t, result.Progress.RecoveryUnlocated)
 				input.Prior = result.Progress
 			}
+			raw, err := json.Marshal(input.Prior)
+			require.NoError(t, err)
+			var restored aman.RouteProgress
+			require.NoError(t, json.Unmarshal(raw, &restored))
+			input.Prior = &restored
 			discontinuous := input
 			discontinuous.Observation.LatitudeDegrees, discontinuous.Observation.LongitudeDegrees = 0, 20.5
 			rejected := Reduce(snapshot, route, discontinuous, config)
@@ -257,6 +264,7 @@ func TestOffRouteArrivalCanRejoinAfterProvisionalProgress(t *testing.T) {
 			require.NotContains(t, rejoined.Reasons, "FORWARD_PROGRESS_OUT_OF_RANGE")
 			require.Equal(t, 1, rejoined.Progress.LegIndex)
 			require.Empty(t, rejoined.Progress.RecoveryCandidateFix)
+			require.False(t, rejoined.Progress.RecoveryUnlocated)
 			require.Greater(t, rejoined.AlongTrackNM, 1000.0)
 			require.InDelta(t, 230, *rejoined.DistanceToGoNM, 5)
 
@@ -300,6 +308,61 @@ func TestProvisionalRecoveryDoesNotSkipEarlierObservedRouteLeg(t *testing.T) {
 				input.Prior = rejoined.Progress
 			}
 		})
+	}
+}
+
+func TestRecoveryPreservesEstablishedProgressBounds(t *testing.T) {
+	for _, samples := range []int{1, 2, 3} {
+		for _, scenario := range []struct {
+			name       string
+			initialLon float64
+			rejoinLon  float64
+			accepted   bool
+		}{
+			{name: "nearby rejoin", initialLon: 100.0 / 60, rejoinLon: 120.0 / 60, accepted: true},
+			{name: "forward jump", initialLon: 100.0 / 60, rejoinLon: 500.0 / 60},
+			{name: "backward jump", initialLon: 100.0 / 60, rejoinLon: 30.0 / 60},
+			{name: "established at route origin", initialLon: 0, rejoinLon: 500.0 / 60},
+		} {
+			t.Run(fmt.Sprintf("%s_samples_%d", scenario.name, samples), func(t *testing.T) {
+				snapshot, route, input := fixtureInput(t)
+				snapshot.Fixes[1].Position.LongitudeDeg = 10
+				snapshot.Fixes[2].Position.LongitudeDeg = 12
+				input.Observation.LongitudeDegrees = scenario.initialLon
+				config := Config{MaxForwardSearchNM: 50}
+				located := Reduce(snapshot, route, input, config)
+				require.Equal(t, Complete, located.Completeness)
+				input.Prior = located.Progress
+
+				input.Observation.LatitudeDegrees = .3
+				input.Observation.TrackTrueDegrees = ptr(90.0)
+				for range samples {
+					candidate := Reduce(snapshot, route, input, config)
+					require.NotEmpty(t, candidate.Progress.RecoveryCandidateFix)
+					require.False(t, candidate.Progress.RecoveryUnlocated)
+					require.Equal(t, located.AlongTrackNM, candidate.AlongTrackNM)
+					input.Prior = candidate.Progress
+				}
+				// The physical anchor must survive normal state persistence, even
+				// after enough off-route samples confirm the inferred direct.
+				raw, err := json.Marshal(input.Prior)
+				require.NoError(t, err)
+				var restored aman.RouteProgress
+				require.NoError(t, json.Unmarshal(raw, &restored))
+				input.Prior = &restored
+				input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = 0, scenario.rejoinLon
+				result := Reduce(snapshot, route, input, config)
+				if scenario.accepted {
+					require.Equal(t, Complete, result.Completeness)
+					require.NotNil(t, result.DistanceToGoNM)
+					require.Greater(t, result.AlongTrackNM, located.AlongTrackNM)
+					require.Empty(t, result.Progress.RecoveryCandidateFix)
+				} else {
+					require.Nil(t, result.DistanceToGoNM, "recovery must retain the bounds of the established physical anchor")
+					require.Contains(t, result.Reasons, "FORWARD_PROGRESS_OUT_OF_RANGE")
+				}
+			})
+		}
 	}
 }
 

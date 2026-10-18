@@ -307,11 +307,11 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 	}
 	projectionPrior := input.Prior
 	best, ok, progressOutOfRange := projectForward(obs, legs, start, config.MaxCrossTrackNM, config.MaxForwardSearchNM, config.JitterToleranceNM, projectionPrior, compatible)
-	if !ok && compatible && input.Prior.RecoveryCandidateSamples > 0 && input.Prior.RecoveryCandidateFix != "" {
+	if !ok && compatible && input.Prior.RecoveryUnlocated && input.Prior.RecoveryCandidateSamples > 0 && input.Prior.RecoveryCandidateFix != "" {
 		rejoin := input.Prior.RejoinLegIndex
 		if rejoin >= start && rejoin < len(legs) && string(legs[rejoin].to) == input.Prior.RecoveryCandidateFix {
-			// Off-route recovery retains either the old progress or an inferred
-			// endpoint, neither of which locates the aircraft along this leg.
+			// Recovery that began without a physical anchor retains an arbitrary
+			// leg start or inferred endpoint, neither locating the aircraft here.
 			// After checking the existing forward window, let an observed rejoin
 			// establish an anchor on the candidate leg. The provisional candidate
 			// must not exclude a physical rejoin onto an earlier eligible leg.
@@ -371,13 +371,18 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 					routePrefix = "OFF_ROUTE_TO:"
 				} else {
 					routePrefix = "OFF_ROUTE_CANDIDATE_TO:"
-					progressLeg = start
 				}
+			}
+			// Inferred directs can change the modeled journey, but must not
+			// replace a physical progress anchor, even after confirmation.
+			retainProgress := compatible && !input.Prior.RecoveryUnlocated || recovery.trackAligned && int(candidateSamples) < config.RecoveryConfirmationSamples
+			if retainProgress {
+				progressLeg = start
 			}
 			remaining := remainingFromNextWaypointWithPrefix(obs, legs, next, routePrefix)
 			if len(remaining) > 0 {
 				progress := progressAtLegEnd(legs, progressLeg)
-				if recovery.trackAligned && int(candidateSamples) < config.RecoveryConfirmationSamples {
+				if retainProgress {
 					progress = progressAtLegStart(legs, progressLeg)
 					if compatible && input.Prior != nil {
 						progress = input.Prior.AlongTrackNM
@@ -405,6 +410,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 					FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup,
 					LegIndex: progressLeg, RejoinLegIndex: rejoin, AlongTrackNM: progress,
 					RecoveryCandidateFix: candidateFix, RecoveryCandidateSamples: candidateSamples,
+					RecoveryUnlocated: candidateFix != "" && (!compatible || input.Prior.RecoveryUnlocated),
 				}
 				result.FeederProgress = feederProgress(legs, input.FeederFix, progressLeg, feederBypassed)
 				return result

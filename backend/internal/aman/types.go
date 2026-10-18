@@ -701,6 +701,10 @@ type RouteProgress struct {
 	// observations agree on the same fix.
 	RecoveryCandidateFix     string
 	RecoveryCandidateSamples uint8
+	// RecoveryUnlocated permits a candidate-leg anchor only when recovery
+	// began without compatible physical progress. Omitted legacy values keep
+	// their existing bounds; a zero along-track value alone proves nothing.
+	RecoveryUnlocated bool `json:"RecoveryUnlocated,omitempty"`
 	// DescentConfirmed is latched after consecutive surveillance reports show
 	// a real descent. It prevents a level-off or small climb later in the
 	// arrival from making the predictor project a return to filed cruise.
@@ -1459,6 +1463,9 @@ func (f AMANFlight) Validate() error {
 		}
 		if (strings.TrimSpace(f.RouteProgress.RecoveryCandidateFix) == "") != (f.RouteProgress.RecoveryCandidateSamples == 0) {
 			return invalid("route recovery candidate state is invalid")
+		}
+		if f.RouteProgress.RecoveryUnlocated && f.RouteProgress.RecoveryCandidateSamples == 0 {
+			return invalid("unlocated route recovery requires a candidate")
 		}
 		if f.RouteProgress.DescentConfirmed && f.RouteProgress.DescentEvidenceSamples == 0 {
 			return invalid("confirmed route descent requires surveillance evidence")

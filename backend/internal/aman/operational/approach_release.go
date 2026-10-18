@@ -187,7 +187,7 @@ func (s *Service) refreshApproachReleases(state *aman.AirportState, at time.Time
 
 func observedPastReservedHold(f aman.AMANFlight, r aman.ApproachReleaseReservation) bool {
 	if f.LatestObservation == nil || f.LatestObservation.Surveillance == nil || f.LatestObservation.Surveillance.ObservedAt == nil ||
-		!f.LatestObservation.Surveillance.ObservedAt.After(r.ReleaseAt) || f.Prediction == nil || !f.Prediction.Publishable || f.Prediction.InputObservedAt.Before(*f.LatestObservation.Surveillance.ObservedAt) || f.Prediction.HoldingFixETA != nil {
+		!f.LatestObservation.Surveillance.ObservedAt.After(r.ReleaseAt) || f.Prediction == nil || !f.Prediction.Publishable || f.Prediction.InputObservedAt.Before(f.LatestObservation.Surveillance.ObservedAt.UTC().Truncate(time.Second)) || f.Prediction.HoldingFixETA != nil {
 		return false
 	}
 	// Remaining leg identities are accepted physical route progress, not an
@@ -323,10 +323,12 @@ func (s *Service) releaseStreamSpacings(state aman.AirportState, groupID aman.Ru
 }
 
 func (s *Service) predictedTMAEntry(f aman.AMANFlight) *time.Time {
+	// InputObservedAt uses whole seconds even when the source report retains
+	// subsecond receipt precision. Compare both at the accepted precision.
 	if s.tmaVolume == nil || f.Prediction == nil || !f.Prediction.Publishable || isPreliminaryPrediction(f.Prediction) || f.Prediction.Calculation == nil ||
 		f.LatestObservation == nil || f.LatestObservation.Surveillance == nil ||
 		f.LatestObservation.Surveillance.AltitudeFeet == nil || f.LatestObservation.Surveillance.ObservedAt == nil ||
-		f.Prediction.InputObservedAt.Before(*f.LatestObservation.Surveillance.ObservedAt) {
+		f.Prediction.InputObservedAt.Before(f.LatestObservation.Surveillance.ObservedAt.UTC().Truncate(time.Second)) {
 		return nil
 	}
 	at := f.Prediction.InputObservedAt

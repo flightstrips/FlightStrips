@@ -6,11 +6,55 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
 	"github.com/stretchr/testify/require"
 )
 
+func TestRecoveredArrivalRestoresApproachBufferAfterRouteRejoin(t *testing.T) {
+	bufferService, bufferState, at := approachFixture(t)
+	for i := range bufferState.Flights {
+		bufferState.Flights[i].Slot.Time = bufferState.Flights[i].Slot.Time.Add(5 * time.Minute)
+	}
+	service, state, observation, _ := arrivalChangeFixture(at)
+	service.tmaVolume = bufferService.tmaVolume
+	geometry := service.deps.Geometry.(arrivalChangeGeometry)
+	// Introduce the aircraft near the terminal end of a long filed route,
+	// initially outside the route corridor and tracking toward HOLD.
+	for i, longitude := range []float64{-20, -4, -2, 1} {
+		geometry.fixes[i].Position = navdata.Coordinate{LatitudeDeg: 1, LongitudeDeg: longitude}
+	}
+	service.deps.Geometry = geometry
+	observation.WakeCategory, observation.AircraftType = stringPointer("M"), stringPointer("A320")
+	observation.Surveillance.LatitudeDegrees, observation.Surveillance.LongitudeDegrees = 1.3, -2.9
+	track, altitude, groundspeed := 108.0, 10000, 300.0
+	observation.Surveillance.TrackTrueDegrees = &track
+	flight, err := service.reconcileFlight(t.Context(), state, newFlight(observation, at), observation, at)
+	require.NoError(t, err)
+	require.Equal(t, "HOLD", flight.RouteProgress.RecoveryCandidateFix)
+
+	// Persist/reload the provisional progress as a normal reconciliation does.
+	flight = cloneGapState(t, aman.AirportState{Flights: []aman.AMANFlight{flight}}).Flights[0]
+	later := at.Add(10 * time.Second)
+	observation.Surveillance = &aman.SurveillanceFact{LatitudeDegrees: 1.19, LongitudeDegrees: -2.85,
+		ObservedAt: &later, AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed, TrackTrueDegrees: &track}
+	observation.ReconciledAt = later
+	flight, err = service.reconcileFlight(t.Context(), state, flight, observation, later)
+	require.NoError(t, err, "a physical rejoin must not remain stuck behind provisional progress")
+	require.Equal(t, aman.DataFresh, flight.DataStatus)
+	require.Equal(t, later, flight.Prediction.InputObservedAt)
+	require.Empty(t, flight.RouteProgress.RecoveryCandidateFix)
+	require.NotNil(t, bufferService.predictedTMAEntry(flight))
+
+	bufferState.Flights = append(bufferState.Flights, flight)
+	bufferService.deps.Now = func() time.Time { return later }
+	bufferService.refreshHoldingPlans(&bufferState)
+	require.Equal(t, "ready", bufferState.ReleaseBuffer.Status)
+	require.Zero(t, bufferState.ReleaseBuffer.Unknown)
+	require.NotNil(t, bufferState.Flights[0].ApproachRelease, "the recovered arrival must no longer block independent intake")
+}
+
 func TestUnresolvedAirborneArrivalBlocksAdditionalIntake(t *testing.T) {
-	for _, kind := range []string{"missing prediction", "unpublishable", "preliminary", "stale prediction", "outside horizon", "imminent entry", "planned", "landed", "removed"} {
+	for _, kind := range []string{"missing prediction", "unpublishable", "preliminary", "stale prediction", "outside horizon", "imminent entry", "subsecond observation", "newer observation", "planned", "landed", "removed"} {
 		t.Run(kind, func(t *testing.T) {
 			svc, state, at := approachFixture(t)
 			for i := range state.Flights {
@@ -35,6 +79,13 @@ func TestUnresolvedAirborneArrivalBlocksAdditionalIntake(t *testing.T) {
 				arrival.Prediction.InputObservedAt = at.Add(-5 * time.Minute)
 			case "imminent entry":
 				arrival.Prediction.Calculation.Legs[0].StartLongitude, arrival.Prediction.Calculation.Legs[0].Duration = -1, 2*time.Minute
+			case "subsecond observation", "newer observation":
+				arrival.Prediction.Calculation.Legs[0].StartLongitude, arrival.Prediction.Calculation.Legs[0].Duration = -1, 2*time.Minute
+				arrival.LatestObservation.Surveillance.ObservedAt = timePointer(at.Add(750 * time.Millisecond))
+				if kind == "newer observation" {
+					arrival.LatestObservation.Surveillance.ObservedAt = timePointer(at.Add(time.Second + 750*time.Millisecond))
+				}
+				svc.deps.Now = func() time.Time { return at.Add(2 * time.Second) }
 			case "planned":
 				arrival.State = aman.StatePlanned
 			case "landed":
@@ -45,11 +96,11 @@ func TestUnresolvedAirborneArrivalBlocksAdditionalIntake(t *testing.T) {
 			state.Flights = append(state.Flights, arrival)
 			svc.refreshHoldingPlans(&state)
 			switch kind {
-			case "outside horizon", "imminent entry", "planned", "landed", "removed":
+			case "outside horizon", "imminent entry", "subsecond observation", "planned", "landed", "removed":
 				require.Equal(t, "ready", state.ReleaseBuffer.Status)
 				require.Zero(t, state.ReleaseBuffer.Unknown)
 				require.NotNil(t, state.Flights[0].ApproachRelease)
-				if kind == "imminent entry" {
+				if kind == "imminent entry" || kind == "subsecond observation" {
 					require.Equal(t, 1, state.ReleaseBuffer.Incoming)
 				}
 			default:
@@ -149,7 +200,13 @@ func TestRETAReleaseRequiresFreshPhysicalRouteEvidence(t *testing.T) {
 	at := flight.Prediction.InputObservedAt
 	reservation := aman.ApproachReleaseReservation{HoldingID: "ORIGIN", ReleaseAt: at.Add(-time.Minute)}
 	require.True(t, observedPastReservedHold(flight, reservation))
-	for _, kind := range []string{"hold ahead", "holding ETA", "stale prediction", "before EAT", "missing geometry"} {
+	observation := *flight.LatestObservation
+	surveillance := *observation.Surveillance
+	surveillance.ObservedAt = timePointer(at.Add(750 * time.Millisecond))
+	observation.Surveillance = &surveillance
+	flight.LatestObservation = &observation
+	require.True(t, observedPastReservedHold(flight, reservation), "the accepted prediction uses this same subsecond radar report rounded to seconds")
+	for _, kind := range []string{"hold ahead", "holding ETA", "stale prediction", "newer observation", "before EAT", "missing geometry"} {
 		t.Run(kind, func(t *testing.T) {
 			f, r := flight, reservation
 			prediction := *flight.Prediction
@@ -161,6 +218,12 @@ func TestRETAReleaseRequiresFreshPhysicalRouteEvidence(t *testing.T) {
 				prediction.HoldingFixETA = timePointer(at.Add(time.Minute))
 			case "stale prediction":
 				prediction.InputObservedAt = at.Add(-time.Minute)
+			case "newer observation":
+				observation := *flight.LatestObservation
+				surveillance := *observation.Surveillance
+				surveillance.ObservedAt = timePointer(at.Add(time.Second + 750*time.Millisecond))
+				observation.Surveillance = &surveillance
+				f.LatestObservation = &observation
 			case "before EAT":
 				r.ReleaseAt = at.Add(time.Minute)
 			case "missing geometry":

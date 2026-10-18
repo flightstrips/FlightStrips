@@ -100,8 +100,20 @@ func TestIFPSDpi_RejectsNegativeAcknowledgment(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL))
-	require.ErrorContains(t, client.IFPSDpi(context.Background(), "EIN123", "REA/1"), "did not confirm")
-	require.ErrorContains(t, client.IFPSSetCdmData(context.Background(), SetCdmDataParams{Callsign: "EIN123"}), "did not confirm")
+	require.ErrorIs(t, client.IFPSDpi(context.Background(), "EIN123", "REA/1"), errViffUpdatePending)
+	require.ErrorIs(t, client.IFPSSetCdmData(context.Background(), SetCdmDataParams{Callsign: "EIN123"}), errViffUpdatePending)
+}
+
+func TestRequireViffConfirmationOnlyTreatsFalseAsPending(t *testing.T) {
+	for _, response := range []string{"false", " false\n"} {
+		require.ErrorIs(t, requireViffConfirmation([]byte(response)), errViffUpdatePending)
+	}
+	for _, response := range []string{"true", "", " \n"} {
+		require.NoError(t, requireViffConfirmation([]byte(response)))
+	}
+	err := requireViffConfirmation([]byte("invalid request"))
+	require.Error(t, err)
+	require.NotErrorIs(t, err, errViffUpdatePending)
 }
 
 func TestClearMasterAirport_UsesRemoveMasterEndpoint(t *testing.T) {

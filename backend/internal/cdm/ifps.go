@@ -3,6 +3,7 @@ package cdm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -68,8 +69,14 @@ func (c *Client) IFPSDpi(ctx context.Context, callsign, value string) error {
 	return requireViffConfirmation(response)
 }
 
+// A false acknowledgement can mean vIFF has not processed the datafeed flight yet.
+var errViffUpdatePending = errors.New("vIFF did not confirm update")
+
 func requireViffConfirmation(response []byte) error {
 	confirmation := strings.TrimSpace(string(response))
+	if confirmation == "false" {
+		return fmt.Errorf("%w: %q", errViffUpdatePending, string(response))
+	}
 	if confirmation != "" && confirmation != "true" {
 		return fmt.Errorf("vIFF did not confirm update: %q", string(response))
 	}

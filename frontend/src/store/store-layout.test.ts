@@ -32,6 +32,7 @@ function initialEvent(layout: string): FrontendInitialEvent {
     me: { callsign: "EKCH_B_GND", position: "EKCH_B_GND", identifier: "SQ", section: "GND", owned_sectors: [] },
     airport: "EKCH",
     layout,
+    reset_layout: layout,
     callsign: "EKCH_B_GND",
     runway_setup: { departure: [], arrival: [] },
     coordinations: [],
@@ -89,6 +90,25 @@ function foreignStrip(): FrontendStrip {
   };
 }
 
+describe("session master metadata", () => {
+  it("loads the snapshot, follows changes and clears on disconnect or a legacy snapshot", () => {
+    const client = createMockClient();
+    const store = createWebSocketStore(client);
+    client._emit(EventType.FrontendInitial, { ...initialEvent("SEQPLN"), master_callsign: "EKCH_A_TWR" });
+    expect(store.getState().masterCallsign).toBe("EKCH_A_TWR");
+    client._emit(EventType.FrontendMasterInfo, { master_callsign: "EKDK_FMP" });
+    expect(store.getState().masterCallsign).toBe("EKDK_FMP");
+    client._emit(EventType.FrontendMasterInfo, { master_callsign: "" });
+    expect(store.getState().masterCallsign).toBe("");
+    client._emit(EventType.FrontendMasterInfo, { master_callsign: "EKDK_FMP" });
+    client._emit(EventType.FrontendInitial, initialEvent("SEQPLN"));
+    expect(store.getState().masterCallsign).toBe("");
+    client._emit(EventType.FrontendMasterInfo, { master_callsign: "EKDK_FMP" });
+    client._emit(EventType.FrontendDisconnect, { reason: "ES disconnected" });
+    expect(store.getState().masterCallsign).toBe("");
+  });
+});
+
 describe("manual companion layout behavior", () => {
   let client: ReturnType<typeof createMockClient>;
   let store: StoreApi<WebSocketState>;
@@ -121,6 +141,33 @@ describe("manual companion layout behavior", () => {
 
     expect(store.getState().displayedLayout).toBe("SEQPLN");
     expect(store.getState().followRecommendedLayout).toBe(true);
+  });
+
+  it("resets a manually selected scope to the frequency-based recommendation", () => {
+    client._emit(EventType.FrontendInitial, {
+      ...initialEvent("TWTE"),
+      reset_layout: "SEQPLN",
+    });
+    store.getState().setDisplayedLayout("TWTE");
+
+    store.getState().resetLayout();
+
+    expect(store.getState().displayedLayout).toBe("SEQPLN");
+    expect(store.getState().followRecommendedLayout).toBe(false);
+  });
+
+  it("uses the latest frequency-based recommendation on reset without switching immediately", () => {
+    client._emit(EventType.FrontendInitial, initialEvent("AAAD"));
+    store.getState().setDisplayedLayout("TWTE");
+    client._emit(EventType.FrontendLayoutUpdate, {
+      type: EventType.FrontendLayoutUpdate,
+      layout: "AAAD",
+      reset_layout: "SEQPLN",
+    });
+
+    expect(store.getState().displayedLayout).toBe("TWTE");
+    store.getState().resetLayout();
+    expect(store.getState().displayedLayout).toBe("SEQPLN");
   });
 
   it("keeps a manually opened EST board after reconnecting", () => {
@@ -158,6 +205,22 @@ describe("manual companion layout behavior", () => {
 
     expect(store.getState().displayedLayout).toBe("AMAN");
     expect(store.getState().followRecommendedLayout).toBe(false);
+  });
+
+  it("sends SI selection without creating coordination or changing the strip locally", () => {
+    const strip = { ...foreignStrip(), owner: "EKCH_B_GND" };
+    store.setState({ position: "EKCH_B_GND", strips: [strip] });
+
+    store.getState().selectNextController("SAS123", "GW");
+
+    expect(client.send).toHaveBeenCalledTimes(1);
+    expect(client.send).toHaveBeenCalledWith({
+      type: ActionType.FrontendNextControllerSelect,
+      callsign: "SAS123",
+      sector: "GW",
+    });
+    expect(store.getState().strips[0]).toEqual(strip);
+    expect(store.getState().stripTransfers).toEqual({});
   });
 
   it("sends a combined startup request and transfer for an owned SEQ PLN strip", async () => {

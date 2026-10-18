@@ -52,6 +52,17 @@ namespace FlightStrips::messages {
         }
     }
 
+    void MessageService::OnTimer(int) {
+        if (!m_pendingFrequencyMessage) return;
+        const auto outcome = PrivateMessageSender::PollFrequencySubmission(m_pendingFrequencyMessage->submission);
+        if (!outcome) return;
+        auto result = m_pendingFrequencyMessage->result;
+        m_pendingFrequencyMessage.reset();
+        result.error = *outcome;
+        result.submitted = result.error.empty();
+        m_webSocketService->SendEvent(result);
+    }
+
     void MessageService::OnMessages(const std::vector<std::string> &messages) {
         for (const auto &message: messages) {
             HandleMessage(message);
@@ -78,6 +89,7 @@ namespace FlightStrips::messages {
             Logger::Info("Received protobuf event type {}", static_cast<int>(envelope.event_case()));
             switch (envelope.event_case()) {
             HANDLE_PROTO(kSessionInfo, session_info, SessionInfoEvent, HandleSessionInfoEvent, EVENT_SESSION_INFO_NAME)
+            HANDLE_PROTO(kMasterInfo, master_info, MasterInfoEvent, HandleMasterInfoEvent, EVENT_MASTER_INFO_NAME)
             HANDLE_PROTO(kRunwayMismatchAlert, runway_mismatch_alert, RunwayMismatchAlertEvent, HandleRunwayMismatchAlertEvent, EVENT_RUNWAY_MISMATCH_ALERT_NAME)
             HANDLE_PROTO(kCdmUpdate, cdm_update, CdmUpdateEvent, HandleCdmUpdateEvent, EVENT_CDM_UPDATE_NAME)
             HANDLE_PROTO(kCdmUpdateBatch, cdm_update_batch, CdmUpdateBatchEvent, HandleCdmUpdateBatchEvent, EVENT_CDM_UPDATE_BATCH_NAME)
@@ -105,6 +117,7 @@ namespace FlightStrips::messages {
             HANDLE_PROTO(kCreateFpl, create_fpl, CreateFPLEvent, HandleCreateFPLEvent, EVENT_CREATE_FPL_NAME)
             HANDLE_PROTO(kPdcStateChange, pdc_state_change, PdcStateChangeEvent, HandlePdcStateChangeEvent, EVENT_PDC_STATE_CHANGE_NAME)
             HANDLE_PROTO(kSendPrivateMessage, send_private_message, SendPrivateMessageEvent, HandleSendPrivateMessageEvent, EVENT_SEND_PRIVATE_MESSAGE_NAME)
+            HANDLE_PROTO(kSendFrequencyMessage, send_frequency_message, SendFrequencyMessageEvent, HandleSendFrequencyMessageEvent, EVENT_SEND_FREQUENCY_MESSAGE_NAME)
             HANDLE_PROTO(kHold, hold, HoldEvent, HandleHoldEvent, EVENT_HOLD_NAME)
             HANDLE_PROTO(kFsScratchPad, fs_scratch_pad, FsScratchPadEvent, HandleFsScratchPad, EVENT_FS_SCRATCH_PAD_NAME)
             HANDLE_PROTO(kTrackingControllerChanged, tracking_controller_changed, TrackingControllerChangedEvent, HandleTrackingControllerChangedEvent, EVENT_TRACKING_CONTROLLER_CHANGED_NAME)
@@ -244,7 +257,7 @@ namespace FlightStrips::messages {
                     latitude, longitude, altitude
                 },
                 stand,
-                {flightPlanData.GetCommunicationType()},
+                flightplan::FlightPlanService::ResolveCommunicationType(flightPlanData.GetCommunicationType(), controllerAssignedData.GetCommunicationType()),
                 flightPlanData.GetCapibilities() == 0 ? "?" : std::string {flightPlanData.GetCapibilities()},
                 std::string(flightPlanData.GetEstimatedDepartureTime()),
                 isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : "",
@@ -255,7 +268,8 @@ namespace FlightStrips::messages {
                 it.GetTrackingControllerIsMe() ? hold.TypeName() : "",
                 it.GetTrackingControllerIsMe() ? holdEat : "",
                 it.GetTrackingControllerIsMe(),
-                flightplan::FlightPlanService::FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes())
+                flightplan::FlightPlanService::FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes()),
+                std::string(flightPlanData.GetPlanType())
             });
         }
 
@@ -327,9 +341,14 @@ namespace FlightStrips::messages {
         }
     }
 
+    void MessageService::HandleMasterInfoEvent(const MasterInfoEvent &event) const {
+        m_webSocketService->SetMasterCallsign(event.master_callsign);
+    }
+
     void MessageService::HandleRunwayMismatchAlertEvent(const RunwayMismatchAlertEvent &event) const {
         m_plugin->Error(std::format(
-            "Runway mismatch vs master. Reconfigure EuroScope. Expected DEP {} / ARR {}; current DEP {} / ARR {}.",
+            "Runway mismatch vs FS Master {}. Reconfigure EuroScope. Expected DEP {} / ARR {}; current DEP {} / ARR {}.",
+            event.master_callsign.empty() ? "(unknown)" : event.master_callsign,
             JoinRunways(event.expected_departure),
             JoinRunways(event.expected_arrival),
             JoinRunways(event.current_departure),
@@ -604,6 +623,25 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
     void MessageService::HandleSendPrivateMessageEvent(const SendPrivateMessageEvent &event) const {
         Logger::Info("Sending private message to {}: {}", event.callsign, event.message);
         PrivateMessageSender::SendPrivateMessage(event.callsign, event.message);
+    }
+
+    void MessageService::HandleSendFrequencyMessageEvent(const SendFrequencyMessageEvent& event) const {
+        FrequencyMessageResultEvent result;
+        result.request_id = event.request_id;
+        result.callsign = event.callsign;
+        result.applied_actions = event.applied_actions;
+        if (m_pendingFrequencyMessage) {
+            result.error = "Another frequency message is awaiting EuroScope confirmation";
+            m_webSocketService->SendEvent(result);
+            return;
+        }
+        PendingFrequencySubmission submission;
+        result.error = PrivateMessageSender::SendFrequencyMessage(*m_plugin, event.callsign, event.message, m_plugin->GetFrequencyMessageKey(), event.primary_frequency, submission);
+        if (!result.error.empty()) {
+            m_webSocketService->SendEvent(result);
+            return;
+        }
+        m_pendingFrequencyMessage = PendingFrequencyMessage{submission, result};
     }
 
     void MessageService::HandleTrackingControllerChangedEvent(const TrackingControllerChangedEvent& event) const {

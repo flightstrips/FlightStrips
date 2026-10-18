@@ -30,6 +30,7 @@ type recordingCdmService struct {
 	syncAirportLvoFromRunwayStatusFn func(ctx context.Context, airport string, runwayStatus map[string]string)
 	handleEobtUpdateFn               func(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error
 	handleReadyRequestFn             func(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error
+	handleReadyTransferFn            func(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string, allowOverride bool) error
 	recordAobtForTransferFn          func(ctx context.Context, session int32, callsign string) error
 }
 
@@ -39,6 +40,7 @@ type transferStripService struct {
 	cancelCoordinationTransferFn func(ctx context.Context, session int32, callsign string, position string) error
 	updateMarkedFn               func(ctx context.Context, session int32, callsign string, marked bool) error
 	updateStartReqFn             func(ctx context.Context, session int32, callsign string, startReq bool) error
+	setReadyTransferValidationFn func(ctx context.Context, session int32, callsign string, position string) error
 }
 
 func (s *transferStripService) CancelCoordinationTransfer(ctx context.Context, session int32, callsign string, position string) error {
@@ -88,6 +90,20 @@ func (s *recordingCdmService) HandleReadyRequest(ctx context.Context, session in
 		return s.handleReadyRequestFn(ctx, session, callsign, sourcePosition, sourceRole)
 	}
 	return nil
+}
+
+func (s *transferStripService) SetReadyTransferValidation(ctx context.Context, session int32, callsign string, position string) error {
+	if s.setReadyTransferValidationFn != nil {
+		return s.setReadyTransferValidationFn(ctx, session, callsign, position)
+	}
+	return nil
+}
+
+func (s *recordingCdmService) HandleReadyTransfer(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string, allowOverride bool) error {
+	if s.handleReadyTransferFn != nil {
+		return s.handleReadyTransferFn(ctx, session, callsign, sourcePosition, sourceRole, allowOverride)
+	}
+	return s.HandleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole)
 }
 
 func (s *recordingCdmService) RecordAobtForTransfer(ctx context.Context, session int32, callsign string) error {
@@ -382,6 +398,84 @@ func TestHandleCoordinationTransferRequest_CancelsTransferWhenReadyFails(t *test
 	assert.Equal(t, []string{"transfer", "ready", "cancel"}, steps)
 }
 
+func TestHandleCoordinationTransferRequest_RequiresReadyTransferTsatOverride(t *testing.T) {
+	const owner = "EKCH_B_GND"
+	const callsign = "SAS779"
+	strip := &models.Strip{
+		Callsign: callsign,
+		Owner:    ptr(owner),
+		CdmData:  &models.CdmData{Tsat: ptr("1207")},
+	}
+	var steps []string
+	readyAttempts := 0
+	server := &testutil.MockServer{
+		StripRepoVal: &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+			return strip, nil
+		}},
+		CdmServiceVal: &recordingCdmService{
+			handleReadyTransferFn: func(_ context.Context, _ int32, gotCallsign, gotPosition, gotRole string, allowOverride bool) error {
+				assert.Equal(t, callsign, gotCallsign)
+				assert.Equal(t, owner, gotPosition)
+				assert.Equal(t, "ATC", gotRole)
+				readyAttempts++
+				if readyAttempts == 1 {
+					assert.False(t, allowOverride)
+					return shared.ErrReadyTransferTsatOutsideWindow
+				}
+				assert.True(t, allowOverride)
+				steps = append(steps, "ready")
+				return nil
+			},
+			recordAobtForTransferFn: func(context.Context, int32, string) error {
+				steps = append(steps, "aobt")
+				return nil
+			},
+		},
+	}
+	stripService := &transferStripService{
+		createCoordinationTransferFn: func(context.Context, int32, string, string, string) error {
+			steps = append(steps, "transfer")
+			return nil
+		},
+		cancelCoordinationTransferFn: func(context.Context, int32, string, string) error {
+			steps = append(steps, "cancel")
+			return nil
+		},
+		updateStartReqFn: func(context.Context, int32, string, bool) error {
+			steps = append(steps, "start req")
+			return nil
+		},
+		setReadyTransferValidationFn: func(_ context.Context, _ int32, _ string, position string) error {
+			strip.ValidationStatus = &models.ValidationStatus{
+				IssueType:      models.ValidationIssueTypeReadyTransferTsat,
+				OwningPosition: position,
+				Active:         true,
+				ContextKey:     "1207",
+			}
+			steps = append(steps, "validation")
+			return nil
+		},
+	}
+	client := &Client{session: 779, position: owner, hub: &Hub{server: server, stripService: stripService}}
+	payload, err := json.Marshal(frontendEvents.CoordinationTransferRequestEvent{
+		Type: string(frontendEvents.CoordinationTransferRequestType), Callsign: callsign,
+		To: "EKCH_C_GND", StartReqTransfer: true,
+	})
+	require.NoError(t, err)
+	err = handleCoordinationTransferRequest(context.Background(), client, Message{
+		Type: frontendEvents.CoordinationTransferRequestType, Message: payload,
+	})
+	require.ErrorIs(t, err, shared.ErrReadyTransferTsatOutsideWindow)
+	assert.Equal(t, []string{"transfer", "validation", "cancel"}, steps)
+
+	strip.ValidationStatus.Active = false
+	steps = nil
+	require.NoError(t, handleCoordinationTransferRequest(context.Background(), client, Message{
+		Type: frontendEvents.CoordinationTransferRequestType, Message: payload,
+	}))
+	assert.Equal(t, []string{"transfer", "ready", "start req", "aobt"}, steps)
+}
+
 func TestHandleCoordinationTransferRequest_UsesNextOwnerWhenTargetIsOmitted(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(7)
@@ -394,6 +488,7 @@ func TestHandleCoordinationTransferRequest_UsesNextOwnerWhenTargetIsOmitted(t *t
 			return &models.Strip{Callsign: callsign, Session: session, Owner: ptr(owner), NextOwners: []string{target}}, nil
 		},
 	}
+
 	server := &testutil.MockServer{StripRepoVal: stripRepo}
 	stripService := &transferStripService{
 		createCoordinationTransferFn: func(_ context.Context, _ int32, _ string, from string, to string) error {
@@ -414,6 +509,22 @@ func TestHandleCoordinationTransferRequest_UsesNextOwnerWhenTargetIsOmitted(t *t
 		Type: frontendEvents.CoordinationTransferRequestType, Message: payload,
 	})
 	require.NoError(t, err)
+}
+
+func TestHandleNextControllerSelectDoesNotTransfer(t *testing.T) {
+	server := &testutil.MockServer{
+		SelectNextControllerContextFn: func(_ context.Context, session int32, callsign, owner, sector string) error {
+			assert.Equal(t, int32(7), session)
+			assert.Equal(t, "SAS123", callsign)
+			assert.Equal(t, "121.730", owner)
+			assert.Equal(t, "TW", sector)
+			return nil
+		},
+	}
+	client := &Client{session: 7, position: "121.730", hub: &Hub{server: server}}
+	payload, err := json.Marshal(frontendEvents.NextControllerSelectEvent{Callsign: "SAS123", Sector: "TW"})
+	require.NoError(t, err)
+	require.NoError(t, handleNextControllerSelect(context.Background(), client, Message{Type: frontendEvents.NextControllerSelect, Message: payload}))
 }
 
 func TestHandleCoordinationTransferRequest_RejectsOmittedTargetWithoutNextOwner(t *testing.T) {

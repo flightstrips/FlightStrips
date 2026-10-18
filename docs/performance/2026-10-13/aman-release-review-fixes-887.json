@@ -1,0 +1,461 @@
+{
+  "schema": "aman-release-review-fixes-validation/v1",
+  "issue": 887,
+  "fixes": [
+    "Revalidate future EATs against fresh readiness and propagate postponement in the accepted stream order. Due EATs remain fixed and report readiness conflicts.",
+    "Validate accepted reservation timing independently of the optional newly computed HoldingPlan; preserve the accepted EAT/journey and degrade additional intake when it cannot meet its slot.",
+    "Evaluate rate/wake entry spacing at the actual candidate release time, reevaluating at rate boundaries; use observed release time when it is later than the offered EAT."
+  ],
+  "checks": {
+    "backend": "Full go run ./internal/testing/testdb ./... passed",
+    "focused": "go test ./internal/aman/operational ./internal/aman/release passed",
+    "diff": "git diff --check passed"
+  },
+  "regressions": [
+    "Fresh holding arrival moves after a future EAT; an independent feeder remains able to release.",
+    "The same readiness slip with a due EAT preserves the target and blocks additional advancement.",
+    "HoldingPlan disappears because longer transit cannot fit the slot, with both a retained holding-release basis and raw hold-fix timing.",
+    "Current 30/hour versus a scheduled future increase to 60/hour retains two-minute approach entry spacing despite legal one-minute future landing spacing.",
+    "Candidate crossing a rate increase/decrease is recalculated at that boundary.",
+    "Postponement propagates through existing future offers even when the adapter has already retimed the leader.",
+    "An existing future head can advance without being constrained by its own later followers.",
+    "Observed release later than EAT is used for following entry spacing."
+  ],
+  "binary_sha256": "99b3b63d63522f87aaeded7200bc4a7cc0f7e488c7821e5ed13be291da57ad3d",
+  "sessions": [
+    {
+      "recording": "C:/vatsim-data",
+      "metrics": {
+        "before_review_fixes": {
+          "snapshots": 151,
+          "publishable_flight_samples": 7651,
+          "holding_plan_samples": 2944,
+          "advanced_plan_samples": 2,
+          "holding_seconds_sum": 5698604.950882578,
+          "additional_approach_seconds_sum": 22.751191355,
+          "max_projected_buffer": 17,
+          "buffer_degraded_samples": 115
+        },
+        "after_review_fixes": {
+          "snapshots": 151,
+          "publishable_flight_samples": 7651,
+          "holding_plan_samples": 3005,
+          "advanced_plan_samples": 43,
+          "holding_seconds_sum": 5698898.762438354,
+          "additional_approach_seconds_sum": 9927.710702050004,
+          "max_projected_buffer": 17,
+          "buffer_degraded_samples": 123
+        }
+      },
+      "accuracy_by_horizon_minutes": {
+        "before_review_fixes": {
+          "5": {
+            "predictions": 101.0,
+            "availability_percent": 98.1,
+            "operational_bias_seconds": -1695.0,
+            "operational_mae_seconds": 1714.0,
+            "raw_bias_seconds": -180.0,
+            "raw_mae_seconds": 196.0,
+            "slot_bias_seconds": -379.0,
+            "slot_mae_seconds": 745.0,
+            "slot_samples": 101.0
+          },
+          "10": {
+            "predictions": 98.0,
+            "availability_percent": 95.1,
+            "operational_bias_seconds": -1747.0,
+            "operational_mae_seconds": 1765.0,
+            "raw_bias_seconds": -174.0,
+            "raw_mae_seconds": 259.0,
+            "slot_bias_seconds": -383.0,
+            "slot_mae_seconds": 772.0,
+            "slot_samples": 98.0
+          },
+          "15": {
+            "predictions": 96.0,
+            "availability_percent": 93.2,
+            "operational_bias_seconds": -1761.0,
+            "operational_mae_seconds": 1824.0,
+            "raw_bias_seconds": -157.0,
+            "raw_mae_seconds": 265.0,
+            "slot_bias_seconds": -404.0,
+            "slot_mae_seconds": 785.0,
+            "slot_samples": 95.0
+          },
+          "20": {
+            "predictions": 93.0,
+            "availability_percent": 90.3,
+            "operational_bias_seconds": -1849.0,
+            "operational_mae_seconds": 1849.0,
+            "raw_bias_seconds": -368.0,
+            "raw_mae_seconds": 370.0,
+            "slot_bias_seconds": -419.0,
+            "slot_mae_seconds": 793.0,
+            "slot_samples": 93.0
+          },
+          "30": {
+            "predictions": 89.0,
+            "availability_percent": 86.4,
+            "operational_bias_seconds": -1903.0,
+            "operational_mae_seconds": 1911.0,
+            "raw_bias_seconds": -798.0,
+            "raw_mae_seconds": 806.0,
+            "slot_bias_seconds": -418.0,
+            "slot_mae_seconds": 826.0,
+            "slot_samples": 88.0
+          }
+        },
+        "after_review_fixes": {
+          "5": {
+            "predictions": 101.0,
+            "availability_percent": 98.1,
+            "operational_bias_seconds": -1695.0,
+            "operational_mae_seconds": 1714.0,
+            "raw_bias_seconds": -180.0,
+            "raw_mae_seconds": 196.0,
+            "slot_bias_seconds": -379.0,
+            "slot_mae_seconds": 745.0,
+            "slot_samples": 101.0
+          },
+          "10": {
+            "predictions": 98.0,
+            "availability_percent": 95.1,
+            "operational_bias_seconds": -1747.0,
+            "operational_mae_seconds": 1765.0,
+            "raw_bias_seconds": -174.0,
+            "raw_mae_seconds": 259.0,
+            "slot_bias_seconds": -383.0,
+            "slot_mae_seconds": 772.0,
+            "slot_samples": 98.0
+          },
+          "15": {
+            "predictions": 96.0,
+            "availability_percent": 93.2,
+            "operational_bias_seconds": -1761.0,
+            "operational_mae_seconds": 1824.0,
+            "raw_bias_seconds": -157.0,
+            "raw_mae_seconds": 265.0,
+            "slot_bias_seconds": -404.0,
+            "slot_mae_seconds": 785.0,
+            "slot_samples": 95.0
+          },
+          "20": {
+            "predictions": 93.0,
+            "availability_percent": 90.3,
+            "operational_bias_seconds": -1849.0,
+            "operational_mae_seconds": 1849.0,
+            "raw_bias_seconds": -368.0,
+            "raw_mae_seconds": 370.0,
+            "slot_bias_seconds": -419.0,
+            "slot_mae_seconds": 793.0,
+            "slot_samples": 93.0
+          },
+          "30": {
+            "predictions": 89.0,
+            "availability_percent": 86.4,
+            "operational_bias_seconds": -1903.0,
+            "operational_mae_seconds": 1911.0,
+            "raw_bias_seconds": -798.0,
+            "raw_mae_seconds": 806.0,
+            "slot_bias_seconds": -418.0,
+            "slot_mae_seconds": 826.0,
+            "slot_samples": 88.0
+          }
+        }
+      },
+      "advisory_samples_without_slots": 798,
+      "observed_occupancy_unchanged": true
+    },
+    {
+      "recording": "C:/vatsim-data1",
+      "metrics": {
+        "before_review_fixes": {
+          "snapshots": 324,
+          "publishable_flight_samples": 2094,
+          "holding_plan_samples": 439,
+          "advanced_plan_samples": 7,
+          "holding_seconds_sum": 13917.31360569599,
+          "additional_approach_seconds_sum": 414.58120366400004,
+          "max_projected_buffer": 5,
+          "buffer_degraded_samples": 61
+        },
+        "after_review_fixes": {
+          "snapshots": 324,
+          "publishable_flight_samples": 2095,
+          "holding_plan_samples": 525,
+          "advanced_plan_samples": 76,
+          "holding_seconds_sum": 15662.951998870016,
+          "additional_approach_seconds_sum": 3134.5960315349944,
+          "max_projected_buffer": 5,
+          "buffer_degraded_samples": 69
+        }
+      },
+      "accuracy_by_horizon_minutes": {
+        "before_review_fixes": {
+          "5": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": 6.0,
+            "raw_mae_seconds": 86.0,
+            "slot_bias_seconds": -297.0,
+            "slot_mae_seconds": 310.0,
+            "slot_samples": 18.0
+          },
+          "10": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -83.0,
+            "raw_mae_seconds": 194.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "15": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -102.0,
+            "raw_mae_seconds": 192.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "20": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -152.0,
+            "raw_mae_seconds": 249.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "30": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -159.0,
+            "operational_mae_seconds": 331.0,
+            "raw_bias_seconds": -140.0,
+            "raw_mae_seconds": 309.0,
+            "slot_bias_seconds": -316.0,
+            "slot_mae_seconds": 321.0,
+            "slot_samples": 16.0
+          }
+        },
+        "after_review_fixes": {
+          "5": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": 6.0,
+            "raw_mae_seconds": 86.0,
+            "slot_bias_seconds": -297.0,
+            "slot_mae_seconds": 310.0,
+            "slot_samples": 18.0
+          },
+          "10": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -83.0,
+            "raw_mae_seconds": 194.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "15": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -102.0,
+            "raw_mae_seconds": 192.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "20": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -174.0,
+            "operational_mae_seconds": 263.0,
+            "raw_bias_seconds": -152.0,
+            "raw_mae_seconds": 249.0,
+            "slot_bias_seconds": -296.0,
+            "slot_mae_seconds": 309.0,
+            "slot_samples": 18.0
+          },
+          "30": {
+            "predictions": 18.0,
+            "availability_percent": 100.0,
+            "operational_bias_seconds": -159.0,
+            "operational_mae_seconds": 331.0,
+            "raw_bias_seconds": -140.0,
+            "raw_mae_seconds": 309.0,
+            "slot_bias_seconds": -316.0,
+            "slot_mae_seconds": 321.0,
+            "slot_samples": 16.0
+          }
+        }
+      },
+      "advisory_samples_without_slots": 404,
+      "observed_occupancy_unchanged": true
+    },
+    {
+      "recording": "C:/vatsim-data2",
+      "metrics": {
+        "before_review_fixes": {
+          "snapshots": 233,
+          "publishable_flight_samples": 12861,
+          "holding_plan_samples": 4623,
+          "advanced_plan_samples": 10,
+          "holding_seconds_sum": 4064125.652880062,
+          "additional_approach_seconds_sum": 799.5368863939999,
+          "max_projected_buffer": 15,
+          "buffer_degraded_samples": 206
+        },
+        "after_review_fixes": {
+          "snapshots": 233,
+          "publishable_flight_samples": 12875,
+          "holding_plan_samples": 4998,
+          "advanced_plan_samples": 93,
+          "holding_seconds_sum": 4094770.4534629863,
+          "additional_approach_seconds_sum": 7055.406479902993,
+          "max_projected_buffer": 15,
+          "buffer_degraded_samples": 209
+        }
+      },
+      "accuracy_by_horizon_minutes": {
+        "before_review_fixes": {
+          "5": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -999.0,
+            "operational_mae_seconds": 1015.0,
+            "raw_bias_seconds": -37.0,
+            "raw_mae_seconds": 116.0,
+            "slot_bias_seconds": -534.0,
+            "slot_mae_seconds": 598.0,
+            "slot_samples": 123.0
+          },
+          "10": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -999.0,
+            "operational_mae_seconds": 1015.0,
+            "raw_bias_seconds": -111.0,
+            "raw_mae_seconds": 176.0,
+            "slot_bias_seconds": -530.0,
+            "slot_mae_seconds": 598.0,
+            "slot_samples": 123.0
+          },
+          "15": {
+            "predictions": 123.0,
+            "availability_percent": 98.4,
+            "operational_bias_seconds": -1024.0,
+            "operational_mae_seconds": 1036.0,
+            "raw_bias_seconds": -163.0,
+            "raw_mae_seconds": 183.0,
+            "slot_bias_seconds": -576.0,
+            "slot_mae_seconds": 603.0,
+            "slot_samples": 120.0
+          },
+          "20": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1044.0,
+            "operational_mae_seconds": 1056.0,
+            "raw_bias_seconds": -256.0,
+            "raw_mae_seconds": 271.0,
+            "slot_bias_seconds": -584.0,
+            "slot_mae_seconds": 614.0,
+            "slot_samples": 118.0
+          },
+          "30": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1055.0,
+            "operational_mae_seconds": 1064.0,
+            "raw_bias_seconds": -590.0,
+            "raw_mae_seconds": 598.0,
+            "slot_bias_seconds": -95.0,
+            "slot_mae_seconds": 1101.0,
+            "slot_samples": 118.0
+          }
+        },
+        "after_review_fixes": {
+          "5": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -999.0,
+            "operational_mae_seconds": 1015.0,
+            "raw_bias_seconds": -37.0,
+            "raw_mae_seconds": 116.0,
+            "slot_bias_seconds": -534.0,
+            "slot_mae_seconds": 598.0,
+            "slot_samples": 123.0
+          },
+          "10": {
+            "predictions": 124.0,
+            "availability_percent": 99.2,
+            "operational_bias_seconds": -999.0,
+            "operational_mae_seconds": 1015.0,
+            "raw_bias_seconds": -111.0,
+            "raw_mae_seconds": 176.0,
+            "slot_bias_seconds": -530.0,
+            "slot_mae_seconds": 598.0,
+            "slot_samples": 123.0
+          },
+          "15": {
+            "predictions": 123.0,
+            "availability_percent": 98.4,
+            "operational_bias_seconds": -1024.0,
+            "operational_mae_seconds": 1036.0,
+            "raw_bias_seconds": -163.0,
+            "raw_mae_seconds": 183.0,
+            "slot_bias_seconds": -576.0,
+            "slot_mae_seconds": 603.0,
+            "slot_samples": 120.0
+          },
+          "20": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1044.0,
+            "operational_mae_seconds": 1056.0,
+            "raw_bias_seconds": -256.0,
+            "raw_mae_seconds": 271.0,
+            "slot_bias_seconds": -584.0,
+            "slot_mae_seconds": 614.0,
+            "slot_samples": 118.0
+          },
+          "30": {
+            "predictions": 121.0,
+            "availability_percent": 96.8,
+            "operational_bias_seconds": -1055.0,
+            "operational_mae_seconds": 1064.0,
+            "raw_bias_seconds": -590.0,
+            "raw_mae_seconds": 598.0,
+            "slot_bias_seconds": -95.0,
+            "slot_mae_seconds": 1101.0,
+            "slot_samples": 118.0
+          }
+        }
+      },
+      "advisory_samples_without_slots": 2581,
+      "observed_occupancy_unchanged": true
+    }
+  ],
+  "limitations": [
+    "Fixed recorded trajectories do not follow hypothetical FS release offers, so landing-slot errors are descriptive rather than an operational-benefit score.",
+    "Recorded replay rates are constant 40/hour; the rate-change failures and delayed-readiness cases are independently covered by deterministic tests.",
+    "Additional-approach plan sample counts include accepted plans restored after a new HoldingPlan disappears; they are not counts of new release admissions."
+  ]
+}

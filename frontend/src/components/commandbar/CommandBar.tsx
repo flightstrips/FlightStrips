@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type CSSProperties } from "react";
+import { ChevronDown, ChevronUp, Maximize, Minimize } from "lucide-react";
+import { toast } from "sonner";
 import Time from "@/components/Time";
 import MRKBTN from "./MRKBTN";
 import VACSBTN from "./VACSBTN";
@@ -14,6 +16,9 @@ import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsig
 import { CLS_CMDBTN, CLS_CMD_BEVEL } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
+import { effectiveStripMarked, toggleEffectiveStripMark } from "@/lib/strip-marking";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // Bar height matches strip height (4.72dvh). Inner elements: calc(4.72dvh - 14px) + 7px top/bottom margin.
 const CLS_BAR = "h-[4.72dvh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-2px_2px_rgba(0,0,0,0.35)]";
@@ -37,18 +42,40 @@ const SCOPE_LABELS: Record<string, string> = {
   "TWRGND": "TWR + GND",
 };
 
-const EKCH_SCOPES = [
+const LOWER_SCOPES = [
+  { label: "EST",        layout: "EST" },
   { label: "CLR DEL",    layout: "CLX" },
   { label: "SEQ PLN",    layout: "SEQPLN" },
-  { label: "EST",        layout: "EST" },
-  { label: "AMAN",       layout: "AMAN" },
-  { label: "APRON DEP",  layout: "AD" },
-  { label: "APRON ARR",  layout: "AA" },
   { label: "AA + AD",    layout: "AAAD" },
   { label: "GE + GW",    layout: "GEGW" },
   { label: "TE + TW",    layout: "TWTE" },
   { label: "TWR + GND",  layout: "TWRGND" },
 ];
+
+const UPPER_SCOPES = [
+  { label: "AMAN",       layout: "AMAN" },
+  { label: "APRON DEP",  layout: "AD" },
+  { label: "APRON ARR",  layout: "AA" },
+];
+
+const SCOPE_BEVEL_STYLE: CSSProperties = {
+  border: "2px solid",
+  borderTopColor: "#E4E4E4",
+  borderLeftColor: "#E4E4E4",
+  borderBottomColor: "#777777",
+  borderRightColor: "#777777",
+  boxShadow: "inset 1px 1px 1px rgba(255,255,255,0.15), inset -1px -1px 1px rgba(0,0,0,0.15), 1px 2px 2px rgba(0,0,0,0.15)",
+};
+
+const SCOPE_BTN_STYLE: CSSProperties = {
+  ...SCOPE_BEVEL_STYLE,
+  width: "8.25vw",
+  height: "100%",
+  color: "black",
+  fontSize: "0.96vw",
+  fontWeight: 500,
+  fontFamily: "var(--font-bay)",
+};
 
 // EKCH runway pairs with vw widths derived from SVG (canvas: 2560px).
 // 140/2560 = 5.47vw, 118/2560 = 4.61vw
@@ -79,9 +106,12 @@ export default function CommandBar() {
   const atisCode = useAtisCode();
   const currentLayout = useWebSocketStore((state) => state.displayedLayout);
   const setDisplayedLayout = useWebSocketStore((state) => state.setDisplayedLayout);
+  const resetLayout = useWebSocketStore((state) => state.resetLayout);
   const readOnly = useWebSocketStore((state) => state.readOnly);
   const positionAvailable = useWebSocketStore((state) => state.positionAvailable);
   const runwaySetup = useRunwaySetup();
+  const masterCallsign = useWebSocketStore((state) => state.masterCallsign);
+  const [runwayMismatchOpen, setRunwayMismatchOpen] = useState(false);
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
   const strips = useStrips();
@@ -89,6 +119,8 @@ export default function CommandBar() {
   const setMarkArmed = useSetMarkArmed();
   const move = useWebSocketStore((state) => state.move);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
+  const setLocalMarked = useWebSocketStore((state) => state.setLocalMarked);
+  const localMarked = useWebSocketStore((state) => selectedCallsign ? state.localMarked[selectedCallsign] : undefined);
   const updateRunwayStatus = useWebSocketStore((state) => state.updateRunwayStatus);
   const strip = useStrip(selectedCallsign ?? "");
 
@@ -100,16 +132,40 @@ export default function CommandBar() {
   const runwayStatus = runwaySetup.runway_status ?? {};
   const depRunwayClass = runwaySetup.departure_mismatch ? CLS_VAL_ALERT : CLS_VAL_WHITE;
   const arrRunwayClass = runwaySetup.arrival_mismatch ? CLS_VAL_ALERT : CLS_VAL_WHITE;
+  const mismatchMessage = `Runway configuration differs from FS Master ${masterCallsign || "(unknown)"}.`;
 
   const myPosition = useWebSocketStore((state) => state.position);
   const scopeButtonClass = readOnly ? "bg-[#FFD84D] text-black" : "bg-[#1bff16] text-black";
   const positionLabel = myPosition ? `${myPosition}${readOnly ? " (OBS)" : ""}` : "";
   const isOwner = !!selectedCallsign && !!myPosition && strip?.owner === myPosition;
-  const isMarked = strip?.marked ?? false;
+  const isMarked = effectiveStripMarked(strip?.marked, localMarked);
   const canMark = !!selectedCallsign || strips.length > 0;
 
   // Layout chooser dialog (dismissable, triggered from station box)
   const [layoutOpen, setLayoutOpen] = useState(false);
+  const [upperScopesOpen, setUpperScopesOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(() => !!document.fullscreenElement);
+  const fullscreenSupported = document.fullscreenEnabled === true;
+
+  useEffect(() => {
+    const updateFullscreen = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", updateFullscreen);
+    return () => document.removeEventListener("fullscreenchange", updateFullscreen);
+  }, []);
+
+  const handleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (error) {
+      toast.error("Could not change fullscreen mode", {
+        description: error instanceof Error ? error.message : "The browser rejected the fullscreen request.",
+      });
+    }
+  };
 
   // Runway status dialog
   const [rwyDlgPair, setRwyDlgPair] = useState<string | null>(null);
@@ -125,7 +181,7 @@ export default function CommandBar() {
 
   const handleMark = () => {
     if (selectedCallsign) {
-      toggleMarked(selectedCallsign, !isMarked);
+      toggleEffectiveStripMark(selectedCallsign, strip?.marked, localMarked, setLocalMarked, toggleMarked);
       return;
     }
 
@@ -151,6 +207,22 @@ export default function CommandBar() {
     setLayoutOpen(false);
   };
 
+  const handleReset = () => {
+    resetLayout();
+    setLayoutOpen(false);
+  };
+
+  const handleOpenEST = () => {
+    const url = new URL("/app", window.location.origin);
+    url.searchParams.set("layout", "EST");
+    const newWindow = window.open(url.href, "_blank", "popup");
+    if (!newWindow) {
+      toast.error("Could not open EST", { description: "Allow popups for FlightStrips and try again." });
+      return;
+    }
+    newWindow.opener = null;
+  };
+
   return (
     <div className={CLS_BAR}>
       {/* ── Left section ─────────────────────────────────── */}
@@ -167,11 +239,19 @@ export default function CommandBar() {
 
         {/* DEP runway */}
         <span className={CLS_LABEL}>DEP</span>
-        <span className={`${depRunwayClass} w-[3.13vw] !font-normal`}>{depRwy}</span>
+        {runwaySetup.departure_mismatch ? (
+          <button type="button" className={`${depRunwayClass} w-[3.13vw] !font-normal`}
+            title={mismatchMessage} aria-label={`Departure runway mismatch. ${mismatchMessage}`}
+            onClick={() => setRunwayMismatchOpen(true)}>{depRwy}</button>
+        ) : <span className={`${depRunwayClass} w-[3.13vw] !font-normal`}>{depRwy}</span>}
 
         {/* ARR runway */}
         <span className={CLS_LABEL}>ARR</span>
-        <span className={`${arrRunwayClass} w-[3.13vw] !font-normal`}>{arrRwy}</span>
+        {runwaySetup.arrival_mismatch ? (
+          <button type="button" className={`${arrRunwayClass} w-[3.13vw] !font-normal`}
+            title={mismatchMessage} aria-label={`Arrival runway mismatch. ${mismatchMessage}`}
+            onClick={() => setRunwayMismatchOpen(true)}>{arrRwy}</button>
+        ) : <span className={`${arrRunwayClass} w-[3.13vw] !font-normal`}>{arrRwy}</span>}
 
         {/* QNH */}
         <span className={CLS_LABEL}>QNH</span>
@@ -200,7 +280,7 @@ export default function CommandBar() {
               key={pair}
               onClick={() => setRwyDlgPair(pair)}
               style={{ backgroundColor: bg, width: vw }}
-              className="text-white text-[0.88125vw] font-normal h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_-2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow),_inset_0_-2px_0_var(--color-bay-shadow)] outline-none"
+              className="text-white text-[0.88125vw] font-normal h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center shadow-[inset_1px_0_0_var(--color-bay-shadow),_inset_-1px_0_0_var(--color-bay-shadow),_inset_0_1px_0_var(--color-bay-shadow),_inset_0_-1px_0_var(--color-bay-shadow)] outline-none"
             >
               {pair}
             </button>
@@ -242,8 +322,9 @@ export default function CommandBar() {
             style={{
               bottom: "calc(4.72dvh + 0.5dvh)",
               left: "1vw",
-              right: "1vw",
-              height: "11.76dvh",
+              width: "max-content",
+              maxWidth: "98vw",
+              height: upperScopesOpen ? "21.5dvh" : "11.76dvh",
               background: "#B3B3B3",
               border: "1px solid black",
             }}
@@ -263,47 +344,129 @@ export default function CommandBar() {
 
            {/* Inner border inset (SVG: 15.5px sides / 16.5px top-bottom at 2512×254) */}
            <div
-              className="absolute flex items-center"
+              className="relative flex items-end"
               style={{
-                inset: "0.76dvh 0.60vw",
+                margin: "0.76dvh 0.60vw",
+                height: "calc(100% - 1.52dvh)",
                 border: "1px solid black",
               }}
             >
-              {/* Scope buttons */}
-              <div className="flex items-center gap-[0.88vw] pl-[0.66vw] h-full py-[0.74dvh]">
-                {EKCH_SCOPES.map((scope) => (
+              {/* Fullscreen / level toggle above RESET */}
+              <div className="flex flex-col gap-[0.74dvh] ml-[0.66vw] py-[0.74dvh]" style={{ width: "6.6vw", height: "10.24dvh" }}>
+                <div className="flex flex-1 min-h-0">
                   <button
-                    key={scope.layout}
-                    onClick={() => handleLayoutSelect(scope.layout)}
+                    onClick={handleFullscreen}
+                    disabled={!fullscreenSupported}
+                    aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                    aria-pressed={fullscreen}
+                    title={fullscreenSupported ? (fullscreen ? "Exit fullscreen" : "Enter fullscreen") : "Fullscreen is not supported in this browser"}
+                    className="w-1/2 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ ...SCOPE_BEVEL_STYLE, background: "#D6D6D6", color: "black" }}
+                  >
+                    {fullscreen ? <Minimize className="h-[60%] w-auto" /> : <Maximize className="h-[60%] w-auto" />}
+                  </button>
+                  <button
+                    onClick={() => setUpperScopesOpen((open) => !open)}
+                    aria-label={upperScopesOpen ? "Hide more scopes" : "Show more scopes"}
+                    aria-expanded={upperScopesOpen}
+                    className="w-1/2 flex items-center justify-center"
+                    style={{ ...SCOPE_BEVEL_STYLE, background: "#D6D6D6", color: "black" }}
+                  >
+                    {upperScopesOpen ? <ChevronDown className="h-[60%] w-auto" /> : <ChevronUp className="h-[60%] w-auto" />}
+                  </button>
+                </div>
+                <button
+                  onClick={handleReset}
+                  className="flex-1 min-h-0"
+                  style={{ ...SCOPE_BTN_STYLE, background: "#D6D6D6", width: "100%", height: undefined }}
+                >
+                  RESET
+                </button>
+              </div>
+
+              {/* Scope buttons */}
+              <div className="relative ml-[0.88vw] my-[0.74dvh]" style={{ height: "8.76dvh" }}>
+                {upperScopesOpen && (
+                  <div
+                    className="absolute grid items-center gap-[0.88vw] w-full"
                     style={{
-                      width: "8.25vw",
-                      background: currentLayout === scope.layout ? "#1BFF16" : "#D6D6D6",
-                      color: "black",
-                      fontSize: "0.96vw",
-                      fontWeight: 500,
-                      height: "100%",
-                      boxShadow: "2px 4px 4px rgba(0,0,0,0.25)",
-                      fontFamily: "var(--font-bay)",
+                      bottom: "calc(100% + 0.74dvh)",
+                      height: "8.76dvh",
+                      gridTemplateColumns: "8.25vw 2px repeat(6, 8.25vw)",
                     }}
                   >
-                    {scope.label}
-                  </button>
-                ))}
+                    <button
+                      onClick={() => handleLayoutSelect(UPPER_SCOPES[0].layout)}
+                      style={{ ...SCOPE_BTN_STYLE, background: currentLayout === "AMAN" ? "#1BFF16" : "#D6D6D6" }}
+                    >
+                      {UPPER_SCOPES[0].label}
+                    </button>
+                    <div role="separator" aria-orientation="vertical" className="h-full border-l-2 border-black/50" />
+                    <div className="flex gap-[0.88vw] h-full" style={{ gridColumn: "3 / span 5", width: "max-content", transform: "translateX(calc((8.25vw + 0.88vw) / 2))" }}>
+                      <button
+                        onClick={handleOpenEST}
+                        style={{ ...SCOPE_BTN_STYLE, background: "#D6D6D6" }}
+                      >
+                        <span>EST<br /><span className="text-[0.8vw]">(NEW WINDOW)</span></span>
+                      </button>
+                      {UPPER_SCOPES.slice(1).map((scope) => (
+                        <button
+                          key={scope.layout}
+                          onClick={() => handleLayoutSelect(scope.layout)}
+                          style={{ ...SCOPE_BTN_STYLE, background: currentLayout === scope.layout ? "#1BFF16" : "#D6D6D6" }}
+                        >
+                          {scope.label}
+                        </button>
+                      ))}
+                      {["TOWER EAST", "TOWER WEST"].map((label) => (
+                        <button
+                          key={label}
+                          disabled
+                          title="This scope is not yet available"
+                          className="cursor-not-allowed"
+                          style={{ ...SCOPE_BTN_STYLE, background: "#D6D6D6", color: "#999999" }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                  <div className="flex items-center gap-[0.88vw] h-full">
+                    {LOWER_SCOPES.map((scope) => (
+                      <Fragment key={scope.layout}>
+                        <button
+                          onClick={() => handleLayoutSelect(scope.layout)}
+                          style={{
+                            ...SCOPE_BTN_STYLE,
+                            background: currentLayout === scope.layout ? "#1BFF16" : "#D6D6D6",
+                          }}
+                        >
+                          {scope.label}
+                        </button>
+                        {scope.layout === "EST" && (
+                          <div role="separator" aria-orientation="vertical" className="h-full border-l-2 border-black/50" />
+                        )}
+                      </Fragment>
+                    ))}
+                  </div>
               </div>
 
               {/* OK button — right-aligned, dark */}
               <button
                 onClick={() => setLayoutOpen(false)}
+                className="active:brightness-110 active:translate-y-px active:!shadow-[inset_1px_1px_2px_rgba(0,0,0,0.35)]"
                 style={{
-                  marginLeft: "auto",
+                  ...SCOPE_BEVEL_STYLE,
+                  marginLeft: "0.88vw",
                   marginRight: "0.66vw",
                   width: "7.42vw",
-                  height: "calc(100% - 1.48dvh)",
+                  height: "8.76dvh",
+                  marginBottom: "0.74dvh",
                   background: "#3F3F3F",
                   color: "white",
                   fontSize: "1.25vw",
                   fontWeight: 600,
-                  boxShadow: "2px 4px 4px rgba(0,0,0,0.25)",
                   fontFamily: "var(--font-bay)",
                 }}
               >
@@ -314,6 +477,19 @@ export default function CommandBar() {
         </>
       )}
 
+      {/* ── Runway mismatch details ───────────────────────── */}
+      <Dialog open={runwayMismatchOpen} onOpenChange={setRunwayMismatchOpen}>
+        <DialogContent className="sm:max-w-[440px] bg-[#b3b3b3] text-black">
+          <DialogTitle>Runway configuration mismatch</DialogTitle>
+          <DialogDescription className="text-black">
+            {mismatchMessage} Check your EuroScope runway configuration, or contact the master if the shared configuration is incorrect.
+          </DialogDescription>
+          <p>Expected DEP {runwaySetup.departure.join(", ") || "None"} / ARR {runwaySetup.arrival.join(", ") || "None"}</p>
+          <DialogClose asChild>
+            <Button variant="darkaction" className="mx-auto w-4/5">ESC</Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
       {/* ── Delete confirmation dialog ────────────────────── */}
       {deleteConfirmOpen && (
         <DeleteConfirmDialog

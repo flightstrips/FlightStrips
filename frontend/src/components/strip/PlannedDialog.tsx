@@ -20,6 +20,7 @@ export function PlannedDialog({ open, onOpenChange }: Props) {
     <StripListPopup
       title="PLANNED DEP"
       rowHalfStripVariant="LOCKED-DEP"
+      allowClearanceFromPlannedDepartures
       strips={strips.filter((strip) => strip.origin === airport)}
       sortModes={plannedDepartureSortModes}
       onRowClick={(strip) => {

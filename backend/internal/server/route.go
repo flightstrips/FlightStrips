@@ -40,6 +40,55 @@ type routeRadioState struct {
 	roleByPrimary map[string]string
 }
 
+func (s *Server) SelectNextControllerContext(ctx context.Context, sessionID int32, callsign, owner, sector string) error {
+	sector = normalizeRouteSectorRef(sector)
+	switch sector {
+	case "AA", "GE", "GW", "TE", "TW":
+	default:
+		return errors.New("invalid next controller sector")
+	}
+	strip, err := routeStripForCallsign(ctx, s.stripRepo, sessionID, callsign)
+	if err != nil {
+		return err
+	}
+	if strip.Owner == nil || *strip.Owner != owner {
+		return errors.New("cannot select next controller for a strip which is not assumed")
+	}
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
+	}
+	session, err := routeSessionByID(ctx, s.sessionRepo, sessionID)
+	if err != nil {
+		return err
+	}
+	owners, err := routeSectorOwners(ctx, s.sectorRepo, sessionID)
+	if err != nil {
+		return err
+	}
+	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionID, s.frequencyProviders)
+	if err != nil {
+		return err
+	}
+	isArrival, _ := stripDirectionForSession(strip, session)
+	stage, ok := resolveRouteStage(strip, session, sector, buildRouteOwnership(owners), nil, radio, isArrival)
+	if !ok || stage.Owner == owner {
+		return errors.New("requested next controller is not available")
+	}
+	nextOwners := []string{stage.Owner}
+	rows, err := s.stripRepo.SetNextControllerSelection(ctx, sessionID, callsign, owner, sector, nextOwners, stage.Display)
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return errors.New("cannot change next controller: ownership changed or coordination is pending")
+	}
+	strip.NextControllerSector = &sector
+	strip.NextOwners = nextOwners
+	strip.NextDisplay = cloneNextDisplay(stage.Display)
+	s.frontendHub.SendOwnersUpdate(sessionID, callsign, owner, nextOwners, strip.PreviousOwners, cloneNextDisplay(stage.Display))
+	return nil
+}
+
 func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error {
 	return s.UpdateRouteForStripContext(context.Background(), callsign, sessionId, sendUpdate)
 }
@@ -533,6 +582,14 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 		return computedRouteState{}, true, nil
 	}
 
+	if strip.NextControllerSector != nil {
+		stage, ok := resolveRouteStage(strip, session, *strip.NextControllerSector, buildRouteOwnership(owners), nil, radio, isArrival)
+		if ok && stage.Owner != currentOwner {
+			return computedRouteState{NextOwners: []string{stage.Owner}, NextDisplay: cloneNextDisplay(stage.Display)}, true, nil
+		}
+		return computedRouteState{}, true, nil
+	}
+
 	// Departures require a runway to compute a route.
 	if !isArrival && (strip.Runway == nil || *strip.Runway == "") {
 		slog.Debug("Skipping route recalculation for departure without runway",
@@ -792,12 +849,10 @@ func resolveRouteStage(
 		}, true
 	}
 
-	ownerSector := resolveConfiguredRouteSector(sector, strip, session)
-	owner, ok := resolveRouteSectorOwner(ownerSector, ownership.sectorToOwner, nil)
-	if !ok {
+	resolution := resolveOwnedHandoverTarget(sector, strip, session, ownership, radio)
+	if resolution == nil {
 		return resolvedRouteStage{}, false
 	}
-	resolution := resolveHandoverTargetForOwner(sector, owner, strip, session, ownership, radio)
 	return resolvedRouteStage{
 		Identifier:     resolution.Identifier,
 		Owner:          resolution.Owner,

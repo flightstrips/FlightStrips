@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/coordinationrequest"
 	"FlightStrips/internal/shared"
@@ -19,9 +20,11 @@ import (
 )
 
 func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventType, *Client]) {
+	handlers.Add(events.AMANRebuildArrivalSequenceType, handleAMANRebuildArrivalSequence)
 	handlers.Add(events.AMANMoveFlightType, handleAMANMoveFlight)
 	handlers.Add(events.AMANLockFlightType, handleAMANLockFlight)
 	handlers.Add(events.AMANUnlockFlightType, handleAMANUnlockFlight)
+	handlers.Add(events.AMANExpediteFlightType, handleAMANExpediteFlight)
 	handlers.Add(events.AMANDesequenceFlightType, handleAMANDesequenceFlight)
 	handlers.Add(events.AMANResumeFlightType, handleAMANResumeFlight)
 	handlers.Add(events.AMANRemoveFlightType, handleAMANRemoveFlight)
@@ -261,6 +264,12 @@ func handleAMANLockFlight(ctx context.Context, client *Client, message Message) 
 func handleAMANUnlockFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANUnlockFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.UnlockFlight(ctx, auth, aman.UnlockFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
+	})
+}
+
+func handleAMANExpediteFlight(ctx context.Context, client *Client, message Message) error {
+	return handleAMANFlightCommand(ctx, client, message, events.AMANExpediteFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.ExpediteFlight(ctx, auth, aman.ExpediteFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
@@ -647,4 +656,40 @@ func commandIDFromMessage(message Message) string {
 	}
 	_ = json.Unmarshal(message.Message, &value)
 	return value.Data.CommandID
+}
+
+func handleAMANRebuildArrivalSequence(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANRebuildArrivalSequenceMessage
+	if err := decodeAMANMessage(message, events.AMANRebuildArrivalSequenceType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	auth, err := client.hub.amanContext(client)
+	if err != nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
+	}
+	execution, err := client.hub.amanCommandService.RebuildArrivalSequence(ctx, auth, aman.RebuildArrivalSequenceCommand{Metadata: commandMetadata(wire.Data)})
+	publication := "published"
+	if err != nil {
+		var publicationErr *sequence.PublicationError
+		if !errors.As(err, &publicationErr) {
+			return rejectAMAN(ctx, client, wire.Data.CommandID, execution.CurrentRevision, err)
+		}
+		publication = "recovery_required"
+	}
+	outcome := aman.ArrivalSequenceRebuildOutcome{ReleaseOrder: []aman.Callsign{}, Diagnostics: []aman.RebuildDiagnostic{}}
+	if err := json.Unmarshal(execution.Outcome.Payload, &outcome); err != nil {
+		return err
+	}
+	if !execution.Changed || execution.Duplicate {
+		publication = "snapshot_required"
+	}
+	if (publication != "published") && client.hub.amanStateProvider != nil {
+		snapshot, snapshotErr := client.hub.amanStateProvider.CurrentAMANState(aman.WithSession(ctx, client.session), auth.Airport)
+		if snapshotErr == nil {
+			client.Enqueue(snapshot)
+			publication = "published"
+		}
+	}
+	client.Enqueue(events.AMANArrivalSequenceRebuiltEvent{Version: events.AMANWireVersion, Data: events.AMANArrivalSequenceRebuiltResult{CommandID: wire.Data.CommandID, Revision: uint64(execution.Outcome.Revision), Changed: execution.Changed, Duplicate: execution.Duplicate, PublicationStatus: publication, ArrivalSequenceRebuildOutcome: outcome}})
+	return nil
 }

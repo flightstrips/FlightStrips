@@ -20,6 +20,7 @@ const (
 	Token EventType = "token"
 
 	Initial            EventType = "initial"
+	MasterInfo         EventType = "master_info"
 	StripUpdate        EventType = "strip_update"
 	ControllerOnline   EventType = "controller_online"
 	ControllerUpdate   EventType = "controller_update"
@@ -57,16 +58,19 @@ const (
 	CoordinationTagRequestBroadcastType EventType = "coordination_tag_request_broadcast"
 	CoordinationForceAssumeResultType   EventType = "coordination_force_assume_result"
 
-	OwnersUpdate EventType = "owners_update"
+	OwnersUpdate         EventType = "owners_update"
+	NextControllerSelect EventType = "next_controller_select"
 
 	UpdateOrder EventType = "update_order"
 
 	LayoutUpdate = "layout_update"
 
-	Broadcast          EventType = "broadcast"
-	SendMessage        EventType = "send_message"
-	SendPrivateMessage EventType = "send_private_message"
-	MessageReceived    EventType = "message_received"
+	Broadcast              EventType = "broadcast"
+	SendMessage            EventType = "send_message"
+	SendPrivateMessage     EventType = "send_private_message"
+	SendFrequencyMessage   EventType = "send_frequency_message"
+	FrequencyMessageResult EventType = "frequency_message_result"
+	MessageReceived        EventType = "message_received"
 
 	CdmWait                EventType = "cdm_wait"
 	CdmData                EventType = "cdm_data"
@@ -80,8 +84,9 @@ const (
 
 	Marked EventType = "marked"
 
-	RunwayClearance    EventType = "runway_clearance"
-	RunwayConfirmation EventType = "runway_confirmation"
+	RunwayClearance      EventType = "runway_clearance"
+	RunwayConfirmation   EventType = "runway_confirmation"
+	ResetRunwayClearance EventType = "reset_runway_clearance"
 
 	PdcManualStateChange EventType = "pdc_manual_state_change"
 	PdcStateChange       EventType = "pdc_state_change"
@@ -206,6 +211,7 @@ type Strip struct {
 	FplType                   string                `json:"fpl_type"`
 	Language                  string                `json:"language"`
 	HasFP                     bool                  `json:"has_fp"`
+	FlightRules               string                `json:"flight_rules"`
 	ValidationStatus          *ValidationStatus     `json:"validation_status,omitempty"`
 	ClxValidation             *ClxValidation        `json:"clx_validation,omitempty"`
 	StandAssignment           *StandAssignmentEntry `json:"stand_assignment,omitempty"`
@@ -280,12 +286,15 @@ type SyncCoordination struct {
 }
 
 type InitialEvent struct {
+	MasterCallsign         string                  `json:"master_callsign"`
+	InboundDepartures      *InboundDeparturesEvent `json:"inbound_departures,omitempty"`
 	SessionID              int32                   `json:"session_id,omitempty"`
 	Contsollers            []Controller            `json:"controllers"`
 	Strips                 []Strip                 `json:"strips"`
 	TacticalStrips         []TacticalStripPayload  `json:"tactical_strips"`
 	Me                     Controller              `json:"me"`
 	Layout                 string                  `json:"layout"`
+	ResetLayout            string                  `json:"reset_layout"`
 	Airport                string                  `json:"airport"`
 	Callsign               string                  `json:"callsign"`
 	RunwaySetup            RunwayConfiguration     `json:"runway_setup"`
@@ -302,6 +311,13 @@ type InitialEvent struct {
 	StandBlocks            []StandBlockEntry       `json:"stand_blocks"`
 	Capabilities           FrontendCapabilities    `json:"capabilities"`
 }
+
+type MasterInfoEvent struct {
+	MasterCallsign string `json:"master_callsign"`
+}
+
+func (e MasterInfoEvent) GetType() EventType       { return MasterInfo }
+func (e MasterInfoEvent) Marshal() ([]byte, error) { return marshall(e) }
 
 // FrontendCapabilities contains server-derived permissions for the authenticated
 // frontend session. These are presentation hints only; command handlers must
@@ -596,6 +612,11 @@ type CoordinationTransferRequestEvent struct {
 	StartReqTransfer bool   `json:"start_req_transfer,omitempty"`
 }
 
+type NextControllerSelectEvent struct {
+	Callsign string `json:"callsign"`
+	Sector   string `json:"sector"`
+}
+
 type CoordinationTransferBroadcastEvent struct {
 	From     string `json:"from"`
 	To       string `json:"to"`
@@ -753,7 +774,8 @@ func (o UpdateOrderEvent) GetType() EventType {
 }
 
 type LayoutUpdateEvent struct {
-	Layout string `json:"layout"`
+	Layout      string `json:"layout,omitempty"`
+	ResetLayout string `json:"reset_layout,omitempty"`
 }
 
 func (l LayoutUpdateEvent) Marshal() ([]byte, error) {
@@ -780,6 +802,7 @@ func (l BroadcastEvent) GetType() EventType {
 type SendMessageEvent struct {
 	Text       string   `json:"text"`
 	Recipients []string `json:"recipients"`
+	Format     string   `json:"format,omitempty"`
 }
 
 type MessageReceivedEvent struct {
@@ -788,6 +811,7 @@ type MessageReceivedEvent struct {
 	Text        string   `json:"text"`
 	IsBroadcast bool     `json:"is_broadcast"`
 	Recipients  []string `json:"recipients"`
+	Format      string   `json:"format,omitempty"`
 }
 
 func (m MessageReceivedEvent) Marshal() ([]byte, error) {
@@ -867,6 +891,7 @@ func (c CdmDataBatchEvent) GetType() EventType {
 
 type CdmReadyEvent struct {
 	Callsign string `json:"callsign"`
+	Rea      bool   `json:"rea,omitempty"`
 }
 
 type CdmDeicePlatformUpdateEvent struct {
@@ -927,6 +952,18 @@ func (r RunwayConfirmationEvent) Marshal() ([]byte, error) {
 
 func (r RunwayConfirmationEvent) GetType() EventType {
 	return RunwayConfirmation
+}
+
+type ResetRunwayClearanceEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (r ResetRunwayClearanceEvent) Marshal() ([]byte, error) {
+	return marshall(r)
+}
+
+func (r ResetRunwayClearanceEvent) GetType() EventType {
+	return ResetRunwayClearance
 }
 
 type UpdateRunwayStatusAction struct {

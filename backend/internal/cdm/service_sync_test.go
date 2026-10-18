@@ -788,8 +788,8 @@ func TestSyncCdmData_MasterSession_KeepsFreshCtotWhenEobtNormalizationAlsoRuns(t
 	if got := valueOrEmpty(persisted.Tobt); got != "1005" {
 		t.Fatalf("expected requested TOBT to take precedence, got %q", got)
 	}
-	if got := valueOrEmpty(persisted.Ctot); got != "" {
-		t.Fatalf("expected obsolete automatic CTOT to be cleared, got %q", got)
+	if got := valueOrEmpty(persisted.Ctot); got != "1040" {
+		t.Fatalf("expected fresh vIFF CTOT to remain authoritative, got %q", got)
 	}
 	if persisted.TobtAutoSynced {
 		t.Fatalf("expected accepted vIFF TOBT to be authoritative, got %#v", persisted)
@@ -797,8 +797,8 @@ func TestSyncCdmData_MasterSession_KeepsFreshCtotWhenEobtNormalizationAlsoRuns(t
 	if !persisted.TobtManuallyConfirmed || valueOrEmpty(persisted.TobtSetBy) != "vIFF" {
 		t.Fatalf("expected accepted vIFF TOBT provenance, got %#v", persisted)
 	}
-	if got := valueOrEmpty(persisted.EcfmpID); got != "" {
-		t.Fatalf("expected obsolete automatic reason to be cleared, got %q", got)
+	if got := valueOrEmpty(persisted.EcfmpID); got != "REGUL" {
+		t.Fatalf("expected the fresh CTOT regulation reason to be retained, got %q", got)
 	}
 	if len(euroscopeHub.Eobts) != 1 {
 		t.Fatalf("expected one EuroScope EOBT sync-back, got %d", len(euroscopeHub.Eobts))

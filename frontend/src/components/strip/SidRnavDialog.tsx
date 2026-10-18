@@ -73,7 +73,7 @@ export function SidRnavDialog({
     }
   }, [open]);
 
-  const removeEnabled = rnavFault || capabilities === "NIL" || !capabilities;
+  const removeEnabled = rnavFault || capabilities !== "1";
   const shownSid = (pendingSid ?? currentSid).toUpperCase();
   const toggleRnav = (value: RnavCapability) => setPendingRnav(p => (p === value ? null : value));
 
@@ -144,8 +144,11 @@ export function SidRnavDialog({
 
         {rightButton(2, "VFR", () => setPendingSid("VFR"), shownSid === "VFR")}
         {rightButton(3, "SA 3000'", () => setPendingSid("SA 3000'"), shownSid === "SA 3000'")}
-        {rightButton(7, "NON RNAV", () => toggleRnav("NIL"), pendingRnav ? pendingRnav === "NIL" : capabilities === "NIL")}
-        {rightButton(8, "REMOVE NON RNAV", () => toggleRnav("1"), pendingRnav === "1", !removeEnabled)}
+        {rightButton(7, "NON RNAV", () => toggleRnav("NIL"), pendingRnav ? pendingRnav === "NIL" : capabilities !== "1")}
+        {rightButton(8, "REMOVE NON RNAV", () => {
+          setPendingRnav(null);
+          onSelectRnav("1");
+        }, false, !removeEnabled)}
 
         <button
           type="button"

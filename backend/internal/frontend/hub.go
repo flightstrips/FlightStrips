@@ -47,8 +47,9 @@ const (
 )
 
 type layoutUpdateMessage struct {
-	session   int32
-	layoutMap map[string]string
+	session        int32
+	layoutMap      map[string]string
+	resetLayoutMap map[string]string
 }
 
 type cidOnlineMessage struct {
@@ -147,6 +148,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.Move, handleMove)
 	handlers.Add(frontend.UpdateStripData, handleStripUpdate)
 	handlers.Add(frontend.CoordinationTransferRequestType, handleCoordinationTransferRequest)
+	handlers.Add(frontend.NextControllerSelect, handleNextControllerSelect)
 	handlers.Add(frontend.CoordinationAssumeRequestType, handleCoordinationAssumeRequest)
 	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
@@ -163,6 +165,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.Marked, handleMarked)
 	handlers.Add(frontend.RunwayClearance, handleRunwayClearance)
 	handlers.Add(frontend.RunwayConfirmation, handleRunwayConfirmation)
+	handlers.Add(frontend.ResetRunwayClearance, handleResetRunwayClearance)
 	handlers.Add(frontend.AcknowledgeUnexpectedChange, handleAcknowledgeUnexpectedChange)
 	handlers.Add(frontend.ActionCreateTacticalStrip, handleCreateTacticalStrip)
 	handlers.Add(frontend.ActionDeleteTacticalStrip, handleDeleteTacticalStrip)
@@ -174,6 +177,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.MissedApproachRequestType, handleMissedApproach)
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
 	handlers.Add(frontend.SendPrivateMessage, handleSendPrivateMessage)
+	handlers.Add(frontend.SendFrequencyMessage, handleSendFrequencyMessage)
 	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 	handlers.Add(frontend.UpdateRunwayStatus, handleUpdateRunwayStatus)
 	handlers.Add(frontend.AcknowledgeValidationStatus, handleAcknowledgeValidationStatus)
@@ -450,6 +454,12 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 		return
 	}
 	event.Capabilities.AMANFMP = hub.hasAMANFMPAuthority(client)
+	if provider, ok := hub.server.GetCdmService().(interface {
+		CurrentInboundDepartures(int32, string) frontend.InboundDeparturesEvent
+	}); ok {
+		snapshot := provider.CurrentInboundDepartures(client.session, client.airport)
+		event.InboundDepartures = &snapshot
+	}
 
 	if !client.Enqueue(event) {
 		return
@@ -553,8 +563,8 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		AircraftCategory:          helpers.ValueOrDefault(strip.AircraftCategory),
 		SpokenCallsign:            helpers.ValueOrDefault(strip.SpokenCallsign),
 		Stand:                     helpers.ValueOrDefault(strip.Stand),
-		Capabilities:              rnav.DeriveCapability(helpers.ValueOrDefault(strip.AircraftType), helpers.ValueOrDefault(strip.Remarks)),
-		CommunicationType:         helpers.ValueOrDefault(strip.CommunicationType),
+		Capabilities:              rnav.EffectiveCapability(helpers.ValueOrDefault(strip.AircraftType), helpers.ValueOrDefault(strip.Remarks)),
+		CommunicationType:         internalModels.NormalizeCommunicationType(helpers.ValueOrDefault(strip.CommunicationType)),
 		Bay:                       strip.Bay,
 		ReleasePoint:              helpers.ValueOrDefault(strip.ReleasePoint),
 		Version:                   strip.Version,
@@ -595,6 +605,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		IsManual:                  strip.IsManual,
 		PersonsOnBoard:            helpers.ValueOrDefault(strip.PersonsOnBoard),
 		FplType:                   helpers.ValueOrDefault(strip.FplType),
+		FlightRules:               strip.FlightRules,
 		Language:                  helpers.ValueOrDefault(strip.Language),
 		HasFP:                     strip.HasFP,
 		ValidationStatus:          mapValidationStatusToDTO(strip.ValidationStatus),
@@ -1432,7 +1443,7 @@ func (hub *Hub) SendSetHeadingEventWithStrip(session int32, callsign string, hea
 func (hub *Hub) SendCommunicationTypeEvent(session int32, callsign string, communicationType string) {
 	event := frontend.CommunicationTypeEvent{
 		Callsign:          callsign,
-		CommunicationType: communicationType,
+		CommunicationType: internalModels.NormalizeCommunicationType(communicationType),
 	}
 	hub.Broadcast(session, event)
 }
@@ -1568,8 +1579,12 @@ func mapNextDisplayToDTO(nextDisplay *internalModels.NextDisplay) *frontend.Next
 	}
 }
 
-func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
-	hub.layoutUpdates <- layoutUpdateMessage{session: session, layoutMap: layoutMap}
+func (hub *Hub) SendLayoutUpdates(session int32, layoutMap, resetLayoutMap map[string]string) {
+	hub.layoutUpdates <- layoutUpdateMessage{
+		session:        session,
+		layoutMap:      layoutMap,
+		resetLayoutMap: resetLayoutMap,
+	}
 }
 
 func (hub *Hub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) {
@@ -1591,6 +1606,10 @@ func (hub *Hub) SendCdmWait(session int32, callsign string) {
 	event := frontend.CdmWaitEvent{
 		Callsign: callsign,
 	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendInboundDepartures(session int32, event frontend.InboundDeparturesEvent) {
 	hub.Broadcast(session, event)
 }
 
@@ -1829,8 +1848,16 @@ func (hub *Hub) Run(ctx context.Context) {
 			started := time.Now()
 			fanout := 0
 			for client := range hub.clients {
-				if layout, ok := msg.layoutMap[client.position]; client.session == msg.session && ok {
-					client.Enqueue(frontend.LayoutUpdateEvent{Layout: layout})
+				if client.session != msg.session {
+					continue
+				}
+				layout, hasLayout := msg.layoutMap[client.position]
+				resetLayout, hasResetLayout := msg.resetLayoutMap[client.position]
+				if hasLayout || hasResetLayout {
+					client.Enqueue(frontend.LayoutUpdateEvent{
+						Layout:      layout,
+						ResetLayout: resetLayout,
+					})
 					fanout++
 				}
 			}

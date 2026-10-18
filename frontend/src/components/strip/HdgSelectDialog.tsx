@@ -1,14 +1,32 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { CSSProperties } from "react";
-import { scalePx, toDvh, toVw } from "@/lib/viewportScale";
+import { toDvh, toVw } from "@/lib/viewportScale";
 
-// Pre-defined headings from HDG.svg (360, 090, 120, 300, 040, 220) in 2-column layout
-const HDG_PRESETS = [360, 90, 120, 300, 40, 220];
+export type HdgTurnDirection = "left" | "right";
+
+const SA_HEADINGS: Record<string, number> = {
+  "04": 27,
+  "12": 119,
+  "22": 217,
+  "30": 299,
+};
+const HEADING_PRESETS: { label: string; heading: number; direction: HdgTurnDirection }[] = [
+  { label: "LT350", heading: 350, direction: "left" },
+  { label: "LT360", heading: 360, direction: "left" },
+  { label: "RT090", heading: 90, direction: "right" },
+];
+const KEYPAD_ROWS = [
+  ["LT", "SA", "RT"],
+  ["7", "8", "9"],
+  ["4", "5", "6"],
+  ["1", "2", "3"],
+  ["0", "00"],
+];
 
 const RAISED: CSSProperties = {
   border: "2px solid",
@@ -23,88 +41,98 @@ const INSET: CSSProperties = {
   boxSizing: "border-box",
 };
 const dialogContentClassName = "max-w-none max-h-none gap-0 overflow-hidden p-0 [&>button]:hidden";
-
 const panelStyle: CSSProperties = {
-  marginLeft: toVw(15),
-  marginRight: toVw(15),
-  marginTop: toDvh(18),
+  margin: `${toDvh(16)} ${toVw(14)}`,
   border: "1px solid black",
+  padding: `${toDvh(12)} ${toVw(18)}`,
   display: "flex",
   flexDirection: "column",
   justifyContent: "space-between",
 };
-
-const gridStyle: CSSProperties = {
+const topRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, 1fr)",
-  justifyItems: "center",
-  columnGap: toVw(32),
-  rowGap: toDvh(15),
-  padding: `${toDvh(20)} ${scalePx(20)} ${toDvh(12)}`,
+  gridTemplateColumns: "1fr 1.2fr 1fr",
+  gap: toVw(9),
+  alignItems: "center",
 };
-
-const hdgButtonStyle: CSSProperties = {
-  width: toVw(99),
-  height: toDvh(54),
-  color: "black",
-  fontWeight: 600,
-  fontSize: toVw(28),
+const topButtonStyle: CSSProperties = {
+  height: toDvh(70),
+  background: "#3F3F3F",
+  color: "white",
+  fontWeight: 700,
+  fontSize: toVw(26),
   ...RAISED,
-  outline: "none",
   borderRadius: 0,
 };
-
-const customInputStyle: CSSProperties = {
+const entryStyle: CSSProperties = {
   width: "100%",
-  height: toDvh(54),
+  height: toDvh(70),
   background: "#FDFDFD",
   color: "black",
   fontWeight: 600,
-  fontSize: toVw(28),
+  fontSize: toVw(34),
   textAlign: "center",
   ...INSET,
   outline: "none",
   borderRadius: 0,
-  marginTop: scalePx(16),
-  marginBottom: scalePx(16),
 };
-
-const bottomRowStyle: CSSProperties = {
-  display: "flex",
+const entryAreaStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "3fr 1fr",
+  gap: toVw(14),
   alignItems: "center",
-  justifyContent: "space-around",
-  padding: `${toDvh(8)} ${toVw(24)} ${toDvh(24)}`,
+  flex: 1,
 };
-
-const bottomButtonStyle: CSSProperties = {
-  width: toVw(99),
-  height: toDvh(54),
-  background: "#3F3F3F",
-  color: "white",
-  fontWeight: 600,
-  fontSize: toVw(23.8),
+const keypadStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: `${toDvh(10)} ${toVw(12)}`,
+  padding: `${toDvh(18)} ${toVw(4)}`,
+};
+const keyStyle: CSSProperties = {
+  height: toDvh(68),
+  background: "#D6D6D6",
+  color: "black",
+  fontWeight: 700,
+  fontSize: toVw(28),
   ...RAISED,
-  outline: "none",
   borderRadius: 0,
 };
-
-function formatHdg(n: number): string {
-  return n.toString().padStart(3, "0");
-}
-
-/** Returns 0–360 if valid, otherwise undefined. Empty string is invalid. */
-function parseHdg(s: string): number | undefined {
-  if (s.trim() === "") return undefined;
-  const n = parseInt(s, 10);
-  if (Number.isNaN(n) || n < 0 || n > 360) return undefined;
-  return n;
-}
+const presetColumnStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: toDvh(10),
+};
+const presetButtonStyle: CSSProperties = {
+  ...keyStyle,
+  height: toDvh(68),
+  paddingInline: toVw(5),
+  fontSize: toVw(18),
+};
+const footerStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  padding: `${toDvh(12)} ${toVw(18)} ${toDvh(8)}`,
+};
+const footerButtonStyle: CSSProperties = {
+  width: toVw(140),
+  height: toDvh(68),
+  background: "#3F3F3F",
+  color: "white",
+  fontWeight: 700,
+  fontSize: toVw(28),
+  ...RAISED,
+  borderRadius: 0,
+};
 
 interface HdgSelectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   value: number | undefined | null;
   onSelect: (heading: number | undefined) => void;
+  runway?: string;
+  turnDirection?: HdgTurnDirection;
+  onTurnDirectionChange?: (direction: HdgTurnDirection | undefined) => void;
 }
 
 export function HdgSelectDialog({
@@ -112,118 +140,135 @@ export function HdgSelectDialog({
   onOpenChange,
   value,
   onSelect,
+  runway,
+  turnDirection,
+  onTurnDirectionChange,
 }: HdgSelectDialogProps) {
-  const currentHdg = value && value > 0 ? value : undefined;
-  const [customInput, setCustomInput] = useState("");
-  const [customInvalid, setCustomInvalid] = useState(false);
-  const [prevOpen, setPrevOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [entry, setEntry] = useState("");
+  const [pendingTurnDirection, setPendingTurnDirection] = useState<HdgTurnDirection>();
 
-  if (prevOpen !== open) {
-    setPrevOpen(open);
+  useEffect(() => {
     if (open) {
-      const presetMatch = HDG_PRESETS.includes(currentHdg ?? -1);
-      setCustomInput(
-        currentHdg != null && !presetMatch ? formatHdg(currentHdg) : ""
-      );
-      setCustomInvalid(false);
+      setEntry(value != null && value > 0 ? String(value).padStart(3, "0") : "");
+      setPendingTurnDirection(turnDirection);
+    }
+  }, [open, value, turnDirection]);
+
+  function append(valueToAdd: string) {
+    setEntry((current) => `${current}${valueToAdd}`.slice(0, 3));
+  }
+
+  function handleKey(key: string) {
+    if (key === "LT") {
+      setPendingTurnDirection("left");
+    } else if (key === "RT") {
+      setPendingTurnDirection("right");
+    } else if (key === "SA") {
+      const runwayNumber = runway?.match(/^\s*(04|12|22|30)/)?.[1];
+      const heading = runwayNumber ? SA_HEADINGS[runwayNumber] : undefined;
+      if (heading != null) {
+        setEntry(String(heading).padStart(3, "0"));
+        setPendingTurnDirection(undefined);
+      }
+    } else if (key === "00" || /^\d$/.test(key)) {
+      append(key);
     }
   }
 
-  // Focus input when dialog opens
-  useEffect(() => {
-    if (open) {
-      const presetMatch = HDG_PRESETS.includes(currentHdg ?? -1);
-      if (currentHdg == null || presetMatch) {
-        inputRef.current?.focus();
-      }
-    }
-  }, [open, currentHdg]);
-
-  function handleSelect(hdg: number) {
-    onSelect(hdg);
+  function handleSubmit() {
+    const heading = entry ? Number(entry) : undefined;
+    if (heading != null && heading > 360) return;
+    onTurnDirectionChange?.(pendingTurnDirection);
+    onSelect(heading);
     onOpenChange(false);
   }
 
   function handleErase() {
-    onSelect(undefined);
-    onOpenChange(false);
-  }
-
-  function handleCustomSubmit() {
-    const parsed = parseHdg(customInput.trim());
-    if (parsed != null) {
-      setCustomInvalid(false);
-      onSelect(parsed);
-      onOpenChange(false);
-    } else {
-      setCustomInvalid(customInput.trim() !== "");
-    }
+    setEntry("");
+    setPendingTurnDirection(undefined);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={dialogContentClassName}
-        style={{ width: toVw(300), backgroundColor: "#B3B3B3", border: "1px solid black" }}
+        style={{ width: toVw(600), height: toDvh(680), backgroundColor: "#B3B3B3", border: "1px solid black" }}
       >
         <DialogTitle className="sr-only">Select heading</DialogTitle>
         <div style={panelStyle}>
-          <div style={gridStyle}>
-            {HDG_PRESETS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                className="active:brightness-95"
-                style={{ ...hdgButtonStyle, background: currentHdg === h ? "#1BFF16" : "#D6D6D6" }}
-                onClick={() => handleSelect(h)}
-              >
-                {formatHdg(h)}
-              </button>
-            ))}
-          </div>
-          <div style={{ paddingInline: scalePx(20) }}>
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={3}
-              placeholder="000–360"
-              value={customInput}
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, "").slice(0, 3);
-                setCustomInput(v);
-                setCustomInvalid(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCustomSubmit();
-              }}
-              style={{
-                ...customInputStyle,
-                fontFamily: "var(--font-bay)",
-                ...(customInvalid ? { borderColor: "#b91c1c", boxShadow: "0 0 0 1px #b91c1c" } : {}),
-              }}
-              aria-invalid={customInvalid}
-              aria-describedby={customInvalid ? "hdg-custom-error" : undefined}
-            />
-            {customInvalid && (
-              <p id="hdg-custom-error" className="text-red-700 text-center" style={{ fontSize: scalePx(14), marginTop: scalePx(4) }}>
-                Enter 000–360
-              </p>
-            )}
-          </div>
-          <div style={bottomRowStyle}>
-            <button type="button" className="active:brightness-90" style={bottomButtonStyle} onClick={handleErase}>
+          <div style={topRowStyle}>
+            <button type="button" className="active:brightness-90" style={topButtonStyle} onClick={handleErase}>
               ERASE
+            </button>
+            <input
+              aria-label="Heading"
+              inputMode="numeric"
+              readOnly
+              value={entry}
+              style={{ ...entryStyle, fontFamily: "var(--font-bay)" }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") handleSubmit();
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Backspace"
+              className="active:brightness-90"
+              style={topButtonStyle}
+              onClick={() => setEntry((current) => current.slice(0, -1))}
+            >
+              &lt;--
+            </button>
+          </div>
+          <div style={entryAreaStyle}>
+            <div style={keypadStyle}>
+              {KEYPAD_ROWS.flatMap((row) =>
+                row.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="active:brightness-95"
+                    style={{ ...keyStyle, ...(key === "00" ? { gridColumn: "span 2" } : {}) }}
+                    onClick={() => handleKey(key)}
+                  >
+                    {key}
+                  </button>
+                )),
+              )}
+            </div>
+            <div style={presetColumnStyle}>
+              {HEADING_PRESETS.map(({ label, heading, direction }) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="active:brightness-95"
+                  style={presetButtonStyle}
+                  onClick={() => {
+                    setEntry(String(heading).padStart(3, "0"));
+                    setPendingTurnDirection(direction);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={footerStyle}>
+            <button
+              type="button"
+              className="active:brightness-90"
+              style={footerButtonStyle}
+              onClick={() => onOpenChange(false)}
+            >
+              ESC
             </button>
             <button
               type="button"
               className="active:brightness-90"
-              style={bottomButtonStyle}
-              onClick={() => onOpenChange(false)}
+              style={footerButtonStyle}
+              onClick={handleSubmit}
             >
-              ESC
+              OK
             </button>
           </div>
         </div>

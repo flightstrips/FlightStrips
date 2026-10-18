@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { assignmentTimelineTiming, timelineRangeEnd } from "./stand-status-timeline";
+import { describe, expect, it, vi } from "vitest";
+import { assignmentTimelineTiming, formatTimelineTimestamp, timelineRangeEnd } from "./stand-status-timeline";
 
 describe("stand status timeline", () => {
   it("ends an active departure at its future planned release", () => {
@@ -60,5 +60,14 @@ describe("stand status timeline", () => {
     const now = new Date("2026-08-10T17:00:00Z");
 
     expect(timelineRangeEnd(now).toISOString()).toBe("2026-08-10T19:00:00.000Z");
+  });
+
+  it("formats timeline timestamps explicitly in UTC", () => {
+    const toLocaleString = vi.spyOn(Date.prototype, "toLocaleString").mockReturnValue("15 Oct, 12:00:00");
+
+    expect(formatTimelineTimestamp("2026-10-15T12:00:00Z")).toBe("15 Oct, 12:00:00");
+    expect(toLocaleString).toHaveBeenCalledWith([], expect.objectContaining({ timeZone: "UTC" }));
+
+    toLocaleString.mockRestore();
   });
 });

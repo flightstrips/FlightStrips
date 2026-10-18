@@ -1,3 +1,4 @@
+import { requireAccessToken } from "@/lib/authenticated-fetch";
 import {
   useCallback,
   useEffect,
@@ -194,7 +195,7 @@ export default function PilotFlightPage() {
 
   const authorizedFetch = useCallback(
     async (path: string, init?: RequestInit) => {
-      const token = await getAccessTokenSilently();
+      const token = requireAccessToken(await getAccessTokenSilently());
       const response = await fetch(getApiUrl(path), {
         ...init,
         headers: {

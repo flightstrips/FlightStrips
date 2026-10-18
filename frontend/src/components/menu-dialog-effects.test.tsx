@@ -7,6 +7,9 @@ import { MENU_BUTTON_BEVEL, MENU_INPUT_BEVEL } from "./ui/menuControlStyle";
 const actions = vi.hoisted(() => ({
   createTacticalStrip: vi.fn(),
   sendMessage: vi.fn(),
+  controllers: [{ callsign: "EKCH_A_GND", position: "121.630", identifier: "AA", section: "GND", owned_sectors: ["AA"] }],
+  position: "119.905",
+  callsign: "EKCH_DEL",
 }));
 
 vi.mock("@/store/store-hooks", () => ({
@@ -20,10 +23,11 @@ function expectControlBevels() {
     expect(button.style.borderTopColor).toBe("rgb(206, 206, 206)");
     expect(button.style.borderRightColor).toBe("rgb(57, 57, 57)");
   }
-  const input = screen.getByRole("textbox");
-  expect(input.style.boxShadow).toBe(MENU_INPUT_BEVEL.boxShadow);
-  expect(input.style.borderTopColor).toBe("rgb(57, 57, 57)");
-  expect(input.style.borderRightColor).toBe("rgb(206, 206, 206)");
+  for (const input of screen.getAllByRole("textbox")) {
+    expect(input.style.boxShadow).toBe(MENU_INPUT_BEVEL.boxShadow);
+    expect(input.style.borderTopColor).toBe("rgb(57, 57, 57)");
+    expect(input.style.borderRightColor).toBe("rgb(206, 206, 206)");
+  }
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -49,15 +53,15 @@ describe("menu dialog bevels", () => {
     fireEvent.click(screen.getByRole("button", { name: "CLOSING POSITION SOON" }));
     expectControlBevels();
     fireEvent.click(screen.getByRole("button", { name: "OK" }));
-    expect(actions.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", ["APRON ARR"]);
+    expect(actions.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", ["APRON ARR"], "AUTO");
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("preserves MESSAGES erase behavior", () => {
+  it("erases the last word of the composed message", () => {
     render(<MessageComposeDialog open onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "CLOSING POSITION SOON" }));
-    fireEvent.click(screen.getByRole("button", { name: "ERASE" }));
-    expect(screen.getByRole("textbox")).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: "Erase last word" }));
+    expect(screen.getByRole("textbox", { name: "Message to send" })).toHaveValue("CLOSING POSITION");
     expect(actions.sendMessage).not.toHaveBeenCalled();
   });
 });

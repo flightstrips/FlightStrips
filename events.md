@@ -1,5 +1,74 @@
 # Events
 
+## Frontend messages
+
+`send_message` carries `text`, `recipients` (configured area names; an empty
+array means broadcast), and optional `format`: `AUTO`, `SMALL`, or `LARGE`.
+`message_received` carries the same fields plus `id`, `sender`, and
+`is_broadcast`. Format is retained in the session message history and initial
+snapshot. Missing format is equivalent to `AUTO`: a single targeted recipient
+uses large text; broadcast and multiple recipients use small text. Explicit
+`SMALL` or `LARGE` overrides recipient-based sizing.
+
+Targeted areas resolve to an online operational controller at the area's primary
+configured frequency, or otherwise to the current owner of its sector. Ground
+west coverage includes both `GWA` and `GWD`. Static fallback positions without
+the selected area's coverage do not receive the message. Observers are excluded;
+the sender also receives a copy.
+
+## Frontend next-controller selection
+
+`next_controller_select` accepts `callsign` and `sector` (`AA`, `GE`, `GW`,
+`TE`, or `TW`). The strip must be assumed by the sender, unlocked, and have
+no pending coordination. The backend resolves the selected sector through
+normal routing and radio coverage, persists it, and broadcasts `owners_update`
+with the updated SI target and frequency. This does not create coordination,
+change ownership, move the strip, or initiate a EuroScope handover.
+The selection survives route recalculation and reconnects, and clears when
+ownership changes. Selecting an unavailable target is rejected without
+changing the existing SI. If a selected target later goes offline, SI becomes
+blank until that sector is available again.
+
+## Frontend flight-plan REA
+
+`cdm_ready` accepts optional `rea: true` for the flight-plan REA control. This
+uses the normal persisted ready/status flow, but changes TOBT to current UTC
+only if the effective TOBT is more than six minutes in the past or future.
+TOBT within six minutes of now is unchanged. Without `rea`, the
+existing READY timing policy is unchanged. The returned CDM `status: "REA"`
+drives the flight-plan indication.
+
+## Text pilot frequency messages
+
+Frontend sends `send_frequency_message` with `request_id`, `callsign`, `message`,
+optional `actions`, `clearance` and `prepare`. `actions` is an ordered batch of
+existing operational events for the same aircraft. `clearance` generates text
+from the accepted strip. `prepare` accepts one stand/runway action and returns
+its state without sending text.
+
+```json
+{
+  "type": "send_frequency_message",
+  "request_id": "unique-request-id",
+  "callsign": "SAS123",
+  "message": "Taxi via TWY A, Hold short of TWY B.",
+  "actions": [{"type": "release_point", "callsign": "SAS123", "release_point": "A/B"}]
+}
+```
+
+The frontend receives `frequency_message_result`: `request_id`, `callsign`,
+`submitted`, `error` and `applied_actions`. Preparation responses also contain
+`prepared`, `stand` and `runway_confirmed`. `submitted` confirms EuroScope command
+consumption, not pilot receipt. Partial action counts prevent retrying accepted
+operations. No automatic text resend occurs after timeout or reconnect.
+
+EuroScope advertises token capability `frequency_messages` (protobuf field 3).
+Backend sends protobuf `SEND_FREQUENCY_MESSAGE` (54), including the controller's
+`primary_frequency`; the plugin responds with `FREQUENCY_MESSAGE_RESULT` (55).
+These events route to the same session/CID/position, never the session master.
+See the [behavior and acceptance specification](.github/specs/text-pilot-support.md).
+
+
 ## Frontend CDM de-icing platform
 
 Sent by: Frontend
@@ -28,6 +97,24 @@ EKCH:22R:<polygon coordinates>:11,2,3,5
 
 Here the base taxi time is 11 minutes; the extra times are 2 minutes for A,
 3 minutes for B, and 5 minutes for V.
+
+## Frontend RWY ARR landing clearance
+
+Sent by: Frontend
+
+Clears both runway-clearance flags for an aircraft in RWY ARR. Requests outside
+RWY ARR or while the strip has a blocking validation are rejected.
+
+```json
+{
+    "type": "reset_runway_clearance",
+    "callsign": "SAS123"
+}
+```
+
+The existing `runway_confirmation` event restores both flags in RWY ARR,
+including after a reset, unless another RWY ARR aircraft already has a confirmed
+clearance. The server broadcasts the updated strip after a successful change.
 
 ## Authentication event
 
@@ -334,6 +421,17 @@ a withdrawal of the retained backend EAT without changing the live clearance.
 Sent by: EuroScope
 
 Strip update
+
+The protobuf strip payload includes `flight_rules` (field 34), containing the filed
+`I` (IFR) or `V` (VFR) value from EuroScope. The same field is included in frontend
+strip snapshots and updates. CONTROLZONE FIND uses `V` to list filed VFR flights,
+not squawk, route, or remarks. Older plugins omit this field; an existing stored
+value is preserved until an authoritative flight-rules update is received.
+
+If the stored value is still empty, VATSIM may backfill known flight rules even
+when an older plugin has supplied a newer EuroScope observation. This does not
+override known rules from a newer EuroScope observation or controller-protected
+fields, and an empty VATSIM value never clears known rules.
 
 ```json
 {

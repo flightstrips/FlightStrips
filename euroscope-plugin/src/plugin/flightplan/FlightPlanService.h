@@ -66,6 +66,7 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
     [[nodiscard]] std::string ResolveSpokenCallsign(const std::string& callsign, const std::string& remarks) const;
     static std::optional<std::string> NormalizeDirectToFix(const char* fix);
     static std::string CurrentUtcTimestamp();
+    static std::string ResolveCommunicationType(char filed, char assigned);
     static std::string FiledEnrouteDuration(const char* hours, const char* minutes);
 private:
 

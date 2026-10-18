@@ -145,6 +145,48 @@ func (s *StripService) nextSequenceAtEndOfBay(ctx context.Context, session int32
 	return order, nil
 }
 
+type rwyArrRunwayStatusSetter interface {
+	SetRwyArrRunwayStatusOnEntry(ctx context.Context, session int32, callsign string) (int64, error)
+}
+
+func (s *StripService) updateRwyArrClearanceOnMove(
+	ctx context.Context,
+	session int32,
+	callsign string,
+	previousBay string,
+	targetBay string,
+	wasRunwayCleared bool,
+) (bool, error) {
+	if previousBay == targetBay || previousBay == "" {
+		return false, nil
+	}
+	if targetBay == shared.BAY_RWY_ARR {
+		setter, ok := s.fieldStore.(rwyArrRunwayStatusSetter)
+		if !ok {
+			return false, errors.New("RWY ARR runway status store is not configured")
+		}
+		affected, err := setter.SetRwyArrRunwayStatusOnEntry(ctx, session, callsign)
+		if err != nil {
+			return false, fmt.Errorf("failed to initialize RWY ARR runway status: %w", err)
+		}
+		if affected != 1 {
+			return false, errors.New("failed to initialize RWY ARR runway status")
+		}
+		return true, nil
+	}
+	if previousBay == shared.BAY_RWY_ARR && wasRunwayCleared {
+		affected, err := s.fieldStore.ResetRunwayClearance(ctx, session, callsign)
+		if err != nil {
+			return false, fmt.Errorf("failed to reset RWY ARR runway status: %w", err)
+		}
+		if affected != 1 {
+			return false, errors.New("failed to reset RWY ARR runway status")
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
 func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign string, bay string, sendNotification bool) error {
 	strip, stripAvailable, err := s.getStripForMoveToBay(ctx, session, callsign)
 	if err != nil {
@@ -204,6 +246,18 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		if err := s.updateStripSequence(ctx, session, callsign, order, bay, sendNotification); err != nil {
 			return err
 		}
+	}
+
+	wasRunwayCleared := strip != nil && strip.RunwayCleared
+	updatedRwyArrStatus := false
+	if ctx.Value(frontendMoveRwyArrTransitionHandledKey{}) != true {
+		updatedRwyArrStatus, err = s.updateRwyArrClearanceOnMove(ctx, session, callsign, previousBay, bay, wasRunwayCleared)
+		if err != nil {
+			return err
+		}
+	}
+	if updatedRwyArrStatus {
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	}
 
 	if bay == shared.BAY_PUSH && previousBay != shared.BAY_PUSH && strip != nil && ctx.Value(pushbackTransitionLoggedContextKey{}) != true {
@@ -306,6 +360,15 @@ func (s *StripService) resolveRefSequence(ctx context.Context, session int32, ba
 // insertAfter = nil → move to top of bay (no predecessor).
 // insertAfter = X   → move immediately after X (X is the predecessor).
 func (s *StripService) MoveStripBetween(ctx context.Context, session int32, callsign string, insertAfter *frontend.StripRef, bay string) error {
+	previousBay := ""
+	strip, stripAvailable, err := s.getStripForMoveToBay(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if stripAvailable && strip != nil {
+		previousBay = strip.Bay
+	}
+
 	var prev int32
 	if insertAfter != nil {
 		seq, err := s.resolveRefSequence(ctx, session, bay, insertAfter)
@@ -346,6 +409,14 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 		if err := s.recalculateAllStripSequences(ctx, session, bay); err != nil {
 			return err
 		}
+		wasRunwayCleared := strip != nil && strip.RunwayCleared
+		updatedRwyArrStatus, err := s.updateRwyArrClearanceOnMove(ctx, session, callsign, previousBay, bay, wasRunwayCleared)
+		if err != nil {
+			return err
+		}
+		if updatedRwyArrStatus {
+			shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+		}
 		if landingClearanceValidationRelevantBay(bay) {
 			return s.ReevaluateLandingClearanceValidationsForSession(ctx, session, true, false)
 		}
@@ -356,6 +427,14 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 	}
 	if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, bay); err != nil {
 		return err
+	}
+	wasRunwayCleared := strip != nil && strip.RunwayCleared
+	updatedRwyArrStatus, err := s.updateRwyArrClearanceOnMove(ctx, session, callsign, previousBay, bay, wasRunwayCleared)
+	if err != nil {
+		return err
+	}
+	if updatedRwyArrStatus {
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	}
 	if landingClearanceValidationRelevantBay(bay) {
 		return s.ReevaluateLandingClearanceValidationsForSession(ctx, session, true, false)

@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import type { StripProps } from "./types";
@@ -11,6 +12,9 @@ import { ApronTaxiMapDialog } from "../map-dialogs/ApronTaxiMapDialog";
 import { SIBox } from "./SIBox";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
+import { Bay } from "@/api/models";
+import { getRwyArrRunwayColor } from "./finalArrRunwayColor";
+import {InboundCtotFlag} from "./InboundCtotFlag";
 
 // Height: 4.72dvh (51px at 1080p), matches FinalArrStrip ATC arrival strip spec
 const TOP_H = "66.6667%";
@@ -34,6 +38,7 @@ const F_STAND    = 80;
  * Background: yellow (var(--color-strip-arr-bg)).
  */
 export function ApnArrStrip({
+  communicationType,
   callsign,
   bay,
   aircraftType,
@@ -55,6 +60,8 @@ export function ApnArrStrip({
   isManual = false,
   arrival,
   pdcStatus,
+  runwayCleared = false,
+  runwayConfirmed = false,
 }: StripProps) {
   const {
     isSelected,
@@ -76,6 +83,8 @@ export function ApnArrStrip({
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
+  const resetRunwayClearance = useWebSocketStore(s => s.resetRunwayClearance);
   const satEnabled = useWebSocketStore(s => s.satEnabled);
   const satAssignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
   const acknowledgeStandAssignment = useWebSocketStore(s => s.acknowledgeStandAssignment);
@@ -84,8 +93,13 @@ export function ApnArrStrip({
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
-  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const runwayBg = runwayYellow
+    ? COLOR_UNEXPECTED_YELLOW
+    : bay === Bay.RwyArr
+      ? getRwyArrRunwayColor({ runwayCleared, runwayConfirmed })
+      : undefined;
 
   return (
     <>
@@ -95,7 +109,6 @@ export function ApnArrStrip({
         height: "4.72dvh",
         width: "95%",
         backgroundColor: bg,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >
@@ -122,6 +135,7 @@ export function ApnArrStrip({
       >
         <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
           <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: manualBlue }}>{callsign}</span>
+          <InboundCtotFlag callsign={callsign} />
         </div>
         <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
           <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>{nextFreq}</span>
@@ -141,10 +155,17 @@ export function ApnArrStrip({
       {/* RWY */}
       <div
         className="flex flex-col overflow-hidden border-r-2 min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+        style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: runwayBg, cursor: getValidationBlockedCursor(isValidationActive) }}
         onClick={(e) => guardValidationAction(e, () => {
           if (runwayYellow) {
             acknowledgeUnexpectedChange(callsign, "runway");
+          } else if (bay === Bay.RwyArr) {
+            if (!isAssumed) return;
+            if (runwayCleared && runwayConfirmed) {
+              resetRunwayClearance(callsign);
+            } else {
+              runwayConfirmation(callsign);
+            }
           } else {
             setRunwayOpen(true);
           }
@@ -170,7 +191,7 @@ export function ApnArrStrip({
 
       {/* Stand */}
       <div
-        className="flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
+        className="relative flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
         style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%", backgroundColor: satStandStyle.backgroundColor ?? (standYellow ? COLOR_UNEXPECTED_YELLOW : undefined), cursor: getValidationBlockedCursor(isValidationActive) }}
         title={satStandStyle.blocked ? satAssignment?.conflict_reason : undefined}
         onClick={(e) => guardValidationAction(e, () => {
@@ -182,6 +203,7 @@ export function ApnArrStrip({
           setStandOpen(true);
         })}
       >
+        <TextPilotIndicator divider={false} type={communicationType} borderColor={cellBorderColor} />
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: satStandStyle.color ?? getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
         </div>

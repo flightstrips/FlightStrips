@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/helpers"
 
@@ -151,18 +152,21 @@ func (c *ActionService) PrepareEuroscopeEobtSync(session int32, data *models.Cdm
 	return prepared.updated, prepared.normalizedEobt, prepared.clamped
 }
 
-// PrepareEuroscopeLogonSync initializes matching EOBT/TOBT values. An explicit
-// estimate from a pilot or controller remains authoritative and may differ.
+// PrepareEuroscopeLogonSync applies the initial logon threshold to the filed
+// estimate, including a pilot- or controller-confirmed TOBT.
 func (c *ActionService) PrepareEuroscopeLogonSync(data *models.CdmData, eobt string, now time.Time) *models.CdmData {
 	updated := data.Clone()
 	eobt = truncateCDMClockValue(normalizeCalculationClock(eobt))
 	updated.Eobt = &eobt
-	if isExplicitlyConfirmedTobt(updated) {
-		return updated
-	}
 	tobt := eobt
+	if isExplicitlyConfirmedTobt(updated) {
+		tobt = normalizeCalculationClock(helpers.ValueOrDefault(updated.EffectiveTobt()))
+		if _, valid := parseClock(tobt); !valid || minutesBetween(timeToClock(now), tobt) <= 40 {
+			return updated
+		}
+	}
 	adjusted := false
-	if _, valid := parseClock(eobt); valid && minutesBetween(timeToClock(now), toHHMMSS(eobt)) > 40 {
+	if _, valid := parseClock(tobt); valid && minutesBetween(timeToClock(now), toHHMMSS(tobt)) > 40 {
 		tobt = truncateCDMClockValue(addMinutes(timeToClock(now), 30))
 		adjusted = true
 	}
@@ -202,7 +206,7 @@ func (c *ActionService) HandleClearanceTobt(ctx context.Context, session int32, 
 }
 
 func clearanceTobt(data *models.CdmData, now time.Time) (string, bool) {
-	if data == nil || isExplicitlyConfirmedTobt(data) {
+	if data == nil {
 		return "", false
 	}
 	current := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTobt()))
@@ -522,7 +526,7 @@ func (c *ActionService) HandleManualCtot(ctx context.Context, session int32, cal
 	updated.Ctot = &ctot
 	src := models.CtotSourceManual
 	updated.CtotSource = &src
-	updated.MarkLocalRecalculationPending()
+	updated.MarkCtotRecalculationPending()
 
 	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
@@ -555,7 +559,7 @@ func (c *ActionService) HandleCtotRemove(ctx context.Context, session int32, cal
 	updated := cdmData.Clone()
 	updated.Ctot = nil
 	updated.CtotSource = nil
-	updated.MarkLocalRecalculationPending()
+	updated.MarkCtotRecalculationPending()
 
 	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
@@ -566,13 +570,62 @@ func (c *ActionService) HandleCtotRemove(ctx context.Context, session int32, cal
 }
 
 func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	return c.handleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole, readyRequestTobt)
+}
+
+func (c *ActionService) HandleReadyTransfer(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string, allowOverride bool) error {
+	s := c.service
+	strip, data, err := c.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil || strip == nil || data == nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	tobt, autoUpdate, outsideWindow := readyTransferTobt(data, now)
+	tsat := helpers.ValueOrDefault(data.EffectiveTsat())
+	chooseTobt := func(current *models.CdmData, at time.Time) (string, bool) {
+		tobt, autoUpdate, outsideWindow = readyTransferTobt(current, at)
+		return tobt, autoUpdate
+	}
+	if err := c.handleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole, chooseTobt); err != nil {
+		return err
+	}
+
+	if autoUpdate {
+		if s.sequenceService == nil {
+			return errors.New("ready-transfer TSAT verification requires local CDM sequencing")
+		}
+		if err := s.sequenceService.RecalculateAirport(ctx, session, strip.Origin); err != nil {
+			return fmt.Errorf("recalculate ready-transfer TSAT for %s: %w", callsign, err)
+		}
+		data, err = s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
+		if err != nil {
+			return fmt.Errorf("read recalculated ready-transfer TSAT for %s: %w", callsign, err)
+		}
+		tsat = ""
+		if data != nil {
+			tsat = helpers.ValueOrDefault(data.EffectiveTsat())
+		}
+		outsideWindow = !tsatWithinFiveMinutes(tsat, time.Now().UTC())
+	}
+	if outsideWindow && !allowOverride {
+		return fmt.Errorf("%w: TSAT %q", shared.ErrReadyTransferTsatOutsideWindow, tsat)
+	}
+	return nil
+}
+
+func (c *ActionService) HandleReaRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	return c.handleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole, reaRequestTobt)
+}
+
+func (c *ActionService) handleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string, chooseTobt func(*models.CdmData, time.Time) (string, bool)) error {
 	s := c.service
 	now := time.Now().UTC()
 	strip, current, err := c.loadCdmActionTarget(ctx, session, callsign)
 	if err != nil || strip == nil || current == nil {
 		return err
 	}
-	tobt, changeTobt := readyRequestTobt(current, now)
+	tobt, changeTobt := chooseTobt(current, now)
 	before := snapshotCdm(current)
 	updated := current.Clone()
 	changed, shouldRecalculate := false, false
@@ -615,12 +668,67 @@ func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, c
 	return nil
 }
 
+func validReadyTransferTsat(tsat string, now time.Time) bool {
+	tsat = normalizeCalculationClock(tsat)
+	if _, ok := parseClock(tsat); !ok {
+		return false
+	}
+	delta := minutesBetween(timeToClock(now), tsat)
+	return delta < 6 && delta > -8
+}
+
+func readyTransferTobt(data *models.CdmData, now time.Time) (string, bool, bool) {
+	if data == nil {
+		return "", false, true
+	}
+	tobt := helpers.ValueOrDefault(data.EffectiveTobt())
+	tsat := helpers.ValueOrDefault(data.EffectiveTsat())
+	autoUpdate := false
+	if _, valid := parseClock(tsat); valid {
+		autoUpdate = minutesBetween(timeToClock(now), tsat) > 6
+	}
+	returnTobt := tobt
+	if autoUpdate {
+		returnTobt = now.UTC().Format("1504")
+	}
+	return returnTobt, autoUpdate, !validReadyTransferTsat(tsat, now)
+}
+
+func tsatWithinFiveMinutes(tsat string, now time.Time) bool {
+	tsat = normalizeCalculationClock(tsat)
+	if _, ok := parseClock(tsat); !ok {
+		return false
+	}
+	return math.Abs(minutesBetween(timeToClock(now), tsat)) <= 5
+}
+
+func reaRequestTobt(data *models.CdmData, now time.Time) (string, bool) {
+	if data == nil {
+		return "", false
+	}
+	if strings.EqualFold(strings.TrimSpace(helpers.ValueOrDefault(data.Status)), "REA") {
+		return now.UTC().Format("1504"), true
+	}
+	tobt := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTobt()))
+	if _, ok := parseClock(tobt); !ok {
+		return tobt, false
+	}
+	delta := minutesBetween(timeToClock(now), tobt)
+	if delta > 6 || delta < -6 {
+		return now.UTC().Format("1504"), true
+	}
+	return tobt, false
+}
+
 func readyRequestTobt(data *models.CdmData, now time.Time) (string, bool) {
 	current := now.UTC().Format("1504")
 	if data == nil {
 		return current, true
 	}
 	tsat := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTsat()))
+	if tsat == "" && data.Calculation != nil && valueOrEmpty(data.Calculation.InvalidReason) == models.CdmInvalidReasonStaleTsat {
+		tsat = normalizeCalculationClock(valueOrEmpty(data.ExpiredTsat))
+	}
 	if _, ok := parseClock(tsat); !ok {
 		return current, true
 	}
@@ -817,6 +925,7 @@ func applyTobtRecalculationPolicy(updated *models.CdmData, tobt string) bool {
 	if updated == nil {
 		return false
 	}
+	updated.ExpiredTsat = nil
 	wasPending := updated.NeedsLocalRecalculation()
 	previousMode := updated.RecalculationMode
 	ts := normalizeCalculationClock(helpers.ValueOrDefault(updated.EffectiveTsat()))
@@ -1261,6 +1370,7 @@ func applyAutoSyncedTobtUpdate(updated *models.CdmData, tobt string) {
 		return
 	}
 	updated.Tobt = &tobt
+	updated.ExpiredTsat = nil
 	updated.Eobt = &tobt
 	updated.TobtSetBy = nil
 	updated.TobtConfirmedBy = nil

@@ -26,6 +26,14 @@ TEST(InfoPanelTest, CalculateContentHeightWithoutStatsUsesCollapsedHeight) {
     EXPECT_EQ(CalculateInfoPanelContentHeight(data), 129);
 }
 
+TEST(InfoPanelTest, MasterRowRemainsVisibleWithStatsCollapsed) {
+    InfoPanelData data{};
+    data.showStats = false;
+    const auto disconnectedHeight = CalculateInfoPanelContentHeight(data);
+    data.connected = true;
+    EXPECT_EQ(CalculateInfoPanelContentHeight(data), disconnectedHeight + 16);
+}
+
 TEST(InfoPanelTest, CalculateContentHeightWithConnectedStatsAddsFullStatsBlock) {
     const InfoPanelData data{
         .connectionState = ConnectionState{},
@@ -34,7 +42,7 @@ TEST(InfoPanelTest, CalculateContentHeightWithConnectedStatsAddsFullStatsBlock) 
         .showStats = true,
     };
 
-    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 196);
+    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 212);
 }
 
 TEST(InfoPanelTest, CalculateContentHeightWithDisconnectedStatsOmitsConnectionRows) {

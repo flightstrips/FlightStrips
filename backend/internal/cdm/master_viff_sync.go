@@ -53,7 +53,12 @@ func (c *MasterViffSync) mergeMasterViffFlight(ctx context.Context, session int3
 		return nil, false, nil
 	}
 
-	ctotChanged := helpers.ValueOrDefault(flight.Ctot) != nextCtot
+	effectiveCtot := nextCtot
+	if effectiveCtot == "" && flight.HasManualCtot() {
+		// An absent network CTOT does not cancel the retained manual slot.
+		effectiveCtot = helpers.ValueOrDefault(flight.Ctot)
+	}
+	ctotChanged := helpers.ValueOrDefault(flight.Ctot) != effectiveCtot
 	lastAtfcm := flight.LastViffAtfcmCtot
 	if nextCtotSource == models.CtotSourceATFCM {
 		lastAtfcm = nextCtot
@@ -100,8 +105,18 @@ func (c *MasterViffSync) mergeMasterViffFlight(ctx context.Context, session int3
 		updated.TobtManuallyConfirmed = true
 		updated.ViffRequestSyncPending = true
 		needsRecalculate = applyTobtRecalculationPolicy(updated, requestedTobt) || needsRecalculate
-	} else if ctotChanged {
-		updated.MarkLocalRecalculationPending()
+		// The TOBT policy can discard a previous network slot while seeking an
+		// improvement. A CTOT in this same vIFF response is authoritative and
+		// must remain a constraint on the replacement assignment.
+		if nextCtot != "" {
+			updated.Ctot = &nextCtot
+			updated.CtotSource = &nextCtotSource
+			updated.MostPenalizingAirspace = stringPointerIfPresent(row.MostPenalizingAirspace)
+			updated.EcfmpID = stringPointerIfPresent(row.regulationReason())
+		}
+	}
+	if ctotChanged {
+		updated.MarkCtotRecalculationPending()
 	}
 
 	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {

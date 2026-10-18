@@ -1,5 +1,5 @@
 import {type AppState, Auth0Provider} from "@auth0/auth0-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import React from "react";
 
 export const Auth0ProviderWithNavigate = ({ children }: React.PropsWithChildren) => {

@@ -1173,7 +1173,7 @@ func TestRemovedFlightCannotBeResurrectedByLingeringObservation(t *testing.T) {
 	require.Equal(t, removed, updated)
 }
 
-func TestESOnlyPredictionWithoutCIDRemainsDegradedAndSequenceableForUnknownSTAR(t *testing.T) {
+func TestESOnlyPreliminaryPredictionWithoutCIDRemainsAdvisoryForUnknownSTAR(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	service, err := New(Dependencies{
 		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
@@ -1215,14 +1215,13 @@ func TestESOnlyPredictionWithoutCIDRemainsDegradedAndSequenceableForUnknownSTAR(
 
 	state.Flights = []aman.AMANFlight{updated}
 	input := sequenceInput(state, service.deps.Terminal)
-	require.Len(t, input.Flights, 1)
+	require.True(t, isPreliminaryPrediction(updated.Prediction))
+	require.Empty(t, input.Flights)
 	result, err := sequence.Generate(input)
 	require.NoError(t, err)
-	require.Len(t, result.Entries, 1)
-	require.Contains(t, result.Warnings, sequence.Warning{
-		Severity: sequence.SeverityDegraded, Code: sequence.WarningUnknownSTARFamily,
-		RunwayGroupID: "ARRIVAL-22", Callsign: "SAS456",
-	})
+	require.Empty(t, result.Entries)
+	service.resequence(&state, now)
+	require.Nil(t, state.Flights[0].Slot, "unresolved preliminary timing cannot reserve landing capacity")
 }
 
 func TestAirbornePredictionIsNotPublishableWithoutEssentialInputs(t *testing.T) {

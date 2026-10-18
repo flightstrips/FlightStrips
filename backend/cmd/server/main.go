@@ -111,6 +111,8 @@ func main() {
 		EnableECFMPAPI:                  !isLiveEnvironment(environment),
 		EnablePilotAPI:                  true,
 		EnableEFB:                       envBool("ENABLE_EFB", false),
+		EFBCallsignLookup:               envBool("EFB_CALLSIGN_LOOKUP", false),
+		EFBTraining:                     envBool("EFB_TRAINING", false),
 		EnableGSXStandFeed:              envBool("ENABLE_GSX_STAND_FEED", false),
 		EnableALB:                       true,
 		EnableMetar:                     true,

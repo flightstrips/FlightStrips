@@ -10,6 +10,7 @@ import (
 	"FlightStrips/internal/testing/recorder"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
+	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
 	"fmt"
@@ -71,6 +72,7 @@ type Hub struct {
 
 	masterMu           sync.RWMutex
 	masterTransitionMu sync.RWMutex
+	masterInfoMu       sync.Mutex // serialize metadata publication without holding registry or election locks
 	master             map[int32]*Client
 	masterCallsigns    sync.Map // map[int32]string — concurrent-safe callsign of master per session
 	masterCids         sync.Map // map[int32]string — concurrent-safe CID of master per session
@@ -203,6 +205,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 	handlers.Add(euroscope.SendPrivateMessage, handleSendPrivateMessage)
+	handlers.Add(euroscope.FrequencyMessageResult, handleFrequencyMessageResult)
 	if deps.AMANRouteFacts != nil {
 		handlers.Add(euroscope.AMANRouteFact, handleAMANRouteFact)
 	}
@@ -325,6 +328,7 @@ func (hub *Hub) publish(message internalMessage) {
 }
 
 func (hub *Hub) OnRegister(client *Client) {
+	hub.broadcastMasterInfo(client.session)
 	identity := client.identitySnapshot()
 	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "euroscope", identity.callsign, client.version)
 	hub.setObserverCid(client.GetCid(), identity.observer)
@@ -501,7 +505,7 @@ func (hub *Hub) DecodeAuthentication(frameType int, message []byte) (events.Auth
 	if err := euroscope.UnmarshalEvent(message, euroscope.Authentication, &event); err != nil {
 		return events.AuthenticationEvent{}, err
 	}
-	return events.AuthenticationEvent{Token: event.Token, Version: event.Version}, nil
+	return events.AuthenticationEvent{Token: event.Token, Version: event.Version, FrequencyMessages: event.FrequencyMessages}, nil
 }
 
 func (hub *Hub) GetServer() shared.Server {
@@ -571,6 +575,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		observer:    event.Observer,
 		localIP:     event.LocalIp,
 	}
+	client.frequencyMessages.Store(authenticationEvent.FrequencyMessages)
 
 	if !event.Observer {
 		// The initial websocket login can revive an existing controller row before the
@@ -754,6 +759,7 @@ func (hub *Hub) setMasterClient(client *Client) {
 	if client == nil {
 		return
 	}
+	defer hub.broadcastMasterInfo(client.session)
 	hub.masterTransitionMu.Lock()
 	defer hub.masterTransitionMu.Unlock()
 	hub.masterMu.Lock()
@@ -861,7 +867,11 @@ func (hub *Hub) promoteMasterIfPreferred(candidate *Client, notifyCandidate bool
 	if candidate == nil || candidate.identitySnapshot().observer {
 		return false
 	}
+	defer hub.broadcastMasterInfo(candidate.session)
+	return hub.promoteMasterCandidate(candidate, notifyCandidate)
+}
 
+func (hub *Hub) promoteMasterCandidate(candidate *Client, notifyCandidate bool) bool {
 	hub.masterTransitionMu.Lock()
 	defer hub.masterTransitionMu.Unlock()
 
@@ -908,13 +918,21 @@ func (hub *Hub) promoteRegisteredMasterIfPreferred(candidate *Client) (isMaster,
 	if candidate == nil {
 		return false, false
 	}
+	defer func() {
+		if stillRegistered {
+			hub.broadcastMasterInfo(candidate.session)
+		}
+	}()
 
 	hub.clientsMu.RLock()
 	defer hub.clientsMu.RUnlock()
 	if !hub.clients[candidate] {
 		return false, false
 	}
-	return hub.promoteMasterIfPreferred(candidate, true), true
+	if candidate.identitySnapshot().observer {
+		return false, true
+	}
+	return hub.promoteMasterCandidate(candidate, true), true
 }
 
 // reconsiderMasterAfterLogin handles position changes on an existing websocket.
@@ -957,6 +975,7 @@ func (hub *Hub) refreshMasterClientIfCurrent(client *Client) bool {
 	if client == nil {
 		return false
 	}
+	defer hub.broadcastMasterInfo(client.session)
 
 	hub.masterTransitionMu.Lock()
 	defer hub.masterTransitionMu.Unlock()
@@ -975,6 +994,7 @@ func (hub *Hub) replaceMasterIfCurrent(expected, replacement *Client) bool {
 	if expected == nil {
 		return false
 	}
+	defer hub.broadcastMasterInfo(expected.session)
 
 	hub.masterTransitionMu.Lock()
 	defer hub.masterTransitionMu.Unlock()
@@ -996,6 +1016,7 @@ func (hub *Hub) replaceMasterIfCurrent(expected, replacement *Client) bool {
 }
 
 func (hub *Hub) clearMasterClient(session int32) {
+	defer hub.broadcastMasterInfo(session)
 	hub.masterTransitionMu.Lock()
 	defer hub.masterTransitionMu.Unlock()
 	hub.masterMu.Lock()
@@ -1026,6 +1047,28 @@ func (hub *Hub) GetMasterCallsign(session int32) string {
 		return v.(string)
 	}
 	return ""
+}
+
+// Serialize publishers before reading the current master so a slower publisher
+// cannot overwrite newer metadata. Release registry and election locks before
+// the potentially blocking frontend broadcast so its dispatch loop can look up
+// controllers and the EuroScope hub can continue registration and election.
+func (hub *Hub) broadcastMasterInfo(session int32) {
+	hub.masterInfoMu.Lock()
+	defer hub.masterInfoMu.Unlock()
+	hub.clientsMu.RLock()
+	hub.masterTransitionMu.RLock()
+	callsign := hub.GetMasterCallsign(session)
+	for client := range hub.clients {
+		if client.session == session {
+			client.Enqueue(euroscope.MasterInfoEvent{MasterCallsign: callsign})
+		}
+	}
+	hub.masterTransitionMu.RUnlock()
+	hub.clientsMu.RUnlock()
+	if hub.server != nil && hub.server.GetFrontendHub() != nil {
+		hub.server.GetFrontendHub().Broadcast(session, frontendEvents.MasterInfoEvent{MasterCallsign: callsign})
+	}
 }
 
 func (hub *Hub) GetMasterCid(session int32) string {

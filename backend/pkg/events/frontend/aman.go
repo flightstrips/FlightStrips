@@ -71,7 +71,19 @@ type AMANHeader struct {
 	ActiveRunwayGroups []AMANHeaderRunwayGroup  `json:"active_runway_groups"`
 	Readiness          AMANHeaderReadiness      `json:"readiness"`
 	TrafficSummary     AMANHeaderTrafficSummary `json:"traffic_summary"`
+	ReleaseBuffer      *AMANReleaseBuffer       `json:"release_buffer,omitempty"`
 	Wind               *AMANHeaderWind          `json:"wind"`
+}
+
+type AMANReleaseBuffer struct {
+	BlockedReasons []string `json:"blocked_reasons,omitempty"`
+	Status         string   `json:"status"`
+	Target         int      `json:"target"`
+	InApproach     int      `json:"in_approach"`
+	Reserved       int      `json:"reserved"`
+	Incoming       int      `json:"incoming"`
+	Projected      int      `json:"projected"`
+	Unknown        int      `json:"unknown"`
 }
 
 type AMANHeaderRunwayGroup struct {
@@ -198,6 +210,7 @@ type AMANFlight struct {
 	WakeCategory        *string `json:"wake_category,omitempty"`
 	LifecycleState      string  `json:"lifecycle_state"`
 	LifecycleReason     string  `json:"lifecycle_reason,omitempty"`
+	Expedited           bool    `json:"expedited,omitempty"`
 	SequenceDisposition string  `json:"sequence_disposition"`
 	DataStatus          string  `json:"data_status"`
 	RunwayGroupID       *string `json:"runway_group_id"`
@@ -212,9 +225,13 @@ type AMANFlight struct {
 	FeederFixPassed           *bool                     `json:"feeder_fix_passed,omitempty"`
 	HoldingFix                *string                   `json:"holding_fix"`
 	HoldingFixETA             *string                   `json:"holding_fix_eta"`
+	HoldingStartedAt          *string                   `json:"holding_started_at,omitempty"`
+	HoldingStartSource        *string                   `json:"holding_start_source,omitempty"`
+	HoldingElapsedSeconds     *int64                    `json:"holding_elapsed_seconds,omitempty"`
 	HoldingEntryTime          *string                   `json:"holding_entry_time"`
 	ApproachReleaseTime       *string                   `json:"approach_release_time"`
 	ExpectedHoldingSeconds    *int64                    `json:"expected_holding_seconds"`
+	AdditionalApproachSeconds *int64                    `json:"additional_approach_seconds,omitempty"`
 	PostHoldingTransitSeconds *int64                    `json:"post_holding_transit_seconds"`
 	RouteFact                 *AMANRouteFact            `json:"route_fact"`
 	RawTETA                   *string                   `json:"raw_teta"`
@@ -526,6 +543,9 @@ func projectAMANHeader(state aman.AirportState, health AMANTechnicalHealth, traf
 		Readiness:          AMANHeaderReadiness{Status: health.Status, Ready: health.Ready, BlockedReasons: health.BlockedReasons},
 		TrafficSummary:     AMANHeaderTrafficSummary{Status: trafficStatus},
 	}
+	if b := state.ReleaseBuffer; b != nil {
+		result.ReleaseBuffer = &AMANReleaseBuffer{Status: b.Status, BlockedReasons: b.BlockedReasons, Target: b.Target, InApproach: b.InApproach, Reserved: b.Reserved, Incoming: b.Incoming, Projected: b.Projected(), Unknown: b.Unknown}
+	}
 	for _, group := range groups {
 		_, explicitlyActive := active[group.ID]
 		if (activeIDs != nil && !explicitlyActive) || (activeIDs == nil && !group.Selected) {
@@ -658,6 +678,7 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 	result := AMANFlight{
 		Callsign: flight.Callsign, LifecycleState: string(flight.State),
 		SequenceDisposition: string(flight.SequenceDisposition.OrDefault()),
+		Expedited:           flight.Expedited,
 		DataStatus:          string(flight.DataStatus), RunwayGroupID: stringPointer(flight.SelectedRunwayGroup),
 		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder),
 		STARFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
@@ -698,6 +719,17 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		}
 		result.RouteFact = &AMANRouteFact{ID: flight.ActiveRouteFact.ID, Fix: flight.ActiveRouteFact.Fix, ObservedAt: observedAt, State: string(state)}
 	}
+	if episode := aman.ActiveHoldingEpisode(flight); episode != nil && !episode.StartedAt.After(generatedAt) {
+		value, err := aman.FormatTime(*episode.StartedAt)
+		if err != nil {
+			return AMANFlight{}, err
+		}
+		source := episode.Source
+		elapsed := int64(generatedAt.Sub(*episode.StartedAt) / time.Second)
+		result.HoldingStartedAt = &value
+		result.HoldingStartSource = &source
+		result.HoldingElapsedSeconds = &elapsed
+	}
 	if flight.Prediction != nil && flight.Prediction.Publishable {
 		prediction := flight.Prediction
 		if result.RawTETA, err = formatOptionalValue(prediction.RawTETA); err != nil {
@@ -722,6 +754,10 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 				return AMANFlight{}, errors.Join(expectedErr, transitErr)
 			}
 			result.ExpectedHoldingSeconds, result.PostHoldingTransitSeconds = &expected, &transit
+			additional := int64(prediction.HoldingPlan.AdditionalApproachTime / time.Second)
+			if additional > 0 {
+				result.AdditionalApproachSeconds = &additional
+			}
 		}
 		confidence := string(prediction.Confidence)
 		result.Confidence = &confidence

@@ -275,7 +275,7 @@ func buildSequenceSnapshotRows(strips []*models.Strip, config *CdmAirportConfig,
 			continue
 		}
 
-		if isTsatSpecificallyExpired(candidate.strip, now) {
+		if isTsatSpecificallyExpired(candidate.strip, now) && !dataAllowsStartedRecalculation(candidate.strip) {
 			updated := cloneSequenceData(candidate.strip.CdmData)
 			phase := "I"
 			updated.Phase = &phase

@@ -50,6 +50,7 @@ type EuroscopeStripCommander interface {
 // CdmEventPublisher is the narrow frontend-broadcast interface the CDM service
 // uses. It is a subset of FrontendHub.
 type CdmEventPublisher interface {
+	SendInboundDepartures(session int32, event frontend.InboundDeparturesEvent)
 	SendCdmUpdate(session int32, event frontend.CdmDataEvent)
 	SendCdmUpdates(session int32, events []frontend.CdmDataEvent)
 	SendCdmWait(session int32, callsign string)

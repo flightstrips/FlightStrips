@@ -29,29 +29,30 @@ func SeverityForStage(stage string) AllocationSeverity {
 // It is operational diagnostic state, not part of the authoritative assignment
 // model, and is intentionally retained only in memory.
 type AllocationFailure struct {
-	ID             uint64             `json:"id"`
-	OccurredAt     time.Time          `json:"occurred_at"`
-	SessionID      int32              `json:"session_id"`
-	Airport        string             `json:"airport"`
-	Callsign       string             `json:"callsign"`
-	Command        string             `json:"command"`
-	Outcome        string             `json:"outcome"`
-	Severity       AllocationSeverity `json:"severity"`
-	Reason         string             `json:"reason"`
-	Direction      string             `json:"direction"`
-	Stage          string             `json:"stage"`
-	AttemptedStand string             `json:"attempted_stand,omitempty"`
-	AircraftType   string             `json:"aircraft_type,omitempty"`
-	EngineType     string             `json:"engine_type,omitempty"`
-	WTC            string             `json:"wtc,omitempty"`
-	BorderStatus   string             `json:"border_status,omitempty"`
-	ETA            *time.Time         `json:"eta,omitempty"`
-	ETASource      string             `json:"eta_source,omitempty"`
-	ExpiresAt      *time.Time         `json:"expires_at,omitempty"`
-	DepartureTOBT  *time.Time         `json:"departure_tobt,omitempty"`
-	DepartureTSAT  *time.Time         `json:"departure_tsat,omitempty"`
-	DepartureReady bool               `json:"departure_ready,omitempty"`
-	Attempts       int                `json:"attempts"`
+	ID                          uint64             `json:"id"`
+	OccurredAt                  time.Time          `json:"occurred_at"`
+	SessionID                   int32              `json:"session_id"`
+	Airport                     string             `json:"airport"`
+	Callsign                    string             `json:"callsign"`
+	Command                     string             `json:"command"`
+	Outcome                     string             `json:"outcome"`
+	Severity                    AllocationSeverity `json:"severity"`
+	Reason                      string             `json:"reason"`
+	Direction                   string             `json:"direction"`
+	Stage                       string             `json:"stage"`
+	AttemptedStand              string             `json:"attempted_stand,omitempty"`
+	AircraftType                string             `json:"aircraft_type,omitempty"`
+	EngineType                  string             `json:"engine_type,omitempty"`
+	WTC                         string             `json:"wtc,omitempty"`
+	BorderStatus                string             `json:"border_status,omitempty"`
+	ETA                         *time.Time         `json:"eta,omitempty"`
+	ETASource                   string             `json:"eta_source,omitempty"`
+	ExpiresAt                   *time.Time         `json:"expires_at,omitempty"`
+	DepartureTOBT               *time.Time         `json:"departure_tobt,omitempty"`
+	DepartureTSAT               *time.Time         `json:"departure_tsat,omitempty"`
+	DepartureStartupRequestedAt *time.Time         `json:"departure_startup_requested_at,omitempty"`
+	DepartureReady              bool               `json:"departure_ready,omitempty"`
+	Attempts                    int                `json:"attempts"`
 }
 
 // AllocationFailureLog retains the newest failures up to a fixed capacity.

@@ -33,6 +33,51 @@ func TestReduceGoldenDTGMonotonicJitterAndCompatibilityReset(t *testing.T) {
 	require.Less(t, reset.AlongTrackNM, forward.AlongTrackNM)
 }
 
+func TestRouteProgressRecoversAfterPredictionGapButRejectsImpossibleJumps(t *testing.T) {
+	for _, scenario := range []struct {
+		name      string
+		gap       time.Duration
+		longitude float64
+		accepted  bool
+	}{
+		{"elapsed flight beyond fixed window", 20 * time.Minute, 2.5, true},
+		{"instant forward jump", time.Second, 2.5, false},
+		{"jump exceeds elapsed flight distance", 5 * time.Minute, 2.5, false},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			snapshot, route, input := fixtureInput(t)
+			snapshot.Fixes[2].Position.LongitudeDeg = 5
+			initial := Reduce(snapshot, route, input, Config{})
+			require.NotNil(t, initial.Progress.ObservedAt)
+			stored, err := json.Marshal(initial.Progress)
+			require.NoError(t, err)
+			var restored aman.RouteProgress
+			require.NoError(t, json.Unmarshal(stored, &restored))
+			input.Prior = &restored
+			at := input.Observation.ObservedAt.Add(scenario.gap)
+			input.Observation.ObservedAt = &at
+			input.Observation.LongitudeDegrees = scenario.longitude
+			result := Reduce(snapshot, route, input, Config{ReferenceTime: at, MaxObservationAge: 2 * time.Minute})
+			if !scenario.accepted {
+				require.Nil(t, result.DistanceToGoNM)
+				require.Nil(t, result.Progress)
+				require.Contains(t, result.Reasons, "FORWARD_PROGRESS_OUT_OF_RANGE")
+				return
+			}
+			require.Equal(t, Complete, result.Completeness)
+			require.True(t, result.ReacquiredProgress)
+			require.Equal(t, navdata.FixID("C"), result.Remaining[0].To, "the passed fix must not remain the next waypoint")
+			require.InDelta(t, 150, *result.DistanceToGoNM, 1)
+			require.Equal(t, at, *result.Progress.ObservedAt)
+			input.Prior = result.Progress
+			input.Observation.LongitudeDegrees = 4.5
+			input.Observation.ObservedAt = ptr(at.Add(time.Second))
+			jump := Reduce(snapshot, route, input, Config{})
+			require.Nil(t, jump.DistanceToGoNM, "reacquisition must restore the normal jump guard")
+		})
+	}
+}
+
 func TestReduceMarksEntryIntoConfiguredTerminalPath(t *testing.T) {
 	snapshot, route, input := fixtureInput(t)
 	snapshot.TerminalPaths[0].Legs = []navdata.ProcedureLeg{route.Legs[1]}

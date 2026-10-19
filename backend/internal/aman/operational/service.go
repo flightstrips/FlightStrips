@@ -648,10 +648,10 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 	if err := s.restoreDestinationAuthority(ctx, current); err != nil {
 		return err
 	}
-	observations := s.sessionObservations(ctx, airport)
+	observations := s.reconciliationObservations(ctx, airport, current.Flights)
 	// Compare observation timestamps with a precise clock sampled after the
-	// snapshot. Rounding down or sampling before the repository load can make
-	// freshly received positions appear to be from the future.
+	// complete snapshot, including destination authority. Reading live facts
+	// again after this clock sample can make a later report appear future-dated.
 	now = s.deps.Now().UTC()
 	next := current
 	next.Mode = s.deps.Mode
@@ -696,20 +696,9 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 	indexes := make(map[aman.Callsign]int, len(next.Flights))
 	for i := range next.Flights {
 		indexes[next.Flights[i].Callsign] = i
-		if fact, known := s.destinationObservation(ctx, next.Flights[i].Callsign, now); known {
-			if observation, seen := observations[next.Flights[i].Callsign]; seen {
-				observations[next.Flights[i].Callsign] = applyDestinationObservation(observation, fact)
-			} else if fact.Destination != airport {
-				observations[next.Flights[i].Callsign] = fact
-			}
-		}
 	}
 
 	for _, observation := range observations {
-		if fact, known := s.destinationObservation(ctx, observation.Callsign, now); known {
-			observation = applyDestinationObservation(observation, fact)
-			observations[observation.Callsign] = observation
-		}
 		index, found := indexes[observation.Callsign]
 		if !found {
 			// Removed flights are excluded from subsequent repository reads.
@@ -936,6 +925,26 @@ func (s *Service) sessionObservations(ctx context.Context, airport string) map[a
 		}
 	}
 	return result
+}
+
+// Finish all reads of live aircraft facts before sampling the reconciliation
+// clock. Reports received during calculation belong to the next update.
+func (s *Service) reconciliationObservations(ctx context.Context, airport string, flights []aman.AMANFlight) map[aman.Callsign]aman.FlightObservation {
+	observations := s.sessionObservations(ctx, airport)
+	for _, flight := range flights {
+		if _, seen := observations[flight.Callsign]; seen {
+			continue
+		}
+		if fact, known := s.destinationObservation(ctx, flight.Callsign, time.Time{}); known && fact.Destination != airport {
+			observations[flight.Callsign] = fact
+		}
+	}
+	for callsign, observation := range observations {
+		if fact, known := s.destinationObservation(ctx, callsign, time.Time{}); known {
+			observations[callsign] = applyDestinationObservation(observation, fact)
+		}
+	}
+	return observations
 }
 
 func (s *Service) initialState(airport string, now time.Time) aman.AirportState {
@@ -1248,17 +1257,25 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	directChanged := flight.ActiveRouteFact != nil && (flight.RouteProgress == nil || flight.RouteProgress.RouteFactID != flight.ActiveRouteFact.ID)
 	feederFix, legacySTARFamily := flight.TerminalPathIdentity()
+	prior := flight.RouteProgress
+	if prior != nil && prior.ObservedAt == nil && flight.Prediction != nil && !flight.Prediction.InputObservedAt.IsZero() {
+		// Legacy aggregates predate the progress timestamp. Their retained
+		// prediction supplies the last accepted observation until reprojection.
+		copy := *prior
+		copy.ObservedAt = &flight.Prediction.InputObservedAt
+		prior = &copy
+	}
 	projection, err := trajectory.Project(ctx, trajectory.Readers{Geometry: s.deps.Geometry, Snapshot: s.deps.Geometry}, trajectory.Input{
 		Airport: navdata.AirportID(observation.Destination), RouteKey: key,
 		FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: group,
-		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: flight.RouteProgress,
+		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: prior,
 		HoldingClearanceFix: operationalHoldingClearanceFix(flight),
 	}, trajectory.Config{ReferenceTime: now, MaxObservationAge: 2 * time.Minute})
 	if err != nil {
 		return flight, err
 	}
 	if projection.DistanceToGoNM == nil || len(projection.Remaining) == 0 || projection.Completeness == trajectory.Unresolved || projection.Completeness == trajectory.OffRoute {
-		return flight, fmt.Errorf("route geometry is not publishable: %s", projection.Completeness)
+		return flight, fmt.Errorf("route geometry is not publishable: %s (%s)", projection.Completeness, strings.Join(projection.Reasons, ", "))
 	}
 	directChanged = directChanged && flight.ActiveRouteFact.State == aman.RouteFactActive && slices.ContainsFunc(projection.Remaining, func(leg trajectory.RemainingLeg) bool { return leg.ID == "DIRECT_TO:"+flight.ActiveRouteFact.Fix })
 	descentConfirmed, descentEvidenceSamples := descentStateForRoute(flight.RouteProgress, previousObservation, observation, projection.InTMA)
@@ -1402,6 +1419,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		Raw:                          raw,
 		State:                        nextState,
 		RouteRevision:                flight.ArrivalPathChanged || directChanged,
+		ReacquiredRoute:              projection.ReacquiredProgress,
 		Slot:                         flight.Slot,
 		ReplacePreliminaryPrediction: isPreliminaryPrediction(flight.Prediction),
 	})

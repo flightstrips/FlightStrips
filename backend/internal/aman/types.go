@@ -162,6 +162,7 @@ const (
 	OperationalReasonDeadband           OperationalReason = "deadband"
 	OperationalReasonRateLimited        OperationalReason = "rate_limited"
 	OperationalReasonRouteRevision      OperationalReason = "route_revision"
+	OperationalReasonRouteRecovery      OperationalReason = "route_recovery"
 	OperationalReasonRunwayGroupChanged OperationalReason = "runway_group_changed"
 	OperationalReasonFirstUnstable      OperationalReason = "first_unstable"
 	OperationalReasonManualOverride     OperationalReason = "manual_override"
@@ -178,6 +179,7 @@ func (r OperationalReason) Valid() bool {
 		OperationalReasonDeadband,
 		OperationalReasonRateLimited,
 		OperationalReasonRouteRevision,
+		OperationalReasonRouteRecovery,
 		OperationalReasonRunwayGroupChanged,
 		OperationalReasonFirstUnstable,
 		OperationalReasonManualOverride,
@@ -695,6 +697,9 @@ type RouteProgress struct {
 	LegIndex           int
 	RejoinLegIndex     int
 	AlongTrackNM       float64
+	// ObservedAt dates the physical progress anchor, so a gap in prediction
+	// updates does not permanently trap the aircraft in a fixed search window.
+	ObservedAt *time.Time `json:"ObservedAt,omitempty"`
 	// RecoveryCandidateFix and RecoveryCandidateSamples retain the
 	// surveillance-derived direct-to candidate across reconciliation cycles.
 	// A candidate is not treated as an inferred direct until consecutive
@@ -1458,6 +1463,11 @@ func (f AMANFlight) Validate() error {
 		return invalid("active route dataset ID cannot be empty")
 	}
 	if f.RouteProgress != nil {
+		if f.RouteProgress.ObservedAt != nil {
+			if err := requireUTCTime("route progress observed at", *f.RouteProgress.ObservedAt); err != nil {
+				return err
+			}
+		}
 		if strings.TrimSpace(f.RouteProgress.GeometryDigest) == "" || f.RouteProgress.ManifestRevision < 1 || f.RouteProgress.LegIndex < 0 || f.RouteProgress.RejoinLegIndex < 0 || f.RouteProgress.AlongTrackNM < 0 || math.IsNaN(f.RouteProgress.AlongTrackNM) || math.IsInf(f.RouteProgress.AlongTrackNM, 0) {
 			return invalid("route progress is invalid")
 		}

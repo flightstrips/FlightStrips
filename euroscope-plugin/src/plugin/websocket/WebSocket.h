@@ -32,7 +32,7 @@ namespace FlightStrips::websocket {
 
     class WebSocket {
     public:
-        WebSocket(std::string endpoint, message_callback cb, on_connected_callback on_connected);
+        WebSocket(std::string endpoint, message_callback cb, on_connected_callback on_connected, bool textFrames = false);
         ~WebSocket();
 
         void Connect() const;

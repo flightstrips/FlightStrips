@@ -10,6 +10,7 @@
 #include "PdcClearancePopupState.h"
 #include "authentication/AuthenticationService.h"
 #include "websocket/WebSocketService.h"
+#include "vacs/VacsService.h"
 
 namespace FlightStrips {
     class FlightStripsPlugin;
@@ -30,10 +31,12 @@ namespace FlightStrips::graphics {
                             const std::shared_ptr<flightplan::FlightPlanService>& flightPlanService,
                             const std::shared_ptr<runway::RunwayService>& runwayService,
                             std::shared_ptr<PdcClearancePopupState> pdcPopup,
+                            std::shared_ptr<vacs::VacsService> vacsService,
                             FlightStripsPlugin* plugin);
 
 
         void OnRefresh(HDC hDC, int Phase) override;
+        ~InfoScreen();
 
         void OnAsrContentToBeClosed() override;
 
@@ -59,6 +62,8 @@ namespace FlightStrips::graphics {
         std::weak_ptr<runway::RunwayService> m_runwayService;
         std::shared_ptr<PdcClearancePopupState> m_pdcPopup;
         FlightStripsPlugin *m_plugin;
+        std::shared_ptr<vacs::VacsService> vacsService_;
+        bool HandleVacsClick(int objectType, const char* objectId, POINT point, int button);
 
         RECT menubar;
         HDC hdcHandle = nullptr;

@@ -24,7 +24,7 @@ TEST(InfoPanelTest, CalculateContentHeightWithoutStatsUsesCollapsedHeight) {
         .showStats = false,
     };
 
-    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 145);
+    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 211);
 }
 
 TEST(InfoPanelTest, MasterRowRemainsVisibleWithStatsCollapsed) {
@@ -32,7 +32,7 @@ TEST(InfoPanelTest, MasterRowRemainsVisibleWithStatsCollapsed) {
     data.showStats = false;
     const auto disconnectedHeight = CalculateInfoPanelContentHeight(data);
     data.connected = true;
-    EXPECT_EQ(disconnectedHeight, 145);
+    EXPECT_EQ(disconnectedHeight, 211);
     EXPECT_EQ(CalculateInfoPanelContentHeight(data), disconnectedHeight);
 }
 
@@ -78,7 +78,7 @@ TEST(InfoPanelTest, CalculateContentHeightWithConnectedStatsAddsFullStatsBlock) 
         .showStats = true,
     };
 
-    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 212);
+    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 278);
 }
 
 TEST(InfoPanelTest, CalculateContentHeightWithDisconnectedStatsOmitsConnectionRows) {
@@ -89,7 +89,7 @@ TEST(InfoPanelTest, CalculateContentHeightWithDisconnectedStatsOmitsConnectionRo
         .showStats = true,
     };
 
-    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 173);
+    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 239);
 }
 
 TEST(InfoPanelTest, CalculateAuthenticationButtonLayoutShowsOpenAppWhenAuthenticated) {

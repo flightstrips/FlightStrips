@@ -6,6 +6,11 @@
 
 namespace FlightStrips {
 namespace configuration {
+    bool UserConfig::GetVacsEnabled() { return ini["vacs"]["enabled"] | false; }
+    bool UserConfig::GetVacsShowInMinimized() { return ini["vacs"]["show_in_minimized"] | false; }
+    std::string UserConfig::GetVacsHost() { return ini["vacs"]["host"] | "localhost"; }
+    void UserConfig::SetVacsEnabled(bool enabled) { ini["vacs"]["enabled"] = enabled; save(); }
+    void UserConfig::SetVacsShowInMinimized(bool show) { ini["vacs"]["show_in_minimized"] = show; save(); }
     Token UserConfig::GetToken() {
         const auto section = ini[TokenSection];
         return {

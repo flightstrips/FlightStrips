@@ -1693,6 +1693,7 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 	}
 	var result sequence.Result
 	var promotions []sequence.VacancyPromotion
+	repaired := make(map[aman.Callsign]bool)
 	for pass := 0; ; pass++ {
 		var err error
 		if input.Revision == 0 {
@@ -1706,7 +1707,7 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 			}
 			return nil
 		}
-		if !enforceCrossGroupHoldingOrder(&input, result) {
+		if !enforceHoldingOrder(&input, result, *state, now, repaired) {
 			break
 		}
 		// Each pass propagates a release bound to later entrants. A longer
@@ -1741,6 +1742,21 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 			captured := *state.Flights[i].Slot
 			state.Flights[i].FrozenSlot = &captured
 		}
+		if repaired[state.Flights[i].Callsign] {
+			flight := &state.Flights[i]
+			if flight.FreezeReason == aman.FreezeSuperstable || flight.FreezeReason == aman.FreezeTMA {
+				captured, target, at := *flight.Slot, flight.Slot.Time, now
+				flight.FrozenSlot, flight.FrozenOperationalTETA, flight.FrozenAt = &captured, &target, &at
+				prediction := *flight.Prediction
+				prediction.OperationalTETA = target
+				flight.Prediction = &prediction
+			}
+			if prior := flight.ApproachRelease; prior != nil && prior.ReleasedAt == nil && prior.ReleaseAt.After(now) {
+				reservation := *prior
+				reservation.ReleaseAt = maxTime(prior.ReleaseAt, flight.Slot.Time.Add(-holdingTransit(*flight)))
+				flight.ApproachRelease = &reservation
+			}
+		}
 		order := entry.Sequence
 		state.Flights[i].Order = &order
 		state.Flights[i].UpdatedAt = now
@@ -1748,53 +1764,78 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 	return promotions
 }
 
-// Runway groups are sequenced independently, but a physical hold can feed
-// several of them. Re-run with a lower bound for a later entrant whenever the
-// current candidates would release it ahead of an earlier entrant.
-func enforceCrossGroupHoldingOrder(input *sequence.Input, result sequence.Result) bool {
+// Re-run allocation with a release-derived lower bound when an automatic
+// holding target conflicts with its queue. Stable and automatic captures may
+// need delaying too; keeping them fixed used to leave persistent EAT conflicts.
+// Manual targets, unavailable timing and due admissions remain commitments.
+func enforceHoldingOrder(input *sequence.Input, result sequence.Result, state aman.AirportState, now time.Time, repaired map[aman.Callsign]bool) bool {
 	entries := make(map[aman.Callsign]sequence.CandidateEntry, len(result.Entries))
 	for _, entry := range result.Entries {
 		entries[entry.Callsign] = entry
 	}
+	allowCrossFeederOvertake := make(map[aman.RunwayGroupID]bool, len(input.Policies))
+	for _, policy := range input.Policies {
+		allowCrossFeederOvertake[policy.RunwayGroupID] = policy.AllowCrossFeederOvertake
+	}
 	changed := false
+	sources := make(map[aman.Callsign]aman.AMANFlight, len(state.Flights))
+	for _, flight := range state.Flights {
+		sources[flight.Callsign] = flight
+	}
 	for i := range input.Flights {
 		later := &input.Flights[i]
+		source := sources[later.Callsign]
 		laterSlot, ok := entries[later.Callsign]
 		if !ok || later.HoldingQueueTime == nil || later.HoldingTransit <= 0 ||
-			later.FreezeReason != aman.FreezeNone || later.ManualOrder != nil {
+			source.FreezeReason == aman.FreezeManual || later.ManualOrder != nil || retainedTimingUnavailable(source) ||
+			source.ApproachRelease != nil && (source.ApproachRelease.ReleasedAt != nil || !source.ApproachRelease.ReleaseAt.After(now)) {
 			continue
 		}
 		for _, older := range input.Flights {
 			olderSlot, ok := entries[older.Callsign]
 			if !ok || older.HoldingQueueTime == nil || older.HoldingTransit <= 0 ||
-				older.RunwayGroupID == later.RunwayGroupID ||
 				(!sequence.HoldingPrecedes(older, *later)) {
 				continue
 			}
-			olderRelease := olderSlot.Time.Add(-older.HoldingTransit).UTC().Truncate(time.Minute)
-			laterRelease := laterSlot.Time.Add(-later.HoldingTransit).UTC().Truncate(time.Minute)
+			// Match the sequence engine's overtake policy: independent holds
+			// may fill runway gaps even when their transit requires an earlier EAT.
+			if older.RunwayGroupID == later.RunwayGroupID && older.HoldingQueueID != later.HoldingQueueID &&
+				allowCrossFeederOvertake[later.RunwayGroupID] {
+				continue
+			}
+			olderReleaseAt := candidateHoldingRelease(older, olderSlot, sources[older.Callsign])
+			laterReleaseAt := candidateHoldingRelease(*later, laterSlot, source)
+			olderRelease := olderReleaseAt.UTC().Truncate(time.Minute)
+			laterRelease := laterReleaseAt.UTC().Truncate(time.Minute)
 			if laterRelease.After(olderRelease) || older.HoldingQueueID != later.HoldingQueueID && !laterRelease.Before(olderRelease) {
 				continue
 			}
 			minimum := olderRelease.Add(time.Minute + later.HoldingTransit)
 			if older.HoldingQueueID != later.HoldingQueueID {
-				minimum = olderSlot.Time.Add(later.HoldingTransit - older.HoldingTransit)
+				minimum = olderReleaseAt.Add(later.HoldingTransit)
 			}
 			if later.ProtectCurrentSlot {
-				// Existing controller targets cannot be delayed to repair a hold
-				// conflict. Block an unsafe earlier vacancy promotion instead.
-				if later.CurrentSlot == nil || !laterSlot.Time.Before(later.CurrentSlot.Time) {
-					continue
-				}
-				minimum = later.CurrentSlot.Time
+				later.ProtectCurrentSlot = false
 			}
 			if later.SlotNotBefore == nil || minimum.After(*later.SlotNotBefore) {
+				later.FreezeReason, later.FrozenAt, later.FrozenOperationalTETA, later.CapturedSlot = aman.FreezeNone, nil, nil, nil
 				later.SlotNotBefore = &minimum
+				repaired[later.Callsign] = true
 				changed = true
 			}
 		}
 	}
 	return changed
+}
+
+func candidateHoldingRelease(flight sequence.Flight, slot sequence.CandidateEntry, source aman.AMANFlight) time.Time {
+	// The approach buffer may already have accepted a release independently of
+	// the landing slot. Order checks must use that EAT while the slot is fixed.
+	if source.ApproachRelease != nil && source.Slot != nil && source.Slot.Time.Equal(slot.Time) &&
+		source.Prediction != nil && source.Prediction.HoldingPlan != nil {
+		return source.Prediction.HoldingPlan.ApproachReleaseTime
+	}
+	return slot.Time.Add(-flight.HoldingTransit)
 }
 
 func setProtectedSameSTARWarnings(groups []aman.RunwayGroupPolicy, warnings []sequence.Warning) {
@@ -1876,20 +1917,16 @@ func (s *Service) refreshHoldingPlans(state *aman.AirportState) {
 		applyDerivedFeederETA(flight, holdingFeederETA(state.Authoritative, *flight, prediction, s.deps.Terminal))
 		flight.Prediction = &prediction
 	}
-	s.suppressOutOfOrderHoldingPlans(state)
+	s.checkHoldingPlanOrder(state, false)
 	if !at.IsZero() {
 		s.refreshApproachReleases(state, at)
-		// Retained admissions may restore an EAT after the first safety pass.
-		// Keep their capacity commitment, but withhold unsafe rebuilt plans.
-		s.suppressHoldingPlans(state, true)
+		// Report conflicts against the accepted release times too. Release
+		// order is advisory for publication: it must never erase an EAT.
+		s.checkHoldingPlanOrder(state, true)
 	}
 }
 
-func (s *Service) suppressOutOfOrderHoldingPlans(state *aman.AirportState) {
-	s.suppressHoldingPlans(state, false)
-}
-
-func (s *Service) suppressHoldingPlans(state *aman.AirportState, rebuiltOnly bool) {
+func (s *Service) checkHoldingPlanOrder(state *aman.AirportState, rebuiltOnly bool) {
 	indices := make([]int, 0, len(state.Flights))
 	for i := range state.Flights {
 		flight := state.Flights[i]
@@ -1928,14 +1965,13 @@ func (s *Service) suppressHoldingPlans(state *aman.AirportState, rebuiltOnly boo
 				(older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release) || rebuilt && holdingQueueID(*older) != holdingQueueID(*later) && !older.Prediction.HoldingPlan.ApproachReleaseTime.After(later.Prediction.HoldingPlan.ApproachReleaseTime)) {
 				continue
 			}
-			// An immovable slot can make a safe EAT impossible. Do not expose
-			// that release or use it as a holding-derived feeder clock.
+			// Keep the calculated release visible even when committed slots
+			// conflict with the preferred holding order. Report the conflict
+			// separately; one aircraft must not erase the queue's EATs.
 			prediction := *later.Prediction
-			prediction.HoldingPlan = nil
 			blocker := older.Callsign
 			prediction.HoldingPlanBlockedBy = &blocker
 			later.Prediction = &prediction
-			applyDerivedFeederETA(later, holdingFeederETA(state.Authoritative, *later, prediction, s.deps.Terminal))
 			break
 		}
 	}

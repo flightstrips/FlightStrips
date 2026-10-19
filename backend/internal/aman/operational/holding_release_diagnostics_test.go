@@ -164,7 +164,8 @@ func TestCanceledHoldingWithStalePositionDoesNotBlockOtherReleases(t *testing.T)
 			state.Flights[0].ReplaceHoldingClearance(&aman.HoldingClearance{Hold: fix, HoldType: aman.HoldingClearanceEnroute, ObservedAt: base.Add(time.Minute)})
 			state.Flights[0].Prediction.InputObservedAt = base
 			(&Service{}).refreshHoldingPlans(&state)
-			require.Nil(t, state.Flights[1].Prediction.HoldingPlan, "a genuinely held older aircraft still blocks an unsafe release")
+			require.NotNil(t, state.Flights[1].Prediction.HoldingPlan, "an older held aircraft must not erase the calculated EAT")
+			require.Equal(t, old.Callsign, *state.Flights[1].Prediction.HoldingPlanBlockedBy)
 		})
 	}
 }

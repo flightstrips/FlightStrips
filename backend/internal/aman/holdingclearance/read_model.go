@@ -53,6 +53,14 @@ func BuildReadModel(state aman.AirportState) ReadModel {
 		result.Entries = append(result.Entries, entry)
 		if entry.EAT == nil {
 			result.Warnings = append(result.Warnings, unavailableReleaseWarning(flight))
+		} else if flight.Prediction.HoldingPlanBlockedBy != nil {
+			component, callsign := "holding_release", flight.Callsign
+			warning := aman.Warning{Source: aman.WarningSourceSequence, Component: &component, Callsign: &callsign,
+				RelatedCallsign: flight.Prediction.HoldingPlanBlockedBy, Severity: aman.WarningSeverityWarning, Code: "holding_release_order_conflict"}
+			warning.Message = fmt.Sprintf("%s EAT %s for %s conflicts with the preferred holding release order behind %s. The calculated EAT and assigned runway slot are retained; review the holding sequence.",
+				callsign, entry.EAT.Format("15:04 UTC"), clearance.Hold, *warning.RelatedCallsign)
+			warning.ID = warning.Identity()
+			result.Warnings = append(result.Warnings, warning)
 		}
 	}
 

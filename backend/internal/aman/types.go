@@ -418,6 +418,7 @@ type Prediction struct {
 	HoldingPlan         *HoldingPlan
 	// HoldingPlanBlockedBy identifies a protected earlier release that makes
 	// this flight's current runway slot incompatible with the holding queue.
+	// It blocks automatic advancement, never publication of the calculated EAT.
 	HoldingPlanBlockedBy *Callsign
 
 	ModelVersion  string

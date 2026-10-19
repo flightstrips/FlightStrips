@@ -88,6 +88,41 @@ func TestReduceReplacesPreliminaryOperationalTimeWithFirstPhysicalPrediction(t *
 	require.Equal(t, aman.OperationalReasonRateLimited, next.Flight.Prediction.OperationalReason)
 }
 
+func TestReacquiredRouteResetsStaleTimingWithoutReleasingFreezes(t *testing.T) {
+	for _, freeze := range []aman.FreezeReason{aman.FreezeNone, aman.FreezeManual, aman.FreezeTMA, aman.FreezeSuperstable} {
+		t.Run(string(freeze), func(t *testing.T) {
+			now := predictionTime()
+			oldETA, recoveredETA := now.Add(time.Hour), now.Add(20*time.Minute)
+			flight := predictionFlight(now)
+			old := rawPrediction(now.Add(-20*time.Minute), oldETA)
+			old.OperationalTETA, old.OperationalReason = oldETA, aman.OperationalReasonRateLimited
+			flight.Prediction, flight.FreezeReason = &old, freeze
+			flight.RawTETASamples = []aman.RawTETASample{
+				{TETA: oldETA, GeneratedAt: now.Add(-22 * time.Minute)},
+				{TETA: oldETA, GeneratedAt: now.Add(-21 * time.Minute)},
+				{TETA: oldETA, GeneratedAt: now.Add(-20 * time.Minute)},
+			}
+			if freeze != aman.FreezeNone {
+				frozenAt := now.Add(-20 * time.Minute)
+				flight.FrozenAt, flight.FrozenOperationalTETA = &frozenAt, &oldETA
+			}
+			result, err := Reduce(DefaultConfig(), flight, Input{Raw: rawPrediction(now, recoveredETA), State: aman.StateStable, ReacquiredRoute: true})
+			require.NoError(t, err)
+			require.Len(t, result.Flight.RawTETASamples, 1)
+			require.Equal(t, freeze, result.Flight.FreezeReason)
+			if freeze != aman.FreezeNone {
+				require.Equal(t, oldETA, result.Flight.Prediction.OperationalTETA)
+				return
+			}
+			require.Equal(t, recoveredETA, result.Flight.Prediction.OperationalTETA)
+			require.Equal(t, aman.OperationalReasonRouteRecovery, result.Flight.Prediction.OperationalReason)
+			next, err := Reduce(DefaultConfig(), result.Flight, Input{Raw: rawPrediction(now.Add(time.Minute), recoveredETA), State: aman.StateStable})
+			require.NoError(t, err)
+			require.Equal(t, recoveredETA, next.Flight.Prediction.OperationalTETA, "old samples must not reintroduce the obsolete ETA")
+		})
+	}
+}
+
 func TestReduceRestoresWindowAndSuperstableFreezeDeterministically(t *testing.T) {
 	now := predictionTime()
 	config := DefaultConfig()

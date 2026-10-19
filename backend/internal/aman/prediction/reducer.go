@@ -52,6 +52,7 @@ type Input struct {
 	Raw                aman.Prediction
 	State              aman.FlightState
 	RouteRevision      bool
+	ReacquiredRoute    bool
 	RunwayGroupChanged bool
 	ManualOverride     *time.Time
 	ReleaseFreeze      bool
@@ -91,6 +92,11 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 		// Reconciliation may deliver an already-applied or delayed predictor
 		// result. It must not regress prediction provenance or UpdatedAt.
 		return result(config, flight), nil
+	}
+	if input.ReacquiredRoute {
+		// Samples from before the outage must not pull a recovered prediction
+		// back toward its obsolete operational ETA on the following update.
+		flight.RawTETASamples = nil
 	}
 	if input.Slot != nil && (flight.FreezeReason != aman.FreezeSuperstable || input.ReleaseFreeze || input.ManualOverride != nil || input.ConfirmedGoAround) {
 		copy := cloneSlot(input.Slot)
@@ -238,6 +244,9 @@ func validateRaw(raw aman.Prediction) error {
 }
 
 func routineOperational(config Config, flight aman.AMANFlight, previousState aman.FlightState, input Input) (time.Time, aman.OperationalReason) {
+	if input.ReacquiredRoute {
+		return input.Raw.RawTETA, aman.OperationalReasonRouteRecovery
+	}
 	if input.ReplacePreliminaryPrediction {
 		return input.Raw.RawTETA, aman.OperationalReasonPredicted
 	}

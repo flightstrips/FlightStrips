@@ -90,6 +90,19 @@ describe("AMAN route authorization", () => {
     storeState.amanFMPAuthority = false;
   });
 
+  it("opens the STAR swap from the aircraft menu and sends the selected pair", () => {
+    storeState.amanFMPAuthority = true;
+    const first = {callsign: "SAS123", star_family: "TESPI", runway_group_id: "ARRIVAL-22", freeze_reason: "none", lifecycle_state: "stable", slot: {sequence: 1, time: "2026-07-22T12:10:00Z"}};
+    storeState.amanState = authoritativeState([first, {...first, callsign: "SAS456", slot: {sequence: 2, time: "2026-07-22T12:12:00Z"}}]);
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    fireEvent.click(screen.getByRole("button", {name: "Swap sequence"}));
+    expect(screen.getByRole("dialog", {name: "Swap sequence · SAS123"})).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Swap with"), {target: {value: "SAS456"}});
+    fireEvent.click(screen.getByRole("button", {name: "Swap aircraft"}));
+    expect(storeState.sendAMANCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.swap_flights", callsign: "SAS123", other_callsign: "SAS456"});
+  });
+
   it("keeps FMP controls unauthorized without a server-backed capability", () => {
     render(<AMAN />);
 

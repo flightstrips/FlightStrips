@@ -389,6 +389,7 @@ export interface AMANCommandRejection {
 export type AMANCommandType =
   | "aman.rebuild_arrival_sequence"
   | "aman.move_flight"
+  | "aman.swap_flights"
   | "aman.lock_flight"
   | "aman.unlock_flight"
   | "aman.expedite_flight"
@@ -429,6 +430,7 @@ export interface AMANCommandMeta {
 export type AMANCommandIntent =
   | {type: "aman.rebuild_arrival_sequence"}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; before_callsign: string}
+  | {type: "aman.swap_flights"; callsign: string; other_callsign: string}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; after_callsign: string}
   | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.expedite_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; callsign: string}
   | {type: "aman.set_holding_eat_writeback"; enabled: boolean}
@@ -873,6 +875,14 @@ export function isExcludedAMANFlight(flight: AMANFlight): boolean {
   return flight.lifecycle_state === "removed"
     ? flight.lifecycle_reason === "manual_removal"
     : flight.lifecycle_state !== "landed" && flight.sequence_disposition === "desequenced";
+}
+
+export function canSwapAMANFlight(flight: AMANFlight | null): flight is AMANFlight {
+  return flight !== null && flight.slot !== null && flight.slot !== undefined
+    && Boolean(flight.star_family) && Boolean(flight.runway_group_id)
+    && flight.freeze_reason === "none" && !flight.expedited
+    && (flight.sequence_disposition ?? "active") === "active"
+    && ["unstable", "stable", "go_around"].includes(flight.lifecycle_state);
 }
 
 /** Return only backend-projected header values; operational counts are never reconstructed in React. */

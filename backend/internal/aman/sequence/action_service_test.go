@@ -108,6 +108,10 @@ func (m *recordingActionMutations) mutation(name string, auth aman.CommandContex
 func (m *recordingActionMutations) MoveFlight(auth aman.CommandContext, _ aman.MoveFlightCommand) (CommandMutation, error) {
 	return m.mutation("move", auth)
 }
+
+func (m *recordingActionMutations) SwapFlights(auth aman.CommandContext, _ aman.SwapFlightsCommand) (CommandMutation, error) {
+	return m.mutation("swap", auth)
+}
 func (m *recordingActionMutations) PlaceFlightAtTime(auth aman.CommandContext, _ aman.PlaceFlightAtTimeCommand) (CommandMutation, error) {
 	return m.mutation("place_at_time", auth)
 }

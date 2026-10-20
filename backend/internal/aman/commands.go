@@ -33,6 +33,14 @@ type MoveFlightCommand struct {
 	AfterCallsign  *Callsign
 }
 
+// SwapFlightsCommand exchanges two sequence positions within one selected STAR
+// family and runway group. The server resolves both flights from current state.
+type SwapFlightsCommand struct {
+	Metadata      CommandMetadata
+	Callsign      Callsign
+	OtherCallsign Callsign
+}
+
 type PlaceFlightAtTimeCommand struct {
 	Metadata      CommandMetadata
 	Callsign      Callsign
@@ -230,6 +238,7 @@ type CommandService interface {
 	CurrentRevision(context.Context, string) (SequenceRevision, error)
 	RebuildArrivalSequence(context.Context, CommandContext, RebuildArrivalSequenceCommand) (CommandExecution, error)
 	MoveFlight(context.Context, CommandContext, MoveFlightCommand) (CommandExecution, error)
+	SwapFlights(context.Context, CommandContext, SwapFlightsCommand) (CommandExecution, error)
 	PlaceFlightAtTime(context.Context, CommandContext, PlaceFlightAtTimeCommand) (CommandExecution, error)
 	LockFlight(context.Context, CommandContext, LockFlightCommand) (CommandExecution, error)
 	UnlockFlight(context.Context, CommandContext, UnlockFlightCommand) (CommandExecution, error)
@@ -286,6 +295,16 @@ func (c MoveFlightCommand) Validate() error {
 	}
 	if !trimmed(string(*anchor)) || *anchor == c.Callsign {
 		return commandInvalid("move anchor must identify another flight")
+	}
+	return nil
+}
+
+func (c SwapFlightsCommand) Validate() error {
+	if err := validateFlightCommand(c.Metadata, c.Callsign); err != nil {
+		return err
+	}
+	if !trimmed(string(c.OtherCallsign)) || c.OtherCallsign == c.Callsign {
+		return commandInvalid("swap requires two different flights")
 	}
 	return nil
 }

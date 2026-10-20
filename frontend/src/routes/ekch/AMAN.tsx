@@ -8,12 +8,13 @@ import {AMANCoordinationInbox} from "@/components/aman/AMANCoordinationInbox";
 import {AMANCoordinationRequestDialog} from "@/components/aman/AMANCoordinationRequestDialog";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
 import {AMANQuickGapDialog} from "@/components/aman/AMANQuickGapDialog";
+import {AMANSwapDialog} from "@/components/aman/AMANSwapDialog";
 import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
 import {AMANSettingsPanel} from "@/components/aman/AMANSettingsPanel";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
-import {getAMANMutationBlockReason, isExcludedAMANFlight} from "@/api/aman";
+import {canSwapAMANFlight, getAMANMutationBlockReason, isExcludedAMANFlight} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {EKCH_TMT_HOLDING_ORDER} from "@/config/aman";
@@ -42,6 +43,8 @@ export default function AMAN() {
   const [removalCommandID, setRemovalCommandID] = useState<string | null>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [quickGapOpen, setQuickGapOpen] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapCommandID, setSwapCommandID] = useState<string | null>(null);
   const [focusedRunwayGroupID, setFocusedRunwayGroupID] = useState<string | null>(null);
   const [tmtTab, setTmtTab] = useState("holdings");
   const stateAtMount = useRef(state);
@@ -203,6 +206,11 @@ export default function AMAN() {
               }} type="button"><span>{label}</span>{child && <span aria-hidden="true">▶</span>}</button>
             ))}
             <div className="mx-1 my-0.5 border-t-2 border-white" />
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canSwapAMANFlight(selectedFlight)} onClick={() => {
+              setFlightActionsOpen(false);
+              setSwapCommandID(null);
+              setSwapOpen(true);
+            }} type="button">Swap sequence</button>
             <button className="min-h-5 px-3 text-left hover:bg-[#6685c2]" onClick={() => {
               setFlightActionsOpen(false);
               setCoordinationOpen(true);
@@ -244,6 +252,16 @@ export default function AMAN() {
         open={quickGapOpen}
         rejection={Object.values(commandRejections).find((item) => item.command_type === "aman.create_gap")?.message ?? null}
       />
+      {swapOpen && selectedFlight !== null && <AMANSwapDialog
+        key={selectedFlight.callsign}
+        busy={Object.values(pendingCommands).some((command) => command.type === "aman.swap_flights" || command.type === "aman.move_flight" || command.type === "aman.rebuild_arrival_sequence")}
+        disabled={mutationBlockReason !== null}
+        flight={selectedFlight}
+        flights={state?.flights ?? []}
+        onClose={() => setSwapOpen(false)}
+        onCommand={(intent) => setSwapCommandID(sendCommand(intent))}
+        rejection={swapCommandID ? commandRejections[swapCommandID]?.message ?? null : null}
+      />}
       {coordinationOpen && state !== null && effectiveSelectedCallsign !== null && selectedFlight !== null && <AMANCoordinationRequestDialog
         callsign={selectedFlight.callsign}
         canSubmit={mutationBlockReason === null}

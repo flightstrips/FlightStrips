@@ -396,10 +396,13 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
       <button aria-expanded={technicalOpen} aria-label="Technical evidence" className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-black`} onClick={onToggleTechnical} style={{gridColumn: 12, gridRow: 1}} type="button">Trajectory</button>
       <div aria-label={directTo ? `Direct to ${trajectoryFix}` : `Route via ${trajectoryFix}`} className={`${bodyCell} grid-rows-3 text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 12, gridRow: "2 / 4"}}><span>{trajectoryKind}</span><span className="font-normal">{detail?.calculation?.distance_to_go_nm === null || detail?.calculation?.distance_to_go_nm === undefined ? "" : `${Math.round(detail.calculation.distance_to_go_nm)}nm`}</span><span>{trajectoryFix}</span></div>
 
-      <div aria-hidden="true" className="pointer-events-none absolute left-0 top-0 h-[130px] w-[1658px] origin-top-left [zoom:calc(100cqw/1658px)]">
-        {[139, 631, 733, 1190, 1292, 1468].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider130} style={{left, top: 130}} />)}
-        {[907, 1011].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider129} style={{left, top: 129}} />)}
-        <img alt="" className="absolute left-0 top-[40px] max-w-none" src={headerDivider} />
+      {/* Firefox includes unscaled divider dimensions in scroll overflow unless the decorative layer is clipped. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-clip">
+        <div className="absolute left-0 top-0 h-[130px] w-[1658px] origin-top-left [zoom:calc(100cqw/1658px)]">
+          {[139, 631, 733, 1190, 1292, 1468].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider130} style={{left, top: 130}} />)}
+          {[907, 1011].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider129} style={{left, top: 129}} />)}
+          <img alt="" className="absolute left-0 top-[40px] max-w-none" src={headerDivider} />
+        </div>
       </div>
     </div>
     <dl aria-label="Holding information" className="col-start-1 row-start-3 flex h-[2.594cqw] items-stretch border-r-[0.121cqw] border-t-[0.121cqw] border-white bg-[#eff1e9] text-[clamp(9px,1.206cqw,20px)] font-semibold leading-normal">
@@ -409,7 +412,7 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
     </dl>
     <div data-testid="flight-detail-close-panel" className="relative col-start-2 row-span-2 row-start-2 grid bg-[#555355] pb-[0.784cqw] pl-[0.362cqw] pr-[0.422cqw] pt-[0.603cqw]">
       <button aria-label="Close flight detail" className="grid place-items-center bg-[#313131] text-[clamp(9px,1.206cqw,20px)] font-semibold text-white outline-none hover:bg-[#3b3b3b] focus-visible:underline focus-visible:decoration-2 focus-visible:underline-offset-4" onClick={onClose} type="button">Close</button>
-      <div aria-hidden="true" className="pointer-events-none absolute left-0 top-0 h-[130px] w-[80px] origin-top-left [zoom:calc(100cqw/1658px)]"><img alt="" className="absolute left-0 top-[130px] max-w-none origin-top-left -rotate-90" src={closeDivider} /></div>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-clip"><div className="absolute left-0 top-0 h-[130px] w-[80px] origin-top-left [zoom:calc(100cqw/1658px)]"><img alt="" className="absolute left-0 top-[130px] max-w-none origin-top-left -rotate-90" src={closeDivider} /></div></div>
     </div>
   </section>;
 }

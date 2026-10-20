@@ -13,6 +13,7 @@ import (
 type ActionMutations interface {
 	RebuildArrivalSequence(context.Context, aman.CommandContext, aman.RebuildArrivalSequenceCommand) (CommandMutation, error)
 	MoveFlight(aman.CommandContext, aman.MoveFlightCommand) (CommandMutation, error)
+	SwapFlights(aman.CommandContext, aman.SwapFlightsCommand) (CommandMutation, error)
 	PlaceFlightAtTime(aman.CommandContext, aman.PlaceFlightAtTimeCommand) (CommandMutation, error)
 	LockFlight(aman.CommandContext, aman.LockFlightCommand) (CommandMutation, error)
 	UnlockFlight(aman.CommandContext, aman.UnlockFlightCommand) (CommandMutation, error)
@@ -75,6 +76,10 @@ func (s *ActionService) CurrentRevision(ctx context.Context, airport string) (am
 
 func (s *ActionService) MoveFlight(ctx context.Context, auth aman.CommandContext, command aman.MoveFlightCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.MoveFlight(auth, command) })
+}
+
+func (s *ActionService) SwapFlights(ctx context.Context, auth aman.CommandContext, command aman.SwapFlightsCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.SwapFlights(auth, command) })
 }
 
 func (s *ActionService) PlaceFlightAtTime(ctx context.Context, auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (aman.CommandExecution, error) {

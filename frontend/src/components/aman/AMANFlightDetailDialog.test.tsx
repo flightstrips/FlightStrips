@@ -1,4 +1,4 @@
-import {fireEvent, render, screen, waitFor} from "@testing-library/react";
+import {act, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {useState} from "react";
 import {describe, expect, it, vi} from "vitest";
 
@@ -54,6 +54,25 @@ function Harness() {
 }
 
 describe("AMAN flight detail dialog integration", () => {
+  it("refreshes an open flight on AMAN revisions while retaining the displayed detail until the response arrives", async () => {
+    fetchDetail.mockResolvedValueOnce(detail);
+    let resolveRefresh!: (value: AMANFlightDetail) => void;
+    fetchDetail.mockImplementationOnce(() => new Promise<AMANFlightDetail>((resolve) => { resolveRefresh = resolve; }));
+    const onClose = vi.fn();
+    const {rerender} = render(<AMANFlightDetailDialog airport="EKCH" callsign="SAS123" revision={17} onClose={onClose} />);
+    const summary = await screen.findByLabelText("Flight information summary");
+    await waitFor(() => expect(summary).toHaveTextContent("state revision 17"));
+    fireEvent.click(screen.getByRole("button", {name: "Technical evidence"}));
+    rerender(<AMANFlightDetailDialog airport="EKCH" callsign="SAS123" revision={18} onClose={onClose} />);
+    await waitFor(() => expect(resolveRefresh).toBeDefined());
+    expect(summary).toHaveTextContent("state revision 17");
+    expect(screen.queryByText("Loading current AMAN detail…")).not.toBeInTheDocument();
+    await act(async () => resolveRefresh({...detail, revision: 18, flight: {...detail.flight, direct_to: "DOSUR"}}));
+    expect(summary).toHaveTextContent("state revision 18");
+    expect(screen.getByLabelText("Direct to DOSUR")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Technical evidence"})).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("labels and focuses the modal, shows current backend detail, and restores focus on close", async () => {
     fetchDetail.mockResolvedValue(detail);
     render(<Harness />);

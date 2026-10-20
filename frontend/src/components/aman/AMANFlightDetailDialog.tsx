@@ -405,7 +405,7 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
   </section>;
 }
 
-export function AMANFlightDetailDialog({airport, callsign, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; callsign: string; coordination?: {
+export function AMANFlightDetailDialog({airport, callsign, revision, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; callsign: string; revision?: number; coordination?: {
   requests: AMANCoordinationRequest[]; canSubmit: boolean; submitting: boolean; rejection?: string | null;
   onSubmit: (submission: {kind: "route_direct"; route?: string; direct_to?: string} | {kind: "speed"; requested: string}) => void;
 }; initialAction?: "missed-approach" | "removal"; missedApproach?: MissedApproachAction; removal?: RemovalAction; onClose: () => void}) {
@@ -419,6 +419,7 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const returnFocusRef = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const detailKey = useMemo(() => `${airport}/${callsign}`, [airport, callsign]);
+  const loadedDetailKey = useRef<string | null>(null);
 
   useEffect(() => () => returnFocusRef.current?.focus(), []);
 
@@ -432,11 +433,18 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
   useEffect(() => {
     const abort = new AbortController();
     void (async () => {
-      setLoading(true); setError(null); setDetail(null);
+      if (loadedDetailKey.current !== detailKey) {
+        setLoading(true);
+        setDetail(null);
+      }
+      setError(null);
       try {
         const token = requireAccessToken(await getAccessTokenSilently());
         const value = await fetchAMANFlightDetail(token, airport, callsign, abort.signal);
-        if (!abort.signal.aborted) setDetail(value);
+        if (!abort.signal.aborted) {
+          loadedDetailKey.current = detailKey;
+          setDetail(value);
+        }
       } catch (reason) {
         if (!abort.signal.aborted) setError(reason instanceof Error ? reason.message : "Unable to load AMAN flight detail.");
       } finally {
@@ -444,7 +452,7 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
       }
     })();
     return () => abort.abort();
-  }, [airport, callsign, getAccessTokenSilently, detailKey]);
+  }, [airport, callsign, revision, getAccessTokenSilently, detailKey]);
 
   const openMissedApproach = () => {
     setCoordinationOpen(false);

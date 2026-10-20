@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.4.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.4.1...backend/v3.4.2) (2026-10-19)
+
+
+### Bug Fixes
+
+* **aman:** recover stalled predictions and accept fresh positions ([#931](https://github.com/flightstrips/FlightStrips/issues/931)) ([74bb5dc](https://github.com/flightstrips/FlightStrips/commit/74bb5dcbde1e1f94c8839921b3178ed90414bbf8))
+
+## [3.4.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.4.0...backend/v3.4.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **cdm:** tolerate delayed vIFF flight processing ([#922](https://github.com/flightstrips/FlightStrips/issues/922)) ([f54e80e](https://github.com/flightstrips/FlightStrips/commit/f54e80e7250ef3bdaff6cd13b9d06d460c5b1203))
+
 ## [3.4.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.3.0...backend/v3.4.0) (2026-10-18)
 
 

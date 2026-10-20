@@ -24,7 +24,7 @@ func GainLossPrediction(flight AMANFlight) (time.Time, bool) {
 		return raw.RawTETA, true
 	}
 	switch raw.OperationalReason {
-	case OperationalReasonRouteRevision, OperationalReasonRunwayGroupChanged, OperationalReasonGoAround, OperationalReasonFirstUnstable:
+	case OperationalReasonRouteRevision, OperationalReasonRouteRecovery, OperationalReasonRunwayGroupChanged, OperationalReasonGoAround, OperationalReasonFirstUnstable:
 		return raw.RawTETA, true
 	}
 	values := make([]time.Time, len(samples))

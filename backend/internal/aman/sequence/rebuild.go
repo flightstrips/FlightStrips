@@ -174,7 +174,7 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 			if f.CurrentSlot != nil {
 				release := f.CurrentSlot.Time.Add(-f.HoldingTransit)
 				if release.Before(globalRelease) || !releases[f.HoldingStackID].IsZero() && release.Before(releases[f.HoldingStackID].Add(time.Minute)) {
-					diagnose("protected_release_exception", f.Flight, "Retained reservation prevents the preferred release order; unsafe stack releases are withheld")
+					diagnose("protected_release_exception", f.Flight, "Retained reservation conflicts with the preferred release order; the calculated EAT remains available")
 				}
 				if release.After(globalRelease) {
 					globalRelease = release

@@ -670,7 +670,7 @@ func TestResequencePromotionAutomaticallyRefreshesHoldingRelease(t *testing.T) {
 	require.Equal(t, time.Minute, state.Flights[1].Prediction.HoldingPlan.ExpectedHoldingDuration)
 }
 
-func TestResequenceKeepsCommittedHoldingSlotsDespiteReleaseOrderConflict(t *testing.T) {
+func TestResequenceRepairsCommittedHoldingReleaseOrder(t *testing.T) {
 	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	group, holding := aman.RunwayGroupID("ARRIVAL-22"), "MONAK-HOLD"
 	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
@@ -705,10 +705,15 @@ func TestResequenceKeepsCommittedHoldingSlotsDespiteReleaseOrderConflict(t *test
 	service.resequence(&state, start)
 
 	require.Equal(t, start.Add(20*time.Minute), state.Flights[1].Slot.Time, "existing holding slot stays fixed")
-	require.Equal(t, start.Add(24*time.Minute), state.Flights[0].Slot.Time)
-	require.Equal(t, start.Add(27*time.Minute), state.Flights[2].Slot.Time, "existing holding targets cannot be moved later")
-	require.Nil(t, state.Flights[0].Prediction.HoldingPlan, "an infeasible release order is not repaired by changing committed slots")
-	require.Nil(t, state.Flights[2].Prediction.HoldingPlan)
+	require.Equal(t, start.Add(28*time.Minute), state.Flights[0].Slot.Time)
+	require.Equal(t, start.Add(31*time.Minute), state.Flights[2].Slot.Time, "automatic targets must move to accommodate the holding release order")
+	require.NotNil(t, state.Flights[0].Prediction.HoldingPlan)
+	require.NotNil(t, state.Flights[2].Prediction.HoldingPlan)
+	require.Equal(t, start.Add(11*time.Minute), state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Equal(t, start.Add(13*time.Minute), state.Flights[2].Prediction.HoldingPlan.ApproachReleaseTime)
+	for _, flight := range state.Flights {
+		require.Nil(t, flight.Prediction.HoldingPlanBlockedBy)
+	}
 	require.Equal(t, start.Add(10*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
 }
 
@@ -867,11 +872,12 @@ func TestIncomingFlightShowsLossAcrossRunwayGroupsSharingHold(t *testing.T) {
 	incoming.Slot = &aman.Slot{Time: start.Add(21 * time.Minute), RunwayGroupID: right, Sequence: 1, Revision: 7}
 	state.Flights = []aman.AMANFlight{incoming, older}
 	service.resequence(&state, start)
-	require.Equal(t, start.Add(21*time.Minute), state.Flights[0].Slot.Time, "a cross-runway hold correction cannot delay an existing Stable target")
-	require.Nil(t, state.Flights[0].Prediction.HoldingPlan, "retain the target while suppressing its inconsistent release plan")
+	require.Equal(t, start.Add(24*time.Minute), state.Flights[0].Slot.Time, "a cross-runway hold correction must repair an automatic Stable target")
+	require.Equal(t, start.Add(11*time.Minute), state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Nil(t, state.Flights[0].Prediction.HoldingPlanBlockedBy)
 }
 
-func TestProtectedHoldConflictSuppressesUnsafeReleasePlan(t *testing.T) {
+func TestProtectedHoldConflictRetainsEATAndReportsOrder(t *testing.T) {
 	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	group, holding := aman.RunwayGroupID("ARRIVAL-22"), "MONAK-HOLD"
 	older := operationalFlight("OLDER", group, "MONAK", "M", start)
@@ -891,7 +897,8 @@ func TestProtectedHoldConflictSuppressesUnsafeReleasePlan(t *testing.T) {
 
 	(&Service{}).refreshHoldingPlans(&state)
 
-	require.Nil(t, state.Flights[0].Prediction.HoldingPlan)
+	require.NotNil(t, state.Flights[0].Prediction.HoldingPlan)
+	require.Equal(t, start.Add(7*time.Minute), state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime)
 	require.NotNil(t, state.Flights[1].Prediction.HoldingPlan)
 	require.Equal(t, start.Add(10*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
 	require.Equal(t, older.Callsign, *state.Flights[0].Prediction.HoldingPlanBlockedBy)
@@ -948,7 +955,8 @@ func TestUnclearedTrafficPastHoldingFixDoesNotSuppressClearedEAT(t *testing.T) {
 	require.Equal(t, cleared.Slot, state.Flights[1].Slot, "display repair must preserve the assigned slot")
 	state.Flights[0].HoldingClearance = &aman.HoldingClearance{Hold: "LUGAS", HoldType: aman.HoldingClearanceEnroute}
 	(&Service{}).refreshHoldingPlans(&state)
-	require.Nil(t, state.Flights[1].Prediction.HoldingPlan, "a real older cleared hold without timing must still block an unsafe release")
+	require.NotNil(t, state.Flights[1].Prediction.HoldingPlan, "an older hold without timing must not erase another aircraft's EAT")
+	require.Equal(t, passed.Callsign, *state.Flights[1].Prediction.HoldingPlanBlockedBy)
 }
 
 func TestResequencePromotionKeepsConfirmedHoldingReleaseFeasible(t *testing.T) {

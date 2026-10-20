@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.3.0...plugin/v2.3.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **session:** keep the master indicator visible outside stats ([#924](https://github.com/flightstrips/FlightStrips/issues/924)) ([63e7ab0](https://github.com/flightstrips/FlightStrips/commit/63e7ab07e9494821731817c2c0cfe0a09e0369e1))
+
 ## [2.3.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.2.0...plugin/v2.3.0) (2026-10-18)
 
 

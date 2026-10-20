@@ -18,6 +18,7 @@ const (
 	defaultMaxCrossTrackNM             = 12.0
 	defaultJitterNM                    = 0.25
 	defaultForwardSearchNM             = 50.0
+	maximumProgressGroundspeedKnots    = 700.0
 	defaultRecoveryConfirmationSamples = 3
 	defaultRecoveryLegLookahead        = 8
 	defaultRecoveryTrackTolerance      = 20.0
@@ -125,6 +126,7 @@ type Result struct {
 	Progress           *aman.RouteProgress
 	FeederProgress     FeederProgress
 	InTMA              bool
+	ReacquiredProgress bool
 }
 
 // HoldingCandidate is a geometric observation inside the published holding
@@ -300,13 +302,15 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 				GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest,
 				FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup,
 				LegIndex: next, RejoinLegIndex: next, AlongTrackNM: result.AlongTrackNM,
+				ObservedAt: input.Observation.ObservedAt,
 			}
 			result.FeederProgress = feederProgress(legs, input.FeederFix, next, feederBypassed)
 			return result
 		}
 	}
 	projectionPrior := input.Prior
-	best, ok, progressOutOfRange := projectForward(obs, legs, start, config.MaxCrossTrackNM, config.MaxForwardSearchNM, config.JitterToleranceNM, projectionPrior, compatible)
+	maxForward := forwardSearchDistance(input, config, compatible)
+	best, ok, progressOutOfRange := projectForward(obs, legs, start, config.MaxCrossTrackNM, maxForward, config.JitterToleranceNM, projectionPrior, compatible)
 	if !ok && compatible && input.Prior.RecoveryUnlocated && input.Prior.RecoveryCandidateSamples > 0 && input.Prior.RecoveryCandidateFix != "" {
 		rejoin := input.Prior.RejoinLegIndex
 		if rejoin >= start && rejoin < len(legs) && string(legs[rejoin].to) == input.Prior.RecoveryCandidateFix {
@@ -317,7 +321,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 			// must not exclude a physical rejoin onto an earlier eligible leg.
 			anchor := *input.Prior
 			anchor.AlongTrackNM = progressAtLegStart(legs, rejoin)
-			recovered, rejoined, recoveryOutOfRange := projectForward(obs, legs, rejoin, config.MaxCrossTrackNM, config.MaxForwardSearchNM+legs[rejoin].distance, config.JitterToleranceNM, &anchor, true)
+			recovered, rejoined, recoveryOutOfRange := projectForward(obs, legs, rejoin, config.MaxCrossTrackNM, maxForward+legs[rejoin].distance, config.JitterToleranceNM, &anchor, true)
 			if rejoined {
 				best, ok, projectionPrior = recovered, true, &anchor
 			} else if recoveryOutOfRange && !progressOutOfRange {
@@ -355,6 +359,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 					GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest,
 					FlightPlanRevision: input.FlightPlanRevision, RunwayGroupID: input.RunwayGroup,
 					LegIndex: next, RejoinLegIndex: next, AlongTrackNM: progress,
+					ObservedAt: input.Observation.ObservedAt,
 				}
 				result.FeederProgress = feederProgress(legs, input.FeederFix, next, feederBypassed)
 				return result
@@ -411,6 +416,10 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 					LegIndex: progressLeg, RejoinLegIndex: rejoin, AlongTrackNM: progress,
 					RecoveryCandidateFix: candidateFix, RecoveryCandidateSamples: candidateSamples,
 					RecoveryUnlocated: candidateFix != "" && (!compatible || input.Prior.RecoveryUnlocated),
+					ObservedAt:        input.Observation.ObservedAt,
+				}
+				if retainProgress && compatible {
+					result.Progress.ObservedAt = input.Prior.ObservedAt
 				}
 				result.FeederProgress = feederProgress(legs, input.FeederFix, progressLeg, feederBypassed)
 				return result
@@ -427,6 +436,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		best.cross = observedCross
 	}
 	result.AlongTrackNM, result.CrossTrackNM, result.SelectedHolding, result.HoldingCandidate = progress, best.cross, holding, holdCandidate
+	result.ReacquiredProgress = compatible && !input.Prior.RecoveryUnlocated && progress-input.Prior.AlongTrackNM > config.MaxForwardSearchNM
 	result.InTMA = terminalStart >= 0 && best.index >= terminalStart
 	dtg := remainingDistance(legs, progress)
 	result.DistanceToGoNM = &dtg
@@ -445,7 +455,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 	if activeRouteFact(input.RouteFact) && directRejoin >= 0 {
 		rejoin = directRejoin
 	}
-	result.Progress = &aman.RouteProgress{GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest, FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup, LegIndex: best.index, RejoinLegIndex: rejoin, AlongTrackNM: progress}
+	result.Progress = &aman.RouteProgress{GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest, FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup, LegIndex: best.index, RejoinLegIndex: rejoin, AlongTrackNM: progress, ObservedAt: input.Observation.ObservedAt}
 	result.FeederProgress = feederProgress(legs, input.FeederFix, best.index, feederBypassed)
 	return result
 }
@@ -772,6 +782,17 @@ func baseCompatible(p *aman.RouteProgress, digest string, snapshot navdata.Activ
 type projected struct {
 	index                int
 	along, before, cross float64
+}
+
+// Keep the routine jump guard, but allow the distance a real aircraft could
+// travel since its last accepted physical anchor. Rejected updates must not
+// reset this timestamp or keep a recovering flight stuck behind indefinitely.
+func forwardSearchDistance(input Input, config Config, compatible bool) float64 {
+	if !compatible || input.Prior.RecoveryUnlocated || input.Prior.ObservedAt == nil || input.Observation.ObservedAt == nil {
+		return config.MaxForwardSearchNM
+	}
+	elapsed := input.Observation.ObservedAt.Sub(*input.Prior.ObservedAt)
+	return math.Max(config.MaxForwardSearchNM, elapsed.Hours()*maximumProgressGroundspeedKnots)
 }
 
 func projectForward(p navdata.Coordinate, legs []leg, start int, maxCross, maxForward, jitter float64, prior *aman.RouteProgress, compatible bool) (projected, bool, bool) {

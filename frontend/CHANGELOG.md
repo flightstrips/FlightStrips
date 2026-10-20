@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.4.0...frontend/v2.4.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **aman:** recover stalled predictions and accept fresh positions ([#931](https://github.com/flightstrips/FlightStrips/issues/931)) ([74bb5dc](https://github.com/flightstrips/FlightStrips/commit/74bb5dcbde1e1f94c8839921b3178ed90414bbf8))
+
 ## [2.4.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.3.0...frontend/v2.4.0) (2026-10-18)
 
 

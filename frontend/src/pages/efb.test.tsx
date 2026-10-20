@@ -792,6 +792,7 @@ describe('EFB page interactions', () => {
   });
 
   it('shows departure CDM timings and submits a TOBT update using the active account', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-20T20:00:00.000Z'));
     let updated = false;
     const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

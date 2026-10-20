@@ -7,6 +7,9 @@
     "node": ">=22.22.0"
   },
   "scripts": {
+    "storybook": "storybook dev -p 6006 --host 127.0.0.1 --no-open",
+    "build-storybook": "tsc --project tsconfig.storybook.json && storybook build",
+    "test:storybook": "playwright test --config playwright.storybook.config.ts",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
@@ -52,6 +55,9 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.0",
+    "@storybook/addon-a11y": "^10.6.2",
+    "@storybook/addon-docs": "^10.6.2",
+    "@storybook/react-vite": "^10.6.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
@@ -66,6 +72,7 @@
     "globals": "^17.13.0",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.30",
+    "storybook": "^10.6.2",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
     "tailwindcss-animate": "^1.0.7",

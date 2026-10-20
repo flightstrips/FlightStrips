@@ -1,0 +1,27 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Start here" />
+
+# FlightStrips component catalogue
+
+Browse the same components used in FlightStrips, with sample data and no login required.
+
+## How to review
+
+1. Choose a component in the left sidebar, then choose a named example.
+2. Use **Controls** below the example to change text, selection, or other available settings.
+3. Try clicking, keyboard navigation with Tab, and Escape to close dialogs. Check disabled, empty, and long-text examples too.
+4. Use the viewport toolbar to compare screen sizes. Operational strips use viewport units: review them at a desktop size as well as your usual controller resolution.
+5. Open **Accessibility** for automated checks. These checks help find issues but do not replace human review.
+
+To report a problem, copy the story URL and include a screenshot, the viewport size, any changed controls, and what you expected to see.
+
+## What is included
+
+**Shared controls** documents reusable UI primitives, including buttons, forms, dialogs, navigation and loading states. **Flight strips** shows production strip layouts and ownership states. **Operations** contains selected operational components.
+
+This is an initial catalogue, not complete coverage of every application screen. Authentication, live sessions, map services and server-backed workflows still need application testing. Strip actions are recorded in the Actions panel; a server response is not simulated.
+
+## Keeping components consistent
+
+Before introducing a new control, look for an existing example here. Reuse its production component and add a story for any new state. Stories must import real components rather than duplicate their markup. Keep related examples next to the component as the catalogue grows.

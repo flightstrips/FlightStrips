@@ -290,7 +290,7 @@ func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight 
 	}
 	result := flightDetail{Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt, Flight: flightSummary{
 		Callsign: flight.Callsign, LifecycleState: string(flight.State), DataStatus: string(flight.DataStatus),
-		RunwayGroupID: stringPointer(flight.SelectedRunwayGroup), Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(star), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
+		RunwayGroupID: stringPointer(flight.SelectedRunwayGroup), Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(star), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: a.holdingFix(flight),
 	}}
 	if observation := flight.LatestObservation; observation != nil {
 		result.Flight.Origin, result.Flight.Destination = observation.Origin, observation.Destination
@@ -364,7 +364,7 @@ func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight 
 		}
 		result.SlotBasis = &basis
 	}
-	if prediction := flight.Prediction; prediction != nil && prediction.HoldingPlan != nil {
+	if prediction := flight.Prediction; prediction != nil && prediction.Publishable && prediction.HoldingPlan != nil {
 		plan, mapErr := mapHoldingPlan(*prediction.HoldingPlan)
 		if mapErr != nil {
 			return flightDetail{}, mapErr
@@ -374,6 +374,23 @@ func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight 
 	result.FiledRouteGeometry = a.mapFiledRouteGeometry(ctx, state, flight)
 	result.STARRoute = a.mapSTARRoute(flight)
 	return result, nil
+}
+
+func (a *WebAPI) holdingFix(flight aman.AMANFlight) *string {
+	if clearance := flight.HoldingClearance; clearance != nil && clearance.HoldType == aman.HoldingClearanceEnroute && clearance.Hold != "" {
+		return cloneString(&clearance.Hold)
+	}
+	// SelectedHolding identifies a pattern (e.g. EKCH-ROSBI-PRIMARY-LOW),
+	// rather than its display fix. Never present that internal ID as a fix.
+	if flight.SelectedHolding != nil {
+		for _, holding := range a.terminal.OverlayHoldings {
+			if string(holding.ID) == *flight.SelectedHolding {
+				fix := string(holding.Fix)
+				return &fix
+			}
+		}
+	}
+	return nil
 }
 
 func (a *WebAPI) mapSTARRoute(flight aman.AMANFlight) []starWaypoint {

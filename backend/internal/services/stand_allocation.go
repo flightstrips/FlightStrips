@@ -911,7 +911,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 			}
 			for _, displaced := range result.RemovedAssignments {
 				metrics.RecordSATLifecycleEvent(ctx, "displacement", string(command), displaced.Source)
-				slog.WarnContext(ctx, "SAT assignment displaced",
+				slog.InfoContext(ctx, "SAT assignment displaced",
 					slog.String("callsign", displaced.Callsign), slog.String("stand", displaced.Stand),
 					slog.String("stage", displaced.Stage), slog.String("source", displaced.Source),
 					slog.String("reason", string(command)), slog.String("takeover_callsign", request.Callsign))
@@ -966,8 +966,8 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 		}
 		metrics.RecordSATConflict(ctx, "database_contention")
 		recordRetryableDBError(ctx, err)
-		slog.WarnContext(ctx, "SAT allocation contention; retrying", slog.String("callsign", request.Callsign), slog.Int("attempt", attempt), slog.Any("error", err))
 		if attempt < s.attempts {
+			slog.DebugContext(ctx, "SAT allocation contention; retrying", slog.String("callsign", request.Callsign), slog.Int("attempt", attempt), slog.Any("error", err))
 			if waitErr := waitForSerializableRetry(ctx, attempt); waitErr != nil {
 				return nil, waitErr
 			}
@@ -975,6 +975,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 	}
 	metrics.RecordSATOutcome(ctx, "database_contention", string(request.Direction))
 	err := fmt.Errorf("%w after %d attempts", ErrAllocationRetriesExhausted, s.attempts)
+	slog.WarnContext(ctx, "SAT allocation retries exhausted", slog.String("callsign", request.Callsign), slog.Int("attempts", s.attempts), slog.Any("error", err))
 	if recordFailures {
 		s.recordAllocationFailure(command, request, "database_contention", err, s.attempts)
 	}

@@ -21,7 +21,6 @@ const detail: AMANFlightDetail = {
   revision: 17,
   generated_at: "2026-07-22T10:00:00.000Z",
   flight: {
-    id: "SAS123",
     callsign: "SAS123",
     origin: "ESSA",
     destination: "EKCH",
@@ -81,7 +80,7 @@ describe("AMAN flight detail dialog integration", () => {
     opener.focus();
     fireEvent.click(opener);
     const dialog = await screen.findByRole("dialog", {name: "SAS123 — route & prediction detail"});
-    expect(screen.getByRole("button", {name: "Close flight detail"})).toHaveFocus();
+    expect(dialog).toHaveFocus();
     await waitFor(() => expect(dialog).toHaveTextContent("state revision 17"));
     expect(dialog).toHaveTextContent("A320");
     fireEvent.click(screen.getByRole("button", {name: "Technical evidence"}));
@@ -105,7 +104,7 @@ describe("AMAN flight detail dialog integration", () => {
         ],
       },
       teta_basis: {
-        raw_teta: "2026-07-22T10:20:00.000Z", raw_reta: "2026-07-22T10:19:00.000Z", operational_teta: "2026-07-22T10:19:00.000Z", generated_at: detail.generated_at,
+        raw_teta: "2026-07-22T10:20:00.000Z", raw_reta: "2026-07-22T10:18:00.000Z", operational_teta: "2026-07-22T10:19:00.000Z", generated_at: detail.generated_at,
         input_observed_at: "2026-07-22T10:00:00.000Z", operational_reason: "predicted", freeze_reason: null, frozen_at: null, confidence: "high", model_version: "model-v1", config_version: "config-v1",
         prediction_basis: "performance_wind", performance_profile_id: "A320", weather_source: "metar", sources: ["surveillance"], degradation_reason: null, raw_samples: [], baseline: null, eta_review: null,
       },
@@ -122,14 +121,19 @@ describe("AMAN flight detail dialog integration", () => {
     expect(screen.getByLabelText("STAR waypoint estimates")).not.toHaveTextContent("APPROACH-FIX");
     expect(summary).toHaveTextContent("22L/2");
     expect(summary).toHaveTextContent("35nm");
+    expect(summary).toHaveTextContent("ROSBI");
+    expect(screen.getByLabelText("Current ETA-FF")).toHaveTextContent("10:12:00");
     expect(screen.getByLabelText("Initial ETA-FF")).toHaveTextContent("10:10:00");
     expect(screen.getByLabelText("Initial STA-FF")).toHaveTextContent("10:13:00");
     expect(screen.getByLabelText("Initial runway ETA")).toHaveTextContent("10:18:00");
     expect(screen.getByLabelText("Initial runway STA")).toHaveTextContent("10:20:00");
     expect(screen.getByLabelText("Current STA-FF")).toHaveTextContent("10:14:00");
-    expect(screen.getByLabelText("Initial total delay")).toHaveTextContent("−2′00″");
-    expect(screen.getByLabelText("Current total delay")).toHaveTextContent("−5′00″");
-    expect(screen.getByLabelText("Current accumulated delay")).toHaveTextContent("0′00″");
+    expect(screen.getByLabelText("Current runway ETA")).toHaveTextContent("10:19:00");
+    expect(screen.getByLabelText("Current runway STA")).toHaveTextContent("10:18:00");
+    expect(screen.getByLabelText("Initial total delay")).toHaveTextContent("0′00″");
+    expect(screen.getByLabelText("Initial accumulated delay")).toBeEmptyDOMElement();
+    expect(screen.getByLabelText("Current total delay")).toHaveTextContent("−1′00″");
+    expect(screen.getByLabelText("Current accumulated delay")).toHaveTextContent("−1′00″");
     expect(screen.getByLabelText("Route via CH626")).toHaveTextContent("ROUTE35nmCH626");
     expect(screen.getByRole("button", {name: "Technical evidence"})).toHaveTextContent("Trajectory");
   });
@@ -168,15 +172,45 @@ describe("AMAN flight detail dialog integration", () => {
     }
   });
 
-  it("marks unavailable historical clocks rather than substituting current estimates", async () => {
+  it("leaves unavailable historical clocks blank rather than substituting current estimates", async () => {
     fetchDetail.mockResolvedValue(detail);
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", {name: "Open SAS123"}));
     await screen.findByText("A320");
-    expect(screen.getByLabelText("Initial ETA-FF")).toHaveTextContent("—");
-    expect(screen.getByLabelText("Initial runway ETA")).toHaveTextContent("—");
+    expect(screen.getByLabelText("Initial ETA-FF")).toBeEmptyDOMElement();
+    expect(screen.getByLabelText("Initial runway ETA")).toBeEmptyDOMElement();
     expect(screen.getByLabelText("Current ETA-FF")).toHaveTextContent("10:12:00");
     expect(screen.getByLabelText("Current STA-FF")).toHaveTextContent("10:14:00");
+    expect(screen.getByLabelText("Initial total delay")).toBeEmptyDOMElement();
+    expect(screen.getByLabelText("Current total delay")).toBeEmptyDOMElement();
+    expect(screen.getByLabelText("Holding EAT")).toBeEmptyDOMElement();
+  });
+
+  it("shows holding EAT in UTC without opening technical evidence and refreshes or clears it with the plan", async () => {
+    const holdingDetail = {
+      ...detail,
+      flight: {...detail.flight, holding_fix: "ROSBI"},
+      holding_plan: {
+        holding_entry_time: "2026-07-22T10:06:00.000Z", approach_release_time: "2026-07-23T01:18:30+02:00",
+        expected_holding_seconds: 750, post_holding_transit_seconds: 600,
+      },
+    };
+    fetchDetail.mockResolvedValue(holdingDetail);
+    const props = {airport: "EKCH", callsign: "SAS123", onClose: vi.fn()};
+    const {rerender} = render(<AMANFlightDetailDialog {...props} revision={17} />);
+    await waitFor(() => expect(screen.getByLabelText("Holding EAT")).toHaveTextContent("23:18:30"));
+    expect(screen.getByLabelText("Holding fix")).toHaveTextContent("ROSBI");
+    expect(screen.getByLabelText("Holding information")).toHaveTextContent("UTC");
+    expect(screen.getByLabelText("Expected holding duration")).toHaveTextContent("12:30");
+    expect(screen.getByRole("button", {name: "Technical evidence"})).toHaveAttribute("aria-expanded", "false");
+    fetchDetail.mockResolvedValue({...holdingDetail, revision: 18, holding_plan: {...holdingDetail.holding_plan, approach_release_time: "2026-07-22T23:20:00Z"}});
+    rerender(<AMANFlightDetailDialog {...props} revision={18} />);
+    await waitFor(() => expect(screen.getByLabelText("Holding EAT")).toHaveTextContent("23:20:00"));
+    fetchDetail.mockResolvedValue({...holdingDetail, revision: 19, holding_plan: null});
+    rerender(<AMANFlightDetailDialog {...props} revision={19} />);
+    await waitFor(() => expect(screen.getByLabelText("Holding EAT")).toBeEmptyDOMElement());
+    expect(screen.getByLabelText("Holding fix")).toHaveTextContent("ROSBI");
+    expect(screen.getByLabelText("Expected holding duration")).toBeEmptyDOMElement();
   });
 
   it("requires confirmation before reporting a missed approach", async () => {

@@ -154,7 +154,7 @@ func TestConfirmedHoldingCanPromoteIntoVacancyDespiteNextLapETA(t *testing.T) {
 		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &now}}}
 	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
 	promotions := service.resequence(&state, now)
-	require.Len(t, promotions, 1)
+	require.Len(t, promotions.Promotions, 1)
 	require.Equal(t, now.Add(6*time.Minute), state.Flights[1].Slot.Time)
 	require.Equal(t, now.Add(2*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
 	require.Equal(t, 4*time.Minute, state.Flights[1].HoldingReleaseBasis.PostHoldingTransit)
@@ -246,7 +246,9 @@ func TestReconcileConfirmedHoldingKeepsReleaseAcrossInboundAndOutboundPositions(
 			accepted = flight.Prediction.HoldingPlan
 		} else {
 			require.Equal(t, accepted, flight.Prediction.HoldingPlan)
-			require.NotEqual(t, previousRaw, flight.Prediction.RawTETA, "physical prediction still responds to racetrack position")
+			if previousRaw.Equal(flight.Prediction.RawTETA) {
+				require.NotNil(t, flight.PredictionFilter.Pending, "an isolated timing change is filtered without changing the release")
+			}
 		}
 		previousRaw = flight.Prediction.RawTETA
 		require.Equal(t, now.Add(30*time.Minute), flight.Slot.Time)

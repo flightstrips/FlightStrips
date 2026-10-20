@@ -91,7 +91,30 @@ func TestReprocessingSamePositionDoesNotPushArrivalTimesBack(t *testing.T) {
 	require.Equal(t, previous.Prediction.RawTETA, updated.Prediction.RawTETA)
 	require.Equal(t, previous.Prediction.RawRETA, updated.Prediction.RawRETA)
 	require.Equal(t, previous.DerivedFeederETA, updated.DerivedFeederETA)
-	require.Equal(t, now, updated.Prediction.GeneratedAt, "processing provenance remains separate from the position time")
+	require.Equal(t, previous.Prediction.GeneratedAt, updated.Prediction.GeneratedAt, "reprocessing must not create another accepted sample")
+}
+
+func TestRecomputeFlightRefreshesPredictionWithoutAddingAnObservation(t *testing.T) {
+	service, state, now := recomputeFlightFixture(t)
+	previous := state.Flights[0]
+	geometry := service.deps.Geometry.(terminalIdentityGeometry)
+	geometry.fixes = append([]navdata.Fix(nil), geometry.fixes...)
+	geometry.fixes[2].Position = navdata.Coordinate{LatitudeDeg: 55.25, LongitudeDeg: 12.25}
+	service.deps.Geometry = geometry
+	service.deps.Terminal.ConfigVersion = "refreshed-config"
+
+	mutation, err := service.RecomputeFlight(context.Background(), aman.CommandContext{ReceivedAt: now}, aman.RecomputeFlightCommand{Callsign: previous.Callsign})
+	require.NoError(t, err)
+	change, err := mutation(state)
+	require.NoError(t, err)
+	updated := change.State.Flights[0]
+	require.True(t, change.Changed)
+	require.Equal(t, now, updated.Prediction.GeneratedAt)
+	require.Equal(t, "refreshed-config", updated.Prediction.ConfigVersion)
+	require.NotEqual(t, previous.Prediction.RawTETA, updated.Prediction.RawTETA)
+	require.Equal(t, previous.Prediction.InputObservedAt, updated.Prediction.InputObservedAt)
+	require.Equal(t, previous.RawTETASamples, updated.RawTETASamples, "explicit refresh must not count the stored observation again")
+	require.Nil(t, updated.PredictionFilter.Pending)
 }
 
 func recomputeActions(t *testing.T, service *Service, repository *memoryRepository, publisher *recordingPublisher, now time.Time) *sequence.ActionService {

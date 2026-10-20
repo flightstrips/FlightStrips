@@ -449,6 +449,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 		Runways: sessionArrivalRunwaySource{sessions: postgres.NewSessionRepository(pool)}, Sessions: sessionArrivalRunwaySource{sessions: postgres.NewSessionRepository(pool)}, AircraftEngines: aircraftEngines,
 		Terminal: terminalConfig, TMAVolumePath: terminal.DefaultEKCHTMAVolumePath,
 		Airports: config.EnabledAirports, Mode: config.Mode, SourceMode: config.SourceMode, Publisher: transport, Now: now,
+		DisablePredictionFiltering: config.DisablePredictionFiltering,
 	})
 	if err != nil {
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN operational service: %w", err)

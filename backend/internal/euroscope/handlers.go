@@ -382,6 +382,9 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 	position := cachedAircraftPosition{
 		lat: event.Lat, lon: event.Lon, altitude: int32(event.Altitude),
 	}
+	ctx = shared.WithPositionMotion(ctx, shared.PositionMotion{
+		GroundspeedKnots: event.GroundspeedKnots, PositionAgeMS: event.PositionAgeMs,
+	})
 	if err := client.processAircraftPosition(ctx, event.Callsign, position); err != nil {
 		return err
 	}

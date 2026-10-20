@@ -22,7 +22,7 @@ func (s *Service) RebuildArrivalSequence(ctx context.Context, auth aman.CommandC
 			// prediction failed or predates that position. Existing current raw
 			// estimates need no extra route/wind request.
 			if canRefreshRebuildPrediction(*f, auth.ReceivedAt) && (retainedTimingUnavailable(*f) || !currentRebuildPrediction(*f, auth.ReceivedAt)) {
-				updated, err := s.reconcileFlight(ctx, state, *f, *f.LatestObservation, auth.ReceivedAt)
+				updated, err := s.reconcileFlight(withPredictionRefresh(ctx), state, *f, *f.LatestObservation, auth.ReceivedAt)
 				if err == nil && (updated.State == aman.StateLanded || updated.State == aman.StateRemoved || !retainedTimingUnavailable(updated)) {
 					*f = updated
 				}

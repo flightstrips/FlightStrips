@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/diagnostics"
 	"FlightStrips/internal/aman/groundplanning"
 	"FlightStrips/internal/aman/lifecycle"
 	"FlightStrips/internal/aman/navdata"
@@ -25,6 +26,7 @@ import (
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/aman/trajectory"
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/sat"
 )
 
@@ -78,20 +80,21 @@ type AircraftEngineReference interface {
 }
 
 type Dependencies struct {
-	Repository      Repository
-	Materializer    NavigationMaterializer
-	Geometry        GeometryCache
-	Wind            predictor.WindProfileReader
-	Runways         ActiveArrivalRunwaySource
-	AircraftEngines AircraftEngineReference
-	Terminal        terminal.Configuration
-	TMAVolumePath   string
-	Airports        []string
-	Mode            aman.RolloutMode
-	SourceMode      aman.ObservationSourceMode
-	Publisher       sequence.FullStatePublisher
-	Now             func() time.Time
-	Sessions        SessionSource
+	Repository                 Repository
+	Materializer               NavigationMaterializer
+	Geometry                   GeometryCache
+	Wind                       predictor.WindProfileReader
+	Runways                    ActiveArrivalRunwaySource
+	AircraftEngines            AircraftEngineReference
+	Terminal                   terminal.Configuration
+	TMAVolumePath              string
+	Airports                   []string
+	Mode                       aman.RolloutMode
+	SourceMode                 aman.ObservationSourceMode
+	Publisher                  sequence.FullStatePublisher
+	Now                        func() time.Time
+	Sessions                   SessionSource
+	DisablePredictionFiltering bool
 }
 
 type Session struct {
@@ -658,6 +661,11 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 	next.Authoritative = s.deps.Mode == aman.ModeAuthoritative
 	next.PolicyVersion = policyVersion
 	next.Flights = slices.Clone(current.Flights)
+	if !s.deps.DisablePredictionFiltering {
+		for i := range next.Flights {
+			next.Flights[i] = prediction.ExpireFilter(next.Flights[i], now)
+		}
+	}
 	next.RunwayGroups = slices.Clone(current.RunwayGroups)
 	if !runwayGroupsMatchTerminal(next.RunwayGroups, s.deps.Terminal.RunwayGroups) {
 		initial := s.initialState(airport, now)
@@ -789,6 +797,11 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 	repairIneligibleSequencingState(&next)
 
 	promotions := s.resequence(&next, now)
+	previousSpacing := sequence.SpacingDiagnostics(s.sequenceInput(current))
+	currentSpacing := sequence.SpacingDiagnostics(s.sequenceInput(next))
+	if !reflect.DeepEqual(previousSpacing, currentSpacing) {
+		promotions.Spacing, promotions.PreviousSpacing = currentSpacing, previousSpacing
+	}
 	if !initializing && statesEqual(current, next) {
 		if publisher, ok := s.deps.Publisher.(authorityPublisher); ok {
 			return publisher.PublishAMANAuthority(context.WithoutCancel(ctx), current)
@@ -835,6 +848,7 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 		return err
 	}
 	s.setHealthComponent("repository", aman.HealthReady, "", now)
+	diagnostics.LogCommittedChanges(ctx, current, committed.State, auditRecords, "")
 	return s.deps.Publisher.PublishAMANState(context.WithoutCancel(ctx), committed.State)
 }
 
@@ -1142,6 +1156,9 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		flight = newFlight(observation, now)
 	}
 	previousObservation := flight.LatestObservation
+	if !s.deps.DisablePredictionFiltering {
+		flight = prediction.ExpireFilter(flight, now)
+	}
 	starChanged := previousObservation != nil && stringValue(previousObservation.AssignedSTAR) != stringValue(observation.AssignedSTAR)
 	routeChanged := previousObservation != nil && stringValue(previousObservation.FiledRoute) != stringValue(observation.FiledRoute)
 	if routeChanged {
@@ -1297,6 +1314,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		Remaining:                       predictorLegs(projection.Remaining),
 	}
 	var raw aman.Prediction
+	var weatherRevision string
 	var legDurations []time.Duration
 	if input.WakeTurbulenceCategory == predictor.CategoryLight {
 		reta, retaErr := predictor.EstimateRETA(input, predictor.PerformanceWindConfig{})
@@ -1326,6 +1344,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 			return flight, estimateErr
 		}
 		confidence := estimate.Confidence
+		weatherRevision = stringValue(estimate.WeatherSourceRevision)
 		degradations := slices.Clone(estimate.DegradationReasons)
 		if fallback := offRouteFallbackReason(projection.Reasons); fallback != "" {
 			confidence = aman.ConfidenceMedium
@@ -1354,6 +1373,46 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		raw.RemainingRouteFixes[i] = string(leg.To)
 	}
 	s.setHealthComponent("predictor", aman.HealthReady, "", now)
+	derivedFeeder := routeFeederETA(predictionAt, legDurations, projection.Remaining, navdata.FixID(feederFix), projection.FeederProgress)
+	var candidateFeeder *time.Time
+	if derivedFeeder != nil && derivedFeeder.Source == aman.FeederETASourceRoute {
+		candidateFeeder = derivedFeeder.ETA
+	}
+	groupChanged := previousGroup != nil && *previousGroup != group
+	rejoined := prior != nil && prior.RecoveryCandidateFix != "" && projection.Progress != nil && projection.Progress.RecoveryCandidateFix == ""
+	bypassFilter := flight.Prediction == nil || isPreliminaryPrediction(flight.Prediction) || flight.ArrivalPathChanged || directChanged || groupChanged || flight.State == aman.StateGoAround || projection.ReacquiredProgress || rejoined || predictionRefreshRequested(ctx)
+	filtered, accepted, filterOutcome := prediction.Filter(flight, raw, candidateFeeder, bypassFilter, s.deps.DisablePredictionFiltering)
+	flight = filtered
+	metrics.RecordAMANPredictionFilter(ctx, filterOutcome)
+	if filterOutcome != "duplicate" && filterOutcome != "accepted" && filterOutcome != "bypass" {
+		slog.InfoContext(ctx, "AMAN prediction filter evaluated", "session", aman.SessionID(ctx), "airport", state.Airport,
+			"callsign", flight.Callsign, "outcome", filterOutcome, "candidate_eta", raw.RawTETA,
+			"candidate_feeder_eta", candidateFeeder, "accepted_eta", predictionTimeValue(flight.Prediction),
+			"observed_at", raw.InputObservedAt, "groundspeed", input.CurrentGroundspeedKnots,
+			"groundspeed_source", observation.Surveillance.GroundspeedSource, "surveillance_source", observation.SurveillanceSource,
+			"altitude", input.AltitudeFeet, "cruise_altitude", input.CruiseAltitudeFeet, "descent_confirmed", descentConfirmed,
+			"observed_speed_before_tod", input.UseObservedGroundspeedBeforeTOD,
+			"route_key", string(key), "weather_source", stringValue(raw.WeatherSource), "weather_revision", weatherRevision,
+			"model", raw.ModelVersion, "config", raw.ConfigVersion, "geometry_digest", raw.GeometryDigest,
+			"phase_durations", predictionPhaseDurations(raw))
+	}
+	// Holding entry, occupancy and route progress are physical facts even
+	// while the timing calculation is being filtered.
+	if projection.SelectedHolding != nil {
+		holding := string(projection.SelectedHolding.ID)
+		flight.SelectedHolding = &holding
+		raw.HoldingFixETA = holdingETA(predictionAt, legDurations, projection.Remaining, projection.SelectedHolding.Fix)
+	}
+	observeHoldingEpisode(&flight, projection, observation, now)
+	if operationalHoldingClearanceFix(flight) == "" && raw.HoldingFixETA == nil {
+		// Prediction timestamps are rounded to seconds; entry evidence is not.
+		aman.EndHoldingEpisodeFromObservation(&flight, predictionAt)
+	}
+	flight.HoldingStack = updateFlightHoldingStack(flight, projection, predictionAt)
+	flight.RouteProgress = projection.Progress
+	if !accepted {
+		return flight, nil
+	}
 	// INITIAL ETA-FF is RETA at the feeder, before holding/manual timing can
 	// replace the current model estimate. Preserve it across later updates.
 	if flight.InitialTiming == nil || flight.InitialTiming.FeederETA == nil {
@@ -1378,23 +1437,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 				"route_key", key, "star_family", flight.STARFamilyIdentity(), "slot", flight.Slot)
 		}
 	}
-	applyDerivedFeederETA(&flight, routeFeederETA(predictionAt, legDurations, projection.Remaining, navdata.FixID(feederFix), projection.FeederProgress))
-	if projection.SelectedHolding != nil {
-		holding := string(projection.SelectedHolding.ID)
-		flight.SelectedHolding = &holding
-		raw.HoldingFixETA = holdingETA(predictionAt, legDurations, projection.Remaining, projection.SelectedHolding.Fix)
-	}
-	observeHoldingEpisode(&flight, projection, observation, now)
-	if operationalHoldingClearanceFix(flight) == "" && raw.HoldingFixETA == nil {
-		// Prediction timestamps are rounded to seconds; entry evidence is not.
-		endedAt := now
-		if observation.Surveillance.ObservedAt != nil {
-			endedAt = *observation.Surveillance.ObservedAt
-		}
-		aman.EndHoldingEpisodeFromObservation(&flight, endedAt)
-	}
-	flight.HoldingStack = updateFlightHoldingStack(flight, projection, observedAt(observation.Surveillance, now))
-	flight.RouteProgress = projection.Progress
+	applyDerivedFeederETA(&flight, derivedFeeder)
 	if flight.ArrivalPathChanged {
 		queueCandidate := flight
 		queueCandidate.Prediction = &raw
@@ -1416,9 +1459,11 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	applyDerivedFeederETA(&flight, holdingFeederETA(state.Authoritative, flight, raw, s.deps.Terminal))
 	nextState := lifecycleState(lifecycle.DefaultConfig(), flight, raw.RawTETA, now)
 	reduced, err := prediction.Reduce(prediction.DefaultConfig(), flight, prediction.Input{
+		RefreshCalculation:           bypassFilter || s.deps.DisablePredictionFiltering,
 		Raw:                          raw,
 		State:                        nextState,
 		RouteRevision:                flight.ArrivalPathChanged || directChanged,
+		RunwayGroupChanged:           groupChanged,
 		ReacquiredRoute:              projection.ReacquiredProgress,
 		Slot:                         flight.Slot,
 		ReplacePreliminaryPrediction: isPreliminaryPrediction(flight.Prediction),
@@ -1667,7 +1712,14 @@ func applyResolvedTerminalIdentity(flight *aman.AMANFlight, path navdata.Termina
 	}
 }
 
-func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence.VacancyPromotion {
+type sequenceChanges struct {
+	Promotions      []sequence.VacancyPromotion
+	Operations      []sequence.Operation
+	Spacing         []sequence.SpacingSnapshot
+	PreviousSpacing []sequence.SpacingSnapshot
+}
+
+func (s *Service) resequence(state *aman.AirportState, now time.Time) sequenceChanges {
 	releaseGroundReservationsAheadOfHolding(state)
 	for i := range state.Flights {
 		discardAutomaticPreliminarySlot(&state.Flights[i])
@@ -1682,7 +1734,7 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 	input := s.sequenceInput(*state)
 	if len(input.Flights) == 0 || len(input.Policies) == 0 {
 		setProtectedSameSTARWarnings(state.RunwayGroups, nil)
-		return nil
+		return sequenceChanges{}
 	}
 	offers := make([]aman.QueueOffer, 0)
 	for _, flight := range state.Flights {
@@ -1705,7 +1757,7 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 			if err == nil {
 				setProtectedSameSTARWarnings(state.RunwayGroups, result.Warnings)
 			}
-			return nil
+			return sequenceChanges{}
 		}
 		if !enforceHoldingOrder(&input, result, *state, now, repaired) {
 			break
@@ -1713,7 +1765,7 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 		// Each pass propagates a release bound to later entrants. A longer
 		// chain than the number of flights cannot be resolved in this cycle.
 		if pass >= len(input.Flights) {
-			return nil
+			return sequenceChanges{}
 		}
 	}
 	setProtectedSameSTARWarnings(state.RunwayGroups, result.Warnings)
@@ -1761,7 +1813,11 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 		state.Flights[i].Order = &order
 		state.Flights[i].UpdatedAt = now
 	}
-	return promotions
+	changes := sequenceChanges{Promotions: promotions, Operations: result.Operations}
+	if len(result.Movements) > 0 {
+		changes.Spacing = sequence.SpacingDiagnostics(input)
+	}
+	return changes
 }
 
 // Re-run allocation with a release-derived lower bound when an automatic
@@ -1854,8 +1910,8 @@ func setProtectedSameSTARWarnings(groups []aman.RunwayGroupPolicy, warnings []se
 	}
 }
 
-func vacancyPromotionAuditRecords(state aman.AirportState, promotions []sequence.VacancyPromotion, recordedAt time.Time) []aman.AuditRecord {
-	records := make([]aman.AuditRecord, 0, len(promotions))
+func vacancyPromotionAuditRecords(state aman.AirportState, promotions sequenceChanges, recordedAt time.Time) []aman.AuditRecord {
+	records := make([]aman.AuditRecord, 0, len(promotions.Promotions))
 	for _, entry := range vacancyPromotionAuditEntries(promotions) {
 		records = append(records, aman.AuditRecord{
 			Airport: state.Airport, Revision: state.Revision, Category: entry.Category,
@@ -1865,9 +1921,9 @@ func vacancyPromotionAuditRecords(state aman.AirportState, promotions []sequence
 	return records
 }
 
-func vacancyPromotionAuditEntries(promotions []sequence.VacancyPromotion) []sequence.AuditEntry {
-	entries := make([]sequence.AuditEntry, 0, len(promotions))
-	for _, promotion := range promotions {
+func vacancyPromotionAuditEntries(promotions sequenceChanges) []sequence.AuditEntry {
+	entries := make([]sequence.AuditEntry, 0, len(promotions.Promotions))
+	for _, promotion := range promotions.Promotions {
 		payload, err := json.Marshal(map[string]any{
 			"action": "queue_promotion", "callsign": promotion.Callsign,
 			"from_sequence": promotion.From.Sequence, "from_time": promotion.From.Time,
@@ -1877,6 +1933,14 @@ func vacancyPromotionAuditEntries(promotions []sequence.VacancyPromotion) []sequ
 		if err == nil {
 			entries = append(entries, sequence.AuditEntry{Category: "aman.queue_promotion", Payload: payload})
 		}
+	}
+	for _, operation := range promotions.Operations {
+		payload, _ := json.Marshal(map[string]any{"callsign": operation.Callsign, "operation": operation.Kind})
+		entries = append(entries, sequence.AuditEntry{Category: "aman.sequence_operation", Payload: payload})
+	}
+	if len(promotions.Spacing) > 0 {
+		payload, _ := json.Marshal(map[string]any{"previous": promotions.PreviousSpacing, "current": promotions.Spacing})
+		entries = append(entries, sequence.AuditEntry{Category: "aman.spacing_evaluated", Payload: payload})
 	}
 	return entries
 }

@@ -8,6 +8,7 @@ import (
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 
 	"github.com/stretchr/testify/require"
 )
@@ -25,6 +26,22 @@ func TestAMANStateEventMatchesSharedV1Golden(t *testing.T) {
 	require.NoError(t, json.Unmarshal(encoded, &actualJSON))
 	require.NoError(t, json.Unmarshal(expected, &expectedJSON))
 	require.Equal(t, expectedJSON, actualJSON)
+}
+
+func TestUnreliablePredictionSuppressesGuidanceInBothTransports(t *testing.T) {
+	state := goldenAMANState()
+	flight := &state.Flights[0]
+	flight.PredictionFilter = &aman.PredictionFilterState{LastObservedAt: state.GeneratedAt, Unreliable: true, Pending: &aman.PredictionCandidate{TETA: flight.Prediction.RawTETA, FirstObservedAt: state.GeneratedAt, Since: state.GeneratedAt, Samples: 1}}
+	flight.Prediction.Publishable = false
+	reason := "prediction_unreliable"
+	flight.Prediction.DegradationReason = &reason
+	front, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	es, err := euroscopeEvents.NewAMANGainLossEvent(state)
+	require.NoError(t, err)
+	require.Nil(t, front.Data.Flights[0].GainLossSeconds)
+	require.Nil(t, es.Values[0].GainLossSeconds)
+	require.NotNil(t, front.Data.Flights[0].Slot, "a degraded prediction never releases the reservation")
 }
 
 func TestAMANStateEventAcceptsPostgresMicrosecondRoundTripWithoutAcceptingFutureInput(t *testing.T) {

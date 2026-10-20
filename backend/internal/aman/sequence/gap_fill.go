@@ -76,6 +76,7 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 					valid, _, later := placementWithStableOrder(policy, remaining, flight, candidate, false)
 					if valid {
 						target.time = candidate
+						noteOperation(&target.flight, "gap_fill")
 						entries = append(remaining, target)
 						sortEntries(entries)
 						moved[flight.Callsign] = true

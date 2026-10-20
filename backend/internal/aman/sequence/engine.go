@@ -84,6 +84,8 @@ type STARFamilyPolicy struct {
 // protected slot reference supplied by freeze/manual policy; CurrentSlot is
 // used only to report movements and never influences candidate generation.
 type Flight struct {
+	// Operations is diagnostic provenance within a single calculation only.
+	Operations    []string
 	Callsign      aman.Callsign
 	RunwayGroupID aman.RunwayGroupID
 	State         aman.FlightState
@@ -228,9 +230,10 @@ type Warning struct {
 // Result is ordered canonically by runway group, slot, and callsign. It uses
 // slices rather than maps so equivalent inputs marshal to byte-identical JSON.
 type Result struct {
-	Entries   []CandidateEntry
-	Movements []SlotMovement
-	Warnings  []Warning
+	Operations []Operation
+	Entries    []CandidateEntry
+	Movements  []SlotMovement
+	Warnings   []Warning
 }
 
 // HasConflicts reports whether the result contains a protected-policy
@@ -359,6 +362,9 @@ func generate(input Input, promotions map[aman.Callsign]aman.Slot) (Result, erro
 				Protected: entry.flight.FreezeReason != aman.FreezeNone || entry.flight.ProtectCurrentSlot, Reason: entry.reason,
 			}
 			result.Entries = append(result.Entries, candidate)
+			for _, kind := range entry.flight.Operations {
+				result.Operations = append(result.Operations, Operation{Callsign: entry.flight.Callsign, Kind: kind})
+			}
 			if movement := movementFor(entry.flight, candidate); movement != nil {
 				result.Movements = append(result.Movements, *movement)
 			}

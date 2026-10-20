@@ -233,7 +233,7 @@ func TestCreateRunwayGapMovesStableAndHoldingSlotsAndKeepsNewTargets(t *testing.
 		prediction.OperationalTETA = prediction.OperationalTETA.Add(15 * time.Minute)
 	}
 	promotions := (&Service{}).resequence(&repository.state, now.Add(2*time.Second))
-	require.Empty(t, promotions)
+	require.Empty(t, promotions.Promotions)
 	for _, flight := range repository.state.Flights {
 		require.Equal(t, stateFlight(t, committed, flight.Callsign).Slot, flight.Slot, "routine ETA changes keep the GAP's new controller targets")
 	}
@@ -289,7 +289,7 @@ func TestRemoveRunwayGapImmediatelyPromotesStableAndHoldingTargets(t *testing.T)
 			require.NoError(t, err)
 			require.Empty(t, repository.state.RunwayGroups[0].Gaps)
 			require.Equal(t, now.Add(3*time.Minute), stateFlight(t, repository.state, "TARGET").Slot.Time)
-			require.Len(t, repository.commits[0].AuditRecords, 2, "removal and the resulting earlier promotion are committed together")
+			require.Len(t, actionAuditRecords(repository.commits[0].AuditRecords), 2, "removal and the resulting earlier promotion are committed together")
 		})
 	}
 }

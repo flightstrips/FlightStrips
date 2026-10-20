@@ -1,0 +1,938 @@
+{
+  "spec": {
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "name": "panel-1",
+                "kind": "ElementReference"
+              },
+              "height": 8,
+              "y": 0,
+              "width": 24,
+              "x": 0
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "name": "panel-2",
+                "kind": "ElementReference"
+              },
+              "height": 8,
+              "y": 8,
+              "width": 24,
+              "x": 0
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "name": "panel-3",
+                "kind": "ElementReference"
+              },
+              "height": 8,
+              "y": 16,
+              "width": 24,
+              "x": 0
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "name": "panel-4",
+                "kind": "ElementReference"
+              },
+              "height": 8,
+              "y": 24,
+              "width": 24,
+              "x": 0
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "name": "panel-5",
+                "kind": "ElementReference"
+              },
+              "height": 8,
+              "y": 32,
+              "width": 24,
+              "x": 0
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "name": "panel-6",
+                "kind": "ElementReference"
+              },
+              "height": 8,
+              "y": 40,
+              "width": 24,
+              "x": 0
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "name": "panel-7",
+                "kind": "ElementReference"
+              },
+              "height": 8,
+              "y": 48,
+              "width": 24,
+              "x": 0
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "name": "panel-8",
+                "kind": "ElementReference"
+              },
+              "height": 8,
+              "y": 56,
+              "width": 24,
+              "x": 0
+            }
+          }
+        ]
+      }
+    },
+    "tags": [
+      "flightstrips",
+      "aman"
+    ],
+    "editable": true,
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "env",
+          "current": {
+            "text": "production",
+            "value": "production"
+          },
+          "label": "Environment",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "grafanacloud-prom"
+            },
+            "spec": {
+              "qryType": 1,
+              "query": "label_values(deployment_environment)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "disabled",
+          "definition": "label_values(deployment_environment)",
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "airport",
+          "current": {
+            "text": "EKCH",
+            "value": "EKCH"
+          },
+          "label": "Airport",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "grafanacloud-prom"
+            },
+            "spec": {
+              "qryType": 1,
+              "query": "label_values(websocket_connections_active{deployment_environment=\"$env\"}, airport)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "disabled",
+          "definition": "label_values(websocket_connections_active{deployment_environment=\"$env\"}, airport)",
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "label": "Aircraft callsign regex",
+          "current": {
+            "text": ".*",
+            "value": ".*"
+          },
+          "hide": "dontHide",
+          "name": "callsign",
+          "skipUrlSync": false,
+          "query": ".*"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "label": "Session ID regex",
+          "current": {
+            "text": ".*",
+            "value": ".*"
+          },
+          "hide": "dontHide",
+          "name": "session_id",
+          "skipUrlSync": false,
+          "query": ".*"
+        }
+      }
+    ],
+    "description": "Automatic prediction filtering, committed guidance changes and sequence provenance. Metrics are backend-wide; logs support airport, aircraft and numeric session filters.",
+    "annotations": [],
+    "timeSettings": {
+      "to": "now",
+      "autoRefresh": "30s",
+      "timezone": "browser",
+      "from": "now-6h"
+    },
+    "elements": {
+      "panel-1": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Automatic prediction decisions (attempts)",
+          "description": "Backend-wide automatic decisions. Duplicate and filtered attempts are not committed sequence changes.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "spec": {
+                        "queryType": "range",
+                        "legendFormat": "{{outcome}} {{guidance_changed}} {{order_changed}}",
+                        "expr": "sum(rate(aman_prediction_filter_total{deployment_environment=\"$env\"}[$__rate_interval])) by (outcome)",
+                        "editorMode": "code"
+                      },
+                      "group": "prometheus",
+                      "version": "v0",
+                      "kind": "DataQuery",
+                      "datasource": {
+                        "name": "grafanacloud-prom"
+                      }
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ops",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 10,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "never",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-2": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "Committed guidance and order changes",
+          "description": "Recorded only after persistence succeeds; excludes failed transactions and duplicate commands.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "spec": {
+                        "queryType": "range",
+                        "legendFormat": "{{outcome}} {{guidance_changed}} {{order_changed}}",
+                        "expr": "sum(rate(aman_guidance_changes_total{deployment_environment=\"$env\"}[$__rate_interval])) by (guidance_changed, order_changed)",
+                        "editorMode": "code"
+                      },
+                      "group": "prometheus",
+                      "version": "v0",
+                      "kind": "DataQuery",
+                      "datasource": {
+                        "name": "grafanacloud-prom"
+                      }
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ops",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 10,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "never",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-3": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Committed target movement p95",
+          "description": "Absolute target movement in seconds, across the backend.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "spec": {
+                        "queryType": "range",
+                        "legendFormat": "{{outcome}} {{guidance_changed}} {{order_changed}}",
+                        "expr": "histogram_quantile(0.95, sum(rate(aman_target_movement_seconds_bucket{deployment_environment=\"$env\"}[$__rate_interval])) by (le))",
+                        "editorMode": "code"
+                      },
+                      "group": "prometheus",
+                      "version": "v0",
+                      "kind": "DataQuery",
+                      "datasource": {
+                        "name": "grafanacloud-prom"
+                      }
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "s",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 10,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "never",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-5": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Committed guidance and target history",
+          "description": "Before/after accepted predictions, target, guidance, neighbours and contributing operations, grouped by committed revision.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "spec": {
+                        "queryType": "range",
+                        "legendFormat": "{{outcome}} {{guidance_changed}} {{order_changed}}",
+                        "expr": "{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"} |= \"AMAN guidance change committed\" | airport=~\"${airport:regex}\" | callsign=~\"${callsign:raw}\" | session=~\"${session_id:raw}\"",
+                        "editorMode": "code"
+                      },
+                      "group": "loki",
+                      "version": "v0",
+                      "kind": "DataQuery",
+                      "datasource": {
+                        "name": "grafanacloud-logs"
+                      }
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "logs",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "dedupStrategy": "none",
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": false,
+                "showCommonLabels": false,
+                "showControls": false,
+                "showFieldSelector": false,
+                "showLabels": false,
+                "showLevel": true,
+                "showLogAttributes": true,
+                "showTime": true,
+                "sortOrder": "Descending",
+                "timestampResolution": "ms",
+                "unwrappedColumns": false,
+                "wrapLogMessage": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-4": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Automatically filtered spikes and sustained changes",
+          "description": "Automatic filtering only; no controller acknowledgement. Each line is a calculation attempt.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "spec": {
+                        "queryType": "range",
+                        "legendFormat": "{{outcome}} {{guidance_changed}} {{order_changed}}",
+                        "expr": "{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"} |= \"AMAN prediction filter evaluated\" | airport=~\"${airport:regex}\" | callsign=~\"${callsign:raw}\" | session=~\"${session_id:raw}\"",
+                        "editorMode": "code"
+                      },
+                      "group": "loki",
+                      "version": "v0",
+                      "kind": "DataQuery",
+                      "datasource": {
+                        "name": "grafanacloud-logs"
+                      }
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "logs",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "dedupStrategy": "none",
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": false,
+                "showCommonLabels": false,
+                "showControls": false,
+                "showFieldSelector": false,
+                "showLabels": false,
+                "showLevel": true,
+                "showLogAttributes": true,
+                "showTime": true,
+                "sortOrder": "Descending",
+                "timestampResolution": "ms",
+                "unwrappedColumns": false,
+                "wrapLogMessage": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-6": {
+        "kind": "Panel",
+        "spec": {
+          "id": 6,
+          "title": "Committed sequencing operations",
+          "description": "Actual STAR exchanges, optimization, gap filling and vacancy promotions. command_id links controller changes.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "spec": {
+                        "queryType": "range",
+                        "legendFormat": "{{outcome}} {{guidance_changed}} {{order_changed}}",
+                        "expr": "{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"} |= \"AMAN sequencing operation committed\" | category!=\"aman.spacing_evaluated\" | airport=~\"${airport:regex}\" | callsign=~\"${callsign:raw}\" | session=~\"${session_id:raw}\"",
+                        "editorMode": "code"
+                      },
+                      "group": "loki",
+                      "version": "v0",
+                      "kind": "DataQuery",
+                      "datasource": {
+                        "name": "grafanacloud-logs"
+                      }
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "logs",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "dedupStrategy": "none",
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": false,
+                "showCommonLabels": false,
+                "showControls": false,
+                "showFieldSelector": false,
+                "showLabels": false,
+                "showLevel": true,
+                "showLogAttributes": true,
+                "showTime": true,
+                "sortOrder": "Descending",
+                "timestampResolution": "ms",
+                "unwrappedColumns": false,
+                "wrapLogMessage": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-8": {
+        "kind": "Panel",
+        "spec": {
+          "id": 8,
+          "title": "Large physical prediction attempts (legacy and current)",
+          "description": "Calculation warnings, not proof of a committed prediction or target change. Includes legacy releases.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "spec": {
+                        "queryType": "range",
+                        "legendFormat": "{{outcome}} {{guidance_changed}} {{order_changed}}",
+                        "expr": "{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"} |= \"AMAN physical prediction moved by at least ten minutes\" | callsign=~\"${callsign:raw}\"",
+                        "editorMode": "code"
+                      },
+                      "group": "loki",
+                      "version": "v0",
+                      "kind": "DataQuery",
+                      "datasource": {
+                        "name": "grafanacloud-logs"
+                      }
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "logs",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "dedupStrategy": "none",
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": false,
+                "showCommonLabels": false,
+                "showControls": false,
+                "showFieldSelector": false,
+                "showLabels": false,
+                "showLevel": true,
+                "showLogAttributes": true,
+                "showTime": true,
+                "sortOrder": "Descending",
+                "timestampResolution": "ms",
+                "unwrappedColumns": false,
+                "wrapLogMessage": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-7": {
+        "kind": "Panel",
+        "spec": {
+          "id": 7,
+          "title": "Spacing and demand evidence",
+          "description": "Demand counts, configured activation threshold and same-STAR spacing state used for allocation. Details include all flights; inspect the callsign within the payload.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "spec": {
+                        "queryType": "range",
+                        "legendFormat": "{{outcome}} {{guidance_changed}} {{order_changed}}",
+                        "expr": "{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"} |= \"AMAN sequencing operation committed\" | category=\"aman.spacing_evaluated\" | airport=~\"${airport:regex}\" | session=~\"${session_id:raw}\"",
+                        "editorMode": "code"
+                      },
+                      "group": "loki",
+                      "version": "v0",
+                      "kind": "DataQuery",
+                      "datasource": {
+                        "name": "grafanacloud-logs"
+                      }
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "logs",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "dedupStrategy": "none",
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": false,
+                "showCommonLabels": false,
+                "showControls": false,
+                "showFieldSelector": false,
+                "showLabels": false,
+                "showLevel": true,
+                "showLogAttributes": true,
+                "showTime": true,
+                "sortOrder": "Descending",
+                "timestampResolution": "ms",
+                "unwrappedColumns": false,
+                "wrapLogMessage": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "title": "FlightStrips AMAN Stability"
+  },
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "flightstrips-aman",
+    "namespace": "stacks-1600809"
+  },
+  "apiVersion": "dashboard.grafana.app/v2"
+}

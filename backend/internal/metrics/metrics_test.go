@@ -369,6 +369,9 @@ func TestAMANMetricsBoundLabelsAndExcludeFlightIdentifiers(t *testing.T) {
 	RecordAMANFlightDegradation(ctx, "disconnected")
 	RecordAMANSourceRefresh(ctx, "vatsim", "stale")
 	RecordAMANPublicationFailure(ctx, "frontend")
+	RecordAMANPredictionFilter(ctx, "filtered")
+	RecordAMANPredictionFilter(ctx, "SAS123")
+	RecordAMANGuidanceChange(ctx, -6*time.Minute, true, true)
 	rm := collectMetrics(t, reader)
 
 	if got := findInt64MetricValue(t, rm, "aman.geometry.cache", map[string]string{"outcome": "hit"}); got != 1 {

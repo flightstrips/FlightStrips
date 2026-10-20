@@ -9700,6 +9700,8 @@ class AircraftPositionUpdateEvent final : public ::google::protobuf::MessageLite
     kLatFieldNumber = 2,
     kLonFieldNumber = 3,
     kAltitudeFieldNumber = 4,
+    kGroundspeedKnotsFieldNumber = 5,
+    kPositionAgeMsFieldNumber = 6,
   };
   // string callsign = 1;
   void clear_callsign() ;
@@ -9747,12 +9749,34 @@ class AircraftPositionUpdateEvent final : public ::google::protobuf::MessageLite
   void _internal_set_altitude(::int64_t value);
 
   public:
+  // optional double groundspeed_knots = 5;
+  bool has_groundspeed_knots() const;
+  void clear_groundspeed_knots() ;
+  double groundspeed_knots() const;
+  void set_groundspeed_knots(double value);
+
+  private:
+  double _internal_groundspeed_knots() const;
+  void _internal_set_groundspeed_knots(double value);
+
+  public:
+  // optional int64 position_age_ms = 6;
+  bool has_position_age_ms() const;
+  void clear_position_age_ms() ;
+  ::int64_t position_age_ms() const;
+  void set_position_age_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_position_age_ms() const;
+  void _internal_set_position_age_ms(::int64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.AircraftPositionUpdateEvent)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 4, 0,
+      3, 6, 0,
       70, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -9768,11 +9792,14 @@ class AircraftPositionUpdateEvent final : public ::google::protobuf::MessageLite
                           ::google::protobuf::Arena* arena);
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::google::protobuf::internal::ArenaStringPtr callsign_;
     double lat_;
     double lon_;
     ::int64_t altitude_;
-    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    double groundspeed_knots_;
+    ::int64_t position_age_ms_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -28855,6 +28882,62 @@ inline ::int64_t AircraftPositionUpdateEvent::_internal_altitude() const {
 inline void AircraftPositionUpdateEvent::_internal_set_altitude(::int64_t value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.altitude_ = value;
+}
+
+// optional double groundspeed_knots = 5;
+inline bool AircraftPositionUpdateEvent::has_groundspeed_knots() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline void AircraftPositionUpdateEvent::clear_groundspeed_knots() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.groundspeed_knots_ = 0;
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline double AircraftPositionUpdateEvent::groundspeed_knots() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AircraftPositionUpdateEvent.groundspeed_knots)
+  return _internal_groundspeed_knots();
+}
+inline void AircraftPositionUpdateEvent::set_groundspeed_knots(double value) {
+  _internal_set_groundspeed_knots(value);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AircraftPositionUpdateEvent.groundspeed_knots)
+}
+inline double AircraftPositionUpdateEvent::_internal_groundspeed_knots() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.groundspeed_knots_;
+}
+inline void AircraftPositionUpdateEvent::_internal_set_groundspeed_knots(double value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.groundspeed_knots_ = value;
+}
+
+// optional int64 position_age_ms = 6;
+inline bool AircraftPositionUpdateEvent::has_position_age_ms() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  return value;
+}
+inline void AircraftPositionUpdateEvent::clear_position_age_ms() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_age_ms_ = ::int64_t{0};
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+inline ::int64_t AircraftPositionUpdateEvent::position_age_ms() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AircraftPositionUpdateEvent.position_age_ms)
+  return _internal_position_age_ms();
+}
+inline void AircraftPositionUpdateEvent::set_position_age_ms(::int64_t value) {
+  _internal_set_position_age_ms(value);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AircraftPositionUpdateEvent.position_age_ms)
+}
+inline ::int64_t AircraftPositionUpdateEvent::_internal_position_age_ms() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.position_age_ms_;
+}
+inline void AircraftPositionUpdateEvent::_internal_set_position_age_ms(::int64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_age_ms_ = value;
 }
 
 // -------------------------------------------------------------------

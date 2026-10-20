@@ -5,10 +5,10 @@ import "time"
 // SequenceDemandArrivalAt returns accepted prediction timing without using slots.
 func SequenceDemandArrivalAt(flight AMANFlight) *time.Time {
 	prediction := flight.Prediction
-	if prediction == nil || !prediction.Publishable {
+	if prediction == nil || (!prediction.Publishable && (flight.PredictionFilter == nil || !flight.PredictionFilter.Unreliable)) {
 		return nil
 	}
-	at := prediction.RawTETA
+	at, _ := SmoothedPhysicalPrediction(flight)
 	if at.IsZero() {
 		at = prediction.OperationalTETA
 	}

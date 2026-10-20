@@ -1,5 +1,7 @@
 #ifndef EVENTS_H
 #define EVENTS_H
+#include <chrono>
+#include <cstdint>
 #include <nlohmann/json.hpp>
 #include <utility>
 #include "flightplan/FlightPlan.h"
@@ -528,14 +530,19 @@ struct PositionEvent final : Event {
     double lat;
     double lon;
     int altitude;
+    int groundspeed_knots;
+    int64_t position_age_ms;
+    std::chrono::steady_clock::time_point captured_at = std::chrono::steady_clock::now();
 
     explicit PositionEvent(std::string callsign, const double lat, const double lon,
-                           const int altitude) : Event(EVENT_AIRCRAFT_POSITION_UPDATE),
+                           const int altitude, const int groundspeed_knots = -1,
+                           const int64_t position_age_ms = 0) : Event(EVENT_AIRCRAFT_POSITION_UPDATE),
                                                  callsign(std::move(callsign)),
-                                                 lat(lat), lon(lon), altitude(altitude) {
+                                                 lat(lat), lon(lon), altitude(altitude),
+                                                 groundspeed_knots(groundspeed_knots), position_age_ms(position_age_ms) {
     }
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(PositionEvent, callsign, lat, lon, altitude, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(PositionEvent, callsign, lat, lon, altitude, groundspeed_knots, position_age_ms, type);
 };
 
 struct AircraftDisconnectEvent final : Event {

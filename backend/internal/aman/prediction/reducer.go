@@ -49,6 +49,9 @@ func (c Config) Validate() error {
 // The state engine is responsible for authorizing manual/release flags before
 // it calls this pure reducer.
 type Input struct {
+	// RefreshCalculation permits a planning-context change to reuse radar
+	// data without adding another smoothing sample for that observation.
+	RefreshCalculation bool
 	Raw                aman.Prediction
 	State              aman.FlightState
 	RouteRevision      bool
@@ -88,7 +91,7 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 	if input.ManualOverride != nil && (input.ManualOverride.IsZero() || input.ManualOverride.Location() != time.UTC) {
 		return Result{}, fmt.Errorf("manual operational TETA must be UTC")
 	}
-	if staleRaw(flight.RawTETASamples, input.Raw) {
+	if staleRaw(flight.RawTETASamples, input.Raw) && !(input.RefreshCalculation || input.RouteRevision || input.RunwayGroupChanged || input.ConfirmedGoAround || input.ManualOverride != nil || input.ReleaseFreeze || input.FreezeForTMA || input.ReplacePreliminaryPrediction) {
 		// Reconciliation may deliver an already-applied or delayed predictor
 		// result. It must not regress prediction provenance or UpdatedAt.
 		return result(config, flight), nil
@@ -105,6 +108,9 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 
 	previousState := flight.State
 	flight.State = input.State
+	if input.RouteRevision || input.RunwayGroupChanged || input.ConfirmedGoAround {
+		flight.RawTETASamples = nil
+	}
 	flight.RawTETASamples = acceptRaw(flight.RawTETASamples, input.Raw)
 	flight.UpdatedAt = input.Raw.GeneratedAt
 
@@ -299,7 +305,7 @@ func acceptRaw(history []aman.RawTETASample, raw aman.Prediction) []aman.RawTETA
 	if staleRaw(accepted, raw) {
 		return accepted
 	}
-	accepted = append(accepted, aman.RawTETASample{TETA: raw.RawTETA, GeneratedAt: raw.GeneratedAt})
+	accepted = append(accepted, aman.RawTETASample{TETA: raw.RawTETA, GeneratedAt: raw.GeneratedAt, ObservedAt: raw.InputObservedAt})
 	if len(accepted) > smoothingWindowSize {
 		accepted = accepted[len(accepted)-smoothingWindowSize:]
 	}
@@ -307,7 +313,11 @@ func acceptRaw(history []aman.RawTETASample, raw aman.Prediction) []aman.RawTETA
 }
 
 func staleRaw(history []aman.RawTETASample, raw aman.Prediction) bool {
-	return len(history) != 0 && !raw.GeneratedAt.After(history[len(history)-1].GeneratedAt)
+	if len(history) == 0 {
+		return false
+	}
+	last := history[len(history)-1]
+	return !raw.GeneratedAt.After(last.GeneratedAt) || (!raw.InputObservedAt.IsZero() && !last.ObservedAt.IsZero() && !raw.InputObservedAt.After(last.ObservedAt))
 }
 
 func inputSamples(history []aman.RawTETASample) []time.Time {

@@ -135,6 +135,24 @@ TEST(ProtoCodecTest, SerializesTokenAsOneofEnvelope) {
     EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_TOKEN);
 }
 
+TEST(ProtoCodecTest, SerializesReportedMotionAndPositionAge) {
+    const PositionEvent event("SAS123", 55.0, 12.0, 30000, 420, 5500);
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    const auto& position = envelope.aircraft_position_update();
+    EXPECT_TRUE(position.has_groundspeed_knots());
+    EXPECT_EQ(position.groundspeed_knots(), 420);
+    EXPECT_TRUE(position.has_position_age_ms());
+    EXPECT_EQ(position.position_age_ms(), 5500);
+}
+
+TEST(ProtoCodecTest, OmitsUnavailableReportedGroundspeed) {
+    const PositionEvent event("SAS123", 55.0, 12.0, 30000);
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    EXPECT_FALSE(envelope.aircraft_position_update().has_groundspeed_knots());
+}
+
 TEST(ProtoCodecTest, DecodesFrequencyMessageAndAcknowledgesSubmission) {
     protobuf::wire::SendFrequencyMessageEvent source;
     source.set_request_id("request-1"); source.set_callsign("SAS123");

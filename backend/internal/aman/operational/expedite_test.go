@@ -36,7 +36,7 @@ func TestExpediteFreesSlotAndCascadesFollowersDurably(t *testing.T) {
 	require.Equal(t, source.Slot.Time, repository.state.Flights[1].Slot.Time)
 	require.Equal(t, first.Slot.Time, repository.state.Flights[2].Slot.Time)
 	require.Equal(t, protected.Slot.Time, repository.state.Flights[3].Slot.Time)
-	require.Len(t, repository.commits[0].AuditRecords, 3)
+	require.Len(t, actionAuditRecords(repository.commits[0].AuditRecords), 3)
 	require.Equal(t, "aman.expedite_flight", repository.commits[0].AuditRecords[0].Category)
 	var audit map[string]any
 	require.NoError(t, json.Unmarshal(repository.commits[0].AuditRecords[0].Payload, &audit))

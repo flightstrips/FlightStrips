@@ -383,13 +383,14 @@ type FlightPlanFact struct {
 // WGS84 degrees, altitude is feet, ground speed is knots, and track is true
 // degrees in [0,360).
 type SurveillanceFact struct {
-	LatitudeDegrees  float64
-	LongitudeDegrees float64
-	AltitudeFeet     *int
-	GroundspeedKnots *float64
-	TrackTrueDegrees *float64
-	Sequence         *uint64
-	ObservedAt       *time.Time
+	LatitudeDegrees   float64
+	LongitudeDegrees  float64
+	AltitudeFeet      *int
+	GroundspeedKnots  *float64
+	GroundspeedSource string
+	TrackTrueDegrees  *float64
+	Sequence          *uint64
+	ObservedAt        *time.Time
 }
 
 // Prediction separates a physical/model result from the backend-owned value
@@ -604,6 +605,23 @@ type PredictionSegment struct {
 type RawTETASample struct {
 	TETA        time.Time
 	GeneratedAt time.Time
+	ObservedAt  time.Time
+}
+
+// PredictionFilterState contains only automatic outlier-filter bookkeeping.
+// Prediction itself always remains the last accepted physical calculation.
+type PredictionFilterState struct {
+	LastObservedAt time.Time
+	Pending        *PredictionCandidate
+	Unreliable     bool
+}
+
+type PredictionCandidate struct {
+	TETA            time.Time
+	FeederETA       *time.Time
+	FirstObservedAt time.Time
+	Since           time.Time
+	Samples         uint32
 }
 
 // BaselineState is the narrow persisted result of the first normal airborne
@@ -959,6 +977,7 @@ type AMANFlight struct {
 	Expedited           bool
 	DataStatus          DataStatus
 	Prediction          *Prediction
+	PredictionFilter    *PredictionFilterState
 	RawTETASamples      []RawTETASample
 	ArrivalBaseline     *BaselineState
 	LatestObservation   *FlightObservation
@@ -1396,6 +1415,11 @@ func (f AMANFlight) Validate() error {
 	}
 	if f.Prediction != nil {
 		if err := f.Prediction.Validate(); err != nil {
+			return err
+		}
+	}
+	if f.PredictionFilter != nil {
+		if err := f.PredictionFilter.Validate(); err != nil {
 			return err
 		}
 	}
@@ -1897,10 +1921,43 @@ func (f AMANFlight) validateFreeze() error {
 }
 
 func (s RawTETASample) Validate() error {
+	if !s.ObservedAt.IsZero() {
+		if err := requireUTCTime("raw TETA sample observed at", s.ObservedAt); err != nil {
+			return err
+		}
+		if s.ObservedAt.After(s.GeneratedAt) {
+			return invalid("raw TETA sample observation is in the future")
+		}
+	}
 	if err := requireUTCTime("raw TETA sample", s.TETA); err != nil {
 		return err
 	}
 	return requireUTCTime("raw TETA sample generated at", s.GeneratedAt)
+}
+
+func (s PredictionFilterState) Validate() error {
+	if err := requireUTCTime("prediction filter observed at", s.LastObservedAt); err != nil {
+		return err
+	}
+	if s.Unreliable && s.Pending == nil {
+		return invalid("unreliable prediction requires a pending candidate")
+	}
+	if s.Pending == nil {
+		return nil
+	}
+	p := s.Pending
+	if p.Samples == 0 || p.FirstObservedAt.After(s.LastObservedAt) {
+		return invalid("prediction filter candidate has invalid observation evidence")
+	}
+	for _, at := range []time.Time{p.TETA, p.FirstObservedAt, p.Since} {
+		if err := requireUTCTime("prediction filter candidate", at); err != nil {
+			return err
+		}
+	}
+	if p.FeederETA != nil {
+		return requireUTCTime("prediction filter feeder ETA", *p.FeederETA)
+	}
+	return nil
 }
 
 func (s Slot) validate() error {

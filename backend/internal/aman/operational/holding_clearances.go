@@ -32,7 +32,7 @@ func (s *Service) RefreshHoldingClearances(ctx context.Context, state *aman.Airp
 			continue
 		}
 		observation.HoldingClearance = cloneHoldingClearance(flight.HoldingClearance)
-		updated, err := s.reconcileFlight(ctx, *state, flight, observation, now)
+		updated, err := s.reconcileFlight(withPredictionRefresh(ctx), *state, flight, observation, now)
 		if err != nil {
 			// A calculation failure must not discard the controller's fact.
 			// The regular reconciliation will retry when inputs recover.

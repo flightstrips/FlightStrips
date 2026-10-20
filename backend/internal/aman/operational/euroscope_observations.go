@@ -24,6 +24,7 @@ type EuroScopePositionObserver struct {
 
 	mu       sync.Mutex
 	previous map[string]euroScopePosition
+	history  map[string][]euroScopePosition
 }
 
 type EuroScopePositionObserverDependencies struct {
@@ -36,6 +37,8 @@ type euroScopePosition struct {
 	latitude, longitude float64
 	at                  time.Time
 	groundspeed, track  *float64
+	altitude            int32
+	speedSource         string
 }
 
 func NewEuroScopePositionObserver(deps EuroScopePositionObserverDependencies) (*EuroScopePositionObserver, error) {
@@ -54,7 +57,7 @@ func NewEuroScopePositionObserver(deps EuroScopePositionObserverDependencies) (*
 	if deps.Now == nil {
 		deps.Now = time.Now
 	}
-	return &EuroScopePositionObserver{sink: deps.Sink, airports: airports, now: deps.Now, previous: map[string]euroScopePosition{}}, nil
+	return &EuroScopePositionObserver{sink: deps.Sink, airports: airports, now: deps.Now, previous: map[string]euroScopePosition{}, history: map[string][]euroScopePosition{}}, nil
 }
 
 // ObserveEuroScopePosition is called from the EuroScope strip path. The
@@ -75,7 +78,14 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 		return fmt.Errorf("EuroScope AMAN position has invalid coordinates")
 	}
 	now := shared.ReceiptTime(ctx, o.now).UTC()
-	current := euroScopePosition{latitude: latitude, longitude: longitude, at: now}
+	motion := shared.PositionMotionFromContext(ctx)
+	at := now
+	if motion.PositionAgeMS != nil && *motion.PositionAgeMS >= 0 {
+		// Bound before converting to Duration, including malicious overflow.
+		age := min(*motion.PositionAgeMS, int64((24*time.Hour)/time.Millisecond))
+		at = now.Add(-time.Duration(age) * time.Millisecond)
+	}
+	current := euroScopePosition{latitude: latitude, longitude: longitude, at: at, altitude: altitude}
 	if session == 0 {
 		session = strip.Session
 	}
@@ -83,32 +93,52 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 	o.mu.Lock()
 	previous, known := o.previous[positionKey]
 	var groundspeed, track *float64
+	speedSource := "derived"
 	if known && !current.at.After(previous.at) {
 		o.mu.Unlock()
 		return nil
 	}
-	if known && current.at.After(previous.at) {
-		interval := current.at.Sub(previous.at)
-		if interval <= 2*time.Minute {
-			if current.latitude == previous.latitude && current.longitude == previous.longitude {
-				// Repeated radar reports are not evidence of zero speed. Keep
-				// the last motion estimate and its original freshness boundary;
-				// do not reset the position/time pair used for the next movement.
-				if interval <= euroScopeSurveillanceFresh {
-					groundspeed, track = previous.groundspeed, previous.track
-				}
-				current = previous
-			} else {
-				distance := geoDistanceNM(previous.latitude, previous.longitude, current.latitude, current.longitude)
-				derivedGroundspeed := distance / interval.Hours()
-				if derivedGroundspeed >= 1 && derivedGroundspeed <= euroScopeMaximumDerivedGroundspeed {
-					derivedTrack := geoBearingTrue(previous.latitude, previous.longitude, current.latitude, current.longitude)
-					groundspeed, track = &derivedGroundspeed, &derivedTrack
-				}
+	duplicate := known && latitude == previous.latitude && longitude == previous.longitude && altitude == previous.altitude
+	history := o.history[positionKey]
+	first := 0
+	for first < len(history) && current.at.Sub(history[first].at) > 2*time.Minute {
+		first++
+	}
+	history = append([]euroScopePosition(nil), history[first:]...)
+	if duplicate {
+		speedSource = previous.speedSource
+		if now.Sub(previous.at) <= euroScopeSurveillanceFresh {
+			groundspeed, track = previous.groundspeed, previous.track
+		}
+		current = previous // Do not renew freshness on repeated radar data.
+	} else {
+		// Use the most recent baseline at least thirty seconds old. Short
+		// receipt intervals amplify radar quantisation and network jitter.
+		for i := len(history) - 1; i >= 0; i-- {
+			interval := current.at.Sub(history[i].at)
+			if interval < 30*time.Second {
+				continue
 			}
+			distance := geoDistanceNM(history[i].latitude, history[i].longitude, latitude, longitude)
+			derived := distance / interval.Hours()
+			if derived >= 1 && derived <= euroScopeMaximumDerivedGroundspeed {
+				bearing := geoBearingTrue(history[i].latitude, history[i].longitude, latitude, longitude)
+				groundspeed, track = &derived, &bearing
+			}
+			break
+		}
+		if motion.GroundspeedKnots != nil && !math.IsNaN(*motion.GroundspeedKnots) && !math.IsInf(*motion.GroundspeedKnots, 0) && *motion.GroundspeedKnots >= 0 && *motion.GroundspeedKnots <= euroScopeMaximumDerivedGroundspeed && (*motion.GroundspeedKnots > 0 || altitude <= 1000) {
+			value := *motion.GroundspeedKnots
+			groundspeed, speedSource = &value, "reported"
+		}
+		history = append(history, current)
+		if len(history) > 64 {
+			history = history[len(history)-64:]
 		}
 	}
+	o.history[positionKey] = history
 	current.groundspeed, current.track = groundspeed, track
+	current.speedSource = speedSource
 	o.previous[positionKey] = current
 	o.mu.Unlock()
 	altitudeFeet := int(altitude)
@@ -119,7 +149,7 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 		AircraftType: aircraftType, WakeCategory: wakeCategory, FiledRoute: filedRoute, RequestedLevel: requestedLevel(strip.RequestedAltitude),
 		AssignedSTAR:       optionalStripString(strip.Star),
 		FlightPlan:         aman.FlightPlanFact{Revision: vatsimRevision(strip.VatsimRevision), ObservedAt: &now},
-		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitudeFeet, GroundspeedKnots: groundspeed, TrackTrueDegrees: track, ObservedAt: &now},
+		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitudeFeet, GroundspeedKnots: groundspeed, GroundspeedSource: speedSource, TrackTrueDegrees: track, ObservedAt: &current.at},
 		SurveillanceSource: aman.SurveillanceSourceEuroScope, Provider: aman.ObservationProviderEuroScope, ReconciledAt: now, SourceStatus: aman.DataFresh,
 	}
 	if groundspeed != nil && altitude > 1000 && *groundspeed > 40 {

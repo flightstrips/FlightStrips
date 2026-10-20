@@ -11,6 +11,37 @@ Grafana schema v2 documents.
 | `flightstrips-traffic.json` | What is the traffic situation at the airport? |
 | `flightstrips-usage.json` | Who is connected, and for how long? |
 | `flightstrips-performance.json` | Why is the backend busy? |
+| `flightstrips-aman.json` | Did a prediction spike, STAR exchange, promotion or spacing change move arrival guidance? |
+
+## AMAN stability diagnostics
+
+The AMAN Stability dashboard separates automatic calculation attempts from
+committed target and guidance changes. Filter logs by airport, aircraft callsign
+regex and numeric session ID; its metrics are backend-wide. The spacing panel
+contains the demand counts and activation state used for each aircraft.
+
+`AMAN prediction filter evaluated` records filtered candidates and automatically
+accepted sustained changes. `AMAN guidance change committed` records before/after
+physical and operational ETAs, target, guidance and neighbouring aircraft.
+`AMAN sequencing operation committed` carries the actual optimizer, STAR swap,
+gap-fill and vacancy-promotion operations. Join committed events by session and
+revision, and controller actions by command ID. Failed commits and duplicate
+commands do not emit committed-change events. The older ten-minute prediction
+warning is a calculation attempt, not evidence of a committed target change.
+
+Deploy backend support before updating EuroScope plugins. New plugins send
+reported groundspeed and radar position age; older plugins use motion derived
+over at least thirty seconds. Automatic filtering is enabled by default.
+`AMAN_PREDICTION_FILTERING_ENABLED=false` disables the outlier filter for rollback
+without removing diagnostics or native-motion support. It never asks controllers
+to confirm predictions. Changes over three minutes need distinct observations
+spanning thirty seconds and agreeing within a minute; two minutes of unresolved
+instability suppresses actionable guidance while retaining the runway slot.
+
+After rollout, inspect a busy EKCH session for isolated candidates that leave
+targets unchanged, automatically accepted sustained speed changes, and immediate
+promotions when genuine capacity becomes available. Compare committed changes,
+not raw warning counts, with the 19 October investigation.
 
 ## Diagnosing high CPU
 

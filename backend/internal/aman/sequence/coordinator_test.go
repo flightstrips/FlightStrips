@@ -1,10 +1,12 @@
 package sequence_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -146,17 +148,27 @@ func TestCoordinatorPersistsNoOpOutcomeWithoutRevisionOrPublication(t *testing.T
 }
 
 func TestCoordinatorTransactionFailureNeverPublishesOrExposesPartialState(t *testing.T) {
+	var logs bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 	repository := newCoordinatorRepository(coordinatorState(2))
 	repository.commitError = errors.New("injected transaction failure")
 	publisher := &recordingPublisher{repository: repository}
 	coordinator := newTestCoordinator(t, repository, publisher)
 
-	_, err := coordinator.ExecuteCommand(context.Background(), "EKCH", aman.CommandMetadata{CommandID: "failed", ExpectedRevision: 2}, changedOrder(2))
+	mutation := func(state aman.AirportState) (sequence.CommandChange, error) {
+		change, err := changedOrder(2)(state)
+		change.Audit = append(change.Audit, sequence.AuditEntry{Category: "aman.sequence_operation", Payload: []byte(`{"callsign":"SAS123","operation":"star_exchange"}`)})
+		return change, err
+	}
+	_, err := coordinator.ExecuteCommand(context.Background(), "EKCH", aman.CommandMetadata{CommandID: "failed", ExpectedRevision: 2}, mutation)
 	require.ErrorContains(t, err, "injected transaction failure")
 	require.Equal(t, aman.SequenceRevision(2), repository.current().Revision)
 	require.Empty(t, repository.outcomeRecords())
 	require.Empty(t, repository.auditRecords())
 	require.Equal(t, 0, publisher.calls())
+	require.NotContains(t, logs.String(), "committed", "a failed commit must never emit successful operation diagnostics")
 }
 
 func TestCoordinatorPublicationFailureLeavesCommittedStateRecoverableOnReconnect(t *testing.T) {

@@ -100,6 +100,8 @@ func TestStableSameSTARSlotExchange(t *testing.T) {
 			result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{first, second}})
 			require.NoError(t, err)
 			if test == "same STAR" {
+				require.Contains(t, result.Operations, sequence.Operation{Callsign: "SECOND", Kind: "star_exchange"})
+				require.Contains(t, result.Operations, sequence.Operation{Callsign: "FIRST", Kind: "star_exchange"})
 				require.Equal(t, []aman.Callsign{"SECOND", "FIRST"}, entryIDs(result))
 				require.Zero(t, totalDelay(result))
 				require.Len(t, result.Movements, 2)

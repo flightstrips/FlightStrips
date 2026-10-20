@@ -424,6 +424,7 @@ func cloneInput(input Input) Input {
 	}
 	for index, flight := range input.Flights {
 		copy.Flights[index] = flight
+		copy.Flights[index].Operations = slices.Clone(flight.Operations)
 		copy.Flights[index].DemandArrivalAt = cloneTime(flight.DemandArrivalAt)
 		copy.Flights[index].InitialBaselineTETA = cloneTime(flight.InitialBaselineTETA)
 		copy.Flights[index].PromotionNotBefore = cloneTime(flight.PromotionNotBefore)

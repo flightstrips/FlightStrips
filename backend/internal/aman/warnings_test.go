@@ -23,6 +23,18 @@ func TestWarningIdentityIsStableAndIgnoresPresentation(t *testing.T) {
 	}
 }
 
+func TestUnreliablePredictionWarningClearsAutomatically(t *testing.T) {
+	state := AirportState{Flights: []AMANFlight{{Callsign: "SAS123", State: StateStable, PredictionFilter: &PredictionFilterState{Unreliable: true}}}}
+	warnings := CurrentWarningSnapshot(TechnicalHealth{}, state).Warnings
+	if len(warnings) != 1 || warnings[0].Code != "prediction_unreliable" {
+		t.Fatalf("missing prediction warning: %+v", warnings)
+	}
+	state.Flights[0].PredictionFilter.Unreliable = false
+	if warnings := CurrentWarningSnapshot(TechnicalHealth{}, state).Warnings; len(warnings) != 0 {
+		t.Fatalf("recovered prediction kept warning: %+v", warnings)
+	}
+}
+
 func TestWarningIdentityIncludesSourceAndOptionalIdentities(t *testing.T) {
 	component := "navigation"
 	group := RunwayGroupID("north")

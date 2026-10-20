@@ -169,6 +169,11 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 			if !entry.time.Before(previous.slot.Time) {
 				continue
 			}
+			for i := range working.Flights {
+				if working.Flights[i].Callsign == entry.flight.Callsign {
+					working.Flights[i].Operations = append(working.Flights[i].Operations, "gap_fill")
+				}
+			}
 			to := previous.slot
 			to.Time, to.Reason = entry.time, string(ReasonQueuePromotion)
 			promotionSlots[entry.flight.Callsign] = to
@@ -187,6 +192,11 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		}
 	}
 
+	for i := range working.Flights {
+		if _, promoted := promotionSlots[working.Flights[i].Callsign]; promoted {
+			working.Flights[i].Operations = append(working.Flights[i].Operations, "vacancy_promotion")
+		}
+	}
 	result, err := generate(working, promotionSlots)
 	if err != nil {
 		return Result{}, nil, err
@@ -225,6 +235,13 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 
 func vacancyBaselineInput(input Input, baseline Result) Input {
 	working := cloneInput(input)
+	for _, operation := range baseline.Operations {
+		for i := range working.Flights {
+			if working.Flights[i].Callsign == operation.Callsign {
+				working.Flights[i].Operations = append(working.Flights[i].Operations, operation.Kind)
+			}
+		}
+	}
 	byCallsign := make(map[aman.Callsign]CandidateEntry, len(baseline.Entries))
 	for _, entry := range baseline.Entries {
 		byCallsign[entry.Callsign] = entry

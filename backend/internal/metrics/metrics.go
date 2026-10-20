@@ -84,6 +84,9 @@ type instruments struct {
 	amanFlightDegradation     metric.Int64Counter
 	amanSourceRefreshes       metric.Int64Counter
 	amanPublicationFailures   metric.Int64Counter
+	amanPredictionFilter      metric.Int64Counter
+	amanGuidanceChanges       metric.Int64Counter
+	amanTargetMovement        metric.Float64Histogram
 }
 
 func get() *instruments {
@@ -307,8 +310,12 @@ func get() *instruments {
 		amanFlightDegradation, _ := meter.Int64Counter("aman.flights.degraded", metric.WithDescription("AMAN stale and disconnected flight transitions"), metric.WithUnit("{flight}"))
 		amanSourceRefreshes, _ := meter.Int64Counter("aman.source.refreshes", metric.WithDescription("AMAN source refresh attempts"), metric.WithUnit("{refresh}"))
 		amanPublicationFailures, _ := meter.Int64Counter("aman.publication.failures", metric.WithDescription("Post-commit AMAN replacement publication failures"), metric.WithUnit("{publication}"))
+		amanPredictionFilter, _ := meter.Int64Counter("aman.prediction.filter", metric.WithDescription("Automatic prediction acceptance decisions, including calculation attempts"))
+		amanGuidanceChanges, _ := meter.Int64Counter("aman.guidance.changes", metric.WithDescription("Committed significant guidance, target and relative order changes"))
+		amanTargetMovement, _ := meter.Float64Histogram("aman.target.movement", metric.WithDescription("Absolute committed target movement"), metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(30, 60, 120, 180, 300, 600, 1800))
 
 		inst = &instruments{
+			amanPredictionFilter: amanPredictionFilter, amanGuidanceChanges: amanGuidanceChanges, amanTargetMovement: amanTargetMovement,
 			activeConnections:         activeConnections,
 			activeClients:             activeClients,
 			activeMasterClients:       activeMasterClients,
@@ -395,6 +402,19 @@ func RecordAMANPredictionDrift(ctx context.Context, kind string, drift time.Dura
 }
 
 func RecordAMANSequenceRevision(ctx context.Context) { get().amanSequenceRevisions.Add(ctx, 1) }
+
+func RecordAMANPredictionFilter(ctx context.Context, outcome string) {
+	get().amanPredictionFilter.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", fixedAMANLabel(outcome, "accepted", "bypass", "duplicate", "filtered", "sustained_change"))))
+}
+
+func RecordAMANGuidanceChange(ctx context.Context, movement time.Duration, guidance, order bool) {
+	attrs := metric.WithAttributes(attribute.Bool("guidance_changed", guidance), attribute.Bool("order_changed", order))
+	get().amanGuidanceChanges.Add(ctx, 1, attrs)
+	if movement < 0 {
+		movement = -movement
+	}
+	get().amanTargetMovement.Record(ctx, movement.Seconds())
+}
 func RecordAMANSequenceConflict(ctx context.Context, kind string) {
 	get().amanSequenceConflicts.Add(ctx, 1, metric.WithAttributes(attribute.String("kind", fixedAMANLabel(kind, "revision", "command", "policy"))))
 }

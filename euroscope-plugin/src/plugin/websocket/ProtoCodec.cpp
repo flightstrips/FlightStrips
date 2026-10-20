@@ -189,6 +189,8 @@ namespace FlightStrips::websocket::protobuf {
             payload->set_lat(value.lat);
             payload->set_lon(value.lon);
             payload->set_altitude(value.altitude);
+            if (value.groundspeed_knots >= 0) payload->set_groundspeed_knots(value.groundspeed_knots);
+            if (value.position_age_ms >= 0) payload->set_position_age_ms(value.position_age_ms);
             break;
         }
         case EVENT_COORDINATION_RECEIVED: {

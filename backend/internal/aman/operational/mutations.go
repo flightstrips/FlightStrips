@@ -36,7 +36,7 @@ func (s *Service) RecomputeFlight(ctx context.Context, auth aman.CommandContext,
 		if observation.Missing || observation.SourceStatus != aman.DataFresh {
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "AMAN flight observation is not current"}
 		}
-		updated, err := s.reconcileFlight(ctx, state, current, observation, auth.ReceivedAt)
+		updated, err := s.reconcileFlight(withPredictionRefresh(ctx), state, current, observation, auth.ReceivedAt)
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
@@ -493,7 +493,7 @@ func (s *Service) SetRate(auth aman.CommandContext, command aman.SetRateCommand)
 			}
 		}
 		updateActiveRates(state.RunwayGroups, auth.ReceivedAt)
-		var promotions []sequence.VacancyPromotion
+		var promotions sequenceChanges
 		if decision.Changed {
 			promotions = s.resequence(&state, auth.ReceivedAt)
 		}
@@ -1288,7 +1288,7 @@ func (s *Service) sequenceMutation(action string, callsign aman.Callsign, at tim
 			return sequence.CommandChange{}, err
 		}
 		state = s.applyDecision(state, decision)
-		var promotions []sequence.VacancyPromotion
+		var promotions sequenceChanges
 		if decision.Changed {
 			promotions = s.resequence(&state, at)
 		}
@@ -1314,7 +1314,7 @@ func (s *Service) flightMutationWithAudit(action string, callsign aman.Callsign,
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		state.Flights[index] = updated
-		var promotions []sequence.VacancyPromotion
+		var promotions sequenceChanges
 		if changed {
 			invalidateHoldingRebuild(&state, callsign)
 			if manualETASlotPending(updated) && sequenceEligible(updated) {

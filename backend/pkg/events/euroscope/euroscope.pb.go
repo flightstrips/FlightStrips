@@ -3956,13 +3956,15 @@ func (x *ClearedFlagEvent) GetCleared() bool {
 }
 
 type AircraftPositionUpdateEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Callsign      string                 `protobuf:"bytes,1,opt,name=callsign,proto3" json:"callsign,omitempty"`
-	Lat           float64                `protobuf:"fixed64,2,opt,name=lat,proto3" json:"lat,omitempty"`
-	Lon           float64                `protobuf:"fixed64,3,opt,name=lon,proto3" json:"lon,omitempty"`
-	Altitude      int64                  `protobuf:"varint,4,opt,name=altitude,proto3" json:"altitude,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Callsign         string                 `protobuf:"bytes,1,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	Lat              float64                `protobuf:"fixed64,2,opt,name=lat,proto3" json:"lat,omitempty"`
+	Lon              float64                `protobuf:"fixed64,3,opt,name=lon,proto3" json:"lon,omitempty"`
+	Altitude         int64                  `protobuf:"varint,4,opt,name=altitude,proto3" json:"altitude,omitempty"`
+	GroundspeedKnots *float64               `protobuf:"fixed64,5,opt,name=groundspeed_knots,json=groundspeedKnots,proto3,oneof" json:"groundspeed_knots,omitempty"`
+	PositionAgeMs    *int64                 `protobuf:"varint,6,opt,name=position_age_ms,json=positionAgeMs,proto3,oneof" json:"position_age_ms,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *AircraftPositionUpdateEvent) Reset() {
@@ -4019,6 +4021,20 @@ func (x *AircraftPositionUpdateEvent) GetLon() float64 {
 func (x *AircraftPositionUpdateEvent) GetAltitude() int64 {
 	if x != nil {
 		return x.Altitude
+	}
+	return 0
+}
+
+func (x *AircraftPositionUpdateEvent) GetGroundspeedKnots() float64 {
+	if x != nil && x.GroundspeedKnots != nil {
+		return *x.GroundspeedKnots
+	}
+	return 0
+}
+
+func (x *AircraftPositionUpdateEvent) GetPositionAgeMs() int64 {
+	if x != nil && x.PositionAgeMs != nil {
+		return *x.PositionAgeMs
 	}
 	return 0
 }
@@ -6024,12 +6040,16 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\fground_state\x18\x02 \x01(\tR\vgroundState\"H\n" +
 	"\x10ClearedFlagEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x18\n" +
-	"\acleared\x18\x02 \x01(\bR\acleared\"y\n" +
+	"\acleared\x18\x02 \x01(\bR\acleared\"\x82\x02\n" +
 	"\x1bAircraftPositionUpdateEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x10\n" +
 	"\x03lat\x18\x02 \x01(\x01R\x03lat\x12\x10\n" +
 	"\x03lon\x18\x03 \x01(\x01R\x03lon\x12\x1a\n" +
-	"\baltitude\x18\x04 \x01(\x03R\baltitude\"D\n" +
+	"\baltitude\x18\x04 \x01(\x03R\baltitude\x120\n" +
+	"\x11groundspeed_knots\x18\x05 \x01(\x01H\x00R\x10groundspeedKnots\x88\x01\x01\x12+\n" +
+	"\x0fposition_age_ms\x18\x06 \x01(\x03H\x01R\rpositionAgeMs\x88\x01\x01B\x14\n" +
+	"\x12_groundspeed_knotsB\x12\n" +
+	"\x10_position_age_ms\"D\n" +
 	"\fHeadingEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x18\n" +
 	"\aheading\x18\x02 \x01(\x05R\aheading\"5\n" +
@@ -6453,6 +6473,7 @@ func file_proto_euroscope_proto_init() {
 		(*Envelope_MasterInfo)(nil),
 	}
 	file_proto_euroscope_proto_msgTypes[11].OneofWrappers = []any{}
+	file_proto_euroscope_proto_msgTypes[38].OneofWrappers = []any{}
 	file_proto_euroscope_proto_msgTypes[59].OneofWrappers = []any{}
 	file_proto_euroscope_proto_msgTypes[61].OneofWrappers = []any{}
 	file_proto_euroscope_proto_msgTypes[62].OneofWrappers = []any{

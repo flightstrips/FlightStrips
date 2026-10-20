@@ -26,6 +26,7 @@ type aircraftAliveStripService struct {
 	deleteCalls   atomic.Int32
 	positionMu    sync.Mutex
 	lastPosition  cachedAircraftPosition
+	lastMotion    shared.PositionMotion
 }
 
 type blockingPositionStripService struct {
@@ -47,9 +48,10 @@ func (s *aircraftAliveStripService) SyncStrip(_ context.Context, _ int32, _ stri
 	return nil
 }
 
-func (s *aircraftAliveStripService) UpdateAircraftPosition(_ context.Context, _ int32, _ string, lat, lon float64, altitude int32, _ string) error {
+func (s *aircraftAliveStripService) UpdateAircraftPosition(ctx context.Context, _ int32, _ string, lat, lon float64, altitude int32, _ string) error {
 	s.positionMu.Lock()
 	s.lastPosition = cachedAircraftPosition{lat: lat, lon: lon, altitude: altitude}
+	s.lastMotion = shared.PositionMotionFromContext(ctx)
 	s.positionMu.Unlock()
 	s.positionCalls.Add(1)
 	return nil
@@ -282,6 +284,21 @@ func TestHandlePositionUpdate_CancelsPendingAircraftDisconnect(t *testing.T) {
 	})
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Equal(t, int32(1), stripService.positionCalls.Load(), "slave position updates must be fenced")
+}
+
+func TestPositionWireMotionReachesPositionService(t *testing.T) {
+	service := &aircraftAliveStripService{}
+	hub := newAircraftDisconnectTestHub(service)
+	client := &Client{hub: hub, session: 42, airport: "EKCH"}
+	hub.master[42] = client
+	gs, age := 420.0, int64(5500)
+	err := handlePositionUpdate(t.Context(), client, Message{Message: mustMarshalMessage(t, &eventseuroscope.AircraftPositionUpdateEvent{Callsign: "SAS123", Lat: 55, Lon: 12, Altitude: 30000, GroundspeedKnots: &gs, PositionAgeMs: &age})})
+	require.NoError(t, err)
+	service.positionMu.Lock()
+	defer service.positionMu.Unlock()
+	require.NotNil(t, service.lastMotion.GroundspeedKnots)
+	require.Equal(t, gs, *service.lastMotion.GroundspeedKnots)
+	require.Equal(t, age, *service.lastMotion.PositionAgeMS)
 }
 
 func TestScheduleAircraftDisconnectResetsExistingWorker(t *testing.T) {

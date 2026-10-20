@@ -1266,13 +1266,15 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 
 inline constexpr AircraftPositionUpdateEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
-      : callsign_(
+      : _cached_size_{0},
+        callsign_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         lat_{0},
         lon_{0},
         altitude_{::int64_t{0}},
-        _cached_size_{0} {}
+        groundspeed_knots_{0},
+        position_age_ms_{::int64_t{0}} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(::_pbi::ConstantInitialized)
@@ -16735,6 +16737,9 @@ void ClearedFlagEvent::InternalSwap(ClearedFlagEvent* PROTOBUF_RESTRICT other) {
 
 class AircraftPositionUpdateEvent::_Internal {
  public:
+  using HasBits = decltype(std::declval<AircraftPositionUpdateEvent>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_._has_bits_);
 };
 
 AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(::google::protobuf::Arena* arena)
@@ -16745,8 +16750,9 @@ AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(::google::protobuf::Are
 inline PROTOBUF_NDEBUG_INLINE AircraftPositionUpdateEvent::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
     const Impl_& from)
-      : callsign_(arena, from.callsign_),
-        _cached_size_{0} {}
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        callsign_(arena, from.callsign_) {}
 
 AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(
     ::google::protobuf::Arena* arena,
@@ -16761,26 +16767,26 @@ AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(
                offsetof(Impl_, lat_),
            reinterpret_cast<const char *>(&from._impl_) +
                offsetof(Impl_, lat_),
-           offsetof(Impl_, altitude_) -
+           offsetof(Impl_, position_age_ms_) -
                offsetof(Impl_, lat_) +
-               sizeof(Impl_::altitude_));
+               sizeof(Impl_::position_age_ms_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.AircraftPositionUpdateEvent)
 }
 inline PROTOBUF_NDEBUG_INLINE AircraftPositionUpdateEvent::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility,
     ::google::protobuf::Arena* arena)
-      : callsign_(arena),
-        _cached_size_{0} {}
+      : _cached_size_{0},
+        callsign_(arena) {}
 
 inline void AircraftPositionUpdateEvent::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, lat_),
            0,
-           offsetof(Impl_, altitude_) -
+           offsetof(Impl_, position_age_ms_) -
                offsetof(Impl_, lat_) +
-               sizeof(Impl_::altitude_));
+               sizeof(Impl_::position_age_ms_));
 }
 AircraftPositionUpdateEvent::~AircraftPositionUpdateEvent() {
   // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.AircraftPositionUpdateEvent)
@@ -16822,6 +16828,13 @@ PROTOBUF_NOINLINE void AircraftPositionUpdateEvent::Clear() {
   ::memset(&_impl_.lat_, 0, static_cast<::size_t>(
       reinterpret_cast<char*>(&_impl_.altitude_) -
       reinterpret_cast<char*>(&_impl_.lat_)) + sizeof(_impl_.altitude_));
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    ::memset(&_impl_.groundspeed_knots_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.position_age_ms_) -
+        reinterpret_cast<char*>(&_impl_.groundspeed_knots_)) + sizeof(_impl_.position_age_ms_));
+  }
+  _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<std::string>();
 }
 
@@ -16833,15 +16846,15 @@ const char* AircraftPositionUpdateEvent::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ = {
+const ::_pbi::TcParseTable<3, 6, 0, 70, 2> AircraftPositionUpdateEvent::_table_ = {
   {
-    0,  // no _has_bits_
+    PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_._has_bits_),
     0, // no _extensions_
-    4, 24,  // max_field_number, fast_idx_mask
+    6, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967280,  // skipmap
+    4294967232,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    4,  // num_field_entries
+    6,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_AircraftPositionUpdateEvent_default_instance_._instance,
@@ -16850,9 +16863,7 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
     ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::AircraftPositionUpdateEvent>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // int64 altitude = 4;
-    {::_pbi::TcParser::FastV64S1,
-     {32, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string callsign = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.callsign_)}},
@@ -16862,21 +16873,37 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
     // double lon = 3;
     {::_pbi::TcParser::FastF64S1,
      {25, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lon_)}},
+    // int64 altitude = 4;
+    {::_pbi::TcParser::FastV64S1,
+     {32, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_)}},
+    // optional double groundspeed_knots = 5;
+    {::_pbi::TcParser::FastF64S1,
+     {41, 0, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.groundspeed_knots_)}},
+    // optional int64 position_age_ms = 6;
+    {::_pbi::TcParser::FastV64S1,
+     {48, 1, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.position_age_ms_)}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
     // string callsign = 1;
-    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.callsign_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.callsign_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // double lat = 2;
-    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lat_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lat_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
     // double lon = 3;
-    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lon_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lon_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
     // int64 altitude = 4;
-    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kInt64)},
+    // optional double groundspeed_knots = 5;
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.groundspeed_knots_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kDouble)},
+    // optional int64 position_age_ms = 6;
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.position_age_ms_), _Internal::kHasBitsOffset + 1, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
   }},
   // no aux_entries
   {{
@@ -16932,6 +16959,21 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
             stream, this->_internal_altitude(), target);
   }
 
+  cached_has_bits = _impl_._has_bits_[0];
+  // optional double groundspeed_knots = 5;
+  if (cached_has_bits & 0x00000001u) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        5, this->_internal_groundspeed_knots(), target);
+  }
+
+  // optional int64 position_age_ms = 6;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt64ToArrayWithField<6>(
+            stream, this->_internal_position_age_ms(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -16981,6 +17023,20 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
         this->_internal_altitude());
   }
 
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    // optional double groundspeed_knots = 5;
+    if (cached_has_bits & 0x00000001u) {
+      total_size += 9;
+    }
+
+    // optional int64 position_age_ms = 6;
+    if (cached_has_bits & 0x00000002u) {
+      total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+          this->_internal_position_age_ms());
+    }
+
+  }
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
   }
@@ -17023,6 +17079,16 @@ void AircraftPositionUpdateEvent::MergeFrom(const AircraftPositionUpdateEvent& f
   if (from._internal_altitude() != 0) {
     _this->_impl_.altitude_ = from._impl_.altitude_;
   }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      _this->_impl_.groundspeed_knots_ = from._impl_.groundspeed_knots_;
+    }
+    if (cached_has_bits & 0x00000002u) {
+      _this->_impl_.position_age_ms_ = from._impl_.position_age_ms_;
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
 }
 
@@ -17042,10 +17108,11 @@ void AircraftPositionUpdateEvent::InternalSwap(AircraftPositionUpdateEvent* PROT
   auto* arena = GetArena();
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_)
-      + sizeof(AircraftPositionUpdateEvent::_impl_.altitude_)
+      PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.position_age_ms_)
+      + sizeof(AircraftPositionUpdateEvent::_impl_.position_age_ms_)
       - PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lat_)>(
           reinterpret_cast<char*>(&_impl_.lat_),
           reinterpret_cast<char*>(&other->_impl_.lat_));

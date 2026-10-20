@@ -251,7 +251,9 @@ namespace FlightStrips::flightplan {
         // Queue position update instead of sending immediately
         m_pendingPositionUpdates.insert_or_assign(callsign, PositionEvent(callsign, aircraftPosition.m_Latitude,
                                                                           aircraftPosition.m_Longitude,
-                                                                          position.GetPressureAltitude()));
+                                                                          position.GetPressureAltitude(),
+                                                                          position.GetReportedGS(),
+                                                                          static_cast<int64_t>(std::max(0, position.GetReceivedTime())) * 1000));
     }
 
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
@@ -697,7 +699,10 @@ namespace FlightStrips::flightplan {
         }
 
         for (const auto& [callsign, positionEvent] : m_pendingPositionUpdates) {
-            m_websocketService->SendEvent(positionEvent);
+            auto event = positionEvent;
+            event.position_age_ms += std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - event.captured_at).count();
+            m_websocketService->SendEvent(event);
         }
 
         m_pendingPositionUpdates.clear();

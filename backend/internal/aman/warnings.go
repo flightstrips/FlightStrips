@@ -133,6 +133,15 @@ func CurrentWarningSnapshot(technical TechnicalHealth, state AirportState, addit
 					current.Callsign, current.RelatedCallsign, current.STARFamily, group.ID)})
 		}
 	}
+	for _, flight := range state.Flights {
+		if flight.State == StateLanded || flight.State == StateRemoved || flight.PredictionFilter == nil || !flight.PredictionFilter.Unreliable {
+			continue
+		}
+		callsign, component := flight.Callsign, "prediction"
+		add(Warning{Source: WarningSourceTrafficPrediction, Component: &component, Severity: WarningSeverityWarning,
+			Code: "prediction_unreliable", Callsign: &callsign,
+			Message: fmt.Sprintf("%s arrival estimate remains unstable. Gain/loss guidance will return automatically when estimates stabilise; its assigned slot is retained.", callsign)})
+	}
 	for _, warning := range additional {
 		add(warning)
 	}

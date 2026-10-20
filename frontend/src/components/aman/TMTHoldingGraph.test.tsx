@@ -44,8 +44,8 @@ describe("TMT holding graph", () => {
     render(<TMTHoldingGraph entries={[entry("SAS101", "2026-09-11T10:30:00.000Z", 19500)]} now={now} />);
 
     const graph = screen.getByTestId("holding-graph");
-    expect(within(graph).getByText("10:00")).toBeInTheDocument();
-    expect(within(graph).getByText("11:00")).toBeInTheDocument();
+    expect(within(graph).getByText("10:05")).toBeInTheDocument();
+    expect(within(graph).getByText("10:55")).toBeInTheDocument();
     expect(within(graph).getByText("300")).toBeInTheDocument();
     expect(within(graph).getByText("90")).toBeInTheDocument();
     expect(layoutHoldingGraph([entry("SAS101", "2026-09-11T10:30:00.000Z", 19500)], now)[0].altitude.percent).toBe(50);
@@ -58,7 +58,8 @@ describe("TMT holding graph", () => {
     expect(screen.queryByText("TMT · HOLDING INFORMATION")).not.toBeInTheDocument();
     expect(screen.queryByText("S SCHEDULED")).not.toBeInTheDocument();
     expect(screen.getByText("OLPIB")).toBeInTheDocument();
-    expect(screen.getAllByText("00")).toHaveLength(2);
+    expect(screen.getByText("05")).toBeInTheDocument();
+    expect(screen.getByText("55")).toBeInTheDocument();
     expect(screen.getByText("NONE")).toBeInTheDocument();
   });
 

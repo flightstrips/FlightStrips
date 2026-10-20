@@ -4,6 +4,7 @@ import type {AMANHoldingEntry} from "@/api/aman";
 import "@/index.css";
 
 const now = new Date("2026-10-04T18:00:00Z");
+const designNow = new Date("2026-10-04T18:03:00Z");
 function entries(levels: number[]): AMANHoldingEntry[] {
   return levels.map((level, index) => ({
     callsign: `SAS${1000 + index}`, holding: "OLPIB", cleared_altitude: level * 100,
@@ -12,8 +13,37 @@ function entries(levels: number[]): AMANHoldingEntry[] {
   }));
 }
 
+const designEntries = [270, 230, 190, 170, 150, 130, 110, 100, 90].map((level, index) => ({
+  ...entries([level])[0], callsign: `SAS${7390 + index}`,
+  eat: `2026-10-04T18:${[58, 46, 41, 34, 31, 28, 21, 14, 7][index].toString().padStart(2, "0")}:00Z`,
+}));
+
+export function HoldingReview() {
+  return <div data-testid="holding-review" className="w-fit bg-[#242424] p-5 font-sans text-[#dcdcdc]">
+    <h1 className="mb-1 text-lg font-semibold">Holding views</h1>
+    <p className="mb-5 text-sm text-[#aaa]">Same traffic, with an additional aircraft at FL190 on the right.</p>
+    <div className="flex gap-5">
+      <div><h2 className="mb-2 text-sm font-semibold">One aircraft per flight level</h2>
+        <div data-testid="figma" style={{width: 293, height: 649}}>
+          <TMTHoldingGraph compact holding="OLPIB" now={designNow} entries={designEntries} />
+        </div>
+      </div>
+      <div><h2 className="mb-2 text-sm font-semibold">Two aircraft at FL190</h2>
+        <div data-testid="double-level" style={{width: 293, height: 649}}>
+          <TMTHoldingGraph compact holding="OLPIB" now={designNow} entries={[
+            ...designEntries,
+            {...designEntries[2], callsign: "DLH10W", eat: "2026-10-04T18:39:00Z"},
+          ]} />
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
 createRoot(document.getElementById("root")!).render(
-  <div className="flex gap-2 bg-[#292929] p-2">
+  new URLSearchParams(window.location.search).has("review") ? <HoldingReview /> :
+  <div className="flex flex-wrap items-start gap-2 bg-[#292929] p-2 [&>div]:shrink-0">
+    <HoldingReview />
     <div data-testid="compact" style={{width: 210, height: 290}}>
       <TMTHoldingGraph compact holding="OLPIB" now={now} entries={entries([300, 300, 299, 120, 120, 119, 90, 90])} />
     </div>

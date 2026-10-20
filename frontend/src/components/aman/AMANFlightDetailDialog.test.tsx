@@ -82,7 +82,7 @@ describe("AMAN flight detail dialog integration", () => {
     fireEvent.click(opener);
     const dialog = await screen.findByRole("dialog", {name: "SAS123 — route & prediction detail"});
     expect(screen.getByRole("button", {name: "Close flight detail"})).toHaveFocus();
-    expect(dialog).toHaveTextContent("state revision 17");
+    await waitFor(() => expect(dialog).toHaveTextContent("state revision 17"));
     expect(dialog).toHaveTextContent("A320");
     fireEvent.click(screen.getByRole("button", {name: "Technical evidence"}));
     expect(dialog).toHaveTextContent("Wake categoryM");

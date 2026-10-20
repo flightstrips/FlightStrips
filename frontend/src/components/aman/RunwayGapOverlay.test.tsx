@@ -19,7 +19,7 @@ describe("runway GAP overlay", () => {
     expect(Number.parseFloat(gap.style.top)).toBeCloseTo(66.6667, 3);
     expect(Number.parseFloat(gap.style.height)).toBeCloseTo(16.6667, 3);
     expect(gap.querySelectorAll("span")).toHaveLength(2);
-    expect(Array.from(gap.children).every((bar) => bar.classList.contains("bg-[#b90000]"))).toBe(true);
+    expect(Array.from(gap.children).every((bar) => bar.classList.contains("bg-[#9c0000]"))).toBe(true);
     fireEvent.click(gap);
     expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({id: "gap-1"}), "ARRIVAL-22");
   });

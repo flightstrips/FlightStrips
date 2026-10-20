@@ -311,7 +311,7 @@ func TestRebuildRetriesStalePredictionFromAvailableCurrentRadar(t *testing.T) {
 	require.False(t, got.Slot.Time.Before(physicalETA))
 }
 
-func TestRebuildRetainsDueAdmissionButWithholdsUnsafeRelease(t *testing.T) {
+func TestRebuildRetainsDueEATAndReportsOrderConflict(t *testing.T) {
 	service, state, now := rebuildApproachStackFixture(t)
 	due := now.Add(-time.Minute)
 	state.Flights[0].ApproachRelease.ReleaseAt = due
@@ -322,13 +322,14 @@ func TestRebuildRetainsDueAdmissionButWithholdsUnsafeRelease(t *testing.T) {
 	upper := change.State.Flights[0]
 	require.NotNil(t, upper.ApproachRelease)
 	require.Equal(t, due, upper.ApproachRelease.ReleaseAt, "a due capacity commitment cannot be recalled")
-	require.Nil(t, upper.Prediction.HoldingPlan, "the buffer must not restore an unsafe upper-first EAT")
+	require.NotNil(t, upper.Prediction.HoldingPlan)
+	require.Equal(t, due, upper.Prediction.HoldingPlan.ApproachReleaseTime, "a due EAT must remain visible despite a release-order conflict")
 	require.Equal(t, aman.Callsign("LOW"), *upper.Prediction.HoldingPlanBlockedBy)
 	var outcome aman.ArrivalSequenceRebuildOutcome
 	require.NoError(t, json.Unmarshal(change.Outcome, &outcome))
 	found := false
 	for _, d := range outcome.Diagnostics {
-		if d.Code == "holding_release_blocked" && d.Callsign == "UPPER" {
+		if d.Code == "holding_release_order_conflict" && d.Callsign == "UPPER" {
 			found = true
 		}
 	}

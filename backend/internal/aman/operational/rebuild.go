@@ -169,7 +169,7 @@ func (s *Service) RebuildArrivalSequence(ctx context.Context, auth aman.CommandC
 				decision.Outcome.Diagnostics = append(decision.Outcome.Diagnostics, aman.RebuildDiagnostic{Code: "approach_admission_retained", Callsign: f.Callsign, Message: "A due or observed approach admission remains capacity-consuming; its accepted EAT is retained while the landing estimate is refreshed"})
 			}
 			if f.Prediction != nil && f.Prediction.HoldingPlanBlockedBy != nil {
-				decision.Outcome.Diagnostics = append(decision.Outcome.Diagnostics, aman.RebuildDiagnostic{Code: "holding_release_blocked", Callsign: f.Callsign, Blocker: f.Prediction.HoldingPlanBlockedBy, Message: "Retained slot cannot support a release behind the lower aircraft; EAT is withheld"})
+				decision.Outcome.Diagnostics = append(decision.Outcome.Diagnostics, aman.RebuildDiagnostic{Code: "holding_release_order_conflict", Callsign: f.Callsign, Blocker: f.Prediction.HoldingPlanBlockedBy, Message: "Retained slot conflicts with the preferred holding release order; the calculated EAT remains available"})
 			}
 		}
 		changed := !statesEqual(before, state)

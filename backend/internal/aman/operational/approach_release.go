@@ -100,7 +100,7 @@ func (s *Service) refreshApproachReleases(state *aman.AirportState, at time.Time
 				if r := f.ApproachRelease; r != nil && r.HoldingID == traffic.HoldingID && !traffic.NewHoldingEpisode {
 					traffic.Episode = r.Episode
 				}
-				traffic.Eligible = f.Prediction.HoldingPlan != nil && traffic.Active && f.SequenceDisposition.Participates() && traffic.STARFamily != "" &&
+				traffic.Eligible = f.Prediction.HoldingPlan != nil && f.Prediction.HoldingPlanBlockedBy == nil && traffic.Active && f.SequenceDisposition.Participates() && traffic.STARFamily != "" &&
 					traffic.FeederFix != "" && traffic.RouteDigest != "" && !retainedTimingUnavailable(f) &&
 					f.FreezeReason != aman.FreezeManual && f.ManualOrder == nil
 				if prior := f.ApproachRelease; prior != nil && prior.HoldingID == traffic.HoldingID && !traffic.NewHoldingEpisode {

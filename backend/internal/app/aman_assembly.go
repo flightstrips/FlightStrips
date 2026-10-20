@@ -314,10 +314,6 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 		if !found || !strings.EqualFold(strings.TrimSpace(clearance.Hold), string(selectedFix)) {
 			continue
 		}
-		if holdingEATBlockedByEarlierEntrant(flight, state.Flights) {
-			continue
-		}
-
 		eat := prediction.HoldingPlan.ApproachReleaseTime.UTC().Format("1504")
 		if suppressCurrent && clearance.HoldEAT == eat {
 			continue
@@ -330,44 +326,6 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 		})
 	}
 	return events
-}
-
-// A fixed manual or protected slot can prevent the scheduler from repairing a
-// hold FIFO conflict. Withhold that EAT rather than instructing a new entrant
-// to pass aircraft already in the hold. The publication layer withdraws a
-// previously written value when this projection disappears.
-func holdingEATBlockedByEarlierEntrant(flight aman.AMANFlight, flights []aman.AMANFlight) bool {
-	if flight.SelectedHolding == nil || flight.Prediction == nil || flight.Prediction.HoldingPlan == nil {
-		return false
-	}
-	entry := flight.Prediction.HoldingPlan.HoldingEntryTime
-	if stack := flight.HoldingStack; stack != nil && !stack.FirstObservedAt.IsZero() {
-		entry = stack.FirstObservedAt
-	}
-	release := flight.Prediction.HoldingPlan.ApproachReleaseTime
-	for _, older := range flights {
-		if precedes, rebuilt := aman.RebuiltHoldingPrecedes(older, flight); rebuilt {
-			if precedes && (older.Prediction == nil || older.Prediction.HoldingPlan == nil || older.Prediction.HoldingPlan.ApproachReleaseTime.After(release) || older.SelectedHolding != nil && *older.SelectedHolding == *flight.SelectedHolding && !older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release.UTC().Truncate(time.Minute))) {
-				return true
-			}
-			continue
-		}
-		if older.Callsign == flight.Callsign || older.HoldingStack == nil ||
-			older.HoldingStack.HoldingID != *flight.SelectedHolding ||
-			older.State == aman.StateLanded || older.State == aman.StateRemoved {
-			continue
-		}
-		olderEntry := older.HoldingStack.FirstObservedAt
-		if olderEntry.IsZero() && !older.HoldingStack.Confirmed ||
-			!olderEntry.IsZero() && !entry.IsZero() && !olderEntry.Before(entry) {
-			continue
-		}
-		if older.Prediction == nil || older.Prediction.HoldingPlan == nil ||
-			!older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release.UTC().Truncate(time.Minute)) {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *amanTransport) newGainLossEvent(_ context.Context, state aman.AirportState) (euroscopeEvents.AMANGainLossEvent, error) {
@@ -506,7 +464,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 	if err != nil {
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN action service: %w", err)
 	}
-	holdingClearances, err := holdingclearance.New(holdingclearance.Dependencies{Repository: amanRepository, Publisher: transport})
+	holdingClearances, err := holdingclearance.New(holdingclearance.Dependencies{Repository: amanRepository, Publisher: transport, Planner: service})
 	if err != nil {
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN holding clearances: %w", err)
 	}

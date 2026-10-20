@@ -1354,7 +1354,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	if previous := flight.Prediction; previous != nil && !previous.RawTETA.IsZero() && !isPreliminaryPrediction(previous) {
 		movement := raw.RawTETA.Sub(previous.RawTETA)
 		if movement >= 10*time.Minute || movement <= -10*time.Minute {
-			slog.Warn("AMAN physical prediction moved by at least ten minutes",
+			slog.Log(ctx, predictionMovementLogLevel(*previous, raw, flight.ArrivalPathChanged || directChanged), "AMAN physical prediction moved by at least ten minutes",
 				"callsign", flight.Callsign, "previous_eta", previous.RawTETA, "eta", raw.RawTETA,
 				"previous_distance_nm", previous.DistanceToGoNM, "distance_nm", raw.DistanceToGoNM,
 				"observed_at", raw.InputObservedAt, "model", raw.ModelVersion, "weather_source", raw.WeatherSource,

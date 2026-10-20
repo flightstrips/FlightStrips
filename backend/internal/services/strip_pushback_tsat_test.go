@@ -71,6 +71,7 @@ func TestPushbackDiagnosticPreservesInitialTimingAndExportError(t *testing.T) {
 	var entry map[string]any
 	require.NoError(t, json.Unmarshal(output.Bytes(), &entry))
 	assert.Equal(t, "viff_unconfirmed", entry["reason"])
+	assert.Equal(t, "WARN", entry["level"])
 	assert.Equal(t, tsat, entry["initial_tsat"])
 	assert.Equal(t, tobt, entry["initial_tobt"])
 	assert.Equal(t, final, entry["tsat"])
@@ -78,6 +79,55 @@ func TestPushbackDiagnosticPreservesInitialTimingAndExportError(t *testing.T) {
 	assert.Equal(t, "valid", entry["window_state"])
 	assert.Contains(t, entry["verification_error"], "vIFF did not confirm update: false")
 	assert.Contains(t, strip.ValidationStatus.Message, "vIFF could not confirm")
+}
+
+func TestPushbackRejectionLoggingPreservesVerificationFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name                string
+		ctot                string
+		readErr, prepareErr error
+		verified            bool
+		level               string
+		expectedRejection   bool
+	}{
+		{"CTOT guard", "1720", nil, nil, true, "INFO", true},
+		{"outside TSAT window", "", nil, nil, true, "INFO", true},
+		{"unconfirmed export", "", nil, cdm.ErrPushbackVerification, false, "WARN", false},
+		{"unconfirmed without error", "", nil, nil, false, "WARN", false},
+		{"read failure despite later confirmation", "", errors.New("read failed"), nil, true, "WARN", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var output bytes.Buffer
+			previous := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+			t.Cleanup(func() { slog.SetDefault(previous) })
+			now := time.Now().UTC()
+			tobt, tsat := now.Format("1504"), now.Add(30*time.Minute).Format("1504")
+			strip := &models.Strip{Callsign: "SAS779", CdmData: &models.CdmData{Tobt: &tobt, Tsat: &tsat}}
+			svc := &StripService{
+				stripReader: &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil }},
+				validationStore: &validationStoreFake{setValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+					strip.ValidationStatus = status
+					return nil
+				}},
+				publisher: &testutil.MockFrontendHub{},
+				cdmService: pushbackCdmStub{
+					readCtot: func(context.Context, int32, string) (string, error) { return tc.ctot, tc.readErr },
+					prepare: func(context.Context, int32, string) (string, string, bool, error) {
+						return tobt, tc.ctot, tc.verified, tc.prepareErr
+					},
+				},
+			}
+			err := svc.validatePushbackTiming(context.Background(), 779, strip, "EKCH_GND")
+			require.EqualError(t, err, "pushback requires TSAT override")
+			var rejection *shared.ActionRejection
+			assert.Equal(t, tc.expectedRejection, errors.As(err, &rejection))
+			var entry map[string]any
+			require.NoError(t, json.Unmarshal(output.Bytes(), &entry))
+			assert.Equal(t, tc.level, entry["level"])
+			assert.True(t, strip.ValidationStatus.Active, "log levels must not bypass validation")
+		})
+	}
 }
 
 func TestPushbackOverrideLogOnlyFollowsSuccessfulAcknowledgement(t *testing.T) {

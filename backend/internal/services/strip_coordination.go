@@ -600,7 +600,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 				s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners, nextDisplay)
 				return nil
 			}
-			return errors.New("cannot assume strip which is not transferred to you")
+			return shared.RejectAction("cannot assume strip which is not transferred to you")
 		}
 
 		if err := s.AcceptCoordination(ctx, session, callsign, position); err != nil {
@@ -670,7 +670,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		return nil
 	}
 
-	return errors.New("cannot assume strip which is not transferred to you")
+	return shared.RejectAction("cannot assume strip which is not transferred to you")
 }
 
 // ForceAssumeStrip forcibly takes ownership of a strip, overriding any existing owner.

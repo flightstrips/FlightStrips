@@ -169,12 +169,13 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), time.Since(start), err)
 
 			if err != nil {
+				level := messageErrorLogLevel(err)
 				span.SetStatus(codes.Error, err.Error())
 				span.RecordError(err)
 				if isEuroscopeType[TType]() {
-					slog.ErrorContext(ctx, "Failed to handle protobuf message", slog.Any("error", err), slog.Int("message_bytes", len(message)))
+					slog.Log(ctx, level, "Failed to handle protobuf message", slog.Any("error", err), slog.Int("message_bytes", len(message)))
 				} else {
-					slog.ErrorContext(ctx, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
+					slog.Log(ctx, level, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
 					client.Enqueue(actionRejectedEvent(fmt.Sprintf("%v", parsedMessage.Type), parsedMessage.Message, err))
 				}
 			} else {
@@ -381,11 +382,8 @@ func WritePump[TClient Client](client TClient) {
 			}
 
 			if err := writeOutboundFrame(context.Background(), client.GetConnection(), client.GetSource(), messageType, frameType, bytes); err != nil {
-				slog.Warn("Failed to write websocket message",
-					slog.String("source", client.GetSource()),
-					slog.String("cid", client.GetCid()),
-					slog.String("message_type", messageType),
-					slog.Any("error", err))
+				logWebsocketWriteError(context.Background(), client, "Failed to write websocket message", err,
+					slog.String("message_type", messageType))
 				return
 			}
 			metrics.MessageSent(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), messageType, client.GetVersion())
@@ -394,10 +392,7 @@ func WritePump[TClient Client](client TClient) {
 				return
 			}
 			if err := client.GetConnection().WriteMessage(websocket.PingMessage, nil); err != nil {
-				slog.Warn("Failed to write websocket ping",
-					slog.String("source", client.GetSource()),
-					slog.String("cid", client.GetCid()),
-					slog.Any("error", err))
+				logWebsocketWriteError(context.Background(), client, "Failed to write websocket ping", err)
 				return
 			}
 		case <-tokenTicker.C:

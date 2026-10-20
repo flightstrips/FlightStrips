@@ -211,7 +211,7 @@ func (c *Client) CanHandleMessage(messageType string) error {
 		return nil
 	}
 
-	return errors.New("observer Euroscope clients cannot publish operational data")
+	return shared.RejectAction("observer Euroscope clients cannot publish operational data")
 }
 
 // HandlePong handles pong messages from the client

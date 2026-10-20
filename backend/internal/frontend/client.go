@@ -176,7 +176,7 @@ func (c *Client) CanHandleMessage(messageType string) error {
 		return nil
 	}
 
-	return errors.New("observer clients are read-only")
+	return shared.RejectAction("observer clients are read-only")
 }
 
 // HandlePong handles pong messages from the client

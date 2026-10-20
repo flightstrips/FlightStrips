@@ -22,6 +22,7 @@ import (
 func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventType, *Client]) {
 	handlers.Add(events.AMANRebuildArrivalSequenceType, handleAMANRebuildArrivalSequence)
 	handlers.Add(events.AMANMoveFlightType, handleAMANMoveFlight)
+	handlers.Add(events.AMANSwapFlightsType, handleAMANSwapFlights)
 	handlers.Add(events.AMANLockFlightType, handleAMANLockFlight)
 	handlers.Add(events.AMANUnlockFlightType, handleAMANUnlockFlight)
 	handlers.Add(events.AMANExpediteFlightType, handleAMANExpediteFlight)
@@ -252,6 +253,17 @@ func handleAMANMoveFlight(ctx context.Context, client *Client, message Message) 
 	}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.MoveFlight(ctx, auth, command)
+	})
+}
+
+func handleAMANSwapFlights(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANSwapFlightsMessage
+	if err := decodeAMANMessage(message, events.AMANSwapFlightsType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	command := aman.SwapFlightsCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), OtherCallsign: aman.Callsign(wire.Data.OtherCallsign)}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.SwapFlights(ctx, auth, command)
 	})
 }
 

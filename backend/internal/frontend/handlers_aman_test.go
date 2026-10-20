@@ -22,6 +22,7 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		payload   string
 		operation string
 	}{
+		{"swap", frontendEvents.AMANSwapFlightsType, `{"type":"aman.swap_flights","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","other_callsign":"flight-2"}}`, "swap"},
 		{"move", frontendEvents.AMANMoveFlightType, `{"type":"aman.move_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","runway_group_id":"A","before_callsign":"flight-2"}}`, "move"},
 		{"lock", frontendEvents.AMANLockFlightType, `{"type":"aman.lock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "lock"},
 		{"unlock", frontendEvents.AMANUnlockFlightType, `{"type":"aman.unlock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "unlock"},
@@ -60,6 +61,10 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 			err := hub.handlers.Handle(context.Background(), client, Message{Type: test.eventType, Message: []byte(test.payload)})
 			require.NoError(t, err)
 			require.Equal(t, test.operation, service.operation)
+			if test.operation == "swap" {
+				require.Equal(t, aman.Callsign("flight-1"), service.swap.Callsign)
+				require.Equal(t, aman.Callsign("flight-2"), service.swap.OtherCallsign)
+			}
 			require.Equal(t, aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, service.auth)
 			require.Equal(t, "command-1", service.metadata.CommandID)
 			require.Equal(t, aman.SequenceRevision(7), service.metadata.ExpectedRevision)
@@ -365,6 +370,7 @@ type recordingAMANCommandService struct {
 	activeRunways  aman.SetActiveRunwayGroupsCommand
 	createCapacity aman.CreateCapacityReservationCommand
 	removeCapacity aman.RemoveCapacityReservationCommand
+	swap           aman.SwapFlightsCommand
 }
 
 func (*recordingAMANCommandService) Name() string { return "recording AMAN command service" }
@@ -381,6 +387,11 @@ func (s *recordingAMANCommandService) record(operation string, auth aman.Command
 }
 func (s *recordingAMANCommandService) MoveFlight(_ context.Context, auth aman.CommandContext, command aman.MoveFlightCommand) (aman.CommandExecution, error) {
 	return s.record("move", auth, command.Metadata)
+}
+
+func (s *recordingAMANCommandService) SwapFlights(_ context.Context, auth aman.CommandContext, command aman.SwapFlightsCommand) (aman.CommandExecution, error) {
+	s.swap = command
+	return s.record("swap", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) PlaceFlightAtTime(_ context.Context, auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (aman.CommandExecution, error) {
 	s.placeAtTime = command

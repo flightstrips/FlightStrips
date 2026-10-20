@@ -116,12 +116,12 @@ describe("arrival stand assignment dialog", () => {
     state.satEnabled = true;
     show();
     expect(screen.getByRole("button", { name: "ASSIGN (AUTO)" })).toBeInTheDocument();
-    expect(screen.getByText("(AUTO)")).toHaveStyle({ fontSize: "0.75em" });
+    expect(screen.getByText("(AUTO)").style.fontSize).toBe("0.75em");
     fireEvent.click(screen.getByRole("button", { name: "B" }));
     expect(screen.getByRole("button", { name: "ASSIGN" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "B6" }));
     expect(screen.getByRole("button", { name: "ASSIGN (B6)" })).toBeEnabled();
-    expect(screen.getByText("(B6)")).toHaveStyle({ fontSize: "0.75em" });
+    expect(screen.getByText("(B6)").style.fontSize).toBe("0.75em");
     fireEvent.click(screen.getByRole("button", { name: "AUTO ASSIGN" }));
     expect(screen.getByRole("button", { name: "ASSIGN (AUTO)" })).toBeInTheDocument();
   });

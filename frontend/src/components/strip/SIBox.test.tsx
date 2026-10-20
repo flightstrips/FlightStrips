@@ -39,7 +39,7 @@ describe("startup SI transfer", () => {
   it("uses the reduced font size for the SI indicator", () => {
     const { container } = render(<SIBox callsign="SAS123" />);
 
-    expect(container.firstElementChild).toHaveStyle({ fontSize: "0.98vw" });
+    expect((container.firstElementChild as HTMLElement).style.fontSize).toBe("0.98vw");
   });
 
   it("sends a startup request with the transfer for backend TSAT validation", () => {

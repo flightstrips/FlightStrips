@@ -4,13 +4,18 @@ import {expect, test} from "@playwright/test";
 // otherwise consume layout space and can expose ResizeObserver feedback loops.
 test.use({launchOptions: {ignoreDefaultArgs: ["--hide-scrollbars"]}});
 
-test("keeps graph dimensions stable with persistent scrollbars and fractional scaling", async ({page}) => {
+test("keeps graph dimensions stable with persistent scrollbars and fractional scaling", async ({page, browserName}) => {
   await page.goto("/visual-tests/holding-graph-preview.html?review");
   await page.addStyleTag({content: '[data-testid="holding-graph"]::-webkit-scrollbar { width: 15px; height: 15px; }'});
   await page.evaluate(() => document.fonts.ready);
-  const gutter = await page.getByTestId("figma").getByTestId("holding-graph").evaluate(element => element.offsetWidth - element.clientWidth);
-  // Firefox uses its platform scrollbar width instead of the WebKit rule.
-  expect(gutter).toBeGreaterThan(0);
+  const graph = page.getByTestId("figma").getByTestId("holding-graph");
+  await expect(graph).toHaveCSS("scrollbar-gutter", "stable");
+  // The WebKit rule forces classic scrollbars in Chromium. Headless Firefox
+  // uses overlay scrollbars, which do not reserve layout space.
+  if (browserName === "chromium") {
+    const gutter = await graph.evaluate(element => element.offsetWidth - element.clientWidth);
+    expect(gutter).toBeGreaterThan(0);
+  }
   for (const zoom of [1, 1.1, 1.25]) {
     await page.getByTestId("holding-review").evaluate((element, zoom) => { element.style.zoom = String(zoom); }, zoom);
     const samples = await page.getByTestId("holding-review").evaluate(async element => {

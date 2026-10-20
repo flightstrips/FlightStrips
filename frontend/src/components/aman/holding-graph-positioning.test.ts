@@ -110,6 +110,21 @@ describe("holding label spacing", () => {
     expect(y(stacked, 110) - y(stacked, 130)).toBeCloseTo(y(baseline, 110) - y(baseline, 130) + 21);
     expect(stacked.labelY[1] - stacked.labelY[0]).toBe(21);
   });
+
+  it.each([2, 3])("reserves %i full level-height slots in a tall graph", (count) => {
+    const positions = layoutHoldingGraph(Array.from({length: count}, (_, index) =>
+      entry(`SAS${index}`, now.toISOString(), 12000)), now);
+    const baseline = layoutHoldingLabels(positions.slice(0, 1), 882, 20);
+    const stacked = layoutHoldingLabels(positions, 882, 20);
+    const y = (layout: typeof baseline, level: number) => layout.altitudeY((300 - level) / 210 * 100);
+    const step = y(baseline, 120) - y(baseline, 130);
+
+    expect(stacked.height - baseline.height).toBeCloseTo((count - 1) * step);
+    expect(y(stacked, 110) - y(stacked, 130)).toBeCloseTo((count + 1) * step);
+    expect(y(stacked, 100) - y(stacked, 110)).toBeCloseTo(step);
+    [...stacked.labelY].sort((a, b) => a - b).slice(1).forEach((center, index) =>
+      expect(center - [...stacked.labelY].sort((a, b) => a - b)[index]).toBeCloseTo(step));
+  });
 });
 
 describe("holding graph altitude positioning", () => {

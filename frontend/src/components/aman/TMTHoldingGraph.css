@@ -1,0 +1,18 @@
+/* Reuse the bundled Rubik variable font used by the text pilot dialog. */
+@font-face {
+  font-family: "FlightStrips Holding Rubik";
+  src: url("../text-pilot/fonts/Rubik.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+.aman-holding-graph {
+  font-family: "FlightStrips Holding Rubik", sans-serif;
+}
+
+.aman-holding-plot {
+  /* Keep ResizeObserver's width independent of vertical overflow. Otherwise
+     scrollbar width changes font/footer size and can toggle overflow forever. */
+  scrollbar-gutter: stable;
+}

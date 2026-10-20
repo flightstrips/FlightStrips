@@ -1,5 +1,34 @@
 import {expect, test} from "@playwright/test";
 
+// Match the desktop browser: Playwright's default hides the scrollbars that
+// otherwise consume layout space and can expose ResizeObserver feedback loops.
+test.use({launchOptions: {ignoreDefaultArgs: ["--hide-scrollbars"]}});
+
+test("keeps graph dimensions stable with persistent scrollbars and fractional scaling", async ({page}) => {
+  await page.goto("/visual-tests/holding-graph-preview.html?review");
+  await page.addStyleTag({content: '[data-testid="holding-graph"]::-webkit-scrollbar { width: 15px; height: 15px; }'});
+  await page.evaluate(() => document.fonts.ready);
+  const gutter = await page.getByTestId("figma").getByTestId("holding-graph").evaluate(element => element.offsetWidth - element.clientWidth);
+  expect(gutter).toBe(15);
+  for (const zoom of [1, 1.1, 1.25]) {
+    await page.getByTestId("holding-review").evaluate((element, zoom) => { element.style.zoom = String(zoom); }, zoom);
+    const samples = await page.getByTestId("holding-review").evaluate(async element => {
+      const graphs = [...element.querySelectorAll<HTMLElement>('[data-testid="holding-graph"]')];
+      const frames: string[][] = [];
+      for (let frame = 0; frame < 90; frame++) {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        if (frame >= 30) frames.push(graphs.map(graph => [
+          graph.clientWidth, graph.clientHeight,
+          graph.firstElementChild!.getAttribute("style"),
+          graph.parentElement!.querySelector('[data-testid="holding-graph-footer"]')!.getAttribute("style"),
+        ].join("|")));
+      }
+      return graphs.map((_, index) => [...new Set(frames.map(frame => frame[index]))]);
+    });
+    samples.forEach((dimensions, index) => expect(dimensions, `graph ${index}, zoom ${zoom}`).toHaveLength(1));
+  }
+});
+
 test("keeps holding aircraft labels separate at graph edges, shared altitudes and after resizing", async ({page}) => {
   await page.goto("/visual-tests/holding-graph-preview.html");
   for (const card of ["compact", "crowded", "full"]) {
@@ -32,13 +61,16 @@ test("keeps holding aircraft labels separate at graph edges, shared altitudes an
         const start = new DOMPoint(line.x1.baseVal.value, line.y1.baseVal.value).matrixTransform(matrix);
         const end = new DOMPoint(line.x2.baseVal.value, line.y2.baseVal.value).matrixTransform(matrix);
         const graph = line.closest('[data-testid="holding-graph"]')!;
+        const marker = line.closest("svg")!.querySelector("marker")!;
         const axis = graph.querySelector('[data-testid="holding-time-axis"]')!.getBoundingClientRect();
         const label = [...graph.querySelectorAll("li")].find(label => label.getAttribute("aria-label")!.startsWith(`${line.dataset.callsign},`))!;
         const box = label.getBoundingClientRect();
         const eat = label.getAttribute("aria-label")!.match(/EAT 18:(\d+)/)![1];
         return {startX: Math.abs(start.x - (axis.left + axis.width / 2)),
           startY: Math.abs(start.y - (axis.top + (1 - Number(eat) / 60) * axis.height)),
-          endX: Math.abs(end.x - box.left), endY: Math.abs(end.y - (box.top + box.height / 2))};
+          // The line meets the left-facing triangle tip. Its base meets the box.
+          endX: Math.abs(end.x + marker.markerWidth.baseVal.value * matrix.a - box.left),
+          endY: Math.abs(end.y - (box.top + box.height / 2))};
       }));
       endpoints.forEach(errors => Object.values(errors).forEach(error => expect(error).toBeLessThan(0.1)));
     }
@@ -51,18 +83,59 @@ test("keeps holding aircraft labels separate at graph edges, shared altitudes an
   await expect(crowded.locator("li").last()).toBeInViewport();
 });
 
-test("gives holdings most of the dashboard height and uses thicker time lines", async ({page}) => {
+test("fills the dashboard height with outward-facing rulers and arrow connectors", async ({page}) => {
   await page.goto("/visual-tests/holding-graph-preview.html");
   const dashboard = page.getByTestId("dashboard");
   const traffic = await dashboard.locator(".aman-tmt-traffic").boundingBox();
   const holdings = await dashboard.locator(".aman-tmt-holdings").boundingBox();
   expect(holdings!.height).toBeGreaterThan(traffic!.height * 2);
-  await expect(dashboard.locator("svg line").first()).toHaveAttribute("stroke-width", "2");
+  await expect(dashboard.locator("svg line").first()).toHaveAttribute("stroke-width", "1");
+  await expect(dashboard.locator("svg line").first()).toHaveAttribute("marker-end", /url\(#.+\)/);
+  await expect(dashboard.locator("svg marker").first()).toHaveAttribute("orient", "0");
+  await expect(dashboard.locator("svg marker").first()).toHaveAttribute("refX", "0");
   const altitudeAxis = await dashboard.getByTestId("holding-altitude-axis").first().boundingBox();
-  expect(altitudeAxis!.height / 21).toBeLessThanOrEqual(21);
-  await expect(dashboard.locator("li").first()).toHaveCSS("font-size", "10px");
+  expect(altitudeAxis!.height / 21).toBeGreaterThanOrEqual(21);
+  await expect(dashboard.locator("li").first()).toHaveCSS("font-family", /Rubik/);
   const timeAxis = await dashboard.getByTestId("holding-time-axis").first().boundingBox();
   expect(timeAxis!.height).toBeGreaterThanOrEqual(altitudeAxis!.height);
+});
+
+test("matches the holding composition and doubles just the shared flight-level band", async ({page}) => {
+  await page.goto("/visual-tests/holding-graph-preview.html?review");
+  await expect(page.getByTestId("figma").locator("li")).toHaveCount(9);
+  const geometry = async (card: string) => page.getByTestId(card).evaluate(element => {
+    const graph = element.querySelector('[data-testid="holding-graph"]')!;
+    const axis = graph.querySelector('[data-testid="holding-altitude-axis"]')!;
+    const ticks = [...axis.querySelectorAll<HTMLElement>("[data-flight-level]")];
+    const y = (level: number) => parseFloat(ticks.find(tick => Number(tick.dataset.flightLevel) === level)!.style.top);
+    const labels = [...graph.querySelectorAll("li")].map(label => label.getBoundingClientRect());
+    const altitudeLabels = ticks.map(tick => tick.firstElementChild!.getBoundingClientRect());
+    const footer = element.querySelector('[data-testid="holding-graph-footer"]')!;
+    const timeAxis = graph.querySelector('[data-testid="holding-time-axis"]')!.getBoundingClientRect();
+    return {
+      band: y(180) - y(200), normal: y(210) - y(220),
+      sharedRows: [...graph.querySelectorAll<HTMLElement>('li[aria-label*="FL190,"]')].map(label => parseFloat(label.style.top)).sort((a, b) => a - b),
+      rulersClear: labels.every(label => altitudeLabels.every(tick => label.right < tick.left)),
+      horizontalScroll: graph.scrollWidth > graph.clientWidth,
+      footerError: Math.max(
+        Math.abs(footer.firstElementChild!.getBoundingClientRect().right - 3 - timeAxis.left),
+        Math.abs(footer.lastElementChild!.getBoundingClientRect().left - axis.getBoundingClientRect().left)),
+    };
+  });
+  const single = await geometry("figma");
+  const double = await geometry("double-level");
+  expect(single.rulersClear).toBe(true);
+  expect(single.horizontalScroll).toBe(false);
+  expect(single.footerError).toBeLessThan(0.1);
+  expect(double.footerError).toBeLessThan(0.1);
+  expect(single.band).toBeCloseTo(single.normal * 2);
+  expect(double.normal).toBeCloseTo(single.normal);
+  expect(double.band).toBeCloseTo(single.normal * 3);
+  expect(double.sharedRows[1] - double.sharedRows[0]).toBeCloseTo(single.normal);
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByTestId("figma").screenshot({path: "test-results/holding-figma.png"});
+  await page.getByTestId("double-level").screenshot({path: "test-results/holding-double-level.png"});
+  await page.getByTestId("holding-review").screenshot({path: "test-results/holding-final-review.png"});
 });
 
 test("connects shared-level release times without crossing and keeps missing times explicit", async ({page}) => {

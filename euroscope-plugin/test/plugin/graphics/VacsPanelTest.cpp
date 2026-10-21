@@ -114,6 +114,47 @@ TEST(VacsPanelTest, RenderNativeScalePreviewsWithActualEuroScopeFont) {
         render(L"native-preview/mini-outgoing.png", true);
         data.vacsView.state = vacs::State::Connecting;
         render(L"native-preview/mini-connecting.png", true);
+        struct Preview {
+            const wchar_t* name;
+            vacs::State state;
+            const char* label;
+            const char* mini;
+            bool pending = false;
+            std::size_t waiting = 0;
+        };
+        const std::vector<Preview> previews{
+            {L"disabled", vacs::State::Disabled, "Disabled", "Off"},
+            {L"unavailable", vacs::State::Unavailable, "VACS offline", "Offline"},
+            {L"reconnecting", vacs::State::Reconnecting, "Retry in 8s", "Retry"},
+            {L"unauthenticated", vacs::State::Unauthenticated, "Sign in to VACS", "Sign in"},
+            {L"disconnected", vacs::State::Disconnected, "Connect position", "Position"},
+            {L"ambiguous", vacs::State::Ambiguous, "Select position", "Select"},
+            {L"synchronizing", vacs::State::Synchronizing, "Synchronizing", "Sync"},
+            {L"idle", vacs::State::Idle, "Ready", "VACS"},
+            {L"incoming", vacs::State::Incoming, "EKDK_UC_CTR", "EKDK_UC_CTR", false, 1},
+            {L"incoming-queued", vacs::State::Incoming, "EKDK_UC_CTR (2)", "EKDK_UC_CTR (2)", false, 2},
+            {L"outgoing", vacs::State::Outgoing, "EKDK_UC_CTR", "EKDK_UC_CTR"},
+            {L"connecting", vacs::State::Connecting, "EKDK_UC_CTR", "EKDK_UC_CTR"},
+            {L"connected", vacs::State::Connected, "EKDK_UC_CTR", "EKDK_UC_CTR"},
+            {L"idle-pending", vacs::State::Idle, "Ready", "VACS", true},
+            {L"incoming-pending", vacs::State::Incoming, "EKDK_UC_CTR", "EKDK_UC_CTR", true, 1},
+            {L"outgoing-pending", vacs::State::Outgoing, "EKDK_UC_CTR", "EKDK_UC_CTR", true},
+            {L"connecting-pending", vacs::State::Connecting, "EKDK_UC_CTR", "EKDK_UC_CTR", true},
+            {L"connected-pending", vacs::State::Connected, "EKDK_UC_CTR", "EKDK_UC_CTR", true},
+        };
+        for (const auto& preview : previews) {
+            const bool callState = preview.state == vacs::State::Incoming || preview.state == vacs::State::Outgoing ||
+                                   preview.state == vacs::State::Connecting || preview.state == vacs::State::Connected;
+            data.vacsEnabled = preview.state != vacs::State::Disabled;
+            data.vacsView = {preview.state, preview.label, preview.mini, "Preview fixture", callState ? "preview-call" : "",
+                             preview.pending, !preview.pending && (callState || preview.state == vacs::State::Idle), preview.waiting};
+            const auto prefix = std::wstring(L"native-preview/state-") + preview.name;
+            render((prefix + L"-expanded.png").c_str(), false);
+            render((prefix + L"-mini.png").c_str(), true);
+        }
+        data.vacsMiniPreference = false;
+        render(L"native-preview/state-mini-hidden-expanded.png", false);
+        render(L"native-preview/state-mini-hidden-mini.png", true);
     }
     Gdiplus::GdiplusShutdown(token);
 }

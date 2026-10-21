@@ -11,6 +11,7 @@ namespace FlightStrips::graphics {
         std::vector<VacsButton> buttons;
     };
     [[nodiscard]] VacsLayout CalculateVacsLayout(int left, int top, bool mini, const vacs::View& view);
+    [[nodiscard]] int CalculateVacsMiniHeight(const vacs::View& view);
     void DrawVacsPanel(EuroScopePlugIn::CRadarScreen* screen, Graphics& graphics, const Colors& colors,
                        int left, int top, bool mini, bool enabled, bool showMini, const vacs::View& view);
 }

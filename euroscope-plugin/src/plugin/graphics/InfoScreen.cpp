@@ -132,7 +132,7 @@ namespace FlightStrips::graphics {
         if (!isMinimized) {
             panelRect.bottom += CalculateInfoPanelContentHeight(panelData);
         } else if (vacsService_ && vacsService_->ShowMini()) {
-            panelRect.bottom += 18;
+            panelRect.bottom += CalculateVacsMiniHeight(panelData.vacsView) - 15;
         }
 
         const RECT clampedPanel = ClampRectToBounds(panelRect, radarArea);

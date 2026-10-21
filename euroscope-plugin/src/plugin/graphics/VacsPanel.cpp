@@ -2,6 +2,10 @@
 #include "InfoScreenObjectIds.h"
 
 namespace FlightStrips::graphics {
+    int CalculateVacsMiniHeight(const vacs::View& view) {
+        return view.state == vacs::State::Incoming || view.state == vacs::State::Outgoing ||
+               view.state == vacs::State::Connecting || view.state == vacs::State::Connected ? 51 : 33;
+    }
     VacsLayout CalculateVacsLayout(int left, int top, bool mini, const vacs::View& view) {
         const auto rect = [=](int x1, int y1, int x2, int y2) -> RECT { return {left + x1, top + y1, left + x2, top + y2}; };
         VacsLayout result{};
@@ -11,15 +15,21 @@ namespace FlightStrips::graphics {
         result.dot = mini ? rect(5, 21, 11, 27) : rect(5, 34, 11, 40);
         result.status = mini ? rect(16, 16, 73, 32) : rect(16, 30, 155, 44);
         if (view.state == vacs::State::Incoming) {
-            if (mini) result.status = rect(16, 16, 54, 32);
-            result.buttons.push_back({mini ? rect(58, 17, 104, 31) : rect(5, 46, 78, 62), InfoScreenObjectIds::VacsAnswer, "Answer"});
-            result.buttons.push_back({mini ? rect(108, 17, 155, 31) : rect(82, 46, 155, 62), InfoScreenObjectIds::VacsReject, "Reject"});
+            result.buttons.push_back({mini ? rect(5, 17, 78, 31) : rect(5, 46, 78, 62), InfoScreenObjectIds::VacsAnswer, "Answer"});
+            result.buttons.push_back({mini ? rect(82, 17, 155, 31) : rect(82, 46, 155, 62), InfoScreenObjectIds::VacsReject, "Reject"});
         } else if (view.state == vacs::State::Connected || view.state == vacs::State::Connecting) {
-            if (mini) result.status = rect(16, 16, 101, 32);
-            result.buttons.push_back({mini ? rect(105, 17, 155, 31) : rect(5, 46, 155, 62), InfoScreenObjectIds::VacsEnd, mini ? "End" : "End call"});
+            result.buttons.push_back({mini ? rect(5, 17, 155, 31) : rect(5, 46, 155, 62), InfoScreenObjectIds::VacsEnd, "End call"});
         } else {
             const bool outgoing = view.state == vacs::State::Outgoing;
             result.buttons.push_back({mini ? rect(77, 17, 155, 31) : rect(5, 46, 155, 62), outgoing ? InfoScreenObjectIds::VacsCancel : InfoScreenObjectIds::VacsCall, outgoing ? "Cancel" : "Call..."});
+            if (mini && outgoing) result.buttons.back().rect.left = left + 5;
+        }
+        if (mini && CalculateVacsMiniHeight(view) == 51) {
+            result.status = rect(16, 16, 155, 32);
+            for (auto& button : result.buttons) {
+                button.rect.top += 18;
+                button.rect.bottom += 18;
+            }
         }
         return result;
     }
@@ -41,7 +51,7 @@ namespace FlightStrips::graphics {
             graphics.DrawString("Show in mini", {left + 19, top + 15, left + 155, top + 29}, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
             if (screen) screen->AddScreenObject(InfoScreenObjectIds::VacsMiniPreference, "", layout.preference, false, "Saved preference; does not change a call.");
         } else {
-            graphics.FillRect(colors.backgroundBrush.get(), {left, top + 15, left + 160, top + 33});
+            graphics.FillRect(colors.backgroundBrush.get(), {left, top + 15, left + 160, top + CalculateVacsMiniHeight(view)});
         }
         const Gdiplus::Brush* dot = colors.orangeBrush.get();
         if (view.state == vacs::State::Disabled) dot = &muted;

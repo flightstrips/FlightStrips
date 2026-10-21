@@ -90,7 +90,7 @@ TEST_F(VacsClientTest, MalformedAndUnrelatedStoreMessagesDoNotClearCalls) {
 TEST_F(VacsClientTest, DeduplicatesIncomingAndAnswersOldestUntilWebRtcConfirms) {
     Boot(); Invite("first"); Invite("second"); Invite("first");
     EXPECT_EQ(client.GetView().waiting, 2);
-    EXPECT_EQ(client.GetView().mini, "APP 2");
+    EXPECT_EQ(client.GetView().mini, "EKCH_APP (2)");
     ASSERT_TRUE(client.Execute(Action::Answer, "first", now));
     EXPECT_EQ(sent.back()["args"]["callId"], "first"); Reply(sent.back());
     EXPECT_EQ(client.GetView().state, State::Connecting);
@@ -99,6 +99,28 @@ TEST_F(VacsClientTest, DeduplicatesIncomingAndAnswersOldestUntilWebRtcConfirms) 
     EXPECT_EQ(client.GetView().state, State::Connected);
     Event("signaling:call-end", "first");
     EXPECT_EQ(client.GetView().callId, "second");
+}
+TEST_F(VacsClientTest, PreservesFullIncomingCallerThroughAnswerAndConnection) {
+    snapshot["clients"][0]["positionId"] = "EKDK_UC_CTR";
+    Boot(); Invite("first"); Invite("second");
+    EXPECT_EQ(client.GetView().label, "EKDK_UC_CTR (2)");
+    EXPECT_EQ(client.GetView().mini, "EKDK_UC_CTR (2)");
+    EXPECT_NE(client.GetView().tooltip.find("Incoming from EKDK_UC_CTR"), std::string::npos);
+    ASSERT_TRUE(client.Execute(Action::Answer, "first", now)); Reply(sent.back());
+    EXPECT_EQ(client.GetView().state, State::Connecting);
+    EXPECT_EQ(client.GetView().label, "EKDK_UC_CTR");
+    EXPECT_EQ(client.GetView().mini, "EKDK_UC_CTR");
+    Event("webrtc:call-connected", "first");
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    EXPECT_EQ(client.GetView().mini, "EKDK_UC_CTR");
+}
+TEST_F(VacsClientTest, PreservesFullOutgoingPeerWithoutClippingPrefixes) {
+    snapshot["clients"][0]["positionId"] = "EKDK_UC_CTR";
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer"));
+    Reply(sent.back(), "outgoing");
+    EXPECT_EQ(client.GetView().label, "EKDK_UC_CTR");
+    EXPECT_EQ(client.GetView().mini, "EKDK_UC_CTR");
+    EXPECT_NE(client.GetView().tooltip.find("Calling EKDK_UC_CTR"), std::string::npos);
 }
 TEST_F(VacsClientTest, RejectOnlyRemovesOldestAfterConfirmation) {
     Boot(); Invite("first"); Invite("second");

@@ -15,10 +15,6 @@ namespace FlightStrips::vacs {
             }
             return {};
         }
-        std::string Short(const std::string& name) {
-            const auto split = name.find_last_of('_');
-            return split == std::string::npos ? name : name.substr(split + 1);
-        }
     }
     VacsClient::VacsClient(std::function<void(const std::string&)> send) : send_(std::move(send)) {}
     void VacsClient::Close(bool enabled, int retrySeconds) {
@@ -291,9 +287,9 @@ namespace FlightStrips::vacs {
             case State::Ambiguous: view.label = "Select position"; view.mini = "Select"; view.tooltip = "Resolve position selection inside VACS."; break;
             case State::Synchronizing: view.label = "Synchronizing"; view.mini = "Sync"; view.tooltip = "Waiting for VACS session and desktop call-store recovery."; break;
             case State::Idle: view.label = "Ready"; view.mini = "VACS"; view.tooltip = "Call a VACS controller."; break;
-            case State::Incoming: view.label = PeerName(incoming_.front().peer) + (incoming_.size() > 1 ? " (" + std::to_string(incoming_.size()) + ")" : ""); view.mini = Short(PeerName(incoming_.front().peer)) + (incoming_.size() > 1 ? " " + std::to_string(incoming_.size()) : ""); break;
-            case State::Outgoing: view.label = "Calling " + PeerName(peer_); view.mini = Short(PeerName(peer_)); break;
-            case State::Connecting: view.label = "Connecting " + Short(PeerName(peer_)); view.mini = Short(PeerName(peer_)); break;
+            case State::Incoming: view.label = PeerName(incoming_.front().peer) + (incoming_.size() > 1 ? " (" + std::to_string(incoming_.size()) + ")" : ""); view.mini = view.label; break;
+            case State::Outgoing: view.label = PeerName(peer_); view.mini = view.label; break;
+            case State::Connecting: view.label = PeerName(peer_); view.mini = view.label; break;
             case State::Connected: view.label = PeerName(peer_); view.mini = view.label; break;
         }
         if (view.tooltip.empty()) {

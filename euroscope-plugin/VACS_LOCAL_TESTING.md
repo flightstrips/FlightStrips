@@ -33,13 +33,15 @@ The native render test needs the installed EuroScope font. It writes real GDI+ r
 
 - `expanded.png` and `expanded-connected.png`: 160 x 293 px.
 - `mini-header.png`: 160 x 15 px.
-- `mini-ready.png`, `mini-incoming.png`, and `mini-connected.png`: 160 x 33 px.
+- `mini-ready.png`: 160 x 33 px.
+- `mini-incoming.png`, `mini-outgoing.png`, `mini-connecting.png`, and `mini-connected.png`: 160 x 51 px, with caller identity above the actions.
+- `expanded-incoming.png`: 160 x 293 px.
 
-These are offscreen renders using the actual 9 pt EuroScope font, not mockups or screenshots of a live EuroScope radar screen. Text measurement tests ensure **APP 2**, **Answer**, and **Reject** fit the supplied mini rectangles without truncation. They do not verify EuroScope popup placement or operating-system DPI scaling.
+These are offscreen renders using the actual 9 pt EuroScope font, not mockups or screenshots of a live EuroScope radar screen. Text measurement tests ensure **EKDK_UC_CTR**, **EKDK_UC_CTR (2)**, and **EKCH_DEP_APP** fit expanded and mini identity rectangles in every call state without truncation, alongside **Answer** and **Reject** button checks. Longer arbitrary names still ellipsize safely; hover over the identity or actions for the complete caller and call state. They do not verify EuroScope popup placement or operating-system DPI scaling.
 
 ## Acceptance coverage
 
-Local result on 19 October 2026: **Win32 Release build passed; all 518 CTest tests passed (0 failures)**. The suite includes real binary/text loopback transport checks and real-font GDI+ rendering. The DLL's PE headers confirm x86, and its direct EuroScope initialization/exit exports are present. Live host/audio checks below remain pending.
+Local result on 21 October 2026: **Win32 Release build passed; all 520 CTest tests passed (0 failures)**, including full-callsign preservation through incoming, answering, connected, and outgoing states. The suite includes real binary/text loopback transport checks and real-font GDI+ rendering. The DLL's PE headers previously confirmed x86, and its direct EuroScope initialization/exit exports were present. Live host/audio checks below remain pending.
 
 | Group | Automated coverage | Still requires a live session |
 | --- | --- | --- |

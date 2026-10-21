@@ -15,7 +15,7 @@ The native FlightStrips panel supports the **VACS 2.8 remote-control API** indep
 
 In the expanded panel, switch **VACS** to **On**. Use **Call...** to open EuroScope's controller list; select a callsign/frequency to dial. Incoming calls offer **Answer** and **Reject**, outgoing calls offer **Cancel**, and connecting/established calls offer **End call**. Answer/Reject always targets the oldest waiting call. Orange means ringing/connecting, and green means ready/confirmed connected. Hover over the VACS status for the full caller, queue count, or recovery instructions. The title-bar dot still represents the FlightStrips backend, not VACS.
 
-**Show in mini** is a separate saved preference, selectable even while VACS is Off. When checked and VACS is On, minimizing keeps an 18 px call-control row beneath the existing 15 px header. Otherwise the minimized panel remains header-only. Minimizing, closing the panel, hiding the row, or switching VACS Off does not end desktop calls. Multiple radar screens share one VACS connection and call state.
+**Show in mini** is a separate saved preference, selectable even while VACS is Off. When checked and VACS is On, minimizing keeps an 18 px call-control row beneath the existing 15 px header. Incoming, outgoing, connecting, and connected calls use two rows (51 px total): the full controller callsign above the call controls, so Answer/Reject never squeeze out the caller identity. Otherwise the minimized panel remains header-only. Minimizing, closing the panel, hiding the row, or switching VACS Off does not end desktop calls. Multiple radar screens share one VACS connection and call state.
 
 Preferences live in the plugin's existing `flightstrips_user.ini`:
 

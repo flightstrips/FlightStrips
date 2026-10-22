@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.3.1...plugin/v2.3.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **aman:** stabilize predictions while preserving automatic STAR promotion ([#939](https://github.com/flightstrips/FlightStrips/issues/939)) ([01bea82](https://github.com/flightstrips/FlightStrips/commit/01bea82b5d71d0a2e67d351efa73054ab22ce658))
+
 ## [2.3.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.3.0...plugin/v2.3.1) (2026-10-19)
 
 

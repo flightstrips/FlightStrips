@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.5.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.4.2...backend/v3.5.0) (2026-10-22)
+
+
+### Features
+
+* **aman:** allow swapping aircraft within a STAR sequence ([#936](https://github.com/flightstrips/FlightStrips/issues/936)) ([c391619](https://github.com/flightstrips/FlightStrips/commit/c391619e424ceb8ba7953acdc7e592b3dd9b0ac0))
+
+
+### Bug Fixes
+
+* **aman:** align flight information and expose holding EAT ([#940](https://github.com/flightstrips/FlightStrips/issues/940)) ([16f522b](https://github.com/flightstrips/FlightStrips/commit/16f522b942ca3b30f2825b1271888cbd788ece8b))
+* **aman:** preserve holding EATs and repair release order ([#933](https://github.com/flightstrips/FlightStrips/issues/933)) ([4ce9bef](https://github.com/flightstrips/FlightStrips/commit/4ce9befb150ad8844a4932deeb0d1e4552abd081))
+* **aman:** stabilize predictions while preserving automatic STAR promotion ([#939](https://github.com/flightstrips/FlightStrips/issues/939)) ([01bea82](https://github.com/flightstrips/FlightStrips/commit/01bea82b5d71d0a2e67d351efa73054ab22ce658))
+* lower log levels for expected events and rejections ([#935](https://github.com/flightstrips/FlightStrips/issues/935)) ([2b917e8](https://github.com/flightstrips/FlightStrips/commit/2b917e8a1ff8b1f95d96d18b91b33512eeec67a3))
+
 ## [3.4.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.4.1...backend/v3.4.2) (2026-10-19)
 
 

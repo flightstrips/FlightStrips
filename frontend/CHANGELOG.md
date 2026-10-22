@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.5.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.4.1...frontend/v2.5.0) (2026-10-22)
+
+
+### Features
+
+* **aman:** allow swapping aircraft within a STAR sequence ([#936](https://github.com/flightstrips/FlightStrips/issues/936)) ([c391619](https://github.com/flightstrips/FlightStrips/commit/c391619e424ceb8ba7953acdc7e592b3dd9b0ac0))
+
+
+### Bug Fixes
+
+* **aman:** align flight information and expose holding EAT ([#940](https://github.com/flightstrips/FlightStrips/issues/940)) ([16f522b](https://github.com/flightstrips/FlightStrips/commit/16f522b942ca3b30f2825b1271888cbd788ece8b))
+* **aman:** match holding graphs to the design ([#937](https://github.com/flightstrips/FlightStrips/issues/937)) ([05b16c7](https://github.com/flightstrips/FlightStrips/commit/05b16c7cc7fbc5a258d057ba19a0242d75a60d47))
+* **aman:** match inserted gap markers to the design ([#938](https://github.com/flightstrips/FlightStrips/issues/938)) ([384251f](https://github.com/flightstrips/FlightStrips/commit/384251fadd10152637b4b9ce103c11de5f237385))
+
 ## [2.4.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.4.0...frontend/v2.4.1) (2026-10-19)
 
 

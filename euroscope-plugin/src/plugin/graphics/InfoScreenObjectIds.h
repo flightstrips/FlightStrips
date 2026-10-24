@@ -9,6 +9,14 @@ namespace FlightStrips::graphics::InfoScreenObjectIds {
     inline constexpr int SessionLiveButton = 6;
     inline constexpr int SessionSweatboxButton = 7;
     inline constexpr int OpenAppButton = 8;
+    inline constexpr int VacsEnabled = 30;
+    inline constexpr int VacsMiniPreference = 31;
+    inline constexpr int VacsStatus = 32;
+    inline constexpr int VacsCall = 33;
+    inline constexpr int VacsAnswer = 34;
+    inline constexpr int VacsReject = 35;
+    inline constexpr int VacsCancel = 36;
+    inline constexpr int VacsEnd = 37;
 
     inline constexpr int PdcPopupWindow = 10;
     inline constexpr int PdcSendButton = 11;

@@ -6,6 +6,7 @@
 #include "Logger.hpp"
 #include "bootstrap/Container.h"
 #include "graphics/InfoScreen.h"
+#include "vacs/VacsService.h"
 #include "handlers/FlightPlanEventHandlers.h"
 #include "messages/MessageService.h"
 #include "runway/RunwayService.h"
@@ -283,6 +284,11 @@ namespace FlightStrips {
 
     void FlightStripsPlugin::OnTimer(int Counter) {
         SafeCall("OnTimer", [this, Counter] {
+            if (const auto container = m_container.lock(); container && container->vacsService) {
+                container->vacsService->Tick();
+                const auto error = container->vacsService->TakeError();
+                if (!error.empty()) Error(error);
+            }
             ExpireNeedsSquawkRequests();
             const auto connectionType = static_cast<ConnectionType>(GetConnectionType());
 
@@ -642,6 +648,7 @@ namespace FlightStrips {
                     ptr->flightPlanService,
                     ptr->runwayService,
                     ptr->pdcPopup,
+                    ptr->vacsService,
                     this);
             }
 
@@ -679,7 +686,14 @@ namespace FlightStrips {
 
     void FlightStripsPlugin::OnFunctionCall(int FunctionId, const char* ItemString, POINT Pt, RECT Area) {
         const auto container = m_container.lock();
-        if (container == nullptr || container->messageService == nullptr) return;
+        if (container == nullptr) return;
+        if (FunctionId == TAG_FUNC_VACS_DIAL) {
+            SafeCall("VACS controller selection", [&] {
+                if (container->vacsService && ItemString) container->vacsService->Select(ItemString);
+            });
+            return;
+        }
+        if (container->messageService == nullptr) return;
 
         const auto fp = FlightPlanSelectASEL();
         auto callsign = fp.IsValid() ? std::string(fp.GetCallsign()) : std::string{};

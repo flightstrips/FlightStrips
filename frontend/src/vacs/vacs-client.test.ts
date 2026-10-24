@@ -180,6 +180,33 @@ describe("VacsClient", () => {
     expect(client.getState().status).toBe("connected");
   });
 
+  it("returns to idle after cancelling an outgoing call", async () => {
+    client.simulateOpenForTest();
+    client.start();
+    const ws = MockWebSocket.instances[0]!;
+    const lastInvokeId = () => {
+      const invokes = ws.sent.map((m) => JSON.parse(m) as { type: string; id?: string });
+      return [...invokes].reverse().find((m) => m.type === "invoke")!.id!;
+    };
+
+    const dialPromise = client.dialClient({
+      id: "1000002",
+      displayName: "EKCH_APP",
+      frequency: "120.200",
+      positionId: "EKCH_APP",
+    });
+    await vi.waitFor(() => expect(ws.sent.some((m) => m.includes("signaling_start_call"))).toBe(true));
+    ws.emit("message", { data: response(lastInvokeId(), "call-out-1") });
+    await dialPromise;
+    expect(client.getState().status).toBe("outgoing");
+
+    const endPromise = client.endCall("call-out-1");
+    await vi.waitFor(() => expect(ws.sent.some((m) => m.includes("signaling_end_call"))).toBe(true));
+    ws.emit("message", { data: response(lastInvokeId(), null) });
+    await endPromise;
+    expect(client.getState().status).toBe("idle");
+  });
+
   it("restores idle state from snapshot after reconnect", async () => {
     client.start();
     const ws1 = MockWebSocket.instances[0]!;

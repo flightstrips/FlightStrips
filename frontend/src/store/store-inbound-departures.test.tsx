@@ -10,8 +10,8 @@ import {WebSocketStoreContext} from "./store-context";
 const snapshot: InboundDeparturesEvent = {
   type: EventType.FrontendInboundDepartures, session_id: 1, airport: "EKCH", enabled: true,
   updated_at: "2026-10-13T20:43:00Z", stale: false, flights: [{
-    callsign: "FBT08F", departure: "LFLL", arrival: "EKCH", ctot: "1906", atot: "1924", eta: "2120",
-    status: "late", deviation_seconds: 1080, outside_window_seconds: 480,
+    callsign: "FBT08F", departure: "LFLL", arrival: "EKCH", ctot: "1942", atot: "1924", eta: "2120",
+    status: "early", deviation_seconds: -1080, outside_window_seconds: 780,
   }],
 };
 
@@ -37,14 +37,14 @@ describe("inbound departure snapshots and strip flags", () => {
   it("applies cached findings when a matching arrival strip first appears", () => {
     const {store, emit} = setup();
     render(<WebSocketStoreContext.Provider value={store}><InboundCtotFlag callsign="FBT08F" /></WebSocketStoreContext.Provider>);
-    expect(screen.queryByText("CTOT L")).not.toBeInTheDocument();
+    expect(screen.queryByText("CTOT E")).not.toBeInTheDocument();
     emit(EventType.FrontendStripUpdate, {callsign: "FBT08F", origin: "LFLL", destination: "EKCH", next_controllers: [], previous_controllers: []});
-    expect(screen.getByText("CTOT L")).toHaveAccessibleName(/CTOT 19:06Z · ATOT 19:24Z/);
-    expect(screen.getByText("CTOT L")).toHaveAttribute("title", expect.stringContaining("8m outside window"));
+    expect(screen.getByText("CTOT E")).toHaveAccessibleName(/CTOT 19:42Z · ATOT 19:24Z/);
+    expect(screen.getByText("CTOT E")).toHaveAttribute("title", expect.stringContaining("13m outside window"));
     emit(EventType.FrontendInboundDepartures, {...snapshot, stale: true});
-    expect(screen.getByText("CTOT L*")).toHaveAccessibleName(/Stale data/);
+    expect(screen.getByText("CTOT E*")).toHaveAccessibleName(/Stale data/);
     emit(EventType.FrontendInboundDepartures, {...snapshot, flights: []});
-    expect(screen.queryByText(/CTOT L/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/CTOT E/)).not.toBeInTheDocument();
   });
 
   it("matches origin and destination, and never flags departures or reused callsigns", () => {
@@ -53,7 +53,7 @@ describe("inbound departure snapshots and strip flags", () => {
     for (const [origin, destination] of [["EGLL", "EKCH"], ["EKCH", "LFLL"], ["LFLL", "EKBI"]]) {
       act(() => store.setState({strips: [{callsign: "FBT08F", origin, destination} as FrontendStrip]}));
       rerender(<WebSocketStoreContext.Provider value={store}><InboundCtotFlag callsign="FBT08F" /></WebSocketStoreContext.Provider>);
-      expect(screen.queryByText(/CTOT L/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/CTOT E/)).not.toBeInTheDocument();
     }
   });
 

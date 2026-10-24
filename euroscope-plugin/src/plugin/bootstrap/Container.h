@@ -1,4 +1,5 @@
 #pragma once
+namespace FlightStrips::vacs { class VacsService; }
 
 namespace FlightStrips::messages { class MessageService; }
 
@@ -112,6 +113,7 @@ namespace FlightStrips {
 
         // Websocket
         std::shared_ptr<websocket::WebSocketService> webSocketService;
+        std::shared_ptr<vacs::VacsService> vacsService;
 
         // Runway
         std::shared_ptr<runway::RunwayService> runwayService;

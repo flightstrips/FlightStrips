@@ -35,6 +35,11 @@ public:
 
     [[nodiscard]] bool GetPreferSweatboxSession();
     void SetPreferSweatboxSession(bool preferSweatbox);
+    [[nodiscard]] bool GetVacsEnabled();
+    [[nodiscard]] bool GetVacsShowInMinimized();
+    [[nodiscard]] std::string GetVacsHost();
+    void SetVacsEnabled(bool enabled);
+    void SetVacsShowInMinimized(bool show);
 
 private:
     const char* TokenSection = "token";

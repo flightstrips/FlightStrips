@@ -1,4 +1,5 @@
 #include "Container.h"
+#include "vacs/VacsService.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "filesystem/FileSystem.h"
 #include "stands/StandService.h"

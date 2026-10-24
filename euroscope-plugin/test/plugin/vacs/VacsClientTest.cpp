@@ -1,0 +1,400 @@
+#include <gtest/gtest.h>
+#include <atomic>
+#include <thread>
+#include "vacs/VacsClient.h"
+#include "vacs/VacsService.h"
+
+using namespace FlightStrips::vacs;
+
+class VacsClientTest : public testing::Test {
+protected:
+    Time now{};
+    std::vector<Json> sent;
+    VacsClient client{[this](const std::string& message) { sent.push_back(Json::parse(message)); }};
+    Json snapshot = {
+        {"connectionState", "connected"}, {"clientId", "self"},
+        {"sessionInfo", {{"client", {{"id", "self"}, {"positionId", "EKCH_TWR"}}}}},
+        {"clients", Json::array({{{"id", "peer"}, {"displayName", "Approach"}, {"positionId", "EKCH_APP"}, {"frequency", "119.800"}}})},
+        {"incomingCalls", Json::array()}, {"outgoingCall", nullptr}, {"defaultCallSources", Json::array()}
+    };
+    void Reply(const Json& request, Json data = nullptr, bool ok = true) {
+        client.Receive(Json{{"type", "response"}, {"id", request["id"]}, {"ok", ok}, {"data", data}, {"error", {{"detail", "rejected"}}}}.dump(), now);
+    }
+    void Event(const std::string& name, Json payload) { client.Receive(Json{{"type", "event"}, {"name", name}, {"payload", payload}}.dump(), now); }
+    void Store(Json state) { Event("store:sync", {{"store", "call"}, {"state", state}}); }
+    void Boot(bool recover = true) {
+        client.Open(now);
+        Reply(sent.back());
+        Reply(sent.back(), snapshot);
+        Reply(sent.back());
+        if (recover) Store({{"prio", false}});
+    }
+    void Invite(const std::string& id) { Event("signaling:call-invite", {{"callId", id}, {"source", {{"clientId", "peer"}}}}); }
+    void Connected(const std::string& id = "active") {
+        Store({{"prio", false}, {"callDisplay", {{"type", "accepted"}, {"call", {{"callId", id}, {"source", {{"clientId", "peer"}}}}}, {"connectionState", "connected"}}}});
+    }
+};
+
+TEST_F(VacsClientTest, RequiresDesktopStoreRecoveryBeforeIdle) {
+    Boot(false);
+    EXPECT_EQ(client.GetView().state, State::Synchronizing);
+    Store({{"prio", false}, {"callDisplay", nullptr}});
+    EXPECT_EQ(client.GetView().state, State::Synchronizing);
+    Store({{"prio", false}});
+    EXPECT_EQ(client.GetView().state, State::Idle);
+}
+TEST_F(VacsClientTest, SubscribesBeforeBootstrapAndPingsAtTwentySeconds) {
+    Boot();
+    EXPECT_EQ(sent.front()["type"], "subscribe");
+    now += std::chrono::seconds(20); client.Tick(now);
+    EXPECT_EQ(sent.back()["type"], "ping");
+    client.Close(false); const auto count = sent.size();
+    client.Tick(now + std::chrono::seconds(20)); EXPECT_EQ(sent.size(), count);
+}
+TEST_F(VacsClientTest, DialUsesLowercaseTargetAndDoesNotFabricateStation) {
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer"));
+    const auto request = sent.back();
+    EXPECT_EQ(request["cmd"], "signaling_start_call");
+    EXPECT_EQ(request["args"]["target"], Json({{"client", "peer"}}));
+    EXPECT_EQ(request["args"]["source"]["positionId"], "EKCH_TWR");
+    EXPECT_FALSE(request["args"]["source"].contains("stationId"));
+    EXPECT_TRUE(client.GetView().pending);
+    EXPECT_FALSE(client.Execute(Action::Call, "", now, "peer"));
+    Reply(request, "outgoing");
+    EXPECT_EQ(client.GetView().state, State::Outgoing);
+    EXPECT_EQ(client.GetView().callId, "outgoing");
+}
+TEST_F(VacsClientTest, UsesLiveDefaultStationSource) {
+    snapshot["defaultCallSources"] = Json::array({"station"}); Boot();
+    ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer"));
+    EXPECT_EQ(sent.back()["args"]["source"]["stationId"], "station");
+}
+TEST_F(VacsClientTest, RestoresConnectedCallAndNullPartialPreservesIt) {
+    Boot(false); Connected();
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    Store({{"prio", true}, {"callDisplay", nullptr}});
+    EXPECT_EQ(client.GetView().callId, "active");
+    EXPECT_EQ(client.GetView().state, State::Connected);
+}
+TEST_F(VacsClientTest, OmittedDisplayClearsActiveButPreservesIncomingQueue) {
+    Boot(); Connected(); Invite("waiting");
+    Store({{"prio", false}});
+    EXPECT_EQ(client.GetView().state, State::Incoming);
+    EXPECT_EQ(client.GetView().callId, "waiting");
+}
+TEST_F(VacsClientTest, MalformedAndUnrelatedStoreMessagesDoNotClearCalls) {
+    Boot(); Connected();
+    Event("store:sync", {{"store", "settings"}, {"state", {{"prio", false}}}});
+    Store({{"prio", "false"}}); Store(Json::array()); Store({{"callDisplay", nullptr}});
+    client.Receive("not json", now); client.Receive("null", now);
+    EXPECT_EQ(client.GetView().callId, "active");
+}
+TEST_F(VacsClientTest, DeduplicatesIncomingAndAnswersOldestUntilWebRtcConfirms) {
+    Boot(); Invite("first"); Invite("second"); Invite("first");
+    EXPECT_EQ(client.GetView().waiting, 2);
+    EXPECT_EQ(client.GetView().mini, "EKCH_APP (2)");
+    ASSERT_TRUE(client.Execute(Action::Answer, "first", now));
+    EXPECT_EQ(sent.back()["args"]["callId"], "first"); Reply(sent.back());
+    EXPECT_EQ(client.GetView().state, State::Connecting);
+    EXPECT_EQ(client.GetView().waiting, 1);
+    Event("webrtc:call-connected", "first");
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    Event("signaling:call-end", "first");
+    EXPECT_EQ(client.GetView().callId, "second");
+}
+TEST_F(VacsClientTest, PreservesFullIncomingCallerThroughAnswerAndConnection) {
+    snapshot["clients"][0]["positionId"] = "EKDK_UC_CTR";
+    Boot(); Invite("first"); Invite("second");
+    EXPECT_EQ(client.GetView().label, "EKDK_UC_CTR (2)");
+    EXPECT_EQ(client.GetView().mini, "EKDK_UC_CTR (2)");
+    EXPECT_NE(client.GetView().tooltip.find("Incoming from EKDK_UC_CTR"), std::string::npos);
+    ASSERT_TRUE(client.Execute(Action::Answer, "first", now)); Reply(sent.back());
+    EXPECT_EQ(client.GetView().state, State::Connecting);
+    EXPECT_EQ(client.GetView().label, "EKDK_UC_CTR");
+    EXPECT_EQ(client.GetView().mini, "EKDK_UC_CTR");
+    Event("webrtc:call-connected", "first");
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    EXPECT_EQ(client.GetView().mini, "EKDK_UC_CTR");
+}
+TEST_F(VacsClientTest, PreservesFullOutgoingPeerWithoutClippingPrefixes) {
+    snapshot["clients"][0]["positionId"] = "EKDK_UC_CTR";
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer"));
+    Reply(sent.back(), "outgoing");
+    EXPECT_EQ(client.GetView().label, "EKDK_UC_CTR");
+    EXPECT_EQ(client.GetView().mini, "EKDK_UC_CTR");
+    EXPECT_NE(client.GetView().tooltip.find("Calling EKDK_UC_CTR"), std::string::npos);
+}
+TEST_F(VacsClientTest, RejectOnlyRemovesOldestAfterConfirmation) {
+    Boot(); Invite("first"); Invite("second");
+    ASSERT_TRUE(client.Execute(Action::Reject, "first", now));
+    EXPECT_EQ(client.GetView().waiting, 2); Reply(sent.back());
+    EXPECT_EQ(client.GetView().callId, "second");
+}
+TEST_F(VacsClientTest, ActiveEndRemainsPrimaryWhileIncomingWaits) {
+    Boot(); Connected(); Invite("waiting");
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    EXPECT_FALSE(client.Execute(Action::Answer, "waiting", now));
+    EXPECT_TRUE(client.Execute(Action::End, "active", now));
+    EXPECT_EQ(sent.back()["args"]["callId"], "active");
+}
+TEST_F(VacsClientTest, FailedEndKeepsConfirmedCallAndCanRetry) {
+    Boot(); Connected(); ASSERT_TRUE(client.Execute(Action::End, "active", now));
+    Reply(sent.back(), nullptr, false);
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    EXPECT_FALSE(client.TakeError().empty());
+    EXPECT_TRUE(client.Execute(Action::End, "active", now));
+}
+TEST_F(VacsClientTest, TimeoutResynchronizesWithoutRetryingCall) {
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer"));
+    const auto late = sent.back();
+    now += std::chrono::seconds(10); client.Tick(now);
+    EXPECT_EQ(sent.back()["cmd"], "remote_get_session_state");
+    EXPECT_FALSE(client.Execute(Action::Call, "", now, "peer"));
+    Reply(late, "late-call"); EXPECT_EQ(client.GetView().state, State::Synchronizing);
+    Reply(sent.back(), snapshot); Reply(sent.back()); Store({{"prio", false}});
+    EXPECT_EQ(client.GetView().state, State::Idle);
+    EXPECT_EQ(std::count_if(sent.begin(), sent.end(), [](const Json& message) { return message.value("cmd", "") == "signaling_start_call"; }), 1);
+}
+TEST_F(VacsClientTest, LateDialResponseCannotResurrectEndedCall) {
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer")); const auto request = sent.back();
+    Event("signaling:call-end", "ended"); Reply(request, "ended");
+    EXPECT_EQ(client.GetView().state, State::Idle);
+}
+
+TEST_F(VacsClientTest, MalformedDialSuccessRequiresResynchronizationBeforeAnotherDial) {
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer"));
+    Reply(sent.back(), nullptr);
+    EXPECT_EQ(client.GetView().state, State::Synchronizing);
+    EXPECT_FALSE(client.Execute(Action::Call, "", now, "peer"));
+    EXPECT_FALSE(client.TakeError().empty());
+}
+TEST_F(VacsClientTest, LateAcceptCannotDowngradeWebRtcConfirmation) {
+    Boot(); Invite("first"); ASSERT_TRUE(client.Execute(Action::Answer, "first", now)); const auto request = sent.back();
+    Event("signaling:accept-incoming-call", "first"); Event("webrtc:call-connected", "first"); Reply(request);
+    EXPECT_EQ(client.GetView().state, State::Connected);
+}
+TEST_F(VacsClientTest, OldGenerationReplyIgnoredAfterReconnect) {
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer")); const auto request = sent.back();
+    Boot(); Reply(request, "old-call"); EXPECT_EQ(client.GetView().state, State::Idle);
+}
+TEST_F(VacsClientTest, StaleSnapshotCannotOverwriteNewerSessionEvent) {
+    client.Open(now); Reply(sent.back()); const auto oldSnapshot = sent.back();
+    Event("signaling:ambiguous-position", nullptr); Reply(oldSnapshot, snapshot);
+    EXPECT_EQ(client.GetView().state, State::Synchronizing);
+    EXPECT_EQ(sent.back()["cmd"], "remote_get_session_state");
+}
+TEST_F(VacsClientTest, ReadinessAndDisconnectedAuthenticationAreIndependent) {
+    Boot(); Event("signaling:disconnected", nullptr);
+    EXPECT_EQ(client.GetView().state, State::Disconnected);
+    EXPECT_FALSE(client.Execute(Action::Call, "", now, "peer"));
+    Event("auth:unauthenticated", nullptr);
+    EXPECT_EQ(client.GetView().state, State::Unauthenticated);
+}
+TEST_F(VacsClientTest, StaleOrUnknownTargetsAndCallIdsNeverInvoke) {
+    Boot(); EXPECT_FALSE(client.Execute(Action::Call, "", now, "missing"));
+    Invite("first"); EXPECT_FALSE(client.Execute(Action::Reject, "stale", now));
+    EXPECT_FALSE(client.Execute(Action::Cancel, "first", now));
+}
+TEST_F(VacsClientTest, RestoresIncomingAndOutgoingSnapshot) {
+    snapshot["incomingCalls"] = Json::array({{{"callId", "waiting"}, {"source", {{"clientId", "peer"}}}}});
+    snapshot["outgoingCall"] = {{"callId", "ringing"}, {"target", {{"client", "peer"}}}};
+    Boot(false); Store({{"prio", false}, {"callDisplay", {{"type", "outgoing"}, {"call", snapshot["outgoingCall"]}}}});
+    EXPECT_EQ(client.GetView().state, State::Outgoing);
+    EXPECT_EQ(client.GetView().waiting, 1);
+    ASSERT_TRUE(client.Execute(Action::Cancel, "ringing", now)); Reply(sent.back());
+    EXPECT_EQ(client.GetView().callId, "waiting");
+}
+TEST_F(VacsClientTest, PickerFiltersSelfSamePositionAndDuplicates) {
+    snapshot["clients"].push_back({{"id", "self"}, {"positionId", "EKCH_TWR"}});
+    snapshot["clients"].push_back({{"id", "other"}, {"positionId", "EKCH_TWR"}});
+    snapshot["clients"].push_back(snapshot["clients"][0]); Boot();
+    ASSERT_EQ(client.GetClients().size(), 1); EXPECT_EQ(client.GetClients()[0].id, "peer");
+}
+TEST_F(VacsClientTest, TransientWebRtcDisconnectKeepsCallEndable) {
+    Boot(); Connected();
+    Event("webrtc:call-disconnected", "active");
+    EXPECT_EQ(client.GetView().state, State::Connecting);
+    EXPECT_EQ(client.GetView().callId, "active");
+    EXPECT_NE(client.GetView().tooltip.find("Reconnecting to EKCH_APP"), std::string::npos);
+    Event("webrtc:call-connected", "active");
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    Connected();
+    EXPECT_EQ(client.GetView().callId, "active");
+    EXPECT_TRUE(client.Execute(Action::End, "active", now));
+}
+TEST_F(VacsClientTest, DisconnectedCallRecoversFromConfirmedStoreAfterResync) {
+    Boot(); Connected();
+    Event("webrtc:call-disconnected", "active");
+    Event("signaling:connected", {{"client", {{"positionId", "EKCH_TWR"}}}});
+    Reply(sent.back(), snapshot); Reply(sent.back()); Connected();
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    EXPECT_EQ(client.GetView().callId, "active");
+    EXPECT_TRUE(client.GetView().actionable);
+}
+TEST_F(VacsClientTest, RemoteDialPublishesOutgoingDisplayToDesktop) {
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer"));
+    const auto dial = sent.back(); Reply(dial, "outgoing");
+    const auto broadcast = sent.back();
+    ASSERT_EQ(broadcast["cmd"], "remote_broadcast_store_sync");
+    EXPECT_EQ(broadcast["args"]["store"], "call");
+    EXPECT_EQ(broadcast["args"]["sourceId"], "flightstrips-euroscope");
+    const auto& display = broadcast["args"]["state"]["callDisplay"];
+    EXPECT_EQ(display["type"], "outgoing");
+    EXPECT_EQ(display["call"], Json({{"callId", "outgoing"}, {"source", dial["args"]["source"]}, {"target", dial["args"]["target"]}, {"prio", false}}));
+    EXPECT_TRUE(client.GetView().actionable);
+}
+TEST_F(VacsClientTest, SnapshotOutgoingSurvivesMissingDesktopDisplayAndRepairsIt) {
+    snapshot["outgoingCall"] = {{"callId", "ringing"}, {"source", {{"clientId", "self"}, {"positionId", "EKCH_TWR"}}}, {"target", {{"client", "peer"}}}, {"prio", false}};
+    Boot(false); Store({{"prio", true}});
+    EXPECT_EQ(client.GetView().state, State::Outgoing);
+    EXPECT_EQ(client.GetView().callId, "ringing");
+    EXPECT_TRUE(client.GetView().actionable);
+    ASSERT_EQ(sent.back()["cmd"], "remote_broadcast_store_sync");
+    EXPECT_EQ(sent.back()["args"]["state"]["prio"], true);
+    EXPECT_EQ(sent.back()["args"]["state"]["callDisplay"]["call"], snapshot["outgoingCall"]);
+    Event("signaling:outgoing-call-accepted", {{"callId", "ringing"}, {"acceptingClientId", "peer"}});
+    EXPECT_EQ(client.GetView().state, State::Connecting);
+    ASSERT_TRUE(client.Execute(Action::End, "ringing", now));
+}
+TEST_F(VacsClientTest, SnapshotWithoutOutgoingCallRevokesRemoteDialAuthority) {
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer")); Reply(sent.back(), "outgoing");
+    Event("signaling:connected", {{"client", {{"positionId", "EKCH_TWR"}}}});
+    Reply(sent.back(), snapshot); Reply(sent.back()); Store({{"prio", false}});
+    EXPECT_EQ(client.GetView().state, State::Idle);
+}
+TEST(VacsUrlTest, HostOnlyNormalization) {
+    EXPECT_EQ(VacsService::BuildUrl(""), "ws://localhost:9600/ws");
+    EXPECT_EQ(VacsService::BuildUrl("vacs.local"), "ws://vacs.local:9600/ws");
+    EXPECT_EQ(VacsService::BuildUrl("::1"), "ws://[::1]:9600/ws");
+    EXPECT_EQ(VacsService::BuildUrl("[::1]"), "ws://[::1]:9600/ws");
+    for (const auto* host : {"http://localhost", "ws://localhost/ws", "localhost:9600", "host/path", "host?x", "user@host"}) EXPECT_TRUE(VacsService::BuildUrl(host).empty()) << host;
+}
+
+namespace {
+    struct FakeSocketState {
+        FlightStrips::websocket::WebSocketStatus status = FlightStrips::websocket::WEBSOCKET_STATUS_CONNECTED;
+        message_callback receive;
+        on_connected_callback open;
+        std::vector<Json> sent;
+        std::atomic<bool> destroyed = false;
+        bool autoOpen = true;
+        std::chrono::milliseconds destroyDelay{0};
+    };
+    class FakeSocket final : public FlightStrips::websocket::WebSocket::ImplBase {
+    public:
+        explicit FakeSocket(std::shared_ptr<FakeSocketState> state) : state_(std::move(state)) {}
+        // Stands in for ASIO joining a resolver worker blocked in getaddrinfo.
+        ~FakeSocket() override { std::this_thread::sleep_for(state_->destroyDelay); state_->destroyed = true; }
+        void Connect() override { if (state_->autoOpen) state_->open(); }
+        void Disconnect() override { state_->status = FlightStrips::websocket::WEBSOCKET_STATUS_DISCONNECTED; }
+        void Send(const std::string& raw) override { state_->sent.push_back(Json::parse(raw)); }
+        FlightStrips::websocket::WebSocketStatus GetStatus() const override { return state_->status; }
+    private:
+        std::shared_ptr<FakeSocketState> state_;
+    };
+}
+class VacsServiceTest : public testing::Test {
+protected:
+    std::string path;
+    std::shared_ptr<FlightStrips::configuration::UserConfig> config;
+    std::vector<std::shared_ptr<FakeSocketState>> sockets;
+    std::unique_ptr<VacsService> service;
+    Time now{};
+    bool autoOpen = true;
+    std::chrono::milliseconds destroyDelay{0};
+    static bool Destroyed(const std::shared_ptr<FakeSocketState>& state) {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (!state->destroyed && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        return state->destroyed;
+    }
+    void SetUp() override {
+        char directory[MAX_PATH]; GetTempPathA(MAX_PATH, directory);
+        path = std::string(directory) + "vacs_service_" + std::to_string(GetCurrentProcessId()) + "_" + std::to_string(GetTickCount64()) + ".ini";
+        config = std::make_shared<FlightStrips::configuration::UserConfig>(path);
+        service = std::make_unique<VacsService>(config, [this](const std::string& url, message_callback receive, on_connected_callback open) {
+            EXPECT_EQ(url, "ws://localhost:9600/ws");
+            auto state = std::make_shared<FakeSocketState>(); state->receive = std::move(receive); state->open = std::move(open);
+            state->autoOpen = autoOpen; state->destroyDelay = destroyDelay;
+            sockets.push_back(state);
+            return std::make_unique<FlightStrips::websocket::WebSocket>(std::make_unique<FakeSocket>(state));
+        });
+    }
+    void TearDown() override { service.reset(); DeleteFileA(path.c_str()); }
+};
+TEST_F(VacsServiceTest, OffNeverCreatesSocketAndMiniPreferenceIsIndependent) {
+    service->Tick(now); EXPECT_TRUE(sockets.empty());
+    service->ToggleMini(); EXPECT_TRUE(service->MiniPreference()); EXPECT_FALSE(service->ShowMini());
+    service->ToggleEnabled(); service->Tick(now); ASSERT_EQ(sockets.size(), 1);
+    EXPECT_TRUE(service->ShowMini());
+    service->ToggleEnabled(); EXPECT_TRUE(Destroyed(sockets[0])); EXPECT_TRUE(service->MiniPreference());
+    EXPECT_TRUE(sockets[0]->sent.empty());
+}
+TEST_F(VacsServiceTest, SocketCallbacksAreQueuedAndScreensShareOneConnection) {
+    int first = 0, second = 0;
+    service->AttachScreen(&first, [&] { ++first; }); service->AttachScreen(&second, [&] { ++second; });
+    service->ToggleEnabled(); service->Tick(now); ASSERT_EQ(sockets.size(), 1);
+    EXPECT_TRUE(sockets[0]->sent.empty());
+    service->Tick(now); EXPECT_EQ(service->GetView().state, State::Synchronizing);
+    EXPECT_FALSE(sockets[0]->sent.empty());
+    const auto firstCount = first, secondCount = second;
+    service->ToggleMini(); EXPECT_GT(first, firstCount); EXPECT_GT(second, secondCount);
+    service->DetachScreen(&second); const auto detached = second;
+    service->Tick(now); EXPECT_EQ(second, detached); EXPECT_EQ(sockets.size(), 1);
+}
+TEST_F(VacsServiceTest, ReconnectUsesBoundedBackoffAndIgnoresObsoleteEvents) {
+    service->ToggleEnabled(); service->Tick(now); service->Tick(now);
+    auto old = sockets[0]; old->status = FlightStrips::websocket::WEBSOCKET_STATUS_FAILED;
+    service->Tick(now); EXPECT_TRUE(Destroyed(old));
+    old->open(); old->receive(R"({"type":"event","name":"auth:authenticated","payload":"old"})");
+    now += std::chrono::milliseconds(999); service->Tick(now); EXPECT_EQ(sockets.size(), 1);
+    now += std::chrono::milliseconds(1); service->Tick(now); ASSERT_EQ(sockets.size(), 2);
+    EXPECT_TRUE(sockets[1]->sent.empty());
+    EXPECT_EQ(service->GetView().state, State::Reconnecting);
+    service->Tick(now); EXPECT_EQ(service->GetView().state, State::Synchronizing);
+    service->Stop(); EXPECT_TRUE(Destroyed(sockets[1]));
+    const auto count = sockets.size(); service->Tick(now + std::chrono::seconds(60)); EXPECT_EQ(sockets.size(), count);
+}
+
+TEST_F(VacsServiceTest, SlowSocketTeardownNeverBlocksToggleOrTimer) {
+    using namespace std::chrono;
+    destroyDelay = milliseconds(1200);
+    service->ToggleEnabled(); service->Tick(now); service->Tick(now); ASSERT_EQ(sockets.size(), 1);
+    auto started = steady_clock::now(); service->ToggleEnabled();
+    EXPECT_LT(steady_clock::now() - started, milliseconds(200));
+    EXPECT_FALSE(sockets[0]->destroyed);
+    sockets[0]->receive(R"({"type":"event","name":"auth:authenticated","payload":"late"})");
+    service->ToggleEnabled(); service->Tick(now); ASSERT_EQ(sockets.size(), 2);
+    sockets[1]->status = FlightStrips::websocket::WEBSOCKET_STATUS_FAILED;
+    started = steady_clock::now(); service->Tick(now);
+    EXPECT_LT(steady_clock::now() - started, milliseconds(200));
+    EXPECT_EQ(service->GetView().state, State::Reconnecting);
+    EXPECT_TRUE(Destroyed(sockets[0])); EXPECT_TRUE(Destroyed(sockets[1]));
+}
+TEST_F(VacsServiceTest, TickProcessesBoundedEventBatches) {
+    service->ToggleEnabled(); service->Tick(now); ASSERT_EQ(sockets.size(), 1);
+    for (int i = 0; i < 100; ++i) sockets[0]->receive(Json{{"type", "event"}, {"name", "signaling:client-connected"}, {"payload", {{"id", "client" + std::to_string(i)}}}}.dump());
+    ASSERT_EQ(service->QueuedEvents(), 101);
+    service->Tick(now); EXPECT_EQ(service->QueuedEvents(), 37);
+    service->Tick(now); EXPECT_EQ(service->QueuedEvents(), 0);
+}
+
+TEST_F(VacsServiceTest, RepeatedFailuresBackOffOneTwoFourEightSixteenThirtySeconds) {
+    autoOpen = false; service->ToggleEnabled(); service->Tick(now);
+    for (const int delay : {1, 2, 4, 8, 16, 30, 30}) {
+        sockets.back()->status = FlightStrips::websocket::WEBSOCKET_STATUS_FAILED;
+        const auto count = sockets.size(); service->Tick(now);
+        EXPECT_EQ(service->GetView().label, "Retry in " + std::to_string(delay) + "s");
+        now += std::chrono::seconds(delay) - std::chrono::milliseconds(1);
+        service->Tick(now); EXPECT_EQ(sockets.size(), count);
+        now += std::chrono::milliseconds(1); service->Tick(now); EXPECT_EQ(sockets.size(), count + 1);
+    }
+}
+
+TEST_F(VacsClientTest, EndTimeoutPreservesConfirmedDisplayButGatesFurtherActions) {
+    Boot(); Connected(); ASSERT_TRUE(client.Execute(Action::End, "active", now));
+    now += std::chrono::seconds(10); client.Tick(now);
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    EXPECT_EQ(client.GetView().callId, "active");
+    EXPECT_FALSE(client.GetView().actionable);
+    EXPECT_FALSE(client.Execute(Action::End, "active", now));
+}

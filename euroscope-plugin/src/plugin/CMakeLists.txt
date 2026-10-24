@@ -157,6 +157,12 @@ set(src__tag_items
         tag_items/AMANGainLossHandler.h)
 
 set(ALL_FILES
+        vacs/VacsClient.cpp
+        vacs/VacsClient.h
+        vacs/VacsService.cpp
+        vacs/VacsService.h
+        graphics/VacsPanel.cpp
+        graphics/VacsPanel.h
         ${src__plugin}
 		${src__aman}
         ${src__configuration}

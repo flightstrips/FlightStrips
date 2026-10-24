@@ -13,6 +13,13 @@ static UserConfig MakeDefault() {
     return UserConfig("__nonexistent_user_config__.ini");
 }
 
+TEST(UserConfigTest, VacsDefaultsAreIndependentAndOff) {
+    auto config = MakeDefault();
+    EXPECT_FALSE(config.GetVacsEnabled());
+    EXPECT_FALSE(config.GetVacsShowInMinimized());
+    EXPECT_EQ(config.GetVacsHost(), "localhost");
+}
+
 // ---------------------------------------------------------------------------
 // GetToken defaults
 // ---------------------------------------------------------------------------
@@ -85,6 +92,28 @@ TEST_F(UserConfigRoundTripTest, SetToken_ThenGetToken_RoundTrips) {
     EXPECT_EQ(got.refreshToken, t.refreshToken);
     EXPECT_EQ(got.idToken,      t.idToken);
     EXPECT_EQ(got.expiry,       t.expiry);
+}
+
+TEST_F(UserConfigRoundTripTest, VacsPreferencesSurviveWindowAndTokenSaves) {
+    {
+        std::ofstream initial(tmpPath);
+        initial << "[vacs]\nhost=192.0.2.10\nenabled=false\nshow_in_minimized=false\n";
+    }
+    {
+        UserConfig config(tmpPath);
+        config.SetVacsShowInMinimized(true);
+        EXPECT_FALSE(config.GetVacsEnabled());
+        config.SetVacsEnabled(true);
+        config.SetWindowState({12, 34, true});
+        config.SetToken({"access", "refresh", "id", 123});
+    }
+    UserConfig reopened(tmpPath);
+    EXPECT_TRUE(reopened.GetVacsEnabled());
+    EXPECT_TRUE(reopened.GetVacsShowInMinimized());
+    EXPECT_EQ(reopened.GetVacsHost(), "192.0.2.10");
+    EXPECT_EQ(reopened.GetWindowState().x, 12);
+    reopened.SetVacsEnabled(false);
+    EXPECT_TRUE(reopened.GetVacsShowInMinimized());
 }
 
 TEST_F(UserConfigRoundTripTest, SetToken_EmptyToken_ClearsFields) {

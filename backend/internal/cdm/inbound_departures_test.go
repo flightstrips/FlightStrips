@@ -52,18 +52,52 @@ func TestAssessInboundDeparture(t *testing.T) {
 	}
 }
 
+func TestInboundOnlyFlagsDeparturesMoreThanTenMinutesEarly(t *testing.T) {
+	for _, tt := range []struct {
+		name, ctot, atot string
+		flagged          bool
+	}{
+		{"early", "1200", "1149", true},
+		{"one second beyond threshold", "120000", "114959", true},
+		{"exactly ten minutes early", "1200", "1150", false},
+		{"one second within threshold", "120000", "115001", false},
+		{"six minutes early", "1200", "1154", false},
+		{"on time", "1200", "1200", false},
+		{"late", "1200", "1215", false},
+		{"midnight early", "0002", "2351", true},
+		{"midnight early boundary", "0002", "2352", false},
+		{"midnight late", "2358", "0015", false},
+		{"missing ctot", "", "1149", false},
+		{"missing atot", "1200", "", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &inboundDepartures{}
+			entry := &inboundAirport{snapshot: frontend.InboundDeparturesEvent{Airport: "EKCH"}, departed: make(map[string]inboundDepartureSnapshot)}
+			row := IFPSData{Callsign: "SAS1", Departure: "EGLL", Arrival: "EKCH", CTOT: tt.ctot, ATOT: tt.atot}
+			m.apply(entry, BulkIFPSData{row}, nil, time.Now())
+			if tt.flagged {
+				require.Len(t, entry.snapshot.Flights, 1)
+				assert.Equal(t, "early", entry.snapshot.Flights[0].Status)
+				assert.Less(t, entry.snapshot.Flights[0].DeviationSeconds, -600)
+			} else {
+				assert.Empty(t, entry.snapshot.Flights)
+			}
+		})
+	}
+}
+
 func TestInboundCachePreservesDepartedSlotAndFailures(t *testing.T) {
 	m := &inboundDepartures{}
 	entry := &inboundAirport{snapshot: frontend.InboundDeparturesEvent{Airport: "EKCH"}, departed: make(map[string]inboundDepartureSnapshot)}
 	now := time.Date(2026, 10, 13, 20, 43, 0, 0, time.UTC)
-	row := IFPSData{Callsign: "FBT08F", Departure: "LFLL", Arrival: "EKCH", CTOT: "1906", ATOT: "1924"}
+	row := IFPSData{Callsign: "FBT08F", Departure: "LFLL", Arrival: "EKCH", CTOT: "1942", ATOT: "1924"}
 	m.apply(entry, BulkIFPSData{row, row, {Callsign: "OTHER", Arrival: "EKBI", CTOT: "1200", ATOT: "1220"}}, nil, now)
 	require.Len(t, entry.snapshot.Flights, 1)
-	assert.Equal(t, 480, entry.snapshot.Flights[0].OutsideWindowSeconds)
+	assert.Equal(t, 780, entry.snapshot.Flights[0].OutsideWindowSeconds)
 	row.CTOT = "1924"
 	row.ATOT = "192400"
 	m.apply(entry, BulkIFPSData{row}, nil, now.Add(inboundPollInterval))
-	assert.Equal(t, "1906", entry.snapshot.Flights[0].Ctot)
+	assert.Equal(t, "1942", entry.snapshot.Flights[0].Ctot)
 	before := entry.snapshot
 	m.apply(entry, nil, errors.New("timeout"), now.Add(2*inboundPollInterval))
 	assert.True(t, entry.snapshot.Stale)
@@ -73,7 +107,7 @@ func TestInboundCachePreservesDepartedSlotAndFailures(t *testing.T) {
 	assert.Empty(t, entry.snapshot.Flights)
 	m.apply(entry, BulkIFPSData{row}, nil, now.Add(4*inboundPollInterval))
 	require.Len(t, entry.snapshot.Flights, 1)
-	assert.Equal(t, "1906", entry.snapshot.Flights[0].Ctot, "retain the departed snapshot through temporary disappearance")
+	assert.Equal(t, "1942", entry.snapshot.Flights[0].Ctot, "retain the departed snapshot through temporary disappearance")
 	row.Departure = "EGLL"
 	m.apply(entry, BulkIFPSData{row}, nil, now.Add(5*inboundPollInterval))
 	assert.Empty(t, entry.snapshot.Flights, "a reused callsign on a different flight must not inherit the slot")
@@ -88,7 +122,7 @@ func TestInboundMissingDepartedSlotNeverUsesLaterSlot(t *testing.T) {
 	row := IFPSData{Callsign: "SAS1", Departure: "EGLL", Arrival: "EKCH", ATOT: "1215", CDMStatus: "AIRB"}
 	m.apply(entry, BulkIFPSData{row}, nil, time.Now())
 	assert.Empty(t, entry.snapshot.Flights)
-	row.CTOT = "1200"
+	row.CTOT = "1230"
 	m.apply(entry, BulkIFPSData{row}, nil, time.Now())
 	assert.Empty(t, entry.snapshot.Flights)
 }
@@ -107,7 +141,7 @@ func TestInboundPollingSharedLifecycleAndRateLimit(t *testing.T) {
 			if n == 2 {
 				return &http.Response{StatusCode: 429, Header: http.Header{"Retry-After": {"900"}}, Body: io.NopCloser(strings.NewReader("rate limited"))}, nil
 			}
-			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`[{"callsign":"SAS1","departure":"EGLL","arrival":"EKCH","ctot":"1200","atot":"1215"}]`))}, nil
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`[{"callsign":"SAS1","departure":"EGLL","arrival":"EKCH","ctot":"1200","atot":"1145"}]`))}, nil
 		})}))
 		s := newCdmService(client, nil, &testutil.MockSessionRepository{ListFn: func(context.Context) ([]*models.Session, error) { return nil, nil }}, nil, testCdmPublisher{}, nil, nil)
 		ctx, cancel := context.WithCancel(context.Background())

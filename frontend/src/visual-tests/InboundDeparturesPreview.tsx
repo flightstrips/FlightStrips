@@ -7,8 +7,8 @@ import AMAN from "@/routes/ekch/AMAN";
 import "@/index.css";
 
 const flights = Array.from({length: 40}, (_, index) => ({
-  callsign: index === 0 ? "FBT08F" : `SAS${index}`, departure: "LFLL", arrival: "EKCH", ctot: "1906", atot: "1924", eta: "2120",
-  status: "late" as const, deviation_seconds: 1080, outside_window_seconds: 480,
+  callsign: index === 0 ? "FBT08F" : `SAS${index}`, departure: "LFLL", arrival: "EKCH", ctot: "1942", atot: "1924", eta: "2120",
+  status: "early" as const, deviation_seconds: -1080, outside_window_seconds: 780,
 }));
 const snapshot: InboundDeparturesSnapshot = {session_id: 1, airport: "EKCH", enabled: true, updated_at: "2026-10-13T20:43:00Z", stale: false, flights};
 const store = createWebSocketStore({on: () => undefined, send: () => undefined} as unknown as WebSocketClient);

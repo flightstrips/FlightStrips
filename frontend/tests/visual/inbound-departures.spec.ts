@@ -9,7 +9,7 @@ for (const viewport of [{width: 1440, height: 960}, {width: 1920, height: 1080}]
     await tab.click();
     const panel = page.getByRole("tabpanel", {name: "CTOT (40)"});
     await expect(panel.getByRole("rowheader", {name: "FBT08F"})).toBeVisible();
-    await expect(panel.getByRole("row").filter({hasText: "FBT08F"})).toContainText("+18m");
+    await expect(panel.getByRole("row").filter({hasText: "FBT08F"})).toContainText("−18m");
     const bounds = await panel.boundingBox();
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
     expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);

@@ -266,7 +266,9 @@ func (m *inboundDepartures) apply(entry *inboundAirport, rows BulkIFPSData, err 
 			entry.departed[key] = inboundDepartureSnapshot{row: row, observedAt: now}
 		}
 		flight, valid := assessInboundDeparture(row)
-		if valid && flight.Status != "compliant" {
+		// Only flag departures more than ten minutes before CTOT. Keep the
+		// standard CTOT window assessment for the displayed deviation details.
+		if valid && flight.Status == "early" && flight.DeviationSeconds < -10*60 {
 			flights = append(flights, flight)
 		}
 	}

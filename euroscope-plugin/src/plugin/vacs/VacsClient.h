@@ -35,6 +35,7 @@ namespace FlightStrips::vacs {
     private:
         struct Request {
             std::string command, callId, peer;
+            Json args;
             Time deadline;
             unsigned long long revision;
         };
@@ -44,8 +45,9 @@ namespace FlightStrips::vacs {
         std::vector<Client> clients_;
         std::vector<Call> incoming_;
         std::string ownId_, position_, station_, callId_, peer_, error_, pendingId_, snapshotId_, lastError_;
+        Json outgoingCall_;
         bool enabled_ = false, online_ = false, authenticated_ = false, signaling_ = false, ambiguous_ = false;
-        bool snapshot_ = false, store_ = false, uncertain_ = false;
+        bool snapshot_ = false, store_ = false, uncertain_ = false, reconnecting_ = false;
         State callState_ = State::Idle;
         unsigned long long nextId_ = 0, revision_ = 0;
         int retrySeconds_ = 0;
@@ -54,8 +56,9 @@ namespace FlightStrips::vacs {
         void Sync(Time now);
         void Snapshot(const Json& data);
         void Event(const std::string& name, const Json& payload, Time now);
-        void Store(const Json& payload);
+        void Store(const Json& payload, Time now);
         void Finish(const std::string& callId);
+        void PublishOutgoing(bool prio, Time now);
         void Display(const std::string& callId, const std::string& peer, State state);
         std::string PeerName(const std::string& id) const;
         void SetClients(const Json& clients);

@@ -8,6 +8,8 @@ namespace FlightStrips::vacs {
             return value.is_object() && value.contains(key) && value[key].is_string() ? value[key].get<std::string>() : "";
         }
         std::string Id(const Json& value) { return value.is_string() ? value.get<std::string>() : Text(value, "callId"); }
+        // Identifies broadcasts from this plugin so the desktop applies them like another VACS instance.
+        constexpr auto kSourceId = "flightstrips-euroscope";
         std::string Target(const Json& value) {
             for (const auto* key : {"client", "position", "station"}) {
                 const auto id = Text(value, key);
@@ -19,7 +21,8 @@ namespace FlightStrips::vacs {
     VacsClient::VacsClient(std::function<void(const std::string&)> send) : send_(std::move(send)) {}
     void VacsClient::Close(bool enabled, int retrySeconds) {
         enabled_ = enabled;
-        online_ = authenticated_ = signaling_ = ambiguous_ = snapshot_ = store_ = uncertain_ = false;
+        online_ = authenticated_ = signaling_ = ambiguous_ = snapshot_ = store_ = uncertain_ = reconnecting_ = false;
+        outgoingCall_ = nullptr;
         requests_.clear(); incoming_.clear(); clients_.clear(); terminated_.clear();
         ownId_.clear(); position_.clear(); station_.clear(); callId_.clear(); peer_.clear(); pendingId_.clear();
         callState_ = State::Idle;
@@ -29,7 +32,7 @@ namespace FlightStrips::vacs {
     }
     std::string VacsClient::Invoke(const std::string& command, const Json& args, Time now, const std::string& callId, const std::string& peer) {
         const auto id = "fs-" + std::to_string(++nextId_);
-        requests_[id] = {command, callId, peer, now + std::chrono::seconds(10), revision_};
+        requests_[id] = {command, callId, peer, args, now + std::chrono::seconds(10), revision_};
         if (command == "remote_get_session_state") snapshotId_ = id;
         send_(Json{{"type", "invoke"}, {"id", id}, {"cmd", command}, {"args", args}}.dump());
         return id;
@@ -80,7 +83,7 @@ namespace FlightStrips::vacs {
     }
     void VacsClient::Display(const std::string& callId, const std::string& peer, State state) {
         if (callId.empty() || terminated_.contains(callId)) return;
-        callId_ = callId; peer_ = peer; callState_ = state;
+        callId_ = callId; peer_ = peer; callState_ = state; reconnecting_ = false;
         std::erase_if(incoming_, [&](const Call& call) { return call.id == callId; });
     }
     void VacsClient::Finish(const std::string& callId) {
@@ -88,7 +91,15 @@ namespace FlightStrips::vacs {
         const auto finished = callId;
         terminated_.insert(finished);
         std::erase_if(incoming_, [&](const Call& call) { return call.id == finished; });
-        if (callId_ == finished) { callId_.clear(); peer_.clear(); callState_ = State::Idle; }
+        if (Id(outgoingCall_) == finished) outgoingCall_ = nullptr;
+        if (callId_ == finished) { callId_.clear(); peer_.clear(); callState_ = State::Idle; reconnecting_ = false; }
+    }
+    void VacsClient::PublishOutgoing(bool prio, Time now) {
+        // VACS only fills the desktop callDisplay from its own frontend dial; mirror it so the desktop
+        // tracks remote-originated calls through acceptance and later store recovery.
+        if (!outgoingCall_.is_object()) return;
+        const Json state{{"prio", prio}, {"callDisplay", {{"type", "outgoing"}, {"call", outgoingCall_}}}};
+        Invoke("remote_broadcast_store_sync", {{"store", "call"}, {"state", state}, {"sourceId", kSourceId}}, now);
     }
     void VacsClient::Snapshot(const Json& data) {
         if (!data.is_object() || !data.contains("connectionState") || !data.contains("clientId") || !data.contains("incomingCalls") || !data["incomingCalls"].is_array()) {
@@ -108,13 +119,16 @@ namespace FlightStrips::vacs {
             const auto id = Text(call, "callId");
             if (!id.empty() && !terminated_.contains(id) && id != callId_ && std::none_of(incoming_.begin(), incoming_.end(), [&](const Call& item) { return item.id == id; })) incoming_.push_back({id, Text(call.value("source", Json::object()), "clientId")});
         }
+        const auto outgoing = data.contains("outgoingCall") && data["outgoingCall"].is_object() ? Text(data["outgoingCall"], "callId") : "";
+        if (Id(outgoingCall_) != outgoing) outgoingCall_ = nullptr;
         if (data.contains("outgoingCall") && data["outgoingCall"].is_object() && callId_.empty()) {
             const auto& call = data["outgoingCall"];
+            if (!Text(call, "callId").empty() && !terminated_.contains(Text(call, "callId"))) outgoingCall_ = call;
             Display(Text(call, "callId"), Target(call.value("target", Json::object())), State::Outgoing);
         }
         snapshot_ = true;
     }
-    void VacsClient::Store(const Json& payload) {
+    void VacsClient::Store(const Json& payload, Time now) {
         if (!payload.is_object()) return;
         const auto state = payload.value("state", Json{});
         if (!state.is_object()) return;
@@ -126,7 +140,10 @@ namespace FlightStrips::vacs {
         if (Text(payload, "store") != "call" || !state.contains("prio") || !state["prio"].is_boolean()) return;
         if (state.contains("callDisplay") && state["callDisplay"].is_null()) return;
         if (!state.contains("callDisplay")) {
-            if (!callId_.empty()) Finish(callId_);
+            // An outgoing call confirmed by this client or the session snapshot is authoritative; the desktop
+            // simply never saw it, so repair its display instead of treating the absence as termination.
+            if (!callId_.empty() && callState_ == State::Outgoing && Id(outgoingCall_) == callId_) PublishOutgoing(state["prio"].get<bool>(), now);
+            else if (!callId_.empty()) Finish(callId_);
             store_ = true; uncertain_ = false; return;
         }
         const auto& display = state["callDisplay"];
@@ -143,11 +160,12 @@ namespace FlightStrips::vacs {
             if (peer.empty()) peer = Text(call.value("source", Json{}), "clientId");
             const auto connection = Text(display, "connectionState");
             Display(id, peer, connection == "connected" || connection == "degraded" ? State::Connected : accepted ? State::Connecting : State::Outgoing);
+            if (callId_ == id && connection == "disconnected") reconnecting_ = true;
         }
         store_ = true; uncertain_ = false;
     }
     void VacsClient::Event(const std::string& name, const Json& payload, Time now) {
-        if (name == "store:sync") { Store(payload); return; }
+        if (name == "store:sync") { Store(payload, now); return; }
         if (name == "auth:authenticated") { ownId_ = payload.is_string() ? payload.get<std::string>() : ""; authenticated_ = !ownId_.empty(); Sync(now); }
         else if (name == "auth:unauthenticated" || name == "signaling:disconnected") {
             requests_.clear(); pendingId_.clear(); uncertain_ = false;
@@ -169,7 +187,11 @@ namespace FlightStrips::vacs {
             const auto id = Id(payload);
             if (!id.empty() && !terminated_.contains(id) && id != callId_ && std::none_of(incoming_.begin(), incoming_.end(), [&](const Call& call) { return call.id == id; })) incoming_.push_back({id, Text(payload.value("source", Json{}), "clientId")});
         }
-        else if (name == "signaling:call-end" || name == "signaling:call-reject" || name == "signaling:force-call-end" || name == "webrtc:call-disconnected" || name == "webrtc:call-error") {
+        else if (name == "webrtc:call-disconnected") {
+            // VACS pauses the peer but keeps the call active; only signaling or call errors end it.
+            if (Id(payload) == callId_ && callState_ == State::Connected) { callState_ = State::Connecting; reconnecting_ = true; }
+        }
+        else if (name == "signaling:call-end" || name == "signaling:call-reject" || name == "signaling:force-call-end" || name == "webrtc:call-error") {
             Finish(Id(payload));
             if (name == "webrtc:call-error") error_ = "VACS call failed: " + Text(payload, "reason");
         }
@@ -181,7 +203,7 @@ namespace FlightStrips::vacs {
             if (id == callId_ || std::any_of(incoming_.begin(), incoming_.end(), [&](const Call& call) { return call.id == id; })) Display(id, peer, State::Connecting);
         }
         else if (name == "webrtc:call-connected") {
-            if (Id(payload) == callId_) callState_ = State::Connected;
+            if (Id(payload) == callId_) { callState_ = State::Connected; reconnecting_ = false; }
             else Sync(now);
         }
         else if (name == "error") error_ = "VACS: " + Text(payload, "detail");
@@ -222,7 +244,11 @@ namespace FlightStrips::vacs {
                     error_ = "VACS returned an invalid dial result. Resynchronizing; no call retried.";
                     uncertain_ = true; Sync(now);
                 }
-                else if (request.revision == revision_) Display(callId, request.peer, State::Outgoing);
+                else if (request.revision == revision_) {
+                    outgoingCall_ = {{"callId", callId}, {"source", request.args["source"]}, {"target", request.args["target"]}, {"prio", request.args["prio"]}};
+                    Display(callId, request.peer, State::Outgoing);
+                    if (!uncertain_) PublishOutgoing(false, now);
+                }
                 else if (!terminated_.contains(callId) && callId_.empty()) { uncertain_ = true; Sync(now); }
             }
             else if (request.command == "signaling_accept_call") {
@@ -294,7 +320,7 @@ namespace FlightStrips::vacs {
         }
         if (view.tooltip.empty()) {
             const auto fullPeer = view.state == State::Incoming ? PeerName(incoming_.front().peer) : PeerName(peer_);
-            const auto description = view.state == State::Incoming ? "Incoming from " : view.state == State::Outgoing ? "Calling " : view.state == State::Connecting ? "Connecting to " : "Connected to ";
+            const auto description = view.state == State::Incoming ? "Incoming from " : view.state == State::Outgoing ? "Calling " : view.state == State::Connecting ? (reconnecting_ ? "Reconnecting to " : "Connecting to ") : "Connected to ";
             const auto action = view.state == State::Incoming ? "Answer or reject the oldest call." : view.state == State::Outgoing ? "Cancel this outgoing call." : "End this call.";
             view.tooltip = description + fullPeer + "; " + std::to_string(view.waiting) + " waiting. " + action + " Call ID: " + view.callId;
         }

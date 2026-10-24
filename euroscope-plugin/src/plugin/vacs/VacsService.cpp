@@ -4,6 +4,28 @@
 #include <utility>
 
 namespace FlightStrips::vacs {
+    SocketReaper::SocketReaper() : thread_([this] {
+        std::unique_lock lock(mutex_);
+        while (true) {
+            wake_.wait(lock, [this] { return stopping_ || !sockets_.empty(); });
+            if (sockets_.empty()) return;
+            auto socket = std::move(sockets_.front());
+            sockets_.pop_front();
+            lock.unlock();
+            socket.reset();
+            lock.lock();
+        }
+    }) {}
+    SocketReaper::~SocketReaper() {
+        { std::lock_guard lock(mutex_); stopping_ = true; }
+        wake_.notify_one();
+        thread_.join();
+    }
+    void SocketReaper::Retire(std::unique_ptr<websocket::WebSocket> socket) {
+        if (!socket) return;
+        { std::lock_guard lock(mutex_); sockets_.push_back(std::move(socket)); }
+        wake_.notify_one();
+    }
     VacsService::VacsService(std::shared_ptr<configuration::UserConfig> config, SocketFactory factory)
         : config_(std::move(config)), client_([this](const std::string& message) { if (socket_) socket_->Send(message); }), factory_(std::move(factory)) {
         if (!factory_) factory_ = [](const std::string& url, message_callback receive, on_connected_callback open) {
@@ -26,16 +48,16 @@ namespace FlightStrips::vacs {
         }
         return "ws://" + address + ":9600/ws";
     }
-    void VacsService::Enqueue(Event event) {
-        std::lock_guard lock(mutex_);
-        events_.push_back(std::move(event));
+    void VacsService::RetireSocket() {
+        ++generation_;
+        reaper_.Retire(std::move(socket_));
+        std::lock_guard lock(inbox_->mutex);
+        inbox_->events.clear();
     }
     void VacsService::Stop() {
         stopped_ = true;
-        ++generation_;
-        socket_.reset();
-        std::lock_guard lock(mutex_);
-        events_.clear(); picker_.clear();
+        RetireSocket();
+        picker_.clear();
         client_.Close(false);
     }
     void VacsService::ToggleEnabled() {
@@ -54,7 +76,12 @@ namespace FlightStrips::vacs {
         now_ = now;
         if (stopped_ || !Enabled()) return;
         std::vector<Event> events;
-        { std::lock_guard lock(mutex_); events.swap(events_); }
+        {
+            std::lock_guard lock(inbox_->mutex);
+            const auto count = std::min(kMaxEventsPerTick, inbox_->events.size());
+            events.assign(std::make_move_iterator(inbox_->events.begin()), std::make_move_iterator(inbox_->events.begin() + count));
+            inbox_->events.erase(inbox_->events.begin(), inbox_->events.begin() + count);
+        }
         for (const auto& event : events) {
             if (event.generation != generation_) continue;
             if (event.open) { client_.Open(now); backoff_ = 1; retryAt_ = {}; }
@@ -63,8 +90,7 @@ namespace FlightStrips::vacs {
         if (socket_) {
             const auto status = socket_->GetStatus();
             if (status == websocket::WEBSOCKET_STATUS_DISCONNECTED || status == websocket::WEBSOCKET_STATUS_FAILED) {
-                ++generation_;
-                socket_.reset();
+                RetireSocket();
                 retryAt_ = now + std::chrono::seconds(backoff_);
                 client_.Close(true, backoff_);
                 backoff_ = std::min(30, backoff_ * 2);
@@ -79,13 +105,21 @@ namespace FlightStrips::vacs {
                 return;
             }
             const auto generation = ++generation_;
+            const std::weak_ptr<Inbox> inbox = inbox_;
+            const auto enqueue = [inbox](Event event) {
+                if (const auto target = inbox.lock()) { std::lock_guard lock(target->mutex); target->events.push_back(std::move(event)); }
+            };
             socket_ = factory_(url,
-                [this, generation](const std::string& message) { Enqueue({generation, false, message}); },
-                [this, generation] { Enqueue({generation, true, {}}); });
+                [enqueue, generation](const std::string& message) { enqueue({generation, false, message}); },
+                [enqueue, generation] { enqueue({generation, true, {}}); });
             socket_->Connect();
         }
         client_.Tick(now);
         RefreshScreens();
+    }
+    std::size_t VacsService::QueuedEvents() const {
+        std::lock_guard lock(inbox_->mutex);
+        return inbox_->events.size();
     }
     View VacsService::GetView() const {
         auto view = client_.GetView();

@@ -1,4 +1,6 @@
 #include <gtest/gtest.h>
+#include <atomic>
+#include <thread>
 #include "vacs/VacsClient.h"
 #include "vacs/VacsService.h"
 
@@ -208,6 +210,58 @@ TEST_F(VacsClientTest, PickerFiltersSelfSamePositionAndDuplicates) {
     snapshot["clients"].push_back(snapshot["clients"][0]); Boot();
     ASSERT_EQ(client.GetClients().size(), 1); EXPECT_EQ(client.GetClients()[0].id, "peer");
 }
+TEST_F(VacsClientTest, TransientWebRtcDisconnectKeepsCallEndable) {
+    Boot(); Connected();
+    Event("webrtc:call-disconnected", "active");
+    EXPECT_EQ(client.GetView().state, State::Connecting);
+    EXPECT_EQ(client.GetView().callId, "active");
+    EXPECT_NE(client.GetView().tooltip.find("Reconnecting to EKCH_APP"), std::string::npos);
+    Event("webrtc:call-connected", "active");
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    Connected();
+    EXPECT_EQ(client.GetView().callId, "active");
+    EXPECT_TRUE(client.Execute(Action::End, "active", now));
+}
+TEST_F(VacsClientTest, DisconnectedCallRecoversFromConfirmedStoreAfterResync) {
+    Boot(); Connected();
+    Event("webrtc:call-disconnected", "active");
+    Event("signaling:connected", {{"client", {{"positionId", "EKCH_TWR"}}}});
+    Reply(sent.back(), snapshot); Reply(sent.back()); Connected();
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    EXPECT_EQ(client.GetView().callId, "active");
+    EXPECT_TRUE(client.GetView().actionable);
+}
+TEST_F(VacsClientTest, RemoteDialPublishesOutgoingDisplayToDesktop) {
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer"));
+    const auto dial = sent.back(); Reply(dial, "outgoing");
+    const auto broadcast = sent.back();
+    ASSERT_EQ(broadcast["cmd"], "remote_broadcast_store_sync");
+    EXPECT_EQ(broadcast["args"]["store"], "call");
+    EXPECT_EQ(broadcast["args"]["sourceId"], "flightstrips-euroscope");
+    const auto& display = broadcast["args"]["state"]["callDisplay"];
+    EXPECT_EQ(display["type"], "outgoing");
+    EXPECT_EQ(display["call"], Json({{"callId", "outgoing"}, {"source", dial["args"]["source"]}, {"target", dial["args"]["target"]}, {"prio", false}}));
+    EXPECT_TRUE(client.GetView().actionable);
+}
+TEST_F(VacsClientTest, SnapshotOutgoingSurvivesMissingDesktopDisplayAndRepairsIt) {
+    snapshot["outgoingCall"] = {{"callId", "ringing"}, {"source", {{"clientId", "self"}, {"positionId", "EKCH_TWR"}}}, {"target", {{"client", "peer"}}}, {"prio", false}};
+    Boot(false); Store({{"prio", true}});
+    EXPECT_EQ(client.GetView().state, State::Outgoing);
+    EXPECT_EQ(client.GetView().callId, "ringing");
+    EXPECT_TRUE(client.GetView().actionable);
+    ASSERT_EQ(sent.back()["cmd"], "remote_broadcast_store_sync");
+    EXPECT_EQ(sent.back()["args"]["state"]["prio"], true);
+    EXPECT_EQ(sent.back()["args"]["state"]["callDisplay"]["call"], snapshot["outgoingCall"]);
+    Event("signaling:outgoing-call-accepted", {{"callId", "ringing"}, {"acceptingClientId", "peer"}});
+    EXPECT_EQ(client.GetView().state, State::Connecting);
+    ASSERT_TRUE(client.Execute(Action::End, "ringing", now));
+}
+TEST_F(VacsClientTest, SnapshotWithoutOutgoingCallRevokesRemoteDialAuthority) {
+    Boot(); ASSERT_TRUE(client.Execute(Action::Call, "", now, "peer")); Reply(sent.back(), "outgoing");
+    Event("signaling:connected", {{"client", {{"positionId", "EKCH_TWR"}}}});
+    Reply(sent.back(), snapshot); Reply(sent.back()); Store({{"prio", false}});
+    EXPECT_EQ(client.GetView().state, State::Idle);
+}
 TEST(VacsUrlTest, HostOnlyNormalization) {
     EXPECT_EQ(VacsService::BuildUrl(""), "ws://localhost:9600/ws");
     EXPECT_EQ(VacsService::BuildUrl("vacs.local"), "ws://vacs.local:9600/ws");
@@ -222,12 +276,15 @@ namespace {
         message_callback receive;
         on_connected_callback open;
         std::vector<Json> sent;
-        bool destroyed = false, autoOpen = true;
+        std::atomic<bool> destroyed = false;
+        bool autoOpen = true;
+        std::chrono::milliseconds destroyDelay{0};
     };
     class FakeSocket final : public FlightStrips::websocket::WebSocket::ImplBase {
     public:
         explicit FakeSocket(std::shared_ptr<FakeSocketState> state) : state_(std::move(state)) {}
-        ~FakeSocket() override { state_->destroyed = true; }
+        // Stands in for ASIO joining a resolver worker blocked in getaddrinfo.
+        ~FakeSocket() override { std::this_thread::sleep_for(state_->destroyDelay); state_->destroyed = true; }
         void Connect() override { if (state_->autoOpen) state_->open(); }
         void Disconnect() override { state_->status = FlightStrips::websocket::WEBSOCKET_STATUS_DISCONNECTED; }
         void Send(const std::string& raw) override { state_->sent.push_back(Json::parse(raw)); }
@@ -244,6 +301,12 @@ protected:
     std::unique_ptr<VacsService> service;
     Time now{};
     bool autoOpen = true;
+    std::chrono::milliseconds destroyDelay{0};
+    static bool Destroyed(const std::shared_ptr<FakeSocketState>& state) {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (!state->destroyed && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        return state->destroyed;
+    }
     void SetUp() override {
         char directory[MAX_PATH]; GetTempPathA(MAX_PATH, directory);
         path = std::string(directory) + "vacs_service_" + std::to_string(GetCurrentProcessId()) + "_" + std::to_string(GetTickCount64()) + ".ini";
@@ -251,7 +314,7 @@ protected:
         service = std::make_unique<VacsService>(config, [this](const std::string& url, message_callback receive, on_connected_callback open) {
             EXPECT_EQ(url, "ws://localhost:9600/ws");
             auto state = std::make_shared<FakeSocketState>(); state->receive = std::move(receive); state->open = std::move(open);
-            state->autoOpen = autoOpen;
+            state->autoOpen = autoOpen; state->destroyDelay = destroyDelay;
             sockets.push_back(state);
             return std::make_unique<FlightStrips::websocket::WebSocket>(std::make_unique<FakeSocket>(state));
         });
@@ -263,7 +326,7 @@ TEST_F(VacsServiceTest, OffNeverCreatesSocketAndMiniPreferenceIsIndependent) {
     service->ToggleMini(); EXPECT_TRUE(service->MiniPreference()); EXPECT_FALSE(service->ShowMini());
     service->ToggleEnabled(); service->Tick(now); ASSERT_EQ(sockets.size(), 1);
     EXPECT_TRUE(service->ShowMini());
-    service->ToggleEnabled(); EXPECT_TRUE(sockets[0]->destroyed); EXPECT_TRUE(service->MiniPreference());
+    service->ToggleEnabled(); EXPECT_TRUE(Destroyed(sockets[0])); EXPECT_TRUE(service->MiniPreference());
     EXPECT_TRUE(sockets[0]->sent.empty());
 }
 TEST_F(VacsServiceTest, SocketCallbacksAreQueuedAndScreensShareOneConnection) {
@@ -281,15 +344,38 @@ TEST_F(VacsServiceTest, SocketCallbacksAreQueuedAndScreensShareOneConnection) {
 TEST_F(VacsServiceTest, ReconnectUsesBoundedBackoffAndIgnoresObsoleteEvents) {
     service->ToggleEnabled(); service->Tick(now); service->Tick(now);
     auto old = sockets[0]; old->status = FlightStrips::websocket::WEBSOCKET_STATUS_FAILED;
-    service->Tick(now); EXPECT_TRUE(old->destroyed);
+    service->Tick(now); EXPECT_TRUE(Destroyed(old));
     old->open(); old->receive(R"({"type":"event","name":"auth:authenticated","payload":"old"})");
     now += std::chrono::milliseconds(999); service->Tick(now); EXPECT_EQ(sockets.size(), 1);
     now += std::chrono::milliseconds(1); service->Tick(now); ASSERT_EQ(sockets.size(), 2);
     EXPECT_TRUE(sockets[1]->sent.empty());
     EXPECT_EQ(service->GetView().state, State::Reconnecting);
     service->Tick(now); EXPECT_EQ(service->GetView().state, State::Synchronizing);
-    service->Stop(); EXPECT_TRUE(sockets[1]->destroyed);
+    service->Stop(); EXPECT_TRUE(Destroyed(sockets[1]));
     const auto count = sockets.size(); service->Tick(now + std::chrono::seconds(60)); EXPECT_EQ(sockets.size(), count);
+}
+
+TEST_F(VacsServiceTest, SlowSocketTeardownNeverBlocksToggleOrTimer) {
+    using namespace std::chrono;
+    destroyDelay = milliseconds(1200);
+    service->ToggleEnabled(); service->Tick(now); service->Tick(now); ASSERT_EQ(sockets.size(), 1);
+    auto started = steady_clock::now(); service->ToggleEnabled();
+    EXPECT_LT(steady_clock::now() - started, milliseconds(200));
+    EXPECT_FALSE(sockets[0]->destroyed);
+    sockets[0]->receive(R"({"type":"event","name":"auth:authenticated","payload":"late"})");
+    service->ToggleEnabled(); service->Tick(now); ASSERT_EQ(sockets.size(), 2);
+    sockets[1]->status = FlightStrips::websocket::WEBSOCKET_STATUS_FAILED;
+    started = steady_clock::now(); service->Tick(now);
+    EXPECT_LT(steady_clock::now() - started, milliseconds(200));
+    EXPECT_EQ(service->GetView().state, State::Reconnecting);
+    EXPECT_TRUE(Destroyed(sockets[0])); EXPECT_TRUE(Destroyed(sockets[1]));
+}
+TEST_F(VacsServiceTest, TickProcessesBoundedEventBatches) {
+    service->ToggleEnabled(); service->Tick(now); ASSERT_EQ(sockets.size(), 1);
+    for (int i = 0; i < 100; ++i) sockets[0]->receive(Json{{"type", "event"}, {"name", "signaling:client-connected"}, {"payload", {{"id", "client" + std::to_string(i)}}}}.dump());
+    ASSERT_EQ(service->QueuedEvents(), 101);
+    service->Tick(now); EXPECT_EQ(service->QueuedEvents(), 37);
+    service->Tick(now); EXPECT_EQ(service->QueuedEvents(), 0);
 }
 
 TEST_F(VacsServiceTest, RepeatedFailuresBackOffOneTwoFourEightSixteenThirtySeconds) {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.3.0...docs/v1.4.0) (2026-10-25)
+
+
+### Features
+
+* **vacs:** add native call controls and optional minimized row ([#926](https://github.com/flightstrips/FlightStrips/issues/926)) ([1e013ab](https://github.com/flightstrips/FlightStrips/commit/1e013ab144651d4d2f48633acd87cea00f1d1e2e))
+
 ## [1.3.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.2.0...docs/v1.3.0) (2026-10-18)
 
 

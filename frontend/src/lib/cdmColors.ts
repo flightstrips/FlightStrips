@@ -60,7 +60,7 @@ export function isTobtRelevant(bay?: Bay | string): boolean {
  * Returns empty string (no colour) when a cell should be transparent.
  *
  * Planned, taxiing, and inbound strips remain neutral.
- * Cleared TOBT is red only while it differs from TSAT by more than five minutes.
+ * Cleared TOBT is orange for a large discrepancy before TSAT, and red after TSAT.
  * TSAT is colored according to its start-request window.
  */
 export function computeCDMColors(
@@ -76,17 +76,20 @@ export function computeCDMColors(
 
   if (bay !== Bay.Cleared) return { tobtBg: "", tsatBg: "" };
 
-  const tobtOutsideLimits = !!normalizedTsat && !!normalizedTobt &&
-    Math.abs(parseHHMM(normalizedTsat, nowMs) - parseHHMM(normalizedTobt, nowMs)) > 5 * MINUTE_MS;
-  const tobtBg = tobtOutsideLimits ? CDM_RED : "";
-
-  if (phase === "I" || !normalizedTsat) return { tobtBg, tsatBg: "" };
+  if (!normalizedTsat) return { tobtBg: "", tsatBg: "" };
 
   const diffMs = nowMs - parseHHMM(normalizedTsat, nowMs);
-  if (diffMs > 5 * MINUTE_MS) return { tobtBg, tsatBg: "" };
-  if (diffMs > 4 * MINUTE_MS) return { tobtBg, tsatBg: CDM_YELLOW };
-  if (diffMs > -5 * MINUTE_MS) return { tobtBg, tsatBg: CDM_GREEN };
-  return { tobtBg, tsatBg: "" };
+  if (diffMs > 5 * MINUTE_MS) return { tobtBg: CDM_RED, tsatBg: "" };
+
+  const tobtDiffMs = normalizedTobt
+    ? Math.abs(parseHHMM(normalizedTsat, nowMs) - parseHHMM(normalizedTobt, nowMs))
+    : 0;
+  if (diffMs < -5 * MINUTE_MS && tobtDiffMs > 5 * MINUTE_MS) return { tobtBg: CDM_ORANGE, tsatBg: "" };
+  if (phase === "I") return { tobtBg: "", tsatBg: "" };
+
+  if (diffMs > 4 * MINUTE_MS) return { tobtBg: "", tsatBg: CDM_YELLOW };
+  if (diffMs > -5 * MINUTE_MS) return { tobtBg: "", tsatBg: CDM_GREEN };
+  return { tobtBg: "", tsatBg: "" };
 }
 
 // ── CTOT ───────────────────────────────────────────────────────────────────

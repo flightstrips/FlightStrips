@@ -5,6 +5,7 @@ import {
   CDM_GREEN,
   CDM_YELLOW,
   CDM_RED,
+  CDM_ORANGE,
   CTOT_YELLOW,
   TWY_DEP_CTOT_BLUE,
   TWY_DEP_CTOT_ORANGE,
@@ -51,11 +52,13 @@ describe("isTsatWithinStartRequestWindow", () => {
 
 describe("computeCDMColors", () => {
   it.each([
-    ["1020", "1000", "", CDM_RED],
+    ["1020", "1000", "", CDM_ORANGE],
+    ["1020", "1018", "", ""],
     ["1004", "1000", "", ""],
-    ["0950", "0950", "", ""],
+    ["0954", "0954", "", CDM_RED],
+    ["0955", "0955", "", ""],
     ["", "0955", "I", ""],
-  ])("colors TOBT only while it is outside its limits for TSAT %s and phase %s", (tsat, tobt, phase, tobtBg) => {
+  ])("colors TOBT for TSAT %s and phase %s", (tsat, tobt, phase, tobtBg) => {
     expect(computeCDMColors(tsat, tobt, Date.UTC(2026, 6, 14, 10, 0), Bay.Cleared, phase).tobtBg).toBe(tobtBg);
   });
 
@@ -111,11 +114,11 @@ describe("computeCDMColors", () => {
     });
   });
 
-  it("removes the TOBT warning as soon as it returns within the five-minute limit", () => {
+  it("turns TOBT red only after TSAT is more than five minutes past", () => {
     const now = Date.UTC(2026, 6, 14, 10, 0, 0);
 
-    expect(computeCDMColors("1000", "1006", now, Bay.Cleared).tobtBg).toBe(CDM_RED);
-    expect(computeCDMColors("1000", "1005", now, Bay.Cleared).tobtBg).toBe("");
+    expect(computeCDMColors("0954", "0954", now, Bay.Cleared).tobtBg).toBe(CDM_RED);
+    expect(computeCDMColors("0955", "0955", now, Bay.Cleared).tobtBg).toBe("");
   });
 });
 

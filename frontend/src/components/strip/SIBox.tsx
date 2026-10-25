@@ -93,7 +93,11 @@ export function SIBox({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasActiveHandover && !isStand) {
-      openStripContextMenu(callsign, { x: e.clientX, y: e.clientY });
+      if (isSendingTransfer) {
+        openStripContextMenu(callsign, { x: e.clientX, y: e.clientY });
+      } else if (isReceivingTransfer) {
+        assumeStrip(callsign);
+      }
       return;
     }
     if (isTextPilot(strip) && !isReceivingTransfer && !isTagRequestOwner && !isTagRequestRequester) {
@@ -128,7 +132,7 @@ export function SIBox({
     }
   };
 
-  const isClickable = isTextPilot(strip) || !isStand && (hasActiveHandover || isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner));
+  const isClickable = isTextPilot(strip) || !isStand && (isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (!hasActiveHandover && isAssumed && !!nextPosition));
 
   let background: string;
   if (isStand) {

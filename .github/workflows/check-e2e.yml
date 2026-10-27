@@ -18,6 +18,8 @@ jobs:
     name: Running-system E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      E2E_BACKEND_BINARY: ${{ github.workspace }}/frontend/e2e-artifacts/backend
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -34,11 +36,39 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
+      - name: Identify native toolchain
+        id: native-toolchain
+        run: |
+          mkdir -p frontend/e2e-artifacts
+          {
+            echo "$ImageOS"
+            c++ --version | sed -n '1p'
+            getconf GNU_LIBC_VERSION
+            strings "$(c++ -print-file-name=libstdc++.so.6)" | grep -E '^GLIBCXX_[0-9.]+$' | sort -V | tail -n 1
+          } > frontend/e2e-artifacts/native-toolchain.txt
+          cat frontend/e2e-artifacts/native-toolchain.txt
+          echo "digest=$(sha256sum frontend/e2e-artifacts/native-toolchain.txt | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - name: Cache native decoder
+        id: native-cache
+        uses: actions/cache@v6
+        with:
+          path: frontend/e2e-artifacts/native/aman-live-decoder
+          # Exact matches only: include all transitive plugin headers, the
+          # protobuf pin/build recipe, OS, compiler and runtime ABI. Hosted
+          # image revisions can differ even when this toolchain is identical.
+          key: e2e-native-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-toolchain.outputs.digest }}-${{ hashFiles('.github/workflows/check-e2e.yml', 'frontend/tests/e2e/run.mjs', 'frontend/tests/e2e/native/**', 'euroscope-plugin/src/**', 'euroscope-plugin/third_party/**', 'proto/**') }}
+      - name: Build shared browser backend
+        working-directory: backend
+        run: |
+          mkdir -p ../frontend/e2e-artifacts
+          go build -o "$E2E_BACKEND_BINARY" ./internal/testing/browserharness
       - name: Prove the AMAN suite detects the original outage
         working-directory: frontend
         run: npm run test:e2e:aman:mutation
       - name: Exercise strip workflows and AMAN with the native decoder
         working-directory: frontend
+        env:
+          E2E_NATIVE_CACHE_HIT: ${{ steps.native-cache.outputs.cache-hit }}
         run: npm run test:e2e
       - name: Preserve browser and backend evidence
         if: always()
@@ -50,6 +80,7 @@ jobs:
           path: |
             frontend/e2e-artifacts/backend-*.log
             frontend/e2e-artifacts/frontend.log
+            frontend/e2e-artifacts/native-toolchain.txt
             frontend/e2e-artifacts/report/
             frontend/e2e-artifacts/results/
             frontend/e2e-artifacts/mutation/

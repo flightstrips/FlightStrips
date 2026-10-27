@@ -3,8 +3,9 @@
 `AMAN running-system E2E` is a pre-merge GitHub Actions check. It runs on
 every pull request (including stacked PRs), main push and merge queue entry,
 without path filters, conditional job skipping or a release-stage dependency.
-Configure this exact check name as required alongside **AMAN publisher-consumer
-contract** in the main-branch ruleset. The existing fast contract, unit,
+The [main-branch ruleset](https://github.com/flightstrips/FlightStrips/rules/300063)
+requires this exact check name alongside **AMAN publisher-consumer contract**.
+The existing fast contract, unit,
 transport and component tests remain useful and mandatory; they do not replace
 this browser suite.
 
@@ -76,8 +77,9 @@ The scenario checks:
   prediction filter rejects. Advancing past its two-minute timeout generates
   `prediction_unreliable`; SAS101 and SAS202 remain visible with slots and
   commands remain available.
-- A browser settings action, server replacement and persisted EAT-writeback
-  setting; stale revisions and observer commands are rejected without effects.
+- A browser arrival-rate action that changes actual slot spacing and persists
+  the runway policy, plus a server-confirmed persisted EAT-writeback setting;
+  stale revisions and observer commands are rejected without effects.
 - A real HTTP source outage that retains targets/TMT while disabling commands;
   attempts to bypass the disabled UI are also rejected by the backend.
 - Fresh source and aircraft observations restoring readiness and guidance.

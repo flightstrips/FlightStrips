@@ -139,7 +139,23 @@ test("running AMAN preserves healthy targets, diagnoses degradation and persists
       await expect(page.getByRole("checkbox", {name: "Write holding EAT to EuroScope"})).toBeEnabled();
       unreliableNative = await nativeFrame(request, event => event.values?.some(v => v.callsign === "CCA877Q" && v.gain_loss_seconds === undefined) && ["SAS101", "SAS202"].every(c => hasNativeGuidance(event, c)));
     });
-    await test.step("UI command travels through the server and PostgreSQL replacement", async () => {
+    await test.step("arrival-rate action resequences real slots and persists runway policy", async () => {
+      await settledRevision(request, () => state?.revision);
+      await page.getByRole("button", {name: "ARRIVAL-22L: 40/h", exact: true}).click();
+      const dialog = page.getByRole("dialog", {name: "Arrival rate", exact: true});
+      await dialog.getByRole("spinbutton", {name: "Arrivals per hour"}).fill("30");
+      await dialog.getByRole("combobox", {name: "Rate runway group"}).selectOption("ARRIVAL-22L");
+      await dialog.getByRole("button", {name: "Set arrival rate", exact: true}).click();
+      await expect.poll(() => state?.runway_groups.find(group => group.id === "ARRIVAL-22L")?.active_rate_per_hour).toBe(30);
+      const persisted = await (await request.get(`${backend}/e2e/persisted`)).json();
+      expect(persisted.RunwayGroups.find((group: {ID: string}) => group.ID === "ARRIVAL-22L").ActiveRatePerHour).toBe(30);
+      const first = state!.flights.find(flight => flight.callsign === "SAS101")!.slot!;
+      const second = state!.flights.find(flight => flight.callsign === "SAS202")!.slot!;
+      expect(Date.parse(second.time) - Date.parse(first.time)).toBeGreaterThanOrEqual(120_000);
+      await dialog.getByRole("button", {name: "Cancel", exact: true}).click();
+      await expect(page.getByRole("button", {name: "ARRIVAL-22L: 30/h", exact: true})).toBeVisible();
+    });
+    await test.step("EAT setting travels through the server and PostgreSQL replacement", async () => {
       await settledRevision(request, () => state?.revision);
       const setting = page.getByRole("checkbox", {name: "Write holding EAT to EuroScope"});
       await setting.click();

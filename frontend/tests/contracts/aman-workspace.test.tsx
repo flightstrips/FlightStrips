@@ -102,6 +102,25 @@ describe("AMAN pre-merge smoke: publisher → event handler → store → worksp
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("keeps AMAN operational when only one aircraft has degraded input", () => {
+    const {store, send} = workspace("single_flight_input_degraded");
+    expect(store.getState().amanState?.technical_health.ready).toBe(true);
+    expect(store.getState().amanState?.flights[0].data_status).toBe("stale");
+    act(() => store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"}));
+    expect(send).toHaveBeenCalledOnce();
+    expect(screen.getByRole("region", {name: "TMT traffic prediction"})).toBeInTheDocument();
+    expect(screen.queryByText("AMAN timeline unavailable")).not.toBeInTheDocument();
+  });
+
+  it("restricts commands for an actual airport source outage while retaining the workspace", () => {
+    const {store, send} = workspace("airport_source_outage");
+    expect(store.getState().amanState?.technical_health.ready).toBe(false);
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+    expect(screen.queryByText("AMAN timeline unavailable")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", {name: "TMT traffic prediction"})).toBeInTheDocument();
+  });
+
   it("ignores old replacements but accepts the first complete snapshot after reconnect", () => {
     const {store, emit, event} = workspace("healthy");
     const newer = structuredClone(event);

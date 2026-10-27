@@ -40,6 +40,39 @@ Workspace checks also cover current warnings, visible targets, all twelve TMT
 buckets, command revisions, observer/disconnect restrictions, stale replacements,
 reconnect and recovery after a rejected replacement.
 
+### Aircraft degradation versus technical readiness
+
+An aircraft's missing input or rejected calculation is local to that aircraft.
+It must not change the shared predictor's technical health or disable other
+aircraft's commands. Retained estimates and slots remain visible with stale
+data status. A prediction filter that cannot establish a consistent estimate
+withholds only that aircraft's live gain/loss; it retains the runway reservation.
+The flight-detail view carries the calculation's degradation reason.
+
+Airport-wide technical readiness covers shared prerequisites such as current
+observations, navigation and persistence. A genuine source outage can restrict
+commands while the latest complete AMAN and TMT views remain visible. Supported
+weather fallback does not block authority. The required PR check exercises
+both aircraft-local degradation and an actual airport source outage.
+
+EuroScope consumes a separate protobuf gain/loss replacement without the web
+warning list. An aircraft with unavailable guidance has all four presentation
+fields absent; other aircraft retain their complete timing fields. Stale inputs
+retain the last timing with stale status. Go wire tests and the plugin decoder
+regression cover mixed healthy, stale and unavailable aircraft in one message.
+
+For the 26 October incident, CCA877Q's candidate ETA moved over three hours
+while its route distance changed from about 3,847 to 3,809 NM. The filter kept
+inconsistent candidates out and accepted a consistent pair at 19:06 CET. The
+incident fixture includes those recovery observations. This is evidence of a
+large changed estimate, not an airport-wide outage. The earlier accepted
+prediction's complete speed/model inputs were not logged, so the initiating
+model change cannot be conclusively reconstructed from these logs.
+
+Filter logs now include current/previous distance, accepted/candidate model speed
+bases and whether the aircraft is actually unreliable. Committed guidance logs include the aircraft scope and
+degradation reason; calculation-error logs include session and aircraft scope.
+
 ### Reading stability diagnostics
 
 The AMAN Stability dashboard separates automatic calculation attempts from

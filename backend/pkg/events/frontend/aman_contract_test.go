@@ -42,17 +42,19 @@ func TestAMANStateConsumerContract(t *testing.T) {
 
 	// Reproduce the observations immediately before the reported 19:04 CET
 	// outage with the production filter, then publish its resulting warning.
+	type filterSample struct {
+		LoggedAt           string `json:"logged_at_ns"`
+		ObservedAt         string `json:"observed_at_ns"`
+		CandidateETA       string `json:"candidate_eta_ns"`
+		CandidateFeederETA string `json:"candidate_feeder_eta_ns"`
+		Outcome            string `json:"outcome"`
+	}
 	var incident struct {
-		Callsign    string `json:"callsign"`
-		SessionID   int32  `json:"session_id"`
-		AcceptedETA string `json:"accepted_eta_ns"`
-		Samples     []struct {
-			LoggedAt           string `json:"logged_at_ns"`
-			ObservedAt         string `json:"observed_at_ns"`
-			CandidateETA       string `json:"candidate_eta_ns"`
-			CandidateFeederETA string `json:"candidate_feeder_eta_ns"`
-			Outcome            string `json:"outcome"`
-		} `json:"samples"`
+		Callsign        string         `json:"callsign"`
+		SessionID       int32          `json:"session_id"`
+		AcceptedETA     string         `json:"accepted_eta_ns"`
+		Samples         []filterSample `json:"samples"`
+		RecoverySamples []filterSample `json:"recovery_samples"`
 	}
 	bytes, err := os.ReadFile("testdata/aman-filter-2026-10-26.json")
 	require.NoError(t, err)
@@ -117,15 +119,28 @@ func TestAMANStateConsumerContract(t *testing.T) {
 	require.True(t, stale.Flights[0].PredictionFilter.Unreliable)
 	add("stale_observation_unreliable", stale, goldenAMANHealth())
 
-	recovered := *flight.Prediction
-	recovered.InputObservedAt = state.GeneratedAt.Add(time.Minute)
-	recovered.GeneratedAt, recovered.Publishable = recovered.InputObservedAt, true
-	recovered.DegradationReason = nil
-	flight, accepted, _ := prediction.Filter(flight, recovered, nil, false, false)
-	require.True(t, accepted)
-	flight.Prediction = &recovered // Operational service installs accepted predictions.
-	state.GeneratedAt, state.Flights[0] = recovered.GeneratedAt, flight
-	state.Revision++
+	// Replay the real next observations too: the first remains inconsistent,
+	// then the consistent pair at 19:06 CET restores guidance automatically.
+	require.Len(t, incident.RecoverySamples, 2)
+	for _, sample := range incident.RecoverySamples {
+		raw := *flight.Prediction
+		raw.RawTETA = nanos(sample.CandidateETA)
+		raw.InputObservedAt, raw.GeneratedAt = nanos(sample.ObservedAt), nanos(sample.LoggedAt)
+		raw.Publishable, raw.DegradationReason = true, nil
+		feeder := nanos(sample.CandidateFeederETA)
+		updated, accepted, outcome := prediction.Filter(flight, raw, &feeder, false, false)
+		require.Equal(t, sample.Outcome, outcome)
+		flight = updated
+		if accepted {
+			reduced, err := prediction.Reduce(prediction.DefaultConfig(), flight, prediction.Input{Raw: raw, State: flight.State, Slot: flight.Slot})
+			require.NoError(t, err)
+			flight = reduced.Flight
+		}
+		state.GeneratedAt, state.Flights[0] = raw.GeneratedAt, flight
+		state.Revision++
+	}
+	require.False(t, flight.PredictionFilter.Unreliable)
+	require.True(t, flight.Prediction.Publishable)
 	add("recovered", state, goldenAMANHealth())
 
 	passed := goldenAMANState()
@@ -135,6 +150,22 @@ func TestAMANStateConsumerContract(t *testing.T) {
 	degraded.Status = aman.HealthDegraded
 	degraded.Weather = aman.ComponentHealth{Status: aman.HealthUnavailable, Reason: "weather_refresh_failed"}
 	add("degraded_weather", goldenAMANState(), degraded)
+	flightDegraded := goldenAMANState()
+	flightDegraded.Flights[0].DataStatus = aman.DataStale
+	reason := "missing_essential_data:groundspeed"
+	flightDegraded.Flights[0].Prediction.DegradationReason = &reason
+	add("single_flight_input_degraded", flightDegraded, goldenAMANHealth())
+
+	// A real airport-wide source outage restricts authority, but the last
+	// complete timeline and traffic data must still render with diagnostics.
+	outage := goldenAMANHealth()
+	outage.Status, outage.Ready, outage.AuthorityAllowed = aman.HealthDegraded, false, false
+	outage.EffectiveMode = aman.EffectiveBlocked
+	outage.VATSIM = aman.ComponentHealth{Status: aman.HealthUnavailable, Reason: "source_disconnected"}
+	outage.BlockedReasons = []string{"observation_source:source_disconnected"}
+	outageState := goldenAMANState()
+	outageState.Authoritative = false
+	add("airport_source_outage", outageState, outage)
 	empty := goldenAMANState()
 	empty.Flights = nil
 	add("empty_airport", empty, goldenAMANHealth())

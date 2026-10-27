@@ -13,12 +13,12 @@ function scenario(name: string) {
 }
 
 describe("Go AMAN publisher → TypeScript state replacement", () => {
-  it.each(scenarios)("accepts the serialized $name state", ({event}) => {
+  it.each(scenarios)("accepts the serialized $name state", ({name, event}) => {
     expect(isAMANStateEvent(event)).toBe(true);
     const result = replaceAMANState(null, event);
     expect(result).toMatchObject({accepted: true, error: null});
     expect(result.state).not.toBeNull();
-    if (result.state) expect(getAMANHeaderReadModel(result.state).availability).toBe("ready");
+    if (result.state) expect(getAMANHeaderReadModel(result.state).availability).toBe(name === "airport_source_outage" ? "degraded" : "ready");
   });
 
   it("keeps the airport and neighbouring guidance available during the production failure", () => {

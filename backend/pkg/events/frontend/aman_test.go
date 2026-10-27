@@ -11,6 +11,7 @@ import (
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestAMANStateEventMatchesSharedV1Golden(t *testing.T) {
@@ -42,6 +43,65 @@ func TestUnreliablePredictionSuppressesGuidanceInBothTransports(t *testing.T) {
 	require.Nil(t, front.Data.Flights[0].GainLossSeconds)
 	require.Nil(t, es.Values[0].GainLossSeconds)
 	require.NotNil(t, front.Data.Flights[0].Slot, "a degraded prediction never releases the reservation")
+}
+
+func TestAircraftDegradationIsScopedInBothTransports(t *testing.T) {
+	for _, unreliable := range []bool{false, true} {
+		t.Run(map[bool]string{false: "stale_input", true: "unreliable_prediction"}[unreliable], func(t *testing.T) {
+			state := goldenAMANState()
+			healthy := &state.Flights[0]
+			healthy.Prediction.Calculation = &aman.PredictionCalculation{
+				NoWindDuration: 20 * time.Minute, Duration: 20 * time.Minute,
+				Legs: []aman.PredictionLeg{{ID: "terminal", From: "TESPI", To: "ILS-22L", DistanceNM: 80,
+					NoWindDuration: 20 * time.Minute, Duration: 20 * time.Minute}},
+			}
+			affected := goldenAMANState().Flights[0]
+			affected.Callsign = "AFFECTED"
+			affected.Prediction.Calculation = healthy.Prediction.Calculation
+			if unreliable {
+				affected.PredictionFilter = &aman.PredictionFilterState{LastObservedAt: state.GeneratedAt, Unreliable: true,
+					Pending: &aman.PredictionCandidate{TETA: affected.Prediction.RawTETA, FirstObservedAt: state.GeneratedAt, Since: state.GeneratedAt, Samples: 1}}
+				affected.Prediction.Publishable = false
+			} else {
+				affected.DataStatus = aman.DataStale
+			}
+			reason := "missing_essential_data:groundspeed"
+			if unreliable {
+				reason = "prediction_unreliable"
+			}
+			affected.Prediction.DegradationReason = &reason
+			state.Flights = append(state.Flights, affected)
+			front, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+			require.NoError(t, err)
+			require.True(t, front.Data.TechnicalHealth.Ready)
+			require.True(t, front.Data.Authoritative)
+			require.EqualValues(t, 120, *front.Data.Flights[0].GainLossSeconds)
+			require.NotNil(t, front.Data.Flights[1].Slot)
+
+			es, err := euroscopeEvents.NewAMANGainLossEvent(state)
+			require.NoError(t, err)
+			wire, err := es.Marshal()
+			require.NoError(t, err)
+			kind, payload, err := euroscopeEvents.UnmarshalEnvelope(wire)
+			require.NoError(t, err)
+			require.Equal(t, euroscopeEvents.AMANGainLoss, kind)
+			var decoded euroscopeEvents.AMANGainLossEvent
+			require.NoError(t, proto.Unmarshal(payload, &decoded))
+			require.Len(t, decoded.Values, 2)
+			require.True(t, decoded.Authoritative)
+			require.EqualValues(t, 120, *decoded.Values[0].GainLossSeconds)
+			require.Equal(t, "fresh", decoded.Values[0].DataStatus)
+			if unreliable {
+				require.Nil(t, decoded.Values[1].GainLossSeconds)
+				require.Nil(t, decoded.Values[1].ReferencePoint)
+				require.Nil(t, decoded.Values[1].TargetTime)
+				require.Nil(t, decoded.Values[1].PredictedTime)
+			} else {
+				require.EqualValues(t, 120, *decoded.Values[1].GainLossSeconds)
+				require.Equal(t, "stale", decoded.Values[1].DataStatus)
+			}
+		})
+	}
 }
 
 func TestAMANStateEventAcceptsPostgresMicrosecondRoundTripWithoutAcceptingFutureInput(t *testing.T) {

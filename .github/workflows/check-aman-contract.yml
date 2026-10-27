@@ -30,7 +30,7 @@ jobs:
         run: npm ci
       - name: Exercise AMAN calculation, sequencing and publication
         working-directory: backend
-        run: go test ./pkg/events/frontend ./internal/aman/...
+        run: go test ./pkg/events/frontend ./pkg/events/euroscope ./internal/aman/...
       - name: Validate live Go output with the frontend consumer
         working-directory: frontend
         run: npm run test:contract:aman

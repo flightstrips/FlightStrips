@@ -32,5 +32,21 @@
       "candidate_feeder_eta_ns": "1793073540869815199",
       "outcome": "filtered"
     }
+  ],
+  "recovery_samples": [
+    {
+      "logged_at_ns": "1793037914606289650",
+      "observed_at_ns": "1793037870000000000",
+      "candidate_eta_ns": "1793074433281483231",
+      "candidate_feeder_eta_ns": "1793073639387686958",
+      "outcome": "filtered"
+    },
+    {
+      "logged_at_ns": "1793037973974664439",
+      "observed_at_ns": "1793037930000000000",
+      "candidate_eta_ns": "1793074437920127505",
+      "candidate_feeder_eta_ns": "1793073644026331232",
+      "outcome": "sustained_change"
+    }
   ]
 }

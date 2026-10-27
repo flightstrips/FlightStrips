@@ -61,6 +61,8 @@ func LogCommittedChanges(ctx context.Context, before, after aman.AirportState, a
 		oldPhysical, _ := aman.SmoothedPhysicalPrediction(old)
 		newPhysical, _ := aman.SmoothedPhysicalPrediction(f)
 		slog.InfoContext(ctx, "AMAN guidance change committed", "session", after.SessionID, "airport", after.Airport, "callsign", f.Callsign,
+			"scope", "flight", "prediction_unreliable", f.PredictionFilter != nil && f.PredictionFilter.Unreliable,
+			"prediction_degradation_reason", diagnosticDegradationReason(f),
 			"revision", after.Revision, "command_id", commandID, "operations", causes,
 			"previous_raw_eta", diagnosticRawETA(old), "raw_eta", diagnosticRawETA(f),
 			"previous_smoothed_eta", oldPhysical, "smoothed_eta", newPhysical,
@@ -69,6 +71,13 @@ func LogCommittedChanges(ctx context.Context, before, after aman.AirportState, a
 			"previous_guidance_seconds", oldGain, "guidance_seconds", newGain, "previous_available", oldAvailable, "available", newAvailable,
 			"previous_neighbours", oldNeighbours[f.Callsign], "neighbours", newNeighbours[f.Callsign], "order_changed", orderChanged)
 	}
+}
+
+func diagnosticDegradationReason(f aman.AMANFlight) string {
+	if f.Prediction == nil || f.Prediction.DegradationReason == nil {
+		return ""
+	}
+	return *f.Prediction.DegradationReason
 }
 
 func diagnosticGuidance(f aman.AMANFlight) (int64, bool) {

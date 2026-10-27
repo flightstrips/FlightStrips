@@ -730,7 +730,7 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 		flight := next.Flights[index]
 		updated, updateErr := s.reconcileFlight(ctx, next, flight, observation, now)
 		if updateErr != nil {
-			slog.WarnContext(ctx, "AMAN flight prediction degraded", "airport", airport, "callsign", observation.Callsign, "error", updateErr)
+			slog.WarnContext(ctx, "AMAN flight prediction degraded", "scope", "flight", "session", aman.SessionID(ctx), "airport", airport, "callsign", observation.Callsign, "error", updateErr)
 			updated = applyUnavailablePrediction(updated, observation, now, updateErr)
 		}
 		next.Flights[index] = updated
@@ -1319,7 +1319,6 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	if input.WakeTurbulenceCategory == predictor.CategoryLight {
 		reta, retaErr := predictor.EstimateRETA(input, predictor.PerformanceWindConfig{})
 		if retaErr != nil {
-			s.setHealthComponent("predictor", aman.HealthUnavailable, "reta_prediction_failed", now)
 			markPredictionNonPublishable(&flight, wtcLightRETAMissingReason)
 			return flight, nil
 		}
@@ -1340,7 +1339,6 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	} else {
 		estimate, estimateErr := predictor.EstimatePerformanceWind(ctx, nil, s.deps.Wind, input, predictor.PerformanceWindConfig{})
 		if estimateErr != nil {
-			s.setHealthComponent("predictor", aman.HealthUnavailable, "prediction_failed", now)
 			return flight, estimateErr
 		}
 		confidence := estimate.Confidence
@@ -1372,7 +1370,8 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	for i, leg := range projection.Remaining {
 		raw.RemainingRouteFixes[i] = string(leg.To)
 	}
-	s.setHealthComponent("predictor", aman.HealthReady, "", now)
+	// These deterministic calculations consume one flight's inputs. A rejected
+	// input degrades that flight, never the shared predictor's technical health.
 	derivedFeeder := routeFeederETA(predictionAt, legDurations, projection.Remaining, navdata.FixID(feederFix), projection.FeederProgress)
 	var candidateFeeder *time.Time
 	if derivedFeeder != nil && derivedFeeder.Source == aman.FeederETASourceRoute {
@@ -1388,8 +1387,11 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		slog.InfoContext(ctx, "AMAN prediction filter evaluated", "session", aman.SessionID(ctx), "airport", state.Airport,
 			"callsign", flight.Callsign, "outcome", filterOutcome, "candidate_eta", raw.RawTETA,
 			"candidate_feeder_eta", candidateFeeder, "accepted_eta", predictionTimeValue(flight.Prediction),
+			"prediction_unreliable", flight.PredictionFilter != nil && flight.PredictionFilter.Unreliable,
+			"distance_nm", raw.DistanceToGoNM, "previous_distance_nm", predictionDistanceValue(flight.Prediction),
+			"accepted_calculation", predictionCalculationContext(flight.Prediction), "candidate_calculation", predictionCalculationContext(&raw),
 			"observed_at", raw.InputObservedAt, "groundspeed", input.CurrentGroundspeedKnots,
-			"groundspeed_source", observation.Surveillance.GroundspeedSource, "surveillance_source", observation.SurveillanceSource,
+			"groundspeed_source", observation.Surveillance.GroundspeedSource, "surveillance_source", string(observation.SurveillanceSource),
 			"altitude", input.AltitudeFeet, "cruise_altitude", input.CruiseAltitudeFeet, "descent_confirmed", descentConfirmed,
 			"observed_speed_before_tod", input.UseObservedGroundspeedBeforeTOD,
 			"route_key", string(key), "weather_source", stringValue(raw.WeatherSource), "weather_revision", weatherRevision,

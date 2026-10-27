@@ -32,6 +32,23 @@ func TestFilterRejectsSpikeAndCountsDistinctObservations(t *testing.T) {
 	require.Nil(t, flight.PredictionFilter.Pending)
 }
 
+func TestNormalPredictionDriftNeverMarksFlightUnreliable(t *testing.T) {
+	now := predictionTime()
+	eta := now.Add(40 * time.Minute)
+	flight := aman.AMANFlight{Prediction: &aman.Prediction{RawTETA: eta, InputObservedAt: now, Publishable: true}}
+	for sample := 1; sample <= 20; sample++ {
+		at := now.Add(time.Duration(sample) * time.Minute)
+		raw := aman.Prediction{RawTETA: eta.Add(time.Duration(sample) * 20 * time.Second), InputObservedAt: at, GeneratedAt: at, Publishable: true}
+		updated, accepted, outcome := Filter(flight, raw, nil, false, false)
+		require.True(t, accepted)
+		require.Equal(t, "accepted", outcome)
+		require.False(t, updated.PredictionFilter.Unreliable)
+		require.Nil(t, updated.PredictionFilter.Pending)
+		updated.Prediction = &raw
+		flight = updated
+	}
+}
+
 func TestFilterSustainedChangeSurvivesRestartAndNeedsThirtySeconds(t *testing.T) {
 	now := predictionTime()
 	eta := now.Add(time.Hour)

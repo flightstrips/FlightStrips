@@ -202,6 +202,69 @@ describe("AMAN V1 full replacement contract", () => {
     expect(replaceAMANState(accepted.state, cleared).state?.warnings).toEqual([]);
   });
 
+  it("isolates an unreadable warning without weakening the operational contract", () => {
+    const event = replacement(8);
+    const validWarnings = structuredClone(event.data.warnings ?? []);
+    const unsupported = {
+      id: 'warning:"traffic_prediction"/"future_prediction_component"/"future_accuracy_notice"/-/"SAS123"/-',
+      source: "traffic_prediction", component: "future_prediction_component", severity: "warning",
+      code: "future_accuracy_notice", callsign: "SAS123", message: "Future diagnostic",
+    };
+    (event.data as unknown as {warnings: unknown}).warnings = [...validWarnings, unsupported];
+    expect(isAMANStateEvent(event), "the pre-merge contract check must still flag incompatible output").toBe(false);
+    const accepted = replaceAMANState(replacement(7).data, event);
+    expect(accepted).toMatchObject({accepted: true, error: null, status: "ready"});
+    expect(accepted.state?.flights).toEqual(event.data.flights);
+    expect(accepted.state?.technical_health).toEqual(event.data.technical_health);
+    expect(accepted.state?.warnings).toEqual([...validWarnings, expect.objectContaining({code: "warning_snapshot_unavailable"})]);
+
+    event.data.flights[0].freeze_reason = "invalid" as "none";
+    expect(replaceAMANState(accepted.state, event)).toMatchObject({accepted: false, state: null, error: "invalid_aman_state"});
+  });
+
+  it("surfaces a malformed warning snapshot while retaining valid timing data", () => {
+    const event = replacement(8);
+    (event.data as unknown as {warnings: unknown}).warnings = "invalid";
+    const accepted = replaceAMANState(null, event);
+    expect(accepted.accepted).toBe(true);
+    expect(accepted.state?.warnings).toEqual([expect.objectContaining({code: "warning_snapshot_unavailable"})]);
+    expect(accepted.state?.flights[0].slot).toEqual(event.data.flights[0].slot);
+  });
+
+  it("keeps the timeline and traffic prediction available for an unreliable flight prediction", () => {
+    const event = replacement(8);
+    event.data.warnings = [{
+      id: 'warning:"traffic_prediction"/"prediction"/"prediction_unreliable"/-/"SAS123"/-',
+      source: "traffic_prediction", component: "prediction", severity: "warning", code: "prediction_unreliable",
+      callsign: "SAS123", message: "SAS123 arrival estimate remains unstable.",
+    }];
+    event.data.flights[0].gain_loss_seconds = null;
+    const result = replaceAMANState(replacement(7).data, event);
+    expect(result).toMatchObject({accepted: true, error: null, status: "ready"});
+    expect(result.state?.warnings).toEqual(event.data.warnings);
+    expect(result.state?.flights[0].slot).toEqual(event.data.flights[0].slot);
+    expect(result.state?.traffic_prediction).toEqual(event.data.traffic_prediction);
+    const recovered = replacement(9);
+    recovered.data.warnings = [];
+    expect(replaceAMANState(result.state, recovered).state?.warnings).toEqual([]);
+  });
+
+  it.each([
+    {callsign: undefined}, {callsign: " PADDED "}, {severity: "error"}, {code: "unknown"},
+    {runway_group_id: "ARRIVAL-22"}, {related_callsign: "LEAD"},
+  ])("rejects malformed prediction warning scope: %j", (override) => {
+    const event = replacement(8);
+    const warning = {
+      source: "traffic_prediction", component: "prediction", severity: "warning", code: "prediction_unreliable",
+      callsign: "SAS123", runway_group_id: undefined, related_callsign: undefined, ...override,
+    };
+    const optional = (value: string | undefined) => value === undefined ? "-" : JSON.stringify(value);
+    const id = `warning:${[JSON.stringify(warning.source), optional(warning.component), JSON.stringify(warning.code),
+      optional(warning.runway_group_id), optional(warning.callsign), optional(warning.related_callsign)].join("/")}`;
+    (event.data as unknown as {warnings: unknown}).warnings = [{...warning, id, message: "Unstable prediction"}];
+    expect(isAMANStateEvent(event)).toBe(false);
+  });
+
   it("keeps the timeline available when holding release diagnostics are present", () => {
     const event = replacement(8);
     event.data.holding_information = [{callsign: "TRAIL", holding: "OLPIB", eat: null,

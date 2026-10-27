@@ -3,7 +3,7 @@ import {resolve} from "node:path";
 import {fireEvent, render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
-import type {AMANState, AMANStateEvent} from "@/api/aman";
+import {replaceAMANState, type AMANState, type AMANStateEvent} from "@/api/aman";
 import {AMANBoardView, type AMANBoardViewProps} from "./AMANBoard";
 
 const boardStore = vi.hoisted(() => ({
@@ -68,6 +68,24 @@ describe("complete AMAN timeline and strips", () => {
     rerender(<AMANBoardView connectionState="connected" error="invalid_aman_state" onSelectFlight={() => undefined} presentationStatus="degraded" selectedCallsign={null} state={null} />);
     expect(screen.getByText(/State rejected: invalid_aman_state/)).toBeInTheDocument();
     expect(screen.queryByText("SAS123")).not.toBeInTheDocument();
+  });
+
+  it("renders the timeline when a flight prediction becomes unreliable", () => {
+    const data = state();
+    data.warnings = [{
+      id: 'warning:"traffic_prediction"/"prediction"/"prediction_unreliable"/-/"SAS123"/-',
+      source: "traffic_prediction", component: "prediction", severity: "warning", code: "prediction_unreliable",
+      callsign: "SAS123", message: "SAS123 arrival estimate remains unstable.",
+    }];
+    data.flights[0].gain_loss_seconds = null;
+    data.flights[0].raw_teta = null;
+    data.flights[0].operational_teta = null;
+    const result = replaceAMANState(null, {...golden, data});
+    expect(result.accepted).toBe(true);
+    renderBoard(result.state, {presentationStatus: result.status, error: result.error});
+    expect(screen.queryByText("AMAN timeline unavailable")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();
+    expect(screen.getByTestId("operational-marker-SAS123")).toHaveAttribute("data-marker-time", data.flights[0].slot!.time);
   });
 
   it("renders the normal golden state with backend values and explicit unavailable contract fields", () => {

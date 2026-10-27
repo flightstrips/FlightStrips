@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:contract:aman": "node scripts/check-aman-contract.mjs",
     "test:watch": "vitest",
     "test:visual": "playwright test",
     "test:visual:ui": "playwright test --ui",

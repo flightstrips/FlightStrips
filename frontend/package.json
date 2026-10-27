@@ -15,6 +15,8 @@
     "test:contract:aman": "node scripts/check-aman-contract.mjs",
     "test:watch": "vitest",
     "test:visual": "playwright test",
+    "test:e2e:aman": "tsc -p tsconfig.e2e.json && node tests/e2e/run.mjs",
+    "test:e2e:aman:mutation": "node tests/e2e/mutation.mjs",
     "test:visual:ui": "playwright test --ui",
     "test:visual:report": "playwright show-report"
   },

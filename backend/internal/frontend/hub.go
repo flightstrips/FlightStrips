@@ -125,6 +125,8 @@ type validationStatusAcknowledger interface {
 }
 
 type HubDependencies struct {
+	// Now timestamps AMAN commands. Nil uses real time.
+	Now              func() time.Time
 	Strips           shared.StripService
 	Authentication   shared.AuthenticationService
 	AMANState        AMANStateProvider
@@ -134,6 +136,9 @@ type HubDependencies struct {
 }
 
 func NewHub(deps HubDependencies) (*Hub, error) {
+	if deps.Now == nil {
+		deps.Now = time.Now
+	}
 	if dependencies.IsNil(deps.Strips) {
 		return nil, errors.New("frontend hub requires strip service")
 	}
@@ -201,7 +206,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		amanCommandService:    deps.AMANCommands,
 		amanCoordination:      deps.AMANCoordination,
 		amanMutations:         deps.AMANMutations,
-		amanNow:               time.Now,
+		amanNow:               deps.Now,
 		amanRoleForPosition:   configuredAMANRole,
 		messages:              make(map[int32][]frontend.MessageReceivedEvent),
 		metarCache:            make(map[int32]string),

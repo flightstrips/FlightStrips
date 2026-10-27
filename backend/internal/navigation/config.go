@@ -5,6 +5,7 @@ package navigation
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 const (
@@ -16,6 +17,8 @@ const (
 // configuration it materializes. Its zero value deliberately disables the
 // navigation source without affecting AMAN's rollout setting.
 type Config struct {
+	// Now is shared with the application replay clock; nil uses real time.
+	Now                  func() time.Time
 	Source               string
 	TerminalGeometryPath string
 }

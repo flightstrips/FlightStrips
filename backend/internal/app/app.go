@@ -103,6 +103,8 @@ type Config struct {
 }
 
 type Dependencies struct {
+	// Now supplies the application clock for deterministic replay. Nil uses real time.
+	Now                   func() time.Time
 	DBPool                *pgxpool.Pool
 	AuthenticationService shared.AuthenticationService
 	PDCClient             pdc.HoppieClientInterface
@@ -152,7 +154,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment, cfg.StandAssignmentAircraftJSON)
 	var testClock *testtools.Clock
-	satNow := time.Now
+	satNow := deps.Now
+	if satNow == nil {
+		satNow = time.Now
+	}
 	if cfg.EnableTestTools {
 		testClock = testtools.NewClock()
 		satNow = testClock.Now
@@ -223,6 +228,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	pdcFrequencyProviders := transports.pdcFrequencyProviders
 
 	amanDependencies := deps.AMAN
+	cfg.Navigation.Now = satNow
 	navigationSource, err := navigation.Assemble(cfg.Navigation, dbpool)
 	if err != nil {
 		if closeDB {
@@ -344,7 +350,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			}
 		}
 	}
-	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, amanCoordination, amanRouteFacts, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled, amanRuntime.Ownership().HoldingEATWritebackEnabled)
+	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, amanCoordination, amanRouteFacts, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled, amanRuntime.Ownership().HoldingEATWritebackEnabled, satNow)
 	if err != nil {
 		if closeDB {
 			dbpool.Close()
@@ -793,9 +799,9 @@ type realtimeAssembly struct {
 	euroscope *euroscope.Hub
 }
 
-func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanCoordination *coordinationrequest.Service, amanRouteFacts euroscope.AMANRouteFactReporter, amanMutations bool, amanGainLossEnabled bool, holdingEATEnabled bool) (realtimeAssembly, error) {
+func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanCoordination *coordinationrequest.Service, amanRouteFacts euroscope.AMANRouteFactReporter, amanMutations bool, amanGainLossEnabled bool, holdingEATEnabled bool, now func() time.Time) (realtimeAssembly, error) {
 	frontendHub, err := frontend.NewHub(frontend.HubDependencies{
-		Strips: stripService, Authentication: authService, AMANState: amanState, AMANCommands: amanCommands, AMANCoordination: amanCoordination, AMANMutations: amanMutations,
+		Now: now, Strips: stripService, Authentication: authService, AMANState: amanState, AMANCommands: amanCommands, AMANCoordination: amanCoordination, AMANMutations: amanMutations,
 	})
 	if err != nil {
 		return realtimeAssembly{}, fmt.Errorf("initialize frontend hub: %w", err)

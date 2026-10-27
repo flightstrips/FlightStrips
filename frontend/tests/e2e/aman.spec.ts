@@ -6,8 +6,8 @@ import type {AMANState} from "../../src/api/aman";
 
 const backend = "http://127.0.0.1:4180";
 const epoch = "2026-10-26T18:00:00.000Z";
-interface NativeMessage {generated_at: string; values: Array<{callsign: string; gain_loss_seconds?: number}>}
-const hasNativeGuidance = (event: NativeMessage, callsign: string) => event.values?.some(value => value.callsign === callsign && value.gain_loss_seconds !== undefined);
+interface NativeMessage {generated_at: string; values: Array<{callsign: string; data_status: string; gain_loss_seconds?: number}>}
+const hasNativeGuidance = (event: NativeMessage, callsign: string) => event.values?.some(value => value.callsign === callsign && value.data_status === "fresh" && value.gain_loss_seconds !== undefined);
 
 async function nativeFrame(request: APIRequestContext, accepts: (event: NativeMessage) => boolean) {
   let selected = "";
@@ -137,7 +137,7 @@ test("running AMAN preserves healthy targets, diagnoses degradation and persists
       await expect.poll(() => state?.technical_health.ready).toBe(true);
       await page.getByRole("tab", {name: "Settings", exact: true}).click();
       await expect(page.getByRole("checkbox", {name: "Write holding EAT to EuroScope"})).toBeEnabled();
-      unreliableNative = await nativeFrame(request, event => event.values?.some(v => v.callsign === "CCA877Q" && v.gain_loss_seconds === undefined) && ["SAS101", "SAS202"].every(c => hasNativeGuidance(event, c)));
+      unreliableNative = await nativeFrame(request, event => event.values?.some(v => v.callsign === "CCA877Q" && v.data_status === "fresh" && v.gain_loss_seconds === undefined) && ["SAS101", "SAS202"].every(c => hasNativeGuidance(event, c)));
     });
     await test.step("arrival-rate action resequences real slots and persists runway policy", async () => {
       await settledRevision(request, () => state?.revision);

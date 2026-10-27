@@ -1,6 +1,6 @@
-# AMAN running-system regression gate
+# Browser end-to-end regression gate
 
-`AMAN running-system E2E` is a pre-merge GitHub Actions check. It runs on
+`Running-system E2E` is a pre-merge GitHub Actions check. It runs on
 every pull request (including stacked PRs), main push and merge queue entry,
 without path filters, conditional job skipping or a release-stage dependency.
 The [main-branch ruleset](https://github.com/flightstrips/FlightStrips/rules/300063)
@@ -12,8 +12,8 @@ this browser suite.
 ## Run locally
 
 Use Docker with Linux containers, Go 1.27, Node 26.11, CMake 3.24+, Ninja,
-Git and a C++20 compiler. On Windows, run from an x64 Visual Studio Developer
-PowerShell or Developer Command Prompt. Ports 4180 and 4181 must be free.
+Git and a C++20 compiler for the AMAN suite. On Windows, run from an x64 Visual Studio Developer
+PowerShell or Developer Command Prompt. Ports 4180, 4181 and 4182 must be free.
 The suite deliberately refuses to reuse a running server.
 
 ```sh
@@ -21,7 +21,7 @@ cd frontend
 npm ci
 npx playwright install --with-deps chromium
 npm run test:e2e:aman:mutation
-npm run test:e2e:aman
+npm run test:e2e
 ```
 
 The mutation run is expected to **report a killed mutation and exit zero**.
@@ -37,15 +37,50 @@ its original bytes in a `finally` block.
 
 ## What runs
 
-Playwright owns two child processes: a Go executable that assembles the real
-application with `app.Build`, and a server for a fresh production frontend build.
+Playwright starts a production frontend build and an isolated Go application
+for each selected suite. The shared `browserharness` command assembles the real
+application with `app.Build`; suite profiles supply only external fixtures.
+The generic config, process runners, identity setup, browser sessions and
+diagnostics live under `frontend/tests/e2e` and `playwright.e2e.config.ts`.
 PostgreSQL 16 runs in a disposable Testcontainers container. The existing
 test-database helper applies all real migrations and clones an isolated database.
 Only the airport bootstrap row is inserted directly; controller identity,
 session, active runways and observations enter through their real protocols.
 The `/e2e/persisted` endpoint reads the production PostgreSQL repository; it
 cannot set flight state or command outcomes. Test control endpoints are compiled
-only into `internal/testing/amanbrowser`, never `cmd/server`.
+only into `internal/testing/browserharness`, never `cmd/server`.
+
+## Strip movement and ordering suite
+
+`npm run test:e2e:strips` needs Docker, Go, Node and Chromium; it does not build
+or require the C++ decoder. It runs with AMAN, VATSIM and navigation disabled.
+Two real EuroScope connections log in as separate tower controllers, and the
+master synchronizes six departure strips through binary protobuf messages.
+Two independent Chromium contexts authenticate as those controllers and use
+the normal tower workspace and context menu to assume their strips.
+
+The browser scenario verifies:
+
+- Pointer reordering within a populated taxi bay and runway departure bay.
+- Pointer moves into a populated destination bay at a specific insertion point.
+- Every successful change reaches the second browser without reloading, in both
+  controller directions, and matches persisted bay, sequence and owner values.
+- Another controller's strip cannot be dragged. Direct move and reorder socket
+  commands are rejected by the server, leaving bay, sequence, owner and version
+  unchanged. This covers authorization independently of the disabled UI.
+- The owning controller can move that same strip.
+- Reloading both browsers restores persisted bay order and ownership restrictions
+  through fresh application connections.
+
+The ownership test exposed a missing authorization check for `update_order`;
+the handler now rejects reordering another controller's owned flight, matching
+the existing sortable UI restriction. Unowned strips remain reorderable.
+
+## AMAN suite
+
+`npm run test:e2e:aman` selects the existing AMAN suite and its standalone native
+decoder. AMAN-specific feeds, scenarios, replay clock and state inspection are
+kept in `aman.go` and `aman_feeds.go` within the shared Go harness.
 
 The suite uses the real VATSIM HTTP decoder and observation worker, AIRAC.NET
 adapter and navigation materializer, prediction/filter/lifecycle/sequence
@@ -67,7 +102,7 @@ handler share a replay clock fixed to 26 October 2026. The browser clock uses
 the same date. Timeout transitions advance that clock; assertions poll actual
 events or UI conditions, with no hard sleeps or retry-to-green setting.
 
-## Assertions and evidence
+### AMAN assertions and evidence
 
 The scenario checks:
 
@@ -96,13 +131,13 @@ The scenario checks:
   loses its fresh guidance, recovery restores it, older revisions are ignored,
   and the decoder accepts a new revision stream after reconnect.
 
-`frontend/aman-e2e-artifacts/` contains backend/frontend logs, an HTML report,
+`frontend/e2e-artifacts/` contains separate per-suite backend logs and frontend logs, an HTML report,
 captured WebSocket JSON and protobuf frames, native decoder output, and browser
 console errors. Failures retain screenshots, video and traces. CI uploads these
 even after a failing step. To inspect a failure:
 
 ```sh
-npx playwright show-trace aman-e2e-artifacts/results/<test-directory>/trace.zip
+npx playwright show-trace e2e-artifacts/results/<test-directory>/trace.zip
 ```
 
 The controlled mutation reproduces the original outage's observable behavior:
@@ -116,7 +151,7 @@ the same failure condition through the running engine.
 
 ## Coverage limits
 
-This is a Chromium, single-backend, single-session regression using synthetic
+Each suite is a Chromium, single-backend, single-session regression using synthetic
 aviation inputs and the real bundled EKCH geometry. It does not validate live
 provider availability/data quality, Auth0 login/refresh, multi-node failover,
 every aircraft/performance model, every runway/holding, or every AMAN command.

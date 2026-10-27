@@ -1,4 +1,6 @@
-import {expect, test, type APIRequestContext, type Page, type WebSocketRoute} from "@playwright/test";
+import {expect, type APIRequestContext, type Page, type WebSocketRoute} from "@playwright/test";
+import {test} from "./fixtures";
+import {identity} from "./identity";
 import {execFileSync} from "node:child_process";
 import {writeFileSync} from "node:fs";
 import {resolve} from "node:path";
@@ -33,23 +35,6 @@ async function settledRevision(request: APIRequestContext, received: () => numbe
   }).toBe(true);
 }
 
-// Seed only the external identity provider's SDK cache. The normal Auth0
-// provider, app route, WebSocket provider and server-side roles remain in use.
-async function identity(page: Page, token = "__TEST_TOKEN__") {
-  await page.addInitScript(({token}) => {
-    const clientId = "mIjRYlbKHpTwnNAkhcu9plQP541Klwvn";
-    const scope = "openid profile email offline_access";
-    const claims = {sub: "auth0|aman-e2e", name: "AMAN E2E", exp: Math.floor(Date.now() / 1000) + 86400};
-    const idToken = `${btoa('{"alg":"RS256"}')}.${btoa(JSON.stringify(claims))}.fixture`;
-    const decodedToken = {claims, user: {sub: claims.sub, name: claims.name}, encoded: {header: "", payload: "", signature: ""}, header: {alg: "RS256"}};
-    localStorage.setItem(`@@auth0spajs@@::${clientId}::@@user@@`, JSON.stringify({id_token: idToken, decodedToken}));
-    localStorage.setItem(`@@auth0spajs@@::${clientId}::backend-dev::${scope}`, JSON.stringify({expiresAt: claims.exp, body: {access_token: token, id_token: idToken, decodedToken, scope, audience: "backend-dev", client_id: clientId, expires_in: 86400, token_type: "Bearer"}}));
-  }, {token});
-  await page.route("**/config.js", route => route.fulfill({contentType: "text/javascript", body: `window.__APP_CONFIG__={wsUrl:"ws://127.0.0.1:4180/frontEndEvents",apiBaseUrl:"${backend}",clientId:"mIjRYlbKHpTwnNAkhcu9plQP541Klwvn",audience:"backend-dev",connection:"vatsim-dev"};`}));
-  await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => route.fulfill({body: "", contentType: "text/css"}));
-  await page.route("**/version.json", route => route.fulfill({json: {deploymentVersion: "aman-e2e"}}));
-}
-
 async function openAMAN(page: Page) {
   await page.goto("/app");
   const choose = page.getByRole("button", {name: "AMAN", exact: true});
@@ -82,17 +67,10 @@ async function rejectedCommand(page: Page, token: string, revision: number) {
 }
 
 test("running AMAN preserves healthy targets, diagnoses degradation and persists authorized commands", async ({page, request, context}, testInfo) => {
-  const errors: string[] = [];
   const frames: unknown[] = [];
   let state: AMANState | undefined;
   let healthyNative = "";
   let unreliableNative = "";
-  const observeErrors = (observed: Page) => {
-    observed.on("console", message => {if (message.type() === "error") errors.push(message.text());});
-    observed.on("pageerror", error => errors.push(error.message));
-  };
-  observeErrors(page);
-  context.on("page", observeErrors);
   page.on("websocket", socket => socket.on("framereceived", ({payload}) => {
     if (typeof payload !== "string") return;
     const event = JSON.parse(payload);
@@ -100,7 +78,7 @@ test("running AMAN preserves healthy targets, diagnoses degradation and persists
     if (event.type === "aman.state") state = event.data;
   }));
   try {
-    await identity(page);
+    await identity(page, backend);
     await page.clock.setFixedTime(new Date(epoch));
     await test.step("healthy neighbours and real TMT buckets with supported weather fallback", async () => {
       await openAMAN(page);
@@ -149,9 +127,12 @@ test("running AMAN preserves healthy targets, diagnoses degradation and persists
       await expect.poll(() => state?.runway_groups.find(group => group.id === "ARRIVAL-22L")?.active_rate_per_hour).toBe(30);
       const persisted = await (await request.get(`${backend}/e2e/persisted`)).json();
       expect(persisted.RunwayGroups.find((group: {ID: string}) => group.ID === "ARRIVAL-22L").ActiveRatePerHour).toBe(30);
-      const first = state!.flights.find(flight => flight.callsign === "SAS101")!.slot!;
-      const second = state!.flights.find(flight => flight.callsign === "SAS202")!.slot!;
-      expect(Date.parse(second.time) - Date.parse(first.time)).toBeGreaterThanOrEqual(120_000);
+      // The policy commit precedes the asynchronous reconciliation of slots.
+      await expect.poll(() => {
+        const first = state?.flights.find(flight => flight.callsign === "SAS101")?.slot;
+        const second = state?.flights.find(flight => flight.callsign === "SAS202")?.slot;
+        return first && second ? Date.parse(second.time) - Date.parse(first.time) : 0;
+      }).toBeGreaterThanOrEqual(120_000);
       await dialog.getByRole("button", {name: "Cancel", exact: true}).click();
       await expect(page.getByRole("button", {name: "ARRIVAL-22L: 30/h", exact: true})).toBeVisible();
     });
@@ -168,7 +149,7 @@ test("running AMAN preserves healthy targets, diagnoses degradation and persists
       expect((await request.post(`${backend}/e2e/observer`)).ok()).toBe(true);
       expect((await rejectedCommand(page, "__TEST_FRONTEND_TOKEN__", state!.revision)).code).toBe("unauthorized");
       const observer = await context.newPage();
-      await identity(observer, "__TEST_FRONTEND_TOKEN__");
+      await identity(observer, backend, "__TEST_FRONTEND_TOKEN__");
       await observer.clock.setFixedTime(new Date(epoch));
       await openAMAN(observer);
       await expect(target(observer, "SAS101")).toBeVisible();
@@ -199,7 +180,7 @@ test("running AMAN preserves healthy targets, diagnoses degradation and persists
         writeFileSync(path, Buffer.from(frame, "base64"));
         return path;
       });
-      const decoder = resolve(`aman-e2e-artifacts/native/aman-live-decoder${process.platform === "win32" ? ".exe" : ""}`);
+      const decoder = resolve(`e2e-artifacts/native/aman-live-decoder${process.platform === "win32" ? ".exe" : ""}`);
       const output = execFileSync(decoder, paths, {encoding: "utf8"});
       await testInfo.attach("native-decoder", {body: output, contentType: "text/plain"});
     });
@@ -272,9 +253,7 @@ test("running AMAN preserves healthy targets, diagnoses degradation and persists
       await page.getByRole("tab", {name: "Settings", exact: true}).click();
       await expect(page.getByRole("checkbox", {name: "Write holding EAT to EuroScope"})).toBeChecked();
     });
-    expect(errors).toEqual([]);
   } finally {
-    await testInfo.attach("browser-console", {body: JSON.stringify(errors, null, 2), contentType: "application/json"});
     await testInfo.attach("websocket-frames", {body: JSON.stringify(frames, null, 2), contentType: "application/json"});
   }
 });

@@ -1,61 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"path"
 	"strings"
 	"time"
 )
 
-type fixtureTransport struct {
-	upstream   http.RoundTripper
-	fixtureURL string
-}
-
-func (t fixtureTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	clone := r.Clone(r.Context())
-	endpoint := *r.URL
-	clone.URL = &endpoint
-	if r.URL.Hostname() == "127.0.0.1" || r.URL.Hostname() == "localhost" {
-		return t.upstream.RoundTrip(r)
-	}
-	switch r.URL.Hostname() {
-	case "airac.net", "api.open-meteo.com":
-		target, _ := url.Parse(t.fixtureURL)
-		clone.URL.Host = target.Host
-		clone.URL.Scheme = "http"
-		clone.Host = target.Host
-		return t.upstream.RoundTrip(clone)
-	default:
-		return nil, fmt.Errorf("E2E forbids live HTTP request to %s", r.URL.Hostname())
-	}
-}
-
-// Synthetic AIRAC.NET wire fixtures. These go through the real HTTP decoder,
-// materializer, activation validation and PostgreSQL navigation cache.
-var positions = map[string][2]float64{
-	"ESSA": {59.65, 17.92}, "EKCH": {55.618, 12.656},
-	"TESPI": {56.1, 13.4}, "ROSBI": {55.9, 13.0}, "TUDLO": {56.2, 12.7},
-	"MONAK": {55.9, 11.2}, "OLPIB": {55.7, 11.9}, "TIDVU": {55.4, 13.8}, "ERNOV": {55.0, 12.2},
-	"CH632": {55.938464971, 12.4659798388},
-	"ERPUK": {55.45, 12.40}, "DOPEM": {55.44, 12.42}, "ABEGI": {55.76, 12.85}, "ADOVI": {55.75, 12.84}, "AGTIC": {55.682428, 12.176869}, "FEDJO": {55.837475, 12.351667}, "HOFFO": {55.570833, 13.073333}, "COPHO": {55.416558, 12.902131}, "BUDIQ": {55.435267, 12.362403}, "CATWU": {55.431833, 12.3695}, "CH12F": {55.706753, 12.415008}, "EXTAR": {55.781472, 12.910667}, "RUCCI": {55.785053, 12.903611}, "CH30F": {55.531728, 12.888461},
-}
-
-func point(id string) map[string]any {
-	coordinate, ok := positions[id]
-	if !ok {
-		hash := 0
-		for _, c := range id {
-			hash += int(c)
-		}
-		coordinate = [2]float64{55.5 + float64(hash%71)/100, 12 + float64(hash%97)/100}
-	}
-	return map[string]any{"identifier": id, "coordinates": map[string]float64{"lat": coordinate[0], "lon": coordinate[1]}}
-}
-func (h *harness) feed(w http.ResponseWriter, r *http.Request) {
+func (h *amanSuite) feed(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	scenario, epoch, baseURL := h.scenario, h.epoch, h.feedURL
 	at := h.clock.Now()
@@ -97,4 +50,26 @@ func (h *harness) feed(w http.ResponseWriter, r *http.Request) {
 		log.Printf("UNEXPECTED EXTERNAL REQUEST %s", r.URL)
 		http.Error(w, "unmatched external fixture", 500)
 	}
+}
+
+// Synthetic AIRAC.NET wire fixtures. These go through the real HTTP decoder,
+// materializer, activation validation and PostgreSQL navigation cache.
+var positions = map[string][2]float64{
+	"ESSA": {59.65, 17.92}, "EKCH": {55.618, 12.656},
+	"TESPI": {56.1, 13.4}, "ROSBI": {55.9, 13.0}, "TUDLO": {56.2, 12.7},
+	"MONAK": {55.9, 11.2}, "OLPIB": {55.7, 11.9}, "TIDVU": {55.4, 13.8}, "ERNOV": {55.0, 12.2},
+	"CH632": {55.938464971, 12.4659798388},
+	"ERPUK": {55.45, 12.40}, "DOPEM": {55.44, 12.42}, "ABEGI": {55.76, 12.85}, "ADOVI": {55.75, 12.84}, "AGTIC": {55.682428, 12.176869}, "FEDJO": {55.837475, 12.351667}, "HOFFO": {55.570833, 13.073333}, "COPHO": {55.416558, 12.902131}, "BUDIQ": {55.435267, 12.362403}, "CATWU": {55.431833, 12.3695}, "CH12F": {55.706753, 12.415008}, "EXTAR": {55.781472, 12.910667}, "RUCCI": {55.785053, 12.903611}, "CH30F": {55.531728, 12.888461},
+}
+
+func point(id string) map[string]any {
+	coordinate, ok := positions[id]
+	if !ok {
+		hash := 0
+		for _, c := range id {
+			hash += int(c)
+		}
+		coordinate = [2]float64{55.5 + float64(hash%71)/100, 12 + float64(hash%97)/100}
+	}
+	return map[string]any{"identifier": id, "coordinates": map[string]float64{"lat": coordinate[0], "lon": coordinate[1]}}
 }

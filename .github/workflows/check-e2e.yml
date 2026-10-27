@@ -1,4 +1,4 @@
-name: Check AMAN running system
+name: Check running system
 
 on:
   pull_request:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: aman-e2e-${{ github.event.pull_request.number || github.ref }}
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  aman-e2e:
-    name: AMAN running-system E2E
+  e2e:
+    name: Running-system E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -34,22 +34,22 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-      - name: Prove the browser detects the original outage
+      - name: Prove the AMAN suite detects the original outage
         working-directory: frontend
         run: npm run test:e2e:aman:mutation
-      - name: Exercise the corrected complete running system and native decoder
+      - name: Exercise strip workflows and AMAN with the native decoder
         working-directory: frontend
-        run: npm run test:e2e:aman
+        run: npm run test:e2e
       - name: Preserve browser and backend evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: aman-running-system-evidence
+          name: running-system-evidence
           if-no-files-found: error
           retention-days: 14
           path: |
-            frontend/aman-e2e-artifacts/backend.log
-            frontend/aman-e2e-artifacts/frontend.log
-            frontend/aman-e2e-artifacts/report/
-            frontend/aman-e2e-artifacts/results/
-            frontend/aman-e2e-artifacts/mutation/
+            frontend/e2e-artifacts/backend-*.log
+            frontend/e2e-artifacts/frontend.log
+            frontend/e2e-artifacts/report/
+            frontend/e2e-artifacts/results/
+            frontend/e2e-artifacts/mutation/

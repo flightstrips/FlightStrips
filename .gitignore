@@ -33,5 +33,5 @@ docs/.env.production
 docs/.DS_Store
 
 backend/config/data/
-/frontend/aman-e2e-artifacts/
-/backend/aman-e2e.log
+/frontend/*e2e-artifacts/
+/backend/*e2e.log

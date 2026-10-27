@@ -12,5 +12,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["tests/e2e/*.ts", "playwright.aman.config.ts"]
+  "include": ["tests/e2e/*.ts", "playwright.e2e.config.ts"]
 }

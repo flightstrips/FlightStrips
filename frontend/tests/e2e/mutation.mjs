@@ -4,7 +4,7 @@
 import {spawnSync} from "node:child_process";
 import {copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
 
-mkdirSync("aman-e2e-artifacts/mutation", {recursive: true});
+mkdirSync("e2e-artifacts/mutation", {recursive: true});
 const path = "src/api/aman.ts";
 const original = readFileSync(path);
 const needle = "export function replaceAMANState(current: AMANState | null, input: unknown): AMANReplacementResult {";
@@ -13,14 +13,14 @@ if (!original.toString().includes(needle)) throw new Error("mutation target chan
 let result;
 try {
   writeFileSync(path, original.toString().replace(needle, mutation));
-  result = spawnSync(process.execPath, ["node_modules/@playwright/test/cli.js", "test", "-c", "playwright.aman.config.ts", "--reporter=json", "--output=aman-e2e-artifacts/mutation/results"], {encoding: "utf8", maxBuffer: 32 * 1024 * 1024});
+  result = spawnSync(process.execPath, ["node_modules/@playwright/test/cli.js", "test", "-c", "playwright.e2e.config.ts", "--project=aman", "--reporter=json", "--output=e2e-artifacts/mutation/results"], {encoding: "utf8", maxBuffer: 32 * 1024 * 1024});
 } finally {
   writeFileSync(path, original);
 }
-writeFileSync("aman-e2e-artifacts/mutation/report.json", result.stdout ?? "");
-writeFileSync("aman-e2e-artifacts/mutation/stderr.log", result.stderr ?? "");
-for (const name of ["backend.log", "frontend.log"]) {
-  if (existsSync(`aman-e2e-artifacts/${name}`)) copyFileSync(`aman-e2e-artifacts/${name}`, `aman-e2e-artifacts/mutation/${name}`);
+writeFileSync("e2e-artifacts/mutation/report.json", result.stdout ?? "");
+writeFileSync("e2e-artifacts/mutation/stderr.log", result.stderr ?? "");
+for (const name of ["backend-aman.log", "frontend.log"]) {
+  if (existsSync(`e2e-artifacts/${name}`)) copyFileSync(`e2e-artifacts/${name}`, `e2e-artifacts/mutation/${name}`);
 }
 if (result.error) throw result.error;
 const report = JSON.parse(result.stdout);

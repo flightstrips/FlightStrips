@@ -45,14 +45,14 @@ func Assemble(config Config, pool *pgxpool.Pool) (*Source, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load navigation terminal configuration: %w", err)
 	}
-	source, err := airacnet.New(airacnet.Config{Checkpoints: airacnet.NewPostgresCheckpoints(pool)})
+	source, err := airacnet.New(airacnet.Config{Now: config.Now, Checkpoints: airacnet.NewPostgresCheckpoints(pool)})
 	if err != nil {
 		return nil, fmt.Errorf("initialize AIRAC.NET navigation source: %w", err)
 	}
 	cache := postgres.NewNavigationCache(pool)
 	importer, err := materializer.New(materializer.Dependencies{
 		Cycles: source, Airports: source, Runways: terminalConfig, Procedures: source, Fixes: source, Routes: source,
-		Cache: cache, Terminal: terminalConfig,
+		Cache: cache, Terminal: terminalConfig, Now: config.Now,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize navigation materializer: %w", err)

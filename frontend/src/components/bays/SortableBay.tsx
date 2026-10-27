@@ -203,7 +203,7 @@ export function SortableBay({
       return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
-          <div ref={containerRef} className={containerClassName} data-strip-scroll-container="true">
+          <div ref={containerRef} className={containerClassName} data-strip-scroll-container="true" data-bay={bayId}>
               {strips.map(s => (
                 <SortableStrip
                   key={stripDndId(s)}
@@ -307,6 +307,7 @@ function DroppableContainer({
       }}
       className={containerClassName}
       data-strip-scroll-container="true"
+      data-bay={bayId}
       style={hoverStyle}
       onClick={(e) => {
         if (!isDragging && e.target === e.currentTarget) {
@@ -347,6 +348,7 @@ function EmptyDroppableContainer({
       }}
       className={className}
       data-strip-scroll-container="true"
+      data-bay={bayId}
       style={hoverStyle}
       onClick={(e) => {
         if (!isDragging && e.target === e.currentTarget) {
@@ -477,6 +479,7 @@ export function SortableStrip({
   return (
     <div
       ref={setNodeRef}
+      data-strip={callsign}
       style={style}
       {...attributes}
       {...listeners}

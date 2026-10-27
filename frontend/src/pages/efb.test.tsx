@@ -1094,6 +1094,9 @@ describe('EFB page interactions', () => {
   });
 
   it('submits an arrival TOBT and refreshes the vIFF timing snapshot', async () => {
+    // TSAT deliberately equals the original TOBT; each field must be inspected
+    // by its own accessible group rather than a page-wide clock-text query.
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-10-26T19:15:00Z').getTime());
     let updated = false;
     const tsat = utcClockAfter(20);
     const ctot = utcClockAfter(30);
@@ -1115,7 +1118,8 @@ describe('EFB page interactions', () => {
     render(<EFBPage />);
     fireEvent.change(await screen.findByLabelText('Development callsign'), { target: { value: 'SAS123' } });
     fireEvent.click(screen.getByRole('button', { name: 'LOAD' }));
-    expect(await screen.findByText('1935')).toBeInTheDocument();
+    const tobt = await screen.findByRole('group', { name: 'TOBT' });
+    expect(await within(tobt).findByText('1935')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'UPDATE TOBT' }));
     const dialog = screen.getByRole('dialog', { name: 'TOBT' });
     fireEvent.change(within(dialog).getByLabelText('New TOBT (UTC)'), { target: { value: '2010Z' } });

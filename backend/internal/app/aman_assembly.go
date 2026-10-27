@@ -445,7 +445,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 		return operationalAMANAssembly{}, err
 	}
 	service, err := operational.New(operational.Dependencies{
-		Repository: amanRepository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
+		Repository: amanRepository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Now: now, Cache: postgres.NewAMANWeatherCache(pool)}),
 		Runways: sessionArrivalRunwaySource{sessions: postgres.NewSessionRepository(pool)}, Sessions: sessionArrivalRunwaySource{sessions: postgres.NewSessionRepository(pool)}, AircraftEngines: aircraftEngines,
 		Terminal: terminalConfig, TMAVolumePath: terminal.DefaultEKCHTMAVolumePath,
 		Airports: config.EnabledAirports, Mode: config.Mode, SourceMode: config.SourceMode, Publisher: transport, Now: now,
@@ -456,7 +456,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 	}
 	transport.health = service
 	coordinator, err := sequence.NewCoordinator(sequence.CoordinatorDependencies{
-		States: amanRepository, Outcomes: amanRepository, Committer: amanRepository, Publisher: transport,
+		States: amanRepository, Outcomes: amanRepository, Committer: amanRepository, Publisher: transport, Now: now,
 	})
 	if err != nil {
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN sequence coordinator: %w", err)

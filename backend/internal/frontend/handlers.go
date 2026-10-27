@@ -388,6 +388,10 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 		return errors.New("cannot update order of a strip which is not in a bay")
 	}
 
+	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != client.position {
+		return shared.RejectAction("not authorized: strip is owned by another controller")
+	}
+
 	return client.hub.stripService.MoveStripBetween(ctx, client.session, event.Callsign, event.InsertAfter, strip.Bay)
 }
 

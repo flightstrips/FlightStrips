@@ -15,14 +15,18 @@ Grafana schema v2 documents.
 
 ## AMAN stability diagnostics
 
-### Publisher/consumer contract gate
+### Required pre-merge AMAN gate
 
 Run `npm run test:contract:aman` in `frontend/` with the repository's Go and
 Node toolchains installed. It generates current JSON using the Go AMAN
-publisher and validates it with the actual TypeScript replacement consumer.
+publisher and sends it through the actual TypeScript consumer, WebSocket event
+handlers, Zustand store and rendered AMAN route, without mocking UI components.
 The dedicated **AMAN publisher-consumer contract** CI check runs on every pull
 request and merge queue entry, including changes confined to either service.
-Keep this check required in the main branch ruleset.
+It also runs the full AMAN backend suite, frontend tests and production frontend
+build. This check is required in the main branch ruleset, so failures block merge.
+Keep new AMAN behaviours represented in the generated scenarios and workspace
+smoke tests when adding features or changing contracts.
 
 The corpus includes healthy, filtered, unreliable, recovered, stale-source,
 passed-feeder, degraded-weather and empty-airport states. The 26 October 2026
@@ -32,6 +36,9 @@ them produces a `traffic_prediction` warning with component `prediction` and
 code `prediction_unreliable`. A consumer must accept this warning while
 retaining slots and healthy neighbouring guidance. Rejecting it discarded the
 whole state, producing `invalid_aman_state` and hiding both AMAN and TMT.
+Workspace checks also cover current warnings, visible targets, all twelve TMT
+buckets, command revisions, observer/disconnect restrictions, stale replacements,
+reconnect and recovery after a rejected replacement.
 
 ### Reading stability diagnostics
 

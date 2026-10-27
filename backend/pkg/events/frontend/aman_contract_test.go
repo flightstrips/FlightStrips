@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/prediction"
 
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,9 @@ func TestAMANStateConsumerContract(t *testing.T) {
 		}
 		event, err := NewAMANStateEvent(state, health.EffectiveMode, health)
 		require.NoError(t, err, name)
+		// The app transport adds versioned terminal mappings before marshalling.
+		left, right := navdata.STARFamilyID("TESPI"), navdata.STARFamilyID("TUDLO")
+		event.Data.TimelineConfig = ProjectAMANTimelineConfig("contract-terminal-v1", []navdata.TimelineMapping{{ID: 1, Left: &left, Right: &right}})
 		wire, err := event.Marshal()
 		require.NoError(t, err, name)
 		scenarios = append(scenarios, scenario{Name: name, Event: wire})
@@ -87,6 +91,18 @@ func TestAMANStateConsumerContract(t *testing.T) {
 
 	// A healthy neighbouring aircraft must remain visible in the same replacement.
 	neighbour := goldenAMANState().Flights[0]
+	shift := state.GeneratedAt.Sub(neighbour.Prediction.GeneratedAt)
+	neighbour.UpdatedAt = neighbour.UpdatedAt.Add(shift)
+	neighbour.Prediction.GeneratedAt = state.GeneratedAt
+	neighbour.Prediction.InputObservedAt = neighbour.Prediction.InputObservedAt.Add(shift)
+	neighbour.Prediction.RawTETA = neighbour.Prediction.RawTETA.Add(shift)
+	neighbour.Prediction.OperationalTETA = neighbour.Prediction.OperationalTETA.Add(shift)
+	neighbour.Prediction.HoldingFixETA = timePointer(neighbour.Prediction.HoldingFixETA.Add(shift))
+	neighbour.Prediction.HoldingPlan.HoldingEntryTime = neighbour.Prediction.HoldingPlan.HoldingEntryTime.Add(shift)
+	neighbour.Prediction.HoldingPlan.ApproachReleaseTime = neighbour.Prediction.HoldingPlan.ApproachReleaseTime.Add(shift)
+	neighbour.Slot.Time = neighbour.Slot.Time.Add(shift)
+	neighbour.FeederETA.ETA = timePointer(neighbour.FeederETA.ETA.Add(shift))
+	neighbour.ActiveRouteFact.ObservedAt = neighbour.ActiveRouteFact.ObservedAt.Add(shift)
 	state.Flights = append(state.Flights, neighbour)
 	add("unreliable_with_healthy_neighbour", state, goldenAMANHealth())
 

@@ -28,6 +28,15 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
+      - name: Exercise AMAN calculation, sequencing and publication
+        working-directory: backend
+        run: go test ./pkg/events/frontend ./internal/aman/...
       - name: Validate live Go output with the frontend consumer
         working-directory: frontend
         run: npm run test:contract:aman
+      - name: Exercise frontend stores and controller workflows
+        working-directory: frontend
+        run: npm test
+      - name: Build the production frontend
+        working-directory: frontend
+        run: npm run build

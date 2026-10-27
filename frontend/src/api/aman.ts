@@ -856,8 +856,29 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && (data.coordination_revision === undefined || isNonNegativeInteger(data.coordination_revision));
 }
 
-export function replaceAMANState(current: AMANState | null, event: unknown): AMANReplacementResult {
-  if (!isAMANStateEvent(event)) {
+// Warnings are diagnostic metadata. Validate the operational replacement first
+// and isolate unreadable warnings rather than discarding valid flight timings.
+// isAMANStateEvent remains strict so producer/consumer contract checks still fail.
+function withUsableAMANWarnings(value: unknown): AMANStateEvent | null {
+  if (!isObject(value) || !isObject(value.data)) return null;
+  const candidate: unknown = {...value, data: {...value.data, warnings: []}};
+  if (!isAMANStateEvent(candidate)) return null;
+  const usable = Array.isArray(value.data.warnings)
+    ? value.data.warnings.filter((warning): warning is AMANWarning => hasValidWarnings([warning]))
+    : [];
+  const notice: AMANWarning = {
+    id: "", source: "technical_health", component: "warning_snapshot", severity: "warning",
+    code: "warning_snapshot_unavailable",
+    message: "Some AMAN warnings are unavailable. Valid flight timings remain displayed.",
+  };
+  notice.id = warningIdentity(notice);
+  candidate.data.warnings = [...usable, notice];
+  return candidate;
+}
+
+export function replaceAMANState(current: AMANState | null, input: unknown): AMANReplacementResult {
+  const event = isAMANStateEvent(input) ? input : withUsableAMANWarnings(input);
+  if (event === null) {
     return {state: null, status: "degraded", error: "invalid_aman_state", accepted: false};
   }
   if (current !== null && current.session_id === event.data.session_id && (event.data.revision < current.revision ||

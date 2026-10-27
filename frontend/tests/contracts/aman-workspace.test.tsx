@@ -112,6 +112,21 @@ describe("AMAN pre-merge smoke: publisher → event handler → store → worksp
     expect(screen.queryByText("AMAN timeline unavailable")).not.toBeInTheDocument();
   });
 
+  it("surfaces unreadable diagnostics without removing valid aircraft or traffic predictions", () => {
+    const {store, emit, event} = workspace("healthy");
+    const warned = structuredClone(event);
+    warned.data.revision++;
+    warned.data.flights[0].slot!.revision++;
+    (warned.data as unknown as {warnings: unknown}).warnings = [...(warned.data.warnings ?? []), {source: "future", message: "Unknown warning"}];
+    emit(EventType.FrontendAMANState, warned);
+    expect(store.getState().amanError).toBeNull();
+    expect(store.getState().amanState?.technical_health.ready).toBe(true);
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();
+    expect(screen.getByRole("region", {name: "TMT traffic prediction"})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", {name: `Warnings (${store.getState().amanWarnings.items.length})`}));
+    expect(screen.getByText("Some AMAN warnings are unavailable. Valid flight timings remain displayed.")).toBeInTheDocument();
+  });
+
   it("restricts commands for an actual airport source outage while retaining the workspace", () => {
     const {store, send} = workspace("airport_source_outage");
     expect(store.getState().amanState?.technical_health.ready).toBe(false);

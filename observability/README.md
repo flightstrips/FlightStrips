@@ -49,6 +49,12 @@ data status. A prediction filter that cannot establish a consistent estimate
 withholds only that aircraft's live gain/loss; it retains the runway reservation.
 The flight-detail view carries the calculation's degradation reason.
 
+Unreadable warning metadata is isolated from valid operational state. The
+frontend retains readable warnings and adds a visible notice about unavailable
+diagnostics; it still rejects malformed flight timings, health and envelope
+fields. The strict publisher/consumer validator continues to fail the required
+PR check for incompatible warning output, even though the live UI can recover.
+
 Airport-wide technical readiness covers shared prerequisites such as current
 observations, navigation and persistence. A genuine source outage can restrict
 commands while the latest complete AMAN and TMT views remain visible. Supported

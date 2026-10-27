@@ -202,6 +202,35 @@ describe("AMAN V1 full replacement contract", () => {
     expect(replaceAMANState(accepted.state, cleared).state?.warnings).toEqual([]);
   });
 
+  it("isolates an unreadable warning without weakening the operational contract", () => {
+    const event = replacement(8);
+    const validWarnings = structuredClone(event.data.warnings ?? []);
+    const unsupported = {
+      id: 'warning:"traffic_prediction"/"future_prediction_component"/"future_accuracy_notice"/-/"SAS123"/-',
+      source: "traffic_prediction", component: "future_prediction_component", severity: "warning",
+      code: "future_accuracy_notice", callsign: "SAS123", message: "Future diagnostic",
+    };
+    (event.data as unknown as {warnings: unknown}).warnings = [...validWarnings, unsupported];
+    expect(isAMANStateEvent(event), "the pre-merge contract check must still flag incompatible output").toBe(false);
+    const accepted = replaceAMANState(replacement(7).data, event);
+    expect(accepted).toMatchObject({accepted: true, error: null, status: "ready"});
+    expect(accepted.state?.flights).toEqual(event.data.flights);
+    expect(accepted.state?.technical_health).toEqual(event.data.technical_health);
+    expect(accepted.state?.warnings).toEqual([...validWarnings, expect.objectContaining({code: "warning_snapshot_unavailable"})]);
+
+    event.data.flights[0].freeze_reason = "invalid" as "none";
+    expect(replaceAMANState(accepted.state, event)).toMatchObject({accepted: false, state: null, error: "invalid_aman_state"});
+  });
+
+  it("surfaces a malformed warning snapshot while retaining valid timing data", () => {
+    const event = replacement(8);
+    (event.data as unknown as {warnings: unknown}).warnings = "invalid";
+    const accepted = replaceAMANState(null, event);
+    expect(accepted.accepted).toBe(true);
+    expect(accepted.state?.warnings).toEqual([expect.objectContaining({code: "warning_snapshot_unavailable"})]);
+    expect(accepted.state?.flights[0].slot).toEqual(event.data.flights[0].slot);
+  });
+
   it("keeps the timeline and traffic prediction available for an unreliable flight prediction", () => {
     const event = replacement(8);
     event.data.warnings = [{

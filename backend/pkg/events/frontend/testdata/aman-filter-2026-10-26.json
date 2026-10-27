@@ -1,0 +1,36 @@
+{
+  "description": "Production Loki prediction-filter observations, EKCH session 1063, 26 October 2026. logged_at_ns approximates calculation time; all epoch nanoseconds are strings to preserve precision.",
+  "callsign": "CCA877Q",
+  "session_id": 1063,
+  "accepted_eta_ns": "1793062117904729223",
+  "samples": [
+    {
+      "logged_at_ns": "1793037673568098719",
+      "observed_at_ns": "1793037630000000000",
+      "candidate_eta_ns": "1793074068223408725",
+      "candidate_feeder_eta_ns": "1793073321201753719",
+      "outcome": "filtered"
+    },
+    {
+      "logged_at_ns": "1793037732564734661",
+      "observed_at_ns": "1793037690000000000",
+      "candidate_eta_ns": "1793074138938482737",
+      "candidate_feeder_eta_ns": "1793073343739821043",
+      "outcome": "filtered"
+    },
+    {
+      "logged_at_ns": "1793037793489639877",
+      "observed_at_ns": "1793037750000000000",
+      "candidate_eta_ns": "1793074423404476779",
+      "candidate_feeder_eta_ns": "1793073629510680506",
+      "outcome": "filtered"
+    },
+    {
+      "logged_at_ns": "1793037853328654288",
+      "observed_at_ns": "1793037810000000000",
+      "candidate_eta_ns": "1793074334784465485",
+      "candidate_feeder_eta_ns": "1793073540869815199",
+      "outcome": "filtered"
+    }
+  ]
+}

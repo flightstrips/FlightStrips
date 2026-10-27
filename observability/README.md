@@ -15,6 +15,26 @@ Grafana schema v2 documents.
 
 ## AMAN stability diagnostics
 
+### Publisher/consumer contract gate
+
+Run `npm run test:contract:aman` in `frontend/` with the repository's Go and
+Node toolchains installed. It generates current JSON using the Go AMAN
+publisher and validates it with the actual TypeScript replacement consumer.
+The dedicated **AMAN publisher-consumer contract** CI check runs on every pull
+request and merge queue entry, including changes confined to either service.
+Keep this check required in the main branch ruleset.
+
+The corpus includes healthy, filtered, unreliable, recovered, stale-source,
+passed-feeder, degraded-weather and empty-airport states. The 26 October 2026
+incident observations for CCA877Q are retained in
+`backend/pkg/events/frontend/testdata/aman-filter-2026-10-26.json`. Replaying
+them produces a `traffic_prediction` warning with component `prediction` and
+code `prediction_unreliable`. A consumer must accept this warning while
+retaining slots and healthy neighbouring guidance. Rejecting it discarded the
+whole state, producing `invalid_aman_state` and hiding both AMAN and TMT.
+
+### Reading stability diagnostics
+
 The AMAN Stability dashboard separates automatic calculation attempts from
 committed target and guidance changes. Filter logs by airport, aircraft callsign
 regex and numeric session ID; its metrics are backend-wide. The spacing panel

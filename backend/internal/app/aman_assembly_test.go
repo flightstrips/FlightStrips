@@ -101,6 +101,27 @@ func TestAMANTransportProjectsHoldingReleaseBeforeSurveillanceDetection(t *testi
 	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state))
 }
 
+func TestAMANTransportKeepsOtherAircraftEATDuringUnreliablePrediction(t *testing.T) {
+	release := time.Date(2026, time.October, 26, 18, 22, 0, 0, time.UTC)
+	holdingID := "EKCH-OLPIB-PRIMARY"
+	healthy := aman.AMANFlight{
+		Callsign: "SAS123", SelectedHolding: &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
+		Prediction:       &aman.Prediction{Publishable: true, HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},
+	}
+	affected := healthy
+	affected.Callsign = "UNRELIABLE"
+	affected.Prediction = &aman.Prediction{Publishable: false, HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release.Add(3 * time.Minute)}}
+	affected.PredictionFilter = &aman.PredictionFilterState{Unreliable: true}
+	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{affected, healthy}}
+	transport := holdingEATTransport(holdingID, "OLPIB")
+	require.Contains(t, transport.newHoldingEATPublication(context.Background(), state),
+		euroscopeEvents.HoldEvent{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1822"})
+
+	transport.health = testAMANHealthReporter{authorityAllowed: false}
+	require.Empty(t, transport.newHoldingEATEvents(context.Background(), state), "an actual shared authority outage still restricts writeback")
+}
+
 func TestAMANTransportKeepsEATWhenHoldingOrderConflicts(t *testing.T) {
 	start := time.Date(2026, time.September, 13, 14, 0, 0, 0, time.UTC)
 	holdingID := "EKCH-OLPIB-PRIMARY"

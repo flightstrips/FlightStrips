@@ -31,6 +31,9 @@ jobs:
       - name: Exercise AMAN calculation, sequencing and publication
         working-directory: backend
         run: go test ./pkg/events/frontend ./pkg/events/euroscope ./internal/aman/...
+      - name: Exercise AMAN transport and holding EAT integration
+        working-directory: backend
+        run: go test ./internal/app -run '^TestAMAN'
       - name: Validate live Go output with the frontend consumer
         working-directory: frontend
         run: npm run test:contract:aman

@@ -36,7 +36,8 @@ concurrently: the mutation temporarily edits the consumer source and restores
 its original bytes in a `finally` block.
 
 CI caches only the native decoder executable, using an exact key covering the
-runner image, compiler, build recipe, protobuf pin and plugin sources/headers.
+OS/architecture, compiler, C/C++ runtime ABI, build recipe, protobuf pin and
+plugin sources/headers. Compatible hosted-image revisions share the cache.
 A cache hit skips compilation; the decoder still processes freshly captured
 EuroScope frames and runs every assertion. Native input changes cause a rebuild.
 No prefix cache fallback is used. The Go harness is built once from the current

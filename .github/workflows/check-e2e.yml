@@ -39,16 +39,24 @@ jobs:
       - name: Identify native toolchain
         id: native-toolchain
         run: |
-          echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
-          echo "compiler=$(c++ -dumpfullversion -dumpversion)" >> "$GITHUB_OUTPUT"
+          mkdir -p frontend/e2e-artifacts
+          {
+            echo "$ImageOS"
+            c++ --version | sed -n '1p'
+            getconf GNU_LIBC_VERSION
+            strings "$(c++ -print-file-name=libstdc++.so.6)" | grep -E '^GLIBCXX_[0-9.]+$' | sort -V | tail -n 1
+          } > frontend/e2e-artifacts/native-toolchain.txt
+          cat frontend/e2e-artifacts/native-toolchain.txt
+          echo "digest=$(sha256sum frontend/e2e-artifacts/native-toolchain.txt | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
       - name: Cache native decoder
         id: native-cache
         uses: actions/cache@v6
         with:
           path: frontend/e2e-artifacts/native/aman-live-decoder
           # Exact matches only: include all transitive plugin headers, the
-          # protobuf pin/build recipe, runner image and compiler version.
-          key: e2e-native-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-toolchain.outputs.image }}-${{ steps.native-toolchain.outputs.compiler }}-${{ hashFiles('.github/workflows/check-e2e.yml', 'frontend/tests/e2e/run.mjs', 'frontend/tests/e2e/native/**', 'euroscope-plugin/src/**', 'euroscope-plugin/third_party/**', 'proto/**') }}
+          # protobuf pin/build recipe, OS, compiler and runtime ABI. Hosted
+          # image revisions can differ even when this toolchain is identical.
+          key: e2e-native-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-toolchain.outputs.digest }}-${{ hashFiles('.github/workflows/check-e2e.yml', 'frontend/tests/e2e/run.mjs', 'frontend/tests/e2e/native/**', 'euroscope-plugin/src/**', 'euroscope-plugin/third_party/**', 'proto/**') }}
       - name: Build shared browser backend
         working-directory: backend
         run: |
@@ -72,6 +80,7 @@ jobs:
           path: |
             frontend/e2e-artifacts/backend-*.log
             frontend/e2e-artifacts/frontend.log
+            frontend/e2e-artifacts/native-toolchain.txt
             frontend/e2e-artifacts/report/
             frontend/e2e-artifacts/results/
             frontend/e2e-artifacts/mutation/

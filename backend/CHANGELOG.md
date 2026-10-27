@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.5.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.5.0...backend/v3.5.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **aman:** isolate degraded aircraft and preserve arrival guidance ([#950](https://github.com/flightstrips/FlightStrips/issues/950)) ([b955150](https://github.com/flightstrips/FlightStrips/commit/b955150bd7599e4345d8b950215ddcb76a0f8398))
+* **strip:** enforce reorder ownership with shared browser coverage ([#951](https://github.com/flightstrips/FlightStrips/issues/951)) ([2241ffb](https://github.com/flightstrips/FlightStrips/commit/2241ffb7f3fd68bfe62dc7305dcb70060a2814d0))
+
 ## [3.5.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.4.2...backend/v3.5.0) (2026-10-25)
 
 

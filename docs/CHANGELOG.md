@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.4.0...docs/v1.4.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **strip:** enforce reorder ownership with shared browser coverage ([#951](https://github.com/flightstrips/FlightStrips/issues/951)) ([2241ffb](https://github.com/flightstrips/FlightStrips/commit/2241ffb7f3fd68bfe62dc7305dcb70060a2814d0))
+
 ## [1.4.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.3.0...docs/v1.4.0) (2026-10-25)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.4.0...plugin/v2.4.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **aman:** isolate degraded aircraft and preserve arrival guidance ([#950](https://github.com/flightstrips/FlightStrips/issues/950)) ([b955150](https://github.com/flightstrips/FlightStrips/commit/b955150bd7599e4345d8b950215ddcb76a0f8398))
+
 ## [2.4.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.3.1...plugin/v2.4.0) (2026-10-25)
 
 

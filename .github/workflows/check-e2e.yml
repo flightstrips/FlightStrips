@@ -18,6 +18,8 @@ jobs:
     name: Running-system E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      E2E_BACKEND_BINARY: ${{ github.workspace }}/frontend/e2e-artifacts/backend
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -34,11 +36,31 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
+      - name: Identify native toolchain
+        id: native-toolchain
+        run: |
+          echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
+          echo "compiler=$(c++ -dumpfullversion -dumpversion)" >> "$GITHUB_OUTPUT"
+      - name: Cache native decoder
+        id: native-cache
+        uses: actions/cache@v6
+        with:
+          path: frontend/e2e-artifacts/native/aman-live-decoder
+          # Exact matches only: include all transitive plugin headers, the
+          # protobuf pin/build recipe, runner image and compiler version.
+          key: e2e-native-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-toolchain.outputs.image }}-${{ steps.native-toolchain.outputs.compiler }}-${{ hashFiles('.github/workflows/check-e2e.yml', 'frontend/tests/e2e/run.mjs', 'frontend/tests/e2e/native/**', 'euroscope-plugin/src/**', 'euroscope-plugin/third_party/**', 'proto/**') }}
+      - name: Build shared browser backend
+        working-directory: backend
+        run: |
+          mkdir -p ../frontend/e2e-artifacts
+          go build -o "$E2E_BACKEND_BINARY" ./internal/testing/browserharness
       - name: Prove the AMAN suite detects the original outage
         working-directory: frontend
         run: npm run test:e2e:aman:mutation
       - name: Exercise strip workflows and AMAN with the native decoder
         working-directory: frontend
+        env:
+          E2E_NATIVE_CACHE_HIT: ${{ steps.native-cache.outputs.cache-hit }}
         run: npm run test:e2e
       - name: Preserve browser and backend evidence
         if: always()

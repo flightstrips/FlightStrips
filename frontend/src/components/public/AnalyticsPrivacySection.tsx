@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { isAnalyticsAvailable, onConsentChanged, readConsent, setConsent, type ConsentStatus } from "@/lib/analytics";
 
+const CONSENT_BUTTON =
+  "fsl-mono rounded-md border border-current px-4 py-2 text-xs uppercase tracking-[0.08em] transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-35";
+
 /** Privacy policy section describing PostHog processing, with controls to grant or withdraw consent. */
 export function AnalyticsPrivacySection() {
   const [status, setStatus] = useState<ConsentStatus | undefined>(() => readConsent()?.status);
@@ -9,7 +12,7 @@ export function AnalyticsPrivacySection() {
   useEffect(() => onConsentChanged((consent) => setStatus(consent.status)), []);
 
   return (
-    <div id="analytics">
+    <div id="analytics" className="scroll-mt-28">
       <h2>Analytics, Error Tracking and Session Replay</h2>
       <p>
         If, and only if, you allow it in the consent banner, we use{" "}
@@ -43,13 +46,13 @@ export function AnalyticsPrivacySection() {
       </p>
       {available ? (
         <div className="flex flex-wrap items-center gap-3">
-          <span>
+          <span className="mr-2">
             Current choice:{" "}
             <strong>{status === "granted" ? "Allowed" : status === "denied" ? "Declined" : "Not decided"}</strong>
           </span>
           <button
             type="button"
-            className="fsl-link fsl-link--mono"
+            className={CONSENT_BUTTON}
             onClick={() => setConsent("granted")}
             disabled={status === "granted"}
           >
@@ -57,7 +60,7 @@ export function AnalyticsPrivacySection() {
           </button>
           <button
             type="button"
-            className="fsl-link fsl-link--mono"
+            className={CONSENT_BUTTON}
             onClick={() => setConsent("denied")}
             disabled={status === "denied"}
           >

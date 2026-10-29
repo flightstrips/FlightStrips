@@ -25,6 +25,7 @@ import StripGalleryPage from '@/pages/strip-gallery';
 import ClearanceGuidePage from '@/pages/clearance-guide';
 import PdcGuidePage from '@/pages/pdc-guide';
 import { isLocalDevelopment } from '@/lib/local-development';
+import { AnalyticsIdentity } from '@/components/AnalyticsIdentity';
 
 const ProtectedLayout = withAuthenticationRequired(Layout);
 const ProtectedCdmPage = withAuthenticationRequired(CdmPage);
@@ -34,6 +35,7 @@ const ProtectedTestToolsPage = withAuthenticationRequired(TestToolsPage);
 export default function FlightStripsRoutes() {
   return (
     <Auth0ProviderWithNavigate>
+      <AnalyticsIdentity />
       <Routes>
         <Route path="/" element={<Home/>}/>
         <Route path="/about" element={<About/>}/>

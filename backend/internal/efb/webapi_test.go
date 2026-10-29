@@ -402,10 +402,11 @@ func TestSnapshotUsesLastFixOfSTARPathAsTerminalFix(t *testing.T) {
 	star, runway := "TUDLO4C", "22L"
 	controllerHeading := int32(270)
 	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Terminal: terminal.Configuration{
-		Airport:      "EKCH",
-		RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22", Runways: []navdata.RunwayID{"22L", "22R"}}},
-		Feeders:      []terminal.Feeder{{ID: "TUDLO"}},
-		Paths:        []terminal.Path{{Feeder: "TUDLO", RunwayGroup: "ARRIVAL-22", Fixes: []navdata.FixID{"TUDLO", "LUGAS", "ABEGI"}, SelectedHolding: "EKCH-LUGAS-PRIMARY-LOW"}},
+		Airport:         "EKCH",
+		RunwayGroups:    []terminal.RunwayGroup{{ID: "ARRIVAL-22", Runways: []navdata.RunwayID{"22L", "22R"}}},
+		Feeders:         []terminal.Feeder{{ID: "TUDLO"}},
+		OverlayHoldings: []terminal.HoldingDefinition{{ID: "EKCH-LUGAS-PRIMARY-LOW", Fix: "LUGAS", InboundCourseMagneticDeg: intPtr(72), TurnDirection: navdata.TurnLeft}},
+		Paths:           []terminal.Path{{Feeder: "TUDLO", RunwayGroup: "ARRIVAL-22", Fixes: []navdata.FixID{"TUDLO", "LUGAS", "ABEGI"}, SelectedHolding: "EKCH-LUGAS-PRIMARY-LOW"}},
 	}, Navigation: snapshotReaderStub{snapshot: navdata.ActiveGeometrySnapshot{
 		TerminalPaths: []navdata.TerminalPath{{Feeder: "TUDLO", RunwayGroup: "ARRIVAL-22", HoldingIDs: []navdata.HoldingID{"EKCH-LUGAS-PRIMARY-LOW"}, PublishedHeadingMagneticDeg: intPtr(37)}},
 		Holdings:      []navdata.HoldingPattern{{ID: "EKCH-LUGAS-PRIMARY-LOW", Fix: "LUGAS", InboundCourseTrueDeg: 77, TurnDirection: navdata.TurnLeft}},
@@ -423,8 +424,8 @@ func TestSnapshotUsesLastFixOfSTARPathAsTerminalFix(t *testing.T) {
 	if result.PublishedHoldingFix == nil || *result.PublishedHoldingFix != "LUGAS" {
 		t.Fatalf("expected published holding fix LUGAS, got %v", result.PublishedHoldingFix)
 	}
-	if result.PublishedHoldingDetail == nil || *result.PublishedHoldingDetail != "077/LEFT" {
-		t.Fatalf("expected published holding detail 077/LEFT, got %v", result.PublishedHoldingDetail)
+	if result.PublishedHoldingDetail == nil || *result.PublishedHoldingDetail != "072/LEFT" {
+		t.Fatalf("expected published holding detail 072/LEFT, got %v", result.PublishedHoldingDetail)
 	}
 }
 

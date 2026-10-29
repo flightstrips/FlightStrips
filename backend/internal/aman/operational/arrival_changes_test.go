@@ -28,6 +28,33 @@ func TestAssignedSTAROverridesFiledRouteAndClears(t *testing.T) {
 	require.Equal(t, navdata.FeederID("MONAK"), feeder)
 }
 
+func TestAssignedSTARMatchesPublishedDesignatorAndRunway(t *testing.T) {
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{
+		Feeders: []terminal.Feeder{{ID: "ERNOV", Aliases: []navdata.FeederID{"ERNO"}}},
+		Paths: []terminal.Path{
+			{Feeder: "ERNOV", RunwayGroup: "ARRIVAL-22L", STARSuffix: "4C"},
+			{Feeder: "ERNOV", RunwayGroup: "ARRIVAL-04L", STARSuffix: "3A"},
+		},
+	}}}
+	for _, tc := range []struct {
+		star  string
+		group aman.RunwayGroupID
+		want  bool
+	}{
+		{"ERNO4C", "ARRIVAL-22L", true},
+		{"ERNOV4C", "ARRIVAL-22L", true},
+		{"ERNO4C", "ARRIVAL-04L", false},
+		{"ERNO3C", "ARRIVAL-22L", false},
+	} {
+		observation := aman.FlightObservation{AssignedSTAR: stringPointer(tc.star)}
+		feeder, ok := service.observationFeeder(observation, tc.group)
+		require.Equal(t, tc.want, ok, tc.star)
+		if ok {
+			require.Equal(t, navdata.FeederID("ERNOV"), feeder)
+		}
+	}
+}
+
 type arrivalChangeGeometry struct {
 	terminalIdentityGeometry
 	holdings []navdata.HoldingPattern

@@ -221,7 +221,7 @@ func TestBuildStartsNavigationSourceForEFBWithoutAMAN(t *testing.T) {
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	require.NoError(t, err)
 	t.Cleanup(dbPool.Close)
-	terminalPath, err := filepath.Abs("../../config/aman/ekch-terminal-2610.json")
+	terminalPath, err := filepath.Abs("../../config/aman/ekch-terminal-2611.json")
 	require.NoError(t, err)
 
 	application, err := Build(context.Background(), Config{

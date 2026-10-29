@@ -105,9 +105,9 @@ func TestProcedureFiltersPaginationAndUndocumentedHoldsRemainPartial(t *testing.
 	for _, query := range calls {
 		require.Equal(t, "STAR", query.Get("type"))
 		require.Equal(t, "SOK1P", query.Get("identifier"))
-		require.Equal(t, "22L", query.Get("runway"))
+		require.Empty(t, query.Get("runway"))
 	}
-	checkpoint, found, err := checkpoints.Load(context.Background(), "/api/v1/procedures?airport=EKCH&identifier=SOK1P&page=1&per_page=100&runway=22L&type=STAR")
+	checkpoint, found, err := checkpoints.Load(context.Background(), "/api/v1/procedures?airport=EKCH&identifier=SOK1P&page=1&per_page=100&type=STAR")
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 2, checkpoint.NextPage)
@@ -138,6 +138,275 @@ func TestHoldingTerminatorsWithoutOfficialDefinitionsAreAlwaysIncomplete(t *test
 			require.Equal(t, navdata.PathUnsupported, set.Procedures[0].Legs[0].PathTerminator)
 		})
 	}
+}
+
+func TestSharedRunwayTransitionIsDecodedAndFilteredLocally(t *testing.T) {
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/procedures":
+			require.Empty(t, r.URL.Query().Get("runway"))
+			writeJSON(w, map[string]any{"data": []any{map[string]any{"airport": "EKCH", "identifier": "ERNO4C", "type": map[string]any{"code": "STAR"}}}, "pagination": map[string]any{"has_more": false}})
+		case "/api/v1/procedures/EKCH/ERNO4C":
+			writeJSON(w, map[string]any{"data": map[string]any{"airport": "EKCH", "identifier": "ERNO4C", "type": map[string]any{"code": "STAR"}, "available_runways": []string{"22B"}, "runway_transitions": map[string]any{"22B": []any{map[string]any{"sequence": 10, "path_terminator": "IF", "fix_identifier": "ERNOV"}, map[string]any{"sequence": 20, "path_terminator": "TF", "fix_identifier": "CH647"}, map[string]any{"sequence": 30, "path_terminator": "TF", "fix_identifier": "ABEGI"}}}}})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	adapter := testAdapter(t, server.URL, Config{})
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+	query := navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}, Runways: []navdata.RunwayID{"22L"}}
+	set, err := adapter.Procedures(context.Background(), query)
+	require.NoError(t, err)
+	require.Len(t, set.Procedures, 1)
+	require.Equal(t, []navdata.RunwayID{"22L", "22R"}, set.Procedures[0].Runways)
+	require.Len(t, set.Procedures[0].Legs, 3)
+	require.Equal(t, navdata.FixID("CH647"), *set.Procedures[0].Legs[1].ToFix)
+	query.Runways = []navdata.RunwayID{"04L"}
+	set, err = adapter.Procedures(context.Background(), query)
+	require.NoError(t, err)
+	require.Empty(t, set.Procedures)
+}
+
+func TestProcedureCoverageReflectsOnlyRequestedRunways(t *testing.T) {
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/procedures":
+			writeJSON(w, map[string]any{"data": []any{
+				map[string]any{"airport": "EKCH", "identifier": "COMPLETE", "type": map[string]any{"code": "STAR"}},
+				map[string]any{"airport": "EKCH", "identifier": "PARTIAL", "type": map[string]any{"code": "STAR"}},
+			}, "pagination": map[string]any{"has_more": false}})
+		case "/api/v1/procedures/EKCH/COMPLETE":
+			writeJSON(w, detailJSON("EKCH", "COMPLETE", "STAR", "TF", "SOK"))
+		case "/api/v1/procedures/EKCH/PARTIAL":
+			writeJSON(w, map[string]any{"data": map[string]any{
+				"airport": "EKCH", "identifier": "PARTIAL", "type": map[string]any{"code": "STAR"},
+				"available_runways": []string{"04L"}, "segments": []any{map[string]any{"sequence": 10, "path_terminator": "HF", "fix_identifier": "SOK"}},
+			}})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	adapter := testAdapter(t, server.URL, Config{})
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name     string
+		runways  []navdata.RunwayID
+		coverage navdata.Coverage
+		count    int
+	}{
+		{"complete only", []navdata.RunwayID{"22L"}, navdata.CoverageComplete, 1},
+		{"incomplete only", []navdata.RunwayID{"04L"}, navdata.CoveragePartial, 1},
+		{"both", []navdata.RunwayID{"22L", "04L"}, navdata.CoveragePartial, 2},
+		{"unfiltered", nil, navdata.CoveragePartial, 2},
+		{"no matches", []navdata.RunwayID{"30"}, navdata.CoveragePartial, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			set, err := adapter.Procedures(context.Background(), navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}, Runways: tc.runways})
+			require.NoError(t, err)
+			require.Equal(t, tc.coverage, set.Coverage)
+			require.Len(t, set.Procedures, tc.count)
+		})
+	}
+}
+
+func TestUnknownProcedureRunwayMakesFilteredCoveragePartial(t *testing.T) {
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/procedures":
+			writeJSON(w, map[string]any{"data": []any{
+				map[string]any{"airport": "EKCH", "identifier": "KNOWN", "type": map[string]any{"code": "STAR"}},
+				map[string]any{"airport": "EKCH", "identifier": "UNKNOWN", "type": map[string]any{"code": "STAR"}},
+			}, "pagination": map[string]any{"has_more": false}})
+		case "/api/v1/procedures/EKCH/KNOWN":
+			writeJSON(w, detailJSON("EKCH", "KNOWN", "STAR", "TF", "SOK"))
+		case "/api/v1/procedures/EKCH/UNKNOWN":
+			writeJSON(w, map[string]any{"data": map[string]any{
+				"airport": "EKCH", "identifier": "UNKNOWN", "type": map[string]any{"code": "STAR"},
+				"segments": []any{map[string]any{"sequence": 10, "path_terminator": "TF", "fix_identifier": "SOK"}},
+			}})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	adapter := testAdapter(t, server.URL, Config{})
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+	query := navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}, Runways: []navdata.RunwayID{"22L"}}
+	set, err := adapter.Procedures(context.Background(), query)
+	require.NoError(t, err)
+	require.Equal(t, navdata.CoveragePartial, set.Coverage)
+	require.Len(t, set.Procedures, 1)
+	require.Equal(t, navdata.ProcedureID("KNOWN"), set.Procedures[0].ID)
+	query.Runways = nil
+	set, err = adapter.Procedures(context.Background(), query)
+	require.NoError(t, err)
+	require.Equal(t, navdata.CoverageComplete, set.Coverage)
+	require.Len(t, set.Procedures, 2)
+}
+
+func TestInvalidRunwayMetadataMakesCoveragePartial(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		listing      string
+		available    []string
+		transition   string
+		wantRetained int
+	}{
+		{"invalid listing", "ALL", nil, "", 1},
+		{"invalid detail", "", []string{"ALL"}, "", 1},
+		{"invalid with unrelated runway", "", []string{"04L", "ALL"}, "", 1},
+		{"invalid with matching runway", "", []string{"22L", "99L"}, "", 2},
+		{"invalid transition key", "", nil, "ALL", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/v1/airac/current":
+					writeJSON(w, cycleJSON())
+				case "/api/v1/procedures":
+					writeJSON(w, map[string]any{"data": []any{
+						map[string]any{"airport": "EKCH", "identifier": "KNOWN", "type": map[string]any{"code": "STAR"}},
+						map[string]any{"airport": "EKCH", "identifier": "INVALID", "type": map[string]any{"code": "STAR"}, "runway": tc.listing},
+					}, "pagination": map[string]any{"has_more": false}})
+				case "/api/v1/procedures/EKCH/KNOWN":
+					writeJSON(w, detailJSON("EKCH", "KNOWN", "STAR", "TF", "SOK"))
+				case "/api/v1/procedures/EKCH/INVALID":
+					transitions := map[string]any{}
+					if tc.transition != "" {
+						transitions[tc.transition] = []any{map[string]any{"sequence": 10, "path_terminator": "TF", "fix_identifier": "SOK"}}
+					}
+					writeJSON(w, map[string]any{"data": map[string]any{"airport": "EKCH", "identifier": "INVALID", "type": map[string]any{"code": "STAR"}, "available_runways": tc.available, "runway_transitions": transitions, "segments": []any{map[string]any{"sequence": 10, "path_terminator": "TF", "fix_identifier": "SOK"}}}})
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			})
+			adapter := testAdapter(t, server.URL, Config{})
+			version, err := adapter.LatestVersion(context.Background())
+			require.NoError(t, err)
+			query := navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}, Runways: []navdata.RunwayID{"22L"}}
+			set, err := adapter.Procedures(context.Background(), query)
+			require.NoError(t, err)
+			require.Equal(t, navdata.CoveragePartial, set.Coverage)
+			require.Len(t, set.Procedures, tc.wantRetained)
+			for _, procedure := range set.Procedures {
+				require.NotContains(t, procedure.Runways, navdata.RunwayID("ALL"))
+				require.NotContains(t, procedure.Runways, navdata.RunwayID("99L"))
+			}
+		})
+	}
+}
+
+func TestRunwayFilterSkipsOnlyKnownUnrelatedProcedures(t *testing.T) {
+	var requested sync.Map
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/procedures":
+			items := []any{}
+			for _, entry := range [][2]string{{"UNRELATED", "RW04B"}, {"MATCH", "RW22B"}, {"SHARED", "RW04L"}, {"SHARED", "RW22L"}} {
+				items = append(items, map[string]any{"airport": "EKCH", "identifier": entry[0], "type": map[string]any{"code": "STAR"}, "transition": entry[1]})
+			}
+			if r.URL.Query().Get("identifier") == "UNKNOWN" {
+				items = []any{map[string]any{"airport": "EKCH", "identifier": "UNKNOWN", "type": map[string]any{"code": "STAR"}}}
+			}
+			writeJSON(w, map[string]any{"data": items, "pagination": map[string]any{"has_more": false}})
+		case "/api/v1/procedures/EKCH/MATCH", "/api/v1/procedures/EKCH/SHARED":
+			requested.Store(path.Base(r.URL.Path), true)
+			writeJSON(w, detailJSON("EKCH", path.Base(r.URL.Path), "STAR", "TF", "SOK"))
+		default:
+			requested.Store(path.Base(r.URL.Path), true)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	adapter := testAdapter(t, server.URL, Config{})
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+	query := navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}, Runways: []navdata.RunwayID{"22L"}}
+	set, err := adapter.Procedures(context.Background(), query)
+	require.NoError(t, err)
+	require.Len(t, set.Procedures, 2)
+	_, fetched := requested.Load("UNRELATED")
+	require.False(t, fetched, "known unrelated procedure must not be fetched")
+	_, fetched = requested.Load("SHARED")
+	require.True(t, fetched, "a later matching transition must retain the procedure")
+	query.Identifiers = []navdata.ProcedureID{"UNKNOWN"}
+	_, err = adapter.Procedures(context.Background(), query)
+	require.Error(t, err, "unknown runway must not hide a detail error")
+}
+
+func TestRunwayListingMatchesConservatively(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		item procedureListItem
+		want bool
+	}{
+		{"shared matching", procedureListItem{Transition: "RW22B"}, true},
+		{"shared unrelated", procedureListItem{Transition: "RW04B"}, false},
+		{"single matching", procedureListItem{Runway: "22L"}, true},
+		{"single unrelated", procedureListItem{Runway: "04L"}, false},
+		{"missing runway", procedureListItem{}, true},
+		{"named transition", procedureListItem{Transition: "ERNOV"}, true},
+		{"invalid runway", procedureListItem{Transition: "RW99L"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, listingMayMatchRunways(tc.item, []navdata.RunwayID{"22L"}))
+		})
+	}
+}
+
+func TestRunwayFilterPreservesDuplicateAndTransitionRunways(t *testing.T) {
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/procedures":
+			items := []any{}
+			for _, entry := range [][3]string{
+				{"DUPLICATE", "04L", ""}, {"DUPLICATE", "22L", ""},
+				{"LISTTRANS", "", "RW22B"}, {"DETAILTRANS", "", ""},
+			} {
+				items = append(items, map[string]any{"airport": "EKCH", "identifier": entry[0], "type": map[string]any{"code": "STAR"}, "runway": entry[1], "transition": entry[2]})
+			}
+			writeJSON(w, map[string]any{"data": items, "pagination": map[string]any{"has_more": false}})
+		case "/api/v1/procedures/EKCH/DUPLICATE", "/api/v1/procedures/EKCH/LISTTRANS":
+			writeJSON(w, map[string]any{"data": map[string]any{"airport": "EKCH", "identifier": path.Base(r.URL.Path), "type": map[string]any{"code": "STAR"}, "segments": []any{map[string]any{"sequence": 10, "path_terminator": "TF", "fix_identifier": "SOK"}}}})
+		case "/api/v1/procedures/EKCH/DETAILTRANS":
+			writeJSON(w, map[string]any{"data": map[string]any{"airport": "EKCH", "identifier": "DETAILTRANS", "type": map[string]any{"code": "STAR"}, "runway_transitions": map[string]any{"22B": []any{map[string]any{"sequence": 10, "path_terminator": "TF", "fix_identifier": "SOK"}}}}})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	adapter := testAdapter(t, server.URL, Config{})
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+	set, err := adapter.Procedures(context.Background(), navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}, Runways: []navdata.RunwayID{"22L"}})
+	require.NoError(t, err)
+	require.Len(t, set.Procedures, 3)
+	require.Equal(t, navdata.CoverageComplete, set.Coverage)
+	for _, procedure := range set.Procedures {
+		require.Contains(t, procedure.Runways, navdata.RunwayID("22L"), procedure.ID)
+		if procedure.ID == "DUPLICATE" {
+			require.Contains(t, procedure.Runways, navdata.RunwayID("04L"))
+		} else {
+			require.Contains(t, procedure.Runways, navdata.RunwayID("22R"))
+		}
+	}
+}
+
+func TestEmptyRunwayTransitionsAcceptsArray(t *testing.T) {
+	var detail procedureDetailDTO
+	require.NoError(t, json.Unmarshal([]byte(`{"runway_transitions":[]}`), &detail))
+	require.Empty(t, detail.RunwayTransitions)
+	require.Error(t, json.Unmarshal([]byte(`{"runway_transitions":[{"unexpected":true}]}`), &detail))
 }
 
 func TestConditionalRetryTimeoutCancellationRedactionAndConcurrency(t *testing.T) {

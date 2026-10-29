@@ -97,17 +97,18 @@ type FinalApproachDefinition struct {
 // fallback holding. It is converted to navdata only after configuration
 // validation reaches the canonical-domain boundary.
 type HoldingDefinition struct {
-	ID                   navdata.HoldingID          `json:"id"`
-	Fix                  navdata.FixID              `json:"fix"`
-	InboundCourseTrueDeg float64                    `json:"inboundCourseTrueDeg"`
-	TurnDirection        navdata.TurnDirection      `json:"turnDirection"`
-	LegLengthNM          *float64                   `json:"legLengthNm,omitempty"`
-	LegTimeSeconds       *int64                     `json:"legTimeSeconds,omitempty"`
-	MinimumAltitudeFt    *int                       `json:"minimumAltitudeFt,omitempty"`
-	MaximumAltitudeFt    *int                       `json:"maximumAltitudeFt,omitempty"`
-	MaximumSpeedKt       *int                       `json:"maximumSpeedKt,omitempty"`
-	Termination          navdata.HoldingTermination `json:"termination"`
-	Provenance           ProvenanceDefinition       `json:"provenance"`
+	ID                       navdata.HoldingID          `json:"id"`
+	Fix                      navdata.FixID              `json:"fix"`
+	InboundCourseTrueDeg     float64                    `json:"inboundCourseTrueDeg"`
+	InboundCourseMagneticDeg *int                       `json:"inboundCourseMagneticDeg,omitempty"`
+	TurnDirection            navdata.TurnDirection      `json:"turnDirection"`
+	LegLengthNM              *float64                   `json:"legLengthNm,omitempty"`
+	LegTimeSeconds           *int64                     `json:"legTimeSeconds,omitempty"`
+	MinimumAltitudeFt        *int                       `json:"minimumAltitudeFt,omitempty"`
+	MaximumAltitudeFt        *int                       `json:"maximumAltitudeFt,omitempty"`
+	MaximumSpeedKt           *int                       `json:"maximumSpeedKt,omitempty"`
+	Termination              navdata.HoldingTermination `json:"termination"`
+	Provenance               ProvenanceDefinition       `json:"provenance"`
 }
 
 type RunwayGroup struct {
@@ -170,6 +171,7 @@ type Path struct {
 	// until configuration producers and runtime selectors have migrated.
 	Feeder                      navdata.FeederID     `json:"feeder"`
 	STARFamily                  navdata.STARFamilyID `json:"starFamily,omitempty"`
+	STARSuffix                  string               `json:"starSuffix,omitempty"`
 	FeederFix                   navdata.FixID        `json:"feederFix,omitempty"`
 	HoldingToFeederSeconds      *int64               `json:"holdingToFeederSeconds,omitempty"`
 	RunwayGroup                 aman.RunwayGroupID   `json:"runwayGroup"`
@@ -194,6 +196,43 @@ func (p *Path) UnmarshalJSON(encoded []byte) error {
 	}
 	*p = Path(decoded)
 	return nil
+}
+
+// MatchesSTAR accepts the published full and abbreviated designators, as well
+// as a bare feeder used for inferred arrivals. Configured suffixes prevent an
+// assigned procedure for another runway or AIRAC revision being guessed.
+func MatchesSTAR(feeder Feeder, path Path, assigned string) bool {
+	assigned = strings.ToUpper(strings.TrimSpace(assigned))
+	for _, name := range append([]navdata.FeederID{feeder.ID}, feeder.Aliases...) {
+		prefix := string(name)
+		if prefix == "" || !strings.HasPrefix(assigned, prefix) {
+			continue
+		}
+		suffix := strings.TrimPrefix(assigned, prefix)
+		if suffix == "" {
+			return true
+		}
+		if path.STARSuffix != "" {
+			if suffix == path.STARSuffix {
+				return true
+			}
+			continue
+		}
+		if len(suffix) < 2 || suffix[len(suffix)-1] < 'A' || suffix[len(suffix)-1] > 'Z' {
+			continue
+		}
+		valid := true
+		for _, digit := range suffix[:len(suffix)-1] {
+			if digit < '0' || digit > '9' {
+				valid = false
+				break
+			}
+		}
+		if valid {
+			return true
+		}
+	}
+	return false
 }
 
 func (p Path) hasExplicitOperationalIdentity() bool {
@@ -512,6 +551,9 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 	overlayIDs := map[navdata.HoldingID]bool{}
 	for i, definition := range c.OverlayHoldings {
 		h := definition.canonical()
+		if definition.InboundCourseMagneticDeg != nil && (*definition.InboundCourseMagneticDeg < 0 || *definition.InboundCourseMagneticDeg >= 360) {
+			add(&errs, fmt.Sprintf("overlayHoldings[%d].inboundCourseMagneticDeg", i), "must be between 0 and 359 degrees")
+		}
 		if overlayIDs[h.ID] {
 			add(&errs, fmt.Sprintf("overlayHoldings[%d].id", i), "is duplicated")
 		}
@@ -1013,6 +1055,7 @@ func cloneConfiguration(value Configuration) Configuration {
 	clone.OverlayHoldings = make([]HoldingDefinition, len(value.OverlayHoldings))
 	for i, holding := range value.OverlayHoldings {
 		clone.OverlayHoldings[i] = holding
+		clone.OverlayHoldings[i].InboundCourseMagneticDeg = clonePointer(holding.InboundCourseMagneticDeg)
 		clone.OverlayHoldings[i].LegLengthNM = clonePointer(holding.LegLengthNM)
 		clone.OverlayHoldings[i].LegTimeSeconds = clonePointer(holding.LegTimeSeconds)
 		clone.OverlayHoldings[i].MinimumAltitudeFt = clonePointer(holding.MinimumAltitudeFt)

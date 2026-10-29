@@ -1,38 +1,38 @@
 {
   "schemaVersion": "aman-terminal/v1",
-  "configVersion": "EKCH-AIP-2610-V1",
+  "configVersion": "EKCH-AIP-2611-V1",
   "airport": "EKCH",
-  "applicabilityFrom": "2026-10-01T00:00:00Z",
-  "applicabilityUntil": "2026-10-29T00:00:00Z",
+  "applicabilityFrom": "2026-10-29T00:00:00Z",
+  "applicabilityUntil": "2026-11-26T00:00:00Z",
   "dataset": {
-    "cycle": "2610",
-    "effectiveFrom": "2026-10-01T00:00:00Z",
-    "effectiveUntil": "2026-10-29T00:00:00Z"
+    "cycle": "2611",
+    "effectiveFrom": "2026-10-29T00:00:00Z",
+    "effectiveUntil": "2026-11-26T00:00:00Z"
   },
   "sources": [
     {
       "id": "NAVIAIR-AIP-DK",
-      "document": "Naviair official tree API getsearch and AIRAC AMDT 10/26 amendment index (01 OCT 2026): EKCH changes concern deicing areas and taxiway holding-position/stopline symbols; RNAV STAR charts, airborne holdings and terminal geometry unchanged",
-      "effectiveFrom": "2026-10-01T00:00:00Z",
-      "effectiveUntil": "2026-10-29T00:00:00Z"
+      "document": "Naviair AIRAC AMDT 11/26 (29 OCT 2026): EKCH magnetic variation, runway magnetic directions and primary holding magnetic tracks revised; STAR tabular magnetic tracks revised",
+      "effectiveFrom": "2026-10-29T00:00:00Z",
+      "effectiveUntil": "2026-11-26T00:00:00Z"
     },
     {
       "id": "NAVIAIR-AIP-DK",
-      "document": "AD 2 EKCH-17, AIRAC AMDT 12/25 (27 NOV 2025), sections 1.1 and 1.5 primary holdings; published holding name OLPIB uses facility/fix OLPIB",
-      "effectiveFrom": "2025-11-27T00:00:00Z",
-      "effectiveUntil": "2026-10-29T00:00:00Z"
+      "document": "AD 2 EKCH-17, AIRAC AMDT 11/26 (29 OCT 2026), section 1.5 primary holdings; magnetic tracks revised with 5 degrees east variation",
+      "effectiveFrom": "2026-10-29T00:00:00Z",
+      "effectiveUntil": "2026-11-26T00:00:00Z"
     },
     {
       "id": "NAVIAIR-AIP-DK",
-      "document": "EK_AD_2_EKCH_ADC_en, AIRAC AMDT 10/26 (01 OCT 2026), published runway dimensions, threshold positions and GEO courses unchanged; deicing layout and taxiway symbols updated",
-      "effectiveFrom": "2026-10-01T00:00:00Z",
-      "effectiveUntil": "2026-10-29T00:00:00Z"
+      "document": "EK_AD_2_EKCH_ADC_en, AIRAC AMDT 11/26 (29 OCT 2026), runway magnetic directions revised; dimensions, threshold positions and GEO courses unchanged",
+      "effectiveFrom": "2026-10-29T00:00:00Z",
+      "effectiveUntil": "2026-11-26T00:00:00Z"
     },
     {
       "id": "NAVIAIR-AIP-DK",
-      "document": "EKCH RNAV STAR tabular charts: RWY 12-2/3 AIRAC AMDT 12/25 and 12/24; RWY 30-2/3 AIRAC AMDT 12/25 and 12/24; RWY 04/22 retained official tabular descriptions",
-      "effectiveFrom": "2025-11-27T00:00:00Z",
-      "effectiveUntil": "2026-10-29T00:00:00Z"
+      "document": "EKCH RNAV STAR tabular charts RWY 04, 22, 12 and 30 -3, AIRAC AMDT 11/26 (29 OCT 2026): magnetic tracks revised",
+      "effectiveFrom": "2026-10-29T00:00:00Z",
+      "effectiveUntil": "2026-11-26T00:00:00Z"
     }
   ],
   "runwayGroups": [
@@ -64,10 +64,10 @@
           "physicalLengthM": 3001,
           "provenance": {
             "sourceId": "NAVIAIR-AIP-DK",
-            "sourceRevision": "EK_AD_2_EKCH_ADC_A-10-26",
-            "importedAt": "2026-10-02T00:00:00Z",
-            "effectiveFrom": "2026-10-01T00:00:00Z",
-            "effectiveUntil": "2026-10-29T00:00:00Z"
+            "sourceRevision": "EK_AD_2_EKCH_ADC_A-11-26",
+            "importedAt": "2026-10-29T00:00:00Z",
+            "effectiveFrom": "2026-10-29T00:00:00Z",
+            "effectiveUntil": "2026-11-26T00:00:00Z"
           }
         }
       ]
@@ -100,10 +100,10 @@
           "physicalLengthM": 3302,
           "provenance": {
             "sourceId": "NAVIAIR-AIP-DK",
-            "sourceRevision": "EK_AD_2_EKCH_ADC_A-10-26",
-            "importedAt": "2026-10-02T00:00:00Z",
-            "effectiveFrom": "2026-10-01T00:00:00Z",
-            "effectiveUntil": "2026-10-29T00:00:00Z"
+            "sourceRevision": "EK_AD_2_EKCH_ADC_A-11-26",
+            "importedAt": "2026-10-29T00:00:00Z",
+            "effectiveFrom": "2026-10-29T00:00:00Z",
+            "effectiveUntil": "2026-11-26T00:00:00Z"
           }
         }
       ]
@@ -136,10 +136,10 @@
           "physicalLengthM": 3302,
           "provenance": {
             "sourceId": "NAVIAIR-AIP-DK",
-            "sourceRevision": "EK_AD_2_EKCH_ADC_A-10-26",
-            "importedAt": "2026-10-02T00:00:00Z",
-            "effectiveFrom": "2026-10-01T00:00:00Z",
-            "effectiveUntil": "2026-10-29T00:00:00Z"
+            "sourceRevision": "EK_AD_2_EKCH_ADC_A-11-26",
+            "importedAt": "2026-10-29T00:00:00Z",
+            "effectiveFrom": "2026-10-29T00:00:00Z",
+            "effectiveUntil": "2026-11-26T00:00:00Z"
           }
         }
       ]
@@ -172,10 +172,10 @@
           "physicalLengthM": 3571,
           "provenance": {
             "sourceId": "NAVIAIR-AIP-DK",
-            "sourceRevision": "EK_AD_2_EKCH_ADC_A-10-26",
-            "importedAt": "2026-10-02T00:00:00Z",
-            "effectiveFrom": "2026-10-01T00:00:00Z",
-            "effectiveUntil": "2026-10-29T00:00:00Z"
+            "sourceRevision": "EK_AD_2_EKCH_ADC_A-11-26",
+            "importedAt": "2026-10-29T00:00:00Z",
+            "effectiveFrom": "2026-10-29T00:00:00Z",
+            "effectiveUntil": "2026-11-26T00:00:00Z"
           }
         }
       ]
@@ -208,10 +208,10 @@
           "physicalLengthM": 2800,
           "provenance": {
             "sourceId": "NAVIAIR-AIP-DK",
-            "sourceRevision": "EK_AD_2_EKCH_ADC_A-10-26",
-            "importedAt": "2026-10-02T00:00:00Z",
-            "effectiveFrom": "2026-10-01T00:00:00Z",
-            "effectiveUntil": "2026-10-29T00:00:00Z"
+            "sourceRevision": "EK_AD_2_EKCH_ADC_A-11-26",
+            "importedAt": "2026-10-29T00:00:00Z",
+            "effectiveFrom": "2026-10-29T00:00:00Z",
+            "effectiveUntil": "2026-11-26T00:00:00Z"
           }
         }
       ]
@@ -244,24 +244,42 @@
           "physicalLengthM": 2365,
           "provenance": {
             "sourceId": "NAVIAIR-AIP-DK",
-            "sourceRevision": "EK_AD_2_EKCH_ADC_A-10-26",
-            "importedAt": "2026-10-02T00:00:00Z",
-            "effectiveFrom": "2026-10-01T00:00:00Z",
-            "effectiveUntil": "2026-10-29T00:00:00Z"
+            "sourceRevision": "EK_AD_2_EKCH_ADC_A-11-26",
+            "importedAt": "2026-10-29T00:00:00Z",
+            "effectiveFrom": "2026-10-29T00:00:00Z",
+            "effectiveUntil": "2026-11-26T00:00:00Z"
           }
         }
       ]
     }
   ],
   "activeRunwayGroupSets": [
-    ["ARRIVAL-04L"],
-    ["ARRIVAL-04R"],
-    ["ARRIVAL-04L", "ARRIVAL-04R"],
-    ["ARRIVAL-22L"],
-    ["ARRIVAL-22R"],
-    ["ARRIVAL-22L", "ARRIVAL-22R"],
-    ["ARRIVAL-12"],
-    ["ARRIVAL-30"]
+    [
+      "ARRIVAL-04L"
+    ],
+    [
+      "ARRIVAL-04R"
+    ],
+    [
+      "ARRIVAL-04L",
+      "ARRIVAL-04R"
+    ],
+    [
+      "ARRIVAL-22L"
+    ],
+    [
+      "ARRIVAL-22R"
+    ],
+    [
+      "ARRIVAL-22L",
+      "ARRIVAL-22R"
+    ],
+    [
+      "ARRIVAL-12"
+    ],
+    [
+      "ARRIVAL-30"
+    ]
   ],
   "approachRelease": {
     "enabled": true,
@@ -336,23 +354,33 @@
   "feeders": [
     {
       "id": "TESPI",
-      "aliases": []
+      "aliases": [
+        "TESP"
+      ]
     },
     {
       "id": "TUDLO",
-      "aliases": []
+      "aliases": [
+        "TUDL"
+      ]
     },
     {
       "id": "MONAK",
-      "aliases": []
+      "aliases": [
+        "MONA"
+      ]
     },
     {
       "id": "TIDVU",
-      "aliases": []
+      "aliases": [
+        "TIDV"
+      ]
     },
     {
       "id": "ERNOV",
-      "aliases": []
+      "aliases": [
+        "ERNO"
+      ]
     }
   ],
   "fixAliases": [
@@ -363,23 +391,23 @@
         "id": "NAVIAIR-AIP-DK",
         "document": "EK AD 2 EKCH RNAV STAR RWY 12-3, AIRAC AMDT 12/24: WPT CDA withdrawn and WPT OLPIB added at the legacy holding location",
         "effectiveFrom": "2024-11-28T00:00:00Z",
-        "effectiveUntil": "2026-10-29T00:00:00Z"
+        "effectiveUntil": "2026-11-26T00:00:00Z"
       }
     }
   ],
   "overlayFixes": [
     {
-      "id": "CH632",
+      "id": "CH647",
       "position": {
-        "latitudeDeg": 55.938464971,
-        "longitudeDeg": 12.4659798388
+        "latitudeDeg": 55.93814166666667,
+        "longitudeDeg": 12.465944444444444
       },
       "provenance": {
         "sourceId": "NAVIAIR-AIP-DK",
-        "sourceRevision": "EK_AD_2_EKCH_RNAV_STAR_22_L_R_3",
-        "importedAt": "2026-07-29T00:00:00Z",
-        "effectiveFrom": "2026-07-09T00:00:00Z",
-        "effectiveUntil": "2026-10-29T00:00:00Z"
+        "sourceRevision": "EK_AD_2_EKCH_RNAV_STAR_22_L_R_2_A-12-25",
+        "importedAt": "2026-10-29T00:00:00Z",
+        "effectiveFrom": "2025-11-27T00:00:00Z",
+        "effectiveUntil": "2026-11-26T00:00:00Z"
       }
     }
   ],
@@ -395,11 +423,12 @@
       "termination": "manual",
       "provenance": {
         "sourceId": "NAVIAIR-AIP-DK",
-        "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
-        "importedAt": "2026-07-18T00:00:00Z",
-        "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-10-29T00:00:00Z"
-      }
+        "sourceRevision": "AD2-EKCH-17-AMDT-11-26",
+        "importedAt": "2026-10-29T00:00:00Z",
+        "effectiveFrom": "2026-10-29T00:00:00Z",
+        "effectiveUntil": "2026-11-26T00:00:00Z"
+      },
+      "inboundCourseMagneticDeg": 293
     },
     {
       "id": "EKCH-OLPIB-PRIMARY-LOW",
@@ -413,11 +442,12 @@
       "termination": "manual",
       "provenance": {
         "sourceId": "NAVIAIR-AIP-DK",
-        "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
-        "importedAt": "2026-07-18T00:00:00Z",
-        "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-10-29T00:00:00Z"
-      }
+        "sourceRevision": "AD2-EKCH-17-AMDT-11-26",
+        "importedAt": "2026-10-29T00:00:00Z",
+        "effectiveFrom": "2026-10-29T00:00:00Z",
+        "effectiveUntil": "2026-11-26T00:00:00Z"
+      },
+      "inboundCourseMagneticDeg": 29
     },
     {
       "id": "EKCH-LUGAS-PRIMARY-LOW",
@@ -431,11 +461,12 @@
       "termination": "manual",
       "provenance": {
         "sourceId": "NAVIAIR-AIP-DK",
-        "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
-        "importedAt": "2026-07-18T00:00:00Z",
-        "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-10-29T00:00:00Z"
-      }
+        "sourceRevision": "AD2-EKCH-17-AMDT-11-26",
+        "importedAt": "2026-10-29T00:00:00Z",
+        "effectiveFrom": "2026-10-29T00:00:00Z",
+        "effectiveUntil": "2026-11-26T00:00:00Z"
+      },
+      "inboundCourseMagneticDeg": 72
     },
     {
       "id": "EKCH-ROSBI-PRIMARY-LOW",
@@ -449,11 +480,12 @@
       "termination": "manual",
       "provenance": {
         "sourceId": "NAVIAIR-AIP-DK",
-        "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
-        "importedAt": "2026-07-18T00:00:00Z",
-        "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-10-29T00:00:00Z"
-      }
+        "sourceRevision": "AD2-EKCH-17-AMDT-11-26",
+        "importedAt": "2026-10-29T00:00:00Z",
+        "effectiveFrom": "2026-10-29T00:00:00Z",
+        "effectiveUntil": "2026-11-26T00:00:00Z"
+      },
+      "inboundCourseMagneticDeg": 102
     },
     {
       "id": "EKCH-ERNOV-PRIMARY",
@@ -466,11 +498,12 @@
       "termination": "manual",
       "provenance": {
         "sourceId": "NAVIAIR-AIP-DK",
-        "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
-        "importedAt": "2026-07-18T00:00:00Z",
-        "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-10-29T00:00:00Z"
-      }
+        "sourceRevision": "AD2-EKCH-17-AMDT-11-26",
+        "importedAt": "2026-10-29T00:00:00Z",
+        "effectiveFrom": "2026-10-29T00:00:00Z",
+        "effectiveUntil": "2026-11-26T00:00:00Z"
+      },
+      "inboundCourseMagneticDeg": 178
     }
   ],
   "paths": [
@@ -491,7 +524,8 @@
       ],
       "mergeFix": "ERPUK",
       "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "4A"
     },
     {
       "starFamily": "TESPI",
@@ -510,7 +544,8 @@
       ],
       "mergeFix": "ERPUK",
       "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "4A"
     },
     {
       "starFamily": "TUDLO",
@@ -529,7 +564,8 @@
       ],
       "mergeFix": "ERPUK",
       "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "4A"
     },
     {
       "starFamily": "TUDLO",
@@ -548,7 +584,8 @@
       ],
       "mergeFix": "ERPUK",
       "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "4A"
     },
     {
       "starFamily": "MONAK",
@@ -565,7 +602,8 @@
       ],
       "mergeFix": "DOPEM",
       "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "5A"
     },
     {
       "starFamily": "MONAK",
@@ -582,7 +620,8 @@
       ],
       "mergeFix": "DOPEM",
       "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "5A"
     },
     {
       "starFamily": "TIDVU",
@@ -600,7 +639,8 @@
       ],
       "mergeFix": "DOPEM",
       "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "3A"
     },
     {
       "starFamily": "TIDVU",
@@ -618,7 +658,8 @@
       ],
       "mergeFix": "DOPEM",
       "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "3A"
     },
     {
       "starFamily": "ERNOV",
@@ -633,7 +674,8 @@
       ],
       "mergeFix": "ERPUK",
       "selectedHolding": "EKCH-ERNOV-PRIMARY",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "3A"
     },
     {
       "starFamily": "ERNOV",
@@ -648,7 +690,8 @@
       ],
       "mergeFix": "ERPUK",
       "selectedHolding": "EKCH-ERNOV-PRIMARY",
-      "publishedHeadingMagneticDeg": 217
+      "publishedHeadingMagneticDeg": 216,
+      "starSuffix": "3A"
     },
     {
       "starFamily": "TESPI",
@@ -668,7 +711,8 @@
       ],
       "mergeFix": "ABEGI",
       "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "4C"
     },
     {
       "starFamily": "TESPI",
@@ -688,7 +732,8 @@
       ],
       "mergeFix": "ABEGI",
       "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "4C"
     },
     {
       "starFamily": "TUDLO",
@@ -708,7 +753,8 @@
       ],
       "mergeFix": "ABEGI",
       "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "4C"
     },
     {
       "starFamily": "TUDLO",
@@ -728,7 +774,8 @@
       ],
       "mergeFix": "ABEGI",
       "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "4C"
     },
     {
       "starFamily": "MONAK",
@@ -747,7 +794,8 @@
       ],
       "mergeFix": "ADOVI",
       "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "5C"
     },
     {
       "starFamily": "MONAK",
@@ -766,7 +814,8 @@
       ],
       "mergeFix": "ADOVI",
       "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "5C"
     },
     {
       "starFamily": "TIDVU",
@@ -784,7 +833,8 @@
       ],
       "mergeFix": "ADOVI",
       "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "3C"
     },
     {
       "starFamily": "TIDVU",
@@ -802,7 +852,8 @@
       ],
       "mergeFix": "ADOVI",
       "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "3C"
     },
     {
       "starFamily": "ERNOV",
@@ -811,12 +862,16 @@
       "runwayGroup": "ARRIVAL-22L",
       "fixes": [
         "ERNOV",
-        "CH632",
+        "CH647",
+        "CH637",
+        "CH631",
+        "CH626",
         "ABEGI"
       ],
       "mergeFix": "ABEGI",
       "selectedHolding": "EKCH-ERNOV-PRIMARY",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "4C"
     },
     {
       "starFamily": "ERNOV",
@@ -825,12 +880,16 @@
       "runwayGroup": "ARRIVAL-22R",
       "fixes": [
         "ERNOV",
-        "CH632",
+        "CH647",
+        "CH637",
+        "CH631",
+        "CH626",
         "ABEGI"
       ],
       "mergeFix": "ABEGI",
       "selectedHolding": "EKCH-ERNOV-PRIMARY",
-      "publishedHeadingMagneticDeg": 37
+      "publishedHeadingMagneticDeg": 36,
+      "starSuffix": "4C"
     },
     {
       "starFamily": "TESPI",
@@ -849,7 +908,8 @@
       ],
       "mergeFix": "AGTIC",
       "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 299
+      "publishedHeadingMagneticDeg": 298,
+      "starSuffix": "3B"
     },
     {
       "starFamily": "TUDLO",
@@ -867,7 +927,8 @@
       ],
       "mergeFix": "AGTIC",
       "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 299
+      "publishedHeadingMagneticDeg": 298,
+      "starSuffix": "3B"
     },
     {
       "starFamily": "MONAK",
@@ -885,7 +946,8 @@
       ],
       "mergeFix": "AGTIC",
       "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 299
+      "publishedHeadingMagneticDeg": 298,
+      "starSuffix": "5B"
     },
     {
       "starFamily": "TIDVU",
@@ -901,7 +963,8 @@
       ],
       "mergeFix": "FEDJO",
       "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 299
+      "publishedHeadingMagneticDeg": 298,
+      "starSuffix": "2B"
     },
     {
       "starFamily": "ERNOV",
@@ -916,7 +979,8 @@
       ],
       "mergeFix": "FEDJO",
       "selectedHolding": "EKCH-ERNOV-PRIMARY",
-      "publishedHeadingMagneticDeg": 299
+      "publishedHeadingMagneticDeg": 298,
+      "starSuffix": "2B"
     },
     {
       "starFamily": "TESPI",
@@ -936,7 +1000,8 @@
       ],
       "mergeFix": "HOFFO",
       "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 119
+      "publishedHeadingMagneticDeg": 118,
+      "starSuffix": "4D"
     },
     {
       "starFamily": "TUDLO",
@@ -953,7 +1018,8 @@
       ],
       "mergeFix": "COPHO",
       "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 119
+      "publishedHeadingMagneticDeg": 118,
+      "starSuffix": "3D"
     },
     {
       "starFamily": "MONAK",
@@ -968,7 +1034,8 @@
       ],
       "mergeFix": "COPHO",
       "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 119
+      "publishedHeadingMagneticDeg": 118,
+      "starSuffix": "4D"
     },
     {
       "starFamily": "TIDVU",
@@ -984,7 +1051,8 @@
       ],
       "mergeFix": "HOFFO",
       "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW",
-      "publishedHeadingMagneticDeg": 119
+      "publishedHeadingMagneticDeg": 118,
+      "starSuffix": "3D"
     },
     {
       "starFamily": "ERNOV",
@@ -1002,7 +1070,8 @@
       ],
       "mergeFix": "HOFFO",
       "selectedHolding": "EKCH-ERNOV-PRIMARY",
-      "publishedHeadingMagneticDeg": 119
+      "publishedHeadingMagneticDeg": 118,
+      "starSuffix": "3D"
     }
   ]
 }

@@ -110,7 +110,7 @@ Synthetic route/fix responses pass the production materialization and activation
 checks against the committed EKCH terminal geometry. Open-Meteo returns a
 controlled unavailable response, exercising supported weather fallback. The
 application, navigation adapter/materializer, weather adapter and command
-handler share a replay clock fixed to 26 October 2026. The browser clock uses
+handler share a replay clock fixed to 29 October 2026. The browser clock uses
 the same date. Timeout transitions advance that clock; assertions poll actual
 events or UI conditions, with no hard sleeps or retry-to-green setting.
 

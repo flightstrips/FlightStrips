@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.5.1...backend/v3.5.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **aman:** update EKCH arrivals for AIRAC 2611 ([#955](https://github.com/flightstrips/FlightStrips/issues/955)) ([42290a3](https://github.com/flightstrips/FlightStrips/commit/42290a39e2e1d1734445bd471db06c8be476c00b))
+
 ## [3.5.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.5.0...backend/v3.5.1) (2026-10-27)
 
 

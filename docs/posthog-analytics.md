@@ -6,6 +6,10 @@ in particular "wrong click" problems, where a session recording shows exactly wh
 Everything is **opt-in**. Nothing is loaded, stored or sent until the user clicks **Allow** in the
 consent banner.
 
+| Consent banner | Privacy settings (`/privacy#analytics`) |
+| --- | --- |
+| ![Consent banner](images/posthog/consent-banner-home.png) | ![Privacy settings](images/posthog/privacy-settings.png) |
+
 ## How it works
 
 | Piece | Location |

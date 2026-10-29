@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { LandingLogo } from "./LandingHeader";
 import { TextLink } from "./primitives";
+import { openConsentSettings } from "@/lib/analytics";
 
 const LEGAL = [
   { label: "About", to: "/about" },
@@ -34,6 +35,7 @@ export function LandingFooter() {
               {LEGAL.map((link) => (
                 <TextLink key={link.label} label={link.label} to={link.to} />
               ))}
+              <TextLink label="Privacy settings" to="/privacy#analytics" onClick={openConsentSettings} />
             </div>
             <p className="fsl-mono text-[11px] uppercase tracking-[0.08em] text-[var(--fsl-ink-muted)]">
               © {new Date().getFullYear()} FlightStrips. For simulation use only. Not affiliated with VATSIM.

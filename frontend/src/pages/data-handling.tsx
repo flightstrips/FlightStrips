@@ -5,7 +5,7 @@ export default function DataHandling() {
   return (
     <PublicPage>
       <PageHero eyebrow="Legal" title="Data Handling">
-        <p className="fsl-eyebrow mt-8">Last updated: 14/03/2026</p>
+        <p className="fsl-eyebrow mt-8">Last updated: 29/10/2026</p>
       </PageHero>
 
       <section>
@@ -47,6 +47,18 @@ export default function DataHandling() {
                     are retained for a limited period for operational purposes.
                   </p>
                 </div>
+                <div>
+                  <h3>Analytics and Session Replay (opt-in)</h3>
+                  <p>
+                    Only with your consent: interaction events, errors, performance metrics and session
+                    recordings collected through PostHog to diagnose reported issues. Inputs and private
+                    messages are masked. See the{" "}
+                    <Link to="/privacy#analytics">
+                      Privacy Policy
+                    </Link>{" "}
+                    for details and to change your choice.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -74,6 +86,8 @@ export default function DataHandling() {
                 <li>Operational flight data: Processed in real-time, not permanently stored</li>
                 <li>User account data: Retained while the account is active</li>
                 <li>System logs: Retained for 30 days for troubleshooting purposes</li>
+                <li>Session recordings (opt-in): Retained for 30 days</li>
+                <li>Analytics and error events (opt-in): Retained for 12 months</li>
                 <li>Backup data: Retained according to operational requirements</li>
               </ul>
             </div>
@@ -103,6 +117,10 @@ export default function DataHandling() {
                 services are bound by their own privacy policies and data handling practices. We ensure that
                 any third-party service meets our security and privacy standards.
               </p>
+              <ul>
+                <li>Auth0 (Okta): authentication</li>
+                <li>PostHog Inc., EU Cloud (Frankfurt, Germany): opt-in analytics, error tracking and session replay</li>
+              </ul>
             </div>
 
             <div>

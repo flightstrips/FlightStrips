@@ -7,7 +7,7 @@ import {resolve} from "node:path";
 import type {AMANState} from "../../src/api/aman";
 
 const backend = "http://127.0.0.1:4180";
-const epoch = "2026-10-26T18:00:00.000Z";
+const epoch = "2026-10-29T18:00:00.000Z";
 interface NativeMessage {generated_at: string; values: Array<{callsign: string; data_status: string; gain_loss_seconds?: number}>}
 const hasNativeGuidance = (event: NativeMessage, callsign: string) => event.values?.some(value => value.callsign === callsign && value.data_status === "fresh" && value.gain_loss_seconds !== undefined);
 

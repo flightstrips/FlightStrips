@@ -284,8 +284,11 @@ func publishedArrivalData(ctx context.Context, navigation navdata.GeometrySnapsh
 	for _, holding := range config.OverlayHoldings {
 		if holding.ID == configuredPath.SelectedHolding {
 			fixValue := string(holding.Fix)
-			detailValue := fmt.Sprintf("%03.0f/%s", holding.InboundCourseTrueDeg, strings.ToUpper(string(holding.TurnDirection)))
-			fix, detail = &fixValue, &detailValue
+			fix = &fixValue
+			if holding.InboundCourseMagneticDeg != nil {
+				detailValue := fmt.Sprintf("%03d/%s", *holding.InboundCourseMagneticDeg, strings.ToUpper(string(holding.TurnDirection)))
+				detail = &detailValue
+			}
 			break
 		}
 	}
@@ -314,8 +317,7 @@ func publishedArrivalData(ctx context.Context, navigation navdata.GeometrySnapsh
 				continue
 			}
 			fix := string(holding.Fix)
-			detail := fmt.Sprintf("%03.0f/%s", holding.InboundCourseTrueDeg, strings.ToUpper(string(holding.TurnDirection)))
-			return heading, &fix, &detail
+			return heading, &fix, detail
 		}
 	}
 	return heading, fix, detail
@@ -329,25 +331,6 @@ func terminalPath(config terminal.Configuration, airport string, runway, star *s
 	if procedure == "" {
 		return nil
 	}
-	var feeder string
-	for _, candidate := range config.Feeders {
-		if candidate.ID != "" && strings.HasPrefix(procedure, string(candidate.ID)) {
-			feeder = string(candidate.ID)
-			break
-		}
-		for _, alias := range candidate.Aliases {
-			if alias != "" && strings.HasPrefix(procedure, string(alias)) {
-				feeder = string(candidate.ID)
-				break
-			}
-		}
-		if feeder != "" {
-			break
-		}
-	}
-	if feeder == "" {
-		return nil
-	}
 	assignedRunway := strings.ToUpper(strings.TrimSpace(*runway))
 	for _, group := range config.RunwayGroups {
 		if !containsRunway(group, assignedRunway) {
@@ -355,10 +338,14 @@ func terminalPath(config terminal.Configuration, airport string, runway, star *s
 		}
 		for index := range config.Paths {
 			path := &config.Paths[index]
-			if string(path.Feeder) != feeder || path.RunwayGroup != group.ID {
+			if path.RunwayGroup != group.ID {
 				continue
 			}
-			return path
+			for _, feeder := range config.Feeders {
+				if feeder.ID == path.Feeder && terminal.MatchesSTAR(feeder, *path, procedure) {
+					return path
+				}
+			}
 		}
 	}
 	return nil

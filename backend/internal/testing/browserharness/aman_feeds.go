@@ -33,7 +33,7 @@ func (h *amanSuite) feed(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, map[string]any{"general": map[string]any{"update_timestamp": at}, "pilots": pilots, "prefiles": []any{}})
 	case r.URL.Path == "/api/v1/airac/current":
-		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"cycle": "2610", "effective_date": "2026-10-01T00:00:00Z", "expiration_date": "2026-10-29T00:00:00Z"}})
+		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"cycle": "2611", "effective_date": "2026-10-29T00:00:00Z", "expiration_date": "2026-11-26T00:00:00Z"}})
 	case r.URL.Path == "/api/v1/airports/EKCH":
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"icao": "EKCH", "name": "Copenhagen E2E", "coordinates": map[string]any{"lat": 55.618, "lon": 12.656}}})
 	case r.URL.Path == "/api/v1/procedures":
@@ -58,7 +58,7 @@ var positions = map[string][2]float64{
 	"ESSA": {59.65, 17.92}, "EKCH": {55.618, 12.656},
 	"TESPI": {56.1, 13.4}, "ROSBI": {55.9, 13.0}, "TUDLO": {56.2, 12.7},
 	"MONAK": {55.9, 11.2}, "OLPIB": {55.7, 11.9}, "TIDVU": {55.4, 13.8}, "ERNOV": {55.0, 12.2},
-	"CH632": {55.938464971, 12.4659798388},
+	"CH647": {55.9381416667, 12.4659444444},
 	"ERPUK": {55.45, 12.40}, "DOPEM": {55.44, 12.42}, "ABEGI": {55.76, 12.85}, "ADOVI": {55.75, 12.84}, "AGTIC": {55.682428, 12.176869}, "FEDJO": {55.837475, 12.351667}, "HOFFO": {55.570833, 13.073333}, "COPHO": {55.416558, 12.902131}, "BUDIQ": {55.435267, 12.362403}, "CATWU": {55.431833, 12.3695}, "CH12F": {55.706753, 12.415008}, "EXTAR": {55.781472, 12.910667}, "RUCCI": {55.785053, 12.903611}, "CH30F": {55.531728, 12.888461},
 }
 

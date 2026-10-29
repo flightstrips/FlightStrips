@@ -35,7 +35,7 @@ type amanSuite struct {
 }
 
 func newAMANSuite() suite {
-	h := &amanSuite{epoch: time.Date(2026, 10, 26, 18, 0, 0, 0, time.UTC), scenario: "healthy", clock: testtools.NewClock()}
+	h := &amanSuite{epoch: time.Date(2026, 10, 29, 18, 0, 0, 0, time.UTC), scenario: "healthy", clock: testtools.NewClock()}
 	h.clock.Set(h.epoch)
 	feeds := httptest.NewServer(http.HandlerFunc(h.feed))
 

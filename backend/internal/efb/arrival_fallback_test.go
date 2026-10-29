@@ -16,7 +16,7 @@ import (
 
 func arrivalTestConfig(t *testing.T) terminal.Configuration {
 	t.Helper()
-	config, err := terminal.LoadFile(filepath.Join("..", "..", "config", "aman", "ekch-terminal-2610.json"))
+	config, err := terminal.LoadFile(filepath.Join("..", "..", "config", "aman", "ekch-terminal-2611.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestArrivalGuidanceFallbackAndPrecedence(t *testing.T) {
 	}{
 		{name: "route and ATIS", destination: "EKCH", wantStar: "TUDLO", wantRunway: "22L", terminal: "ABEGI", expected: true},
 		{name: "ATC overrides both", destination: "EKCH", star: "MONAK5A", runway: "04L", wantStar: "MONAK5A", wantRunway: "04L", terminal: "DOPEM"},
-		{name: "assigned STAR retains version", destination: "EKCH", star: "MONAK5A", wantStar: "MONAK5A", wantRunway: "22L", terminal: "ADOVI", expected: true},
+		{name: "assigned STAR retains version", destination: "EKCH", star: "MONAK5C", wantStar: "MONAK5C", wantRunway: "22L", terminal: "ADOVI", expected: true},
 		{name: "stale ATIS", destination: "EKCH", stale: true, wantStar: "TUDLO", expected: true},
 		{name: "other destination", destination: "EDDF"},
 		{name: "expired AIRAC", destination: "EKCH", expired: true},

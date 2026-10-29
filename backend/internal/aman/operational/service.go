@@ -1655,27 +1655,22 @@ func (s *Service) observationFeeder(observation aman.FlightObservation, group am
 	if assigned == "" {
 		return s.feeder(stringValue(observation.FiledRoute), group)
 	}
+	if len(s.deps.Terminal.Paths) == 0 {
+		for _, configured := range s.deps.Terminal.Feeders {
+			if terminal.MatchesSTAR(configured, terminal.Path{}, assigned) {
+				return configured.ID, true
+			}
+		}
+		return "", false
+	}
 	for _, configured := range s.deps.Terminal.Feeders {
-		for _, family := range append([]navdata.FeederID{configured.ID}, configured.Aliases...) {
-			name := string(family)
-			if assigned == name || (strings.HasPrefix(assigned, name) && validProcedureSuffix(strings.TrimPrefix(assigned, name))) {
+		for _, path := range s.deps.Terminal.Paths {
+			if path.Feeder == configured.ID && path.RunwayGroup == group && terminal.MatchesSTAR(configured, path, assigned) {
 				return configured.ID, true
 			}
 		}
 	}
 	return "", false
-}
-
-func validProcedureSuffix(suffix string) bool {
-	if len(suffix) < 2 || suffix[len(suffix)-1] < 'A' || suffix[len(suffix)-1] > 'Z' {
-		return false
-	}
-	for _, digit := range suffix[:len(suffix)-1] {
-		if digit < '0' || digit > '9' {
-			return false
-		}
-	}
-	return true
 }
 
 func invalidateArrivalPath(flight *aman.AMANFlight) {

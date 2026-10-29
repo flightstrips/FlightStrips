@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/flightstrips/FlightStrips/compare/docs/v1.4.1...docs/v1.4.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **aman:** update EKCH arrivals for AIRAC 2611 ([#955](https://github.com/flightstrips/FlightStrips/issues/955)) ([42290a3](https://github.com/flightstrips/FlightStrips/commit/42290a39e2e1d1734445bd471db06c8be476c00b))
+
 ## [1.4.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.4.0...docs/v1.4.1) (2026-10-27)
 
 

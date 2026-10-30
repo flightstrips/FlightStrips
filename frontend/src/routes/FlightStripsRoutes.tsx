@@ -24,6 +24,7 @@ import AMANReplayPage from '@/pages/aman-replay';
 import StripGalleryPage from '@/pages/strip-gallery';
 import ClearanceGuidePage from '@/pages/clearance-guide';
 import PdcGuidePage from '@/pages/pdc-guide';
+import FsradisPage from '@/pages/fsradis/FsradisPage';
 import { isLocalDevelopment } from '@/lib/local-development';
 
 const ProtectedLayout = withAuthenticationRequired(Layout);
@@ -58,6 +59,7 @@ export default function FlightStripsRoutes() {
         <Route path="/stand" element={<ProtectedStandStatusPage />} />
         <Route path="/test" element={<ProtectedTestToolsPage />} />
         <Route path="/aman-replay" element={<AMANReplayPage />} />
+        <Route path="/fsradis" element={<FsradisPage />} />
         {isLocalDevelopment && <Route path="/strip-gallery" element={<StripGalleryPage />} />}
         {isLocalDevelopment && <Route path="/clearance-guide" element={<ClearanceGuidePage />} />}
         {isLocalDevelopment && <Route path="/pdc-guide" element={<PdcGuidePage />} />}

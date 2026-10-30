@@ -57,11 +57,13 @@ type StripRepository interface {
 	UpdateTrackingController(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
 	UpdateRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRunwayConfirmation(ctx context.Context, session int32, callsign string) (int64, error)
+	UpdateArrivalRunwayConfirmation(ctx context.Context, session int32, callsign string) (int64, error)
 	ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error)
 
 	// Owner management
 	SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
 	SetRouteState(ctx context.Context, session int32, callsign string, nextOwners []string, nextDisplay *models.NextDisplay) error
+	SetNextControllerSelection(ctx context.Context, session int32, callsign, owner, sector string, nextOwners []string, nextDisplay *models.NextDisplay) (int64, error)
 	SetPreviousOwners(ctx context.Context, session int32, callsign string, previousOwners []string) error
 	SetNextAndPreviousOwners(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error
 

@@ -2,6 +2,7 @@ package standstatus
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/sat"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/standdiagnostics"
 	"FlightStrips/internal/vatsim"
@@ -10,6 +11,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,6 +72,59 @@ func TestStandStatusRequiresAuthorization(t *testing.T) {
 	api.handleStatus(recorder, httptest.NewRequest(http.MethodGet, "/stand/status", nil))
 
 	require.Equal(t, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestStandAssignmentBlockedStandsUseMatchedVariant(t *testing.T) {
+	t.Parallel()
+
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A19:N055.37.42.710:E012.38.33.450:30
+BLOCKS:A18,A20
+STAND:EKCH:A18:N055.37.42.000:E012.38.33.000:20
+STAND:EKCH:A20:N055.37.43.000:E012.38.34.000:20
+`))
+	require.NoError(t, err)
+
+	matchedVariant := "EKCH:A19:1"
+	blocked := standAssignmentBlockedStands(registry, "EKCH", &models.StandAssignment{
+		Stand:          "A19",
+		MatchedVariant: &matchedVariant,
+	})
+	require.Equal(t, []string{"A18", "A20"}, blocked)
+
+	unknownMatchedVariant := "EKCH:A19:999"
+	unknownVariant := standAssignmentBlockedStands(registry, "EKCH", &models.StandAssignment{
+		Stand:          "A19",
+		MatchedVariant: &unknownMatchedVariant,
+	})
+	require.Equal(t, []string{"A18", "A20"}, unknownVariant)
+}
+
+func TestStandBlockBlockedStands(t *testing.T) {
+	t.Parallel()
+
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A19:N055.37.42.710:E012.38.33.450:30
+STAND:EKCH:A19:N055.37.42.710:E012.38.33.450:30
+BLOCKS:A18,A20
+STAND:EKCH:A18:N055.37.42.000:E012.38.33.000:20
+BLOCKS:A19
+STAND:EKCH:A20:N055.37.43.000:E012.38.34.000:20
+STAND:EKCH:A21:N055.37.44.000:E012.38.35.000:20
+BLOCKS:A20
+STAND:EKYT:A22:N057.05.00.000:E009.51.00.000:20
+`))
+	require.NoError(t, err)
+
+	// Use the union across A19 variants and deduplicate reciprocal relationships.
+	require.Equal(t, []string{"A18", "A20"}, standBlockBlockedStands(registry, "ekch", " a19 "))
+	// A20 has no outgoing BLOCKS: incoming relationships still block A19 and A21.
+	require.Equal(t, []string{"A19", "A21"}, standBlockBlockedStands(registry, "EKCH", "A20"))
+	// Blocking is not transitive; A21's neighbor A20 does not block A19 in turn.
+	require.Equal(t, []string{"A20"}, standBlockBlockedStands(registry, "EKCH", "A21"))
+	require.Empty(t, standBlockBlockedStands(registry, "EKYT", "A19"))
+	require.Empty(t, standBlockBlockedStands(registry, "EKCH", "UNKNOWN"))
+	require.Empty(t, standBlockBlockedStands(nil, "EKCH", "A19"))
 }
 
 func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {
@@ -161,6 +216,31 @@ func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {
 	require.Len(t, payload.Sessions[0].Blocks, 2)
 	require.Equal(t, int64(21), payload.Sessions[0].Blocks[0].ID)
 	require.Equal(t, "maintenance", *payload.Sessions[0].Blocks[0].Reason)
+}
+
+func TestStandStatusFiltersSessionsForScopeTimeline(t *testing.T) {
+	t.Parallel()
+
+	api := NewWebAPI(WebAPIConfig{
+		Auth: standStatusAuthStub{},
+		Sessions: standStatusSessionStub{sessions: []*models.Session{
+			{ID: 7, Name: "LIVE", Airport: "EKCH"},
+			{ID: 8, Name: "SWEATBOX", Airport: "EKCH"},
+			{ID: 9, Name: "LIVE", Airport: "EKYT"},
+		}},
+		Assignments: standStatusAssignmentStub{},
+	})
+	request := httptest.NewRequest(http.MethodGet, "/stand/status?airport=ekch&session_name=LIVE", nil)
+	request.Header.Set("Authorization", "Bearer ******")
+	recorder := httptest.NewRecorder()
+	api.handleStatus(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	var payload standStatusResponse
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&payload))
+	require.Len(t, payload.Sessions, 1)
+	require.Equal(t, "LIVE", payload.Sessions[0].Name)
+	require.Equal(t, "EKCH", payload.Sessions[0].Airport)
 }
 
 func TestStandStatusCoalescesRepeatedUnchangedFailures(t *testing.T) {

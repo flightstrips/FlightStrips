@@ -36,7 +36,7 @@ func (s *Service) RecomputeFlight(ctx context.Context, auth aman.CommandContext,
 		if observation.Missing || observation.SourceStatus != aman.DataFresh {
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "AMAN flight observation is not current"}
 		}
-		updated, err := s.reconcileFlight(ctx, state, current, observation, auth.ReceivedAt)
+		updated, err := s.reconcileFlight(withPredictionRefresh(ctx), state, current, observation, auth.ReceivedAt)
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
@@ -66,6 +66,7 @@ func (s *Service) MoveFlight(_ aman.CommandContext, command aman.MoveFlightComma
 			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		invalidateHoldingRebuild(&state, command.Callsign)
 		decision, err := sequence.ApplyMove(s.sequenceInput(state), sequence.MoveFlightCommand{Metadata: command.Metadata, Callsign: command.Callsign, RunwayGroupID: command.RunwayGroupID, BeforeCallsign: command.BeforeCallsign, AfterCallsign: command.AfterCallsign})
 		if err != nil {
 			return sequence.CommandChange{}, err
@@ -135,6 +136,7 @@ func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.Place
 		target.FrozenOperationalTETA = &frozenTETA
 		target.FrozenSlot = &aman.Slot{Time: command.SlotTime, RunwayGroupID: command.RunwayGroupID, Sequence: 1, Revision: state.Revision, Reason: string(sequence.ReasonFreezeManual)}
 		target.ManualOrder, target.RunwayGapException, target.UpdatedAt = nil, nil, auth.ReceivedAt
+		invalidateHoldingRebuild(&candidate, command.Callsign)
 		input = s.sequenceInput(candidate)
 		result, err := sequence.Generate(input)
 		if err != nil || result.HasConflicts() {
@@ -205,6 +207,7 @@ func (s *Service) ChangeRunway(auth aman.CommandContext, command aman.ChangeRunw
 			target.Slot, target.FrozenSlot, target.Order, target.ManualOrder = retargetSlot(oldSlot, command.RunwayGroupID), retargetSlot(oldFrozenSlot, command.RunwayGroupID), oldOrder, oldManualOrder
 		}
 		target.UpdatedAt = auth.ReceivedAt
+		invalidateHoldingRebuild(&candidate, command.Callsign)
 		input := s.sequenceInput(candidate)
 		result, err := sequence.Generate(input)
 		if err != nil || result.HasConflicts() {
@@ -249,6 +252,39 @@ func (s *Service) UnlockFlight(auth aman.CommandContext, command aman.UnlockFlig
 	return s.sequenceMutation("unlock_flight", command.Callsign, auth.ReceivedAt, func(input sequence.Input) (sequence.Decision, error) {
 		return sequence.ReleaseManualFreeze(input, sequence.ReleaseManualFreezeCommand{Metadata: command.Metadata, Callsign: command.Callsign, At: auth.ReceivedAt})
 	}), nil
+}
+
+func (s *Service) ExpediteFlight(auth aman.CommandContext, command aman.ExpediteFlightCommand) (sequence.CommandMutation, error) {
+	if err := s.authorizeFlightDisposition(auth); err != nil {
+		return nil, err
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index := flightIndex(state.Flights, command.Callsign)
+		if index < 0 {
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
+		}
+		before := state.Flights[index]
+		if before.Expedited && !before.SequenceDisposition.Participates() && before.State != aman.StateRemoved && before.State != aman.StateLanded {
+			return s.dispositionChange(state, false, "expedite_flight", auth, before, before)
+		}
+		if !before.SequenceDisposition.Participates() || before.Slot == nil || before.Prediction == nil || isPreliminaryPrediction(before.Prediction) ||
+			(before.State != aman.StateUnstable && before.State != aman.StateStable && before.State != aman.StateGoAround) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "expedite requires an active airborne flight with a physical landing slot"}
+		}
+		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		after := &state.Flights[index]
+		after.SequenceDisposition, after.Expedited = aman.SequenceDispositionDesequenced, true
+		after.QueueOffers = nil
+		after.UpdatedAt = auth.ReceivedAt
+		// A future automated offer is withdrawn. Due/observed admissions remain facts.
+		if r := after.ApproachRelease; r != nil && r.ReleasedAt == nil && r.ReleaseAt.After(auth.ReceivedAt) {
+			after.ApproachRelease = nil
+		}
+		promotions := s.resequence(&state, auth.ReceivedAt)
+		change, err := s.dispositionChange(state, true, "expedite_flight", auth, before, state.Flights[index])
+		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
+		return change, err
+	}, nil
 }
 
 func (s *Service) DesequenceFlight(auth aman.CommandContext, command aman.DesequenceFlightCommand) (sequence.CommandMutation, error) {
@@ -323,6 +359,7 @@ func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlig
 		candidate := state
 		candidate.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		candidate.Flights[index].SequenceDisposition = aman.SequenceDispositionActive
+		candidate.Flights[index].Expedited = false
 		input := s.sequenceInput(candidate)
 		for i := range input.Flights {
 			if input.Flights[i].Callsign != command.Callsign {
@@ -392,6 +429,7 @@ func (s *Service) authorizeFlightDisposition(auth aman.CommandContext) error {
 func (s *Service) dispositionChange(state aman.AirportState, changed bool, action string, auth aman.CommandContext, before, after aman.AMANFlight) (sequence.CommandChange, error) {
 	return s.commandChange(state, changed, action, before.Callsign, map[string]any{
 		"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
+		"before_expedited": before.Expedited, "after_expedited": after.Expedited,
 		"before_disposition": before.SequenceDisposition.OrDefault(), "after_disposition": after.SequenceDisposition.OrDefault(),
 		"before_slot": slotAudit(before.Slot), "after_slot": slotAudit(after.Slot), "before_state": before.State, "after_state": after.State,
 		"before_removed": before.State == aman.StateRemoved, "after_removed": after.State == aman.StateRemoved,
@@ -455,7 +493,7 @@ func (s *Service) SetRate(auth aman.CommandContext, command aman.SetRateCommand)
 			}
 		}
 		updateActiveRates(state.RunwayGroups, auth.ReceivedAt)
-		var promotions []sequence.VacancyPromotion
+		var promotions sequenceChanges
 		if decision.Changed {
 			promotions = s.resequence(&state, auth.ReceivedAt)
 		}
@@ -1193,6 +1231,7 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	expireActiveRouteFact(flight)
 	updatedPrediction := *flight.Prediction
+	aman.EndHoldingEpisode(flight, auth.ReceivedAt)
 	flight.SelectedHolding, flight.HoldingStack, flight.HoldingReleaseBasis = nil, nil, nil
 	updatedPrediction.HoldingFixETA, updatedPrediction.HoldingPlan, updatedPrediction.HoldingPlanBlockedBy = nil, nil, nil
 	updatedPrediction.OperationalTETA = detectedAt.Add(DefaultGoAroundDelay)
@@ -1224,9 +1263,11 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	if err != nil {
 		return sequence.CommandChange{}, err
 	}
+	invalidateHoldingRebuild(&state, state.Flights[index].Callsign)
 	state = s.applyDecision(state, decision)
 	updated := &state.Flights[index]
 	updated.FeederETA, updated.DerivedFeederETA, updated.TMAEntry = nil, nil, nil
+	updated.ApproachRelease = nil
 	if entry != nil {
 		recaptured := *entry
 		recaptured.FreezeTriggered = false
@@ -1247,7 +1288,7 @@ func (s *Service) sequenceMutation(action string, callsign aman.Callsign, at tim
 			return sequence.CommandChange{}, err
 		}
 		state = s.applyDecision(state, decision)
-		var promotions []sequence.VacancyPromotion
+		var promotions sequenceChanges
 		if decision.Changed {
 			promotions = s.resequence(&state, at)
 		}
@@ -1273,8 +1314,9 @@ func (s *Service) flightMutationWithAudit(action string, callsign aman.Callsign,
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		state.Flights[index] = updated
-		var promotions []sequence.VacancyPromotion
+		var promotions sequenceChanges
 		if changed {
+			invalidateHoldingRebuild(&state, callsign)
 			if manualETASlotPending(updated) && sequenceEligible(updated) {
 				input := s.sequenceInput(state)
 				candidate, err := sequence.Generate(input)
@@ -1295,6 +1337,7 @@ func (s *Service) commandChange(state aman.AirportState, changed bool, action st
 	if changed {
 		state.Flights = slices.Clone(state.Flights)
 		s.refreshGroundArrivalPlans(&state, state.GeneratedAt)
+		s.refreshHoldingPlans(&state)
 	}
 	change, err := commandChange(state, changed, action, callsign, extra)
 	if err != nil || !changed {

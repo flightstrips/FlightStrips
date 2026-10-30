@@ -69,6 +69,57 @@ func TestServicePersistsESOnlyClearanceCreateUpdateAndCancelWithoutCID(t *testin
 	require.Nil(t, afterCancellation.state.Flights[0].HoldingClearanceCanceledAt)
 }
 
+func TestClearanceReplansBatchButNotEATWritebackEchoes(t *testing.T) {
+	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	state := airportState(now)
+	second := state.Flights[0]
+	second.Callsign = "SAS456"
+	state.Flights = append(state.Flights, second)
+	repository := &memoryRepository{state: state}
+	planner := &recordingPlanner{}
+	pub := &publisher{}
+	service, err := New(Dependencies{Repository: repository, Publisher: pub, Planner: planner})
+	require.NoError(t, err)
+	facts := []aman.HoldingClearanceFact{
+		{Callsign: "SAS123", Destination: "EKCH", Hold: "OLPIB", HoldType: "enroute", ObservedAt: now},
+		{Callsign: "SAS456", Destination: "EKCH", Hold: "LUGAS", HoldType: "enroute", ObservedAt: now},
+	}
+	require.NoError(t, service.ObserveHoldingClearances(context.Background(), facts))
+	require.Equal(t, [][]aman.Callsign{{"SAS123", "SAS456"}}, planner.batches)
+	require.Equal(t, []string{"OLPIB", "LUGAS"}, planner.holds, "replanning must see the entire accepted batch")
+	require.Equal(t, 1, repository.commits)
+	require.Equal(t, 1, pub.calls)
+	for i := range facts {
+		facts[i].HoldEAT, facts[i].ObservedAt = "1230", now.Add(time.Second)
+	}
+	require.NoError(t, service.ObserveHoldingClearances(context.Background(), facts))
+	require.Len(t, planner.batches, 1, "the plugin echoing the calculated EAT must not run another calculation")
+	require.Equal(t, "1230", repository.state.Flights[0].HoldingClearance.HoldEAT)
+	require.Equal(t, 2, repository.commits)
+	// Unchanged sync and older reports are also calculation no-ops.
+	require.NoError(t, service.ObserveHoldingClearances(context.Background(), facts))
+	facts[0].Hold, facts[0].ObservedAt = "TESPI", now
+	require.NoError(t, service.ObserveHoldingClearances(context.Background(), facts[:1]))
+	require.Len(t, planner.batches, 1)
+	require.Equal(t, 2, repository.commits)
+	// Cancellation still refreshes the remaining holding plans immediately.
+	facts[0].Hold, facts[0].ObservedAt = "", now.Add(2*time.Second)
+	require.NoError(t, service.ObserveHoldingClearances(context.Background(), facts[:1]))
+	require.Equal(t, []aman.Callsign{"SAS123"}, planner.batches[1])
+}
+
+type recordingPlanner struct {
+	batches [][]aman.Callsign
+	holds   []string
+}
+
+func (p *recordingPlanner) RefreshHoldingClearances(_ context.Context, state *aman.AirportState, callsigns []aman.Callsign) {
+	p.batches = append(p.batches, append([]aman.Callsign(nil), callsigns...))
+	for _, flight := range state.Flights {
+		p.holds = append(p.holds, flight.HoldingClearance.Hold)
+	}
+}
+
 func TestLegacyFlightJSONWithoutHoldingClearanceRemainsValid(t *testing.T) {
 	state := airportState(time.Date(2026, 9, 11, 18, 0, 0, 0, time.UTC))
 	payload, err := json.Marshal(state)

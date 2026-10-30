@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.4.2](https://github.com/flightstrips/FlightStrips/compare/docs/v1.4.1...docs/v1.4.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **aman:** update EKCH arrivals for AIRAC 2611 ([#955](https://github.com/flightstrips/FlightStrips/issues/955)) ([42290a3](https://github.com/flightstrips/FlightStrips/commit/42290a39e2e1d1734445bd471db06c8be476c00b))
+
+## [1.4.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.4.0...docs/v1.4.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **strip:** enforce reorder ownership with shared browser coverage ([#951](https://github.com/flightstrips/FlightStrips/issues/951)) ([2241ffb](https://github.com/flightstrips/FlightStrips/commit/2241ffb7f3fd68bfe62dc7305dcb70060a2814d0))
+
+## [1.4.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.3.0...docs/v1.4.0) (2026-10-25)
+
+
+### Features
+
+* **vacs:** add native call controls and optional minimized row ([#926](https://github.com/flightstrips/FlightStrips/issues/926)) ([1e013ab](https://github.com/flightstrips/FlightStrips/commit/1e013ab144651d4d2f48633acd87cea00f1d1e2e))
+
+## [1.3.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.2.0...docs/v1.3.0) (2026-10-18)
+
+
+### Features
+
+* **aman:** add adaptive approach releases and FMP expedite ([#912](https://github.com/flightstrips/FlightStrips/issues/912)) ([603c8c7](https://github.com/flightstrips/FlightStrips/commit/603c8c7f05250fd3c1d416827c64340d03ed11d1))
+* **aman:** rebuild arrival timings and holding release order ([#919](https://github.com/flightstrips/FlightStrips/issues/919)) ([98dfbd0](https://github.com/flightstrips/FlightStrips/commit/98dfbd0e15182b13e8887550bebf8ce71e6dad20))
+* **session:** show the FS master across controller interfaces ([#918](https://github.com/flightstrips/FlightStrips/issues/918)) ([52fbeac](https://github.com/flightstrips/FlightStrips/commit/52fbeacc85ee96f67d503871facd6ae49d1eecf1))
+* **strip:** add text-pilot messaging workflows ([#907](https://github.com/flightstrips/FlightStrips/issues/907)) ([b809cea](https://github.com/flightstrips/FlightStrips/commit/b809cea428ce2f014e8b1012a6abdabe9b09e397))
+* **strip:** refine controller workflows and departure controls ([#885](https://github.com/flightstrips/FlightStrips/issues/885)) ([b33f1ad](https://github.com/flightstrips/FlightStrips/commit/b33f1ad33f6985c0b61325535b1a28ebeaf4b0e9))
+
+
+### Bug Fixes
+
+* **clearance:** align ownership and PDC frequency with staffing ([#883](https://github.com/flightstrips/FlightStrips/issues/883)) ([b3ff67b](https://github.com/flightstrips/FlightStrips/commit/b3ff67b816854480ec179dee3a12c3fc29999910))
+* **strip:** respect primary ownership and carried handover frequencies ([#915](https://github.com/flightstrips/FlightStrips/issues/915)) ([ae85f6f](https://github.com/flightstrips/FlightStrips/commit/ae85f6f4f366d771c657faf0c8416ce26f8e1255))
+
 ## [1.2.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.1.0...docs/v1.2.0) (2026-10-09)
 
 

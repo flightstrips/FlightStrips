@@ -31,6 +31,17 @@ namespace FlightStrips::flightplan {
         }
     }
 
+    std::string FlightPlanService::ResolveCommunicationType(char filed, char assigned) {
+        filed = static_cast<char>(std::toupper(static_cast<unsigned char>(filed)));
+        assigned = static_cast<char>(std::toupper(static_cast<unsigned char>(assigned)));
+        const auto supported = [](char value) { return value == 'T' || value == 'R' || value == 'V'; };
+        // EuroScope uses zero for an unassigned controller override. Never send
+        // that NUL byte; use the filed preference until an override is assigned.
+        if (supported(assigned)) return std::string(1, assigned);
+        if (supported(filed)) return std::string(1, filed);
+        return "";
+    }
+
     // Returns whether the hold changed; the scratch pad callback fires on edits
     // that have nothing to do with holding.
     bool ApplyHold(FlightPlan& plan, const TopSkyHold& hold, const std::string& eatPulse) {
@@ -240,7 +251,9 @@ namespace FlightStrips::flightplan {
         // Queue position update instead of sending immediately
         m_pendingPositionUpdates.insert_or_assign(callsign, PositionEvent(callsign, aircraftPosition.m_Latitude,
                                                                           aircraftPosition.m_Longitude,
-                                                                          position.GetPressureAltitude()));
+                                                                          position.GetPressureAltitude(),
+                                                                          position.GetReportedGS(),
+                                                                          static_cast<int64_t>(std::max(0, position.GetReceivedTime())) * 1000));
     }
 
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
@@ -310,7 +323,7 @@ namespace FlightStrips::flightplan {
                 position.m_Latitude, position.m_Longitude, radarPosition.GetPressureAltitude()
             },
             standName,
-            {flightPlanData.GetCommunicationType()},
+            ResolveCommunicationType(flightPlanData.GetCommunicationType(), controllerAssignedData.GetCommunicationType()),
             flightPlanData.GetCapibilities() == 0 ? "?" : std::string{flightPlanData.GetCapibilities()},
             std::string(flightPlanData.GetEstimatedDepartureTime()),
             isArrival ? GetEstimatedLandingTime(flightPlan) : "",
@@ -321,7 +334,8 @@ namespace FlightStrips::flightplan {
             flightPlan.GetTrackingControllerIsMe() ? plan.hold_type : "",
             flightPlan.GetTrackingControllerIsMe() ? plan.hold_eat : "",
             flightPlan.GetTrackingControllerIsMe(),
-            FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes())
+            FiledEnrouteDuration(flightPlanData.GetEnrouteHours(), flightPlanData.GetEnrouteMinutes()),
+            std::string(flightPlanData.GetPlanType())
         };
         m_websocketService->SendEvent(event);
         plan.strip_synchronized = true;
@@ -414,7 +428,7 @@ namespace FlightStrips::flightplan {
                 break;
             case EuroScopePlugIn::CTR_DATA_TYPE_COMMUNICATION_TYPE:
                 m_websocketService->SendEvent(
-                    CommunicationTypeEvent(callsign, flightPlan.GetControllerAssignedData().GetCommunicationType()));
+                    CommunicationTypeEvent(callsign, ResolveCommunicationType(flightPlan.GetFlightPlanData().GetCommunicationType(), flightPlan.GetControllerAssignedData().GetCommunicationType())));
                 break;
             case EuroScopePlugIn::CTR_DATA_TYPE_GROUND_STATE:
                 // TODO maybe get the ground state from topsky instead
@@ -685,7 +699,10 @@ namespace FlightStrips::flightplan {
         }
 
         for (const auto& [callsign, positionEvent] : m_pendingPositionUpdates) {
-            m_websocketService->SendEvent(positionEvent);
+            auto event = positionEvent;
+            event.position_age_ms += std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - event.captured_at).count();
+            m_websocketService->SendEvent(event);
         }
 
         m_pendingPositionUpdates.clear();

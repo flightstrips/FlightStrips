@@ -32,6 +32,13 @@ func optimizeMovableOrder(policy preparedPolicy, protected []allocatedEntry, ord
 			if err == nil && starInversions(candidate) <= starInversions(best) && (sequenceDelay(candidate) < bestDelay ||
 				(sequenceDelay(candidate) == bestDelay && reducesSTARInversions(best, candidate))) && retainsOrderBoundaries(best, candidate) {
 				best, bestDelay = candidate, sequenceDelay(candidate)
+				noteOperation(&ordered[i], "automatic_order_optimization")
+				noteOperation(&ordered[i+1], "automatic_order_optimization")
+				for index := range best {
+					if best[index].flight.Callsign == left.Callsign || best[index].flight.Callsign == right.Callsign {
+						noteOperation(&best[index].flight, "automatic_order_optimization")
+					}
+				}
 				changed = true
 			} else {
 				ordered[i], ordered[i+1] = left, right
@@ -87,6 +94,8 @@ func optimizeStableSameSTAR(policy preparedPolicy, entries []allocatedEntry) []a
 			continue
 		}
 		entries[i], entries[i+1] = trialLeft, trialRight
+		noteOperation(&entries[i].flight, "star_exchange")
+		noteOperation(&entries[i+1].flight, "star_exchange")
 		// Revisit the preceding pair so an inversion spanning several adjacent
 		// arrivals can be corrected in the same calculation.
 		i = max(-1, i-2)

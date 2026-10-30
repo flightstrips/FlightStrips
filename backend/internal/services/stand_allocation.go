@@ -28,11 +28,12 @@ import (
 type StandAllocationCommand string
 
 const (
-	AutomaticStandAllocation   StandAllocationCommand = "AUTOMATIC_ALLOCATION"
-	AutomaticStandReallocation StandAllocationCommand = "AUTOMATIC_REALLOCATION"
-	CompatibleManualStand      StandAllocationCommand = "MANUAL_ASSIGNMENT"
-	IncompatibleManualOverride StandAllocationCommand = "MANUAL_OVERRIDE"
-	observedStandAllocation    StandAllocationCommand = "OBSERVED_STAND"
+	AutomaticStandAllocation     StandAllocationCommand = "AUTOMATIC_ALLOCATION"
+	AutomaticStandReallocation   StandAllocationCommand = "AUTOMATIC_REALLOCATION"
+	CompatibleManualStand        StandAllocationCommand = "MANUAL_ASSIGNMENT"
+	IncompatibleManualOverride   StandAllocationCommand = "MANUAL_OVERRIDE"
+	observedStandAllocation      StandAllocationCommand = "OBSERVED_STAND"
+	pilotObservedStandAllocation StandAllocationCommand = "PILOT_OBSERVED_STAND"
 )
 
 var (
@@ -73,11 +74,11 @@ type StandAllocationRequest struct {
 	ExpiresAt       *time.Time
 	// DepartureTOBT is a fallback estimate used only when ExpiresAt does not
 	// already describe the departure's effective stand hold.
-	DepartureTOBT *time.Time
-	DepartureTSAT *time.Time
-	// DepartureReady is operational evidence such as START REQ or PUSH. For a
-	// ready aircraft, the later of TOBT and TSAT is the expected start of stand
-	// release, so START REQ can never bypass a substantially later TSAT.
+	DepartureTOBT               *time.Time
+	DepartureTSAT               *time.Time
+	DepartureStartupRequestedAt *time.Time
+	// DepartureReady indicates an assigned PUSH bay or ground state, which
+	// removes the buffer from TSAT (or TOBT when TSAT is missing).
 	DepartureReady bool
 	VatsimCID      *int64
 	VatsimRevision *int64
@@ -96,6 +97,10 @@ type StandAllocationRequest struct {
 	// more than one arrival stage. It is deliberately arrival-only: even a
 	// physical takeover must never displace another departure.
 	DisplaceArrivalStages []string
+	// ProtectReservations prevents EFB reservations from evicting soft arrivals
+	// or adopting a stand occupied by another departure.
+	ProtectReservations bool
+	AllowUnsuitable     bool
 	// ImproveTierBelow constrains a stage-boundary reallocation to tiers below
 	// the supplied value. Arrival promotion uses 2 so only Primary is accepted,
 	// preventing Secondary/Tertiary or equivalent-stand churn.
@@ -124,6 +129,7 @@ type StandAllocationResult struct {
 	ConflictReason      string
 	Attempts            int
 	AvailableCandidates []string
+	removedBlocks       []models.StandBlock
 }
 
 // StandAllocationPreview is a read-only explanation of the stands an
@@ -140,9 +146,12 @@ type StandAllocationPreview struct {
 // StandAvailability describes whether a manually selected stand can be used
 // for a flight at its current arrival ETA or departure TOBT.
 type StandAvailability struct {
-	Stand     string `json:"stand"`
-	Available bool   `json:"available"`
-	Reason    string `json:"reason,omitempty"`
+	Stand      string   `json:"stand"`
+	Available  bool     `json:"available"`
+	Reason     string   `json:"reason,omitempty"`
+	ReservedBy []string `json:"reserved_by,omitempty"`
+	Unsuitable bool     `json:"unsuitable,omitempty"`
+	Selectable bool     `json:"selectable"`
 }
 
 type StandAllocationPublisher func(context.Context, StandAllocationResult) error
@@ -590,12 +599,19 @@ func requestOccupancyWindow(request StandAllocationRequest, now time.Time, depar
 }
 
 func projectedDepartureRelease(request StandAllocationRequest, departureReleaseBuffer time.Duration) *time.Time {
-	release := request.DepartureTOBT
-	if request.DepartureTSAT != nil && (release == nil || request.DepartureTSAT.After(*release)) {
-		release = request.DepartureTSAT
+	release := request.DepartureTSAT
+	if release == nil {
+		release = request.DepartureTOBT
 	}
 	if release == nil {
 		return nil
+	}
+	if request.DepartureStartupRequestedAt != nil && !request.DepartureReady {
+		effectiveRelease := release.Add(-5 * time.Minute)
+		if request.DepartureStartupRequestedAt.After(effectiveRelease) {
+			effectiveRelease = *request.DepartureStartupRequestedAt
+		}
+		return &effectiveRelease
 	}
 	effectiveRelease := *release
 	if !request.DepartureReady {
@@ -895,7 +911,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 			}
 			for _, displaced := range result.RemovedAssignments {
 				metrics.RecordSATLifecycleEvent(ctx, "displacement", string(command), displaced.Source)
-				slog.WarnContext(ctx, "SAT assignment displaced",
+				slog.InfoContext(ctx, "SAT assignment displaced",
 					slog.String("callsign", displaced.Callsign), slog.String("stand", displaced.Stand),
 					slog.String("stage", displaced.Stage), slog.String("source", displaced.Source),
 					slog.String("reason", string(command)), slog.String("takeover_callsign", request.Callsign))
@@ -950,8 +966,8 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 		}
 		metrics.RecordSATConflict(ctx, "database_contention")
 		recordRetryableDBError(ctx, err)
-		slog.WarnContext(ctx, "SAT allocation contention; retrying", slog.String("callsign", request.Callsign), slog.Int("attempt", attempt), slog.Any("error", err))
 		if attempt < s.attempts {
+			slog.DebugContext(ctx, "SAT allocation contention; retrying", slog.String("callsign", request.Callsign), slog.Int("attempt", attempt), slog.Any("error", err))
 			if waitErr := waitForSerializableRetry(ctx, attempt); waitErr != nil {
 				return nil, waitErr
 			}
@@ -959,6 +975,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 	}
 	metrics.RecordSATOutcome(ctx, "database_contention", string(request.Direction))
 	err := fmt.Errorf("%w after %d attempts", ErrAllocationRetriesExhausted, s.attempts)
+	slog.WarnContext(ctx, "SAT allocation retries exhausted", slog.String("callsign", request.Callsign), slog.Int("attempts", s.attempts), slog.Any("error", err))
 	if recordFailures {
 		s.recordAllocationFailure(command, request, "database_contention", err, s.attempts)
 	}
@@ -1103,28 +1120,29 @@ func (s *StandAllocationService) recordAllocationFailure(command StandAllocation
 		reason = err.Error()
 	}
 	s.failures.Record(standdiagnostics.AllocationFailure{
-		OccurredAt:     now().UTC(),
-		SessionID:      request.SessionID,
-		Airport:        request.Airport,
-		Callsign:       request.Callsign,
-		Command:        string(command),
-		Outcome:        outcome,
-		Severity:       standdiagnostics.SeverityForStage(request.Stage),
-		Reason:         reason,
-		Direction:      string(request.Direction),
-		Stage:          request.Stage,
-		AttemptedStand: request.Stand,
-		AircraftType:   request.AssignmentFacts.AircraftType,
-		EngineType:     string(request.FlightFacts.EngineType),
-		WTC:            request.FlightFacts.WTC,
-		BorderStatus:   string(request.FlightFacts.BorderStatus),
-		ETA:            cloneTimePointer(request.ETA),
-		ETASource:      valueString(request.ETASource),
-		ExpiresAt:      cloneTimePointer(request.ExpiresAt),
-		DepartureTOBT:  cloneTimePointer(request.DepartureTOBT),
-		DepartureTSAT:  cloneTimePointer(request.DepartureTSAT),
-		DepartureReady: request.DepartureReady,
-		Attempts:       attempts,
+		OccurredAt:                  now().UTC(),
+		SessionID:                   request.SessionID,
+		Airport:                     request.Airport,
+		Callsign:                    request.Callsign,
+		Command:                     string(command),
+		Outcome:                     outcome,
+		Severity:                    standdiagnostics.SeverityForStage(request.Stage),
+		Reason:                      reason,
+		Direction:                   string(request.Direction),
+		Stage:                       request.Stage,
+		AttemptedStand:              request.Stand,
+		AircraftType:                request.AssignmentFacts.AircraftType,
+		EngineType:                  string(request.FlightFacts.EngineType),
+		WTC:                         request.FlightFacts.WTC,
+		BorderStatus:                string(request.FlightFacts.BorderStatus),
+		ETA:                         cloneTimePointer(request.ETA),
+		ETASource:                   valueString(request.ETASource),
+		ExpiresAt:                   cloneTimePointer(request.ExpiresAt),
+		DepartureTOBT:               cloneTimePointer(request.DepartureTOBT),
+		DepartureTSAT:               cloneTimePointer(request.DepartureTSAT),
+		DepartureStartupRequestedAt: cloneTimePointer(request.DepartureStartupRequestedAt),
+		DepartureReady:              request.DepartureReady,
+		Attempts:                    attempts,
 	})
 }
 
@@ -1149,7 +1167,7 @@ func validateStandAllocationRequest(command StandAllocationCommand, request *Sta
 	if request.Stage == "" {
 		request.Stage = "ASSIGNED"
 	}
-	if command == CompatibleManualStand || command == IncompatibleManualOverride || command == observedStandAllocation {
+	if command == CompatibleManualStand || command == IncompatibleManualOverride || command == observedStandAllocation || command == pilotObservedStandAllocation {
 		if request.Stand == "" {
 			return errors.New("manual stand allocation requires a stand")
 		}
@@ -1168,6 +1186,18 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 		return nil, "", err
 	}
 	defer tx.Rollback(ctx)
+	result, selected, err := s.allocateInTransaction(ctx, tx, command, request, tried, attempt)
+	if err != nil {
+		return nil, selected, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, selected, err
+	}
+	s.publishBlockRemovals(ctx, result.removedBlocks)
+	return result, selected, nil
+}
+
+func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx pgx.Tx, command StandAllocationCommand, request StandAllocationRequest, tried map[string]struct{}, attempt int) (*StandAllocationResult, string, error) {
 	var lockedSessionID int32
 	if err := tx.QueryRow(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", request.SessionID).Scan(&lockedSessionID); err != nil {
 		return nil, "", err
@@ -1215,7 +1245,7 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 	if err != nil {
 		return nil, selected, err
 	}
-	if isAutomaticStandAllocation(command) && s.selectedHasOverlappingEstimatedReservation(
+	if !request.ProtectReservations && isAutomaticStandAllocation(command) && s.selectedHasOverlappingEstimatedReservation(
 		assignments, selected, matchBlocks(match), request, s.now(), s.departureReleaseBuffer,
 	) {
 		request.addDisplaceArrivalStage(StageEstimated)
@@ -1247,15 +1277,12 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 			return nil, selected, errAllocationVersionConflict
 		}
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, selected, err
-	}
-	s.publishBlockRemovals(ctx, removedBlocks)
 	return &StandAllocationResult{
 		Command: command, Assignment: *assignment, Selection: selection, MatchedVariant: match,
 		Compatibility: evaluation, ConflictReason: conflict, Attempts: attempt, AvailableCandidates: available,
 		RemovedAssignments: removedAssignments, RemovedStandChanges: removedStandChanges,
 		StandChanged: standChanged, NotifyEuroscope: standChanged || request.RequestStandSync,
+		removedBlocks: removedBlocks,
 	}, selected, nil
 }
 
@@ -1349,20 +1376,42 @@ func (s *StandAllocationService) AvailableStands(ctx context.Context, request St
 	for _, match := range evaluation.Matches {
 		matches[standName(match.Stand.Name)] = match
 	}
-	unavailable := s.availability(request, assignments, blocks, matches)
 	stands := s.stands.Stands(request.Airport)
-	result := make([]StandAvailability, 0, len(stands))
+	allMatches := make(map[string]sat.StandCompatibilityMatch, len(stands))
 	for _, stand := range stands {
 		name := standName(stand.Name)
-		if _, compatible := matches[name]; !compatible {
-			result = append(result, StandAvailability{Stand: name, Reason: compatibilityReason(name, evaluation.Rejections)})
-			continue
+		if match, ok := matches[name]; ok {
+			allMatches[name] = match
+		} else {
+			allMatches[name] = sat.StandCompatibilityMatch{Stand: stand, Blocks: slices.Clone(stand.Blocks)}
 		}
+	}
+	unavailable := s.availability(request, assignments, blocks, allMatches)
+	result := make([]StandAvailability, 0, len(stands))
+	now := s.now()
+	for _, stand := range stands {
+		name := standName(stand.Name)
+		entry := StandAvailability{Stand: name}
+		for _, assignment := range assignments {
+			if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) ||
+				standName(assignment.Stand) != name || standAssignmentExpired(assignment, now) ||
+				!assignmentBlocksRequest(assignment, request, now, s.departureReleaseBuffer) || request.displacesAssignment(assignment) {
+				continue
+			}
+			entry.ReservedBy = append(entry.ReservedBy, assignment.Callsign)
+		}
+		slices.Sort(entry.ReservedBy)
+		_, compatible := matches[name]
+		entry.Unsuitable = !compatible
+		entry.Selectable = len(unavailable[name]) == 0
 		if reasons := unavailable[name]; len(reasons) > 0 {
-			result = append(result, StandAvailability{Stand: name, Reason: joinAllocationReasons(reasons)})
-			continue
+			entry.Reason = joinAllocationReasons(reasons)
+		} else if !compatible {
+			entry.Reason = compatibilityReason(name, evaluation.Rejections)
+		} else {
+			entry.Available = true
 		}
-		result = append(result, StandAvailability{Stand: name, Available: true})
+		result = append(result, entry)
 	}
 	return result, nil
 }
@@ -1409,7 +1458,7 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 	for _, match := range evaluation.Matches {
 		matches[standName(match.Stand.Name)] = match
 	}
-	if command == observedStandAllocation {
+	if command == observedStandAllocation || command == pilotObservedStandAllocation {
 		target := standName(request.Stand)
 		match, compatible := matches[target]
 		if !compatible {
@@ -1428,7 +1477,7 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		}
 		availability := s.availability(request, assignments, blocks, matches)
 		if len(availability[target]) > 0 {
-			if request.Direction == sat.AssignmentDirectionDeparture {
+			if request.Direction == sat.AssignmentDirectionDeparture && !request.ProtectReservations {
 				// Aircraft can spawn on the same stand, or on a heavy stand and a
 				// medium stand that it nominally blocks. When the only conflict is
 				// another physically observed departure, retain and report both real
@@ -1484,7 +1533,16 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 	}
 	if command == CompatibleManualStand {
 		match, compatible := matches[request.Stand]
-		if !compatible {
+		if !compatible && request.AllowUnsuitable {
+			stand, known := s.stands.Lookup(request.Airport, request.Stand)
+			if !known {
+				return request.Stand, nil, nil, nil, "", fmt.Errorf("%w: %s", ErrUnknownManualOverrideStand, request.Stand)
+			}
+			match = sat.StandCompatibilityMatch{Stand: stand, Blocks: slices.Clone(stand.Blocks)}
+			matches[request.Stand] = match
+			availability = s.availability(request, assignments, blocks, matches)
+		}
+		if !compatible && !request.AllowUnsuitable {
 			return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: fmt.Sprintf("%s is incompatible: %s",
 				request.Stand, compatibilityReason(request.Stand, evaluation.Rejections))}
 		}
@@ -1492,7 +1550,11 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 			return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: fmt.Sprintf("%s is unavailable: %s",
 				request.Stand, joinAllocationReasons(reasons))}
 		}
-		return request.Stand, nil, &match, []string{request.Stand}, "", nil
+		conflict := ""
+		if !compatible {
+			conflict = "pilot confirmed unsuitable stand: " + compatibilityReason(request.Stand, evaluation.Rejections)
+		}
+		return request.Stand, nil, &match, []string{request.Stand}, conflict, nil
 	}
 	if isAutomaticStandAllocation(command) && request.Stand != "" {
 		// A stage promotion may need to evict an overlapping ESTIMATED
@@ -1691,7 +1753,7 @@ func (s *StandAllocationService) availability(request StandAllocationRequest, as
 }
 
 func (s *StandAllocationService) availabilityYieldingEstimated(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch) map[string][]string {
-	return s.availabilityWithEstimated(request, assignments, blocks, matches, true)
+	return s.availabilityWithEstimated(request, assignments, blocks, matches, !request.ProtectReservations)
 }
 
 func (s *StandAllocationService) availabilityWithEstimated(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch, yieldEstimated bool) map[string][]string {

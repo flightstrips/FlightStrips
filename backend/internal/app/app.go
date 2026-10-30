@@ -77,6 +77,8 @@ type Config struct {
 	EnableECFMPAPI                  bool
 	EnablePilotAPI                  bool
 	EnableEFB                       bool
+	EFBCallsignLookup               bool
+	EFBTraining                     bool
 	EnableGSXStandFeed              bool
 	EnableALB                       bool
 	EnableMetar                     bool
@@ -101,6 +103,8 @@ type Config struct {
 }
 
 type Dependencies struct {
+	// Now supplies the application clock for deterministic replay. Nil uses real time.
+	Now                   func() time.Time
 	DBPool                *pgxpool.Pool
 	AuthenticationService shared.AuthenticationService
 	PDCClient             pdc.HoppieClientInterface
@@ -125,6 +129,12 @@ type App struct {
 func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cfg = cfg.withDefaults()
 	cfg.Navigation = cfg.Navigation.Normalize()
+	if cfg.EFBCallsignLookup && isLiveEnvironment(cfg.Environment) {
+		return nil, errors.New("EFB_CALLSIGN_LOOKUP cannot be enabled in a live environment")
+	}
+	if cfg.EFBTraining && isLiveEnvironment(cfg.Environment) {
+		return nil, errors.New("EFB_TRAINING cannot be enabled in a live environment")
+	}
 	if cfg.EnableTestTools && isLiveEnvironment(cfg.Environment) {
 		return nil, errors.New("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
 	}
@@ -144,7 +154,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment, cfg.StandAssignmentAircraftJSON)
 	var testClock *testtools.Clock
-	satNow := time.Now
+	satNow := deps.Now
+	if satNow == nil {
+		satNow = time.Now
+	}
 	if cfg.EnableTestTools {
 		testClock = testtools.NewClock()
 		satNow = testClock.Now
@@ -198,6 +211,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(cfg.CDMKey))
+	var efbViff efb.ViffClient
+	if strings.TrimSpace(cfg.CDMKey) != "" {
+		efbViff = cdmClient
+	}
 
 	requireLiveCIDVerification := isLiveEnvironment(cfg.Environment)
 	vatsimGraph := assembleVATSIMSource(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready || amanNeedsVATSIM)
@@ -211,6 +228,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	pdcFrequencyProviders := transports.pdcFrequencyProviders
 
 	amanDependencies := deps.AMAN
+	cfg.Navigation.Now = satNow
 	navigationSource, err := navigation.Assemble(cfg.Navigation, dbpool)
 	if err != nil {
 		if closeDB {
@@ -289,6 +307,12 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		efbNavigation = navigationSource.Geometry
 		efbTerminal = navigationSource.Terminal
 	}
+	if cfg.EnableEFB && efbTerminal.Airport == "" {
+		efbTerminal, err = terminal.LoadFile(navigation.DefaultTerminalGeometryPath)
+		if err != nil {
+			return nil, fmt.Errorf("load EFB terminal configuration: %w", err)
+		}
+	}
 	if stateReader, ok := amanDependencies.Repositories.(aman.AirportStateReader); ok && amanEnabled {
 		amanAPI = amanWebAPI.New(authService, stateReader).WithTerminal(efbTerminal)
 
@@ -326,7 +350,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			}
 		}
 	}
-	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, amanCoordination, amanRouteFacts, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled, amanRuntime.Ownership().HoldingEATWritebackEnabled)
+	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, amanCoordination, amanRouteFacts, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled, amanRuntime.Ownership().HoldingEATWritebackEnabled, satNow)
 	if err != nil {
 		if closeDB {
 			dbpool.Close()
@@ -550,7 +574,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 
 	metarPoller := metar.NewPoller(sessionRepo, frontendHub)
-	efbFlightFinder := efb.NewFlightQuery(sessionRepo, stripRepo, requireLiveCIDVerification)
+	efbFlightFinder := efb.NewFlightQuery(sessionRepo, stripRepo, true)
 
 	gsxSceneries, err := loadGSXSceneries(cfg.EnableGSXStandFeed)
 	if err != nil {
@@ -572,9 +596,13 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			pdcService:   pdcService,
 			amanAPI:      amanAPI,
 			efbAPI: efb.NewWebAPI(efb.WebAPIConfig{
-				Auth: authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
-				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil,
+				CallsignLookup: cfg.EFBCallsignLookup,
+				Training:       cfg.EFBTraining, TrainingStrips: stripRepo,
+				Network: vatsimGraph.source,
+				Auth:    authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
+				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil, Viff: efbViff,
 				Stands: standActionService, ATIS: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification, Terminal: efbTerminal, Navigation: efbNavigation,
+				PilotStands: satGraph.pilotStands,
 			}),
 			sessionRepo:                sessionRepo,
 			stripRepo:                  stripRepo,
@@ -616,7 +644,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		app.addWorker(pdcService.Start)
 	}
 	if cfg.EnableVATSIM && vatsimGraph.cache != nil {
-		app.addWorker(func(ctx context.Context) { vatsimGraph.cache.StartForLiveSessions(ctx, sessionRepo) })
+		if cfg.EnableEFB {
+			app.addWorker(vatsimGraph.cache.Start)
+		} else {
+			app.addWorker(func(ctx context.Context) { vatsimGraph.cache.StartForLiveSessions(ctx, sessionRepo) })
+		}
 	}
 	if vatsimReconciler != nil && !cfg.EnableTestTools {
 		app.addWorker(vatsimReconciler.Start)
@@ -678,6 +710,7 @@ type satAssembly struct {
 	allocations *services.StandAllocationService
 	actions     *services.StandActionService
 	departures  *services.DepartureLifecycleService
+	pilotStands efb.PilotStandActions
 	arrivals    *services.ArrivalLifecycleService
 	failures    *standdiagnostics.AllocationFailureLog
 }
@@ -729,6 +762,9 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 	graph.allocations = allocations
 	graph.actions = services.NewStandActionService(allocations, assignments, core.strips, aircraft, engines, borders)
 	graph.departures = departures
+	if cfg.EnableEFB {
+		graph.pilotStands = services.NewPilotDepartureStandService(departures)
+	}
 	graph.arrivals = arrivals
 	return graph, nil
 }
@@ -763,9 +799,9 @@ type realtimeAssembly struct {
 	euroscope *euroscope.Hub
 }
 
-func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanCoordination *coordinationrequest.Service, amanRouteFacts euroscope.AMANRouteFactReporter, amanMutations bool, amanGainLossEnabled bool, holdingEATEnabled bool) (realtimeAssembly, error) {
+func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanCoordination *coordinationrequest.Service, amanRouteFacts euroscope.AMANRouteFactReporter, amanMutations bool, amanGainLossEnabled bool, holdingEATEnabled bool, now func() time.Time) (realtimeAssembly, error) {
 	frontendHub, err := frontend.NewHub(frontend.HubDependencies{
-		Strips: stripService, Authentication: authService, AMANState: amanState, AMANCommands: amanCommands, AMANCoordination: amanCoordination, AMANMutations: amanMutations,
+		Now: now, Strips: stripService, Authentication: authService, AMANState: amanState, AMANCommands: amanCommands, AMANCoordination: amanCoordination, AMANMutations: amanMutations,
 	})
 	if err != nil {
 		return realtimeAssembly{}, fmt.Errorf("initialize frontend hub: %w", err)
@@ -983,7 +1019,7 @@ func buildPDCService(
 }
 
 func buildVATSIMCache(cfg Config, deps Dependencies, requireLiveCIDVerification bool, enableReconciliation bool) *vatsim.Cache {
-	if !cfg.EnableVATSIM || (!requireLiveCIDVerification && !enableReconciliation) {
+	if !cfg.EnableVATSIM || (!requireLiveCIDVerification && !enableReconciliation && !cfg.EnableEFB) {
 		return nil
 	}
 
@@ -1279,7 +1315,7 @@ func (cfg Config) withDefaults() Config {
 		cfg.StandAssignmentHoldDuration = 15 * time.Minute
 	}
 	if cfg.StandAssignmentBlockExtension <= 0 {
-		cfg.StandAssignmentBlockExtension = 10 * time.Minute
+		cfg.StandAssignmentBlockExtension = 5 * time.Minute
 	}
 	if cfg.StandAssignmentSweepInterval <= 0 {
 		cfg.StandAssignmentSweepInterval = 30 * time.Second

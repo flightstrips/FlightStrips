@@ -58,12 +58,12 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
 	require.NoError(t, config.Validate(refs))
-	wantHeadings := map[aman.RunwayGroupID]int{"ARRIVAL-04L": 217, "ARRIVAL-04R": 217, "ARRIVAL-12": 299, "ARRIVAL-22L": 37, "ARRIVAL-22R": 37, "ARRIVAL-30": 119}
+	wantHeadings := map[aman.RunwayGroupID]int{"ARRIVAL-04L": 216, "ARRIVAL-04R": 216, "ARRIVAL-12": 298, "ARRIVAL-22L": 36, "ARRIVAL-22R": 36, "ARRIVAL-30": 118}
 	for _, path := range config.Paths {
 		require.NotNil(t, path.PublishedHeadingMagneticDeg, path.Feeder)
 		require.Equal(t, wantHeadings[path.RunwayGroup], *path.PublishedHeadingMagneticDeg, path.Feeder)
 	}
-	fragment, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Equal(t, []navdata.TimelineMapping{
 		{ID: 1, Left: starFamilyPtr("TESPI"), Right: starFamilyPtr("TUDLO")},
@@ -78,36 +78,36 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	require.Len(t, fragment.Paths, len(config.Feeders)*len(config.RunwayGroups))
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings))
 	wantDigests := map[string]string{
-		"TESPI/ARRIVAL-04L": "3b48d6a001085a20d6033b4de340ba84517076ac7b7dd117ffdd05f79ce634e8",
-		"TESPI/ARRIVAL-04R": "dd7fb39d1912a5aba7c95621ec7486b994099fbcee4919197113644e2f880e63",
-		"TUDLO/ARRIVAL-04L": "014237b4a810142259e64cc6ffec91e9ec24d7a28d8baef3a15767f5d40564b3",
-		"TUDLO/ARRIVAL-04R": "f0114be8a16a727b599aad9b7e60b4969a3b2186842fe21026e67dba26207205",
-		"MONAK/ARRIVAL-04L": "860265082ae1d227b7323aa47000ca937b4481de1c6ecf32e7e1b624c4fa9bc3",
-		"MONAK/ARRIVAL-04R": "2216ce482035b3c722c34b0d2a7d2901117832124337b8dde481a44638127103",
-		"TIDVU/ARRIVAL-04L": "e94bd1f3295b3ff2df8c5116781752f4d428a720aefd3f05574a5bd9d7240ba4",
-		"TIDVU/ARRIVAL-04R": "484e473e51b03a9bb87a37ba19ba8c0480aaf2bd2ed7040f5317ba653b33a71d",
-		"ERNOV/ARRIVAL-04L": "801f06f05e4ace98154aea2549c8bf131ada68e638ddb84ef922da463161de55",
-		"ERNOV/ARRIVAL-04R": "317b0017d88fc8a3de86b43acae78a6d230e1685c60475e58e6a1f7e9f9112d2",
-		"TESPI/ARRIVAL-22L": "7a402153e57233b46e260de6dbd1fbad079ce829ea3f1c140cb78acbf4060cd3",
-		"TESPI/ARRIVAL-22R": "1a2f0467430d552828881ad12e9eb8e279c6658cdccd1676774143a1c3b04bad",
-		"TUDLO/ARRIVAL-22L": "b73affba72dc568035e87685e100b14383fa4655a93ab04b6264c645f2bd4258",
-		"TUDLO/ARRIVAL-22R": "504790f21357091207b8f4a95a53149db94708211f4e7e0e52c6093ed524abc5",
-		"MONAK/ARRIVAL-22L": "14ce275296b2114de2afcbfa72d91fccd530b1d92692c7688aa391da42d48f5e",
-		"MONAK/ARRIVAL-22R": "8f6ef4ab11b5e4e898dd825a94d0416c6213ef6e8c3503d04db055c0f66ae9aa",
-		"TIDVU/ARRIVAL-22L": "a4263a471865108cca0b27c84e4b6f0401d9e1b3627db6d5da60fdee226b45b4",
-		"TIDVU/ARRIVAL-22R": "9f575b556b1e216720e80171d45235befbef9fbd1a1e56d182314e0f89f23fd2",
-		"ERNOV/ARRIVAL-22L": "5924a46df6fcccef4894f4e4db1ea9cf5ac3f3eeb8d516ac96a75c55fbc885f5",
-		"ERNOV/ARRIVAL-22R": "27d727ef25fe8fd868a68c92f0cf6dbe8aec80c48ee44f2f689bbfb3067f867f",
-		"TESPI/ARRIVAL-12":  "72d637df18a4cb5a67f06c3603483e58c7d3178922c60fefcfeb02d043bc3f72",
-		"TUDLO/ARRIVAL-12":  "717590e59eb41c4689acdac3389e2fa9911a8eca6b508cca97b0f3b9b697a004",
-		"MONAK/ARRIVAL-12":  "0c0b1deb9583899c0e1dab7627de25a34bf17877190ee0af7126099cbbaf68d8",
-		"TIDVU/ARRIVAL-12":  "6f14437839ac603aafdee21b369a9fac96c686c1f4514853a0b2f2dcd44699f2",
-		"ERNOV/ARRIVAL-12":  "8ffe5b4d273224659daba61454d7c431cd7cd62bcaf4e198374b87f6e6c34515",
-		"TESPI/ARRIVAL-30":  "7a568fb42c9f92d7be344ace7229099d9b0408bc6957ce9de0e4ffb916a83298",
-		"TUDLO/ARRIVAL-30":  "99e076317b1c442bb991c738be8c1cc395c944b3039b704f54965b657358b46b",
-		"MONAK/ARRIVAL-30":  "ec78e350cfb083a00de380d56f66a724d82e726be0dbd27df21531473bb0c42c",
-		"TIDVU/ARRIVAL-30":  "e244847a53a28939b2ba7d67122d4135c8fda8130e7fae53483cc5827968c370",
-		"ERNOV/ARRIVAL-30":  "8b5165b056e47cd54693261111ca67ae81e9f4716779fc2d29c487847b231d96",
+		"TESPI/ARRIVAL-04L": "dd6d85cfe9fd7811f26ad62ea247617cedd33c6e9717713c3cb33d0f3ca6bb16",
+		"TESPI/ARRIVAL-04R": "12cf37f1bd71002d2c5ccbfb22f5af88d5c8c359e85c2f247fe0a92197398348",
+		"TUDLO/ARRIVAL-04L": "6e38ad10510514616dc050b4d79973e5ac59a0d4afc3c06ba2b8202648a8377c",
+		"TUDLO/ARRIVAL-04R": "5b3b821d49c9aa6f30318f7d3a5fef8709e62f306624b6aa5c846f4019e8339b",
+		"MONAK/ARRIVAL-04L": "70ad2c83d8720ed0c3f01059deae4c75b10c125cd80f9c33f7b4ec1aa3f3dbdd",
+		"MONAK/ARRIVAL-04R": "1c4d96cfe27a289fef6803eba680af9107935be4d2ebaf2f18a5500044624630",
+		"TIDVU/ARRIVAL-04L": "2690056c42564342da19c47e892c347659904f0199d7ffa6658c706a03c6cdab",
+		"TIDVU/ARRIVAL-04R": "600bf810ba7641c0abc072c3437de1cbf43ad5922cf57ef6b3b56eb6b7fda739",
+		"ERNOV/ARRIVAL-04L": "db7a35056558b2482b21c300e4b8f92ef386d781f97fc776f5bba16a7fde7ca7",
+		"ERNOV/ARRIVAL-04R": "f8c6a9d9a80c5e468d5be3638c8d5f2b57cfb3f59d91848e8cf35a74ca7c9af8",
+		"TESPI/ARRIVAL-22L": "540bdccaacdf383382c8470e20498bfd11a1902e81ddcad2f2d6ead647343da1",
+		"TESPI/ARRIVAL-22R": "d986a68149030ac66a85d6bdd601c6a25cb26ed4ca901194ec2918d0bbc7144e",
+		"TUDLO/ARRIVAL-22L": "6ddc93a342134c286c01f6981a132aaa428cc98769d8d1e130952d2ecca33627",
+		"TUDLO/ARRIVAL-22R": "cb5b17760b9b4bf27b62d29bc4c823a9192c841df92c58d21208f2c157f6b604",
+		"MONAK/ARRIVAL-22L": "fd67541ea4fd7375d228165f60506b1eae89e8e9647f67f65b76c156f8e5b8ab",
+		"MONAK/ARRIVAL-22R": "868c6707eeaee7d92aa12c7cc89d950703c60fcd94213c958326d0b350bce659",
+		"TIDVU/ARRIVAL-22L": "0d2cf5664b9e5fbc2aea3f0cb7b66657bab93865bda13ba5bc9f175bfa12bb53",
+		"TIDVU/ARRIVAL-22R": "f50c31b7338f4b2a7c8e9e71182d97a77e193f9443312c19734516d6061803f5",
+		"ERNOV/ARRIVAL-22L": "76a1d7dfe5d1a04d92a1a82fdbe87afa2de70eea8ee7964224321d441314530c",
+		"ERNOV/ARRIVAL-22R": "b8036ef788ef1eb9feca9200d7e7b78258db4b4ccf52f14b1e30e860175fc3e6",
+		"TESPI/ARRIVAL-12":  "0e452ce4ee6aecdbb1b7fcffbcfe21c996587c5a5a391f76882bd7104e0a7d44",
+		"TUDLO/ARRIVAL-12":  "bee8018a2498c11752a971b77d042c48650473e045f6e7bb74274627b9ac4df8",
+		"MONAK/ARRIVAL-12":  "387b43d63c39b0c20fe1297f05ce5adf97f9556ab4286e4098840b16e8f21330",
+		"TIDVU/ARRIVAL-12":  "e8b16017a23d7558c46755b33e998f15981e4da8160bdc06e929f1847b92f936",
+		"ERNOV/ARRIVAL-12":  "76217dc29f5bddaaa98d36a825cce606c46544e817fa2334340a1e5663506597",
+		"TESPI/ARRIVAL-30":  "e5df0748cbdefb1a125ab1f035e85ec645f374eba703b0a11718e6fedac2da09",
+		"TUDLO/ARRIVAL-30":  "d2c99d75a3cb990e5f407d65f074ddea46e79e0a06b900baff48b0952591a2de",
+		"MONAK/ARRIVAL-30":  "08f3a3d98e79b6bf3cbddcdeed4fc08ef5846fe54b7fd5b003832333f460cc26",
+		"TIDVU/ARRIVAL-30":  "aafe4d42c81ffd7e00bdfee7ff2200fe26e3aadaaa8e1442ad76463f2deda2f5",
+		"ERNOV/ARRIVAL-30":  "b721ebed61e1ba5e142e65fb249e7e47702733707c58d9d2b1ffde3112c16213",
 	}
 	for _, path := range fragment.Paths {
 		key := string(path.STARFamily) + "/" + string(path.RunwayGroup)
@@ -142,7 +142,7 @@ func TestLegacyFeederConfigurationMaterializesWithoutExplicitMetadata(t *testing
 	require.Empty(t, config.Paths[0].FeederFix)
 	require.Nil(t, config.Paths[0].HoldingToFeederSeconds)
 
-	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Equal(t, navdata.FeederID("TESPI"), fragment.Paths[0].Feeder)
 	require.Empty(t, fragment.Paths[0].STARFamily)
@@ -155,7 +155,7 @@ func TestCandidateMaterializesExplicitTerminalPathMetadata(t *testing.T) {
 	seconds := int64(3*60 + 15)
 	config.Paths[0].HoldingToFeederSeconds = &seconds
 
-	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	path := fragment.Paths[0]
 	require.Equal(t, navdata.FeederID("TESPI"), path.Feeder, "legacy family remains populated")
@@ -168,10 +168,10 @@ func TestCandidateMaterializesExplicitTerminalPathMetadata(t *testing.T) {
 
 func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) {
 	config := goldenConfig(t)
-	require.Equal(t, "EKCH-AIP-2610-V1", config.ConfigVersion)
-	require.Equal(t, "2610", config.Dataset.Cycle)
-	require.Equal(t, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), config.ApplicabilityFrom)
-	require.Equal(t, time.Date(2026, 10, 29, 0, 0, 0, 0, time.UTC), config.ApplicabilityUntil)
+	require.Equal(t, "EKCH-AIP-2611-V1", config.ConfigVersion)
+	require.Equal(t, "2611", config.Dataset.Cycle)
+	require.Equal(t, time.Date(2026, 10, 29, 0, 0, 0, 0, time.UTC), config.ApplicabilityFrom)
+	require.Equal(t, time.Date(2026, 11, 26, 0, 0, 0, 0, time.UTC), config.ApplicabilityUntil)
 	require.Equal(t, config.ApplicabilityFrom, config.Dataset.EffectiveFrom)
 	require.Equal(t, config.ApplicabilityUntil, config.Dataset.EffectiveUntil)
 	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R", "ARRIVAL-22L", "ARRIVAL-22R", "ARRIVAL-12", "ARRIVAL-30"}, groupIDs(config.RunwayGroups))
@@ -239,11 +239,14 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 		"EKCH-ERNOV-PRIMARY":     {"ERNOV", 183, navdata.TurnLeft, 90, 10000, 0, false, 230},
 	}
 	require.Len(t, config.OverlayHoldings, len(wantHoldings))
+	wantMagnetic := map[navdata.FixID]int{"TIDVU": 293, "OLPIB": 29, "LUGAS": 72, "ROSBI": 102, "ERNOV": 178}
 	for _, holding := range config.OverlayHoldings {
 		want, found := wantHoldings[holding.ID]
 		require.True(t, found, holding.ID)
 		require.Equal(t, want.fix, holding.Fix)
 		require.Equal(t, want.course, holding.InboundCourseTrueDeg)
+		require.NotNil(t, holding.InboundCourseMagneticDeg)
+		require.Equal(t, wantMagnetic[holding.Fix], *holding.InboundCourseMagneticDeg)
 		require.Equal(t, want.turn, holding.TurnDirection)
 		require.NotNil(t, holding.LegTimeSeconds)
 		require.Equal(t, want.seconds, *holding.LegTimeSeconds)
@@ -259,7 +262,7 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 		require.Equal(t, want.speed, *holding.MaximumSpeedKt)
 		require.Equal(t, navdata.HoldingManual, holding.Termination)
 		require.Equal(t, "NAVIAIR-AIP-DK", holding.Provenance.SourceID)
-		require.Equal(t, "AD2-EKCH-17-AMDT-12-25", holding.Provenance.SourceRevision)
+		require.Equal(t, "AD2-EKCH-17-AMDT-11-26", holding.Provenance.SourceRevision)
 	}
 
 	wantPaths := map[string]struct {
@@ -275,7 +278,7 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 		"TUDLO/ARRIVAL-22": {fixIDs("TUDLO", "LUGAS", "KOR", "CH654", "CH645", "CH638", "CH631", "CH626", "ABEGI"), "EKCH-LUGAS-PRIMARY-LOW"},
 		"MONAK/ARRIVAL-22": {fixIDs("MONAK", "OLPIB", "NEKSO", "CH643", "CH636", "CH630", "CH625", "ADOVI"), "EKCH-OLPIB-PRIMARY-LOW"},
 		"TIDVU/ARRIVAL-22": {fixIDs("TIDVU", "ESJAH", "CH641", "CH636", "CH630", "CH625", "ADOVI"), "EKCH-TIDVU-PRIMARY-LOW"},
-		"ERNOV/ARRIVAL-22": {fixIDs("ERNOV", "CH632", "ABEGI"), "EKCH-ERNOV-PRIMARY"},
+		"ERNOV/ARRIVAL-22": {fixIDs("ERNOV", "CH647", "CH637", "CH631", "CH626", "ABEGI"), "EKCH-ERNOV-PRIMARY"},
 		"TESPI/ARRIVAL-12": {fixIDs("TESPI", "ROSBI", "TNO", "CH553", "CH542", "CH533", "CH525", "AGTIC"), "EKCH-ROSBI-PRIMARY-LOW"},
 		"TUDLO/ARRIVAL-12": {fixIDs("TUDLO", "LUGAS", "KOR", "CH543", "CH533", "CH525", "AGTIC"), "EKCH-LUGAS-PRIMARY-LOW"},
 		"MONAK/ARRIVAL-12": {fixIDs("MONAK", "OLPIB", "NEKSO", "CH546", "CH530", "CH525", "AGTIC"), "EKCH-OLPIB-PRIMARY-LOW"},
@@ -327,9 +330,35 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 	require.Equal(t, config.ApplicabilityUntil, config.FixAliases[0].Source.EffectiveUntil)
 	require.Contains(t, config.FixAliases[0].Source.Document, "CDA withdrawn")
 	require.Len(t, config.OverlayFixes, 1)
-	require.Equal(t, navdata.FixID("CH632"), config.OverlayFixes[0].ID)
-	require.InDelta(t, 55.9384649710, config.OverlayFixes[0].Position.LatitudeDeg, 0.0000001)
-	require.InDelta(t, 12.4659798388, config.OverlayFixes[0].Position.LongitudeDeg, 0.0000001)
+	require.Equal(t, navdata.FixID("CH647"), config.OverlayFixes[0].ID)
+	require.InDelta(t, 55.9381416667, config.OverlayFixes[0].Position.LatitudeDeg, 0.0000001)
+	require.InDelta(t, 12.4659444444, config.OverlayFixes[0].Position.LongitudeDeg, 0.0000001)
+}
+
+func TestCurrentSTARDesignatorsMatchTheirRunway(t *testing.T) {
+	config := goldenConfig(t)
+	wantSuffixes := map[navdata.FeederID]map[string]string{
+		"TESPI": {"04": "4A", "22": "4C", "12": "3B", "30": "4D"},
+		"TUDLO": {"04": "4A", "22": "4C", "12": "3B", "30": "3D"},
+		"MONAK": {"04": "5A", "22": "5C", "12": "5B", "30": "4D"},
+		"TIDVU": {"04": "3A", "22": "3C", "12": "2B", "30": "3D"},
+		"ERNOV": {"04": "3A", "22": "4C", "12": "2B", "30": "3D"},
+	}
+	for _, path := range config.Paths {
+		group := strings.TrimPrefix(string(path.RunwayGroup), "ARRIVAL-")[:2]
+		require.Equal(t, wantSuffixes[path.Feeder][group], path.STARSuffix)
+		var feeder Feeder
+		for _, candidate := range config.Feeders {
+			if candidate.ID == path.Feeder {
+				feeder = candidate
+			}
+		}
+		require.NotEmpty(t, path.STARSuffix)
+		require.True(t, MatchesSTAR(feeder, path, string(feeder.ID)+path.STARSuffix))
+		require.True(t, MatchesSTAR(feeder, path, string(feeder.Aliases[0])+path.STARSuffix))
+		require.True(t, MatchesSTAR(feeder, path, string(feeder.ID)))
+		require.False(t, MatchesSTAR(feeder, path, string(feeder.ID)+"99Z"))
+	}
 }
 
 func groupIDs(groups []RunwayGroup) []aman.RunwayGroupID {
@@ -400,17 +429,17 @@ func TestSameSTARSpacingValidation(t *testing.T) {
 func TestSTARFamilyPolicyValidationAndDeterministicDigest(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
-	baseline, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	baseline, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
 	slices.Reverse(config.STARFamilyPolicies)
-	reordered, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	reordered, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Equal(t, baseline.Digest, reordered.Digest)
 	require.Equal(t, baseline.STARFamilyPolicies, reordered.STARFamilyPolicies)
 
 	config.STARFamilyPolicies[0].HoldingSequencePolicy = navdata.HoldingSequenceLowestAltitudeFirst
-	enabled, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	enabled, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.NotEqual(t, baseline.Digest, enabled.Digest)
 	require.Equal(t, navdata.HoldingSequenceLowestAltitudeFirst, enabled.STARFamilyPolicies[4].HoldingSequencePolicy)
@@ -428,18 +457,18 @@ func TestSTARFamilyPolicyValidationAndDeterministicDigest(t *testing.T) {
 func TestTimelineMappingValidationAndDeterministicDigest(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
-	baseline, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	baseline, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
 	slices.Reverse(config.TimelineMappings)
-	reordered, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	reordered, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Equal(t, baseline.Digest, reordered.Digest)
 	require.Equal(t, baseline.TimelineMappings, reordered.TimelineMappings)
 
 	changedFamily := navdata.STARFamilyID("MONAK")
 	config.TimelineMappings[0].Left = &changedFamily
-	changed, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	changed, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.NotEqual(t, baseline.Digest, changed.Digest)
 
@@ -565,7 +594,7 @@ func TestPublishedAndOverlayHoldingsNormalizeEquivalently(t *testing.T) {
 	second, err := navdata.HoldingDigest(config.OverlayHoldings[0].canonical())
 	require.NoError(t, err)
 	require.Equal(t, first, second)
-	fragment, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.NotContains(t, fragment.Holdings, published, "published canonical holding replaces identical AIP fallback")
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings)-1)
@@ -574,20 +603,20 @@ func TestPublishedAndOverlayHoldingsNormalizeEquivalently(t *testing.T) {
 func TestCandidateUsesAirportScopedFixOverrideForERNOV22(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
-	setFixPosition(refs.Fixes, "CH632", 26.327641, -83.227989)
+	setFixPosition(refs.Fixes, "CH647", 26.327641, -83.227989)
 
-	fragment, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	pathIndex := slices.IndexFunc(fragment.Paths, func(path navdata.TerminalPath) bool {
 		return path.Feeder == "ERNOV" && path.RunwayGroup == "ARRIVAL-22L"
 	})
 	require.NotEqual(t, -1, pathIndex)
 	path := fragment.Paths[pathIndex]
-	require.Equal(t, navdata.FixID("CH632"), *path.Legs[0].ToFix)
+	require.Equal(t, navdata.FixID("CH647"), *path.Legs[0].ToFix)
 	require.NotNil(t, path.Legs[0].ToPosition)
-	require.InDelta(t, 55.9384649710, path.Legs[0].ToPosition.LatitudeDeg, 0.0000001)
-	require.InDelta(t, 12.4659798388, path.Legs[0].ToPosition.LongitudeDeg, 0.0000001)
-	require.Equal(t, navdata.FixID("CH632"), *path.Legs[1].FromFix)
+	require.InDelta(t, 55.9381416667, path.Legs[0].ToPosition.LatitudeDeg, 0.0000001)
+	require.InDelta(t, 12.4659444444, path.Legs[0].ToPosition.LongitudeDeg, 0.0000001)
+	require.Equal(t, navdata.FixID("CH647"), *path.Legs[1].FromFix)
 	require.NotNil(t, path.Legs[1].FromPosition)
 	require.Equal(t, *path.Legs[0].ToPosition, *path.Legs[1].FromPosition)
 }
@@ -602,7 +631,7 @@ func TestLegacyCDAFixAliasNormalizesToCurrentOLPIB(t *testing.T) {
 		}
 	}
 	require.NoError(t, config.Validate(refs))
-	fragment, err := config.Candidate(refs, time.Date(2026, 10, 1, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	for _, path := range fragment.Paths {
 		for _, leg := range path.Legs {
@@ -692,7 +721,7 @@ func goldenConfig(t *testing.T) Configuration {
 func goldenConfigPath(t *testing.T) string {
 	_, file, _, ok := runtime.Caller(0)
 	require.True(t, ok)
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "config", "aman", "ekch-terminal-2610.json"))
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "config", "aman", "ekch-terminal-2611.json"))
 }
 
 func referencesFor(t *testing.T, config Configuration) ReferenceSet {

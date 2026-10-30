@@ -50,6 +50,34 @@ TEST(AMANGainLossStoreTest, ReadsProtobufReplacement) {
     EXPECT_TRUE(store.FindByCallsign("SAS123")->insideTMA);
 }
 
+TEST(AMANGainLossStoreTest, UnavailableAircraftDoesNotRejectHealthyAircraftTimings) {
+    AMANGainLossStore store;
+    auto replacement = Event(43, "UNRELIABLE");
+    auto* affected = replacement.mutable_aman_gain_loss()->mutable_values(0);
+    affected->clear_gain_loss_seconds();
+    affected->clear_reference_point();
+    affected->clear_target_time();
+    affected->clear_predicted_time();
+    const auto healthy = Event(43, "HEALTHY");
+    *replacement.mutable_aman_gain_loss()->add_values() = healthy.aman_gain_loss().values(0);
+    auto stale = healthy.aman_gain_loss().values(0);
+    stale.set_callsign("STALE");
+    stale.set_data_status("stale");
+    *replacement.mutable_aman_gain_loss()->add_values() = stale;
+
+    store.OnMessages({Bytes(replacement)});
+    EXPECT_EQ(store.Snapshot()->revision, 43);
+    EXPECT_EQ(store.Snapshot()->byCallsign.size(), 3);
+    ASSERT_TRUE(store.FindByCallsign("UNRELIABLE").has_value());
+    EXPECT_FALSE(store.FindByCallsign("UNRELIABLE")->seconds.has_value());
+    ASSERT_TRUE(store.FindByCallsign("HEALTHY").has_value());
+    EXPECT_EQ(store.FindByCallsign("HEALTHY")->seconds, 90);
+    EXPECT_EQ(store.FindByCallsign("HEALTHY")->dataStatus, "fresh");
+    ASSERT_TRUE(store.FindByCallsign("STALE").has_value());
+    EXPECT_EQ(store.FindByCallsign("STALE")->seconds, 90);
+    EXPECT_EQ(store.FindByCallsign("STALE")->dataStatus, "stale");
+}
+
 TEST(AMANGainLossStoreTest, KeepsSameSessionReconnectButClearsDifferentSession) {
     AMANGainLossStore store;
     store.SessionChanged("EKCH/SWEATBOX-A");

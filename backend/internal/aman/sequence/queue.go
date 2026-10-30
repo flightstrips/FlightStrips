@@ -160,8 +160,43 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 			})
 		}
 		promotions = compactStableFlights(policy, entries, promotionSlots, promotions, at)
+		allocated := make([]allocatedEntry, 0, len(entries))
+		for _, entry := range entries {
+			allocated = append(allocated, allocatedEntry{flight: entry.flight, time: entry.slot.Time, reason: CandidateReason(entry.slot.Reason)})
+		}
+		for _, entry := range fillSTARSpacingGaps(policy, allocated, at) {
+			previous := entries[queueEntryIndex(entries, entry.flight.Callsign)]
+			if !entry.time.Before(previous.slot.Time) {
+				continue
+			}
+			for i := range working.Flights {
+				if working.Flights[i].Callsign == entry.flight.Callsign {
+					working.Flights[i].Operations = append(working.Flights[i].Operations, "gap_fill")
+				}
+			}
+			to := previous.slot
+			to.Time, to.Reason = entry.time, string(ReasonQueuePromotion)
+			promotionSlots[entry.flight.Callsign] = to
+			if entry.flight.CurrentSlot != nil {
+				found := false
+				for i := range promotions {
+					if promotions[i].Callsign == entry.flight.Callsign {
+						promotions[i].To, found = to, true
+						break
+					}
+				}
+				if !found {
+					promotions = append(promotions, VacancyPromotion{Callsign: entry.flight.Callsign, From: *entry.flight.CurrentSlot, To: to})
+				}
+			}
+		}
 	}
 
+	for i := range working.Flights {
+		if _, promoted := promotionSlots[working.Flights[i].Callsign]; promoted {
+			working.Flights[i].Operations = append(working.Flights[i].Operations, "vacancy_promotion")
+		}
+	}
 	result, err := generate(working, promotionSlots)
 	if err != nil {
 		return Result{}, nil, err
@@ -200,6 +235,13 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 
 func vacancyBaselineInput(input Input, baseline Result) Input {
 	working := cloneInput(input)
+	for _, operation := range baseline.Operations {
+		for i := range working.Flights {
+			if working.Flights[i].Callsign == operation.Callsign {
+				working.Flights[i].Operations = append(working.Flights[i].Operations, operation.Kind)
+			}
+		}
+	}
 	byCallsign := make(map[aman.Callsign]CandidateEntry, len(baseline.Entries))
 	for _, entry := range baseline.Entries {
 		byCallsign[entry.Callsign] = entry
@@ -315,7 +357,7 @@ func compactStableFlights(policy preparedPolicy, entries []queueEntry, promotion
 }
 
 func stablePromotionEligible(flight preparedFlight) bool {
-	if (flight.State != aman.StateStable && !flight.HoldingSlotProtected) || flight.ManualOrder != nil || flight.CurrentSlot == nil {
+	if (flight.State != aman.StateStable && !flight.HoldingSlotProtected) || flight.ManualOrder != nil || flight.ReleaseRank != nil || flight.CurrentSlot == nil {
 		return false
 	}
 	switch flight.FreezeReason {
@@ -613,7 +655,7 @@ func queueEntries(revision aman.SequenceRevision, flights []preparedFlight) ([]q
 }
 
 func queueEligible(flight preparedFlight) bool {
-	return (flight.State == aman.StateUnstable || flight.State == aman.StateStable) && flight.FreezeReason == aman.FreezeNone && flight.ManualOrder == nil
+	return (flight.State == aman.StateUnstable || flight.State == aman.StateStable) && flight.FreezeReason == aman.FreezeNone && flight.ManualOrder == nil && flight.ReleaseRank == nil
 }
 
 func crossesProtectedOrder(entries []queueEntry, candidateIndex, targetIndex int) bool {

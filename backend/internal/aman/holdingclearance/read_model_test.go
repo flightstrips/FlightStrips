@@ -141,6 +141,24 @@ func TestMissingHoldingReleaseExplainsBlockerAndResolvesWithAcceptedPlan(t *test
 	require.Equal(t, now.Add(10*time.Minute), *model.Entries[0].EAT)
 }
 
+func TestHoldingReleaseOrderWarningKeepsCalculatedEAT(t *testing.T) {
+	now := time.Date(2026, 10, 19, 18, 43, 12, 0, time.UTC)
+	flight := readModelFlight("", "BAW52Y", "EKCH", aman.HoldingClearanceEnroute, "ROSBI", "", nil, now)
+	blocker := aman.Callsign("SAS1877")
+	eat := now.Add(12 * time.Minute)
+	flight.Slot = &aman.Slot{Time: now.Add(25 * time.Minute)}
+	flight.Prediction = &aman.Prediction{Publishable: true, HoldingPlanBlockedBy: &blocker,
+		HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: eat}}
+	model := BuildReadModel(aman.AirportState{Airport: "EKCH", Flights: []aman.AMANFlight{flight}})
+	require.Equal(t, &eat, model.Entries[0].EAT)
+	require.Len(t, model.Warnings, 1)
+	require.Equal(t, "holding_release_order_conflict", model.Warnings[0].Code)
+	require.Equal(t, &blocker, model.Warnings[0].RelatedCallsign)
+	require.Contains(t, model.Warnings[0].Message, "EAT 18:55 UTC")
+	require.Contains(t, model.Warnings[0].Message, "calculated EAT and assigned runway slot are retained")
+	require.NotContains(t, model.Warnings[0].Message, "no calculated EAT")
+}
+
 func TestMissingHoldingReleaseNamesMissingCalculationInput(t *testing.T) {
 	now := time.Date(2026, 10, 4, 19, 0, 0, 0, time.UTC)
 	flight := readModelFlight("", "SAS123", "EKCH", aman.HoldingClearanceEnroute, "OLPIB", "", nil, now)

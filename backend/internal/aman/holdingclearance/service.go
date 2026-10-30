@@ -19,9 +19,14 @@ type Repository interface {
 	aman.StateCommitter
 }
 
+type Planner interface {
+	RefreshHoldingClearances(context.Context, *aman.AirportState, []aman.Callsign)
+}
+
 type Dependencies struct {
 	Repository Repository
 	Publisher  sequence.FullStatePublisher
+	Planner    Planner
 }
 
 type Service struct{ deps Dependencies }
@@ -105,6 +110,7 @@ func (s *Service) observeAirportClearances(ctx context.Context, airport string, 
 			indices[flight.Callsign] = index
 		}
 		changed := false
+		var replan []aman.Callsign
 		for _, fact := range facts {
 			index, exists := indices[fact.Callsign]
 			if !exists {
@@ -115,6 +121,14 @@ func (s *Service) observeAirportClearances(ctx context.Context, airport string, 
 			if sameClearance(current, normalized) || (current != nil && !fact.ObservedAt.After(current.ObservedAt)) {
 				continue
 			}
+			// EAT writeback echoes do not change the holding journey. Replan
+			// only when the clearance or cleared level changes.
+			if current == nil || current.Hold != normalized.Hold || current.HoldType != normalized.HoldType ||
+				!equalAltitude(current.ClearedAltitude, normalized.ClearedAltitude) {
+				if !slices.Contains(replan, fact.Callsign) {
+					replan = append(replan, fact.Callsign)
+				}
+			}
 			state.Flights[index].ReplaceHoldingClearance(normalized)
 			changed = true
 			if fact.ObservedAt.After(state.GeneratedAt) {
@@ -123,6 +137,9 @@ func (s *Service) observeAirportClearances(ctx context.Context, airport string, 
 		}
 		if !changed {
 			return nil
+		}
+		if len(replan) > 0 && s.deps.Planner != nil {
+			s.deps.Planner.RefreshHoldingClearances(ctx, &state, replan)
 		}
 		expectedRevision := state.Revision
 		advanceRevision(&state)

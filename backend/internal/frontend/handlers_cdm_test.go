@@ -21,11 +21,35 @@ type spyCdmService struct {
 	sourcePos     string
 	sourceRole    string
 	called        bool
+	reaCalled     bool
 	clxSession    int32
 	clxCallsign   string
 	clxTobt       string
 	clxCalled     bool
 	deicePlatform string
+}
+
+type spyReaService struct {
+	spyCdmService
+	reaCalled bool
+}
+
+func (s *spyReaService) HandleReaRequest(_ context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	s.reaCalled = true
+	s.session, s.callsign, s.sourcePos, s.sourceRole = session, callsign, sourcePosition, sourceRole
+	return nil
+}
+
+func TestHandleCdmReadyRoutesFlightPlanReaSeparately(t *testing.T) {
+	service := &spyReaService{}
+	client := &Client{hub: &Hub{server: &testutil.MockServer{CdmServiceVal: service}}, session: 42, position: "119.905"}
+	data, err := json.Marshal(frontendEvents.CdmReadyEvent{Callsign: "SAS123", Rea: true})
+	require.NoError(t, err)
+	require.NoError(t, handleCdmReady(context.Background(), client, Message{Message: data}))
+	assert.True(t, service.reaCalled)
+	assert.False(t, service.called)
+	assert.Equal(t, "119.905", service.sourcePos)
+	assert.Equal(t, "SAS123", service.callsign)
 }
 
 func (s *spyCdmService) TriggerRecalculate(_ context.Context, _ int32, _ string) {
@@ -42,6 +66,15 @@ func (s *spyCdmService) DeregisterMasterAirport(context.Context, string) error {
 
 func (s *spyCdmService) HandleReadyRequest(_ context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	s.called = true
+	s.session = session
+	s.callsign = callsign
+	s.sourcePos = sourcePosition
+	s.sourceRole = sourceRole
+	return nil
+}
+
+func (s *spyCdmService) HandleReaRequest(_ context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	s.reaCalled = true
 	s.session = session
 	s.callsign = callsign
 	s.sourcePos = sourcePosition
@@ -115,6 +148,23 @@ func TestHandleCdmReady_UsesOrchestrationMethod(t *testing.T) {
 	err = handleCdmReady(context.Background(), client, Message{Message: payload})
 	require.NoError(t, err)
 	assert.True(t, cdmService.called)
+	assert.Equal(t, int32(42), cdmService.session)
+	assert.Equal(t, "SAS321", cdmService.callsign)
+	assert.Equal(t, "EKCH_DEL", cdmService.sourcePos)
+	assert.Equal(t, "ATC", cdmService.sourceRole)
+}
+
+func TestHandleCdmReadyRoutesReaSeparately(t *testing.T) {
+	cdmService := &spyCdmService{}
+	server := &testutil.MockServer{CdmServiceVal: cdmService}
+	client := &Client{hub: &Hub{server: server}, session: 42, position: "EKCH_DEL"}
+
+	payload, err := json.Marshal(frontendEvents.CdmReadyEvent{Callsign: "SAS321", Rea: true})
+	require.NoError(t, err)
+	require.NoError(t, handleCdmReady(context.Background(), client, Message{Message: payload}))
+
+	assert.True(t, cdmService.reaCalled)
+	assert.False(t, cdmService.called)
 	assert.Equal(t, int32(42), cdmService.session)
 	assert.Equal(t, "SAS321", cdmService.callsign)
 	assert.Equal(t, "EKCH_DEL", cdmService.sourcePos)

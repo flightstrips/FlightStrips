@@ -130,7 +130,7 @@ describe("EstStandCell", () => {
     render(
       <EstStandCell
         stand={stand}
-        strip={makeStrip({ start_req: true, tobt: "1420", tsat: "1425" })}
+        strip={makeStrip({ bay: Bay.Cleared, start_req: true, tobt: "1420", tsat: "1425" })}
         blocked={false}
         selected={false}
         actionActive={false}
@@ -143,10 +143,31 @@ describe("EstStandCell", () => {
     );
 
     expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #00FF26");
-    expect(screen.getByTestId("est-tobt-background").style.top).toBe("88px");
+    expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.getByTestId("est-tsat-background").style.top).toBe("105px");
-    expect(screen.getByText("TOBT:").parentElement?.style.color).toBe("rgb(0, 0, 0)");
+    expect(screen.getByText("TOBT:").parentElement?.style.color).toBe("");
     expect(screen.getByText("TSAT: 1425").style.color).toBe("rgb(0, 0, 0)");
+  });
+
+  it.each(["", "I"])("keeps planned TOBT and TSAT visible without colored bars for phase %s", (phase) => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ phase })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive={false}
+        ctotImproved={false}
+        nowMs={Date.UTC(2026, 6, 14, 14, 21)}
+        onClick={() => {}}
+      />,
+    );
+    expect(screen.getByText("TOBT:")).toBeDefined();
+    expect(screen.getByText("TSAT: 1425")).toBeDefined();
+    expect(screen.queryByTestId("est-tobt-background")).toBeNull();
+    expect(screen.queryByTestId("est-tsat-background")).toBeNull();
   });
 
   it("hides TOBT and TSAT during transfer to APRON but retains CTOT", () => {

@@ -19,6 +19,19 @@ func TestSequenceDemandPredictionTiming(t *testing.T) {
 	require.Nil(t, SequenceDemandArrivalAt(f))
 }
 
+func TestDemandUsesMedianPhysicalPredictionWithoutSlot(t *testing.T) {
+	at := time.Date(2026, 10, 19, 18, 0, 0, 0, time.UTC)
+	eta := at.Add(time.Hour)
+	f := AMANFlight{Prediction: &Prediction{Publishable: true, RawTETA: eta.Add(20 * time.Minute), GeneratedAt: at.Add(2 * time.Minute)}, RawTETASamples: []RawTETASample{
+		{TETA: eta, GeneratedAt: at},
+		{TETA: eta.Add(time.Second), GeneratedAt: at.Add(time.Minute)},
+		{TETA: eta.Add(20 * time.Minute), GeneratedAt: at.Add(2 * time.Minute)},
+	}}
+	require.Equal(t, eta.Add(time.Second), *SequenceDemandArrivalAt(f))
+	_, available := GainLossPrediction(f)
+	require.False(t, available, "guidance still requires an assigned target")
+}
+
 func TestConfirmedHoldingRequiresCurrentEvidence(t *testing.T) {
 	at := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	id := "MONAK"

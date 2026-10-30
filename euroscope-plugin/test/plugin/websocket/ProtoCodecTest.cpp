@@ -5,6 +5,100 @@
 
 using namespace FlightStrips::websocket;
 
+TEST(ProtoCodecTest, FullSyncDropsMalformedUtf8WithoutLosingTheSnapshot) {
+    Strip strip{
+        "SAS123", "EKBI", "EKCH", "", "DCT \xFF OLPIB", "RMK \xE9 OK", "04L",
+        "7000", "7000", "", "", false, "", 5000, 10000, 90, "A320", "M",
+        "Scandinavian \xC3\x98", Position{55, 12, 5000}, "A12", "V", "", "1200", "", "", "J"};
+    const SyncEvent event{
+        {strip}, {Controller{"121.905", "EKCH_\xFF TWR"}},
+        {Runway{"04\xFF L", false, true}}, {SidEntry{"OLPIB\xFF", "04L"}}};
+
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    ASSERT_EQ(envelope.sync().strips_size(), 1);
+    const auto& decoded = envelope.sync().strips(0);
+    EXPECT_EQ(decoded.callsign(), "SAS123");
+    EXPECT_EQ(decoded.route(), "DCT  OLPIB");
+    EXPECT_EQ(decoded.remarks(), "RMK  OK");
+    EXPECT_EQ(decoded.spoken_callsign(), "Scandinavian \xC3\x98");
+    EXPECT_EQ(decoded.cleared_altitude(), 5000);
+    EXPECT_EQ(decoded.position().lat(), 55);
+    EXPECT_EQ(envelope.sync().controllers(0).callsign(), "EKCH_ TWR");
+    EXPECT_EQ(envelope.sync().runways(0).name(), "04 L");
+    EXPECT_TRUE(envelope.sync().runways(0).arrival());
+    EXPECT_EQ(envelope.sync().sids(0).name(), "OLPIB");
+    EXPECT_EQ(event.strips[0].remarks, "RMK \xE9 OK");
+}
+
+TEST(ProtoCodecTest, StripUpdatesAlsoDropMalformedUtf8) {
+    StripUpdateEvent event(
+        "SAS123", "EKBI", "EKCH", "", "", "RMK \xFF OK", "04L", "7000", "7000", "", "",
+        false, "", 5000, 10000, 90, "A320", "M", "", Position{55, 12, 5000},
+        "A12", "V", "", "1200", "", "", "J");
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    EXPECT_EQ(envelope.strip_update().strip().remarks(), "RMK  OK");
+    EXPECT_EQ(envelope.strip_update().strip().requested_altitude(), 10000);
+}
+
+TEST(ProtoCodecTest, PreservesValidUnicodeAndDropsOnlyMalformedUtf8Bytes) {
+    const std::vector<std::pair<std::string, std::string>> cases{
+        {"", ""}, {"CALL OPS", "CALL OPS"},
+        {"\xC3\x98\xE2\x82\xAC\xF0\x9F\x9B\xAB", "\xC3\x98\xE2\x82\xAC\xF0\x9F\x9B\xAB"},
+        {std::string{"A\0B", 3}, std::string{"A\0B", 3}},
+        {"A\x80Z", "AZ"}, {"A\xFFZ", "AZ"},
+        {"A\xC0\xAFZ", "AZ"}, {"A\xE0\x80\xAFZ", "AZ"},
+        {"A\xED\xA0\x80Z", "AZ"}, {"A\xF4\x90\x80\x80Z", "AZ"},
+        {"A\xE2\x82", "A"}, {"A\xE2\x82Z", "AZ"},
+        {"\xFF\xC3\x98\xFF", "\xC3\x98"},
+        {"\xF4\x8F\xBF\xBF", "\xF4\x8F\xBF\xBF"},
+    };
+    for (const auto& [input, expected] : cases) {
+        SCOPED_TRACE(input);
+        protobuf::wire::Envelope envelope;
+        ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(FsScratchPadEvent{"SAS123", input}), envelope));
+        EXPECT_EQ(envelope.fs_scratch_pad().text(), expected);
+    }
+}
+
+TEST(ProtoCodecTest, NumericEventFieldsAreUnchangedByUtf8Filtering) {
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(RequestedAltitudeEvent{"SAS123", 10000}), envelope));
+    EXPECT_EQ(envelope.requested_altitude().callsign(), "SAS123");
+    EXPECT_EQ(envelope.requested_altitude().altitude(), 10000);
+}
+
+TEST(ProtoCodecTest, DecodesMasterMetadataWithoutRoleChange) {
+    protobuf::wire::Envelope envelope;
+    envelope.mutable_master_info()->set_master_callsign("EKDK_FMP");
+    EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_MASTER_INFO);
+    MasterInfoEvent event;
+    protobuf::Decode(envelope.master_info(), event);
+    EXPECT_EQ(event.master_callsign, "EKDK_FMP");
+}
+
+TEST(ProtoCodecTest, DecodesRunwayMismatchMasterCallsign) {
+    protobuf::wire::RunwayMismatchAlertEvent source;
+    source.set_master_callsign("EKCH_A_TWR");
+    source.add_expected_departure("22R");
+    RunwayMismatchAlertEvent event;
+    protobuf::Decode(source, event);
+    EXPECT_EQ(event.master_callsign, "EKCH_A_TWR");
+    EXPECT_EQ(event.expected_departure, std::vector<std::string>{"22R"});
+}
+
+TEST(ProtoCodecTest, SerializesFiledFlightRules) {
+    StripUpdateEvent event(
+        "OYABC", "EKRK", "EKCH", "", "", "", "", "7000", "7000", "", "",
+        false, "", 0, 0, 0, "C172", "L", "", Position{0, 0, 1000},
+        "", "V", "", "", "", "", "");
+    event.flight_rules = "V";
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    EXPECT_EQ(envelope.strip_update().strip().flight_rules(), "V");
+}
+
 TEST(ProtoCodecTest, SharedScratchPadRoundTripsEditAndClear) {
     for (const auto& text : {"CALL OPS", ""}) {
         protobuf::wire::Envelope envelope;
@@ -37,7 +131,46 @@ TEST(ProtoCodecTest, SerializesTokenAsOneofEnvelope) {
     EXPECT_EQ(envelope.event_case(), protobuf::wire::Envelope::kToken);
     EXPECT_EQ(envelope.token().token(), "access-token");
     EXPECT_EQ(envelope.token().version(), "2.4.0");
+    EXPECT_TRUE(envelope.token().frequency_messages());
     EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_TOKEN);
+}
+
+TEST(ProtoCodecTest, SerializesReportedMotionAndPositionAge) {
+    const PositionEvent event("SAS123", 55.0, 12.0, 30000, 420, 5500);
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    const auto& position = envelope.aircraft_position_update();
+    EXPECT_TRUE(position.has_groundspeed_knots());
+    EXPECT_EQ(position.groundspeed_knots(), 420);
+    EXPECT_TRUE(position.has_position_age_ms());
+    EXPECT_EQ(position.position_age_ms(), 5500);
+}
+
+TEST(ProtoCodecTest, OmitsUnavailableReportedGroundspeed) {
+    const PositionEvent event("SAS123", 55.0, 12.0, 30000);
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(event), envelope));
+    EXPECT_FALSE(envelope.aircraft_position_update().has_groundspeed_knots());
+}
+
+TEST(ProtoCodecTest, DecodesFrequencyMessageAndAcknowledgesSubmission) {
+    protobuf::wire::SendFrequencyMessageEvent source;
+    source.set_request_id("request-1"); source.set_callsign("SAS123");
+    source.set_message("Taxi via TWY A."); source.set_primary_frequency("121.905"); source.set_applied_actions(2);
+    SendFrequencyMessageEvent decoded;
+    protobuf::Decode(source, decoded);
+    EXPECT_EQ(decoded.request_id, "request-1"); EXPECT_EQ(decoded.callsign, "SAS123");
+    EXPECT_EQ(decoded.message, "Taxi via TWY A."); EXPECT_EQ(decoded.primary_frequency, "121.905"); EXPECT_EQ(decoded.applied_actions, 2);
+    FrequencyMessageResultEvent result;
+    result.request_id = decoded.request_id; result.callsign = decoded.callsign;
+    result.applied_actions = decoded.applied_actions; result.submitted = false; result.error = "Command input busy";
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(result), envelope));
+    EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_FREQUENCY_MESSAGE_RESULT);
+    EXPECT_EQ(envelope.frequency_message_result().request_id(), "request-1");
+    EXPECT_EQ(envelope.frequency_message_result().applied_actions(), 2);
+    EXPECT_FALSE(envelope.frequency_message_result().submitted());
+    EXPECT_EQ(envelope.frequency_message_result().error(), "Command input busy");
 }
 
 TEST(ProtoCodecTest, SerializesLoginPayloadWithoutASeparateTypeHeader) {

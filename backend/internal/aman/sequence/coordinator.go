@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/diagnostics"
 )
 
 // FullStatePublisher maps the complete committed airport state onto the
@@ -168,6 +169,7 @@ func (c *Coordinator) ExecuteCommand(ctx context.Context, airport string, metada
 	if committed.DuplicateCommand || !change.Changed {
 		return result, nil
 	}
+	diagnostics.LogCommittedChanges(ctx, current, committed.State, commit.AuditRecords, metadata.CommandID)
 
 	// The request may have timed out immediately after commit. Publication is
 	// still attempted once, but it is never persisted or retried here.
@@ -270,6 +272,7 @@ func prepareCommit(current aman.AirportState, metadata aman.CommandMetadata, cha
 			Payload: append([]byte(nil), entry.Payload...), RecordedAt: recordedAt,
 		})
 	}
+	audits = append(audits, ApproachReleaseAuditRecords(current, next, recordedAt)...)
 	return aman.StateCommit{
 		ExpectedRevision: current.Revision, State: next, CommandOutcome: &outcome, AuditRecords: audits,
 	}, nil

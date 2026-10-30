@@ -648,7 +648,7 @@ func (s *StripService) ApplyReleasePoint(ctx context.Context, session int32, cal
 			unexpectedChange = true
 		} else if !hasExisting {
 			// Non-owner setting a value that didn't exist — reject.
-			return errors.New("cannot modify holding point on unowned strip")
+			return shared.RejectAction("cannot modify holding point on unowned strip")
 		}
 		// Non-owner setting same value as existing — silently allow.
 	}

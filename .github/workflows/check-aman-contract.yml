@@ -1,0 +1,45 @@
+name: Check AMAN contract
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  aman-contract:
+    name: AMAN publisher-consumer contract
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@master
+        with:
+          node-version: '26.11'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Exercise AMAN calculation, sequencing and publication
+        working-directory: backend
+        run: go test ./pkg/events/frontend ./pkg/events/euroscope ./internal/aman/...
+      - name: Exercise AMAN transport and holding EAT integration
+        working-directory: backend
+        run: go test ./internal/app -run '^TestAMAN'
+      - name: Validate live Go output with the frontend consumer
+        working-directory: frontend
+        run: npm run test:contract:aman
+      - name: Exercise frontend stores and controller workflows
+        working-directory: frontend
+        run: npm test
+      - name: Build the production frontend
+        working-directory: frontend
+        run: npm run build

@@ -6,8 +6,10 @@ import (
 	"FlightStrips/internal/testutil"
 	euroscope "FlightStrips/pkg/events/euroscope"
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -163,6 +165,35 @@ func newFrontendMoveFixture(strip *internalModels.Strip) *frontendMoveFixture {
 	})
 
 	return fixture
+}
+
+func TestMoveFrontendStrip_FinalToRwyArrInitializesRunwayStatus(t *testing.T) {
+	owner := "TWR"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign: "SAS901", Origin: "ESSA", Destination: "EKCH", Bay: shared.BAY_FINAL, Owner: &owner,
+	})
+	fixture.repo.UpdateGroundStateFn = func(_ context.Context, _ int32, _ string, state *string, bay string, _ *int32) (int64, error) {
+		fixture.strip.Bay = bay
+		if state != nil {
+			value := *state
+			fixture.strip.State = &value
+		}
+		return 1, nil
+	}
+	statusInitializations := 0
+	fixture.repo.SetRwyArrRunwayStatusOnEntryFn = func(_ context.Context, _ int32, callsign string) (int64, error) {
+		statusInitializations++
+		assert.Equal(t, "SAS901", callsign)
+		fixture.strip.RunwayCleared = true
+		fixture.strip.RunwayConfirmed = false
+		return 1, nil
+	}
+
+	require.NoError(t, fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS901", shared.BAY_RWY_ARR, "1234567", "EKCH", "TWR", false, false))
+	assert.Equal(t, shared.BAY_RWY_ARR, fixture.strip.Bay)
+	assert.True(t, fixture.strip.RunwayCleared)
+	assert.False(t, fixture.strip.RunwayConfirmed)
+	assert.Equal(t, 1, statusInitializations)
 }
 
 func TestMoveFrontendStrip_ToClearedBayUsesSingleBayWrite(t *testing.T) {
@@ -494,6 +525,37 @@ func TestMoveFrontendStrip_CoordinationTransferExceptionAllowsMove(t *testing.T)
 	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS129", shared.BAY_TAXI_TWR, "1234567", "EKCH", "EKCH_A_GND", false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []string{shared.BAY_TAXI_TWR}, fixture.updateBayTargets)
+}
+
+func TestMoveFrontendStrip_OwnershipRejectionDoesNotHideRepositoryFailure(t *testing.T) {
+	dbErr := errors.New("database unavailable")
+	for _, tc := range []struct {
+		name              string
+		err               error
+		expectedRejection bool
+	}{
+		{"no transfer", pgx.ErrNoRows, true},
+		{"no coordination", nil, true},
+		{"repository failure", dbErr, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			owner := "EKCH_D_GND"
+			fixture := newFrontendMoveFixture(&internalModels.Strip{Callsign: "SAS129", Origin: "EKCH", Bay: shared.BAY_TAXI, Owner: &owner})
+			fixture.svc.SetCoordinationRepo(&testutil.MockCoordinationRepository{
+				GetByStripCallsignFn: func(context.Context, int32, string) (*internalModels.Coordination, error) { return nil, tc.err },
+			})
+			err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS129", shared.BAY_TAXI_TWR, "1234567", "EKCH", "EKCH_A_GND", false, false)
+			require.Error(t, err)
+			var rejection *shared.ActionRejection
+			assert.Equal(t, tc.expectedRejection, errors.As(err, &rejection))
+			if tc.expectedRejection {
+				assert.EqualError(t, err, "not authorized: strip is owned by another controller")
+			} else {
+				assert.ErrorIs(t, err, dbErr)
+			}
+			assert.Empty(t, fixture.updateBayTargets)
+		})
+	}
 }
 
 func TestMoveFrontendStrip_ToDeiceAcknowledgesPlatform(t *testing.T) {

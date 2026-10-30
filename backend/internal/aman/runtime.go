@@ -26,6 +26,7 @@ type RuntimeConfig struct {
 	SurveillanceInterval        time.Duration
 	EnableEuroScopeGainLoseTags bool
 	EnableHoldingEATWriteback   bool
+	DisablePredictionFiltering  bool
 }
 
 // DefaultRuntimeConfig returns the release-safe runtime configuration.

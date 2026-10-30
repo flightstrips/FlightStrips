@@ -17,6 +17,18 @@ func GainLossPrediction(flight AMANFlight) (time.Time, bool) {
 	if flight.State == StateLanded || flight.State == StateRemoved || flight.Slot == nil || flight.Prediction == nil || flight.Prediction.RawTETA.IsZero() {
 		return time.Time{}, false
 	}
+	if flight.PredictionFilter != nil && flight.PredictionFilter.Unreliable {
+		return time.Time{}, false
+	}
+	return SmoothedPhysicalPrediction(flight)
+}
+
+// SmoothedPhysicalPrediction also supports demand from flights without slots.
+// It deliberately excludes operational freezes and controller target times.
+func SmoothedPhysicalPrediction(flight AMANFlight) (time.Time, bool) {
+	if flight.Prediction == nil || flight.Prediction.RawTETA.IsZero() {
+		return time.Time{}, false
+	}
 	raw := flight.Prediction
 	samples := flight.RawTETASamples
 	if len(samples) < 3 || !samples[len(samples)-1].GeneratedAt.Equal(raw.GeneratedAt) || !samples[len(samples)-1].TETA.Equal(raw.RawTETA) ||
@@ -24,7 +36,7 @@ func GainLossPrediction(flight AMANFlight) (time.Time, bool) {
 		return raw.RawTETA, true
 	}
 	switch raw.OperationalReason {
-	case OperationalReasonRouteRevision, OperationalReasonRunwayGroupChanged, OperationalReasonGoAround, OperationalReasonFirstUnstable:
+	case OperationalReasonRouteRevision, OperationalReasonRouteRecovery, OperationalReasonRunwayGroupChanged, OperationalReasonGoAround, OperationalReasonFirstUnstable:
 		return raw.RawTETA, true
 	}
 	values := make([]time.Time, len(samples))

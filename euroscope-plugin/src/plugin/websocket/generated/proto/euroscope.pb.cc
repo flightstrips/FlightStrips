@@ -54,6 +54,7 @@ inline constexpr TokenEvent::Impl_::Impl_(
         version_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        frequency_messages_{false},
         _cached_size_{0} {}
 
 template <typename>
@@ -211,12 +212,46 @@ struct SendPrivateMessageEventDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SendPrivateMessageEventDefaultTypeInternal _SendPrivateMessageEvent_default_instance_;
 
+inline constexpr SendFrequencyMessageEvent::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : request_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        message_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        primary_frequency_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        applied_actions_{0},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR SendFrequencyMessageEvent::SendFrequencyMessageEvent(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct SendFrequencyMessageEventDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR SendFrequencyMessageEventDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~SendFrequencyMessageEventDefaultTypeInternal() {}
+  union {
+    SendFrequencyMessageEvent _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SendFrequencyMessageEventDefaultTypeInternal _SendFrequencyMessageEvent_default_instance_;
+
 inline constexpr RunwayMismatchAlertEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : expected_departure_{},
         expected_arrival_{},
         current_departure_{},
         current_arrival_{},
+        master_callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         _cached_size_{0} {}
 
 template <typename>
@@ -394,6 +429,27 @@ struct PdcRevertToVoiceEventDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PdcRevertToVoiceEventDefaultTypeInternal _PdcRevertToVoiceEvent_default_instance_;
+
+inline constexpr MasterInfoEvent::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : master_callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR MasterInfoEvent::MasterInfoEvent(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct MasterInfoEventDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR MasterInfoEventDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~MasterInfoEventDefaultTypeInternal() {}
+  union {
+    MasterInfoEvent _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 MasterInfoEventDefaultTypeInternal _MasterInfoEvent_default_instance_;
 
 inline constexpr LoginEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -574,6 +630,35 @@ struct FsScratchPadEventDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 FsScratchPadEventDefaultTypeInternal _FsScratchPadEvent_default_instance_;
+
+inline constexpr FrequencyMessageResultEvent::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : request_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        error_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        submitted_{false},
+        applied_actions_{0},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR FrequencyMessageResultEvent::FrequencyMessageResultEvent(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct FrequencyMessageResultEventDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR FrequencyMessageResultEventDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~FrequencyMessageResultEventDefaultTypeInternal() {}
+  union {
+    FrequencyMessageResultEvent _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 FrequencyMessageResultEventDefaultTypeInternal _FrequencyMessageResultEvent_default_instance_;
 
 inline constexpr EobtEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -1181,13 +1266,15 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 
 inline constexpr AircraftPositionUpdateEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
-      : callsign_(
+      : _cached_size_{0},
+        callsign_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         lat_{0},
         lon_{0},
         altitude_{::int64_t{0}},
-        _cached_size_{0} {}
+        groundspeed_knots_{0},
+        position_age_ms_{::int64_t{0}} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(::_pbi::ConstantInitialized)
@@ -1408,6 +1495,9 @@ inline constexpr Strip::Impl_::Impl_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         enroute_duration_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        flight_rules_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         position_{nullptr},
@@ -1824,12 +1914,12 @@ namespace flightstrips {
 namespace euroscope {
 namespace v1 {
 PROTOBUF_CONSTINIT const uint32_t EventType_internal_data_[] = {
-    3538944u, 0u, };
+    3735552u, 0u, };
 bool EventType_IsValid(int value) {
-  return 0 <= value && value <= 53;
+  return 0 <= value && value <= 56;
 }
 static ::google::protobuf::internal::ExplicitlyConstructed<std::string>
-    EventType_strings[54] = {};
+    EventType_strings[57] = {};
 
 static const char EventType_names[] = {
     "EVENT_AIRCRAFT_DISCONNECT"
@@ -1862,6 +1952,7 @@ static const char EventType_names[] = {
     "EVENT_CREATE_FPL"
     "EVENT_DROP_TRACKING"
     "EVENT_EOBT"
+    "EVENT_FREQUENCY_MESSAGE_RESULT"
     "EVENT_FS_SCRATCH_PAD"
     "EVENT_GENERATE_SQUAWK"
     "EVENT_GROUND_STATE"
@@ -1869,6 +1960,7 @@ static const char EventType_names[] = {
     "EVENT_HOLD"
     "EVENT_ISSUE_PDC_CLEARANCE"
     "EVENT_LOGIN"
+    "EVENT_MASTER_INFO"
     "EVENT_PDC_REVERT_TO_VOICE"
     "EVENT_PDC_STATE_CHANGE"
     "EVENT_REMARKS"
@@ -1876,6 +1968,7 @@ static const char EventType_names[] = {
     "EVENT_ROUTE"
     "EVENT_RUNWAY"
     "EVENT_RUNWAY_MISMATCH_ALERT"
+    "EVENT_SEND_FREQUENCY_MESSAGE"
     "EVENT_SEND_PRIVATE_MESSAGE"
     "EVENT_SESSION_INFO"
     "EVENT_SID"
@@ -1920,62 +2013,65 @@ static const ::google::protobuf::internal::EnumEntry EventType_entries[] =
         {{&EventType_names[585], 16}, 36},
         {{&EventType_names[601], 19}, 34},
         {{&EventType_names[620], 10}, 23},
-        {{&EventType_names[630], 20}, 53},
-        {{&EventType_names[650], 21}, 22},
-        {{&EventType_names[671], 18}, 11},
-        {{&EventType_names[689], 13}, 14},
-        {{&EventType_names[702], 10}, 50},
-        {{&EventType_names[712], 25}, 47},
-        {{&EventType_names[737], 11}, 2},
-        {{&EventType_names[748], 25}, 48},
-        {{&EventType_names[773], 22}, 46},
-        {{&EventType_names[795], 13}, 25},
-        {{&EventType_names[808], 24}, 8},
-        {{&EventType_names[832], 11}, 24},
-        {{&EventType_names[843], 12}, 19},
-        {{&EventType_names[855], 27}, 21},
-        {{&EventType_names[882], 26}, 49},
-        {{&EventType_names[908], 18}, 20},
-        {{&EventType_names[926], 9}, 28},
-        {{&EventType_names[935], 12}, 7},
-        {{&EventType_names[947], 11}, 16},
-        {{&EventType_names[958], 18}, 18},
-        {{&EventType_names[976], 10}, 5},
-        {{&EventType_names[986], 11}, 1},
-        {{&EventType_names[997], 33}, 17},
-        {{&EventType_names[1030], 13}, 0},
+        {{&EventType_names[630], 30}, 55},
+        {{&EventType_names[660], 20}, 53},
+        {{&EventType_names[680], 21}, 22},
+        {{&EventType_names[701], 18}, 11},
+        {{&EventType_names[719], 13}, 14},
+        {{&EventType_names[732], 10}, 50},
+        {{&EventType_names[742], 25}, 47},
+        {{&EventType_names[767], 11}, 2},
+        {{&EventType_names[778], 17}, 56},
+        {{&EventType_names[795], 25}, 48},
+        {{&EventType_names[820], 22}, 46},
+        {{&EventType_names[842], 13}, 25},
+        {{&EventType_names[855], 24}, 8},
+        {{&EventType_names[879], 11}, 24},
+        {{&EventType_names[890], 12}, 19},
+        {{&EventType_names[902], 27}, 21},
+        {{&EventType_names[929], 28}, 54},
+        {{&EventType_names[957], 26}, 49},
+        {{&EventType_names[983], 18}, 20},
+        {{&EventType_names[1001], 9}, 28},
+        {{&EventType_names[1010], 12}, 7},
+        {{&EventType_names[1022], 11}, 16},
+        {{&EventType_names[1033], 18}, 18},
+        {{&EventType_names[1051], 10}, 5},
+        {{&EventType_names[1061], 11}, 1},
+        {{&EventType_names[1072], 33}, 17},
+        {{&EventType_names[1105], 13}, 0},
 };
 
 static const int EventType_entries_by_number[] = {
-    53,  // 0 -> EVENT_UNKNOWN
-    51,  // 1 -> EVENT_TOKEN
-    36,  // 2 -> EVENT_LOGIN
+    56,  // 0 -> EVENT_UNKNOWN
+    54,  // 1 -> EVENT_TOKEN
+    37,  // 2 -> EVENT_LOGIN
     24,  // 3 -> EVENT_CONTROLLER_ONLINE
     23,  // 4 -> EVENT_CONTROLLER_OFFLINE
-    50,  // 5 -> EVENT_SYNC
+    53,  // 5 -> EVENT_SYNC
     7,  // 6 -> EVENT_ASSIGNED_SQUAWK
-    47,  // 7 -> EVENT_SQUAWK
-    40,  // 8 -> EVENT_REQUESTED_ALTITUDE
+    50,  // 7 -> EVENT_SQUAWK
+    42,  // 8 -> EVENT_REQUESTED_ALTITUDE
     20,  // 9 -> EVENT_CLEARED_ALTITUDE
     22,  // 10 -> EVENT_COMMUNICATION_TYPE
-    32,  // 11 -> EVENT_GROUND_STATE
+    33,  // 11 -> EVENT_GROUND_STATE
     21,  // 12 -> EVENT_CLEARED_FLAG
     3,  // 13 -> EVENT_AIRCRAFT_POSITION_UPDATE
-    33,  // 14 -> EVENT_HEADING
+    34,  // 14 -> EVENT_HEADING
     0,  // 15 -> EVENT_AIRCRAFT_DISCONNECT
-    48,  // 16 -> EVENT_STAND
-    52,  // 17 -> EVENT_TRACKING_CONTROLLER_CHANGED
-    49,  // 18 -> EVENT_STRIP_UPDATE
-    42,  // 19 -> EVENT_RUNWAY
-    45,  // 20 -> EVENT_SESSION_INFO
-    43,  // 21 -> EVENT_RUNWAY_MISMATCH_ALERT
-    31,  // 22 -> EVENT_GENERATE_SQUAWK
+    51,  // 16 -> EVENT_STAND
+    55,  // 17 -> EVENT_TRACKING_CONTROLLER_CHANGED
+    52,  // 18 -> EVENT_STRIP_UPDATE
+    44,  // 19 -> EVENT_RUNWAY
+    48,  // 20 -> EVENT_SESSION_INFO
+    45,  // 21 -> EVENT_RUNWAY_MISMATCH_ALERT
+    32,  // 22 -> EVENT_GENERATE_SQUAWK
     29,  // 23 -> EVENT_EOBT
-    41,  // 24 -> EVENT_ROUTE
-    39,  // 25 -> EVENT_REMARKS
+    43,  // 24 -> EVENT_ROUTE
+    41,  // 25 -> EVENT_REMARKS
     1,  // 26 -> EVENT_AIRCRAFT_INFO
     2,  // 27 -> EVENT_AIRCRAFT_INFO_REMARKS
-    46,  // 28 -> EVENT_SID
+    49,  // 28 -> EVENT_SID
     4,  // 29 -> EVENT_AIRCRAFT_RUNWAY
     25,  // 30 -> EVENT_COORDINATION_HANDOVER
     26,  // 31 -> EVENT_COORDINATION_RECEIVED
@@ -1993,25 +2089,28 @@ static const int EventType_entries_by_number[] = {
     14,  // 43 -> EVENT_CDM_MANUAL_CTOT
     12,  // 44 -> EVENT_CDM_CTOT_REMOVE
     15,  // 45 -> EVENT_CDM_READY
-    38,  // 46 -> EVENT_PDC_STATE_CHANGE
-    35,  // 47 -> EVENT_ISSUE_PDC_CLEARANCE
-    37,  // 48 -> EVENT_PDC_REVERT_TO_VOICE
-    44,  // 49 -> EVENT_SEND_PRIVATE_MESSAGE
-    34,  // 50 -> EVENT_HOLD
+    40,  // 46 -> EVENT_PDC_STATE_CHANGE
+    36,  // 47 -> EVENT_ISSUE_PDC_CLEARANCE
+    39,  // 48 -> EVENT_PDC_REVERT_TO_VOICE
+    47,  // 49 -> EVENT_SEND_PRIVATE_MESSAGE
+    35,  // 50 -> EVENT_HOLD
     5,  // 51 -> EVENT_AMAN_GAIN_LOSS
     6,  // 52 -> EVENT_AMAN_ROUTE_FACT
-    30,  // 53 -> EVENT_FS_SCRATCH_PAD
+    31,  // 53 -> EVENT_FS_SCRATCH_PAD
+    46,  // 54 -> EVENT_SEND_FREQUENCY_MESSAGE
+    30,  // 55 -> EVENT_FREQUENCY_MESSAGE_RESULT
+    38,  // 56 -> EVENT_MASTER_INFO
 };
 
 const std::string& EventType_Name(EventType value) {
   static const bool kDummy =
       ::google::protobuf::internal::InitializeEnumStrings(
           EventType_entries, EventType_entries_by_number,
-          54, EventType_strings);
+          57, EventType_strings);
   (void)kDummy;
 
   int idx = ::google::protobuf::internal::LookUpEnumName(
-      EventType_entries, EventType_entries_by_number, 54,
+      EventType_entries, EventType_entries_by_number, 57,
       value);
   return idx == -1 ? ::google::protobuf::internal::GetEmptyString()
                    : EventType_strings[idx].get();
@@ -2020,7 +2119,7 @@ const std::string& EventType_Name(EventType value) {
 bool EventType_Parse(absl::string_view name, EventType* value) {
   int int_value;
   bool success = ::google::protobuf::internal::LookUpEnumValue(
-      EventType_entries, 54, name, &int_value);
+      EventType_entries, 57, name, &int_value);
   if (success) {
     *value = static_cast<EventType>(int_value);
   }
@@ -2723,6 +2822,45 @@ void Envelope::set_allocated_fs_scratch_pad(::flightstrips::euroscope::v1::FsScr
   }
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.fs_scratch_pad)
 }
+void Envelope::set_allocated_send_frequency_message(::flightstrips::euroscope::v1::SendFrequencyMessageEvent* send_frequency_message) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_event();
+  if (send_frequency_message) {
+    ::google::protobuf::Arena* submessage_arena = send_frequency_message->GetArena();
+    if (message_arena != submessage_arena) {
+      send_frequency_message = ::google::protobuf::internal::GetOwnedMessage(message_arena, send_frequency_message, submessage_arena);
+    }
+    set_has_send_frequency_message();
+    _impl_.event_.send_frequency_message_ = send_frequency_message;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.send_frequency_message)
+}
+void Envelope::set_allocated_frequency_message_result(::flightstrips::euroscope::v1::FrequencyMessageResultEvent* frequency_message_result) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_event();
+  if (frequency_message_result) {
+    ::google::protobuf::Arena* submessage_arena = frequency_message_result->GetArena();
+    if (message_arena != submessage_arena) {
+      frequency_message_result = ::google::protobuf::internal::GetOwnedMessage(message_arena, frequency_message_result, submessage_arena);
+    }
+    set_has_frequency_message_result();
+    _impl_.event_.frequency_message_result_ = frequency_message_result;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.frequency_message_result)
+}
+void Envelope::set_allocated_master_info(::flightstrips::euroscope::v1::MasterInfoEvent* master_info) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_event();
+  if (master_info) {
+    ::google::protobuf::Arena* submessage_arena = master_info->GetArena();
+    if (message_arena != submessage_arena) {
+      master_info = ::google::protobuf::internal::GetOwnedMessage(message_arena, master_info, submessage_arena);
+    }
+    set_has_master_info();
+    _impl_.event_.master_info_ = master_info;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.master_info)
+}
 Envelope::Envelope(::google::protobuf::Arena* arena)
     : ::google::protobuf::MessageLite(arena) {
   SharedCtor(arena);
@@ -2905,6 +3043,15 @@ Envelope::Envelope(
         break;
       case kFsScratchPad:
         _impl_.event_.fs_scratch_pad_ = ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::FsScratchPadEvent>(arena, *from._impl_.event_.fs_scratch_pad_);
+        break;
+      case kSendFrequencyMessage:
+        _impl_.event_.send_frequency_message_ = ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::SendFrequencyMessageEvent>(arena, *from._impl_.event_.send_frequency_message_);
+        break;
+      case kFrequencyMessageResult:
+        _impl_.event_.frequency_message_result_ = ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::FrequencyMessageResultEvent>(arena, *from._impl_.event_.frequency_message_result_);
+        break;
+      case kMasterInfo:
+        _impl_.event_.master_info_ = ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::MasterInfoEvent>(arena, *from._impl_.event_.master_info_);
         break;
   }
 
@@ -3255,6 +3402,24 @@ void Envelope::clear_event() {
       }
       break;
     }
+    case kSendFrequencyMessage: {
+      if (GetArena() == nullptr) {
+        delete _impl_.event_.send_frequency_message_;
+      }
+      break;
+    }
+    case kFrequencyMessageResult: {
+      if (GetArena() == nullptr) {
+        delete _impl_.event_.frequency_message_result_;
+      }
+      break;
+    }
+    case kMasterInfo: {
+      if (GetArena() == nullptr) {
+        delete _impl_.event_.master_info_;
+      }
+      break;
+    }
     case EVENT_NOT_SET: {
       break;
     }
@@ -3300,16 +3465,16 @@ const char* Envelope::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 53, 53, 0, 9> Envelope::_table_ = {
+const ::_pbi::TcParseTable<0, 56, 56, 0, 9> Envelope::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    53, 0,  // max_field_number, fast_idx_mask
+    56, 0,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
     0,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    53,  // num_field_entries
-    53,  // num_aux_entries
+    56,  // num_field_entries
+    56,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_Envelope_default_instance_._instance,
     ::_pbi::TcParser::GenericFallbackLite,  // fallback
@@ -3320,7 +3485,7 @@ const ::_pbi::TcParseTable<0, 53, 53, 0, 9> Envelope::_table_ = {
     {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     33, 0, 2,
-    0, 32, 65504, 48,
+    0, 32, 65280, 48,
     65535, 65535
   }}, {{
     // .flightstrips.euroscope.v1.TokenEvent token = 1;
@@ -3482,6 +3647,15 @@ const ::_pbi::TcParseTable<0, 53, 53, 0, 9> Envelope::_table_ = {
     // .flightstrips.euroscope.v1.FsScratchPadEvent fs_scratch_pad = 53;
     {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.event_.fs_scratch_pad_), _Internal::kOneofCaseOffset + 0, 52,
     (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.euroscope.v1.SendFrequencyMessageEvent send_frequency_message = 54;
+    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.event_.send_frequency_message_), _Internal::kOneofCaseOffset + 0, 53,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.euroscope.v1.FrequencyMessageResultEvent frequency_message_result = 55;
+    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.event_.frequency_message_result_), _Internal::kOneofCaseOffset + 0, 54,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.euroscope.v1.MasterInfoEvent master_info = 56;
+    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.event_.master_info_), _Internal::kOneofCaseOffset + 0, 55,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::TokenEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::LoginEvent>()},
@@ -3536,6 +3710,9 @@ const ::_pbi::TcParseTable<0, 53, 53, 0, 9> Envelope::_table_ = {
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::AMANGainLossEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::AMANRouteFactEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::FsScratchPadEvent>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::SendFrequencyMessageEvent>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::FrequencyMessageResultEvent>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::MasterInfoEvent>()},
   }}, {{
   }},
 };
@@ -3811,6 +3988,21 @@ const ::_pbi::TcParseTable<0, 53, 53, 0, 9> Envelope::_table_ = {
     case kFsScratchPad: {
       target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
           53, *_impl_.event_.fs_scratch_pad_, _impl_.event_.fs_scratch_pad_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kSendFrequencyMessage: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          54, *_impl_.event_.send_frequency_message_, _impl_.event_.send_frequency_message_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kFrequencyMessageResult: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          55, *_impl_.event_.frequency_message_result_, _impl_.event_.frequency_message_result_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kMasterInfo: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          56, *_impl_.event_.master_info_, _impl_.event_.master_info_->GetCachedSize(), target, stream);
       break;
     }
     default:
@@ -4150,6 +4342,24 @@ const ::_pbi::TcParseTable<0, 53, 53, 0, 9> Envelope::_table_ = {
     case kFsScratchPad: {
       total_size +=
           2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.event_.fs_scratch_pad_);
+      break;
+    }
+    // .flightstrips.euroscope.v1.SendFrequencyMessageEvent send_frequency_message = 54;
+    case kSendFrequencyMessage: {
+      total_size +=
+          2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.event_.send_frequency_message_);
+      break;
+    }
+    // .flightstrips.euroscope.v1.FrequencyMessageResultEvent frequency_message_result = 55;
+    case kFrequencyMessageResult: {
+      total_size +=
+          2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.event_.frequency_message_result_);
+      break;
+    }
+    // .flightstrips.euroscope.v1.MasterInfoEvent master_info = 56;
+    case kMasterInfo: {
+      total_size +=
+          2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.event_.master_info_);
       break;
     }
     case EVENT_NOT_SET: {
@@ -4665,6 +4875,33 @@ void Envelope::MergeFrom(const Envelope& from) {
         }
         break;
       }
+      case kSendFrequencyMessage: {
+        if (oneof_needs_init) {
+          _this->_impl_.event_.send_frequency_message_ =
+              ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::SendFrequencyMessageEvent>(arena, *from._impl_.event_.send_frequency_message_);
+        } else {
+          _this->_impl_.event_.send_frequency_message_->MergeFrom(from._internal_send_frequency_message());
+        }
+        break;
+      }
+      case kFrequencyMessageResult: {
+        if (oneof_needs_init) {
+          _this->_impl_.event_.frequency_message_result_ =
+              ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::FrequencyMessageResultEvent>(arena, *from._impl_.event_.frequency_message_result_);
+        } else {
+          _this->_impl_.event_.frequency_message_result_->MergeFrom(from._internal_frequency_message_result());
+        }
+        break;
+      }
+      case kMasterInfo: {
+        if (oneof_needs_init) {
+          _this->_impl_.event_.master_info_ =
+              ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::MasterInfoEvent>(arena, *from._impl_.event_.master_info_);
+        } else {
+          _this->_impl_.event_.master_info_->MergeFrom(from._internal_master_info());
+        }
+        break;
+      }
       case EVENT_NOT_SET:
         break;
     }
@@ -4717,6 +4954,7 @@ TokenEvent::TokenEvent(
   _internal_metadata_.MergeFrom<std::string>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  _impl_.frequency_messages_ = from._impl_.frequency_messages_;
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.TokenEvent)
 }
@@ -4729,6 +4967,7 @@ inline PROTOBUF_NDEBUG_INLINE TokenEvent::Impl_::Impl_(
 
 inline void TokenEvent::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.frequency_messages_ = {};
 }
 TokenEvent::~TokenEvent() {
   // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.TokenEvent)
@@ -4769,6 +5008,7 @@ PROTOBUF_NOINLINE void TokenEvent::Clear() {
 
   _impl_.token_.ClearToEmpty();
   _impl_.version_.ClearToEmpty();
+  _impl_.frequency_messages_ = false;
   _internal_metadata_.Clear<std::string>();
 }
 
@@ -4780,15 +5020,15 @@ const char* TokenEvent::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 2, 0, 57, 2> TokenEvent::_table_ = {
+const ::_pbi::TcParseTable<2, 3, 0, 57, 2> TokenEvent::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    2, 8,  // max_field_number, fast_idx_mask
+    3, 24,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967292,  // skipmap
+    4294967288,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    2,  // num_field_entries
+    3,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_TokenEvent_default_instance_._instance,
@@ -4797,12 +5037,16 @@ const ::_pbi::TcParseTable<1, 2, 0, 57, 2> TokenEvent::_table_ = {
     ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::TokenEvent>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // string version = 2;
-    {::_pbi::TcParser::FastUS1,
-     {18, 63, 0, PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.version_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string token = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.token_)}},
+    // string version = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.version_)}},
+    // bool frequency_messages = 3;
+    {::_pbi::TcParser::FastV8S1,
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.frequency_messages_)}},
   }}, {{
     65535, 65535
   }}, {{
@@ -4812,6 +5056,9 @@ const ::_pbi::TcParseTable<1, 2, 0, 57, 2> TokenEvent::_table_ = {
     // string version = 2;
     {PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.version_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool frequency_messages = 3;
+    {PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.frequency_messages_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
   }},
   // no aux_entries
   {{
@@ -4845,6 +5092,13 @@ const ::_pbi::TcParseTable<1, 2, 0, 57, 2> TokenEvent::_table_ = {
     target = stream->WriteStringMaybeAliased(2, _s, target);
   }
 
+  // bool frequency_messages = 3;
+  if (this->_internal_frequency_messages() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        3, this->_internal_frequency_messages(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -4874,6 +5128,11 @@ const ::_pbi::TcParseTable<1, 2, 0, 57, 2> TokenEvent::_table_ = {
                                     this->_internal_version());
   }
 
+  // bool frequency_messages = 3;
+  if (this->_internal_frequency_messages() != 0) {
+    total_size += 2;
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
   }
@@ -4900,6 +5159,9 @@ void TokenEvent::MergeFrom(const TokenEvent& from) {
   if (!from._internal_version().empty()) {
     _this->_internal_set_version(from._internal_version());
   }
+  if (from._internal_frequency_messages() != 0) {
+    _this->_impl_.frequency_messages_ = from._impl_.frequency_messages_;
+  }
   _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
 }
 
@@ -4921,6 +5183,7 @@ void TokenEvent::InternalSwap(TokenEvent* PROTOBUF_RESTRICT other) {
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.token_, &other->_impl_.token_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
+        swap(_impl_.frequency_messages_, other->_impl_.frequency_messages_);
 }
 
 // ===================================================================
@@ -6357,7 +6620,8 @@ inline PROTOBUF_NDEBUG_INLINE Strip::Impl_::Impl_(
         hold_(arena, from.hold_),
         hold_type_(arena, from.hold_type_),
         hold_eat_(arena, from.hold_eat_),
-        enroute_duration_(arena, from.enroute_duration_) {}
+        enroute_duration_(arena, from.enroute_duration_),
+        flight_rules_(arena, from.flight_rules_) {}
 
 Strip::Strip(
     ::google::protobuf::Arena* arena,
@@ -6411,7 +6675,8 @@ inline PROTOBUF_NDEBUG_INLINE Strip::Impl_::Impl_(
         hold_(arena),
         hold_type_(arena),
         hold_eat_(arena),
-        enroute_duration_(arena) {}
+        enroute_duration_(arena),
+        flight_rules_(arena) {}
 
 inline void Strip::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
@@ -6455,6 +6720,7 @@ inline void Strip::SharedDtor() {
   _impl_.hold_type_.Destroy();
   _impl_.hold_eat_.Destroy();
   _impl_.enroute_duration_.Destroy();
+  _impl_.flight_rules_.Destroy();
   delete _impl_.position_;
   _impl_.~Impl_();
 }
@@ -6510,6 +6776,7 @@ PROTOBUF_NOINLINE void Strip::Clear() {
   _impl_.hold_type_.ClearToEmpty();
   _impl_.hold_eat_.ClearToEmpty();
   _impl_.enroute_duration_.ClearToEmpty();
+  _impl_.flight_rules_.ClearToEmpty();
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(_impl_.position_ != nullptr);
@@ -6530,15 +6797,15 @@ const char* Strip::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<5, 33, 1, 319, 7> Strip::_table_ = {
+const ::_pbi::TcParseTable<5, 34, 1, 331, 7> Strip::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(Strip, _impl_._has_bits_),
     0, // no _extensions_
-    33, 248,  // max_field_number, fast_idx_mask
+    34, 248,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
     0,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    33,  // num_field_entries
+    34,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_Strip_default_instance_._instance,
@@ -6643,7 +6910,7 @@ const ::_pbi::TcParseTable<5, 33, 1, 319, 7> Strip::_table_ = {
      {506, 63, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.hold_type_)}},
   }}, {{
     33, 0, 1,
-    65534, 32,
+    65532, 32,
     65535, 65535
   }}, {{
     // string callsign = 1;
@@ -6745,10 +7012,13 @@ const ::_pbi::TcParseTable<5, 33, 1, 319, 7> Strip::_table_ = {
     // string enroute_duration = 33;
     {PROTOBUF_FIELD_OFFSET(Strip, _impl_.enroute_duration_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string flight_rules = 34;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.flight_rules_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::Position>()},
   }}, {{
-    "\37\10\6\13\11\5\7\6\6\17\3\4\0\14\0\0\0\15\21\17\0\5\14\22\4\4\23\13\0\0\4\11\10\20\0\0\0\0\0\0"
+    "\37\10\6\13\11\5\7\6\6\17\3\4\0\14\0\0\0\15\21\17\0\5\14\22\4\4\23\13\0\0\4\11\10\20\14\0\0\0\0\0"
     "flightstrips.euroscope.v1.Strip"
     "callsign"
     "origin"
@@ -6776,6 +7046,7 @@ const ::_pbi::TcParseTable<5, 33, 1, 319, 7> Strip::_table_ = {
     "hold_type"
     "hold_eat"
     "enroute_duration"
+    "flight_rules"
   }},
 };
 
@@ -7043,6 +7314,14 @@ const ::_pbi::TcParseTable<5, 33, 1, 319, 7> Strip::_table_ = {
     target = stream->WriteStringMaybeAliased(33, _s, target);
   }
 
+  // string flight_rules = 34;
+  if (!this->_internal_flight_rules().empty()) {
+    const std::string& _s = this->_internal_flight_rules();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.Strip.flight_rules");
+    target = stream->WriteStringMaybeAliased(34, _s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -7216,6 +7495,12 @@ const ::_pbi::TcParseTable<5, 33, 1, 319, 7> Strip::_table_ = {
                                     this->_internal_enroute_duration());
   }
 
+  // string flight_rules = 34;
+  if (!this->_internal_flight_rules().empty()) {
+    total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_flight_rules());
+  }
+
   // .flightstrips.euroscope.v1.Position position = 20;
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
@@ -7355,6 +7640,9 @@ void Strip::MergeFrom(const Strip& from) {
   if (!from._internal_enroute_duration().empty()) {
     _this->_internal_set_enroute_duration(from._internal_enroute_duration());
   }
+  if (!from._internal_flight_rules().empty()) {
+    _this->_internal_set_flight_rules(from._internal_flight_rules());
+  }
   cached_has_bits = from._impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(from._impl_.position_ != nullptr);
@@ -7430,6 +7718,7 @@ void Strip::InternalSwap(Strip* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_type_, &other->_impl_.hold_type_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_eat_, &other->_impl_.hold_eat_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.enroute_duration_, &other->_impl_.enroute_duration_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.flight_rules_, &other->_impl_.flight_rules_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Strip, _impl_.hold_supported_)
       + sizeof(Strip::_impl_.hold_supported_)
@@ -11085,6 +11374,7 @@ inline PROTOBUF_NDEBUG_INLINE RunwayMismatchAlertEvent::Impl_::Impl_(
         expected_arrival_{visibility, arena, from.expected_arrival_},
         current_departure_{visibility, arena, from.current_departure_},
         current_arrival_{visibility, arena, from.current_arrival_},
+        master_callsign_(arena, from.master_callsign_),
         _cached_size_{0} {}
 
 RunwayMismatchAlertEvent::RunwayMismatchAlertEvent(
@@ -11106,6 +11396,7 @@ inline PROTOBUF_NDEBUG_INLINE RunwayMismatchAlertEvent::Impl_::Impl_(
         expected_arrival_{visibility, arena},
         current_departure_{visibility, arena},
         current_arrival_{visibility, arena},
+        master_callsign_(arena),
         _cached_size_{0} {}
 
 inline void RunwayMismatchAlertEvent::SharedCtor(::_pb::Arena* arena) {
@@ -11118,6 +11409,7 @@ RunwayMismatchAlertEvent::~RunwayMismatchAlertEvent() {
 }
 inline void RunwayMismatchAlertEvent::SharedDtor() {
   ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.master_callsign_.Destroy();
   _impl_.~Impl_();
 }
 
@@ -11150,6 +11442,7 @@ PROTOBUF_NOINLINE void RunwayMismatchAlertEvent::Clear() {
   _impl_.expected_arrival_.Clear();
   _impl_.current_departure_.Clear();
   _impl_.current_arrival_.Clear();
+  _impl_.master_callsign_.ClearToEmpty();
   _internal_metadata_.Clear<std::string>();
 }
 
@@ -11161,15 +11454,15 @@ const char* RunwayMismatchAlertEvent::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 4, 0, 125, 2> RunwayMismatchAlertEvent::_table_ = {
+const ::_pbi::TcParseTable<3, 5, 0, 140, 2> RunwayMismatchAlertEvent::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    4, 24,  // max_field_number, fast_idx_mask
+    5, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967280,  // skipmap
+    4294967264,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    4,  // num_field_entries
+    5,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_RunwayMismatchAlertEvent_default_instance_._instance,
@@ -11178,9 +11471,7 @@ const ::_pbi::TcParseTable<2, 4, 0, 125, 2> RunwayMismatchAlertEvent::_table_ = 
     ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::RunwayMismatchAlertEvent>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // repeated string current_arrival = 4;
-    {::_pbi::TcParser::FastUR1,
-     {34, 63, 0, PROTOBUF_FIELD_OFFSET(RunwayMismatchAlertEvent, _impl_.current_arrival_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // repeated string expected_departure = 1;
     {::_pbi::TcParser::FastUR1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(RunwayMismatchAlertEvent, _impl_.expected_departure_)}},
@@ -11190,6 +11481,14 @@ const ::_pbi::TcParseTable<2, 4, 0, 125, 2> RunwayMismatchAlertEvent::_table_ = 
     // repeated string current_departure = 3;
     {::_pbi::TcParser::FastUR1,
      {26, 63, 0, PROTOBUF_FIELD_OFFSET(RunwayMismatchAlertEvent, _impl_.current_departure_)}},
+    // repeated string current_arrival = 4;
+    {::_pbi::TcParser::FastUR1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(RunwayMismatchAlertEvent, _impl_.current_arrival_)}},
+    // string master_callsign = 5;
+    {::_pbi::TcParser::FastUS1,
+     {42, 63, 0, PROTOBUF_FIELD_OFFSET(RunwayMismatchAlertEvent, _impl_.master_callsign_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -11205,15 +11504,19 @@ const ::_pbi::TcParseTable<2, 4, 0, 125, 2> RunwayMismatchAlertEvent::_table_ = 
     // repeated string current_arrival = 4;
     {PROTOBUF_FIELD_OFFSET(RunwayMismatchAlertEvent, _impl_.current_arrival_), 0, 0,
     (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // string master_callsign = 5;
+    {PROTOBUF_FIELD_OFFSET(RunwayMismatchAlertEvent, _impl_.master_callsign_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
   {{
-    "\62\22\20\21\17\0\0\0"
+    "\62\22\20\21\17\17\0\0"
     "flightstrips.euroscope.v1.RunwayMismatchAlertEvent"
     "expected_departure"
     "expected_arrival"
     "current_departure"
     "current_arrival"
+    "master_callsign"
   }},
 };
 
@@ -11254,6 +11557,14 @@ const ::_pbi::TcParseTable<2, 4, 0, 125, 2> RunwayMismatchAlertEvent::_table_ = 
     ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
         s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.RunwayMismatchAlertEvent.current_arrival");
     target = stream->WriteString(4, s, target);
+  }
+
+  // string master_callsign = 5;
+  if (!this->_internal_master_callsign().empty()) {
+    const std::string& _s = this->_internal_master_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.RunwayMismatchAlertEvent.master_callsign");
+    target = stream->WriteStringMaybeAliased(5, _s, target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -11297,6 +11608,12 @@ const ::_pbi::TcParseTable<2, 4, 0, 125, 2> RunwayMismatchAlertEvent::_table_ = 
     total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
         _internal_current_arrival().Get(i));
   }
+  // string master_callsign = 5;
+  if (!this->_internal_master_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_master_callsign());
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
   }
@@ -11321,6 +11638,9 @@ void RunwayMismatchAlertEvent::MergeFrom(const RunwayMismatchAlertEvent& from) {
   _this->_internal_mutable_expected_arrival()->MergeFrom(from._internal_expected_arrival());
   _this->_internal_mutable_current_departure()->MergeFrom(from._internal_current_departure());
   _this->_internal_mutable_current_arrival()->MergeFrom(from._internal_current_arrival());
+  if (!from._internal_master_callsign().empty()) {
+    _this->_internal_set_master_callsign(from._internal_master_callsign());
+  }
   _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
 }
 
@@ -11337,11 +11657,14 @@ PROTOBUF_NOINLINE bool RunwayMismatchAlertEvent::IsInitialized() const {
 
 void RunwayMismatchAlertEvent::InternalSwap(RunwayMismatchAlertEvent* PROTOBUF_RESTRICT other) {
   using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   _impl_.expected_departure_.InternalSwap(&other->_impl_.expected_departure_);
   _impl_.expected_arrival_.InternalSwap(&other->_impl_.expected_arrival_);
   _impl_.current_departure_.InternalSwap(&other->_impl_.current_departure_);
   _impl_.current_arrival_.InternalSwap(&other->_impl_.current_arrival_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.master_callsign_, &other->_impl_.master_callsign_, arena);
 }
 
 // ===================================================================
@@ -16414,6 +16737,9 @@ void ClearedFlagEvent::InternalSwap(ClearedFlagEvent* PROTOBUF_RESTRICT other) {
 
 class AircraftPositionUpdateEvent::_Internal {
  public:
+  using HasBits = decltype(std::declval<AircraftPositionUpdateEvent>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_._has_bits_);
 };
 
 AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(::google::protobuf::Arena* arena)
@@ -16424,8 +16750,9 @@ AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(::google::protobuf::Are
 inline PROTOBUF_NDEBUG_INLINE AircraftPositionUpdateEvent::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
     const Impl_& from)
-      : callsign_(arena, from.callsign_),
-        _cached_size_{0} {}
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        callsign_(arena, from.callsign_) {}
 
 AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(
     ::google::protobuf::Arena* arena,
@@ -16440,26 +16767,26 @@ AircraftPositionUpdateEvent::AircraftPositionUpdateEvent(
                offsetof(Impl_, lat_),
            reinterpret_cast<const char *>(&from._impl_) +
                offsetof(Impl_, lat_),
-           offsetof(Impl_, altitude_) -
+           offsetof(Impl_, position_age_ms_) -
                offsetof(Impl_, lat_) +
-               sizeof(Impl_::altitude_));
+               sizeof(Impl_::position_age_ms_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.AircraftPositionUpdateEvent)
 }
 inline PROTOBUF_NDEBUG_INLINE AircraftPositionUpdateEvent::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility,
     ::google::protobuf::Arena* arena)
-      : callsign_(arena),
-        _cached_size_{0} {}
+      : _cached_size_{0},
+        callsign_(arena) {}
 
 inline void AircraftPositionUpdateEvent::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, lat_),
            0,
-           offsetof(Impl_, altitude_) -
+           offsetof(Impl_, position_age_ms_) -
                offsetof(Impl_, lat_) +
-               sizeof(Impl_::altitude_));
+               sizeof(Impl_::position_age_ms_));
 }
 AircraftPositionUpdateEvent::~AircraftPositionUpdateEvent() {
   // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.AircraftPositionUpdateEvent)
@@ -16501,6 +16828,13 @@ PROTOBUF_NOINLINE void AircraftPositionUpdateEvent::Clear() {
   ::memset(&_impl_.lat_, 0, static_cast<::size_t>(
       reinterpret_cast<char*>(&_impl_.altitude_) -
       reinterpret_cast<char*>(&_impl_.lat_)) + sizeof(_impl_.altitude_));
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    ::memset(&_impl_.groundspeed_knots_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.position_age_ms_) -
+        reinterpret_cast<char*>(&_impl_.groundspeed_knots_)) + sizeof(_impl_.position_age_ms_));
+  }
+  _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<std::string>();
 }
 
@@ -16512,15 +16846,15 @@ const char* AircraftPositionUpdateEvent::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ = {
+const ::_pbi::TcParseTable<3, 6, 0, 70, 2> AircraftPositionUpdateEvent::_table_ = {
   {
-    0,  // no _has_bits_
+    PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_._has_bits_),
     0, // no _extensions_
-    4, 24,  // max_field_number, fast_idx_mask
+    6, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967280,  // skipmap
+    4294967232,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    4,  // num_field_entries
+    6,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_AircraftPositionUpdateEvent_default_instance_._instance,
@@ -16529,9 +16863,7 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
     ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::AircraftPositionUpdateEvent>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // int64 altitude = 4;
-    {::_pbi::TcParser::FastV64S1,
-     {32, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string callsign = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.callsign_)}},
@@ -16541,21 +16873,37 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
     // double lon = 3;
     {::_pbi::TcParser::FastF64S1,
      {25, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lon_)}},
+    // int64 altitude = 4;
+    {::_pbi::TcParser::FastV64S1,
+     {32, 63, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_)}},
+    // optional double groundspeed_knots = 5;
+    {::_pbi::TcParser::FastF64S1,
+     {41, 0, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.groundspeed_knots_)}},
+    // optional int64 position_age_ms = 6;
+    {::_pbi::TcParser::FastV64S1,
+     {48, 1, 0, PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.position_age_ms_)}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
     // string callsign = 1;
-    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.callsign_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.callsign_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // double lat = 2;
-    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lat_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lat_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
     // double lon = 3;
-    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lon_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lon_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
     // int64 altitude = 4;
-    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kInt64)},
+    // optional double groundspeed_knots = 5;
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.groundspeed_knots_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kDouble)},
+    // optional int64 position_age_ms = 6;
+    {PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.position_age_ms_), _Internal::kHasBitsOffset + 1, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
   }},
   // no aux_entries
   {{
@@ -16611,6 +16959,21 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
             stream, this->_internal_altitude(), target);
   }
 
+  cached_has_bits = _impl_._has_bits_[0];
+  // optional double groundspeed_knots = 5;
+  if (cached_has_bits & 0x00000001u) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        5, this->_internal_groundspeed_knots(), target);
+  }
+
+  // optional int64 position_age_ms = 6;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt64ToArrayWithField<6>(
+            stream, this->_internal_position_age_ms(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -16660,6 +17023,20 @@ const ::_pbi::TcParseTable<2, 4, 0, 70, 2> AircraftPositionUpdateEvent::_table_ 
         this->_internal_altitude());
   }
 
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    // optional double groundspeed_knots = 5;
+    if (cached_has_bits & 0x00000001u) {
+      total_size += 9;
+    }
+
+    // optional int64 position_age_ms = 6;
+    if (cached_has_bits & 0x00000002u) {
+      total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+          this->_internal_position_age_ms());
+    }
+
+  }
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
   }
@@ -16702,6 +17079,16 @@ void AircraftPositionUpdateEvent::MergeFrom(const AircraftPositionUpdateEvent& f
   if (from._internal_altitude() != 0) {
     _this->_impl_.altitude_ = from._impl_.altitude_;
   }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      _this->_impl_.groundspeed_knots_ = from._impl_.groundspeed_knots_;
+    }
+    if (cached_has_bits & 0x00000002u) {
+      _this->_impl_.position_age_ms_ = from._impl_.position_age_ms_;
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
 }
 
@@ -16721,10 +17108,11 @@ void AircraftPositionUpdateEvent::InternalSwap(AircraftPositionUpdateEvent* PROT
   auto* arena = GetArena();
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.altitude_)
-      + sizeof(AircraftPositionUpdateEvent::_impl_.altitude_)
+      PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.position_age_ms_)
+      + sizeof(AircraftPositionUpdateEvent::_impl_.position_age_ms_)
       - PROTOBUF_FIELD_OFFSET(AircraftPositionUpdateEvent, _impl_.lat_)>(
           reinterpret_cast<char*>(&_impl_.lat_),
           reinterpret_cast<char*>(&other->_impl_.lat_));
@@ -23328,6 +23716,860 @@ void FsScratchPadEvent::InternalSwap(FsScratchPadEvent* PROTOBUF_RESTRICT other)
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.text_, &other->_impl_.text_, arena);
+}
+
+// ===================================================================
+
+class SendFrequencyMessageEvent::_Internal {
+ public:
+};
+
+SendFrequencyMessageEvent::SendFrequencyMessageEvent(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE SendFrequencyMessageEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : request_id_(arena, from.request_id_),
+        callsign_(arena, from.callsign_),
+        message_(arena, from.message_),
+        primary_frequency_(arena, from.primary_frequency_),
+        _cached_size_{0} {}
+
+SendFrequencyMessageEvent::SendFrequencyMessageEvent(
+    ::google::protobuf::Arena* arena,
+    const SendFrequencyMessageEvent& from)
+    : ::google::protobuf::MessageLite(arena) {
+  SendFrequencyMessageEvent* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  _impl_.applied_actions_ = from._impl_.applied_actions_;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE SendFrequencyMessageEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : request_id_(arena),
+        callsign_(arena),
+        message_(arena),
+        primary_frequency_(arena),
+        _cached_size_{0} {}
+
+inline void SendFrequencyMessageEvent::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.applied_actions_ = {};
+}
+SendFrequencyMessageEvent::~SendFrequencyMessageEvent() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void SendFrequencyMessageEvent::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.request_id_.Destroy();
+  _impl_.callsign_.Destroy();
+  _impl_.message_.Destroy();
+  _impl_.primary_frequency_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+SendFrequencyMessageEvent::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[52];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.SendFrequencyMessageEvent",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void SendFrequencyMessageEvent::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.request_id_.ClearToEmpty();
+  _impl_.callsign_.ClearToEmpty();
+  _impl_.message_.ClearToEmpty();
+  _impl_.primary_frequency_.ClearToEmpty();
+  _impl_.applied_actions_ = 0;
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* SendFrequencyMessageEvent::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 5, 0, 102, 2> SendFrequencyMessageEvent::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    5, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967264,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    5,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_SendFrequencyMessageEvent_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::SendFrequencyMessageEvent>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string request_id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.request_id_)}},
+    // string callsign = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.callsign_)}},
+    // string message = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.message_)}},
+    // string primary_frequency = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.primary_frequency_)}},
+    // int32 applied_actions = 5;
+    {::_pbi::TcParser::FastV32S1,
+     {40, 63, 0, PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.applied_actions_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string request_id = 1;
+    {PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.request_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string callsign = 2;
+    {PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.callsign_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string message = 3;
+    {PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.message_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string primary_frequency = 4;
+    {PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.primary_frequency_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int32 applied_actions = 5;
+    {PROTOBUF_FIELD_OFFSET(SendFrequencyMessageEvent, _impl_.applied_actions_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+  }},
+  // no aux_entries
+  {{
+    "\63\12\10\7\21\0\0\0"
+    "flightstrips.euroscope.v1.SendFrequencyMessageEvent"
+    "request_id"
+    "callsign"
+    "message"
+    "primary_frequency"
+  }},
+};
+
+::uint8_t* SendFrequencyMessageEvent::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string request_id = 1;
+  if (!this->_internal_request_id().empty()) {
+    const std::string& _s = this->_internal_request_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.SendFrequencyMessageEvent.request_id");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string callsign = 2;
+  if (!this->_internal_callsign().empty()) {
+    const std::string& _s = this->_internal_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.SendFrequencyMessageEvent.callsign");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string message = 3;
+  if (!this->_internal_message().empty()) {
+    const std::string& _s = this->_internal_message();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.SendFrequencyMessageEvent.message");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // string primary_frequency = 4;
+  if (!this->_internal_primary_frequency().empty()) {
+    const std::string& _s = this->_internal_primary_frequency();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.SendFrequencyMessageEvent.primary_frequency");
+    target = stream->WriteStringMaybeAliased(4, _s, target);
+  }
+
+  // int32 applied_actions = 5;
+  if (this->_internal_applied_actions() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<5>(
+            stream, this->_internal_applied_actions(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+  return target;
+}
+
+::size_t SendFrequencyMessageEvent::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string request_id = 1;
+  if (!this->_internal_request_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_request_id());
+  }
+
+  // string callsign = 2;
+  if (!this->_internal_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_callsign());
+  }
+
+  // string message = 3;
+  if (!this->_internal_message().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_message());
+  }
+
+  // string primary_frequency = 4;
+  if (!this->_internal_primary_frequency().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_primary_frequency());
+  }
+
+  // int32 applied_actions = 5;
+  if (this->_internal_applied_actions() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_applied_actions());
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void SendFrequencyMessageEvent::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const SendFrequencyMessageEvent*>(
+      &from));
+}
+
+void SendFrequencyMessageEvent::MergeFrom(const SendFrequencyMessageEvent& from) {
+  SendFrequencyMessageEvent* const _this = this;
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_request_id().empty()) {
+    _this->_internal_set_request_id(from._internal_request_id());
+  }
+  if (!from._internal_callsign().empty()) {
+    _this->_internal_set_callsign(from._internal_callsign());
+  }
+  if (!from._internal_message().empty()) {
+    _this->_internal_set_message(from._internal_message());
+  }
+  if (!from._internal_primary_frequency().empty()) {
+    _this->_internal_set_primary_frequency(from._internal_primary_frequency());
+  }
+  if (from._internal_applied_actions() != 0) {
+    _this->_impl_.applied_actions_ = from._impl_.applied_actions_;
+  }
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void SendFrequencyMessageEvent::CopyFrom(const SendFrequencyMessageEvent& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.SendFrequencyMessageEvent)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool SendFrequencyMessageEvent::IsInitialized() const {
+  return true;
+}
+
+void SendFrequencyMessageEvent::InternalSwap(SendFrequencyMessageEvent* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.request_id_, &other->_impl_.request_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.message_, &other->_impl_.message_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.primary_frequency_, &other->_impl_.primary_frequency_, arena);
+        swap(_impl_.applied_actions_, other->_impl_.applied_actions_);
+}
+
+// ===================================================================
+
+class FrequencyMessageResultEvent::_Internal {
+ public:
+};
+
+FrequencyMessageResultEvent::FrequencyMessageResultEvent(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE FrequencyMessageResultEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : request_id_(arena, from.request_id_),
+        callsign_(arena, from.callsign_),
+        error_(arena, from.error_),
+        _cached_size_{0} {}
+
+FrequencyMessageResultEvent::FrequencyMessageResultEvent(
+    ::google::protobuf::Arena* arena,
+    const FrequencyMessageResultEvent& from)
+    : ::google::protobuf::MessageLite(arena) {
+  FrequencyMessageResultEvent* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, submitted_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, submitted_),
+           offsetof(Impl_, applied_actions_) -
+               offsetof(Impl_, submitted_) +
+               sizeof(Impl_::applied_actions_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE FrequencyMessageResultEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : request_id_(arena),
+        callsign_(arena),
+        error_(arena),
+        _cached_size_{0} {}
+
+inline void FrequencyMessageResultEvent::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, submitted_),
+           0,
+           offsetof(Impl_, applied_actions_) -
+               offsetof(Impl_, submitted_) +
+               sizeof(Impl_::applied_actions_));
+}
+FrequencyMessageResultEvent::~FrequencyMessageResultEvent() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void FrequencyMessageResultEvent::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.request_id_.Destroy();
+  _impl_.callsign_.Destroy();
+  _impl_.error_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+FrequencyMessageResultEvent::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[54];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.FrequencyMessageResultEvent",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void FrequencyMessageResultEvent::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.request_id_.ClearToEmpty();
+  _impl_.callsign_.ClearToEmpty();
+  _impl_.error_.ClearToEmpty();
+  ::memset(&_impl_.submitted_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.applied_actions_) -
+      reinterpret_cast<char*>(&_impl_.submitted_)) + sizeof(_impl_.applied_actions_));
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* FrequencyMessageResultEvent::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 5, 0, 85, 2> FrequencyMessageResultEvent::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    5, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967264,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    5,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_FrequencyMessageResultEvent_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::FrequencyMessageResultEvent>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string request_id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.request_id_)}},
+    // string callsign = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.callsign_)}},
+    // bool submitted = 3;
+    {::_pbi::TcParser::FastV8S1,
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.submitted_)}},
+    // string error = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.error_)}},
+    // int32 applied_actions = 5;
+    {::_pbi::TcParser::FastV32S1,
+     {40, 63, 0, PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.applied_actions_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string request_id = 1;
+    {PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.request_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string callsign = 2;
+    {PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.callsign_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool submitted = 3;
+    {PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.submitted_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // string error = 4;
+    {PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.error_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int32 applied_actions = 5;
+    {PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.applied_actions_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+  }},
+  // no aux_entries
+  {{
+    "\65\12\10\0\5\0\0\0"
+    "flightstrips.euroscope.v1.FrequencyMessageResultEvent"
+    "request_id"
+    "callsign"
+    "error"
+  }},
+};
+
+::uint8_t* FrequencyMessageResultEvent::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string request_id = 1;
+  if (!this->_internal_request_id().empty()) {
+    const std::string& _s = this->_internal_request_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.FrequencyMessageResultEvent.request_id");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string callsign = 2;
+  if (!this->_internal_callsign().empty()) {
+    const std::string& _s = this->_internal_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.FrequencyMessageResultEvent.callsign");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // bool submitted = 3;
+  if (this->_internal_submitted() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        3, this->_internal_submitted(), target);
+  }
+
+  // string error = 4;
+  if (!this->_internal_error().empty()) {
+    const std::string& _s = this->_internal_error();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.FrequencyMessageResultEvent.error");
+    target = stream->WriteStringMaybeAliased(4, _s, target);
+  }
+
+  // int32 applied_actions = 5;
+  if (this->_internal_applied_actions() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<5>(
+            stream, this->_internal_applied_actions(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+  return target;
+}
+
+::size_t FrequencyMessageResultEvent::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string request_id = 1;
+  if (!this->_internal_request_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_request_id());
+  }
+
+  // string callsign = 2;
+  if (!this->_internal_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_callsign());
+  }
+
+  // string error = 4;
+  if (!this->_internal_error().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_error());
+  }
+
+  // bool submitted = 3;
+  if (this->_internal_submitted() != 0) {
+    total_size += 2;
+  }
+
+  // int32 applied_actions = 5;
+  if (this->_internal_applied_actions() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_applied_actions());
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void FrequencyMessageResultEvent::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const FrequencyMessageResultEvent*>(
+      &from));
+}
+
+void FrequencyMessageResultEvent::MergeFrom(const FrequencyMessageResultEvent& from) {
+  FrequencyMessageResultEvent* const _this = this;
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_request_id().empty()) {
+    _this->_internal_set_request_id(from._internal_request_id());
+  }
+  if (!from._internal_callsign().empty()) {
+    _this->_internal_set_callsign(from._internal_callsign());
+  }
+  if (!from._internal_error().empty()) {
+    _this->_internal_set_error(from._internal_error());
+  }
+  if (from._internal_submitted() != 0) {
+    _this->_impl_.submitted_ = from._impl_.submitted_;
+  }
+  if (from._internal_applied_actions() != 0) {
+    _this->_impl_.applied_actions_ = from._impl_.applied_actions_;
+  }
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void FrequencyMessageResultEvent::CopyFrom(const FrequencyMessageResultEvent& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.FrequencyMessageResultEvent)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool FrequencyMessageResultEvent::IsInitialized() const {
+  return true;
+}
+
+void FrequencyMessageResultEvent::InternalSwap(FrequencyMessageResultEvent* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.request_id_, &other->_impl_.request_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.error_, &other->_impl_.error_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.applied_actions_)
+      + sizeof(FrequencyMessageResultEvent::_impl_.applied_actions_)
+      - PROTOBUF_FIELD_OFFSET(FrequencyMessageResultEvent, _impl_.submitted_)>(
+          reinterpret_cast<char*>(&_impl_.submitted_),
+          reinterpret_cast<char*>(&other->_impl_.submitted_));
+}
+
+// ===================================================================
+
+class MasterInfoEvent::_Internal {
+ public:
+};
+
+MasterInfoEvent::MasterInfoEvent(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.MasterInfoEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE MasterInfoEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : master_callsign_(arena, from.master_callsign_),
+        _cached_size_{0} {}
+
+MasterInfoEvent::MasterInfoEvent(
+    ::google::protobuf::Arena* arena,
+    const MasterInfoEvent& from)
+    : ::google::protobuf::MessageLite(arena) {
+  MasterInfoEvent* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.MasterInfoEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE MasterInfoEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : master_callsign_(arena),
+        _cached_size_{0} {}
+
+inline void MasterInfoEvent::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+MasterInfoEvent::~MasterInfoEvent() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.MasterInfoEvent)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void MasterInfoEvent::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.master_callsign_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+MasterInfoEvent::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[42];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(MasterInfoEvent, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.MasterInfoEvent",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void MasterInfoEvent::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.MasterInfoEvent)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.master_callsign_.ClearToEmpty();
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* MasterInfoEvent::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<0, 1, 0, 65, 2> MasterInfoEvent::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    1, 0,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967294,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    1,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_MasterInfoEvent_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::MasterInfoEvent>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string master_callsign = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(MasterInfoEvent, _impl_.master_callsign_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string master_callsign = 1;
+    {PROTOBUF_FIELD_OFFSET(MasterInfoEvent, _impl_.master_callsign_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\51\17\0\0\0\0\0\0"
+    "flightstrips.euroscope.v1.MasterInfoEvent"
+    "master_callsign"
+  }},
+};
+
+::uint8_t* MasterInfoEvent::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.MasterInfoEvent)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string master_callsign = 1;
+  if (!this->_internal_master_callsign().empty()) {
+    const std::string& _s = this->_internal_master_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.MasterInfoEvent.master_callsign");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.MasterInfoEvent)
+  return target;
+}
+
+::size_t MasterInfoEvent::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.MasterInfoEvent)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string master_callsign = 1;
+  if (!this->_internal_master_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_master_callsign());
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void MasterInfoEvent::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const MasterInfoEvent*>(
+      &from));
+}
+
+void MasterInfoEvent::MergeFrom(const MasterInfoEvent& from) {
+  MasterInfoEvent* const _this = this;
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.MasterInfoEvent)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_master_callsign().empty()) {
+    _this->_internal_set_master_callsign(from._internal_master_callsign());
+  }
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void MasterInfoEvent::CopyFrom(const MasterInfoEvent& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.MasterInfoEvent)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool MasterInfoEvent::IsInitialized() const {
+  return true;
+}
+
+void MasterInfoEvent::InternalSwap(MasterInfoEvent* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.master_callsign_, &other->_impl_.master_callsign_, arena);
 }
 
 // @@protoc_insertion_point(namespace_scope)

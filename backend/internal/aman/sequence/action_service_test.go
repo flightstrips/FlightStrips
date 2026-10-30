@@ -108,6 +108,10 @@ func (m *recordingActionMutations) mutation(name string, auth aman.CommandContex
 func (m *recordingActionMutations) MoveFlight(auth aman.CommandContext, _ aman.MoveFlightCommand) (CommandMutation, error) {
 	return m.mutation("move", auth)
 }
+
+func (m *recordingActionMutations) SwapFlights(auth aman.CommandContext, _ aman.SwapFlightsCommand) (CommandMutation, error) {
+	return m.mutation("swap", auth)
+}
 func (m *recordingActionMutations) PlaceFlightAtTime(auth aman.CommandContext, _ aman.PlaceFlightAtTimeCommand) (CommandMutation, error) {
 	return m.mutation("place_at_time", auth)
 }
@@ -116,6 +120,9 @@ func (m *recordingActionMutations) LockFlight(auth aman.CommandContext, _ aman.L
 }
 func (m *recordingActionMutations) UnlockFlight(auth aman.CommandContext, _ aman.UnlockFlightCommand) (CommandMutation, error) {
 	return m.mutation("unlock", auth)
+}
+func (m *recordingActionMutations) ExpediteFlight(auth aman.CommandContext, _ aman.ExpediteFlightCommand) (CommandMutation, error) {
+	return m.mutation("expedite", auth)
 }
 func (m *recordingActionMutations) DesequenceFlight(auth aman.CommandContext, _ aman.DesequenceFlightCommand) (CommandMutation, error) {
 	return m.mutation("deselect", auth)
@@ -188,4 +195,8 @@ func (m *recordingActionMutations) ConfirmGoAround(auth aman.CommandContext, _ a
 }
 func (m *recordingActionMutations) RejectGoAround(auth aman.CommandContext, _ aman.RejectGoAroundCommand) (CommandMutation, error) {
 	return m.mutation("reject_go_around", auth)
+}
+
+func (m *recordingActionMutations) RebuildArrivalSequence(_ context.Context, auth aman.CommandContext, _ aman.RebuildArrivalSequenceCommand) (CommandMutation, error) {
+	return m.mutation("rebuild", auth)
 }

@@ -1,5 +1,45 @@
 # Changelog
 
+## [2.4.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.4.0...plugin/v2.4.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **aman:** isolate degraded aircraft and preserve arrival guidance ([#950](https://github.com/flightstrips/FlightStrips/issues/950)) ([b955150](https://github.com/flightstrips/FlightStrips/commit/b955150bd7599e4345d8b950215ddcb76a0f8398))
+
+## [2.4.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.3.1...plugin/v2.4.0) (2026-10-25)
+
+
+### Features
+
+* **vacs:** add native call controls and optional minimized row ([#926](https://github.com/flightstrips/FlightStrips/issues/926)) ([1e013ab](https://github.com/flightstrips/FlightStrips/commit/1e013ab144651d4d2f48633acd87cea00f1d1e2e))
+
+
+### Bug Fixes
+
+* **aman:** stabilize predictions while preserving automatic STAR promotion ([#939](https://github.com/flightstrips/FlightStrips/issues/939)) ([01bea82](https://github.com/flightstrips/FlightStrips/commit/01bea82b5d71d0a2e67d351efa73054ab22ce658))
+
+## [2.3.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.3.0...plugin/v2.3.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **session:** keep the master indicator visible outside stats ([#924](https://github.com/flightstrips/FlightStrips/issues/924)) ([63e7ab0](https://github.com/flightstrips/FlightStrips/commit/63e7ab07e9494821731817c2c0cfe0a09e0369e1))
+
+## [2.3.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.2.0...plugin/v2.3.0) (2026-10-18)
+
+
+### Features
+
+* **session:** show the FS master across controller interfaces ([#918](https://github.com/flightstrips/FlightStrips/issues/918)) ([52fbeac](https://github.com/flightstrips/FlightStrips/commit/52fbeacc85ee96f67d503871facd6ae49d1eecf1))
+* **strip:** add text-pilot messaging workflows ([#907](https://github.com/flightstrips/FlightStrips/issues/907)) ([b809cea](https://github.com/flightstrips/FlightStrips/commit/b809cea428ce2f014e8b1012a6abdabe9b09e397))
+* **strip:** refine controller workflows and departure controls ([#885](https://github.com/flightstrips/FlightStrips/issues/885)) ([b33f1ad](https://github.com/flightstrips/FlightStrips/commit/b33f1ad33f6985c0b61325535b1a28ebeaf4b0e9))
+
+
+### Bug Fixes
+
+* fill AMAN spacing gaps and restore plugin UTF-8 filtering ([#920](https://github.com/flightstrips/FlightStrips/issues/920)) ([b72459c](https://github.com/flightstrips/FlightStrips/commit/b72459c3fba9ca7cd6a081ee6cdfc16af9dac898))
+
 ## [2.2.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.7...plugin/v2.2.0) (2026-10-09)
 
 

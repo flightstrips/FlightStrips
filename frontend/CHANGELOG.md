@@ -1,5 +1,63 @@
 # Changelog
 
+## [2.5.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.5.1...frontend/v2.5.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **aman:** update EKCH arrivals for AIRAC 2611 ([#955](https://github.com/flightstrips/FlightStrips/issues/955)) ([42290a3](https://github.com/flightstrips/FlightStrips/commit/42290a39e2e1d1734445bd471db06c8be476c00b))
+
+## [2.5.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.5.0...frontend/v2.5.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **aman:** isolate degraded aircraft and preserve arrival guidance ([#950](https://github.com/flightstrips/FlightStrips/issues/950)) ([b955150](https://github.com/flightstrips/FlightStrips/commit/b955150bd7599e4345d8b950215ddcb76a0f8398))
+* **strip:** enforce reorder ownership with shared browser coverage ([#951](https://github.com/flightstrips/FlightStrips/issues/951)) ([2241ffb](https://github.com/flightstrips/FlightStrips/commit/2241ffb7f3fd68bfe62dc7305dcb70060a2814d0))
+
+## [2.5.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.4.1...frontend/v2.5.0) (2026-10-25)
+
+
+### Features
+
+* **aman:** allow swapping aircraft within a STAR sequence ([#936](https://github.com/flightstrips/FlightStrips/issues/936)) ([c391619](https://github.com/flightstrips/FlightStrips/commit/c391619e424ceb8ba7953acdc7e592b3dd9b0ac0))
+
+
+### Bug Fixes
+
+* **aman:** align flight information and expose holding EAT ([#940](https://github.com/flightstrips/FlightStrips/issues/940)) ([16f522b](https://github.com/flightstrips/FlightStrips/commit/16f522b942ca3b30f2825b1271888cbd788ece8b))
+* **aman:** match holding graphs to the design ([#937](https://github.com/flightstrips/FlightStrips/issues/937)) ([05b16c7](https://github.com/flightstrips/FlightStrips/commit/05b16c7cc7fbc5a258d057ba19a0242d75a60d47))
+* **aman:** match inserted gap markers to the design ([#938](https://github.com/flightstrips/FlightStrips/issues/938)) ([384251f](https://github.com/flightstrips/FlightStrips/commit/384251fadd10152637b4b9ce103c11de5f237385))
+* **cdm:** flag only departures more than ten minutes early ([#946](https://github.com/flightstrips/FlightStrips/issues/946)) ([5820473](https://github.com/flightstrips/FlightStrips/commit/58204733a2d0b1166c1a48ed8ebcc0ec79f26818))
+* **strip:** apply TOBT timing and transfer acceptance rules ([#947](https://github.com/flightstrips/FlightStrips/issues/947)) ([82e3de9](https://github.com/flightstrips/FlightStrips/commit/82e3de9d20efa794c492e2a1afe4c72fb581aa52))
+* **vacs:** clear outgoing call state after cancelling ([#945](https://github.com/flightstrips/FlightStrips/issues/945)) ([d55f5a6](https://github.com/flightstrips/FlightStrips/commit/d55f5a6263a85be242320d11ada11a780133b9fe)), closes [#526](https://github.com/flightstrips/FlightStrips/issues/526)
+
+## [2.4.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.4.0...frontend/v2.4.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **aman:** recover stalled predictions and accept fresh positions ([#931](https://github.com/flightstrips/FlightStrips/issues/931)) ([74bb5dc](https://github.com/flightstrips/FlightStrips/commit/74bb5dcbde1e1f94c8839921b3178ed90414bbf8))
+
+## [2.4.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.3.0...frontend/v2.4.0) (2026-10-18)
+
+
+### Features
+
+* **aman:** add adaptive approach releases and FMP expedite ([#912](https://github.com/flightstrips/FlightStrips/issues/912)) ([603c8c7](https://github.com/flightstrips/FlightStrips/commit/603c8c7f05250fd3c1d416827c64340d03ed11d1))
+* **aman:** rebuild arrival timings and holding release order ([#919](https://github.com/flightstrips/FlightStrips/issues/919)) ([98dfbd0](https://github.com/flightstrips/FlightStrips/commit/98dfbd0e15182b13e8887550bebf8ce71e6dad20))
+* **cdm:** flag inbound CTOT nonconformance ([#917](https://github.com/flightstrips/FlightStrips/issues/917)) ([03586eb](https://github.com/flightstrips/FlightStrips/commit/03586eb8be5809017dc97c5dca66ba9a0cff450c))
+* **efb:** launch live pilot EFB with expected arrival guidance ([#911](https://github.com/flightstrips/FlightStrips/issues/911)) ([85f3257](https://github.com/flightstrips/FlightStrips/commit/85f3257b0cd9d9573938a9170a713b2aaac7f908))
+* **session:** show the FS master across controller interfaces ([#918](https://github.com/flightstrips/FlightStrips/issues/918)) ([52fbeac](https://github.com/flightstrips/FlightStrips/commit/52fbeacc85ee96f67d503871facd6ae49d1eecf1))
+* **strip:** add text-pilot messaging workflows ([#907](https://github.com/flightstrips/FlightStrips/issues/907)) ([b809cea](https://github.com/flightstrips/FlightStrips/commit/b809cea428ce2f014e8b1012a6abdabe9b09e397))
+* **strip:** allow local MRK marking in SEQ PLN ([#900](https://github.com/flightstrips/FlightStrips/issues/900)) ([d94fe0e](https://github.com/flightstrips/FlightStrips/commit/d94fe0e0b0f8d98e4764aae7482ddc97a2a267c0))
+* **strip:** refine controller workflows and departure controls ([#885](https://github.com/flightstrips/FlightStrips/issues/885)) ([b33f1ad](https://github.com/flightstrips/FlightStrips/commit/b33f1ad33f6985c0b61325535b1a28ebeaf4b0e9))
+
+
+### Bug Fixes
+
+* **strip:** refine scope controls and landing clearance interactions ([#896](https://github.com/flightstrips/FlightStrips/issues/896)) ([b3c8fa9](https://github.com/flightstrips/FlightStrips/commit/b3c8fa95f60f602c3ebff661a410d7d966a9db6d))
+
 ## [2.3.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.2.0...frontend/v2.3.0) (2026-10-09)
 
 

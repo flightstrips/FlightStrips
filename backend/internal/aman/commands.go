@@ -21,12 +21,24 @@ func IsFMPRole(role string) bool {
 	return strings.HasSuffix(strings.ToUpper(strings.TrimSpace(role)), "_FMP")
 }
 
+type RebuildArrivalSequenceCommand struct{ Metadata CommandMetadata }
+
+func (c RebuildArrivalSequenceCommand) Validate() error { return validateCommandMetadata(c.Metadata) }
+
 type MoveFlightCommand struct {
 	Metadata       CommandMetadata
 	Callsign       Callsign
 	RunwayGroupID  RunwayGroupID
 	BeforeCallsign *Callsign
 	AfterCallsign  *Callsign
+}
+
+// SwapFlightsCommand exchanges two sequence positions within one selected STAR
+// family and runway group. The server resolves both flights from current state.
+type SwapFlightsCommand struct {
+	Metadata      CommandMetadata
+	Callsign      Callsign
+	OtherCallsign Callsign
 }
 
 type PlaceFlightAtTimeCommand struct {
@@ -43,6 +55,11 @@ type LockFlightCommand struct {
 }
 
 type UnlockFlightCommand struct {
+	Metadata CommandMetadata
+	Callsign Callsign
+}
+
+type ExpediteFlightCommand struct {
 	Metadata CommandMetadata
 	Callsign Callsign
 }
@@ -219,10 +236,13 @@ type CommandExecution struct {
 type CommandService interface {
 	Component
 	CurrentRevision(context.Context, string) (SequenceRevision, error)
+	RebuildArrivalSequence(context.Context, CommandContext, RebuildArrivalSequenceCommand) (CommandExecution, error)
 	MoveFlight(context.Context, CommandContext, MoveFlightCommand) (CommandExecution, error)
+	SwapFlights(context.Context, CommandContext, SwapFlightsCommand) (CommandExecution, error)
 	PlaceFlightAtTime(context.Context, CommandContext, PlaceFlightAtTimeCommand) (CommandExecution, error)
 	LockFlight(context.Context, CommandContext, LockFlightCommand) (CommandExecution, error)
 	UnlockFlight(context.Context, CommandContext, UnlockFlightCommand) (CommandExecution, error)
+	ExpediteFlight(context.Context, CommandContext, ExpediteFlightCommand) (CommandExecution, error)
 	DesequenceFlight(context.Context, CommandContext, DesequenceFlightCommand) (CommandExecution, error)
 	ResumeFlight(context.Context, CommandContext, ResumeFlightCommand) (CommandExecution, error)
 	RemoveFlight(context.Context, CommandContext, RemoveFlightCommand) (CommandExecution, error)
@@ -279,6 +299,16 @@ func (c MoveFlightCommand) Validate() error {
 	return nil
 }
 
+func (c SwapFlightsCommand) Validate() error {
+	if err := validateFlightCommand(c.Metadata, c.Callsign); err != nil {
+		return err
+	}
+	if !trimmed(string(c.OtherCallsign)) || c.OtherCallsign == c.Callsign {
+		return commandInvalid("swap requires two different flights")
+	}
+	return nil
+}
+
 func (c PlaceFlightAtTimeCommand) Validate(receivedAt time.Time) error {
 	if err := validateFlightCommand(c.Metadata, c.Callsign); err != nil {
 		return err
@@ -291,6 +321,9 @@ func (c PlaceFlightAtTimeCommand) Validate(receivedAt time.Time) error {
 
 func (c LockFlightCommand) Validate() error   { return validateFlightCommand(c.Metadata, c.Callsign) }
 func (c UnlockFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.Callsign) }
+func (c ExpediteFlightCommand) Validate() error {
+	return validateFlightCommand(c.Metadata, c.Callsign)
+}
 func (c DesequenceFlightCommand) Validate() error {
 	return validateFlightCommand(c.Metadata, c.Callsign)
 }

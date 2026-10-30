@@ -1,7 +1,9 @@
 package standstatus
 
 import (
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/sat"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/standdiagnostics"
@@ -121,6 +123,7 @@ type standStatusAssignmentResponse struct {
 	RuleID           *string    `json:"rule_id,omitempty"`
 	Tier             *int32     `json:"tier,omitempty"`
 	MatchedVariant   *string    `json:"matched_variant,omitempty"`
+	Blocks           []string   `json:"blocks"`
 	ConflictReason   *string    `json:"conflict_reason,omitempty"`
 	ETA              *time.Time `json:"eta,omitempty"`
 	ETASource        *string    `json:"eta_source,omitempty"`
@@ -143,6 +146,7 @@ type standStatusAssignmentResponse struct {
 type standStatusBlockResponse struct {
 	ID        int64      `json:"id"`
 	Stand     string     `json:"stand"`
+	Blocks    []string   `json:"blocks"`
 	BlockType string     `json:"block_type"`
 	Source    string     `json:"source"`
 	Reason    *string    `json:"reason,omitempty"`
@@ -204,6 +208,8 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	airportFilter := strings.TrimSpace(r.URL.Query().Get("airport"))
+	sessionFilter := strings.TrimSpace(r.URL.Query().Get("session_name"))
 	now := a.now().UTC()
 	response := standStatusResponse{
 		GeneratedAt:   now.Format(time.RFC3339),
@@ -218,7 +224,8 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 			cutoff := now.Add(-2 * time.Hour)
 			recent := make([]standdiagnostics.AllocationFailure, 0, len(failures))
 			for _, failure := range failures {
-				if !failure.OccurredAt.Before(cutoff) {
+				if sessionFilter == "" && !failure.OccurredAt.Before(cutoff) &&
+					(airportFilter == "" || strings.EqualFold(failure.Airport, airportFilter)) {
 					recent = append(recent, failure)
 				}
 			}
@@ -233,7 +240,9 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, session := range sessions {
-			if session == nil {
+			if session == nil ||
+				(airportFilter != "" && !strings.EqualFold(session.Airport, airportFilter)) ||
+				(sessionFilter != "" && session.Name != sessionFilter) {
 				continue
 			}
 			assignments, err := a.config.Assignments.ListAssignments(r.Context(), session.ID)
@@ -397,6 +406,7 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 			ID: assignment.ID, Callsign: assignment.Callsign, Stand: assignment.Stand,
 			Direction: assignment.Direction, Stage: assignment.Stage, Source: assignment.Source,
 			RuleID: assignment.RuleID, Tier: assignment.Tier, MatchedVariant: assignment.MatchedVariant,
+			Blocks:         standAssignmentBlockedStands(config.GetStandCapabilities(), session.Airport, assignment),
 			ConflictReason: assignment.ConflictReason, ETA: assignment.ETA, ETASource: assignment.ETASource,
 			AssignedAt: assignment.AssignedAt, ExpiresAt: assignment.ExpiresAt, Manual: assignment.Manual,
 			Acknowledged: assignment.Acknowledged, AcknowledgedAt: assignment.AcknowledgedAt,
@@ -404,6 +414,7 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 			VatsimRevision: assignment.VatsimRevision, Version: assignment.Version,
 			CreatedAt: assignment.CreatedAt, UpdatedAt: assignment.UpdatedAt,
 		}
+
 		if assignment.Direction == "DEPARTURE" {
 			mapped.PlannedReleaseAt = assignment.ProjectedReleaseAt
 			if strip := stripsByCallsign[strings.ToUpper(strings.TrimSpace(assignment.Callsign))]; strip != nil {
@@ -422,6 +433,7 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 		}
 		response.Blocks = append(response.Blocks, standStatusBlockResponse{
 			ID: block.ID, Stand: block.Stand, BlockType: block.BlockType, Source: block.Source,
+			Blocks: standBlockBlockedStands(config.GetStandCapabilities(), session.Airport, block.Stand),
 			Reason: block.Reason, Callsign: block.Callsign, CreatedBy: block.CreatedBy,
 			ExpiresAt: block.ExpiresAt, Manual: block.Manual, Version: block.Version,
 			CreatedAt: block.CreatedAt, UpdatedAt: block.UpdatedAt,
@@ -437,6 +449,55 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 		return response.Blocks[i].ID < response.Blocks[j].ID
 	})
 	return response
+}
+
+func standBlockBlockedStands(registry *sat.StandCapabilityRegistry, airport, blockedStand string) []string {
+	blockedStand = strings.ToUpper(strings.TrimSpace(blockedStand))
+	stand, _ := registry.Lookup(airport, blockedStand)
+	blocked := make(map[string]bool, len(stand.Blocks))
+	for _, neighbor := range stand.Blocks {
+		blocked[neighbor] = true
+	}
+	// Manual blocks have no matched aircraft variant. Like the allocator, use
+	// all configured variants and consider blocking relationships in both directions.
+	for _, candidate := range registry.Stands(airport) {
+		for _, neighbor := range candidate.Blocks {
+			if neighbor == blockedStand {
+				blocked[candidate.Name] = true
+				break
+			}
+		}
+	}
+	delete(blocked, blockedStand)
+	result := make([]string, 0, len(blocked))
+	for neighbor := range blocked {
+		result = append(result, neighbor)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func standAssignmentBlockedStands(registry *sat.StandCapabilityRegistry, airport string, assignment *models.StandAssignment) []string {
+	if registry == nil || assignment == nil {
+		return []string{}
+	}
+	stand, ok := registry.Lookup(airport, assignment.Stand)
+	if !ok {
+		return []string{}
+	}
+	if assignment.MatchedVariant != nil {
+		matched := strings.TrimSpace(*assignment.MatchedVariant)
+		for _, variant := range stand.Variants {
+			key := strings.ToUpper(strings.TrimSpace(airport)) + ":" +
+				strings.ToUpper(strings.TrimSpace(assignment.Stand)) + ":" + strconv.Itoa(variant.Line)
+			if strings.EqualFold(matched, key) {
+				return append([]string{}, variant.Blocks...)
+			}
+		}
+	}
+	// If the stored variant is unavailable, the union is conservative: it avoids
+	// presenting a neighboring stand as free when any configured variant blocks it.
+	return append([]string{}, stand.Blocks...)
 }
 
 // scheduledDepartureReleaseAt mirrors the operational display rule: TSAT takes

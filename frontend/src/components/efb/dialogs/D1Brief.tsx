@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import BriefingDialog from './BriefingDialog';
 
 const briefingImages = import.meta.glob<string>('../../../assets/efb/departure-briefing/*.webp', {
   eager: true,
@@ -39,8 +40,8 @@ const normalize = (value: string) => value.trim().toUpperCase();
 
 const runwayVariant = (runway: string): RunwayVariant | null => {
   const normalized = normalize(runway);
-  if (normalized.includes('04R')) return '04R';
-  if (normalized.includes('22R')) return '22R';
+  if (normalized === '04R') return '04R';
+  if (normalized === '22R') return '22R';
   return null;
 };
 
@@ -261,6 +262,13 @@ const sidBriefing = (sid: string, runway: RunwayVariant | null): Pick<D1BriefPag
 const briefingPages = (stand: string, sid: string, runway: string): D1BriefPage[] => {
   const standPage = standBriefing(stand);
   const runwayForBriefing = runwayVariant(runway);
+  if (!runwayForBriefing) return [{
+    id: 'unavailable',
+    image: image('PUSHBACK READY'),
+    imageAlt: 'Departure briefing introduction',
+    title: 'Departure guidance unavailable',
+    description: ['This briefing covers runway 04R or 22R only. Check the current charts and confirm your departure with ATC if your runway is unavailable or unsupported. No runway has been assumed.'],
+  }];
   const runwayLabel = runwayForBriefing ?? 'assigned runway';
   const sidPage = sidBriefing(sid, runwayForBriefing);
 
@@ -349,53 +357,8 @@ function D1BriefContent({ isOpen, onClose, stand, sid, runway }: D1BriefProps) {
 
   if (!isOpen) return null;
 
-  const handlePrevious = () => {
-    setCurrentPage((previous) => (previous === 0 ? pages.length - 1 : previous - 1));
-  };
-
-  const handleNext = () => {
-    setCurrentPage((previous) => (previous === pages.length - 1 ? 0 : previous + 1));
-  };
-
-  const page = pages[currentPage];
-
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Departure briefing"
-        className="relative flex aspect-[3/2] max-h-[85vh] w-[95%] overflow-hidden rounded-lg border-2 border-[#011328] bg-[#000109]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex h-full w-[80%] items-center justify-center border-r-2 border-[#000109] bg-[#000109] p-[10px] pb-20">
-          <img src={page.image} alt={page.imageAlt} className="box-border h-full w-full border-2 border-[#011328] object-contain" />
-        </div>
-
-        <div className="flex h-full w-[20%] flex-col bg-[#000109] pb-20">
-          <div className="flex-1 overflow-auto border-b-[10px] border-[#000109] p-5 text-[#dfebeb]">
-            <h2 className="mt-0 mb-[15px] text-[clamp(16px,2.5vh,24px)] font-bold">{page.title}</h2>
-            {page.description.map((paragraph) => (
-              <p key={paragraph} className="mb-4 text-[clamp(12px,1.5vh,16px)] leading-[1.6] text-[#E0E0E0] last:mb-0">{paragraph}</p>
-            ))}
-          </div>
-
-          <button type="button" className="box-border flex min-h-20 cursor-pointer items-center justify-center border-[25px] border-[#000109] bg-[#dfebeb]" onClick={onClose}>
-            <span className="text-[clamp(14px,5vh,20px)] font-bold text-black">CLICK TO CLOSE</span>
-          </button>
-        </div>
-
-        <div className="absolute right-0 bottom-0 left-0 box-border flex h-20 items-center justify-center gap-5 border-t-[10px] border-[#1D293D] bg-[#000109] p-[15px]">
-          <button type="button" aria-label="Previous briefing page" onClick={handlePrevious} className="flex h-[50px] w-[50px] cursor-pointer items-center justify-center rounded-full border-[3px] border-[#1D293D] bg-[#dfebeb] text-[28px] font-bold text-black">←</button>
-          <div className="flex gap-3" aria-label={`Briefing page ${currentPage + 1} of ${pages.length}`}>
-            {pages.map((briefingPage, index) => (
-              <button key={briefingPage.id} type="button" aria-label={`Go to ${briefingPage.title}`} onClick={() => setCurrentPage(index)} className={`h-4 w-4 cursor-pointer rounded-full border-2 border-[#dfebeb] transition-all duration-300 ${currentPage === index ? 'bg-[#dfebeb]' : 'bg-[#666666]'}`} />
-            ))}
-          </div>
-          <button type="button" aria-label="Next briefing page" onClick={handleNext} className="flex h-[50px] w-[50px] cursor-pointer items-center justify-center rounded-full border-[3px] border-[#1D293D] bg-[#dfebeb] text-[28px] font-bold text-black">→</button>
-        </div>
-      </div>
-    </div>
+    <BriefingDialog title="Departure briefing" context={`STAND ${stand}  /  RWY ${runway}  /  SID ${sid}`} pages={pages} currentPage={currentPage} onPageChange={setCurrentPage} onClose={onClose} />
   );
 }
 

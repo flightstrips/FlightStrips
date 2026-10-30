@@ -63,6 +63,7 @@ type AmanCoordinationRequest struct {
 	CommandID string
 	CreatedAt pgtype.Timestamptz
 	Payload   []byte
+	SessionID *int32
 }
 
 type AmanFlight struct {
@@ -166,6 +167,35 @@ type AmanNavTerminalFragment struct {
 	ImportedAt      pgtype.Timestamptz
 	ValidatedAt     pgtype.Timestamptz
 	Payload         []byte
+}
+
+type AmanSessionAuditRecord struct {
+	ID        int64
+	SessionID int32
+	Airport   string
+	Revision  int64
+	Payload   []byte
+}
+
+type AmanSessionCommandOutcome struct {
+	SessionID int32
+	Airport   string
+	CommandID string
+	Payload   []byte
+}
+
+type AmanSessionState struct {
+	SessionID int32
+	Airport   string
+	Revision  int64
+	Payload   []byte
+}
+
+type AmanSessionValidationEvidence struct {
+	SessionID  int32
+	Airport    string
+	EvidenceID string
+	Payload    []byte
 }
 
 type AmanValidationEvidence struct {
@@ -338,6 +368,8 @@ type Strip struct {
 	NextDisplayLabel         *string
 	NextDisplayFrequency     *string
 	FsScratchPad             string
+	FlightRules              string
+	NextControllerSector     *string
 }
 
 type TacticalStrip struct {

@@ -22,19 +22,20 @@ import (
 )
 
 type Client struct {
-	draining       atomic.Bool
-	positionEpoch  atomic.Uint64
-	dispatcherMu   sync.Mutex
-	dispatcherOnce sync.Once
-	dispatcher     *shared.PositionDispatcher
-	conn           *gorilla.Conn
-	session        int32
-	sessionName    string
-	send           chan events.OutgoingMessage
-	closeOnce      sync.Once
-	closed         chan struct{}
-	hub            *Hub
-	user           shared.AuthenticatedUser
+	frequencyMessages atomic.Bool
+	draining          atomic.Bool
+	positionEpoch     atomic.Uint64
+	dispatcherMu      sync.Mutex
+	dispatcherOnce    sync.Once
+	dispatcher        *shared.PositionDispatcher
+	conn              *gorilla.Conn
+	session           int32
+	sessionName       string
+	send              chan events.OutgoingMessage
+	closeOnce         sync.Once
+	closed            chan struct{}
+	hub               *Hub
+	user              shared.AuthenticatedUser
 
 	identityMu sync.RWMutex
 	position   string
@@ -210,7 +211,7 @@ func (c *Client) CanHandleMessage(messageType string) error {
 		return nil
 	}
 
-	return errors.New("observer Euroscope clients cannot publish operational data")
+	return shared.RejectAction("observer Euroscope clients cannot publish operational data")
 }
 
 // HandlePong handles pong messages from the client

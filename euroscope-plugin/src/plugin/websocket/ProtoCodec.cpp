@@ -2,11 +2,51 @@
 #include "generated/proto/euroscope.pb.h"
 
 #include <stdexcept>
+#include <type_traits>
 
 namespace FlightStrips::websocket::protobuf {
     namespace {
+        // SDK text can contain malformed bytes. The former JSON transport
+        // ignored those bytes; protobuf strings must also be valid UTF-8.
+        std::string ToProtoValue(const std::string& value) {
+            std::string result;
+            result.reserve(value.size());
+            for (size_t i = 0; i < value.size();) {
+                const auto lead = static_cast<unsigned char>(value[i]);
+                const size_t width = lead < 0x80 ? 1 :
+                    lead >= 0xC2 && lead <= 0xDF ? 2 :
+                    lead >= 0xE0 && lead <= 0xEF ? 3 :
+                    lead >= 0xF0 && lead <= 0xF4 ? 4 : 0;
+                bool valid = width != 0 && width <= value.size() - i;
+                for (size_t j = 1; valid && j < width; ++j) {
+                    valid = (static_cast<unsigned char>(value[i + j]) & 0xC0) == 0x80;
+                }
+                if (valid && width > 1) {
+                    const auto second = static_cast<unsigned char>(value[i + 1]);
+                    // Reject overlong encodings, surrogates and values above U+10FFFF.
+                    valid = !(lead == 0xE0 && second < 0xA0) &&
+                            !(lead == 0xED && second >= 0xA0) &&
+                            !(lead == 0xF0 && second < 0x90) &&
+                            !(lead == 0xF4 && second >= 0x90);
+                }
+                if (valid) {
+                    result.append(value, i, width);
+                    i += width;
+                } else {
+                    ++i;
+                }
+            }
+            return result;
+        }
+
+        // The event macros share setters for string and numeric fields.
+        template <typename T> requires std::is_arithmetic_v<T>
+        T ToProtoValue(T value) {
+            return value;
+        }
+
         void CopyRunway(const Runway& source, wire::Runway* target) {
-            target->set_name(source.name);
+            target->set_name(ToProtoValue(source.name));
             target->set_departure(source.departure);
             target->set_arrival(source.arrival);
         }
@@ -34,48 +74,49 @@ namespace FlightStrips::websocket::protobuf {
 
         template <typename T>
         void CopyStrip(const T& source, wire::Strip* target) {
-            target->set_callsign(source.callsign);
-            target->set_origin(source.origin);
-            target->set_destination(source.destination);
-            target->set_alternate(source.alternate);
-            target->set_route(source.route);
-            target->set_remarks(source.remarks);
-            target->set_runway(source.runway);
-            target->set_squawk(source.squawk);
-            target->set_assigned_squawk(source.assigned_squawk);
-            target->set_sid(source.sid);
-            target->set_star(source.star);
+            target->set_callsign(ToProtoValue(source.callsign));
+            target->set_origin(ToProtoValue(source.origin));
+            target->set_destination(ToProtoValue(source.destination));
+            target->set_alternate(ToProtoValue(source.alternate));
+            target->set_route(ToProtoValue(source.route));
+            target->set_remarks(ToProtoValue(source.remarks));
+            target->set_runway(ToProtoValue(source.runway));
+            target->set_squawk(ToProtoValue(source.squawk));
+            target->set_assigned_squawk(ToProtoValue(source.assigned_squawk));
+            target->set_sid(ToProtoValue(source.sid));
+            target->set_star(ToProtoValue(source.star));
             target->set_cleared(source.cleared);
-            target->set_ground_state(source.ground_state);
+            target->set_ground_state(ToProtoValue(source.ground_state));
             target->set_cleared_altitude(source.cleared_altitude);
             target->set_requested_altitude(source.requested_altitude);
             target->set_heading(source.heading);
-            target->set_aircraft_type(source.aircraft_type);
-            target->set_aircraft_category(source.aircraft_category);
-            target->set_spoken_callsign(source.spoken_callsign);
+            target->set_aircraft_type(ToProtoValue(source.aircraft_type));
+            target->set_aircraft_category(ToProtoValue(source.aircraft_category));
+            target->set_spoken_callsign(ToProtoValue(source.spoken_callsign));
             auto* position = target->mutable_position();
             position->set_lat(source.position.lat);
             position->set_lon(source.position.lon);
             position->set_altitude(source.position.altitude);
-            target->set_stand(source.stand);
-            target->set_capabilities(source.capabilities);
-            target->set_communication_type(source.communication_type);
-            target->set_eobt(source.eobt);
-            target->set_eldt(source.eldt);
-            target->set_tracking_controller(source.tracking_controller);
-            target->set_engine_type(source.engine_type);
+            target->set_stand(ToProtoValue(source.stand));
+            target->set_capabilities(ToProtoValue(source.capabilities));
+            target->set_communication_type(ToProtoValue(source.communication_type));
+            target->set_eobt(ToProtoValue(source.eobt));
+            target->set_eldt(ToProtoValue(source.eldt));
+            target->set_tracking_controller(ToProtoValue(source.tracking_controller));
+            target->set_engine_type(ToProtoValue(source.engine_type));
             target->set_has_fp(source.has_fp);
+            target->set_flight_rules(ToProtoValue(source.flight_rules));
             target->set_hold_supported(source.hold_supported);
-            target->set_hold(source.hold);
-            target->set_hold_type(source.hold_type);
-            target->set_hold_eat(source.hold_eat);
-            target->set_enroute_duration(source.enroute_duration);
+            target->set_hold(ToProtoValue(source.hold));
+            target->set_hold_type(ToProtoValue(source.hold_type));
+            target->set_hold_eat(ToProtoValue(source.hold_eat));
+            target->set_enroute_duration(ToProtoValue(source.enroute_duration));
         }
 
 #define ENCODE_ONE(eventType, domainType, envelopeField, member) \
         case eventType: { \
             const auto& value = static_cast<const domainType&>(event); \
-            envelope.mutable_##envelopeField()->set_##member(value.member); \
+            envelope.mutable_##envelopeField()->set_##member(ToProtoValue(value.member)); \
             break; \
         }
 
@@ -83,8 +124,8 @@ namespace FlightStrips::websocket::protobuf {
         case eventType: { \
             const auto& value = static_cast<const domainType&>(event); \
             auto* payload = envelope.mutable_##envelopeField(); \
-            payload->set_##first(value.first); \
-            payload->set_##second(value.second); \
+            payload->set_##first(ToProtoValue(value.first)); \
+            payload->set_##second(ToProtoValue(value.second)); \
             break; \
         }
     }
@@ -96,20 +137,21 @@ namespace FlightStrips::websocket::protobuf {
         case EVENT_TOKEN: {
             const auto& value = static_cast<const TokenEvent&>(event);
             auto* payload = envelope.mutable_token();
-            payload->set_token(value.token);
-            payload->set_version(value.version);
+            payload->set_token(ToProtoValue(value.token));
+            payload->set_version(ToProtoValue(value.version));
+            payload->set_frequency_messages(true);
             break;
         }
         case EVENT_LOGIN: {
             const auto& value = static_cast<const LoginEvent&>(event);
             auto* payload = envelope.mutable_login();
-            payload->set_airport(value.airport);
-            payload->set_connection(value.connection);
-            payload->set_position(value.position);
-            payload->set_callsign(value.callsign);
+            payload->set_airport(ToProtoValue(value.airport));
+            payload->set_connection(ToProtoValue(value.connection));
+            payload->set_position(ToProtoValue(value.position));
+            payload->set_callsign(ToProtoValue(value.callsign));
             payload->set_range(value.range);
             payload->set_observer(value.observer);
-            payload->set_local_ip(value.local_ip);
+            payload->set_local_ip(ToProtoValue(value.local_ip));
             break;
         }
         case EVENT_SYNC: {
@@ -117,15 +159,15 @@ namespace FlightStrips::websocket::protobuf {
             auto* payload = envelope.mutable_sync();
             for (const auto& controller : value.controllers) {
                 auto* target = payload->add_controllers();
-                target->set_position(controller.position);
-                target->set_callsign(controller.callsign);
+                target->set_position(ToProtoValue(controller.position));
+                target->set_callsign(ToProtoValue(controller.callsign));
             }
             for (const auto& strip : value.strips) CopyStrip(strip, payload->add_strips());
             for (const auto& runway : value.runways) CopyRunway(runway, payload->add_runways());
             for (const auto& sid : value.sids) {
                 auto* target = payload->add_sids();
-                target->set_name(sid.name);
-                target->set_runway(sid.runway);
+                target->set_name(ToProtoValue(sid.name));
+                target->set_runway(ToProtoValue(sid.runway));
             }
             break;
         }
@@ -143,46 +185,48 @@ namespace FlightStrips::websocket::protobuf {
         case EVENT_AIRCRAFT_POSITION_UPDATE: {
             const auto& value = static_cast<const PositionEvent&>(event);
             auto* payload = envelope.mutable_aircraft_position_update();
-            payload->set_callsign(value.callsign);
+            payload->set_callsign(ToProtoValue(value.callsign));
             payload->set_lat(value.lat);
             payload->set_lon(value.lon);
             payload->set_altitude(value.altitude);
+            if (value.groundspeed_knots >= 0) payload->set_groundspeed_knots(value.groundspeed_knots);
+            if (value.position_age_ms >= 0) payload->set_position_age_ms(value.position_age_ms);
             break;
         }
         case EVENT_COORDINATION_RECEIVED: {
             const auto& value = static_cast<const CoordinationReceivedEvent&>(event);
             auto* payload = envelope.mutable_coordination_received();
-            payload->set_callsign(value.callsign);
-            payload->set_source_controller_callsign(value.source_controller_callsign);
-            payload->set_controller_callsign(value.controller_callsign);
+            payload->set_callsign(ToProtoValue(value.callsign));
+            payload->set_source_controller_callsign(ToProtoValue(value.source_controller_callsign));
+            payload->set_controller_callsign(ToProtoValue(value.controller_callsign));
             break;
         }
         case EVENT_HOLD: {
             const auto& value = static_cast<const HoldEvent&>(event);
             auto* payload = envelope.mutable_hold();
-            payload->set_callsign(value.callsign);
-            payload->set_hold(value.hold);
-            payload->set_hold_type(value.hold_type);
-            payload->set_hold_eat(value.hold_eat);
+            payload->set_callsign(ToProtoValue(value.callsign));
+            payload->set_hold(ToProtoValue(value.hold));
+            payload->set_hold_type(ToProtoValue(value.hold_type));
+            payload->set_hold_eat(ToProtoValue(value.hold_eat));
             break;
         }
         case EVENT_PDC_STATE_CHANGE: {
             const auto& value = static_cast<const PdcStateChangeEvent&>(event);
             auto* payload = envelope.mutable_pdc_state_change();
-            payload->set_callsign(value.callsign);
-            payload->set_state(value.state);
-            payload->set_pdc_request_remarks(value.pdc_request_remarks);
+            payload->set_callsign(ToProtoValue(value.callsign));
+            payload->set_state(ToProtoValue(value.state));
+            payload->set_pdc_request_remarks(ToProtoValue(value.pdc_request_remarks));
             break;
         }
         case EVENT_AMAN_ROUTE_FACT: {
             const auto& value = static_cast<const AMANRouteFactEvent&>(event);
             auto* payload = envelope.mutable_aman_route_fact();
-            payload->set_version(value.version);
+            payload->set_version(ToProtoValue(value.version));
             auto* data = payload->mutable_data();
-            data->set_callsign(value.data.callsign);
-            data->set_kind(value.data.kind);
-            if (value.data.direct_to_fix.has_value()) data->set_direct_to_fix(*value.data.direct_to_fix);
-            data->set_observed_at(value.data.observed_at);
+            data->set_callsign(ToProtoValue(value.data.callsign));
+            data->set_kind(ToProtoValue(value.data.kind));
+            if (value.data.direct_to_fix.has_value()) data->set_direct_to_fix(ToProtoValue(*value.data.direct_to_fix));
+            data->set_observed_at(ToProtoValue(value.data.observed_at));
 			if (value.data.assigned_speed.has_value()) {
 				auto* assignedSpeed = data->mutable_assigned_speed();
 				if (value.data.assigned_speed->knots.has_value()) assignedSpeed->set_knots(*value.data.assigned_speed->knots);
@@ -213,6 +257,16 @@ namespace FlightStrips::websocket::protobuf {
         ENCODE_TWO(EVENT_ISSUE_PDC_CLEARANCE, IssuePdcClearanceEvent, issue_pdc_clearance, callsign, remarks)
         ENCODE_ONE(EVENT_PDC_REVERT_TO_VOICE, PdcRevertToVoiceEvent, pdc_revert_to_voice, callsign)
         ENCODE_TWO(EVENT_SEND_PRIVATE_MESSAGE, SendPrivateMessageEvent, send_private_message, callsign, message)
+        case EVENT_FREQUENCY_MESSAGE_RESULT: {
+            const auto& value = static_cast<const FrequencyMessageResultEvent&>(event);
+            auto* payload = envelope.mutable_frequency_message_result();
+            payload->set_request_id(ToProtoValue(value.request_id));
+            payload->set_callsign(ToProtoValue(value.callsign));
+            payload->set_submitted(value.submitted);
+            payload->set_error(ToProtoValue(value.error));
+            payload->set_applied_actions(value.applied_actions);
+            break;
+        }
         default:
             throw std::runtime_error("unsupported protobuf event type");
         }
@@ -240,6 +294,7 @@ namespace FlightStrips::websocket::protobuf {
     }
 
     DECODE_ONE(SessionInfoEvent, SessionInfoEvent, role)
+    DECODE_ONE(MasterInfoEvent, MasterInfoEvent, master_callsign)
     DECODE_TWO(AssignedSquawkEvent, AssignedSquawkEvent, callsign, squawk)
     DECODE_TWO(RequestedAltitudeEvent, RequestedAltitudeEvent, callsign, altitude)
     DECODE_TWO(ClearedAltitudeEvent, ClearedAltitudeEvent, callsign, altitude)
@@ -261,6 +316,11 @@ namespace FlightStrips::websocket::protobuf {
     DECODE_ONE(DropTrackingEvent, DropTrackingEvent, callsign)
     DECODE_TWO(TrackingControllerChangedEvent, TrackingControllerChangedEvent, callsign, tracking_controller)
     DECODE_TWO(SendPrivateMessageEvent, SendPrivateMessageEvent, callsign, message)
+    void Decode(const wire::SendFrequencyMessageEvent& source, SendFrequencyMessageEvent& target) {
+        target.request_id = source.request_id(); target.callsign = source.callsign();
+        target.message = source.message(); target.primary_frequency = source.primary_frequency();
+        target.applied_actions = source.applied_actions();
+    }
 
     void Decode(const wire::HoldEvent& source, HoldEvent& target) {
 		target.callsign = source.callsign();
@@ -270,6 +330,7 @@ namespace FlightStrips::websocket::protobuf {
 	}
 
     void Decode(const wire::RunwayMismatchAlertEvent& source, RunwayMismatchAlertEvent& target) {
+        target.master_callsign = source.master_callsign();
         target.expected_departure.assign(source.expected_departure().begin(), source.expected_departure().end());
         target.expected_arrival.assign(source.expected_arrival().begin(), source.expected_arrival().end());
         target.current_departure.assign(source.current_departure().begin(), source.current_departure().end());

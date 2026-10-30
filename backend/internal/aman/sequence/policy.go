@@ -424,6 +424,7 @@ func cloneInput(input Input) Input {
 	}
 	for index, flight := range input.Flights {
 		copy.Flights[index] = flight
+		copy.Flights[index].Operations = slices.Clone(flight.Operations)
 		copy.Flights[index].DemandArrivalAt = cloneTime(flight.DemandArrivalAt)
 		copy.Flights[index].InitialBaselineTETA = cloneTime(flight.InitialBaselineTETA)
 		copy.Flights[index].PromotionNotBefore = cloneTime(flight.PromotionNotBefore)
@@ -433,6 +434,9 @@ func cloneInput(input Input) Input {
 			progress.RemainingFixes = slices.Clone(progress.RemainingFixes)
 			copy.Flights[index].STARProgress = &progress
 		}
+		copy.Flights[index].SlotNotBefore = cloneTime(flight.SlotNotBefore)
+		copy.Flights[index].ReleaseRank = cloneInt(flight.ReleaseRank)
+		copy.Flights[index].HoldingStartedAt = cloneTime(flight.HoldingStartedAt)
 		copy.Flights[index].ManualOrder = cloneInt(flight.ManualOrder)
 		copy.Flights[index].FrozenAt = cloneTime(flight.FrozenAt)
 		copy.Flights[index].FrozenOperationalTETA = cloneTime(flight.FrozenOperationalTETA)

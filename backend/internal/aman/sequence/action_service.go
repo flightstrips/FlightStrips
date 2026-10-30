@@ -11,10 +11,13 @@ import (
 // domain mutation. The owning state engine supplies the policy/config inputs;
 // this service retains coordinator ownership of command IDs and revisions.
 type ActionMutations interface {
+	RebuildArrivalSequence(context.Context, aman.CommandContext, aman.RebuildArrivalSequenceCommand) (CommandMutation, error)
 	MoveFlight(aman.CommandContext, aman.MoveFlightCommand) (CommandMutation, error)
+	SwapFlights(aman.CommandContext, aman.SwapFlightsCommand) (CommandMutation, error)
 	PlaceFlightAtTime(aman.CommandContext, aman.PlaceFlightAtTimeCommand) (CommandMutation, error)
 	LockFlight(aman.CommandContext, aman.LockFlightCommand) (CommandMutation, error)
 	UnlockFlight(aman.CommandContext, aman.UnlockFlightCommand) (CommandMutation, error)
+	ExpediteFlight(aman.CommandContext, aman.ExpediteFlightCommand) (CommandMutation, error)
 	DesequenceFlight(aman.CommandContext, aman.DesequenceFlightCommand) (CommandMutation, error)
 	ResumeFlight(aman.CommandContext, aman.ResumeFlightCommand) (CommandMutation, error)
 	RemoveFlight(aman.CommandContext, aman.RemoveFlightCommand) (CommandMutation, error)
@@ -75,6 +78,10 @@ func (s *ActionService) MoveFlight(ctx context.Context, auth aman.CommandContext
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.MoveFlight(auth, command) })
 }
 
+func (s *ActionService) SwapFlights(ctx context.Context, auth aman.CommandContext, command aman.SwapFlightsCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.SwapFlights(auth, command) })
+}
+
 func (s *ActionService) PlaceFlightAtTime(ctx context.Context, auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, func() error { return command.Validate(auth.ReceivedAt) }, func() (CommandMutation, error) {
 		return s.mutations.PlaceFlightAtTime(auth, command)
@@ -87,6 +94,10 @@ func (s *ActionService) LockFlight(ctx context.Context, auth aman.CommandContext
 
 func (s *ActionService) UnlockFlight(ctx context.Context, auth aman.CommandContext, command aman.UnlockFlightCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.UnlockFlight(auth, command) })
+}
+
+func (s *ActionService) ExpediteFlight(ctx context.Context, auth aman.CommandContext, command aman.ExpediteFlightCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.ExpediteFlight(auth, command) })
 }
 
 func (s *ActionService) DesequenceFlight(ctx context.Context, auth aman.CommandContext, command aman.DesequenceFlightCommand) (aman.CommandExecution, error) {
@@ -224,3 +235,7 @@ func executeTyped(service *ActionService, ctx context.Context, auth aman.Command
 }
 
 var _ aman.CommandService = (*ActionService)(nil)
+
+func (s *ActionService) RebuildArrivalSequence(ctx context.Context, auth aman.CommandContext, command aman.RebuildArrivalSequenceCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.RebuildArrivalSequence(ctx, auth, command) })
+}

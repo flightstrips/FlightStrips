@@ -109,6 +109,7 @@ func TestFlightDetailReturnsOnDemandCalculationAndOperationalBasis(t *testing.T)
 func TestFlightDetailDoesNotExposeNonPublishablePrediction(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 10, 0, 0, 0, time.UTC)
 	state := aman.AirportState{Airport: "EKCH", GeneratedAt: now, Mode: aman.ModeShadow, Flights: []aman.AMANFlight{{Callsign: "SAS123", State: aman.StateAirborne, DataStatus: aman.DataFresh, Prediction: &aman.Prediction{RawTETA: now.Add(time.Hour), OperationalTETA: now.Add(time.Hour), OperationalReason: aman.OperationalReasonPredicted, GeneratedAt: now, InputObservedAt: now, Confidence: aman.ConfidenceLow, DatasetVersion: "2607", GeometryDigest: "digest", ModelVersion: "model", ConfigVersion: "config", Sources: []string{}, Publishable: false}, FreezeReason: aman.FreezeNone, QueueOffers: []aman.QueueOffer{}}}}
+	state.Flights[0].Prediction.HoldingPlan = &aman.HoldingPlan{HoldingEntryTime: now, ApproachReleaseTime: now.Add(10 * time.Minute), ExpectedHoldingDuration: 10 * time.Minute}
 	mux := http.NewServeMux()
 	New(testAuth{}, stateReader{state: state}).RegisterRoutes(mux)
 	request := httptest.NewRequest(http.MethodGet, "/aman/airports/EKCH/flights/SAS123/detail", nil)
@@ -121,6 +122,29 @@ func TestFlightDetailDoesNotExposeNonPublishablePrediction(t *testing.T) {
 	require.NoError(t, json.NewDecoder(response.Body).Decode(&detail))
 	require.Nil(t, detail.Calculation)
 	require.Nil(t, detail.TETABasis)
+	require.Nil(t, detail.HoldingPlan)
+}
+
+func TestFlightDetailHoldingFixUsesClearanceOrConfiguredFixInsteadOfPatternID(t *testing.T) {
+	now := time.Date(2026, time.October, 20, 9, 0, 0, 0, time.UTC)
+	patternID := "EKCH-ROSBI-PRIMARY-LOW"
+	api := New(nil, nil).WithTerminal(terminal.Configuration{OverlayHoldings: []terminal.HoldingDefinition{{ID: navdata.HoldingID(patternID), Fix: "ROSBI"}}})
+	flight := aman.AMANFlight{SelectedHolding: &patternID, Prediction: &aman.Prediction{
+		Publishable: true, RawTETA: now.Add(20 * time.Minute), OperationalTETA: now.Add(20 * time.Minute), GeneratedAt: now, InputObservedAt: now,
+		HoldingPlan: &aman.HoldingPlan{HoldingEntryTime: now, ApproachReleaseTime: now.Add(10 * time.Minute), ExpectedHoldingDuration: 10 * time.Minute, PostHoldingTransit: 10 * time.Minute},
+	}}
+	mapped, err := api.mapDetail(context.Background(), aman.AirportState{Airport: "EKCH", GeneratedAt: now}, flight)
+	require.NoError(t, err)
+	require.Equal(t, "ROSBI", *mapped.Flight.HoldingFix)
+	require.Equal(t, "2026-10-20T09:10:00.000Z", mapped.HoldingPlan.ApproachReleaseTime)
+	flight.HoldingClearance = &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute}
+	require.Equal(t, "OLPIB", *api.holdingFix(flight))
+	flight.HoldingClearance = nil
+	flight.SelectedHolding = nil
+	require.Nil(t, api.holdingFix(flight))
+	unknown := "UNKNOWN-PATTERN"
+	flight.SelectedHolding = &unknown
+	require.Nil(t, api.holdingFix(flight))
 }
 
 func TestMapHoldingPlanExposesEntryDurationAndRelease(t *testing.T) {

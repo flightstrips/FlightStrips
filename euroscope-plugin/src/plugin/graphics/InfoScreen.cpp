@@ -31,6 +31,7 @@ namespace FlightStrips::graphics {
                            const std::shared_ptr<flightplan::FlightPlanService>& flightPlanService,
                            const std::shared_ptr<runway::RunwayService>& runwayService,
                            std::shared_ptr<PdcClearancePopupState> pdcPopup,
+                           std::shared_ptr<vacs::VacsService> vacsService,
                            FlightStripsPlugin* plugin)
         : authService(authenticationService),
           userConfig(config),
@@ -39,10 +40,14 @@ namespace FlightStrips::graphics {
           m_runwayService(runwayService),
           m_pdcPopup(std::move(pdcPopup)),
           m_plugin(plugin) {
+        vacsService_ = std::move(vacsService);
+        if (vacsService_) vacsService_->AttachScreen(this, [this] { RequestRefresh(); });
         const auto state = userConfig->GetWindowState();
         menubar = {state.x, state.y, state.x + width, state.y + height};
         isMinimized = state.minimized;
     }
+
+    InfoScreen::~InfoScreen() { if (vacsService_) vacsService_->DetachScreen(this); }
 
     void InfoScreen::OnRefresh(HDC hDC, int Phase) {
         if (Phase != EuroScopePlugIn::REFRESH_PHASE_AFTER_LISTS) {
@@ -67,7 +72,7 @@ namespace FlightStrips::graphics {
         const auto popupData = GetPdcPopupData();
         KeepWindowsInsideRadarArea(panelData, popupData);
 
-        DrawInfoPanel(*this, graphics, colors, menubar, panelData, isMinimized);
+        DrawInfoPanel(this, graphics, colors, menubar, panelData, isMinimized);
         if (isMinimized) {
             canClick = true;
             return;
@@ -99,6 +104,11 @@ namespace FlightStrips::graphics {
         data.delaySeconds = service ? service->GetDelaySecondsRemaining() : std::nullopt;
         data.stats = service ? service->GetStats() : websocket::Stats{};
         data.showStats = showStats_;
+        if (vacsService_) {
+            data.vacsView = vacsService_->GetView();
+            data.vacsEnabled = vacsService_->Enabled();
+            data.vacsMiniPreference = vacsService_->MiniPreference();
+        }
         return data;
     }
 
@@ -121,6 +131,8 @@ namespace FlightStrips::graphics {
         RECT panelRect = menubar;
         if (!isMinimized) {
             panelRect.bottom += CalculateInfoPanelContentHeight(panelData);
+        } else if (vacsService_ && vacsService_->ShowMini()) {
+            panelRect.bottom += CalculateVacsMiniHeight(panelData.vacsView) - 15;
         }
 
         const RECT clampedPanel = ClampRectToBounds(panelRect, radarArea);
@@ -183,6 +195,11 @@ namespace FlightStrips::graphics {
     }
 
     void InfoScreen::OnClickScreenObject(int ObjectType, const char* sObjectId, POINT Pt, RECT Area, int Button) {
+        if (HandleVacsClick(ObjectType, sObjectId, Pt, Button)) {
+            canClick = true;
+            RequestRefresh();
+            return;
+        }
         if (!canClick) {
             return;
         }
@@ -203,6 +220,37 @@ namespace FlightStrips::graphics {
         }
 
         canClick = true;
+    }
+
+    bool InfoScreen::HandleVacsClick(int objectType, const char* objectId, POINT point, int button) {
+        if (objectType < InfoScreenObjectIds::VacsEnabled || objectType > InfoScreenObjectIds::VacsEnd) return false;
+        if (!isOpen || !vacsService_ || button != EuroScopePlugIn::BUTTON_LEFT) return true;
+        if (isMinimized && !vacsService_->ShowMini()) return true;
+        const auto data = BuildInfoPanelData();
+        const auto view = vacsService_->GetView();
+        const auto layout = CalculateVacsLayout(menubar.left, isMinimized ? menubar.top : CalculateVacsSectionTop(data, menubar), isMinimized, view);
+        if (objectType == InfoScreenObjectIds::VacsEnabled) {
+            if (!isMinimized && PtInRect(&layout.enabled, point)) vacsService_->ToggleEnabled();
+            return true;
+        }
+        if (objectType == InfoScreenObjectIds::VacsMiniPreference) {
+            if (!isMinimized && PtInRect(&layout.preference, point)) vacsService_->ToggleMini();
+            return true;
+        }
+        if (!view.actionable || view.callId != (objectId ? objectId : "")) return true;
+        for (const auto& action : layout.buttons) {
+            if (action.objectId != objectType || !PtInRect(&action.rect, point)) continue;
+            if (objectType == InfoScreenObjectIds::VacsCall) {
+                const auto rows = vacsService_->OpenPicker();
+                m_plugin->OpenPopupList(action.rect, "VACS CALL", 2);
+                if (rows.empty()) m_plugin->AddPopupListElement("No controllers on VACS", "", TAG_FUNC_VACS_DIAL, false, EuroScopePlugIn::POPUP_ELEMENT_NO_CHECKBOX, true);
+                for (const auto& row : rows) m_plugin->AddPopupListElement(row.label.c_str(), row.frequency.c_str(), TAG_FUNC_VACS_DIAL);
+            } else {
+                const auto command = objectType == InfoScreenObjectIds::VacsAnswer ? vacs::Action::Answer : objectType == InfoScreenObjectIds::VacsReject ? vacs::Action::Reject : objectType == InfoScreenObjectIds::VacsCancel ? vacs::Action::Cancel : vacs::Action::End;
+                vacsService_->Execute(command, view.callId);
+            }
+        }
+        return true;
     }
 
     bool InfoScreen::HandleWindowChromeClick(const int objectType) {

@@ -197,7 +197,7 @@ namespace FlightStrips::websocket {
             return true;
         }
 
-        return type == EVENT_SESSION_INFO_NAME || type == EVENT_RUNWAY_MISMATCH_ALERT_NAME || type == "aman_gain_loss";
+        return type == EVENT_SESSION_INFO_NAME || type == EVENT_MASTER_INFO_NAME || type == EVENT_RUNWAY_MISMATCH_ALERT_NAME || type == "aman_gain_loss";
     }
 
     void WebSocketService::Reconnect() {
@@ -215,10 +215,16 @@ namespace FlightStrips::websocket {
         std::lock_guard lock(message_mutex_);
         messages_.clear();
         client_state = STATE_UNKNOWN;
+        master_callsign_.clear();
     }
 
     void WebSocketService::SetSessionState(const ClientState state) {
         client_state = state;
+    }
+
+    void WebSocketService::SetMasterCallsign(const std::string& callsign) {
+        std::lock_guard lock(message_mutex_);
+        master_callsign_ = callsign;
     }
 
     bool WebSocketService::CanSendEventType(const EventType type) const {
@@ -232,7 +238,7 @@ namespace FlightStrips::websocket {
 
     Stats WebSocketService::GetStats() const {
         std::lock_guard lock(message_mutex_);
-        return Stats{tx, rx, static_cast<int>(messages_.size()), client_state};
+        return Stats{tx, rx, static_cast<int>(messages_.size()), client_state, master_callsign_};
     }
 
     std::optional<int> WebSocketService::GetDelaySecondsRemaining() const {
@@ -261,6 +267,7 @@ namespace FlightStrips::websocket {
 
     void WebSocketService::OnConnected() {
         exceptions::RunGuarded("WebSocketService::OnConnected", [this] {
+            SetMasterCallsign("");
             tx = 0;
             rx = 0;
             pending_connect_ = false;

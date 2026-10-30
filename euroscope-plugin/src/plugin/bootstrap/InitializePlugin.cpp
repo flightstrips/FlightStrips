@@ -1,4 +1,5 @@
 #include "InitializePlugin.h"
+#include "vacs/VacsService.h"
 
 #include "ExceptionHandling.h"
 #include "Logger.hpp"
@@ -44,6 +45,7 @@ namespace FlightStrips {
         Logger::Debug("Logger initialized and loaded configuration!");
 
         this->container->pdcPopup = std::make_shared<graphics::PdcClearancePopupState>();
+        this->container->vacsService = std::make_shared<vacs::VacsService>(this->container->userConfig);
 
         this->container->connectionEventHandlers = std::make_shared<handlers::ConnectionEventHandlers>();
         this->container->controllerEventHandlers = std::make_shared<handlers::ControllerEventHandlers>();
@@ -196,6 +198,7 @@ namespace FlightStrips {
             this->container->plugin, this->container->webSocketService, this->container->flightPlanService,
             this->container->standService, this->container->routeService, this->container->runwayService);
         this->container->messageHandlers->RegisterHandler(this->container->messageService);
+        this->container->timedEventHandlers->RegisterHandler(this->container->messageService);
         this->container->authenticationEventHandlers->RegisterHandler(this->container->webSocketService);
 
         this->container->plugin->Information(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
@@ -203,6 +206,8 @@ namespace FlightStrips {
     }
 
     void InitializePlugin::EuroScopeCleanup() {
+        this->container->vacsService->Stop();
+        this->container->vacsService.reset();
         this->container->controllerEventHandlers->Clear();
         this->container->controllerEventHandlers.reset();
         this->container->flightPlanEventHandlers->Clear();

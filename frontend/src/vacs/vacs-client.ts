@@ -122,11 +122,11 @@ export class VacsClient implements VacsActions {
   }
 
   rejectCall(callId: string): Promise<void> {
-    return this.invoke("signaling_end_call", { callId }).then(() => undefined);
+    return this.endCallLocally(callId);
   }
 
   endCall(callId: string): Promise<void> {
-    return this.invoke("signaling_end_call", { callId }).then(() => undefined);
+    return this.endCallLocally(callId);
   }
 
   dialClient(client: ClientInfo): Promise<void> {
@@ -560,6 +560,16 @@ export class VacsClient implements VacsActions {
     this.outgoingCallId = null;
     this.outgoingPeer = null;
     this.emitState();
+  }
+
+  /**
+   * VACS does not emit an event back to the caller when it ends a call itself
+   * (e.g. cancelling a ringing outgoing call), so clear local state once the
+   * command succeeds.
+   */
+  private async endCallLocally(callId: string): Promise<void> {
+    await this.invoke("signaling_end_call", { callId });
+    this.terminateCall(callId);
   }
 
   private terminateCall(callId: string): void {

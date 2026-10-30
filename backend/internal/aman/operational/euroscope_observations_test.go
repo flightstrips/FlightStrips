@@ -120,6 +120,52 @@ func TestServiceRetractionRemovesOnlyOwningProvider(t *testing.T) {
 
 type euroScopeObservationSink struct{ observations []aman.FlightObservation }
 
+func TestEuroScopeReportedMotionSurvivesDispatchDelayAndDuplicates(t *testing.T) {
+	received := time.Date(2026, 10, 19, 18, 0, 0, 0, time.UTC)
+	sink := &euroScopeObservationSink{}
+	observer, err := NewEuroScopePositionObserver(EuroScopePositionObserverDependencies{Sink: sink, EnabledAirports: []string{"EKCH"}, Now: func() time.Time { return received.Add(time.Minute) }})
+	require.NoError(t, err)
+	strip := &models.Strip{Session: 1, Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH"}
+	gs, age := 420.0, int64(5000)
+	ctx := shared.WithPositionMotion(shared.WithReceiptTime(t.Context(), received), shared.PositionMotion{GroundspeedKnots: &gs, PositionAgeMS: &age})
+	require.NoError(t, observer.ObserveEuroScopePosition(ctx, 1, strip, 55, 12, 30000))
+	first := sink.observations[0].Surveillance
+	require.Equal(t, gs, *first.GroundspeedKnots)
+	require.Equal(t, "reported", first.GroundspeedSource)
+	require.Equal(t, received.Add(-5*time.Second), *first.ObservedAt)
+	require.Nil(t, first.TrackTrueDegrees, "reported heading must never become ground track")
+	ctx = shared.WithPositionMotion(shared.WithReceiptTime(t.Context(), received.Add(10*time.Second)), shared.PositionMotion{GroundspeedKnots: &gs, PositionAgeMS: &age})
+	require.NoError(t, observer.ObserveEuroScopePosition(ctx, 1, strip, 55, 12, 30000))
+	require.Equal(t, *first.ObservedAt, *sink.observations[1].Surveillance.ObservedAt)
+	// A second fresh report uses native speed even though the derived-speed
+	// window has not accumulated thirty seconds yet.
+	require.NoError(t, observer.ObserveEuroScopePosition(ctx, 1, strip, 55.01, 12, 30000))
+	require.Equal(t, gs, *sink.observations[2].Surveillance.GroundspeedKnots)
+}
+
+func TestEuroScopeFallbackNeedsThirtySecondMotionBaseline(t *testing.T) {
+	now := time.Date(2026, 10, 19, 18, 0, 0, 0, time.UTC)
+	sink := &euroScopeObservationSink{}
+	observer, err := NewEuroScopePositionObserver(EuroScopePositionObserverDependencies{Sink: sink, EnabledAirports: []string{"EKCH"}, Now: func() time.Time { return now }})
+	require.NoError(t, err)
+	strip := &models.Strip{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH"}
+	for i := 0; i <= 6; i++ {
+		if i > 0 {
+			now = now.Add(5 * time.Second)
+		}
+		require.NoError(t, observer.ObserveEuroScopePosition(t.Context(), 1, strip, 55+float64(i)*0.01, 12, 10000))
+		if i < 6 {
+			require.Nil(t, sink.observations[i].Surveillance.GroundspeedKnots)
+		}
+	}
+	require.InDelta(t, 432, *sink.observations[6].Surveillance.GroundspeedKnots, 2)
+	invalid := 900.0
+	now = now.Add(30 * time.Second)
+	ctx := shared.WithPositionMotion(t.Context(), shared.PositionMotion{GroundspeedKnots: &invalid})
+	require.NoError(t, observer.ObserveEuroScopePosition(ctx, 1, strip, 55.12, 12, 10000))
+	require.Equal(t, "derived", sink.observations[7].Surveillance.GroundspeedSource)
+}
+
 func TestRepeatedEuroScopePositionsPreserveFreshMotionAndNextSpeedBaseline(t *testing.T) {
 	now := time.Date(2026, 10, 4, 8, 0, 0, 0, time.UTC)
 	sink := &euroScopeObservationSink{}
@@ -134,7 +180,7 @@ func TestRepeatedEuroScopePositionsPreserveFreshMotionAndNextSpeedBaseline(t *te
 	repeated := sink.observations[2]
 	require.NotNil(t, repeated.Surveillance.GroundspeedKnots, "a duplicate must not remove speed and drop the AMAN slot")
 	require.InDelta(t, 72, *repeated.Surveillance.GroundspeedKnots, 1)
-	require.Equal(t, now, *repeated.Surveillance.ObservedAt)
+	require.Equal(t, now.Add(-20*time.Second), *repeated.Surveillance.ObservedAt, "duplicates must not renew surveillance freshness")
 	now = now.Add(10 * time.Second)
 	require.NoError(t, observer.ObserveEuroScopePosition(context.Background(), 1, strip, 55.02, 12, 9000))
 	require.InDelta(t, 72, *sink.observations[3].Surveillance.GroundspeedKnots, 1, "duplicate timing must not inflate the next speed to 216 knots")

@@ -4,6 +4,7 @@ import {
   getActiveAMANRunwayGroups,
   getAMANMutationBlockReason,
   type AMANCommandIntent,
+  type AMANRebuildResult,
   type AMANCommandRejection,
   type AMANConnectionState,
   type AMANFlight,
@@ -37,6 +38,7 @@ export interface AMANControlsViewProps {
   pendingCommands: Record<string, AMANPendingCommand>;
   commandRejections: Record<string, AMANCommandRejection>;
   onCommand: (intent: AMANCommandIntent) => void;
+  rebuildResult?: AMANRebuildResult | null;
   onDismissRejection?: (commandID: string) => void;
   selectedCallsign?: string | null;
   onSelectedCallsignChange?: (callsign: string) => void;
@@ -76,7 +78,7 @@ function FlightStatus({flight}: {flight: AMANFlight}) {
 
       <div className="grid gap-1 sm:grid-cols-2">
         <span>Operational TETA: <b>{displayTime(flight.operational_teta)}</b></span>
-        <span>Operational slot: <b>{displayTime(flight.slot?.time ?? null)}{flight.freeze_reason !== "none" ? ` (fixed by ${flight.freeze_reason} freeze)` : ""}</b></span>
+        <span>{flight.expedited ? "Former slot (outside sequence)" : "Operational slot"}: <b>{displayTime(flight.slot?.time ?? null)}{!flight.expedited && flight.freeze_reason !== "none" ? ` (fixed by ${flight.freeze_reason} freeze)` : ""}</b></span>
         <span className={flight.raw_teta !== flight.operational_teta ? "text-amber-300" : ""}>Raw TETA (informational): <b>{displayTime(flight.raw_teta)}</b></span>
         <span>Freeze: <b className={flight.freeze_reason === "superstable" ? "text-cyan-300" : flight.freeze_reason === "manual" ? "text-fuchsia-300" : ""}>{flight.freeze_reason}</b></span>
         <span>STAR family: <b>{flight.star_family ?? "Unavailable"}</b></span>
@@ -98,6 +100,7 @@ function FlightStatus({flight}: {flight: AMANFlight}) {
         </div>
       )}
 
+      {flight.holding_started_at && <div>Holding since {displayTime(flight.holding_started_at)}{flight.holding_start_source === "estimated_detection" ? " (estimated)" : ""} · {Math.floor((flight.holding_elapsed_seconds ?? 0) / 60)} minutes</div>}
       {flight.go_around_confirmation && flight.go_around_confirmation.status !== "pending" && (
         <div className="rounded border border-slate-600 p-2 text-xs text-slate-300">
           Go-around detection {flight.go_around_confirmation.status} by {flight.go_around_confirmation.decided_by ?? "unknown"}.
@@ -115,6 +118,7 @@ export function AMANControlsView({
   pendingCommands,
   commandRejections,
   onCommand,
+  rebuildResult,
   onDismissRejection,
   selectedCallsign,
   onSelectedCallsignChange,
@@ -159,7 +163,7 @@ export function AMANControlsView({
   const runwayPending = pending.some((command) => command.type === "aman.change_runway" && command.callsign === effectiveSelectedCallsign);
   const runwayRejection = rejections.find((rejection) => rejection.command_type === "aman.change_runway");
   const dispositionPending = pending.some((command) => command.callsign === effectiveSelectedCallsign
-    && (command.type === "aman.desequence_flight" || command.type === "aman.resume_flight" || command.type === "aman.remove_flight"));
+    && (command.type === "aman.expedite_flight" || command.type === "aman.desequence_flight" || command.type === "aman.resume_flight" || command.type === "aman.remove_flight"));
   const disposition = selectedFlight?.sequence_disposition ?? "active";
   const alternateRunwayGroups = activeRunwayGroups.filter((group) => group.id !== selectedFlight?.runway_group_id);
   const effectiveAlternateRunwayGroupID = alternateRunwayGroups.some((group) => group.id === alternateRunwayGroupID)
@@ -215,6 +219,16 @@ export function AMANControlsView({
           </div>
         </section>
       ))}
+
+      <section aria-label="Arrival sequence rebuild" className="grid gap-2 rounded border border-slate-600 p-3">
+        <p className="text-sm">Rebuild all arrival runways: refresh automatic timings from current positions, keep TMA priority, release lower cleared levels first, and prioritize the longest-held eligible aircraft across holds. Replace existing order and automatic reservations; retain manual protections.</p>
+        <button className={controlClass} disabled={disabled || pending.some((command) => command.type === "aman.rebuild_arrival_sequence") || Boolean(rebuildResult && state && rebuildResult.revision > state.revision)} onClick={() => onCommand({type: "aman.rebuild_arrival_sequence"})}>Rebuild arrival sequence</button>
+        {rebuildResult && <div role="status" aria-live="polite">
+          {rebuildResult.publication_status === "recovery_required" && (!state || state.revision < rebuildResult.revision) ? "Rebuild committed; reconnect to recover the displayed sequence" : state && state.revision < rebuildResult.revision ? "Waiting for rebuilt sequence snapshot" : !rebuildResult.changed || rebuildResult.duplicate ? "Already rebuilt" : rebuildResult.diagnostics.length > 0 ? "Rebuilt with exceptions" : "Rebuilt"}
+          {rebuildResult.release_order.length > 0 && <div className="text-sm">Release priority: {rebuildResult.release_order.join(" → ")}</div>}
+          {rebuildResult.diagnostics.map((diagnostic, index) => <div className="text-sm text-amber-200" key={index}>{diagnostic.callsign}: {diagnostic.message}</div>)}
+        </div>}
+      </section>
 
       {pending.length > 0 && (
         <div aria-live="polite" className="rounded border border-sky-600 bg-sky-950 p-2 text-sm">
@@ -281,13 +295,16 @@ export function AMANControlsView({
           {selectedFlight && <FlightStatus flight={selectedFlight} />}
 
           {selectedFlight && <section aria-label={`${selectedFlight.callsign} sequence disposition`} className="grid gap-2 rounded border border-violet-500/70 bg-violet-950/40 p-3 text-sm">
-            <div>Server-confirmed disposition: <b>{selectedFlight.lifecycle_state === "removed" ? "removed" : disposition}</b></div>
+            <div>Server-confirmed disposition: <b>{selectedFlight.lifecycle_state === "removed" ? "removed" : selectedFlight.expedited ? "expedited" : disposition}</b></div>
             {selectedFlight.lifecycle_state !== "removed" && <div className="flex flex-wrap gap-2">
-              {disposition === "active" ? <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.desequence_flight", callsign: selectedFlight.callsign})}>Desequence flight</button> : <>
+              {disposition === "active" ? <>
+                <button className={controlClass} disabled={disabled || dispositionPending || !selectedFlight.slot || !["unstable", "stable", "go_around"].includes(selectedFlight.lifecycle_state)} onClick={() => onCommand({type: "aman.expedite_flight", callsign: selectedFlight.callsign})}>Expedite flight</button>
+                <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.desequence_flight", callsign: selectedFlight.callsign})}>Desequence flight</button></> : <>
                 <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.resume_flight", callsign: selectedFlight.callsign})}>Resume at earliest legal opportunity</button>
                 <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => setRemoveDialogOpen(true)}>Remove flight…</button>
               </>}
             </div>}
+            <p>Expedite takes the aircraft out of the managed sequence and brings following traffic forward where spacing allows. Coordinate its release with approach; the aircraft still counts in the approach buffer.</p>
             {dispositionPending && <div aria-live="polite" role="status" className="text-sky-200">Waiting for server-confirmed disposition</div>}
           </section>}
 
@@ -409,6 +426,7 @@ export function AMANControls({
   const readOnly = useWebSocketStore((value) => value.readOnly);
   const pendingCommands = useWebSocketStore((value) => value.amanPendingCommands);
   const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
+  const rebuildResult = useWebSocketStore((value) => value.amanRebuildResult);
   const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
   const dismissRejection = useWebSocketStore((value) => value.dismissAMANCommandRejection);
 
@@ -421,6 +439,7 @@ export function AMANControls({
       pendingCommands={pendingCommands}
       commandRejections={commandRejections}
       onCommand={(intent) => { sendCommand(intent); }}
+      rebuildResult={rebuildResult}
       onDismissRejection={dismissRejection}
       selectedCallsign={selectedCallsign}
       onSelectedCallsignChange={onSelectedCallsignChange}

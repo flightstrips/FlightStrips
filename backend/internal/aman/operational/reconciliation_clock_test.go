@@ -73,6 +73,62 @@ func TestReconciliationUsesClockAfterObservationSnapshotWithoutRounding(t *testi
 	}
 }
 
+func TestReconciliationDefersDestinationFactsReceivedAfterClockSample(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		t.Run(map[bool]string{false: "new flight", true: "existing flight"}[existing], func(t *testing.T) {
+			base := time.Date(2026, time.October, 19, 17, 12, 11, 0, time.UTC)
+			now := base.Add(900 * time.Millisecond)
+			repository := &memoryRepository{}
+			service, err := New(disconnectedExpiryDependencies(repository, &recordingPublisher{}, &now))
+			require.NoError(t, err)
+			service.tmaVolume = testTMAService(t).tmaVolume
+			repository.state, repository.has = service.initialState("EKCH", base), true
+			observedAt := base.Add(500 * time.Millisecond)
+			observation := tmaObservation(observedAt, 1, 3, 12_000)
+			route, speed, eet, takeoff := "DCT NOTASTAR", 250.0, 30*time.Minute, base.Add(-10*time.Minute)
+			observation.Callsign, observation.Origin, observation.Destination = "SAS247", "ENGM", "EKCH"
+			observation.Provider = aman.ObservationProviderEuroScope
+			observation.ReconciledAt, observation.FlightPlan.ObservedAt = observedAt, &observedAt
+			observation.FiledRoute, observation.TakeoffDetected = &route, &takeoff
+			observation.PlannedTiming = &aman.PlannedTiming{EstimatedEnrouteTime: &eet}
+			observation.Surveillance.GroundspeedKnots = &speed
+			if existing {
+				repository.state.Flights = []aman.AMANFlight{newFlight(observation, base)}
+			}
+			require.NoError(t, service.Observe(t.Context(), observation))
+			newer := observation
+			newerAt := base.Add(950 * time.Millisecond)
+			position := *observation.Surveillance
+			position.ObservedAt = &newerAt
+			newer.Surveillance, newer.ReconciledAt = &position, newerAt
+			newer.FlightPlan.ObservedAt = &newerAt
+			clockCalls := 0
+			service.deps.Now = func() time.Time {
+				sampled := now
+				clockCalls++
+				if clockCalls == 2 {
+					// A report arrives just after the reconciliation clock is read.
+					now = base.Add(990 * time.Millisecond)
+					require.NoError(t, service.Observe(t.Context(), newer))
+				}
+				return sampled
+			}
+
+			require.NoError(t, service.reconcileAirport(t.Context(), "EKCH"))
+			flight := stateFlight(t, repository.state, observation.Callsign)
+			require.NotNil(t, flight.TMAEntry)
+			require.Equal(t, observedAt, flight.TMAEntry.LastObservedAt)
+			require.Equal(t, observedAt, *flight.LatestObservation.Surveillance.ObservedAt)
+			require.Equal(t, base.Add(900*time.Millisecond), repository.state.GeneratedAt)
+
+			require.NoError(t, service.reconcileAirport(t.Context(), "EKCH"))
+			flight = stateFlight(t, repository.state, observation.Callsign)
+			require.Equal(t, newerAt, flight.TMAEntry.LastObservedAt)
+			require.Equal(t, newerAt, *flight.LatestObservation.Surveillance.ObservedAt)
+		})
+	}
+}
+
 type clockObservationRepository struct {
 	*memoryRepository
 	onLoad func()

@@ -5,6 +5,7 @@
 
 #include "Colors.h"
 #include "Graphics.h"
+#include "VacsPanel.h"
 #include "authentication/IAuthenticationService.h"
 #include "euroscope/EuroScopePlugIn.h"
 #include "plugin/IFlightStripsPlugin.h"
@@ -23,6 +24,9 @@ namespace FlightStrips::graphics {
         std::optional<int> delaySeconds;
         websocket::Stats stats{};
         bool showStats{true};
+        vacs::View vacsView{};
+        bool vacsEnabled{false};
+        bool vacsMiniPreference{false};
     };
 
     struct AuthenticationButtonLayout {
@@ -31,11 +35,13 @@ namespace FlightStrips::graphics {
     };
 
     [[nodiscard]] int CalculateInfoPanelContentHeight(const InfoPanelData& data);
+    [[nodiscard]] int CalculateVacsSectionTop(const InfoPanelData& data, const RECT& menubar);
     [[nodiscard]] AuthenticationButtonLayout CalculateAuthenticationButtonLayout(const InfoPanelData& data, int left, int right, int y);
     [[nodiscard]] std::string GetInfoPanelRoleLabel(websocket::ClientState role);
+    [[nodiscard]] std::string GetInfoPanelMasterLabel(const InfoPanelData& data);
     [[nodiscard]] RECT ClampRectToBounds(const RECT& rect, const RECT& bounds);
 
-    void DrawInfoPanel(EuroScopePlugIn::CRadarScreen& screen,
+    void DrawInfoPanel(EuroScopePlugIn::CRadarScreen* screen,
                        Graphics& graphics,
                        const Colors& colors,
                        const RECT& menubar,

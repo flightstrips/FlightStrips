@@ -25,7 +25,7 @@ export interface HoldingGraphPosition {
   altitudeTrack: number | null;
 }
 
-/** Stack each level vertically, keeping the stack centered on its altitude. */
+/** Give each aircraft one level-height slot, centered on its cleared level. */
 export function layoutHoldingLabels(positions: HoldingGraphPosition[], availableHeight: number, rowHeight: number) {
   const gap = rowHeight + 1;
   const sorted = positions.map((position, index) => ({position, index})).sort((left, right) =>
@@ -39,6 +39,7 @@ export function layoutHoldingLabels(positions: HoldingGraphPosition[], available
     else groups.push({percent: position.altitude.percent!, indices: [index]});
   });
   const baseHeight = Math.max(availableHeight, gap * (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) / 10);
+  const levelHeight = baseHeight / ((HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) / 10);
   const byPercent = new Map(groups.map(group => [group.percent, group]));
   const percents = [...new Set([
     ...Array.from({length: 22}, (_, index) => index * 10 / (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) * 100),
@@ -51,8 +52,8 @@ export function layoutHoldingLabels(positions: HoldingGraphPosition[], available
       const previous = percents[index - 1];
       const left = byPercent.get(previous);
       const right = byPercent.get(percent);
-      const leftBand = left ? (left.indices.length - 1) * gap : 0;
-      const rightBand = right ? (right.indices.length - 1) * gap : 0;
+      const leftBand = left ? (left.indices.length - 1) * levelHeight : 0;
+      const rightBand = right ? (right.indices.length - 1) * levelHeight : 0;
       height += Math.max((percent - previous) / 100 * baseHeight, left && right ? gap : 0) + (leftBand + rightBand) / 2;
     }
     anchors.set(percent, height);
@@ -68,11 +69,11 @@ export function layoutHoldingLabels(positions: HoldingGraphPosition[], available
   }
   let edgePadding = rowHeight / 2 + 2;
   groups.filter(group => group.percent === 0 || group.percent === 100).forEach(group => {
-    edgePadding = Math.max(edgePadding, ((group.indices.length - 1) * gap + rowHeight) / 2 + 2);
+    edgePadding = Math.max(edgePadding, ((group.indices.length - 1) * levelHeight + rowHeight) / 2 + 2);
   });
   const labelY: number[] = [];
   groups.forEach(group => group.indices.forEach((index, slot) => {
-    labelY[index] = altitudeY(group.percent) + (slot - (group.indices.length - 1) / 2) * gap;
+    labelY[index] = altitudeY(group.percent) + (slot - (group.indices.length - 1) / 2) * levelHeight;
   }));
   return {height, labelY, edgePadding, altitudeY};
 }

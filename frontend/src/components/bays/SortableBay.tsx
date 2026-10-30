@@ -17,9 +17,9 @@ import { useDragState } from "@/components/bays/DragStateContext";
 import { useBayClick } from "./BayClickContext";
 import { Children, useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { AnyStrip, StripRef } from "@/api/models.ts";
-import { stripDndId, isFlight } from "@/api/models.ts";
-import { isValidationBlockingForPosition } from "@/components/strip/shared";
-import { useMyPosition, useOpenValidationDialog } from "@/store/store-hooks";
+import { Bay, stripDndId, isFlight } from "@/api/models.ts";
+import { isActiveStripTransfer, isValidationBlockingForPosition } from "@/components/strip/shared";
+import { useMyPosition, useOpenValidationDialog, useStripTransfers } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
 import { makeBayContainerDropZoneId } from "./dropZoneIds";
 
@@ -157,15 +157,22 @@ export function SortableBay({
   const { containerRef, containerClassName } = useBottomAlignedBay(className, `${bayId ?? "standalone"}:${strips.length}`);
   const sensors = useStripSensors();
   const myPosition = useMyPosition();
+  const stripTransfers = useStripTransfers();
   const openValidationDialog = useOpenValidationDialog();
 
   const validationBlocked = (strip: AnyStrip) =>
     isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition);
   const dragDisabled = (strip: AnyStrip) =>
-    (!isFlight(strip) && strip.owner !== myPosition) || validationBlocked(strip) || isDragDisabled?.(strip) === true;
+    (isFlight(strip)
+      ? strip.bay === Bay.NotCleared || isActiveStripTransfer(stripTransfers[strip.callsign])
+      : strip.owner !== myPosition) ||
+    validationBlocked(strip) ||
+    isDragDisabled?.(strip) === true;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
+    const activeStrip = strips.find((strip) => stripDndId(strip) === active.id);
+    if (activeStrip && isFlight(activeStrip) && isActiveStripTransfer(stripTransfers[activeStrip.callsign])) return;
     if (!over || active.id === over.id || !onReorder) return;
     const activeIndex = strips.findIndex(s => stripDndId(s) === active.id);
     const overIndex = strips.findIndex(s => stripDndId(s) === over.id);
@@ -196,7 +203,7 @@ export function SortableBay({
       return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
-          <div ref={containerRef} className={containerClassName} data-strip-scroll-container="true">
+          <div ref={containerRef} className={containerClassName} data-strip-scroll-container="true" data-bay={bayId}>
               {strips.map(s => (
                 <SortableStrip
                   key={stripDndId(s)}
@@ -300,6 +307,7 @@ function DroppableContainer({
       }}
       className={containerClassName}
       data-strip-scroll-container="true"
+      data-bay={bayId}
       style={hoverStyle}
       onClick={(e) => {
         if (!isDragging && e.target === e.currentTarget) {
@@ -340,6 +348,7 @@ function EmptyDroppableContainer({
       }}
       className={className}
       data-strip-scroll-container="true"
+      data-bay={bayId}
       style={hoverStyle}
       onClick={(e) => {
         if (!isDragging && e.target === e.currentTarget) {
@@ -464,12 +473,13 @@ export function SortableStrip({
     marginTop: gapBefore || undefined,
     marginBottom: gapAfter || undefined,
     opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
-    cursor: validationBlocked ? "pointer" : effectiveDragDisabled ? "not-allowed" : undefined,
+    cursor: validationBlocked || !effectiveDragDisabled ? "pointer" : undefined,
     touchAction: "auto",
   };
   return (
     <div
       ref={setNodeRef}
+      data-strip={callsign}
       style={style}
       {...attributes}
       {...listeners}

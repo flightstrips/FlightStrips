@@ -9,6 +9,7 @@ using FlightStrips::graphics::CalculateAuthenticationButtonLayout;
 using FlightStrips::ConnectionState;
 using FlightStrips::graphics::CalculateInfoPanelContentHeight;
 using FlightStrips::graphics::GetInfoPanelRoleLabel;
+using FlightStrips::graphics::GetInfoPanelMasterLabel;
 using FlightStrips::graphics::InfoPanelData;
 using FlightStrips::graphics::ClampRectToBounds;
 using FlightStrips::websocket::STATE_MASTER;
@@ -23,7 +24,50 @@ TEST(InfoPanelTest, CalculateContentHeightWithoutStatsUsesCollapsedHeight) {
         .showStats = false,
     };
 
-    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 129);
+    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 211);
+}
+
+TEST(InfoPanelTest, MasterRowRemainsVisibleWithStatsCollapsed) {
+    InfoPanelData data{};
+    data.showStats = false;
+    const auto disconnectedHeight = CalculateInfoPanelContentHeight(data);
+    data.connected = true;
+    EXPECT_EQ(disconnectedHeight, 211);
+    EXPECT_EQ(CalculateInfoPanelContentHeight(data), disconnectedHeight);
+}
+
+TEST(InfoPanelTest, MasterLabelShowsCallsignWithStatsExpandedOrCollapsed) {
+    InfoPanelData data{};
+    data.connected = true;
+    data.stats.masterCallsign = "EKCH_A_TWR";
+
+    EXPECT_EQ(GetInfoPanelMasterLabel(data), "Master: EKCH_A_TWR");
+    data.showStats = false;
+    EXPECT_EQ(GetInfoPanelMasterLabel(data), "Master: EKCH_A_TWR");
+}
+
+TEST(InfoPanelTest, MasterLabelShowsNoneWithoutConnectedMaster) {
+    InfoPanelData data{};
+    data.connected = true;
+
+    EXPECT_EQ(GetInfoPanelMasterLabel(data), "Master: None");
+}
+
+TEST(InfoPanelTest, MasterLabelShowsUnknownWhileDisconnected) {
+    const InfoPanelData data{};
+
+    EXPECT_EQ(GetInfoPanelMasterLabel(data), "Master: Unknown");
+}
+
+TEST(InfoPanelTest, MasterLabelHidesStaleCallsignWhileReconnecting) {
+    InfoPanelData data{};
+    data.stats.masterCallsign = "EKCH_A_TWR";
+    data.backingOff = true;
+
+    EXPECT_EQ(GetInfoPanelMasterLabel(data), "Master: Unknown");
+    data.backingOff = false;
+    data.pending = true;
+    EXPECT_EQ(GetInfoPanelMasterLabel(data), "Master: Unknown");
 }
 
 TEST(InfoPanelTest, CalculateContentHeightWithConnectedStatsAddsFullStatsBlock) {
@@ -34,7 +78,7 @@ TEST(InfoPanelTest, CalculateContentHeightWithConnectedStatsAddsFullStatsBlock) 
         .showStats = true,
     };
 
-    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 196);
+    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 278);
 }
 
 TEST(InfoPanelTest, CalculateContentHeightWithDisconnectedStatsOmitsConnectionRows) {
@@ -45,7 +89,7 @@ TEST(InfoPanelTest, CalculateContentHeightWithDisconnectedStatsOmitsConnectionRo
         .showStats = true,
     };
 
-    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 157);
+    EXPECT_EQ(CalculateInfoPanelContentHeight(data), 239);
 }
 
 TEST(InfoPanelTest, CalculateAuthenticationButtonLayoutShowsOpenAppWhenAuthenticated) {

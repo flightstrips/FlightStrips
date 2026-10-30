@@ -29,6 +29,7 @@ const (
 	StripUpdate               = EventType_EVENT_STRIP_UPDATE
 	RunwayType                = EventType_EVENT_RUNWAY
 	SessionInfo               = EventType_EVENT_SESSION_INFO
+	MasterInfo                = EventType_EVENT_MASTER_INFO
 	RunwayMismatchAlert       = EventType_EVENT_RUNWAY_MISMATCH_ALERT
 	GenerateSquawk            = EventType_EVENT_GENERATE_SQUAWK
 	Eobt                      = EventType_EVENT_EOBT
@@ -61,6 +62,8 @@ const (
 	Hold                      = EventType_EVENT_HOLD
 	AMANGainLoss              = EventType_EVENT_AMAN_GAIN_LOSS
 	AMANRouteFact             = EventType_EVENT_AMAN_ROUTE_FACT
+	SendFrequencyMessage      = EventType_EVENT_SEND_FREQUENCY_MESSAGE
+	FrequencyMessageResult    = EventType_EVENT_FREQUENCY_MESSAGE_RESULT
 	FsScratchPad              = EventType_EVENT_FS_SCRATCH_PAD
 )
 
@@ -142,6 +145,9 @@ func (e SessionInfoEvent) GetType() EventType { return SessionInfo }
 func (e SessionInfoEvent) Marshal() ([]byte, error) {
 	return marshalMessage(&e)
 }
+
+func (e MasterInfoEvent) GetType() EventType       { return MasterInfo }
+func (e MasterInfoEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
 
 func (e RunwayMismatchAlertEvent) GetType() EventType { return RunwayMismatchAlert }
 func (e RunwayMismatchAlertEvent) Marshal() ([]byte, error) {
@@ -325,3 +331,9 @@ func (e HoldEvent) Marshal() ([]byte, error) {
 
 func (e FsScratchPadEvent) GetType() EventType       { return FsScratchPad }
 func (e FsScratchPadEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
+
+func (e SendFrequencyMessageEvent) GetType() EventType       { return SendFrequencyMessage }
+func (e SendFrequencyMessageEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
+
+func (e FrequencyMessageResultEvent) GetType() EventType       { return FrequencyMessageResult }
+func (e FrequencyMessageResultEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }

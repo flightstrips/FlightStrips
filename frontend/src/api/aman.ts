@@ -74,6 +74,17 @@ export interface AMANCoordinationStateEvent {
   requests: AMANCoordinationRequest[];
 }
 
+export interface AMANReleaseBuffer {
+  blocked_reasons?: string[];
+  status: "ready" | "degraded" | "disabled";
+  target: number;
+  in_approach: number;
+  reserved: number;
+  incoming: number;
+  projected: number;
+  unknown: number;
+}
+
 export interface AMANHeader {
   active_runway_groups: AMANHeaderRunwayGroup[];
   readiness: {status: AMANHealthStatus; ready: boolean; blocked_reasons: string[]};
@@ -82,6 +93,7 @@ export interface AMANHeader {
     tma_above_1500_feet_count: number;
     maestro_horizon_count: number;
   };
+  release_buffer?: AMANReleaseBuffer;
   wind: AMANHeaderWind | null;
 }
 
@@ -110,6 +122,7 @@ export interface AMANHeaderReadModel {
   active_runway_groups: AMANHeaderRunwayGroup[];
   readiness: AMANHeader["readiness"];
   traffic_summary: AMANHeader["traffic_summary"] | {status: "unavailable"; tma_above_1500_feet_count: null; maestro_horizon_count: null};
+  release_buffer?: AMANReleaseBuffer;
   wind: AMANHeaderWind | null;
 }
 
@@ -198,6 +211,7 @@ export interface AMANFlight {
   lifecycle_reason?: AMANLifecycleReason;
   /** Missing on older V1 publishers and therefore interpreted as active. */
   sequence_disposition?: AMANSequenceDisposition;
+  expedited?: boolean;
   data_status: AMANDataStatus;
   runway_group_id: string | null;
   /** @deprecated Deployed alias for the STAR family; retained for older V1 clients. */
@@ -216,10 +230,14 @@ export interface AMANFlight {
   feeder_fix_passed?: boolean;
   holding_fix: string | null;
   holding_fix_eta: string | null;
+  holding_started_at?: string;
+  holding_start_source?: "fix_crossing" | "near_fix" | "estimated_detection";
+  holding_elapsed_seconds?: number;
   holding_entry_time: string | null;
   approach_release_time: string | null;
   expected_holding_seconds: number | null;
   post_holding_transit_seconds: number | null;
+  additional_approach_seconds?: number;
   route_fact: AMANRouteFact | null;
   raw_teta: string | null;
   operational_teta: string | null;
@@ -369,9 +387,12 @@ export interface AMANCommandRejection {
 }
 
 export type AMANCommandType =
+  | "aman.rebuild_arrival_sequence"
   | "aman.move_flight"
+  | "aman.swap_flights"
   | "aman.lock_flight"
   | "aman.unlock_flight"
+  | "aman.expedite_flight"
   | "aman.desequence_flight"
   | "aman.resume_flight"
   | "aman.remove_flight"
@@ -407,9 +428,11 @@ export interface AMANCommandMeta {
 }
 
 export type AMANCommandIntent =
+  | {type: "aman.rebuild_arrival_sequence"}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; before_callsign: string}
+  | {type: "aman.swap_flights"; callsign: string; other_callsign: string}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; after_callsign: string}
-  | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; callsign: string}
+  | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.expedite_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; callsign: string}
   | {type: "aman.set_holding_eat_writeback"; enabled: boolean}
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
   | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
@@ -583,11 +606,16 @@ function isFlight(value: unknown): value is AMANFlight {
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
     && (value.lifecycle_reason === undefined || (isString(value.lifecycle_reason) && lifecycleReasons.has(value.lifecycle_reason)))
     && (value.sequence_disposition === undefined || (isString(value.sequence_disposition) && sequenceDispositions.has(value.sequence_disposition as AMANSequenceDisposition)))
+    && (value.expedited === undefined || typeof value.expedited === "boolean")
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)
     && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star)
     && isOptionalNullableIdentity(value.star_family) && isOptionalNullableIdentity(value.feeder_fix) && isNullableIdentity(value.holding_fix)
     && hasValidFeederETA(value)
+    && (value.holding_started_at === undefined || isTimestamp(value.holding_started_at))
+    && (value.holding_start_source === undefined || ["fix_crossing", "near_fix", "estimated_detection"].includes(String(value.holding_start_source)))
+    && (value.holding_elapsed_seconds === undefined || isNonNegativeInteger(value.holding_elapsed_seconds))
     && isNullableTimestamp(value.holding_fix_eta) && isNullableTimestamp(value.holding_entry_time) && isNullableTimestamp(value.approach_release_time)
+    && (value.additional_approach_seconds === undefined || isNonNegativeInteger(value.additional_approach_seconds))
     && isNullableFiniteNumber(value.expected_holding_seconds) && isNullableFiniteNumber(value.post_holding_transit_seconds) && (value.route_fact === null || isRouteFact(value.route_fact))
     && isNullableTimestamp(value.raw_teta) && isNullableTimestamp(value.operational_teta)
     && isNullableFiniteNumber(value.gain_loss_seconds) && isString(value.freeze_reason)
@@ -652,6 +680,14 @@ function isHeaderWind(value: unknown): value is AMANHeaderWind {
     && isTimestamp(value.observed_at) && isIdentity(value.source);
 }
 
+function isReleaseBuffer(value: unknown): value is AMANReleaseBuffer {
+  return isObject(value) && ["ready", "degraded", "disabled"].includes(value.status as string)
+    && [value.target, value.in_approach, value.reserved, value.incoming, value.projected, value.unknown].every(isNonNegativeInteger)
+    && (value.blocked_reasons === undefined || isStringArray(value.blocked_reasons))
+    && (value.target as number) > 0
+    && value.projected === (value.in_approach as number) + (value.reserved as number) + (value.incoming as number);
+}
+
 function hasValidHeader(data: Record<string, unknown>): boolean {
   if (data.header === undefined) return true;
   if (!isObject(data.header) || !Array.isArray(data.header.active_runway_groups)
@@ -678,6 +714,7 @@ function hasValidHeader(data: Record<string, unknown>): boolean {
     && isString(traffic.status) && trafficStatuses.has(traffic.status as AMANTrafficStatus)
     && (data.traffic_prediction === undefined || traffic.status === (data.traffic_prediction as AMANTrafficPrediction).status)
     && isNonNegativeInteger(traffic.tma_above_1500_feet_count) && isNonNegativeInteger(traffic.maestro_horizon_count)
+    && (header.release_buffer === undefined || isReleaseBuffer(header.release_buffer))
     && (header.wind === null || isHeaderWind(header.wind));
 }
 
@@ -742,6 +779,12 @@ function warningIdentity(warning: AMANWarning): string {
 
 function hasValidWarningScope(warning: AMANWarning): boolean {
   if (warning.source === "traffic_prediction") {
+    // The automatic outlier filter reports a flight-level prediction warning
+    // alongside airport-wide TMT diagnostics in the same replacement.
+    if (warning.component === "prediction") {
+      return warning.code === "prediction_unreliable" && warning.severity === "warning"
+        && warning.callsign !== undefined && warning.runway_group_id === undefined && warning.related_callsign === undefined;
+    }
     return warning.component === "traffic_prediction" && warning.runway_group_id === undefined && warning.related_callsign === undefined;
   }
   if (warning.source === "technical_health") {
@@ -813,8 +856,29 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && (data.coordination_revision === undefined || isNonNegativeInteger(data.coordination_revision));
 }
 
-export function replaceAMANState(current: AMANState | null, event: unknown): AMANReplacementResult {
-  if (!isAMANStateEvent(event)) {
+// Warnings are diagnostic metadata. Validate the operational replacement first
+// and isolate unreadable warnings rather than discarding valid flight timings.
+// isAMANStateEvent remains strict so producer/consumer contract checks still fail.
+function withUsableAMANWarnings(value: unknown): AMANStateEvent | null {
+  if (!isObject(value) || !isObject(value.data)) return null;
+  const candidate: unknown = {...value, data: {...value.data, warnings: []}};
+  if (!isAMANStateEvent(candidate)) return null;
+  const usable = Array.isArray(value.data.warnings)
+    ? value.data.warnings.filter((warning): warning is AMANWarning => hasValidWarnings([warning]))
+    : [];
+  const notice: AMANWarning = {
+    id: "", source: "technical_health", component: "warning_snapshot", severity: "warning",
+    code: "warning_snapshot_unavailable",
+    message: "Some AMAN warnings are unavailable. Valid flight timings remain displayed.",
+  };
+  notice.id = warningIdentity(notice);
+  candidate.data.warnings = [...usable, notice];
+  return candidate;
+}
+
+export function replaceAMANState(current: AMANState | null, input: unknown): AMANReplacementResult {
+  const event = isAMANStateEvent(input) ? input : withUsableAMANWarnings(input);
+  if (event === null) {
     return {state: null, status: "degraded", error: "invalid_aman_state", accepted: false};
   }
   if (current !== null && current.session_id === event.data.session_id && (event.data.revision < current.revision ||
@@ -838,6 +902,14 @@ export function isExcludedAMANFlight(flight: AMANFlight): boolean {
   return flight.lifecycle_state === "removed"
     ? flight.lifecycle_reason === "manual_removal"
     : flight.lifecycle_state !== "landed" && flight.sequence_disposition === "desequenced";
+}
+
+export function canSwapAMANFlight(flight: AMANFlight | null): flight is AMANFlight {
+  return flight !== null && flight.slot !== null && flight.slot !== undefined
+    && Boolean(flight.star_family) && Boolean(flight.runway_group_id)
+    && flight.freeze_reason === "none" && !flight.expedited
+    && (flight.sequence_disposition ?? "active") === "active"
+    && ["unstable", "stable", "go_around"].includes(flight.lifecycle_state);
 }
 
 /** Return only backend-projected header values; operational counts are never reconstructed in React. */
@@ -868,4 +940,27 @@ export function isAMANCommandRejectedEvent(value: unknown): value is AMANCommand
     && isObject(value.data) && isString(value.data.command_id) && value.data.command_id !== ""
     && isString(value.data.code) && isString(value.data.message)
     && isNonNegativeInteger(value.data.current_revision) && typeof value.data.retryable === "boolean";
+}
+
+export interface AMANRebuildResult {
+  command_id: string;
+  revision: number;
+  changed: boolean;
+  duplicate: boolean;
+  publication_status: "published" | "snapshot_required" | "recovery_required";
+  release_order: string[];
+  diagnostics: Array<{code: string; callsign: string; blocker?: string; message: string}>;
+}
+export interface AMANArrivalSequenceRebuiltEvent {
+  type: "aman.arrival_sequence_rebuilt";
+  version: typeof AMAN_WIRE_VERSION;
+  data: AMANRebuildResult;
+}
+export function isAMANArrivalSequenceRebuiltEvent(value: unknown): value is AMANArrivalSequenceRebuiltEvent {
+  if (!isObject(value) || value.type !== "aman.arrival_sequence_rebuilt" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
+  const d = value.data;
+  return isIdentity(d.command_id) && isNonNegativeInteger(d.revision) && typeof d.changed === "boolean" && typeof d.duplicate === "boolean"
+    && ["published", "snapshot_required", "recovery_required"].includes(String(d.publication_status))
+    && Array.isArray(d.release_order) && d.release_order.every(isIdentity)
+    && Array.isArray(d.diagnostics) && d.diagnostics.every((item: unknown) => isObject(item) && isIdentity(item.code) && isIdentity(item.callsign) && isString(item.message) && (item.blocker === undefined || isIdentity(item.blocker)));
 }

@@ -15,6 +15,7 @@ import (
 	"path"
 	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -219,27 +220,43 @@ func (a *Adapter) Procedures(ctx context.Context, query navdata.ProcedureQuery) 
 	}
 	provenance := a.provenance(query.Version)
 	values := make([]navdata.Procedure, len(listing))
-	partial := false
-	var partialMu sync.Mutex
+	incomplete := make([]bool, len(listing))
+	unknownRunways := make([]bool, len(listing))
 	if err := a.parallel(ctx, len(listing), func(ctx context.Context, index int) error {
-		procedure, incomplete, err := a.procedure(ctx, query.Version, listing[index])
+		procedure, isIncomplete, unknownRunway, err := a.procedure(ctx, query.Version, listing[index])
 		if err != nil {
 			return err
 		}
 		procedure.Provenance = provenance
 		values[index] = procedure
-		if incomplete {
-			partialMu.Lock()
-			partial = true
-			partialMu.Unlock()
-		}
+		incomplete[index] = isIncomplete
+		unknownRunways[index] = unknownRunway
 		return nil
 	}); err != nil {
 		return navdata.ProcedureSet{}, err
 	}
-	if len(values) == 0 {
-		partial = true
+	retained := make([]navdata.Procedure, 0, len(values))
+	partial := false
+	for index, procedure := range values {
+		if unknownRunways[index] {
+			partial = true
+		}
+		if len(query.Runways) > 0 && len(procedure.Runways) == 0 {
+			// The procedure may apply to a requested runway, but its applicability
+			// cannot be established from the listing or detail response.
+			partial = true
+			continue
+		}
+		if len(query.Runways) > 0 && !slices.ContainsFunc(procedure.Runways, func(runway navdata.RunwayID) bool {
+			return slices.Contains(query.Runways, runway)
+		}) {
+			continue
+		}
+		retained = append(retained, procedure)
+		partial = partial || incomplete[index]
 	}
+	values = retained
+	partial = partial || len(values) == 0
 	coverage := navdata.CoverageComplete
 	if partial {
 		coverage = navdata.CoveragePartial
@@ -387,6 +404,10 @@ func (a *Adapter) Resolve(ctx context.Context, query navdata.RouteQuery) (navdat
 }
 
 func (a *Adapter) listProcedures(ctx context.Context, query navdata.ProcedureQuery) ([]procedureListItem, error) {
+	// AIRAC.NET runway filters do not expand shared identifiers such as 22B.
+	// Fetch all listings and filter runway transitions locally, keeping unknowns.
+	runways := query.Runways
+	query.Runways = nil
 	queries := []url.Values{{"airport": {string(query.Airport)}}}
 	if len(query.Kinds) > 0 {
 		queries = queries[:0]
@@ -403,43 +424,86 @@ func (a *Adapter) listProcedures(ctx context.Context, query navdata.ProcedureQue
 		}
 	}
 	result := make([]procedureListItem, 0)
-	seen := map[string]struct{}{}
+	indexes := map[string]int{}
+	mayMatch := []bool{}
 	for _, parameters := range queries {
-		if len(query.Runways) == 0 {
-			items, err := a.listProcedurePage(ctx, parameters)
-			if err != nil {
-				return nil, err
-			}
-			for _, item := range items {
-				if matchesListing(item, query) {
-					key := item.Airport + "/" + item.Identifier + "/" + item.Type.Code
-					if _, ok := seen[key]; !ok {
-						seen[key] = struct{}{}
-						result = append(result, item)
-					}
-				}
-			}
-			continue
+		items, err := a.listProcedurePage(ctx, parameters)
+		if err != nil {
+			return nil, err
 		}
-		for _, runway := range query.Runways {
-			request := cloneValues(parameters)
-			request.Set("runway", string(runway))
-			items, err := a.listProcedurePage(ctx, request)
-			if err != nil {
-				return nil, err
-			}
-			for _, item := range items {
-				if matchesListing(item, query) {
-					key := item.Airport + "/" + item.Identifier + "/" + item.Type.Code
-					if _, ok := seen[key]; !ok {
-						seen[key] = struct{}{}
-						result = append(result, item)
-					}
+		for _, item := range items {
+			if matchesListing(item, query) {
+				key := item.Airport + "/" + item.Identifier + "/" + item.Type.Code
+				runwayValues := []string{item.Runway}
+				if runway, ok := transitionRunway(item.Transition); ok {
+					runwayValues = append(runwayValues, runway)
+				}
+				if index, ok := indexes[key]; ok {
+					mayMatch[index] = mayMatch[index] || listingMayMatchRunways(item, runways)
+					result[index].ListedRunways = append(result[index].ListedRunways, runwayValues...)
+				} else {
+					indexes[key] = len(result)
+					item.ListedRunways = runwayValues
+					result = append(result, item)
+					mayMatch = append(mayMatch, listingMayMatchRunways(item, runways))
 				}
 			}
 		}
 	}
-	return result, nil
+	filtered := make([]procedureListItem, 0, len(result))
+	for i, item := range result {
+		if mayMatch[i] {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
+}
+
+// Listing records can represent individual transitions of the same procedure.
+// A missing or non-runway transition is ambiguous and must be fetched.
+func listingMayMatchRunways(item procedureListItem, requested []navdata.RunwayID) bool {
+	if len(requested) == 0 {
+		return true
+	}
+	value := upper(item.Transition)
+	if value != "" {
+		var ok bool
+		value, ok = transitionRunway(value)
+		if !ok {
+			return true
+		}
+	} else {
+		value = upper(item.Runway)
+	}
+	if !validListedRunway(value) {
+		return true
+	}
+	for _, runway := range expandRunway(value) {
+		if slices.Contains(requested, runway) {
+			return true
+		}
+	}
+	return false
+}
+
+func transitionRunway(transition string) (string, bool) {
+	value := upper(transition)
+	if !strings.HasPrefix(value, "RW") {
+		return "", false
+	}
+	value = strings.TrimPrefix(value, "RW")
+	return value, validListedRunway(value)
+}
+
+func validListedRunway(value string) bool {
+	if len(value) < 2 || len(value) > 3 || value[0] < '0' || value[0] > '9' || value[1] < '0' || value[1] > '9' {
+		return false
+	}
+	number, err := strconv.Atoi(value[:2])
+	if err != nil || number < 1 || number > 36 || (len(value) == 3 && !strings.ContainsRune("LRCB", rune(value[2]))) {
+		return false
+	}
+	return true
 }
 
 func (a *Adapter) listProcedurePage(ctx context.Context, parameters url.Values) ([]procedureListItem, error) {
@@ -467,13 +531,13 @@ func (a *Adapter) listProcedurePage(ctx context.Context, parameters url.Values) 
 	}
 }
 
-func (a *Adapter) procedure(ctx context.Context, version navdata.DatasetVersion, item procedureListItem) (navdata.Procedure, bool, error) {
+func (a *Adapter) procedure(ctx context.Context, version navdata.DatasetVersion, item procedureListItem) (navdata.Procedure, bool, bool, error) {
 	var response procedureDetailResponse
 	if err := a.getJSON(ctx, path.Join("procedures", item.Airport, item.Identifier), nil, &response); err != nil {
 		if isHTTPStatus(err, http.StatusNotFound) {
-			return navdata.Procedure{}, false, unavailable("AIRAC.NET procedure changed during retrieval")
+			return navdata.Procedure{}, false, false, unavailable("AIRAC.NET procedure changed during retrieval")
 		}
-		return navdata.Procedure{}, false, err
+		return navdata.Procedure{}, false, false, err
 	}
 	detail := response.Data
 	if detail.Identifier == "" {
@@ -485,12 +549,38 @@ func (a *Adapter) procedure(ctx context.Context, version navdata.DatasetVersion,
 	if detail.Type.Code == "" {
 		detail.Type = item.Type
 	}
-	procedure := navdata.Procedure{ID: navdata.ProcedureID(upper(detail.Identifier)), Airport: navdata.AirportID(upper(detail.Airport)), Kind: canonicalKind(detail.Type.Code), Runways: canonicalRunways(item.Runway, detail.AvailableRunways), Provenance: a.provenance(version)}
+	runways := append(slices.Clone(item.ListedRunways), item.Runway)
+	runways = append(runways, detail.AvailableRunways...)
+	// Map keys are unordered; sort them to keep the canonical result stable.
+	transitionKeys := make([]string, 0, len(detail.RunwayTransitions))
+	for key := range detail.RunwayTransitions {
+		transitionKeys = append(transitionKeys, upper(key))
+	}
+	sort.Strings(transitionKeys)
+	unknownRunway := false
+	for _, key := range transitionKeys {
+		if strings.HasPrefix(key, "RW") {
+			key = strings.TrimPrefix(key, "RW")
+		}
+		if validListedRunway(key) {
+			runways = append(runways, key)
+		} else if key != "" {
+			unknownRunway = true
+		}
+	}
+	canonical, invalidRunways := canonicalRunways(runways)
+	unknownRunway = unknownRunway || invalidRunways
+	procedure := navdata.Procedure{ID: navdata.ProcedureID(upper(detail.Identifier)), Airport: navdata.AirportID(upper(detail.Airport)), Kind: canonicalKind(detail.Type.Code), Runways: canonical, Provenance: a.provenance(version)}
 	if !procedure.Kind.Valid() {
-		return navdata.Procedure{}, false, invalid("AIRAC.NET procedure type")
+		return navdata.Procedure{}, false, false, invalid("AIRAC.NET procedure type")
 	}
 	segments := detail.Segments
 	incomplete := false
+	if len(segments) == 0 && len(detail.CommonRoute) == 0 && len(detail.RunwayTransitions) == 1 {
+		for _, transition := range detail.RunwayTransitions {
+			segments = transition
+		}
+	}
 	if len(segments) == 0 && len(detail.CommonRoute) > 0 {
 		incomplete = true // Structured common routes omit documented path terminators.
 		for _, leg := range detail.CommonRoute {
@@ -509,9 +599,9 @@ func (a *Adapter) procedure(ctx context.Context, version navdata.DatasetVersion,
 	// definition fields. A supplied HA/HF/HM without an authoritative definition
 	// stays unsupported rather than becoming an empty confirmed holding result.
 	if err := procedure.Validate(); err != nil {
-		return navdata.Procedure{}, false, invalid("AIRAC.NET procedure geometry")
+		return navdata.Procedure{}, false, false, invalid("AIRAC.NET procedure geometry")
 	}
-	return procedure, incomplete, nil
+	return procedure, incomplete, unknownRunway, nil
 }
 
 func (a *Adapter) airport(version navdata.DatasetVersion, value airportDTO) (navdata.Airport, error) {
@@ -762,10 +852,12 @@ type procedureTypeDTO struct {
 	Code string `json:"code"`
 }
 type procedureListItem struct {
-	Airport    string           `json:"airport"`
-	Identifier string           `json:"identifier"`
-	Type       procedureTypeDTO `json:"type"`
-	Runway     string           `json:"runway"`
+	Airport       string           `json:"airport"`
+	Identifier    string           `json:"identifier"`
+	Type          procedureTypeDTO `json:"type"`
+	Runway        string           `json:"runway"`
+	Transition    string           `json:"transition"`
+	ListedRunways []string         `json:"-"`
 }
 type paginationDTO struct {
 	HasMore bool `json:"has_more"`
@@ -779,13 +871,32 @@ type segmentDTO struct {
 	PathTerminator string `json:"path_terminator"`
 	FixIdentifier  string `json:"fix_identifier"`
 }
+
+// AIRAC.NET encodes an empty transition collection as [] and populated
+// collections as an object keyed by runway.
+type runwayTransitionsDTO map[string][]segmentDTO
+
+func (r *runwayTransitionsDTO) UnmarshalJSON(data []byte) error {
+	if strings.TrimSpace(string(data)) == "[]" || strings.TrimSpace(string(data)) == "null" {
+		*r = nil
+		return nil
+	}
+	var transitions map[string][]segmentDTO
+	if err := json.Unmarshal(data, &transitions); err != nil {
+		return err
+	}
+	*r = transitions
+	return nil
+}
+
 type procedureDetailDTO struct {
-	Airport          string           `json:"airport"`
-	Identifier       string           `json:"identifier"`
-	Type             procedureTypeDTO `json:"type"`
-	Segments         []segmentDTO     `json:"segments"`
-	CommonRoute      []segmentDTO     `json:"common_route"`
-	AvailableRunways []string         `json:"available_runways"`
+	Airport           string               `json:"airport"`
+	Identifier        string               `json:"identifier"`
+	Type              procedureTypeDTO     `json:"type"`
+	Segments          []segmentDTO         `json:"segments"`
+	CommonRoute       []segmentDTO         `json:"common_route"`
+	AvailableRunways  []string             `json:"available_runways"`
+	RunwayTransitions runwayTransitionsDTO `json:"runway_transitions"`
 }
 type procedureDetailResponse struct {
 	Data procedureDetailDTO `json:"data"`
@@ -894,18 +1005,27 @@ func kindsOrAll(kinds []navdata.ProcedureKind) []navdata.ProcedureKind {
 	}
 	return []navdata.ProcedureKind{navdata.ProcedureSID, navdata.ProcedureSTAR, navdata.ProcedureApproach}
 }
-func canonicalRunways(listing string, detail []string) []navdata.RunwayID {
+func canonicalRunways(values []string) ([]navdata.RunwayID, bool) {
 	seen := map[navdata.RunwayID]struct{}{}
 	result := []navdata.RunwayID{}
-	for _, value := range append([]string{listing}, detail...) {
-		for _, runway := range expandRunway(upper(value)) {
+	invalid := false
+	for _, value := range values {
+		value = upper(value)
+		if value == "" {
+			continue
+		}
+		if !validListedRunway(value) {
+			invalid = true
+			continue
+		}
+		for _, runway := range expandRunway(value) {
 			if _, ok := seen[runway]; !ok {
 				seen[runway] = struct{}{}
 				result = append(result, runway)
 			}
 		}
 	}
-	return result
+	return result, invalid
 }
 
 func expandRunway(value string) []navdata.RunwayID {

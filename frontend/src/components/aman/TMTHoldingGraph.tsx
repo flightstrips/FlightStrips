@@ -1,6 +1,7 @@
 import type {AMANHoldingEntry} from "@/api/aman";
 import {cn} from "@/lib/utils";
 import {type KeyboardEvent, useEffect, useId, useRef, useState} from "react";
+import "./TMTHoldingGraph.css";
 import {
   HOLDING_GRAPH_MAX_FLIGHT_LEVEL,
   HOLDING_GRAPH_MIN_FLIGHT_LEVEL,
@@ -9,8 +10,13 @@ import {
   layoutHoldingLabels,
 } from "./holding-graph-positioning";
 
-const timeTicks = Array.from({length: 13}, (_, index) => index * 5);
 const altitudeTicks = Array.from({length: 22}, (_, index) => 300 - index * 10);
+// Proportions of the selected Holding Information design, inside its frame.
+const TIME_AXIS = 0.18;
+const ALTITUDE_AXIS = 0.76;
+const LABEL_LEFT = 0.265;
+const LABEL_WIDTH = 0.46;
+const LABEL_TRIANGLE_WIDTH = 8;
 
 function clockLabel(value: Date): string {
   return value.toISOString().slice(11, 16);
@@ -20,17 +26,25 @@ function compactTime(label: string): string {
   return label.replace(":", "");
 }
 
+function holdingTimeTicks(now: Date) {
+  const firstMinute = Math.ceil(now.valueOf() / 60_000);
+  return Array.from({length: HOLDING_GRAPH_WINDOW_MINUTES + 1}, (_, index) => {
+    const date = new Date((firstMinute + index) * 60_000);
+    return {date, minutes: (date.valueOf() - now.valueOf()) / 60_000};
+  }).filter(({date, minutes}) => minutes <= HOLDING_GRAPH_WINDOW_MINUTES && date.getUTCMinutes() % 2 === 1);
+}
+
 function entryState(position: ReturnType<typeof layoutHoldingGraph>[number]) {
   if (position.urgency === "missing") {
-    return {label: "TIMING UNAVAILABLE", symbol: "?", tone: "border-slate-300 text-slate-200"};
+    return {label: "TIMING UNAVAILABLE", symbol: "?", tone: "text-slate-200"};
   }
   if (position.time.edgeLabel === "OVERDUE") {
-    return {label: "PAST EAT", symbol: "!", tone: "border-[#e65b5b] text-[#ff8b8b]"};
+    return {label: "PAST EAT", symbol: "!", tone: "text-[#ff8b8b]"};
   }
   if (position.urgency === "soon") {
-    return {label: "DUE ≤4 MIN", symbol: "≤4", tone: "border-[#29d229] text-[#62e562]"};
+    return {label: "DUE ≤4 MIN", symbol: "≤4", tone: "text-[#29d229]"};
   }
-  return {label: "SCHEDULED", symbol: "S", tone: "border-[#f0e129] text-[#f0e129]"};
+  return {label: "SCHEDULED", symbol: "S", tone: "text-[#f0e129]"};
 }
 
 function sourceState(entry: AMANHoldingEntry) {
@@ -61,22 +75,23 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
   const placed = positions.filter(({altitude}) => altitude.percent !== null);
   const unplaced = positions.filter(({altitude}) => altitude.percent === null);
   const instructionsId = useId();
+  const arrowId = useId();
   const entryRefs = useRef(new Map<string, HTMLLIElement>());
   const graphRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
   const [graphHeight, setGraphHeight] = useState(240);
   const [graphWidth, setGraphWidth] = useState(210);
-  const rowHeight = compact ? 20 : 28;
-  const availableHeight = Math.max(0, graphHeight - Math.max(12, rowHeight / 2 + 2) * 2);
-  const altitudeHeight = Math.min(availableHeight,
-    (rowHeight + 1) * (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) / 10);
-  const labels = layoutHoldingLabels(placed, altitudeHeight, rowHeight);
+  const contentWidth = Math.max(graphWidth, compact ? 200 : 300);
+  const fontSize = Math.min(16, Math.max(10, contentWidth * 16 / 293));
+  const rowHeight = compact ? Math.max(20, Math.round(fontSize * 1.65)) : 28;
+  // Leave subpixel slack rather than creating a scrollbar from rounding alone.
+  const availableHeight = Math.max(0, Math.floor(graphHeight - Math.max(12, rowHeight / 2 + 2) * 2));
+  const labels = layoutHoldingLabels(placed, availableHeight, rowHeight);
   const axisPadding = Math.max(12, labels.edgePadding);
-  const plotHeight = Math.max(availableHeight, labels.height);
-  const altitudeOffset = (plotHeight - labels.height) / 2;
-  const contentWidth = Math.max(graphWidth, (compact ? 104 : 230) / 0.51);
-  const labelWidth = contentWidth * 0.51;
-  const timeAxisX = contentWidth * 0.14;
-  const labelLeft = contentWidth * 0.34;
+  const plotHeight = labels.height;
+  const labelWidth = contentWidth * LABEL_WIDTH;
+  const timeAxisX = contentWidth * TIME_AXIS;
+  const labelLeft = contentWidth * LABEL_LEFT;
 
   useEffect(() => {
     const graph = graphRef.current;
@@ -112,43 +127,50 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
   }
 
   return (
-    <section aria-label={holding ? `TMT holding information for ${holding}` : "TMT holding information"} className={cn("relative flex h-full min-w-0 flex-col border border-[#777] bg-[#292929] text-[#dcdcdc]", compact && "overflow-hidden")}>
+    <section aria-label={holding ? `TMT holding information for ${holding}` : "TMT holding information"} className={cn("aman-holding-graph relative flex h-full min-w-0 flex-col border-[3px] border-[#dcdcdc] bg-[#3c3c3c] text-[#dcdcdc]", compact && "overflow-hidden")}>
       {!compact && <header className="flex items-center border-b border-[#777] px-3 py-2">
         <h2 className="font-display text-sm font-bold tracking-wide">TMT · HOLDING INFORMATION</h2>
         <span className="ml-auto font-mono text-[10px]">{entries.length} HOLDING</span>
       </header>}
       <p className="sr-only" id={instructionsId}>Use Tab to enter the aircraft list. Use arrow keys to move between aircraft, or Home and End to jump to the first or last aircraft.{onOpenFlightActions && " Press Enter or Space to open the flight menu."}</p>
 
-      <div aria-describedby={instructionsId} className={cn("relative min-h-0 flex-1 overflow-auto bg-[#3c3c3c]", !compact && "mx-1")} data-testid="holding-graph" ref={graphRef}>
-        <div className="relative" style={{height: plotHeight + axisPadding * 2, width: contentWidth}}>
+      <div aria-describedby={instructionsId} className={cn("aman-holding-plot relative min-h-0 flex-1 overflow-auto bg-[#3c3c3c]", !compact && "mx-1")} data-testid="holding-graph" ref={graphRef} onScroll={(event) => {
+        if (footerRef.current) footerRef.current.style.transform = `translateX(-${event.currentTarget.scrollLeft}px)`;
+      }}>
+        <div className="relative" style={{height: plotHeight + axisPadding * 2, width: contentWidth, fontSize}}>
         <div aria-hidden="true" className="absolute border-l-[3px] border-[#dcdcdc]" data-testid="holding-time-axis" style={{left: timeAxisX, top: axisPadding, bottom: axisPadding}}>
-          {timeTicks.map((minutes) => (
-            <span className="absolute left-0 w-3 -translate-y-1/2 border-t-2 border-[#dcdcdc]" key={minutes} style={{top: `${100 - minutes / HOLDING_GRAPH_WINDOW_MINUTES * 100}%`}}>
-              {minutes % 10 === 0 && (
-                <span className="absolute right-4 top-0 -translate-y-1/2 font-mono text-[9px] font-semibold">
-                  {compact ? clockLabel(new Date(now.valueOf() + minutes * 60_000)).slice(3) : clockLabel(new Date(now.valueOf() + minutes * 60_000))}
+          {holdingTimeTicks(now).map(({date, minutes}) => (
+            <span className="absolute right-0 w-3 -translate-y-1/2 border-t-2 border-[#dcdcdc]" key={minutes} style={{top: `${100 - minutes / HOLDING_GRAPH_WINDOW_MINUTES * 100}%`}}>
+              {date.getUTCMinutes() % 10 === 5 && (
+                <span className={cn("absolute right-4 top-0 -translate-y-1/2 font-semibold", compact ? "text-[0.9em]" : "text-[10px]")}>
+                  {compact ? clockLabel(date).slice(3) : clockLabel(date)}
                 </span>
               )}
             </span>
           ))}
         </div>
 
-        <div aria-hidden="true" className="absolute right-[8%] border-r-[3px] border-[#dcdcdc]" data-testid="holding-altitude-axis" style={{top: axisPadding + altitudeOffset, height: labels.height}}>
+        <div aria-hidden="true" className="absolute border-l-[3px] border-[#dcdcdc]" data-testid="holding-altitude-axis" style={{left: contentWidth * ALTITUDE_AXIS, top: axisPadding, height: labels.height}}>
           {altitudeTicks.map((level) => (
-            <span className="absolute right-0 w-3 -translate-y-1/2 border-t-2 border-[#dcdcdc]" data-flight-level={level} key={level} style={{top: labels.altitudeY((HOLDING_GRAPH_MAX_FLIGHT_LEVEL - level) / (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) * 100)}}>
-              <span className="absolute right-4 top-0 -translate-y-1/2 font-mono text-[10px] font-semibold">{level}</span>
+            <span className="absolute left-0 w-3 -translate-y-1/2 border-t-2 border-[#dcdcdc]" data-flight-level={level} key={level} style={{top: labels.altitudeY((HOLDING_GRAPH_MAX_FLIGHT_LEVEL - level) / (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) * 100)}}>
+              <span className="absolute left-4 top-0 -translate-y-1/2 font-semibold">{level}</span>
             </span>
           ))}
         </div>
 
-        <svg aria-hidden="true" className="absolute left-0" style={{top: axisPadding, height: plotHeight, width: contentWidth}} preserveAspectRatio="none" viewBox={`0 0 ${contentWidth} ${plotHeight}`}>
+        <svg aria-hidden="true" className="absolute left-0 overflow-visible" style={{top: axisPadding, height: plotHeight, width: contentWidth}} preserveAspectRatio="none" viewBox={`0 0 ${contentWidth} ${plotHeight}`}>
+          <defs>
+            <marker id={arrowId} markerWidth={LABEL_TRIANGLE_WIDTH} markerHeight="10" refX="0" refY="5" orient="0" markerUnits="userSpaceOnUse">
+              <path d={`M0,5 L${LABEL_TRIANGLE_WIDTH},0 L${LABEL_TRIANGLE_WIDTH},10 Z`} fill="#dcdcdc" />
+            </marker>
+          </defs>
           {placed.map((position, index) => {
             if (position.time.percent === null) return null;
-            return <line data-callsign={position.entry.callsign} key={position.entry.callsign} stroke="#dcdcdc" strokeWidth="2" vectorEffect="non-scaling-stroke" x1={timeAxisX + 1.5} x2={labelLeft} y1={(100 - position.time.percent!) / 100 * plotHeight} y2={altitudeOffset + labels.labelY[index]} />;
+            return <line data-callsign={position.entry.callsign} key={position.entry.callsign} markerEnd={`url(#${arrowId})`} stroke="#dcdcdc" strokeWidth="1" vectorEffect="non-scaling-stroke" x1={timeAxisX + 1.5} x2={labelLeft - LABEL_TRIANGLE_WIDTH} y1={(100 - position.time.percent!) / 100 * plotHeight} y2={labels.labelY[index]} />;
           })}
         </svg>
 
-        <ul className="absolute inset-x-0" style={{top: axisPadding + altitudeOffset, height: labels.height}}>
+        <ul className="absolute inset-x-0" style={{top: axisPadding, height: labels.height}}>
           {placed.map((position, index) => {
             const state = entryState(position);
             const source = sourceState(position.entry);
@@ -158,7 +180,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
                 aria-keyshortcuts={`ArrowDown ArrowRight ArrowUp ArrowLeft Home End${onOpenFlightActions ? " Enter Space" : ""}`}
                 title={onOpenFlightActions ? `Open flight menu for ${position.entry.callsign}` : undefined}
                 data-altitude-y={labels.altitudeY(position.altitude.percent!)}
-                className={cn("absolute left-[34%] grid w-[51%] -translate-y-1/2 border border-[#cdcdcd] bg-[#3c3c3c] font-mono font-semibold hover:z-10 focus:z-20 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white", compact ? "grid-cols-[2.25rem_minmax(0,1fr)] text-[10px]" : "grid-cols-[54px_1fr_52px] text-[10px]")}
+                className="absolute grid -translate-y-1/2 grid-cols-[39%_minmax(0,1fr)] border border-[#cdcdcd] bg-[#3c3c3c] font-semibold leading-none hover:z-10 focus:z-20 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white"
                 key={position.entry.callsign}
                 onClick={() => onOpenFlightActions?.(position.entry.callsign)}
                 onKeyDown={(event) => moveFocus(event, position.entry.callsign)}
@@ -167,14 +189,13 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
                 style={{height: rowHeight, top: labels.labelY[index], left: labelLeft, width: labelWidth - 2}}
                 tabIndex={0}
               >
-                <span className={cn("flex items-center justify-center border-r border-[#cdcdcd] px-1", state.tone)} title={position.urgency === "missing" ? "No calculated EAT. See this aircraft in Current warnings for the reason." : state.label}>
+                <span className={cn("flex items-center justify-center border-r border-[#cdcdcd]", position.time.edgeLabel && "text-[0.75em]", state.tone)} title={position.urgency === "missing" ? "No calculated EAT. See this aircraft in Current warnings for the reason." : state.label}>
                   {!compact && <b className="mr-1 text-[8px]" aria-hidden="true">{state.symbol}</b>}{compactTime(position.time.label)}
                 </span>
-                <span className={cn("flex items-center justify-center whitespace-nowrap text-center", compact ? "px-0.5" : "px-1.5")}>
-                  {position.entry.callsign}{!compact && <small className="ml-1 text-[8px] text-slate-300">{position.entry.holding}</small>}
+                <span className={cn("flex items-center justify-center whitespace-nowrap px-0.5 text-center", source.symbol && "text-[0.85em]")}>
+                  {position.entry.callsign}
                   {source.symbol && <small className={cn("ml-1 border px-0.5 text-[8px]", source.tone)} title={source.label}>{source.symbol}</small>}
                 </span>
-                {!compact && <span className="border-l border-[#cdcdcd] px-1 py-1 text-center">{position.altitude.label}</span>}
               </li>
             );
           })}
@@ -183,8 +204,10 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
         {placed.length === 0 && <p className={cn("absolute inset-0 grid place-items-center text-slate-300", compact ? "text-[9px]" : "text-xs")}>{compact ? "NONE" : "No positioned holding aircraft"}</p>}
         </div>
       </div>
-        <div className={cn("grid shrink-0 grid-cols-[22%_1fr_22%] border-[3px] border-[#dcdcdc] bg-[#3b3b3b] text-center font-bold", compact ? "text-[9px]" : "mx-1 text-xs")}>
-          <span className="border-r-[3px] border-[#dcdcdc] py-1">EAT</span><span className="truncate py-1">{holding ?? "HOLDING"}</span><span className="border-l-[3px] border-[#dcdcdc] py-1">ALT</span>
+        <div className={cn("shrink-0 overflow-hidden border-t-[3px] border-[#dcdcdc] bg-[#3b3b3b] text-center font-semibold", !compact && "mx-1")} style={{height: fontSize * 2.6, fontSize: fontSize * 1.125}}>
+          <div className="grid h-full" data-testid="holding-graph-footer" ref={footerRef} style={{width: contentWidth, gridTemplateColumns: `${timeAxisX + 3}px ${contentWidth * (ALTITUDE_AXIS - TIME_AXIS) - 3}px 1fr`}}>
+            <span className="grid place-items-center border-r-[3px] border-[#dcdcdc]">EAT</span><span className="grid place-items-center truncate">{holding ?? "HOLDING"}</span><span className="grid place-items-center border-l-[3px] border-[#dcdcdc]">ALT</span>
+          </div>
         </div>
 
       {unplaced.length > 0 && (

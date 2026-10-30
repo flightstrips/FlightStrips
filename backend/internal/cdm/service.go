@@ -14,6 +14,7 @@ import (
 )
 
 type Service struct {
+	inbound                *inboundDepartures
 	actionService          *ActionService
 	syncService            *SyncService
 	masterViffSync         *MasterViffSync
@@ -110,6 +111,7 @@ func newCdmService(client *Client, stripRepo CdmStripStore, sessionRepo reposito
 		debouncer:             newRecalcDebouncer(500 * time.Millisecond),
 	}
 	service.actionService = &ActionService{service: service}
+	service.inbound = &inboundDepartures{service: service, airports: make(map[string]*inboundAirport)}
 	service.syncService = &SyncService{service: service}
 	service.masterViffSync = &MasterViffSync{service: service}
 	service.broadcaster = &CdmBroadcaster{service: service}
@@ -213,6 +215,14 @@ func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsig
 	return s.actionService.HandleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole)
 }
 
+func (s *Service) HandleReadyTransfer(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string, allowOverride bool) error {
+	return s.actionService.HandleReadyTransfer(ctx, session, callsign, sourcePosition, sourceRole, allowOverride)
+}
+
+func (s *Service) HandleReaRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	return s.actionService.HandleReaRequest(ctx, session, callsign, sourcePosition, sourceRole)
+}
+
 func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign string) error {
 	return s.actionService.RequestBetterTobt(ctx, session, callsign)
 }
@@ -222,6 +232,9 @@ func (s *Service) PushTobt(ctx context.Context, session int32, callsign string, 
 }
 
 func (s *Service) Start(ctx context.Context) {
+	if s.client.isValid {
+		s.inbound.start(ctx)
+	}
 	s.syncService.Start(ctx)
 }
 

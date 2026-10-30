@@ -4,6 +4,7 @@ import (
 	cfgpkg "FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/rnav"
+	"FlightStrips/internal/shared"
 	"fmt"
 	"regexp"
 	"slices"
@@ -156,7 +157,7 @@ func rnavFault(strip *models.Strip, rules cfgpkg.ClxValidationConfig) (Fault, bo
 		return Fault{}, false
 	}
 
-	capability := rnav.DeriveCapability(value(strip.AircraftType), value(strip.Remarks))
+	capability := rnav.EffectiveCapability(value(strip.AircraftType), value(strip.Remarks))
 	switch capability {
 	case "NIL":
 		if rules.RnavRules.Nil.Code == "" || rules.RnavRules.Nil.Message == "" {
@@ -221,6 +222,11 @@ func routeOverrideKey(strip *models.Strip, code string) string {
 }
 
 func pastEobtTobtFault(strip *models.Strip, now time.Time) (Fault, bool) {
+	switch strip.Bay {
+	case shared.BAY_NOT_CLEARED, shared.BAY_CLEARED, shared.BAY_PUSH:
+	default:
+		return Fault{}, false
+	}
 	eobt := value(strip.EffectiveEobt())
 	tobt := value(strip.EffectiveTobt())
 	if eobt == "" || tobt == "" {

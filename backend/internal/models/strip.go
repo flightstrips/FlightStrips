@@ -10,6 +10,7 @@ type NextDisplay struct {
 // VatsimStripSource contains the fields that the VATSIM reconciler is allowed
 // to persist. It intentionally excludes all controller-owned operational state.
 type VatsimStripSource struct {
+	FlightRules    string
 	CID            string
 	Revision       int64
 	SeenAt         time.Time
@@ -81,6 +82,7 @@ type Strip struct {
 	NextOwners               []string
 	PreviousOwners           []string
 	NextDisplay              *NextDisplay
+	NextControllerSector     *string
 	ReleasePoint             *string
 	PdcState                 string
 	PdcRequestRemarks        *string
@@ -102,6 +104,7 @@ type Strip struct {
 	FplType                  *string
 	Language                 *string
 	HasFP                    bool
+	FlightRules              string
 	ValidationStatus         *ValidationStatus
 	VatsimCID                *string
 	VatsimRevision           *int64

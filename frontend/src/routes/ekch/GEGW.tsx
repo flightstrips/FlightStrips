@@ -22,7 +22,7 @@ import { Bay } from "@/api/models.ts";
 import { SortableBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { allBayTransferRules } from "@/components/bays/stripMovement";
-import { useWebSocketStore, useMyPosition, useMessages, useDelOnline, useApronOnline } from "@/store/store-hooks.ts";
+import { useWebSocketStore, useMyPosition, useMessages, useApronOnline } from "@/store/store-hooks.ts";
 import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { arrivalSortModes } from "@/lib/stripSortModes";
 import { useState } from "react";
@@ -85,7 +85,6 @@ export default function GEGW() {
 
   const arrSortModes = arrivalSortModes;
 
-  const delOnline   = useDelOnline();
   const apronOnline = useApronOnline();
   const pushStrips = allPushStrips
     .filter((strip) => shouldShowInGegwApronBay(isFlight(strip) ? strip.stand : undefined, isFlight(strip), apronOnline))
@@ -93,8 +92,7 @@ export default function GEGW() {
   const startupStrips = allStartupStrips
     .filter((strip) => shouldShowInGegwApronBay(isFlight(strip) ? strip.stand : undefined, isFlight(strip), apronOnline))
     .sort((a, b) => b.sequence - a.sequence);
-  // CTWR is responsible for clearances only when neither DEL nor APRON is online.
-  const clrDelActive = !delOnline && !apronOnline;
+  const clrDelActive = !apronOnline;
 
   const nonClearedStrips = useNonClearedStrips();
 
@@ -109,7 +107,7 @@ export default function GEGW() {
     "FINAL":    { strips: finalStrips,                      targetBay: Bay.Final,     descending: true },
     "RWY-ARR":  { strips: rwyArrStrips,                     targetBay: Bay.RwyArr,    descending: true },
     "TWY-ARR":  { strips: twyArrStrips,                     targetBay: Bay.TwyArr,    descending: true },
-    "CLRDEL":   { strips: clrDelActive ? nonClearedStrips : [], targetBay: Bay.NotCleared },
+    "CLRDEL":   { strips: nonClearedStrips, targetBay: Bay.NotCleared },
   };
 
   const transferRules = allBayTransferRules(Object.keys(bayStripMap));
@@ -138,7 +136,7 @@ export default function GEGW() {
         if (strip.bay === Bay.Final)     return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
         if (strip.bay === Bay.RwyArr)    return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
         if (strip.bay === Bay.TwyArr)    return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
-        if (strip.bay === Bay.NotCleared) return <Strip strip={strip} status="CLR" myPosition={myPosition} fullWidth />;
+        if (strip.bay === Bay.NotCleared) return <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} fullWidth />;
         return null;
       }}
     >
@@ -353,8 +351,8 @@ export default function GEGW() {
             <button className={CLS_BTN_PLANNED} onClick={() => setPlannedOpen(true)}>PLANNED</button>
           </span>
         </div>
-        <SortableBay strips={clrDelActive ? nonClearedStrips : []} bayId="CLRDEL" standalone={false} className="h-[var(--bay-h-clrDel)] bay-scroll-area">
-          {(strip) => <Strip strip={strip} status="CLR" selectable={false} myPosition={myPosition} fullWidth />}
+        <SortableBay strips={nonClearedStrips} bayId="CLRDEL" standalone={false} className="h-[var(--bay-h-clrDel)] bay-scroll-area">
+          {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} fullWidth />}
         </SortableBay>
 
         <div className="bay-col-header bay-col-sep">

@@ -162,6 +162,7 @@ const (
 	OperationalReasonDeadband           OperationalReason = "deadband"
 	OperationalReasonRateLimited        OperationalReason = "rate_limited"
 	OperationalReasonRouteRevision      OperationalReason = "route_revision"
+	OperationalReasonRouteRecovery      OperationalReason = "route_recovery"
 	OperationalReasonRunwayGroupChanged OperationalReason = "runway_group_changed"
 	OperationalReasonFirstUnstable      OperationalReason = "first_unstable"
 	OperationalReasonManualOverride     OperationalReason = "manual_override"
@@ -178,6 +179,7 @@ func (r OperationalReason) Valid() bool {
 		OperationalReasonDeadband,
 		OperationalReasonRateLimited,
 		OperationalReasonRouteRevision,
+		OperationalReasonRouteRecovery,
 		OperationalReasonRunwayGroupChanged,
 		OperationalReasonFirstUnstable,
 		OperationalReasonManualOverride,
@@ -381,13 +383,14 @@ type FlightPlanFact struct {
 // WGS84 degrees, altitude is feet, ground speed is knots, and track is true
 // degrees in [0,360).
 type SurveillanceFact struct {
-	LatitudeDegrees  float64
-	LongitudeDegrees float64
-	AltitudeFeet     *int
-	GroundspeedKnots *float64
-	TrackTrueDegrees *float64
-	Sequence         *uint64
-	ObservedAt       *time.Time
+	LatitudeDegrees   float64
+	LongitudeDegrees  float64
+	AltitudeFeet      *int
+	GroundspeedKnots  *float64
+	GroundspeedSource string
+	TrackTrueDegrees  *float64
+	Sequence          *uint64
+	ObservedAt        *time.Time
 }
 
 // Prediction separates a physical/model result from the backend-owned value
@@ -408,10 +411,15 @@ type Prediction struct {
 	DatasetVersion string
 	GeometryDigest string
 	DistanceToGoNM *float64
-	HoldingFixETA  *time.Time
-	HoldingPlan    *HoldingPlan
+	// RemainingRouteFixes records accepted physical route progress at
+	// InputObservedAt for every prediction basis, including RETA, which has
+	// no performance Calculation. An absent list supplies no release evidence.
+	RemainingRouteFixes []string
+	HoldingFixETA       *time.Time
+	HoldingPlan         *HoldingPlan
 	// HoldingPlanBlockedBy identifies a protected earlier release that makes
 	// this flight's current runway slot incompatible with the holding queue.
+	// It blocks automatic advancement, never publication of the calculated EAT.
 	HoldingPlanBlockedBy *Callsign
 
 	ModelVersion  string
@@ -495,6 +503,7 @@ type HoldingPlan struct {
 	ApproachReleaseTime     time.Time
 	ExpectedHoldingDuration time.Duration
 	PostHoldingTransit      time.Duration
+	AdditionalApproachTime  time.Duration
 }
 
 // HoldingReleaseBasis retains the fix-to-landing journey for one confirmed
@@ -535,6 +544,9 @@ func (p HoldingPlan) Validate() error {
 	}
 	if err := requireUTCTime("approach release time", p.ApproachReleaseTime); err != nil {
 		return err
+	}
+	if p.AdditionalApproachTime < 0 {
+		return invalid("additional approach time cannot be negative")
 	}
 	if !p.ApproachReleaseTime.After(p.HoldingEntryTime) || p.ExpectedHoldingDuration <= 0 || p.PostHoldingTransit <= 0 {
 		return invalid("holding plan timing is invalid")
@@ -593,6 +605,23 @@ type PredictionSegment struct {
 type RawTETASample struct {
 	TETA        time.Time
 	GeneratedAt time.Time
+	ObservedAt  time.Time
+}
+
+// PredictionFilterState contains only automatic outlier-filter bookkeeping.
+// Prediction itself always remains the last accepted physical calculation.
+type PredictionFilterState struct {
+	LastObservedAt time.Time
+	Pending        *PredictionCandidate
+	Unreliable     bool
+}
+
+type PredictionCandidate struct {
+	TETA            time.Time
+	FeederETA       *time.Time
+	FirstObservedAt time.Time
+	Since           time.Time
+	Samples         uint32
 }
 
 // BaselineState is the narrow persisted result of the first normal airborne
@@ -687,12 +716,19 @@ type RouteProgress struct {
 	LegIndex           int
 	RejoinLegIndex     int
 	AlongTrackNM       float64
+	// ObservedAt dates the physical progress anchor, so a gap in prediction
+	// updates does not permanently trap the aircraft in a fixed search window.
+	ObservedAt *time.Time `json:"ObservedAt,omitempty"`
 	// RecoveryCandidateFix and RecoveryCandidateSamples retain the
 	// surveillance-derived direct-to candidate across reconciliation cycles.
 	// A candidate is not treated as an inferred direct until consecutive
 	// observations agree on the same fix.
 	RecoveryCandidateFix     string
 	RecoveryCandidateSamples uint8
+	// RecoveryUnlocated permits a candidate-leg anchor only when recovery
+	// began without compatible physical progress. Omitted legacy values keep
+	// their existing bounds; a zero along-track value alone proves nothing.
+	RecoveryUnlocated bool `json:"RecoveryUnlocated,omitempty"`
 	// DescentConfirmed is latched after consecutive surveillance reports show
 	// a real descent. It prevents a level-off or small climb later in the
 	// arrival from making the predictor project a return to filed cruise.
@@ -936,8 +972,12 @@ type AMANFlight struct {
 	Callsign            string
 	State               FlightState
 	SequenceDisposition SequenceDisposition
+	// Expedited records an FMP admission outside the managed runway sequence.
+	// Keep the compatible desequenced disposition, and count the arrival in intake.
+	Expedited           bool
 	DataStatus          DataStatus
 	Prediction          *Prediction
+	PredictionFilter    *PredictionFilterState
 	RawTETASamples      []RawTETASample
 	ArrivalBaseline     *BaselineState
 	LatestObservation   *FlightObservation
@@ -955,10 +995,13 @@ type AMANFlight struct {
 	DerivedFeederETA *FeederETAState
 	// InitialTiming retains the first accepted estimates and scheduled times
 	// for flight information; live prediction/slot updates must not rewrite it.
-	InitialTiming       *FlightInitialTiming
-	HoldingClearance    *HoldingClearance
-	HoldingStack        *HoldingStackState
-	HoldingReleaseBasis *HoldingReleaseBasis
+	InitialTiming             *FlightInitialTiming
+	HoldingClearance          *HoldingClearance
+	HoldingStack              *HoldingStackState
+	HoldingEpisode            *HoldingEpisode
+	HoldingReleaseReservation *HoldingReleaseReservation
+	HoldingReleaseBasis       *HoldingReleaseBasis
+	ApproachRelease           *ApproachReleaseReservation
 	// HoldingClearanceCanceledAt retains the last actual cancellation time across blank strip snapshots.
 	HoldingClearanceCanceledAt *time.Time
 	ActiveRouteFact            *RouteFact
@@ -1032,6 +1075,7 @@ type AirportState struct {
 	// ActiveRunwayGroups is the canonical active landing-runway set. A nil slice
 	// denotes persisted legacy state that is still represented by Selected.
 	ActiveRunwayGroups []RunwayGroupID
+	ReleaseBuffer      *ReleaseBufferSummary
 }
 
 // CommandMetadata is shared by typed command values. It deliberately does not
@@ -1374,6 +1418,11 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	if f.PredictionFilter != nil {
+		if err := f.PredictionFilter.Validate(); err != nil {
+			return err
+		}
+	}
 	if f.LatestObservation != nil {
 		if err := f.LatestObservation.Validate(); err != nil {
 			return err
@@ -1439,11 +1488,19 @@ func (f AMANFlight) Validate() error {
 		return invalid("active route dataset ID cannot be empty")
 	}
 	if f.RouteProgress != nil {
+		if f.RouteProgress.ObservedAt != nil {
+			if err := requireUTCTime("route progress observed at", *f.RouteProgress.ObservedAt); err != nil {
+				return err
+			}
+		}
 		if strings.TrimSpace(f.RouteProgress.GeometryDigest) == "" || f.RouteProgress.ManifestRevision < 1 || f.RouteProgress.LegIndex < 0 || f.RouteProgress.RejoinLegIndex < 0 || f.RouteProgress.AlongTrackNM < 0 || math.IsNaN(f.RouteProgress.AlongTrackNM) || math.IsInf(f.RouteProgress.AlongTrackNM, 0) {
 			return invalid("route progress is invalid")
 		}
 		if (strings.TrimSpace(f.RouteProgress.RecoveryCandidateFix) == "") != (f.RouteProgress.RecoveryCandidateSamples == 0) {
 			return invalid("route recovery candidate state is invalid")
+		}
+		if f.RouteProgress.RecoveryUnlocated && f.RouteProgress.RecoveryCandidateSamples == 0 {
+			return invalid("unlocated route recovery requires a candidate")
 		}
 		if f.RouteProgress.DescentConfirmed && f.RouteProgress.DescentEvidenceSamples == 0 {
 			return invalid("confirmed route descent requires surveillance evidence")
@@ -1453,6 +1510,14 @@ func (f AMANFlight) Validate() error {
 		if err := f.TMAEntry.Validate(); err != nil {
 			return err
 		}
+	}
+	if f.HoldingEpisode != nil {
+		if err := f.HoldingEpisode.Validate(); err != nil {
+			return err
+		}
+	}
+	if r := f.HoldingReleaseReservation; r != nil && (r.CommandID == "" || r.EpisodeID == "" || r.HoldingID == "" || r.Level < 0 || r.Rank < 1) {
+		return invalid("invalid rebuilt holding release reservation")
 	}
 	if f.HoldingStack != nil {
 		if !isTrimmedNonEmpty(f.HoldingStack.HoldingID) || f.HoldingStack.Confirmed && f.HoldingStack.ConsecutiveObservations == 0 {
@@ -1505,6 +1570,11 @@ func (f AMANFlight) Validate() error {
 			f.RunwayGapException.RunwayGroupID != f.Slot.RunwayGroupID ||
 			!f.RunwayGapException.Opportunity.Equal(f.Slot.Time) {
 			return invalid("runway gap exception does not match its flight slot")
+		}
+	}
+	if f.ApproachRelease != nil {
+		if err := f.ApproachRelease.Validate(); err != nil {
+			return err
 		}
 	}
 	if f.HoldingReleaseBasis != nil {
@@ -1851,10 +1921,43 @@ func (f AMANFlight) validateFreeze() error {
 }
 
 func (s RawTETASample) Validate() error {
+	if !s.ObservedAt.IsZero() {
+		if err := requireUTCTime("raw TETA sample observed at", s.ObservedAt); err != nil {
+			return err
+		}
+		if s.ObservedAt.After(s.GeneratedAt) {
+			return invalid("raw TETA sample observation is in the future")
+		}
+	}
 	if err := requireUTCTime("raw TETA sample", s.TETA); err != nil {
 		return err
 	}
 	return requireUTCTime("raw TETA sample generated at", s.GeneratedAt)
+}
+
+func (s PredictionFilterState) Validate() error {
+	if err := requireUTCTime("prediction filter observed at", s.LastObservedAt); err != nil {
+		return err
+	}
+	if s.Unreliable && s.Pending == nil {
+		return invalid("unreliable prediction requires a pending candidate")
+	}
+	if s.Pending == nil {
+		return nil
+	}
+	p := s.Pending
+	if p.Samples == 0 || p.FirstObservedAt.After(s.LastObservedAt) {
+		return invalid("prediction filter candidate has invalid observation evidence")
+	}
+	for _, at := range []time.Time{p.TETA, p.FirstObservedAt, p.Since} {
+		if err := requireUTCTime("prediction filter candidate", at); err != nil {
+			return err
+		}
+	}
+	if p.FeederETA != nil {
+		return requireUTCTime("prediction filter feeder ETA", *p.FeederETA)
+	}
+	return nil
 }
 
 func (s Slot) validate() error {
@@ -1887,6 +1990,11 @@ func (o QueueOffer) validate() error {
 }
 
 func (s AirportState) Validate() error {
+	if s.ReleaseBuffer != nil {
+		if err := s.ReleaseBuffer.Validate(); err != nil {
+			return err
+		}
+	}
 	if strings.TrimSpace(s.Airport) == "" || strings.TrimSpace(s.PolicyVersion) == "" || !s.Mode.Valid() {
 		return invalid("airport state is incomplete")
 	}

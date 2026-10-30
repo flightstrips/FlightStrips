@@ -1,4 +1,5 @@
 #include "WebSocket.h"
+#include <atomic>
 
 #include "ExceptionHandling.h"
 #include "Logger.hpp"
@@ -26,10 +27,10 @@ namespace FlightStrips::websocket {
         public:
             WebSocketImpl(std::string endpoint,
                           message_callback cb,
-                          on_connected_callback on_connected)
+                          on_connected_callback on_connected, bool textFrames)
                 : on_connected_cb(std::move(on_connected)),
                   message_cb(std::move(cb)),
-                  endpoint_(std::move(endpoint)) {
+                  endpoint_(std::move(endpoint)), textFrames_(textFrames) {
 
                 m_endpoint.clear_access_channels(websocketpp::log::alevel::all);
                 m_endpoint.clear_error_channels(websocketpp::log::elevel::all);
@@ -108,7 +109,7 @@ namespace FlightStrips::websocket {
 
             void Send(const std::string& message) override {
                 websocketpp::lib::error_code ec;
-                m_endpoint.send(m_hdl, message, websocketpp::frame::opcode::binary, ec);
+                m_endpoint.send(m_hdl, message, textFrames_ ? websocketpp::frame::opcode::text : websocketpp::frame::opcode::binary, ec);
                 if (ec) {
                     Logger::Warning("Failed to send protobuf message ({} bytes) with error code {}: {}.", message.size(), ec.value(), ec.message());
                 }
@@ -133,7 +134,7 @@ namespace FlightStrips::websocket {
 
             void OnMessage(const websocketpp::connection_hdl&, const typename ClientT::message_ptr& msg) const {
                 exceptions::RunGuarded("WebSocket::OnMessage", [this, &msg] {
-                    if (msg->get_opcode() != websocketpp::frame::opcode::binary) {
+                    if (msg->get_opcode() != (textFrames_ ? websocketpp::frame::opcode::text : websocketpp::frame::opcode::binary)) {
                         Logger::Warning("Ignoring non-binary websocket message from server");
                         return;
                     }
@@ -176,7 +177,7 @@ namespace FlightStrips::websocket {
                 });
             }
 
-            WebSocketStatus status_ = WEBSOCKET_STATUS_DISCONNECTED;
+            std::atomic<WebSocketStatus> status_{WEBSOCKET_STATUS_DISCONNECTED};
 
             ClientT m_endpoint;
             websocketpp::lib::shared_ptr<websocketpp::lib::thread> m_thread;
@@ -185,6 +186,7 @@ namespace FlightStrips::websocket {
             on_connected_callback on_connected_cb;
             message_callback message_cb;
             std::string endpoint_;
+            bool textFrames_;
         };
     }
 
@@ -194,11 +196,11 @@ namespace FlightStrips::websocket {
 
     WebSocket::WebSocket(std::string endpoint,
                          message_callback cb,
-                         on_connected_callback on_connected) {
+                         on_connected_callback on_connected, bool textFrames) {
         if (is_tls_endpoint(endpoint)) {
-            impl_ = std::make_unique<WebSocketImpl<tls_client, true>>(std::move(endpoint), std::move(cb), std::move(on_connected));
+            impl_ = std::make_unique<WebSocketImpl<tls_client, true>>(std::move(endpoint), std::move(cb), std::move(on_connected), textFrames);
         } else {
-            impl_ = std::make_unique<WebSocketImpl<plain_client, false>>(std::move(endpoint), std::move(cb), std::move(on_connected));
+            impl_ = std::make_unique<WebSocketImpl<plain_client, false>>(std::move(endpoint), std::move(cb), std::move(on_connected), textFrames);
         }
     }
 

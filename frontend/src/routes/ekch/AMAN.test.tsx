@@ -90,6 +90,19 @@ describe("AMAN route authorization", () => {
     storeState.amanFMPAuthority = false;
   });
 
+  it("opens the STAR swap from the aircraft menu and sends the selected pair", () => {
+    storeState.amanFMPAuthority = true;
+    const first = {callsign: "SAS123", star_family: "TESPI", runway_group_id: "ARRIVAL-22", freeze_reason: "none", lifecycle_state: "stable", slot: {sequence: 1, time: "2026-07-22T12:10:00Z"}};
+    storeState.amanState = authoritativeState([first, {...first, callsign: "SAS456", slot: {sequence: 2, time: "2026-07-22T12:12:00Z"}}]);
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    fireEvent.click(screen.getByRole("button", {name: "Swap sequence"}));
+    expect(screen.getByRole("dialog", {name: "Swap sequence · SAS123"})).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Swap with"), {target: {value: "SAS456"}});
+    fireEvent.click(screen.getByRole("button", {name: "Swap aircraft"}));
+    expect(storeState.sendAMANCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.swap_flights", callsign: "SAS123", other_callsign: "SAS456"});
+  });
+
   it("keeps FMP controls unauthorized without a server-backed capability", () => {
     render(<AMAN />);
 
@@ -188,6 +201,15 @@ describe("AMAN route authorization", () => {
     expect(storeState.sendAMANCommand).toHaveBeenCalledWith({type: "aman.remove_flight", callsign: "SAS123"});
   });
 
+  it("expedites the selected flight from its action menu", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = authoritativeState([{callsign: "SAS123", lifecycle_state: "stable", slot: {time: "2026-07-22T20:50:00.000Z"}}]);
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    fireEvent.click(screen.getByRole("button", {name: "Expedite"}));
+    expect(storeState.sendAMANCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.expedite_flight", callsign: "SAS123"});
+  });
+
   it("opens the compact GAP workflow from the target action menu", () => {
     storeState.amanFMPAuthority = true;
     storeState.amanState = {
@@ -257,6 +279,8 @@ describe("AMAN route authorization", () => {
     fireEvent.keyDown(screen.getByRole("tab", {name: "Settings"}), {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Excluded (0)");
     fireEvent.keyDown(screen.getByRole("tab", {name: "Excluded (0)"}), {key: "ArrowRight"});
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("CTOT (0)");
+    fireEvent.keyDown(screen.getByRole("tab", {name: "CTOT (0)"}), {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Coordination (0)");
     fireEvent.keyDown(screen.getByRole("tab", {name: "Coordination (0)"}), {key: "Home"});
     expect(holdings).toHaveFocus();

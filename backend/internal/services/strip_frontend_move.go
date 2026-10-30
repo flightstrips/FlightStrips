@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 var validFrontendMoveBays = map[string]bool{
@@ -41,7 +42,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return errors.New("invalid bay value: " + targetBay)
 	}
 	if confirmedRemoval && targetBay != shared.BAY_HIDDEN {
-		return errors.New("confirmed removal must target the hidden bay")
+		return shared.RejectAction("confirmed removal must target the hidden bay")
 	}
 
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
@@ -53,7 +54,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 	// removing an obsolete stand occupant even when another validation currently
 	// owns the master-caution slot. Ordinary moves to HIDDEN remain locked.
 	if strip.IsValidationLocked() && !confirmedRemoval && (strip.ValidationStatus == nil || strip.ValidationStatus.IssueType != pushbackTsatValidationIssueType || targetBay != shared.BAY_PUSH) {
-		return errors.New("strip is locked by an active validation")
+		return shared.RejectAction("strip is locked by an active validation")
 	}
 
 	if err := validateFrontendMoveBayTransition(strip, airport, targetBay, clearance); err != nil {
@@ -75,7 +76,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		}
 	}
 	if strip.IsValidationLocked() && !confirmedRemoval {
-		return errors.New("strip is locked by an active validation")
+		return shared.RejectAction("strip is locked by an active validation")
 	}
 
 	if strip.Bay == targetBay {
@@ -84,6 +85,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 
 	previousBay := strip.Bay
 	previousCleared := strip.Cleared
+	previousRunwayCleared := strip.RunwayCleared
 	shouldConfirmVoiceClearance := targetBay == shared.BAY_CLEARED &&
 		strip.PdcState != "" &&
 		strip.PdcState != internalModels.PdcStateNone
@@ -93,7 +95,18 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return err
 	}
 
-	if err := s.MoveToBay(ctx, session, callsign, targetBay, true); err != nil {
+	// applyFrontendMoveState persists the target bay before MoveToBay runs, so
+	// preserve the original source bay to initialize/reset RWY ARR state here.
+	updatedRwyArrStatus, err := s.updateRwyArrClearanceOnMove(ctx, session, callsign, previousBay, targetBay, previousRunwayCleared)
+	if err != nil {
+		return err
+	}
+	if updatedRwyArrStatus {
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+	}
+
+	moveCtx := context.WithValue(ctx, frontendMoveRwyArrTransitionHandledKey{}, true)
+	if err := s.MoveToBay(moveCtx, session, callsign, targetBay, true); err != nil {
 		return err
 	}
 
@@ -144,6 +157,8 @@ func pushbackWasValidated(ctx context.Context, session int32, callsign string) b
 	flight, ok := ctx.Value(validatedPushbackContextKey{}).(validatedPushbackFlight)
 	return ok && flight.session == session && flight.callsign == callsign
 }
+
+type frontendMoveRwyArrTransitionHandledKey struct{}
 
 func pushbackTsatWithinWindow(tsat string, now time.Time) bool {
 	ts := strings.TrimSpace(tsat)
@@ -216,7 +231,7 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 	remoteCtot, readErr := service.ReadPushbackCtot(ctx, session, strip.Callsign)
 	confirmed := readErr == nil
 	logRejection := func(updated *internalModels.Strip, reason string, verified bool, prepareErr error) {
-		slog.WarnContext(ctx, "Pushback timing validation blocked attempt",
+		slog.Log(ctx, pushbackRejectionLogLevel(reason, readErr, prepareErr), "Pushback timing validation blocked attempt",
 			slog.Int("session", int(session)), slog.String("callsign", strip.Callsign), slog.String("position", position),
 			slog.String("reason", reason), slog.String("initial_tobt", initialTobt), slog.String("initial_tsat", initialTsat),
 			slog.String("initial_ctot", initialCtot), slog.String("tobt", valueOrEmptyStripTime(updated.EffectiveTobt())),
@@ -226,15 +241,21 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 			slog.Bool("remote_confirmed", confirmed), slog.Bool("verified", verified),
 			slog.Any("read_error", readErr), slog.Any("verification_error", prepareErr))
 	}
+	rejection := func(reason, message string, prepareErr error) error {
+		if pushbackRejectionLogLevel(reason, readErr, prepareErr) == slog.LevelInfo {
+			return shared.RejectAction(message)
+		}
+		return errors.New(message)
+	}
 	contextKey := pushbackTimingContext(strip, remoteCtot, confirmed, now)
 	if strip.ValidationStatus != nil && strip.ValidationStatus.IssueType == pushbackTsatValidationIssueType && strip.ValidationStatus.ContextKey == contextKey {
 		if strip.ValidationStatus.Active {
 			logRejection(strip, "existing_validation", false, nil)
-			return errors.New("pushback requires TSAT override")
+			return rejection("existing_validation", "pushback requires TSAT override", nil)
 		}
 		return nil
 	}
-	if confirmed && remoteCtot == "" && pushbackTsatWithinWindow(valueOrEmptyStripTime(strip.EffectiveTsat()), now) {
+	if confirmed && pushbackTsatWithinWindow(valueOrEmptyStripTime(strip.EffectiveTsat()), now) {
 		if strip.ValidationStatus != nil && strip.ValidationStatus.IssueType == pushbackTsatValidationIssueType {
 			if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 				return err
@@ -262,7 +283,7 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 		reason, message := pushbackRejectionDetails(updated, remoteCtot, verified, prepareErr, time.Now().UTC())
 		logRejection(updated, reason, verified, prepareErr)
 		if validationCandidateIsInhibited(updated.ValidationStatus, pushbackTsatValidationIssueType) {
-			return errors.New("pushback timing warning is waiting for another validation")
+			return rejection(reason, "pushback timing warning is waiting for another validation", prepareErr)
 		}
 		owner := position
 		if updated.Owner != nil && *updated.Owner != "" {
@@ -280,7 +301,7 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 			return err
 		}
 		shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
-		return errors.New("pushback requires TSAT override")
+		return rejection(reason, "pushback requires TSAT override", prepareErr)
 	}
 	if updated.ValidationStatus != nil && updated.ValidationStatus.IssueType == pushbackTsatValidationIssueType {
 		if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
@@ -289,6 +310,18 @@ func (s *StripService) validatePushbackTiming(ctx context.Context, session int32
 		shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
 	}
 	return nil
+}
+
+func pushbackRejectionLogLevel(reason string, readErr, prepareErr error) slog.Level {
+	if readErr != nil || prepareErr != nil {
+		return slog.LevelWarn
+	}
+	switch reason {
+	case "existing_validation", "ctot_present", "tsat_unknown", "tsat_outside_window":
+		return slog.LevelInfo
+	default:
+		return slog.LevelWarn
+	}
 }
 
 func pushbackRejectionDetails(strip *internalModels.Strip, remoteCtot string, verified bool, prepareErr error, now time.Time) (string, string) {
@@ -316,15 +349,15 @@ func valueOrEmptyStripTime(value *string) string {
 
 func validateFrontendMoveBayTransition(strip *internalModels.Strip, airport string, targetBay string, clearance bool) error {
 	if clearance && targetBay != shared.BAY_CLEARED {
-		return errors.New("clearance moves must target the cleared bay")
+		return shared.RejectAction("clearance moves must target the cleared bay")
 	}
 	if strip.Bay == shared.BAY_NOT_CLEARED && targetBay != shared.BAY_NOT_CLEARED && targetBay != shared.BAY_HIDDEN && !clearance {
-		return errors.New("non-cleared strips cannot be moved out of the not-cleared bay")
+		return shared.RejectAction("non-cleared strips cannot be moved out of the not-cleared bay")
 	}
 
 	isArrivalStrip := strip.Destination == airport && strip.Origin != airport
 	if isArrivalStrip && targetBay == shared.BAY_NOT_CLEARED {
-		return errors.New("arrival strips cannot be moved to the not-cleared bay")
+		return shared.RejectAction("arrival strips cannot be moved to the not-cleared bay")
 	}
 
 	return nil
@@ -347,12 +380,15 @@ func (s *StripService) authorizeFrontendMove(ctx context.Context, session int32,
 
 	coordRepo := s.getCoordinationRepository()
 	if coordRepo == nil {
-		return errors.New("not authorized: strip is owned by another controller")
+		return shared.RejectAction("not authorized: strip is owned by another controller")
 	}
 
 	coord, err := coordRepo.GetByStripCallsign(ctx, session, callsign)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
 	if err != nil || coord == nil || coord.ToPosition != clientPosition {
-		return errors.New("not authorized: strip is owned by another controller")
+		return shared.RejectAction("not authorized: strip is owned by another controller")
 	}
 
 	return nil

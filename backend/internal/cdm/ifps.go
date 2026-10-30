@@ -3,6 +3,7 @@ package cdm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -68,8 +69,14 @@ func (c *Client) IFPSDpi(ctx context.Context, callsign, value string) error {
 	return requireViffConfirmation(response)
 }
 
+// A false acknowledgement can mean vIFF has not processed the datafeed flight yet.
+var errViffUpdatePending = errors.New("vIFF did not confirm update")
+
 func requireViffConfirmation(response []byte) error {
 	confirmation := strings.TrimSpace(string(response))
+	if confirmation == "false" {
+		return fmt.Errorf("%w: %q", errViffUpdatePending, string(response))
+	}
 	if confirmation != "" && confirmation != "true" {
 		return fmt.Errorf("vIFF did not confirm update: %q", string(response))
 	}
@@ -159,7 +166,7 @@ func (c *Client) GetDepartureRestrictions(ctx context.Context) ([]DepartureRestr
 }
 
 func (c *Client) IFPSSetTobt(ctx context.Context, callsign, tobt string, taxiMinutes int) error {
-	_, err := c.doRequest(ctx, "POST", "/ifps/dpi",
+	response, err := c.doRequest(ctx, "POST", "/ifps/dpi",
 		map[string]string{
 			"callsign": callsign,
 			"value":    fmt.Sprintf("OBT/%s/%d", tobt, taxiMinutes),
@@ -167,7 +174,25 @@ func (c *Client) IFPSSetTobt(ctx context.Context, callsign, tobt string, taxiMin
 		nil,
 		nil,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	return requireViffConfirmation(response)
+}
+
+func (c *Client) FlightByCallsign(ctx context.Context, callsign string) (*IFPSData, error) {
+	payload, err := c.IFPSByCallsign(ctx, callsign)
+	if err != nil {
+		return nil, err
+	}
+	row, err := parseIFPSByCallsignResponse(payload)
+	if err != nil {
+		return nil, err
+	}
+	if row == nil || !strings.EqualFold(strings.TrimSpace(row.Callsign), strings.TrimSpace(callsign)) {
+		return nil, fmt.Errorf("vIFF did not return the requested callsign")
+	}
+	return row, nil
 }
 
 func (c *Client) IFPSByCallsign(ctx context.Context, callsign string) ([]byte, error) {

@@ -1,3 +1,4 @@
+import { requireAccessToken } from "@/lib/authenticated-fetch";
 import {useAuth0} from "@auth0/auth0-react";
 import {useEffect, useMemo, useRef, useState} from "react";
 import {divIcon, type LatLngTuple} from "leaflet";
@@ -290,22 +291,22 @@ function PredictionSections({calculation}: {calculation: AMANCalculation | null}
 }
 
 function stripTime(value: string | null | undefined): string {
-  if (!value) return "—";
+  if (!value) return "";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.valueOf()) ? value : parsed.toISOString().slice(11, 19);
+  return Number.isNaN(parsed.valueOf()) ? "" : parsed.toISOString().slice(11, 19);
 }
 
 function stripDifference(left: string | null | undefined, right: string | null | undefined): string {
-  if (!left || !right) return "—";
+  if (!left || !right) return "";
   const seconds = Math.round((new Date(left).valueOf() - new Date(right).valueOf()) / 1000);
-  if (!Number.isFinite(seconds)) return "—";
+  if (!Number.isFinite(seconds)) return "";
   const absolute = Math.abs(seconds);
   const sign = seconds > 0 ? "+" : seconds < 0 ? "−" : "";
   return `${sign}${Math.floor(absolute / 60)}′${String(absolute % 60).padStart(2, "0")}″`;
 }
 
 function runwayLabel(value: string | null): string {
-  return value?.replace(/^ARRIVAL-/, "") || "—";
+  return value?.replace(/^ARRIVAL-/, "") || "";
 }
 
 function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical, technicalOpen}: {
@@ -320,34 +321,38 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
   const runway = runwayLabel(flight?.runway_group_id ?? null);
   const runwayAndSequence = sequence ? `${runway}/${sequence}` : runway;
   const callsignAndSequence = sequence ? `${flight?.callsign ?? callsign} / ${sequence}` : flight?.callsign ?? callsign;
-  const feeder = flight?.feeder_fix ?? flight?.feeder ?? "—";
+  const feeder = flight?.feeder ?? flight?.feeder_fix ?? "";
   const initialRunwayETA = detail?.initial_timing?.runway_eta;
   const currentRunwayETA = detail?.teta_basis?.operational_teta;
-  const runwaySTA = detail?.slot_basis?.time;
+  // The annotated flight-information design uses accepted RETA in the current
+  // STA cell and RETA − TETA for both current delay cells. The committed slot
+  // remains available separately in the operational slot evidence.
+  const currentRETA = detail?.teta_basis?.raw_reta;
   const feederSTA = flight?.feeder_sta;
   const currentFeederETA = flight?.feeder_eta;
   const route = (detail?.star_route ?? []).map(({fix, eta}) => ({fix, time: stripTime(eta).slice(0, 5)}));
   const directTo = flight?.direct_to;
-  const trajectoryKind = directTo ? "DCT" : detail?.calculation?.legs.length ? "ROUTE" : "—";
-  const trajectoryFix = directTo ?? detail?.calculation?.legs[0]?.to ?? "—";
+  const trajectoryKind = directTo ? "DCT" : detail?.calculation?.legs.length ? "ROUTE" : "";
+  const trajectoryFix = directTo ?? detail?.calculation?.legs[0]?.to ?? "";
+  const holdingEAT = stripTime(detail?.holding_plan?.approach_release_time);
 
   const headerCell = "grid min-w-0 place-items-center overflow-hidden bg-[#8ae1d9] text-center font-semibold leading-normal";
   const accentHeaderCell = `${headerCell} !bg-[#2dd3cc]`;
   const bodyCell = "grid min-w-0 place-items-center overflow-hidden bg-[#eff1e9] text-center font-semibold leading-normal";
   const shadedBodyCell = `${bodyCell} !bg-[#c1d4c8]`;
 
-  return <section aria-label="Flight information summary" className="[container-type:inline-size] w-full bg-[#313131] font-['Rubik',sans-serif] text-black">
-    <DialogTitle className="grid h-[2.111cqw] min-h-5 place-items-center bg-[#313131] pr-[4.825cqw] text-[clamp(11px,1.206cqw,20px)] font-semibold leading-normal tracking-normal text-white">
+  return <section aria-label="Flight information summary" className="[container-type:inline-size] grid w-full grid-cols-[minmax(0,1578fr)_minmax(0,80fr)] bg-[#313131] font-['Rubik',sans-serif] text-black">
+    <DialogTitle className="col-span-2 grid h-[2.111cqw] min-h-5 place-items-center bg-[#313131] pr-[4.825cqw] text-[clamp(11px,1.206cqw,20px)] font-semibold leading-normal tracking-normal text-white">
       <span aria-hidden="true">Flight Information</span><span className="sr-only">{flight?.callsign ?? callsign} — route &amp; prediction detail</span>
     </DialogTitle>
-    <span className="sr-only">state revision {detail?.revision ?? "—"}</span>
+    <span className="sr-only">state revision {detail?.revision ?? ""}</span>
     <div
-      className="relative grid h-[7.841cqw]"
-      style={{gridTemplateColumns: "139fr 492fr 102fr 86fr 88fr 102fr 86fr 95fr 102fr 86fr 90fr 110fr 80fr", gridTemplateRows: "41fr 43fr 46fr"}}
+      className="relative col-start-1 row-start-2 grid h-[7.841cqw] bg-[linear-gradient(to_bottom,#8ae1d9_31.538%,#eff1e9_31.538%)]"
+      style={{gridTemplateColumns: "139fr 492fr 102fr 86fr 88fr 102fr 86fr 95fr 102fr 86fr 90fr 110fr", gridTemplateRows: "41fr 43fr 46fr"}}
     >
       <div className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 1, gridRow: 1}}>{callsignAndSequence}</div>
-      <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 1, gridRow: 2}}>{flight ? `${flight.origin || "—"} ${flight.destination || detail?.airport || "—"}` : ""}</div>
-      <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 1, gridRow: 3}}>{flight && <span className="whitespace-nowrap"><span>{flight.aircraft_type ?? "—"}</span> / {flight.wake_category ?? "—"}</span>}</div>
+      <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 1, gridRow: 2}}>{flight ? `${flight.origin || ""} ${flight.destination || detail?.airport || ""}` : ""}</div>
+      <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 1, gridRow: 3}}>{flight && <span className="whitespace-nowrap"><span>{flight.aircraft_type}</span>{flight.aircraft_type && flight.wake_category && " / "}{flight.wake_category}</span>}</div>
 
       <div className={`${headerCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 2, gridRow: 1}}>ROUTE</div>
       <div aria-label="STAR waypoint estimates" className="flex min-w-0 overflow-x-auto overflow-y-hidden bg-[#eff1e9] text-center leading-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-black [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{gridColumn: 2, gridRow: "2 / 4"}} tabIndex={0}>
@@ -358,53 +363,61 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
       </div>
 
       <div className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 3, gridRow: 1}}>{feeder}</div>
-      <div className={`${shadedBodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 3, gridRow: 2}}>ETA-FF</div>
-      <div className={`${shadedBodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 3, gridRow: 3}}>STA-FF</div>
+      <div className={`${shadedBodyCell} grid-rows-[43fr_46fr] text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 3, gridRow: "2 / 4"}}><span>ETA-FF</span><span>STA-FF</span></div>
 
       <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 4, gridRow: 1}}>INITIAL</div>
-      <div aria-label="Initial ETA-FF" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 4, gridRow: 2}}>{stripTime(detail?.initial_timing?.feeder_eta)}</div>
-      <div aria-label="Initial STA-FF" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 4, gridRow: 3}}>{stripTime(detail?.initial_timing?.feeder_sta)}</div>
+      <div aria-label="Initial ETA-FF" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 4, gridRow: 2}}>{stripTime(detail?.initial_timing?.feeder_eta)}</div>
+      <div aria-label="Initial STA-FF" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 4, gridRow: 3}}>{stripTime(detail?.initial_timing?.feeder_sta)}</div>
       <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 5, gridRow: 1}}>CURRENT</div>
-      <div aria-label="Current ETA-FF" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 5, gridRow: 2}}>{stripTime(currentFeederETA)}</div>
-      <div aria-label="Current STA-FF" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 5, gridRow: 3}}>{stripTime(feederSTA)}</div>
+      <div aria-label="Current ETA-FF" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 5, gridRow: 2}}>{stripTime(currentFeederETA)}</div>
+      <div aria-label="Current STA-FF" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 5, gridRow: 3}}>{stripTime(feederSTA)}</div>
 
       <div className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 6, gridRow: 1}}>{runwayAndSequence}</div>
-      <div className={`${shadedBodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 6, gridRow: 2}}>ETA</div>
-      <div className={`${shadedBodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 6, gridRow: 3}}>STA</div>
+      <div className={`${shadedBodyCell} grid-rows-[43fr_46fr] text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 6, gridRow: "2 / 4"}}><span>ETA</span><span>STA</span></div>
 
       <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 7, gridRow: 1}}>INITIAL</div>
-      <div aria-label="Initial runway ETA" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 7, gridRow: 2}}>{stripTime(initialRunwayETA)}</div>
-      <div aria-label="Initial runway STA" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 7, gridRow: 3}}>{stripTime(detail?.initial_timing?.runway_sta)}</div>
+      <div aria-label="Initial runway ETA" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 7, gridRow: 2}}>{stripTime(initialRunwayETA)}</div>
+      <div aria-label="Initial runway STA" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 7, gridRow: 3}}>{stripTime(detail?.initial_timing?.runway_sta)}</div>
       <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 8, gridRow: 1}}>CURRENT</div>
-      <div aria-label="Current runway ETA" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 8, gridRow: 2}}>{stripTime(currentRunwayETA)}</div>
-      <div aria-label="Current runway STA" className={`${bodyCell} text-[clamp(8px,0.965cqw,16px)] tabular-nums`} style={{gridColumn: 8, gridRow: 3}}>{stripTime(runwaySTA)}</div>
+      <div aria-label="Current runway ETA" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 8, gridRow: 2}}>{stripTime(currentRunwayETA)}</div>
+      <div aria-label="Current runway STA" title="Accepted RETA (UTC)" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 8, gridRow: 3}}>{stripTime(currentRETA)}</div>
 
       <div className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 9, gridRow: 1}}>{runwayAndSequence}</div>
       <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 9, gridRow: 2}}>TOTAL</div>
       <div className={`${bodyCell} text-[clamp(9px,1.206cqw,20px)]`} style={{gridColumn: 9, gridRow: 3}}>ACC</div>
 
       <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 10, gridRow: 1}}>INITIAL</div>
-      <div aria-label="Initial total delay" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 10, gridRow: 2}}>{stripDifference(initialRunwayETA, detail?.initial_timing?.runway_sta)}</div>
-      <div aria-label="Initial accumulated delay" className={`${bodyCell} text-[clamp(7px,0.724cqw,12px)]`} style={{gridColumn: 10, gridRow: 3}}>{stripDifference(initialRunwayETA, initialRunwayETA)}</div>
+      <div aria-label="Initial total delay" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 10, gridRow: 2}}>{stripDifference(initialRunwayETA, initialRunwayETA)}</div>
+      <div aria-label="Initial accumulated delay" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 10, gridRow: 3}} />
       <div className={`${headerCell} text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 11, gridRow: 1}}>CURRENT</div>
-      <div aria-label="Current total delay" className={`${bodyCell} text-[clamp(7px,0.724cqw,12px)]`} style={{gridColumn: 11, gridRow: 2}}>{stripDifference(currentRunwayETA, runwaySTA)}</div>
-      <div aria-label="Current accumulated delay" className={`${bodyCell} text-[clamp(7px,0.724cqw,12px)]`} style={{gridColumn: 11, gridRow: 3}}>{stripDifference(detail?.teta_basis?.raw_reta, currentRunwayETA)}</div>
+      <div aria-label="Current total delay" title="RETA − TETA" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 11, gridRow: 2}}>{stripDifference(currentRETA, currentRunwayETA)}</div>
+      <div aria-label="Current accumulated delay" title="RETA − TETA" className={`${bodyCell} text-[clamp(8px,1.086cqw,18px)] tabular-nums`} style={{gridColumn: 11, gridRow: 3}}>{stripDifference(currentRETA, currentRunwayETA)}</div>
 
       <button aria-expanded={technicalOpen} aria-label="Technical evidence" className={`${accentHeaderCell} text-[clamp(9px,1.206cqw,20px)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-black`} onClick={onToggleTechnical} style={{gridColumn: 12, gridRow: 1}} type="button">Trajectory</button>
-      <div aria-label={directTo ? `Direct to ${trajectoryFix}` : `Route via ${trajectoryFix}`} className={`${bodyCell} grid-rows-3 text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 12, gridRow: "2 / 4"}}><span>{trajectoryKind}</span><span className="font-normal">{detail?.calculation?.distance_to_go_nm === null || detail?.calculation?.distance_to_go_nm === undefined ? "—" : `${Math.round(detail.calculation.distance_to_go_nm)}nm`}</span><span>{trajectoryFix}</span></div>
+      <div aria-label={directTo ? `Direct to ${trajectoryFix}` : `Route via ${trajectoryFix}`} className={`${bodyCell} grid-rows-3 text-[clamp(8px,1.086cqw,18px)]`} style={{gridColumn: 12, gridRow: "2 / 4"}}><span>{trajectoryKind}</span><span className="font-normal">{detail?.calculation?.distance_to_go_nm === null || detail?.calculation?.distance_to_go_nm === undefined ? "" : `${Math.round(detail.calculation.distance_to_go_nm)}nm`}</span><span>{trajectoryFix}</span></div>
 
-      <div className="grid bg-[#555355] pb-[0.784cqw] pl-[0.362cqw] pr-[0.422cqw] pt-[0.603cqw]" style={{gridColumn: 13, gridRow: "1 / 4"}}><button autoFocus aria-label="Close flight detail" className="grid place-items-center bg-[#313131] text-[clamp(9px,1.206cqw,20px)] font-semibold text-white hover:bg-[#3b3b3b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white" onClick={onClose} type="button">Close</button></div>
-      <div aria-hidden="true" className="pointer-events-none absolute left-0 top-0 h-[130px] w-[1658px] origin-top-left [zoom:calc(100cqw/1658px)]">
-        {[139, 631, 733, 1190, 1292, 1468].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider130} style={{left, top: 130}} />)}
-        {[907, 1011].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider129} style={{left, top: 129}} />)}
-        <img alt="" className="absolute left-[1578px] top-[130px] max-w-none origin-top-left -rotate-90" src={closeDivider} />
-        <img alt="" className="absolute left-0 top-[40px] max-w-none" src={headerDivider} />
+      {/* Firefox includes unscaled divider dimensions in scroll overflow unless the decorative layer is clipped. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-clip">
+        <div className="absolute left-0 top-0 h-[130px] w-[1658px] origin-top-left [zoom:calc(100cqw/1658px)]">
+          {[139, 631, 733, 1190, 1292, 1468].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider130} style={{left, top: 130}} />)}
+          {[907, 1011].map((left) => <img alt="" className="absolute max-w-none origin-top-left -rotate-90" key={left} src={divider129} style={{left, top: 129}} />)}
+          <img alt="" className="absolute left-0 top-[40px] max-w-none" src={headerDivider} />
+        </div>
       </div>
+    </div>
+    <dl aria-label="Holding information" className="col-start-1 row-start-3 flex h-[2.594cqw] items-stretch border-r-[0.121cqw] border-t-[0.121cqw] border-white bg-[#eff1e9] text-[clamp(9px,1.206cqw,20px)] font-semibold leading-normal">
+      <div className="flex items-center gap-[0.724cqw] border-r-[0.121cqw] border-white bg-[#c1d4c8] px-[0.965cqw]"><dt>HOLDING</dt><dd aria-label="Holding fix">{flight?.holding_fix || ""}</dd></div>
+      <div className="flex items-center gap-[0.724cqw] border-r-[0.121cqw] border-white bg-[#2dd3cc] px-[0.965cqw]" title="Expected approach time: AMAN’s calculated release from holding"><dt>EAT</dt><dd className="whitespace-nowrap tabular-nums"><span aria-label="Holding EAT">{holdingEAT}</span>{holdingEAT && <> <span className="text-[clamp(8px,0.965cqw,16px)] font-normal">UTC</span></>}</dd></div>
+      <div className="flex items-center gap-[0.724cqw] px-[0.965cqw]"><dt className="font-normal">Expected hold</dt><dd aria-label="Expected holding duration" className="tabular-nums">{detail?.holding_plan ? duration(detail.holding_plan.expected_holding_seconds) : ""}</dd></div>
+    </dl>
+    <div data-testid="flight-detail-close-panel" className="relative col-start-2 row-span-2 row-start-2 grid bg-[#555355] pb-[0.784cqw] pl-[0.362cqw] pr-[0.422cqw] pt-[0.603cqw]">
+      <button aria-label="Close flight detail" className="grid place-items-center bg-[#313131] text-[clamp(9px,1.206cqw,20px)] font-semibold text-white outline-none hover:bg-[#3b3b3b] focus-visible:underline focus-visible:decoration-2 focus-visible:underline-offset-4" onClick={onClose} type="button">Close</button>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-clip"><div className="absolute left-0 top-0 h-[130px] w-[80px] origin-top-left [zoom:calc(100cqw/1658px)]"><img alt="" className="absolute left-0 top-[130px] max-w-none origin-top-left -rotate-90" src={closeDivider} /></div></div>
     </div>
   </section>;
 }
 
-export function AMANFlightDetailDialog({airport, callsign, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; callsign: string; coordination?: {
+export function AMANFlightDetailDialog({airport, callsign, revision, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; callsign: string; revision?: number; coordination?: {
   requests: AMANCoordinationRequest[]; canSubmit: boolean; submitting: boolean; rejection?: string | null;
   onSubmit: (submission: {kind: "route_direct"; route?: string; direct_to?: string} | {kind: "speed"; requested: string}) => void;
 }; initialAction?: "missed-approach" | "removal"; missedApproach?: MissedApproachAction; removal?: RemovalAction; onClose: () => void}) {
@@ -417,7 +430,9 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
   const [removalOpen, setRemovalOpen] = useState(false);
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const returnFocusRef = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const detailKey = useMemo(() => `${airport}/${callsign}`, [airport, callsign]);
+  const loadedDetailKey = useRef<string | null>(null);
 
   useEffect(() => () => returnFocusRef.current?.focus(), []);
 
@@ -431,11 +446,18 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
   useEffect(() => {
     const abort = new AbortController();
     void (async () => {
-      setLoading(true); setError(null); setDetail(null);
+      if (loadedDetailKey.current !== detailKey) {
+        setLoading(true);
+        setDetail(null);
+      }
+      setError(null);
       try {
-        const token = await getAccessTokenSilently();
+        const token = requireAccessToken(await getAccessTokenSilently());
         const value = await fetchAMANFlightDetail(token, airport, callsign, abort.signal);
-        if (!abort.signal.aborted) setDetail(value);
+        if (!abort.signal.aborted) {
+          loadedDetailKey.current = detailKey;
+          setDetail(value);
+        }
       } catch (reason) {
         if (!abort.signal.aborted) setError(reason instanceof Error ? reason.message : "Unable to load AMAN flight detail.");
       } finally {
@@ -443,7 +465,7 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
       }
     })();
     return () => abort.abort();
-  }, [airport, callsign, getAccessTokenSilently, detailKey]);
+  }, [airport, callsign, revision, getAccessTokenSilently, detailKey]);
 
   const openMissedApproach = () => {
     setCoordinationOpen(false);
@@ -462,7 +484,7 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
   };
 
   return <Dialog onOpenChange={(open) => !open && onClose()} open>
-    <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[min(1658px,calc(100vw-1rem))] max-w-none flex-col gap-0 overflow-hidden border-0 bg-[#555355] p-0 text-white shadow-2xl [&>button]:hidden">
+    <DialogContent ref={dialogRef} onOpenAutoFocus={(event) => {event.preventDefault(); dialogRef.current?.focus();}} className="flex max-h-[calc(100dvh-1rem)] w-[min(1658px,calc(100vw-1rem))] max-w-none flex-col gap-0 overflow-hidden border-0 bg-[#555355] p-0 text-white shadow-2xl outline-none [&>button]:hidden">
       <FlightInformationSummary callsign={callsign} detail={detail} onClose={onClose} onToggleTechnical={() => setTechnicalOpen((open) => !open)} technicalOpen={technicalOpen} />
       {(missedApproach || removal || coordination) && <header className="flex items-center justify-between border-t-2 border-[#dcdcdc] bg-[#555355] px-3 py-2 font-['Rubik',sans-serif]">
         <span className="text-xs">state revision {detail?.revision ?? "—"}</span>
@@ -488,7 +510,7 @@ export function AMANFlightDetailDialog({airport, callsign, coordination, initial
           <div className="grid min-w-0 gap-6"><RouteMap detail={detail} /><section className="min-w-0 rounded border border-slate-700 p-4"><h3 className="mb-2 font-semibold">Filed flight plan route</h3><p className="mb-3 text-xs text-slate-400">Filed routing is shown separately from the operational geometry and has not been treated as a flown track.</p>{detail.flight.filed_route ? <code className="block whitespace-pre-wrap break-words rounded bg-slate-950 p-3 font-mono text-xs leading-5 text-slate-200">{detail.flight.filed_route}</code> : <p className="text-sm text-slate-400">No filed route is available from the flight plan.</p>}</section></div>
           <div className="grid min-w-0 content-start gap-6"><section className="rounded border border-slate-700 p-4"><h3 className="mb-3 font-semibold">Aircraft & performance input</h3><dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3 text-sm"><dt>Aircraft ICAO</dt><dd>{detail.flight.aircraft_type ?? "Unavailable"}</dd><dt>Wake category</dt><dd>{detail.flight.wake_category ?? "Unavailable"}</dd><dt>Observed altitude</dt><dd>{number(detail.position?.altitude_feet ?? null, " ft")}</dd><dt>Observed groundspeed</dt><dd>{number(detail.position?.groundspeed_knots ?? null, " kt")}</dd><dt>Derived true track</dt><dd>{number(detail.position?.track_true_degrees ?? null, "°T")}</dd><dt>Performance profile</dt><dd>{detail.teta_basis?.performance_profile_id ?? "Unavailable"}</dd><dt>Wind source</dt><dd>{detail.teta_basis?.weather_source ?? "Unavailable"}</dd></dl></section><section className="rounded border border-slate-700 p-4"><h3 className="mb-3 font-semibold">Operational TETA basis</h3>{detail.teta_basis ? <><dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3 text-sm"><dt>Raw TETA</dt><dd>{displayTime(detail.teta_basis.raw_teta)}</dd><dt>Accepted raw RETA</dt><dd>{displayTime(detail.teta_basis.raw_reta)}</dd><dt>Operational TETA</dt><dd className="font-semibold text-amber-300">{displayTime(detail.teta_basis.operational_teta)}</dd><dt>Prediction basis</dt><dd>{detail.teta_basis.prediction_basis || "Legacy/unspecified"}</dd><dt>Operational rule</dt><dd>{detail.teta_basis.operational_reason}</dd><dt>Freeze protection</dt><dd><FreezeDetail reason={detail.teta_basis.freeze_reason} /></dd><dt>Prediction input</dt><dd>{displayTime(detail.teta_basis.input_observed_at)}</dd></dl><div className="mt-4 border-t border-slate-700 pt-3 text-xs text-slate-300">Model {detail.teta_basis.model_version} · config {detail.teta_basis.config_version} · confidence {detail.teta_basis.confidence}<br />Profile {detail.teta_basis.performance_profile_id ?? "unavailable"} · weather {detail.teta_basis.weather_source ?? "unavailable"}<br />Sources: {detail.teta_basis.sources.join(", ") || "none"}{detail.teta_basis.degradation_reason && <><br /><span className="text-amber-300">Degraded: {detail.teta_basis.degradation_reason}</span></>}</div></> : <p className="text-sm text-slate-400">No publishable TETA calculation.</p>}</section>
             <section className="rounded border border-slate-700 p-4"><h3 className="mb-3 font-semibold">Operational slot basis</h3>{detail.slot_basis ? <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3 text-sm"><dt>Committed slot</dt><dd className="font-semibold text-cyan-300">{displayTime(detail.slot_basis.time)}</dd><dt>Runway group / sequence</dt><dd>{detail.slot_basis.runway_group_id} / {detail.slot_basis.sequence}</dd><dt>Slot reason</dt><dd>{detail.slot_basis.reason}</dd><dt>Feasibility</dt><dd className={detail.slot_basis.infeasible ? "font-semibold text-red-300" : "text-emerald-300"}>{detail.slot_basis.infeasible ? "Infeasible — controller action required" : "Feasible"}</dd><dt>Active rate</dt><dd>{detail.slot_basis.rate_per_hour || "Unavailable"} / hour</dd><dt>Preceding slot</dt><dd>{detail.slot_basis.previous_flight ? `${detail.slot_basis.previous_flight.callsign} ${displayTime(detail.slot_basis.previous_flight.slot_time)}` : "None"}</dd><dt>Protected by freeze</dt><dd>{detail.slot_basis.frozen ? "Yes" : "No"}</dd></dl> : <p className="text-sm text-slate-400">No committed operational slot.</p>}</section>
-            {detail.holding_plan && <section className="rounded border border-slate-700 p-4"><h3 className="mb-3 font-semibold">Expected holding & approach release</h3><dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3 text-sm"><dt>Hold entry</dt><dd>{displayTime(detail.holding_plan.holding_entry_time)}</dd><dt>Expected holding</dt><dd className="font-semibold text-cyan-300">{duration(detail.holding_plan.expected_holding_seconds)}</dd><dt>Release for approach</dt><dd className="font-semibold text-amber-300">{displayTime(detail.holding_plan.approach_release_time)}</dd><dt>Release to touchdown</dt><dd>{duration(detail.holding_plan.post_holding_transit_seconds)}</dd></dl><p className="mt-3 text-xs text-slate-400">Derived from the fixed slot and the current altitude-sensitive trajectory. The slot is not moved by this calculation.</p></section>}
+            {detail.holding_plan && <section className="rounded border border-slate-700 p-4"><h3 className="mb-3 font-semibold">Expected holding & approach release</h3><dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3 text-sm"><dt>Hold entry</dt><dd>{displayTime(detail.holding_plan.holding_entry_time)}</dd><dt>Expected holding</dt><dd className="font-semibold text-cyan-300">{duration(detail.holding_plan.expected_holding_seconds)}</dd><dt>Release for approach</dt><dd className="font-semibold text-amber-300">{displayTime(detail.holding_plan.approach_release_time)}</dd><dt>Accepted transit</dt><dd>{duration(detail.holding_plan.post_holding_transit_seconds)}</dd>{(detail.holding_plan.additional_approach_seconds ?? 0) > 0 && <><dt>Additional approach time</dt><dd>{duration(detail.holding_plan.additional_approach_seconds!)}</dd></>}</dl><p className="mt-3 text-xs text-slate-400">Accepted transit and any additional approach time are planned against the landing slot. The current trajectory calculation is shown separately.</p></section>}
             {detail.teta_basis?.baseline && <section className="rounded border border-slate-700 p-4 text-sm"><h3 className="mb-3 font-semibold">Initial baseline & review</h3><div>Baseline: {displayTime(detail.teta_basis.baseline.arrival_at)} ({detail.teta_basis.baseline.source})</div>{detail.teta_basis.eta_review && <div className="mt-3 rounded bg-amber-950/60 p-3">Review: {detail.teta_basis.eta_review.status}; selected {displayTime(detail.teta_basis.eta_review.selected_teta)}.</div>}</section>}
             {detail.teta_basis && <section className="rounded border border-slate-700 p-4 text-sm"><h3 className="mb-3 font-semibold">Raw prediction samples</h3>{detail.teta_basis.raw_samples.length ? <ul className="space-y-2 text-slate-300">{detail.teta_basis.raw_samples.map((sample) => <li key={sample.generated_at}>{displayTime(sample.generated_at)} → {displayTime(sample.teta)}</li>)}</ul> : <p className="text-slate-400">No smoothing samples retained.</p>}</section>}
           </div>

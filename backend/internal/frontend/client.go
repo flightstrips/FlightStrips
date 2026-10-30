@@ -23,14 +23,15 @@ const (
 
 // Client represents a frontend gorilla client
 type Client struct {
-	conn        *gorilla.Conn
-	session     int32
-	sessionName string
-	send        chan events.OutgoingMessage
-	closeOnce   sync.Once
-	closed      chan struct{}
-	hub         *Hub
-	user        shared.AuthenticatedUser
+	frequencyRequests sync.Map
+	conn              *gorilla.Conn
+	session           int32
+	sessionName       string
+	send              chan events.OutgoingMessage
+	closeOnce         sync.Once
+	closed            chan struct{}
+	hub               *Hub
+	user              shared.AuthenticatedUser
 
 	position       string
 	callsign       string
@@ -175,7 +176,7 @@ func (c *Client) CanHandleMessage(messageType string) error {
 		return nil
 	}
 
-	return errors.New("observer clients are read-only")
+	return shared.RejectAction("observer clients are read-only")
 }
 
 // HandlePong handles pong messages from the client

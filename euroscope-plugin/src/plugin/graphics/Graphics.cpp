@@ -24,11 +24,14 @@ namespace graphics {
         graphics->DrawRectangle(pen, gdi);
     }
 
-    void Graphics::DrawString(const std::string &text, const RECT &rect, const Gdiplus::Brush *brush, const Gdiplus::StringAlignment alignment) {
+    void Graphics::DrawString(const std::string &text, const RECT &rect, const Gdiplus::Brush *brush, const Gdiplus::StringAlignment alignment, bool typographic) {
         const auto gdi = ToGdiRectF(rect);
         stringFormat.SetAlignment(alignment);
         const std::wstring str = {text.begin(), text.end()};
-        graphics->DrawString(str.c_str(), -1, &font, gdi, &stringFormat, brush);
+        Gdiplus::StringFormat format(Gdiplus::StringFormat::GenericTypographic());
+        format.SetAlignment(alignment);
+        format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+        graphics->DrawString(str.c_str(), -1, &font, gdi, typographic ? &format : &stringFormat, brush);
     }
 
     void Graphics::DrawXButton(const Gdiplus::Pen *pen, const RECT &rect) const {
@@ -53,14 +56,14 @@ namespace graphics {
         graphics->FillEllipse(brush, gdi);
     }
 
-    std::string Graphics::FitStringToWidth(const std::string& text, const RECT& rect) const {
+    std::string Graphics::FitStringToWidth(const std::string& text, const RECT& rect, bool typographic) const {
         const auto maxWidth = static_cast<Gdiplus::REAL>(rect.right - rect.left);
-        if (text.empty() || maxWidth <= 0 || MeasureStringWidth(text) <= maxWidth) {
+        if (text.empty() || maxWidth <= 0 || MeasureStringWidth(text, typographic) <= maxWidth) {
             return text;
         }
 
         constexpr std::string_view ellipsis = "...";
-        if (MeasureStringWidth(std::string(ellipsis)) > maxWidth) {
+        if (MeasureStringWidth(std::string(ellipsis), typographic) > maxWidth) {
             return {};
         }
 
@@ -69,7 +72,7 @@ namespace graphics {
         while (low < high) {
             const int mid = (low + high + 1) / 2;
             const auto candidate = text.substr(0, mid) + std::string(ellipsis);
-            if (MeasureStringWidth(candidate) <= maxWidth) {
+            if (MeasureStringWidth(candidate, typographic) <= maxWidth) {
                 low = mid;
             } else {
                 high = mid - 1;
@@ -86,11 +89,12 @@ namespace graphics {
         return { static_cast<Gdiplus::REAL>(rect.left), static_cast<Gdiplus::REAL>(rect.top), static_cast<Gdiplus::REAL>(rect.right - rect.left), static_cast<Gdiplus::REAL>(rect.bottom - rect.top) };
     }
 
-    auto Graphics::MeasureStringWidth(const std::string& text) const -> Gdiplus::REAL {
+    auto Graphics::MeasureStringWidth(const std::string& text, bool typographic) const -> Gdiplus::REAL {
         const std::wstring wideText(text.begin(), text.end());
         Gdiplus::RectF bounds{};
         Gdiplus::StringFormat format(Gdiplus::StringFormatFlags::StringFormatFlagsNoClip);
-        graphics->MeasureString(wideText.c_str(), -1, &font, Gdiplus::PointF(0, 0), &format, &bounds);
+        Gdiplus::StringFormat typographicFormat(Gdiplus::StringFormat::GenericTypographic());
+        graphics->MeasureString(wideText.c_str(), -1, &font, Gdiplus::PointF(0, 0), typographic ? &typographicFormat : &format, &bounds);
         return bounds.Width;
     }
 

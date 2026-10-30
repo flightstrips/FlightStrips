@@ -17,6 +17,8 @@ FetchContent_MakeAvailable(googletest)
 ################################################################################
 
 set(ALL_FILES
+        vacs/VacsClientTest.cpp
+        graphics/VacsPanelTest.cpp
         $<TARGET_OBJECTS:FlightStripsPluginCore>
 
         # Authentication

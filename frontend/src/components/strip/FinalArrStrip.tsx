@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
@@ -12,6 +13,8 @@ import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getDefaultExitTaxiway } from "./defaultExitTaxiway";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
+import { getRwyArrRunwayColor } from "./finalArrRunwayColor";
+import {InboundCtotFlag} from "./InboundCtotFlag";
 
 // Heights — 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom
 const TOP_H = "66.6667%";
@@ -36,6 +39,7 @@ const F_STAND    = 80;
  * Background: yellow (var(--color-strip-arr-bg)). Cell borders: gold (var(--color-cell-border-arr)).
  */
 export function FinalArrStrip({
+  communicationType,
   callsign,
   bay,
   aircraftType,
@@ -67,6 +71,7 @@ export function FinalArrStrip({
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
+  const resetRunwayClearance = useWebSocketStore(s => s.resetRunwayClearance);
   const [standOpen, setStandOpen] = useState(false);
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
@@ -78,14 +83,9 @@ export function FinalArrStrip({
 
   const defaultTwy = holdingPoint ? "" : getDefaultExitTaxiway(runway, stand);
 
-  // RWY cell color — only when cleared in RWY_ARR bay:
-  // - runway_confirmed = true: green (controller acknowledged)
-  // - runway_cleared = true, runway_confirmed = false: red (new/incoming, needs attention)
-  // - not yet cleared: no background (default strip color)
-  let rwyColor: string | undefined;
-  if (bay === Bay.RwyArr && runwayCleared) {
-    rwyColor = runwayConfirmed ? "var(--color-runway-confirmed)" : "var(--color-runway-closed)";
-  }
+  const rwyColor = bay === Bay.RwyArr
+    ? getRwyArrRunwayColor({ runwayCleared, runwayConfirmed })
+    : undefined;
 
   return (
     <>
@@ -95,7 +95,6 @@ export function FinalArrStrip({
         height: "4.72dvh",
         width: "95%",
         backgroundColor: bg,
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >
@@ -130,6 +129,7 @@ export function FinalArrStrip({
           <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>
             {callsign}
           </span>
+          <InboundCtotFlag callsign={callsign} />
         </div>
         <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
           <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>
@@ -189,10 +189,14 @@ export function FinalArrStrip({
             cursor: (bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined,
           }}
           onClick={(bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? (e) => guardValidationAction(e, () => {
-            if (runwayCleared && !runwayConfirmed) {
+            if (bay === Bay.RwyArr && runwayCleared && runwayConfirmed) {
+              resetRunwayClearance(callsign);
+            } else if (bay === Bay.RwyArr || (runwayCleared && !runwayConfirmed)) {
               runwayConfirmation(callsign);
             } else {
-              runwayClearance(callsign);
+              if (bay === Bay.Final) {
+                runwayClearance(callsign);
+              }
             }
           }) : undefined}
         >
@@ -221,9 +225,11 @@ export function FinalArrStrip({
 
       {/* STAR (inactive) */}
       <div
-        className="flex flex-col overflow-hidden min-w-0"
+        className="relative flex flex-col overflow-hidden min-w-0"
         style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%" }}
-      />
+      >
+        <TextPilotIndicator divider={false} type={communicationType} borderColor={stripFrameColor} />
+      </div>
     </div>
 
     <ArrStandDialog

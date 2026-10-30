@@ -18,7 +18,7 @@ export function AMANExcludedFlights({flights, disabled, pendingCommands, command
       const rejection = commandID ? commandRejections[commandID]?.message : undefined;
       return <div className="border border-[#777] p-2" key={flight.callsign}>
         <div className="flex items-center justify-between gap-3">
-          <span><b>{flight.callsign}</b> · {flight.lifecycle_state === "removed" ? "Removed" : "Desequenced"}</span>
+          <span><b>{flight.callsign}</b> · {flight.lifecycle_state === "removed" ? "Removed" : flight.expedited ? "Expedited" : "Desequenced"}</span>
           <button className="border border-[#777] px-2 py-1 disabled:opacity-50" disabled={disabled || pending} onClick={() => {
             const id = onCommand({type: "aman.resume_flight", callsign: flight.callsign});
             setCommands(previous => ({...previous, [flight.callsign]: id}));

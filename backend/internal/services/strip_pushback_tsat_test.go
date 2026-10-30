@@ -71,6 +71,7 @@ func TestPushbackDiagnosticPreservesInitialTimingAndExportError(t *testing.T) {
 	var entry map[string]any
 	require.NoError(t, json.Unmarshal(output.Bytes(), &entry))
 	assert.Equal(t, "viff_unconfirmed", entry["reason"])
+	assert.Equal(t, "WARN", entry["level"])
 	assert.Equal(t, tsat, entry["initial_tsat"])
 	assert.Equal(t, tobt, entry["initial_tobt"])
 	assert.Equal(t, final, entry["tsat"])
@@ -78,6 +79,55 @@ func TestPushbackDiagnosticPreservesInitialTimingAndExportError(t *testing.T) {
 	assert.Equal(t, "valid", entry["window_state"])
 	assert.Contains(t, entry["verification_error"], "vIFF did not confirm update: false")
 	assert.Contains(t, strip.ValidationStatus.Message, "vIFF could not confirm")
+}
+
+func TestPushbackRejectionLoggingPreservesVerificationFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name                string
+		ctot                string
+		readErr, prepareErr error
+		verified            bool
+		level               string
+		expectedRejection   bool
+	}{
+		{"CTOT guard", "1720", nil, nil, true, "INFO", true},
+		{"outside TSAT window", "", nil, nil, true, "INFO", true},
+		{"unconfirmed export", "", nil, cdm.ErrPushbackVerification, false, "WARN", false},
+		{"unconfirmed without error", "", nil, nil, false, "WARN", false},
+		{"read failure despite later confirmation", "", errors.New("read failed"), nil, true, "WARN", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var output bytes.Buffer
+			previous := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+			t.Cleanup(func() { slog.SetDefault(previous) })
+			now := time.Now().UTC()
+			tobt, tsat := now.Format("1504"), now.Add(30*time.Minute).Format("1504")
+			strip := &models.Strip{Callsign: "SAS779", CdmData: &models.CdmData{Tobt: &tobt, Tsat: &tsat}}
+			svc := &StripService{
+				stripReader: &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil }},
+				validationStore: &validationStoreFake{setValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+					strip.ValidationStatus = status
+					return nil
+				}},
+				publisher: &testutil.MockFrontendHub{},
+				cdmService: pushbackCdmStub{
+					readCtot: func(context.Context, int32, string) (string, error) { return tc.ctot, tc.readErr },
+					prepare: func(context.Context, int32, string) (string, string, bool, error) {
+						return tobt, tc.ctot, tc.verified, tc.prepareErr
+					},
+				},
+			}
+			err := svc.validatePushbackTiming(context.Background(), 779, strip, "EKCH_GND")
+			require.EqualError(t, err, "pushback requires TSAT override")
+			var rejection *shared.ActionRejection
+			assert.Equal(t, tc.expectedRejection, errors.As(err, &rejection))
+			var entry map[string]any
+			require.NoError(t, json.Unmarshal(output.Bytes(), &entry))
+			assert.Equal(t, tc.level, entry["level"])
+			assert.True(t, strip.ValidationStatus.Active, "log levels must not bypass validation")
+		})
+	}
 }
 
 func TestPushbackOverrideLogOnlyFollowsSuccessfulAcknowledgement(t *testing.T) {
@@ -179,15 +229,51 @@ func TestPushbackReadsRemoteCtotWithoutAcceptingRemoteTsat(t *testing.T) {
 			},
 		},
 	}
-	require.ErrorContains(t, svc.validatePushbackTiming(context.Background(), 779, strip, "EKCH_GND"), "override")
+	require.NoError(t, svc.validatePushbackTiming(context.Background(), 779, strip, "EKCH_GND"))
 	assert.Equal(t, 1, reads)
 	assert.Zero(t, preparations)
 	assert.Equal(t, localTsat, *strip.CdmData.Tsat)
-	strip.ValidationStatus.Active = false
+	assert.Nil(t, strip.ValidationStatus)
 	require.NoError(t, svc.validatePushbackTiming(context.Background(), 779, strip, "EKCH_GND"))
-	assert.Equal(t, 2, reads, "Override retry must recheck vIFF CTOT")
+	assert.Equal(t, 2, reads, "Each attempt rechecks vIFF CTOT")
 	remoteCtot = now.Add(31 * time.Minute).Format("1504")
-	require.ErrorContains(t, svc.validatePushbackTiming(context.Background(), 779, strip, "EKCH_GND"), "override")
+	strip.CdmData.Ctot = &remoteCtot
+	require.NoError(t, svc.validatePushbackTiming(context.Background(), 779, strip, "EKCH_GND"))
+	assert.Nil(t, strip.ValidationStatus)
+}
+
+func TestFrontendPushbackWithinTsatWindowAcceptsCtot(t *testing.T) {
+	for _, hasCtot := range []bool{false, true} {
+		t.Run(fmt.Sprintf("ctot=%t", hasCtot), func(t *testing.T) {
+			now := time.Now().UTC()
+			tobt, tsat := now.Format("1504"), now.Add(2*time.Minute).Format("1504")
+			ctot := ""
+			data := &models.CdmData{Tobt: &tobt, Tsat: &tsat}
+			if hasCtot {
+				ctot = now.Add(12 * time.Minute).Format("1504")
+				data.Ctot = &ctot
+			}
+			fixture := newFrontendMoveFixture(&models.Strip{
+				Callsign: "SAS779", Origin: "EKCH", Bay: shared.BAY_CLEARED, CdmData: data,
+			})
+			fixture.svc.validationStore = &validationStoreFake{setValidationStatusFn: func(context.Context, int32, string, *models.ValidationStatus) error {
+				t.Fatal("in-window pushback must not require override")
+				return nil
+			}}
+			fixture.svc.cdmService = pushbackCdmStub{
+				StripCdmService: &spyStripCdmService{},
+				readCtot:        func(context.Context, int32, string) (string, error) { return ctot, nil },
+				prepare: func(context.Context, int32, string) (string, string, bool, error) {
+					t.Fatal("in-window pushback must not change TOBT")
+					return "", "", false, nil
+				},
+			}
+			require.NoError(t, fixture.svc.MoveFrontendStrip(fixture.ctx, 779, "SAS779", shared.BAY_PUSH, "123", "EKCH", "EKCH_GND", false, false))
+			assert.Equal(t, shared.BAY_PUSH, fixture.strip.Bay)
+			assert.Equal(t, tobt, *fixture.strip.EffectiveTobt())
+			assert.Nil(t, fixture.strip.ValidationStatus)
+		})
+	}
 }
 
 func TestPushbackUnconfirmedCtotNeedsOverride(t *testing.T) {
@@ -275,17 +361,24 @@ func TestPushbackRecalculationRequiresOverrideWhenViffReturnsCtot(t *testing.T) 
 			clearValidationStatusFn: func(context.Context, int32, string) error { strip.ValidationStatus = nil; return nil },
 		},
 		publisher: &testutil.MockFrontendHub{},
-		cdmService: pushbackCdmStub{prepare: func(context.Context, int32, string) (string, string, bool, error) {
-			prepared++
-			recalculated := now.Format("1504")
-			strip.CdmData.Tsat = &recalculated
-			strip.CdmData.Ctot = &ctot
-			return recalculated, ctot, true, nil
-		}},
+		cdmService: pushbackCdmStub{
+			readCtot: func(context.Context, int32, string) (string, error) {
+				return valueOrEmptyStripTime(strip.EffectiveCtot()), nil
+			},
+			prepare: func(context.Context, int32, string) (string, string, bool, error) {
+				prepared++
+				recalculated := now.Format("1504")
+				strip.CdmData.Tsat = &recalculated
+				strip.CdmData.Ctot = &ctot
+				return recalculated, ctot, true, nil
+			},
+		},
 	}
 	require.ErrorContains(t, svc.validatePushbackTiming(context.Background(), 780, strip, owner), "override")
 	require.NotNil(t, strip.ValidationStatus)
 	assert.Equal(t, 1, prepared)
+	require.ErrorContains(t, svc.validatePushbackTiming(context.Background(), 780, strip, owner), "override")
+	assert.Equal(t, 1, prepared, "retry cannot bypass the CTOT returned after correction")
 	strip.ValidationStatus.Active = false
 	require.NoError(t, svc.validatePushbackTiming(context.Background(), 780, strip, owner))
 	assert.Equal(t, 1, prepared)

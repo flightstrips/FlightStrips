@@ -1,3 +1,4 @@
+import { isTextPilot, textTaxiActions } from "@/lib/text-pilot";
 import { controllerOwnsTowerSectors, useWebSocketStore, useRunwaySetup, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
 import { COORDINATION_WITH_APRON_TAXI_MAP_POINTS, COORDINATION_WITH_TWR_TAXI_MAP_POINTS, TAXI_MAP_POINTS } from "@/config/ekch";
 import type { VisibilityContext } from "@/config/ekch";
@@ -25,6 +26,7 @@ export function TaxiMapDialog({
   callsign,
   moveOnSelect = false,
 }: TaxiMapDialogProps) {
+  const openTextPilotMenu = useWebSocketStore(s => s.openTextPilotMenu);
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const move = useWebSocketStore((s) => s.move);
@@ -34,6 +36,7 @@ export function TaxiMapDialog({
   const isTwr       = useIsTwr();
   const strip = useStrip(callsign);
   const myPosition = useMyPosition();
+  const layout = useWebSocketStore(s => s.displayedLayout || s.layout);
   const airport = useWebSocketStore((s) => s.airport);
   const controllers = useWebSocketStore((s) => s.controllers);
 
@@ -61,6 +64,10 @@ export function TaxiMapDialog({
       : COORDINATION_WITH_APRON_TAXI_MAP_POINTS;
 
   const handleSelect = (label: string) => {
+    if (isTextPilot(strip)) {
+      openTextPilotMenu({ callsign, variant: strip?.destination === airport && strip?.origin !== airport ? "tower-in" : "tower-out", point: label, splitTowerDefaults: ["GEGW", "TWTE"].includes(layout), actions: textTaxiActions(callsign, label, moveOnSelect ? Bay.TaxiLwr : undefined, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
+      return;
+    }
     if (label !== strip?.release_point) {
       setReleasePoint(callsign, label);
     }

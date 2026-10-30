@@ -158,3 +158,7 @@ namespace FlightStrips::configuration {
     }
 } // configuration
 // FlightStrips
+
+int FlightStrips::configuration::AppConfig::GetFrequencyMessageKey() {
+    return 0x6A; // VK_MULTIPLY: FREQ always uses numpad *, never a configurable character
+}

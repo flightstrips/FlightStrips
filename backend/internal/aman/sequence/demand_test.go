@@ -38,6 +38,20 @@ func TestDemandSpacingThresholdAndSnapshot(t *testing.T) {
 	}
 }
 
+func TestSpacingDiagnosticsMatchesAllocationDemand(t *testing.T) {
+	at := time.Date(2026, 10, 19, 18, 0, 0, 0, time.UTC)
+	for _, count := range []int{4, 5} {
+		input := demandInput(at, count)
+		snapshot := SpacingDiagnostics(input)
+		require.Len(t, snapshot, count)
+		for _, entry := range snapshot {
+			require.Equal(t, count, entry.DemandCount)
+			require.Equal(t, count == 5, entry.Active)
+			require.EqualValues(t, 20, entry.Threshold)
+		}
+	}
+}
+
 func TestDemandWindowBoundariesAndExclusions(t *testing.T) {
 	at := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	input := demandInput(at, 5)

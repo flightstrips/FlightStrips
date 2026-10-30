@@ -1,3 +1,4 @@
+import { TextPilotIndicator } from "./TextPilotIndicator";
 import { SEMI_BOLD_STROKE } from "./shared";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
@@ -35,6 +36,7 @@ const HALF_H  = "50%";
  *   Right: EOBT (left half) | TOBT/TSAT (right half, stacked with line between)
  */
 export function DelStrip({
+  communicationType,
   callsign,
   bay,
   pdcStatus,
@@ -99,7 +101,6 @@ export function DelStrip({
       style={{
         height: FULL_H,
         width: fullWidth ? "100%" : "80%",
-        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >
@@ -111,11 +112,13 @@ export function DelStrip({
 
         {/* Callsign — 2/3 of left half */}
         <button
-          className={`flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition) }}
+          aria-label={callsign}
+          className={`relative flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
+          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.15vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
+          <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
           <span className="truncate w-full">{callsign}</span>
         </button>
 

@@ -12,7 +12,7 @@ namespace FlightStrips::graphics {
     }
 
     int CalculateInfoPanelContentHeight(const InfoPanelData& data) {
-        int contentHeight = 83 + (data.sessionSelectable ? 28 : 16) + 25 + 5;
+        int contentHeight = 83 + (data.sessionSelectable ? 28 : 16) + 25 + 5 + 16 + 66;
         if (data.showStats) {
             if (data.connected) {
                 contentHeight += 39;
@@ -21,6 +21,10 @@ namespace FlightStrips::graphics {
         }
 
         return contentHeight;
+    }
+
+    int CalculateVacsSectionTop(const InfoPanelData& data, const RECT& menubar) {
+        return menubar.bottom + 58 + 9 + (data.sessionSelectable ? 28 : 16) + 19 + 16 + 8;
     }
 
     AuthenticationButtonLayout CalculateAuthenticationButtonLayout(const InfoPanelData& data, const int left, const int right, const int y) {
@@ -50,6 +54,14 @@ namespace FlightStrips::graphics {
         }
     }
 
+    std::string GetInfoPanelMasterLabel(const InfoPanelData& data) {
+        if (!data.connected) {
+            return "Master: Unknown";
+        }
+
+        return data.stats.masterCallsign.empty() ? "Master: None" : std::format("Master: {}", data.stats.masterCallsign);
+    }
+
     RECT ClampRectToBounds(const RECT& rect, const RECT& bounds) {
         const int boundsWidth = bounds.right - bounds.left;
         const int boundsHeight = bounds.bottom - bounds.top;
@@ -68,18 +80,18 @@ namespace FlightStrips::graphics {
         return {left, top, left + width, top + height};
     }
 
-    void DrawInfoPanel(EuroScopePlugIn::CRadarScreen& screen,
+    void DrawInfoPanel(EuroScopePlugIn::CRadarScreen* screen,
                        Graphics& graphics,
                        const Colors& colors,
                        const RECT& menubar,
                        const InfoPanelData& data,
                        const bool isMinimized) {
-        screen.AddScreenObject(InfoScreenObjectIds::Window, "", menubar, true, nullptr);
+        if (screen) screen->AddScreenObject(InfoScreenObjectIds::Window, "", menubar, true, nullptr);
 
         const RECT closeButton = {menubar.right - 12, menubar.top + 3, menubar.right - 3, menubar.bottom - 3};
-        screen.AddScreenObject(InfoScreenObjectIds::CloseButton, "", closeButton, false, nullptr);
+        if (screen) screen->AddScreenObject(InfoScreenObjectIds::CloseButton, "", closeButton, false, nullptr);
         const RECT minimizeButton = {menubar.right - 30, menubar.top + 3, menubar.right - 18, menubar.bottom - 3};
-        screen.AddScreenObject(InfoScreenObjectIds::MinimizeButton, "", minimizeButton, false, nullptr);
+        if (screen) screen->AddScreenObject(InfoScreenObjectIds::MinimizeButton, "", minimizeButton, false, nullptr);
 
         if (!isMinimized) {
             const RECT windowRect = {menubar.left, menubar.top, menubar.right, menubar.bottom + CalculateInfoPanelContentHeight(data)};
@@ -100,6 +112,7 @@ namespace FlightStrips::graphics {
         graphics.FillEllipse(dotBrush, headerDot);
 
         if (isMinimized) {
+            if (data.vacsEnabled && data.vacsMiniPreference) DrawVacsPanel(screen, graphics, colors, menubar.left, menubar.top, true, true, true, data.vacsView);
             return;
         }
 
@@ -138,14 +151,14 @@ namespace FlightStrips::graphics {
                             authButtonLayout.authenticationButtonRect,
                             colors.whiteBrush.get(),
                             Gdiplus::StringAlignmentCenter);
-        screen.AddScreenObject(InfoScreenObjectIds::AuthenticationButton, "", authButtonLayout.authenticationButtonRect, false, nullptr);
+        if (screen) screen->AddScreenObject(InfoScreenObjectIds::AuthenticationButton, "", authButtonLayout.authenticationButtonRect, false, nullptr);
         if (authButtonLayout.openAppButtonRect.has_value()) {
             graphics.FillRect(colors.headerBrush.get(), authButtonLayout.openAppButtonRect.value());
             graphics.DrawString("Open App",
                                 authButtonLayout.openAppButtonRect.value(),
                                 colors.whiteBrush.get(),
                                 Gdiplus::StringAlignmentCenter);
-            screen.AddScreenObject(InfoScreenObjectIds::OpenAppButton, "", authButtonLayout.openAppButtonRect.value(), false, nullptr);
+            if (screen) screen->AddScreenObject(InfoScreenObjectIds::OpenAppButton, "", authButtonLayout.openAppButtonRect.value(), false, nullptr);
         }
 
         y += 58;
@@ -173,8 +186,8 @@ namespace FlightStrips::graphics {
 
             drawModeButton(liveButtonRect, "LIVE", liveSelected);
             drawModeButton(sweatboxButtonRect, "SWEATBOX", sweatboxSelected);
-            screen.AddScreenObject(InfoScreenObjectIds::SessionLiveButton, "", liveButtonRect, false, nullptr);
-            screen.AddScreenObject(InfoScreenObjectIds::SessionSweatboxButton, "", sweatboxButtonRect, false, nullptr);
+            if (screen) screen->AddScreenObject(InfoScreenObjectIds::SessionLiveButton, "", liveButtonRect, false, nullptr);
+            if (screen) screen->AddScreenObject(InfoScreenObjectIds::SessionSweatboxButton, "", sweatboxButtonRect, false, nullptr);
             y += 16;
         } else {
             const RECT sessionRect = {left, y, right, y + 16};
@@ -196,13 +209,19 @@ namespace FlightStrips::graphics {
         graphics.DrawString(statusText, statusLabelRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
         y += 19;
 
+        const RECT masterRect = {left, y, right, y + 16};
+        graphics.DrawString(GetInfoPanelMasterLabel(data), masterRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+        y += 16;
+
         graphics.DrawHLine(colors.separatorPen.get(), menubar.left + 3, y + 3, menubar.right - 3);
         y += 8;
 
-        const RECT statsToggleRect = {left, y, right, y + 14};
-        screen.AddScreenObject(InfoScreenObjectIds::StatsToggle, "", statsToggleRect, false, nullptr);
+        DrawVacsPanel(screen, graphics, colors, menubar.left, y, false, data.vacsEnabled, data.vacsMiniPreference, data.vacsView);
+        y += 66;
+        const RECT vacsStatsToggleRect = {left, y, right, y + 14};
+        if (screen) screen->AddScreenObject(InfoScreenObjectIds::StatsToggle, "", vacsStatsToggleRect, false, nullptr);
         graphics.DrawString(data.showStats ? "Stats  [-]" : "Stats  [+]",
-                            statsToggleRect,
+                            vacsStatsToggleRect,
                             colors.whiteBrush.get(),
                             Gdiplus::StringAlignmentNear);
         y += 14;

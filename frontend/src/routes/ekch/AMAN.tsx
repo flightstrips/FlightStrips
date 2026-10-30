@@ -3,22 +3,25 @@ import {useEffect, useLayoutEffect, useRef, useState} from "react";
 import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
 import {AMANExcludedFlights} from "@/components/aman/AMANExcludedFlights";
+import {AMANInboundDepartures} from "@/components/aman/AMANInboundDepartures";
 import {AMANCoordinationInbox} from "@/components/aman/AMANCoordinationInbox";
 import {AMANCoordinationRequestDialog} from "@/components/aman/AMANCoordinationRequestDialog";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
 import {AMANQuickGapDialog} from "@/components/aman/AMANQuickGapDialog";
+import {AMANSwapDialog} from "@/components/aman/AMANSwapDialog";
 import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
 import {AMANSettingsPanel} from "@/components/aman/AMANSettingsPanel";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
-import {getAMANMutationBlockReason, isExcludedAMANFlight} from "@/api/aman";
+import {canSwapAMANFlight, getAMANMutationBlockReason, isExcludedAMANFlight} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {EKCH_TMT_HOLDING_ORDER} from "@/config/aman";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 
 export default function AMAN() {
+  const inboundDepartures = useWebSocketStore((value) => value.inboundDepartures);
   const state = useWebSocketStore((value) => value.amanState);
   const presentationStatus = useWebSocketStore((value) => value.amanPresentationStatus);
   const error = useWebSocketStore((value) => value.amanError);
@@ -40,6 +43,8 @@ export default function AMAN() {
   const [removalCommandID, setRemovalCommandID] = useState<string | null>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [quickGapOpen, setQuickGapOpen] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapCommandID, setSwapCommandID] = useState<string | null>(null);
   const [focusedRunwayGroupID, setFocusedRunwayGroupID] = useState<string | null>(null);
   const [tmtTab, setTmtTab] = useState("holdings");
   const stateAtMount = useRef(state);
@@ -55,6 +60,7 @@ export default function AMAN() {
     {id: "warnings", label: `Warnings (${warnings.items.length})`},
     {id: "settings", label: "Settings"},
     {id: "excluded", label: `Excluded (${state?.flights.filter(isExcludedAMANFlight).length ?? 0})`},
+    {id: "ctot", label: `CTOT (${inboundDepartures?.flights.length ?? 0})`},
     ...(!hasFMPAuthority ? [{id: "coordination", label: `Coordination (${state?.coordination_requests?.filter(request => request.state === "pending").length ?? 0})`}] : []),
   ];
   const activeTmtTab = tmtTabs.some(tab => tab.id === tmtTab) ? tmtTab : "holdings";
@@ -108,7 +114,7 @@ export default function AMAN() {
                 ? <TMTTrafficPrediction prediction={state.traffic_prediction} />
                 : <section className="aman-tmt-placeholder" aria-label="TMT traffic prediction unavailable"><b>TMT · TRAFFIC PREDICTION</b><span>Prediction data unavailable</span></section>}
             </div>
-            <div aria-label="TMT views" className="my-2 flex gap-1" role="tablist">
+            <div aria-label="TMT views" className="my-2 flex flex-wrap gap-1" role="tablist">
               {tmtTabs.map((tab, index) => <button
                 aria-controls={`tmt-${tab.id}-panel`}
                 aria-selected={activeTmtTab === tab.id}
@@ -154,6 +160,9 @@ export default function AMAN() {
             {activeTmtTab === "excluded" && <div aria-labelledby="tmt-excluded-tab" id="tmt-excluded-panel" role="tabpanel" tabIndex={0}>
               <AMANExcludedFlights flights={state?.flights ?? []} disabled={mutationBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
             </div>}
+            {activeTmtTab === "ctot" && <div aria-labelledby="tmt-ctot-tab" className="aman-tmt-notices" id="tmt-ctot-panel" role="tabpanel" tabIndex={0}>
+              <AMANInboundDepartures snapshot={inboundDepartures ?? null} connected={connectionState === "connected"} />
+            </div>}
             {activeTmtTab === "warnings" && <div aria-labelledby="tmt-warnings-tab" className="aman-tmt-notices" id="tmt-warnings-panel" role="tabpanel" tabIndex={0}>
               <AMANWarningPanel
               connectionState={connectionState}
@@ -197,11 +206,21 @@ export default function AMAN() {
               }} type="button"><span>{label}</span>{child && <span aria-hidden="true">▶</span>}</button>
             ))}
             <div className="mx-1 my-0.5 border-t-2 border-white" />
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canSwapAMANFlight(selectedFlight)} onClick={() => {
+              setFlightActionsOpen(false);
+              setSwapCommandID(null);
+              setSwapOpen(true);
+            }} type="button">Swap sequence</button>
             <button className="min-h-5 px-3 text-left hover:bg-[#6685c2]" onClick={() => {
               setFlightActionsOpen(false);
               setCoordinationOpen(true);
             }} type="button">Coordination</button>
             <div className="mx-1 my-0.5 border-t-2 border-white" />
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || selectedFlight === null || !selectedFlight.slot || selectedFlight.sequence_disposition === "desequenced" || !["unstable", "stable", "go_around"].includes(selectedFlight.lifecycle_state) || Object.values(pendingCommands).some(command => command.callsign === effectiveSelectedCallsign && ["aman.expedite_flight", "aman.desequence_flight", "aman.resume_flight", "aman.remove_flight"].includes(command.type))} onClick={() => {
+              if (selectedFlight) sendCommand({type: "aman.expedite_flight", callsign: selectedFlight.callsign});
+              setFlightActionsOpen(false);
+              setControlsOpen(true);
+            }} type="button">Expedite</button>
             {["Missed Approach", "De-Sequence", "Insert Closure", "Insert Gap"].map((label) => (
               <button className="flex min-h-5 items-center justify-between px-3 text-left hover:bg-[#6685c2]" key={label} onClick={() => {
                 setFlightActionsOpen(false);
@@ -233,6 +252,16 @@ export default function AMAN() {
         open={quickGapOpen}
         rejection={Object.values(commandRejections).find((item) => item.command_type === "aman.create_gap")?.message ?? null}
       />
+      {swapOpen && selectedFlight !== null && <AMANSwapDialog
+        key={selectedFlight.callsign}
+        busy={Object.values(pendingCommands).some((command) => command.type === "aman.swap_flights" || command.type === "aman.move_flight" || command.type === "aman.rebuild_arrival_sequence")}
+        disabled={mutationBlockReason !== null}
+        flight={selectedFlight}
+        flights={state?.flights ?? []}
+        onClose={() => setSwapOpen(false)}
+        onCommand={(intent) => setSwapCommandID(sendCommand(intent))}
+        rejection={swapCommandID ? commandRejections[swapCommandID]?.message ?? null : null}
+      />}
       {coordinationOpen && state !== null && effectiveSelectedCallsign !== null && selectedFlight !== null && <AMANCoordinationRequestDialog
         callsign={selectedFlight.callsign}
         canSubmit={mutationBlockReason === null}
@@ -242,7 +271,7 @@ export default function AMAN() {
         requests={(state.coordination_requests ?? []).filter((request) => request.callsign === effectiveSelectedCallsign)}
         submitting={coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined}
       />}
-      {detailOpen && state !== null && effectiveSelectedCallsign !== null && (selectedFlight !== null || detailAction === "none") && <AMANFlightDetailDialog airport={state.airport} callsign={effectiveSelectedCallsign} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" || selectedFlight === null ? undefined : {
+      {detailOpen && state !== null && effectiveSelectedCallsign !== null && (selectedFlight !== null || detailAction === "none") && <AMANFlightDetailDialog airport={state.airport} callsign={effectiveSelectedCallsign} revision={state.revision} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" || selectedFlight === null ? undefined : {
         blockReason: mutationBlockReason,
         confirmation: selectedFlight?.go_around_confirmation,
         confirmed: selectedFlight?.lifecycle_state === "go_around",

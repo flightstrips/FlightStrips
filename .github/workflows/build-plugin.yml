@@ -56,7 +56,7 @@ jobs:
         working-directory: ./euroscope-plugin/build
         run: ctest --output-on-failure --build-config Release -j8
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Plugin
           path: |

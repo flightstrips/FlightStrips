@@ -22,9 +22,11 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		payload   string
 		operation string
 	}{
+		{"swap", frontendEvents.AMANSwapFlightsType, `{"type":"aman.swap_flights","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","other_callsign":"flight-2"}}`, "swap"},
 		{"move", frontendEvents.AMANMoveFlightType, `{"type":"aman.move_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","runway_group_id":"A","before_callsign":"flight-2"}}`, "move"},
 		{"lock", frontendEvents.AMANLockFlightType, `{"type":"aman.lock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "lock"},
 		{"unlock", frontendEvents.AMANUnlockFlightType, `{"type":"aman.unlock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "unlock"},
+		{"expedite", frontendEvents.AMANExpediteFlightType, `{"type":"aman.expedite_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "expedite"},
 		{"desequence", frontendEvents.AMANDesequenceFlightType, `{"type":"aman.desequence_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "desequence"},
 		{"resume", frontendEvents.AMANResumeFlightType, `{"type":"aman.resume_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "resume"},
 		{"remove", frontendEvents.AMANRemoveFlightType, `{"type":"aman.remove_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "remove"},
@@ -59,6 +61,10 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 			err := hub.handlers.Handle(context.Background(), client, Message{Type: test.eventType, Message: []byte(test.payload)})
 			require.NoError(t, err)
 			require.Equal(t, test.operation, service.operation)
+			if test.operation == "swap" {
+				require.Equal(t, aman.Callsign("flight-1"), service.swap.Callsign)
+				require.Equal(t, aman.Callsign("flight-2"), service.swap.OtherCallsign)
+			}
 			require.Equal(t, aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, service.auth)
 			require.Equal(t, "command-1", service.metadata.CommandID)
 			require.Equal(t, aman.SequenceRevision(7), service.metadata.ExpectedRevision)
@@ -248,7 +254,7 @@ func TestAMANGapTransportPreservesRetryIDAndStaleRevision(t *testing.T) {
 }
 
 func TestAMANDispositionCommandsRejectClientOwnedResults(t *testing.T) {
-	for _, eventType := range []frontendEvents.EventType{frontendEvents.AMANDesequenceFlightType, frontendEvents.AMANResumeFlightType, frontendEvents.AMANRemoveFlightType} {
+	for _, eventType := range []frontendEvents.EventType{frontendEvents.AMANExpediteFlightType, frontendEvents.AMANDesequenceFlightType, frontendEvents.AMANResumeFlightType, frontendEvents.AMANRemoveFlightType} {
 		service := &recordingAMANCommandService{}
 		hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
 		payload := `{"type":"` + string(eventType) + `","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","slot":{"time":"2026-07-22T12:10:00Z"}}}`
@@ -364,6 +370,7 @@ type recordingAMANCommandService struct {
 	activeRunways  aman.SetActiveRunwayGroupsCommand
 	createCapacity aman.CreateCapacityReservationCommand
 	removeCapacity aman.RemoveCapacityReservationCommand
+	swap           aman.SwapFlightsCommand
 }
 
 func (*recordingAMANCommandService) Name() string { return "recording AMAN command service" }
@@ -381,6 +388,11 @@ func (s *recordingAMANCommandService) record(operation string, auth aman.Command
 func (s *recordingAMANCommandService) MoveFlight(_ context.Context, auth aman.CommandContext, command aman.MoveFlightCommand) (aman.CommandExecution, error) {
 	return s.record("move", auth, command.Metadata)
 }
+
+func (s *recordingAMANCommandService) SwapFlights(_ context.Context, auth aman.CommandContext, command aman.SwapFlightsCommand) (aman.CommandExecution, error) {
+	s.swap = command
+	return s.record("swap", auth, command.Metadata)
+}
 func (s *recordingAMANCommandService) PlaceFlightAtTime(_ context.Context, auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (aman.CommandExecution, error) {
 	s.placeAtTime = command
 	return s.record("place_at_time", auth, command.Metadata)
@@ -390,6 +402,9 @@ func (s *recordingAMANCommandService) LockFlight(_ context.Context, auth aman.Co
 }
 func (s *recordingAMANCommandService) UnlockFlight(_ context.Context, auth aman.CommandContext, command aman.UnlockFlightCommand) (aman.CommandExecution, error) {
 	return s.record("unlock", auth, command.Metadata)
+}
+func (s *recordingAMANCommandService) ExpediteFlight(_ context.Context, auth aman.CommandContext, command aman.ExpediteFlightCommand) (aman.CommandExecution, error) {
+	return s.record("expedite", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) DesequenceFlight(_ context.Context, auth aman.CommandContext, command aman.DesequenceFlightCommand) (aman.CommandExecution, error) {
 	return s.record("desequence", auth, command.Metadata)
@@ -480,4 +495,27 @@ func TestAMANHoldingEATWritebackRequiresExplicitBoolean(t *testing.T) {
 			require.Empty(t, service.operation)
 		})
 	}
+}
+
+func (s *recordingAMANCommandService) RebuildArrivalSequence(_ context.Context, auth aman.CommandContext, command aman.RebuildArrivalSequenceCommand) (aman.CommandExecution, error) {
+	return s.record("rebuild", auth, command.Metadata)
+}
+
+func TestAMANRebuildReturnsCorrelatedNoOpAndRejectsSpoofedEvidence(t *testing.T) {
+	now := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
+	service := &recordingAMANCommandService{execution: aman.CommandExecution{CurrentRevision: 7, Outcome: aman.CommandOutcome{Revision: 7, Payload: []byte("{\"release_order\":[],\"diagnostics\":[]}")}}}
+	hub, client := newAMANCommandTestClient(service, now)
+	payload := []byte("{\"type\":\"aman.rebuild_arrival_sequence\",\"version\":1,\"data\":{\"command_id\":\"rebuild\",\"expected_revision\":7}}")
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANRebuildArrivalSequenceType, Message: payload}))
+	require.Equal(t, "rebuild", service.operation)
+	response := <-client.send
+	require.IsType(t, frontendEvents.AMANArrivalSequenceRebuiltEvent{}, response)
+	result := response.(frontendEvents.AMANArrivalSequenceRebuiltEvent)
+	require.Equal(t, "rebuild", result.Data.CommandID)
+	require.False(t, result.Data.Changed)
+	require.Equal(t, uint64(7), result.Data.Revision)
+	payload = []byte("{\"type\":\"aman.rebuild_arrival_sequence\",\"version\":1,\"data\":{\"command_id\":\"bad\",\"expected_revision\":7,\"holding_duration\":999}}")
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANRebuildArrivalSequenceType, Message: payload}))
+	require.Equal(t, 1, service.calls)
+	require.IsType(t, frontendEvents.AMANCommandRejectedEvent{}, <-client.send)
 }

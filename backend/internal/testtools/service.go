@@ -771,7 +771,9 @@ func (s *Service) advance(ctx context.Context, scenario *Scenario) error {
 				state.FeedState, state.Altitude, state.Groundspeed = "online", 9000, 250
 				state.LastAction = "arrival advanced to ASSIGNED threshold"
 			})
-			s.source.Upsert(s.flightForScenario(scenario))
+			if err := s.upsertArrivalAtAssignedStand(ctx, scenario); err != nil {
+				return err
+			}
 			if err := s.reconcileScenario(ctx, scenario); err != nil {
 				return err
 			}
@@ -783,7 +785,9 @@ func (s *Service) advance(ctx context.Context, scenario *Scenario) error {
 				state.Altitude = 2000
 				state.LastAction = "arrival advanced to CONFIRMED threshold"
 			})
-			s.source.Upsert(s.flightForScenario(scenario))
+			if err := s.upsertArrivalAtAssignedStand(ctx, scenario); err != nil {
+				return err
+			}
 			if err := s.reconcileScenario(ctx, scenario); err != nil {
 				return err
 			}
@@ -858,6 +862,21 @@ func (s *Service) advanceToETAWindow(ctx context.Context, scenario Scenario, win
 	if advance := assignment.ETA.Add(-window).Sub(s.Now()); advance > 0 {
 		s.clock.Advance(advance)
 	}
+	return nil
+}
+
+func (s *Service) upsertArrivalAtAssignedStand(ctx context.Context, scenario *Scenario) error {
+	assignment, err := s.assignments.GetAssignment(ctx, scenario.SessionID, scenario.Callsign)
+	if err != nil {
+		return err
+	}
+	stand, ok := s.stands.Lookup("EKCH", assignment.Stand)
+	if !ok {
+		return fmt.Errorf("%w: unknown assigned arrival stand %q", ErrInvalid, assignment.Stand)
+	}
+	flight := s.flightForScenario(scenario)
+	flight.Latitude, flight.Longitude = stand.Latitude, stand.Longitude
+	s.source.Upsert(flight)
 	return nil
 }
 

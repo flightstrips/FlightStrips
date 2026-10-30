@@ -18,6 +18,7 @@ const (
 	defaultMaxCrossTrackNM             = 12.0
 	defaultJitterNM                    = 0.25
 	defaultForwardSearchNM             = 50.0
+	maximumProgressGroundspeedKnots    = 700.0
 	defaultRecoveryConfirmationSamples = 3
 	defaultRecoveryLegLookahead        = 8
 	defaultRecoveryTrackTolerance      = 20.0
@@ -112,18 +113,20 @@ const (
 )
 
 type Result struct {
-	Remaining        []RemainingLeg
-	AlongTrackNM     float64
-	CrossTrackNM     float64
-	DistanceToGoNM   *float64
-	Completeness     Completeness
-	Reasons          []string
-	GeometryDigest   string
-	SelectedHolding  *navdata.HoldingPattern
-	HoldingCandidate *HoldingCandidate
-	Progress         *aman.RouteProgress
-	FeederProgress   FeederProgress
-	InTMA            bool
+	Remaining          []RemainingLeg
+	AlongTrackNM       float64
+	CrossTrackNM       float64
+	DistanceToGoNM     *float64
+	Completeness       Completeness
+	Reasons            []string
+	GeometryDigest     string
+	SelectedHolding    *navdata.HoldingPattern
+	HoldingCandidate   *HoldingCandidate
+	HoldingFixPosition *navdata.Coordinate
+	Progress           *aman.RouteProgress
+	FeederProgress     FeederProgress
+	InTMA              bool
+	ReacquiredProgress bool
 }
 
 // HoldingCandidate is a geometric observation inside the published holding
@@ -268,6 +271,12 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 	}
 	obs := coordinate(input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees)
 	holdCandidate := holdingCandidate(holding, fixes, input.Observation)
+	if holding != nil {
+		if fix, ok := fixes[holding.Fix]; ok {
+			position := fix.Position
+			result.HoldingFixPosition = &position
+		}
+	}
 	// A cleared racetrack can cross the outbound STAR repeatedly. Ordinary
 	// forward-only projection would then mark its fix as passed and remove
 	// the entry ETA needed to calculate EAT. An active clearance keeps the route
@@ -293,12 +302,33 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 				GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest,
 				FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup,
 				LegIndex: next, RejoinLegIndex: next, AlongTrackNM: result.AlongTrackNM,
+				ObservedAt: input.Observation.ObservedAt,
 			}
 			result.FeederProgress = feederProgress(legs, input.FeederFix, next, feederBypassed)
 			return result
 		}
 	}
-	best, ok, progressOutOfRange := projectForward(obs, legs, start, config.MaxCrossTrackNM, config.MaxForwardSearchNM, config.JitterToleranceNM, input.Prior, compatible)
+	projectionPrior := input.Prior
+	maxForward := forwardSearchDistance(input, config, compatible)
+	best, ok, progressOutOfRange := projectForward(obs, legs, start, config.MaxCrossTrackNM, maxForward, config.JitterToleranceNM, projectionPrior, compatible)
+	if !ok && compatible && input.Prior.RecoveryUnlocated && input.Prior.RecoveryCandidateSamples > 0 && input.Prior.RecoveryCandidateFix != "" {
+		rejoin := input.Prior.RejoinLegIndex
+		if rejoin >= start && rejoin < len(legs) && string(legs[rejoin].to) == input.Prior.RecoveryCandidateFix {
+			// Recovery that began without a physical anchor retains an arbitrary
+			// leg start or inferred endpoint, neither locating the aircraft here.
+			// After checking the existing forward window, let an observed rejoin
+			// establish an anchor on the candidate leg. The provisional candidate
+			// must not exclude a physical rejoin onto an earlier eligible leg.
+			anchor := *input.Prior
+			anchor.AlongTrackNM = progressAtLegStart(legs, rejoin)
+			recovered, rejoined, recoveryOutOfRange := projectForward(obs, legs, rejoin, config.MaxCrossTrackNM, maxForward+legs[rejoin].distance, config.JitterToleranceNM, &anchor, true)
+			if rejoined {
+				best, ok, projectionPrior = recovered, true, &anchor
+			} else if recoveryOutOfRange && !progressOutOfRange {
+				best, progressOutOfRange = recovered, true
+			}
+		}
+	}
 	if !ok {
 		// A position that is still on the route but implausibly far ahead is a
 		// surveillance/progress discontinuity, not vectors. Preserve the forward
@@ -329,6 +359,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 					GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest,
 					FlightPlanRevision: input.FlightPlanRevision, RunwayGroupID: input.RunwayGroup,
 					LegIndex: next, RejoinLegIndex: next, AlongTrackNM: progress,
+					ObservedAt: input.Observation.ObservedAt,
 				}
 				result.FeederProgress = feederProgress(legs, input.FeederFix, next, feederBypassed)
 				return result
@@ -345,13 +376,18 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 					routePrefix = "OFF_ROUTE_TO:"
 				} else {
 					routePrefix = "OFF_ROUTE_CANDIDATE_TO:"
-					progressLeg = start
 				}
+			}
+			// Inferred directs can change the modeled journey, but must not
+			// replace a physical progress anchor, even after confirmation.
+			retainProgress := compatible && !input.Prior.RecoveryUnlocated || recovery.trackAligned && int(candidateSamples) < config.RecoveryConfirmationSamples
+			if retainProgress {
+				progressLeg = start
 			}
 			remaining := remainingFromNextWaypointWithPrefix(obs, legs, next, routePrefix)
 			if len(remaining) > 0 {
 				progress := progressAtLegEnd(legs, progressLeg)
-				if recovery.trackAligned && int(candidateSamples) < config.RecoveryConfirmationSamples {
+				if retainProgress {
 					progress = progressAtLegStart(legs, progressLeg)
 					if compatible && input.Prior != nil {
 						progress = input.Prior.AlongTrackNM
@@ -379,6 +415,11 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 					FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup,
 					LegIndex: progressLeg, RejoinLegIndex: rejoin, AlongTrackNM: progress,
 					RecoveryCandidateFix: candidateFix, RecoveryCandidateSamples: candidateSamples,
+					RecoveryUnlocated: candidateFix != "" && (!compatible || input.Prior.RecoveryUnlocated),
+					ObservedAt:        input.Observation.ObservedAt,
+				}
+				if retainProgress && compatible {
+					result.Progress.ObservedAt = input.Prior.ObservedAt
 				}
 				result.FeederProgress = feederProgress(legs, input.FeederFix, progressLeg, feederBypassed)
 				return result
@@ -388,13 +429,14 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		return result
 	}
 	progress := best.before + best.along
-	if compatible && progress < input.Prior.AlongTrackNM {
+	if compatible && progress < projectionPrior.AlongTrackNM {
 		observedCross := best.cross
-		progress = input.Prior.AlongTrackNM
+		progress = projectionPrior.AlongTrackNM
 		best = projectionAt(legs, progress)
 		best.cross = observedCross
 	}
 	result.AlongTrackNM, result.CrossTrackNM, result.SelectedHolding, result.HoldingCandidate = progress, best.cross, holding, holdCandidate
+	result.ReacquiredProgress = compatible && !input.Prior.RecoveryUnlocated && progress-input.Prior.AlongTrackNM > config.MaxForwardSearchNM
 	result.InTMA = terminalStart >= 0 && best.index >= terminalStart
 	dtg := remainingDistance(legs, progress)
 	result.DistanceToGoNM = &dtg
@@ -413,7 +455,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 	if activeRouteFact(input.RouteFact) && directRejoin >= 0 {
 		rejoin = directRejoin
 	}
-	result.Progress = &aman.RouteProgress{GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest, FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup, LegIndex: best.index, RejoinLegIndex: rejoin, AlongTrackNM: progress}
+	result.Progress = &aman.RouteProgress{GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest, FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup, LegIndex: best.index, RejoinLegIndex: rejoin, AlongTrackNM: progress, ObservedAt: input.Observation.ObservedAt}
 	result.FeederProgress = feederProgress(legs, input.FeederFix, best.index, feederBypassed)
 	return result
 }
@@ -742,6 +784,17 @@ type projected struct {
 	along, before, cross float64
 }
 
+// Keep the routine jump guard, but allow the distance a real aircraft could
+// travel since its last accepted physical anchor. Rejected updates must not
+// reset this timestamp or keep a recovering flight stuck behind indefinitely.
+func forwardSearchDistance(input Input, config Config, compatible bool) float64 {
+	if !compatible || input.Prior.RecoveryUnlocated || input.Prior.ObservedAt == nil || input.Observation.ObservedAt == nil {
+		return config.MaxForwardSearchNM
+	}
+	elapsed := input.Observation.ObservedAt.Sub(*input.Prior.ObservedAt)
+	return math.Max(config.MaxForwardSearchNM, elapsed.Hours()*maximumProgressGroundspeedKnots)
+}
+
 func projectForward(p navdata.Coordinate, legs []leg, start int, maxCross, maxForward, jitter float64, prior *aman.RouteProgress, compatible bool) (projected, bool, bool) {
 	best, nearest, geometryNearest := projected{}, projected{}, projected{}
 	found, nearestFound, geometryFound := false, false, false
@@ -774,6 +827,11 @@ func projectForward(p navdata.Coordinate, legs []leg, start int, maxCross, maxFo
 	}
 	if found {
 		return best, true, false
+	}
+	// A distant in-window leg must not turn an on-route forward jump into
+	// off-route recovery merely because it is still available as a fallback.
+	if geometryFound && geometryNearest.cross <= maxCross && geometryNearest.before+geometryNearest.along > maxProgress {
+		return geometryNearest, false, true
 	}
 	if nearestFound {
 		return nearest, false, false

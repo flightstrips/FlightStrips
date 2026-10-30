@@ -4,8 +4,10 @@ import "FlightStrips/internal/coordinationrequest"
 
 const (
 	AMANMoveFlightType                EventType = "aman.move_flight"
+	AMANSwapFlightsType               EventType = "aman.swap_flights"
 	AMANLockFlightType                EventType = "aman.lock_flight"
 	AMANUnlockFlightType              EventType = "aman.unlock_flight"
+	AMANExpediteFlightType            EventType = "aman.expedite_flight"
 	AMANDesequenceFlightType          EventType = "aman.desequence_flight"
 	AMANResumeFlightType              EventType = "aman.resume_flight"
 	AMANRemoveFlightType              EventType = "aman.remove_flight"
@@ -48,6 +50,18 @@ type AMANMoveFlightRequest struct {
 	RunwayGroupID  string  `json:"runway_group_id"`
 	BeforeCallsign *string `json:"before_callsign,omitempty"`
 	AfterCallsign  *string `json:"after_callsign,omitempty"`
+}
+
+type AMANSwapFlightsRequest struct {
+	AMANCommandMeta
+	Callsign      string `json:"callsign"`
+	OtherCallsign string `json:"other_callsign"`
+}
+
+type AMANSwapFlightsMessage struct {
+	Type    EventType              `json:"type"`
+	Version int                    `json:"version"`
+	Data    AMANSwapFlightsRequest `json:"data"`
 }
 
 type AMANFlightRequest struct {

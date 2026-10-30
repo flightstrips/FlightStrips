@@ -103,6 +103,11 @@ func TestRunwayClearance_AllowsLandingClearanceValidation(t *testing.T) {
 			updatedSequence = sequence
 			return 1, nil
 		},
+		SetRwyArrRunwayStatusOnEntryFn: func(_ context.Context, gotSession int32, gotCallsign string) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return 1, nil
+		},
 	}
 
 	svc := NewStripService(stripRepo)
@@ -133,9 +138,68 @@ func TestRunwayConfirmation_RejectsActiveValidation(t *testing.T) {
 	}
 
 	svc := NewStripService(repo)
-	err := svc.RunwayConfirmation(context.Background(), 1, "SAS123")
+	err := svc.RunwayConfirmation(context.Background(), 1, "SAS123", "121.630")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "locked by an active validation")
+}
+
+func TestRunwayConfirmation_DoesNotConfirmArrivalWhileAnotherStripIsGreen(t *testing.T) {
+	const session = int32(1)
+	const callsign = "SAS123"
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+			owner := "TWR"
+			return &models.Strip{Callsign: callsign, Bay: shared.BAY_RWY_ARR, Owner: &owner}, nil
+		},
+		ArrivalRunwayConfirmationFn: func(context.Context, int32, string) (int64, error) { return 0, nil },
+	}
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(repo)
+	svc.SetFrontendHub(hub)
+
+	require.NoError(t, svc.RunwayConfirmation(context.Background(), session, callsign, "TWR"))
+	assert.Len(t, hub.StripUpdates, 1)
+	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
+}
+
+func TestRWYARRRunwayActionsRequireOwnership(t *testing.T) {
+	const session = int32(1)
+	const callsign = "SAS123"
+	owner := "TWR"
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+			return &models.Strip{Callsign: callsign, Bay: shared.BAY_RWY_ARR, Owner: &owner}, nil
+		},
+	}
+	svc := NewStripService(repo)
+
+	err := svc.RunwayConfirmation(context.Background(), session, callsign, "APN")
+	require.ErrorContains(t, err, "requires strip ownership")
+	err = svc.ResetRunwayClearance(context.Background(), session, callsign, "APN")
+	require.ErrorContains(t, err, "requires strip ownership")
+}
+
+func TestRunwayClearanceResetClearsRwyArrColor(t *testing.T) {
+	const session = int32(1)
+	const callsign = "SAS123"
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+			owner := "TWR"
+			return &models.Strip{Callsign: callsign, Bay: shared.BAY_RWY_ARR, RunwayCleared: true, RunwayConfirmed: true, Owner: &owner}, nil
+		},
+		ResetRunwayClearanceFn: func(_ context.Context, gotSession int32, gotCallsign string) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return 1, nil
+		},
+	}
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(repo)
+	svc.SetFrontendHub(hub)
+
+	require.NoError(t, svc.ResetRunwayClearance(context.Background(), session, callsign, "TWR"))
+	require.Len(t, hub.StripUpdates, 1)
+	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
 }
 
 func TestRunwayClearance_TaxiLwrAssignsEndSequenceInDepartBay(t *testing.T) {
@@ -228,6 +292,11 @@ func TestRunwayClearance_FinalAssignsEndSequenceInRwyArrBay(t *testing.T) {
 			assert.Equal(t, callsign, gotCallsign)
 			updatedBay = bay
 			updatedSequence = sequence
+			return 1, nil
+		},
+		SetRwyArrRunwayStatusOnEntryFn: func(_ context.Context, gotSession int32, gotCallsign string) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
 			return 1, nil
 		},
 	}

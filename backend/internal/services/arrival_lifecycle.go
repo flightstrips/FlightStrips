@@ -21,11 +21,11 @@ const (
 	StageConfirmed = "CONFIRMED"
 
 	defaultEstimatedBefore = 45 * time.Minute
-	defaultAssignedBefore  = 10 * time.Minute
 	defaultConfirmedBefore = 2 * time.Minute
 
 	assignedAltitudeThreshold  = 10000
 	confirmedAltitudeThreshold = 3000
+	assignedAirportProximity   = 25 * 1852.0
 	// Once a low-altitude arrival is within two nautical miles of the airport's
 	// configured stands, its operational stand must no longer be changed by the
 	// planning allocator. This covers runways, taxiways, and aprons rather than
@@ -397,13 +397,17 @@ func (s *ArrivalLifecycleService) arrivalIsAtAirport(strip *models.Strip, flight
 	if strip == nil || strip.PositionAltitude == nil || *strip.PositionAltitude > arrivalAirportMaxAltitude {
 		return false
 	}
-	return s.arrivalIsNearAirport(strip, flightDestination)
+	return s.arrivalIsWithinAirportProximity(strip, flightDestination, arrivalAirportProximity)
 }
 
 // arrivalIsNearAirport gates altitude-driven lifecycle promotion. A low
 // altitude at the departure airport must not turn a future inbound into a hard
 // EKCH stand reservation before it has even departed.
 func (s *ArrivalLifecycleService) arrivalIsNearAirport(strip *models.Strip, flightDestination string) bool {
+	return s.arrivalIsWithinAirportProximity(strip, flightDestination, assignedAirportProximity)
+}
+
+func (s *ArrivalLifecycleService) arrivalIsWithinAirportProximity(strip *models.Strip, flightDestination string, proximity float64) bool {
 	if s == nil || s.stands == nil || strip == nil || strip.PositionLatitude == nil || strip.PositionLongitude == nil {
 		return false
 	}
@@ -420,7 +424,7 @@ func (s *ArrivalLifecycleService) arrivalIsNearAirport(strip *models.Strip, flig
 	if _, found := s.stands.StandAtPosition(airport, *strip.PositionLatitude, *strip.PositionLongitude); found {
 		return true
 	}
-	return s.stands.PositionNearAirport(airport, *strip.PositionLatitude, *strip.PositionLongitude, arrivalAirportProximity)
+	return s.stands.PositionNearAirport(airport, *strip.PositionLatitude, *strip.PositionLongitude, proximity)
 }
 
 func (s *ArrivalLifecycleService) ensureAssignment(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, eta *time.Time, stage string, expiresAt *time.Time) error {
@@ -737,11 +741,10 @@ func (s *ArrivalLifecycleService) resolveFacts(strip *models.Strip, flight vatsi
 
 func determineArrivalTargetStage(eta *time.Time, now time.Time, altitude *int32, atAirport, nearAirport bool) string {
 	confirmedByTime := eta != nil && eta.Sub(now) <= defaultConfirmedBefore
-	if atAirport || confirmedByTime || (nearAirport && altitudeBelow(altitude, confirmedAltitudeThreshold)) {
+	if atAirport || (confirmedByTime && altitudeBelow(altitude, confirmedAltitudeThreshold)) {
 		return StageConfirmed
 	}
-	assignedByTime := eta != nil && eta.Sub(now) <= defaultAssignedBefore
-	if assignedByTime || (nearAirport && altitudeBelow(altitude, assignedAltitudeThreshold)) {
+	if nearAirport && altitudeBelow(altitude, assignedAltitudeThreshold) {
 		return StageAssigned
 	}
 	return StageEstimated

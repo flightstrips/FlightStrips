@@ -497,6 +497,20 @@ func (s *StripService) setOwnerAndReevaluateDuplicateSquawkValidation(ctx contex
 		return count, err
 	}
 	shared.AddDBOperations(ctx, 1)
+	clearSelection := func(strip *internalModels.Strip) {
+		if strip != nil && helpers.ValueOrDefault(strip.Owner) != helpers.ValueOrDefault(owner) {
+			strip.NextControllerSector = nil
+		}
+	}
+	if syncState := shared.GetSyncState(ctx); syncState != nil {
+		clearSelection(syncState.ExistingStrips[callsign])
+	}
+	if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil {
+		clearSelection(messageState.ExistingStrips[normalizedCallsignKey(callsign)])
+	}
+	if snapshot := shared.StripPublication(ctx, session); snapshot != nil && snapshot.Strip.Callsign == callsign {
+		clearSelection(snapshot.Strip)
+	}
 	if err := s.ReevaluatePdcRequestValidations(ctx, session, callsign, true, true); err != nil {
 		return 0, err
 	}

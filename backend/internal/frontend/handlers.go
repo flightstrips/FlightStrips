@@ -147,6 +147,17 @@ func int32PtrsEqual(left, right *int32) bool {
 	return *left == *right
 }
 
+func handleNextControllerSelect(ctx context.Context, client *Client, message Message) error {
+	var req frontend.NextControllerSelectEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	if strings.TrimSpace(req.Callsign) == "" {
+		return errors.New("callsign is required")
+	}
+	return client.hub.server.SelectNextControllerContext(ctx, client.session, req.Callsign, client.position, req.Sector)
+}
+
 func handleCoordinationTransferRequest(ctx context.Context, client *Client, message Message) error {
 	var req frontend.CoordinationTransferRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
@@ -186,7 +197,28 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 			}
 			return cause
 		}
-		if err := s.GetCdmService().HandleReadyRequest(ctx, client.session, req.Callsign, position, "ATC"); err != nil {
+		allowOverride := strip.ValidationStatus != nil &&
+			strip.ValidationStatus.IssueType == internalModels.ValidationIssueTypeReadyTransferTsat &&
+			!strip.ValidationStatus.Active &&
+			strip.ValidationStatus.ContextKey == readyTransferTsatContext(strip)
+		cdmService, ok := any(s.GetCdmService()).(interface {
+			HandleReadyTransfer(context.Context, int32, string, string, string, bool) error
+		})
+		if !ok {
+			return rollback(errors.New("ready-transfer CDM service is not configured"))
+		}
+		if err := cdmService.HandleReadyTransfer(ctx, client.session, req.Callsign, position, "ATC", allowOverride); err != nil {
+			if errors.Is(err, shared.ErrReadyTransferTsatOutsideWindow) {
+				validationSetter, ok := any(client.hub.stripService).(interface {
+					SetReadyTransferValidation(context.Context, int32, string, string) error
+				})
+				if !ok {
+					return rollback(errors.Join(err, errors.New("ready-transfer validation is not configured")))
+				}
+				if setErr := validationSetter.SetReadyTransferValidation(ctx, client.session, req.Callsign, position); setErr != nil {
+					return rollback(errors.Join(err, setErr))
+				}
+			}
 			return rollback(err)
 		}
 		if err := client.hub.stripService.UpdateStartReq(ctx, client.session, req.Callsign, true); err != nil {
@@ -217,6 +249,13 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 	}
 
 	return nil
+}
+
+func readyTransferTsatContext(strip *internalModels.Strip) string {
+	if strip == nil || strip.EffectiveTsat() == nil {
+		return ""
+	}
+	return strings.TrimSpace(*strip.EffectiveTsat())
 }
 
 func handleCoordinationAssumeRequest(ctx context.Context, client *Client, message Message) error {
@@ -349,6 +388,10 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 		return errors.New("cannot update order of a strip which is not in a bay")
 	}
 
+	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != client.position {
+		return shared.RejectAction("not authorized: strip is owned by another controller")
+	}
+
 	return client.hub.stripService.MoveStripBetween(ctx, client.session, event.Callsign, event.InsertAfter, strip.Bay)
 }
 
@@ -356,6 +399,9 @@ func handleSendMessage(ctx context.Context, client *Client, message Message) err
 	var req frontend.SendMessageEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
+	}
+	if req.Format != "" && req.Format != "AUTO" && req.Format != "SMALL" && req.Format != "LARGE" {
+		return errors.New("invalid message format")
 	}
 
 	recipients := req.Recipients
@@ -369,6 +415,7 @@ func handleSendMessage(ctx context.Context, client *Client, message Message) err
 		Text:        req.Text,
 		IsBroadcast: len(recipients) == 0,
 		Recipients:  recipients,
+		Format:      req.Format,
 	}
 
 	client.hub.storeMessage(client.session, msg)
@@ -383,6 +430,15 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	}
 
 	cdmService := client.hub.server.GetCdmService()
+	if event.Rea {
+		reaService, ok := cdmService.(interface {
+			HandleReaRequest(context.Context, int32, string, string, string) error
+		})
+		if !ok {
+			return errors.New("CDM REA service not available")
+		}
+		return reaService.HandleReaRequest(ctx, client.session, event.Callsign, client.position, "ATC")
+	}
 	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC")
 }
 
@@ -546,7 +602,15 @@ func handleRunwayConfirmation(ctx context.Context, client *Client, message Messa
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.RunwayConfirmation(ctx, client.session, event.Callsign)
+	return client.hub.stripService.RunwayConfirmation(ctx, client.session, event.Callsign, client.position)
+}
+
+func handleResetRunwayClearance(ctx context.Context, client *Client, message Message) error {
+	var event frontend.ResetRunwayClearanceEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.stripService.ResetRunwayClearance(ctx, client.session, event.Callsign, client.position)
 }
 
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {

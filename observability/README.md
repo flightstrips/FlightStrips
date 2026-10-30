@@ -11,6 +11,103 @@ Grafana schema v2 documents.
 | `flightstrips-traffic.json` | What is the traffic situation at the airport? |
 | `flightstrips-usage.json` | Who is connected, and for how long? |
 | `flightstrips-performance.json` | Why is the backend busy? |
+| `flightstrips-aman.json` | Did a prediction spike, STAR exchange, promotion or spacing change move arrival guidance? |
+
+## AMAN stability diagnostics
+
+### Required pre-merge AMAN gate
+
+Run `npm run test:contract:aman` in `frontend/` with the repository's Go and
+Node toolchains installed. It generates current JSON using the Go AMAN
+publisher and sends it through the actual TypeScript consumer, WebSocket event
+handlers, Zustand store and rendered AMAN route, without mocking UI components.
+The dedicated **AMAN publisher-consumer contract** CI check runs on every pull
+request and merge queue entry, including changes confined to either service.
+It also runs the full AMAN backend suite, frontend tests and production frontend
+build. This check is required in the main branch ruleset, so failures block merge.
+Keep new AMAN behaviours represented in the generated scenarios and workspace
+smoke tests when adding features or changing contracts.
+
+The corpus includes healthy, filtered, unreliable, recovered, stale-source,
+passed-feeder, degraded-weather and empty-airport states. The 26 October 2026
+incident observations for CCA877Q are retained in
+`backend/pkg/events/frontend/testdata/aman-filter-2026-10-26.json`. Replaying
+them produces a `traffic_prediction` warning with component `prediction` and
+code `prediction_unreliable`. A consumer must accept this warning while
+retaining slots and healthy neighbouring guidance. Rejecting it discarded the
+whole state, producing `invalid_aman_state` and hiding both AMAN and TMT.
+Workspace checks also cover current warnings, visible targets, all twelve TMT
+buckets, command revisions, observer/disconnect restrictions, stale replacements,
+reconnect and recovery after a rejected replacement.
+
+### Aircraft degradation versus technical readiness
+
+An aircraft's missing input or rejected calculation is local to that aircraft.
+It must not change the shared predictor's technical health or disable other
+aircraft's commands. Retained estimates and slots remain visible with stale
+data status. A prediction filter that cannot establish a consistent estimate
+withholds only that aircraft's live gain/loss; it retains the runway reservation.
+The flight-detail view carries the calculation's degradation reason.
+
+Unreadable warning metadata is isolated from valid operational state. The
+frontend retains readable warnings and adds a visible notice about unavailable
+diagnostics; it still rejects malformed flight timings, health and envelope
+fields. The strict publisher/consumer validator continues to fail the required
+PR check for incompatible warning output, even though the live UI can recover.
+
+Airport-wide technical readiness covers shared prerequisites such as current
+observations, navigation and persistence. A genuine source outage can restrict
+commands while the latest complete AMAN and TMT views remain visible. Supported
+weather fallback does not block authority. The required PR check exercises
+both aircraft-local degradation and an actual airport source outage.
+
+EuroScope consumes a separate protobuf gain/loss replacement without the web
+warning list. An aircraft with unavailable guidance has all four presentation
+fields absent; other aircraft retain their complete timing fields. Stale inputs
+retain the last timing with stale status. Go wire tests and the plugin decoder
+regression cover mixed healthy, stale and unavailable aircraft in one message.
+
+For the 26 October incident, CCA877Q's candidate ETA moved over three hours
+while its route distance changed from about 3,847 to 3,809 NM. The filter kept
+inconsistent candidates out and accepted a consistent pair at 19:06 CET. The
+incident fixture includes those recovery observations. This is evidence of a
+large changed estimate, not an airport-wide outage. The earlier accepted
+prediction's complete speed/model inputs were not logged, so the initiating
+model change cannot be conclusively reconstructed from these logs.
+
+Filter logs now include current/previous distance, accepted/candidate model speed
+bases and whether the aircraft is actually unreliable. Committed guidance logs include the aircraft scope and
+degradation reason; calculation-error logs include session and aircraft scope.
+
+### Reading stability diagnostics
+
+The AMAN Stability dashboard separates automatic calculation attempts from
+committed target and guidance changes. Filter logs by airport, aircraft callsign
+regex and numeric session ID; its metrics are backend-wide. The spacing panel
+contains the demand counts and activation state used for each aircraft.
+
+`AMAN prediction filter evaluated` records filtered candidates and automatically
+accepted sustained changes. `AMAN guidance change committed` records before/after
+physical and operational ETAs, target, guidance and neighbouring aircraft.
+`AMAN sequencing operation committed` carries the actual optimizer, STAR swap,
+gap-fill and vacancy-promotion operations. Join committed events by session and
+revision, and controller actions by command ID. Failed commits and duplicate
+commands do not emit committed-change events. The older ten-minute prediction
+warning is a calculation attempt, not evidence of a committed target change.
+
+Deploy backend support before updating EuroScope plugins. New plugins send
+reported groundspeed and radar position age; older plugins use motion derived
+over at least thirty seconds. Automatic filtering is enabled by default.
+`AMAN_PREDICTION_FILTERING_ENABLED=false` disables the outlier filter for rollback
+without removing diagnostics or native-motion support. It never asks controllers
+to confirm predictions. Changes over three minutes need distinct observations
+spanning thirty seconds and agreeing within a minute; two minutes of unresolved
+instability suppresses actionable guidance while retaining the runway slot.
+
+After rollout, inspect a busy EKCH session for isolated candidates that leave
+targets unchanged, automatically accepted sustained speed changes, and immediate
+promotions when genuine capacity becomes available. Compare committed changes,
+not raw warning counts, with the 19 October investigation.
 
 ## Diagnosing high CPU
 
@@ -150,6 +247,29 @@ retried serialization conflicts and deadlocks are counted separately by
 `websocket.message.db_retries`.
 
 ## Traces
+
+### Investigating PDC delivery
+
+PDC request and clearance lifecycle logs include the aircraft `callsign`, `session`
+and `channel` (`CPDLC` or `WEB`). Request failures include the available requested
+and expected airports and aircraft type, plus the strip's flight-plan and clearance
+state. Pending requests record `outcome`, `pending_state`, validation `faults` and
+whether the pilot supplied remarks. Issuance failures identify the failing `stage`.
+
+`PDC Hoppie: Message accepted` means Hoppie returned a successful application
+response; pilot receipt is established separately by `Pilot acknowledged clearance`.
+Sends log `from`, `to`, `message_type`, `message_sequence` and `response_to` when
+available. Invalid HTTP responses, provider rejections and malformed poll responses
+are errors. Diagnostic responses are bounded and the Hoppie logon code is redacted.
+
+Callsigns are structured log metadata, so filter the fields rather than searching
+only the message text. Include both the reported callsign and a suspected stale
+callsign when investigating an aircraft logon mismatch:
+
+```logql
+{service_name="flightstrips-backend",deployment_environment="production"}
+  | callsign=~"AUA996|AUA998" or from=~"AUA996|AUA998" or to=~"AUA996|AUA998"
+```
 
 ### AMAN work during strip synchronization
 

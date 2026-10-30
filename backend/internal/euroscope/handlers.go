@@ -110,6 +110,7 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 	}
 
 	client.SetUser(user)
+	client.frequencyMessages.Store(event.FrequencyMessages)
 	if version := strings.TrimSpace(event.Version); version != "" {
 		client.version = version
 	}
@@ -381,6 +382,9 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 	position := cachedAircraftPosition{
 		lat: event.Lat, lon: event.Lon, altitude: int32(event.Altitude),
 	}
+	ctx = shared.WithPositionMotion(ctx, shared.PositionMotion{
+		GroundspeedKnots: event.GroundspeedKnots, PositionAgeMS: event.PositionAgeMs,
+	})
 	if err := client.processAircraftPosition(ctx, event.Callsign, position); err != nil {
 		return err
 	}

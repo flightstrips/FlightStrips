@@ -196,6 +196,55 @@ func TestMoveFrontendStrip_FinalToRwyArrInitializesRunwayStatus(t *testing.T) {
 	assert.Equal(t, 1, statusInitializations)
 }
 
+func TestMoveFrontendStrip_RunwayStatusInitializationWaitsForBayWrite(t *testing.T) {
+	owner := "TWR"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign: "SAS901", Origin: "ESSA", Destination: "EKCH", Bay: shared.BAY_FINAL, Owner: &owner,
+	})
+	statusCalls := 0
+	fixture.repo.SetRwyArrRunwayStatusOnEntryFn = func(context.Context, int32, string) (int64, error) {
+		statusCalls++
+		// Match the real query: it only updates a strip already persisted in RWY ARR.
+		if fixture.strip.Bay != shared.BAY_RWY_ARR {
+			return 0, nil
+		}
+		fixture.strip.RunwayCleared = true
+		fixture.strip.RunwayConfirmed = true
+		return 1, nil
+	}
+
+	require.NoError(t, fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS901", shared.BAY_RWY_ARR, "1234567", "EKCH", owner, false, false))
+	assert.Equal(t, []string{shared.BAY_FINAL}, fixture.updateGroundBays, "ground-state preparation must preserve the source bay")
+	assert.Equal(t, []string{shared.BAY_RWY_ARR}, fixture.updateBayTargets)
+	assert.Equal(t, shared.BAY_RWY_ARR, fixture.strip.Bay)
+	assert.True(t, fixture.strip.RunwayCleared)
+	assert.True(t, fixture.strip.RunwayConfirmed, "the first arrival should have its green runway state initialized")
+	assert.Equal(t, 1, statusCalls, "initialize runway status once, after saving the bay")
+	require.Len(t, fixture.hub.StripUpdates, 1)
+	assert.Equal(t, "SAS901", fixture.hub.StripUpdates[0].Callsign)
+}
+
+func TestMoveFrontendStrip_FailedBayWriteDoesNotInitializeRunwayStatus(t *testing.T) {
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign: "SAS901", Origin: "ESSA", Destination: "EKCH", Bay: shared.BAY_FINAL,
+	})
+	wanted := errors.New("bay write failed")
+	fixture.repo.UpdateBayAndSequenceFn = func(context.Context, int32, string, string, int32) (int64, error) {
+		return 0, wanted
+	}
+	statusCalls := 0
+	fixture.repo.SetRwyArrRunwayStatusOnEntryFn = func(context.Context, int32, string) (int64, error) {
+		statusCalls++
+		return 1, nil
+	}
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS901", shared.BAY_RWY_ARR, "1234567", "EKCH", "TWR", false, false)
+	require.ErrorIs(t, err, wanted)
+	assert.Equal(t, shared.BAY_FINAL, fixture.strip.Bay)
+	assert.Zero(t, statusCalls)
+	assert.Empty(t, fixture.hub.StripUpdates)
+}
+
 func TestMoveFrontendStrip_ToClearedBayUsesSingleBayWrite(t *testing.T) {
 	fixture := newFrontendMoveFixture(&internalModels.Strip{
 		Callsign:    "SAS123",
@@ -214,6 +263,31 @@ func TestMoveFrontendStrip_ToClearedBayUsesSingleBayWrite(t *testing.T) {
 	assert.Equal(t, shared.BAY_CLEARED, fixture.strip.Bay)
 	require.Len(t, fixture.esHub.ClearedFlags, 1)
 	assert.True(t, fixture.esHub.ClearedFlags[0].Flag)
+}
+
+func TestMoveFrontendStrip_RunwayStatusFailureDoesNotRejectMove(t *testing.T) {
+	for _, statusErr := range []error{nil, errors.New("runway status unavailable")} {
+		name := "no rows updated"
+		if statusErr != nil {
+			name = "database error"
+		}
+		t.Run(name, func(t *testing.T) {
+			owner := "TWR"
+			fixture := newFrontendMoveFixture(&internalModels.Strip{
+				Callsign: "SAS901", Origin: "ESSA", Destination: "EKCH", Bay: shared.BAY_FINAL, Owner: &owner,
+			})
+			statusCalls := 0
+			fixture.repo.SetRwyArrRunwayStatusOnEntryFn = func(context.Context, int32, string) (int64, error) {
+				statusCalls++
+				return 0, statusErr
+			}
+
+			require.NoError(t, fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS901", shared.BAY_RWY_ARR, "1234567", "EKCH", owner, false, false))
+			assert.Equal(t, shared.BAY_RWY_ARR, fixture.strip.Bay)
+			assert.Equal(t, []string{shared.BAY_RWY_ARR}, fixture.updateBayTargets)
+			assert.Equal(t, 1, statusCalls, "the frontend move must handle the runway transition only once")
+		})
+	}
 }
 
 func TestMoveFrontendStrip_GenericMoveCannotLeaveNotClearedBay(t *testing.T) {

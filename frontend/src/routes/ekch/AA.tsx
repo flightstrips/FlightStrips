@@ -1,6 +1,6 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { CrossingButton, MemAidButton } from "@/components/strip/TacticalButtons.tsx";
-import { useMyPosition, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
+import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
+import { useMyPosition, useMessages, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
 import {
   useDeIceStrips,
   useFinalStrips,
@@ -26,26 +26,29 @@ import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { arrivalSortModes } from "@/lib/stripSortModes";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
+import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 import { EQUAL_COLUMN_CLASSES } from "./productionBayLayouts";
+import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
+import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 
 const btnBlue = CLS_BTN_BLUE;
-const btnYellow = CLS_BTN_YELLOW;
 
 import { useBayResize } from "@/components/bays/useBayResize";
 import { BayResizeHandle } from "@/components/bays/BayResizeHandle";
 import { isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
 
 // Default bay heights (% of column); the last bay of each column fills the rest.
-const COL1_DEFAULTS = { final: 30, rwyArr: 25 };
+const COL1_DEFAULTS = { messages: 15, final: 25, rwyArr: 20 };
 const COL2_DEFAULTS = { deIce: 20 };
 const COL3_DEFAULTS = { pushback: 35, twyDepUpr: 25 };
 const COL4_DEFAULTS = { clrDel: 40, norwegian: 30 };
 
 export default function AA() {
   const myPosition  = useMyPosition();
+  const messages    = useMessages();
+  const [composeOpen, setComposeOpen] = useState(false);
   const [arrOpen, setArrOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [plannedOpen, setPlannedOpen] = useState(false);
@@ -136,10 +139,22 @@ export default function AA() {
     >
     <div className="bay-page-wrapper">
 
-      {/* ── Col 1: FINAL (locked) / RWY ARR (locked) / STAND ── */}
+      {/* ── Col 1: MESSAGES / FINAL (locked) / RWY ARR (locked) / STAND ── */}
       <div style={col1Resize.columnStyle} className={EQUAL_COLUMN_CLASSES[0]}>
 
-        <div className="bay-col-header justify-between">
+        <div className="bay-col-header-teal justify-between">
+          <span className={CLS_LABEL}>MESSAGES</span>
+          <button className={CLS_BTN_MISSED} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
+        </div>
+        <div className="h-[var(--bay-h-messages)] bay-scroll-area">
+          {messages.map(msg => (
+            <MessageStrip key={msg.id} msg={msg} />
+          ))}
+        </div>
+        <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
+
+        <div className="bay-col-header bay-col-sep justify-between">
+          <BayResizeHandle {...col1Resize.handleProps("messages")} />
           <span className={CLS_LABEL}>FINAL</span>
           <button className={CLS_BTN_ARR} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
@@ -246,7 +261,7 @@ export default function AA() {
           <BayResizeHandle {...col3Resize.handleProps("pushback")} />
           <span className={CLS_LABEL}>TWY DEP</span>
           <span className="flex gap-0.5">
-            <CrossingButton bay={Bay.Taxi} className={btnYellow} />
+            <MemAidButton bay={Bay.Taxi} className={btnBlue} />
           </span>
         </div>
         {/* TWY DEP-UPR (intermediate hold short, TAXI bay) */}

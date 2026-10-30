@@ -173,7 +173,7 @@ export default function AMAN() {
               presentationStatus={presentationStatus}
               />
             </div>}
-            <div className="aman-tmt-non-compliance"><AMANCdmNonCompliance snapshot={inboundDepartures ?? null} /></div>
+            <div className="aman-tmt-non-compliance"><AMANCdmNonCompliance connected={connectionState === "connected"} snapshot={inboundDepartures ?? null} /></div>
           </div>
         )}
       />

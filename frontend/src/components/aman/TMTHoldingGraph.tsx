@@ -85,13 +85,15 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
   const rowHeight = compact ? Math.min(preferredRowHeight, Math.max(12, fittedRowHeight)) : preferredRowHeight;
   // Leave subpixel slack rather than creating a scrollbar from rounding alone.
   const availableHeight = Math.max(0, Math.floor(graphHeight - Math.max(12, rowHeight / 2 + 2) * 2));
+  // Scale text with squeezed rows so labels and altitude ticks don't overlap.
+  const textSize = compact ? Math.min(fontSize, rowHeight / 1.65) : fontSize;
   const labels = layoutHoldingLabels(placed, availableHeight, rowHeight);
   const axisPadding = Math.max(12, labels.edgePadding);
   const plotHeight = labels.height;
-  const timeAxisX = compact ? 18 + fontSize * 1.2 : 50;
-  const altitudeAxisX = contentWidth - (3 + 16 + fontSize * 1.8);
+  const timeAxisX = compact ? 18 + textSize * 1.2 : 50;
+  const altitudeAxisX = contentWidth - (3 + 16 + textSize * 1.8);
   const labelRight = altitudeAxisX - 2;
-  const labelWidth = Math.min(labelRight - (timeAxisX + 3 + LABEL_TRIANGLE_WIDTH + 6), fontSize * 8.5);
+  const labelWidth = Math.min(labelRight - (timeAxisX + 3 + LABEL_TRIANGLE_WIDTH + 6), textSize * 8.5);
   const labelLeft = labelRight - labelWidth;
 
   useEffect(() => {
@@ -138,7 +140,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
       <div aria-describedby={instructionsId} className={cn("aman-holding-plot relative min-h-0 flex-1 overflow-auto bg-[#3c3c3c]", !compact && "mx-1")} data-testid="holding-graph" ref={graphRef} onScroll={(event) => {
         if (footerRef.current) footerRef.current.style.transform = `translateX(-${event.currentTarget.scrollLeft}px)`;
       }}>
-        <div className="relative" style={{height: plotHeight + axisPadding * 2, width: contentWidth, fontSize}}>
+        <div className="relative" style={{height: plotHeight + axisPadding * 2, width: contentWidth, fontSize: textSize}}>
         <div aria-hidden="true" className="absolute border-l-[3px] border-[#dcdcdc]" data-testid="holding-time-axis" style={{left: timeAxisX, top: axisPadding, bottom: axisPadding}}>
           {holdingTimeTicks(now).map(({date, minutes}) => (
             <span className="absolute right-0 w-3 -translate-y-1/2 border-t-2 border-[#dcdcdc]" key={minutes} style={{top: `${100 - minutes / HOLDING_GRAPH_WINDOW_MINUTES * 100}%`}}>

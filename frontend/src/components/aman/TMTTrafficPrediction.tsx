@@ -72,9 +72,10 @@ export function TMTTrafficPrediction({prediction, flights = []}: {prediction: AM
                 : Math.min(1, (overload > 0 ? overload : 4) / bucket.load_factor);
               const details = bucketDetails(bucket);
               const starOverload = overloads.get(bucket.start) ?? null;
-              const overloadShare = starOverload === null || bucket.load_factor === 0
-                ? 0
-                : Math.min(1, Math.max(MIN_PURPLE_LOAD / bucket.load_factor, bucket.alert === "yellow" ? alertShare : 0));
+              const minPurplePercent = chartHeight(MIN_PURPLE_LOAD);
+              // Purple spans at least five aircraft and covers a yellow warning, even when the landing bar is shorter or absent.
+              const purplePercent = starOverload === null ? 0 : Math.max(minPurplePercent, bucket.alert === "yellow" ? alertShare * totalHeight : 0);
+              const overlayPercent = Math.max(totalHeight, purplePercent);
               return (
                 <article
                   aria-label={`${timeLabel(bucket.start)} to ${timeLabel(bucket.end)}: ${bucket.count} arrivals, load factor ${bucket.load_factor}`}
@@ -96,18 +97,16 @@ export function TMTTrafficPrediction({prediction, flights = []}: {prediction: AM
                         {alertColour(bucket) !== null && alertShare > 0 && (
                           <div className="absolute inset-x-0 top-0" data-alert={bucket.alert} style={{backgroundColor: alertColour(bucket) ?? undefined, height: `${alertShare * 100}%`}} />
                         )}
-                        {starOverload !== null && overloadShare > 0 && (
-                          <div className="absolute inset-x-0 top-0" data-star-overload={starOverload.family} style={{backgroundColor: OVERLOAD_PURPLE, height: `${overloadShare * 100}%`}} />
-                        )}
                       </div>
                     )}
-                    {starOverload !== null && overloadShare > 0 && (
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0" style={{height: `${totalHeight}%`}}>
+                    {starOverload !== null && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0" style={{height: `${overlayPercent}%`}}>
                         <button
                           aria-label={`${starOverload.family} overload: ${starOverload.flights.length} aircraft inbound`}
-                          className="pointer-events-auto absolute inset-x-0 top-0 flex items-center justify-center overflow-hidden px-0.5 font-mono text-[10px] font-bold leading-none text-white"
+                          className="pointer-events-auto absolute inset-x-0 top-0 flex items-center justify-center overflow-hidden border border-black px-0.5 font-mono text-[10px] font-bold leading-none text-white"
+                          data-star-overload={starOverload.family}
                           onClick={() => setOpenOverloadKey(starOverload.key)}
-                          style={{height: `${overloadShare * 100}%`}}
+                          style={{backgroundColor: OVERLOAD_PURPLE, height: `${(purplePercent / overlayPercent) * 100}%`}}
                           type="button"
                         >{starOverload.family}</button>
                       </div>

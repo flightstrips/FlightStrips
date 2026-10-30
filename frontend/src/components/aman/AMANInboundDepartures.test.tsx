@@ -49,9 +49,21 @@ describe("AMAN inbound CTOT list", () => {
 
 describe("AMAN CDM non-compliance list", () => {
   it("shows early departures and lets a row be closed", () => {
-    render(<AMANCdmNonCompliance snapshot={snapshot} />);
+    render(<AMANCdmNonCompliance connected snapshot={snapshot} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Updated 20:43:00Z");
     expect(screen.getByText("FBT08F")).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("Remove FBT08F"));
     expect(screen.queryByText("FBT08F")).not.toBeInTheDocument();
+  });
+
+  it("flags stale data and awaiting data", () => {
+    const {rerender} = render(<AMANCdmNonCompliance connected snapshot={{...snapshot, stale: true, flights: []}} />);
+    expect(screen.getByRole("status")).toHaveTextContent("STALE");
+    expect(screen.getByText("No non-compliant inbound aircraft in the last successful update.")).toBeInTheDocument();
+    rerender(<AMANCdmNonCompliance connected={false} snapshot={snapshot} />);
+    expect(screen.getByRole("status")).toHaveTextContent("STALE");
+    rerender(<AMANCdmNonCompliance connected snapshot={{...snapshot, updated_at: "", stale: true, flights: []}} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Awaiting vIFF");
+    expect(screen.queryByText(/No non-compliant/)).not.toBeInTheDocument();
   });
 });

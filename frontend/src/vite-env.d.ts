@@ -9,6 +9,8 @@ interface AppConfig {
   audience?: string;
   connection?: string;
   chartfoxClientId?: string;
+  posthogKey?: string;
+  posthogHost?: string;
 }
 
 interface Window {

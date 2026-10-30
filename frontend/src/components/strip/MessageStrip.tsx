@@ -58,7 +58,8 @@ export function MessageStrip({ msg }: MessageStripProps) {
         className="flex-1 flex items-center px-[0.42vw] py-[0.3dvh]"
         style={{ fontFamily: "var(--font-bay)", fontSize: largeText ? "1.04vw" : "0.73vw", color: COLOR_TEXT_MAIN }}
       >
-        <span className="break-words min-w-0 w-full">{msg.text}</span>
+        {/* ph-no-capture: keep private message text out of analytics and session replay */}
+        <span className="ph-no-capture break-words min-w-0 w-full">{msg.text}</span>
       </div>
 
       {/* X button — same square-and-cross as the tactical strips */}

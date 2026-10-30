@@ -1,11 +1,12 @@
 import { Link } from "react-router";
 import { PageHero, PublicPage } from "@/components/public/SiteChrome";
+import { AnalyticsPrivacySection } from "@/components/public/AnalyticsPrivacySection";
 
 export default function Privacy() {
   return (
     <PublicPage>
       <PageHero eyebrow="Legal" title="Privacy Policy">
-        <p className="fsl-eyebrow mt-8">Last updated: 14/03/2026</p>
+        <p className="fsl-eyebrow mt-8">Last updated: 29/10/2026</p>
       </PageHero>
 
       <section>
@@ -69,6 +70,8 @@ export default function Privacy() {
                 <li>With service providers who assist in operations</li>
               </ul>
             </div>
+
+            <AnalyticsPrivacySection />
 
             <div>
               <h2>

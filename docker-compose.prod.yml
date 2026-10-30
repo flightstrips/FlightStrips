@@ -80,6 +80,8 @@ services:
       OIDC_AUDIENCE: ${OIDC_AUDIENCE}
       OIDC_CONNECTION: ${OIDC_CONNECTION}
       CHARTFOX_CLIENT_ID: ${CHARTFOX_CLIENT_ID:-019f940d-89a4-718c-862c-293f08fa3a76}
+      POSTHOG_KEY: ${POSTHOG_KEY:-}
+      POSTHOG_HOST: ${POSTHOG_HOST:-https://eu.i.posthog.com}
     depends_on:
       - backend
     networks:

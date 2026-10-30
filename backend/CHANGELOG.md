@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.6.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.5.2...backend/v3.6.0) (2026-10-30)
+
+
+### Features
+
+* **strip:** add APRON ARR messages and fix runway moves ([#963](https://github.com/flightstrips/FlightStrips/issues/963)) ([61042d3](https://github.com/flightstrips/FlightStrips/commit/61042d37156d4ee366d0f9d906d9e739d5811fcc))
+
 ## [3.5.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.5.1...backend/v3.5.2) (2026-10-29)
 
 

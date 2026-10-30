@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"FlightStrips/internal/models"
@@ -15,6 +17,51 @@ import (
 )
 
 func ptr32(v int32) *int32 { return &v }
+
+func TestRunwayStatusFailureDoesNotRejectPersistedBayMove(t *testing.T) {
+	for _, ordered := range []bool{false, true} {
+		for _, entering := range []bool{false, true} {
+			for _, statusErr := range []error{nil, errors.New("runway status unavailable")} {
+				name := fmt.Sprintf("ordered=%t/entering=%t/error=%t", ordered, entering, statusErr != nil)
+				t.Run(name, func(t *testing.T) {
+					previousBay, targetBay := shared.BAY_RWY_ARR, shared.BAY_TWY_ARR
+					if entering {
+						previousBay, targetBay = shared.BAY_FINAL, shared.BAY_RWY_ARR
+					}
+					fixture := newFrontendMoveFixture(&models.Strip{
+						Callsign: "SAS901", Bay: previousBay, RunwayCleared: !entering,
+					})
+					fixture.repo.GetNextSequenceFn = func(context.Context, int32, string, int32) (int32, error) {
+						return 0, pgx.ErrNoRows
+					}
+					statusCalls := 0
+					updateStatus := func(_ context.Context, session int32, callsign string) (int64, error) {
+						statusCalls++
+						assert.Equal(t, int32(1), session)
+						assert.Equal(t, "SAS901", callsign)
+						assert.Equal(t, targetBay, fixture.strip.Bay, "placement must be saved before updating runway status")
+						return 0, statusErr
+					}
+					fixture.repo.SetRwyArrRunwayStatusOnEntryFn = updateStatus
+					fixture.repo.ResetRunwayClearanceFn = updateStatus
+
+					var err error
+					if ordered {
+						err = fixture.svc.MoveStripBetween(fixture.ctx, 1, "SAS901", nil, targetBay)
+					} else {
+						err = fixture.svc.MoveToBay(fixture.ctx, 1, "SAS901", targetBay, true)
+					}
+					require.NoError(t, err)
+					assert.Equal(t, targetBay, fixture.strip.Bay)
+					assert.Equal(t, []string{targetBay}, fixture.updateBayTargets)
+					assert.Equal(t, 1, statusCalls)
+					require.Len(t, fixture.hub.BayEvents, 1)
+					assert.Equal(t, targetBay, fixture.hub.BayEvents[0].Bay)
+				})
+			}
+		}
+	}
+}
 
 func TestMidpoint_BasicCase(t *testing.T) {
 	svc := NewStripService(&testutil.MockStripRepository{})

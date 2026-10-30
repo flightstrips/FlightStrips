@@ -160,27 +160,28 @@ func (s *StripService) updateRwyArrClearanceOnMove(
 	if previousBay == targetBay || previousBay == "" {
 		return false, nil
 	}
+	// Runway status is best-effort during a bay move: a failure must not reject
+	// placement that the caller may already have persisted.
 	if targetBay == shared.BAY_RWY_ARR {
 		setter, ok := s.fieldStore.(rwyArrRunwayStatusSetter)
 		if !ok {
-			return false, errors.New("RWY ARR runway status store is not configured")
+			slog.ErrorContext(ctx, "RWY ARR runway status store is not configured", slog.String("callsign", callsign))
+			return false, nil
 		}
 		affected, err := setter.SetRwyArrRunwayStatusOnEntry(ctx, session, callsign)
-		if err != nil {
-			return false, fmt.Errorf("failed to initialize RWY ARR runway status: %w", err)
-		}
-		if affected != 1 {
-			return false, errors.New("failed to initialize RWY ARR runway status")
+		if err != nil || affected != 1 {
+			slog.ErrorContext(ctx, "Failed to initialize RWY ARR runway status",
+				slog.String("callsign", callsign), slog.Int64("affected", affected), slog.Any("error", err))
+			return false, nil
 		}
 		return true, nil
 	}
 	if previousBay == shared.BAY_RWY_ARR && wasRunwayCleared {
 		affected, err := s.fieldStore.ResetRunwayClearance(ctx, session, callsign)
-		if err != nil {
-			return false, fmt.Errorf("failed to reset RWY ARR runway status: %w", err)
-		}
-		if affected != 1 {
-			return false, errors.New("failed to reset RWY ARR runway status")
+		if err != nil || affected != 1 {
+			slog.ErrorContext(ctx, "Failed to reset RWY ARR runway status",
+				slog.String("callsign", callsign), slog.Int64("affected", affected), slog.Any("error", err))
+			return false, nil
 		}
 		return true, nil
 	}

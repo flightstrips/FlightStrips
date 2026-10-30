@@ -24,6 +24,12 @@ import {buildAMANLanes, formatAMANTime} from "./presentation";
 
 const TIMELINE_PIXELS_PER_MINUTE = 32;
 const MINIMUM_TIMELINE_HEIGHT_PIXELS = 960;
+
+const STAR_FAMILY_COLORS: Record<string, string> = {
+  ERNOV: "#95D692", TESPI: "#95D692", TUDLO: "#95D692",
+  TIDVU: "#68A3C3", MONAK: "#68A3C3",
+};
+const starFamilyColor = (family: string) => STAR_FAMILY_COLORS[family.trim().toUpperCase()];
 function TimelineScrollRail({
   scrollTop,
   viewportHeight,
@@ -209,7 +215,7 @@ export function AMANBoardView({
   const renderRWYTarget = (flight: AMANFlight) => (
     <div className="flex min-h-7 items-stretch">
       {renderTarget(flight)}
-      {flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]">{flight.star_family}</span>}
+      {flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]" style={{color: starFamilyColor(flight.star_family)}}>{flight.star_family}</span>}
     </div>
   );
   const renderACCTarget = (flight: AMANFlight) => {

@@ -12,13 +12,31 @@ export interface InboundDeparture {
   outside_window_seconds: number;
 }
 
+export interface InboundCtotFlight {
+  callsign: string;
+  departure: string;
+  arrival: string;
+  eobt: string;
+  tobt: string;
+  ctot: string;
+  atot: string;
+  eta: string;
+  cdm_status: string;
+  regulation: string;
+  status: "pending" | "compliant" | "early" | "late";
+  deviation_seconds: number;
+}
+
 export interface InboundDeparturesSnapshot {
   session_id: number;
   airport: string;
   enabled: boolean;
   updated_at: string;
   stale: boolean;
+  /** Early departures more than 10 minutes before CTOT. */
   flights: InboundDeparture[];
+  /** Every inbound flight holding a CTOT. */
+  ctot_flights?: InboundCtotFlight[];
 }
 
 export interface InboundDeparturesEvent extends InboundDeparturesSnapshot {

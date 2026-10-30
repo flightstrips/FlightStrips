@@ -91,7 +91,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
   const axisPadding = Math.max(12, labels.edgePadding);
   const plotHeight = labels.height;
   const timeAxisX = compact ? 18 + textSize * 1.2 : 50;
-  const altitudeAxisX = contentWidth - (3 + 16 + textSize * 1.8);
+  const altitudeAxisX = contentWidth - (3 + 16 + textSize * 2);
   const labelRight = altitudeAxisX - 2;
   const labelWidth = Math.min(labelRight - (timeAxisX + 3 + LABEL_TRIANGLE_WIDTH + 6), textSize * 8.5);
   const labelLeft = labelRight - labelWidth;

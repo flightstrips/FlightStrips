@@ -94,13 +94,15 @@ test("fills the dashboard height with outward-facing rulers and arrow connectors
   const dashboard = page.getByTestId("dashboard");
   const traffic = await dashboard.locator(".aman-tmt-traffic").boundingBox();
   const holdings = await dashboard.locator(".aman-tmt-holdings").boundingBox();
-  expect(holdings!.height).toBeGreaterThan(traffic!.height * 2);
+  // Holdings occupy the middle two thirds of the column; the bottom third is reserved for the CDM list.
+  expect(holdings!.height).toBeGreaterThan(traffic!.height);
   await expect(dashboard.locator("svg line").first()).toHaveAttribute("stroke-width", "1");
   await expect(dashboard.locator("svg line").first()).toHaveAttribute("marker-end", /url\(#.+\)/);
   await expect(dashboard.locator("svg marker").first()).toHaveAttribute("orient", "0");
   await expect(dashboard.locator("svg marker").first()).toHaveAttribute("refX", "0");
   const altitudeAxis = await dashboard.getByTestId("holding-altitude-axis").first().boundingBox();
-  expect(altitudeAxis!.height / 21).toBeGreaterThanOrEqual(21);
+  // FL090-FL280 is squeezed to fit without scrolling, so rows are tighter than the old FL300 scale.
+  expect(altitudeAxis!.height / 20).toBeGreaterThanOrEqual(11);
   await expect(dashboard.locator("li").first()).toHaveCSS("font-family", /Rubik/);
   const timeAxis = await dashboard.getByTestId("holding-time-axis").first().boundingBox();
   expect(timeAxis!.height).toBeGreaterThanOrEqual(altitudeAxis!.height);

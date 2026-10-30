@@ -35,17 +35,18 @@ export function AnalyticsConsentBanner() {
       className="ph-no-capture fixed bottom-4 left-4 z-[10000] w-[min(26rem,calc(100vw-2rem))] rounded-md border border-[#3a4a52] bg-[#0f1d22] p-4 text-sm text-[#e3ecef] shadow-2xl"
     >
       <h2 id="analytics-consent-title" className="mb-2 text-base font-semibold text-white">
-        Help us fix issues faster
+        Help us improve FlightStrips
       </h2>
       <p className="mb-2 leading-relaxed text-[#c3d1d6]">
-        With your permission we use PostHog (EU servers) to record how FlightStrips is used:
-        clicks, page views, errors, performance and a <strong>screen recording of your session</strong>.
-        Typed text is masked and private messages are hidden. This lets us see what went wrong when
-        you report a problem.
+        With your permission we collect usage and diagnostic data while you use FlightStrips. We use it
+        to investigate problems you report, find and fix errors, and spot parts of the interface that
+        are confusing so we can make them easier to use.
       </p>
       <p className="mb-4 leading-relaxed text-[#c3d1d6]">
-        It is optional and FlightStrips works the same either way. You can change your choice at any
-        time under <a href="/privacy#analytics" className="underline hover:text-white">Privacy settings</a>.
+        The data stays in the EU, is never sold and is only used to improve FlightStrips. It is optional
+        and FlightStrips works the same either way. See{" "}
+        <a href="/privacy#analytics" className="underline hover:text-white">Privacy settings</a> for
+        exactly what is collected and to change your choice at any time.
         {current && (
           <> Current choice: <strong>{current === "granted" ? "allowed" : "declined"}</strong>.</>
         )}

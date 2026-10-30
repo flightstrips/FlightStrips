@@ -1,6 +1,10 @@
-import {useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 
-import type {AMANTrafficBucket, AMANTrafficPrediction} from "@/api/aman";
+import type {AMANFlight, AMANTrafficBucket, AMANTrafficPrediction} from "@/api/aman";
+import {computeStarOverloads, STAR_OVERLOAD_THRESHOLD, type StarOverload} from "./star-overload";
+
+const OVERLOAD_PURPLE = "#8e37eb";
+const MIN_PURPLE_LOAD = STAR_OVERLOAD_THRESHOLD * 4;
 
 const CHART_MIN = 16;
 const CHART_MAX = 50;
@@ -27,8 +31,18 @@ function bucketDetails(bucket: AMANTrafficBucket): string {
     : bucket.flights.map((flight) => `${flight.callsign} ${timeLabel(flight.landing_at)} · ${flight.timing_source === "airborne_position" ? "airborne position estimate" : flight.timing_source.replace("vatsim_", "VATSIM ")} · ${flight.data_status}`).join("\n");
 }
 
-export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPrediction}) {
+export function TMTTrafficPrediction({prediction, flights = []}: {prediction: AMANTrafficPrediction; flights?: readonly AMANFlight[]}) {
   const [activeBucketStart, setActiveBucketStart] = useState<string | null>(null);
+  const [erased, setErased] = useState<ReadonlySet<string>>(new Set());
+  const [acknowledged, setAcknowledged] = useState<ReadonlySet<string>>(new Set());
+  const [openOverloadKey, setOpenOverloadKey] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const overloads = useMemo(() => computeStarOverloads(flights, prediction.buckets, now, erased), [flights, prediction.buckets, now, erased]);
+  const openOverload: StarOverload | null = [...overloads.values()].find((overload) => overload.key === openOverloadKey) ?? null;
   const activeBucket = prediction.buckets.find((bucket) => bucket.start === activeBucketStart) ?? null;
 
   return (
@@ -57,6 +71,10 @@ export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPredi
                 ? 0
                 : Math.min(1, (overload > 0 ? overload : 4) / bucket.load_factor);
               const details = bucketDetails(bucket);
+              const starOverload = overloads.get(bucket.start) ?? null;
+              const overloadShare = starOverload === null || bucket.load_factor === 0
+                ? 0
+                : Math.min(1, Math.max(MIN_PURPLE_LOAD / bucket.load_factor, bucket.alert === "yellow" ? alertShare : 0));
               return (
                 <article
                   aria-label={`${timeLabel(bucket.start)} to ${timeLabel(bucket.end)}: ${bucket.count} arrivals, load factor ${bucket.load_factor}`}
@@ -70,14 +88,28 @@ export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPredi
                   tabIndex={0}
                   title={details}
                 >
-                  <div className="relative mt-2 min-h-0 flex-1" aria-hidden="true">
+                  <div className="relative mt-2 min-h-0 flex-1">
                     {bucket.load_factor > 0 && (
-                      <div className="absolute inset-x-0 bottom-0 flex flex-col-reverse overflow-hidden border border-black bg-[#dcdcdc]" data-testid={`traffic-bar-${timeLabel(bucket.start)}`} style={{height: `${totalHeight}%`}}>
+                      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 flex flex-col-reverse overflow-hidden border border-black bg-[#dcdcdc]" data-testid={`traffic-bar-${timeLabel(bucket.start)}`} style={{height: `${totalHeight}%`}}>
                         {bucket.planned_count > 0 && <div className="w-full shrink-0 bg-[#96d796]" style={{height: `${plannedShare * 100}%`}} />}
                         {bucket.airborne_count > 0 && <div className="min-h-0 flex-1 bg-[#dcdcdc]" />}
                         {alertColour(bucket) !== null && alertShare > 0 && (
                           <div className="absolute inset-x-0 top-0" data-alert={bucket.alert} style={{backgroundColor: alertColour(bucket) ?? undefined, height: `${alertShare * 100}%`}} />
                         )}
+                        {starOverload !== null && overloadShare > 0 && (
+                          <div className="absolute inset-x-0 top-0" data-star-overload={starOverload.family} style={{backgroundColor: OVERLOAD_PURPLE, height: `${overloadShare * 100}%`}} />
+                        )}
+                      </div>
+                    )}
+                    {starOverload !== null && overloadShare > 0 && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0" style={{height: `${totalHeight}%`}}>
+                        <button
+                          aria-label={`${starOverload.family} overload: ${starOverload.flights.length} aircraft inbound`}
+                          className="pointer-events-auto absolute inset-x-0 top-0 flex items-center justify-center overflow-hidden px-0.5 font-mono text-[10px] font-bold leading-none text-white"
+                          onClick={() => setOpenOverloadKey(starOverload.key)}
+                          style={{height: `${overloadShare * 100}%`}}
+                          type="button"
+                        >{starOverload.family}</button>
                       </div>
                     )}
                   </div>
@@ -87,7 +119,23 @@ export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPredi
             })}
           </div>
 
-          {activeBucket !== null && (
+          {openOverload !== null && (
+            <div aria-label={`${openOverload.family} overload`} className="absolute right-1 top-2 z-40 w-60 border border-[#dcdcdc] bg-black/95 p-2 text-[11px] text-white shadow-lg" role="dialog">
+              <strong className="block font-mono">{openOverload.family} · {timeLabel(openOverload.bucketStart)}–{timeLabel(openOverload.bucketEnd)}</strong>
+              <p className="mb-1 text-[10px] text-[#dcdcdc]">{openOverload.flights.length} aircraft over the feeder fix. Re-route some.</p>
+              <ul className="max-h-32 overflow-auto font-mono">
+                {openOverload.flights.map((flight) => (
+                  <li className="flex justify-between gap-2" key={flight.callsign}><span>{flight.callsign}</span><span>{flight.feederFix ?? "—"} {timeLabel(flight.feederEta)}Z</span></li>
+                ))}
+              </ul>
+              <div className="mt-2 flex gap-2">
+                <button className="flex-1 border border-[#dcdcdc] px-2 py-0.5 font-bold" onClick={() => { setAcknowledged((current) => new Set(current).add(openOverload.key)); setOpenOverloadKey(null); }} type="button">{acknowledged.has(openOverload.key) ? "ACK ✓" : "ACK"}</button>
+                <button className="flex-1 border border-[#dcdcdc] px-2 py-0.5 font-bold" onClick={() => { setErased((current) => new Set(current).add(openOverload.key)); setOpenOverloadKey(null); }} type="button">ERASE</button>
+              </div>
+            </div>
+          )}
+
+          {activeBucket !== null && openOverload === null && (
             <div className="pointer-events-none absolute bottom-7 left-1 z-30 max-h-24 max-w-[calc(100%_-_0.5rem)] overflow-hidden border border-[#dcdcdc] bg-black/95 px-2 py-1 text-[10px] leading-4 text-white shadow-lg" aria-hidden="true">
               <strong className="mr-2 font-mono">{timeLabel(activeBucket.start)}–{timeLabel(activeBucket.end)}</strong>
               <span className="whitespace-pre-line">{bucketDetails(activeBucket)}</span>
@@ -102,6 +150,7 @@ export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPredi
           <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 shrink-0 border border-black bg-[#dcdcdc]" />Airborne</span>
           <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 shrink-0 border border-black bg-[#f0e129]" />Over capacity: 15 min or 1 h</span>
           <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 shrink-0 border border-black bg-[#9c0000]" />Over capacity: both periods</span>
+          <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 shrink-0 border border-black bg-[#8e37eb]" />&gt;5 aircraft to one STAR</span>
         </div>
         <p>Warnings: &gt;10% above selected arrival capacity. Bars: 15 min; height: arrivals × 4 (per hour). Times: UTC.</p>
       </div>

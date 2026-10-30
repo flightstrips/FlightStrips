@@ -10,12 +10,7 @@ import {
   layoutHoldingLabels,
 } from "./holding-graph-positioning";
 
-const altitudeTicks = Array.from({length: 22}, (_, index) => 300 - index * 10);
-// Proportions of the selected Holding Information design, inside its frame.
-const TIME_AXIS = 0.18;
-const ALTITUDE_AXIS = 0.76;
-const LABEL_LEFT = 0.265;
-const LABEL_WIDTH = 0.46;
+const altitudeTicks = Array.from({length: 20}, (_, index) => 280 - index * 10);
 const LABEL_TRIANGLE_WIDTH = 8;
 
 function clockLabel(value: Date): string {
@@ -71,7 +66,7 @@ function accessibleEntryLabel(position: ReturnType<typeof layoutHoldingGraph>[nu
 }
 
 export function TMTHoldingGraph({compact = false, entries, holding, now = new Date(), onOpenFlightActions}: {compact?: boolean; entries: AMANHoldingEntry[]; holding?: string; now?: Date; onOpenFlightActions?: (callsign: string) => void}) {
-  const positions = layoutHoldingGraph(entries, now);
+  const positions = layoutHoldingGraph(entries.filter(({cleared_altitude}) => cleared_altitude === null || cleared_altitude <= HOLDING_GRAPH_MAX_FLIGHT_LEVEL * 100), now);
   const placed = positions.filter(({altitude}) => altitude.percent !== null);
   const unplaced = positions.filter(({altitude}) => altitude.percent === null);
   const instructionsId = useId();
@@ -81,17 +76,23 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
   const footerRef = useRef<HTMLDivElement>(null);
   const [graphHeight, setGraphHeight] = useState(240);
   const [graphWidth, setGraphWidth] = useState(210);
-  const contentWidth = Math.max(graphWidth, compact ? 200 : 300);
-  const fontSize = Math.min(16, Math.max(10, contentWidth * 16 / 293));
-  const rowHeight = compact ? Math.max(20, Math.round(fontSize * 1.65)) : 28;
+  const contentWidth = Math.max(graphWidth, compact ? 100 : 300);
+  const fontSize = Math.min(16, Math.max(compact ? 8 : 10, contentWidth * 16 / 293));
+  const preferredRowHeight = compact ? Math.max(20, Math.round(fontSize * 1.65)) : 28;
+  // Squeeze rows so the whole FL090-FL280 scale fits without scrolling.
+  const levelCount = (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) / 10;
+  const fittedRowHeight = Math.floor((graphHeight - 2 * (preferredRowHeight / 2 + 2)) / levelCount) - 1;
+  const rowHeight = compact ? Math.min(preferredRowHeight, Math.max(12, fittedRowHeight)) : preferredRowHeight;
   // Leave subpixel slack rather than creating a scrollbar from rounding alone.
   const availableHeight = Math.max(0, Math.floor(graphHeight - Math.max(12, rowHeight / 2 + 2) * 2));
   const labels = layoutHoldingLabels(placed, availableHeight, rowHeight);
   const axisPadding = Math.max(12, labels.edgePadding);
   const plotHeight = labels.height;
-  const labelWidth = contentWidth * LABEL_WIDTH;
-  const timeAxisX = contentWidth * TIME_AXIS;
-  const labelLeft = contentWidth * LABEL_LEFT;
+  const timeAxisX = compact ? 18 + fontSize * 1.2 : 50;
+  const altitudeAxisX = contentWidth - (3 + 16 + fontSize * 1.8);
+  const labelRight = altitudeAxisX - 2;
+  const labelWidth = Math.min(labelRight - (timeAxisX + 3 + LABEL_TRIANGLE_WIDTH + 6), fontSize * 8.5);
+  const labelLeft = labelRight - labelWidth;
 
   useEffect(() => {
     const graph = graphRef.current;
@@ -150,7 +151,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
           ))}
         </div>
 
-        <div aria-hidden="true" className="absolute border-l-[3px] border-[#dcdcdc]" data-testid="holding-altitude-axis" style={{left: contentWidth * ALTITUDE_AXIS, top: axisPadding, height: labels.height}}>
+        <div aria-hidden="true" className="absolute border-l-[3px] border-[#dcdcdc]" data-testid="holding-altitude-axis" style={{left: altitudeAxisX, top: axisPadding, height: labels.height}}>
           {altitudeTicks.map((level) => (
             <span className="absolute left-0 w-3 -translate-y-1/2 border-t-2 border-[#dcdcdc]" data-flight-level={level} key={level} style={{top: labels.altitudeY((HOLDING_GRAPH_MAX_FLIGHT_LEVEL - level) / (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) * 100)}}>
               <span className="absolute left-4 top-0 -translate-y-1/2 font-semibold">{level}</span>
@@ -180,7 +181,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
                 aria-keyshortcuts={`ArrowDown ArrowRight ArrowUp ArrowLeft Home End${onOpenFlightActions ? " Enter Space" : ""}`}
                 title={onOpenFlightActions ? `Open flight menu for ${position.entry.callsign}` : undefined}
                 data-altitude-y={labels.altitudeY(position.altitude.percent!)}
-                className="absolute grid -translate-y-1/2 grid-cols-[39%_minmax(0,1fr)] border border-[#cdcdcd] bg-[#3c3c3c] font-semibold leading-none hover:z-10 focus:z-20 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white"
+                className="absolute grid -translate-y-1/2 grid-cols-[39%_minmax(0,1fr)] bg-[#3c3c3c] font-semibold leading-none hover:z-10 focus:z-20 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white"
                 key={position.entry.callsign}
                 onClick={() => onOpenFlightActions?.(position.entry.callsign)}
                 onKeyDown={(event) => moveFocus(event, position.entry.callsign)}
@@ -189,7 +190,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
                 style={{height: rowHeight, top: labels.labelY[index], left: labelLeft, width: labelWidth - 2}}
                 tabIndex={0}
               >
-                <span className={cn("flex items-center justify-center border-r border-[#cdcdcd]", position.time.edgeLabel && "text-[0.75em]", state.tone)} title={position.urgency === "missing" ? "No calculated EAT. See this aircraft in Current warnings for the reason." : state.label}>
+                <span className={cn("flex items-center justify-center", source.symbol && "text-[0.85em]", state.tone)} title={position.urgency === "missing" ? "No calculated EAT. See this aircraft in Current warnings for the reason." : state.label}>
                   {!compact && <b className="mr-1 text-[8px]" aria-hidden="true">{state.symbol}</b>}{compactTime(position.time.label)}
                 </span>
                 <span className={cn("flex items-center justify-center whitespace-nowrap px-0.5 text-center", source.symbol && "text-[0.85em]")}>
@@ -205,7 +206,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
         </div>
       </div>
         <div className={cn("shrink-0 overflow-hidden border-t-[3px] border-[#dcdcdc] bg-[#3b3b3b] text-center font-semibold", !compact && "mx-1")} style={{height: fontSize * 2.6, fontSize: fontSize * 1.125}}>
-          <div className="grid h-full" data-testid="holding-graph-footer" ref={footerRef} style={{width: contentWidth, gridTemplateColumns: `${timeAxisX + 3}px ${contentWidth * (ALTITUDE_AXIS - TIME_AXIS) - 3}px 1fr`}}>
+          <div className="grid h-full" data-testid="holding-graph-footer" ref={footerRef} style={{width: contentWidth, gridTemplateColumns: `${timeAxisX + 3}px ${altitudeAxisX - timeAxisX - 3}px 1fr`}}>
             <span className="grid place-items-center border-r-[3px] border-[#dcdcdc]">EAT</span><span className="grid place-items-center truncate">{holding ?? "HOLDING"}</span><span className="grid place-items-center border-l-[3px] border-[#dcdcdc]">ALT</span>
           </div>
         </div>

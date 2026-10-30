@@ -104,8 +104,8 @@ describe("holding label spacing", () => {
     const double = layoutHoldingGraph([entry("A", now.toISOString(), 12000), entry("B", null, 12000)], now);
     const baseline = layoutHoldingLabels(single, 441, 20);
     const stacked = layoutHoldingLabels(double, 441, 20);
-    const y = (layout: typeof baseline, level: number) => layout.altitudeY((300 - level) / 210 * 100);
-    expect(y(stacked, 290) - y(stacked, 300)).toBeCloseTo(y(baseline, 290) - y(baseline, 300));
+    const y = (layout: typeof baseline, level: number) => layout.altitudeY((280 - level) / 190 * 100);
+    expect(y(stacked, 270) - y(stacked, 280)).toBeCloseTo(y(baseline, 270) - y(baseline, 280));
     expect(y(stacked, 100) - y(stacked, 110)).toBeCloseTo(y(baseline, 100) - y(baseline, 110));
     expect(y(stacked, 110) - y(stacked, 130)).toBeCloseTo(y(baseline, 110) - y(baseline, 130) + 21);
     expect(stacked.labelY[1] - stacked.labelY[0]).toBe(21);
@@ -116,7 +116,7 @@ describe("holding label spacing", () => {
       entry(`SAS${index}`, now.toISOString(), 12000)), now);
     const baseline = layoutHoldingLabels(positions.slice(0, 1), 882, 20);
     const stacked = layoutHoldingLabels(positions, 882, 20);
-    const y = (layout: typeof baseline, level: number) => layout.altitudeY((300 - level) / 210 * 100);
+    const y = (layout: typeof baseline, level: number) => layout.altitudeY((280 - level) / 190 * 100);
     const step = y(baseline, 120) - y(baseline, 130);
 
     expect(stacked.height - baseline.height).toBeCloseTo((count - 1) * step);
@@ -131,10 +131,10 @@ describe("holding graph altitude positioning", () => {
   it.each([
     [8999, 100, "<090", "<090"],
     [9000, 100, "FL090", null],
-    [19500, 50, "FL195", null],
-    [30000, 0, "FL300", null],
-    [30001, 0, ">300", ">300"],
-  ])("positions %i feet on the fixed FL090-to-FL300 axis", (altitude, percent, label, edgeLabel) => {
+    [18500, 50, "FL185", null],
+    [28000, 0, "FL280", null],
+    [28001, 0, ">280", ">280"],
+  ])("positions %i feet on the fixed FL090-to-FL280 axis", (altitude, percent, label, edgeLabel) => {
     expect(positionHoldingAltitude(altitude)).toEqual({percent, label, edgeLabel});
   });
 
@@ -158,7 +158,7 @@ describe("holding graph collision tracks", () => {
     ]);
     expect(positions.map(({entry: value}) => value)).toEqual(entries);
     expect(positions.map(({time}) => time.percent)).toEqual([10 / 60 * 100, 10 / 60 * 100, 20 / 60 * 100, null]);
-    expect(positions.map(({altitude}) => altitude.percent)).toEqual([1800 / 21, 1800 / 21, 1700 / 21, null]);
+    expect(positions.map(({altitude}) => altitude.percent)).toEqual([expect.closeTo(1600 / 19), expect.closeTo(1600 / 19), expect.closeTo(1500 / 19), null]);
   });
 
   it("stacks flights pinned to the same graph edges", () => {

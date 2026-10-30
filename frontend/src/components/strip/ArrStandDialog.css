@@ -34,6 +34,7 @@
 }
 
 .stand-assignment-button {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,6 +85,38 @@
 
 .stand-assignment-button:disabled {
   cursor: not-allowed;
+}
+
+.stand-assignment-badges {
+  position: absolute;
+  top: calc(50% + 1.35cqw);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 0.35cqw;
+}
+
+.stand-assignment-badge {
+  width: calc(100% - 0.5cqw);
+  box-sizing: border-box;
+  padding: 0.25cqw 0.35cqw;
+  border-radius: 0.4cqw;
+  color: #000;
+  font-size: 1.05cqw;
+  line-height: 1.1;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.stand-assignment-badge-blocked {
+  background: #ef4444;
+}
+
+.stand-assignment-badge-assigned {
+  background: #facc15;
 }
 
 .stand-assignment-input {

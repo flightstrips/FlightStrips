@@ -503,7 +503,64 @@ func handleReleasePoint(ctx context.Context, client *Client, message Message) er
 	if !isOwner {
 		return nil
 	}
-	return client.hub.server.GetStripRepository().AppendControllerModifiedField(ctx, client.session, event.Callsign, "release_point")
+	if err := client.hub.server.GetStripRepository().AppendControllerModifiedField(ctx, client.session, event.Callsign, "release_point"); err != nil {
+		return err
+	}
+	client.hub.SendStripUpdate(client.session, event.Callsign)
+	return nil
+}
+
+func handleReleasePointCoordinationRequest(ctx context.Context, client *Client, message Message) error {
+	var event frontend.ReleasePointCoordinationRequestEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	if client.readOnly {
+		return errors.New("observers cannot propose release points")
+	}
+	position, err := config.GetPositionBasedOnFrequency(client.position)
+	if err != nil {
+		return err
+	}
+	if position.Section != "GND" && position.Section != "TWR" {
+		return errors.New("only apron and tower controllers may propose release points")
+	}
+	releasePoint := strings.ToUpper(strings.TrimSpace(event.ReleasePoint))
+	if releasePoint == "" || len(releasePoint) > 255 {
+		return errors.New("release point proposal must contain a valid point")
+	}
+	kind := strings.ToUpper(strings.TrimSpace(event.Kind))
+	if kind != "HS" && kind != "HP" {
+		return errors.New("release point proposal kind must be HS or HP")
+	}
+
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, event.Callsign)
+	if err != nil {
+		return err
+	}
+	if strip.Owner == nil || *strip.Owner == "" || *strip.Owner == client.position {
+		return errors.New("release point coordination requires a different strip owner")
+	}
+	proposer, ok := client.hub.stripService.(interface {
+		ProposeReleasePoint(context.Context, int32, string, string, string) error
+	})
+	if !ok {
+		return errors.New("release point coordination is not configured")
+	}
+	if err := proposer.ProposeReleasePoint(ctx, client.session, event.Callsign, releasePoint, client.position); err != nil {
+		return err
+	}
+
+	notification := frontend.MessageReceivedEvent{
+		ID:                    client.hub.NextMessageID(),
+		Sender:                client.position,
+		Text:                  position.Name + " requests " + event.Callsign + " to " + kind + " " + releasePoint,
+		IsCoordinationRequest: true,
+		Recipients:            []string{*strip.Owner},
+		Format:                "LARGE",
+	}
+	client.hub.SendReleasePointCoordinationMessage(client.session, *strip.Owner, notification)
+	return nil
 }
 
 func handleAcknowledgeUnexpectedChange(ctx context.Context, client *Client, message Message) error {
@@ -560,6 +617,14 @@ func handleRunwayConfirmation(ctx context.Context, client *Client, message Messa
 		return err
 	}
 	return client.hub.stripService.RunwayConfirmation(ctx, client.session, event.Callsign)
+}
+
+func handleResetRunwayClearance(ctx context.Context, client *Client, message Message) error {
+	var event frontend.ResetRunwayClearanceEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.stripService.ResetRunwayClearance(ctx, client.session, event.Callsign)
 }
 
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {

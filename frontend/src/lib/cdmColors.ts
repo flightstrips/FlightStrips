@@ -42,6 +42,15 @@ export function isTsatWithinStartRequestWindow(tsat: string, nowMs: number): boo
 
 // ── TOBT / TSAT ────────────────────────────────────────────────────────────
 
+export function isTobtUnrealistic(tobt: string, nowMs: number): boolean {
+  const normalizedTobt = normalizeCdmTime(tobt);
+  if (!/^(?:[01]\d|2[0-3])[0-5]\d$/.test(normalizedTobt)) return false;
+
+  const nowMinuteMs = Math.floor(nowMs / MINUTE_MS) * MINUTE_MS;
+  const tobtMs = parseHHMM(normalizedTobt, nowMinuteMs);
+  return tobtMs < nowMinuteMs || tobtMs - nowMinuteMs > 45 * MINUTE_MS;
+}
+
 export interface CDMColors {
   tobtBg: string;
   tsatBg: string;
@@ -55,15 +64,8 @@ export function hasManualTobtSource(tobtSetBy?: string): boolean {
  * Compute TOBT/TSAT cell background colours.
  * Returns empty string (no colour) when a cell should be transparent.
  *
- * Rules (first match wins):
- *   - In NOT_CLEARED bay                  → "" / ""
- *   - Invalid phase after clearance      → red / ""
- *   - Not in CLEARED bay, or no tsat      → "" / ""
- *   - now > TSAT + 5 min                  → red / ""
- *   - now > TSAT + 4 min                  → green / yellow
- *   - now >= TSAT - 5 min                 → green / green
- *   - |TOBT - TSAT| > 5 min              → orange / ""
- *   - else                                → "" / ""
+ * TOBT realism warnings are limited to the flight plan and clearance dialogs.
+ * TSAT is colored according to its start-request window.
  */
 export function computeCDMColors(
   tsat: string,
@@ -76,19 +78,19 @@ export function computeCDMColors(
   const normalizedTsat = normalizeCdmTime(tsat);
   const normalizedTobt = normalizeCdmTime(tobt);
 
-  if (phase === "I") return { tobtBg: CDM_RED, tsatBg: "" };
-  if (!normalizedTsat) return { tobtBg: "", tsatBg: "" };
   if (bay !== Bay.Cleared) return { tobtBg: "", tsatBg: "" };
+  if (!normalizedTsat) return { tobtBg: "", tsatBg: "" };
 
-  const tsatMs = parseHHMM(normalizedTsat, nowMs);
-  const tobtMs = normalizedTobt ? parseHHMM(normalizedTobt, nowMs) : null;
-  const diffMs = nowMs - tsatMs;
+  const diffMs = nowMs - parseHHMM(normalizedTsat, nowMs);
+  if (diffMs > 5 * MINUTE_MS) return { tobtBg: CDM_RED, tsatBg: "" };
+  const tobtDiffMs = normalizedTobt
+    ? Math.abs(parseHHMM(normalizedTsat, nowMs) - parseHHMM(normalizedTobt, nowMs))
+    : 0;
+  if (diffMs < -5 * MINUTE_MS && tobtDiffMs > 5 * MINUTE_MS) return { tobtBg: CDM_ORANGE, tsatBg: "" };
+  if (phase === "I") return { tobtBg: "", tsatBg: "" };
+  if (diffMs >= 5 * MINUTE_MS) return { tobtBg: "", tsatBg: CDM_YELLOW };
+  if (diffMs > -5 * MINUTE_MS) return { tobtBg: "", tsatBg: CDM_GREEN };
 
-  if (diffMs > 5 * MINUTE_MS)  return { tobtBg: CDM_RED,    tsatBg: ""          };
-  if (diffMs > 4 * MINUTE_MS)  return { tobtBg: CDM_GREEN,   tsatBg: CDM_YELLOW  };
-  if (diffMs > -5 * MINUTE_MS) return { tobtBg: CDM_GREEN,   tsatBg: CDM_GREEN   };
-  if (tobtMs !== null && Math.abs(tsatMs - tobtMs) > 5 * MINUTE_MS)
-    return { tobtBg: CDM_ORANGE, tsatBg: "" };
   return { tobtBg: "", tsatBg: "" };
 }
 

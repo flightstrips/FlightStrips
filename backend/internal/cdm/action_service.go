@@ -627,6 +627,9 @@ func reaRequestTobt(data *models.CdmData, now time.Time) (string, bool) {
 	if data == nil {
 		return "", false
 	}
+	if strings.EqualFold(strings.TrimSpace(helpers.ValueOrDefault(data.Status)), "REA") {
+		return now.UTC().Format("1504"), true
+	}
 	tobt := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTobt()))
 	if _, ok := parseClock(tobt); !ok {
 		return tobt, false

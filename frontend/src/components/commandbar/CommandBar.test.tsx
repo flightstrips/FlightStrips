@@ -9,6 +9,9 @@ const state = vi.hoisted(() => ({
   resetLayout: vi.fn(),
   readOnly: false,
   positionAvailable: true,
+  strips: [] as Array<Record<string, unknown>>,
+  markArmed: false,
+  setMarkArmed: vi.fn(),
 }));
 
 vi.mock("@/store/store-hooks", () => ({
@@ -18,15 +21,19 @@ vi.mock("@/store/store-hooks", () => ({
   useRunwaySetup: () => ({ departure: [], arrival: [] }),
   useSelectedCallsign: () => null,
   useSelectStrip: () => vi.fn(),
-  useStrips: () => [],
-  useMarkArmed: () => false,
-  useSetMarkArmed: () => vi.fn(),
+  useStrips: () => state.strips,
+  useMarkArmed: () => state.markArmed,
+  useSetMarkArmed: () => state.setMarkArmed,
   useStrip: () => undefined,
 }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 vi.mock("@/components/Time", () => ({ default: () => null }));
 vi.mock("@/components/MetarHelper", () => ({ default: () => null }));
-vi.mock("./MRKBTN", () => ({ default: () => null }));
+vi.mock("./MRKBTN", () => ({
+  default: ({ armed, disabled, onClick }: { armed: boolean; disabled: boolean; onClick: () => void }) => (
+    <button aria-pressed={armed} disabled={disabled} onClick={onClick}>MRK</button>
+  ),
+}));
 vi.mock("./VACSBTN", () => ({ default: () => null }));
 vi.mock("./CommandBarSettings", () => ({ default: () => null }));
 vi.mock("./TRFBRN", () => ({ default: () => null }));
@@ -48,6 +55,8 @@ const fullscreenDescriptors = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  state.strips = [];
+  state.markArmed = false;
   Object.defineProperty(document, "fullscreenEnabled", { configurable: true, get: () => true });
   Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => null });
   Object.defineProperty(document, "exitFullscreen", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
@@ -68,6 +77,15 @@ afterAll(() => {
 });
 
 describe("scope selector controls", () => {
+  it("arms local marking before a strip is selected", () => {
+    state.strips = [{ callsign: "SAS123" }];
+    render(<CommandBar />);
+
+    fireEvent.click(screen.getByRole("button", { name: "MRK" }));
+
+    expect(state.setMarkArmed).toHaveBeenCalledWith(true);
+  });
+
   it("enters fullscreen and synchronizes external exits", async () => {
     const request = vi.spyOn(document.documentElement, "requestFullscreen");
     render(<CommandBar />);

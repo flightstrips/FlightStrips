@@ -91,6 +91,11 @@ type departureStandReleaser interface {
 	ReleaseDepartureStand(ctx context.Context, session int32, callsign string) error
 }
 
+type pilotDepartureLifecycle interface {
+	ReconcilePilotDeparture(context.Context, int32, *models.Strip, DepartureFlightInfo) (bool, error)
+	CancelPilotDeparture(context.Context, int32, string) error
+}
+
 // ArrivalLifecycle drives the ESTIMATED → ASSIGNED → CONFIRMED transitions
 // for an arrival the reconciler has just applied. The reconciler owns feed
 // timing; the lifecycle owns allocation timing and persistence.
@@ -348,6 +353,11 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 				return err
 			}
 		}
+		if pilot, ok := r.lifecycle.(pilotDepartureLifecycle); ok && strip.EuroscopeSeenAt != nil && strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
+			if err := pilot.CancelPilotDeparture(ctx, session.ID, callsign); err != nil {
+				return err
+			}
+		}
 		if r.arrivalLifecycle != nil && strings.EqualFold(strings.TrimSpace(strip.Destination), airport) {
 			if err := r.arrivalLifecycle.CancelArrival(ctx, session.ID, callsign); err != nil {
 				return err
@@ -362,6 +372,15 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	for _, flight := range relevantFlights {
 		strip := existing[flight.Callsign]
 		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
+			if pilotLifecycle, ok := r.lifecycle.(pilotDepartureLifecycle); ok {
+				managed, err := pilotLifecycle.ReconcilePilotDeparture(ctx, session.ID, strip, departureFlightInfo(flight))
+				if err != nil {
+					return err
+				}
+				if managed {
+					continue
+				}
+			}
 			// Prefiles may reserve a stand before EuroScope sees the flight, but
 			// an online VATSIM record alone must not create a departure block.
 			// EuroScope supplies the operational strip that makes the block

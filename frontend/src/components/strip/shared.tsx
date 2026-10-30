@@ -40,17 +40,38 @@ export function getStripFrameColor(isArrival: boolean): string {
 export function useStripSelection(callsign: string, selectable?: boolean) {
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
+  const stripTransfers = useStripTransfers();
+  const openStripContextMenu = useWebSocketStore((state) => state.openStripContextMenu);
+  const hasActiveHandover = isActiveStripTransfer(stripTransfers[callsign]);
   const { activeId } = useDragState();
-  const isClickSelected = !!selectable && selectedCallsign === callsign;
+  const isClickSelected = !!selectable && !hasActiveHandover && selectedCallsign === callsign;
   const isSelected = isClickSelected || activeId === callsign;
   const handleClick = selectable
-    ? () => selectStrip(isClickSelected ? null : callsign)
+    ? (event: ReactMouseEvent<HTMLElement>) => {
+      if (hasActiveHandover) {
+        event.stopPropagation();
+        openStripContextMenu(callsign, { x: event.clientX, y: event.clientY });
+        return;
+      }
+      selectStrip(isClickSelected ? null : callsign);
+    }
     : undefined;
   return { isSelected, handleClick };
 }
 
-export function canOpenStripContextMenu(bay?: string, owner?: string, myPosition?: string): boolean {
-  return bay === Bay.NotCleared || owner !== myPosition;
+export function isActiveStripTransfer(
+  transfer?: { from: string; to: string; isTagRequest: boolean },
+): boolean {
+  return !!transfer && !transfer.isTagRequest;
+}
+
+export function canOpenStripContextMenu(
+  bay?: string,
+  owner?: string,
+  myPosition?: string,
+  hasActiveHandover = false,
+): boolean {
+  return hasActiveHandover || bay === Bay.NotCleared || owner !== myPosition;
 }
 
 export function canRequestTagForStrip({
@@ -155,13 +176,16 @@ export function useStripCallsignInteraction({
 }) {
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
+  const setMarkArmed = useWebSocketStore((state) => state.setMarkArmed);
+  const setLocalMarked = useWebSocketStore((state) => state.setLocalMarked);
   const tagRequestArmed = useTagRequestArmed();
   const markArmed = useMarkArmed();
   const stripTransfers = useStripTransfers();
   const openStripContextMenu = useWebSocketStore((state) => state.openStripContextMenu);
   const requestTag = useWebSocketStore((state) => state.requestTag);
-  const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
-  const marked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
+  const serverMarked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
+  const localMarked = useWebSocketStore((state) => state.localMarked[callsign]);
+  const marked = localMarked ?? serverMarked;
   const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
   const isValidationVisible = isValidationActiveForPosition(validationStatus, myPosition);
   const isValidationActive = isValidationBlockingForPosition(validationStatus, myPosition);
@@ -169,9 +193,11 @@ export function useStripCallsignInteraction({
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
 
   const { activeId } = useDragState();
-  const isClickSelected = !!selectable && selectedCallsign === callsign;
+  const activeTransfer = stripTransfers[callsign];
+  const hasActiveHandover = isActiveStripTransfer(activeTransfer);
+  const isClickSelected = !!selectable && !hasActiveHandover && selectedCallsign === callsign;
   const isSelected = isClickSelected || activeId === callsign;
-  const openContextMenuOnClick = canOpenStripContextMenu(bay, owner, myPosition);
+  const openContextMenuOnClick = canOpenStripContextMenu(bay, owner, myPosition, hasActiveHandover);
   const canRequestTag = canRequestTagForStrip({
     owner,
     myPosition,
@@ -180,6 +206,17 @@ export function useStripCallsignInteraction({
 
   const handleClick = (event: ReactMouseEvent<HTMLElement>) => {
     event.stopPropagation();
+
+    if (markArmed) {
+      setLocalMarked(callsign, !marked);
+      setMarkArmed(false);
+      return;
+    }
+
+    if (hasActiveHandover) {
+      openStripContextMenu(callsign, { x: event.clientX, y: event.clientY });
+      return;
+    }
 
     if (isValidationVisible) {
       setValidationDialogOpen(true);
@@ -190,11 +227,6 @@ export function useStripCallsignInteraction({
       if (canRequestTag) {
         requestTag(callsign);
       }
-      return;
-    }
-
-    if (markArmed) {
-      toggleMarked(callsign, !marked);
       return;
     }
 

@@ -25,8 +25,8 @@ import { DragStateContext } from "./DragStateContext";
 import { DragDisabledContext } from "./DragDisabledContext";
 import { BayClickContext } from "./BayClickContext";
 import { ValidationStatusDialog } from "@/components/strip/ValidationStatusDialog";
-import { isValidationBlockingForPosition } from "@/components/strip/shared";
-import { useAirport, useMyPosition, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
+import { isActiveStripTransfer, isValidationBlockingForPosition } from "@/components/strip/shared";
+import { useAirport, useMyPosition, useSelectedCallsign, useSelectStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
 import { parseBayContainerDropZoneId } from "./dropZoneIds";
 import { canStripMoveToBay } from "./stripMovement";
@@ -65,6 +65,7 @@ export function ViewDndContext({
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
   const myPosition = useMyPosition();
+  const stripTransfers = useStripTransfers();
   const airport = useAirport();
   const [validationDialogCallsign, setValidationDialogCallsign] = useState<string | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
@@ -173,7 +174,9 @@ export function ViewDndContext({
     if (!sourceBayId) return;
 
     const strip = bayStripMap[sourceBayId]?.strips.find(s => stripDndId(s) === selectedCallsign);
-    if (strip && isFlight(strip) && strip.owner !== myPosition) return;
+    if (strip && isFlight(strip) && (
+      strip.owner !== myPosition || isActiveStripTransfer(stripTransfers[strip.callsign])
+    )) return;
     if (strip && isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition)) {
       setValidationDialogCallsign(strip.callsign);
       setValidationDialogOpen(true);
@@ -236,6 +239,8 @@ export function ViewDndContext({
     const sourceBayId = findBayId(dndId);
     const targetBayId = findBayId(overId);
     if (!sourceBayId || !targetBayId) return;
+    const movingStrip = bayStripMap[sourceBayId]?.strips.find(s => stripDndId(s) === dndId);
+    if (movingStrip && isFlight(movingStrip) && isActiveStripTransfer(stripTransfers[movingStrip.callsign])) return;
 
     // insert_after = the strip that should be the predecessor (insert_after semantics)
     const targetStrips = bayStripMap[targetBayId].strips;

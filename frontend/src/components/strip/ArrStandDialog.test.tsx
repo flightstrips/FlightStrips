@@ -1,12 +1,15 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, EventType } from "@/api/models";
 import type { WebSocketState } from "@/store/store";
 import { ArrStandDialog } from "./ArrStandDialog";
 
 const state = vi.hoisted(() => ({
   satEnabled: false,
+  amanSessionID: 7,
+  strips: [] as WebSocketState["strips"],
   standAssignments: [] as WebSocketState["standAssignments"],
+  standBlocks: [] as WebSocketState["standBlocks"],
   standActionRejection: null as WebSocketState["standActionRejection"],
   requestAutomaticStand: vi.fn(),
   requestManualStand: vi.fn(),
@@ -14,6 +17,13 @@ const state = vi.hoisted(() => ({
   clearStandActionRejection: vi.fn(),
   updateStrip: vi.fn(),
 }));
+
+const auth = vi.hoisted(() => ({
+  getAccessTokenSilently: vi.fn().mockResolvedValue("test-token"),
+  logout: vi.fn(),
+}));
+
+vi.mock("@auth0/auth0-react", () => ({ useAuth0: () => auth }));
 
 vi.mock("@/store/store-hooks", () => ({
   useWebSocketStore: (selector: (store: typeof state) => unknown) => selector(state),
@@ -27,12 +37,75 @@ function show(currentStand = "A18") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal("ResizeObserver", class {
+    observe() {}
+    disconnect() {}
+  });
   state.satEnabled = false;
+  state.strips = [];
   state.standAssignments = [];
+  state.standBlocks = [];
   state.standActionRejection = null;
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
 describe("arrival stand assignment dialog", () => {
+  it("opens the compact session timeline from GRAPHIC and returns without assigning", async () => {
+    const now = new Date();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        generated_at: now.toISOString(),
+        sessions: [
+          { session_id: 7, name: "LIVE", airport: "EKCH", blocks: [], assignments: [{
+            id: 1, callsign: "SAS456", stand: "A18", direction: "ARRIVAL", stage: "ASSIGNED",
+            created_at: now.toISOString(), eta: new Date(now.getTime() + 20 * 60_000).toISOString(),
+          }] },
+          { session_id: 8, name: "SWEATBOX", airport: "EKCH", blocks: [], assignments: [{
+            id: 2, callsign: "OTHER123", stand: "A18", direction: "ARRIVAL", stage: "ASSIGNED",
+            created_at: now.toISOString(),
+          }] },
+        ],
+      }),
+    }));
+    const { onOpenChange } = show();
+    const graphic = screen.getByRole("button", { name: "GRAPHIC" });
+    expect(graphic).toHaveClass("stand-assignment-button-dark");
+    expect(graphic.style.top).toBe(screen.getByRole("button", { name: "ESC" }).style.top);
+    fireEvent.click(graphic);
+    expect(await screen.findByText("SAS456")).toBeInTheDocument();
+    expect(screen.queryByText("OTHER123")).not.toBeInTheDocument();
+    const sections = screen.getByRole("navigation", { name: "Stand sections" });
+    expect(within(sections).getByRole("button", { name: "A" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByText("FREE").length).toBe(25);
+    fireEvent.click(within(sections).getByRole("button", { name: "D" }));
+    expect(screen.getByText("Section D stand timeline")).toBeInTheDocument();
+    for (const stand of ["D1", "D2", "D3", "D4"]) expect(screen.getByText(stand)).toBeInTheDocument();
+    expect(screen.getAllByText("FREE")).toHaveLength(4);
+    expect(screen.queryByText("SAS456")).not.toBeInTheDocument();
+    fireEvent.click(within(sections).getByRole("button", { name: "C" }));
+    expect(screen.getByText("Section C stand timeline")).toBeInTheDocument();
+    expect(screen.getByText("C26")).toBeInTheDocument();
+    expect(screen.queryByText("D1")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "BACK" }));
+    expect(screen.queryByText("Stand occupancy timeline")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Manual stand" })).toHaveValue("A18");
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(state.requestManualStand).not.toHaveBeenCalled();
+    expect(state.updateStrip).not.toHaveBeenCalled();
+  });
+
+  it("reports timeline fetch errors instead of displaying an empty success", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Stand API unavailable")));
+    show();
+    fireEvent.click(screen.getByRole("button", { name: "GRAPHIC" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Stand API unavailable");
+  });
+
   it("shows the assignment mode or stand in smaller parentheses", () => {
     state.satEnabled = true;
     show();
@@ -85,6 +158,107 @@ describe("arrival stand assignment dialog", () => {
     const west = screen.getByRole("button", { name: "WEST" });
     expect(hangar.style.left).toBe(west.style.left);
     expect(parseFloat(hangar.style.top)).toBeGreaterThan(parseFloat(west.style.top));
+  });
+
+  it("shows red badges for active blocks and leaves available stands undecorated", () => {
+    state.standBlocks = [{ stand: "A34", block_type: "MANUAL" }];
+    state.strips = [{
+      callsign: "SAS456",
+      stand: "A33",
+      bay: "CLEARED",
+      tsat: "",
+    } as WebSocketState["strips"][number]];
+    show();
+    expect(within(screen.getByRole("button", { name: "A34" })).getByText("BLOCKED")).toHaveClass("stand-assignment-badge-blocked");
+    expect(within(screen.getByRole("button", { name: "A33" })).getByText("SAS456")).toHaveClass("stand-assignment-badge-blocked");
+    expect(screen.getByRole("button", { name: "A32" }).querySelector(".stand-assignment-badge")).toBeNull();
+    expect(screen.getByRole("button", { name: "A34" }).style.outline).toBe("");
+  });
+
+  it("shows confirmed callsigns red and assigned callsigns yellow, excluding the edited flight", () => {
+    state.standAssignments = [
+      { callsign: "SAS456", stand: "A34", stage: "CONFIRMED", direction: "ARRIVAL", source: "AUTOMATIC" },
+      { callsign: "SAS789", stand: "A33", stage: "ASSIGNED", direction: "ARRIVAL", source: "AUTOMATIC" },
+      { callsign: "SAS123", stand: "A18", stage: "CONFIRMED", direction: "ARRIVAL", source: "AUTOMATIC", blocks: ["A17"] },
+    ];
+    show();
+    expect(within(screen.getByRole("button", { name: "A34" })).getByText("SAS456")).toHaveClass("stand-assignment-badge-blocked");
+    expect(within(screen.getByRole("button", { name: "A33" })).getByText("SAS789")).toHaveClass("stand-assignment-badge-assigned");
+    expect(screen.queryByText("SAS123")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "A17" }).querySelector(".stand-assignment-badge")).toBeNull();
+  });
+
+  it("gives active blocking priority over assigned yellow and deduplicates callsigns", () => {
+    state.standAssignments = [
+      { callsign: "SAS456", stand: "A34", stage: "ASSIGNED", direction: "ARRIVAL", source: "AUTOMATIC" },
+    ];
+    state.standBlocks = [{ stand: "A34", block_type: "OCCUPIED", callsign: "SAS456", blocks: ["A33"] }];
+    show();
+    expect(within(screen.getByRole("button", { name: "A34" })).getAllByText("SAS456")).toHaveLength(1);
+    expect(within(screen.getByRole("button", { name: "A34" })).getByText("SAS456")).toHaveClass("stand-assignment-badge-blocked");
+    expect(within(screen.getByRole("button", { name: "A33" })).getByText("SAS456")).toHaveClass("stand-assignment-badge-blocked");
+  });
+
+  it("shows parked departure assignments as red occupied callsign badges", () => {
+    state.standAssignments = [
+      { callsign: "IBK7AZ", stand: "A21", stage: "DEPARTURE_BLOCK", direction: "DEPARTURE", source: "AUTOMATIC" },
+    ];
+    state.strips = [{
+      callsign: "IBK7AZ", stand: "A21", bay: "NOT_CLEARED",
+    } as WebSocketState["strips"][number]];
+    show();
+    const stand = screen.getByRole("button", { name: "A21" });
+    expect(within(stand).getAllByText("IBK7AZ")).toHaveLength(1);
+    expect(within(stand).getByText("IBK7AZ")).toHaveClass("stand-assignment-badge-blocked");
+  });
+
+  it("does not hide physical occupancy when the aircraft also has an assignment", () => {
+    state.standAssignments = [
+      { callsign: "SAS456", stand: "A34", stage: "ASSIGNED", direction: "ARRIVAL", source: "AUTOMATIC" },
+    ];
+    state.strips = [{
+      callsign: "SAS456", stand: "A33", bay: "STAND",
+    } as WebSocketState["strips"][number]];
+    show();
+    expect(within(screen.getByRole("button", { name: "A33" })).getByText("SAS456")).toHaveClass("stand-assignment-badge-blocked");
+    expect(within(screen.getByRole("button", { name: "A34" })).getByText("SAS456")).toHaveClass("stand-assignment-badge-assigned");
+  });
+
+  it("keeps an assigned aircraft yellow when a different aircraft blocks the same stand", () => {
+    state.standAssignments = [
+      { callsign: "SAS456", stand: "A34", stage: "ASSIGNED", direction: "ARRIVAL", source: "AUTOMATIC" },
+      { callsign: "SAS789", stand: "A34", stage: "CONFIRMED", direction: "ARRIVAL", source: "AUTOMATIC" },
+    ];
+    show();
+    const stand = screen.getByRole("button", { name: "A34" });
+    expect(within(stand).getByText("SAS456")).toHaveClass("stand-assignment-badge-assigned");
+    expect(within(stand).getByText("SAS789")).toHaveClass("stand-assignment-badge-blocked");
+  });
+
+  it("shrinks a long callsign to fit its badge without changing the stand button position", () => {
+    state.standAssignments = [
+      { callsign: "LONGCALL123", stand: "A34", stage: "ASSIGNED", direction: "ARRIVAL", source: "AUTOMATIC" },
+    ];
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(44);
+    const originalStyle = window.getComputedStyle;
+    vi.spyOn(window, "getComputedStyle").mockImplementation(element => {
+      if (!element.classList.contains("stand-assignment-badge")) return originalStyle(element);
+      const style = document.createElement("span").style;
+      style.setProperty("font-size", "12px");
+      style.setProperty("padding-left", "2px");
+      style.setProperty("padding-right", "2px");
+      return style;
+    });
+    const range = document.createRange();
+    range.getBoundingClientRect = () => new DOMRect(0, 0, 80, 12);
+    vi.spyOn(document, "createRange").mockReturnValue(range);
+    show();
+    const badge = screen.getByText("LONGCALL123");
+    expect(parseFloat(badge.style.fontSize)).toBeCloseTo(12 * 39 / 80);
+    expect(badge).toHaveClass("stand-assignment-badge-assigned");
+    expect(badge.parentElement).toHaveClass("stand-assignment-badges");
+    const stand = screen.getByRole("button", { name: "A34" });
+    expect(parseFloat(stand.style.top)).toBeCloseTo(8 / 751 * 100);
   });
 
   it("applies the FlightPlan raised-control treatment to buttons and the white entry", () => {

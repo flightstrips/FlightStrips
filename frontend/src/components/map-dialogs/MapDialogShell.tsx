@@ -157,6 +157,7 @@ interface MapDialogShellProps {
   btnStyle: React.CSSProperties;
   onSelect: (label: string) => void;
   selectedPoint?: string;
+  suggestedPoint?: string;
   /** Controls panel overlay (e.g. arrows + ERASE/OK). Positioned absolutely over the image. */
   children?: React.ReactNode;
   /**
@@ -178,6 +179,7 @@ export function MapDialogShell({
   imageSrc, imageAlt, imgWidth, imgHeight,
   points, btnStyle, onSelect,
   selectedPoint,
+  suggestedPoint,
   children,
   scaleMode = "height",
   visibilityContext,
@@ -236,6 +238,7 @@ export function MapDialogShell({
                 ? (visibilityContext ? pt.label(visibilityContext) : "")
                 : pt.label;
               const isSelected = selectedPoint !== undefined && effectiveLabel === selectedPoint;
+              const isSuggested = suggestedPoint !== undefined && effectiveLabel === suggestedPoint;
               return (
                 <button
                   key={i}
@@ -249,7 +252,9 @@ export function MapDialogShell({
                     zIndex: 10,
                     width: pt.width ?? btnStyle.width,
                     height: pt.height ?? btnStyle.height,
-                    ...(isSelected ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" } : {}),
+                    ...(isSuggested
+                      ? { backgroundColor: "#FACC15", color: "#111827" }
+                      : isSelected ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" } : {}),
                   }}
                 >
                   {effectiveLabel}

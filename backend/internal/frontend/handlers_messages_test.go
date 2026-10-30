@@ -59,3 +59,17 @@ func TestMessageRecipientsResolvePositionNamesToFrequencies(t *testing.T) {
 	assert.Empty(t, observer.send)
 	assert.Empty(t, otherSession.send)
 }
+
+func TestMessagesVisibleAtPositionFiltersCoordinationRequests(t *testing.T) {
+	messages := []frontendEvents.MessageReceivedEvent{
+		{Text: "GENERAL"},
+		{Text: "REQUEST OWNER", IsCoordinationRequest: true, Recipients: []string{"121.630"}},
+		{Text: "REQUEST OTHER", IsCoordinationRequest: true, Recipients: []string{"119.905"}},
+	}
+
+	visible := messagesVisibleAtPosition(messages, "121.630")
+
+	require.Len(t, visible, 2)
+	assert.Equal(t, "GENERAL", visible[0].Text)
+	assert.Equal(t, "REQUEST OWNER", visible[1].Text)
+}

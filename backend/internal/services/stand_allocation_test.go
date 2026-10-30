@@ -387,7 +387,7 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		_, err := service.AssignManually(ctx, arrival)
 		require.NoError(t, err)
 
-		tobt := eta.Add(-5 * time.Minute)
+		tobt := eta.Add(-4 * time.Minute)
 		departure := standAllocationRequest(session, "SAS115")
 		departure.Direction = sat.AssignmentDirectionDeparture
 		departure.FlightFacts.Direction = sat.Departure
@@ -400,13 +400,13 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		departure.DepartureReady = true
 		conflict, err = service.ConfirmedArrivalConflictAtStand(ctx, departure, "A1")
 		require.NoError(t, err)
-		assert.False(t, conflict, "START REQ removes the conservative post-TOBT buffer without moving the arrival")
+		assert.False(t, conflict, "PUSH removes the conservative post-TOBT buffer without moving the arrival")
 
 		lateTSAT := eta.Add(time.Hour)
 		departure.DepartureTSAT = &lateTSAT
 		conflict, err = service.ConfirmedArrivalConflictAtStand(ctx, departure, "A1")
 		require.NoError(t, err)
-		assert.True(t, conflict, "START REQ must never bypass a substantially later TSAT")
+		assert.True(t, conflict, "PUSH must never bypass a substantially later TSAT")
 	})
 
 	t.Run("future arrival booking blocks an overlapping later inbound", func(t *testing.T) {
@@ -724,7 +724,7 @@ WTC:M
 	request.Stage = ""
 	request.ETA = nil
 	arrival.Stage = StageAssigned
-	departureTOBT := eta.Add(-5 * time.Minute)
+	departureTOBT := eta.Add(-4 * time.Minute)
 	request.DepartureTOBT = &departureTOBT
 	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
 	assert.Contains(t, unavailable["A1"], "reserved by ARR1", "ASSIGNED begins the normal ETA reservation window")

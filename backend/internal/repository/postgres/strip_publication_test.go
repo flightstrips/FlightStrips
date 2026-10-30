@@ -15,6 +15,8 @@ import (
 
 func TestStripPublicationSnapshot(t *testing.T) {
 	pool, q := testdata.SetupTestDB(t)
+	_, err := pool.Exec(context.Background(), `ALTER TABLE strips ADD COLUMN next_controller_sector text`)
+	require.NoError(t, err)
 	session := testdata.SeedTestSessionNamedWithSectors(t, q, "PUBLICATION", []database.InsertSectorOwnersParams{{Sector: []string{"GND"}, Position: "121.900", Identifier: "G"}})
 	otherSession := testdata.SeedTestSessionNamedWithSectors(t, q, "OTHER_PUBLICATION", nil)
 	ctx := context.Background()
@@ -22,7 +24,7 @@ func TestStripPublicationSnapshot(t *testing.T) {
 		testdata.SeedTestStrip(t, q, session, name)
 	}
 	testdata.SeedTestStrip(t, q, otherSession, "PUB1")
-	_, err := pool.Exec(ctx, `INSERT INTO controllers (session, callsign, position, cid, last_seen_euroscope, observer) VALUES ($1, 'EKCH_GND', '121.900', '123', NOW(), false), ($1, 'EKCH_APP', '119.800', '456', NOW(), false)`, session)
+	_, err = pool.Exec(ctx, `INSERT INTO controllers (session, callsign, position, cid, last_seen_euroscope, observer) VALUES ($1, 'EKCH_GND', '121.900', '123', NOW(), false), ($1, 'EKCH_APP', '119.800', '456', NOW(), false)`, session)
 	require.NoError(t, err)
 	r := NewStripRepository(pool)
 	strip, err := r.GetByCallsign(ctx, session, "PUB1")
@@ -89,6 +91,8 @@ func TestStripPublicationSnapshot(t *testing.T) {
 
 func TestUpdateHeadingAndGetStrip(t *testing.T) {
 	pool, q := testdata.SetupTestDB(t)
+	_, err := pool.Exec(context.Background(), `ALTER TABLE strips ADD COLUMN next_controller_sector text`)
+	require.NoError(t, err)
 	session := testdata.SeedTestSessionNamedWithSectors(t, q, "HEADING_PUBLICATION", nil)
 	testdata.SeedTestStrip(t, q, session, "PUB1")
 	before, err := NewStripRepository(pool).GetByCallsign(context.Background(), session, "PUB1")

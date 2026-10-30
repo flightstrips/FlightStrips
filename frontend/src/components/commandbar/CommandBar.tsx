@@ -264,7 +264,7 @@ export default function CommandBar() {
               key={pair}
               onClick={() => setRwyDlgPair(pair)}
               style={{ backgroundColor: bg, width: vw }}
-              className="text-white text-[0.88125vw] font-normal h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_-2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow),_inset_0_-2px_0_var(--color-bay-shadow)] outline-none"
+              className="text-white text-[0.88125vw] font-normal h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center shadow-[inset_1px_0_0_var(--color-bay-shadow),_inset_-1px_0_0_var(--color-bay-shadow),_inset_0_1px_0_var(--color-bay-shadow),_inset_0_-1px_0_var(--color-bay-shadow)] outline-none"
             >
               {pair}
             </button>

@@ -46,6 +46,8 @@ export interface StripProps {
   requestedAltitude?: number;
   taxiway?: string;
   holdingPoint?: string;
+  releasePointProposal?: string;
+  releasePointProposedBy?: string;
   clearances?: boolean;
   frequency?: string;
   heading?: number;

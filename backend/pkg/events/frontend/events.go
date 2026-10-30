@@ -74,7 +74,8 @@ const (
 	CdmReady               EventType = "cdm_ready"
 	CdmDeicePlatformUpdate EventType = "cdm_deice_platform_update"
 
-	ReleasePoint EventType = "release_point"
+	ReleasePoint                    EventType = "release_point"
+	ReleasePointCoordinationRequest EventType = "release_point_coordination_request"
 
 	StartReq EventType = "start_req"
 
@@ -82,6 +83,7 @@ const (
 
 	RunwayClearance    EventType = "runway_clearance"
 	RunwayConfirmation EventType = "runway_confirmation"
+	ResetRunwayClearance EventType = "reset_runway_clearance"
 
 	PdcManualStateChange EventType = "pdc_manual_state_change"
 	PdcStateChange       EventType = "pdc_state_change"
@@ -167,6 +169,8 @@ type Strip struct {
 	Eldt                      string                `json:"eldt"`
 	Bay                       string                `json:"bay"`
 	ReleasePoint              string                `json:"release_point"`
+	ReleasePointProposal     string                `json:"release_point_proposal,omitempty"`
+	ReleasePointProposedBy   string                `json:"release_point_proposed_by,omitempty"`
 	Version                   int32                 `json:"version"`
 	Sequence                  int32                 `json:"sequence"`
 	NextControllers           []string              `json:"next_controllers"`
@@ -785,12 +789,13 @@ type SendMessageEvent struct {
 }
 
 type MessageReceivedEvent struct {
-	ID          int64    `json:"id"`
-	Sender      string   `json:"sender"`
-	Text        string   `json:"text"`
-	IsBroadcast bool     `json:"is_broadcast"`
-	Recipients  []string `json:"recipients"`
-	Format      string   `json:"format,omitempty"`
+	ID                   int64    `json:"id"`
+	Sender               string   `json:"sender"`
+	Text                 string   `json:"text"`
+	IsBroadcast          bool     `json:"is_broadcast"`
+	IsCoordinationRequest bool     `json:"is_coordination_request,omitempty"`
+	Recipients           []string `json:"recipients"`
+	Format               string   `json:"format,omitempty"`
 }
 
 func (m MessageReceivedEvent) Marshal() ([]byte, error) {
@@ -883,6 +888,12 @@ type ReleasePointEvent struct {
 	ReleasePoint string `json:"release_point"`
 }
 
+type ReleasePointCoordinationRequestEvent struct {
+	Callsign     string `json:"callsign"`
+	ReleasePoint string `json:"release_point"`
+	Kind         string `json:"kind"`
+}
+
 func (r ReleasePointEvent) Marshal() ([]byte, error) {
 	return marshall(r)
 }
@@ -931,6 +942,18 @@ func (r RunwayConfirmationEvent) Marshal() ([]byte, error) {
 
 func (r RunwayConfirmationEvent) GetType() EventType {
 	return RunwayConfirmation
+}
+
+type ResetRunwayClearanceEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (r ResetRunwayClearanceEvent) Marshal() ([]byte, error) {
+	return marshall(r)
+}
+
+func (r ResetRunwayClearanceEvent) GetType() EventType {
+	return ResetRunwayClearance
 }
 
 type UpdateRunwayStatusAction struct {

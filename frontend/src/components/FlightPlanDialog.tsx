@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 import { Bay, type FrontendStrip, type SidInfo } from "@/api/models.ts";
@@ -17,7 +17,7 @@ import { useAvailableSids, useInitialCflByRunway, useStrip, useTransitionAltitud
 import { scalePx } from "@/lib/viewportScale";
 import { buildRnavUpdate, effectiveClxFaults, effectiveRnavCapability, rnavAssumptionRemark, type RnavCapability } from "@/lib/rnav";
 import { normalizeCdmTime } from "@/lib/cdmTime";
-import { CDM_RED } from "@/lib/cdmColors";
+import { CDM_RED, isTobtUnrealistic } from "@/lib/cdmColors";
 import { getCtotSlotDisplay, getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 import { MandatoryRouteDialog } from "@/components/MandatoryRouteDialog";
 import { ManualPdcBypassDialog } from "@/components/ManualPdcBypassDialog";
@@ -100,10 +100,6 @@ function hasClxFieldFault(strip: FrontendStrip | undefined, field: ClxField) {
 
 function clxFieldStyle(hasFault: boolean) {
   return hasFault ? { backgroundColor: COLOR_CLX_ERROR } : {};
-}
-
-function invalidPhaseTobtStyle(phase?: string) {
-  return phase === "I" ? { backgroundColor: CDM_RED, color: "white" } : {};
 }
 
 function firstMandatoryRouteToken(route: string) {
@@ -265,6 +261,13 @@ export default function FlightPlanDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const dialogOpen = open ?? internalOpen;
   const setDialogOpen = onOpenChange ?? setInternalOpen;
+  const [nowMs, setNowMs] = useState(Date.now);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [dialogOpen]);
 
   const displayedEobt = normalizeCdmTime(strip?.eobt);
   const displayedTobt = normalizeCdmTime(strip?.tobt);
@@ -317,6 +320,7 @@ export default function FlightPlanDialog({
   const rnavFault = hasClxFieldFault(strip, "rnav");
   const eobtFault = hasClxFieldFault(strip, "eobt");
   const tobtFault = strip?.bay !== Bay.NotCleared && hasClxFieldFault(strip, "tobt");
+  const unrealisticTobt = isTobtUnrealistic(tobt, nowMs);
   const sidOverride = sidOverrideKey(strip);
   const nitosRemarks = clxNitosRemarks(strip);
   const nitosRemarksFit = fittedNitosRemarksStyle(nitosRemarks);
@@ -416,6 +420,7 @@ export default function FlightPlanDialog({
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SID</Label>
               <button
                 type="button"
+                aria-label="SID"
                 onClick={() => setSidDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ ...fieldStyle(150), ...clxFieldStyle(sidFault) }}
@@ -434,7 +439,7 @@ export default function FlightPlanDialog({
                     clxOverrideValidation(callsign, sidOverride);
                     return;
                   }
-                  updateStrip(callsign, { sid });
+                  updateStrip(callsign, { sid, heading: 0 });
                 }}
                 onSelectRnav={handleRnavChange}
                 onErase={() => updateStrip(callsign, { sid: "" })}
@@ -508,7 +513,7 @@ export default function FlightPlanDialog({
                   }}
                   onKeyDown={(event) => event.key === "Enter" && commitTobt()}
                   className={CLS_BTN_EDITABLE}
-                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), ...(strip.bay !== Bay.NotCleared ? invalidPhaseTobtStyle(strip.phase) : {}) }}
+                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), ...(unrealisticTobt ? { backgroundColor: CDM_RED, color: "white" } : {}) }}
                 />
               </div>
               <div className="grid items-center" style={gridGroupStyle}>
@@ -682,6 +687,7 @@ export default function FlightPlanDialog({
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>HDG</Label>
               <button
                 type="button"
+                aria-label="HDG"
                 onClick={() => setHdgDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ ...fieldStyle(125), display: "flex", alignItems: "center", justifyContent: "center", gap: scalePx(4) }}
@@ -700,7 +706,9 @@ export default function FlightPlanDialog({
                 runway={strip.runway}
                 turnDirection={hdgTurnDirection}
                 onTurnDirectionChange={setHdgTurnDirection}
-                onSelect={(heading) => updateStrip(callsign, { heading: heading ?? 0 })}
+                onSelect={(heading) => updateStrip(callsign, heading
+                  ? { heading, sid: "" }
+                  : { heading: 0 })}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -961,7 +969,7 @@ export default function FlightPlanDialog({
               clearPdc(strip.callsign, null);
             } else {
               if (mandatoryRouteSidMismatch) {
-                updateStrip(callsign, { sid: mandatoryRouteSid });
+                updateStrip(callsign, { sid: mandatoryRouteSid, heading: 0 });
               }
               if (mandatoryRouteToClear && mandatoryRouteToClear !== strip.route?.trim().toUpperCase()) {
                 updateStrip(callsign, { route: mandatoryRouteToClear });

@@ -19,6 +19,7 @@ export function HoldingPointDialog({
   coordinationMode = false,
 }: HoldingPointDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
+  const proposeReleasePoint = useWebSocketStore((s) => s.proposeReleasePoint);
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const strip = useStrip(callsign);
   const myPosition = useMyPosition();
@@ -40,7 +41,9 @@ export function HoldingPointDialog({
     && strip.owner === myPosition;
 
   const handleSelect = (label: string) => {
-    if (label !== strip?.release_point) {
+    if (myPosition && strip?.owner && strip.owner !== myPosition) {
+      proposeReleasePoint(callsign, label, "HP");
+    } else if (label !== strip?.release_point || !!strip?.release_point_proposal) {
       setReleasePoint(callsign, label);
     }
     if (shouldAcknowledgeReleasePoint) {
@@ -62,6 +65,7 @@ export function HoldingPointDialog({
       btnStyle={btnStyle}
       onSelect={handleSelect}
       selectedPoint={strip?.release_point}
+      suggestedPoint={strip?.release_point_proposal}
       scaleMode="width"
     >
       <div

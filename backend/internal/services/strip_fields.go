@@ -626,40 +626,70 @@ func (s *StripService) UpdateStartReq(ctx context.Context, session int32, callsi
 	return s.setStartReqState(ctx, session, callsign, startReq, true, nil)
 }
 
-// ApplyReleasePoint updates the release point with ownership enforcement and broadcasts.
-// Non-owners may overwrite an existing value (marks the cell yellow for both controllers).
-// Non-owners setting a value on a strip that has none are rejected.
+// ApplyReleasePoint updates an owned strip's release point and resolves any pending proposal.
+// Only the current owner may change the assigned release point.
 func (s *StripService) ApplyReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string, clientPosition string) error {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 
-	isOwner := strip.Owner == nil || *strip.Owner == "" || *strip.Owner == clientPosition
-	unexpectedChange := false
+	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != clientPosition {
+		return errors.New("cannot modify release point on unowned strip")
+	}
 
-	if !isOwner {
-		hasExisting := strip.ReleasePoint != nil && *strip.ReleasePoint != ""
-		if hasExisting && *strip.ReleasePoint != releasePoint {
-			// Non-owner overwriting existing value — allow, mark as unexpected change.
-			if err := s.fieldStore.AppendUnexpectedChangeField(ctx, session, callsign, "release_point"); err != nil {
-				return err
-			}
-			unexpectedChange = true
-		} else if !hasExisting {
-			// Non-owner setting a value that didn't exist — reject.
-			return errors.New("cannot modify holding point on unowned strip")
+	if strip.ReleasePointProposal != nil {
+		resolver, ok := s.fieldStore.(interface {
+			ResolveReleasePointProposal(context.Context, int32, string, string, string) (int64, error)
+		})
+		if !ok {
+			return errors.New("release point coordination is not configured")
 		}
-		// Non-owner setting same value as existing — silently allow.
+		affected, err := resolver.ResolveReleasePointProposal(ctx, session, callsign, clientPosition, releasePoint)
+		if err != nil {
+			return err
+		}
+		if affected != 1 {
+			return errors.New("release point proposal is no longer pending")
+		}
+		s.publisher.Broadcast(session, frontend.ReleasePointEvent{Callsign: callsign, ReleasePoint: releasePoint})
+		if err := s.reevaluateTaxiwayTypeAndCtotValidation(ctx, session, callsign, true, true); err != nil {
+			return err
+		}
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+		return nil
 	}
 
 	if err := s.UpdateReleasePoint(ctx, session, callsign, releasePoint); err != nil {
 		return err
 	}
+	return nil
+}
 
-	if unexpectedChange {
-		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+// ProposeReleasePoint lets an eligible non-owner suggest a release point to the
+// current owner without changing the assigned value.
+func (s *StripService) ProposeReleasePoint(ctx context.Context, session int32, callsign, releasePoint, proposer string) error {
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
 	}
+	if strip.Owner == nil || *strip.Owner == "" || *strip.Owner == proposer {
+		return errors.New("release point coordination requires a different strip owner")
+	}
+	setter, ok := s.fieldStore.(interface {
+		SetReleasePointProposal(context.Context, int32, string, string, string, string) (int64, error)
+	})
+	if !ok {
+		return errors.New("release point coordination is not configured")
+	}
+	affected, err := setter.SetReleasePointProposal(ctx, session, callsign, *strip.Owner, releasePoint, proposer)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("strip owner changed before release point proposal was saved")
+	}
+	shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	return nil
 }
 

@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getApiUrl } from "@/lib/api-url";
 import { fetchWithAccessTokenRetry, requiresLoginPrompt } from "@/lib/authenticated-fetch";
 import { assignmentTimelineTiming, timelineRangeEnd } from "./stand-status-timeline";
+import { STAND_ASSIGNMENT_LAYOUTS, STAND_ASSIGNMENT_LETTERS } from "@/components/strip/standAssignmentLayouts";
+
+type StandSection = (typeof STAND_ASSIGNMENT_LETTERS)[number];
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -339,13 +342,18 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
   return [...assignments, ...blocks].sort((left, right) => left.stand.localeCompare(right.stand) || left.start.getTime() - right.start.getTime());
 }
 
-function StandAllocationTimeline({ session, now, selectedStand, onSelectStand }: {
+function StandAllocationTimeline({ session, now, selectedStand, onSelectStand, compact = false, section = "A", onSelectSection }: {
   session: StandSession;
   now: Date;
   selectedStand: string;
   onSelectStand: (stand: string) => void;
+  compact?: boolean;
+  section?: StandSection;
+  onSelectSection?: (section: StandSection) => void;
 }) {
-  const layout = comfortableTimelineLayout;
+  const layout = compact
+    ? { width: "w-full", height: "max-h-[18rem]", rowHeight: 40, laneHeight: 34 }
+    : comfortableTimelineLayout;
   const items = buildTimelineItems(session, now);
   const requestedStand = selectedStand.trim().toUpperCase();
   // Keep a stable, useful two-hour history instead of letting one old record
@@ -354,18 +362,36 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand }:
   const rangeEnd = timelineRangeEnd(now);
   const visibleItems = items.filter((item) => item.start <= rangeEnd && (item.end ?? now) >= rangeStart);
   const stands = [...new Set(visibleItems.map((item) => item.stand))];
-  const visibleStands = requestedStand ? [requestedStand] : stands;
+  const sectionStands = STAND_ASSIGNMENT_LAYOUTS[section === "C" || section === "D" ? "C+D" : section]
+    .map(([stand]) => stand)
+    .filter(stand => stand.startsWith(section))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  const visibleStands = compact ? sectionStands : requestedStand ? [requestedStand] : stands;
   const rangeMs = Math.max(1, rangeEnd.getTime() - rangeStart.getTime());
   const offset = (date: Date) => Math.max(0, Math.min(100, ((date.getTime() - rangeStart.getTime()) / rangeMs) * 100));
 
   return (
-    <div className="border-t px-6 py-5">
+    <div className={compact ? "flex gap-3 px-3 py-3" : "border-t px-6 py-5"}>
+      {compact && (
+        <nav aria-label="Stand sections" className="flex shrink-0 flex-col gap-2">
+          {STAND_ASSIGNMENT_LETTERS.map(letter => (
+            <button
+              key={letter}
+              type="button"
+              aria-pressed={section === letter}
+              onClick={() => onSelectSection?.(letter)}
+              className={`h-9 w-10 border border-[#777] text-sm font-semibold text-white ${section === letter ? "bg-[#626262] ring-1 ring-white" : "bg-[#3f3f3f]"}`}
+            >{letter}</button>
+          ))}
+        </nav>
+      )}
+      <div className="min-w-0 flex-1">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h3 className="text-base font-semibold">Stand occupancy timeline</h3>
-          <p className="text-sm text-muted-foreground">The view shows two hours either side of now. Active cards are coloured by type; violet/slate cards are expired history.</p>
+          <h3 className="text-base font-semibold">{compact ? `Section ${section} stand timeline` : "Stand occupancy timeline"}</h3>
+          <p className="text-sm text-muted-foreground">{compact ? "Two hours either side of now (UTC). Empty rows are free." : "The view shows two hours either side of now. Active cards are coloured by type; violet/slate cards are expired history."}</p>
         </div>
-        <div className="flex flex-wrap items-end gap-3">
+        {!compact && <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Find stand
             <input
@@ -375,7 +401,7 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand }:
               className="h-9 w-40 rounded-md border bg-background px-3 text-sm font-normal normal-case text-foreground outline-none focus:ring-2 focus:ring-ring"
             />
           </label>
-        </div>
+        </div>}
       </div>
       <div className="mt-4 overflow-x-auto rounded-lg border">
         <div className={layout.width}>
@@ -397,7 +423,7 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand }:
                   <div className="flex items-center px-3 py-3 font-semibold">{stand}</div>
                   <div className="relative overflow-hidden bg-background" style={{ minHeight: `${rowHeight}px` }}>
                     <div className="absolute inset-y-0 z-10 border-l-2 border-red-500/90" style={{ left: `${offset(now)}%` }} />
-                    {standItems.length === 0 ? <div className="px-3 py-4 text-xs text-muted-foreground">No current allocation or block.</div> : null}
+                    {standItems.length === 0 ? <div className="px-3 py-3 text-xs text-muted-foreground">{compact ? "FREE" : "No current allocation or block."}</div> : null}
                     {standItems.map((item, index) => {
                       const start = offset(item.start);
                       const end = offset(item.end ?? now);
@@ -413,8 +439,8 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand }:
                               <span className="truncate">{item.label}</span>
                               {!item.active ? <span className="rounded bg-black/15 px-1 py-px text-[9px] uppercase tracking-wide">History</span> : null}
                             </div>
-                            <div className="truncate text-[11px] leading-4 opacity-90">{item.detail}</div>
-                            <div className="truncate text-[10px] leading-4 opacity-80">{item.secondary}</div>
+                            {!compact && <div className="truncate text-[11px] leading-4 opacity-90">{item.detail}</div>}
+                            {!compact && <div className="truncate text-[10px] leading-4 opacity-80">{item.secondary}</div>}
                           </div>
                           {item.plannedEnd && item.plannedEnd >= rangeStart && item.plannedEnd <= rangeEnd ? (
                             <div
@@ -433,16 +459,23 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand }:
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
 
-export default function StandStatusPage() {
+export default function StandStatusPage({ compactSessionId, initialStand = "" }: {
+  compactSessionId?: number | null;
+  initialStand?: string;
+} = {}) {
   const { getAccessTokenSilently, logout } = useAuth0();
   const [data, setData] = useState<StandStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedStand, setSelectedStand] = useState("");
+  const [selectedStand, setSelectedStand] = useState(initialStand);
+  const [selectedSection, setSelectedSection] = useState<StandSection>(
+    () => STAND_ASSIGNMENT_LETTERS.find(letter => !initialStand.startsWith("HANGAR") && initialStand.startsWith(letter)) ?? "A",
+  );
   const [selectedFlight, setSelectedFlight] = useState<SelectedFlight | null>(null);
   const [preview, setPreview] = useState<StandAllocationPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -553,6 +586,18 @@ export default function StandStatusPage() {
       { assignments: 0, blocks: 0 },
     );
   }, [data]);
+
+  if (compactSessionId !== undefined) {
+    const session = data?.sessions.find(item => item.session_id === compactSessionId);
+    return (
+      <div className="bg-background text-foreground">
+        {error && <p role="alert" className="px-3 py-2 text-sm text-red-500">{error}</p>}
+        {loading && !data ? <p role="status" className="p-3 text-sm">Loading stand timeline...</p>
+          : session ? <StandAllocationTimeline compact section={selectedSection} onSelectSection={setSelectedSection} session={session} now={new Date()} selectedStand={selectedStand} onSelectStand={setSelectedStand} />
+          : !error && <p role="status" className="p-3 text-sm">No stand timeline is available for the current session.</p>}
+      </div>
+    );
+  }
 
   if (loading && !data) {
     return (

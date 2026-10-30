@@ -11,6 +11,8 @@ import { ApronTaxiMapDialog } from "../map-dialogs/ApronTaxiMapDialog";
 import { SIBox } from "./SIBox";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
+import { Bay } from "@/api/models";
+import { getRwyArrRunwayColor } from "./finalArrRunwayColor";
 
 // Height: 4.72dvh (51px at 1080p), matches FinalArrStrip ATC arrival strip spec
 const TOP_H = "66.6667%";
@@ -42,6 +44,7 @@ export function ApnArrStrip({
   runway,
   taxiway,
   holdingPoint,
+  releasePointProposal,
   stand,
   owner,
   nextControllers,
@@ -55,6 +58,8 @@ export function ApnArrStrip({
   isManual = false,
   arrival,
   pdcStatus,
+  runwayCleared = false,
+  runwayConfirmed = false,
 }: StripProps) {
   const {
     isSelected,
@@ -76,6 +81,8 @@ export function ApnArrStrip({
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
+  const resetRunwayClearance = useWebSocketStore(s => s.resetRunwayClearance);
   const satEnabled = useWebSocketStore(s => s.satEnabled);
   const satAssignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
   const acknowledgeStandAssignment = useWebSocketStore(s => s.acknowledgeStandAssignment);
@@ -86,6 +93,11 @@ export function ApnArrStrip({
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const runwayBg = runwayYellow
+    ? COLOR_UNEXPECTED_YELLOW
+    : bay === Bay.RwyArr
+      ? getRwyArrRunwayColor({ runwayCleared, runwayConfirmed })
+      : undefined;
 
   return (
     <>
@@ -141,10 +153,16 @@ export function ApnArrStrip({
       {/* RWY */}
       <div
         className="flex flex-col overflow-hidden border-r-2 min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+        style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: runwayBg, cursor: getValidationBlockedCursor(isValidationActive) }}
         onClick={(e) => guardValidationAction(e, () => {
           if (runwayYellow) {
             acknowledgeUnexpectedChange(callsign, "runway");
+          } else if (bay === Bay.RwyArr) {
+            if (runwayCleared && runwayConfirmed) {
+              resetRunwayClearance(callsign);
+            } else {
+              runwayConfirmation(callsign);
+            }
           } else {
             setRunwayOpen(true);
           }
@@ -159,11 +177,11 @@ export function ApnArrStrip({
       {/* HS / Taxiway */}
       <div
         className="flex flex-col overflow-hidden border-r-2 min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_HS, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive) }}
+        style={{ flexGrow: F_HS, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: releasePointProposal ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
         onClick={(e) => guardValidationAction(e, () => setTaxiMapOpen(true))}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          {(() => { const twy = taxiway ?? holdingPoint; return <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", opacity: twy ? 1 : 0.2 }}>{twy || "TWY"}</span>; })()}
+          {(() => { const twy = releasePointProposal ?? taxiway ?? holdingPoint; return <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", opacity: twy ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>{twy || "TWY"}</span>; })()}
         </div>
         <div style={{ height: BOT_H }} />
       </div>

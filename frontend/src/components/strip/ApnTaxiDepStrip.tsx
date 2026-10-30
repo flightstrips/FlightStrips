@@ -54,6 +54,7 @@ export function ApnTaxiDepStrip({
   registration,
   stand,
   holdingPoint,
+  releasePointProposal,
   runway,
   ctot,
   deicePlatform,
@@ -93,12 +94,11 @@ export function ApnTaxiDepStrip({
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
-  const isCoordinationMode = (!!owner && !!myPosition && owner !== myPosition) || !!releasePointYellow;
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
   const deiceIndication = formatDeIceIndication(deicePlatform);
   const deiceIndicationActive = !!deiceIndication && !deicePlatformAcknowledged;
 
-  const hpValue = holdingPoint ?? "";
+  const hpValue = releasePointProposal ?? holdingPoint ?? "";
   const hasTwy = hpValue.includes("/");
 
   return (
@@ -185,7 +185,7 @@ export function ApnTaxiDepStrip({
         {/* HP / TWY — 25%*(2/3)*(2/3) */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
+          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), backgroundColor: releasePointProposal || releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
           onClick={(e) => guardValidationAction(e, () => setShowTaxiMap(true))}
         >
           <div className="flex items-center justify-center" style={{ height: HALF_H }}>
@@ -221,7 +221,6 @@ export function ApnTaxiDepStrip({
         open={showTaxiMap}
         onOpenChange={setShowTaxiMap}
         callsign={callsign}
-        coordinationMode={isCoordinationMode}
       />
       <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} />
       {validationStatus && (

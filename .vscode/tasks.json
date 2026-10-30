@@ -1,0 +1,49 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "EFB frontend development server",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"frontend",
+				"run",
+				"dev",
+				"--",
+				"--host",
+				"localhost",
+				"--port",
+				"8080",
+				"--strictPort"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Enable and rebuild local EFB backend only",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"--profile",
+				"all",
+				"--project-name",
+				"backend",
+				"--project-directory",
+				"C:\\FlightStrips\\FlightStrips\\backend",
+				"-f",
+				"C:\\FlightStrips\\FlightStrips\\backend\\docker-compose.yaml",
+				"-f",
+				"C:\\Users\\Lukas Desktop\\.copilot\\session-state\\5b3dfdad-ebeb-4fb3-8ff0-bf8204496534\\files\\efb-runtime.yaml",
+				"up",
+				"--build",
+				"--no-deps",
+				"-d",
+				"flightstrip"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

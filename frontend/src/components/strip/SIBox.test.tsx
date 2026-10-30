@@ -4,14 +4,16 @@ import { SIBox } from "./SIBox";
 
 const transferStrip = vi.hoisted(() => vi.fn());
 const startRequestAndTransfer = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+const openStripContextMenu = vi.hoisted(() => vi.fn());
+const assumeStrip = vi.hoisted(() => vi.fn());
 
 vi.mock("@/store/store-hooks", () => ({
   useControllers: () => [],
   useWebSocketStore: (selector: (state: Record<string, unknown>) => unknown) => selector({
     transferStrip,
     startRequestAndTransfer,
-    assumeStrip: vi.fn(),
-    cancelTransfer: vi.fn(),
+    assumeStrip,
+    openStripContextMenu,
     acceptTagRequest: vi.fn(),
   }),
 }));
@@ -20,6 +22,8 @@ describe("startup SI transfer", () => {
   beforeEach(() => {
     transferStrip.mockClear();
     startRequestAndTransfer.mockClear();
+    openStripContextMenu.mockClear();
+    assumeStrip.mockClear();
   });
 
   it("uses the reduced font size for the SI indicator", () => {
@@ -61,5 +65,42 @@ describe("startup SI transfer", () => {
     fireEvent.click(container.firstElementChild!);
     expect(transferStrip).toHaveBeenCalledWith("SAS123", "121.730");
     expect(startRequestAndTransfer).not.toHaveBeenCalled();
+  });
+
+  it("opens the callsign menu instead of changing handover state while a transfer is active", () => {
+    const { container } = render(
+      <SIBox
+        callsign="SAS123"
+        bay="CLEARED"
+        owner="121.905"
+        myPosition="121.905"
+        transferFrom="121.905"
+        transferringTo="121.730"
+      />,
+    );
+
+    fireEvent.click(container.firstElementChild!, { clientX: 120, clientY: 80 });
+
+    expect(openStripContextMenu).toHaveBeenCalledWith("SAS123", { x: 120, y: 80 });
+    expect(transferStrip).not.toHaveBeenCalled();
+  });
+
+  it("accepts an incoming transfer when the receiving controller clicks the SI field", () => {
+    const { container } = render(
+      <SIBox
+        callsign="SAS123"
+        bay="CLEARED"
+        owner="121.905"
+        myPosition="121.730"
+        transferFrom="121.905"
+        transferringTo="121.730"
+      />,
+    );
+
+    fireEvent.click(container.firstElementChild!);
+
+    expect(assumeStrip).toHaveBeenCalledWith("SAS123");
+    expect(openStripContextMenu).not.toHaveBeenCalled();
+    expect(transferStrip).not.toHaveBeenCalled();
   });
 });

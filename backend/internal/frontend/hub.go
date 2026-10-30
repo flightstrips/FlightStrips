@@ -159,10 +159,12 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.CdmReady, handleCdmReady)
 	handlers.Add(frontend.CdmDeicePlatformUpdate, handleCdmDeicePlatformUpdate)
 	handlers.Add(frontend.ReleasePoint, handleReleasePoint)
+	handlers.Add(frontend.ReleasePointCoordinationRequest, handleReleasePointCoordinationRequest)
 	handlers.Add(frontend.StartReq, handleStartReq)
 	handlers.Add(frontend.Marked, handleMarked)
 	handlers.Add(frontend.RunwayClearance, handleRunwayClearance)
 	handlers.Add(frontend.RunwayConfirmation, handleRunwayConfirmation)
+	handlers.Add(frontend.ResetRunwayClearance, handleResetRunwayClearance)
 	handlers.Add(frontend.AcknowledgeUnexpectedChange, handleAcknowledgeUnexpectedChange)
 	handlers.Add(frontend.ActionCreateTacticalStrip, handleCreateTacticalStrip)
 	handlers.Add(frontend.ActionDeleteTacticalStrip, handleDeleteTacticalStrip)
@@ -557,6 +559,8 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		CommunicationType:         helpers.ValueOrDefault(strip.CommunicationType),
 		Bay:                       strip.Bay,
 		ReleasePoint:              helpers.ValueOrDefault(strip.ReleasePoint),
+		ReleasePointProposal:      helpers.ValueOrDefault(strip.ReleasePointProposal),
+		ReleasePointProposedBy:    helpers.ValueOrDefault(strip.ReleasePointProposedBy),
 		Version:                   strip.Version,
 		Sequence:                  helpers.ValueOrDefault(strip.Sequence),
 		NextControllers:           strip.NextOwners,
@@ -1685,6 +1689,18 @@ func (hub *Hub) SendToPosition(session int32, position string, message frontend.
 		}
 	}
 }
+
+func (hub *Hub) SendReleasePointCoordinationMessage(session int32, position string, message frontend.OutgoingMessage) {
+	if event, ok := message.(frontend.MessageReceivedEvent); ok {
+		hub.storeMessage(session, event)
+	}
+	for client := range hub.clients {
+		if client.session == session && client.position == position && !client.readOnly && !strings.HasSuffix(strings.ToUpper(client.callsign), "_OBS") {
+			client.Enqueue(message)
+		}
+	}
+}
+
 func (hub *Hub) SendCoordinationTagRequest(session int32, callsign, from, to string) {
 	event := frontend.CoordinationTagRequestBroadcastEvent{
 		Callsign: callsign,

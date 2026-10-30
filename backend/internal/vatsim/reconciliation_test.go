@@ -208,6 +208,21 @@ type reconciliationTestDepartureLifecycle struct {
 	released  []string
 }
 
+type reconciliationPilotDepartureLifecycle struct {
+	reconciliationTestDepartureLifecycle
+	observed []string
+}
+
+func (l *reconciliationPilotDepartureLifecycle) CancelPilotDeparture(_ context.Context, _ int32, callsign string) error {
+	l.cancelled = append(l.cancelled, callsign)
+	return nil
+}
+
+func (l *reconciliationPilotDepartureLifecycle) ReconcilePilotDeparture(_ context.Context, _ int32, strip *models.Strip, _ DepartureFlightInfo) (bool, error) {
+	l.observed = append(l.observed, strip.Callsign)
+	return strip.Callsign == "SAS101", nil
+}
+
 func (l *reconciliationTestDepartureLifecycle) ProcessDeparture(_ context.Context, _ int32, strip *models.Strip, _ DepartureFlightInfo) error {
 	l.processed = append(l.processed, strip.Callsign)
 	return nil
@@ -520,6 +535,7 @@ func TestReconcileRequiresEuroscopeStripBeforeOnlineDepartureBlock(t *testing.T)
 		case "SAS202":
 			prefileStrip = strip
 		}
+
 	}
 	require.NotNil(t, onlineStrip)
 	require.NotNil(t, prefileStrip)
@@ -530,6 +546,22 @@ func TestReconcileRequiresEuroscopeStripBeforeOnlineDepartureBlock(t *testing.T)
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, []string{"SAS101"}, lifecycle.processed,
 		"the online departure may enter the block path after EuroScope has supplied the strip, while an ES-owned prefile must not reset that state")
+}
+
+func TestReconcileFollowsOpenedPilotDepartureBeforeEuroscope(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	cache := newReconciliationTestCache(now,
+		Flight{CID: "1", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}},
+		Flight{CID: "2", Callsign: "SAS202", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EDDF", Revision: 5}},
+	)
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}
+	lifecycle := &reconciliationPilotDepartureLifecycle{}
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler.lifecycle = lifecycle
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.ElementsMatch(t, []string{"SAS101", "SAS202"}, lifecycle.observed)
+	assert.Empty(t, lifecycle.processed, "unopened API-only flights retain their old behavior")
+	assert.Empty(t, lifecycle.released)
 }
 
 func TestReconcileReleasesPushDepartureAfterLifecycleProcessing(t *testing.T) {
@@ -640,6 +672,21 @@ func TestReconcileCancelsDepartureLifecycleWhenFlightDisappears(t *testing.T) {
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, []string{"SAS505"}, lifecycle.cancelled)
+}
+
+func TestReconcileCancelsPilotOccupancyWhenEuroscopeStillOwnsStrip(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	cid := "5"
+	strip := &models.Strip{
+		Callsign: "SAS506", Session: 7, Origin: "EKCH",
+		VatsimCID: &cid, VatsimSeenAt: &now, EuroscopeSeenAt: &now,
+	}
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {strip}}}
+	reconciler := newTestReconciler(newReconciliationTestCache(now), reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	lifecycle := &reconciliationPilotDepartureLifecycle{}
+	reconciler.lifecycle = lifecycle
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Equal(t, []string{"SAS506"}, lifecycle.cancelled)
 }
 
 func TestReconcileDoesNotCancelEuroscopeOwnedDepartureLifecycleWhenFlightDisappears(t *testing.T) {

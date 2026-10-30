@@ -4,9 +4,12 @@ import { Bay, type FrontendStrip } from "@/api/models";
 import { useSortable } from "@dnd-kit/sortable";
 import { SortableBay, SortableStrip } from "./SortableBay";
 
+const stripTransfers = vi.hoisted(() => ({} as Record<string, { from: string; to: string; isTagRequest: boolean }>));
+
 vi.mock("@/store/store-hooks", () => ({
   useMyPosition: () => "118.105",
   useOpenValidationDialog: () => vi.fn(),
+  useStripTransfers: () => stripTransfers,
 }));
 
 vi.mock("@dnd-kit/sortable", async (importOriginal) => {
@@ -25,6 +28,24 @@ vi.mock("@dnd-kit/sortable", async (importOriginal) => {
 });
 
 describe("SortableStrip", () => {
+  it("locks a strip during an active non-tag handover", () => {
+    const strip = { callsign: "SAS123", bay: Bay.Cleared, owner: "118.105" } as FrontendStrip;
+    stripTransfers.SAS123 = { from: "118.105", to: "121.905", isTagRequest: false };
+    vi.mocked(useSortable).mockClear();
+
+    render(
+      <SortableBay strips={[strip]}>
+        {() => <span>{strip.callsign}</span>}
+      </SortableBay>,
+    );
+
+    expect(useSortable).toHaveBeenLastCalledWith(expect.objectContaining({
+      id: "SAS123",
+      disabled: true,
+    }));
+    delete stripTransfers.SAS123;
+  });
+
   it.each([Bay.NotCleared, Bay.Cleared])("locks dragging only for planned departures (%s)", (bay) => {
     const strip = { callsign: "SAS123", bay } as FrontendStrip;
     vi.mocked(useSortable).mockClear();

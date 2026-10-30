@@ -1,5 +1,5 @@
 import { useWebSocketStore, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
-import { APRON_TAXI_POINTS, COORDINATION_APRON_TAXI_POINTS } from "@/config/ekch";
+import { APRON_TAXI_POINTS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 import { Bay } from "@/api/models";
 
@@ -8,7 +8,6 @@ interface ApronTaxiMapDialogProps {
   onOpenChange: (open: boolean) => void;
   callsign: string;
   noMove?: boolean;
-  coordinationMode?: boolean;
 }
 
 // Sizes expressed as % of image container (1859×903 reference) so they scale with the dialog.
@@ -27,9 +26,9 @@ export function ApronTaxiMapDialog({
   onOpenChange,
   callsign,
   noMove = false,
-  coordinationMode = false,
 }: ApronTaxiMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
+  const proposeReleasePoint = useWebSocketStore((s) => s.proposeReleasePoint);
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const move = useWebSocketStore((s) => s.move);
   const displayedLayout = useWebSocketStore((s) => s.displayedLayout);
@@ -38,12 +37,15 @@ export function ApronTaxiMapDialog({
   const isTwr = useIsTwr();
   const strip = useStrip(callsign);
   const myPosition = useMyPosition();
+  const isNotOwner = !!myPosition && !!strip?.owner && strip.owner !== myPosition;
 
   const shouldAcknowledgeReleasePoint =
     strip?.unexpected_change_fields?.includes("release_point") && !!myPosition && strip.owner === myPosition;
 
   const handleSelect = (label: string) => {
-    if (label !== strip?.release_point) {
+    if (isNotOwner) {
+      proposeReleasePoint(callsign, label, "HS");
+    } else if (label !== strip?.release_point || !!strip?.release_point_proposal) {
       setReleasePoint(callsign, label);
     }
 
@@ -67,6 +69,10 @@ export function ApronTaxiMapDialog({
   };
 
   const handleErase = () => {
+    if (isNotOwner) {
+      onOpenChange(false);
+      return;
+    }
     // Erase only clears the stored route; it intentionally leaves the strip in its current bay.
     if (strip?.release_point) {
       setReleasePoint(callsign, "");
@@ -88,10 +94,11 @@ export function ApronTaxiMapDialog({
       imageAlt="Apron taxi map"
       imgWidth={1859}
       imgHeight={903}
-        points={coordinationMode ? COORDINATION_APRON_TAXI_POINTS : APRON_TAXI_POINTS}
+        points={APRON_TAXI_POINTS}
         btnStyle={BTN_STYLE}
         onSelect={handleSelect}
         selectedPoint={strip?.release_point}
+        suggestedPoint={strip?.release_point_proposal}
       >
       {/* Controls panel — bottom-left */}
       <div

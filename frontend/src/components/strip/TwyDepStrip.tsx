@@ -1,7 +1,7 @@
 import { SEMI_BOLD_STROKE } from "./shared";
 import { useState } from "react";
 import { AircraftTypeLabel, COLOR_UNEXPECTED_YELLOW, getValidationBlockedCursor } from "./shared";
-import { useStripTransfers, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks";
+import { useApronOnline, useIsTwr, useRunwaySetup, useStripTransfers, useTransitionAltitude, useTwrOnline, useWebSocketStore } from "@/store/store-hooks";
 import { formatAltitude } from "@/lib/utils";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { getStripBg } from "./types";
@@ -10,7 +10,7 @@ import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyl
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
 import { SIBox } from "./SIBox";
-import { TAXI_MAP_POINTS } from "@/config/ekch";
+import { TAXI_MAP_POINTS, type VisibilityContext } from "@/config/ekch";
 import { Bay } from "@/api/models";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getGroundStopRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
@@ -65,6 +65,7 @@ export function TwyDepStrip({
   deicePlatformAcknowledged = false,
   runway,
   holdingPoint,
+  releasePointProposal,
   clearedAltitude,
   heading,
   sid,
@@ -106,6 +107,10 @@ export function TwyDepStrip({
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [hdgTurnDirection, setHdgTurnDirection] = useState<HdgTurnDirection>();
   const initialCflByRunway = useInitialCflByRunway();
+  const runwaySetup = useRunwaySetup();
+  const apronOnline = useApronOnline();
+  const twrOnline = useTwrOnline();
+  const isTwr = useIsTwr();
   const updateStrip = useWebSocketStore(s => s.updateStrip);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
@@ -134,10 +139,21 @@ export function TwyDepStrip({
   // Determine display slot for the release point:
   // - "hp"-typed points → HP cell
   // - "cl"-typed or untyped points → TWY cell
-  const hpLabels = new Set(TAXI_MAP_POINTS.filter(p => p.type === "hp").map(p => p.label));
-  const isHp = holdingPoint ? hpLabels.has(holdingPoint) : false;
-  const hpDisplay = isHp ? (holdingPoint ?? "") : "";
-  const twyDisplay = !isHp ? (holdingPoint ?? "") : "";
+  const visibilityContext: VisibilityContext = {
+    dep: runwaySetup.departure,
+    arr: runwaySetup.arrival,
+    stripType: arrival ? "arr" : "dep",
+    apronOnline,
+    twrOnline,
+    isTwr: isTwr ?? false,
+  };
+  const hpLabels = new Set(TAXI_MAP_POINTS.filter(p => p.type === "hp").map(p =>
+    typeof p.label === "function" ? p.label(visibilityContext) : p.label,
+  ));
+  const shownReleasePoint = releasePointProposal ?? holdingPoint ?? "";
+  const isHp = shownReleasePoint ? hpLabels.has(shownReleasePoint) : false;
+  const hpDisplay = isHp ? shownReleasePoint : "";
+  const twyDisplay = !isHp ? shownReleasePoint : "";
 
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
   const deiceIndication = formatDeIceIndication(deicePlatform);
@@ -244,7 +260,7 @@ export function TwyDepStrip({
           height: "100%",
           borderRightColor: cellBorderColor,
           cursor: getValidationBlockedCursor(isValidationActive),
-          backgroundColor: releasePointYellow && !isHp ? COLOR_UNEXPECTED_YELLOW : undefined,
+          backgroundColor: (releasePointProposal || releasePointYellow) && !isHp ? COLOR_UNEXPECTED_YELLOW : undefined,
         }}
         onClick={(e) => guardValidationAction(e, () => setShowTaxiMap(true))}
       >
@@ -291,7 +307,7 @@ export function TwyDepStrip({
         <div aria-hidden="true" style={{ height: "2px", flexShrink: 0, backgroundColor: cellBorderColor }} />
         <div
           className="flex items-center justify-center cursor-pointer"
-          style={{ flex: "1 1 0%", minHeight: 0, backgroundColor: releasePointYellow && isHp ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+          style={{ flex: "1 1 0%", minHeight: 0, backgroundColor: (releasePointProposal || releasePointYellow) && isHp ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => setShowHpMap(true))}
         >
           <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>

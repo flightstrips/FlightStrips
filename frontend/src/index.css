@@ -261,13 +261,13 @@ body.public-content-page {
   .bay-col-sep {
     @apply border-t-[6px] border-bay-border;
   }
-  /* Where a separator meets a column divider the 6px square stays flat (no bevel). */
-  .bay-col:not(:first-child) > .bay-col-sep,
-  .bay-col-flex:not(:first-child) > .bay-col-sep {
+  /* T-junctions keep the far bevel; opposing caps make cross-junctions flat. */
+  .bay-col:not(:first-child) > :is(.bay-col-sep, .bay-tab-bar),
+  .bay-col-flex:not(:first-child) > :is(.bay-col-sep, .bay-tab-bar) {
     --sep-l: 6px;
   }
-  .bay-col:not(:last-child) > .bay-col-sep,
-  .bay-col-flex:not(:last-child) > .bay-col-sep {
+  .bay-col:not(:last-child) > :is(.bay-col-sep, .bay-tab-bar),
+  .bay-col-flex:not(:last-child) > :is(.bay-col-sep, .bay-tab-bar) {
     --sep-r: 6px;
   }
   .bay-col-sep::before,
@@ -278,11 +278,12 @@ body.public-content-page {
     right: calc(-1 * var(--sep-r, 0px));
     top: -6px;
     height: 6px;
+    z-index: 20;
     pointer-events: none;
     background:
-      linear-gradient(var(--color-bay-border), var(--color-bay-border)) left / var(--sep-l, 0px) 100% no-repeat,
-      linear-gradient(var(--color-bay-border), var(--color-bay-border)) right / var(--sep-r, 0px) 100% no-repeat,
-      linear-gradient(to bottom, var(--bay-edge-dark), var(--color-bay-border) 35%, var(--color-bay-border) 65%, var(--bay-edge-dark));
+      linear-gradient(to right, transparent 35%, var(--color-bay-border) 35%) left / var(--sep-l, 0px) 100% no-repeat,
+      linear-gradient(to left, transparent 35%, var(--color-bay-border) 35%) right / var(--sep-r, 0px) 100% no-repeat,
+      linear-gradient(to bottom, var(--bay-edge-dark), var(--color-bay-border) 35%, var(--color-bay-border) 65%, var(--bay-edge-dark)) center / calc(100% - var(--sep-l, 0px) - var(--sep-r, 0px)) 100% no-repeat;
   }
 
   /* ── Scroll areas ───────────────────────────────────────────────────────── */
@@ -693,4 +694,74 @@ body.public-content-page {
 
 .animate-dialog-zoom-in {
   animation: dialog-zoom-in 100ms ease-out;
+}
+
+.efb-action-bar {
+  border-radius: 0;
+  background-image: linear-gradient(rgb(255 255 255 / 7%), transparent 45%, rgb(0 0 0 / 12%));
+  box-shadow: inset 0 0 0 1px rgb(184 217 240 / 55%), inset 2px 3px 0 rgb(255 255 255 / 18%), inset -2px -3px 0 rgb(0 0 0 / 28%);
+}
+
+[data-efb-tile-content] {
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+
+.efb-tile-hover > [data-efb-tile-content] {
+  transform: scale(1.015);
+  filter: brightness(1.06);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 35%);
+}
+
+.efb-clickspot {
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+
+.efb-clickspot:not(:disabled):is(:hover, :focus-visible),
+.efb-atis-control:is(:hover, :focus-visible) > .efb-clickspot {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: inset 0 0 0 1px rgb(184 217 240 / 70%), inset 2px 3px 0 rgb(255 255 255 / 22%), inset -2px -3px 0 rgb(0 0 0 / 30%), 0 4px 8px rgb(0 0 0 / 30%);
+}
+
+.efb-clickspot:not(:disabled):active,
+.efb-atis-control:active > .efb-clickspot {
+  transform: translateY(0);
+  box-shadow: inset 0 0 0 1px rgb(184 217 240 / 55%), inset 2px 3px 0 rgb(0 0 0 / 25%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .efb-clickspot,
+  [data-efb-tile-content] {
+    transition: none;
+  }
+}
+
+@keyframes efb-info-expand {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes efb-briefing-page-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes efb-briefing-page-back {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.efb-briefing-page {
+  animation: efb-briefing-page-in 240ms ease-out;
+}
+
+.efb-briefing-page[data-direction="backward"] {
+  animation-name: efb-briefing-page-back;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .efb-briefing-page,
+  .efb-briefing-page[data-direction="backward"] {
+    animation: none;
+  }
 }

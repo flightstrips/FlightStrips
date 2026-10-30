@@ -1,5 +1,5 @@
-import { controllerOwnsTowerSectors, useWebSocketStore, useRunwaySetup, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
-import { COORDINATION_WITH_APRON_TAXI_MAP_POINTS, COORDINATION_WITH_TWR_TAXI_MAP_POINTS, TAXI_MAP_POINTS } from "@/config/ekch";
+import { useWebSocketStore, useRunwaySetup, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
+import { TAXI_MAP_POINTS } from "@/config/ekch";
 import type { VisibilityContext } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 import { Bay } from "@/api/models";
@@ -26,6 +26,7 @@ export function TaxiMapDialog({
   moveOnSelect = false,
 }: TaxiMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
+  const proposeReleasePoint = useWebSocketStore((s) => s.proposeReleasePoint);
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const move = useWebSocketStore((s) => s.move);
   const runwaySetup = useRunwaySetup();
@@ -35,7 +36,6 @@ export function TaxiMapDialog({
   const strip = useStrip(callsign);
   const myPosition = useMyPosition();
   const airport = useWebSocketStore((s) => s.airport);
-  const controllers = useWebSocketStore((s) => s.controllers);
 
   const stripType = strip?.origin === airport ? "dep"
     : strip?.destination === airport ? "arr"
@@ -54,17 +54,16 @@ export function TaxiMapDialog({
     strip?.unexpected_change_fields?.includes("release_point") && !!myPosition && strip.owner === myPosition;
 
   const isNotOwner = !!myPosition && !!strip?.owner && strip.owner !== myPosition;
-  const ownerController = controllers.find((c) => c.position === strip?.owner);
-  const coordinationPoints =
-    controllerOwnsTowerSectors(ownerController)
-      ? COORDINATION_WITH_TWR_TAXI_MAP_POINTS
-      : COORDINATION_WITH_APRON_TAXI_MAP_POINTS;
-
   const handleSelect = (label: string) => {
-    if (label !== strip?.release_point) {
+    if (isNotOwner) {
+      const selectedPoint = TAXI_MAP_POINTS.find((point) =>
+        (typeof point.label === "function" ? point.label(visibilityContext) : point.label) === label,
+      );
+      proposeReleasePoint(callsign, label, selectedPoint?.type === "hp" ? "HP" : "HS");
+    } else if (label !== strip?.release_point || !!strip?.release_point_proposal) {
       setReleasePoint(callsign, label);
     }
-    if (moveOnSelect) {
+    if (moveOnSelect && !isNotOwner) {
       move(callsign, Bay.TaxiLwr);
     }
     if (shouldAcknowledgeReleasePoint) {
@@ -74,6 +73,10 @@ export function TaxiMapDialog({
   };
 
   const handleErase = () => {
+    if (isNotOwner) {
+      onOpenChange(false);
+      return;
+    }
     if (strip?.release_point) {
       setReleasePoint(callsign, "");
     }
@@ -92,11 +95,12 @@ export function TaxiMapDialog({
       imageAlt="TWR taxi map"
       imgWidth={1801}
       imgHeight={1013}
-      points={isNotOwner ? coordinationPoints : TAXI_MAP_POINTS}
+      points={TAXI_MAP_POINTS}
       btnStyle={BTN_STYLE}
       onSelect={handleSelect}
       visibilityContext={visibilityContext}
       selectedPoint={strip?.release_point}
+      suggestedPoint={strip?.release_point_proposal}
       >
         {/* Controls panel — bottom-left */}
         <div

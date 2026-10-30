@@ -111,6 +111,8 @@ set(src__graphics
         graphics/PdcClearancePopupState.h
         graphics/PdcPopup.cpp
         graphics/PdcPopup.h
+        graphics/StandTimelinePopup.cpp
+        graphics/StandTimelinePopup.h
         graphics/Colors.h
         graphics/Graphics.cpp
         graphics/Graphics.h)

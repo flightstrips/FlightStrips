@@ -17,7 +17,7 @@ import { isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
 import { ControlzoneStrip } from "./ControlzoneStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
 import { normalizeCdmTime } from "@/lib/cdmTime";
-import { useAirport } from "@/store/store-hooks";
+import { useAirport, useWebSocketStore } from "@/store/store-hooks";
 import { useIsLocallyHidden } from "@/store/localHiddenStrips";
 
 export type { StripStatus };
@@ -56,6 +56,7 @@ const STATUS_DEFAULT_WIDTH: Partial<Record<StripStatus, string>> = {
 export function Strip({ strip, status, halfStripVariant, myPosition, selectable, delegateCallsignClick, onStripMoved, width, fullWidth, startupSiTransfer, clearanceFromPlannedBay, ignoreOwnershipBackground, grayTwyDepAppearance }: StripRenderProps) {
   const airport = useAirport();
   const localHidden = useIsLocallyHidden(isFlight(strip) ? strip.callsign : "");
+  const localMarked = useWebSocketStore((state) => isFlight(strip) ? state.localMarked[strip.callsign] : undefined);
 
   if (!isFlight(strip)) {
     const effectiveWidth = width ?? (status ? STATUS_DEFAULT_WIDTH[status] : undefined);
@@ -105,6 +106,8 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     heading: strip.heading,
     holdingPoint: strip.release_point,
     taxiway: strip.release_point,
+    releasePointProposal: strip.release_point_proposal,
+    releasePointProposedBy: strip.release_point_proposed_by,
     owner: strip.owner,
     nextControllers: strip.next_controllers,
     previousControllers: strip.previous_controllers,
@@ -114,7 +117,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     selectable: strip.bay === Bay.NotCleared ? false : selectable,
     delegateCallsignClick,
     onStripMoved,
-    marked: strip.marked,
+    marked: localMarked ?? strip.marked,
     runwayCleared: strip.runway_cleared,
     runwayConfirmed: strip.runway_confirmed,
     registration: strip.registration,

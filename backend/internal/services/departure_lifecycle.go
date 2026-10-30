@@ -26,7 +26,7 @@ const (
 
 const (
 	defaultDepartureHoldDuration    = 15 * time.Minute
-	defaultDepartureBlockExtension  = 10 * time.Minute
+	defaultDepartureBlockExtension  = 5 * time.Minute
 	defaultDepartureSweepInterval   = 30 * time.Second
 	departureClockRolloverThreshold = 12 * time.Hour
 	wrongStandAwaitingPrefix        = "WRONG_STAND_AWAITING_MESSAGE: observed "
@@ -58,6 +58,7 @@ type DepartureLifecycleService struct {
 	standPublisher observedStandPublisher
 	warningMu      sync.Mutex
 	warnings       map[string]string
+	pilotStands    *PilotDepartureStandService
 }
 
 type wrongStandMessenger interface {
@@ -86,6 +87,9 @@ func (s *DepartureLifecycleService) SetStandPublisher(publisher observedStandPub
 // disappears from the live feed.
 func (s *DepartureLifecycleService) CancelDeparture(ctx context.Context, session int32, callsign string) error {
 	s.clearUnassignedStandWarning(session, callsign)
+	if err := s.CancelPilotDeparture(ctx, session, callsign); err != nil {
+		return err
+	}
 	return s.cancelWrongStandEpisode(ctx, session, callsign)
 }
 
@@ -170,14 +174,32 @@ func NewDepartureLifecycleService(
 	return service, nil
 }
 
-// ProcessDeparture is the reconciler entry point. It dispatches to the
-// reservation path while the aircraft is offline and to the block path once it
-// is online. Both paths are idempotent: repeated feed polls with no change in
-// revision or timing leave the persisted assignment untouched.
+func (s *DepartureLifecycleService) CancelPilotDeparture(ctx context.Context, session int32, callsign string) error {
+	if s.pilotStands == nil {
+		return nil
+	}
+	return s.pilotStands.cancelDeparture(ctx, session, callsign)
+}
+
+// ReconcilePilotDeparture follows EFB aircraft even before EuroScope has seen them.
+func (s *DepartureLifecycleService) ReconcilePilotDeparture(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
+	if s.pilotStands == nil {
+		return false, nil
+	}
+	return s.pilotStands.reconcile(ctx, session, strip, flight)
+}
+
+// ProcessDeparture dispatches offline reservations and observed online blocks.
+// Repeated feed polls without changes leave the assignment untouched.
 func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (err error) {
 	defer func() { err = suppressAutomaticAllocationError(err) }()
 	if strip == nil || strings.TrimSpace(strip.Callsign) == "" {
 		return nil
+	}
+	if s.pilotStands != nil {
+		if managed, err := s.pilotStands.reconcile(ctx, session, strip, flight); managed || err != nil {
+			return err
+		}
 	}
 	if flight.Online {
 		activated, err := s.activateObservedBlock(ctx, session, strip, flight)
@@ -217,6 +239,11 @@ func (s *DepartureLifecycleService) releaseOfflinePrefileReservation(ctx context
 func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context, session int32, strip *models.Strip, latitude, longitude float64) error {
 	if strip == nil || strings.TrimSpace(strip.Callsign) == "" {
 		return nil
+	}
+	if s.pilotStands != nil {
+		if managed, err := s.pilotStands.opened(ctx, session, strip); managed || err != nil {
+			return err
+		}
 	}
 	activated, err := s.activateObservedBlock(ctx, session, strip, vatsim.DepartureFlightInfo{
 		Callsign: strip.Callsign, Online: true, Origin: strip.Origin,
@@ -645,19 +672,20 @@ func (s *DepartureLifecycleService) revalidateFacts(ctx context.Context, session
 		return nil
 	}
 	request := StandAllocationRequest{
-		SessionID:       session,
-		Callsign:        strip.Callsign,
-		Airport:         strings.ToUpper(strings.TrimSpace(strip.Origin)),
-		Direction:       sat.AssignmentDirectionDeparture,
-		Stage:           existing.Stage,
-		FlightFacts:     facts,
-		AssignmentFacts: assignmentFacts,
-		ExpiresAt:       existing.ExpiresAt,
-		DepartureTOBT:   departureTobtTime(strip, s.now()),
-		DepartureTSAT:   departureTsatTime(strip, s.now()),
-		DepartureReady:  departureExpectedToVacate(strip),
-		VatsimCID:       existing.VatsimCID,
-		VatsimRevision:  existing.VatsimRevision,
+		SessionID:                   session,
+		Callsign:                    strip.Callsign,
+		Airport:                     strings.ToUpper(strings.TrimSpace(strip.Origin)),
+		Direction:                   sat.AssignmentDirectionDeparture,
+		Stage:                       existing.Stage,
+		FlightFacts:                 facts,
+		AssignmentFacts:             assignmentFacts,
+		ExpiresAt:                   existing.ExpiresAt,
+		DepartureTOBT:               departureTobtTime(strip, s.now()),
+		DepartureTSAT:               departureTsatTime(strip, s.now()),
+		DepartureStartupRequestedAt: departureStartupRequestTime(strip, s.now()),
+		DepartureReady:              departureExpectedToVacate(strip),
+		VatsimCID:                   existing.VatsimCID,
+		VatsimRevision:              existing.VatsimRevision,
 	}
 	_, err = s.allocations.Reallocate(ctx, request)
 	return err
@@ -721,6 +749,11 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 		err := s.allocations.releaseAssignment(ctx, assignment, true)
 		recordSATExpiry(ctx, assignment, "strip_removed", err)
 		return err
+	}
+	if s.pilotStands != nil {
+		if managed, err := s.pilotStands.opened(ctx, session, strip); managed || err != nil {
+			return err
+		}
 	}
 	if assignment.Stage == StageDepartureBlock && s.stripIsAtAssignedStand(strip, assignment.Stand) &&
 		(assignment.ConflictReason == nil ||
@@ -795,17 +828,18 @@ func (s *DepartureLifecycleService) StartSweep(ctx context.Context) {
 func (s *DepartureLifecycleService) buildRequest(session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo, stage string, expiresAt *time.Time) StandAllocationRequest {
 	facts, assignmentFacts := s.resolveFacts(strip, flight)
 	request := StandAllocationRequest{
-		SessionID:       session,
-		Callsign:        strip.Callsign,
-		Airport:         strings.ToUpper(strings.TrimSpace(strip.Origin)),
-		Direction:       sat.AssignmentDirectionDeparture,
-		Stage:           stage,
-		FlightFacts:     facts,
-		AssignmentFacts: assignmentFacts,
-		ExpiresAt:       expiresAt,
-		DepartureTOBT:   departureTobtTime(strip, s.now()),
-		DepartureTSAT:   departureTsatTime(strip, s.now()),
-		DepartureReady:  departureExpectedToVacate(strip),
+		SessionID:                   session,
+		Callsign:                    strip.Callsign,
+		Airport:                     strings.ToUpper(strings.TrimSpace(strip.Origin)),
+		Direction:                   sat.AssignmentDirectionDeparture,
+		Stage:                       stage,
+		FlightFacts:                 facts,
+		AssignmentFacts:             assignmentFacts,
+		ExpiresAt:                   expiresAt,
+		DepartureTOBT:               departureTobtTime(strip, s.now()),
+		DepartureTSAT:               departureTsatTime(strip, s.now()),
+		DepartureStartupRequestedAt: departureStartupRequestTime(strip, s.now()),
+		DepartureReady:              departureExpectedToVacate(strip),
 	}
 	request.VatsimCID, request.VatsimRevision = resolvedVatsimIdentity(strip, flight.CID, flight.Revision)
 	return request
@@ -819,7 +853,7 @@ func departureExpectedToVacate(strip *models.Strip) bool {
 	if strip.State != nil {
 		state = strings.TrimSpace(*strip.State)
 	}
-	return strip.StartReq || strings.EqualFold(strings.TrimSpace(strip.Bay), "PUSH") || strings.EqualFold(state, "PUSH")
+	return strings.EqualFold(strings.TrimSpace(strip.Bay), "PUSH") || strings.EqualFold(state, "PUSH")
 }
 
 // resolvedVatsimIdentity prefers the current feed record, then falls back to
@@ -883,19 +917,29 @@ func (s *DepartureLifecycleService) resolveFacts(strip *models.Strip, flight vat
 
 func (s *DepartureLifecycleService) computeBlockExpiry(strip *models.Strip) *time.Time {
 	now := s.now()
-	release := departureTobtTime(strip, now)
-	if tsat := departureTsatTime(strip, now); tsat != nil && (release == nil || tsat.After(*release)) {
-		release = tsat
-	}
-	if release == nil {
+	return projectedDepartureRelease(StandAllocationRequest{
+		DepartureTOBT:               departureTobtTime(strip, now),
+		DepartureTSAT:               departureTsatTime(strip, now),
+		DepartureStartupRequestedAt: departureStartupRequestTime(strip, now),
+		DepartureReady:              departureExpectedToVacate(strip),
+	}, s.blockExtension)
+}
+
+func departureStartupRequestTime(strip *models.Strip, now time.Time) *time.Time {
+	if strip == nil {
 		return nil
 	}
-	extension := s.blockExtension
-	if departureExpectedToVacate(strip) {
-		extension = 0
+	if strip.CdmData != nil && strip.CdmData.Asrt != nil {
+		// ASRT survives START REQ+TRF clearing the display flag. Unlike a
+		// planned slot, this actual request time belongs to the past.
+		if requestedAt, ok := parseArrivalLandingClockUTC(*strip.CdmData.Asrt, now); ok {
+			return &requestedAt
+		}
 	}
-	expiry := release.Add(extension)
-	return &expiry
+	if strip.StartReq {
+		return &now
+	}
+	return nil
 }
 
 func priorObservedDepartureConflict(reason *string) *string {

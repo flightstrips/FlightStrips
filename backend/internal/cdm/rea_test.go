@@ -50,6 +50,21 @@ func TestReaRequestTobtAcrossMidnight(t *testing.T) {
 	assert.False(t, change)
 }
 
+func TestReaRequestTobtResetsTobtOnRepeatedRea(t *testing.T) {
+	now := time.Date(2026, 10, 12, 14, 50, 0, 0, time.UTC)
+	for _, currentTobt := range []string{"1453", ""} {
+		t.Run(currentTobt, func(t *testing.T) {
+			tobt, change := reaRequestTobt(&models.CdmData{
+				Status: stringPtr("REA"),
+				Tobt:   stringPtr(currentTobt),
+			}, now)
+
+			assert.True(t, change)
+			assert.Equal(t, "1450", tobt)
+		})
+	}
+}
+
 func TestHandleReaRequestPersistsStatusAndOnlyChangesFutureTobt(t *testing.T) {
 	for _, offset := range []time.Duration{-10 * time.Minute, 5 * time.Minute, 15 * time.Minute} {
 		t.Run(offset.String(), func(t *testing.T) {

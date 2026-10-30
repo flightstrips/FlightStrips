@@ -148,6 +148,8 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		PreviousOwners:           db.PreviousOwners,
 		NextDisplay:              nextDisplayFromColumns(db.NextDisplayLabel, db.NextDisplayFrequency),
 		ReleasePoint:             db.ReleasePoint,
+		ReleasePointProposal:     db.ReleasePointProposal,
+		ReleasePointProposedBy:   db.ReleasePointProposedBy,
 		PdcState:                 pdcData.State,
 		PdcRequestRemarks:        pdcData.RequestRemarks,
 		PdcRequestedAt:           pdcData.RequestedAt,
@@ -758,7 +760,17 @@ func (r *stripRepository) UpdateHeadingAndGetStrip(ctx context.Context, session 
 UPDATE strips
 SET heading=$1, version=version+1
 WHERE callsign=$2 AND session=$3 AND (version=$4 OR $4 IS NULL)
-RETURNING *`, heading, callsign, session, version)
+RETURNING id, version, callsign, session, origin, destination, alternative, route, remarks,
+assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway,
+requested_altitude, capabilities, communication_type, aircraft_category, stand,
+sequence, state, cleared, owner, bay, position_latitude, position_longitude,
+position_altitude, next_owners, previous_owners, release_point, marked, registration,
+tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields,
+engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data,
+runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid,
+vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type,
+hold_eat, next_display_label, next_display_frequency, fs_scratch_pad, flight_rules,
+release_point_proposal, release_point_proposed_by`, heading, callsign, session, version)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -934,6 +946,25 @@ func (r *stripRepository) UpdateReleasePoint(ctx context.Context, session int32,
 	return r.queries.UpdateReleasePoint(ctx, database.UpdateReleasePointParams{
 		Session:      session,
 		Callsign:     callsign,
+		ReleasePoint: releasePoint,
+	})
+}
+
+func (r *stripRepository) SetReleasePointProposal(ctx context.Context, session int32, callsign, owner, releasePoint, proposedBy string) (int64, error) {
+	return r.queries.SetReleasePointProposal(ctx, database.SetReleasePointProposalParams{
+		Session:                session,
+		Callsign:               callsign,
+		ReleasePointProposal:   releasePoint,
+		ReleasePointProposedBy: proposedBy,
+		Owner:                  owner,
+	})
+}
+
+func (r *stripRepository) ResolveReleasePointProposal(ctx context.Context, session int32, callsign, owner, releasePoint string) (int64, error) {
+	return r.queries.ResolveReleasePointProposal(ctx, database.ResolveReleasePointProposalParams{
+		Session:      session,
+		Callsign:     callsign,
+		Owner:        owner,
 		ReleasePoint: releasePoint,
 	})
 }
@@ -1176,6 +1207,13 @@ func (r *stripRepository) UpdateRunwayConfirmation(ctx context.Context, session 
 // ResetRunwayClearance clears runway_cleared back to false (e.g. when a strip is moved backward from rwy-dep).
 func (r *stripRepository) ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error) {
 	return r.queries.ResetRunwayClearance(ctx, database.ResetRunwayClearanceParams{
+		Callsign: callsign,
+		Session:  session,
+	})
+}
+
+func (r *stripRepository) SetRwyArrRunwayStatusOnEntry(ctx context.Context, session int32, callsign string) (int64, error) {
+	return r.queries.SetRwyArrRunwayStatusOnEntry(ctx, database.SetRwyArrRunwayStatusOnEntryParams{
 		Callsign: callsign,
 		Session:  session,
 	})

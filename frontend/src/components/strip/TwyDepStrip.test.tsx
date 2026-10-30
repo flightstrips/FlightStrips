@@ -14,6 +14,10 @@ vi.mock("@/store/store-hooks", () => ({
   useStripTransfers: () => ({}),
   useTransitionAltitude: () => 5000,
   useInitialCflByRunway: () => ({ "22R": 4000 }),
+  useRunwaySetup: () => ({ departure: ["22R"], arrival: ["04L"] }),
+  useApronOnline: () => false,
+  useTwrOnline: () => false,
+  useIsTwr: () => false,
   useWebSocketStore: (selector: (state: typeof store) => unknown) => selector(store),
 }));
 

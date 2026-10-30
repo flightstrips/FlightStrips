@@ -152,7 +152,7 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 
 	coordinationModels := buildCoordinationModels(strips, coordinations)
 	tacticalStripModels := b.loadTacticalStrips(ctx, request.SessionID)
-	storedMessages := b.snapshotMessages(request.SessionID)
+	storedMessages := messagesVisibleAtPosition(b.snapshotMessages(request.SessionID), request.Position)
 	availableSids := b.loadAvailableSIDs(ctx, request.SessionID)
 	initialCFLByRunway := buildInitialCFLByRunway()
 	departureMismatch, arrivalMismatch, localIP := b.loadClientRuntimeState(request)
@@ -308,6 +308,26 @@ func (b *SnapshotBuilder) loadClientRuntimeState(request InitialSnapshotRequest)
 	departureMismatch, arrivalMismatch := b.euroscopeHub.GetRunwayMismatchStatus(request.SessionID, request.UserCID)
 	localIP := b.euroscopeHub.GetClientLocalIP(request.SessionID, request.UserCID)
 	return departureMismatch, arrivalMismatch, localIP
+}
+
+func messagesVisibleAtPosition(messages []frontendEvents.MessageReceivedEvent, position string) []frontendEvents.MessageReceivedEvent {
+	visible := make([]frontendEvents.MessageReceivedEvent, 0, len(messages))
+	for _, message := range messages {
+		if message.IsCoordinationRequest {
+			recipientMatch := false
+			for _, recipient := range message.Recipients {
+				if recipient == position {
+					recipientMatch = true
+					break
+				}
+			}
+			if !recipientMatch {
+				continue
+			}
+		}
+		visible = append(visible, message)
+	}
+	return visible
 }
 
 func (b *SnapshotBuilder) snapshotMessages(sessionID int32) []frontendEvents.MessageReceivedEvent {

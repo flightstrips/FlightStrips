@@ -83,6 +83,8 @@ type Strip struct {
 	PreviousOwners           []string
 	NextDisplay              *NextDisplay
 	ReleasePoint             *string
+	ReleasePointProposal     *string
+	ReleasePointProposedBy  *string
 	PdcState                 string
 	PdcRequestRemarks        *string
 	PdcRequestedAt           *time.Time

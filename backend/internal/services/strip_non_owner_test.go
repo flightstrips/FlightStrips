@@ -30,14 +30,10 @@ func newReleasePointFixture(stripRepo *testutil.MockStripRepository) (*StripServ
 
 // ── ApplyReleasePoint (maps to handleReleasePoint) ───────────────────────────
 
-// TestHandleReleasePoint_NonOwner_ExistingValue_MarksUnexpected verifies that when
-// a non-owner overwrites an existing release point the field is marked as an
-// unexpected change and the update is applied.
-func TestHandleReleasePoint_NonOwner_ExistingValue_MarksUnexpected(t *testing.T) {
+// TestHandleReleasePoint_NonOwner_ExistingValue_Rejected verifies that a non-owner
+// must use the coordination proposal flow instead of changing the assigned point.
+func TestHandleReleasePoint_NonOwner_ExistingValue_Rejected(t *testing.T) {
 	ctx := context.Background()
-
-	var appendedField string
-	var updatedReleasePoint string
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -47,32 +43,17 @@ func TestHandleReleasePoint_NonOwner_ExistingValue_MarksUnexpected(t *testing.T)
 				ReleasePoint: ptr("K"),
 			}, nil
 		},
-		AppendUnexpectedChangeFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
-			appendedField = field
-			return nil
-		},
-		UpdateReleasePointFn: func(_ context.Context, _ int32, _ string, rp *string) (int64, error) {
-			updatedReleasePoint = *rp
-			return 1, nil
-		},
 	}
 
 	svc, hub := newReleasePointFixture(stripRepo)
 
 	err := svc.ApplyReleasePoint(ctx, testSession, testCallsign, "L", nonOwnerPosition)
-	require.NoError(t, err)
-
-	assert.Equal(t, "release_point", appendedField, "expected release_point to be marked as unexpected change")
-	assert.Equal(t, "L", updatedReleasePoint, "expected release point to be updated to L")
-	require.Len(t, hub.StripUpdates, 1, "expected strip broadcast after unexpected change")
-	assert.Equal(t, testCallsign, hub.StripUpdates[0].Callsign)
+	require.ErrorContains(t, err, "cannot modify release point on unowned strip")
+	assert.Empty(t, hub.StripUpdates)
 }
 
-func TestHandleReleasePoint_NonOwner_ExistingValueWithActiveValidation_MarksUnexpected(t *testing.T) {
+func TestHandleReleasePoint_NonOwner_ExistingValueWithActiveValidation_Rejected(t *testing.T) {
 	ctx := context.Background()
-
-	var appendedField string
-	var updatedReleasePoint string
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -88,25 +69,13 @@ func TestHandleReleasePoint_NonOwner_ExistingValueWithActiveValidation_MarksUnex
 				},
 			}, nil
 		},
-		AppendUnexpectedChangeFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
-			appendedField = field
-			return nil
-		},
-		UpdateReleasePointFn: func(_ context.Context, _ int32, _ string, rp *string) (int64, error) {
-			updatedReleasePoint = *rp
-			return 1, nil
-		},
 	}
 
 	svc, hub := newReleasePointFixture(stripRepo)
 
 	err := svc.ApplyReleasePoint(ctx, testSession, testCallsign, "L", nonOwnerPosition)
-	require.NoError(t, err)
-
-	assert.Equal(t, "release_point", appendedField, "expected release_point to stay coordinateable during active owner validation")
-	assert.Equal(t, "L", updatedReleasePoint, "expected release point to be updated to L")
-	require.Len(t, hub.StripUpdates, 1, "expected strip broadcast after unexpected change")
-	assert.Equal(t, testCallsign, hub.StripUpdates[0].Callsign)
+	require.ErrorContains(t, err, "cannot modify release point on unowned strip")
+	assert.Empty(t, hub.StripUpdates)
 }
 
 // TestHandleReleasePoint_NonOwner_NoExistingValue_Rejected verifies that a non-owner
@@ -165,13 +134,57 @@ func TestHandleReleasePoint_Owner_NoUnexpectedChange(t *testing.T) {
 	assert.Empty(t, hub.StripUpdates, "owner update must not trigger extra strip broadcast")
 }
 
-// TestHandleStripUpdate_NonOwner_TwyOverwrite_MarksUnexpected verifies the same
-// non-owner overwrite behaviour for the TWY/clearance-limit case (TWY and HP both
-// share the release_point field).
-func TestHandleStripUpdate_NonOwner_TwyOverwrite_MarksUnexpected(t *testing.T) {
-	ctx := context.Background()
+func TestProposeReleasePoint_StoresSuggestionWithoutChangingAssignment(t *testing.T) {
+	var savedCallsign, savedOwner, savedPoint, savedBy string
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: testCallsign, Owner: ptr(ownerPosition), ReleasePoint: ptr("K")}, nil
+		},
+		SetReleasePointProposalFn: func(_ context.Context, _ int32, callsign, owner, releasePoint, proposedBy string) (int64, error) {
+			savedCallsign, savedOwner, savedPoint, savedBy = callsign, owner, releasePoint, proposedBy
+			return 1, nil
+		},
+	}
+	svc, hub := newReleasePointFixture(stripRepo)
 
-	var appendedField string
+	require.NoError(t, svc.ProposeReleasePoint(context.Background(), testSession, testCallsign, "L", nonOwnerPosition))
+	assert.Equal(t, testCallsign, savedCallsign)
+	assert.Equal(t, ownerPosition, savedOwner)
+	assert.Equal(t, "L", savedPoint)
+	assert.Equal(t, nonOwnerPosition, savedBy)
+	require.Len(t, hub.StripUpdates, 1)
+	assert.Equal(t, testCallsign, hub.StripUpdates[0].Callsign)
+}
+
+func TestApplyReleasePoint_OwnerResolvesProposalAndSetsManualPoint(t *testing.T) {
+	var resolvedOwner, resolvedPoint string
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:             testCallsign,
+				Owner:                ptr(ownerPosition),
+				ReleasePoint:         ptr("K"),
+				ReleasePointProposal: ptr("L"),
+			}, nil
+		},
+		ResolveReleasePointProposalFn: func(_ context.Context, _ int32, _ string, owner, releasePoint string) (int64, error) {
+			resolvedOwner, resolvedPoint = owner, releasePoint
+			return 1, nil
+		},
+	}
+	svc, hub := newReleasePointFixture(stripRepo)
+
+	require.NoError(t, svc.ApplyReleasePoint(context.Background(), testSession, testCallsign, "M", ownerPosition))
+	assert.Equal(t, ownerPosition, resolvedOwner)
+	assert.Equal(t, "M", resolvedPoint)
+	require.Len(t, hub.StripUpdates, 1)
+	assert.Equal(t, testCallsign, hub.StripUpdates[0].Callsign)
+}
+
+// TestHandleStripUpdate_NonOwner_TwyOverwrite_Rejected verifies non-owners cannot
+// directly overwrite the shared TWY/HP release-point field.
+func TestHandleStripUpdate_NonOwner_TwyOverwrite_Rejected(t *testing.T) {
+	ctx := context.Background()
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -181,22 +194,13 @@ func TestHandleStripUpdate_NonOwner_TwyOverwrite_MarksUnexpected(t *testing.T) {
 				ReleasePoint: ptr("TWY-B"), // existing clearance limit
 			}, nil
 		},
-		AppendUnexpectedChangeFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
-			appendedField = field
-			return nil
-		},
-		UpdateReleasePointFn: func(_ context.Context, _ int32, _ string, _ *string) (int64, error) {
-			return 1, nil
-		},
 	}
 
 	svc, hub := newReleasePointFixture(stripRepo)
 
 	err := svc.ApplyReleasePoint(ctx, testSession, testCallsign, "TWY-C", nonOwnerPosition)
-	require.NoError(t, err)
-
-	assert.Equal(t, "release_point", appendedField)
-	require.Len(t, hub.StripUpdates, 1)
+	require.ErrorContains(t, err, "cannot modify release point on unowned strip")
+	assert.Empty(t, hub.StripUpdates)
 }
 
 // TestHandleStripUpdate_NonOwner_SidChange_Rejected verifies that a non-owner

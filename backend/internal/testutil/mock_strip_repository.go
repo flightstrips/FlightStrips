@@ -50,6 +50,7 @@ type MockStripRepository struct {
 	UpdateRunwayClearanceFn         func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRunwayConfirmationFn      func(ctx context.Context, session int32, callsign string) (int64, error)
 	ResetRunwayClearanceFn          func(ctx context.Context, session int32, callsign string) (int64, error)
+	SetRwyArrRunwayStatusOnEntryFn  func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRegistrationFn            func(ctx context.Context, session int32, callsign string, registration string) error
 	UpdateTrackingControllerFn      func(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
 	SetOwnerFn                      func(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
@@ -63,6 +64,8 @@ type MockStripRepository struct {
 	UpdateArrivalETAFn              func(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error)
 	ClearArrivalETAFn               func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateReleasePointFn            func(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
+	SetReleasePointProposalFn       func(ctx context.Context, session int32, callsign, owner, releasePoint, proposedBy string) (int64, error)
+	ResolveReleasePointProposalFn   func(ctx context.Context, session int32, callsign, owner, releasePoint string) (int64, error)
 	AppendUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	RemoveUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	AppendControllerModifiedFieldFn func(ctx context.Context, session int32, callsign string, fieldName string) error
@@ -389,6 +392,13 @@ func (m *MockStripRepository) ResetRunwayClearance(ctx context.Context, session 
 	return m.ResetRunwayClearanceFn(ctx, session, callsign)
 }
 
+func (m *MockStripRepository) SetRwyArrRunwayStatusOnEntry(ctx context.Context, session int32, callsign string) (int64, error) {
+	if m.SetRwyArrRunwayStatusOnEntryFn == nil {
+		panic("unexpected call to MockStripRepository.SetRwyArrRunwayStatusOnEntry")
+	}
+	return m.SetRwyArrRunwayStatusOnEntryFn(ctx, session, callsign)
+}
+
 func (m *MockStripRepository) UpdateRegistration(ctx context.Context, session int32, callsign string, registration string) error {
 	if m.UpdateRegistrationFn == nil {
 		panic("unexpected call to MockStripRepository.UpdateRegistration")
@@ -478,6 +488,20 @@ func (m *MockStripRepository) UpdateReleasePoint(ctx context.Context, session in
 		panic("unexpected call to MockStripRepository.UpdateReleasePoint")
 	}
 	return m.UpdateReleasePointFn(ctx, session, callsign, releasePoint)
+}
+
+func (m *MockStripRepository) SetReleasePointProposal(ctx context.Context, session int32, callsign, owner, releasePoint, proposedBy string) (int64, error) {
+	if m.SetReleasePointProposalFn == nil {
+		panic("unexpected call to MockStripRepository.SetReleasePointProposal")
+	}
+	return m.SetReleasePointProposalFn(ctx, session, callsign, owner, releasePoint, proposedBy)
+}
+
+func (m *MockStripRepository) ResolveReleasePointProposal(ctx context.Context, session int32, callsign, owner, releasePoint string) (int64, error) {
+	if m.ResolveReleasePointProposalFn == nil {
+		panic("unexpected call to MockStripRepository.ResolveReleasePointProposal")
+	}
+	return m.ResolveReleasePointProposalFn(ctx, session, callsign, owner, releasePoint)
 }
 
 func (m *MockStripRepository) AppendUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error {

@@ -402,7 +402,31 @@ SELECT callsign, cdm_data FROM strips WHERE session = $1;
 SELECT callsign, cdm_data FROM strips WHERE session = $1 and callsign = $2;
 
 -- name: UpdateReleasePoint :execrows
-UPDATE strips SET release_point = $3 WHERE session = $1 AND callsign = $2;
+UPDATE strips
+SET release_point = $3,
+    release_point_proposal = NULL,
+    release_point_proposed_by = NULL
+WHERE session = $1 AND callsign = $2;
+
+-- name: SetReleasePointProposal :execrows
+UPDATE strips
+SET release_point_proposal = sqlc.arg(release_point_proposal),
+    release_point_proposed_by = sqlc.arg(release_point_proposed_by)
+WHERE session = sqlc.arg(session)
+  AND callsign = sqlc.arg(callsign)
+  AND owner = sqlc.arg(owner)
+  AND owner IS NOT NULL
+  AND owner <> '';
+
+-- name: ResolveReleasePointProposal :execrows
+UPDATE strips
+SET release_point = sqlc.arg(release_point),
+    release_point_proposal = NULL,
+    release_point_proposed_by = NULL
+WHERE session = sqlc.arg(session)
+  AND callsign = sqlc.arg(callsign)
+  AND owner = sqlc.arg(owner)
+  AND release_point_proposal IS NOT NULL;
 
 -- name: UpdateStripMarkedByID :execrows
 UPDATE strips
@@ -445,6 +469,7 @@ WHERE callsign = $1 AND session = $2;
 -- name: UpdateRunwayConfirmation :execrows
 UPDATE strips
 SET runway_confirmed = true,
+    runway_cleared   = CASE WHEN bay = 'RWY_ARR' THEN true ELSE runway_cleared END,
     version          = version + 1
 WHERE callsign = $1 AND session = $2;
 
@@ -454,6 +479,26 @@ SET runway_cleared   = false,
     runway_confirmed = false,
     version          = version + 1
 WHERE callsign = $1 AND session = $2;
+
+-- name: SetRwyArrRunwayStatusOnEntry :execrows
+UPDATE strips AS arriving
+SET runway_cleared = true,
+    runway_confirmed = NOT EXISTS (
+      SELECT 1
+      FROM strips AS other
+      WHERE other.session = arriving.session
+        AND other.callsign <> arriving.callsign
+        AND other.bay = 'RWY_ARR'
+    ) AND NOT EXISTS (
+      SELECT 1
+      FROM tactical_strips AS tactical
+      WHERE tactical.session_id = arriving.session
+        AND tactical.bay = 'RWY_ARR'
+    ),
+    version = version + 1
+WHERE arriving.callsign = $1
+  AND arriving.session = $2
+  AND arriving.bay = 'RWY_ARR';
 
 -- name: GetMaxSequenceInBayUnified :one
 -- Returns the maximum sequence value across BOTH strips and tactical_strips for a bay.

@@ -106,13 +106,13 @@ type StripService interface {
 	// Frontend strip mutations
 	UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string) error
 	// ApplyReleasePoint updates the release point with ownership enforcement.
-	// Non-owners may overwrite an existing value (marks the cell yellow); non-owners
-	// setting a value on a strip that has none are rejected.
+	// Only the current owner may directly change the assigned release point.
 	ApplyReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string, clientPosition string) error
 	UpdateStartReq(ctx context.Context, session int32, callsign string, startReq bool) error
 	UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error
 	RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error
 	RunwayConfirmation(ctx context.Context, session int32, callsign string) error
+	ResetRunwayClearance(ctx context.Context, session int32, callsign string) error
 	PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error
 
 	// Manual FPL creation

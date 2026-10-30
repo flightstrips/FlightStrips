@@ -20,10 +20,24 @@ export function AnalyticsPrivacySection() {
         FlightStrips is used and to diagnose problems you report to us. PostHog acts as our data processor
         and stores the data in the European Union (Frankfurt).
       </p>
+      <h3>Why we collect it</h3>
+      <ul>
+        <li>To investigate problems you report, by seeing what happened leading up to them</li>
+        <li>To find and fix errors, including ones nobody has reported yet</li>
+        <li>To spot parts of the interface that cause misclicks or confusion, and make them easier to use</li>
+        <li>To understand which features are used, so we know where to focus development</li>
+      </ul>
+      <p>
+        The data is never sold or used for advertising, and is not shared with anyone other than PostHog,
+        which processes it on our behalf.
+      </p>
       <h3>What is collected</h3>
       <ul>
         <li>Page views, clicks, rage clicks and dead clicks, and heatmaps of where you click</li>
-        <li>Session replay: a reconstruction of what was shown on your screen and how you interacted with it</li>
+        <li>
+          Session replay (screen recording): a reconstruction of what was shown on your screen and how you
+          interacted with it, including mouse movements and clicks
+        </li>
         <li>JavaScript errors, browser console output and network request timings (not their contents)</li>
         <li>Performance metrics (Core Web Vitals) and app version</li>
         <li>Browser, operating system, screen size, approximate location derived from your IP address</li>

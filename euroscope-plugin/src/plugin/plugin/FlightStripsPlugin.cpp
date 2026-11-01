@@ -2,6 +2,7 @@
 #include <cctype>
 #include "FlightStripsPlugin.h"
 #include "AirportResolution.h"
+#include "GroundTagReleasePolicy.h"
 
 #include "Logger.hpp"
 #include "bootstrap/Container.h"
@@ -263,13 +264,38 @@ namespace FlightStrips {
 
     void FlightStripsPlugin::OnFlightPlanControllerAssignedDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan,
                                                                       int DataType) {
-        if (!IsRelevant(FlightPlan)) {
+        if (!FlightPlan.IsValid() || FlightPlan.GetSimulated()) {
             return;
         }
 
         SafeCall("OnFlightPlanControllerAssignedDataUpdate", [this, FlightPlan, DataType] {
+            if (DataType == EuroScopePlugIn::CTR_DATA_TYPE_SCRATCH_PAD_STRING) {
+                HandleRequestOnFrequency(FlightPlan);
+            }
+            if (!IsRelevant(FlightPlan)) return;
             this->m_flightPlanEventHandlerCollection->ControllerFlightPlanDataEvent(FlightPlan, DataType);
         });
+    }
+
+    void FlightStripsPlugin::HandleRequestOnFrequency(EuroScopePlugIn::CFlightPlan flightPlan) {
+        if (m_connectionState.observer || !flightPlan.GetTrackingControllerIsMe()) return;
+
+        const auto scratchPad = flightPlan.GetControllerAssignedData().GetScratchPadString();
+        const auto request = ParseRequestOnFrequency(scratchPad == nullptr ? "" : scratchPad);
+        if (!request || _stricmp(request->aircraftCallsign.c_str(), flightPlan.GetCallsign()) != 0) return;
+
+        const auto owner = ControllerMyself();
+        const auto requester = ControllerSelect(request->controllerCallsign.c_str());
+        if (!owner.IsValid() || !owner.IsController() || !requester.IsValid() || !requester.IsController()) return;
+        if (!ShouldReleaseGroundTag(owner.GetCallsign(), owner.GetFacility(), requester.GetCallsign(),
+                                   requester.GetFacility(), m_connectionState.observer,
+                                   flightPlan.GetTrackingControllerIsMe())) return;
+
+        if (!flightPlan.EndTracking()) {
+            Logger::Warning("Failed to release {} following ROF from {}", request->aircraftCallsign, request->controllerCallsign);
+            return;
+        }
+        Logger::Info("Released {} following ROF from {}", request->aircraftCallsign, request->controllerCallsign);
     }
 
     void FlightStripsPlugin::OnFlightPlanFlightPlanDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan) {

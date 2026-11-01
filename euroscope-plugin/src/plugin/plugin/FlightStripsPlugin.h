@@ -98,6 +98,7 @@ namespace FlightStrips {
         std::optional<std::string> GetNeedsSquawk();
 
     private:
+        void HandleRequestOnFrequency(EuroScopePlugIn::CFlightPlan flightPlan);
         struct PendingSquawkRequest {
             std::string callsign;
             std::chrono::steady_clock::time_point requestedAt;

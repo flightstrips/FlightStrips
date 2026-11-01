@@ -49,6 +49,8 @@ set(src__configuration
 source_group("src\\configuration" FILES ${src__configuration})
 
 set(src__handlers
+        handlers/GroundTagReleaseHandler.h
+        handlers/GroundTagReleaseHandler.cpp
         handlers/EkytApproachTrackingHandler.h
         handlers/EkytApproachTrackingHandler.cpp
         handlers/FlightPlanEventHandler.h

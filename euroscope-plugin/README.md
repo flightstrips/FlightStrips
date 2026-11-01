@@ -17,7 +17,7 @@ Release is handled on the tracking EuroScope instance without requiring a Flight
 ### Implementation path
 
 - Normal transfers originate in `backend/internal/services/strip_coordination.go` and are applied through `MessageService::HandleCoordinationHandoverEvent` (`StartTracking` / `InitiateHandoff`) and `HandleEsAssumeOnlyEvent` (`AcceptHandoff`).
-- ROF recovery runs in `FlightStripsPlugin::OnFlightPlanControllerAssignedDataUpdate` and calls `EndTracking` after validating the pulse and controller roles. It does not require a pending transfer or matching next-controller route, since those may be the broken state being recovered.
+- ROF recovery runs in `GroundTagReleaseHandler::ControllerFlightPlanDataEvent`, registered with the unfiltered flight-plan event handlers, and calls `EndTracking` after validating the pulse and controller roles. The main plugin only dispatches events; recovery does not require radar relevance, a pending transfer, or a matching next-controller route, since those may be the broken state being recovered.
 - `FlightPlanService::OnTimer` detects the resulting tracking-controller change. `StripService.HandleTrackingControllerChanged` preserves strip ownership on release and handles the subsequent assumption through existing coordination and bay-movement rules.
 
 ### Native verification checklist

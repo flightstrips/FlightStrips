@@ -34,6 +34,7 @@ namespace FlightStrips {
     public:
         FlightStripsPlugin(
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
+                const std::shared_ptr<handlers::FlightPlanEventHandlers> &mUnfilteredFlightPlanEventHandlers,
                 const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
                 const std::shared_ptr<handlers::RadarTargetEventHandlers> &mUnfilteredRadarTargetEventHandlers,
                 const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
@@ -98,13 +99,13 @@ namespace FlightStrips {
         std::optional<std::string> GetNeedsSquawk();
 
     private:
-        void HandleRequestOnFrequency(EuroScopePlugIn::CFlightPlan flightPlan);
         struct PendingSquawkRequest {
             std::string callsign;
             std::chrono::steady_clock::time_point requestedAt;
         };
 
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
+        const std::shared_ptr<handlers::FlightPlanEventHandlers> m_unfilteredFlightPlanEventHandlers;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_unfilteredRadarTargetEventHandlers;
         const std::shared_ptr<handlers::ControllerEventHandlers> m_controllerEventHandlerCollection;

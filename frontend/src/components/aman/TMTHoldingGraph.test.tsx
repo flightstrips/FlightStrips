@@ -41,14 +41,14 @@ describe("TMT holding graph", () => {
   });
 
   it("renders fixed time and altitude axes with positioned authoritative entries", () => {
-    render(<TMTHoldingGraph entries={[entry("SAS101", "2026-09-11T10:30:00.000Z", 19500)]} now={now} />);
+    render(<TMTHoldingGraph entries={[entry("SAS101", "2026-09-11T10:30:00.000Z", 18500)]} now={now} />);
 
     const graph = screen.getByTestId("holding-graph");
     expect(within(graph).getByText("10:05")).toBeInTheDocument();
     expect(within(graph).getByText("10:55")).toBeInTheDocument();
-    expect(within(graph).getByText("300")).toBeInTheDocument();
+    expect(within(graph).getByText("280")).toBeInTheDocument();
     expect(within(graph).getByText("90")).toBeInTheDocument();
-    expect(layoutHoldingGraph([entry("SAS101", "2026-09-11T10:30:00.000Z", 19500)], now)[0].altitude.percent).toBe(50);
+    expect(layoutHoldingGraph([entry("SAS101", "2026-09-11T10:30:00.000Z", 18500)], now)[0].altitude.percent).toBe(50);
     expect(screen.getByText("1030")).toHaveClass("text-[#f0e129]");
   });
 
@@ -74,14 +74,16 @@ describe("TMT holding graph", () => {
     expect(screen.getByText("! PAST EAT")).toBeVisible();
   });
 
-  it("pins out-of-range values and keeps missing EAT or CFL visible", () => {
+  it("pins out-of-range values, hides aircraft above FL280 and keeps missing EAT or CFL visible", () => {
     render(<TMTHoldingGraph entries={[
-      entry("EDGES", "2026-09-11T11:00:01.000Z", 30100),
+      entry("EDGES", "2026-09-11T11:00:01.000Z", 8000),
+      entry("HIGH", "2026-09-11T10:20:00.000Z", 30100),
       entry("NOEAT", null, 11000),
       entry("NOCFL", "2026-09-11T10:20:00.000Z", null),
     ]} now={now} />);
 
-    expect(screen.getByLabelText("EDGES, OLPIB, >300, EAT >60, SCHEDULED, LIVE DATA")).toBeVisible();
+    expect(screen.getByLabelText("EDGES, OLPIB, <090, EAT >60, SCHEDULED, LIVE DATA")).toBeVisible();
+    expect(screen.queryByLabelText(/HIGH, OLPIB/)).not.toBeInTheDocument();
     const graph = screen.getByTestId("holding-graph");
     expect(within(graph).getByLabelText(/NOEAT, OLPIB, FL110, EAT unavailable/)).toBeVisible();
     const missing = screen.getByLabelText("Holding aircraft with missing values");

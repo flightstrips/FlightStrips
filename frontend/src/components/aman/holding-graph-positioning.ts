@@ -2,13 +2,13 @@ import type {AMANHoldingEntry} from "@/api/aman";
 
 export const HOLDING_GRAPH_WINDOW_MINUTES = 60;
 export const HOLDING_GRAPH_MIN_FLIGHT_LEVEL = 90;
-export const HOLDING_GRAPH_MAX_FLIGHT_LEVEL = 300;
+export const HOLDING_GRAPH_MAX_FLIGHT_LEVEL = 280;
 export const HOLDING_GRAPH_SOON_MINUTES = 4;
 export const HOLDING_GRAPH_COLLISION_GAP_PERCENT = 6;
 
 export type HoldingGraphUrgency = "soon" | "later" | "missing";
 export type HoldingTimeEdgeLabel = "OVERDUE" | ">60";
-export type HoldingAltitudeEdgeLabel = "<090" | ">300";
+export type HoldingAltitudeEdgeLabel = "<090" | ">280";
 
 export interface HoldingAxisPosition<EdgeLabel extends string> {
   percent: number | null;
@@ -26,7 +26,7 @@ export interface HoldingGraphPosition {
 }
 
 /** Give each aircraft one level-height slot, centered on its cleared level. */
-export function layoutHoldingLabels(positions: HoldingGraphPosition[], availableHeight: number, rowHeight: number) {
+export function layoutHoldingLabels(positions: HoldingGraphPosition[], _availableHeight: number, rowHeight: number) {
   const gap = rowHeight + 1;
   const sorted = positions.map((position, index) => ({position, index})).sort((left, right) =>
     left.position.altitude.percent! - right.position.altitude.percent! ||
@@ -38,11 +38,11 @@ export function layoutHoldingLabels(positions: HoldingGraphPosition[], available
     if (previous?.percent === position.altitude.percent) previous.indices.push(index);
     else groups.push({percent: position.altitude.percent!, indices: [index]});
   });
-  const baseHeight = Math.max(availableHeight, gap * (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) / 10);
+  const baseHeight = gap * (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) / 10;
   const levelHeight = baseHeight / ((HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) / 10);
   const byPercent = new Map(groups.map(group => [group.percent, group]));
   const percents = [...new Set([
-    ...Array.from({length: 22}, (_, index) => index * 10 / (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) * 100),
+    ...Array.from({length: 20}, (_, index) => index * 10 / (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL) * 100),
     ...groups.map(group => group.percent),
   ])].sort((left, right) => left - right);
   const anchors = new Map<number, number>();
@@ -124,7 +124,7 @@ export function positionHoldingAltitude(altitudeFeet: number | null): HoldingAxi
 
   const flightLevel = altitudeFeet / 100;
   if (flightLevel < HOLDING_GRAPH_MIN_FLIGHT_LEVEL) return {percent: 100, label: "<090", edgeLabel: "<090"};
-  if (flightLevel > HOLDING_GRAPH_MAX_FLIGHT_LEVEL) return {percent: 0, label: ">300", edgeLabel: ">300"};
+  if (flightLevel > HOLDING_GRAPH_MAX_FLIGHT_LEVEL) return {percent: 0, label: ">280", edgeLabel: ">280"};
   return {
     percent: ((HOLDING_GRAPH_MAX_FLIGHT_LEVEL - flightLevel) /
       (HOLDING_GRAPH_MAX_FLIGHT_LEVEL - HOLDING_GRAPH_MIN_FLIGHT_LEVEL)) * 100,

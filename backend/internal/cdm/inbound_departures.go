@@ -113,7 +113,7 @@ func (s *Service) RegisterInboundSession(session int32, name, airport string) {
 }
 
 func (s *Service) CurrentInboundDepartures(session int32, airport string) frontend.InboundDeparturesEvent {
-	result := frontend.InboundDeparturesEvent{SessionID: session, Airport: airport, Flights: []frontend.InboundDeparture{}}
+	result := frontend.InboundDeparturesEvent{SessionID: session, Airport: airport, Flights: []frontend.InboundDeparture{}, CtotFlights: []frontend.InboundCtotFlight{}}
 	if s.inbound == nil {
 		return result
 	}
@@ -129,6 +129,7 @@ func (s *Service) CurrentInboundDepartures(session int32, airport string) fronte
 	result = entry.snapshot
 	result.SessionID = session
 	result.Flights = append([]frontend.InboundDeparture{}, result.Flights...)
+	result.CtotFlights = append([]frontend.InboundCtotFlight{}, result.CtotFlights...)
 	return result
 }
 
@@ -143,7 +144,7 @@ func (m *inboundDepartures) addSession(session int32, airport string) {
 	}
 	entry := m.airports[airport]
 	if entry == nil {
-		entry = &inboundAirport{sessions: make(map[int32]struct{}), departed: make(map[string]inboundDepartureSnapshot), snapshot: frontend.InboundDeparturesEvent{Airport: airport, Enabled: true, Stale: true, Flights: []frontend.InboundDeparture{}}}
+		entry = &inboundAirport{sessions: make(map[int32]struct{}), departed: make(map[string]inboundDepartureSnapshot), snapshot: frontend.InboundDeparturesEvent{Airport: airport, Enabled: true, Stale: true, Flights: []frontend.InboundDeparture{}, CtotFlights: []frontend.InboundCtotFlight{}}}
 		m.airports[airport] = entry
 		if m.ctx != nil {
 			m.launch(entry)
@@ -246,33 +247,60 @@ func (m *inboundDepartures) apply(entry *inboundAirport, rows BulkIFPSData, err 
 		}
 	}
 	flights := []frontend.InboundDeparture{}
+	ctotFlights := []frontend.InboundCtotFlight{}
 	seen := make(map[string]struct{})
 	for _, row := range rows {
 		if strings.TrimSpace(row.Callsign) == "" || !strings.EqualFold(strings.TrimSpace(row.Arrival), entry.snapshot.Airport) {
 			continue
 		}
 		atot, departed := inboundClockSeconds(row.ATOT)
-		if !departed {
-			continue
-		}
 		key := fmt.Sprintf("%s/%s/%s/%d", strings.ToUpper(strings.TrimSpace(row.Callsign)), strings.ToUpper(strings.TrimSpace(row.Departure)), strings.TrimSpace(row.CID), atot)
+		if !departed {
+			key = fmt.Sprintf("%s/%s/%s/pending", strings.ToUpper(strings.TrimSpace(row.Callsign)), strings.ToUpper(strings.TrimSpace(row.Departure)), strings.TrimSpace(row.CID))
+		}
 		if _, duplicate := seen[key]; duplicate {
 			continue
 		}
 		seen[key] = struct{}{}
+		if !departed {
+			if _, hasCtot := inboundClockSeconds(row.CTOT); hasCtot {
+				ctotFlights = append(ctotFlights, newInboundCtotFlight(row, "pending", 0))
+			}
+			continue
+		}
 		if old, ok := entry.departed[key]; ok {
 			row.CTOT = old.row.CTOT
 		} else {
 			entry.departed[key] = inboundDepartureSnapshot{row: row, observedAt: now}
 		}
 		flight, valid := assessInboundDeparture(row)
+		if !valid {
+			continue
+		}
+		ctotFlights = append(ctotFlights, newInboundCtotFlight(row, flight.Status, flight.DeviationSeconds))
 		// Only flag departures more than ten minutes before CTOT. Keep the
 		// standard CTOT window assessment for the displayed deviation details.
-		if valid && flight.Status == "early" && flight.DeviationSeconds < -10*60 {
+		if flight.Status == "early" && flight.DeviationSeconds < -10*60 {
 			flights = append(flights, flight)
 		}
 	}
 	sort.Slice(flights, func(i, j int) bool { return flights[i].Callsign < flights[j].Callsign })
+	sort.Slice(ctotFlights, func(i, j int) bool {
+		if ctotFlights[i].Ctot != ctotFlights[j].Ctot {
+			return ctotFlights[i].Ctot < ctotFlights[j].Ctot
+		}
+		return ctotFlights[i].Callsign < ctotFlights[j].Callsign
+	})
 	entry.snapshot.Flights = flights
+	entry.snapshot.CtotFlights = ctotFlights
 	entry.snapshot.UpdatedAt = now.Format(time.RFC3339)
+}
+
+func newInboundCtotFlight(row IFPSData, status string, deviation int) frontend.InboundCtotFlight {
+	return frontend.InboundCtotFlight{
+		Callsign: strings.ToUpper(strings.TrimSpace(row.Callsign)), Departure: strings.ToUpper(strings.TrimSpace(row.Departure)),
+		Arrival: strings.ToUpper(strings.TrimSpace(row.Arrival)), EOBT: row.EOBT, TOBT: row.TOBT,
+		Ctot: strings.TrimSpace(row.CTOT), Atot: strings.TrimSpace(row.ATOT), ETA: row.ETA,
+		CDMStatus: row.CDMStatus, Regulation: row.regulationReason(), Status: status, DeviationSeconds: deviation,
+	}
 }

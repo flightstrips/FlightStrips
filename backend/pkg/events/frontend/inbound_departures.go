@@ -14,13 +14,31 @@ type InboundDeparture struct {
 	OutsideWindowSeconds int    `json:"outside_window_seconds"`
 }
 
+// InboundCtotFlight is one inbound flight holding a CTOT. Status is "pending"
+// before ATOT, otherwise the CTOT window assessment (compliant, early, late).
+type InboundCtotFlight struct {
+	Callsign         string `json:"callsign"`
+	Departure        string `json:"departure"`
+	Arrival          string `json:"arrival"`
+	EOBT             string `json:"eobt"`
+	TOBT             string `json:"tobt"`
+	Ctot             string `json:"ctot"`
+	Atot             string `json:"atot"`
+	ETA              string `json:"eta"`
+	CDMStatus        string `json:"cdm_status"`
+	Regulation       string `json:"regulation"`
+	Status           string `json:"status"`
+	DeviationSeconds int    `json:"deviation_seconds"`
+}
+
 type InboundDeparturesEvent struct {
-	SessionID int32              `json:"session_id"`
-	Airport   string             `json:"airport"`
-	Enabled   bool               `json:"enabled"`
-	UpdatedAt string             `json:"updated_at"`
-	Stale     bool               `json:"stale"`
-	Flights   []InboundDeparture `json:"flights"`
+	SessionID   int32               `json:"session_id"`
+	Airport     string              `json:"airport"`
+	Enabled     bool                `json:"enabled"`
+	UpdatedAt   string              `json:"updated_at"`
+	Stale       bool                `json:"stale"`
+	Flights     []InboundDeparture  `json:"flights"`
+	CtotFlights []InboundCtotFlight `json:"ctot_flights"`
 }
 
 func (e InboundDeparturesEvent) Marshal() ([]byte, error) { return marshall(e) }

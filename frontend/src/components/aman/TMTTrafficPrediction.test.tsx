@@ -1,7 +1,7 @@
 import {fireEvent, render, screen} from "@testing-library/react";
-import {describe, expect, it} from "vitest";
+import {describe, expect, it, vi} from "vitest";
 
-import type {AMANTrafficPrediction} from "@/api/aman";
+import type {AMANFlight, AMANTrafficPrediction} from "@/api/aman";
 import {TMTTrafficPrediction} from "./TMTTrafficPrediction";
 
 function prediction(): AMANTrafficPrediction {
@@ -25,6 +25,21 @@ function prediction(): AMANTrafficPrediction {
 }
 
 describe("TMTTrafficPrediction", () => {
+  it("shows a STAR overload even when no aircraft land in the feeder-fix bucket", () => {
+    const value = prediction();
+    const eta = (minute: number) => new Date(Date.parse("2026-07-22T21:15:00.000Z") + minute * 60_000).toISOString();
+    const flights = ["A", "B", "C", "D", "E", "F"].map((callsign, index) => ({
+      callsign, star_family: "ERNOV", feeder_fix: "FIX", feeder_fix_eta: eta(index), feeder_fix_passed: false, sequence_disposition: "active",
+    })) as unknown as AMANFlight[];
+    vi.useFakeTimers({now: Date.parse("2026-07-22T20:30:00.000Z"), toFake: ["Date"]});
+    try {
+      render(<TMTTrafficPrediction flights={flights} prediction={value} />);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(screen.getByRole("button", {name: "ERNOV overload: 6 aircraft inbound"})).toBeInTheDocument();
+  });
+
   it("leaves traffic diagnostics in Current warnings without covering the chart", () => {
     const value = prediction();
     value.degraded_reasons = ["disconnected_flight_data", "missing_timing:SAS101"];

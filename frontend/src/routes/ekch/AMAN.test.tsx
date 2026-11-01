@@ -137,7 +137,7 @@ describe("AMAN route authorization", () => {
 
     expect(screen.getByText("TMT traffic")).toBeInTheDocument();
     expect(screen.getAllByText("TMT holding")).toHaveLength(5);
-    expect(tmtSpy).toHaveBeenCalledWith({prediction: trafficPrediction});
+    expect(tmtSpy).toHaveBeenCalledWith({prediction: trafficPrediction, flights: expect.any(Array)});
     expect(holdingSpy).toHaveBeenCalledWith(expect.objectContaining({compact: true, entries: [holdingInformation[0]], holding: "OLPIB", onOpenFlightActions: expect.any(Function)}));
     expect(holdingSpy.mock.calls.map(([props]) => props.holding)).toEqual(["TIDVU", "OLPIB", "LUGAS", "ROSBI", "ERNOV"]);
     expect(holdingSpy).not.toHaveBeenCalledWith(expect.objectContaining({holding: "NEWIX"}));

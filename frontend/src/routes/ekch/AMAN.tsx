@@ -4,6 +4,7 @@ import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
 import {AMANExcludedFlights} from "@/components/aman/AMANExcludedFlights";
 import {AMANInboundDepartures} from "@/components/aman/AMANInboundDepartures";
+import {AMANCdmNonCompliance} from "@/components/aman/AMANCdmNonCompliance";
 import {AMANCoordinationInbox} from "@/components/aman/AMANCoordinationInbox";
 import {AMANCoordinationRequestDialog} from "@/components/aman/AMANCoordinationRequestDialog";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
@@ -60,7 +61,7 @@ export default function AMAN() {
     {id: "warnings", label: `Warnings (${warnings.items.length})`},
     {id: "settings", label: "Settings"},
     {id: "excluded", label: `Excluded (${state?.flights.filter(isExcludedAMANFlight).length ?? 0})`},
-    {id: "ctot", label: `CTOT (${inboundDepartures?.flights.length ?? 0})`},
+    {id: "ctot", label: `CTOT (${inboundDepartures?.ctot_flights?.length ?? 0})`},
     ...(!hasFMPAuthority ? [{id: "coordination", label: `Coordination (${state?.coordination_requests?.filter(request => request.state === "pending").length ?? 0})`}] : []),
   ];
   const activeTmtTab = tmtTabs.some(tab => tab.id === tmtTab) ? tmtTab : "holdings";
@@ -111,7 +112,7 @@ export default function AMAN() {
           <div className="aman-tmt-dashboard">
             <div className="aman-tmt-traffic">
               {state?.traffic_prediction !== undefined
-                ? <TMTTrafficPrediction prediction={state.traffic_prediction} />
+                ? <TMTTrafficPrediction flights={state?.flights} prediction={state.traffic_prediction} />
                 : <section className="aman-tmt-placeholder" aria-label="TMT traffic prediction unavailable"><b>TMT · TRAFFIC PREDICTION</b><span>Prediction data unavailable</span></section>}
             </div>
             <div aria-label="TMT views" className="my-2 flex flex-wrap gap-1" role="tablist">
@@ -172,6 +173,7 @@ export default function AMAN() {
               presentationStatus={presentationStatus}
               />
             </div>}
+            <div className="aman-tmt-non-compliance"><AMANCdmNonCompliance connected={connectionState === "connected"} snapshot={inboundDepartures ?? null} /></div>
           </div>
         )}
       />

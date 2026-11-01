@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.5.2...backend/v3.6.0) (2026-11-01)
+
+
+### Features
+
+* **aman:** add CTOT overview, non-compliance list and STAR overload warning ([#962](https://github.com/flightstrips/FlightStrips/issues/962)) ([3451c71](https://github.com/flightstrips/FlightStrips/commit/3451c7167979220e72ae81c3228bae20f3900eb5))
+* **strip:** add APRON ARR messages and fix runway moves ([#963](https://github.com/flightstrips/FlightStrips/issues/963)) ([61042d3](https://github.com/flightstrips/FlightStrips/commit/61042d37156d4ee366d0f9d906d9e739d5811fcc))
+
 ## [3.5.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.5.1...backend/v3.5.2) (2026-10-29)
 
 

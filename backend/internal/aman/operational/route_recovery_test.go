@@ -1,12 +1,64 @@
 package operational
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRouteRecoveryRematerializesInvalidSignedZeroCache(t *testing.T) {
+	service, state, now := recomputeFlightFixture(t)
+	geometry := service.deps.Geometry.(terminalIdentityGeometry)
+	flight := state.Flights[0]
+	query := navdata.RouteQuery{Version: geometry.version, Origin: "ENGM", Destination: "EKCH", FiledRoute: *flight.LatestObservation.FiledRoute, RunwayGroup: flight.SelectedRunwayGroup}
+	legacy := navdata.RouteCandidate{Query: query, ResolverVersion: "airacnet-route-v4", SchemaVersion: navdata.CanonicalSchemaVersion}
+	legacyKey, err := legacy.PersistenceKey()
+	require.NoError(t, err)
+	oldKey := string(legacyKey)
+	flight.ActiveRouteKey = &oldKey
+	current := legacy
+	current.ResolverVersion = routeResolverVersion
+	newKey, err := current.PersistenceKey()
+	require.NoError(t, err)
+	require.NotEqual(t, legacyKey, newKey, "recovery must avoid the immutable legacy cache entry")
+	cache := &signedZeroRecoveryCache{terminalIdentityGeometry: geometry, legacyKey: legacyKey}
+	service.deps.Geometry, service.deps.Materializer = cache, cache
+	observation := *flight.LatestObservation
+	position := *observation.Surveillance
+	position.ObservedAt = &now
+	observation.Surveillance, observation.ReconciledAt = &position, now
+
+	updated, err := service.reconcileFlight(t.Context(), state, flight, observation, now)
+	require.NoError(t, err)
+	require.Equal(t, 1, cache.materializations)
+	require.Equal(t, string(newKey), *updated.ActiveRouteKey)
+	require.True(t, updated.Prediction.Publishable)
+	require.NotNil(t, updated.Prediction.DistanceToGoNM)
+	require.Equal(t, now, updated.Prediction.InputObservedAt)
+}
+
+type signedZeroRecoveryCache struct {
+	terminalIdentityGeometry
+	legacyKey        navdata.RouteKey
+	materializations int
+}
+
+func (c *signedZeroRecoveryCache) Route(ctx context.Context, key navdata.RouteKey) (navdata.RouteGeometry, error) {
+	if key == c.legacyKey {
+		return navdata.RouteGeometry{}, &aman.DomainError{Class: aman.ErrorCorruptData, Message: "navigation cache: validate route geometry"}
+	}
+	return c.terminalIdentityGeometry.Route(ctx, key)
+}
+
+func (c *signedZeroRecoveryCache) MaterializeRoute(_ context.Context, query navdata.RouteQuery, resolver string) (navdata.RouteKey, error) {
+	c.materializations++
+	candidate := navdata.RouteCandidate{Query: query, ResolverVersion: resolver, SchemaVersion: navdata.CanonicalSchemaVersion}
+	return candidate.PersistenceKey()
+}
 
 func TestRouteRecoveryRefreshesLegacyGeometryTimingAndAutomaticSlot(t *testing.T) {
 	service, state, now := recomputeFlightFixture(t)

@@ -31,9 +31,11 @@ import (
 )
 
 const (
-	policyVersion              = "aman-cph-v3"
-	modelVersion               = "aman-cph-teta-v3"
-	routeResolverVersion       = "airacnet-route-v4"
+	policyVersion = "aman-cph-v3"
+	modelVersion  = "aman-cph-teta-v3"
+	// Re-materialize invalid signed-zero routes under a new key; v4 entries
+	// retain their old digest and cannot be overwritten with the corrected one.
+	routeResolverVersion       = "airacnet-route-v5"
 	defaultArrivalRate         = uint32(20)
 	ekchDefaultArrivalRate     = uint32(40)
 	trafficPredictionLookback  = 15 * time.Minute

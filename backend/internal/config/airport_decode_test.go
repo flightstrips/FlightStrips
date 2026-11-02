@@ -21,7 +21,12 @@ func airportExample(t *testing.T, name string) []byte {
 func mutateAirport(t *testing.T, data []byte, mutate func(map[string]any)) []byte {
 	t.Helper()
 	var doc map[string]any
-	if err := yaml.Unmarshal(data, &doc); err != nil {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		t.Fatal(err)
+	}
+	normalizeAirportYAMLScalars(&root)
+	if err := root.Decode(&doc); err != nil {
 		t.Fatal(err)
 	}
 	mutate(doc)

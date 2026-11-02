@@ -96,8 +96,8 @@ func (r *StandRange) UnmarshalYAML(value *yaml.Node) error {
 	case yaml.MappingNode:
 		var aux struct {
 			Prefix string `yaml:"prefix"`
-			From   int    `yaml:"from"`
-			To     int    `yaml:"to"`
+			From   *int   `yaml:"from"`
+			To     *int   `yaml:"to"`
 		}
 		if err := value.Decode(&aux); err != nil {
 			return err
@@ -105,15 +105,19 @@ func (r *StandRange) UnmarshalYAML(value *yaml.Node) error {
 		if strings.TrimSpace(aux.Prefix) == "" {
 			return fmt.Errorf("stand range requires non-empty prefix")
 		}
-		if aux.From == 0 && aux.To == 0 {
+		if aux.From == nil && aux.To == nil {
 			return fmt.Errorf("stand range requires at least one bound")
 		}
-		from, to := aux.From, aux.To
-		if to == 0 {
-			to = from
+		var from, to int
+		if aux.From != nil {
+			from = *aux.From
+		} else {
+			from = *aux.To
 		}
-		if from == 0 {
-			from = to
+		if aux.To != nil {
+			to = *aux.To
+		} else {
+			to = *aux.From
 		}
 		if from > to {
 			from, to = to, from

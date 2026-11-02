@@ -60,7 +60,7 @@ services:
       # lifecycle worker. Set false for immediate per-report rollback.
       POSITION_DB_BATCHING_ENABLED: ${POSITION_DB_BATCHING_ENABLED:-true}
     volumes:
-      - ./data/ICAO_Aircraft.json:/app/config/data/ICAO_Aircraft.json:ro
+      - ./data/ICAO_Aircraft.json:/app/backend/config/data/ICAO_Aircraft.json:ro
     depends_on:
       postgres:
         condition: service_started

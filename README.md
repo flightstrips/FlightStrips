@@ -27,6 +27,7 @@ FlightStrips is a full-stack application with three main components:
 - **[Backend Architecture](backend/Architecture.md)** — Database design, WebSocket communication, session management, and multi-server considerations
 - **[Events Specification](events.md)** — Complete specification of all WebSocket events for frontend and Euroscope communication
 - **[Text Pilot Support](.github/specs/text-pilot-support.md)** — Behavior, protocol, source manual and EuroScope acceptance checks
+- **Multi-airport Architecture Proposal** — [HTML with diagrams and epics](.github/specs/multi-airport-support/architecture-proposal.html) · [Markdown source](.github/specs/multi-airport-support/architecture-proposal.md) · [Implementation epic plan](.github/specs/multi-airport-support/epic-plan.md)
 - **[Backend Setup](backend/Readme.md)** — Instructions for running the backend API
 - **[Frontend Setup](frontend/README.md)** — React/TypeScript development setup
 - **[Euroscope Plugin](euroscope-plugin/README.md)** — Plugin development and integration notes

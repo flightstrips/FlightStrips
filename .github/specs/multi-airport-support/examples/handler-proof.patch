@@ -1,0 +1,945 @@
+diff --git a/backend/cmd/workflow-example/main.go b/backend/cmd/workflow-example/main.go
+new file mode 100644
+--- /dev/null
++++ b/backend/cmd/workflow-example/main.go
+@@ -0,0 +1,73 @@
++// workflow-example runs in memory and prints command intents. It never starts
++// application services or connects to EuroScope/VATSIM.
++package main
++
++import (
++	"encoding/json"
++	"fmt"
++	"io"
++	"os"
++
++	"FlightStrips/internal/airportworkflow"
++	"FlightStrips/pkg/events/euroscope"
++)
++
++func run() error {
++	if len(os.Args) != 3 {
++		return fmt.Errorf("usage: workflow-example EKCH.airport.yaml ZZZZ.airport.yaml")
++	}
++	var readers []io.Reader
++	for _, name := range os.Args[1:] {
++		file, err := os.Open(name)
++		if err != nil {
++			return err
++		}
++		defer file.Close()
++		readers = append(readers, file)
++	}
++	registry, err := airportworkflow.LoadRegistry(readers...)
++	if err != nil {
++		return err
++	}
++	encoder := json.NewEncoder(os.Stdout)
++	encoder.SetIndent("", "  ")
++	for _, airport := range []string{"EKCH", "ZZZZ"} {
++		session, err := registry.NewSession("live-"+airport, airport)
++		if err != nil {
++			return err
++		}
++		observed, err := session.ObserveFlight(&euroscope.Strip{Callsign: "DEMO123", Origin: "EKCH", Destination: "ZZZZ", GroundState: "TAXI"}, true)
++		if err != nil {
++			return err
++		}
++		bay := "DEPART"
++		if airport == "ZZZZ" {
++			bay = "RUNWAY"
++		}
++		binding := airportworkflow.Binding{SessionID: "live-" + airport, PluginID: "initiator-own-plugin", Ready: true}
++		moved, err := session.Execute(binding, airportworkflow.Command{Kind: airportworkflow.Move, Callsign: "DEMO123", Bay: bay, ExpectedRevision: observed.Strip.Revision})
++		if err != nil {
++			return err
++		}
++		binding.Ready = false
++		_, blocked := session.Execute(binding, airportworkflow.Command{Kind: airportworkflow.Move, Callsign: "DEMO123", Bay: bay, ExpectedRevision: moved.Strip.Revision})
++		if blocked == nil {
++			return fmt.Errorf("disconnected edit was accepted")
++		}
++		if err := encoder.Encode(struct {
++			Airport          string
++			Observed, Moved  airportworkflow.Result
++			DisconnectedEdit string
++		}{airport, observed, moved, blocked.Error()}); err != nil {
++			return err
++		}
++	}
++	return nil
++}
++
++func main() {
++	if err := run(); err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(1)
++	}
++}
+diff --git a/backend/internal/airportworkflow/config.go b/backend/internal/airportworkflow/config.go
+new file mode 100644
+--- /dev/null
++++ b/backend/internal/airportworkflow/config.go
+@@ -0,0 +1,215 @@
++// Package airportworkflow is an executable architecture example. It is not
++// connected to application startup, the database, WebSockets, or EuroScope.
++package airportworkflow
++
++import (
++	"bytes"
++	"fmt"
++	"io"
++	"regexp"
++
++	"FlightStrips/internal/shared"
++	"go.yaml.in/yaml/v4"
++)
++
++// The example reads the workflow part of the combined airport file. Other
++// domain blocks are deliberately not loaded into today's package globals.
++// Validate the complete file with the accompanying JSON Schema/semantic tool.
++type airportFile struct {
++	Schema    string `yaml:"$schema"`
++	Version   string `yaml:"schema_version"`
++	Kind      string `yaml:"kind"`
++	Airport   string `yaml:"airport"`
++	Geography struct {
++		Latitude   float64        `yaml:"latitude"`
++		Longitude  float64        `yaml:"longitude"`
++		Elevation  float64        `yaml:"elevation_ft"`
++		Transition int            `yaml:"transition_altitude_ft"`
++		Runways    []string       `yaml:"runways"`
++		InitialCFL map[string]int `yaml:"initial_cfl_ft"`
++		Regions    yaml.Node      `yaml:"regions"`
++	} `yaml:"geography"`
++	Positions yaml.Node `yaml:"positions"`
++	Coverage  yaml.Node `yaml:"coverage"`
++	Master    yaml.Node `yaml:"master"`
++	Ownership struct {
++		Strips   string   `yaml:"strips"`
++		Sectors  string   `yaml:"sectors"`
++		Prefixes []string `yaml:"callsign_prefixes"`
++	} `yaml:"ownership"`
++	Routing  yaml.Node `yaml:"routing"`
++	View     yaml.Node `yaml:"view"`
++	Workflow struct {
++		Handler  string    `yaml:"handler"`
++		Settings yaml.Node `yaml:"settings"`
++		Bays     []struct {
++			ID    string `yaml:"id"`
++			Label string `yaml:"label"`
++		} `yaml:"bays"`
++		Annotations map[string]struct {
++			Type    string `yaml:"type"`
++			Scope   string `yaml:"scope"`
++			Default bool   `yaml:"default"`
++		} `yaml:"annotations"`
++	} `yaml:"workflow"`
++	Services   yaml.Node `yaml:"services"`
++	Validation yaml.Node `yaml:"validation"`
++	Provenance yaml.Node `yaml:"provenance"`
++}
++
++type definition struct {
++	airport     string
++	handler     handler
++	bays        map[string]bool
++	annotations map[string]bool
++	ownership   bool
++}
++
++// Registry is constructed once. Its definitions and stateless handlers are
++// immutable and shared; mutable strips live only in Session.
++type Registry struct{ airports map[string]*definition }
++
++type factory func(airportFile, *definition) (handler, error)
++
++func handlerFactories() map[string]factory {
++	return map[string]factory{"ekch/v1": newEKCH, "example-paper/v1": newPaper}
++}
++
++func decodeStrict(r io.Reader, target any) error {
++	decoder := yaml.NewDecoder(r)
++	decoder.KnownFields(true)
++	if err := decoder.Decode(target); err != nil {
++		return err
++	}
++	var extra yaml.Node
++	if err := decoder.Decode(&extra); err != io.EOF {
++		if err == nil {
++			return fmt.Errorf("expected exactly one YAML document")
++		}
++		return err
++	}
++	return nil
++}
++
++func decodeSettings(node yaml.Node, target any) error {
++	if node.Kind != yaml.MappingNode {
++		return fmt.Errorf("handler settings must be an object")
++	}
++	data, err := yaml.Marshal(&node)
++	if err != nil {
++		return err
++	}
++	return decodeStrict(bytes.NewReader(data), target)
++}
++
++// LoadRegistry binds a compiled implementation once per airport at startup.
++// No files, settings decoding, registry lookup, or airport switch is needed
++// inside a handler call. Adding an implementation requires a registered factory.
++func LoadRegistry(files ...io.Reader) (*Registry, error) {
++	factories := handlerFactories()
++	registry := &Registry{airports: make(map[string]*definition, len(files))}
++	for _, file := range files {
++		var cfg airportFile
++		if err := decodeStrict(file, &cfg); err != nil {
++			return nil, err
++		}
++		if cfg.Kind != "airport" || cfg.Version != "flightstrips-airport/v1" || !regexp.MustCompile(`^[A-Z]{4}$`).MatchString(cfg.Airport) {
++			return nil, fmt.Errorf("invalid airport document header")
++		}
++		if registry.airports[cfg.Airport] != nil {
++			return nil, fmt.Errorf("duplicate airport %s", cfg.Airport)
++		}
++		build, ok := factories[cfg.Workflow.Handler]
++		if !ok {
++			return nil, fmt.Errorf("unknown handler %q", cfg.Workflow.Handler)
++		}
++		d := &definition{airport: cfg.Airport, bays: map[string]bool{}, annotations: map[string]bool{}}
++		if cfg.Ownership.Strips != "none" && cfg.Ownership.Strips != "route" {
++			return nil, fmt.Errorf("invalid ownership policy")
++		}
++		d.ownership = cfg.Ownership.Strips == "route"
++		for _, bay := range cfg.Workflow.Bays {
++			if bay.ID == "" || bay.Label == "" || d.bays[bay.ID] {
++				return nil, fmt.Errorf("invalid or duplicate bay %q", bay.ID)
++			}
++			d.bays[bay.ID] = true
++		}
++		if len(d.bays) == 0 {
++			return nil, fmt.Errorf("empty bay catalog")
++		}
++		for name, annotation := range cfg.Workflow.Annotations {
++			if annotation.Type != "boolean" || annotation.Scope != "session" {
++				return nil, fmt.Errorf("example supports only session boolean annotations")
++			}
++			d.annotations[name] = annotation.Default
++		}
++		var err error
++		d.handler, err = build(cfg, d)
++		if err != nil {
++			return nil, fmt.Errorf("%s: %w", cfg.Airport, err)
++		}
++		registry.airports[cfg.Airport] = d
++	}
++	return registry, nil
++}
++
++type ekchSettings struct {
++	AirborneAltitude int64   `yaml:"airborne_altitude_agl_ft"`
++	RelevantDistance float64 `yaml:"relevant_distance_nm"`
++}
++
++func newEKCH(cfg airportFile, d *definition) (handler, error) {
++	var settings ekchSettings
++	if err := decodeSettings(cfg.Workflow.Settings, &settings); err != nil {
++		return nil, err
++	}
++	// Existing helpers still contain EKCH geography constants. Fail explicitly
++	// rather than pretend these constants have become generally configurable.
++	if cfg.Airport != "EKCH" || cfg.Geography.Latitude != shared.AirportLatitude || cfg.Geography.Longitude != shared.AirportLongitude || cfg.Geography.Elevation != shared.AirportElevation || settings.RelevantDistance != shared.RelevantDistance || settings.AirborneAltitude <= 0 {
++		return nil, fmt.Errorf("EKCH adapter requires its legacy geography/distance and positive airborne threshold")
++	}
++	if !d.ownership || cfg.Ownership.Sectors != "coverage" || len(d.annotations) != 0 {
++		return nil, fmt.Errorf("EKCH adapter requires existing ownership and no custom annotations")
++	}
++	for _, bay := range []string{shared.BAY_HIDDEN, shared.BAY_ARR_HIDDEN, shared.BAY_NOT_CLEARED, shared.BAY_CLEARED, shared.BAY_PUSH, shared.BAY_TAXI, shared.BAY_TAXI_LWR, shared.BAY_TAXI_TWR, shared.BAY_DEPART, shared.BAY_AIRBORNE, shared.BAY_HIDDEN_DEP} {
++		if !d.bays[bay] {
++			return nil, fmt.Errorf("missing EKCH bay %s", bay)
++		}
++	}
++	return ekchHandler{airport: cfg.Airport, settings: settings}, nil
++}
++
++type paperSettings struct {
++	InitialBay      string            `yaml:"initial_bay"`
++	RunwayBay       string            `yaml:"runway_bay"`
++	BayGroundStates map[string]string `yaml:"bay_ground_states"`
++	GroundStateBays map[string]string `yaml:"ground_state_bays"`
++}
++
++func newPaper(cfg airportFile, d *definition) (handler, error) {
++	var settings paperSettings
++	if err := decodeSettings(cfg.Workflow.Settings, &settings); err != nil {
++		return nil, err
++	}
++	if settings.BayGroundStates == nil || settings.GroundStateBays == nil {
++		return nil, fmt.Errorf("paper movement/observation maps are required")
++	}
++	if !d.bays[settings.InitialBay] || !d.bays[settings.RunwayBay] || settings.InitialBay == settings.RunwayBay {
++		return nil, fmt.Errorf("invalid paper initial/runway bays")
++	}
++	for bay, state := range settings.BayGroundStates {
++		if !d.bays[bay] || !knownGroundState(state) {
++			return nil, fmt.Errorf("invalid bay-to-ES mapping")
++		}
++	}
++	for state, bay := range settings.GroundStateBays {
++		if !knownGroundState(state) || !d.bays[bay] {
++			return nil, fmt.Errorf("invalid ES-to-bay mapping")
++		}
++	}
++	value, ok := d.annotations["review_required"]
++	if !ok || value || len(d.annotations) != 1 || d.ownership || cfg.Ownership.Sectors != "none" {
++		return nil, fmt.Errorf("paper example requires ownership disabled and review_required default false")
++	}
++	return paperHandler{settings: settings}, nil
++}
+diff --git a/backend/internal/airportworkflow/handlers.go b/backend/internal/airportworkflow/handlers.go
+new file mode 100644
+--- /dev/null
++++ b/backend/internal/airportworkflow/handlers.go
+@@ -0,0 +1,102 @@
++package airportworkflow
++
++import (
++	"fmt"
++
++	"FlightStrips/internal/database"
++	"FlightStrips/internal/shared"
++	"FlightStrips/pkg/events/euroscope"
++)
++
++const (
++	Move        = "strip.move"
++	ClearReview = "review.clear"
++	observe     = "flight.observed"
++)
++
++type event struct {
++	kind         string
++	bay          string
++	flight       *euroscope.Strip
++	groundOnline bool
++}
++
++// A decision contains data only. A handler has no database, transport, shared
++// feed, goroutine, or mutable current-airport dependency.
++type decision struct {
++	bay         string
++	groundState *string
++	annotations map[string]bool
++}
++
++type handler interface {
++	decide(Strip, event) (decision, error)
++}
++
++type ekchHandler struct {
++	airport  string
++	settings ekchSettings
++}
++
++func (h ekchHandler) decide(strip Strip, event event) (decision, error) {
++	switch event.kind {
++	case Move:
++		result := decision{bay: event.bay}
++		if state := shared.GetGroundState(event.bay); state != euroscope.GroundStateUnknown {
++			result.groundState = &state
++		}
++		return result, nil
++	case observe:
++		var existing *database.Strip
++		if strip.Revision != 0 {
++			existing = &database.Strip{Origin: strip.Origin, Destination: strip.Destination, Bay: strip.Bay, State: strip.State}
++		}
++		return decision{bay: shared.GetDepartureBay(*event.flight, existing, h.settings.AirborneAltitude, h.airport, event.groundOnline)}, nil
++	default:
++		return decision{}, fmt.Errorf("unsupported EKCH action %q", event.kind)
++	}
++}
++
++// This is a fictional workflow, not a RADIS operational specification. Its
++// custom review feature is ordinary code, with no new rule-language operation.
++type paperHandler struct{ settings paperSettings }
++
++func (h paperHandler) decide(strip Strip, event event) (decision, error) {
++	switch event.kind {
++	case Move:
++		result := decision{bay: event.bay}
++		if state, ok := h.settings.BayGroundStates[event.bay]; ok {
++			result.groundState = &state
++		}
++		if event.bay == h.settings.RunwayBay {
++			result.annotations = map[string]bool{"review_required": true}
++		}
++		return result, nil
++	case ClearReview:
++		if strip.Bay != h.settings.RunwayBay {
++			return decision{}, fmt.Errorf("review can only be cleared in runway bay")
++		}
++		return decision{bay: strip.Bay, annotations: map[string]bool{"review_required": false}}, nil
++	case observe:
++		// The paper workflow preserves manual placement on later observations.
++		if strip.Revision != 0 {
++			return decision{bay: strip.Bay}, nil
++		}
++		bay, ok := h.settings.GroundStateBays[event.flight.GroundState]
++		if !ok {
++			bay = h.settings.InitialBay
++		}
++		return decision{bay: bay}, nil
++	default:
++		return decision{}, fmt.Errorf("unsupported paper action %q", event.kind)
++	}
++}
++
++func knownGroundState(state string) bool {
++	switch state {
++	case "", "ST-UP", "PUSH", "TAXI", "LINEUP", "DEPA", "PARK":
++		return true
++	default:
++		return false
++	}
++}
+diff --git a/backend/internal/airportworkflow/session.go b/backend/internal/airportworkflow/session.go
+new file mode 100644
+--- /dev/null
++++ b/backend/internal/airportworkflow/session.go
+@@ -0,0 +1,165 @@
++package airportworkflow
++
++import (
++	"fmt"
++	"sync"
++
++	"FlightStrips/pkg/events/euroscope"
++)
++
++type Strip struct {
++	Callsign    string
++	Origin      string
++	Destination string
++	Bay         string
++	Owner       string
++	State       *string
++	Revision    uint64
++	Annotations map[string]bool
++}
++
++// Binding is trusted core context in this demonstration. Production code must
++// derive it from the authenticated, generation-checked membership, never JSON.
++type Binding struct {
++	SessionID string
++	PluginID  string
++	Position  string
++	Ready     bool
++	Observer  bool
++}
++
++type Command struct {
++	Kind             string
++	Callsign         string
++	Bay              string
++	ExpectedRevision uint64
++}
++
++type ESCommand struct {
++	SessionID   string
++	PluginID    string
++	Callsign    string
++	GroundState string
++}
++
++// Outbound is an inspectable command intent, not an ES acknowledgement. This
++// in-memory example never sends it to a real plugin.
++type Result struct {
++	Strip    Strip
++	Outbound *ESCommand
++}
++
++type Session struct {
++	id         string
++	definition *definition
++	mu         sync.Mutex
++	strips     map[string]Strip
++}
++
++func (r *Registry) NewSession(id, airport string) (*Session, error) {
++	d := r.airports[airport]
++	if id == "" || d == nil {
++		return nil, fmt.Errorf("unknown airport or empty session")
++	}
++	return &Session{id: id, definition: d, strips: map[string]Strip{}}, nil
++}
++
++func copyStrip(strip Strip) Strip {
++	annotations := make(map[string]bool, len(strip.Annotations))
++	for key, value := range strip.Annotations {
++		annotations[key] = value
++	}
++	strip.Annotations = annotations
++	if strip.State != nil {
++		state := *strip.State
++		strip.State = &state
++	}
++	return strip
++}
++
++func (s *Session) Snapshot(callsign string) (Strip, bool) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	strip, ok := s.strips[callsign]
++	return copyStrip(strip), ok
++}
++
++func (s *Session) Execute(binding Binding, command Command) (Result, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if binding.SessionID != s.id || binding.PluginID == "" || !binding.Ready || binding.Observer {
++		return Result{}, fmt.Errorf("own membership is not writable")
++	}
++	strip, ok := s.strips[command.Callsign]
++	if !ok || strip.Revision != command.ExpectedRevision {
++		return Result{}, fmt.Errorf("unknown strip or revision conflict")
++	}
++	if s.definition.ownership && strip.Owner != "" && strip.Owner != binding.Position {
++		return Result{}, fmt.Errorf("strip is owned by another position")
++	}
++	if command.Kind != Move && command.Kind != ClearReview {
++		return Result{}, fmt.Errorf("unsupported command")
++	}
++	if command.Kind == Move && !s.definition.bays[command.Bay] {
++		return Result{}, fmt.Errorf("unknown destination bay")
++	}
++	decision, err := s.definition.handler.decide(copyStrip(strip), event{kind: command.Kind, bay: command.Bay})
++	if err != nil {
++		return Result{}, err
++	}
++	return s.apply(strip, decision, &binding)
++}
++
++// ObserveFlight accepts a trusted normalized full-flight observation. It is not
++// an admission policy or a public network endpoint. External observations must
++// never emit new ES commands. Existing EKCH admission/removal paths are not wired.
++func (s *Session) ObserveFlight(flight *euroscope.Strip, groundOnline bool) (Result, error) {
++	if flight == nil || flight.Callsign == "" {
++		return Result{}, fmt.Errorf("missing flight identity")
++	}
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	strip, exists := s.strips[flight.Callsign]
++	if !exists {
++		strip = Strip{Callsign: flight.Callsign, Annotations: map[string]bool{}}
++		for key, value := range s.definition.annotations {
++			strip.Annotations[key] = value
++		}
++	}
++	d, err := s.definition.handler.decide(copyStrip(strip), event{kind: observe, flight: flight, groundOnline: groundOnline})
++	if err != nil {
++		return Result{}, err
++	}
++	strip.Origin, strip.Destination = flight.Origin, flight.Destination
++	state := flight.GroundState
++	strip.State = &state
++	return s.apply(strip, d, nil)
++}
++
++func (s *Session) apply(strip Strip, d decision, binding *Binding) (Result, error) {
++	if !s.definition.bays[d.bay] {
++		return Result{}, fmt.Errorf("handler returned unknown bay")
++	}
++	if d.groundState != nil && (binding == nil || !knownGroundState(*d.groundState)) {
++		return Result{}, fmt.Errorf("invalid ES effect or observation write loop")
++	}
++	for key := range d.annotations {
++		if _, ok := s.definition.annotations[key]; !ok {
++			return Result{}, fmt.Errorf("handler returned undeclared annotation")
++		}
++	}
++	// Validate the entire decision before any mutation. The production executor
++	// must add transactional persistence/broadcast and reliable effect dispatch.
++	strip = copyStrip(strip)
++	strip.Bay = d.bay
++	strip.Revision++
++	for key, value := range d.annotations {
++		strip.Annotations[key] = value
++	}
++	var outbound *ESCommand
++	if d.groundState != nil {
++		outbound = &ESCommand{SessionID: s.id, PluginID: binding.PluginID, Callsign: strip.Callsign, GroundState: *d.groundState}
++	}
++	s.strips[strip.Callsign] = strip
++	return Result{Strip: copyStrip(strip), Outbound: outbound}, nil
++}
+diff --git a/backend/internal/airportworkflow/workflow_test.go b/backend/internal/airportworkflow/workflow_test.go
+new file mode 100644
+--- /dev/null
++++ b/backend/internal/airportworkflow/workflow_test.go
+@@ -0,0 +1,365 @@
++package airportworkflow
++
++import (
++	"bytes"
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++
++	"FlightStrips/internal/database"
++	"FlightStrips/internal/shared"
++	"FlightStrips/pkg/events/euroscope"
++)
++
++func configBytes(t testing.TB, airport string) []byte {
++	t.Helper()
++	path := filepath.Join("..", "..", "..", ".github", "specs", "multi-airport-support", "examples", strings.ToLower(airport)+".airport.yaml")
++	data, err := os.ReadFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return data
++}
++
++func registry(t testing.TB) *Registry {
++	t.Helper()
++	r, err := LoadRegistry(bytes.NewReader(configBytes(t, "EKCH")), bytes.NewReader(configBytes(t, "ZZZZ")))
++	if err != nil {
++		t.Fatal(err)
++	}
++	return r
++}
++
++func session(t testing.TB, r *Registry, id, airport string) *Session {
++	t.Helper()
++	s, err := r.NewSession(id, airport)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return s
++}
++
++func flight() *euroscope.Strip {
++	return &euroscope.Strip{Callsign: "DEMO123", Origin: "EKCH", Destination: "ZZZZ", GroundState: "TAXI"}
++}
++
++func binding(s *Session) Binding {
++	return Binding{SessionID: s.id, PluginID: "own-" + s.id, Position: "EXAMPLE_TWR", Ready: true}
++}
++
++func TestCombinedFilesSelectDifferentHandlers(t *testing.T) {
++	r := registry(t)
++	ekch, paper := session(t, r, "live-ekch", "EKCH"), session(t, r, "live-paper", "ZZZZ")
++	for _, tc := range []struct {
++		s    *Session
++		want string
++	}{{ekch, "TAXI"}, {paper, "HOLD"}} {
++		result, err := tc.s.ObserveFlight(flight(), true)
++		if err != nil || result.Strip.Bay != tc.want || result.Outbound != nil {
++			t.Fatalf("observation: %+v %v", result, err)
++		}
++	}
++	for _, tc := range []struct {
++		s   *Session
++		bay string
++	}{{ekch, "DEPART"}, {paper, "RUNWAY"}} {
++		result, err := tc.s.Execute(binding(tc.s), Command{Kind: Move, Callsign: "DEMO123", Bay: tc.bay, ExpectedRevision: 1})
++		if err != nil || result.Outbound == nil || result.Outbound.GroundState != "LINEUP" || result.Outbound.PluginID != "own-"+tc.s.id || result.Outbound.SessionID != tc.s.id {
++			t.Fatalf("move: %+v %v", result, err)
++		}
++	}
++	result, err := paper.Execute(binding(paper), Command{Kind: ClearReview, Callsign: "DEMO123", ExpectedRevision: 2})
++	if err != nil || result.Strip.Annotations["review_required"] || result.Outbound != nil {
++		t.Fatalf("custom feature: %+v %v", result, err)
++	}
++	if _, err := ekch.Execute(binding(ekch), Command{Kind: ClearReview, Callsign: "DEMO123", ExpectedRevision: 2}); err == nil {
++		t.Fatal("EKCH accepted paper-only feature")
++	}
++	// Later observations preserve the paper placement and never emit commands.
++	result, err = paper.ObserveFlight(flight(), true)
++	if err != nil || result.Strip.Bay != "RUNWAY" || result.Outbound != nil {
++		t.Fatalf("paper reconciliation: %+v %v", result, err)
++	}
++}
++
++func TestSessionsAndConfigurationsAreIndependent(t *testing.T) {
++	other := strings.ReplaceAll(string(configBytes(t, "ZZZZ")), "ZZZZ", "ZZZY")
++	other = strings.Replace(other, "initial_bay: HOLD", "initial_bay: DONE", 1)
++	r, err := LoadRegistry(bytes.NewReader(configBytes(t, "ZZZZ")), strings.NewReader(other))
++	if err != nil {
++		t.Fatal(err)
++	}
++	a, b, c := session(t, r, "live", "ZZZZ"), session(t, r, "training", "ZZZZ"), session(t, r, "other", "ZZZY")
++	f := flight()
++	f.GroundState = ""
++	for _, s := range []*Session{a, b, c} {
++		if _, err := s.ObserveFlight(f, true); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if _, err := a.Execute(binding(a), Command{Kind: Move, Callsign: f.Callsign, Bay: "RUNWAY", ExpectedRevision: 1}); err != nil {
++		t.Fatal(err)
++	}
++	bs, _ := b.Snapshot(f.Callsign)
++	cs, _ := c.Snapshot(f.Callsign)
++	if bs.Bay != "HOLD" || bs.Annotations["review_required"] || cs.Bay != "DONE" {
++		t.Fatalf("state/config leaked: %+v %+v", bs, cs)
++	}
++	snapshot, _ := a.Snapshot(f.Callsign)
++	snapshot.Annotations["review_required"] = false
++	*snapshot.State = "BAD"
++	stored, _ := a.Snapshot(f.Callsign)
++	if !stored.Annotations["review_required"] || *stored.State == "BAD" {
++		t.Fatal("snapshot aliases session state")
++	}
++}
++
++func TestCoreRejectsInvalidCommandsWithoutMutation(t *testing.T) {
++	s := session(t, registry(t), "paper", "ZZZZ")
++	s.ObserveFlight(flight(), true)
++	for _, name := range []string{"disconnected", "observer", "wrong-session", "no-plugin", "bad-revision", "unknown-bay", "unknown-action"} {
++		t.Run(name, func(t *testing.T) {
++			b := binding(s)
++			c := Command{Kind: Move, Callsign: "DEMO123", Bay: "RUNWAY", ExpectedRevision: 1}
++			switch name {
++			case "disconnected":
++				b.Ready = false
++			case "observer":
++				b.Observer = true
++			case "wrong-session":
++				b.SessionID = "other"
++			case "no-plugin":
++				b.PluginID = ""
++			case "bad-revision":
++				c.ExpectedRevision = 0
++			case "unknown-bay":
++				c.Bay = "DEPART"
++			case "unknown-action":
++				c.Kind = "load-script"
++			}
++			if _, err := s.Execute(b, c); err == nil {
++				t.Fatal("invalid command accepted")
++			}
++			strip, _ := s.Snapshot(c.Callsign)
++			if strip.Revision != 1 || strip.Bay != "HOLD" {
++				t.Fatal("rejected command changed state")
++			}
++		})
++	}
++	// An unrelated connected master is deliberately not a routing option.
++	if _, err := s.Execute(Binding{SessionID: s.id, Ready: true}, Command{Kind: Move, Callsign: "DEMO123", Bay: "RUNWAY", ExpectedRevision: 1}); err == nil {
++		t.Fatal("missing own plugin accepted")
++	}
++}
++
++func TestConfiguredOwnershipRemainsCorePolicy(t *testing.T) {
++	s := session(t, registry(t), "ekch", "EKCH")
++	s.ObserveFlight(flight(), true)
++	strip := s.strips["DEMO123"]
++	strip.Owner = "ANOTHER_POSITION"
++	s.strips[strip.Callsign] = strip
++	if _, err := s.Execute(binding(s), Command{Kind: Move, Callsign: strip.Callsign, Bay: "DEPART", ExpectedRevision: 1}); err == nil {
++		t.Fatal("ownership bypassed")
++	}
++}
++
++func TestConcurrentRevisionConflictAndSessionIsolation(t *testing.T) {
++	r := registry(t)
++	a, b := session(t, r, "a", "ZZZZ"), session(t, r, "b", "ZZZZ")
++	a.ObserveFlight(flight(), true)
++	b.ObserveFlight(flight(), true)
++	var successes atomic.Int32
++	var wg sync.WaitGroup
++	for i := 0; i < 32; i++ {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			if _, err := a.Execute(binding(a), Command{Kind: Move, Callsign: "DEMO123", Bay: "RUNWAY", ExpectedRevision: 1}); err == nil {
++				successes.Add(1)
++			}
++		}()
++	}
++	wg.Wait()
++	if successes.Load() != 1 {
++		t.Fatalf("expected one winner, got %d", successes.Load())
++	}
++	for _, s := range []*Session{a, b} {
++		wg.Add(1)
++		go func(s *Session) {
++			defer wg.Done()
++			for i := 0; i < 100; i++ {
++				if _, err := s.ObserveFlight(flight(), true); err != nil {
++					t.Error(err)
++				}
++			}
++		}(s)
++	}
++	wg.Wait()
++	as, _ := a.Snapshot("DEMO123")
++	bs, _ := b.Snapshot("DEMO123")
++	if as.Bay != "RUNWAY" || bs.Bay != "HOLD" || !as.Annotations["review_required"] || bs.Annotations["review_required"] {
++		t.Fatal("concurrent session state leaked")
++	}
++}
++
++func TestEKCHAdapterUsesExistingBayLogic(t *testing.T) {
++	r := registry(t)
++	h := r.airports["EKCH"].handler
++	for _, bay := range []string{"TAXI", "TAXI_LWR", "TAXI_TWR", "DEPART", "AIRBORNE", "HIDDEN_DEP"} {
++		for _, state := range []string{"", "TAXI", "LINEUP", "DEPA", "PUSH"} {
++			for _, gnd := range []bool{false, true} {
++				t.Run(fmt.Sprintf("%s/%s/%t", bay, state, gnd), func(t *testing.T) {
++					f := flight()
++					f.GroundState = state
++					old := database.Strip{Origin: f.Origin, Destination: f.Destination, Bay: bay}
++					want := shared.GetDepartureBay(*f, &old, 200, "EKCH", gnd)
++					got, err := h.decide(Strip{Origin: f.Origin, Destination: f.Destination, Bay: bay, Revision: 1}, event{kind: observe, flight: f, groundOnline: gnd})
++					if err != nil || got.bay != want || got.groundState != nil {
++						t.Fatalf("adapter differs: %+v vs %s: %v", got, want, err)
++					}
++				})
++			}
++		}
++		got, err := h.decide(Strip{}, event{kind: Move, bay: bay})
++		want := shared.GetGroundState(bay)
++		if err != nil || (got.groundState == nil) != (want == "") || (got.groundState != nil && *got.groundState != want) {
++			t.Fatal("movement mapping differs")
++		}
++	}
++	// Explicit regression checks beyond delegating to the same helper.
++	for _, tc := range []struct {
++		bay  string
++		gnd  bool
++		want string
++	}{{"TAXI_LWR", true, "TAXI_LWR"}, {"TAXI_TWR", true, "TAXI_TWR"}, {"TAXI", false, "TAXI_LWR"}, {"DEPART", true, "DEPART"}, {"AIRBORNE", true, "AIRBORNE"}} {
++		got, _ := h.decide(Strip{Origin: "EKCH", Destination: "ZZZZ", Bay: tc.bay, Revision: 1}, event{kind: observe, flight: flight(), groundOnline: tc.gnd})
++		if got.bay != tc.want {
++			t.Fatalf("%+v became %s", tc, got.bay)
++		}
++	}
++}
++
++type handlerFunc func(Strip, event) (decision, error)
++
++func (f handlerFunc) decide(s Strip, e event) (decision, error) { return f(s, e) }
++
++func TestCoreValidatesHandlerResults(t *testing.T) {
++	for _, name := range []string{"unknown-bay", "undeclared-annotation", "observation-write-loop"} {
++		t.Run(name, func(t *testing.T) {
++			r := registry(t)
++			s := session(t, r, "test", "ZZZZ")
++			s.ObserveFlight(flight(), true)
++			s.definition.handler = handlerFunc(func(Strip, event) (decision, error) {
++				d := decision{bay: "HOLD"}
++				switch name {
++				case "unknown-bay":
++					d.bay = "DEPART"
++				case "undeclared-annotation":
++					d.annotations = map[string]bool{"not-declared": true}
++				case "observation-write-loop":
++					state := "TAXI"
++					d.groundState = &state
++				}
++				return d, nil
++			})
++			if _, err := s.ObserveFlight(flight(), true); err == nil {
++				t.Fatal("invalid handler decision accepted")
++			}
++			strip, _ := s.Snapshot("DEMO123")
++			if strip.Revision != 1 {
++				t.Fatal("partial mutation on failed decision")
++			}
++		})
++	}
++}
++
++func TestStartupRejectsInvalidHandlerConfiguration(t *testing.T) {
++	paper := string(configBytes(t, "ZZZZ"))
++	for _, tc := range []struct{ name, old, new string }{
++		{"unknown handler", "handler: example-paper/v1", "handler: unregistered/v1"},
++		{"unknown setting", "initial_bay: HOLD", "initial_bay: HOLD\n    invented: true"},
++		{"missing required bay", "initial_bay: HOLD", "initial_bay: MISSING"},
++		{"invalid ES state", "HOLD: TAXI", "HOLD: FLY"},
++		{"wrong annotation type", "type: boolean", "type: string"},
++		{"unknown root", "kind: airport", "kind: airport\nscript: load.js"},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			if _, err := LoadRegistry(strings.NewReader(strings.Replace(paper, tc.old, tc.new, 1))); err == nil {
++				t.Fatal("bad config accepted")
++			}
++		})
++	}
++	if _, err := LoadRegistry(strings.NewReader(paper), strings.NewReader(paper)); err == nil {
++		t.Fatal("duplicate airport accepted")
++	}
++	if _, err := LoadRegistry(strings.NewReader(paper + "\n---\nkind: airport\n")); err == nil {
++		t.Fatal("multiple documents accepted")
++	}
++	ekch := strings.Replace(string(configBytes(t, "EKCH")), "latitude: 55.6181", "latitude: 1", 1)
++	if _, err := LoadRegistry(strings.NewReader(ekch)); err == nil {
++		t.Fatal("legacy geography mismatch accepted")
++	}
++	if _, err := registry(t).NewSession("missing", "XXXX"); err == nil {
++		t.Fatal("unknown airport fell back to EKCH")
++	}
++}
++
++func TestRegistryIDsMatchConfigurationSchema(t *testing.T) {
++	data, err := os.ReadFile(filepath.Join("..", "..", "..", ".github", "specs", "multi-airport-support", "schema", "airport-configuration.schema.json"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	var schema struct {
++		Definitions map[string]struct {
++			OneOf []struct {
++				Properties struct {
++					Handler struct {
++						Const string `json:"const"`
++					} `json:"handler"`
++				} `json:"properties"`
++			} `json:"oneOf"`
++		} `json:"$defs"`
++	}
++	if err := json.Unmarshal(data, &schema); err != nil {
++		t.Fatal(err)
++	}
++	factories := handlerFactories()
++	branches := schema.Definitions["workflow"].OneOf
++	if len(branches) != len(factories) {
++		t.Fatal("schema and compiled registry size differ")
++	}
++	for _, branch := range branches {
++		if factories[branch.Properties.Handler.Const] == nil {
++			t.Fatalf("schema handler has no factory: %s", branch.Properties.Handler.Const)
++		}
++	}
++}
++
++func BenchmarkSessionDispatch(b *testing.B) {
++	for _, tc := range []struct{ airport, bay string }{{"EKCH", "DEPART"}, {"ZZZZ", "RUNWAY"}} {
++		b.Run(tc.airport, func(b *testing.B) {
++			r := registry(b)
++			s := session(b, r, "bench", tc.airport)
++			result, err := s.ObserveFlight(flight(), true)
++			if err != nil {
++				b.Fatal(err)
++			}
++			actor := binding(s)
++			command := Command{Kind: Move, Callsign: "DEMO123", Bay: tc.bay, ExpectedRevision: result.Strip.Revision}
++			b.ReportAllocs()
++			b.ResetTimer()
++			for i := 0; i < b.N; i++ {
++				result, err = s.Execute(actor, command)
++				if err != nil {
++					b.Fatal(err)
++				}
++				command.ExpectedRevision = result.Strip.Revision
++			}
++		})
++	}
++}

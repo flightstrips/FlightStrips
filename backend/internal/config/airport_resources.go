@@ -143,7 +143,15 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 			if parsed.Scheme != "" || filepath.IsAbs(item.uri) || filepath.VolumeName(item.uri) != "" {
 				return fmt.Errorf("services.cdm.config.%s: unsupported URI %q", item.field, item.uri)
 			}
-			relative := filepath.ToSlash(filepath.Join(c.ConfigRoot, item.uri))
+			selected, err := constrainedRepositoryPath(configRoot, item.uri)
+			if err != nil {
+				return fmt.Errorf("services.cdm.config.%s: %w", item.field, err)
+			}
+			relative, err := filepath.Rel(root, selected)
+			if err != nil {
+				return err
+			}
+			relative = filepath.ToSlash(relative)
 			if err := add("services.cdm.config."+item.field, &AirportResource{RepoPath: relative}); err != nil {
 				return err
 			}
@@ -236,6 +244,11 @@ func resolveAirportResource(root string, resource AirportResource, lookup func(s
 }
 
 func constrainedRepositoryPath(root, relative string) (string, error) {
+	canonicalRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", fmt.Errorf("resource root %s: %w", root, err)
+	}
+	root = canonicalRoot
 	if relative == "" || filepath.IsAbs(relative) || filepath.VolumeName(relative) != "" || strings.Contains(relative, "\\") || slices.Contains(strings.Split(relative, "/"), "..") {
 		return "", fmt.Errorf("repository path escapes or is invalid: %q", relative)
 	}

@@ -140,3 +140,32 @@ func TestRepositoryResourceRejectsSymlinkEscape(t *testing.T) {
 		t.Fatal("accepted outward symlink")
 	}
 }
+
+func TestCDMResourcesStayWithinConfigRoot(t *testing.T) {
+	data := mutateAirport(t, airportExample(t, "ekch"), func(c map[string]any) {
+		c["services"].(map[string]any)["cdm"].(map[string]any)["config"].(map[string]any)["rateUri"] = "../Readme.md"
+	})
+	registry, err := LoadAirportFiles(ProductionAirportCatalog(), []string{selectedAirportFile(t, data)}, AirportLoadOptions{RepositoryRoot: testAirportRoot(t), DeploymentServices: map[string]bool{"cdm": true}})
+	if err == nil || registry != nil || !strings.Contains(err.Error(), "services.cdm.config.rateUri") {
+		t.Fatalf("CDM path escaped config_root: %v", err)
+	}
+}
+
+func TestRepositoryResourceAllowsInwardRootSymlink(t *testing.T) {
+	root := t.TempDir()
+	realRoot := filepath.Join(root, "actual")
+	if err := os.Mkdir(realRoot, 0700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(root, "alias")
+	if err := os.Symlink(realRoot, alias); err != nil {
+		t.Skipf("symlink creation unavailable: %v", err)
+	}
+	path, err := constrainedRepositoryPath(alias, "file.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != filepath.Join(realRoot, "file.txt") {
+		t.Fatalf("resolved %s outside canonical root %s", path, realRoot)
+	}
+}

@@ -168,6 +168,38 @@ func TestRouteDigestIncludesEveryMaterialGeometryField(t *testing.T) {
 	}
 }
 
+func TestRouteDigestNormalizesSignedZero(t *testing.T) {
+	query := RouteQuery{Version: testVersion(), Origin: "RJTT", Destination: "EKCH", FiledRoute: "81N020W DCT 73N000W DCT XELRU"}
+	for _, field := range []string{"from latitude", "from longitude", "to latitude", "to longitude", "course", "distance", "total distance"} {
+		t.Run(field, func(t *testing.T) {
+			zero := 0.0
+			geometry := RouteGeometry{Version: query.Version, Coverage: CoverageComplete, Provenance: testProvenance(), Legs: []ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: PathTF, FromPosition: &Coordinate{}, ToPosition: &Coordinate{}, CourseTrueDeg: &zero, DistanceNM: &zero}}}
+			want, err := RouteGeometryDigest(query, geometry)
+			require.NoError(t, err)
+			negativeZero := math.Copysign(0, -1)
+			switch field {
+			case "from latitude":
+				geometry.Legs[0].FromPosition.LatitudeDeg = negativeZero
+			case "from longitude":
+				geometry.Legs[0].FromPosition.LongitudeDeg = negativeZero
+			case "to latitude":
+				geometry.Legs[0].ToPosition.LatitudeDeg = negativeZero
+			case "to longitude":
+				geometry.Legs[0].ToPosition.LongitudeDeg = negativeZero
+			case "course":
+				geometry.Legs[0].CourseTrueDeg = &negativeZero
+			case "distance":
+				geometry.Legs[0].DistanceNM = &negativeZero
+			case "total distance":
+				geometry.TotalDistanceNM = negativeZero
+			}
+			got, err := RouteGeometryDigest(query, geometry)
+			require.NoError(t, err)
+			require.Equal(t, want, got, "JSONB normalizes negative zero to zero")
+		})
+	}
+}
+
 func TestHoldingDigestExcludesProvenanceButIncludesGeometry(t *testing.T) {
 	seconds := int64(60)
 	base := HoldingPattern{ID: "HOLD", Fix: "KEMAX", InboundCourseTrueDeg: 180, TurnDirection: TurnRight, LegTimeSeconds: &seconds, Termination: HoldingManual, Provenance: testProvenance()}

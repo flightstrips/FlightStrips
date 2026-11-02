@@ -767,10 +767,10 @@ func RouteGeometryDigest(query RouteQuery, geometry RouteGeometry) (string, erro
 	for _, leg := range geometry.Legs {
 		course, distance := "", ""
 		if leg.CourseTrueDeg != nil {
-			course = strconv.FormatFloat(*leg.CourseTrueDeg, 'f', -1, 64)
+			course = canonicalRouteNumber(*leg.CourseTrueDeg)
 		}
 		if leg.DistanceNM != nil {
-			distance = strconv.FormatFloat(*leg.DistanceNM, 'f', -1, 64)
+			distance = canonicalRouteNumber(*leg.DistanceNM)
 		}
 		legTokens = append(legTokens, strings.Join([]string{leg.ID, string(leg.PathTerminator), optionalFix(leg.FromFix), optionalFix(leg.ToFix), optionalCoordinate(leg.FromPosition), optionalCoordinate(leg.ToPosition), course, distance, optionalHolding(leg.HoldingID)}, "/"))
 	}
@@ -778,7 +778,7 @@ func RouteGeometryDigest(query RouteQuery, geometry RouteGeometry) (string, erro
 	slices.Sort(holdings)
 	unresolved := slices.Clone(geometry.Unresolved)
 	slices.Sort(unresolved)
-	sum := sha256.Sum256([]byte(strings.Join(append([]string{string(key), strconv.FormatFloat(geometry.TotalDistanceNM, 'f', -1, 64), string(geometry.Coverage)}, append(legTokens, append(stringifyHoldings(holdings), unresolved...)...)...), "\x1f")))
+	sum := sha256.Sum256([]byte(strings.Join(append([]string{string(key), canonicalRouteNumber(geometry.TotalDistanceNM), string(geometry.Coverage)}, append(legTokens, append(stringifyHoldings(holdings), unresolved...)...)...), "\x1f")))
 	return hex.EncodeToString(sum[:]), nil
 }
 
@@ -786,7 +786,16 @@ func optionalCoordinate(value *Coordinate) string {
 	if value == nil {
 		return ""
 	}
-	return strings.Join([]string{strconv.FormatFloat(value.LatitudeDeg, 'f', -1, 64), strconv.FormatFloat(value.LongitudeDeg, 'f', -1, 64)}, ",")
+	return strings.Join([]string{canonicalRouteNumber(value.LatitudeDeg), canonicalRouteNumber(value.LongitudeDeg)}, ",")
+}
+
+func canonicalRouteNumber(value float64) string {
+	// JSONB normalizes -0 to 0. Both must hash identically so a route crossing
+	// zero west/south remains valid after a database round trip.
+	if value == 0 {
+		return "0"
+	}
+	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
 func validIdentifier(value string) bool {

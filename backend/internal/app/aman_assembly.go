@@ -418,6 +418,10 @@ func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.Air
 }
 
 func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Source, vatsimSource vatsim.SnapshotSource, vatsimStaleAfter time.Duration, pool *pgxpool.Pool, now func() time.Time) (operationalAMANAssembly, error) {
+	return assembleOperationalAMANWithDefinition(config, source, vatsimSource, vatsimStaleAfter, pool, now, nil)
+}
+
+func assembleOperationalAMANWithDefinition(config aman.RuntimeConfig, source *navigation.Source, vatsimSource vatsim.SnapshotSource, vatsimStaleAfter time.Duration, pool *pgxpool.Pool, now func() time.Time, definition *appconfig.AirportDefinition) (operationalAMANAssembly, error) {
 	if source == nil {
 		return operationalAMANAssembly{}, fmt.Errorf("AMAN requires an enabled navigation source")
 	}
@@ -444,10 +448,18 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 	if err != nil {
 		return operationalAMANAssembly{}, err
 	}
+	boundary := terminal.DefaultEKCHTMAVolumePath
+	if definition != nil {
+		var ok bool
+		boundary, ok = definition.Resource("services.aman.boundary")
+		if !ok {
+			return operationalAMANAssembly{}, fmt.Errorf("AMAN boundary resource is unresolved")
+		}
+	}
 	service, err := operational.New(operational.Dependencies{
 		Repository: amanRepository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Now: now, Cache: postgres.NewAMANWeatherCache(pool)}),
 		Runways: sessionArrivalRunwaySource{sessions: postgres.NewSessionRepository(pool)}, Sessions: sessionArrivalRunwaySource{sessions: postgres.NewSessionRepository(pool)}, AircraftEngines: aircraftEngines,
-		Terminal: terminalConfig, TMAVolumePath: terminal.DefaultEKCHTMAVolumePath,
+		Terminal: terminalConfig, TMAVolumePath: boundary,
 		Airports: config.EnabledAirports, Mode: config.Mode, SourceMode: config.SourceMode, Publisher: transport, Now: now,
 		DisablePredictionFiltering: config.DisablePredictionFiltering,
 	})

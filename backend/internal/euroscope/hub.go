@@ -44,6 +44,7 @@ const (
 )
 
 type Hub struct {
+	airports              *config.AirportRegistry
 	done                  chan struct{}
 	draining              atomic.Bool
 	positionBudget        chan struct{}
@@ -449,6 +450,13 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 	}
 
 	lat, lon := config.GetAirportCoordinates()
+	if hub.airports != nil {
+		definition, ok := hub.airports.Lookup(client.airport)
+		if !ok {
+			return
+		}
+		lat, lon = definition.Coordinates()
+	}
 	client.Enqueue(euroscope.BackendSyncEvent{
 		Strips:    syncStrips,
 		Latitude:  lat,
@@ -521,6 +529,9 @@ func (hub *Hub) SetServer(server shared.Server) {
 	hub.positionBudget = make(chan struct{}, capacity)
 }
 
+// SetAirportRegistry binds immutable startup metadata before workers start.
+func (hub *Hub) SetAirportRegistry(registry *config.AirportRegistry) { hub.airports = registry }
+
 func (hub *Hub) SetControllerService(controllerService shared.ControllerService) {
 	hub.controllerService = controllerService
 }
@@ -576,6 +587,13 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		localIP:     event.LocalIp,
 	}
 	client.frequencyMessages.Store(authenticationEvent.FrequencyMessages)
+	if hub.airports != nil {
+		definition, ok := hub.airports.Lookup(event.Airport)
+		if !ok {
+			return nil, fmt.Errorf("airport %q is not selected", event.Airport)
+		}
+		client.definition = definition
+	}
 
 	if !event.Observer {
 		// The initial websocket login can revive an existing controller row before the
@@ -820,6 +838,9 @@ func masterClientPriority(client *Client) int {
 	}
 
 	identity := client.identitySnapshot()
+	if client.definition != nil {
+		return client.definition.MasterPriority(identity.callsign, identity.position)
+	}
 	callsign := strings.ToUpper(strings.TrimSpace(identity.callsign))
 	frequency := strings.TrimSpace(identity.position)
 	if callsign == "EKDK_FMP" || frequency == "131.040" {

@@ -3,6 +3,7 @@ package config
 import (
 	"FlightStrips/internal/vatsim"
 	"errors"
+	"slices"
 	"strings"
 )
 
@@ -29,7 +30,7 @@ func GetPositionBasedOnFrequency(frequency string) (*Position, error) {
 
 // GetAirborneOwners returns the ordered list of airborne position names (priority = first).
 func GetAirborneOwners() []string {
-	return airborneOwners
+	return slices.Clone(airborneOwners)
 }
 
 func GetPositionByName(name string) (*Position, error) {

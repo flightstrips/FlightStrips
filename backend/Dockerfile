@@ -13,12 +13,15 @@ RUN go build -ldflags "-w -s -X main.buildVersion=${BUILD_VERSION}" -a -o ./bin/
 
 # Final stage
 FROM alpine:latest
-WORKDIR /app
+WORKDIR /app/backend
 
 RUN apk --no-cache add ca-certificates
 
-COPY --from=builder /app/bin/api ./bin/api
-COPY ./config ./config
+COPY --from=builder /app/bin/api /app/bin/api
+COPY ./config /app/backend/config
+
+ENV AIRPORT_REPOSITORY_ROOT=/app
+ENV AIRPORT_CONFIG_FILES=backend/config/airports/ekch.airport.yaml
 
 CMD ["/app/bin/api"]
 EXPOSE 8090

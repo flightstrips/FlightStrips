@@ -45,7 +45,7 @@ func TestSendMessageRejectsInvalidFormat(t *testing.T) {
 
 func TestMessageRecipientsResolvePositionNamesToFrequencies(t *testing.T) {
 	t.Chdir("../..")
-	require.NoError(t, config.InitConfig())
+	require.NoError(t, config.InitEKCHTestConfig())
 	hub := &Hub{clients: map[*Client]bool{}}
 	sender := startQueuedTestClient(&Client{hub: hub, session: 42, position: "119.905", user: shared.NewAuthenticatedUser("123", 0, nil)})
 	recipient := startQueuedTestClient(&Client{hub: hub, session: 42, position: "121.630", user: shared.NewAuthenticatedUser("456", 0, nil)})
@@ -64,7 +64,7 @@ func TestMessageRecipientsResolvePositionNamesToFrequencies(t *testing.T) {
 
 func TestMessageRecipientsUseCurrentSectorCoverage(t *testing.T) {
 	t.Chdir("../..")
-	require.NoError(t, config.InitConfig())
+	require.NoError(t, config.InitEKCHTestConfig())
 	for _, tc := range []struct {
 		name       string
 		area       string

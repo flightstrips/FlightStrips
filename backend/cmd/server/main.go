@@ -48,8 +48,10 @@ func main() {
 	ctx, cancelWorkers := context.WithCancel(context.Background())
 	defer cancelWorkers()
 
-	if err := config.InitConfig(); err != nil {
-		slog.Error("Failed to initialize config", slog.Any("error", err))
+	config.InitRuntimeMode()
+	selectedAirports := splitEnvList(os.Getenv("AIRPORT_CONFIG_FILES"))
+	if len(selectedAirports) == 0 {
+		slog.Error("AIRPORT_CONFIG_FILES must explicitly select combined airport files")
 		os.Exit(1)
 	}
 	environment := getEnv("ENVIRONMENT", "development")
@@ -93,6 +95,8 @@ func main() {
 	}
 
 	application, err := app.Build(ctx, app.Config{
+		AirportFiles:                    selectedAirports,
+		AirportRepositoryRoot:           getEnv("AIRPORT_REPOSITORY_ROOT", ".."),
 		DatabaseConnectionString:        os.Getenv("DATABASE_CONNECTIONSTRING"),
 		OIDCSigningAlgorithm:            os.Getenv("OIDC_SIGNING_ALGO"),
 		OIDCAuthority:                   os.Getenv("OIDC_AUTHORITY"),

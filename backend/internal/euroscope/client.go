@@ -1,6 +1,7 @@
 package euroscope
 
 import (
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/shared"
@@ -22,6 +23,7 @@ import (
 )
 
 type Client struct {
+	definition        *config.AirportDefinition
 	frequencyMessages atomic.Bool
 	draining          atomic.Bool
 	positionEpoch     atomic.Uint64

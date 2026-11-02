@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Initialize config
-	if err := config.InitConfig(); err != nil {
+	if err := config.InitEKCHTestConfig(); err != nil {
 		panic("failed to initialize config: " + err.Error())
 	}
 

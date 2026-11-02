@@ -1,6 +1,7 @@
 package server
 
 import (
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
@@ -19,6 +20,7 @@ import (
 )
 
 type Server struct {
+	airports           *config.AirportRegistry
 	dbPool             *pgxpool.Pool
 	euroscopeHub       shared.EuroscopeHub
 	frontendHub        shared.FrontendHub
@@ -42,6 +44,7 @@ type TransceiverLookup interface {
 }
 
 type Dependencies struct {
+	Airports           *config.AirportRegistry
 	DBPool             *pgxpool.Pool
 	Euroscope          shared.EuroscopeHub
 	Frontend           shared.FrontendHub
@@ -84,6 +87,7 @@ func NewServer(deps Dependencies) (*Server, error) {
 	}
 
 	return &Server{
+		airports:            deps.Airports,
 		dbPool:              deps.DBPool,
 		euroscopeHub:        deps.Euroscope,
 		frontendHub:         deps.Frontend,
@@ -144,6 +148,11 @@ func (s *Server) GetCdmService() shared.CdmService {
 }
 
 func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session, error) {
+	if s.airports != nil {
+		if _, ok := s.airports.Lookup(airport); !ok {
+			return shared.Session{}, fmt.Errorf("airport %q is not selected for deployment", airport)
+		}
+	}
 	sessionRepo := s.sessionRepo
 
 	session, err := sessionRepo.Get(context.Background(), name, airport)

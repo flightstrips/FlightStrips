@@ -45,7 +45,7 @@ func run() error {
 	defer stop()
 	os.Setenv("TEST_MODE", "true")
 	os.Setenv("GRPLUGIN_ICAO_AIRCRAFT_JSON", "config/test/ICAO_Aircraft.json")
-	if err := config.InitConfig(); err != nil {
+	if err := config.InitEKCHTestConfig(); err != nil {
 		return err
 	}
 	var selected suite

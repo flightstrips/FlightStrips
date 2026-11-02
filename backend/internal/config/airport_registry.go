@@ -1,12 +1,14 @@
 package config
 
 import (
+	"FlightStrips/internal/vatsim"
 	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"io"
 	"reflect"
 	"slices"
+	"strings"
 
 	"go.yaml.in/yaml/v4"
 )
@@ -118,11 +120,12 @@ func (c *AirportCatalog) bind(doc *AirportDocument, settings *yaml.Node) error {
 }
 
 type AirportDefinition struct {
-	document  AirportDocument
-	source    string
-	revision  string
-	resources map[string]string
-	services  map[string]bool
+	document     AirportDocument
+	source       string
+	revision     string
+	resources    map[string]string
+	services     map[string]bool
+	regionGroups [3][]Region
 }
 
 func (d *AirportDefinition) Airport() string  { return d.document.Airport }
@@ -132,6 +135,38 @@ func (d *AirportDefinition) Document() AirportDocument {
 	return cloneAirportValue(reflect.ValueOf(d.document)).Interface().(AirportDocument)
 }
 func (d *AirportDefinition) DomainConfig() Config { return d.Document().DomainConfig() }
+
+func (d *AirportDefinition) Coordinates() (float64, float64) {
+	return d.document.Geography.Latitude, d.document.Geography.Longitude
+}
+
+// MasterPriority uses bound startup data and existing frequency normalization.
+func (d *AirportDefinition) MasterPriority(callsign, frequency string) int {
+	callsign = strings.ToUpper(strings.TrimSpace(callsign))
+	frequency = vatsim.NormalizeFrequency(frequency)
+	resolved := callsign
+	for _, position := range d.document.Positions {
+		if frequency != "" && vatsim.NormalizeFrequency(position.Frequency) == frequency {
+			resolved = position.Name
+			break
+		}
+	}
+	for i, priority := range d.document.Master.Priorities {
+		if priority.Match == "primary-frequency-or-callsign" {
+			if callsign == priority.Position {
+				return i
+			}
+			for _, position := range d.document.Positions {
+				if position.Name == priority.Position && frequency != "" && vatsim.NormalizeFrequency(position.Frequency) == frequency {
+					return i
+				}
+			}
+		} else if resolved == priority.Position {
+			return i
+		}
+	}
+	return len(d.document.Master.Priorities)
+}
 
 // cloneAirportValue copies only decoded configuration values. Settings factories
 // must return concrete data values, never service/client/runtime state.

@@ -55,6 +55,10 @@ import (
 )
 
 type Config struct {
+	AirportFiles             []string
+	AirportRepositoryRoot    string
+	Airports                 *appconfig.AirportRegistry
+	EKCH                     *appconfig.AirportDefinition
 	DatabaseConnectionString string
 	OIDCSigningAlgorithm     string
 	OIDCAuthority            string
@@ -116,6 +120,7 @@ type Dependencies struct {
 }
 
 type App struct {
+	airports                 *appconfig.AirportRegistry
 	positionHub              *euroscope.Hub
 	dbpool                   *pgxpool.Pool
 	closeDB                  bool
@@ -138,6 +143,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if cfg.EnableTestTools && isLiveEnvironment(cfg.Environment) {
 		return nil, errors.New("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
 	}
+	var airportErr error
+	cfg, airportErr = configureAirports(cfg)
+	if airportErr != nil {
+		return nil, fmt.Errorf("initialize selected airports: %w", airportErr)
+	}
 	if err := validateNavigationTerminalGeometry(cfg.Navigation); err != nil {
 		return nil, err
 	}
@@ -152,7 +162,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			return nil, errors.New("initialize AMAN commands: authoritative runtime requires typed command service")
 		}
 	}
-	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment, cfg.StandAssignmentAircraftJSON)
+	standAssignmentReadiness := configureStandAssignmentDefinition(cfg)
 	var testClock *testtools.Clock
 	satNow := deps.Now
 	if satNow == nil {
@@ -238,8 +248,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	var defaultAMAN operationalAMANAssembly
 	if amanEnabled && amanDependencies.ObservationSink == nil {
-		defaultAMAN, err = assembleOperationalAMAN(
+		defaultAMAN, err = assembleOperationalAMANWithDefinition(
 			cfg.AMAN, navigationSource, vatsimGraph.source, satStaleAfter(deps.VATSIMPollInterval), dbpool, satNow,
+			cfg.EKCH,
 		)
 		if err != nil {
 			if closeDB {
@@ -308,7 +319,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		efbTerminal = navigationSource.Terminal
 	}
 	if cfg.EnableEFB && efbTerminal.Airport == "" {
-		efbTerminal, err = terminal.LoadFile(navigation.DefaultTerminalGeometryPath)
+		path := navigation.DefaultTerminalGeometryPath
+		if cfg.EKCH != nil {
+			path, _ = cfg.EKCH.Resource("services.aman.terminal")
+		}
+		efbTerminal, err = terminal.LoadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("load EFB terminal configuration: %w", err)
 		}
@@ -362,6 +377,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		amanCoordination.SetClearanceNotifier(frontendHub.RefreshAMANCoordination)
 	}
 	euroscopeHub := realtime.euroscope
+	euroscopeHub.SetAirportRegistry(cfg.Airports)
 	if amanAPI != nil {
 		amanAPI.WithSessionResolver(func(ctx context.Context, cid, airport string) (int32, error) {
 			controller := euroscopeHub.GetFrontendController(cid)
@@ -415,6 +431,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	var vatsimReconciler *vatsim.Reconciler
 	if standAssignmentReadiness.Ready && vatsimGraph.source != nil && standAssignmentRepo != nil {
 		latitude, longitude := appconfig.GetAirportCoordinates()
+		if cfg.EKCH != nil {
+			latitude, longitude = cfg.EKCH.Coordinates()
+		}
 		vatsimReconciler, err = vatsim.NewReconciler(vatsim.ReconcilerDependencies{
 			Cache:              vatsimGraph.source,
 			Sessions:           sessionRepo,
@@ -501,6 +520,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 
 	fsServer, err = server.NewServer(server.Dependencies{
+		Airports:           cfg.Airports,
 		DBPool:             dbpool,
 		Euroscope:          euroscopeHub,
 		Frontend:           frontendHub,
@@ -570,17 +590,24 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 
 	if cfg.EnableDBSeed {
 		db := database.New(dbpool)
-		_ = db.InsertAirport(context.Background(), "EKCH")
+		if cfg.Airports != nil {
+			for _, airport := range cfg.Airports.Airports() {
+				_ = db.InsertAirport(ctx, airport)
+			}
+		} else {
+			_ = db.InsertAirport(ctx, "EKCH")
+		}
 	}
 
 	metarPoller := metar.NewPoller(sessionRepo, frontendHub)
 	efbFlightFinder := efb.NewFlightQuery(sessionRepo, stripRepo, true)
 
-	gsxSceneries, err := loadGSXSceneries(cfg.EnableGSXStandFeed)
+	gsxSceneries, err := loadGSXSceneriesDefinition(cfg)
 	if err != nil {
 		return nil, err
 	}
 	app := &App{
+		airports:                 cfg.Airports,
 		positionHub:              euroscopeHub,
 		dbpool:                   dbpool,
 		closeDB:                  closeDB,
@@ -1042,6 +1069,11 @@ func configureCDM(
 	}
 
 	cdmCfg := appconfig.GetCdmConfig()
+	airport := "EKCH"
+	if cfg.EKCH != nil {
+		cdmCfg = cfg.EKCH.DomainConfig().Cdm
+		airport = cfg.EKCH.Airport()
+	}
 	resolveURI := func(uri string) string {
 		if uri == "" || strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://") {
 			return uri
@@ -1061,7 +1093,7 @@ func configureCDM(
 		nil,
 	)
 	configStore.SetCdmClient(cdmClient)
-	configStore.SeedAirportConfig("EKCH", cdmCfg.Rate, cdmCfg.RateLvo, cdm.CdmDeiceConfig{
+	configStore.SeedAirportConfig(airport, cdmCfg.Rate, cdmCfg.RateLvo, cdm.CdmDeiceConfig{
 		Light:  cdmCfg.Deice.Light,
 		Medium: cdmCfg.Deice.Medium,
 		Heavy:  cdmCfg.Deice.Heavy,

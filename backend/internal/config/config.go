@@ -251,6 +251,16 @@ func GetInitialCFLByRunway() map[string]int {
 }
 
 func loadRoutes(cfg Config) error {
+	newRunway, newStands, err := buildRouteIndex(cfg)
+	if err != nil {
+		return err
+	}
+	runwayRoutes, standRoutes = newRunway, newStands
+	return nil
+}
+
+// buildRouteIndex validates and compiles routes without installing global state.
+func buildRouteIndex(cfg Config) (map[string][]Route, []Route, error) {
 	newRunway := make(map[string][]Route)
 	var newStands []Route
 
@@ -260,10 +270,10 @@ func loadRoutes(cfg Config) error {
 		hasStands := len(rt.ForStandRanges) > 0
 
 		if !hasRunway && !hasStands {
-			return fmt.Errorf("route %d (%q): must specify forRunway, forStandRanges, or both", i, rt.Name)
+			return nil, nil, fmt.Errorf("route %d (%q): must specify forRunway, forStandRanges, or both", i, rt.Name)
 		}
 		if len(rt.Path) == 0 {
-			return fmt.Errorf("route %d (%q): path must not be empty", i, rt.Name)
+			return nil, nil, fmt.Errorf("route %d (%q): path must not be empty", i, rt.Name)
 		}
 
 		// Normalize required actives and path elements for consistency.
@@ -282,7 +292,7 @@ func loadRoutes(cfg Config) error {
 		}
 		for _, reference := range rt.Path {
 			if !configuredSectorExists(cfg.Sectors, reference) {
-				return fmt.Errorf("route %d (%q): route references unknown sector %q", i, rt.Name, reference)
+				return nil, nil, fmt.Errorf("route %d (%q): route references unknown sector %q", i, rt.Name, reference)
 			}
 		}
 
@@ -302,9 +312,7 @@ func loadRoutes(cfg Config) error {
 		}
 	}
 
-	runwayRoutes = newRunway
-	standRoutes = newStands
-	return nil
+	return newRunway, newStands, nil
 }
 
 func configuredSectorExists(configured []Sector, reference string) bool {

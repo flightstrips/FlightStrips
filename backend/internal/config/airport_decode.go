@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -92,6 +93,9 @@ func DecodeAirport(source string, r io.Reader) (result *AirportDocument, err err
 		}
 		return nil, fmt.Errorf("line %d column %d: %w", line, column, err)
 	}
+	// Domain scalar readers must receive the values that passed validation,
+	// rather than interpreting YAML octal/hex/exponent spellings as text.
+	canonicalizeAirportNumbers(node)
 	encoded, err := yaml.Marshal(node)
 	if err != nil {
 		return nil, err
@@ -118,6 +122,30 @@ func DecodeAirport(source string, r io.Reader) (result *AirportDocument, err err
 		return nil, fmt.Errorf("line %d: %w", node.Line, err)
 	}
 	return &doc, nil
+}
+
+func canonicalizeAirportNumbers(node *yaml.Node) {
+	if node.Kind == yaml.ScalarNode && (node.Tag == "!!int" || node.Tag == "!!float") {
+		var value any
+		// airportJSON already decoded and validated every scalar.
+		_ = node.Decode(&value)
+		switch number := value.(type) {
+		case int:
+			node.Value = strconv.Itoa(number)
+		case uint64:
+			node.Value = strconv.FormatUint(number, 10)
+		case float64:
+			if math.Trunc(number) == number {
+				node.Tag = "!!int"
+				node.Value = strconv.FormatFloat(number, 'f', -1, 64)
+			} else {
+				node.Value = strconv.FormatFloat(number, 'g', -1, 64)
+			}
+		}
+	}
+	for _, child := range node.Content {
+		canonicalizeAirportNumbers(child)
+	}
 }
 
 func mappingValue(node *yaml.Node, key string) *yaml.Node {
@@ -208,6 +236,9 @@ func airportJSON(node *yaml.Node, path string) (any, error) {
 			var value any
 			if err := node.Decode(&value); err != nil {
 				return nil, err
+			}
+			if number, ok := value.(float64); ok && (math.IsNaN(number) || math.IsInf(number, 0)) {
+				return fail("numbers must be finite")
 			}
 			return value, nil
 		}

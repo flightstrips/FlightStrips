@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -76,6 +77,7 @@ func decodeAirport(source string, r io.Reader, catalog *AirportCatalog) (result 
 		return nil, fmt.Errorf("expected a single YAML document, got trailing document or error: %v", trailing)
 	}
 	node := root.Content[0]
+	normalizeAirportYAMLScalars(node)
 	if name := mappingValue(node, "airport"); name != nil {
 		airport = name.Value
 	}
@@ -143,6 +145,20 @@ func canonicalizeAirportNumbers(node *yaml.Node) {
 	}
 	for _, child := range node.Content {
 		canonicalizeAirportNumbers(child)
+	}
+}
+
+var ambiguousRunwayScalar = regexp.MustCompile(`^0[0-9]*[89][0-9]*$`)
+
+// The authored examples use YAML 1.1's plain 09 as a string. yaml/v4
+// otherwise resolves it as a float. Retain that lexical value, including in
+// map keys, so full Go loading agrees with the authoring validator.
+func normalizeAirportYAMLScalars(node *yaml.Node) {
+	if node.Kind == yaml.ScalarNode && node.Tag == "!!float" && ambiguousRunwayScalar.MatchString(node.Value) {
+		node.Tag = "!!str"
+	}
+	for _, child := range node.Content {
+		normalizeAirportYAMLScalars(child)
 	}
 }
 

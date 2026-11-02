@@ -444,7 +444,7 @@ func assembleOperationalAMANWithDefinition(config aman.RuntimeConfig, source *na
 		gainLossEnabled:   config.EnableEuroScopeGainLoseTags,
 		holdingEATEnabled: config.EnableHoldingEATWriteback,
 	}
-	aircraftEngines, err := appconfig.LoadAMANAircraftEngineReference()
+	aircraftEngines, err := loadAMANAircraftEngineReference(definition)
 	if err != nil {
 		return operationalAMANAssembly{}, err
 	}

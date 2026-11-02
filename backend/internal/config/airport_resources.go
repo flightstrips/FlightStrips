@@ -197,6 +197,19 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 		}
 	}
 	if s := services.AMAN; s != nil && active("aman", s.Availability) {
+		// AMAN needs shared aircraft facts even when SAT and its other assets
+		// are disabled. Resolve only that dependency, using the same selection.
+		if d.resources["services.stand_assignment.aircraft_icao"] == "" {
+			if services.StandAssignment == nil {
+				return fmt.Errorf("services.aman: services.stand_assignment.aircraft_icao resource is required")
+			}
+			if err := add("services.stand_assignment.aircraft_icao", services.StandAssignment.AircraftICAO); err != nil {
+				return err
+			}
+			if _, err := sat.LoadAircraftEngineReferenceFile(d.resources["services.stand_assignment.aircraft_icao"], nil); err != nil {
+				return fmt.Errorf("services.aman aircraft reference: %w", err)
+			}
+		}
 		if err := add("services.aman.terminal", s.Terminal); err != nil {
 			return err
 		}
@@ -244,6 +257,13 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 		}
 		if err := add("services.stand_assignment.scenery", services.StandAssignment.Scenery); err != nil {
 			return err
+		}
+		scenery, err := gsx.LoadSceneryConfig(d.resources["services.stand_assignment.scenery"])
+		if err != nil {
+			return fmt.Errorf("services.stand_assignment.scenery: %w", err)
+		}
+		if scenery == nil || scenery.ICAO != d.Airport() {
+			return fmt.Errorf("services.stand_assignment.scenery: must describe airport %s", d.Airport())
 		}
 	}
 	d.revision = fmt.Sprintf("%x", hash.Sum(nil))

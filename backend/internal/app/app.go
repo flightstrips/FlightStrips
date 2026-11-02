@@ -657,7 +657,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}),
 	}
 
-	app.addWorker(cdmService.Start)
+	if cfg.EKCH == nil || cfg.EKCH.ServiceEnabled("cdm") {
+		app.addWorker(cdmService.Start)
+	}
 	if navigationSource != nil {
 		app.addWorker(navigationSource.Start)
 	}

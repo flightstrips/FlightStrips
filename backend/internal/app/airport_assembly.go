@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/aman"
 	appconfig "FlightStrips/internal/config"
 	"FlightStrips/internal/gsx"
+	"FlightStrips/internal/sat"
 	"fmt"
 )
 
@@ -84,5 +85,19 @@ func loadGSXSceneriesDefinition(cfg Config) (gsx.Sceneries, error) {
 	if err != nil {
 		return nil, err
 	}
+	if scenery == nil || scenery.ICAO != cfg.EKCH.Airport() {
+		return nil, fmt.Errorf("GSX scenery must describe airport %s", cfg.EKCH.Airport())
+	}
 	return gsx.Sceneries{cfg.EKCH.Airport(): scenery}, nil
+}
+
+func loadAMANAircraftEngineReference(definition *appconfig.AirportDefinition) (*sat.AircraftEngineRegistry, error) {
+	if definition == nil {
+		return appconfig.LoadAMANAircraftEngineReference()
+	}
+	path, ok := definition.Resource("services.stand_assignment.aircraft_icao")
+	if !ok {
+		return nil, fmt.Errorf("AMAN aircraft reference resource is unresolved")
+	}
+	return sat.LoadAircraftEngineReferenceFile(path, nil)
 }

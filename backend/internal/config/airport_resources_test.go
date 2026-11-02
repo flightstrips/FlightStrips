@@ -109,7 +109,7 @@ func TestRequiredAirportAssetsFailAtomically(t *testing.T) {
 func TestAirportRegionAndRevisionValidation(t *testing.T) {
 	root := testAirportRoot(t)
 	file := selectedAirportFile(t, airportExample(t, "ekch"))
-	options := AirportLoadOptions{RepositoryRoot: root, DeploymentServices: map[string]bool{"cdm": true, "aman": true}}
+	options := AirportLoadOptions{RepositoryRoot: root, DeploymentServices: map[string]bool{"cdm": true, "aman": true}, LookupEnv: func(string) (string, bool) { return "backend/config/test/ICAO_Aircraft.json", true }}
 	first, err := LoadAirportFiles(ProductionAirportCatalog(), []string{file}, options)
 	if err != nil {
 		t.Fatal(err)

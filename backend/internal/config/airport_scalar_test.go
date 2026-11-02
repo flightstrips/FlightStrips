@@ -69,3 +69,17 @@ func TestDecodeAirportPreservesNumericSelectorValues(t *testing.T) {
 		t.Fatal("explicit string selector changed meaning")
 	}
 }
+
+func TestDecodeAirportRejectsInvertedNumericStandBounds(t *testing.T) {
+	for _, bounds := range [][2]string{{"30.0", "10.0"}, {"30e0", "10e0"}, {"9223372036854775808", "9223372036854775807"}} {
+		data := mutateAirport(t, airportExample(t, "ekch"), func(c map[string]any) {
+			c["routing"].(map[string]any)["ground"].([]any)[0].(map[string]any)["forStandRanges"] = []any{map[string]any{"prefix": "A", "from": "REVIEW_FROM", "to": "REVIEW_TO"}}
+		})
+		data = bytes.ReplaceAll(data, []byte("REVIEW_FROM"), []byte(bounds[0]))
+		data = bytes.ReplaceAll(data, []byte("REVIEW_TO"), []byte(bounds[1]))
+		_, err := DecodeAirport("inverted.yaml", bytes.NewReader(data))
+		if err == nil || !strings.Contains(err.Error(), "stand range is inverted") {
+			t.Fatalf("inverted numeric range accepted: %v", err)
+		}
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 	"sync"
@@ -213,9 +214,8 @@ func airportJSON(node *yaml.Node, path string) (any, error) {
 			result[key.Value] = value
 		}
 		if strings.Contains(path, ".forStandRanges[") {
-			from, fromOK := result["from"].(int)
-			to, toOK := result["to"].(int)
-			if fromOK && toOK && from > to {
+			from, to := airportNumber(result["from"]), airportNumber(result["to"])
+			if from != nil && to != nil && from.Cmp(to) > 0 {
 				return fail("stand range is inverted")
 			}
 		}
@@ -244,4 +244,19 @@ func airportJSON(node *yaml.Node, path string) (any, error) {
 		}
 	}
 	return fail("unsupported YAML node/tag (aliases and merges are not accepted)")
+}
+
+func airportNumber(value any) *big.Rat {
+	switch number := value.(type) {
+	case int:
+		return new(big.Rat).SetInt64(int64(number))
+	case int64:
+		return new(big.Rat).SetInt64(number)
+	case uint64:
+		return new(big.Rat).SetInt(new(big.Int).SetUint64(number))
+	case float64:
+		return new(big.Rat).SetFloat64(number)
+	default:
+		return nil
+	}
 }

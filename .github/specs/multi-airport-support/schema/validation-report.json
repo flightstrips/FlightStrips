@@ -109,6 +109,12 @@
     "missing default airborne route",
     "inverted stand range",
     "route lacks selectors",
+    "invalid scalar stand selector 'NOTASTAND'",
+    "invalid scalar stand selector 'A1-B2'",
+    "invalid scalar stand selector 'A1-A2-A3'",
+    "invalid scalar stand selector 'A1.5'",
+    "invalid scalar stand selector '   '",
+    "inverted integral-float stand range",
     "ekch unknown //unexpected_field",
     "ekch missing //schema_version",
     "ekch missing //kind",
@@ -400,7 +406,7 @@
     "typed-selectors missing /routing/ground/0/forStandRanges/0/from",
     "typed-selectors missing /routing/ground/0/forStandRanges/0/to"
   ],
-  "production_loader_parity_cases": 342,
+  "production_loader_parity_cases": 349,
   "resource_resolution_checks": [
     "Unset region environment uses the repository fallback.",
     "Blank region environment uses the repository fallback.",

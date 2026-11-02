@@ -685,6 +685,148 @@
     "valid": false
   },
   {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector 'NOTASTAND'",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "NOTASTAND"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector 'A1-B2'",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "A1-B2"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector 'A1-A2-A3'",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "A1-A2-A3"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector 'A1.5'",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "A1.5"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector '   '",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "   "
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "inverted integral-float stand range",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            {
+              "from": 30.0,
+              "prefix": "A",
+              "to": 10.0
+            }
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
     "base": "ekch",
     "environment": {},
     "name": "ekch unknown //unexpected_field",
@@ -4423,6 +4565,38 @@
               "prefix": "A",
               "to": 0
             }
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": true
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "supported scalar stand forms and integral numeric selectors",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9.0,
+          "forStandRanges": [
+            "273-1",
+            "RI",
+            "RII",
+            "RIII",
+            "W1",
+            "A15-A30",
+            12,
+            12.0,
+            "014",
+            "A0"
           ],
           "id": "selectors",
           "name": "selectors",

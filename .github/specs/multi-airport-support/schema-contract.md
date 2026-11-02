@@ -226,17 +226,28 @@ from those same sources, including the backend-packaged text-pilot asset path.
 `--write-report` also writes the shared loader mutation corpus; ordinary validation
 fails when that corpus is stale. CI runs both the Python validator and Go tests.
 
-The report records two validated examples plus production EKCH and 335 rejected
+The report records two validated examples plus production EKCH and 341 rejected
 invalid cases, including unknown/cross-handler settings, missing bays, invalid
 mappings/annotation types, ownership incompatibility, scripts/profile references,
 airport-local PDC logon/poller fields,
 missing selected region override/fallback files,
 unknown positions/routes, invalid resource paths, and session-owned feed caches.
-All original 34 cases remain. The shared corpus has 342 cases, including closed
-object/conditional required fields, typed/scalar stand selectors, zero bounds,
+All original 34 cases remain. The shared corpus has 349 cases, including closed
+object/conditional required fields, valid and invalid scalar stand selectors, zero bounds,
 disabled assets, and complete positive documents. Go tests also verify selected
 definition coexistence, snapshot isolation, revisions and the complete EKCH data
 migration. This does not claim complete runtime workflow or service-state parity.
+
+Non-finite YAML numbers are rejected before schema validation. Numeric selectors
+use their decoded YAML values before domain conversion; quoted string selectors
+retain their literal interpretation. Source-level Go tests cover octal, hexadecimal,
+decimal and exponent spellings that a JSON mutation corpus cannot preserve.
+
+AMAN resolves the shared `stand_assignment.aircraft_icao` resource independently
+when SAT is disabled, without requiring SAT's stand or airline assets. GSX-only
+assembly still validates the scenery's airport. Disabled CDM does not register
+the background worker; existing shared clients and deployment credentials remain
+application-owned.
 See the [handler guide](handler-design.md) for runnable demonstrations, race
 checks, and benchmarks. Settings preservation and the tested handler decisions
 are separate claims; complete runtime parity remains integration work.

@@ -12,6 +12,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -113,6 +114,8 @@ def walk(value):
 
 def check_schema(document):
     require(isinstance(document, dict), 'configuration document must be an object')
+    require(all(not isinstance(value, float) or math.isfinite(value) for value in walk(document)),
+            'configuration numbers must be finite')
     errors = sorted(VALIDATOR.iter_errors(document), key=lambda e: list(map(str, e.path)))
     if errors:
         error = errors[0]
@@ -139,6 +142,49 @@ def validate_workflow(document):
         require(set(settings['ground_state_bays'].values()) <= bays, 'unknown ES-to-bay target')
 
 
+def selector_text(value):
+    # JSON Schema integer includes integral floats. Match Go's canonical typed
+    # decoding while retaining explicitly quoted scalar strings.
+    return str(int(value)) if isinstance(value, (int, float)) and not isinstance(value, bool) else str(value)
+
+
+def parse_stand(value):
+    text = value.strip().upper()
+    def integer(token):
+        if not re.fullmatch(r'[+-]?[0-9]+', token):
+            return None
+        number = int(token)
+        return number if -(2**63) <= number < 2**63 else None
+    number = integer(text)
+    if number is not None:
+        return '#', number
+    parts = text.split('-')
+    if len(parts) == 2:
+        number, suffix = integer(parts[0]), integer(parts[1])
+        if number is not None and suffix is not None and suffix >= 0:
+            return '#' + parts[1], number
+    if text in {'RI', 'RII', 'RIII'}:
+        return 'R', len(text) - 1
+    index = next((i for i, char in enumerate(text) if '0' <= char <= '9'), len(text))
+    if 0 < index < len(text):
+        number = integer(text[index:])
+        if number is not None:
+            return text[:index], number
+    return None
+
+
+def validate_scalar_stand_selector(value):
+    text = selector_text(value).strip()
+    if parse_stand(text) is not None:
+        return
+    parts = text.split('-')
+    if len(parts) == 2:
+        left, right = parse_stand(parts[0]), parse_stand(parts[1])
+        if left is not None and right is not None and left[0] == right[0]:
+            return
+    raise ConfigError(f'invalid scalar stand selector: {value!r}')
+
+
 def validate_airport(document, environment=None):
     check_schema(document)
     unique(document['positions'], 'name', 'position')
@@ -150,7 +196,7 @@ def validate_airport(document, environment=None):
     duties = document['coverage']['responsibilities']
     roles = {d['name'] for d in duties} | {d.get('key', d['name']) for d in duties}
     def position(value): require(value in positions, f'unknown position: {value}')
-    def runway(value): require(str(value).zfill(2) in runways, f'unknown runway: {value}')
+    def runway(value): require(selector_text(value).zfill(2) in runways, f'unknown runway: {value}')
     for key in document['geography']['initial_cfl_ft']:
         runway(key)
     # Disabled capabilities do not acquire or require their optional assets.
@@ -189,6 +235,8 @@ def validate_airport(document, environment=None):
         for selector in route.get('forStandRanges', []):
             if isinstance(selector, dict):
                 require(selector['from'] <= selector['to'], 'stand range is inverted')
+            else:
+                validate_scalar_stand_selector(selector)
     require(not document['routing']['airborne'] or sum(r['default'] for r in document['routing']['airborne']) == 1, 'airborne routes require exactly one default')
     for route in document['routing']['airborne']:
         require(route['name'] in roles, f"unknown airborne responsibility: {route['name']}")
@@ -455,6 +503,11 @@ def main():
     typed_selectors['routing']['ground'] = [{'id':'selectors','name':'selectors','forRunway':9,
                                            'forStandRanges':[{'prefix':'A','from':0,'to':2},12,'A3'], 'path':['TWR']}]
     validate_airport(typed_selectors)
+    for invalid_selector in ['NOTASTAND', 'A1-B2', 'A1-A2-A3', 'A1.5', '   ']:
+        rejects(f'invalid scalar stand selector {invalid_selector!r}',
+                lambda c, value=invalid_selector: c['routing']['ground'][0].update(forStandRanges=[value]), typed_selectors)
+    rejects('inverted integral-float stand range', lambda c: c['routing']['ground'][0].update(
+        forStandRanges=[{'prefix':'A','from':30.0,'to':10.0}]), typed_selectors)
     for base_name, base in [('ekch',airport),('zzzz',fake),('typed-selectors',typed_selectors)]:
         for path, operation, key in object_contract_cases(base):
             if base_name == 'typed-selectors' and 'forStandRanges' not in path:
@@ -488,8 +541,21 @@ def main():
     zero_stand = copy.deepcopy(typed_selectors)
     zero_stand['routing']['ground'][0]['forStandRanges'] = [{'prefix':'A','from':0,'to':0}]
     accepts('explicit stand zero range', zero_stand, fake)
+    scalar_forms = copy.deepcopy(typed_selectors)
+    scalar_forms['routing']['ground'][0].update(forRunway=9.0,
+        forStandRanges=['273-1','RI','RII','RIII','W1','A15-A30',12,12.0,'014','A0'])
+    accepts('supported scalar stand forms and integral numeric selectors', scalar_forms, fake)
     accepts('complete EKCH document', copy.deepcopy(airport))
     accepts('complete fictional document', copy.deepcopy(fake), fake)
+    for nonfinite in [math.nan, math.inf, -math.inf]:
+        candidate = copy.deepcopy(fake)
+        candidate['geography']['latitude'] = nonfinite
+        try:
+            validate_airport(candidate)
+        except ConfigError:
+            pass
+        else:
+            raise ConfigError('nonfinite authoring scalar accepted')
     corpus_path = HERE / 'loader-parity-cases.json'
     corpus = json.dumps(parity_cases, indent=2, sort_keys=True) + '\n'
     if ARGS.write_report:

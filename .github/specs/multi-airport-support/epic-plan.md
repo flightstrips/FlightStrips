@@ -1,10 +1,12 @@
 # Multi-airport implementation epic plan
 
-Status: repo-local epic drafts, planned on 2026-11-02 from the reviewed
-[architecture](architecture-proposal.md) and confirmed
+Status: published implementation backlog, created on 2026-11-02 from the
+reviewed [architecture](architecture-proposal.md) and confirmed
 [D1–D5 decisions](planning-readiness.md#confirmed-delivery-decisions).
-MA-01–MA-08 are planning identifiers, not published tracker issues. This document
-plans implementation; it does not activate airports or mark work complete.
+The [issue index](issue-index.md) maps MA-01–MA-08 and all 41 child IDs to GitHub,
+with native hierarchy and prerequisite links. [Spec PR #972](https://github.com/flightstrips/FlightStrips/pull/972)
+contains the specification; implementation remains open and airports are not
+activated by merging it.
 
 ## Release outcome and scope
 
@@ -66,6 +68,8 @@ assignees are deliberately not invented here.
 
 ## MA-01: Load combined airport definitions in production
 
+Tracker: [#973](https://github.com/flightstrips/FlightStrips/issues/973).
+
 **Outcome:** the application resolves one immutable definition per configured
 airport from its single combined file. Startup configuration is no longer
 equivalent to mutating one current-airport global.
@@ -81,17 +85,17 @@ runtime handler implementations and production execution. Loader tests can
 register fictional handler/view descriptors only within their test registry;
 they do not require a fictional frontend or enable that airport in production.
 
-**Candidate child issues:**
+**Child issues:**
 
-- **MA-01.1:** implement typed combined-file loading and compose existing domain
+- **MA-01.1:** [#981](https://github.com/flightstrips/FlightStrips/issues/981) — implement typed combined-file loading and compose existing domain
   validators; include strict unknown/missing-field handling and useful source errors.
-- **MA-01.2:** build the immutable registry and compiled handler/settings factory
+- **MA-01.2:** [#982](https://github.com/flightstrips/FlightStrips/issues/982) — build the immutable registry and compiled handler/settings factory
   registration; validate known handler/view/bay references without a generic interpreter.
-- **MA-01.3:** resolve repository and environment-backed assets consistently,
+- **MA-01.3:** [#983](https://github.com/flightstrips/FlightStrips/issues/983) — resolve repository and environment-backed assets consistently,
   including region fallback/override behavior and disabled-service dependencies.
-- **MA-01.4:** connect application assembly to the complete EKCH definition and
+- **MA-01.4:** [#984](https://github.com/flightstrips/FlightStrips/issues/984) — connect application assembly to the complete EKCH definition and
   migrate current configuration consumers incrementally through explicit context.
-- **MA-01.5:** add full-loader/schema parity cases using EKCH and the fictional
+- **MA-01.5:** [#985](https://github.com/flightstrips/FlightStrips/issues/985) — add full-loader/schema parity cases using EKCH and the fictional
   definition; replace reliance on the proof's partial YAML-node projection.
 
 **Acceptance:**
@@ -114,6 +118,8 @@ EKBI/EKYT operating values. Traceability: E1 and the single-file/handler decisio
 
 ## MA-02: Route workflows through coded handlers and preserve EKCH
 
+Tracker: [#974](https://github.com/flightstrips/FlightStrips/issues/974).
+
 **Outcome:** production workflow decisions depend on the session's bound handler
 and typed definition. EKCH's rules remain real tested code, with shared execution
 and guard mechanisms rather than scattered airport conditionals.
@@ -122,20 +128,20 @@ and guard mechanisms rather than scattered airport conditionals.
 and execution through existing database, ordering, EuroScope, and domain-service
 operations. The existing sample is reference code, not the final SDK or executor.
 
-**Candidate child issues:**
+**Child issues:**
 
-- **MA-02.1:** define the minimal production hooks for controller actions,
+- **MA-02.1:** [#986](https://github.com/flightstrips/FlightStrips/issues/986) — define the minimal production hooks for controller actions,
   normalized observations, admission/lifecycle, and coordination; register typed
   supported actions with handlers instead of growing the sample core allowlist.
-- **MA-02.2:** put existing EKCH bay/reconciliation, lifecycle, ownership, and
+- **MA-02.2:** [#987](https://github.com/flightstrips/FlightStrips/issues/987) — put existing EKCH bay/reconciliation, lifecycle, ownership, and
   special coordination behavior behind its handler, including SQ resolution.
   Supply settings/geography from the definition rather than hidden constants.
-- **MA-02.3:** adapt existing move/field-edit executors to explicit session,
+- **MA-02.3:** [#988](https://github.com/flightstrips/FlightStrips/issues/988) — adapt existing move/field-edit executors to explicit session,
   definition, and source authority; retain EKCH validation, ordering, errors,
   rollback, and observation reconciliation.
-- **MA-02.4:** keep human own-plugin binding separate from genuine automatic
+- **MA-02.4:** [#989](https://github.com/flightstrips/FlightStrips/issues/989) — keep human own-plugin binding separate from genuine automatic
   master/assuming-controller resolution, using existing appropriate helpers.
-- **MA-02.5:** exercise EKCH full and incremental observation paths, movement,
+- **MA-02.5:** [#990](https://github.com/flightstrips/FlightStrips/issues/990) — exercise EKCH full and incremental observation paths, movement,
   completion/removal, and coordination with production stores or faithful fixtures.
   Retain a fictional custom handler test proving a feature needs no core airport branch.
 
@@ -161,22 +167,24 @@ inferred from the existing sample tests. Traceability: D3, D4, E2, E3.
 
 ## MA-03: Support independent airport memberships over one plugin connection
 
+Tracker: [#975](https://github.com/flightstrips/FlightStrips/issues/975).
+
 **Outcome:** one authenticated EuroScope instance participates in multiple
 sessions, with independent roles, synchronization, and command routing.
 
-**Candidate child issues:**
+**Child issues:**
 
-- **MA-03.1:** update the existing protobuf envelopes/control messages with the
+- **MA-03.1:** [#991](https://github.com/flightstrips/FlightStrips/issues/991) — update the existing protobuf envelopes/control messages with the
   required instance, membership, session/environment, generation, and master
   context. Upgrade both ends together; do not build a parallel legacy endpoint.
-- **MA-03.2:** split backend transport identity from logical membership clients;
+- **MA-03.2:** [#992](https://github.com/flightstrips/FlightStrips/issues/992) — split backend transport identity from logical membership clients;
   replace global/CID-only role, observer, disconnect, and sender assumptions.
-- **MA-03.3:** replace the plugin's singular role/session state with a membership
+- **MA-03.3:** [#993](https://github.com/flightstrips/FlightStrips/issues/993) — replace the plugin's singular role/session state with a membership
   map, scoped full-sync inventories, removal tracking, and role state. Collect
   callbacks once and dispatch under the applicable membership roles.
-- **MA-03.4:** elect and synchronize masters independently, including stale-source
+- **MA-03.4:** [#994](https://github.com/flightstrips/FlightStrips/issues/994) — elect and synchronize masters independently, including stale-source
   fencing at application time and non-master controller command/result handling.
-- **MA-03.5:** retain identity/radio/control updates when zero memberships remain;
+- **MA-03.5:** [#995](https://github.com/flightstrips/FlightStrips/issues/995) — retain identity/radio/control updates when zero memberships remain;
   expose authorized membership discovery for the frontend and coverage coordinator.
 
 **Acceptance:**
@@ -198,21 +206,23 @@ protocols, or a new generic acknowledgement protocol. Traceability: D4, D5, E3.
 
 ## MA-04: Coordinate airport coverage, takeover, and automatic rejoin
 
+Tracker: [#976](https://github.com/flightstrips/FlightStrips/issues/976).
+
 **Outcome:** memberships follow responsibilities and radios even when a controller
 has no active airport membership. Coverage remains independent of strip ownership.
 
-**Candidate child issues:**
+**Child issues:**
 
-- **MA-04.1:** evaluate enabled definitions against server-authorized eligibility,
+- **MA-04.1:** [#996](https://github.com/flightstrips/FlightStrips/issues/996) — evaluate enabled definitions against server-authorized eligibility,
   configured responsibilities/providers, primary identity, and tuned frequencies.
-- **MA-04.2:** assemble normalized staffing/radio evidence from shared providers,
+- **MA-04.2:** [#997](https://github.com/flightstrips/FlightStrips/issues/997) — assemble normalized staffing/radio evidence from shared providers,
   including controllers without FlightStrips; extend shared staffing acquisition
   if necessary rather than assume the current pilot/prefile snapshot contains it.
-- **MA-04.3:** apply desired-membership deltas and the confirmed bounded takeover
+- **MA-04.3:** [#998](https://github.com/flightstrips/FlightStrips/issues/998) — apply desired-membership deltas and the confirmed bounded takeover
   rule, preserving unaffected memberships and independent mastership.
-- **MA-04.4:** handle evidence freshness/unknown states explicitly using existing
+- **MA-04.4:** [#999](https://github.com/flightstrips/FlightStrips/issues/999) — handle evidence freshness/unknown states explicitly using existing
   matching behavior as the baseline; test radio changes without callsign changes.
-- **MA-04.5:** connect automatic rejoin, zero-membership source demand, and existing
+- **MA-04.5:** [#1000](https://github.com/flightstrips/FlightStrips/issues/1000) — connect automatic rejoin, zero-membership source demand, and existing
   offline/read-only transitions without creating a new disconnected workflow.
 
 **Acceptance:**
@@ -235,29 +245,31 @@ E4 and the confirmed takeover/rejoin requirements.
 
 ## MA-05: Isolate airport service state while sharing sources and clients
 
+Tracker: [#977](https://github.com/flightstrips/FlightStrips/issues/977).
+
 **Outcome:** enabling another airport does not duplicate global acquisition or
 external clients and does not reuse EKCH's mutable airport settings/state.
 
-**Candidate child issues:**
+**Child issues:**
 
-- **MA-05.1:** preserve shared VATSIM/transceiver sources, indexes, last-good-data,
+- **MA-05.1:** [#1001](https://github.com/flightstrips/FlightStrips/issues/1001) — preserve shared VATSIM/transceiver sources, indexes, last-good-data,
   and refresh coordination; include aggregate demand from zero-membership LIVE
   control instances alongside existing service/EFB consumers.
-- **MA-05.2:** seed CDM from each enabled airport's definition/data and partition
+- **MA-05.2:** [#1002](https://github.com/flightstrips/FlightStrips/issues/1002) — seed CDM from each enabled airport's definition/data and partition
   calculations, schedules, subscriptions, and LIVE-only publication state.
-- **MA-05.3:** replace implicit EKCH/global stand registries with airport-specific
+- **MA-05.3:** [#1003](https://github.com/flightstrips/FlightStrips/issues/1003) — replace implicit EKCH/global stand registries with airport-specific
   stand/airline/scenery definitions and scoped reservations/assignments/expiry;
   keep read-only aircraft/reference inputs shared where appropriate.
-- **MA-05.4:** supply airport-specific text-pilot presets/actions through existing
+- **MA-05.4:** [#1004](https://github.com/flightstrips/FlightStrips/issues/1004) — supply airport-specific text-pilot presets/actions through existing
   transport and own-plugin routing. Adapt weather/ATIS presentation to shared
   backend acquisition instead of browser-local polling.
-- **MA-05.5:** preserve application-owned CDM/PDC/ECFMP clients, the shared PDC
+- **MA-05.5:** [#1005](https://github.com/flightstrips/FlightStrips/issues/1005) — preserve application-owned CDM/PDC/ECFMP clients, the shared PDC
   logon/worker, and current EKCH PDC/AMAN. Ensure other airport definitions cannot
   overwrite EKCH validation/configuration. Enforce regional PDC/AMAN disablement
   in server APIs, service registration, polling, and publication paths, not just
   frontend capabilities; skip disabled regional PDC mailboxes even when the
   application-level client remains enabled for EKCH.
-- **MA-05.6:** attach/detach scoped work on existing session lifecycle without
+- **MA-05.6:** [#1006](https://github.com/flightstrips/FlightStrips/issues/1006) — attach/detach scoped work on existing session lifecycle without
   transferring ownership of global clients/workers to memberships or browser tabs.
 
 **Acceptance:**
@@ -281,19 +293,21 @@ shared-source/PDC requirements, E1/E4/E6.
 
 ## MA-06: Bind each frontend tab to an authorized airport session
 
+Tracker: [#978](https://github.com/flightstrips/FlightStrips/issues/978).
+
 **Outcome:** each tab shows and edits its selected authorized board, with clear
 own-plugin readiness and no cross-tab or cross-airport store contamination.
 
-**Candidate child issues:**
+**Child issues:**
 
-- **MA-06.1:** replace singular CID/controller association with authorized
+- **MA-06.1:** [#1007](https://github.com/flightstrips/FlightStrips/issues/1007) — replace singular CID/controller association with authorized
   membership/session discovery, scoped observer/readiness/capability data, and
   explicit instance selection only when multiple compatible own instances exist.
-- **MA-06.2:** implement one-eligible auto-entry, multiple-eligible initial chooser,
+- **MA-06.2:** [#1008](https://github.com/flightstrips/FlightStrips/issues/1008) — implement one-eligible auto-entry, multiple-eligible initial chooser,
   airport switcher, and independent per-tab selection/store state.
-- **MA-06.3:** bind the board WebSocket and initial snapshot to the selected
+- **MA-06.3:** [#1009](https://github.com/flightstrips/FlightStrips/issues/1009) — bind the board WebSocket and initial snapshot to the selected
   session, definition revision, coded view, action catalog, and capabilities.
-- **MA-06.4:** reject delayed traffic/results after switching/rebinding and retain
+- **MA-06.4:** [#1010](https://github.com/flightstrips/FlightStrips/issues/1010) — reject delayed traffic/results after switching/rebinding and retain
   the selected board read-only through own-plugin loss and normal reconnect.
 
 **Acceptance:**
@@ -312,28 +326,30 @@ an old frontend during rollout. Traceability: D5, E3 and navigation requirements
 
 ## MA-07: Deliver the integrated RADIS board for EKBI/EKYT
 
+Tracker: [#979](https://github.com/flightstrips/FlightStrips/issues/979).
+
 **Outcome:** adapt [the reviewed PR #958 prototype](radis-prototype-review.md)
 into the host application as a shared coded view/handler, with independent
 authoritative boards and actual controller-plugin effects.
 
-**Candidate child issues:**
+**Child issues:**
 
-- **MA-07.1:** inventory current prototype features, fields, menus, and dialogs;
+- **MA-07.1:** [#1011](https://github.com/flightstrips/FlightStrips/issues/1011) — inventory current prototype features, fields, menus, and dialogs;
   map each implemented interaction to a typed backend action and acceptance case.
   Distinguish working controls from placeholders without inventing new capabilities.
-- **MA-07.2:** implement the RADIS handler/settings/schema and authoritative
+- **MA-07.2:** [#1012](https://github.com/flightstrips/FlightStrips/issues/1012) — implement the RADIS handler/settings/schema and authoritative
   bay/order/annotation/lifecycle storage using the required specific migrations.
   Include all four observed containers and ownership-free collaboration.
-- **MA-07.3:** adapt board/strip components, menus, runway/SID/route/heading,
+- **MA-07.3:** [#1013](https://github.com/flightstrips/FlightStrips/issues/1013) — adapt board/strip components, menus, runway/SID/route/heading,
   squawk/altitude, VFR/RNAV, stand, notes, de-icing, and REA/ATA controls to host
   stores, styles, backend actions, and existing plugin execution/results.
-- **MA-07.4:** implement shared NEW local-strip creation and FIND connected-pilot
+- **MA-07.4:** [#1014](https://github.com/flightstrips/FlightStrips/issues/1014) — implement shared NEW local-strip creation and FIND connected-pilot
   lookup/admission, with stable strip identity and duplicate prevention. Never
   create an ES flight plan or add prefiles/unrelated airport flights.
-- **MA-07.5:** implement automatic appearance/removal plus manual removal and
+- **MA-07.5:** [#1015](https://github.com/flightstrips/FlightStrips/issues/1015) — implement automatic appearance/removal plus manual removal and
   restoration, shared hidden/recovery state, and refresh/restart reconciliation
   that preserves explicit placement and controller annotations.
-- **MA-07.6:** integrate CDM/stand/text-pilot/weather capabilities, finish the
+- **MA-07.6:** [#1016](https://github.com/flightstrips/FlightStrips/issues/1016) — integrate CDM/stand/text-pilot/weather capabilities, finish the
   feature acceptance matrix, and supply concrete typed synthetic fixtures while
   real EKBI/EKYT operating values are being reviewed.
 
@@ -364,25 +380,27 @@ Traceability: D1–D4, E2/E3/E6 and the prototype/reference notes.
 
 ## MA-08: Validate and activate the release in an offline window
 
+Tracker: [#980](https://github.com/flightstrips/FlightStrips/issues/980).
+
 **Outcome:** demonstrate the complete agreed release across backend, frontend,
 plugin, and operational airport definitions, then deploy it using the normal
 offline process without disturbing existing EKCH behavior.
 
-**Candidate child issues:**
+**Child issues:**
 
-- **MA-08.1:** establish the release acceptance matrix and capture existing EKCH
+- **MA-08.1:** [#1017](https://github.com/flightstrips/FlightStrips/issues/1017) — establish the release acceptance matrix and capture existing EKCH
   workflow/service behavior and representative load before the refactor; keep
   this evidence current while MA-01–MA-07 progress.
-- **MA-08.2:** run production-loader, database, protocol/plugin, browser, and
+- **MA-08.2:** [#1018](https://github.com/flightstrips/FlightStrips/issues/1018) — run production-loader, database, protocol/plugin, browser, and
   service integration scenarios spanning independent airports/environments;
   prove no cross-session routing and no duplicated shared acquisition/client lifetime.
-- **MA-08.3:** collect and validate real EKBI/EKYT files, service datasets,
+- **MA-08.3:** [#1019](https://github.com/flightstrips/FlightStrips/issues/1019) — collect and validate real EKBI/EKYT files, service datasets,
   mappings/thresholds, and named operational acceptance. Keep fictional fixtures
   distinct from selected deployment files.
-- **MA-08.4:** compare representative EKCH and concurrent-airport performance,
+- **MA-08.4:** [#1020](https://github.com/flightstrips/FlightStrips/issues/1020) — compare representative EKCH and concurrent-airport performance,
   locks/queues, shared-source requests, and service behavior. Set practical
   regression/load acceptance from these measurements, not the sample microbenchmarks.
-- **MA-08.5:** document and rehearse the existing deployment/migration/smoke process;
+- **MA-08.5:** [#1021](https://github.com/flightstrips/FlightStrips/issues/1021) — document and rehearse the existing deployment/migration/smoke process;
   verify nobody is online, update backend/frontend/plugin together, and enable
   only airports whose configuration and acceptance are complete.
 

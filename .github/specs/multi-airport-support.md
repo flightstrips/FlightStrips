@@ -467,7 +467,10 @@ while nobody is online. Human edits retain their own plugin. No concurrent
 legacy/new client support or additional pending-move framework is required.
 The proposal is ready to turn into epics without further product questions in
 this register. The [implementation epic plan](multi-airport-support/epic-plan.md)
-now records eight repo-local epic drafts; no external tracker issues have been published.
+is now published as eight epics and 41 child issues, with native hierarchy and
+prerequisites. See the [issue index](multi-airport-support/issue-index.md) and
+[spec PR #972](https://github.com/flightstrips/FlightStrips/pull/972). Implementation
+remains open; merging the spec does not close those issues.
 
 Engineering E1–E7 items belong in the relevant epics with named design tasks:
 production registry validation/activation, typed action/effect contracts,

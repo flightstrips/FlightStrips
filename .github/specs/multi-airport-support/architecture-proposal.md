@@ -739,9 +739,11 @@ can distinguish a coverage decision from a failed plugin connection.
 ## Implementation epics
 
 The [implementation epic plan](epic-plan.md), drafted on 2026-11-02, turns the
-confirmed design into eight repo-local, issue-ready epic drafts. Each defines
-candidate child issues, acceptance criteria, dependencies, and exclusions. These
-are planned delivery boundaries, not completed work or published tracker issues.
+confirmed design into eight published epics with 41 child issues. Each defines
+scope, acceptance criteria, dependencies, and exclusions. The
+[issue index](issue-index.md) links every issue and the native hierarchy/dependency
+graph; [spec PR #972](https://github.com/flightstrips/FlightStrips/pull/972) contains
+this specification. Implementation remains open.
 
 ```mermaid
 flowchart LR
@@ -757,16 +759,16 @@ flowchart LR
   MA07 --> MA08[MA-08 Validation and offline activation]
 ```
 
-| Epic | Result | Prerequisites |
-| --- | --- | --- |
-| [MA-01 — Combined airport registry](epic-plan.md#ma-01-load-combined-airport-definitions-in-production) | Full production loading, typed definitions, explicit activation, and preserved EKCH settings. | None |
-| [MA-02 — Coded workflows and EKCH](epic-plan.md#ma-02-route-workflows-through-coded-handlers-and-preserve-ekch) | Production handler/action contracts and the actual EKCH decision/execution paths. | MA-01 |
-| [MA-03 — Plugin memberships](epic-plan.md#ma-03-support-independent-airport-memberships-over-one-plugin-connection) | One connection, independent airport roles/sync, and exact own-plugin routing. | MA-01, MA-02 |
-| [MA-04 — Coverage and rejoin](epic-plan.md#ma-04-coordinate-airport-coverage-takeover-and-automatic-rejoin) | Configured responsibilities/radios drive takeover and automatic return. | MA-03, MA-05 |
-| [MA-05 — Shared services](epic-plan.md#ma-05-isolate-airport-service-state-while-sharing-sources-and-clients) | Shared sources/clients with scoped CDM/stand/text-pilot state; existing EKCH PDC/AMAN preserved. | MA-01, MA-02 |
-| [MA-06 — Frontend session binding](epic-plan.md#ma-06-bind-each-frontend-tab-to-an-authorized-airport-session) | Authorized per-tab discovery, selection/switching, and existing read-only behavior. | MA-03 |
-| [MA-07 — Integrated RADIS](epic-plan.md#ma-07-deliver-the-integrated-radis-board-for-ekbi-ekyt) | The full agreed prototype feature set plus restoration, authoritative shared boards, and own-plugin effects. | MA-02, MA-04, MA-05, MA-06 |
-| [MA-08 — Validation and offline activation](epic-plan.md#ma-08-validate-and-activate-the-release-in-an-offline-window) | Integrated acceptance, approved airport data, and coordinated backend/frontend/plugin deployment. | MA-01–MA-07 plus airport activation gates |
+| Epic | Result | Prerequisites | GitHub |
+| --- | --- | --- | --- |
+| [MA-01 — Combined airport registry](epic-plan.md#ma-01-load-combined-airport-definitions-in-production) | Full production loading, typed definitions, explicit activation, and preserved EKCH settings. | None | [#973](https://github.com/flightstrips/FlightStrips/issues/973) |
+| [MA-02 — Coded workflows and EKCH](epic-plan.md#ma-02-route-workflows-through-coded-handlers-and-preserve-ekch) | Production handler/action contracts and the actual EKCH decision/execution paths. | MA-01 | [#974](https://github.com/flightstrips/FlightStrips/issues/974) |
+| [MA-03 — Plugin memberships](epic-plan.md#ma-03-support-independent-airport-memberships-over-one-plugin-connection) | One connection, independent airport roles/sync, and exact own-plugin routing. | MA-01, MA-02 | [#975](https://github.com/flightstrips/FlightStrips/issues/975) |
+| [MA-04 — Coverage and rejoin](epic-plan.md#ma-04-coordinate-airport-coverage-takeover-and-automatic-rejoin) | Configured responsibilities/radios drive takeover and automatic return. | MA-03, MA-05 | [#976](https://github.com/flightstrips/FlightStrips/issues/976) |
+| [MA-05 — Shared services](epic-plan.md#ma-05-isolate-airport-service-state-while-sharing-sources-and-clients) | Shared sources/clients with scoped CDM/stand/text-pilot state; existing EKCH PDC/AMAN preserved. | MA-01, MA-02 | [#977](https://github.com/flightstrips/FlightStrips/issues/977) |
+| [MA-06 — Frontend session binding](epic-plan.md#ma-06-bind-each-frontend-tab-to-an-authorized-airport-session) | Authorized per-tab discovery, selection/switching, and existing read-only behavior. | MA-03 | [#978](https://github.com/flightstrips/FlightStrips/issues/978) |
+| [MA-07 — Integrated RADIS](epic-plan.md#ma-07-deliver-the-integrated-radis-board-for-ekbi-ekyt) | The full agreed prototype feature set plus restoration, authoritative shared boards, and own-plugin effects. | MA-02, MA-04, MA-05, MA-06 | [#979](https://github.com/flightstrips/FlightStrips/issues/979) |
+| [MA-08 — Validation and offline activation](epic-plan.md#ma-08-validate-and-activate-the-release-in-an-offline-window) | Integrated acceptance, approved airport data, and coordinated backend/frontend/plugin deployment. | MA-01–MA-07 plus airport activation gates | [#980](https://github.com/flightstrips/FlightStrips/issues/980) |
 
 Start with MA-01/02, then run transport and service work in parallel. Coverage
 and frontend selection follow, then the integrated RADIS milestone and release
@@ -780,7 +782,7 @@ existing no-controllers-online deployment process and preserve EKCH data/behavio
 
 Airport data gates activation rather than implementation with test fixtures.
 Do not enable an incomplete airport or deploy the fictional example. The full
-plan below contains individual epic scope and child-issue candidates; there are
+plan below contains individual epic scope and linked child issues; there are
 no invented dates, owners, or airport operating values.
 
 ## Acceptance scenarios
@@ -843,8 +845,8 @@ as EKCH or requiring every airport to have ownership.
 The user resolved D1–D5 on **2026-11-01**. The
 [planning register](planning-readiness.md) records the confirmed outcomes and
 supersedes the earlier open recommendations. The proposal now maps to
-[eight planned implementation epics](epic-plan.md). Their drafts are
-recorded in this repo; no tracker issues have been published and runtime
+[eight planned implementation epics](epic-plan.md). Their scope is
+recorded in this repo and all 49 issues are [published](issue-index.md); runtime
 integration is not complete.
 
 | ID | Confirmed decision |

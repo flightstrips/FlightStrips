@@ -27,6 +27,7 @@ const radisReview = (await readFile(path.join(directory, 'radis-prototype-review
 const handlerDesign = (await readFile(path.join(directory, 'handler-design.md'), 'utf8')).replace(/\r\n/g, '\n');
 const planningReview = (await readFile(path.join(directory, 'planning-readiness.md'), 'utf8')).replace(/\r\n/g, '\n');
 const epicPlan = (await readFile(path.join(directory, 'epic-plan.md'), 'utf8')).replace(/\r\n/g, '\n');
+const issueIndex = (await readFile(path.join(directory, 'issue-index.md'), 'utf8')).replace(/\r\n/g, '\n');
 const ekchExample = await readFile(path.join(directory, 'examples/ekch.airport.yaml'), 'utf8');
 const fakeExample = await readFile(path.join(directory, 'examples/zzzz.airport.yaml'), 'utf8');
 const proofPatch = (await readFile(path.join(directory, 'examples/handler-proof.patch'), 'utf8')).replace(/\r\n/g, '\n');
@@ -284,7 +285,7 @@ const contents = sections.map((section, index) => {
     body = body.replaceAll('href="epic-plan.md#', 'href="#');
     const firstEpic = epicPlan.indexOf('## MA-01:');
     if (firstEpic < 0) throw new Error('Epic detail insertion point changed');
-    body += `<div class="schema-appendices"><details class="provenance" open><summary>Read all eight epic drafts, child issues, acceptance criteria, and release gates</summary>${markdown.parse(epicPlan.slice(firstEpic).replace(/^## /gm, '### '))}</details></div>`;
+    body += `<div class="schema-appendices"><details class="provenance" open><summary>Read all eight epics, linked child issues, acceptance criteria, and release gates</summary>${markdown.parse(epicPlan.slice(firstEpic).replace(/^## /gm, '### '))}</details><details class="provenance"><summary>Browse the published GitHub issue index and native prerequisites</summary>${markdown.parse(issueIndex.replace(/^# Multi-airport implementation issue index\s*/u, '').replace(/^## /gm, '### '))}</details></div>`;
   }
   if (section.id === 'repository-configuration-and-workflow-model') {
     const marker = '<p>ENGM requires';

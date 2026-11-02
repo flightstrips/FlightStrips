@@ -102,6 +102,7 @@ func DecodeAirport(source string, r io.Reader) (result *AirportDocument, err err
 	if err = typed.Decode(&doc); err != nil {
 		return nil, err
 	}
+	normalizeAirportRunwaySelectors(&doc)
 	settings := mappingValue(mappingValue(node, "workflow"), "settings")
 	switch doc.Workflow.Handler {
 	case "ekch/v1":

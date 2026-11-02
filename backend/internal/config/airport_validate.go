@@ -5,6 +5,43 @@ import (
 	"slices"
 )
 
+func canonicalAirportRunway(value string) string {
+	value = normalizeRunway(value)
+	if len(value) == 1 && value[0] >= '1' && value[0] <= '9' {
+		return "0" + value
+	}
+	return value
+}
+
+func normalizeAirportRunwaySelectors(doc *AirportDocument) {
+	normalize := func(values []string) {
+		for i := range values {
+			values[i] = canonicalAirportRunway(values[i])
+		}
+	}
+	for i := range doc.Coverage.Responsibilities {
+		normalize(doc.Coverage.Responsibilities[i].Active)
+	}
+	for i := range doc.Routing.Ground {
+		route := &doc.Routing.Ground[i]
+		route.ForRunway = canonicalAirportRunway(route.ForRunway)
+		normalize(route.Active)
+	}
+	for _, variants := range doc.View.Layouts {
+		for i := range variants {
+			normalize(variants[i].Active)
+		}
+	}
+	if doc.Services.PDC != nil && doc.Services.PDC.Validation != nil {
+		normalize(doc.Services.PDC.Validation.HeavyRunwayRestriction.AllowedRunways)
+	}
+	if doc.Validation.Clearance != nil {
+		for i := range doc.Validation.Clearance.AircraftRunwayRules {
+			normalize(doc.Validation.Clearance.AircraftRunwayRules[i].RestrictedRunways)
+		}
+	}
+}
+
 func validateAirportDomains(doc *AirportDocument) error {
 	positions, runways, roles := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	unique := func(set map[string]bool, id, field string) error {
@@ -104,6 +141,9 @@ func validateAirportDomains(doc *AirportDocument) error {
 	airborne := map[string]bool{}
 	defaults := 0
 	for _, route := range doc.Routing.Airborne {
+		if err := reference(roles, route.Name, "routing.airborne.name"); err != nil {
+			return err
+		}
 		if err := unique(airborne, route.Name, "routing.airborne.name"); err != nil {
 			return err
 		}

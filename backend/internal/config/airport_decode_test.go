@@ -56,6 +56,31 @@ func TestAirportSchemaMatchesAuthoringContract(t *testing.T) {
 		t.Fatal("production and authoring schema differ")
 	}
 }
+
+func TestDecodeAirportNormalizesNumericRunwaySelectors(t *testing.T) {
+	data := mutateAirport(t, airportExample(t, "ekch"), func(c map[string]any) {
+		geography := c["geography"].(map[string]any)
+		geography["runways"] = append(geography["runways"].([]any), "04")
+		c["routing"].(map[string]any)["ground"].([]any)[0].(map[string]any)["forRunway"] = 4
+		c["coverage"].(map[string]any)["responsibilities"].([]any)[0].(map[string]any)["active"] = []any{4}
+	})
+	doc, err := DecodeAirport("numeric.yaml", bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.Routing.Ground[0].ForRunway != "04" || doc.Coverage.Responsibilities[0].Active[0] != "04" {
+		t.Fatal("runway selectors were not normalized")
+	}
+}
+
+func TestDecodeAirportRejectsUnknownAirborneResponsibility(t *testing.T) {
+	data := mutateAirport(t, airportExample(t, "ekch"), func(c map[string]any) {
+		c["routing"].(map[string]any)["airborne"].([]any)[0].(map[string]any)["name"] = "UNKNOWN_ROLE"
+	})
+	if _, err := DecodeAirport("airborne.yaml", bytes.NewReader(data)); err == nil || !strings.Contains(err.Error(), "routing.airborne.name") {
+		t.Fatalf("unknown airborne responsibility accepted: %v", err)
+	}
+}
 func TestDecodeAirportRejectsInvalidDocuments(t *testing.T) {
 	cases := map[string]func(map[string]any){
 		"missing required block": func(c map[string]any) { delete(c, "coverage") },

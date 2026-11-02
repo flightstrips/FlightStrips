@@ -53,6 +53,10 @@ func (r schemaRegexp) MatchString(value string) bool {
 // DecodeAirport validates the complete structural and domain contract before
 // returning concrete configuration. It has no side effects on loaded airports.
 func DecodeAirport(source string, r io.Reader) (result *AirportDocument, err error) {
+	return decodeAirport(source, r, ProductionAirportCatalog())
+}
+
+func decodeAirport(source string, r io.Reader, catalog *AirportCatalog) (result *AirportDocument, err error) {
 	airport := "<unknown>"
 	defer func() {
 		if err != nil {
@@ -109,15 +113,8 @@ func DecodeAirport(source string, r io.Reader) (result *AirportDocument, err err
 	}
 	normalizeAirportRunwaySelectors(&doc)
 	settings := mappingValue(mappingValue(node, "workflow"), "settings")
-	switch doc.Workflow.Handler {
-	case "ekch/v1":
-		var cfg EKCHSettings
-		if err = settings.Decode(&cfg); err != nil {
-			return nil, err
-		}
-		doc.Workflow.Settings = cfg
-	default:
-		return nil, fmt.Errorf("workflow.handler: no compiled settings for %q", doc.Workflow.Handler)
+	if err = catalog.bind(&doc, settings); err != nil {
+		return nil, err
 	}
 	if err = validateAirportDomains(&doc); err != nil {
 		return nil, fmt.Errorf("line %d: %w", node.Line, err)

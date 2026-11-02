@@ -113,11 +113,20 @@ func (r Region) FinalApproachAltitudeCeiling(distanceNM float64, airportElevatio
 }
 
 func loadRegions(f io.Reader) error {
+	loadedRegions, loadedRunwayRegions, loadedFinalApproachRegions, err := decodeRegions(f)
+	if err != nil {
+		return err
+	}
+	regions, runwayRegions, finalApproachRegions = loadedRegions, loadedRunwayRegions, loadedFinalApproachRegions
+	return nil
+}
+
+func decodeRegions(f io.Reader) ([]Region, []Region, []Region, error) {
 	var features featureCollection
 	decoder := json.NewDecoder(f)
 	err := decoder.Decode(&features)
 	if err != nil {
-		return err
+		return nil, nil, nil, err
 	}
 
 	loadedRegions := make([]Region, 0)
@@ -129,19 +138,19 @@ func loadRegions(f io.Reader) error {
 			name = "<unnamed>"
 		}
 		if feature.Type != "Feature" {
-			return fmt.Errorf("%s: invalid feature type %q", name, feature.Type)
+			return nil, nil, nil, fmt.Errorf("%s: invalid feature type %q", name, feature.Type)
 		}
 		if feature.Geometry.Type != "Polygon" {
-			return fmt.Errorf("%s: invalid geometry type %q", name, feature.Geometry.Type)
+			return nil, nil, nil, fmt.Errorf("%s: invalid geometry type %q", name, feature.Geometry.Type)
 		}
 		if len(feature.Geometry.Coordinates) == 0 {
-			return fmt.Errorf("%s: polygon has no rings", name)
+			return nil, nil, nil, fmt.Errorf("%s: polygon has no rings", name)
 		}
 
 		coordinates := trimGeoJSONClosingCoordinate(feature.Geometry.Coordinates[0])
 		loop, err := buildRegionLoop(coordinates)
 		if err != nil {
-			return fmt.Errorf("%s: %w", name, err)
+			return nil, nil, nil, fmt.Errorf("%s: %w", name, err)
 		}
 
 		region := Region{
@@ -166,11 +175,7 @@ func loadRegions(f io.Reader) error {
 		}
 	}
 
-	regions = loadedRegions
-	runwayRegions = loadedRunwayRegions
-	finalApproachRegions = loadedFinalApproachRegions
-
-	return nil
+	return loadedRegions, loadedRunwayRegions, loadedFinalApproachRegions, nil
 }
 
 func trimGeoJSONClosingCoordinate(coordinates [][]float64) [][]float64 {

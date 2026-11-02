@@ -1,0 +1,99 @@
+# FICTIONAL AIRPORT AND VALUES. Architecture demonstration only; never deploy.
+# Worked proposal example; not loaded by the current application.
+$schema: ../schema/airport-configuration.schema.json
+schema_version: flightstrips-airport/v1
+kind: airport
+airport: ZZZZ
+geography:
+  latitude: 0
+  longitude: 0
+  elevation_ft: 0
+  transition_altitude_ft: 5000
+  runways:
+  - 09
+  - '27'
+  initial_cfl_ft:
+    09: 3000
+    '27': 3000
+positions:
+- name: ZZZZ_TWR
+  frequency: '118.000'
+  section: TWR
+coverage:
+  matching:
+    primary_frequency: true
+    tuned_frequencies: true
+    callsign_fallback: true
+    normalization: vatsim/v1
+    provider_selection: existing-coverage/v1
+  responsibilities:
+  - id: tower
+    name: TWR
+    providers:
+    - ZZZZ_TWR
+  airborne_fallback: []
+  membership:
+    policy: remaining-responsibilities/v1
+    relinquish_grace_seconds: 0
+master:
+  priorities:
+  - position: ZZZZ_TWR
+    match: primary-frequency-or-callsign
+  preempt_higher_priority: true
+  equal_priority: retain-current
+  fallback: any-non-observer-participant
+  observers_eligible: false
+ownership:
+  strips: none
+  sectors: none
+  callsign_prefixes: []
+routing:
+  ground: []
+  airborne: []
+  missed_approach: {}
+view:
+  id: example-paper
+  layouts: {}
+  airborne_fallback_layout: example-paper
+  message_areas: {}
+workflow:
+  handler: example-paper/v1
+  settings:
+    initial_bay: HOLD
+    runway_bay: RUNWAY
+    bay_ground_states:
+      HOLD: TAXI
+      RUNWAY: LINEUP
+      DONE: PARK
+    ground_state_bays:
+      TAXI: HOLD
+      LINEUP: RUNWAY
+  bays:
+  - id: HOLD
+    label: Hold
+  - id: RUNWAY
+    label: Runway
+  - id: DONE
+    label: Done
+  annotations:
+    review_required:
+      type: boolean
+      scope: session
+      default: false
+services:
+  cdm:
+    availability: disabled
+  stand_assignment:
+    availability: disabled
+  text_pilot:
+    availability: disabled
+  aman:
+    availability: disabled
+  pdc:
+    availability: disabled
+  ecfmp:
+    availability: disabled
+validation: {}
+provenance:
+- path: .github/specs/multi-airport-support/examples/handler-proof.patch
+  sha256: d7fa1501ce3ced736cdb420631259274f27ff88076aa08b1573719d0038b793b

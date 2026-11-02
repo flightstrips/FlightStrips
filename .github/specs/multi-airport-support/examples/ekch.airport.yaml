@@ -1,0 +1,1757 @@
+# Worked proposal example; not loaded by the current application.
+$schema: ../schema/airport-configuration.schema.json
+schema_version: flightstrips-airport/v1
+kind: airport
+airport: EKCH
+geography:
+  latitude: 55.6181
+  longitude: 12.656
+  elevation_ft: 17
+  transition_altitude_ft: 5000
+  runways:
+  - 04R
+  - 04L
+  - '12'
+  - 22R
+  - 22L
+  - '30'
+  initial_cfl_ft:
+    '12': 4000
+    '30': 4000
+    04R: 7000
+    22L: 7000
+    04L: 7000
+    22R: 7000
+  regions:
+    repo_path: backend/config/ekch_regions.json
+positions:
+- name: EKCH_DEL
+  frequency: '119.905'
+  section: DEL
+- name: EKCH_A_GND
+  frequency: '121.630'
+  section: GND
+- name: EKCH_B_GND
+  frequency: '121.905'
+  section: GND
+- name: EKCH_C_GND
+  frequency: '121.730'
+  section: GND
+- name: EKCH_GE_TWR
+  frequency: '121.830'
+  section: TWR
+- name: EKCH_D_TWR
+  frequency: '119.355'
+  section: TWR
+- name: EKCH_A_TWR
+  frequency: '118.105'
+  section: TWR
+- name: EKCH_GW_TWR
+  frequency: '118.580'
+  section: TWR
+- name: EKDK_FMP
+  frequency: '131.040'
+  section: APP
+- name: EKCH_K_DEP
+  frequency: '124.980'
+  section: DEP
+- name: EKCH_R_DEP
+  frequency: '120.255'
+  section: DEP
+- name: EKCH_W_APP
+  frequency: '119.805'
+  section: APP
+- name: EKCH_O_APP
+  frequency: '118.455'
+  section: APP
+- name: EKCH_F_APP
+  frequency: '120.205'
+  section: APP
+- name: EKDK_V_CTR
+  frequency: '135.565'
+  section: CTR
+- name: EKDK_L_CTR
+  frequency: '124.555'
+  section: CTR
+- name: EKDK_N_CTR
+  frequency: '134.680'
+  section: CTR
+- name: EKDK_UN_CTR
+  frequency: '136.555'
+  section: CTR
+- name: EKDK_E_CTR
+  frequency: '123.730'
+  section: CTR
+- name: EKDK_D_CTR
+  frequency: '133.155'
+  section: CTR
+- name: EKDK_I_CTR
+  frequency: '121.380'
+  section: CTR
+- name: EKDK_B_CTR
+  frequency: '119.555'
+  section: CTR
+- name: EKDK_A_CTR
+  frequency: '135.290'
+  section: CTR
+- name: EKDK_C_CTR
+  frequency: '128.215'
+  section: CTR
+- name: EKDK_UC_CTR
+  frequency: '127.865'
+  section: CTR
+coverage:
+  matching:
+    primary_frequency: true
+    tuned_frequencies: true
+    callsign_fallback: true
+    normalization: vatsim/v1
+    provider_selection: existing-coverage/v1
+  responsibilities:
+  - id: responsibility-001
+    name: DEL
+    name_priority: 10
+    active: []
+    providers:
+    - EKCH_DEL
+    - EKCH_A_GND
+    - EKCH_B_GND
+    - EKCH_C_GND
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-002
+    name: SQ
+    display_name: SEQ PLN
+    name_priority: 0
+    active: []
+    providers:
+    - EKCH_B_GND
+    - EKCH_DEL
+    - EKCH_A_GND
+    - EKCH_C_GND
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-003
+    name: AA
+    name_priority: 30
+    region:
+    - APRON_NORTH
+    active: []
+    constraints:
+      departure: false
+      arrival: true
+    providers:
+    - EKCH_A_GND
+    - EKCH_B_GND
+    - EKCH_C_GND
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-004
+    name: AD
+    name_priority: 20
+    active: []
+    region:
+    - APRON_NORTH
+    constraints:
+      departure: true
+      arrival: false
+    providers:
+    - EKCH_C_GND
+    - EKCH_B_GND
+    - EKCH_A_GND
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-005
+    name: GE
+    name_priority: 40
+    active: []
+    region:
+    - GROUND_EAST
+    providers:
+    - EKCH_GE_TWR
+    - EKCH_GW_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-006
+    name: TE
+    name_priority: 50
+    active:
+    - 22L
+    - 22R
+    region:
+    - TOWER_EAST
+    providers:
+    - EKCH_A_TWR
+    - EKCH_D_TWR
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+  - id: responsibility-007
+    name: TW
+    name_priority: 50
+    active:
+    - 22L
+    - 22R
+    region:
+    - TOWER_WEST
+    providers:
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+  - id: responsibility-008
+    name: TW
+    name_priority: 50
+    active:
+    - '12'
+    region:
+    - TOWER_WEST
+    providers:
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+  - id: responsibility-009
+    name: TE
+    name_priority: 50
+    active:
+    - 04L
+    - 04R
+    region:
+    - TOWER_EAST
+    providers:
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+  - id: responsibility-010
+    name: TW
+    name_priority: 50
+    active:
+    - 04L
+    - 04R
+    region:
+    - TOWER_WEST
+    providers:
+    - EKCH_A_TWR
+    - EKCH_D_TWR
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+  - id: responsibility-011
+    name: TE
+    name_priority: 50
+    active:
+    - '30'
+    region:
+    - TOWER_12_EAST
+    providers:
+    - EKCH_A_TWR
+    - EKCH_D_TWR
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+  - id: responsibility-012
+    name: GW
+    key: GWD
+    name_priority: 40
+    active:
+    - '30'
+    region:
+    - GROUND_12_30_WEST
+    - TOWER_WEST
+    constraints:
+      departure: true
+      arrival: false
+    providers:
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-013
+    name: GW
+    key: GWA
+    name_priority: 40
+    active:
+    - '30'
+    region:
+    - GROUND_12_30_WEST
+    - TOWER_WEST
+    constraints:
+      departure: false
+      arrival: true
+    providers:
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-014
+    name: TE
+    name_priority: 50
+    active:
+    - '30'
+    - 22R
+    require_all: true
+    region:
+    - TOWER_12_EAST
+    providers:
+    - EKCH_A_TWR
+    - EKCH_D_TWR
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+  - id: responsibility-015
+    name: TW
+    name_priority: 50
+    active:
+    - '30'
+    - 22R
+    require_all: true
+    region:
+    - TOWER_WEST
+    providers:
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+  - id: responsibility-016
+    name: GW
+    key: GWD
+    name_priority: 40
+    active:
+    - '30'
+    - 22R
+    require_all: true
+    region:
+    - GROUND_12_30_WEST
+    constraints:
+      departure: true
+      arrival: false
+    providers:
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-017
+    name: GW
+    key: GWA
+    name_priority: 40
+    active:
+    - '30'
+    - 22R
+    require_all: true
+    region:
+    - GROUND_12_30_WEST
+    constraints:
+      departure: false
+      arrival: true
+    providers:
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-018
+    name: GW
+    key: GWD
+    name_priority: 40
+    active:
+    - 22L
+    - 22R
+    - 04L
+    - 04R
+    - '12'
+    - '30'
+    region:
+    - GROUND_WEST
+    constraints:
+      departure: true
+      arrival: false
+    providers:
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+  - id: responsibility-019
+    name: GW
+    key: GWA
+    name_priority: 40
+    active:
+    - 22L
+    - 22R
+    - 04L
+    - 04R
+    - '12'
+    - '30'
+    region:
+    - GROUND_WEST
+    constraints:
+      departure: false
+      arrival: true
+    providers:
+    - EKCH_GW_TWR
+    - EKCH_GE_TWR
+    - EKCH_A_TWR
+    - EKCH_D_TWR
+  - id: responsibility-020
+    name: K
+    key: K_DEP
+    active: []
+    name_priority: 1
+    providers:
+    - EKCH_K_DEP
+    - EKCH_R_DEP
+    - EKCH_O_APP
+    - EKCH_W_APP
+    - EKDK_I_CTR
+    - EKDK_B_CTR
+    - EKDK_E_CTR
+    - EKDK_D_CTR
+    - EKDK_UC_CTR
+    - EKDK_UN_CTR
+  - id: responsibility-021
+    name: R
+    key: R_DEP
+    active: []
+    name_priority: 1
+    providers:
+    - EKCH_R_DEP
+    - EKCH_K_DEP
+    - EKCH_W_APP
+    - EKCH_O_APP
+    - EKDK_I_CTR
+    - EKDK_B_CTR
+    - EKDK_E_CTR
+    - EKDK_D_CTR
+    - EKDK_UC_CTR
+    - EKDK_UN_CTR
+  airborne_fallback:
+  - EKCH_W_APP
+  - EKCH_O_APP
+  - EKCH_R_DEP
+  - EKCH_K_DEP
+  - EKDK_I_CTR
+  - EKDK_B_CTR
+  - EKDK_E_CTR
+  - EKDK_D_CTR
+  - EKDK_UC_CTR
+  - EKDK_UN_CTR
+  membership:
+    policy: legacy-single-airport/v1
+master:
+  priorities:
+  - position: EKDK_FMP
+    match: primary-frequency-or-callsign
+  - position: EKDK_B_CTR
+    match: resolved-primary-frequency-then-callsign
+  - position: EKDK_D_CTR
+    match: resolved-primary-frequency-then-callsign
+  - position: EKDK_UC_CTR
+    match: resolved-primary-frequency-then-callsign
+  - position: EKCH_A_TWR
+    match: resolved-primary-frequency-then-callsign
+  preempt_higher_priority: true
+  equal_priority: retain-current
+  fallback: any-non-observer-participant
+  observers_eligible: false
+ownership:
+  strips: route
+  sectors: coverage
+  callsign_prefixes:
+  - EKCH
+  - EKDK
+routing:
+  ground:
+  - id: ground-route-001
+    name: North stands to runway 22R
+    forRunway: 22R
+    forStandRanges:
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - 22R
+    path:
+    - SQ
+    - AD
+    - GW
+    - TW
+  - id: ground-route-002
+    name: North stands to runway 04L
+    forRunway: 04L
+    forStandRanges:
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - 04L
+    path:
+    - SQ
+    - AD
+    - GW
+    - TW
+  - id: ground-route-003
+    name: North stands to runway 04R
+    forRunway: 04R
+    forStandRanges:
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - 04R
+    path:
+    - SQ
+    - AD
+    - GW
+    - TE
+  - id: ground-route-004
+    name: North stands to runway 30
+    forRunway: '30'
+    forStandRanges:
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - '30'
+    path:
+    - SQ
+    - AD
+    - GW
+    - TE
+  - id: ground-route-005
+    name: North stands to runway 22L
+    forRunway: 22L
+    forStandRanges:
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - 22L
+    path:
+    - SQ
+    - AD
+    - TE
+  - id: ground-route-006
+    name: North stands to runway 12
+    forRunway: '12'
+    forStandRanges:
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - '12'
+    path:
+    - SQ
+    - AD
+    - TW
+  - id: ground-route-007
+    name: East and South stands to runway 22R
+    forRunway: 22R
+    forStandRanges:
+    - G1-G999
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    active:
+    - 22R
+    path:
+    - SQ
+    - GE
+    - GW
+    - TE
+  - id: ground-route-008
+    name: East and South stands to runway 04L
+    forRunway: 04L
+    forStandRanges:
+    - G1-G999
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    active:
+    - 04L
+    path:
+    - SQ
+    - GE
+    - GW
+    - TE
+  - id: ground-route-009
+    name: East and South stands to runway 04R
+    forRunway: 04R
+    forStandRanges:
+    - G1-G999
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    active:
+    - 04R
+    path:
+    - SQ
+    - GE
+    - TE
+  - id: ground-route-010
+    name: East and South stands to runway 30
+    forRunway: '30'
+    forStandRanges:
+    - G1-G999
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    active:
+    - '30'
+    path:
+    - SQ
+    - GE
+    - TE
+  - id: ground-route-011
+    name: East and South stands to runway 22L
+    forRunway: 22L
+    forStandRanges:
+    - G1-G999
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    active:
+    - 22L
+    path:
+    - SQ
+    - GE
+    - GW
+    - TE
+  - id: ground-route-012
+    name: East and South stands to runway 12
+    forRunway: '12'
+    forStandRanges:
+    - G1-G999
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    active:
+    - '12'
+    path:
+    - SQ
+    - GE
+    - AD
+    - TE
+  - id: ground-route-013
+    name: West stand to runway 22R
+    forRunway: 22R
+    forStandRanges:
+    - W1
+    - RI
+    - RII
+    - RIII
+    active:
+    - 22R
+    path:
+    - SQ
+    - GW
+    - TW
+  - id: ground-route-014
+    name: West stand to runway 04L
+    forRunway: 04L
+    forStandRanges:
+    - W1
+    - RI
+    - RII
+    - RIII
+    active:
+    - 04L
+    path:
+    - SQ
+    - GW
+    - TW
+  - id: ground-route-015
+    name: West stand to runway 04R
+    forRunway: 04R
+    forStandRanges:
+    - W1
+    - RI
+    - RII
+    - RIII
+    active:
+    - 04R
+    path:
+    - SQ
+    - GW
+    - TW
+  - id: ground-route-016
+    name: West stand to runway 30
+    forRunway: '30'
+    forStandRanges:
+    - W1
+    - RI
+    - RII
+    - RIII
+    active:
+    - '30'
+    path:
+    - SQ
+    - GW
+    - AD
+    - GE
+    - TW
+  - id: ground-route-017
+    name: West stand to runway 22L
+    forRunway: 22L
+    forStandRanges:
+    - W1
+    - RI
+    - RII
+    - RIII
+    active:
+    - 22L
+    path:
+    - SQ
+    - GW
+    - AD
+    - TW
+  - id: ground-route-018
+    name: West stand to runway 12
+    forRunway: '12'
+    forStandRanges:
+    - W1
+    - RI
+    - RII
+    - RIII
+    active:
+    - '12'
+    path:
+    - SQ
+    - GW
+    - TW
+  - id: ground-route-019
+    name: Runway 30 to cargo
+    forStandRanges:
+    - G110-G137
+    active:
+    - '30'
+    path:
+    - TE
+    - AA
+    - GWA
+    - GE
+  - id: ground-route-020
+    name: Runway 30 to rest
+    forStandRanges:
+    - A1-A33
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - '30'
+    path:
+    - TE
+    - GWA
+    - AA
+    owner_overrides:
+      GWA: TE
+  - id: ground-route-021
+    name: Runway 12/30 to W1
+    forStandRanges:
+    - W1
+    active:
+    - 12
+    - 30
+    path:
+    - TE
+    - TW
+    - GWA
+    owner_overrides:
+      TW: TE
+  - id: ground-route-022
+    name: Runway 22L/04R to high A stands
+    forStandRanges:
+    - A17-A34
+    - A4
+    - A6
+    - A8
+    active:
+    - 22L
+    - 04R
+    path:
+    - TE
+    - TW
+    - GWA
+    - AA
+    owner_overrides:
+      TW: TE
+  - id: ground-route-023
+    name: Runway 22L/04R to cargo from AA
+    forStandRanges:
+    - G110-G137
+    active:
+    - 22L
+    - 04R
+    path:
+    - AA
+    - GE
+  - id: ground-route-024
+    name: Runway 22L/04R to cargo
+    forStandRanges:
+    - G110-G137
+    active:
+    - 22L
+    - 04R
+    path:
+    - TE
+    - TW
+    - GWA
+    - GE
+    owner_overrides:
+      TW: TE
+      GWA: TE
+  - id: ground-route-025
+    name: Runway 22L/04R to W1
+    forStandRanges:
+    - W1
+    active:
+    - 22L
+    - 04R
+    path:
+    - TE
+    - TW
+    - GWA
+    owner_overrides:
+      TW: TE
+  - id: ground-route-026
+    name: Runway 22L to rest
+    forStandRanges:
+    - A7
+    - A9-A15
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - 22L
+    - 04R
+    path:
+    - TE
+    - TW
+    - GWA
+    - AA
+    owner_overrides:
+      TW: TE
+      GWA: TE
+  - id: ground-route-027
+    name: Ground east to north stands for runway 22L/04R
+    forStandRanges:
+    - A4
+    - A6-A15
+    - A17-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - 22L
+    - 04R
+    path:
+    - GE
+    - GWA
+    - AA
+  - id: ground-route-028
+    name: Runway 04L/22R to high A stands
+    forStandRanges:
+    - A17-A34
+    - A4
+    - A6
+    - A8
+    active:
+    - 04L
+    - 22R
+    path:
+    - TW
+    - TE
+    - GWA
+    - AA
+    owner_overrides:
+      TE: TW
+  - id: ground-route-029
+    name: Runway 04L/22R to cargo from AA
+    forStandRanges:
+    - G110-G137
+    active:
+    - 04L
+    - 22R
+    path:
+    - AA
+    - GE
+  - id: ground-route-030
+    name: Runway 04L/22R to cargo
+    forStandRanges:
+    - G110-G137
+    active:
+    - 04L
+    - 22R
+    path:
+    - TW
+    - GWA
+    - GE
+  - id: ground-route-031
+    name: Runway 04L/22R to W1
+    forStandRanges:
+    - W1
+    active:
+    - 04L
+    - 22R
+    path:
+    - TE
+    - TW
+    - GWA
+    owner_overrides:
+      TW: TE
+  - id: ground-route-032
+    name: Runway 04L/22R to rest
+    forStandRanges:
+    - A7
+    - A9-A15
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - 04L
+    - 22R
+    path:
+    - TW
+    - TE
+    - GWA
+    - AA
+    owner_overrides:
+      TE: TW
+      GWA: TW
+  - id: ground-route-033
+    name: Ground east to north stands for runway 04L/22R
+    forStandRanges:
+    - A4
+    - A6-A15
+    - A17-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - H101-H107
+    active:
+    - 04L
+    - 22R
+    path:
+    - GE
+    - GWA
+    - AA
+  airborne:
+  - name: K_DEP
+    default: true
+    sids:
+    - BETUD2A
+    - BETUD2C
+    - BETUD2E
+    - BETUD2F
+    - BETUD3B
+    - BETUD3D
+    - KEMAX2E
+    - KEMAX2F
+    - KEMAX5A
+    - KEMAX5C
+    - KOPEX2A
+    - KOPEX2C
+    - KOPEX2E
+    - KOPEX2F
+    - KOPEX3B
+    - KOPEX3D
+    - LANGO2A
+    - LANGO2C
+    - LANGO2E
+    - LANGO2F
+    - LANGO3B
+    - LANGO3D
+    - NEXEN2A
+    - NEXEN2C
+    - NEXEN2E
+    - NEXEN2F
+    - NEXEN3B
+    - NEXEN3D
+    - SALLO1A
+    - SALLO1B
+    - SALLO1C
+    - SALLO1D
+    - SALLO1E
+    - SALLO1F
+    - SALO1A
+    - SALO1B
+    - SALO1C
+    - SALO1D
+    - SALO1E
+    - SALO1F
+    - SIMEG2E
+    - SIMEG2F
+    - SIMEG8A
+    - SIMEG9B
+    - SIMEG9C
+    - SIMEG9D
+  - name: R_DEP
+    default: false
+    sids:
+    - GOLGA2C
+    - GOLGA2F
+    - GOLGA3A
+    - GOLGA3B
+    - GOLGA3D
+    - GOLGA3E
+    - KEMAX6B
+    - KEMAX6D
+    - ODDON1A
+    - ODDON1B
+    - ODDON1C
+    - ODDON1D
+    - ODDON1E
+    - ODDON1F
+    - VEDAR2C
+    - VEDAR2F
+    - VEDAR3B
+    - VEDAR3D
+    - VEDAR3E
+    - VEDAR4A
+    - ODON1A
+    - ODON1B
+    - ODON1C
+    - ODON1D
+    - ODON1E
+    - ODON1F
+  missed_approach:
+    04L: EKCH_W_APP
+    04R: EKCH_W_APP
+    '12': EKCH_W_APP
+    22L: EKCH_O_APP
+    22R: EKCH_O_APP
+    '30': EKCH_O_APP
+view:
+  id: ekch
+  layouts:
+    EKDK_FMP:
+    - online: []
+      offline: []
+      layout: AMAN
+    EKCH_DEL:
+    - online: []
+      offline: []
+      layout: SEQPLN
+    - online:
+      - EKCH_A_GND
+      - EKCH_B_GND
+      - EKCH_C_GND
+      offline: []
+      layout: CLX
+    EKCH_A_GND:
+    - online:
+      - EKCH_B_GND
+      - EKCH_C_GND
+      offline: []
+      layout: AA
+    - online:
+      - EKCH_B_GND
+      offline:
+      - EKCH_C_GND
+      layout: AA
+    - online: []
+      offline:
+      - EKCH_B_GND
+      - EKCH_C_GND
+      layout: AAAD
+    EKCH_B_GND:
+    - online:
+      - EKCH_C_GND
+      offline: []
+      layout: SEQPLN
+    - online:
+      - EKCH_A_GND
+      offline:
+      - EKCH_C_GND
+      layout: AD
+    - online: []
+      offline:
+      - EKCH_A_GND
+      - EKCH_C_GND
+      layout: AAAD
+    EKCH_C_GND:
+    - online:
+      - EKCH_A_GND
+      - EKCH_B_GND
+      offline: []
+      layout: AD
+    - online:
+      - EKCH_B_GND
+      offline:
+      - EKCH_A_GND
+      layout: AD
+    - online:
+      - EKCH_A_GND
+      offline:
+      - EKCH_B_GND
+      layout: AD
+    - online: []
+      offline:
+      - EKCH_A_GND
+      - EKCH_B_GND
+      layout: AAAD
+    EKCH_GE_TWR:
+    - online: []
+      offline: []
+      layout: GEGW
+    EKCH_GW_TWR:
+    - online:
+      - EKCH_A_TWR
+      - EKCH_D_TWR
+      - _GND
+      offline: []
+      layout: GEGW
+    - online:
+      - EKCH_A_TWR
+      - _GND
+      offline:
+      - EKCH_D_TWR
+      layout: GEGW
+    - online:
+      - EKCH_D_TWR
+      - _GND
+      offline:
+      - EKCH_A_TWR
+      layout: GEGW
+    - online:
+      - _GND
+      offline:
+      - EKCH_A_TWR
+      - EKCH_D_TWR
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWTE
+    - online:
+      - EKCH_A_TWR
+      - EKCH_D_TWR
+      offline: []
+      layout: GEGW
+    - online:
+      - EKCH_A_TWR
+      offline:
+      - EKCH_D_TWR
+      layout: GEGW
+    - online:
+      - EKCH_D_TWR
+      offline:
+      - EKCH_A_TWR
+      layout: GEGW
+    - online: []
+      offline:
+      - EKCH_A_TWR
+      - EKCH_D_TWR
+      - _GND
+      layout: TWRGND
+    EKCH_A_TWR:
+    - active:
+      - 22L
+      - 22R
+      online:
+      - EKCH_D_TWR
+      offline: []
+      layout: TWTE
+    - active:
+      - 04L
+      - 04R
+      online:
+      - EKCH_D_TWR
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - EKCH_D_TWR
+      layout: TWTE
+    - online: []
+      offline:
+      - EKCH_D_TWR
+      - _GND
+      layout: TWRGND
+    EKCH_D_TWR:
+    - active:
+      - 22L
+      - 22R
+      online:
+      - EKCH_A_TWR
+      offline: []
+      layout: TWTE
+    - active:
+      - 04L
+      - 04R
+      online:
+      - EKCH_A_TWR
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - EKCH_A_TWR
+      layout: TWTE
+    - online: []
+      offline:
+      - EKCH_A_TWR
+      - _GND
+      layout: TWRGND
+    EKCH_K_DEP:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+    EKCH_R_DEP:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+    EKCH_W_APP:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+    EKCH_O_APP:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+    EKDK_I_CTR:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+    EKDK_B_CTR:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+    EKDK_E_CTR:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+    EKDK_D_CTR:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+    EKDK_UC_CTR:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+    EKDK_UN_CTR:
+    - online:
+      - _GND
+      offline: []
+      layout: TWTE
+    - online: []
+      offline:
+      - _GND
+      layout: TWRGND
+  airborne_fallback_layout: TWTE
+  message_areas:
+    CLR-DEL:
+    - EKCH_DEL
+    - EKCH_A_GND
+    APRON ARR:
+    - EKCH_A_GND
+    - EKCH_B_GND
+    APRON DEP:
+    - EKCH_C_GND
+    - EKCH_B_GND
+    GND WEST:
+    - EKCH_GW_TWR
+    - EKCH_A_TWR
+    - EKCH_D_TWR
+    GND EAST:
+    - EKCH_GE_TWR
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+    TWR-ARR:
+    - EKCH_A_TWR
+    - EKCH_D_TWR
+    TWR-DEP:
+    - EKCH_D_TWR
+    - EKCH_A_TWR
+    SEQ PLN:
+    - EKCH_B_GND
+    - EKCH_A_GND
+workflow:
+  handler: ekch/v1
+  settings:
+    airborne_altitude_agl_ft: 200
+    relevant_distance_nm: 30
+  bays:
+  - id: UNKNOWN
+    label: UNKNOWN
+  - id: NOT_CLEARED
+    label: NOT_CLEARED
+  - id: CLEARED
+    label: CLEARED
+  - id: PUSH
+    label: PUSH
+  - id: TAXI
+    label: TAXI
+  - id: TAXI_LWR
+    label: TAXI_LWR
+  - id: TAXI_TWR
+    label: TAXI_TWR
+  - id: DEPART
+    label: DEPART
+  - id: AIRBORNE
+    label: AIRBORNE
+  - id: FINAL
+    label: FINAL
+  - id: RWY_ARR
+    label: RWY_ARR
+  - id: TWY_ARR
+    label: TWY_ARR
+  - id: STAND
+    label: STAND
+  - id: HIDDEN
+    label: HIDDEN
+  - id: HIDDEN_DEP
+    label: HIDDEN_DEP
+  - id: DEP_HIDDEN
+    label: DEP_HIDDEN
+  - id: ARR_HIDDEN
+    label: ARR_HIDDEN
+  - id: CONTROLZONE
+    label: CONTROLZONE
+services:
+  cdm:
+    availability: deployment
+    config_root: backend/config
+    config:
+      rate: 40
+      rateLvo: 10
+      rateUri: ekch/rate.txt
+      sidIntervalUri: ekch/sidInterval.txt
+      taxizonesUri: ekch/taxizones.txt
+      defaultTaxiTime: 12
+      deice:
+        light: 3
+        medium: 5
+        heavy: 7
+        super: 9
+        platform:
+        - name: A
+          time: 5
+        - name: B
+          time: 6
+        - name: V
+          time: 10
+  stand_assignment:
+    availability: deployment
+    stands:
+      repo_path: backend/config/ekch/GRpluginStands.txt
+    aircraft_reference:
+      repo_path: backend/config/ekch/GRpluginAircraftInfo.txt
+    aircraft_icao:
+      environment: GRPLUGIN_ICAO_AIRCRAFT_JSON
+      default_repo_path: backend/config/data/ICAO_Aircraft.json
+    airline_assignment:
+      repo_path: backend/config/ekch/airline_assignment.json
+    scenery:
+      repo_path: backend/config/ekch/gsx_sceneries.json
+  text_pilot:
+    availability: deployment
+    provider: frequency-message/v1
+    layout_data:
+      repo_path: frontend/src/components/text-pilot/storyboard-layouts.json
+  aman:
+    availability: deployment
+    terminal:
+      repo_path: backend/config/aman/ekch-terminal-2611.json
+    boundary:
+      repo_path: backend/config/aman/boundaries/EKCH.json
+  pdc:
+    availability: deployment
+    validation:
+      heavy_runway_restriction:
+        aircraft_types:
+        - A388
+        - B748
+        - AN225
+        allowed_runways:
+        - 04R
+        - 22L
+      sid_restrictions:
+      - sid: NEXEN
+        engine_types:
+        - J
+      - sid: LANGO
+        engine_types:
+        - J
+      - sid: KOPEX
+        engine_types:
+        - P
+        - T
+      - sid: BETUD
+        engine_types: []
+  ecfmp:
+    availability: deployment
+validation:
+  clearance:
+    sid_first_waypoints:
+    - BETUD
+    - GOLGA
+    - KEMAX
+    - KOPEX
+    - LANGO
+    - NEXEN
+    - ODDON
+    - ODON
+    - SALLO
+    - SALO
+    - SIMEG
+    - VEDAR
+    sid_engine_rules:
+    - code: sid_aircraft_type
+      sid_families:
+      - KOPEX
+      disallowed_engine_types:
+      - J
+      message: Aircraft planned on SID not valid for ATYP. {recommendation}
+      recommendations:
+        MICOS: Reclear on NEXEN T503 MICOS... as filed
+        ALS: Reclear on LANGO P999 AMRAK... as filed
+        ALASA: Reclear on LANGO M611 ALASA... as filed
+      default_recommendation: Reclear on Either NEXEN or LANGO DCT as filed.
+    - code: sid_aircraft_type
+      sid_families:
+      - LANGO
+      - NEXEN
+      disallowed_engine_types:
+      - P
+      - T
+      message: Aircraft planned on SID not valid for ATYP. {recommendation}
+      recommendations:
+        MICOS: Reclear on NEXEN T503 MICOS... as filed
+        ALS: Reclear on LANGO P999 AMRAK... as filed
+        ALASA: Reclear on LANGO M611 ALASA... as filed
+      default_recommendation: Reclear on LANGO DCT... as filed
+    aircraft_runway_rules:
+    - code: category_f_runway
+      aircraft_types:
+      - A388
+      - B748
+      restricted_runways:
+      - 22R
+      - 04L
+      - '12'
+      - '30'
+      restricted_sid_suffixes:
+      - B
+      - C
+      - D
+      - E
+      message: Planned RWY not available for aircraft Category (CAT F). Only 04R/22L approved
+    rnav_rules:
+      nil:
+        code: rnav_nil
+        message: Aircraft filed on SID without RNAV capability. Clear via RV or update RNAV capability
+          to "1".
+      insufficient:
+        code: rnav_insufficient
+        capabilities:
+        - '5'
+        - '10'
+        message: Aircraft filed on SID with insufficient RNAV capability. Clear via RV or update RNAV
+          capability to "1".
+    route_conflict_rules:
+    - code: route_lango_egpx
+      sid_families:
+      - LANGO
+      route_tokens_any:
+      - ARTEX
+      - ELSAN
+      - REKNA
+      - ITSUX
+      - SURAT
+      - EVRAL
+      - ROPAL
+      - LARGA
+      - TIPAN
+      - UPGAS
+      remark_tokens_any:
+      - EGPX/
+      message: LANGO not valid for flights to EGPX. Refile to ODDON.
+      allow_override: true
+    - code: route_vedar_ekdk
+      sid_families:
+      - VEDAR
+      route_tokens_any:
+      - AAL
+      - ARTOR
+      - AMSEV
+      remark_tokens_any:
+      - EKDK/
+      message: VEDAR not valid for re-entering EKDK. Refile to GOLGA
+      allow_override: true
+    - code: route_betud
+      sid_families:
+      - BETUD
+      always: true
+      message: BETUD not valid for flight. Refile via SALLO (Or SIMEG if more appropriate).
+    - code: route_simeg_sallo
+      sid_families:
+      - SIMEG
+      route_tokens_any:
+      - SALLO
+      message: SIMEG not valid as SID, when SALLO is on FPL. Refile to SALLO
+      allow_override: true
+  taxiway_types:
+    apron:
+      categories:
+        E:
+        - L/Y
+        - Y/L
+        - K/J
+        - K1
+        F:
+        - L/Y
+        - Y/L
+        - K/J
+        - K1
+        - C/22L
+        - G2/30
+        - A3
+        - A4
+        - A5
+        - B2
+        - C/30
+        - A1
+        - A2
+        - E1
+        - B4
+    tower:
+      categories:
+        D:
+        - C/22L
+        E:
+        - C/22L
+        - G2/30
+        - A3
+        - A4
+        - A5
+        F:
+        - B2
+        - C/30
+        - A1
+        - A2
+        - A3
+        - A4
+        - A5
+        - E1
+        - B4
+      aircraft_types:
+        A359:
+        - B2
+        B78X:
+        - B2
+        A35K:
+        - B2
+        - C/30
+        B773:
+        - B2
+        - C/30
+        B77W:
+        - B2
+        - C/30
+        A345:
+        - B2
+        - C/30
+        A346:
+        - B2
+        - C/30
+        B778:
+        - B2
+        - C/30
+        - A1
+        - A2
+        - A3
+        - A4
+        - A5
+        - E1
+        - B4
+        B779:
+        - B2
+        - C/30
+        - A1
+        - A2
+        - A3
+        - A4
+        - A5
+        - E1
+        - B4
+provenance:
+- path: backend/config/ekch.yaml
+  sha256: 36de2cc00a874ad2bc1794bca4f20e0f7222471c646a8d23030869e357698a49
+- path: backend/internal/shared/bays.go
+  sha256: 25e0d6e453153f95dbcb2530f5f1e85a36f7abb3236ff1248e97793749dff068
+- path: backend/internal/euroscope/hub.go
+  sha256: 315b9eaef6e80ea3fdd9b017f982957681af70c415fe5fa80c89dbcd5ffd9ebd
+- path: backend/config/ekch_regions.json
+  sha256: 772d29347e535ee6a3d9d058105ad9c9bc8fe2e1639bd8036c66541bcf9a1ddb
+- path: backend/internal/navigation/config.go
+  sha256: 10139973e5516c01eca60e8578b8b5eed8ada4e399541cc1429769d3dec1de7b

@@ -8,10 +8,11 @@ reference notes, and relevant application assembly/command/PDC code.
 ready to turn into implementation epics with the confirmed scope below. Airport
 operating values remain rollout inputs; engineering details belong in the work.
 The 2026-10-30 audit remains useful evidence, with its findings updated below.
-The review itself creates no tracker issues, runtime activation, or deployment.
-The subsequent [implementation plan](epic-plan.md) now records eight repo-local
-epic drafts with child issues, dependencies, and acceptance criteria. It was
-prepared after the independent architecture review below.
+The review itself creates no runtime activation or deployment. The subsequent
+[implementation plan](epic-plan.md) is now published as eight epics and 41 child
+issues with native hierarchy/dependency links; see the [issue index](issue-index.md)
+and [spec PR #972](https://github.com/flightstrips/FlightStrips/pull/972). The epic
+plan was prepared after the independent architecture review below.
 
 ## Independent final review: 2026-11-02
 
@@ -194,6 +195,6 @@ Useful application evidence:
 
 The epic descriptions should link these confirmed D1–D5 outcomes and the
 relevant engineering items, separating delivery acceptance from airport-data
-gates. The [eight epic drafts](epic-plan.md) now assign this work. No further
+gates. The [eight published epics](epic-plan.md) now assign this work. No further
 product decision in this register blocks planning; actual
 airport values and operational acceptance are still required before activation.

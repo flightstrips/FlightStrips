@@ -33,9 +33,10 @@ import (
 const (
 	policyVersion = "aman-cph-v3"
 	modelVersion  = "aman-cph-teta-v3"
-	// Re-materialize invalid signed-zero routes under a new key; v4 entries
-	// retain their old digest and cannot be overwritten with the corrected one.
-	routeResolverVersion       = "airacnet-route-v5"
+	// v6 validates ambiguous route fixes and stores each geometry revision under
+	// its own immutable key, including later corrections to partial routes.
+	routeResolverVersion       = "airacnet-route-v6"
+	routeRepairRetryEvery      = time.Minute
 	defaultArrivalRate         = uint32(20)
 	ekchDefaultArrivalRate     = uint32(40)
 	trafficPredictionLookback  = 15 * time.Minute
@@ -1286,21 +1287,45 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	revision := revisionValue(observation.FlightPlan.Revision)
 	projectionRevision := routeProjectionRevision(flight, revision)
 	datasetID := navigationDatasetID(version)
+	semanticKey, err := query.Key()
+	if err != nil {
+		return flight, err
+	}
 	var key navdata.RouteKey
-	if canReuseActiveRoute(flight, projectionRevision, group, datasetID) {
+	reusable := canReuseActiveRoute(flight, projectionRevision, group, datasetID) || flight.ActiveRouteKey != nil && flight.ActiveRouteQueryKey == string(semanticKey) && flight.ActiveRouteDatasetID != nil && *flight.ActiveRouteDatasetID == datasetID
+	var cached navdata.RouteGeometry
+	if reusable {
 		key = navdata.RouteKey(*flight.ActiveRouteKey)
-		if !hasResolvedRouteFixes(ctx, s.deps.Geometry, navdata.AirportID(observation.Destination), key) {
+		cached, err = s.deps.Geometry.Route(ctx, key)
+		if err != nil || !hasResolvedRouteFixes(ctx, s.deps.Geometry, navdata.AirportID(observation.Destination), key) {
 			key = ""
 		}
 	}
-	if key == "" {
-		key, err = s.deps.Materializer.MaterializeRoute(ctx, query, routeResolverVersion)
-		if err != nil {
-			return flight, err
+	if flight.RouteRefreshQueryKey != string(semanticKey) {
+		flight.RouteRefreshAfter = nil
+	}
+	flight.RouteRefreshQueryKey = string(semanticKey)
+	due := flight.RouteRefreshAfter == nil || !now.Before(*flight.RouteRefreshAfter)
+	if key == "" && !due {
+		return flight, fmt.Errorf("route repair retry pending: unusable source geometry")
+	}
+	if key == "" || navdata.HasRouteGaps(cached) && due {
+		retryAt := now.Add(routeRepairRetryEvery)
+		flight.RouteRefreshAfter = &retryAt
+		newKey, materializeErr := s.deps.Materializer.MaterializeRoute(ctx, query, routeResolverVersion)
+		if materializeErr != nil {
+			if key == "" {
+				return flight, materializeErr
+			}
+		} else {
+			key = newKey
+			activeKey := string(key)
+			flight.ActiveRouteKey, flight.ActiveRouteDatasetID = &activeKey, &datasetID
+			flight.ActiveRouteQueryKey = string(semanticKey)
+			if rebuilt, readErr := s.deps.Geometry.Route(ctx, key); readErr == nil && !navdata.HasRouteGaps(rebuilt) {
+				flight.RouteRefreshAfter = nil
+			}
 		}
-		activeKey := string(key)
-		flight.ActiveRouteKey = &activeKey
-		flight.ActiveRouteDatasetID = &datasetID
 	}
 	directChanged := flight.ActiveRouteFact != nil && (flight.RouteProgress == nil || flight.RouteProgress.RouteFactID != flight.ActiveRouteFact.ID)
 	feederFix, legacySTARFamily := flight.TerminalPathIdentity()
@@ -1315,12 +1340,13 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	projection, err := trajectory.Project(ctx, trajectory.Readers{Geometry: s.deps.Geometry, Snapshot: s.deps.Geometry}, trajectory.Input{
 		Airport: navdata.AirportID(observation.Destination), RouteKey: key,
 		FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: group,
-		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: prior,
+		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: prior, Recovery: flight.RouteRecovery,
 		HoldingClearanceFix: operationalHoldingClearanceFix(flight),
 	}, trajectory.Config{ReferenceTime: now, MaxObservationAge: 2 * time.Minute})
 	if err != nil {
 		return flight, err
 	}
+	flight.RouteRecovery = projection.Recovery
 	if projection.DistanceToGoNM == nil || len(projection.Remaining) == 0 || projection.Completeness == trajectory.Unresolved || projection.Completeness == trajectory.OffRoute {
 		return flight, fmt.Errorf("route geometry is not publishable: %s (%s)", projection.Completeness, strings.Join(projection.Reasons, ", "))
 	}
@@ -1703,6 +1729,7 @@ func invalidateRunwayPath(flight *aman.AMANFlight) {
 	flight.PredictionFilter = nil
 	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
+	flight.RouteRecovery, flight.RouteRefreshAfter, flight.ActiveRouteQueryKey, flight.RouteRefreshQueryKey = nil, nil, "", ""
 	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	flight.SelectedHolding, flight.HoldingStack, flight.HoldingReleaseBasis = nil, nil, nil
 	if flight.Prediction != nil {
@@ -2757,6 +2784,7 @@ func resetFlightsForRunwayConfiguration(state *aman.AirportState) {
 		flight.ActiveRouteKey = nil
 		flight.ActiveRouteDatasetID = nil
 		flight.RouteProgress = nil
+		flight.RouteRecovery, flight.RouteRefreshAfter, flight.ActiveRouteQueryKey, flight.RouteRefreshQueryKey = nil, nil, "", ""
 		clearSequencingState(flight)
 	}
 }
@@ -2984,6 +3012,7 @@ func clearGroundedOperationalState(flight *aman.AMANFlight) {
 	flight.SelectedHolding, flight.HoldingStack = nil, nil
 	flight.HoldingReleaseBasis = nil
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
+	flight.RouteRecovery, flight.RouteRefreshAfter, flight.ActiveRouteQueryKey, flight.RouteRefreshQueryKey = nil, nil, "", ""
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
 	flight.TMAEntry = nil
@@ -3154,6 +3183,7 @@ func markUnresolvedSTARFamily(flight *aman.AMANFlight, reason string, now time.T
 	flight.ActiveRouteKey = nil
 	flight.ActiveRouteDatasetID = nil
 	flight.RouteProgress = nil
+	flight.RouteRecovery, flight.RouteRefreshAfter, flight.ActiveRouteQueryKey, flight.RouteRefreshQueryKey = nil, nil, "", ""
 	flight.FeederETA = nil
 	flight.DerivedFeederETA = nil
 	if flight.Prediction == nil {
@@ -3331,7 +3361,7 @@ func hasResolvedRouteFixes(ctx context.Context, geometry GeometryCache, airport 
 	if err != nil || len(route.Legs) == 0 {
 		return false
 	}
-	if hasSyntheticDestinationClosingLeg(route, airport) {
+	if hasSyntheticDestinationClosingLeg(route, airport) || len(navdata.SuspectRouteDetours(route.Legs)) > 0 {
 		return false
 	}
 	snapshot, err := geometry.ActiveGeometrySnapshot(ctx, airport)
@@ -3343,6 +3373,9 @@ func hasResolvedRouteFixes(ctx context.Context, geometry GeometryCache, airport 
 		fixes[fix.ID] = struct{}{}
 	}
 	for _, leg := range route.Legs {
+		if navdata.IsRouteGap(leg) {
+			continue
+		}
 		if leg.FromFix != nil && leg.FromPosition == nil {
 			if _, ok := fixes[*leg.FromFix]; !ok {
 				return false

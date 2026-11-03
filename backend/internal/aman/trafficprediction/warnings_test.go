@@ -92,6 +92,8 @@ func TestTrafficWarningsDistinguishFreshMessagesFromRetainedArrivalEstimates(t *
 		{"unknown_star_family", "does not match a configured STAR entry"},
 		{"raw prediction: invalid_argument: prediction segment is invalid", "calculated flight segment failed validation"},
 		{"route geometry is not publishable: unresolved", "usable remaining route geometry (unresolved)"},
+		{"route geometry is not publishable: partial (AMBIGUOUS_ROUTE_FIX:SPY, ROUTE_GEOMETRY_GAP_AHEAD)", "could not resolve route fix SPY, and an unresolved route section remains ahead"},
+		{"route geometry is not publishable: partial (AMBIGUOUS_ROUTE_FIX:SPY, ROUTE_RECOVERY_CONFIRMATION_PENDING)", "awaiting distinct position reports confirming the usable downstream route"},
 	} {
 		t.Run(test.reason, func(t *testing.T) {
 			state := retainedDiagnosticState(now, test.reason, aman.DataFresh, now)

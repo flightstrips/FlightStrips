@@ -1,0 +1,241 @@
+{
+  "status": "success",
+  "data": {
+    "origin": "EBBR",
+    "destination": "EKCH",
+    "segments": [
+      {
+        "from": {
+          "identifier": "EBBR",
+          "coordinates": {
+            "lat": 50.901389,
+            "lon": 4.484444
+          },
+          "type": "airport",
+          "name": "EBBR"
+        },
+        "to": {
+          "identifier": "NIK",
+          "coordinates": {
+            "lat": 51.165,
+            "lon": 4.183889
+          },
+          "type": "navaid",
+          "name": "NIK",
+          "via": null
+        },
+        "distance": 19.5,
+        "bearing": 324
+      },
+      {
+        "from": {
+          "identifier": "NIK",
+          "coordinates": {
+            "lat": 51.165,
+            "lon": 4.183889
+          },
+          "type": "navaid",
+          "name": "NIK"
+        },
+        "to": {
+          "identifier": "PEVAD",
+          "coordinates": {
+            "lat": 51.274722,
+            "lon": 4.054722
+          },
+          "type": "waypoint",
+          "name": "PEVAD",
+          "via": "L191"
+        },
+        "distance": 8.2,
+        "bearing": 324
+      },
+      {
+        "from": {
+          "identifier": "PEVAD",
+          "coordinates": {
+            "lat": 51.274722,
+            "lon": 4.054722
+          },
+          "type": "waypoint",
+          "name": "PEVAD"
+        },
+        "to": {
+          "identifier": "VICOT",
+          "coordinates": {
+            "lat": 51.481667,
+            "lon": 4.050556
+          },
+          "type": "waypoint",
+          "name": "VICOT",
+          "via": "L191"
+        },
+        "distance": 12.4,
+        "bearing": 359
+      },
+      {
+        "from": {
+          "identifier": "VICOT",
+          "coordinates": {
+            "lat": 51.481667,
+            "lon": 4.050556
+          },
+          "type": "waypoint",
+          "name": "VICOT"
+        },
+        "to": {
+          "identifier": "DOFMU",
+          "coordinates": {
+            "lat": 51.741333,
+            "lon": 4.2435
+          },
+          "type": "waypoint",
+          "name": "DOFMU",
+          "via": "N873"
+        },
+        "distance": 17.2,
+        "bearing": 25
+      },
+      {
+        "from": {
+          "identifier": "DOFMU",
+          "coordinates": {
+            "lat": 51.741333,
+            "lon": 4.2435
+          },
+          "type": "waypoint",
+          "name": "DOFMU"
+        },
+        "to": {
+          "identifier": "EKROS",
+          "coordinates": {
+            "lat": 52.237222,
+            "lon": 4.619444
+          },
+          "type": "waypoint",
+          "name": "EKROS",
+          "via": "N873"
+        },
+        "distance": 32.9,
+        "bearing": 25
+      },
+      {
+        "from": {
+          "identifier": "EKROS",
+          "coordinates": {
+            "lat": 52.237222,
+            "lon": 4.619444
+          },
+          "type": "waypoint",
+          "name": "EKROS"
+        },
+        "to": {
+          "identifier": "SPY",
+          "coordinates": {
+            "lat": 57.157,
+            "lon": -170.232992
+          },
+          "type": "navaid",
+          "name": "SAINT PAUL ISLAND",
+          "via": "N873"
+        },
+        "distance": 4234.3,
+        "bearing": 357
+      },
+      {
+        "from": {
+          "identifier": "SPY",
+          "coordinates": {
+            "lat": 57.157,
+            "lon": -170.232992
+          },
+          "type": "navaid",
+          "name": "SAINT PAUL ISLAND"
+        },
+        "to": {
+          "identifier": "DOSUR",
+          "coordinates": {
+            "lat": 54.858611,
+            "lon": 9.194167
+          },
+          "type": "waypoint",
+          "name": "DOSUR",
+          "via": null
+        },
+        "distance": 4081.8,
+        "bearing": 0
+      },
+      {
+        "from": {
+          "identifier": "DOSUR",
+          "coordinates": {
+            "lat": 54.858611,
+            "lon": 9.194167
+          },
+          "type": "waypoint",
+          "name": "DOSUR"
+        },
+        "to": {
+          "identifier": "TALSA",
+          "coordinates": {
+            "lat": 55.106944,
+            "lon": 9.686389
+          },
+          "type": "waypoint",
+          "name": "TALSA",
+          "via": "P729"
+        },
+        "distance": 22.6,
+        "bearing": 48
+      },
+      {
+        "from": {
+          "identifier": "TALSA",
+          "coordinates": {
+            "lat": 55.106944,
+            "lon": 9.686389
+          },
+          "type": "waypoint",
+          "name": "TALSA"
+        },
+        "to": {
+          "identifier": "TUDLO",
+          "coordinates": {
+            "lat": 55.275833,
+            "lon": 10.647778
+          },
+          "type": "waypoint",
+          "name": "TUDLO",
+          "via": "P729"
+        },
+        "distance": 34.5,
+        "bearing": 73
+      },
+      {
+        "from": {
+          "identifier": "TUDLO",
+          "coordinates": {
+            "lat": 55.275833,
+            "lon": 10.647778
+          },
+          "type": "waypoint",
+          "name": "TUDLO"
+        },
+        "to": {
+          "identifier": "EKCH",
+          "coordinates": {
+            "lat": 55.617917,
+            "lon": 12.655972
+          },
+          "type": "airport",
+          "name": "EKCH",
+          "via": null
+        },
+        "distance": 71.4,
+        "bearing": 72
+      }
+    ],
+    "total_distance": 8534.8,
+    "errors": []
+  }
+}

@@ -178,7 +178,9 @@ type RouteCandidate struct {
 }
 
 // PersistenceKey is the storage key, derived from the #311 semantic RouteKey
-// before any provider transformation plus resolver and schema versions.
+// before any provider transformation plus resolver and schema versions. New
+// revisioned geometry also includes its digest, so later source corrections
+// coexist with incomplete results without mutating an immutable cache row.
 func (c RouteCandidate) PersistenceKey() (RouteKey, error) {
 	if err := c.Query.Validate(); err != nil {
 		return "", err
@@ -190,7 +192,14 @@ func (c RouteCandidate) PersistenceKey() (RouteKey, error) {
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256([]byte(strings.Join([]string{string(key), c.ResolverVersion, c.SchemaVersion}, "\x1f")))
+	parts := []string{string(key), c.ResolverVersion, c.SchemaVersion}
+	if c.Geometry.Revisioned {
+		if c.Geometry.Digest == "" {
+			return "", invalid("revisioned route requires a geometry digest")
+		}
+		parts = append(parts, c.Geometry.Digest)
+	}
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x1f")))
 	return RouteKey(hex.EncodeToString(sum[:])), nil
 }
 

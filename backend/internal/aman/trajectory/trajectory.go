@@ -86,6 +86,7 @@ type Input struct {
 	FlightPlanRevision uint64
 	Observation        aman.SurveillanceFact
 	RouteFact          *aman.RouteFact
+	Recovery           *aman.RouteRecovery
 	Prior              *aman.RouteProgress
 	// HoldingClearanceFix is the controller-authoritative hold instruction. It
 	// must not be inferred from proximity to a published holding fix alone.
@@ -123,6 +124,7 @@ type Result struct {
 	SelectedHolding    *navdata.HoldingPattern
 	HoldingCandidate   *HoldingCandidate
 	HoldingFixPosition *navdata.Coordinate
+	Recovery           *aman.RouteRecovery
 	Progress           *aman.RouteProgress
 	FeederProgress     FeederProgress
 	InTMA              bool
@@ -172,7 +174,7 @@ func DirectToTargetOnForwardPath(snapshot navdata.ActiveGeometrySnapshot, route 
 	}
 	for index := floor; index < len(legs); index++ {
 		if legs[index].to == target {
-			return true
+			return !legs[index].gapAhead
 		}
 	}
 	return false
@@ -238,6 +240,37 @@ func displayReasons(reasons []string) []string {
 // Reduce is pure: callers can persist Result.Progress with their aggregate
 // commit, and a restart receives the same compatibility/reset behavior.
 func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry, input Input, config Config) Result {
+	result := reduce(snapshot, route, input, config)
+	// Invalid and stale reports still establish ordering. Keep a zero-sample
+	// watermark without storing invalid coordinates, so delayed valid reports
+	// cannot erase a newer rejection and confirm an obsolete route section.
+	needsEvidence := input.Recovery != nil || navdata.HasRouteGaps(route) || input.Prior != nil && input.Prior.GeometryDigest != route.Digest && input.Prior.FlightPlanRevision == input.FlightPlanRevision && input.Prior.RunwayGroupID == input.RunwayGroup
+	if needsEvidence && result.Progress == nil && result.Recovery == nil && route.Digest != "" {
+		factID := ""
+		if activeRouteFact(input.RouteFact) {
+			factID = input.RouteFact.ID
+		}
+		prior := input.Recovery
+		if prior != nil && (prior.GeometryDigest != route.Digest || prior.FlightPlanRevision != input.FlightPlanRevision || prior.RunwayGroupID != input.RunwayGroup || prior.RouteFactID != factID) {
+			prior = nil
+		}
+		at := input.Observation.ObservedAt
+		if at == nil || !config.ReferenceTime.IsZero() && at.After(config.ReferenceTime) || prior != nil && !at.After(prior.ObservedAt) {
+			result.Recovery = prior
+		} else {
+			result.Recovery = &aman.RouteRecovery{GeometryDigest: route.Digest, FlightPlanRevision: input.FlightPlanRevision, RunwayGroupID: input.RunwayGroup, RouteFactID: factID, ObservedAt: *at}
+		}
+	}
+	if result.Progress != nil && input.Observation.ObservedAt != nil {
+		result.Progress.PhysicalPosition = &aman.RoutePosition{LatitudeDegrees: input.Observation.LatitudeDegrees, LongitudeDegrees: input.Observation.LongitudeDegrees, ObservedAt: *input.Observation.ObservedAt}
+		if input.Prior != nil && input.Prior.PhysicalPosition != nil && !input.Observation.ObservedAt.After(input.Prior.PhysicalPosition.ObservedAt) {
+			result.Progress.PhysicalPosition = input.Prior.PhysicalPosition
+		}
+	}
+	return result
+}
+
+func reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry, input Input, config Config) Result {
 	config = config.normalized()
 	result := Result{GeometryDigest: route.Digest}
 	if !route.Version.Equal(snapshot.Manifest.Version) {
@@ -269,6 +302,49 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 	if compatible {
 		start = min(input.Prior.LegIndex, len(legs)-1)
 	}
+	// Gap crossing and same-route geometry replacement cannot erase the jump
+	// guard by making the previous digest incompatible. Keep provisional
+	// evidence outside accepted progress until distinct observations confirm it.
+	repaired := input.Prior != nil && input.Prior.GeometryDigest != route.Digest && input.Prior.FlightPlanRevision == input.FlightPlanRevision && input.Prior.RunwayGroupID == input.RunwayGroup
+	authorizedDirect := activeRouteFact(input.RouteFact) && len(legs) > 0 && legs[0].id == "DIRECT_TO:"+input.RouteFact.Fix
+	hasGaps := navdata.HasRouteGaps(route)
+	if hasGaps && !config.ReferenceTime.IsZero() && input.Observation.ObservedAt.After(config.ReferenceTime) {
+		return blockedRoute(result, reasons, "ROUTE_RECOVERY_POSITION_FUTURE")
+	}
+	if hasGaps && input.Prior != nil && input.Prior.PhysicalPosition != nil && input.Observation.ObservedAt.Before(input.Prior.PhysicalPosition.ObservedAt) {
+		return blockedRoute(result, reasons, "ROUTE_RECOVERY_POSITION_OUT_OF_ORDER")
+	}
+	safeSection := compatible && !input.Prior.RecoveryUnlocated && !legs[start].gapAhead && input.Prior.PhysicalPosition != nil && input.Observation.ObservedAt.Sub(input.Prior.PhysicalPosition.ObservedAt) <= 2*time.Minute
+	needsConfirmation := repaired || input.Recovery != nil || hasGaps && !safeSection
+	if authorizedDirect && !legs[0].gapAhead {
+		needsConfirmation = false
+	}
+	if hasGaps && safeSection && !authorizedDirect {
+		nearest := nearestPhysicalProjection(input, legs)
+		if nearest.cross <= config.MaxCrossTrackNM && legs[nearest.index].gapAhead {
+			return blockedRoute(result, reasons, "ROUTE_GEOMETRY_GAP_AHEAD")
+		}
+		anchor := input.Prior.PhysicalPosition
+		elapsed := input.Observation.ObservedAt.Sub(anchor.ObservedAt)
+		physical := wgs84NM(coordinate(anchor.LatitudeDegrees, anchor.LongitudeDegrees), coordinate(input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees))
+		if elapsed < 0 || physical > elapsed.Hours()*maximumProgressGroundspeedKnots+config.JitterToleranceNM {
+			return blockedRoute(result, reasons, "FORWARD_PROGRESS_OUT_OF_RANGE")
+		}
+	}
+	recoveredRoute := false
+	if needsConfirmation {
+		evidence, match, confirmed, reason := confirmRouteSection(input, legs, route.Digest, config)
+		if !confirmed {
+			result.Recovery = evidence
+			return blockedRoute(result, reasons, reason)
+		}
+		anchor := &aman.RouteProgress{GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest, FlightPlanRevision: input.FlightPlanRevision, RunwayGroupID: input.RunwayGroup, LegIndex: match.index, RejoinLegIndex: match.index, AlongTrackNM: match.before + match.along, ObservedAt: input.Observation.ObservedAt}
+		if activeRouteFact(input.RouteFact) {
+			anchor.RouteFactID = input.RouteFact.ID
+		}
+		input.Prior, compatible, start, recoveredRoute = anchor, true, match.index, true
+	}
+	result.ReacquiredProgress = recoveredRoute
 	obs := coordinate(input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees)
 	holdCandidate := holdingCandidate(holding, fixes, input.Observation)
 	if holding != nil {
@@ -284,6 +360,9 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 	// envelope. Proximity remains a separate requirement for confirming a stack.
 	if holding != nil && holding.Fix == input.HoldingClearanceFix {
 		if next := legEndingAt(legs, holding.Fix); next >= 0 {
+			if legs[next].gapAhead {
+				return blockedRoute(result, reasons, "ROUTE_GEOMETRY_GAP_AHEAD")
+			}
 			result.Remaining = remainingFromNextWaypointWithPrefix(obs, legs, next, "HOLDING_TO:")
 			dtg := remainingLegDistance(result.Remaining)
 			result.DistanceToGoNM = &dtg
@@ -339,6 +418,9 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		}
 		if recovery := clearedDirectRecovery(input.RouteFact, legs, obs, input.Observation.TrackTrueDegrees, input.HoldingClearanceFix, start); recovery.next >= 0 {
 			next := recovery.next
+			if legs[next].gapAhead {
+				return blockedRoute(result, reasons, "ROUTE_GEOMETRY_GAP_AHEAD")
+			}
 			remaining := remainingFromNextWaypointWithPrefix(obs, legs, next, "LAST_DIRECT_TO:")
 			if len(remaining) > 0 {
 				progress := progressAtLegEnd(legs, next)
@@ -368,6 +450,9 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		recovery := nextWaypointRecovery(obs, legs, start, input.Observation.TrackTrueDegrees, input.Prior, config)
 		if recovery.next >= 0 {
 			next, progressLeg, routePrefix := recovery.next, recovery.next, "OFF_ROUTE_RECOVERY_TO:"
+			if legs[next].gapAhead {
+				return blockedRoute(result, reasons, "ROUTE_GEOMETRY_GAP_AHEAD")
+			}
 			candidateFix, candidateSamples := "", uint8(0)
 			if recovery.trackAligned {
 				candidateFix = string(legs[next].to)
@@ -428,6 +513,9 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		result.Completeness, result.Reasons, result.CrossTrackNM = OffRoute, append(reasons, "OFF_ROUTE"), best.cross
 		return result
 	}
+	if legs[best.index].gapAhead {
+		return blockedRoute(result, reasons, "ROUTE_GEOMETRY_GAP_AHEAD")
+	}
 	progress := best.before + best.along
 	if compatible && progress < projectionPrior.AlongTrackNM {
 		observedCross := best.cross
@@ -436,7 +524,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		best.cross = observedCross
 	}
 	result.AlongTrackNM, result.CrossTrackNM, result.SelectedHolding, result.HoldingCandidate = progress, best.cross, holding, holdCandidate
-	result.ReacquiredProgress = compatible && !input.Prior.RecoveryUnlocated && progress-input.Prior.AlongTrackNM > config.MaxForwardSearchNM
+	result.ReacquiredProgress = recoveredRoute || compatible && !input.Prior.RecoveryUnlocated && progress-input.Prior.AlongTrackNM > config.MaxForwardSearchNM
 	result.InTMA = terminalStart >= 0 && best.index >= terminalStart
 	dtg := remainingDistance(legs, progress)
 	result.DistanceToGoNM = &dtg
@@ -461,6 +549,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 }
 
 type leg struct {
+	gapAhead bool
 	id       string
 	from, to navdata.FixID
 	a, b     navdata.Coordinate
@@ -537,6 +626,11 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 	terminalStart := -1
 	var last navdata.FixID
 	for sourceIndex, value := range all {
+		if navdata.IsRouteGap(value) {
+			for i := range out {
+				out[i].gapAhead = true
+			}
+		}
 		if value.PathTerminator.IsHolding() {
 			if value.HoldingID != nil && selected == nil {
 				if h, ok := holdings[*value.HoldingID]; ok {
@@ -614,7 +708,7 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 		feederLeg := legEndingAt(out, input.FeederFix)
 		feederBypassed := feederLeg >= 0 && rejoin > feederLeg
 		current := coordinate(input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees)
-		direct := leg{id: "DIRECT_TO:" + string(target), from: "", to: target, a: current, b: targetFix.Position, distance: wgs84NM(current, targetFix.Position)}
+		direct := leg{gapAhead: out[rejoin].gapAhead, id: "DIRECT_TO:" + string(target), from: "", to: target, a: current, b: targetFix.Position, distance: wgs84NM(current, targetFix.Position)}
 		out = append([]leg{direct}, out[rejoin+1:]...)
 		if terminalStart >= 0 {
 			if rejoin < terminalStart {

@@ -268,6 +268,11 @@ func (m *Materializer) MaterializeRoute(ctx context.Context, query navdata.Route
 		metrics.RecordAMANRouteMaterialization(ctx, time.Since(started), "failure")
 		return "", err
 	}
+	geometry.Revisioned = true
+	geometry.Digest, err = navdata.RouteGeometryDigest(query, geometry)
+	if err != nil {
+		return "", err
+	}
 	// Parser-expanded airway segments carry authoritative endpoint positions.
 	// Only legacy/procedure-backed legs without positions need a manifest refresh
 	// to resolve their fix IDs. In particular, do not ask the destination-region
@@ -290,6 +295,9 @@ func (m *Materializer) MaterializeRoute(ctx context.Context, query navdata.Route
 func routeFixes(geometry navdata.RouteGeometry) []navdata.FixID {
 	result := make([]navdata.FixID, 0, len(geometry.Legs)*2)
 	for _, leg := range geometry.Legs {
+		if navdata.IsRouteGap(leg) {
+			continue
+		}
 		if leg.FromFix != nil && leg.FromPosition == nil {
 			result = append(result, *leg.FromFix)
 		}

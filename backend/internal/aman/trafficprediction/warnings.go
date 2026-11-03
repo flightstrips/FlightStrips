@@ -183,6 +183,27 @@ func predictionFailureDetail(flight aman.AMANFlight, now time.Time) string {
 	if strings.Contains(reason, "prediction segment is invalid") {
 		return "AMAN rejected the new calculation because a calculated flight segment failed validation"
 	}
+	if _, tail, found := strings.Cut(reason, "AMBIGUOUS_ROUTE_FIX:"); found {
+		fields := strings.FieldsFunc(tail, func(r rune) bool { return r == ',' || r == ')' || r == ' ' || r == ';' })
+		fix := "unknown"
+		if len(fields) > 0 {
+			fix = fields[0]
+		}
+		detail := "navigation data could not resolve route fix " + fix
+		if strings.Contains(reason, "ROUTE_GEOMETRY_GAP_AHEAD") {
+			return detail + ", and an unresolved route section remains ahead"
+		}
+		if strings.Contains(reason, "ROUTE_RECOVERY_CONFIRMATION_PENDING") {
+			return detail + "; awaiting distinct position reports confirming the usable downstream route"
+		}
+		return detail
+	}
+	if strings.Contains(reason, "ROUTE_GEOMETRY_GAP_AHEAD") {
+		return "an unresolved section remains ahead on the arrival route"
+	}
+	if strings.Contains(reason, "ROUTE_RECOVERY_") {
+		return "AMAN is awaiting distinct position reports confirming a usable remaining route section (" + reason + ")"
+	}
 	if strings.HasPrefix(reason, "route geometry is not publishable:") {
 		return "the current position could not be matched to usable remaining route geometry (" + strings.TrimSpace(strings.TrimPrefix(reason, "route geometry is not publishable:")) + ")"
 	}

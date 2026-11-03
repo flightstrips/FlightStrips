@@ -779,11 +779,12 @@ function warningIdentity(warning: AMANWarning): string {
 
 function hasValidWarningScope(warning: AMANWarning): boolean {
   if (warning.source === "traffic_prediction") {
-    // The automatic outlier filter reports a flight-level prediction warning
-    // alongside airport-wide TMT diagnostics in the same replacement.
+    // Flight prediction diagnostics share the replacement with airport-wide
+    // TMT warnings. A runway inference also identifies the forecast runway.
     if (warning.component === "prediction") {
-      return warning.code === "prediction_unreliable" && warning.severity === "warning"
-        && warning.callsign !== undefined && warning.runway_group_id === undefined && warning.related_callsign === undefined;
+      return warning.severity === "warning" && warning.callsign !== undefined && warning.related_callsign === undefined
+        && (warning.code === "prediction_unreliable" && warning.runway_group_id === undefined
+          || warning.code === "star_runway_inferred" && warning.runway_group_id !== undefined);
     }
     return warning.component === "traffic_prediction" && warning.runway_group_id === undefined && warning.related_callsign === undefined;
   }

@@ -54,6 +54,69 @@ func TestOutlierCannotChangeDemandFeederGuidanceOrSlot(t *testing.T) {
 	require.Equal(t, beforeDemand, *aman.SequenceDemandArrivalAt(updated), "unreliable traffic must not disappear from demand")
 }
 
+func TestInferredSTARForecastRespectsStabilityFilterThroughExpiryAndRecovery(t *testing.T) {
+	now := time.Date(2026, 11, 2, 18, 0, 0, 0, time.UTC)
+	service, state, observation, _ := runwaySTARFixture(now)
+	selectSTARTestRunway(&state, "ARRIVAL-04L")
+	flight, err := service.reconcileFlight(t.Context(), state, newFlight(observation, now), observation, now)
+	require.NoError(t, err)
+	require.Contains(t, *flight.Prediction.DegradationReason, aman.STARRunwayInferred)
+	flight.Slot = &aman.Slot{RunwayGroupID: "ARRIVAL-04L", Time: flight.Prediction.OperationalTETA.Add(2 * time.Minute)}
+	accepted := *flight.Prediction
+	beforeDemand, beforeFeeder, beforeSlot := *aman.SequenceDemandArrivalAt(flight), flight.DerivedFeederETA, *flight.Slot
+	_, available := aman.GainLossPrediction(flight)
+	require.True(t, available)
+
+	update := func(offset time.Duration, speed float64) {
+		t.Helper()
+		at := now.Add(offset)
+		observation := *flight.LatestObservation
+		surveillance := *observation.Surveillance
+		surveillance.ObservedAt, surveillance.GroundspeedKnots = &at, &speed
+		observation.Surveillance, observation.ReconciledAt = &surveillance, at
+		var err error
+		flight, err = service.reconcileFlight(t.Context(), state, flight, observation, at)
+		require.NoError(t, err)
+	}
+
+	// Alternating candidates never agree. The third update expires the filter
+	// before STAR resolution, replacing the inference diagnostic with unreliable.
+	for index, speed := range []float64{120, 180, 120, 180} {
+		update(time.Duration(10+index*60)*time.Second, speed)
+		require.NotNil(t, flight.PredictionFilter.Pending, "sample %d must remain filtered", index)
+		require.Equal(t, accepted.RawTETA, flight.Prediction.RawTETA)
+		require.Equal(t, accepted.GeneratedAt, flight.Prediction.GeneratedAt)
+		require.Equal(t, beforeDemand, *aman.SequenceDemandArrivalAt(flight))
+		require.Equal(t, beforeFeeder, flight.DerivedFeederETA)
+		require.Equal(t, beforeSlot, *flight.Slot)
+		if index >= 2 {
+			require.True(t, flight.PredictionFilter.Unreliable)
+			require.False(t, flight.Prediction.Publishable)
+			require.Equal(t, prediction.UnreliablePrediction, *flight.Prediction.DegradationReason)
+			_, available = aman.GainLossPrediction(flight)
+			require.False(t, available)
+			// Persisted unreliable state must not masquerade as a new inference.
+			flight = cloneGapState(t, aman.AirportState{Flights: []aman.AMANFlight{flight}}).Flights[0]
+		}
+	}
+
+	// A distinct new candidate still needs a consistent pair spanning 30s.
+	update(220*time.Second, 150)
+	require.True(t, flight.PredictionFilter.Unreliable)
+	require.False(t, flight.Prediction.Publishable)
+	require.Equal(t, accepted.RawTETA, flight.Prediction.RawTETA)
+	update(250*time.Second, 150)
+	require.Nil(t, flight.PredictionFilter.Pending)
+	require.False(t, flight.PredictionFilter.Unreliable)
+	require.True(t, flight.Prediction.Publishable)
+	require.Equal(t, now.Add(250*time.Second), flight.Prediction.GeneratedAt)
+	require.NotEqual(t, accepted.RawTETA, flight.Prediction.RawTETA)
+	require.Contains(t, *flight.Prediction.DegradationReason, aman.STARRunwayInferred)
+	_, available = aman.GainLossPrediction(flight)
+	require.True(t, available)
+	require.Equal(t, beforeSlot, *flight.Slot)
+}
+
 func TestFilteredPredictionsStillObserveHoldingFixCrossing(t *testing.T) {
 	service, state, now := recomputeFlightFixture(t)
 	geometry := service.deps.Geometry.(terminalIdentityGeometry)

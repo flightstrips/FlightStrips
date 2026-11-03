@@ -265,6 +265,24 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(event)).toBe(false);
   });
 
+  it.each([
+    {override: {}, valid: true},
+    {override: {runway_group_id: undefined}, valid: false},
+    {override: {callsign: undefined}, valid: false},
+    {override: {related_callsign: "LEAD"}, valid: false},
+  ])("validates an inferred STAR warning scope: %j", ({override, valid}) => {
+    const event = replacement(8);
+    const warning = {
+      source: "traffic_prediction", component: "prediction", severity: "warning", code: "star_runway_inferred",
+      callsign: "SAS123", runway_group_id: "ARRIVAL-04L", related_callsign: undefined, ...override,
+    };
+    const optional = (value: string | undefined) => value === undefined ? "-" : JSON.stringify(value);
+    const id = `warning:${[JSON.stringify(warning.source), optional(warning.component), JSON.stringify(warning.code),
+      optional(warning.runway_group_id), optional(warning.callsign), optional(warning.related_callsign)].join("/")}`;
+    (event.data as unknown as {warnings: unknown}).warnings = [{...warning, id, message: "Inferred STAR forecast"}];
+    expect(isAMANStateEvent(event)).toBe(valid);
+  });
+
   it("keeps the timeline available when holding release diagnostics are present", () => {
     const event = replacement(8);
     event.data.holding_information = [{callsign: "TRAIL", holding: "OLPIB", eat: null,

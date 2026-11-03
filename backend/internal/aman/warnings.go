@@ -27,6 +27,13 @@ const (
 	WarningSeverityWarning WarningSeverity = "warning"
 )
 
+// STAR resolution reasons are shared by accepted forecasts and diagnostics.
+const (
+	STARRunwayInferred    = "star_runway_inferred"
+	STARRunwayUnavailable = "star_runway_unavailable"
+	STARFamilyAmbiguous   = "ambiguous_star_family"
+)
+
 // Warning is one current operator-facing condition. ID deliberately excludes
 // Message so presentation or localization changes preserve item identity.
 type Warning struct {
@@ -134,10 +141,24 @@ func CurrentWarningSnapshot(technical TechnicalHealth, state AirportState, addit
 		}
 	}
 	for _, flight := range state.Flights {
-		if flight.State == StateLanded || flight.State == StateRemoved || flight.PredictionFilter == nil || !flight.PredictionFilter.Unreliable {
+		if flight.State == StateLanded || flight.State == StateRemoved {
 			continue
 		}
 		callsign, component := flight.Callsign, "prediction"
+		if prediction := flight.Prediction; prediction != nil && prediction.Publishable && flight.DataStatus == DataFresh &&
+			prediction.DegradationReason != nil && flight.LatestObservation != nil && flight.LatestObservation.AssignedSTAR != nil && flight.SelectedRunwayGroup != nil {
+			for _, reason := range strings.Split(*prediction.DegradationReason, ",") {
+				if reason == STARRunwayInferred {
+					add(Warning{Source: WarningSourceTrafficPrediction, Component: &component, Severity: WarningSeverityWarning,
+						Code: STARRunwayInferred, Callsign: &callsign, RunwayGroupID: flight.SelectedRunwayGroup,
+						Message: fmt.Sprintf("%s: assigned STAR %s does not match selected runway group %s. Forecasting its %s family path for that runway; the reported STAR assignment is unchanged.",
+							callsign, *flight.LatestObservation.AssignedSTAR, *flight.SelectedRunwayGroup, flight.STARFamilyIdentity())})
+				}
+			}
+		}
+		if flight.PredictionFilter == nil || !flight.PredictionFilter.Unreliable {
+			continue
+		}
 		add(Warning{Source: WarningSourceTrafficPrediction, Component: &component, Severity: WarningSeverityWarning,
 			Code: "prediction_unreliable", Callsign: &callsign,
 			Message: fmt.Sprintf("%s arrival estimate remains unstable. Gain/loss guidance will return automatically when estimates stabilise; its assigned slot is retained.", callsign)})

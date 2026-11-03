@@ -153,7 +153,14 @@ func predictionFailureDetail(flight aman.AMANFlight, now time.Time) string {
 	}
 	switch reason {
 	case "unknown_star_family":
+		if observation := flight.LatestObservation; observation != nil && observation.AssignedSTAR != nil && strings.TrimSpace(*observation.AssignedSTAR) != "" {
+			return fmt.Sprintf("assigned STAR %s does not match a configured STAR entry for selected runway group %s", *observation.AssignedSTAR, selectedRunwayGroupDetail(flight))
+		}
 		return "the filed route does not match a configured STAR entry"
+	case aman.STARRunwayUnavailable:
+		return fmt.Sprintf("the recognized assigned STAR %s has no configured family path for selected runway group %s", assignedSTARDetail(flight), selectedRunwayGroupDetail(flight))
+	case aman.STARFamilyAmbiguous:
+		return fmt.Sprintf("assigned STAR %s matches multiple configured STAR families for selected runway group %s", assignedSTARDetail(flight), selectedRunwayGroupDetail(flight))
 	case "tma_entry_surveillance_stale":
 		if observation := flight.LatestObservation; observation != nil && observation.Surveillance != nil {
 			at := observation.Surveillance.ObservedAt
@@ -182,6 +189,20 @@ func predictionFailureDetail(flight aman.AMANFlight, now time.Time) string {
 	reason = strings.TrimPrefix(reason, "raw prediction: ")
 	reason = strings.TrimPrefix(reason, "invalid_argument: ")
 	return strings.ReplaceAll(reason, "_", " ")
+}
+
+func assignedSTARDetail(flight aman.AMANFlight) string {
+	if flight.LatestObservation != nil && flight.LatestObservation.AssignedSTAR != nil {
+		return *flight.LatestObservation.AssignedSTAR
+	}
+	return "(unavailable)"
+}
+
+func selectedRunwayGroupDetail(flight aman.AMANFlight) string {
+	if flight.SelectedRunwayGroup != nil {
+		return string(*flight.SelectedRunwayGroup)
+	}
+	return "(unavailable)"
 }
 
 func observationDetail(flight aman.AMANFlight, now time.Time) string {

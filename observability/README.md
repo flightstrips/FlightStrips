@@ -79,6 +79,15 @@ Filter logs now include current/previous distance, accepted/candidate model spee
 bases and whether the aircraft is actually unreliable. Committed guidance logs include the aircraft scope and
 degradation reason; calculation-error logs include session and aircraft scope.
 
+`AMAN STAR resolution evaluated` records the reported assigned STAR, resolved
+family, selected runway group and resolution outcome. A procedure recognized
+on another configured runway can supply its family's path for the selected
+runway without changing the reported assignment. Such accepted forecasts stay
+fresh and carry the `star_runway_inferred` warning until the assignment matches.
+Unknown or ambiguous procedures and families without a path for the selected
+runway retain the previous estimate as stale. Pending runway rebuilds survive
+navigation outages and restarts and finish on the next usable calculation.
+
 ### Reading stability diagnostics
 
 The AMAN Stability dashboard separates automatic calculation attempts from

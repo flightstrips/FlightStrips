@@ -1011,7 +1011,10 @@ type AMANFlight struct {
 	// ArrivalPathChanged survives temporary prediction outages so reassignment
 	// cannot bypass a destination holding queue when navigation recovers.
 	ArrivalPathChanged bool
-	TMAEntry           *TMAEntryState
+	// RunwayChangePending survives outages until runway-dependent geometry and
+	// timing have been rebuilt. It does not release a protected holding slot.
+	RunwayChangePending bool
+	TMAEntry            *TMAEntryState
 	// ManualSequenceIncluded is retained for persisted-state compatibility.
 	// WTC/L aircraft are automatically sequenceable regardless of engine.
 	ManualSequenceIncluded bool

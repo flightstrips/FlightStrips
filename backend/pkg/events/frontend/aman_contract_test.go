@@ -156,6 +156,30 @@ func TestAMANStateConsumerContract(t *testing.T) {
 	flightDegraded.Flights[0].Prediction.DegradationReason = &reason
 	add("single_flight_input_degraded", flightDegraded, goldenAMANHealth())
 
+	// Runway changes can use a recognized STAR family while its reported
+	// procedure still belongs to the previous runway. This is a fresh forecast
+	// with an inference warning, not a source outage or stale estimate.
+	inferred := goldenAMANState()
+	assigned, inferredReason := "TESPI1C", aman.STARRunwayInferred
+	inferredGroup := aman.RunwayGroupID("ARRIVAL-04L")
+	inferred.RunwayGroups[0].ID = inferredGroup
+	inferred.Flights[0].SelectedRunwayGroup = &inferredGroup
+	inferred.Flights[0].Slot.RunwayGroupID = inferredGroup
+	inferred.Flights[0].LatestObservation = &aman.FlightObservation{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
+		AssignedSTAR: &assigned, SourceStatus: aman.DataFresh, Provider: aman.ObservationProviderEuroScope, ReconciledAt: inferred.GeneratedAt}
+	inferred.Flights[0].Prediction.DegradationReason = &inferredReason
+	add("inferred_star_runway", inferred, goldenAMANHealth())
+	matched := goldenAMANState()
+	matched.Revision++
+	matched.RunwayGroups[0].ID = inferredGroup
+	matched.Flights[0].SelectedRunwayGroup = &inferredGroup
+	matched.Flights[0].Slot.RunwayGroupID = inferredGroup
+	matchedObservation := *inferred.Flights[0].LatestObservation
+	matchedAssignment := "TESPI2A"
+	matchedObservation.AssignedSTAR = &matchedAssignment
+	matched.Flights[0].LatestObservation = &matchedObservation
+	add("matched_star_runway", matched, goldenAMANHealth())
+
 	// A real airport-wide source outage restricts authority, but the last
 	// complete timeline and traffic data must still render with diagnostics.
 	outage := goldenAMANHealth()

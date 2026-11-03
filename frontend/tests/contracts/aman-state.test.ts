@@ -42,6 +42,18 @@ describe("Go AMAN publisher → TypeScript state replacement", () => {
     expect(recovered.state?.warnings?.some((warning) => warning.code === "prediction_unreliable")).toBe(false);
   });
 
+  it("shows an inferred STAR forecast and clears its warning after the assignment matches", () => {
+    const inferred = replaceAMANState(null, scenario("inferred_star_runway"));
+    expect(inferred).toMatchObject({accepted: true, error: null, status: "ready"});
+    expect(inferred.state?.warnings).toContainEqual(expect.objectContaining({
+      source: "traffic_prediction", component: "prediction", code: "star_runway_inferred", callsign: "SAS123",
+    }));
+    expect(inferred.state?.flights[0].gain_loss_seconds).not.toBeNull();
+    const matched = replaceAMANState(inferred.state, scenario("matched_star_runway"));
+    expect(matched).toMatchObject({accepted: true, error: null, status: "ready"});
+    expect(matched.state?.warnings?.some((warning) => warning.code === "star_runway_inferred")).toBe(false);
+  });
+
   it.each(scenarios)("still rejects corrupted required fields in $name", ({event}) => {
     const corrupt = structuredClone(event) as {data: {flights: unknown}};
     corrupt.data.flights = null;

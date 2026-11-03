@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	github.com/MicahParks/keyfunc/v3 v3.8.2
+	github.com/dlclark/regexp2 v1.11.5
 	github.com/exaring/otelpgx v0.13.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang/geo v0.0.0-20260129164528-943061e2742c
@@ -12,6 +13,7 @@ require (
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.2.1
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0

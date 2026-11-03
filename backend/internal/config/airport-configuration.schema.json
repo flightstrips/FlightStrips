@@ -1,0 +1,1490 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:flightstrips:airport-configuration:v1",
+  "title": "FlightStrips combined airport configuration v1 (coded-handler proposal)",
+  "description": "Single airport file with concrete compiled-handler settings. Reference datasets remain file resources. Demonstration loading is not production activation.",
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:/-]*$"
+    },
+    "positionName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Z0-9]+(?:_[A-Z0-9]+)+$"
+    },
+    "frequency": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^1[0-9]{2}\\.[0-9]{3}$"
+    },
+    "runway": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:0[1-9]|[12][0-9]|3[0-6])[LRC]?$"
+    },
+    "runwaySelector": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/runway"
+        },
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 36
+        }
+      ]
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9_./-]+$"
+    },
+    "resource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "repo_path": {
+              "$ref": "#/$defs/repoPath"
+            }
+          },
+          "required": [
+            "repo_path"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Z][A-Z0-9_]*$"
+            },
+            "default_repo_path": {
+              "$ref": "#/$defs/repoPath"
+            }
+          },
+          "required": [
+            "environment",
+            "default_repo_path"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "strings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0
+    },
+    "positions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/positionName"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "runways": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/runwaySelector"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/positionName"
+        },
+        "frequency": {
+          "$ref": "#/$defs/frequency"
+        },
+        "section": {
+          "enum": [
+            "DEL",
+            "GND",
+            "TWR",
+            "DEP",
+            "APP",
+            "CTR"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "frequency",
+        "section"
+      ],
+      "additionalProperties": false
+    },
+    "coverageRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "$ref": "#/$defs/id"
+        },
+        "key": {
+          "$ref": "#/$defs/id"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name_priority": {
+          "type": "integer"
+        },
+        "region": {
+          "$ref": "#/$defs/strings"
+        },
+        "constraints": {
+          "type": "object",
+          "properties": {
+            "departure": {
+              "type": "boolean"
+            },
+            "arrival": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "departure",
+            "arrival"
+          ],
+          "additionalProperties": false
+        },
+        "active": {
+          "$ref": "#/$defs/runways"
+        },
+        "require_all": {
+          "type": "boolean"
+        },
+        "providers": {
+          "$ref": "#/$defs/positions"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "providers"
+      ],
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "matching": {
+          "type": "object",
+          "properties": {
+            "primary_frequency": {
+              "const": true
+            },
+            "tuned_frequencies": {
+              "type": "boolean"
+            },
+            "callsign_fallback": {
+              "type": "boolean"
+            },
+            "normalization": {
+              "const": "vatsim/v1"
+            },
+            "provider_selection": {
+              "const": "existing-coverage/v1"
+            }
+          },
+          "required": [
+            "primary_frequency",
+            "tuned_frequencies",
+            "callsign_fallback",
+            "normalization",
+            "provider_selection"
+          ],
+          "additionalProperties": false
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverageRule"
+          },
+          "minItems": 0
+        },
+        "airborne_fallback": {
+          "$ref": "#/$defs/positions"
+        },
+        "membership": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "policy": {
+                  "const": "legacy-single-airport/v1"
+                }
+              },
+              "required": [
+                "policy"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "policy": {
+                  "const": "remaining-responsibilities/v1"
+                },
+                "relinquish_grace_seconds": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "policy",
+                "relinquish_grace_seconds"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "matching",
+        "responsibilities",
+        "airborne_fallback",
+        "membership"
+      ],
+      "additionalProperties": false
+    },
+    "master": {
+      "type": "object",
+      "properties": {
+        "priorities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "position": {
+                "$ref": "#/$defs/positionName"
+              },
+              "match": {
+                "enum": [
+                  "primary-frequency-or-callsign",
+                  "resolved-primary-frequency-then-callsign"
+                ]
+              }
+            },
+            "required": [
+              "position",
+              "match"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "preempt_higher_priority": {
+          "type": "boolean"
+        },
+        "equal_priority": {
+          "enum": [
+            "retain-current",
+            "oldest-ready"
+          ]
+        },
+        "fallback": {
+          "enum": [
+            "any-non-observer-participant",
+            "none"
+          ]
+        },
+        "observers_eligible": {
+          "const": false
+        }
+      },
+      "required": [
+        "priorities",
+        "preempt_higher_priority",
+        "equal_priority",
+        "fallback",
+        "observers_eligible"
+      ],
+      "additionalProperties": false
+    },
+    "ownership": {
+      "type": "object",
+      "properties": {
+        "strips": {
+          "enum": [
+            "none",
+            "route"
+          ]
+        },
+        "sectors": {
+          "enum": [
+            "none",
+            "coverage"
+          ]
+        },
+        "callsign_prefixes": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "strips",
+        "sectors",
+        "callsign_prefixes"
+      ],
+      "additionalProperties": false
+    },
+    "standSelector": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "object",
+          "properties": {
+            "prefix": {
+              "type": "string",
+              "minLength": 1
+            },
+            "from": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "to": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "prefix",
+            "from",
+            "to"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "route": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "forRunway": {
+          "$ref": "#/$defs/runwaySelector"
+        },
+        "forStandRanges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/standSelector"
+          },
+          "minItems": 1
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "active": {
+          "$ref": "#/$defs/runways"
+        },
+        "require_all": {
+          "type": "boolean"
+        },
+        "owner_overrides": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/id"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "path"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "forRunway"
+          ]
+        },
+        {
+          "required": [
+            "forStandRanges"
+          ]
+        }
+      ]
+    },
+    "airborneRoute": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/id"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "sids": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "required": [
+        "name",
+        "default",
+        "sids"
+      ],
+      "additionalProperties": false
+    },
+    "routing": {
+      "type": "object",
+      "properties": {
+        "ground": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/route"
+          },
+          "minItems": 0
+        },
+        "airborne": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/airborneRoute"
+          },
+          "minItems": 0
+        },
+        "missed_approach": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/positionName"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/runway"
+          }
+        }
+      },
+      "required": [
+        "ground",
+        "airborne",
+        "missed_approach"
+      ],
+      "additionalProperties": false
+    },
+    "layoutVariant": {
+      "type": "object",
+      "properties": {
+        "online": {
+          "$ref": "#/$defs/strings"
+        },
+        "offline": {
+          "$ref": "#/$defs/strings"
+        },
+        "active": {
+          "$ref": "#/$defs/runways"
+        },
+        "layout": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "online",
+        "offline",
+        "layout"
+      ],
+      "additionalProperties": false
+    },
+    "view": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "layouts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/layoutVariant"
+            },
+            "minItems": 1
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/positionName"
+          }
+        },
+        "airborne_fallback_layout": {
+          "$ref": "#/$defs/id"
+        },
+        "message_areas": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/positions"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "layouts",
+        "airborne_fallback_layout",
+        "message_areas"
+      ],
+      "additionalProperties": false
+    },
+    "geography": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "elevation_ft": {
+          "type": "number",
+          "minimum": -1500,
+          "maximum": 30000
+        },
+        "transition_altitude_ft": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runway"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "initial_cfl_ft": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/runway"
+          }
+        },
+        "regions": {
+          "$ref": "#/$defs/resource"
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude",
+        "elevation_ft",
+        "transition_altitude_ft",
+        "runways",
+        "initial_cfl_ft"
+      ],
+      "additionalProperties": false
+    },
+    "cdm": {
+      "type": "object",
+      "properties": {
+        "rate": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rateLvo": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rateUri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sidIntervalUri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "taxizonesUri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "defaultTaxiTime": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deice": {
+          "type": "object",
+          "properties": {
+            "light": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "medium": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "heavy": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "super": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "platform": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "time": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "name",
+                  "time"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0
+            }
+          },
+          "required": [
+            "light",
+            "medium",
+            "heavy",
+            "super",
+            "platform"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "rate",
+        "rateLvo",
+        "rateUri",
+        "sidIntervalUri",
+        "taxizonesUri",
+        "defaultTaxiTime",
+        "deice"
+      ],
+      "additionalProperties": false
+    },
+    "clx": {
+      "type": "object",
+      "properties": {
+        "sid_first_waypoints": {
+          "$ref": "#/$defs/strings"
+        },
+        "sid_engine_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/id"
+              },
+              "sid_families": {
+                "$ref": "#/$defs/strings"
+              },
+              "disallowed_engine_types": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "J",
+                    "P",
+                    "T"
+                  ]
+                },
+                "minItems": 0
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              },
+              "recommendations": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "default_recommendation": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "code",
+              "sid_families",
+              "disallowed_engine_types",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "aircraft_runway_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/id"
+              },
+              "aircraft_types": {
+                "$ref": "#/$defs/strings"
+              },
+              "restricted_runways": {
+                "$ref": "#/$defs/runways"
+              },
+              "restricted_sid_suffixes": {
+                "$ref": "#/$defs/strings"
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "code",
+              "aircraft_types",
+              "restricted_runways",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "rnav_rules": {
+          "type": "object",
+          "properties": {
+            "nil": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "$ref": "#/$defs/id"
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            },
+            "insufficient": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "$ref": "#/$defs/id"
+                },
+                "capabilities": {
+                  "$ref": "#/$defs/strings"
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "code",
+                "capabilities",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "nil",
+            "insufficient"
+          ],
+          "additionalProperties": false
+        },
+        "route_conflict_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/id"
+              },
+              "sid_families": {
+                "$ref": "#/$defs/strings"
+              },
+              "route_tokens_any": {
+                "$ref": "#/$defs/strings"
+              },
+              "remark_tokens_any": {
+                "$ref": "#/$defs/strings"
+              },
+              "always": {
+                "type": "boolean"
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              },
+              "allow_override": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "sid_families",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "sid_first_waypoints",
+        "sid_engine_rules",
+        "aircraft_runway_rules",
+        "rnav_rules",
+        "route_conflict_rules"
+      ],
+      "additionalProperties": false
+    },
+    "pdcValidation": {
+      "type": "object",
+      "properties": {
+        "heavy_runway_restriction": {
+          "type": "object",
+          "properties": {
+            "aircraft_types": {
+              "$ref": "#/$defs/strings"
+            },
+            "allowed_runways": {
+              "$ref": "#/$defs/runways"
+            }
+          },
+          "required": [
+            "aircraft_types",
+            "allowed_runways"
+          ],
+          "additionalProperties": false
+        },
+        "sid_restrictions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sid": {
+                "type": "string",
+                "minLength": 1
+              },
+              "engine_types": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "J",
+                    "P",
+                    "T"
+                  ]
+                },
+                "minItems": 0
+              }
+            },
+            "required": [
+              "sid",
+              "engine_types"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "heavy_runway_restriction",
+        "sid_restrictions"
+      ],
+      "additionalProperties": false
+    },
+    "taxiScope": {
+      "type": "object",
+      "properties": {
+        "categories": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/strings"
+          }
+        },
+        "aircraft_types": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/strings"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "taxiValidation": {
+      "type": "object",
+      "properties": {
+        "apron": {
+          "$ref": "#/$defs/taxiScope"
+        },
+        "tower": {
+          "$ref": "#/$defs/taxiScope"
+        }
+      },
+      "required": [
+        "apron",
+        "tower"
+      ],
+      "additionalProperties": false
+    },
+    "availability": {
+      "enum": [
+        "enabled",
+        "disabled",
+        "deployment"
+      ]
+    },
+    "serviceCDM": {
+      "type": "object",
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/availability"
+        },
+        "config_root": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "config": {
+          "$ref": "#/$defs/cdm"
+        }
+      },
+      "required": [
+        "availability"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "availability": {
+                "not": {
+                  "const": "disabled"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "config_root",
+              "config"
+            ]
+          }
+        }
+      ]
+    },
+    "serviceStands": {
+      "type": "object",
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/availability"
+        },
+        "stands": {
+          "$ref": "#/$defs/resource"
+        },
+        "aircraft_reference": {
+          "$ref": "#/$defs/resource"
+        },
+        "aircraft_icao": {
+          "$ref": "#/$defs/resource"
+        },
+        "airline_assignment": {
+          "$ref": "#/$defs/resource"
+        },
+        "scenery": {
+          "$ref": "#/$defs/resource"
+        }
+      },
+      "required": [
+        "availability"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "availability": {
+                "not": {
+                  "const": "disabled"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "stands",
+              "aircraft_reference",
+              "aircraft_icao",
+              "airline_assignment",
+              "scenery"
+            ]
+          }
+        }
+      ]
+    },
+    "serviceText": {
+      "type": "object",
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/availability"
+        },
+        "provider": {
+          "const": "frequency-message/v1"
+        },
+        "layout_data": {
+          "$ref": "#/$defs/resource"
+        }
+      },
+      "required": [
+        "availability"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "availability": {
+                "not": {
+                  "const": "disabled"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "provider",
+              "layout_data"
+            ]
+          }
+        }
+      ]
+    },
+    "serviceAMAN": {
+      "type": "object",
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/availability"
+        },
+        "terminal": {
+          "$ref": "#/$defs/resource"
+        },
+        "boundary": {
+          "$ref": "#/$defs/resource"
+        }
+      },
+      "required": [
+        "availability"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "availability": {
+                "not": {
+                  "const": "disabled"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "terminal",
+              "boundary"
+            ]
+          }
+        }
+      ]
+    },
+    "servicePDC": {
+      "type": "object",
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/availability"
+        },
+        "validation": {
+          "$ref": "#/$defs/pdcValidation"
+        }
+      },
+      "required": [
+        "availability"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "availability": {
+                "not": {
+                  "const": "disabled"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "validation"
+            ]
+          }
+        }
+      ],
+      "description": "Airport availability/validation using the one application-level PDC service, provider client, transport, polling coordinator, and deployment HOPPIE_LOGON shared across airports. No airport-local credentials or polling configuration. Clearance state remains session-scoped."
+    },
+    "services": {
+      "type": "object",
+      "properties": {
+        "cdm": {
+          "$ref": "#/$defs/serviceCDM"
+        },
+        "stand_assignment": {
+          "$ref": "#/$defs/serviceStands"
+        },
+        "text_pilot": {
+          "$ref": "#/$defs/serviceText"
+        },
+        "aman": {
+          "$ref": "#/$defs/serviceAMAN"
+        },
+        "pdc": {
+          "$ref": "#/$defs/servicePDC"
+        },
+        "ecfmp": {
+          "type": "object",
+          "properties": {
+            "availability": {
+              "$ref": "#/$defs/availability"
+            }
+          },
+          "required": [
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "$ref": "#/$defs/repoPath"
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "airport": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_version": {
+          "const": "flightstrips-airport/v1"
+        },
+        "kind": {
+          "const": "airport"
+        },
+        "airport": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Z]{4}$"
+        },
+        "geography": {
+          "$ref": "#/$defs/geography"
+        },
+        "positions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/position"
+          },
+          "minItems": 1
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        },
+        "master": {
+          "$ref": "#/$defs/master"
+        },
+        "ownership": {
+          "$ref": "#/$defs/ownership"
+        },
+        "routing": {
+          "$ref": "#/$defs/routing"
+        },
+        "view": {
+          "$ref": "#/$defs/view"
+        },
+        "workflow": {
+          "$ref": "#/$defs/workflow"
+        },
+        "services": {
+          "$ref": "#/$defs/services"
+        },
+        "validation": {
+          "type": "object",
+          "properties": {
+            "clearance": {
+              "$ref": "#/$defs/clx"
+            },
+            "taxiway_types": {
+              "$ref": "#/$defs/taxiValidation"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "airport",
+        "geography",
+        "positions",
+        "coverage",
+        "master",
+        "ownership",
+        "routing",
+        "view",
+        "workflow",
+        "services",
+        "validation",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "workflow": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "handler": {
+              "const": "ekch/v1"
+            },
+            "settings": {
+              "type": "object",
+              "properties": {
+                "airborne_altitude_agl_ft": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "relevant_distance_nm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "airborne_altitude_agl_ft",
+                "relevant_distance_nm"
+              ],
+              "additionalProperties": false
+            },
+            "bays": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "handler",
+            "settings",
+            "bays"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "handler": {
+              "const": "example-paper/v1"
+            },
+            "settings": {
+              "type": "object",
+              "properties": {
+                "initial_bay": {
+                  "$ref": "#/$defs/id"
+                },
+                "runway_bay": {
+                  "$ref": "#/$defs/id"
+                },
+                "bay_ground_states": {
+                  "type": "object",
+                  "propertyNames": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "additionalProperties": {
+                    "enum": [
+                      "",
+                      "ST-UP",
+                      "PUSH",
+                      "TAXI",
+                      "LINEUP",
+                      "DEPA",
+                      "PARK"
+                    ]
+                  }
+                },
+                "ground_state_bays": {
+                  "type": "object",
+                  "propertyNames": {
+                    "enum": [
+                      "",
+                      "ST-UP",
+                      "PUSH",
+                      "TAXI",
+                      "LINEUP",
+                      "DEPA",
+                      "PARK"
+                    ]
+                  },
+                  "additionalProperties": {
+                    "$ref": "#/$defs/id"
+                  }
+                }
+              },
+              "required": [
+                "initial_bay",
+                "runway_bay",
+                "bay_ground_states",
+                "ground_state_bays"
+              ],
+              "additionalProperties": false
+            },
+            "bays": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "annotations": {
+              "type": "object",
+              "properties": {
+                "review_required": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "boolean"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "review_required"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "handler",
+            "settings",
+            "bays",
+            "annotations"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "$ref": "#/$defs/airport"
+}

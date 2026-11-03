@@ -1,14 +1,15 @@
 package services
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/config"
-	"FlightStrips/internal/database"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"errors"
 	"log/slog"
-	"slices"
+
 	"strings"
 	"time"
 
@@ -43,7 +44,10 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 		if controller.Position != ownerPosition || controller.Cid == nil || *controller.Cid == "" {
 			continue
 		}
-		s.esCommander.SendDropTracking(session, *controller.Cid, callsign)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.DropTrackingEvent{Callsign: callsign}, func() { s.esCommander.SendDropTracking(session, *controller.Cid, callsign) }); dispatchErr != nil {
+			slog.WarnContext(ctx, "Command binding unavailable", slog.Any("error", dispatchErr))
+			return
+		}
 		sent = true
 	}
 
@@ -107,15 +111,15 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		// must not independently reload it for one surveillance report.
 		s.cacheStrip(ctx, existingStrip)
 
-		dbStrip := database.Strip{
-			Origin:      existingStrip.Origin,
-			Destination: existingStrip.Destination,
-			Cleared:     existingStrip.Cleared,
-			Bay:         existingStrip.Bay,
-			State:       existingStrip.State,
+		decision, err := s.observeWorkflow(ctx, session, airport, existingStrip, airportworkflow.Observation{Kind: airportworkflow.Position, Latitude: lat, Longitude: lon, Altitude: altitude}, false)
+		if err != nil {
+			return err
+		}
+		if decision.Bay == nil {
+			return errors.New("position workflow omitted bay")
 		}
 		previousBay = existingStrip.Bay
-		bay = shared.GetDepartureBayFromPosition(lat, lon, int64(altitude), dbStrip, config.GetAirborneAltitudeAGL(), airport)
+		bay = *decision.Bay
 		routeRefreshNeeded = positionMayChangeRoute(existingStrip, airport, previousBay, bay, lat, lon)
 
 		existingState := "<nil>"
@@ -259,7 +263,9 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 				slog.String("callsign", callsign),
 				slog.String("trigger", "entered_not_cleared"),
 			)
-			s.esCommander.SendGenerateSquawk(session, "", callsign)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.GenerateSquawkEvent{Callsign: callsign}, func() { s.esCommander.SendGenerateSquawk(session, "", callsign) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		if previousBay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE {
 			return s.AutoTransferAirborneStrip(ctx, session, callsign)
@@ -324,81 +330,32 @@ func positionMayChangeRoute(strip *internalModels.Strip, airport, previousBay, n
 // handleArrivalPositionUpdate detects landing and runway-vacated transitions for
 // arrival strips using S2 runway polygon containment + altitude threshold.
 func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int64, strip *internalModels.Strip) error {
-	const logPrefix = "handleArrivalPositionUpdate"
-
-	landingThreshold := int64(shared.AirportElevation) + config.GetLandingAltitudeAGL()
-	onGround := altitude < landingThreshold
-
-	runwayRegion, inRunway := config.GetRunwayRegionForPosition(lat, lon)
-
-	// If the strip has an assigned runway, only recognise the polygon for that runway.
-	if inRunway && strip.Runway != nil && *strip.Runway != "" {
-		if !slices.Contains(runwayRegion.Runways, strings.ToUpper(*strip.Runway)) {
-			inRunway = false
-		}
+	bound, err := s.workflowFor(ctx, session, "")
+	if err != nil {
+		return err
 	}
-
-	alreadyLanded := strip.CdmData != nil && strip.CdmData.Aldt != nil
-
-	if !alreadyLanded && strip.Runway != nil && *strip.Runway != "" {
-		switch strip.Bay {
-		case shared.BAY_ARR_HIDDEN, shared.BAY_AIRBORNE:
-			if finalRegion, inFinal := config.GetFinalApproachRegionForRunway(*strip.Runway, lat, lon); inFinal {
-				distanceToThresholdNM := shared.GetDistance(lat, lon, finalRegion.ThresholdLat, finalRegion.ThresholdLon)
-				altitudeCeiling := finalRegion.FinalApproachAltitudeCeiling(distanceToThresholdNM, int64(shared.AirportElevation))
-				if altitude > altitudeCeiling {
-					slog.DebugContext(ctx, "Arrival in final approach zone but above glideslope ceiling",
-						slog.String("callsign", callsign),
-						slog.String("runway", *strip.Runway),
-						slog.Int64("altitude", altitude),
-						slog.Int64("ceiling", altitudeCeiling),
-						slog.Float64("distance_nm", distanceToThresholdNM),
-					)
-					break
-				}
-				slog.InfoContext(ctx, "Arrival entered final approach zone, moving to FINAL",
-					slog.String("callsign", callsign),
-					slog.String("runway", *strip.Runway),
-				)
-				if err := s.MoveToBay(ctx, session, callsign, shared.BAY_FINAL, true); err != nil {
-					slog.ErrorContext(ctx, logPrefix+": failed to move to FINAL", slog.String("callsign", callsign), slog.Any("error", err))
-					return err
-				} else {
-					strip.Bay = shared.BAY_FINAL
-				}
-			}
-		}
+	decision, err := bound.Observe(airportworkflow.Context{Session: session, Strip: workflowSnapshot(strip)}, airportworkflow.Observation{Kind: airportworkflow.ArrivalPosition, Latitude: lat, Longitude: lon, Altitude: int32(altitude)})
+	if err != nil {
+		return err
 	}
-
-	// Phase 1: aircraft enters runway polygon at landing altitude → touchdown.
-	if inRunway && onGround && !alreadyLanded {
+	if decision.Bay != nil && *decision.Bay != strip.Bay {
+		if err := s.MoveToBay(ctx, session, callsign, *decision.Bay, true); err != nil {
+			return err
+		}
+		strip.Bay = *decision.Bay
+	}
+	if decision.Touchdown {
 		aldt := time.Now().UTC().Format("1504")
 		newCdm := strip.CdmData.Clone()
 		newCdm.Aldt = &aldt
 		if _, err := s.cdmStore.SetCdmData(ctx, session, callsign, newCdm); err != nil {
-			slog.ErrorContext(ctx, logPrefix+": failed to set ALDT", slog.String("callsign", callsign), slog.Any("error", err))
 			return err
-		} else {
-			slog.InfoContext(ctx, "ALDT recorded", slog.String("callsign", callsign), slog.String("aldt", aldt), slog.String("runway", runwayRegion.Name))
-			shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
-			if strip.Owner != nil {
-				s.maybeDropArrivalTrackingInEuroscope(ctx, session, callsign, *strip.Owner)
-			}
+		}
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+		if strip.Owner != nil {
+			s.maybeDropArrivalTrackingInEuroscope(ctx, session, callsign, *strip.Owner)
 		}
 		s.autoAcceptPendingCoordination(ctx, session, strip)
-		return nil
-	}
-
-	// Phase 2: aircraft exits runway polygon on the ground → strip vacated runway.
-	if !inRunway && onGround && alreadyLanded {
-		switch strip.Bay {
-		case shared.BAY_FINAL, shared.BAY_RWY_ARR, shared.BAY_ARR_HIDDEN:
-			slog.InfoContext(ctx, "Arrival vacated runway, moving to TWY_ARR", slog.String("callsign", callsign))
-			if err := s.MoveToBay(ctx, session, callsign, shared.BAY_TWY_ARR, true); err != nil {
-				slog.ErrorContext(ctx, logPrefix+": failed to move to TWY_ARR", slog.String("callsign", callsign), slog.Any("error", err))
-				return err
-			}
-		}
 	}
 	return nil
 }
@@ -548,12 +505,13 @@ func (s *StripService) maybeMoveToLowerTwyDepOnTowerTransfer(ctx context.Context
 	if err != nil || sessionData == nil {
 		return
 	}
-	if strip.Origin != sessionData.Airport || strip.Destination == sessionData.Airport {
+	bound, err := s.workflowFor(ctx, session, sessionData.Airport)
+	if err != nil {
 		return
 	}
-
-	pos, err := config.GetPositionBasedOnFrequency(targetPosition)
-	if err != nil || pos.Section != "TWR" {
+	targetIsTower := bound.Definition().PositionSection(targetPosition) == "TWR"
+	decision, err := bound.Coordinate(airportworkflow.Context{Session: session, Strip: workflowSnapshot(strip)}, airportworkflow.Coordination{To: targetPosition, TargetIsTower: targetIsTower})
+	if err != nil || !decision.PromoteTaxi {
 		return
 	}
 

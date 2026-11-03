@@ -54,7 +54,7 @@ func TestUpdateGroundState_CompletesDownstreamWorkBeforePushReleaseFailure(t *te
 		err:       releaseErr,
 		onRelease: func() { order = append(order, "release") },
 	}
-	service := NewStripService(stripRepo)
+	service := newWorkflowTestService(stripRepo)
 	service.SetFrontendHub(&testutil.MockFrontendHub{})
 	service.SetCdmService(cdmService)
 	service.SetDeparturePositionObserver(observer)

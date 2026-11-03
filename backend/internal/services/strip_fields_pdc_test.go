@@ -45,7 +45,7 @@ func TestUpdateClearedFlag_EuroscopeClearConfirmsStalePdcAsVoiceClearance(t *tes
 		},
 	}
 	pdcSpy := &frontendMovePdcSpy{}
-	svc := NewStripService(repo, WithPdcService(pdcSpy))
+	svc := newWorkflowTestService(repo, WithPdcService(pdcSpy))
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 
 	err := svc.UpdateClearedFlag(context.Background(), session, callsign, true)
@@ -80,7 +80,7 @@ func TestUpdateClearedFlag_EuroscopeClearConfirmsPendingPdcAsVoiceClearance(t *t
 		},
 	}
 	pdcSpy := &frontendMovePdcSpy{}
-	svc := NewStripService(repo, WithPdcService(pdcSpy))
+	svc := newWorkflowTestService(repo, WithPdcService(pdcSpy))
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 
 	err := svc.UpdateClearedFlag(context.Background(), 1, strip.Callsign, true)
@@ -103,7 +103,7 @@ func TestUpdateClearedFlag_EuroscopeClearReconcilesStalePdcWhenFlagAlreadySet(t 
 		},
 	}
 	pdcSpy := &frontendMovePdcSpy{}
-	svc := NewStripService(repo, WithPdcService(pdcSpy))
+	svc := newWorkflowTestService(repo, WithPdcService(pdcSpy))
 
 	err := svc.UpdateClearedFlag(context.Background(), 1, strip.Callsign, true)
 

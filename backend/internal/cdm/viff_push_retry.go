@@ -66,11 +66,11 @@ func (t *viffPushRetryTracker) begin(session int32, callsign string, state viffP
 		entry.pending = &pending
 		return nil
 	}
-	if entry.confirmed != nil && *entry.confirmed == state {
+	if entry.confirmed != nil && sameViffPushState(*entry.confirmed, state) {
 		return nil
 	}
 	if entry.exhausted != nil {
-		if *entry.exhausted == state {
+		if sameViffPushState(*entry.exhausted, state) {
 			return nil
 		}
 		// As before, genuinely changed data may start a fresh retry window.
@@ -148,7 +148,7 @@ func (t *viffPushRetryTracker) complete(attempt *viffPushAttempt, err error, now
 		entry.failures = 0
 		entry.failureSince = time.Time{}
 		entry.exhausted = nil
-		if pending == nil || *pending == state {
+		if pending == nil || sameViffPushState(*pending, state) {
 			return result
 		}
 		state = *pending
@@ -173,7 +173,7 @@ func (t *viffPushRetryTracker) complete(attempt *viffPushAttempt, err error, now
 		}
 		index := min(entry.failures-1, uint(len(viffPushRetryDelays)-1))
 		delay = viffPushRetryDelays[index]
-		if pending != nil && *pending != state {
+		if pending != nil && !sameViffPushState(*pending, state) {
 			state = *pending
 			delay = 0
 		}
@@ -233,4 +233,18 @@ func (t *viffPushRetryTracker) removeSession(session int32) {
 			delete(t.entries, key)
 		}
 	}
+}
+
+func sameViffPushState(a, b viffPushState) bool {
+	sourceA, sourceB := a.source, b.source
+	a.source, b.source = nil, nil
+	a.sourceSet, b.sourceSet = false, false
+	a.session, b.session = 0, 0
+	if a != b {
+		return false
+	}
+	if sourceA == nil || sourceB == nil {
+		return sourceA == nil && sourceB == nil
+	}
+	return sourceA.Same(sourceB)
 }

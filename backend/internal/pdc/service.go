@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	esCommands "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/helpers"
 	pkgModels "FlightStrips/pkg/models"
 	"context"
@@ -238,7 +239,9 @@ func (s *Service) notifyClearedFlagEuroscope(ctx context.Context, sessionID int3
 		)
 		return
 	}
-	s.euroscopeHub.SendClearedFlag(sessionID, cid, callsign, cleared)
+	if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeHub, sessionID, cid, esCommands.ClearedFlagEvent{Callsign: callsign, Cleared: cleared}, func() { s.euroscopeHub.SendClearedFlag(sessionID, cid, callsign, cleared) }); err != nil {
+		slog.WarnContext(ctx, "PDC command binding unavailable", slog.Any("error", err))
+	}
 }
 
 // notifyStateChange sends PDC state change notification to frontend and EuroScope clients
@@ -336,6 +339,12 @@ func (s *Service) getDepartureAtisCode(sessionID int32) string {
 }
 
 func (s *Service) resolveEuroscopeTargetCID(ctx context.Context, sessionID int32) string {
+	if binding, human := shared.HumanCommand(ctx); human {
+		if shared.ValidateCommandAuthority(ctx, sessionID) != nil {
+			return ""
+		}
+		return binding.CID()
+	}
 	if masterCID := strings.TrimSpace(s.euroscopeHub.GetMasterCid(sessionID)); masterCID != "" {
 		return masterCID
 	}
@@ -354,6 +363,11 @@ func (s *Service) resolveEuroscopeTargetCID(ctx context.Context, sessionID int32
 }
 
 func (s *Service) applyMandatoryRouteReview(ctx context.Context, session *models.Session, strip *models.Strip) (*mandatoryRouteReview, error) {
+	if session != nil {
+		if err := shared.ValidateCommandAuthority(ctx, session.ID); err != nil {
+			return nil, err
+		}
+	}
 	if session == nil || strip == nil {
 		return nil, nil
 	}
@@ -392,10 +406,14 @@ func (s *Service) applyMandatoryRouteReview(ctx context.Context, session *models
 
 	if targetCID := s.resolveEuroscopeTargetCID(ctx, session.ID); targetCID != "" {
 		if review.Route != "" {
-			s.euroscopeHub.SendRoute(session.ID, targetCID, strip.Callsign, review.Route)
+			if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeHub, session.ID, targetCID, esCommands.RouteEvent{Callsign: strip.Callsign, Route: review.Route}, func() { s.euroscopeHub.SendRoute(session.ID, targetCID, strip.Callsign, review.Route) }); err != nil {
+				return nil, err
+			}
 		}
 		if review.SID != "" {
-			s.euroscopeHub.SendSid(session.ID, targetCID, strip.Callsign, review.SID)
+			if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeHub, session.ID, targetCID, esCommands.SidEvent{Callsign: strip.Callsign, Sid: review.SID}, func() { s.euroscopeHub.SendSid(session.ID, targetCID, strip.Callsign, review.SID) }); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -747,6 +765,9 @@ func (s *Service) SendStatusAck(ctx context.Context, session sessionInformation,
 // IssueClearance sends a PDC clearance to a pilot
 // The clearance data (runway, sid, squawk) should already be in the strip table
 func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid string, sessionID int32) (issueErr error) {
+	if err := shared.ValidateCommandAuthority(ctx, sessionID); err != nil {
+		return err
+	}
 	logger := slog.With("session", sessionID, "callsign", callsign, "issued_by_cid", cid)
 	stage := "lookup"
 	defer func() {
@@ -901,6 +922,9 @@ func (s *Service) deliverPdcClearance(ctx context.Context, sessionInfo sessionIn
 	if err != nil {
 		return err
 	}
+	if err := shared.ValidateCommandAuthority(ctx, sessionInfo.id); err != nil {
+		return err
+	}
 	if err := client.SendCPDLC(ctx, sessionInfo.callsign, callsign, buildPDCClearance(options)); err != nil {
 		return fmt.Errorf("failed to send clearance: %w", err)
 	}
@@ -953,6 +977,9 @@ func (s *Service) notifyIssuedPdcClearance(ctx context.Context, sessionID int32,
 }
 
 func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId int32, cid string) error {
+	if err := shared.ValidateCommandAuthority(ctx, sessionId); err != nil {
+		return err
+	}
 	sessionInfo, err := s.getSessionInfo(ctx, sessionId)
 	if err != nil {
 		return err
@@ -976,6 +1003,9 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 		if sequenceErr != nil {
 			return sequenceErr
 		}
+		if err := shared.ValidateCommandAuthority(ctx, sessionId); err != nil {
+			return err
+		}
 		if sendErr := client.SendCPDLC(ctx, sessionInfo.callsign, callsign, buildRevertToVoice(nextSeq)); sendErr != nil {
 			return fmt.Errorf("failed to send revert to voice: %w", sendErr)
 		}
@@ -993,6 +1023,9 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 }
 
 func (s *Service) ConfirmVoiceClearance(ctx context.Context, callsign string, sessionID int32) error {
+	if err := shared.ValidateCommandAuthority(ctx, sessionID); err != nil {
+		return err
+	}
 	strip, err := s.stripRepo.GetByCallsign(ctx, sessionID, callsign)
 	if err != nil {
 		return fmt.Errorf("failed to get strip: %w", err)

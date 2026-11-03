@@ -1,8 +1,7 @@
 package services
 
 import (
-	"FlightStrips/internal/config"
-	"FlightStrips/internal/database"
+	"FlightStrips/internal/airportworkflow"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
@@ -21,6 +20,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+var errWorkflowNotAdmitted = errors.New("workflow declined admission")
+
 // SyncStrip creates or updates a strip from an EuroScope sync/strip-update event.
 // The strip parameter must be of type euroscope.Strip.
 func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string, strip interface{}, airport string) error {
@@ -37,6 +38,9 @@ func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string,
 		firstEuroscopeObservation = existing.EuroscopeSeenAt == nil
 	}
 	if err := s.syncEuroscopeStrip(ctx, session, cid, esStrip, airport); err != nil {
+		if errors.Is(err, errWorkflowNotAdmitted) {
+			return nil
+		}
 		return err
 	}
 	if sourceStore, ok := s.lifecycleStore.(interface {
@@ -117,12 +121,37 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 	}
 
+	bound, workflowErr := s.workflowFor(ctx, session, airport)
+	if workflowErr != nil {
+		return workflowErr
+	}
+	if sessionObj != nil && sessionObj.Airport != "" && sessionObj.Airport != airport {
+		return fmt.Errorf("workflow airport/session mismatch")
+	}
+	lifecycle, workflowErr := bound.Lifecycle(airportworkflow.Context{Session: session, Strip: workflowSnapshot(existingStrip)}, airportworkflow.Lifecycle{Origin: strip.Origin, Destination: strip.Destination, GroundState: strip.GroundState, Cleared: strip.Cleared, Latitude: positionLatitude, Longitude: positionLongitude, Altitude: positionAltitude})
+	if workflowErr != nil {
+		return workflowErr
+	}
+	if !lifecycle.Admit {
+		return errWorkflowNotAdmitted
+	}
 	var bay string
 	gndOnline := s.isGndOnline(ctx, session)
 	if syncState != nil {
 		gndOnline = syncState.GndOnline
 	}
 
+	decisionStrip := existingStrip
+	if lifecycle.Restart {
+		decisionStrip = nil
+	}
+	workflowDecision, workflowErr := s.observeWorkflow(ctx, session, airport, decisionStrip, airportworkflow.Observation{Kind: airportworkflow.FullFlight, Origin: strip.Origin, Destination: strip.Destination, GroundState: strip.GroundState, Cleared: strip.Cleared, Latitude: positionLatitude, Longitude: positionLongitude, Altitude: positionAltitude}, gndOnline)
+	if workflowErr != nil {
+		return workflowErr
+	}
+	if workflowDecision.Bay == nil {
+		return fmt.Errorf("full-flight workflow omitted bay")
+	}
 	var validationStrip *internalModels.Strip
 	var amanStrip *internalModels.Strip
 	createdStrip := false
@@ -130,7 +159,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	needsStripBroadcast := false
 	needsPdcValidation := false
 	squawkMembershipChanged := false
-	restartLifecycle := false
+	restartLifecycle := lifecycle.Restart
 	correctedEobt := ""
 	eobtClamped := false
 	observedPushback := false
@@ -142,7 +171,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
-		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport, gndOnline)
+		bay = *workflowDecision.Bay
 		observedPushback = bay == shared.BAY_PUSH && isLocalCdmDeparture(strip.Origin, airport)
 
 		isArrival := strip.Destination == airport
@@ -153,7 +182,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 
 		newClearedAlt := strip.ClearedAltitude
 		if newClearedAlt == 0 && bay == shared.BAY_NOT_CLEARED {
-			if autoCfl, ok := config.GetInitialCFLForRunway(runwayForStrip); ok {
+			if autoCfl, ok := workflowInitialCFL(bound, runwayForStrip); ok {
 				newClearedAlt = int32(autoCfl)
 			}
 		}
@@ -267,7 +296,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			slog.String("bay", bay),
 		)
 		if newClearedAlt != strip.ClearedAltitude && s.esCommander != nil {
-			s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, newClearedAlt)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedAltitudeEvent{Callsign: strip.Callsign, Altitude: newClearedAlt}, func() { s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, newClearedAlt) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		if shouldGenerateDepartureSquawk(strip, airport, bay) && s.esCommander != nil {
 			slog.InfoContext(ctx, "Triggering automatic squawk generation",
@@ -275,14 +306,16 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				slog.String("callsign", strip.Callsign),
 				slog.String("trigger", "new_strip"),
 			)
-			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.GenerateSquawkEvent{Callsign: strip.Callsign}, func() { s.esCommander.SendGenerateSquawk(session, "", strip.Callsign) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		createdStrip = true
 		needsStripBroadcast = true
 		needsPdcValidation = true
 	} else {
 		// Strip exists, update it
-		restartLifecycle = shouldRestartStripLifecycle(existingStrip, strip, airport)
+		restartLifecycle = lifecycle.Restart
 		if restartLifecycle {
 			slog.InfoContext(ctx, "Restarting strip lifecycle for refilled aircraft",
 				slog.String("callsign", strip.Callsign),
@@ -295,31 +328,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		effectiveGroundState := strip.GroundState
-		if !restartLifecycle &&
-			(strip.Origin == "" || strip.Destination == "") &&
-			strip.GroundState == euroscope.GroundStateUnknown &&
-			existingStrip.State != nil &&
-			*existingStrip.State != euroscope.GroundStateUnknown &&
-			shared.GetGroundState(existingStrip.Bay) != euroscope.GroundStateUnknown {
-			effectiveGroundState = *existingStrip.State
-		}
-		if !restartLifecycle && existingStrip.Bay == shared.BAY_DEPART && strip.GroundState == euroscope.GroundStateTaxi {
-			effectiveGroundState = shared.GetGroundState(existingStrip.Bay)
-			if existingStrip.State != nil && *existingStrip.State != euroscope.GroundStateUnknown {
-				effectiveGroundState = *existingStrip.State
-			}
-		}
-		if !restartLifecycle && existingStrip.Bay == shared.BAY_AIRBORNE && strip.GroundState == euroscope.GroundStateTaxi {
-			effectiveGroundState = euroscope.GroundStateUnknown
-			if existingStrip.State != nil &&
-				*existingStrip.State != euroscope.GroundStateUnknown &&
-				*existingStrip.State != euroscope.GroundStateTaxi {
-				effectiveGroundState = *existingStrip.State
-			}
+		if workflowDecision.ReconciledGroundState != nil {
+			effectiveGroundState = *workflowDecision.ReconciledGroundState
 		}
 		effectiveCleared := strip.Cleared
-		if !restartLifecycle && shouldPreservePdcClearedFlag(existingStrip, strip) {
-			effectiveCleared = existingStrip.Cleared
+		if workflowDecision.ReconciledCleared != nil {
+			effectiveCleared = *workflowDecision.ReconciledCleared
 		}
 
 		stand := existingStrip.Stand
@@ -345,24 +359,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				runwayForStrip = autoAssignRunway(isArrivalUpdate, sessionObj.ActiveRunways)
 			}
 			runway = &runwayForStrip
-			bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport, gndOnline)
+			bay = *workflowDecision.Bay
 		} else {
-			dbExistingStrip := database.Strip{
-				Origin:      existingStrip.Origin,
-				Destination: existingStrip.Destination,
-				Cleared:     existingStrip.Cleared,
-				Bay:         existingStrip.Bay,
-				State:       existingStrip.State,
-				Stand:       existingStrip.Stand,
-			}
-			bayStrip := strip
-			bayStrip.Origin = origin
-			bayStrip.Destination = destination
-			bayStrip.GroundState = effectiveGroundState
-			bay = shared.GetDepartureBay(bayStrip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport, gndOnline)
-			if shouldPreservePdcBay(existingStrip, strip, bay) {
-				bay = existingStrip.Bay
-			}
+			bay = *workflowDecision.Bay
 			observedPushback = existingStrip.Bay != shared.BAY_PUSH && bay == shared.BAY_PUSH &&
 				isLocalCdmDeparture(origin, airport)
 
@@ -397,7 +396,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				if runway != nil {
 					runwayForAutoSet = *runway
 				}
-				if autoCfl, ok := config.GetInitialCFLForRunway(runwayForAutoSet); ok {
+				if autoCfl, ok := workflowInitialCFL(bound, runwayForAutoSet); ok {
 					updateClearedAlt = int32(autoCfl)
 				}
 			}
@@ -642,11 +641,13 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				slog.String("callsign", strip.Callsign),
 				slog.String("trigger", "first_euroscope_sync"),
 			)
-			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.GenerateSquawkEvent{Callsign: strip.Callsign}, func() { s.esCommander.SendGenerateSquawk(session, "", strip.Callsign) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 
 		if !primaryChange {
-			s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
+			s.sendCorrectedEuroscopeEobt(ctx, session, cid, strip.Callsign, correctedEobt, eobtClamped)
 			return s.observeSyncedStrip(ctx, amanStrip, existingStrip)
 		}
 
@@ -682,10 +683,14 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 		slog.DebugContext(ctx, "Updated strip", slog.String("callsign", strip.Callsign))
 		if primaryChange && updateClearedAlt != strip.ClearedAltitude && s.esCommander != nil {
-			s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, updateClearedAlt)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedAltitudeEvent{Callsign: strip.Callsign, Altitude: updateClearedAlt}, func() { s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, updateClearedAlt) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		if primaryChange && updateHeading != strip.Heading && s.esCommander != nil {
-			s.esCommander.SendHeading(session, cid, strip.Callsign, updateHeading)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.HeadingEvent{Callsign: strip.Callsign, Heading: updateHeading}, func() { s.esCommander.SendHeading(session, cid, strip.Callsign, updateHeading) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		needsStripBroadcast = true
 		needsPdcValidation = validationInputsChanged
@@ -702,7 +707,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			return err
 		}
 	}
-	s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
+	s.sendCorrectedEuroscopeEobt(ctx, session, cid, strip.Callsign, correctedEobt, eobtClamped)
 
 	if syncState != nil {
 		if routeNeedsUpdate {
@@ -949,11 +954,14 @@ func hasProtectedSyncedTobt(data *internalModels.CdmData, previousEobt string) b
 	return !(confirmedBy == internalModels.TobtConfirmedByATC && currentTobt == strings.TrimSpace(previousEobt))
 }
 
-func (s *StripService) sendCorrectedEuroscopeEobt(session int32, cid string, callsign string, correctedEobt string, clamped bool) {
+func (s *StripService) sendCorrectedEuroscopeEobt(ctx context.Context, session int32, cid string, callsign string, correctedEobt string, clamped bool) {
 	if !clamped || correctedEobt == "" || s.esCommander == nil {
 		return
 	}
-	s.esCommander.SendEobt(session, cid, callsign, correctedEobt)
+	if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.EobtEvent{Callsign: callsign, Eobt: correctedEobt}, func() { s.esCommander.SendEobt(session, cid, callsign, correctedEobt) }); dispatchErr != nil {
+		slog.WarnContext(ctx, "Command binding unavailable", slog.Any("error", dispatchErr))
+		return
+	}
 }
 
 func isLocalCdmDeparture(origin string, airport string) bool {
@@ -1009,45 +1017,6 @@ func shouldForceSyncStripRecalculation(data *internalModels.CdmData, now time.Ti
 	}
 
 	return diffMinutes > 5
-}
-
-func shouldRestartStripLifecycle(existingStrip *internalModels.Strip, strip euroscope.Strip, airport string) bool {
-	if existingStrip == nil {
-		return false
-	}
-
-	normalizedAirport := strings.TrimSpace(strings.ToUpper(airport))
-	if normalizedAirport == "" {
-		return false
-	}
-
-	existingDestination := strings.TrimSpace(strings.ToUpper(existingStrip.Destination))
-	newOrigin := strings.TrimSpace(strings.ToUpper(strip.Origin))
-	newDestination := strings.TrimSpace(strings.ToUpper(strip.Destination))
-	if existingStrip.Bay == shared.BAY_HIDDEN_DEP {
-		position := strip.GetPosition()
-		if existingStrip.EuroscopeSeenAt != nil ||
-			newOrigin != normalizedAirport ||
-			newDestination == "" || newDestination == normalizedAirport ||
-			(position.GetLat() == 0 && position.GetLon() == 0) ||
-			shared.GetDistance(position.GetLat(), position.GetLon(), shared.AirportLatitude, shared.AirportLongitude) > shared.RelevantDistance {
-			return false
-		}
-		return int64(position.GetAltitude()) <= int64(shared.AirportElevation)+config.GetAirborneAltitudeAGL()
-	}
-
-	if existingDestination != normalizedAirport {
-		return false
-	}
-	if newOrigin != normalizedAirport {
-		return false
-	}
-	if newDestination == "" || newDestination == normalizedAirport {
-		return false
-	}
-
-	existingOrigin := strings.TrimSpace(strings.ToUpper(existingStrip.Origin))
-	return existingOrigin != newOrigin || existingDestination != newDestination
 }
 
 func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
@@ -1241,33 +1210,6 @@ func isApronBay(bay string) bool {
 	case shared.BAY_PUSH, shared.BAY_TAXI, shared.BAY_TAXI_LWR, shared.BAY_TAXI_TWR,
 		shared.BAY_TWY_ARR, shared.BAY_STAND:
 		return true
-	default:
-		return false
-	}
-}
-
-func shouldPreservePdcClearedFlag(existingStrip *internalModels.Strip, strip euroscope.Strip) bool {
-	if existingStrip == nil || strip.Cleared || !existingStrip.Cleared {
-		return false
-	}
-
-	return existingStrip.PdcState == "CLEARED" || existingStrip.PdcState == "CONFIRMED"
-}
-
-func shouldPreservePdcBay(existingStrip *internalModels.Strip, strip euroscope.Strip, bay string) bool {
-	if existingStrip == nil || strip.Cleared || bay != shared.BAY_NOT_CLEARED {
-		return false
-	}
-
-	if existingStrip.Bay == "" || existingStrip.Bay == shared.BAY_UNKNOWN || existingStrip.Bay == shared.BAY_NOT_CLEARED {
-		return false
-	}
-
-	switch existingStrip.PdcState {
-	case "CLEARED":
-		return true
-	case "CONFIRMED":
-		return existingStrip.Cleared
 	default:
 		return false
 	}

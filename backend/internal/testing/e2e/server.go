@@ -53,7 +53,15 @@ func StartTestServerWithConfig(configure func(*app.Config)) (*TestServer, error)
 		return nil, fmt.Errorf("failed to create PostgreSQL test database: %w", err)
 	}
 
+	definitions, err := config.LoadEKCHTestAirportRegistry()
+	if err != nil {
+		dbpool.Close()
+		_ = databaseCleanup()
+		cancel()
+		return nil, err
+	}
 	cfg := app.Config{
+		Airports:       definitions,
 		Environment:    "test",
 		CloseDBOnClose: true,
 		EnablePDC:      false,

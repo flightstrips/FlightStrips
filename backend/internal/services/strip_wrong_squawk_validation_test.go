@@ -52,7 +52,7 @@ func TestReevaluateSquawkValidation_ActivatesWrongSquawkForGroundOwner(t *testin
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateSquawkValidation(context.Background(), 1, "SAS123", false, false))
 	require.NotNil(t, persisted)
 	assert.Equal(t, wrongSquawkValidationIssueType, persisted.IssueType)
@@ -77,7 +77,7 @@ func TestApplyWrongSquawkValidation_ReplacesStandAssignmentAdvisory(t *testing.T
 			return nil
 		},
 	}
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 
 	require.NoError(t, svc.applyWrongSquawkValidation(context.Background(), 1, &models.Strip{
 		Callsign:       "SAS123",
@@ -169,7 +169,7 @@ func TestReevaluateSquawkValidation_ClearsWrongSquawkForNonApplicableOwner(t *te
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateSquawkValidation(context.Background(), 1, "SAS123", false, false))
 	assert.True(t, cleared)
 }
@@ -222,7 +222,7 @@ func TestReevaluateSquawkValidation_ClearsWrongSquawkInClearedBay(t *testing.T) 
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateSquawkValidation(context.Background(), 1, "SAS123", false, false))
 	assert.True(t, cleared)
 }
@@ -241,7 +241,7 @@ func TestApplyWrongSquawkValidation_PreservesAcknowledgedStateForSameMessage(t *
 		ActivationKey:  "existing-key",
 	}
 
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	require.NoError(t, svc.applyWrongSquawkValidation(context.Background(), 1, &models.Strip{
 		Callsign:         "SAS123",
 		Owner:            &owner,
@@ -275,7 +275,7 @@ func TestApplyWrongSquawkValidation_ReactivatesOnSquawkChange(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.applyWrongSquawkValidation(context.Background(), 1, &models.Strip{
 		Callsign:       "SAS123",
 		Owner:          &owner,
@@ -340,7 +340,7 @@ func TestReevaluateSquawkValidation_DuplicateTakesPrecedenceOverWrongSquawk(t *t
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateSquawkValidation(context.Background(), 1, "SAS123", false, false))
 	require.NotNil(t, statusByCallsign["SAS123"])
 	assert.Equal(t, duplicateSquawkValidationIssueType, statusByCallsign["SAS123"].IssueType)

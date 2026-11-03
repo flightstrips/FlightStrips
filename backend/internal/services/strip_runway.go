@@ -31,6 +31,11 @@ func runwayClearanceTargetBay(currentBay string) string {
 // For departures from this airport in TAXI_LWR or DEPART bay, the ground state is set to 'DEPA'
 // and sent to EuroScope.
 func (s *StripService) RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error {
+	var authorityErr error
+	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.esCommander, session, cid)
+	if authorityErr != nil {
+		return authorityErr
+	}
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
@@ -94,7 +99,9 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 			}
 		}
 		if s.esCommander != nil {
-			s.esCommander.SendGroundState(session, cid, callsign, state)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.GroundStateEvent{Callsign: callsign, GroundState: state}, func() { s.esCommander.SendGroundState(session, cid, callsign, state) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 	}
 

@@ -31,6 +31,7 @@ type Client struct {
 	closeOnce         sync.Once
 	closed            chan struct{}
 	hub               *Hub
+	userMu            sync.RWMutex
 	user              shared.AuthenticatedUser
 
 	position       string
@@ -124,6 +125,8 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) GetCid() string {
+	c.userMu.RLock()
+	defer c.userMu.RUnlock()
 	return c.user.GetCid()
 }
 
@@ -160,10 +163,14 @@ func (c *Client) GetConnection() *gorilla.Conn {
 }
 
 func (c *Client) IsAuthenticated() bool {
+	c.userMu.RLock()
+	defer c.userMu.RUnlock()
 	return c.user.IsValid()
 }
 
 func (c *Client) SetUser(user shared.AuthenticatedUser) {
+	c.userMu.Lock()
+	defer c.userMu.Unlock()
 	c.user = user
 }
 
@@ -200,4 +207,17 @@ func (c *Client) HandlePong() error {
 // RecordMessage is a no-op for frontend clients (recording is EuroScope-only)
 func (c *Client) RecordMessage(rawMessage []byte) {
 	// Frontend messages are not recorded
+}
+
+func (c *Client) PrepareMessageContext(ctx context.Context, message string) (context.Context, error) {
+	if c == nil || message == "token" || (c.readOnly && strings.HasPrefix(message, "aman.")) {
+		return ctx, nil
+	}
+	if c.hub == nil || c.hub.server == nil {
+		return ctx, shared.RejectAction("own plugin is unavailable")
+	}
+	if err := c.CanHandleMessage(message); err != nil {
+		return ctx, err
+	}
+	return shared.EnsureHumanCommand(ctx, c.hub.server.GetEuroscopeHub(), c.session, c.GetCid())
 }

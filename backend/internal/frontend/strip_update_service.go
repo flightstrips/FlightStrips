@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
@@ -77,6 +78,11 @@ func NewFrontendStripUpdateService(
 }
 
 func (s *FrontendStripUpdateService) UpdateStrip(ctx context.Context, req FrontendStripUpdateRequest) error {
+	var authorityErr error
+	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.euroscopeSender, req.Session, req.Cid)
+	if authorityErr != nil {
+		return authorityErr
+	}
 	if req.Event.Route != nil && req.Event.Sid != nil {
 		return errors.New("cannot update both route and sid at the same time")
 	}
@@ -94,10 +100,10 @@ func (s *FrontendStripUpdateService) UpdateStrip(ctx context.Context, req Fronte
 		return nil
 	}
 
-	if err := s.handleRouteUpdate(req, strip); err != nil {
+	if err := s.handleRouteUpdate(ctx, req, strip); err != nil {
 		return err
 	}
-	if err := s.handleAircraftAndRemarksUpdate(req, strip); err != nil {
+	if err := s.handleAircraftAndRemarksUpdate(ctx, req, strip); err != nil {
 		return err
 	}
 	if err := s.handleSidUpdate(ctx, req, strip); err != nil {
@@ -122,26 +128,38 @@ func (s *FrontendStripUpdateService) UpdateStrip(ctx context.Context, req Fronte
 	return nil
 }
 
-func (s *FrontendStripUpdateService) handleRouteUpdate(req FrontendStripUpdateRequest, strip *internalModels.Strip) error {
+func (s *FrontendStripUpdateService) handleRouteUpdate(ctx context.Context, req FrontendStripUpdateRequest, strip *internalModels.Strip) error {
 	if req.Event.Route == nil || stringPtrValue(strip.Route) == *req.Event.Route {
 		return nil
 	}
 
-	s.euroscopeSender.SendRoute(req.Session, req.Cid, req.Event.Callsign, *req.Event.Route)
+	if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.RouteEvent{Callsign: req.Event.Callsign, Route: *req.Event.Route}, func() { s.euroscopeSender.SendRoute(req.Session, req.Cid, req.Event.Callsign, *req.Event.Route) }); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (s *FrontendStripUpdateService) handleAircraftAndRemarksUpdate(req FrontendStripUpdateRequest, strip *internalModels.Strip) error {
+func (s *FrontendStripUpdateService) handleAircraftAndRemarksUpdate(ctx context.Context, req FrontendStripUpdateRequest, strip *internalModels.Strip) error {
 	aircraftChanged := req.Event.Aircraft != nil && stringPtrValue(strip.AircraftType) != *req.Event.Aircraft
 	remarksChanged := req.Event.Remarks != nil && stringPtrValue(strip.Remarks) != *req.Event.Remarks
 
 	switch {
 	case aircraftChanged && remarksChanged:
-		s.euroscopeSender.SendAircraftInfoAndRemarks(req.Session, req.Cid, req.Event.Callsign, *req.Event.Aircraft, *req.Event.Remarks)
+		if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.AircraftInfoRemarksEvent{Callsign: req.Event.Callsign, AircraftType: *req.Event.Aircraft, Remarks: *req.Event.Remarks}, func() {
+			s.euroscopeSender.SendAircraftInfoAndRemarks(req.Session, req.Cid, req.Event.Callsign, *req.Event.Aircraft, *req.Event.Remarks)
+		}); err != nil {
+			return err
+		}
 	case aircraftChanged:
-		s.euroscopeSender.SendAircraftInfo(req.Session, req.Cid, req.Event.Callsign, *req.Event.Aircraft)
+		if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.AircraftInfoEvent{Callsign: req.Event.Callsign, AircraftType: *req.Event.Aircraft}, func() {
+			s.euroscopeSender.SendAircraftInfo(req.Session, req.Cid, req.Event.Callsign, *req.Event.Aircraft)
+		}); err != nil {
+			return err
+		}
 	case remarksChanged:
-		s.euroscopeSender.SendRemarks(req.Session, req.Cid, req.Event.Callsign, *req.Event.Remarks)
+		if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.RemarksEvent{Callsign: req.Event.Callsign, Remarks: *req.Event.Remarks}, func() { s.euroscopeSender.SendRemarks(req.Session, req.Cid, req.Event.Callsign, *req.Event.Remarks) }); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -152,7 +170,9 @@ func (s *FrontendStripUpdateService) handleSidUpdate(ctx context.Context, req Fr
 		return nil
 	}
 
-	s.euroscopeSender.SendSid(req.Session, req.Cid, req.Event.Callsign, *req.Event.Sid)
+	if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.SidEvent{Callsign: req.Event.Callsign, Sid: *req.Event.Sid}, func() { s.euroscopeSender.SendSid(req.Session, req.Cid, req.Event.Callsign, *req.Event.Sid) }); err != nil {
+		return err
+	}
 	if err := s.stripRepo.AppendControllerModifiedField(ctx, req.Session, req.Event.Callsign, "sid"); err != nil {
 		return err
 	}
@@ -175,7 +195,9 @@ func (s *FrontendStripUpdateService) handleStandUpdate(ctx context.Context, req 
 		return nil
 	}
 
-	s.euroscopeSender.SendStand(req.Session, req.Cid, req.Event.Callsign, *req.Event.Stand)
+	if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.StandEvent{Callsign: req.Event.Callsign, Stand: *req.Event.Stand}, func() { s.euroscopeSender.SendStand(req.Session, req.Cid, req.Event.Callsign, *req.Event.Stand) }); err != nil {
+		return err
+	}
 	if err := s.stripRepo.AppendControllerModifiedField(ctx, req.Session, req.Event.Callsign, "stand"); err != nil {
 		return err
 	}
@@ -191,7 +213,9 @@ func (s *FrontendStripUpdateService) handleRunwayUpdate(ctx context.Context, req
 		return nil
 	}
 
-	s.euroscopeSender.SendRunway(req.Session, req.Cid, req.Event.Callsign, *req.Event.Runway)
+	if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.AircraftRunwayEvent{Callsign: req.Event.Callsign, Runway: *req.Event.Runway}, func() { s.euroscopeSender.SendRunway(req.Session, req.Cid, req.Event.Callsign, *req.Event.Runway) }); err != nil {
+		return err
+	}
 	if _, err := s.stripRepo.UpdateRunway(ctx, req.Session, req.Event.Callsign, req.Event.Runway, nil); err != nil {
 		return err
 	}
@@ -223,7 +247,9 @@ func (s *FrontendStripUpdateService) handleEobtUpdate(ctx context.Context, req F
 		return errors.New("invalid eobt: expected HHMM")
 	}
 
-	s.euroscopeSender.SendEobt(req.Session, req.Cid, req.Event.Callsign, eobt)
+	if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.EobtEvent{Callsign: req.Event.Callsign, Eobt: eobt}, func() { s.euroscopeSender.SendEobt(req.Session, req.Cid, req.Event.Callsign, eobt) }); err != nil {
+		return err
+	}
 	if s.cdmService == nil {
 		return errors.New("CDM service not available")
 	}
@@ -242,7 +268,11 @@ func (s *FrontendStripUpdateService) handleAltitudeUpdate(ctx context.Context, r
 		return nil
 	}
 
-	s.euroscopeSender.SendClearedAltitude(req.Session, req.Cid, req.Event.Callsign, *req.Event.Altitude)
+	if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.ClearedAltitudeEvent{Callsign: req.Event.Callsign, Altitude: *req.Event.Altitude}, func() {
+		s.euroscopeSender.SendClearedAltitude(req.Session, req.Cid, req.Event.Callsign, *req.Event.Altitude)
+	}); err != nil {
+		return err
+	}
 	return s.stripRepo.AppendControllerModifiedField(ctx, req.Session, req.Event.Callsign, "cleared_altitude")
 }
 
@@ -251,7 +281,9 @@ func (s *FrontendStripUpdateService) handleHeadingUpdate(ctx context.Context, re
 		return nil
 	}
 
-	s.euroscopeSender.SendHeading(req.Session, req.Cid, req.Event.Callsign, *req.Event.Heading)
+	if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeSender, req.Session, req.Cid, euroscope.HeadingEvent{Callsign: req.Event.Callsign, Heading: *req.Event.Heading}, func() { s.euroscopeSender.SendHeading(req.Session, req.Cid, req.Event.Callsign, *req.Event.Heading) }); err != nil {
+		return err
+	}
 	return s.stripRepo.AppendControllerModifiedField(ctx, req.Session, req.Event.Callsign, "heading")
 }
 

@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
+	"FlightStrips/internal/shared"
 	"context"
 	"errors"
 	"fmt"
@@ -164,6 +165,9 @@ func (s *StandActionService) recordRequestFailure(command StandAllocationCommand
 }
 
 func (s *StandActionService) request(ctx context.Context, session int32, airport, position, callsign string, version int32) (StandAllocationRequest, error) {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return StandAllocationRequest{}, err
+	}
 	if strings.TrimSpace(position) == "" {
 		return StandAllocationRequest{}, ErrStandActionUnauthorized
 	}

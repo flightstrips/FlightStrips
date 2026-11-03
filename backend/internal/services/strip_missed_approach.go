@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"errors"
 	"fmt"
@@ -48,6 +49,9 @@ func (s *StripService) applyMissedApproachOwnerFix(ctx context.Context, session 
 // The strip is moved to AIRBORNE and a coordination transfer is initiated to the
 // approach controller configured for the active arrival runway.
 func (s *StripService) MissedApproach(ctx context.Context, session int32, callsign string, position string) error {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
@@ -173,7 +177,9 @@ func (s *StripService) MissedApproach(ctx context.Context, session int32, callsi
 			slog.String("owner_cid", *ownerCid),
 			slog.String("target_callsign", targetCallsign),
 		)
-		s.esCommander.SendCoordinationHandover(session, *ownerCid, callsign, targetCallsign)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.CoordinationHandoverEvent{Callsign: callsign, TargetCallsign: targetCallsign}, func() { s.esCommander.SendCoordinationHandover(session, *ownerCid, callsign, targetCallsign) }); dispatchErr != nil {
+			return dispatchErr
+		}
 	} else {
 		slog.WarnContext(ctx, "missed approach: ES handover skipped",
 			slog.String("callsign", callsign),

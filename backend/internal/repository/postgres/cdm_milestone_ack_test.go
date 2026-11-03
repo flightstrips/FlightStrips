@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"FlightStrips/internal/database"
@@ -47,6 +48,33 @@ func TestAcknowledgeCdmMilestonePreservesConcurrentFlagsAndOtherData(t *testing.
 	rows, err = repo.AcknowledgeCdmMilestone(ctx, session, "MISSING", "AOBT", "1200")
 	require.NoError(t, err)
 	require.Zero(t, rows)
+}
+
+func TestDeferredCdmAcknowledgementFencesAuthorityAndPreservesOtherWork(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	session := testdata.SeedTestSessionNamedWithSectors(t, queries, "CDM-AUTHORITY-ACK", nil)
+	repo := NewStripRepository(pool)
+	for kind, keys := range map[string][3]string{"AOBT": {"aobt", "aobtViffPending", "aobtViffAuthority"}, "ATOT": {"atot", "atotViffPending", "atotViffAuthority"}, "READY": {"asrt", "readySyncPending", "readyViffAuthority"}} {
+		callsign := "AUTH" + kind
+		testdata.SeedTestStrip(t, queries, session, callsign)
+		data := fmt.Sprintf(`{"%s":"1234","%s":true,"%s":"original","other":{"preserve":true}}`, keys[0], keys[1], keys[2])
+		_, err := pool.Exec(t.Context(), "UPDATE strips SET cdm_data=$1::jsonb WHERE session=$2 AND callsign=$3", data, session, callsign)
+		require.NoError(t, err)
+		rows, err := repo.AcknowledgeCdmDeferredWork(t.Context(), session, callsign, kind, "1234", "replacement")
+		require.NoError(t, err)
+		require.Zero(t, rows)
+		if kind != "READY" {
+			rows, err = repo.AcknowledgeCdmMilestone(t.Context(), session, callsign, kind, "1234")
+			require.NoError(t, err)
+			require.Zero(t, rows, "automatic acknowledgement cannot adopt human work")
+		}
+		rows, err = repo.AcknowledgeCdmDeferredWork(t.Context(), session, callsign, kind, "1234", "original")
+		require.NoError(t, err)
+		require.EqualValues(t, 1, rows)
+		strip, err := queries.GetStrip(t.Context(), database.GetStripParams{Session: session, Callsign: callsign})
+		require.NoError(t, err)
+		require.JSONEq(t, fmt.Sprintf(`{"%s":"1234","%s":false,"other":{"preserve":true}}`, keys[0], keys[1]), string(strip.CdmData))
+	}
 }
 
 func TestAcknowledgeCdmMilestoneRejectsObsoleteValue(t *testing.T) {

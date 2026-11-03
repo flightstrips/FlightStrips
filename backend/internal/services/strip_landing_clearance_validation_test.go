@@ -44,7 +44,7 @@ func buildLandingClearanceValidationSvc(t *testing.T, repo *testutil.MockStripRe
 	}
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	svc.SetFrontendHub(hub)
 	svc.SetSessionRepo(sessionRepo)
 	return svc
@@ -172,7 +172,7 @@ func TestMoveToBay_DoesNotScheduleLandingClearanceValidationWhileDisabled(t *tes
 		landingClearanceValidationAfterFunc = originalAfterFunc
 	})
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.MoveToBay(context.Background(), 1, "SAS123", shared.BAY_TWY_ARR, false))
 	require.NoError(t, svc.MoveToBay(context.Background(), 1, "SAS123", shared.BAY_TWY_ARR, false))
 

@@ -19,7 +19,7 @@ func TestHandleTrackingControllerChanged_ReleasePreservesStripOwnershipAndCoordi
 		Bay: shared.BAY_AIRBORNE, TrackingController: "EKCH_D_TWR",
 	}
 	trackingUpdated := false
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		UpdateTrackingControllerFn: func(_ context.Context, session int32, callsign string, controller string) (int64, error) {
 			assert.Equal(t, int32(1), session)
 			assert.Equal(t, strip.Callsign, callsign)

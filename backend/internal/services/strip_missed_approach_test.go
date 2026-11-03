@@ -50,7 +50,7 @@ func buildMissedApproachSvc(
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -74,7 +74,7 @@ func buildMissedApproachSvc(
 
 // TestMissedApproach_WrongBay rejects strips not in FINAL or RWY_ARR.
 func TestMissedApproach_WrongBay(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{ID: 1, Callsign: "SAS001", Bay: shared.BAY_DEPART, Owner: strPtr("118.105")}, nil
 		},
@@ -87,7 +87,7 @@ func TestMissedApproach_WrongBay(t *testing.T) {
 
 // TestMissedApproach_WrongOwner rejects when the requesting position does not own the strip.
 func TestMissedApproach_WrongOwner(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{ID: 1, Callsign: "SAS001", Bay: shared.BAY_FINAL, Owner: strPtr("118.105")}, nil
 		},
@@ -116,7 +116,7 @@ func TestMissedApproach_NoRunwayMapping(t *testing.T) {
 	}
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{ID: 1, Bay: shared.BAY_FINAL, Owner: strPtr("118.105")}, nil
 		},

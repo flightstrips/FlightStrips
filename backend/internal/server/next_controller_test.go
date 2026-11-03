@@ -35,7 +35,7 @@ func TestSelectNextControllerPersistsSIWithoutCoordination(t *testing.T) {
 			return 1, nil
 		},
 	}
-	s := &Server{
+	s := &Server{workflows: testWorkflows,
 		stripRepo: repo, frontendHub: hub,
 		controllerRepo: &testutil.MockControllerRepository{ListFn: func(context.Context, int32) ([]*models.Controller, error) {
 			return []*models.Controller{{Callsign: "EKCH_D_TWR", Position: "119.355"}}, nil

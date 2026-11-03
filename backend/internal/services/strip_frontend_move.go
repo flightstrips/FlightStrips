@@ -1,6 +1,7 @@
 package services
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/cdm"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
@@ -14,35 +15,24 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var validFrontendMoveBays = map[string]bool{
-	shared.BAY_NOT_CLEARED: true,
-	shared.BAY_CLEARED:     true,
-	shared.BAY_PUSH:        true,
-	shared.BAY_TAXI:        true,
-	shared.BAY_TAXI_LWR:    true,
-	shared.BAY_TAXI_TWR:    true,
-	shared.BAY_DEPART:      true,
-	shared.BAY_AIRBORNE:    true,
-	shared.BAY_FINAL:       true,
-	shared.BAY_RWY_ARR:     true,
-	shared.BAY_TWY_ARR:     true,
-	shared.BAY_STAND:       true,
-	shared.BAY_HIDDEN:      true,
-	shared.BAY_ARR_HIDDEN:  true,
-	shared.BAY_CONTROLZONE: true,
+func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool, confirmedRemoval bool) error {
+	return s.executeControllerWorkflow(ctx, session, callsign, cid, airport, clientPosition, "strip.move", airportworkflow.Move{Bay: targetBay, Clearance: clearance, ConfirmedRemoval: confirmedRemoval})
 }
 
-func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool, confirmedRemoval bool) error {
-	if !validFrontendMoveBays[targetBay] {
-		slog.WarnContext(ctx, "MoveFrontendStrip: rejecting move event with invalid bay",
-			slog.String("callsign", callsign),
-			slog.String("bay", targetBay),
-			slog.String("cid", cid),
-		)
-		return errors.New("invalid bay value: " + targetBay)
+// ExecuteWorkflowAction dispatches any handler-registered typed action through
+// the same guards and move/field persistence as normal controller movements.
+func (s *StripService) ExecuteWorkflowAction(ctx context.Context, session int32, callsign, cid, airport, position, action string, request any) error {
+	return s.executeControllerWorkflow(ctx, session, callsign, cid, airport, position, action, request)
+}
+func (s *StripService) executeControllerWorkflow(ctx context.Context, session int32, callsign, cid, airport, clientPosition, action string, request any) error {
+	var authorityErr error
+	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.esCommander, session, cid)
+	if authorityErr != nil {
+		return authorityErr
 	}
-	if confirmedRemoval && targetBay != shared.BAY_HIDDEN {
-		return shared.RejectAction("confirmed removal must target the hidden bay")
+	bound, err := s.workflowFor(ctx, session, airport)
+	if err != nil {
+		return err
 	}
 
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
@@ -50,15 +40,30 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return err
 	}
 
+	if err := validateWorkflowRevision(ctx, bound, session, strip); err != nil {
+		return err
+	}
+	decision, err := bound.Action(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource, Strip: workflowSnapshot(strip)}, action, request)
+	if err != nil {
+		return err
+	}
+	if decision.Bay == nil {
+		bay := strip.Bay
+		decision.Bay = &bay
+	}
+	if err := bound.Validate(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource}, decision); err != nil {
+		return err
+	}
+	targetBay := *decision.Bay
+	confirmedRemoval := false
+	if move, ok := request.(airportworkflow.Move); ok {
+		confirmedRemoval = move.ConfirmedRemoval
+	}
 	// A confirmed EST VACANT/CLEAR FPL operation must remain available for
 	// removing an obsolete stand occupant even when another validation currently
 	// owns the master-caution slot. Ordinary moves to HIDDEN remain locked.
 	if strip.IsValidationLocked() && !confirmedRemoval && (strip.ValidationStatus == nil || strip.ValidationStatus.IssueType != pushbackTsatValidationIssueType || targetBay != shared.BAY_PUSH) {
 		return shared.RejectAction("strip is locked by an active validation")
-	}
-
-	if err := validateFrontendMoveBayTransition(strip, airport, targetBay, clearance); err != nil {
-		return err
 	}
 
 	if err := s.authorizeFrontendMove(ctx, session, strip, callsign, airport, targetBay, clientPosition, confirmedRemoval); err != nil {
@@ -75,32 +80,60 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 			return err
 		}
 	}
+	if err := validateWorkflowRevision(ctx, bound, session, strip); err != nil {
+		return err
+	}
+	// Provider preparation ran without a session/strip lock. Recheck the pure
+	// action and ownership against the refreshed strip before any move mutation.
+	decision, err = bound.Action(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource, Strip: workflowSnapshot(strip)}, action, request)
+	if err != nil {
+		return err
+	}
+	if decision.Bay == nil {
+		bay := strip.Bay
+		decision.Bay = &bay
+	}
+	if err := bound.Validate(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource}, decision); err != nil {
+		return err
+	}
+	targetBay = *decision.Bay
+	if err := s.authorizeFrontendMove(ctx, session, strip, callsign, airport, targetBay, clientPosition, confirmedRemoval); err != nil {
+		return err
+	}
 	if strip.IsValidationLocked() && !confirmedRemoval {
 		return shared.RejectAction("strip is locked by an active validation")
 	}
 
-	if strip.Bay == targetBay {
+	if strip.Bay == targetBay && (decision.Cleared == nil || *decision.Cleared == strip.Cleared) && (decision.GroundState == nil || *decision.GroundState == workflowValue(strip.State)) {
 		return s.acknowledgeDeicePlatformInBay(ctx, session, callsign, targetBay)
 	}
 
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	previousBay := strip.Bay
 	previousCleared := strip.Cleared
-	shouldConfirmVoiceClearance := targetBay == shared.BAY_CLEARED &&
+	clearing := decision.Cleared != nil && *decision.Cleared
+	shouldConfirmVoiceClearance := clearing && targetBay == shared.BAY_CLEARED &&
 		strip.PdcState != "" &&
 		strip.PdcState != internalModels.PdcStateNone
 
-	groundState, err := s.applyFrontendMoveState(ctx, session, strip, targetBay, cid, airport)
+	groundState, err := s.applyFrontendMoveDecision(ctx, session, strip, decision, cid, airport)
 	if err != nil {
 		return err
 	}
 
 	// State preparation preserves the source bay. MoveToBay saves the target bay
 	// before initializing runway status and reevaluating arrival validations.
-	if err := s.MoveToBay(ctx, session, callsign, targetBay, true); err != nil {
-		return err
+	if previousBay != targetBay {
+		if err := s.MoveToBay(ctx, session, callsign, targetBay, true); err != nil {
+			return err
+		}
+	} else if s.publisher != nil {
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	}
 
-	if targetBay == shared.BAY_CLEARED {
+	if clearing && targetBay == shared.BAY_CLEARED {
 		s.ClearMandatoryRouteCdm(ctx, session, callsign)
 	}
 
@@ -120,7 +153,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 			return err
 		}
 	}
-	if targetBay == shared.BAY_CLEARED && !previousCleared {
+	if clearing && targetBay == shared.BAY_CLEARED && !previousCleared {
 		if err := s.adjustTobtForClearance(ctx, session, callsign); err != nil {
 			return err
 		}
@@ -335,23 +368,23 @@ func valueOrEmptyStripTime(value *string) string {
 	return *value
 }
 
-func validateFrontendMoveBayTransition(strip *internalModels.Strip, airport string, targetBay string, clearance bool) error {
-	if clearance && targetBay != shared.BAY_CLEARED {
-		return shared.RejectAction("clearance moves must target the cleared bay")
+func (s *StripService) validateFrontendMoveBayTransition(ctx context.Context, session int32, strip *internalModels.Strip, airport, bay string, clearance bool) error {
+	bound, err := s.workflowFor(ctx, session, airport)
+	if err != nil {
+		return err
 	}
-	if strip.Bay == shared.BAY_NOT_CLEARED && targetBay != shared.BAY_NOT_CLEARED && targetBay != shared.BAY_HIDDEN && !clearance {
-		return shared.RejectAction("non-cleared strips cannot be moved out of the not-cleared bay")
-	}
-
-	isArrivalStrip := strip.Destination == airport && strip.Origin != airport
-	if isArrivalStrip && targetBay == shared.BAY_NOT_CLEARED {
-		return shared.RejectAction("arrival strips cannot be moved to the not-cleared bay")
-	}
-
-	return nil
+	_, err = bound.Action(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource, Strip: workflowSnapshot(strip)}, "strip.move", airportworkflow.Move{Bay: bay, Clearance: clearance})
+	return err
 }
 
 func (s *StripService) authorizeFrontendMove(ctx context.Context, session int32, strip *internalModels.Strip, callsign string, airport string, targetBay string, clientPosition string, confirmedRemoval bool) error {
+	bound, err := s.workflowFor(ctx, session, airport)
+	if err != nil {
+		return err
+	}
+	if !bound.Definition().UsesStripOwnership() {
+		return nil
+	}
 	// EST's confirmed VACANT/CLEAR FPL commands intentionally remove whatever
 	// strip occupies the stand, irrespective of its current controller owner.
 	if confirmedRemoval && targetBay == shared.BAY_HIDDEN {
@@ -382,10 +415,13 @@ func (s *StripService) authorizeFrontendMove(ctx context.Context, session int32,
 	return nil
 }
 
-func (s *StripService) applyFrontendMoveState(ctx context.Context, session int32, strip *internalModels.Strip, targetBay string, cid string, airport string) (*string, error) {
-	if targetBay == shared.BAY_NOT_CLEARED || targetBay == shared.BAY_CLEARED {
-		return nil, s.applyClearedFlagForMoveWithOptions(ctx, session, strip.Callsign, targetBay == shared.BAY_CLEARED, strip.Bay, targetBay == shared.BAY_NOT_CLEARED, cid, false, true)
+func (s *StripService) applyFrontendMoveDecision(ctx context.Context, session int32, strip *internalModels.Strip, decision airportworkflow.Decision, cid string, airport string) (*string, error) {
+	targetBay := *decision.Bay
+	if decision.Cleared != nil {
+		return nil, s.applyClearedFlagForMoveWithOptions(ctx, session, strip.Callsign, *decision.Cleared, strip.Bay, !*decision.Cleared, cid, false, true)
 	}
-
+	ctx = context.WithValue(ctx, workflowGroundStateKey{}, decision.GroundState)
 	return s.updateGroundStateForMoveWithOptions(ctx, session, strip.Callsign, targetBay, cid, airport, strip.Bay, false)
 }
+
+type workflowGroundStateKey struct{}

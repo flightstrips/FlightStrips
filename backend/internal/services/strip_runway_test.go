@@ -31,7 +31,7 @@ func TestRunwayClearance_RejectsActiveValidation(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	err := svc.RunwayClearance(context.Background(), 1, "SAS123", "1001", "EKCH")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "locked by an active validation")
@@ -53,7 +53,7 @@ func TestRunwayClearanceRecordsAtotForDepartureOnly(t *testing.T) {
 				UpdateGroundStateFn:     func(context.Context, int32, string, *string, string, *int32) (int64, error) { return 1, nil },
 			}
 			cdm := &takeoffAtotCdmStub{spyStripCdmService: &spyStripCdmService{}}
-			svc := NewStripService(repo)
+			svc := newWorkflowTestService(repo)
 			svc.SetCdmService(cdm)
 			svc.SetFrontendHub(&testutil.MockFrontendHub{})
 			require.NoError(t, svc.RunwayClearance(context.Background(), 779, "SAS779", "1234567", "EKCH"))
@@ -110,7 +110,7 @@ func TestRunwayClearance_AllowsLandingClearanceValidation(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 
 	err := svc.RunwayClearance(context.Background(), session, callsign, "CID123", "EKCH")
@@ -137,7 +137,7 @@ func TestRunwayConfirmation_RejectsActiveValidation(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	err := svc.RunwayConfirmation(context.Background(), 1, "SAS123", "121.630")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "locked by an active validation")
@@ -154,7 +154,7 @@ func TestRunwayConfirmation_DoesNotConfirmArrivalWhileAnotherStripIsGreen(t *tes
 		ArrivalRunwayConfirmationFn: func(context.Context, int32, string) (int64, error) { return 0, nil },
 	}
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	svc.SetFrontendHub(hub)
 
 	require.NoError(t, svc.RunwayConfirmation(context.Background(), session, callsign, "TWR"))
@@ -171,7 +171,7 @@ func TestRWYARRRunwayActionsRequireOwnership(t *testing.T) {
 			return &models.Strip{Callsign: callsign, Bay: shared.BAY_RWY_ARR, Owner: &owner}, nil
 		},
 	}
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 
 	err := svc.RunwayConfirmation(context.Background(), session, callsign, "APN")
 	require.ErrorContains(t, err, "requires strip ownership")
@@ -194,7 +194,7 @@ func TestRunwayClearanceResetClearsRwyArrColor(t *testing.T) {
 		},
 	}
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	svc.SetFrontendHub(hub)
 
 	require.NoError(t, svc.ResetRunwayClearance(context.Background(), session, callsign, "TWR"))
@@ -248,7 +248,7 @@ func TestRunwayClearance_TaxiLwrAssignsEndSequenceInDepartBay(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetTacticalStripRepo(tacticalRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 
@@ -301,7 +301,7 @@ func TestRunwayClearance_FinalAssignsEndSequenceInRwyArrBay(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 
 	err := svc.RunwayClearance(context.Background(), session, callsign, "CID123", "EKCH")

@@ -1,7 +1,9 @@
 package services
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"fmt"
 	"log/slog"
@@ -12,53 +14,72 @@ import (
 // BAY_HIDDEN after a 240-second delay, provided the strip is still in BAY_STAND
 // when the timer fires.
 func (s *StripService) scheduleStandAutoHide(session int32, callsign string) {
+	ctx := context.Background()
+	bound, err := s.workflowFor(ctx, session, "")
+	if err != nil {
+		return
+	}
+	initial, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return
+	}
+	policy, err := bound.Lifecycle(airportworkflow.Context{Session: session, Strip: workflowSnapshot(initial)}, airportworkflow.Lifecycle{Kind: airportworkflow.Admission})
+	if err != nil || policy.StandHideDelay <= 0 {
+		return
+	}
+	id := initial.ID
 	go func() {
-		time.Sleep(240 * time.Second)
-
-		ctx := context.Background()
-
+		time.Sleep(policy.StandHideDelay)
 		strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
-		if err != nil {
-			// Strip was deleted while we were waiting — nothing to do.
-			slog.DebugContext(ctx, "Auto-hide from STAND: strip not found, skipping",
-				slog.String("callsign", callsign),
-				slog.Int("session", int(session)))
+		if err != nil || strip.ID != id {
 			return
 		}
-
-		if strip.Bay != shared.BAY_STAND {
-			// Strip was moved to a different bay before the timer fired — do not override.
-			slog.DebugContext(ctx, "Auto-hide from STAND: strip already moved, skipping",
-				slog.String("callsign", callsign),
-				slog.String("current_bay", strip.Bay))
+		decision, err := bound.Lifecycle(airportworkflow.Context{Session: session, Strip: workflowSnapshot(strip)}, airportworkflow.Lifecycle{Kind: airportworkflow.StandExpiry})
+		if err != nil || decision.Bay == nil {
 			return
 		}
-
-		slog.InfoContext(ctx, "Auto-hiding arrival strip from STAND bay after 15 s",
-			slog.String("callsign", callsign),
-			slog.Int("session", int(session)))
-
-		if err := s.MoveToBay(ctx, session, callsign, shared.BAY_HIDDEN, true); err != nil {
-			slog.ErrorContext(ctx, "Auto-hide from STAND: failed to move strip to HIDDEN",
-				slog.String("callsign", callsign),
-				slog.Int("session", int(session)),
-				slog.Any("error", err))
+		if err := bound.Validate(airportworkflow.Context{Session: session}, airportworkflow.Decision{Bay: decision.Bay}); err != nil {
+			return
+		}
+		if err := s.MoveToBay(ctx, session, callsign, *decision.Bay, true); err != nil {
+			slog.ErrorContext(ctx, "Failed to expire stand strip", slog.Any("error", err))
 		}
 	}()
 }
 
 // ClearStrip moves strip to cleared bay and notifies EuroScope to set cleared flag
 func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign string, cid string) error {
-	if err := s.MoveToBay(ctx, session, callsign, shared.BAY_CLEARED, true); err != nil {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
+	bound, err := s.workflowFor(ctx, session, "")
+	if err != nil {
+		return err
+	}
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	decision, err := bound.Action(airportworkflow.Context{Session: session, Source: workflowSource(ctx), Strip: workflowSnapshot(strip)}, "strip.clearance", airportworkflow.Clearance{Cleared: true})
+	if err != nil {
+		return err
+	}
+	if decision.Bay == nil || decision.Cleared == nil {
+		return fmt.Errorf("clearance workflow omitted fields")
+	}
+	bay, cleared := *decision.Bay, *decision.Cleared
+	if err := s.MoveToBay(ctx, session, callsign, bay, true); err != nil {
 		return fmt.Errorf("failed to move strip to cleared bay: %w", err)
 	}
 
-	if _, err := s.fieldStore.UpdateClearedFlag(ctx, session, callsign, true, shared.BAY_CLEARED, nil); err != nil {
+	if _, err := s.fieldStore.UpdateClearedFlag(ctx, session, callsign, cleared, bay, nil); err != nil {
 		slog.ErrorContext(ctx, "ClearStrip: failed to update cleared flag", slog.Any("error", err))
 	}
 
 	if s.esCommander != nil {
-		s.esCommander.SendClearedFlag(session, cid, callsign, true)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedFlagEvent{Callsign: callsign, Cleared: cleared}, func() { s.esCommander.SendClearedFlag(session, cid, callsign, cleared) }); dispatchErr != nil {
+			return dispatchErr
+		}
 	}
 
 	return nil
@@ -66,11 +87,30 @@ func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign s
 
 // UnclearStrip moves strip back to not-cleared bay and notifies EuroScope to clear the cleared flag
 func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign string, cid string) error {
-	if err := s.MoveToBay(ctx, session, callsign, shared.BAY_NOT_CLEARED, true); err != nil {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
+	bound, err := s.workflowFor(ctx, session, "")
+	if err != nil {
+		return err
+	}
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	decision, err := bound.Action(airportworkflow.Context{Session: session, Source: workflowSource(ctx), Strip: workflowSnapshot(strip)}, "strip.clearance", airportworkflow.Clearance{Cleared: false})
+	if err != nil {
+		return err
+	}
+	if decision.Bay == nil || decision.Cleared == nil {
+		return fmt.Errorf("clearance workflow omitted fields")
+	}
+	bay, cleared := *decision.Bay, *decision.Cleared
+	if err := s.MoveToBay(ctx, session, callsign, bay, true); err != nil {
 		return fmt.Errorf("failed to move strip to not-cleared bay: %w", err)
 	}
 
-	if _, err := s.fieldStore.UpdateClearedFlag(ctx, session, callsign, false, shared.BAY_NOT_CLEARED, nil); err != nil {
+	if _, err := s.fieldStore.UpdateClearedFlag(ctx, session, callsign, cleared, bay, nil); err != nil {
 		slog.ErrorContext(ctx, "UnclearStrip: failed to update cleared flag", slog.Any("error", err))
 	}
 
@@ -79,7 +119,9 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 	}
 
 	if s.esCommander != nil {
-		s.esCommander.SendClearedFlag(session, cid, callsign, false)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedFlagEvent{Callsign: callsign, Cleared: cleared}, func() { s.esCommander.SendClearedFlag(session, cid, callsign, cleared) }); dispatchErr != nil {
+			return dispatchErr
+		}
 	}
 
 	return nil
@@ -134,7 +176,18 @@ func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int3
 
 // DeleteStrip removes a strip from the database and notifies the frontend.
 func (s *StripService) DeleteStrip(ctx context.Context, session int32, callsign string) error {
-	err := s.lifecycleStore.Delete(ctx, session, callsign)
+	bound, err := s.workflowFor(ctx, session, "")
+	if err != nil {
+		return err
+	}
+	decision, err := bound.Lifecycle(airportworkflow.Context{Session: session}, airportworkflow.Lifecycle{Kind: airportworkflow.Removal})
+	if err != nil {
+		return err
+	}
+	if !decision.Remove {
+		return nil
+	}
+	err = s.lifecycleStore.Delete(ctx, session, callsign)
 	s.publisher.SendAircraftDisconnect(session, callsign)
 	if err != nil {
 		return err

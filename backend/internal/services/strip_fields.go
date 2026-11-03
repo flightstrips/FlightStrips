@@ -1,8 +1,8 @@
 package services
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/config"
-	"FlightStrips/internal/database"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
@@ -240,26 +240,23 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 		return s.releaseDepartureStandOnPush(ctx, session, existingStrip, groundState, airport)
 	}
 
-	if existingStrip.Bay == shared.BAY_DEPART && groundState == euroscope.GroundStateTaxi {
-		return nil
-	}
-
-	if existingStrip.Bay == shared.BAY_AIRBORNE && groundState == euroscope.GroundStateTaxi {
-		return nil
-	}
 	if groundState == euroscope.GroundStatePush && existingStrip.Bay != shared.BAY_PUSH && strings.EqualFold(existingStrip.Origin, airport) {
 		// EuroScope reports a push already initiated by the controller. Accept
 		// the observation without applying the FlightStrips TSAT action gate.
 		ctx = withValidatedPushback(ctx, session, callsign)
 	}
 
-	dbStrip := database.Strip{
-		Origin:      existingStrip.Origin,
-		Destination: existingStrip.Destination,
-		Cleared:     existingStrip.Cleared,
-		Bay:         existingStrip.Bay,
+	decision, err := s.observeWorkflow(ctx, session, airport, existingStrip, airportworkflow.Observation{Kind: airportworkflow.GroundState, GroundState: groundState}, s.isGndOnline(ctx, session))
+	if err != nil {
+		return err
 	}
-	bay := shared.GetDepartureBayFromGroundState(groundState, dbStrip, airport, s.isGndOnline(ctx, session))
+	if decision.Ignore {
+		return nil
+	}
+	if decision.Bay == nil {
+		return errors.New("ground-state workflow omitted bay")
+	}
+	bay := *decision.Bay
 
 	initialPushbackTiming := snapshotPushbackTransitionTiming(existingStrip)
 	previousBay := existingStrip.Bay
@@ -305,7 +302,11 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 	// clearance. Clear any pending or failed PDC state before moving the strip so
 	// the cleared bay cannot retain a misleading PDC background or keep waiting
 	// for a pilot acknowledgement. Preserve only an already-confirmed PDC exchange.
-	if shouldConfirmVoiceClearanceForEuroscopeClear(existingStrip, cleared) {
+	decision, err := s.observeWorkflow(ctx, session, "", existingStrip, airportworkflow.Observation{Kind: airportworkflow.ClearedFlag, Cleared: cleared}, false)
+	if err != nil {
+		return err
+	}
+	if decision.ConfirmVoiceClearance {
 		pdcService := s.getPdcService()
 		if pdcService == nil {
 			return errors.New("PDC service not available")
@@ -315,17 +316,14 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 		}
 	}
 
-	if existingStrip.Cleared == cleared {
+	if decision.Ignore {
 		return nil
 	}
 
-	bay := existingStrip.Bay
-	if bay == shared.BAY_NOT_CLEARED || bay == shared.BAY_UNKNOWN {
-		bay = shared.BAY_CLEARED
+	if decision.Bay == nil {
+		return errors.New("cleared-flag workflow omitted bay")
 	}
-	if bay == "" {
-		bay = shared.BAY_HIDDEN
-	}
+	bay := *decision.Bay
 
 	_, err = s.fieldStore.UpdateClearedFlag(ctx, session, callsign, cleared, bay, nil)
 	if err != nil {
@@ -334,7 +332,7 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 
 	if cleared {
 		// Skip auto-assume if PDC clearance is pending pilot WILCO (strip is in CLEARED pdc state)
-		if existingStrip.PdcState != "CLEARED" {
+		if decision.AutoAssume {
 			if err := s.AutoAssumeForClearedStrip(ctx, session, callsign); err != nil {
 				slog.ErrorContext(ctx, "Failed to auto-assume cleared strip from EuroScope", slog.Any("error", err))
 			}
@@ -503,7 +501,9 @@ func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, s
 		}
 	}
 	if (strip.Cleared != isCleared || forceEuroscopeNotification) && s.esCommander != nil {
-		s.esCommander.SendClearedFlag(session, cid, callsign, isCleared)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedFlagEvent{Callsign: callsign, Cleared: isCleared}, func() { s.esCommander.SendClearedFlag(session, cid, callsign, isCleared) }); dispatchErr != nil {
+			return dispatchErr
+		}
 	}
 	return nil
 }
@@ -511,6 +511,11 @@ func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, s
 // UpdateGroundStateForMove handles the frontend "move to general bay" action.
 // It computes the new ground state, updates the DB, and notifies EuroScope.
 func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int32, callsign string, bay string, cid string, airport string) error {
+	var authorityErr error
+	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.esCommander, session, cid)
+	if authorityErr != nil {
+		return authorityErr
+	}
 	if bay == shared.BAY_PUSH {
 		strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 		if err != nil {
@@ -547,14 +552,20 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 	}
 
 	state := strip.State
-	if strip.Origin == airport {
-		groundState := shared.GetGroundState(targetBay)
-		if groundState != euroscope.GroundStateUnknown && targetBay != shared.BAY_STAND {
-			state = &groundState
+	intended, supplied := ctx.Value(workflowGroundStateKey{}).(*string)
+	if !supplied {
+		bound, err := s.workflowFor(ctx, session, airport)
+		if err != nil {
+			return nil, err
 		}
-	} else if strip.Destination == airport && targetBay == shared.BAY_STAND {
-		parked := euroscope.GroundStateParked
-		state = &parked
+		decision, err := bound.Action(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource, Strip: workflowSnapshot(strip)}, "strip.state-for-move", airportworkflow.Move{Bay: targetBay})
+		if err != nil {
+			return nil, err
+		}
+		intended = decision.GroundState
+	}
+	if intended != nil {
+		state = intended
 	}
 
 	count, err := s.fieldStore.UpdateGroundState(ctx, session, callsign, state, persistedBay, nil)
@@ -571,7 +582,9 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 	}
 
 	if state != strip.State && state != nil && s.esCommander != nil {
-		s.esCommander.SendGroundState(session, cid, callsign, *state)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.GroundStateEvent{Callsign: callsign, GroundState: *state}, func() { s.esCommander.SendGroundState(session, cid, callsign, *state) }); dispatchErr != nil {
+			return nil, dispatchErr
+		}
 	}
 
 	// Moving backward out of a runway-cleared bay must clear the runway status so the next runway

@@ -63,6 +63,15 @@ func (c *CdmBroadcaster) broadcastIfChanged(session int32, callsign string, befo
 
 func (c *CdmBroadcaster) persistCdmUpdate(ctx context.Context, session int32, callsign string, before cdmSnapshot, updated *models.CdmData) error {
 	s := c.service
+	if _, human := shared.HumanCommand(ctx); human {
+		strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+		if err != nil {
+			return err
+		}
+		if err := s.captureViffAuthority(ctx, session, strip, updated); err != nil {
+			return err
+		}
+	}
 	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated.Normalize())
 	if err != nil {
 		return err

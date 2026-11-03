@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
@@ -65,7 +66,17 @@ func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(
 		},
 	}
 
+	backendWorkflowFixture()
+	workflows, err := airportworkflow.NewRegistry(backendFixtureDefinitions, airportworkflow.EKCHDescriptor())
+	require.NoError(t, err)
+	seen := time.Now()
+	state := euroscopeEvents.GroundStateTaxi
+	server.StripRepoVal = &testutil.MockStripRepository{ListFn: func(context.Context, int32) ([]*models.Strip, error) {
+		return []*models.Strip{{Callsign: "SAS123", Bay: shared.BAY_DEPART, State: &state, EuroscopeSeenAt: &seen}}, nil
+	}}
 	hub := &Hub{
+		airports:                    backendFixtureDefinitions,
+		workflows:                   workflows,
 		server:                      server,
 		register:                    make(chan *Client, 1),
 		pendingOnlineOrchestrations: make(map[string]struct{}),
@@ -115,6 +126,18 @@ func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(
 		t.Cleanup(func() { _ = client.Close() })
 		assert.Equal(t, callsign, client.callsign)
 		assert.Equal(t, position, client.position)
+		require.NotNil(t, client.workflow, "real websocket login must carry the startup-bound workflow")
+		startQueuedTestClient(client)
+		hub.sendBackendSyncIfNeeded(client)
+		select {
+		case message := <-client.send:
+			backend, ok := message.(euroscopeEvents.BackendSyncEvent)
+			require.True(t, ok)
+			require.Len(t, backend.Strips, 1)
+			require.Equal(t, euroscopeEvents.GroundStateLineup, backend.Strips[0].GroundState)
+		case <-time.After(time.Second):
+			t.Fatal("login did not produce backend sync")
+		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for HandleNewConnection")
 	}

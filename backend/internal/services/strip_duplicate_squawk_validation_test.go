@@ -43,7 +43,7 @@ func TestReevaluateDuplicateSquawkValidation_ActivatesForGroundOwnerInDepartureF
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateDuplicateSquawkValidation(context.Background(), 1, "SAS123", false, false))
 	require.NotNil(t, persisted)
 	assert.Equal(t, duplicateSquawkValidationIssueType, persisted.IssueType)
@@ -92,7 +92,7 @@ func TestReevaluateDuplicateSquawkValidation_ClearsForNonApplicableOwner(t *test
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateDuplicateSquawkValidation(context.Background(), 1, "SAS123", false, false))
 	assert.True(t, cleared)
 }
@@ -129,7 +129,7 @@ func TestReevaluateDuplicateSquawkValidation_PreservesAcknowledgedStateForSameOw
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateDuplicateSquawkValidation(context.Background(), 1, "SAS123", false, false))
 }
 
@@ -171,7 +171,7 @@ func TestReevaluateDuplicateSquawkValidation_ReactivatesOnOwnerChange(t *testing
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateDuplicateSquawkValidation(context.Background(), 1, "SAS123", false, true))
 	require.NotNil(t, persisted)
 	assert.True(t, persisted.Active)
@@ -218,7 +218,7 @@ func TestReevaluateDuplicateSquawkValidation_ClearsWhenDuplicateDisappears(t *te
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateDuplicateSquawkValidation(context.Background(), 1, "SAS123", false, false))
 	assert.True(t, cleared)
 }
@@ -295,7 +295,7 @@ func TestReevaluateDuplicateSquawkValidationsForSession_UpdatesOtherAffectedStri
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.reevaluateDuplicateSquawkValidationsForSession(context.Background(), 1, false))
 	assert.Equal(t, map[string]bool{"SAS123": true, "DLH456": true}, changed)
 }

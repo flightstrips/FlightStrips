@@ -2,6 +2,7 @@ package server
 
 import (
 	"FlightStrips/internal/config"
+ "FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
 	"FlightStrips/internal/vatsim"
@@ -19,6 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var testWorkflows *airportworkflow.Registry
+var testWorkflow *airportworkflow.Bound
+
 func TestMain(m *testing.M) {
 	if err := os.Chdir("../.."); err != nil {
 		panic("failed to chdir to backend root: " + err.Error())
@@ -26,7 +30,10 @@ func TestMain(m *testing.M) {
 	if err := config.InitEKCHTestConfig(); err != nil {
 		panic("failed to initialize config: " + err.Error())
 	}
-	os.Exit(m.Run())
+	definitions, err := config.LoadAirportFiles(config.ProductionAirportCatalog(), []string{"backend/config/airports/ekch.airport.yaml"}, config.AirportLoadOptions{RepositoryRoot: ".."}); if err != nil { panic(err) }
+ testWorkflows, err = airportworkflow.NewRegistry(definitions, airportworkflow.EKCHDescriptor()); if err != nil { panic(err) }
+ testWorkflow, _ = testWorkflows.Lookup("EKCH")
+ os.Exit(m.Run())
 }
 
 func TestSequencePlanningNextOwnerByStand(t *testing.T) {
@@ -265,7 +272,7 @@ func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionFallsBackToTowerOwner(
 		}, nil
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		frontendHub: frontendHub,
 		stripRepo:   stripRepo,
 		sessionRepo: sessionRepo,
@@ -297,7 +304,7 @@ func TestComputeDepartureFrequencyForStrip_UsesSIDSpecificAirborneController(t *
 		},
 	}
 	sid := "NEXEN2A"
-	srv := &Server{controllerRepo: controllerRepo}
+	srv := &Server{workflows: testWorkflows,controllerRepo: controllerRepo}
 
 	frequency, err := srv.ComputeDepartureFrequencyForStripContext(context.Background(), &models.Strip{Sid: &sid}, 42)
 
@@ -313,7 +320,7 @@ func TestComputeDepartureFrequencyForStrip_UsesCrossCoupledDepartureFrequency(t 
 		},
 	}
 	sid := "NEXEN2A"
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		controllerRepo:     controllerRepo,
 		frequencyProviders: []TransceiverLookup{routeTransceiverStub{"EKCH_O_APP": {"124.980"}}},
 	}
@@ -406,7 +413,7 @@ func TestUpdateRouteForStrip_UsesCrossCoupledFrequencyFromOfficialTransceiverPay
 		return []*models.Controller{{Session: 42, Callsign: "EKCH_B_GND", Position: bGroundPosition}}, nil
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		frontendHub:        frontendHub,
 		stripRepo:          stripRepo,
 		sessionRepo:        sessionRepo,
@@ -452,7 +459,7 @@ func TestComputeDepartureFrequencyForStrip_DoesNotReturnApproachFallback(t *test
 		},
 	}
 	sid := "NEXEN2A"
-	srv := &Server{controllerRepo: controllerRepo}
+	srv := &Server{workflows: testWorkflows,controllerRepo: controllerRepo}
 
 	frequency, err := srv.ComputeDepartureFrequencyForStripContext(context.Background(), &models.Strip{Sid: &sid}, 42)
 
@@ -522,7 +529,7 @@ func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionUsesTowerAsRouteStart(
 		}, nil
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		frontendHub: frontendHub,
 		stripRepo:   stripRepo,
 		sessionRepo: sessionRepo,
@@ -605,7 +612,7 @@ func TestUpdateRouteForStrip_ArrivalUsesConfigDrivenCrossingSectorSplit(t *testi
 		}, nil
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		frontendHub: frontendHub,
 		stripRepo:   stripRepo,
 		sessionRepo: sessionRepo,
@@ -701,7 +708,7 @@ func TestUpdateRouteForStrip_ArrivalKeepsGWAOwnerWhenControllersAreSplit(t *test
 		}, nil
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		frontendHub: frontendHub,
 		stripRepo:   stripRepo,
 		sessionRepo: sessionRepo,
@@ -970,7 +977,7 @@ func TestUpdateRoutesForSession_RecalculatesEachStrip(t *testing.T) {
 		}, nil
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		frontendHub: frontendHub,
 		stripRepo:   stripRepo,
 		sessionRepo: sessionRepo,
@@ -1025,7 +1032,7 @@ func TestUpdateRoutesForSession_DoesNotRetargetPendingCoordination(t *testing.T)
 		return []*models.Coordination{{Session: 42, StripID: 2}}, nil
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		frontendHub: frontendHub,
 		stripRepo:   stripRepo,
 		sessionRepo: sessionRepo,
@@ -1063,7 +1070,7 @@ func TestUpdateRouteForStrip_DoesNotRetargetPendingCoordination(t *testing.T) {
 		}, nil
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		stripRepo: stripRepo,
 		coordRepo: coordRepo,
 	}
@@ -1083,7 +1090,7 @@ func TestComputeNextOwnersForStrip_PreservesRouteDuringPendingCoordination(t *te
 		},
 	}
 
-	nextOwners, handled, err := (&Server{coordRepo: coordRepo}).ComputeNextOwnersForStripContext(context.Background(), strip, 42)
+	nextOwners, handled, err := (&Server{workflows: testWorkflows,coordRepo: coordRepo}).ComputeNextOwnersForStripContext(context.Background(), strip, 42)
 
 	require.NoError(t, err)
 	assert.True(t, handled)
@@ -1107,7 +1114,7 @@ func TestComputeNextDisplayForStrip_PreservesDisplayDuringPendingCoordination(t 
 		return &models.Coordination{Session: 42, StripID: 7}, nil
 	}
 
-	srv := &Server{coordRepo: coordRepo}
+	srv := &Server{workflows: testWorkflows,coordRepo: coordRepo}
 	display, err := srv.ComputeNextDisplayForStripContext(context.Background(), strip, 42)
 
 	require.NoError(t, err)
@@ -1132,7 +1139,7 @@ func TestComputeNextDisplaysForStrips_PreservesDisplaysDuringPendingCoordination
 		return []*models.Coordination{{Session: 42, StripID: 7}}, nil
 	}
 
-	srv := &Server{coordRepo: coordRepo}
+	srv := &Server{workflows: testWorkflows,coordRepo: coordRepo}
 	err := srv.ComputeNextDisplaysForStripsContext(context.Background(), []*models.Strip{strip}, 42)
 
 	require.NoError(t, err)
@@ -1162,7 +1169,7 @@ func TestComputeNextDisplayForStrip_ReconstructsMissingDisplayDuringPendingCoord
 		},
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		coordRepo:      coordRepo,
 		stripRepo:      stripRepo,
 		sessionRepo:    sessionRepo,
@@ -1201,7 +1208,7 @@ func TestComputeNextDisplaysForStrips_ReconstructsMissingDisplayDuringPendingCoo
 		},
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		coordRepo:      coordRepo,
 		stripRepo:      stripRepo,
 		sessionRepo:    sessionRepo,
@@ -1248,7 +1255,7 @@ func TestComputeNextDisplayForStrip_PreservesPersistedCrossCoupledDepartureDispl
 			return &models.Coordination{Session: session, StripID: stripID}, nil
 		},
 	}
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		coordRepo:      coordRepo,
 		sessionRepo:    sessionRepo,
 		sectorRepo:     sectorRepo,
@@ -1319,7 +1326,7 @@ func TestUpdateRoutesForSession_ReturnsFirstStripError(t *testing.T) {
 		}, nil
 	}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		stripRepo:   stripRepo,
 		sessionRepo: sessionRepo,
 		sectorRepo:  sectorRepo,

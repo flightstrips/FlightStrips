@@ -49,6 +49,7 @@ func TestResolveGenerateSquawkCid_PrefersConnectedDelOwner(t *testing.T) {
 		},
 	}
 
+	registerAuthorityClients(hub, 7, "MASTER-CID", delCid)
 	assert.Equal(t, delCid, hub.resolveGenerateSquawkCid(context.Background(), 7))
 }
 
@@ -69,6 +70,7 @@ func TestSendPrivateMessageFromDelivery_TargetsDelWithoutBroadcast(t *testing.T)
 		master: map[int32]*Client{7: {user: shared.NewAuthenticatedUser("MASTER-CID", 0, nil)}},
 	}
 
+	registerAuthorityClients(hub, 7, "MASTER-CID", delCid)
 	require.True(t, hub.SendPrivateMessageFromDelivery(7, "SAS123", "MOVE TO A1"))
 	sent := <-hub.send
 	require.NotNil(t, sent.cid, "targeted sends carry a CID; broadcasts do not")
@@ -107,6 +109,7 @@ func TestResolveGenerateSquawkCid_FallsBackToMasterWhenDelOwnerHasNoEsClient(t *
 		},
 	}
 
+	registerAuthorityClients(hub, 7, "MASTER-CID")
 	assert.Equal(t, "MASTER-CID", hub.resolveGenerateSquawkCid(context.Background(), 7))
 }
 
@@ -144,24 +147,27 @@ func TestResolveGenerateSquawkCid_IgnoresControllersWithWrongPrefixOnDelFrequenc
 		},
 	}
 
+	registerAuthorityClients(hub, 7, "MASTER-CID", delCid)
 	assert.Equal(t, delCid, hub.resolveGenerateSquawkCid(context.Background(), 7))
 }
 
-func TestSendGenerateSquawk_RateLimitsPerSession(t *testing.T) {
+func TestSquawkThrottle_RateLimitsPerSession(t *testing.T) {
 	t.Parallel()
 
 	hub := &Hub{
 		send: make(chan internalMessage, 4),
 	}
-	hub.squawkThrottle = newSquawkThrottle(25*time.Millisecond, hub.readAssignedSquawk, hub.dispatchGenerateSquawkRequest)
+	hub.squawkThrottle = newSquawkThrottle(25*time.Millisecond, hub.readAssignedSquawk, func(session int32, req queuedSquawkRequest) {
+		hub.Send(session, req.cid, euroscopeEvents.GenerateSquawkEvent{Callsign: req.callsign})
+	})
 
-	hub.SendGenerateSquawk(7, "CID-1", "SAS101")
+	hub.squawkThrottle.Enqueue(7, queuedSquawkRequest{cid: "CID-1", callsign: "SAS101"})
 	first := readGenerateSquawkMessage(t, hub.send, 50*time.Millisecond)
 	assert.Equal(t, "CID-1", *first.cid)
 	assert.Equal(t, "SAS101", first.message.(euroscopeEvents.GenerateSquawkEvent).Callsign)
 
 	start := time.Now()
-	hub.SendGenerateSquawk(7, "CID-2", "SAS202")
+	hub.squawkThrottle.Enqueue(7, queuedSquawkRequest{cid: "CID-2", callsign: "SAS202"})
 
 	select {
 	case message := <-hub.send:
@@ -175,7 +181,7 @@ func TestSendGenerateSquawk_RateLimitsPerSession(t *testing.T) {
 	assert.Equal(t, "SAS202", second.message.(euroscopeEvents.GenerateSquawkEvent).Callsign)
 }
 
-func TestSendGenerateSquawk_SendsQueuedRequestWhenAssignedSquawkRemainsInvalid(t *testing.T) {
+func TestSquawkThrottle_SendsQueuedRequestWhenAssignedSquawkRemainsInvalid(t *testing.T) {
 	t.Parallel()
 
 	queuedSquawk := "2000"
@@ -204,13 +210,15 @@ func TestSendGenerateSquawk_SendsQueuedRequestWhenAssignedSquawkRemainsInvalid(t
 		send:   make(chan internalMessage, 4),
 		server: &testutil.MockServer{StripRepoVal: stripRepo},
 	}
-	hub.squawkThrottle = newSquawkThrottle(25*time.Millisecond, hub.readAssignedSquawk, hub.dispatchGenerateSquawkRequest)
+	hub.squawkThrottle = newSquawkThrottle(25*time.Millisecond, hub.readAssignedSquawk, func(session int32, req queuedSquawkRequest) {
+		hub.Send(session, req.cid, euroscopeEvents.GenerateSquawkEvent{Callsign: req.callsign})
+	})
 
-	hub.SendGenerateSquawk(7, "CID-1", "SAS101")
+	hub.squawkThrottle.Enqueue(7, queuedSquawkRequest{cid: "CID-1", callsign: "SAS101"})
 	_ = readGenerateSquawkMessage(t, hub.send, 50*time.Millisecond)
 
 	start := time.Now()
-	hub.SendGenerateSquawk(7, "CID-2", "SAS303")
+	hub.squawkThrottle.Enqueue(7, queuedSquawkRequest{cid: "CID-2", callsign: "SAS303"})
 	currentSAS303.Store(updatedSquawk)
 
 	second := readGenerateSquawkMessage(t, hub.send, 200*time.Millisecond)
@@ -221,7 +229,7 @@ func TestSendGenerateSquawk_SendsQueuedRequestWhenAssignedSquawkRemainsInvalid(t
 	assert.Equal(t, int32(1), sas303Calls.Load())
 }
 
-func TestSendGenerateSquawk_SkipsQueuedRequestWhenAssignedSquawkBecomesValid(t *testing.T) {
+func TestSquawkThrottle_SkipsQueuedRequestWhenAssignedSquawkBecomesValid(t *testing.T) {
 	t.Parallel()
 
 	queuedSquawk := "2000"
@@ -250,13 +258,15 @@ func TestSendGenerateSquawk_SkipsQueuedRequestWhenAssignedSquawkBecomesValid(t *
 		send:   make(chan internalMessage, 4),
 		server: &testutil.MockServer{StripRepoVal: stripRepo},
 	}
-	hub.squawkThrottle = newSquawkThrottle(25*time.Millisecond, hub.readAssignedSquawk, hub.dispatchGenerateSquawkRequest)
+	hub.squawkThrottle = newSquawkThrottle(25*time.Millisecond, hub.readAssignedSquawk, func(session int32, req queuedSquawkRequest) {
+		hub.Send(session, req.cid, euroscopeEvents.GenerateSquawkEvent{Callsign: req.callsign})
+	})
 
-	hub.SendGenerateSquawk(7, "CID-1", "SAS101")
+	hub.squawkThrottle.Enqueue(7, queuedSquawkRequest{cid: "CID-1", callsign: "SAS101"})
 	_ = readGenerateSquawkMessage(t, hub.send, 50*time.Millisecond)
 
 	start := time.Now()
-	hub.SendGenerateSquawk(7, "CID-2", "SAS303")
+	hub.squawkThrottle.Enqueue(7, queuedSquawkRequest{cid: "CID-2", callsign: "SAS303"})
 	currentSAS303.Store(updatedSquawk)
 
 	select {

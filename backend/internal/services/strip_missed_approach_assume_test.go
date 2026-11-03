@@ -81,7 +81,7 @@ func buildAssumeAfterMissedSvc(
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 	svc.SetRouteRecalculator(routeRecalculator)
@@ -312,7 +312,7 @@ func buildTrackingChangedSvc(
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 	svc.SetControllerRepo(controllerRepo)
@@ -401,7 +401,7 @@ func buildTrackingChangedSvcWithCoord(
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 	svc.SetControllerRepo(controllerRepo)
@@ -475,7 +475,7 @@ func buildCoordinationReceivedSvc(
 	hub := &testutil.MockFrontendHub{}
 	esHub := &testutil.MockEuroscopeHub{}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
 	svc.SetControllerRepo(controllerRepo)
@@ -617,7 +617,7 @@ func TestHandleTrackingControllerChanged_TopDownDepartureStillHides(t *testing.T
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 	svc.SetControllerRepo(controllerRepo)

@@ -1,0 +1,30 @@
+name: Check airport configuration
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  airport-config:
+    name: Production loader and schema parity
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: backend/go.sum
+      - name: Validate authoring examples and shared mutation corpus
+        run: |
+          python3 -m venv "$RUNNER_TEMP/airport-schema"
+          "$RUNNER_TEMP/airport-schema/bin/python" -m pip install -r .github/specs/multi-airport-support/schema/requirements.txt
+          "$RUNNER_TEMP/airport-schema/bin/python" .github/specs/multi-airport-support/schema/validate_examples.py
+      - name: Validate full production loader, resources and immutable definitions
+        working-directory: backend
+        run: go test -race ./internal/config ./internal/shared

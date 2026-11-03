@@ -1,0 +1,4625 @@
+[
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "null placeholder",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/coverage",
+        "value": null
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown root setting",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/current_airport",
+        "value": "EKCH"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown coverage provider",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/responsibilities/0/providers/-",
+        "value": "ZZZZ_APP"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown route responsibility",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/0/path/-",
+        "value": "UNKNOWN_ROLE"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown runway",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/routing/ground/0/forRunway",
+        "value": "99"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "frequency must stay a string",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/positions/0/frequency",
+        "value": 119.905
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "duplicate position",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/positions/-",
+        "value": {
+          "frequency": "119.905",
+          "name": "EKCH_DEL",
+          "section": "DEL"
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "duplicate responsibility ID",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/responsibilities/-",
+        "value": {
+          "active": [],
+          "id": "responsibility-001",
+          "name": "DEL",
+          "name_priority": 10,
+          "providers": [
+            "EKCH_DEL",
+            "EKCH_A_GND",
+            "EKCH_B_GND",
+            "EKCH_C_GND",
+            "EKCH_GW_TWR",
+            "EKCH_GE_TWR",
+            "EKCH_D_TWR",
+            "EKCH_A_TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "session-owned feed cache",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/vatsim",
+        "value": {
+          "availability": "enabled"
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown service setting",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/cdm/poller_per_session",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "airport-local PDC credentials",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/pdc/logon",
+        "value": "example-only"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "session-owned PDC poller",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/pdc/poller_per_session",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "observer master",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/master/observers_eligible",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "missing referenced file",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/geography/regions/repo_path",
+        "value": "backend/config/missing_regions.json"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "repository traversal",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/geography/regions/repo_path",
+        "value": "../outside.json"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {
+      "FLIGHTSTRIPS_EXAMPLE_REGIONS": "backend/config/missing_regions.json"
+    },
+    "name": "missing selected region environment file",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/regions/repo_path"
+      },
+      {
+        "op": "add",
+        "path": "/geography/regions/default_repo_path",
+        "value": "backend/config/ekch_regions.json"
+      },
+      {
+        "op": "add",
+        "path": "/geography/regions/environment",
+        "value": "FLIGHTSTRIPS_EXAMPLE_REGIONS"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "missing region fallback file",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/regions/repo_path"
+      },
+      {
+        "op": "add",
+        "path": "/geography/regions/default_repo_path",
+        "value": "backend/config/missing_regions.json"
+      },
+      {
+        "op": "add",
+        "path": "/geography/regions/environment",
+        "value": "FLIGHTSTRIPS_EXAMPLE_REGIONS"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown handler",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/workflow/handler",
+        "value": "dynamic-plugin"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown handler setting",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/settings/invented",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "cross-handler settings",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/settings/initial_bay",
+        "value": "HOLD"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "zero airborne threshold",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/workflow/settings/airborne_altitude_agl_ft",
+        "value": 0
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "EKCH geography constants not extracted yet",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/geography/latitude",
+        "value": 1
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "EKCH handler on another airport",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/airport",
+        "value": "ZZZZ"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "missing EKCH bay",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/bays/17"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "separate profile reference no longer accepted",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/profile",
+        "value": {
+          "repo_path": "old.yaml"
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "script handler not accepted",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/script",
+        "value": "run.js"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "unknown paper initial bay",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/workflow/settings/initial_bay",
+        "value": "UNKNOWN"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "same paper initial/runway bay",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/workflow/settings/initial_bay",
+        "value": "RUNWAY"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "unknown paper ES target",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/workflow/settings/ground_state_bays/TAXI",
+        "value": "UNKNOWN"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "unknown paper movement state",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/workflow/settings/bay_ground_states/HOLD",
+        "value": "FLY"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "wrong annotation default type",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/workflow/annotations/review_required/default",
+        "value": "false"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "missing custom annotation",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/annotations/review_required"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "duplicate bay",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/bays/-",
+        "value": {
+          "id": "HOLD",
+          "label": "Hold"
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "paper ownership enabled",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/ownership/strips",
+        "value": "route"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown coded view",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/view/id",
+        "value": "missing"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown fallback layout",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/view/airborne_fallback_layout",
+        "value": "missing"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown variant layout",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/view/layouts/EKDK_FMP/0/layout",
+        "value": "missing"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown airborne responsibility",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/routing/airborne/0/name",
+        "value": "MISSING"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "CDM URI parent traversal",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/services/cdm/config/rateUri",
+        "value": "../Readme.md"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "duplicate route ID",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "active": [
+            "22R"
+          ],
+          "forRunway": "22R",
+          "forStandRanges": [
+            "A1-A34",
+            "B3-B19",
+            "C10-C39",
+            "D1-D4",
+            "E20-E90",
+            "F1-F99",
+            "H101-H107"
+          ],
+          "id": "ground-route-001",
+          "name": "North stands to runway 22R",
+          "path": [
+            "SQ",
+            "AD",
+            "GW",
+            "TW"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "duplicate master priority",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/master/priorities/-",
+        "value": {
+          "match": "primary-frequency-or-callsign",
+          "position": "EKDK_FMP"
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "unknown missed-approach provider",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/routing/missed_approach/22L",
+        "value": "MISSING_TWR"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "missing default airborne route",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/routing/airborne/0/default",
+        "value": false
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "inverted stand range",
+    "operations": [
+      {
+        "op": "replace",
+        "path": "/routing/ground/0/forStandRanges/0",
+        "value": {
+          "from": 30,
+          "prefix": "A",
+          "to": 10
+        }
+      },
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/forStandRanges/6"
+      },
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/forStandRanges/5"
+      },
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/forStandRanges/4"
+      },
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/forStandRanges/3"
+      },
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/forStandRanges/2"
+      },
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/forStandRanges/1"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "route lacks selectors",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/forRunway"
+      },
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/forStandRanges"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector 'NOTASTAND'",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "NOTASTAND"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector 'A1-B2'",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "A1-B2"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector 'A1-A2-A3'",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "A1-A2-A3"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector 'A1.5'",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "A1.5"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "invalid scalar stand selector '   '",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            "   "
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "inverted integral-float stand range",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            {
+              "from": 30.0,
+              "prefix": "A",
+              "to": 10.0
+            }
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown //unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //schema_version",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/schema_version"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //kind",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/kind"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //airport",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/airport"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //geography",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //positions",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/positions"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //coverage",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //master",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //ownership",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/ownership"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //routing",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //view",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //workflow",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //services",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //validation",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing //provenance",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/provenance"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /geography/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/geography/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /geography/latitude",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/latitude"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /geography/longitude",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/longitude"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /geography/elevation_ft",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/elevation_ft"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /geography/transition_altitude_ft",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/transition_altitude_ft"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /geography/runways",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/runways"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /geography/initial_cfl_ft",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/initial_cfl_ft"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /geography/regions/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/geography/regions/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /geography/regions/repo_path",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/regions/repo_path"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /positions/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/positions/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /positions/0/name",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/positions/0/name"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /positions/0/frequency",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/positions/0/frequency"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /positions/0/section",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/positions/0/section"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /coverage/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/matching",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/responsibilities",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/airborne_fallback",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/airborne_fallback"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/membership",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/membership"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /coverage/matching/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/matching/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/matching/primary_frequency",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/primary_frequency"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/matching/tuned_frequencies",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/tuned_frequencies"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/matching/callsign_fallback",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/callsign_fallback"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/matching/normalization",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/normalization"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/matching/provider_selection",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/provider_selection"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /coverage/responsibilities/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/responsibilities/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/responsibilities/0/id",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities/0/id"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/responsibilities/0/name",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities/0/name"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/responsibilities/0/providers",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities/0/providers"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /coverage/responsibilities/2/constraints/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/responsibilities/2/constraints/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/responsibilities/2/constraints/departure",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities/2/constraints/departure"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/responsibilities/2/constraints/arrival",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities/2/constraints/arrival"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /coverage/membership/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/membership/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /coverage/membership/policy",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/membership/policy"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /master/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/master/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /master/priorities",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/priorities"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /master/preempt_higher_priority",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/preempt_higher_priority"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /master/equal_priority",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/equal_priority"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /master/fallback",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/fallback"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /master/observers_eligible",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/observers_eligible"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /master/priorities/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/master/priorities/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /master/priorities/0/position",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/priorities/0/position"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /master/priorities/0/match",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/priorities/0/match"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /ownership/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/ownership/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /ownership/strips",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/ownership/strips"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /ownership/sectors",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/ownership/sectors"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /ownership/callsign_prefixes",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/ownership/callsign_prefixes"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /routing/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /routing/ground",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/ground"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /routing/airborne",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/airborne"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /routing/missed_approach",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/missed_approach"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /routing/ground/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /routing/ground/0/id",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/id"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /routing/ground/0/name",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/name"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /routing/ground/0/path",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/ground/0/path"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /routing/airborne/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/airborne/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /routing/airborne/0/name",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/airborne/0/name"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /routing/airborne/0/default",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/airborne/0/default"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /routing/airborne/0/sids",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/airborne/0/sids"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /view/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/view/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /view/id",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/id"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /view/layouts",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/layouts"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /view/airborne_fallback_layout",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/airborne_fallback_layout"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /view/message_areas",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/message_areas"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /view/layouts/EKDK_FMP/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/view/layouts/EKDK_FMP/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /view/layouts/EKDK_FMP/0/online",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/layouts/EKDK_FMP/0/online"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /view/layouts/EKDK_FMP/0/offline",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/layouts/EKDK_FMP/0/offline"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /view/layouts/EKDK_FMP/0/layout",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/layouts/EKDK_FMP/0/layout"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /workflow/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /workflow/handler",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/handler"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /workflow/settings",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/settings"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /workflow/bays",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/bays"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /workflow/settings/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/settings/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /workflow/settings/airborne_altitude_agl_ft",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/settings/airborne_altitude_agl_ft"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /workflow/settings/relevant_distance_nm",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/settings/relevant_distance_nm"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /workflow/bays/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/bays/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /workflow/bays/0/id",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/bays/0/id"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /workflow/bays/0/label",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/bays/0/label"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/cdm/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/cdm/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config_root",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config_root"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/cdm/config/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/cdm/config/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/rate",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/rate"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/rateLvo",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/rateLvo"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/rateUri",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/rateUri"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/sidIntervalUri",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/sidIntervalUri"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/taxizonesUri",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/taxizonesUri"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/defaultTaxiTime",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/defaultTaxiTime"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/deice",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/deice"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/cdm/config/deice/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/cdm/config/deice/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/deice/light",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/deice/light"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/deice/medium",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/deice/medium"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/deice/heavy",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/deice/heavy"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/deice/super",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/deice/super"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/deice/platform",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/deice/platform"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/cdm/config/deice/platform/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/cdm/config/deice/platform/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/deice/platform/0/name",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/deice/platform/0/name"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/cdm/config/deice/platform/0/time",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/config/deice/platform/0/time"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/stand_assignment/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/stand_assignment/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/stand_assignment/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/stand_assignment/stands",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/stands"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/stand_assignment/aircraft_reference",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/aircraft_reference"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/stand_assignment/aircraft_icao",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/aircraft_icao"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/stand_assignment/airline_assignment",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/airline_assignment"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/stand_assignment/scenery",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/scenery"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/stand_assignment/aircraft_icao/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/stand_assignment/aircraft_icao/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/stand_assignment/aircraft_icao/environment",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/aircraft_icao/environment"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/stand_assignment/aircraft_icao/default_repo_path",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/aircraft_icao/default_repo_path"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/text_pilot/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/text_pilot/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/text_pilot/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/text_pilot/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/text_pilot/provider",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/text_pilot/provider"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/text_pilot/layout_data",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/text_pilot/layout_data"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/aman/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/aman/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/aman/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/aman/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/aman/terminal",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/aman/terminal"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/aman/boundary",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/aman/boundary"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/pdc/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/pdc/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/pdc/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/pdc/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/pdc/validation",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/pdc/validation"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/pdc/validation/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/pdc/validation/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/pdc/validation/heavy_runway_restriction",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/pdc/validation/heavy_runway_restriction"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/pdc/validation/sid_restrictions",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/pdc/validation/sid_restrictions"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/pdc/validation/heavy_runway_restriction/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/pdc/validation/heavy_runway_restriction/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/pdc/validation/heavy_runway_restriction/aircraft_types",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/pdc/validation/heavy_runway_restriction/aircraft_types"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/pdc/validation/heavy_runway_restriction/allowed_runways",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/pdc/validation/heavy_runway_restriction/allowed_runways"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/pdc/validation/sid_restrictions/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/pdc/validation/sid_restrictions/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/pdc/validation/sid_restrictions/0/sid",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/pdc/validation/sid_restrictions/0/sid"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/pdc/validation/sid_restrictions/0/engine_types",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/pdc/validation/sid_restrictions/0/engine_types"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /services/ecfmp/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/ecfmp/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /services/ecfmp/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/ecfmp/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/clearance/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/clearance/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/sid_first_waypoints",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/sid_first_waypoints"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/sid_engine_rules",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/sid_engine_rules"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/aircraft_runway_rules",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/aircraft_runway_rules"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/rnav_rules",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/rnav_rules"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/route_conflict_rules",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/route_conflict_rules"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/clearance/sid_engine_rules/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/clearance/sid_engine_rules/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/sid_engine_rules/0/code",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/sid_engine_rules/0/code"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/sid_engine_rules/0/sid_families",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/sid_engine_rules/0/sid_families"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/sid_engine_rules/0/disallowed_engine_types",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/sid_engine_rules/0/disallowed_engine_types"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/sid_engine_rules/0/message",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/sid_engine_rules/0/message"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/clearance/aircraft_runway_rules/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/clearance/aircraft_runway_rules/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/aircraft_runway_rules/0/code",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/aircraft_runway_rules/0/code"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/aircraft_runway_rules/0/aircraft_types",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/aircraft_runway_rules/0/aircraft_types"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/aircraft_runway_rules/0/restricted_runways",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/aircraft_runway_rules/0/restricted_runways"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/aircraft_runway_rules/0/message",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/aircraft_runway_rules/0/message"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/clearance/rnav_rules/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/clearance/rnav_rules/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/rnav_rules/nil",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/rnav_rules/nil"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/rnav_rules/insufficient",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/rnav_rules/insufficient"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/clearance/rnav_rules/nil/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/clearance/rnav_rules/nil/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/rnav_rules/nil/code",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/rnav_rules/nil/code"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/rnav_rules/nil/message",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/rnav_rules/nil/message"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/clearance/rnav_rules/insufficient/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/clearance/rnav_rules/insufficient/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/rnav_rules/insufficient/code",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/rnav_rules/insufficient/code"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/rnav_rules/insufficient/capabilities",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/rnav_rules/insufficient/capabilities"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/rnav_rules/insufficient/message",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/rnav_rules/insufficient/message"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/clearance/route_conflict_rules/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/clearance/route_conflict_rules/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/route_conflict_rules/0/code",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/route_conflict_rules/0/code"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/route_conflict_rules/0/sid_families",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/route_conflict_rules/0/sid_families"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/clearance/route_conflict_rules/0/message",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/clearance/route_conflict_rules/0/message"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/taxiway_types/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/taxiway_types/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/taxiway_types/apron",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/taxiway_types/apron"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /validation/taxiway_types/tower",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation/taxiway_types/tower"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /validation/taxiway_types/apron/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/taxiway_types/apron/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch unknown /provenance/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/provenance/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /provenance/0/path",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/provenance/0/path"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "ekch missing /provenance/0/sha256",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/provenance/0/sha256"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown //unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //schema_version",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/schema_version"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //kind",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/kind"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //airport",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/airport"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //geography",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //positions",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/positions"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //coverage",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //master",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //ownership",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/ownership"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //routing",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //view",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //workflow",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //services",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //validation",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/validation"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing //provenance",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/provenance"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /geography/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/geography/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /geography/latitude",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/latitude"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /geography/longitude",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/longitude"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /geography/elevation_ft",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/elevation_ft"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /geography/transition_altitude_ft",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/transition_altitude_ft"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /geography/runways",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/runways"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /geography/initial_cfl_ft",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/geography/initial_cfl_ft"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /positions/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/positions/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /positions/0/name",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/positions/0/name"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /positions/0/frequency",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/positions/0/frequency"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /positions/0/section",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/positions/0/section"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /coverage/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/matching",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/responsibilities",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/airborne_fallback",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/airborne_fallback"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/membership",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/membership"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /coverage/matching/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/matching/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/matching/primary_frequency",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/primary_frequency"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/matching/tuned_frequencies",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/tuned_frequencies"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/matching/callsign_fallback",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/callsign_fallback"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/matching/normalization",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/normalization"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/matching/provider_selection",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/matching/provider_selection"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /coverage/responsibilities/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/responsibilities/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/responsibilities/0/id",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities/0/id"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/responsibilities/0/name",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities/0/name"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/responsibilities/0/providers",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/responsibilities/0/providers"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /coverage/membership/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/coverage/membership/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/membership/policy",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/membership/policy"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /coverage/membership/relinquish_grace_seconds",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/coverage/membership/relinquish_grace_seconds"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /master/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/master/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /master/priorities",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/priorities"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /master/preempt_higher_priority",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/preempt_higher_priority"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /master/equal_priority",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/equal_priority"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /master/fallback",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/fallback"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /master/observers_eligible",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/observers_eligible"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /master/priorities/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/master/priorities/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /master/priorities/0/position",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/priorities/0/position"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /master/priorities/0/match",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/master/priorities/0/match"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /ownership/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/ownership/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /ownership/strips",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/ownership/strips"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /ownership/sectors",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/ownership/sectors"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /ownership/callsign_prefixes",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/ownership/callsign_prefixes"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /routing/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /routing/ground",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/ground"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /routing/airborne",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/airborne"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /routing/missed_approach",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/routing/missed_approach"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /view/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/view/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /view/id",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/id"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /view/layouts",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/layouts"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /view/airborne_fallback_layout",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/airborne_fallback_layout"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /view/message_areas",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/view/message_areas"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /workflow/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/handler",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/handler"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/settings",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/settings"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/bays",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/bays"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/annotations",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/annotations"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /workflow/settings/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/settings/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/settings/initial_bay",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/settings/initial_bay"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/settings/runway_bay",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/settings/runway_bay"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/settings/bay_ground_states",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/settings/bay_ground_states"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/settings/ground_state_bays",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/settings/ground_state_bays"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /workflow/bays/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/bays/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/bays/0/id",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/bays/0/id"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/bays/0/label",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/bays/0/label"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /workflow/annotations/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/annotations/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/annotations/review_required",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/annotations/review_required"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /workflow/annotations/review_required/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/workflow/annotations/review_required/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/annotations/review_required/type",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/annotations/review_required/type"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/annotations/review_required/scope",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/annotations/review_required/scope"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /workflow/annotations/review_required/default",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/workflow/annotations/review_required/default"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /services/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /services/cdm/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/cdm/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /services/cdm/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/cdm/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /services/stand_assignment/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/stand_assignment/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /services/stand_assignment/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /services/text_pilot/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/text_pilot/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /services/text_pilot/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/text_pilot/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /services/aman/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/aman/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /services/aman/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/aman/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /services/pdc/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/pdc/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /services/pdc/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/pdc/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /services/ecfmp/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/ecfmp/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /services/ecfmp/availability",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/ecfmp/availability"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /validation/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/validation/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz unknown /provenance/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/provenance/0/unexpected_field",
+        "value": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /provenance/0/path",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/provenance/0/path"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "zzzz missing /provenance/0/sha256",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/provenance/0/sha256"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "typed-selectors unknown /routing/ground/0/forStandRanges/0/unexpected_field",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            {
+              "from": 0,
+              "prefix": "A",
+              "to": 2,
+              "unexpected_field": true
+            },
+            12,
+            "A3"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "typed-selectors missing /routing/ground/0/forStandRanges/0/prefix",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            {
+              "from": 0,
+              "to": 2
+            },
+            12,
+            "A3"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "typed-selectors missing /routing/ground/0/forStandRanges/0/from",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            {
+              "prefix": "A",
+              "to": 2
+            },
+            12,
+            "A3"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "typed-selectors missing /routing/ground/0/forStandRanges/0/to",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            {
+              "from": 0,
+              "prefix": "A"
+            },
+            12,
+            "A3"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": false
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "all optional services disabled",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/aman"
+      },
+      {
+        "op": "remove",
+        "path": "/services/cdm"
+      },
+      {
+        "op": "remove",
+        "path": "/services/ecfmp"
+      },
+      {
+        "op": "remove",
+        "path": "/services/pdc"
+      },
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment"
+      },
+      {
+        "op": "remove",
+        "path": "/services/text_pilot"
+      }
+    ],
+    "valid": true
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "disabled assets need not exist",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/services/aman/terminal",
+        "value": {
+          "repo_path": "missing-terminal.json"
+        }
+      },
+      {
+        "op": "add",
+        "path": "/services/stand_assignment/stands",
+        "value": {
+          "repo_path": "missing-stands.txt"
+        }
+      }
+    ],
+    "valid": true
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "numeric single-digit runway selectors",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "active": [
+            9
+          ],
+          "forRunway": 9,
+          "id": "numeric",
+          "name": "numeric",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": true
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "typed and scalar stand selectors including zero bound",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            {
+              "from": 0,
+              "prefix": "A",
+              "to": 2
+            },
+            12,
+            "A3"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": true
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "explicit stand zero range",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9,
+          "forStandRanges": [
+            {
+              "from": 0,
+              "prefix": "A",
+              "to": 0
+            }
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": true
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "supported scalar stand forms and integral numeric selectors",
+    "operations": [
+      {
+        "op": "add",
+        "path": "/routing/ground/-",
+        "value": {
+          "forRunway": 9.0,
+          "forStandRanges": [
+            "273-1",
+            "RI",
+            "RII",
+            "RIII",
+            "W1",
+            "A15-A30",
+            12,
+            12.0,
+            "014",
+            "A0"
+          ],
+          "id": "selectors",
+          "name": "selectors",
+          "path": [
+            "TWR"
+          ]
+        }
+      }
+    ],
+    "valid": true
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "complete EKCH document",
+    "operations": [],
+    "valid": true
+  },
+  {
+    "base": "zzzz",
+    "environment": {},
+    "name": "complete fictional document",
+    "operations": [],
+    "valid": true
+  }
+]

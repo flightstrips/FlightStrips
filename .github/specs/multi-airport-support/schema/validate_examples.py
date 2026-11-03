@@ -2,7 +2,9 @@
 
 Install requirements.txt, then run this file. --refresh-ekch regenerates only
 the worked example from the current sources; it does not change runtime
-configuration. --dependency-path supports an isolated dependency installation.
+configuration. --refresh-production-ekch explicitly regenerates the production
+combined file. --write-report also regenerates the shared production-loader
+parity corpus. --dependency-path supports an isolated dependency installation.
 """
 from __future__ import annotations
 
@@ -10,6 +12,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -18,6 +21,7 @@ from pathlib import Path
 PARSER = argparse.ArgumentParser(description=__doc__)
 PARSER.add_argument('--dependency-path', type=Path)
 PARSER.add_argument('--refresh-ekch', action='store_true')
+PARSER.add_argument('--refresh-production-ekch', action='store_true')
 PARSER.add_argument('--write-report', action='store_true')
 PARSER.add_argument('files', nargs='*')
 ARGS = PARSER.parse_args()
@@ -110,6 +114,8 @@ def walk(value):
 
 def check_schema(document):
     require(isinstance(document, dict), 'configuration document must be an object')
+    require(all(not isinstance(value, float) or math.isfinite(value) for value in walk(document)),
+            'configuration numbers must be finite')
     errors = sorted(VALIDATOR.iter_errors(document), key=lambda e: list(map(str, e.path)))
     if errors:
         error = errors[0]
@@ -136,6 +142,49 @@ def validate_workflow(document):
         require(set(settings['ground_state_bays'].values()) <= bays, 'unknown ES-to-bay target')
 
 
+def selector_text(value):
+    # JSON Schema integer includes integral floats. Match Go's canonical typed
+    # decoding while retaining explicitly quoted scalar strings.
+    return str(int(value)) if isinstance(value, (int, float)) and not isinstance(value, bool) else str(value)
+
+
+def parse_stand(value):
+    text = value.strip().upper()
+    def integer(token):
+        if not re.fullmatch(r'[+-]?[0-9]+', token):
+            return None
+        number = int(token)
+        return number if -(2**63) <= number < 2**63 else None
+    number = integer(text)
+    if number is not None:
+        return '#', number
+    parts = text.split('-')
+    if len(parts) == 2:
+        number, suffix = integer(parts[0]), integer(parts[1])
+        if number is not None and suffix is not None and suffix >= 0:
+            return '#' + parts[1], number
+    if text in {'RI', 'RII', 'RIII'}:
+        return 'R', len(text) - 1
+    index = next((i for i, char in enumerate(text) if '0' <= char <= '9'), len(text))
+    if 0 < index < len(text):
+        number = integer(text[index:])
+        if number is not None:
+            return text[:index], number
+    return None
+
+
+def validate_scalar_stand_selector(value):
+    text = selector_text(value).strip()
+    if parse_stand(text) is not None:
+        return
+    parts = text.split('-')
+    if len(parts) == 2:
+        left, right = parse_stand(parts[0]), parse_stand(parts[1])
+        if left is not None and right is not None and left[0] == right[0]:
+            return
+    raise ConfigError(f'invalid scalar stand selector: {value!r}')
+
+
 def validate_airport(document, environment=None):
     check_schema(document)
     unique(document['positions'], 'name', 'position')
@@ -147,10 +196,14 @@ def validate_airport(document, environment=None):
     duties = document['coverage']['responsibilities']
     roles = {d['name'] for d in duties} | {d.get('key', d['name']) for d in duties}
     def position(value): require(value in positions, f'unknown position: {value}')
-    def runway(value): require(str(value).zfill(2) in runways, f'unknown runway: {value}')
+    def runway(value): require(selector_text(value).zfill(2) in runways, f'unknown runway: {value}')
     for key in document['geography']['initial_cfl_ft']:
         runway(key)
-    for node in walk(document):
+    # Disabled capabilities do not acquire or require their optional assets.
+    active_document = copy.deepcopy(document)
+    active_document['services'] = {name: service for name, service in document['services'].items()
+                                   if service['availability'] != 'disabled'}
+    for node in walk(active_document):
         if isinstance(node, dict) and 'repo_path' in node:
             require(repo_path(node['repo_path']).is_file(), f"missing repository resource: {node['repo_path']}")
     region_names = set()
@@ -182,14 +235,24 @@ def validate_airport(document, environment=None):
         for selector in route.get('forStandRanges', []):
             if isinstance(selector, dict):
                 require(selector['from'] <= selector['to'], 'stand range is inverted')
+            else:
+                validate_scalar_stand_selector(selector)
     require(not document['routing']['airborne'] or sum(r['default'] for r in document['routing']['airborne']) == 1, 'airborne routes require exactly one default')
+    for route in document['routing']['airborne']:
+        require(route['name'] in roles, f"unknown airborne responsibility: {route['name']}")
     for runway_name, provider in document['routing']['missed_approach'].items():
         runway(runway_name)
         position(provider)
     view = document['view']
+    handler_views = {'ekch/v1': ('ekch', {'AMAN', 'SEQPLN', 'CLX', 'AA', 'AAAD', 'AD', 'GEGW', 'TWTE', 'TWRGND'}),
+                     'example-paper/v1': ('example-paper', {'example-paper'})}
+    view_id, layouts = handler_views[document['workflow']['handler']]
+    require(view['id'] == view_id, f"unsupported coded view: {view['id']}")
+    require(view['airborne_fallback_layout'] in layouts, 'unsupported airborne fallback layout')
     for provider, variants in view['layouts'].items():
         position(provider)
         for variant in variants:
+            require(variant['layout'] in layouts, f"unsupported layout: {variant['layout']}")
             for active in variant.get('active', []):
                 runway(active)
             for matcher in variant['online'] + variant['offline']:
@@ -205,6 +268,8 @@ def validate_airport(document, environment=None):
             if key in service.get('config', {}):
                 uri = service['config'][key]
                 if not uri.startswith(('https://', 'http://')):
+                    require(not Path(uri).is_absolute() and '..' not in Path(uri).parts,
+                            f'CDM data escapes config_root: {uri}')
                     require(repo_path(str(Path(service['config_root']) / uri)).is_file(), f'missing CDM data: {uri}')
     return document
 
@@ -276,11 +341,80 @@ def legacy_from_airport(new):
     }
 
 
+def production_ekch():
+    document = migrated_ekch()
+    document['$schema'] = '../../internal/config/airport-configuration.schema.json'
+    document['services']['text_pilot']['layout_data']['repo_path'] = 'backend/config/ekch/text-pilot-layouts.json'
+    return document
+
+
+def json_patch(before, after, path=''):
+    """Small shared mutation corpus, rather than copies of entire airport files."""
+    escape = lambda key: str(key).replace('~', '~0').replace('/', '~1')
+    if isinstance(before, dict) and isinstance(after, dict):
+        changes = []
+        for key in sorted(before.keys() - after.keys()):
+            changes.append({'op': 'remove', 'path': path + '/' + escape(key)})
+        for key in sorted(after.keys() - before.keys()):
+            changes.append({'op': 'add', 'path': path + '/' + escape(key), 'value': after[key]})
+        for key in sorted(before.keys() & after.keys()):
+            changes.extend(json_patch(before[key], after[key], path + '/' + escape(key)))
+        return changes
+    if isinstance(before, list) and isinstance(after, list):
+        changes = []
+        for index in range(min(len(before), len(after))):
+            changes.extend(json_patch(before[index], after[index], path + '/' + str(index)))
+        for index in range(len(before) - 1, len(after) - 1, -1):
+            changes.append({'op': 'remove', 'path': path + '/' + str(index)})
+        for index in range(len(before), len(after)):
+            changes.append({'op': 'add', 'path': path + '/-', 'value': after[index]})
+        return changes
+    return [] if type(before) is type(after) and before == after else [{'op': 'replace', 'path': path, 'value': after}]
+
+
+def object_contract_cases(document):
+    """Exercise every reached closed object shape once, including union branches."""
+    seen = set()
+    def visit(value, schema, path):
+        while '$ref' in schema:
+            schema = SCHEMA['$defs'][schema['$ref'].rsplit('/', 1)[1]]
+        if 'oneOf' in schema:
+            branches = [branch for branch in schema['oneOf']
+                        if VALIDATOR.evolve(schema=branch).is_valid(value)]
+            if len(branches) != 1:
+                return
+            schema = branches[0]
+        if isinstance(value, dict):
+            if schema.get('additionalProperties') is False and id(schema) not in seen:
+                seen.add(id(schema))
+                yield path, 'unknown', 'unexpected_field'
+                required = list(schema.get('required', []))
+                for condition in schema.get('allOf', []):
+                    if 'if' in condition and VALIDATOR.evolve(schema=condition['if']).is_valid(value):
+                        required.extend(condition.get('then', {}).get('required', []))
+                for key in dict.fromkeys(required):
+                    yield path, 'missing', key
+            for key, child in value.items():
+                child_schema = schema.get('properties', {}).get(key, schema.get('additionalProperties', {}))
+                if isinstance(child_schema, dict):
+                    yield from visit(child, child_schema, path + [key])
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                yield from visit(child, schema.get('items', {}), path + [index])
+    yield from visit(document, SCHEMA, [])
+
+
 def main():
     ekch_path = DESIGN / 'examples/ekch.airport.yaml'
     fake_path = DESIGN / 'examples/zzzz.airport.yaml'
     if ARGS.refresh_ekch:
         write_yaml(ekch_path, migrated_ekch())
+    production_path = ROOT / 'backend/config/airports/ekch.airport.yaml'
+    if ARGS.refresh_production_ekch:
+        write_yaml(production_path, production_ekch())
+        production_path.write_text(production_path.read_text(encoding='utf-8').replace(
+            '# Worked proposal example; not loaded by the current application.',
+            '# Production EKCH combined definition; selected explicitly by deployment.'), encoding='utf-8')
     files = [Path(f).resolve() for f in ARGS.files] if ARGS.files else [ekch_path, fake_path]
     validated = []
     for file in files:
@@ -290,7 +424,10 @@ def main():
     old = load(ROOT / 'backend/config/ekch.yaml')
     require(legacy_from_airport(airport) == old, 'EKCH roundtrip lost, changed, or omitted current YAML settings')
     require(airport == migrated_ekch(), 'EKCH example differs from current sources and code-derived constants')
+    require(load(production_path) == production_ekch(), 'production EKCH definition differs from current migration sources')
+    validate_airport(load(production_path))
     negatives = []
+    parity_cases = []
     def rejects(label, mutation, base=airport, environment=None):
         candidate = copy.deepcopy(base)
         mutation(candidate)
@@ -298,6 +435,13 @@ def main():
             validate_airport(candidate, environment)
         except ConfigError:
             negatives.append(label)
+            normalized_environment = {key: Path(value).relative_to(ROOT).as_posix()
+                                      if Path(value).is_absolute() and Path(value).is_relative_to(ROOT) else value
+                                      for key, value in (environment or {}).items()}
+            fictional = base['workflow']['handler'] == 'example-paper/v1'
+            parity_cases.append({'name': label, 'base': 'zzzz' if fictional else 'ekch',
+                                 'operations': json_patch(fake if fictional else airport, candidate),
+                                 'environment': normalized_environment, 'valid': False})
             return
         raise ConfigError(f'invalid configuration accepted: {label}')
     rejects('null placeholder', lambda c: c.update(coverage=None))
@@ -344,17 +488,89 @@ def main():
     rejects('missing custom annotation', lambda c: c['workflow']['annotations'].clear(), fake)
     rejects('duplicate bay', lambda c: c['workflow']['bays'].append(copy.deepcopy(c['workflow']['bays'][0])), fake)
     rejects('paper ownership enabled', lambda c: c['ownership'].update(strips='route'), fake)
+    rejects('unknown coded view', lambda c: c['view'].update(id='missing'))
+    rejects('unknown fallback layout', lambda c: c['view'].update(airborne_fallback_layout='missing'))
+    rejects('unknown variant layout', lambda c: next(iter(c['view']['layouts'].values()))[0].update(layout='missing'))
+    rejects('unknown airborne responsibility', lambda c: c['routing']['airborne'][0].update(name='MISSING'))
+    rejects('CDM URI parent traversal', lambda c: c['services']['cdm']['config'].update(rateUri='../Readme.md'))
+    rejects('duplicate route ID', lambda c: c['routing']['ground'].append(copy.deepcopy(c['routing']['ground'][0])))
+    rejects('duplicate master priority', lambda c: c['master']['priorities'].append(copy.deepcopy(c['master']['priorities'][0])))
+    rejects('unknown missed-approach provider', lambda c: c['routing']['missed_approach'].update({'22L':'MISSING_TWR'}))
+    rejects('missing default airborne route', lambda c: [route.update(default=False) for route in c['routing']['airborne']])
+    rejects('inverted stand range', lambda c: c['routing']['ground'][0].update(forStandRanges=[{'prefix':'A','from':30,'to':10}]))
+    rejects('route lacks selectors', lambda c: [c['routing']['ground'][0].pop(key, None) for key in ['forRunway','forStandRanges']])
+    typed_selectors = copy.deepcopy(fake)
+    typed_selectors['routing']['ground'] = [{'id':'selectors','name':'selectors','forRunway':9,
+                                           'forStandRanges':[{'prefix':'A','from':0,'to':2},12,'A3'], 'path':['TWR']}]
+    validate_airport(typed_selectors)
+    for invalid_selector in ['NOTASTAND', 'A1-B2', 'A1-A2-A3', 'A1.5', '   ']:
+        rejects(f'invalid scalar stand selector {invalid_selector!r}',
+                lambda c, value=invalid_selector: c['routing']['ground'][0].update(forStandRanges=[value]), typed_selectors)
+    rejects('inverted integral-float stand range', lambda c: c['routing']['ground'][0].update(
+        forStandRanges=[{'prefix':'A','from':30.0,'to':10.0}]), typed_selectors)
+    for base_name, base in [('ekch',airport),('zzzz',fake),('typed-selectors',typed_selectors)]:
+        for path, operation, key in object_contract_cases(base):
+            if base_name == 'typed-selectors' and 'forStandRanges' not in path:
+                continue
+            def mutation(candidate, path=path, operation=operation, key=key):
+                target = candidate
+                for part in path:
+                    target = target[part]
+                if operation == 'unknown':
+                    target[key] = True
+                else:
+                    del target[key]
+            rejects(f"{base_name} {operation} /{'/'.join(map(str,path))}/{key}", mutation, base)
     disabled = copy.deepcopy(airport)
     disabled['services']['cdm'] = {'availability':'disabled'}
     validate_airport(disabled)
+    def accepts(label, candidate, base=airport):
+        validate_airport(candidate)
+        fictional = base['workflow']['handler'] == 'example-paper/v1'
+        parity_cases.append({'name':label,'base':'zzzz' if fictional else 'ekch',
+                             'operations':json_patch(fake if fictional else airport,candidate),'environment':{},'valid':True})
+    accepts('all optional services disabled', {**copy.deepcopy(fake), 'services':{}}, fake)
+    disabled_assets = copy.deepcopy(fake)
+    disabled_assets['services']['aman']['terminal'] = {'repo_path':'missing-terminal.json'}
+    disabled_assets['services']['stand_assignment']['stands'] = {'repo_path':'missing-stands.txt'}
+    accepts('disabled assets need not exist', disabled_assets, fake)
+    numeric = copy.deepcopy(fake)
+    numeric['routing']['ground'] = [{'id':'numeric','name':'numeric','forRunway':9,'path':['TWR'],'active':[9]}]
+    accepts('numeric single-digit runway selectors', numeric, fake)
+    accepts('typed and scalar stand selectors including zero bound', typed_selectors, fake)
+    zero_stand = copy.deepcopy(typed_selectors)
+    zero_stand['routing']['ground'][0]['forStandRanges'] = [{'prefix':'A','from':0,'to':0}]
+    accepts('explicit stand zero range', zero_stand, fake)
+    scalar_forms = copy.deepcopy(typed_selectors)
+    scalar_forms['routing']['ground'][0].update(forRunway=9.0,
+        forStandRanges=['273-1','RI','RII','RIII','W1','A15-A30',12,12.0,'014','A0'])
+    accepts('supported scalar stand forms and integral numeric selectors', scalar_forms, fake)
+    accepts('complete EKCH document', copy.deepcopy(airport))
+    accepts('complete fictional document', copy.deepcopy(fake), fake)
+    for nonfinite in [math.nan, math.inf, -math.inf]:
+        candidate = copy.deepcopy(fake)
+        candidate['geography']['latitude'] = nonfinite
+        try:
+            validate_airport(candidate)
+        except ConfigError:
+            pass
+        else:
+            raise ConfigError('nonfinite authoring scalar accepted')
+    corpus_path = HERE / 'loader-parity-cases.json'
+    corpus = json.dumps(parity_cases, indent=2, sort_keys=True) + '\n'
+    if ARGS.write_report:
+        corpus_path.write_text(corpus, encoding='utf-8')
+    else:
+        require(corpus_path.read_text(encoding='utf-8') == corpus, 'shared loader parity corpus is stale; run --write-report')
     report = {'schema':'flightstrips-airport/v1', 'validation':'JSON Schema 2020-12 plus semantic/reference checks', 'validated_documents':validated,
               'ekch_roundtrip':{'source':'backend/config/ekch.yaml', 'source_sha256':digest(ROOT / 'backend/config/ekch.yaml'), 'all_top_level_settings_preserved':sorted(old), 'positions':len(old['positions']), 'sector_variants':len(old['sectors']), 'ground_routes':len(old['routes']), 'airborne_routes':len(old['airborne_routes']), 'layout_positions':len(old['layouts']), 'master_priority':[r['position'] for r in airport['master']['priorities']], 'bay_ids':[b['id'] for b in airport['workflow']['bays']]},
               'rejected_invalid_cases':negatives,
+              'production_loader_parity_cases':len(parity_cases),
               'resource_resolution_checks':['Unset region environment uses the repository fallback.', 'Blank region environment uses the repository fallback.', 'An explicit region environment file takes precedence over a missing fallback.'],
-              'limits':['No production startup, persistence, transport, or complete EKCH handler migration is wired.', 'Executable handler proof covers bay movement and full-flight observation decisions only.', 'Current YAML data preservation does not establish complete runtime behavior equivalence.', 'ZZZZ and all its operating values are fictional and must not be deployed.']}
+              'limits':['Production Go tests consume the shared parity corpus and selected combined definition; Python authoring checks do not activate services.', 'Executable handler proof covers bay movement and full-flight observation decisions only.', 'Current YAML data preservation does not establish complete runtime workflow equivalence; MA-02 and MA-05 own their remaining migrations.', 'ZZZZ and all its operating values are fictional and must not be deployed.']}
     if ARGS.write_report:
         (HERE / 'validation-report.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
-    print(f'Validated {len(validated)} combined airport documents; preserved all {len(old)} EKCH settings; rejected {len(negatives)} invalid cases.')
+    print(f'Validated {len(validated)} examples and production EKCH; preserved all {len(old)} EKCH settings; rejected {len(negatives)} invalid cases; shared {len(parity_cases)} loader parity cases.')
     return 0
 
 

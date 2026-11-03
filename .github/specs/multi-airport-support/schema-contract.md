@@ -1,8 +1,9 @@
 # Airport configuration schema v1
 
-Status: concrete combined-file contract for coded workflow handlers, with two
-validated examples and an executable isolated Go proof. Application startup has
-not been migrated. This draft replaces the earlier profile/rule-language design.
+Status: concrete combined-file contract with a full production Go loader,
+explicit EKCH startup selection, two validated examples, and an isolated workflow
+proof. MA-01 covers definitions/assembly; MA-02 and MA-05 retain the workflow and
+service-state migrations. This replaces the earlier profile/rule-language design.
 
 See the [planning register](planning-readiness.md) for D1–D5, confirmed by the
 user on 2026-11-01. Follow existing EKCH execution; allow genuine automatic
@@ -32,7 +33,17 @@ repository. Duplicate YAML keys and stable IDs are rejected.
 One airport file combines the operational configuration. Large service datasets
 remain referenced assets; they are not copied into every YAML document. No
 application-scoped VATSIM fetch/cache configuration belongs in an airport file.
-The current application still loads `backend/config/ekch.yaml`.
+Production explicitly selects `backend/config/airports/ekch.airport.yaml` through
+`AIRPORT_CONFIG_FILES`; `backend/config/ekch.yaml` is the migration comparison
+fixture. See the [startup instructions](../../../backend/Readme.md).
+
+The [production loader](../../../backend/internal/config/airport_decode.go)
+checks the entire shipped schema before decoding every domain block and binding
+concrete compiled settings. The embedded and authoring schemas must match.
+The [selected-file resource loader](../../../backend/internal/config/airport_resources.go)
+validates required active resources and returns immutable definitions; it never
+scans examples or rebinds another airport's configuration. The fictional handler
+and view descriptors are registered only in tests.
 
 ### Airport fields
 
@@ -141,11 +152,11 @@ without expanding a universal workflow language. Admission/removal thresholds
 belong in the settings of the handler implementing that lifecycle; no separate
 lifecycle adapter document is required.
 
-The full Python validator checks all domain sections and repository references.
+The full Python validator checks all domain sections and active repository references.
 The isolated Go loader strictly decodes the workflow and required context; other
 domain blocks are retained as YAML nodes and not installed into existing
-singletons. Production startup must compose these domain validators rather than
-mistake this example projection for a full application loader.
+singletons. That optional proof remains separate from production: MA-01 now
+composes the domain types/validators in the full loader and selected startup path.
 
 Full-file validation, strict workflow decoding, and runtime activation are
 separate steps. Production must compose the domain validators and ensure parity
@@ -200,16 +211,43 @@ python -m pip install -r .github/specs/multi-airport-support/schema/requirements
 python .github/specs/multi-airport-support/schema/validate_examples.py --write-report
 ```
 
+Run the same generated cases through the full production loader from `backend`:
+
+```powershell
+go test -race ./internal/config ./internal/shared
+go run ./internal/testing/testdb ./...
+```
+
 An isolated package directory can be supplied with `--dependency-path PATH`.
 `--refresh-ekch --write-report` regenerates only the combined EKCH example from
 current source data; it does not alter the fictional example or runtime YAML.
+`--refresh-production-ekch` explicitly regenerates the production combined file
+from those same sources, including the backend-packaged text-pilot asset path.
+`--write-report` also writes the shared loader mutation corpus; ordinary validation
+fails when that corpus is stale. CI runs both the Python validator and Go tests.
 
-The report records two validated complete airport documents and 34 rejected
+The report records two validated examples plus production EKCH and 341 rejected
 invalid cases, including unknown/cross-handler settings, missing bays, invalid
 mappings/annotation types, ownership incompatibility, scripts/profile references,
 airport-local PDC logon/poller fields,
 missing selected region override/fallback files,
 unknown positions/routes, invalid resource paths, and session-owned feed caches.
+All original 34 cases remain. The shared corpus has 349 cases, including closed
+object/conditional required fields, valid and invalid scalar stand selectors, zero bounds,
+disabled assets, and complete positive documents. Go tests also verify selected
+definition coexistence, snapshot isolation, revisions and the complete EKCH data
+migration. This does not claim complete runtime workflow or service-state parity.
+
+Non-finite YAML numbers are rejected before schema validation. Numeric selectors
+use their decoded YAML values before domain conversion; quoted string selectors
+retain their literal interpretation. Source-level Go tests cover octal, hexadecimal,
+decimal and exponent spellings that a JSON mutation corpus cannot preserve.
+
+AMAN resolves the shared `stand_assignment.aircraft_icao` resource independently
+when SAT is disabled, without requiring SAT's stand or airline assets. GSX-only
+assembly still validates the scenery's airport. Disabled CDM does not register
+the background worker; existing shared clients and deployment credentials remain
+application-owned.
 See the [handler guide](handler-design.md) for runnable demonstrations, race
 checks, and benchmarks. Settings preservation and the tested handler decisions
 are separate claims; complete runtime parity remains integration work.

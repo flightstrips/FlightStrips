@@ -1750,7 +1750,7 @@ provenance:
 - path: backend/internal/shared/bays.go
   sha256: 25e0d6e453153f95dbcb2530f5f1e85a36f7abb3236ff1248e97793749dff068
 - path: backend/internal/euroscope/hub.go
-  sha256: 315b9eaef6e80ea3fdd9b017f982957681af70c415fe5fa80c89dbcd5ffd9ebd
+  sha256: 91e608e16499a14099cbedded88a62a89c5f53d1c5a54a9b4b3486d7b17c7e8d
 - path: backend/config/ekch_regions.json
   sha256: 772d29347e535ee6a3d9d058105ad9c9bc8fe2e1639bd8036c66541bcf9a1ddb
 - path: backend/internal/navigation/config.go

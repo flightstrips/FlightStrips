@@ -157,6 +157,7 @@ namespace FlightStrips {
 
     FlightStripsPlugin::FlightStripsPlugin(
         const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
+        const std::shared_ptr<handlers::FlightPlanEventHandlers> &mUnfilteredFlightPlanEventHandlers,
         const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
         const std::shared_ptr<handlers::RadarTargetEventHandlers> &mUnfilteredRadarTargetEventHandlers,
         const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
@@ -167,6 +168,7 @@ namespace FlightStrips {
         const std::shared_ptr<TagItems::TagItemHandlers> &mTagItemHandlers)
         : CPlugIn(COMPATIBILITY_CODE, PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR, PLUGIN_COPYRIGHT),
           m_flightPlanEventHandlerCollection(mFlightPlanEventHandlerCollection),
+          m_unfilteredFlightPlanEventHandlers(mUnfilteredFlightPlanEventHandlers),
           m_radarTargetEventHandlers(mRadarTargetEventHandlers),
           m_unfilteredRadarTargetEventHandlers(mUnfilteredRadarTargetEventHandlers),
           m_controllerEventHandlerCollection(mControllerEventHandlers),
@@ -263,9 +265,15 @@ namespace FlightStrips {
 
     void FlightStripsPlugin::OnFlightPlanControllerAssignedDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan,
                                                                       int DataType) {
-        if (!IsRelevant(FlightPlan)) {
+        if (!FlightPlan.IsValid() || FlightPlan.GetSimulated()) {
             return;
         }
+
+        SafeCall("OnUnfilteredFlightPlanControllerAssignedDataUpdate", [this, FlightPlan, DataType] {
+            this->m_unfilteredFlightPlanEventHandlers->ControllerFlightPlanDataEvent(FlightPlan, DataType);
+        });
+
+        if (!IsRelevant(FlightPlan)) return;
 
         SafeCall("OnFlightPlanControllerAssignedDataUpdate", [this, FlightPlan, DataType] {
             this->m_flightPlanEventHandlerCollection->ControllerFlightPlanDataEvent(FlightPlan, DataType);

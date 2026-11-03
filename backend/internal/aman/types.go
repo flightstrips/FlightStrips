@@ -706,7 +706,28 @@ func (s RouteFactState) Valid() bool {
 // RouteProgress is task-owned projection state persisted inside AMANFlight's
 // aggregate JSON. The compatibility identity intentionally includes exact
 // manifest/terminal revisions so same-cycle terminal activation resets safely.
+// RouteRecovery holds provisional physical evidence separately from accepted
+// route progress. Reconciliation of the same observation cannot advance it.
+type RouteRecovery struct {
+	FlightPlanRevision                uint64
+	RunwayGroupID                     RunwayGroupID
+	RouteFactID                       string
+	GeometryDigest                    string
+	LegIndex                          int
+	AlongTrackNM                      float64
+	LatitudeDegrees, LongitudeDegrees float64
+	ObservedAt                        time.Time
+	Samples                           uint8
+}
+
+// RoutePosition dates actual surveillance independently of inferred progress.
+type RoutePosition struct {
+	LatitudeDegrees, LongitudeDegrees float64
+	ObservedAt                        time.Time
+}
+
 type RouteProgress struct {
+	PhysicalPosition   *RoutePosition
 	GeometryDigest     string
 	ManifestRevision   int64
 	TerminalDigest     string
@@ -1005,9 +1026,16 @@ type AMANFlight struct {
 	// HoldingClearanceCanceledAt retains the last actual cancellation time across blank strip snapshots.
 	HoldingClearanceCanceledAt *time.Time
 	ActiveRouteFact            *RouteFact
-	ActiveRouteKey             *string
-	ActiveRouteDatasetID       *string
-	RouteProgress              *RouteProgress
+	// ActiveRouteQueryKey identifies the geometry installed at ActiveRouteKey.
+	ActiveRouteQueryKey  string
+	ActiveRouteKey       *string
+	ActiveRouteDatasetID *string
+	RouteRecovery        *RouteRecovery
+	// RouteRefreshQueryKey scopes the retry deadline independently of the
+	// installed route while an amendment cannot be materialized.
+	RouteRefreshQueryKey string
+	RouteRefreshAfter    *time.Time
+	RouteProgress        *RouteProgress
 	// ArrivalPathChanged survives temporary prediction outages so reassignment
 	// cannot bypass a destination holding queue when navigation recovers.
 	ArrivalPathChanged bool
@@ -1490,7 +1518,28 @@ func (f AMANFlight) Validate() error {
 	if f.ActiveRouteDatasetID != nil && strings.TrimSpace(*f.ActiveRouteDatasetID) == "" {
 		return invalid("active route dataset ID cannot be empty")
 	}
+	if f.RouteRefreshAfter != nil {
+		if err := requireUTCTime("route refresh after", *f.RouteRefreshAfter); err != nil {
+			return err
+		}
+	}
+	if r := f.RouteRecovery; r != nil {
+		if err := requireUTCTime("route recovery observation", r.ObservedAt); err != nil {
+			return err
+		}
+		if r.GeometryDigest == "" || r.LegIndex < 0 || !finiteRouteRecovery(r) {
+			return invalid("route recovery is invalid")
+		}
+	}
 	if f.RouteProgress != nil {
+		if p := f.RouteProgress.PhysicalPosition; p != nil {
+			if err := requireUTCTime("physical route position", p.ObservedAt); err != nil {
+				return err
+			}
+			if !finite(p.LatitudeDegrees) || !finite(p.LongitudeDegrees) || math.Abs(p.LatitudeDegrees) > 90 || math.Abs(p.LongitudeDegrees) > 180 {
+				return invalid("physical route position is invalid")
+			}
+		}
 		if f.RouteProgress.ObservedAt != nil {
 			if err := requireUTCTime("route progress observed at", *f.RouteProgress.ObservedAt); err != nil {
 				return err
@@ -2200,4 +2249,8 @@ func isTrimmedNonEmpty(value string) bool {
 
 func finite(value float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func finiteRouteRecovery(r *RouteRecovery) bool {
+	return finite(r.AlongTrackNM) && r.AlongTrackNM >= 0 && finite(r.LatitudeDegrees) && finite(r.LongitudeDegrees) && math.Abs(r.LatitudeDegrees) <= 90 && math.Abs(r.LongitudeDegrees) <= 180
 }

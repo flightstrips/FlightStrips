@@ -570,6 +570,7 @@ func TestDirectToRepeatedTargetUsesOnlyCompatibleRejoinFloor(t *testing.T) {
 	require.Equal(t, []string{"DIRECT_TO:A", "L5"}, legIDs(stable.Remaining))
 	require.Equal(t, 3, stable.Progress.RejoinLegIndex)
 	route.Digest = "amended"
+	input.FlightPlanRevision++ // A filed-route amendment supplies a new route identity.
 	amended := Reduce(snapshot, route, input, Config{})
 	require.Equal(t, []string{"DIRECT_TO:A", "L3", "L4", "L5"}, legIDs(amended.Remaining))
 	require.Equal(t, 1, amended.Progress.RejoinLegIndex)
@@ -655,6 +656,7 @@ func TestReduceResetsForManifestRunwayRouteAmendmentAndReportsFragments(t *testi
 	input.RunwayGroup = "G"
 	input.Prior = first.Progress
 	route.Digest = "amended"
+	input.FlightPlanRevision++ // A filed-route amendment supplies a new route identity.
 	amended := Reduce(snapshot, route, input, Config{})
 	require.NotEqual(t, first.Progress.GeometryDigest, amended.Progress.GeometryDigest)
 	route.Legs[1].PathTerminator = navdata.PathUnsupported

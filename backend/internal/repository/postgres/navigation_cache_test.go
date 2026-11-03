@@ -44,6 +44,39 @@ func TestNavigationCachePersistsCompleteManifestAndWarmRoute(t *testing.T) {
 	require.Equal(t, route.Geometry, warm)
 }
 
+func TestNavigationCacheRetainsIncompleteAndCorrectedRouteRevisions(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	repo := NewNavigationCache(pool)
+	_, corrected := writeNavigationFixture(t, t.Context(), repo, fixture.EKCH())
+	corrected.Geometry.Revisioned = true
+	var err error
+	corrected.Geometry.Digest, err = navdata.RouteGeometryDigest(corrected.Query, corrected.Geometry)
+	require.NoError(t, err)
+	incomplete := corrected
+	incomplete.Geometry.Legs = append([]navdata.ProcedureLeg{{ID: navdata.RouteGapPrefix + "SPY", PathTerminator: navdata.PathUnsupported}}, corrected.Geometry.Legs...)
+	incomplete.Geometry.Coverage = navdata.CoveragePartial
+	incomplete.Geometry.Unresolved = append([]string{"AMBIGUOUS_ROUTE_FIX:SPY"}, corrected.Geometry.Unresolved...)
+	incomplete.Geometry.Digest, err = navdata.RouteGeometryDigest(incomplete.Query, incomplete.Geometry)
+	require.NoError(t, err)
+	oldKey, err := repo.PutRoute(t.Context(), incomplete)
+	require.NoError(t, err)
+	newKey, err := repo.PutRoute(t.Context(), corrected)
+	require.NoError(t, err)
+	require.NotEqual(t, oldKey, newKey, "same query and resolver must admit a later source correction")
+	restarted := NewNavigationCache(pool)
+	old, err := restarted.Route(t.Context(), oldKey)
+	require.NoError(t, err)
+	require.Equal(t, incomplete.Geometry.Digest, old.Digest)
+	warm, err := restarted.Route(t.Context(), newKey)
+	require.NoError(t, err)
+	require.Equal(t, corrected.Geometry.Digest, warm.Digest)
+	for range 3 {
+		key, putErr := restarted.PutRoute(t.Context(), corrected)
+		require.NoError(t, putErr)
+		require.Equal(t, newKey, key)
+	}
+}
+
 func TestNavigationCacheRoundTripsRouteAcrossZeroWestLongitude(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := t.Context()

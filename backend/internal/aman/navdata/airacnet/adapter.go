@@ -396,6 +396,9 @@ func (a *Adapter) Resolve(ctx context.Context, query navdata.RouteQuery) (navdat
 	if err := a.getJSON(ctx, "routes/parse", parameters, &response); err != nil {
 		return navdata.RouteGeometry{}, err
 	}
+	if err := a.resolveRouteDetours(ctx, &response.Data); err != nil {
+		return navdata.RouteGeometry{}, err
+	}
 	geometry, err := a.routeGeometry(query, response.Data)
 	if err != nil {
 		return navdata.RouteGeometry{}, err
@@ -640,6 +643,14 @@ func (a *Adapter) routeGeometry(query navdata.RouteQuery, result routeData) (nav
 		geometry.Unresolved = append(geometry.Unresolved, "route-empty")
 	}
 	for index, segment := range segments {
+		if segment.GapFix != "" {
+			geometry.Coverage = navdata.CoveragePartial
+			if index == 0 || segments[index-1].GapFix != segment.GapFix {
+				geometry.Legs = append(geometry.Legs, navdata.ProcedureLeg{ID: navdata.RouteGapPrefix + segment.GapFix, PathTerminator: navdata.PathUnsupported})
+				geometry.Unresolved = append(geometry.Unresolved, "AMBIGUOUS_ROUTE_FIX:"+segment.GapFix)
+			}
+			continue
+		}
 		from, to := navdata.FixID(upper(segment.From.Identifier)), navdata.FixID(upper(segment.To.Identifier))
 		if from == "" || to == "" {
 			geometry.Coverage = navdata.CoveragePartial
@@ -840,10 +851,12 @@ type airportResponse struct {
 	Data airportDTO `json:"data"`
 }
 type waypointDTO struct {
-	Identifier  string        `json:"identifier"`
-	Latitude    float64       `json:"latitude"`
-	Longitude   float64       `json:"longitude"`
-	Coordinates coordinateDTO `json:"coordinates"`
+	Region      string           `json:"region"`
+	Type        procedureTypeDTO `json:"type"`
+	Identifier  string           `json:"identifier"`
+	Latitude    float64          `json:"latitude"`
+	Longitude   float64          `json:"longitude"`
+	Coordinates coordinateDTO    `json:"coordinates"`
 }
 type waypointResponse struct {
 	Data json.RawMessage `json:"data"`
@@ -902,12 +915,16 @@ type procedureDetailResponse struct {
 	Data procedureDetailDTO `json:"data"`
 }
 type routePointDTO struct {
+	Region      string        `json:"region"`
+	Via         string        `json:"via"`
+	Type        string        `json:"type"`
 	Identifier  string        `json:"identifier"`
 	Latitude    float64       `json:"latitude"`
 	Longitude   float64       `json:"longitude"`
 	Coordinates coordinateDTO `json:"coordinates"`
 }
 type routeSegmentDTO struct {
+	GapFix   string        `json:"-"`
 	From     routePointDTO `json:"from"`
 	To       routePointDTO `json:"to"`
 	Distance float64       `json:"distance"`

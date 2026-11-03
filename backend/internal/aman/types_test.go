@@ -135,6 +135,8 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 		reflect.TypeFor[Slot](),
 		reflect.TypeFor[QueueOffer](),
 		reflect.TypeFor[RouteFact](),
+		reflect.TypeFor[RouteRecovery](),
+		reflect.TypeFor[RoutePosition](),
 		reflect.TypeFor[ETAReview](),
 		reflect.TypeFor[OperationalException](),
 		reflect.TypeFor[GoAroundDetectionState](),

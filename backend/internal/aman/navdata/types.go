@@ -647,6 +647,8 @@ func (q RouteQuery) Key() (RouteKey, error) {
 }
 
 type RouteGeometry struct {
+	// Revisioned routes use their canonical digest in the immutable cache key.
+	Revisioned      bool `json:",omitempty"`
 	Version         DatasetVersion
 	Legs            []ProcedureLeg
 	HoldingIDs      []HoldingID
@@ -778,6 +780,9 @@ func RouteGeometryDigest(query RouteQuery, geometry RouteGeometry) (string, erro
 	slices.Sort(holdings)
 	unresolved := slices.Clone(geometry.Unresolved)
 	slices.Sort(unresolved)
+	if geometry.Revisioned {
+		legTokens = append(legTokens, "content-addressed-route-v1")
+	}
 	sum := sha256.Sum256([]byte(strings.Join(append([]string{string(key), canonicalRouteNumber(geometry.TotalDistanceNM), string(geometry.Coverage)}, append(legTokens, append(stringifyHoldings(holdings), unresolved...)...)...), "\x1f")))
 	return hex.EncodeToString(sum[:]), nil
 }

@@ -242,6 +242,12 @@ type Coordination struct {
 	IsTagRequest  bool
 }
 
+type EfbDepartureStand struct {
+	SessionID int32
+	Callsign  string
+	State     []byte
+}
+
 type SectorOwner struct {
 	ID         int32
 	Session    int32
@@ -258,6 +264,7 @@ type Session struct {
 	PdcSequence        int32
 	PdcMessageSequence int32
 	AvailableSids      models.AvailableSids
+	CreatedAt          pgtype.Timestamp
 }
 
 type StandAssignment struct {

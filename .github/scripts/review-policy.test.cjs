@@ -294,6 +294,19 @@ test('each stack layer receives its own check even when it targets a feature bra
   assert.equal(mock.contentReads[0].ref, mainHead);
 });
 
+test('a triggering owner PR is not shown as failed because another PR awaits approval', async () => {
+  const prs = [makePr({ number: 1044, user: { login: owner } }), makePr({
+    number: 1028, user: { login: 'github-actions[bot]' }, head: { ...makePr().head, sha: '3'.repeat(40) },
+  })];
+  const mock = mockGitHub({ prs });
+  mock.context.eventName = 'pull_request_target';
+  mock.context.payload = { pull_request: prs[0] };
+  await run(mock);
+  assert.equal(mock.checkRuns.find(check => check.head_sha === prs[0].head.sha).conclusion, 'success');
+  assert.equal(mock.checkRuns.find(check => check.head_sha === prs[1].head.sha).conclusion, 'failure');
+  assert.equal(mock.failures.length, 0, 'Only a failed evaluation, not missing approval, should fail the updater');
+});
+
 test('a stack branch cannot supply its own ownership rules', async () => {
   const pr = makePr({ user: { login: 'bjerrecs' }, base: { ref: 'codex/parent', sha: 'unmerged-parent' } });
   const mock = mockGitHub({ prs: [pr], reviews: [review('APPROVED', head, 'bjerrecs')] });

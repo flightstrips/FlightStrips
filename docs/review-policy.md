@@ -32,8 +32,10 @@ Older PR branches can lack the review-event workflow. The scheduled run on `main
 still picks up their approvals, dismissals, and change requests without changing
 their head commits or requiring a new approval. GitHub may delay scheduled runs;
 the five-minute interval is not a guaranteed update deadline. Polling leaves an
-unchanged check alone, and an ordinary pending review does not fail the scheduled
-job. Technical API failures still fail the job and the affected PR's check.
+unchanged check alone. The `Refresh code owner checks` job reports updater health;
+missing approvals fail only the affected PR's `Code owner review` check, not the
+batch job running on another PR. Technical API failures still fail the updater
+job and the affected PR's check.
 
 GitHub may group an API-created check under an existing workflow such as Build
 Plugin. This does not run that build. Each check's summary includes a direct

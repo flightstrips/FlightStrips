@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   evaluate:
-    name: Evaluate code owner reviews
+    name: Refresh code owner checks
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10

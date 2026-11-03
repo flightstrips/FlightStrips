@@ -226,9 +226,8 @@ async function run({ github, context, core }) {
       const { state, description } = (failed || entries[0]).result;
       await publish(sha, state, description);
       for (const entry of entries) core.info(`PR #${entry.pr.number} (${sha}): ${entry.result.description}`);
-      // Waiting for review is normal during polling; keep failure on the PR's
-      // check without generating failing scheduled-run notifications each time.
-      if (state !== 'success' && !scheduled) core.setFailed('One or more PRs do not satisfy the code owner review policy.');
+      // Policy failures belong to each PR's check. A batch refresh must not fail
+      // the triggering owner's workflow because another PR awaits approval.
     } catch (error) {
       core.error(`Commit ${sha}: ${error.message}`);
       await publish(sha, 'error', 'Unable to verify review policy; see workflow logs.');

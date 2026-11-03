@@ -1,0 +1,18 @@
+name: Review policy events
+
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+# Reviews on forks receive a read-only token. This workflow only signals the
+# trusted workflow_run handler; it never checks out or executes PR code.
+# The gate rejects approval-dependent PRs that alter, remove or rename this
+# file, so an approved PR cannot disable later review-dismissal notifications.
+permissions: {}
+
+jobs:
+  notify:
+    name: Refresh review policy
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'A review changed; reevaluate the current PR state.'

@@ -7,6 +7,8 @@ on:
     paths:
       - ".github/workflows/build-plugin.yml"
       - "euroscope-plugin/**"
+      - "!euroscope-plugin/CHANGELOG.md"
+      - "!euroscope-plugin/version.txt"
   pull_request:
     branches:
       - "main"
@@ -22,6 +24,11 @@ env:
 
 jobs:
   build:
+    if: >-
+      github.event_name != 'pull_request' || github.base_ref != 'main' ||
+      github.head_ref != 'release-please--branches--main' ||
+      github.event.pull_request.head.repo.full_name != github.repository ||
+      github.event.pull_request.user.login != 'github-actions[bot]'
     runs-on: windows-2025
     defaults:
       run:

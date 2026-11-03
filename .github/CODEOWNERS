@@ -1,7 +1,15 @@
 # CODEOWNERS
 
-/backend/ @frederikrosenberg
-/euroscope-plugin/ @frederikrosenberg
+* @frederikrosenberg
 
-/.github/CODEOWNERS @frederikrosenberg
+# Release Please metadata can be approved by either owner.
+/.release-please-manifest.json @frederikrosenberg @bjerrecs
+/backend/CHANGELOG.md @frederikrosenberg @bjerrecs
+/backend/version.txt @frederikrosenberg @bjerrecs
+/frontend/CHANGELOG.md @frederikrosenberg @bjerrecs
+/frontend/version.txt @frederikrosenberg @bjerrecs
+/euroscope-plugin/CHANGELOG.md @frederikrosenberg @bjerrecs
+/euroscope-plugin/version.txt @frederikrosenberg @bjerrecs
+/docs/CHANGELOG.md @frederikrosenberg @bjerrecs
+/docs/version.txt @frederikrosenberg @bjerrecs
 

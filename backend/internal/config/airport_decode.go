@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,6 +54,10 @@ func (r schemaRegexp) MatchString(value string) bool {
 // DecodeAirport validates the complete structural and domain contract before
 // returning concrete configuration. It has no side effects on loaded airports.
 func DecodeAirport(source string, r io.Reader) (result *AirportDocument, err error) {
+	return decodeAirport(source, r, ProductionAirportCatalog())
+}
+
+func decodeAirport(source string, r io.Reader, catalog *AirportCatalog) (result *AirportDocument, err error) {
 	airport := "<unknown>"
 	defer func() {
 		if err != nil {
@@ -72,6 +77,7 @@ func DecodeAirport(source string, r io.Reader) (result *AirportDocument, err err
 		return nil, fmt.Errorf("expected a single YAML document, got trailing document or error: %v", trailing)
 	}
 	node := root.Content[0]
+	normalizeAirportYAMLScalars(node)
 	if name := mappingValue(node, "airport"); name != nil {
 		airport = name.Value
 	}
@@ -109,15 +115,8 @@ func DecodeAirport(source string, r io.Reader) (result *AirportDocument, err err
 	}
 	normalizeAirportRunwaySelectors(&doc)
 	settings := mappingValue(mappingValue(node, "workflow"), "settings")
-	switch doc.Workflow.Handler {
-	case "ekch/v1":
-		var cfg EKCHSettings
-		if err = settings.Decode(&cfg); err != nil {
-			return nil, err
-		}
-		doc.Workflow.Settings = cfg
-	default:
-		return nil, fmt.Errorf("workflow.handler: no compiled settings for %q", doc.Workflow.Handler)
+	if err = catalog.bind(&doc, settings); err != nil {
+		return nil, err
 	}
 	if err = validateAirportDomains(&doc); err != nil {
 		return nil, fmt.Errorf("line %d: %w", node.Line, err)
@@ -146,6 +145,20 @@ func canonicalizeAirportNumbers(node *yaml.Node) {
 	}
 	for _, child := range node.Content {
 		canonicalizeAirportNumbers(child)
+	}
+}
+
+var ambiguousRunwayScalar = regexp.MustCompile(`^0[0-9]*[89][0-9]*$`)
+
+// The authored examples use YAML 1.1's plain 09 as a string. yaml/v4
+// otherwise resolves it as a float. Retain that lexical value, including in
+// map keys, so full Go loading agrees with the authoring validator.
+func normalizeAirportYAMLScalars(node *yaml.Node) {
+	if node.Kind == yaml.ScalarNode && node.Tag == "!!float" && ambiguousRunwayScalar.MatchString(node.Value) {
+		node.Tag = "!!str"
+	}
+	for _, child := range node.Content {
+		normalizeAirportYAMLScalars(child)
 	}
 }
 

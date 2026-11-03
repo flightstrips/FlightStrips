@@ -50,7 +50,7 @@ func (r *createSessionRepository) Create(_ context.Context, session *models.Sess
 
 func TestGetOrCreateSessionCreatesAuthoritativeSession(t *testing.T) {
 	sessionRepo := &createSessionRepository{id: 42}
-	server := &Server{sessionRepo: sessionRepo}
+	server := &Server{workflows: testWorkflows,sessionRepo: sessionRepo}
 
 	session, err := server.GetOrCreateSession("EKCH", "LIVE")
 	if err != nil {
@@ -81,7 +81,7 @@ func TestGetOrCreateSessionRegistersInboundMonitoringImmediately(t *testing.T) {
 			repo = &persistedPlaybackRepository{session: models.Session{ID: 42, Name: "LIVE", Airport: "EKCH"}}
 		}
 		cdmService := &inboundSessionCdmService{}
-		server := &Server{sessionRepo: repo, cdmService: cdmService}
+		server := &Server{workflows: testWorkflows,sessionRepo: repo, cdmService: cdmService}
 		_, err := server.GetOrCreateSession("EKCH", "LIVE")
 		if err != nil {
 			t.Fatal(err)
@@ -109,7 +109,7 @@ func TestGetOrCreateSessionResumesPersistedPlaybackAfterRestart(t *testing.T) {
 		ID: 42, Name: "PLAYBACK_0123456789ABCDEF0123456789ABCDEF", Airport: "EKCH",
 	}}
 	for attempt := 0; attempt < 2; attempt++ {
-		server := &Server{sessionRepo: sessionRepo}
+		server := &Server{workflows: testWorkflows,sessionRepo: sessionRepo}
 		session, err := server.GetOrCreateSession("EKCH", sessionRepo.session.Name)
 		if err != nil {
 			t.Fatal(err)
@@ -123,7 +123,7 @@ func TestGetOrCreateSessionResumesPersistedPlaybackAfterRestart(t *testing.T) {
 func TestRemoveExpiredLiveSessionDeregistersMasterBeforeDelete(t *testing.T) {
 	cdmService := &expiredSessionCdmService{}
 	sessionRepo := &expiredSessionRepository{}
-	server := &Server{cdmService: cdmService, sessionRepo: sessionRepo}
+	server := &Server{workflows: testWorkflows,cdmService: cdmService, sessionRepo: sessionRepo}
 
 	server.removeExpiredSession(context.Background(), &models.Session{ID: 42, Name: "LIVE", Airport: "EKCH"})
 

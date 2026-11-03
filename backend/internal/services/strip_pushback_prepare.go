@@ -17,7 +17,7 @@ func (s *StripService) PrepareFrontendPushback(ctx context.Context, session int3
 	if strip.IsValidationLocked() && strip.ValidationStatus.IssueType != pushbackTsatValidationIssueType {
 		return errors.New("strip is locked by an active validation")
 	}
-	if err := validateFrontendMoveBayTransition(strip, airport, shared.BAY_PUSH, false); err != nil {
+	if err := s.validateFrontendMoveBayTransition(ctx, session, strip, airport, shared.BAY_PUSH, false); err != nil {
 		return err
 	}
 	if err := s.authorizeFrontendMove(ctx, session, strip, callsign, airport, shared.BAY_PUSH, position, false); err != nil {

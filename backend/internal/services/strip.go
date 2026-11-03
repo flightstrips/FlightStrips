@@ -1,6 +1,7 @@
 package services
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"context"
@@ -18,6 +19,9 @@ const (
 )
 
 type StripService struct {
+	workflowSessions     SessionReader
+	workflows            *airportworkflow.Registry
+	sessionWorkflows     sync.Map
 	stripReader          StripReader
 	lifecycleStore       StripLifecycleStore
 	orderingStore        StripOrderingStore

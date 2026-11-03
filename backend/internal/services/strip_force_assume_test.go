@@ -27,7 +27,7 @@ func TestForceAssumeStrip_OwnedStrip(t *testing.T) {
 	setOwnerCalled := false
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -66,7 +66,7 @@ func TestForceAssumeStrip_DisplacedOwnerRemovedFromPrevious(t *testing.T) {
 	var savedPreviousOwners []string
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -111,7 +111,7 @@ func TestForceAssumeStrip_RouteRecalculated(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -161,7 +161,7 @@ func TestForceAssumeStrip_NextOwnersFilteredFromPrevious(t *testing.T) {
 		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error { return nil },
 	}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			callCount++
 			if callCount == 1 {
@@ -211,7 +211,7 @@ func TestForceAssumeStrip_UnownedNoCoordination(t *testing.T) {
 	setOwnerCalled := false
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -267,7 +267,7 @@ func TestForceAssumeStrip_UnownedWithStaleCoordination(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -310,7 +310,7 @@ func TestForceAssumeStrip_ActiveCoordinationDoesNotBlock(t *testing.T) {
 	setOwnerCalled := false
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
 			assert.Equal(t, "SAS987", callsign)
 			return strip, nil
@@ -351,7 +351,7 @@ func TestForceAssumeStrip_ActiveCoordinationDoesNotBlock(t *testing.T) {
 
 // TestForceAssumeStrip_NotFound verifies that an error from the strip repository is propagated.
 func TestForceAssumeStrip_NotFound(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return nil, pgx.ErrNoRows
 		},
@@ -374,7 +374,7 @@ func TestForceAssumeStrip_SetOwnerFails(t *testing.T) {
 		Version:        1,
 	}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -409,7 +409,7 @@ func TestForceAssumeStrip_AssumeInNextList_OwnerAppendedToPrevious(t *testing.T)
 	var savedPreviousOwners []string
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -447,7 +447,7 @@ func TestForceAssumeStrip_AssumeNotInNextList_OwnerNotAppendedToPrevious(t *test
 	var savedPreviousOwners []string
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},

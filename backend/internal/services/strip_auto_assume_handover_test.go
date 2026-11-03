@@ -35,7 +35,7 @@ func TestRepeatedClearanceDoesNotReclaimTransferredDeparture(t *testing.T) {
 			}
 			route := &clearedHandoverRouteStub{target: "121.905"}
 			hub := &testutil.MockFrontendHub{}
-			service := NewStripService(repo, WithRouteRecalculator(route), WithStripEventPublisher(hub))
+			service := newWorkflowTestService(repo, WithRouteRecalculator(route), WithStripEventPublisher(hub))
 			var err error
 			switch source {
 			case "frontend":
@@ -71,7 +71,7 @@ func (s *clearedHandoverRouteStub) ComputeNextDisplayForStripContext(context.Con
 func TestWithRouteRecalculatorWiresHandoverAndDisplayCapabilities(t *testing.T) {
 	route := &clearedHandoverRouteStub{}
 
-	service := NewStripService(&testutil.MockStripRepository{}, WithRouteRecalculator(route))
+	service := newWorkflowTestService(&testutil.MockStripRepository{}, WithRouteRecalculator(route))
 
 	assert.Same(t, route, service.routeRecalculator)
 	assert.Same(t, route, service.routeDisplayComputer)
@@ -118,7 +118,7 @@ func TestAutoAssumeForClearedStrip_UsesRadioHandoverResolverWithoutCoordination(
 		},
 	}
 	hub := &testutil.MockFrontendHub{}
-	service := NewStripService(stripRepo)
+	service := newWorkflowTestService(stripRepo)
 	service.SetFrontendHub(hub)
 	route := &clearedHandoverRouteStub{target: target}
 	service.SetRouteRecalculator(route)

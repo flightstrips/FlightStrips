@@ -18,7 +18,7 @@ func TestResolveCoordinationTargetContextUsesCrossCoupledCarrier(t *testing.T) {
 		{Callsign: "EKCH_W_APP", Position: "118.455"},
 		{Callsign: "EKCH_E_APP", Position: "121.830"},
 	}
-	s := &Server{
+	s := &Server{workflows: testWorkflows,
 		controllerRepo: &testutil.MockControllerRepository{
 			ListFn: func(context.Context, int32) ([]*models.Controller, error) { return controllers, nil },
 		},
@@ -277,7 +277,7 @@ func TestResolveOwnedHandoverTargetDoesNotBypassConfiguredOwnerForAnotherCarrier
 		map[string]string{"GWD": "121.830"},
 		map[string]string{"121.830": "GE"},
 	)
-	radio := routeRadioState{
+	radio := routeRadioState{workflow: testWorkflow, session: 42,
 		coverage: map[string]map[string]struct{}{
 			"121.830": {"121.830": {}},
 			"119.355": {"118.580": {}},
@@ -305,7 +305,7 @@ func TestResolveOwnedHandoverTargetUsesCallsignRoleForFallbackDisplay(t *testing
 		map[string]string{"GWD": "121.830"},
 		map[string]string{"121.830": "TE"},
 	)
-	radio := routeRadioState{
+	radio := routeRadioState{workflow: testWorkflow, session: 42,
 		coverage: map[string]map[string]struct{}{
 			"121.830": {"121.830": {}},
 		},
@@ -333,7 +333,7 @@ func TestResolveOwnedHandoverTargetDoesNotDisplayUnsensedFallbackFrequency(t *te
 		map[string]string{"GWD": "119.355"},
 		map[string]string{"119.355": "GW"},
 	)
-	radio := routeRadioState{
+	radio := routeRadioState{workflow: testWorkflow, session: 42,
 		coverage: map[string]map[string]struct{}{
 			"119.355": {},
 		},
@@ -441,7 +441,7 @@ func TestComputeRouteStateUsesHistoryForRepeatedPhysicalOwner(t *testing.T) {
 		{Position: "121.730", Sector: []string{"AD"}, Identifier: "AD"},
 		{Position: "119.355", Sector: []string{"TW"}, Identifier: "TW"},
 	}
-	radio := routeRadioState{
+	radio := routeRadioState{workflow: testWorkflow, session: 42,
 		coverage: map[string]map[string]struct{}{
 			"121.830": {"121.905": {}},
 			"121.730": {},
@@ -471,7 +471,7 @@ func TestComputeRouteStateDisplaysADOnSharedNorthPrimary(t *testing.T) {
 		{Position: "118.580", Sector: []string{"GWD"}, Identifier: "GW"},
 		{Position: "119.355", Sector: []string{"TW"}, Identifier: "TW"},
 	}
-	radio := routeRadioState{
+	radio := routeRadioState{workflow: testWorkflow, session: 42,
 		coverage: map[string]map[string]struct{}{
 			"121.905": {"121.730": {}, "121.905": {}},
 			"118.580": {},
@@ -637,7 +637,7 @@ func TestResolveClearedStripOwnerUsesOperationalRadioState(t *testing.T) {
 		{"unknown stand leaves ownership unresolved", "EKCH_DEL", "Z999", ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			s := &Server{controllerRepo: &testutil.MockControllerRepository{
+			s := &Server{workflows: testWorkflows,controllerRepo: &testutil.MockControllerRepository{
 				ListFn: func(context.Context, int32) ([]*models.Controller, error) {
 					return []*models.Controller{{Callsign: test.callsign, Position: "119.905", Observer: test.callsign == "EKCH_OBS"}}, nil
 				},
@@ -670,7 +670,7 @@ func handoverCoverage(frequencies ...string) map[string]map[string]struct{} {
 }
 
 func handoverRadio(coverage map[string]map[string]struct{}) routeRadioState {
-	return routeRadioState{
+	return routeRadioState{workflow: testWorkflow, session: 42,
 		coverage:      coverage,
 		roleByPrimary: map[string]string{},
 	}

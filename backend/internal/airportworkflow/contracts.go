@@ -7,6 +7,7 @@ import (
 	"FlightStrips/pkg/events/euroscope"
 	"fmt"
 	"reflect"
+	"time"
 )
 
 // Source distinguishes reconciliation from a new command. Authority is supplied
@@ -49,6 +50,7 @@ const (
 	GroundState
 	Position
 	ArrivalPosition
+	ClearedFlag
 )
 
 // Observation is normalized by the ingress path. Missing full-flight route
@@ -61,14 +63,27 @@ type Observation struct {
 	Altitude                         int32
 }
 
+type LifecycleKind uint8
+
+const (
+	Admission LifecycleKind = iota
+	StandExpiry
+	Removal
+)
+
 type Lifecycle struct {
+	Kind                             LifecycleKind
 	Latitude, Longitude              float64
 	Altitude                         int32
 	Origin, Destination, GroundState string
 	Cleared                          bool
 }
 
-type LifecycleDecision struct{ Admit, Restart bool }
+type LifecycleDecision struct {
+	Admit, Restart, Remove bool
+	Bay                    *string
+	StandHideDelay         time.Duration
+}
 
 type Coordination struct {
 	Sequence                     bool
@@ -88,14 +103,17 @@ type CoordinationDecision struct {
 // Decision requests existing typed move/field operations. Observation decisions
 // contain reconciliation only; they cannot produce outbound field commands.
 type Decision struct {
-	Ignore                bool
-	ReconciledGroundState *string
-	ReconciledCleared     *bool
-	Touchdown             bool
-	Bay                   *string
-	GroundState           *string
-	Cleared               *bool
+	AutoAssume, ConfirmVoiceClearance bool
+	Ignore                            bool
+	ReconciledGroundState             *string
+	ReconciledCleared                 *bool
+	Touchdown                         bool
+	Bay                               *string
+	GroundState                       *string
+	Cleared                           *bool
 }
+
+type Clearance struct{ Cleared bool }
 
 type Move struct {
 	Bay                         string
@@ -187,6 +205,15 @@ func (b *Bound) Validate(c Context, d Decision) error {
 			return fmt.Errorf("workflow returned invalid ground state %q", *d.GroundState)
 		}
 	}
+	if c.Source > AutomaticSource {
+		return fmt.Errorf("unknown workflow source")
+	}
+	if d.GroundState != nil && d.Cleared != nil {
+		return fmt.Errorf("workflow cannot combine ground-state and clearance operations")
+	}
+	if c.Source != ObservationSource && (d.Touchdown || d.ReconciledGroundState != nil || d.ReconciledCleared != nil) {
+		return fmt.Errorf("controller action cannot masquerade as observation reconciliation")
+	}
 	if _, err := b.context(c); err != nil {
 		return err
 	}
@@ -254,6 +281,9 @@ func NewRegistry(definitions *config.AirportRegistry, descriptors ...Descriptor)
 		compiled[descriptor.ID] = descriptor
 	}
 	r := &Registry{airports: map[string]*Bound{}}
+	if definitions == nil {
+		return r, nil
+	}
 	for _, airport := range definitions.Airports() {
 		d, _ := definitions.Lookup(airport)
 		b, err := Bind(d, compiled[d.Document().Workflow.Handler])

@@ -16,7 +16,7 @@ import (
 
 func buildManualFPLService(t *testing.T, stripRepo *testutil.MockStripRepository, esHub *testutil.MockEuroscopeHub, fHub *testutil.MockFrontendHub) *StripService {
 	t.Helper()
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(fHub)
 	svc.SetEuroscopeHub(esHub)
 	// MoveToBay needs minimal repo stubs.

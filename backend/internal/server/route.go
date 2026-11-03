@@ -1,6 +1,7 @@
 package server
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
@@ -9,6 +10,7 @@ import (
 	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -36,6 +38,8 @@ type routeOwnership struct {
 }
 
 type routeRadioState struct {
+	workflow      *airportworkflow.Bound
+	session       int32
 	coverage      map[string]map[string]struct{}
 	roleByPrimary map[string]string
 }
@@ -65,7 +69,7 @@ func (s *Server) SelectNextControllerContext(ctx context.Context, sessionID int3
 	if err != nil {
 		return err
 	}
-	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionID, s.frequencyProviders)
+	radio, err := s.workflowRadioStateForSession(ctx, session, s.controllerRepo, sessionID, s.frequencyProviders)
 	if err != nil {
 		return err
 	}
@@ -127,7 +131,7 @@ func (s *Server) UpdateRouteForStripContext(ctx context.Context, callsign string
 		return err
 	}
 
-	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
+	radio, err := s.workflowRadioStateForSession(ctx, session, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return err
 	}
@@ -166,7 +170,7 @@ func (s *Server) ComputeNextOwnersForStripContext(ctx context.Context, strip *mo
 		return nil, false, err
 	}
 
-	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
+	radio, err := s.workflowRadioStateForSession(ctx, session, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return nil, false, err
 	}
@@ -217,7 +221,7 @@ func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *m
 		return nil, err
 	}
 
-	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
+	radio, err := s.workflowRadioStateForSession(ctx, session, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +349,7 @@ func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips
 		return err
 	}
 
-	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
+	radio, err := s.workflowRadioStateForSession(ctx, session, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return err
 	}
@@ -826,15 +830,13 @@ func resolveRouteStage(
 	// Keep route trimming aligned with clearance assignment, including CLR DEL
 	// carrying the planner role. Legacy callers without radio state still use
 	// the configured sector ownership below.
-	if !isArrival && normalizedSector == "SQ" && strings.EqualFold(session.Airport, "EKCH") && radio.coverage != nil {
-		resolution := resolveStaffedSequenceTarget(radio)
-		if resolution == nil {
-			return resolvedRouteStage{}, false
+	if !isArrival && normalizedSector == "SQ" && radio.workflow != nil && radio.coverage != nil {
+		if resolution, handled := resolveWorkflowSequenceTarget(radio); handled {
+			if resolution == nil {
+				return resolvedRouteStage{}, false
+			}
+			return resolvedRouteStage{Identifier: resolution.Identifier, Owner: resolution.Owner, Display: cloneNextDisplay(resolution.Display), LogicalCarried: resolution.LogicalCarried}, true
 		}
-		return resolvedRouteStage{
-			Identifier: resolution.Identifier, Owner: resolution.Owner,
-			Display: cloneNextDisplay(resolution.Display), LogicalCarried: resolution.LogicalCarried,
-		}, true
 	}
 
 	if overrideTarget, ok := ownerOverrides[normalizedSector]; ok {
@@ -1136,4 +1138,20 @@ func routeSectorOwners(ctx context.Context, sectorRepo repository.SectorOwnerRep
 		}
 	}
 	return owners, nil
+}
+
+func (s *Server) workflowRadioStateForSession(ctx context.Context, model *models.Session, controllers repository.ControllerRepository, session int32, providers []TransceiverLookup) (routeRadioState, error) {
+	radio, err := routeRadioStateForSession(ctx, controllers, session, providers)
+	if err != nil {
+		return radio, err
+	}
+	if s.workflows == nil {
+		return radio, nil
+	}
+	bound, ok := s.workflows.Lookup(model.Airport)
+	if !ok {
+		return radio, fmt.Errorf("no workflow for session airport %s", model.Airport)
+	}
+	radio.workflow, radio.session = bound, session
+	return radio, nil
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/alb"
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
@@ -208,8 +209,13 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	arrivalLifecycle := satGraph.arrivals
 	standAssignmentFailures := satGraph.failures
 
+	workflows, workflowErr := airportworkflow.NewRegistry(cfg.Airports, airportworkflow.EKCHDescriptor())
+	if workflowErr != nil {
+		return nil, fmt.Errorf("initialize workflows: %w", workflowErr)
+	}
 	stripService := services.NewStripService(
 		stripRepo,
+		services.WithAirportWorkflows(workflows),
 		services.WithTacticalStripRepository(tacticalStripRepo),
 		services.WithCoordinationStore(coordRepo),
 		services.WithControllerReader(controllerRepo),
@@ -521,6 +527,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 
 	fsServer, err = server.NewServer(server.Dependencies{
 		Airports:           cfg.Airports,
+		Workflows:          workflows,
 		DBPool:             dbpool,
 		Euroscope:          euroscopeHub,
 		Frontend:           frontendHub,

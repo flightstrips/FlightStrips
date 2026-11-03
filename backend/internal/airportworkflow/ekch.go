@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 )
 
 type ekch struct {
@@ -35,7 +36,7 @@ func EKCHDescriptor() Descriptor {
 				}
 			}
 		}
-		return h, []ActionDescriptor{Action("strip.move", h.move)}, nil
+		return h, []ActionDescriptor{Action("strip.move", h.move), Action("strip.state-for-move", h.moveState), Action("strip.clearance", h.clearance)}, nil
 	}}
 }
 
@@ -70,14 +71,43 @@ func (h ekch) Observe(c Context, o Observation) (Decision, error) {
 	s := c.Strip
 	var existing *database.Strip
 	if s.Exists {
-		existing = &database.Strip{Origin: s.Origin, Destination: s.Destination, Bay: s.Bay, Cleared: s.Cleared, State: nil}
+		existing = &database.Strip{Origin: s.Origin, Destination: s.Destination, Bay: s.Bay, Cleared: s.Cleared}
 		if s.GroundStateKnown {
 			existing.State = &s.GroundState
 		}
 	}
 	bay := s.Bay
+	d := Decision{}
 	switch o.Kind {
 	case FullFlight:
+		original := o
+		if o.Origin == "" {
+			o.Origin = s.Origin
+		}
+		if o.Destination == "" {
+			o.Destination = s.Destination
+		}
+		if s.Exists && (original.Origin == "" || original.Destination == "") && o.GroundState == euroscope.GroundStateUnknown && s.GroundState != "" && s.GroundState != euroscope.GroundStateUnknown && shared.GetGroundState(s.Bay) != euroscope.GroundStateUnknown {
+			o.GroundState = s.GroundState
+		}
+		if s.Exists && s.Bay == shared.BAY_DEPART && o.GroundState == euroscope.GroundStateTaxi {
+			o.GroundState = shared.GetGroundState(s.Bay)
+			if s.GroundState != "" && s.GroundState != euroscope.GroundStateUnknown {
+				o.GroundState = s.GroundState
+			}
+		}
+		if s.Exists && s.Bay == shared.BAY_AIRBORNE && o.GroundState == euroscope.GroundStateTaxi {
+			o.GroundState = euroscope.GroundStateUnknown
+			if s.GroundState != "" && s.GroundState != euroscope.GroundStateUnknown && s.GroundState != euroscope.GroundStateTaxi {
+				o.GroundState = s.GroundState
+			}
+		}
+		effectiveCleared := o.Cleared
+		if s.Exists && !o.Cleared && s.Cleared && (s.PDCState == "CLEARED" || s.PDCState == "CONFIRMED") {
+			effectiveCleared = s.Cleared
+		}
+		d.ReconciledGroundState = &o.GroundState
+		d.ReconciledCleared = &effectiveCleared
 		strip := euroscope.Strip{Origin: o.Origin, Destination: o.Destination, Cleared: o.Cleared, GroundState: o.GroundState, Position: &euroscope.Position{}}
 		strip.Position.Lat = o.Latitude
 		strip.Position.Lon = o.Longitude
@@ -108,7 +138,27 @@ func (h ekch) Observe(c Context, o Observation) (Decision, error) {
 			d.Bay = &bay
 		}
 		return d, nil
+	case ClearedFlag:
+		d.ConfirmVoiceClearance = o.Cleared && s.PDCState != "" && s.PDCState != "NONE" && s.PDCState != "CONFIRMED"
+		if o.Cleared == s.Cleared {
+			d.Ignore = true
+			return d, nil
+		}
+		bay = s.Bay
+		if bay == shared.BAY_NOT_CLEARED || bay == shared.BAY_UNKNOWN {
+			bay = shared.BAY_CLEARED
+		}
+		if bay == "" {
+			bay = shared.BAY_HIDDEN
+		}
+		d.Bay = &bay
+		d.AutoAssume = o.Cleared && s.PDCState != "CLEARED"
+		d.ConfirmVoiceClearance = o.Cleared && s.PDCState != "" && s.PDCState != "NONE" && s.PDCState != "CONFIRMED"
+		return d, nil
 	case GroundState:
+		if o.GroundState == euroscope.GroundStateTaxi && (s.Bay == shared.BAY_DEPART || s.Bay == shared.BAY_AIRBORNE) {
+			return Decision{Ignore: true}, nil
+		}
 		if existing == nil {
 			return Decision{}, fmt.Errorf("ground-state observation requires a strip")
 		}
@@ -121,11 +171,29 @@ func (h ekch) Observe(c Context, o Observation) (Decision, error) {
 	default:
 		return Decision{}, fmt.Errorf("unknown observation kind %d", o.Kind)
 	}
-	return Decision{Bay: &bay}, nil
+	d.Bay = &bay
+	return d, nil
 }
 
 func (h ekch) Lifecycle(c Context, l Lifecycle) (LifecycleDecision, error) {
 	d := LifecycleDecision{Admit: true}
+	switch l.Kind {
+	case StandExpiry:
+		if c.Strip.Bay == shared.BAY_STAND {
+			bay := shared.BAY_HIDDEN
+			d.Bay = &bay
+		}
+		return d, nil
+	case Removal:
+		d.Remove = true
+		return d, nil
+	case Admission:
+	default:
+		return d, fmt.Errorf("unknown lifecycle kind")
+	}
+	if c.Strip.Bay == shared.BAY_STAND {
+		d.StandHideDelay = 240 * time.Second
+	}
 	if !c.Strip.Exists {
 		return d, nil
 	}
@@ -185,4 +253,12 @@ func (h ekch) moveState(c Context, a Move) (Decision, error) {
 		d.GroundState = &state
 	}
 	return d, nil
+}
+
+func (h ekch) clearance(c Context, a Clearance) (Decision, error) {
+	bay := shared.BAY_NOT_CLEARED
+	if a.Cleared {
+		bay = shared.BAY_CLEARED
+	}
+	return Decision{Bay: &bay, Cleared: &a.Cleared}, nil
 }

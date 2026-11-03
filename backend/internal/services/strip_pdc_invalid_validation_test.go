@@ -27,7 +27,7 @@ func newPdcInvalidValidationFixture(stripRepo *testutil.MockStripRepository, dep
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSessionRepo(sessionRepo)
 	return svc, hub

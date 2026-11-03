@@ -1,12 +1,12 @@
 package server
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/vatsim"
 	"context"
-	"slices"
 	"strings"
 )
 
@@ -72,7 +72,7 @@ func (s *Server) ResolveClearedStripOwnerContext(ctx context.Context, strip *mod
 	if err != nil {
 		return "", false, err
 	}
-	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionID, s.frequencyProviders)
+	radio, err := s.workflowRadioStateForSession(ctx, session, s.controllerRepo, sessionID, s.frequencyProviders)
 	if err != nil {
 		return "", false, err
 	}
@@ -114,8 +114,10 @@ func resolveClearedRouteTarget(path []string, strip *models.Strip, session *mode
 }
 
 func resolveOwnedHandoverTarget(identifier string, strip *models.Strip, session *models.Session, ownership routeOwnership, radio routeRadioState) *resolvedHandover {
-	if strings.EqualFold(identifier, "SQ") && session != nil && strings.EqualFold(session.Airport, "EKCH") {
-		return resolveStaffedSequenceTarget(radio)
+	if strings.EqualFold(identifier, "SQ") && radio.workflow != nil {
+		if target, handled := resolveWorkflowSequenceTarget(radio); handled {
+			return target
+		}
 	}
 	ownerSector := resolveConfiguredRouteSector(identifier, strip, session)
 	owner, ok := resolveRouteSectorOwner(ownerSector, ownership.sectorToOwner, nil)
@@ -136,38 +138,25 @@ func resolveOwnedHandoverTarget(identifier string, strip *models.Strip, session 
 
 // SQ can be inherited by apron or tower without either planner frequency being
 // staffed. Only actual radio coverage qualifies for clearance assignment.
-func resolveStaffedSequenceTarget(radio routeRadioState) *resolvedHandover {
-	frequencies := make([]string, 0, 2)
-	for _, name := range []string{"EKCH_B_GND", "EKCH_DEL"} {
-		if position, err := config.GetPositionByName(name); err == nil {
-			frequencies = append(frequencies, vatsim.NormalizeFrequency(position.Frequency))
+func resolveWorkflowSequenceTarget(radio routeRadioState) (*resolvedHandover, bool) {
+	if radio.workflow == nil {
+		return nil, false
+	}
+	coverage := map[string][]string{}
+	for primary, covered := range radio.coverage {
+		coverage[primary] = []string{}
+		for frequency := range covered {
+			coverage[primary] = append(coverage[primary], frequency)
 		}
 	}
-	carriers := make([]string, 0, len(radio.coverage))
-	for primary := range radio.coverage {
-		carriers = append(carriers, primary)
+	decision, err := radio.workflow.Coordinate(airportworkflow.Context{Session: radio.session}, airportworkflow.Coordination{Sequence: true, Coverage: coverage})
+	if err != nil || !decision.SequenceSupported {
+		return nil, false
 	}
-	slices.Sort(carriers)
-	for _, frequency := range frequencies {
-		owner := ""
-		if _, primed := radio.coverage[frequency]; primed {
-			owner = frequency
-		} else {
-			for _, primary := range carriers {
-				if ownerCarriesFrequency(primary, frequency, radio.coverage) {
-					owner = primary
-					break
-				}
-			}
-		}
-		if owner != "" {
-			return &resolvedHandover{
-				Identifier: "SQ", Owner: owner, LogicalCarried: true,
-				Display: &models.NextDisplay{Label: config.GetSectorDisplayName("SQ"), Frequency: frequency},
-			}
-		}
+	if decision.SequenceOwner == "" {
+		return nil, true
 	}
-	return nil
+	return &resolvedHandover{Identifier: "SQ", Owner: decision.SequenceOwner, LogicalCarried: true, Display: &models.NextDisplay{Label: config.GetSectorDisplayName("SQ"), Frequency: decision.SequenceFrequency}}, true
 }
 
 func resolveHandoverTargetForOwner(identifier string, owner string, strip *models.Strip, session *models.Session, ownership routeOwnership, radio routeRadioState) *resolvedHandover {

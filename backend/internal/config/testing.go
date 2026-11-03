@@ -116,3 +116,25 @@ func SetMissedApproachHandoverForTest(m map[string]string) func() {
 	missedApproachHandover = m
 	return func() { missedApproachHandover = old }
 }
+
+// AirportDefinitionWithTestGeometry captures existing geometry fixtures into a
+// new immutable definition. It never modifies the registered production value.
+func AirportDefinitionWithTestGeometry(d *AirportDefinition) *AirportDefinition {
+	out := *d
+	clone := func(rs []Region) []Region {
+		result := slices.Clone(rs)
+		for i := range result {
+			result[i].Runways = slices.Clone(result[i].Runways)
+			result[i].Region = s2.LoopFromPoints(slices.Clone(result[i].Region.Vertices()))
+		}
+		return result
+	}
+	out.regionGroups = [3][]Region{clone(regions), clone(runwayRegions), clone(finalApproachRegions)}
+	return &out
+}
+
+// LoadEKCHTestAirportRegistry binds explicit immutable metadata for application
+// fixtures launched from the backend directory. It does not enable services.
+func LoadEKCHTestAirportRegistry() (*AirportRegistry, error) {
+	return LoadAirportFiles(ProductionAirportCatalog(), []string{"backend/config/airports/ekch.airport.yaml"}, AirportLoadOptions{RepositoryRoot: ".."})
+}

@@ -270,7 +270,7 @@ func TestTransceiverRefreshSkipsUnchangedEffectiveRouteInputs(t *testing.T) {
 		strips      int
 	}{}
 
-	srv := &Server{
+	srv := &Server{workflows: testWorkflows,
 		frequencyProviders: []TransceiverLookup{provider},
 		sessionRepo: &testutil.MockSessionRepository{
 			GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
@@ -364,7 +364,7 @@ func TestSendControllerUpdates_DoesNotAssignSectorsToWrongPrefix(t *testing.T) {
 		},
 	}
 
-	server := &Server{frontendHub: frontendHub}
+	server := &Server{workflows: testWorkflows,frontendHub: frontendHub}
 	err := server.sendControllerUpdates(1, []*models.SectorOwner{{
 		Session:    1,
 		Position:   "118.100",
@@ -401,7 +401,7 @@ func TestSendControllerUpdatesForPositionsSkipsUnaffectedControllers(t *testing.
 		},
 	}
 
-	server := &Server{frontendHub: frontendHub}
+	server := &Server{workflows: testWorkflows,frontendHub: frontendHub}
 	err := server.sendControllerUpdatesForPositions(1, []*models.SectorOwner{
 		{Session: 1, Position: "118.100", Sector: []string{"TW"}, Identifier: "EKCH_A_TWR"},
 		{Session: 1, Position: "119.805", Sector: []string{"AW"}, Identifier: "EKCH_W_APP"},
@@ -501,7 +501,7 @@ func TestUpdateSectorsContext_UsesSyncStateWithoutReloadingSessionOrControllers(
 		},
 	})
 
-	server := &Server{
+	server := &Server{workflows: testWorkflows,
 		sessionRepo:    &testutil.MockSessionRepository{},
 		controllerRepo: &testutil.MockControllerRepository{},
 		sectorRepo: &testutil.MockSectorOwnerRepository{
@@ -535,7 +535,7 @@ func TestSendControllerUpdates_UsesCallsignResolvedPositionForOwnedSectors(t *te
 		},
 	}
 
-	server := &Server{frontendHub: frontendHub}
+	server := &Server{workflows: testWorkflows,frontendHub: frontendHub}
 	err := server.sendControllerUpdates(1, []*models.SectorOwner{{
 		Session:    1,
 		Position:   "119.805",

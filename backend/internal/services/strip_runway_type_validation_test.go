@@ -30,7 +30,7 @@ func TestApplyRunwayTypeValidation_ActivatesForGroundOwnerInDepartureFlow(t *tes
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.applyRunwayTypeValidation(context.Background(), 1, &models.Strip{
 		Callsign:     "SAS123",
 		Owner:        &owner,
@@ -64,7 +64,7 @@ func TestApplyRunwayTypeValidation_ActivatesForTowerOwnerAtDepartureBay(t *testi
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.applyRunwayTypeValidation(context.Background(), 1, &models.Strip{
 		Callsign:     "SAS123",
 		Owner:        &owner,
@@ -93,7 +93,7 @@ func TestApplyRunwayTypeValidation_ClearsWhenRunwayBecomesCompatible(t *testing.
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.applyRunwayTypeValidation(context.Background(), 1, &models.Strip{
 		Callsign:     "SAS123",
 		Owner:        &owner,
@@ -128,7 +128,7 @@ func TestApplyRunwayTypeValidation_ClearsForNonApplicableOwner(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.applyRunwayTypeValidation(context.Background(), 1, &models.Strip{
 		Callsign:     "SAS123",
 		Owner:        &owner,
@@ -164,7 +164,7 @@ func TestApplyRunwayTypeValidation_ReactivatesOnOwnerChange(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.applyRunwayTypeValidation(context.Background(), 1, &models.Strip{
 		Callsign:     "SAS123",
 		Owner:        &newOwner,
@@ -237,7 +237,7 @@ func TestReevaluateDepartureValidation_TransitionsFromRunwayTypeToCtotAfterCorre
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	originalNow := ctotValidationNow
 	ctotValidationNow = func() time.Time { return now }
 	t.Cleanup(func() {

@@ -32,7 +32,7 @@ func TestHandleStripUpdate_FrontendClient_StandChange_SetsControllerModified(t *
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := stripRepo.AppendControllerModifiedField(ctx, session, callsign, "stand")
@@ -94,7 +94,7 @@ func TestHandleStripUpdate_EuroscopeClient_StandChange_NoControllerModified(t *t
 		}
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSessionRepo(sessionRepo)
 
@@ -123,7 +123,7 @@ func TestHandleStripUpdate_FrontendClient_AltitudeChange_SetsControllerModified(
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := stripRepo.AppendControllerModifiedField(ctx, session, callsign, "cleared_altitude")

@@ -36,7 +36,7 @@ func TestCreateTagRequest_Success(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -64,7 +64,7 @@ func TestCreateTagRequest_UnownedStrip(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -83,7 +83,7 @@ func TestCreateTagRequest_AlreadyOwner(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -109,7 +109,7 @@ func TestCreateTagRequest_ActiveCoordinationExists(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -127,7 +127,7 @@ func TestCreateTagRequest_ActiveCoordinationExists(t *testing.T) {
 func TestCreateTagRequest_StripNotFound(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return nil, pgx.ErrNoRows
 		},
@@ -171,7 +171,7 @@ func TestAcceptTagRequest_Success(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -210,7 +210,7 @@ func TestAcceptTagRequest_NotOwner(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -237,7 +237,7 @@ func TestAcceptTagRequest_NotTagRequest(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -280,7 +280,7 @@ func TestAcceptTagRequest_DisplacedOwnerRemovedFromPrevious(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -339,7 +339,7 @@ func TestAcceptTagRequest_RouteRecalculated(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -401,7 +401,7 @@ func TestAcceptTagRequest_NextOwnersFilteredFromPrevious(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			callCount++
 			if callCount == 1 {
@@ -471,7 +471,7 @@ func TestAcceptTagRequest_CoordinationDeleted(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -518,7 +518,7 @@ func TestAcceptTagRequest_SetOwnerFails(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -561,7 +561,7 @@ func TestAcceptTagRequest_RequesterInNextList_OwnerAppendedToPrevious(t *testing
 	var savedPreviousOwners []string
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
@@ -607,7 +607,7 @@ func TestAcceptTagRequest_RequesterNotInNextList_OwnerNotAppendedToPrevious(t *t
 	var savedPreviousOwners []string
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},

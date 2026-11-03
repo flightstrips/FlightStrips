@@ -1,5 +1,4 @@
 const REVIEW_CHECK_NAME = 'Code owner review';
-const REVIEW_CHECK_ID = 'flightstrips-review-policy';
 const REVIEW_EVENTS_WORKFLOW = '.github/workflows/review-policy-events.yml';
 const RELEASE_BRANCH = 'release-please--branches--main';
 const RELEASE_REQUIRED_CHECKS = ['AMAN publisher-consumer contract', 'Running-system E2E'];
@@ -99,7 +98,6 @@ async function run({ github, context, core }) {
   const repo = context.repo;
   const repository = `${repo.owner}/${repo.repo}`;
   const targetUrl = `${context.serverUrl || 'https://github.com'}/${repository}/actions/runs/${context.runId}`;
-  const scheduled = context.eventName === 'schedule';
   const pulls = await github.paginate(github.rest.pulls.list, {
     ...repo, state: 'open', per_page: 100,
   });
@@ -121,39 +119,26 @@ async function run({ github, context, core }) {
     if (!heads.has(pr.head.sha)) heads.set(pr.head.sha, []);
     heads.get(pr.head.sha).push(pr);
   }
-  const checkRuns = new Map();
+  const statuses = new Map();
   const publish = async (sha, state, description) => {
     try {
-      if (!checkRuns.has(sha)) {
-        const checks = await github.paginate(github.rest.checks.listForRef, {
-          ...repo, ref: sha, check_name: REVIEW_CHECK_NAME, app_id: 15368, filter: 'all', per_page: 100,
+      if (!statuses.has(sha)) {
+        const history = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
+          ...repo, ref: sha, per_page: 100,
         });
-        const existing = checks.filter(check => check.name === REVIEW_CHECK_NAME &&
-          check.external_id === REVIEW_CHECK_ID && check.app?.id === 15368 && check.conclusion !== 'stale')
-          .sort((a, b) => b.id - a.id)[0];
-        if (existing) checkRuns.set(sha, existing);
+        // Statuses are returned newest first. Unlike Actions-created check runs,
+        // they do not inherit a workflow suite's event or cancellation state.
+        statuses.set(sha, history.find(status => status.context === REVIEW_CHECK_NAME));
       }
-      const existing = checkRuns.get(sha);
-      const conclusion = state === 'error' ? 'failure' : state;
-      if (scheduled && state !== 'pending' && existing?.status === 'completed' &&
-          existing.conclusion === conclusion && existing.output?.title === description) return true;
-      const update = {
-        name: REVIEW_CHECK_NAME, details_url: targetUrl,
-        status: state === 'pending' ? 'in_progress' : 'completed',
-        // GitHub may group API-created Actions checks under another workflow and
-        // ignore details_url. Keep an explicit link to the actual writer run.
-        output: { title: description, summary: `${description}\n\n[Review policy workflow run](${targetUrl})` },
-      };
-      if (state !== 'pending') update.conclusion = conclusion;
-      if (existing) {
-        const { data: check } = await github.rest.checks.update({ ...repo, check_run_id: existing.id, ...update });
-        checkRuns.set(sha, check);
-      } else {
-        const { data: check } = await github.rest.checks.create({
-          ...repo, head_sha: sha, external_id: REVIEW_CHECK_ID, ...update,
-        });
-        checkRuns.set(sha, check);
-      }
+      const existing = statuses.get(sha);
+      // Commit status history is limited to 1,000 entries per context/SHA.
+      // Do not append pending/final pairs on every event or scheduled refresh.
+      if ((state === 'pending' && existing) ||
+          (existing?.state === state && existing.description === description)) return true;
+      const { data: status } = await github.rest.repos.createCommitStatus({
+        ...repo, sha, context: REVIEW_CHECK_NAME, state, description, target_url: targetUrl,
+      });
+      statuses.set(sha, status);
       return true;
     } catch (error) {
       core.error(`Commit ${sha}: unable to publish review check: ${error.message}`);
@@ -162,11 +147,11 @@ async function run({ github, context, core }) {
     }
   };
 
-  // Reuse one check per commit, invalidating old approvals before further reads.
+  // New heads start pending. Existing heads receive only changed decisions.
   // A publication failure for one head must not prevent checking the others.
   const ready = new Set();
   for (const sha of heads.keys()) {
-    if (scheduled || await publish(sha, 'pending', 'Checking ownership and approval of the latest commit.')) {
+    if (await publish(sha, 'pending', 'Checking ownership and approval of the latest commit.')) {
       ready.add(sha);
     }
   }
@@ -236,4 +221,4 @@ async function run({ github, context, core }) {
   }
 }
 
-module.exports = { REVIEW_CHECK_NAME, REVIEW_CHECK_ID, RELEASE_BRANCH, RELEASE_FILES, parseOwnership, isReleasePullRequest, releaseMetadataOnly, evaluate, run };
+module.exports = { REVIEW_CHECK_NAME, RELEASE_BRANCH, RELEASE_FILES, parseOwnership, isReleasePullRequest, releaseMetadataOnly, evaluate, run };

@@ -6,7 +6,7 @@ version file. The policy supports a global `*` rule followed by exact rooted fil
 overrides with individual usernames. The last matching rule wins. Unsupported
 ownership rules fail closed rather than silently granting an exemption.
 
-The `Code owner review` check run checks every changed file. Each file must
+The `Code owner review` commit status checks every changed file. Each file must
 be owned by the PR author or have an owner's approving review whose `commit_id`
 matches the PR's current head SHA. Renames check both the old and new paths.
 Simon can approve release metadata; a PR also changing source needs that source's
@@ -18,15 +18,18 @@ The trusted `Review policy` workflow runs on PR changes, main pushes, manual
 dispatch, a five-minute fallback schedule, and completion of `Release Please` or `Review policy events`. The latter
 is a read-only notification on review submission, editing or dismissal, including
 fork reviews.
-The writer only executes code from current `main` and loads CODEOWNERS from an
+Automatic events only execute code from current `main`. A maintainer can explicitly
+select a revision for manual dispatch to validate a policy change before merging.
+Every run loads CODEOWNERS from an
 immutable snapshot of current `main`. A PR's recorded `base.sha` can predate the
 current rules, and a stack's direct parent branch is not an approved source of
-ownership rules. It never executes code or downloads artifacts from the PR.
+ownership rules. Automatic events never execute code or download artifacts from the PR.
 Every run reevaluates all open PRs, including stack layers, so coalesced events and missing fork PR
 metadata in workflow-run payloads do not lose updates. PRs sharing a commit must
-all satisfy policy before the shared check can pass. The workflow updates the
-same check run on each commit instead of appending commit statuses on every
-refresh. API failures for one commit do not prevent evaluating the other PRs.
+all satisfy policy before the shared status can pass. The workflow publishes a
+commit status only when its decision or explanation changes. New commits start
+pending; unchanged refreshes append nothing, avoiding the 1,000-status limit per
+context and commit. API failures for one commit do not prevent evaluating the other PRs.
 
 Older PR branches can lack the review-event workflow. The scheduled run on `main`
 still picks up their approvals, dismissals, and change requests without changing
@@ -37,11 +40,13 @@ missing approvals fail only the affected PR's `Code owner review` check, not the
 batch job running on another PR. Technical API failures still fail the updater
 job and the affected PR's check.
 
-GitHub may group an API-created check under an existing workflow such as Build
-Plugin. This does not run that build. Each check's summary includes a direct
-link to the `Review policy` workflow run that produced the result.
+The owner result is a commit status rather than an API-created Actions check run.
+It is independent of workflow check-suite association, event eligibility, and
+canceled runs, including on stack layers. Its Details link opens the workflow
+run that last changed the decision.
 
-The workflows use the built-in `GITHUB_TOKEN` to read PR data and publish checks.
+The workflows use the built-in `GITHUB_TOKEN` to read PR data and publish statuses
+(`statuses: write`) and release CI skip checks (`checks: write`).
 No custom GitHub App, secrets, variables, or deployment environment are needed.
 The required check uses the shared GitHub Actions identity and is intended for
 trusted collaborators who do not deliberately spoof workflow check results.

@@ -18,6 +18,7 @@ permissions:
   contents: read
   pull-requests: read
   checks: write
+  statuses: write
 
 # Every run reevaluates all open PRs, so coalescing pending events cannot
 # lose an approval or a push. Serialize status writers without cancelling them.
@@ -28,14 +29,15 @@ concurrency:
 jobs:
   evaluate:
     name: Refresh code owner checks
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      # Always execute trusted main, including when the PR targets a stack branch.
+      # Automatic events always execute trusted main. A maintainer may explicitly
+      # dispatch a selected revision to validate policy changes before merging.
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || 'main' }}
           persist-credentials: false
       - uses: actions/github-script@v9
         with:

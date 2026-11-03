@@ -66,7 +66,7 @@ func TestScratchPadReconnectIncludesSavedTextAndEmptyValues(t *testing.T) {
 			return []*models.Strip{nil, {Callsign: "SAS123", FsScratchPad: "NOTE"}, {Callsign: "SAS456", FsScratchPad: ""}}, nil
 		},
 	}}}
-	client := startQueuedTestClient(&Client{session: 42, send: make(chan outgoing.OutgoingMessage, 3)})
+	client := startQueuedTestClient(&Client{session: 42, workflow: backendWorkflowFixture(), send: make(chan outgoing.OutgoingMessage, 3)})
 	hub.sendBackendSyncIfNeeded(client)
 	event := (<-client.send).(events.FsScratchPadEvent)
 	require.Equal(t, "NOTE", event.Text)

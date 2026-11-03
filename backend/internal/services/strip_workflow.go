@@ -56,12 +56,10 @@ func (s *StripService) workflowFor(ctx context.Context, session int32, airport s
 	return b, nil
 }
 
-func workflowSnapshot(s *models.Strip) airportworkflow.Snapshot {
-	if s == nil {
-		return airportworkflow.Snapshot{}
-	}
-	return airportworkflow.Snapshot{GroundStateKnown: s.State != nil, Exists: true, ID: s.ID, Version: s.Version, Callsign: s.Callsign, Origin: s.Origin, Destination: s.Destination, Bay: s.Bay, GroundState: workflowValue(s.State), Owner: workflowValue(s.Owner), Cleared: s.Cleared, PDCState: s.PdcState, AssignedSquawk: workflowValue(s.AssignedSquawk), TrackingController: s.TrackingController, StartRequested: s.StartReq, Latitude: workflowValue(s.PositionLatitude), Longitude: workflowValue(s.PositionLongitude), Altitude: workflowValue(s.PositionAltitude), EuroscopeSeen: s.EuroscopeSeenAt != nil, Runway: workflowValue(s.Runway), Landed: s.CdmData != nil && s.CdmData.Aldt != nil}
+func workflowSnapshot(strip *models.Strip) airportworkflow.Snapshot {
+	return airportworkflow.SnapshotOf(strip)
 }
+
 func workflowValue[T any](p *T) (v T) {
 	if p != nil {
 		return *p

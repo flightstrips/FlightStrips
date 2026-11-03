@@ -384,6 +384,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	euroscopeHub := realtime.euroscope
 	euroscopeHub.SetAirportRegistry(cfg.Airports)
+	euroscopeHub.SetWorkflowRegistry(workflows)
 	if amanAPI != nil {
 		amanAPI.WithSessionResolver(func(ctx context.Context, cid, airport string) (int32, error) {
 			controller := euroscopeHub.GetFrontendController(cid)

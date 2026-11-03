@@ -1,6 +1,7 @@
 package euroscope
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/dependencies"
@@ -44,6 +45,7 @@ const (
 )
 
 type Hub struct {
+	workflows             *airportworkflow.Registry
 	airports              *config.AirportRegistry
 	done                  chan struct{}
 	draining              atomic.Bool
@@ -413,9 +415,22 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		return
 	}
 
+	if client.workflow == nil {
+		slog.Warn("Backend sync requires a bound workflow", slog.Int("session", int(client.session)))
+		return
+	}
 	syncStrips := make([]*euroscope.BackendSyncStrip, 0, len(strips))
 	for _, strip := range strips {
-		if !shouldIncludeInBackendSync(strip) {
+		if strip == nil {
+			continue
+		}
+		scope := airportworkflow.Context{Session: client.session, Strip: airportworkflow.SnapshotOf(strip)}
+		admission, decisionErr := client.workflow.Lifecycle(scope, airportworkflow.Lifecycle{Kind: airportworkflow.BackendAdmission})
+		if decisionErr != nil {
+			slog.Error("Backend sync workflow admission failed", slog.Any("error", decisionErr))
+			return
+		}
+		if !admission.Admit {
 			if strip != nil {
 				client.Enqueue(euroscope.FsScratchPadEvent{Callsign: strip.Callsign, Text: strip.FsScratchPad})
 			}
@@ -432,7 +447,14 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		if strip.AssignedSquawk != nil {
 			entry.AssignedSquawk = *strip.AssignedSquawk
 		}
-		entry.GroundState = backendSyncGroundState(strip)
+		state, decisionErr := client.workflow.Observe(scope, airportworkflow.Observation{Kind: airportworkflow.BackendState})
+		if decisionErr != nil {
+			slog.Error("Backend sync workflow failed", slog.Any("error", decisionErr))
+			return
+		}
+		if state.ReconciledGroundState != nil {
+			entry.GroundState = *state.ReconciledGroundState
+		}
 		if strip.Stand != nil {
 			entry.Stand = *strip.Stand
 		}
@@ -469,38 +491,6 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 	)
 }
 
-func shouldIncludeInBackendSync(strip *internalModels.Strip) bool {
-	if strip == nil || strip.EuroscopeSeenAt == nil {
-		return false
-	}
-	// These bays contain VATSIM/SAT planning records that EuroScope has not
-	// observed. Sending them to the plugin materializes them as operational
-	// flight plans; the following EuroScope sync then moves them into CLRDEL.
-	return strip.Bay != shared.BAY_DEP_HIDDEN && strip.Bay != shared.BAY_ARR_HIDDEN
-}
-
-func backendSyncGroundState(strip *internalModels.Strip) string {
-	if strip == nil {
-		return euroscope.GroundStateUnknown
-	}
-
-	if strip.Bay == shared.BAY_DEPART {
-		if strip.State != nil && *strip.State == euroscope.GroundStateDepart {
-			return *strip.State
-		}
-		return shared.GetGroundState(strip.Bay)
-	}
-
-	if strip.Bay == shared.BAY_AIRBORNE && strip.State != nil && *strip.State == euroscope.GroundStateTaxi {
-		return euroscope.GroundStateUnknown
-	}
-
-	if strip.State != nil {
-		return *strip.State
-	}
-	return euroscope.GroundStateUnknown
-}
-
 func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[euroscope.EventType, *Client] {
 	return hub.handlers
 }
@@ -530,7 +520,8 @@ func (hub *Hub) SetServer(server shared.Server) {
 }
 
 // SetAirportRegistry binds immutable startup metadata before workers start.
-func (hub *Hub) SetAirportRegistry(registry *config.AirportRegistry) { hub.airports = registry }
+func (hub *Hub) SetAirportRegistry(registry *config.AirportRegistry)    { hub.airports = registry }
+func (hub *Hub) SetWorkflowRegistry(registry *airportworkflow.Registry) { hub.workflows = registry }
 
 func (hub *Hub) SetControllerService(controllerService shared.ControllerService) {
 	hub.controllerService = controllerService
@@ -593,6 +584,11 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 			return nil, fmt.Errorf("airport %q is not selected", event.Airport)
 		}
 		client.definition = definition
+		bound, ok := hub.workflows.Lookup(event.Airport)
+		if !ok {
+			return nil, fmt.Errorf("airport %q has no bound workflow", event.Airport)
+		}
+		client.workflow = bound
 	}
 
 	if !event.Observer {

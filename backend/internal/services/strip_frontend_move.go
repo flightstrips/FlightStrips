@@ -378,6 +378,13 @@ func (s *StripService) validateFrontendMoveBayTransition(ctx context.Context, se
 }
 
 func (s *StripService) authorizeFrontendMove(ctx context.Context, session int32, strip *internalModels.Strip, callsign string, airport string, targetBay string, clientPosition string, confirmedRemoval bool) error {
+	bound, err := s.workflowFor(ctx, session, airport)
+	if err != nil {
+		return err
+	}
+	if !bound.Definition().UsesStripOwnership() {
+		return nil
+	}
 	// EST's confirmed VACANT/CLEAR FPL commands intentionally remove whatever
 	// strip occupies the stand, irrespective of its current controller owner.
 	if confirmedRemoval && targetBay == shared.BAY_HIDDEN {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -112,27 +113,28 @@ func TestTakeoffClearanceAtotIsSentOnceAfterPersistence(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	data := &models.CdmData{}
+	var data atomic.Pointer[models.CdmData]
+	data.Store(&models.CdmData{})
 	repo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
 			return &models.Strip{Callsign: "SAS779", Origin: "EKCH"}, nil
 		},
 		GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) {
-			return data.Clone(), nil
+			return data.Load().Clone(), nil
 		},
 		SetCdmDataFn: func(_ context.Context, _ int32, _ string, updated *models.CdmData) (int64, error) {
-			data = updated.Clone()
+			data.Store(updated.Clone())
 			return 1, nil
 		},
 	}
-	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withMilestoneAcknowledgements(repo), milestoneTestSessions(), &testutil.MockControllerRepository{})
+	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withConcurrentMilestoneAcknowledgements(repo, &data), milestoneTestSessions(), &testutil.MockControllerRepository{})
 	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	markSessionLive(service, 779)
 	require.NoError(t, service.RecordTakeoffClearanceAtot(context.Background(), 779, "SAS779"))
 	require.NoError(t, service.RecordTakeoffClearanceAtot(context.Background(), 779, "SAS779"))
 	select {
 	case value := <-requests:
-		assert.Equal(t, "ATOT/"+*data.Atot, value)
+		assert.Equal(t, "ATOT/"+*data.Load().Atot, value)
 	case <-time.After(time.Second):
 		t.Fatal("ATOT was not sent")
 	}
@@ -210,24 +212,25 @@ func TestTransferAobtIsNotReplacedAtPushback(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	data := &models.CdmData{}
+	var data atomic.Pointer[models.CdmData]
+	data.Store(&models.CdmData{})
 	repo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
 			return &models.Strip{Callsign: "SAS779", Origin: "EKCH"}, nil
 		},
-		GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) { return data.Clone(), nil },
+		GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) { return data.Load().Clone(), nil },
 		SetCdmDataFn: func(_ context.Context, _ int32, _ string, updated *models.CdmData) (int64, error) {
-			data = updated.Clone()
+			data.Store(updated.Clone())
 			return 1, nil
 		},
 	}
-	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withMilestoneAcknowledgements(repo), milestoneTestSessions(), &testutil.MockControllerRepository{})
+	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withConcurrentMilestoneAcknowledgements(repo, &data), milestoneTestSessions(), &testutil.MockControllerRepository{})
 	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	markSessionLive(service, 779)
 	require.NoError(t, service.RecordAobtForTransfer(context.Background(), 779, "SAS779"))
-	first := *data.Aobt
+	first := *data.Load().Aobt
 	require.NoError(t, service.SyncAsatForGroundState(context.Background(), 779, "SAS779", "PUSH"))
-	assert.Equal(t, first, *data.Aobt)
+	assert.Equal(t, first, *data.Load().Aobt)
 	select {
 	case value := <-requests:
 		assert.Equal(t, "AOBT/"+first, value)
@@ -248,29 +251,30 @@ func TestStartupDoesNotRecordAobtBeforePushback(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	data := &models.CdmData{}
+	var data atomic.Pointer[models.CdmData]
+	data.Store(&models.CdmData{})
 	repo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
 			return &models.Strip{Callsign: "SAS779", Origin: "EKCH"}, nil
 		},
-		GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) { return data.Clone(), nil },
+		GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) { return data.Load().Clone(), nil },
 		SetCdmDataFn: func(_ context.Context, _ int32, _ string, updated *models.CdmData) (int64, error) {
-			data = updated.Clone()
+			data.Store(updated.Clone())
 			return 1, nil
 		},
 	}
-	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withMilestoneAcknowledgements(repo), milestoneTestSessions(), &testutil.MockControllerRepository{})
+	service := newTestCdmService(NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)), withConcurrentMilestoneAcknowledgements(repo, &data), milestoneTestSessions(), &testutil.MockControllerRepository{})
 	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	markSessionLive(service, 779)
 	require.NoError(t, service.SyncAsatForGroundState(context.Background(), 779, "SAS779", "STUP"))
-	require.NotNil(t, data.Asat)
-	assert.Nil(t, data.Aobt)
+	require.NotNil(t, data.Load().Asat)
+	assert.Nil(t, data.Load().Aobt)
 	require.NoError(t, service.SyncAsatForGroundState(context.Background(), 779, "SAS779", "PUSH"))
-	require.NotNil(t, data.Aobt)
+	require.NotNil(t, data.Load().Aobt)
 	require.NoError(t, service.SyncAsatForGroundState(context.Background(), 779, "SAS779", "PUSH"))
 	select {
 	case value := <-requests:
-		assert.Equal(t, "AOBT/"+*data.Aobt, value)
+		assert.Equal(t, "AOBT/"+*data.Load().Aobt, value)
 	case <-time.After(time.Second):
 		t.Fatal("AOBT was not sent on pushback")
 	}

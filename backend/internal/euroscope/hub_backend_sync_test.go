@@ -2,9 +2,12 @@ package euroscope
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
+	"FlightStrips/internal/airportworkflow"
+	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
@@ -14,6 +17,38 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var backendFixtureOnce sync.Once
+var backendFixtureWorkflow *airportworkflow.Bound
+var backendFixtureDefinitions *config.AirportRegistry
+
+func backendWorkflowFixture() *airportworkflow.Bound {
+	backendFixtureOnce.Do(func() {
+		definitions, err := config.LoadAirportFiles(config.ProductionAirportCatalog(), []string{"backend/config/airports/ekch.airport.yaml"}, config.AirportLoadOptions{RepositoryRoot: "../../.."})
+		if err != nil {
+			panic(err)
+		}
+		backendFixtureDefinitions = definitions
+		definition, _ := definitions.Lookup("EKCH")
+		backendFixtureWorkflow, err = airportworkflow.Bind(definition, airportworkflow.EKCHDescriptor())
+		if err != nil {
+			panic(err)
+		}
+	})
+	return backendFixtureWorkflow
+}
+
+func shouldIncludeInBackendSync(strip *internalModels.Strip) bool {
+	d, err := backendWorkflowFixture().Lifecycle(airportworkflow.Context{Session: 1, Strip: airportworkflow.SnapshotOf(strip)}, airportworkflow.Lifecycle{Kind: airportworkflow.BackendAdmission})
+	return err == nil && d.Admit
+}
+func backendSyncGroundState(strip *internalModels.Strip) string {
+	d, err := backendWorkflowFixture().Observe(airportworkflow.Context{Session: 1, Strip: airportworkflow.SnapshotOf(strip)}, airportworkflow.Observation{Kind: airportworkflow.BackendState})
+	if err != nil || d.ReconciledGroundState == nil {
+		return ""
+	}
+	return *d.ReconciledGroundState
+}
 
 func TestSendBackendSyncIfNeeded_SendsLineupForDepartBayWithoutStoredState(t *testing.T) {
 	const session = int32(1)
@@ -44,7 +79,7 @@ func TestSendBackendSyncIfNeeded_SendsLineupForDepartBayWithoutStoredState(t *te
 	hub := &Hub{
 		server: &testutil.MockServer{StripRepoVal: stripRepo},
 	}
-	client := startQueuedTestClient(&Client{
+	client := startQueuedTestClient(&Client{workflow: backendWorkflowFixture(),
 		session: session,
 		user:    shared.NewAuthenticatedUser("1234567", 0, nil),
 	})
@@ -81,7 +116,7 @@ func TestSendBackendSyncIfNeeded_ExcludesVatsimOnlyPlanningStrips(t *testing.T) 
 	}
 
 	hub := &Hub{server: &testutil.MockServer{StripRepoVal: stripRepo}}
-	client := startQueuedTestClient(&Client{
+	client := startQueuedTestClient(&Client{workflow: backendWorkflowFixture(),
 		send:    make(chan outgoing.OutgoingMessage, 4),
 		session: session,
 		user:    shared.NewAuthenticatedUser("1234567", 0, nil),
@@ -120,7 +155,7 @@ func TestSendBackendSyncIfNeeded_IncludesPersistedHold(t *testing.T) {
 	}
 
 	hub := &Hub{server: &testutil.MockServer{StripRepoVal: stripRepo}}
-	client := startQueuedTestClient(&Client{
+	client := startQueuedTestClient(&Client{workflow: backendWorkflowFixture(),
 		session: session,
 		user:    shared.NewAuthenticatedUser("1234567", 0, nil),
 	})
@@ -158,4 +193,32 @@ func TestBackendSyncGroundState_AirborneDoesNotSendStaleTaxiState(t *testing.T) 
 	}
 
 	assert.Equal(t, euroscopeEvents.GroundStateUnknown, backendSyncGroundState(strip))
+}
+
+// Admission policy cannot make a missing repository record materializable.
+type admitAllBackendHandler struct{ airportworkflow.Handler }
+
+func (admitAllBackendHandler) Lifecycle(airportworkflow.Context, airportworkflow.Lifecycle) (airportworkflow.LifecycleDecision, error) {
+	return airportworkflow.LifecycleDecision{Admit: true}, nil
+}
+func TestBackendSyncSkipsNilRecordsWithCustomAdmission(t *testing.T) {
+	original := backendWorkflowFixture()
+	bound, err := airportworkflow.Bind(original.Definition(), airportworkflow.Descriptor{ID: "ekch/v1", Bind: func(*config.AirportDefinition) (airportworkflow.Handler, []airportworkflow.ActionDescriptor, error) {
+		return admitAllBackendHandler{original}, nil, nil
+	}})
+	require.NoError(t, err)
+	hub := &Hub{server: &testutil.MockServer{StripRepoVal: &testutil.MockStripRepository{ListFn: func(context.Context, int32) ([]*internalModels.Strip, error) {
+		return []*internalModels.Strip{nil, {Callsign: "CUSTOM123"}}, nil
+	}}}}
+	client := startQueuedTestClient(&Client{workflow: bound, session: 1, send: make(chan outgoing.OutgoingMessage, 2)})
+	hub.sendBackendSyncIfNeeded(client)
+	select {
+	case message := <-client.send:
+		event, ok := message.(euroscopeEvents.BackendSyncEvent)
+		require.True(t, ok)
+		require.Len(t, event.Strips, 1)
+		require.Equal(t, "CUSTOM123", event.Strips[0].Callsign)
+	case <-time.After(time.Second):
+		t.Fatal("backend sync did not complete")
+	}
 }

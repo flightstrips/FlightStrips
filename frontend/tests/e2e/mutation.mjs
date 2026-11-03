@@ -2,9 +2,14 @@
 // fix checkout: reject a complete valid replacement when one flight becomes
 // prediction_unreliable. The real engine must generate the warning itself.
 import {spawnSync} from "node:child_process";
-import {copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
+import {copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from "node:fs";
+import {resolve} from "node:path";
 
 mkdirSync("e2e-artifacts/mutation", {recursive: true});
+const reportPath = resolve("e2e-artifacts/mutation/report.json");
+// Playwright's Git metadata diagnostics can appear on stdout before the JSON
+// reporter. Keep the machine-readable report separate from process output.
+rmSync(reportPath, {force: true});
 const path = "src/api/aman.ts";
 const original = readFileSync(path);
 const needle = "export function replaceAMANState(current: AMANState | null, input: unknown): AMANReplacementResult {";
@@ -13,17 +18,25 @@ if (!original.toString().includes(needle)) throw new Error("mutation target chan
 let result;
 try {
   writeFileSync(path, original.toString().replace(needle, mutation));
-  result = spawnSync(process.execPath, ["node_modules/@playwright/test/cli.js", "test", "-c", "playwright.e2e.config.ts", "--project=aman", "--reporter=json", "--output=e2e-artifacts/mutation/results"], {encoding: "utf8", maxBuffer: 32 * 1024 * 1024});
+  result = spawnSync(process.execPath, ["node_modules/@playwright/test/cli.js", "test", "-c", "playwright.e2e.config.ts", "--project=aman", "--reporter=json", "--output=e2e-artifacts/mutation/results"], {
+    encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
+    env: {...process.env, PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath},
+  });
 } finally {
   writeFileSync(path, original);
 }
-writeFileSync("e2e-artifacts/mutation/report.json", result.stdout ?? "");
+writeFileSync("e2e-artifacts/mutation/stdout.log", result.stdout ?? "");
 writeFileSync("e2e-artifacts/mutation/stderr.log", result.stderr ?? "");
 for (const name of ["backend-aman.log", "frontend.log"]) {
   if (existsSync(`e2e-artifacts/${name}`)) copyFileSync(`e2e-artifacts/${name}`, `e2e-artifacts/mutation/${name}`);
 }
 if (result.error) throw result.error;
-const report = JSON.parse(result.stdout);
+if (!existsSync(reportPath)) {
+  process.stderr.write(result.stdout ?? "");
+  process.stderr.write(result.stderr ?? "");
+  throw new Error("Playwright did not produce the AMAN mutation JSON report");
+}
+const report = JSON.parse(readFileSync(reportPath, "utf8"));
 const failures = [];
 function visit(suite) {
   for (const spec of suite.specs ?? []) for (const test of spec.tests) for (const run of test.results) {

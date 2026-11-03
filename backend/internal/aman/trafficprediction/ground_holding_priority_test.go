@@ -86,6 +86,44 @@ func TestGroundHoldingPriorityNeverOverridesAirborneEvidence(t *testing.T) {
 	}
 }
 
+func TestGroundForecastsSurviveUnrelatedAirborneSpacingConflict(t *testing.T) {
+	now := utc(2026, time.November, 2, 19, 45)
+	state := baseState(now, 40)
+	group, family, holding := aman.RunwayGroupID("22"), "TUDLO", "TUDLO-HOLD"
+	held := forecastHold("HELD", holding, group, now.Add(30*time.Minute), now)
+	wake := "M"
+	held.LatestObservation = &aman.FlightObservation{WakeCategory: &wake}
+	state.RunwayGroups[0].SameSTARSpacing = &aman.SameSTARSpacingPolicy{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	state.Flights = []aman.AMANFlight{held,
+		planned("ground-a", "", now.Add(10*time.Minute), aman.DataFresh),
+		planned("ground-b", "", now.Add(11*time.Minute), aman.DataFresh)}
+	state.Flights[1].LatestObservation.WakeCategory = &wake
+	state.Flights[2].LatestObservation.WakeCategory = &wake
+	for index, id := range []aman.Callsign{"EZY48FN", "EZY34WY"} {
+		at := now.Add(90*time.Minute + time.Duration(index)*90*time.Second)
+		state.Flights = append(state.Flights, aman.AMANFlight{Callsign: id, State: aman.StateAirborne,
+			DataStatus: aman.DataFresh, SelectedRunwayGroup: &group, SelectedSTARFamily: &family,
+			Slot:              &aman.Slot{Time: at, RunwayGroupID: group, Sequence: index + 2},
+			LatestObservation: &aman.FlightObservation{WakeCategory: &wake},
+			Prediction:        &aman.Prediction{Publishable: true, RawTETA: at, OperationalTETA: at}})
+	}
+	// Predicted demand activates spacing for the two later TUDLO reservations.
+	for index := 0; index < 3; index++ {
+		at := now.Add(90*time.Minute + time.Duration(index)*time.Minute)
+		flight := planned("demand-"+string(rune('a'+index)), "", at, aman.DataFresh)
+		flight.State = aman.StateAirborne
+		flight.SelectedRunwayGroup = &group
+		flight.Prediction = &aman.Prediction{Publishable: true, RawTETA: at, OperationalTETA: at}
+		state.Flights = append(state.Flights, flight)
+	}
+	model := Build(state, readyHealth())
+	entries := forecastEntries(model)
+	require.Equal(t, now.Add(31*time.Minute+30*time.Second), entries["GROUND-A"].LandingAt)
+	require.Equal(t, now.Add(33*time.Minute), entries["GROUND-B"].LandingAt)
+	require.Equal(t, held.Slot.Time, entries["HELD"].LandingAt)
+	require.Empty(t, model.Warnings, "an unrelated protected spacing conflict must not masquerade as unavailable ground capacity")
+}
+
 func TestGroundPriorityExplainsUnavailableCapacityWithoutKeepingOldTime(t *testing.T) {
 	now := utc(2026, time.October, 4, 12, 0)
 	state := baseState(now, 40)

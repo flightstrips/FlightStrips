@@ -72,6 +72,7 @@ func Plan(state aman.AirportState, input sequence.Input, now time.Time) map[aman
 	result := make(map[aman.Callsign]time.Time)
 	working := input
 	working.Flights = nil
+	reservations := make(map[aman.Callsign]struct{})
 	for _, flight := range input.Flights {
 		if flight.State == aman.StatePlanned {
 			continue
@@ -80,6 +81,7 @@ func Plan(state aman.AirportState, input sequence.Input, now time.Time) map[aman
 			flight.FreezeReason, flight.CapturedSlot = aman.FreezeNone, nil
 			flight.FrozenAt, flight.FrozenOperationalTETA = nil, nil
 			flight.ProtectCurrentSlot = true
+			reservations[flight.Callsign] = struct{}{}
 		}
 		working.Flights = append(working.Flights, flight)
 	}
@@ -105,7 +107,23 @@ func Plan(state aman.AirportState, input sequence.Input, now time.Time) map[aman
 		return result
 	}
 	generated, err := sequence.Generate(working)
-	if err != nil || generated.HasConflicts() {
+	if err != nil {
+		return result
+	}
+	for _, warning := range generated.Warnings {
+		if warning.Severity != sequence.SeverityConflict {
+			continue
+		}
+		// Retained airborne slots may already conflict. The allocator still
+		// checks each new forecast against its neighbours, gaps and closures;
+		// that existing conflict must not discard otherwise valid forecasts.
+		if (warning.Code == sequence.WarningProtectedSpacing || warning.Code == sequence.WarningProtectedSameSTAR) && warning.RelatedCallsign != nil {
+			_, currentReserved := reservations[warning.Callsign]
+			_, relatedReserved := reservations[*warning.RelatedCallsign]
+			if currentReserved && relatedReserved {
+				continue
+			}
+		}
 		return result
 	}
 	for _, entry := range generated.Entries {

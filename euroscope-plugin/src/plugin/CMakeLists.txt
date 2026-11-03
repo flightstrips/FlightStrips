@@ -4,6 +4,8 @@ set(PROJECT_NAME FlightStripsPluginCore)
 # Source groups
 ################################################################################
 set(src__plugin
+        plugin/GroundTagReleasePolicy.h
+        plugin/GroundTagReleasePolicy.cpp
         plugin/ApproachHandoffPolicy.h
         plugin/ApproachHandoffPolicy.cpp
         plugin/AirportResolution.h
@@ -47,6 +49,8 @@ set(src__configuration
 source_group("src\\configuration" FILES ${src__configuration})
 
 set(src__handlers
+        handlers/GroundTagReleaseHandler.h
+        handlers/GroundTagReleaseHandler.cpp
         handlers/EkytApproachTrackingHandler.h
         handlers/EkytApproachTrackingHandler.cpp
         handlers/FlightPlanEventHandler.h

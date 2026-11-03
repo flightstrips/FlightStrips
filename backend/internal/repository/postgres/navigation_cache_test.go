@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/pdc/testdata"
 	"context"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -41,6 +42,38 @@ func TestNavigationCachePersistsCompleteManifestAndWarmRoute(t *testing.T) {
 	warm, err := NewNavigationCache(pool).Route(ctx, key)
 	require.NoError(t, err)
 	require.Equal(t, route.Geometry, warm)
+}
+
+func TestNavigationCacheRoundTripsRouteAcrossZeroWestLongitude(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := t.Context()
+	data := fixture.EKCH()
+	repo := NewNavigationCache(pool)
+	_, route := writeNavigationFixture(t, ctx, repo, data)
+	route.Query.Origin = "RJTT"
+	route.Query.FiledRoute = "81N020W DCT 73N000W DCT XELRU"
+	from, zeroWest, to := navdata.FixID("81N020W"), navdata.FixID("73N000W"), navdata.FixID("XELRU")
+	position := navdata.Coordinate{LatitudeDeg: 73, LongitudeDeg: math.Copysign(0, -1)}
+	route.Geometry.Legs = []navdata.ProcedureLeg{
+		{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &zeroWest, FromPosition: &navdata.Coordinate{LatitudeDeg: 81, LongitudeDeg: -20}, ToPosition: &position},
+		{ID: "ROUTE-0002", PathTerminator: navdata.PathTF, FromFix: &zeroWest, ToFix: &to, FromPosition: &position, ToPosition: &navdata.Coordinate{LatitudeDeg: 65.657108, LongitudeDeg: 6.887322}},
+	}
+	var err error
+	route.Geometry.Digest, err = navdata.RouteGeometryDigest(route.Query, route.Geometry)
+	require.NoError(t, err)
+	key, err := repo.PutRoute(ctx, route)
+	require.NoError(t, err)
+
+	// PostgreSQL JSONB loses the sign of zero. A restarted reader must still
+	// accept the geometry and verify the digest calculated before persistence.
+	warm, err := NewNavigationCache(pool).Route(ctx, key)
+	require.NoError(t, err)
+	require.Equal(t, route.Geometry.Digest, warm.Digest)
+	require.False(t, math.Signbit(warm.Legs[0].ToPosition.LongitudeDeg))
+	require.False(t, math.Signbit(warm.Legs[1].FromPosition.LongitudeDeg))
+	keyAgain, err := repo.PutRoute(ctx, route)
+	require.NoError(t, err)
+	require.Equal(t, key, keyAgain)
 }
 
 func TestNavigationCacheRoundTripsExplicitTerminalPathMetadata(t *testing.T) {

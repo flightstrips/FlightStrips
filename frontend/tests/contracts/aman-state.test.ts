@@ -21,6 +21,21 @@ describe("Go AMAN publisher → TypeScript state replacement", () => {
     if (result.state) expect(getAMANHeaderReadModel(result.state).availability).toBe(name === "airport_source_outage" ? "degraded" : "ready");
   });
 
+  it("keeps ground forecasts and the original spacing warning in the same replacement", () => {
+    const event = scenario("ground_forecast_with_spacing_conflict");
+    const result = replaceAMANState(null, event);
+    expect(result.accepted).toBe(true);
+    const forecasts = result.state?.traffic_prediction?.buckets.flatMap((bucket) => bucket.flights) ?? [];
+    const ground = forecasts.find((flight) => flight.callsign === "GROUND");
+    expect(ground).toMatchObject({airborne: false, timing_source: "vatsim_planned"});
+    const held = event.data.flights.find((flight) => flight.callsign === "SAS123")!;
+    expect(Date.parse(ground!.landing_at)).toBeGreaterThan(Date.parse(held.slot!.time));
+    expect(result.state?.warnings).toContainEqual(expect.objectContaining({
+      source: "sequence", code: "protected_same_star_spacing", callsign: "CONFLICT-B", related_callsign: "CONFLICT-A",
+    }));
+    expect(result.state?.warnings?.some((warning) => warning.code === "ground_arrival_behind_holding")).toBe(false);
+  });
+
   it("keeps the airport and neighbouring guidance available during the production failure", () => {
     const event = scenario("unreliable_with_healthy_neighbour");
     const result = replaceAMANState(null, event);

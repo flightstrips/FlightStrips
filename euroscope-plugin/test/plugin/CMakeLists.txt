@@ -51,11 +51,13 @@ set(ALL_FILES
         messages/MessageServiceTest.cpp
 
         # Plugin
+        plugin/GroundTagReleasePolicyTest.cpp
         plugin/ApproachHandoffPolicyTest.cpp
         plugin/AirportResolutionTest.cpp
         plugin/LookupAuditTest.cpp
 
         # Handlers
+        handlers/GroundTagReleaseHandlerTest.cpp
         handlers/FlightPlanEventHandlersTest.cpp
         handlers/RadarTargetEventHandlersTest.cpp
         handlers/ControllerEventHandlersTest.cpp

@@ -43,7 +43,7 @@ func TestUpdateGroundStateForMove_ArrivalToStand_SendsParkedToES(t *testing.T) {
 	}
 
 	esHub := &testutil.MockEuroscopeHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetEuroscopeHub(esHub)
 
@@ -80,7 +80,7 @@ func TestUpdateGroundStateForMove_ArrivalToNonStandBay_NoESUpdate(t *testing.T) 
 	}
 
 	esHub := &testutil.MockEuroscopeHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetEuroscopeHub(esHub)
 
@@ -123,7 +123,7 @@ func TestUpdateGroundStateForMove_RwyArrToFinal_ResetsRunwayClearance(t *testing
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(&testutil.MockEuroscopeHub{})
 
@@ -170,7 +170,7 @@ func TestUpdateGroundStateForMove_StandToPush_ClearsStartReq(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetEuroscopeHub(&testutil.MockEuroscopeHub{})
 
@@ -200,7 +200,7 @@ func TestUpdateGroundStateForMove_DepartureToStand_NoESUpdate(t *testing.T) {
 	}
 
 	esHub := &testutil.MockEuroscopeHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetEuroscopeHub(esHub)
 
@@ -232,7 +232,7 @@ func TestUpdateGroundStateForMove_DepartureToPush_SendsPushToES(t *testing.T) {
 	}
 
 	esHub := &testutil.MockEuroscopeHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetEuroscopeHub(esHub)
 

@@ -44,7 +44,7 @@ func TestUpdateHeadingSendsStripUpdateForClxValidationRefresh(t *testing.T) {
 		},
 	}
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewStripService(stripRepo)
+	service := newWorkflowTestService(stripRepo)
 	service.SetFrontendHub(frontendHub)
 
 	err := service.UpdateHeading(context.Background(), session, callsign, heading)
@@ -57,7 +57,7 @@ func TestUpdateHeadingUsesIncrementalValidationPublication(t *testing.T) {
 	updated := &models.Strip{Callsign: "SAS123", Version: 8}
 	repo := &headingReturningRepository{MockStripRepository: &testutil.MockStripRepository{}, strip: updated}
 	publisher := &incrementalHeadingPublisher{MockFrontendHub: &testutil.MockFrontendHub{}}
-	service := NewStripService(repo)
+	service := newWorkflowTestService(repo)
 	service.SetFrontendHub(publisher)
 
 	require.NoError(t, service.UpdateHeading(context.Background(), 7, "SAS123", 40))
@@ -81,7 +81,7 @@ func TestUpdateRequestedAltitudeSendsStripUpdateForClxValidationRefresh(t *testi
 		},
 	}
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewStripService(stripRepo)
+	service := newWorkflowTestService(stripRepo)
 	service.SetFrontendHub(frontendHub)
 
 	err := service.UpdateRequestedAltitude(context.Background(), session, callsign, altitude)

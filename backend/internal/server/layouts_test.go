@@ -37,7 +37,7 @@ func TestUpdateLayoutsContext_UsesSyncStateWithoutReloadingSessionOrControllers(
 	})
 
 	layouts := make(map[string]string)
-	server := &Server{
+	server := &Server{workflows: testWorkflows,
 		sessionRepo: &testutil.MockSessionRepository{},
 		controllerRepo: &testutil.MockControllerRepository{
 			SetLayoutFn: func(_ context.Context, session int32, position string, layout *string) (int64, error) {
@@ -83,7 +83,7 @@ func TestUpdateLayoutsContext_UsesCallsignRoleAtActualPrimedFrequency(t *testing
 	})
 
 	layouts := make(map[string]string)
-	server := &Server{
+	server := &Server{workflows: testWorkflows,
 		sessionRepo: &testutil.MockSessionRepository{},
 		controllerRepo: &testutil.MockControllerRepository{
 			SetLayoutFn: func(_ context.Context, session int32, position string, layout *string) (int64, error) {
@@ -123,7 +123,7 @@ func TestUpdateLayoutsContext_AssignsAMANToFMPAtPrimedFrequency(t *testing.T) {
 	})
 
 	layouts := make(map[string]string)
-	server := &Server{
+	server := &Server{workflows: testWorkflows,
 		sessionRepo: &testutil.MockSessionRepository{},
 		controllerRepo: &testutil.MockControllerRepository{
 			SetLayoutFn: func(_ context.Context, session int32, position string, layout *string) (int64, error) {

@@ -18,7 +18,7 @@ func TestBuildRouteInputFingerprintIgnoresOwnerAndCoverageOrdering(t *testing.T)
 	left, err := buildRouteInputFingerprint(session, []*models.SectorOwner{
 		{Position: "121.900", Identifier: "AP", Sector: []string{"AP", "AN"}},
 		{Position: "118.100", Identifier: "TW", Sector: []string{"TW"}},
-	}, routeRadioState{
+	}, routeRadioState{workflow: testWorkflow, session: 42,
 		coverage: map[string]map[string]struct{}{
 			"121.900": {"121.830": {}, "121.900": {}},
 			"118.100": {},
@@ -33,7 +33,7 @@ func TestBuildRouteInputFingerprintIgnoresOwnerAndCoverageOrdering(t *testing.T)
 	right, err := buildRouteInputFingerprint(session, []*models.SectorOwner{
 		{Position: "118.100", Identifier: "TW", Sector: []string{"TW"}},
 		{Position: "121.900", Identifier: "AP", Sector: []string{"AN", "AP"}},
-	}, routeRadioState{
+	}, routeRadioState{workflow: testWorkflow, session: 42,
 		coverage: map[string]map[string]struct{}{
 			"118.100": {},
 			"121.900": {"121.900": {}, "121.830": {}},
@@ -57,7 +57,7 @@ func TestBuildRouteInputFingerprintChangesWithEffectiveRadioCoverage(t *testing.
 		{Position: "121.900", Identifier: "AP", Sector: []string{"AP"}},
 	}
 
-	before, err := buildRouteInputFingerprint(session, owners, routeRadioState{
+	before, err := buildRouteInputFingerprint(session, owners, routeRadioState{workflow: testWorkflow, session: 42,
 		coverage: map[string]map[string]struct{}{
 			"121.900": {"121.900": {}},
 		},
@@ -65,7 +65,7 @@ func TestBuildRouteInputFingerprintChangesWithEffectiveRadioCoverage(t *testing.
 	})
 	require.NoError(t, err)
 
-	after, err := buildRouteInputFingerprint(session, owners, routeRadioState{
+	after, err := buildRouteInputFingerprint(session, owners, routeRadioState{workflow: testWorkflow, session: 42,
 		coverage: map[string]map[string]struct{}{
 			"121.900": {"121.900": {}, "121.830": {}},
 		},

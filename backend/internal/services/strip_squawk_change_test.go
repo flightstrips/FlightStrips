@@ -39,7 +39,7 @@ func TestChangedSquawkResolvesOldPeersAndPreservesOtherDuplicates(t *testing.T) 
 		ClearValidationStatusFn: func(_ context.Context, _ int32, cs string) error { require.NotEqual(t, "UNRELATED", cs); return nil },
 	}
 	oldPeer, newPeer, bridge, unrelated := strips[1], strips[2], strips[3], strips[5]
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	require.NoError(t, svc.reevaluateChangedSquawk(context.Background(), 1, "TARGET", &oldCode, newCode, true))
 	require.Equal(t, 1, reads)

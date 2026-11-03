@@ -13,7 +13,7 @@ func TestPublicationSnapshotPreservesPendingRouteWithoutReads(t *testing.T) {
 	strip := &models.Strip{ID: 7, Session: 42, NextDisplay: &models.NextDisplay{Label: "GW", Frequency: "118.580"}}
 	snapshot := &models.StripPublicationSnapshot{Strip: strip, Session: &models.Session{ID: 42}, CoordinationPending: true}
 	ctx := shared.WithStripPublication(context.Background(), snapshot)
-	srv := &Server{coordRepo: &testutil.MockCoordinationRepository{GetByStripIDFn: func(context.Context, int32, int32) (*models.Coordination, error) {
+	srv := &Server{workflows: testWorkflows,coordRepo: &testutil.MockCoordinationRepository{GetByStripIDFn: func(context.Context, int32, int32) (*models.Coordination, error) {
 		t.Fatal("publication reread coordination")
 		return nil, nil
 	}}}

@@ -136,6 +136,11 @@ func (d *AirportDefinition) Document() AirportDocument {
 }
 func (d *AirportDefinition) DomainConfig() Config { return d.Document().DomainConfig() }
 
+func (d *AirportDefinition) InitialCFLForRunway(runway string) (int, bool) {
+	cfl, ok := d.document.Geography.InitialCFLFT[strings.ToUpper(strings.TrimSpace(runway))]
+	return cfl, ok
+}
+
 func (d *AirportDefinition) Coordinates() (float64, float64) {
 	return d.document.Geography.Latitude, d.document.Geography.Longitude
 }
@@ -264,4 +269,14 @@ func (r *AirportRegistry) Airports() []string {
 	}
 	slices.Sort(result)
 	return result
+}
+
+func (d *AirportDefinition) PositionSection(frequency string) string {
+	frequency = vatsim.NormalizeFrequency(frequency)
+	for _, position := range d.document.Positions {
+		if vatsim.NormalizeFrequency(position.Frequency) == frequency {
+			return position.Section
+		}
+	}
+	return ""
 }

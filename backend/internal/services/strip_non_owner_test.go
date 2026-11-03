@@ -23,7 +23,7 @@ func ptr[T any](v T) *T { return &v }
 // newReleasePointFixture builds a minimal StripService wired to the given mock repo.
 func newReleasePointFixture(stripRepo *testutil.MockStripRepository) (*StripService, *testutil.MockFrontendHub) {
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	return svc, hub
 }

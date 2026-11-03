@@ -32,7 +32,7 @@ func (s *departurePositionObserverSpy) ObserveDeparturePosition(_ context.Contex
 
 // TestResolveAirborneController_NilSID verifies that a strip without a SID returns nil.
 func TestResolveAirborneController_NilSID(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	strip := &models.Strip{Sid: nil}
 
 	controller, err := svc.resolveAirborneController(context.Background(), 1, strip, []*models.Controller{})
@@ -42,7 +42,7 @@ func TestResolveAirborneController_NilSID(t *testing.T) {
 
 // TestResolveAirborneController_EmptySID verifies that an empty SID returns nil.
 func TestResolveAirborneController_EmptySID(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	empty := ""
 	strip := &models.Strip{Sid: &empty}
 
@@ -53,7 +53,7 @@ func TestResolveAirborneController_EmptySID(t *testing.T) {
 
 // TestResolveAirborneController_UnknownSID verifies that an unconfigured SID returns nil without error.
 func TestResolveAirborneController_UnknownSID(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	sid := "NOSUCHSID9A"
 	strip := &models.Strip{Sid: &sid}
 
@@ -67,7 +67,7 @@ func TestResolveAirborneController_UnknownSID(t *testing.T) {
 func TestAutoTransferAirborneStrip_SkipsWhenNotAirborneBay(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{ID: 1, Callsign: "SAS001", Bay: shared.BAY_DEPART}, nil
 		},
@@ -83,7 +83,7 @@ func TestAutoTransferAirborneStrip_SkipsWhenNotAirborneBay(t *testing.T) {
 func TestAutoTransferAirborneStrip_SkipsWhenNoOwner(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{ID: 1, Callsign: "SAS001", Bay: shared.BAY_AIRBORNE, Owner: nil}, nil
 		},
@@ -110,7 +110,7 @@ func TestAutoTransferAirborneStrip_SkipsWhenOwnerCidMissing(t *testing.T) {
 	}
 
 	owner, sid := "118.105", "NEXEN2A"
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{ID: 1, Callsign: "SAS001", Bay: shared.BAY_AIRBORNE, Owner: &owner, Sid: &sid}, nil
 		},
@@ -171,7 +171,7 @@ func TestUpdateAircraftPosition_AutoHandoverTriggeredFromDepartBay(t *testing.T)
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetControllerRepo(controllerRepo)
 
@@ -217,7 +217,7 @@ func TestUpdateAircraftPosition_ArrivalHiddenRemainsHidden(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetRouteRecalculator(&testutil.MockServer{
 		UpdateRouteForStripCtxFn: func(_ context.Context, gotCallsign string, gotSession int32, sendUpdate bool) error {
@@ -255,7 +255,7 @@ func TestUpdateAircraftPosition_PrefileStillUsesEuroscopeForDepartureBlock(t *te
 		},
 	}
 	observer := &departurePositionObserverSpy{}
-	service := NewStripService(stripRepo)
+	service := newWorkflowTestService(stripRepo)
 	service.SetDeparturePositionObserver(observer)
 	service.SetRouteRecalculator(&testutil.MockServer{
 		UpdateRouteForStripCtxFn: func(_ context.Context, gotCallsign string, gotSession int32, sendUpdate bool) error {
@@ -302,7 +302,7 @@ func TestUpdateAircraftPosition_HiddenDepartureEnteringNotClearedGeneratesSquawk
 	}
 
 	esHub := &testutil.MockEuroscopeHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetEuroscopeHub(esHub)
 
@@ -343,7 +343,7 @@ func TestUpdateAircraftPosition_APIPrefileEnteringNotCleared(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	require.NoError(t, svc.UpdateAircraftPosition(
@@ -377,7 +377,7 @@ func TestUpdateAircraftPosition_CompletedDepartureRemainsHidden(t *testing.T) {
 	}
 
 	esHub := &testutil.MockEuroscopeHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetEuroscopeHub(esHub)
 
 	require.NoError(t, svc.UpdateAircraftPosition(
@@ -424,7 +424,7 @@ func TestUpdateAircraftPosition_RetriesOnceAndPreservesNewerStandMove(t *testing
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	require.NoError(t, svc.UpdateAircraftPosition(
@@ -458,7 +458,7 @@ func TestUpdateAircraftPosition_StopsAfterSecondVersionConflict(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	require.Error(t, svc.UpdateAircraftPosition(
 		ctx, 1, callsign, 55, 10, 8000, "EKCH",
 	))
@@ -483,7 +483,7 @@ func TestUpdateAircraftPosition_ReusesUpdatedStripWithinMessage(t *testing.T) {
 	state := &shared.WebsocketMessageState{MessageType: "aircraft_position_update"}
 	ctx := shared.WithWebsocketMessageState(context.Background(), state)
 
-	require.NoError(t, NewStripService(stripRepo).UpdateAircraftPosition(
+	require.NoError(t, newWorkflowTestService(stripRepo).UpdateAircraftPosition(
 		ctx, 1, callsign, 55.7, 12.6, 8000, "EKCH",
 	))
 
@@ -561,7 +561,7 @@ func TestUpdateAircraftPositionRetriesFailedRouteRefresh(t *testing.T) {
 	}
 
 	routeCalls := 0
-	service := NewStripService(stripRepo)
+	service := newWorkflowTestService(stripRepo)
 	service.SetRouteRecalculator(&testutil.MockServer{
 		UpdateRouteForStripCtxFn: func(_ context.Context, _ string, _ int32, _ bool) error {
 			routeCalls++
@@ -626,7 +626,7 @@ func TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection(t 
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(frontendHub)
 	svc.SetEuroscopeHub(esHub)
 	svc.SetCoordinationRepo(coordRepo)
@@ -673,7 +673,7 @@ func TestUpdateAircraftPosition_NoAutoHandoverWhenAlreadyAirborne(t *testing.T) 
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetControllerRepo(controllerRepo)
 
@@ -685,7 +685,7 @@ func TestUpdateAircraftPosition_NoAutoHandoverWhenAlreadyAirborne(t *testing.T) 
 }
 
 func TestMissingPositionStripIsNotSuccessfulHandling(t *testing.T) {
-	service := NewStripService(&testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return nil, pgx.ErrNoRows }})
+	service := newWorkflowTestService(&testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return nil, pgx.ErrNoRows }})
 	require.ErrorIs(t, service.UpdateAircraftPosition(context.Background(), 1, "UNKNOWN", 55, 12, 100, "EKCH"), pgx.ErrNoRows)
 }
 
@@ -711,7 +711,7 @@ func TestPositionTransitionConflictRetryDoesNotRejoinBatch(t *testing.T) {
 			return 1, nil
 		},
 	}
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.UpdateAircraftPosition(context.Background(), 1, "SAS123", 55.65, 12.68, 8000, "EKCH"))
 	require.Equal(t, 2, writes)
 }

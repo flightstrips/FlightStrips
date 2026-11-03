@@ -32,7 +32,7 @@ func TestUpdateHold_NotifiesFrontend(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	require.NoError(t, svc.UpdateHold(ctx, session, callsign, "OLPIB", "enroute", "1422"))
@@ -59,7 +59,7 @@ func TestUpdateHoldImmediatelyNotifiesAMANFromPersistedStrip(t *testing.T) {
 		},
 	}
 	observer := &holdingObserverSpy{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetHoldingClearanceObserver(observer)
 
@@ -78,7 +78,7 @@ func TestUpdateHold_CancellationIsBroadcast(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	require.NoError(t, svc.UpdateHold(ctx, 1, "SAS123", "", "", ""))
@@ -98,7 +98,7 @@ func TestUpdateHold_UnchangedHoldIsNotBroadcast(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	require.NoError(t, svc.UpdateHold(ctx, 1, "SAS123", "OLPIB", "enroute", ""))
@@ -117,7 +117,7 @@ func TestUpdateHold_UnchangedHoldStillReconcilesAMANFromPersistedStrip(t *testin
 	}
 	observer := &holdingObserverSpy{}
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetHoldingClearanceObserver(observer)
 
@@ -131,7 +131,7 @@ func TestUpdateHold_UnchangedMissingStripRemainsANoOp(t *testing.T) {
 		UpdateHoldFn:    func(context.Context, int32, string, string, string, string, *int32) (int64, error) { return 0, nil },
 		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return nil, pgx.ErrNoRows },
 	}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetHoldingClearanceObserver(&holdingObserverSpy{})
 
@@ -149,7 +149,7 @@ func TestUpdateHold_RepositoryError(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	assert.ErrorIs(t, svc.UpdateHold(ctx, 1, "SAS123", "OLPIB", "enroute", ""), wanted)

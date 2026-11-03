@@ -68,7 +68,7 @@ func TestApplyTaxiwayTypeValidation_ActivatesForApronCategoryRestriction(t *test
 	releasePoint := "K1"
 	var persisted *models.ValidationStatus
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		SetValidationStatusFn: func(_ context.Context, session int32, callsign string, status *models.ValidationStatus) error {
 			assert.Equal(t, int32(1), session)
 			assert.Equal(t, "SAS123", callsign)
@@ -106,7 +106,7 @@ func TestApplyTaxiwayTypeValidation_ActivatesForSpecificAircraftRestriction(t *t
 	releasePoint := "B2"
 	var persisted *models.ValidationStatus
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
 			persisted = status
 			return nil
@@ -137,7 +137,7 @@ func TestApplyTaxiwayTypeValidation_UsesGegwScopeForGroundPositionMappedToTowerG
 		releasePoint := "A3"
 		var persisted *models.ValidationStatus
 
-		svc := NewStripService(&testutil.MockStripRepository{
+		svc := newWorkflowTestService(&testutil.MockStripRepository{
 			SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
 				persisted = status
 				return nil
@@ -161,7 +161,7 @@ func TestApplyTaxiwayTypeValidation_UsesGegwScopeForGroundPositionMappedToTowerG
 		releasePoint := "K1"
 		setCalled := false
 
-		svc := NewStripService(&testutil.MockStripRepository{
+		svc := newWorkflowTestService(&testutil.MockStripRepository{
 			SetValidationStatusFn: func(context.Context, int32, string, *models.ValidationStatus) error {
 				setCalled = true
 				return nil
@@ -189,7 +189,7 @@ func TestApplyTaxiwayTypeValidation_DoesNotActivateForCompatibleAssignment(t *te
 	setCalled := false
 	clearCalled := false
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		SetValidationStatusFn: func(context.Context, int32, string, *models.ValidationStatus) error {
 			setCalled = true
 			return nil
@@ -251,7 +251,7 @@ func TestUpdateReleasePoint_ReevaluatesTaxiwayTypeValidation(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 
 	require.NoError(t, svc.UpdateReleasePoint(context.Background(), 1, "SAS123", compatibleReleasePoint))
@@ -296,7 +296,7 @@ func TestSetOwnerAndReevaluateDuplicateSquawkValidation_ReactivatesTaxiwayTypeVa
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 
 	count, err := svc.setOwnerAndReevaluateDuplicateSquawkValidation(context.Background(), 1, "SAS123", &newOwner, 7)
 	require.NoError(t, err)
@@ -339,7 +339,7 @@ func TestMoveToBay_ReevaluatesTaxiwayTypeValidationOnActivationEdge(t *testing.T
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.MoveToBay(context.Background(), 1, "SAS123", shared.BAY_TAXI_LWR, false))
 
 	require.NotNil(t, persisted)

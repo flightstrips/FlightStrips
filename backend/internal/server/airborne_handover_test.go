@@ -96,7 +96,7 @@ func TestAutoTransferAirborneStripRadioCoverage(t *testing.T) {
 				ListFn:          func(context.Context, int32) ([]*models.Controller, error) { return controllers, nil },
 				ListBySessionFn: func(context.Context, int32) ([]*models.Controller, error) { return controllers, nil },
 			}
-			radio := &Server{controllerRepo: controllerRepo, frequencyProviders: []TransceiverLookup{tt.coverage}}
+			radio := &Server{workflows: testWorkflows,controllerRepo: controllerRepo, frequencyProviders: []TransceiverLookup{tt.coverage}}
 			strip := &models.Strip{ID: 1, Callsign: "SAS880", Bay: shared.BAY_AIRBORNE, Owner: &owner, Sid: &sid}
 			stripRepo := &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil }}
 			var created []*models.Coordination
@@ -105,7 +105,7 @@ func TestAutoTransferAirborneStripRadioCoverage(t *testing.T) {
 				CreateFn:       func(_ context.Context, c *models.Coordination) error { created = append(created, c); return nil },
 			}
 			frontend, euroscope := &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{}
-			svc := services.NewStripService(stripRepo)
+			svc := services.NewStripService(stripRepo, services.WithAirportWorkflows(testWorkflows))
 			svc.SetControllerRepo(controllerRepo)
 			svc.SetCoordinationRepo(coordRepo)
 			svc.SetFrontendHub(frontend)

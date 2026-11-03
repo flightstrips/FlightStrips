@@ -1,6 +1,7 @@
 package server
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/models"
@@ -20,6 +21,7 @@ import (
 )
 
 type Server struct {
+	workflows          *airportworkflow.Registry
 	airports           *config.AirportRegistry
 	dbPool             *pgxpool.Pool
 	euroscopeHub       shared.EuroscopeHub
@@ -44,6 +46,7 @@ type TransceiverLookup interface {
 }
 
 type Dependencies struct {
+	Workflows          *airportworkflow.Registry
 	Airports           *config.AirportRegistry
 	DBPool             *pgxpool.Pool
 	Euroscope          shared.EuroscopeHub
@@ -88,6 +91,7 @@ func NewServer(deps Dependencies) (*Server, error) {
 
 	return &Server{
 		airports:            deps.Airports,
+		workflows:           deps.Workflows,
 		dbPool:              deps.DBPool,
 		euroscopeHub:        deps.Euroscope,
 		frontendHub:         deps.Frontend,

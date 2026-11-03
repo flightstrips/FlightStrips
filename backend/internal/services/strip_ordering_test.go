@@ -64,14 +64,14 @@ func TestRunwayStatusFailureDoesNotRejectPersistedBayMove(t *testing.T) {
 }
 
 func TestMidpoint_BasicCase(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	order, needsRecalc := svc.calculateOrderBetween(100, ptr32(200))
 	assert.Equal(t, int32(150), order)
 	assert.False(t, needsRecalc)
 }
 
 func TestMidpoint_AdjacentValues(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	// gap = 101 - 100 = 1, which is <= MinOrderGap (5)
 	order, needsRecalc := svc.calculateOrderBetween(100, ptr32(101))
 	assert.Equal(t, int32(0), order)
@@ -79,7 +79,7 @@ func TestMidpoint_AdjacentValues(t *testing.T) {
 }
 
 func TestMidpoint_GapExactlyMinOrderGap(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	// gap = 5 which equals MinOrderGap — should also trigger recalculation
 	order, needsRecalc := svc.calculateOrderBetween(100, ptr32(105))
 	assert.Equal(t, int32(0), order)
@@ -87,7 +87,7 @@ func TestMidpoint_GapExactlyMinOrderGap(t *testing.T) {
 }
 
 func TestMidpoint_InsertAtEnd(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	// nextOrder == nil => append after prevOrder
 	order, needsRecalc := svc.calculateOrderBetween(1000, nil)
 	assert.Equal(t, int32(1000+InitialOrderSpacing), order)
@@ -123,7 +123,7 @@ func TestRecalculateSequence_AssignsGaps(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := svc.recalculateFlightStripsOnly(ctx, session, bay)
@@ -146,12 +146,12 @@ func TestRecalculateSequence_AssignsGaps(t *testing.T) {
 }
 
 func TestNeedsRecalculation_SmallGap(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	assert.True(t, svc.needsRecalculation(100, 104))
 }
 
 func TestNeedsRecalculation_LargeGap(t *testing.T) {
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	assert.False(t, svc.needsRecalculation(100, 200))
 }
 
@@ -176,7 +176,7 @@ func TestMoveToBay_CalculatesCorrectSequence(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := svc.MoveToBay(ctx, session, callsign, bay, true)
@@ -219,7 +219,7 @@ func TestMoveToBay_WithSyncStateAndTacticalStripsCachesUnifiedBayMax(t *testing.
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetTacticalStripRepo(tacticalRepo)
 
 	require.NoError(t, svc.MoveToBay(ctx, session, "BBB002", bay, false))
@@ -248,7 +248,7 @@ func TestMoveToBay_WithSyncStateMarksPdcValidationAfterLeavingNotClearedBay(t *t
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 
 	require.NoError(t, svc.MoveToBay(ctx, session, callsign, bay, false))
 
@@ -271,7 +271,7 @@ func TestMoveStripBetween_InDeiceAcknowledgesPlatform(t *testing.T) {
 		},
 	}
 	cdmService := &spyStripCdmService{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetCdmService(cdmService)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 
@@ -308,7 +308,7 @@ func TestMoveTacticalStripBetween_UpdatesTargetBayAndSequence(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	svc.SetTacticalStripRepo(tacticalRepo)
 	svc.SetFrontendHub(hub)
 
@@ -357,7 +357,7 @@ func TestMoveTacticalStripBetween_UsesInsertAfterSequenceInTargetBay(t *testing.
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetTacticalStripRepo(tacticalRepo)
 	svc.SetFrontendHub(hub)
 

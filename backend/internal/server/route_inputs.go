@@ -41,7 +41,7 @@ func (s *Server) loadRouteSessionInputs(ctx context.Context, sessionID int32) (r
 	if err != nil {
 		return routeSessionInputs{}, err
 	}
-	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionID, s.frequencyProviders)
+	radio, err := s.workflowRadioStateForSession(ctx, session, s.controllerRepo, sessionID, s.frequencyProviders)
 	if err != nil {
 		return routeSessionInputs{}, err
 	}

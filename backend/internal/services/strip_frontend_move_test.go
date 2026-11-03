@@ -153,7 +153,7 @@ func newFrontendMoveFixture(strip *internalModels.Strip) *frontendMoveFixture {
 		},
 	}
 
-	fixture.svc = NewStripService(fixture.repo)
+	fixture.svc = newWorkflowTestService(fixture.repo)
 	fixture.svc.SetFrontendHub(fixture.hub)
 	fixture.svc.SetEuroscopeHub(fixture.esHub)
 	fixture.svc.SetPdcService(fixture.pdcSpy)

@@ -61,7 +61,7 @@ func newSyncTestFixture(t *testing.T, _ *models.Strip, stripRepo *testutil.MockS
 		}
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
 	svc.SetSessionRepo(sessionRepo)
@@ -313,7 +313,7 @@ func TestRemoveUnexpectedChangeField_CallsRepo(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := stripRepo.RemoveUnexpectedChangeField(ctx, session, callsign, field)
@@ -342,7 +342,7 @@ func TestAcknowledgeUnexpectedChange_SetsControllerModified(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := stripRepo.RemoveUnexpectedChangeField(ctx, session, callsign, field)

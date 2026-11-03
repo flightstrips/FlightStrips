@@ -139,3 +139,26 @@ func loadEkchRegions(t *testing.T) {
 		t.Fatalf("load ekch regions: %v", err)
 	}
 }
+
+func TestEKCHApplicationFixtureResolvesWorkflowGeometry(t *testing.T) {
+	t.Chdir("../..")
+	registry, err := LoadEKCHTestAirportRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition, ok := registry.Lookup("EKCH")
+	if !ok {
+		t.Fatal("EKCH fixture missing")
+	}
+	runway, ok := definition.RunwayRegionAt(55.62002, 12.65029)
+	if !ok || runway.Name != "RWY_1230" {
+		t.Fatalf("runway geometry unresolved: %v", runway.Name)
+	}
+	final, ok := definition.FinalRegionAt("22L", 55.637980, 12.686934)
+	if !ok || final.Name != "FINAL_22L" {
+		t.Fatalf("final geometry unresolved: %v", final.Name)
+	}
+	if definition.ServiceEnabled("cdm") || definition.ServiceEnabled("pdc") {
+		t.Fatal("fixture must preserve disabled deployment services")
+	}
+}

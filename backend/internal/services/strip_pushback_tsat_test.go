@@ -526,7 +526,7 @@ func TestDirectBayPushbackRecordsAobt(t *testing.T) {
 		},
 	}
 	cdm := &spyStripCdmService{}
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	svc.SetCdmService(cdm)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	require.NoError(t, svc.MoveToBay(context.Background(), 779, "SAS779", shared.BAY_PUSH, false))

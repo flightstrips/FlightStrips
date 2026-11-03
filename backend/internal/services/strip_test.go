@@ -127,7 +127,7 @@ func TestMoveToBay_Success(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := svc.MoveToBay(ctx, session, callsign, bay, true)
@@ -152,7 +152,7 @@ func TestMoveToBay_NoNotification(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := svc.MoveToBay(ctx, 1, "EZY999", shared.BAY_CLEARED, false)
@@ -170,7 +170,7 @@ func TestMoveToBay_RepositoryError(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	err := svc.MoveToBay(ctx, 1, "EZY123", shared.BAY_NOT_CLEARED, true)
 	require.Error(t, err)
 }
@@ -236,7 +236,7 @@ func TestAutoAssume_ClearedStrip(t *testing.T) {
 			return nil
 		},
 	}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
 	svc.SetRouteRecalculator(routeRecalculator)
@@ -301,7 +301,7 @@ func TestAutoAssume_ClearedStrip_AppendsDisplacedOwnerToPrevious(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
 
@@ -334,7 +334,7 @@ func TestAutoAssume_NoMatchingController(t *testing.T) {
 		},
 	}
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
 
@@ -390,7 +390,7 @@ func TestAutoAssume_FallbackToDel(t *testing.T) {
 			return nil
 		},
 	}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
 	svc.SetRouteRecalculator(routeRecalculator)
@@ -433,7 +433,7 @@ func TestAutoAssume_ClearedArrivalStrip_IsIgnored(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
 	svc.SetSessionRepo(sessionRepo)
@@ -500,7 +500,7 @@ func TestAutoAssumeForControllerOnline_AssumesMatchingStrip(t *testing.T) {
 			return nil
 		},
 	}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetRouteRecalculator(routeRecalculator)
 
@@ -530,7 +530,7 @@ func TestAutoAssumeForControllerOnline_NoMatchingStrips(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := svc.AutoAssumeForControllerOnline(ctx, session, position)
@@ -574,7 +574,7 @@ func TestAutoAssumeForControllerOnline_IgnoresArrivalStrip(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSessionRepo(sessionRepo)
 
@@ -619,7 +619,7 @@ func TestCreateCoordinationTransfer_Success(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 
@@ -657,7 +657,7 @@ func TestSetStartReqState_WithSyncState_IncrementsCachedVersionOnce(t *testing.T
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 
 	err := svc.setStartReqState(ctx, session, callsign, true, false, inputStrip)
 	require.NoError(t, err)
@@ -715,7 +715,7 @@ func TestCreateCoordinationTransfer_TaxiBayToTower_MovesToLowerTaxiBay(t *testin
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 	svc.SetSessionRepo(sessionRepo)
@@ -764,7 +764,7 @@ func TestCreateCoordinationTransfer_ArrivalTaxiBayToTower_DoesNotMoveToLowerTaxi
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 	svc.SetSessionRepo(sessionRepo)
@@ -796,7 +796,7 @@ func TestCreateCoordinationTransfer_TaxiBayToNonTower_DoesNotMoveToLowerTaxiBay(
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 
@@ -818,7 +818,7 @@ func TestCreateCoordinationTransfer_StripNotFound(t *testing.T) {
 	coordRepo := &testutil.MockCoordinationRepository{}
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 
@@ -862,7 +862,7 @@ func TestCreateCoordinationTransfer_AirborneBay_SendsEsHandover(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
 	svc.SetCoordinationRepo(coordRepo)
@@ -927,7 +927,7 @@ func TestCreateCoordinationTransfer_CrossCoupledTargetUsesCarryingPosition(t *te
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
 	svc.SetCoordinationRepo(coordRepo)
@@ -967,7 +967,7 @@ func TestCreateCoordinationTransfer_NonAirborneBay_NoEsHandover(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
 	svc.SetCoordinationRepo(coordRepo)
@@ -1035,7 +1035,7 @@ func TestAcceptCoordination_UpdatesOwner(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 
@@ -1088,7 +1088,7 @@ func TestRunwayClearance_TaxiLwrBaySetsGroundStateAndNotifiesES(t *testing.T) {
 
 	esHub := &testutil.MockEuroscopeHub{}
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
 
@@ -1129,7 +1129,7 @@ func TestRunwayClearance_DepartBaySetsGroundStateAndNotifiesES(t *testing.T) {
 
 	esHub := &testutil.MockEuroscopeHub{}
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
 
@@ -1151,7 +1151,7 @@ func TestRunwayClearance_StripNotFound(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := svc.RunwayClearance(ctx, 1, "XXX000", "", "")
@@ -1177,7 +1177,7 @@ func TestRunwayClearance_RepositoryError(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	err := svc.RunwayClearance(ctx, 1, "SAS789", "", "")
 	require.Error(t, err)
@@ -1205,7 +1205,7 @@ func TestAcceptCoordination_NoCoordination(t *testing.T) {
 
 	hub := &testutil.MockFrontendHub{}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 
@@ -1240,7 +1240,7 @@ func TestRejectCoordination_RestoresState(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 
@@ -1267,7 +1267,7 @@ func TestRejectCoordination_WrongPosition(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 
@@ -1314,7 +1314,7 @@ func TestUpdateStand_TriggersRouteRecalculation(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetRouteRecalculator(mockServer)
 
@@ -1352,7 +1352,7 @@ func TestUpdateStand_IgnoresArrivalAirportStandForCompletedDeparture(t *testing.
 	}
 
 	routeUpdated := false
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetSessionRepo(&testutil.MockSessionRepository{
 		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
 			assert.Equal(t, session, id)
@@ -1397,7 +1397,7 @@ func TestUpdateStand_IgnoresNearbyArrivalStandForAirborneDeparture(t *testing.T)
 	}
 
 	routeUpdated := false
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetSessionRepo(&testutil.MockSessionRepository{
 		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
 			return &models.Session{ID: id, Airport: "EKCH"}, nil
@@ -1441,7 +1441,7 @@ func TestUpdateStand_AcceptsStandForDepartureAtOriginAirport(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetSessionRepo(&testutil.MockSessionRepository{
 		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
@@ -1486,7 +1486,7 @@ func TestUpdateStand_StandChangeClearsStartReq(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	err := svc.UpdateStand(ctx, session, callsign, stand)
@@ -1517,7 +1517,7 @@ func TestUpdateStand_NoRouteUpdateWhenStripNotFound(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetRouteRecalculator(mockServer)
 
@@ -1558,7 +1558,7 @@ func TestUpdateGroundState_DepartToEmptyKeepsBayDepart(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(hub)
 
 	// Ground state clears when the aircraft lifts off.
@@ -1597,7 +1597,7 @@ func TestUpdateGroundState_SyncsAsatAfterPersist(t *testing.T) {
 	}
 
 	cdmService := &spyStripCdmService{}
-	svc := NewStripService(stripRepo)
+	svc := newWorkflowTestService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
 	svc.SetCdmService(cdmService)
 

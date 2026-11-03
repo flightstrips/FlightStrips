@@ -13,7 +13,7 @@ import (
 // emits a single BulkBayEvent instead of individual BayEvents.
 func TestSendBulkSequenceUpdate_SendsBulkBayEvent(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	svc.SetFrontendHub(hub)
 
 	callsigns := []string{"SAS100", "SAS200", "SAS300"}
@@ -36,7 +36,7 @@ func TestSendBulkSequenceUpdate_SendsBulkBayEvent(t *testing.T) {
 // TestSendBulkSequenceUpdate_LengthMismatch verifies that mismatched slices are silently dropped.
 func TestSendBulkSequenceUpdate_LengthMismatch(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
-	svc := NewStripService(&testutil.MockStripRepository{})
+	svc := newWorkflowTestService(&testutil.MockStripRepository{})
 	svc.SetFrontendHub(hub)
 
 	svc.sendBulkSequenceUpdate(1, []string{"A", "B"}, []int32{10}, "BAY")

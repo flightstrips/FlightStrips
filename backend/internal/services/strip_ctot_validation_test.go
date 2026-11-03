@@ -38,7 +38,7 @@ func TestApplyCtotValidation_ActivatesForTowerOwnerInDepartureFlow(t *testing.T)
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.applyCtotValidation(context.Background(), 1, &models.Strip{
 		Callsign: "SAS123",
 		Owner:    &owner,
@@ -73,7 +73,7 @@ func TestApplyCtotValidation_ClearsWhenThresholdNoLongerApplies(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.applyCtotValidation(context.Background(), 1, &models.Strip{
 		Callsign: "SAS123",
 		Owner:    &owner,
@@ -101,7 +101,7 @@ func TestApplyCtotValidation_PreservesAcknowledgedStateForSameOwner(t *testing.T
 	setCalled := false
 	clearCalled := false
 
-	svc := NewStripService(&testutil.MockStripRepository{
+	svc := newWorkflowTestService(&testutil.MockStripRepository{
 		SetValidationStatusFn: func(context.Context, int32, string, *models.ValidationStatus) error {
 			setCalled = true
 			return nil
@@ -145,7 +145,7 @@ func TestApplyCtotValidation_ReactivatesOnOwnerChange(t *testing.T) {
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	require.NoError(t, svc.applyCtotValidation(context.Background(), 1, &models.Strip{
 		Callsign: "SAS123",
 		Owner:    &newOwner,
@@ -204,7 +204,7 @@ func TestReevaluateSquawkValidation_TransitionsFromWrongSquawkToCtot(t *testing.
 		},
 	}
 
-	svc := NewStripService(repo)
+	svc := newWorkflowTestService(repo)
 	originalNow := ctotValidationNow
 	ctotValidationNow = func() time.Time { return now }
 	t.Cleanup(func() {

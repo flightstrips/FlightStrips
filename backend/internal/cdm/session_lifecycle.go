@@ -51,6 +51,12 @@ func (s *Service) RemoveSession(session int32) {
 		s.inbound.removeSession(session)
 	}
 	s.sessionUsesViff.Delete(session)
+	s.deferredAuthorities.Range(func(key, value any) bool {
+		if value.(deferredAuthority).session == session {
+			s.deferredAuthorities.Delete(key)
+		}
+		return true
+	})
 	prefix := strconv.Itoa(int(session)) + ":"
 	s.debouncer.CancelPrefix(prefix)
 	for _, cache := range []*sync.Map{&s.atotPushInFlight, &s.aobtPushInFlight} {

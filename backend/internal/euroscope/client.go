@@ -37,6 +37,7 @@ type Client struct {
 	closeOnce         sync.Once
 	closed            chan struct{}
 	hub               *Hub
+	userMu            sync.RWMutex
 	user              shared.AuthenticatedUser
 
 	identityMu sync.RWMutex
@@ -165,6 +166,8 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) GetCid() string {
+	c.userMu.RLock()
+	defer c.userMu.RUnlock()
 	return c.user.GetCid()
 }
 
@@ -201,10 +204,14 @@ func (c *Client) GetConnection() *gorilla.Conn {
 }
 
 func (c *Client) IsAuthenticated() bool {
+	c.userMu.RLock()
+	defer c.userMu.RUnlock()
 	return c.user.IsValid()
 }
 
 func (c *Client) SetUser(user shared.AuthenticatedUser) {
+	c.userMu.Lock()
+	defer c.userMu.Unlock()
 	c.user = user
 }
 
@@ -556,4 +563,21 @@ func (c *Client) validPositionFence(ctx context.Context) bool {
 
 func (c *Client) IsDraining() bool {
 	return c.draining.Load() || (c.hub != nil && c.hub.draining.Load())
+}
+
+func (c *Client) userSnapshot() shared.AuthenticatedUser {
+	c.userMu.RLock()
+	defer c.userMu.RUnlock()
+	return c.user
+}
+
+func (c *Client) PrepareControllerActionContext(ctx context.Context) (context.Context, error) {
+	if c == nil {
+		return ctx, nil
+	}
+	if c.hub == nil {
+		return ctx, shared.RejectAction("own plugin binding is unavailable")
+	}
+	binding := &commandBinding{hub: c.hub, client: c, session: c.session, cid: c.GetCid(), requireReady: true}
+	return shared.WithHumanCommand(ctx, binding)
 }

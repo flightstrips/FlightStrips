@@ -70,7 +70,7 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 	previousIdentity := client.identitySnapshot()
 	previousAirport := client.airport
 
-	event, _, err := client.hub.handleLogin(message.Message, client.user)
+	event, _, err := client.hub.handleLogin(message.Message, client.userSnapshot())
 	if err != nil {
 		return err
 	}

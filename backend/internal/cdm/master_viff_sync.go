@@ -45,13 +45,18 @@ func (c *MasterViffSync) lockFlightExport(ctx context.Context, session int32, ca
 }
 
 type viffPushState struct {
-	Suspend bool
-	Params  SetCdmDataParams
+	// Each selected proposal carries its own source, independently of its worker.
+	source         shared.CommandBinding
+	sourceSet      bool
+	session        int32
+	authorityToken string
+	Suspend        bool
+	Params         SetCdmDataParams
 }
 
 func (c *MasterViffSync) ensureMasterFlightExport(ctx context.Context, session int32, callsign string, local *models.CdmData, remote IFPSData) {
 	s := c.service
-	if !s.client.isValid || !s.usesViffSession(session) || local == nil || local.NeedsLocalRecalculation() || !masterFlightNeedsExport(local, remote) {
+	if !s.client.isValid || !s.usesViffSession(session) || local == nil || local.ReadySyncPending || local.NeedsLocalRecalculation() || !masterFlightNeedsExport(local, remote) {
 		return
 	}
 
@@ -205,6 +210,10 @@ func (c *MasterViffSync) pushViffAfterRecalcAsync(ctx context.Context, session i
 	if !ok {
 		return
 	}
+	state, authorityErr := c.prepareViffAuthority(ctx, session, strip, data, state)
+	if authorityErr != nil {
+		return
+	}
 	attempt := c.pushRetries.begin(session, callsign, state, time.Now())
 	if attempt == nil {
 		return
@@ -253,8 +262,20 @@ func (c *MasterViffSync) pushViffAfterRecalcAsync(ctx context.Context, session i
 						}
 						if err == nil {
 							var ok bool
+							selectedSource := state.source
 							state, ok = buildViffPushState(callsign, strip, current)
 							if !ok {
+								return false
+							}
+							refreshCtx := shared.WithoutCommandAuthority(asyncCtx)
+							if current.ViffAuthority == "" && selectedSource != nil {
+								refreshCtx, err = shared.WithHumanCommand(refreshCtx, selectedSource)
+								if err != nil {
+									return false
+								}
+							}
+							state, err = c.prepareViffAuthority(refreshCtx, session, strip, current, state)
+							if err != nil {
 								return false
 							}
 							attempt = c.pushRetries.refresh(attempt, state)
@@ -304,10 +325,26 @@ func (c *MasterViffSync) pushViffAfterRecalc(ctx context.Context, callsign strin
 	if !ok {
 		return nil
 	}
+	session := int32(0)
+	if strip != nil {
+		session = strip.Session
+	}
+	if binding, human := shared.HumanCommand(ctx); human && session == 0 {
+		session = binding.Session()
+	}
+	state, err := c.prepareViffAuthority(ctx, session, strip, data, state)
+	if err != nil {
+		return err
+	}
 	return s.pushViffState(ctx, callsign, state)
 }
 
 func (c *MasterViffSync) pushAuthoritativeViffState(ctx context.Context, callsign string, strip *models.Strip, data *models.CdmData) error {
+	if strip != nil {
+		if err := shared.ValidateCommandAuthority(ctx, strip.Session); err != nil {
+			return err
+		}
+	}
 	if _, ok := buildViffPushState(callsign, strip, data); ok {
 		return c.pushViffAfterRecalc(ctx, callsign, strip, data)
 	}
@@ -315,15 +352,54 @@ func (c *MasterViffSync) pushAuthoritativeViffState(ctx context.Context, callsig
 	if !isValidHHMM(tobt) {
 		return fmt.Errorf("cannot export authoritative CDM state for %s without a valid TOBT", callsign)
 	}
-	return c.service.client.IFPSSetTobt(ctx, callsign, tobt, c.service.resolveTaxiMinutes(strip))
+	session := strip.Session
+	if binding, human := shared.HumanCommand(ctx); human && session == 0 {
+		session = binding.Session()
+	}
+	if data.ViffAuthority != "" {
+		var err error
+		ctx, err = c.service.actionService.restoreDeferredAuthority(shared.WithoutCommandAuthority(ctx), session, strip, "CDM", "", data.ViffAuthority)
+		if err != nil {
+			return err
+		}
+	}
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
+	if err := c.service.client.IFPSSetTobt(ctx, callsign, tobt, c.service.resolveTaxiMinutes(strip)); err != nil {
+		return err
+	}
+	return c.acknowledgeViffAuthority(ctx, session, callsign, data.ViffAuthority)
 }
 
 func (c *MasterViffSync) pushViffState(ctx context.Context, callsign string, state viffPushState) error {
-	s := c.service
-	if state.Suspend {
-		return s.client.IFPSDpi(ctx, callsign, "SUSP")
+	if state.sourceSet {
+		ctx = shared.WithoutCommandAuthority(ctx)
+		if state.source != nil {
+			var err error
+			ctx, err = shared.WithHumanCommand(ctx, state.source)
+			if err != nil {
+				return err
+			}
+		}
 	}
-	return s.client.IFPSSetCdmData(ctx, state.Params)
+	session := state.session
+	if binding, human := shared.HumanCommand(ctx); human && session == 0 {
+		session = binding.Session()
+	}
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
+	var err error
+	if state.Suspend {
+		err = c.service.client.IFPSDpi(ctx, callsign, "SUSP")
+	} else {
+		err = c.service.client.IFPSSetCdmData(ctx, state.Params)
+	}
+	if err != nil {
+		return err
+	}
+	return c.acknowledgeViffAuthority(ctx, session, callsign, state.authorityToken)
 }
 
 func (c *MasterViffSync) clearViffPushSession(session int32) {

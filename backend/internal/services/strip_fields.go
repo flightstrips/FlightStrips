@@ -501,7 +501,9 @@ func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, s
 		}
 	}
 	if (strip.Cleared != isCleared || forceEuroscopeNotification) && s.esCommander != nil {
-		s.esCommander.SendClearedFlag(session, cid, callsign, isCleared)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedFlagEvent{Callsign: callsign, Cleared: isCleared}, func() { s.esCommander.SendClearedFlag(session, cid, callsign, isCleared) }); dispatchErr != nil {
+			return dispatchErr
+		}
 	}
 	return nil
 }
@@ -509,6 +511,11 @@ func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, s
 // UpdateGroundStateForMove handles the frontend "move to general bay" action.
 // It computes the new ground state, updates the DB, and notifies EuroScope.
 func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int32, callsign string, bay string, cid string, airport string) error {
+	var authorityErr error
+	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.esCommander, session, cid)
+	if authorityErr != nil {
+		return authorityErr
+	}
 	if bay == shared.BAY_PUSH {
 		strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 		if err != nil {
@@ -575,7 +582,9 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 	}
 
 	if state != strip.State && state != nil && s.esCommander != nil {
-		s.esCommander.SendGroundState(session, cid, callsign, *state)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.GroundStateEvent{Callsign: callsign, GroundState: *state}, func() { s.esCommander.SendGroundState(session, cid, callsign, *state) }); dispatchErr != nil {
+			return nil, dispatchErr
+		}
 	}
 
 	// Moving backward out of a runway-cleared bay must clear the runway status so the next runway

@@ -5,6 +5,7 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/vatsim"
+	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"errors"
 	"log/slog"
@@ -13,12 +14,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *StripService) maybeSyncEsCoordinationAcceptance(session int32, callsign string, coordination *internalModels.Coordination, assumingPosition string) {
+func (s *StripService) maybeSyncEsCoordinationAcceptance(ctx context.Context, session int32, callsign string, coordination *internalModels.Coordination, assumingPosition string) {
 	if coordination == nil || !coordination.FromEs || coordination.EsHandoverCid == nil || *coordination.EsHandoverCid == "" || s.esCommander == nil {
 		return
 	}
 
-	s.esCommander.SendAssumeOnly(session, *coordination.EsHandoverCid, callsign)
+	if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.AssumeOnlyEvent{Callsign: callsign}, func() { s.esCommander.SendAssumeOnly(session, *coordination.EsHandoverCid, callsign) }); dispatchErr != nil {
+		slog.WarnContext(ctx, "Command binding unavailable", slog.Any("error", dispatchErr))
+		return
+	}
 }
 
 func (s *StripService) maybeAcceptOwnedEsArrivalCoordination(ctx context.Context, session int32, callsign string, strip *internalModels.Strip, targetController *internalModels.Controller) bool {
@@ -37,7 +41,9 @@ func (s *StripService) maybeAcceptOwnedEsArrivalCoordination(ctx context.Context
 		slog.String("callsign", callsign),
 		slog.String("target_position", targetController.Position),
 	)
-	s.esCommander.SendAssumeOnly(session, *targetController.Cid, callsign)
+	if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.AssumeOnlyEvent{Callsign: callsign}, func() { s.esCommander.SendAssumeOnly(session, *targetController.Cid, callsign) }); dispatchErr != nil {
+		return false
+	}
 	return true
 }
 
@@ -63,6 +69,9 @@ func (s *StripService) clearOwnerForOwnedEsArrivalCoordination(ctx context.Conte
 }
 
 func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session int32, callsign string, from string, to string) error {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	if s.publisher == nil {
 		return errors.New("frontend hub not configured")
 	}
@@ -133,7 +142,9 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 				}
 			}
 			if ownerCid != nil && targetCallsign != "" {
-				s.esCommander.SendCoordinationHandover(session, *ownerCid, callsign, targetCallsign)
+				if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.CoordinationHandoverEvent{Callsign: callsign, TargetCallsign: targetCallsign}, func() { s.esCommander.SendCoordinationHandover(session, *ownerCid, callsign, targetCallsign) }); dispatchErr != nil {
+					return dispatchErr
+				}
 			}
 		}
 	}
@@ -446,7 +457,7 @@ func (s *StripService) autoAcceptPendingCoordination(ctx context.Context, sessio
 		return
 	}
 
-	s.maybeSyncEsCoordinationAcceptance(session, strip.Callsign, coordination, coordination.ToPosition)
+	s.maybeSyncEsCoordinationAcceptance(ctx, session, strip.Callsign, coordination, coordination.ToPosition)
 }
 
 // HandleCoordinationReceived processes a EuroScope coordination-received event,
@@ -538,6 +549,9 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 // AssumeStripCoordination handles the full frontend assume flow:
 // accepts a pending coordination, or directly assumes an unowned strip.
 func (s *StripService) AssumeStripCoordination(ctx context.Context, session int32, callsign string, position string) error {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	coordRepo := s.getCoordinationRepository()
 	if coordRepo == nil {
 		return errors.New("coordination repository not configured")
@@ -620,7 +634,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			}
 		}
 
-		s.maybeSyncEsCoordinationAcceptance(session, callsign, coordination, position)
+		s.maybeSyncEsCoordinationAcceptance(ctx, session, callsign, coordination, position)
 
 		return nil
 	}

@@ -25,6 +25,11 @@ func (s *StripService) ExecuteWorkflowAction(ctx context.Context, session int32,
 	return s.executeControllerWorkflow(ctx, session, callsign, cid, airport, position, action, request)
 }
 func (s *StripService) executeControllerWorkflow(ctx context.Context, session int32, callsign, cid, airport, clientPosition, action string, request any) error {
+	var authorityErr error
+	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.esCommander, session, cid)
+	if authorityErr != nil {
+		return authorityErr
+	}
 	bound, err := s.workflowFor(ctx, session, airport)
 	if err != nil {
 		return err
@@ -103,6 +108,9 @@ func (s *StripService) executeControllerWorkflow(ctx context.Context, session in
 		return s.acknowledgeDeicePlatformInBay(ctx, session, callsign, targetBay)
 	}
 
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	previousBay := strip.Bay
 	previousCleared := strip.Cleared
 	clearing := decision.Cleared != nil && *decision.Cleared

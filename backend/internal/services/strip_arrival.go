@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"errors"
 	"log/slog"
@@ -43,7 +44,10 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 		if controller.Position != ownerPosition || controller.Cid == nil || *controller.Cid == "" {
 			continue
 		}
-		s.esCommander.SendDropTracking(session, *controller.Cid, callsign)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.DropTrackingEvent{Callsign: callsign}, func() { s.esCommander.SendDropTracking(session, *controller.Cid, callsign) }); dispatchErr != nil {
+			slog.WarnContext(ctx, "Command binding unavailable", slog.Any("error", dispatchErr))
+			return
+		}
 		sent = true
 	}
 
@@ -259,7 +263,9 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 				slog.String("callsign", callsign),
 				slog.String("trigger", "entered_not_cleared"),
 			)
-			s.esCommander.SendGenerateSquawk(session, "", callsign)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.GenerateSquawkEvent{Callsign: callsign}, func() { s.esCommander.SendGenerateSquawk(session, "", callsign) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		if previousBay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE {
 			return s.AutoTransferAirborneStrip(ctx, session, callsign)

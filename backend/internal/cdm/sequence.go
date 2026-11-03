@@ -40,13 +40,14 @@ type sequencingCandidate struct {
 }
 
 type SequenceService struct {
-	stripRepo      CdmSequenceStripStore
-	sessionRepo    repository.SessionRepository
-	configProvider ConfigProvider
-	frontendHub    shared.CdmEventPublisher
-	euroscopeHub   CdmEuroscope
-	afterPersist   func(ctx context.Context, session int32, callsign string)
-	now            func() time.Time
+	captureAuthority func(context.Context, int32, *models.Strip, *models.CdmData) error
+	stripRepo        CdmSequenceStripStore
+	sessionRepo      repository.SessionRepository
+	configProvider   ConfigProvider
+	frontendHub      shared.CdmEventPublisher
+	euroscopeHub     CdmEuroscope
+	afterPersist     func(ctx context.Context, session int32, callsign string)
+	now              func() time.Time
 }
 
 type SequenceServiceDependencies struct {
@@ -273,6 +274,9 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 				applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), models.CdmInvalidReasonStaleTsat)
 				setCalculationReasonMarkers(updated, invalidReasonMarker(updated))
 				updated.ClearLocalRecalculationPending()
+				if err := s.captureViffAuthority(ctx, session, strip, updated); err != nil {
+					return err
+				}
 				rows, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize())
 				if err != nil {
 					return err
@@ -348,6 +352,9 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 
 		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updatedTaxiRunwayFromData(updated))) ||
 			beforeProposalTsat != valueOrEmpty(updated.ViffProposalTsat) || beforeProposalTtot != valueOrEmpty(updated.ViffProposalTtot) {
+			if err := s.captureViffAuthority(ctx, session, strip, updated); err != nil {
+				return err
+			}
 			rows, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize())
 			if err != nil {
 				return err
@@ -360,10 +367,10 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 				// CDM updates only change the plugin's timing cache. Correct the
 				// flight plan too, including during silent recalculation, so the
 				// next EuroScope strip sync cannot undo this persisted recovery.
-				s.euroscopeHub.Broadcast(session, euroscopeEvents.EobtEvent{
-					Callsign: strip.Callsign,
-					Eobt:     candidate.recoveredEobt,
-				})
+				event := euroscopeEvents.EobtEvent{Callsign: strip.Callsign, Eobt: candidate.recoveredEobt}
+				if err := shared.DispatchEuroscopeCommand(ctx, s.euroscopeHub, session, "", event, func() { s.euroscopeHub.Broadcast(session, event) }); err != nil {
+					return err
+				}
 			}
 			if notify {
 				frontendUpdates = append(frontendUpdates, shared.BuildFrontendCdmDataEvent(strip.Callsign, updated))
@@ -947,4 +954,11 @@ func calculationInvalidReason(input CalcInput, result CalcResult, now time.Time)
 		return models.CdmInvalidReasonStaleTobt
 	}
 	return ""
+}
+
+func (s *SequenceService) captureViffAuthority(ctx context.Context, session int32, strip *models.Strip, data *models.CdmData) error {
+	if s.captureAuthority != nil {
+		return s.captureAuthority(ctx, session, strip, data)
+	}
+	return nil
 }

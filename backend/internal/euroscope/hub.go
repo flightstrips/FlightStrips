@@ -196,13 +196,13 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(euroscope.Sync, handleSync)
 	handlers.Add(euroscope.StripUpdate, handleStripUpdateEvent)
 	handlers.Add(euroscope.RunwayType, handleRunways)
-	handlers.Add(euroscope.CdmTobtUpdate, handleCdmTobtUpdate)
-	handlers.Add(euroscope.CdmDeiceUpdate, handleCdmDeiceUpdate)
-	handlers.Add(euroscope.CdmManualCtot, handleCdmManualCtot)
-	handlers.Add(euroscope.CdmCtotRemove, handleCdmCtotRemove)
-	handlers.Add(euroscope.CdmReady, handleCdmReady)
-	handlers.Add(euroscope.CdmAsrtToggle, handleCdmAsrtToggle)
-	handlers.Add(euroscope.CdmTsacUpdate, handleCdmTsacUpdate)
+	handlers.AddAction(euroscope.CdmTobtUpdate, handleCdmTobtUpdate)
+	handlers.AddAction(euroscope.CdmDeiceUpdate, handleCdmDeiceUpdate)
+	handlers.AddAction(euroscope.CdmManualCtot, handleCdmManualCtot)
+	handlers.AddAction(euroscope.CdmCtotRemove, handleCdmCtotRemove)
+	handlers.AddAction(euroscope.CdmReady, handleCdmReady)
+	handlers.AddAction(euroscope.CdmAsrtToggle, handleCdmAsrtToggle)
+	handlers.AddAction(euroscope.CdmTsacUpdate, handleCdmTsacUpdate)
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 	handlers.Add(euroscope.SendPrivateMessage, handleSendPrivateMessage)
@@ -246,8 +246,8 @@ func (hub *Hub) RegisterPDCHandlers(service shared.PdcService) error {
 		return errors.New("EuroScope hub requires PDC service when registering PDC handlers")
 	}
 	hub.pdcService = service
-	hub.handlers.Add(euroscope.IssuePdcClearance, handleIssuePdcClearance)
-	hub.handlers.Add(euroscope.PdcRevertToVoice, handlePdcRevertToVoice)
+	hub.handlers.AddAction(euroscope.IssuePdcClearance, handleIssuePdcClearance)
+	hub.handlers.AddAction(euroscope.PdcRevertToVoice, handlePdcRevertToVoice)
 	return nil
 }
 
@@ -355,7 +355,7 @@ func (hub *Hub) OnRegister(client *Client) {
 		if client.identitySnapshot().observer {
 			client.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoObserver})
 			if hub.hasOperationalClientForSession(client.session) {
-				hub.server.GetFrontendHub().CidOnline(client.session, client.user.GetCid())
+				hub.server.GetFrontendHub().CidOnline(client.session, client.GetCid())
 			}
 			return
 		}
@@ -370,7 +370,7 @@ func (hub *Hub) OnRegister(client *Client) {
 			hub.notifyObserverFrontendsOnline(client.session)
 		} else {
 			// For slaves, layouts are already calculated by the master; notify the frontend now.
-			hub.server.GetFrontendHub().CidOnline(client.session, client.user.GetCid())
+			hub.server.GetFrontendHub().CidOnline(client.session, client.GetCid())
 		}
 	}()
 }
@@ -1156,6 +1156,14 @@ func (hub *Hub) clearClientLocalIP(session int32, cid string) {
 }
 
 func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {
+	if cid != "" {
+		binding, err := hub.CaptureCommandBinding(session, cid)
+		if err != nil {
+			return
+		}
+		hub.squawkThrottle.Enqueue(session, queuedSquawkRequest{cid: cid, callsign: callsign, binding: binding})
+		return
+	}
 	hub.squawkThrottle.Enqueue(session, queuedSquawkRequest{
 		cid:      cid,
 		callsign: callsign,
@@ -1194,7 +1202,9 @@ func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) str
 							continue
 						}
 						if controller.Cid != nil && *controller.Cid != "" {
-							return *controller.Cid
+							if _, err := hub.captureCommandBinding(session, *controller.Cid, false); err == nil {
+								return *controller.Cid
+							}
 						}
 					}
 				}
@@ -1203,7 +1213,9 @@ func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) str
 	}
 
 	if master := hub.getMasterClient(session); master != nil {
-		return master.GetCid()
+		if _, err := hub.captureCommandBinding(session, master.GetCid(), false); err == nil {
+			return master.GetCid()
+		}
 	}
 
 	return ""

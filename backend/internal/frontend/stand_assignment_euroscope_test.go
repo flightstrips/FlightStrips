@@ -5,7 +5,9 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/services"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
+	esCommands "FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
@@ -21,6 +23,21 @@ type standAssignmentSnapshotRepository struct {
 	blocks         []*models.StandBlock
 	assignmentsErr error
 	blocksErr      error
+}
+
+func TestHumanStandPublicationRetainsInitiatingPlugin(t *testing.T) {
+	binding := &testutil.MockCommandBinding{SessionID: 7, CIDValue: "OWN"}
+	ctx, err := shared.WithHumanCommand(t.Context(), binding)
+	require.NoError(t, err)
+	provider := &testutil.MockEuroscopeHub{GetMasterCidFn: func(int32) string { t.Fatal("human stand write consulted master"); return "MASTER" }}
+	assignment := models.StandAssignment{SessionID: 7, Callsign: "SAS123", Direction: "DEPARTURE"}
+	hub := &Hub{}
+	hub.sendAllocatedStandToEuroscope(ctx, provider, assignment, "A12")
+	require.Equal(t, []esCommands.OutgoingMessage{esCommands.StandEvent{Callsign: "SAS123", Stand: "A12"}}, binding.Sent())
+	binding.Unavailable.Store(true)
+	hub.sendAllocatedStandToEuroscope(ctx, provider, assignment, "A14")
+	require.Len(t, binding.Sent(), 1)
+	require.Empty(t, provider.Stands)
 }
 
 func (r *standAssignmentSnapshotRepository) ListAssignments(context.Context, int32) ([]*models.StandAssignment, error) {

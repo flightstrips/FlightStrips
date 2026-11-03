@@ -14,6 +14,7 @@ import (
 )
 
 type Service struct {
+	deferredAuthorities    sync.Map // opaque token -> deferredAuthority
 	inbound                *inboundDepartures
 	actionService          *ActionService
 	syncService            *SyncService
@@ -368,6 +369,9 @@ func (s *Service) SetConfigProvider(configProvider ConfigProvider) {
 
 func (s *Service) SetSequenceService(sequenceService *SequenceService) {
 	s.sequenceService = sequenceService
+	if sequenceService != nil {
+		sequenceService.captureAuthority = s.captureViffAuthority
+	}
 	if s.sequenceService != nil {
 		s.sequenceService.SetAfterPersist(func(ctx context.Context, session int32, callsign string) {
 			s.pushViffDataAfterRecalc(ctx, session, callsign)

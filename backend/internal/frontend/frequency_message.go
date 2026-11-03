@@ -187,6 +187,9 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 			return reject(err)
 		}
 	}
+	if err := shared.ValidateCommandAuthority(ctx, client.session); err != nil {
+		return reject(err)
+	}
 	if !send(euroscope.SendFrequencyMessageEvent{RequestId: req.RequestID, Callsign: req.Callsign, Message: strings.TrimSpace(req.Message), PrimaryFrequency: client.position, AppliedActions: applied}) {
 		return reject(errors.New("EuroScope disconnected before command submission"))
 	}

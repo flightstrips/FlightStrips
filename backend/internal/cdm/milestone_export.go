@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -30,6 +31,9 @@ func (c *ActionService) sendPendingAobt(ctx context.Context, session int32, call
 }
 
 func (c *ActionService) sendPendingMilestone(ctx context.Context, session int32, callsign string, offBlock bool) error {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	s := c.service
 	if !s.client.isValid || !s.usesViffSession(session) || s.isSessionRemoved(session) {
 		return nil
@@ -64,8 +68,19 @@ func (c *ActionService) sendPendingMilestone(ctx context.Context, session int32,
 	if err != nil {
 		return fmt.Errorf("load %s export target %s session %d: %w", kind, callsign, session, err)
 	}
+	token := data.AtotViffAuthority
+	if offBlock {
+		token = data.AobtViffAuthority
+	}
+	ctx, err = c.restoreDeferredAuthority(ctx, session, strip, kind, value, token)
+	if err != nil {
+		return err
+	}
 	departure, err := c.isLocalDeparture(ctx, session, strip)
 	if err != nil || !departure {
+		return err
+	}
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
 		return err
 	}
 	if err := s.client.IFPSDpi(ctx, callsign, kind+"/"+value); err != nil {
@@ -73,7 +88,19 @@ func (c *ActionService) sendPendingMilestone(ctx context.Context, session int32,
 	}
 	// Clear only the acknowledged flag, conditional on its timestamp. Replacing
 	// the whole document here could overwrite concurrent timing or milestone updates.
-	_, err = s.stripRepo.AcknowledgeCdmMilestone(ctx, session, callsign, kind, value)
+	var rows int64
+	if token != "" {
+		acknowledger, ok := s.stripRepo.(deferredWorkAcknowledger)
+		if !ok {
+			return shared.RejectAction("conditional CDM authority acknowledgement is unavailable")
+		}
+		rows, err = acknowledger.AcknowledgeCdmDeferredWork(ctx, session, callsign, kind, value, token)
+	} else {
+		rows, err = s.stripRepo.AcknowledgeCdmMilestone(ctx, session, callsign, kind, value)
+	}
+	if err == nil && rows == 1 && token != "" {
+		s.deferredAuthorities.Delete(token)
+	}
 	if err != nil {
 		return fmt.Errorf("acknowledge %s/%s for %s session %d: %w", kind, value, callsign, session, err)
 	}

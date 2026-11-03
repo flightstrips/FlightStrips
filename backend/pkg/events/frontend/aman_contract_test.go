@@ -39,6 +39,7 @@ func TestAMANStateConsumerContract(t *testing.T) {
 		scenarios = append(scenarios, scenario{Name: name, Event: wire})
 	}
 	add("healthy", goldenAMANState(), goldenAMANHealth())
+	add("ground_forecast_with_spacing_conflict", groundForecastSpacingConflictState(), goldenAMANHealth())
 
 	// Reproduce the observations immediately before the reported 19:04 CET
 	// outage with the production filter, then publish its resulting warning.
@@ -175,4 +176,34 @@ func TestAMANStateConsumerContract(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(path, encoded, 0600))
 	}
+}
+
+func groundForecastSpacingConflictState() aman.AirportState {
+	state := goldenAMANState()
+	now, group := state.GeneratedAt, state.RunwayGroups[0].ID
+	state.RunwayGroups[0].ActiveRatePerHour = 40
+	state.RunwayGroups[0].RateEffectiveAt = &now
+	state.RunwayGroups[0].SameSTARSpacing = &aman.SameSTARSpacingPolicy{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	state.RunwayGroups[0].SequenceWarnings = []aman.RunwayGroupSequenceWarning{{Code: "protected_same_star_spacing",
+		Callsign: "CONFLICT-B", RelatedCallsign: "CONFLICT-A", STARFamily: "TESPI"}}
+	held := &state.Flights[0]
+	held.HoldingStack = &aman.HoldingStackState{HoldingID: *held.SelectedHolding, Confirmed: true,
+		FirstObservedAt: now.Add(-time.Minute), CandidateObservedAt: now, ConsecutiveObservations: 2}
+	for index, id := range []aman.Callsign{"CONFLICT-A", "CONFLICT-B"} {
+		flight := goldenAMANState().Flights[0]
+		flight.Callsign, flight.State = id, aman.StateAirborne
+		flight.Slot.Time, flight.Slot.Sequence = now.Add(90*time.Minute+time.Duration(index)*90*time.Second), index+4
+		flight.Order = intPointer(flight.Slot.Sequence)
+		flight.Prediction.RawTETA, flight.Prediction.OperationalTETA = flight.Slot.Time, flight.Slot.Time
+		flight.Prediction.HoldingPlan, flight.Prediction.HoldingFixETA = nil, nil
+		state.Flights = append(state.Flights, flight)
+	}
+	wake := "M"
+	eobt, eet := now.Add(-time.Hour), time.Hour
+	state.Flights = append(state.Flights, aman.AMANFlight{Callsign: "GROUND", State: aman.StatePlanned,
+		DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now, SelectedRunwayGroup: &group,
+		LatestObservation: &aman.FlightObservation{Callsign: "GROUND", Origin: "ENGM", Destination: "EKCH",
+			Provider: aman.ObservationProviderVATSIM, SourceStatus: aman.DataFresh, ReconciledAt: now, WakeCategory: &wake,
+			PlannedTiming: &aman.PlannedTiming{EstimatedOffBlockTime: &eobt, EstimatedEnrouteTime: &eet}}})
+	return state
 }

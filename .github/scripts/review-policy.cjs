@@ -99,39 +99,60 @@ async function run({ github, context, core }) {
   const repo = context.repo;
   const repository = `${repo.owner}/${repo.repo}`;
   const targetUrl = `${context.serverUrl || 'https://github.com'}/${repository}/actions/runs/${context.runId}`;
+  const scheduled = context.eventName === 'schedule';
   const pulls = await github.paginate(github.rest.pulls.list, {
-    ...repo, state: 'open', base: 'main', per_page: 100,
+    ...repo, state: 'open', per_page: 100,
   });
+  // PR base.sha is the PR's recorded base, not necessarily today's main. Stacks
+  // also target unmerged branches, so ownership always comes from trusted main.
+  let ownershipPromise;
+  const loadOwnership = () => ownershipPromise ||= (async () => {
+    const { data: branch } = await github.rest.repos.getBranch({ ...repo, branch: 'main' });
+    const { data: file } = await github.rest.repos.getContent({
+      ...repo, path: '.github/CODEOWNERS', ref: branch.commit.sha,
+    });
+    if (file.type !== 'file' || file.encoding !== 'base64') {
+      throw new Error('Cannot read CODEOWNERS from main.');
+    }
+    return { sha: branch.commit.sha, ownership: parseOwnership(Buffer.from(file.content, 'base64').toString('utf8')) };
+  })();
   const heads = new Map();
   for (const pr of pulls) {
     if (!heads.has(pr.head.sha)) heads.set(pr.head.sha, []);
     heads.get(pr.head.sha).push(pr);
   }
-  const checkIds = new Map();
+  const checkRuns = new Map();
   const publish = async (sha, state, description) => {
     try {
-      if (!checkIds.has(sha)) {
+      if (!checkRuns.has(sha)) {
         const checks = await github.paginate(github.rest.checks.listForRef, {
           ...repo, ref: sha, check_name: REVIEW_CHECK_NAME, app_id: 15368, filter: 'all', per_page: 100,
         });
         const existing = checks.filter(check => check.name === REVIEW_CHECK_NAME &&
           check.external_id === REVIEW_CHECK_ID && check.app?.id === 15368 && check.conclusion !== 'stale')
           .sort((a, b) => b.id - a.id)[0];
-        if (existing) checkIds.set(sha, existing.id);
+        if (existing) checkRuns.set(sha, existing);
       }
+      const existing = checkRuns.get(sha);
+      const conclusion = state === 'error' ? 'failure' : state;
+      if (scheduled && state !== 'pending' && existing?.status === 'completed' &&
+          existing.conclusion === conclusion && existing.output?.title === description) return true;
       const update = {
         name: REVIEW_CHECK_NAME, details_url: targetUrl,
         status: state === 'pending' ? 'in_progress' : 'completed',
-        output: { title: description, summary: description },
+        // GitHub may group API-created Actions checks under another workflow and
+        // ignore details_url. Keep an explicit link to the actual writer run.
+        output: { title: description, summary: `${description}\n\n[Review policy workflow run](${targetUrl})` },
       };
-      if (state !== 'pending') update.conclusion = state === 'error' ? 'failure' : state;
-      if (checkIds.has(sha)) {
-        await github.rest.checks.update({ ...repo, check_run_id: checkIds.get(sha), ...update });
+      if (state !== 'pending') update.conclusion = conclusion;
+      if (existing) {
+        const { data: check } = await github.rest.checks.update({ ...repo, check_run_id: existing.id, ...update });
+        checkRuns.set(sha, check);
       } else {
         const { data: check } = await github.rest.checks.create({
           ...repo, head_sha: sha, external_id: REVIEW_CHECK_ID, ...update,
         });
-        checkIds.set(sha, check.id);
+        checkRuns.set(sha, check);
       }
       return true;
     } catch (error) {
@@ -145,7 +166,7 @@ async function run({ github, context, core }) {
   // A publication failure for one head must not prevent checking the others.
   const ready = new Set();
   for (const sha of heads.keys()) {
-    if (await publish(sha, 'pending', 'Checking ownership and approval of the latest commit.')) {
+    if (scheduled || await publish(sha, 'pending', 'Checking ownership and approval of the latest commit.')) {
       ready.add(sha);
     }
   }
@@ -153,22 +174,16 @@ async function run({ github, context, core }) {
   for (const [sha, listedPulls] of heads) {
     if (!ready.has(sha)) continue;
     try {
+      const { ownership, sha: ownershipSha } = await loadOwnership();
       const entries = [];
       for (const listed of listedPulls) {
         const { data: pr } = await github.rest.pulls.get({ ...repo, pull_number: listed.number });
-        if (pr.state !== 'open' || pr.base.ref !== 'main' || pr.head.sha !== sha) {
+        if (pr.state !== 'open' || pr.head.sha !== sha) {
           entries.push({ pr, metadataOnlyRelease: false, result: {
             state: 'failure', description: 'PR changed during evaluation; refresh the review policy.',
           } });
           continue;
         }
-        const { data: file } = await github.rest.repos.getContent({
-          ...repo, path: '.github/CODEOWNERS', ref: pr.base.sha,
-        });
-        if (file.type !== 'file' || file.encoding !== 'base64') {
-          throw new Error('Cannot read CODEOWNERS from the target branch.');
-        }
-        const ownership = parseOwnership(Buffer.from(file.content, 'base64').toString('utf8'));
         const reviews = await github.paginate(github.rest.pulls.listReviews, {
           ...repo, pull_number: pr.number, per_page: 100,
         });
@@ -183,10 +198,12 @@ async function run({ github, context, core }) {
 
       // Recheck after API reads. Never publish success for a different revision
       // or target branch from the one whose reviews were evaluated.
+      const { data: currentMain } = await github.rest.repos.getBranch({ ...repo, branch: 'main' });
       for (const entry of entries) {
         const { data: latest } = await github.rest.pulls.get({ ...repo, pull_number: entry.pr.number });
         if (latest.state !== 'open' || latest.head.sha !== sha ||
-            latest.base.ref !== 'main' || latest.base.sha !== entry.pr.base.sha) {
+            latest.base.ref !== entry.pr.base.ref || latest.base.sha !== entry.pr.base.sha ||
+            currentMain.commit.sha !== ownershipSha) {
           entry.result = { state: 'failure', description: 'PR changed during evaluation; refresh the review policy.' };
           entry.metadataOnlyRelease = false;
         }
@@ -209,7 +226,9 @@ async function run({ github, context, core }) {
       const { state, description } = (failed || entries[0]).result;
       await publish(sha, state, description);
       for (const entry of entries) core.info(`PR #${entry.pr.number} (${sha}): ${entry.result.description}`);
-      if (state !== 'success') core.setFailed('One or more PRs do not satisfy the code owner review policy.');
+      // Waiting for review is normal during polling; keep failure on the PR's
+      // check without generating failing scheduled-run notifications each time.
+      if (state !== 'success' && !scheduled) core.setFailed('One or more PRs do not satisfy the code owner review policy.');
     } catch (error) {
       core.error(`Commit ${sha}: ${error.message}`);
       await publish(sha, 'error', 'Unable to verify review policy; see workflow logs.');

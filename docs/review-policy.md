@@ -15,21 +15,47 @@ Comments do not erase decisions. Dismissed approvals and approvals of older
 commits do not count; an owner's outstanding request for changes blocks approval.
 
 The trusted `Review policy` workflow runs on PR changes, main pushes, manual
-dispatch, and completion of `Release Please` or `Review policy events`. The latter
+dispatch, a five-minute fallback schedule, and completion of `Release Please` or `Review policy events`. The latter
 is a read-only notification on review submission, editing or dismissal, including
 fork reviews.
-The writer only executes the trusted workflow revision and loads CODEOWNERS from
-the PR's target commit. It never executes code or downloads artifacts from the PR.
-Every run reevaluates all open main PRs so coalesced events and missing fork PR
+The writer only executes code from current `main` and loads CODEOWNERS from an
+immutable snapshot of current `main`. A PR's recorded `base.sha` can predate the
+current rules, and a stack's direct parent branch is not an approved source of
+ownership rules. It never executes code or downloads artifacts from the PR.
+Every run reevaluates all open PRs, including stack layers, so coalesced events and missing fork PR
 metadata in workflow-run payloads do not lose updates. PRs sharing a commit must
 all satisfy policy before the shared check can pass. The workflow updates the
 same check run on each commit instead of appending commit statuses on every
 refresh. API failures for one commit do not prevent evaluating the other PRs.
 
+Older PR branches can lack the review-event workflow. The scheduled run on `main`
+still picks up their approvals, dismissals, and change requests without changing
+their head commits or requiring a new approval. GitHub may delay scheduled runs;
+the five-minute interval is not a guaranteed update deadline. Polling leaves an
+unchanged check alone. The `Refresh code owner checks` job reports updater health;
+missing approvals fail only the affected PR's `Code owner review` check, not the
+batch job running on another PR. Technical API failures still fail the updater
+job and the affected PR's check.
+
+GitHub may group an API-created check under an existing workflow such as Build
+Plugin. This does not run that build. Each check's summary includes a direct
+link to the `Review policy` workflow run that produced the result.
+
 The workflows use the built-in `GITHUB_TOKEN` to read PR data and publish checks.
 No custom GitHub App, secrets, variables, or deployment environment are needed.
 The required check uses the shared GitHub Actions identity and is intended for
 trusted collaborators who do not deliberately spoof workflow check results.
+
+## Stacked PRs
+
+The required check belongs in the `main` ruleset only. GitHub's native stacks
+inherit their stack base's branch protections and required checks at every
+layer; workflows filtered to `main` also run for each layer of a stack based on
+`main`. The script lists all open PRs without a `base=main` filter so it publishes
+the result on each layer's own head commit. Each PR's changed-file list is used
+independently, with ownership taken from trusted `main`.
+
+See [GitHub's stack rules and Actions behavior](https://docs.github.com/en/pull-requests/reference/stacked-pull-requests).
 
 ## Review notifier integrity
 

@@ -26,7 +26,8 @@ WHERE id = $1;
 -- name: GetExpiredSessions :many
 SELECT id
 FROM sessions
-WHERE NOT EXISTS (
+WHERE sessions.created_at <= @expired_time
+  AND NOT EXISTS (
     SELECT 1
     FROM controllers
     WHERE controllers.session = sessions.id

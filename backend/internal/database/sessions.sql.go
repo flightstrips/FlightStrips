@@ -29,7 +29,8 @@ func (q *Queries) DeleteSession(ctx context.Context, id int32) (int64, error) {
 const getExpiredSessions = `-- name: GetExpiredSessions :many
 SELECT id
 FROM sessions
-WHERE NOT EXISTS (
+WHERE sessions.created_at <= $1
+  AND NOT EXISTS (
     SELECT 1
     FROM controllers
     WHERE controllers.session = sessions.id
@@ -59,7 +60,7 @@ func (q *Queries) GetExpiredSessions(ctx context.Context, expiredTime pgtype.Tim
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids
+SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids, created_at
 FROM sessions
 WHERE airport = $1
   AND name = $2
@@ -81,12 +82,13 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Session
 		&i.PdcSequence,
 		&i.PdcMessageSequence,
 		&i.AvailableSids,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getSessionById = `-- name: GetSessionById :one
-SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids
+SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids, created_at
 FROM sessions
 WHERE id = $1
 `
@@ -102,6 +104,7 @@ func (q *Queries) GetSessionById(ctx context.Context, id int32) (Session, error)
 		&i.PdcSequence,
 		&i.PdcMessageSequence,
 		&i.AvailableSids,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -118,7 +121,7 @@ func (q *Queries) GetSessionSids(ctx context.Context, id int32) (models.Availabl
 }
 
 const getSessions = `-- name: GetSessions :many
-SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids FROM sessions
+SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids, created_at FROM sessions
 `
 
 func (q *Queries) GetSessions(ctx context.Context) ([]Session, error) {
@@ -138,6 +141,7 @@ func (q *Queries) GetSessions(ctx context.Context) ([]Session, error) {
 			&i.PdcSequence,
 			&i.PdcMessageSequence,
 			&i.AvailableSids,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -150,7 +154,7 @@ func (q *Queries) GetSessions(ctx context.Context) ([]Session, error) {
 }
 
 const getSessionsByNames = `-- name: GetSessionsByNames :many
-SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids FROM sessions WHERE name = $1
+SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids, created_at FROM sessions WHERE name = $1
 `
 
 func (q *Queries) GetSessionsByNames(ctx context.Context, name string) ([]Session, error) {
@@ -170,6 +174,7 @@ func (q *Queries) GetSessionsByNames(ctx context.Context, name string) ([]Sessio
 			&i.PdcSequence,
 			&i.PdcMessageSequence,
 			&i.AvailableSids,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -199,7 +204,7 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) (i
 }
 
 const listSessionsByAirport = `-- name: ListSessionsByAirport :many
-SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids
+SELECT id, name, airport, active_runways, pdc_sequence, pdc_message_sequence, available_sids, created_at
 FROM sessions
 WHERE airport = $1
 `
@@ -221,6 +226,7 @@ func (q *Queries) ListSessionsByAirport(ctx context.Context, airport string) ([]
 			&i.PdcSequence,
 			&i.PdcMessageSequence,
 			&i.AvailableSids,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

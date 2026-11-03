@@ -138,6 +138,15 @@ func (h ekch) Observe(c Context, o Observation) (Decision, error) {
 			d.Bay = &bay
 		}
 		return d, nil
+	case BackendState:
+		state := s.GroundState
+		if s.Bay == shared.BAY_DEPART && state != euroscope.GroundStateDepart {
+			state = euroscope.GroundStateLineup
+		}
+		if s.Bay == shared.BAY_AIRBORNE && state == euroscope.GroundStateTaxi {
+			state = euroscope.GroundStateUnknown
+		}
+		return Decision{ReconciledGroundState: &state}, nil
 	case ClearedFlag:
 		d.ConfirmVoiceClearance = o.Cleared && s.PDCState != "" && s.PDCState != "NONE" && s.PDCState != "CONFIRMED"
 		if o.Cleared == s.Cleared {
@@ -183,6 +192,9 @@ func (h ekch) Lifecycle(c Context, l Lifecycle) (LifecycleDecision, error) {
 			bay := shared.BAY_HIDDEN
 			d.Bay = &bay
 		}
+		return d, nil
+	case BackendAdmission:
+		d.Admit = c.Strip.EuroscopeSeen && c.Strip.Bay != shared.BAY_DEP_HIDDEN && c.Strip.Bay != shared.BAY_ARR_HIDDEN
 		return d, nil
 	case Removal:
 		d.Remove = true

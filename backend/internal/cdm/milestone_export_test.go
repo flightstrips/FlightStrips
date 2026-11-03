@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"FlightStrips/internal/models"
@@ -16,6 +17,30 @@ func milestoneTestSessions() *testutil.MockSessionRepository {
 	return &testutil.MockSessionRepository{GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
 		return &models.Session{ID: id, Name: "LIVE", Airport: "EKCH"}, nil
 	}}
+}
+
+// Asynchronous export fixtures use immutable snapshots and a conditional ack,
+// matching the production store instead of sharing a mutable data pointer.
+func withConcurrentMilestoneAcknowledgements(repo *testutil.MockStripRepository, state *atomic.Pointer[models.CdmData]) *testutil.MockStripRepository {
+	repo.AcknowledgeCdmMilestoneFn = func(_ context.Context, _ int32, _ string, kind, value string) (int64, error) {
+		for {
+			current := state.Load()
+			actual, pending := milestoneValue(current, kind == "AOBT")
+			if !pending || actual != value {
+				return 0, nil
+			}
+			next := current.Clone()
+			if kind == "AOBT" {
+				next.AobtViffPending = false
+			} else {
+				next.AtotViffPending = false
+			}
+			if state.CompareAndSwap(current, next) {
+				return 1, nil
+			}
+		}
+	}
+	return repo
 }
 
 func withMilestoneAcknowledgements(repo *testutil.MockStripRepository) *testutil.MockStripRepository {

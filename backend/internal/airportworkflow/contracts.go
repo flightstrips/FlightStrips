@@ -51,6 +51,7 @@ const (
 	Position
 	ArrivalPosition
 	ClearedFlag
+	BackendState
 )
 
 // Observation is normalized by the ingress path. Missing full-flight route
@@ -69,6 +70,7 @@ const (
 	Admission LifecycleKind = iota
 	StandExpiry
 	Removal
+	BackendAdmission
 )
 
 type Lifecycle struct {

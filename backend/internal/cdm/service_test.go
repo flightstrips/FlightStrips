@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2174,7 +2175,8 @@ func TestSyncAsatForGroundState_SetsAobtLocallyAndPushesToViff(t *testing.T) {
 	const callsign = "EZY789"
 	const sessionID = int32(8)
 
-	var stored = (&models.CdmData{}).Normalize()
+	var stored atomic.Pointer[models.CdmData]
+	stored.Store((&models.CdmData{}).Normalize())
 	aobtCh := make(chan string, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		value := r.URL.Query().Get("value")
@@ -2187,18 +2189,18 @@ func TestSyncAsatForGroundState_SetsAobtLocallyAndPushesToViff(t *testing.T) {
 
 	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
-		withMilestoneAcknowledgements(&testutil.MockStripRepository{
+		withConcurrentMilestoneAcknowledgements(&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 				return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
 			},
 			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
-				return stored.Clone(), nil
+				return stored.Load().Clone(), nil
 			},
 			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
-				stored = data.Clone()
+				stored.Store(data.Clone())
 				return 1, nil
 			},
-		}),
+		}, &stored),
 		milestoneTestSessions(),
 		&testutil.MockControllerRepository{},
 	)
@@ -2208,9 +2210,9 @@ func TestSyncAsatForGroundState_SetsAobtLocallyAndPushesToViff(t *testing.T) {
 
 	// Ground state → PUSH: ASAT and AOBT should be set
 	require.NoError(t, service.SyncAsatForGroundState(context.Background(), sessionID, callsign, "PUSH"))
-	require.NotNil(t, stored.Asat)
-	require.NotNil(t, stored.Aobt)
-	assert.Regexp(t, `^\d{4}$`, *stored.Aobt)
+	require.NotNil(t, stored.Load().Asat)
+	require.NotNil(t, stored.Load().Aobt)
+	assert.Regexp(t, `^\d{4}$`, *stored.Load().Aobt)
 
 	require.Eventually(t, func() bool {
 		select {
@@ -2223,8 +2225,8 @@ func TestSyncAsatForGroundState_SetsAobtLocallyAndPushesToViff(t *testing.T) {
 
 	// Ground state → airborne: ASAT clears, but the first AOBT remains recorded.
 	require.NoError(t, service.SyncAsatForGroundState(context.Background(), sessionID, callsign, "AIRB"))
-	assert.Nil(t, stored.Asat)
-	assert.NotNil(t, stored.Aobt)
+	assert.Nil(t, stored.Load().Asat)
+	assert.NotNil(t, stored.Load().Aobt)
 	select {
 	case v := <-aobtCh:
 		t.Fatalf("unexpected duplicate AOBT write: %s", v)

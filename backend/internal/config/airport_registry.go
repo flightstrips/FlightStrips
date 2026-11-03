@@ -280,3 +280,5 @@ func (d *AirportDefinition) PositionSection(frequency string) string {
 	}
 	return ""
 }
+
+func (d *AirportDefinition) UsesStripOwnership() bool { return d.document.Ownership.Strips != "none" }

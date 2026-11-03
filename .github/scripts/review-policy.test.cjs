@@ -5,8 +5,7 @@ const { parseOwnership, isReleasePullRequest, evaluate, run, RELEASE_FILES, REVI
 
 const repository = 'flightstrips/FlightStrips';
 const owner = 'frederikrosenberg';
-const reviewAppId = 424242;
-const reviewApp = { id: reviewAppId, slug: 'flightstrips-review' };
+const actionsApp = { id: 15368, slug: 'github-actions' };
 const head = 'a'.repeat(40);
 const base = 'b'.repeat(40);
 const owners = new Set([owner]);
@@ -173,7 +172,6 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
   const checksApi = app => ({
       listForRef() {},
       create: async args => {
-        assert.equal(args.name === REVIEW_CHECK_NAME, app.id === reviewAppId, 'Review and CI checks use separate App identities');
         if (checkError) checkError('create', args);
         const check = { ...args, id: nextId++, app, conclusion: args.conclusion || null };
         checkRuns.push(check);
@@ -193,9 +191,8 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
         return { data: check };
       },
     });
-  const reviewChecks = checksApi(reviewApp);
   const rest = {
-    checks: checksApi({ id: 15368, slug: 'github-actions' }),
+    checks: checksApi(actionsApp),
     pulls: { list() {}, listReviews() {}, listFiles() {},
       get: async ({ pull_number }) => ({ data: getPr ? getPr(pull_number) : prs.find(pr => pr.number === pull_number) }),
     },
@@ -210,7 +207,7 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
   const paginate = async (method, args) => {
     pagination.push(args);
     if (method === rest.pulls.list) return prs;
-    if (method === rest.checks.listForRef || method === reviewChecks.listForRef) {
+    if (method === rest.checks.listForRef) {
       if (checkError) checkError('list', { head_sha: args.ref, name: args.check_name });
       return checkRuns.filter(check => check.head_sha === args.ref && (!args.check_name || check.name === args.check_name));
     }
@@ -222,11 +219,10 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
     throw new Error('Unexpected API');
   };
   const github = { rest, paginate };
-  const reviewGithub = { rest: { checks: reviewChecks }, paginate };
   const context = { repo: { owner: 'flightstrips', repo: 'FlightStrips' }, runId: 123 };
   const core = { info() {}, error() {}, setFailed(message) { failures.push(message); } };
   return {
-    github, reviewGithub, reviewAppId, context, core, createdChecks, checkRuns, checkWrites, contentReads, pagination, failures,
+    github, context, core, createdChecks, checkRuns, checkWrites, contentReads, pagination, failures,
     get reviewWrites() { return checkWrites.filter(check => check.name === REVIEW_CHECK_NAME); },
     get createdReleaseChecks() { return createdChecks.filter(check => check.name !== REVIEW_CHECK_NAME); },
   };
@@ -307,10 +303,10 @@ test('runtime cannot leave a successful review for a PR that suppresses review n
     const mock = mockGitHub({
       content, files: [file], reviews: [review('APPROVED')],
       checks: [{ id: 10, head_sha: head, name: REVIEW_CHECK_NAME, external_id: REVIEW_CHECK_ID,
-        app: reviewApp, status: 'completed', conclusion: 'success' }],
+        app: actionsApp, status: 'completed', conclusion: 'success' }],
     });
     await run(mock);
-    assert.equal(mock.createdChecks.length, 0, 'Update the existing dedicated App check');
+    assert.equal(mock.createdChecks.length, 0, 'Update the existing review check');
     assert.equal(mock.checkRuns[0].conclusion, 'failure');
     assert.match(mock.checkRuns[0].output.summary, /Review notifier changes/);
     assert.ok(mock.reviewWrites.every(check => check.conclusion !== 'success'));
@@ -335,10 +331,10 @@ test('600 refreshes of an unchanged head reuse one check without appending commi
   assert.equal(mock.failures.length, 0);
 });
 
-test('check reuse requires the policy identifier and dedicated App ownership', async () => {
+test('check reuse requires the policy identifier and GitHub Actions ownership', async () => {
   const mock = mockGitHub({ reviews: [review('APPROVED')], checks: [
-    { id: 10, name: REVIEW_CHECK_NAME, external_id: REVIEW_CHECK_ID, app: { id: 15368, slug: 'github-actions' }, conclusion: 'success' },
-    { id: 11, name: REVIEW_CHECK_NAME, external_id: 'another-workflow', app: reviewApp, conclusion: 'success' },
+    { id: 10, name: REVIEW_CHECK_NAME, external_id: REVIEW_CHECK_ID, app: { id: 99, slug: 'another-app' }, conclusion: 'success' },
+    { id: 11, name: REVIEW_CHECK_NAME, external_id: 'another-workflow', app: actionsApp, conclusion: 'success' },
   ] });
   await run(mock);
   await run(mock);
@@ -347,56 +343,11 @@ test('check reuse requires the policy identifier and dedicated App ownership', a
   assert.ok(mock.reviewWrites.every(check => check.id === mock.createdChecks[0].id));
 });
 
-test('same-named successful Actions checks cannot turn an unapproved review check green', async () => {
-  const spoofed = [head, 'd'.repeat(40)].map((head_sha, index) => ({
-    id: index + 10, head_sha, name: REVIEW_CHECK_NAME, external_id: REVIEW_CHECK_ID,
-    app: { id: 15368, slug: 'github-actions' }, status: 'completed', conclusion: 'success',
-  }));
-  const mock = mockGitHub({ checks: spoofed });
-  await run(mock);
-  assert.equal(mock.createdChecks.length, 1);
-  assert.equal(mock.createdChecks[0].app.id, reviewAppId);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'failure');
-  assert.ok(mock.reviewWrites.every(check => check.app.id === reviewAppId));
-  assert.ok(mock.pagination.filter(args => args.check_name === REVIEW_CHECK_NAME)
-    .every(args => args.app_id === reviewAppId));
-  assert.ok(mock.checkRuns.filter(check => check.app.id === 15368).every(check => check.conclusion === 'success'));
-});
-
-test('missing or shared publisher configuration fails before publishing any checks', async () => {
-  for (const changes of [
-    { reviewGithub: undefined }, { reviewAppId: undefined }, { reviewAppId: 'invalid' },
-    { reviewAppId: 0 }, { reviewAppId: 15368 }, { reviewAppId: '15368' },
-  ]) {
-    const mock = mockGitHub();
-    await assert.rejects(run({ ...mock, ...changes }), /dedicated review GitHub App/);
-    assert.equal(mock.checkWrites.length, 0);
-    assert.equal(mock.pagination.length, 0);
-  }
-  const mock = mockGitHub();
-  await assert.rejects(run({ ...mock, reviewGithub: mock.github }), /dedicated review GitHub App/);
-  assert.equal(mock.checkWrites.length, 0);
-});
-
-test('a token publishing as the wrong App cannot produce a passing review check', async () => {
-  const mock = mockGitHub({ reviews: [review('APPROVED')] });
-  const create = mock.reviewGithub.rest.checks.create;
-  mock.reviewGithub.rest.checks.create = async args => {
-    const { data } = await create(args);
-    return { data: { ...data, app: { id: 15368, slug: 'github-actions' } } };
-  };
-  await run(mock);
-  assert.ok(mock.failures.some(message => /Unable to publish/.test(message)));
-  assert.ok(mock.reviewWrites.every(check => check.conclusion !== 'success'));
-});
-
-test('the trusted workflow uses its protected environment and a separate App token', async () => {
+test('the workflow runs using its built-in GitHub client with no App setup or secrets', async () => {
   const workflow = fs.readFileSync('.github/workflows/review-policy.yml', 'utf8');
   assert.match(workflow, /if: github\.ref == 'refs\/heads\/main'/);
-  assert.match(workflow, /environment: review-policy/);
   assert.match(workflow, /ref: \$\{\{ github\.workflow_sha \}\}/);
-  assert.match(workflow, /private-key: \$\{\{ secrets\.REVIEW_POLICY_PRIVATE_KEY \}\}/);
-  assert.match(workflow, /REVIEW_POLICY_APP_TOKEN: \$\{\{ steps\.review-token\.outputs\.token \}\}/);
+  assert.doesNotMatch(workflow, /environment:|secrets\.|vars\.|create-github-app-token/);
   const scriptLines = workflow.split('          script: |')[1].split(/\r?\n/).slice(1);
   const script = [];
   for (const line of scriptLines) {
@@ -404,15 +355,12 @@ test('the trusted workflow uses its protected environment and a separate App tok
     script.push(line.slice(12));
   }
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  const execute = new AsyncFunction('github', 'context', 'core', 'getOctokit', 'process', 'require', script.join('\n'));
+  const execute = new AsyncFunction('github', 'context', 'core', 'require', script.join('\n'));
   const requireFromRoot = require('node:module').createRequire(require('node:path').resolve('github-script.cjs'));
   const mock = mockGitHub({ reviews: [review('APPROVED')] });
-  await execute(mock.github, mock.context, mock.core, token => {
-    assert.equal(token, 'dedicated-app-token');
-    return mock.reviewGithub;
-  }, { env: { REVIEW_POLICY_APP_TOKEN: 'dedicated-app-token', REVIEW_POLICY_APP_ID: String(reviewAppId) } }, requireFromRoot);
+  await execute(mock.github, mock.context, mock.core, requireFromRoot);
   assert.equal(mock.reviewWrites.at(-1).conclusion, 'success');
-  assert.equal(mock.reviewWrites.at(-1).app.id, reviewAppId);
+  assert.equal(mock.reviewWrites.at(-1).app.id, actionsApp.id);
 });
 
 test('pushing a new head creates a separate check without moving or reusing the old one', async () => {
@@ -433,7 +381,7 @@ test('lookup, creation and update failures for one head do not block another PR'
   for (const phase of ['lookup', 'create', 'start-update', 'finish-update']) {
     const checks = phase.endsWith('update') ? [{
       id: 40, head_sha: failedSha, name: REVIEW_CHECK_NAME, external_id: REVIEW_CHECK_ID,
-      app: reviewApp, status: 'completed', conclusion: 'success',
+      app: actionsApp, status: 'completed', conclusion: 'success',
     }] : [];
     const mock = mockGitHub({ prs: [broken, healthy], checks, checkError: (operation, check) => {
       if (check.head_sha !== failedSha) return;

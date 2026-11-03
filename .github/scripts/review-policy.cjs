@@ -95,11 +95,7 @@ function evaluate({ pr, ownership, reviews, files, repository }) {
   return { state: 'failure', description: 'Code owners must approve the latest commit for all changed files.' };
 }
 
-async function run({ github, reviewGithub, reviewAppId, context, core }) {
-  const appId = Number(reviewAppId);
-  if (!reviewGithub || reviewGithub === github || !Number.isSafeInteger(appId) || appId <= 0 || appId === 15368) {
-    throw new Error('A dedicated review GitHub App client and numeric App ID are required; GitHub Actions cannot publish owner reviews.');
-  }
+async function run({ github, context, core }) {
   const repo = context.repo;
   const repository = `${repo.owner}/${repo.repo}`;
   const targetUrl = `${context.serverUrl || 'https://github.com'}/${repository}/actions/runs/${context.runId}`;
@@ -115,11 +111,11 @@ async function run({ github, reviewGithub, reviewAppId, context, core }) {
   const publish = async (sha, state, description) => {
     try {
       if (!checkIds.has(sha)) {
-        const checks = await reviewGithub.paginate(reviewGithub.rest.checks.listForRef, {
-          ...repo, ref: sha, check_name: REVIEW_CHECK_NAME, app_id: appId, filter: 'all', per_page: 100,
+        const checks = await github.paginate(github.rest.checks.listForRef, {
+          ...repo, ref: sha, check_name: REVIEW_CHECK_NAME, app_id: 15368, filter: 'all', per_page: 100,
         });
         const existing = checks.filter(check => check.name === REVIEW_CHECK_NAME &&
-          check.external_id === REVIEW_CHECK_ID && check.app?.id === appId && check.conclusion !== 'stale')
+          check.external_id === REVIEW_CHECK_ID && check.app?.id === 15368 && check.conclusion !== 'stale')
           .sort((a, b) => b.id - a.id)[0];
         if (existing) checkIds.set(sha, existing.id);
       }
@@ -130,12 +126,11 @@ async function run({ github, reviewGithub, reviewAppId, context, core }) {
       };
       if (state !== 'pending') update.conclusion = state === 'error' ? 'failure' : state;
       if (checkIds.has(sha)) {
-        await reviewGithub.rest.checks.update({ ...repo, check_run_id: checkIds.get(sha), ...update });
+        await github.rest.checks.update({ ...repo, check_run_id: checkIds.get(sha), ...update });
       } else {
-        const { data: check } = await reviewGithub.rest.checks.create({
+        const { data: check } = await github.rest.checks.create({
           ...repo, head_sha: sha, external_id: REVIEW_CHECK_ID, ...update,
         });
-        if (check.app?.id !== appId) throw new Error('The review check was published by an unexpected GitHub App.');
         checkIds.set(sha, check.id);
       }
       return true;

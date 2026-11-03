@@ -26,11 +26,10 @@ all satisfy policy before the shared check can pass. The workflow updates the
 same check run on each commit instead of appending commit statuses on every
 refresh. API failures for one commit do not prevent evaluating the other PRs.
 
-Owner-review checks are published by a dedicated GitHub App, using a separate
-client from `GITHUB_TOKEN`. The ruleset must pin this App's numeric ID as the
-expected source. A PR job with the same name then cannot satisfy the required
-review check. The normal Actions token only reads PR data and reports the
-existing release CI checks as skipped.
+The workflows use the built-in `GITHUB_TOKEN` to read PR data and publish checks.
+No custom GitHub App, secrets, variables, or deployment environment are needed.
+The required check uses the shared GitHub Actions identity and is intended for
+trusted collaborators who do not deliberately spoof workflow check results.
 
 ## Review notifier integrity
 
@@ -69,45 +68,16 @@ builds and publishing in `release-please.yml` still run after the release is mer
 
 ## Enable enforcement
 
-Configure the dedicated publisher before activating this gate:
-
-1. Register a GitHub App with **Checks: read and write**, no other repository
-   permissions beyond implicit metadata access, and webhooks disabled. Install
-   it on `flightstrips/FlightStrips` only. Generate a private key.
-2. Create the `review-policy` Actions environment. Set deployment branches and
-   tags to **Selected branches and tags**, with exactly one **branch** rule,
-   `main`, and no tag rules. Do not use **Protected branches only**, because that
-   setting can allow all branches when no classic branch protections exist.
-   Environment approvals are not needed; the exact branch restriction is needed.
-3. After restricting the environment, add its variable `REVIEW_POLICY_APP_ID`
-   with the App's numeric ID (not its installation ID or client ID), and its
-   secret `REVIEW_POLICY_PRIVATE_KEY` with the generated PEM key. Store the key
-   only in this restricted environment, never as a repository/organization
-   secret or a checked-in file. PR jobs must not be able to access the key.
-4. Merge these workflows into `main` and run `Review policy` on `main`. Existing
-   open PRs, including release PRs, receive a `Code owner review` check from the
-   dedicated App. Missing credentials fail the workflow without falling back to
-   the shared GitHub Actions identity.
-5. In the [main ruleset](https://github.com/flightstrips/FlightStrips/rules/300063),
-   require `Code owner review` with the dedicated App as the expected source.
-   For API configuration, its `integration_id` must equal `REVIEW_POLICY_APP_ID`.
-   Never select **Any source** or **GitHub Actions** (`15368`) for this check:
-   a contributor's PR workflow can publish a job with the same name under that
-   shared identity. `external_id` is only used to reuse checks; it does not
-   authenticate their source to the ruleset.
-6. Verify the new required check is bound to the dedicated App before removing
-   native approval requirements. Keep the existing AMAN and E2E required checks
-   bound to GitHub Actions, required PRs, and conversation resolution. Native
-   required approvals must be zero, code-owner review disabled, and last-push
-   approval disabled for owner-authored PRs to use the custom exemption.
+1. Merge these workflows into `main`. The main-push run creates the checks on
+   existing open PRs, including release PRs. The workflow can also be run manually.
+2. In the [main ruleset](https://github.com/flightstrips/FlightStrips/rules/300063),
+   add `Code owner review` from **GitHub Actions** as a required check once it has
+   been reported. For API configuration, its `integration_id` is `15368`.
+3. Keep the existing AMAN and E2E required checks, required PRs, and conversation
+   resolution. Set native required approvals to zero, code-owner review disabled,
+   and last-push approval disabled so owner-authored PRs use the custom exemption.
 
 Any ruleset bypass actors retain their configured ability to bypass requirements.
-The App key and access to the environment's settings are trusted administration
-capabilities. The workflow never reads credentials from the PR or uses them to
-check out or execute its code.
-
-See [GitHub App token configuration](https://github.com/actions/create-github-app-token)
-and [environment branch restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-branches-and-tags).
 
 The workflow uses `pull_request_target` for trusted, write-capable handling of
 fork PR metadata. If the repository's Actions event policy blocks that event,

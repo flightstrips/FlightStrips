@@ -26,9 +26,6 @@ jobs:
   evaluate:
     name: Evaluate code owner reviews
     if: github.ref == 'refs/heads/main'
-    # Configure this environment to allow only the main branch before adding
-    # its private key. PR workflows must never receive the review App key.
-    environment: review-policy
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -37,23 +34,7 @@ jobs:
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
-      - name: Create dedicated review publisher token
-        id: review-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
-        with:
-          app-id: ${{ vars.REVIEW_POLICY_APP_ID }}
-          private-key: ${{ secrets.REVIEW_POLICY_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          permission-checks: write
       - uses: actions/github-script@v9
-        env:
-          REVIEW_POLICY_APP_TOKEN: ${{ steps.review-token.outputs.token }}
-          REVIEW_POLICY_APP_ID: ${{ vars.REVIEW_POLICY_APP_ID }}
         with:
           script: |
-            const reviewPublisher = getOctokit(process.env.REVIEW_POLICY_APP_TOKEN);
-            await require('./.github/scripts/review-policy.cjs').run({
-              github, context, core, reviewGithub: reviewPublisher,
-              reviewAppId: process.env.REVIEW_POLICY_APP_ID,
-            });
+            await require('./.github/scripts/review-policy.cjs').run({ github, context, core });

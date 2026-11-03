@@ -118,9 +118,11 @@ func (c *AirportCatalog) bind(doc *AirportDocument, settings *yaml.Node) error {
 }
 
 type AirportDefinition struct {
-	document AirportDocument
-	source   string
-	revision string
+	document  AirportDocument
+	source    string
+	revision  string
+	resources map[string]string
+	services  map[string]bool
 }
 
 func (d *AirportDefinition) Airport() string  { return d.document.Airport }

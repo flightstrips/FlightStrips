@@ -1,8 +1,10 @@
 # Browser end-to-end regression gate
 
 `Running-system E2E` is a pre-merge GitHub Actions check. It runs on
-every pull request (including stacked PRs), main push and merge queue entry,
-without path filters, conditional job skipping or a release-stage dependency.
+every regular pull request (including stacked PRs), main push with changes beyond
+release metadata, and merge queue entry, without a release-stage dependency.
+Release Please PRs skip this job; the [code owner review policy](review-policy.md)
+validates their release-only file changes and requires approval of their latest commit.
 The [main-branch ruleset](https://github.com/flightstrips/FlightStrips/rules/300063)
 requires this exact check name alongside **AMAN publisher-consumer contract**.
 The existing fast contract, unit,

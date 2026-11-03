@@ -22,6 +22,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Validate workflow syntax and expressions
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -shellcheck=
+      - name: Exercise code owner and release PR policy
+        run: node --test .github/scripts/review-policy.test.cjs
       - name: Exercise announcement scripts with github-script runtime
         uses: actions/github-script@v9
         with:

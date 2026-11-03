@@ -5,6 +5,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+    paths-ignore:
+      - '**/CHANGELOG.md'
+      - '**/version.txt'
+      - '.release-please-manifest.json'
   merge_group:
 
 permissions:
@@ -13,6 +17,11 @@ permissions:
 jobs:
   aman-contract:
     name: AMAN publisher-consumer contract
+    if: >-
+      github.event_name != 'pull_request' || github.base_ref != 'main' ||
+      github.head_ref != 'release-please--branches--main' ||
+      github.event.pull_request.head.repo.full_name != github.repository ||
+      github.event.pull_request.user.login != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7

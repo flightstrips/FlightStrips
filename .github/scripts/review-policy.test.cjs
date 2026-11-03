@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
-const { parseOwnership, isReleasePullRequest, evaluate, run, RELEASE_FILES, REVIEW_CHECK_NAME, REVIEW_CHECK_ID } = require('./review-policy.cjs');
+const { parseOwnership, isReleasePullRequest, evaluate, run, RELEASE_FILES, REVIEW_CHECK_NAME } = require('./review-policy.cjs');
 
 const repository = 'flightstrips/FlightStrips';
 const owner = 'frederikrosenberg';
@@ -161,39 +161,26 @@ test('fully owning authors can maintain the notifier without depending on review
   assert.match(result.description, /Review notifier changes/);
 });
 
-function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], checks = [], content = '* @frederikrosenberg',
-  getPr, getMain, reviewError, checkError } = {}) {
+function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], checks = [], statuses = [],
+  content = '* @frederikrosenberg', getPr, getMain, reviewError, checkError, statusError } = {}) {
   const createdChecks = [];
-  const checkWrites = [];
-  let nextId = Math.max(0, ...checks.map(check => check.id || 0)) + 1;
-  const checkRuns = checks.map(check => ({ head_sha: head, ...check, id: check.id || nextId++ }));
+  const checkRuns = checks.map(check => ({ head_sha: head, ...check }));
+  const statusHistory = statuses.map(status => ({ sha: head, context: REVIEW_CHECK_NAME, ...status }));
+  const reviewWrites = [];
   const contentReads = [];
   const pagination = [];
   const failures = [];
-  const checksApi = app => ({
+  const rest = {
+    checks: {
       listForRef() {},
       create: async args => {
-        if (checkError) checkError('create', args);
-        const check = { ...args, id: nextId++, app, conclusion: args.conclusion || null };
+        if (checkError) checkError(args);
+        const check = { ...args, app: actionsApp };
         checkRuns.push(check);
-        createdChecks.push({ ...check });
-        checkWrites.push({ ...check });
+        createdChecks.push(check);
         return { data: check };
       },
-      update: async args => {
-        const check = checkRuns.find(check => check.id === args.check_run_id);
-        assert.ok(check, 'Updating an existing check');
-        assert.equal(check.app.id, app.id, 'Only the publishing App can update its check');
-        assert.equal(args.head_sha, undefined, 'Updates cannot move a check to a different commit');
-        if (checkError) checkError('update', { ...check, ...args });
-        Object.assign(check, args);
-        if (args.status !== 'completed') check.conclusion = null;
-        checkWrites.push({ ...check });
-        return { data: check };
-      },
-    });
-  const rest = {
-    checks: checksApi(actionsApp),
+    },
     pulls: { list() {}, listReviews() {}, listFiles() {},
       get: async ({ pull_number }) => ({ data: getPr ? getPr(pull_number) : prs.find(pr => pr.number === pull_number) }),
     },
@@ -206,15 +193,24 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
         contentReads.push(args);
         return { data: { type: 'file', encoding: 'base64', content: Buffer.from(content).toString('base64') } };
       },
-      createCommitStatus: async () => { assert.fail('Review refreshes must not append commit statuses'); },
+      listCommitStatusesForRef() {},
+      createCommitStatus: async args => {
+        if (statusError) statusError('create', args);
+        assert.ok(args.description.length <= 140);
+        const status = { ...args, id: statusHistory.length + 1 };
+        statusHistory.unshift(status);
+        reviewWrites.push(status);
+        return { data: status };
+      },
     },
   };
   const paginate = async (method, args) => {
     pagination.push(args);
     if (method === rest.pulls.list) return prs;
-    if (method === rest.checks.listForRef) {
-      if (checkError) checkError('list', { head_sha: args.ref, name: args.check_name });
-      return checkRuns.filter(check => check.head_sha === args.ref && (!args.check_name || check.name === args.check_name));
+    if (method === rest.checks.listForRef) return checkRuns.filter(check => check.head_sha === args.ref);
+    if (method === rest.repos.listCommitStatusesForRef) {
+      if (statusError) statusError('list', { sha: args.ref });
+      return statusHistory.filter(status => status.sha === args.ref);
     }
     if (method === rest.pulls.listFiles) return files;
     if (method === rest.pulls.listReviews) {
@@ -227,371 +223,217 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
   const context = { repo: { owner: 'flightstrips', repo: 'FlightStrips' }, runId: 123 };
   const core = { info() {}, error() {}, setFailed(message) { failures.push(message); } };
   return {
-    github, context, core, createdChecks, checkRuns, checkWrites, contentReads, pagination, failures,
-    get reviewWrites() { return checkWrites.filter(check => check.name === REVIEW_CHECK_NAME); },
-    get createdReleaseChecks() { return createdChecks.filter(check => check.name !== REVIEW_CHECK_NAME); },
+    github, context, core, createdChecks, checkRuns, statusHistory, reviewWrites, contentReads, pagination, failures,
+    latest(sha = head) { return statusHistory.find(status => status.sha === sha && status.context === REVIEW_CHECK_NAME); },
   };
 }
 
-test('bot-created release PRs report skipped required CI without needing PR workflow events', async () => {
-  const pr = release();
-  const files = [{ filename: 'backend/version.txt', status: 'modified' }];
-  const mock = mockGitHub({ prs: [pr], files });
-  mock.context.payload = { workflow_run: { name: 'Release Please', pull_requests: [] } };
+test('bot release metadata skips required builds but still requires current owner approval', async () => {
+  let reviews = [];
+  const mock = mockGitHub({ prs: [release()], files: [{ filename: 'backend/version.txt', status: 'modified' }], reviews: () => reviews });
   await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'failure', 'Release bot still needs owner approval');
-  assert.deepEqual(mock.createdReleaseChecks.map(check => check.name), ['AMAN publisher-consumer contract', 'Running-system E2E']);
-  assert.ok(mock.createdReleaseChecks.every(check => check.head_sha === head && check.conclusion === 'skipped'));
-
-  const existing = mock.createdChecks;
-  const again = mockGitHub({ prs: [pr], files, checks: existing, reviews: [review('APPROVED')] });
-  await run(again);
-  assert.equal(again.reviewWrites.at(-1).conclusion, 'success');
-  assert.equal(again.createdChecks.length, 0, 'Reuse the review check and skipped check runs');
+  assert.equal(mock.latest().state, 'failure');
+  assert.deepEqual(mock.createdChecks.map(check => check.name), ['AMAN publisher-consumer contract', 'Running-system E2E']);
+  assert.ok(mock.createdChecks.every(check => check.head_sha === head && check.conclusion === 'skipped'));
+  reviews = [review('APPROVED')];
+  await run(mock);
+  assert.equal(mock.latest().state, 'success');
+  assert.equal(mock.createdChecks.length, 2, 'Do not duplicate skipped build checks');
 });
 
-test('runtime uses per-file ownership from current main for release and ordinary PRs', async () => {
-  const content = fs.readFileSync('.github/CODEOWNERS', 'utf8');
+test('runtime loads per-file ownership from current main, including older releases and stack branches', async () => {
   for (const [pr, files, expected] of [
     [release(), [{ filename: 'backend/version.txt', status: 'modified' }], 'success'],
     [makePr(), [sourceFile], 'failure'],
-    [makePr({ user: { login: 'bjerrecs' } }), [sourceFile], 'failure'],
+    [makePr({ user: { login: 'bjerrecs' }, base: { ref: 'codex/parent', sha: 'unmerged-parent' } }), [sourceFile], 'failure'],
   ]) {
-    const mock = mockGitHub({ prs: [pr], files, content, reviews: [review('APPROVED', head, 'bjerrecs')] });
+    const mock = mockGitHub({ prs: [pr], files, content: fs.readFileSync('.github/CODEOWNERS', 'utf8'), reviews: [review('APPROVED', head, 'bjerrecs')] });
     await run(mock);
-    assert.equal(mock.reviewWrites.at(-1).conclusion, expected);
-    assert.ok(mock.contentReads.every(read => read.ref === mainHead));
+    assert.equal(mock.latest().state, expected);
+    assert.equal(mock.contentReads.length, 1);
+    assert.equal(mock.contentReads[0].ref, mainHead);
   }
 });
 
-test('an older release PR uses current main rules instead of its recorded base SHA', async () => {
-  const mock = mockGitHub({
-    prs: [release()], files: [{ filename: 'backend/version.txt', status: 'modified' }],
-    content: fs.readFileSync('.github/CODEOWNERS', 'utf8'), reviews: [review('APPROVED', head, 'bjerrecs')],
-  });
-  const read = mock.github.rest.repos.getContent;
-  mock.github.rest.repos.getContent = async args => args.ref === base
-    ? { data: { type: 'file', encoding: 'base64', content: Buffer.from('/backend/ @frederikrosenberg').toString('base64') } }
-    : read(args);
-  await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'success');
-  assert.equal(mock.contentReads.length, 1);
-  assert.equal(mock.contentReads[0].ref, mainHead);
-});
-
-test('each stack layer receives its own check even when it targets a feature branch', async () => {
+test('each stack layer receives its own status; missing approval elsewhere does not fail the updater', async () => {
   const prs = [
-    makePr({ number: 1 }),
+    makePr({ number: 1, user: { login: owner } }),
     makePr({ number: 2, base: { ref: 'codex/layer-one', sha: 'parent-one' }, head: { ...makePr().head, sha: '1'.repeat(40) } }),
     makePr({ number: 3, base: { ref: 'codex/layer-two', sha: 'parent-two' }, head: { ...makePr().head, sha: '2'.repeat(40) } }),
   ];
-  const mock = mockGitHub({ prs, reviews: number => [review('APPROVED', prs.find(pr => pr.number === number).head.sha)] });
+  const mock = mockGitHub({ prs, reviews: number => number === 2 ? [review('APPROVED', prs[1].head.sha)] : [] });
   await run(mock);
-  assert.equal(mock.checkRuns.length, 3);
-  assert.ok(mock.checkRuns.every(check => check.conclusion === 'success'));
-  assert.equal(mock.pagination.find(args => args.state === 'open').base, undefined, 'Do not filter away stack layers');
-  assert.equal(mock.contentReads.length, 1, 'Share the trusted ownership snapshot');
-  assert.equal(mock.contentReads[0].ref, mainHead);
-});
-
-test('a triggering owner PR is not shown as failed because another PR awaits approval', async () => {
-  const prs = [makePr({ number: 1044, user: { login: owner } }), makePr({
-    number: 1028, user: { login: 'github-actions[bot]' }, head: { ...makePr().head, sha: '3'.repeat(40) },
-  })];
-  const mock = mockGitHub({ prs });
-  mock.context.eventName = 'pull_request_target';
-  mock.context.payload = { pull_request: prs[0] };
-  await run(mock);
-  assert.equal(mock.checkRuns.find(check => check.head_sha === prs[0].head.sha).conclusion, 'success');
-  assert.equal(mock.checkRuns.find(check => check.head_sha === prs[1].head.sha).conclusion, 'failure');
-  assert.equal(mock.failures.length, 0, 'Only a failed evaluation, not missing approval, should fail the updater');
-});
-
-test('a stack branch cannot supply its own ownership rules', async () => {
-  const pr = makePr({ user: { login: 'bjerrecs' }, base: { ref: 'codex/parent', sha: 'unmerged-parent' } });
-  const mock = mockGitHub({ prs: [pr], reviews: [review('APPROVED', head, 'bjerrecs')] });
-  const read = mock.github.rest.repos.getContent;
-  mock.github.rest.repos.getContent = async args => args.ref === pr.base.sha
-    ? { data: { type: 'file', encoding: 'base64', content: Buffer.from('* @bjerrecs').toString('base64') } }
-    : read(args);
-  await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'failure');
-  assert.equal(mock.contentReads[0].ref, mainHead);
-});
-
-test('polling picks up approvals and dismissals on old PRs without notifier events', async () => {
-  let reviews = [];
-  const mock = mockGitHub({ reviews: () => reviews });
-  mock.context.eventName = 'schedule';
-  mock.context.payload = { schedule: '2-59/5 * * * *' };
-  await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'failure');
-  assert.equal(mock.failures.length, 0, 'Waiting for review should not fail the polling job');
-  reviews = [review('APPROVED')];
-  await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'success');
-  const written = mock.reviewWrites.length;
-  await run(mock);
-  assert.equal(mock.reviewWrites.length, written, 'An unchanged poll must not rewrite the check');
-  reviews = [review('APPROVED'), review('DISMISSED')];
-  await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'failure');
-  assert.equal(mock.failures.length, 0);
-  assert.equal(mock.createdChecks.length, 1);
-  assert.ok(mock.reviewWrites.every(check => check.status === 'completed'));
-});
-
-test('polling revokes success on API errors and reports the technical failure', async () => {
-  let unavailable = false;
-  const mock = mockGitHub({ reviews: () => {
-    if (unavailable) throw new Error('Review API unavailable');
-    return [review('APPROVED')];
-  } });
-  mock.context.eventName = 'schedule';
-  await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'success');
-  unavailable = true;
-  await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'failure');
-  assert.equal(mock.failures.length, 1);
-});
-
-test('a moving main cannot publish success with outdated ownership', async () => {
-  let reads = 0;
-  const mock = mockGitHub({ reviews: [review('APPROVED')], getMain: () => ({
-    commit: { sha: ++reads === 1 ? mainHead : 'new-main' },
-  }) });
-  await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'failure');
-  assert.ok(mock.reviewWrites.every(check => check.conclusion !== 'success'));
-});
-
-test('the check summary links directly to its review policy workflow run', async () => {
-  const mock = mockGitHub({ reviews: [review('APPROVED')] });
-  await run(mock);
-  assert.match(mock.reviewWrites.at(-1).output.summary,
-    /\[Review policy workflow run\]\(https:\/\/github.com\/flightstrips\/FlightStrips\/actions\/runs\/123\)/);
-});
-
-test('CI is never waived for source changes hidden in the release branch or for ordinary PRs', async () => {
-  const unsafe = mockGitHub({
-    prs: [release()], reviews: [review('APPROVED')],
-    files: [{ filename: 'backend/main.go', status: 'modified' }],
-  });
-  await run(unsafe);
-  assert.equal(unsafe.reviewWrites.at(-1).conclusion, 'failure');
-  assert.equal(unsafe.createdReleaseChecks.length, 0);
-  const ordinary = mockGitHub({ reviews: [review('APPROVED')] });
-  await run(ordinary);
-  assert.equal(ordinary.createdReleaseChecks.length, 0);
-});
-
-test('review events update the same head from failure to success and back after dismissal', async () => {
-  let reviews = [];
-  const mock = mockGitHub({ reviews: () => reviews });
-  for (const [updated, expected] of [
-    [[], 'failure'], [[review('APPROVED')], 'success'],
-    [[review('APPROVED'), review('DISMISSED')], 'failure'],
-  ]) {
-    reviews = updated;
-    await run(mock);
-    assert.equal(mock.reviewWrites.at(-2).status, 'in_progress');
-    assert.equal(mock.reviewWrites.at(-2).conclusion, null);
-    assert.equal(mock.reviewWrites.at(-1).conclusion, expected);
-    assert.equal(mock.reviewWrites.at(-1).head_sha, head);
-    assert.equal(mock.reviewWrites.at(-1).name, 'Code owner review');
-  }
-  assert.equal(mock.createdChecks.length, 1);
-  assert.equal(new Set(mock.reviewWrites.map(check => check.id)).size, 1);
-  assert.ok(mock.contentReads.every(read => read.ref === mainHead && read.path === '.github/CODEOWNERS'));
-  assert.ok(mock.pagination.every(args => args.per_page === 100));
-});
-
-test('runtime cannot leave a successful review for a PR that suppresses review notifications', async () => {
-  const content = fs.readFileSync('.github/CODEOWNERS', 'utf8');
-  for (const file of [
-    { filename: notifierPath, status: 'modified' },
-    { filename: notifierPath, status: 'removed' },
-    { filename: '.github/workflows/renamed-events.yml', previous_filename: notifierPath, status: 'renamed' },
-  ]) {
-    const mock = mockGitHub({
-      content, files: [file], reviews: [review('APPROVED')],
-      checks: [{ id: 10, head_sha: head, name: REVIEW_CHECK_NAME, external_id: REVIEW_CHECK_ID,
-        app: actionsApp, status: 'completed', conclusion: 'success' }],
-    });
-    await run(mock);
-    assert.equal(mock.createdChecks.length, 0, 'Update the existing review check');
-    assert.equal(mock.checkRuns[0].conclusion, 'failure');
-    assert.match(mock.checkRuns[0].output.summary, /Review notifier changes/);
-    assert.ok(mock.reviewWrites.every(check => check.conclusion !== 'success'));
-  }
-});
-
-test('the notifier retains all revocation triggers and the trusted writer listens to its completion', () => {
-  const notifier = fs.readFileSync(notifierPath, 'utf8');
-  assert.match(notifier, /^name: Review policy events\r?$/m);
-  assert.match(notifier, /pull_request_review:\s*types: \[submitted, edited, dismissed\]/);
-  const writer = fs.readFileSync('.github/workflows/review-policy.yml', 'utf8');
-  assert.match(writer, /workflow_run:\s*workflows: \[Review policy events, Release Please\]\s*types: \[completed\]/);
-  assert.match(writer, /schedule:\s*(?:#[^\r\n]*\s*)?- cron: '2-59\/5 \* \* \* \*'/);
-  assert.match(writer, /pull_request_target:\s*branches: \[main\]/);
-});
-
-test('600 refreshes of an unchanged head reuse one check without appending commit statuses', async () => {
-  const mock = mockGitHub({ reviews: [review('APPROVED')] });
-  for (let refresh = 0; refresh < 600; refresh++) await run(mock);
-  assert.equal(mock.createdChecks.length, 1);
-  assert.equal(mock.checkRuns.length, 1);
-  assert.equal(mock.checkRuns[0].conclusion, 'success');
-  assert.equal(new Set(mock.reviewWrites.map(check => check.id)).size, 1);
+  assert.deepEqual(prs.map(pr => mock.latest(pr.head.sha).state), ['success', 'success', 'failure']);
+  assert.equal(mock.createdChecks.length, 0, 'Owner results must not inherit an Actions check suite');
+  assert.equal(mock.pagination.find(args => args.state === 'open').base, undefined);
+  assert.equal(mock.contentReads.length, 1);
   assert.equal(mock.failures.length, 0);
 });
 
-test('check reuse requires the policy identifier and GitHub Actions ownership', async () => {
-  const mock = mockGitHub({ reviews: [review('APPROVED')], checks: [
-    { id: 10, name: REVIEW_CHECK_NAME, external_id: REVIEW_CHECK_ID, app: { id: 99, slug: 'another-app' }, conclusion: 'success' },
-    { id: 11, name: REVIEW_CHECK_NAME, external_id: 'another-workflow', app: actionsApp, conclusion: 'success' },
+test('event and scheduled refreshes update approvals and dismissals without redundant status history', async () => {
+  for (const eventName of ['workflow_run', 'schedule']) {
+    let reviews = [];
+    const mock = mockGitHub({ reviews: () => reviews });
+    mock.context.eventName = eventName;
+    for (const [updated, expected] of [
+      [[], 'failure'], [[review('APPROVED')], 'success'],
+      [[review('APPROVED'), review('DISMISSED')], 'failure'],
+    ]) {
+      reviews = updated;
+      await run(mock);
+      assert.equal(mock.latest().state, expected);
+      assert.equal(mock.latest().context, 'Code owner review');
+      assert.equal(mock.latest().target_url, `https://github.com/flightstrips/FlightStrips/actions/runs/${mock.context.runId}`);
+      const written = mock.reviewWrites.length;
+      mock.context.runId++;
+      await run(mock);
+      assert.equal(mock.reviewWrites.length, written, 'A changed workflow URL must not append unchanged decisions');
+    }
+    assert.deepEqual(mock.reviewWrites.map(status => status.state), ['pending', 'failure', 'success', 'failure']);
+    assert.equal(mock.failures.length, 0);
+  }
+});
+
+test('600 global refreshes do not exhaust the 1,000-status per-commit limit', async () => {
+  const mock = mockGitHub({ reviews: [review('APPROVED')] });
+  for (let refresh = 0; refresh < 600; refresh++) {
+    mock.context.runId++;
+    await run(mock);
+  }
+  assert.deepEqual(mock.reviewWrites.map(status => status.state), ['pending', 'success']);
+  assert.equal(mock.createdChecks.length, 0);
+  assert.equal(mock.failures.length, 0);
+});
+
+test('success is reported independently of existing canceled workflow check suites', async () => {
+  const legacy = { name: REVIEW_CHECK_NAME, conclusion: 'success', check_suite: { conclusion: 'cancelled' } };
+  const mock = mockGitHub({ reviews: [review('APPROVED')], checks: [legacy] });
+  await run(mock);
+  assert.equal(mock.latest().state, 'success');
+  assert.equal(mock.createdChecks.length, 0);
+  assert.equal(mock.checkRuns[0].check_suite.conclusion, 'cancelled');
+});
+
+test('status history uses the newest matching context and preserves unrelated statuses', async () => {
+  const mock = mockGitHub({ reviews: [review('APPROVED')], statuses: [
+    { context: 'Unrelated', state: 'failure' },
+    { state: 'failure', description: 'Review dismissed' },
+    { state: 'success', description: 'Code owners approved the latest commit for all changed files.' },
   ] });
   await run(mock);
-  await run(mock);
-  assert.equal(mock.createdChecks.length, 1);
-  assert.equal(mock.createdChecks[0].external_id, REVIEW_CHECK_ID);
-  assert.ok(mock.reviewWrites.every(check => check.id === mock.createdChecks[0].id));
+  assert.equal(mock.latest().state, 'success');
+  assert.equal(mock.reviewWrites.length, 1);
+  assert.equal(mock.statusHistory.find(status => status.context === 'Unrelated').state, 'failure');
 });
 
-test('the workflow runs using its built-in GitHub client with no App setup or secrets', async () => {
-  const workflow = fs.readFileSync('.github/workflows/review-policy.yml', 'utf8');
-  assert.match(workflow, /if: github\.ref == 'refs\/heads\/main'/);
-  assert.match(workflow, /ref: main/);
-  assert.doesNotMatch(workflow, /environment:|secrets\.|vars\.|create-github-app-token/);
-  const scriptLines = workflow.split('          script: |')[1].split(/\r?\n/).slice(1);
-  const script = [];
-  for (const line of scriptLines) {
-    if (line.trim() && !line.startsWith('            ')) break;
-    script.push(line.slice(12));
-  }
-  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  const execute = new AsyncFunction('github', 'context', 'core', 'require', script.join('\n'));
-  const requireFromRoot = require('node:module').createRequire(require('node:path').resolve('github-script.cjs'));
-  const mock = mockGitHub({ reviews: [review('APPROVED')] });
-  await execute(mock.github, mock.context, mock.core, requireFromRoot);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'success');
-  assert.equal(mock.reviewWrites.at(-1).app.id, actionsApp.id);
-});
-
-test('pushing a new head creates a separate check without moving or reusing the old one', async () => {
+test('a new head receives a separate status without moving old results', async () => {
   const prs = [makePr({ user: { login: owner } })];
   const mock = mockGitHub({ prs });
   await run(mock);
   prs[0] = makePr({ user: { login: owner }, head: { ...prs[0].head, sha: 'c'.repeat(40) } });
   await run(mock);
-  assert.equal(mock.createdChecks.length, 2);
-  assert.deepEqual(mock.checkRuns.map(check => check.head_sha), [head, 'c'.repeat(40)]);
-  assert.ok(mock.checkRuns.every(check => check.conclusion === 'success'));
+  assert.equal(mock.latest(head).state, 'success');
+  assert.equal(mock.latest(prs[0].head.sha).state, 'success');
+  assert.deepEqual(mock.reviewWrites.map(status => status.sha), [head, head, prs[0].head.sha, prs[0].head.sha]);
 });
 
-test('lookup, creation and update failures for one head do not block another PR', async () => {
+test('lookup and publication failures are isolated to their commit', async () => {
   const failedSha = 'c'.repeat(40);
-  const broken = makePr({ number: 1, user: { login: owner }, head: { ...makePr().head, sha: failedSha } });
-  const healthy = makePr({ number: 2, user: { login: owner } });
-  for (const phase of ['lookup', 'create', 'start-update', 'finish-update']) {
-    const checks = phase.endsWith('update') ? [{
-      id: 40, head_sha: failedSha, name: REVIEW_CHECK_NAME, external_id: REVIEW_CHECK_ID,
-      app: actionsApp, status: 'completed', conclusion: 'success',
-    }] : [];
-    const mock = mockGitHub({ prs: [broken, healthy], checks, checkError: (operation, check) => {
-      if (check.head_sha !== failedSha) return;
-      if ((phase === 'lookup' && operation === 'list') || (phase === 'create' && operation === 'create') ||
-          (phase === 'start-update' && operation === 'update' && check.status === 'in_progress') ||
-          (phase === 'finish-update' && operation === 'update' && check.status === 'completed')) {
-        throw new Error('Check publication unavailable');
-      }
+  const prs = [makePr({ number: 1, user: { login: owner }, head: { ...makePr().head, sha: failedSha } }),
+    makePr({ number: 2, user: { login: owner } })];
+  for (const phase of ['list', 'pending', 'success']) {
+    const mock = mockGitHub({ prs, statusError: (operation, status) => {
+      if (status.sha === failedSha && (operation === phase || status.state === phase)) throw new Error('Status API unavailable');
     } });
     await run(mock);
-    assert.ok(mock.reviewWrites.some(check => check.head_sha === head && check.conclusion === 'success'), phase);
-    assert.ok(!mock.reviewWrites.some(check => check.head_sha === failedSha && check.conclusion === 'success'), phase);
-    assert.ok(mock.failures.some(message => /Unable to publish/.test(message)), phase);
-    if (phase === 'finish-update') assert.equal(mock.checkRuns.find(check => check.head_sha === failedSha).status, 'in_progress');
+    assert.equal(mock.latest(head).state, 'success');
+    assert.notEqual(mock.latest(failedSha)?.state, 'success');
+    assert.ok(mock.failures.some(message => /Unable to publish/.test(message)));
   }
 });
 
-test('PR read failures during evaluation and final verification are isolated to their head', async () => {
+test('read failures revoke previous success and do not abort other heads', async () => {
   const failedSha = 'c'.repeat(40);
-  const prs = [
-    makePr({ number: 1, user: { login: owner }, head: { ...makePr().head, sha: failedSha } }),
-    makePr({ number: 2, user: { login: owner } }),
-  ];
+  const prs = [makePr({ number: 1, head: { ...makePr().head, sha: failedSha } }), makePr({ number: 2, user: { login: owner } })];
   for (const failedRead of [1, 2]) {
     let reads = 0;
-    const mock = mockGitHub({ prs, getPr: number => {
+    const mock = mockGitHub({ prs, statuses: [{ sha: failedSha, state: 'success' }], getPr: number => {
       if (number === 1 && ++reads === failedRead) throw new Error('PR API unavailable');
       return prs.find(pr => pr.number === number);
     } });
     await run(mock);
-    assert.equal(mock.checkRuns.find(check => check.head_sha === failedSha).conclusion, 'failure');
-    assert.equal(mock.checkRuns.find(check => check.head_sha === head).conclusion, 'success');
+    assert.equal(mock.latest(failedSha).state, 'error');
+    assert.equal(mock.latest(head).state, 'success');
     assert.equal(mock.failures.length, 1);
   }
-});
-
-test('a release skip publication error does not abort reviews for other heads', async () => {
-  const failedSha = 'c'.repeat(40);
-  const pr = release();
-  const mock = mockGitHub({
-    prs: [{ ...pr, number: 1, head: { ...pr.head, sha: failedSha } }, makePr({ number: 2, user: { login: owner } })],
-    files: [{ filename: 'backend/version.txt', status: 'modified' }],
-    checkError: (operation, check) => {
-      if (operation === 'create' && check.name === 'AMAN publisher-consumer contract') throw new Error('Release check unavailable');
-    },
-  });
-  await run(mock);
-  assert.equal(mock.checkRuns.find(check => check.head_sha === failedSha).conclusion, 'failure');
-  assert.equal(mock.checkRuns.find(check => check.head_sha === head).conclusion, 'success');
-  assert.equal(mock.failures.length, 1);
-});
-
-test('fork review notifications work without PR metadata or artifacts in the event payload', async () => {
-  const pr = makePr({ head: { sha: head, ref: 'feature', repo: { full_name: 'contributor/FlightStrips' } } });
-  const mock = mockGitHub({ prs: [pr], reviews: [review('APPROVED')] });
-  mock.context.payload = { workflow_run: { pull_requests: [] } };
-  await run(mock);
-  assert.equal(mock.reviewWrites.at(-1).conclusion, 'success');
-});
-
-test('API failures and invalid ownership cannot leave the evaluated commit green', async () => {
   for (const options of [{ reviewError: true }, { content: '/backend/ @someone' }]) {
-    const mock = mockGitHub(options);
+    const mock = mockGitHub({ ...options, statuses: [{ state: 'success' }] });
     await run(mock);
-    assert.deepEqual(mock.reviewWrites.map(check => check.conclusion), [null, 'failure']);
+    assert.equal(mock.latest().state, 'error');
     assert.equal(mock.failures.length, 1);
   }
-  const failedRead = mockGitHub({ getPr: () => { throw new Error('PR API unavailable'); } });
-  await run(failedRead);
-  assert.deepEqual(failedRead.reviewWrites.map(check => check.conclusion), [null, 'failure']);
-  assert.equal(failedRead.failures.length, 1);
 });
 
-test('pushes and target changes during evaluation cannot receive success', async () => {
+test('changes to main, head, target or PR state during evaluation cannot receive success', async () => {
   const initial = makePr();
   for (const latest of [
     makePr({ head: { ...initial.head, sha: 'new-head' } }),
     makePr({ base: { ...initial.base, sha: 'new-base' } }),
-    makePr({ base: { ...initial.base, ref: 'other' } }),
-    makePr({ state: 'closed' }),
+    makePr({ base: { ...initial.base, ref: 'other' } }), makePr({ state: 'closed' }),
   ]) {
     let reads = 0;
     const mock = mockGitHub({ reviews: [review('APPROVED')], getPr: () => ++reads === 1 ? initial : latest });
     await run(mock);
-    assert.equal(mock.reviewWrites.at(-1).conclusion, 'failure');
-    assert.ok(mock.reviewWrites.every(check => check.head_sha === head));
+    assert.equal(mock.latest().state, 'failure');
   }
+  let reads = 0;
+  const mock = mockGitHub({ reviews: [review('APPROVED')], getMain: () => ({ commit: { sha: ++reads === 1 ? mainHead : 'new-main' } }) });
+  await run(mock);
+  assert.equal(mock.latest().state, 'failure');
 });
 
-test('PRs sharing a head cannot borrow an owner authorship exemption', async () => {
-  const prs = [makePr({ number: 1, user: { login: owner } }), makePr({ number: 2 })];
-  const mock = mockGitHub({ prs });
+test('shared heads cannot borrow author exemptions; notifier changes revoke existing success', async () => {
+  const shared = mockGitHub({ prs: [makePr({ number: 1, user: { login: owner } }), makePr({ number: 2 })] });
+  await run(shared);
+  assert.equal(shared.latest().state, 'failure');
+  const notifier = mockGitHub({ files: [{ filename: notifierPath, status: 'removed' }], reviews: [review('APPROVED')], statuses: [{ state: 'success' }] });
+  await run(notifier);
+  assert.equal(notifier.latest().state, 'failure');
+  assert.match(notifier.latest().description, /Review notifier changes/);
+});
+
+test('unsafe release changes never waive CI; skip publication failure fails only that head', async () => {
+  const unsafe = mockGitHub({ prs: [release()], reviews: [review('APPROVED')] });
+  await run(unsafe);
+  assert.equal(unsafe.latest().state, 'failure');
+  assert.equal(unsafe.createdChecks.length, 0);
+  const failedSha = 'c'.repeat(40);
+  const pr = release();
+  const mock = mockGitHub({
+    prs: [{ ...pr, number: 1, head: { ...pr.head, sha: failedSha } }, makePr({ number: 2, user: { login: owner } })],
+    files: [{ filename: 'backend/version.txt', status: 'modified' }], checkError: () => { throw new Error('Check API unavailable'); },
+  });
   await run(mock);
-  assert.deepEqual(mock.reviewWrites.map(check => check.conclusion), [null, 'failure']);
+  assert.equal(mock.latest(failedSha).state, 'error');
+  assert.equal(mock.latest(head).state, 'success');
+});
+
+test('review notifier and fallback remain enabled; manual validation selects code only explicitly', async () => {
+  const notifier = fs.readFileSync(notifierPath, 'utf8');
+  assert.match(notifier, /pull_request_review:\s*types: \[submitted, edited, dismissed\]/);
+  const writer = fs.readFileSync('.github/workflows/review-policy.yml', 'utf8');
+  assert.match(writer, /workflow_run:\s*workflows: \[Review policy events, Release Please\]\s*types: \[completed\]/);
+  assert.match(writer, /schedule:\s*(?:#[^\r\n]*\s*)?- cron: '2-59\/5 \* \* \* \*'/);
+  assert.match(writer, /pull_request_target:\s*branches: \[main\]/);
+  assert.match(writer, /statuses: write/);
+  assert.match(writer, /ref: \$\{\{ github.event_name == 'workflow_dispatch' && github.sha \|\| 'main' \}\}/);
+  assert.doesNotMatch(writer, /environment:|secrets\.|vars\.|create-github-app-token/);
+  const script = writer.split('          script: |')[1].trim();
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const requireFromRoot = require('node:module').createRequire(require('node:path').resolve('github-script.cjs'));
+  const mock = mockGitHub({ reviews: [review('APPROVED')] });
+  await new AsyncFunction('github', 'context', 'core', 'require', script)(mock.github, mock.context, mock.core, requireFromRoot);
+  assert.equal(mock.latest().state, 'success');
 });
 
 const ciWorkflows = [

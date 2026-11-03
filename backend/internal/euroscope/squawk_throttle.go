@@ -1,6 +1,7 @@
 package euroscope
 
 import (
+	"FlightStrips/internal/shared"
 	euroscopeevents "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/helpers"
 	"context"
@@ -16,6 +17,7 @@ import (
 const defaultSquawkRequestInterval = 5 * time.Second
 
 type queuedSquawkRequest struct {
+	binding  shared.CommandBinding
 	cid      string
 	callsign string
 }
@@ -64,7 +66,7 @@ func (t *squawkThrottle) Enqueue(session int32, req queuedSquawkRequest) {
 	}
 
 	for i := range state.pending {
-		if state.pending[i].callsign != req.callsign {
+		if state.pending[i].callsign != req.callsign || state.pending[i].binding != req.binding || state.pending[i].cid != req.cid {
 			continue
 		}
 		if req.cid != "" {
@@ -193,6 +195,14 @@ func (hub *Hub) dispatchGenerateSquawkRequest(session int32, req queuedSquawkReq
 	event := euroscopeevents.GenerateSquawkEvent{
 		Callsign: req.callsign,
 	}
+	if req.binding != nil {
+		if binding, ok := req.binding.(*commandBinding); ok {
+			_ = binding.enqueue(event)
+		} else {
+			_ = req.binding.Send(event)
+		}
+		return
+	}
 	isAutomatic := req.cid == ""
 	cid := req.cid
 	if cid == "" {
@@ -212,7 +222,13 @@ func (hub *Hub) dispatchGenerateSquawkRequest(session int32, req queuedSquawkReq
 			slog.String("target_cid", cid),
 		)
 	}
-	hub.Send(session, cid, event)
+	binding, err := hub.captureCommandBinding(session, cid, false)
+	if err != nil {
+		return
+	}
+	if direct, ok := binding.(*commandBinding); ok {
+		_ = direct.enqueue(event)
+	}
 }
 
 func normalizeAssignedSquawk(assignedSquawk *string) string {

@@ -15,6 +15,11 @@ import (
 // the provided IFR flight-plan fields, marks it as manually created, moves it
 // to the correct uncleared bay, and notifies both the frontend and EuroScope.
 func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req frontend.CreateManualFPLAction, cid string, airport string) error {
+	var authorityErr error
+	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.esCommander, session, cid)
+	if authorityErr != nil {
+		return authorityErr
+	}
 	strip, err := s.stripReader.GetByCallsign(ctx, session, req.Callsign)
 	if err != nil {
 		return fmt.Errorf("callsign %q not found in session: %w", req.Callsign, err)
@@ -68,7 +73,7 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 	shared.PublishStripUpdate(ctx, s.publisher, session, req.Callsign)
 
 	// Notify EuroScope so it can create the FPL in its session.
-	s.esCommander.SendCreateFPL(session, cid, euroscope.CreateFPLEvent{
+	command := euroscope.CreateFPLEvent{
 		Callsign:          req.Callsign,
 		Origin:            origin,
 		Destination:       req.ADES,
@@ -80,7 +85,10 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 		Route:             req.Route,
 		Stand:             req.Stand,
 		Runway:            req.RwyDep,
-	})
+	}
+	if err := shared.DispatchCommand(ctx, session, command, func() { s.esCommander.SendCreateFPL(session, cid, command) }); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -89,6 +97,11 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 // It validates that the callsign exists, updates VFR-specific fields, moves the
 // strip to the CONTROLZONE bay, and notifies both the frontend and EuroScope.
 func (s *StripService) CreateVFRFPL(ctx context.Context, session int32, req frontend.CreateVFRFPLAction, cid string) error {
+	var authorityErr error
+	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.esCommander, session, cid)
+	if authorityErr != nil {
+		return authorityErr
+	}
 	strip, err := s.stripReader.GetByCallsign(ctx, session, req.Callsign)
 	if err != nil {
 		return fmt.Errorf("callsign %q not found in session: %w", req.Callsign, err)
@@ -122,7 +135,7 @@ func (s *StripService) CreateVFRFPL(ctx context.Context, session int32, req fron
 	shared.PublishStripUpdate(ctx, s.publisher, session, req.Callsign)
 
 	// Notify EuroScope.
-	s.esCommander.SendCreateFPL(session, cid, euroscope.CreateFPLEvent{
+	command := euroscope.CreateFPLEvent{
 		Callsign:       req.Callsign,
 		Origin:         strip.Origin,
 		AircraftType:   req.AircraftType,
@@ -131,7 +144,10 @@ func (s *StripService) CreateVFRFPL(ctx context.Context, session int32, req fron
 		FplType:        req.FPLType,
 		Language:       req.Language,
 		PersonsOnBoard: int32(req.PersonsOnBoard),
-	})
+	}
+	if err := shared.DispatchCommand(ctx, session, command, func() { s.esCommander.SendCreateFPL(session, cid, command) }); err != nil {
+		return err
+	}
 
 	return nil
 }

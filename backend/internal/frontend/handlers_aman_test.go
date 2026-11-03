@@ -8,6 +8,7 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/coordinationrequest"
 	"FlightStrips/internal/shared"
+	"FlightStrips/internal/testutil"
 	"FlightStrips/pkg/events"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"github.com/golang-jwt/jwt/v5"
@@ -346,6 +347,7 @@ func newAMANCommandTestClient(service aman.CommandService, now time.Time) (*Hub,
 	handlers := shared.NewMessageHandlers[frontendEvents.EventType, *Client]()
 	registerAMANCommandHandlers(&handlers)
 	hub := &Hub{
+		server:   &testutil.MockServer{},
 		handlers: handlers, amanCommandService: service,
 		amanMutations: true, amanNow: func() time.Time { return now }, amanRoleForPosition: func(string) string { return "EKDK_FMP" },
 	}

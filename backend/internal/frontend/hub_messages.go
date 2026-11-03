@@ -57,7 +57,7 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 
 	senderPositions := make(map[string]bool)
 	for client := range hub.clients {
-		if client.session == session && client.user.GetCid() == senderCID {
+		if client.session == session && client.GetCid() == senderCID {
 			senderPositions[client.position] = true
 		}
 	}
@@ -117,7 +117,7 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 		if client.session != session {
 			continue
 		}
-		if client.user.GetCid() == senderCID || (recipientPositions[client.position] && !client.readOnly && !strings.HasSuffix(strings.ToUpper(client.callsign), "_OBS")) {
+		if client.GetCid() == senderCID || (recipientPositions[client.position] && !client.readOnly && !strings.HasSuffix(strings.ToUpper(client.callsign), "_OBS")) {
 			client.Enqueue(msg)
 		}
 	}

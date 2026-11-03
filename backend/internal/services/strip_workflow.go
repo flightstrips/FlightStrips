@@ -3,6 +3,7 @@ package services
 import (
 	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"context"
 	"fmt"
 )
@@ -99,4 +100,11 @@ func validateWorkflowRevision(ctx context.Context, bound *airportworkflow.Bound,
 		}
 	}
 	return nil
+}
+
+func workflowSource(ctx context.Context) airportworkflow.Source {
+	if _, human := shared.HumanCommand(ctx); human {
+		return airportworkflow.HumanSource
+	}
+	return airportworkflow.AutomaticSource
 }

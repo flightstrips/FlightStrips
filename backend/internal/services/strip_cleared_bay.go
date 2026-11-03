@@ -3,6 +3,7 @@ package services
 import (
 	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"fmt"
 	"log/slog"
@@ -48,6 +49,9 @@ func (s *StripService) scheduleStandAutoHide(session int32, callsign string) {
 
 // ClearStrip moves strip to cleared bay and notifies EuroScope to set cleared flag
 func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign string, cid string) error {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	bound, err := s.workflowFor(ctx, session, "")
 	if err != nil {
 		return err
@@ -56,7 +60,7 @@ func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign s
 	if err != nil {
 		return err
 	}
-	decision, err := bound.Action(airportworkflow.Context{Session: session, Source: airportworkflow.AutomaticSource, Strip: workflowSnapshot(strip)}, "strip.clearance", airportworkflow.Clearance{Cleared: true})
+	decision, err := bound.Action(airportworkflow.Context{Session: session, Source: workflowSource(ctx), Strip: workflowSnapshot(strip)}, "strip.clearance", airportworkflow.Clearance{Cleared: true})
 	if err != nil {
 		return err
 	}
@@ -73,7 +77,9 @@ func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign s
 	}
 
 	if s.esCommander != nil {
-		s.esCommander.SendClearedFlag(session, cid, callsign, cleared)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedFlagEvent{Callsign: callsign, Cleared: cleared}, func() { s.esCommander.SendClearedFlag(session, cid, callsign, cleared) }); dispatchErr != nil {
+			return dispatchErr
+		}
 	}
 
 	return nil
@@ -81,6 +87,9 @@ func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign s
 
 // UnclearStrip moves strip back to not-cleared bay and notifies EuroScope to clear the cleared flag
 func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign string, cid string) error {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	bound, err := s.workflowFor(ctx, session, "")
 	if err != nil {
 		return err
@@ -89,7 +98,7 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 	if err != nil {
 		return err
 	}
-	decision, err := bound.Action(airportworkflow.Context{Session: session, Source: airportworkflow.AutomaticSource, Strip: workflowSnapshot(strip)}, "strip.clearance", airportworkflow.Clearance{Cleared: false})
+	decision, err := bound.Action(airportworkflow.Context{Session: session, Source: workflowSource(ctx), Strip: workflowSnapshot(strip)}, "strip.clearance", airportworkflow.Clearance{Cleared: false})
 	if err != nil {
 		return err
 	}
@@ -110,7 +119,9 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 	}
 
 	if s.esCommander != nil {
-		s.esCommander.SendClearedFlag(session, cid, callsign, cleared)
+		if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedFlagEvent{Callsign: callsign, Cleared: cleared}, func() { s.esCommander.SendClearedFlag(session, cid, callsign, cleared) }); dispatchErr != nil {
+			return dispatchErr
+		}
 	}
 
 	return nil

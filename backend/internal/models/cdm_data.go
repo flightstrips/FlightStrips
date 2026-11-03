@@ -59,6 +59,11 @@ type EcfmpRestriction struct {
 }
 
 type CdmData struct {
+	ViffAuthority string `json:"viffAuthority,omitempty"`
+	// Authority tokens are internal source fences for existing pending exports.
+	AobtViffAuthority     string  `json:"aobtViffAuthority,omitempty"`
+	AtotViffAuthority     string  `json:"atotViffAuthority,omitempty"`
+	ReadyViffAuthority    string  `json:"readyViffAuthority,omitempty"`
 	Tobt                  *string `json:"tobt,omitempty"`
 	TobtSetBy             *string `json:"tobtSetBy,omitempty"`
 	TobtConfirmedBy       *string `json:"tobtConfirmedBy,omitempty"`

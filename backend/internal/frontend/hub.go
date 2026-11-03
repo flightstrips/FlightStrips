@@ -14,6 +14,7 @@ import (
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
+	esCommands "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/helpers"
 	pkgModels "FlightStrips/pkg/models"
@@ -451,7 +452,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 		Position:  client.position,
 		Airport:   client.airport,
 		Callsign:  client.callsign,
-		UserCID:   client.user.GetCid(),
+		UserCID:   client.GetCid(),
 		ReadOnly:  client.readOnly,
 	})
 	if err != nil {
@@ -708,7 +709,7 @@ func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
 
 	initialClients := make([]*Client, 0)
 	for client := range hub.clients {
-		if client.user.GetCid() != msg.cid {
+		if client.GetCid() != msg.cid {
 			continue
 		}
 		if hub.associateClientWithSession(client, msg.session, controller, dbSession, readOnly) {
@@ -752,13 +753,13 @@ func (hub *Hub) associateSessionSyncedClients(session int32) []*Client {
 		if client.session != WaitingForEuroscopeConnectionSessionId {
 			continue
 		}
-		controller := controllersByCID[strings.TrimSpace(client.user.GetCid())]
+		controller := controllersByCID[strings.TrimSpace(client.GetCid())]
 		if controller == nil {
 			continue
 		}
 		readOnly := false
 		if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
-			readOnly = esHub.IsObserverCid(client.user.GetCid())
+			readOnly = esHub.IsObserverCid(client.GetCid())
 		}
 		if hub.associateClientWithSession(client, session, controller, dbSession, readOnly) {
 			initialClients = append(initialClients, client)
@@ -772,11 +773,11 @@ func (hub *Hub) associateWaitingClientIfSessionReady(client *Client) bool {
 		return false
 	}
 
-	controller, err := hub.frontendController(client.user.GetCid())
+	controller, err := hub.frontendController(client.GetCid())
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			slog.Error("Failed to recheck controller for waiting frontend client",
-				slog.String("cid", client.user.GetCid()), slog.Any("error", err))
+				slog.String("cid", client.GetCid()), slog.Any("error", err))
 		}
 		return false
 	}
@@ -784,7 +785,7 @@ func (hub *Hub) associateWaitingClientIfSessionReady(client *Client) bool {
 	dbSession, err := hub.server.GetSessionRepository().GetByID(context.Background(), controller.Session)
 	if err != nil {
 		slog.Error("Failed to recheck session for waiting frontend client",
-			slog.String("cid", client.user.GetCid()), slog.Any("error", err))
+			slog.String("cid", client.GetCid()), slog.Any("error", err))
 		return false
 	}
 
@@ -793,7 +794,7 @@ func (hub *Hub) associateWaitingClientIfSessionReady(client *Client) bool {
 		return false
 	}
 
-	return hub.associateClientWithSession(client, controller.Session, controller, dbSession, esHub.IsObserverCid(client.user.GetCid()))
+	return hub.associateClientWithSession(client, controller.Session, controller, dbSession, esHub.IsObserverCid(client.GetCid()))
 }
 
 type liveFrontendControllerSource interface {
@@ -836,7 +837,7 @@ func (hub *Hub) associateClientWithSession(client *Client, session int32, contro
 		return false
 	}
 	if source, ok := hub.server.GetEuroscopeHub().(liveFrontendControllerSource); ok {
-		liveController := source.GetFrontendController(client.user.GetCid())
+		liveController := source.GetFrontendController(client.GetCid())
 		if liveController == nil || liveController.Session != session {
 			return false
 		}
@@ -852,7 +853,7 @@ func (hub *Hub) associateClientWithSession(client *Client, session int32, contro
 	wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
 
 	slog.Debug("Associating frontend client with session",
-		slog.String("cid", client.user.GetCid()),
+		slog.String("cid", client.GetCid()),
 		slog.Int("session", int(session)))
 	client.session = session
 	client.readOnly = readOnly
@@ -905,7 +906,7 @@ func (hub *Hub) handleCidOnline(msg cidOnlineMessage) {
 
 func (hub *Hub) handleCidDisconnect(cid string) {
 	for client := range hub.clients {
-		if client.user.GetCid() == cid {
+		if client.GetCid() == cid {
 			readOnly := false
 			if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
 				readOnly = esHub.IsObserverCid(cid)
@@ -1371,6 +1372,12 @@ func (hub *Hub) sendAllocatedStandToEuroscope(ctx context.Context, euroscopeHub 
 		return
 	}
 
+	if _, human := shared.HumanCommand(ctx); human {
+		if err := shared.DispatchCommand(ctx, assignment.SessionID, esCommands.StandEvent{Callsign: assignment.Callsign, Stand: stand}, nil); err != nil {
+			slog.WarnContext(ctx, "Stand command binding unavailable", slog.Any("error", err))
+		}
+		return
+	}
 	cid := hub.standUpdateRecipient(ctx, assignment)
 	if cid == "" {
 		cid = strings.TrimSpace(euroscopeHub.GetMasterCid(assignment.SessionID))
@@ -1378,7 +1385,9 @@ func (hub *Hub) sendAllocatedStandToEuroscope(ctx context.Context, euroscopeHub 
 	if cid == "" {
 		return
 	}
-	euroscopeHub.SendStand(assignment.SessionID, cid, assignment.Callsign, stand)
+	if err := shared.DispatchEuroscopeCommand(ctx, euroscopeHub, assignment.SessionID, cid, esCommands.StandEvent{Callsign: assignment.Callsign, Stand: stand}, func() { euroscopeHub.SendStand(assignment.SessionID, cid, assignment.Callsign, stand) }); err != nil {
+		slog.WarnContext(ctx, "Automatic stand executor unavailable", slog.Any("error", err))
+	}
 }
 
 func (hub *Hub) standUpdateRecipient(ctx context.Context, assignment internalModels.StandAssignment) string {
@@ -1722,7 +1731,7 @@ func (hub *Hub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {
 }
 
 func (hub *Hub) OnRegister(client *Client) {
-	slog.Debug("Client registered", slog.String("cid", client.user.GetCid()))
+	slog.Debug("Client registered", slog.String("cid", client.GetCid()))
 	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 	if client.session != WaitingForEuroscopeConnectionSessionId {
 		hub.sendInitialEvent(context.Background(), client)
@@ -1737,7 +1746,7 @@ func (hub *Hub) OnRegister(client *Client) {
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
-	slog.Debug("Client unregistered", slog.String("cid", client.user.GetCid()))
+	slog.Debug("Client unregistered", slog.String("cid", client.GetCid()))
 	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 }
 

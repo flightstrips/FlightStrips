@@ -338,6 +338,9 @@ func (c *ActionService) HandleClxTobtUpdate(ctx context.Context, session int32, 
 	}
 
 	if changed {
+		if err := s.captureViffAuthority(ctx, session, strip, updated); err != nil {
+			return err
+		}
 		if err := s.persistCdmUpdateSilently(ctx, session, callsign, updated); err != nil {
 			return err
 		}
@@ -649,6 +652,12 @@ func (c *ActionService) handleReadyRequest(ctx context.Context, session int32, c
 		updated.Eobt = &readyTime
 	}
 	updated.ReadySyncPending = s.client.isValid && s.usesViffSession(session)
+	if updated.ReadySyncPending {
+		updated.ReadyViffAuthority, err = c.rememberDeferredAuthority(ctx, session, strip, "READY", helpers.ValueOrDefault(updated.Asrt), updated.ReadyViffAuthority)
+		if err != nil {
+			return err
+		}
+	}
 	if changed || snapshotCdm(updated) != before || updated.ReadySyncPending {
 		if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 			return err
@@ -778,6 +787,11 @@ func (c *ActionService) completeReadyViffSync(ctx context.Context, session int32
 	if strip == nil || data == nil || !s.client.isValid || !s.usesViffSession(session) {
 		return nil
 	}
+	var authorityErr error
+	ctx, authorityErr = c.restoreDeferredAuthority(ctx, session, strip, "READY", helpers.ValueOrDefault(data.Asrt), data.ReadyViffAuthority)
+	if authorityErr != nil {
+		return authorityErr
+	}
 	ctx, cancel := s.sessionContext(ctx, session)
 	defer cancel()
 	unlock, err := s.masterViffSync.lockFlightExport(ctx, session, strip.Callsign)
@@ -787,6 +801,9 @@ func (c *ActionService) completeReadyViffSync(ctx context.Context, session int32
 	defer unlock()
 	// REA/1 must be acknowledged before the READY-derived TOBT is exported;
 	// otherwise upstream may assign a later CTOT while processing the TOBT.
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	if err := s.client.IFPSDpi(ctx, strip.Callsign, "REA/1"); err != nil {
 		return err
 	}
@@ -809,12 +826,27 @@ func (c *ActionService) completeReadyViffSync(ctx context.Context, session int32
 	}
 	s.masterViffSync.pushRetries.confirmExport(session, strip.Callsign, confirmed)
 	if data.ReadySyncPending {
-		updated := data.Clone()
-		updated.ReadySyncPending = false
-		if err := s.persistCdmUpdateSilently(ctx, session, strip.Callsign, updated); err != nil {
-			return err
+		if data.ReadyViffAuthority != "" {
+			acknowledger, ok := s.stripRepo.(deferredWorkAcknowledger)
+			if !ok {
+				return shared.RejectAction("conditional CDM authority acknowledgement is unavailable")
+			}
+			rows, err := acknowledger.AcknowledgeCdmDeferredWork(ctx, session, strip.Callsign, "READY", helpers.ValueOrDefault(data.Asrt), data.ReadyViffAuthority)
+			if err != nil {
+				return err
+			}
+			if rows == 1 {
+				s.deferredAuthorities.Delete(data.ReadyViffAuthority)
+			}
+		} else {
+			updated := data.Clone()
+			updated.ReadySyncPending = false
+			if err := s.persistCdmUpdateSilently(ctx, session, strip.Callsign, updated); err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
@@ -837,6 +869,9 @@ func (c *ActionService) RequestBetterTobt(ctx context.Context, session int32, ca
 	}
 
 	if s.usesViffSession(session) {
+		if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+			return err
+		}
 		err = s.client.IFPSDpi(ctx, callsign, status)
 		if err != nil {
 			return err
@@ -856,6 +891,9 @@ func (c *ActionService) RequestBetterTobt(ctx context.Context, session int32, ca
 }
 
 func (c *ActionService) PushTobt(ctx context.Context, session int32, callsign string, tobt string) error {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	s := c.service
 	if !s.client.isValid || !s.usesViffSession(session) {
 		return nil
@@ -876,6 +914,9 @@ func (c *ActionService) PushTobt(ctx context.Context, session int32, callsign st
 		return err
 	}
 	taxiMinutes := s.resolveTaxiMinutes(strip)
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return err
+	}
 	if err := s.client.IFPSSetTobt(ctx, callsign, tobt, taxiMinutes); err != nil {
 		return err
 	}
@@ -884,6 +925,9 @@ func (c *ActionService) PushTobt(ctx context.Context, session int32, callsign st
 }
 
 func (c *ActionService) loadCdmActionTarget(ctx context.Context, session int32, callsign string) (*models.Strip, *models.CdmData, error) {
+	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
+		return nil, nil, err
+	}
 	s := c.service
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
@@ -1032,6 +1076,12 @@ func (c *ActionService) SyncAsatForGroundState(ctx context.Context, session int3
 		now := time.Now().UTC().Format("1504")
 		updated.Aobt = &now
 		updated.AobtViffPending = s.client.isValid && s.usesViffSession(session)
+		if updated.AobtViffPending {
+			updated.AobtViffAuthority, err = c.rememberDeferredAuthority(ctx, session, strip, "AOBT", now, "")
+			if err != nil {
+				return err
+			}
+		}
 		changed = true
 	}
 
@@ -1065,6 +1115,12 @@ func (c *ActionService) RecordAobtForTransfer(ctx context.Context, session int32
 	updated := data.Clone()
 	updated.Aobt = &now
 	updated.AobtViffPending = c.service.client.isValid && c.service.usesViffSession(session)
+	if updated.AobtViffPending {
+		updated.AobtViffAuthority, err = c.rememberDeferredAuthority(ctx, session, strip, "AOBT", now, "")
+		if err != nil {
+			return err
+		}
+	}
 	if err := c.service.persistCdmUpdate(ctx, session, callsign, snapshotCdm(data), updated); err != nil {
 		return err
 	}
@@ -1089,6 +1145,12 @@ func (c *ActionService) RecordTakeoffClearanceAtot(ctx context.Context, session 
 	updated := data.Clone()
 	updated.Atot = &now
 	updated.AtotViffPending = c.service.client.isValid && c.service.usesViffSession(session)
+	if updated.AtotViffPending {
+		updated.AtotViffAuthority, err = c.rememberDeferredAuthority(ctx, session, strip, "ATOT", now, "")
+		if err != nil {
+			return err
+		}
+	}
 	if err := c.service.persistCdmUpdate(ctx, session, callsign, snapshotCdm(data), updated); err != nil {
 		return err
 	}
@@ -1237,6 +1299,16 @@ func (c *ActionService) pushCorrectedEobtToEuroscope(ctx context.Context, sessio
 		return
 	}
 
+	if _, human := shared.HumanCommand(ctx); human {
+		if err := shared.DispatchCommand(ctx, session, euroscopeEvents.EobtEvent{Callsign: callsign, Eobt: eobt}, nil); err != nil {
+			slog.WarnContext(ctx, "CDM command binding unavailable", slog.Any("error", err))
+		}
+		return
+	}
+	if _, production := s.euroscopeHub.(shared.AutomaticCommandBindingProvider); production {
+		_ = shared.DispatchEuroscopeCommand(ctx, s.euroscopeHub, session, "", euroscopeEvents.EobtEvent{Callsign: callsign, Eobt: eobt}, nil)
+		return
+	}
 	masterCallsign := strings.TrimSpace(s.euroscopeHub.GetMasterCallsign(session))
 	if masterCallsign != "" {
 		controller, err := s.controllerRepo.GetByCallsign(ctx, session, masterCallsign)

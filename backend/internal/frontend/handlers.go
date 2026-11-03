@@ -77,7 +77,11 @@ func handleGenerateSquawk(ctx context.Context, client *Client, message Message) 
 		return err
 	}
 
-	client.hub.server.GetEuroscopeHub().SendGenerateSquawk(client.session, client.GetCid(), generateSquawk.Callsign)
+	if err := shared.DispatchCommand(ctx, client.session, euroscope.GenerateSquawkEvent{Callsign: generateSquawk.Callsign}, func() {
+		client.hub.server.GetEuroscopeHub().SendGenerateSquawk(client.session, client.GetCid(), generateSquawk.Callsign)
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -419,7 +423,7 @@ func handleSendMessage(ctx context.Context, client *Client, message Message) err
 	}
 
 	client.hub.storeMessage(client.session, msg)
-	client.hub.dispatchMessage(client.session, msg, client.user.GetCid())
+	client.hub.dispatchMessage(client.session, msg, client.GetCid())
 	return nil
 }
 
@@ -988,7 +992,9 @@ func handleSendPrivateMessage(ctx context.Context, client *Client, message Messa
 		Message:  req.Message,
 	}
 	euroscopeHub := client.hub.server.GetEuroscopeHub()
-	euroscopeHub.Send(client.session, client.GetCid(), event)
+	if err := shared.DispatchCommand(ctx, client.session, event, func() { euroscopeHub.Send(client.session, client.GetCid(), event) }); err != nil {
+		return err
+	}
 	return nil
 }
 

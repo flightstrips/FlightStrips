@@ -296,7 +296,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			slog.String("bay", bay),
 		)
 		if newClearedAlt != strip.ClearedAltitude && s.esCommander != nil {
-			s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, newClearedAlt)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedAltitudeEvent{Callsign: strip.Callsign, Altitude: newClearedAlt}, func() { s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, newClearedAlt) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		if shouldGenerateDepartureSquawk(strip, airport, bay) && s.esCommander != nil {
 			slog.InfoContext(ctx, "Triggering automatic squawk generation",
@@ -304,7 +306,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				slog.String("callsign", strip.Callsign),
 				slog.String("trigger", "new_strip"),
 			)
-			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.GenerateSquawkEvent{Callsign: strip.Callsign}, func() { s.esCommander.SendGenerateSquawk(session, "", strip.Callsign) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		createdStrip = true
 		needsStripBroadcast = true
@@ -637,11 +641,13 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				slog.String("callsign", strip.Callsign),
 				slog.String("trigger", "first_euroscope_sync"),
 			)
-			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.GenerateSquawkEvent{Callsign: strip.Callsign}, func() { s.esCommander.SendGenerateSquawk(session, "", strip.Callsign) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 
 		if !primaryChange {
-			s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
+			s.sendCorrectedEuroscopeEobt(ctx, session, cid, strip.Callsign, correctedEobt, eobtClamped)
 			return s.observeSyncedStrip(ctx, amanStrip, existingStrip)
 		}
 
@@ -677,10 +683,14 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 		slog.DebugContext(ctx, "Updated strip", slog.String("callsign", strip.Callsign))
 		if primaryChange && updateClearedAlt != strip.ClearedAltitude && s.esCommander != nil {
-			s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, updateClearedAlt)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedAltitudeEvent{Callsign: strip.Callsign, Altitude: updateClearedAlt}, func() { s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, updateClearedAlt) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		if primaryChange && updateHeading != strip.Heading && s.esCommander != nil {
-			s.esCommander.SendHeading(session, cid, strip.Callsign, updateHeading)
+			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.HeadingEvent{Callsign: strip.Callsign, Heading: updateHeading}, func() { s.esCommander.SendHeading(session, cid, strip.Callsign, updateHeading) }); dispatchErr != nil {
+				return dispatchErr
+			}
 		}
 		needsStripBroadcast = true
 		needsPdcValidation = validationInputsChanged
@@ -697,7 +707,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			return err
 		}
 	}
-	s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
+	s.sendCorrectedEuroscopeEobt(ctx, session, cid, strip.Callsign, correctedEobt, eobtClamped)
 
 	if syncState != nil {
 		if routeNeedsUpdate {
@@ -944,11 +954,14 @@ func hasProtectedSyncedTobt(data *internalModels.CdmData, previousEobt string) b
 	return !(confirmedBy == internalModels.TobtConfirmedByATC && currentTobt == strings.TrimSpace(previousEobt))
 }
 
-func (s *StripService) sendCorrectedEuroscopeEobt(session int32, cid string, callsign string, correctedEobt string, clamped bool) {
+func (s *StripService) sendCorrectedEuroscopeEobt(ctx context.Context, session int32, cid string, callsign string, correctedEobt string, clamped bool) {
 	if !clamped || correctedEobt == "" || s.esCommander == nil {
 		return
 	}
-	s.esCommander.SendEobt(session, cid, callsign, correctedEobt)
+	if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.EobtEvent{Callsign: callsign, Eobt: correctedEobt}, func() { s.esCommander.SendEobt(session, cid, callsign, correctedEobt) }); dispatchErr != nil {
+		slog.WarnContext(ctx, "Command binding unavailable", slog.Any("error", dispatchErr))
+		return
+	}
 }
 
 func isLocalCdmDeparture(origin string, airport string) bool {

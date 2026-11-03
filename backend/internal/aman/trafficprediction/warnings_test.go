@@ -189,3 +189,25 @@ func retainedDiagnosticState(now time.Time, reason string, source aman.DataStatu
 	}}
 	return state
 }
+
+func TestRetainedSTARWarningsIdentifyAssignmentAndSelectedRunway(t *testing.T) {
+	now := utc(2026, time.November, 2, 18, 0)
+	for _, test := range []struct{ reason, assigned, detail string }{
+		{"unknown_star_family", "TESPI9Z", "assigned STAR TESPI9Z does not match a configured STAR entry"},
+		{aman.STARRunwayUnavailable, "TESPI1C", "recognized assigned STAR TESPI1C has no configured family path"},
+		{aman.STARFamilyAmbiguous, "SHARED1C", "assigned STAR SHARED1C matches multiple configured STAR families"},
+	} {
+		t.Run(test.reason, func(t *testing.T) {
+			state := retainedDiagnosticState(now, test.reason, aman.DataFresh, now)
+			group := aman.RunwayGroupID("ARRIVAL-04L")
+			state.Flights[0].SelectedRunwayGroup = &group
+			state.Flights[0].LatestObservation.AssignedSTAR = &test.assigned
+			warnings := Build(state, readyHealth()).Warnings
+			require.Len(t, warnings, 1)
+			require.Contains(t, warnings[0].Message, test.detail)
+			require.Contains(t, warnings[0].Message, "selected runway group ARRIVAL-04L")
+			require.NotContains(t, warnings[0].Message, "filed route")
+			require.Contains(t, warnings[0].Message, "Keeping assigned arrival time")
+		})
+	}
+}

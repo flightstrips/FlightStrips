@@ -28,7 +28,7 @@ func TestAssignedSTAROverridesFiledRouteAndClears(t *testing.T) {
 	require.Equal(t, navdata.FeederID("MONAK"), feeder)
 }
 
-func TestAssignedSTARMatchesPublishedDesignatorAndRunway(t *testing.T) {
+func TestAssignedSTARResolvesPublishedFamilyAcrossRunways(t *testing.T) {
 	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{
 		Feeders: []terminal.Feeder{{ID: "ERNOV", Aliases: []navdata.FeederID{"ERNO"}}},
 		Paths: []terminal.Path{
@@ -37,18 +37,27 @@ func TestAssignedSTARMatchesPublishedDesignatorAndRunway(t *testing.T) {
 		},
 	}}}
 	for _, tc := range []struct {
-		star  string
-		group aman.RunwayGroupID
-		want  bool
+		star     string
+		group    aman.RunwayGroupID
+		want     bool
+		inferred bool
 	}{
-		{"ERNO4C", "ARRIVAL-22L", true},
-		{"ERNOV4C", "ARRIVAL-22L", true},
-		{"ERNO4C", "ARRIVAL-04L", false},
-		{"ERNO3C", "ARRIVAL-22L", false},
+		{"ERNO4C", "ARRIVAL-22L", true, false},
+		{"ERNOV4C", "ARRIVAL-22L", true, false},
+		{"ERNO4C", "ARRIVAL-04L", true, true},
+		{"ERNO3A", "ARRIVAL-22L", true, true},
+		{"ERNO3C", "ARRIVAL-22L", false, false},
+		{"UNKNOWN4C", "ARRIVAL-22L", false, false},
+		{"ERNO4C", "ARRIVAL-12", false, false},
 	} {
 		observation := aman.FlightObservation{AssignedSTAR: stringPointer(tc.star)}
 		feeder, ok := service.observationFeeder(observation, tc.group)
 		require.Equal(t, tc.want, ok, tc.star)
+		resolved := service.resolveObservationSTAR(observation, tc.group)
+		require.Equal(t, tc.inferred, resolved.inferred, tc.star)
+		if tc.group == "ARRIVAL-12" {
+			require.Equal(t, aman.STARRunwayUnavailable, resolved.reason)
+		}
 		if ok {
 			require.Equal(t, navdata.FeederID("ERNOV"), feeder)
 		}
@@ -113,6 +122,7 @@ func TestSTARReassignmentRebuildsProgressAndPreservesProtectionUnlessHoldingOccu
 			previous := observation
 			previous.AssignedSTAR, previous.ReconciledAt = stringPointer("MONAK1A"), now.Add(-time.Second)
 			flight.LatestObservation, flight.SelectedFeeder = &previous, stringPointer("MONAK")
+			flight.ActiveRouteFact = &aman.RouteFact{ID: "old-family-direct", Fix: "HOLD", State: aman.RouteFactActive}
 			flight.ActiveRouteKey, flight.ActiveRouteDatasetID = stringPointer("old-route"), stringPointer(navigationDatasetID(service.deps.Geometry.(arrivalChangeGeometry).version))
 			flight.RouteProgress = &aman.RouteProgress{FlightPlanRevision: 7, RunwayGroupID: "ARRIVAL-22", LegIndex: 99}
 			flight.RawTETASamples = []aman.RawTETASample{{TETA: flight.Prediction.RawTETA, GeneratedAt: now}}
@@ -138,6 +148,7 @@ func TestSTARReassignmentRebuildsProgressAndPreservesProtectionUnlessHoldingOccu
 			require.NoError(t, err)
 			require.Equal(t, 1, materializer.calls, "unchanged FPL revision must still rebuild the route")
 			require.Equal(t, "TESPI", updated.STARFamilyIdentity())
+			require.Equal(t, aman.RouteFactExpired, updated.ActiveRouteFact.State, "a STAR-family change still invalidates the previous route clearance")
 			require.Equal(t, "new-route", *updated.ActiveRouteKey)
 			require.NotEqual(t, 99, updated.RouteProgress.LegIndex)
 			require.False(t, updated.ArrivalPathChanged)

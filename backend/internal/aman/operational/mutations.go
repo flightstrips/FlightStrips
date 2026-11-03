@@ -967,6 +967,9 @@ func (s *Service) runwayAssignmentCompatible(flight aman.AMANFlight, group aman.
 }
 
 func assignFlightToRunwayGroup(flight *aman.AMANFlight, group aman.RunwayGroupID) {
+	// Persist the rebuild until a new prediction is accepted, including across
+	// navigation outages and restarts with an unchanged radar/FPL revision.
+	flight.RunwayChangePending = true
 	flight.SelectedRunwayGroup = &group
 	flight.SelectedHolding, flight.HoldingStack = nil, nil
 	flight.HoldingReleaseBasis = nil

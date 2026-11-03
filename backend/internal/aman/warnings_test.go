@@ -2,8 +2,34 @@ package aman
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
+
+func TestInferredSTARWarningRequiresFreshAcceptedForecastAndClearsOnRecovery(t *testing.T) {
+	assigned, group, family := "TESPI1C", RunwayGroupID("ARRIVAL-04L"), "TESPI"
+	reason := STARRunwayInferred + ",weather_fallback"
+	flight := AMANFlight{Callsign: "SWR96V", State: StateAirborne, DataStatus: DataFresh,
+		SelectedRunwayGroup: &group, SelectedSTARFamily: &family,
+		LatestObservation: &FlightObservation{AssignedSTAR: &assigned},
+		Prediction:        &Prediction{Publishable: true, DegradationReason: &reason}}
+	state := AirportState{Flights: []AMANFlight{flight}}
+	warnings := CurrentWarningSnapshot(TechnicalHealth{}, state).Warnings
+	if len(warnings) != 1 || warnings[0].Code != STARRunwayInferred ||
+		!strings.Contains(warnings[0].Message, "TESPI1C") || !strings.Contains(warnings[0].Message, "ARRIVAL-04L") ||
+		!strings.Contains(warnings[0].Message, "Forecasting its TESPI family path") {
+		t.Fatalf("missing inferred runway diagnostic: %+v", warnings)
+	}
+	state.Flights[0].DataStatus = DataStale
+	if warnings := CurrentWarningSnapshot(TechnicalHealth{}, state).Warnings; len(warnings) != 0 {
+		t.Fatalf("retained forecast must not be described as current: %+v", warnings)
+	}
+	state.Flights[0].DataStatus = DataFresh
+	state.Flights[0].Prediction.DegradationReason = nil
+	if warnings := CurrentWarningSnapshot(TechnicalHealth{}, state).Warnings; len(warnings) != 0 {
+		t.Fatalf("matching assignment kept inference warning: %+v", warnings)
+	}
+}
 
 func TestWarningIdentityIsStableAndIgnoresPresentation(t *testing.T) {
 	component := "navigation"

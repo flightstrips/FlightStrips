@@ -211,3 +211,27 @@ func buildRegionLoop(coordinates [][]float64) (*s2.Loop, error) {
 
 	return loop, nil
 }
+
+// Region queries return detached metadata, never definition-owned polygons.
+func (d *AirportDefinition) RunwayRegionAt(lat, lon float64) (Region, bool) {
+	point := s2.PointFromLatLng(s2.LatLngFromDegrees(lat, lon))
+	for _, r := range d.regionGroups[1] {
+		if r.Region.ContainsPoint(point) {
+			r.Region = nil
+			r.Runways = slices.Clone(r.Runways)
+			return r, true
+		}
+	}
+	return Region{}, false
+}
+func (d *AirportDefinition) FinalRegionAt(runway string, lat, lon float64) (Region, bool) {
+	point := s2.PointFromLatLng(s2.LatLngFromDegrees(lat, lon))
+	for _, r := range d.regionGroups[2] {
+		if slices.Contains(r.Runways, strings.ToUpper(strings.TrimSpace(runway))) && r.Region.ContainsPoint(point) {
+			r.Region = nil
+			r.Runways = slices.Clone(r.Runways)
+			return r, true
+		}
+	}
+	return Region{}, false
+}

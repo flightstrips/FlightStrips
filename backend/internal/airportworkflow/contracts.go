@@ -21,6 +21,10 @@ const (
 
 // Snapshot contains values only. It cannot alias a stored strip or its owners.
 type Snapshot struct {
+	GroundStateKnown                                       bool
+	Runway                                                 string
+	Landed                                                 bool
+	EuroscopeSeen                                          bool
 	Exists                                                 bool
 	ID, Version                                            int32
 	Callsign, Origin, Destination, Bay, GroundState, Owner string
@@ -44,6 +48,7 @@ const (
 	FullFlight ObservationKind = iota
 	GroundState
 	Position
+	ArrivalPosition
 )
 
 // Observation is normalized by the ingress path. Missing full-flight route
@@ -57,6 +62,8 @@ type Observation struct {
 }
 
 type Lifecycle struct {
+	Latitude, Longitude              float64
+	Altitude                         int32
 	Origin, Destination, GroundState string
 	Cleared                          bool
 }
@@ -64,22 +71,30 @@ type Lifecycle struct {
 type LifecycleDecision struct{ Admit, Restart bool }
 
 type Coordination struct {
+	Sequence                     bool
+	Coverage                     map[string][]string
 	From, To                     string
 	TargetIsTower                bool
 	SQPosition, DeliveryPosition string
 }
 
 type CoordinationDecision struct {
-	ClearanceOwner        string
-	PromoteTaxi, Handover bool
+	SequenceSupported                bool
+	SequenceOwner, SequenceFrequency string
+	ClearanceOwner                   string
+	PromoteTaxi, Handover            bool
 }
 
 // Decision requests existing typed move/field operations. Observation decisions
 // contain reconciliation only; they cannot produce outbound field commands.
 type Decision struct {
-	Bay         *string
-	GroundState *string
-	Cleared     *bool
+	Ignore                bool
+	ReconciledGroundState *string
+	ReconciledCleared     *bool
+	Touchdown             bool
+	Bay                   *string
+	GroundState           *string
+	Cleared               *bool
 }
 
 type Move struct {

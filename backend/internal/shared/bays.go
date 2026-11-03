@@ -95,7 +95,17 @@ func IsDepartureBay(bay string) bool {
 	}
 }
 
+type BayGeography struct {
+	Latitude, Longitude float64
+	ElevationFT         int64
+	RelevantDistanceNM  float64
+}
+
 func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string, gndOnline bool) string {
+	return GetDepartureBayAt(strip, existing, airborneAltitudeAGL, airport, gndOnline, BayGeography{AirportLatitude, AirportLongitude, AirportElevation, RelevantDistance})
+}
+
+func GetDepartureBayAt(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string, gndOnline bool, geography BayGeography) string {
 	destination := strip.Destination
 	if strings.TrimSpace(destination) == "" && existing != nil {
 		destination = existing.Destination
@@ -133,9 +143,8 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 		return BAY_HIDDEN_DEP
 	}
 
-	// TODO: airport latitude/longitude should be stored in config, not hardcoded
 	if hasKnownPosition(position.GetLat(), position.GetLon()) &&
-		GetDistance(position.GetLat(), position.GetLon(), AirportLatitude, AirportLongitude) > RelevantDistance {
+		GetDistance(position.GetLat(), position.GetLon(), geography.Latitude, geography.Longitude) > geography.RelevantDistanceNM {
 		return BAY_HIDDEN
 	}
 
@@ -172,7 +181,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	// If the strip is already at rwy-dep, preserve it and only allow a forward
 	// transition to AIRBORNE. Never fall back to TAXI/CLEARED based on stale sync data.
 	if existing != nil && existing.Bay == BAY_DEPART {
-		if int64(position.GetAltitude()) > int64(AirportElevation)+airborneAltitudeAGL {
+		if int64(position.GetAltitude()) > geography.ElevationFT+airborneAltitudeAGL {
 			return BAY_AIRBORNE
 		}
 		return BAY_DEPART
@@ -190,7 +199,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 		return BAY_CLEARED
 	}
 
-	if int64(position.GetAltitude()) < int64(AirportElevation)+airborneAltitudeAGL {
+	if int64(position.GetAltitude()) < geography.ElevationFT+airborneAltitudeAGL {
 		return BAY_CLEARED
 	}
 
@@ -253,6 +262,10 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip, airpo
 }
 
 func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip, airborneAltitudeAGL int64, airport string) string {
+	return GetDepartureBayFromPositionAt(lat, lon, alt, existing, airborneAltitudeAGL, airport, BayGeography{AirportLatitude, AirportLongitude, AirportElevation, RelevantDistance})
+}
+
+func GetDepartureBayFromPositionAt(lat, lon float64, alt int64, existing database.Strip, airborneAltitudeAGL int64, airport string, geography BayGeography) string {
 	// Arrivals: position updates never change the bay (set once in GetDepartureBay).
 	if isLocalAirport(existing.Destination, airport) {
 		if existing.Bay == BAY_HIDDEN_DEP {
@@ -283,7 +296,7 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 		return existingBay
 	}
 
-	if GetDistance(lat, lon, AirportLatitude, AirportLongitude) > RelevantDistance {
+	if GetDistance(lat, lon, geography.Latitude, geography.Longitude) > geography.RelevantDistanceNM {
 		return BAY_HIDDEN
 	}
 
@@ -296,7 +309,7 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 		return bay
 	}
 
-	if alt > int64(AirportElevation)+airborneAltitudeAGL {
+	if alt > geography.ElevationFT+airborneAltitudeAGL {
 		return BAY_AIRBORNE
 	}
 

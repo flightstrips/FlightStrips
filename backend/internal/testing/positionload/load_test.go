@@ -189,7 +189,7 @@ func TestPositionLoad(t *testing.T) {
 	require.NoError(t, os.Chdir("../../.."))
 	defer os.Chdir("internal/testing/positionload")
 	t.Setenv("TEST_MODE", "true")
-	require.NoError(t, config.InitConfig())
+	require.NoError(t, config.InitEKCHTestConfig())
 	logger := slog.Default()
 	if os.Getenv("POSITION_LOAD_DEBUG") != "true" {
 		slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))

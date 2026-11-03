@@ -27,6 +27,23 @@ projection does not release a still-occupied stand.
 
 ## Starting the application
 
+Production startup requires `AIRPORT_CONFIG_FILES`, a comma-separated explicit
+list of combined airport files, and `AIRPORT_REPOSITORY_ROOT` (defaults to `..`
+from the backend working directory). The checked-in `.env` and container image
+explicitly select `backend/config/airports/ekch.airport.yaml`. No directory or
+example scanning occurs. Relative resource paths resolve from this root;
+environment resource overrides may use external deployment files. Blank overrides
+use their authored repository default. Selected required files must exist.
+
+Definitions are validated atomically and remain immutable until restart.
+`availability: deployment` preserves existing application flags and credentials;
+disabled services do not load assets or add workers. The combined EKCH file
+preserves the legacy domain formats; `config/ekch.yaml` remains only as the
+migration comparison fixture. Current EKCH execution consumers are bound once at
+startup, while assembly uses explicit definitions. Workflow execution and broader
+service-state isolation are delivered separately in MA-02 and MA-05. Do not select
+the fictional example or activate regional airports before those epics are ready.
+
 The backend application can run in docker using: 
 
 ```sh

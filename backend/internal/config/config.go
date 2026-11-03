@@ -5,6 +5,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -103,7 +105,10 @@ func loadAirportConfig(r io.Reader) error {
 	if err := dec.Decode(&cfg); err != nil {
 		return fmt.Errorf("decode routes YAML: %w", err)
 	}
+	return installEKCHDomainConfig(cfg)
+}
 
+func installEKCHDomainConfig(cfg Config) error {
 	if err := loadRoutes(cfg); err != nil {
 		return err
 	}
@@ -189,12 +194,12 @@ func GetAirportCoordinates() (float64, float64) {
 
 // GetMessageAreas returns the area→position mapping for the configured airport.
 func GetMessageAreas() map[string][]string {
-	return messageAreas
+	return cloneAirportValue(reflect.ValueOf(messageAreas)).Interface().(map[string][]string)
 }
 
 // GetRunways returns the list of valid runway identifiers for the configured airport.
 func GetRunways() []string {
-	return runways
+	return slices.Clone(runways)
 }
 
 func GetAirborneAltitudeAGL() int64 {
@@ -214,7 +219,9 @@ func GetTransitionAltitude() int {
 
 // GetCdmConfig returns the CDM configuration parsed from the airport YAML.
 func GetCdmConfig() CdmConfig {
-	return cdmConfig
+	cfg := cdmConfig
+	cfg.Deice.Platform = slices.Clone(cfg.Deice.Platform)
+	return cfg
 }
 
 func normalizeStringList(values []string) []string {
@@ -321,17 +328,24 @@ func configuredSectorExists(configured []Sector, reference string) bool {
 	})
 }
 
-func InitConfig() error {
-	// Initialize test mode configuration
+// InitEKCHTestConfig explicitly selects the shipped EKCH fixture for existing
+// tests/harnesses running from backend. Production uses selected registries.
+func InitEKCHTestConfig() error {
 	initTestMode()
-
-	err := loadConfigurationFiles("ekch")
+	root, err := filepath.Abs("..")
 	if err != nil {
 		return err
 	}
-
-	return nil
+	registry, err := LoadAirportFiles(ProductionAirportCatalog(), []string{"backend/config/airports/ekch.airport.yaml"}, AirportLoadOptions{RepositoryRoot: root})
+	if err != nil {
+		return err
+	}
+	definition, _ := registry.Lookup("EKCH")
+	return installEKCHDefinition(definition)
 }
+
+// InitRuntimeMode reads only application test/recording flags, never airport files.
+func InitRuntimeMode() { initTestMode() }
 
 // initTestMode initializes test/replay mode configuration from environment variables
 func initTestMode() {
@@ -375,32 +389,4 @@ func IsRecordMode() bool {
 // GetRecordingPath returns the path where recordings are stored
 func GetRecordingPath() string {
 	return testMode.RecordingPath
-}
-
-func loadConfigurationFiles(airport string) error {
-	// Load YAML config file
-	if err := loadConfigFile(fmt.Sprintf("config/%s.yaml", airport), loadAirportConfig); err != nil {
-		return err
-	}
-
-	// Load JSON regions file
-	if err := loadConfigFile(fmt.Sprintf("config/%s_regions.json", airport), loadRegions); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func loadConfigFile(path string, loader func(io.Reader) error) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	return loader(f)
 }

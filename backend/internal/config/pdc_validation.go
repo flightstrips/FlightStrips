@@ -1,5 +1,7 @@
 package config
 
+import "reflect"
+
 // PDCValidationConfig holds validation rules for PDC requests.
 type PDCValidationConfig struct {
 	HeavyRunwayRestriction HeavyRunwayRestrictionConfig `yaml:"heavy_runway_restriction"`
@@ -22,5 +24,5 @@ var pdcValidationConfig PDCValidationConfig
 
 // GetPDCValidationConfig returns the PDC validation configuration.
 func GetPDCValidationConfig() PDCValidationConfig {
-	return pdcValidationConfig
+	return cloneAirportValue(reflect.ValueOf(pdcValidationConfig)).Interface().(PDCValidationConfig)
 }

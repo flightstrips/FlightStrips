@@ -45,6 +45,21 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 // local test console to supply a small aircraft fixture without changing the
 // production default or overriding an operator-provided path.
 func InitializeStandAssignmentWithAircraftFile(enabled bool, aircraftFile string) StandAssignmentReadiness {
+	configDir := filepath.Join(standAssignmentConfigDir(), "ekch")
+	if enabled && strings.TrimSpace(aircraftFile) == "" {
+		aircraftFile = standAssignmentICAOFile()
+	}
+	return InitializeStandAssignmentFiles(enabled, StandAssignmentFiles{
+		AircraftReference: filepath.Join(configDir, "GRpluginAircraftInfo.txt"), AircraftICAO: aircraftFile,
+		Stands: filepath.Join(configDir, "GRpluginStands.txt"), AirlineAssignment: filepath.Join(configDir, "airline_assignment.json"),
+	})
+}
+
+type StandAssignmentFiles struct{ AircraftReference, AircraftICAO, Stands, AirlineAssignment string }
+
+// InitializeStandAssignmentFiles consumes already selected airport resources.
+// The existing mutable SAT registries are migrated separately in MA-05.
+func InitializeStandAssignmentFiles(enabled bool, files StandAssignmentFiles) StandAssignmentReadiness {
 	if !enabled {
 		standAssignmentReadiness = StandAssignmentReadiness{}
 		aircraftReference = nil
@@ -55,8 +70,7 @@ func InitializeStandAssignmentWithAircraftFile(enabled bool, aircraftFile string
 		return standAssignmentReadiness
 	}
 
-	configDir := filepath.Join(standAssignmentConfigDir(), "ekch")
-	registry, err := sat.LoadAircraftReferenceFile(filepath.Join(configDir, "GRpluginAircraftInfo.txt"))
+	registry, err := sat.LoadAircraftReferenceFile(files.AircraftReference)
 	if err != nil {
 		standAssignmentReadiness = StandAssignmentReadiness{
 			Enabled: true,
@@ -69,10 +83,7 @@ func InitializeStandAssignmentWithAircraftFile(enabled bool, aircraftFile string
 		return standAssignmentReadiness
 	}
 
-	if strings.TrimSpace(aircraftFile) == "" {
-		aircraftFile = standAssignmentICAOFile()
-	}
-	engineReference, err := sat.LoadAircraftEngineReferenceFile(aircraftFile, registry)
+	engineReference, err := sat.LoadAircraftEngineReferenceFile(files.AircraftICAO, registry)
 	if err != nil {
 		standAssignmentReadiness = StandAssignmentReadiness{
 			Enabled: true,
@@ -86,7 +97,7 @@ func InitializeStandAssignmentWithAircraftFile(enabled bool, aircraftFile string
 		return standAssignmentReadiness
 	}
 
-	capabilities, err := sat.LoadStandCapabilityFile(filepath.Join(configDir, "GRpluginStands.txt"))
+	capabilities, err := sat.LoadStandCapabilityFile(files.Stands)
 	if err != nil {
 		standAssignmentReadiness = StandAssignmentReadiness{
 			Enabled: true,
@@ -100,7 +111,7 @@ func InitializeStandAssignmentWithAircraftFile(enabled bool, aircraftFile string
 		return standAssignmentReadiness
 	}
 
-	assignments, err := sat.LoadAirlineAssignmentFile(filepath.Join(configDir, "airline_assignment.json"), capabilities)
+	assignments, err := sat.LoadAirlineAssignmentFile(files.AirlineAssignment, capabilities)
 	if err != nil {
 		standAssignmentReadiness = StandAssignmentReadiness{
 			Enabled: true,

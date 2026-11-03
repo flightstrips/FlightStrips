@@ -19,6 +19,9 @@ type AirportLoadOptions struct {
 	LookupEnv      func(string) (string, bool)
 	// DeploymentServices preserves application flags for availability: deployment.
 	DeploymentServices map[string]bool
+	// Navigation/EFB and GSX can consume assets independently of AMAN/SAT.
+	NavigationEnabled bool
+	GSXEnabled        bool
 }
 
 func (d *AirportDefinition) Resource(field string) (string, bool) {
@@ -102,6 +105,7 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 		if err != nil {
 			return fmt.Errorf("geography.regions: %w", err)
 		}
+		d.regionGroups = [3][]Region{ground, runways, final}
 		names := map[string]bool{}
 		for _, group := range [][]Region{ground, runways, final} {
 			for _, region := range group {
@@ -193,6 +197,19 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 		}
 	}
 	if s := services.AMAN; s != nil && active("aman", s.Availability) {
+		// AMAN needs shared aircraft facts even when SAT and its other assets
+		// are disabled. Resolve only that dependency, using the same selection.
+		if d.resources["services.stand_assignment.aircraft_icao"] == "" {
+			if services.StandAssignment == nil {
+				return fmt.Errorf("services.aman: services.stand_assignment.aircraft_icao resource is required")
+			}
+			if err := add("services.stand_assignment.aircraft_icao", services.StandAssignment.AircraftICAO); err != nil {
+				return err
+			}
+			if _, err := sat.LoadAircraftEngineReferenceFile(d.resources["services.stand_assignment.aircraft_icao"], nil); err != nil {
+				return fmt.Errorf("services.aman aircraft reference: %w", err)
+			}
+		}
 		if err := add("services.aman.terminal", s.Terminal); err != nil {
 			return err
 		}
@@ -218,6 +235,36 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 	}
 	if s := services.ECFMP; s != nil {
 		active("ecfmp", s.Availability)
+	}
+	if options.NavigationEnabled && d.resources["services.aman.terminal"] == "" {
+		if services.AMAN == nil {
+			return fmt.Errorf("navigation: services.aman.terminal must be configured")
+		}
+		if err := add("services.aman.terminal", services.AMAN.Terminal); err != nil {
+			return err
+		}
+		configuration, err := terminal.LoadFile(d.resources["services.aman.terminal"])
+		if err != nil {
+			return fmt.Errorf("navigation terminal: %w", err)
+		}
+		if string(configuration.Airport) != d.Airport() {
+			return fmt.Errorf("navigation terminal airport %s does not match %s", configuration.Airport, d.Airport())
+		}
+	}
+	if options.GSXEnabled && d.resources["services.stand_assignment.scenery"] == "" {
+		if services.StandAssignment == nil {
+			return fmt.Errorf("GSX: services.stand_assignment.scenery must be configured")
+		}
+		if err := add("services.stand_assignment.scenery", services.StandAssignment.Scenery); err != nil {
+			return err
+		}
+		scenery, err := gsx.LoadSceneryConfig(d.resources["services.stand_assignment.scenery"])
+		if err != nil {
+			return fmt.Errorf("services.stand_assignment.scenery: %w", err)
+		}
+		if scenery == nil || scenery.ICAO != d.Airport() {
+			return fmt.Errorf("services.stand_assignment.scenery: must describe airport %s", d.Airport())
+		}
 	}
 	d.revision = fmt.Sprintf("%x", hash.Sum(nil))
 	return nil

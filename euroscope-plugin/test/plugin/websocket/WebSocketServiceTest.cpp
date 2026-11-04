@@ -197,6 +197,55 @@ TEST_F(WebSocketServiceOnTimerTest, HoldReplayCompletesIndependentlyForEachMembe
     for (size_t i = 5; i < 7; ++i) { EXPECT_TRUE(sent[i].has_hold()); EXPECT_EQ(sent[i].context().membership_id(), b.membership_id()); }
 }
 
+TEST_F(WebSocketServiceOnTimerTest, CachedHoldReplayCannotConsumeOrSuppressTypedCommandResults) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto a = AddMembership(*svc, 1, "AAAA", "master");
+    const auto b = AddMembership(*svc, 2, "BBBB", "master");
+    Strip strip{"SAS123","AAAA","BBBB","","DCT","","04L","7000","7000","SID","STAR",false,"",0,0,0,"A320","M","",Position{55,12,1000},"","V","","1200","1300","","J"};
+    svc->SendEvent(SyncEvent{{strip}, {}, {}, {}});
+    auto socket = std::shared_ptr<WebSocketService>(svc.get(), [](WebSocketService*) {});
+    flightplan::FlightPlanService plans(socket, nullptr, nullptr, nullptr, nullptr);
+    plans.CacheTrackedHold("SAS123", {true, false, "OLPIB"}, "1422");
+    const HoldEvent hold("SAS123", "OLPIB", "enroute", "1422");
+    const auto issue = [&](const protobuf::wire::MembershipContext& context, const std::string& id) {
+        protobuf::wire::Envelope command;
+        ASSERT_TRUE(command.ParseFromString(protobuf::Serialize(hold)));
+        *command.mutable_context() = context;
+        command.set_command_origin(protobuf::wire::COMMAND_ORIGIN_HUMAN); command.set_execution_id(id);
+        svc->ProcessServerMessage(command.SerializeAsString());
+    };
+    std::vector<protobuf::wire::Envelope> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope event; ASSERT_TRUE(event.ParseFromString(bytes)); sent.push_back(event);
+    }));
+    const auto replayB = [&] {
+        svc->ForEachMembership([&](const std::string&) {
+            if (svc->CurrentMembershipId() == b.membership_id()) plans.ReplayPendingHoldCommands();
+        });
+    };
+    const auto ordinaryB = [&](size_t index) {
+        ASSERT_LT(index, sent.size()); ASSERT_TRUE(sent[index].has_hold());
+        EXPECT_EQ(sent[index].context().membership_id(), b.membership_id());
+        EXPECT_EQ(sent[index].command_origin(), protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED);
+        EXPECT_TRUE(sent[index].execution_id().empty());
+    };
+    issue(a, "hold-a");
+    replayB();
+    ASSERT_EQ(sent.size(), 1u); ordinaryB(0);
+    // The replay did not consume A's ticket; the real SDK result can still complete it.
+    EXPECT_TRUE(svc->SendCommandResult(hold));
+    ASSERT_EQ(sent.size(), 3u); EXPECT_EQ(sent[1].execution_id(), "hold-a"); ordinaryB(2);
+    issue(a, "hold-a2"); issue(b, "hold-b2");
+    replayB();
+    // Identical outstanding setters must not suppress the independent source replay.
+    ASSERT_EQ(sent.size(), 4u); ordinaryB(3);
+    protobuf::wire::Envelope removed; *removed.mutable_context() = a; removed.mutable_membership_removed();
+    svc->ProcessServerMessage(removed.SerializeAsString());
+    EXPECT_TRUE(svc->SendCommandResult(hold));
+    ASSERT_EQ(sent.size(), 5u); EXPECT_EQ(sent[4].execution_id(), "hold-b2");
+    EXPECT_EQ(sent[4].context().membership_id(), b.membership_id());
+}
+
 TEST_F(WebSocketServiceOnTimerTest, MultipleMastersAndNonMasterRouteIndependently) {
     ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     auto a=AddMembership(*svc,1,"AAAA","master");auto b=AddMembership(*svc,2,"BBBB","master");auto c=AddMembership(*svc,3,"CCCC","slave");

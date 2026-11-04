@@ -655,15 +655,21 @@ TEST_F(WebSocketServiceReconnectTest, ReconnectFencesOldMembershipCallbacksUntil
 TEST_F(WebSocketServiceReconnectTest, SdkTimerPreservesPendingInitializationUntilPhysicalOpenCompletes) {
     SetShouldConnect();
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTING));
-    svc->BeginConnected();
     EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    svc->OnTokenUpdate("connecting-token");
+    svc->OnTimer(1); // Keep the announced token while authentication's provider cache is still stale.
+    svc->BeginConnected();
     svc->FinishConnected();
     ::testing::Mock::VerifyAndClearExpectations(mockImpl);
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     EXPECT_FALSE(svc->IsConnected());
-    EXPECT_CALL(*mockImpl, Send(_)).Times(2);
+    std::vector<protobuf::wire::Envelope> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope event; ASSERT_TRUE(event.ParseFromString(bytes)); sent.push_back(event);
+    }));
     svc->FinishConnected();
     EXPECT_TRUE(svc->IsConnected());
+    ASSERT_EQ(sent.size(), 2u); ASSERT_TRUE(sent[0].has_token()); EXPECT_EQ(sent[0].token().token(), "connecting-token");
 }
 
 // Conditions were lost while the WebSocket was connected; next reconnect uses the fast delay.

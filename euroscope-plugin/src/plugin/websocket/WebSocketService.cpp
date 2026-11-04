@@ -240,9 +240,12 @@ namespace FlightStrips::websocket {
     void WebSocketService::OnTimer(int time) {
         if (!enabled) return;
         ProcessConnected();
-        std::optional<std::string> token;
-        { std::lock_guard lock(message_mutex_); token.swap(pending_token_); }
-        if (token && IsConnected()) SendEvent(TokenEvent(*token, PLUGIN_VERSION));
+        if (IsConnected()) {
+            std::optional<std::string> token;
+            { std::lock_guard lock(message_mutex_);
+              if (token_update_pending_) { token = latest_token_; token_update_pending_ = false; } }
+            if (token) SendEvent(TokenEvent(*token, PLUGIN_VERSION));
+        }
         const auto &state = m_plugin->GetConnectionState();
         UpdatePlaybackSession(state.connection_type);
         const auto now = std::chrono::steady_clock::now();
@@ -355,7 +358,8 @@ namespace FlightStrips::websocket {
         // Authentication completes on its worker thread. Membership routing,
         // SDK connection state, and transmission counters belong to OnTimer.
         std::lock_guard lock(message_mutex_);
-        pending_token_ = token;
+        latest_token_ = token;
+        token_update_pending_ = true;
     }
 
     bool WebSocketService::IsConnected() const {
@@ -475,7 +479,8 @@ namespace FlightStrips::websocket {
             for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
             memberships_.Reset(); active_membership_.clear();transport_generation_=0;source_runways_.clear();source_aircraft_.clear();
             std::optional<std::string> connectedToken;
-            { std::lock_guard lock(message_mutex_); messages_.clear(); connectedToken.swap(pending_token_); }
+            { std::lock_guard lock(message_mutex_); messages_.clear();
+              connectedToken = latest_token_; token_update_pending_ = false; }
             tx = 0;
             rx = 0;
             pending_connect_ = false;

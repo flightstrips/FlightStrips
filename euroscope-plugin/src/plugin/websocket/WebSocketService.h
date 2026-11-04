@@ -109,7 +109,8 @@ namespace FlightStrips::websocket {
 
         mutable std::mutex message_mutex_;
         std::vector<std::string> messages_ {};
-        std::optional<std::string> pending_token_;
+        std::optional<std::string> latest_token_;
+        bool token_update_pending_ = false;
 
         bool enabled;
 

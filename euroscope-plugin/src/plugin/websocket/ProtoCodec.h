@@ -6,6 +6,7 @@
 
 namespace flightstrips::euroscope::v1 {
     class Envelope;
+    class MembershipContext;
     class SessionInfoEvent;
     class MasterInfoEvent;
     class RunwayMismatchAlertEvent;
@@ -46,6 +47,7 @@ namespace FlightStrips::websocket::protobuf {
     namespace wire = ::flightstrips::euroscope::v1;
 
     std::string Serialize(const Event& event);
+    std::string Serialize(const Event& event, const wire::MembershipContext& context);
     bool ParseEnvelope(const std::string& bytes, wire::Envelope& envelope);
     EventType GetEventType(const wire::Envelope& envelope);
 

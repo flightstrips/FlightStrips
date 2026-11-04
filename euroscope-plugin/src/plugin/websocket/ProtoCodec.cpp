@@ -5,6 +5,12 @@
 #include <type_traits>
 
 namespace FlightStrips::websocket::protobuf {
+    std::string Serialize(const Event& event, const wire::MembershipContext& context) {
+        wire::Envelope envelope;
+        if (!envelope.ParseFromString(Serialize(event))) throw std::runtime_error("Invalid typed envelope");
+        *envelope.mutable_context() = context;
+        return envelope.SerializeAsString();
+    }
     namespace {
         // SDK text can contain malformed bytes. The former JSON transport
         // ignored those bytes; protobuf strings must also be valid UTF-8.

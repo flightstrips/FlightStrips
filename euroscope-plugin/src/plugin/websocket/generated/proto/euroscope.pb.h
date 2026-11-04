@@ -133,6 +133,9 @@ extern ClearedFlagEventDefaultTypeInternal _ClearedFlagEvent_default_instance_;
 class CommunicationTypeEvent;
 struct CommunicationTypeEventDefaultTypeInternal;
 extern CommunicationTypeEventDefaultTypeInternal _CommunicationTypeEvent_default_instance_;
+class ControlEvent;
+struct ControlEventDefaultTypeInternal;
+extern ControlEventDefaultTypeInternal _ControlEvent_default_instance_;
 class Controller;
 struct ControllerDefaultTypeInternal;
 extern ControllerDefaultTypeInternal _Controller_default_instance_;
@@ -190,6 +193,12 @@ extern LoginEventDefaultTypeInternal _LoginEvent_default_instance_;
 class MasterInfoEvent;
 struct MasterInfoEventDefaultTypeInternal;
 extern MasterInfoEventDefaultTypeInternal _MasterInfoEvent_default_instance_;
+class MembershipContext;
+struct MembershipContextDefaultTypeInternal;
+extern MembershipContextDefaultTypeInternal _MembershipContext_default_instance_;
+class MembershipRemovedEvent;
+struct MembershipRemovedEventDefaultTypeInternal;
+extern MembershipRemovedEventDefaultTypeInternal _MembershipRemovedEvent_default_instance_;
 class PdcRevertToVoiceEvent;
 struct PdcRevertToVoiceEventDefaultTypeInternal;
 extern PdcRevertToVoiceEventDefaultTypeInternal _PdcRevertToVoiceEvent_default_instance_;
@@ -322,6 +331,8 @@ enum EventType : int {
   EVENT_SEND_FREQUENCY_MESSAGE = 54,
   EVENT_FREQUENCY_MESSAGE_RESULT = 55,
   EVENT_MASTER_INFO = 56,
+  EVENT_CONTROL = 57,
+  EVENT_MEMBERSHIP_REMOVED = 58,
   EventType_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   EventType_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -331,8 +342,8 @@ enum EventType : int {
 bool EventType_IsValid(int value);
 extern const uint32_t EventType_internal_data_[];
 constexpr EventType EventType_MIN = static_cast<EventType>(0);
-constexpr EventType EventType_MAX = static_cast<EventType>(56);
-constexpr int EventType_ARRAYSIZE = 56 + 1;
+constexpr EventType EventType_MAX = static_cast<EventType>(58);
+constexpr int EventType_ARRAYSIZE = 58 + 1;
 const std::string& EventType_Name(EventType value);
 template <typename T>
 const std::string& EventType_Name(T value) {
@@ -394,7 +405,7 @@ class TrackingControllerChangedEvent final : public ::google::protobuf::MessageL
     return reinterpret_cast<const TrackingControllerChangedEvent*>(
         &_TrackingControllerChangedEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 30;
+  static constexpr int kIndexInFileMessages = 33;
   friend void swap(TrackingControllerChangedEvent& a, TrackingControllerChangedEvent& b) { a.Swap(&b); }
   inline void Swap(TrackingControllerChangedEvent* other) {
     if (other == this) return;
@@ -632,6 +643,7 @@ class TokenEvent final : public ::google::protobuf::MessageLite
   enum : int {
     kTokenFieldNumber = 1,
     kVersionFieldNumber = 2,
+    kInstanceIdFieldNumber = 4,
     kFrequencyMessagesFieldNumber = 3,
   };
   // string token = 1;
@@ -666,6 +678,22 @@ class TokenEvent final : public ::google::protobuf::MessageLite
   std::string* _internal_mutable_version();
 
   public:
+  // string instance_id = 4;
+  void clear_instance_id() ;
+  const std::string& instance_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_instance_id(Arg_&& arg, Args_... args);
+  std::string* mutable_instance_id();
+  PROTOBUF_NODISCARD std::string* release_instance_id();
+  void set_allocated_instance_id(std::string* value);
+
+  private:
+  const std::string& _internal_instance_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_instance_id(
+      const std::string& value);
+  std::string* _internal_mutable_instance_id();
+
+  public:
   // bool frequency_messages = 3;
   void clear_frequency_messages() ;
   bool frequency_messages() const;
@@ -681,8 +709,8 @@ class TokenEvent final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 3, 0,
-      57, 2>
+      2, 4, 0,
+      68, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -699,6 +727,7 @@ class TokenEvent final : public ::google::protobuf::MessageLite
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr token_;
     ::google::protobuf::internal::ArenaStringPtr version_;
+    ::google::protobuf::internal::ArenaStringPtr instance_id_;
     bool frequency_messages_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -754,7 +783,7 @@ class StandEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const StandEvent*>(
         &_StandEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 43;
+  static constexpr int kIndexInFileMessages = 46;
   friend void swap(StandEvent& a, StandEvent& b) { a.Swap(&b); }
   inline void Swap(StandEvent* other) {
     if (other == this) return;
@@ -928,7 +957,7 @@ class SquawkEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const SquawkEvent*>(
         &_SquawkEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 32;
+  static constexpr int kIndexInFileMessages = 35;
   friend void swap(SquawkEvent& a, SquawkEvent& b) { a.Swap(&b); }
   inline void Swap(SquawkEvent* other) {
     if (other == this) return;
@@ -1102,7 +1131,7 @@ class SidEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const SidEvent*>(
         &_SidEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 26;
+  static constexpr int kIndexInFileMessages = 29;
   friend void swap(SidEvent& a, SidEvent& b) { a.Swap(&b); }
   inline void Swap(SidEvent* other) {
     if (other == this) return;
@@ -1276,7 +1305,7 @@ class SidEntry final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const SidEntry*>(
         &_SidEntry_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 4;
+  static constexpr int kIndexInFileMessages = 7;
   friend void swap(SidEntry& a, SidEntry& b) { a.Swap(&b); }
   inline void Swap(SidEntry* other) {
     if (other == this) return;
@@ -1450,7 +1479,7 @@ class SessionInfoEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const SessionInfoEvent*>(
         &_SessionInfoEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 19;
+  static constexpr int kIndexInFileMessages = 22;
   friend void swap(SessionInfoEvent& a, SessionInfoEvent& b) { a.Swap(&b); }
   inline void Swap(SessionInfoEvent* other) {
     if (other == this) return;
@@ -1606,7 +1635,7 @@ class SendPrivateMessageEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const SendPrivateMessageEvent*>(
         &_SendPrivateMessageEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 58;
+  static constexpr int kIndexInFileMessages = 61;
   friend void swap(SendPrivateMessageEvent& a, SendPrivateMessageEvent& b) { a.Swap(&b); }
   inline void Swap(SendPrivateMessageEvent* other) {
     if (other == this) return;
@@ -1780,7 +1809,7 @@ class SendFrequencyMessageEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const SendFrequencyMessageEvent*>(
         &_SendFrequencyMessageEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 65;
+  static constexpr int kIndexInFileMessages = 68;
   friend void swap(SendFrequencyMessageEvent& a, SendFrequencyMessageEvent& b) { a.Swap(&b); }
   inline void Swap(SendFrequencyMessageEvent* other) {
     if (other == this) return;
@@ -2002,7 +2031,7 @@ class RunwayMismatchAlertEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const RunwayMismatchAlertEvent*>(
         &_RunwayMismatchAlertEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 17;
+  static constexpr int kIndexInFileMessages = 20;
   friend void swap(RunwayMismatchAlertEvent& a, RunwayMismatchAlertEvent& b) { a.Swap(&b); }
   inline void Swap(RunwayMismatchAlertEvent* other) {
     if (other == this) return;
@@ -2278,7 +2307,7 @@ class Runway final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const Runway*>(
         &_Runway_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 3;
+  static constexpr int kIndexInFileMessages = 6;
   friend void swap(Runway& a, Runway& b) { a.Swap(&b); }
   inline void Swap(Runway* other) {
     if (other == this) return;
@@ -2458,7 +2487,7 @@ class RouteEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const RouteEvent*>(
         &_RouteEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 22;
+  static constexpr int kIndexInFileMessages = 25;
   friend void swap(RouteEvent& a, RouteEvent& b) { a.Swap(&b); }
   inline void Swap(RouteEvent* other) {
     if (other == this) return;
@@ -2632,7 +2661,7 @@ class RequestedAltitudeEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const RequestedAltitudeEvent*>(
         &_RequestedAltitudeEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 34;
+  static constexpr int kIndexInFileMessages = 37;
   friend void swap(RequestedAltitudeEvent& a, RequestedAltitudeEvent& b) { a.Swap(&b); }
   inline void Swap(RequestedAltitudeEvent* other) {
     if (other == this) return;
@@ -2800,7 +2829,7 @@ class RemarksEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const RemarksEvent*>(
         &_RemarksEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 23;
+  static constexpr int kIndexInFileMessages = 26;
   friend void swap(RemarksEvent& a, RemarksEvent& b) { a.Swap(&b); }
   inline void Swap(RemarksEvent* other) {
     if (other == this) return;
@@ -2974,7 +3003,7 @@ class Position final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const Position*>(
         &_Position_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 5;
+  static constexpr int kIndexInFileMessages = 8;
   friend void swap(Position& a, Position& b) { a.Swap(&b); }
   inline void Swap(Position* other) {
     if (other == this) return;
@@ -3148,7 +3177,7 @@ class PdcStateChangeEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const PdcStateChangeEvent*>(
         &_PdcStateChangeEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 55;
+  static constexpr int kIndexInFileMessages = 58;
   friend void swap(PdcStateChangeEvent& a, PdcStateChangeEvent& b) { a.Swap(&b); }
   inline void Swap(PdcStateChangeEvent* other) {
     if (other == this) return;
@@ -3340,7 +3369,7 @@ class PdcRevertToVoiceEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const PdcRevertToVoiceEvent*>(
         &_PdcRevertToVoiceEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 57;
+  static constexpr int kIndexInFileMessages = 60;
   friend void swap(PdcRevertToVoiceEvent& a, PdcRevertToVoiceEvent& b) { a.Swap(&b); }
   inline void Swap(PdcRevertToVoiceEvent* other) {
     if (other == this) return;
@@ -3450,6 +3479,420 @@ class PdcRevertToVoiceEvent final : public ::google::protobuf::MessageLite
 };
 // -------------------------------------------------------------------
 
+class MembershipRemovedEvent final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.MembershipRemovedEvent) */ {
+ public:
+  inline MembershipRemovedEvent() : MembershipRemovedEvent(nullptr) {}
+  ~MembershipRemovedEvent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR MembershipRemovedEvent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline MembershipRemovedEvent(const MembershipRemovedEvent& from) : MembershipRemovedEvent(nullptr, from) {}
+  inline MembershipRemovedEvent(MembershipRemovedEvent&& from) noexcept
+      : MembershipRemovedEvent(nullptr, std::move(from)) {}
+  inline MembershipRemovedEvent& operator=(const MembershipRemovedEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline MembershipRemovedEvent& operator=(MembershipRemovedEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const MembershipRemovedEvent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const MembershipRemovedEvent* internal_default_instance() {
+    return reinterpret_cast<const MembershipRemovedEvent*>(
+        &_MembershipRemovedEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 4;
+  friend void swap(MembershipRemovedEvent& a, MembershipRemovedEvent& b) { a.Swap(&b); }
+  inline void Swap(MembershipRemovedEvent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(MembershipRemovedEvent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  MembershipRemovedEvent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<MembershipRemovedEvent>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const MembershipRemovedEvent& from);
+  void MergeFrom(const MembershipRemovedEvent& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(MembershipRemovedEvent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.MembershipRemovedEvent"; }
+
+ protected:
+  explicit MembershipRemovedEvent(::google::protobuf::Arena* arena);
+  MembershipRemovedEvent(::google::protobuf::Arena* arena, const MembershipRemovedEvent& from);
+  MembershipRemovedEvent(::google::protobuf::Arena* arena, MembershipRemovedEvent&& from) noexcept
+      : MembershipRemovedEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kReasonFieldNumber = 1,
+  };
+  // string reason = 1;
+  void clear_reason() ;
+  const std::string& reason() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_reason(Arg_&& arg, Args_... args);
+  std::string* mutable_reason();
+  PROTOBUF_NODISCARD std::string* release_reason();
+  void set_allocated_reason(std::string* value);
+
+  private:
+  const std::string& _internal_reason() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_reason(
+      const std::string& value);
+  std::string* _internal_mutable_reason();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.MembershipRemovedEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      0, 1, 0,
+      63, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr reason_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
+class MembershipContext final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.MembershipContext) */ {
+ public:
+  inline MembershipContext() : MembershipContext(nullptr) {}
+  ~MembershipContext() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR MembershipContext(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline MembershipContext(const MembershipContext& from) : MembershipContext(nullptr, from) {}
+  inline MembershipContext(MembershipContext&& from) noexcept
+      : MembershipContext(nullptr, std::move(from)) {}
+  inline MembershipContext& operator=(const MembershipContext& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline MembershipContext& operator=(MembershipContext&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const MembershipContext& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const MembershipContext* internal_default_instance() {
+    return reinterpret_cast<const MembershipContext*>(
+        &_MembershipContext_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 2;
+  friend void swap(MembershipContext& a, MembershipContext& b) { a.Swap(&b); }
+  inline void Swap(MembershipContext* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(MembershipContext* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  MembershipContext* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<MembershipContext>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const MembershipContext& from);
+  void MergeFrom(const MembershipContext& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(MembershipContext* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.MembershipContext"; }
+
+ protected:
+  explicit MembershipContext(::google::protobuf::Arena* arena);
+  MembershipContext(::google::protobuf::Arena* arena, const MembershipContext& from);
+  MembershipContext(::google::protobuf::Arena* arena, MembershipContext&& from) noexcept
+      : MembershipContext(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kInstanceIdFieldNumber = 1,
+    kMembershipIdFieldNumber = 3,
+    kAirportFieldNumber = 5,
+    kEnvironmentFieldNumber = 6,
+    kTransportGenerationFieldNumber = 2,
+    kGenerationFieldNumber = 7,
+    kMasterEpochFieldNumber = 8,
+    kSessionIdFieldNumber = 4,
+  };
+  // string instance_id = 1;
+  void clear_instance_id() ;
+  const std::string& instance_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_instance_id(Arg_&& arg, Args_... args);
+  std::string* mutable_instance_id();
+  PROTOBUF_NODISCARD std::string* release_instance_id();
+  void set_allocated_instance_id(std::string* value);
+
+  private:
+  const std::string& _internal_instance_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_instance_id(
+      const std::string& value);
+  std::string* _internal_mutable_instance_id();
+
+  public:
+  // string membership_id = 3;
+  void clear_membership_id() ;
+  const std::string& membership_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_membership_id(Arg_&& arg, Args_... args);
+  std::string* mutable_membership_id();
+  PROTOBUF_NODISCARD std::string* release_membership_id();
+  void set_allocated_membership_id(std::string* value);
+
+  private:
+  const std::string& _internal_membership_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_membership_id(
+      const std::string& value);
+  std::string* _internal_mutable_membership_id();
+
+  public:
+  // string airport = 5;
+  void clear_airport() ;
+  const std::string& airport() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_airport(Arg_&& arg, Args_... args);
+  std::string* mutable_airport();
+  PROTOBUF_NODISCARD std::string* release_airport();
+  void set_allocated_airport(std::string* value);
+
+  private:
+  const std::string& _internal_airport() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_airport(
+      const std::string& value);
+  std::string* _internal_mutable_airport();
+
+  public:
+  // string environment = 6;
+  void clear_environment() ;
+  const std::string& environment() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_environment(Arg_&& arg, Args_... args);
+  std::string* mutable_environment();
+  PROTOBUF_NODISCARD std::string* release_environment();
+  void set_allocated_environment(std::string* value);
+
+  private:
+  const std::string& _internal_environment() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_environment(
+      const std::string& value);
+  std::string* _internal_mutable_environment();
+
+  public:
+  // uint64 transport_generation = 2;
+  void clear_transport_generation() ;
+  ::uint64_t transport_generation() const;
+  void set_transport_generation(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_transport_generation() const;
+  void _internal_set_transport_generation(::uint64_t value);
+
+  public:
+  // uint64 generation = 7;
+  void clear_generation() ;
+  ::uint64_t generation() const;
+  void set_generation(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_generation() const;
+  void _internal_set_generation(::uint64_t value);
+
+  public:
+  // uint64 master_epoch = 8;
+  void clear_master_epoch() ;
+  ::uint64_t master_epoch() const;
+  void set_master_epoch(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_master_epoch() const;
+  void _internal_set_master_epoch(::uint64_t value);
+
+  public:
+  // int32 session_id = 4;
+  void clear_session_id() ;
+  ::int32_t session_id() const;
+  void set_session_id(::int32_t value);
+
+  private:
+  ::int32_t _internal_session_id() const;
+  void _internal_set_session_id(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.MembershipContext)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 8, 0,
+      102, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr instance_id_;
+    ::google::protobuf::internal::ArenaStringPtr membership_id_;
+    ::google::protobuf::internal::ArenaStringPtr airport_;
+    ::google::protobuf::internal::ArenaStringPtr environment_;
+    ::uint64_t transport_generation_;
+    ::uint64_t generation_;
+    ::uint64_t master_epoch_;
+    ::int32_t session_id_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
 class MasterInfoEvent final : public ::google::protobuf::MessageLite
 /* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.MasterInfoEvent) */ {
  public:
@@ -3496,7 +3939,7 @@ class MasterInfoEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const MasterInfoEvent*>(
         &_MasterInfoEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 67;
+  static constexpr int kIndexInFileMessages = 70;
   friend void swap(MasterInfoEvent& a, MasterInfoEvent& b) { a.Swap(&b); }
   inline void Swap(MasterInfoEvent* other) {
     if (other == this) return;
@@ -3652,7 +4095,7 @@ class LoginEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const LoginEvent*>(
         &_LoginEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 2;
+  static constexpr int kIndexInFileMessages = 5;
   friend void swap(LoginEvent& a, LoginEvent& b) { a.Swap(&b); }
   inline void Swap(LoginEvent* other) {
     if (other == this) return;
@@ -3904,7 +4347,7 @@ class IssuePdcClearanceEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const IssuePdcClearanceEvent*>(
         &_IssuePdcClearanceEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 56;
+  static constexpr int kIndexInFileMessages = 59;
   friend void swap(IssuePdcClearanceEvent& a, IssuePdcClearanceEvent& b) { a.Swap(&b); }
   inline void Swap(IssuePdcClearanceEvent* other) {
     if (other == this) return;
@@ -4078,7 +4521,7 @@ class HoldEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const HoldEvent*>(
         &_HoldEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 44;
+  static constexpr int kIndexInFileMessages = 47;
   friend void swap(HoldEvent& a, HoldEvent& b) { a.Swap(&b); }
   inline void Swap(HoldEvent* other) {
     if (other == this) return;
@@ -4288,7 +4731,7 @@ class HeadingEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const HeadingEvent*>(
         &_HeadingEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 39;
+  static constexpr int kIndexInFileMessages = 42;
   friend void swap(HeadingEvent& a, HeadingEvent& b) { a.Swap(&b); }
   inline void Swap(HeadingEvent* other) {
     if (other == this) return;
@@ -4456,7 +4899,7 @@ class GroundStateEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const GroundStateEvent*>(
         &_GroundStateEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 36;
+  static constexpr int kIndexInFileMessages = 39;
   friend void swap(GroundStateEvent& a, GroundStateEvent& b) { a.Swap(&b); }
   inline void Swap(GroundStateEvent* other) {
     if (other == this) return;
@@ -4630,7 +5073,7 @@ class GenerateSquawkEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const GenerateSquawkEvent*>(
         &_GenerateSquawkEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 20;
+  static constexpr int kIndexInFileMessages = 23;
   friend void swap(GenerateSquawkEvent& a, GenerateSquawkEvent& b) { a.Swap(&b); }
   inline void Swap(GenerateSquawkEvent* other) {
     if (other == this) return;
@@ -4786,7 +5229,7 @@ class FsScratchPadEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const FsScratchPadEvent*>(
         &_FsScratchPadEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 64;
+  static constexpr int kIndexInFileMessages = 67;
   friend void swap(FsScratchPadEvent& a, FsScratchPadEvent& b) { a.Swap(&b); }
   inline void Swap(FsScratchPadEvent* other) {
     if (other == this) return;
@@ -4960,7 +5403,7 @@ class FrequencyMessageResultEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const FrequencyMessageResultEvent*>(
         &_FrequencyMessageResultEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 66;
+  static constexpr int kIndexInFileMessages = 69;
   friend void swap(FrequencyMessageResultEvent& a, FrequencyMessageResultEvent& b) { a.Swap(&b); }
   inline void Swap(FrequencyMessageResultEvent* other) {
     if (other == this) return;
@@ -5176,7 +5619,7 @@ class EobtEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const EobtEvent*>(
         &_EobtEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 21;
+  static constexpr int kIndexInFileMessages = 24;
   friend void swap(EobtEvent& a, EobtEvent& b) { a.Swap(&b); }
   inline void Swap(EobtEvent* other) {
     if (other == this) return;
@@ -5350,7 +5793,7 @@ class EcfmpRestriction final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const EcfmpRestriction*>(
         &_EcfmpRestriction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 11;
+  static constexpr int kIndexInFileMessages = 14;
   friend void swap(EcfmpRestriction& a, EcfmpRestriction& b) { a.Swap(&b); }
   inline void Swap(EcfmpRestriction* other) {
     if (other == this) return;
@@ -5662,7 +6105,7 @@ class DropTrackingEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const DropTrackingEvent*>(
         &_DropTrackingEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 47;
+  static constexpr int kIndexInFileMessages = 50;
   friend void swap(DropTrackingEvent& a, DropTrackingEvent& b) { a.Swap(&b); }
   inline void Swap(DropTrackingEvent* other) {
     if (other == this) return;
@@ -5818,7 +6261,7 @@ class CreateFPLEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CreateFPLEvent*>(
         &_CreateFPLEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 18;
+  static constexpr int kIndexInFileMessages = 21;
   friend void swap(CreateFPLEvent& a, CreateFPLEvent& b) { a.Swap(&b); }
   inline void Swap(CreateFPLEvent* other) {
     if (other == this) return;
@@ -6232,7 +6675,7 @@ class CoordinationReceivedEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CoordinationReceivedEvent*>(
         &_CoordinationReceivedEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 29;
+  static constexpr int kIndexInFileMessages = 32;
   friend void swap(CoordinationReceivedEvent& a, CoordinationReceivedEvent& b) { a.Swap(&b); }
   inline void Swap(CoordinationReceivedEvent* other) {
     if (other == this) return;
@@ -6424,7 +6867,7 @@ class CoordinationHandoverEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CoordinationHandoverEvent*>(
         &_CoordinationHandoverEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 28;
+  static constexpr int kIndexInFileMessages = 31;
   friend void swap(CoordinationHandoverEvent& a, CoordinationHandoverEvent& b) { a.Swap(&b); }
   inline void Swap(CoordinationHandoverEvent* other) {
     if (other == this) return;
@@ -6598,7 +7041,7 @@ class ControllerOnlineEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const ControllerOnlineEvent*>(
         &_ControllerOnlineEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 41;
+  static constexpr int kIndexInFileMessages = 44;
   friend void swap(ControllerOnlineEvent& a, ControllerOnlineEvent& b) { a.Swap(&b); }
   inline void Swap(ControllerOnlineEvent* other) {
     if (other == this) return;
@@ -6772,7 +7215,7 @@ class ControllerOfflineEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const ControllerOfflineEvent*>(
         &_ControllerOfflineEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 42;
+  static constexpr int kIndexInFileMessages = 45;
   friend void swap(ControllerOfflineEvent& a, ControllerOfflineEvent& b) { a.Swap(&b); }
   inline void Swap(ControllerOfflineEvent* other) {
     if (other == this) return;
@@ -6928,7 +7371,7 @@ class Controller final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const Controller*>(
         &_Controller_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 6;
+  static constexpr int kIndexInFileMessages = 9;
   friend void swap(Controller& a, Controller& b) { a.Swap(&b); }
   inline void Swap(Controller* other) {
     if (other == this) return;
@@ -7056,6 +7499,288 @@ class Controller final : public ::google::protobuf::MessageLite
 };
 // -------------------------------------------------------------------
 
+class ControlEvent final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.ControlEvent) */ {
+ public:
+  inline ControlEvent() : ControlEvent(nullptr) {}
+  ~ControlEvent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR ControlEvent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline ControlEvent(const ControlEvent& from) : ControlEvent(nullptr, from) {}
+  inline ControlEvent(ControlEvent&& from) noexcept
+      : ControlEvent(nullptr, std::move(from)) {}
+  inline ControlEvent& operator=(const ControlEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ControlEvent& operator=(ControlEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const ControlEvent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const ControlEvent* internal_default_instance() {
+    return reinterpret_cast<const ControlEvent*>(
+        &_ControlEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 3;
+  friend void swap(ControlEvent& a, ControlEvent& b) { a.Swap(&b); }
+  inline void Swap(ControlEvent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ControlEvent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  ControlEvent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<ControlEvent>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const ControlEvent& from);
+  void MergeFrom(const ControlEvent& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(ControlEvent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.ControlEvent"; }
+
+ protected:
+  explicit ControlEvent(::google::protobuf::Arena* arena);
+  ControlEvent(::google::protobuf::Arena* arena, const ControlEvent& from);
+  ControlEvent(::google::protobuf::Arena* arena, ControlEvent&& from) noexcept
+      : ControlEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kTunedFrequenciesFieldNumber = 4,
+    kEnvironmentFieldNumber = 1,
+    kCallsignFieldNumber = 2,
+    kPrimaryFrequencyFieldNumber = 3,
+    kLocalIpFieldNumber = 6,
+    kRelevantAirportFieldNumber = 7,
+    kObserverFieldNumber = 5,
+    kRangeFieldNumber = 8,
+  };
+  // repeated string tuned_frequencies = 4;
+  int tuned_frequencies_size() const;
+  private:
+  int _internal_tuned_frequencies_size() const;
+
+  public:
+  void clear_tuned_frequencies() ;
+  const std::string& tuned_frequencies(int index) const;
+  std::string* mutable_tuned_frequencies(int index);
+  void set_tuned_frequencies(int index, const std::string& value);
+  void set_tuned_frequencies(int index, std::string&& value);
+  void set_tuned_frequencies(int index, const char* value);
+  void set_tuned_frequencies(int index, const char* value, std::size_t size);
+  void set_tuned_frequencies(int index, absl::string_view value);
+  std::string* add_tuned_frequencies();
+  void add_tuned_frequencies(const std::string& value);
+  void add_tuned_frequencies(std::string&& value);
+  void add_tuned_frequencies(const char* value);
+  void add_tuned_frequencies(const char* value, std::size_t size);
+  void add_tuned_frequencies(absl::string_view value);
+  const ::google::protobuf::RepeatedPtrField<std::string>& tuned_frequencies() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* mutable_tuned_frequencies();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<std::string>& _internal_tuned_frequencies() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* _internal_mutable_tuned_frequencies();
+
+  public:
+  // string environment = 1;
+  void clear_environment() ;
+  const std::string& environment() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_environment(Arg_&& arg, Args_... args);
+  std::string* mutable_environment();
+  PROTOBUF_NODISCARD std::string* release_environment();
+  void set_allocated_environment(std::string* value);
+
+  private:
+  const std::string& _internal_environment() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_environment(
+      const std::string& value);
+  std::string* _internal_mutable_environment();
+
+  public:
+  // string callsign = 2;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // string primary_frequency = 3;
+  void clear_primary_frequency() ;
+  const std::string& primary_frequency() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_primary_frequency(Arg_&& arg, Args_... args);
+  std::string* mutable_primary_frequency();
+  PROTOBUF_NODISCARD std::string* release_primary_frequency();
+  void set_allocated_primary_frequency(std::string* value);
+
+  private:
+  const std::string& _internal_primary_frequency() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_primary_frequency(
+      const std::string& value);
+  std::string* _internal_mutable_primary_frequency();
+
+  public:
+  // string local_ip = 6;
+  void clear_local_ip() ;
+  const std::string& local_ip() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_local_ip(Arg_&& arg, Args_... args);
+  std::string* mutable_local_ip();
+  PROTOBUF_NODISCARD std::string* release_local_ip();
+  void set_allocated_local_ip(std::string* value);
+
+  private:
+  const std::string& _internal_local_ip() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_local_ip(
+      const std::string& value);
+  std::string* _internal_mutable_local_ip();
+
+  public:
+  // string relevant_airport = 7;
+  void clear_relevant_airport() ;
+  const std::string& relevant_airport() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_relevant_airport(Arg_&& arg, Args_... args);
+  std::string* mutable_relevant_airport();
+  PROTOBUF_NODISCARD std::string* release_relevant_airport();
+  void set_allocated_relevant_airport(std::string* value);
+
+  private:
+  const std::string& _internal_relevant_airport() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_relevant_airport(
+      const std::string& value);
+  std::string* _internal_mutable_relevant_airport();
+
+  public:
+  // bool observer = 5;
+  void clear_observer() ;
+  bool observer() const;
+  void set_observer(bool value);
+
+  private:
+  bool _internal_observer() const;
+  void _internal_set_observer(bool value);
+
+  public:
+  // int32 range = 8;
+  void clear_range() ;
+  ::int32_t range() const;
+  void set_range(::int32_t value);
+
+  private:
+  ::int32_t _internal_range() const;
+  void _internal_set_range(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.ControlEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 8, 0,
+      132, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::RepeatedPtrField<std::string> tuned_frequencies_;
+    ::google::protobuf::internal::ArenaStringPtr environment_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::internal::ArenaStringPtr primary_frequency_;
+    ::google::protobuf::internal::ArenaStringPtr local_ip_;
+    ::google::protobuf::internal::ArenaStringPtr relevant_airport_;
+    bool observer_;
+    ::int32_t range_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
 class CommunicationTypeEvent final : public ::google::protobuf::MessageLite
 /* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.CommunicationTypeEvent) */ {
  public:
@@ -7102,7 +7827,7 @@ class CommunicationTypeEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CommunicationTypeEvent*>(
         &_CommunicationTypeEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 35;
+  static constexpr int kIndexInFileMessages = 38;
   friend void swap(CommunicationTypeEvent& a, CommunicationTypeEvent& b) { a.Swap(&b); }
   inline void Swap(CommunicationTypeEvent* other) {
     if (other == this) return;
@@ -7276,7 +8001,7 @@ class ClearedFlagEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const ClearedFlagEvent*>(
         &_ClearedFlagEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 37;
+  static constexpr int kIndexInFileMessages = 40;
   friend void swap(ClearedFlagEvent& a, ClearedFlagEvent& b) { a.Swap(&b); }
   inline void Swap(ClearedFlagEvent* other) {
     if (other == this) return;
@@ -7444,7 +8169,7 @@ class ClearedAltitudeEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const ClearedAltitudeEvent*>(
         &_ClearedAltitudeEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 33;
+  static constexpr int kIndexInFileMessages = 36;
   friend void swap(ClearedAltitudeEvent& a, ClearedAltitudeEvent& b) { a.Swap(&b); }
   inline void Swap(ClearedAltitudeEvent* other) {
     if (other == this) return;
@@ -7612,7 +8337,7 @@ class CdmTsacUpdateEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CdmTsacUpdateEvent*>(
         &_CdmTsacUpdateEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 50;
+  static constexpr int kIndexInFileMessages = 53;
   friend void swap(CdmTsacUpdateEvent& a, CdmTsacUpdateEvent& b) { a.Swap(&b); }
   inline void Swap(CdmTsacUpdateEvent* other) {
     if (other == this) return;
@@ -7786,7 +8511,7 @@ class CdmTobtUpdateEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CdmTobtUpdateEvent*>(
         &_CdmTobtUpdateEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 48;
+  static constexpr int kIndexInFileMessages = 51;
   friend void swap(CdmTobtUpdateEvent& a, CdmTobtUpdateEvent& b) { a.Swap(&b); }
   inline void Swap(CdmTobtUpdateEvent* other) {
     if (other == this) return;
@@ -7960,7 +8685,7 @@ class CdmReadyEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CdmReadyEvent*>(
         &_CdmReadyEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 54;
+  static constexpr int kIndexInFileMessages = 57;
   friend void swap(CdmReadyEvent& a, CdmReadyEvent& b) { a.Swap(&b); }
   inline void Swap(CdmReadyEvent* other) {
     if (other == this) return;
@@ -8116,7 +8841,7 @@ class CdmManualCtotEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CdmManualCtotEvent*>(
         &_CdmManualCtotEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 52;
+  static constexpr int kIndexInFileMessages = 55;
   friend void swap(CdmManualCtotEvent& a, CdmManualCtotEvent& b) { a.Swap(&b); }
   inline void Swap(CdmManualCtotEvent* other) {
     if (other == this) return;
@@ -8290,7 +9015,7 @@ class CdmDeiceUpdateEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CdmDeiceUpdateEvent*>(
         &_CdmDeiceUpdateEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 51;
+  static constexpr int kIndexInFileMessages = 54;
   friend void swap(CdmDeiceUpdateEvent& a, CdmDeiceUpdateEvent& b) { a.Swap(&b); }
   inline void Swap(CdmDeiceUpdateEvent* other) {
     if (other == this) return;
@@ -8464,7 +9189,7 @@ class CdmCtotRemoveEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CdmCtotRemoveEvent*>(
         &_CdmCtotRemoveEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 53;
+  static constexpr int kIndexInFileMessages = 56;
   friend void swap(CdmCtotRemoveEvent& a, CdmCtotRemoveEvent& b) { a.Swap(&b); }
   inline void Swap(CdmCtotRemoveEvent* other) {
     if (other == this) return;
@@ -8620,7 +9345,7 @@ class CdmAsrtToggleEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CdmAsrtToggleEvent*>(
         &_CdmAsrtToggleEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 49;
+  static constexpr int kIndexInFileMessages = 52;
   friend void swap(CdmAsrtToggleEvent& a, CdmAsrtToggleEvent& b) { a.Swap(&b); }
   inline void Swap(CdmAsrtToggleEvent* other) {
     if (other == this) return;
@@ -8794,7 +9519,7 @@ class AssumeOnlyEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AssumeOnlyEvent*>(
         &_AssumeOnlyEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 45;
+  static constexpr int kIndexInFileMessages = 48;
   friend void swap(AssumeOnlyEvent& a, AssumeOnlyEvent& b) { a.Swap(&b); }
   inline void Swap(AssumeOnlyEvent* other) {
     if (other == this) return;
@@ -8950,7 +9675,7 @@ class AssumeAndDropEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AssumeAndDropEvent*>(
         &_AssumeAndDropEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 46;
+  static constexpr int kIndexInFileMessages = 49;
   friend void swap(AssumeAndDropEvent& a, AssumeAndDropEvent& b) { a.Swap(&b); }
   inline void Swap(AssumeAndDropEvent* other) {
     if (other == this) return;
@@ -9106,7 +9831,7 @@ class AssignedSquawkEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AssignedSquawkEvent*>(
         &_AssignedSquawkEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 31;
+  static constexpr int kIndexInFileMessages = 34;
   friend void swap(AssignedSquawkEvent& a, AssignedSquawkEvent& b) { a.Swap(&b); }
   inline void Swap(AssignedSquawkEvent* other) {
     if (other == this) return;
@@ -9285,7 +10010,7 @@ class AssignedSpeed final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AssignedSpeed*>(
         &_AssignedSpeed_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 62;
+  static constexpr int kIndexInFileMessages = 65;
   friend void swap(AssignedSpeed& a, AssignedSpeed& b) { a.Swap(&b); }
   inline void Swap(AssignedSpeed* other) {
     if (other == this) return;
@@ -9460,7 +10185,7 @@ class AircraftRunwayEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AircraftRunwayEvent*>(
         &_AircraftRunwayEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 27;
+  static constexpr int kIndexInFileMessages = 30;
   friend void swap(AircraftRunwayEvent& a, AircraftRunwayEvent& b) { a.Swap(&b); }
   inline void Swap(AircraftRunwayEvent* other) {
     if (other == this) return;
@@ -9634,7 +10359,7 @@ class AircraftPositionUpdateEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AircraftPositionUpdateEvent*>(
         &_AircraftPositionUpdateEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 38;
+  static constexpr int kIndexInFileMessages = 41;
   friend void swap(AircraftPositionUpdateEvent& a, AircraftPositionUpdateEvent& b) { a.Swap(&b); }
   inline void Swap(AircraftPositionUpdateEvent* other) {
     if (other == this) return;
@@ -9853,7 +10578,7 @@ class AircraftInfoRemarksEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AircraftInfoRemarksEvent*>(
         &_AircraftInfoRemarksEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 25;
+  static constexpr int kIndexInFileMessages = 28;
   friend void swap(AircraftInfoRemarksEvent& a, AircraftInfoRemarksEvent& b) { a.Swap(&b); }
   inline void Swap(AircraftInfoRemarksEvent* other) {
     if (other == this) return;
@@ -10045,7 +10770,7 @@ class AircraftInfoEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AircraftInfoEvent*>(
         &_AircraftInfoEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 24;
+  static constexpr int kIndexInFileMessages = 27;
   friend void swap(AircraftInfoEvent& a, AircraftInfoEvent& b) { a.Swap(&b); }
   inline void Swap(AircraftInfoEvent* other) {
     if (other == this) return;
@@ -10219,7 +10944,7 @@ class AircraftDisconnectEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AircraftDisconnectEvent*>(
         &_AircraftDisconnectEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 40;
+  static constexpr int kIndexInFileMessages = 43;
   friend void swap(AircraftDisconnectEvent& a, AircraftDisconnectEvent& b) { a.Swap(&b); }
   inline void Swap(AircraftDisconnectEvent* other) {
     if (other == this) return;
@@ -10375,7 +11100,7 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AMANGainLossValue*>(
         &_AMANGainLossValue_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 59;
+  static constexpr int kIndexInFileMessages = 62;
   friend void swap(AMANGainLossValue& a, AMANGainLossValue& b) { a.Swap(&b); }
   inline void Swap(AMANGainLossValue* other) {
     if (other == this) return;
@@ -10759,7 +11484,7 @@ class Strip final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const Strip*>(
         &_Strip_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 7;
+  static constexpr int kIndexInFileMessages = 10;
   friend void swap(Strip& a, Strip& b) { a.Swap(&b); }
   inline void Swap(Strip* other) {
     if (other == this) return;
@@ -11473,7 +12198,7 @@ class RunwayEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const RunwayEvent*>(
         &_RunwayEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 10;
+  static constexpr int kIndexInFileMessages = 13;
   friend void swap(RunwayEvent& a, RunwayEvent& b) { a.Swap(&b); }
   inline void Swap(RunwayEvent* other) {
     if (other == this) return;
@@ -11630,7 +12355,7 @@ class CdmUpdateEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CdmUpdateEvent*>(
         &_CdmUpdateEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 12;
+  static constexpr int kIndexInFileMessages = 15;
   friend void swap(CdmUpdateEvent& a, CdmUpdateEvent& b) { a.Swap(&b); }
   inline void Swap(CdmUpdateEvent* other) {
     if (other == this) return;
@@ -12093,7 +12818,7 @@ class BackendSyncCdmData final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const BackendSyncCdmData*>(
         &_BackendSyncCdmData_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 14;
+  static constexpr int kIndexInFileMessages = 17;
   friend void swap(BackendSyncCdmData& a, BackendSyncCdmData& b) { a.Swap(&b); }
   inline void Swap(BackendSyncCdmData* other) {
     if (other == this) return;
@@ -12538,7 +13263,7 @@ class AMANRouteFactData final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AMANRouteFactData*>(
         &_AMANRouteFactData_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 61;
+  static constexpr int kIndexInFileMessages = 64;
   friend void swap(AMANRouteFactData& a, AMANRouteFactData& b) { a.Swap(&b); }
   inline void Swap(AMANRouteFactData* other) {
     if (other == this) return;
@@ -12767,7 +13492,7 @@ class AMANGainLossEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AMANGainLossEvent*>(
         &_AMANGainLossEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 60;
+  static constexpr int kIndexInFileMessages = 63;
   friend void swap(AMANGainLossEvent& a, AMANGainLossEvent& b) { a.Swap(&b); }
   inline void Swap(AMANGainLossEvent* other) {
     if (other == this) return;
@@ -12996,7 +13721,7 @@ class SyncEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const SyncEvent*>(
         &_SyncEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 9;
+  static constexpr int kIndexInFileMessages = 12;
   friend void swap(SyncEvent& a, SyncEvent& b) { a.Swap(&b); }
   inline void Swap(SyncEvent* other) {
     if (other == this) return;
@@ -13210,7 +13935,7 @@ class StripUpdateEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const StripUpdateEvent*>(
         &_StripUpdateEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 8;
+  static constexpr int kIndexInFileMessages = 11;
   friend void swap(StripUpdateEvent& a, StripUpdateEvent& b) { a.Swap(&b); }
   inline void Swap(StripUpdateEvent* other) {
     if (other == this) return;
@@ -13366,7 +14091,7 @@ class CdmUpdateBatchEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const CdmUpdateBatchEvent*>(
         &_CdmUpdateBatchEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 13;
+  static constexpr int kIndexInFileMessages = 16;
   friend void swap(CdmUpdateBatchEvent& a, CdmUpdateBatchEvent& b) { a.Swap(&b); }
   inline void Swap(CdmUpdateBatchEvent* other) {
     if (other == this) return;
@@ -13523,7 +14248,7 @@ class BackendSyncStrip final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const BackendSyncStrip*>(
         &_BackendSyncStrip_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 15;
+  static constexpr int kIndexInFileMessages = 18;
   friend void swap(BackendSyncStrip& a, BackendSyncStrip& b) { a.Swap(&b); }
   inline void Swap(BackendSyncStrip* other) {
     if (other == this) return;
@@ -13871,7 +14596,7 @@ class AMANRouteFactEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const AMANRouteFactEvent*>(
         &_AMANRouteFactEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 63;
+  static constexpr int kIndexInFileMessages = 66;
   friend void swap(AMANRouteFactEvent& a, AMANRouteFactEvent& b) { a.Swap(&b); }
   inline void Swap(AMANRouteFactEvent* other) {
     if (other == this) return;
@@ -14039,7 +14764,7 @@ class BackendSyncEvent final : public ::google::protobuf::MessageLite
     return reinterpret_cast<const BackendSyncEvent*>(
         &_BackendSyncEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 16;
+  static constexpr int kIndexInFileMessages = 19;
   friend void swap(BackendSyncEvent& a, BackendSyncEvent& b) { a.Swap(&b); }
   inline void Swap(BackendSyncEvent* other) {
     if (other == this) return;
@@ -14273,6 +14998,8 @@ class Envelope final : public ::google::protobuf::MessageLite
     kSendFrequencyMessage = 54,
     kFrequencyMessageResult = 55,
     kMasterInfo = 56,
+    kControl = 57,
+    kMembershipRemoved = 58,
     EVENT_NOT_SET = 0,
   };
   static inline const Envelope* internal_default_instance() {
@@ -14341,6 +15068,7 @@ class Envelope final : public ::google::protobuf::MessageLite
 
   // accessors -------------------------------------------------------
   enum : int {
+    kContextFieldNumber = 100,
     kTokenFieldNumber = 1,
     kLoginFieldNumber = 2,
     kControllerOnlineFieldNumber = 3,
@@ -14397,7 +15125,24 @@ class Envelope final : public ::google::protobuf::MessageLite
     kSendFrequencyMessageFieldNumber = 54,
     kFrequencyMessageResultFieldNumber = 55,
     kMasterInfoFieldNumber = 56,
+    kControlFieldNumber = 57,
+    kMembershipRemovedFieldNumber = 58,
   };
+  // .flightstrips.euroscope.v1.MembershipContext context = 100;
+  bool has_context() const;
+  void clear_context() ;
+  const ::flightstrips::euroscope::v1::MembershipContext& context() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::MembershipContext* release_context();
+  ::flightstrips::euroscope::v1::MembershipContext* mutable_context();
+  void set_allocated_context(::flightstrips::euroscope::v1::MembershipContext* value);
+  void unsafe_arena_set_allocated_context(::flightstrips::euroscope::v1::MembershipContext* value);
+  ::flightstrips::euroscope::v1::MembershipContext* unsafe_arena_release_context();
+
+  private:
+  const ::flightstrips::euroscope::v1::MembershipContext& _internal_context() const;
+  ::flightstrips::euroscope::v1::MembershipContext* _internal_mutable_context();
+
+  public:
   // .flightstrips.euroscope.v1.TokenEvent token = 1;
   bool has_token() const;
   private:
@@ -15462,6 +16207,44 @@ class Envelope final : public ::google::protobuf::MessageLite
   ::flightstrips::euroscope::v1::MasterInfoEvent* _internal_mutable_master_info();
 
   public:
+  // .flightstrips.euroscope.v1.ControlEvent control = 57;
+  bool has_control() const;
+  private:
+  bool _internal_has_control() const;
+
+  public:
+  void clear_control() ;
+  const ::flightstrips::euroscope::v1::ControlEvent& control() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::ControlEvent* release_control();
+  ::flightstrips::euroscope::v1::ControlEvent* mutable_control();
+  void set_allocated_control(::flightstrips::euroscope::v1::ControlEvent* value);
+  void unsafe_arena_set_allocated_control(::flightstrips::euroscope::v1::ControlEvent* value);
+  ::flightstrips::euroscope::v1::ControlEvent* unsafe_arena_release_control();
+
+  private:
+  const ::flightstrips::euroscope::v1::ControlEvent& _internal_control() const;
+  ::flightstrips::euroscope::v1::ControlEvent* _internal_mutable_control();
+
+  public:
+  // .flightstrips.euroscope.v1.MembershipRemovedEvent membership_removed = 58;
+  bool has_membership_removed() const;
+  private:
+  bool _internal_has_membership_removed() const;
+
+  public:
+  void clear_membership_removed() ;
+  const ::flightstrips::euroscope::v1::MembershipRemovedEvent& membership_removed() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::MembershipRemovedEvent* release_membership_removed();
+  ::flightstrips::euroscope::v1::MembershipRemovedEvent* mutable_membership_removed();
+  void set_allocated_membership_removed(::flightstrips::euroscope::v1::MembershipRemovedEvent* value);
+  void unsafe_arena_set_allocated_membership_removed(::flightstrips::euroscope::v1::MembershipRemovedEvent* value);
+  ::flightstrips::euroscope::v1::MembershipRemovedEvent* unsafe_arena_release_membership_removed();
+
+  private:
+  const ::flightstrips::euroscope::v1::MembershipRemovedEvent& _internal_membership_removed() const;
+  ::flightstrips::euroscope::v1::MembershipRemovedEvent* _internal_mutable_membership_removed();
+
+  public:
   void clear_event();
   EventCase event_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.Envelope)
@@ -15523,12 +16306,14 @@ class Envelope final : public ::google::protobuf::MessageLite
   void set_has_send_frequency_message();
   void set_has_frequency_message_result();
   void set_has_master_info();
+  void set_has_control();
+  void set_has_membership_removed();
   inline bool has_event() const;
   inline void clear_has_event();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 56, 56,
-      0, 9>
+      0, 59, 59,
+      0, 15>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -15543,6 +16328,9 @@ class Envelope final : public ::google::protobuf::MessageLite
                           ::google::protobuf::Arena* arena);
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::flightstrips::euroscope::v1::MembershipContext* context_;
     union EventUnion {
       constexpr EventUnion() : _constinit_{} {}
       ::google::protobuf::internal::ConstantInitialized _constinit_;
@@ -15602,8 +16390,9 @@ class Envelope final : public ::google::protobuf::MessageLite
       ::flightstrips::euroscope::v1::SendFrequencyMessageEvent* send_frequency_message_;
       ::flightstrips::euroscope::v1::FrequencyMessageResultEvent* frequency_message_result_;
       ::flightstrips::euroscope::v1::MasterInfoEvent* master_info_;
+      ::flightstrips::euroscope::v1::ControlEvent* control_;
+      ::flightstrips::euroscope::v1::MembershipRemovedEvent* membership_removed_;
     } event_;
-    mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -15626,6 +16415,102 @@ class Envelope final : public ::google::protobuf::MessageLite
 // -------------------------------------------------------------------
 
 // Envelope
+
+// .flightstrips.euroscope.v1.MembershipContext context = 100;
+inline bool Envelope::has_context() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.context_ != nullptr);
+  return value;
+}
+inline void Envelope::clear_context() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.context_ != nullptr) _impl_.context_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const ::flightstrips::euroscope::v1::MembershipContext& Envelope::_internal_context() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::euroscope::v1::MembershipContext* p = _impl_.context_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::euroscope::v1::MembershipContext&>(::flightstrips::euroscope::v1::_MembershipContext_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::MembershipContext& Envelope::context() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.context)
+  return _internal_context();
+}
+inline void Envelope::unsafe_arena_set_allocated_context(::flightstrips::euroscope::v1::MembershipContext* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.context_);
+  }
+  _impl_.context_ = reinterpret_cast<::flightstrips::euroscope::v1::MembershipContext*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.context)
+}
+inline ::flightstrips::euroscope::v1::MembershipContext* Envelope::release_context() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::euroscope::v1::MembershipContext* released = _impl_.context_;
+  _impl_.context_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::euroscope::v1::MembershipContext* Envelope::unsafe_arena_release_context() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.context)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::euroscope::v1::MembershipContext* temp = _impl_.context_;
+  _impl_.context_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::euroscope::v1::MembershipContext* Envelope::_internal_mutable_context() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.context_ == nullptr) {
+    auto* p = ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::MembershipContext>(GetArena());
+    _impl_.context_ = reinterpret_cast<::flightstrips::euroscope::v1::MembershipContext*>(p);
+  }
+  return _impl_.context_;
+}
+inline ::flightstrips::euroscope::v1::MembershipContext* Envelope::mutable_context() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::flightstrips::euroscope::v1::MembershipContext* _msg = _internal_mutable_context();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.context)
+  return _msg;
+}
+inline void Envelope::set_allocated_context(::flightstrips::euroscope::v1::MembershipContext* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete (_impl_.context_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.context_ = reinterpret_cast<::flightstrips::euroscope::v1::MembershipContext*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.context)
+}
 
 // .flightstrips.euroscope.v1.TokenEvent token = 1;
 inline bool Envelope::has_token() const {
@@ -19939,6 +20824,160 @@ inline ::flightstrips::euroscope::v1::MasterInfoEvent* Envelope::mutable_master_
   return _msg;
 }
 
+// .flightstrips.euroscope.v1.ControlEvent control = 57;
+inline bool Envelope::has_control() const {
+  return event_case() == kControl;
+}
+inline bool Envelope::_internal_has_control() const {
+  return event_case() == kControl;
+}
+inline void Envelope::set_has_control() {
+  _impl_._oneof_case_[0] = kControl;
+}
+inline void Envelope::clear_control() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (event_case() == kControl) {
+    if (GetArena() == nullptr) {
+      delete _impl_.event_.control_;
+    }
+    clear_has_event();
+  }
+}
+inline ::flightstrips::euroscope::v1::ControlEvent* Envelope::release_control() {
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.control)
+  if (event_case() == kControl) {
+    clear_has_event();
+    auto* temp = _impl_.event_.control_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.event_.control_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::euroscope::v1::ControlEvent& Envelope::_internal_control() const {
+  return event_case() == kControl ? *_impl_.event_.control_ : reinterpret_cast<::flightstrips::euroscope::v1::ControlEvent&>(::flightstrips::euroscope::v1::_ControlEvent_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::ControlEvent& Envelope::control() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.control)
+  return _internal_control();
+}
+inline ::flightstrips::euroscope::v1::ControlEvent* Envelope::unsafe_arena_release_control() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.euroscope.v1.Envelope.control)
+  if (event_case() == kControl) {
+    clear_has_event();
+    auto* temp = _impl_.event_.control_;
+    _impl_.event_.control_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Envelope::unsafe_arena_set_allocated_control(::flightstrips::euroscope::v1::ControlEvent* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_event();
+  if (value) {
+    set_has_control();
+    _impl_.event_.control_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.control)
+}
+inline ::flightstrips::euroscope::v1::ControlEvent* Envelope::_internal_mutable_control() {
+  if (event_case() != kControl) {
+    clear_event();
+    set_has_control();
+    _impl_.event_.control_ =
+        ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::ControlEvent>(GetArena());
+  }
+  return _impl_.event_.control_;
+}
+inline ::flightstrips::euroscope::v1::ControlEvent* Envelope::mutable_control() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::euroscope::v1::ControlEvent* _msg = _internal_mutable_control();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.control)
+  return _msg;
+}
+
+// .flightstrips.euroscope.v1.MembershipRemovedEvent membership_removed = 58;
+inline bool Envelope::has_membership_removed() const {
+  return event_case() == kMembershipRemoved;
+}
+inline bool Envelope::_internal_has_membership_removed() const {
+  return event_case() == kMembershipRemoved;
+}
+inline void Envelope::set_has_membership_removed() {
+  _impl_._oneof_case_[0] = kMembershipRemoved;
+}
+inline void Envelope::clear_membership_removed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (event_case() == kMembershipRemoved) {
+    if (GetArena() == nullptr) {
+      delete _impl_.event_.membership_removed_;
+    }
+    clear_has_event();
+  }
+}
+inline ::flightstrips::euroscope::v1::MembershipRemovedEvent* Envelope::release_membership_removed() {
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.membership_removed)
+  if (event_case() == kMembershipRemoved) {
+    clear_has_event();
+    auto* temp = _impl_.event_.membership_removed_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.event_.membership_removed_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::euroscope::v1::MembershipRemovedEvent& Envelope::_internal_membership_removed() const {
+  return event_case() == kMembershipRemoved ? *_impl_.event_.membership_removed_ : reinterpret_cast<::flightstrips::euroscope::v1::MembershipRemovedEvent&>(::flightstrips::euroscope::v1::_MembershipRemovedEvent_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::MembershipRemovedEvent& Envelope::membership_removed() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.membership_removed)
+  return _internal_membership_removed();
+}
+inline ::flightstrips::euroscope::v1::MembershipRemovedEvent* Envelope::unsafe_arena_release_membership_removed() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.euroscope.v1.Envelope.membership_removed)
+  if (event_case() == kMembershipRemoved) {
+    clear_has_event();
+    auto* temp = _impl_.event_.membership_removed_;
+    _impl_.event_.membership_removed_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Envelope::unsafe_arena_set_allocated_membership_removed(::flightstrips::euroscope::v1::MembershipRemovedEvent* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_event();
+  if (value) {
+    set_has_membership_removed();
+    _impl_.event_.membership_removed_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.membership_removed)
+}
+inline ::flightstrips::euroscope::v1::MembershipRemovedEvent* Envelope::_internal_mutable_membership_removed() {
+  if (event_case() != kMembershipRemoved) {
+    clear_event();
+    set_has_membership_removed();
+    _impl_.event_.membership_removed_ =
+        ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::MembershipRemovedEvent>(GetArena());
+  }
+  return _impl_.event_.membership_removed_;
+}
+inline ::flightstrips::euroscope::v1::MembershipRemovedEvent* Envelope::mutable_membership_removed() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::euroscope::v1::MembershipRemovedEvent* _msg = _internal_mutable_membership_removed();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.membership_removed)
+  return _msg;
+}
+
 inline bool Envelope::has_event() const {
   return event_case() != EVENT_NOT_SET;
 }
@@ -20072,6 +21111,802 @@ inline bool TokenEvent::_internal_frequency_messages() const {
 inline void TokenEvent::_internal_set_frequency_messages(bool value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.frequency_messages_ = value;
+}
+
+// string instance_id = 4;
+inline void TokenEvent::clear_instance_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.instance_id_.ClearToEmpty();
+}
+inline const std::string& TokenEvent::instance_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.TokenEvent.instance_id)
+  return _internal_instance_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void TokenEvent::set_instance_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.instance_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.TokenEvent.instance_id)
+}
+inline std::string* TokenEvent::mutable_instance_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_instance_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.TokenEvent.instance_id)
+  return _s;
+}
+inline const std::string& TokenEvent::_internal_instance_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.instance_id_.Get();
+}
+inline void TokenEvent::_internal_set_instance_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.instance_id_.Set(value, GetArena());
+}
+inline std::string* TokenEvent::_internal_mutable_instance_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.instance_id_.Mutable( GetArena());
+}
+inline std::string* TokenEvent::release_instance_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.TokenEvent.instance_id)
+  return _impl_.instance_id_.Release();
+}
+inline void TokenEvent::set_allocated_instance_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.instance_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.instance_id_.IsDefault()) {
+          _impl_.instance_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.TokenEvent.instance_id)
+}
+
+// -------------------------------------------------------------------
+
+// MembershipContext
+
+// string instance_id = 1;
+inline void MembershipContext::clear_instance_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.instance_id_.ClearToEmpty();
+}
+inline const std::string& MembershipContext::instance_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MembershipContext.instance_id)
+  return _internal_instance_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void MembershipContext::set_instance_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.instance_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MembershipContext.instance_id)
+}
+inline std::string* MembershipContext::mutable_instance_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_instance_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.MembershipContext.instance_id)
+  return _s;
+}
+inline const std::string& MembershipContext::_internal_instance_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.instance_id_.Get();
+}
+inline void MembershipContext::_internal_set_instance_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.instance_id_.Set(value, GetArena());
+}
+inline std::string* MembershipContext::_internal_mutable_instance_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.instance_id_.Mutable( GetArena());
+}
+inline std::string* MembershipContext::release_instance_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.MembershipContext.instance_id)
+  return _impl_.instance_id_.Release();
+}
+inline void MembershipContext::set_allocated_instance_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.instance_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.instance_id_.IsDefault()) {
+          _impl_.instance_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.MembershipContext.instance_id)
+}
+
+// uint64 transport_generation = 2;
+inline void MembershipContext::clear_transport_generation() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.transport_generation_ = ::uint64_t{0u};
+}
+inline ::uint64_t MembershipContext::transport_generation() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MembershipContext.transport_generation)
+  return _internal_transport_generation();
+}
+inline void MembershipContext::set_transport_generation(::uint64_t value) {
+  _internal_set_transport_generation(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MembershipContext.transport_generation)
+}
+inline ::uint64_t MembershipContext::_internal_transport_generation() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.transport_generation_;
+}
+inline void MembershipContext::_internal_set_transport_generation(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.transport_generation_ = value;
+}
+
+// string membership_id = 3;
+inline void MembershipContext::clear_membership_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.membership_id_.ClearToEmpty();
+}
+inline const std::string& MembershipContext::membership_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MembershipContext.membership_id)
+  return _internal_membership_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void MembershipContext::set_membership_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.membership_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MembershipContext.membership_id)
+}
+inline std::string* MembershipContext::mutable_membership_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_membership_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.MembershipContext.membership_id)
+  return _s;
+}
+inline const std::string& MembershipContext::_internal_membership_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.membership_id_.Get();
+}
+inline void MembershipContext::_internal_set_membership_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.membership_id_.Set(value, GetArena());
+}
+inline std::string* MembershipContext::_internal_mutable_membership_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.membership_id_.Mutable( GetArena());
+}
+inline std::string* MembershipContext::release_membership_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.MembershipContext.membership_id)
+  return _impl_.membership_id_.Release();
+}
+inline void MembershipContext::set_allocated_membership_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.membership_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.membership_id_.IsDefault()) {
+          _impl_.membership_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.MembershipContext.membership_id)
+}
+
+// int32 session_id = 4;
+inline void MembershipContext::clear_session_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.session_id_ = 0;
+}
+inline ::int32_t MembershipContext::session_id() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MembershipContext.session_id)
+  return _internal_session_id();
+}
+inline void MembershipContext::set_session_id(::int32_t value) {
+  _internal_set_session_id(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MembershipContext.session_id)
+}
+inline ::int32_t MembershipContext::_internal_session_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.session_id_;
+}
+inline void MembershipContext::_internal_set_session_id(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.session_id_ = value;
+}
+
+// string airport = 5;
+inline void MembershipContext::clear_airport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_.ClearToEmpty();
+}
+inline const std::string& MembershipContext::airport() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MembershipContext.airport)
+  return _internal_airport();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void MembershipContext::set_airport(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MembershipContext.airport)
+}
+inline std::string* MembershipContext::mutable_airport() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_airport();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.MembershipContext.airport)
+  return _s;
+}
+inline const std::string& MembershipContext::_internal_airport() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.airport_.Get();
+}
+inline void MembershipContext::_internal_set_airport(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_.Set(value, GetArena());
+}
+inline std::string* MembershipContext::_internal_mutable_airport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.airport_.Mutable( GetArena());
+}
+inline std::string* MembershipContext::release_airport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.MembershipContext.airport)
+  return _impl_.airport_.Release();
+}
+inline void MembershipContext::set_allocated_airport(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.airport_.IsDefault()) {
+          _impl_.airport_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.MembershipContext.airport)
+}
+
+// string environment = 6;
+inline void MembershipContext::clear_environment() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.environment_.ClearToEmpty();
+}
+inline const std::string& MembershipContext::environment() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MembershipContext.environment)
+  return _internal_environment();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void MembershipContext::set_environment(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.environment_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MembershipContext.environment)
+}
+inline std::string* MembershipContext::mutable_environment() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_environment();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.MembershipContext.environment)
+  return _s;
+}
+inline const std::string& MembershipContext::_internal_environment() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.environment_.Get();
+}
+inline void MembershipContext::_internal_set_environment(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.environment_.Set(value, GetArena());
+}
+inline std::string* MembershipContext::_internal_mutable_environment() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.environment_.Mutable( GetArena());
+}
+inline std::string* MembershipContext::release_environment() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.MembershipContext.environment)
+  return _impl_.environment_.Release();
+}
+inline void MembershipContext::set_allocated_environment(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.environment_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.environment_.IsDefault()) {
+          _impl_.environment_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.MembershipContext.environment)
+}
+
+// uint64 generation = 7;
+inline void MembershipContext::clear_generation() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.generation_ = ::uint64_t{0u};
+}
+inline ::uint64_t MembershipContext::generation() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MembershipContext.generation)
+  return _internal_generation();
+}
+inline void MembershipContext::set_generation(::uint64_t value) {
+  _internal_set_generation(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MembershipContext.generation)
+}
+inline ::uint64_t MembershipContext::_internal_generation() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.generation_;
+}
+inline void MembershipContext::_internal_set_generation(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.generation_ = value;
+}
+
+// uint64 master_epoch = 8;
+inline void MembershipContext::clear_master_epoch() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_epoch_ = ::uint64_t{0u};
+}
+inline ::uint64_t MembershipContext::master_epoch() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MembershipContext.master_epoch)
+  return _internal_master_epoch();
+}
+inline void MembershipContext::set_master_epoch(::uint64_t value) {
+  _internal_set_master_epoch(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MembershipContext.master_epoch)
+}
+inline ::uint64_t MembershipContext::_internal_master_epoch() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.master_epoch_;
+}
+inline void MembershipContext::_internal_set_master_epoch(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_epoch_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// ControlEvent
+
+// string environment = 1;
+inline void ControlEvent::clear_environment() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.environment_.ClearToEmpty();
+}
+inline const std::string& ControlEvent::environment() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.environment)
+  return _internal_environment();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ControlEvent::set_environment(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.environment_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.environment)
+}
+inline std::string* ControlEvent::mutable_environment() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_environment();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.ControlEvent.environment)
+  return _s;
+}
+inline const std::string& ControlEvent::_internal_environment() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.environment_.Get();
+}
+inline void ControlEvent::_internal_set_environment(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.environment_.Set(value, GetArena());
+}
+inline std::string* ControlEvent::_internal_mutable_environment() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.environment_.Mutable( GetArena());
+}
+inline std::string* ControlEvent::release_environment() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.ControlEvent.environment)
+  return _impl_.environment_.Release();
+}
+inline void ControlEvent::set_allocated_environment(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.environment_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.environment_.IsDefault()) {
+          _impl_.environment_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.ControlEvent.environment)
+}
+
+// string callsign = 2;
+inline void ControlEvent::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& ControlEvent::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ControlEvent::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.callsign)
+}
+inline std::string* ControlEvent::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.ControlEvent.callsign)
+  return _s;
+}
+inline const std::string& ControlEvent::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void ControlEvent::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* ControlEvent::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* ControlEvent::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.ControlEvent.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void ControlEvent::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.ControlEvent.callsign)
+}
+
+// string primary_frequency = 3;
+inline void ControlEvent::clear_primary_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.primary_frequency_.ClearToEmpty();
+}
+inline const std::string& ControlEvent::primary_frequency() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.primary_frequency)
+  return _internal_primary_frequency();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ControlEvent::set_primary_frequency(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.primary_frequency_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.primary_frequency)
+}
+inline std::string* ControlEvent::mutable_primary_frequency() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_primary_frequency();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.ControlEvent.primary_frequency)
+  return _s;
+}
+inline const std::string& ControlEvent::_internal_primary_frequency() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.primary_frequency_.Get();
+}
+inline void ControlEvent::_internal_set_primary_frequency(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.primary_frequency_.Set(value, GetArena());
+}
+inline std::string* ControlEvent::_internal_mutable_primary_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.primary_frequency_.Mutable( GetArena());
+}
+inline std::string* ControlEvent::release_primary_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.ControlEvent.primary_frequency)
+  return _impl_.primary_frequency_.Release();
+}
+inline void ControlEvent::set_allocated_primary_frequency(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.primary_frequency_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.primary_frequency_.IsDefault()) {
+          _impl_.primary_frequency_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.ControlEvent.primary_frequency)
+}
+
+// repeated string tuned_frequencies = 4;
+inline int ControlEvent::_internal_tuned_frequencies_size() const {
+  return _internal_tuned_frequencies().size();
+}
+inline int ControlEvent::tuned_frequencies_size() const {
+  return _internal_tuned_frequencies_size();
+}
+inline void ControlEvent::clear_tuned_frequencies() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tuned_frequencies_.Clear();
+}
+inline std::string* ControlEvent::add_tuned_frequencies()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  std::string* _s = _internal_mutable_tuned_frequencies()->Add();
+  // @@protoc_insertion_point(field_add_mutable:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+  return _s;
+}
+inline const std::string& ControlEvent::tuned_frequencies(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+  return _internal_tuned_frequencies().Get(index);
+}
+inline std::string* ControlEvent::mutable_tuned_frequencies(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+  return _internal_mutable_tuned_frequencies()->Mutable(index);
+}
+inline void ControlEvent::set_tuned_frequencies(int index, const std::string& value) {
+  _internal_mutable_tuned_frequencies()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline void ControlEvent::set_tuned_frequencies(int index, std::string&& value) {
+  _internal_mutable_tuned_frequencies()->Mutable(index)->assign(std::move(value));
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline void ControlEvent::set_tuned_frequencies(int index, const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  _internal_mutable_tuned_frequencies()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline void ControlEvent::set_tuned_frequencies(int index, const char* value,
+                              std::size_t size) {
+  _internal_mutable_tuned_frequencies()->Mutable(index)->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline void ControlEvent::set_tuned_frequencies(int index, absl::string_view value) {
+  _internal_mutable_tuned_frequencies()->Mutable(index)->assign(
+      value.data(), value.size());
+  // @@protoc_insertion_point(field_set_string_piece:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline void ControlEvent::add_tuned_frequencies(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_tuned_frequencies()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline void ControlEvent::add_tuned_frequencies(std::string&& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_tuned_frequencies()->Add(std::move(value));
+  // @@protoc_insertion_point(field_add:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline void ControlEvent::add_tuned_frequencies(const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_tuned_frequencies()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline void ControlEvent::add_tuned_frequencies(const char* value, std::size_t size) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_tuned_frequencies()->Add()->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline void ControlEvent::add_tuned_frequencies(absl::string_view value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_tuned_frequencies()->Add()->assign(value.data(),
+                                                     value.size());
+  // @@protoc_insertion_point(field_add_string_piece:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+ControlEvent::tuned_frequencies() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+  return _internal_tuned_frequencies();
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+ControlEvent::mutable_tuned_frequencies() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_tuned_frequencies();
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+ControlEvent::_internal_tuned_frequencies() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tuned_frequencies_;
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+ControlEvent::_internal_mutable_tuned_frequencies() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.tuned_frequencies_;
+}
+
+// bool observer = 5;
+inline void ControlEvent::clear_observer() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.observer_ = false;
+}
+inline bool ControlEvent::observer() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.observer)
+  return _internal_observer();
+}
+inline void ControlEvent::set_observer(bool value) {
+  _internal_set_observer(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.observer)
+}
+inline bool ControlEvent::_internal_observer() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.observer_;
+}
+inline void ControlEvent::_internal_set_observer(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.observer_ = value;
+}
+
+// string local_ip = 6;
+inline void ControlEvent::clear_local_ip() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.local_ip_.ClearToEmpty();
+}
+inline const std::string& ControlEvent::local_ip() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.local_ip)
+  return _internal_local_ip();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ControlEvent::set_local_ip(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.local_ip_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.local_ip)
+}
+inline std::string* ControlEvent::mutable_local_ip() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_local_ip();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.ControlEvent.local_ip)
+  return _s;
+}
+inline const std::string& ControlEvent::_internal_local_ip() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.local_ip_.Get();
+}
+inline void ControlEvent::_internal_set_local_ip(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.local_ip_.Set(value, GetArena());
+}
+inline std::string* ControlEvent::_internal_mutable_local_ip() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.local_ip_.Mutable( GetArena());
+}
+inline std::string* ControlEvent::release_local_ip() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.ControlEvent.local_ip)
+  return _impl_.local_ip_.Release();
+}
+inline void ControlEvent::set_allocated_local_ip(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.local_ip_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.local_ip_.IsDefault()) {
+          _impl_.local_ip_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.ControlEvent.local_ip)
+}
+
+// string relevant_airport = 7;
+inline void ControlEvent::clear_relevant_airport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.relevant_airport_.ClearToEmpty();
+}
+inline const std::string& ControlEvent::relevant_airport() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.relevant_airport)
+  return _internal_relevant_airport();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ControlEvent::set_relevant_airport(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.relevant_airport_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.relevant_airport)
+}
+inline std::string* ControlEvent::mutable_relevant_airport() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_relevant_airport();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.ControlEvent.relevant_airport)
+  return _s;
+}
+inline const std::string& ControlEvent::_internal_relevant_airport() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.relevant_airport_.Get();
+}
+inline void ControlEvent::_internal_set_relevant_airport(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.relevant_airport_.Set(value, GetArena());
+}
+inline std::string* ControlEvent::_internal_mutable_relevant_airport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.relevant_airport_.Mutable( GetArena());
+}
+inline std::string* ControlEvent::release_relevant_airport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.ControlEvent.relevant_airport)
+  return _impl_.relevant_airport_.Release();
+}
+inline void ControlEvent::set_allocated_relevant_airport(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.relevant_airport_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.relevant_airport_.IsDefault()) {
+          _impl_.relevant_airport_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.ControlEvent.relevant_airport)
+}
+
+// int32 range = 8;
+inline void ControlEvent::clear_range() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.range_ = 0;
+}
+inline ::int32_t ControlEvent::range() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.range)
+  return _internal_range();
+}
+inline void ControlEvent::set_range(::int32_t value) {
+  _internal_set_range(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.range)
+}
+inline ::int32_t ControlEvent::_internal_range() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.range_;
+}
+inline void ControlEvent::_internal_set_range(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.range_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// MembershipRemovedEvent
+
+// string reason = 1;
+inline void MembershipRemovedEvent::clear_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_.ClearToEmpty();
+}
+inline const std::string& MembershipRemovedEvent::reason() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.MembershipRemovedEvent.reason)
+  return _internal_reason();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void MembershipRemovedEvent::set_reason(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.MembershipRemovedEvent.reason)
+}
+inline std::string* MembershipRemovedEvent::mutable_reason() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_reason();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.MembershipRemovedEvent.reason)
+  return _s;
+}
+inline const std::string& MembershipRemovedEvent::_internal_reason() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.reason_.Get();
+}
+inline void MembershipRemovedEvent::_internal_set_reason(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_.Set(value, GetArena());
+}
+inline std::string* MembershipRemovedEvent::_internal_mutable_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.reason_.Mutable( GetArena());
+}
+inline std::string* MembershipRemovedEvent::release_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.MembershipRemovedEvent.reason)
+  return _impl_.reason_.Release();
+}
+inline void MembershipRemovedEvent::set_allocated_reason(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.reason_.IsDefault()) {
+          _impl_.reason_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.MembershipRemovedEvent.reason)
 }
 
 // -------------------------------------------------------------------

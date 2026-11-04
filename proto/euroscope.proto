@@ -65,12 +65,16 @@ enum EventType {
   EVENT_SEND_FREQUENCY_MESSAGE = 54;
   EVENT_FREQUENCY_MESSAGE_RESULT = 55;
   EVENT_MASTER_INFO = 56;
+  EVENT_CONTROL = 57;
+  EVENT_MEMBERSHIP_REMOVED = 58;
 }
 
 // Every websocket frame contains exactly one event. Using a oneof makes the
 // event discriminator and payload inseparable and gives both languages an
 // exhaustive generated dispatch API.
 message Envelope {
+  // Assigned by the backend. Absent only during token/control establishment.
+  MembershipContext context = 100;
   oneof event {
     TokenEvent token = 1;
     LoginEvent login = 2;
@@ -128,6 +132,8 @@ message Envelope {
     SendFrequencyMessageEvent send_frequency_message = 54;
     FrequencyMessageResultEvent frequency_message_result = 55;
     MasterInfoEvent master_info = 56;
+    ControlEvent control = 57;
+    MembershipRemovedEvent membership_removed = 58;
   }
 }
 
@@ -135,7 +141,37 @@ message TokenEvent {
   string token = 1;
   string version = 2;
   bool frequency_messages = 3;
+  // Random process identity, retained across websocket reconnects, never a CID.
+  string instance_id = 4;
 }
+
+// A membership incarnation is never reused, including after rejoin. Environment
+// includes the exercise/playback identity, not merely LIVE versus training.
+message MembershipContext {
+  string instance_id = 1;
+  uint64 transport_generation = 2;
+  string membership_id = 3;
+  int32 session_id = 4;
+  string airport = 5;
+  string environment = 6;
+  uint64 generation = 7;
+  uint64 master_epoch = 8;
+}
+
+// Physical-instance evidence remains available with zero memberships. A control
+// update is not an operational heartbeat. Airport admission is backend-owned.
+message ControlEvent {
+  string environment = 1;
+  string callsign = 2;
+  string primary_frequency = 3;
+  repeated string tuned_frequencies = 4;
+  bool observer = 5;
+  string local_ip = 6;
+  string relevant_airport = 7;
+  int32 range = 8;
+}
+
+message MembershipRemovedEvent { string reason = 1; }
 
 message LoginEvent {
   string airport = 1;

@@ -59,8 +59,10 @@ type cidOnlineMessage struct {
 }
 
 type cidDisconnectMessage struct {
-	cid     string
-	session int32
+	cid        string
+	session    int32
+	instance   string
+	membership string
 }
 
 type Hub struct {
@@ -89,9 +91,9 @@ type Hub struct {
 	messages   map[int32][]frontend.MessageReceivedEvent
 
 	metarMu          sync.RWMutex
-	metarCache       map[int32]string // session ID → latest METAR string
-	arrAtisCodeCache map[int32]string // session ID → latest arrival ATIS code
-	depAtisCodeCache map[int32]string // session ID → latest departure ATIS code
+	metarCache       map[int32]string // session ID -> latest METAR string
+	arrAtisCodeCache map[int32]string // session ID -> latest arrival ATIS code
+	depAtisCodeCache map[int32]string // session ID -> latest departure ATIS code
 
 	clxMu        sync.RWMutex
 	clxOverrides map[int32]map[string]bool
@@ -372,7 +374,11 @@ func (hub *Hub) newStripUpdateService() frontendStripUpdateUseCase {
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser, authenticationEvent events.AuthenticationEvent) (*Client, error) {
 	sessionRepo := hub.server.GetSessionRepository()
 
-	controller, err := hub.frontendController(user.GetCid())
+	selected, err := selectionFromAuthentication(authenticationEvent)
+	if err != nil {
+		return nil, err
+	}
+	controller, err := hub.controllerForSelection(user.GetCid(), selected)
 
 	var session int32
 	var sessionName, position, airport, callsign string
@@ -401,7 +407,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		airport = dbSession.Airport
 		callsign = controller.Callsign
 		if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
-			readOnly = observerInSession(esHub, session, user.GetCid())
+			readOnly = hub.controllerReadOnly(controller, user.GetCid())
 		}
 	}
 
@@ -425,6 +431,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 
 	// Create and return the client
 	client := &Client{
+		selection:   selected,
 		conn:        conn,
 		user:        user,
 		session:     session,
@@ -686,44 +693,29 @@ func (hub *Hub) MembershipDisconnected(session int32, cid string) {
 	hub.cidDisconnect <- cidDisconnectMessage{cid: cid, session: session}
 }
 
+func (hub *Hub) PluginMembershipDisconnected(session int32, cid, instance, membership string) {
+	hub.cidDisconnect <- cidDisconnectMessage{cid: cid, session: session, instance: instance, membership: membership}
+}
+
 func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
-	sessionRepo := hub.server.GetSessionRepository()
-
-	var controller *internalModels.Controller
-	var dbSession *internalModels.Session
-
-	if loadedController, err := hub.frontendController(msg.cid); err == nil {
-		if loadedController.Session != msg.session {
-			return nil // ignore a notification from an older ES connection
-		}
-		controller = loadedController
-		if loadedSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
-			dbSession = loadedSession
-		} else {
-			slog.Error("Failed to get session for CID online client",
-				slog.String("cid", msg.cid), slog.Any("error", err))
-		}
-	} else {
-		slog.Error("Failed to get controller for CID online client",
-			slog.String("cid", msg.cid), slog.Any("error", err))
-	}
-
-	readOnly := false
-	if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
-		readOnly = observerInSession(esHub, msg.session, msg.cid)
-	}
-
-	initialClients := make([]*Client, 0)
+	initial := []*Client{}
 	for client := range hub.clients {
 		if client.GetCid() != msg.cid {
 			continue
 		}
-		if hub.associateClientWithSession(client, msg.session, controller, dbSession, readOnly) {
-			initialClients = append(initialClients, client)
+		controller, err := hub.controllerForSelection(msg.cid, client.selection)
+		if err != nil || controller.Session != msg.session {
+			continue
+		}
+		session, err := hub.server.GetSessionRepository().GetByID(context.Background(), controller.Session)
+		if err != nil {
+			continue
+		}
+		if hub.associateClientWithSession(client, msg.session, controller, session, hub.controllerReadOnly(controller, msg.cid)) {
+			initial = append(initial, client)
 		}
 	}
-
-	return initialClients
+	return initial
 }
 
 func (hub *Hub) associateSessionSyncedClients(session int32) []*Client {
@@ -760,12 +752,19 @@ func (hub *Hub) associateSessionSyncedClients(session int32) []*Client {
 			continue
 		}
 		controller := controllersByCID[strings.TrimSpace(client.GetCid())]
+		if _, live := hub.server.GetEuroscopeHub().(liveFrontendControllerSource); live || client.selection.explicit() {
+			selected, err := hub.controllerForSelection(client.GetCid(), client.selection)
+			if err != nil || selected.Session != session {
+				continue
+			}
+			controller = selected
+		}
 		if controller == nil {
 			continue
 		}
 		readOnly := false
 		if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
-			readOnly = observerInSession(esHub, session, client.GetCid())
+			readOnly = hub.controllerReadOnly(controller, client.GetCid())
 		}
 		if hub.associateClientWithSession(client, session, controller, dbSession, readOnly) {
 			initialClients = append(initialClients, client)
@@ -779,7 +778,7 @@ func (hub *Hub) associateWaitingClientIfSessionReady(client *Client) bool {
 		return false
 	}
 
-	controller, err := hub.frontendController(client.GetCid())
+	controller, err := hub.controllerForSelection(client.GetCid(), client.selection)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			slog.Error("Failed to recheck controller for waiting frontend client",
@@ -800,7 +799,7 @@ func (hub *Hub) associateWaitingClientIfSessionReady(client *Client) bool {
 		return false
 	}
 
-	return hub.associateClientWithSession(client, controller.Session, controller, dbSession, observerInSession(esHub, controller.Session, client.GetCid()))
+	return hub.associateClientWithSession(client, controller.Session, controller, dbSession, hub.controllerReadOnly(controller, client.GetCid()))
 }
 
 type liveFrontendControllerSource interface {
@@ -842,9 +841,9 @@ func (hub *Hub) associateClientWithSession(client *Client, session int32, contro
 	if client == nil || controller == nil || dbSession == nil {
 		return false
 	}
-	if source, ok := hub.server.GetEuroscopeHub().(liveFrontendControllerSource); ok {
-		liveController := source.GetFrontendController(client.GetCid())
-		if liveController == nil || liveController.Session != session {
+	if _, ok := hub.server.GetEuroscopeHub().(liveFrontendControllerSource); ok {
+		liveController, err := hub.controllerForSelection(client.GetCid(), client.selection)
+		if err != nil || liveController == nil || liveController.Session != session {
 			return false
 		}
 		controller = liveController
@@ -911,8 +910,15 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 	hub.handleMembershipDisconnected(cid, 0)
 }
 func (hub *Hub) handleMembershipDisconnected(cid string, session int32) {
+	hub.handlePluginMembershipDisconnected(cidDisconnectMessage{cid: cid, session: session})
+}
+func (hub *Hub) handlePluginMembershipDisconnected(msg cidDisconnectMessage) {
+	cid, session := msg.cid, msg.session
 	for client := range hub.clients {
 		if client.GetCid() == cid && (session == 0 || client.session == session) {
+			if msg.membership != "" && client.selection.explicit() && (client.selection.instance != msg.instance || client.selection.membership != msg.membership) {
+				continue
+			}
 			readOnly := false
 			if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
 				readOnly = observerInSession(esHub, client.session, cid)
@@ -1824,7 +1830,7 @@ func (hub *Hub) Run(ctx context.Context) {
 		case msg := <-hub.cidOnline:
 			hub.handleCidOnline(msg)
 		case msg := <-hub.cidDisconnect:
-			hub.handleMembershipDisconnected(msg.cid, msg.session)
+			hub.handlePluginMembershipDisconnected(msg)
 		case session := <-hub.sessionSynced:
 			hub.handleSessionSynced(session)
 		case airport := <-hub.amanRefresh:

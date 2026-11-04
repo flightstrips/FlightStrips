@@ -28,6 +28,8 @@ type Client struct {
 	roleEligible      atomic.Bool
 	executionMu       sync.Mutex
 	executions        map[string]commandExecution
+	registered        chan struct{}
+	registrationOnce  sync.Once
 	transport         *pluginTransport
 	membership        *eventseuroscope.MembershipContext // immutable incarnation; epoch is captured separately
 	applyMu           sync.RWMutex
@@ -71,6 +73,12 @@ type clientIdentity struct {
 	callsign string
 	observer bool
 	localIP  string
+}
+
+func (c *Client) registrationComplete() {
+	if c.registered != nil {
+		c.registrationOnce.Do(func() { close(c.registered) })
+	}
 }
 
 const defaultPositionCoalesceDelay = time.Second
@@ -264,10 +272,23 @@ func (c *Client) HandlePong() error {
 		}
 		return nil
 	}
+	c.applyMu.RLock()
+	defer c.applyMu.RUnlock()
+	if c.isClosed() {
+		return nil
+	}
 	// Update the last seen timestamp in the database
 	controllerRepo := c.hub.server.GetControllerRepository()
 	now := time.Now().UTC()
-	count, err := controllerRepo.SetEuroscopeSeen(context.Background(), c.GetCid(), c.session, &now)
+	var count int64
+	var err error
+	if repo, ok := controllerRepo.(interface {
+		SetEuroscopeMembershipSeen(context.Context, string, int32, string, *time.Time) (int64, error)
+	}); ok {
+		count, err = repo.SetEuroscopeMembershipSeen(context.Background(), c.GetCid(), c.session, c.GetCallsign(), &now)
+	} else {
+		count, err = controllerRepo.SetEuroscopeSeen(context.Background(), c.GetCid(), c.session, &now)
+	}
 
 	if count != 1 {
 		return errors.New("failed to update last seen timestamp")

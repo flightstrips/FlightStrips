@@ -10,13 +10,15 @@ import (
 )
 
 type controllerRepository struct {
-	queries *database.Queries
+	queries      *database.Queries
+	membershipDB *pgxpool.Pool
 }
 
 // NewControllerRepository creates a new ControllerRepository implementation
 func NewControllerRepository(db *pgxpool.Pool) *controllerRepository {
 	return &controllerRepository{
-		queries: database.New(db),
+		queries:      database.New(db),
+		membershipDB: db,
 	}
 }
 

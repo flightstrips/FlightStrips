@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -21,14 +22,95 @@ type dispatchClient struct {
 	testClient
 	conn       *gorilla.Conn
 	dispatcher *shared.PositionDispatcher
+	auth       func() bool
+	receipt    func()
 }
 
 func (c *dispatchClient) GetConnection() *gorilla.Conn                   { return c.conn }
 func (c *dispatchClient) PositionDispatcher() *shared.PositionDispatcher { return c.dispatcher }
+func (c *dispatchClient) IsAuthenticated() bool {
+	if c.auth != nil {
+		return c.auth()
+	}
+	return true
+}
+func (c *dispatchClient) PositionFence() func(context.Context) context.Context {
+	if c.receipt != nil {
+		c.receipt()
+	}
+	return func(ctx context.Context) context.Context { return ctx }
+}
 
 type dispatchHub struct {
 	handlers shared.MessageHandlers[es.EventType, *dispatchClient]
 	done     chan struct{}
+}
+
+func TestQueuedFrameRechecksAuthenticationAtApplication(t *testing.T) {
+	h := &dispatchHub{handlers: shared.NewMessageHandlers[es.EventType, *dispatchClient](), done: make(chan struct{})}
+	var valid atomic.Bool
+	valid.Store(true)
+	var received, writes atomic.Int32
+	entered, release, queued, expired := make(chan struct{}), make(chan struct{}), make(chan struct{}), make(chan struct{})
+	var expiredOnce sync.Once
+	h.handlers.Add(es.PositionUpdate, func(_ context.Context, _ *dispatchClient, m shared.Message[es.EventType]) error {
+		var event es.AircraftPositionUpdateEvent
+		if err := m.ProtoUnmarshal(&event); err != nil {
+			return err
+		}
+		if event.Altitude == 1 {
+			close(entered)
+			<-release
+		} else {
+			writes.Add(1)
+		}
+		return nil
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := (&gorilla.Upgrader{}).Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		client := &dispatchClient{conn: conn, dispatcher: shared.NewPositionDispatcher(1, 16, nil), auth: func() bool {
+			v := valid.Load()
+			if !v {
+				expiredOnce.Do(func() { close(expired) })
+			}
+			return v
+		}, receipt: func() {
+			if received.Add(1) == 2 {
+				close(queued)
+			}
+		}}
+		ReadPump[es.EventType](h, client)
+	}))
+	defer server.Close()
+	conn, _, err := gorilla.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	require.NoError(t, err)
+	defer conn.Close()
+	for _, altitude := range []int64{1, 2} {
+		frame, err := es.MarshalEnvelope(&es.AircraftPositionUpdateEvent{Callsign: "SAS123", Altitude: altitude}, es.PositionUpdate)
+		require.NoError(t, err)
+		require.NoError(t, conn.WriteMessage(gorilla.BinaryMessage, frame))
+		if altitude == 1 {
+			<-entered
+		}
+	}
+	<-queued
+	valid.Store(false)
+	close(release)
+	select {
+	case <-expired:
+	case <-time.After(time.Second):
+		t.Fatal("queued frame did not validate expired authentication")
+	}
+	conn.Close()
+	select {
+	case <-h.done:
+	case <-time.After(time.Second):
+		t.Fatal("reader did not finish")
+	}
+	require.Zero(t, writes.Load(), "expired queued authority must never reach its handler")
 }
 
 func (h *dispatchHub) Unregister(*dispatchClient) { close(h.done) }

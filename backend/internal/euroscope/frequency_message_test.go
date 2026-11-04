@@ -39,3 +39,28 @@ func TestFrequencyMessagesPinControllerRatherThanMaster(t *testing.T) {
 	// Enqueue uses a select; a closed connection must never be eligible for a new send.
 	require.Nil(t, hub.FrequencyMessageSender(42, "123", "121.905"))
 }
+
+func TestCapturedFrequencySenderRejectsIneligibleMemberBeforeActionPreflight(t *testing.T) {
+	for _, state := range []string{"unsupported", "wrong frequency", "observer", "disconnected", "unregistered"} {
+		t.Run(state, func(t *testing.T) {
+			owner := &Client{session: 42, position: "121.905", user: shared.NewAuthenticatedUser("123", 0, jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"exp": float64(time.Now().Add(time.Hour).Unix())})), send: make(chan events.OutgoingMessage, 2), closed: make(chan struct{})}
+			owner.frequencyMessages.Store(true)
+			hub := &Hub{clients: map[*Client]bool{owner: true}}
+			binding := &commandBinding{hub: hub, client: owner, session: 42, cid: "123"}
+			switch state {
+			case "unsupported":
+				owner.frequencyMessages.Store(false)
+			case "wrong frequency":
+				owner.updateIdentity("118.105", "EKCH_TWR", false, "")
+			case "observer":
+				owner.updateIdentity("121.905", "EKCH_OBS", true, "")
+			case "disconnected":
+				owner.Close()
+			case "unregistered":
+				delete(hub.clients, owner)
+			}
+			require.Nil(t, binding.FrequencyMessageSender("121.905", nil), "frontend must reject before applying a bundled strip action")
+			require.Empty(t, owner.send)
+		})
+	}
+}

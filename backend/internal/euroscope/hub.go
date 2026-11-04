@@ -48,6 +48,7 @@ const (
 )
 
 type Hub struct {
+	controllerRows        sync.Map // airport/environment/callsign admission and detach
 	workflows             *airportworkflow.Registry
 	airports              *config.AirportRegistry
 	done                  chan struct{}
@@ -572,9 +573,19 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		return nil, errors.New("plugin instance identity is required")
 	}
 	client := &Client{conn: conn, send: make(chan events.OutgoingMessage, clientSendQueueSize), closed: make(chan struct{}), hub: hub, user: user, version: strings.TrimSpace(authenticationEvent.Version)}
+	client.registered = make(chan struct{})
 	client.frequencyMessages.Store(authenticationEvent.FrequencyMessages)
 	client.transport = &pluginTransport{root: client, instance: authenticationEvent.InstanceID, generation: newGeneration(), members: make(map[string]*Client)}
 	hub.Register(client)
+	select {
+	case <-client.registered:
+		if client.isClosed() {
+			return nil, context.Canceled
+		}
+	case <-hub.done:
+		client.Close()
+		return nil, context.Canceled
+	}
 	return client, nil
 }
 
@@ -723,13 +734,22 @@ func (hub *Hub) OnUnregister(client *Client) {
 }
 
 func (hub *Hub) clearClientCid(client *Client) error {
+	rowLock := hub.controllerRowLock(client.airport, client.sessionName, client.GetCallsign())
+	rowLock.Lock()
+	defer rowLock.Unlock()
 	for _, other := range hub.clientsSnapshot() {
-		if other != client && other.session == client.session && other.GetCallsign() == client.GetCallsign() && other.GetCid() == client.GetCid() && !other.isClosed() {
+		if other != client && other.session == client.session && other.GetCallsign() == client.GetCallsign() && !other.isClosed() {
 			return nil
 		}
 	}
 	controllerRepo := hub.server.GetControllerRepository()
 	callsign := client.GetCallsign()
+	if repo, ok := controllerRepo.(interface {
+		DetachMembership(context.Context, string, int32, string) (int64, error)
+	}); ok {
+		_, err := repo.DetachMembership(context.Background(), client.GetCid(), client.session, callsign)
+		return err
+	}
 	count, err := controllerRepo.SetCid(context.Background(), client.session, callsign, nil)
 	if err != nil {
 		return err
@@ -1548,6 +1568,7 @@ func (hub *Hub) Run(ctx context.Context) {
 		case client := <-hub.register:
 			if hub.draining.Load() {
 				_ = client.Close()
+				client.registrationComplete()
 				continue
 			}
 			if client.transport != nil && client.membership == nil {
@@ -1568,6 +1589,7 @@ func (hub *Hub) Run(ctx context.Context) {
 					hub.scheduleTransportRemoval(root)
 				}
 				client.Enqueue(euroscope.NewScopedMessage(client.wireContext(), euroscope.ControlEvent{}))
+				client.registrationComplete()
 				continue
 			}
 			hub.clientsMu.Lock()

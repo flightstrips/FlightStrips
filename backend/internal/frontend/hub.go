@@ -489,8 +489,9 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 }
 
 func (hub *Hub) sendAMANCoordinationSnapshot(ctx context.Context, client *Client) {
+	identity := client.messageIdentity(ctx)
 	result, err := hub.amanCoordination.Snapshot(ctx, coordinationrequest.CommandContext{
-		SessionID: client.session, Airport: client.airport, Actor: client.GetCid(), Role: hub.amanRole(client), ReceivedAt: hub.amanNow().UTC(),
+		SessionID: identity.session, Airport: identity.airport, Actor: client.GetCid(), Role: hub.amanRoleForIdentity(identity), ReceivedAt: hub.amanNow().UTC(),
 	})
 	if err != nil {
 		slog.Error("Failed to project AMAN coordination", slog.Any("error", err))
@@ -764,7 +765,7 @@ func (hub *Hub) associateSessionSyncedClients(session int32) []*Client {
 		}
 		readOnly := false
 		if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
-			readOnly = observerInSession(esHub, client.session, client.GetCid())
+			readOnly = observerInSession(esHub, session, client.GetCid())
 		}
 		if hub.associateClientWithSession(client, session, controller, dbSession, readOnly) {
 			initialClients = append(initialClients, client)
@@ -799,7 +800,7 @@ func (hub *Hub) associateWaitingClientIfSessionReady(client *Client) bool {
 		return false
 	}
 
-	return hub.associateClientWithSession(client, controller.Session, controller, dbSession, observerInSession(esHub, client.session, client.GetCid()))
+	return hub.associateClientWithSession(client, controller.Session, controller, dbSession, observerInSession(esHub, controller.Session, client.GetCid()))
 }
 
 type liveFrontendControllerSource interface {
@@ -860,10 +861,7 @@ func (hub *Hub) associateClientWithSession(client *Client, session int32, contro
 	slog.Debug("Associating frontend client with session",
 		slog.String("cid", client.GetCid()),
 		slog.Int("session", int(session)))
-	client.session = session
-	client.readOnly = readOnly
-	client.position = controller.Position
-	client.setIdentity(dbSession.Name, dbSession.Airport, controller.Callsign)
+	client.setIdentity(session, dbSession.Name, controller.Position, dbSession.Airport, controller.Callsign, readOnly)
 
 	switch {
 	case oldSession == WaitingForEuroscopeConnectionSessionId && client.sessionName != "":
@@ -924,10 +922,8 @@ func (hub *Hub) handleMembershipDisconnected(cid string, session int32) {
 				metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 				metrics.ConnectionOpened(context.Background(), "", "", "frontend", "", client.version)
 			}
-			client.session = WaitingForEuroscopeConnectionSessionId
 			client.initialPending = false
-			client.position = WaitingForEuroscopeConnectionPosition
-			client.setIdentity("", WaitingForEuroscopeConnectionAirport, WaitingForEuroscopeConnectionCallsign)
+			client.setIdentity(WaitingForEuroscopeConnectionSessionId, "", WaitingForEuroscopeConnectionPosition, WaitingForEuroscopeConnectionAirport, WaitingForEuroscopeConnectionCallsign, readOnly)
 			client.Enqueue(frontend.DisconnectEvent{ReadOnly: readOnly})
 		}
 	}

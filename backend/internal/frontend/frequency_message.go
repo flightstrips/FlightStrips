@@ -98,6 +98,7 @@ func validateFrequencyMessage(req frontend.SendFrequencyMessageEvent) error {
 }
 
 func handleSendFrequencyMessage(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.SendFrequencyMessageEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -107,7 +108,7 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 	reject := func(err error) error {
 		blocked := false
 		if inspectedStrip != nil {
-			if current, readErr := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign); readErr == nil {
+			if current, readErr := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign); readErr == nil {
 				blocked = current.IsValidationLocked()
 			}
 		}
@@ -126,12 +127,12 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 	}
 	var send func(euroscope.SendFrequencyMessageEvent) bool
 	if ok {
-		send = router.FrequencyMessageSender(client.session, client.GetCid(), client.position)
+		send = router.FrequencyMessageSender(identity.session, client.GetCid(), identity.position)
 	}
 	if send == nil && !req.Prepare {
 		return reject(errors.New("connect an updated EuroScope plugin on your primary frequency"))
 	}
-	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign)
 	if err != nil {
 		return reject(err)
 	}
@@ -156,7 +157,7 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 			if !ok {
 				return reject(errors.New("pushback preparation is unavailable"))
 			}
-			if err := preparer.PrepareFrontendPushback(ctx, client.session, req.Callsign, client.GetCid(), client.airport, client.position); err != nil {
+			if err := preparer.PrepareFrontendPushback(ctx, identity.session, req.Callsign, client.GetCid(), identity.airport, identity.position); err != nil {
 				return reject(err)
 			}
 			continue // Validation only: no operational action was applied.
@@ -167,7 +168,7 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 		applied++
 	}
 	if req.Prepare {
-		strip, err = client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+		strip, err = client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign)
 		if err != nil {
 			return reject(err)
 		}
@@ -175,7 +176,7 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 		return nil
 	}
 	if req.Clearance {
-		strip, err = client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+		strip, err = client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign)
 		if err != nil {
 			return reject(err)
 		}
@@ -187,10 +188,10 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 			return reject(err)
 		}
 	}
-	if err := shared.ValidateCommandAuthority(ctx, client.session); err != nil {
+	if err := shared.ValidateCommandAuthority(ctx, identity.session); err != nil {
 		return reject(err)
 	}
-	if !send(euroscope.SendFrequencyMessageEvent{RequestId: req.RequestID, Callsign: req.Callsign, Message: strings.TrimSpace(req.Message), PrimaryFrequency: client.position, AppliedActions: applied}) {
+	if !send(euroscope.SendFrequencyMessageEvent{RequestId: req.RequestID, Callsign: req.Callsign, Message: strings.TrimSpace(req.Message), PrimaryFrequency: identity.position, AppliedActions: applied}) {
 		return reject(errors.New("EuroScope disconnected before command submission"))
 	}
 	return nil

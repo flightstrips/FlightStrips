@@ -114,7 +114,11 @@ func (c *Client) Enqueue(message events.OutgoingMessage) bool {
 		if c.isClosed() {
 			return false
 		}
-		return c.transport.root.Enqueue(eventseuroscope.NewScopedMessage(c.wireContext(), message))
+		typed, ok := message.(eventseuroscope.OutgoingMessage)
+		if !ok {
+			return false
+		}
+		return c.transport.root.Enqueue(eventseuroscope.NewScopedMessage(c.wireContext(), typed))
 	}
 	select {
 	case <-c.closed:

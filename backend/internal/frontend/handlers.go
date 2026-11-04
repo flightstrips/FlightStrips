@@ -71,14 +71,15 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 }
 
 func handleGenerateSquawk(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var generateSquawk frontend.GenerateSquawkRequest
 	err := message.JsonUnmarshal(&generateSquawk)
 	if err != nil {
 		return err
 	}
 
-	if err := shared.DispatchCommand(ctx, client.session, euroscope.GenerateSquawkEvent{Callsign: generateSquawk.Callsign}, func() {
-		client.hub.server.GetEuroscopeHub().SendGenerateSquawk(client.session, client.GetCid(), generateSquawk.Callsign)
+	if err := shared.DispatchCommand(ctx, identity.session, euroscope.GenerateSquawkEvent{Callsign: generateSquawk.Callsign}, func() {
+		client.hub.server.GetEuroscopeHub().SendGenerateSquawk(identity.session, client.GetCid(), generateSquawk.Callsign)
 	}); err != nil {
 		return err
 	}
@@ -86,13 +87,14 @@ func handleGenerateSquawk(ctx context.Context, client *Client, message Message) 
 }
 
 func handleMove(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var move frontend.MoveEvent
 	err := message.JsonUnmarshal(&move)
 	if err != nil {
 		return err
 	}
 
-	if err := client.hub.stripService.MoveFrontendStrip(ctx, client.session, move.Callsign, move.Bay, client.GetCid(), client.airport, client.position, move.Clearance, move.ConfirmedRemoval); err != nil {
+	if err := client.hub.stripService.MoveFrontendStrip(ctx, identity.session, move.Callsign, move.Bay, client.GetCid(), identity.airport, identity.position, move.Clearance, move.ConfirmedRemoval); err != nil {
 		return err
 	}
 
@@ -100,17 +102,18 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return nil
 	}
 
-	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, move.Callsign)
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, move.Callsign)
 	if err != nil {
 		return err
 	}
 	if strip.Bay != move.Bay {
 		return nil
 	}
-	return client.hub.stripService.MoveStripBetween(ctx, client.session, move.Callsign, move.InsertAfter, move.Bay)
+	return client.hub.stripService.MoveStripBetween(ctx, identity.session, move.Callsign, move.InsertAfter, move.Bay)
 }
 
 func handleStripUpdate(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.UpdateStripDataEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -123,9 +126,9 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 	}
 
 	return service.UpdateStrip(ctx, FrontendStripUpdateRequest{
-		Session:  client.session,
+		Session:  identity.session,
 		Cid:      client.GetCid(),
-		Position: client.position,
+		Position: identity.position,
 		Event:    event,
 	})
 }
@@ -152,6 +155,7 @@ func int32PtrsEqual(left, right *int32) bool {
 }
 
 func handleNextControllerSelect(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.NextControllerSelectEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -159,19 +163,20 @@ func handleNextControllerSelect(ctx context.Context, client *Client, message Mes
 	if strings.TrimSpace(req.Callsign) == "" {
 		return errors.New("callsign is required")
 	}
-	return client.hub.server.SelectNextControllerContext(ctx, client.session, req.Callsign, client.position, req.Sector)
+	return client.hub.server.SelectNextControllerContext(ctx, identity.session, req.Callsign, identity.position, req.Sector)
 }
 
 func handleCoordinationTransferRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CoordinationTransferRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	position := client.position
+	position := identity.position
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
 
-	strip, err := stripRepo.GetByCallsign(ctx, client.session, req.Callsign)
+	strip, err := stripRepo.GetByCallsign(ctx, identity.session, req.Callsign)
 	if err != nil {
 		return err
 	}
@@ -191,12 +196,12 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		}
 		target = strip.NextOwners[0]
 	}
-	if err := client.hub.stripService.CreateCoordinationTransfer(ctx, client.session, req.Callsign, position, target); err != nil {
+	if err := client.hub.stripService.CreateCoordinationTransfer(ctx, identity.session, req.Callsign, position, target); err != nil {
 		return err
 	}
 	if req.StartReqTransfer {
 		rollback := func(cause error) error {
-			if err := client.hub.stripService.CancelCoordinationTransfer(ctx, client.session, req.Callsign, position); err != nil {
+			if err := client.hub.stripService.CancelCoordinationTransfer(ctx, identity.session, req.Callsign, position); err != nil {
 				return errors.Join(cause, err)
 			}
 			return cause
@@ -211,7 +216,7 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		if !ok {
 			return rollback(errors.New("ready-transfer CDM service is not configured"))
 		}
-		if err := cdmService.HandleReadyTransfer(ctx, client.session, req.Callsign, position, "ATC", allowOverride); err != nil {
+		if err := cdmService.HandleReadyTransfer(ctx, identity.session, req.Callsign, position, "ATC", allowOverride); err != nil {
 			if errors.Is(err, shared.ErrReadyTransferTsatOutsideWindow) {
 				validationSetter, ok := any(client.hub.stripService).(interface {
 					SetReadyTransferValidation(context.Context, int32, string, string) error
@@ -219,34 +224,34 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 				if !ok {
 					return rollback(errors.Join(err, errors.New("ready-transfer validation is not configured")))
 				}
-				if setErr := validationSetter.SetReadyTransferValidation(ctx, client.session, req.Callsign, position); setErr != nil {
+				if setErr := validationSetter.SetReadyTransferValidation(ctx, identity.session, req.Callsign, position); setErr != nil {
 					return rollback(errors.Join(err, setErr))
 				}
 			}
 			return rollback(err)
 		}
-		if err := client.hub.stripService.UpdateStartReq(ctx, client.session, req.Callsign, true); err != nil {
+		if err := client.hub.stripService.UpdateStartReq(ctx, identity.session, req.Callsign, true); err != nil {
 			return rollback(err)
 		}
 		if strip.Bay == shared.BAY_STAND {
-			if err := client.hub.stripService.UpdateStartReq(ctx, client.session, req.Callsign, false); err != nil {
+			if err := client.hub.stripService.UpdateStartReq(ctx, identity.session, req.Callsign, false); err != nil {
 				return rollback(err)
 			}
 		}
 		if service, ok := any(s.GetCdmService()).(interface {
 			RecordAobtForTransfer(context.Context, int32, string) error
 		}); ok {
-			if err := service.RecordAobtForTransfer(ctx, client.session, req.Callsign); err != nil {
+			if err := service.RecordAobtForTransfer(ctx, identity.session, req.Callsign); err != nil {
 				return rollback(err)
 			}
 		}
 	}
 
 	if strip.Marked {
-		if err := client.hub.stripService.UpdateMarked(ctx, client.session, req.Callsign, false); err != nil {
+		if err := client.hub.stripService.UpdateMarked(ctx, identity.session, req.Callsign, false); err != nil {
 			slog.WarnContext(ctx, "handleCoordinationTransferRequest: transfer succeeded but failed to clear mark",
 				slog.String("callsign", req.Callsign),
-				slog.Int("session", int(client.session)),
+				slog.Int("session", int(identity.session)),
 				slog.Any("error", err),
 			)
 		}
@@ -263,57 +268,62 @@ func readyTransferTsatContext(strip *internalModels.Strip) string {
 }
 
 func handleCoordinationAssumeRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CoordinationAssumeRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign)
 	if err != nil {
 		return err
 	}
 	if strip.IsValidationLocked() {
 		return errors.New("strip is locked by an active validation")
 	}
-	return client.hub.stripService.AssumeStripCoordination(ctx, client.session, req.Callsign, client.position)
+	return client.hub.stripService.AssumeStripCoordination(ctx, identity.session, req.Callsign, identity.position)
 }
 
 func handleCoordinationRejectRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CoordinationRejectRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	return client.hub.stripService.RejectCoordination(ctx, client.session, req.Callsign, client.position)
+	return client.hub.stripService.RejectCoordination(ctx, identity.session, req.Callsign, identity.position)
 }
 
 func handleCoordinationFreeRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CoordinationFreeRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign)
 	if err != nil {
 		return err
 	}
 	if strip.IsValidationLocked() {
 		return errors.New("strip is locked by an active validation")
 	}
-	return client.hub.stripService.FreeStrip(ctx, client.session, req.Callsign, client.position)
+	return client.hub.stripService.FreeStrip(ctx, identity.session, req.Callsign, identity.position)
 }
 
 func handleCoordinationCancelTransferRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CoordinationCancelTransferRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	return client.hub.stripService.CancelCoordinationTransfer(ctx, client.session, req.Callsign, client.position)
+	return client.hub.stripService.CancelCoordinationTransfer(ctx, identity.session, req.Callsign, identity.position)
 }
 
 func handleCoordinationForceAssumeRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CoordinationForceAssumeRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	if err := client.hub.stripService.ForceAssumeStrip(ctx, client.session, req.Callsign, client.position); err != nil {
+	if err := client.hub.stripService.ForceAssumeStrip(ctx, identity.session, req.Callsign, identity.position); err != nil {
 		return err
 	}
 
@@ -321,7 +331,7 @@ func handleCoordinationForceAssumeRequest(ctx context.Context, client *Client, m
 		return nil
 	}
 
-	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign)
 	if err != nil {
 		return err
 	}
@@ -340,36 +350,39 @@ func handleCoordinationForceAssumeRequest(ctx context.Context, client *Client, m
 }
 
 func handleCoordinationTagRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CoordinationTagRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign)
 	if err != nil {
 		return err
 	}
 	if strip.IsValidationLocked() {
 		return errors.New("strip is locked by an active validation")
 	}
-	return client.hub.stripService.CreateTagRequest(ctx, client.session, req.Callsign, client.position)
+	return client.hub.stripService.CreateTagRequest(ctx, identity.session, req.Callsign, identity.position)
 }
 
 func handleCoordinationAcceptTagRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CoordinationAcceptTagRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign)
 	if err != nil {
 		return err
 	}
 	if strip.IsValidationLocked() {
 		return errors.New("strip is locked by an active validation")
 	}
-	return client.hub.stripService.AcceptTagRequest(ctx, client.session, req.Callsign, client.position)
+	return client.hub.stripService.AcceptTagRequest(ctx, identity.session, req.Callsign, identity.position)
 }
 
 func handleUpdateOrder(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.UpdateOrderEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -379,7 +392,7 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
 
-	strip, err := stripRepo.GetByCallsign(ctx, client.session, event.Callsign)
+	strip, err := stripRepo.GetByCallsign(ctx, identity.session, event.Callsign)
 	if err != nil {
 		return err
 	}
@@ -392,14 +405,15 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 		return errors.New("cannot update order of a strip which is not in a bay")
 	}
 
-	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != client.position {
+	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != identity.position {
 		return shared.RejectAction("not authorized: strip is owned by another controller")
 	}
 
-	return client.hub.stripService.MoveStripBetween(ctx, client.session, event.Callsign, event.InsertAfter, strip.Bay)
+	return client.hub.stripService.MoveStripBetween(ctx, identity.session, event.Callsign, event.InsertAfter, strip.Bay)
 }
 
 func handleSendMessage(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.SendMessageEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -415,19 +429,20 @@ func handleSendMessage(ctx context.Context, client *Client, message Message) err
 
 	msg := frontend.MessageReceivedEvent{
 		ID:          client.hub.NextMessageID(),
-		Sender:      client.position,
+		Sender:      identity.position,
 		Text:        req.Text,
 		IsBroadcast: len(recipients) == 0,
 		Recipients:  recipients,
 		Format:      req.Format,
 	}
 
-	client.hub.storeMessage(client.session, msg)
-	client.hub.dispatchMessage(client.session, msg, client.GetCid())
+	client.hub.storeMessage(identity.session, msg)
+	client.hub.dispatchMessage(identity.session, msg, client.GetCid())
 	return nil
 }
 
 func handleCdmReady(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.CdmReadyEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
@@ -441,12 +456,13 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 		if !ok {
 			return errors.New("CDM REA service not available")
 		}
-		return reaService.HandleReaRequest(ctx, client.session, event.Callsign, client.position, "ATC")
+		return reaService.HandleReaRequest(ctx, identity.session, event.Callsign, identity.position, "ATC")
 	}
-	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC")
+	return cdmService.HandleReadyRequest(ctx, identity.session, event.Callsign, identity.position, "ATC")
 }
 
 func handleCdmDeicePlatformUpdate(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.CdmDeicePlatformUpdateEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
@@ -454,13 +470,14 @@ func handleCdmDeicePlatformUpdate(ctx context.Context, client *Client, message M
 
 	return client.hub.server.GetCdmService().HandleDeicePlatformUpdate(
 		ctx,
-		client.session,
+		identity.session,
 		event.Callsign,
 		event.Platform,
 	)
 }
 
 func handleClxOverrideValidation(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.ClxOverrideValidationAction
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
@@ -469,12 +486,13 @@ func handleClxOverrideValidation(ctx context.Context, client *Client, message Me
 		return errors.New("callsign and override_key are required")
 	}
 
-	client.hub.setClxOverride(client.session, event.OverrideKey)
-	client.hub.SendStripUpdate(client.session, event.Callsign)
+	client.hub.setClxOverride(identity.session, event.OverrideKey)
+	client.hub.SendStripUpdate(identity.session, event.Callsign)
 	return nil
 }
 
 func handleClxUpdateTobt(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.ClxUpdateTobtAction
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
@@ -491,15 +509,15 @@ func handleClxUpdateTobt(ctx context.Context, client *Client, message Message) e
 	tobt := roundedClxTobt(time.Now().UTC())
 	if manual := strings.ReplaceAll(strings.TrimSpace(event.Tobt), ":", ""); manual != "" {
 		if len(manual) != 4 || !isDigits(manual) || manual[:2] > "23" || manual[2:] > "59" {
-			client.hub.SendStripUpdate(client.session, event.Callsign)
+			client.hub.SendStripUpdate(identity.session, event.Callsign)
 			return nil
 		}
 		tobt = manual
 	}
-	if err := cdmService.HandleClxTobtUpdate(ctx, client.session, event.Callsign, tobt, client.position, "ATC"); err != nil {
+	if err := cdmService.HandleClxTobtUpdate(ctx, identity.session, event.Callsign, tobt, identity.position, "ATC"); err != nil {
 		return err
 	}
-	client.hub.SendStripUpdate(client.session, event.Callsign)
+	client.hub.SendStripUpdate(identity.session, event.Callsign)
 	return nil
 }
 
@@ -535,25 +553,27 @@ func isValidFrontendClockValue(value string) bool {
 }
 
 func handleReleasePoint(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.ReleasePointEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, event.Callsign)
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, event.Callsign)
 	if err != nil {
 		return err
 	}
-	if err := client.hub.stripService.ApplyReleasePoint(ctx, client.session, event.Callsign, event.ReleasePoint, client.position); err != nil {
+	if err := client.hub.stripService.ApplyReleasePoint(ctx, identity.session, event.Callsign, event.ReleasePoint, identity.position); err != nil {
 		return err
 	}
-	isOwner := strip.Owner == nil || *strip.Owner == "" || *strip.Owner == client.position
+	isOwner := strip.Owner == nil || *strip.Owner == "" || *strip.Owner == identity.position
 	if !isOwner {
 		return nil
 	}
-	return client.hub.server.GetStripRepository().AppendControllerModifiedField(ctx, client.session, event.Callsign, "release_point")
+	return client.hub.server.GetStripRepository().AppendControllerModifiedField(ctx, identity.session, event.Callsign, "release_point")
 }
 
 func handleAcknowledgeUnexpectedChange(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.AcknowledgeUnexpectedChangeEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
@@ -561,98 +581,107 @@ func handleAcknowledgeUnexpectedChange(ctx context.Context, client *Client, mess
 
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
-	if err := stripRepo.RemoveUnexpectedChangeField(ctx, client.session, event.Callsign, event.FieldName); err != nil {
+	if err := stripRepo.RemoveUnexpectedChangeField(ctx, identity.session, event.Callsign, event.FieldName); err != nil {
 		return err
 	}
-	if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, event.FieldName); err != nil {
+	if err := stripRepo.AppendControllerModifiedField(ctx, identity.session, event.Callsign, event.FieldName); err != nil {
 		return err
 	}
-	client.hub.SendStripUpdate(client.session, event.Callsign)
+	client.hub.SendStripUpdate(identity.session, event.Callsign)
 	return nil
 }
 
 func handleStartReq(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.StartReqEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
 	if event.StartReq {
 		cdmService := client.hub.server.GetCdmService()
-		if err := cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC"); err != nil {
+		if err := cdmService.HandleReadyRequest(ctx, identity.session, event.Callsign, identity.position, "ATC"); err != nil {
 			return err
 		}
 	}
-	return client.hub.stripService.UpdateStartReq(ctx, client.session, event.Callsign, event.StartReq)
+	return client.hub.stripService.UpdateStartReq(ctx, identity.session, event.Callsign, event.StartReq)
 }
 
 func handleMarked(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.MarkedEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.UpdateMarked(ctx, client.session, event.Callsign, event.Marked)
+	return client.hub.stripService.UpdateMarked(ctx, identity.session, event.Callsign, event.Marked)
 }
 
 func handleRunwayClearance(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.RunwayClearanceEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.RunwayClearance(ctx, client.session, event.Callsign, client.GetCid(), client.airport)
+	return client.hub.stripService.RunwayClearance(ctx, identity.session, event.Callsign, client.GetCid(), identity.airport)
 }
 
 func handleRunwayConfirmation(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.RunwayConfirmationEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.RunwayConfirmation(ctx, client.session, event.Callsign, client.position)
+	return client.hub.stripService.RunwayConfirmation(ctx, identity.session, event.Callsign, identity.position)
 }
 
 func handleResetRunwayClearance(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.ResetRunwayClearanceEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.ResetRunwayClearance(ctx, client.session, event.Callsign, client.position)
+	return client.hub.stripService.ResetRunwayClearance(ctx, identity.session, event.Callsign, identity.position)
 }
 
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.IssuePdcClearanceRequest
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
 
-	if err := client.hub.pdcService.IssueClearance(ctx, req.Callsign, req.Remarks, client.GetCid(), client.session); err != nil {
+	if err := client.hub.pdcService.IssueClearance(ctx, req.Callsign, req.Remarks, client.GetCid(), identity.session); err != nil {
 		return err
 	}
 	if service, ok := any(client.hub.server.GetCdmService()).(interface {
 		HandleClearanceTobt(context.Context, int32, string) error
 	}); ok {
-		return service.HandleClearanceTobt(ctx, client.session, req.Callsign)
+		return service.HandleClearanceTobt(ctx, identity.session, req.Callsign)
 	}
 	return nil
 }
 
 func handlePdcManualStateChange(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.PdcManualStateChangeRequest
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
 
-	return client.hub.pdcService.ManualStateChange(ctx, req.Callsign, client.session, req.State)
+	return client.hub.pdcService.ManualStateChange(ctx, req.Callsign, identity.session, req.State)
 }
 
 func handleRevertToVoice(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.RevertToVoiceRequest
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
 
-	return client.hub.pdcService.RevertToVoice(ctx, req.Callsign, client.session, client.GetCid())
+	return client.hub.pdcService.RevertToVoice(ctx, req.Callsign, identity.session, client.GetCid())
 }
 
 func handleCreateTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CreateTacticalStripAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -713,23 +742,24 @@ func handleCreateTacticalStrip(ctx context.Context, client *Client, message Mess
 	if appender, ok := tacticalRepo.(interface {
 		CreateAtEndOfBay(context.Context, int32, string, string, string, *string, string, int32) (*internalModels.TacticalStrip, error)
 	}); ok {
-		ts, err = appender.CreateAtEndOfBay(ctx, client.session, req.StripType, req.Bay, req.Label, aircraft, client.position, 1000)
+		ts, err = appender.CreateAtEndOfBay(ctx, identity.session, req.StripType, req.Bay, req.Label, aircraft, identity.position, 1000)
 	} else {
 		var maxSeq int32
-		maxSeq, err = tacticalRepo.GetMaxSequenceInBayUnified(ctx, client.session, req.Bay)
+		maxSeq, err = tacticalRepo.GetMaxSequenceInBayUnified(ctx, identity.session, req.Bay)
 		if err == nil {
-			ts, err = tacticalRepo.Create(ctx, client.session, req.StripType, req.Bay, req.Label, aircraft, client.position, maxSeq+1000)
+			ts, err = tacticalRepo.Create(ctx, identity.session, req.StripType, req.Bay, req.Label, aircraft, identity.position, maxSeq+1000)
 		}
 	}
 	if err != nil {
 		return err
 	}
 
-	client.hub.SendTacticalStripCreated(client.session, MapTacticalStripToPayload(ts))
+	client.hub.SendTacticalStripCreated(identity.session, MapTacticalStripToPayload(ts))
 	return nil
 }
 
 func handleDeleteTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.DeleteTacticalStripAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -740,23 +770,24 @@ func handleDeleteTacticalStrip(ctx context.Context, client *Client, message Mess
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, identity.session)
 	if err != nil {
 		return err
 	}
-	if ts.Owner != client.position {
+	if ts.Owner != identity.position {
 		return errors.New("only the tactical strip owner can delete it")
 	}
 
-	if err := tacticalRepo.Delete(ctx, req.ID, client.session); err != nil {
+	if err := tacticalRepo.Delete(ctx, req.ID, identity.session); err != nil {
 		return err
 	}
 
-	client.hub.SendTacticalStripDeleted(client.session, req.ID, ts.Bay)
+	client.hub.SendTacticalStripDeleted(identity.session, req.ID, ts.Bay)
 	return nil
 }
 
 func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.ConfirmTacticalStripAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -767,7 +798,7 @@ func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Mes
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, identity.session)
 	if err != nil {
 		return err
 	}
@@ -775,20 +806,21 @@ func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Mes
 	if ts.Type != internalModels.TacticalStripTypeMemaid {
 		return errors.New("confirm is only valid for MEMAID strips")
 	}
-	if ts.Owner == client.position {
+	if ts.Owner == identity.position {
 		return errors.New("owner cannot confirm their own MEMAID strip")
 	}
 
-	ts, err = tacticalRepo.Confirm(ctx, req.ID, client.session, client.position)
+	ts, err = tacticalRepo.Confirm(ctx, req.ID, identity.session, identity.position)
 	if err != nil {
 		return err
 	}
 
-	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	client.hub.SendTacticalStripUpdated(identity.session, MapTacticalStripToPayload(ts))
 	return nil
 }
 
 func handleForceAssumeTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.ForceAssumeTacticalStripAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -799,16 +831,17 @@ func handleForceAssumeTacticalStrip(ctx context.Context, client *Client, message
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.ForceAssume(ctx, req.ID, client.session, client.position)
+	ts, err := tacticalRepo.ForceAssume(ctx, req.ID, identity.session, identity.position)
 	if err != nil {
 		return err
 	}
 
-	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	client.hub.SendTacticalStripUpdated(identity.session, MapTacticalStripToPayload(ts))
 	return nil
 }
 
 func handleMarkTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.MarkTacticalStripAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -819,23 +852,24 @@ func handleMarkTacticalStrip(ctx context.Context, client *Client, message Messag
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, identity.session)
 	if err != nil {
 		return err
 	}
-	if ts.Owner != client.position {
+	if ts.Owner != identity.position {
 		return errors.New("only the tactical strip owner can mark it")
 	}
 
-	ts, err = tacticalRepo.UpdateMarked(ctx, req.ID, client.session, req.Marked)
+	ts, err = tacticalRepo.UpdateMarked(ctx, req.ID, identity.session, req.Marked)
 	if err != nil {
 		return err
 	}
-	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	client.hub.SendTacticalStripUpdated(identity.session, MapTacticalStripToPayload(ts))
 	return nil
 }
 
 func handleStartTacticalTimer(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.StartTacticalTimerAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -846,29 +880,30 @@ func handleStartTacticalTimer(ctx context.Context, client *Client, message Messa
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, identity.session)
 	if err != nil {
 		return err
 	}
 	if ts.Type != internalModels.TacticalStripTypeStart && ts.Type != internalModels.TacticalStripTypeLand {
 		return errors.New("timer is only valid for START and LAND strips")
 	}
-	if ts.Owner != client.position {
+	if ts.Owner != identity.position {
 		return errors.New("only the tactical strip owner can start its timer")
 	}
 	if ts.TimerStart != nil {
 		return errors.New("tactical strip timer has already started")
 	}
 
-	ts, err = tacticalRepo.StartTimer(ctx, req.ID, client.session, client.position)
+	ts, err = tacticalRepo.StartTimer(ctx, req.ID, identity.session, identity.position)
 	if err != nil {
 		return err
 	}
-	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	client.hub.SendTacticalStripUpdated(identity.session, MapTacticalStripToPayload(ts))
 	return nil
 }
 
 func handleMoveTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.MoveTacticalStripAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -879,11 +914,11 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, identity.session)
 	if err != nil {
 		return err
 	}
-	if ts.Owner != client.position {
+	if ts.Owner != identity.position {
 		return errors.New("only the tactical strip owner can move it")
 	}
 
@@ -902,39 +937,43 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 		bay = ts.Bay
 	}
 
-	return client.hub.stripService.MoveTacticalStripBetween(ctx, client.session, req.ID, req.InsertAfter, bay)
+	return client.hub.stripService.MoveTacticalStripBetween(ctx, identity.session, req.ID, req.InsertAfter, bay)
 }
 
 func handleMissedApproach(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.MissedApproachRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	if err := client.hub.stripService.MissedApproach(ctx, client.session, req.Callsign, client.position); err != nil {
+	if err := client.hub.stripService.MissedApproach(ctx, identity.session, req.Callsign, identity.position); err != nil {
 		return err
 	}
 
-	client.hub.SendGoAround(client.session, req.Callsign)
+	client.hub.SendGoAround(identity.session, req.Callsign)
 	return nil
 }
 
 func handleCreateManualFPL(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CreateManualFPLAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	return client.hub.stripService.CreateManualFPL(ctx, client.session, req, client.GetCid(), client.airport)
+	return client.hub.stripService.CreateManualFPL(ctx, identity.session, req, client.GetCid(), identity.airport)
 }
 
 func handleCreateVFRFPL(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.CreateVFRFPLAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	return client.hub.stripService.CreateVFRFPL(ctx, client.session, req, client.GetCid())
+	return client.hub.stripService.CreateVFRFPL(ctx, identity.session, req, client.GetCid())
 }
 
 func handleUpdateRunwayStatus(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var event frontend.UpdateRunwayStatusAction
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
@@ -946,7 +985,7 @@ func handleUpdateRunwayStatus(ctx context.Context, client *Client, message Messa
 	}
 
 	sessionRepo := client.hub.server.GetSessionRepository()
-	session, err := sessionRepo.GetByID(ctx, client.session)
+	session, err := sessionRepo.GetByID(ctx, identity.session)
 	if err != nil {
 		return err
 	}
@@ -956,14 +995,14 @@ func handleUpdateRunwayStatus(ctx context.Context, client *Client, message Messa
 	}
 	session.ActiveRunways.RunwayStatus[event.Pair] = event.Status
 
-	if err = sessionRepo.UpdateActiveRunways(ctx, client.session, session.ActiveRunways); err != nil {
+	if err = sessionRepo.UpdateActiveRunways(ctx, identity.session, session.ActiveRunways); err != nil {
 		return err
 	}
 
 	client.hub.server.GetCdmService().SyncAirportLvoFromRunwayStatus(ctx, session.Airport, session.ActiveRunways.RunwayStatus)
 
 	client.hub.SendRunwayConfiguration(
-		client.session,
+		identity.session,
 		session.ActiveRunways.DepartureRunways,
 		session.ActiveRunways.ArrivalRunways,
 		session.ActiveRunways.RunwayStatus,
@@ -972,6 +1011,7 @@ func handleUpdateRunwayStatus(ctx context.Context, client *Client, message Messa
 }
 
 func handleAcknowledgeValidationStatus(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.AcknowledgeValidationStatusAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -979,10 +1019,11 @@ func handleAcknowledgeValidationStatus(ctx context.Context, client *Client, mess
 	if client.hub.validationService == nil {
 		return errors.New("acknowledge_validation_status: validation service is not configured")
 	}
-	return client.hub.validationService.AcknowledgeValidationStatus(ctx, client.session, req.Callsign, req.ActivationKey, client.position)
+	return client.hub.validationService.AcknowledgeValidationStatus(ctx, identity.session, req.Callsign, req.ActivationKey, identity.position)
 }
 
 func handleSendPrivateMessage(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var req frontend.SendPrivateMessageEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
@@ -992,28 +1033,29 @@ func handleSendPrivateMessage(ctx context.Context, client *Client, message Messa
 		Message:  req.Message,
 	}
 	euroscopeHub := client.hub.server.GetEuroscopeHub()
-	if err := shared.DispatchCommand(ctx, client.session, event, func() { euroscopeHub.Send(client.session, client.GetCid(), event) }); err != nil {
+	if err := shared.DispatchCommand(ctx, identity.session, event, func() { euroscopeHub.Send(identity.session, client.GetCid(), event) }); err != nil {
 		return err
 	}
 	return nil
 }
 
 func handleStandOccupy(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var action frontend.StandOccupyAction
 	if err := message.JsonUnmarshal(&action); err != nil {
 		return err
 	}
 
-	block, err := client.hub.standActionService.CreateBlock(ctx, client.session, client.airport, client.position, action.Stand, action.Reason)
+	block, err := client.hub.standActionService.CreateBlock(ctx, identity.session, identity.airport, identity.position, action.Stand, action.Reason)
 	if err != nil {
 		return rejectStandAction(client, message.Type, action.Stand, "", nil, err)
 	}
 
-	client.hub.SendStandBlockBroadcast(client.session, action.Stand, &frontend.StandBlockEntry{
+	client.hub.SendStandBlockBroadcast(identity.session, action.Stand, &frontend.StandBlockEntry{
 		Stand:     block.Stand,
 		ID:        block.ID,
 		BlockType: block.BlockType,
-		Blocks:    standBlockNeighbors(client.airport, block.Stand),
+		Blocks:    standBlockNeighbors(identity.airport, block.Stand),
 		Reason:    block.Reason,
 		CreatedBy: block.CreatedBy,
 		Version:   block.Version,
@@ -1023,56 +1065,61 @@ func handleStandOccupy(ctx context.Context, client *Client, message Message) err
 }
 
 func handleStandVacate(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var action frontend.StandVacateAction
 	if err := message.JsonUnmarshal(&action); err != nil {
 		return err
 	}
 
-	block, err := client.hub.standActionService.RemoveBlock(ctx, client.session, client.position, action.BlockID, action.Version)
+	block, err := client.hub.standActionService.RemoveBlock(ctx, identity.session, identity.position, action.BlockID, action.Version)
 	if err != nil {
 		return rejectStandAction(client, message.Type, action.Stand, "", &action.Version, err)
 	}
-	client.hub.SendStandBlockBroadcast(client.session, block.Stand, nil, block.ID)
+	client.hub.SendStandBlockBroadcast(identity.session, block.Stand, nil, block.ID)
 	return nil
 }
 
 func handleStandAutomaticRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var action frontend.StandAutomaticRequestAction
 	if err := message.JsonUnmarshal(&action); err != nil {
 		return err
 	}
-	result, err := client.hub.standActionService.Allocate(ctx, client.session, client.airport, client.position, action.Callsign, action.Version)
+	result, err := client.hub.standActionService.Allocate(ctx, identity.session, identity.airport, identity.position, action.Callsign, action.Version)
 	return publishStandAction(client, message.Type, action.Callsign, "", &action.Version, result, err)
 }
 
 func handleStandManualRequest(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var action frontend.StandManualRequestAction
 	if err := message.JsonUnmarshal(&action); err != nil {
 		return err
 	}
-	result, err := client.hub.standActionService.AssignManually(ctx, client.session, client.airport, client.position, action.Callsign, action.Stand, action.Version)
+	result, err := client.hub.standActionService.AssignManually(ctx, identity.session, identity.airport, identity.position, action.Callsign, action.Stand, action.Version)
 	return publishStandAction(client, message.Type, action.Callsign, action.Stand, &action.Version, result, err)
 }
 
 func handleStandConfirmedOverride(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var action frontend.StandConfirmedOverrideAction
 	if err := message.JsonUnmarshal(&action); err != nil {
 		return err
 	}
-	result, err := client.hub.standActionService.Override(ctx, client.session, client.airport, client.position, action.Callsign, action.Stand, action.Reason, action.Version)
+	result, err := client.hub.standActionService.Override(ctx, identity.session, identity.airport, identity.position, action.Callsign, action.Stand, action.Reason, action.Version)
 	return publishStandAction(client, message.Type, action.Callsign, action.Stand, &action.Version, result, err)
 }
 
 func handleStandAcknowledge(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var action frontend.StandAcknowledgeAction
 	if err := message.JsonUnmarshal(&action); err != nil {
 		return err
 	}
-	assignment, err := client.hub.standActionService.Acknowledge(ctx, client.session, client.position, action.Callsign, action.Version)
+	assignment, err := client.hub.standActionService.Acknowledge(ctx, identity.session, identity.position, action.Callsign, action.Version)
 	if err != nil {
 		return rejectStandAction(client, message.Type, "", action.Callsign, &action.Version, err)
 	}
-	client.hub.SendStandAssignmentBroadcast(client.session, client.hub.enrichedStandAssignmentEntry(client.session, assignment))
+	client.hub.SendStandAssignmentBroadcast(identity.session, client.hub.enrichedStandAssignmentEntry(identity.session, assignment))
 	return nil
 }
 

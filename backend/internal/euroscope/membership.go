@@ -176,11 +176,10 @@ func handleControlEvent(ctx context.Context, root *Client, message Message) erro
 		if validFrequency && before.position != event.PrimaryFrequency {
 			c.applyMu.Lock()
 			if !c.isClosed() {
-				if _, err := root.hub.server.GetControllerRepository().SetPosition(ctx, c.session, c.GetCallsign(), event.PrimaryFrequency); err != nil {
+				if err := root.hub.updateMembershipPosition(ctx, c, &event); err != nil {
 					c.applyMu.Unlock()
 					return err
 				}
-				c.updateIdentity(event.PrimaryFrequency, event.Callsign, event.Observer, event.LocalIp)
 			}
 			c.applyMu.Unlock()
 			root.hub.reconsiderMasterAfterLogin(c)
@@ -253,8 +252,7 @@ func (hub *Hub) JoinMembership(root *Client, airport string) (*Client, error) {
 	rowLock := hub.controllerRowLock(airport, evidence.Environment, evidence.Callsign)
 	rowLock.Lock()
 	defer rowLock.Unlock()
-	payload, _ := proto.Marshal(login)
-	event, session, err := hub.handleLogin(payload, root.userSnapshot())
+	event, session, err := hub.admitMembershipController(context.Background(), login, root.userSnapshot())
 	if err != nil {
 		return nil, err
 	}

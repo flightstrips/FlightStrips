@@ -237,6 +237,9 @@ func (c *Client) GetConnection() *gorilla.Conn {
 }
 
 func (c *Client) IsAuthenticated() bool {
+	if c.transport != nil && c.transport.root != c {
+		return c.transport.root.IsAuthenticated()
+	}
 	c.userMu.RLock()
 	defer c.userMu.RUnlock()
 	return c.user.IsValid()
@@ -264,6 +267,9 @@ func (c *Client) CanHandleMessage(messageType string) error {
 
 // HandlePong handles pong messages from the client
 func (c *Client) HandlePong() error {
+	if c.transport != nil && !c.IsAuthenticated() {
+		return errors.New("physical transport authentication expired")
+	}
 	if c.transport != nil && c.membership == nil {
 		for _, member := range c.transport.snapshot() {
 			if err := member.HandlePong(); err != nil {
@@ -277,8 +283,29 @@ func (c *Client) HandlePong() error {
 	if c.isClosed() {
 		return nil
 	}
+	if c.transport != nil && !c.IsAuthenticated() {
+		return errors.New("physical transport authentication expired")
+	}
+	if c.membership != nil && c.identitySnapshot().observer {
+		return nil
+	}
 	// Update the last seen timestamp in the database
 	controllerRepo := c.hub.server.GetControllerRepository()
+	if c.membership != nil {
+		if writer, ok := controllerRepo.(membershipControllerWriter); ok {
+			rowLock := c.hub.controllerRowLock(c.airport, c.sessionName, c.GetCallsign())
+			rowLock.Lock()
+			defer rowLock.Unlock()
+			if !c.IsAuthenticated() {
+				return errors.New("physical transport authentication expired")
+			}
+			projection, exists := c.hub.controllerPresence(c.airport, c.sessionName, c.GetCallsign(), nil)
+			if !exists {
+				return nil
+			}
+			return writer.UpsertMembershipController(context.Background(), presenceRow(c.session, c.GetCallsign(), projection), true)
+		}
+	}
 	now := time.Now().UTC()
 	var count int64
 	var err error

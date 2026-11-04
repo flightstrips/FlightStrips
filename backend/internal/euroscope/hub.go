@@ -737,6 +737,11 @@ func (hub *Hub) clearClientCid(client *Client) error {
 	rowLock := hub.controllerRowLock(client.airport, client.sessionName, client.GetCallsign())
 	rowLock.Lock()
 	defer rowLock.Unlock()
+	if writer, ok := hub.server.GetControllerRepository().(membershipControllerWriter); ok {
+		if projection, exists := hub.controllerPresence(client.airport, client.sessionName, client.GetCallsign(), nil); exists {
+			return writer.UpsertMembershipController(context.Background(), presenceRow(client.session, client.GetCallsign(), projection), false)
+		}
+	}
 	for _, other := range hub.clientsSnapshot() {
 		if other != client && other.session == client.session && other.GetCallsign() == client.GetCallsign() && !other.isClosed() {
 			return nil

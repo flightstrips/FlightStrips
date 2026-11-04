@@ -40,25 +40,41 @@ namespace FlightStrips::websocket {
         std::unordered_set<std::string> retired;
         void Reset() { members.clear(); retired.clear(); }
 
+        static bool IsSdkCommand(const membership_wire::Envelope& event) {
+            using E=membership_wire::Envelope;
+            switch(event.event_case()) {
+            case E::kAssignedSquawk:case E::kRequestedAltitude:case E::kClearedAltitude:case E::kCommunicationType:
+            case E::kGroundState:case E::kClearedFlag:case E::kHeading:case E::kStand:case E::kEobt:case E::kGenerateSquawk:
+            case E::kRoute:case E::kRemarks:case E::kAircraftInfo:case E::kAircraftInfoRemarks:case E::kSid:case E::kAircraftRunway:
+            case E::kCoordinationHandover:case E::kAssumeOnly:case E::kAssumeAndDrop:case E::kDropTracking:case E::kCreateFpl:
+            case E::kSendPrivateMessage:case E::kSendFrequencyMessage:case E::kHold:return true;
+            default:return false;
+            }
+        }
+
         bool Accept(const membership_wire::Envelope& event, const std::string& instance,
                     uint64_t transport, const std::string& environment) {
             if (!event.has_context() || transport==0) return false;
             const auto& c=event.context();
             if (c.instance_id()!=instance || c.transport_generation()!=transport || c.membership_id().empty() ||
                 c.generation()==0 || c.session_id()<=0 || c.airport().empty() || c.environment()!=environment || retired.contains(c.membership_id())) return false;
+            const bool humanCommand=event.command_origin()==membership_wire::COMMAND_ORIGIN_HUMAN && IsSdkCommand(event);
             auto found=members.find(c.membership_id());
+            if(found==members.end() && IsSdkCommand(event)) return false;
             if (found!=members.end()) {
                 const auto& old=found->second.context;
                 if (old.generation()!=c.generation() || old.session_id()!=c.session_id() || old.airport()!=c.airport() ||
                     old.environment()!=c.environment()) return false;
-                if (!event.has_membership_removed() && c.master_epoch()<old.master_epoch()) return false;
-                if (!event.has_membership_removed() && c.master_epoch()>old.master_epoch() && !event.has_session_info() && !event.has_master_info()) return false;
+                if (!event.has_membership_removed() && !humanCommand && c.master_epoch()<old.master_epoch()) return false;
+                if (!event.has_membership_removed() && !humanCommand && c.master_epoch()>old.master_epoch() && !event.has_session_info() && !event.has_master_info()) return false;
             }
             if (event.has_membership_removed()) {
                 retired.insert(c.membership_id()); members.erase(c.membership_id()); return false;
             }
             auto& member=members[c.membership_id()];
+            const auto currentEpoch=member.context.master_epoch();
             member.context=c;
+            if(humanCommand) member.context.set_master_epoch(currentEpoch);
             if (event.has_session_info()) {
                 const auto& role=event.session_info().role();
                 member.role=role=="master"?STATE_MASTER:role=="observer"?STATE_OBSERVER:role=="slave"?STATE_SLAVE:STATE_UNKNOWN;

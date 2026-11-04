@@ -197,6 +197,55 @@ TEST_F(WebSocketServiceOnTimerTest, HoldReplayCompletesIndependentlyForEachMembe
     for (size_t i = 5; i < 7; ++i) { EXPECT_TRUE(sent[i].has_hold()); EXPECT_EQ(sent[i].context().membership_id(), b.membership_id()); }
 }
 
+TEST_F(WebSocketServiceOnTimerTest, CachedHoldReplayCannotConsumeOrSuppressTypedCommandResults) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto a = AddMembership(*svc, 1, "AAAA", "master");
+    const auto b = AddMembership(*svc, 2, "BBBB", "master");
+    Strip strip{"SAS123","AAAA","BBBB","","DCT","","04L","7000","7000","SID","STAR",false,"",0,0,0,"A320","M","",Position{55,12,1000},"","V","","1200","1300","","J"};
+    svc->SendEvent(SyncEvent{{strip}, {}, {}, {}});
+    auto socket = std::shared_ptr<WebSocketService>(svc.get(), [](WebSocketService*) {});
+    flightplan::FlightPlanService plans(socket, nullptr, nullptr, nullptr, nullptr);
+    plans.CacheTrackedHold("SAS123", {true, false, "OLPIB"}, "1422");
+    const HoldEvent hold("SAS123", "OLPIB", "enroute", "1422");
+    const auto issue = [&](const protobuf::wire::MembershipContext& context, const std::string& id) {
+        protobuf::wire::Envelope command;
+        ASSERT_TRUE(command.ParseFromString(protobuf::Serialize(hold)));
+        *command.mutable_context() = context;
+        command.set_command_origin(protobuf::wire::COMMAND_ORIGIN_HUMAN); command.set_execution_id(id);
+        svc->ProcessServerMessage(command.SerializeAsString());
+    };
+    std::vector<protobuf::wire::Envelope> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope event; ASSERT_TRUE(event.ParseFromString(bytes)); sent.push_back(event);
+    }));
+    const auto replayB = [&] {
+        svc->ForEachMembership([&](const std::string&) {
+            if (svc->CurrentMembershipId() == b.membership_id()) plans.ReplayPendingHoldCommands();
+        });
+    };
+    const auto ordinaryB = [&](size_t index) {
+        ASSERT_LT(index, sent.size()); ASSERT_TRUE(sent[index].has_hold());
+        EXPECT_EQ(sent[index].context().membership_id(), b.membership_id());
+        EXPECT_EQ(sent[index].command_origin(), protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED);
+        EXPECT_TRUE(sent[index].execution_id().empty());
+    };
+    issue(a, "hold-a");
+    replayB();
+    ASSERT_EQ(sent.size(), 1u); ordinaryB(0);
+    // The replay did not consume A's ticket; the real SDK result can still complete it.
+    EXPECT_TRUE(svc->SendCommandResult(hold));
+    ASSERT_EQ(sent.size(), 3u); EXPECT_EQ(sent[1].execution_id(), "hold-a"); ordinaryB(2);
+    issue(a, "hold-a2"); issue(b, "hold-b2");
+    replayB();
+    // Identical outstanding setters must not suppress the independent source replay.
+    ASSERT_EQ(sent.size(), 4u); ordinaryB(3);
+    protobuf::wire::Envelope removed; *removed.mutable_context() = a; removed.mutable_membership_removed();
+    svc->ProcessServerMessage(removed.SerializeAsString());
+    EXPECT_TRUE(svc->SendCommandResult(hold));
+    ASSERT_EQ(sent.size(), 5u); EXPECT_EQ(sent[4].execution_id(), "hold-b2");
+    EXPECT_EQ(sent[4].context().membership_id(), b.membership_id());
+}
+
 TEST_F(WebSocketServiceOnTimerTest, MultipleMastersAndNonMasterRouteIndependently) {
     ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     auto a=AddMembership(*svc,1,"AAAA","master");auto b=AddMembership(*svc,2,"BBBB","master");auto c=AddMembership(*svc,3,"CCCC","slave");
@@ -1756,4 +1805,56 @@ TEST(SyncEventTest, PopulatedStripSerializesSpokenCallsignField) {
     EXPECT_EQ(j["strips"][0]["star"], "LUXAL2A");
     EXPECT_TRUE(j["strips"][0]["hold_supported"]);
     EXPECT_EQ(j["strips"][0]["hold"], "");
+}
+
+namespace {
+class PendingSquawkDispatch final:public handlers::MessageHandler {
+    std::weak_ptr<WebSocketService> socket_;
+    PendingSquawkQueue& queue_;
+public:
+    PendingSquawkDispatch(std::shared_ptr<WebSocketService> socket,PendingSquawkQueue& queue):socket_(socket),queue_(queue) {}
+    void OnMessages(const std::vector<std::string>& messages) override {
+        for(const auto& bytes:messages) {
+            protobuf::wire::Envelope event;if(!event.ParseFromString(bytes) || !event.has_generate_squawk()) continue;
+            if(auto socket=socket_.lock()) socket->DeferSquawk(queue_,event.generate_squawk().callsign());
+        }
+    }
+};
+}
+TEST_F(WebSocketServiceOnTimerTest, DeferredSquawkRetainsOwnNonMasterContextThroughRealQueueAndCallback) {
+    ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    auto socket=std::shared_ptr<WebSocketService>(std::move(svc));
+    PendingSquawkQueue queue;msgHandlers->RegisterHandler(std::make_shared<PendingSquawkDispatch>(socket,queue));
+    auto context=AddMembership(*socket,1,"AAAA","slave");
+    auto other=AddMembership(*socket,2,"BBBB","master");
+    protobuf::wire::Envelope otherInventory;*otherInventory.mutable_context()=other;otherInventory.mutable_backend_sync()->add_strips()->set_callsign("SAS125");socket->ProcessServerMessage(otherInventory.SerializeAsString());
+    protobuf::wire::Envelope command;*command.mutable_context()=context;command.set_command_origin(protobuf::wire::COMMAND_ORIGIN_HUMAN);command.set_execution_id("squawk-own");command.mutable_generate_squawk()->set_callsign("SAS125");
+    socket->ProcessServerMessage(command.SerializeAsString());
+    EXPECT_FALSE(queue.TakeReady([](const std::string&){return false;})); // waiting for radar target
+    AddMembership(*socket,1,"AAAA","slave",2); // unrelated master election while waiting
+    ASSERT_EQ(queue.TakeReady([](const std::string&){return true;}),std::optional<std::string>{"SAS125"});
+    int sdkCalls=0;ASSERT_TRUE(queue.Execute("SAS125",[&]{++sdkCalls;}));EXPECT_EQ(sdkCalls,1);
+    flightplan::FlightPlanService plans(socket,{},{},{},nullptr);
+    EXPECT_TRUE(socket->ShouldSend()); // independent master for the other airport
+    EXPECT_CALL(*mockImpl,Send(_)).Times(2).WillRepeatedly(Invoke([&](const std::string& bytes){
+        protobuf::wire::Envelope result;ASSERT_TRUE(result.ParseFromString(bytes));
+        if(result.context().membership_id()==context.membership_id()) {EXPECT_EQ(result.execution_id(),"squawk-own");EXPECT_EQ(result.command_origin(),protobuf::wire::COMMAND_ORIGIN_HUMAN);}
+        else {EXPECT_EQ(result.context().membership_id(),other.membership_id());EXPECT_TRUE(result.execution_id().empty());EXPECT_EQ(result.command_origin(),protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED);}
+        EXPECT_EQ(result.assigned_squawk().squawk(),"1234");
+    }));
+    EXPECT_TRUE(plans.ReportAssignedSquawk("SAS125","1234")); // later SDK callback, outside active message dispatch
+    EXPECT_FALSE(plans.ReportAssignedSquawk("SAS125","1234"));
+}
+TEST_F(WebSocketServiceOnTimerTest, DeferredSquawkValidatesRemovalAndAutomaticEpochBeforeSdkInvocation) {
+    ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    auto socket=std::shared_ptr<WebSocketService>(std::move(svc));
+    PendingSquawkQueue queue;msgHandlers->RegisterHandler(std::make_shared<PendingSquawkDispatch>(socket,queue));
+    auto context=AddMembership(*socket,1,"AAAA","master");
+    protobuf::wire::Envelope command;*command.mutable_context()=context;command.set_command_origin(protobuf::wire::COMMAND_ORIGIN_AUTOMATIC);command.set_execution_id("automatic-old");command.mutable_generate_squawk()->set_callsign("SAS125");socket->ProcessServerMessage(command.SerializeAsString());
+    AddMembership(*socket,1,"AAAA","slave",2);
+    EXPECT_FALSE(queue.TakeReady([](const std::string&){return true;}));
+    command.set_command_origin(protobuf::wire::COMMAND_ORIGIN_HUMAN);command.set_execution_id("human-removed");socket->ProcessServerMessage(command.SerializeAsString());
+    ASSERT_TRUE(queue.TakeReady([](const std::string&){return true;}));
+    auto removal=command;removal.mutable_membership_removed();socket->ProcessServerMessage(removal.SerializeAsString());
+    int sdkCalls=0;EXPECT_FALSE(queue.Execute("SAS125",[&]{++sdkCalls;}));EXPECT_EQ(sdkCalls,0);
 }

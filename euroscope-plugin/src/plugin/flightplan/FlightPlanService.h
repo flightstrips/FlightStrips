@@ -37,6 +37,7 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
 
     void FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
+    bool ReportAssignedSquawk(const std::string& callsign,const std::string& squawk);
     void ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) override;
 
     void FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;

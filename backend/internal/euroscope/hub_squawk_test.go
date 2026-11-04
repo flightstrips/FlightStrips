@@ -70,14 +70,13 @@ func TestSendPrivateMessageFromDelivery_TargetsDelWithoutBroadcast(t *testing.T)
 		master: map[int32]*Client{7: {user: shared.NewAuthenticatedUser("MASTER-CID", 0, nil)}},
 	}
 
-	registerAuthorityClients(hub, 7, "MASTER-CID", delCid)
+	clients := registerAuthorityClients(hub, 7, "MASTER-CID", delCid)
 	require.True(t, hub.SendPrivateMessageFromDelivery(7, "SAS123", "MOVE TO A1"))
-	sent := <-hub.send
-	require.NotNil(t, sent.cid, "targeted sends carry a CID; broadcasts do not")
-	assert.Equal(t, delCid, *sent.cid)
-	event := sent.message.(euroscopeEvents.SendPrivateMessageEvent)
+	event := (<-clients[delCid].send).(euroscopeEvents.SendPrivateMessageEvent)
 	assert.Equal(t, "SAS123", event.Callsign)
 	assert.Equal(t, "MOVE TO A1", event.Message)
+	require.Empty(t, clients["MASTER-CID"].send)
+	require.Empty(t, hub.send)
 }
 
 func TestResolveGenerateSquawkCid_FallsBackToMasterWhenDelOwnerHasNoEsClient(t *testing.T) {

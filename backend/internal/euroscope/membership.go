@@ -18,12 +18,13 @@ import (
 // A physical transport owns authentication and one writer. Only its logical
 // memberships enter the operational hub registry or refresh controller rows.
 type pluginTransport struct {
-	root       *Client
-	instance   string
-	generation uint64
-	mu         sync.RWMutex
-	members    map[string]*Client
-	evidence   es.ControlEvent
+	root        *Client
+	instance    string
+	generation  uint64
+	cleanupOnce sync.Once
+	mu          sync.RWMutex
+	members     map[string]*Client
+	evidence    es.ControlEvent
 }
 
 func newGeneration() uint64 {
@@ -44,7 +45,9 @@ func (t *pluginTransport) snapshot() []*Client {
 }
 func (c *Client) wireContext() *es.MembershipContext {
 	if c.membership != nil {
-		return proto.Clone(c.membership).(*es.MembershipContext)
+		scope := proto.Clone(c.membership).(*es.MembershipContext)
+		scope.MasterEpoch = c.hub.election(c.session).epoch.Load()
+		return scope
 	}
 	return &es.MembershipContext{InstanceId: c.transport.instance, TransportGeneration: c.transport.generation}
 }
@@ -80,14 +83,49 @@ func (c *Client) matches(scope *es.MembershipContext) bool {
 	want := c.membership
 	return scope.InstanceId == want.InstanceId && scope.TransportGeneration == want.TransportGeneration && scope.MembershipId == want.MembershipId && scope.SessionId == want.SessionId && scope.Airport == want.Airport && scope.Environment == want.Environment && scope.Generation == want.Generation
 }
-func (c *Client) ApplyScopedMessage(ctx context.Context, scope *es.MembershipContext, kind string, apply func(context.Context) error) error {
+func (c *Client) ApplyScopedMessage(ctx context.Context, scope *es.MembershipContext, kind string, payload []byte, origin es.CommandOrigin, executionID string, apply func(context.Context) error) error {
 	if c.membership == nil {
 		return apply(ctx)
 	}
+	// Position batches release their execution slot while awaiting SQL. A later
+	// report must not occupy that slot while waiting behind removal or election.
+	resume := shared.SuspendPositionExecution(ctx)
 	c.applyMu.RLock()
 	defer c.applyMu.RUnlock()
-	if !c.matches(scope) {
+	if !c.matches(scope) || !c.IsAuthenticated() {
+		resume()
 		return shared.RejectAction("membership was removed or reconnected before application")
+	}
+	kind = strings.TrimPrefix(strings.ToLower(kind), "event_")
+	election := c.hub.election(c.session)
+	var release func()
+	ctx, release = c.hub.enterSessionApplication(ctx, c.session)
+	resume()
+	defer release()
+	if !c.matches(scope) || ctx.Err() != nil {
+		return shared.RejectAction("membership is no longer available")
+	}
+	if c.validateExecutionEcho(kind, payload, origin, executionID) {
+		ctx = context.WithValue(ctx, executionResultKey{}, true)
+		if origin == es.CommandOrigin_COMMAND_ORIGIN_HUMAN {
+			var err error
+			ctx, err = shared.WithHumanCommand(ctx, &commandBinding{hub: c.hub, client: c, session: c.session, cid: c.GetCid()})
+			if err != nil {
+				return err
+			}
+		}
+		return apply(ctx)
+	}
+	if executionID != "" || origin != es.CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED {
+		return shared.RejectAction("SDK result does not match an authorized execution")
+	}
+	if kind == "frequency_message_result" {
+		return shared.RejectAction("frequency result has no matching membership request")
+	}
+	if !controllerMembershipEvent(kind) {
+		if scope.MasterEpoch != election.epoch.Load() || (!trackedMembershipEvent(kind) && c.hub.getMasterClient(c.session) != c) {
+			return shared.RejectAction("stale master observation")
+		}
 	}
 	return apply(ctx)
 }
@@ -231,4 +269,9 @@ func (hub *Hub) membershipDisconnected(session int32, cid string) {
 	}
 	// Narrow fakes predate the scoped notification; production frontend implements it.
 	hub.server.GetFrontendHub().CidDisconnect(cid)
+}
+
+func (hub *Hub) scheduleTransportRemoval(root *Client) {
+	root.Close()
+	root.transport.cleanupOnce.Do(func() { go hub.removeTransport(root) })
 }

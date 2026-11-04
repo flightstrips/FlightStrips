@@ -13,13 +13,14 @@ import (
 )
 
 const (
-	offlineGracePeriod             = 60 * time.Second
-	controllerOfflineGracePeriod   = 15 * time.Second
-	masterTransferGracePeriod      = 45 * time.Second
+	offlineGracePeriod           = 60 * time.Second
+	controllerOfflineGracePeriod = 15 * time.Second
+	masterTransferGracePeriod    = 45 * time.Second
 )
 
 // offlineTimerEntry holds the cancel function and metadata for a pending position offline timer.
 type offlineTimerEntry struct {
+	source       deferredSource
 	cancel       context.CancelFunc
 	session      int32
 	callsign     string
@@ -56,18 +57,21 @@ func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, po
 	key := fmt.Sprintf("%d:%s", session, positionName)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	source := hub.captureDeferredSource(session)
 
 	hub.offlineMu.Lock()
 	if existing, ok := hub.offlineTimers[key]; ok {
 		existing.cancel()
 	}
-	hub.offlineTimers[key] = &offlineTimerEntry{
+	entry := &offlineTimerEntry{
+		source:       source,
 		cancel:       cancel,
 		session:      session,
 		callsign:     callsign,
 		positionFreq: positionFreq,
 		positionName: positionName,
 	}
+	hub.offlineTimers[key] = entry
 	hub.offlineMu.Unlock()
 
 	go func() {
@@ -87,22 +91,15 @@ func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, po
 			slog.String("callsign", callsign),
 			slog.Int("session", int(session)))
 
-		bgCtx := context.Background()
-		entry := &offlineTimerEntry{
-			session:      session,
-			callsign:     callsign,
-			positionFreq: positionFreq,
-			positionName: positionName,
+		bgCtx, release, valid := hub.enterDeferredSource(ctx, session, entry.source)
+		if !valid {
+			return
 		}
-
+		defer release()
 		hub.offlineMu.Lock()
-		if stored, ok := hub.offlineTimers[key]; ok {
-			entry = &offlineTimerEntry{
-				session:      stored.session,
-				callsign:     stored.callsign,
-				positionFreq: stored.positionFreq,
-				positionName: stored.positionName,
-			}
+		if hub.offlineTimers[key] != entry {
+			hub.offlineMu.Unlock()
+			return
 		}
 		delete(hub.offlineTimers, key)
 		hub.offlineMu.Unlock()

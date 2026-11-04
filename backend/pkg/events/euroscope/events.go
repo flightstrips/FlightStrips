@@ -378,3 +378,29 @@ func (e SendFrequencyMessageEvent) Marshal() ([]byte, error) { return marshalMes
 
 func (e FrequencyMessageResultEvent) GetType() EventType       { return FrequencyMessageResult }
 func (e FrequencyMessageResultEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
+
+// ExecutionMessage carries backend-issued authority on the existing typed
+// command. Its optional nonce correlates ordinary typed SDK callback results.
+type ExecutionMessage struct {
+	message     OutgoingMessage
+	origin      CommandOrigin
+	executionID string
+}
+
+func NewExecutionMessage(message OutgoingMessage, origin CommandOrigin, id string) ExecutionMessage {
+	return ExecutionMessage{message, origin, id}
+}
+func (m ExecutionMessage) GetType() EventType { return m.message.GetType() }
+func (m ExecutionMessage) Marshal() ([]byte, error) {
+	data, err := m.message.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	var envelope Envelope
+	if err := proto.Unmarshal(data, &envelope); err != nil {
+		return nil, err
+	}
+	envelope.CommandOrigin = m.origin
+	envelope.ExecutionId = m.executionID
+	return proto.Marshal(&envelope)
+}

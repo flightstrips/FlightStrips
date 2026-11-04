@@ -72,7 +72,17 @@ enum EventType {
 // Every websocket frame contains exactly one event. Using a oneof makes the
 // event discriminator and payload inseparable and gives both languages an
 // exhaustive generated dispatch API.
+enum CommandOrigin {
+  COMMAND_ORIGIN_UNSPECIFIED = 0;
+  COMMAND_ORIGIN_HUMAN = 1;
+  COMMAND_ORIGIN_AUTOMATIC = 2;
+}
+
 message Envelope {
+  // Backend-issued execution context. Typed SDK callbacks may echo this nonce;
+  // it does not acknowledge an operation or create a durable action record.
+  CommandOrigin command_origin = 101;
+  string execution_id = 102;
   // Assigned by the backend. Absent only during token/control establishment.
   MembershipContext context = 100;
   oneof event {
@@ -169,6 +179,7 @@ message ControlEvent {
   string local_ip = 6;
   string relevant_airport = 7;
   int32 range = 8;
+  bool tuned_frequencies_known = 9;
 }
 
 message MembershipRemovedEvent { string reason = 1; }

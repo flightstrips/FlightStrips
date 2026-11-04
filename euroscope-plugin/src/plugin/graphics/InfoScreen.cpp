@@ -56,7 +56,9 @@ namespace FlightStrips::graphics {
 
         const auto needsSquawk = m_plugin->GetNeedsSquawk();
         if (!m_plugin->GetConnectionState().observer && needsSquawk.has_value()) {
-            StartTagFunction("", "TopSky plugin", 0, needsSquawk.value().c_str(), "TopSky plugin", 667, {}, {});
+            m_plugin->ExecuteNeedsSquawk(needsSquawk.value(),[&] {
+                StartTagFunction("", "TopSky plugin", 0, needsSquawk.value().c_str(), "TopSky plugin", 667, {}, {});
+            });
         }
 
         if (!isOpen) {

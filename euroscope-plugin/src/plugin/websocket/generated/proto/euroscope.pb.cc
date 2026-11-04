@@ -1001,6 +1001,7 @@ inline constexpr ControlEvent::Impl_::Impl_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         observer_{false},
+        tuned_frequencies_known_{false},
         range_{0},
         _cached_size_{0} {}
 
@@ -1985,7 +1986,11 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 inline constexpr Envelope::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
+        execution_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         context_{nullptr},
+        command_origin_{static_cast< ::flightstrips::euroscope::v1::CommandOrigin >(0)},
         event_{},
         _oneof_case_{} {}
 
@@ -2223,6 +2228,56 @@ bool EventType_Parse(absl::string_view name, EventType* value) {
       EventType_entries, 59, name, &int_value);
   if (success) {
     *value = static_cast<EventType>(int_value);
+  }
+  return success;
+}
+PROTOBUF_CONSTINIT const uint32_t CommandOrigin_internal_data_[] = {
+    196608u, 0u, };
+bool CommandOrigin_IsValid(int value) {
+  return 0 <= value && value <= 2;
+}
+static ::google::protobuf::internal::ExplicitlyConstructed<std::string>
+    CommandOrigin_strings[3] = {};
+
+static const char CommandOrigin_names[] = {
+    "COMMAND_ORIGIN_AUTOMATIC"
+    "COMMAND_ORIGIN_HUMAN"
+    "COMMAND_ORIGIN_UNSPECIFIED"
+};
+
+static const ::google::protobuf::internal::EnumEntry CommandOrigin_entries[] =
+    {
+        {{&CommandOrigin_names[0], 24}, 2},
+        {{&CommandOrigin_names[24], 20}, 1},
+        {{&CommandOrigin_names[44], 26}, 0},
+};
+
+static const int CommandOrigin_entries_by_number[] = {
+    2,  // 0 -> COMMAND_ORIGIN_UNSPECIFIED
+    1,  // 1 -> COMMAND_ORIGIN_HUMAN
+    0,  // 2 -> COMMAND_ORIGIN_AUTOMATIC
+};
+
+const std::string& CommandOrigin_Name(CommandOrigin value) {
+  static const bool kDummy =
+      ::google::protobuf::internal::InitializeEnumStrings(
+          CommandOrigin_entries, CommandOrigin_entries_by_number,
+          3, CommandOrigin_strings);
+  (void)kDummy;
+
+  int idx = ::google::protobuf::internal::LookUpEnumName(
+      CommandOrigin_entries, CommandOrigin_entries_by_number, 3,
+      value);
+  return idx == -1 ? ::google::protobuf::internal::GetEmptyString()
+                   : CommandOrigin_strings[idx].get();
+}
+
+bool CommandOrigin_Parse(absl::string_view name, CommandOrigin* value) {
+  int int_value;
+  bool success = ::google::protobuf::internal::LookUpEnumValue(
+      CommandOrigin_entries, 3, name, &int_value);
+  if (success) {
+    *value = static_cast<CommandOrigin>(int_value);
   }
   return success;
 }
@@ -3001,6 +3056,7 @@ inline PROTOBUF_NDEBUG_INLINE Envelope::Impl_::Impl_(
     const Impl_& from)
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
+        execution_id_(arena, from.execution_id_),
         event_{},
         _oneof_case_{from._oneof_case_[0]} {}
 
@@ -3017,6 +3073,7 @@ Envelope::Envelope(
   _impl_.context_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::MembershipContext>(
                               arena, *from._impl_.context_)
                         : nullptr;
+  _impl_.command_origin_ = from._impl_.command_origin_;
   switch (event_case()) {
     case EVENT_NOT_SET:
       break;
@@ -3202,12 +3259,18 @@ inline PROTOBUF_NDEBUG_INLINE Envelope::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility,
     ::google::protobuf::Arena* arena)
       : _cached_size_{0},
+        execution_id_(arena),
         event_{},
         _oneof_case_{} {}
 
 inline void Envelope::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
-  _impl_.context_ = {};
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, context_),
+           0,
+           offsetof(Impl_, command_origin_) -
+               offsetof(Impl_, context_) +
+               sizeof(Impl_::command_origin_));
 }
 Envelope::~Envelope() {
   // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.Envelope)
@@ -3216,6 +3279,7 @@ Envelope::~Envelope() {
 }
 inline void Envelope::SharedDtor() {
   ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.execution_id_.Destroy();
   delete _impl_.context_;
   if (has_event()) {
     clear_event();
@@ -3608,11 +3672,13 @@ PROTOBUF_NOINLINE void Envelope::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
+  _impl_.execution_id_.ClearToEmpty();
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(_impl_.context_ != nullptr);
     _impl_.context_->Clear();
   }
+  _impl_.command_origin_ = 0;
   clear_event();
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<std::string>();
@@ -3626,15 +3692,15 @@ const char* Envelope::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 59, 59, 0, 15> Envelope::_table_ = {
+const ::_pbi::TcParseTable<2, 61, 59, 111, 15> Envelope::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(Envelope, _impl_._has_bits_),
     0, // no _extensions_
-    100, 0,  // max_field_number, fast_idx_mask
+    102, 24,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
     0,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    59,  // num_field_entries
+    61,  // num_field_entries
     59,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_Envelope_default_instance_._instance,
@@ -3646,9 +3712,16 @@ const ::_pbi::TcParseTable<0, 59, 59, 0, 15> Envelope::_table_ = {
     // .flightstrips.euroscope.v1.MembershipContext context = 100;
     {::_pbi::TcParser::FastMtS2,
      {1698, 0, 58, PROTOBUF_FIELD_OFFSET(Envelope, _impl_.context_)}},
+    // .flightstrips.euroscope.v1.CommandOrigin command_origin = 101;
+    {::_pbi::TcParser::FastV32S2,
+     {1704, 63, 0, PROTOBUF_FIELD_OFFSET(Envelope, _impl_.command_origin_)}},
+    // string execution_id = 102;
+    {::_pbi::TcParser::FastUS2,
+     {1714, 63, 0, PROTOBUF_FIELD_OFFSET(Envelope, _impl_.execution_id_)}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     33, 0, 5,
-    0, 32, 64512, 48, 65535, 58, 65535, 58, 65527, 58,
+    0, 32, 64512, 48, 65535, 58, 65535, 58, 65479, 58,
     65535, 65535
   }}, {{
     // .flightstrips.euroscope.v1.TokenEvent token = 1;
@@ -3828,6 +3901,12 @@ const ::_pbi::TcParseTable<0, 59, 59, 0, 15> Envelope::_table_ = {
     // .flightstrips.euroscope.v1.MembershipContext context = 100;
     {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.context_), _Internal::kHasBitsOffset + 0, 58,
     (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.euroscope.v1.CommandOrigin command_origin = 101;
+    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.command_origin_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kOpenEnum)},
+    // string execution_id = 102;
+    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.execution_id_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::TokenEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::LoginEvent>()},
@@ -3889,6 +3968,9 @@ const ::_pbi::TcParseTable<0, 59, 59, 0, 15> Envelope::_table_ = {
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::MembershipRemovedEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::MembershipContext>()},
   }}, {{
+    "\42\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\14\0\0"
+    "flightstrips.euroscope.v1.Envelope"
+    "execution_id"
   }},
 };
 
@@ -4200,6 +4282,21 @@ const ::_pbi::TcParseTable<0, 59, 59, 0, 15> Envelope::_table_ = {
         100, *_impl_.context_, _impl_.context_->GetCachedSize(), target, stream);
   }
 
+  // .flightstrips.euroscope.v1.CommandOrigin command_origin = 101;
+  if (this->_internal_command_origin() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteEnumToArray(
+        101, this->_internal_command_origin(), target);
+  }
+
+  // string execution_id = 102;
+  if (!this->_internal_execution_id().empty()) {
+    const std::string& _s = this->_internal_execution_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.Envelope.execution_id");
+    target = stream->WriteStringMaybeAliased(102, _s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -4217,11 +4314,23 @@ const ::_pbi::TcParseTable<0, 59, 59, 0, 15> Envelope::_table_ = {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
+  // string execution_id = 102;
+  if (!this->_internal_execution_id().empty()) {
+    total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_execution_id());
+  }
+
   // .flightstrips.euroscope.v1.MembershipContext context = 100;
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     total_size +=
         2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.context_);
+  }
+
+  // .flightstrips.euroscope.v1.CommandOrigin command_origin = 101;
+  if (this->_internal_command_origin() != 0) {
+    total_size += 2 +
+                  ::_pbi::WireFormatLite::EnumSize(this->_internal_command_origin());
   }
 
   switch (event_case()) {
@@ -4598,6 +4707,9 @@ void Envelope::MergeFrom(const Envelope& from) {
   ::uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
+  if (!from._internal_execution_id().empty()) {
+    _this->_internal_set_execution_id(from._internal_execution_id());
+  }
   cached_has_bits = from._impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(from._impl_.context_ != nullptr);
@@ -4607,6 +4719,9 @@ void Envelope::MergeFrom(const Envelope& from) {
     } else {
       _this->_impl_.context_->MergeFrom(*from._impl_.context_);
     }
+  }
+  if (from._internal_command_origin() != 0) {
+    _this->_impl_.command_origin_ = from._impl_.command_origin_;
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   if (const uint32_t oneof_from_case = from._impl_._oneof_case_[0]) {
@@ -5162,9 +5277,17 @@ PROTOBUF_NOINLINE bool Envelope::IsInitialized() const {
 
 void Envelope::InternalSwap(Envelope* PROTOBUF_RESTRICT other) {
   using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
-  swap(_impl_.context_, other->_impl_.context_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.execution_id_, &other->_impl_.execution_id_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(Envelope, _impl_.command_origin_)
+      + sizeof(Envelope::_impl_.command_origin_)
+      - PROTOBUF_FIELD_OFFSET(Envelope, _impl_.context_)>(
+          reinterpret_cast<char*>(&_impl_.context_),
+          reinterpret_cast<char*>(&other->_impl_.context_));
   swap(_impl_.event_, other->_impl_.event_);
   swap(_impl_._oneof_case_[0], other->_impl_._oneof_case_[0]);
 }
@@ -5978,15 +6101,15 @@ const char* ControlEvent::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 8, 0, 132, 2> ControlEvent::_table_ = {
+const ::_pbi::TcParseTable<4, 9, 0, 132, 2> ControlEvent::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    8, 56,  // max_field_number, fast_idx_mask
+    9, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967040,  // skipmap
+    4294966784,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    8,  // num_field_entries
+    9,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_ControlEvent_default_instance_._instance,
@@ -5995,9 +6118,7 @@ const ::_pbi::TcParseTable<3, 8, 0, 132, 2> ControlEvent::_table_ = {
     ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::ControlEvent>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // int32 range = 8;
-    {::_pbi::TcParser::FastV32S1,
-     {64, 63, 0, PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.range_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string environment = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.environment_)}},
@@ -6019,6 +6140,18 @@ const ::_pbi::TcParseTable<3, 8, 0, 132, 2> ControlEvent::_table_ = {
     // string relevant_airport = 7;
     {::_pbi::TcParser::FastUS1,
      {58, 63, 0, PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.relevant_airport_)}},
+    // int32 range = 8;
+    {::_pbi::TcParser::FastV32S1,
+     {64, 63, 0, PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.range_)}},
+    // bool tuned_frequencies_known = 9;
+    {::_pbi::TcParser::FastV8S1,
+     {72, 63, 0, PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.tuned_frequencies_known_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -6046,6 +6179,9 @@ const ::_pbi::TcParseTable<3, 8, 0, 132, 2> ControlEvent::_table_ = {
     // int32 range = 8;
     {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.range_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // bool tuned_frequencies_known = 9;
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.tuned_frequencies_known_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
   }},
   // no aux_entries
   {{
@@ -6129,6 +6265,13 @@ const ::_pbi::TcParseTable<3, 8, 0, 132, 2> ControlEvent::_table_ = {
             stream, this->_internal_range(), target);
   }
 
+  // bool tuned_frequencies_known = 9;
+  if (this->_internal_tuned_frequencies_known() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        9, this->_internal_tuned_frequencies_known(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -6187,6 +6330,11 @@ const ::_pbi::TcParseTable<3, 8, 0, 132, 2> ControlEvent::_table_ = {
     total_size += 2;
   }
 
+  // bool tuned_frequencies_known = 9;
+  if (this->_internal_tuned_frequencies_known() != 0) {
+    total_size += 2;
+  }
+
   // int32 range = 8;
   if (this->_internal_range() != 0) {
     total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
@@ -6231,6 +6379,9 @@ void ControlEvent::MergeFrom(const ControlEvent& from) {
   }
   if (from._internal_observer() != 0) {
     _this->_impl_.observer_ = from._impl_.observer_;
+  }
+  if (from._internal_tuned_frequencies_known() != 0) {
+    _this->_impl_.tuned_frequencies_known_ = from._impl_.tuned_frequencies_known_;
   }
   if (from._internal_range() != 0) {
     _this->_impl_.range_ = from._impl_.range_;

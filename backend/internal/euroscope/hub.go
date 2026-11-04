@@ -30,11 +30,13 @@ import (
 )
 
 type internalMessage struct {
-	target  *Client
-	session int32
-	airport string
-	message euroscope.OutgoingMessage
-	cid     *string
+	epoch      uint64
+	fixedEpoch bool
+	target     *Client
+	session    int32
+	airport    string
+	message    euroscope.OutgoingMessage
+	cid        *string
 }
 
 const (
@@ -56,11 +58,9 @@ type Hub struct {
 	controllerService     shared.ControllerService
 	pdcService            shared.PdcService
 	authenticationService shared.AuthenticationService
-	// Serialize shared edits and their broadcasts so every client sees the database order.
-	scratchPadMu sync.Mutex
-	clientsMu    sync.RWMutex
-	clients      map[*Client]bool
-	transports   map[*Client]bool
+	clientsMu             sync.RWMutex
+	clients               map[*Client]bool
+	transports            map[*Client]bool
 
 	// airportClientsMu guards airportClientCount for concurrent reads from other goroutines.
 	airportClientsMu   sync.RWMutex
@@ -75,12 +75,11 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 
-	masterMu           sync.RWMutex
-	masterTransitionMu sync.RWMutex
-	masterInfoMu       sync.Mutex // serialize metadata publication without holding registry or election locks
-	master             map[int32]*Client
-	masterCallsigns    sync.Map // map[int32]string — concurrent-safe callsign of master per session
-	masterCids         sync.Map // map[int32]string — concurrent-safe CID of master per session
+	masterMu         sync.RWMutex
+	sessionElections sync.Map // int32 -> *sessionElection; no operational I/O under global locks
+	master           map[int32]*Client
+	masterCallsigns  sync.Map // map[int32]string — concurrent-safe callsign of master per session
+	masterCids       sync.Map // map[int32]string — concurrent-safe CID of master per session
 
 	handlers shared.MessageHandlers[euroscope.EventType, *Client]
 
@@ -209,7 +208,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.AddAction(euroscope.CdmTsacUpdate, handleCdmTsacUpdate)
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
-	handlers.Add(euroscope.SendPrivateMessage, handleSendPrivateMessage)
+	handlers.AddAction(euroscope.SendPrivateMessage, handleSendPrivateMessage)
 	handlers.Add(euroscope.FrequencyMessageResult, handleFrequencyMessageResult)
 	if deps.AMANRouteFacts != nil {
 		handlers.Add(euroscope.AMANRouteFact, handleAMANRouteFact)
@@ -328,6 +327,10 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 // dispatch, so the wait is worth a metric while the common unblocked path stays
 // a plain channel send.
 func (hub *Hub) publish(message internalMessage) {
+	if message.session > 0 {
+		message.epoch = hub.election(message.session).epoch.Load()
+		message.fixedEpoch = true
+	}
 	select {
 	case <-hub.done:
 		return
@@ -370,6 +373,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	// Send BackendSync first, then delay, then SessionInfo
 	go func() {
 		if client.identitySnapshot().observer {
+			client.roleEligible.Store(true)
 			client.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoObserver})
 			if hub.hasOperationalClientForSession(client.session) {
 				hub.server.GetFrontendHub().CidOnline(client.session, client.GetCid())
@@ -377,8 +381,18 @@ func (hub *Hub) OnRegister(client *Client) {
 			return
 		}
 
-		hub.sendBackendSyncIfNeeded(client)
+		for !hub.sendBackendSyncIfNeeded(client) {
+			if client.isClosed() {
+				return
+			}
+			select {
+			case <-client.closed:
+				return
+			case <-time.After(2 * time.Second):
+			}
+		}
 		time.Sleep(2 * time.Second)
+		client.roleEligible.Store(true)
 		isMaster, stillRegistered := hub.promoteRegisteredMasterIfPreferred(client)
 		if !stillRegistered {
 			return
@@ -407,7 +421,9 @@ func (hub *Hub) sendInitialAMANHoldingEAT(client *Client) {
 	if hub.amanHoldingEAT == nil || client.identitySnapshot().observer {
 		return
 	}
-	events, err := hub.amanHoldingEAT.CurrentAMANHoldingEAT(aman.WithSession(context.Background(), client.session), client.airport)
+	ctx, release := hub.enterSessionApplication(context.Background(), client.session)
+	defer release()
+	events, err := hub.amanHoldingEAT.CurrentAMANHoldingEAT(aman.WithSession(ctx, client.session), client.airport)
 	if err != nil {
 		slog.Error("Failed to load initial AMAN holding EAT", slog.String("airport", client.airport), slog.Any("error", err))
 		return
@@ -420,19 +436,24 @@ func (hub *Hub) sendInitialAMANHoldingEAT(client *Client) {
 // sendBackendSyncIfNeeded fetches all existing strips for the client's session
 // and sends a BackendSyncEvent to the client so it can apply the backend-authoritative
 // state to EuroScope before assuming master or slave duties.
-func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
-	hub.scratchPadMu.Lock()
-	defer hub.scratchPadMu.Unlock()
+func (hub *Hub) sendBackendSyncIfNeeded(client *Client) bool {
+	ctx, release := hub.enterSessionApplication(context.Background(), client.session)
+	defer release()
+	// The snapshot and every queued restoration message retain one election.
+	// Shared text is ordered within this session without delaying other airports.
+	election := hub.election(client.session)
+	election.scratchPadMu.Lock()
+	defer election.scratchPadMu.Unlock()
 	stripRepo := hub.server.GetStripRepository()
-	strips, err := stripRepo.List(context.Background(), client.session)
+	strips, err := stripRepo.List(ctx, client.session)
 	if err != nil {
 		slog.Error("Failed to fetch strips for backend sync", slog.Any("error", err))
-		return
+		return false
 	}
 
 	if client.workflow == nil {
 		slog.Warn("Backend sync requires a bound workflow", slog.Int("session", int(client.session)))
-		return
+		return false
 	}
 	syncStrips := make([]*euroscope.BackendSyncStrip, 0, len(strips))
 	for _, strip := range strips {
@@ -443,7 +464,7 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		admission, decisionErr := client.workflow.Lifecycle(scope, airportworkflow.Lifecycle{Kind: airportworkflow.BackendAdmission})
 		if decisionErr != nil {
 			slog.Error("Backend sync workflow admission failed", slog.Any("error", decisionErr))
-			return
+			return false
 		}
 		if !admission.Admit {
 			if strip != nil {
@@ -465,7 +486,7 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		state, decisionErr := client.workflow.Observe(scope, airportworkflow.Observation{Kind: airportworkflow.BackendState})
 		if decisionErr != nil {
 			slog.Error("Backend sync workflow failed", slog.Any("error", decisionErr))
-			return
+			return false
 		}
 		if state.ReconciledGroundState != nil {
 			entry.GroundState = *state.ReconciledGroundState
@@ -490,11 +511,11 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 	if hub.airports != nil {
 		definition, ok := hub.airports.Lookup(client.airport)
 		if !ok {
-			return
+			return false
 		}
 		lat, lon = definition.Coordinates()
 	}
-	client.Enqueue(euroscope.BackendSyncEvent{
+	sent := client.Enqueue(euroscope.BackendSyncEvent{
 		Strips:    syncStrips,
 		Latitude:  lat,
 		Longitude: lon,
@@ -504,6 +525,7 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		slog.Int("session", int(client.session)),
 		slog.Int("strips", len(syncStrips)),
 	)
+	return sent
 }
 
 func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[euroscope.EventType, *Client] {
@@ -671,7 +693,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 	client.stopPendingPositionUpdates()
 	identity := client.identitySnapshot()
 	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "euroscope", identity.callsign, client.version)
-	hub.clearClientRunwayState(client.session, client.GetCid())
+	hub.clearMembershipRunwayState(client)
 	hub.clearObserverCid(client.GetCid())
 	hub.clearClientLocalIP(client.session, client.GetCid())
 	hub.adjustAirportClientCount(client.airport, identity.observer, -1)
@@ -731,8 +753,9 @@ func (hub *Hub) setMasterClient(client *Client) {
 		return
 	}
 	defer hub.broadcastMasterInfo(client.session)
-	hub.masterTransitionMu.Lock()
-	defer hub.masterTransitionMu.Unlock()
+	election := hub.election(client.session)
+	election.gate.Lock()
+	defer election.gate.Unlock()
 	hub.masterMu.Lock()
 	defer hub.masterMu.Unlock()
 	hub.setMasterClientLocked(client)
@@ -763,10 +786,18 @@ func (hub *Hub) setMasterClientLocked(client *Client) {
 
 	if current, ok := hub.master[client.session]; ok && current != nil {
 		current.positionEpoch.Add(1)
+		current.resetObservationCaches()
 		currentIdentity := current.identitySnapshot()
 		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, currentIdentity.callsign, current.version)
 	}
 
+	hub.election(client.session).epoch.Add(1)
+	hub.invalidateSessionAbsence(client.session)
+	client.positionEpoch.Add(1)
+	client.resetObservationCaches()
+	if client.membership != nil {
+		hub.syncedSessions.Delete(client.session)
+	}
 	hub.master[client.session] = client
 	hub.masterCallsigns.Store(client.session, identity.callsign)
 	hub.masterCids.Store(client.session, client.GetCid())
@@ -819,15 +850,15 @@ func masterClientPriority(client *Client) int {
 
 func preferredMasterClient(clients []*Client, session int32, current *Client) *Client {
 	best := current
-	if best != nil && (best.session != session || best.identitySnapshot().observer) {
+	if best != nil && (best.isClosed() || (best.membership != nil && !best.roleEligible.Load()) || best.session != session || best.identitySnapshot().observer) {
 		best = nil
 	}
 
 	for _, candidate := range clients {
-		if candidate == nil || candidate.session != session || candidate.identitySnapshot().observer {
+		if candidate == nil || candidate.isClosed() || (candidate.membership != nil && !candidate.roleEligible.Load()) || candidate.session != session || candidate.identitySnapshot().observer {
 			continue
 		}
-		if best == nil || masterClientPriority(candidate) < masterClientPriority(best) {
+		if best == nil || (mayPreemptMaster(candidate) && masterClientPriority(candidate) < masterClientPriority(best)) {
 			best = candidate
 		}
 	}
@@ -846,9 +877,16 @@ func (hub *Hub) promoteMasterIfPreferred(candidate *Client, notifyCandidate bool
 }
 
 func (hub *Hub) promoteMasterCandidate(candidate *Client, notifyCandidate bool) bool {
-	hub.masterTransitionMu.Lock()
-	defer hub.masterTransitionMu.Unlock()
+	election := hub.election(candidate.session)
+	election.gate.Lock()
+	defer election.gate.Unlock()
 
+	return hub.promoteMasterCandidateLocked(candidate, notifyCandidate)
+}
+func (hub *Hub) promoteMasterCandidateLocked(candidate *Client, notifyCandidate bool) bool {
+	if candidate.isClosed() || (candidate.membership != nil && !candidate.roleEligible.Load()) {
+		return false
+	}
 	hub.masterMu.Lock()
 	if hub.master == nil {
 		hub.master = make(map[int32]*Client)
@@ -862,7 +900,7 @@ func (hub *Hub) promoteMasterCandidate(candidate *Client, notifyCandidate bool) 
 		}
 		return true
 	}
-	if current != nil && !current.identitySnapshot().observer && masterClientPriority(candidate) >= masterClientPriority(current) {
+	if current != nil && !current.isClosed() && !current.identitySnapshot().observer && (!mayPreemptMaster(candidate) || masterClientPriority(candidate) >= masterClientPriority(current)) {
 		hub.masterMu.Unlock()
 		if notifyCandidate {
 			candidate.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave})
@@ -898,15 +936,18 @@ func (hub *Hub) promoteRegisteredMasterIfPreferred(candidate *Client) (isMaster,
 		}
 	}()
 
+	election := hub.election(candidate.session)
+	election.gate.Lock()
+	defer election.gate.Unlock()
 	hub.clientsMu.RLock()
 	defer hub.clientsMu.RUnlock()
-	if !hub.clients[candidate] {
+	if !hub.clients[candidate] || candidate.isClosed() {
 		return false, false
 	}
 	if candidate.identitySnapshot().observer {
 		return false, true
 	}
-	return hub.promoteMasterCandidate(candidate, true), true
+	return hub.promoteMasterCandidateLocked(candidate, true), true
 }
 
 // reconsiderMasterAfterLogin handles position changes on an existing websocket.
@@ -951,8 +992,9 @@ func (hub *Hub) refreshMasterClientIfCurrent(client *Client) bool {
 	}
 	defer hub.broadcastMasterInfo(client.session)
 
-	hub.masterTransitionMu.Lock()
-	defer hub.masterTransitionMu.Unlock()
+	election := hub.election(client.session)
+	election.gate.Lock()
+	defer election.gate.Unlock()
 	hub.masterMu.Lock()
 	defer hub.masterMu.Unlock()
 	if hub.master[client.session] != client {
@@ -970,8 +1012,9 @@ func (hub *Hub) replaceMasterIfCurrent(expected, replacement *Client) bool {
 	}
 	defer hub.broadcastMasterInfo(expected.session)
 
-	hub.masterTransitionMu.Lock()
-	defer hub.masterTransitionMu.Unlock()
+	election := hub.election(expected.session)
+	election.gate.Lock()
+	defer election.gate.Unlock()
 
 	hub.masterMu.Lock()
 	if hub.master[expected.session] != expected {
@@ -991,8 +1034,9 @@ func (hub *Hub) replaceMasterIfCurrent(expected, replacement *Client) bool {
 
 func (hub *Hub) clearMasterClient(session int32) {
 	defer hub.broadcastMasterInfo(session)
-	hub.masterTransitionMu.Lock()
-	defer hub.masterTransitionMu.Unlock()
+	election := hub.election(session)
+	election.gate.Lock()
+	defer election.gate.Unlock()
 	hub.masterMu.Lock()
 	defer hub.masterMu.Unlock()
 	hub.clearMasterClientLocked(session)
@@ -1005,6 +1049,11 @@ func (hub *Hub) clearMasterClientLocked(session int32) {
 		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, identity.callsign, current.version)
 	}
 
+	if hub.master[session] != nil {
+		hub.election(session).epoch.Add(1)
+		hub.invalidateSessionAbsence(session)
+		hub.syncedSessions.Delete(session)
+	}
 	delete(hub.master, session)
 	hub.masterCallsigns.Delete(session)
 	hub.masterCids.Delete(session)
@@ -1028,17 +1077,18 @@ func (hub *Hub) GetMasterCallsign(session int32) string {
 // the potentially blocking frontend broadcast so its dispatch loop can look up
 // controllers and the EuroScope hub can continue registration and election.
 func (hub *Hub) broadcastMasterInfo(session int32) {
-	hub.masterInfoMu.Lock()
-	defer hub.masterInfoMu.Unlock()
+	election := hub.election(session)
+	election.infoMu.Lock()
+	defer election.infoMu.Unlock()
+	election.gate.RLock()
 	hub.clientsMu.RLock()
-	hub.masterTransitionMu.RLock()
 	callsign := hub.GetMasterCallsign(session)
 	for client := range hub.clients {
 		if client.session == session {
 			client.Enqueue(euroscope.MasterInfoEvent{MasterCallsign: callsign})
 		}
 	}
-	hub.masterTransitionMu.RUnlock()
+	election.gate.RUnlock()
 	hub.clientsMu.RUnlock()
 	if hub.server != nil && hub.server.GetFrontendHub() != nil {
 		hub.server.GetFrontendHub().Broadcast(session, frontendEvents.MasterInfoEvent{MasterCallsign: callsign})
@@ -1143,13 +1193,22 @@ func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {
 		hub.squawkThrottle.Enqueue(session, queuedSquawkRequest{cid: cid, callsign: callsign, binding: binding})
 		return
 	}
-	hub.squawkThrottle.Enqueue(session, queuedSquawkRequest{
-		cid:      cid,
-		callsign: callsign,
-	})
+	binding, err := hub.resolveGenerateSquawkBinding(context.Background(), session)
+	if err != nil {
+		return
+	}
+	hub.squawkThrottle.Enqueue(session, queuedSquawkRequest{callsign: callsign, binding: binding})
 }
 
 func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) string {
+	binding, err := hub.resolveGenerateSquawkBinding(ctx, session)
+	if err != nil {
+		return ""
+	}
+	return binding.CID()
+}
+
+func (hub *Hub) resolveGenerateSquawkBinding(ctx context.Context, session int32) (shared.CommandBinding, error) {
 	if hub.server != nil {
 		sectorRepo := hub.server.GetSectorOwnerRepository()
 		controllerRepo := hub.server.GetControllerRepository()
@@ -1181,8 +1240,8 @@ func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) str
 							continue
 						}
 						if controller.Cid != nil && *controller.Cid != "" {
-							if _, err := hub.captureCommandBinding(session, *controller.Cid, false); err == nil {
-								return *controller.Cid
+							if binding, err := hub.ResolveAutomaticCommandBinding(session, *controller.Cid); err == nil {
+								return binding, nil
 							}
 						}
 					}
@@ -1191,24 +1250,17 @@ func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) str
 		}
 	}
 
-	if master := hub.getMasterClient(session); master != nil {
-		if _, err := hub.captureCommandBinding(session, master.GetCid(), false); err == nil {
-			return master.GetCid()
-		}
-	}
-
-	return ""
+	return hub.ResolveAutomaticCommandBinding(session, "")
 }
 
 // SendPrivateMessageFromDelivery routes an automated pilot message through an
 // operational DEL client when available, falling back to the session master.
 func (hub *Hub) SendPrivateMessageFromDelivery(session int32, callsign, message string) bool {
-	cid := hub.resolveGenerateSquawkCid(context.Background(), session)
-	if cid == "" {
+	binding, err := hub.resolveGenerateSquawkBinding(context.Background(), session)
+	if err != nil {
 		return false
 	}
-	hub.Send(session, cid, euroscope.SendPrivateMessageEvent{Callsign: callsign, Message: message})
-	return true
+	return binding.Send(euroscope.SendPrivateMessageEvent{Callsign: callsign, Message: message}) == nil
 }
 
 func (hub *Hub) SendGroundState(session int32, cid string, callsign string, state string) {
@@ -1513,7 +1565,7 @@ func (hub *Hub) Run(ctx context.Context) {
 				hub.clientsMu.Unlock()
 				for _, root := range old {
 					root.Close()
-					hub.removeTransport(root)
+					hub.scheduleTransportRemoval(root)
 				}
 				client.Enqueue(euroscope.NewScopedMessage(client.wireContext(), euroscope.ControlEvent{}))
 				continue
@@ -1525,7 +1577,7 @@ func (hub *Hub) Run(ctx context.Context) {
 		case client := <-hub.unregister:
 			if client.transport != nil && client.membership == nil {
 				client.Close()
-				hub.removeTransport(client)
+				hub.scheduleTransportRemoval(client)
 				continue
 			}
 			hub.clientsMu.Lock()
@@ -1552,7 +1604,7 @@ func (hub *Hub) Run(ctx context.Context) {
 				kind = "direct"
 				for _, client := range clients {
 					if message.session == client.session && *message.cid == client.GetCid() && message.target == client {
-						client.Enqueue(message.message)
+						client.enqueueAtEpoch(message.message, message.epoch, message.fixedEpoch)
 						fanout++
 					}
 				}
@@ -1560,7 +1612,7 @@ func (hub *Hub) Run(ctx context.Context) {
 				for _, client := range clients {
 					if (message.airport != "" && strings.EqualFold(message.airport, client.airport)) ||
 						(message.airport == "" && message.session == client.session) {
-						client.Enqueue(message.message)
+						client.enqueueAtEpoch(message.message, message.epoch, message.fixedEpoch)
 						fanout++
 					}
 				}

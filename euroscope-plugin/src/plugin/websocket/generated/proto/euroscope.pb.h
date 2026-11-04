@@ -353,6 +353,30 @@ const std::string& EventType_Name(T value) {
   return EventType_Name(static_cast<EventType>(value));
 }
 bool EventType_Parse(absl::string_view name, EventType* value);
+enum CommandOrigin : int {
+  COMMAND_ORIGIN_UNSPECIFIED = 0,
+  COMMAND_ORIGIN_HUMAN = 1,
+  COMMAND_ORIGIN_AUTOMATIC = 2,
+  CommandOrigin_INT_MIN_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::min(),
+  CommandOrigin_INT_MAX_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::max(),
+};
+
+bool CommandOrigin_IsValid(int value);
+extern const uint32_t CommandOrigin_internal_data_[];
+constexpr CommandOrigin CommandOrigin_MIN = static_cast<CommandOrigin>(0);
+constexpr CommandOrigin CommandOrigin_MAX = static_cast<CommandOrigin>(2);
+constexpr int CommandOrigin_ARRAYSIZE = 2 + 1;
+const std::string& CommandOrigin_Name(CommandOrigin value);
+template <typename T>
+const std::string& CommandOrigin_Name(T value) {
+  static_assert(std::is_same<T, CommandOrigin>::value ||
+                    std::is_integral<T>::value,
+                "Incorrect type passed to CommandOrigin_Name().");
+  return CommandOrigin_Name(static_cast<CommandOrigin>(value));
+}
+bool CommandOrigin_Parse(absl::string_view name, CommandOrigin* value);
 
 // ===================================================================
 
@@ -7614,6 +7638,7 @@ class ControlEvent final : public ::google::protobuf::MessageLite
     kLocalIpFieldNumber = 6,
     kRelevantAirportFieldNumber = 7,
     kObserverFieldNumber = 5,
+    kTunedFrequenciesKnownFieldNumber = 9,
     kRangeFieldNumber = 8,
   };
   // repeated string tuned_frequencies = 4;
@@ -7734,6 +7759,16 @@ class ControlEvent final : public ::google::protobuf::MessageLite
   void _internal_set_observer(bool value);
 
   public:
+  // bool tuned_frequencies_known = 9;
+  void clear_tuned_frequencies_known() ;
+  bool tuned_frequencies_known() const;
+  void set_tuned_frequencies_known(bool value);
+
+  private:
+  bool _internal_tuned_frequencies_known() const;
+  void _internal_set_tuned_frequencies_known(bool value);
+
+  public:
   // int32 range = 8;
   void clear_range() ;
   ::int32_t range() const;
@@ -7749,7 +7784,7 @@ class ControlEvent final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 8, 0,
+      4, 9, 0,
       132, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -7772,6 +7807,7 @@ class ControlEvent final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr local_ip_;
     ::google::protobuf::internal::ArenaStringPtr relevant_airport_;
     bool observer_;
+    bool tuned_frequencies_known_;
     ::int32_t range_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -15068,7 +15104,9 @@ class Envelope final : public ::google::protobuf::MessageLite
 
   // accessors -------------------------------------------------------
   enum : int {
+    kExecutionIdFieldNumber = 102,
     kContextFieldNumber = 100,
+    kCommandOriginFieldNumber = 101,
     kTokenFieldNumber = 1,
     kLoginFieldNumber = 2,
     kControllerOnlineFieldNumber = 3,
@@ -15128,6 +15166,22 @@ class Envelope final : public ::google::protobuf::MessageLite
     kControlFieldNumber = 57,
     kMembershipRemovedFieldNumber = 58,
   };
+  // string execution_id = 102;
+  void clear_execution_id() ;
+  const std::string& execution_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_execution_id(Arg_&& arg, Args_... args);
+  std::string* mutable_execution_id();
+  PROTOBUF_NODISCARD std::string* release_execution_id();
+  void set_allocated_execution_id(std::string* value);
+
+  private:
+  const std::string& _internal_execution_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_execution_id(
+      const std::string& value);
+  std::string* _internal_mutable_execution_id();
+
+  public:
   // .flightstrips.euroscope.v1.MembershipContext context = 100;
   bool has_context() const;
   void clear_context() ;
@@ -15141,6 +15195,16 @@ class Envelope final : public ::google::protobuf::MessageLite
   private:
   const ::flightstrips::euroscope::v1::MembershipContext& _internal_context() const;
   ::flightstrips::euroscope::v1::MembershipContext* _internal_mutable_context();
+
+  public:
+  // .flightstrips.euroscope.v1.CommandOrigin command_origin = 101;
+  void clear_command_origin() ;
+  ::flightstrips::euroscope::v1::CommandOrigin command_origin() const;
+  void set_command_origin(::flightstrips::euroscope::v1::CommandOrigin value);
+
+  private:
+  ::flightstrips::euroscope::v1::CommandOrigin _internal_command_origin() const;
+  void _internal_set_command_origin(::flightstrips::euroscope::v1::CommandOrigin value);
 
   public:
   // .flightstrips.euroscope.v1.TokenEvent token = 1;
@@ -16312,8 +16376,8 @@ class Envelope final : public ::google::protobuf::MessageLite
   inline void clear_has_event();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 59, 59,
-      0, 15>
+      2, 61, 59,
+      111, 15>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -16330,7 +16394,9 @@ class Envelope final : public ::google::protobuf::MessageLite
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr execution_id_;
     ::flightstrips::euroscope::v1::MembershipContext* context_;
+    int command_origin_;
     union EventUnion {
       constexpr EventUnion() : _constinit_{} {}
       ::google::protobuf::internal::ConstantInitialized _constinit_;
@@ -16415,6 +16481,78 @@ class Envelope final : public ::google::protobuf::MessageLite
 // -------------------------------------------------------------------
 
 // Envelope
+
+// .flightstrips.euroscope.v1.CommandOrigin command_origin = 101;
+inline void Envelope::clear_command_origin() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.command_origin_ = 0;
+}
+inline ::flightstrips::euroscope::v1::CommandOrigin Envelope::command_origin() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.command_origin)
+  return _internal_command_origin();
+}
+inline void Envelope::set_command_origin(::flightstrips::euroscope::v1::CommandOrigin value) {
+  _internal_set_command_origin(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.Envelope.command_origin)
+}
+inline ::flightstrips::euroscope::v1::CommandOrigin Envelope::_internal_command_origin() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return static_cast<::flightstrips::euroscope::v1::CommandOrigin>(_impl_.command_origin_);
+}
+inline void Envelope::_internal_set_command_origin(::flightstrips::euroscope::v1::CommandOrigin value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.command_origin_ = value;
+}
+
+// string execution_id = 102;
+inline void Envelope::clear_execution_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.execution_id_.ClearToEmpty();
+}
+inline const std::string& Envelope::execution_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.execution_id)
+  return _internal_execution_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Envelope::set_execution_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.execution_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.Envelope.execution_id)
+}
+inline std::string* Envelope::mutable_execution_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_execution_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.execution_id)
+  return _s;
+}
+inline const std::string& Envelope::_internal_execution_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.execution_id_.Get();
+}
+inline void Envelope::_internal_set_execution_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.execution_id_.Set(value, GetArena());
+}
+inline std::string* Envelope::_internal_mutable_execution_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.execution_id_.Mutable( GetArena());
+}
+inline std::string* Envelope::release_execution_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.execution_id)
+  return _impl_.execution_id_.Release();
+}
+inline void Envelope::set_allocated_execution_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.execution_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.execution_id_.IsDefault()) {
+          _impl_.execution_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.execution_id)
+}
 
 // .flightstrips.euroscope.v1.MembershipContext context = 100;
 inline bool Envelope::has_context() const {
@@ -21853,6 +21991,28 @@ inline ::int32_t ControlEvent::_internal_range() const {
 inline void ControlEvent::_internal_set_range(::int32_t value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.range_ = value;
+}
+
+// bool tuned_frequencies_known = 9;
+inline void ControlEvent::clear_tuned_frequencies_known() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tuned_frequencies_known_ = false;
+}
+inline bool ControlEvent::tuned_frequencies_known() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies_known)
+  return _internal_tuned_frequencies_known();
+}
+inline void ControlEvent::set_tuned_frequencies_known(bool value) {
+  _internal_set_tuned_frequencies_known(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.tuned_frequencies_known)
+}
+inline bool ControlEvent::_internal_tuned_frequencies_known() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tuned_frequencies_known_;
+}
+inline void ControlEvent::_internal_set_tuned_frequencies_known(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tuned_frequencies_known_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -34721,6 +34881,8 @@ namespace protobuf {
 
 template <>
 struct is_proto_enum<::flightstrips::euroscope::v1::EventType> : std::true_type {};
+template <>
+struct is_proto_enum<::flightstrips::euroscope::v1::CommandOrigin> : std::true_type {};
 
 }  // namespace protobuf
 }  // namespace google

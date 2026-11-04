@@ -13,6 +13,7 @@ const aircraftDisconnectRetryDelay = 5 * time.Second
 // aircraftDisconnectEntry owns the complete lifecycle of one pending disconnect.
 // done closes only after the worker has stopped all database writes and frontend events.
 type aircraftDisconnectEntry struct {
+	source   deferredSource
 	cancel   context.CancelFunc
 	done     chan struct{}
 	reset    chan time.Duration
@@ -31,6 +32,7 @@ func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay
 	key := fmt.Sprintf("%d:%s", session, callsign)
 	ctx, cancel := context.WithCancel(context.Background())
 	entry := &aircraftDisconnectEntry{
+		source:   hub.captureDeferredSource(session),
 		cancel:   cancel,
 		done:     make(chan struct{}),
 		reset:    make(chan time.Duration, 1),
@@ -43,6 +45,10 @@ func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay
 		hub.aircraftDisconnectMu.Unlock()
 		cancel()
 		return
+	}
+	if existing := hub.aircraftDisconnectTimers[key]; existing != nil && existing.source != entry.source {
+		existing.cancel()
+		delete(hub.aircraftDisconnectTimers, key)
 	}
 	if existing := hub.aircraftDisconnectTimers[key]; existing != nil {
 		select {
@@ -91,17 +97,25 @@ func (hub *Hub) runAircraftDisconnect(ctx context.Context, key string, entry *ai
 		case <-timer.C:
 		}
 
+		operationCtx, release, valid := hub.enterDeferredSource(ctx, entry.session, entry.source)
+		if !valid {
+			return
+		}
+		ctx := operationCtx
+
 		hub.aircraftDisconnectMu.Lock()
 		current := hub.aircraftDisconnectTimers[key]
 		retainer := hub.aircraftDisconnectRetainer
 		hub.aircraftDisconnectMu.Unlock()
 		if current != entry {
+			release()
 			return
 		}
 
 		if retainer != nil && retainer(ctx, entry.session, entry.callsign) {
 			if err := hub.clearEuroscopeSeen(ctx, entry.session, entry.callsign); err != nil {
 				if ctx.Err() != nil {
+					release()
 					return
 				}
 				slog.Warn("Failed to clear EuroScope strip presence after disconnect; retrying",
@@ -109,11 +123,13 @@ func (hub *Hub) runAircraftDisconnect(ctx context.Context, key string, entry *ai
 					slog.Int("session", int(entry.session)),
 					slog.Any("error", err))
 				wait = aircraftDisconnectRetryDelay
+				release()
 				continue
 			}
 			if remover, ok := hub.stripService.(euroScopeAMANStripRemover); ok {
 				if err := remover.RemoveEuroScopeAMANStrip(ctx, entry.session, entry.callsign); err != nil {
 					if ctx.Err() != nil {
+						release()
 						return
 					}
 					slog.Warn("Failed to retract EuroScope AMAN strip after retained disconnect; retrying",
@@ -121,12 +137,14 @@ func (hub *Hub) runAircraftDisconnect(ctx context.Context, key string, entry *ai
 						slog.Int("session", int(entry.session)),
 						slog.Any("error", err))
 					wait = aircraftDisconnectRetryDelay
+					release()
 					continue
 				}
 			}
 			hub.aircraftDisconnectMu.Lock()
 			if ctx.Err() != nil || hub.aircraftDisconnectTimers[key] != entry {
 				hub.aircraftDisconnectMu.Unlock()
+				release()
 				return
 			}
 			if hub.aircraftDisconnects == nil {
@@ -140,6 +158,7 @@ func (hub *Hub) runAircraftDisconnect(ctx context.Context, key string, entry *ai
 			slog.Debug("Aircraft disconnect retained by another source",
 				slog.String("callsign", entry.callsign),
 				slog.Int("session", int(entry.session)))
+			release()
 			return
 		}
 
@@ -148,14 +167,17 @@ func (hub *Hub) runAircraftDisconnect(ctx context.Context, key string, entry *ai
 			slog.Int("session", int(entry.session)))
 		if err := hub.stripService.DeleteStrip(ctx, entry.session, entry.callsign); err != nil {
 			if ctx.Err() != nil {
+				release()
 				return
 			}
 			slog.Warn("Failed to delete strip in aircraft disconnect timer; retrying",
 				slog.String("callsign", entry.callsign),
 				slog.Any("error", err))
 			wait = aircraftDisconnectRetryDelay
+			release()
 			continue
 		}
+		release()
 		return
 	}
 }

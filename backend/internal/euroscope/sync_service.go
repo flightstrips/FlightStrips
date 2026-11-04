@@ -12,7 +12,6 @@ import (
 	"errors"
 	"log/slog"
 	"reflect"
-	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -62,7 +61,8 @@ type euroscopeSyncRuntime interface {
 }
 
 type euroscopeSyncHubRuntime struct {
-	hub *Hub
+	client *Client
+	hub    *Hub
 }
 
 func (r euroscopeSyncHubRuntime) CancelOfflineTimer(session int32, positionName string) {
@@ -81,6 +81,9 @@ func (r euroscopeSyncHubRuntime) CancelAircraftDisconnect(session int32, callsig
 func (r euroscopeSyncHubRuntime) EvaluateClientRunwayState(session int32, cid, callsign string, current, master models.ActiveRunways, isMaster bool) runwayClientEvaluation {
 	if r.hub == nil {
 		return runwayClientEvaluation{CID: cid}
+	}
+	if r.client != nil {
+		return r.hub.evaluateMembershipRunwayState(r.client, current, master, isMaster)
 	}
 	return r.hub.evaluateClientRunwayState(session, cid, callsign, current, master, isMaster)
 }
@@ -102,13 +105,17 @@ func (r euroscopeSyncHubRuntime) CurrentMasterStatus(session int32, cid, callsig
 	}
 
 	hasMaster = true
-	isMaster = master.GetCid() == cid && strings.EqualFold(strings.TrimSpace(master.GetCallsign()), strings.TrimSpace(callsign))
+	isMaster = r.client != nil && master == r.client && r.client.session == session
 	return hasMaster, isMaster
 }
 
 func (r euroscopeSyncHubRuntime) Send(session int32, cid string, message euroscope.OutgoingMessage) {
 	if r.hub != nil {
-		r.hub.Send(session, cid, message)
+		if r.client != nil && r.client.membership != nil && r.client.session == session && r.client.GetCid() == cid {
+			r.client.Enqueue(message)
+		} else {
+			r.hub.Send(session, cid, message)
+		}
 	}
 }
 
@@ -149,7 +156,7 @@ func newEuroscopeSyncServiceForClient(client *Client) *EuroscopeSyncService {
 		client.hub.server,
 		client.hub.controllerService,
 		client.hub.stripService,
-		euroscopeSyncHubRuntime{hub: client.hub},
+		euroscopeSyncHubRuntime{hub: client.hub, client: client},
 	)
 }
 

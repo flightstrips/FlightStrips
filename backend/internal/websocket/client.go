@@ -318,7 +318,7 @@ func parseMessage[TType comparable](message []byte) (shared.Message[TType], erro
 		if err := proto.Unmarshal(message, &envelope); err != nil {
 			return shared.Message[TType]{}, err
 		}
-		return shared.Message[TType]{Type: eventType, Message: payload, Scope: envelope.Context}, nil
+		return shared.Message[TType]{Type: eventType, Message: payload, Scope: envelope.Context, Origin: envelope.CommandOrigin, ExecutionID: envelope.ExecutionId}, nil
 	}
 
 	var msg internalMessage[TType]

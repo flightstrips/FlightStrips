@@ -23,7 +23,7 @@
 #include "plugin/AirportResolution.h"
 
 #include <chrono>
-#include <deque>
+#include "websocket/PendingSquawkQueue.h"
 
 // TODO move
 #define CLEARED "CLEA"
@@ -99,12 +99,9 @@ namespace FlightStrips {
 
         void AddNeedsSquawk(const std::string &callsign);
         std::optional<std::string> GetNeedsSquawk();
+        bool ExecuteNeedsSquawk(const std::string& callsign,const std::function<void()>& action);
 
     private:
-        struct PendingSquawkRequest {
-            std::string callsign;
-            std::chrono::steady_clock::time_point requestedAt;
-        };
 
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_unfilteredFlightPlanEventHandlers;
@@ -118,7 +115,7 @@ namespace FlightStrips {
         const std::weak_ptr<Container> m_container;
 
         ConnectionState m_connectionState = {};
-        std::deque<PendingSquawkRequest> m_needsSquawk = {};
+        websocket::PendingSquawkQueue m_needsSquawk;
         double m_airportLatitude = 0.0;
         struct MembershipAirport {std::string airport;double latitude;double longitude;};
         std::unordered_map<std::string,MembershipAirport> m_membershipAirports;

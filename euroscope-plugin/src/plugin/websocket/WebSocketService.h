@@ -8,6 +8,7 @@
 #include "Logger.hpp"
 #include "WebSocket.h"
 #include "MembershipState.h"
+#include "PendingSquawkQueue.h"
 #include "authentication/IAuthenticationService.h"
 #include "handlers/AuthenticationEventHandler.h"
 #include "handlers/ConnectionEventHandlers.h"
@@ -25,7 +26,7 @@ namespace FlightStrips::websocket {
         std::string masterCallsign;
     };
 
-    class WebSocketService : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler {
+    class WebSocketService : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler, public std::enable_shared_from_this<WebSocketService> {
     public:
         explicit WebSocketService(std::string baseUrl,
                                   bool apiEnabled,
@@ -69,6 +70,8 @@ namespace FlightStrips::websocket {
         bool SendHoldReplay(const HoldEvent& event);
         void ProcessServerMessage(const std::string& bytes);
         void ForEachMembership(const std::function<void(const std::string&)>& action);
+        void DeferSquawk(PendingSquawkQueue& queue,const std::string& callsign);
+        bool SendCommandResult(const Event& event);
         Stats GetStats() const;
         std::optional<int> GetDelaySecondsRemaining() const;
 
@@ -102,6 +105,21 @@ namespace FlightStrips::websocket {
         uint64_t transport_generation_ = 0;
         MembershipState memberships_;
         std::string active_membership_;
+        protobuf::wire::CommandOrigin active_origin_=protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED;
+        std::string active_execution_;
+        struct PendingExecution {
+            protobuf::wire::MembershipContext context;
+            protobuf::wire::CommandOrigin origin;
+            std::string callsign;
+            protobuf::wire::Envelope::EventCase response;
+            std::chrono::steady_clock::time_point expires;
+            bool started=false;
+            std::string expected;
+        };
+        std::unordered_map<std::string,PendingExecution> pending_executions_;
+        bool ExecutionCurrent(const std::string& id) const;
+        bool ExecutionReady(const std::string& id) const;
+        bool ExecuteDeferred(const std::string& id,const std::function<void()>& action);
         uint64_t dispatch_batch_ = 0;
         std::unordered_map<std::string, std::pair<std::string,std::string>> source_runways_;
         std::unordered_map<std::string,protobuf::wire::Strip> source_aircraft_;
@@ -144,6 +162,7 @@ namespace FlightStrips::websocket {
 
 template<typename T> requires std::is_base_of_v<Event, T>
 void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
+    if (SendCommandResult(event)) return;
     if (!CanSendEventType(event.type)) {
         Logger::Debug("Suppressing event type {} for current client role", static_cast<int>(event.type));
         return;

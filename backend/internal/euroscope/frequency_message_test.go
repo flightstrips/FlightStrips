@@ -4,13 +4,15 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	wire "FlightStrips/pkg/events/euroscope"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestFrequencyMessagesPinControllerRatherThanMaster(t *testing.T) {
 	makeClient := func(cid, position string) *Client {
-		c := &Client{session: 42, position: position, user: shared.NewAuthenticatedUser(cid, 0, nil), send: make(chan events.OutgoingMessage, 2), closed: make(chan struct{})}
+		c := &Client{session: 42, position: position, user: shared.NewAuthenticatedUser(cid, 0, jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"exp": float64(time.Now().Add(time.Hour).Unix())})), send: make(chan events.OutgoingMessage, 2), closed: make(chan struct{})}
 		c.frequencyMessages.Store(true)
 		return c
 	}

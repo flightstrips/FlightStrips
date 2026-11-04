@@ -243,8 +243,61 @@ func (EventType) EnumDescriptor() ([]byte, []int) {
 // Every websocket frame contains exactly one event. Using a oneof makes the
 // event discriminator and payload inseparable and gives both languages an
 // exhaustive generated dispatch API.
+type CommandOrigin int32
+
+const (
+	CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED CommandOrigin = 0
+	CommandOrigin_COMMAND_ORIGIN_HUMAN       CommandOrigin = 1
+	CommandOrigin_COMMAND_ORIGIN_AUTOMATIC   CommandOrigin = 2
+)
+
+// Enum value maps for CommandOrigin.
+var (
+	CommandOrigin_name = map[int32]string{
+		0: "COMMAND_ORIGIN_UNSPECIFIED",
+		1: "COMMAND_ORIGIN_HUMAN",
+		2: "COMMAND_ORIGIN_AUTOMATIC",
+	}
+	CommandOrigin_value = map[string]int32{
+		"COMMAND_ORIGIN_UNSPECIFIED": 0,
+		"COMMAND_ORIGIN_HUMAN":       1,
+		"COMMAND_ORIGIN_AUTOMATIC":   2,
+	}
+)
+
+func (x CommandOrigin) Enum() *CommandOrigin {
+	p := new(CommandOrigin)
+	*p = x
+	return p
+}
+
+func (x CommandOrigin) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CommandOrigin) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_euroscope_proto_enumTypes[1].Descriptor()
+}
+
+func (CommandOrigin) Type() protoreflect.EnumType {
+	return &file_proto_euroscope_proto_enumTypes[1]
+}
+
+func (x CommandOrigin) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CommandOrigin.Descriptor instead.
+func (CommandOrigin) EnumDescriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{1}
+}
+
 type Envelope struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// Backend-issued execution context. Typed SDK callbacks may echo this nonce;
+	// it does not acknowledge an operation or create a durable action record.
+	CommandOrigin CommandOrigin `protobuf:"varint,101,opt,name=command_origin,json=commandOrigin,proto3,enum=flightstrips.euroscope.v1.CommandOrigin" json:"command_origin,omitempty"`
+	ExecutionId   string        `protobuf:"bytes,102,opt,name=execution_id,json=executionId,proto3" json:"execution_id,omitempty"`
 	// Assigned by the backend. Absent only during token/control establishment.
 	Context *MembershipContext `protobuf:"bytes,100,opt,name=context,proto3" json:"context,omitempty"`
 	// Types that are valid to be assigned to Event:
@@ -340,6 +393,20 @@ func (x *Envelope) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Envelope.ProtoReflect.Descriptor instead.
 func (*Envelope) Descriptor() ([]byte, []int) {
 	return file_proto_euroscope_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Envelope) GetCommandOrigin() CommandOrigin {
+	if x != nil {
+		return x.CommandOrigin
+	}
+	return CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED
+}
+
+func (x *Envelope) GetExecutionId() string {
+	if x != nil {
+		return x.ExecutionId
+	}
+	return ""
 }
 
 func (x *Envelope) GetContext() *MembershipContext {
@@ -1404,17 +1471,18 @@ func (x *MembershipContext) GetMasterEpoch() uint64 {
 // Physical-instance evidence remains available with zero memberships. A control
 // update is not an operational heartbeat. Airport admission is backend-owned.
 type ControlEvent struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Environment      string                 `protobuf:"bytes,1,opt,name=environment,proto3" json:"environment,omitempty"`
-	Callsign         string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
-	PrimaryFrequency string                 `protobuf:"bytes,3,opt,name=primary_frequency,json=primaryFrequency,proto3" json:"primary_frequency,omitempty"`
-	TunedFrequencies []string               `protobuf:"bytes,4,rep,name=tuned_frequencies,json=tunedFrequencies,proto3" json:"tuned_frequencies,omitempty"`
-	Observer         bool                   `protobuf:"varint,5,opt,name=observer,proto3" json:"observer,omitempty"`
-	LocalIp          string                 `protobuf:"bytes,6,opt,name=local_ip,json=localIp,proto3" json:"local_ip,omitempty"`
-	RelevantAirport  string                 `protobuf:"bytes,7,opt,name=relevant_airport,json=relevantAirport,proto3" json:"relevant_airport,omitempty"`
-	Range            int32                  `protobuf:"varint,8,opt,name=range,proto3" json:"range,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Environment           string                 `protobuf:"bytes,1,opt,name=environment,proto3" json:"environment,omitempty"`
+	Callsign              string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	PrimaryFrequency      string                 `protobuf:"bytes,3,opt,name=primary_frequency,json=primaryFrequency,proto3" json:"primary_frequency,omitempty"`
+	TunedFrequencies      []string               `protobuf:"bytes,4,rep,name=tuned_frequencies,json=tunedFrequencies,proto3" json:"tuned_frequencies,omitempty"`
+	Observer              bool                   `protobuf:"varint,5,opt,name=observer,proto3" json:"observer,omitempty"`
+	LocalIp               string                 `protobuf:"bytes,6,opt,name=local_ip,json=localIp,proto3" json:"local_ip,omitempty"`
+	RelevantAirport       string                 `protobuf:"bytes,7,opt,name=relevant_airport,json=relevantAirport,proto3" json:"relevant_airport,omitempty"`
+	Range                 int32                  `protobuf:"varint,8,opt,name=range,proto3" json:"range,omitempty"`
+	TunedFrequenciesKnown bool                   `protobuf:"varint,9,opt,name=tuned_frequencies_known,json=tunedFrequenciesKnown,proto3" json:"tuned_frequencies_known,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *ControlEvent) Reset() {
@@ -1501,6 +1569,13 @@ func (x *ControlEvent) GetRange() int32 {
 		return x.Range
 	}
 	return 0
+}
+
+func (x *ControlEvent) GetTunedFrequenciesKnown() bool {
+	if x != nil {
+		return x.TunedFrequenciesKnown
+	}
+	return false
 }
 
 type MembershipRemovedEvent struct {
@@ -6040,8 +6115,10 @@ var File_proto_euroscope_proto protoreflect.FileDescriptor
 
 const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
-	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\x83(\n" +
-	"\bEnvelope\x12F\n" +
+	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\xf7(\n" +
+	"\bEnvelope\x12O\n" +
+	"\x0ecommand_origin\x18e \x01(\x0e2(.flightstrips.euroscope.v1.CommandOriginR\rcommandOrigin\x12!\n" +
+	"\fexecution_id\x18f \x01(\tR\vexecutionId\x12F\n" +
 	"\acontext\x18d \x01(\v2,.flightstrips.euroscope.v1.MembershipContextR\acontext\x12=\n" +
 	"\x05token\x18\x01 \x01(\v2%.flightstrips.euroscope.v1.TokenEventH\x00R\x05token\x12=\n" +
 	"\x05login\x18\x02 \x01(\v2%.flightstrips.euroscope.v1.LoginEventH\x00R\x05login\x12_\n" +
@@ -6126,7 +6203,7 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
 	"generation\x18\a \x01(\x04R\n" +
 	"generation\x12!\n" +
-	"\fmaster_epoch\x18\b \x01(\x04R\vmasterEpoch\"\x9e\x02\n" +
+	"\fmaster_epoch\x18\b \x01(\x04R\vmasterEpoch\"\xd6\x02\n" +
 	"\fControlEvent\x12 \n" +
 	"\venvironment\x18\x01 \x01(\tR\venvironment\x12\x1a\n" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12+\n" +
@@ -6135,7 +6212,8 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\bobserver\x18\x05 \x01(\bR\bobserver\x12\x19\n" +
 	"\blocal_ip\x18\x06 \x01(\tR\alocalIp\x12)\n" +
 	"\x10relevant_airport\x18\a \x01(\tR\x0frelevantAirport\x12\x14\n" +
-	"\x05range\x18\b \x01(\x05R\x05range\"0\n" +
+	"\x05range\x18\b \x01(\x05R\x05range\x126\n" +
+	"\x17tuned_frequencies_known\x18\t \x01(\bR\x15tunedFrequenciesKnown\"0\n" +
 	"\x16MembershipRemovedEvent\x12\x16\n" +
 	"\x06reason\x18\x01 \x01(\tR\x06reason\"\xcb\x01\n" +
 	"\n" +
@@ -6578,7 +6656,11 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x1eEVENT_FREQUENCY_MESSAGE_RESULT\x107\x12\x15\n" +
 	"\x11EVENT_MASTER_INFO\x108\x12\x11\n" +
 	"\rEVENT_CONTROL\x109\x12\x1c\n" +
-	"\x18EVENT_MEMBERSHIP_REMOVED\x10:B/H\x03Z+FlightStrips/pkg/events/euroscope;euroscopeb\x06proto3"
+	"\x18EVENT_MEMBERSHIP_REMOVED\x10:*g\n" +
+	"\rCommandOrigin\x12\x1e\n" +
+	"\x1aCOMMAND_ORIGIN_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14COMMAND_ORIGIN_HUMAN\x10\x01\x12\x1c\n" +
+	"\x18COMMAND_ORIGIN_AUTOMATIC\x10\x02B/H\x03Z+FlightStrips/pkg/events/euroscope;euroscopeb\x06proto3"
 
 var (
 	file_proto_euroscope_proto_rawDescOnce sync.Once
@@ -6592,162 +6674,164 @@ func file_proto_euroscope_proto_rawDescGZIP() []byte {
 	return file_proto_euroscope_proto_rawDescData
 }
 
-var file_proto_euroscope_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_proto_euroscope_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_proto_euroscope_proto_msgTypes = make([]protoimpl.MessageInfo, 71)
 var file_proto_euroscope_proto_goTypes = []any{
 	(EventType)(0),                         // 0: flightstrips.euroscope.v1.EventType
-	(*Envelope)(nil),                       // 1: flightstrips.euroscope.v1.Envelope
-	(*TokenEvent)(nil),                     // 2: flightstrips.euroscope.v1.TokenEvent
-	(*MembershipContext)(nil),              // 3: flightstrips.euroscope.v1.MembershipContext
-	(*ControlEvent)(nil),                   // 4: flightstrips.euroscope.v1.ControlEvent
-	(*MembershipRemovedEvent)(nil),         // 5: flightstrips.euroscope.v1.MembershipRemovedEvent
-	(*LoginEvent)(nil),                     // 6: flightstrips.euroscope.v1.LoginEvent
-	(*Runway)(nil),                         // 7: flightstrips.euroscope.v1.Runway
-	(*SidEntry)(nil),                       // 8: flightstrips.euroscope.v1.SidEntry
-	(*Position)(nil),                       // 9: flightstrips.euroscope.v1.Position
-	(*Controller)(nil),                     // 10: flightstrips.euroscope.v1.Controller
-	(*Strip)(nil),                          // 11: flightstrips.euroscope.v1.Strip
-	(*StripUpdateEvent)(nil),               // 12: flightstrips.euroscope.v1.StripUpdateEvent
-	(*SyncEvent)(nil),                      // 13: flightstrips.euroscope.v1.SyncEvent
-	(*RunwayEvent)(nil),                    // 14: flightstrips.euroscope.v1.RunwayEvent
-	(*EcfmpRestriction)(nil),               // 15: flightstrips.euroscope.v1.EcfmpRestriction
-	(*CdmUpdateEvent)(nil),                 // 16: flightstrips.euroscope.v1.CdmUpdateEvent
-	(*CdmUpdateBatchEvent)(nil),            // 17: flightstrips.euroscope.v1.CdmUpdateBatchEvent
-	(*BackendSyncCdmData)(nil),             // 18: flightstrips.euroscope.v1.BackendSyncCdmData
-	(*BackendSyncStrip)(nil),               // 19: flightstrips.euroscope.v1.BackendSyncStrip
-	(*BackendSyncEvent)(nil),               // 20: flightstrips.euroscope.v1.BackendSyncEvent
-	(*RunwayMismatchAlertEvent)(nil),       // 21: flightstrips.euroscope.v1.RunwayMismatchAlertEvent
-	(*CreateFPLEvent)(nil),                 // 22: flightstrips.euroscope.v1.CreateFPLEvent
-	(*SessionInfoEvent)(nil),               // 23: flightstrips.euroscope.v1.SessionInfoEvent
-	(*GenerateSquawkEvent)(nil),            // 24: flightstrips.euroscope.v1.GenerateSquawkEvent
-	(*EobtEvent)(nil),                      // 25: flightstrips.euroscope.v1.EobtEvent
-	(*RouteEvent)(nil),                     // 26: flightstrips.euroscope.v1.RouteEvent
-	(*RemarksEvent)(nil),                   // 27: flightstrips.euroscope.v1.RemarksEvent
-	(*AircraftInfoEvent)(nil),              // 28: flightstrips.euroscope.v1.AircraftInfoEvent
-	(*AircraftInfoRemarksEvent)(nil),       // 29: flightstrips.euroscope.v1.AircraftInfoRemarksEvent
-	(*SidEvent)(nil),                       // 30: flightstrips.euroscope.v1.SidEvent
-	(*AircraftRunwayEvent)(nil),            // 31: flightstrips.euroscope.v1.AircraftRunwayEvent
-	(*CoordinationHandoverEvent)(nil),      // 32: flightstrips.euroscope.v1.CoordinationHandoverEvent
-	(*CoordinationReceivedEvent)(nil),      // 33: flightstrips.euroscope.v1.CoordinationReceivedEvent
-	(*TrackingControllerChangedEvent)(nil), // 34: flightstrips.euroscope.v1.TrackingControllerChangedEvent
-	(*AssignedSquawkEvent)(nil),            // 35: flightstrips.euroscope.v1.AssignedSquawkEvent
-	(*SquawkEvent)(nil),                    // 36: flightstrips.euroscope.v1.SquawkEvent
-	(*ClearedAltitudeEvent)(nil),           // 37: flightstrips.euroscope.v1.ClearedAltitudeEvent
-	(*RequestedAltitudeEvent)(nil),         // 38: flightstrips.euroscope.v1.RequestedAltitudeEvent
-	(*CommunicationTypeEvent)(nil),         // 39: flightstrips.euroscope.v1.CommunicationTypeEvent
-	(*GroundStateEvent)(nil),               // 40: flightstrips.euroscope.v1.GroundStateEvent
-	(*ClearedFlagEvent)(nil),               // 41: flightstrips.euroscope.v1.ClearedFlagEvent
-	(*AircraftPositionUpdateEvent)(nil),    // 42: flightstrips.euroscope.v1.AircraftPositionUpdateEvent
-	(*HeadingEvent)(nil),                   // 43: flightstrips.euroscope.v1.HeadingEvent
-	(*AircraftDisconnectEvent)(nil),        // 44: flightstrips.euroscope.v1.AircraftDisconnectEvent
-	(*ControllerOnlineEvent)(nil),          // 45: flightstrips.euroscope.v1.ControllerOnlineEvent
-	(*ControllerOfflineEvent)(nil),         // 46: flightstrips.euroscope.v1.ControllerOfflineEvent
-	(*StandEvent)(nil),                     // 47: flightstrips.euroscope.v1.StandEvent
-	(*HoldEvent)(nil),                      // 48: flightstrips.euroscope.v1.HoldEvent
-	(*AssumeOnlyEvent)(nil),                // 49: flightstrips.euroscope.v1.AssumeOnlyEvent
-	(*AssumeAndDropEvent)(nil),             // 50: flightstrips.euroscope.v1.AssumeAndDropEvent
-	(*DropTrackingEvent)(nil),              // 51: flightstrips.euroscope.v1.DropTrackingEvent
-	(*CdmTobtUpdateEvent)(nil),             // 52: flightstrips.euroscope.v1.CdmTobtUpdateEvent
-	(*CdmAsrtToggleEvent)(nil),             // 53: flightstrips.euroscope.v1.CdmAsrtToggleEvent
-	(*CdmTsacUpdateEvent)(nil),             // 54: flightstrips.euroscope.v1.CdmTsacUpdateEvent
-	(*CdmDeiceUpdateEvent)(nil),            // 55: flightstrips.euroscope.v1.CdmDeiceUpdateEvent
-	(*CdmManualCtotEvent)(nil),             // 56: flightstrips.euroscope.v1.CdmManualCtotEvent
-	(*CdmCtotRemoveEvent)(nil),             // 57: flightstrips.euroscope.v1.CdmCtotRemoveEvent
-	(*CdmReadyEvent)(nil),                  // 58: flightstrips.euroscope.v1.CdmReadyEvent
-	(*PdcStateChangeEvent)(nil),            // 59: flightstrips.euroscope.v1.PdcStateChangeEvent
-	(*IssuePdcClearanceEvent)(nil),         // 60: flightstrips.euroscope.v1.IssuePdcClearanceEvent
-	(*PdcRevertToVoiceEvent)(nil),          // 61: flightstrips.euroscope.v1.PdcRevertToVoiceEvent
-	(*SendPrivateMessageEvent)(nil),        // 62: flightstrips.euroscope.v1.SendPrivateMessageEvent
-	(*AMANGainLossValue)(nil),              // 63: flightstrips.euroscope.v1.AMANGainLossValue
-	(*AMANGainLossEvent)(nil),              // 64: flightstrips.euroscope.v1.AMANGainLossEvent
-	(*AMANRouteFactData)(nil),              // 65: flightstrips.euroscope.v1.AMANRouteFactData
-	(*AssignedSpeed)(nil),                  // 66: flightstrips.euroscope.v1.AssignedSpeed
-	(*AMANRouteFactEvent)(nil),             // 67: flightstrips.euroscope.v1.AMANRouteFactEvent
-	(*FsScratchPadEvent)(nil),              // 68: flightstrips.euroscope.v1.FsScratchPadEvent
-	(*SendFrequencyMessageEvent)(nil),      // 69: flightstrips.euroscope.v1.SendFrequencyMessageEvent
-	(*FrequencyMessageResultEvent)(nil),    // 70: flightstrips.euroscope.v1.FrequencyMessageResultEvent
-	(*MasterInfoEvent)(nil),                // 71: flightstrips.euroscope.v1.MasterInfoEvent
+	(CommandOrigin)(0),                     // 1: flightstrips.euroscope.v1.CommandOrigin
+	(*Envelope)(nil),                       // 2: flightstrips.euroscope.v1.Envelope
+	(*TokenEvent)(nil),                     // 3: flightstrips.euroscope.v1.TokenEvent
+	(*MembershipContext)(nil),              // 4: flightstrips.euroscope.v1.MembershipContext
+	(*ControlEvent)(nil),                   // 5: flightstrips.euroscope.v1.ControlEvent
+	(*MembershipRemovedEvent)(nil),         // 6: flightstrips.euroscope.v1.MembershipRemovedEvent
+	(*LoginEvent)(nil),                     // 7: flightstrips.euroscope.v1.LoginEvent
+	(*Runway)(nil),                         // 8: flightstrips.euroscope.v1.Runway
+	(*SidEntry)(nil),                       // 9: flightstrips.euroscope.v1.SidEntry
+	(*Position)(nil),                       // 10: flightstrips.euroscope.v1.Position
+	(*Controller)(nil),                     // 11: flightstrips.euroscope.v1.Controller
+	(*Strip)(nil),                          // 12: flightstrips.euroscope.v1.Strip
+	(*StripUpdateEvent)(nil),               // 13: flightstrips.euroscope.v1.StripUpdateEvent
+	(*SyncEvent)(nil),                      // 14: flightstrips.euroscope.v1.SyncEvent
+	(*RunwayEvent)(nil),                    // 15: flightstrips.euroscope.v1.RunwayEvent
+	(*EcfmpRestriction)(nil),               // 16: flightstrips.euroscope.v1.EcfmpRestriction
+	(*CdmUpdateEvent)(nil),                 // 17: flightstrips.euroscope.v1.CdmUpdateEvent
+	(*CdmUpdateBatchEvent)(nil),            // 18: flightstrips.euroscope.v1.CdmUpdateBatchEvent
+	(*BackendSyncCdmData)(nil),             // 19: flightstrips.euroscope.v1.BackendSyncCdmData
+	(*BackendSyncStrip)(nil),               // 20: flightstrips.euroscope.v1.BackendSyncStrip
+	(*BackendSyncEvent)(nil),               // 21: flightstrips.euroscope.v1.BackendSyncEvent
+	(*RunwayMismatchAlertEvent)(nil),       // 22: flightstrips.euroscope.v1.RunwayMismatchAlertEvent
+	(*CreateFPLEvent)(nil),                 // 23: flightstrips.euroscope.v1.CreateFPLEvent
+	(*SessionInfoEvent)(nil),               // 24: flightstrips.euroscope.v1.SessionInfoEvent
+	(*GenerateSquawkEvent)(nil),            // 25: flightstrips.euroscope.v1.GenerateSquawkEvent
+	(*EobtEvent)(nil),                      // 26: flightstrips.euroscope.v1.EobtEvent
+	(*RouteEvent)(nil),                     // 27: flightstrips.euroscope.v1.RouteEvent
+	(*RemarksEvent)(nil),                   // 28: flightstrips.euroscope.v1.RemarksEvent
+	(*AircraftInfoEvent)(nil),              // 29: flightstrips.euroscope.v1.AircraftInfoEvent
+	(*AircraftInfoRemarksEvent)(nil),       // 30: flightstrips.euroscope.v1.AircraftInfoRemarksEvent
+	(*SidEvent)(nil),                       // 31: flightstrips.euroscope.v1.SidEvent
+	(*AircraftRunwayEvent)(nil),            // 32: flightstrips.euroscope.v1.AircraftRunwayEvent
+	(*CoordinationHandoverEvent)(nil),      // 33: flightstrips.euroscope.v1.CoordinationHandoverEvent
+	(*CoordinationReceivedEvent)(nil),      // 34: flightstrips.euroscope.v1.CoordinationReceivedEvent
+	(*TrackingControllerChangedEvent)(nil), // 35: flightstrips.euroscope.v1.TrackingControllerChangedEvent
+	(*AssignedSquawkEvent)(nil),            // 36: flightstrips.euroscope.v1.AssignedSquawkEvent
+	(*SquawkEvent)(nil),                    // 37: flightstrips.euroscope.v1.SquawkEvent
+	(*ClearedAltitudeEvent)(nil),           // 38: flightstrips.euroscope.v1.ClearedAltitudeEvent
+	(*RequestedAltitudeEvent)(nil),         // 39: flightstrips.euroscope.v1.RequestedAltitudeEvent
+	(*CommunicationTypeEvent)(nil),         // 40: flightstrips.euroscope.v1.CommunicationTypeEvent
+	(*GroundStateEvent)(nil),               // 41: flightstrips.euroscope.v1.GroundStateEvent
+	(*ClearedFlagEvent)(nil),               // 42: flightstrips.euroscope.v1.ClearedFlagEvent
+	(*AircraftPositionUpdateEvent)(nil),    // 43: flightstrips.euroscope.v1.AircraftPositionUpdateEvent
+	(*HeadingEvent)(nil),                   // 44: flightstrips.euroscope.v1.HeadingEvent
+	(*AircraftDisconnectEvent)(nil),        // 45: flightstrips.euroscope.v1.AircraftDisconnectEvent
+	(*ControllerOnlineEvent)(nil),          // 46: flightstrips.euroscope.v1.ControllerOnlineEvent
+	(*ControllerOfflineEvent)(nil),         // 47: flightstrips.euroscope.v1.ControllerOfflineEvent
+	(*StandEvent)(nil),                     // 48: flightstrips.euroscope.v1.StandEvent
+	(*HoldEvent)(nil),                      // 49: flightstrips.euroscope.v1.HoldEvent
+	(*AssumeOnlyEvent)(nil),                // 50: flightstrips.euroscope.v1.AssumeOnlyEvent
+	(*AssumeAndDropEvent)(nil),             // 51: flightstrips.euroscope.v1.AssumeAndDropEvent
+	(*DropTrackingEvent)(nil),              // 52: flightstrips.euroscope.v1.DropTrackingEvent
+	(*CdmTobtUpdateEvent)(nil),             // 53: flightstrips.euroscope.v1.CdmTobtUpdateEvent
+	(*CdmAsrtToggleEvent)(nil),             // 54: flightstrips.euroscope.v1.CdmAsrtToggleEvent
+	(*CdmTsacUpdateEvent)(nil),             // 55: flightstrips.euroscope.v1.CdmTsacUpdateEvent
+	(*CdmDeiceUpdateEvent)(nil),            // 56: flightstrips.euroscope.v1.CdmDeiceUpdateEvent
+	(*CdmManualCtotEvent)(nil),             // 57: flightstrips.euroscope.v1.CdmManualCtotEvent
+	(*CdmCtotRemoveEvent)(nil),             // 58: flightstrips.euroscope.v1.CdmCtotRemoveEvent
+	(*CdmReadyEvent)(nil),                  // 59: flightstrips.euroscope.v1.CdmReadyEvent
+	(*PdcStateChangeEvent)(nil),            // 60: flightstrips.euroscope.v1.PdcStateChangeEvent
+	(*IssuePdcClearanceEvent)(nil),         // 61: flightstrips.euroscope.v1.IssuePdcClearanceEvent
+	(*PdcRevertToVoiceEvent)(nil),          // 62: flightstrips.euroscope.v1.PdcRevertToVoiceEvent
+	(*SendPrivateMessageEvent)(nil),        // 63: flightstrips.euroscope.v1.SendPrivateMessageEvent
+	(*AMANGainLossValue)(nil),              // 64: flightstrips.euroscope.v1.AMANGainLossValue
+	(*AMANGainLossEvent)(nil),              // 65: flightstrips.euroscope.v1.AMANGainLossEvent
+	(*AMANRouteFactData)(nil),              // 66: flightstrips.euroscope.v1.AMANRouteFactData
+	(*AssignedSpeed)(nil),                  // 67: flightstrips.euroscope.v1.AssignedSpeed
+	(*AMANRouteFactEvent)(nil),             // 68: flightstrips.euroscope.v1.AMANRouteFactEvent
+	(*FsScratchPadEvent)(nil),              // 69: flightstrips.euroscope.v1.FsScratchPadEvent
+	(*SendFrequencyMessageEvent)(nil),      // 70: flightstrips.euroscope.v1.SendFrequencyMessageEvent
+	(*FrequencyMessageResultEvent)(nil),    // 71: flightstrips.euroscope.v1.FrequencyMessageResultEvent
+	(*MasterInfoEvent)(nil),                // 72: flightstrips.euroscope.v1.MasterInfoEvent
 }
 var file_proto_euroscope_proto_depIdxs = []int32{
-	3,  // 0: flightstrips.euroscope.v1.Envelope.context:type_name -> flightstrips.euroscope.v1.MembershipContext
-	2,  // 1: flightstrips.euroscope.v1.Envelope.token:type_name -> flightstrips.euroscope.v1.TokenEvent
-	6,  // 2: flightstrips.euroscope.v1.Envelope.login:type_name -> flightstrips.euroscope.v1.LoginEvent
-	45, // 3: flightstrips.euroscope.v1.Envelope.controller_online:type_name -> flightstrips.euroscope.v1.ControllerOnlineEvent
-	46, // 4: flightstrips.euroscope.v1.Envelope.controller_offline:type_name -> flightstrips.euroscope.v1.ControllerOfflineEvent
-	13, // 5: flightstrips.euroscope.v1.Envelope.sync:type_name -> flightstrips.euroscope.v1.SyncEvent
-	35, // 6: flightstrips.euroscope.v1.Envelope.assigned_squawk:type_name -> flightstrips.euroscope.v1.AssignedSquawkEvent
-	36, // 7: flightstrips.euroscope.v1.Envelope.squawk:type_name -> flightstrips.euroscope.v1.SquawkEvent
-	38, // 8: flightstrips.euroscope.v1.Envelope.requested_altitude:type_name -> flightstrips.euroscope.v1.RequestedAltitudeEvent
-	37, // 9: flightstrips.euroscope.v1.Envelope.cleared_altitude:type_name -> flightstrips.euroscope.v1.ClearedAltitudeEvent
-	39, // 10: flightstrips.euroscope.v1.Envelope.communication_type:type_name -> flightstrips.euroscope.v1.CommunicationTypeEvent
-	40, // 11: flightstrips.euroscope.v1.Envelope.ground_state:type_name -> flightstrips.euroscope.v1.GroundStateEvent
-	41, // 12: flightstrips.euroscope.v1.Envelope.cleared_flag:type_name -> flightstrips.euroscope.v1.ClearedFlagEvent
-	42, // 13: flightstrips.euroscope.v1.Envelope.aircraft_position_update:type_name -> flightstrips.euroscope.v1.AircraftPositionUpdateEvent
-	43, // 14: flightstrips.euroscope.v1.Envelope.heading:type_name -> flightstrips.euroscope.v1.HeadingEvent
-	44, // 15: flightstrips.euroscope.v1.Envelope.aircraft_disconnect:type_name -> flightstrips.euroscope.v1.AircraftDisconnectEvent
-	47, // 16: flightstrips.euroscope.v1.Envelope.stand:type_name -> flightstrips.euroscope.v1.StandEvent
-	34, // 17: flightstrips.euroscope.v1.Envelope.tracking_controller_changed:type_name -> flightstrips.euroscope.v1.TrackingControllerChangedEvent
-	12, // 18: flightstrips.euroscope.v1.Envelope.strip_update:type_name -> flightstrips.euroscope.v1.StripUpdateEvent
-	14, // 19: flightstrips.euroscope.v1.Envelope.runway:type_name -> flightstrips.euroscope.v1.RunwayEvent
-	23, // 20: flightstrips.euroscope.v1.Envelope.session_info:type_name -> flightstrips.euroscope.v1.SessionInfoEvent
-	21, // 21: flightstrips.euroscope.v1.Envelope.runway_mismatch_alert:type_name -> flightstrips.euroscope.v1.RunwayMismatchAlertEvent
-	24, // 22: flightstrips.euroscope.v1.Envelope.generate_squawk:type_name -> flightstrips.euroscope.v1.GenerateSquawkEvent
-	25, // 23: flightstrips.euroscope.v1.Envelope.eobt:type_name -> flightstrips.euroscope.v1.EobtEvent
-	26, // 24: flightstrips.euroscope.v1.Envelope.route:type_name -> flightstrips.euroscope.v1.RouteEvent
-	27, // 25: flightstrips.euroscope.v1.Envelope.remarks:type_name -> flightstrips.euroscope.v1.RemarksEvent
-	28, // 26: flightstrips.euroscope.v1.Envelope.aircraft_info:type_name -> flightstrips.euroscope.v1.AircraftInfoEvent
-	29, // 27: flightstrips.euroscope.v1.Envelope.aircraft_info_remarks:type_name -> flightstrips.euroscope.v1.AircraftInfoRemarksEvent
-	30, // 28: flightstrips.euroscope.v1.Envelope.sid:type_name -> flightstrips.euroscope.v1.SidEvent
-	31, // 29: flightstrips.euroscope.v1.Envelope.aircraft_runway:type_name -> flightstrips.euroscope.v1.AircraftRunwayEvent
-	32, // 30: flightstrips.euroscope.v1.Envelope.coordination_handover:type_name -> flightstrips.euroscope.v1.CoordinationHandoverEvent
-	33, // 31: flightstrips.euroscope.v1.Envelope.coordination_received:type_name -> flightstrips.euroscope.v1.CoordinationReceivedEvent
-	49, // 32: flightstrips.euroscope.v1.Envelope.assume_only:type_name -> flightstrips.euroscope.v1.AssumeOnlyEvent
-	50, // 33: flightstrips.euroscope.v1.Envelope.assume_and_drop:type_name -> flightstrips.euroscope.v1.AssumeAndDropEvent
-	51, // 34: flightstrips.euroscope.v1.Envelope.drop_tracking:type_name -> flightstrips.euroscope.v1.DropTrackingEvent
-	20, // 35: flightstrips.euroscope.v1.Envelope.backend_sync:type_name -> flightstrips.euroscope.v1.BackendSyncEvent
-	22, // 36: flightstrips.euroscope.v1.Envelope.create_fpl:type_name -> flightstrips.euroscope.v1.CreateFPLEvent
-	16, // 37: flightstrips.euroscope.v1.Envelope.cdm_update:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
-	17, // 38: flightstrips.euroscope.v1.Envelope.cdm_update_batch:type_name -> flightstrips.euroscope.v1.CdmUpdateBatchEvent
-	52, // 39: flightstrips.euroscope.v1.Envelope.cdm_tobt_update:type_name -> flightstrips.euroscope.v1.CdmTobtUpdateEvent
-	53, // 40: flightstrips.euroscope.v1.Envelope.cdm_asrt_toggle:type_name -> flightstrips.euroscope.v1.CdmAsrtToggleEvent
-	54, // 41: flightstrips.euroscope.v1.Envelope.cdm_tsac_update:type_name -> flightstrips.euroscope.v1.CdmTsacUpdateEvent
-	55, // 42: flightstrips.euroscope.v1.Envelope.cdm_deice_update:type_name -> flightstrips.euroscope.v1.CdmDeiceUpdateEvent
-	56, // 43: flightstrips.euroscope.v1.Envelope.cdm_manual_ctot:type_name -> flightstrips.euroscope.v1.CdmManualCtotEvent
-	57, // 44: flightstrips.euroscope.v1.Envelope.cdm_ctot_remove:type_name -> flightstrips.euroscope.v1.CdmCtotRemoveEvent
-	58, // 45: flightstrips.euroscope.v1.Envelope.cdm_ready:type_name -> flightstrips.euroscope.v1.CdmReadyEvent
-	59, // 46: flightstrips.euroscope.v1.Envelope.pdc_state_change:type_name -> flightstrips.euroscope.v1.PdcStateChangeEvent
-	60, // 47: flightstrips.euroscope.v1.Envelope.issue_pdc_clearance:type_name -> flightstrips.euroscope.v1.IssuePdcClearanceEvent
-	61, // 48: flightstrips.euroscope.v1.Envelope.pdc_revert_to_voice:type_name -> flightstrips.euroscope.v1.PdcRevertToVoiceEvent
-	62, // 49: flightstrips.euroscope.v1.Envelope.send_private_message:type_name -> flightstrips.euroscope.v1.SendPrivateMessageEvent
-	48, // 50: flightstrips.euroscope.v1.Envelope.hold:type_name -> flightstrips.euroscope.v1.HoldEvent
-	64, // 51: flightstrips.euroscope.v1.Envelope.aman_gain_loss:type_name -> flightstrips.euroscope.v1.AMANGainLossEvent
-	67, // 52: flightstrips.euroscope.v1.Envelope.aman_route_fact:type_name -> flightstrips.euroscope.v1.AMANRouteFactEvent
-	68, // 53: flightstrips.euroscope.v1.Envelope.fs_scratch_pad:type_name -> flightstrips.euroscope.v1.FsScratchPadEvent
-	69, // 54: flightstrips.euroscope.v1.Envelope.send_frequency_message:type_name -> flightstrips.euroscope.v1.SendFrequencyMessageEvent
-	70, // 55: flightstrips.euroscope.v1.Envelope.frequency_message_result:type_name -> flightstrips.euroscope.v1.FrequencyMessageResultEvent
-	71, // 56: flightstrips.euroscope.v1.Envelope.master_info:type_name -> flightstrips.euroscope.v1.MasterInfoEvent
-	4,  // 57: flightstrips.euroscope.v1.Envelope.control:type_name -> flightstrips.euroscope.v1.ControlEvent
-	5,  // 58: flightstrips.euroscope.v1.Envelope.membership_removed:type_name -> flightstrips.euroscope.v1.MembershipRemovedEvent
-	9,  // 59: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
-	11, // 60: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
-	10, // 61: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
-	11, // 62: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
-	7,  // 63: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	8,  // 64: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
-	7,  // 65: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	15, // 66: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	16, // 67: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
-	15, // 68: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	18, // 69: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
-	19, // 70: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
-	63, // 71: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
-	66, // 72: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
-	65, // 73: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
-	74, // [74:74] is the sub-list for method output_type
-	74, // [74:74] is the sub-list for method input_type
-	74, // [74:74] is the sub-list for extension type_name
-	74, // [74:74] is the sub-list for extension extendee
-	0,  // [0:74] is the sub-list for field type_name
+	1,  // 0: flightstrips.euroscope.v1.Envelope.command_origin:type_name -> flightstrips.euroscope.v1.CommandOrigin
+	4,  // 1: flightstrips.euroscope.v1.Envelope.context:type_name -> flightstrips.euroscope.v1.MembershipContext
+	3,  // 2: flightstrips.euroscope.v1.Envelope.token:type_name -> flightstrips.euroscope.v1.TokenEvent
+	7,  // 3: flightstrips.euroscope.v1.Envelope.login:type_name -> flightstrips.euroscope.v1.LoginEvent
+	46, // 4: flightstrips.euroscope.v1.Envelope.controller_online:type_name -> flightstrips.euroscope.v1.ControllerOnlineEvent
+	47, // 5: flightstrips.euroscope.v1.Envelope.controller_offline:type_name -> flightstrips.euroscope.v1.ControllerOfflineEvent
+	14, // 6: flightstrips.euroscope.v1.Envelope.sync:type_name -> flightstrips.euroscope.v1.SyncEvent
+	36, // 7: flightstrips.euroscope.v1.Envelope.assigned_squawk:type_name -> flightstrips.euroscope.v1.AssignedSquawkEvent
+	37, // 8: flightstrips.euroscope.v1.Envelope.squawk:type_name -> flightstrips.euroscope.v1.SquawkEvent
+	39, // 9: flightstrips.euroscope.v1.Envelope.requested_altitude:type_name -> flightstrips.euroscope.v1.RequestedAltitudeEvent
+	38, // 10: flightstrips.euroscope.v1.Envelope.cleared_altitude:type_name -> flightstrips.euroscope.v1.ClearedAltitudeEvent
+	40, // 11: flightstrips.euroscope.v1.Envelope.communication_type:type_name -> flightstrips.euroscope.v1.CommunicationTypeEvent
+	41, // 12: flightstrips.euroscope.v1.Envelope.ground_state:type_name -> flightstrips.euroscope.v1.GroundStateEvent
+	42, // 13: flightstrips.euroscope.v1.Envelope.cleared_flag:type_name -> flightstrips.euroscope.v1.ClearedFlagEvent
+	43, // 14: flightstrips.euroscope.v1.Envelope.aircraft_position_update:type_name -> flightstrips.euroscope.v1.AircraftPositionUpdateEvent
+	44, // 15: flightstrips.euroscope.v1.Envelope.heading:type_name -> flightstrips.euroscope.v1.HeadingEvent
+	45, // 16: flightstrips.euroscope.v1.Envelope.aircraft_disconnect:type_name -> flightstrips.euroscope.v1.AircraftDisconnectEvent
+	48, // 17: flightstrips.euroscope.v1.Envelope.stand:type_name -> flightstrips.euroscope.v1.StandEvent
+	35, // 18: flightstrips.euroscope.v1.Envelope.tracking_controller_changed:type_name -> flightstrips.euroscope.v1.TrackingControllerChangedEvent
+	13, // 19: flightstrips.euroscope.v1.Envelope.strip_update:type_name -> flightstrips.euroscope.v1.StripUpdateEvent
+	15, // 20: flightstrips.euroscope.v1.Envelope.runway:type_name -> flightstrips.euroscope.v1.RunwayEvent
+	24, // 21: flightstrips.euroscope.v1.Envelope.session_info:type_name -> flightstrips.euroscope.v1.SessionInfoEvent
+	22, // 22: flightstrips.euroscope.v1.Envelope.runway_mismatch_alert:type_name -> flightstrips.euroscope.v1.RunwayMismatchAlertEvent
+	25, // 23: flightstrips.euroscope.v1.Envelope.generate_squawk:type_name -> flightstrips.euroscope.v1.GenerateSquawkEvent
+	26, // 24: flightstrips.euroscope.v1.Envelope.eobt:type_name -> flightstrips.euroscope.v1.EobtEvent
+	27, // 25: flightstrips.euroscope.v1.Envelope.route:type_name -> flightstrips.euroscope.v1.RouteEvent
+	28, // 26: flightstrips.euroscope.v1.Envelope.remarks:type_name -> flightstrips.euroscope.v1.RemarksEvent
+	29, // 27: flightstrips.euroscope.v1.Envelope.aircraft_info:type_name -> flightstrips.euroscope.v1.AircraftInfoEvent
+	30, // 28: flightstrips.euroscope.v1.Envelope.aircraft_info_remarks:type_name -> flightstrips.euroscope.v1.AircraftInfoRemarksEvent
+	31, // 29: flightstrips.euroscope.v1.Envelope.sid:type_name -> flightstrips.euroscope.v1.SidEvent
+	32, // 30: flightstrips.euroscope.v1.Envelope.aircraft_runway:type_name -> flightstrips.euroscope.v1.AircraftRunwayEvent
+	33, // 31: flightstrips.euroscope.v1.Envelope.coordination_handover:type_name -> flightstrips.euroscope.v1.CoordinationHandoverEvent
+	34, // 32: flightstrips.euroscope.v1.Envelope.coordination_received:type_name -> flightstrips.euroscope.v1.CoordinationReceivedEvent
+	50, // 33: flightstrips.euroscope.v1.Envelope.assume_only:type_name -> flightstrips.euroscope.v1.AssumeOnlyEvent
+	51, // 34: flightstrips.euroscope.v1.Envelope.assume_and_drop:type_name -> flightstrips.euroscope.v1.AssumeAndDropEvent
+	52, // 35: flightstrips.euroscope.v1.Envelope.drop_tracking:type_name -> flightstrips.euroscope.v1.DropTrackingEvent
+	21, // 36: flightstrips.euroscope.v1.Envelope.backend_sync:type_name -> flightstrips.euroscope.v1.BackendSyncEvent
+	23, // 37: flightstrips.euroscope.v1.Envelope.create_fpl:type_name -> flightstrips.euroscope.v1.CreateFPLEvent
+	17, // 38: flightstrips.euroscope.v1.Envelope.cdm_update:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
+	18, // 39: flightstrips.euroscope.v1.Envelope.cdm_update_batch:type_name -> flightstrips.euroscope.v1.CdmUpdateBatchEvent
+	53, // 40: flightstrips.euroscope.v1.Envelope.cdm_tobt_update:type_name -> flightstrips.euroscope.v1.CdmTobtUpdateEvent
+	54, // 41: flightstrips.euroscope.v1.Envelope.cdm_asrt_toggle:type_name -> flightstrips.euroscope.v1.CdmAsrtToggleEvent
+	55, // 42: flightstrips.euroscope.v1.Envelope.cdm_tsac_update:type_name -> flightstrips.euroscope.v1.CdmTsacUpdateEvent
+	56, // 43: flightstrips.euroscope.v1.Envelope.cdm_deice_update:type_name -> flightstrips.euroscope.v1.CdmDeiceUpdateEvent
+	57, // 44: flightstrips.euroscope.v1.Envelope.cdm_manual_ctot:type_name -> flightstrips.euroscope.v1.CdmManualCtotEvent
+	58, // 45: flightstrips.euroscope.v1.Envelope.cdm_ctot_remove:type_name -> flightstrips.euroscope.v1.CdmCtotRemoveEvent
+	59, // 46: flightstrips.euroscope.v1.Envelope.cdm_ready:type_name -> flightstrips.euroscope.v1.CdmReadyEvent
+	60, // 47: flightstrips.euroscope.v1.Envelope.pdc_state_change:type_name -> flightstrips.euroscope.v1.PdcStateChangeEvent
+	61, // 48: flightstrips.euroscope.v1.Envelope.issue_pdc_clearance:type_name -> flightstrips.euroscope.v1.IssuePdcClearanceEvent
+	62, // 49: flightstrips.euroscope.v1.Envelope.pdc_revert_to_voice:type_name -> flightstrips.euroscope.v1.PdcRevertToVoiceEvent
+	63, // 50: flightstrips.euroscope.v1.Envelope.send_private_message:type_name -> flightstrips.euroscope.v1.SendPrivateMessageEvent
+	49, // 51: flightstrips.euroscope.v1.Envelope.hold:type_name -> flightstrips.euroscope.v1.HoldEvent
+	65, // 52: flightstrips.euroscope.v1.Envelope.aman_gain_loss:type_name -> flightstrips.euroscope.v1.AMANGainLossEvent
+	68, // 53: flightstrips.euroscope.v1.Envelope.aman_route_fact:type_name -> flightstrips.euroscope.v1.AMANRouteFactEvent
+	69, // 54: flightstrips.euroscope.v1.Envelope.fs_scratch_pad:type_name -> flightstrips.euroscope.v1.FsScratchPadEvent
+	70, // 55: flightstrips.euroscope.v1.Envelope.send_frequency_message:type_name -> flightstrips.euroscope.v1.SendFrequencyMessageEvent
+	71, // 56: flightstrips.euroscope.v1.Envelope.frequency_message_result:type_name -> flightstrips.euroscope.v1.FrequencyMessageResultEvent
+	72, // 57: flightstrips.euroscope.v1.Envelope.master_info:type_name -> flightstrips.euroscope.v1.MasterInfoEvent
+	5,  // 58: flightstrips.euroscope.v1.Envelope.control:type_name -> flightstrips.euroscope.v1.ControlEvent
+	6,  // 59: flightstrips.euroscope.v1.Envelope.membership_removed:type_name -> flightstrips.euroscope.v1.MembershipRemovedEvent
+	10, // 60: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
+	12, // 61: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
+	11, // 62: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
+	12, // 63: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
+	8,  // 64: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	9,  // 65: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
+	8,  // 66: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	16, // 67: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	17, // 68: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
+	16, // 69: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	19, // 70: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
+	20, // 71: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
+	64, // 72: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
+	67, // 73: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
+	66, // 74: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
+	75, // [75:75] is the sub-list for method output_type
+	75, // [75:75] is the sub-list for method input_type
+	75, // [75:75] is the sub-list for extension type_name
+	75, // [75:75] is the sub-list for extension extendee
+	0,  // [0:75] is the sub-list for field type_name
 }
 
 func init() { file_proto_euroscope_proto_init() }
@@ -6828,7 +6912,7 @@ func file_proto_euroscope_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_euroscope_proto_rawDesc), len(file_proto_euroscope_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   71,
 			NumExtensions: 0,
 			NumServices:   0,

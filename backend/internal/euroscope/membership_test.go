@@ -29,8 +29,11 @@ func membershipTestMember(hub *Hub, root *Client, session int32, airport, enviro
 	c.transport = root.transport
 	c.airport = airport
 	c.sessionName = environment
+	c.announced.Store(true)
+	c.roleEligible.Store(true)
 	c.membership = &es.MembershipContext{InstanceId: root.transport.instance, TransportGeneration: root.transport.generation, MembershipId: id, SessionId: session, Airport: airport, Environment: environment, Generation: newGeneration()}
 	root.transport.members[id] = c
+	hub.master[session] = c
 	hub.clients[c] = true
 	hub.syncedSessions.Store(session, struct{}{})
 	return c
@@ -58,11 +61,11 @@ func TestMultiplexedRoutingRejectsWrongOrRemovedIncarnations(t *testing.T) {
 	require.False(t, b.isClosed())
 	require.Len(t, root.transport.snapshot(), 1)
 	applied := false
-	require.Error(t, a.ApplyScopedMessage(t.Context(), scope, "sync", func(context.Context) error { applied = true; return nil }))
+	require.Error(t, a.ApplyScopedMessage(t.Context(), scope, "sync", nil, es.CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED, "", func(context.Context) error { applied = true; return nil }))
 	require.False(t, applied)
 	_, err := hub.ResolveMessage(root, scope, "sync")
 	require.Error(t, err)
-	require.NoError(t, b.ApplyScopedMessage(t.Context(), b.wireContext(), "sync", func(context.Context) error { applied = true; return nil }))
+	require.NoError(t, b.ApplyScopedMessage(t.Context(), b.wireContext(), "sync", nil, es.CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED, "", func(context.Context) error { applied = true; return nil }))
 	require.True(t, applied)
 }
 
@@ -102,7 +105,7 @@ func TestMembershipApplicationSerializesRemoval(t *testing.T) {
 	release := make(chan struct{})
 	applied := make(chan error, 1)
 	go func() {
-		applied <- a.ApplyScopedMessage(context.Background(), a.wireContext(), "sync", func(context.Context) error { close(started); <-release; return nil })
+		applied <- a.ApplyScopedMessage(context.Background(), a.wireContext(), "sync", nil, es.CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED, "", func(context.Context) error { close(started); <-release; return nil })
 	}()
 	<-started
 	removed := make(chan struct{})
@@ -115,7 +118,7 @@ func TestMembershipApplicationSerializesRemoval(t *testing.T) {
 	close(release)
 	require.NoError(t, <-applied)
 	<-removed
-	require.Error(t, a.ApplyScopedMessage(t.Context(), a.wireContext(), "sync", func(context.Context) error { return nil }))
+	require.Error(t, a.ApplyScopedMessage(t.Context(), a.wireContext(), "sync", nil, es.CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED, "", func(context.Context) error { return nil }))
 }
 
 var _ shared.CommandBindingProvider = (*Hub)(nil)

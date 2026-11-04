@@ -10,9 +10,11 @@ import (
 )
 
 type Message[TType comparable] struct {
-	Type    TType
-	Message []byte
-	Scope   *es.MembershipContext
+	Type        TType
+	Message     []byte
+	Scope       *es.MembershipContext
+	Origin      es.CommandOrigin
+	ExecutionID string
 }
 
 func (m *Message[TType]) JsonUnmarshal(v interface{}) error {
@@ -55,11 +57,11 @@ func (handlers MessageHandlers[TType, TClient]) Remove(eventType TType) {
 
 func (handlers MessageHandlers[TType, TClient]) Handle(ctx context.Context, client TClient, message Message[TType]) error {
 	if source, ok := any(client).(interface {
-		ApplyScopedMessage(context.Context, *es.MembershipContext, string, func(context.Context) error) error
+		ApplyScopedMessage(context.Context, *es.MembershipContext, string, []byte, es.CommandOrigin, string, func(context.Context) error) error
 	}); ok && message.Scope != nil {
 		scope := message.Scope
 		message.Scope = nil
-		return source.ApplyScopedMessage(ctx, scope, fmt.Sprint(message.Type), func(ctx context.Context) error { return handlers.Handle(ctx, client, message) })
+		return source.ApplyScopedMessage(ctx, scope, fmt.Sprint(message.Type), message.Message, message.Origin, message.ExecutionID, func(ctx context.Context) error { return handlers.Handle(ctx, client, message) })
 	}
 	if handler, ok := handlers.handlers[message.Type]; ok {
 		if handlers.controllerActions[message.Type] {

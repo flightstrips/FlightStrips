@@ -322,7 +322,7 @@ func TestScheduleOfflineActions_SilentCleanupSuppressesOfflineNotification(t *te
 	assert.Empty(t, hub.offlineTimers, "timer entry should be removed after execution")
 }
 
-func TestScheduleOfflineActions_UsesStoredTimerEntryMetadata(t *testing.T) {
+func TestScheduleOfflineActions_DoesNotUseReplacementTimerMetadata(t *testing.T) {
 	const session = int32(1)
 	const originalCallsign = "EKCH_TWR"
 	const replacementCallsign = "EKCH_A_TWR"
@@ -364,7 +364,7 @@ func TestScheduleOfflineActions_UsesStoredTimerEntryMetadata(t *testing.T) {
 	}
 
 	hub := buildReconcileHub(server)
-	hub.scheduleOfflineActions(session, originalCallsign, originalPosition, positionName, time.Second)
+	hub.scheduleOfflineActions(session, originalCallsign, originalPosition, positionName, 10*time.Millisecond)
 
 	key := "1:" + positionName
 	hub.offlineMu.Lock()
@@ -378,14 +378,14 @@ func TestScheduleOfflineActions_UsesStoredTimerEntryMetadata(t *testing.T) {
 
 	select {
 	case <-offlineDone:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for offline notification")
+		t.Fatal("superseded timer notified for its replacement")
+	case <-time.After(100 * time.Millisecond):
 	}
-
-	require.Equal(t, replacementCallsign, deleteCallsign)
-	require.Len(t, frontendHub.ControllerOfflines, 1)
-	assert.Equal(t, replacementCallsign, frontendHub.ControllerOfflines[0].Callsign)
-	assert.Equal(t, replacementPosition, frontendHub.ControllerOfflines[0].Position)
+	require.Empty(t, deleteCallsign)
+	require.Empty(t, frontendHub.ControllerOfflines)
+	hub.offlineMu.Lock()
+	require.Equal(t, replacementCallsign, hub.offlineTimers[key].callsign)
+	hub.offlineMu.Unlock()
 }
 
 func TestControllerOfflineGracePeriodValue(t *testing.T) {

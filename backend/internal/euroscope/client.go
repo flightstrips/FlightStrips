@@ -24,6 +24,10 @@ import (
 )
 
 type Client struct {
+	announced         atomic.Bool
+	roleEligible      atomic.Bool
+	executionMu       sync.Mutex
+	executions        map[string]commandExecution
 	transport         *pluginTransport
 	membership        *eventseuroscope.MembershipContext // immutable incarnation; epoch is captured separately
 	applyMu           sync.RWMutex
@@ -110,6 +114,9 @@ func (c *Client) GetSendChannel() chan events.OutgoingMessage {
 }
 
 func (c *Client) Enqueue(message events.OutgoingMessage) bool {
+	if _, ok := message.(eventseuroscope.SessionInfoEvent); ok {
+		c.announced.Store(true)
+	}
 	if c.membership != nil {
 		if c.isClosed() {
 			return false
@@ -353,6 +360,18 @@ func (c *Client) rememberAssignedSquawk(callsign, squawk string) {
 	c.assignedSquawkCache[flightPlanCacheKey(callsign)] = squawk
 }
 
+func (c *Client) resetObservationCaches() {
+	c.flightPlanCacheMu.Lock()
+	defer c.flightPlanCacheMu.Unlock()
+	for _, pending := range c.pendingPositions {
+		pending.timer.Stop()
+	}
+	c.pendingPositions = nil
+	c.stripUpdateCache = nil
+	c.assignedSquawkCache = nil
+	c.positionUpdateCache = nil
+}
+
 func (c *Client) forgetFlightPlanCache(callsign string) {
 	processLock := c.positionProcessLock(callsign)
 	processLock.Lock()
@@ -383,9 +402,10 @@ func (c *Client) rememberAircraftPosition(callsign string, position cachedAircra
 
 func (c *Client) processAircraftPosition(ctx context.Context, callsign string, position cachedAircraftPosition) error {
 	resume := shared.SuspendPositionExecution(ctx)
-	c.hub.masterTransitionMu.RLock()
+	var release func()
+	ctx, release = c.hub.enterSessionApplication(ctx, c.session)
 	resume()
-	defer c.hub.masterTransitionMu.RUnlock()
+	defer release()
 	if c.isClosed() || ctx.Err() != nil || !c.validPositionFence(ctx) {
 		return context.Canceled
 	}
@@ -483,9 +503,10 @@ func (c *Client) applyPendingPosition(ctx context.Context, key string, expected 
 		ctx = expected.fence(ctx)
 	}
 	resume := shared.SuspendPositionExecution(ctx)
-	c.hub.masterTransitionMu.RLock()
+	var release func()
+	ctx, release = c.hub.enterSessionApplication(ctx, c.session)
 	resume()
-	defer c.hub.masterTransitionMu.RUnlock()
+	defer release()
 	if c.hub.getMasterClient(c.session) != c || c.isClosed() || ctx.Err() != nil || !c.validPositionFence(ctx) {
 		return
 	}
@@ -618,4 +639,18 @@ func (c *Client) PrepareControllerActionContext(ctx context.Context) (context.Co
 	}
 	binding := &commandBinding{hub: c.hub, client: c, session: c.session, cid: c.GetCid(), requireReady: true}
 	return shared.WithHumanCommand(ctx, binding)
+}
+
+// The hub publication queue captures the epoch before fan-out. A delayed hub
+// dispatch cannot stamp an old observation with the replacement master's epoch.
+func (c *Client) enqueueAtEpoch(message eventseuroscope.OutgoingMessage, epoch uint64, fixed bool) bool {
+	if c.membership == nil || !fixed {
+		return c.Enqueue(message)
+	}
+	if c.isClosed() {
+		return false
+	}
+	scope := c.wireContext()
+	scope.MasterEpoch = epoch
+	return c.transport.root.Enqueue(eventseuroscope.NewScopedMessage(scope, message))
 }

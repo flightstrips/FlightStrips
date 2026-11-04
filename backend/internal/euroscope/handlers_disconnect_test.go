@@ -417,17 +417,17 @@ func TestPositionFenceRejectsWorkAfterMasterRegained(t *testing.T) {
 	replacement := &Client{hub: hub, session: 42, airport: "EKCH"}
 	hub.master[42] = client
 	old := client.PositionFence()(context.Background())
-	hub.masterTransitionMu.Lock()
+	hub.election(42).gate.Lock()
 	hub.masterMu.Lock()
 	hub.clearMasterClientLocked(42)
 	hub.master[42] = replacement
 	hub.masterMu.Unlock()
-	hub.masterTransitionMu.Unlock()
-	hub.masterTransitionMu.Lock()
+	hub.election(42).gate.Unlock()
+	hub.election(42).gate.Lock()
 	hub.masterMu.Lock()
 	hub.master[42] = client
 	hub.masterMu.Unlock()
-	hub.masterTransitionMu.Unlock()
+	hub.election(42).gate.Unlock()
 	require.ErrorIs(t, client.processAircraftPosition(old, "SAS123", cachedAircraftPosition{}), context.Canceled)
 	require.Zero(t, service.positionCalls.Load())
 	require.NoError(t, client.processAircraftPosition(client.PositionFence()(context.Background()), "SAS123", cachedAircraftPosition{}))
@@ -465,12 +465,12 @@ func TestQueuedPositionsAreFencedOnDisconnectAndReplacement(t *testing.T) {
 			if disconnect {
 				require.NoError(t, client.Close())
 			} else {
-				hub.masterTransitionMu.Lock()
+				hub.election(42).gate.Lock()
 				hub.masterMu.Lock()
 				hub.clearMasterClientLocked(42)
 				hub.master[42] = replacement
 				hub.masterMu.Unlock()
-				hub.masterTransitionMu.Unlock()
+				hub.election(42).gate.Unlock()
 			}
 			<-hub.positionBudget
 			require.NoError(t, dispatcher.Close(context.Background()))

@@ -396,10 +396,23 @@ namespace FlightStrips::flightplan {
         }
     }
 
+    bool FlightPlanService::ReportAssignedSquawk(const std::string& callsign,const std::string& squawk) {
+        return m_websocketService && m_websocketService->SendCommandResult(AssignedSquawkEvent(callsign,squawk));
+    }
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
         const auto data=flightPlan.GetFlightPlanData();
         m_websocketService->RememberAircraft(callsign,data.GetOrigin(),data.GetDestination(),std::nan(""),std::nan(""));
+        switch(dataType) {
+        case EuroScopePlugIn::CTR_DATA_TYPE_SQUAWK:if(ReportAssignedSquawk(callsign,flightPlan.GetControllerAssignedData().GetSquawk())) return;break;
+        case EuroScopePlugIn::CTR_DATA_TYPE_FINAL_ALTITUDE:if(m_websocketService->SendCommandResult(RequestedAltitudeEvent(callsign,flightPlan.GetControllerAssignedData().GetFinalAltitude()))) return;break;
+        case EuroScopePlugIn::CTR_DATA_TYPE_TEMPORARY_ALTITUDE:if(m_websocketService->SendCommandResult(ClearedAltitudeEvent(callsign,flightPlan.GetControllerAssignedData().GetClearedAltitude()))) return;break;
+        case EuroScopePlugIn::CTR_DATA_TYPE_COMMUNICATION_TYPE:if(m_websocketService->SendCommandResult(CommunicationTypeEvent(callsign,ResolveCommunicationType(data.GetCommunicationType(),flightPlan.GetControllerAssignedData().GetCommunicationType())))) return;break;
+        case EuroScopePlugIn::CTR_DATA_TYPE_GROUND_STATE:if(m_websocketService->SendCommandResult(GroundStateEvent(callsign,flightPlan.GetGroundState()))) return;break;
+        case EuroScopePlugIn::CTR_DATA_TYPE_CLEARENCE_FLAG:if(m_websocketService->SendCommandResult(ClearedFlagEvent(callsign,flightPlan.GetClearenceFlag()))) return;break;
+        case EuroScopePlugIn::CTR_DATA_TYPE_HEADING:if(m_websocketService->SendCommandResult(HeadingEvent(callsign,flightPlan.GetControllerAssignedData().GetAssignedHeading()))) return;break;
+        default:break;
+        }
         const auto shouldSendTracked = m_websocketService->ShouldSendTrackedAircraft(flightPlan.GetTrackingControllerIsMe());
 		if ((dataType == EuroScopePlugIn::CTR_DATA_TYPE_SPEED || dataType == EuroScopePlugIn::CTR_DATA_TYPE_MACH) &&
 			shouldSendTracked) {

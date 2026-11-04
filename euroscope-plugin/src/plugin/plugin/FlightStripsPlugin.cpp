@@ -20,7 +20,6 @@ namespace FlightStrips {
         constexpr int kWindowProbeMaxAttempts = 20;
         constexpr int kWindowProbeMaxDepth = 8;
         constexpr int kWindowProbeMaxNodes = 512;
-        constexpr auto kSquawkRequestTimeout = std::chrono::minutes(2);
 
         auto QuoteWindowText(std::string text) -> std::string {
             for (char& ch : text) {
@@ -586,37 +585,16 @@ namespace FlightStrips {
         return sids;
     }
 
-    void FlightStripsPlugin::AddNeedsSquawk(const std::string &callsign) {
-        m_needsSquawk.push_back({callsign, std::chrono::steady_clock::now()});
+    void FlightStripsPlugin::AddNeedsSquawk(const std::string& callsign) {
+        if(const auto container=m_container.lock();container && container->webSocketService) container->webSocketService->DeferSquawk(m_needsSquawk,callsign);
     }
-
     std::optional<std::string> FlightStripsPlugin::GetNeedsSquawk() {
         ExpireNeedsSquawkRequests();
-
-        for (auto it = m_needsSquawk.begin(); it != m_needsSquawk.end(); ++it) {
-            if (!RadarTargetSelect(it->callsign.c_str()).IsValid()) {
-                continue;
-            }
-
-            auto callsign = std::move(it->callsign);
-            m_needsSquawk.erase(it);
-            return callsign;
-        }
-
-        return {};
+        return m_needsSquawk.TakeReady([&](const std::string& callsign){return RadarTargetSelect(callsign.c_str()).IsValid();});
     }
-
+    bool FlightStripsPlugin::ExecuteNeedsSquawk(const std::string& callsign,const std::function<void()>& action) {return m_needsSquawk.Execute(callsign,action);}
     void FlightStripsPlugin::ExpireNeedsSquawkRequests() {
-        const auto now = std::chrono::steady_clock::now();
-        for (auto it = m_needsSquawk.begin(); it != m_needsSquawk.end();) {
-            if (now - it->requestedAt < kSquawkRequestTimeout) {
-                ++it;
-                continue;
-            }
-
-            Logger::Error("Dropping pending squawk request for {} after waiting two minutes for a radar target", it->callsign);
-            it = m_needsSquawk.erase(it);
-        }
+        for(const auto& callsign:m_needsSquawk.Expire()) Logger::Debug("Dropping expired or unavailable pending squawk request for {}",callsign);
     }
 
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {

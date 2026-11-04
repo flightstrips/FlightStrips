@@ -10,6 +10,7 @@ import (
 )
 
 type clientRunwayState struct {
+	Client             *Client
 	Session            int32
 	CID                string
 	Callsign           string
@@ -21,6 +22,7 @@ type clientRunwayState struct {
 }
 
 type runwayClientEvaluation struct {
+	Target            *Client
 	CID               string
 	DepartureMismatch bool
 	ArrivalMismatch   bool
@@ -110,18 +112,30 @@ func (hub *Hub) GetRunwayMismatchStatus(session int32, cid string) (bool, bool) 
 	defer hub.runwayStateMu.RUnlock()
 
 	state, ok := hub.runwayStates[runwayStateKey(session, cid)]
-	if !ok {
-		return false, false
+	if ok {
+		return state.DepartureMismatch, state.ArrivalMismatch
 	}
-
-	return state.DepartureMismatch, state.ArrivalMismatch
+	var departure, arrival bool
+	for _, candidate := range hub.runwayStates {
+		if candidate.Session == session && candidate.CID == cid {
+			departure = departure || candidate.DepartureMismatch
+			arrival = arrival || candidate.ArrivalMismatch
+		}
+	}
+	return departure, arrival
 }
 
 func (hub *Hub) evaluateClientRunwayState(session int32, cid, callsign string, current, master models.ActiveRunways, isMaster bool) runwayClientEvaluation {
+	return hub.evaluateRunwayState(session, cid, callsign, nil, current, master, isMaster)
+}
+func (hub *Hub) evaluateMembershipRunwayState(client *Client, current, master models.ActiveRunways, isMaster bool) runwayClientEvaluation {
+	return hub.evaluateRunwayState(client.session, client.GetCid(), client.GetCallsign(), client, current, master, isMaster)
+}
+func (hub *Hub) evaluateRunwayState(session int32, cid, callsign string, client *Client, current, master models.ActiveRunways, isMaster bool) runwayClientEvaluation {
 	current = normalizeActiveRunways(current)
 	master = normalizeActiveRunways(master)
 
-	evaluation := runwayClientEvaluation{CID: cid}
+	evaluation := runwayClientEvaluation{CID: cid, Target: client}
 	if cid == "" {
 		return evaluation
 	}
@@ -130,11 +144,15 @@ func (hub *Hub) evaluateClientRunwayState(session int32, cid, callsign string, c
 	defer hub.runwayStateMu.Unlock()
 
 	key := runwayStateKey(session, cid)
+	if client != nil && client.membership != nil {
+		key = runwayStateKey(session, client.membership.MembershipId)
+	}
 	state, ok := hub.runwayStates[key]
 	if !ok {
 		state = &clientRunwayState{
 			Session: session,
 			CID:     cid,
+			Client:  client,
 		}
 		hub.runwayStates[key] = state
 	}
@@ -176,6 +194,7 @@ func (hub *Hub) evaluateClientRunwayState(session int32, cid, callsign string, c
 
 func (hub *Hub) resyncSessionRunwayMismatchTargets(session int32, masterCID string, master models.ActiveRunways) {
 	master = normalizeActiveRunways(master)
+	currentMaster := hub.getMasterClient(session)
 
 	hub.runwayStateMu.Lock()
 	evaluations := make([]runwayClientEvaluation, 0)
@@ -189,6 +208,9 @@ func (hub *Hub) resyncSessionRunwayMismatchTargets(session int32, masterCID stri
 			ArrivalRunways:   state.ArrivalRunways,
 		}
 		isMaster := state.CID == masterCID
+		if state.Client != nil {
+			isMaster = state.Client == currentMaster
+		}
 
 		if isMaster {
 			state.DepartureMismatch = false
@@ -207,6 +229,7 @@ func (hub *Hub) resyncSessionRunwayMismatchTargets(session int32, masterCID stri
 
 		evaluation := runwayClientEvaluation{
 			CID:               state.CID,
+			Target:            state.Client,
 			DepartureMismatch: state.DepartureMismatch,
 			ArrivalMismatch:   state.ArrivalMismatch,
 		}
@@ -235,7 +258,21 @@ func (hub *Hub) resyncSessionRunwayMismatchTargets(session int32, masterCID stri
 			})
 		}
 		if evaluation.Alert != nil {
-			hub.Send(session, evaluation.CID, *evaluation.Alert)
+			if evaluation.Target != nil {
+				evaluation.Target.Enqueue(*evaluation.Alert)
+			} else {
+				hub.Send(session, evaluation.CID, *evaluation.Alert)
+			}
 		}
 	}
+}
+
+func (hub *Hub) clearMembershipRunwayState(client *Client) {
+	if client.membership == nil {
+		hub.clearClientRunwayState(client.session, client.GetCid())
+		return
+	}
+	hub.runwayStateMu.Lock()
+	delete(hub.runwayStates, runwayStateKey(client.session, client.membership.MembershipId))
+	hub.runwayStateMu.Unlock()
 }

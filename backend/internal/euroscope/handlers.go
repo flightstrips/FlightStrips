@@ -215,7 +215,7 @@ func handleAssignedSquawk(ctx context.Context, client *Client, message Message) 
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
-	if client.hasCachedAssignedSquawk(event.Callsign, event.Squawk) {
+	if ctx.Value(executionResultKey{}) != true && client.hasCachedAssignedSquawk(event.Callsign, event.Squawk) {
 		return nil
 	}
 	if err := client.hub.stripService.UpdateAssignedSquawk(ctx, client.session, event.Callsign, event.Squawk); err != nil {
@@ -310,7 +310,7 @@ func handleHold(ctx context.Context, client *Client, message Message) error {
 	}
 	isMaster := client.hub.getMasterClient(client.session) == client
 	if client.identitySnapshot().observer || strip == nil ||
-		(!isMaster && !shared.IsTrackingController(client.GetCallsign(), strip.TrackingController)) {
+		(!isMaster && !shared.IsTrackingController(client.GetCallsign(), strip.TrackingController) && !hasHumanExecution(ctx, client)) {
 		return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "only the session master or current tracking controller may report a hold"}
 	}
 	return client.hub.stripService.UpdateHold(ctx, client.session, event.Callsign, event.Hold, event.HoldType, event.HoldEat)
@@ -418,6 +418,9 @@ func handleCoordinationReceived(ctx context.Context, client *Client, message Mes
 	var event euroscope.CoordinationReceivedEvent
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
+	}
+	if !strings.EqualFold(event.ControllerCallsign, client.GetCallsign()) {
+		return shared.RejectAction("coordination receiver does not match membership controller")
 	}
 	return client.hub.stripService.HandleCoordinationReceived(
 		ctx,
@@ -566,6 +569,10 @@ func handleSendPrivateMessage(ctx context.Context, client *Client, message Messa
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
-	client.hub.Broadcast(client.session, event)
-	return nil
+	return shared.DispatchCommand(ctx, client.session, event, nil)
+}
+
+func hasHumanExecution(ctx context.Context, client *Client) bool {
+	binding, ok := shared.HumanCommand(ctx)
+	return ok && binding.Session() == client.session && binding.CID() == client.GetCid() && binding.Validate() == nil
 }

@@ -23,6 +23,86 @@ namespace FlightStrips::websocket {
         return false;
     }
 
+    namespace {
+        using Wire=protobuf::wire::Envelope;
+        Wire::EventCase ExpectedResult(const Wire& event) {
+            switch(event.event_case()) {
+            case Wire::kGenerateSquawk:return Wire::kAssignedSquawk;
+            case Wire::kAssignedSquawk:case Wire::kRequestedAltitude:case Wire::kClearedAltitude:case Wire::kGroundState:
+            case Wire::kClearedFlag:case Wire::kHeading:case Wire::kStand:case Wire::kCommunicationType:case Wire::kHold:return event.event_case();
+            default:return Wire::EVENT_NOT_SET;
+            }
+        }
+        std::string ResultCallsign(const Wire& event) {
+            switch(event.event_case()) {
+            case Wire::kGenerateSquawk:return event.generate_squawk().callsign();case Wire::kAssignedSquawk:return event.assigned_squawk().callsign();
+            case Wire::kRequestedAltitude:return event.requested_altitude().callsign();case Wire::kClearedAltitude:return event.cleared_altitude().callsign();
+            case Wire::kGroundState:return event.ground_state().callsign();case Wire::kClearedFlag:return event.cleared_flag().callsign();
+            case Wire::kHeading:return event.heading().callsign();case Wire::kStand:return event.stand().callsign();
+            case Wire::kCommunicationType:return event.communication_type().callsign();case Wire::kHold:return event.hold().callsign();default:return {};
+            }
+        }
+    }
+    bool WebSocketService::ExecutionCurrent(const std::string& id) const {
+        const auto found=pending_executions_.find(id);if(found==pending_executions_.end() || !IsConnected() || m_plugin->GetConnectionState().observer) return false;
+        const auto& execution=found->second;
+        if(std::chrono::steady_clock::now()>=execution.expires) return false;
+        const auto member=memberships_.members.find(execution.context.membership_id());
+        if(member==memberships_.members.end() || member->second.role==STATE_OBSERVER || member->second.role==STATE_UNKNOWN) return false;
+        auto current=member->second.context, captured=execution.context;
+        if(execution.origin==protobuf::wire::COMMAND_ORIGIN_HUMAN) {current.set_master_epoch(0);captured.set_master_epoch(0);}
+        return current.SerializeAsString()==captured.SerializeAsString();
+    }
+    bool WebSocketService::ExecutionReady(const std::string& id) const {
+        if(!ExecutionCurrent(id)) return false;
+        const auto& desired=pending_executions_.at(id);
+        for(const auto& [other,pending]:pending_executions_) if(other!=id && pending.started && pending.callsign==desired.callsign && pending.response==desired.response && ExecutionCurrent(other)) return false;
+        return true;
+    }
+    bool WebSocketService::ExecuteDeferred(const std::string& id,const std::function<void()>& action) {
+        if(!ExecutionReady(id)) return false;
+        auto& execution=pending_executions_.at(id);execution.started=true;
+        const auto oldMember=active_membership_,oldExecution=active_execution_;const auto oldOrigin=active_origin_;
+        active_membership_=execution.context.membership_id();active_execution_=id;active_origin_=execution.origin;
+        try {action();} catch(...) {active_membership_=oldMember;active_execution_=oldExecution;active_origin_=oldOrigin;throw;}
+        active_membership_=oldMember;active_execution_=oldExecution;active_origin_=oldOrigin;return true;
+    }
+    void WebSocketService::DeferSquawk(PendingSquawkQueue& queue,const std::string& callsign) {
+        const auto id=active_execution_;
+        const auto found=pending_executions_.find(id);
+        if(found==pending_executions_.end() || found->second.callsign!=callsign || found->second.response!=Wire::kAssignedSquawk || !ExecutionCurrent(id)) return;
+        const auto weak=weak_from_this();
+        queue.Add(callsign,[weak,id]{const auto socket=weak.lock();return socket && socket->ExecutionCurrent(id);},
+            [weak,id]{const auto socket=weak.lock();return socket && socket->ExecutionReady(id);},
+            [weak,id](const std::function<void()>& action){const auto socket=weak.lock();return socket && socket->ExecuteDeferred(id,action);});
+    }
+    bool WebSocketService::SendCommandResult(const Event& event) {
+        if(pending_executions_.empty()) return false;
+        Wire result;if(!result.ParseFromString(protobuf::Serialize(event))) return false;
+        const auto callsign=ResultCallsign(result);if(callsign.empty()) return false;
+        std::string selected;bool matched=false;
+        for(auto it=pending_executions_.begin();it!=pending_executions_.end();) {
+            auto& pending=it->second;
+            const bool candidate=pending.started && pending.callsign==callsign && pending.response==result.event_case() && (pending.expected.empty() || pending.expected==result.SerializeAsString());
+            if(!ExecutionCurrent(it->first)) {matched=matched||candidate;it=pending_executions_.erase(it);continue;}
+            if(candidate && (active_execution_.empty() || active_execution_==it->first)) {matched=true;if(!selected.empty()) return true;selected=it->first;}
+            ++it;
+        }
+        if(selected.empty()) return matched;
+        const auto pending=pending_executions_.at(selected);pending_executions_.erase(selected);
+        *result.mutable_context()=pending.context;result.set_command_origin(pending.origin);result.set_execution_id(selected);
+        ++tx;webSocket->Send(result.SerializeAsString());
+        // The exact business result belongs to its initiating member. The
+        // physical SDK fact is also an ordinary observation for every other
+        // applicable membership where this instance is the current master.
+        for(const auto& [memberId,member]:memberships_.members) {
+            if(memberId==pending.context.membership_id() || member.role!=STATE_MASTER || !member.inventory.contains(callsign)) continue;
+            auto observation=result;*observation.mutable_context()=member.context;observation.clear_command_origin();observation.clear_execution_id();
+            ++tx;webSocket->Send(observation.SerializeAsString());
+        }
+        return true;
+    }
+
     void WebSocketService::ForgetAircraft(const std::string& callsign) {
         source_aircraft_.erase(callsign);source_runways_.erase(callsign);
         for(auto& [id,m]:memberships_.members) {m.inventory.erase(callsign);m.excluded.insert(callsign);}
@@ -89,12 +169,19 @@ namespace FlightStrips::websocket {
             for(const auto& [callsign,fact]:source_aircraft_) if(member.Includes(fact)) member.inventory.insert(callsign);
         }
         if(envelope.has_backend_sync()) m_plugin->SetMembershipAirport(envelope.context().membership_id(),envelope.context().airport(),envelope.backend_sync().latitude(),envelope.backend_sync().longitude());
+        if(!envelope.execution_id().empty() && ExpectedResult(envelope)!=Wire::EVENT_NOT_SET) {
+            for(auto it=pending_executions_.begin();it!=pending_executions_.end();) {if(!ExecutionCurrent(it->first)) it=pending_executions_.erase(it);else ++it;}
+            if(pending_executions_.size()>=256) return;
+            auto expected=envelope;expected.clear_context();expected.clear_command_origin();expected.clear_execution_id();
+            pending_executions_[envelope.execution_id()]={envelope.context(),envelope.command_origin(),ResultCallsign(envelope),ExpectedResult(envelope),std::chrono::steady_clock::now()+(envelope.has_generate_squawk()?std::chrono::seconds(120):std::chrono::seconds(30)),!envelope.has_generate_squawk(),envelope.has_generate_squawk()?"":expected.SerializeAsString()};
+        }
         active_membership_=envelope.context().membership_id();
+        active_origin_=envelope.command_origin();active_execution_=envelope.execution_id();
         // All consumers, including guidance stores, run under the same validated
         // membership on the SDK callback thread, never the websocket thread.
         try { m_messageHandlers->OnMessages({bytes}); }
-        catch (...) { active_membership_.clear();throw; }
-        active_membership_.clear();
+        catch (...) { active_membership_.clear();active_execution_.clear();active_origin_=protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED;throw; }
+        active_membership_.clear();active_execution_.clear();active_origin_=protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED;
     }
     void WebSocketService::SendCaptured(const Event& event,const protobuf::wire::MembershipContext& context) {
         const auto it=memberships_.members.find(context.membership_id());
@@ -134,6 +221,7 @@ namespace FlightStrips::websocket {
                 prepareStrip(strip);
             }
             *event.mutable_context()=member.context;
+            if(!active_execution_.empty()) {event.set_command_origin(active_origin_);event.set_execution_id(active_execution_);}
             ++tx;webSocket->Send(event.SerializeAsString());
         };
 
@@ -160,7 +248,7 @@ namespace FlightStrips::websocket {
         }
         if(!active_membership_.empty()) {
             if(auto it=memberships_.members.find(active_membership_);it!=memberships_.members.end() && (it->second.role==STATE_MASTER || it->second.role==STATE_SLAVE || source.has_runway())) {
-                if(!callsign.empty() && !it->second.inventory.contains(callsign)) return;
+                if(!callsign.empty() && !it->second.inventory.contains(callsign) && active_execution_.empty()) return;
                 send(it->second);
             }
             return;
@@ -309,7 +397,7 @@ namespace FlightStrips::websocket {
             messages_.clear();
 
             for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
-            memberships_.Reset(); active_membership_.clear(); transport_generation_=0;
+            pending_executions_.clear();memberships_.Reset(); active_membership_.clear(); transport_generation_=0;
             observer = false;
             connect_after_.reset();
             pending_connect_ = false;
@@ -414,7 +502,7 @@ namespace FlightStrips::websocket {
         messages_.clear();
 
             for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
-            memberships_.Reset(); active_membership_.clear(); transport_generation_=0;
+            pending_executions_.clear();memberships_.Reset(); active_membership_.clear(); transport_generation_=0;
 
     }
 
@@ -478,7 +566,7 @@ namespace FlightStrips::websocket {
         exceptions::RunGuarded("WebSocketService::OnConnected", [this] {
             SetMasterCallsign("");
             for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
-            memberships_.Reset(); active_membership_.clear();transport_generation_=0;source_runways_.clear();source_aircraft_.clear();
+            pending_executions_.clear();memberships_.Reset(); active_membership_.clear();transport_generation_=0;source_runways_.clear();source_aircraft_.clear();
             std::optional<std::string> connectedToken;
             { std::lock_guard lock(message_mutex_); messages_.clear();
               connectedToken = latest_token_; token_update_pending_ = false; }

@@ -145,6 +145,10 @@ func (d *AirportDefinition) Coordinates() (float64, float64) {
 	return d.document.Geography.Latitude, d.document.Geography.Longitude
 }
 
+func (d *AirportDefinition) PreemptHigherPriority() bool {
+	return d.document.Master.PreemptHigherPriority
+}
+
 // MasterPriority uses bound startup data and existing frequency normalization.
 func (d *AirportDefinition) MasterPriority(callsign, frequency string) int {
 	callsign = strings.ToUpper(strings.TrimSpace(callsign))

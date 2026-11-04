@@ -1757,3 +1757,55 @@ TEST(SyncEventTest, PopulatedStripSerializesSpokenCallsignField) {
     EXPECT_TRUE(j["strips"][0]["hold_supported"]);
     EXPECT_EQ(j["strips"][0]["hold"], "");
 }
+
+namespace {
+class PendingSquawkDispatch final:public handlers::MessageHandler {
+    std::weak_ptr<WebSocketService> socket_;
+    PendingSquawkQueue& queue_;
+public:
+    PendingSquawkDispatch(std::shared_ptr<WebSocketService> socket,PendingSquawkQueue& queue):socket_(socket),queue_(queue) {}
+    void OnMessages(const std::vector<std::string>& messages) override {
+        for(const auto& bytes:messages) {
+            protobuf::wire::Envelope event;if(!event.ParseFromString(bytes) || !event.has_generate_squawk()) continue;
+            if(auto socket=socket_.lock()) socket->DeferSquawk(queue_,event.generate_squawk().callsign());
+        }
+    }
+};
+}
+TEST_F(WebSocketServiceOnTimerTest, DeferredSquawkRetainsOwnNonMasterContextThroughRealQueueAndCallback) {
+    ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    auto socket=std::shared_ptr<WebSocketService>(std::move(svc));
+    PendingSquawkQueue queue;msgHandlers->RegisterHandler(std::make_shared<PendingSquawkDispatch>(socket,queue));
+    auto context=AddMembership(*socket,1,"AAAA","slave");
+    auto other=AddMembership(*socket,2,"BBBB","master");
+    protobuf::wire::Envelope otherInventory;*otherInventory.mutable_context()=other;otherInventory.mutable_backend_sync()->add_strips()->set_callsign("SAS125");socket->ProcessServerMessage(otherInventory.SerializeAsString());
+    protobuf::wire::Envelope command;*command.mutable_context()=context;command.set_command_origin(protobuf::wire::COMMAND_ORIGIN_HUMAN);command.set_execution_id("squawk-own");command.mutable_generate_squawk()->set_callsign("SAS125");
+    socket->ProcessServerMessage(command.SerializeAsString());
+    EXPECT_FALSE(queue.TakeReady([](const std::string&){return false;})); // waiting for radar target
+    AddMembership(*socket,1,"AAAA","slave",2); // unrelated master election while waiting
+    ASSERT_EQ(queue.TakeReady([](const std::string&){return true;}),std::optional<std::string>{"SAS125"});
+    int sdkCalls=0;ASSERT_TRUE(queue.Execute("SAS125",[&]{++sdkCalls;}));EXPECT_EQ(sdkCalls,1);
+    flightplan::FlightPlanService plans(socket,{},{},{},nullptr);
+    EXPECT_TRUE(socket->ShouldSend()); // independent master for the other airport
+    EXPECT_CALL(*mockImpl,Send(_)).Times(2).WillRepeatedly(Invoke([&](const std::string& bytes){
+        protobuf::wire::Envelope result;ASSERT_TRUE(result.ParseFromString(bytes));
+        if(result.context().membership_id()==context.membership_id()) {EXPECT_EQ(result.execution_id(),"squawk-own");EXPECT_EQ(result.command_origin(),protobuf::wire::COMMAND_ORIGIN_HUMAN);}
+        else {EXPECT_EQ(result.context().membership_id(),other.membership_id());EXPECT_TRUE(result.execution_id().empty());EXPECT_EQ(result.command_origin(),protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED);}
+        EXPECT_EQ(result.assigned_squawk().squawk(),"1234");
+    }));
+    EXPECT_TRUE(plans.ReportAssignedSquawk("SAS125","1234")); // later SDK callback, outside active message dispatch
+    EXPECT_FALSE(plans.ReportAssignedSquawk("SAS125","1234"));
+}
+TEST_F(WebSocketServiceOnTimerTest, DeferredSquawkValidatesRemovalAndAutomaticEpochBeforeSdkInvocation) {
+    ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    auto socket=std::shared_ptr<WebSocketService>(std::move(svc));
+    PendingSquawkQueue queue;msgHandlers->RegisterHandler(std::make_shared<PendingSquawkDispatch>(socket,queue));
+    auto context=AddMembership(*socket,1,"AAAA","master");
+    protobuf::wire::Envelope command;*command.mutable_context()=context;command.set_command_origin(protobuf::wire::COMMAND_ORIGIN_AUTOMATIC);command.set_execution_id("automatic-old");command.mutable_generate_squawk()->set_callsign("SAS125");socket->ProcessServerMessage(command.SerializeAsString());
+    AddMembership(*socket,1,"AAAA","slave",2);
+    EXPECT_FALSE(queue.TakeReady([](const std::string&){return true;}));
+    command.set_command_origin(protobuf::wire::COMMAND_ORIGIN_HUMAN);command.set_execution_id("human-removed");socket->ProcessServerMessage(command.SerializeAsString());
+    ASSERT_TRUE(queue.TakeReady([](const std::string&){return true;}));
+    auto removal=command;removal.mutable_membership_removed();socket->ProcessServerMessage(removal.SerializeAsString());
+    int sdkCalls=0;EXPECT_FALSE(queue.Execute("SAS125",[&]{++sdkCalls;}));EXPECT_EQ(sdkCalls,0);
+}

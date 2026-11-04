@@ -281,8 +281,10 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnFlightPlanFlightPlanDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan) {
+        if(!FlightPlan.IsValid() || FlightPlan.GetSimulated()) return;
         if (!IsRelevant(FlightPlan)) {
-            return;
+            const auto container=m_container.lock();
+            if(!FlightPlan.IsValid() || !container || !container->webSocketService || !container->webSocketService->KnowsAircraft(FlightPlan.GetCallsign())) return;
         }
 
         SafeCall("OnFlightPlanFlightPlanDataUpdate", [this, FlightPlan] {
@@ -508,6 +510,10 @@ namespace FlightStrips {
     FlightStripsPlugin::~FlightStripsPlugin() = default;
 
     bool FlightStripsPlugin::IsValidAirports(const CFlightPlan flightPlan) const {
+        for (const auto& [id,member]:m_membershipAirports) {
+            if(member.airport==flightPlan.GetFlightPlanData().GetOrigin() || member.airport==flightPlan.GetFlightPlanData().GetDestination()) return true;
+        }
+        if(!m_membershipAirports.empty()) return false;
         return (strcmp(flightPlan.GetFlightPlanData().GetDestination(), m_connectionState.relevant_airport.c_str()) == 0
          || strcmp(flightPlan.GetFlightPlanData().GetOrigin(), m_connectionState.relevant_airport.c_str()) == 0);
     }
@@ -534,11 +540,20 @@ namespace FlightStrips {
         m_airportLatitude = latitude;
         m_airportLongitude = longitude;
     }
+    void FlightStripsPlugin::SetMembershipAirport(const std::string& id,const std::string& airport,double latitude,double longitude) {
+        m_membershipAirports[id]={airport,latitude,longitude};
+    }
+    void FlightStripsPlugin::RemoveMembershipAirport(const std::string& id) {m_membershipAirports.erase(id);}
 
     bool FlightStripsPlugin::IsWithinRange(const CRadarTarget radarTarget, const float rangeNM) const {
         if (!radarTarget.IsValid()) return false;
 
         const auto position = radarTarget.GetPosition().GetPosition();
+        for(const auto& [id,member]:m_membershipAirports) {
+            EuroScopePlugIn::CPosition airport;airport.m_Latitude=member.latitude;airport.m_Longitude=member.longitude;
+            if(position.DistanceTo(airport)<=rangeNM) return true;
+        }
+        if(!m_membershipAirports.empty()) return false;
 
         EuroScopePlugIn::CPosition airportPosition;
         airportPosition.m_Latitude  = m_airportLatitude;

@@ -1,5 +1,6 @@
 #include "WebSocket.h"
 #include <atomic>
+#include <mutex>
 
 #include "ExceptionHandling.h"
 #include "Logger.hpp"
@@ -66,20 +67,20 @@ namespace FlightStrips::websocket {
             ~WebSocketImpl() override {
                 m_endpoint.stop_perpetual();
                 Logger::Debug("WebSocket: Stopping");
-                TryDisconnect();
+                Disconnect();
                 // Forcefully stop the ASIO io_service. Without this, stop_perpetual() alone
                 // only removes the keep-alive work item — pending ASIO operations (TCP connect,
                 // TLS handshake, DNS resolution) are each allowed to run until their own timers
                 // expire (up to ~16 s total). Calling stop() immediately cancels all of them so
                 // join() returns in milliseconds rather than hanging while EuroScope shuts down.
                 m_endpoint.stop();
-                status_ = WEBSOCKET_STATUS_DISCONNECTED;
                 Logger::Debug("WebSocket: Waiting for thread to join...");
                 m_thread->join();
                 Logger::Debug("WebSocket: Thread joined");
             }
 
             void Connect() override {
+                std::unique_lock lock(lifecycle_mutex_);
                 if (status_ != WEBSOCKET_STATUS_DISCONNECTED && status_ != WEBSOCKET_STATUS_FAILED) { return; }
                 status_ = WEBSOCKET_STATUS_CONNECTING;
 
@@ -91,25 +92,35 @@ namespace FlightStrips::websocket {
                     return;
                 }
 
+                const auto generation=++generation_;
                 m_hdl = con->get_handle();
 
-                con->set_open_handler([this](const websocketpp::connection_hdl& hdl) { OnOpen(hdl); });
-                con->set_message_handler([this](const websocketpp::connection_hdl& hdl, const typename ClientT::message_ptr& msg) { OnMessage(hdl, msg); });
-                con->set_fail_handler([this](const websocketpp::connection_hdl& hdl) { OnFailure(hdl); });
-                con->set_close_handler([this](const websocketpp::connection_hdl& hdl) { OnClose(hdl); });
+                con->set_open_handler([this,generation](const websocketpp::connection_hdl& hdl) { if(generation==generation_.load()) OnOpen(hdl, generation); });
+                con->set_message_handler([this,generation](const websocketpp::connection_hdl& hdl, const typename ClientT::message_ptr& msg) { if(generation==generation_.load()) OnMessage(hdl, msg); });
+                con->set_fail_handler([this,generation](const websocketpp::connection_hdl& hdl) { if(generation==generation_.load()) OnFailure(hdl, generation); });
+                con->set_close_handler([this,generation](const websocketpp::connection_hdl& hdl) { if(generation==generation_.load()) OnClose(hdl, generation); });
 
+                lock.unlock();
                 m_endpoint.connect(con);
             }
 
             void Disconnect() override {
-                TryDisconnect();
-                status_ = WEBSOCKET_STATUS_DISCONNECTED;
-                m_hdl.reset();
+                websocketpp::connection_hdl handle;
+                {
+                    std::lock_guard lock(lifecycle_mutex_);
+                    ++generation_;
+                    handle = m_hdl;
+                    m_hdl.reset();
+                    status_ = WEBSOCKET_STATUS_DISCONNECTED;
+                }
+                TryDisconnect(handle);
             }
 
             void Send(const std::string& message) override {
+                websocketpp::connection_hdl handle;
+                { std::lock_guard lock(lifecycle_mutex_); handle = m_hdl; }
                 websocketpp::lib::error_code ec;
-                m_endpoint.send(m_hdl, message, textFrames_ ? websocketpp::frame::opcode::text : websocketpp::frame::opcode::binary, ec);
+                m_endpoint.send(handle, message, textFrames_ ? websocketpp::frame::opcode::text : websocketpp::frame::opcode::binary, ec);
                 if (ec) {
                     Logger::Warning("Failed to send protobuf message ({} bytes) with error code {}: {}.", message.size(), ec.value(), ec.message());
                 }
@@ -118,9 +129,9 @@ namespace FlightStrips::websocket {
             [[nodiscard]] WebSocketStatus GetStatus() const override { return status_; }
 
         private:
-            void TryDisconnect() {
+            void TryDisconnect(const websocketpp::connection_hdl& handle) {
                 websocketpp::lib::error_code ec;
-                const auto connection = m_endpoint.get_con_from_hdl(m_hdl, ec);
+                const auto connection = m_endpoint.get_con_from_hdl(handle, ec);
                 if (!ec) {
                     Logger::Debug("WebSocket: Connection open, closing");
                     connection->close(websocketpp::close::status::going_away, "Stopping", ec);
@@ -144,28 +155,36 @@ namespace FlightStrips::websocket {
                 });
             }
 
-            void OnFailure(const websocketpp::connection_hdl& hdl) {
-                exceptions::RunGuarded("WebSocket::OnFailure", [this, &hdl] {
-                    status_ = WEBSOCKET_STATUS_FAILED;
+            void OnFailure(const websocketpp::connection_hdl& hdl, uint64_t generation) {
+                exceptions::RunGuarded("WebSocket::OnFailure", [this, &hdl, generation] {
+                    { std::lock_guard lock(lifecycle_mutex_);
+                      if (generation != generation_.load()) return;
+                      status_ = WEBSOCKET_STATUS_FAILED; }
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
                     const auto reason = con->get_ec().message();
                     Logger::Warning("Failed to connect to server: {}", reason);
                 });
             }
 
-            void OnOpen(const websocketpp::connection_hdl& hdl) {
-                exceptions::RunGuarded("WebSocket::OnOpen", [this, &hdl] {
-                    status_ = WEBSOCKET_STATUS_CONNECTED;
+            void OnOpen(const websocketpp::connection_hdl& hdl, uint64_t generation) {
+                exceptions::RunGuarded("WebSocket::OnOpen", [this, &hdl, generation] {
+                    // Fence SDK callbacks before publishing the new physical connection.
+                    on_connected_cb();
+                    // Disconnect may retire this connection while the callback runs.
+                    { std::lock_guard lock(lifecycle_mutex_);
+                      if (generation != generation_.load()) return;
+                      status_ = WEBSOCKET_STATUS_CONNECTED; }
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
                     auto server = con->get_response_header("Server");
                     Logger::Info("Connected to server: {}", server);
-                    on_connected_cb();
                 });
             }
 
-            void OnClose(const websocketpp::connection_hdl& hdl) {
-                exceptions::RunGuarded("WebSocket::OnClose", [this, &hdl] {
-                    status_ = WEBSOCKET_STATUS_DISCONNECTED;
+            void OnClose(const websocketpp::connection_hdl& hdl, uint64_t generation) {
+                exceptions::RunGuarded("WebSocket::OnClose", [this, &hdl, generation] {
+                    { std::lock_guard lock(lifecycle_mutex_);
+                      if (generation != generation_.load()) return;
+                      status_ = WEBSOCKET_STATUS_DISCONNECTED; }
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
                     Logger::Info(detail::FormatCloseLogMessage(
                         con->get_remote_close_code(),
@@ -177,6 +196,8 @@ namespace FlightStrips::websocket {
                 });
             }
 
+            std::mutex lifecycle_mutex_;
+            std::atomic<uint64_t> generation_{0};
             std::atomic<WebSocketStatus> status_{WEBSOCKET_STATUS_DISCONNECTED};
 
             ClientT m_endpoint;

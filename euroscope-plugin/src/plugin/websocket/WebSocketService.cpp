@@ -10,6 +10,186 @@
 #include "websocket/generated/proto/euroscope.pb.h"
 
 namespace FlightStrips::websocket {
+    bool WebSocketService::SendHoldReplay(const HoldEvent& event) {
+        if (!IsConnected() || m_plugin->GetConnectionState().observer) return false;
+        for (const auto& [id, member] : memberships_.members) {
+            if (!active_membership_.empty() && id != active_membership_) continue;
+            if ((member.role == STATE_MASTER || member.role == STATE_SLAVE) && member.inventory.contains(event.callsign)) {
+                // Reconnect replay is source state, not completion of an SDK command.
+                SendBytes(protobuf::Serialize(event));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void WebSocketService::ForgetAircraft(const std::string& callsign) {
+        source_aircraft_.erase(callsign);source_runways_.erase(callsign);
+        for(auto& [id,m]:memberships_.members) {m.inventory.erase(callsign);m.excluded.insert(callsign);}
+    }
+    void WebSocketService::RememberAircraft(const std::string& callsign,const std::string& origin,const std::string& destination,double latitude,double longitude,bool hasFp) {
+        auto& fact=source_aircraft_[callsign];fact.set_callsign(callsign);fact.set_origin(origin);fact.set_destination(destination);fact.set_has_fp(hasFp);
+        if(std::isfinite(latitude) && std::isfinite(longitude)) {fact.mutable_position()->set_lat(latitude);fact.mutable_position()->set_lon(longitude);}
+        for(auto& [id,m]:memberships_.members) {
+            if(m.role==STATE_MASTER) continue;
+            if(m.Includes(fact)) {m.inventory.insert(callsign);m.excluded.erase(callsign);}
+            else {m.inventory.erase(callsign);m.excluded.insert(callsign);}
+        }
+    }
+    std::vector<protobuf::wire::MembershipContext> WebSocketService::CaptureObservationContexts(const std::string& callsign) const {
+        std::vector<protobuf::wire::MembershipContext> contexts;
+        for(const auto& [id,m]:memberships_.members) if(m.role==STATE_MASTER && m.inventory.contains(callsign)) contexts.push_back(m.context);
+        return contexts;
+    }
+    void WebSocketService::SendObservation(const Event& event,const protobuf::wire::MembershipContext& context) {
+        const auto it=memberships_.members.find(context.membership_id());
+        if(!IsConnected() || it==memberships_.members.end() || it->second.role!=STATE_MASTER ||
+            it->second.context.SerializeAsString()!=context.SerializeAsString()) return;
+        ++tx;webSocket->Send(protobuf::Serialize(event,context));
+    }
+    void WebSocketService::ForEachMembership(const std::function<void(const std::string&)>& action) {
+        const auto previous=active_membership_;
+        try {for(const auto& [id,m]:memberships_.members) {active_membership_=id;action(m.context.airport());}}
+        catch(...) {active_membership_=previous;throw;}
+        active_membership_=previous;
+    }
+    std::string WebSocketService::CurrentMembershipId() const {
+        if (!active_membership_.empty()) return active_membership_;
+        const auto& airport=m_plugin->GetConnectionState().relevant_airport;
+        for(const auto& [id,m]:memberships_.members) if(m.context.airport()==airport) return id;
+        if(memberships_.members.size()==1) return memberships_.members.begin()->first;
+        return {};
+    }
+    std::string WebSocketService::CurrentAirport() const {
+        const auto found=memberships_.members.find(active_membership_);
+        return found==memberships_.members.end()?m_plugin->GetConnectionState().relevant_airport:found->second.context.airport();
+    }
+    protobuf::wire::MembershipContext WebSocketService::CaptureContext() const {
+        if (const auto it=memberships_.members.find(active_membership_);it!=memberships_.members.end()) return it->second.context;
+        protobuf::wire::MembershipContext context;context.set_instance_id(instance_id_);context.set_transport_generation(transport_generation_);return context;
+    }
+    void WebSocketService::RememberRunways(const std::string& callsign,const std::string& departure,const std::string& arrival) {
+        source_runways_[callsign]={departure,arrival};
+    }
+    void WebSocketService::ProcessServerMessage(const std::string& bytes) {
+        protobuf::wire::Envelope envelope;
+        if(!protobuf::ParseEnvelope(bytes,envelope)) return;
+        if(envelope.has_control()) {
+            const auto& c=envelope.context();
+            if(c.instance_id()!=instance_id_ || c.transport_generation()==0 || !c.membership_id().empty()) return;
+            if(transport_generation_!=0 && transport_generation_!=c.transport_generation()) return;
+            transport_generation_=c.transport_generation();return;
+        }
+        const auto& state=m_plugin->GetConnectionState();
+        const bool accepted=memberships_.Accept(envelope,instance_id_,transport_generation_,GetLoginSessionName(state));
+        if(envelope.has_membership_removed() && memberships_.retired.contains(envelope.context().membership_id())) m_plugin->RemoveMembershipAirport(envelope.context().membership_id());
+        if(!accepted) return;
+        if(envelope.has_session_info()) {
+            auto& member=memberships_.members.at(envelope.context().membership_id());
+            for(const auto& [callsign,fact]:source_aircraft_) if(member.Includes(fact)) member.inventory.insert(callsign);
+        }
+        if(envelope.has_backend_sync()) m_plugin->SetMembershipAirport(envelope.context().membership_id(),envelope.context().airport(),envelope.backend_sync().latitude(),envelope.backend_sync().longitude());
+        active_membership_=envelope.context().membership_id();
+        // All consumers, including guidance stores, run under the same validated
+        // membership on the SDK callback thread, never the websocket thread.
+        try { m_messageHandlers->OnMessages({bytes}); }
+        catch (...) { active_membership_.clear();throw; }
+        active_membership_.clear();
+    }
+    void WebSocketService::SendCaptured(const Event& event,const protobuf::wire::MembershipContext& context) {
+        const auto it=memberships_.members.find(context.membership_id());
+        if(!IsConnected() || it==memberships_.members.end()) return;
+        auto expected=it->second.context, captured=context;expected.set_master_epoch(0);captured.set_master_epoch(0);
+        if(expected.SerializeAsString()!=captured.SerializeAsString()) return;
+        ++tx;webSocket->Send(protobuf::Serialize(event,context));
+    }
+    void WebSocketService::SendBytes(const std::string& bytes) {
+        protobuf::wire::Envelope source;
+        if(!source.ParseFromString(bytes)) return;
+        if(source.has_token()) { source.mutable_token()->set_instance_id(instance_id_);++tx;webSocket->Send(source.SerializeAsString());return; }
+        if(source.has_login() || transport_generation_==0) return;
+        auto send=[&](AirportMembership& member) {
+            auto event=source;
+            auto prepareStrip=[&](protobuf::wire::Strip* strip) {
+                if(const auto it=source_runways_.find(strip->callsign());it!=source_runways_.end()) strip->set_runway(strip->destination()==member.context.airport()?it->second.second:it->second.first);
+                if(strip->destination()!=member.context.airport()) {strip->clear_star();strip->clear_eldt();}
+            };
+            if(event.has_sync()) {
+                member.inventory.clear();member.excluded.clear();
+                auto* strips=event.mutable_sync()->mutable_strips();
+                for(int i=strips->size()-1;i>=0;--i) {
+                    auto* strip=strips->Mutable(i);
+                    if(!member.Includes(*strip)) {member.excluded.insert(strip->callsign());strips->DeleteSubrange(i,1);continue;}
+                    prepareStrip(strip);member.inventory.insert(strip->callsign());
+                }
+            }
+            if(event.has_strip_update()) {
+                auto* strip=event.mutable_strip_update()->mutable_strip();
+                if(!member.Includes(*strip)) {
+                    member.excluded.insert(strip->callsign());
+                    // Publish the transition once to the previous airport so
+                    // its existing handler can apply admission/removal policy.
+                    if(member.inventory.erase(strip->callsign())==0) return;
+                } else {member.inventory.insert(strip->callsign());member.excluded.erase(strip->callsign());}
+                prepareStrip(strip);
+            }
+            *event.mutable_context()=member.context;
+            ++tx;webSocket->Send(event.SerializeAsString());
+        };
+
+        std::string callsign;
+        // One field name across typed aircraft events. Keep routing explicit for
+        // the lite runtime, which deliberately has no protobuf reflection.
+        switch(source.event_case()) {
+#define AIRCRAFT_CASE(Name,accessor) case protobuf::wire::Envelope::Name:callsign=source.accessor().callsign();break;
+        AIRCRAFT_CASE(kAssignedSquawk,assigned_squawk) AIRCRAFT_CASE(kSquawk,squawk)
+        AIRCRAFT_CASE(kRequestedAltitude,requested_altitude) AIRCRAFT_CASE(kClearedAltitude,cleared_altitude)
+        AIRCRAFT_CASE(kCommunicationType,communication_type) AIRCRAFT_CASE(kGroundState,ground_state)
+        AIRCRAFT_CASE(kClearedFlag,cleared_flag) AIRCRAFT_CASE(kAircraftPositionUpdate,aircraft_position_update)
+        AIRCRAFT_CASE(kHeading,heading) AIRCRAFT_CASE(kAircraftDisconnect,aircraft_disconnect)
+        AIRCRAFT_CASE(kStand,stand) AIRCRAFT_CASE(kTrackingControllerChanged,tracking_controller_changed)
+        AIRCRAFT_CASE(kHold,hold) AIRCRAFT_CASE(kFsScratchPad,fs_scratch_pad)
+        AIRCRAFT_CASE(kCdmTobtUpdate,cdm_tobt_update) AIRCRAFT_CASE(kCdmAsrtToggle,cdm_asrt_toggle)
+        AIRCRAFT_CASE(kCdmTsacUpdate,cdm_tsac_update) AIRCRAFT_CASE(kCdmDeiceUpdate,cdm_deice_update)
+        AIRCRAFT_CASE(kCdmManualCtot,cdm_manual_ctot) AIRCRAFT_CASE(kCdmCtotRemove,cdm_ctot_remove) AIRCRAFT_CASE(kCdmReady,cdm_ready)
+        AIRCRAFT_CASE(kCoordinationReceived,coordination_received)
+        AIRCRAFT_CASE(kIssuePdcClearance,issue_pdc_clearance) AIRCRAFT_CASE(kPdcRevertToVoice,pdc_revert_to_voice)
+        case protobuf::wire::Envelope::kAmanRouteFact:callsign=source.aman_route_fact().data().callsign();break;
+        default:break;
+#undef AIRCRAFT_CASE
+        }
+        if(!active_membership_.empty()) {
+            if(auto it=memberships_.members.find(active_membership_);it!=memberships_.members.end() && (it->second.role==STATE_MASTER || it->second.role==STATE_SLAVE || source.has_runway())) {
+                if(!callsign.empty() && !it->second.inventory.contains(callsign)) return;
+                send(it->second);
+            }
+            return;
+        }
+        const bool human=source.has_issue_pdc_clearance() || source.has_pdc_revert_to_voice() || source.has_fs_scratch_pad() || source.has_cdm_tobt_update() || source.has_cdm_asrt_toggle() || source.has_cdm_tsac_update() || source.has_cdm_deice_update() || source.has_cdm_manual_ctot() || source.has_cdm_ctot_remove() || source.has_cdm_ready();
+        AirportMembership* own=nullptr;
+        if(human) {
+            if(auto selected=memberships_.members.find(CurrentMembershipId());selected!=memberships_.members.end() && selected->second.role!=STATE_OBSERVER && selected->second.inventory.contains(callsign)) {send(selected->second);return;}
+            for(auto& [id,m]:memberships_.members) if(m.role!=STATE_OBSERVER && m.inventory.contains(callsign)) {if(own) return;own=&m;}
+            if(own) send(*own);return;
+        }
+        for(auto& [id,member]:memberships_.members) {
+            if(member.role!=STATE_MASTER && !((source.has_hold() || source.has_aman_route_fact() || source.has_coordination_received()) && member.role==STATE_SLAVE)) continue;
+            if(!callsign.empty() && !member.inventory.contains(callsign)) continue;
+            send(member);
+            if(source.has_aircraft_disconnect()) {member.inventory.erase(callsign);member.excluded.insert(callsign);}
+        }
+        if(source.has_aircraft_disconnect()) {
+            source_aircraft_.erase(callsign);source_runways_.erase(callsign);
+            for(auto& [id,m]:memberships_.members) {m.inventory.erase(callsign);m.excluded.insert(callsign);}
+        }
+    }
+    namespace {
+        std::string RandomIdentity() {
+            std::random_device random; constexpr char hex[]="0123456789abcdef";
+            std::string id; for (int i=0;i<16;++i) { const auto b=random()&255; id+=hex[b>>4];id+=hex[b&15]; } return id;
+        }
+    }
+
     WebSocketService::WebSocketService(std::string baseUrl,
                                        const bool apiEnabled,
                                        const std::shared_ptr<authentication::IAuthenticationService> &
@@ -29,6 +209,7 @@ namespace FlightStrips::websocket {
                                                              }, [this] { this->OnConnected(); })),
                                                          enabled(apiEnabled),
                                                          local_ip_(network::GetLocalPrivateIPv4().value_or("")) {
+        instance_id_=RandomIdentity();
         if (enabled) {
             InitializeOnlineState();
         }
@@ -48,6 +229,7 @@ namespace FlightStrips::websocket {
                                                          webSocket(std::move(ws)),
                                                          enabled(enabled),
                                                          local_ip_(std::move(localIp)) {
+        instance_id_=RandomIdentity();
         if (enabled) {
             InitializeOnlineState();
         }
@@ -58,6 +240,13 @@ namespace FlightStrips::websocket {
 
     void WebSocketService::OnTimer(int time) {
         if (!enabled) return;
+        ProcessConnected();
+        if (IsConnected()) {
+            std::optional<std::string> token;
+            { std::lock_guard lock(message_mutex_);
+              if (token_update_pending_) { token = latest_token_; token_update_pending_ = false; } }
+            if (token) SendEvent(TokenEvent(*token, PLUGIN_VERSION));
+        }
         const auto &state = m_plugin->GetConnectionState();
         UpdatePlaybackSession(state.connection_type);
         const auto now = std::chrono::steady_clock::now();
@@ -73,7 +262,7 @@ namespace FlightStrips::websocket {
 
         // Clear a different exercise's guidance even while waiting to connect.
         if (airport_ok && conn_ok) {
-            m_connection_handlers->OnSessionChanged(state.relevant_airport + "/" + GetLoginSessionName(state));
+            m_connection_handlers->OnSessionChanged(GetLoginSessionName(state));
         }
 
         if (!should_connect && IsConnected()) {
@@ -118,7 +307,9 @@ namespace FlightStrips::websocket {
             webSocket->Disconnect();
             std::lock_guard lock(message_mutex_);
             messages_.clear();
-            client_state = STATE_UNKNOWN;
+
+            for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
+            memberships_.Reset(); active_membership_.clear(); transport_generation_=0;
             observer = false;
             connect_after_.reset();
             pending_connect_ = false;
@@ -136,7 +327,7 @@ namespace FlightStrips::websocket {
         }
 
         if (!session_name.empty() && session_name != GetLoginSessionName(state)) {
-			m_connection_handlers->OnSessionChanged(state.relevant_airport + "/" + GetLoginSessionName(state));
+			m_connection_handlers->OnSessionChanged(GetLoginSessionName(state));
             Logger::Info("Session mode changed: '{}' -> '{}', reconnecting", session_name, GetLoginSessionName(state));
             Reconnect();
             return;
@@ -160,19 +351,20 @@ namespace FlightStrips::websocket {
             messages = std::move(messages_);
         }
 
-        m_messageHandlers->OnMessages(messages);
+        ++dispatch_batch_;
+        for (const auto& bytes:messages) ProcessServerMessage(bytes);
     }
 
     void WebSocketService::OnTokenUpdate(const std::string &token) {
-        exceptions::RunGuarded("WebSocketService::OnTokenUpdate", [this, &token] {
-            if (!IsConnected()) return;
-            const auto event = TokenEvent(token, PLUGIN_VERSION);
-            SendEvent(event);
-        });
+        // Authentication completes on its worker thread. Membership routing,
+        // SDK connection state, and transmission counters belong to OnTimer.
+        std::lock_guard lock(message_mutex_);
+        latest_token_ = token;
+        token_update_pending_ = true;
     }
 
     bool WebSocketService::IsConnected() const {
-        return webSocket->GetStatus() == WEBSOCKET_STATUS_CONNECTED;
+        return webSocket->GetStatus() == WEBSOCKET_STATUS_CONNECTED && !connected_pending_.load();
     }
 
     bool WebSocketService::IsPendingConnect() const {
@@ -184,16 +376,22 @@ namespace FlightStrips::websocket {
     }
 
     bool WebSocketService::ShouldSend() const {
-        return IsConnected() && client_state == STATE_MASTER && !m_plugin->GetConnectionState().observer;
+        if (!IsConnected() || m_plugin->GetConnectionState().observer) return false;
+        if (!active_membership_.empty()) { const auto it=memberships_.members.find(active_membership_);return it!=memberships_.members.end() && it->second.role==STATE_MASTER; }
+        for (const auto& [id,m]:memberships_.members) if(m.role==STATE_MASTER) return true;
+        return false;
     }
 
     bool WebSocketService::ShouldSendTrackedAircraft(const bool trackingControllerIsMe) const {
-        return trackingControllerIsMe && IsConnected() && !m_plugin->GetConnectionState().observer &&
-               (client_state == STATE_MASTER || client_state == STATE_SLAVE);
+        if (!trackingControllerIsMe || !IsConnected() || m_plugin->GetConnectionState().observer) return false;
+        if (!active_membership_.empty()) { const auto it=memberships_.members.find(active_membership_);return it!=memberships_.members.end() && (it->second.role==STATE_MASTER || it->second.role==STATE_SLAVE); }
+        for(const auto& [id,m]:memberships_.members) if(m.role==STATE_MASTER || m.role==STATE_SLAVE) return true;
+        return false;
     }
 
     bool WebSocketService::ShouldProcessServerMessageType(const std::string &type) const {
-        if (!(m_plugin->GetConnectionState().observer || client_state == STATE_OBSERVER)) {
+        const auto it=memberships_.members.find(active_membership_);
+        if (!(m_plugin->GetConnectionState().observer || (it!=memberships_.members.end() && it->second.role==STATE_OBSERVER))) {
             return true;
         }
 
@@ -214,22 +412,28 @@ namespace FlightStrips::websocket {
 
         std::lock_guard lock(message_mutex_);
         messages_.clear();
-        client_state = STATE_UNKNOWN;
-        master_callsign_.clear();
+
+            for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
+            memberships_.Reset(); active_membership_.clear(); transport_generation_=0;
+
     }
 
     void WebSocketService::SetSessionState(const ClientState state) {
-        client_state = state;
+
+        if (auto it=memberships_.members.find(active_membership_);it!=memberships_.members.end()) it->second.role=state;
     }
 
     void WebSocketService::SetMasterCallsign(const std::string& callsign) {
         std::lock_guard lock(message_mutex_);
-        master_callsign_ = callsign;
+
+        if (auto it=memberships_.members.find(CurrentMembershipId());it!=memberships_.members.end()) it->second.masterCallsign=callsign;
     }
 
     bool WebSocketService::CanSendEventType(const EventType type) const {
+        if (connected_pending_.load()) return false;
         if (type == EVENT_AIRCRAFT_POSITION_UPDATE) return ShouldSend();
-        if (!(m_plugin->GetConnectionState().observer || client_state == STATE_OBSERVER)) {
+        const auto it=memberships_.members.find(active_membership_);
+        if (!(m_plugin->GetConnectionState().observer || (it!=memberships_.members.end() && it->second.role==STATE_OBSERVER))) {
             return true;
         }
 
@@ -238,7 +442,8 @@ namespace FlightStrips::websocket {
 
     Stats WebSocketService::GetStats() const {
         std::lock_guard lock(message_mutex_);
-        return Stats{tx, rx, static_cast<int>(messages_.size()), client_state, master_callsign_};
+        const auto it=memberships_.members.find(CurrentMembershipId());
+        return Stats{tx,rx,static_cast<int>(messages_.size()),it==memberships_.members.end()?STATE_UNKNOWN:it->second.role,it==memberships_.members.end()?"":it->second.masterCallsign};
     }
 
     std::optional<int> WebSocketService::GetDelaySecondsRemaining() const {
@@ -266,8 +471,17 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::OnConnected() {
+        connected_pending_.store(true);
+    }
+    void WebSocketService::ProcessConnected() {
+        if (webSocket->GetStatus() != WEBSOCKET_STATUS_CONNECTED || !connected_pending_.exchange(false)) return;
         exceptions::RunGuarded("WebSocketService::OnConnected", [this] {
             SetMasterCallsign("");
+            for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
+            memberships_.Reset(); active_membership_.clear();transport_generation_=0;source_runways_.clear();source_aircraft_.clear();
+            std::optional<std::string> connectedToken;
+            { std::lock_guard lock(message_mutex_); messages_.clear();
+              connectedToken = latest_token_; token_update_pending_ = false; }
             tx = 0;
             rx = 0;
             pending_connect_ = false;
@@ -279,7 +493,7 @@ namespace FlightStrips::websocket {
                 online_since_ = std::chrono::steady_clock::now();
             }
             has_connected_in_online_period_ = true;
-            const auto token = TokenEvent(m_authentication_service->GetAccessToken(), PLUGIN_VERSION);
+            const auto token = TokenEvent(connectedToken ? *connectedToken : m_authentication_service->GetAccessToken(), PLUGIN_VERSION);
             SendEvent(token);
             SendLoginEvent();
 
@@ -368,11 +582,16 @@ namespace FlightStrips::websocket {
         UpdatePlaybackSession(state.connection_type);
         primary = state.primary_frequency;
         session_name = GetLoginSessionName(state);
-		m_connection_handlers->OnSessionChanged(state.relevant_airport + "/" + session_name);
+		m_connection_handlers->OnSessionChanged(session_name);
         observer = state.observer;
 
-        const auto login = LoginEvent(state.relevant_airport, session_name, state.primary_frequency, state.callsign,
-                                      state.range, state.observer, local_ip_);
-        SendEvent(login);
+        protobuf::wire::Envelope envelope;
+        auto* control=envelope.mutable_control();
+        control->set_environment(session_name);control->set_callsign(state.callsign);
+        control->set_primary_frequency(state.primary_frequency);control->set_observer(state.observer);
+        control->set_relevant_airport(state.relevant_airport);control->set_range(state.range);control->set_local_ip(local_ip_);
+        if (!state.primary_frequency.empty()) control->add_tuned_frequencies(state.primary_frequency);
+        if(transport_generation_!=0) *envelope.mutable_context()=CaptureContext();
+        ++tx;webSocket->Send(envelope.SerializeAsString());
     }
 }

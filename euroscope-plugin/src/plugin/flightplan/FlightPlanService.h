@@ -48,9 +48,11 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
     void ReplayTrackedHold(EuroScopePlugIn::CFlightPlan flightPlan);
     void ReplayTrackedHold(const std::string& callsign, bool trackingControllerIsMe,
                            const TopSkyHold& hold, const std::string& eatPulse);
+    void CacheTrackedHold(const std::string& callsign, const TopSkyHold& hold, const std::string& eatPulse = {});
     void ReplayPendingHoldCommands();
 
     FlightPlan* GetFlightPlan(const std::string &callsign);
+    FlightPlan* GetSourceFlightPlan(const std::string& callsign);
 
     void SetStand(const std::string& callsign, const std::string& stand);
     void ApplyCdmUpdate(const CdmUpdateEvent& event);
@@ -76,8 +78,11 @@ private:
     std::shared_ptr<configuration::AppConfig> m_appConfig;
     std::unique_ptr<AirlineCallsignService> m_airlineCallsignService;
     std::unordered_map<std::string, FlightPlan> m_flightPlans = {};
+    std::unordered_map<std::string,std::unordered_map<std::string,FlightPlan>> m_membershipPlans;
+    std::unordered_map<std::string,FlightPlan>& MembershipPlans();
     std::string m_sessionIdentity{};
-    std::unordered_map<std::string, PositionEvent> m_pendingPositionUpdates = {};
+    struct PendingPosition {PositionEvent event;std::vector<websocket::protobuf::wire::MembershipContext> contexts;};
+    std::unordered_map<std::string, PendingPosition> m_pendingPositionUpdates = {};
     std::unordered_set<std::string> m_rangeTrackedCallsigns = {};
     int m_lastPositionFlushCounter = 0;
 

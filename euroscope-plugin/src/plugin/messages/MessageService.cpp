@@ -183,7 +183,9 @@ namespace FlightStrips::messages {
             const auto airport=m_webSocketService->CurrentAirport();
             snapshot.runways=m_runwayService->GetActiveRunways(airport.c_str());snapshot.sids.clear();
             for(const auto& sid:m_plugin->GetSids(airport)) snapshot.sids.push_back({sid.name,sid.runway});
-            m_webSocketService->SendEvent(snapshot);return;
+            m_webSocketService->SendEvent(snapshot);
+            m_flightPlanService->ReplayPendingHoldCommands();
+            return;
         }
         // Collect EuroScope sources once; SendEvent builds each membership inventory.
         std::vector<Controller> controllers;
@@ -218,7 +220,6 @@ namespace FlightStrips::messages {
                 altitude = radarPosition.GetPressureAltitude();
                 squawk = std::string(radarPosition.GetSquawk());
             }
-            const auto info = m_flightPlanService->GetSourceFlightPlan(callsign);
             const auto isArrival = strcmp(it.GetFlightPlanData().GetDestination(), relevantAirport.c_str()) == 0;
             const auto runway = std::string(isArrival
                                                 ? it.GetFlightPlanData().GetArrivalRwy()
@@ -226,6 +227,8 @@ namespace FlightStrips::messages {
             const auto controllerAssignedData = it.GetControllerAssignedData();
             const auto holdAnnotation = controllerAssignedData.GetFlightStripAnnotation(flightplan::TOPSKY_HOLD_ANNOTATION);
             const auto hold = flightplan::ParseTopSkyHoldAnnotation(holdAnnotation == nullptr ? "" : holdAnnotation);
+            m_flightPlanService->CacheTrackedHold(callsign, hold);
+            const auto info = m_flightPlanService->GetSourceFlightPlan(callsign);
             std::string holdEat;
             if (info != nullptr && info->hold == hold.point && info->hold_type == hold.TypeName()) {
                 holdEat = info->hold_eat;
@@ -337,9 +340,6 @@ namespace FlightStrips::messages {
         // Create/update strips before replaying holds: a reconnect may attach
         // to a new session whose backend has no aircraft records yet. The
         // master reports known holds even when nobody owns playback traffic.
-        for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
-            if (m_plugin->IsRelevant(it)) m_flightPlanService->ReplayTrackedHold(it);
-        }
         m_flightPlanService->ReplayPendingHoldCommands();
     }
 

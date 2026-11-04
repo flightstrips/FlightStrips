@@ -66,6 +66,7 @@ namespace FlightStrips::websocket {
             return false;
         }
         void ForgetAircraft(const std::string& callsign);
+        bool SendHoldReplay(const HoldEvent& event);
         void ProcessServerMessage(const std::string& bytes);
         void ForEachMembership(const std::function<void(const std::string&)>& action);
         Stats GetStats() const;
@@ -108,6 +109,7 @@ namespace FlightStrips::websocket {
 
         mutable std::mutex message_mutex_;
         std::vector<std::string> messages_ {};
+        std::optional<std::string> pending_token_;
 
         bool enabled;
 

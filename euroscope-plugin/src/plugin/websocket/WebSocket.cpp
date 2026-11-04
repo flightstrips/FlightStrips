@@ -157,11 +157,12 @@ namespace FlightStrips::websocket {
 
             void OnOpen(const websocketpp::connection_hdl& hdl) {
                 exceptions::RunGuarded("WebSocket::OnOpen", [this, &hdl] {
+                    // Fence SDK callbacks before publishing the new physical connection.
+                    on_connected_cb();
                     status_ = WEBSOCKET_STATUS_CONNECTED;
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
                     auto server = con->get_response_header("Server");
                     Logger::Info("Connected to server: {}", server);
-                    on_connected_cb();
                 });
             }
 

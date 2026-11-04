@@ -10,6 +10,18 @@
 #include "websocket/generated/proto/euroscope.pb.h"
 
 namespace FlightStrips::websocket {
+    bool WebSocketService::SendHoldReplay(const HoldEvent& event) {
+        if (!IsConnected() || m_plugin->GetConnectionState().observer) return false;
+        for (const auto& [id, member] : memberships_.members) {
+            if (!active_membership_.empty() && id != active_membership_) continue;
+            if ((member.role == STATE_MASTER || member.role == STATE_SLAVE) && member.inventory.contains(event.callsign)) {
+                SendEvent(event);
+                return true;
+            }
+        }
+        return false;
+    }
+
     void WebSocketService::ForgetAircraft(const std::string& callsign) {
         source_aircraft_.erase(callsign);source_runways_.erase(callsign);
         for(auto& [id,m]:memberships_.members) {m.inventory.erase(callsign);m.excluded.insert(callsign);}
@@ -228,6 +240,9 @@ namespace FlightStrips::websocket {
     void WebSocketService::OnTimer(int time) {
         if (!enabled) return;
         ProcessConnected();
+        std::optional<std::string> token;
+        { std::lock_guard lock(message_mutex_); token.swap(pending_token_); }
+        if (token && IsConnected()) SendEvent(TokenEvent(*token, PLUGIN_VERSION));
         const auto &state = m_plugin->GetConnectionState();
         UpdatePlaybackSession(state.connection_type);
         const auto now = std::chrono::steady_clock::now();
@@ -337,15 +352,14 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::OnTokenUpdate(const std::string &token) {
-        exceptions::RunGuarded("WebSocketService::OnTokenUpdate", [this, &token] {
-            if (!IsConnected()) return;
-            const auto event = TokenEvent(token, PLUGIN_VERSION);
-            SendEvent(event);
-        });
+        // Authentication completes on its worker thread. Membership routing,
+        // SDK connection state, and transmission counters belong to OnTimer.
+        std::lock_guard lock(message_mutex_);
+        pending_token_ = token;
     }
 
     bool WebSocketService::IsConnected() const {
-        return webSocket->GetStatus() == WEBSOCKET_STATUS_CONNECTED;
+        return webSocket->GetStatus() == WEBSOCKET_STATUS_CONNECTED && !connected_pending_.load();
     }
 
     bool WebSocketService::IsPendingConnect() const {
@@ -411,6 +425,7 @@ namespace FlightStrips::websocket {
     }
 
     bool WebSocketService::CanSendEventType(const EventType type) const {
+        if (connected_pending_.load()) return false;
         if (type == EVENT_AIRCRAFT_POSITION_UPDATE) return ShouldSend();
         const auto it=memberships_.members.find(active_membership_);
         if (!(m_plugin->GetConnectionState().observer || (it!=memberships_.members.end() && it->second.role==STATE_OBSERVER))) {
@@ -454,12 +469,12 @@ namespace FlightStrips::websocket {
         connected_pending_.store(true);
     }
     void WebSocketService::ProcessConnected() {
-        if(!connected_pending_.exchange(false)) return;
+        if (webSocket->GetStatus() != WEBSOCKET_STATUS_CONNECTED || !connected_pending_.exchange(false)) return;
         exceptions::RunGuarded("WebSocketService::OnConnected", [this] {
             SetMasterCallsign("");
             for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
             memberships_.Reset(); active_membership_.clear();transport_generation_=0;source_runways_.clear();source_aircraft_.clear();
-            { std::lock_guard lock(message_mutex_); messages_.clear(); }
+            { std::lock_guard lock(message_mutex_); messages_.clear(); pending_token_.reset(); }
             tx = 0;
             rx = 0;
             pending_connect_ = false;

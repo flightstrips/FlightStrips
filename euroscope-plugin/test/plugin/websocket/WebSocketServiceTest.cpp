@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <thread>
 #include "websocket/WebSocketService.h"
 #include "version.h"
 #include "websocket/Events.h"
@@ -123,6 +124,79 @@ protected:
 // ---------------------------------------------------------------------------
 // enabled=false path
 // ---------------------------------------------------------------------------
+TEST_F(WebSocketServiceOnTimerTest, AuthenticationWorkerDefersLatestTokenUntilSdkTimer) {
+    SetShouldConnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    AddMembership(*svc, 1, "AAAA", "master");
+    EXPECT_CALL(*mockPlugin, GetConnectionState()).Times(0);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    std::thread authentication([&] { svc->OnTokenUpdate("old-token"); svc->OnTokenUpdate("new-token"); });
+    authentication.join();
+    ::testing::Mock::VerifyAndClearExpectations(mockPlugin.get());
+    ::testing::Mock::VerifyAndClearExpectations(mockImpl);
+    const auto sdkThread = std::this_thread::get_id();
+    std::vector<std::string> tokens;
+    EXPECT_CALL(*mockImpl, Send(_)).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        EXPECT_EQ(std::this_thread::get_id(), sdkThread);
+        protobuf::wire::Envelope event; ASSERT_TRUE(event.ParseFromString(bytes));
+        if (event.has_token()) tokens.push_back(event.token().token());
+    }));
+    svc->OnTimer(1);
+    ASSERT_EQ(tokens.size(), 1u); EXPECT_EQ(tokens[0], "new-token");
+    svc->OnTimer(2); EXPECT_EQ(tokens.size(), 1u);
+}
+
+TEST_F(WebSocketServiceOnTimerTest, HoldReplayCompletesIndependentlyForEachMembershipAndRejoin) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto a = AddMembership(*svc, 1, "AAAA", "master");
+    auto b = AddMembership(*svc, 2, "BBBB", "master");
+    auto socket = std::shared_ptr<WebSocketService>(svc.get(), [](WebSocketService*) {});
+    flightplan::FlightPlanService plans(socket, nullptr, nullptr, nullptr, nullptr);
+    plans.CacheTrackedHold("SAS124", {}); plans.CacheTrackedHold("SAS125", {});
+    auto* assigned = plans.GetSourceFlightPlan("SAS124");
+    auto* cancelled = plans.GetSourceFlightPlan("SAS125");
+    flightplan::ApplyTopSkyHoldCommand(*assigned, {flightplan::TopSkyHoldCommandType::Assign, "OLPIB", "1422"});
+    flightplan::ApplyTopSkyHoldCommand(*cancelled, {flightplan::TopSkyHoldCommandType::Cancel, {}});
+    assigned->hold_command_pending = cancelled->hold_command_pending = true;
+    // One global source collection must not resurrect the stale annotation.
+    plans.CacheTrackedHold("SAS124", {true, false, "ROSBI"});
+    plans.CacheTrackedHold("SAS125", {true, false, "OLPIB"});
+    Strip assignedStrip{"SAS124","BBBB","ZZZZ","","DCT","","04L","7000","7000","SID","STAR",false,"",0,0,0,"A320","M","",Position{0,0,1000},"","V","","1200","1300","","J"};
+    auto cancelledStrip = assignedStrip; cancelledStrip.callsign = "SAS125";
+    const SyncEvent snapshot{{assignedStrip, cancelledStrip}, {}, {}, {}};
+    std::vector<protobuf::wire::Envelope> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope event; ASSERT_TRUE(event.ParseFromString(bytes)); sent.push_back(event);
+    }));
+    const auto replay = [&](const std::string& id) {
+        svc->ForEachMembership([&](const std::string&) {
+            if (svc->CurrentMembershipId() != id) return;
+            svc->SendEvent(snapshot);
+            plans.ReplayPendingHoldCommands();
+        });
+    };
+    replay(a.membership_id());
+    ASSERT_EQ(sent.size(), 1u); EXPECT_EQ(sent[0].sync().strips_size(), 0);
+    EXPECT_TRUE(assigned->hold_command_pending); EXPECT_TRUE(cancelled->hold_command_pending);
+    replay(b.membership_id());
+    ASSERT_EQ(sent.size(), 4u); EXPECT_EQ(sent[1].sync().strips_size(), 2);
+    for (size_t i = 2; i < 4; ++i) {
+        EXPECT_EQ(sent[i].context().membership_id(), b.membership_id()); ASSERT_TRUE(sent[i].has_hold());
+        if (sent[i].hold().callsign() == "SAS124") {
+            EXPECT_EQ(sent[i].hold().hold(), "OLPIB"); EXPECT_EQ(sent[i].hold().hold_eat(), "1422");
+        } else { EXPECT_EQ(sent[i].hold().callsign(), "SAS125"); EXPECT_TRUE(sent[i].hold().hold().empty()); }
+    }
+    EXPECT_FALSE(assigned->hold_command_pending); EXPECT_FALSE(cancelled->hold_command_pending);
+    protobuf::wire::Envelope event; *event.mutable_context() = b; event.mutable_membership_removed();
+    svc->ProcessServerMessage(event.SerializeAsString());
+    b.set_membership_id("rejoined-BBBB"); b.set_generation(3);
+    event.Clear(); *event.mutable_context() = b; event.mutable_session_info()->set_role("master");
+    svc->ProcessServerMessage(event.SerializeAsString());
+    replay(b.membership_id());
+    ASSERT_EQ(sent.size(), 7u);
+    for (size_t i = 5; i < 7; ++i) { EXPECT_TRUE(sent[i].has_hold()); EXPECT_EQ(sent[i].context().membership_id(), b.membership_id()); }
+}
+
 TEST_F(WebSocketServiceOnTimerTest, MultipleMastersAndNonMasterRouteIndependently) {
     ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     auto a=AddMembership(*svc,1,"AAAA","master");auto b=AddMembership(*svc,2,"BBBB","master");auto c=AddMembership(*svc,3,"CCCC","slave");
@@ -497,7 +571,15 @@ public:
         : WebSocketService(std::move(a), std::move(p), std::move(c),
                            std::move(m), std::move(ws), /*enabled=*/true, std::move(localIp)) {}
 
-    void SimulateConnected() { OnConnected(); ProcessConnected(); }
+    void BeginConnected() { OnConnected(); }
+    void FinishConnected() { ProcessConnected(); }
+    void SimulateConnected(MockWebSocketImpl& transport) {
+        const auto previous = transport.GetStatus();
+        ON_CALL(transport, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+        OnConnected();
+        ProcessConnected();
+        ON_CALL(transport, GetStatus()).WillByDefault(Return(previous));
+    }
 
     void BackdateOnlineSince(int seconds) {
         online_since_ =
@@ -546,10 +628,45 @@ protected:
     }
 };
 
+TEST_F(WebSocketServiceReconnectTest, ReconnectFencesOldMembershipCallbacksUntilSdkInitialization) {
+    SetShouldConnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    SetTestRole(*svc, STATE_MASTER);
+    EXPECT_TRUE(svc->ShouldSend());
+    svc->BeginConnected();
+    EXPECT_FALSE(svc->IsConnected()); EXPECT_FALSE(svc->ShouldSend());
+    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    svc->SendEvent(HoldEvent("SAS123", "OLPIB", "enroute", "1422"));
+    svc->SendEvent(ControllerOnlineEvent("121.500", "AAAA_TWR"));
+    ::testing::Mock::VerifyAndClearExpectations(mockImpl);
+    std::vector<protobuf::wire::Envelope> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope event; ASSERT_TRUE(event.ParseFromString(bytes)); sent.push_back(event);
+    }));
+    svc->FinishConnected();
+    EXPECT_TRUE(svc->IsConnected()); EXPECT_FALSE(svc->ShouldSend());
+    EXPECT_TRUE(svc->Memberships().members.empty());
+    ASSERT_EQ(sent.size(), 2u); EXPECT_TRUE(sent[0].has_token()); EXPECT_TRUE(sent[1].has_control());
+}
+
+TEST_F(WebSocketServiceReconnectTest, SdkTimerPreservesPendingInitializationUntilPhysicalOpenCompletes) {
+    SetShouldConnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTING));
+    svc->BeginConnected();
+    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    svc->FinishConnected();
+    ::testing::Mock::VerifyAndClearExpectations(mockImpl);
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    EXPECT_FALSE(svc->IsConnected());
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2);
+    svc->FinishConnected();
+    EXPECT_TRUE(svc->IsConnected());
+}
+
 // Conditions were lost while the WebSocket was connected; next reconnect uses the fast delay.
 TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterConditionsLost_NextConnectUsesFastDelay) {
     SetShouldConnect();
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     state.relevant_airport = "";          // lose airport while connected
     svc->OnTimer(1);                      // → Disconnect()
@@ -568,7 +685,7 @@ TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterConditionsLost_NextConnectUse
 // WebSocket drops while ES conditions are still met (server restart / blip); reconnect uses the fast delay.
 TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterServerDrop_ConnectUsesFastDelay) {
     SetShouldConnect();
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
 
     // Status drops to DISCONNECTED; conditions unchanged.
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
@@ -654,7 +771,7 @@ TEST_F(WebSocketServiceReconnectTest, OnTimer_SuccessAfterFailure_ResetsBackoff)
     svc->OnTimer(1);
     EXPECT_TRUE(svc->IsBackingOff());
 
-    svc->SimulateConnected();           // resets fail_count_ and connect_after_
+    svc->SimulateConnected(*mockImpl);           // resets fail_count_ and connect_after_
     EXPECT_FALSE(svc->IsBackingOff());
 
     // Next failure reschedules from the first step (500 ms).
@@ -703,7 +820,7 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_DirectConnection_UsesSelectedS
         sent.push_back(std::move(envelope));
     }));
 
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
 
     ASSERT_EQ(sent.size(), 2u);
     EXPECT_TRUE(sent[0].has_token());
@@ -728,7 +845,7 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_PlaybackConnection_OverridesMa
         sent.push_back(std::move(envelope));
     }));
 
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
 
     ASSERT_EQ(sent.size(), 2u);
     EXPECT_TRUE(sent[1].has_control());
@@ -749,7 +866,7 @@ TEST_F(WebSocketServiceReconnectTest, PlaybackSessionSurvivesBackendAndManualRec
     }));
 
     svc->OnTimer(1);
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     EXPECT_CALL(*mockImpl, Disconnect()).Times(1);
     svc->OnTimer(1); // The playback ID must not be mistaken for a mode change.
@@ -758,10 +875,10 @@ TEST_F(WebSocketServiceReconnectTest, PlaybackSessionSurvivesBackendAndManualRec
 
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
     svc->OnTimer(3); // Backend restart while EuroScope continues playback.
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     svc->Reconnect();
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
 
     ASSERT_EQ(names.size(), 4u);
     for (const auto& name : names) EXPECT_EQ(name, names.front());
@@ -777,17 +894,17 @@ TEST_F(WebSocketServiceReconnectTest, PlaybackSessionResetsAfterStopWhileBackend
         if (envelope.has_control()) names.push_back(envelope.control().environment());
     }));
 
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
     state.relevant_airport.clear();
     svc->OnTimer(1); // Losing backend connection prerequisites is not a playback stop.
     state.relevant_airport = "EKCH";
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
 
     state.connection_type = CONNECTION_TYPE_NO;
     svc->OnTimer(2); // Stop while the backend remains disconnected.
     state.connection_type = CONNECTION_TYPE_PLAYBACK;
     svc->OnTimer(3);
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
 
     ASSERT_EQ(names.size(), 3u);
     EXPECT_EQ(names[0], names[1]);
@@ -810,7 +927,7 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_ObserverLoginIncludesObserverF
         sent.push_back(std::move(envelope));
     }));
 
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
 
     ASSERT_EQ(sent.size(), 2u);
     EXPECT_TRUE(sent[1].has_control());
@@ -839,7 +956,7 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_LoginIncludesLocalIpWhenAvaila
         sent.push_back(std::move(envelope));
     }));
 
-    svc->SimulateConnected();
+    svc->SimulateConnected(*mockImpl);
 
     ASSERT_EQ(sent.size(), 2u);
     EXPECT_TRUE(sent[1].has_control());

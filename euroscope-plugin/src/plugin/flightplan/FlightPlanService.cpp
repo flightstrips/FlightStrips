@@ -364,31 +364,35 @@ namespace FlightStrips::flightplan {
                                              const TopSkyHold& hold, const std::string& eatPulse) {
         if (!m_websocketService->ShouldSend() &&
             !m_websocketService->ShouldSendTrackedAircraft(trackingControllerIsMe)) return;
-        auto& plan = m_flightPlans.try_emplace(callsign).first->second;
-        // A live command is authoritative even when it cleared the hold. Replay
-        // that cached state rather than resurrecting a stale annotation.
-        if (plan.hold_command_observed) {
-            m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
+        CacheTrackedHold(callsign, hold, eatPulse);
+        auto& plan = m_flightPlans.at(callsign);
+        if (!plan.hold_command_observed && plan.hold.empty()) return;
+        if (m_websocketService->SendHoldReplay(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat))) {
             plan.hold_command_pending = false;
-            return;
         }
-        if (!hold.active && plan.hold.empty()) return;
+    }
+
+    void FlightPlanService::CacheTrackedHold(const std::string& callsign, const TopSkyHold& hold,
+                                            const std::string& eatPulse) {
+        auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+        // A live command, including XHOLD, wins over a stale SDK annotation.
+        if (plan.hold_command_observed) return;
         ReconcileTopSkyHoldAnnotation(plan, hold);
         if (!eatPulse.empty()) {
             ApplyHold(plan, TopSkyHold{true, plan.hold_type == "tsa", plan.hold}, eatPulse);
         }
-        // Replay even when the local cache is unchanged: an earlier report may
-        // have been missed while disconnected or before ownership was stored.
-        m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
-        plan.hold_command_pending = false;
     }
 
     void FlightPlanService::ReplayPendingHoldCommands() {
         if (!m_websocketService->ShouldSend()) return;
         for (auto& [callsign, plan] : m_flightPlans) {
-            if (!plan.hold_command_pending) continue;
-            m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
-            plan.hold_command_pending = false;
+            // Each membership needs the complete known state after its own
+            // sync, even when another membership already delivered it. Retain
+            // explicit cancellations for subsequent membership joins too.
+            if (!plan.hold_command_pending && !plan.hold_command_observed && plan.hold.empty()) continue;
+            if (m_websocketService->SendHoldReplay(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat))) {
+                plan.hold_command_pending = false;
+            }
         }
     }
 

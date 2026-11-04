@@ -48,6 +48,7 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
     void ReplayTrackedHold(EuroScopePlugIn::CFlightPlan flightPlan);
     void ReplayTrackedHold(const std::string& callsign, bool trackingControllerIsMe,
                            const TopSkyHold& hold, const std::string& eatPulse);
+    void CacheTrackedHold(const std::string& callsign, const TopSkyHold& hold, const std::string& eatPulse = {});
     void ReplayPendingHoldCommands();
 
     FlightPlan* GetFlightPlan(const std::string &callsign);

@@ -11,10 +11,8 @@ import (
 // Resolve a specific connected controller, never the session master. Returning
 // a sender pins the selected connection so a reconnect cannot replay the text.
 func (hub *Hub) FrequencyMessageSender(session int32, cid, position string) func(euroscope.SendFrequencyMessageEvent) bool {
-	hub.clientsMu.RLock()
-	defer hub.clientsMu.RUnlock()
 	var selected *Client
-	for client := range hub.clients {
+	for _, client := range hub.clientsSnapshot() {
 		identity := client.identitySnapshot()
 		if client.session != session || client.GetCid() != cid || identity.position != position || identity.observer || !client.frequencyMessages.Load() || client.isClosed() {
 			continue
@@ -59,6 +57,10 @@ func handleFrequencyMessageResult(ctx context.Context, client *Client, message M
 // The frontend captures this method on its already authenticated own binding.
 // Request IDs are specific typed business results, never a CID-wide sender.
 func (b *commandBinding) FrequencyMessageSender(position string, deliver func(frontend.FrequencyMessageResultEvent)) func(euroscope.SendFrequencyMessageEvent) bool {
+	current := b.client.identitySnapshot()
+	if current.position != position || current.observer || !b.client.frequencyMessages.Load() || b.Validate() != nil {
+		return nil
+	}
 	return func(event euroscope.SendFrequencyMessageEvent) bool {
 		current := b.client.identitySnapshot()
 		if current.position != position || current.observer || !b.client.frequencyMessages.Load() || event.RequestId == "" || event.Callsign == "" || b.Validate() != nil {

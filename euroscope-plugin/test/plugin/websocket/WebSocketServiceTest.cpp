@@ -398,7 +398,7 @@ TEST(WebSocketServiceDisabledTest, OnTimer_WhenDisabled_DoesNothing) {
 // "should_connect" gate — each condition independently blocks connection
 // ---------------------------------------------------------------------------
 
-TEST_F(WebSocketServiceOnTimerTest, OnTimer_EmptyFrequency_DoesNotScheduleConnect) {
+TEST_F(WebSocketServiceOnTimerTest, OnTimer_EmptyFrequency_SchedulesControlConnection) {
     state.primary_frequency = "";
     state.relevant_airport  = "EKCH";
     state.connection_type   = CONNECTION_TYPE_DIRECT;
@@ -406,10 +406,10 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_EmptyFrequency_DoesNotScheduleConnec
 
     EXPECT_CALL(*mockImpl, Connect()).Times(0);
     svc->OnTimer(1);
-    EXPECT_FALSE(svc->IsPendingConnect());
+    EXPECT_TRUE(svc->IsPendingConnect());
 }
 
-TEST_F(WebSocketServiceOnTimerTest, OnTimer_SpuriousFrequency199_998_DoesNotScheduleConnect) {
+TEST_F(WebSocketServiceOnTimerTest, OnTimer_SpuriousFrequency199_998_SchedulesControlConnection) {
     state.primary_frequency = "199.998";
     state.relevant_airport  = "EKCH";
     state.connection_type   = CONNECTION_TYPE_DIRECT;
@@ -417,10 +417,10 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_SpuriousFrequency199_998_DoesNotSche
 
     EXPECT_CALL(*mockImpl, Connect()).Times(0);
     svc->OnTimer(1);
-    EXPECT_FALSE(svc->IsPendingConnect());
+    EXPECT_TRUE(svc->IsPendingConnect());
 }
 
-TEST_F(WebSocketServiceOnTimerTest, OnTimer_EmptyAirport_DoesNotScheduleConnect) {
+TEST_F(WebSocketServiceOnTimerTest, OnTimer_EmptyAirport_SchedulesControlConnection) {
     state.primary_frequency = "121.500";
     state.relevant_airport  = "";
     state.connection_type   = CONNECTION_TYPE_DIRECT;
@@ -428,7 +428,7 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_EmptyAirport_DoesNotScheduleConnect)
 
     EXPECT_CALL(*mockImpl, Connect()).Times(0);
     svc->OnTimer(1);
-    EXPECT_FALSE(svc->IsPendingConnect());
+    EXPECT_TRUE(svc->IsPendingConnect());
 }
 
 TEST_F(WebSocketServiceOnTimerTest, OnTimer_NoConnectionType_DoesNotScheduleConnect) {
@@ -453,7 +453,7 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_NotAuthenticated_DoesNotScheduleConn
     EXPECT_FALSE(svc->IsPendingConnect());
 }
 
-TEST_F(WebSocketServiceOnTimerTest, OnTimer_ObserverWithoutPrimary_DoesNotScheduleConnect) {
+TEST_F(WebSocketServiceOnTimerTest, OnTimer_ObserverWithoutPrimary_SchedulesControlConnection) {
     state.primary_frequency = "";
     state.relevant_airport  = "EKCH";
     state.connection_type   = CONNECTION_TYPE_DIRECT;
@@ -462,10 +462,10 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_ObserverWithoutPrimary_DoesNotSchedu
 
     EXPECT_CALL(*mockImpl, Connect()).Times(0);
     svc->OnTimer(1);
-    EXPECT_FALSE(svc->IsPendingConnect());
+    EXPECT_TRUE(svc->IsPendingConnect());
 }
 
-TEST_F(WebSocketServiceOnTimerTest, OnTimer_ObserverSpuriousFrequency199_998_DoesNotScheduleConnect) {
+TEST_F(WebSocketServiceOnTimerTest, OnTimer_ObserverSpuriousFrequency199_998_SchedulesControlConnection) {
     state.primary_frequency = "199.998";
     state.relevant_airport  = "EKCH";
     state.connection_type   = CONNECTION_TYPE_DIRECT;
@@ -474,7 +474,7 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_ObserverSpuriousFrequency199_998_Doe
 
     EXPECT_CALL(*mockImpl, Connect()).Times(0);
     svc->OnTimer(1);
-    EXPECT_FALSE(svc->IsPendingConnect());
+    EXPECT_TRUE(svc->IsPendingConnect());
 }
 
 // ---------------------------------------------------------------------------
@@ -578,7 +578,7 @@ TEST(WebSocketServiceStartupOnlineTest, OnTimer_WhenLoadedWhileOnline_UsesFastDe
 // Disconnects when connected but conditions no longer met
 // ---------------------------------------------------------------------------
 
-TEST_F(WebSocketServiceOnTimerTest, OnTimer_ConditionsLost_WhileConnected_Disconnects) {
+TEST_F(WebSocketServiceOnTimerTest, OnTimer_AirportHintLost_RetainsPhysicalTransport) {
     // Start "connected".
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     // Conditions not met (no airport).
@@ -587,11 +587,11 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_ConditionsLost_WhileConnected_Discon
     state.connection_type   = CONNECTION_TYPE_DIRECT;
     ON_CALL(*mockAuth, GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
 
-    EXPECT_CALL(*mockImpl, Disconnect()).Times(1);
+    EXPECT_CALL(*mockImpl, Disconnect()).Times(0);
     svc->OnTimer(1);
 }
 
-TEST_F(WebSocketServiceOnTimerTest, OnTimer_ConditionsLost_WhileConnected_ClearsSessionState) {
+TEST_F(WebSocketServiceOnTimerTest, OnTimer_AirportHintLost_WaitsForScopedBackendRemoval) {
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     state.primary_frequency = "121.500";
     state.relevant_airport  = "";
@@ -600,8 +600,28 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_ConditionsLost_WhileConnected_Clears
 
     SetTestRole(*svc,STATE_MASTER);
     svc->OnTimer(1);
-    // After disconnect, ShouldSend() must be false (state reset to UNKNOWN).
-    EXPECT_FALSE(svc->ShouldSend());
+    // Control evidence does not locally revoke unrelated memberships.
+    EXPECT_TRUE(svc->ShouldSend());
+}
+
+TEST_F(WebSocketServiceOnTimerTest, FinalMembershipRemovalKeepsControlAndFutureJoinAvailable) {
+    state.connection_type=CONNECTION_TYPE_DIRECT;state.callsign="EKDK_CTR";
+    ON_CALL(*mockAuth,GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
+    ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    auto context=AddMembership(*svc,1,"AAAA","master");
+    protobuf::wire::Envelope removed;*removed.mutable_context()=context;removed.mutable_membership_removed();svc->ProcessServerMessage(removed.SerializeAsString());
+    ASSERT_TRUE(svc->Memberships().members.empty());EXPECT_FALSE(svc->ShouldSend());
+    EXPECT_CALL(*mockImpl,Disconnect()).Times(0);
+    EXPECT_CALL(*mockImpl,Send(_)).Times(1).WillOnce(Invoke([](const std::string& bytes){
+        protobuf::wire::Envelope e;ASSERT_TRUE(e.ParseFromString(bytes));ASSERT_TRUE(e.has_control());
+        EXPECT_EQ(e.control().callsign(),"EKDK_CTR");EXPECT_EQ(e.context().transport_generation(),1u);
+        EXPECT_TRUE(e.context().membership_id().empty());EXPECT_EQ(e.control().tuned_frequencies_size(),0);
+    }));
+    svc->OnTimer(1);
+    auto rejoin=context;rejoin.set_membership_id("new-membership");rejoin.set_generation(2);
+    protobuf::wire::Envelope role;*role.mutable_context()=rejoin;role.mutable_session_info()->set_role("master");svc->ProcessServerMessage(role.SerializeAsString());
+    EXPECT_TRUE(svc->ShouldSend());EXPECT_TRUE(svc->Memberships().members.contains("new-membership"));
+    svc->ProcessServerMessage(removed.SerializeAsString());EXPECT_TRUE(svc->ShouldSend());
 }
 
 // ---------------------------------------------------------------------------
@@ -838,7 +858,7 @@ TEST_F(WebSocketServiceReconnectTest, OnTimer_SuccessAfterFailure_ResetsBackoff)
 }
 
 // Conditions dropping while backing off resets fail count; reconnect returns to the online-transition delay.
-TEST_F(WebSocketServiceReconnectTest, OnTimer_ConditionsDropDuringBackoff_ResetsFailCount) {
+TEST_F(WebSocketServiceReconnectTest, OnTimer_AuthenticationLostDuringBackoff_ResetsFailCount) {
     SetShouldConnect();
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_FAILED));
     svc->OnTimer(1);
@@ -846,12 +866,12 @@ TEST_F(WebSocketServiceReconnectTest, OnTimer_ConditionsDropDuringBackoff_Resets
 
     // Conditions drop while backing off — triggers intentional disconnect path.
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
-    state.relevant_airport = "";
+    ON_CALL(*mockAuth, GetAuthenticationState()).WillByDefault(Return(NONE));
     svc->OnTimer(1);
 
     // Conditions restored; socket DISCONNECTED — expect the online-transition delay and no backoff.
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
-    state.relevant_airport = "EKCH";
+    ON_CALL(*mockAuth, GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
 
     EXPECT_FALSE(svc->IsBackingOff());
     EXPECT_CALL(*mockImpl, Connect()).Times(0);

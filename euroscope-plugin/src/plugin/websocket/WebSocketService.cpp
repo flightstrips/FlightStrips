@@ -346,10 +346,10 @@ namespace FlightStrips::websocket {
                              CONNECTION_TYPE_DIRECT || state.connection_type == CONNECTION_TYPE_PLAYBACK;
         const bool auth_ok = m_authentication_service->GetAuthenticationState() == authentication::AUTHENTICATED
                           || m_authentication_service->GetAuthenticationState() == authentication::REFRESH;
-        const bool should_connect = airport_ok && conn_ok && auth_ok && freq_ok;
+        const bool should_connect = conn_ok && auth_ok;
 
         // Clear a different exercise's guidance even while waiting to connect.
-        if (airport_ok && conn_ok) {
+        if (conn_ok) {
             m_connection_handlers->OnSessionChanged(GetLoginSessionName(state));
         }
 
@@ -421,15 +421,13 @@ namespace FlightStrips::websocket {
             return;
         }
 
-        if (observer != state.observer) {
-            Logger::Info("Observer mode changed: {} -> {}, reconnecting", observer, state.observer);
-            Reconnect();
-            return;
+        if (last_control_at_.has_value() && (observer != state.observer || last_control_callsign_!=state.callsign)) {
+            for(const auto& [id,m]:memberships_.members) {memberships_.retired.insert(id);m_plugin->RemoveMembershipAirport(id);}
+            memberships_.members.clear();active_membership_.clear();
         }
-
-        if (primary != state.primary_frequency) {
-            SendLoginEvent();
-        }
+        if (primary != state.primary_frequency || observer!=state.observer || last_control_callsign_!=state.callsign ||
+            last_control_airport_!=state.relevant_airport || last_control_range_!=state.range ||
+            !last_control_at_.has_value() || now-*last_control_at_>=std::chrono::seconds(10)) SendLoginEvent();
 
         std::vector<std::string> messages;
         {
@@ -678,8 +676,10 @@ namespace FlightStrips::websocket {
         control->set_environment(session_name);control->set_callsign(state.callsign);
         control->set_primary_frequency(state.primary_frequency);control->set_observer(state.observer);
         control->set_relevant_airport(state.relevant_airport);control->set_range(state.range);control->set_local_ip(local_ip_);
-        if (!state.primary_frequency.empty()) control->add_tuned_frequencies(state.primary_frequency);
+        // EuroScope exposes primary here, not a confirmed complete tuned-radio
+        // list. Unknown tuned evidence must remain unknown for MA-04 policy.
         if(transport_generation_!=0) *envelope.mutable_context()=CaptureContext();
+        last_control_callsign_=state.callsign;last_control_airport_=state.relevant_airport;last_control_range_=state.range;last_control_at_=std::chrono::steady_clock::now();
         ++tx;webSocket->Send(envelope.SerializeAsString());
     }
 }

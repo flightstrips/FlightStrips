@@ -28,6 +28,8 @@ type Client struct {
 	roleEligible      atomic.Bool
 	executionMu       sync.Mutex
 	executions        map[string]commandExecution
+	registered        chan struct{}
+	registrationOnce  sync.Once
 	transport         *pluginTransport
 	membership        *eventseuroscope.MembershipContext // immutable incarnation; epoch is captured separately
 	applyMu           sync.RWMutex
@@ -71,6 +73,12 @@ type clientIdentity struct {
 	callsign string
 	observer bool
 	localIP  string
+}
+
+func (c *Client) registrationComplete() {
+	if c.registered != nil {
+		c.registrationOnce.Do(func() { close(c.registered) })
+	}
 }
 
 const defaultPositionCoalesceDelay = time.Second
@@ -229,6 +237,9 @@ func (c *Client) GetConnection() *gorilla.Conn {
 }
 
 func (c *Client) IsAuthenticated() bool {
+	if c.transport != nil && c.transport.root != c {
+		return c.transport.root.IsAuthenticated()
+	}
 	c.userMu.RLock()
 	defer c.userMu.RUnlock()
 	return c.user.IsValid()
@@ -256,6 +267,9 @@ func (c *Client) CanHandleMessage(messageType string) error {
 
 // HandlePong handles pong messages from the client
 func (c *Client) HandlePong() error {
+	if c.transport != nil && !c.IsAuthenticated() {
+		return errors.New("physical transport authentication expired")
+	}
 	if c.transport != nil && c.membership == nil {
 		for _, member := range c.transport.snapshot() {
 			if err := member.HandlePong(); err != nil {
@@ -264,10 +278,44 @@ func (c *Client) HandlePong() error {
 		}
 		return nil
 	}
+	c.applyMu.RLock()
+	defer c.applyMu.RUnlock()
+	if c.isClosed() {
+		return nil
+	}
+	if c.transport != nil && !c.IsAuthenticated() {
+		return errors.New("physical transport authentication expired")
+	}
+	if c.membership != nil && c.identitySnapshot().observer {
+		return nil
+	}
 	// Update the last seen timestamp in the database
 	controllerRepo := c.hub.server.GetControllerRepository()
+	if c.membership != nil {
+		if writer, ok := controllerRepo.(membershipControllerWriter); ok {
+			rowLock := c.hub.controllerRowLock(c.airport, c.sessionName, c.GetCallsign())
+			rowLock.Lock()
+			defer rowLock.Unlock()
+			if !c.IsAuthenticated() {
+				return errors.New("physical transport authentication expired")
+			}
+			projection, exists := c.hub.controllerPresence(c.airport, c.sessionName, c.GetCallsign(), nil)
+			if !exists {
+				return nil
+			}
+			return writer.UpsertMembershipController(context.Background(), presenceRow(c.session, c.GetCallsign(), projection), true)
+		}
+	}
 	now := time.Now().UTC()
-	count, err := controllerRepo.SetEuroscopeSeen(context.Background(), c.GetCid(), c.session, &now)
+	var count int64
+	var err error
+	if repo, ok := controllerRepo.(interface {
+		SetEuroscopeMembershipSeen(context.Context, string, int32, string, *time.Time) (int64, error)
+	}); ok {
+		count, err = repo.SetEuroscopeMembershipSeen(context.Background(), c.GetCid(), c.session, c.GetCallsign(), &now)
+	} else {
+		count, err = controllerRepo.SetEuroscopeSeen(context.Background(), c.GetCid(), c.session, &now)
+	}
 
 	if count != 1 {
 		return errors.New("failed to update last seen timestamp")

@@ -128,9 +128,11 @@ type AirportDefinition struct {
 	regionGroups [3][]Region
 }
 
-func (d *AirportDefinition) Airport() string  { return d.document.Airport }
-func (d *AirportDefinition) Source() string   { return d.source }
-func (d *AirportDefinition) Revision() string { return d.revision }
+func (d *AirportDefinition) Airport() string          { return d.document.Airport }
+func (d *AirportDefinition) MembershipPolicy() string { return d.document.Coverage.Membership.Policy }
+func (d *AirportDefinition) ViewID() string           { return d.document.View.ID }
+func (d *AirportDefinition) Source() string           { return d.source }
+func (d *AirportDefinition) Revision() string         { return d.revision }
 func (d *AirportDefinition) Document() AirportDocument {
 	return cloneAirportValue(reflect.ValueOf(d.document)).Interface().(AirportDocument)
 }

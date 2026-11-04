@@ -63,6 +63,9 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 		return err
 	}
 
+	if user.GetCid() != client.GetCid() {
+		return shared.RejectAction("frontend token cannot change authenticated CID")
+	}
 	client.SetUser(user)
 	if version := strings.TrimSpace(event.Version); version != "" {
 		client.version = version

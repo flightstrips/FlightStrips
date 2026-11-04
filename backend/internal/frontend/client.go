@@ -23,6 +23,7 @@ const (
 
 // Client represents a frontend gorilla client
 type Client struct {
+	selection         membershipSelection // immutable authenticated socket selection
 	frequencyRequests sync.Map
 	conn              *gorilla.Conn
 	session           int32
@@ -218,6 +219,12 @@ func (c *Client) HandlePong() error {
 	// Update the last seen timestamp in the database
 	controllerRepo := c.hub.server.GetControllerRepository()
 	now := time.Now().UTC()
+	if scoped, ok := controllerRepo.(interface {
+		SetFrontendMembershipSeen(context.Context, string, int32, string, *time.Time) (int64, error)
+	}); ok {
+		_, err := scoped.SetFrontendMembershipSeen(context.Background(), c.GetCid(), identity.session, identity.callsign, &now)
+		return err
+	}
 	count, err := controllerRepo.SetFrontendSeen(context.Background(), c.GetCid(), identity.session, &now)
 
 	if count != 1 {
@@ -249,6 +256,22 @@ func (c *Client) PrepareMessageContext(ctx context.Context, message string) (con
 	}
 	if identity.readOnly {
 		return ctx, shared.RejectAction("observer clients are read-only")
+	}
+	if c.selection.explicit() {
+		if identity.session != c.selection.session {
+			return ctx, shared.RejectAction("selected membership is disconnected")
+		}
+		provider, ok := c.hub.server.GetEuroscopeHub().(interface {
+			CaptureMembershipBinding(int32, string, string, string) (shared.CommandBinding, error)
+		})
+		if !ok {
+			return ctx, shared.RejectAction("membership selection unavailable")
+		}
+		binding, err := provider.CaptureMembershipBinding(identity.session, c.GetCid(), c.selection.instance, c.selection.membership)
+		if err != nil {
+			return ctx, err
+		}
+		return shared.WithHumanCommand(ctx, binding)
 	}
 	return shared.EnsureHumanCommand(ctx, c.hub.server.GetEuroscopeHub(), identity.session, c.GetCid())
 }

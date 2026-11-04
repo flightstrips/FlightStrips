@@ -81,6 +81,8 @@ func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(
 		workflows:                   workflows,
 		server:                      server,
 		register:                    make(chan *Client, 1),
+		unregister:                  make(chan *Client, 1),
+		done:                        make(chan struct{}),
 		clients:                     make(map[*Client]bool),
 		airportClientCount:          make(map[string]int),
 		pendingOnlineOrchestrations: make(map[string]struct{}),
@@ -89,6 +91,9 @@ func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(
 	}
 
 	user := shared.NewAuthenticatedUser("1234567", 0, jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"exp": float64(time.Now().Add(time.Hour).Unix())}))
+	runContext, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go hub.Run(runContext)
 	clientCh := make(chan *Client, 1)
 	errCh := make(chan error, 1)
 

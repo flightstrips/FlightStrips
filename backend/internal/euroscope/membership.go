@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
@@ -18,13 +19,15 @@ import (
 // A physical transport owns authentication and one writer. Only its logical
 // memberships enter the operational hub registry or refresh controller rows.
 type pluginTransport struct {
-	root        *Client
-	instance    string
-	generation  uint64
-	cleanupOnce sync.Once
-	mu          sync.RWMutex
-	members     map[string]*Client
-	evidence    es.ControlEvent
+	root          *Client
+	instance      string
+	generation    uint64
+	cleanupOnce   sync.Once
+	mu            sync.RWMutex
+	members       map[string]*Client
+	evidence      es.ControlEvent
+	evidenceAt    time.Time
+	pendingLegacy string // retry failed admission, never an intentional removal
 }
 
 func newGeneration() uint64 {
@@ -33,6 +36,12 @@ func newGeneration() uint64 {
 		panic(err)
 	}
 	return binary.LittleEndian.Uint64(b[:]) | 1
+}
+
+func (hub *Hub) controllerRowLock(airport, environment, callsign string) *sync.Mutex {
+	key := strings.ToUpper(airport) + "\x00" + strings.ToUpper(environment) + "\x00" + strings.ToUpper(callsign)
+	value, _ := hub.controllerRows.LoadOrStore(key, &sync.Mutex{})
+	return value.(*sync.Mutex)
 }
 func (t *pluginTransport) snapshot() []*Client {
 	t.mu.RLock()
@@ -137,34 +146,72 @@ func handleControlEvent(ctx context.Context, root *Client, message Message) erro
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
-	if !environmentName.MatchString(event.Environment) || strings.TrimSpace(event.Callsign) == "" {
-		return shared.RejectAction("invalid physical-instance evidence")
+	if !environmentName.MatchString(event.Environment) {
+		return shared.RejectAction("invalid physical-instance environment")
 	}
 	t := root.transport
-	if t == nil || root.membership != nil {
+	if t == nil || root.membership != nil || root.isClosed() {
 		return shared.RejectAction("control update requires physical transport")
 	}
 	t.mu.Lock()
-	previous := t.evidence.Environment
+	previous := t.evidence
+	pendingLegacy := t.pendingLegacy
 	t.evidence = *proto.Clone(&event).(*es.ControlEvent)
+	t.evidenceAt = time.Now().UTC()
 	t.mu.Unlock()
-	// Environment changes invalidate all old exercise contexts before admission.
-	if previous != "" && previous != event.Environment {
+	identityChanged := previous.Environment != "" && (previous.Environment != event.Environment || previous.Callsign != event.Callsign || previous.Observer != event.Observer)
+	if identityChanged {
 		for _, c := range t.snapshot() {
-			root.hub.RemoveMembership(c, "environment changed")
+			root.hub.RemoveMembership(c, "physical identity changed")
 		}
 	}
 	root.updateIdentity(event.PrimaryFrequency, event.Callsign, event.Observer, event.LocalIp)
+	validFrequency := strings.TrimSpace(event.PrimaryFrequency) != "" && event.PrimaryFrequency != "199.998"
 	for _, c := range t.snapshot() {
-		if c.identitySnapshot() != root.identitySnapshot() {
-			root.hub.RemoveMembership(c, "identity changed")
+		if c.definition != nil && c.definition.MembershipPolicy() == "legacy-single-airport/v1" && (c.airport != event.RelevantAirport || !validFrequency || event.Callsign == "") {
+			root.hub.RemoveMembership(c, "legacy association no longer available")
+			continue
+		}
+		before := c.identitySnapshot()
+		if validFrequency && before.position != event.PrimaryFrequency {
+			c.applyMu.Lock()
+			if !c.isClosed() {
+				if err := root.hub.updateMembershipPosition(ctx, c, &event); err != nil {
+					c.applyMu.Unlock()
+					return err
+				}
+			}
+			c.applyMu.Unlock()
+			root.hub.reconsiderMasterAfterLogin(c)
+			if err := root.hub.server.UpdateLayouts(c.session); err != nil {
+				return err
+			}
+			root.hub.server.GetFrontendHub().CidOnline(c.session, c.GetCid())
+		} else if before.localIP != event.LocalIp {
+			c.updateIdentity(before.position, before.callsign, before.observer, event.LocalIp)
+		}
+		root.hub.setClientLocalIP(c.session, c.GetCid(), event.LocalIp)
+	}
+	changed := previous.Environment == "" || previous.Environment != event.Environment || previous.Callsign != event.Callsign || previous.PrimaryFrequency != event.PrimaryFrequency || previous.Observer != event.Observer || previous.RelevantAirport != event.RelevantAirport
+	// Only legacy association is selected by this existing plugin hint. New
+	// responsibilities/takeover decisions belong to the MA-04 coordinator.
+	if (changed || pendingLegacy == event.RelevantAirport) && validFrequency && event.Callsign != "" {
+		if definition, ok := root.hub.airports.Lookup(event.RelevantAirport); ok && definition.MembershipPolicy() == "legacy-single-airport/v1" {
+			_, err := root.hub.JoinMembership(root, event.RelevantAirport)
+			t.mu.Lock()
+			if err != nil {
+				t.pendingLegacy = event.RelevantAirport
+			} else {
+				t.pendingLegacy = ""
+			}
+			t.mu.Unlock()
+			return err
 		}
 	}
-	// Retain current EKCH association semantics. The coverage coordinator may use
-	// JoinMembership/RemoveMembership for additional configured responsibilities.
-	if event.RelevantAirport != "" {
-		_, err := root.hub.JoinMembership(root, event.RelevantAirport)
-		return err
+	if !validFrequency || event.RelevantAirport != pendingLegacy {
+		t.mu.Lock()
+		t.pendingLegacy = ""
+		t.mu.Unlock()
 	}
 	return nil
 }
@@ -202,8 +249,13 @@ func (hub *Hub) JoinMembership(root *Client, airport string) (*Client, error) {
 		return nil, shared.RejectAction("transport evidence is not ready")
 	}
 	login := &es.LoginEvent{Airport: airport, Connection: evidence.Environment, Position: evidence.PrimaryFrequency, Callsign: evidence.Callsign, Range: evidence.Range, Observer: evidence.Observer, LocalIp: evidence.LocalIp}
-	payload, _ := proto.Marshal(login)
-	event, session, err := hub.handleLogin(payload, root.userSnapshot())
+	rowLock := hub.controllerRowLock(airport, evidence.Environment, evidence.Callsign)
+	rowLock.Lock()
+	defer rowLock.Unlock()
+	if !root.IsAuthenticated() || root.isClosed() || root.IsDraining() {
+		return nil, shared.RejectAction("transport is unavailable")
+	}
+	event, session, err := hub.admitMembershipController(context.Background(), login, root.userSnapshot())
 	if err != nil {
 		return nil, err
 	}
@@ -244,6 +296,12 @@ func (hub *Hub) RemoveMembership(member *Client, reason string) {
 	hub.clientsMu.Unlock()
 	member.applyMu.Unlock()
 	hub.OnUnregister(member)
+	if notifier, ok := hub.server.GetFrontendHub().(interface {
+		PluginMembershipDisconnected(int32, string, string, string)
+	}); ok {
+		notifier.PluginMembershipDisconnected(member.session, member.GetCid(), member.membership.InstanceId, member.membership.MembershipId)
+		return
+	}
 	for _, other := range hub.clientsSnapshot() {
 		if other.session == member.session && other.GetCid() == member.GetCid() && !other.isClosed() {
 			return

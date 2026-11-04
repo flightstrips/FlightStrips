@@ -166,6 +166,9 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			handlers := hub.GetMessageHandlers()
 			start := time.Now()
 			err := jobCtx.Err()
+			if err == nil && msgType != "token" && !client.IsAuthenticated() {
+				err = shared.RejectAction("websocket authentication expired")
+			}
 			if err == nil {
 				err = client.CanHandleMessage(msgType)
 			}

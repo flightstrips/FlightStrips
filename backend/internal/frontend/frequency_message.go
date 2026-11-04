@@ -121,14 +121,30 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 	if _, loaded := client.frequencyRequests.LoadOrStore(req.RequestID, struct{}{}); loaded {
 		return reject(errors.New("duplicate message request; not resent"))
 	}
-	router, ok := client.hub.server.GetEuroscopeHub().(frequencyMessageRouter)
-	if !ok && !req.Prepare {
-		return reject(errors.New("frequency messages are unavailable"))
-	}
 	var send func(euroscope.SendFrequencyMessageEvent) bool
-	if ok {
+	available := false
+	if binding, human := shared.HumanCommand(ctx); human {
+		if exact, ok := binding.(interface {
+			FrequencyMessageSender(string, func(frontend.FrequencyMessageResultEvent)) func(euroscope.SendFrequencyMessageEvent) bool
+		}); ok {
+			available = true
+			send = exact.FrequencyMessageSender(identity.position, func(result frontend.FrequencyMessageResultEvent) {
+				current := client.identitySnapshot()
+				if current.session == identity.session && current.sessionName == identity.sessionName && current.airport == identity.airport {
+					client.Enqueue(result)
+				}
+			})
+		}
+	} else if router, ok := client.hub.server.GetEuroscopeHub().(frequencyMessageRouter); ok {
+		// Narrow direct use-case peers without a transport binding. Socket commands
+		// always use their captured binding above and cannot fall back to CID lookup.
+		available = true
 		send = router.FrequencyMessageSender(identity.session, client.GetCid(), identity.position)
 	}
+	if !available && !req.Prepare {
+		return reject(errors.New("frequency messages are unavailable"))
+	}
+
 	if send == nil && !req.Prepare {
 		return reject(errors.New("connect an updated EuroScope plugin on your primary frequency"))
 	}

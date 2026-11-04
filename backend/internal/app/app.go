@@ -1185,6 +1185,9 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	}
 
 	apiMux := http.NewServeMux()
+	if cfg.euroscopeHub != nil {
+		apiMux.HandleFunc("/plugin-memberships", cfg.euroscopeHub.MembershipDiscovery(cfg.authService))
+	}
 	standstatus.NewWebAPI(standstatus.WebAPIConfig{
 		Auth: cfg.authService, Sessions: cfg.sessionRepo, Assignments: cfg.standAssignmentRepo, Strips: cfg.stripRepo,
 		Feed: cfg.vatsimSource, Enabled: cfg.standAssignmentReadiness.Enabled,

@@ -24,6 +24,9 @@ import (
 )
 
 type Client struct {
+	transport         *pluginTransport
+	membership        *eventseuroscope.MembershipContext // immutable incarnation; epoch is captured separately
+	applyMu           sync.RWMutex
 	workflow          *airportworkflow.Bound
 	definition        *config.AirportDefinition
 	frequencyMessages atomic.Bool
@@ -107,6 +110,12 @@ func (c *Client) GetSendChannel() chan events.OutgoingMessage {
 }
 
 func (c *Client) Enqueue(message events.OutgoingMessage) bool {
+	if c.membership != nil {
+		if c.isClosed() {
+			return false
+		}
+		return c.transport.root.Enqueue(eventseuroscope.NewScopedMessage(c.wireContext(), message))
+	}
 	select {
 	case <-c.closed:
 		return false
@@ -156,6 +165,9 @@ func (c *Client) Close() error {
 		})
 	}
 	c.stopPendingPositionUpdates()
+	if c.transport != nil && c.membership != nil {
+		return nil
+	}
 	c.dispatcherMu.Lock()
 	if c.dispatcher != nil {
 		c.dispatcher.Cancel()
@@ -218,6 +230,12 @@ func (c *Client) SetUser(user shared.AuthenticatedUser) {
 }
 
 func (c *Client) CanHandleMessage(messageType string) error {
+	if c.transport != nil && c.membership == nil {
+		if messageType == "token" || messageType == "control" {
+			return nil
+		}
+		return shared.RejectAction("operational message requires an airport membership")
+	}
 	if !c.identitySnapshot().observer || messageType == "token" || messageType == "login" || messageType == "runway" {
 		return nil
 	}
@@ -227,6 +245,14 @@ func (c *Client) CanHandleMessage(messageType string) error {
 
 // HandlePong handles pong messages from the client
 func (c *Client) HandlePong() error {
+	if c.transport != nil && c.membership == nil {
+		for _, member := range c.transport.snapshot() {
+			if err := member.HandlePong(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	// Update the last seen timestamp in the database
 	controllerRepo := c.hub.server.GetControllerRepository()
 	now := time.Now().UTC()
@@ -504,6 +530,9 @@ func (c *Client) stopPendingPositionUpdates() {
 }
 
 func (c *Client) isClosed() bool {
+	if c.transport != nil && c.membership != nil && c.transport.root.isClosed() {
+		return true
+	}
 	if c.closed == nil {
 		return false
 	}
@@ -519,6 +548,9 @@ func (c *Client) isClosed() bool {
 // is the default while lifecycle execution remains serial; operators can set
 // POSITION_DB_BATCHING_ENABLED=false for an immediate per-report rollback.
 func (c *Client) PositionDispatcher() *shared.PositionDispatcher {
+	if c.transport != nil && c.membership != nil {
+		return c.transport.root.PositionDispatcher()
+	}
 	c.dispatcherMu.Lock()
 	defer c.dispatcherMu.Unlock()
 	c.dispatcherOnce.Do(func() {

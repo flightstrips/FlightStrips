@@ -5,6 +5,7 @@ const (
 )
 
 type AuthenticationEvent struct {
+	InstanceID        string `json:"-"`
 	FrequencyMessages bool   `json:"-"`
 	Type              string `json:"type"`
 	Token             string `json:"token"`

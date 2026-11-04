@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"strings"
 	"time"
@@ -109,7 +110,6 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 
 		receivedAt := time.Now()
 		// Record the message if recording is enabled
-		client.RecordMessage(message)
 
 		parsedMessage, err := parseMessage[TType](message)
 		if err != nil {
@@ -118,6 +118,18 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		}
 
 		msgType := messageTypeName(parsedMessage.Type)
+		target := client
+		if router, ok := any(hub).(interface {
+			ResolveMessage(TClient, *euroscopeEvents.MembershipContext, string) (TClient, error)
+		}); ok {
+			target, err = router.ResolveMessage(client, parsedMessage.Scope, msgType)
+			if err != nil {
+				slog.Warn("Rejected plugin membership context", "error", err)
+				continue
+			}
+		}
+		client := target
+		client.RecordMessage(message)
 		metrics.MessageReceived(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), len(message))
 
 		var fence func(context.Context) context.Context
@@ -302,7 +314,11 @@ func parseMessage[TType comparable](message []byte) (shared.Message[TType], erro
 		if !ok {
 			return shared.Message[TType]{}, errors.New("invalid EuroScope event type")
 		}
-		return shared.Message[TType]{Type: eventType, Message: payload}, nil
+		var envelope euroscopeEvents.Envelope
+		if err := proto.Unmarshal(message, &envelope); err != nil {
+			return shared.Message[TType]{}, err
+		}
+		return shared.Message[TType]{Type: eventType, Message: payload, Scope: envelope.Context}, nil
 	}
 
 	var msg internalMessage[TType]

@@ -24,7 +24,7 @@ func (b *commandBinding) Validate() error {
 	b.hub.clientsMu.RLock()
 	registered := b.hub.clients[b.client]
 	b.hub.clientsMu.RUnlock()
-	if !registered || !b.client.IsAuthenticated() || b.client.isClosed() || b.client.session != b.session || b.client.GetCid() != b.cid || b.client.identitySnapshot().observer || (b.requireReady && !b.hub.IsSessionSynced(b.session)) {
+	if !registered || !b.client.IsAuthenticated() || b.client.isClosed() || (b.client.transport != nil && b.client.transport.root.isClosed()) || b.client.session != b.session || b.client.GetCid() != b.cid || b.client.identitySnapshot().observer || (b.requireReady && !b.hub.IsSessionSynced(b.session)) {
 		return shared.RejectAction("initiating own plugin is unavailable")
 	}
 	return nil
@@ -54,11 +54,26 @@ func (hub *Hub) CaptureCommandBinding(session int32, cid string) (shared.Command
 	return hub.captureCommandBinding(session, cid, true)
 }
 func (hub *Hub) captureCommandBinding(session int32, cid string, ready bool) (shared.CommandBinding, error) {
+	return hub.captureMembershipBinding(session, cid, "", "", ready)
+}
+
+// CaptureMembershipBinding is available to authenticated session selection. The
+// CID always comes from authentication; instance/member IDs only narrow it.
+func (hub *Hub) CaptureMembershipBinding(session int32, cid, instance, membership string) (shared.CommandBinding, error) {
+	return hub.captureMembershipBinding(session, cid, instance, membership, true)
+}
+func (hub *Hub) captureMembershipBinding(session int32, cid, instance, membership string, ready bool) (shared.CommandBinding, error) {
 	if session <= 0 || strings.TrimSpace(cid) == "" {
 		return nil, shared.RejectAction("own plugin binding is required")
 	}
 	var selected *Client
 	for _, client := range hub.clientsSnapshot() {
+		if instance != "" && (client.membership == nil || client.membership.InstanceId != instance) {
+			continue
+		}
+		if membership != "" && (client.membership == nil || client.membership.MembershipId != membership) {
+			continue
+		}
 		if client.session != session || client.GetCid() != cid || client.isClosed() || client.identitySnapshot().observer {
 			continue
 		}
@@ -85,5 +100,9 @@ func (hub *Hub) ResolveAutomaticCommandBinding(session int32, preferredCID strin
 	if master == nil || master.session != session {
 		return nil, shared.RejectAction("no eligible automatic executor in session")
 	}
-	return hub.captureCommandBinding(session, master.GetCid(), false)
+	binding := &commandBinding{hub: hub, client: master, session: session, cid: master.GetCid()}
+	if err := binding.Validate(); err != nil {
+		return nil, err
+	}
+	return binding, nil
 }

@@ -157,6 +157,7 @@ func TestSquawkThrottle_RateLimitsPerSession(t *testing.T) {
 	hub := &Hub{
 		send: make(chan internalMessage, 4),
 	}
+	registerAuthorityClients(hub, 7, "CID-1", "CID-2")
 	hub.squawkThrottle = newSquawkThrottle(25*time.Millisecond, hub.readAssignedSquawk, func(session int32, req queuedSquawkRequest) {
 		hub.Send(session, req.cid, euroscopeEvents.GenerateSquawkEvent{Callsign: req.callsign})
 	})
@@ -210,6 +211,7 @@ func TestSquawkThrottle_SendsQueuedRequestWhenAssignedSquawkRemainsInvalid(t *te
 		send:   make(chan internalMessage, 4),
 		server: &testutil.MockServer{StripRepoVal: stripRepo},
 	}
+	registerAuthorityClients(hub, 7, "CID-1", "CID-2")
 	hub.squawkThrottle = newSquawkThrottle(25*time.Millisecond, hub.readAssignedSquawk, func(session int32, req queuedSquawkRequest) {
 		hub.Send(session, req.cid, euroscopeEvents.GenerateSquawkEvent{Callsign: req.callsign})
 	})
@@ -258,6 +260,7 @@ func TestSquawkThrottle_SkipsQueuedRequestWhenAssignedSquawkBecomesValid(t *test
 		send:   make(chan internalMessage, 4),
 		server: &testutil.MockServer{StripRepoVal: stripRepo},
 	}
+	registerAuthorityClients(hub, 7, "CID-1", "CID-2")
 	hub.squawkThrottle = newSquawkThrottle(25*time.Millisecond, hub.readAssignedSquawk, func(session int32, req queuedSquawkRequest) {
 		hub.Send(session, req.cid, euroscopeEvents.GenerateSquawkEvent{Callsign: req.callsign})
 	})

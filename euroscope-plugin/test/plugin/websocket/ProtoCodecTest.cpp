@@ -5,6 +5,23 @@
 
 using namespace FlightStrips::websocket;
 
+TEST(ProtoCodecTest, ScopedEventPreservesMembershipIncarnation) {
+    protobuf::wire::MembershipContext context;
+    context.set_instance_id("process-a");
+    context.set_transport_generation(7);
+    context.set_membership_id("membership-b");
+    context.set_session_id(42);
+    context.set_airport("EKCH");
+    context.set_environment("PLAYBACK_EXERCISE");
+    context.set_generation(8);
+    context.set_master_epoch(9);
+    protobuf::wire::Envelope envelope;
+    ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(AssignedSquawkEvent("SAS123", "1234"), context), envelope));
+    EXPECT_EQ(envelope.context().SerializeAsString(), context.SerializeAsString());
+    EXPECT_EQ(envelope.assigned_squawk().callsign(), "SAS123");
+    EXPECT_EQ(envelope.assigned_squawk().squawk(), "1234");
+}
+
 TEST(ProtoCodecTest, FullSyncDropsMalformedUtf8WithoutLosingTheSnapshot) {
     Strip strip{
         "SAS123", "EKBI", "EKCH", "", "DCT \xFF OLPIB", "RMK \xE9 OK", "04L",

@@ -83,6 +83,8 @@ const (
 	EventType_EVENT_SEND_FREQUENCY_MESSAGE      EventType = 54
 	EventType_EVENT_FREQUENCY_MESSAGE_RESULT    EventType = 55
 	EventType_EVENT_MASTER_INFO                 EventType = 56
+	EventType_EVENT_CONTROL                     EventType = 57
+	EventType_EVENT_MEMBERSHIP_REMOVED          EventType = 58
 )
 
 // Enum value maps for EventType.
@@ -145,6 +147,8 @@ var (
 		54: "EVENT_SEND_FREQUENCY_MESSAGE",
 		55: "EVENT_FREQUENCY_MESSAGE_RESULT",
 		56: "EVENT_MASTER_INFO",
+		57: "EVENT_CONTROL",
+		58: "EVENT_MEMBERSHIP_REMOVED",
 	}
 	EventType_value = map[string]int32{
 		"EVENT_UNKNOWN":                     0,
@@ -204,6 +208,8 @@ var (
 		"EVENT_SEND_FREQUENCY_MESSAGE":      54,
 		"EVENT_FREQUENCY_MESSAGE_RESULT":    55,
 		"EVENT_MASTER_INFO":                 56,
+		"EVENT_CONTROL":                     57,
+		"EVENT_MEMBERSHIP_REMOVED":          58,
 	}
 )
 
@@ -239,6 +245,8 @@ func (EventType) EnumDescriptor() ([]byte, []int) {
 // exhaustive generated dispatch API.
 type Envelope struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// Assigned by the backend. Absent only during token/control establishment.
+	Context *MembershipContext `protobuf:"bytes,100,opt,name=context,proto3" json:"context,omitempty"`
 	// Types that are valid to be assigned to Event:
 	//
 	//	*Envelope_Token
@@ -297,6 +305,8 @@ type Envelope struct {
 	//	*Envelope_SendFrequencyMessage
 	//	*Envelope_FrequencyMessageResult
 	//	*Envelope_MasterInfo
+	//	*Envelope_Control
+	//	*Envelope_MembershipRemoved
 	Event         isEnvelope_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -330,6 +340,13 @@ func (x *Envelope) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Envelope.ProtoReflect.Descriptor instead.
 func (*Envelope) Descriptor() ([]byte, []int) {
 	return file_proto_euroscope_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Envelope) GetContext() *MembershipContext {
+	if x != nil {
+		return x.Context
+	}
+	return nil
 }
 
 func (x *Envelope) GetEvent() isEnvelope_Event {
@@ -843,6 +860,24 @@ func (x *Envelope) GetMasterInfo() *MasterInfoEvent {
 	return nil
 }
 
+func (x *Envelope) GetControl() *ControlEvent {
+	if x != nil {
+		if x, ok := x.Event.(*Envelope_Control); ok {
+			return x.Control
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetMembershipRemoved() *MembershipRemovedEvent {
+	if x != nil {
+		if x, ok := x.Event.(*Envelope_MembershipRemoved); ok {
+			return x.MembershipRemoved
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Event interface {
 	isEnvelope_Event()
 }
@@ -1071,6 +1106,14 @@ type Envelope_MasterInfo struct {
 	MasterInfo *MasterInfoEvent `protobuf:"bytes,56,opt,name=master_info,json=masterInfo,proto3,oneof"`
 }
 
+type Envelope_Control struct {
+	Control *ControlEvent `protobuf:"bytes,57,opt,name=control,proto3,oneof"`
+}
+
+type Envelope_MembershipRemoved struct {
+	MembershipRemoved *MembershipRemovedEvent `protobuf:"bytes,58,opt,name=membership_removed,json=membershipRemoved,proto3,oneof"`
+}
+
 func (*Envelope_Token) isEnvelope_Event() {}
 
 func (*Envelope_Login) isEnvelope_Event() {}
@@ -1183,13 +1226,19 @@ func (*Envelope_FrequencyMessageResult) isEnvelope_Event() {}
 
 func (*Envelope_MasterInfo) isEnvelope_Event() {}
 
+func (*Envelope_Control) isEnvelope_Event() {}
+
+func (*Envelope_MembershipRemoved) isEnvelope_Event() {}
+
 type TokenEvent struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Token             string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	Version           string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
 	FrequencyMessages bool                   `protobuf:"varint,3,opt,name=frequency_messages,json=frequencyMessages,proto3" json:"frequency_messages,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Random process identity, retained across websocket reconnects, never a CID.
+	InstanceId    string `protobuf:"bytes,4,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TokenEvent) Reset() {
@@ -1243,6 +1292,261 @@ func (x *TokenEvent) GetFrequencyMessages() bool {
 	return false
 }
 
+func (x *TokenEvent) GetInstanceId() string {
+	if x != nil {
+		return x.InstanceId
+	}
+	return ""
+}
+
+// A membership incarnation is never reused, including after rejoin. Environment
+// includes the exercise/playback identity, not merely LIVE versus training.
+type MembershipContext struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	InstanceId          string                 `protobuf:"bytes,1,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	TransportGeneration uint64                 `protobuf:"varint,2,opt,name=transport_generation,json=transportGeneration,proto3" json:"transport_generation,omitempty"`
+	MembershipId        string                 `protobuf:"bytes,3,opt,name=membership_id,json=membershipId,proto3" json:"membership_id,omitempty"`
+	SessionId           int32                  `protobuf:"varint,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Airport             string                 `protobuf:"bytes,5,opt,name=airport,proto3" json:"airport,omitempty"`
+	Environment         string                 `protobuf:"bytes,6,opt,name=environment,proto3" json:"environment,omitempty"`
+	Generation          uint64                 `protobuf:"varint,7,opt,name=generation,proto3" json:"generation,omitempty"`
+	MasterEpoch         uint64                 `protobuf:"varint,8,opt,name=master_epoch,json=masterEpoch,proto3" json:"master_epoch,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *MembershipContext) Reset() {
+	*x = MembershipContext{}
+	mi := &file_proto_euroscope_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MembershipContext) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MembershipContext) ProtoMessage() {}
+
+func (x *MembershipContext) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MembershipContext.ProtoReflect.Descriptor instead.
+func (*MembershipContext) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *MembershipContext) GetInstanceId() string {
+	if x != nil {
+		return x.InstanceId
+	}
+	return ""
+}
+
+func (x *MembershipContext) GetTransportGeneration() uint64 {
+	if x != nil {
+		return x.TransportGeneration
+	}
+	return 0
+}
+
+func (x *MembershipContext) GetMembershipId() string {
+	if x != nil {
+		return x.MembershipId
+	}
+	return ""
+}
+
+func (x *MembershipContext) GetSessionId() int32 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *MembershipContext) GetAirport() string {
+	if x != nil {
+		return x.Airport
+	}
+	return ""
+}
+
+func (x *MembershipContext) GetEnvironment() string {
+	if x != nil {
+		return x.Environment
+	}
+	return ""
+}
+
+func (x *MembershipContext) GetGeneration() uint64 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
+func (x *MembershipContext) GetMasterEpoch() uint64 {
+	if x != nil {
+		return x.MasterEpoch
+	}
+	return 0
+}
+
+// Physical-instance evidence remains available with zero memberships. A control
+// update is not an operational heartbeat. Airport admission is backend-owned.
+type ControlEvent struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Environment      string                 `protobuf:"bytes,1,opt,name=environment,proto3" json:"environment,omitempty"`
+	Callsign         string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	PrimaryFrequency string                 `protobuf:"bytes,3,opt,name=primary_frequency,json=primaryFrequency,proto3" json:"primary_frequency,omitempty"`
+	TunedFrequencies []string               `protobuf:"bytes,4,rep,name=tuned_frequencies,json=tunedFrequencies,proto3" json:"tuned_frequencies,omitempty"`
+	Observer         bool                   `protobuf:"varint,5,opt,name=observer,proto3" json:"observer,omitempty"`
+	LocalIp          string                 `protobuf:"bytes,6,opt,name=local_ip,json=localIp,proto3" json:"local_ip,omitempty"`
+	RelevantAirport  string                 `protobuf:"bytes,7,opt,name=relevant_airport,json=relevantAirport,proto3" json:"relevant_airport,omitempty"`
+	Range            int32                  `protobuf:"varint,8,opt,name=range,proto3" json:"range,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ControlEvent) Reset() {
+	*x = ControlEvent{}
+	mi := &file_proto_euroscope_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ControlEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ControlEvent) ProtoMessage() {}
+
+func (x *ControlEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ControlEvent.ProtoReflect.Descriptor instead.
+func (*ControlEvent) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ControlEvent) GetEnvironment() string {
+	if x != nil {
+		return x.Environment
+	}
+	return ""
+}
+
+func (x *ControlEvent) GetCallsign() string {
+	if x != nil {
+		return x.Callsign
+	}
+	return ""
+}
+
+func (x *ControlEvent) GetPrimaryFrequency() string {
+	if x != nil {
+		return x.PrimaryFrequency
+	}
+	return ""
+}
+
+func (x *ControlEvent) GetTunedFrequencies() []string {
+	if x != nil {
+		return x.TunedFrequencies
+	}
+	return nil
+}
+
+func (x *ControlEvent) GetObserver() bool {
+	if x != nil {
+		return x.Observer
+	}
+	return false
+}
+
+func (x *ControlEvent) GetLocalIp() string {
+	if x != nil {
+		return x.LocalIp
+	}
+	return ""
+}
+
+func (x *ControlEvent) GetRelevantAirport() string {
+	if x != nil {
+		return x.RelevantAirport
+	}
+	return ""
+}
+
+func (x *ControlEvent) GetRange() int32 {
+	if x != nil {
+		return x.Range
+	}
+	return 0
+}
+
+type MembershipRemovedEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Reason        string                 `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MembershipRemovedEvent) Reset() {
+	*x = MembershipRemovedEvent{}
+	mi := &file_proto_euroscope_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MembershipRemovedEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MembershipRemovedEvent) ProtoMessage() {}
+
+func (x *MembershipRemovedEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MembershipRemovedEvent.ProtoReflect.Descriptor instead.
+func (*MembershipRemovedEvent) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *MembershipRemovedEvent) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
 type LoginEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
@@ -1258,7 +1562,7 @@ type LoginEvent struct {
 
 func (x *LoginEvent) Reset() {
 	*x = LoginEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[2]
+	mi := &file_proto_euroscope_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1270,7 +1574,7 @@ func (x *LoginEvent) String() string {
 func (*LoginEvent) ProtoMessage() {}
 
 func (x *LoginEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[2]
+	mi := &file_proto_euroscope_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1283,7 +1587,7 @@ func (x *LoginEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoginEvent.ProtoReflect.Descriptor instead.
 func (*LoginEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{2}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *LoginEvent) GetAirport() string {
@@ -1346,7 +1650,7 @@ type Runway struct {
 
 func (x *Runway) Reset() {
 	*x = Runway{}
-	mi := &file_proto_euroscope_proto_msgTypes[3]
+	mi := &file_proto_euroscope_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1358,7 +1662,7 @@ func (x *Runway) String() string {
 func (*Runway) ProtoMessage() {}
 
 func (x *Runway) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[3]
+	mi := &file_proto_euroscope_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1371,7 +1675,7 @@ func (x *Runway) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Runway.ProtoReflect.Descriptor instead.
 func (*Runway) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{3}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Runway) GetName() string {
@@ -1405,7 +1709,7 @@ type SidEntry struct {
 
 func (x *SidEntry) Reset() {
 	*x = SidEntry{}
-	mi := &file_proto_euroscope_proto_msgTypes[4]
+	mi := &file_proto_euroscope_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1417,7 +1721,7 @@ func (x *SidEntry) String() string {
 func (*SidEntry) ProtoMessage() {}
 
 func (x *SidEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[4]
+	mi := &file_proto_euroscope_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1430,7 +1734,7 @@ func (x *SidEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SidEntry.ProtoReflect.Descriptor instead.
 func (*SidEntry) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{4}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SidEntry) GetName() string {
@@ -1458,7 +1762,7 @@ type Position struct {
 
 func (x *Position) Reset() {
 	*x = Position{}
-	mi := &file_proto_euroscope_proto_msgTypes[5]
+	mi := &file_proto_euroscope_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1470,7 +1774,7 @@ func (x *Position) String() string {
 func (*Position) ProtoMessage() {}
 
 func (x *Position) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[5]
+	mi := &file_proto_euroscope_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1483,7 +1787,7 @@ func (x *Position) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Position.ProtoReflect.Descriptor instead.
 func (*Position) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{5}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Position) GetLat() float64 {
@@ -1517,7 +1821,7 @@ type Controller struct {
 
 func (x *Controller) Reset() {
 	*x = Controller{}
-	mi := &file_proto_euroscope_proto_msgTypes[6]
+	mi := &file_proto_euroscope_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1529,7 +1833,7 @@ func (x *Controller) String() string {
 func (*Controller) ProtoMessage() {}
 
 func (x *Controller) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[6]
+	mi := &file_proto_euroscope_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1542,7 +1846,7 @@ func (x *Controller) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Controller.ProtoReflect.Descriptor instead.
 func (*Controller) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{6}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Controller) GetPosition() string {
@@ -1601,7 +1905,7 @@ type Strip struct {
 
 func (x *Strip) Reset() {
 	*x = Strip{}
-	mi := &file_proto_euroscope_proto_msgTypes[7]
+	mi := &file_proto_euroscope_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1613,7 +1917,7 @@ func (x *Strip) String() string {
 func (*Strip) ProtoMessage() {}
 
 func (x *Strip) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[7]
+	mi := &file_proto_euroscope_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1626,7 +1930,7 @@ func (x *Strip) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Strip.ProtoReflect.Descriptor instead.
 func (*Strip) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{7}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Strip) GetCallsign() string {
@@ -1876,7 +2180,7 @@ type StripUpdateEvent struct {
 
 func (x *StripUpdateEvent) Reset() {
 	*x = StripUpdateEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[8]
+	mi := &file_proto_euroscope_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1888,7 +2192,7 @@ func (x *StripUpdateEvent) String() string {
 func (*StripUpdateEvent) ProtoMessage() {}
 
 func (x *StripUpdateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[8]
+	mi := &file_proto_euroscope_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1901,7 +2205,7 @@ func (x *StripUpdateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StripUpdateEvent.ProtoReflect.Descriptor instead.
 func (*StripUpdateEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{8}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *StripUpdateEvent) GetStrip() *Strip {
@@ -1923,7 +2227,7 @@ type SyncEvent struct {
 
 func (x *SyncEvent) Reset() {
 	*x = SyncEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[9]
+	mi := &file_proto_euroscope_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1935,7 +2239,7 @@ func (x *SyncEvent) String() string {
 func (*SyncEvent) ProtoMessage() {}
 
 func (x *SyncEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[9]
+	mi := &file_proto_euroscope_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1948,7 +2252,7 @@ func (x *SyncEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncEvent.ProtoReflect.Descriptor instead.
 func (*SyncEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{9}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SyncEvent) GetControllers() []*Controller {
@@ -1988,7 +2292,7 @@ type RunwayEvent struct {
 
 func (x *RunwayEvent) Reset() {
 	*x = RunwayEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[10]
+	mi := &file_proto_euroscope_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2000,7 +2304,7 @@ func (x *RunwayEvent) String() string {
 func (*RunwayEvent) ProtoMessage() {}
 
 func (x *RunwayEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[10]
+	mi := &file_proto_euroscope_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2013,7 +2317,7 @@ func (x *RunwayEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunwayEvent.ProtoReflect.Descriptor instead.
 func (*RunwayEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{10}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RunwayEvent) GetRunways() []*Runway {
@@ -2041,7 +2345,7 @@ type EcfmpRestriction struct {
 
 func (x *EcfmpRestriction) Reset() {
 	*x = EcfmpRestriction{}
-	mi := &file_proto_euroscope_proto_msgTypes[11]
+	mi := &file_proto_euroscope_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2053,7 +2357,7 @@ func (x *EcfmpRestriction) String() string {
 func (*EcfmpRestriction) ProtoMessage() {}
 
 func (x *EcfmpRestriction) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[11]
+	mi := &file_proto_euroscope_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2066,7 +2370,7 @@ func (x *EcfmpRestriction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EcfmpRestriction.ProtoReflect.Descriptor instead.
 func (*EcfmpRestriction) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{11}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *EcfmpRestriction) GetMeasureId() int64 {
@@ -2165,7 +2469,7 @@ type CdmUpdateEvent struct {
 
 func (x *CdmUpdateEvent) Reset() {
 	*x = CdmUpdateEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[12]
+	mi := &file_proto_euroscope_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2177,7 +2481,7 @@ func (x *CdmUpdateEvent) String() string {
 func (*CdmUpdateEvent) ProtoMessage() {}
 
 func (x *CdmUpdateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[12]
+	mi := &file_proto_euroscope_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2190,7 +2494,7 @@ func (x *CdmUpdateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmUpdateEvent.ProtoReflect.Descriptor instead.
 func (*CdmUpdateEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{12}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CdmUpdateEvent) GetCallsign() string {
@@ -2328,7 +2632,7 @@ type CdmUpdateBatchEvent struct {
 
 func (x *CdmUpdateBatchEvent) Reset() {
 	*x = CdmUpdateBatchEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[13]
+	mi := &file_proto_euroscope_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2340,7 +2644,7 @@ func (x *CdmUpdateBatchEvent) String() string {
 func (*CdmUpdateBatchEvent) ProtoMessage() {}
 
 func (x *CdmUpdateBatchEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[13]
+	mi := &file_proto_euroscope_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2353,7 +2657,7 @@ func (x *CdmUpdateBatchEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmUpdateBatchEvent.ProtoReflect.Descriptor instead.
 func (*CdmUpdateBatchEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{13}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CdmUpdateBatchEvent) GetUpdates() []*CdmUpdateEvent {
@@ -2388,7 +2692,7 @@ type BackendSyncCdmData struct {
 
 func (x *BackendSyncCdmData) Reset() {
 	*x = BackendSyncCdmData{}
-	mi := &file_proto_euroscope_proto_msgTypes[14]
+	mi := &file_proto_euroscope_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2400,7 +2704,7 @@ func (x *BackendSyncCdmData) String() string {
 func (*BackendSyncCdmData) ProtoMessage() {}
 
 func (x *BackendSyncCdmData) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[14]
+	mi := &file_proto_euroscope_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2413,7 +2717,7 @@ func (x *BackendSyncCdmData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackendSyncCdmData.ProtoReflect.Descriptor instead.
 func (*BackendSyncCdmData) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{14}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *BackendSyncCdmData) GetEobt() string {
@@ -2555,7 +2859,7 @@ type BackendSyncStrip struct {
 
 func (x *BackendSyncStrip) Reset() {
 	*x = BackendSyncStrip{}
-	mi := &file_proto_euroscope_proto_msgTypes[15]
+	mi := &file_proto_euroscope_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2567,7 +2871,7 @@ func (x *BackendSyncStrip) String() string {
 func (*BackendSyncStrip) ProtoMessage() {}
 
 func (x *BackendSyncStrip) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[15]
+	mi := &file_proto_euroscope_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2580,7 +2884,7 @@ func (x *BackendSyncStrip) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackendSyncStrip.ProtoReflect.Descriptor instead.
 func (*BackendSyncStrip) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{15}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *BackendSyncStrip) GetCallsign() string {
@@ -2678,7 +2982,7 @@ type BackendSyncEvent struct {
 
 func (x *BackendSyncEvent) Reset() {
 	*x = BackendSyncEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[16]
+	mi := &file_proto_euroscope_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2690,7 +2994,7 @@ func (x *BackendSyncEvent) String() string {
 func (*BackendSyncEvent) ProtoMessage() {}
 
 func (x *BackendSyncEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[16]
+	mi := &file_proto_euroscope_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2703,7 +3007,7 @@ func (x *BackendSyncEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackendSyncEvent.ProtoReflect.Descriptor instead.
 func (*BackendSyncEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{16}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *BackendSyncEvent) GetStrips() []*BackendSyncStrip {
@@ -2740,7 +3044,7 @@ type RunwayMismatchAlertEvent struct {
 
 func (x *RunwayMismatchAlertEvent) Reset() {
 	*x = RunwayMismatchAlertEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[17]
+	mi := &file_proto_euroscope_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2752,7 +3056,7 @@ func (x *RunwayMismatchAlertEvent) String() string {
 func (*RunwayMismatchAlertEvent) ProtoMessage() {}
 
 func (x *RunwayMismatchAlertEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[17]
+	mi := &file_proto_euroscope_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2765,7 +3069,7 @@ func (x *RunwayMismatchAlertEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunwayMismatchAlertEvent.ProtoReflect.Descriptor instead.
 func (*RunwayMismatchAlertEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{17}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *RunwayMismatchAlertEvent) GetExpectedDeparture() []string {
@@ -2827,7 +3131,7 @@ type CreateFPLEvent struct {
 
 func (x *CreateFPLEvent) Reset() {
 	*x = CreateFPLEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[18]
+	mi := &file_proto_euroscope_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2839,7 +3143,7 @@ func (x *CreateFPLEvent) String() string {
 func (*CreateFPLEvent) ProtoMessage() {}
 
 func (x *CreateFPLEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[18]
+	mi := &file_proto_euroscope_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2852,7 +3156,7 @@ func (x *CreateFPLEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFPLEvent.ProtoReflect.Descriptor instead.
 func (*CreateFPLEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{18}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CreateFPLEvent) GetCallsign() string {
@@ -2976,7 +3280,7 @@ type SessionInfoEvent struct {
 
 func (x *SessionInfoEvent) Reset() {
 	*x = SessionInfoEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[19]
+	mi := &file_proto_euroscope_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2988,7 +3292,7 @@ func (x *SessionInfoEvent) String() string {
 func (*SessionInfoEvent) ProtoMessage() {}
 
 func (x *SessionInfoEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[19]
+	mi := &file_proto_euroscope_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3001,7 +3305,7 @@ func (x *SessionInfoEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionInfoEvent.ProtoReflect.Descriptor instead.
 func (*SessionInfoEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{19}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SessionInfoEvent) GetRole() string {
@@ -3020,7 +3324,7 @@ type GenerateSquawkEvent struct {
 
 func (x *GenerateSquawkEvent) Reset() {
 	*x = GenerateSquawkEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[20]
+	mi := &file_proto_euroscope_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3032,7 +3336,7 @@ func (x *GenerateSquawkEvent) String() string {
 func (*GenerateSquawkEvent) ProtoMessage() {}
 
 func (x *GenerateSquawkEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[20]
+	mi := &file_proto_euroscope_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3045,7 +3349,7 @@ func (x *GenerateSquawkEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateSquawkEvent.ProtoReflect.Descriptor instead.
 func (*GenerateSquawkEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{20}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GenerateSquawkEvent) GetCallsign() string {
@@ -3065,7 +3369,7 @@ type EobtEvent struct {
 
 func (x *EobtEvent) Reset() {
 	*x = EobtEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[21]
+	mi := &file_proto_euroscope_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3077,7 +3381,7 @@ func (x *EobtEvent) String() string {
 func (*EobtEvent) ProtoMessage() {}
 
 func (x *EobtEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[21]
+	mi := &file_proto_euroscope_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3090,7 +3394,7 @@ func (x *EobtEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EobtEvent.ProtoReflect.Descriptor instead.
 func (*EobtEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{21}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *EobtEvent) GetCallsign() string {
@@ -3117,7 +3421,7 @@ type RouteEvent struct {
 
 func (x *RouteEvent) Reset() {
 	*x = RouteEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[22]
+	mi := &file_proto_euroscope_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3129,7 +3433,7 @@ func (x *RouteEvent) String() string {
 func (*RouteEvent) ProtoMessage() {}
 
 func (x *RouteEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[22]
+	mi := &file_proto_euroscope_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3142,7 +3446,7 @@ func (x *RouteEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteEvent.ProtoReflect.Descriptor instead.
 func (*RouteEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{22}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *RouteEvent) GetCallsign() string {
@@ -3169,7 +3473,7 @@ type RemarksEvent struct {
 
 func (x *RemarksEvent) Reset() {
 	*x = RemarksEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[23]
+	mi := &file_proto_euroscope_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3181,7 +3485,7 @@ func (x *RemarksEvent) String() string {
 func (*RemarksEvent) ProtoMessage() {}
 
 func (x *RemarksEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[23]
+	mi := &file_proto_euroscope_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3194,7 +3498,7 @@ func (x *RemarksEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemarksEvent.ProtoReflect.Descriptor instead.
 func (*RemarksEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{23}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *RemarksEvent) GetCallsign() string {
@@ -3221,7 +3525,7 @@ type AircraftInfoEvent struct {
 
 func (x *AircraftInfoEvent) Reset() {
 	*x = AircraftInfoEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[24]
+	mi := &file_proto_euroscope_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3233,7 +3537,7 @@ func (x *AircraftInfoEvent) String() string {
 func (*AircraftInfoEvent) ProtoMessage() {}
 
 func (x *AircraftInfoEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[24]
+	mi := &file_proto_euroscope_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3246,7 +3550,7 @@ func (x *AircraftInfoEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AircraftInfoEvent.ProtoReflect.Descriptor instead.
 func (*AircraftInfoEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{24}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *AircraftInfoEvent) GetCallsign() string {
@@ -3274,7 +3578,7 @@ type AircraftInfoRemarksEvent struct {
 
 func (x *AircraftInfoRemarksEvent) Reset() {
 	*x = AircraftInfoRemarksEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[25]
+	mi := &file_proto_euroscope_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3286,7 +3590,7 @@ func (x *AircraftInfoRemarksEvent) String() string {
 func (*AircraftInfoRemarksEvent) ProtoMessage() {}
 
 func (x *AircraftInfoRemarksEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[25]
+	mi := &file_proto_euroscope_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3299,7 +3603,7 @@ func (x *AircraftInfoRemarksEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AircraftInfoRemarksEvent.ProtoReflect.Descriptor instead.
 func (*AircraftInfoRemarksEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{25}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *AircraftInfoRemarksEvent) GetCallsign() string {
@@ -3333,7 +3637,7 @@ type SidEvent struct {
 
 func (x *SidEvent) Reset() {
 	*x = SidEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[26]
+	mi := &file_proto_euroscope_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3345,7 +3649,7 @@ func (x *SidEvent) String() string {
 func (*SidEvent) ProtoMessage() {}
 
 func (x *SidEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[26]
+	mi := &file_proto_euroscope_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3358,7 +3662,7 @@ func (x *SidEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SidEvent.ProtoReflect.Descriptor instead.
 func (*SidEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{26}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *SidEvent) GetCallsign() string {
@@ -3385,7 +3689,7 @@ type AircraftRunwayEvent struct {
 
 func (x *AircraftRunwayEvent) Reset() {
 	*x = AircraftRunwayEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[27]
+	mi := &file_proto_euroscope_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3397,7 +3701,7 @@ func (x *AircraftRunwayEvent) String() string {
 func (*AircraftRunwayEvent) ProtoMessage() {}
 
 func (x *AircraftRunwayEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[27]
+	mi := &file_proto_euroscope_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3410,7 +3714,7 @@ func (x *AircraftRunwayEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AircraftRunwayEvent.ProtoReflect.Descriptor instead.
 func (*AircraftRunwayEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{27}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *AircraftRunwayEvent) GetCallsign() string {
@@ -3437,7 +3741,7 @@ type CoordinationHandoverEvent struct {
 
 func (x *CoordinationHandoverEvent) Reset() {
 	*x = CoordinationHandoverEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[28]
+	mi := &file_proto_euroscope_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3449,7 +3753,7 @@ func (x *CoordinationHandoverEvent) String() string {
 func (*CoordinationHandoverEvent) ProtoMessage() {}
 
 func (x *CoordinationHandoverEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[28]
+	mi := &file_proto_euroscope_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3462,7 +3766,7 @@ func (x *CoordinationHandoverEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationHandoverEvent.ProtoReflect.Descriptor instead.
 func (*CoordinationHandoverEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{28}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CoordinationHandoverEvent) GetCallsign() string {
@@ -3490,7 +3794,7 @@ type CoordinationReceivedEvent struct {
 
 func (x *CoordinationReceivedEvent) Reset() {
 	*x = CoordinationReceivedEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[29]
+	mi := &file_proto_euroscope_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3502,7 +3806,7 @@ func (x *CoordinationReceivedEvent) String() string {
 func (*CoordinationReceivedEvent) ProtoMessage() {}
 
 func (x *CoordinationReceivedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[29]
+	mi := &file_proto_euroscope_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3515,7 +3819,7 @@ func (x *CoordinationReceivedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationReceivedEvent.ProtoReflect.Descriptor instead.
 func (*CoordinationReceivedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{29}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CoordinationReceivedEvent) GetCallsign() string {
@@ -3549,7 +3853,7 @@ type TrackingControllerChangedEvent struct {
 
 func (x *TrackingControllerChangedEvent) Reset() {
 	*x = TrackingControllerChangedEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[30]
+	mi := &file_proto_euroscope_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3561,7 +3865,7 @@ func (x *TrackingControllerChangedEvent) String() string {
 func (*TrackingControllerChangedEvent) ProtoMessage() {}
 
 func (x *TrackingControllerChangedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[30]
+	mi := &file_proto_euroscope_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3574,7 +3878,7 @@ func (x *TrackingControllerChangedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrackingControllerChangedEvent.ProtoReflect.Descriptor instead.
 func (*TrackingControllerChangedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{30}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *TrackingControllerChangedEvent) GetCallsign() string {
@@ -3601,7 +3905,7 @@ type AssignedSquawkEvent struct {
 
 func (x *AssignedSquawkEvent) Reset() {
 	*x = AssignedSquawkEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[31]
+	mi := &file_proto_euroscope_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3613,7 +3917,7 @@ func (x *AssignedSquawkEvent) String() string {
 func (*AssignedSquawkEvent) ProtoMessage() {}
 
 func (x *AssignedSquawkEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[31]
+	mi := &file_proto_euroscope_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3626,7 +3930,7 @@ func (x *AssignedSquawkEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignedSquawkEvent.ProtoReflect.Descriptor instead.
 func (*AssignedSquawkEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{31}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *AssignedSquawkEvent) GetCallsign() string {
@@ -3653,7 +3957,7 @@ type SquawkEvent struct {
 
 func (x *SquawkEvent) Reset() {
 	*x = SquawkEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[32]
+	mi := &file_proto_euroscope_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3665,7 +3969,7 @@ func (x *SquawkEvent) String() string {
 func (*SquawkEvent) ProtoMessage() {}
 
 func (x *SquawkEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[32]
+	mi := &file_proto_euroscope_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3678,7 +3982,7 @@ func (x *SquawkEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SquawkEvent.ProtoReflect.Descriptor instead.
 func (*SquawkEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{32}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *SquawkEvent) GetCallsign() string {
@@ -3705,7 +4009,7 @@ type ClearedAltitudeEvent struct {
 
 func (x *ClearedAltitudeEvent) Reset() {
 	*x = ClearedAltitudeEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[33]
+	mi := &file_proto_euroscope_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3717,7 +4021,7 @@ func (x *ClearedAltitudeEvent) String() string {
 func (*ClearedAltitudeEvent) ProtoMessage() {}
 
 func (x *ClearedAltitudeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[33]
+	mi := &file_proto_euroscope_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3730,7 +4034,7 @@ func (x *ClearedAltitudeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearedAltitudeEvent.ProtoReflect.Descriptor instead.
 func (*ClearedAltitudeEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{33}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ClearedAltitudeEvent) GetCallsign() string {
@@ -3757,7 +4061,7 @@ type RequestedAltitudeEvent struct {
 
 func (x *RequestedAltitudeEvent) Reset() {
 	*x = RequestedAltitudeEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[34]
+	mi := &file_proto_euroscope_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3769,7 +4073,7 @@ func (x *RequestedAltitudeEvent) String() string {
 func (*RequestedAltitudeEvent) ProtoMessage() {}
 
 func (x *RequestedAltitudeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[34]
+	mi := &file_proto_euroscope_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3782,7 +4086,7 @@ func (x *RequestedAltitudeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestedAltitudeEvent.ProtoReflect.Descriptor instead.
 func (*RequestedAltitudeEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{34}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *RequestedAltitudeEvent) GetCallsign() string {
@@ -3809,7 +4113,7 @@ type CommunicationTypeEvent struct {
 
 func (x *CommunicationTypeEvent) Reset() {
 	*x = CommunicationTypeEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[35]
+	mi := &file_proto_euroscope_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3821,7 +4125,7 @@ func (x *CommunicationTypeEvent) String() string {
 func (*CommunicationTypeEvent) ProtoMessage() {}
 
 func (x *CommunicationTypeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[35]
+	mi := &file_proto_euroscope_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3834,7 +4138,7 @@ func (x *CommunicationTypeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommunicationTypeEvent.ProtoReflect.Descriptor instead.
 func (*CommunicationTypeEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{35}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *CommunicationTypeEvent) GetCallsign() string {
@@ -3861,7 +4165,7 @@ type GroundStateEvent struct {
 
 func (x *GroundStateEvent) Reset() {
 	*x = GroundStateEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[36]
+	mi := &file_proto_euroscope_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3873,7 +4177,7 @@ func (x *GroundStateEvent) String() string {
 func (*GroundStateEvent) ProtoMessage() {}
 
 func (x *GroundStateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[36]
+	mi := &file_proto_euroscope_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3886,7 +4190,7 @@ func (x *GroundStateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroundStateEvent.ProtoReflect.Descriptor instead.
 func (*GroundStateEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{36}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *GroundStateEvent) GetCallsign() string {
@@ -3913,7 +4217,7 @@ type ClearedFlagEvent struct {
 
 func (x *ClearedFlagEvent) Reset() {
 	*x = ClearedFlagEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[37]
+	mi := &file_proto_euroscope_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3925,7 +4229,7 @@ func (x *ClearedFlagEvent) String() string {
 func (*ClearedFlagEvent) ProtoMessage() {}
 
 func (x *ClearedFlagEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[37]
+	mi := &file_proto_euroscope_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3938,7 +4242,7 @@ func (x *ClearedFlagEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearedFlagEvent.ProtoReflect.Descriptor instead.
 func (*ClearedFlagEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{37}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ClearedFlagEvent) GetCallsign() string {
@@ -3969,7 +4273,7 @@ type AircraftPositionUpdateEvent struct {
 
 func (x *AircraftPositionUpdateEvent) Reset() {
 	*x = AircraftPositionUpdateEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[38]
+	mi := &file_proto_euroscope_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3981,7 +4285,7 @@ func (x *AircraftPositionUpdateEvent) String() string {
 func (*AircraftPositionUpdateEvent) ProtoMessage() {}
 
 func (x *AircraftPositionUpdateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[38]
+	mi := &file_proto_euroscope_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3994,7 +4298,7 @@ func (x *AircraftPositionUpdateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AircraftPositionUpdateEvent.ProtoReflect.Descriptor instead.
 func (*AircraftPositionUpdateEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{38}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *AircraftPositionUpdateEvent) GetCallsign() string {
@@ -4049,7 +4353,7 @@ type HeadingEvent struct {
 
 func (x *HeadingEvent) Reset() {
 	*x = HeadingEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[39]
+	mi := &file_proto_euroscope_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4061,7 +4365,7 @@ func (x *HeadingEvent) String() string {
 func (*HeadingEvent) ProtoMessage() {}
 
 func (x *HeadingEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[39]
+	mi := &file_proto_euroscope_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4074,7 +4378,7 @@ func (x *HeadingEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeadingEvent.ProtoReflect.Descriptor instead.
 func (*HeadingEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{39}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *HeadingEvent) GetCallsign() string {
@@ -4100,7 +4404,7 @@ type AircraftDisconnectEvent struct {
 
 func (x *AircraftDisconnectEvent) Reset() {
 	*x = AircraftDisconnectEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[40]
+	mi := &file_proto_euroscope_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4112,7 +4416,7 @@ func (x *AircraftDisconnectEvent) String() string {
 func (*AircraftDisconnectEvent) ProtoMessage() {}
 
 func (x *AircraftDisconnectEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[40]
+	mi := &file_proto_euroscope_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4125,7 +4429,7 @@ func (x *AircraftDisconnectEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AircraftDisconnectEvent.ProtoReflect.Descriptor instead.
 func (*AircraftDisconnectEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{40}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *AircraftDisconnectEvent) GetCallsign() string {
@@ -4145,7 +4449,7 @@ type ControllerOnlineEvent struct {
 
 func (x *ControllerOnlineEvent) Reset() {
 	*x = ControllerOnlineEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[41]
+	mi := &file_proto_euroscope_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4157,7 +4461,7 @@ func (x *ControllerOnlineEvent) String() string {
 func (*ControllerOnlineEvent) ProtoMessage() {}
 
 func (x *ControllerOnlineEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[41]
+	mi := &file_proto_euroscope_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4170,7 +4474,7 @@ func (x *ControllerOnlineEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ControllerOnlineEvent.ProtoReflect.Descriptor instead.
 func (*ControllerOnlineEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{41}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ControllerOnlineEvent) GetPosition() string {
@@ -4196,7 +4500,7 @@ type ControllerOfflineEvent struct {
 
 func (x *ControllerOfflineEvent) Reset() {
 	*x = ControllerOfflineEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[42]
+	mi := &file_proto_euroscope_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4208,7 +4512,7 @@ func (x *ControllerOfflineEvent) String() string {
 func (*ControllerOfflineEvent) ProtoMessage() {}
 
 func (x *ControllerOfflineEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[42]
+	mi := &file_proto_euroscope_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4221,7 +4525,7 @@ func (x *ControllerOfflineEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ControllerOfflineEvent.ProtoReflect.Descriptor instead.
 func (*ControllerOfflineEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{42}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ControllerOfflineEvent) GetCallsign() string {
@@ -4241,7 +4545,7 @@ type StandEvent struct {
 
 func (x *StandEvent) Reset() {
 	*x = StandEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[43]
+	mi := &file_proto_euroscope_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4253,7 +4557,7 @@ func (x *StandEvent) String() string {
 func (*StandEvent) ProtoMessage() {}
 
 func (x *StandEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[43]
+	mi := &file_proto_euroscope_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4266,7 +4570,7 @@ func (x *StandEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StandEvent.ProtoReflect.Descriptor instead.
 func (*StandEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{43}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *StandEvent) GetCallsign() string {
@@ -4295,7 +4599,7 @@ type HoldEvent struct {
 
 func (x *HoldEvent) Reset() {
 	*x = HoldEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[44]
+	mi := &file_proto_euroscope_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4307,7 +4611,7 @@ func (x *HoldEvent) String() string {
 func (*HoldEvent) ProtoMessage() {}
 
 func (x *HoldEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[44]
+	mi := &file_proto_euroscope_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4320,7 +4624,7 @@ func (x *HoldEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HoldEvent.ProtoReflect.Descriptor instead.
 func (*HoldEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{44}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *HoldEvent) GetCallsign() string {
@@ -4360,7 +4664,7 @@ type AssumeOnlyEvent struct {
 
 func (x *AssumeOnlyEvent) Reset() {
 	*x = AssumeOnlyEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[45]
+	mi := &file_proto_euroscope_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4372,7 +4676,7 @@ func (x *AssumeOnlyEvent) String() string {
 func (*AssumeOnlyEvent) ProtoMessage() {}
 
 func (x *AssumeOnlyEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[45]
+	mi := &file_proto_euroscope_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4385,7 +4689,7 @@ func (x *AssumeOnlyEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssumeOnlyEvent.ProtoReflect.Descriptor instead.
 func (*AssumeOnlyEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{45}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *AssumeOnlyEvent) GetCallsign() string {
@@ -4404,7 +4708,7 @@ type AssumeAndDropEvent struct {
 
 func (x *AssumeAndDropEvent) Reset() {
 	*x = AssumeAndDropEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[46]
+	mi := &file_proto_euroscope_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4416,7 +4720,7 @@ func (x *AssumeAndDropEvent) String() string {
 func (*AssumeAndDropEvent) ProtoMessage() {}
 
 func (x *AssumeAndDropEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[46]
+	mi := &file_proto_euroscope_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4429,7 +4733,7 @@ func (x *AssumeAndDropEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssumeAndDropEvent.ProtoReflect.Descriptor instead.
 func (*AssumeAndDropEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{46}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *AssumeAndDropEvent) GetCallsign() string {
@@ -4448,7 +4752,7 @@ type DropTrackingEvent struct {
 
 func (x *DropTrackingEvent) Reset() {
 	*x = DropTrackingEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[47]
+	mi := &file_proto_euroscope_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4460,7 +4764,7 @@ func (x *DropTrackingEvent) String() string {
 func (*DropTrackingEvent) ProtoMessage() {}
 
 func (x *DropTrackingEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[47]
+	mi := &file_proto_euroscope_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4473,7 +4777,7 @@ func (x *DropTrackingEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DropTrackingEvent.ProtoReflect.Descriptor instead.
 func (*DropTrackingEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{47}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *DropTrackingEvent) GetCallsign() string {
@@ -4493,7 +4797,7 @@ type CdmTobtUpdateEvent struct {
 
 func (x *CdmTobtUpdateEvent) Reset() {
 	*x = CdmTobtUpdateEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[48]
+	mi := &file_proto_euroscope_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4505,7 +4809,7 @@ func (x *CdmTobtUpdateEvent) String() string {
 func (*CdmTobtUpdateEvent) ProtoMessage() {}
 
 func (x *CdmTobtUpdateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[48]
+	mi := &file_proto_euroscope_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4518,7 +4822,7 @@ func (x *CdmTobtUpdateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmTobtUpdateEvent.ProtoReflect.Descriptor instead.
 func (*CdmTobtUpdateEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{48}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *CdmTobtUpdateEvent) GetCallsign() string {
@@ -4545,7 +4849,7 @@ type CdmAsrtToggleEvent struct {
 
 func (x *CdmAsrtToggleEvent) Reset() {
 	*x = CdmAsrtToggleEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[49]
+	mi := &file_proto_euroscope_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4557,7 +4861,7 @@ func (x *CdmAsrtToggleEvent) String() string {
 func (*CdmAsrtToggleEvent) ProtoMessage() {}
 
 func (x *CdmAsrtToggleEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[49]
+	mi := &file_proto_euroscope_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4570,7 +4874,7 @@ func (x *CdmAsrtToggleEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmAsrtToggleEvent.ProtoReflect.Descriptor instead.
 func (*CdmAsrtToggleEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{49}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *CdmAsrtToggleEvent) GetCallsign() string {
@@ -4597,7 +4901,7 @@ type CdmTsacUpdateEvent struct {
 
 func (x *CdmTsacUpdateEvent) Reset() {
 	*x = CdmTsacUpdateEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[50]
+	mi := &file_proto_euroscope_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4609,7 +4913,7 @@ func (x *CdmTsacUpdateEvent) String() string {
 func (*CdmTsacUpdateEvent) ProtoMessage() {}
 
 func (x *CdmTsacUpdateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[50]
+	mi := &file_proto_euroscope_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4622,7 +4926,7 @@ func (x *CdmTsacUpdateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmTsacUpdateEvent.ProtoReflect.Descriptor instead.
 func (*CdmTsacUpdateEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{50}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *CdmTsacUpdateEvent) GetCallsign() string {
@@ -4649,7 +4953,7 @@ type CdmDeiceUpdateEvent struct {
 
 func (x *CdmDeiceUpdateEvent) Reset() {
 	*x = CdmDeiceUpdateEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[51]
+	mi := &file_proto_euroscope_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4661,7 +4965,7 @@ func (x *CdmDeiceUpdateEvent) String() string {
 func (*CdmDeiceUpdateEvent) ProtoMessage() {}
 
 func (x *CdmDeiceUpdateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[51]
+	mi := &file_proto_euroscope_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4674,7 +4978,7 @@ func (x *CdmDeiceUpdateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmDeiceUpdateEvent.ProtoReflect.Descriptor instead.
 func (*CdmDeiceUpdateEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{51}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *CdmDeiceUpdateEvent) GetCallsign() string {
@@ -4701,7 +5005,7 @@ type CdmManualCtotEvent struct {
 
 func (x *CdmManualCtotEvent) Reset() {
 	*x = CdmManualCtotEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[52]
+	mi := &file_proto_euroscope_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4713,7 +5017,7 @@ func (x *CdmManualCtotEvent) String() string {
 func (*CdmManualCtotEvent) ProtoMessage() {}
 
 func (x *CdmManualCtotEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[52]
+	mi := &file_proto_euroscope_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4726,7 +5030,7 @@ func (x *CdmManualCtotEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmManualCtotEvent.ProtoReflect.Descriptor instead.
 func (*CdmManualCtotEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{52}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *CdmManualCtotEvent) GetCallsign() string {
@@ -4752,7 +5056,7 @@ type CdmCtotRemoveEvent struct {
 
 func (x *CdmCtotRemoveEvent) Reset() {
 	*x = CdmCtotRemoveEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[53]
+	mi := &file_proto_euroscope_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4764,7 +5068,7 @@ func (x *CdmCtotRemoveEvent) String() string {
 func (*CdmCtotRemoveEvent) ProtoMessage() {}
 
 func (x *CdmCtotRemoveEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[53]
+	mi := &file_proto_euroscope_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4777,7 +5081,7 @@ func (x *CdmCtotRemoveEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmCtotRemoveEvent.ProtoReflect.Descriptor instead.
 func (*CdmCtotRemoveEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{53}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *CdmCtotRemoveEvent) GetCallsign() string {
@@ -4796,7 +5100,7 @@ type CdmReadyEvent struct {
 
 func (x *CdmReadyEvent) Reset() {
 	*x = CdmReadyEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[54]
+	mi := &file_proto_euroscope_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4808,7 +5112,7 @@ func (x *CdmReadyEvent) String() string {
 func (*CdmReadyEvent) ProtoMessage() {}
 
 func (x *CdmReadyEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[54]
+	mi := &file_proto_euroscope_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4821,7 +5125,7 @@ func (x *CdmReadyEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmReadyEvent.ProtoReflect.Descriptor instead.
 func (*CdmReadyEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{54}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *CdmReadyEvent) GetCallsign() string {
@@ -4842,7 +5146,7 @@ type PdcStateChangeEvent struct {
 
 func (x *PdcStateChangeEvent) Reset() {
 	*x = PdcStateChangeEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[55]
+	mi := &file_proto_euroscope_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4854,7 +5158,7 @@ func (x *PdcStateChangeEvent) String() string {
 func (*PdcStateChangeEvent) ProtoMessage() {}
 
 func (x *PdcStateChangeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[55]
+	mi := &file_proto_euroscope_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4867,7 +5171,7 @@ func (x *PdcStateChangeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PdcStateChangeEvent.ProtoReflect.Descriptor instead.
 func (*PdcStateChangeEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{55}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *PdcStateChangeEvent) GetCallsign() string {
@@ -4901,7 +5205,7 @@ type IssuePdcClearanceEvent struct {
 
 func (x *IssuePdcClearanceEvent) Reset() {
 	*x = IssuePdcClearanceEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[56]
+	mi := &file_proto_euroscope_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4913,7 +5217,7 @@ func (x *IssuePdcClearanceEvent) String() string {
 func (*IssuePdcClearanceEvent) ProtoMessage() {}
 
 func (x *IssuePdcClearanceEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[56]
+	mi := &file_proto_euroscope_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4926,7 +5230,7 @@ func (x *IssuePdcClearanceEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IssuePdcClearanceEvent.ProtoReflect.Descriptor instead.
 func (*IssuePdcClearanceEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{56}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *IssuePdcClearanceEvent) GetCallsign() string {
@@ -4952,7 +5256,7 @@ type PdcRevertToVoiceEvent struct {
 
 func (x *PdcRevertToVoiceEvent) Reset() {
 	*x = PdcRevertToVoiceEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[57]
+	mi := &file_proto_euroscope_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4964,7 +5268,7 @@ func (x *PdcRevertToVoiceEvent) String() string {
 func (*PdcRevertToVoiceEvent) ProtoMessage() {}
 
 func (x *PdcRevertToVoiceEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[57]
+	mi := &file_proto_euroscope_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4977,7 +5281,7 @@ func (x *PdcRevertToVoiceEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PdcRevertToVoiceEvent.ProtoReflect.Descriptor instead.
 func (*PdcRevertToVoiceEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{57}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *PdcRevertToVoiceEvent) GetCallsign() string {
@@ -4997,7 +5301,7 @@ type SendPrivateMessageEvent struct {
 
 func (x *SendPrivateMessageEvent) Reset() {
 	*x = SendPrivateMessageEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[58]
+	mi := &file_proto_euroscope_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5009,7 +5313,7 @@ func (x *SendPrivateMessageEvent) String() string {
 func (*SendPrivateMessageEvent) ProtoMessage() {}
 
 func (x *SendPrivateMessageEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[58]
+	mi := &file_proto_euroscope_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5022,7 +5326,7 @@ func (x *SendPrivateMessageEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendPrivateMessageEvent.ProtoReflect.Descriptor instead.
 func (*SendPrivateMessageEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{58}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *SendPrivateMessageEvent) GetCallsign() string {
@@ -5061,7 +5365,7 @@ type AMANGainLossValue struct {
 
 func (x *AMANGainLossValue) Reset() {
 	*x = AMANGainLossValue{}
-	mi := &file_proto_euroscope_proto_msgTypes[59]
+	mi := &file_proto_euroscope_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5073,7 +5377,7 @@ func (x *AMANGainLossValue) String() string {
 func (*AMANGainLossValue) ProtoMessage() {}
 
 func (x *AMANGainLossValue) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[59]
+	mi := &file_proto_euroscope_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5086,7 +5390,7 @@ func (x *AMANGainLossValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AMANGainLossValue.ProtoReflect.Descriptor instead.
 func (*AMANGainLossValue) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{59}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *AMANGainLossValue) GetFlightId() string {
@@ -5201,7 +5505,7 @@ type AMANGainLossEvent struct {
 
 func (x *AMANGainLossEvent) Reset() {
 	*x = AMANGainLossEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[60]
+	mi := &file_proto_euroscope_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5213,7 +5517,7 @@ func (x *AMANGainLossEvent) String() string {
 func (*AMANGainLossEvent) ProtoMessage() {}
 
 func (x *AMANGainLossEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[60]
+	mi := &file_proto_euroscope_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5226,7 +5530,7 @@ func (x *AMANGainLossEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AMANGainLossEvent.ProtoReflect.Descriptor instead.
 func (*AMANGainLossEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{60}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *AMANGainLossEvent) GetVersion() int32 {
@@ -5284,7 +5588,7 @@ type AMANRouteFactData struct {
 
 func (x *AMANRouteFactData) Reset() {
 	*x = AMANRouteFactData{}
-	mi := &file_proto_euroscope_proto_msgTypes[61]
+	mi := &file_proto_euroscope_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5296,7 +5600,7 @@ func (x *AMANRouteFactData) String() string {
 func (*AMANRouteFactData) ProtoMessage() {}
 
 func (x *AMANRouteFactData) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[61]
+	mi := &file_proto_euroscope_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5309,7 +5613,7 @@ func (x *AMANRouteFactData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AMANRouteFactData.ProtoReflect.Descriptor instead.
 func (*AMANRouteFactData) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{61}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *AMANRouteFactData) GetCallsign() string {
@@ -5360,7 +5664,7 @@ type AssignedSpeed struct {
 
 func (x *AssignedSpeed) Reset() {
 	*x = AssignedSpeed{}
-	mi := &file_proto_euroscope_proto_msgTypes[62]
+	mi := &file_proto_euroscope_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5372,7 +5676,7 @@ func (x *AssignedSpeed) String() string {
 func (*AssignedSpeed) ProtoMessage() {}
 
 func (x *AssignedSpeed) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[62]
+	mi := &file_proto_euroscope_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5385,7 +5689,7 @@ func (x *AssignedSpeed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignedSpeed.ProtoReflect.Descriptor instead.
 func (*AssignedSpeed) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{62}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *AssignedSpeed) GetValue() isAssignedSpeed_Value {
@@ -5439,7 +5743,7 @@ type AMANRouteFactEvent struct {
 
 func (x *AMANRouteFactEvent) Reset() {
 	*x = AMANRouteFactEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[63]
+	mi := &file_proto_euroscope_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5451,7 +5755,7 @@ func (x *AMANRouteFactEvent) String() string {
 func (*AMANRouteFactEvent) ProtoMessage() {}
 
 func (x *AMANRouteFactEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[63]
+	mi := &file_proto_euroscope_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5464,7 +5768,7 @@ func (x *AMANRouteFactEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AMANRouteFactEvent.ProtoReflect.Descriptor instead.
 func (*AMANRouteFactEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{63}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *AMANRouteFactEvent) GetVersion() int32 {
@@ -5492,7 +5796,7 @@ type FsScratchPadEvent struct {
 
 func (x *FsScratchPadEvent) Reset() {
 	*x = FsScratchPadEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[64]
+	mi := &file_proto_euroscope_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5504,7 +5808,7 @@ func (x *FsScratchPadEvent) String() string {
 func (*FsScratchPadEvent) ProtoMessage() {}
 
 func (x *FsScratchPadEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[64]
+	mi := &file_proto_euroscope_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5517,7 +5821,7 @@ func (x *FsScratchPadEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FsScratchPadEvent.ProtoReflect.Descriptor instead.
 func (*FsScratchPadEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{64}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *FsScratchPadEvent) GetCallsign() string {
@@ -5548,7 +5852,7 @@ type SendFrequencyMessageEvent struct {
 
 func (x *SendFrequencyMessageEvent) Reset() {
 	*x = SendFrequencyMessageEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[65]
+	mi := &file_proto_euroscope_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5560,7 +5864,7 @@ func (x *SendFrequencyMessageEvent) String() string {
 func (*SendFrequencyMessageEvent) ProtoMessage() {}
 
 func (x *SendFrequencyMessageEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[65]
+	mi := &file_proto_euroscope_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5573,7 +5877,7 @@ func (x *SendFrequencyMessageEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendFrequencyMessageEvent.ProtoReflect.Descriptor instead.
 func (*SendFrequencyMessageEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{65}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *SendFrequencyMessageEvent) GetRequestId() string {
@@ -5624,7 +5928,7 @@ type FrequencyMessageResultEvent struct {
 
 func (x *FrequencyMessageResultEvent) Reset() {
 	*x = FrequencyMessageResultEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[66]
+	mi := &file_proto_euroscope_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5636,7 +5940,7 @@ func (x *FrequencyMessageResultEvent) String() string {
 func (*FrequencyMessageResultEvent) ProtoMessage() {}
 
 func (x *FrequencyMessageResultEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[66]
+	mi := &file_proto_euroscope_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5649,7 +5953,7 @@ func (x *FrequencyMessageResultEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrequencyMessageResultEvent.ProtoReflect.Descriptor instead.
 func (*FrequencyMessageResultEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{66}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *FrequencyMessageResultEvent) GetRequestId() string {
@@ -5697,7 +6001,7 @@ type MasterInfoEvent struct {
 
 func (x *MasterInfoEvent) Reset() {
 	*x = MasterInfoEvent{}
-	mi := &file_proto_euroscope_proto_msgTypes[67]
+	mi := &file_proto_euroscope_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5709,7 +6013,7 @@ func (x *MasterInfoEvent) String() string {
 func (*MasterInfoEvent) ProtoMessage() {}
 
 func (x *MasterInfoEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_euroscope_proto_msgTypes[67]
+	mi := &file_proto_euroscope_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5722,7 +6026,7 @@ func (x *MasterInfoEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MasterInfoEvent.ProtoReflect.Descriptor instead.
 func (*MasterInfoEvent) Descriptor() ([]byte, []int) {
-	return file_proto_euroscope_proto_rawDescGZIP(), []int{67}
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *MasterInfoEvent) GetMasterCallsign() string {
@@ -5736,8 +6040,9 @@ var File_proto_euroscope_proto protoreflect.FileDescriptor
 
 const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
-	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\x92&\n" +
-	"\bEnvelope\x12=\n" +
+	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\x83(\n" +
+	"\bEnvelope\x12F\n" +
+	"\acontext\x18d \x01(\v2,.flightstrips.euroscope.v1.MembershipContextR\acontext\x12=\n" +
 	"\x05token\x18\x01 \x01(\v2%.flightstrips.euroscope.v1.TokenEventH\x00R\x05token\x12=\n" +
 	"\x05login\x18\x02 \x01(\v2%.flightstrips.euroscope.v1.LoginEventH\x00R\x05login\x12_\n" +
 	"\x11controller_online\x18\x03 \x01(\v20.flightstrips.euroscope.v1.ControllerOnlineEventH\x00R\x10controllerOnline\x12b\n" +
@@ -5798,13 +6103,41 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x16send_frequency_message\x186 \x01(\v24.flightstrips.euroscope.v1.SendFrequencyMessageEventH\x00R\x14sendFrequencyMessage\x12r\n" +
 	"\x18frequency_message_result\x187 \x01(\v26.flightstrips.euroscope.v1.FrequencyMessageResultEventH\x00R\x16frequencyMessageResult\x12M\n" +
 	"\vmaster_info\x188 \x01(\v2*.flightstrips.euroscope.v1.MasterInfoEventH\x00R\n" +
-	"masterInfoB\a\n" +
-	"\x05event\"k\n" +
+	"masterInfo\x12C\n" +
+	"\acontrol\x189 \x01(\v2'.flightstrips.euroscope.v1.ControlEventH\x00R\acontrol\x12b\n" +
+	"\x12membership_removed\x18: \x01(\v21.flightstrips.euroscope.v1.MembershipRemovedEventH\x00R\x11membershipRemovedB\a\n" +
+	"\x05event\"\x8c\x01\n" +
 	"\n" +
 	"TokenEvent\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12-\n" +
-	"\x12frequency_messages\x18\x03 \x01(\bR\x11frequencyMessages\"\xcb\x01\n" +
+	"\x12frequency_messages\x18\x03 \x01(\bR\x11frequencyMessages\x12\x1f\n" +
+	"\vinstance_id\x18\x04 \x01(\tR\n" +
+	"instanceId\"\xaa\x02\n" +
+	"\x11MembershipContext\x12\x1f\n" +
+	"\vinstance_id\x18\x01 \x01(\tR\n" +
+	"instanceId\x121\n" +
+	"\x14transport_generation\x18\x02 \x01(\x04R\x13transportGeneration\x12#\n" +
+	"\rmembership_id\x18\x03 \x01(\tR\fmembershipId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x04 \x01(\x05R\tsessionId\x12\x18\n" +
+	"\aairport\x18\x05 \x01(\tR\aairport\x12 \n" +
+	"\venvironment\x18\x06 \x01(\tR\venvironment\x12\x1e\n" +
+	"\n" +
+	"generation\x18\a \x01(\x04R\n" +
+	"generation\x12!\n" +
+	"\fmaster_epoch\x18\b \x01(\x04R\vmasterEpoch\"\x9e\x02\n" +
+	"\fControlEvent\x12 \n" +
+	"\venvironment\x18\x01 \x01(\tR\venvironment\x12\x1a\n" +
+	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12+\n" +
+	"\x11primary_frequency\x18\x03 \x01(\tR\x10primaryFrequency\x12+\n" +
+	"\x11tuned_frequencies\x18\x04 \x03(\tR\x10tunedFrequencies\x12\x1a\n" +
+	"\bobserver\x18\x05 \x01(\bR\bobserver\x12\x19\n" +
+	"\blocal_ip\x18\x06 \x01(\tR\alocalIp\x12)\n" +
+	"\x10relevant_airport\x18\a \x01(\tR\x0frelevantAirport\x12\x14\n" +
+	"\x05range\x18\b \x01(\x05R\x05range\"0\n" +
+	"\x16MembershipRemovedEvent\x12\x16\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\"\xcb\x01\n" +
 	"\n" +
 	"LoginEvent\x12\x18\n" +
 	"\aairport\x18\x01 \x01(\tR\aairport\x12\x1e\n" +
@@ -6181,7 +6514,7 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x05error\x18\x04 \x01(\tR\x05error\x12'\n" +
 	"\x0fapplied_actions\x18\x05 \x01(\x05R\x0eappliedActions\":\n" +
 	"\x0fMasterInfoEvent\x12'\n" +
-	"\x0fmaster_callsign\x18\x01 \x01(\tR\x0emasterCallsign*\xbf\v\n" +
+	"\x0fmaster_callsign\x18\x01 \x01(\tR\x0emasterCallsign*\xf0\v\n" +
 	"\tEventType\x12\x11\n" +
 	"\rEVENT_UNKNOWN\x10\x00\x12\x0f\n" +
 	"\vEVENT_TOKEN\x10\x01\x12\x0f\n" +
@@ -6243,7 +6576,9 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x14EVENT_FS_SCRATCH_PAD\x105\x12 \n" +
 	"\x1cEVENT_SEND_FREQUENCY_MESSAGE\x106\x12\"\n" +
 	"\x1eEVENT_FREQUENCY_MESSAGE_RESULT\x107\x12\x15\n" +
-	"\x11EVENT_MASTER_INFO\x108B/H\x03Z+FlightStrips/pkg/events/euroscope;euroscopeb\x06proto3"
+	"\x11EVENT_MASTER_INFO\x108\x12\x11\n" +
+	"\rEVENT_CONTROL\x109\x12\x1c\n" +
+	"\x18EVENT_MEMBERSHIP_REMOVED\x10:B/H\x03Z+FlightStrips/pkg/events/euroscope;euroscopeb\x06proto3"
 
 var (
 	file_proto_euroscope_proto_rawDescOnce sync.Once
@@ -6258,155 +6593,161 @@ func file_proto_euroscope_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_euroscope_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_euroscope_proto_msgTypes = make([]protoimpl.MessageInfo, 68)
+var file_proto_euroscope_proto_msgTypes = make([]protoimpl.MessageInfo, 71)
 var file_proto_euroscope_proto_goTypes = []any{
 	(EventType)(0),                         // 0: flightstrips.euroscope.v1.EventType
 	(*Envelope)(nil),                       // 1: flightstrips.euroscope.v1.Envelope
 	(*TokenEvent)(nil),                     // 2: flightstrips.euroscope.v1.TokenEvent
-	(*LoginEvent)(nil),                     // 3: flightstrips.euroscope.v1.LoginEvent
-	(*Runway)(nil),                         // 4: flightstrips.euroscope.v1.Runway
-	(*SidEntry)(nil),                       // 5: flightstrips.euroscope.v1.SidEntry
-	(*Position)(nil),                       // 6: flightstrips.euroscope.v1.Position
-	(*Controller)(nil),                     // 7: flightstrips.euroscope.v1.Controller
-	(*Strip)(nil),                          // 8: flightstrips.euroscope.v1.Strip
-	(*StripUpdateEvent)(nil),               // 9: flightstrips.euroscope.v1.StripUpdateEvent
-	(*SyncEvent)(nil),                      // 10: flightstrips.euroscope.v1.SyncEvent
-	(*RunwayEvent)(nil),                    // 11: flightstrips.euroscope.v1.RunwayEvent
-	(*EcfmpRestriction)(nil),               // 12: flightstrips.euroscope.v1.EcfmpRestriction
-	(*CdmUpdateEvent)(nil),                 // 13: flightstrips.euroscope.v1.CdmUpdateEvent
-	(*CdmUpdateBatchEvent)(nil),            // 14: flightstrips.euroscope.v1.CdmUpdateBatchEvent
-	(*BackendSyncCdmData)(nil),             // 15: flightstrips.euroscope.v1.BackendSyncCdmData
-	(*BackendSyncStrip)(nil),               // 16: flightstrips.euroscope.v1.BackendSyncStrip
-	(*BackendSyncEvent)(nil),               // 17: flightstrips.euroscope.v1.BackendSyncEvent
-	(*RunwayMismatchAlertEvent)(nil),       // 18: flightstrips.euroscope.v1.RunwayMismatchAlertEvent
-	(*CreateFPLEvent)(nil),                 // 19: flightstrips.euroscope.v1.CreateFPLEvent
-	(*SessionInfoEvent)(nil),               // 20: flightstrips.euroscope.v1.SessionInfoEvent
-	(*GenerateSquawkEvent)(nil),            // 21: flightstrips.euroscope.v1.GenerateSquawkEvent
-	(*EobtEvent)(nil),                      // 22: flightstrips.euroscope.v1.EobtEvent
-	(*RouteEvent)(nil),                     // 23: flightstrips.euroscope.v1.RouteEvent
-	(*RemarksEvent)(nil),                   // 24: flightstrips.euroscope.v1.RemarksEvent
-	(*AircraftInfoEvent)(nil),              // 25: flightstrips.euroscope.v1.AircraftInfoEvent
-	(*AircraftInfoRemarksEvent)(nil),       // 26: flightstrips.euroscope.v1.AircraftInfoRemarksEvent
-	(*SidEvent)(nil),                       // 27: flightstrips.euroscope.v1.SidEvent
-	(*AircraftRunwayEvent)(nil),            // 28: flightstrips.euroscope.v1.AircraftRunwayEvent
-	(*CoordinationHandoverEvent)(nil),      // 29: flightstrips.euroscope.v1.CoordinationHandoverEvent
-	(*CoordinationReceivedEvent)(nil),      // 30: flightstrips.euroscope.v1.CoordinationReceivedEvent
-	(*TrackingControllerChangedEvent)(nil), // 31: flightstrips.euroscope.v1.TrackingControllerChangedEvent
-	(*AssignedSquawkEvent)(nil),            // 32: flightstrips.euroscope.v1.AssignedSquawkEvent
-	(*SquawkEvent)(nil),                    // 33: flightstrips.euroscope.v1.SquawkEvent
-	(*ClearedAltitudeEvent)(nil),           // 34: flightstrips.euroscope.v1.ClearedAltitudeEvent
-	(*RequestedAltitudeEvent)(nil),         // 35: flightstrips.euroscope.v1.RequestedAltitudeEvent
-	(*CommunicationTypeEvent)(nil),         // 36: flightstrips.euroscope.v1.CommunicationTypeEvent
-	(*GroundStateEvent)(nil),               // 37: flightstrips.euroscope.v1.GroundStateEvent
-	(*ClearedFlagEvent)(nil),               // 38: flightstrips.euroscope.v1.ClearedFlagEvent
-	(*AircraftPositionUpdateEvent)(nil),    // 39: flightstrips.euroscope.v1.AircraftPositionUpdateEvent
-	(*HeadingEvent)(nil),                   // 40: flightstrips.euroscope.v1.HeadingEvent
-	(*AircraftDisconnectEvent)(nil),        // 41: flightstrips.euroscope.v1.AircraftDisconnectEvent
-	(*ControllerOnlineEvent)(nil),          // 42: flightstrips.euroscope.v1.ControllerOnlineEvent
-	(*ControllerOfflineEvent)(nil),         // 43: flightstrips.euroscope.v1.ControllerOfflineEvent
-	(*StandEvent)(nil),                     // 44: flightstrips.euroscope.v1.StandEvent
-	(*HoldEvent)(nil),                      // 45: flightstrips.euroscope.v1.HoldEvent
-	(*AssumeOnlyEvent)(nil),                // 46: flightstrips.euroscope.v1.AssumeOnlyEvent
-	(*AssumeAndDropEvent)(nil),             // 47: flightstrips.euroscope.v1.AssumeAndDropEvent
-	(*DropTrackingEvent)(nil),              // 48: flightstrips.euroscope.v1.DropTrackingEvent
-	(*CdmTobtUpdateEvent)(nil),             // 49: flightstrips.euroscope.v1.CdmTobtUpdateEvent
-	(*CdmAsrtToggleEvent)(nil),             // 50: flightstrips.euroscope.v1.CdmAsrtToggleEvent
-	(*CdmTsacUpdateEvent)(nil),             // 51: flightstrips.euroscope.v1.CdmTsacUpdateEvent
-	(*CdmDeiceUpdateEvent)(nil),            // 52: flightstrips.euroscope.v1.CdmDeiceUpdateEvent
-	(*CdmManualCtotEvent)(nil),             // 53: flightstrips.euroscope.v1.CdmManualCtotEvent
-	(*CdmCtotRemoveEvent)(nil),             // 54: flightstrips.euroscope.v1.CdmCtotRemoveEvent
-	(*CdmReadyEvent)(nil),                  // 55: flightstrips.euroscope.v1.CdmReadyEvent
-	(*PdcStateChangeEvent)(nil),            // 56: flightstrips.euroscope.v1.PdcStateChangeEvent
-	(*IssuePdcClearanceEvent)(nil),         // 57: flightstrips.euroscope.v1.IssuePdcClearanceEvent
-	(*PdcRevertToVoiceEvent)(nil),          // 58: flightstrips.euroscope.v1.PdcRevertToVoiceEvent
-	(*SendPrivateMessageEvent)(nil),        // 59: flightstrips.euroscope.v1.SendPrivateMessageEvent
-	(*AMANGainLossValue)(nil),              // 60: flightstrips.euroscope.v1.AMANGainLossValue
-	(*AMANGainLossEvent)(nil),              // 61: flightstrips.euroscope.v1.AMANGainLossEvent
-	(*AMANRouteFactData)(nil),              // 62: flightstrips.euroscope.v1.AMANRouteFactData
-	(*AssignedSpeed)(nil),                  // 63: flightstrips.euroscope.v1.AssignedSpeed
-	(*AMANRouteFactEvent)(nil),             // 64: flightstrips.euroscope.v1.AMANRouteFactEvent
-	(*FsScratchPadEvent)(nil),              // 65: flightstrips.euroscope.v1.FsScratchPadEvent
-	(*SendFrequencyMessageEvent)(nil),      // 66: flightstrips.euroscope.v1.SendFrequencyMessageEvent
-	(*FrequencyMessageResultEvent)(nil),    // 67: flightstrips.euroscope.v1.FrequencyMessageResultEvent
-	(*MasterInfoEvent)(nil),                // 68: flightstrips.euroscope.v1.MasterInfoEvent
+	(*MembershipContext)(nil),              // 3: flightstrips.euroscope.v1.MembershipContext
+	(*ControlEvent)(nil),                   // 4: flightstrips.euroscope.v1.ControlEvent
+	(*MembershipRemovedEvent)(nil),         // 5: flightstrips.euroscope.v1.MembershipRemovedEvent
+	(*LoginEvent)(nil),                     // 6: flightstrips.euroscope.v1.LoginEvent
+	(*Runway)(nil),                         // 7: flightstrips.euroscope.v1.Runway
+	(*SidEntry)(nil),                       // 8: flightstrips.euroscope.v1.SidEntry
+	(*Position)(nil),                       // 9: flightstrips.euroscope.v1.Position
+	(*Controller)(nil),                     // 10: flightstrips.euroscope.v1.Controller
+	(*Strip)(nil),                          // 11: flightstrips.euroscope.v1.Strip
+	(*StripUpdateEvent)(nil),               // 12: flightstrips.euroscope.v1.StripUpdateEvent
+	(*SyncEvent)(nil),                      // 13: flightstrips.euroscope.v1.SyncEvent
+	(*RunwayEvent)(nil),                    // 14: flightstrips.euroscope.v1.RunwayEvent
+	(*EcfmpRestriction)(nil),               // 15: flightstrips.euroscope.v1.EcfmpRestriction
+	(*CdmUpdateEvent)(nil),                 // 16: flightstrips.euroscope.v1.CdmUpdateEvent
+	(*CdmUpdateBatchEvent)(nil),            // 17: flightstrips.euroscope.v1.CdmUpdateBatchEvent
+	(*BackendSyncCdmData)(nil),             // 18: flightstrips.euroscope.v1.BackendSyncCdmData
+	(*BackendSyncStrip)(nil),               // 19: flightstrips.euroscope.v1.BackendSyncStrip
+	(*BackendSyncEvent)(nil),               // 20: flightstrips.euroscope.v1.BackendSyncEvent
+	(*RunwayMismatchAlertEvent)(nil),       // 21: flightstrips.euroscope.v1.RunwayMismatchAlertEvent
+	(*CreateFPLEvent)(nil),                 // 22: flightstrips.euroscope.v1.CreateFPLEvent
+	(*SessionInfoEvent)(nil),               // 23: flightstrips.euroscope.v1.SessionInfoEvent
+	(*GenerateSquawkEvent)(nil),            // 24: flightstrips.euroscope.v1.GenerateSquawkEvent
+	(*EobtEvent)(nil),                      // 25: flightstrips.euroscope.v1.EobtEvent
+	(*RouteEvent)(nil),                     // 26: flightstrips.euroscope.v1.RouteEvent
+	(*RemarksEvent)(nil),                   // 27: flightstrips.euroscope.v1.RemarksEvent
+	(*AircraftInfoEvent)(nil),              // 28: flightstrips.euroscope.v1.AircraftInfoEvent
+	(*AircraftInfoRemarksEvent)(nil),       // 29: flightstrips.euroscope.v1.AircraftInfoRemarksEvent
+	(*SidEvent)(nil),                       // 30: flightstrips.euroscope.v1.SidEvent
+	(*AircraftRunwayEvent)(nil),            // 31: flightstrips.euroscope.v1.AircraftRunwayEvent
+	(*CoordinationHandoverEvent)(nil),      // 32: flightstrips.euroscope.v1.CoordinationHandoverEvent
+	(*CoordinationReceivedEvent)(nil),      // 33: flightstrips.euroscope.v1.CoordinationReceivedEvent
+	(*TrackingControllerChangedEvent)(nil), // 34: flightstrips.euroscope.v1.TrackingControllerChangedEvent
+	(*AssignedSquawkEvent)(nil),            // 35: flightstrips.euroscope.v1.AssignedSquawkEvent
+	(*SquawkEvent)(nil),                    // 36: flightstrips.euroscope.v1.SquawkEvent
+	(*ClearedAltitudeEvent)(nil),           // 37: flightstrips.euroscope.v1.ClearedAltitudeEvent
+	(*RequestedAltitudeEvent)(nil),         // 38: flightstrips.euroscope.v1.RequestedAltitudeEvent
+	(*CommunicationTypeEvent)(nil),         // 39: flightstrips.euroscope.v1.CommunicationTypeEvent
+	(*GroundStateEvent)(nil),               // 40: flightstrips.euroscope.v1.GroundStateEvent
+	(*ClearedFlagEvent)(nil),               // 41: flightstrips.euroscope.v1.ClearedFlagEvent
+	(*AircraftPositionUpdateEvent)(nil),    // 42: flightstrips.euroscope.v1.AircraftPositionUpdateEvent
+	(*HeadingEvent)(nil),                   // 43: flightstrips.euroscope.v1.HeadingEvent
+	(*AircraftDisconnectEvent)(nil),        // 44: flightstrips.euroscope.v1.AircraftDisconnectEvent
+	(*ControllerOnlineEvent)(nil),          // 45: flightstrips.euroscope.v1.ControllerOnlineEvent
+	(*ControllerOfflineEvent)(nil),         // 46: flightstrips.euroscope.v1.ControllerOfflineEvent
+	(*StandEvent)(nil),                     // 47: flightstrips.euroscope.v1.StandEvent
+	(*HoldEvent)(nil),                      // 48: flightstrips.euroscope.v1.HoldEvent
+	(*AssumeOnlyEvent)(nil),                // 49: flightstrips.euroscope.v1.AssumeOnlyEvent
+	(*AssumeAndDropEvent)(nil),             // 50: flightstrips.euroscope.v1.AssumeAndDropEvent
+	(*DropTrackingEvent)(nil),              // 51: flightstrips.euroscope.v1.DropTrackingEvent
+	(*CdmTobtUpdateEvent)(nil),             // 52: flightstrips.euroscope.v1.CdmTobtUpdateEvent
+	(*CdmAsrtToggleEvent)(nil),             // 53: flightstrips.euroscope.v1.CdmAsrtToggleEvent
+	(*CdmTsacUpdateEvent)(nil),             // 54: flightstrips.euroscope.v1.CdmTsacUpdateEvent
+	(*CdmDeiceUpdateEvent)(nil),            // 55: flightstrips.euroscope.v1.CdmDeiceUpdateEvent
+	(*CdmManualCtotEvent)(nil),             // 56: flightstrips.euroscope.v1.CdmManualCtotEvent
+	(*CdmCtotRemoveEvent)(nil),             // 57: flightstrips.euroscope.v1.CdmCtotRemoveEvent
+	(*CdmReadyEvent)(nil),                  // 58: flightstrips.euroscope.v1.CdmReadyEvent
+	(*PdcStateChangeEvent)(nil),            // 59: flightstrips.euroscope.v1.PdcStateChangeEvent
+	(*IssuePdcClearanceEvent)(nil),         // 60: flightstrips.euroscope.v1.IssuePdcClearanceEvent
+	(*PdcRevertToVoiceEvent)(nil),          // 61: flightstrips.euroscope.v1.PdcRevertToVoiceEvent
+	(*SendPrivateMessageEvent)(nil),        // 62: flightstrips.euroscope.v1.SendPrivateMessageEvent
+	(*AMANGainLossValue)(nil),              // 63: flightstrips.euroscope.v1.AMANGainLossValue
+	(*AMANGainLossEvent)(nil),              // 64: flightstrips.euroscope.v1.AMANGainLossEvent
+	(*AMANRouteFactData)(nil),              // 65: flightstrips.euroscope.v1.AMANRouteFactData
+	(*AssignedSpeed)(nil),                  // 66: flightstrips.euroscope.v1.AssignedSpeed
+	(*AMANRouteFactEvent)(nil),             // 67: flightstrips.euroscope.v1.AMANRouteFactEvent
+	(*FsScratchPadEvent)(nil),              // 68: flightstrips.euroscope.v1.FsScratchPadEvent
+	(*SendFrequencyMessageEvent)(nil),      // 69: flightstrips.euroscope.v1.SendFrequencyMessageEvent
+	(*FrequencyMessageResultEvent)(nil),    // 70: flightstrips.euroscope.v1.FrequencyMessageResultEvent
+	(*MasterInfoEvent)(nil),                // 71: flightstrips.euroscope.v1.MasterInfoEvent
 }
 var file_proto_euroscope_proto_depIdxs = []int32{
-	2,  // 0: flightstrips.euroscope.v1.Envelope.token:type_name -> flightstrips.euroscope.v1.TokenEvent
-	3,  // 1: flightstrips.euroscope.v1.Envelope.login:type_name -> flightstrips.euroscope.v1.LoginEvent
-	42, // 2: flightstrips.euroscope.v1.Envelope.controller_online:type_name -> flightstrips.euroscope.v1.ControllerOnlineEvent
-	43, // 3: flightstrips.euroscope.v1.Envelope.controller_offline:type_name -> flightstrips.euroscope.v1.ControllerOfflineEvent
-	10, // 4: flightstrips.euroscope.v1.Envelope.sync:type_name -> flightstrips.euroscope.v1.SyncEvent
-	32, // 5: flightstrips.euroscope.v1.Envelope.assigned_squawk:type_name -> flightstrips.euroscope.v1.AssignedSquawkEvent
-	33, // 6: flightstrips.euroscope.v1.Envelope.squawk:type_name -> flightstrips.euroscope.v1.SquawkEvent
-	35, // 7: flightstrips.euroscope.v1.Envelope.requested_altitude:type_name -> flightstrips.euroscope.v1.RequestedAltitudeEvent
-	34, // 8: flightstrips.euroscope.v1.Envelope.cleared_altitude:type_name -> flightstrips.euroscope.v1.ClearedAltitudeEvent
-	36, // 9: flightstrips.euroscope.v1.Envelope.communication_type:type_name -> flightstrips.euroscope.v1.CommunicationTypeEvent
-	37, // 10: flightstrips.euroscope.v1.Envelope.ground_state:type_name -> flightstrips.euroscope.v1.GroundStateEvent
-	38, // 11: flightstrips.euroscope.v1.Envelope.cleared_flag:type_name -> flightstrips.euroscope.v1.ClearedFlagEvent
-	39, // 12: flightstrips.euroscope.v1.Envelope.aircraft_position_update:type_name -> flightstrips.euroscope.v1.AircraftPositionUpdateEvent
-	40, // 13: flightstrips.euroscope.v1.Envelope.heading:type_name -> flightstrips.euroscope.v1.HeadingEvent
-	41, // 14: flightstrips.euroscope.v1.Envelope.aircraft_disconnect:type_name -> flightstrips.euroscope.v1.AircraftDisconnectEvent
-	44, // 15: flightstrips.euroscope.v1.Envelope.stand:type_name -> flightstrips.euroscope.v1.StandEvent
-	31, // 16: flightstrips.euroscope.v1.Envelope.tracking_controller_changed:type_name -> flightstrips.euroscope.v1.TrackingControllerChangedEvent
-	9,  // 17: flightstrips.euroscope.v1.Envelope.strip_update:type_name -> flightstrips.euroscope.v1.StripUpdateEvent
-	11, // 18: flightstrips.euroscope.v1.Envelope.runway:type_name -> flightstrips.euroscope.v1.RunwayEvent
-	20, // 19: flightstrips.euroscope.v1.Envelope.session_info:type_name -> flightstrips.euroscope.v1.SessionInfoEvent
-	18, // 20: flightstrips.euroscope.v1.Envelope.runway_mismatch_alert:type_name -> flightstrips.euroscope.v1.RunwayMismatchAlertEvent
-	21, // 21: flightstrips.euroscope.v1.Envelope.generate_squawk:type_name -> flightstrips.euroscope.v1.GenerateSquawkEvent
-	22, // 22: flightstrips.euroscope.v1.Envelope.eobt:type_name -> flightstrips.euroscope.v1.EobtEvent
-	23, // 23: flightstrips.euroscope.v1.Envelope.route:type_name -> flightstrips.euroscope.v1.RouteEvent
-	24, // 24: flightstrips.euroscope.v1.Envelope.remarks:type_name -> flightstrips.euroscope.v1.RemarksEvent
-	25, // 25: flightstrips.euroscope.v1.Envelope.aircraft_info:type_name -> flightstrips.euroscope.v1.AircraftInfoEvent
-	26, // 26: flightstrips.euroscope.v1.Envelope.aircraft_info_remarks:type_name -> flightstrips.euroscope.v1.AircraftInfoRemarksEvent
-	27, // 27: flightstrips.euroscope.v1.Envelope.sid:type_name -> flightstrips.euroscope.v1.SidEvent
-	28, // 28: flightstrips.euroscope.v1.Envelope.aircraft_runway:type_name -> flightstrips.euroscope.v1.AircraftRunwayEvent
-	29, // 29: flightstrips.euroscope.v1.Envelope.coordination_handover:type_name -> flightstrips.euroscope.v1.CoordinationHandoverEvent
-	30, // 30: flightstrips.euroscope.v1.Envelope.coordination_received:type_name -> flightstrips.euroscope.v1.CoordinationReceivedEvent
-	46, // 31: flightstrips.euroscope.v1.Envelope.assume_only:type_name -> flightstrips.euroscope.v1.AssumeOnlyEvent
-	47, // 32: flightstrips.euroscope.v1.Envelope.assume_and_drop:type_name -> flightstrips.euroscope.v1.AssumeAndDropEvent
-	48, // 33: flightstrips.euroscope.v1.Envelope.drop_tracking:type_name -> flightstrips.euroscope.v1.DropTrackingEvent
-	17, // 34: flightstrips.euroscope.v1.Envelope.backend_sync:type_name -> flightstrips.euroscope.v1.BackendSyncEvent
-	19, // 35: flightstrips.euroscope.v1.Envelope.create_fpl:type_name -> flightstrips.euroscope.v1.CreateFPLEvent
-	13, // 36: flightstrips.euroscope.v1.Envelope.cdm_update:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
-	14, // 37: flightstrips.euroscope.v1.Envelope.cdm_update_batch:type_name -> flightstrips.euroscope.v1.CdmUpdateBatchEvent
-	49, // 38: flightstrips.euroscope.v1.Envelope.cdm_tobt_update:type_name -> flightstrips.euroscope.v1.CdmTobtUpdateEvent
-	50, // 39: flightstrips.euroscope.v1.Envelope.cdm_asrt_toggle:type_name -> flightstrips.euroscope.v1.CdmAsrtToggleEvent
-	51, // 40: flightstrips.euroscope.v1.Envelope.cdm_tsac_update:type_name -> flightstrips.euroscope.v1.CdmTsacUpdateEvent
-	52, // 41: flightstrips.euroscope.v1.Envelope.cdm_deice_update:type_name -> flightstrips.euroscope.v1.CdmDeiceUpdateEvent
-	53, // 42: flightstrips.euroscope.v1.Envelope.cdm_manual_ctot:type_name -> flightstrips.euroscope.v1.CdmManualCtotEvent
-	54, // 43: flightstrips.euroscope.v1.Envelope.cdm_ctot_remove:type_name -> flightstrips.euroscope.v1.CdmCtotRemoveEvent
-	55, // 44: flightstrips.euroscope.v1.Envelope.cdm_ready:type_name -> flightstrips.euroscope.v1.CdmReadyEvent
-	56, // 45: flightstrips.euroscope.v1.Envelope.pdc_state_change:type_name -> flightstrips.euroscope.v1.PdcStateChangeEvent
-	57, // 46: flightstrips.euroscope.v1.Envelope.issue_pdc_clearance:type_name -> flightstrips.euroscope.v1.IssuePdcClearanceEvent
-	58, // 47: flightstrips.euroscope.v1.Envelope.pdc_revert_to_voice:type_name -> flightstrips.euroscope.v1.PdcRevertToVoiceEvent
-	59, // 48: flightstrips.euroscope.v1.Envelope.send_private_message:type_name -> flightstrips.euroscope.v1.SendPrivateMessageEvent
-	45, // 49: flightstrips.euroscope.v1.Envelope.hold:type_name -> flightstrips.euroscope.v1.HoldEvent
-	61, // 50: flightstrips.euroscope.v1.Envelope.aman_gain_loss:type_name -> flightstrips.euroscope.v1.AMANGainLossEvent
-	64, // 51: flightstrips.euroscope.v1.Envelope.aman_route_fact:type_name -> flightstrips.euroscope.v1.AMANRouteFactEvent
-	65, // 52: flightstrips.euroscope.v1.Envelope.fs_scratch_pad:type_name -> flightstrips.euroscope.v1.FsScratchPadEvent
-	66, // 53: flightstrips.euroscope.v1.Envelope.send_frequency_message:type_name -> flightstrips.euroscope.v1.SendFrequencyMessageEvent
-	67, // 54: flightstrips.euroscope.v1.Envelope.frequency_message_result:type_name -> flightstrips.euroscope.v1.FrequencyMessageResultEvent
-	68, // 55: flightstrips.euroscope.v1.Envelope.master_info:type_name -> flightstrips.euroscope.v1.MasterInfoEvent
-	6,  // 56: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
-	8,  // 57: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
-	7,  // 58: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
-	8,  // 59: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
-	4,  // 60: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	5,  // 61: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
-	4,  // 62: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	12, // 63: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	13, // 64: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
-	12, // 65: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	15, // 66: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
-	16, // 67: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
-	60, // 68: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
-	63, // 69: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
-	62, // 70: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
-	71, // [71:71] is the sub-list for method output_type
-	71, // [71:71] is the sub-list for method input_type
-	71, // [71:71] is the sub-list for extension type_name
-	71, // [71:71] is the sub-list for extension extendee
-	0,  // [0:71] is the sub-list for field type_name
+	3,  // 0: flightstrips.euroscope.v1.Envelope.context:type_name -> flightstrips.euroscope.v1.MembershipContext
+	2,  // 1: flightstrips.euroscope.v1.Envelope.token:type_name -> flightstrips.euroscope.v1.TokenEvent
+	6,  // 2: flightstrips.euroscope.v1.Envelope.login:type_name -> flightstrips.euroscope.v1.LoginEvent
+	45, // 3: flightstrips.euroscope.v1.Envelope.controller_online:type_name -> flightstrips.euroscope.v1.ControllerOnlineEvent
+	46, // 4: flightstrips.euroscope.v1.Envelope.controller_offline:type_name -> flightstrips.euroscope.v1.ControllerOfflineEvent
+	13, // 5: flightstrips.euroscope.v1.Envelope.sync:type_name -> flightstrips.euroscope.v1.SyncEvent
+	35, // 6: flightstrips.euroscope.v1.Envelope.assigned_squawk:type_name -> flightstrips.euroscope.v1.AssignedSquawkEvent
+	36, // 7: flightstrips.euroscope.v1.Envelope.squawk:type_name -> flightstrips.euroscope.v1.SquawkEvent
+	38, // 8: flightstrips.euroscope.v1.Envelope.requested_altitude:type_name -> flightstrips.euroscope.v1.RequestedAltitudeEvent
+	37, // 9: flightstrips.euroscope.v1.Envelope.cleared_altitude:type_name -> flightstrips.euroscope.v1.ClearedAltitudeEvent
+	39, // 10: flightstrips.euroscope.v1.Envelope.communication_type:type_name -> flightstrips.euroscope.v1.CommunicationTypeEvent
+	40, // 11: flightstrips.euroscope.v1.Envelope.ground_state:type_name -> flightstrips.euroscope.v1.GroundStateEvent
+	41, // 12: flightstrips.euroscope.v1.Envelope.cleared_flag:type_name -> flightstrips.euroscope.v1.ClearedFlagEvent
+	42, // 13: flightstrips.euroscope.v1.Envelope.aircraft_position_update:type_name -> flightstrips.euroscope.v1.AircraftPositionUpdateEvent
+	43, // 14: flightstrips.euroscope.v1.Envelope.heading:type_name -> flightstrips.euroscope.v1.HeadingEvent
+	44, // 15: flightstrips.euroscope.v1.Envelope.aircraft_disconnect:type_name -> flightstrips.euroscope.v1.AircraftDisconnectEvent
+	47, // 16: flightstrips.euroscope.v1.Envelope.stand:type_name -> flightstrips.euroscope.v1.StandEvent
+	34, // 17: flightstrips.euroscope.v1.Envelope.tracking_controller_changed:type_name -> flightstrips.euroscope.v1.TrackingControllerChangedEvent
+	12, // 18: flightstrips.euroscope.v1.Envelope.strip_update:type_name -> flightstrips.euroscope.v1.StripUpdateEvent
+	14, // 19: flightstrips.euroscope.v1.Envelope.runway:type_name -> flightstrips.euroscope.v1.RunwayEvent
+	23, // 20: flightstrips.euroscope.v1.Envelope.session_info:type_name -> flightstrips.euroscope.v1.SessionInfoEvent
+	21, // 21: flightstrips.euroscope.v1.Envelope.runway_mismatch_alert:type_name -> flightstrips.euroscope.v1.RunwayMismatchAlertEvent
+	24, // 22: flightstrips.euroscope.v1.Envelope.generate_squawk:type_name -> flightstrips.euroscope.v1.GenerateSquawkEvent
+	25, // 23: flightstrips.euroscope.v1.Envelope.eobt:type_name -> flightstrips.euroscope.v1.EobtEvent
+	26, // 24: flightstrips.euroscope.v1.Envelope.route:type_name -> flightstrips.euroscope.v1.RouteEvent
+	27, // 25: flightstrips.euroscope.v1.Envelope.remarks:type_name -> flightstrips.euroscope.v1.RemarksEvent
+	28, // 26: flightstrips.euroscope.v1.Envelope.aircraft_info:type_name -> flightstrips.euroscope.v1.AircraftInfoEvent
+	29, // 27: flightstrips.euroscope.v1.Envelope.aircraft_info_remarks:type_name -> flightstrips.euroscope.v1.AircraftInfoRemarksEvent
+	30, // 28: flightstrips.euroscope.v1.Envelope.sid:type_name -> flightstrips.euroscope.v1.SidEvent
+	31, // 29: flightstrips.euroscope.v1.Envelope.aircraft_runway:type_name -> flightstrips.euroscope.v1.AircraftRunwayEvent
+	32, // 30: flightstrips.euroscope.v1.Envelope.coordination_handover:type_name -> flightstrips.euroscope.v1.CoordinationHandoverEvent
+	33, // 31: flightstrips.euroscope.v1.Envelope.coordination_received:type_name -> flightstrips.euroscope.v1.CoordinationReceivedEvent
+	49, // 32: flightstrips.euroscope.v1.Envelope.assume_only:type_name -> flightstrips.euroscope.v1.AssumeOnlyEvent
+	50, // 33: flightstrips.euroscope.v1.Envelope.assume_and_drop:type_name -> flightstrips.euroscope.v1.AssumeAndDropEvent
+	51, // 34: flightstrips.euroscope.v1.Envelope.drop_tracking:type_name -> flightstrips.euroscope.v1.DropTrackingEvent
+	20, // 35: flightstrips.euroscope.v1.Envelope.backend_sync:type_name -> flightstrips.euroscope.v1.BackendSyncEvent
+	22, // 36: flightstrips.euroscope.v1.Envelope.create_fpl:type_name -> flightstrips.euroscope.v1.CreateFPLEvent
+	16, // 37: flightstrips.euroscope.v1.Envelope.cdm_update:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
+	17, // 38: flightstrips.euroscope.v1.Envelope.cdm_update_batch:type_name -> flightstrips.euroscope.v1.CdmUpdateBatchEvent
+	52, // 39: flightstrips.euroscope.v1.Envelope.cdm_tobt_update:type_name -> flightstrips.euroscope.v1.CdmTobtUpdateEvent
+	53, // 40: flightstrips.euroscope.v1.Envelope.cdm_asrt_toggle:type_name -> flightstrips.euroscope.v1.CdmAsrtToggleEvent
+	54, // 41: flightstrips.euroscope.v1.Envelope.cdm_tsac_update:type_name -> flightstrips.euroscope.v1.CdmTsacUpdateEvent
+	55, // 42: flightstrips.euroscope.v1.Envelope.cdm_deice_update:type_name -> flightstrips.euroscope.v1.CdmDeiceUpdateEvent
+	56, // 43: flightstrips.euroscope.v1.Envelope.cdm_manual_ctot:type_name -> flightstrips.euroscope.v1.CdmManualCtotEvent
+	57, // 44: flightstrips.euroscope.v1.Envelope.cdm_ctot_remove:type_name -> flightstrips.euroscope.v1.CdmCtotRemoveEvent
+	58, // 45: flightstrips.euroscope.v1.Envelope.cdm_ready:type_name -> flightstrips.euroscope.v1.CdmReadyEvent
+	59, // 46: flightstrips.euroscope.v1.Envelope.pdc_state_change:type_name -> flightstrips.euroscope.v1.PdcStateChangeEvent
+	60, // 47: flightstrips.euroscope.v1.Envelope.issue_pdc_clearance:type_name -> flightstrips.euroscope.v1.IssuePdcClearanceEvent
+	61, // 48: flightstrips.euroscope.v1.Envelope.pdc_revert_to_voice:type_name -> flightstrips.euroscope.v1.PdcRevertToVoiceEvent
+	62, // 49: flightstrips.euroscope.v1.Envelope.send_private_message:type_name -> flightstrips.euroscope.v1.SendPrivateMessageEvent
+	48, // 50: flightstrips.euroscope.v1.Envelope.hold:type_name -> flightstrips.euroscope.v1.HoldEvent
+	64, // 51: flightstrips.euroscope.v1.Envelope.aman_gain_loss:type_name -> flightstrips.euroscope.v1.AMANGainLossEvent
+	67, // 52: flightstrips.euroscope.v1.Envelope.aman_route_fact:type_name -> flightstrips.euroscope.v1.AMANRouteFactEvent
+	68, // 53: flightstrips.euroscope.v1.Envelope.fs_scratch_pad:type_name -> flightstrips.euroscope.v1.FsScratchPadEvent
+	69, // 54: flightstrips.euroscope.v1.Envelope.send_frequency_message:type_name -> flightstrips.euroscope.v1.SendFrequencyMessageEvent
+	70, // 55: flightstrips.euroscope.v1.Envelope.frequency_message_result:type_name -> flightstrips.euroscope.v1.FrequencyMessageResultEvent
+	71, // 56: flightstrips.euroscope.v1.Envelope.master_info:type_name -> flightstrips.euroscope.v1.MasterInfoEvent
+	4,  // 57: flightstrips.euroscope.v1.Envelope.control:type_name -> flightstrips.euroscope.v1.ControlEvent
+	5,  // 58: flightstrips.euroscope.v1.Envelope.membership_removed:type_name -> flightstrips.euroscope.v1.MembershipRemovedEvent
+	9,  // 59: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
+	11, // 60: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
+	10, // 61: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
+	11, // 62: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
+	7,  // 63: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	8,  // 64: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
+	7,  // 65: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	15, // 66: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	16, // 67: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
+	15, // 68: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	18, // 69: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
+	19, // 70: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
+	63, // 71: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
+	66, // 72: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
+	65, // 73: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
+	74, // [74:74] is the sub-list for method output_type
+	74, // [74:74] is the sub-list for method input_type
+	74, // [74:74] is the sub-list for extension type_name
+	74, // [74:74] is the sub-list for extension extendee
+	0,  // [0:74] is the sub-list for field type_name
 }
 
 func init() { file_proto_euroscope_proto_init() }
@@ -6471,12 +6812,14 @@ func file_proto_euroscope_proto_init() {
 		(*Envelope_SendFrequencyMessage)(nil),
 		(*Envelope_FrequencyMessageResult)(nil),
 		(*Envelope_MasterInfo)(nil),
+		(*Envelope_Control)(nil),
+		(*Envelope_MembershipRemoved)(nil),
 	}
-	file_proto_euroscope_proto_msgTypes[11].OneofWrappers = []any{}
-	file_proto_euroscope_proto_msgTypes[38].OneofWrappers = []any{}
-	file_proto_euroscope_proto_msgTypes[59].OneofWrappers = []any{}
-	file_proto_euroscope_proto_msgTypes[61].OneofWrappers = []any{}
-	file_proto_euroscope_proto_msgTypes[62].OneofWrappers = []any{
+	file_proto_euroscope_proto_msgTypes[14].OneofWrappers = []any{}
+	file_proto_euroscope_proto_msgTypes[41].OneofWrappers = []any{}
+	file_proto_euroscope_proto_msgTypes[62].OneofWrappers = []any{}
+	file_proto_euroscope_proto_msgTypes[64].OneofWrappers = []any{}
+	file_proto_euroscope_proto_msgTypes[65].OneofWrappers = []any{
 		(*AssignedSpeed_Knots)(nil),
 		(*AssignedSpeed_MachThousandths)(nil),
 	}
@@ -6486,7 +6829,7 @@ func file_proto_euroscope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_euroscope_proto_rawDesc), len(file_proto_euroscope_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   68,
+			NumMessages:   71,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

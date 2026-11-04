@@ -30,6 +30,8 @@ const (
 	RunwayType                = EventType_EVENT_RUNWAY
 	SessionInfo               = EventType_EVENT_SESSION_INFO
 	MasterInfo                = EventType_EVENT_MASTER_INFO
+	Control                   = EventType_EVENT_CONTROL
+	MembershipRemoved         = EventType_EVENT_MEMBERSHIP_REMOVED
 	RunwayMismatchAlert       = EventType_EVENT_RUNWAY_MISMATCH_ALERT
 	GenerateSquawk            = EventType_EVENT_GENERATE_SQUAWK
 	Eobt                      = EventType_EVENT_EOBT
@@ -107,6 +109,41 @@ func MarshalEnvelope(message proto.Message, eventType EventType) ([]byte, error)
 	envelope.ProtoReflect().Set(field, protoreflect.ValueOfMessage(message.ProtoReflect()))
 	return proto.Marshal(envelope)
 }
+
+// ScopedMessage captures routing metadata when work is enqueued, not when the
+// writer eventually serializes it after a role transition or reconnect.
+type ScopedMessage struct {
+	context *MembershipContext
+	message events.OutgoingMessage
+}
+
+func NewScopedMessage(context *MembershipContext, message events.OutgoingMessage) ScopedMessage {
+	var captured *MembershipContext
+	if context != nil {
+		captured = proto.Clone(context).(*MembershipContext)
+	}
+	return ScopedMessage{context: captured, message: message}
+}
+
+func (m ScopedMessage) Marshal() ([]byte, error) {
+	data, err := m.message.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	var envelope Envelope
+	if err := proto.Unmarshal(data, &envelope); err != nil {
+		return nil, err
+	}
+	if m.context != nil {
+		envelope.Context = proto.Clone(m.context).(*MembershipContext)
+	}
+	return proto.Marshal(&envelope)
+}
+
+func (e ControlEvent) GetType() EventType                 { return Control }
+func (e ControlEvent) Marshal() ([]byte, error)           { return marshalMessage(&e) }
+func (e MembershipRemovedEvent) GetType() EventType       { return MembershipRemoved }
+func (e MembershipRemovedEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
 
 func UnmarshalEnvelope(data []byte) (EventType, []byte, error) {
 	var envelope Envelope

@@ -9,9 +9,10 @@ import (
 // Each session orders its own authority changes against source application.
 // Full sync can block this session's election, never another airport's work.
 type sessionElection struct {
-	gate   sync.RWMutex
-	infoMu sync.Mutex
-	epoch  atomic.Uint64
+	gate         sync.RWMutex
+	infoMu       sync.Mutex
+	scratchPadMu sync.Mutex // serialize this session's shared text and restoration
+	epoch        atomic.Uint64
 }
 
 func (hub *Hub) election(session int32) *sessionElection {

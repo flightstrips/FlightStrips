@@ -27,10 +27,10 @@ func (b *commandBinding) Validate() error {
 	b.hub.clientsMu.RLock()
 	registered := b.hub.clients[b.client]
 	b.hub.clientsMu.RUnlock()
-	if b.requireMaster && (b.hub.getMasterClient(b.session) != b.client || b.hub.election(b.session).epoch.Load() != b.masterEpoch) {
+	if (b.automatic && b.hub.election(b.session).epoch.Load() != b.masterEpoch) || (b.requireMaster && b.hub.getMasterClient(b.session) != b.client) {
 		return shared.RejectAction("automatic master executor changed")
 	}
-	if !registered || !b.client.IsAuthenticated() || b.client.isClosed() || (b.client.transport != nil && b.client.transport.root.isClosed()) || b.client.session != b.session || b.client.GetCid() != b.cid || b.client.identitySnapshot().observer || (b.requireReady && (!b.hub.IsSessionSynced(b.session) || (b.client.membership != nil && !b.client.announced.Load()))) {
+	if !registered || !b.client.IsAuthenticated() || b.client.isClosed() || (b.client.transport != nil && b.client.transport.root.isClosed()) || b.client.session != b.session || b.client.GetCid() != b.cid || b.client.identitySnapshot().observer || (b.client.membership != nil && (!b.client.announced.Load() || !b.client.roleEligible.Load())) || (b.requireReady && !b.hub.IsSessionSynced(b.session)) {
 		return shared.RejectAction("initiating own plugin is unavailable")
 	}
 	return nil
@@ -43,7 +43,7 @@ func (b *commandBinding) enqueue(event euroscope.OutgoingMessage) error {
 	// here; a later election never relabels a queued operation with a new epoch.
 	if b.client.membership != nil {
 		scope := b.client.wireContext()
-		if b.requireMaster && scope.MasterEpoch != b.masterEpoch {
+		if b.automatic && scope.MasterEpoch != b.masterEpoch {
 			return shared.RejectAction("automatic master executor changed")
 		}
 		origin := euroscope.CommandOrigin_COMMAND_ORIGIN_HUMAN
@@ -99,7 +99,7 @@ func (hub *Hub) captureMembershipBinding(session int32, cid, instance, membershi
 		if membership != "" && (client.membership == nil || client.membership.MembershipId != membership) {
 			continue
 		}
-		if client.session != session || client.GetCid() != cid || client.isClosed() || client.identitySnapshot().observer {
+		if client.session != session || client.GetCid() != cid || client.isClosed() || client.identitySnapshot().observer || (client.membership != nil && (!client.announced.Load() || !client.roleEligible.Load())) {
 			continue
 		}
 		if selected != nil {
@@ -111,6 +111,9 @@ func (hub *Hub) captureMembershipBinding(session int32, cid, instance, membershi
 		return nil, shared.RejectAction("own plugin is disconnected")
 	}
 	binding := &commandBinding{hub: hub, client: selected, session: session, cid: cid, requireReady: ready, automatic: !ready}
+	if binding.automatic {
+		binding.masterEpoch = hub.election(session).epoch.Load()
+	}
 	if err := binding.Validate(); err != nil {
 		return nil, err
 	}

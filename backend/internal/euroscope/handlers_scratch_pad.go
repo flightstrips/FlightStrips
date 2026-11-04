@@ -21,8 +21,11 @@ func handleFsScratchPad(ctx context.Context, client *Client, message Message) er
 	if strings.TrimSpace(event.Callsign) == "" || !utf8.ValidString(event.Text) || len(event.Text) > 15 || strings.ContainsAny(event.Text, "\x00\r\n") {
 		return errors.New("FS scratch pad must contain at most 15 bytes of single-line text")
 	}
-	client.hub.scratchPadMu.Lock()
-	defer client.hub.scratchPadMu.Unlock()
+	ctx, release := client.hub.enterSessionApplication(ctx, client.session)
+	defer release()
+	election := client.hub.election(client.session)
+	election.scratchPadMu.Lock()
+	defer election.scratchPadMu.Unlock()
 	count, err := client.hub.server.GetStripRepository().UpdateFsScratchPad(ctx, client.session, event.Callsign, event.Text)
 	if err != nil {
 		return err

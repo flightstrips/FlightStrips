@@ -58,11 +58,9 @@ type Hub struct {
 	controllerService     shared.ControllerService
 	pdcService            shared.PdcService
 	authenticationService shared.AuthenticationService
-	// Serialize shared edits and their broadcasts so every client sees the database order.
-	scratchPadMu sync.Mutex
-	clientsMu    sync.RWMutex
-	clients      map[*Client]bool
-	transports   map[*Client]bool
+	clientsMu             sync.RWMutex
+	clients               map[*Client]bool
+	transports            map[*Client]bool
 
 	// airportClientsMu guards airportClientCount for concurrent reads from other goroutines.
 	airportClientsMu   sync.RWMutex
@@ -423,7 +421,9 @@ func (hub *Hub) sendInitialAMANHoldingEAT(client *Client) {
 	if hub.amanHoldingEAT == nil || client.identitySnapshot().observer {
 		return
 	}
-	events, err := hub.amanHoldingEAT.CurrentAMANHoldingEAT(aman.WithSession(context.Background(), client.session), client.airport)
+	ctx, release := hub.enterSessionApplication(context.Background(), client.session)
+	defer release()
+	events, err := hub.amanHoldingEAT.CurrentAMANHoldingEAT(aman.WithSession(ctx, client.session), client.airport)
 	if err != nil {
 		slog.Error("Failed to load initial AMAN holding EAT", slog.String("airport", client.airport), slog.Any("error", err))
 		return
@@ -437,10 +437,15 @@ func (hub *Hub) sendInitialAMANHoldingEAT(client *Client) {
 // and sends a BackendSyncEvent to the client so it can apply the backend-authoritative
 // state to EuroScope before assuming master or slave duties.
 func (hub *Hub) sendBackendSyncIfNeeded(client *Client) bool {
-	hub.scratchPadMu.Lock()
-	defer hub.scratchPadMu.Unlock()
+	ctx, release := hub.enterSessionApplication(context.Background(), client.session)
+	defer release()
+	// The snapshot and every queued restoration message retain one election.
+	// Shared text is ordered within this session without delaying other airports.
+	election := hub.election(client.session)
+	election.scratchPadMu.Lock()
+	defer election.scratchPadMu.Unlock()
 	stripRepo := hub.server.GetStripRepository()
-	strips, err := stripRepo.List(context.Background(), client.session)
+	strips, err := stripRepo.List(ctx, client.session)
 	if err != nil {
 		slog.Error("Failed to fetch strips for backend sync", slog.Any("error", err))
 		return false

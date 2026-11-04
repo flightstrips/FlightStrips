@@ -87,15 +87,20 @@ func (c *Client) ApplyScopedMessage(ctx context.Context, scope *es.MembershipCon
 	if c.membership == nil {
 		return apply(ctx)
 	}
+	// Position batches release their execution slot while awaiting SQL. A later
+	// report must not occupy that slot while waiting behind removal or election.
+	resume := shared.SuspendPositionExecution(ctx)
 	c.applyMu.RLock()
 	defer c.applyMu.RUnlock()
 	if !c.matches(scope) || !c.IsAuthenticated() {
+		resume()
 		return shared.RejectAction("membership was removed or reconnected before application")
 	}
 	kind = strings.TrimPrefix(strings.ToLower(kind), "event_")
 	election := c.hub.election(c.session)
 	var release func()
 	ctx, release = c.hub.enterSessionApplication(ctx, c.session)
+	resume()
 	defer release()
 	if !c.matches(scope) || ctx.Err() != nil {
 		return shared.RejectAction("membership is no longer available")

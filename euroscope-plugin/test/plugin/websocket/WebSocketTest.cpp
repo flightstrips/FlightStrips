@@ -48,6 +48,45 @@ TEST(WebSocketTest, BinaryDefaultAndExplicitTextFramesRoundTripOnLoopback) {
     }
 }
 
+TEST(WebSocketTest, RetiredOpenCallbackCannotPublishStatusOverNewConnection) {
+    websocketpp::server<websocketpp::config::asio> server;
+    server.clear_access_channels(websocketpp::log::alevel::all);
+    server.clear_error_channels(websocketpp::log::elevel::all);
+    server.init_asio();
+    server.listen(asio::ip::tcp::endpoint(asio::ip::address_v4::loopback(), 0));
+    asio::error_code error;
+    const auto port = server.get_local_endpoint(error).port(); ASSERT_FALSE(error);
+    server.start_accept();
+    std::thread worker([&] { server.run(); });
+    std::promise<void> firstOpen, releaseFirst;
+    std::promise<WebSocketStatus> secondOpenStatus;
+    auto firstReady = firstOpen.get_future(); auto release = releaseFirst.get_future();
+    auto secondReady = secondOpenStatus.get_future();
+    int opens = 0;
+    std::unique_ptr<WebSocket> socket;
+    socket = std::make_unique<WebSocket>("ws://127.0.0.1:" + std::to_string(port) + "/ws",
+        [](const std::string&) {}, [&] {
+            if (++opens == 1) { firstOpen.set_value(); release.wait(); }
+            else if (opens == 2) secondOpenStatus.set_value(socket->GetStatus());
+        });
+    socket->Connect();
+    const auto entered = firstReady.wait_for(std::chrono::seconds(5));
+    EXPECT_EQ(entered, std::future_status::ready);
+    if (entered == std::future_status::ready) {
+        socket->Disconnect();
+        EXPECT_EQ(socket->GetStatus(), WEBSOCKET_STATUS_DISCONNECTED);
+        socket->Connect(); // The old callback must not overwrite this CONNECTING state.
+        EXPECT_EQ(socket->GetStatus(), WEBSOCKET_STATUS_CONNECTING);
+    }
+    releaseFirst.set_value();
+    if (entered == std::future_status::ready) {
+        const auto reopened = secondReady.wait_for(std::chrono::seconds(5));
+        EXPECT_EQ(reopened, std::future_status::ready);
+        if (reopened == std::future_status::ready) EXPECT_EQ(secondReady.get(), WEBSOCKET_STATUS_CONNECTING);
+    }
+    socket.reset(); server.stop(); worker.join();
+}
+
 TEST(WebSocketTest, FormatCloseLogMessage_IncludesRemoteAndLocalCloseDetails) {
     const auto message = detail::FormatCloseLogMessage(
         websocketpp::close::status::normal,

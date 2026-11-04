@@ -9,6 +9,13 @@
 #include <vector>
 
 namespace FlightStrips::flightplan {
+    FlightPlan* FlightPlanService::GetSourceFlightPlan(const std::string& callsign) {
+        const auto it=m_flightPlans.find(callsign);return it==m_flightPlans.end()?nullptr:&it->second;
+    }
+    std::unordered_map<std::string,FlightPlan>& FlightPlanService::MembershipPlans() {
+        const auto id=m_websocketService?m_websocketService->CurrentMembershipId():std::string{};
+        return id.empty()?m_flightPlans:m_membershipPlans[id];
+    }
     namespace {
         // EuroScope keeps its airline telephony list in %APPDATA%\EuroScope\DataFiles; prefer it over the plugin-relative config path.
         std::string ResolveAirlinesFilePath(filesystem::FileSystem* fileSystem, const std::string& configuredFile) {
@@ -175,6 +182,7 @@ namespace FlightStrips::flightplan {
             : false;
 
         const auto aircraftPosition = position.GetPosition();
+        m_websocketService->RememberAircraft(callsign,hasFp?fp.GetFlightPlanData().GetOrigin():"",hasFp?fp.GetFlightPlanData().GetDestination():"",aircraftPosition.m_Latitude,aircraftPosition.m_Longitude,hasFp);
         std::string stand;
         // TODO get airport height
         if (!isArrival && position.GetPressureAltitude() < 1000) {
@@ -249,11 +257,11 @@ namespace FlightStrips::flightplan {
         }
 
         // Queue position update instead of sending immediately
-        m_pendingPositionUpdates.insert_or_assign(callsign, PositionEvent(callsign, aircraftPosition.m_Latitude,
+        m_pendingPositionUpdates.insert_or_assign(callsign, PendingPosition{PositionEvent(callsign, aircraftPosition.m_Latitude,
                                                                           aircraftPosition.m_Longitude,
                                                                           position.GetPressureAltitude(),
                                                                           position.GetReportedGS(),
-                                                                          static_cast<int64_t>(std::max(0, position.GetReceivedTime())) * 1000));
+                                                                          static_cast<int64_t>(std::max(0, position.GetReceivedTime())) * 1000),m_websocketService->CaptureObservationContexts(callsign)});
     }
 
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
@@ -279,12 +287,14 @@ namespace FlightStrips::flightplan {
             ReconcileTopSkyHoldAnnotation(plan, ReadHold(flightPlan));
         }
 
-        if (!m_websocketService->ShouldSend()) return;
         const auto radarTarget = m_flightStripsPlugin->RadarTargetSelect(callsign.c_str());
         const auto radarPosition = radarTarget.GetPosition();
         if (!radarPosition.IsValid()) return;
         const auto position = radarPosition.GetPosition();
         const auto flightPlanData = flightPlan.GetFlightPlanData();
+        m_websocketService->RememberAircraft(callsign,flightPlanData.GetOrigin(),flightPlanData.GetDestination(),position.m_Latitude,position.m_Longitude);
+        if (!m_websocketService->ShouldSend()) return;
+ m_websocketService->RememberRunways(flightPlan.GetCallsign(),flightPlanData.GetDepartureRwy(),flightPlanData.GetArrivalRwy());
         const auto remarks = std::string(flightPlanData.GetRemarks());
 
         const auto isArrival = strcmp(flightPlan.GetFlightPlanData().GetDestination(), relevantAirport.c_str()) == 0;
@@ -384,6 +394,8 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
+        const auto data=flightPlan.GetFlightPlanData();
+        m_websocketService->RememberAircraft(callsign,data.GetOrigin(),data.GetDestination(),std::nan(""),std::nan(""));
         const auto shouldSendTracked = m_websocketService->ShouldSendTrackedAircraft(flightPlan.GetTrackingControllerIsMe());
 		if ((dataType == EuroScopePlugIn::CTR_DATA_TYPE_SPEED || dataType == EuroScopePlugIn::CTR_DATA_TYPE_MACH) &&
 			shouldSendTracked) {
@@ -496,14 +508,14 @@ namespace FlightStrips::flightplan {
         m_flightPlans.erase(callsign);
         m_rangeTrackedCallsigns.erase(callsign);
 
-        if (!wasTracked) return;
-        if (!m_websocketService->ShouldSend()) return;
-        m_websocketService->SendEvent(AircraftDisconnectEvent(callsign));
+        if (m_websocketService && (wasTracked || m_websocketService->KnowsAircraft(callsign)) && m_websocketService->ShouldSend()) m_websocketService->SendEvent(AircraftDisconnectEvent(callsign));
+        if(m_websocketService) m_websocketService->ForgetAircraft(callsign);
+        for(auto& [id,plans]:m_membershipPlans) plans.erase(callsign);
     }
 
     FlightPlan *FlightPlanService::GetFlightPlan(const std::string &callsign) {
-        const auto flightPlan = m_flightPlans.find(callsign);
-        if (flightPlan == m_flightPlans.end()) return nullptr;
+        const auto flightPlan = MembershipPlans().find(callsign);
+        if (flightPlan == MembershipPlans().end()) return nullptr;
         return &(flightPlan->second);
     }
 
@@ -532,7 +544,7 @@ namespace FlightStrips::flightplan {
     }
 
     void FlightPlanService::ApplyCdmUpdate(const CdmUpdateEvent& event) {
-        auto& plan = m_flightPlans.try_emplace(event.callsign).first->second;
+        auto& plan = MembershipPlans().try_emplace(event.callsign).first->second;
         plan.cdm.eobt = event.eobt;
         plan.cdm.tobt = event.tobt;
         plan.cdm.tobt_confirmed_by = event.tobt_confirmed_by;
@@ -573,18 +585,19 @@ namespace FlightStrips::flightplan {
     }
 
     void FlightPlanService::ApplyFsScratchPad(const std::string& callsign, const std::string& text) {
-        m_flightPlans.try_emplace(callsign).first->second.fs_scratch_pad = text;
+        MembershipPlans().try_emplace(callsign).first->second.fs_scratch_pad = text;
     }
 
     void FlightPlanService::SessionChanged(const std::string& identity) {
         if (m_sessionIdentity == identity) return;
-        for (auto& [callsign, plan] : m_flightPlans) plan.fs_scratch_pad.clear();
+        m_flightPlans.clear();m_pendingPositionUpdates.clear();m_rangeTrackedCallsigns.clear();
+        m_membershipPlans.clear();
         m_sessionIdentity = identity;
     }
 
     void FlightPlanService::ApplyBackendSyncHold(const std::string& callsign, const std::string& hold,
                                                  const std::string& holdType, const std::string& holdEat) {
-        auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+        auto& plan = MembershipPlans().try_emplace(callsign).first->second;
         // An empty backend snapshot cannot cancel a locally known hold during
         // reconnect. Explicit XHOLD still clears the local state immediately.
         if (plan.hold_command_pending || (hold.empty() && !plan.hold.empty())) return;
@@ -595,7 +608,7 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::CacheBackendHoldEatReplay(const std::string& callsign, const std::string& hold,
                                                       const std::string& holdType, const std::string& holdEat) {
-        auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+        auto& plan = MembershipPlans().try_emplace(callsign).first->second;
         plan.published_hold_eat = hold.empty() ? std::string{} : holdEat;
         if (hold.empty() || holdType.empty() || holdEat.empty()) {
             plan.backend_hold_eat_replay.reset();
@@ -605,7 +618,7 @@ namespace FlightStrips::flightplan {
     }
 
     void FlightPlanService::ApplyPdcStateChange(const std::string& callsign, const std::string& state, const std::string& requestRemarks) {
-        auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+        auto& plan = MembershipPlans().try_emplace(callsign).first->second;
         plan.pdc_state = state;
         plan.pdc_request_remarks = requestRemarks;
     }
@@ -656,6 +669,9 @@ namespace FlightStrips::flightplan {
     }
 
     void FlightPlanService::OnTimer(int counter) {
+        for(auto it=m_membershipPlans.begin();it!=m_membershipPlans.end();) {
+            if(!m_websocketService->Memberships().members.contains(it->first)) it=m_membershipPlans.erase(it); else ++it;
+        }
         const auto interval = m_appConfig->GetPositionUpdateIntervalSeconds();
 
         if (counter - m_lastPositionFlushCounter >= interval) {
@@ -698,11 +714,11 @@ namespace FlightStrips::flightplan {
             return;
         }
 
-        for (const auto& [callsign, positionEvent] : m_pendingPositionUpdates) {
-            auto event = positionEvent;
+        for (const auto& [callsign, pending] : m_pendingPositionUpdates) {
+            auto event = pending.event;
             event.position_age_ms += std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - event.captured_at).count();
-            m_websocketService->SendEvent(event);
+            for(const auto& context:pending.contexts) m_websocketService->SendObservation(event,context);
         }
 
         m_pendingPositionUpdates.clear();

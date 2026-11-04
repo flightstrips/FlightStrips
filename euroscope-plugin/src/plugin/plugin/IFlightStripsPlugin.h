@@ -47,5 +47,7 @@ namespace FlightStrips {
     public:
         virtual ~IFlightStripsPlugin() = default;
         virtual ConnectionState& GetConnectionState() = 0;
+        virtual void SetMembershipAirport(const std::string&,const std::string&,double,double) {}
+        virtual void RemoveMembershipAirport(const std::string&) {}
     };
 }

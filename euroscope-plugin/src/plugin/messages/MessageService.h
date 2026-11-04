@@ -41,8 +41,11 @@ namespace FlightStrips::messages {
         struct PendingFrequencyMessage {
             PendingFrequencySubmission submission;
             FrequencyMessageResultEvent result;
+            websocket::protobuf::wire::MembershipContext context;
         };
         mutable std::optional<PendingFrequencyMessage> m_pendingFrequencyMessage;
+        mutable std::optional<SyncEvent> m_sourceSnapshot;
+        mutable uint64_t m_sourceSnapshotBatch=0;
         std::shared_ptr<FlightStripsPlugin> m_plugin;
         std::shared_ptr<websocket::WebSocketService> m_webSocketService;
         std::shared_ptr<flightplan::FlightPlanService> m_flightPlanService;

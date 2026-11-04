@@ -7,6 +7,7 @@
 #include "ProtoCodec.h"
 #include "Logger.hpp"
 #include "WebSocket.h"
+#include "MembershipState.h"
 #include "authentication/IAuthenticationService.h"
 #include "handlers/AuthenticationEventHandler.h"
 #include "handlers/ConnectionEventHandlers.h"
@@ -15,12 +16,6 @@
 #include "plugin/IFlightStripsPlugin.h"
 
 namespace FlightStrips::websocket {
-    enum ClientState {
-        STATE_UNKNOWN,
-        STATE_SLAVE,
-        STATE_MASTER,
-        STATE_OBSERVER
-    };
 
     struct Stats {
         int tx = 0;
@@ -55,6 +50,24 @@ namespace FlightStrips::websocket {
         void Reconnect();
         void SetSessionState(ClientState state);
         void SetMasterCallsign(const std::string& callsign);
+        std::string CurrentMembershipId() const;
+        std::string CurrentAirport() const;
+        uint64_t DispatchBatch() const { return dispatch_batch_; }
+        const MembershipState& Memberships() const { return memberships_; }
+        void SendCaptured(const Event& event, const protobuf::wire::MembershipContext& context);
+        std::vector<protobuf::wire::MembershipContext> CaptureObservationContexts(const std::string& callsign) const;
+        void SendObservation(const Event& event,const protobuf::wire::MembershipContext& context);
+        protobuf::wire::MembershipContext CaptureContext() const;
+        void RememberRunways(const std::string& callsign, const std::string& departure, const std::string& arrival);
+        void RememberAircraft(const std::string& callsign,const std::string& origin,const std::string& destination,double latitude,double longitude,bool hasFp=true);
+        bool KnowsAircraft(const std::string& callsign) const {
+            if(source_aircraft_.contains(callsign)) return true;
+            for(const auto& [id,m]:memberships_.members) if(m.inventory.contains(callsign)) return true;
+            return false;
+        }
+        void ForgetAircraft(const std::string& callsign);
+        void ProcessServerMessage(const std::string& bytes);
+        void ForEachMembership(const std::function<void(const std::string&)>& action);
         Stats GetStats() const;
         std::optional<int> GetDelaySecondsRemaining() const;
 
@@ -69,6 +82,7 @@ namespace FlightStrips::websocket {
                          std::string localIp = "");
 
         void OnConnected();
+        void ProcessConnected();
         std::optional<std::chrono::steady_clock::time_point> online_since_;
 
     private:
@@ -83,8 +97,13 @@ namespace FlightStrips::websocket {
         // Identifies the EuroScope playback, independently of the backend connection.
         std::string playback_session_name_;
         bool observer = false;
-        ClientState client_state = STATE_UNKNOWN;
-        std::string master_callsign_;
+        std::string instance_id_;
+        uint64_t transport_generation_ = 0;
+        MembershipState memberships_;
+        std::string active_membership_;
+        uint64_t dispatch_batch_ = 0;
+        std::unordered_map<std::string, std::pair<std::string,std::string>> source_runways_;
+        std::unordered_map<std::string,protobuf::wire::Strip> source_aircraft_;
         std::string local_ip_;
 
         mutable std::mutex message_mutex_;
@@ -105,7 +124,8 @@ namespace FlightStrips::websocket {
         int fail_count_ = 0;
 
         int tx = 0;
-        int rx = 0;
+        std::atomic<int> rx = 0;
+        std::atomic<bool> connected_pending_ = false;
 
         void InitializeOnlineState();
         void UpdatePlaybackSession(ConnectionType connectionType);
@@ -115,6 +135,7 @@ namespace FlightStrips::websocket {
         bool CanSendEventType(EventType type) const;
         void OnMessage(const std::string &message);
         void SendLoginEvent();
+        void SendBytes(const std::string& bytes);
     };
 }
 
@@ -124,9 +145,8 @@ void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
         Logger::Debug("Suppressing event type {} for current client role", static_cast<int>(event.type));
         return;
     }
-    ++tx;
     const auto bytes = protobuf::Serialize(event);
-    webSocket->Send(bytes);
+    SendBytes(bytes);
     Logger::Debug("Sending protobuf event type {} ({} bytes)", static_cast<int>(event.type), bytes.size());
 }
 

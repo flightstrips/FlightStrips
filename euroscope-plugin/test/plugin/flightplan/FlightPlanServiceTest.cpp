@@ -15,33 +15,16 @@ using FlightStrips::flightplan::ShouldReportTopSkyHoldCommand;
 using FlightStrips::flightplan::TopSkyHold;
 using FlightStrips::flightplan::TopSkyHoldCommandType;
 
-TEST(FlightPlanServiceStateTest, SessionChangeClearsSharedTextButPreservesAircraftFields) {
-    auto service = std::make_shared<FlightPlanService>(nullptr, nullptr, nullptr, nullptr, nullptr);
-    FlightStrips::handlers::ConnectionEventHandlers handlers;
-    handlers.RegisterHandler(service);
-    handlers.OnSessionChanged("EKCH/SESSION-A");
-    service->SetStand("SAS123", "A12");
-    service->ApplyFsScratchPad("SAS123", "CALL OPS");
-    service->ApplyFsScratchPad("SAS456", "SECOND NOTE");
-    auto* plan = service->GetFlightPlan("SAS123");
-    plan->squawk = "1234";
-    service->ApplyBackendSyncHold("SAS123", "MONAK", "enroute", "1215");
-
-    handlers.OnSessionChanged("EKCH/SESSION-A");
-    EXPECT_EQ(plan->fs_scratch_pad, "CALL OPS");
-    handlers.OnSessionChanged("EKCH/SESSION-B");
-    EXPECT_TRUE(plan->fs_scratch_pad.empty());
-    EXPECT_TRUE(service->GetFlightPlan("SAS456")->fs_scratch_pad.empty());
-    EXPECT_EQ(plan->stand, "A12");
-    EXPECT_EQ(plan->squawk, "1234");
-    EXPECT_EQ(plan->hold, "MONAK");
-    EXPECT_EQ(plan->hold_eat, "1215");
-
-    service->ApplyFsScratchPad("SAS123", "NEW SESSION");
-    handlers.OnSessionChanged("EKCH/SESSION-B");
-    EXPECT_EQ(plan->fs_scratch_pad, "NEW SESSION");
-    handlers.OnSessionChanged("EKYT/SESSION-B");
-    EXPECT_TRUE(plan->fs_scratch_pad.empty());
+TEST(FlightPlanServiceStateTest, EnvironmentChangeClearsSourceAndMembershipState) {
+    FlightPlanService service(nullptr,nullptr,nullptr,nullptr,nullptr);
+    service.SessionChanged("LIVE");service.SetStand("SAS123","A12");service.ApplyFsScratchPad("SAS123","CALL OPS");
+    auto* plan=service.GetFlightPlan("SAS123");ASSERT_NE(plan,nullptr);
+    plan->hold_command_pending=true;plan->hold_command_observed=true;plan->direct_to_initialized=true;
+    service.SessionChanged("LIVE");EXPECT_EQ(service.GetFlightPlan("SAS123"),plan);
+    service.SessionChanged("SWEATBOX");EXPECT_EQ(service.GetFlightPlan("SAS123"),nullptr);
+    service.SetStand("SAS123","B10");plan=service.GetFlightPlan("SAS123");ASSERT_NE(plan,nullptr);
+    EXPECT_FALSE(plan->hold_command_pending);EXPECT_FALSE(plan->hold_command_observed);EXPECT_FALSE(plan->direct_to_initialized);
+    service.SessionChanged("PLAYBACK_new");EXPECT_EQ(service.GetFlightPlan("SAS123"),nullptr);
 }
 
 TEST(FlightPlanServiceStateTest, StandAndSharedScratchPadRemainIndependent) {

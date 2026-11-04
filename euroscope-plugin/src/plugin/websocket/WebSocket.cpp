@@ -91,17 +91,19 @@ namespace FlightStrips::websocket {
                     return;
                 }
 
+                const auto generation=++generation_;
                 m_hdl = con->get_handle();
 
-                con->set_open_handler([this](const websocketpp::connection_hdl& hdl) { OnOpen(hdl); });
-                con->set_message_handler([this](const websocketpp::connection_hdl& hdl, const typename ClientT::message_ptr& msg) { OnMessage(hdl, msg); });
-                con->set_fail_handler([this](const websocketpp::connection_hdl& hdl) { OnFailure(hdl); });
-                con->set_close_handler([this](const websocketpp::connection_hdl& hdl) { OnClose(hdl); });
+                con->set_open_handler([this,generation](const websocketpp::connection_hdl& hdl) { if(generation==generation_.load()) OnOpen(hdl); });
+                con->set_message_handler([this,generation](const websocketpp::connection_hdl& hdl, const typename ClientT::message_ptr& msg) { if(generation==generation_.load()) OnMessage(hdl, msg); });
+                con->set_fail_handler([this,generation](const websocketpp::connection_hdl& hdl) { if(generation==generation_.load()) OnFailure(hdl); });
+                con->set_close_handler([this,generation](const websocketpp::connection_hdl& hdl) { if(generation==generation_.load()) OnClose(hdl); });
 
                 m_endpoint.connect(con);
             }
 
             void Disconnect() override {
+                ++generation_;
                 TryDisconnect();
                 status_ = WEBSOCKET_STATUS_DISCONNECTED;
                 m_hdl.reset();
@@ -177,6 +179,7 @@ namespace FlightStrips::websocket {
                 });
             }
 
+            std::atomic<uint64_t> generation_{0};
             std::atomic<WebSocketStatus> status_{WEBSOCKET_STATUS_DISCONNECTED};
 
             ClientT m_endpoint;

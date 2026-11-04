@@ -35,10 +35,8 @@ namespace FlightStrips::runway {
 
     void RunwayService::SendRunwayEvent() const {
         if (!m_websocketService->IsConnected()) return;
-        const auto airport = m_plugin->GetConnectionState().relevant_airport;
-        if (airport.empty()) return;
-
-        const auto event = RunwayEvent(GetActiveRunways(airport.c_str()));
-        m_websocketService->SendEvent(event);
+        m_websocketService->ForEachMembership([&](const std::string& airport) {
+            m_websocketService->SendEvent(RunwayEvent(GetActiveRunways(airport.c_str())));
+        });
     }
 }

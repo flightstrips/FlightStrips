@@ -90,6 +90,8 @@ namespace FlightStrips {
         [[nodiscard]] bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan) const;
 
         void SetAirportCoordinates(double latitude, double longitude);
+        void SetMembershipAirport(const std::string& id,const std::string& airport,double latitude,double longitude) override;
+        void RemoveMembershipAirport(const std::string& id) override;
 
         ConnectionState& GetConnectionState() override;
 
@@ -118,6 +120,8 @@ namespace FlightStrips {
         ConnectionState m_connectionState = {};
         std::deque<PendingSquawkRequest> m_needsSquawk = {};
         double m_airportLatitude = 0.0;
+        struct MembershipAirport {std::string airport;double latitude;double longitude;};
+        std::unordered_map<std::string,MembershipAirport> m_membershipAirports;
         double m_airportLongitude = 0.0;
         std::optional<AirportFallbackProbe> m_lastAirportFallbackProbe;
         bool m_windowProbeLogged = false;

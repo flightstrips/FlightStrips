@@ -57,10 +57,11 @@ namespace FlightStrips::messages {
         const auto outcome = PrivateMessageSender::PollFrequencySubmission(m_pendingFrequencyMessage->submission);
         if (!outcome) return;
         auto result = m_pendingFrequencyMessage->result;
+        const auto context=m_pendingFrequencyMessage->context;
         m_pendingFrequencyMessage.reset();
         result.error = *outcome;
         result.submitted = result.error.empty();
-        m_webSocketService->SendEvent(result);
+        m_webSocketService->SendCaptured(result,context);
     }
 
     void MessageService::OnMessages(const std::vector<std::string> &messages) {
@@ -169,7 +170,7 @@ namespace FlightStrips::messages {
 
         if (state != websocket::STATE_MASTER) {
             // Send our runway config so the backend can detect conflicts with the master
-            const auto airport = m_plugin->GetConnectionState().relevant_airport;
+            const auto airport = m_webSocketService->CurrentAirport();
             if (!airport.empty()) {
                 const auto runwayEvent = RunwayEvent(m_runwayService->GetActiveRunways(airport.c_str()));
                 m_webSocketService->SendEvent(runwayEvent);
@@ -177,7 +178,14 @@ namespace FlightStrips::messages {
             return;
         }
 
-        // send sync event
+        if(m_sourceSnapshot && m_sourceSnapshotBatch==m_webSocketService->DispatchBatch()) {
+            auto snapshot=*m_sourceSnapshot;
+            const auto airport=m_webSocketService->CurrentAirport();
+            snapshot.runways=m_runwayService->GetActiveRunways(airport.c_str());snapshot.sids.clear();
+            for(const auto& sid:m_plugin->GetSids(airport)) snapshot.sids.push_back({sid.name,sid.runway});
+            m_webSocketService->SendEvent(snapshot);return;
+        }
+        // Collect EuroScope sources once; SendEvent builds each membership inventory.
         std::vector<Controller> controllers;
         std::vector<Strip> strips;
 
@@ -187,11 +195,12 @@ namespace FlightStrips::messages {
             controllers.emplace_back(primaryFrequency, std::string(it.GetCallsign()));
         }
 
-        const auto relevantAirport = m_plugin->GetConnectionState().relevant_airport.c_str();
+        const auto relevantAirport = m_webSocketService->CurrentAirport();
         for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
             if (!m_plugin->IsRelevant(it)) continue;;
             if (it.GetSimulated()) continue;;
             const auto flightPlanData = it.GetFlightPlanData();
+            m_webSocketService->RememberRunways(it.GetCallsign(),flightPlanData.GetDepartureRwy(),flightPlanData.GetArrivalRwy());
 
             const auto callsign = std::string(it.GetCallsign());
             const auto remarks = std::string(flightPlanData.GetRemarks());
@@ -209,8 +218,8 @@ namespace FlightStrips::messages {
                 altitude = radarPosition.GetPressureAltitude();
                 squawk = std::string(radarPosition.GetSquawk());
             }
-            const auto info = m_flightPlanService->GetFlightPlan(callsign);
-            const auto isArrival = strcmp(it.GetFlightPlanData().GetDestination(), relevantAirport) == 0;
+            const auto info = m_flightPlanService->GetSourceFlightPlan(callsign);
+            const auto isArrival = strcmp(it.GetFlightPlanData().GetDestination(), relevantAirport.c_str()) == 0;
             const auto runway = std::string(isArrival
                                                 ? it.GetFlightPlanData().GetArrivalRwy()
                                                 : it.GetFlightPlanData().GetDepartureRwy());
@@ -244,7 +253,7 @@ namespace FlightStrips::messages {
                 squawk,
                 std::string(controllerAssignedData.GetSquawk()),
                 std::string(flightPlanData.GetSidName()),
-                isArrival ? std::string(flightPlanData.GetStarName()) : "",
+                std::string(flightPlanData.GetStarName()),
                 it.GetClearenceFlag(),
                 std::string(it.GetGroundState()),
                 controllerAssignedData.GetClearedAltitude(),
@@ -260,7 +269,7 @@ namespace FlightStrips::messages {
                 flightplan::FlightPlanService::ResolveCommunicationType(flightPlanData.GetCommunicationType(), controllerAssignedData.GetCommunicationType()),
                 flightPlanData.GetCapibilities() == 0 ? "?" : std::string {flightPlanData.GetCapibilities()},
                 std::string(flightPlanData.GetEstimatedDepartureTime()),
-                isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : "",
+                flightplan::FlightPlanService::GetEstimatedLandingTime(it),
                 std::string(it.GetTrackingControllerCallsign()),
                 {flightPlanData.GetEngineType()},
                 true,
@@ -287,7 +296,7 @@ namespace FlightStrips::messages {
             if (!position.IsValid()) continue;
 
             const auto pos = position.GetPosition();
-            const auto info = m_flightPlanService->GetFlightPlan(callsign);
+            const auto info = m_flightPlanService->GetSourceFlightPlan(callsign);
             std::string stand;
             if (info != nullptr && !info->stand.empty()) {
                 stand = info->stand;
@@ -316,13 +325,14 @@ namespace FlightStrips::messages {
             });
         }
 
-        const auto syncEvent = SyncEvent(strips, controllers, m_runwayService->GetActiveRunways(relevantAirport), [&] {
+        const auto syncEvent = SyncEvent(strips, controllers, m_runwayService->GetActiveRunways(relevantAirport.c_str()), [&] {
             std::vector<SidEntry> sidEntries;
             for (const auto& sid : m_plugin->GetSids(relevantAirport)) {
                 sidEntries.push_back(SidEntry{sid.name, sid.runway});
             }
             return sidEntries;
         }());
+        m_sourceSnapshot=syncEvent;m_sourceSnapshotBatch=m_webSocketService->DispatchBatch();
         m_webSocketService->SendEvent(syncEvent);
         // Create/update strips before replaying holds: a reconnect may attach
         // to a new session whose backend has no aircraft records yet. The
@@ -478,7 +488,7 @@ namespace FlightStrips::messages {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) return;
         auto route = std::string(fp.GetFlightPlanData().GetRoute());
-        m_routeService->SetSid(route, event.sid, m_plugin->GetConnectionState().relevant_airport);
+        m_routeService->SetSid(route, event.sid, m_webSocketService->CurrentAirport());
         if (route.empty()) return;
         if (!fp.GetFlightPlanData().SetRoute(route.c_str())) {
             Logger::Warning("Failed to set route '{}' for {}", route, event.callsign);
@@ -492,7 +502,7 @@ namespace FlightStrips::messages {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) return;
         // TODO: We only handle departures for now
-        const auto airport = m_plugin->GetConnectionState().relevant_airport;
+        const auto airport = m_webSocketService->CurrentAirport();
         if (_stricmp(fp.GetFlightPlanData().GetOrigin(), airport.c_str()) != 0) return;
         auto route = std::string(fp.GetFlightPlanData().GetRoute());
         m_routeService->SetDepartureRunway(route, event.runway, airport);
@@ -567,13 +577,14 @@ namespace FlightStrips::messages {
     }
 
     void MessageService::HandleBackendSyncEvent(const BackendSyncEvent &event) const {
-        m_plugin->SetAirportCoordinates(event.latitude, event.longitude);
+        // Geography belongs to this membership; source filtering has already been
+        // updated by WebSocketService immediately before dispatch.
         for (const auto& strip : event.strips) {
             m_flightPlanService->ApplyFsScratchPad(strip.callsign, strip.fs_scratch_pad);
         }
 
 
-        const auto relevantAirport = m_plugin->GetConnectionState().relevant_airport;
+        const auto relevantAirport = m_webSocketService->CurrentAirport();
         for (const auto &strip : event.strips) {
             const auto fp = m_plugin->FlightPlanSelect(strip.callsign.c_str());
             if (!fp.IsValid()) {
@@ -641,7 +652,7 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
             m_webSocketService->SendEvent(result);
             return;
         }
-        m_pendingFrequencyMessage = PendingFrequencyMessage{submission, result};
+        m_pendingFrequencyMessage = PendingFrequencyMessage{submission, result,m_webSocketService->CaptureContext()};
     }
 
     void MessageService::HandleTrackingControllerChangedEvent(const TrackingControllerChangedEvent& event) const {
@@ -754,7 +765,7 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
             return;
         }
 
-        const auto airport = m_plugin->GetConnectionState().relevant_airport;
+        const auto airport = m_webSocketService->CurrentAirport();
         auto fpData = fp.GetFlightPlanData();
 
         if (!event.origin.empty()) {

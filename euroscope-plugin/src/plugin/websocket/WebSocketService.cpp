@@ -474,7 +474,8 @@ namespace FlightStrips::websocket {
             SetMasterCallsign("");
             for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
             memberships_.Reset(); active_membership_.clear();transport_generation_=0;source_runways_.clear();source_aircraft_.clear();
-            { std::lock_guard lock(message_mutex_); messages_.clear(); pending_token_.reset(); }
+            std::optional<std::string> connectedToken;
+            { std::lock_guard lock(message_mutex_); messages_.clear(); connectedToken.swap(pending_token_); }
             tx = 0;
             rx = 0;
             pending_connect_ = false;
@@ -486,7 +487,7 @@ namespace FlightStrips::websocket {
                 online_since_ = std::chrono::steady_clock::now();
             }
             has_connected_in_online_period_ = true;
-            const auto token = TokenEvent(m_authentication_service->GetAccessToken(), PLUGIN_VERSION);
+            const auto token = TokenEvent(connectedToken ? *connectedToken : m_authentication_service->GetAccessToken(), PLUGIN_VERSION);
             SendEvent(token);
             SendLoginEvent();
 

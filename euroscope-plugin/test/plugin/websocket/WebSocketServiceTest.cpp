@@ -634,6 +634,8 @@ TEST_F(WebSocketServiceReconnectTest, ReconnectFencesOldMembershipCallbacksUntil
     SetTestRole(*svc, STATE_MASTER);
     EXPECT_TRUE(svc->ShouldSend());
     svc->BeginConnected();
+    // Authentication announces the new token before updating its provider cache.
+    svc->OnTokenUpdate("fresh-token");
     EXPECT_FALSE(svc->IsConnected()); EXPECT_FALSE(svc->ShouldSend());
     EXPECT_CALL(*mockImpl, Send(_)).Times(0);
     svc->SendEvent(HoldEvent("SAS123", "OLPIB", "enroute", "1422"));
@@ -647,6 +649,7 @@ TEST_F(WebSocketServiceReconnectTest, ReconnectFencesOldMembershipCallbacksUntil
     EXPECT_TRUE(svc->IsConnected()); EXPECT_FALSE(svc->ShouldSend());
     EXPECT_TRUE(svc->Memberships().members.empty());
     ASSERT_EQ(sent.size(), 2u); EXPECT_TRUE(sent[0].has_token()); EXPECT_TRUE(sent[1].has_control());
+    EXPECT_EQ(sent[0].token().token(), "fresh-token");
 }
 
 TEST_F(WebSocketServiceReconnectTest, SdkTimerPreservesPendingInitializationUntilPhysicalOpenCompletes) {

@@ -113,12 +113,20 @@ func MarshalEnvelope(message proto.Message, eventType EventType) ([]byte, error)
 // ScopedMessage captures routing metadata when work is enqueued, not when the
 // writer eventually serializes it after a role transition or reconnect.
 type ScopedMessage struct {
-	Context *MembershipContext
-	Message events.OutgoingMessage
+	context *MembershipContext
+	message events.OutgoingMessage
+}
+
+func NewScopedMessage(context *MembershipContext, message events.OutgoingMessage) ScopedMessage {
+	var captured *MembershipContext
+	if context != nil {
+		captured = proto.Clone(context).(*MembershipContext)
+	}
+	return ScopedMessage{context: captured, message: message}
 }
 
 func (m ScopedMessage) Marshal() ([]byte, error) {
-	data, err := m.Message.Marshal()
+	data, err := m.message.Marshal()
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +134,8 @@ func (m ScopedMessage) Marshal() ([]byte, error) {
 	if err := proto.Unmarshal(data, &envelope); err != nil {
 		return nil, err
 	}
-	if m.Context != nil {
-		envelope.Context = proto.Clone(m.Context).(*MembershipContext)
+	if m.context != nil {
+		envelope.Context = proto.Clone(m.context).(*MembershipContext)
 	}
 	return proto.Marshal(&envelope)
 }

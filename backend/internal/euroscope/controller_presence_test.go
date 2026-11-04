@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -119,3 +120,35 @@ func TestControlOnlyPongRejectsExpiredPhysicalAuthentication(t *testing.T) {
 type presenceFrontend struct{ testutil.MockFrontendHub }
 
 func (*presenceFrontend) CidOnline(int32, string) {}
+
+func TestMembershipAdmissionRechecksAuthenticationAfterControllerWait(t *testing.T) {
+	backendWorkflowFixture()
+	workflows, err := airportworkflow.NewRegistry(backendFixtureDefinitions, airportworkflow.EKCHDescriptor())
+	require.NoError(t, err)
+	hub := membershipTestHub()
+	hub.airports = backendFixtureDefinitions
+	hub.workflows = workflows
+	var sessionCalls atomic.Int32
+	hub.server = &testutil.MockServer{GetOrCreateSessionFn: func(string, string) (shared.Session, error) { sessionCalls.Add(1); return shared.Session{Id: 1}, nil }}
+	root := membershipTestRoot(hub, "123", "instance")
+	defer root.Close()
+	root.transport.evidence = es.ControlEvent{Environment: "LIVE", Callsign: "SAME", PrimaryFrequency: "118.000"}
+	rowLock := hub.controllerRowLock("EKCH", "LIVE", "SAME")
+	rowLock.Lock()
+	joined := make(chan error, 1)
+	go func() { _, err := hub.JoinMembership(root, "EKCH"); joined <- err }()
+	// A join holds transport.mu while awaiting this row lock. No SQL may run yet.
+	require.Eventually(t, func() bool {
+		if root.transport.mu.TryLock() {
+			root.transport.mu.Unlock()
+			return false
+		}
+		return true
+	}, 10*time.Second, time.Millisecond)
+	root.SetUser(shared.NewAuthenticatedUser("123", 0, &jwt.Token{Claims: jwt.MapClaims{"exp": float64(time.Now().Add(-time.Minute).Unix())}}))
+	rowLock.Unlock()
+	require.Error(t, <-joined)
+	require.Zero(t, sessionCalls.Load(), "expired admission must not reach session creation or controller writes")
+	require.Empty(t, root.transport.snapshot())
+	require.Empty(t, hub.clientsSnapshot())
+}

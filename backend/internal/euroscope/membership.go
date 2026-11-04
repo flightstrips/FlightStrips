@@ -252,6 +252,9 @@ func (hub *Hub) JoinMembership(root *Client, airport string) (*Client, error) {
 	rowLock := hub.controllerRowLock(airport, evidence.Environment, evidence.Callsign)
 	rowLock.Lock()
 	defer rowLock.Unlock()
+	if !root.IsAuthenticated() || root.isClosed() || root.IsDraining() {
+		return nil, shared.RejectAction("transport is unavailable")
+	}
 	event, session, err := hub.admitMembershipController(context.Background(), login, root.userSnapshot())
 	if err != nil {
 		return nil, err

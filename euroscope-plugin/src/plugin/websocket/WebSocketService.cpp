@@ -15,7 +15,8 @@ namespace FlightStrips::websocket {
         for (const auto& [id, member] : memberships_.members) {
             if (!active_membership_.empty() && id != active_membership_) continue;
             if ((member.role == STATE_MASTER || member.role == STATE_SLAVE) && member.inventory.contains(event.callsign)) {
-                SendEvent(event);
+                // Reconnect replay is source state, not completion of an SDK command.
+                SendBytes(protobuf::Serialize(event));
                 return true;
             }
         }

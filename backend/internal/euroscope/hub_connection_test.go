@@ -2,6 +2,7 @@ package euroscope
 
 import (
 	"context"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -53,6 +54,7 @@ func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(
 	}
 
 	server := &testutil.MockServer{
+		FrontendHubVal:    &testutil.MockFrontendHub{},
 		ControllerRepoVal: controllerRepo,
 		GetOrCreateSessionFn: func(airport string, name string) (shared.Session, error) {
 			assert.Equal(t, "EKCH", airport)
@@ -79,12 +81,14 @@ func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(
 		workflows:                   workflows,
 		server:                      server,
 		register:                    make(chan *Client, 1),
+		clients:                     make(map[*Client]bool),
+		airportClientCount:          make(map[string]int),
 		pendingOnlineOrchestrations: make(map[string]struct{}),
 		observerByCid:               make(map[string]bool),
 		localIPByClient:             make(map[string]string),
 	}
 
-	user := shared.NewAuthenticatedUser("1234567", 0, nil)
+	user := shared.NewAuthenticatedUser("1234567", 0, jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"exp": float64(time.Now().Add(time.Hour).Unix())}))
 	clientCh := make(chan *Client, 1)
 	errCh := make(chan error, 1)
 
@@ -96,7 +100,7 @@ func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(
 			return
 		}
 
-		client, err := hub.HandleNewConnection(conn, user, events.AuthenticationEvent{})
+		client, err := hub.HandleNewConnection(conn, user, events.AuthenticationEvent{InstanceID: "test-process"})
 		if err != nil {
 			errCh <- err
 			return
@@ -122,27 +126,23 @@ func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(
 	select {
 	case err := <-errCh:
 		require.NoError(t, err)
-	case client := <-clientCh:
-		t.Cleanup(func() { _ = client.Close() })
-		assert.Equal(t, callsign, client.callsign)
-		assert.Equal(t, position, client.position)
-		require.NotNil(t, client.workflow, "real websocket login must carry the startup-bound workflow")
-		startQueuedTestClient(client)
-		hub.sendBackendSyncIfNeeded(client)
-		select {
-		case message := <-client.send:
-			backend, ok := message.(euroscopeEvents.BackendSyncEvent)
-			require.True(t, ok)
-			require.Len(t, backend.Strips, 1)
-			require.Equal(t, euroscopeEvents.GroundStateLineup, backend.Strips[0].GroundState)
-		case <-time.After(time.Second):
-			t.Fatal("login did not produce backend sync")
-		}
+	case root := <-clientCh:
+		t.Cleanup(func() { _ = root.Close() })
+		require.Empty(t, root.transport.snapshot(), "transport establishment must not create a controller")
+		control, _ := proto.Marshal(&euroscopeEvents.ControlEvent{Environment: "LIVE", Callsign: callsign, PrimaryFrequency: position, RelevantAirport: "EKCH"})
+		require.NoError(t, handleControlEvent(t.Context(), root, Message{Message: control}))
+		members := root.transport.snapshot()
+		require.Len(t, members, 1)
+		client := members[0]
+		require.Equal(t, callsign, client.callsign)
+		require.Equal(t, position, client.position)
+		require.NotNil(t, client.workflow, "membership must carry the startup-bound workflow")
+		require.True(t, hub.consumePendingOnlineOrchestration(session, callsign))
+		require.False(t, hub.consumePendingOnlineOrchestration(session, callsign))
+
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for HandleNewConnection")
 	}
 
-	assert.Equal(t, 1, updateLayoutsCalls)
-	assert.True(t, hub.consumePendingOnlineOrchestration(session, callsign))
-	assert.False(t, hub.consumePendingOnlineOrchestration(session, callsign))
+	assert.Equal(t, 0, updateLayoutsCalls)
 }

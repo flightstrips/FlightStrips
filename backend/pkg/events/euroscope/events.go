@@ -114,16 +114,20 @@ func MarshalEnvelope(message proto.Message, eventType EventType) ([]byte, error)
 // writer eventually serializes it after a role transition or reconnect.
 type ScopedMessage struct {
 	context *MembershipContext
-	message events.OutgoingMessage
+	message OutgoingMessage
 }
 
-func NewScopedMessage(context *MembershipContext, message events.OutgoingMessage) ScopedMessage {
+func NewScopedMessage(context *MembershipContext, message OutgoingMessage) ScopedMessage {
 	var captured *MembershipContext
 	if context != nil {
 		captured = proto.Clone(context).(*MembershipContext)
 	}
 	return ScopedMessage{context: captured, message: message}
 }
+
+func (m ScopedMessage) GetType() EventType { return m.message.GetType() }
+
+var _ OutgoingMessage = ScopedMessage{}
 
 func (m ScopedMessage) Marshal() ([]byte, error) {
 	data, err := m.message.Marshal()

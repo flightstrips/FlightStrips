@@ -54,11 +54,12 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 }
 
 func handleAMANSubmitCoordination(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var wire events.AMANSubmitCoordinationMessage
 	if err := decodeAMANMessage(message, events.AMANSubmitCoordinationType, &wire); err != nil {
 		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
 	}
-	auth, err := client.hub.amanContext(client)
+	auth, err := client.hub.amanMessageContext(ctx, client)
 	if err != nil {
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
 	}
@@ -77,7 +78,7 @@ func handleAMANSubmitCoordination(ctx context.Context, client *Client, message M
 	default:
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("unknown coordination request kind")))
 	}
-	result, err := client.hub.amanCoordination.Submit(ctx, coordinationrequest.CommandContext{SessionID: client.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, coordinationrequest.SubmitCommand{
+	result, err := client.hub.amanCoordination.Submit(ctx, coordinationrequest.CommandContext{SessionID: identity.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, coordinationrequest.SubmitCommand{
 		CommandID: wire.Data.CommandID, ExpectedRevision: wire.Data.ExpectedRevision, Callsign: coordinationrequest.Callsign(wire.Data.Callsign), Kind: coordinationrequest.Kind(wire.Data.Kind), Payload: payload,
 	})
 	if err != nil {
@@ -101,7 +102,7 @@ func handleAMANCoordinationDecision(ctx context.Context, client *Client, message
 	if err := decodeAMANMessage(message, eventType, &wire); err != nil {
 		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
 	}
-	auth, err := client.hub.coordinationContext(client)
+	auth, err := client.hub.coordinationMessageContext(ctx, client)
 	if err != nil {
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
 	}
@@ -484,7 +485,7 @@ func handleAMANFlightCommand(ctx context.Context, client *Client, message Messag
 }
 
 func runAMANCommand(ctx context.Context, client *Client, commandID string, execute func(aman.CommandContext) (aman.CommandExecution, error)) error {
-	auth, err := client.hub.amanContext(client)
+	auth, err := client.hub.amanMessageContext(ctx, client)
 	if err != nil {
 		return rejectDecodedAMAN(ctx, client, commandID, err)
 	}
@@ -496,59 +497,73 @@ func runAMANCommand(ctx context.Context, client *Client, commandID string, execu
 	return nil
 }
 
+// The wrappers serve hub-owned metadata publication and direct tests. Request
+// handlers pass their captured identity through the message-context variants.
 func (hub *Hub) amanContext(client *Client) (aman.CommandContext, error) {
-	auth, err := hub.coordinationContext(client)
+	return hub.amanContextForIdentity(client, client.identitySnapshot())
+}
+func (hub *Hub) amanMessageContext(ctx context.Context, client *Client) (aman.CommandContext, error) {
+	return hub.amanContextForIdentity(client, client.messageIdentity(ctx))
+}
+func (hub *Hub) amanContextForIdentity(client *Client, identity clientIdentity) (aman.CommandContext, error) {
+	auth, err := hub.coordinationContextForIdentity(client, identity)
 	if err != nil {
 		return aman.CommandContext{}, err
 	}
-	if !hub.hasAMANFMPAuthority(client) {
+	if !hub.hasAMANFMPAuthorityForIdentity(client, identity) {
 		return aman.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "AMAN command requires an FMP role"}
 	}
-	return aman.CommandContext{SessionID: client.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, nil
+	return aman.CommandContext{SessionID: identity.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, nil
 }
-
 func (hub *Hub) coordinationContext(client *Client) (coordinationrequest.CommandContext, error) {
+	return hub.coordinationContextForIdentity(client, client.identitySnapshot())
+}
+func (hub *Hub) coordinationMessageContext(ctx context.Context, client *Client) (coordinationrequest.CommandContext, error) {
+	return hub.coordinationContextForIdentity(client, client.messageIdentity(ctx))
+}
+func (hub *Hub) coordinationContextForIdentity(client *Client, identity clientIdentity) (coordinationrequest.CommandContext, error) {
 	if client == nil || !client.IsAuthenticated() {
 		return coordinationrequest.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "AMAN command requires an authenticated session"}
 	}
-	if client.readOnly {
+	if identity.readOnly {
 		return coordinationrequest.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "observer clients cannot mutate AMAN state"}
 	}
 	if !hub.amanMutations {
 		return coordinationrequest.CommandContext{}, &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN controller mutations are read-only in the current rollout mode"}
 	}
-	role := hub.amanRole(client)
 	now := time.Now
 	if hub.amanNow != nil {
 		now = hub.amanNow
 	}
-	return coordinationrequest.CommandContext{SessionID: client.session, Airport: client.airport, Actor: client.GetCid(), Role: role, ReceivedAt: now().UTC()}, nil
+	return coordinationrequest.CommandContext{SessionID: identity.session, Airport: identity.airport, Actor: client.GetCid(), Role: hub.amanRoleForIdentity(identity), ReceivedAt: now().UTC()}, nil
 }
-
 func (hub *Hub) amanRole(client *Client) string {
 	if client == nil {
 		return ""
 	}
-	if value, err := config.GetPositionByName(client.callsign); err == nil {
+	return hub.amanRoleForIdentity(client.identitySnapshot())
+}
+func (hub *Hub) amanRoleForIdentity(identity clientIdentity) string {
+	if value, err := config.GetPositionByName(identity.callsign); err == nil {
 		return value.Name
 	}
 	roleForPosition := configuredAMANRole
 	if hub.amanRoleForPosition != nil {
 		roleForPosition = hub.amanRoleForPosition
 	}
-	if role := roleForPosition(client.position); role != "" {
+	if role := roleForPosition(identity.position); role != "" {
 		return role
 	}
-	// Controller callsigns are populated from the server-side controller
-	// repository and remain the authoritative identity at a primed frequency.
-	return strings.TrimSpace(client.callsign)
+	return strings.TrimSpace(identity.callsign)
 }
-
 func (hub *Hub) hasAMANFMPAuthority(client *Client) bool {
-	if client == nil || !client.IsAuthenticated() || client.session == WaitingForEuroscopeConnectionSessionId {
+	return hub.hasAMANFMPAuthorityForIdentity(client, client.identitySnapshot())
+}
+func (hub *Hub) hasAMANFMPAuthorityForIdentity(client *Client, identity clientIdentity) bool {
+	if client == nil || !client.IsAuthenticated() || identity.session == WaitingForEuroscopeConnectionSessionId {
 		return false
 	}
-	return aman.IsFMPRole(hub.amanRole(client))
+	return aman.IsFMPRole(hub.amanRoleForIdentity(identity))
 }
 
 func configuredAMANRole(position string) string {
@@ -562,12 +577,13 @@ func configuredAMANRole(position string) string {
 }
 
 func rejectDecodedAMAN(ctx context.Context, client *Client, commandID string, err error) error {
+	identity := client.messageIdentity(ctx)
 	if commandID == "" {
 		return err
 	}
 	revision := aman.SequenceRevision(0)
-	if client != nil && client.hub != nil && client.hub.amanCommandService != nil && client.airport != "" {
-		if current, currentErr := client.hub.amanCommandService.CurrentRevision(aman.WithSession(ctx, client.session), client.airport); currentErr == nil {
+	if client != nil && client.hub != nil && client.hub.amanCommandService != nil && identity.airport != "" {
+		if current, currentErr := client.hub.amanCommandService.CurrentRevision(aman.WithSession(ctx, identity.session), identity.airport); currentErr == nil {
 			revision = current
 		}
 	}
@@ -575,13 +591,14 @@ func rejectDecodedAMAN(ctx context.Context, client *Client, commandID string, er
 }
 
 func rejectAMAN(ctx context.Context, client *Client, commandID string, revision aman.SequenceRevision, err error) error {
+	identity := client.messageIdentity(ctx)
 	domain := stableAMANError(err)
 	event, mapErr := events.NewAMANCommandRejectedEvent(commandID, revision, domain, retryableAMANError(domain.Class))
 	if mapErr != nil {
 		return mapErr
 	}
 	client.Enqueue(event)
-	slog.WarnContext(ctx, "AMAN command rejected", slog.String("command_id", commandID), slog.String("airport", client.airport), slog.String("actor", client.GetCid()), slog.String("code", string(domain.Class)), slog.Uint64("revision", uint64(revision)))
+	slog.WarnContext(ctx, "AMAN command rejected", slog.String("command_id", commandID), slog.String("airport", identity.airport), slog.String("actor", client.GetCid()), slog.String("code", string(domain.Class)), slog.Uint64("revision", uint64(revision)))
 	return nil
 }
 
@@ -671,11 +688,12 @@ func commandIDFromMessage(message Message) string {
 }
 
 func handleAMANRebuildArrivalSequence(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
 	var wire events.AMANRebuildArrivalSequenceMessage
 	if err := decodeAMANMessage(message, events.AMANRebuildArrivalSequenceType, &wire); err != nil {
 		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
 	}
-	auth, err := client.hub.amanContext(client)
+	auth, err := client.hub.amanMessageContext(ctx, client)
 	if err != nil {
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
 	}
@@ -696,7 +714,7 @@ func handleAMANRebuildArrivalSequence(ctx context.Context, client *Client, messa
 		publication = "snapshot_required"
 	}
 	if (publication != "published") && client.hub.amanStateProvider != nil {
-		snapshot, snapshotErr := client.hub.amanStateProvider.CurrentAMANState(aman.WithSession(ctx, client.session), auth.Airport)
+		snapshot, snapshotErr := client.hub.amanStateProvider.CurrentAMANState(aman.WithSession(ctx, identity.session), auth.Airport)
 		if snapshotErr == nil {
 			client.Enqueue(snapshot)
 			publication = "published"

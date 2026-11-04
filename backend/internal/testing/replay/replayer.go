@@ -123,7 +123,7 @@ func (r *Replayer) Replay(ctx context.Context) error {
 	}
 
 	// Send synthesized login event before replaying recorded events
-	if err := r.sendLoginEvent(); err != nil {
+	if err := r.sendLoginEvent(ctx); err != nil {
 		return fmt.Errorf("failed to send login event: %w", err)
 	}
 
@@ -178,7 +178,7 @@ func (r *Replayer) connectFrontendClient(ctx context.Context) error {
 }
 
 // sendLoginEvent synthesizes and sends a login event from metadata
-func (r *Replayer) sendLoginEvent() error {
+func (r *Replayer) sendLoginEvent(ctx context.Context) error {
 	loginEvent := &euroscopeEvents.LoginEvent{
 		Connection: r.session.Metadata.Connection,
 		Airport:    r.session.Metadata.Airport,
@@ -202,7 +202,7 @@ func (r *Replayer) sendLoginEvent() error {
 		slog.Info("Sending synthesized login event", slog.Any("event", loginEvent))
 	}
 
-	return r.client.SendProtobuf(loginEvent, euroscopeEvents.Login)
+	return r.client.JoinMembership(ctx, loginEvent)
 }
 
 // replayEvents replays all events from the session

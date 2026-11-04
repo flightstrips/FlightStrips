@@ -41,31 +41,51 @@ type Client struct {
 	readOnly       bool
 	initialPending bool // owned by the hub loop; retry until the snapshot is queued
 
-	// identityMu guards sessionName, airport and callsign. The hub goroutine
-	// rewrites them when a client is associated with a session or disconnected
-	// from one, while a client's own read goroutine can read them through
-	// disconnectSlowConsumer. Reads made on the hub goroutine itself do not need
-	// the lock, because they cannot race with the hub's own writes.
+	// The hub owns identity transitions. Socket readers and writers use a
+	// snapshot so association/disconnect cannot expose a partial session identity.
 	identityMu sync.RWMutex
 }
 
-// setIdentity replaces the session identity fields under the lock that
-// disconnectSlowConsumer reads them with.
-func (c *Client) setIdentity(sessionName, airport, callsign string) {
+type clientIdentity struct {
+	session                                  int32
+	sessionName, position, airport, callsign string
+	readOnly                                 bool
+}
+
+type messageIdentityKey struct{}
+type messageClientIdentity struct {
+	client   *Client
+	identity clientIdentity
+}
+
+// Nested action handlers retain the identity captured before command authority
+// resolution. Direct use-case tests without transport context use current state.
+func (c *Client) messageIdentity(ctx context.Context) clientIdentity {
+	if captured, ok := ctx.Value(messageIdentityKey{}).(messageClientIdentity); ok && captured.client == c {
+		return captured.identity
+	}
+	return c.identitySnapshot()
+}
+
+func (c *Client) identitySnapshot() clientIdentity {
+	if c == nil {
+		return clientIdentity{}
+	}
+	c.identityMu.RLock()
+	defer c.identityMu.RUnlock()
+	return clientIdentity{session: c.session, sessionName: c.sessionName, position: c.position, airport: c.airport, callsign: c.callsign, readOnly: c.readOnly}
+}
+
+// setIdentity publishes an association or disconnect as one identity transition.
+func (c *Client) setIdentity(session int32, sessionName, position, airport, callsign string, readOnly bool) {
 	c.identityMu.Lock()
 	defer c.identityMu.Unlock()
 	c.sessionName = sessionName
+	c.session = session
+	c.position = position
+	c.readOnly = readOnly
 	c.airport = airport
 	c.callsign = callsign
-}
-
-// identity reads the session identity fields from a goroutine other than the
-// hub's. A string is two words, so an unsynchronised read can otherwise observe
-// a new pointer with a stale length.
-func (c *Client) identity() (sessionName, airport, callsign string) {
-	c.identityMu.RLock()
-	defer c.identityMu.RUnlock()
-	return c.sessionName, c.airport, c.callsign
 }
 
 func (c *Client) GetSendChannel() chan events.OutgoingMessage {
@@ -94,13 +114,13 @@ func (c *Client) disconnectSlowConsumer() {
 		return
 	}
 
-	sessionName, airport, callsign := c.identity()
-	metrics.RecordSlowConsumerDisconnect(context.Background(), sessionName, airport, c.GetSource())
+	identity := c.identitySnapshot()
+	metrics.RecordSlowConsumerDisconnect(context.Background(), identity.sessionName, identity.airport, c.GetSource())
 	slog.Warn("Disconnecting slow websocket client",
 		slog.String("source", c.GetSource()),
 		slog.String("cid", c.GetCid()),
-		slog.Int("session", int(c.session)),
-		slog.String("callsign", callsign),
+		slog.Int("session", int(identity.session)),
+		slog.String("callsign", identity.callsign),
 		slog.Int("queue_capacity", cap(c.send)),
 	)
 
@@ -131,23 +151,23 @@ func (c *Client) GetCid() string {
 }
 
 func (c *Client) GetCallsign() string {
-	return c.callsign
+	return c.identitySnapshot().callsign
 }
 
 func (c *Client) GetAirport() string {
-	return c.airport
+	return c.identitySnapshot().airport
 }
 
 func (c *Client) GetPosition() string {
-	return c.position
+	return c.identitySnapshot().position
 }
 
 func (c *Client) GetSession() int32 {
-	return c.session
+	return c.identitySnapshot().session
 }
 
 func (c *Client) GetSessionName() string {
-	return c.sessionName
+	return c.identitySnapshot().sessionName
 }
 
 func (c *Client) GetSource() string {
@@ -175,11 +195,13 @@ func (c *Client) SetUser(user shared.AuthenticatedUser) {
 }
 
 func (c *Client) SetReadOnly(readOnly bool) {
+	c.identityMu.Lock()
+	defer c.identityMu.Unlock()
 	c.readOnly = readOnly
 }
 
 func (c *Client) CanHandleMessage(messageType string) error {
-	if !c.readOnly || messageType == "token" || strings.HasPrefix(messageType, "aman.") {
+	if !c.identitySnapshot().readOnly || messageType == "token" || strings.HasPrefix(messageType, "aman.") {
 		return nil
 	}
 
@@ -188,14 +210,15 @@ func (c *Client) CanHandleMessage(messageType string) error {
 
 // HandlePong handles pong messages from the client
 func (c *Client) HandlePong() error {
-	if c.session == WaitingForEuroscopeConnectionSessionId {
+	identity := c.identitySnapshot()
+	if identity.session == WaitingForEuroscopeConnectionSessionId {
 		return nil
 	}
 
 	// Update the last seen timestamp in the database
 	controllerRepo := c.hub.server.GetControllerRepository()
 	now := time.Now().UTC()
-	count, err := controllerRepo.SetFrontendSeen(context.Background(), c.GetCid(), c.session, &now)
+	count, err := controllerRepo.SetFrontendSeen(context.Background(), c.GetCid(), identity.session, &now)
 
 	if count != 1 {
 		//return &ControllerNotFoundError{}
@@ -210,14 +233,22 @@ func (c *Client) RecordMessage(rawMessage []byte) {
 }
 
 func (c *Client) PrepareMessageContext(ctx context.Context, message string) (context.Context, error) {
-	if c == nil || message == "token" || (c.readOnly && strings.HasPrefix(message, "aman.")) {
+	identity := c.messageIdentity(ctx)
+	if captured, ok := ctx.Value(messageIdentityKey{}).(messageClientIdentity); ok {
+		if captured.client != c {
+			return ctx, shared.RejectAction("cannot replace initiating frontend identity")
+		}
+	} else {
+		ctx = context.WithValue(ctx, messageIdentityKey{}, messageClientIdentity{client: c, identity: identity})
+	}
+	if c == nil || message == "token" || (identity.readOnly && strings.HasPrefix(message, "aman.")) {
 		return ctx, nil
 	}
 	if c.hub == nil || c.hub.server == nil {
 		return ctx, shared.RejectAction("own plugin is unavailable")
 	}
-	if err := c.CanHandleMessage(message); err != nil {
-		return ctx, err
+	if identity.readOnly {
+		return ctx, shared.RejectAction("observer clients are read-only")
 	}
-	return shared.EnsureHumanCommand(ctx, c.hub.server.GetEuroscopeHub(), c.session, c.GetCid())
+	return shared.EnsureHumanCommand(ctx, c.hub.server.GetEuroscopeHub(), identity.session, c.GetCid())
 }

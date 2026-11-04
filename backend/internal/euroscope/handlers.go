@@ -109,8 +109,17 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 		return err
 	}
 
+	if user.GetCid() != client.GetCid() {
+		return shared.RejectAction("transport token cannot change authenticated CID")
+	}
 	client.SetUser(user)
 	client.frequencyMessages.Store(event.FrequencyMessages)
+	if client.transport != nil {
+		for _, member := range client.transport.snapshot() {
+			member.SetUser(user)
+			member.frequencyMessages.Store(event.FrequencyMessages)
+		}
+	}
 	if version := strings.TrimSpace(event.Version); version != "" {
 		client.version = version
 	}

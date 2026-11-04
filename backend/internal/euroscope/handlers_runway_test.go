@@ -175,6 +175,7 @@ func TestApplyOrValidateRunways_SlaveMismatch_TargetsFrontendAndAlertsOnceUntilR
 	master := buildTestClient(hub, 1, "cid-master", "EKCH_A_TWR")
 	slave := buildTestClient(hub, 1, "cid-slave", "EKCH_D_TWR")
 	hub.master[1] = master
+	hub.clients = map[*Client]bool{master: true, slave: true}
 
 	mismatchRunways := []esEvents.SyncRunway{
 		{Name: "22L", Departure: true},
@@ -257,6 +258,7 @@ func TestApplyOrValidateRunways_ObserverMismatch_TargetsFrontendAndAlerts(t *tes
 	observer := buildTestClient(hub, 1, "cid-observer", "EKCH_OBS")
 	observer.observer = true
 	hub.master[1] = master
+	hub.clients = map[*Client]bool{master: true, observer: true}
 
 	_, err := applyOrValidateRunways(context.Background(), observer, []esEvents.SyncRunway{
 		{Name: "22L", Departure: true},

@@ -30,6 +30,7 @@ import (
 )
 
 type internalMessage struct {
+	target  *Client
 	session int32
 	airport string
 	message euroscope.OutgoingMessage
@@ -59,6 +60,7 @@ type Hub struct {
 	scratchPadMu sync.Mutex
 	clientsMu    sync.RWMutex
 	clients      map[*Client]bool
+	transports   map[*Client]bool
 
 	// airportClientsMu guards airportClientCount for concurrent reads from other goroutines.
 	airportClientsMu   sync.RWMutex
@@ -178,7 +180,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 
 	handlers := shared.NewMessageHandlers[euroscope.EventType, *Client]()
 
-	handlers.Add(euroscope.Login, handleLoginEvent)
+	handlers.Add(euroscope.Control, handleControlEvent)
 	handlers.Add(euroscope.Authentication, handleTokenEvent)
 	handlers.Add(euroscope.ControllerOnline, handleControllerOnline)
 	handlers.Add(euroscope.ControllerOffline, handleControllerOffline)
@@ -301,7 +303,20 @@ func (hub *Hub) PublishAMANHoldingEAT(airport string, updates []euroscope.HoldEv
 }
 
 func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessage) {
+	var target *Client
+	for _, client := range hub.clientsSnapshot() {
+		if client.session == session && client.GetCid() == cid && !client.isClosed() {
+			if target != nil {
+				return
+			}
+			target = client
+		}
+	}
+	if target == nil {
+		return
+	}
 	hub.publish(internalMessage{
+		target:  target,
 		session: session,
 		message: message,
 		cid:     &cid,
@@ -503,7 +518,7 @@ func (hub *Hub) DecodeAuthentication(frameType int, message []byte) (events.Auth
 	if err := euroscope.UnmarshalEvent(message, euroscope.Authentication, &event); err != nil {
 		return events.AuthenticationEvent{}, err
 	}
-	return events.AuthenticationEvent{Token: event.Token, Version: event.Version, FrequencyMessages: event.FrequencyMessages}, nil
+	return events.AuthenticationEvent{Token: event.Token, Version: event.Version, FrequencyMessages: event.FrequencyMessages, InstanceID: event.InstanceId}, nil
 }
 
 func (hub *Hub) GetServer() shared.Server {
@@ -531,76 +546,13 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 	if hub.draining.Load() {
 		return nil, context.Canceled
 	}
-	slog.Debug("Euroscope client connected", slog.String("cid", user.GetCid()))
-	// Read the login message
-	frameType, msg, err := conn.ReadMessage()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read login message: %w", err)
+	if strings.TrimSpace(authenticationEvent.InstanceID) == "" {
+		return nil, errors.New("plugin instance identity is required")
 	}
-	if frameType != gorilla.BinaryMessage {
-		return nil, fmt.Errorf("EuroScope login must use a binary websocket frame")
-	}
-	eventType, loginPayload, err := euroscope.UnmarshalEnvelope(msg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode login message: %w", err)
-	}
-	if eventType != euroscope.Login {
-		return nil, fmt.Errorf("invalid initial event type, expected login")
-	}
-
-	// Handle the login
-	event, sessionID, err := hub.handleLogin(loginPayload, user)
-	if err != nil {
-		return nil, fmt.Errorf("login failed: %w", err)
-	}
-
-	// Recalculate layouts since the login is sent both on first logon and when a
-	// position/frequency changes - the new position must be reflected immediately.
-	if !event.Observer {
-		if layoutErr := hub.server.UpdateLayouts(sessionID); layoutErr != nil {
-			slog.Error("Failed to update layouts after ES login", slog.String("cid", user.GetCid()), slog.Any("error", layoutErr))
-		}
-	}
-
-	client := &Client{
-		conn:        conn,
-		session:     sessionID,
-		sessionName: event.Connection,
-		send:        make(chan events.OutgoingMessage, clientSendQueueSize),
-		closed:      make(chan struct{}),
-		hub:         hub,
-		user:        user,
-		position:    event.Position,
-		callsign:    event.Callsign,
-		airport:     event.Airport,
-		version:     strings.TrimSpace(authenticationEvent.Version),
-		observer:    event.Observer,
-		localIP:     event.LocalIp,
-	}
+	client := &Client{conn: conn, send: make(chan events.OutgoingMessage, clientSendQueueSize), closed: make(chan struct{}), hub: hub, user: user, version: strings.TrimSpace(authenticationEvent.Version)}
 	client.frequencyMessages.Store(authenticationEvent.FrequencyMessages)
-	if hub.airports != nil {
-		definition, ok := hub.airports.Lookup(event.Airport)
-		if !ok {
-			return nil, fmt.Errorf("airport %q is not selected", event.Airport)
-		}
-		client.definition = definition
-		bound, ok := hub.workflows.Lookup(event.Airport)
-		if !ok {
-			return nil, fmt.Errorf("airport %q has no bound workflow", event.Airport)
-		}
-		client.workflow = bound
-	}
-
-	if !event.Observer {
-		// The initial websocket login can revive an existing controller row before the
-		// plugin sends controller_online. Seed the pending orchestration now so the
-		// first online event is treated as a real re-registration rather than a no-op
-		// heartbeat on the same position.
-		hub.markPendingOnlineOrchestration(sessionID, event.Callsign)
-	}
-
-	hub.register <- client
-
+	client.transport = &pluginTransport{root: client, instance: authenticationEvent.InstanceID, generation: newGeneration(), members: make(map[string]*Client)}
+	hub.Register(client)
 	return client, nil
 }
 
@@ -749,6 +701,11 @@ func (hub *Hub) OnUnregister(client *Client) {
 }
 
 func (hub *Hub) clearClientCid(client *Client) error {
+	for _, other := range hub.clientsSnapshot() {
+		if other != client && other.session == client.session && other.GetCallsign() == client.GetCallsign() && other.GetCid() == client.GetCid() && !other.isClosed() {
+			return nil
+		}
+	}
 	controllerRepo := hub.server.GetControllerRepository()
 	callsign := client.GetCallsign()
 	count, err := controllerRepo.SetCid(context.Background(), client.session, callsign, nil)
@@ -1096,6 +1053,18 @@ func (hub *Hub) GetMasterCid(session int32) string {
 }
 
 func (hub *Hub) GetClientLocalIP(session int32, cid string) string {
+	var selected *Client
+	for _, client := range hub.clientsSnapshot() {
+		if client.session == session && client.GetCid() == cid && !client.isClosed() {
+			if selected != nil {
+				return ""
+			}
+			selected = client
+		}
+	}
+	if selected != nil {
+		return selected.identitySnapshot().localIP
+	}
 	hub.localIPMu.RLock()
 	defer hub.localIPMu.RUnlock()
 	return hub.localIPByClient[clientLocalIPKey(session, cid)]
@@ -1105,6 +1074,20 @@ func (hub *Hub) IsObserverCid(cid string) bool {
 	hub.observerCidMu.RLock()
 	defer hub.observerCidMu.RUnlock()
 	return hub.observerByCid[cid]
+}
+
+func (hub *Hub) IsObserverInSession(session int32, cid string) bool {
+	var selected *Client
+	for _, client := range hub.clientsSnapshot() {
+		if client.session != session || client.GetCid() != cid || client.isClosed() {
+			continue
+		}
+		if selected != nil {
+			return true
+		}
+		selected = client
+	}
+	return selected != nil && selected.identitySnapshot().observer
 }
 
 func (hub *Hub) setObserverCid(cid string, observer bool) {
@@ -1376,17 +1359,18 @@ func (hub *Hub) IsSessionSynced(sessionId int32) bool {
 // GetFrontendController resolves a CID from the live connections rather than
 // historical controller rows, which can contain the same CID in several sessions.
 func (hub *Hub) GetFrontendController(cid string) *internalModels.Controller {
+	var selected *internalModels.Controller
 	for _, client := range hub.clientsSnapshot() {
-		if client.GetCid() != cid {
+		if client.GetCid() != cid || client.isClosed() {
 			continue
 		}
-		identity := client.identitySnapshot()
-		return &internalModels.Controller{
-			Session: client.session, Callsign: identity.callsign,
-			Position: identity.position, Observer: identity.observer, Cid: &cid,
+		if selected != nil {
+			return nil
 		}
+		identity := client.identitySnapshot()
+		selected = &internalModels.Controller{Session: client.session, Callsign: identity.callsign, Position: identity.position, Observer: identity.observer, Cid: &cid}
 	}
-	return nil
+	return selected
 }
 
 // IsAircraftDisconnectPending reports whether the latest master sync omitted
@@ -1446,7 +1430,7 @@ func (hub *Hub) notifyObserverFrontendsOffline(session int32) {
 
 	for _, client := range hub.clientsSnapshot() {
 		if client.session == session && client.identitySnapshot().observer {
-			hub.server.GetFrontendHub().CidDisconnect(client.GetCid())
+			hub.membershipDisconnected(client.session, client.GetCid())
 		}
 	}
 }
@@ -1514,11 +1498,36 @@ func (hub *Hub) Run(ctx context.Context) {
 				_ = client.Close()
 				continue
 			}
+			if client.transport != nil && client.membership == nil {
+				hub.clientsMu.Lock()
+				if hub.transports == nil {
+					hub.transports = make(map[*Client]bool)
+				}
+				var old []*Client
+				for root := range hub.transports {
+					if root.GetCid() == client.GetCid() && root.transport.instance == client.transport.instance {
+						old = append(old, root)
+					}
+				}
+				hub.transports[client] = true
+				hub.clientsMu.Unlock()
+				for _, root := range old {
+					root.Close()
+					hub.removeTransport(root)
+				}
+				client.Enqueue(euroscope.NewScopedMessage(client.wireContext(), euroscope.ControlEvent{}))
+				continue
+			}
 			hub.clientsMu.Lock()
 			hub.clients[client] = true
 			hub.clientsMu.Unlock()
 			hub.OnRegister(client)
 		case client := <-hub.unregister:
+			if client.transport != nil && client.membership == nil {
+				client.Close()
+				hub.removeTransport(client)
+				continue
+			}
 			hub.clientsMu.Lock()
 			removed := false
 			if _, ok := hub.clients[client]; ok {
@@ -1530,7 +1539,7 @@ func (hub *Hub) Run(ctx context.Context) {
 				client.Close()
 			}
 			hub.OnUnregister(client)
-			hub.server.GetFrontendHub().CidDisconnect(client.GetCid())
+			hub.membershipDisconnected(client.session, client.GetCid())
 		case message := <-hub.send:
 			// Sampled before the fan-out so the depth reflects the backlog this
 			// dispatch is working through rather than what arrived during it.
@@ -1542,7 +1551,7 @@ func (hub *Hub) Run(ctx context.Context) {
 			if message.cid != nil {
 				kind = "direct"
 				for _, client := range clients {
-					if message.session == client.session && *message.cid == client.GetCid() {
+					if message.session == client.session && *message.cid == client.GetCid() && message.target == client {
 						client.Enqueue(message.message)
 						fanout++
 					}
@@ -1619,9 +1628,23 @@ func (hub *Hub) DrainPositions(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var workers sync.WaitGroup
+	roots := map[*Client]bool{}
+	hub.clientsMu.RLock()
+	for root := range hub.transports {
+		roots[root] = true
+	}
+	hub.clientsMu.RUnlock()
 	for _, client := range hub.clientsSnapshot() {
 		client.draining.Store(true)
 		client.stopPendingPositionUpdates()
+		if client.transport != nil {
+			roots[client.transport.root] = true
+		} else {
+			roots[client] = true
+		}
+	}
+	for client := range roots {
+		client.draining.Store(true)
 		workers.Add(1)
 		go func(c *Client) { defer workers.Done(); _ = c.PositionDispatcher().Close(ctx); _ = c.Close() }(client)
 	}

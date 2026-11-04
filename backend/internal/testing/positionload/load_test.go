@@ -224,7 +224,7 @@ func TestPositionLoad(t *testing.T) {
 	require.NoError(t, client.Connect(ctx))
 	defer client.Close()
 	client.ReadMessages(ctx, func(int, []byte) {})
-	require.NoError(t, client.SendProtobuf(&es.LoginEvent{Airport: "EKCH", Connection: "LIVE", Position: "121.630", Callsign: "EKCH_A_GND", Range: 200}, es.Login))
+	require.NoError(t, client.JoinMembership(ctx, &es.LoginEvent{Airport: "EKCH", Connection: "LIVE", Position: "121.630", Callsign: "EKCH_A_GND", Range: 200}))
 	var session database.Session
 	require.Eventually(t, func() bool {
 		session, err = server.Queries.GetSession(ctx, database.GetSessionParams{Airport: "EKCH", Name: "LIVE"})

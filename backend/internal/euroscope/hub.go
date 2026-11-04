@@ -1188,13 +1188,22 @@ func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {
 		hub.squawkThrottle.Enqueue(session, queuedSquawkRequest{cid: cid, callsign: callsign, binding: binding})
 		return
 	}
-	hub.squawkThrottle.Enqueue(session, queuedSquawkRequest{
-		cid:      cid,
-		callsign: callsign,
-	})
+	binding, err := hub.resolveGenerateSquawkBinding(context.Background(), session)
+	if err != nil {
+		return
+	}
+	hub.squawkThrottle.Enqueue(session, queuedSquawkRequest{callsign: callsign, binding: binding})
 }
 
 func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) string {
+	binding, err := hub.resolveGenerateSquawkBinding(ctx, session)
+	if err != nil {
+		return ""
+	}
+	return binding.CID()
+}
+
+func (hub *Hub) resolveGenerateSquawkBinding(ctx context.Context, session int32) (shared.CommandBinding, error) {
 	if hub.server != nil {
 		sectorRepo := hub.server.GetSectorOwnerRepository()
 		controllerRepo := hub.server.GetControllerRepository()
@@ -1226,8 +1235,8 @@ func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) str
 							continue
 						}
 						if controller.Cid != nil && *controller.Cid != "" {
-							if _, err := hub.captureCommandBinding(session, *controller.Cid, false); err == nil {
-								return *controller.Cid
+							if binding, err := hub.ResolveAutomaticCommandBinding(session, *controller.Cid); err == nil {
+								return binding, nil
 							}
 						}
 					}
@@ -1236,24 +1245,17 @@ func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) str
 		}
 	}
 
-	if master := hub.getMasterClient(session); master != nil {
-		if _, err := hub.captureCommandBinding(session, master.GetCid(), false); err == nil {
-			return master.GetCid()
-		}
-	}
-
-	return ""
+	return hub.ResolveAutomaticCommandBinding(session, "")
 }
 
 // SendPrivateMessageFromDelivery routes an automated pilot message through an
 // operational DEL client when available, falling back to the session master.
 func (hub *Hub) SendPrivateMessageFromDelivery(session int32, callsign, message string) bool {
-	cid := hub.resolveGenerateSquawkCid(context.Background(), session)
-	if cid == "" {
+	binding, err := hub.resolveGenerateSquawkBinding(context.Background(), session)
+	if err != nil {
 		return false
 	}
-	hub.Send(session, cid, euroscope.SendPrivateMessageEvent{Callsign: callsign, Message: message})
-	return true
+	return binding.Send(euroscope.SendPrivateMessageEvent{Callsign: callsign, Message: message}) == nil
 }
 
 func (hub *Hub) SendGroundState(session int32, cid string, callsign string, state string) {

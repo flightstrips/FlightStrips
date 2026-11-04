@@ -118,10 +118,10 @@ func (hub *Hub) captureMembershipBinding(session int32, cid, instance, membershi
 }
 
 func (hub *Hub) ResolveAutomaticCommandBinding(session int32, preferredCID string) (shared.CommandBinding, error) {
-	if preferredCID != "" {
+	master := hub.getMasterClient(session)
+	if preferredCID != "" && (master == nil || master.GetCid() != preferredCID) {
 		return hub.captureCommandBinding(session, preferredCID, false)
 	}
-	master := hub.getMasterClient(session)
 	if master == nil || master.session != session {
 		return nil, shared.RejectAction("no eligible automatic executor in session")
 	}

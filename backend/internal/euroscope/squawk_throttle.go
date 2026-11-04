@@ -66,7 +66,12 @@ func (t *squawkThrottle) Enqueue(session int32, req queuedSquawkRequest) {
 	}
 
 	for i := range state.pending {
-		if state.pending[i].callsign != req.callsign || state.pending[i].binding != req.binding || state.pending[i].cid != req.cid {
+		sameBinding := state.pending[i].binding == req.binding
+		if previous, ok := state.pending[i].binding.(*commandBinding); ok {
+			next, ok := req.binding.(*commandBinding)
+			sameBinding = ok && previous.Same(next) && previous.automatic == next.automatic && previous.requireMaster == next.requireMaster && previous.masterEpoch == next.masterEpoch
+		}
+		if state.pending[i].callsign != req.callsign || !sameBinding || state.pending[i].cid != req.cid {
 			continue
 		}
 		if req.cid != "" {
@@ -203,26 +208,13 @@ func (hub *Hub) dispatchGenerateSquawkRequest(session int32, req queuedSquawkReq
 		}
 		return
 	}
-	isAutomatic := req.cid == ""
-	cid := req.cid
-	if cid == "" {
-		cid = hub.resolveGenerateSquawkCid(context.Background(), session)
+	var binding shared.CommandBinding
+	var err error
+	if req.cid == "" {
+		binding, err = hub.resolveGenerateSquawkBinding(context.Background(), session)
+	} else {
+		binding, err = hub.captureCommandBinding(session, req.cid, false)
 	}
-	if cid == "" {
-		slog.Warn("No EuroScope client available to generate squawk",
-			slog.Int("session", int(session)),
-			slog.String("callsign", req.callsign),
-		)
-		return
-	}
-	if isAutomatic {
-		slog.Info("Dispatching automatic squawk generation",
-			slog.Int("session", int(session)),
-			slog.String("callsign", req.callsign),
-			slog.String("target_cid", cid),
-		)
-	}
-	binding, err := hub.captureCommandBinding(session, cid, false)
 	if err != nil {
 		return
 	}

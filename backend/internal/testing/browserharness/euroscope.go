@@ -36,6 +36,7 @@ func connectFixtureControllerProtocol(ctx context.Context, endpoint, token strin
 	}
 	var writes sync.Mutex
 	var scope *es.MembershipContext
+	var transportScope *es.MembershipContext
 	var scopeMu sync.RWMutex
 	send := func(message proto.Message, kind es.EventType) error {
 		data, err := es.MarshalEnvelope(message, kind)
@@ -48,11 +49,15 @@ func connectFixtureControllerProtocol(ctx context.Context, endpoint, token strin
 				return err
 			}
 			scopeMu.RLock()
-			if scope == nil {
+			selected := scope
+			if kind == es.Control {
+				selected = transportScope
+			}
+			if selected == nil {
 				scopeMu.RUnlock()
 				return fmt.Errorf("server-issued context is not ready")
 			}
-			envelope.Context = proto.Clone(scope).(*es.MembershipContext)
+			envelope.Context = proto.Clone(selected).(*es.MembershipContext)
 			scopeMu.RUnlock()
 			data, err = proto.Marshal(&envelope)
 			if err != nil {
@@ -67,8 +72,18 @@ func connectFixtureControllerProtocol(ctx context.Context, endpoint, token strin
 		conn.Close()
 		return nil, err
 	}
+	environment := strings.ToUpper(strings.TrimSpace(login.Connection))
+	if environment == "" {
+		environment = "LIVE"
+	}
+	if environment == "PLAYBACK" {
+		environment = "PLAYBACK_" + instance
+	}
+	control := &es.ControlEvent{Environment: environment, Callsign: login.Callsign, PrimaryFrequency: login.Position, Observer: login.Observer, LocalIp: login.LocalIp, RelevantAirport: login.Airport, Range: login.Range, TunedFrequenciesKnown: execute != nil, EligibleAirports: []string{login.Airport}}
+	readDone := make(chan struct{})
 	ready := make(chan error, 1)
 	go func() {
+		defer close(readDone)
 		acknowledged := false
 		for {
 			_, data, err := conn.ReadMessage()
@@ -86,16 +101,12 @@ func connectFixtureControllerProtocol(ctx context.Context, endpoint, token strin
 			if err == nil && envelope.Context != nil && envelope.Context.InstanceId == instance {
 				scopeMu.Lock()
 				scope = proto.Clone(envelope.Context).(*es.MembershipContext)
+				if envelope.Context.MembershipId == "" {
+					transportScope = &es.MembershipContext{InstanceId: envelope.Context.InstanceId, TransportGeneration: envelope.Context.TransportGeneration}
+				}
 				scopeMu.Unlock()
 				if kind == es.Control && scope.MembershipId == "" {
-					environment := strings.ToUpper(strings.TrimSpace(login.Connection))
-					if environment == "" {
-						environment = "LIVE"
-					}
-					if environment == "PLAYBACK" {
-						environment = "PLAYBACK_" + instance
-					}
-					if err := send(&es.ControlEvent{Environment: environment, Callsign: login.Callsign, PrimaryFrequency: login.Position, Observer: login.Observer, LocalIp: login.LocalIp, RelevantAirport: login.Airport, Range: login.Range, TunedFrequenciesKnown: execute != nil, EligibleAirports: []string{login.Airport}}, es.Control); err != nil {
+					if err := send(control, es.Control); err != nil {
 						ready <- err
 						return
 					}
@@ -149,6 +160,23 @@ func connectFixtureControllerProtocol(ctx context.Context, endpoint, token strin
 		if expose != nil {
 			expose(send)
 		}
+		// Match the native plugin's ten-second control refresh. Coverage evidence
+		// expires without it even while an admitted membership remains connected.
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-readDone:
+					return
+				case <-ticker.C:
+					if err := send(control, es.Control); err != nil {
+						conn.Close()
+						return
+					}
+				}
+			}
+		}()
 		return conn, nil
 	case <-time.After(15 * time.Second):
 		conn.Close()

@@ -20,6 +20,7 @@ export function RADISStrip({strip, open, edit}: {strip: FrontendStrip; open: () 
   const metar = useWebSocketStore(s => s.metar);
   const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({id: strip.callsign, disabled: readOnly});
   const a = strip.board_state?.annotations;
+  const date = strip.board_state?.created_at;
   const dep = strip.origin === airport;
   const value = (label: string, content: string | number, onClick?: () => void, es = false) => <button type="button" aria-label={`${label} ${strip.callsign}`} disabled={!onClick || readOnly || (es && !strip.has_fp)} onClick={onClick} className="radis-cell-button"><small>{label}</small><strong>{content || ""}</strong></button>;
   const stampQNH = () => {const qnh = metar?.match(/\bQ\d{4}\b/)?.[0]; if (qnh) annotate(strip.callsign, "qnh", qnh);};
@@ -42,6 +43,6 @@ export function RADISStrip({strip, open, edit}: {strip: FrontendStrip; open: () 
       <button type="button" className="radis-stand" onClick={() => edit("stand", "Stand", strip.stand)} disabled={readOnly || !strip.has_fp}>Stand<br/><strong>{strip.stand}</strong></button>
       <button type="button" className="radis-direction-icon" onClick={open} aria-label={`${dep ? "Departure" : "Arrival"} flight ${strip.callsign}`}><img src={dep ? departureIcon : arrivalIcon} alt=""/><strong>{airport.slice(-2)}</strong></button>
     </StripCell>
-    <div className="radis-strip-date"><button type="button" {...attributes} {...listeners} aria-label={`Move ${strip.callsign}`} className="radis-drag-handle">{strip.board_state?.local ? "LOCAL" : "MOVE"}</button></div>
+    <div className="radis-strip-date"><button type="button" {...attributes} {...listeners} aria-label={`Move ${strip.callsign}`} className="radis-drag-handle">{date ? `${date.slice(8,10)}/${date.slice(5,7)}/${date.slice(0,4)}` : strip.board_state?.local ? "LOCAL" : "MOVE"}</button></div>
   </article>;
 }

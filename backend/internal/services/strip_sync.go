@@ -243,7 +243,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if bound.BoardStatePolicy().Revisioned {
 			observed := time.Now().UTC()
 			newStrip.EuroscopeSeenAt = &observed
-			newStrip.BoardState = &internalModels.StripBoardState{}
+			created := s.boardTime()
+			newStrip.BoardState = &internalModels.StripBoardState{CreatedAt: &created}
 			newStrip.Owner = nil
 		}
 		validationStrip = newStrip

@@ -27,6 +27,12 @@ async function setup(context: BrowserContext) {
         return;
       }
       actions.push(event);
+      if(event.type === "flight.find-connected") {ws.send(JSON.stringify({type:"flight.connected-results",board,request_id:event.request_id,flights:Array.from({length:24},(_,i)=>({callsign:`FIND${String(i).padStart(2,"0")}`,cid:String(i+100),logon_time:"2026-01-01T00:00:00Z",source_revision:"1",origin:"EKBI",destination:"EKYT",aircraft_type:"C172"}))}));return;}
+      if(event.type === "strip.create-local" || event.type === "strip.admit-connected") {
+       const added={...strip(String(board.airport)),id:event.type === "strip.create-local"?33:34,version:1,callsign:event.callsign ?? event.flight.callsign,origin:event.origin ?? event.flight.origin,destination:event.destination ?? event.flight.destination,has_fp:false,board_state:{...strip(String(board.airport)).board_state,local:event.type === "strip.create-local"}};
+       for(const s of sockets) if(s.board.session_id===board.session_id)s.ws.send(JSON.stringify({type:"strip_update",...added,board:s.board}));return;
+      }
+
       const current = boards.get(Number(board.session_id))!;
       if (event.type === "strip.annotate") {
         Object.assign(current.board_state.annotations, {[event.field]: ["deicing", "vfr"].includes(event.field) ? event.enabled : event.value});
@@ -81,8 +87,19 @@ test("own-plugin disconnect leaves the retained RADIS board read-only while peer
   server.boards.get(1)!.version++;
   server.emit(1);
   await expect(page.getByRole("button", {name: "Notes SAME123", exact: true})).toHaveText("PEER UPDATE");
+  await expect(page.getByRole("button",{name:"NEW",exact:true})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"FIND",exact:true})).toBeDisabled();
   expect(server.actions).toHaveLength(0);
   await page.screenshot({path: info.outputPath("radis-read-only.png")});
+});
+
+test("NEW shares a local strip and FIND presents uncapped connected airport candidates",async({context})=>{
+ const server=await setup(context);const page=await context.newPage();await page.goto("/visual-tests/airport-session-preview.html");await page.getByRole("button",{name:/EKBI/}).click();
+ await page.getByRole("button",{name:"NEW",exact:true}).click();await page.getByRole("textbox",{name:"Callsign",exact:true}).fill("LOCAL77");await page.getByRole("button",{name:"CREATE LOCAL STRIP",exact:true}).click();
+ await expect(page.getByTestId("radis-strip-LOCAL77")).toBeVisible();await expect(page.getByRole("button",{name:"Squawk LOCAL77",exact:true})).toBeDisabled();
+ await page.getByRole("button",{name:"FIND",exact:true}).click();await expect(page.getByText("24 connected flights")).toBeVisible();await expect(page.getByRole("button",{name:/FIND23/})).toBeVisible();await page.getByRole("button",{name:/FIND23/}).click();await expect(page.getByTestId("radis-strip-FIND23")).toBeVisible();
+ expect(server.actions.map(a=>a.type)).toEqual(["strip.create-local","flight.find-connected","strip.admit-connected"]);
+ expect(server.actions[0]).toMatchObject({definition_revision:"synthetic-EKBI",callsign:"LOCAL77",board:expect.objectContaining({session_id:1})});
 });
 
 test("a dialog keeps its observed strip revision when another participant edits",async({context})=>{

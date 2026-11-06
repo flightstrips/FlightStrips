@@ -49,3 +49,9 @@
 
 .radis-clock { width: 7vw; min-width: 80px; align-self: stretch; background: var(--color-bay-light); color: black; }
 .radis-keypad { display: grid; grid-template-columns: repeat(3,1fr); gap: .5rem; margin-top: 1rem; }
+
+.radis-creation { width: min(640px,95vw); }
+.radis-local-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin-bottom:1rem; }
+.radis-find-list { overflow-y:auto; max-height:55svh; display:grid; gap:.25rem; }
+.radis-find-list button { display:grid; grid-template-columns:1fr 1fr 5rem; padding:.5rem; border:1px solid #555; background:white; text-align:left; }
+.radis-find-search { display:flex; gap:.5rem; }

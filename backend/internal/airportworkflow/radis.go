@@ -3,6 +3,7 @@ package airportworkflow
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/shared"
+	pkg "FlightStrips/pkg/models"
 	"fmt"
 	"math"
 	"regexp"
@@ -25,7 +26,7 @@ func RADISDescriptor() Descriptor {
 			return nil, nil, fmt.Errorf("RADIS requires typed settings")
 		}
 		h := radis{d.Airport(), doc.Geography.Latitude, doc.Geography.Longitude, doc.Geography.ElevationFT, s}
-		return h, []ActionDescriptor{Action("strip.annotate", h.annotate), Action("strip.move", h.move), Action("strip.state-for-move", h.move)}, nil
+		return h, []ActionDescriptor{Action("strip.annotate", h.annotate), Action("strip.create-local", h.createLocal), Action("flight.find-connected", h.findConnected), Action("strip.admit-connected", h.admitConnected), Action("strip.move", h.move), Action("strip.state-for-move", h.move)}, nil
 	}}
 }
 func (h radis) initial(origin string) string {
@@ -40,6 +41,9 @@ func (h radis) move(c Context, a Move) (Decision, error) {
 		return Decision{}, shared.RejectAction("invalid RADIS move")
 	}
 	if c.Strip.Bay == a.Bay {
+		return Decision{Bay: &a.Bay}, nil
+	}
+	if c.Strip.Local && !c.Strip.HasFP {
 		return Decision{Bay: &a.Bay}, nil
 	}
 	if !c.Strip.EuroscopeSeen || !c.Strip.HasFP {
@@ -151,4 +155,14 @@ func (h radis) annotate(c Context, a StripAnnotation) (Decision, error) {
 		return Decision{}, fmt.Errorf("unknown RADIS annotation")
 	}
 	return Decision{Annotations: &v}, nil
+}
+
+func (h radis) createLocal(c Context, r pkg.LocalStripCreation) (Decision, error) {
+	return Decision{Admission: &StripAdmission{Bay: h.initial(r.Origin), Annotations: pkg.StripAnnotations{Notes: r.Notes}}}, nil
+}
+func (h radis) findConnected(c Context, r ConnectedFlightSearch) (Decision, error) {
+	return Decision{ConnectedFlights: &ConnectedFlightLookup{Airport: h.airport, Query: r.Query}}, nil
+}
+func (h radis) admitConnected(c Context, r pkg.ConnectedFlightCandidate) (Decision, error) {
+	return Decision{Admission: &StripAdmission{Bay: h.initial(r.Origin)}}, nil
 }

@@ -225,7 +225,7 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		}
 	}
 	return r.queries.InsertStrip(ctx, database.InsertStripParams{
-		BoardState:           radis,
+		BoardState: radis, IsManual: strip.IsManual,
 		Callsign:             strip.Callsign,
 		Session:              strip.Session,
 		Origin:               strip.Origin,

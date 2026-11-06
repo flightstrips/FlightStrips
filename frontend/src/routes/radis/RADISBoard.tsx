@@ -11,6 +11,7 @@ import {AirportSwitcher} from "@/components/AirportSwitcher";
 import Time from "@/components/Time";
 import {RADISStrip, type RADISEdit} from "./RADISStrip";
 import {RADISFlightPlan} from "./RADISFlightPlan";
+import {RADISCreationDialogs} from "./RADISCreationDialogs";
 import "./radis.css";
 
 function RADISBayPanel({bay, strips, children}: {bay: RADISBay; strips: FrontendStrip[]; children: ReactNode}) {
@@ -32,6 +33,8 @@ export default function RADISBoard() {
   const runway = useWebSocketStore(s => s.runwaySetup);
   const metar = useWebSocketStore(s => s.metar);
   const atis = useWebSocketStore(s => s.depAtisCode);
+  const find = useWebSocketStore(s=>s.findConnectedFlights);
+  const [creation,setCreation] = useState<"new"|"find"|null>(null);
   const [menu, setMenu] = useState<RADISEdit | null>(null);
   const [fpl, setFpl] = useState<string | null>(null);
   const [runwayHeight, setRunwayHeight] = useState(28);
@@ -67,12 +70,13 @@ export default function RADISBoard() {
         <div className="radis-right"><h2>PASSIVE</h2>{renderBay("PASSIVE_TOP")}{renderBay("PASSIVE_BOTTOM")}</div>
       </main>
     </DndContext>
-    <footer className="radis-commandbar"><AirportSwitcher/><span>DEP</span><b>{runway.departure.join("/") || "—"}</b><span>ARR</span><b>{runway.arrival.join("/") || "—"}</b><span>QNH</span><b>{metar?.match(/\bQ(\d{4})\b/)?.[1] ?? "—"}</b><b>{atis || "—"}</b><b>{metar?.match(/\b(?:\d{3}|VRB)\d{2}(?:G\d{2})?KT\b/)?.[0] ?? "—"}</b><span className="radis-toolbar-space"/>{readOnly && <span role="status">READ ONLY</span>}<div className="radis-clock"><Time/></div></footer>
+    <footer className="radis-commandbar"><AirportSwitcher/><span>DEP</span><b>{runway.departure.join("/") || "—"}</b><span>ARR</span><b>{runway.arrival.join("/") || "—"}</b><span>QNH</span><b>{metar?.match(/\bQ(\d{4})\b/)?.[1] ?? "—"}</b><b>{atis || "—"}</b><b>{metar?.match(/\b(?:\d{3}|VRB)\d{2}(?:G\d{2})?KT\b/)?.[0] ?? "—"}</b><span className="radis-toolbar-space"/><Button disabled={readOnly || !definition?.actions.includes("flight.find-connected")} onClick={()=>{find("");setCreation("find");}}>FIND</Button><Button disabled={readOnly || !definition?.actions.includes("strip.create-local")} onClick={()=>setCreation("new")}>NEW</Button>{readOnly && <span role="status">READ ONLY</span>}<div className="radis-clock"><Time/></div></footer>
     <Dialog open={!!menu} onOpenChange={open => !open && setMenu(null)}><DialogContent className="radis-dialog"><DialogTitle>{menu?.title}</DialogTitle><form onSubmit={e => {e.preventDefault(); submit();}}><label className="sr-only" htmlFor="radis-menu-value">{menu?.title}</label><input id="radis-menu-value" autoFocus value={menu?.value ?? ""} onChange={e => setMenu(m => m && {...m, value: e.target.value})} disabled={readOnly}/>
       {menu?.field === "runway" && <div className="radis-menu-presets">{definition?.runways?.map(r => <Button key={r} type="button" disabled={readOnly} onClick={() => setMenu({...menu, value: r})}>{r}</Button>)}</div>}
       {menu?.field === "sid" && <div className="radis-menu-presets">{availableSids.map(s => <Button key={s.name} type="button" disabled={readOnly} onClick={() => setMenu({...menu, value: s.name})}>{s.name}</Button>)}</div>}
       {menu && ["assigned_squawk", "altitude", "heading", "route_heading", "atd", "endurance_pob"].includes(menu.field) && <div className="radis-keypad">{["1","2","3","4","5","6","7","8","9","0",".","/"].map(key => <Button type="button" key={key} disabled={readOnly} onClick={() => setMenu(m => m && {...m,value:m.value+key})}>{key}</Button>)}<Button type="button" disabled={readOnly} onClick={() => setMenu(m => m && {...m,value:m.value.slice(0,-1)})}>BACK</Button><Button type="button" disabled={readOnly} onClick={() => setMenu(m => m && {...m,value:""})}>ERASE</Button></div>}
       <div className="radis-dialog-actions"><Button type="button" onClick={() => setMenu(null)}>ESC</Button><Button type="submit" disabled={readOnly}>OK</Button></div></form></DialogContent></Dialog>
+    {creation && <RADISCreationDialogs mode={creation} close={()=>setCreation(null)}/>}
     <RADISFlightPlan strip={selected} onClose={() => setFpl(null)} edit={edit}/>
   </div>;
 }

@@ -26,3 +26,16 @@ export function paperClock(stamp: string | null | undefined): string {
   return stamp ? stamp.slice(11, 16).replace(":", "") : "";
 }
 
+export interface LocalStripCreation {
+ callsign:string; origin:string; destination:string; aircraft_type:string; route:string;
+ registration:string; requested_altitude:number; runway:string; notes:string;
+}
+export interface ConnectedFlightCandidate {
+ callsign:string;cid:string;logon_time:string;source_revision:string;origin:string;destination:string;aircraft_type:string;
+}
+export interface StripCreateLocalEvent extends LocalStripCreation {type:"strip.create-local";definition_revision:string}
+export interface FindConnectedFlightsEvent {type:"flight.find-connected";definition_revision:string;request_id:string;query:string}
+export interface StripAdmitConnectedEvent {type:"strip.admit-connected";definition_revision:string;flight:ConnectedFlightCandidate}
+export interface ConnectedFlightSearchResult {type:import("./models").EventType.FrontendConnectedFlightResults;request_id:string;flights:ConnectedFlightCandidate[]}
+
+export interface StripVisibilityEvent extends StripRevision {type:"strip.remove"|"strip.restore";callsign:string}

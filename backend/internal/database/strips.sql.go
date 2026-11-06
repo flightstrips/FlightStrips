@@ -516,7 +516,7 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
                      registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req,
                      vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at,
-                     hold, hold_type, hold_eat, next_display_label, next_display_frequency, flight_rules, board_state)
+                     hold, hold_type, hold_eat, next_display_label, next_display_frequency, flight_rules, board_state, is_manual)
 VALUES (
     1,
     $1,
@@ -566,7 +566,8 @@ VALUES (
     $45,
     $46,
     $47,
-    $48
+    $48,
+    $49
 )
 `
 
@@ -619,6 +620,7 @@ type InsertStripParams struct {
 	NextDisplayFrequency *string
 	FlightRules          string
 	BoardState           []byte
+	IsManual             bool
 }
 
 func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error {
@@ -671,6 +673,7 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.NextDisplayFrequency,
 		arg.FlightRules,
 		arg.BoardState,
+		arg.IsManual,
 	)
 	return err
 }

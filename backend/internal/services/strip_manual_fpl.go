@@ -1,6 +1,7 @@
 package services
 
 import (
+	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
@@ -19,6 +20,15 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.esCommander, session, cid)
 	if authorityErr != nil {
 		return authorityErr
+	}
+	if s.workflows != nil {
+		b, err := s.workflowFor(ctx, session, airport)
+		if err != nil {
+			return err
+		}
+		if _, err := b.Action(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource}, "flightplan.create", airportworkflow.FlightPlanCreation{}); err != nil {
+			return err
+		}
 	}
 	strip, err := s.stripReader.GetByCallsign(ctx, session, req.Callsign)
 	if err != nil {
@@ -101,6 +111,15 @@ func (s *StripService) CreateVFRFPL(ctx context.Context, session int32, req fron
 	ctx, authorityErr = shared.EnsureHumanCommand(ctx, s.esCommander, session, cid)
 	if authorityErr != nil {
 		return authorityErr
+	}
+	if s.workflows != nil {
+		b, err := s.workflowFor(ctx, session, "")
+		if err != nil {
+			return err
+		}
+		if _, err := b.Action(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource}, "flightplan.create", airportworkflow.FlightPlanCreation{}); err != nil {
+			return err
+		}
 	}
 	strip, err := s.stripReader.GetByCallsign(ctx, session, req.Callsign)
 	if err != nil {

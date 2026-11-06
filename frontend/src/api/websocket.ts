@@ -49,6 +49,7 @@ import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoor
 
 
 type EventMap = {
+ [EventType.FrontendConnectedFlightResults]:import("./strip-board").ConnectedFlightSearchResult;
   [EventType.FrontendMasterInfo]: FrontendMasterInfoEvent;
   [EventType.FrontendFrequencyMessageResult]: import("@/lib/text-pilot").FrequencyMessageResult;
   [EventType.FrontendInboundDepartures]: InboundDeparturesEvent;

@@ -27,8 +27,19 @@ type CoverageControllerEvidence struct {
 // retained by an airport session or membership. Absence requires fresh inventory.
 type CoverageStaffingEvidence struct {
 	Environment string
+	Timestamp   time.Time
 	Inventory   CoverageEvidenceState
 	Controllers []CoverageControllerEvidence
+	instances   map[coverageInstanceKey]CoverageControllerEvidence
+}
+
+type coverageInstanceKey struct {
+	cid, instance string
+	generation    uint64
+}
+
+func coveragePresenceKey(p PluginPresence) coverageInstanceKey {
+	return coverageInstanceKey{p.CID, p.InstanceID, p.TransportGeneration}
 }
 
 func coverageControllerKey(cid, callsign string) string {
@@ -49,13 +60,31 @@ func coverageSourceState(now, at time.Time, maxAge time.Duration, err error) Cov
 // controller inventory acquired by that source. It creates no upstream requests.
 // Fresh plugin radio reports override public radio data for that exact identity.
 // Unknown plugin radio reports leave the shared provider evidence intact.
-func BuildCoverageEvidence(network vatsim.Snapshot, radios vatsim.TransceiverSnapshot, presences []PluginPresence, now time.Time, maxAge time.Duration) map[string]CoverageStaffingEvidence {
+func BuildCoverageEvidence(network vatsim.Snapshot, radios vatsim.TransceiverSnapshot, presences []PluginPresence, now time.Time, maxAge time.Duration, simulated ...CoverageStaffingEvidence) map[string]CoverageStaffingEvidence {
 	byEnvironment := map[string]map[string]CoverageControllerEvidence{"LIVE": {}}
 	inventory := map[string]CoverageEvidenceState{"LIVE": coverageSourceState(now, network.Timestamp, maxAge, network.LastRefreshError)}
 	if !network.ControllersKnown {
 		inventory["LIVE"] = CoverageUnknown
 	}
+	timestamps := map[string]time.Time{"LIVE": network.Timestamp}
+	instances := map[string]map[coverageInstanceKey]CoverageControllerEvidence{}
 	radioState := coverageSourceState(now, radios.Timestamp, maxAge, radios.LastRefreshError)
+	for _, source := range simulated {
+		if source.Environment == "LIVE" || !environmentName.MatchString(source.Environment) {
+			continue
+		}
+		controllers := map[string]CoverageControllerEvidence{}
+		for _, controller := range source.Controllers {
+			controller.TunedFrequencies = slices.Clone(controller.TunedFrequencies)
+			controllers[controller.Key] = controller
+		}
+		byEnvironment[source.Environment] = controllers
+		inventory[source.Environment] = source.Inventory
+		if source.Inventory == CoverageFresh {
+			inventory[source.Environment] = coverageSourceState(now, source.Timestamp, maxAge, nil)
+		}
+		timestamps[source.Environment] = source.Timestamp
+	}
 	for _, controller := range network.Controllers() {
 		callsign := strings.ToUpper(strings.TrimSpace(controller.Callsign))
 		if controller.Facility == 0 || strings.HasSuffix(callsign, "_ATIS") || strings.HasSuffix(callsign, "_OBS") {
@@ -67,6 +96,15 @@ func BuildCoverageEvidence(network vatsim.Snapshot, radios vatsim.TransceiverSna
 			Identity:            inventory["LIVE"], Radios: radioState,
 		}
 	}
+	presences = slices.Clone(presences)
+	slices.SortFunc(presences, func(a, b PluginPresence) int {
+		if order := a.EvidenceAt.Compare(b.EvidenceAt); order != 0 {
+			return order
+		}
+		return strings.Compare(a.InstanceID, b.InstanceID)
+	})
+	providerEvidence := map[string]CoverageControllerEvidence{}
+	providerKnown := map[string]bool{}
 	for _, presence := range presences {
 		control := presence.Evidence
 		if control == nil || !environmentName.MatchString(control.Environment) {
@@ -78,13 +116,16 @@ func BuildCoverageEvidence(network vatsim.Snapshot, radios vatsim.TransceiverSna
 			inventory[environment] = CoverageUnknown
 		}
 		key := coverageControllerKey(presence.CID, control.Callsign)
-		previous, exists := byEnvironment[environment][key]
-		state := coverageSourceState(now, presence.EvidenceAt, maxAge, nil)
-		if state != CoverageFresh && exists {
-			// An expired plugin report cannot replace a fresh shared identity or
-			// erase current provider radios. Retain source health with its data.
-			continue
+		providerKey := environment + "/" + key
+		previous, exists := providerEvidence[providerKey]
+		if _, seen := providerKnown[providerKey]; !seen {
+			previous, exists = byEnvironment[environment][key]
+			providerKnown[providerKey] = exists
+			providerEvidence[providerKey] = previous
+		} else {
+			exists = providerKnown[providerKey]
 		}
+		state := coverageSourceState(now, presence.EvidenceAt, maxAge, nil)
 		evidence := CoverageControllerEvidence{CoverageParticipant: config.CoverageParticipant{Key: key, Callsign: strings.ToUpper(strings.TrimSpace(control.Callsign)), PrimaryFrequency: vatsim.NormalizeFrequency(control.PrimaryFrequency), Observer: control.Observer}, Identity: state, Radios: CoverageUnknown}
 		if exists {
 			evidence.TunedFrequencies = slices.Clone(previous.TunedFrequencies)
@@ -105,11 +146,17 @@ func BuildCoverageEvidence(network vatsim.Snapshot, radios vatsim.TransceiverSna
 			evidence.TunedFrequencies = slices.Compact(evidence.TunedFrequencies)
 			evidence.Radios = CoverageFresh
 		}
-		byEnvironment[environment][key] = evidence
+		if _, present := byEnvironment[environment][key]; state == CoverageFresh || !present {
+			byEnvironment[environment][key] = evidence
+		}
+		if instances[environment] == nil {
+			instances[environment] = map[coverageInstanceKey]CoverageControllerEvidence{}
+		}
+		instances[environment][coveragePresenceKey(presence)] = evidence
 	}
 	result := map[string]CoverageStaffingEvidence{}
 	for environment, controllers := range byEnvironment {
-		entry := CoverageStaffingEvidence{Environment: environment, Inventory: inventory[environment]}
+		entry := CoverageStaffingEvidence{Environment: environment, Timestamp: timestamps[environment], Inventory: inventory[environment], instances: instances[environment]}
 		for _, controller := range controllers {
 			entry.Controllers = append(entry.Controllers, controller)
 		}

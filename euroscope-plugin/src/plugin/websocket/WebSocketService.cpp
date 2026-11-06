@@ -676,6 +676,7 @@ namespace FlightStrips::websocket {
         control->set_environment(session_name);control->set_callsign(state.callsign);
         control->set_primary_frequency(state.primary_frequency);control->set_observer(state.observer);
         control->set_relevant_airport(state.relevant_airport);control->set_range(state.range);control->set_local_ip(local_ip_);
+        for (const auto& airport : m_plugin->GetEligibleAirports()) control->add_eligible_airports(airport);
         // EuroScope exposes primary here, not a confirmed complete tuned-radio
         // list. Unknown tuned evidence must remain unknown for MA-04 policy.
         if(transport_generation_!=0) *envelope.mutable_context()=CaptureContext();

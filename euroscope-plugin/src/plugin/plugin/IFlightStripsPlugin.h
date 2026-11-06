@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 namespace FlightStrips {
     enum ConnectionType {
@@ -47,6 +48,7 @@ namespace FlightStrips {
     public:
         virtual ~IFlightStripsPlugin() = default;
         virtual ConnectionState& GetConnectionState() = 0;
+        virtual std::vector<std::string> GetEligibleAirports() const { return {}; }
         virtual void SetMembershipAirport(const std::string&,const std::string&,double,double) {}
         virtual void RemoveMembershipAirport(const std::string&) {}
     };

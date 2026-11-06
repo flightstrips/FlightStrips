@@ -19,25 +19,30 @@ import (
 // A physical transport owns authentication and one writer. Only its logical
 // memberships enter the operational hub registry or refresh controller rows.
 type pluginTransport struct {
-	root          *Client
-	instance      string
-	generation    uint64
-	cleanupOnce   sync.Once
-	mu            sync.RWMutex
-	coverageMu    sync.Mutex // control evidence and this instance's membership deltas
-	takeovers     map[string]coverageTakeover
-	members       map[string]*Client
-	evidence      es.ControlEvent
-	evidenceAt    time.Time
-	pendingLegacy string // retry failed admission, never an intentional removal
+	root             *Client
+	instance         string
+	generation       uint64
+	cleanupOnce      sync.Once
+	mu               sync.RWMutex
+	coverageMu       sync.Mutex // control evidence and this instance's membership deltas
+	takeovers        map[string]coverageTakeover
+	members          map[string]*Client
+	evidence         es.ControlEvent
+	evidenceAt       time.Time
+	evidenceRevision uint64 // monotonic even when two reports share a clock tick
+	pendingLegacy    string // retry failed admission, never an intentional removal
 }
 
 // HasLiveSourceDemand includes physical control instances waiting to rejoin.
 // Membership removal does not remove the transport's demand for staffing/radios.
 func (hub *Hub) HasLiveSourceDemand() bool {
 	hub.clientsMu.RLock()
-	defer hub.clientsMu.RUnlock()
+	roots := make([]*Client, 0, len(hub.transports))
 	for root := range hub.transports {
+		roots = append(roots, root)
+	}
+	hub.clientsMu.RUnlock()
+	for _, root := range roots {
 		if root.isClosed() || !root.IsAuthenticated() || root.transport == nil {
 			continue
 		}
@@ -167,6 +172,9 @@ func handleControlEvent(ctx context.Context, root *Client, message Message) erro
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
+	// Admission already canonicalizes session names. Keep control evidence in
+	// that same namespace for replacement attachment and simulation providers.
+	event.Environment = strings.ToUpper(event.Environment)
 	if !environmentName.MatchString(event.Environment) {
 		return shared.RejectAction("invalid physical-instance environment")
 	}
@@ -176,11 +184,13 @@ func handleControlEvent(ctx context.Context, root *Client, message Message) erro
 	}
 	t.coverageMu.Lock()
 	defer t.coverageMu.Unlock()
+	defer root.hub.notifyCoverage()
 	t.mu.Lock()
 	previous := t.evidence
 	pendingLegacy := t.pendingLegacy
 	t.evidence = *proto.Clone(&event).(*es.ControlEvent)
 	t.evidenceAt = time.Now().UTC()
+	t.evidenceRevision++
 	t.mu.Unlock()
 	identityChanged := previous.Environment != "" && (previous.Environment != event.Environment || previous.Callsign != event.Callsign || previous.Observer != event.Observer)
 	if identityChanged {
@@ -294,6 +304,7 @@ func (hub *Hub) JoinMembership(root *Client, airport string) (*Client, error) {
 		hub.markPendingOnlineOrchestration(session, event.Callsign)
 	}
 	hub.OnRegister(member)
+	hub.notifyCoverage()
 	return member, nil
 }
 
@@ -319,6 +330,7 @@ func (hub *Hub) RemoveMembership(member *Client, reason string) {
 	hub.clientsMu.Unlock()
 	member.applyMu.Unlock()
 	hub.OnUnregister(member)
+	hub.notifyCoverage()
 	if notifier, ok := hub.server.GetFrontendHub().(interface {
 		PluginMembershipDisconnected(int32, string, string, string)
 	}); ok {

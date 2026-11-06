@@ -180,6 +180,8 @@ message ControlEvent {
   string relevant_airport = 7;
   int32 range = 8;
   bool tuned_frequencies_known = 9;
+  // Deployment eligibility is a declaration, intersected with backend policy.
+  repeated string eligible_airports = 10;
 }
 
 message MembershipRemovedEvent { string reason = 1; }

@@ -52,9 +52,15 @@ func (hub *Hub) reconcileCoverageLocked(root *Client, declared []string, authori
 	}
 	key := coverageControllerKey(root.GetCid(), control.Callsign)
 	var self *CoverageControllerEvidence
+	if own, exists := staffing.instances[coverageInstanceKey{root.GetCid(), t.instance, t.generation}]; exists {
+		self = &own
+	}
 	participants := make([]config.CoverageParticipant, 0, len(staffing.Controllers))
 	for i := range staffing.Controllers {
 		entry := &staffing.Controllers[i]
+		if entry.Key == key && self != nil {
+			entry = self
+		}
 		participants = append(participants, entry.CoverageParticipant)
 		if entry.Key == key {
 			self = entry
@@ -72,7 +78,7 @@ func (hub *Hub) reconcileCoverageLocked(root *Client, declared []string, authori
 			remove("airport participation is no longer authorized")
 			continue
 		}
-		complete := staffing.Environment == control.Environment && coverageEvidenceComplete(definition, staffing) && self != nil && self.PrimaryFrequency == vatsim.NormalizeFrequency(control.PrimaryFrequency)
+		complete := staffing.Environment == control.Environment && coverageEvidenceComplete(definition, staffing, key, self) && self != nil && self.PrimaryFrequency == vatsim.NormalizeFrequency(control.PrimaryFrequency)
 		pending, confirmed := t.takeovers[airport]
 		if complete {
 			assignments := definition.CoverageResponsibilities(participants)
@@ -116,12 +122,15 @@ func (hub *Hub) reconcileCoverageLocked(root *Client, declared []string, authori
 	return result
 }
 
-func coverageEvidenceComplete(definition *config.AirportDefinition, staffing CoverageStaffingEvidence) bool {
+func coverageEvidenceComplete(definition *config.AirportDefinition, staffing CoverageStaffingEvidence, key string, self *CoverageControllerEvidence) bool {
 	if staffing.Inventory != CoverageFresh {
 		return false
 	}
 	needsRadios := definition.CoverageUsesTunedFrequencies()
 	for _, controller := range staffing.Controllers {
+		if controller.Key == key && self != nil {
+			controller = *self
+		}
 		if controller.Observer {
 			continue
 		}

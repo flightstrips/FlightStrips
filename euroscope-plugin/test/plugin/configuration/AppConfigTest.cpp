@@ -25,6 +25,13 @@ static AppConfig MakeConfigured(const std::string& contents) {
     return config;
 }
 
+TEST(AppConfigTest, CoverageEligibilityRequiresExplicitDeploymentDeclaration) {
+    auto empty = MakeDefault();
+    EXPECT_TRUE(empty.GetEligibleAirports().empty());
+    auto configured = MakeConfigured("[coverage]\neligibleAirports = aaaa BBBB AAAA BAD 1234\n");
+    EXPECT_THAT(configured.GetEligibleAirports(), testing::ElementsAre("AAAA", "BBBB"));
+}
+
 // ---------------------------------------------------------------------------
 // Default values
 // ---------------------------------------------------------------------------

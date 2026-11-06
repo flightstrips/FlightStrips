@@ -48,7 +48,8 @@ const (
 )
 
 type Hub struct {
-	controllerRows        sync.Map // airport/environment/callsign admission and detach
+	coverage              *CoverageCoordinator // application-owned, installed before workers start
+	controllerRows        sync.Map             // airport/environment/callsign admission and detach
 	workflows             *airportworkflow.Registry
 	airports              *config.AirportRegistry
 	done                  chan struct{}

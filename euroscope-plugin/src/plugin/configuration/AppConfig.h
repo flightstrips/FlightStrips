@@ -41,6 +41,7 @@ public:
     [[nodiscard]] int GetFrequencyMessageKey();
     [[nodiscard]] std::string GetLogLevel();
     [[nodiscard]] CallsignAirportMap& GetCallsignAirportMap();
+    [[nodiscard]] std::vector<std::string> GetEligibleAirports();
     [[nodiscard]] std::vector<AirportFallbackPoint>& GetAirportFallbackPoints();
     [[nodiscard]] DeIceConfig& GetDeIceConfig();
     [[nodiscard]] int GetPositionUpdateIntervalSeconds();

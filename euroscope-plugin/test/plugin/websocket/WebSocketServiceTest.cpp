@@ -605,6 +605,7 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_AirportHintLost_WaitsForScopedBacken
 }
 
 TEST_F(WebSocketServiceOnTimerTest, FinalMembershipRemovalKeepsControlAndFutureJoinAvailable) {
+    ON_CALL(*mockPlugin, GetEligibleAirports()).WillByDefault(Return(std::vector<std::string>{"AAAA", "BBBB"}));
     state.connection_type=CONNECTION_TYPE_DIRECT;state.callsign="EKDK_CTR";
     ON_CALL(*mockAuth,GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
     ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
@@ -616,6 +617,7 @@ TEST_F(WebSocketServiceOnTimerTest, FinalMembershipRemovalKeepsControlAndFutureJ
         protobuf::wire::Envelope e;ASSERT_TRUE(e.ParseFromString(bytes));ASSERT_TRUE(e.has_control());
         EXPECT_EQ(e.control().callsign(),"EKDK_CTR");EXPECT_EQ(e.context().transport_generation(),1u);
         EXPECT_TRUE(e.context().membership_id().empty());EXPECT_EQ(e.control().tuned_frequencies_size(),0);
+        EXPECT_THAT(e.control().eligible_airports(), testing::ElementsAre("AAAA", "BBBB"));
     }));
     svc->OnTimer(1);
     auto rejoin=context;rejoin.set_membership_id("new-membership");rejoin.set_generation(2);

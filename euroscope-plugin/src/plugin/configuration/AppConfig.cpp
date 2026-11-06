@@ -63,6 +63,18 @@ namespace FlightStrips::configuration {
         return std::string(ini["logging"]["level"] | "INFO");
     }
 
+    std::vector<std::string> AppConfig::GetEligibleAirports() {
+        // Explicit deployment declaration. No airport is inferred as a default.
+        std::istringstream input(ini["coverage"]["eligibleAirports"] | "");
+        std::vector<std::string> result;
+        for (std::string airport; input >> airport;) {
+            touppercase(airport);
+            if (airport.size() == 4 && std::all_of(airport.begin(), airport.end(), [](char c) { return c >= 'A' && c <= 'Z'; }) &&
+                std::find(result.begin(), result.end(), airport) == result.end()) result.push_back(airport);
+        }
+        return result;
+    }
+
     CallsignAirportMap& AppConfig::GetCallsignAirportMap() {
         if (!callsignAirportMap.empty()) { return callsignAirportMap; }
 

@@ -38,9 +38,11 @@ func newRADISSuite() suite {
 	epoch := time.Now().UTC()
 	var pool *pgxpool.Pool
 	var own *websocket.Conn
+	var ekchOwn *websocket.Conn
 	var endpoint string
 	var primarySend func(proto.Message, es.EventType) error
 	instance := uuid.NewString()
+	ekchInstance := uuid.NewString()
 	feed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now().UTC()
 		switch {
@@ -91,6 +93,9 @@ func newRADISSuite() suite {
 	reconnect := func(ctx context.Context) (*websocket.Conn, error) {
 		return connect(ctx, "EKBI", services.TestFrontendToken, "EKBI_PEER_TWR", "118.005", nil, instance, nil)
 	}
+	reconnectEKCH := func(ctx context.Context) (*websocket.Conn, error) {
+		return connect(ctx, "EKCH", services.TestFrontendToken, "EKCH_GW_TWR", "118.580", nil, ekchInstance, nil)
+	}
 	return suite{
 		config:       app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/internal/config/testdata/radis-services/ekbi.airport.yaml", "backend/internal/config/testdata/radis-services/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
 		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Second},
@@ -107,7 +112,7 @@ func newRADISSuite() suite {
 			pool = db
 			mux.HandleFunc("GET /e2e/persisted", func(w http.ResponseWriter, r *http.Request) {
 				airport := r.URL.Query().Get("airport")
-				if airport != "EKBI" && airport != "EKYT" {
+				if airport != "EKCH" && airport != "EKBI" && airport != "EKYT" {
 					http.Error(w, "airport required", 400)
 					return
 				}
@@ -127,25 +132,33 @@ func newRADISSuite() suite {
 			mux.HandleFunc("POST /e2e/own-plugin/disconnect", func(w http.ResponseWriter, r *http.Request) {
 				ownMu.Lock()
 				defer ownMu.Unlock()
-				if own != nil {
-					own.Close()
-					own = nil
+				selected := &own
+				if r.URL.Query().Get("airport") == "EKCH" {
+					selected = &ekchOwn
+				}
+				if *selected != nil {
+					(*selected).Close()
+					*selected = nil
 				}
 				w.WriteHeader(204)
 			})
 			mux.HandleFunc("POST /e2e/own-plugin/reconnect", func(w http.ResponseWriter, r *http.Request) {
 				ownMu.Lock()
 				defer ownMu.Unlock()
-				if own != nil {
+				selected, connectOwn := &own, reconnect
+				if r.URL.Query().Get("airport") == "EKCH" {
+					selected, connectOwn = &ekchOwn, reconnectEKCH
+				}
+				if *selected != nil {
 					http.Error(w, "already connected", 409)
 					return
 				}
-				next, err := reconnect(r.Context())
+				next, err := connectOwn(r.Context())
 				if err != nil {
 					http.Error(w, err.Error(), 500)
 					return
 				}
-				own = next
+				*selected = next
 				mu.Lock()
 				clients = append(clients, next)
 				mu.Unlock()
@@ -164,6 +177,39 @@ func newRADISSuite() suite {
 		},
 		connect: func(ctx context.Context, url string) error {
 			endpoint = url
+			// Keep the existing EKCH workflow active in the same application as
+			// RADIS, including two independently bound controllers and services.
+			ekch, err := connect(ctx, "EKCH", services.TestToken, "EKCH_A_TWR", "118.105", stripSnapshot(), uuid.NewString(), nil)
+			if err != nil {
+				return err
+			}
+			clients = append(clients, ekch)
+			deadlineEKCH := time.NewTimer(15 * time.Second)
+			defer deadlineEKCH.Stop()
+			tickEKCH := time.NewTicker(20 * time.Millisecond)
+			defer tickEKCH.Stop()
+			for {
+				var count int
+				err := pool.QueryRow(ctx, "SELECT count(*) FROM strips JOIN sessions ON sessions.id=strips.session WHERE sessions.airport='EKCH' AND sessions.name='LIVE' AND euroscope_seen_at IS NOT NULL").Scan(&count)
+				if err != nil {
+					return err
+				}
+				if count == 6 {
+					break
+				}
+				select {
+				case <-tickEKCH.C:
+				case <-deadlineEKCH.C:
+					return fmt.Errorf("EKCH master snapshot did not persist")
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			ekchOwn, err = reconnectEKCH(ctx)
+			if err != nil {
+				return err
+			}
+			clients = append(clients, ekchOwn)
 			for _, airport := range []string{"EKBI", "EKYT"} {
 				frequency := "118.000"
 				if airport == "EKYT" {

@@ -58,53 +58,55 @@ type DepartureFrequencyLookup interface {
 }
 
 type WebAPIConfig struct {
-	Auth           shared.AuthenticationService
-	Callsigns      CallsignLookup
-	Flights        FlightFinder
-	Sessions       repository.SessionRepository
-	Assignments    repository.StandAssignmentRepository
-	CDM            CDMUpdater
-	CDMReady       bool
-	Viff           ViffClient
-	Stands         StandActions
-	ATIS           ATISLookup
-	Departures     DepartureFrequencyLookup
-	PDCReady       bool
-	Live           bool
-	Terminal       terminal.Configuration
-	Navigation     navdata.GeometrySnapshotReader
-	Network        vatsim.FlightSource
-	CallsignLookup bool
-	Training       bool
-	TrainingStrips repository.StripRepository
-	PilotStands    PilotStandActions
+	AirportServiceEnabled func(string, string) bool
+	Auth                  shared.AuthenticationService
+	Callsigns             CallsignLookup
+	Flights               FlightFinder
+	Sessions              repository.SessionRepository
+	Assignments           repository.StandAssignmentRepository
+	CDM                   CDMUpdater
+	CDMReady              bool
+	Viff                  ViffClient
+	Stands                StandActions
+	ATIS                  ATISLookup
+	Departures            DepartureFrequencyLookup
+	PDCReady              bool
+	Live                  bool
+	Terminal              terminal.Configuration
+	Navigation            navdata.GeometrySnapshotReader
+	Network               vatsim.FlightSource
+	CallsignLookup        bool
+	Training              bool
+	TrainingStrips        repository.StripRepository
+	PilotStands           PilotStandActions
 }
 
 type WebAPI struct {
-	auth           shared.AuthenticationService
-	callsigns      CallsignLookup
-	flights        FlightFinder
-	sessions       repository.SessionRepository
-	assignments    repository.StandAssignmentRepository
-	cdm            CDMUpdater
-	cdmReady       bool
-	viff           ViffClient
-	stands         StandActions
-	atis           ATISLookup
-	departures     DepartureFrequencyLookup
-	pdcReady       bool
-	live           bool
-	terminal       terminal.Configuration
-	navigation     navdata.GeometrySnapshotReader
-	network        vatsim.FlightSource
-	callsignLookup bool
-	training       bool
-	trainingStrips repository.StripRepository
-	pilotStands    PilotStandActions
+	airportServiceEnabled func(string, string) bool
+	auth                  shared.AuthenticationService
+	callsigns             CallsignLookup
+	flights               FlightFinder
+	sessions              repository.SessionRepository
+	assignments           repository.StandAssignmentRepository
+	cdm                   CDMUpdater
+	cdmReady              bool
+	viff                  ViffClient
+	stands                StandActions
+	atis                  ATISLookup
+	departures            DepartureFrequencyLookup
+	pdcReady              bool
+	live                  bool
+	terminal              terminal.Configuration
+	navigation            navdata.GeometrySnapshotReader
+	network               vatsim.FlightSource
+	callsignLookup        bool
+	training              bool
+	trainingStrips        repository.StripRepository
+	pilotStands           PilotStandActions
 }
 
 func NewWebAPI(cfg WebAPIConfig) *WebAPI {
-	return &WebAPI{auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, viff: cfg.Viff, stands: cfg.Stands, atis: cfg.ATIS, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live, terminal: cfg.Terminal, navigation: cfg.Navigation, network: cfg.Network, callsignLookup: cfg.CallsignLookup && !cfg.Live, training: cfg.Training && !cfg.Live, trainingStrips: cfg.TrainingStrips, pilotStands: cfg.PilotStands}
+	return &WebAPI{airportServiceEnabled: cfg.AirportServiceEnabled, auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, viff: cfg.Viff, stands: cfg.Stands, atis: cfg.ATIS, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live, terminal: cfg.Terminal, navigation: cfg.Navigation, network: cfg.Network, callsignLookup: cfg.CallsignLookup && !cfg.Live, training: cfg.Training && !cfg.Live, trainingStrips: cfg.TrainingStrips, pilotStands: cfg.PilotStands}
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
@@ -226,8 +228,9 @@ func (a *WebAPI) buildSnapshot(ctx context.Context, match pdc.WebStripMatch, ses
 	if state == "REQUESTED_WITH_FAULTS" {
 		state = "REQUESTED"
 	}
+	pdcReady := a.pdcReady && a.serviceEnabled(s.Origin, "pdc")
 	publishedHeading, publishedHoldingFix, publishedHoldingDetail := publishedArrivalData(ctx, a.navigation, a.terminal, s.Destination, s.Runway, s.Star)
-	result := snapshot{Callsign: s.Callsign, AircraftType: s.AircraftType, Origin: s.Origin, Destination: s.Destination, Route: s.Route, Phase: phase, Runway: s.Runway, SID: s.Sid, STAR: s.Star, ArrivalETA: arrivalETA(s.ArrivalETA), TerminalFix: terminalFix(a.terminal, s.Destination, s.Runway, s.Star), PublishedHeading: publishedHeading, PublishedHoldingFix: publishedHoldingFix, PublishedHoldingDetail: publishedHoldingDetail, ClearedAltitude: s.ClearedAltitude, Squawk: s.AssignedSquawk, Stand: nonEmptyString(s.Stand), EOBT: s.EffectiveEobt(), TOBT: s.EffectiveTobt(), TSAT: normalizeClock(s.EffectiveTsat()), TTOT: s.EffectiveTtot(), CTOT: s.EffectiveCtot(), PDCState: state, PDCAvailable: a.pdcReady && departure && !s.Cleared, PDCCanSubmit: a.pdcReady && departure && !s.Cleared && pdc.WebPDCCanSubmit(s.PdcState), PDCRequiresPilotAction: state == "CLEARED", Capabilities: capabilities{PDC: a.pdcReady && departure, TOBT: a.cdmReady && departure, Stand: a.stands != nil && a.assignments != nil}}
+	result := snapshot{Callsign: s.Callsign, AircraftType: s.AircraftType, Origin: s.Origin, Destination: s.Destination, Route: s.Route, Phase: phase, Runway: s.Runway, SID: s.Sid, STAR: s.Star, ArrivalETA: arrivalETA(s.ArrivalETA), TerminalFix: terminalFix(a.terminal, s.Destination, s.Runway, s.Star), PublishedHeading: publishedHeading, PublishedHoldingFix: publishedHoldingFix, PublishedHoldingDetail: publishedHoldingDetail, ClearedAltitude: s.ClearedAltitude, Squawk: s.AssignedSquawk, Stand: nonEmptyString(s.Stand), EOBT: s.EffectiveEobt(), TOBT: s.EffectiveTobt(), TSAT: normalizeClock(s.EffectiveTsat()), TTOT: s.EffectiveTtot(), CTOT: s.EffectiveCtot(), PDCState: state, PDCAvailable: pdcReady && departure && !s.Cleared, PDCCanSubmit: pdcReady && departure && !s.Cleared && pdc.WebPDCCanSubmit(s.PdcState), PDCRequiresPilotAction: pdcReady && state == "CLEARED", Capabilities: capabilities{PDC: pdcReady && departure, TOBT: a.cdmReady && departure, Stand: a.stands != nil && a.assignments != nil}}
 	if !departure {
 		result.Stand = nil
 	} else if result.Stand != nil {
@@ -603,4 +606,8 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func (a *WebAPI) serviceEnabled(airport, service string) bool {
+	return a.airportServiceEnabled == nil || a.airportServiceEnabled(airport, service)
 }

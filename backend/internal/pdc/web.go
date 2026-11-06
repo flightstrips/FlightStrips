@@ -54,6 +54,9 @@ func (s *Service) FindWebStripByCallsign(ctx context.Context, callsign string) (
 	matches := make([]WebStripMatch, 0, 1)
 	liveMatches := make([]WebStripMatch, 0, 1)
 	for _, session := range sessions {
+		if session == nil || !s.airportEnabled(session.Airport) {
+			continue
+		}
 		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, normalizedCallsign)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

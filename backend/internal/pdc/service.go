@@ -52,6 +52,7 @@ type EuroscopeCommander interface {
 }
 
 type ServiceDependencies struct {
+	Airports               *config.AirportRegistry
 	Client                 HoppieClientInterface
 	Sessions               repository.SessionRepository
 	Strips                 PdcStripStore
@@ -98,6 +99,7 @@ type PdcRequestOutcome struct {
 }
 
 type Service struct {
+	airports               *config.AirportRegistry
 	client                 HoppieClientInterface
 	sessionRepo            repository.SessionRepository
 	stripRepo              PdcStripStore
@@ -140,6 +142,7 @@ func NewPDCService(deps ServiceDependencies) (*Service, error) {
 	}
 
 	return &Service{
+		airports:               deps.Airports,
 		client:                 deps.Client,
 		sessionRepo:            deps.Sessions,
 		stripRepo:              deps.Strips,
@@ -183,6 +186,9 @@ func (s *Service) getSessionInfo(ctx context.Context, sessionID int32) (sessionI
 	if err != nil {
 		return sessionInformation{}, fmt.Errorf("failed to get session: %w", err)
 	}
+	if session == nil || !s.airportEnabled(session.Airport) {
+		return sessionInformation{}, ErrCapabilityDisabled
+	}
 	return sessionInformation{
 		id:       sessionID,
 		name:     session.Name,
@@ -193,6 +199,9 @@ func (s *Service) getSessionInfo(ctx context.Context, sessionID int32) (sessionI
 
 // getNextSequence retrieves the next message sequence number
 func (s *Service) getNextSequence(ctx context.Context, sessionID int32) (int32, error) {
+	if err := s.requireCapability(ctx, sessionID); err != nil {
+		return 0, err
+	}
 	seq, err := s.sessionRepo.IncrementPdcMessageSequence(ctx, sessionID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get next message sequence: %w", err)
@@ -246,6 +255,9 @@ func (s *Service) notifyClearedFlagEuroscope(ctx context.Context, sessionID int3
 
 // notifyStateChange sends PDC state change notification to frontend and EuroScope clients
 func (s *Service) notifyStateChange(ctx context.Context, sessionID int32, callsign string, state ClearanceState, remarks string) error {
+	if err := s.requireCapability(ctx, sessionID); err != nil {
+		return err
+	}
 	if sessionInfo, err := s.getSessionInfo(ctx, sessionID); err == nil {
 		metrics.PDCStateChange(context.Background(), sessionInfo.name, sessionInfo.airport, string(state))
 	}
@@ -282,7 +294,10 @@ func (o PdcRequestOutcome) RequestRemarks() *string {
 }
 
 func (s *Service) EvaluatePdcRequest(strip *models.Strip, session *models.Session, remarks string) PdcRequestOutcome {
-	faults := s.validatePDCFlightPlan(strip, session.ActiveRunways.DepartureRunways, session.AvailableSids)
+	if session == nil || !s.airportEnabled(session.Airport) {
+		return PdcRequestOutcome{State: StateRequestedWithFaults, Faults: []string{ErrCapabilityDisabled.Error()}}
+	}
+	faults := validationFaultMessages(PDCStripValidationFaults(strip, session.ActiveRunways.DepartureRunways, session.AvailableSids, s.validationForAirport(session.Airport)))
 	if len(faults) > 0 {
 		return PdcRequestOutcome{
 			Transition:    PdcRequestTransitionRequestedWithFaults,
@@ -311,6 +326,9 @@ func (s *Service) EvaluatePdcRequest(strip *models.Strip, session *models.Sessio
 }
 
 func (s *Service) PersistPdcRequestOutcome(ctx context.Context, sessionID int32, callsign string, requestedAt time.Time, outcome PdcRequestOutcome) error {
+	if err := s.requireCapability(ctx, sessionID); err != nil {
+		return err
+	}
 	if outcome.AutoIssue {
 		return nil
 	}
@@ -431,6 +449,9 @@ func isWebPDCRequest(strip *models.Strip) bool {
 }
 
 func (s *Service) updatePdcData(ctx context.Context, sessionID int32, callsign string, mutate func(*models.PdcData)) error {
+	if err := s.requireCapability(ctx, sessionID); err != nil {
+		return err
+	}
 	strip, err := s.stripRepo.GetByCallsign(ctx, sessionID, callsign)
 	if err != nil {
 		return err
@@ -529,6 +550,9 @@ func (s *Service) restorePendingTimeouts(ctx context.Context) (int, error) {
 
 	restored := 0
 	for _, session := range sessions {
+		if session == nil || !s.airportEnabled(session.Airport) {
+			continue
+		}
 		strips, err := s.stripRepo.List(ctx, session.ID)
 		if err != nil {
 			return restored, fmt.Errorf("failed to list strips for session %d: %w", session.ID, err)
@@ -542,6 +566,9 @@ func (s *Service) restorePendingTimeouts(ctx context.Context) (int, error) {
 		}
 
 		for _, strip := range strips {
+			if s.airports != nil && session.Name != "LIVE" && !isWebPDCRequest(strip) {
+				continue
+			}
 			if strip == nil || strip.PdcState != string(StateCleared) || strip.PdcData == nil {
 				continue
 			}
@@ -572,23 +599,34 @@ func (s *Service) pollAndProcess(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get sessions: %w", err)
 	}
-
+	mailboxes := make(map[string]*models.Session)
+	ambiguous := make(map[string]bool)
 	for _, session := range sessions {
-		err = s.pollAndProcessForSession(ctx, sessionInformation{
-			id:       session.ID,
-			name:     session.Name,
-			airport:  session.Airport,
-			callsign: session.Airport,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to poll and process for session %s: %w", session.Airport, err)
+		if session == nil || !s.airportEnabled(session.Airport) || session.Name != "LIVE" {
+			continue
+		}
+		if _, exists := mailboxes[session.Airport]; exists {
+			ambiguous[session.Airport] = true
+		}
+		mailboxes[session.Airport] = session
+	}
+	var failures []error
+	for mailbox, session := range mailboxes {
+		if ambiguous[mailbox] {
+			failures = append(failures, fmt.Errorf("ambiguous LIVE PDC mailbox %s", mailbox))
+			continue
+		}
+		if err := s.pollAndProcessForSession(ctx, sessionInformation{id: session.ID, name: session.Name, airport: session.Airport, callsign: mailbox}); err != nil {
+			failures = append(failures, fmt.Errorf("poll PDC mailbox %s: %w", mailbox, err))
 		}
 	}
-
-	return nil
+	return errors.Join(failures...)
 }
 
 func (s *Service) pollAndProcessForSession(ctx context.Context, session sessionInformation) error {
+	if err := s.requireSessionInfo(ctx, session, true); err != nil {
+		return err
+	}
 	client, err := s.hoppieClient()
 	if err != nil {
 		return err
@@ -613,6 +651,9 @@ func (s *Service) pollAndProcessForSession(ctx context.Context, session sessionI
 
 // HandleIncomingMessage routes incoming messages by type
 func (s *Service) HandleIncomingMessage(ctx context.Context, msg *Message, session sessionInformation) error {
+	if err := s.requireSessionInfo(ctx, session, true); err != nil {
+		return err
+	}
 	incomingMsg, err := ParseIncomingMessage(msg.From, msg.To, msg.Packet)
 	if err != nil {
 		return fmt.Errorf("failed to parse message: %w", err)
@@ -637,6 +678,9 @@ func (s *Service) HandleIncomingMessage(ctx context.Context, msg *Message, sessi
 
 // ProcessPDCRequest handles a pilot's PDC request
 func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, session sessionInformation) (requestErr error) {
+	if err := s.requireSessionInfo(ctx, session, true); err != nil {
+		return err
+	}
 	logger := pdcRequestLogger(session.id, msg.From, models.PdcChannelCPDLC).With("from", msg.From, "airport", session.airport)
 	logger.InfoContext(ctx, "PDC Service: Request received")
 	defer func() {
@@ -748,6 +792,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 
 // SendStatusAck sends the "request received" message
 func (s *Service) SendStatusAck(ctx context.Context, session sessionInformation, callsign, origin string) error {
+	if err := s.requireSessionInfo(ctx, session, true); err != nil {
+		return err
+	}
 	client, err := s.hoppieClient()
 	if err != nil {
 		return err
@@ -827,6 +874,9 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 }
 
 func (s *Service) BuildClearanceOptions(ctx context.Context, sessionInfo sessionInformation, strip *models.Strip, remarks string, webDelivery bool, mandatoryRouteReview *mandatoryRouteReview) (ClearanceOptions, error) {
+	if err := s.requireSessionInfo(ctx, sessionInfo, !webDelivery); err != nil {
+		return ClearanceOptions{}, err
+	}
 	ctx, span := otel.Tracer("pdc").Start(ctx, "pdc.clearance.prepare")
 	defer span.End()
 	if strip.Runway == nil || (strip.Sid == nil && strip.Heading == nil) {
@@ -995,6 +1045,9 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 	}
 
 	if !isWebPDCRequest(strip) {
+		if err := s.requireSessionInfo(ctx, sessionInfo, true); err != nil {
+			return err
+		}
 		client, clientErr := s.hoppieClient()
 		if clientErr != nil {
 			return clientErr
@@ -1023,6 +1076,9 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 }
 
 func (s *Service) ConfirmVoiceClearance(ctx context.Context, callsign string, sessionID int32) error {
+	if err := s.requireCapability(ctx, sessionID); err != nil {
+		return err
+	}
 	if err := shared.ValidateCommandAuthority(ctx, sessionID); err != nil {
 		return err
 	}
@@ -1197,6 +1253,9 @@ func normalizeFrequency(frequency string) string {
 
 // HandleWilco processes pilot WILCO response
 func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, session sessionInformation) error {
+	if err := s.requireSessionInfo(ctx, session, true); err != nil {
+		return err
+	}
 	callsign := message.From
 
 	wilco, err := ParseWilcoMessage(message.Payload)
@@ -1259,6 +1318,9 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 }
 
 func (s *Service) HandleUnable(ctx context.Context, callsign string, session sessionInformation) error {
+	if err := s.requireSessionInfo(ctx, session, true); err != nil {
+		return err
+	}
 	key := fmt.Sprintf("%s_%d", callsign, session.id)
 
 	s.timeoutsMutex.RLock()
@@ -1289,6 +1351,9 @@ func (s *Service) HandleUnable(ctx context.Context, callsign string, session ses
 
 // ManualStateChange allows manual state confirmation if pilot communicates outside Hoppie
 func (s *Service) ManualStateChange(ctx context.Context, callsign string, sessionID int32, newState string) error {
+	if err := s.requireCapability(ctx, sessionID); err != nil {
+		return err
+	}
 	/*
 		// Validate state
 		validStates := map[string]bool{
@@ -1334,6 +1399,9 @@ func (s *Service) ManualStateChange(ctx context.Context, callsign string, sessio
 
 // SendErrorMessage sends error message to pilot for invalid PDC requests
 func (s *Service) SendErrorMessage(ctx context.Context, session sessionInformation, callsign string) error {
+	if err := s.requireSessionInfo(ctx, session, true); err != nil {
+		return err
+	}
 	client, err := s.hoppieClient()
 	if err != nil {
 		return err
@@ -1353,6 +1421,9 @@ func (s *Service) StartClearanceTimeout(ctx context.Context, _ string, callsign 
 }
 
 func (s *Service) startClearanceTimeoutAfter(ctx context.Context, messageId int32, session sessionInformation, callsign string, cid string, web bool, delay time.Duration) {
+	if s.requireSessionInfo(ctx, session, false) != nil {
+		return
+	}
 	key := fmt.Sprintf("%s_%d", callsign, session.id)
 
 	// Cancel any existing timeout for this callsign
@@ -1462,6 +1533,9 @@ func (s *Service) handleTimeout(ctx context.Context, delay time.Duration, callsi
 }
 
 func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId int32, state ClearanceState, cid string) error {
+	if err := s.requireCapability(ctx, sessionId); err != nil {
+		return err
+	}
 	if cid == "" {
 		strip, err := s.stripRepo.GetByCallsign(ctx, sessionId, callsign)
 		if err == nil && strip.PdcData != nil && strip.PdcData.IssuedByCid != nil {

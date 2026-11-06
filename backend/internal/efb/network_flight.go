@@ -186,10 +186,10 @@ func (a *WebAPI) addNetworkStripData(ctx context.Context, result *snapshot) {
 			state = "REQUESTED"
 		}
 		result.PDCState = state
-		result.PDCAvailable = a.pdcReady && !match.Strip.Cleared
+		result.PDCAvailable = a.pdcReady && a.serviceEnabled(result.Origin, "pdc") && !match.Strip.Cleared
 		result.PDCCanSubmit = result.PDCAvailable && pdc.WebPDCCanSubmit(match.Strip.PdcState)
-		result.PDCRequiresPilotAction = state == "CLEARED"
-		result.Capabilities.PDC = a.pdcReady
+		result.PDCRequiresPilotAction = a.serviceEnabled(result.Origin, "pdc") && state == "CLEARED"
+		result.Capabilities.PDC = a.pdcReady && a.serviceEnabled(result.Origin, "pdc")
 		if match.Strip.PdcData != nil && match.Strip.PdcData.Web != nil {
 			result.PDCClearanceText = match.Strip.PdcData.Web.ClearanceText
 		}

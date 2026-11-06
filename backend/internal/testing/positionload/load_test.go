@@ -620,6 +620,7 @@ func TestPositionLoad(t *testing.T) {
 		}
 	}
 	require.NotEmpty(t, times)
+	require.Positive(t, average(queries), "enabled SQL tracing must measure real position persistence work")
 	if pattern == "second-burst" {
 		require.Less(t, percentile(batchTimes, 1), 1000., "each measured batch must complete before the next second")
 	}

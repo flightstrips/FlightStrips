@@ -82,7 +82,7 @@ func EKCHDescriptor() HandlerDescriptor {
 	}
 }
 func ProductionAirportCatalog() *AirportCatalog {
-	catalog, err := NewAirportCatalog(EKCHDescriptor())
+	catalog, err := NewAirportCatalog(EKCHDescriptor(), RADISDescriptor())
 	if err != nil {
 		panic(err)
 	}

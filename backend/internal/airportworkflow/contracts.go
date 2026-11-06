@@ -5,6 +5,7 @@ package airportworkflow
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/pkg/events/euroscope"
+	pkgmodels "FlightStrips/pkg/models"
 	"fmt"
 	"reflect"
 	"sort"
@@ -23,6 +24,12 @@ const (
 
 // Snapshot contains values only. It cannot alias a stored strip or its owners.
 type Snapshot struct {
+	RemovedAt                                              *time.Time
+	RemovalReason                                          string
+	BoardMember                                            bool
+	Local                                                  bool
+	HasFP                                                  bool
+	Annotations                                            pkgmodels.StripAnnotations
 	GroundStateKnown                                       bool
 	Runway                                                 string
 	Landed                                                 bool
@@ -37,6 +44,7 @@ type Snapshot struct {
 }
 
 type Context struct {
+	Now          time.Time
 	Session      int32
 	Definition   *config.AirportDefinition
 	Source       Source
@@ -75,6 +83,7 @@ const (
 )
 
 type Lifecycle struct {
+	Reason                           string
 	Kind                             LifecycleKind
 	Latitude, Longitude              float64
 	Altitude                         int32
@@ -83,6 +92,8 @@ type Lifecycle struct {
 }
 
 type LifecycleDecision struct {
+	Visibility             *StripVisibility
+	RemovalDelay           *time.Duration
 	Admit, Restart, Remove bool
 	Bay                    *string
 	StandHideDelay         time.Duration
@@ -106,6 +117,10 @@ type CoordinationDecision struct {
 // Decision requests existing typed move/field operations. Observation decisions
 // contain reconciliation only; they cannot produce outbound field commands.
 type Decision struct {
+	Admission                         *StripAdmission
+	ConnectedFlights                  *ConnectedFlightLookup
+	Visibility                        *StripVisibility
+	Annotations                       *pkgmodels.StripAnnotations
 	AutoAssume, ConfirmVoiceClearance bool
 	Ignore                            bool
 	ReconciledGroundState             *string
@@ -150,18 +165,26 @@ func Action[T any](name string, decide func(Context, T) (Decision, error)) Actio
 	}}
 }
 
+type BoardStatePolicy struct {
+	Revisioned      bool
+	RecoverySeconds int
+}
+
 type Descriptor struct {
-	ID   string
-	Bind func(*config.AirportDefinition) (Handler, []ActionDescriptor, error)
+	BoardState func(*config.AirportDefinition) BoardStatePolicy
+	ID         string
+	Bind       func(*config.AirportDefinition) (Handler, []ActionDescriptor, error)
 }
 
 // Bound is immutable and shared across sessions. Binding occurs at startup,
 // never while processing an event or holding a session/strip lock.
 type Bound struct {
-	definition *config.AirportDefinition
-	handler    Handler
-	actions    map[string]ActionDescriptor
-	bays       map[string]bool
+	boardState  BoardStatePolicy
+	annotations map[string]string
+	definition  *config.AirportDefinition
+	handler     Handler
+	actions     map[string]ActionDescriptor
+	bays        map[string]bool
 }
 
 func Bind(d *config.AirportDefinition, descriptor Descriptor) (*Bound, error) {
@@ -176,6 +199,13 @@ func Bind(d *config.AirportDefinition, descriptor Descriptor) (*Bound, error) {
 		return nil, fmt.Errorf("handler %s is nil", descriptor.ID)
 	}
 	b := &Bound{definition: d, handler: handler, actions: map[string]ActionDescriptor{}, bays: map[string]bool{}}
+	if descriptor.BoardState != nil {
+		b.boardState = descriptor.BoardState(d)
+	}
+	b.annotations = map[string]string{}
+	for name, annotation := range d.Document().Workflow.Annotations {
+		b.annotations[name] = annotation.Type
+	}
 	for _, bay := range d.Document().Workflow.Bays {
 		b.bays[bay.ID] = true
 	}
@@ -201,6 +231,7 @@ func (b *Bound) ActionCatalog() []string {
 	sort.Strings(names)
 	return names
 }
+func (b *Bound) BoardStatePolicy() BoardStatePolicy    { return b.boardState }
 func (b *Bound) Definition() *config.AirportDefinition { return b.definition }
 func (b *Bound) HasBay(bay string) bool                { return b.bays[bay] }
 func (b *Bound) context(c Context) (Context, error) {
@@ -211,6 +242,28 @@ func (b *Bound) context(c Context) (Context, error) {
 	return c, nil
 }
 func (b *Bound) Validate(c Context, d Decision) error {
+	if d.Visibility != nil && !b.boardState.Revisioned {
+		return fmt.Errorf("invalid visibility decision")
+	}
+	if d.Annotations != nil && (c.Source == ObservationSource || !b.boardState.Revisioned) {
+		return fmt.Errorf("invalid annotation decision")
+	}
+	if d.Annotations != nil {
+		if err := validateDeclaredAnnotations(c.Strip.Annotations, *d.Annotations, b.annotations); err != nil {
+			return err
+		}
+	}
+	if d.Admission != nil && (!b.boardState.Revisioned || !b.HasBay(d.Admission.Bay)) {
+		return fmt.Errorf("invalid board admission decision")
+	}
+	if d.Admission != nil {
+		if err := validateDeclaredAnnotations(pkgmodels.StripAnnotations{}, d.Admission.Annotations, b.annotations); err != nil {
+			return err
+		}
+	}
+	if d.ConnectedFlights != nil && d.ConnectedFlights.Airport != b.definition.Airport() {
+		return fmt.Errorf("connected lookup must retain airport scope")
+	}
 	if d.GroundState != nil {
 		switch *d.GroundState {
 		case euroscope.GroundStateUnknown, euroscope.GroundStateStartup, euroscope.GroundStatePush, euroscope.GroundStateTaxi, euroscope.GroundStateLineup, euroscope.GroundStateDepart, euroscope.GroundStateParked:
@@ -273,7 +326,11 @@ func (b *Bound) Lifecycle(c Context, l Lifecycle) (LifecycleDecision, error) {
 	if err != nil {
 		return LifecycleDecision{}, err
 	}
-	return b.handler.Lifecycle(c, l)
+	d, err := b.handler.Lifecycle(c, l)
+	if err == nil && d.Visibility != nil {
+		err = b.Validate(c, Decision{Visibility: d.Visibility})
+	}
+	return d, err
 }
 func (b *Bound) Coordinate(c Context, event Coordination) (CoordinationDecision, error) {
 	c, err := b.context(c)

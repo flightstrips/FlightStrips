@@ -43,6 +43,7 @@ type ArrivalETA struct {
 }
 
 type Strip struct {
+	BoardState *StripBoardState
 	// Flight-plan timing forwarded directly from an ES snapshot to AMAN.
 	// AMAN persists it in its observation; it is not controller-owned CDM data.
 	FlightPlanEOBT           string

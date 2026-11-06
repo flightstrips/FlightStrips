@@ -108,7 +108,7 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 	if checker, ok := b.euroscopeHub.(pendingEuroscopeStripChecker); ok {
 		current := strips[:0]
 		for _, strip := range strips {
-			if strip == nil || strip.EuroscopeSeenAt == nil || checker.IsAircraftDisconnectPending(request.SessionID, strip.Callsign) {
+			if strip == nil || (strip.BoardState == nil && (strip.EuroscopeSeenAt == nil || checker.IsAircraftDisconnectPending(request.SessionID, strip.Callsign))) {
 				continue
 			}
 			current = append(current, strip)
@@ -117,7 +117,7 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 	} else {
 		current := strips[:0]
 		for _, strip := range strips {
-			if strip != nil && strip.EuroscopeSeenAt != nil {
+			if strip != nil && (strip.EuroscopeSeenAt != nil || strip.BoardState != nil) {
 				current = append(current, strip)
 			}
 		}

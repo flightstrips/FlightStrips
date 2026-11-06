@@ -377,6 +377,7 @@ type Strip struct {
 	FsScratchPad             string
 	FlightRules              string
 	NextControllerSector     *string
+	BoardState               []byte
 }
 
 type TacticalStrip struct {

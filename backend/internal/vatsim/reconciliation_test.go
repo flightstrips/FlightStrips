@@ -840,3 +840,29 @@ func TestRetainsStripWhileArrivalLifecycleOwnsTheAssignment(t *testing.T) {
 	assignment.Stage = "ASSIGNED"
 	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS926"), "a close operational arrival retains its strip")
 }
+
+type radisPlanningRaceStrips struct {
+	*reconciliationTestStrips
+	before  func()
+	guarded bool
+}
+
+func (s *radisPlanningRaceStrips) UpdatePlanningBayAndSequence(context.Context, int32, string, string, int32) (int64, error) {
+	s.guarded = true
+	s.before()
+	return 0, nil
+}
+func TestRADISAdmissionOvertakesStaleSourceBayWrite(t *testing.T) {
+	now := time.Now().UTC()
+	sequence := int32(1000)
+	row := &models.Strip{ID: 1, Session: 7, Callsign: "RACE", Origin: "EKBI", Destination: "EKYT", Bay: "PASSIVE_TOP", Sequence: &sequence}
+	cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: "RACE", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKBI", Destination: "EKYT", Revision: 1}})
+	store := &radisPlanningRaceStrips{reconciliationTestStrips: &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {row}}}, before: func() { row.Bay = "RUNWAY"; row.BoardState = &models.StripBoardState{}; row.EuroscopeSeenAt = &now }}
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKBI", Name: "LIVE"}}}, store, reconciliationTestAssignments{}, nil, time.Second)
+	require.NoError(t, reconciler.Reconcile(t.Context()))
+	require.True(t, store.guarded)
+	require.Equal(t, "RUNWAY", row.Bay)
+	// Even a source-only FIND member remains explicitly placed without ES presence.
+	row.EuroscopeSeenAt = nil
+	require.Empty(t, apiDepartureBay(row, Flight{FlightPlan: FlightPlan{Origin: "EKBI"}}, "EKBI"))
+}

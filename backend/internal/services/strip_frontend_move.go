@@ -35,11 +35,19 @@ func (s *StripService) executeControllerWorkflow(ctx context.Context, session in
 		return err
 	}
 
+	if bound.BoardStatePolicy().Revisioned {
+		if _, ok := ctx.Value(workflowRevisionKey{}).(WorkflowRevision); !ok {
+			return shared.RejectAction("strip board strip revision required")
+		}
+	}
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 
+	if strip.BoardState != nil && strip.BoardState.RemovedAt != nil {
+		return shared.RejectAction("restore the removed strip before moving")
+	}
 	if err := validateWorkflowRevision(ctx, bound, session, strip); err != nil {
 		return err
 	}
@@ -160,6 +168,9 @@ func (s *StripService) executeControllerWorkflow(ctx context.Context, session in
 	}
 
 	s.syncAsatForGroundStateBestEffort(ctx, session, callsign, groundState)
+	if bound.BoardStatePolicy().Revisioned {
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+	}
 	return nil
 }
 

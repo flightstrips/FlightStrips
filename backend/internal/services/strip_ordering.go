@@ -367,6 +367,10 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 		previousBay = strip.Bay
 	}
 
+	if strip != nil && strip.BoardState != nil {
+		return s.reorderBoardStrip(ctx, session, strip, insertAfter, bay)
+	}
+
 	var prev int32
 	if insertAfter != nil {
 		seq, err := s.resolveRefSequence(ctx, session, bay, insertAfter)

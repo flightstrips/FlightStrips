@@ -70,6 +70,7 @@ type Hub struct {
 	removedSessions       sync.Map
 	server                shared.Server
 	stripService          shared.StripService
+	boardActions          stripBoardOperations
 	validationService     validationStatusAcknowledger
 	stripUpdateService    frontendStripUpdateUseCase
 	pdcService            shared.PdcService
@@ -158,6 +159,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 
 	handlers.Add(frontend.Token, handleTokenEvent)
 	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
+	handlers.Add(frontend.StripAnnotate, handleStripAnnotation)
 	handlers.Add(frontend.Move, handleMove)
 	handlers.Add(frontend.UpdateStripData, handleStripUpdate)
 	handlers.Add(frontend.CoordinationTransferRequestType, handleCoordinationTransferRequest)
@@ -209,6 +211,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		clients:               make(map[*Client]bool),
 		handlers:              handlers,
 		stripService:          deps.Strips,
+		boardActions:          bindStripBoardOperations(deps.Strips),
 		authenticationService: deps.Authentication,
 		amanStateProvider:     deps.AMANState,
 		amanCommandService:    deps.AMANCommands,
@@ -608,6 +611,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 	cdmEvent := shared.BuildFrontendCdmDataEvent(strip.Callsign, cdm)
 
 	return frontend.Strip{
+		ID: strip.ID, BoardState: strip.BoardState,
 		Callsign:                  strip.Callsign,
 		Origin:                    strip.Origin,
 		Destination:               strip.Destination,
@@ -1021,7 +1025,7 @@ func (hub *Hub) SendStripUpdateContext(ctx context.Context, session int32, calls
 	if err != nil {
 		return
 	}
-	if strip.EuroscopeSeenAt == nil {
+	if strip.EuroscopeSeenAt == nil && strip.BoardState == nil {
 		// VATSIM and SAT maintain planning records in the same table. They must
 		// not become frontend flight strips before EuroScope has observed them.
 		return

@@ -1482,6 +1482,436 @@
             "annotations"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "handler": {
+              "const": "radis/v1"
+            },
+            "settings": {
+              "type": "object",
+              "properties": {
+                "departure_initial_bay": {
+                  "enum": [
+                    "ACTIVE",
+                    "RUNWAY",
+                    "PASSIVE_TOP",
+                    "PASSIVE_BOTTOM"
+                  ]
+                },
+                "arrival_initial_bay": {
+                  "enum": [
+                    "ACTIVE",
+                    "RUNWAY",
+                    "PASSIVE_TOP",
+                    "PASSIVE_BOTTOM"
+                  ]
+                },
+                "bay_ground_states": {
+                  "type": "object",
+                  "properties": {
+                    "ACTIVE": {
+                      "type": "object",
+                      "properties": {
+                        "departure": {
+                          "enum": [
+                            "",
+                            "ST-UP",
+                            "PUSH",
+                            "TAXI",
+                            "LINEUP",
+                            "DEPA",
+                            "PARK"
+                          ]
+                        },
+                        "arrival": {
+                          "enum": [
+                            "",
+                            "ST-UP",
+                            "PUSH",
+                            "TAXI",
+                            "LINEUP",
+                            "DEPA",
+                            "PARK"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "departure",
+                        "arrival"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "RUNWAY": {
+                      "type": "object",
+                      "properties": {
+                        "departure": {
+                          "enum": [
+                            "",
+                            "ST-UP",
+                            "PUSH",
+                            "TAXI",
+                            "LINEUP",
+                            "DEPA",
+                            "PARK"
+                          ]
+                        },
+                        "arrival": {
+                          "enum": [
+                            "",
+                            "ST-UP",
+                            "PUSH",
+                            "TAXI",
+                            "LINEUP",
+                            "DEPA",
+                            "PARK"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "departure",
+                        "arrival"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "PASSIVE_TOP": {
+                      "type": "object",
+                      "properties": {
+                        "departure": {
+                          "enum": [
+                            "",
+                            "ST-UP",
+                            "PUSH",
+                            "TAXI",
+                            "LINEUP",
+                            "DEPA",
+                            "PARK"
+                          ]
+                        },
+                        "arrival": {
+                          "enum": [
+                            "",
+                            "ST-UP",
+                            "PUSH",
+                            "TAXI",
+                            "LINEUP",
+                            "DEPA",
+                            "PARK"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "departure",
+                        "arrival"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "PASSIVE_BOTTOM": {
+                      "type": "object",
+                      "properties": {
+                        "departure": {
+                          "enum": [
+                            "",
+                            "ST-UP",
+                            "PUSH",
+                            "TAXI",
+                            "LINEUP",
+                            "DEPA",
+                            "PARK"
+                          ]
+                        },
+                        "arrival": {
+                          "enum": [
+                            "",
+                            "ST-UP",
+                            "PUSH",
+                            "TAXI",
+                            "LINEUP",
+                            "DEPA",
+                            "PARK"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "departure",
+                        "arrival"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ACTIVE",
+                    "RUNWAY",
+                    "PASSIVE_TOP",
+                    "PASSIVE_BOTTOM"
+                  ],
+                  "additionalProperties": false
+                },
+                "admission_distance_nm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "departure_admission_agl_ft": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "removal_distance_nm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "departure_removal_agl_ft": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "recovery_seconds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 604800
+                },
+                "timestamp_semantics": {
+                  "const": "annotation-utc"
+                }
+              },
+              "required": [
+                "departure_initial_bay",
+                "arrival_initial_bay",
+                "bay_ground_states",
+                "admission_distance_nm",
+                "departure_admission_agl_ft",
+                "removal_distance_nm",
+                "departure_removal_agl_ft",
+                "recovery_seconds",
+                "timestamp_semantics"
+              ],
+              "additionalProperties": false
+            },
+            "bays": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "annotations": {
+              "type": "object",
+              "properties": {
+                "notes": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "string"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": ""
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                },
+                "deicing": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "boolean"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                },
+                "rea": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "timestamp"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": null
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                },
+                "ata": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "timestamp"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": null
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                },
+                "atd": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "string"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": ""
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                },
+                "endurance_pob": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "string"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": ""
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                },
+                "qnh": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "string"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": ""
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                },
+                "rnav": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "string"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": ""
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                },
+                "vfr": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "boolean"
+                    },
+                    "scope": {
+                      "const": "session"
+                    },
+                    "default": {
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "scope",
+                    "default"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "notes",
+                "deicing",
+                "rea",
+                "ata",
+                "atd",
+                "endurance_pob",
+                "qnh",
+                "rnav",
+                "vfr"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "handler",
+            "settings",
+            "bays",
+            "annotations"
+          ],
+          "additionalProperties": false
         }
       ]
     }

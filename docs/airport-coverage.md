@@ -47,9 +47,11 @@ membership incarnation; old contexts and human command bindings stay retired.
 Human commands retain their exact own-plugin authority, and genuine automatic
 effects retain the existing same-session executor.
 
-This implementation starts on the reviewed MA-05 shared-source slice, not a claim
-that the full MA-05 epic has completed. The stack must be coordinated/rebased onto
-the appropriate completed MA-05 state before the cross-epic prerequisite is
-declared complete. Real airport responsibilities, frequencies, regions, master
-values and grace remain rollout inputs. Only synthetic coverage fixtures are
-added; regional PDC/AMAN remain disabled and no new airport is activated.
+The five MA-04 layers follow all six reviewed MA-05 layers in the existing
+combined stack #1062. Their base is #1073 at
+`0808538e1b8fc1cf07c8bab91374deea3e80d785`; the original shared-source starting
+point was #1059 at `03032f5`. MA-05 branch heads remain unchanged. Publication does
+not declare either epic merged or operationally activated. Real airport
+responsibilities, frequencies, regions, master values and grace remain rollout
+inputs. Only synthetic coverage fixtures are added; regional PDC/AMAN remain
+disabled and no new airport is activated.

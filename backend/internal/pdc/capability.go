@@ -19,6 +19,9 @@ func (s *Service) airportEnabled(airport string) bool {
 }
 
 func (s *Service) requireCapability(ctx context.Context, session int32) error {
+	if s.sessionRemoved(session) {
+		return fmt.Errorf("PDC session has expired")
+	}
 	if s.airports == nil {
 		return nil
 	}
@@ -27,6 +30,9 @@ func (s *Service) requireCapability(ctx context.Context, session int32) error {
 }
 
 func (s *Service) requireSessionInfo(ctx context.Context, claimed sessionInformation, external bool) error {
+	if s.sessionRemoved(claimed.id) {
+		return fmt.Errorf("PDC session has expired")
+	}
 	if s.airports == nil {
 		return nil
 	}

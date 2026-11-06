@@ -438,6 +438,9 @@ func (s *DepartureLifecycleService) deliverUnassignedOccupiedStandWarning(sessio
 
 	s.warningMu.Lock()
 	defer s.warningMu.Unlock()
+	if s.allocations.sessionRemoved(session) {
+		return
+	}
 	if warnedStand, ok := s.warnings[key]; ok && strings.EqualFold(warnedStand, observedStand) {
 		return
 	}

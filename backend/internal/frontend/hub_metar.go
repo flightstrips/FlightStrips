@@ -4,6 +4,10 @@ import "FlightStrips/pkg/events/frontend"
 
 func (hub *Hub) SendAtisUpdate(session int32, metar string, arrAtisCode string, depAtisCode string) {
 	hub.metarMu.Lock()
+	if hub.sessionRemoved(session) {
+		hub.metarMu.Unlock()
+		return
+	}
 	hub.metarCache[session] = metar
 	hub.arrAtisCodeCache[session] = arrAtisCode
 	hub.depAtisCodeCache[session] = depAtisCode

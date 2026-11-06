@@ -30,6 +30,9 @@ func (s *StandAllocationService) referencesForAirport(airport string, aircraft *
 }
 
 func (s *StandAllocationService) validateAirport(ctx context.Context, session int32, airport string) error {
+	if s.sessionRemoved(session) {
+		return fmt.Errorf("stand session has expired")
+	}
 	if s.airportInputs == nil {
 		return nil
 	}
@@ -47,6 +50,9 @@ func (s *StandAllocationService) validateAirport(ctx context.Context, session in
 }
 
 func (s *StandAllocationService) validateLockedAirport(ctx context.Context, tx pgx.Tx, session int32, airport string) error {
+	if s.sessionRemoved(session) {
+		return fmt.Errorf("stand session has expired")
+	}
 	if s.airportInputs == nil {
 		return nil
 	}

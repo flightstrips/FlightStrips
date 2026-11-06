@@ -6,6 +6,7 @@ import type {AMANFlight, AMANStateEvent} from "@/api/aman";
 import {
   buildAMANHoldingLanes,
   buildAMANLanes,
+  buildRWYTimelineLanes,
   buildTimelineRange,
   formatGainLoss,
   layoutTimelineMarkers,
@@ -110,6 +111,23 @@ describe("AMAN presentation model", () => {
     expect(operationalMarkerTimestamp(value)).toBe(value.slot?.time);
     value.slot = null;
     expect(operationalMarkerTimestamp(value)).toBe(value.operational_teta);
+  });
+
+  it.each([
+    {sequence_disposition: "desequenced" as const, expedited: true},
+    {sequence_disposition: "desequenced" as const},
+    {lifecycle_state: "landed" as const},
+    {lifecycle_state: "removed" as const},
+  ])("excludes former reservations from timeline lanes and markers: %j", (disposition) => {
+    const active = {...flight("active", 1, 10), runway_group_id: "NORTH"};
+    const excluded = {...flight("excluded", 1, 10), runway_group_id: "NORTH", ...disposition};
+    const state = {...structuredClone(golden.data), runway_groups: [{id: "NORTH"}], active_runway_groups: ["NORTH"], flights: [excluded, active]};
+
+    expect(buildAMANLanes(state)[0].flights).toEqual([active]);
+    expect(buildRWYTimelineLanes(state).lanes[0].flights).toEqual([active]);
+    expect(buildAMANHoldingLanes(state.flights).flatMap((lane) => lane.flights)).toEqual([active]);
+    expect(operationalMarkerTimestamp(excluded)).toBeNull();
+    expect(layoutTimelineMarkers(state.flights, buildTimelineRange(state.flights)!).map((marker) => marker.flight)).toEqual([active]);
   });
 
   it("allocates deterministic collision tracks without changing marker timestamps", () => {

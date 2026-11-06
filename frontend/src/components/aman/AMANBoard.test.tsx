@@ -100,6 +100,45 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByTestId("operational-marker-SAS123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
   });
 
+  it.each(["FMP", "RWY", "ACC"])("releases the displayed slot after expedite in the %s view and restores it on resume", (view) => {
+    const current = state();
+    const source = current.flights[0];
+    const follower = {
+      ...structuredClone(source), callsign: "FOLLOWER", order: 2,
+      slot: {...source.slot!, sequence: 2, time: "2026-07-22T10:21:00.000Z"},
+    };
+    current.flights = [source, follower];
+    const props: AMANBoardViewProps = {
+      connectionState: "connected", error: null, onSelectFlight: vi.fn(),
+      presentationStatus: "ready", selectedCallsign: source.callsign, state: current,
+    };
+    const {rerender} = render(<AMANBoardView {...props} />);
+    if (view !== "FMP") fireEvent.click(screen.getByRole("button", {name: view}));
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();
+
+    const confirmed = structuredClone(current);
+    confirmed.revision++;
+    confirmed.flights[0].sequence_disposition = "desequenced";
+    confirmed.flights[0].expedited = true;
+    // The backend retains the former slot as history and promotes the follower into it.
+    confirmed.flights[1].order = 1;
+    confirmed.flights[1].slot = structuredClone(source.slot);
+    rerender(<AMANBoardView {...props} state={confirmed} />);
+    expect(screen.queryByRole("button", {name: /Select SAS123/})).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select FOLLOWER/}).closest('[role="listitem"]'))
+      .toHaveAttribute("data-marker-time", source.slot!.time);
+    expect(confirmed.flights[0].slot).toEqual(source.slot);
+
+    const resumed = structuredClone(confirmed);
+    resumed.revision++;
+    resumed.flights[0].sequence_disposition = "active";
+    resumed.flights[0].expedited = false;
+    resumed.flights[0].slot!.time = "2026-07-22T10:21:00.000Z";
+    rerender(<AMANBoardView {...props} state={resumed} />);
+    expect(screen.getByRole("button", {name: /Select SAS123/}).closest('[role="listitem"]'))
+      .toHaveAttribute("data-marker-time", resumed.flights[0].slot!.time);
+  });
+
   it("does not invent operational lane mappings when configuration is unavailable", () => {
     const unconfigured = state();
     delete unconfigured.timeline_configuration;

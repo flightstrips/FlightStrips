@@ -189,6 +189,7 @@ func visitRelocationChain(ctx context.Context, callsign string) bool {
 // builds on the SAT persistence repositories rather than bypassing their
 // versioning and transaction-bound access.
 type StandAllocationService struct {
+	removedSessions        sync.Map
 	airportInputs          *sat.AirportInputRegistry
 	pool                   *pgxpool.Pool
 	strips                 repository.StripRepository
@@ -1047,6 +1048,9 @@ func (s *StandAllocationService) noteAutomaticTerminalFailure(request StandAlloc
 	key, fingerprint := automaticFailureKeyAndFingerprint(request)
 	s.automaticFailureMu.Lock()
 	defer s.automaticFailureMu.Unlock()
+	if s.sessionRemoved(request.SessionID) {
+		return
+	}
 	if s.automaticTerminalFailures == nil {
 		s.automaticTerminalFailures = make(map[string]automaticTerminalFailure)
 	}

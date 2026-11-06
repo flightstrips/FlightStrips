@@ -66,6 +66,7 @@ type cidDisconnectMessage struct {
 }
 
 type Hub struct {
+	removedSessions       sync.Map
 	server                shared.Server
 	stripService          shared.StripService
 	validationService     validationStatusAcknowledger
@@ -1039,6 +1040,9 @@ func (hub *Hub) setClxOverride(session int32, overrideKey string) {
 	}
 	hub.clxMu.Lock()
 	defer hub.clxMu.Unlock()
+	if hub.sessionRemoved(session) {
+		return
+	}
 
 	if hub.clxOverrides[session] == nil {
 		hub.clxOverrides[session] = make(map[string]bool)

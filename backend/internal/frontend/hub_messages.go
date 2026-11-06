@@ -27,6 +27,9 @@ func (hub *Hub) NextMessageID() int64 {
 func (hub *Hub) storeMessage(sessionID int32, msg frontend.MessageReceivedEvent) {
 	hub.msgMu.Lock()
 	defer hub.msgMu.Unlock()
+	if hub.sessionRemoved(sessionID) {
+		return
+	}
 	msgs := hub.messages[sessionID]
 	msgs = append([]frontend.MessageReceivedEvent{msg}, msgs...)
 	if len(msgs) > 100 {

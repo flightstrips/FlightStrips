@@ -99,6 +99,7 @@ type PdcRequestOutcome struct {
 }
 
 type Service struct {
+	removedSessions        sync.Map
 	airports               *config.AirportRegistry
 	client                 HoppieClientInterface
 	sessionRepo            repository.SessionRepository
@@ -182,11 +183,14 @@ func stripAircraftTypeMatches(strip *models.Strip, aircraftType string) bool {
 
 // getSessionInfo retrieves session information from the database
 func (s *Service) getSessionInfo(ctx context.Context, sessionID int32) (sessionInformation, error) {
+	if s.sessionRemoved(sessionID) {
+		return sessionInformation{}, fmt.Errorf("PDC session has expired")
+	}
 	session, err := s.sessionRepo.GetByID(ctx, sessionID)
 	if err != nil {
 		return sessionInformation{}, fmt.Errorf("failed to get session: %w", err)
 	}
-	if session == nil || !s.airportEnabled(session.Airport) {
+	if session == nil || s.sessionRemoved(session.ID) || !s.airportEnabled(session.Airport) {
 		return sessionInformation{}, ErrCapabilityDisabled
 	}
 	return sessionInformation{
@@ -294,7 +298,7 @@ func (o PdcRequestOutcome) RequestRemarks() *string {
 }
 
 func (s *Service) EvaluatePdcRequest(strip *models.Strip, session *models.Session, remarks string) PdcRequestOutcome {
-	if session == nil || !s.airportEnabled(session.Airport) {
+	if session == nil || s.sessionRemoved(session.ID) || !s.airportEnabled(session.Airport) {
 		return PdcRequestOutcome{State: StateRequestedWithFaults, Faults: []string{ErrCapabilityDisabled.Error()}}
 	}
 	faults := validationFaultMessages(PDCStripValidationFaults(strip, session.ActiveRunways.DepartureRunways, session.AvailableSids, s.validationForAirport(session.Airport)))
@@ -549,13 +553,15 @@ func (s *Service) restorePendingTimeouts(ctx context.Context) (int, error) {
 	}
 
 	restored := 0
+	var failures []error
 	for _, session := range sessions {
-		if session == nil || !s.airportEnabled(session.Airport) {
+		if session == nil || s.sessionRemoved(session.ID) || !s.airportEnabled(session.Airport) {
 			continue
 		}
 		strips, err := s.stripRepo.List(ctx, session.ID)
 		if err != nil {
-			return restored, fmt.Errorf("failed to list strips for session %d: %w", session.ID, err)
+			failures = append(failures, fmt.Errorf("failed to list strips for session %d: %w", session.ID, err))
+			continue
 		}
 
 		sessionInfo := sessionInformation{
@@ -591,7 +597,7 @@ func (s *Service) restorePendingTimeouts(ctx context.Context) (int, error) {
 		}
 	}
 
-	return restored, nil
+	return restored, errors.Join(failures...)
 }
 
 func (s *Service) pollAndProcess(ctx context.Context) error {
@@ -602,7 +608,7 @@ func (s *Service) pollAndProcess(ctx context.Context) error {
 	mailboxes := make(map[string]*models.Session)
 	ambiguous := make(map[string]bool)
 	for _, session := range sessions {
-		if session == nil || !s.airportEnabled(session.Airport) || session.Name != "LIVE" {
+		if session == nil || s.sessionRemoved(session.ID) || !s.airportEnabled(session.Airport) || session.Name != "LIVE" {
 			continue
 		}
 		if _, exists := mailboxes[session.Airport]; exists {
@@ -1441,6 +1447,11 @@ func (s *Service) startClearanceTimeoutAfter(ctx context.Context, messageId int3
 	}
 
 	s.timeoutsMutex.Lock()
+	if s.sessionRemoved(session.id) {
+		s.timeoutsMutex.Unlock()
+		cancel()
+		return
+	}
 	s.timeouts[key] = tracker
 	s.timeoutsMutex.Unlock()
 
@@ -1481,6 +1492,9 @@ func (s *Service) handleTimeout(ctx context.Context, delay time.Duration, callsi
 		// Timeout was cancelled (pilot responded)
 		return
 	case <-time.After(delay):
+		if s.sessionRemoved(session.id) {
+			return
+		}
 		// Timeout expired - revert cleared flag
 		slog.DebugContext(ctx, "PDC Service: Timeout expired - reverting cleared flag", slog.String("callsign", callsign))
 

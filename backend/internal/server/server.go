@@ -21,6 +21,7 @@ import (
 )
 
 type Server struct {
+	sessionCleanup     []func(int32)
 	workflows          *airportworkflow.Registry
 	airports           *config.AirportRegistry
 	dbPool             *pgxpool.Pool
@@ -46,6 +47,7 @@ type TransceiverLookup interface {
 }
 
 type Dependencies struct {
+	SessionCleanup     []func(int32)
 	Workflows          *airportworkflow.Registry
 	Airports           *config.AirportRegistry
 	DBPool             *pgxpool.Pool
@@ -90,6 +92,7 @@ func NewServer(deps Dependencies) (*Server, error) {
 	}
 
 	return &Server{
+		sessionCleanup:      append([]func(int32){}, deps.SessionCleanup...),
 		airports:            deps.Airports,
 		workflows:           deps.Workflows,
 		dbPool:              deps.DBPool,
@@ -250,5 +253,10 @@ func (s *Server) removeExpiredSession(ctx context.Context, session *models.Sessi
 	s.routeInputs.Delete(session.ID)
 	if lifecycle, ok := s.cdmService.(interface{ RemoveSession(int32) }); ok {
 		lifecycle.RemoveSession(session.ID)
+	}
+	for _, cleanup := range s.sessionCleanup {
+		if cleanup != nil {
+			cleanup(session.ID)
+		}
 	}
 }

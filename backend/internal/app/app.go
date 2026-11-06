@@ -562,7 +562,28 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, err
 	}
 
+	var pdcService *pdc.Service
 	fsServer, err = server.NewServer(server.Dependencies{
+		SessionCleanup: []func(int32){frontendHub.RemoveSession, euroscopeHub.RemoveSession,
+			func(session int32) {
+				if pdcService != nil {
+					pdcService.RemoveSession(session)
+				}
+			},
+			func(session int32) {
+				if standAllocationService != nil {
+					standAllocationService.RemoveSession(session)
+				}
+				if departureLifecycle != nil {
+					departureLifecycle.RemoveSession(session)
+				}
+			},
+			func(session int32) {
+				if defaultAMAN.transport != nil {
+					defaultAMAN.transport.RemoveSession(session)
+				}
+			},
+		},
 		Airports:           cfg.Airports,
 		Workflows:          workflows,
 		DBPool:             dbpool,
@@ -585,7 +606,6 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, fmt.Errorf("initialize server: %w", err)
 	}
 
-	var pdcService *pdc.Service
 	if cfg.EnablePDC {
 		pdcService, err = buildPDCService(
 			cfg,

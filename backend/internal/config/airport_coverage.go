@@ -40,6 +40,10 @@ func (d *AirportDefinition) RelinquishGrace() time.Duration {
 	return time.Duration(*value * float64(time.Second))
 }
 
+func (d *AirportDefinition) CoverageUsesTunedFrequencies() bool {
+	return d.document.Coverage.Matching.TunedFrequencies
+}
+
 // CoverageResponsibilities uses the existing coverage/v1 ordering: carriage of
 // the primary duty frequency, configured primary providers, carriage of fallback
 // frequencies, then configured callsign fallback. Ties use primary frequency

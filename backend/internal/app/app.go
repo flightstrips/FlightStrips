@@ -684,7 +684,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		if cfg.EnableEFB {
 			app.addWorker(vatsimGraph.cache.Start)
 		} else {
-			app.addWorker(func(ctx context.Context) { vatsimGraph.cache.StartForLiveSessions(ctx, sessionRepo) })
+			app.addWorker(func(ctx context.Context) {
+				vatsimGraph.cache.StartForLiveSessions(ctx, sessionRepo, euroscopeHub.HasLiveSourceDemand)
+			})
 		}
 	}
 	if vatsimReconciler != nil && !cfg.EnableTestTools {

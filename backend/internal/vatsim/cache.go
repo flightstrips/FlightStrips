@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -77,8 +79,35 @@ type Snapshot struct {
 	Timestamp        time.Time
 	LastRefreshError error
 
-	flightsByCallsign map[string]Flight
-	flightsByCID      map[string]Flight
+	flightsByCallsign     map[string]Flight
+	flightsByCID          map[string]Flight
+	controllersByCallsign map[string]Controller
+}
+
+// Controller is read-only staffing/ATIS evidence from the network generation.
+type Controller struct {
+	CID         int64     `json:"cid"`
+	Callsign    string    `json:"callsign"`
+	Frequency   string    `json:"frequency"`
+	Facility    int       `json:"facility"`
+	TextATIS    []string  `json:"text_atis"`
+	LastUpdated time.Time `json:"last_updated"`
+}
+
+func (s Snapshot) ControllerByCallsign(callsign string) (Controller, bool) {
+	c, ok := s.controllersByCallsign[normalizeCallsign(callsign)]
+	c.TextATIS = slices.Clone(c.TextATIS)
+	return c, ok
+}
+
+func (s Snapshot) Controllers() []Controller {
+	result := make([]Controller, 0, len(s.controllersByCallsign))
+	for callsign := range s.controllersByCallsign {
+		c, _ := s.ControllerByCallsign(callsign)
+		result = append(result, c)
+	}
+	slices.SortFunc(result, func(a, b Controller) int { return strings.Compare(a.Callsign, b.Callsign) })
+	return result
 }
 
 // SnapshotSource supplies the latest immutable network-data generation.
@@ -119,12 +148,14 @@ func (s Snapshot) Flights() []Flight {
 }
 
 type cacheSnapshot struct {
-	timestamp         time.Time
-	flightsByCallsign map[string]Flight
-	flightsByCID      map[string]Flight
+	timestamp             time.Time
+	flightsByCallsign     map[string]Flight
+	flightsByCID          map[string]Flight
+	controllersByCallsign map[string]Controller
 }
 
 type Cache struct {
+	refreshes       singleflight.Group
 	client          *http.Client
 	statusURL       string
 	refreshInterval time.Duration
@@ -133,6 +164,7 @@ type Cache struct {
 	snapshot         cacheSnapshot
 	dataURL          string
 	lastRefreshError error
+	lastAttempt      time.Time
 }
 
 type statusResponse struct {
@@ -145,8 +177,10 @@ type networkDataResponse struct {
 	General struct {
 		UpdateTimestamp time.Time `json:"update_timestamp"`
 	} `json:"general"`
-	Pilots   []networkFlight `json:"pilots"`
-	Prefiles []networkFlight `json:"prefiles"`
+	Pilots      []networkFlight `json:"pilots"`
+	Prefiles    []networkFlight `json:"prefiles"`
+	Controllers []Controller    `json:"controllers"`
+	ATIS        []Controller    `json:"atis"`
 }
 
 type networkFlight struct {
@@ -219,8 +253,17 @@ func (c *Cache) Start(ctx context.Context) {
 // StartForLiveSessions polls the public feed only while at least one LIVE
 // EuroScope session exists. Sweatbox and Playback must remain completely
 // independent of public VATSIM network data.
-func (c *Cache) StartForLiveSessions(ctx context.Context, sessions reconciliationSessionStore) {
-	_ = c.refreshForLiveSessions(ctx, sessions)
+func (c *Cache) StartForLiveSessions(ctx context.Context, sessions reconciliationSessionStore, demand ...func() bool) {
+	refresh := func() {
+		for _, needed := range demand {
+			if needed != nil && needed() {
+				_ = c.refresh(ctx)
+				return
+			}
+		}
+		_ = c.refreshForLiveSessions(ctx, sessions)
+	}
+	refresh()
 
 	ticker := time.NewTicker(c.refreshInterval)
 	defer ticker.Stop()
@@ -229,7 +272,7 @@ func (c *Cache) StartForLiveSessions(ctx context.Context, sessions reconciliatio
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = c.refreshForLiveSessions(ctx, sessions)
+			refresh()
 		}
 	}
 }
@@ -256,10 +299,11 @@ func (c *Cache) Snapshot() Snapshot {
 	defer c.mu.RUnlock()
 
 	snapshot := Snapshot{
-		Timestamp:         c.snapshot.timestamp,
-		LastRefreshError:  c.lastRefreshError,
-		flightsByCallsign: c.snapshot.flightsByCallsign,
-		flightsByCID:      c.snapshot.flightsByCID,
+		Timestamp:             c.snapshot.timestamp,
+		LastRefreshError:      c.lastRefreshError,
+		flightsByCallsign:     c.snapshot.flightsByCallsign,
+		flightsByCID:          c.snapshot.flightsByCID,
+		controllersByCallsign: c.snapshot.controllersByCallsign,
 	}
 	return snapshot
 }
@@ -275,7 +319,7 @@ func (c *Cache) VerifyPilotOwnsCallsign(ctx context.Context, cid string, callsig
 		return pilot.CID == normalizedCID && pilot.Online(), nil
 	}
 
-	if err := c.refresh(ctx); err != nil {
+	if err := c.refreshOnMiss(ctx); err != nil {
 		return false, err
 	}
 
@@ -296,7 +340,7 @@ func (c *Cache) GetCallsignByCID(ctx context.Context, cid string) (string, bool,
 		return pilot.Callsign, true, nil
 	}
 
-	if err := c.refresh(ctx); err != nil {
+	if err := c.refreshOnMiss(ctx); err != nil {
 		return "", false, err
 	}
 
@@ -308,6 +352,16 @@ func (c *Cache) GetCallsignByCID(ctx context.Context, cid string) (string, bool,
 }
 
 func (c *Cache) refresh(ctx context.Context) error {
+	_, err, _ := c.refreshes.Do("network", func() (any, error) {
+		return nil, c.refreshOnce(ctx)
+	})
+	return err
+}
+
+func (c *Cache) refreshOnce(ctx context.Context) error {
+	c.mu.Lock()
+	c.lastAttempt = time.Now()
+	c.mu.Unlock()
 	snapshot, dataURL, err := c.fetch(ctx)
 	if err != nil {
 		c.recordRefreshError(err)
@@ -339,6 +393,29 @@ func (c *Cache) refresh(ctx context.Context) error {
 	return nil
 }
 
+// Misses share the application's refresh cadence, including negative lookups
+// and failures. One offline EFB pilot or extra tab cannot amplify acquisition.
+// The requesting tab owns only its wait, never the shared in-flight HTTP work.
+func (c *Cache) refreshOnMiss(ctx context.Context) error {
+	result := c.refreshes.DoChan("network", func() (any, error) {
+		c.mu.RLock()
+		recent, previous := time.Since(c.lastAttempt) < c.refreshInterval, c.lastRefreshError
+		c.mu.RUnlock()
+		if recent {
+			return nil, previous
+		}
+		acquisition, cancel := context.WithTimeout(context.WithoutCancel(ctx), defaultHTTPTimeout)
+		defer cancel()
+		return nil, c.refreshOnce(acquisition)
+	})
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case done := <-result:
+		return done.Err
+	}
+}
+
 func (c *Cache) fetch(ctx context.Context) (cacheSnapshot, string, error) {
 	dataURL, err := c.resolveDataURL(ctx)
 	if err != nil {
@@ -367,6 +444,15 @@ func (c *Cache) fetch(ctx context.Context) (cacheSnapshot, string, error) {
 
 	now := time.Now().UTC()
 	snapshot := newCacheSnapshot(payload.General.UpdateTimestamp, now)
+	snapshot.controllersByCallsign = make(map[string]Controller, len(payload.Controllers)+len(payload.ATIS))
+	for _, controllers := range [][]Controller{payload.Controllers, payload.ATIS} {
+		for _, controller := range controllers {
+			controller.Callsign = normalizeCallsign(controller.Callsign)
+			if controller.Callsign != "" {
+				snapshot.controllersByCallsign[controller.Callsign] = controller
+			}
+		}
+	}
 	for _, pilot := range payload.Pilots {
 		snapshot.add(toFlight(pilot, FlightStateOnline))
 	}

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -44,7 +45,11 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	os.Setenv("TEST_MODE", "true")
-	os.Setenv("GRPLUGIN_ICAO_AIRCRAFT_JSON", "config/test/ICAO_Aircraft.json")
+	aircraftFixture, err := filepath.Abs("config/test/ICAO_Aircraft.json")
+	if err != nil {
+		return err
+	}
+	os.Setenv("GRPLUGIN_ICAO_AIRCRAFT_JSON", aircraftFixture)
 	if err := config.InitEKCHTestConfig(); err != nil {
 		return err
 	}

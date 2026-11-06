@@ -79,7 +79,7 @@ func (r *stripRepository) AdmitStripBoardEntry(ctx context.Context, strip *model
 				}
 				return ""
 			}
-			source := models.VatsimStripSource{CID: *strip.VatsimCID, Revision: *strip.VatsimRevision, SeenAt: *strip.VatsimSeenAt, Origin: strip.Origin, Destination: strip.Destination, Alternate: value(strip.Alternative), Route: value(strip.Route), Remarks: value(strip.Remarks), AssignedSquawk: value(strip.AssignedSquawk), AircraftType: value(strip.AircraftType), FlightRules: strip.FlightRules}
+			source := models.VatsimStripSource{FlightPlanEET:strip.FlightPlanEET,CID: *strip.VatsimCID, Revision: *strip.VatsimRevision, SeenAt: *strip.VatsimSeenAt, Origin: strip.Origin, Destination: strip.Destination, Alternate: value(strip.Alternative), Route: value(strip.Route), Remarks: value(strip.Remarks), AssignedSquawk: value(strip.AssignedSquawk), AircraftType: value(strip.AircraftType), FlightRules: strip.FlightRules}
 			if _, err := bound.UpdateVatsimSource(ctx, strip.Session, strip.Callsign, source); err != nil {
 				return err
 			}
@@ -92,7 +92,7 @@ func (r *stripRepository) AdmitStripBoardEntry(ctx context.Context, strip *model
 		if err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, "UPDATE strips SET board_state=$1,bay=$2,sequence=$3,has_fp=CASE WHEN euroscope_seen_at IS NULL THEN false ELSE has_fp END,vatsim_cid=COALESCE(vatsim_cid,$6),vatsim_revision=$7,vatsim_seen_at=$8,version=version+1 WHERE session=$4 AND id=$5", data, strip.Bay, sequence+1000, strip.Session, existing.ID, strip.VatsimCID, strip.VatsimRevision, strip.VatsimSeenAt); err != nil {
+		if _, err = tx.Exec(ctx, "UPDATE strips SET board_state=$1,bay=$2,sequence=$3,has_fp=CASE WHEN euroscope_seen_at IS NULL THEN false ELSE has_fp END,vatsim_cid=COALESCE(vatsim_cid,$6),vatsim_revision=$7,vatsim_seen_at=$8,flight_plan_eet=CASE WHEN euroscope_seen_at IS NULL THEN $9 ELSE flight_plan_eet END,version=version+1 WHERE session=$4 AND id=$5", data, strip.Bay, sequence+1000, strip.Session, existing.ID, strip.VatsimCID, strip.VatsimRevision, strip.VatsimSeenAt, strip.FlightPlanEET); err != nil {
 			return err
 		}
 		return commit()

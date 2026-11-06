@@ -668,8 +668,8 @@ func vatsimSource(flight Flight, snapshotTime time.Time) models.VatsimStripSourc
 		seenAt = snapshotTime
 	}
 	return models.VatsimStripSource{
-		FlightRules: flight.FlightPlan.FlightRules,
-		CID:         flight.CID, Revision: flight.FlightPlan.Revision, SeenAt: seenAt.UTC(),
+		FlightRules: flight.FlightPlan.FlightRules, FlightPlanEET: flight.FlightPlan.EnrouteDuration,
+		CID: flight.CID, Revision: flight.FlightPlan.Revision, SeenAt: seenAt.UTC(),
 		Origin: flight.FlightPlan.Origin, Destination: flight.FlightPlan.Destination,
 		Alternate: flight.FlightPlan.Alternate, Route: flight.FlightPlan.Route,
 		Remarks: flight.FlightPlan.Remarks, AssignedSquawk: flight.FlightPlan.AssignedSquawk,
@@ -715,6 +715,9 @@ func (r *Reconciler) applyFlight(strip *models.Strip, flight Flight, snapshotTim
 		return changed
 	}
 
+	if flight.FlightPlan.EnrouteDuration != "" {
+		changed = setSourceString(strip, "flight_plan_eet", &strip.FlightPlanEET, flight.FlightPlan.EnrouteDuration) || changed
+	}
 	changed = setSourceString(strip, "origin", &strip.Origin, flight.FlightPlan.Origin) || changed
 	changed = setSourceString(strip, "destination", &strip.Destination, flight.FlightPlan.Destination) || changed
 	changed = setSourcePointer(strip, "alternative", &strip.Alternative, flight.FlightPlan.Alternate) || changed

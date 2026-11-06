@@ -1,0 +1,15 @@
+{
+  "airport": "EKYT",
+  "preset_provider": "static/v1",
+  "layouts": {},
+  "presets": {
+    "si": [
+      {
+        "id": "hold",
+        "label": "TEST HOLD",
+        "text": "Synthetic EKYT hold.",
+        "tone": "phrase"
+      }
+    ]
+  }
+}

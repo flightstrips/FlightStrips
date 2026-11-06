@@ -1,0 +1,241 @@
+package main
+
+import (
+	"FlightStrips/internal/app"
+	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/services"
+	es "FlightStrips/pkg/events/euroscope"
+	"context"
+	"fmt"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/protobuf/proto"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"time"
+)
+
+type radisCommand struct {
+	Airport  string `json:"airport"`
+	Token    string `json:"token"`
+	Kind     string `json:"kind"`
+	Callsign string `json:"callsign"`
+}
+
+// This suite runs app.Build, migrations, both scoped hubs, the CDM/SAT services,
+// shared feed clients and the production frontend. Only external identity/feeds
+// and the external ES SDK peer are fixtures. It cannot be selected in deployment.
+func newRADISSuite() suite {
+	var mu sync.Mutex
+	// Connection handshakes can deliver command callbacks that acquire mu.
+	// Serialize own-peer lifecycle separately so those callbacks can drain.
+	var ownMu sync.Mutex
+	var clients []*websocket.Conn
+	var commands []radisCommand
+	epoch := time.Now().UTC()
+	var pool *pgxpool.Pool
+	var own *websocket.Conn
+	var endpoint string
+	var primarySend func(proto.Message, es.EventType) error
+	instance := uuid.NewString()
+	feed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		now := time.Now().UTC()
+		switch {
+		case r.URL.Path == "/status":
+			writeJSON(w, map[string]any{"data": map[string]any{"v3": []string{"http://" + r.Host + "/vatsim"}}})
+		case r.URL.Path == "/vatsim":
+			pilots := []any{}
+			for i := range 24 {
+				pilots = append(pilots, map[string]any{"cid": 910000 + i, "callsign": fmt.Sprintf("FIND%02d", i), "latitude": 2, "longitude": 2, "altitude": 9000, "groundspeed": 200, "logon_time": epoch.Add(-time.Hour), "last_updated": now, "flight_plan": map[string]any{"flight_rules": "I", "aircraft": "A320/M", "aircraft_short": "A320", "departure": "EKBI", "arrival": "EKYT", "enroute_time": "0130", "revision_id": 1}})
+			}
+			writeJSON(w, map[string]any{"general": map[string]any{"update_timestamp": now}, "pilots": pilots, "prefiles": []any{}, "controllers": []any{}})
+		case strings.Contains(r.URL.Path, "afv-atis"):
+			writeJSON(w, []any{map[string]any{"callsign": "EKBI_ATIS", "frequency": "118.000", "atis_code": "B", "text_atis": []string{"Synthetic EKBI weather"}, "last_updated": now}, map[string]any{"callsign": "EKYT_ATIS", "frequency": "119.000", "atis_code": "Y", "text_atis": []string{"Synthetic EKYT weather"}, "last_updated": now}})
+		default:
+			airport := strings.TrimPrefix(r.URL.Path, "/")
+			qnh := "1001"
+			if airport == "EKYT" {
+				qnh = "1002"
+			}
+			fmt.Fprintf(w, "%s 061200Z 09005KT CAVOK 10/05 Q%s", airport, qnh)
+		}
+	}))
+	original := http.DefaultTransport
+	http.DefaultTransport = fixtureTransport{upstream: original, redirects: map[string]string{"metar.vatsim.net": feed.URL, "data.vatsim.net": feed.URL}}
+	connect := func(ctx context.Context, airport, token, callsign, frequency string, snapshot *es.SyncEvent, physical string, expose func(func(proto.Message, es.EventType) error)) (*websocket.Conn, error) {
+		return connectFixtureControllerProtocol(ctx, endpoint, token, &es.LoginEvent{Airport: airport, Connection: "LIVE", Position: frequency, Callsign: callsign, Range: 300}, snapshot, nil, physical, func(event *es.Envelope) *es.Envelope {
+			kind, payload, err := es.UnmarshalEnvelope(mustProto(event))
+			if err != nil {
+				return nil
+			}
+			if event.CommandOrigin == es.CommandOrigin_COMMAND_ORIGIN_HUMAN || kind == es.SendFrequencyMessage {
+				mu.Lock()
+				commands = append(commands, radisCommand{airport, token, kind.String(), commandCallsign(kind, payload)})
+				mu.Unlock()
+			}
+			switch kind {
+			case es.ClearedAltitude, es.SetHeading, es.AssignedSquawk, es.GroundState, es.ClearedFlag, es.Stand:
+				if event.ExecutionId != "" {
+					return proto.Clone(event).(*es.Envelope)
+				}
+			case es.SendFrequencyMessage:
+				request := event.GetSendFrequencyMessage()
+				return &es.Envelope{Context: proto.Clone(event.Context).(*es.MembershipContext), CommandOrigin: event.CommandOrigin, Event: &es.Envelope_FrequencyMessageResult{FrequencyMessageResult: &es.FrequencyMessageResultEvent{RequestId: request.RequestId, Callsign: request.Callsign, Submitted: true, AppliedActions: request.AppliedActions}}}
+			}
+			return nil
+		}, expose)
+	}
+	reconnect := func(ctx context.Context) (*websocket.Conn, error) {
+		return connect(ctx, "EKBI", services.TestFrontendToken, "EKBI_PEER_TWR", "118.005", nil, instance, nil)
+	}
+	return suite{
+		config:       app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/internal/config/testdata/radis-services/ekbi.airport.yaml", "backend/internal/config/testdata/radis-services/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
+		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Second},
+		close: func() {
+			mu.Lock()
+			defer mu.Unlock()
+			for _, c := range clients {
+				c.Close()
+			}
+			feed.Close()
+			http.DefaultTransport = original
+		},
+		register: func(mux *http.ServeMux, db *pgxpool.Pool, _ string) {
+			pool = db
+			mux.HandleFunc("GET /e2e/persisted", func(w http.ResponseWriter, r *http.Request) {
+				airport := r.URL.Query().Get("airport")
+				if airport != "EKBI" && airport != "EKYT" {
+					http.Error(w, "airport required", 400)
+					return
+				}
+				var id int32
+				if err := pool.QueryRow(r.Context(), "SELECT id FROM sessions WHERE airport=$1 AND name='LIVE'", airport).Scan(&id); err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				rows, err := postgres.NewStripRepository(pool).List(r.Context(), id)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				writeJSON(w, rows)
+			})
+			mux.HandleFunc("GET /e2e/commands", func(w http.ResponseWriter, r *http.Request) { mu.Lock(); defer mu.Unlock(); writeJSON(w, commands) })
+			mux.HandleFunc("POST /e2e/own-plugin/disconnect", func(w http.ResponseWriter, r *http.Request) {
+				ownMu.Lock()
+				defer ownMu.Unlock()
+				if own != nil {
+					own.Close()
+					own = nil
+				}
+				w.WriteHeader(204)
+			})
+			mux.HandleFunc("POST /e2e/own-plugin/reconnect", func(w http.ResponseWriter, r *http.Request) {
+				ownMu.Lock()
+				defer ownMu.Unlock()
+				if own != nil {
+					http.Error(w, "already connected", 409)
+					return
+				}
+				next, err := reconnect(r.Context())
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				own = next
+				mu.Lock()
+				clients = append(clients, next)
+				mu.Unlock()
+				w.WriteHeader(204)
+			})
+			mux.HandleFunc("POST /e2e/runways", func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				send := primarySend
+				mu.Unlock()
+				if err := send(&es.RunwayEvent{Runways: []*es.Runway{{Name: "27", Departure: true, Arrival: true}}}, es.RunwayType); err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				w.WriteHeader(204)
+			})
+		},
+		connect: func(ctx context.Context, url string) error {
+			endpoint = url
+			for _, airport := range []string{"EKBI", "EKYT"} {
+				frequency := "118.000"
+				if airport == "EKYT" {
+					frequency = "119.000"
+				}
+				snapshot := &es.SyncEvent{Controllers: []*es.Controller{{Position: frequency, Callsign: airport + "_TWR"}}, Runways: []*es.Runway{{Name: "09", Departure: true, Arrival: true}}}
+				for _, callsign := range []string{"RADIS1", "RADIS2"} {
+					snapshot.Strips = append(snapshot.Strips, &es.Strip{Callsign: callsign, Origin: "EKBI", Destination: "EKYT", AircraftType: "A320", AircraftCategory: "M", CommunicationType: "T", HasFp: true, GroundState: es.GroundStateStartup, ClearedAltitude: 3000, RequestedAltitude: 25000, AssignedSquawk: "2401", Route: "DCT TEST", Eobt: time.Now().UTC().Add(time.Hour).Format("1504"), EnrouteDuration: "0130", Runway: "09", Position: &es.Position{Lat: 0, Lon: 0, Altitude: 100}})
+				}
+				var expose func(func(proto.Message, es.EventType) error)
+				if airport == "EKBI" {
+					expose = func(send func(proto.Message, es.EventType) error) { mu.Lock(); primarySend = send; mu.Unlock() }
+				}
+				c, err := connect(ctx, airport, services.TestToken, airport+"_TWR", frequency, snapshot, uuid.NewString(), expose)
+				if err != nil {
+					return err
+				}
+				mu.Lock()
+				clients = append(clients, c)
+				mu.Unlock()
+			}
+			deadline := time.NewTimer(15 * time.Second)
+			defer deadline.Stop()
+			tick := time.NewTicker(20 * time.Millisecond)
+			defer tick.Stop()
+			for {
+				var count int
+				err := pool.QueryRow(ctx, "SELECT count(*) FROM strips WHERE callsign IN ('RADIS1','RADIS2') AND board_state IS NOT NULL AND euroscope_seen_at IS NOT NULL").Scan(&count)
+				if err != nil {
+					return err
+				}
+				if count == 4 {
+					break
+				}
+				select {
+				case <-tick.C:
+				case <-deadline.C:
+					return fmt.Errorf("regional master snapshots did not persist")
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			c, err := reconnect(ctx)
+			if err != nil {
+				return err
+			}
+			ownMu.Lock()
+			own = c
+			ownMu.Unlock()
+			mu.Lock()
+			clients = append(clients, c)
+			mu.Unlock()
+			return nil
+		},
+	}
+}
+func mustProto(m proto.Message) []byte { data, _ := proto.Marshal(m); return data }
+func commandCallsign(kind es.EventType, payload []byte) string {
+	switch kind {
+	case es.ClearedAltitude:
+		v := &es.ClearedAltitudeEvent{}
+		_ = proto.Unmarshal(payload, v)
+		return v.Callsign
+	case es.SendFrequencyMessage:
+		v := &es.SendFrequencyMessageEvent{}
+		_ = proto.Unmarshal(payload, v)
+		return v.Callsign
+	case es.Stand:
+		v := &es.StandEvent{}
+		_ = proto.Unmarshal(payload, v)
+		return v.Callsign
+	default:
+		return ""
+	}
+}

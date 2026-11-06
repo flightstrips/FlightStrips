@@ -39,7 +39,7 @@ func main() {
 }
 
 func run() error {
-	name := flag.String("suite", "strips", "fixture suite: strips or aman")
+	name := flag.String("suite", "strips", "fixture suite: strips, radis or aman")
 	address := flag.String("address", "127.0.0.1:4180", "local listen address")
 	flag.Parse()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -57,6 +57,8 @@ func run() error {
 	switch *name {
 	case "aman":
 		selected = newAMANSuite()
+	case "radis":
+		selected = newRADISSuite()
 	case "strips":
 		selected = newStripsSuite()
 	default:
@@ -71,12 +73,14 @@ func run() error {
 	defer cleanup()
 	defer pool.Close()
 	// Reference data only. Operational state enters through application protocols.
-	if _, err := pool.Exec(ctx, "INSERT INTO airports (name) VALUES ('EKCH') ON CONFLICT DO NOTHING"); err != nil {
+	if _, err := pool.Exec(ctx, "INSERT INTO airports (name) VALUES ('EKCH'), ('EKBI'), ('EKYT') ON CONFLICT DO NOTHING"); err != nil {
 		return err
 	}
 	// Resolve the fixture's deployment flags through the production loader.
 	// The metadata-only test registry intentionally disables deployment services.
-	selected.config.AirportFiles = []string{"backend/config/airports/ekch.airport.yaml"}
+	if len(selected.config.AirportFiles) == 0 {
+		selected.config.AirportFiles = []string{"backend/config/airports/ekch.airport.yaml"}
+	}
 	selected.config.AirportRepositoryRoot = ".."
 	selected.dependencies.DBPool = pool
 	selected.dependencies.AuthenticationService = browserIdentity{}

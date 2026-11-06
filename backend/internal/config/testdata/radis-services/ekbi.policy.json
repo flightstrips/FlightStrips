@@ -1,0 +1,62 @@
+{
+  "rules": [],
+  "stand_groups": {},
+  "fallback_rules": {
+    "airliner_default": {
+      "stands": {
+        "tier1": {
+          "S1": 100
+        }
+      }
+    },
+    "business_vip": {
+      "stands": {
+        "tier1": {
+          "S1": 100
+        }
+      }
+    },
+    "cargo": {
+      "stands": {
+        "tier1": {
+          "S1": 100
+        }
+      }
+    },
+    "military": {
+      "stands": {
+        "tier1": {
+          "S1": 100
+        }
+      }
+    },
+    "military_helicopter": {
+      "stands": {
+        "tier1": {
+          "S1": 100
+        }
+      }
+    },
+    "helicopter": {
+      "stands": {
+        "tier1": {
+          "S1": 100
+        }
+      }
+    },
+    "ga_private": {
+      "stands": {
+        "tier1": {
+          "S1": 100
+        }
+      }
+    },
+    "unknown": {
+      "stands": {
+        "tier1": {
+          "S1": 100
+        }
+      }
+    }
+  }
+}

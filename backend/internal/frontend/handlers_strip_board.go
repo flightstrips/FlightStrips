@@ -20,6 +20,7 @@ func handleStripAnnotation(ctx context.Context, client *Client, message Message)
 	}
 	return service.AnnotateStrip(ctx, i.session, req.Callsign, client.GetCid(), i.airport, i.position, req.StripRevision, airportworkflow.StripAnnotation{Field: req.Field, Value: req.Value, Enabled: req.Enabled})
 }
+
 func handleLocalStripCreation(ctx context.Context, client *Client, message Message) error {
 	var req pkg.LocalStripCreation
 	if err := message.JsonUnmarshal(&req); err != nil {
@@ -67,6 +68,7 @@ func handleConnectedFlightAdmission(ctx context.Context, client *Client, message
 	}
 	return service.AdmitConnectedFlight(ctx, i.session, client.GetCid(), i.airport, req.Definition, req.Flight)
 }
+
 func handleStripRemoval(ctx context.Context, client *Client, message Message) error {
 	var req fe.StripVisibilityEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
@@ -92,6 +94,8 @@ func handleStripRestoration(ctx context.Context, client *Client, message Message
 	return service.RestoreStripBoardEntry(ctx, i.session, req.Callsign, client.GetCid(), i.airport, i.position, req.StripRevision)
 }
 
+// Bound once during hub assembly. Operation support is still authorized by the
+// selected compiled workflow's typed action descriptors, not by this adapter.
 type stripBoardOperations interface {
 	AnnotateStrip(context.Context, int32, string, string, string, string, pkg.StripRevision, airportworkflow.StripAnnotation) error
 	CreateLocalStrip(context.Context, int32, string, string, pkg.LocalStripCreation) error

@@ -255,6 +255,10 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 		ctx = withValidatedPushback(ctx, session, callsign)
 	}
 
+	if existingStrip.BoardState != nil {
+		defer shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+	}
+
 	decision, err := s.observeWorkflow(ctx, session, airport, existingStrip, airportworkflow.Observation{Kind: airportworkflow.GroundState, GroundState: groundState}, s.isGndOnline(ctx, session))
 	if err != nil {
 		return err
@@ -311,6 +315,10 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 	// clearance. Clear any pending or failed PDC state before moving the strip so
 	// the cleared bay cannot retain a misleading PDC background or keep waiting
 	// for a pilot acknowledgement. Preserve only an already-confirmed PDC exchange.
+	if existingStrip.BoardState != nil {
+		defer shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+	}
+
 	decision, err := s.observeWorkflow(ctx, session, "", existingStrip, airportworkflow.Observation{Kind: airportworkflow.ClearedFlag, Cleared: cleared}, false)
 	if err != nil {
 		return err

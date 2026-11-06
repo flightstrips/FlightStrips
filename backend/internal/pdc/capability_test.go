@@ -10,7 +10,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -25,19 +24,8 @@ func pdcCapabilityAirports(t *testing.T) *config.AirportRegistry {
 	t.Helper()
 	_, source, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(source), "../../.."))
-	data, err := os.ReadFile(filepath.Join(root, ".github/specs/multi-airport-support/examples/zzzz.airport.yaml"))
-	require.NoError(t, err)
-	selected := []string{"backend/config/airports/ekch.airport.yaml"}
-	// The regional labels below deliberately use fictional paper-handler inputs;
-	// they are disabled service fixtures and cannot activate in production.
-	for _, airport := range []string{"EKBI", "EKYT"} {
-		path := filepath.Join(t.TempDir(), airport+".yaml")
-		require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(string(data), "ZZZZ", airport)), 0600))
-		selected = append(selected, path)
-	}
-	catalog, err := config.NewAirportCatalog(config.EKCHDescriptor(), config.HandlerDescriptor{ID: "example-paper/v1", View: "example-paper", Layouts: []string{"example-paper"}, DecodeSettings: config.TypedAirportSettings[map[string]any], Validate: func(*config.AirportDocument) error { return nil }})
-	require.NoError(t, err)
-	registry, err := config.LoadAirportFiles(catalog, selected, config.AirportLoadOptions{RepositoryRoot: root, DeploymentServices: map[string]bool{"pdc": true}})
+	selected := []string{"backend/config/airports/ekch.airport.yaml", "backend/internal/config/testdata/radis-services/ekbi.airport.yaml", "backend/internal/config/testdata/radis-services/ekyt.airport.yaml"}
+	registry, err := config.LoadAirportFiles(config.ProductionAirportCatalog(), selected, config.AirportLoadOptions{RepositoryRoot: root, DeploymentServices: map[string]bool{"pdc": true}})
 	require.NoError(t, err)
 	return registry
 }

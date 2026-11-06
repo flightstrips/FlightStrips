@@ -57,3 +57,7 @@
 .radis-find-search { display:flex; gap:.5rem; }
 
 .radis-delete-over { outline:3px solid red; }
+
+.radis-service-controls {display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
+.radis-service-controls label {display:flex;gap:.5rem;align-items:center;}
+.radis-service-controls input {width:5rem;}

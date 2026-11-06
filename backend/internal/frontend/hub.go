@@ -650,6 +650,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		NextDisplay:               mapNextDisplayToDTO(strip.NextDisplay),
 		Owner:                     helpers.ValueOrDefault(strip.Owner),
 		Eobt:                      cdmEvent.Eobt,
+		FlightPlanEET:             strip.FlightPlanEET,
 		Tobt:                      cdmEvent.Tobt,
 		TobtSetBy:                 cdmEvent.TobtSetBy,
 		Tsat:                      cdmEvent.Tsat,

@@ -24,7 +24,7 @@ export function RADISStrip({strip, open, edit}: {strip: FrontendStrip; open: () 
   const dep = strip.origin === airport;
   const value = (label: string, content: string | number, onClick?: () => void, es = false) => <button type="button" aria-label={`${label} ${strip.callsign}`} disabled={!onClick || readOnly || (es && !strip.has_fp)} onClick={onClick} className="radis-cell-button"><small>{label}</small><strong>{content || ""}</strong></button>;
   const stampQNH = () => {const qnh = metar?.match(/\bQ\d{4}\b/)?.[0]; if (qnh) annotate(strip.callsign, "qnh", qnh);};
-  return <article ref={setNodeRef} className={`radis-strip ${selected ? "is-selected" : ""} ${isDragging ? "is-dragging" : ""}`} style={{transform: CSS.Transform.toString(transform), transition}} data-testid={`radis-strip-${strip.callsign}`} onClick={() => select(strip.callsign)}>
+  return <article ref={setNodeRef} className={`radis-strip ${selected ? "is-selected" : ""} ${isDragging ? "is-dragging" : ""}`} style={{transform: CSS.Transform.toString(transform), transition}} data-testid={`radis-strip-${strip.callsign}`} data-strip-version={strip.version} onClick={() => select(strip.callsign)}>
     <StripCell width="27%" borderColor={border} className="radis-callsign">
       <button type="button" onClick={open} className="radis-callsign-title" aria-label={`Flight plan ${strip.callsign}`}>{strip.callsign}</button>
       <div className="radis-route-airports"><span>{strip.origin}</span><small>RADIS<br/>{airport}</small><span>{strip.destination}</span></div>
@@ -35,7 +35,7 @@ export function RADISStrip({strip, open, edit}: {strip: FrontendStrip; open: () 
     <SplitStripCell width="12.3%" borderColor={border} top={value("RFL", strip.requested_altitude)} bottom={value("ALT FT", strip.cleared_altitude, () => edit("altitude", "Cleared altitude (feet)", String(strip.cleared_altitude)), true)}/>
     <div className="radis-times">
       <SplitStripCell width="33.333%" borderColor={border} top={value("EOBT", strip.eobt, () => edit("eobt", "EOBT (UTC HHMM)", strip.eobt), true)} bottom={value("ATD", a?.atd ?? "", () => edit("atd", "ATD (UTC HHMM)", a?.atd ?? ""))}/>
-      <SplitStripCell width="33.333%" borderColor={border} top={value("TSAT", strip.tsat)} bottom={value("END/POB", a?.endurance_pob ?? "", () => edit("endurance_pob", "Endurance / persons on board", a?.endurance_pob ?? ""))}/>
+      <SplitStripCell width="33.333%" borderColor={border} top={value("EET", strip.flight_plan_eet ?? "")} bottom={value("END/POB", a?.endurance_pob ?? "", () => edit("endurance_pob", "Endurance / persons on board", a?.endurance_pob ?? ""))}/>
       <SplitStripCell width="33.334%" borderColor={border} top={value("ETA", strip.eldt)} bottom={value("ATA", paperClock(a?.ata), () => annotate(strip.callsign, "ata", "", !a?.ata))}/>
     </div>
     <StripCell width="17.4%" borderColor={border} className="radis-direction">

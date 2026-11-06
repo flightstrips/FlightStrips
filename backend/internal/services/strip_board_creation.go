@@ -175,7 +175,7 @@ func (s *StripService) AdmitConnectedFlight(ctx context.Context, session int32, 
 		aircraft = f.FlightPlan.Aircraft
 	}
 	created := s.boardTime()
-	strip := &models.Strip{Callsign: f.Callsign, Session: session, Origin: f.FlightPlan.Origin, Destination: f.FlightPlan.Destination, AircraftType: &aircraft, Alternative: &f.FlightPlan.Alternate, FlightRules: f.FlightPlan.FlightRules, Route: &f.FlightPlan.Route, Remarks: &f.FlightPlan.Remarks, AssignedSquawk: &f.FlightPlan.AssignedSquawk, Bay: bay, HasFP: false, VatsimCID: &f.CID, VatsimRevision: &f.FlightPlan.Revision, VatsimSeenAt: &snapshot.Timestamp, BoardState: &models.StripBoardState{CreatedAt: &created, Annotations: decision.Admission.Annotations}}
+	strip := &models.Strip{FlightPlanEET: f.FlightPlan.EnrouteDuration, Callsign: f.Callsign, Session: session, Origin: f.FlightPlan.Origin, Destination: f.FlightPlan.Destination, AircraftType: &aircraft, Alternative: &f.FlightPlan.Alternate, FlightRules: f.FlightPlan.FlightRules, Route: &f.FlightPlan.Route, Remarks: &f.FlightPlan.Remarks, AssignedSquawk: &f.FlightPlan.AssignedSquawk, Bay: bay, HasFP: false, VatsimCID: &f.CID, VatsimRevision: &f.FlightPlan.Revision, VatsimSeenAt: &snapshot.Timestamp, BoardState: &models.StripBoardState{CreatedAt: &created, Annotations: decision.Admission.Annotations}}
 	return s.admitStripBoardEntry(ctx, strip, true, func() error {
 		current, err := s.currentConnectedSnapshot()
 		if err != nil {

@@ -67,12 +67,38 @@ func handleConnectedFlightAdmission(ctx context.Context, client *Client, message
 	}
 	return service.AdmitConnectedFlight(ctx, i.session, client.GetCid(), i.airport, req.Definition, req.Flight)
 }
+func handleStripRemoval(ctx context.Context, client *Client, message Message) error {
+	var req fe.StripVisibilityEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	i := client.messageIdentity(ctx)
+	service := client.hub.boardActions
+	if service == nil {
+		return shared.RejectAction("strip board operations unavailable")
+	}
+	return service.RemoveStripBoardEntry(ctx, i.session, req.Callsign, client.GetCid(), i.airport, i.position, req.StripRevision)
+}
+func handleStripRestoration(ctx context.Context, client *Client, message Message) error {
+	var req fe.StripVisibilityEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	i := client.messageIdentity(ctx)
+	service := client.hub.boardActions
+	if service == nil {
+		return shared.RejectAction("strip board operations unavailable")
+	}
+	return service.RestoreStripBoardEntry(ctx, i.session, req.Callsign, client.GetCid(), i.airport, i.position, req.StripRevision)
+}
 
 type stripBoardOperations interface {
 	AnnotateStrip(context.Context, int32, string, string, string, string, pkg.StripRevision, airportworkflow.StripAnnotation) error
 	CreateLocalStrip(context.Context, int32, string, string, pkg.LocalStripCreation) error
 	FindConnectedFlights(context.Context, int32, string, string, string, string) ([]pkg.ConnectedFlightCandidate, error)
 	AdmitConnectedFlight(context.Context, int32, string, string, string, pkg.ConnectedFlightCandidate) error
+	RemoveStripBoardEntry(context.Context, int32, string, string, string, string, pkg.StripRevision) error
+	RestoreStripBoardEntry(context.Context, int32, string, string, string, string, pkg.StripRevision) error
 }
 
 func bindStripBoardOperations(service shared.StripService) stripBoardOperations {

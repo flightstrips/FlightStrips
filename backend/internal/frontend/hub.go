@@ -159,6 +159,8 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 
 	handlers.Add(frontend.Token, handleTokenEvent)
 	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
+	handlers.Add(frontend.StripRemove, handleStripRemoval)
+	handlers.Add(frontend.StripRestore, handleStripRestoration)
 	handlers.Add(frontend.StripCreateLocal, handleLocalStripCreation)
 	handlers.Add(frontend.FindConnectedFlights, handleConnectedFlightSearch)
 	handlers.Add(frontend.StripAdmitConnected, handleConnectedFlightAdmission)
@@ -1005,9 +1007,10 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 }
 
 func (hub *Hub) SendStripUpdateContext(ctx context.Context, session int32, callsign string) {
+	pendingDisconnect := false
 	if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
 		if checker, ok := esHub.(pendingEuroscopeStripChecker); ok && checker.IsAircraftDisconnectPending(session, callsign) {
-			return
+			pendingDisconnect = true
 		}
 	}
 	stripRepo := hub.server.GetStripRepository()
@@ -1026,6 +1029,9 @@ func (hub *Hub) SendStripUpdateContext(ctx context.Context, session int32, calls
 		strip, err = stripRepo.GetByCallsign(ctx, session, callsign)
 	}
 	if err != nil {
+		return
+	}
+	if pendingDisconnect && strip.BoardState == nil {
 		return
 	}
 	if strip.EuroscopeSeenAt == nil && strip.BoardState == nil {

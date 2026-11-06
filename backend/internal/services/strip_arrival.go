@@ -59,7 +59,12 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 }
 
 // UpdateAircraftPosition updates the aircraft position and moves the strip to a new bay if needed.
-func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int32, airport string) error {
+func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int32, airport string) (resultErr error) {
+	defer func() {
+		if resultErr == nil {
+			resultErr = s.reconcileStripVisibility(ctx, session, airport, callsign, airportworkflow.Observation{Kind: airportworkflow.Position, Latitude: lat, Longitude: lon, Altitude: altitude})
+		}
+	}()
 	routeRefreshKey := positionRouteRefreshKey{session: session, callsign: strings.ToUpper(strings.TrimSpace(callsign))}
 	var existingStrip *internalModels.Strip
 	var observedStrip internalModels.Strip

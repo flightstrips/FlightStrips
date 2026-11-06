@@ -9,6 +9,8 @@ const (
 	FindConnectedFlights   EventType = "flight.find-connected"
 	StripAdmitConnected    EventType = "strip.admit-connected"
 	ConnectedFlightResults EventType = "flight.connected-results"
+	StripRemove            EventType = "strip.remove"
+	StripRestore           EventType = "strip.restore"
 )
 
 type StripAnnotationEvent struct {
@@ -17,6 +19,11 @@ type StripAnnotationEvent struct {
 	Field   string `json:"field"`
 	Value   string `json:"value"`
 	Enabled bool   `json:"enabled"`
+}
+
+type StripVisibilityEvent struct {
+	Callsign string `json:"callsign"`
+	models.StripRevision
 }
 
 type ConnectedFlightSearchRequest struct {

@@ -29,6 +29,19 @@ type euroScopeAMANStripRemover interface {
 // delay, unless cancelAircraftDisconnect stops and joins it first. Duplicate schedules
 // leave the existing worker in charge.
 func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay time.Duration) {
+	if policy, ok := hub.stripService.(interface {
+		AircraftDisconnectDelay(context.Context, int32) (time.Duration, bool, error)
+	}); ok {
+		value, override, err := policy.AircraftDisconnectDelay(context.Background(), session)
+		if err != nil {
+			slog.Warn("Unable to resolve aircraft removal policy", slog.Any("error", err))
+			return
+		}
+		if override {
+			delay = value
+		}
+	}
+
 	key := fmt.Sprintf("%d:%s", session, callsign)
 	ctx, cancel := context.WithCancel(context.Background())
 	entry := &aircraftDisconnectEntry{
@@ -113,32 +126,46 @@ func (hub *Hub) runAircraftDisconnect(ctx context.Context, key string, entry *ai
 		}
 
 		if retainer != nil && retainer(ctx, entry.session, entry.callsign) {
-			if err := hub.clearEuroscopeSeen(ctx, entry.session, entry.callsign); err != nil {
-				if ctx.Err() != nil {
+			handled := false
+			if handler, ok := hub.stripService.(interface {
+				HandleRetainedAircraftDisconnect(context.Context, int32, string) (bool, error)
+			}); ok {
+				var err error
+				handled, err = handler.HandleRetainedAircraftDisconnect(ctx, entry.session, entry.callsign)
+				if err != nil {
+					wait = aircraftDisconnectRetryDelay
 					release()
-					return
+					continue
 				}
-				slog.Warn("Failed to clear EuroScope strip presence after disconnect; retrying",
-					slog.String("callsign", entry.callsign),
-					slog.Int("session", int(entry.session)),
-					slog.Any("error", err))
-				wait = aircraftDisconnectRetryDelay
-				release()
-				continue
 			}
-			if remover, ok := hub.stripService.(euroScopeAMANStripRemover); ok {
-				if err := remover.RemoveEuroScopeAMANStrip(ctx, entry.session, entry.callsign); err != nil {
+			if !handled {
+				if err := hub.clearEuroscopeSeen(ctx, entry.session, entry.callsign); err != nil {
 					if ctx.Err() != nil {
 						release()
 						return
 					}
-					slog.Warn("Failed to retract EuroScope AMAN strip after retained disconnect; retrying",
+					slog.Warn("Failed to clear EuroScope strip presence after disconnect; retrying",
 						slog.String("callsign", entry.callsign),
 						slog.Int("session", int(entry.session)),
 						slog.Any("error", err))
 					wait = aircraftDisconnectRetryDelay
 					release()
 					continue
+				}
+				if remover, ok := hub.stripService.(euroScopeAMANStripRemover); ok {
+					if err := remover.RemoveEuroScopeAMANStrip(ctx, entry.session, entry.callsign); err != nil {
+						if ctx.Err() != nil {
+							release()
+							return
+						}
+						slog.Warn("Failed to retract EuroScope AMAN strip after retained disconnect; retrying",
+							slog.String("callsign", entry.callsign),
+							slog.Int("session", int(entry.session)),
+							slog.Any("error", err))
+						wait = aircraftDisconnectRetryDelay
+						release()
+						continue
+					}
 				}
 			}
 			hub.aircraftDisconnectMu.Lock()
@@ -152,7 +179,7 @@ func (hub *Hub) runAircraftDisconnect(ctx context.Context, key string, entry *ai
 			}
 			hub.aircraftDisconnects[key] = struct{}{}
 			hub.aircraftDisconnectMu.Unlock()
-			if hub.server != nil && hub.server.GetFrontendHub() != nil {
+			if !handled && hub.server != nil && hub.server.GetFrontendHub() != nil {
 				hub.server.GetFrontendHub().SendAircraftDisconnect(entry.session, entry.callsign)
 			}
 			slog.Debug("Aircraft disconnect retained by another source",

@@ -55,3 +55,5 @@
 .radis-find-list { overflow-y:auto; max-height:55svh; display:grid; gap:.25rem; }
 .radis-find-list button { display:grid; grid-template-columns:1fr 1fr 5rem; padding:.5rem; border:1px solid #555; background:white; text-align:left; }
 .radis-find-search { display:flex; gap:.5rem; }
+
+.radis-delete-over { outline:3px solid red; }

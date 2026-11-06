@@ -26,7 +26,7 @@ func RADISDescriptor() Descriptor {
 			return nil, nil, fmt.Errorf("RADIS requires typed settings")
 		}
 		h := radis{d.Airport(), doc.Geography.Latitude, doc.Geography.Longitude, doc.Geography.ElevationFT, s}
-		return h, []ActionDescriptor{Action("strip.annotate", h.annotate), Action("strip.create-local", h.createLocal), Action("flight.find-connected", h.findConnected), Action("strip.admit-connected", h.admitConnected), Action("strip.move", h.move), Action("strip.state-for-move", h.move)}, nil
+		return h, []ActionDescriptor{Action("strip.annotate", h.annotate), Action("strip.create-local", h.createLocal), Action("flight.find-connected", h.findConnected), Action("strip.admit-connected", h.admitConnected), Action("strip.remove", h.remove), Action("strip.restore", h.restore), Action("strip.move", h.move), Action("strip.state-for-move", h.move)}, nil
 	}}
 }
 func (h radis) initial(origin string) string {
@@ -63,6 +63,9 @@ func (h radis) Observe(c Context, o Observation) (Decision, error) {
 	// ES observations update flight facts, never overwrite explicit board placement
 	// or echo a controller command back to ES.
 	d := Decision{Bay: &bay}
+	if o.Kind == FullFlight || o.Kind == Position {
+		d.Visibility = h.visibility(c, o)
+	}
 	if o.Kind == BackendState && c.Strip.GroundStateKnown {
 		d.ReconciledGroundState = &c.Strip.GroundState
 	}
@@ -76,10 +79,15 @@ func (h radis) Observe(c Context, o Observation) (Decision, error) {
 }
 func (h radis) Lifecycle(c Context, l Lifecycle) (LifecycleDecision, error) {
 	if l.Kind == Removal {
-		return LifecycleDecision{}, nil
+		delay := time.Duration(h.settings.DisconnectRemovalSeconds * float64(time.Second))
+		d := LifecycleDecision{RemovalDelay: &delay}
+		if c.Strip.BoardMember && (c.Strip.EuroscopeSeen || c.Strip.HasFP) {
+			d.Visibility = &StripVisibility{Reason: l.Reason}
+		}
+		return d, nil
 	} // retained recovery state; never hard-delete an airport strip
 	if l.Kind == BackendAdmission {
-		return LifecycleDecision{Admit: c.Strip.Exists && c.Strip.BoardMember && c.Strip.EuroscopeSeen && c.Strip.HasFP}, nil
+		return LifecycleDecision{Admit: c.Strip.Exists && c.Strip.BoardMember && c.Strip.EuroscopeSeen && c.Strip.HasFP && c.Strip.RemovedAt == nil}, nil
 	}
 	if c.Strip.Exists && c.Strip.BoardMember {
 		return LifecycleDecision{Admit: true}, nil
@@ -157,6 +165,34 @@ func (h radis) annotate(c Context, a StripAnnotation) (Decision, error) {
 	return Decision{Annotations: &v}, nil
 }
 
+func (h radis) visibility(c Context, o Observation) *StripVisibility {
+	if !c.Strip.BoardMember || c.Strip.Local && !c.Strip.HasFP {
+		return nil
+	}
+	origin, destination := o.Origin, o.Destination
+	if origin == "" {
+		origin = c.Strip.Origin
+	}
+	if destination == "" {
+		destination = c.Strip.Destination
+	}
+	distance := RADISDistanceNM(h.latitude, h.longitude, o.Latitude, o.Longitude)
+	agl := float64(o.Altitude) - h.elevation
+	if c.Strip.RemovedAt != nil {
+		if c.Strip.RemovalReason != "manual" && h.settings.AutomaticReappearance && !c.Now.IsZero() && !c.Now.Before(*c.Strip.RemovedAt) && c.Now.Before(c.Strip.RemovedAt.Add(time.Duration(h.settings.RecoverySeconds)*time.Second)) && (origin == h.airport || destination == h.airport) && distance <= h.settings.AdmissionDistanceNM && (origin != h.airport || agl <= float64(h.settings.DepartureAdmissionAGLFT)) {
+			return &StripVisibility{Visible: true}
+		}
+		return nil
+	}
+	if origin == h.airport && agl >= float64(h.settings.DepartureRemovalAGLFT) {
+		return &StripVisibility{Reason: "departure-altitude"}
+	}
+	if distance > h.settings.RemovalDistanceNM {
+		return &StripVisibility{Reason: "distance"}
+	}
+	return nil
+}
+
 func (h radis) createLocal(c Context, r pkg.LocalStripCreation) (Decision, error) {
 	return Decision{Admission: &StripAdmission{Bay: h.initial(r.Origin), Annotations: pkg.StripAnnotations{Notes: r.Notes}}}, nil
 }
@@ -165,4 +201,19 @@ func (h radis) findConnected(c Context, r ConnectedFlightSearch) (Decision, erro
 }
 func (h radis) admitConnected(c Context, r pkg.ConnectedFlightCandidate) (Decision, error) {
 	return Decision{Admission: &StripAdmission{Bay: h.initial(r.Origin)}}, nil
+}
+func (h radis) remove(c Context, _ StripRemoval) (Decision, error) {
+	if c.Strip.RemovedAt != nil {
+		return Decision{}, nil
+	}
+	return Decision{Visibility: &StripVisibility{Reason: "manual"}}, nil
+}
+func (h radis) restore(c Context, _ StripRestoration) (Decision, error) {
+	if c.Strip.RemovedAt == nil {
+		return Decision{}, nil
+	}
+	if c.Now.Before(*c.Strip.RemovedAt) || !c.Now.Before(c.Strip.RemovedAt.Add(time.Duration(h.settings.RecoverySeconds)*time.Second)) {
+		return Decision{}, shared.RejectAction("airport strip recovery period has expired")
+	}
+	return Decision{Visibility: &StripVisibility{Visible: true}}, nil
 }

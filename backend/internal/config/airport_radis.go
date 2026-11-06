@@ -5,15 +5,17 @@ import "fmt"
 // RADISSettings contains explicit activation inputs. No prototype/ENGM operating
 // constants are defaults. One compiled implementation serves independent boards.
 type RADISSettings struct {
-	DepartureInitialBay     string                    `yaml:"departure_initial_bay"`
-	ArrivalInitialBay       string                    `yaml:"arrival_initial_bay"`
-	BayGroundStates         map[string]RADISBayStates `yaml:"bay_ground_states"`
-	AdmissionDistanceNM     float64                   `yaml:"admission_distance_nm"`
-	DepartureAdmissionAGLFT int32                     `yaml:"departure_admission_agl_ft"`
-	RemovalDistanceNM       float64                   `yaml:"removal_distance_nm"`
-	DepartureRemovalAGLFT   int32                     `yaml:"departure_removal_agl_ft"`
-	RecoverySeconds         int                       `yaml:"recovery_seconds"`
-	TimestampSemantics      string                    `yaml:"timestamp_semantics"`
+	AutomaticReappearance    bool                      `yaml:"automatic_reappearance"`
+	DisconnectRemovalSeconds float64                   `yaml:"disconnect_removal_seconds"`
+	DepartureInitialBay      string                    `yaml:"departure_initial_bay"`
+	ArrivalInitialBay        string                    `yaml:"arrival_initial_bay"`
+	BayGroundStates          map[string]RADISBayStates `yaml:"bay_ground_states"`
+	AdmissionDistanceNM      float64                   `yaml:"admission_distance_nm"`
+	DepartureAdmissionAGLFT  int32                     `yaml:"departure_admission_agl_ft"`
+	RemovalDistanceNM        float64                   `yaml:"removal_distance_nm"`
+	DepartureRemovalAGLFT    int32                     `yaml:"departure_removal_agl_ft"`
+	RecoverySeconds          int                       `yaml:"recovery_seconds"`
+	TimestampSemantics       string                    `yaml:"timestamp_semantics"`
 }
 
 type RADISBayStates struct {

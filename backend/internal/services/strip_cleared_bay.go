@@ -180,6 +180,10 @@ func (s *StripService) DeleteStrip(ctx context.Context, session int32, callsign 
 	if err != nil {
 		return err
 	}
+	if bound.BoardStatePolicy().Revisioned {
+		return s.removeBoardStripAutomatic(ctx, session, callsign, "disconnect")
+	}
+
 	decision, err := bound.Lifecycle(airportworkflow.Context{Session: session}, airportworkflow.Lifecycle{Kind: airportworkflow.Removal})
 	if err != nil {
 		return err

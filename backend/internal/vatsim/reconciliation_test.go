@@ -2,6 +2,7 @@ package vatsim
 
 import (
 	"FlightStrips/internal/models"
+	pkg "FlightStrips/pkg/models"
 	"context"
 	"errors"
 	"testing"
@@ -865,4 +866,18 @@ func TestRADISAdmissionOvertakesStaleSourceBayWrite(t *testing.T) {
 	// Even a source-only FIND member remains explicitly placed without ES presence.
 	row.EuroscopeSeenAt = nil
 	require.Empty(t, apiDepartureBay(row, Flight{FlightPlan: FlightPlan{Origin: "EKBI"}}, "EKBI"))
+}
+
+func TestDisconnectedBoardMemberSurvivesSourcePurge(t *testing.T) {
+	now := time.Now().UTC()
+	cache := newReconciliationTestCache(now)
+	removed := now.Add(-time.Second)
+	member := &models.Strip{ID: 41, Callsign: "RECOVER", Session: 7, Origin: "EKBI", Destination: "EKYT", VatsimCID: ptr("1"), BoardState: &models.StripBoardState{RemovedAt: &removed, RemovalReason: "disconnect", Annotations: pkg.StripAnnotations{Notes: "retain identity"}}}
+	planning := &models.Strip{ID: 42, Callsign: "PLANNING", Session: 7, Origin: "EKBI", Destination: "EKYT", VatsimCID: ptr("2")}
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {member, planning}}}
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKBI"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	require.NoError(t, reconciler.Reconcile(t.Context()))
+	assert.Equal(t, []string{"PLANNING"}, strips.deleted)
+	assert.Equal(t, int32(41), member.ID)
+	assert.Equal(t, "retain identity", member.BoardState.Annotations.Notes)
 }

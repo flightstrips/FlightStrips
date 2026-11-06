@@ -913,7 +913,7 @@ func (s *EuroscopeSyncService) reconcileStaleController(session int32, knownCall
 }
 
 func (s *EuroscopeSyncService) reconcileStaleStrip(session int32, knownCallsigns map[string]bool, dbStrip *internalModels.Strip) {
-	if knownCallsigns[dbStrip.Callsign] {
+	if knownCallsigns[dbStrip.Callsign] || dbStrip.BoardState != nil && dbStrip.EuroscopeSeenAt == nil {
 		return
 	}
 	slog.Info("Sync reconciliation: scheduling disconnect for missing strip",

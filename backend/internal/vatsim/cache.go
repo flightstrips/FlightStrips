@@ -78,6 +78,7 @@ func (f Flight) Prefile() bool {
 type Snapshot struct {
 	Timestamp        time.Time
 	LastRefreshError error
+	ControllersKnown bool // omitted/null inventory is not confirmed zero staffing
 
 	flightsByCallsign     map[string]Flight
 	flightsByCID          map[string]Flight
@@ -149,6 +150,7 @@ func (s Snapshot) Flights() []Flight {
 
 type cacheSnapshot struct {
 	timestamp             time.Time
+	controllersKnown      bool
 	flightsByCallsign     map[string]Flight
 	flightsByCID          map[string]Flight
 	controllersByCallsign map[string]Controller
@@ -300,6 +302,7 @@ func (c *Cache) Snapshot() Snapshot {
 
 	snapshot := Snapshot{
 		Timestamp:             c.snapshot.timestamp,
+		ControllersKnown:      c.snapshot.controllersKnown,
 		LastRefreshError:      c.lastRefreshError,
 		flightsByCallsign:     c.snapshot.flightsByCallsign,
 		flightsByCID:          c.snapshot.flightsByCID,
@@ -444,6 +447,7 @@ func (c *Cache) fetch(ctx context.Context) (cacheSnapshot, string, error) {
 
 	now := time.Now().UTC()
 	snapshot := newCacheSnapshot(payload.General.UpdateTimestamp, now)
+	snapshot.controllersKnown = payload.Controllers != nil
 	snapshot.controllersByCallsign = make(map[string]Controller, len(payload.Controllers)+len(payload.ATIS))
 	for _, controllers := range [][]Controller{payload.Controllers, payload.ATIS} {
 		for _, controller := range controllers {

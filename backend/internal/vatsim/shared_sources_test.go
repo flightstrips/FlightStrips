@@ -57,6 +57,7 @@ func TestStaffingSnapshotIsImmutableAndRetainsLastGoodHealth(t *testing.T) {
 	c, payload := newTestCache(t, `{"controllers":[{"callsign":"EKDK_CTR","text_atis":["original"]}]}`)
 	require.NoError(t, c.refresh(t.Context()))
 	before := c.Snapshot()
+	require.True(t, before.ControllersKnown)
 	controller, ok := before.ControllerByCallsign("ekdk_ctr")
 	require.True(t, ok)
 	controller.TextATIS[0] = "mutated"
@@ -65,8 +66,22 @@ func TestStaffingSnapshotIsImmutableAndRetainsLastGoodHealth(t *testing.T) {
 	after := c.Snapshot()
 	require.Equal(t, before.Timestamp, after.Timestamp)
 	require.Error(t, after.LastRefreshError)
+	require.True(t, after.ControllersKnown)
 	require.NoError(t, before.LastRefreshError)
 	require.Equal(t, "original", after.Controllers()[0].TextATIS[0])
+}
+
+func TestMissingStaffingInventoryIsNotConfirmedZeroControllers(t *testing.T) {
+	c, payload := newTestCache(t, `{"pilots":[]}`)
+	require.NoError(t, c.refresh(t.Context()))
+	require.False(t, c.Snapshot().ControllersKnown)
+	payload.Store(`{"controllers":[]}`)
+	require.NoError(t, c.refresh(t.Context()))
+	require.True(t, c.Snapshot().ControllersKnown)
+	require.Empty(t, c.Snapshot().Controllers())
+	payload.Store(`{"controllers":null}`)
+	require.NoError(t, c.refresh(t.Context()))
+	require.False(t, c.Snapshot().ControllersKnown)
 }
 
 func TestRadioSnapshotRetainsGenerationAndHealth(t *testing.T) {

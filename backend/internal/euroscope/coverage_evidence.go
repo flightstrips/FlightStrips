@@ -51,6 +51,9 @@ func coverageSourceState(at time.Time, err error) CoverageEvidenceState {
 func BuildCoverageEvidence(network vatsim.Snapshot, radios vatsim.TransceiverSnapshot, presences []PluginPresence) map[string]CoverageStaffingEvidence {
 	byEnvironment := map[string]map[string]CoverageControllerEvidence{"LIVE": {}}
 	inventory := map[string]CoverageEvidenceState{"LIVE": coverageSourceState(network.Timestamp, network.LastRefreshError)}
+	if !network.ControllersKnown {
+		inventory["LIVE"] = CoverageUnknown
+	}
 	radioState := coverageSourceState(radios.Timestamp, radios.LastRefreshError)
 	for _, controller := range network.Controllers() {
 		callsign := strings.ToUpper(strings.TrimSpace(controller.Callsign))

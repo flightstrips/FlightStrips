@@ -97,6 +97,18 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
+	orderingVersion := int32(0)
+	if move.Revision != nil {
+		before, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, move.Callsign)
+		if err != nil {
+			return err
+		}
+		orderingVersion = move.Revision.Version
+		if before.Bay != move.Bay {
+			orderingVersion += 2
+		}
+		ctx = services.WithWorkflowRevision(ctx, services.WorkflowRevision{StripID: move.Revision.StripID, Version: move.Revision.Version, Definition: move.Revision.Definition})
+	}
 	if err := client.hub.stripService.MoveFrontendStrip(ctx, identity.session, move.Callsign, move.Bay, client.GetCid(), identity.airport, identity.position, move.Clearance, move.ConfirmedRemoval); err != nil {
 		return err
 	}
@@ -111,6 +123,9 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 	}
 	if strip.Bay != move.Bay {
 		return nil
+	}
+	if move.Revision != nil {
+		ctx = services.WithWorkflowRevision(ctx, services.WorkflowRevision{StripID: move.Revision.StripID, Version: orderingVersion, Definition: move.Revision.Definition})
 	}
 	return client.hub.stripService.MoveStripBetween(ctx, identity.session, move.Callsign, move.InsertAfter, move.Bay)
 }

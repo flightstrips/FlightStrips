@@ -319,9 +319,21 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			bay := apiDepartureBay(strip, flight, airport)
 			if bay != "" && bay != strip.Bay {
 				sequence := nextSequenceForBay(strips, bay)
-				if _, err := r.strips.UpdateBayAndSequence(ctx, session.ID, strip.Callsign, bay, sequence); err != nil {
+				var rows int64
+				var err error
+				if guarded, ok := r.strips.(interface {
+					UpdatePlanningBayAndSequence(context.Context, int32, string, string, int32) (int64, error)
+				}); ok {
+					rows, err = guarded.UpdatePlanningBayAndSequence(ctx, session.ID, strip.Callsign, bay, sequence)
+				} else {
+					rows, err = r.strips.UpdateBayAndSequence(ctx, session.ID, strip.Callsign, bay, sequence)
+				}
+				if err != nil {
 					return err
 				}
+				if rows == 0 {
+					continue
+				} // ES or explicit board admission overtook the source snapshot.
 				strip.Bay = bay
 				strip.Sequence = &sequence
 				changed = true
@@ -803,7 +815,7 @@ func nextSequence(strips []*models.Strip, flight Flight, airport string) int32 {
 // operational bays. Once EuroScope has supplied the strip, its operational bay
 // wins and the reconciler no longer changes it.
 func apiDepartureBay(strip *models.Strip, flight Flight, airport string) string {
-	if strip == nil || strip.EuroscopeSeenAt != nil {
+	if strip == nil || strip.EuroscopeSeenAt != nil || strip.BoardState != nil {
 		return ""
 	}
 	if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {

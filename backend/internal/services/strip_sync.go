@@ -43,6 +43,9 @@ func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string,
 		}
 		return err
 	}
+	if err := s.initializeStripBoardState(ctx, session, airport, esStrip.Callsign); err != nil {
+		return err
+	}
 	if sourceStore, ok := s.lifecycleStore.(interface {
 		MarkEuroscopeSeen(context.Context, int32, string) error
 	}); ok {
@@ -237,6 +240,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			FlightRules:        strip.FlightRules,
 			StartReq:           false,
 		}
+		if bound.BoardStatePolicy().Revisioned {
+			observed := time.Now().UTC()
+			newStrip.EuroscopeSeenAt = &observed
+			newStrip.BoardState = &internalModels.StripBoardState{}
+			newStrip.Owner = nil
+		}
 		validationStrip = newStrip
 		amanStrip = newStrip
 		amanStrip.FlightPlanEOBT = strip.GetEobt()
@@ -424,6 +433,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		vatsimRevision := existingStrip.VatsimRevision
 		vatsimSeenAt := existingStrip.VatsimSeenAt
 		euroscopeSeenAt := existingStrip.EuroscopeSeenAt
+		if bound.BoardStatePolicy().Revisioned {
+			observed := time.Now().UTC()
+			euroscopeSeenAt = &observed
+		}
 
 		if restartLifecycle {
 			cdmData = internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil)

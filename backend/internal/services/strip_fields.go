@@ -577,7 +577,11 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 		state = intended
 	}
 
-	count, err := s.fieldStore.UpdateGroundState(ctx, session, callsign, state, persistedBay, nil)
+	var expected *int32
+	if revision, ok := ctx.Value(workflowRevisionKey{}).(WorkflowRevision); ok {
+		expected = &revision.Version
+	}
+	count, err := s.fieldStore.UpdateGroundState(ctx, session, callsign, state, persistedBay, expected)
 	if err != nil {
 		return nil, err
 	}

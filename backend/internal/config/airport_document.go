@@ -112,7 +112,7 @@ type AirportBay struct {
 type AirportAnnotation struct {
 	Type    string `yaml:"type"`
 	Scope   string `yaml:"scope"`
-	Default bool   `yaml:"default"`
+	Default any    `yaml:"default"`
 }
 type Availability string
 

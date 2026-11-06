@@ -134,6 +134,11 @@ def validate_workflow(document):
         required = set(re.findall(r'BAY_[A-Z_]+\s*=\s*"([A-Z_]+)"', source))
         require(required <= bays, 'missing legacy EKCH bay')
         require(document['geography']['latitude'] == 55.6181 and document['geography']['longitude'] == 12.656 and document['geography']['elevation_ft'] == 17 and settings['relevant_distance_nm'] == 30, 'EKCH helper still requires its legacy geography/distance')
+    elif workflow['handler'] == 'radis/v1':
+        require(document['ownership']['strips'] == 'none' and document['ownership']['sectors'] == 'none', 'RADIS requires no ownership')
+        require(bays == {'ACTIVE', 'RUNWAY', 'PASSIVE_TOP', 'PASSIVE_BOTTOM'}, 'RADIS requires exactly four bays')
+        require(settings['removal_distance_nm'] >= settings['admission_distance_nm'] and settings['departure_removal_agl_ft'] > settings['departure_admission_agl_ft'], 'RADIS removal bounds must exceed admission bounds')
+        require(all(document['services'].get(key, {}).get('availability', 'disabled') == 'disabled' for key in ['aman', 'pdc']), 'RADIS PDC/AMAN must be disabled')
     else:
         require(document['ownership']['strips'] == 'none' and document['ownership']['sectors'] == 'none', 'paper example requires ownership disabled')
         require(settings['initial_bay'] in bays and settings['runway_bay'] in bays, 'unknown paper initial/runway bay')
@@ -245,7 +250,7 @@ def validate_airport(document, environment=None):
         position(provider)
     view = document['view']
     handler_views = {'ekch/v1': ('ekch', {'AMAN', 'SEQPLN', 'CLX', 'AA', 'AAAD', 'AD', 'GEGW', 'TWTE', 'TWRGND'}),
-                     'example-paper/v1': ('example-paper', {'example-paper'})}
+                     'example-paper/v1': ('example-paper', {'example-paper'}), 'radis/v1': ('radis', {'RADIS'})}
     view_id, layouts = handler_views[document['workflow']['handler']]
     require(view['id'] == view_id, f"unsupported coded view: {view['id']}")
     require(view['airborne_fallback_layout'] in layouts, 'unsupported airborne fallback layout')

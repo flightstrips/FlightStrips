@@ -5,7 +5,7 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
                      registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req,
                      vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at,
-                     hold, hold_type, hold_eat, next_display_label, next_display_frequency, flight_rules)
+                     hold, hold_type, hold_eat, next_display_label, next_display_frequency, flight_rules, board_state)
 VALUES (
     1,
     sqlc.arg(callsign),
@@ -54,7 +54,8 @@ VALUES (
     sqlc.arg(hold_eat),
     sqlc.narg(next_display_label),
     sqlc.narg(next_display_frequency),
-    sqlc.arg(flight_rules)
+    sqlc.arg(flight_rules),
+    sqlc.narg(board_state)
 );
 
 -- name: UpdateStrip :execrows
@@ -560,3 +561,7 @@ WHERE s.session = $1 AND s.callsign = $2;
 UPDATE strips SET fs_scratch_pad = sqlc.arg(text), version = version + 1
 WHERE session = sqlc.arg(session) AND callsign = sqlc.arg(callsign)
   AND fs_scratch_pad IS DISTINCT FROM sqlc.arg(text);
+
+-- name: UpdateStripBoardState :execrows
+UPDATE strips SET board_state = sqlc.arg(board_state), version = version + 1
+WHERE session = sqlc.arg(session) AND id = sqlc.arg(id) AND version = sqlc.arg(version);

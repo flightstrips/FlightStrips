@@ -220,7 +220,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	arrivalLifecycle := satGraph.arrivals
 	standAssignmentFailures := satGraph.failures
 
-	workflows, workflowErr := airportworkflow.NewRegistry(cfg.Airports, airportworkflow.EKCHDescriptor())
+	workflows, workflowErr := airportworkflow.NewRegistry(cfg.Airports, airportworkflow.EKCHDescriptor(), airportworkflow.RADISDescriptor())
 	if workflowErr != nil {
 		return nil, fmt.Errorf("initialize workflows: %w", workflowErr)
 	}

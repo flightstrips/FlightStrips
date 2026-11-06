@@ -110,7 +110,14 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		return nil, err
 	}
 
+	var radis *models.StripBoardState
+	if len(db.BoardState) > 0 {
+		if err := json.Unmarshal(db.BoardState, &radis); err != nil {
+			return nil, err
+		}
+	}
 	return &models.Strip{
+		BoardState:               radis,
 		ID:                       db.ID,
 		Version:                  db.Version,
 		Callsign:                 db.Callsign,
@@ -210,7 +217,15 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 	}
 	nextDisplayLabel, nextDisplayFrequency := nextDisplayColumns(strip.NextDisplay)
 
+	var radis []byte
+	if strip.BoardState != nil {
+		radis, err = json.Marshal(strip.BoardState)
+		if err != nil {
+			return err
+		}
+	}
 	return r.queries.InsertStrip(ctx, database.InsertStripParams{
+		BoardState:           radis,
 		Callsign:             strip.Callsign,
 		Session:              strip.Session,
 		Origin:               strip.Origin,

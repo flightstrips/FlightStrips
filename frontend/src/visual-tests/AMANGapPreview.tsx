@@ -17,6 +17,10 @@ state.runway_groups[0].gaps = [{
   id: "review-gap", start: `2026-07-22T${interval[0]}.000Z`, end: `2026-07-22T${interval[1]}.000Z`,
   label: "Inserted spacing", created_at: state.generated_at, created_by: "FMP",
 }];
+if (params.has("paired")) {
+  state.runway_groups.push({id: "ARRIVAL-04", gaps: [{...state.runway_groups[0].gaps[0], id: "review-gap-04", label: "Other runway spacing"}]});
+  state.active_runway_groups = [state.runway_groups[0].id, "ARRIVAL-04"];
+}
 state.timeline_configuration = {version: "review-v1", mappings: [
   {id: 1, left: "LUGAS", right: "ROSBI"},
   {id: 2, left: null, right: "ERNOV"},
@@ -27,6 +31,7 @@ state.flights = ["LUGAS", "ROSBI", "ERNOV", "OLPIB", "TIDVU"].map((family, index
   approach_release_time: `2026-07-22T10:${String(17 - index * 3).padStart(2, "0")}:00.000Z`,
   slot: {...state.flights[0].slot!, time: `2026-07-22T10:${String(17 - index * 3).padStart(2, "0")}:00.000Z`},
 }));
+if (params.has("crowded")) state.flights[0].slot!.time = state.runway_groups[0].gaps[0].end;
 const store = createWebSocketStore({
   on: () => undefined,
   send: (message: unknown) => {
@@ -37,6 +42,14 @@ const store = createWebSocketStore({
 store.setState({
   airport: "EKCH", amanSessionID: 1, amanConnectionState: "connected", amanState: state,
   amanPresentationStatus: "ready", amanFMPAuthority: true, readOnly: params.has("readOnly"),
+});
+window.addEventListener("aman-gap-removal-confirmed", () => {
+  const command = JSON.parse(document.getElementById("preview-commands")!.textContent!);
+  const next = structuredClone(store.getState().amanState!);
+  const group = next.runway_groups.find(group => group.id === command.data.runway_group_id)!;
+  group.gaps = group.gaps!.filter(gap => gap.id !== command.data.gap_id);
+  next.revision++;
+  store.setState({amanState: next, amanPendingCommands: {}});
 });
 
 createRoot(document.getElementById("root")!).render(

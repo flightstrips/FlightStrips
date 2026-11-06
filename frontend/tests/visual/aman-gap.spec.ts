@@ -80,3 +80,42 @@ test("shows the same gap markers in a read-only session", async ({page}) => {
     await expect(gap.locator("span").first()).toHaveCSS("background-color", "rgb(156, 0, 0)");
   }
 });
+
+test("removes either runway's overlapping gap from its own side of the paired ruler", async ({page}) => {
+  await page.goto("/visual-tests/aman-gap-preview.html?paired");
+  await page.getByRole("button", {name: "RWY", exact: true}).click();
+  const timeline = page.getByTestId("rwy-timeline-middle");
+  const axis = (await timeline.getByRole("img", {name: /^UTC timeline/}).boundingBox())!;
+  for (const [runway, side, id] of [["ARRIVAL-22", "left", "review-gap"], ["ARRIVAL-04", "right", "review-gap-04"]]) {
+    const gap = timeline.getByRole("button", {name: new RegExp(`^GAP ${runway}:`)});
+    await expect(gap.locator("span")).toHaveCount(1);
+    const bar = gap.locator("span").first();
+    const bounds = (await bar.boundingBox())!;
+    if (side === "left") expect(axis.x - bounds.x - bounds.width).toBeCloseTo(3, 1);
+    else expect(bounds.x - axis.x - axis.width).toBeCloseTo(3, 1);
+    await bar.click();
+    const dialog = page.getByRole("dialog", {name: "Remove GAP"});
+    await expect(dialog).toContainText(runway);
+    await dialog.getByRole("button", {name: "YES", exact: true}).click();
+    await expect(page.locator("#preview-commands")).toContainText(`"gap_id":"${id}"`);
+    // Acknowledge each removal with a complete server state replacement.
+    await page.evaluate(() => window.dispatchEvent(new Event("aman-gap-removal-confirmed")));
+    await expect(gap).toHaveCount(0);
+  }
+});
+
+test("keeps the visible gap bar clickable where an aircraft tag meets its end", async ({page}) => {
+  await page.goto("/visual-tests/aman-gap-preview.html?crowded");
+  const gap = page.getByTestId("fmp-timeline-1").getByRole("button", {name: /^GAP ARRIVAL-22/});
+  await gap.locator("span").first().click({position: {x: 3, y: 2}});
+  await expect(page.getByRole("dialog", {name: "Remove GAP"})).toContainText("Inserted spacing");
+});
+
+test("gives a sub-minute gap a usable hit area without stretching its time interval", async ({page}) => {
+  await page.goto("/visual-tests/aman-gap-preview.html?gap=short");
+  const gap = page.getByTestId("fmp-timeline-1").getByRole("button", {name: /^GAP ARRIVAL-22/});
+  const bounds = (await gap.boundingBox())!;
+  expect(bounds.height).toBeLessThan(4);
+  await page.mouse.click(bounds.x + bounds.width / 2, bounds.y - 6);
+  await expect(page.getByRole("dialog", {name: "Remove GAP"})).toContainText("Inserted spacing");
+});

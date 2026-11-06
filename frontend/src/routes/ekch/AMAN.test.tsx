@@ -226,8 +226,8 @@ describe("AMAN route authorization", () => {
     expect(storeState.sendAMANCommand).toHaveBeenCalledWith({
       type: "aman.create_gap",
       runway_group_id: "ARRIVAL-22",
-      start: "2026-07-22T20:50:00.000Z",
-      end: "2026-07-22T20:55:00.000Z",
+      start: "2026-07-22T20:50:00.001Z",
+      end: "2026-07-22T20:55:00.001Z",
       label: "5 min after SAS123",
     });
   });

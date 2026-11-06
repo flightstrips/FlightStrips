@@ -264,3 +264,42 @@ func TestPhysicalConnectionReturnsOnlyAfterWelcomeIsQueued(t *testing.T) {
 	require.Len(t, root.send, 1)
 	root.Close()
 }
+
+func TestDiscoveryProjectsBoundDefinitionAndIndependentOwnReadiness(t *testing.T) {
+	backendWorkflowFixture()
+	workflow, err := airportworkflow.NewRegistry(backendFixtureDefinitions, airportworkflow.EKCHDescriptor())
+	require.NoError(t, err)
+	bound, _ := workflow.Lookup("EKCH")
+	hub := membershipTestHub()
+	root := membershipTestRoot(hub, "123", "own")
+	a := membershipTestMember(hub, root, 1, "EKCH", "LIVE", "live")
+	b := membershipTestMember(hub, root, 2, "EKCH", "SWEATBOX_test", "exercise")
+	for _, c := range []*Client{a, b} {
+		c.definition = bound.Definition()
+		c.workflow = bound
+		c.updateIdentity("118.000", "OWN", false, "")
+	}
+	b.updateIdentity("119.000", "OBSERVER", true, "")
+	b.roleEligible.Store(false)
+	found, err := hub.DiscoverMemberships(root.userSnapshot())
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+	require.Len(t, found[0].Memberships, 2)
+	first, second := found[0].Memberships[0], found[0].Memberships[1]
+	require.Equal(t, bound.Definition().Revision(), first.DefinitionRevision)
+	require.Equal(t, "ekch", first.View)
+	require.Equal(t, bound.ActionCatalog(), first.Actions)
+	require.Equal(t, "OWN", first.Callsign)
+	require.True(t, first.Ready)
+	require.False(t, first.ReadOnly)
+	require.Equal(t, "SWEATBOX_test", second.Environment)
+	require.Equal(t, "observer", second.Role)
+	require.False(t, second.Ready)
+	require.True(t, second.ReadOnly)
+	found[0].Memberships[0].Actions[0] = "poison"
+	require.NotContains(t, bound.ActionCatalog(), "poison")
+	hub.RemoveMembership(a, "removed")
+	found, err = hub.DiscoverMemberships(root.userSnapshot())
+	require.NoError(t, err)
+	require.Len(t, found[0].Memberships, 1)
+}

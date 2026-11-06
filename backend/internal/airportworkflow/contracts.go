@@ -7,6 +7,7 @@ import (
 	"FlightStrips/pkg/events/euroscope"
 	"fmt"
 	"reflect"
+	"sort"
 	"time"
 )
 
@@ -190,6 +191,16 @@ func Bind(d *config.AirportDefinition, descriptor Descriptor) (*Bound, error) {
 	return b, nil
 }
 
+// ActionCatalog projects the same bound descriptors used by the executor.
+// The returned slice cannot mutate the registry.
+func (b *Bound) ActionCatalog() []string {
+	names := make([]string, 0, len(b.actions))
+	for name := range b.actions {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
 func (b *Bound) Definition() *config.AirportDefinition { return b.definition }
 func (b *Bound) HasBay(bay string) bool                { return b.bays[bay] }
 func (b *Bound) context(c Context) (Context, error) {

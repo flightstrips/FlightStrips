@@ -9,10 +9,14 @@ import (
 
 	"FlightStrips/internal/shared"
 	es "FlightStrips/pkg/events/euroscope"
+	fe "FlightStrips/pkg/events/frontend"
 	"google.golang.org/protobuf/proto"
 )
 
 type MembershipInfo struct {
+	fe.BoardDefinition
+	Callsign            string `json:"callsign"`
+	Position            string `json:"position"`
 	InstanceID          string `json:"instance_id"`
 	MembershipID        string `json:"membership_id"`
 	TransportGeneration uint64 `json:"transport_generation,string"`
@@ -24,7 +28,6 @@ type MembershipInfo struct {
 	ReadOnly            bool   `json:"read_only"`
 	MasterEpoch         uint64 `json:"master_epoch,string"`
 	Ready               bool   `json:"ready"`
-	View                string `json:"view"`
 }
 type PluginPresence struct {
 	Root                *Client          `json:"-"`
@@ -69,12 +72,24 @@ func (hub *Hub) ControlPresence() []PluginPresence {
 			} else if hub.getMasterClient(member.session) == member {
 				role = "master"
 			}
-			view := ""
+			board := fe.BoardDefinition{Actions: []string{}}
 			if member.definition != nil {
-				view = member.definition.ViewID()
+				board.DefinitionRevision = member.definition.Revision()
+				board.View = member.definition.ViewID()
+				board.Capabilities = fe.BoardCapabilities{
+					CDM:       member.definition.ServiceEnabled("cdm"),
+					Stands:    member.definition.ServiceEnabled("stand_assignment"),
+					TextPilot: member.definition.ServiceEnabled("text_pilot"),
+					PDC:       member.definition.ServiceEnabled("pdc"),
+					AMAN:      member.definition.ServiceEnabled("aman"),
+				}
 			}
+			if member.workflow != nil {
+				board.Actions = member.workflow.ActionCatalog()
+			}
+			identity := member.identitySnapshot()
 			ready := hub.MembershipReady(member)
-			presence.Memberships = append(presence.Memberships, MembershipInfo{InstanceID: t.instance, MembershipID: scope.MembershipId, TransportGeneration: t.generation, Generation: scope.Generation, SessionID: scope.SessionId, Airport: scope.Airport, Environment: scope.Environment, Role: role, Ready: ready, ReadOnly: role == "observer" || !ready, MasterEpoch: scope.MasterEpoch, View: view})
+			presence.Memberships = append(presence.Memberships, MembershipInfo{InstanceID: t.instance, MembershipID: scope.MembershipId, TransportGeneration: t.generation, Generation: scope.Generation, SessionID: scope.SessionId, Airport: scope.Airport, Environment: scope.Environment, Role: role, Ready: ready, ReadOnly: role == "observer" || !ready, MasterEpoch: scope.MasterEpoch, BoardDefinition: board, Callsign: identity.callsign, Position: identity.position})
 		}
 		sort.Slice(presence.Memberships, func(i, j int) bool { return presence.Memberships[i].SessionID < presence.Memberships[j].SessionID })
 		result = append(result, presence)

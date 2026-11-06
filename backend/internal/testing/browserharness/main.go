@@ -69,11 +69,10 @@ func run() error {
 	if _, err := pool.Exec(ctx, "INSERT INTO airports (name) VALUES ('EKCH') ON CONFLICT DO NOTHING"); err != nil {
 		return err
 	}
-	definitions, err := config.LoadEKCHTestAirportRegistry()
-	if err != nil {
-		return err
-	}
-	selected.config.Airports = definitions
+	// Resolve the fixture's deployment flags through the production loader.
+	// The metadata-only test registry intentionally disables deployment services.
+	selected.config.AirportFiles = []string{"backend/config/airports/ekch.airport.yaml"}
+	selected.config.AirportRepositoryRoot = ".."
 	selected.dependencies.DBPool = pool
 	selected.dependencies.AuthenticationService = browserIdentity{}
 	application, err := app.Build(ctx, selected.config, selected.dependencies)

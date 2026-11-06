@@ -378,6 +378,7 @@ type Strip struct {
 	FlightRules              string
 	NextControllerSector     *string
 	BoardState               []byte
+	FlightPlanEet            string
 }
 
 type TacticalStrip struct {

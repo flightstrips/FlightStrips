@@ -205,6 +205,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		newStrip := &internalModels.Strip{
+			FlightPlanEET:      strip.GetEnrouteDuration(),
 			Version:            1,
 			Callsign:           strip.Callsign,
 			Session:            session,
@@ -253,7 +254,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		validationStrip = newStrip
 		amanStrip = newStrip
 		amanStrip.FlightPlanEOBT = strip.GetEobt()
-		amanStrip.FlightPlanEET = strip.GetEnrouteDuration()
 		sequence, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
 		if err != nil {
 			return err
@@ -514,7 +514,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			// Older plugin snapshots do not include flight rules.
 			flightRules = existingStrip.FlightRules
 		}
+		flightPlanEET := strip.GetEnrouteDuration()
+		if flightPlanEET == "" && !restartLifecycle {
+			flightPlanEET = existingStrip.FlightPlanEET
+		}
 		updateStrip := &internalModels.Strip{
+			FlightPlanEET:            flightPlanEET,
 			ID:                       existingStrip.ID,
 			Callsign:                 strip.Callsign,
 			Session:                  session,
@@ -585,7 +590,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		validationStrip = updateStrip
 		amanStrip = updateStrip
 		amanStrip.FlightPlanEOBT = strip.GetEobt()
-		amanStrip.FlightPlanEET = strip.GetEnrouteDuration()
 		registrationNeedsUpdate := restartLifecycle
 		registrationValue := ""
 		if restartLifecycle || existingStrip.Registration == nil || remarksContainsRegService(strip.Remarks) {
@@ -1041,7 +1045,8 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		return true
 	}
 
-	return existingStrip.Origin != updateStrip.Origin ||
+	return existingStrip.FlightPlanEET != updateStrip.FlightPlanEET ||
+		existingStrip.Origin != updateStrip.Origin ||
 		existingStrip.Destination != updateStrip.Destination ||
 		!reflect.DeepEqual(existingStrip.Alternative, updateStrip.Alternative) ||
 		!reflect.DeepEqual(existingStrip.Route, updateStrip.Route) ||
@@ -1131,6 +1136,7 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	}
 
 	existingStrip.Version++
+	existingStrip.FlightPlanEET = updateStrip.FlightPlanEET
 	existingStrip.Origin = updateStrip.Origin
 	existingStrip.Destination = updateStrip.Destination
 	existingStrip.Alternative = updateStrip.Alternative

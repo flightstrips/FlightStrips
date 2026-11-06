@@ -3,7 +3,7 @@ import {createWriteStream, existsSync, mkdirSync} from "node:fs";
 import {resolve} from "node:path";
 
 const [suite = "strips", port = "4182"] = process.argv.slice(2);
-if (!["aman", "strips"].includes(suite) || !/^\d+$/.test(port)) throw new Error("invalid backend suite or port");
+if (!["aman", "strips", "radis"].includes(suite) || !/^\d+$/.test(port)) throw new Error("invalid backend suite or port");
 mkdirSync("e2e-artifacts", {recursive: true});
 const log = createWriteStream(`e2e-artifacts/backend-${suite}.log`);
 // CI builds this once from the current checkout before the mutation and normal

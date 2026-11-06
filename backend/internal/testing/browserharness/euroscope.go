@@ -21,6 +21,12 @@ func connectFixtureController(ctx context.Context, endpoint, token string, login
 	return connectFixtureControllerInstance(ctx, endpoint, token, login, snapshot, onEvent, uuid.NewString())
 }
 func connectFixtureControllerInstance(ctx context.Context, endpoint, token string, login *es.LoginEvent, snapshot *es.SyncEvent, onEvent func(es.EventType, []byte, []byte), instance string) (*websocket.Conn, error) {
+	return connectFixtureControllerProtocol(ctx, endpoint, token, login, snapshot, onEvent, instance, nil, nil)
+}
+
+// Optional protocol callbacks let a suite replace the external SDK boundary
+// while retaining production authentication, election, dispatch and echo checks.
+func connectFixtureControllerProtocol(ctx context.Context, endpoint, token string, login *es.LoginEvent, snapshot *es.SyncEvent, onEvent func(es.EventType, []byte, []byte), instance string, execute func(*es.Envelope) *es.Envelope, expose func(func(proto.Message, es.EventType) error)) (*websocket.Conn, error) {
 	conn, response, err := websocket.DefaultDialer.DialContext(ctx, endpoint, nil)
 	if response != nil {
 		response.Body.Close()
@@ -30,6 +36,7 @@ func connectFixtureControllerInstance(ctx context.Context, endpoint, token strin
 	}
 	var writes sync.Mutex
 	var scope *es.MembershipContext
+	var scopeMu sync.RWMutex
 	send := func(message proto.Message, kind es.EventType) error {
 		data, err := es.MarshalEnvelope(message, kind)
 		if err != nil {
@@ -40,10 +47,13 @@ func connectFixtureControllerInstance(ctx context.Context, endpoint, token strin
 			if err := proto.Unmarshal(data, &envelope); err != nil {
 				return err
 			}
+			scopeMu.RLock()
 			if scope == nil {
+				scopeMu.RUnlock()
 				return fmt.Errorf("server-issued context is not ready")
 			}
 			envelope.Context = proto.Clone(scope).(*es.MembershipContext)
+			scopeMu.RUnlock()
 			data, err = proto.Marshal(&envelope)
 			if err != nil {
 				return err
@@ -53,7 +63,7 @@ func connectFixtureControllerInstance(ctx context.Context, endpoint, token strin
 		defer writes.Unlock()
 		return conn.WriteMessage(websocket.BinaryMessage, data)
 	}
-	if err := send(&es.TokenEvent{Token: token, InstanceId: instance}, es.Authentication); err != nil {
+	if err := send(&es.TokenEvent{Token: token, InstanceId: instance, FrequencyMessages: execute != nil}, es.Authentication); err != nil {
 		conn.Close()
 		return nil, err
 	}
@@ -74,7 +84,9 @@ func connectFixtureControllerInstance(ctx context.Context, endpoint, token strin
 				err = proto.Unmarshal(data, &envelope)
 			}
 			if err == nil && envelope.Context != nil && envelope.Context.InstanceId == instance {
+				scopeMu.Lock()
 				scope = proto.Clone(envelope.Context).(*es.MembershipContext)
+				scopeMu.Unlock()
 				if kind == es.Control && scope.MembershipId == "" {
 					environment := strings.ToUpper(strings.TrimSpace(login.Connection))
 					if environment == "" {
@@ -83,11 +95,24 @@ func connectFixtureControllerInstance(ctx context.Context, endpoint, token strin
 					if environment == "PLAYBACK" {
 						environment = "PLAYBACK_" + instance
 					}
-					if err := send(&es.ControlEvent{Environment: environment, Callsign: login.Callsign, PrimaryFrequency: login.Position, Observer: login.Observer, LocalIp: login.LocalIp, RelevantAirport: login.Airport, Range: login.Range}, es.Control); err != nil {
+					if err := send(&es.ControlEvent{Environment: environment, Callsign: login.Callsign, PrimaryFrequency: login.Position, Observer: login.Observer, LocalIp: login.LocalIp, RelevantAirport: login.Airport, Range: login.Range, TunedFrequenciesKnown: execute != nil, EligibleAirports: []string{login.Airport}}, es.Control); err != nil {
 						ready <- err
 						return
 					}
 					continue
+				}
+			}
+			if err == nil && execute != nil {
+				if reply := execute(&envelope); reply != nil {
+					data, marshalErr := proto.Marshal(reply)
+					if marshalErr == nil {
+						writes.Lock()
+						marshalErr = conn.WriteMessage(websocket.BinaryMessage, data)
+						writes.Unlock()
+					}
+					if marshalErr != nil {
+						return
+					}
 				}
 			}
 			if err == nil && onEvent != nil {
@@ -120,6 +145,9 @@ func connectFixtureControllerInstance(ctx context.Context, endpoint, token strin
 		if err != nil {
 			conn.Close()
 			return nil, err
+		}
+		if expose != nil {
+			expose(send)
 		}
 		return conn, nil
 	case <-time.After(15 * time.Second):

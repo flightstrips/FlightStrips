@@ -1,0 +1,15 @@
+{
+  "airport": "EKBI",
+  "preset_provider": "static/v1",
+  "layouts": {},
+  "presets": {
+    "si": [
+      {
+        "id": "hold",
+        "label": "TEST HOLD",
+        "text": "Synthetic EKBI hold.",
+        "tone": "phrase"
+      }
+    ]
+  }
+}

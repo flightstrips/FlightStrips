@@ -194,6 +194,7 @@ export interface FrontendStrip {
   capabilities: string;
   communication_type: CommunicationType;
   eobt: string;
+  flight_plan_eet?: string;
   tobt: string;
   tobt_set_by?: string;
   tsat: string;
@@ -387,6 +388,7 @@ export interface FrontendStripUpdateEvent {
   capabilities: string;
   communication_type: CommunicationType;
   eobt: string;
+  flight_plan_eet?: string;
   tobt: string;
   tsat: string;
   ctot: string;
@@ -564,6 +566,7 @@ export interface FrontendCdmDataEvent {
   type: EventType.FrontendCdmData;
   callsign: string;
   eobt: string;
+  flight_plan_eet?: string;
   tobt: string;
   tobt_set_by?: string;
   tsat: string;
@@ -1062,6 +1065,7 @@ export interface FrontendCreateManualFPLAction {
   sid: string;
   ssr: string;
   eobt: string;
+  flight_plan_eet?: string;
   aircraft_type: string;
   fl: string;
   route: string;

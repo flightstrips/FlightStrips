@@ -117,7 +117,8 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		}
 	}
 	return &models.Strip{
-		BoardState:               radis,
+		BoardState:                    radis,
+		FlightPlanEET:            db.FlightPlanEet,
 		ID:                       db.ID,
 		Version:                  db.Version,
 		Callsign:                 db.Callsign,
@@ -225,7 +226,7 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		}
 	}
 	return r.queries.InsertStrip(ctx, database.InsertStripParams{
-		BoardState: radis, IsManual: strip.IsManual,
+		BoardState: radis, IsManual: strip.IsManual, FlightPlanEet: strip.FlightPlanEET,
 		Callsign:             strip.Callsign,
 		Session:              strip.Session,
 		Origin:               strip.Origin,
@@ -426,6 +427,7 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 	nextDisplayLabel, nextDisplayFrequency := nextDisplayColumns(strip.NextDisplay)
 
 	return r.queries.UpdateStrip(ctx, database.UpdateStripParams{
+		FlightPlanEet:            strip.FlightPlanEET,
 		Callsign:                 strip.Callsign,
 		Session:                  strip.Session,
 		Origin:                   strip.Origin,
@@ -1156,6 +1158,7 @@ func (r *stripRepository) UpdateVatsimSource(ctx context.Context, session int32,
 
 	return r.queries.UpdateStripVatsimSource(ctx, database.UpdateStripVatsimSourceParams{
 		FlightRules:       source.FlightRules,
+		FlightPlanEet:     source.FlightPlanEET,
 		VatsimCid:         &cid,
 		VatsimRevision:    &revision,
 		VatsimSeenAt:      TimeToPgTimestamptz(&source.SeenAt),

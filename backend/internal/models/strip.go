@@ -10,6 +10,7 @@ type NextDisplay struct {
 // VatsimStripSource contains the fields that the VATSIM reconciler is allowed
 // to persist. It intentionally excludes all controller-owned operational state.
 type VatsimStripSource struct {
+	FlightPlanEET  string
 	FlightRules    string
 	CID            string
 	Revision       int64
@@ -44,8 +45,8 @@ type ArrivalETA struct {
 
 type Strip struct {
 	BoardState *StripBoardState
-	// Flight-plan timing forwarded directly from an ES snapshot to AMAN.
-	// AMAN persists it in its observation; it is not controller-owned CDM data.
+	// FlightPlanEOBT is forwarded to AMAN observations. FlightPlanEET is also
+	// persisted for the shared board; neither is controller-owned CDM data.
 	FlightPlanEOBT           string
 	FlightPlanEET            string
 	ID                       int32

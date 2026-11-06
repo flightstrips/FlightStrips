@@ -114,13 +114,18 @@ func TestStripSyncForwardsAMANFiledTimingOnBatchAndUnchangedUpdates(t *testing.T
 			require.Equal(t, "1800", observer.strips[0].FlightPlanEOBT)
 			require.Equal(t, "0130", observer.strips[0].FlightPlanEET)
 			before := updates
-			// The wire timing can change without changing persisted strip fields.
+			// EET changes are durable, and unchanged snapshots must still reach AMAN.
 			wire.EnrouteDuration = "0140"
 			require.NoError(t, service.SyncStrip(ctx, 1, "", wire, "EKCH"))
-			require.Equal(t, before, updates, "exercise the unchanged-strip return")
+			require.Equal(t, before+1, updates, "persist the changed EET")
 			require.Len(t, observer.strips, 2)
 			require.Equal(t, "1800", observer.strips[1].FlightPlanEOBT)
 			require.Equal(t, "0140", observer.strips[1].FlightPlanEET)
+			require.NoError(t, service.SyncStrip(ctx, 1, "", wire, "EKCH"))
+			require.Equal(t, before+1, updates, "exercise the unchanged-strip return")
+			require.Len(t, observer.strips, 3)
+			require.Equal(t, "1800", observer.strips[2].FlightPlanEOBT)
+			require.Equal(t, "0140", observer.strips[2].FlightPlanEET)
 		})
 	}
 }

@@ -35,7 +35,7 @@ export function RADISStrip({strip, open, edit}: {strip: FrontendStrip; open: () 
     <SplitStripCell width="12.3%" borderColor={border} top={value("RFL", strip.requested_altitude)} bottom={value("ALT FT", strip.cleared_altitude, () => edit("altitude", "Cleared altitude (feet)", String(strip.cleared_altitude)), true)}/>
     <div className="radis-times">
       <SplitStripCell width="33.333%" borderColor={border} top={value("EOBT", strip.eobt, () => edit("eobt", "EOBT (UTC HHMM)", strip.eobt), true)} bottom={value("ATD", a?.atd ?? "", () => edit("atd", "ATD (UTC HHMM)", a?.atd ?? ""))}/>
-      <SplitStripCell width="33.333%" borderColor={border} top={value("TSAT", strip.tsat)} bottom={value("END/POB", a?.endurance_pob ?? "", () => edit("endurance_pob", "Endurance / persons on board", a?.endurance_pob ?? ""))}/>
+      <SplitStripCell width="33.333%" borderColor={border} top={value("EET", strip.flight_plan_eet ?? "")} bottom={value("END/POB", a?.endurance_pob ?? "", () => edit("endurance_pob", "Endurance / persons on board", a?.endurance_pob ?? ""))}/>
       <SplitStripCell width="33.334%" borderColor={border} top={value("ETA", strip.eldt)} bottom={value("ATA", paperClock(a?.ata), () => annotate(strip.callsign, "ata", "", !a?.ata))}/>
     </div>
     <StripCell width="17.4%" borderColor={border} className="radis-direction">

@@ -1,0 +1,172 @@
+# SYNTHETIC TEST DATA ONLY. Invented service and operating values. NEVER DEPLOY.
+schema_version: flightstrips-airport/v1
+kind: airport
+airport: EKYT
+geography:
+  latitude: 0
+  longitude: 0
+  elevation_ft: 0
+  transition_altitude_ft: 5000
+  runways:
+  - 09
+  - '27'
+  initial_cfl_ft:
+    09: 3000
+    '27': 3000
+positions:
+- name: EKYT_TWR
+  frequency: '119.000'
+  section: TWR
+coverage:
+  matching:
+    primary_frequency: true
+    tuned_frequencies: true
+    callsign_fallback: true
+    normalization: vatsim/v1
+    provider_selection: existing-coverage/v1
+  responsibilities:
+  - id: tower
+    name: TWR
+    providers:
+    - EKYT_TWR
+  airborne_fallback: []
+  membership:
+    policy: remaining-responsibilities/v1
+    relinquish_grace_seconds: 0
+master:
+  priorities:
+  - position: EKYT_TWR
+    match: primary-frequency-or-callsign
+  preempt_higher_priority: true
+  equal_priority: retain-current
+  fallback: any-non-observer-participant
+  observers_eligible: false
+ownership:
+  strips: none
+  sectors: none
+  callsign_prefixes: []
+routing:
+  ground: []
+  airborne: []
+  missed_approach: {}
+view:
+  id: radis
+  layouts: {}
+  airborne_fallback_layout: RADIS
+  message_areas: {}
+workflow:
+  handler: radis/v1
+  settings:
+    departure_initial_bay: PASSIVE_TOP
+    arrival_initial_bay: PASSIVE_BOTTOM
+    bay_ground_states:
+      ACTIVE:
+        departure: TAXI
+        arrival: TAXI
+      RUNWAY:
+        departure: LINEUP
+        arrival: ''
+      PASSIVE_TOP:
+        departure: ST-UP
+        arrival: ''
+      PASSIVE_BOTTOM:
+        departure: ''
+        arrival: PARK
+    admission_distance_nm: 37
+    departure_admission_agl_ft: 2100
+    removal_distance_nm: 47
+    departure_removal_agl_ft: 3100
+    recovery_seconds: 123
+    automatic_reappearance: true
+    disconnect_removal_seconds: 7
+    timestamp_semantics: annotation-utc
+  bays:
+  - id: ACTIVE
+    label: ACTIVE
+  - id: RUNWAY
+    label: RUNWAY
+  - id: PASSIVE_TOP
+    label: PASSIVE_TOP
+  - id: PASSIVE_BOTTOM
+    label: PASSIVE_BOTTOM
+  annotations:
+    notes:
+      type: string
+      scope: session
+      default: ''
+    deicing:
+      type: boolean
+      scope: session
+      default: false
+    rea:
+      type: timestamp
+      scope: session
+      default: null
+    ata:
+      type: timestamp
+      scope: session
+      default: null
+    atd:
+      type: string
+      scope: session
+      default: ''
+    endurance_pob:
+      type: string
+      scope: session
+      default: ''
+    qnh:
+      type: string
+      scope: session
+      default: ''
+    rnav:
+      type: string
+      scope: session
+      default: ''
+    vfr:
+      type: boolean
+      scope: session
+      default: false
+services:
+  cdm:
+    availability: enabled
+    config_root: backend/internal/config/testdata/radis-services/cdm
+    config:
+      rateUri: ekyt.rates.json
+      sidIntervalUri: ekyt.sid.json
+      taxizonesUri: ekyt.taxi.json
+      rate: 32
+      rateLvo: 12
+      defaultTaxiTime: 4
+      deice:
+        light: 2
+        medium: 3
+        heavy: 4
+        super: 5
+        platform: []
+  stand_assignment:
+    availability: enabled
+    stands:
+      repo_path: backend/internal/config/testdata/radis-services/ekyt.stands
+    aircraft_reference:
+      repo_path: backend/config/ekch/GRpluginAircraftInfo.txt
+    aircraft_icao:
+      repo_path: backend/config/test/ICAO_Aircraft.json
+    airline_assignment:
+      repo_path: backend/internal/config/testdata/radis-services/ekyt.policy.json
+    scenery:
+      repo_path: backend/internal/config/testdata/radis-services/ekyt.scenery.json
+  text_pilot:
+    availability: enabled
+    provider: frequency-message/v1
+    layout_data:
+      repo_path: backend/internal/config/testdata/radis-services/ekyt.text.json
+  aman:
+    availability: disabled
+  pdc:
+    availability: disabled
+  ecfmp:
+    availability: disabled
+validation: {}
+provenance:
+- path: .github/specs/multi-airport-support/examples/handler-proof.patch
+  sha256: d7fa1501ce3ced736cdb420631259274f27ff88076aa08b1573719d0038b793b

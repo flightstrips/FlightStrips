@@ -15,9 +15,11 @@ export default defineConfig({
   use: {actionTimeout: 15_000, navigationTimeout: 30_000, ...devices["Desktop Chrome"], viewport: {width: 1920, height: 1080}, baseURL: "http://127.0.0.1:4181", screenshot: "only-on-failure", trace: "retain-on-failure", video: "retain-on-failure"},
   projects: [
     {name: "aman", workers: 1, testMatch: "aman.spec.ts", metadata: {backend: "http://127.0.0.1:4180"}},
+    {name: "radis", workers: 1, testMatch: "radis.spec.ts", metadata: {backend: "http://127.0.0.1:4184"}},
     {name: "strips", workers: 1, testMatch: "strips.spec.ts", metadata: {backend: "http://127.0.0.1:4182"}},
   ],
   webServer: [
+    ...(!onlyProject || onlyProject === "radis" ? [{command: "node tests/e2e/backend.mjs radis 4184", url: "http://127.0.0.1:4184/e2e/ready", timeout: 180_000, reuseExistingServer: false}] : []),
     ...(!onlyProject || onlyProject === "aman" ? [{command: "node tests/e2e/backend.mjs aman 4180", url: "http://127.0.0.1:4180/e2e/ready", timeout: 180_000, reuseExistingServer: false}] : []),
     ...(!onlyProject || onlyProject === "strips" ? [{command: "node tests/e2e/backend.mjs strips 4182", url: "http://127.0.0.1:4182/e2e/ready", timeout: 180_000, reuseExistingServer: false}] : []),
     {command: "node tests/e2e/frontend.mjs", url: "http://127.0.0.1:4181", timeout: 180_000, reuseExistingServer: false},

@@ -18,7 +18,8 @@ type radis struct {
 
 func RADISDescriptor() Descriptor {
 	return Descriptor{ID: "radis/v1", BoardState: func(d *config.AirportDefinition) BoardStatePolicy {
-		return BoardStatePolicy{Revisioned: true, RecoverySeconds: d.Document().Workflow.Settings.(config.RADISSettings).RecoverySeconds}
+		s := d.Document().Workflow.Settings.(config.RADISSettings)
+		return BoardStatePolicy{Revisioned: true, RecoverySeconds: s.RecoverySeconds}
 	}, Bind: func(d *config.AirportDefinition) (Handler, []ActionDescriptor, error) {
 		doc := d.Document()
 		s, ok := doc.Workflow.Settings.(config.RADISSettings)
@@ -107,8 +108,6 @@ func RADISDistanceNM(lat1, lon1, lat2, lon2 float64) float64 {
 	a := math.Pow(math.Sin((lat2-lat1)*r/2), 2) + math.Cos(lat1*r)*math.Cos(lat2*r)*math.Pow(math.Sin((lon2-lon1)*r/2), 2)
 	return 3440.065 * 2 * math.Asin(math.Sqrt(math.Min(1, math.Max(0, a))))
 }
-
-// StripAnnotation is a semantic paper-field edit, never an ES amendment.
 
 func (h radis) annotate(c Context, a StripAnnotation) (Decision, error) {
 	v := c.Strip.Annotations

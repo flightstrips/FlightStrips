@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -99,9 +100,11 @@ func (a *WebAPI) handleTrainingFlight(w http.ResponseWriter, r *http.Request) {
 	result := a.buildSnapshot(r.Context(), match, session)
 	result.Capabilities = capabilities{TOBT: a.cdm != nil && a.cdmReady && result.Phase == "DEPARTURE", Stand: a.stands != nil && a.assignments != nil}
 	result.PDCState, result.PDCAvailable, result.PDCCanSubmit, result.PDCRequiresPilotAction, result.PDCClearanceText = "", false, false, false, nil
+	result.PDCRetryAfterMS = 0
 	// Keep the departure's sensed stand while loading assignment concurrency metadata.
 	stand, state := result.Stand, result.StandState
 	a.addNetworkStandAssignment(r.Context(), &result, match)
+	applyArrivalStandRestriction(&result, match.Strip, session.Airport, time.Now())
 	if result.Phase == "DEPARTURE" {
 		result.Stand, result.StandState = stand, state
 	}

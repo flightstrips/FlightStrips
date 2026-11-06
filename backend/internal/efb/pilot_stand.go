@@ -101,15 +101,19 @@ func (a *WebAPI) handleStandOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	match, _, err := a.pilotStandFlight(r.Context(), flight)
+	var state *services.PilotDepartureStand
 	if err == nil {
-		_, err = a.pilotStands.Open(r.Context(), match.SessionID, match.Strip, pilotDepartureFlight(flight))
+		state, err = a.pilotStands.Open(r.Context(), match.SessionID, match.Strip, pilotDepartureFlight(flight))
 	}
 	if err != nil {
 		slog.WarnContext(r.Context(), "EFB departure stand initialization failed", "callsign", flight.Callsign, "error", err)
 		writeError(w, http.StatusConflict, err.Error())
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"callsign": flight.Callsign, "stand": state.Stand, "stand_state": state.State,
+		"version": state.Version, "expires_at": state.ExpiresAt, "can_select": flight.Prefile(),
+	})
 }
 
 func (a *WebAPI) handlePilotDepartureSelection(w http.ResponseWriter, r *http.Request, flight vatsim.Flight, stand string, version int32, allowUnsuitable bool) {

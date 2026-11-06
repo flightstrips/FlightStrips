@@ -77,6 +77,17 @@ func TestSweatboxTobtUpdatesSelectedSessionOnly(t *testing.T) {
 	}
 }
 
+func TestEFBRejectsNonFiveMinuteTOBT(t *testing.T) {
+	cfg := trainingConfig(t)
+	cdm := cfg.CDM.(*cdmStub)
+	for _, value := range []string{"2131", "2359"} {
+		rec := trainingRequest(NewWebAPI(cfg), http.MethodPut, "/efb/tobt?training_session=8", `{"callsign":"SAS123","tobt":"`+value+`"}`)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "five-minute increments") || cdm.calls != 0 {
+			t.Fatalf("unexpected off-grid TOBT response: %d %s", rec.Code, rec.Body.String())
+		}
+	}
+}
+
 type trainingStandStub struct {
 	standActionsStub
 	session         int32

@@ -1481,8 +1481,10 @@ type ControlEvent struct {
 	RelevantAirport       string                 `protobuf:"bytes,7,opt,name=relevant_airport,json=relevantAirport,proto3" json:"relevant_airport,omitempty"`
 	Range                 int32                  `protobuf:"varint,8,opt,name=range,proto3" json:"range,omitempty"`
 	TunedFrequenciesKnown bool                   `protobuf:"varint,9,opt,name=tuned_frequencies_known,json=tunedFrequenciesKnown,proto3" json:"tuned_frequencies_known,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Deployment eligibility is a declaration, intersected with backend policy.
+	EligibleAirports []string `protobuf:"bytes,10,rep,name=eligible_airports,json=eligibleAirports,proto3" json:"eligible_airports,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ControlEvent) Reset() {
@@ -1576,6 +1578,13 @@ func (x *ControlEvent) GetTunedFrequenciesKnown() bool {
 		return x.TunedFrequenciesKnown
 	}
 	return false
+}
+
+func (x *ControlEvent) GetEligibleAirports() []string {
+	if x != nil {
+		return x.EligibleAirports
+	}
+	return nil
 }
 
 type MembershipRemovedEvent struct {
@@ -6203,7 +6212,7 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
 	"generation\x18\a \x01(\x04R\n" +
 	"generation\x12!\n" +
-	"\fmaster_epoch\x18\b \x01(\x04R\vmasterEpoch\"\xd6\x02\n" +
+	"\fmaster_epoch\x18\b \x01(\x04R\vmasterEpoch\"\x83\x03\n" +
 	"\fControlEvent\x12 \n" +
 	"\venvironment\x18\x01 \x01(\tR\venvironment\x12\x1a\n" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12+\n" +
@@ -6213,7 +6222,9 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\blocal_ip\x18\x06 \x01(\tR\alocalIp\x12)\n" +
 	"\x10relevant_airport\x18\a \x01(\tR\x0frelevantAirport\x12\x14\n" +
 	"\x05range\x18\b \x01(\x05R\x05range\x126\n" +
-	"\x17tuned_frequencies_known\x18\t \x01(\bR\x15tunedFrequenciesKnown\"0\n" +
+	"\x17tuned_frequencies_known\x18\t \x01(\bR\x15tunedFrequenciesKnown\x12+\n" +
+	"\x11eligible_airports\x18\n" +
+	" \x03(\tR\x10eligibleAirports\"0\n" +
 	"\x16MembershipRemovedEvent\x12\x16\n" +
 	"\x06reason\x18\x01 \x01(\tR\x06reason\"\xcb\x01\n" +
 	"\n" +

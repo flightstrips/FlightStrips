@@ -110,6 +110,8 @@ type Config struct {
 }
 
 type Dependencies struct {
+	CoverageAuthorize func(shared.AuthenticatedUser, string, string) bool
+	CoverageSimulated func(context.Context) ([]euroscope.CoverageStaffingEvidence, error)
 	// Now supplies the application clock for deterministic replay. Nil uses real time.
 	Now                   func() time.Time
 	DBPool                *pgxpool.Pool
@@ -394,6 +396,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	euroscopeHub := realtime.euroscope
 	euroscopeHub.SetAirportRegistry(cfg.Airports)
 	euroscopeHub.SetWorkflowRegistry(workflows)
+	coverageOptions := euroscope.CoverageOptions{Network: vatsimGraph.source, Now: satNow, Authorize: deps.CoverageAuthorize, Simulated: deps.CoverageSimulated}
+	if transceiverCache != nil {
+		coverageOptions.Radios = transceiverCache
+	}
+	coverageCoordinator := euroscopeHub.ConfigureCoverage(coverageOptions)
 	if amanAPI != nil {
 		amanAPI.WithSessionResolver(func(ctx context.Context, cid, airport string) (int32, error) {
 			controller := euroscopeHub.GetFrontendController(cid)
@@ -764,6 +771,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if transceiverCache != nil {
 		app.addWorker(transceiverCache.Start)
+	}
+	if coverageCoordinator != nil {
+		app.addWorker(coverageCoordinator.Run)
 	}
 	if cfg.EnableECFMP {
 		app.addWorker(ecfmpService.Start)

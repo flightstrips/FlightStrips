@@ -985,6 +985,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 inline constexpr ControlEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : tuned_frequencies_{},
+        eligible_airports_{},
         environment_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
@@ -5995,6 +5996,7 @@ inline PROTOBUF_NDEBUG_INLINE ControlEvent::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
     const Impl_& from)
       : tuned_frequencies_{visibility, arena, from.tuned_frequencies_},
+        eligible_airports_{visibility, arena, from.eligible_airports_},
         environment_(arena, from.environment_),
         callsign_(arena, from.callsign_),
         primary_frequency_(arena, from.primary_frequency_),
@@ -6025,6 +6027,7 @@ inline PROTOBUF_NDEBUG_INLINE ControlEvent::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility,
     ::google::protobuf::Arena* arena)
       : tuned_frequencies_{visibility, arena},
+        eligible_airports_{visibility, arena},
         environment_(arena),
         callsign_(arena),
         primary_frequency_(arena),
@@ -6082,6 +6085,7 @@ PROTOBUF_NOINLINE void ControlEvent::Clear() {
   (void) cached_has_bits;
 
   _impl_.tuned_frequencies_.Clear();
+  _impl_.eligible_airports_.Clear();
   _impl_.environment_.ClearToEmpty();
   _impl_.callsign_.ClearToEmpty();
   _impl_.primary_frequency_.ClearToEmpty();
@@ -6101,15 +6105,15 @@ const char* ControlEvent::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 9, 0, 132, 2> ControlEvent::_table_ = {
+const ::_pbi::TcParseTable<4, 10, 0, 149, 2> ControlEvent::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    9, 120,  // max_field_number, fast_idx_mask
+    10, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294966784,  // skipmap
+    4294966272,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    9,  // num_field_entries
+    10,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_ControlEvent_default_instance_._instance,
@@ -6146,7 +6150,9 @@ const ::_pbi::TcParseTable<4, 9, 0, 132, 2> ControlEvent::_table_ = {
     // bool tuned_frequencies_known = 9;
     {::_pbi::TcParser::FastV8S1,
      {72, 63, 0, PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.tuned_frequencies_known_)}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // repeated string eligible_airports = 10;
+    {::_pbi::TcParser::FastUR1,
+     {82, 63, 0, PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.eligible_airports_)}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
@@ -6182,10 +6188,13 @@ const ::_pbi::TcParseTable<4, 9, 0, 132, 2> ControlEvent::_table_ = {
     // bool tuned_frequencies_known = 9;
     {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.tuned_frequencies_known_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // repeated string eligible_airports = 10;
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.eligible_airports_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
   }},
   // no aux_entries
   {{
-    "\46\13\10\21\21\0\10\20\0\0\0\0\0\0\0\0"
+    "\46\13\10\21\21\0\10\20\0\0\21\0\0\0\0\0"
     "flightstrips.euroscope.v1.ControlEvent"
     "environment"
     "callsign"
@@ -6193,6 +6202,7 @@ const ::_pbi::TcParseTable<4, 9, 0, 132, 2> ControlEvent::_table_ = {
     "tuned_frequencies"
     "local_ip"
     "relevant_airport"
+    "eligible_airports"
   }},
 };
 
@@ -6272,6 +6282,14 @@ const ::_pbi::TcParseTable<4, 9, 0, 132, 2> ControlEvent::_table_ = {
         9, this->_internal_tuned_frequencies_known(), target);
   }
 
+  // repeated string eligible_airports = 10;
+  for (int i = 0, n = this->_internal_eligible_airports_size(); i < n; ++i) {
+    const auto& s = this->_internal_eligible_airports().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.ControlEvent.eligible_airports");
+    target = stream->WriteString(10, s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -6294,6 +6312,12 @@ const ::_pbi::TcParseTable<4, 9, 0, 132, 2> ControlEvent::_table_ = {
   for (int i = 0, n = _internal_tuned_frequencies().size(); i < n; ++i) {
     total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
         _internal_tuned_frequencies().Get(i));
+  }
+  // repeated string eligible_airports = 10;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_eligible_airports().size());
+  for (int i = 0, n = _internal_eligible_airports().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_eligible_airports().Get(i));
   }
   // string environment = 1;
   if (!this->_internal_environment().empty()) {
@@ -6362,6 +6386,7 @@ void ControlEvent::MergeFrom(const ControlEvent& from) {
   (void) cached_has_bits;
 
   _this->_internal_mutable_tuned_frequencies()->MergeFrom(from._internal_tuned_frequencies());
+  _this->_internal_mutable_eligible_airports()->MergeFrom(from._internal_eligible_airports());
   if (!from._internal_environment().empty()) {
     _this->_internal_set_environment(from._internal_environment());
   }
@@ -6406,6 +6431,7 @@ void ControlEvent::InternalSwap(ControlEvent* PROTOBUF_RESTRICT other) {
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   _impl_.tuned_frequencies_.InternalSwap(&other->_impl_.tuned_frequencies_);
+  _impl_.eligible_airports_.InternalSwap(&other->_impl_.eligible_airports_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.environment_, &other->_impl_.environment_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.primary_frequency_, &other->_impl_.primary_frequency_, arena);

@@ -3,6 +3,7 @@ package euroscope
 import (
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestLiveControlDemandSurvivesZeroMemberships(t *testing.T) {
@@ -21,4 +22,23 @@ func TestLiveControlDemandSurvivesZeroMemberships(t *testing.T) {
 	require.True(t, hub.HasLiveSourceDemand())
 	root.Close()
 	require.False(t, hub.HasLiveSourceDemand())
+}
+
+func TestLiveDemandWaitDoesNotHoldRegistryAgainstMembershipJoin(t *testing.T) {
+	hub := membershipTestHub()
+	root := membershipTestRoot(hub, "123", "joining")
+	root.transport.evidence.Environment = "LIVE"
+	root.transport.mu.Lock()
+	demand := make(chan bool, 1)
+	go func() { demand <- hub.HasLiveSourceDemand() }()
+	registered := make(chan struct{})
+	go func() { hub.clientsMu.Lock(); hub.clientsMu.Unlock(); close(registered) }()
+	select {
+	case <-registered:
+	case <-time.After(time.Second):
+		root.transport.mu.Unlock()
+		t.Fatal("source demand holds the global registry while waiting for a joining transport")
+	}
+	root.transport.mu.Unlock()
+	require.True(t, <-demand)
 }

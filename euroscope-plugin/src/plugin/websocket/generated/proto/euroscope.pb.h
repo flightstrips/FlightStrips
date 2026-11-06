@@ -7632,6 +7632,7 @@ class ControlEvent final : public ::google::protobuf::MessageLite
   // accessors -------------------------------------------------------
   enum : int {
     kTunedFrequenciesFieldNumber = 4,
+    kEligibleAirportsFieldNumber = 10,
     kEnvironmentFieldNumber = 1,
     kCallsignFieldNumber = 2,
     kPrimaryFrequencyFieldNumber = 3,
@@ -7667,6 +7668,34 @@ class ControlEvent final : public ::google::protobuf::MessageLite
   private:
   const ::google::protobuf::RepeatedPtrField<std::string>& _internal_tuned_frequencies() const;
   ::google::protobuf::RepeatedPtrField<std::string>* _internal_mutable_tuned_frequencies();
+
+  public:
+  // repeated string eligible_airports = 10;
+  int eligible_airports_size() const;
+  private:
+  int _internal_eligible_airports_size() const;
+
+  public:
+  void clear_eligible_airports() ;
+  const std::string& eligible_airports(int index) const;
+  std::string* mutable_eligible_airports(int index);
+  void set_eligible_airports(int index, const std::string& value);
+  void set_eligible_airports(int index, std::string&& value);
+  void set_eligible_airports(int index, const char* value);
+  void set_eligible_airports(int index, const char* value, std::size_t size);
+  void set_eligible_airports(int index, absl::string_view value);
+  std::string* add_eligible_airports();
+  void add_eligible_airports(const std::string& value);
+  void add_eligible_airports(std::string&& value);
+  void add_eligible_airports(const char* value);
+  void add_eligible_airports(const char* value, std::size_t size);
+  void add_eligible_airports(absl::string_view value);
+  const ::google::protobuf::RepeatedPtrField<std::string>& eligible_airports() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* mutable_eligible_airports();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<std::string>& _internal_eligible_airports() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* _internal_mutable_eligible_airports();
 
   public:
   // string environment = 1;
@@ -7784,8 +7813,8 @@ class ControlEvent final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 9, 0,
-      132, 2>
+      4, 10, 0,
+      149, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -7801,6 +7830,7 @@ class ControlEvent final : public ::google::protobuf::MessageLite
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::RepeatedPtrField<std::string> tuned_frequencies_;
+    ::google::protobuf::RepeatedPtrField<std::string> eligible_airports_;
     ::google::protobuf::internal::ArenaStringPtr environment_;
     ::google::protobuf::internal::ArenaStringPtr callsign_;
     ::google::protobuf::internal::ArenaStringPtr primary_frequency_;
@@ -22013,6 +22043,108 @@ inline bool ControlEvent::_internal_tuned_frequencies_known() const {
 inline void ControlEvent::_internal_set_tuned_frequencies_known(bool value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.tuned_frequencies_known_ = value;
+}
+
+// repeated string eligible_airports = 10;
+inline int ControlEvent::_internal_eligible_airports_size() const {
+  return _internal_eligible_airports().size();
+}
+inline int ControlEvent::eligible_airports_size() const {
+  return _internal_eligible_airports_size();
+}
+inline void ControlEvent::clear_eligible_airports() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.eligible_airports_.Clear();
+}
+inline std::string* ControlEvent::add_eligible_airports()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  std::string* _s = _internal_mutable_eligible_airports()->Add();
+  // @@protoc_insertion_point(field_add_mutable:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+  return _s;
+}
+inline const std::string& ControlEvent::eligible_airports(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+  return _internal_eligible_airports().Get(index);
+}
+inline std::string* ControlEvent::mutable_eligible_airports(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+  return _internal_mutable_eligible_airports()->Mutable(index);
+}
+inline void ControlEvent::set_eligible_airports(int index, const std::string& value) {
+  _internal_mutable_eligible_airports()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline void ControlEvent::set_eligible_airports(int index, std::string&& value) {
+  _internal_mutable_eligible_airports()->Mutable(index)->assign(std::move(value));
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline void ControlEvent::set_eligible_airports(int index, const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  _internal_mutable_eligible_airports()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline void ControlEvent::set_eligible_airports(int index, const char* value,
+                              std::size_t size) {
+  _internal_mutable_eligible_airports()->Mutable(index)->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline void ControlEvent::set_eligible_airports(int index, absl::string_view value) {
+  _internal_mutable_eligible_airports()->Mutable(index)->assign(
+      value.data(), value.size());
+  // @@protoc_insertion_point(field_set_string_piece:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline void ControlEvent::add_eligible_airports(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_eligible_airports()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline void ControlEvent::add_eligible_airports(std::string&& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_eligible_airports()->Add(std::move(value));
+  // @@protoc_insertion_point(field_add:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline void ControlEvent::add_eligible_airports(const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_eligible_airports()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline void ControlEvent::add_eligible_airports(const char* value, std::size_t size) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_eligible_airports()->Add()->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline void ControlEvent::add_eligible_airports(absl::string_view value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_eligible_airports()->Add()->assign(value.data(),
+                                                     value.size());
+  // @@protoc_insertion_point(field_add_string_piece:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+ControlEvent::eligible_airports() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+  return _internal_eligible_airports();
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+ControlEvent::mutable_eligible_airports() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.euroscope.v1.ControlEvent.eligible_airports)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_eligible_airports();
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+ControlEvent::_internal_eligible_airports() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.eligible_airports_;
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+ControlEvent::_internal_mutable_eligible_airports() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.eligible_airports_;
 }
 
 // -------------------------------------------------------------------

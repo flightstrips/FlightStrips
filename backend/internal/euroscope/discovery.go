@@ -33,6 +33,7 @@ type PluginPresence struct {
 	CID                 string           `json:"-"`
 	Evidence            *es.ControlEvent `json:"control"`
 	EvidenceAt          time.Time        `json:"evidence_at"`
+	EvidenceRevision    uint64           `json:"-"`
 	Memberships         []MembershipInfo `json:"memberships"`
 }
 
@@ -54,8 +55,9 @@ func (hub *Hub) ControlPresence() []PluginPresence {
 		t.mu.RLock()
 		evidence := proto.Clone(&t.evidence).(*es.ControlEvent)
 		at := t.evidenceAt
+		revision := t.evidenceRevision
 		t.mu.RUnlock()
-		presence := PluginPresence{Root: root, InstanceID: t.instance, TransportGeneration: t.generation, CID: root.GetCid(), Evidence: evidence, EvidenceAt: at, Memberships: []MembershipInfo{}}
+		presence := PluginPresence{Root: root, InstanceID: t.instance, TransportGeneration: t.generation, CID: root.GetCid(), Evidence: evidence, EvidenceAt: at, EvidenceRevision: revision, Memberships: []MembershipInfo{}}
 		for _, member := range t.snapshot() {
 			if member.isClosed() {
 				continue

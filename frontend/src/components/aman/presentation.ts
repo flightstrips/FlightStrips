@@ -12,6 +12,11 @@ export interface AMANFlightLane {
   capacityReservations?: AMANCapacityReservation[];
 }
 
+function participatesInTimeline(flight: AMANFlight): boolean {
+  return (flight.sequence_disposition ?? "active") === "active"
+    && flight.lifecycle_state !== "landed" && flight.lifecycle_state !== "removed";
+}
+
 export function buildRWYTimelineLanes(state: AMANState): {lanes: AMANFlightLane[]; unavailable: boolean; truncated: boolean} {
   const configured = new Set(state.runway_groups.map((group) => group.id));
   const published = state.active_runway_groups;
@@ -29,7 +34,7 @@ export function buildRWYTimelineLanes(state: AMANState): {lanes: AMANFlightLane[
       id: group.id,
       label: group.id,
       configuredIndex,
-      flights: orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === group.id)),
+      flights: orderAMANFlights(state.flights.filter((flight) => participatesInTimeline(flight) && flight.runway_group_id === group.id)),
       gaps: group.gaps ?? [],
       closures: group.closures ?? [],
       capacityReservations: group.capacity_reservations ?? [],
@@ -81,8 +86,9 @@ export function orderAMANFlights(flights: AMANFlight[]): AMANFlight[] {
 }
 
 export function buildAMANLanes(state: AMANState): AMANFlightLane[] {
+  const flights = state.flights.filter(participatesInTimeline);
   const declared = state.runway_groups.map((group) => group.id);
-  const discovered = state.flights
+  const discovered = flights
     .map((flight) => flight.runway_group_id)
     .filter((groupID): groupID is string => groupID !== null && !declared.includes(groupID));
   const groupIDs = [...declared, ...new Set(discovered)];
@@ -90,12 +96,12 @@ export function buildAMANLanes(state: AMANState): AMANFlightLane[] {
   const lanes = groupIDs.map((groupID) => ({
     id: groupID,
     label: groupID,
-    flights: orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === groupID)),
+    flights: orderAMANFlights(flights.filter((flight) => flight.runway_group_id === groupID)),
     gaps: state.runway_groups.find((group) => group.id === groupID)?.gaps ?? [],
     closures: state.runway_groups.find((group) => group.id === groupID)?.closures ?? [],
     capacityReservations: state.runway_groups.find((group) => group.id === groupID)?.capacity_reservations ?? [],
   }));
-  const unassigned = orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === null));
+  const unassigned = orderAMANFlights(flights.filter((flight) => flight.runway_group_id === null));
   if (unassigned.length > 0) {
     lanes.push({id: "unassigned", label: "Unassigned runway group", flights: unassigned, gaps: [], closures: [], capacityReservations: []});
   }
@@ -111,6 +117,7 @@ export function buildAMANHoldingLanes(flights: AMANFlight[]): AMANFlightLane[] {
   const byHolding = new Map<string, AMANFlight[]>();
 
   for (const flight of flights) {
+    if (!participatesInTimeline(flight)) continue;
     const holdingID = flight.holding_fix ?? "unassigned";
     const lane = byHolding.get(holdingID);
     if (lane) lane.push(flight);
@@ -125,6 +132,8 @@ export function buildAMANHoldingLanes(flights: AMANFlight[]): AMANFlightLane[] {
 }
 
 export function operationalMarkerTimestamp(flight: AMANFlight): string | null {
+  // Desequenced flights retain their former slot as history, not runway capacity.
+  if (!participatesInTimeline(flight)) return null;
   return flight.slot?.time ?? flight.operational_teta;
 }
 

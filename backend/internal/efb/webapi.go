@@ -139,46 +139,48 @@ func (a *WebAPI) handleMe(w http.ResponseWriter, r *http.Request) {
 }
 
 type snapshot struct {
-	ReadOnly                bool               `json:"read_only"`
-	FlightState             vatsim.FlightState `json:"flight_state,omitempty"`
-	Groundspeed             *int               `json:"groundspeed"`
-	DataErrors              []string           `json:"data_errors,omitempty"`
-	Callsign                string             `json:"callsign"`
-	AircraftType            *string            `json:"aircraft_type"`
-	Origin                  string             `json:"origin"`
-	Destination             string             `json:"destination"`
-	Route                   *string            `json:"route"`
-	Phase                   string             `json:"phase"`
-	Runway                  *string            `json:"runway"`
-	SID                     *string            `json:"sid"`
-	STAR                    *string            `json:"star"`
-	ArrivalGuidanceExpected bool               `json:"arrival_guidance_expected"`
-	ArrivalETA              *string            `json:"arrival_eta"`
-	TerminalFix             *string            `json:"terminal_fix"`
-	PublishedHoldingFix     *string            `json:"published_holding_fix"`
-	PublishedHoldingDetail  *string            `json:"published_holding_detail"`
-	PublishedHeading        *int32             `json:"published_heading"`
-	ClearedAltitude         *int32             `json:"cleared_altitude"`
-	InitialClimb            *string            `json:"initial_climb"`
-	Squawk                  *string            `json:"squawk"`
-	DepartureFrequency      *string            `json:"departure_frequency"`
-	Stand                   *string            `json:"stand"`
-	StandVersion            *int32             `json:"stand_version"`
-	StandState              *string            `json:"stand_state"`
-	StandExpiresAt          *time.Time         `json:"stand_expires_at,omitempty"`
-	EOBT                    *string            `json:"eobt"`
-	TOBT                    *string            `json:"tobt"`
-	TSAT                    *string            `json:"tsat"`
-	TTOT                    *string            `json:"ttot"`
-	CTOT                    *string            `json:"ctot"`
-	CDMStatus               *string            `json:"cdm_status"`
-	PDCState                string             `json:"pdc_state"`
-	PDCAvailable            bool               `json:"pdc_available"`
-	PDCCanSubmit            bool               `json:"pdc_can_submit"`
-	PDCRequiresPilotAction  bool               `json:"pdc_requires_pilot_action"`
-	PDCClearanceText        *string            `json:"pdc_clearance_text"`
-	ATIS                    *metar.ATIS        `json:"atis"`
-	Capabilities            capabilities       `json:"capabilities"`
+	ReadOnly                      bool               `json:"read_only"`
+	FlightState                   vatsim.FlightState `json:"flight_state,omitempty"`
+	Groundspeed                   *int               `json:"groundspeed"`
+	DataErrors                    []string           `json:"data_errors,omitempty"`
+	Callsign                      string             `json:"callsign"`
+	AircraftType                  *string            `json:"aircraft_type"`
+	Origin                        string             `json:"origin"`
+	Destination                   string             `json:"destination"`
+	Route                         *string            `json:"route"`
+	Phase                         string             `json:"phase"`
+	Runway                        *string            `json:"runway"`
+	SID                           *string            `json:"sid"`
+	STAR                          *string            `json:"star"`
+	ArrivalGuidanceExpected       bool               `json:"arrival_guidance_expected"`
+	ArrivalETA                    *string            `json:"arrival_eta"`
+	TerminalFix                   *string            `json:"terminal_fix"`
+	PublishedHoldingFix           *string            `json:"published_holding_fix"`
+	PublishedHoldingDetail        *string            `json:"published_holding_detail"`
+	PublishedHeading              *int32             `json:"published_heading"`
+	ClearedAltitude               *int32             `json:"cleared_altitude"`
+	InitialClimb                  *string            `json:"initial_climb"`
+	Squawk                        *string            `json:"squawk"`
+	DepartureFrequency            *string            `json:"departure_frequency"`
+	Stand                         *string            `json:"stand"`
+	StandVersion                  *int32             `json:"stand_version"`
+	StandState                    *string            `json:"stand_state"`
+	StandExpiresAt                *time.Time         `json:"stand_expires_at,omitempty"`
+	StandRequestUnavailableReason string             `json:"stand_request_unavailable_reason,omitempty"`
+	EOBT                          *string            `json:"eobt"`
+	TOBT                          *string            `json:"tobt"`
+	TSAT                          *string            `json:"tsat"`
+	TTOT                          *string            `json:"ttot"`
+	CTOT                          *string            `json:"ctot"`
+	CDMStatus                     *string            `json:"cdm_status"`
+	PDCState                      string             `json:"pdc_state"`
+	PDCAvailable                  bool               `json:"pdc_available"`
+	PDCCanSubmit                  bool               `json:"pdc_can_submit"`
+	PDCRequiresPilotAction        bool               `json:"pdc_requires_pilot_action"`
+	PDCClearanceText              *string            `json:"pdc_clearance_text"`
+	PDCRetryAfterMS               int64              `json:"pdc_retry_after_ms,omitempty"`
+	ATIS                          *metar.ATIS        `json:"atis"`
+	Capabilities                  capabilities       `json:"capabilities"`
 }
 
 type capabilities struct {
@@ -243,6 +245,8 @@ func (a *WebAPI) buildSnapshot(ctx context.Context, match pdc.WebStripMatch, ses
 	if s.PdcData != nil && s.PdcData.Web != nil {
 		result.PDCClearanceText = s.PdcData.Web.ClearanceText
 	}
+	applyPDCDeliveryDelay(&result, s.PdcData, time.Now())
+	applyArrivalStandRestriction(&result, s, session.Airport, time.Now())
 	if a.atis != nil {
 		airport := s.Destination
 		if departure {
@@ -381,6 +385,10 @@ func (a *WebAPI) handleTobt(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "tobt must be HHMM")
 		return
 	}
+	if body.TOBT[3] != '0' && body.TOBT[3] != '5' {
+		writeError(w, http.StatusBadRequest, "tobt must be in five-minute increments")
+		return
+	}
 	if hasTrainingSession(r) {
 		a.handleTrainingTobt(w, r, user, body.Callsign, body.TOBT)
 		return
@@ -429,6 +437,10 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 	}
 	if a.stands == nil {
 		writeError(w, http.StatusServiceUnavailable, "stand assignment unavailable")
+		return
+	}
+	if reason := arrivalStandRestriction(match.Strip, session.Airport, time.Now()); reason != "" {
+		writeError(w, http.StatusConflict, reason)
 		return
 	}
 	result, err := a.stands.AssignForPilot(r.Context(), match.SessionID, session.Airport, user.GetCid(), match.Strip.Callsign, body.Stand, body.Version, body.AllowUnsuitable)

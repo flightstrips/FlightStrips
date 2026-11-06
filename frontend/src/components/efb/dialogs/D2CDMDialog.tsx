@@ -25,13 +25,13 @@ function TOBTMenu({
   currentCtot,
   onUpdate,
 }: D2CDMDialogProps) {
-  const [expectedTobt, setExpectedTobt] = useState(currentUtcTime);
+  const [expectedTobt, setExpectedTobt] = useState(() => /^([01]\d|2[0-3])[0-5]\dZ?$/.test(currentTobt) ? `${currentTobt.replace(/Z$/, '')}Z` : currentUtcTime());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
-  const parseTimeToMinutes = (timeStr: string): number => {
-    const match = timeStr.match(/(\d{2})(\d{2})/);
-    if (!match) return 0;
+  const parseTimeToMinutes = (timeStr: string): number | null => {
+    const match = timeStr.match(/^([01]\d|2[0-3])([0-5]\d)Z?$/);
+    if (!match) return null;
     const hours = parseInt(match[1]);
     const minutes = parseInt(match[2]);
     return hours * 60 + minutes;
@@ -46,30 +46,40 @@ function TOBTMenu({
 
   const getCurrentTimeInMinutes = (): number => {
     const now = new Date();
-    return now.getUTCHours() * 60 + now.getUTCMinutes();
+    return now.getUTCHours() * 60 + now.getUTCMinutes() + (now.getUTCSeconds() * 1000 + now.getUTCMilliseconds()) / 60_000;
   };
 
   const handleSetTobtNow5 = () => {
     const currentMinutes = getCurrentTimeInMinutes();
-    const newTime = minutesToTimeString(currentMinutes + 5);
+    const newTime = minutesToTimeString(Math.ceil((currentMinutes + 5) / 5) * 5);
     setExpectedTobt(newTime);
   };
 
   const handleSetTobtNow15 = () => {
     const currentMinutes = getCurrentTimeInMinutes();
-    const newTime = minutesToTimeString(currentMinutes + 15);
+    const newTime = minutesToTimeString(Math.ceil((currentMinutes + 15) / 5) * 5);
     setExpectedTobt(newTime);
   };
 
   const handleAdjustUp = () => {
     const minutes = parseTimeToMinutes(expectedTobt);
-    const newTime = minutesToTimeString(minutes + 5);
+    if (minutes === null) {
+      setUpdateError('TOBT must be a valid UTC time in HHMMZ format');
+      return;
+    }
+    const newTime = minutesToTimeString((Math.floor(minutes / 5) + 1) * 5);
+    setUpdateError(null);
     setExpectedTobt(newTime);
   };
 
   const handleAdjustDown = () => {
     const minutes = parseTimeToMinutes(expectedTobt);
-    const newTime = minutesToTimeString(minutes - 5);
+    if (minutes === null) {
+      setUpdateError('TOBT must be a valid UTC time in HHMMZ format');
+      return;
+    }
+    const newTime = minutesToTimeString((Math.ceil(minutes / 5) - 1) * 5);
+    setUpdateError(null);
     setExpectedTobt(newTime);
   };
 
@@ -85,6 +95,11 @@ function TOBTMenu({
     if (!onUpdate || isSubmitting) return;
     if (!/^([01]\d|2[0-3])[0-5]\dZ?$/.test(expectedTobt)) {
       setUpdateError('TOBT must be a valid UTC time in HHMMZ format');
+      return;
+    }
+    const minutes = parseTimeToMinutes(expectedTobt);
+    if (minutes === null || minutes % 5 !== 0) {
+      setUpdateError('TOBT must be in five-minute increments');
       return;
     }
     setIsSubmitting(true);

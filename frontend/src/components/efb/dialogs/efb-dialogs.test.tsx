@@ -439,21 +439,44 @@ describe('EFB operational dialogs', () => {
     expect(screen.getByRole('button', { name: 'UNABLE' })).toBeInTheDocument();
   });
 
-  it('starts at current UTC, steps across midnight, and resets when reopened', () => {
+  it('starts at the current TOBT, steps on five-minute intervals, and resets when reopened', () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(new Date('2026-06-15T23:58:00Z'));
       const props = { onClose: vi.fn(), currentTobt: '1425Z', currentCtot: 'NIL', onUpdate: vi.fn() };
       const { rerender } = render(<D2CDMDialog isOpen {...props} />);
-      expect(screen.getByLabelText('New TOBT (UTC)')).toHaveValue('2358Z');
+      expect(screen.getByLabelText('New TOBT (UTC)')).toHaveValue('1425Z');
       fireEvent.click(screen.getByRole('button', { name: 'Increase TOBT by 5 minutes' }));
-      expect(screen.getByLabelText('New TOBT (UTC)')).toHaveValue('0003Z');
+      expect(screen.getByLabelText('New TOBT (UTC)')).toHaveValue('1430Z');
       fireEvent.click(screen.getByRole('button', { name: 'Decrease TOBT by 5 minutes' }));
-      expect(screen.getByLabelText('New TOBT (UTC)')).toHaveValue('2358Z');
+      expect(screen.getByLabelText('New TOBT (UTC)')).toHaveValue('1425Z');
       rerender(<D2CDMDialog isOpen={false} {...props} />);
       vi.setSystemTime(new Date('2026-06-16T00:10:00Z'));
       rerender(<D2CDMDialog isOpen {...props} />);
-      expect(screen.getByLabelText('New TOBT (UTC)')).toHaveValue('0010Z');
+      expect(screen.getByLabelText('New TOBT (UTC)')).toHaveValue('1425Z');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rounds off-grid times in the arrow direction and rounds NOW shortcuts up across midnight', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-06-15T23:58:30Z'));
+      render(<D2CDMDialog isOpen onClose={vi.fn()} currentTobt="2358" currentCtot="NIL" onUpdate={vi.fn()} />);
+      const input = screen.getByLabelText('New TOBT (UTC)');
+      expect(input).toHaveValue('2358Z');
+      fireEvent.click(screen.getByRole('button', { name: 'Increase TOBT by 5 minutes' }));
+      expect(input).toHaveValue('0000Z');
+      fireEvent.click(screen.getByRole('button', { name: 'Decrease TOBT by 5 minutes' }));
+      expect(input).toHaveValue('2355Z');
+      fireEvent.change(input, { target: { value: '1203Z' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Decrease TOBT by 5 minutes' }));
+      expect(input).toHaveValue('1200Z');
+      fireEvent.click(screen.getByRole('button', { name: 'SET TOBT TO NOW + 5 MIN' }));
+      expect(input).toHaveValue('0005Z');
+      fireEvent.click(screen.getByRole('button', { name: 'SET TOBT TO NOW + 15 MIN' }));
+      expect(input).toHaveValue('0015Z');
     } finally {
       vi.useRealTimers();
     }
@@ -488,6 +511,11 @@ describe('EFB operational dialogs', () => {
     fireEvent.change(input, { target: { value: '9999Z' } });
     fireEvent.click(screen.getByRole('button', { name: 'UPDATE TOBT' }));
     expect(screen.getByRole('alert')).toHaveTextContent('valid UTC time');
+    expect(onUpdate).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: '1432Z' } });
+    fireEvent.click(screen.getByRole('button', { name: 'UPDATE TOBT' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('five-minute increments');
     expect(onUpdate).not.toHaveBeenCalled();
 
     fireEvent.change(input, { target: { value: '1430Z' } });

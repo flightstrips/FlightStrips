@@ -225,7 +225,9 @@ released arrival assignments display TBA.
 Confirming a manual arrival stand selection in either the EFB or controller
 interface saves it as ASSIGNED and broadcasts the committed change. Manual
 override selections use the same state. Compatibility, occupancy, and version
-checks still apply. The authenticated departure workflow below is separate.
+checks still apply. Pilots may request an arrival stand from 45 minutes before
+the accepted arrival ETA; if the ETA is unavailable, requests remain blocked
+until an ETA is available. The authenticated departure workflow below is separate.
 The read-only simulated arrival continues to use its saved stand field;
 leaving that field empty previews TBA without modifying FlightStrips.
 
@@ -293,11 +295,16 @@ Departure tiles place stand at L2, CDM timing at M2, ATIS/PDC at R2,
 charts at L3, departure information at M3, and briefing at R3.
 Arrival tile positions are unchanged.
 Departure M2 uses the same timing tile design as arrival L3: three columns for
-TOBT/TSAT/CTOT, the stand guidance image, and an UPDATE TOBT button. The button
-is disabled when updates are unavailable or the callsign lookup is read-only.
-Missing CTOT displays NIL on the EFB green fill. After a successful TOBT update,
-the TOBT value box and action bar turn green and the bar reads TOBT CONFIRMED; it remains clickable for
+TOBT/TSAT/CTOT, the stand guidance image, and an UPDATE TOBT control. The
+departure button is disabled when updates are unavailable or the callsign lookup
+is read-only; the arrival control opens vDGS.
+Missing CTOT displays NIL on the EFB green fill. The TOBT value box turns green
+within five minutes before or after a filed TOBT. After a successful departure update,
+the action bar turns green and reads TOBT CONFIRMED; it remains clickable for
 further edits. Confirmation applies only to the updated flight, source, and TOBT.
+The departure picker initially shows the current TOBT, or the EOBT when no TOBT is filed.
+Updates are restricted to five-minute intervals; the arrows step to the next
+interval in their respective direction, and the NOW shortcuts round upward.
 When TSAT is more than six minutes overdue, both TOBT and TSAT value boxes turn red,
 overriding the TOBT confirmation fill. CTOT turns green from six minutes before
 until eleven minutes after its UTC time (inclusive). Time comparisons handle midnight.
@@ -308,6 +315,15 @@ Live-flight ATIS uses the backend's existing VATSIM AFV ATIS feed (including
 vATIS broadcasts). EKCH arrivals select `EKCH_A_ATIS` at the destination;
 departures select `EKCH_D_ATIS` at the origin. The backend refreshes its feed
 every two minutes and the EFB refreshes flight data every 15 seconds.
+
+For a web PDC request, the departure EFB displays STANDBY for at least ten
+seconds from the request, even if the clearance is issued immediately. If
+controller action takes longer, STANDBY remains until the clearance is issued.
+After confirmation, PDC COMPLETE reopens the acknowledged clearance for
+reference without allowing another confirmation or rejection.
+If the displayed departure frequency differs from the issued web PDC's
+departure frequency, the departure information tile adds "Unless otherwise
+instructed by TWR." below its contact guidance.
 
 The simulated arrival now reads its destination's arrival ATIS directly from
 the public VATSIM feed, refreshing every minute without requiring a live
@@ -322,8 +338,11 @@ on the ground and in the air.
 The EFB reads available timing from the server-side vIFF integration by callsign.
 EKCH departures prefer authoritative local TOBT/TSAT from a matching LIVE strip
 and must use local CDM for edits. Without that strip, vIFF timings may still be
-viewed, but editing is disabled. Arrivals from other airports continue to read
-and update their origin's timing through vIFF without requiring an EKCH strip.
+viewed, but editing is disabled. arrivals from other airports continue to read their origin's timing through
+vIFF without requiring an EKCH strip. On the arrival screen, UPDATE TOBT opens
+`https://vats.im/vdgs` in a new tab instead of editing TOBT in the EFB. The
+link is blue while on the ground and is inhibited using the existing
+groundspeed-above-60-knot rule.
 Requests use the authenticated pilot's callsign rather than a supplied callsign.
 The backend requires its existing `CDM_KEY`; no vIFF credentials are sent to the browser.
 

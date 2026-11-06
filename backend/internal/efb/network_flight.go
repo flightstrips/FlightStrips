@@ -193,6 +193,7 @@ func (a *WebAPI) addNetworkStripData(ctx context.Context, result *snapshot) {
 		if match.Strip.PdcData != nil && match.Strip.PdcData.Web != nil {
 			result.PDCClearanceText = match.Strip.PdcData.Web.ClearanceText
 		}
+		applyPDCDeliveryDelay(result, match.Strip.PdcData, time.Now())
 		if sid := nonEmptyString(match.Strip.Sid); sid != nil {
 			result.SID = sid
 		}
@@ -220,6 +221,7 @@ func (a *WebAPI) addNetworkStripData(ctx context.Context, result *snapshot) {
 	result.Runway = nonEmptyString(match.Strip.Runway)
 	result.ArrivalETA = arrivalETA(match.Strip.ArrivalETA)
 	a.addNetworkStandAssignment(ctx, result, match)
+	applyArrivalStandRestriction(result, match.Strip, result.Destination, time.Now())
 }
 
 func (a *WebAPI) addNetworkStandAssignment(ctx context.Context, result *snapshot, match pdc.WebStripMatch) {
@@ -228,6 +230,7 @@ func (a *WebAPI) addNetworkStandAssignment(ctx context.Context, result *snapshot
 	}
 	assignment, err := a.assignments.GetAssignment(ctx, match.SessionID, result.Callsign)
 	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+		result.Capabilities.Stand = a.stands != nil
 		return
 	}
 	if err != nil {

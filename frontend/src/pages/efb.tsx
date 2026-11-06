@@ -47,6 +47,13 @@ function atisAcknowledgementKey(flight: ApiFlight | null, source: string): strin
   return flight?.atis ? JSON.stringify([source, flight.callsign, flight.phase, flight.origin, flight.destination, flight.atis.code, flight.atis.text, flight.atis.frequency]) : null;
 }
 
+function departureFrequencyMismatch(flight: ApiFlight | null): boolean {
+  if (!flight || !['CLEARED', 'CONFIRMED'].includes(flight.pdc_state)) return false;
+  const displayed = flight.departure_frequency?.trim();
+  const clearance = flight.pdc_clearance_text?.match(/\bDeparture frequency\s*:?\s*(1\d{2}\.\d{3})(?!\d)/i)?.[1];
+  return Boolean(displayed && /^1\d{2}\.\d{3}$/.test(displayed) && clearance && displayed !== clearance);
+}
+
 interface FlightDisplayData {
   callsign: string;
   stand: string;
@@ -82,6 +89,7 @@ interface ApiFlight {
   stand?: string | null;
   stand_version?: number | null;
   stand_state?: string | null;
+  stand_request_unavailable_reason?: string;
   cleared_altitude?: number | null;
   initial_climb?: string | null;
   ctot?: string | null;
@@ -100,6 +108,7 @@ interface ApiFlight {
   pdc_state: string;
   pdc_requires_pilot_action: boolean;
   pdc_clearance_text?: string | null;
+  pdc_retry_after_ms?: number;
   tobt?: string | null;
   eobt?: string | null;
   tsat?: string | null;
@@ -251,7 +260,7 @@ const arrivalTileInfo: Record<BoxType, string[]> = {
   ],
   L3: [
     'As you are inbound to Copenhagen, you may have a CTOT.',
-    'It is VITAL that you adhere to that CTOT. You can update your TOBT here for your local ATC.',
+    'It is VITAL that you adhere to that CTOT. Use UPDATE TOBT to open vDGS and update your TOBT for your local ATC.',
     'If you are flying UNCONTROLLED, it is YOUR job to adhere to the CTOT. If not, we will delay you en route! This creates extra work for us and is highly undesirable.',
   ],
   M3: [
@@ -505,8 +514,14 @@ export default function EFBPage() {
       if (arrivalPreviewRef.current || selectedSession !== trainingSessionRef.current) return apiFlightRef.current;
       if (!selectedSession && flight.phase === 'DEPARTURE' && !flight.read_only && flight.capabilities.stand_initialization) {
         try {
-          await authorizedFetch('/api/efb/stand/open', { method: 'POST' });
-          flight = await authorizedFetch(efbPath('/api/efb/flight', selectedCallsign)) as ApiFlight;
+          const stand = await authorizedFetch('/api/efb/stand/open', { method: 'POST' }) as {
+            callsign: string; stand: string; stand_state: string; version: number; can_select: boolean;
+          };
+          if (stand.callsign !== flight.callsign) throw new Error('Stand assignment belongs to a different flight');
+          flight = {
+            ...flight, stand: stand.stand, stand_state: stand.stand_state, stand_version: stand.version,
+            capabilities: { ...flight.capabilities, stand_initialization: false, stand_reassignment: stand.can_select },
+          };
         } catch (error) {
           flight = {
             ...flight, stand: null, stand_state: 'STAND ASSIGNMENT UNAVAILABLE',
@@ -522,7 +537,7 @@ export default function EFBPage() {
       setLoadState('READY');
       setLoadError(null);
       setFlightStale(false);
-      setPdcStatus(!flight.atis || flight.atis.stale ? 'NOATIS' : flight.pdc_requires_pilot_action ? 'RECEIVED' : flight.pdc_state === 'CONFIRMED' ? 'CONFIRMED' : flight.pdc_state === 'REQUESTED' ? 'PENDING' : 'NOREQ');
+      setPdcStatus(flight.pdc_requires_pilot_action ? 'RECEIVED' : flight.pdc_state === 'CONFIRMED' ? 'CONFIRMED' : flight.pdc_state === 'REQUESTED' ? 'PENDING' : !flight.atis || flight.atis.stale ? 'NOATIS' : 'NOREQ');
       if (flight.atis) {
         setAtisTextCurrent(flight.atis.text.join('\n'));
         setAtisLetterCurrent(flight.atis.code);
@@ -588,6 +603,12 @@ export default function EFBPage() {
     const timer = window.setInterval(() => void refreshFlight(), 15_000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
   }, [profile, refreshFlight]);
+
+  useEffect(() => {
+    if (!apiFlight?.pdc_retry_after_ms) return;
+    const timer = window.setTimeout(() => void refreshFlight(), apiFlight.pdc_retry_after_ms);
+    return () => window.clearTimeout(timer);
+  }, [apiFlight, refreshFlight]);
 
   const previewAtisAirport = arrivalPreview ? apiFlight?.destination : undefined;
   useEffect(() => {
@@ -777,13 +798,6 @@ useEffect(() => {
   const arrivalGroundspeed = arrivalPreview ? Number(arrivalPreviewInput.groundspeed) : apiFlight?.groundspeed;
   const timingInhibited = isArrival && typeof arrivalGroundspeed === 'number' && arrivalGroundspeed > 60;
 
-  useEffect(() => {
-    if (timingInhibited && openDialog === 'D2CDM') {
-      setOpenDialog(null);
-      setActiveBox(null);
-    }
-  }, [timingInhibited, openDialog]);
-
   const updatePreviewOnGround = (onGround: boolean) => {
     setPreviewOnGround(onGround);
     updateArrivalPreviewInput('groundspeed', onGround ? '0' : '450');
@@ -805,7 +819,7 @@ useEffect(() => {
     L2: 'D1CHART',
     M2: null,
     R2: 'D1ARRBRIEF',
-    L3: 'D2CDM',
+    L3: null,
     M3: 'D2ATIS',
     R3: 'D1STAND',
   };
@@ -838,7 +852,7 @@ useEffect(() => {
     const dialogMap = getDialogMap();
     const dialogType = dialogMap[boxType];
     if (dialogType === 'D1STAND' && !apiFlight?.capabilities.stand_reassignment) {
-      setActionError('Stand reassignment is currently unavailable');
+      setActionError(apiFlight?.stand_request_unavailable_reason || 'Stand reassignment is currently unavailable');
       return;
     }
     if (dialogType === 'D2CDM' && !arrivalPreview && !apiFlight?.capabilities.tobt_update) {
@@ -902,6 +916,11 @@ useEffect(() => {
   const handleL3M2Click = () => {
     if (isArrival || !showFlightplanElements) return;
 
+    if (pdcStatus === 'CONFIRMED') {
+      setOpenDialog('D2PDC');
+      setActiveBox('L3');
+      return;
+    }
     if (!pdcActionsAvailable && pdcStatus !== 'NOATIS') {
       setActionError('PDC actions are currently unavailable');
       return;
@@ -1048,16 +1067,17 @@ useEffect(() => {
   const tsatElapsed = tsatDisplayed ? elapsedSinceUtcTime(flightData.tsat, nowMs) : null;
   const tsatOverdue = tsatElapsed !== null && tsatElapsed > 6 * 60_000;
   const ctotElapsed = elapsedSinceUtcTime(flightData.ctot, nowMs);
+  const tobtElapsed = apiFlight?.tobt ? elapsedSinceUtcTime(displayClock(apiFlight.tobt) || '', nowMs) : null;
   const ctotActive = ctotElapsed !== null && ctotElapsed >= -6 * 60_000 && ctotElapsed <= 11 * 60_000;
 
   const getCdmL1Color = () => {
     if (timingInhibited) return 'bg-[#2E343D]';
     if (tsatOverdue) return 'bg-[#B63F3F]';
-    if (tobtConfirmed) return 'bg-[#41826E]';
+    if (tobtElapsed !== null && Math.abs(tobtElapsed) <= 5 * 60_000) return 'bg-[#41826E]';
     const status = flightData.tobtStatus;
     if (status === 'DEFAULT') return 'bg-[#000109]';
     if (status === 'CONFIRMED') return 'bg-[#1A475F]';
-    if (status === 'ACTIVE') return 'bg-[#41826E]';
+    if (status === 'ACTIVE') return 'bg-[#1A475F]';
     return 'bg-[#B63F3F]';
   };
 
@@ -1103,7 +1123,11 @@ useEffect(() => {
       <div className="absolute top-1/2 left-0 flex h-[30%] w-full items-center justify-center">
         <img src={TOBTGuidance} alt="TOBT stand guidance" className="h-full w-full scale-[1.15] object-contain" />
       </div>
-      <button type="button" disabled={timingInhibited || (!arrivalPreview && !apiFlight?.capabilities.tobt_update)} onClick={(event) => { event.stopPropagation(); handleBoxClick(isArrival ? 'L3' : 'M3'); }} className={`efb-action-bar ${timingInhibited ? '' : 'efb-clickspot'} absolute top-[80%] left-0 flex h-[20%] w-full cursor-pointer items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7] ${timingInhibited ? 'bg-[#2E343D]' : tobtConfirmed ? 'bg-[#41826E]' : 'bg-[#1A475F]'} text-[clamp(14px,3.5vh,53px)] font-bold text-white disabled:cursor-default ${tobtConfirmed && !timingInhibited ? '' : 'disabled:bg-[#2E343D]'}`}>{timingInhibited ? 'INHIBITED IN AIR' : tobtConfirmed ? 'TOBT CONFIRMED' : 'UPDATE TOBT'}</button>
+      {isArrival && !timingInhibited ? (
+        <a href="https://vats.im/vdgs" target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()} className="efb-action-bar efb-clickspot absolute top-[80%] left-0 flex h-[20%] w-full cursor-pointer items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] bg-[#1A475F] text-[clamp(14px,3.5vh,53px)] font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7]">UPDATE TOBT</a>
+      ) : (
+        <button type="button" disabled={timingInhibited || !apiFlight?.capabilities.tobt_update} onClick={(event) => { event.stopPropagation(); handleBoxClick('M3'); }} className={`efb-action-bar ${timingInhibited ? '' : 'efb-clickspot'} absolute top-[80%] left-0 flex h-[20%] w-full cursor-pointer items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7] ${timingInhibited ? 'bg-[#2E343D]' : tobtConfirmed ? 'bg-[#41826E]' : 'bg-[#1A475F]'} text-[clamp(14px,3.5vh,53px)] font-bold text-white disabled:cursor-default ${tobtConfirmed && !timingInhibited ? '' : 'disabled:bg-[#2E343D]'}`}>{timingInhibited ? 'INHIBITED IN AIR' : tobtConfirmed ? 'TOBT CONFIRMED' : 'UPDATE TOBT'}</button>
+      )}
     </>
   );
 
@@ -1318,6 +1342,7 @@ useEffect(() => {
         position={tilePosition(activeBox ?? 'L2')}
         content={`PDC for ${flightData.callsign}`}
         pdcText={apiFlight?.pdc_clearance_text || ''}
+        acknowledged={pdcStatus === 'CONFIRMED'}
       />
 
       {actionError && (
@@ -1425,6 +1450,7 @@ useEffect(() => {
                     {label === 'Departure Freq' && value !== 'NIL' && (
                       <div className="absolute top-[78%] right-0 w-full text-right text-[clamp(12px,1.8vh,32px)] leading-snug">
                         Contact <strong className="underline">AUTOMATICALLY</strong><br />after departure
+                        {departureFrequencyMismatch(apiFlight) && <div className="mt-1 text-[clamp(10px,1.4vh,24px)]">Unless otherwise instructed by TWR.</div>}
                       </div>
                     )}
                   </div>
@@ -1517,7 +1543,7 @@ useEffect(() => {
       </div>
 
       <div className="contents">
-        <div data-efb-tile={tilePosition('L3')} style={tileStyle('L3')} className={`absolute w-[30.83%] ${isArrival && showFlightplanElements ? 'cursor-pointer' : 'cursor-default'} border-2 border-[#1D293D] bg-[#000109] transition-[transform,box-shadow,filter] duration-150 ${getHoverClass('L3')}`} onClick={() => { if (isArrival) handleBoxClick('L3'); }} onMouseEnter={() => setHoveredBox('L3')} onMouseLeave={() => setHoveredBox(null)}>
+        <div data-efb-tile={tilePosition('L3')} style={tileStyle('L3')} className={`absolute w-[30.83%] cursor-default border-2 border-[#1D293D] bg-[#000109] transition-[transform,box-shadow,filter] duration-150 ${getHoverClass('L3')}`} onMouseEnter={() => setHoveredBox('L3')} onMouseLeave={() => setHoveredBox(null)}>
           <ArrivalTileContent key={isArrival ? 'timing' : 'atis-pdc'} title={isArrival ? 'TOBT / TSAT / CTOT' : 'ATIS / PDC'} onInfoHoverChange={setInfoHovered} info={isArrival ? arrivalTileInfo.L3 : departureTileInfo.L3}>
           {showFlightplanElements ? (
             isArrival ? (
@@ -1535,7 +1561,7 @@ useEffect(() => {
 
                 {atisWeatherWidgets}
                 <div className="absolute top-[80%] left-0 flex h-[20%] w-full items-center justify-center">
-                  <button type="button" onClick={handleL3M2Click} disabled={pdcStatus === 'PENDING' || pdcStatus === 'CONFIRMED'} className={`efb-action-bar efb-clickspot flex h-full w-full min-w-0 cursor-pointer items-center justify-center rounded-none border-[clamp(5px,0.5vw,18px)] border-[#000109] px-[5%] [container-type:inline-size] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7] disabled:cursor-default ${getClrM2Color()}`}>
+                  <button type="button" onClick={handleL3M2Click} disabled={pdcStatus === 'PENDING'} className={`efb-action-bar efb-clickspot flex h-full w-full min-w-0 cursor-pointer items-center justify-center rounded-none border-[clamp(5px,0.5vw,18px)] border-[#000109] px-[5%] [container-type:inline-size] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7] disabled:cursor-default ${getClrM2Color()}`}>
                     <span className={`w-full whitespace-nowrap text-center text-[min(3.5vh,53px,var(--pdc-label-size))] font-bold ${pdcStatus === 'RECEIVED' && !blinkOn ? 'text-[#43C6E7]' : 'text-white'}`} style={{ '--pdc-label-size': `${100 / (getClrM2Text().length * 0.75)}cqw` } as CSSProperties}>
                       {getClrM2Text()}
                     </span>

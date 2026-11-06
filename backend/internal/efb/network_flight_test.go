@@ -365,6 +365,26 @@ func TestNetworkDepartureExposesPDCFromMatchingStrip(t *testing.T) {
 	}
 }
 
+func TestNetworkDepartureDelaysRecentlyRequestedWebClearance(t *testing.T) {
+	requested := time.Now()
+	clearance := "CLEARED TO EKYT"
+	strip := &models.Strip{Origin: "EKCH", Destination: "EKYT", PdcState: "CLEARED",
+		PdcData: &models.PdcData{RequestedAt: &requested, Web: &models.PdcWebData{ClearanceText: &clearance}}}
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Network: networkTestSource(t, true, time.Now()), Viff: &networkTimingStub{}, PDCReady: true,
+		Flights: &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: strip}}})
+	req := httptest.NewRequest(http.MethodGet, "/efb/flight", nil)
+	req.Header.Set("Authorization", "Bearer "+"token")
+	rec := httptest.NewRecorder()
+	api.handleFlight(rec, req)
+	var got snapshot
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if got.PDCState != "REQUESTED" || got.PDCRequiresPilotAction || got.PDCClearanceText != nil || got.PDCRetryAfterMS <= 0 || got.PDCRetryAfterMS > 10000 {
+		t.Fatalf("recent clearance was not delayed: %s", rec.Body.String())
+	}
+}
+
 func TestNetworkFlightRejectsUnrelatedAirport(t *testing.T) {
 	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Network: networkTestFlight(t, true, time.Now(), "SAS99X", "EDDF", "ESSA")})
 	req := httptest.NewRequest(http.MethodGet, "/efb/flight", nil)

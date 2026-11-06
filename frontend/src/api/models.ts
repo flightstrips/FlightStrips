@@ -476,6 +476,9 @@ export interface FrontendAuthenticationEvent {
   type: ActionType.FrontendToken;
   token: string;
   version: string;
+  session_id?: number;
+  plugin_instance_id?: string;
+  membership_id?: string;
 }
 
 export interface FrontendDisconnectEvent {

@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.5.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.4.2...docs/v1.5.0) (2026-11-06)
+
+
+### Features
+
+* **session:** add typed plugin membership protocol context ([#1046](https://github.com/flightstrips/FlightStrips/issues/1046)) ([1ddb39a](https://github.com/flightstrips/FlightStrips/commit/1ddb39a9b7ba115d44d3058938b30930a3ac3c07))
+* **session:** rejoin airports automatically through retained control connections ([#1076](https://github.com/flightstrips/FlightStrips/issues/1076)) ([119fd91](https://github.com/flightstrips/FlightStrips/commit/119fd917001a44e934b7b280e07038f468906df8))
+* **session:** retain control presence and authorize membership discovery ([#1053](https://github.com/flightstrips/FlightStrips/issues/1053)) ([f52d1cd](https://github.com/flightstrips/FlightStrips/commit/f52d1cd63ce1fb83f2276bd4e82b2d3e0af4fa80))
+
+
+### Bug Fixes
+
+* refresh owner checks for existing and stacked PRs ([#1044](https://github.com/flightstrips/FlightStrips/issues/1044)) ([f58092a](https://github.com/flightstrips/FlightStrips/commit/f58092aa84c8551dd05f4852241c732870e397b5))
+* report owner decisions independently of workflow suites ([#1045](https://github.com/flightstrips/FlightStrips/issues/1045)) ([050e1e4](https://github.com/flightstrips/FlightStrips/commit/050e1e43523994ced107162ae521e6f1aff0c384))
+
 ## [1.4.2](https://github.com/flightstrips/FlightStrips/compare/docs/v1.4.1...docs/v1.4.2) (2026-10-29)
 
 

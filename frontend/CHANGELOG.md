@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.7.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.6.0...frontend/v2.7.0) (2026-11-06)
+
+
+### Features
+
+* **clearance:** bind text pilot inputs and share backend weather ([#1067](https://github.com/flightstrips/FlightStrips/issues/1067)) ([b5617d5](https://github.com/flightstrips/FlightStrips/commit/b5617d5c8ab7d9bb347e8157515cc3d7277c4154))
+* improve pilot EFB clearance and timing workflows ([#1058](https://github.com/flightstrips/FlightStrips/issues/1058)) ([f474c9f](https://github.com/flightstrips/FlightStrips/commit/f474c9f2478ec29deff5e650b5a955f19171d8e9))
+* **session:** discover authorized boards and own instances ([#1060](https://github.com/flightstrips/FlightStrips/issues/1060)) ([f536f19](https://github.com/flightstrips/FlightStrips/commit/f536f19b9bcff020717b09678126d127bb2492f3))
+* **session:** select and switch airport boards independently per tab ([#1063](https://github.com/flightstrips/FlightStrips/issues/1063)) ([acbd98b](https://github.com/flightstrips/FlightStrips/commit/acbd98b8b01bde75838371f448d8f58b76c2a3e3))
+* **strip:** add local RADIS strips and connected-flight FIND ([#1086](https://github.com/flightstrips/FlightStrips/issues/1086)) ([fa325fa](https://github.com/flightstrips/FlightStrips/commit/fa325faebbf8cb883e94c0526fb7a0ac53cdd96e))
+* **strip:** integrate RADIS controls into the host board ([#1085](https://github.com/flightstrips/FlightStrips/issues/1085)) ([7e65cdf](https://github.com/flightstrips/FlightStrips/commit/7e65cdf06a1c19d2677aecafe4bfb893e799b4b3))
+* **strip:** integrate RADIS services and validate airport sessions ([#1088](https://github.com/flightstrips/FlightStrips/issues/1088)) ([f0eca11](https://github.com/flightstrips/FlightStrips/commit/f0eca1155c39aff5497e794b9f8ac851ff075469))
+* **strip:** retain RADIS removal state and restore airport strips ([#1087](https://github.com/flightstrips/FlightStrips/issues/1087)) ([6faebfd](https://github.com/flightstrips/FlightStrips/commit/6faebfd725c351c7884504ce5bebfb5115cd630b))
+* **websocket:** authorize exact board subscriptions and action bindings ([#1066](https://github.com/flightstrips/FlightStrips/issues/1066)) ([9b36cb1](https://github.com/flightstrips/FlightStrips/commit/9b36cb1bbe12cb08dcacf202253e3bd86ac8a386))
+
+
+### Bug Fixes
+
+* **aman:** clear former slots from timelines after expedite ([#1082](https://github.com/flightstrips/FlightStrips/issues/1082)) ([c4a880a](https://github.com/flightstrips/FlightStrips/commit/c4a880a8c9b19e9298d05ab2175c991bdf0afda1))
+* **aman:** correct gap insertion and removal ([#1084](https://github.com/flightstrips/FlightStrips/issues/1084)) ([4a4189a](https://github.com/flightstrips/FlightStrips/commit/4a4189a4625ccbdf435a32b6064c26aaacac581e))
+* **aman:** enlarge timeline STAR labels and clocks ([#1032](https://github.com/flightstrips/FlightStrips/issues/1032)) ([d8f23e0](https://github.com/flightstrips/FlightStrips/commit/d8f23e0eb14053a273abf3d466bcd10f9f1de017))
+* **aman:** preserve forecasts across existing spacing conflicts ([#1031](https://github.com/flightstrips/FlightStrips/issues/1031)) ([ce8edb3](https://github.com/flightstrips/FlightStrips/commit/ce8edb347d0445698b395f166eef94e4a8417c7b))
+* **aman:** refresh STAR forecasts after runway changes ([#1034](https://github.com/flightstrips/FlightStrips/issues/1034)) ([4db9cef](https://github.com/flightstrips/FlightStrips/commit/4db9cef2a968ea7cc02bee4a391e1abdef9eaade))
+* **session:** retain scoped read-only boards and reject stale work ([#1069](https://github.com/flightstrips/FlightStrips/issues/1069)) ([edf513f](https://github.com/flightstrips/FlightStrips/commit/edf513f6e4140ba1b85d1a48c43d7513b5e0e0f0))
+
 ## [2.6.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.5.2...frontend/v2.6.0) (2026-11-01)
 
 

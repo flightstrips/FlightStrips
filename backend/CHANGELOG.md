@@ -1,5 +1,57 @@
 # Changelog
 
+## [3.7.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.6.0...backend/v3.7.0) (2026-11-06)
+
+
+### Features
+
+* **cdm:** bind airport inputs and isolate session calculations ([#1061](https://github.com/flightstrips/FlightStrips/issues/1061)) ([626f2a1](https://github.com/flightstrips/FlightStrips/commit/626f2a1bc9852861896dc8047833c031429bfdfa))
+* **clearance:** bind text pilot inputs and share backend weather ([#1067](https://github.com/flightstrips/FlightStrips/issues/1067)) ([b5617d5](https://github.com/flightstrips/FlightStrips/commit/b5617d5c8ab7d9bb347e8157515cc3d7277c4154))
+* improve pilot EFB clearance and timing workflows ([#1058](https://github.com/flightstrips/FlightStrips/issues/1058)) ([f474c9f](https://github.com/flightstrips/FlightStrips/commit/f474c9f2478ec29deff5e650b5a955f19171d8e9))
+* **session:** add typed plugin membership protocol context ([#1046](https://github.com/flightstrips/FlightStrips/issues/1046)) ([1ddb39a](https://github.com/flightstrips/FlightStrips/commit/1ddb39a9b7ba115d44d3058938b30930a3ac3c07))
+* **session:** apply membership deltas with bounded takeover ([#1074](https://github.com/flightstrips/FlightStrips/issues/1074)) ([d943f4f](https://github.com/flightstrips/FlightStrips/commit/d943f4fded53705e6b169352d5c5b8c8d5c2bfd6))
+* **session:** assemble EKCH from its combined definition ([#1026](https://github.com/flightstrips/FlightStrips/issues/1026)) ([cd773af](https://github.com/flightstrips/FlightStrips/commit/cd773af4ea8bcccf3bea4b3323d9972177f1b62b))
+* **session:** decode strict combined airport definitions ([#1023](https://github.com/flightstrips/FlightStrips/issues/1023)) ([876fc66](https://github.com/flightstrips/FlightStrips/commit/876fc66995d85819938dfdcf9a013ac363514563))
+* **session:** define typed workflow decisions and handler actions ([#1038](https://github.com/flightstrips/FlightStrips/issues/1038)) ([f51f9ab](https://github.com/flightstrips/FlightStrips/commit/f51f9aba7dd05e4deacbe5a1cfa95d91ebdb4b66))
+* **session:** discover authorized boards and own instances ([#1060](https://github.com/flightstrips/FlightStrips/issues/1060)) ([f536f19](https://github.com/flightstrips/FlightStrips/commit/f536f19b9bcff020717b09678126d127bb2492f3))
+* **session:** elect and fence masters independently per membership ([#1052](https://github.com/flightstrips/FlightStrips/issues/1052)) ([d303af0](https://github.com/flightstrips/FlightStrips/commit/d303af0c8d4d5ab07f04c598a15d2b7ec8ff74d3))
+* **session:** evaluate configured airport responsibilities and radio eligibility ([#1070](https://github.com/flightstrips/FlightStrips/issues/1070)) ([2a752ca](https://github.com/flightstrips/FlightStrips/commit/2a752cafa30e8dbf415cb29c36ebbf6756344365))
+* **session:** multiplex plugin transport memberships ([#1047](https://github.com/flightstrips/FlightStrips/issues/1047)) ([386db7f](https://github.com/flightstrips/FlightStrips/commit/386db7fb288012d2167370566003dbc251416104))
+* **session:** normalize shared staffing and radio evidence for coverage ([#1071](https://github.com/flightstrips/FlightStrips/issues/1071)) ([2795a69](https://github.com/flightstrips/FlightStrips/commit/2795a69caba224d9d10ea27697a4cec07ac39503))
+* **session:** preserve coverage across stale and unknown evidence ([#1075](https://github.com/flightstrips/FlightStrips/issues/1075)) ([42d6baf](https://github.com/flightstrips/FlightStrips/commit/42d6baf70caa2cc5637ab959705d56aa03a9488c))
+* **session:** register immutable typed airport definitions ([#1024](https://github.com/flightstrips/FlightStrips/issues/1024)) ([0cff083](https://github.com/flightstrips/FlightStrips/commit/0cff0835e7ceb5044bd89d11416b311e64fbcd61))
+* **session:** rejoin airports automatically through retained control connections ([#1076](https://github.com/flightstrips/FlightStrips/issues/1076)) ([119fd91](https://github.com/flightstrips/FlightStrips/commit/119fd917001a44e934b7b280e07038f468906df8))
+* **session:** resolve selected airport resources consistently ([#1025](https://github.com/flightstrips/FlightStrips/issues/1025)) ([7c45f90](https://github.com/flightstrips/FlightStrips/commit/7c45f907db3a89953ba3bb33a619960aa98b5f56))
+* **session:** retain control presence and authorize membership discovery ([#1053](https://github.com/flightstrips/FlightStrips/issues/1053)) ([f52d1cd](https://github.com/flightstrips/FlightStrips/commit/f52d1cd63ce1fb83f2276bd4e82b2d3e0af4fa80))
+* **session:** retain initiating authority through deferred workflow effects ([#1041](https://github.com/flightstrips/FlightStrips/issues/1041)) ([2b012ee](https://github.com/flightstrips/FlightStrips/commit/2b012ee35b636c765257ed1cfec07c17ac5d4663))
+* **session:** share source refresh and retain live control demand ([#1059](https://github.com/flightstrips/FlightStrips/issues/1059)) ([104d3a6](https://github.com/flightstrips/FlightStrips/commit/104d3a6fbad42a4f0e3019efec4e61a8b1339592))
+* **strip:** add local RADIS strips and connected-flight FIND ([#1086](https://github.com/flightstrips/FlightStrips/issues/1086)) ([fa325fa](https://github.com/flightstrips/FlightStrips/commit/fa325faebbf8cb883e94c0526fb7a0ac53cdd96e))
+* **strip:** encode EKCH workflow and coordination decisions ([#1039](https://github.com/flightstrips/FlightStrips/issues/1039)) ([01deecf](https://github.com/flightstrips/FlightStrips/commit/01deecf57f20e4aea65243a1ecdbcea95caf593b))
+* **strip:** execute bound workflows through existing strip paths ([#1040](https://github.com/flightstrips/FlightStrips/issues/1040)) ([47419bf](https://github.com/flightstrips/FlightStrips/commit/47419bfba9820b3db27bcc7d3450af7b678cd152))
+* **strip:** integrate RADIS controls into the host board ([#1085](https://github.com/flightstrips/FlightStrips/issues/1085)) ([7e65cdf](https://github.com/flightstrips/FlightStrips/commit/7e65cdf06a1c19d2677aecafe4bfb893e799b4b3))
+* **strip:** integrate RADIS services and validate airport sessions ([#1088](https://github.com/flightstrips/FlightStrips/issues/1088)) ([f0eca11](https://github.com/flightstrips/FlightStrips/commit/f0eca1155c39aff5497e794b9f8ac851ff075469))
+* **strip:** persist shared RADIS boards through scoped workflows ([#1080](https://github.com/flightstrips/FlightStrips/issues/1080)) ([1e78e49](https://github.com/flightstrips/FlightStrips/commit/1e78e494652412767e9d153bce8cd0a2dfd1696c))
+* **strip:** release tower tags on approach and centre ROF requests ([#967](https://github.com/flightstrips/FlightStrips/issues/967)) ([18c1d6b](https://github.com/flightstrips/FlightStrips/commit/18c1d6b0ccb7ab98126c54816ea7dec57be104eb))
+* **strip:** retain RADIS removal state and restore airport strips ([#1087](https://github.com/flightstrips/FlightStrips/issues/1087)) ([6faebfd](https://github.com/flightstrips/FlightStrips/commit/6faebfd725c351c7884504ce5bebfb5115cd630b))
+* **strip:** scope stand inputs and allocations to airport sessions ([#1065](https://github.com/flightstrips/FlightStrips/issues/1065)) ([4c9924e](https://github.com/flightstrips/FlightStrips/commit/4c9924ee21d44c77c217e9ed6088202789a41289))
+* **strip:** verify production workflow isolation and extensibility ([#1042](https://github.com/flightstrips/FlightStrips/issues/1042)) ([8b6dfe7](https://github.com/flightstrips/FlightStrips/commit/8b6dfe7044d03d20ab05793f3becd315901e5570))
+* **websocket:** authorize exact board subscriptions and action bindings ([#1066](https://github.com/flightstrips/FlightStrips/issues/1066)) ([9b36cb1](https://github.com/flightstrips/FlightStrips/commit/9b36cb1bbe12cb08dcacf202253e3bd86ac8a386))
+
+
+### Bug Fixes
+
+* **aman:** correct gap insertion and removal ([#1084](https://github.com/flightstrips/FlightStrips/issues/1084)) ([4a4189a](https://github.com/flightstrips/FlightStrips/commit/4a4189a4625ccbdf435a32b6064c26aaacac581e))
+* **aman:** normalize signed zero in route checksums ([#1027](https://github.com/flightstrips/FlightStrips/issues/1027)) ([b0c1b5a](https://github.com/flightstrips/FlightStrips/commit/b0c1b5a213b95e298a99d954fd7e5ce3bb8ae632))
+* **aman:** preserve forecasts across existing spacing conflicts ([#1031](https://github.com/flightstrips/FlightStrips/issues/1031)) ([ce8edb3](https://github.com/flightstrips/FlightStrips/commit/ce8edb347d0445698b395f166eef94e4a8417c7b))
+* **aman:** recover arrival estimates from ambiguous route geometry ([#1035](https://github.com/flightstrips/FlightStrips/issues/1035)) ([caebc83](https://github.com/flightstrips/FlightStrips/commit/caebc83e63f6b9c13133f1b392f94349616e2ff6))
+* **aman:** refresh holding clearances after cleared-level updates ([#1083](https://github.com/flightstrips/FlightStrips/issues/1083)) ([461c5d8](https://github.com/flightstrips/FlightStrips/commit/461c5d8ebb365095145ba90a0d0e385631e09d8e))
+* **aman:** refresh STAR forecasts after runway changes ([#1034](https://github.com/flightstrips/FlightStrips/issues/1034)) ([4db9cef](https://github.com/flightstrips/FlightStrips/commit/4db9cef2a968ea7cc02bee4a391e1abdef9eaade))
+* **pdc:** enforce airport capabilities across shared services ([#1068](https://github.com/flightstrips/FlightStrips/issues/1068)) ([3db7395](https://github.com/flightstrips/FlightStrips/commit/3db7395fad0fb63a1b74d7d2aae2d4751cbd1cfa))
+* **session:** clean up scoped service work on expiry ([#1073](https://github.com/flightstrips/FlightStrips/issues/1073)) ([bf7fb37](https://github.com/flightstrips/FlightStrips/commit/bf7fb3743c6d2639ded5bfca26e90136ea7b2146))
+* **session:** enforce production loader and schema parity ([#1029](https://github.com/flightstrips/FlightStrips/issues/1029)) ([66903be](https://github.com/flightstrips/FlightStrips/commit/66903bee0fe3a7f107d5d0e8e16c9e6b73e6b0b1))
+* **session:** preserve new sessions during initial controller login ([#1036](https://github.com/flightstrips/FlightStrips/issues/1036)) ([f0fe329](https://github.com/flightstrips/FlightStrips/commit/f0fe3297e34ec81eff8a52441c1de58b07890fa3))
+* **session:** retain scoped read-only boards and reject stale work ([#1069](https://github.com/flightstrips/FlightStrips/issues/1069)) ([edf513f](https://github.com/flightstrips/FlightStrips/commit/edf513f6e4140ba1b85d1a48c43d7513b5e0e0f0))
+
 ## [3.6.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.5.2...backend/v3.6.0) (2026-11-01)
 
 

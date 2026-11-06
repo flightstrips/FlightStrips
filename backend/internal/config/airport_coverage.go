@@ -42,17 +42,36 @@ func (d *AirportDefinition) RelinquishGrace() time.Duration {
 
 // CoverageResponsibilities uses the existing coverage/v1 ordering: carriage of
 // the primary duty frequency, configured primary providers, carriage of fallback
-// frequencies, then configured callsign fallback. Ties are stable by key.
+// frequencies, then configured callsign fallback. Ties use primary frequency
+// followed by controller key, preserving the existing frequency ordering.
 // Airport participation deliberately has no runway, strip or sector prerequisite:
 // all configured duties can require participation before runway setup arrives.
 func (d *AirportDefinition) CoverageResponsibilities(participants []CoverageParticipant) map[string][]string {
 	participants = slices.Clone(participants)
-	slices.SortFunc(participants, func(a, b CoverageParticipant) int { return strings.Compare(a.Key, b.Key) })
+	slices.SortFunc(participants, func(a, b CoverageParticipant) int {
+		if order := strings.Compare(vatsim.NormalizeFrequency(a.PrimaryFrequency), vatsim.NormalizeFrequency(b.PrimaryFrequency)); order != 0 {
+			return order
+		}
+		return strings.Compare(a.Key, b.Key)
+	})
 	positions := map[string]Position{}
 	for _, position := range d.document.Positions {
 		positions[position.Name] = position
 	}
 	matching := d.document.Coverage.Matching
+	identity := func(c CoverageParticipant) string {
+		for _, position := range d.document.Positions {
+			if strings.EqualFold(c.Callsign, position.Name) {
+				return position.Name
+			}
+		}
+		for _, position := range d.document.Positions {
+			if vatsim.NormalizeFrequency(c.PrimaryFrequency) != "" && vatsim.NormalizeFrequency(c.PrimaryFrequency) == vatsim.NormalizeFrequency(position.Frequency) {
+				return position.Name
+			}
+		}
+		return ""
+	}
 	primary := func(c CoverageParticipant, name string) bool {
 		p, ok := positions[name]
 		return ok && !c.Observer && matching.PrimaryFrequency && vatsim.NormalizeFrequency(c.PrimaryFrequency) != "" && vatsim.NormalizeFrequency(c.PrimaryFrequency) == vatsim.NormalizeFrequency(p.Frequency)
@@ -90,7 +109,7 @@ func (d *AirportDefinition) CoverageResponsibilities(participants []CoveragePart
 				// frequency, matching existing primary identity tie resolution.
 				for _, provider := range providers {
 					for _, c := range candidates {
-						if strings.EqualFold(c.Callsign, provider) {
+						if identity(c) == provider {
 							return c.Key
 						}
 					}
@@ -106,7 +125,7 @@ func (d *AirportDefinition) CoverageResponsibilities(participants []CoveragePart
 		}
 		for _, provider := range providers {
 			for _, c := range participants {
-				if primary(c, provider) {
+				if primary(c, provider) && identity(c) == provider {
 					return c.Key
 				}
 			}

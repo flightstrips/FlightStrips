@@ -57,3 +57,17 @@ func TestCoverageDeclarationRequiresEnabledDefinitionAndServerAuthority(t *testi
 	d.document.Coverage.Membership.Policy = "legacy-single-airport/v1"
 	require.Empty(t, r.CoverageAirports([]string{"ZZZZ"}, func(string) bool { return true }))
 }
+
+func TestCoverageStaffedPrimaryPrecedesIndirectFallbackCarriage(t *testing.T) {
+	d := coverageDefinition()
+	area := CoverageParticipant{Key: "a", Callsign: "ZZXX_CTR", PrimaryFrequency: "119.000"}
+	app := CoverageParticipant{Key: "z", Callsign: "ZZZZ_APP", PrimaryFrequency: "119.000"}
+	for _, participants := range [][]CoverageParticipant{{area, app}, {app, area}} {
+		result := d.CoverageResponsibilities(participants)
+		require.Equal(t, []string{"tower", "approach"}, result["z"])
+		require.NotContains(t, result, "a", "a known CTR callsign on APP's frequency is an indirect fallback claimant")
+	}
+	area.PrimaryFrequency = "120.000"
+	area.TunedFrequencies = []string{"118.000"}
+	require.Equal(t, []string{"tower"}, d.CoverageResponsibilities([]CoverageParticipant{app, area})["a"], "carriage of the primary duty still precedes a staffed fallback")
+}

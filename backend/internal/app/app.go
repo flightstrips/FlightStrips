@@ -665,7 +665,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}),
 	}
 
-	if cfg.EKCH == nil || cfg.EKCH.ServiceEnabled("cdm") {
+	if cfg.Airports != nil && anyAirportService(cfg.Airports, "cdm") || cfg.Airports == nil && (cfg.EKCH == nil || cfg.EKCH.ServiceEnabled("cdm")) {
 		app.addWorker(cdmService.Start)
 	}
 	if navigationSource != nil {
@@ -1080,44 +1080,8 @@ func configureCDM(
 		return nil, nil, nil
 	}
 
-	cdmCfg := appconfig.GetCdmConfig()
-	airport := "EKCH"
-	if cfg.EKCH != nil {
-		cdmCfg = cfg.EKCH.DomainConfig().Cdm
-		airport = cfg.EKCH.Airport()
-	}
-	resolveURI := func(uri string) string {
-		if uri == "" || strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://") {
-			return uri
-		}
-		return filepath.Join(cfg.CDMConfigDir, uri)
-	}
-	configStore := cdm.NewCdmConfigStore(
-		resolveURI(cdmCfg.RateUri),
-		resolveURI(cdmCfg.SidIntervalUri),
-		resolveURI(cdmCfg.TaxizonesUri),
-		cfg.CDMConfigRefreshInterval,
-		cdm.CdmConfigDefaults{
-			Rate:        cdmCfg.Rate,
-			RateLvo:     cdmCfg.RateLvo,
-			TaxiMinutes: cdmCfg.DefaultTaxiTime,
-		},
-		nil,
-	)
+	configStore := configureCDMInputs(cfg)
 	configStore.SetCdmClient(cdmClient)
-	configStore.SeedAirportConfig(airport, cdmCfg.Rate, cdmCfg.RateLvo, cdm.CdmDeiceConfig{
-		Light:  cdmCfg.Deice.Light,
-		Medium: cdmCfg.Deice.Medium,
-		Heavy:  cdmCfg.Deice.Heavy,
-		Super:  cdmCfg.Deice.Super,
-		Platform: func() []cdm.CdmDeicePlatformConfig {
-			platforms := make([]cdm.CdmDeicePlatformConfig, len(cdmCfg.Deice.Platform))
-			for i, p := range cdmCfg.Deice.Platform {
-				platforms[i] = cdm.CdmDeicePlatformConfig{Name: p.Name, Time: p.Time}
-			}
-			return platforms
-		}(),
-	})
 	sequenceService, err := cdm.NewSequenceService(cdm.SequenceServiceDependencies{
 		Strips: stripRepo, Sessions: sessionRepo, Config: configStore, Frontend: frontendHub, Euroscope: euroscopeHub,
 	})
@@ -1134,7 +1098,7 @@ func configureCDM(
 			)
 		}
 	})
-	slog.Info("CDM local calculation enabled", slog.String("rateUri", resolveURI(cdmCfg.RateUri)))
+	slog.Info("CDM airport-local calculation enabled")
 
 	return sequenceService, configStore, nil
 }

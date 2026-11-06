@@ -395,7 +395,7 @@ func (s *Service) usesViffSession(sessionID int32) bool {
 	if err != nil || session == nil {
 		return false
 	}
-	usesViff := isViffEnabledSession(session.Name)
+	usesViff := isViffEnabledSession(session.Name) && s.airportEnabled(session.Airport)
 	s.sessionUsesViff.Store(sessionID, usesViff)
 	return usesViff
 }

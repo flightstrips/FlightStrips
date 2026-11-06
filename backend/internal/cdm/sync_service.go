@@ -112,7 +112,7 @@ func (c *SyncService) syncSessions(ctx context.Context) error {
 
 	var syncErrors []error
 	for _, session := range sessions {
-		if session == nil || s.isSessionRemoved(session.ID) {
+		if session == nil || s.isSessionRemoved(session.ID) || !s.airportEnabled(session.Airport) {
 			continue
 		}
 
@@ -146,11 +146,14 @@ func (c *SyncService) syncSessions(ctx context.Context) error {
 
 func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) error {
 	s := c.service
+	if session != nil && !s.airportEnabled(session.Airport) {
+		return nil
+	}
 	if !s.client.isValid {
 		return nil
 	}
 	if session != nil {
-		s.sessionUsesViff.Store(session.ID, isViffEnabledSession(session.Name))
+		s.sessionUsesViff.Store(session.ID, isViffEnabledSession(session.Name) && s.airportEnabled(session.Airport))
 	}
 
 	airport := session.Airport

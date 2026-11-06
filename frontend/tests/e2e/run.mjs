@@ -7,7 +7,7 @@ function run(command, args) {
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
-if (!process.argv.includes("--project=strips")) {
+if (!process.argv.includes("--project=strips") && !process.argv.includes("--project=radis")) {
   if (process.env.E2E_NATIVE_CACHE_HIT === "true") {
     const decoder = `e2e-artifacts/native/aman-live-decoder${process.platform === "win32" ? ".exe" : ""}`;
     if (!existsSync(decoder)) throw new Error(`native cache hit but decoder is missing: ${decoder}`);

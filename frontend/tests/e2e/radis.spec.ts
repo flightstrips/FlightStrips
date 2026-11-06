@@ -1,16 +1,17 @@
 import {expect, type APIRequestContext, type Page} from "@playwright/test";
 import {test} from "./fixtures";
+import {identity} from "./identity";
 
 const backend = "http://127.0.0.1:4184";
 type Row = {ID: number; Version: number; Callsign: string; Bay: string; Sequence: number; FlightPlanEET: string; CdmData: {tobt?: string}; BoardState: {local?: boolean; annotations: {notes: string}; removed_at?: string}};
 const strip = (page: Page, callsign = "RADIS1") => page.getByTestId(`radis-strip-${callsign}`);
-async function rows(request: APIRequestContext, airport = "EKBI"): Promise<Row[]> {
-  const response = await request.get(`${backend}/e2e/persisted?airport=${airport}`);
+async function rows(request: APIRequestContext, airport = "EKBI", environment = "LIVE"): Promise<Row[]> {
+  const response = await request.get(`${backend}/e2e/persisted?airport=${airport}&environment=${environment}`);
   expect(response.ok()).toBe(true); return response.json();
 }
-async function open(page: Page, airport: string) {
+async function open(page: Page, airport: string, environment = "LIVE") {
   await page.goto("/app");
-  const choice = page.getByRole("button", {name: new RegExp(`${airport} · LIVE`)});
+  const choice = page.getByRole("button", {name: new RegExp(`${airport} · ${environment}`)});
   await expect(choice.or(page.getByRole("main", {name: "RADIS board"}))).toBeVisible();
   if (await choice.isVisible()) await choice.click();
   await expect(strip(page)).toBeVisible();
@@ -39,6 +40,31 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await expect(a.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("3400");
     await expect(other.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("3000");
     await expect.poll(async () => (await (await request.get(`${backend}/e2e/commands`)).json()).filter((c: {kind: string; token: string; airport: string}) => c.kind === "EVENT_CLEARED_ALTITUDE")).toEqual([expect.objectContaining({airport: "EKBI", token: "__TEST_FRONTEND_TOKEN__", callsign: "RADIS1"})]);
+  });
+  await test.step("same-profile tabs and LIVE, exercise and playback boards retain independent identities", async () => {
+    const tab = await a.context().newPage(), sweat = await a.context().newPage(), playback = await a.context().newPage();
+    for (const page of [tab, sweat, playback]) await identity(page, backend);
+    await Promise.all([open(tab,"EKYT"), open(sweat,"EKBI","SWEATBOX_MA08"), open(playback,"EKBI","PLAYBACK_MA08")]);
+    const contexts = await Promise.all([rows(request),rows(request,"EKYT"),rows(request,"EKBI","SWEATBOX_MA08"),rows(request,"EKBI","PLAYBACK_MA08")]);
+    expect(new Set(contexts.map(list=>list.find(row=>row.Callsign==="RADIS1")!.ID)).size).toBe(4);
+    await note(sweat,"EXERCISE ONLY"); await note(playback,"PLAYBACK ONLY"); await note(tab,"SECOND TAB EKYT");
+    await expect(a.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
+    await expect(other.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("SECOND TAB EKYT");
+    // Switch this tab through the real chooser, without changing its peers.
+    await tab.getByRole("button",{name:"Switch airport session"}).click();
+    await tab.getByRole("button",{name:/EKBI · LIVE/}).click();
+    await expect(tab.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
+    await note(tab,"SECOND TAB EKBI");
+    await expect(b.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("SECOND TAB EKBI");
+    await expect(other.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("SECOND TAB EKYT");
+    for (const [page,value] of [[sweat,"EXERCISE ONLY"],[playback,"PLAYBACK ONLY"],[tab,"SECOND TAB EKBI"]] as const) {
+      await page.reload(); await expect(page.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText(value);
+    }
+    expect((await rows(request,"EKBI","SWEATBOX_MA08")).find(row=>row.Callsign==="RADIS1")!.BoardState.annotations.notes).toBe("EXERCISE ONLY");
+    expect((await rows(request,"EKBI","PLAYBACK_MA08")).find(row=>row.Callsign==="RADIS1")!.BoardState.annotations.notes).toBe("PLAYBACK ONLY");
+    await note(tab,"PRODUCTION SHARED NOTE");
+    await expect(b.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
+    await Promise.all([tab.close(),sweat.close(),playback.close()]);
   });
   await test.step("CDM, SAT and configured text pilot use existing services", async () => {
     const tobt = new Date(Date.now()+3600000).toISOString().slice(11,16).replace(":", "");

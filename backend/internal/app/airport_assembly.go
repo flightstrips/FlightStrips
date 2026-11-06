@@ -26,7 +26,7 @@ func configureAirports(cfg Config) (Config, error) {
 		return cfg, fmt.Errorf("current production execution requires an explicitly selected EKCH definition; other handlers are delivered in MA-02")
 	}
 	cfg.EKCH = definition
-	cfg.EnableCDMConfigStore = definition.ServiceEnabled("cdm")
+	cfg.EnableCDMConfigStore = anyAirportService(registry, "cdm")
 	cfg.EnablePDC = definition.ServiceEnabled("pdc")
 	cfg.EnableStandAssignment = definition.ServiceEnabled("stand_assignment")
 	cfg.EnableECFMP = definition.ServiceEnabled("ecfmp") && cfg.EnableECFMP
@@ -57,6 +57,16 @@ func configureAirports(cfg Config) (Config, error) {
 }
 
 func (a *App) Airports() *appconfig.AirportRegistry { return a.airports }
+
+func anyAirportService(registry *appconfig.AirportRegistry, service string) bool {
+	for _, airport := range registry.Airports() {
+		definition, _ := registry.Lookup(airport)
+		if definition.ServiceEnabled(service) {
+			return true
+		}
+	}
+	return false
+}
 
 func configureStandAssignmentDefinition(cfg Config) appconfig.StandAssignmentReadiness {
 	if cfg.EKCH == nil {

@@ -28,6 +28,7 @@ type CdmConfigDefaults struct {
 }
 
 type CdmConfigStore struct {
+	airportInputs    map[string]AirportConfigInput // immutable startup inputs; nil only for legacy fixtures
 	mu               sync.RWMutex
 	configs          map[string]*CdmAirportConfig
 	restrictionRates map[string]int // ICAO → overriding departure rate from vIFF API
@@ -122,6 +123,13 @@ func (s *CdmConfigStore) ConfigForAirport(airport string) *CdmAirportConfig {
 }
 
 func (s *CdmConfigStore) DefaultConfigForAirport(airport string) *CdmAirportConfig {
+	if s.airportInputs != nil {
+		input, ok := s.airportInputs[normalizeToken(airport)]
+		if !ok {
+			return nil
+		}
+		return input.Config.Clone()
+	}
 	config := NewDefaultAirportConfig(airport)
 	config.DefaultRate = s.defaults.Rate
 	config.DefaultRateLvo = s.defaults.RateLvo
@@ -133,6 +141,10 @@ func (s *CdmConfigStore) SetLvo(airport string, active bool) {
 	s.mu.Lock()
 
 	config := s.ensureConfigLocked(airport)
+	if config == nil || s.airportInputs != nil {
+		s.mu.Unlock()
+		return
+	}
 	changed := config.LvoActive != active
 	config.LvoActive = active
 	s.mu.Unlock()
@@ -146,6 +158,10 @@ func (s *CdmConfigStore) SetDelay(delay CdmDelay) {
 	s.mu.Lock()
 
 	config := s.ensureConfigLocked(delay.Airport)
+	if config == nil {
+		s.mu.Unlock()
+		return
+	}
 	filtered := make([]CdmDelay, 0, len(config.Delays)+1)
 	for _, existing := range config.Delays {
 		if strings.EqualFold(existing.Runway, delay.Runway) {
@@ -163,6 +179,10 @@ func (s *CdmConfigStore) ClearDelay(airport, runway string) {
 	s.mu.Lock()
 
 	config := s.ensureConfigLocked(airport)
+	if config == nil {
+		s.mu.Unlock()
+		return
+	}
 	filtered := config.Delays[:0]
 	removed := false
 	for _, delay := range config.Delays {
@@ -200,6 +220,10 @@ func (s *CdmConfigStore) refresh(ctx context.Context) {
 		} else {
 			s.applyDepartureRestrictions(restrictions)
 		}
+	}
+	if s.airportInputs != nil {
+		s.refreshAirportInputs(ctx)
+		return
 	}
 
 	if s.rateURL != "" {
@@ -291,6 +315,9 @@ func (s *CdmConfigStore) SeedAirportConfig(airport string, rate, rateLvo int, de
 	defer s.mu.Unlock()
 
 	config := s.ensureConfigLocked(airport)
+	if config == nil {
+		return
+	}
 	if rate > 0 {
 		config.DefaultRate = rate
 	}
@@ -305,7 +332,9 @@ func (s *CdmConfigStore) ensureConfigLocked(airport string) *CdmAirportConfig {
 	config := s.configs[key]
 	if config == nil {
 		config = s.DefaultConfigForAirport(key)
-		s.configs[key] = config
+		if config != nil {
+			s.configs[key] = config
+		}
 	}
 	return config
 }

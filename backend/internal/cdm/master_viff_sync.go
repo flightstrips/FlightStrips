@@ -461,7 +461,7 @@ func (c *MasterViffSync) masterPosition() string {
 
 func (c *MasterViffSync) registerMasterAsync(ctx context.Context, session int32, airport string) {
 	s := c.service
-	if !s.client.isValid || airport == "" || s.isSessionRemoved(session) {
+	if !s.client.isValid || airport == "" || !s.airportEnabled(airport) || !s.usesViffSession(session) || s.isSessionRemoved(session) {
 		return
 	}
 	position := s.masterPosition()
@@ -488,7 +488,7 @@ func (c *MasterViffSync) registerMasterAsync(ctx context.Context, session int32,
 func (c *MasterViffSync) deregisterMaster(ctx context.Context, airport string) error {
 	s := c.service
 	airport = strings.TrimSpace(airport)
-	if !s.client.isValid || airport == "" {
+	if !s.client.isValid || airport == "" || !s.airportEnabled(airport) {
 		return nil
 	}
 	return s.client.ClearMasterAirport(ctx, airport, s.masterPosition())

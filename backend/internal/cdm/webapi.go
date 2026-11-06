@@ -120,7 +120,7 @@ func (a *WebAPI) handleSequence(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, session := range sessions {
-		if session == nil {
+		if session == nil || a.sequenceService.configForActiveRunways(session.Airport, nil, nil) == nil {
 			continue
 		}
 
@@ -177,11 +177,15 @@ func currentDepartureRates(service *SequenceService, session *models.Session) []
 		return []departureRateResponse{}
 	}
 
-	config := service.configForActiveRunways(
+	config := service.configForSession(
 		session.Airport,
 		session.ActiveRunways.ArrivalRunways,
 		session.ActiveRunways.DepartureRunways,
+		session.ActiveRunways.RunwayStatus,
 	)
+	if config == nil {
+		return []departureRateResponse{}
+	}
 	runways := append([]string(nil), session.ActiveRunways.DepartureRunways...)
 	sort.Slice(runways, func(i, j int) bool {
 		return strings.ToUpper(strings.TrimSpace(runways[i])) < strings.ToUpper(strings.TrimSpace(runways[j]))

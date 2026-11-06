@@ -13,7 +13,7 @@ type RecalculationScheduler struct {
 
 func (c *RecalculationScheduler) TriggerRecalculate(ctx context.Context, session int32, airport string) {
 	s := c.service
-	if s.sequenceService == nil || airport == "" {
+	if s.sequenceService == nil || airport == "" || !s.airportEnabled(airport) {
 		return
 	}
 	if !s.canRunLocalRecalculation(session) {

@@ -106,7 +106,7 @@ type inboundDepartures struct {
 }
 
 func (s *Service) RegisterInboundSession(session int32, name, airport string) {
-	if s.inbound == nil || !s.client.isValid || !isViffEnabledSession(name) || s.isSessionRemoved(session) {
+	if s.inbound == nil || !s.client.isValid || !isViffEnabledSession(name) || !s.airportEnabled(airport) || s.isSessionRemoved(session) {
 		return
 	}
 	s.inbound.addSession(session, strings.ToUpper(strings.TrimSpace(airport)))

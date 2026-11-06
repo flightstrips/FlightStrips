@@ -98,8 +98,22 @@ func (c *CdmAirportConfig) Clone() *CdmAirportConfig {
 
 	clone := *c
 	clone.Rates = append([]CdmRate(nil), c.Rates...)
+	for i := range clone.Rates {
+		r := &clone.Rates[i]
+		r.ArrRwyYes = append([]string(nil), r.ArrRwyYes...)
+		r.ArrRwyNo = append([]string(nil), r.ArrRwyNo...)
+		r.DepRwyYes = append([]string(nil), r.DepRwyYes...)
+		r.DepRwyNo = append([]string(nil), r.DepRwyNo...)
+		r.DependentRwy = append([]string(nil), r.DependentRwy...)
+		r.Rates = append([]string(nil), r.Rates...)
+		r.RatesLvo = append([]string(nil), r.RatesLvo...)
+	}
 	clone.SidIntervals = append([]CdmSidInterval(nil), c.SidIntervals...)
 	clone.TaxiZones = append([]CdmTaxiZone(nil), c.TaxiZones...)
+	for i := range clone.TaxiZones {
+		clone.TaxiZones[i].Polygon = append([]CdmTaxiPoint(nil), clone.TaxiZones[i].Polygon...)
+		clone.TaxiZones[i].RemoteTaxiMinutes = append([]int(nil), clone.TaxiZones[i].RemoteTaxiMinutes...)
+	}
 	clone.Delays = append([]CdmDelay(nil), c.Delays...)
 	clone.ActiveArrivalRunways = append([]string(nil), c.ActiveArrivalRunways...)
 	clone.ActiveDepartureRunways = append([]string(nil), c.ActiveDepartureRunways...)

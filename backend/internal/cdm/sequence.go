@@ -154,7 +154,13 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		return err
 	}
 
-	config := s.configForActiveRunways(airport, sessionData.ActiveRunways.ArrivalRunways, sessionData.ActiveRunways.DepartureRunways)
+	if store, ok := s.configProvider.(*CdmConfigStore); ok && store.airportInputs != nil && !strings.EqualFold(sessionData.Airport, airport) {
+		return fmt.Errorf("CDM airport does not match session")
+	}
+	config := s.configForSession(airport, sessionData.ActiveRunways.ArrivalRunways, sessionData.ActiveRunways.DepartureRunways, sessionData.ActiveRunways.RunwayStatus)
+	if config == nil {
+		return fmt.Errorf("CDM unavailable for airport %s", airport)
+	}
 	now := s.now().UTC()
 	nowHHMMSS := timeToClock(now)
 
@@ -426,6 +432,9 @@ func (s *SequenceService) configForActiveRunways(airport string, arrivals, depar
 	if config == nil {
 		if defaults, ok := s.configProvider.(*CdmConfigStore); ok {
 			config = defaults.DefaultConfigForAirport(airport)
+			if config == nil {
+				return nil
+			}
 		} else {
 			config = &CdmAirportConfig{Airport: normalizeToken(airport), DefaultRate: DefaultCDMRate, DefaultTaxiMinutes: DefaultCDMTaxiMinutes}
 		}

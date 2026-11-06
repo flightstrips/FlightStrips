@@ -2,7 +2,7 @@ name: Check AMAN contract
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/**']
   push:
     branches: [main]
     paths-ignore:

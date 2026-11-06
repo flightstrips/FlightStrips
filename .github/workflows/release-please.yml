@@ -231,14 +231,23 @@ jobs:
             if (bullets.length === 0) bullets.push('- See full release notes for details.');
 
             // ── Build message ──────────────────────────────────────────────
-            const message = [
+            const selectedBullets = bullets.slice(0, 8);
+            const buildMessage = () => [
               `**🚀 Frontend v${version}**`,
               '',
               "**What's new:**",
-              ...bullets.slice(0, 8),
+              ...selectedBullets,
+              ...(selectedBullets.length < bullets.length
+                ? ['- More changes in the full release notes.'] : []),
               '',
               `📦 Full release notes: <${url}>`,
             ].join('\n');
+
+            // Keep complete bullets and reserve space for the release link.
+            while (buildMessage().length > 2000 && selectedBullets.length > 0) {
+              selectedBullets.pop();
+            }
+            const message = buildMessage();
 
             core.info('Discord message:\n' + message);
 

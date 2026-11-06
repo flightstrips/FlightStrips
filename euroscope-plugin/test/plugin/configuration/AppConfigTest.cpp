@@ -32,6 +32,17 @@ TEST(AppConfigTest, CoverageEligibilityRequiresExplicitDeploymentDeclaration) {
     EXPECT_THAT(configured.GetEligibleAirports(), testing::ElementsAre("AAAA", "BBBB"));
 }
 
+TEST(AppConfigTest, ShippedConfigsDeclareEKCHAndRegionalAirportEligibility) {
+    const auto source = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path() / "src";
+    for (const auto* filename : {"config.ini", "config_dev.ini"}) {
+        SCOPED_TRACE(filename);
+        const auto path = source / filename;
+        ASSERT_TRUE(std::filesystem::is_regular_file(path));
+        auto config = AppConfig(path.string());
+        EXPECT_THAT(config.GetEligibleAirports(), testing::ElementsAre("EKCH", "EKBI", "EKYT"));
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Default values
 // ---------------------------------------------------------------------------

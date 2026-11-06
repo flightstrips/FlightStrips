@@ -6,6 +6,7 @@ import type { WebSocketClient } from "@/api/websocket";
 import { createWebSocketStore } from "@/store/store";
 import { WebSocketStoreContext } from "@/store/store-context";
 import AppPage from "./app";
+import layouts from "@/components/text-pilot/storyboard-layouts.json";
 
 vi.mock("@auth0/auth0-react", () => ({ useAuth0: () => ({ isAuthenticated: true, isLoading: false }) }));
 vi.mock("@/providers/websocket-provider", () => ({ WebSocketProvider: ({ children }: { children: ReactNode }) => children }));
@@ -18,7 +19,7 @@ vi.mock("@/components/strip/ValidationStatusDialogOverlay", () => ({ ValidationS
 it("opens and cancels a text-pilot composer from the controller application", () => {
   const client = { on: vi.fn(), send: vi.fn(), isConnected: () => false };
   const store = createWebSocketStore(client as unknown as WebSocketClient);
-  store.setState({ readOnly: false, strips: [{ callsign: "SAS123", communication_type: CommunicationType.Text, runway: "22R" }] as FrontendStrip[] });
+  store.setState({ textPilotInputs: { airport: "EKCH", preset_provider: "ekch/v1", layouts }, readOnly: false, strips: [{ callsign: "SAS123", communication_type: CommunicationType.Text, runway: "22R" }] as FrontendStrip[] });
   render(<WebSocketStoreContext.Provider value={store}><AppPage /></WebSocketStoreContext.Provider>);
   expect(screen.getByText("Controller strips")).toBeVisible();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

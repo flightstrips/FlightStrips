@@ -10,8 +10,10 @@ function quickGapIntent(flight: AMANFlight, runwayGroupID: string, placement: Ga
   const anchor = Date.parse(flight.slot?.time ?? "");
   if (!Number.isFinite(anchor) || !Number.isInteger(minutes) || minutes < 1 || !runwayGroupID) return null;
   const duration = minutes * 60_000;
-  const start = placement === "before" ? anchor - duration : anchor;
-  const end = placement === "before" ? anchor : anchor + duration;
+  // GAPs reserve [start, end). Keep the selected aircraft outside an "after"
+  // GAP using the next representable wire timestamp, while retaining its duration.
+  const start = placement === "before" ? anchor - duration : anchor + 1;
+  const end = start + duration;
   return {
     type: "aman.create_gap",
     runway_group_id: runwayGroupID,
@@ -34,6 +36,8 @@ export function AMANQuickGapDialog({flight, groups, open, disabled, busy, reject
   const [placement, setPlacement] = useState<GapPlacement>("after");
   const [minutes, setMinutes] = useState("5");
   const [runway, setRunway] = useState("");
+  const callsign = flight?.callsign;
+  const initialRunway = flight?.runway_group_id ?? groups[0]?.id ?? "";
   const selectedRunway = groups.some((group) => group.id === runway)
     ? runway
     : groups.some((group) => group.id === flight?.runway_group_id)
@@ -45,8 +49,8 @@ export function AMANQuickGapDialog({flight, groups, open, disabled, busy, reject
     if (!open) return;
     setPlacement("after");
     setMinutes("5");
-    setRunway(flight?.runway_group_id ?? groups[0]?.id ?? "");
-  }, [flight, groups, open]);
+    setRunway(initialRunway);
+  }, [callsign, initialRunway, open]);
 
   return <Dialog onOpenChange={onOpenChange} open={open}>
     <DialogContent className="w-[min(25rem,calc(100vw-1rem))] max-w-none gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-2 font-display text-[11px] font-bold text-white [&>button]:hidden">

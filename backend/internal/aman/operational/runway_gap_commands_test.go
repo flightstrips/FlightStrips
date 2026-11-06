@@ -239,6 +239,39 @@ func TestCreateRunwayGapMovesStableAndHoldingSlotsAndKeepsNewTargets(t *testing.
 	}
 }
 
+func TestRunwayGapAfterAircraftPreservesAnchorAndCanBeRemoved(t *testing.T) {
+	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	state := runwayGapDisplacementState(now)
+	anchor := now.Add(time.Minute)
+	state.Flights = []aman.AMANFlight{
+		gapCommandFlight("ANCHOR", "north", anchor, 1, aman.StateStable, aman.FreezeNone),
+		gapCommandFlight("FOLLOWING", "north", anchor.Add(time.Minute), 2, aman.StateStable, aman.FreezeNone),
+	}
+	// The quick insertion UI starts an "after" GAP at the next millisecond:
+	// the interval is start-inclusive and must not displace its anchor.
+	start := anchor.Add(time.Millisecond)
+	end := start.Add(5 * time.Minute)
+	repository := &memoryRepository{has: true, state: state}
+	actions := runwayGapActions(t, repository, &recordingPublisher{}, now)
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
+	_, err := actions.CreateRunwayGap(context.Background(), auth, aman.CreateRunwayGapCommand{
+		Metadata: aman.CommandMetadata{CommandID: "after-anchor", ExpectedRevision: state.Revision}, RunwayGroupID: "north",
+		Interval: aman.RunwayGapIntervalInput{Start: start, End: &end}, Label: "5 min after ANCHOR",
+	})
+	require.NoError(t, err)
+	require.Equal(t, anchor, stateFlight(t, repository.state, "ANCHOR").Slot.Time)
+	require.False(t, stateFlight(t, repository.state, "FOLLOWING").Slot.Time.Before(end))
+	gap := repository.state.RunwayGroups[0].Gaps[0]
+	require.Equal(t, start, gap.Start)
+	require.Equal(t, end, gap.End)
+	_, err = actions.RemoveRunwayGap(context.Background(), auth, aman.RemoveRunwayGapCommand{
+		Metadata: aman.CommandMetadata{CommandID: "remove-after-anchor", ExpectedRevision: repository.state.Revision}, RunwayGroupID: "north", GapID: gap.ID,
+	})
+	require.NoError(t, err)
+	require.Empty(t, repository.state.RunwayGroups[0].Gaps)
+	require.Equal(t, anchor, stateFlight(t, repository.state, "ANCHOR").Slot.Time)
+}
+
 func TestCreateRunwayGapImpossibleCapacityRollsBackStateRevisionAndAudit(t *testing.T) {
 	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	state := runwayGapDisplacementState(now)

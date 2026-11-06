@@ -27,7 +27,7 @@ function RunwaySide({lane, range, side, placement, renderTarget, status, gapRemo
   const markers = layoutTimelineMarkers(lane.flights, range, gap);
   return (
     <div aria-label={`${lane.id} active runway arrivals`} data-placement={placement} data-testid={`rwy-lane-${lane.id}`} role="list">
-      <RunwayGapOverlay disabled={gapRemovalDisabled} gaps={lane.gaps ?? []} onRemove={onRemoveGap} range={range} runway={lane.id} />
+      <RunwayGapOverlay disabled={gapRemovalDisabled} gaps={lane.gaps ?? []} onRemove={onRemoveGap} range={range} runway={lane.id} side={side} />
       <RunwayClosureOverlay closures={lane.closures ?? []} range={range} runway={lane.id} status={status} />
       <CapacityReservationOverlay range={range} reservations={lane.capacityReservations ?? []} runway={lane.id} status={status} />
       {markers.map((marker) => {

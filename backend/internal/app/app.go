@@ -26,6 +26,7 @@ import (
 	"FlightStrips/internal/pilot"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/sat"
 	"FlightStrips/internal/server"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
@@ -129,6 +130,7 @@ type App struct {
 	workers                  []func(context.Context)
 	startWorkers             sync.Once
 	standAssignmentReadiness appconfig.StandAssignmentReadiness
+	standAirportReadiness    map[string]appconfig.StandAssignmentReadiness
 	amanRuntime              *aman.Runtime
 }
 
@@ -163,7 +165,8 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			return nil, errors.New("initialize AMAN commands: authoritative runtime requires typed command service")
 		}
 	}
-	standAssignmentReadiness := configureStandAssignmentDefinition(cfg)
+	standInputGraph := configureSATInputs(cfg)
+	standAssignmentReadiness := standInputGraph.aggregate
 	var testClock *testtools.Clock
 	satNow := deps.Now
 	if satNow == nil {
@@ -195,7 +198,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	coordRepo := core.coordinations
 	tacticalStripRepo := core.tacticalStrips
 
-	satGraph, err := assembleSAT(cfg, standAssignmentReadiness, dbpool, core, satNow)
+	satGraph, err := assembleSAT(cfg, standAssignmentReadiness, dbpool, core, satNow, standInputGraph.registry)
 	if err != nil {
 		if closeDB {
 			dbpool.Close()
@@ -416,6 +419,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if standAllocationService != nil {
 		frontendHub.SetStandActionService(standActionService)
+		frontendHub.SetStandCapabilities(satGraph.stands)
 		standAllocationService.SetPublisher(frontendHub.PublishStandAllocation)
 		standAllocationService.SetBlockRemovalPublisher(frontendHub.PublishStandBlockRemoval)
 	}
@@ -443,13 +447,29 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}
 		vatsimReconciler, err = vatsim.NewReconciler(vatsim.ReconcilerDependencies{
 			Cache:              vatsimGraph.source,
-			Sessions:           sessionRepo,
+			Sessions:           scopedStandSessions(sessionRepo, standInputGraph.registry),
 			Strips:             stripRepo,
 			Assignments:        standAssignmentRepo,
 			DepartureLifecycle: departureLifecycle,
 			ArrivalLifecycle:   arrivalLifecycle,
 			Notifier:           frontendHub,
-		}, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude), vatsim.WithClock(satNow), vatsim.WithLegacyArrivalETAWriter(amanOwnership.LegacyArrivalETAWriter))
+		}, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude), vatsim.WithAirportCoordinateLookup(func(airport string) vatsim.AirportCoordinates {
+			if cfg.Airports != nil {
+				if definition, ok := cfg.Airports.Lookup(airport); ok {
+					lat, lon := definition.Coordinates()
+					return vatsim.AirportCoordinates{Latitude: lat, Longitude: lon}
+				}
+				return vatsim.AirportCoordinates{}
+			}
+			return vatsim.AirportCoordinates{Latitude: latitude, Longitude: longitude}
+		}), vatsim.WithClock(satNow), vatsim.WithLegacyArrivalETAWriterForAirport(func(airport string) bool {
+			for _, enabled := range cfg.AMAN.EnabledAirports {
+				if strings.EqualFold(enabled, airport) {
+					return amanOwnership.LegacyArrivalETAWriter
+				}
+			}
+			return true
+		}))
 		if err != nil {
 			if closeDB {
 				dbpool.Close()
@@ -620,6 +640,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		dbpool:                   dbpool,
 		closeDB:                  closeDB,
 		standAssignmentReadiness: standAssignmentReadiness,
+		standAirportReadiness:    standInputGraph.readiness,
 		amanRuntime:              amanRuntime,
 		handler: buildHandler(buildHandlerConfig{
 			amanRuntime:  amanRuntime,
@@ -646,7 +667,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			standAssignmentRepo:        standAssignmentRepo,
 			standActionService:         standActionService,
 			standAssignmentReadiness:   standAssignmentReadiness,
-			standAssignmentDiagnostics: standAssignmentDiagnostics(),
+			standAssignmentDiagnostics: standInputGraph.diagnostics(),
+			standInputs:                standInputGraph.registry,
+			standAirportReadiness:      standInputGraph.readiness,
 			standAssignmentFailures:    standAssignmentFailures,
 			standAssignmentStaleAfter:  satStaleAfter(deps.VATSIMPollInterval),
 			requireLiveCIDVerification: requireLiveCIDVerification,
@@ -745,6 +768,7 @@ func assembleCoreRepositories(dbpool *pgxpool.Pool) coreRepositories {
 }
 
 type satAssembly struct {
+	stands      *sat.StandCapabilityRegistry
 	assignments repository.StandAssignmentRepository
 	allocations *services.StandAllocationService
 	actions     *services.StandActionService
@@ -754,7 +778,7 @@ type satAssembly struct {
 	failures    *standdiagnostics.AllocationFailureLog
 }
 
-func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpool *pgxpool.Pool, core coreRepositories, now func() time.Time) (satAssembly, error) {
+func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpool *pgxpool.Pool, core coreRepositories, now func() time.Time, inputs *sat.AirportInputRegistry) (satAssembly, error) {
 	graph := satAssembly{
 		failures: standdiagnostics.NewAllocationFailureLog(100),
 	}
@@ -767,8 +791,19 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 	aircraft := appconfig.GetAircraftReference()
 	engines := appconfig.GetAircraftEngineReference()
 	borders := appconfig.GetAirportCountries()
+	policy := appconfig.GetAirlineAssignment()
+	if inputs != nil {
+		stands = inputs.Stands()
+		for _, airport := range cfg.Airports.Airports() {
+			if input, ok := inputs.Lookup(airport); ok {
+				aircraft, engines, borders, policy = input.Aircraft, input.Engines, input.Borders, input.Policy
+				break
+			}
+		}
+	}
 	allocations, err := services.NewStandAllocationService(
-		dbpool, core.strips, assignments, stands, appconfig.GetAirlineAssignment(),
+		dbpool, core.strips, assignments, stands, policy,
+		services.WithStandAirportInputs(inputs),
 		services.WithStandAllocationFailureLog(graph.failures),
 		services.WithStandAllocationClock(now),
 		services.WithStandAllocationDepartureReleaseBuffer(cfg.StandAssignmentBlockExtension),
@@ -777,7 +812,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 		return satAssembly{}, fmt.Errorf("initialize stand allocation service: %w", err)
 	}
 	departures, err := services.NewDepartureLifecycleService(
-		allocations, assignments, core.strips, core.sessions, stands, aircraft, engines, borders,
+		allocations, assignments, core.strips, scopedStandSessions(core.sessions, inputs), stands, aircraft, engines, borders,
 		services.WithDepartureHoldDuration(cfg.StandAssignmentHoldDuration),
 		services.WithDepartureBlockExtension(cfg.StandAssignmentBlockExtension),
 		services.WithDepartureSweepInterval(cfg.StandAssignmentSweepInterval),
@@ -788,7 +823,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 		return satAssembly{}, fmt.Errorf("initialize departure lifecycle service: %w", err)
 	}
 	arrivals, err := services.NewArrivalLifecycleService(
-		allocations, assignments, core.strips, core.sessions, stands, aircraft, engines, borders,
+		allocations, assignments, core.strips, scopedStandSessions(core.sessions, inputs), stands, aircraft, engines, borders,
 		services.WithArrivalSweepInterval(cfg.StandAssignmentSweepInterval),
 		services.WithArrivalLifecycleClock(now),
 		services.WithArrivalPrefileAssignments(cfg.EnableStandAssignmentPrefiles),
@@ -797,6 +832,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 		return satAssembly{}, fmt.Errorf("initialize arrival lifecycle service: %w", err)
 	}
 
+	graph.stands = stands
 	graph.assignments = assignments
 	graph.allocations = allocations
 	graph.actions = services.NewStandActionService(allocations, assignments, core.strips, aircraft, engines, borders)
@@ -1120,6 +1156,8 @@ type buildHandlerConfig struct {
 	standAssignmentRepo        repository.StandAssignmentRepository
 	standActionService         *services.StandActionService
 	standAssignmentReadiness   appconfig.StandAssignmentReadiness
+	standInputs                *sat.AirportInputRegistry
+	standAirportReadiness      map[string]appconfig.StandAssignmentReadiness
 	standAssignmentDiagnostics standstatus.WebAPIDiagnostics
 	standAssignmentFailures    *standdiagnostics.AllocationFailureLog
 	standAssignmentStaleAfter  time.Duration
@@ -1159,7 +1197,7 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 		Feed: cfg.vatsimSource, Enabled: cfg.standAssignmentReadiness.Enabled,
 		Ready: cfg.standAssignmentReadiness.Ready, Reason: cfg.standAssignmentReadiness.Reason,
 		StaleAfter: cfg.standAssignmentStaleAfter, Diagnostics: cfg.standAssignmentDiagnostics,
-		Failures: cfg.standAssignmentFailures, Previewer: cfg.standActionService,
+		Failures: cfg.standAssignmentFailures, Previewer: cfg.standActionService, Stands: cfg.standInputs.Stands(), AirportReadiness: cfg.standAirportReadiness,
 	}).RegisterRoutes(apiMux)
 	if cfg.enableCDMAPI {
 		cdm.NewWebAPI(cfg.authService, cfg.sessionRepo, cfg.sequenceService).RegisterRoutes(apiMux)
@@ -1374,4 +1412,14 @@ func (a *App) DrainPositions(ctx context.Context) error {
 		return nil
 	}
 	return a.positionHub.DrainPositions(ctx)
+}
+
+func (a *App) StandAssignmentReadinessForAirport(airport string) appconfig.StandAssignmentReadiness {
+	if a.standAirportReadiness != nil {
+		return a.standAirportReadiness[airport]
+	}
+	if airport == "EKCH" {
+		return a.standAssignmentReadiness
+	}
+	return appconfig.StandAssignmentReadiness{}
 }

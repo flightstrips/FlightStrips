@@ -905,7 +905,8 @@ func (s *DepartureLifecycleService) resolveFacts(strip *models.Strip, flight vat
 		AircraftType:   aircraftType,
 		LiveEngineType: engineTypeValue(strip),
 	}
-	facts := sat.ResolveFlightCompatibilityFacts(input, s.aircraft, s.engines, s.borders)
+	aircraft, engines, borders := s.allocations.referencesForAirport(origin, s.aircraft, s.engines, s.borders)
+	facts := sat.ResolveFlightCompatibilityFacts(input, aircraft, engines, borders)
 	assignmentFacts := sat.AssignmentFlightFacts{
 		Callsign:     strip.Callsign,
 		AircraftType: aircraftType,

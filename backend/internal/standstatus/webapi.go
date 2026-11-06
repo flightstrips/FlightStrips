@@ -54,18 +54,20 @@ type WebAPIDiagnostics struct {
 
 // WebAPIConfig contains the read-only dependencies for the SAT diagnostics page.
 type WebAPIConfig struct {
-	Auth        shared.AuthenticationService
-	Sessions    standStatusSessionRepository
-	Assignments standStatusAssignmentRepository
-	Strips      standStatusStripRepository
-	Feed        standStatusFeed
-	Enabled     bool
-	Ready       bool
-	Reason      string
-	StaleAfter  time.Duration
-	Diagnostics WebAPIDiagnostics
-	Failures    standStatusFailureSource
-	Previewer   standStatusPreviewer
+	Auth             shared.AuthenticationService
+	Sessions         standStatusSessionRepository
+	Assignments      standStatusAssignmentRepository
+	Strips           standStatusStripRepository
+	Feed             standStatusFeed
+	Enabled          bool
+	Ready            bool
+	Reason           string
+	StaleAfter       time.Duration
+	Diagnostics      WebAPIDiagnostics
+	Failures         standStatusFailureSource
+	Previewer        standStatusPreviewer
+	Stands           *sat.StandCapabilityRegistry
+	AirportReadiness map[string]config.StandAssignmentReadiness
 }
 
 // WebAPI exposes an authenticated, read-only snapshot of SAT's internal state.
@@ -75,12 +77,13 @@ type WebAPI struct {
 }
 
 type standStatusResponse struct {
-	GeneratedAt   string                       `json:"generated_at"`
-	System        standStatusSystemResponse    `json:"system"`
-	Configuration WebAPIDiagnostics            `json:"configuration"`
-	Feed          standStatusFeedResponse      `json:"feed"`
-	Failures      []standStatusFailureResponse `json:"failures"`
-	Sessions      []standStatusSessionResponse `json:"sessions"`
+	AirportReadiness map[string]config.StandAssignmentReadiness `json:"airport_readiness,omitempty"`
+	GeneratedAt      string                                     `json:"generated_at"`
+	System           standStatusSystemResponse                  `json:"system"`
+	Configuration    WebAPIDiagnostics                          `json:"configuration"`
+	Feed             standStatusFeedResponse                    `json:"feed"`
+	Failures         []standStatusFailureResponse               `json:"failures"`
+	Sessions         []standStatusSessionResponse               `json:"sessions"`
 }
 
 type standStatusFailureResponse struct {
@@ -212,12 +215,13 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 	sessionFilter := strings.TrimSpace(r.URL.Query().Get("session_name"))
 	now := a.now().UTC()
 	response := standStatusResponse{
-		GeneratedAt:   now.Format(time.RFC3339),
-		System:        a.systemStatus(),
-		Configuration: a.config.Diagnostics,
-		Feed:          a.feedStatus(),
-		Failures:      []standStatusFailureResponse{},
-		Sessions:      []standStatusSessionResponse{},
+		AirportReadiness: a.config.AirportReadiness,
+		GeneratedAt:      now.Format(time.RFC3339),
+		System:           a.systemStatus(),
+		Configuration:    a.config.Diagnostics,
+		Feed:             a.feedStatus(),
+		Failures:         []standStatusFailureResponse{},
+		Sessions:         []standStatusSessionResponse{},
 	}
 	if a.config.Failures != nil {
 		if failures := a.config.Failures.List(); failures != nil {
@@ -263,7 +267,7 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			response.Sessions = append(response.Sessions, mapStandStatusSession(session, assignments, blocks, strips, now))
+			response.Sessions = append(response.Sessions, mapStandStatusSession(session, assignments, blocks, strips, now, a.config.Stands))
 		}
 	}
 
@@ -384,7 +388,11 @@ func (a *WebAPI) feedStatus() standStatusFeedResponse {
 	return result
 }
 
-func mapStandStatusSession(session *models.Session, assignments []*models.StandAssignment, blocks []*models.StandBlock, strips []*models.Strip, now time.Time) standStatusSessionResponse {
+func mapStandStatusSession(session *models.Session, assignments []*models.StandAssignment, blocks []*models.StandBlock, strips []*models.Strip, now time.Time, registries ...*sat.StandCapabilityRegistry) standStatusSessionResponse {
+	registry := config.GetStandCapabilities()
+	if len(registries) > 0 {
+		registry = registries[0]
+	}
 	response := standStatusSessionResponse{
 		SessionID:   session.ID,
 		Name:        session.Name,
@@ -406,7 +414,7 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 			ID: assignment.ID, Callsign: assignment.Callsign, Stand: assignment.Stand,
 			Direction: assignment.Direction, Stage: assignment.Stage, Source: assignment.Source,
 			RuleID: assignment.RuleID, Tier: assignment.Tier, MatchedVariant: assignment.MatchedVariant,
-			Blocks:         standAssignmentBlockedStands(config.GetStandCapabilities(), session.Airport, assignment),
+			Blocks:         standAssignmentBlockedStands(registry, session.Airport, assignment),
 			ConflictReason: assignment.ConflictReason, ETA: assignment.ETA, ETASource: assignment.ETASource,
 			AssignedAt: assignment.AssignedAt, ExpiresAt: assignment.ExpiresAt, Manual: assignment.Manual,
 			Acknowledged: assignment.Acknowledged, AcknowledgedAt: assignment.AcknowledgedAt,
@@ -433,7 +441,7 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 		}
 		response.Blocks = append(response.Blocks, standStatusBlockResponse{
 			ID: block.ID, Stand: block.Stand, BlockType: block.BlockType, Source: block.Source,
-			Blocks: standBlockBlockedStands(config.GetStandCapabilities(), session.Airport, block.Stand),
+			Blocks: standBlockBlockedStands(registry, session.Airport, block.Stand),
 			Reason: block.Reason, Callsign: block.Callsign, CreatedBy: block.CreatedBy,
 			ExpiresAt: block.ExpiresAt, Manual: block.Manual, Version: block.Version,
 			CreatedAt: block.CreatedAt, UpdatedAt: block.UpdatedAt,

@@ -42,7 +42,7 @@ func assembleTestTools(enabled bool, deps testToolsAssemblyDependencies) testToo
 		Departures: deps.sat.departures, Arrivals: deps.sat.arrivals,
 		Allocations: deps.sat.allocations, Sessions: deps.core.sessions, Strips: deps.core.strips,
 		StripDeleter: deps.stripDeleter,
-		Assignments:  deps.sat.assignments, Stands: appconfig.GetStandCapabilities(), Clock: deps.clock,
+		Assignments:  deps.sat.assignments, Stands: deps.sat.stands, Clock: deps.clock,
 	})
 	if deps.enableStandAssignmentESMessages && deps.sat.departures != nil {
 		deps.sat.departures.SetWrongStandMessenger(testtools.NewFallbackMessenger(deps.euroscope, service))

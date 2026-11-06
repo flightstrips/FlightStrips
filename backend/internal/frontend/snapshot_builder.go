@@ -33,6 +33,7 @@ type SnapshotBuilderDependencies struct {
 	TacticalStripRepo      repository.TacticalStripRepository
 	StandAssignmentRepo    repository.StandAssignmentRepository
 	StandAssignmentEnabled bool
+	StandCapabilities      *sat.StandCapabilityRegistry
 	EuroscopeHub           shared.EuroscopeHub
 	BuildClxContext        func(sessionID int32) clx.Context
 	PopulateNextStrips     func(ctx context.Context, strips []*internalModels.Strip, sessionID int32)
@@ -49,6 +50,7 @@ type SnapshotBuilder struct {
 	tacticalStripRepo      repository.TacticalStripRepository
 	standAssignmentRepo    repository.StandAssignmentRepository
 	standAssignmentEnabled bool
+	standCapabilities      *sat.StandCapabilityRegistry
 	euroscopeHub           shared.EuroscopeHub
 	buildClxContext        func(sessionID int32) clx.Context
 	populateNextStrips     func(ctx context.Context, strips []*internalModels.Strip, sessionID int32)
@@ -70,6 +72,7 @@ func NewSnapshotBuilder(deps SnapshotBuilderDependencies) *SnapshotBuilder {
 		tacticalStripRepo:      deps.TacticalStripRepo,
 		standAssignmentRepo:    deps.StandAssignmentRepo,
 		standAssignmentEnabled: deps.StandAssignmentEnabled,
+		standCapabilities:      deps.StandCapabilities,
 		euroscopeHub:           deps.EuroscopeHub,
 		buildClxContext:        deps.BuildClxContext,
 		populateNextStrips:     deps.PopulateNextStrips,
@@ -188,13 +191,13 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 		event.MasterCallsign = b.euroscopeHub.GetMasterCallsign(request.SessionID)
 	}
 
-	if b.standAssignmentEnabled && b.standAssignmentRepo != nil {
+	if b.standAssignmentEnabled && b.standAssignmentRepo != nil && (b.standCapabilities == nil || len(b.standCapabilities.Stands(request.Airport)) > 0) {
 		event.StandAssignmentEnabled = true
 		assignments, blocks, err := b.loadStandStatus(ctx, request.SessionID, request.Airport)
 		if err != nil {
 			slog.Error("Failed to load stand status for snapshot", slog.Any("error", err), slog.Int("session", int(request.SessionID)))
 		} else {
-			enrichStandAssignmentBlocking(assignments, request.Airport)
+			enrichStandAssignmentBlocking(assignments, request.Airport, b.standCapabilities)
 			event.StandAssignments = assignments
 			event.StandBlocks = blocks
 			byCallsign := make(map[string]frontendEvents.StandAssignmentEntry, len(assignments))
@@ -383,18 +386,18 @@ func (b *SnapshotBuilder) loadStandStatus(ctx context.Context, sessionID int32, 
 		if blk == nil {
 			continue
 		}
-		blockEntries = append(blockEntries, mapStandBlockEntry(blk, airport))
+		blockEntries = append(blockEntries, mapStandBlockEntry(blk, airport, b.standCapabilities))
 	}
 
 	return assignmentEntries, blockEntries, nil
 }
 
-func mapStandBlockEntry(blk *internalModels.StandBlock, airport string) frontendEvents.StandBlockEntry {
+func mapStandBlockEntry(blk *internalModels.StandBlock, airport string, registries ...*sat.StandCapabilityRegistry) frontendEvents.StandBlockEntry {
 	return frontendEvents.StandBlockEntry{
 		ID:        blk.ID,
 		Stand:     blk.Stand,
 		BlockType: blk.BlockType,
-		Blocks:    standBlockNeighbors(airport, blk.Stand),
+		Blocks:    standBlockNeighborsFromRegistry(selectedStandRegistry(registries), airport, blk.Stand),
 		Reason:    blk.Reason,
 		Callsign:  blk.Callsign,
 		CreatedBy: blk.CreatedBy,
@@ -445,8 +448,8 @@ func mapStandAssignmentEntry(a *internalModels.StandAssignment) frontendEvents.S
 	return entry
 }
 
-func enrichStandAssignmentBlocking(entries []frontendEvents.StandAssignmentEntry, airport string) {
-	registry := config.GetStandCapabilities()
+func enrichStandAssignmentBlocking(entries []frontendEvents.StandAssignmentEntry, airport string, registries ...*sat.StandCapabilityRegistry) {
+	registry := selectedStandRegistry(registries)
 	for i := range entries {
 		if stand, ok := registry.Lookup(airport, entries[i].Stand); ok {
 			entries[i].Blocks = append([]string(nil), stand.Blocks...)
@@ -471,8 +474,8 @@ func enrichStandAssignmentBlocking(entries []frontendEvents.StandAssignmentEntry
 // Single-strip publications only need this entry's conflicts. The full
 // snapshot still enriches every pair, but doing that here would be quadratic
 // work for each heading/altitude update.
-func enrichPublishedStandAssignment(entry frontendEvents.StandAssignmentEntry, all []frontendEvents.StandAssignmentEntry, airport string) frontendEvents.StandAssignmentEntry {
-	registry := config.GetStandCapabilities()
+func enrichPublishedStandAssignment(entry frontendEvents.StandAssignmentEntry, all []frontendEvents.StandAssignmentEntry, airport string, registries ...*sat.StandCapabilityRegistry) frontendEvents.StandAssignmentEntry {
+	registry := selectedStandRegistry(registries)
 	withBlocks := func(value frontendEvents.StandAssignmentEntry) frontendEvents.StandAssignmentEntry {
 		if stand, ok := registry.Lookup(airport, value.Stand); ok {
 			value.Blocks = append([]string(nil), stand.Blocks...)
@@ -534,4 +537,11 @@ func cloneStringSlice(values []string) []string {
 	result := make([]string, len(values))
 	copy(result, values)
 	return result
+}
+
+func selectedStandRegistry(registries []*sat.StandCapabilityRegistry) *sat.StandCapabilityRegistry {
+	if len(registries) > 0 {
+		return registries[0]
+	}
+	return config.GetStandCapabilities() // legacy pure-function fixtures
 }

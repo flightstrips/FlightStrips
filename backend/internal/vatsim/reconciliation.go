@@ -128,7 +128,9 @@ type Reconciler struct {
 	notifier               reconciliationNotifier
 	interval               time.Duration
 	airportCoordinates     AirportCoordinates
+	coordinatesForAirport  func(string) AirportCoordinates
 	legacyArrivalETAWriter bool
+	legacyETAForAirport    func(string) bool
 	now                    func() time.Time
 }
 
@@ -326,7 +328,11 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			}
 		}
 		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
-			if r.legacyArrivalETAWriter {
+			writeLegacyETA := r.legacyArrivalETAWriter
+			if r.legacyETAForAirport != nil {
+				writeLegacyETA = r.legacyETAForAirport(session.Airport)
+			}
+			if writeLegacyETA {
 				etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight)
 				if err != nil {
 					return err
@@ -623,7 +629,11 @@ func timeOrEmpty(value *time.Time) string {
 
 func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip *models.Strip, flight Flight) (bool, error) {
 	now := r.now()
-	candidate, ok := calculateArrivalETA(now, flight, r.airportCoordinates)
+	coordinates := r.airportCoordinates
+	if r.coordinatesForAirport != nil {
+		coordinates = r.coordinatesForAirport(flight.FlightPlan.Destination)
+	}
+	candidate, ok := calculateArrivalETA(now, flight, coordinates)
 	if !ok {
 		// VATSIM can temporarily omit timing or movement fields. Keep the last
 		// accepted estimate rather than replacing a useful stable ETA with none.

@@ -353,7 +353,8 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS110")
 		testdata.SeedTestStrip(t, queries, session, "SAS111")
-		now := time.Now().UTC()
+		now := time.Now().UTC().Truncate(time.Second)
+		service.now = func() time.Time { return now }
 		eta := now.Add(time.Hour)
 		arrival := withStand(standAllocationRequest(session, "SAS110"), "A1")
 		arrival.Stage = StageAssigned
@@ -361,7 +362,7 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		_, err := service.AssignManually(ctx, arrival)
 		require.NoError(t, err)
 
-		laterTobt := eta.Add(-5 * time.Minute)
+		laterTobt := eta.Add(-4 * time.Minute) // one minute of overlap after the five-minute release buffer
 		departure := withStand(standAllocationRequest(session, "SAS111"), "A1")
 		departure.Direction = sat.AssignmentDirectionDeparture
 		departure.FlightFacts.Direction = sat.Departure

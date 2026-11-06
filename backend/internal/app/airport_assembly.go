@@ -28,7 +28,7 @@ func configureAirports(cfg Config) (Config, error) {
 	cfg.EKCH = definition
 	cfg.EnableCDMConfigStore = anyAirportService(registry, "cdm")
 	cfg.EnablePDC = definition.ServiceEnabled("pdc")
-	cfg.EnableStandAssignment = definition.ServiceEnabled("stand_assignment")
+	cfg.EnableStandAssignment = anyAirportService(registry, "stand_assignment")
 	cfg.EnableECFMP = definition.ServiceEnabled("ecfmp") && cfg.EnableECFMP
 	cfg.EnableECFMPAPI = definition.ServiceEnabled("ecfmp") && cfg.EnableECFMPAPI
 	if !definition.ServiceEnabled("aman") {
@@ -81,6 +81,26 @@ func configureStandAssignmentDefinition(cfg Config) appconfig.StandAssignmentRea
 	})
 }
 func loadGSXSceneriesDefinition(cfg Config) (gsx.Sceneries, error) {
+	if cfg.Airports != nil {
+		if !cfg.EnableGSXStandFeed {
+			return nil, nil
+		}
+		result := gsx.Sceneries{}
+		for _, airport := range cfg.Airports.Airports() {
+			definition, _ := cfg.Airports.Lookup(airport)
+			if _, ok := definition.Resource("services.stand_assignment.scenery"); !ok {
+				continue
+			}
+			selected := cfg
+			selected.Airports, selected.EKCH = nil, definition
+			sceneries, err := loadGSXSceneriesDefinition(selected)
+			if err != nil {
+				return nil, err
+			}
+			result[airport] = sceneries[airport]
+		}
+		return result, nil
+	}
 	if cfg.EKCH == nil {
 		return loadGSXSceneries(cfg.EnableGSXStandFeed)
 	}

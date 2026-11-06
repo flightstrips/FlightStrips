@@ -100,6 +100,7 @@ type Hub struct {
 
 	snapshotBuilder     *SnapshotBuilder
 	standActionService  *services.StandActionService
+	standCapabilities   *sat.StandCapabilityRegistry
 	amanStateProvider   AMANStateProvider
 	amanCommandService  aman.CommandService
 	amanCoordination    *coordinationrequest.Service
@@ -996,7 +997,7 @@ func (hub *Hub) SendStripUpdateContext(ctx context.Context, session int32, calls
 					entries = append(entries, mapStandAssignmentEntry(item))
 				}
 			}
-			entry = enrichPublishedStandAssignment(entry, entries, clientAirport(strip, assignment.Direction))
+			entry = enrichPublishedStandAssignment(entry, entries, clientAirport(strip, assignment.Direction), hub.standCapabilities)
 			model.StandAssignment = &entry
 		}
 	}
@@ -1234,7 +1235,7 @@ func (hub *Hub) enrichedStandAssignmentEntry(sessionID int32, assignment *intern
 			entries = append(entries, mapStandAssignmentEntry(item))
 		}
 	}
-	enrichStandAssignmentBlocking(entries, session.Airport)
+	enrichStandAssignmentBlocking(entries, session.Airport, hub.standCapabilities)
 	for _, candidate := range entries {
 		if strings.EqualFold(candidate.Callsign, assignment.Callsign) {
 			return candidate
@@ -1267,7 +1268,7 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 					publishEntries = append(publishEntries, mapStandAssignmentEntry(item))
 				}
 			}
-			enrichStandAssignmentBlocking(publishEntries, session.Airport)
+			enrichStandAssignmentBlocking(publishEntries, session.Airport, hub.standCapabilities)
 			assignmentStatusReady = true
 		}
 
@@ -1278,7 +1279,7 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 			blockEntries = make([]frontend.StandBlockEntry, 0, len(blocks))
 			for _, block := range blocks {
 				if block != nil {
-					blockEntries = append(blockEntries, mapStandBlockEntry(block, session.Airport))
+					blockEntries = append(blockEntries, mapStandBlockEntry(block, session.Airport, hub.standCapabilities))
 				}
 			}
 			snapshotReady = assignmentStatusReady
@@ -1774,6 +1775,7 @@ func (hub *Hub) getSnapshotBuilder() *SnapshotBuilder {
 		TacticalStripRepo:      hub.server.GetTacticalStripRepository(),
 		StandAssignmentRepo:    hub.server.GetStandAssignmentRepository(),
 		StandAssignmentEnabled: hub.server.GetStandAssignmentRepository() != nil,
+		StandCapabilities:      hub.standCapabilities,
 		EuroscopeHub:           hub.server.GetEuroscopeHub(),
 		BuildClxContext:        hub.makeClxValidationContext,
 		PopulateNextStrips:     hub.populateNextDisplaysContext,
@@ -1924,4 +1926,8 @@ func observerInSession(hub shared.EuroscopeHub, session int32, cid string) bool 
 		return source.IsObserverInSession(session, cid)
 	}
 	return hub.IsObserverCid(cid)
+}
+
+func (hub *Hub) SetStandCapabilities(stands *sat.StandCapabilityRegistry) {
+	hub.standCapabilities = stands
 }

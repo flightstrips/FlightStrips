@@ -189,6 +189,7 @@ func visitRelocationChain(ctx context.Context, callsign string) bool {
 // builds on the SAT persistence repositories rather than bypassing their
 // versioning and transaction-bound access.
 type StandAllocationService struct {
+	airportInputs          *sat.AirportInputRegistry
 	pool                   *pgxpool.Pool
 	strips                 repository.StripRepository
 	assignments            repository.StandAssignmentRepository
@@ -749,6 +750,9 @@ func (s *StandAllocationService) CreateManualBlock(ctx context.Context, airport 
 	if block == nil || block.SessionID <= 0 {
 		return errors.New("manual stand block requires a session")
 	}
+	if err := s.validateAirport(ctx, block.SessionID, airport); err != nil {
+		return err
+	}
 	block.Stand = standName(block.Stand)
 	physical, known := s.stands.Lookup(airport, block.Stand)
 	if !known {
@@ -863,6 +867,9 @@ func (s *StandAllocationService) allocate(ctx context.Context, command StandAllo
 }
 
 func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context, command StandAllocationCommand, request StandAllocationRequest, recordFailures bool) (*StandAllocationResult, error) {
+	if err := s.validateAirport(ctx, request.SessionID, request.Airport); err != nil {
+		return nil, err
+	}
 	if err := validateStandAllocationRequest(command, &request); err != nil {
 		if recordFailures {
 			s.recordAllocationFailure(command, request, "invalid_request", err, 0)
@@ -1203,6 +1210,9 @@ func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx p
 		return nil, "", err
 	}
 
+	if err := s.validateLockedAirport(ctx, tx, request.SessionID, request.Airport); err != nil {
+		return nil, "", err
+	}
 	txStrips := s.strips.WithTx(tx)
 	txAssignments := s.assignments.WithTx(tx)
 	strip, err := txStrips.LockByCallsign(ctx, request.SessionID, request.Callsign)
@@ -1292,6 +1302,9 @@ func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx p
 // renew an existing reservation in place or reallocate. The transaction is
 // read-only and rolls back without persisting any state.
 func (s *StandAllocationService) StandAvailable(ctx context.Context, request StandAllocationRequest, stand string) (bool, error) {
+	if err := s.validateAirport(ctx, request.SessionID, request.Airport); err != nil {
+		return false, err
+	}
 	if err := validateStandAllocationRequest(AutomaticStandAllocation, &request); err != nil {
 		return false, err
 	}
@@ -1332,6 +1345,9 @@ func (s *StandAllocationService) StandAvailable(ctx context.Context, request Sta
 // arrival. It ignores provisional arrivals that a physical departure may
 // displace and does not misclassify protected departures or manual blocks.
 func (s *StandAllocationService) ConfirmedArrivalConflictAtStand(ctx context.Context, request StandAllocationRequest, stand string) (bool, error) {
+	if err := s.validateAirport(ctx, request.SessionID, request.Airport); err != nil {
+		return false, err
+	}
 	target := standName(stand)
 	if target == "" {
 		return false, errors.New("stand conflict check requires a stand")
@@ -1350,6 +1366,9 @@ func (s *StandAllocationService) ConfirmedArrivalConflictAtStand(ctx context.Con
 // It uses the same compatibility and timing rules as a manual assignment but
 // does not modify an assignment or reserve a stand.
 func (s *StandAllocationService) AvailableStands(ctx context.Context, request StandAllocationRequest) ([]StandAvailability, error) {
+	if err := s.validateAirport(ctx, request.SessionID, request.Airport); err != nil {
+		return nil, err
+	}
 	if err := validateStandAllocationRequest(AutomaticStandAllocation, &request); err != nil {
 		return nil, err
 	}
@@ -1419,6 +1438,9 @@ func (s *StandAllocationService) AvailableStands(ctx context.Context, request St
 // Preview reports the current policy candidates without reserving, updating,
 // or publishing anything. It is intended for controller diagnostics.
 func (s *StandAllocationService) Preview(ctx context.Context, request StandAllocationRequest) (StandAllocationPreview, error) {
+	if err := s.validateAirport(ctx, request.SessionID, request.Airport); err != nil {
+		return StandAllocationPreview{}, err
+	}
 	if err := validateStandAllocationRequest(AutomaticStandAllocation, &request); err != nil {
 		return StandAllocationPreview{}, err
 	}
@@ -1569,7 +1591,7 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		if match, compatible := matches[request.Stand]; compatible &&
 			len(preferredAvailability[request.Stand]) == 0 &&
 			!hasDirectOverlappingEstimatedReservation(assignments, request.Stand, request, s.now(), s.departureReleaseBuffer) {
-			selection, selectionErr := s.policy.SelectStand(request.AssignmentFacts, []string{request.Stand}, s.random)
+			selection, selectionErr := s.policyForAirport(request.Airport).SelectStand(request.AssignmentFacts, []string{request.Stand}, s.random)
 			if selectionErr != nil {
 				return "", nil, nil, nil, "", selectionErr
 			}
@@ -1586,7 +1608,7 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 	if err != nil {
 		return "", nil, nil, nil, "", err
 	}
-	selection, err := s.policy.SelectStand(request.AssignmentFacts, available, s.random)
+	selection, err := s.policyForAirport(request.Airport).SelectStand(request.AssignmentFacts, available, s.random)
 	if err != nil {
 		return "", nil, nil, available, "", err
 	}
@@ -1610,11 +1632,11 @@ func (s *StandAllocationService) policyExhaustionError(request StandAllocationRe
 	}
 	slices.Sort(compatible)
 	matchedRule := ""
-	if match, err := s.policy.MatchRule(request.AssignmentFacts); err == nil && match != nil && match.Rule != nil {
+	if match, err := s.policyForAirport(request.Airport).MatchRule(request.AssignmentFacts); err == nil && match != nil && match.Rule != nil {
 		matchedRule = match.Rule.ID
 	}
-	policyPreview, _ := s.policy.PreviewStandSelection(request.AssignmentFacts, compatible)
-	fallbackPreview, _ := s.policy.PreviewFallbackStandSelection(request.AssignmentFacts, compatible)
+	policyPreview, _ := s.policyForAirport(request.Airport).PreviewStandSelection(request.AssignmentFacts, compatible)
+	fallbackPreview, _ := s.policyForAirport(request.Airport).PreviewFallbackStandSelection(request.AssignmentFacts, compatible)
 	policyCandidates := append(previewCandidateStands(policyPreview), previewCandidateStands(fallbackPreview)...)
 	slices.Sort(policyCandidates)
 	policyCandidates = slices.Compact(policyCandidates)
@@ -1689,12 +1711,12 @@ func (s *StandAllocationService) confirmedArrivalConflicts(request StandAllocati
 // from falling to a later rule/tier, a fallback, or no stand at all.
 func (s *StandAllocationService) automaticStandPool(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch, tried map[string]struct{}) ([]string, sat.StandSelectionPreview, error) {
 	strict := availableStandNames(matches, s.availability(request, assignments, blocks, matches), tried)
-	strictPreview, err := s.policy.PreviewStandSelection(request.AssignmentFacts, strict)
+	strictPreview, err := s.policyForAirport(request.Airport).PreviewStandSelection(request.AssignmentFacts, strict)
 	if err != nil {
 		return nil, sat.StandSelectionPreview{}, err
 	}
 	relaxed := availableStandNames(matches, s.availabilityYieldingEstimated(request, assignments, blocks, matches), tried)
-	relaxedPreview, err := s.policy.PreviewStandSelection(request.AssignmentFacts, relaxed)
+	relaxedPreview, err := s.policyForAirport(request.Airport).PreviewStandSelection(request.AssignmentFacts, relaxed)
 	if err != nil {
 		return nil, sat.StandSelectionPreview{}, err
 	}

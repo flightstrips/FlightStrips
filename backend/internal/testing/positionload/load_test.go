@@ -25,7 +25,6 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/navigation"
-	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/services"
@@ -107,7 +106,7 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 				isQuery = true
 			}
 		}
-		if isQuery {
+		if isQuery && !strings.HasPrefix(s.Name(), "prepare ") {
 			c.queries[id]++
 			kind := "other"
 			for _, a := range s.Attributes() {
@@ -224,6 +223,8 @@ func TestPositionLoad(t *testing.T) {
 	defer otel.SetTracerProvider(old)
 	defer provider.Shutdown(context.Background())
 	server, err := e2e.StartTestServerWithConfig(func(c *app.Config) {
+		// Resolve deployment services with the production loader. The helper's
+		// metadata-only registry intentionally leaves those services disabled.
 		c.AirportFiles = []string{"backend/config/airports/ekch.airport.yaml"}
 		c.AirportRepositoryRoot = ".."
 		c.EnablePostgresTracing = true
@@ -234,9 +235,9 @@ func TestPositionLoad(t *testing.T) {
 		c.AMAN = aman.RuntimeConfig{Mode: aman.ModeShadow, EnabledAirports: []string{"EKCH"}}
 	})
 	require.NoError(t, err)
-	defer testdata.ShutdownTestDB()
 	defer server.Stop()
 	require.True(t, server.App.StandAssignmentReadinessForAirport("EKCH").Ready, "stand lifecycle must actually be enabled")
+	require.True(t, server.App.AMANRuntime().Enabled(), "AMAN must actually be enabled")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	require.NoError(t, server.Queries.InsertAirport(ctx, "EKCH"))

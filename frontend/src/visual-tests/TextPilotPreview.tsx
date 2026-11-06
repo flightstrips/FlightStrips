@@ -16,6 +16,7 @@ import { createWebSocketStore } from "@/store/store";
 import type { WebSocketClient } from "@/api/websocket";
 import { CommunicationType, type FrontendStrip } from "@/api/models";
 import type { TextPilotVariant } from "@/lib/text-pilot";
+import layouts from "@/components/text-pilot/storyboard-layouts.json";
 
 const variants: TextPilotVariant[] = ["push", "apron-out", "apron-in", "tower-out", "tower-in", "si", "runway"];
 const requested = new URLSearchParams(location.search).get("variant") as TextPilotVariant;
@@ -24,6 +25,7 @@ const indicatorEntry = new URLSearchParams(location.search).get("entry") === "in
 const mapEntry = new URLSearchParams(location.search).get("entry") === "push-map";
 const store = createWebSocketStore({ on() {}, send() { return false; }, isConnected() { return false; } } as unknown as WebSocketClient);
 store.setState({
+  textPilotInputs: { airport: "EKCH", preset_provider: "ekch/v1", layouts },
   ...(mapEntry ? { sendFrequencyMessage: async () => ({ type: "frequency_message_result" as const, request_id: "preview", callsign: "SAS123", submitted: false, prepared: true, applied_actions: 0 }) } : {}),
   readOnly: false, position: "121.905", metar: "EKCH 101220Z 24012KT CAVOK 12/10 Q1013",
   strips: [{

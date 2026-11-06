@@ -1,0 +1,51 @@
+@font-face { font-family: RadisRubik; src: url("../../components/text-pilot/fonts/Rubik.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+.radis-view { font-family: RadisRubik, var(--font-bay); height: 100svh; color: black; background: var(--color-bay-page); display: flex; flex-direction: column; }
+.radis-board { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .65vw; padding: 0 .3vw; }
+.radis-left, .radis-right { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.radis-board h1, .radis-board h2 { margin: 0; height: 3.9dvh; min-height: 28px; text-align: center; color: white; font: 700 clamp(14px, 1.5vw, 30px) RadisRubik, sans-serif; background: var(--color-bay-header); border: 1px solid #151515; }
+.radis-bay { min-height: 0; overflow-y: auto; padding: .3vw; background: var(--color-bay-panel); flex: 1; }
+.radis-runway { flex: none; height: var(--radis-runway-height); background: var(--color-bay-dark); }
+.radis-passive_bottom { border-top: 4px solid var(--color-bay-page); }
+.radis-bay.is-over { outline: 2px solid var(--color-bay-border); outline-offset: -2px; }
+.radis-runway-title { position: relative; }
+.radis-runway-title input { position: absolute; right: 1vw; top: 25%; width: 10%; height: 50%; opacity: .6; }
+.radis-strip { display: flex; background: white; width: 100%; height: auto; aspect-ratio: 9 / 1; min-height: 60px; border: 1px solid #404040; margin-bottom: .25vw; position: relative; font-size: clamp(8px, .85vw, 20px); }
+.radis-strip.is-selected { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }
+.radis-strip.is-dragging { opacity: .35; }
+.radis-strip button { cursor: pointer; }
+.radis-strip button:disabled { cursor: default; }
+.radis-strip button:focus-visible { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }
+.radis-cell-button { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; overflow: hidden; }
+.radis-cell-button small { font-size: .55em; line-height: 1.1; }
+.radis-cell-button strong { font-size: 1em; line-height: 1.3; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.radis-callsign { display: flex; flex-direction: column; justify-content: space-between; }
+.radis-callsign-title { font-family: var(--font-bay); text-align: left; padding: 0 .3vw; font-size: 1.4em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radis-route-airports, .radis-aircraft-line { display: flex; justify-content: space-around; align-items: center; line-height: 1.2; }
+.radis-route-airports small { font-size: .65em; text-align: center; }
+.radis-times { width: 20.8%; display: flex; }
+.radis-direction { position: relative; }
+.radis-direction-icon { position: absolute; right: 0; bottom: 0; width: 40%; height: 90%; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 1.4em; line-height: 1; }
+.radis-direction-icon img { width: auto; height: 48%; object-fit: contain; }
+.radis-notes { position: absolute; inset: 0 40% 35% 0; font-size: .6em; overflow: hidden; padding: 2px; }
+.radis-stand { position: absolute; bottom: 1px; left: 2px; font-size: .65em; line-height: 1.1; }
+.radis-strip-date { width: 4%; writing-mode: vertical-rl; transform: rotate(180deg); font-size: .6em; text-align: center; }
+.radis-drag-handle { height: 100%; width: 100%; touch-action: none; }
+.radis-commandbar { min-height: 4.72dvh; background: var(--color-bay-commandbar); display: flex; align-items: center; gap: .6vw; padding: .35vw; color: white; font-size: clamp(10px, .8vw, 18px); }
+.radis-commandbar > b { padding: .3vw .7vw; background: var(--color-bay-light); color: black; }
+.radis-toolbar-space { flex: 1; }
+.radis-dialog { font-family: RadisRubik, var(--font-bay); background: var(--color-bay-light); color: black; width: min(460px, 95vw); max-height: 90svh; overflow-y: auto; }
+.radis-dialog input:not([type=checkbox]), .radis-dialog select { border: 1px solid #666; background: white; padding: .35rem; width: 100%; }
+.radis-dialog-actions { display: flex; justify-content: space-between; margin-top: 1rem; }
+.radis-menu-presets { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.radis-fpl { width: min(660px, 95vw); background: white; }
+.radis-fpl fieldset { border: 1px solid #888; padding: .5rem; }
+.radis-fpl legend { text-align: center; font-size: .75rem; }
+.radis-fpl-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; gap: .75rem .35rem; margin-bottom: .5rem; }
+.radis-fpl-grid > label { min-width: 0; font-size: .7rem; }
+.radis-fpl-field { display: flex; flex-direction: column; text-align: center; min-width: 0; font-size: .75rem; }
+.radis-fpl-field button { border: 1px solid #888; background: #e4e4e4; padding: .15rem; min-height: 1.5rem; overflow-wrap: anywhere; font-size: .9rem; font-weight: bold; }
+.radis-fpl-field button:disabled { background: #aaa7ab; }
+.radis-fpl-wide { display: grid; gap: .5rem; margin: .75rem 0; }
+
+.radis-clock { width: 7vw; min-width: 80px; align-self: stretch; background: var(--color-bay-light); color: black; }
+.radis-keypad { display: grid; grid-template-columns: repeat(3,1fr); gap: .5rem; margin-top: 1rem; }

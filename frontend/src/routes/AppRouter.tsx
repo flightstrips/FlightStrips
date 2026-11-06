@@ -1,3 +1,4 @@
+import RADISBoard from "@/routes/radis/RADISBoard";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { useEffect } from "react";
 import EKCHDEL from "@/routes/ekch/CLX";
@@ -41,6 +42,7 @@ export default function AppRouter() {
   const layoutResetNonce = useWebSocketStore((s) => s.layoutResetNonce);
   const Component = LAYOUT_MAP[displayedLayout];
 
+  if (definition?.view === "radis") return <RADISBoard key={layoutResetNonce} />;
   if (definition && definition.view !== "ekch") return <div role="alert">This airport view is not supported by this frontend version.</div>;
   if (!Component) {
     if (readOnly && !positionAvailable) {

@@ -138,6 +138,9 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		return err
 	}
 
+	if event.Revision != nil && client.selection.board != nil && event.Revision.Definition != client.selection.board.DefinitionRevision {
+		return shared.RejectAction("stale definition revision")
+	}
 	service := client.hub.getStripUpdateService()
 	if service == nil {
 		return errors.New("strip update service not available")

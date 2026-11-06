@@ -597,17 +597,19 @@ type AcknowledgeUnexpectedChangeEvent struct {
 }
 
 type UpdateStripDataEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Sid      *string   `json:"sid"`
-	Eobt     *string   `json:"eobt"`
-	Route    *string   `json:"route"`
-	Heading  *int32    `json:"heading"`
-	Altitude *int32    `json:"altitude"`
-	Stand    *string   `json:"stand"`
-	Runway   *string   `json:"runway,omitempty"`
-	Remarks  *string   `json:"remarks,omitempty"`
-	Aircraft *string   `json:"aircraft_type,omitempty"`
+	Revision *pkgModels.StripRevision `json:"revision,omitempty"`
+	Squawk   *string                  `json:"assigned_squawk,omitempty"`
+	Type     EventType                `json:"type"`
+	Callsign string                   `json:"callsign"`
+	Sid      *string                  `json:"sid"`
+	Eobt     *string                  `json:"eobt"`
+	Route    *string                  `json:"route"`
+	Heading  *int32                   `json:"heading"`
+	Altitude *int32                   `json:"altitude"`
+	Stand    *string                  `json:"stand"`
+	Runway   *string                  `json:"runway,omitempty"`
+	Remarks  *string                  `json:"remarks,omitempty"`
+	Aircraft *string                  `json:"aircraft_type,omitempty"`
 }
 
 // ---------- TRANSFER ----------

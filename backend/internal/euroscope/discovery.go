@@ -135,6 +135,11 @@ func (c *Client) boardDefinition() fe.BoardDefinition {
 	if c.definition != nil {
 		board.DefinitionRevision = c.definition.Revision()
 		board.View = c.definition.ViewID()
+		if c.workflow != nil && c.workflow.BoardStatePolicy().Revisioned {
+			policy := c.workflow.BoardStatePolicy()
+			board.Runways = c.definition.Document().Geography.Runways
+			board.BoardState = &fe.StripBoardSettings{Revisioned: true, RecoverySeconds: policy.RecoverySeconds}
+		}
 		board.Capabilities = fe.BoardCapabilities{
 			CDM:       c.definition.ServiceEnabled("cdm"),
 			Stands:    c.definition.ServiceEnabled("stand_assignment"),

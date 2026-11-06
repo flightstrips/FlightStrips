@@ -106,3 +106,11 @@ func workflowSource(ctx context.Context) airportworkflow.Source {
 	}
 	return airportworkflow.AutomaticSource
 }
+
+// UsesRevisionedStripState lets the existing publisher retain the bound board's
+// concurrency contract for ordinary ES and service field notifications. It
+// reuses the session workflow binding; it creates no second state cache.
+func (s *StripService) UsesRevisionedStripState(ctx context.Context, session int32) bool {
+	bound, err := s.workflowFor(ctx, session, "")
+	return err == nil && bound.BoardStatePolicy().Revisioned
+}

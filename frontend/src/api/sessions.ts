@@ -21,6 +21,8 @@ export interface BoardContext {
   subscription_id: string;
 }
 export interface BoardDefinition {
+ runways?: string[];
+ board_state?: {revisioned:boolean;recovery_seconds:number};
   definition_revision: string;
   view: string;
   actions: string[];
@@ -73,7 +75,7 @@ export function authorizedSessions(discovery: SessionDiscovery): AuthorizedSessi
   const sessions = new Map<number, AuthorizedSession>();
   for (const transport of discovery.transports) {
     for (const member of transport.memberships) {
-      if (member.view !== "ekch" || !member.definition_revision) continue;
+      if (!["ekch", "radis"].includes(member.view) || !member.definition_revision) continue;
       let session = sessions.get(member.session_id);
       if (!session) {
         session = {session_id: member.session_id, airport: member.airport, environment: member.environment, instances: []};

@@ -9,6 +9,7 @@ function discovery(...members: OwnMembership[]): SessionDiscovery {
 }
 
 describe("authorized own membership discovery", () => {
+ it("discovers the compiled RADIS view without changing its airport identity",()=>{expect(authorizedSessions(discovery(membership({view:"radis",airport:"EKBI"})))[0].airport).toBe("EKBI")});
   it("handles zero, one and multiple sessions without merging environments", () => {
     expect(authorizedSessions({transports: []})).toEqual([]);
     expect(authorizedSessions(discovery(membership()))).toHaveLength(1);
@@ -25,6 +26,6 @@ describe("authorized own membership discovery", () => {
     expect(membershipKey(observer)).toContain("18446744073709551615");
   });
   it("does not fall back to EKCH for unknown views or incomplete definitions", () => {
-    expect(authorizedSessions(discovery(membership({view: "radis"}), membership({definition_revision: ""})))).toEqual([]);
+    expect(authorizedSessions(discovery(membership({view: "unsupported"}), membership({definition_revision: ""})))).toEqual([]);
   });
 });

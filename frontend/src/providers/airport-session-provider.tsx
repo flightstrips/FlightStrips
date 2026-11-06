@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState, useRef, type ReactNode} from "react";
+import {useCallback, useEffect, useState, type ReactNode} from "react";
 import {useAuth0} from "@auth0/auth0-react";
 import {discoverSessions, membershipKey, type AuthorizedSession, type OwnMembership} from "@/api/sessions";
 import {requiresLoginPrompt} from "@/lib/authenticated-fetch";
@@ -19,8 +19,8 @@ function readHint(): {session: number; instance: string} | null {
 
 export function AirportSessionProvider({children, url}: {children: ReactNode; url: string}) {
   const {getAccessTokenSilently, isAuthenticated, isLoading, logout} = useAuth0();
-  const retainedState = useRef<WebSocketState | undefined>(undefined);
-  const captureState = useCallback((state: WebSocketState) => {retainedState.current = state;}, []);
+  const [retainedState, setRetainedState] = useState<WebSocketState | undefined>(undefined);
+  const captureState = useCallback((state: WebSocketState) => {setRetainedState(state);}, []);
   const [sessions, setSessions] = useState<AuthorizedSession[]>([]);
   const [selected, setSelected] = useState<OwnMembership | null>(null);
   const [hint] = useState(readHint);
@@ -30,7 +30,7 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
 
   const choose = useCallback((member: OwnMembership) => {
     sessionStorage.setItem(SELECTION_KEY, JSON.stringify({session: member.session_id, instance: member.instance_id}));
-    retainedState.current = undefined;
+    setRetainedState(undefined);
     setSelected(member);
     setChoosing(false);
   }, []);
@@ -81,7 +81,7 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
       {error && <p role="status" className="mt-4">{error}. Retrying...</p>}
     </div>;
   }
-  const retained = retainedState.current;
+  const retained = retainedState;
   const canRetain = retained?.boardContext?.session_id === selected.session_id && retained.boardContext.instance_id === selected.instance_id && retained.boardContext.environment === selected.environment && retained.boardDefinition?.definition_revision === selected.definition_revision;
   const ownPluginAvailable = sessions.some(s => s.session_id === selected.session_id && s.instances.some(m => membershipKey(m) === membershipKey(selected) && m.ready));
   return <AirportSessionContext.Provider value={{selected, sessions, openChooser: () => setChoosing(true)}}>

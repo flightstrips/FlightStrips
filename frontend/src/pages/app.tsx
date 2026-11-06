@@ -7,7 +7,7 @@ import AppRouter from "@/routes/AppRouter";
 import { StripContextMenu } from "@/components/strip/StripContextMenu";
 import { ValidationStatusDialogOverlay } from "@/components/strip/ValidationStatusDialogOverlay";
 import AppUpdateNotifier from "@/components/AppUpdateNotifier";
-import { useContextMenu, useCloseStripContextMenu } from "@/store/store-hooks";
+import { useContextMenu, useCloseStripContextMenu, useWebSocketStore } from "@/store/store-hooks";
 import { Toaster } from "sonner";
 
 function ContextMenuOverlay() {
@@ -24,6 +24,8 @@ function ContextMenuOverlay() {
     />
   );
 }
+
+function HostCommandBar(){const view=useWebSocketStore(s=>s.boardDefinition?.view);return view==="radis"?null:<CommandBar />;}
 
 export default function AppPage() {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
@@ -50,7 +52,7 @@ export default function AppPage() {
         <VacsProvider>
           <div>
             <AppRouter />
-            <CommandBar />
+            <HostCommandBar />
             <TextPilotDialog />
             <ContextMenuOverlay />
             <ValidationStatusDialogOverlay />

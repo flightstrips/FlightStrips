@@ -116,6 +116,8 @@ export class WebSocketClient {
   private token: string | null = null;
   private readOnly = false;
   private board?: BoardContext;
+  private disposed = false;
+  private invalidationHandlers = new Set<() => void>();
   private reconnectAttempts = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private manuallyClosed = false;
@@ -127,6 +129,7 @@ export class WebSocketClient {
   }
 
   setToken(token: string): void {
+    if (this.disposed) return;
     const tokenChanged = this.token !== token;
     this.token = token;
     if (tokenChanged && this.isConnected()) {
@@ -138,7 +141,24 @@ export class WebSocketClient {
     this.readOnly = readOnly;
   }
 
+  hasBoardSelection(): boolean { return this.selection !== undefined; }
+  onInvalidated(handler: () => void): () => void {
+    this.invalidationHandlers.add(handler);
+    return () => this.invalidationHandlers.delete(handler);
+  }
+  private invalidate(): void {
+    this.readOnly = true;
+    this.invalidationHandlers.forEach(handler => handler());
+  }
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.disconnect();
+    this.eventHandlers.clear();
+    this.invalidationHandlers.clear();
+  }
   connect(): Promise<void> {
+    if (this.disposed) return Promise.reject(new Error("Board subscription is disposed"));
     return new Promise((resolve,) => {
       this.manuallyClosed = false;
       const socket = new WebSocket(this.url);
@@ -160,12 +180,15 @@ export class WebSocketClient {
       };
 
       socket.onerror = (error) => {
+        if (this.socket !== socket) return;
         console.error('WebSocket error:', error);
       };
 
       socket.onclose = (event) => {
         // Ignore close events from a socket that has already been replaced (e.g. during reconnect)
         if (this.socket !== socket) return;
+        this.socket = null;
+        this.invalidate();
         console.log('WebSocket connection closed:', event.code, event.reason);
         if (this.delegate?.onDisconnected) {
           this.delegate.onDisconnected();
@@ -196,13 +219,16 @@ export class WebSocketClient {
   }
 
   reconnect(): void {
+    if (this.disposed) return;
+    this.invalidate();
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
     if (this.socket) {
-      this.socket.close();
+      const previous = this.socket;
       this.socket = null;
+      previous.close();
     }
     this.connect().catch(() => {
       // Connection errors are handled by socket.onerror; retryConnection kicks in via onclose
@@ -228,21 +254,27 @@ export class WebSocketClient {
 
   disconnect(): void {
     this.manuallyClosed = true;
+    this.invalidate();
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
     if (this.socket) {
-      this.socket.close();
+      const previous = this.socket;
       this.socket = null;
+      previous.close();
     }
   }
 
-  on<T extends EventType>(eventType: T, handler: (data: EventMap[T]) => void): void {
+  on<T extends EventType>(eventType: T, handler: (data: EventMap[T]) => void): () => void {
     if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, []);
     }
     this.eventHandlers.get(eventType)!.push(handler as never);
+    return () => {
+      const handlers = this.eventHandlers.get(eventType);
+      if (handlers) this.eventHandlers.set(eventType, handlers.filter(candidate => candidate !== handler));
+    };
   }
 
   send(event: FrontendSendEvent): boolean {

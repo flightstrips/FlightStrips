@@ -19,7 +19,7 @@ import { Children, useCallback, useLayoutEffect, useRef, useState, type CSSPrope
 import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { Bay, stripDndId, isFlight } from "@/api/models.ts";
 import { isActiveStripTransfer, isValidationBlockingForPosition } from "@/components/strip/shared";
-import { useMyPosition, useOpenValidationDialog, useStripTransfers } from "@/store/store-hooks";
+import { useMyPosition, useOpenValidationDialog, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
 import { makeBayContainerDropZoneId } from "./dropZoneIds";
 
@@ -440,7 +440,8 @@ export function SortableStrip({
   validationBlocked?: boolean;
   onValidationClick?: (callsign: string) => void;
 }) {
-  const effectiveDragDisabled = dragDisabled || validationBlocked;
+  const readOnly = useWebSocketStore(s => s.readOnly);
+  const effectiveDragDisabled = readOnly || dragDisabled || validationBlocked;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, index, items, over } = useSortable({
     id: callsign,
     data: bayId != null ? { bayId, dropArea: "strip" } : undefined,

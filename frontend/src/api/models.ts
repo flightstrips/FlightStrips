@@ -321,6 +321,8 @@ export interface TextPilotInputs {
 
 export interface FrontendInitialEvent {
   text_pilot?: TextPilotInputs;
+  own_plugin_ready?: boolean;
+  observer?: boolean;
   board?: BoardContext;
   definition?: BoardDefinition;
   master_callsign?: string;
@@ -482,6 +484,7 @@ export interface FrontendAuthenticationEvent {
 }
 
 export interface FrontendDisconnectEvent {
+  board?: BoardContext;
   type: EventType.FrontendDisconnect;
   read_only?: boolean;
 }

@@ -183,6 +183,8 @@ export interface BroadcastNotification {
 
 // Define the state interface for our store
 export interface WebSocketState {
+  ownPluginReady: boolean;
+  observer: boolean;
   boardContext: import("@/api/sessions").BoardContext | null;
   boardDefinition: import("@/api/sessions").BoardDefinition | null;
   inboundDepartures: InboundDeparturesSnapshot | null;
@@ -329,7 +331,16 @@ export interface WebSocketState {
 }
 
 // Create the store using createVanilla
-export const createWebSocketStore = (wsClient: WebSocketClient) => {
+export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: WebSocketState, deferSubscriptions = false) => {
+  let disposed = false;
+  let lifecycleVersion = 0;
+  const subscriptions: Array<() => void> = [];
+  const registrations: Array<() => (() => void) | undefined> = [];
+  let attached = false;
+  const on: WebSocketClient["on"] = (type, handler) => {
+    registrations.push(() => wsClient.on(type, data => {if (!disposed) handler(data);}));
+    return () => {};
+  };
   const pendingFrequencyMessages = new Map<string, { callsign: string; session: number | null; position: string; resolve: (result: FrequencyMessageResult) => void; timeout: ReturnType<typeof setTimeout> }>();
   let nextForceAssumeRequestId = 0;
   const pendingForceAssumeRoutes = new Map<string, {
@@ -339,6 +350,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   }>();
   // Initial state
   const initialState = {
+    ownPluginReady: false,
+    observer: false,
     boardContext: null as import("@/api/sessions").BoardContext | null,
     boardDefinition: null as import("@/api/sessions").BoardDefinition | null,
     textPilotDraft: null,
@@ -355,7 +368,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     layout: '',
     resetLayoutRecommendation: '',
     displayedLayout: '',
-    readOnly: false,
+    readOnly: wsClient.hasBoardSelection?.() ?? false,
     positionAvailable: true,
     localIp: '',
     masterCallsign: '',
@@ -401,16 +414,23 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     satEnabled: false,
   };
 
+  // Carry only data into a fresh incarnation; never old closures, pending work,
+  // drafts, menus or permissions. Airport/instance switches receive no seed.
+  if (retainedState) {
+    for (const key of Object.keys(initialState) as Array<keyof typeof initialState>) {
+      if (key in retainedState) Object.assign(initialState, {[key]: retainedState[key]});
+    }
+    Object.assign(initialState, {readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+  }
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => {
-    const ensureWritable = () => !get().readOnly;
+    const ensureWritable = () => !disposed && !get().readOnly;
     const sendIfWritable = (event: FrontendSendEvent) => {
       if (!ensureWritable()) {
         return false;
       }
 
-      wsClient.send(event);
-      return true;
+      return wsClient.send(event) !== false;
     };
 
     const findStrip = (callsign: string) => get().strips.find((strip) => strip.callsign === callsign);
@@ -459,6 +479,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     };
 
     const forceAssumeAndGetRoute = (callsign: string): Promise<string[]> => {
+      if (!ensureWritable()) return Promise.reject(new Error("Own plugin is unavailable"));
       const requestId = `${callsign}-${++nextForceAssumeRequestId}`;
 
       return new Promise((resolve, reject) => {
@@ -527,7 +548,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
          command_id: commandID,
          expected_revision: intent.type.includes("coordination_request") ? state.amanState.coordination_revision ?? 0 : state.amanState.revision,
        });
-       wsClient.send(message);
+       if (disposed || wsClient.send(message) === false) return null;
        set(produce((draft: WebSocketState) => {
          if (message.type === "aman.rebuild_arrival_sequence") draft.amanRebuildResult = null;
          draft.amanPendingCommands[commandID] = {
@@ -587,6 +608,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           if (transfer && !transfer.isTagRequest) return state;
           if (clearance && isTextPilot(state.strips.find(s => s.callsign === callsign))) {
             void get().sendFrequencyMessage(callsign, "", [{ type: ActionType.FrontendMove, callsign, bay, clearance: true }], true).then(result => {
+              if (result.cancelled || disposed) return;
               if (!result.submitted) {
                 toast.error(result.error ?? "Clearance text was not submitted");
                 get().openTextPilotMenu({ callsign, variant: "clearance", actions: result.applied_actions ? [] : [{ type: ActionType.FrontendMove, callsign, bay, clearance: true }] });
@@ -829,6 +851,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       });
     },
     transferStrip: (callsign, toPosition) => {
+      const version = lifecycleVersion;
       const strip = get().strips.find((candidate) => candidate.callsign === callsign);
       const isEstView = get().displayedLayout === "EST";
 
@@ -842,6 +865,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       if (isEstView && strip?.owner !== get().position) {
         void forceAssumeAndGetRoute(callsign)
           .then((nextOwners) => {
+            if (disposed || version !== lifecycleVersion || !ensureWritable()) return;
             const target = toPosition ?? nextOwners[0];
             if (!target) {
               toast.error("Cannot transfer: no next controller.");
@@ -863,6 +887,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       updateLocalStartReq(callsign, false);
     },
     startRequestAndTransfer: async (callsign) => {
+      const version = lifecycleVersion;
       if (!guardValidationAction(callsign, { type: "coordination_transfer_request" }) || !ensureWritable()) {
         return false;
       }
@@ -881,6 +906,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         }
       }
 
+      if (disposed || version !== lifecycleVersion || !ensureWritable()) return false;
       const target = nextOwners[0];
       if (!target) {
         toast.error("Cannot transfer: no next controller.");
@@ -961,7 +987,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         return;
       }
       set({ markArmed: false });
-      wsClient.send({ type: ActionType.FrontendMarked, callsign, marked });
+      if (wsClient.send({ type: ActionType.FrontendMarked, callsign, marked }) === false) return;
       store.setState(
         produce((state: WebSocketState) => {
           const idx = state.strips.findIndex(s => s.callsign === callsign);
@@ -972,6 +998,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      runwayClearance: (callsign) => {
        if (isTextPilot(get().strips.find(s => s.callsign === callsign))) {
          void get().sendFrequencyMessage(callsign, "", [{ type: ActionType.FrontendRunwayClearance, callsign }], false, true).then(result => {
+              if (result.cancelled || disposed) return;
            const strip = get().strips.find(s => s.callsign === callsign);
            if (!result.prepared || !strip) { toast.error(result.error ?? "Runway action rejected"); return; }
            get().openTextPilotMenu({ callsign, variant: "runway", confirmed: result.runway_confirmed, arrival: strip.destination === get().airport && strip.origin !== get().airport });
@@ -1020,6 +1047,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       }
        if (isTextPilot(get().strips.find(s => s.callsign === callsign))) {
          void get().sendFrequencyMessage(callsign, "", [{ type: ActionType.FrontendRunwayConfirmation, callsign }], false, true).then(result => {
+              if (result.cancelled || disposed) return;
            const strip = get().strips.find(s => s.callsign === callsign);
            if (!result.prepared || !strip) { toast.error(result.error ?? "Runway action rejected"); return; }
            get().openTextPilotMenu({ callsign, variant: "runway", confirmed: result.runway_confirmed, arrival: strip.destination === get().airport && strip.origin !== get().airport });
@@ -1197,6 +1225,24 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     clearStandActionRejection: () => store.setState({ standActionRejection: null }),
   }});
 
+  const suspendBoard = () => {
+    if (disposed) return;
+    lifecycleVersion++;
+    wsClient.setReadOnly?.(true);
+    for (const [id, pending] of pendingFrequencyMessages) {
+      clearTimeout(pending.timeout);
+      pending.resolve({type:"frequency_message_result", request_id:id, callsign:pending.callsign, submitted:false, prepared:false, applied_actions:0, cancelled:true, error:"Board context changed. Check EuroScope before sending again."});
+    }
+    pendingFrequencyMessages.clear();
+    for (const pending of pendingForceAssumeRoutes.values()) {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error("Board context changed"));
+    }
+    pendingForceAssumeRoutes.clear();
+    store.setState({readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+  };
+  registrations.push(() => wsClient.onInvalidated?.(suspendBoard));
+
   // Private methods to handle WebSocket events
   const handleInitialEvent = (data: FrontendInitialEvent) => {
     wsClient.setReadOnly(data.read_only ?? false);
@@ -1237,6 +1283,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.boardContext = data.board ?? null;
         state.callsign = data.callsign;
         state.readOnly = data.read_only ?? false;
+        state.ownPluginReady = data.own_plugin_ready ?? !state.readOnly;
+        state.observer = data.observer ?? state.readOnly;
         state.amanFMPAuthority = data.capabilities?.aman_fmp ?? false;
         state.positionAvailable = data.position_available ?? true;
         state.localIp = data.local_ip ?? "";
@@ -1244,7 +1292,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
         state.resetLayoutRecommendation = normalizeLayout(data.reset_layout || data.layout);
-        if (MANUAL_COMPANION_LAYOUTS.has(state.displayedLayout) && !state.followRecommendedLayout) {
+        if (state.isInitialized && data.board && !state.observer && state.displayedLayout && (!state.ownPluginReady || retainedState && !isServerSelectableLayout(data.layout))) {
+          // Own loss does not change the selected compiled board or its layout.
+        } else if (MANUAL_COMPANION_LAYOUTS.has(state.displayedLayout) && !state.followRecommendedLayout) {
           // Preserve a manually opened companion board across reconnects.
           state.followRecommendedLayout = false;
         } else if (isServerSelectableLayout(data.layout)) {
@@ -1435,6 +1485,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   const handleDisconnectEvent = (data: FrontendDisconnectEvent) => {
+    if (data.board && store.getState().isInitialized) {
+      suspendBoard();
+      return;
+    }
     const readOnly = data.read_only ?? false;
     wsClient.setReadOnly(readOnly);
     store.setState({
@@ -1749,52 +1803,52 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   // Register event handlers
-  wsClient.on(EventType.FrontendInitial, handleInitialEvent);
-  wsClient.on(EventType.FrontendMasterInfo, (data) => {
+  on(EventType.FrontendInitial, handleInitialEvent);
+  on(EventType.FrontendMasterInfo, (data) => {
     store.setState({ masterCallsign: data.master_callsign });
   });
-  wsClient.on(EventType.FrontendGoAround, handleGoAroundEvent);
-  wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
-  wsClient.on(EventType.FrontendControllerOnline, handleControllerOnlineEvent);
-  wsClient.on(EventType.FrontendControllerUpdate, handleControllerOnlineEvent);
-  wsClient.on(EventType.FrontendControllerOffline, handleControllerOfflineEvent);
-  wsClient.on(EventType.FrontendAssignedSquawk, handleAssignedSquawkEvent);
-  wsClient.on(EventType.FrontendSquawk, handleSquawkEvent);
-  wsClient.on(EventType.FrontendRequestedAltitude, handleRequestedAltitudeEvent);
-  wsClient.on(EventType.FrontendClearedAltitude, handleClearedAltitudeEvent);
-  wsClient.on(EventType.FrontendBay, handleBayEvent);
-  wsClient.on(EventType.FrontendBulkBay, handleBulkBayEvent);
-  wsClient.on(EventType.FrontendDisconnect, handleDisconnectEvent);
-  wsClient.on(EventType.FrontendAircraftDisconnect, handleAircraftDisconnectEvent);
-  wsClient.on(EventType.FrontendStand, handleStandEvent);
-  wsClient.on(EventType.FrontendSetHeading, handleSetHeadingEvent);
-  wsClient.on(EventType.FrontendCommunicationType, handleCommunicationTypeEvent);
-  wsClient.on(EventType.FrontendOwnersUpdate, handleOwnersUpdateEvent);
-  wsClient.on(EventType.FrontendCoordinationForceAssumeResult, handleForceAssumeResultEvent);
-  wsClient.on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
-  wsClient.on(EventType.FrontendBroadcast, handleBroadcastEvent);
-  wsClient.on(EventType.FrontendCdmData, handleCdmUpdateEvent);
-  wsClient.on(EventType.FrontendInboundDepartures, data => {
+  on(EventType.FrontendGoAround, handleGoAroundEvent);
+  on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
+  on(EventType.FrontendControllerOnline, handleControllerOnlineEvent);
+  on(EventType.FrontendControllerUpdate, handleControllerOnlineEvent);
+  on(EventType.FrontendControllerOffline, handleControllerOfflineEvent);
+  on(EventType.FrontendAssignedSquawk, handleAssignedSquawkEvent);
+  on(EventType.FrontendSquawk, handleSquawkEvent);
+  on(EventType.FrontendRequestedAltitude, handleRequestedAltitudeEvent);
+  on(EventType.FrontendClearedAltitude, handleClearedAltitudeEvent);
+  on(EventType.FrontendBay, handleBayEvent);
+  on(EventType.FrontendBulkBay, handleBulkBayEvent);
+  on(EventType.FrontendDisconnect, handleDisconnectEvent);
+  on(EventType.FrontendAircraftDisconnect, handleAircraftDisconnectEvent);
+  on(EventType.FrontendStand, handleStandEvent);
+  on(EventType.FrontendSetHeading, handleSetHeadingEvent);
+  on(EventType.FrontendCommunicationType, handleCommunicationTypeEvent);
+  on(EventType.FrontendOwnersUpdate, handleOwnersUpdateEvent);
+  on(EventType.FrontendCoordinationForceAssumeResult, handleForceAssumeResultEvent);
+  on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
+  on(EventType.FrontendBroadcast, handleBroadcastEvent);
+  on(EventType.FrontendCdmData, handleCdmUpdateEvent);
+  on(EventType.FrontendInboundDepartures, data => {
     const state = store.getState();
     if (data.airport !== state.airport || data.session_id !== state.amanSessionID) return;
     store.setState({inboundDepartures: data});
   });
-  wsClient.on(EventType.FrontendCdmDataBatch, handleCdmBatchUpdateEvent);
-  wsClient.on(EventType.FrontendCdmWait, handleCdmWaitEvent);
-  wsClient.on(EventType.FrontendReleasePoint, handleReleasePointEvent);
-  wsClient.on(EventType.FrontendMarked, handleMarkedEvent);
-  wsClient.on(EventType.FrontendPdcStateChange, handlePdcStateUpdateEvent);
-  wsClient.on(EventType.FrontendCoordinationTransferBroadcast, handleCoordinationTransferBroadcastEvent);
-  wsClient.on(EventType.FrontendCoordinationAssumeBroadcast, handleCoordinationAssumeBroadcastEvent);
-  wsClient.on(EventType.FrontendCoordinationRejectBroadcast, handleCoordinationRejectBroadcastEvent);
-  wsClient.on(EventType.FrontendCoordinationFreeBroadcast, handleCoordinationFreeBroadcastEvent);
-  wsClient.on(EventType.FrontendCoordinationTagRequestBroadcast, handleCoordinationTagRequestBroadcastEvent);
-  wsClient.on(EventType.FrontendRunWayConfiguration, handleRunwayConfigurationEvent);
-  wsClient.on(EventType.FrontendTacticalStripCreated, handleTacticalStripCreatedEvent);
-  wsClient.on(EventType.FrontendTacticalStripDeleted, handleTacticalStripDeletedEvent);
-  wsClient.on(EventType.FrontendTacticalStripUpdated, handleTacticalStripUpdatedEvent);
-  wsClient.on(EventType.FrontendTacticalStripMoved, handleTacticalStripMovedEvent);
-  wsClient.on(EventType.FrontendMessageReceived, handleMessageReceived);
+  on(EventType.FrontendCdmDataBatch, handleCdmBatchUpdateEvent);
+  on(EventType.FrontendCdmWait, handleCdmWaitEvent);
+  on(EventType.FrontendReleasePoint, handleReleasePointEvent);
+  on(EventType.FrontendMarked, handleMarkedEvent);
+  on(EventType.FrontendPdcStateChange, handlePdcStateUpdateEvent);
+  on(EventType.FrontendCoordinationTransferBroadcast, handleCoordinationTransferBroadcastEvent);
+  on(EventType.FrontendCoordinationAssumeBroadcast, handleCoordinationAssumeBroadcastEvent);
+  on(EventType.FrontendCoordinationRejectBroadcast, handleCoordinationRejectBroadcastEvent);
+  on(EventType.FrontendCoordinationFreeBroadcast, handleCoordinationFreeBroadcastEvent);
+  on(EventType.FrontendCoordinationTagRequestBroadcast, handleCoordinationTagRequestBroadcastEvent);
+  on(EventType.FrontendRunWayConfiguration, handleRunwayConfigurationEvent);
+  on(EventType.FrontendTacticalStripCreated, handleTacticalStripCreatedEvent);
+  on(EventType.FrontendTacticalStripDeleted, handleTacticalStripDeletedEvent);
+  on(EventType.FrontendTacticalStripUpdated, handleTacticalStripUpdatedEvent);
+  on(EventType.FrontendTacticalStripMoved, handleTacticalStripMovedEvent);
+  on(EventType.FrontendMessageReceived, handleMessageReceived);
 
   const handleAtisUpdateEvent = (data: FrontendAtisUpdateEvent) => {
     store.setState(
@@ -1806,9 +1860,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
-  wsClient.on(EventType.FrontendAtisUpdate, handleAtisUpdateEvent);
+  on(EventType.FrontendAtisUpdate, handleAtisUpdateEvent);
 
   const handleActionRejectedEvent = (data: ActionRejectedEvent) => {
+    if (store.getState().readOnly) return;
     if (data.action.startsWith("stand_assignment_")) {
       store.setState({ standActionRejection: data });
       if (data.code === "stale_version") {
@@ -1835,9 +1890,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     wsClient.reconnect();
   };
 
-  wsClient.on(EventType.FrontendActionRejected, handleActionRejectedEvent);
+  on(EventType.FrontendActionRejected, handleActionRejectedEvent);
 
-  wsClient.on(EventType.FrontendAMANState, (event) => {
+  on(EventType.FrontendAMANState, (event) => {
     // Revisions belong to the current backend/session. A fresh connection
     // must accept its first complete snapshot even if the revision restarted.
     const previous = store.getState().amanAwaitingSnapshot ? null : store.getState().amanState;
@@ -1872,7 +1927,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     }));
   });
 
-  wsClient.on(EventType.FrontendAMANArrivalSequenceRebuilt, (event) => {
+  on(EventType.FrontendAMANArrivalSequenceRebuilt, (event) => {
     if (!isAMANArrivalSequenceRebuiltEvent(event)) return;
     const current = store.getState();
     if (current.amanCommandTypes[event.data.command_id] !== "aman.rebuild_arrival_sequence"
@@ -1883,7 +1938,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     }));
   });
 
-  wsClient.on(EventType.FrontendAMANCommandRejected, (event) => {
+  on(EventType.FrontendAMANCommandRejected, (event) => {
     if (!isAMANCommandRejectedEvent(event)) {
       return;
     }
@@ -1907,7 +1962,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   });
 
-  wsClient.on(EventType.FrontendAMANCoordinationState, (event) => {
+  on(EventType.FrontendAMANCoordinationState, (event) => {
     if (!isAMANCoordinationStateEvent(event)) return;
     store.setState(produce((state: WebSocketState) => {
       if (state.amanState === null || event.revision < (state.amanState.coordination_revision ?? 0)) return;
@@ -1919,7 +1974,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     }));
   });
 
-  wsClient.on(EventType.FrontendAvailableSids, (data) => {
+  on(EventType.FrontendAvailableSids, (data) => {
     store.setState({ availableSids: data.sids });
   });
 
@@ -1932,7 +1987,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
-  wsClient.on(EventType.FrontendStandStatusSnapshot, handleStandStatusSnapshot);
+  on(EventType.FrontendStandStatusSnapshot, handleStandStatusSnapshot);
 
   const handleStandAssignmentUpdate = (data: FrontendStandAssignmentUpdateEvent) => {
     store.setState(
@@ -1947,7 +2002,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
-  wsClient.on(EventType.FrontendStandAssignmentUpdate, handleStandAssignmentUpdate);
+  on(EventType.FrontendStandAssignmentUpdate, handleStandAssignmentUpdate);
 
   const handleStandAssignmentRemoved = (data: FrontendStandAssignmentRemovedEvent) => {
     store.setState(
@@ -1959,7 +2014,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
-  wsClient.on(EventType.FrontendStandAssignmentRemoved, handleStandAssignmentRemoved);
+  on(EventType.FrontendStandAssignmentRemoved, handleStandAssignmentRemoved);
 
   const handleStandBlockUpdate = (data: FrontendStandBlockUpdateEvent) => {
     store.setState(
@@ -1987,9 +2042,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
-  wsClient.on(EventType.FrontendStandBlockUpdate, handleStandBlockUpdate);
+  on(EventType.FrontendStandBlockUpdate, handleStandBlockUpdate);
 
-  wsClient.on(EventType.FrontendFrequencyMessageResult, (result) => {
+  on(EventType.FrontendFrequencyMessageResult, (result) => {
     const pending = pendingFrequencyMessages.get(result.request_id);
     if (!pending || pending.callsign !== result.callsign) return;
     clearTimeout(pending.timeout);
@@ -1998,5 +2053,19 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       pending.resolve({ ...result, submitted: false, prepared: false, error: "Controller context changed. Check EuroScope before sending again." });
     } else pending.resolve(result);
   });
-  return store;
+  const attach = () => {
+    if (attached || disposed) return;
+    attached = true;
+    for (const register of registrations) {
+      const off = register();
+      if (typeof off === "function") subscriptions.push(off);
+    }
+  };
+  if (!deferSubscriptions) attach();
+  return Object.assign(store, {attach, suspendBoard, dispose: () => {
+    if (disposed) return;
+    suspendBoard();
+    disposed = true;
+    for (const off of subscriptions) off();
+  }});
 };

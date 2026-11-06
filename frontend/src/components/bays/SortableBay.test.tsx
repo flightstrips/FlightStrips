@@ -4,9 +4,11 @@ import { Bay, type FrontendStrip } from "@/api/models";
 import { useSortable } from "@dnd-kit/sortable";
 import { SortableBay, SortableStrip } from "./SortableBay";
 
+const board = vi.hoisted(() => ({readOnly:false}));
 const stripTransfers = vi.hoisted(() => ({} as Record<string, { from: string; to: string; isTagRequest: boolean }>));
 
 vi.mock("@/store/store-hooks", () => ({
+  useWebSocketStore: (selector: (s: typeof board) => unknown) => selector(board),
   useMyPosition: () => "118.105",
   useOpenValidationDialog: () => vi.fn(),
   useStripTransfers: () => stripTransfers,
@@ -28,6 +30,13 @@ vi.mock("@dnd-kit/sortable", async (importOriginal) => {
 });
 
 describe("SortableStrip", () => {
+  it("disables every drag handle when the selected board becomes read-only", () => {
+    board.readOnly = true;
+    render(<SortableStrip callsign="SAS123"><span>SAS123</span></SortableStrip>);
+    expect(useSortable).toHaveBeenLastCalledWith(expect.objectContaining({disabled:true}));
+    board.readOnly = false;
+  });
+
   it("locks a strip during an active non-tag handover", () => {
     const strip = { callsign: "SAS123", bay: Bay.Cleared, owner: "118.105" } as FrontendStrip;
     stripTransfers.SAS123 = { from: "118.105", to: "121.905", isTagRequest: false };

@@ -75,6 +75,17 @@ async function rejected(page: Page, token: string, command: Record<string, unkno
 test("strip moves and reorders persist, respect ownership and reach a second browser", async ({session, request}, testInfo) => {
   const primary = await session("__TEST_TOKEN__");
   const secondary = await session("__TEST_FRONTEND_TOKEN__");
+  await secondary.addInitScript(() => {
+    const state = window as typeof window & {boardSocket?: WebSocket; boardContext?: Record<string, unknown>};
+    const NativeSocket = window.WebSocket;
+    window.WebSocket = class extends NativeSocket {
+      constructor(url: string | URL, protocols?: string | string[]) {super(url, protocols); if (String(url).includes("frontEndEvents")) state.boardSocket = this;}
+      send(data: Parameters<WebSocket["send"]>[0]) {
+        if (typeof data === "string") {const event = JSON.parse(data); if (event.type === "token") state.boardContext = event.board;}
+        super.send(data);
+      }
+    };
+  });
   const pages = [primary, secondary];
   await Promise.all(pages.map(openTower));
   await test.step("independent controllers assume their strips through the UI", async () => {
@@ -158,4 +169,37 @@ test("strip moves and reorders persist, respect ownership and reach a second bro
     await expect(strip(secondary, "SAS404")).toHaveAttribute("aria-disabled", "false");
     await testInfo.attach("persisted-strips", {body: JSON.stringify(await persisted(request), null, 2), contentType: "application/json"});
   });
+  await test.step("own-plugin loss retains the selected board read-only while another master stays online", async () => {
+    const oldBoard = await secondary.evaluate(() => (window as typeof window & {boardContext?: Record<string, unknown>}).boardContext!);
+    const response = await request.post(`${backend}/e2e/own-plugin/disconnect`);
+    expect(response.ok()).toBe(true);
+    await expect(secondary.getByRole("status").filter({hasText: "Own plugin unavailable"})).toBeVisible();
+    await expect(strip(secondary, "SAS404")).toBeVisible();
+    await expect(strip(secondary, "SAS404")).toHaveAttribute("aria-disabled", "true");
+    await expect(strip(primary, "SAS301")).toHaveAttribute("aria-disabled", "false");
+    // An annotation-like mutation sent on the still-live board socket must be
+    // denied server-side even though the elected master remains connected.
+    const rejection = await secondary.evaluate(board => new Promise<string>((resolve, reject) => {
+      const socket = (window as typeof window & {boardSocket?: WebSocket}).boardSocket!;
+      const timer = setTimeout(() => reject(new Error("missing read-only rejection")), 5000);
+      const listen = ({data}: MessageEvent) => {const event = JSON.parse(String(data)); if (event.type === "action_rejected") {clearTimeout(timer); socket.removeEventListener("message",listen); resolve(event.reason);}};
+      socket.addEventListener("message",listen);
+      socket.send(JSON.stringify({type:"marked",callsign:"SAS404",marked:true,board}));
+    }), oldBoard);
+    expect(rejection).toMatch(/read-only|unavailable|disconnected/);
+    // The read-only board continues receiving same-session publications.
+    const moving = runway.find(c => c !== "SAS404")!;
+    await drag(primary, strip(primary,moving), strip(primary,runway.at(-1)!));
+    runway = [...runway.filter(c => c !== moving), moving];
+    await assertBay(request,pages,"RWY-DEP","DEPART",runway);
+    expect((await request.post(`${backend}/e2e/own-plugin/reconnect`)).ok()).toBe(true);
+    await expect(strip(secondary,"SAS404")).toHaveAttribute("aria-disabled","false");
+    await expect(secondary.getByRole("status").filter({hasText: "Own plugin unavailable"})).not.toBeVisible();
+    const rebound = await secondary.evaluate(() => (window as typeof window & {boardContext?: Record<string, unknown>}).boardContext!);
+    expect(rebound.instance_id).toBe(oldBoard.instance_id);
+    expect(rebound.generation).not.toBe(oldBoard.generation);
+    expect(rebound.subscription_id).not.toBe(oldBoard.subscription_id);
+    await assertBay(request,pages,"RWY-DEP","DEPART",runway);
+  });
+
 });

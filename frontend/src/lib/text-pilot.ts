@@ -20,6 +20,8 @@ export interface TextPilotDraft {
   startRequestTransfer?: boolean;
 }
 export interface FrequencyMessageResult {
+  // Local cancellation of a request whose board/subscription changed.
+  cancelled?: boolean;
   type: "frequency_message_result";
   request_id: string;
   callsign: string;

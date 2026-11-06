@@ -69,4 +69,24 @@ describe("exact board subscription transport", () => {
     expect(receive).toHaveBeenCalledOnce();
     client.disconnect();
   });
+  it("ignores old socket callbacks and subscription frames after reconnect or disposal", async () => {
+    const {client, socket: oldSocket, board: oldBoard} = await connect();
+    const received = vi.fn();
+    client.on(EventType.FrontendMarked, received);
+    client.reconnect();
+    const nextSocket = Socket.instances.at(-1)!;
+    nextSocket.onopen!();
+    const nextBoard = nextSocket.sent[0].board as BoardContext;
+    expect(nextBoard.subscription_id).not.toBe(oldBoard.subscription_id);
+    oldSocket.emit({type: EventType.FrontendMarked, board: oldBoard});
+    nextSocket.emit({type: EventType.FrontendMarked, board: oldBoard});
+    expect(received).not.toHaveBeenCalled();
+    nextSocket.emit({type: EventType.FrontendMarked, board: nextBoard});
+    expect(received).toHaveBeenCalledOnce();
+    client.dispose();
+    nextSocket.emit({type: EventType.FrontendMarked, board: nextBoard});
+    expect(received).toHaveBeenCalledOnce();
+    await expect(client.connect()).rejects.toThrow("disposed");
+  });
+
 });

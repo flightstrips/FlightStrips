@@ -286,6 +286,8 @@ type SyncCoordination struct {
 }
 
 type InitialEvent struct {
+	OwnPluginReady         bool                       `json:"own_plugin_ready"`
+	Observer               bool                       `json:"observer"`
 	Definition             *BoardDefinition           `json:"definition,omitempty"`
 	TextPilot              *pkgModels.TextPilotInputs `json:"text_pilot,omitempty"`
 	MasterCallsign         string                     `json:"master_callsign"`

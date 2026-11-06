@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
+	"sync"
 	"time"
 
 	"FlightStrips/internal/app"
@@ -20,6 +22,13 @@ import (
 func newStripsSuite() suite {
 	var clients []*websocket.Conn
 	var database *pgxpool.Pool
+	var ownMu sync.Mutex
+	var own *websocket.Conn
+	var pluginEndpoint string
+	ownInstance := uuid.NewString()
+	connectOwn := func(ctx context.Context) (*websocket.Conn, error) {
+		return connectFixtureControllerInstance(ctx, pluginEndpoint, services.TestFrontendToken, &es.LoginEvent{Airport: "EKCH", Connection: "LIVE", Position: "118.580", Callsign: "EKCH_GW_TWR", Range: 300}, nil, nil, ownInstance)
+	}
 	original := http.DefaultTransport
 	http.DefaultTransport = fixtureTransport{upstream: original}
 	return suite{
@@ -33,6 +42,31 @@ func newStripsSuite() suite {
 		},
 		register: func(mux *http.ServeMux, pool *pgxpool.Pool, _ string) {
 			database = pool
+			mux.HandleFunc("POST /e2e/own-plugin/disconnect", func(w http.ResponseWriter, r *http.Request) {
+				ownMu.Lock()
+				defer ownMu.Unlock()
+				if own != nil {
+					own.Close()
+					own = nil
+				}
+				w.WriteHeader(http.StatusNoContent)
+			})
+			mux.HandleFunc("POST /e2e/own-plugin/reconnect", func(w http.ResponseWriter, r *http.Request) {
+				ownMu.Lock()
+				defer ownMu.Unlock()
+				if own != nil {
+					http.Error(w, "own plugin is still connected", http.StatusConflict)
+					return
+				}
+				next, err := connectOwn(r.Context())
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				own = next
+				clients = append(clients, next)
+				w.WriteHeader(http.StatusNoContent)
+			})
 			mux.HandleFunc("/e2e/persisted", func(w http.ResponseWriter, r *http.Request) {
 				var session int32
 				if err := pool.QueryRow(r.Context(), "SELECT id FROM sessions WHERE airport='EKCH' AND name='LIVE'").Scan(&session); err != nil {
@@ -78,12 +112,13 @@ func newStripsSuite() suite {
 				}
 			}
 
-			secondary, err := connectFixtureController(ctx, endpoint, services.TestFrontendToken,
-				&es.LoginEvent{Airport: "EKCH", Connection: "LIVE", Position: "118.580", Callsign: "EKCH_GW_TWR", Range: 300}, nil, nil)
+			pluginEndpoint = endpoint
+			secondary, err := connectOwn(ctx)
 			if err != nil {
 				return err
 			}
 			clients = append(clients, secondary)
+			own = secondary
 			return nil
 		},
 	}

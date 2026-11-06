@@ -9,6 +9,7 @@ const {getToken, logout, client} = vi.hoisted(() => ({
   client: {
     setToken: vi.fn(),
     connect: vi.fn(),
+    reconnect: vi.fn(),
     disconnect: vi.fn(),
     isConnected: vi.fn(),
   },
@@ -71,4 +72,27 @@ describe('WebSocket authentication', () => {
     expect(logout).toHaveBeenCalledWith({openUrl: false});
     expect(vi.getTimerCount()).toBe(0);
   });
+  it('ignores an old board token lookup that resolves after unmount', async () => {
+    let resolve!: (token: string) => void;
+    getToken.mockImplementation(() => new Promise<string>(done => {resolve = done;}));
+    const view = render(<WebSocketProvider url="ws://old"><span>Old board</span></WebSocketProvider>);
+    view.unmount();
+    await act(async () => {resolve("old-token");});
+    expect(client.setToken).not.toHaveBeenCalled();
+    expect(client.connect).not.toHaveBeenCalled();
+    expect(logout).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('requests an authorized replacement snapshot when the same own membership becomes ready again', async () => {
+    getToken.mockResolvedValue("token");
+    const view = render(<WebSocketProvider url="ws://board" ownPluginAvailable={false}><span>Board</span></WebSocketProvider>);
+    await act(async () => {});
+    client.isConnected.mockReturnValue(true);
+    view.rerender(<WebSocketProvider url="ws://board" ownPluginAvailable={true}><span>Board</span></WebSocketProvider>);
+    expect(client.reconnect).toHaveBeenCalledOnce();
+    view.rerender(<WebSocketProvider url="ws://board" ownPluginAvailable={true}><span>Board</span></WebSocketProvider>);
+    expect(client.reconnect).toHaveBeenCalledOnce();
+  });
+
 });

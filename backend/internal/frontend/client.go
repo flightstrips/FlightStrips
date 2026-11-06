@@ -24,6 +24,8 @@ const (
 
 // Client represents a frontend gorilla client
 type Client struct {
+	boardDefinition   *frontendEvents.BoardDefinition // last authorized immutable snapshot metadata, hub-owned
+	boardObserver     bool
 	selection         membershipSelection // immutable authenticated socket selection
 	frequencyRequests sync.Map
 	conn              *gorilla.Conn
@@ -210,6 +212,9 @@ func (c *Client) CanHandleMessage(messageType string) error {
 		return nil
 	}
 
+	if c.selection.board != nil {
+		return shared.RejectAction("selected board is read-only")
+	}
 	return shared.RejectAction("observer clients are read-only")
 }
 

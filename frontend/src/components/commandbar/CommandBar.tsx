@@ -112,6 +112,7 @@ export default function CommandBar() {
   const setDisplayedLayout = useWebSocketStore((state) => state.setDisplayedLayout);
   const resetLayout = useWebSocketStore((state) => state.resetLayout);
   const readOnly = useWebSocketStore((state) => state.readOnly);
+  const observer = useWebSocketStore((state) => state.observer);
   const positionAvailable = useWebSocketStore((state) => state.positionAvailable);
   const runwaySetup = useRunwaySetup();
   const masterCallsign = useWebSocketStore((state) => state.masterCallsign);
@@ -130,7 +131,7 @@ export default function CommandBar() {
 
   const depRwy = runwaySetup.departure[0] ?? "—";
   const arrRwy = runwaySetup.arrival[0] ?? "—";
-  const scopeLabel = readOnly && !positionAvailable
+  const scopeLabel = observer && readOnly && !positionAvailable
     ? "INVALID"
     : (SCOPE_LABELS[currentLayout] ?? currentLayout);
   const runwayStatus = runwaySetup.runway_status ?? {};
@@ -140,7 +141,7 @@ export default function CommandBar() {
 
   const myPosition = useWebSocketStore((state) => state.position);
   const scopeButtonClass = readOnly ? "bg-[#FFD84D] text-black" : "bg-[#1bff16] text-black";
-  const positionLabel = myPosition ? `${myPosition}${readOnly ? " (OBS)" : ""}` : "";
+  const positionLabel = myPosition ? `${myPosition}${readOnly ? observer ? " (OBS)" : " (READ-ONLY)" : ""}` : "";
   const isOwner = !!selectedCallsign && !!myPosition && strip?.owner === myPosition;
   const isMarked = effectiveStripMarked(strip?.marked, localMarked);
   const canMark = !!selectedCallsign || strips.length > 0;

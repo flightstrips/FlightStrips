@@ -369,7 +369,7 @@ func validateTiers(tiers []StandTier, path string, registry *StandCapabilityRegi
 				}
 			}
 			if registry != nil && entry.Stand != "" {
-				if _, ok := registry.Lookup("EKCH", entry.Stand); !ok {
+				if !registry.policyStandExists(entry.Stand) {
 					return fmt.Errorf("%s.tiers[%d].entries[%d] references unknown stand %q", path, tierIndex, entryIndex, entry.Stand)
 				}
 			}
@@ -576,7 +576,7 @@ func (c *AirlineAssignmentConfig) ResolveStandGroup(name string, registries ...*
 				continue
 			}
 			if registry != nil {
-				if _, ok := registry.Lookup("EKCH", member); !ok {
+				if !registry.policyStandExists(member) {
 					return fmt.Errorf("stand group %q references unknown stand %q", group, member)
 				}
 			}

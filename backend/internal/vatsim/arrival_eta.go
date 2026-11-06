@@ -180,3 +180,11 @@ func acceptedArrivalETA(previous *models.ArrivalETA, candidate models.ArrivalETA
 	}
 	return candidate, true
 }
+
+func WithAirportCoordinateLookup(lookup func(string) AirportCoordinates) ArrivalETAOption {
+	return func(r *Reconciler) { r.coordinatesForAirport = lookup }
+}
+
+func WithLegacyArrivalETAWriterForAirport(enabled func(string) bool) ArrivalETAOption {
+	return func(r *Reconciler) { r.legacyETAForAirport = enabled }
+}

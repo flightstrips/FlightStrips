@@ -192,7 +192,8 @@ func (s *StandActionService) request(ctx context.Context, session int32, airport
 	if strings.EqualFold(strip.Origin, airport) {
 		direction, compatDirection = sat.AssignmentDirectionDeparture, sat.Departure
 	}
-	facts := sat.ResolveFlightCompatibilityFacts(sat.FlightCompatibilityInput{Direction: compatDirection, Origin: strip.Origin, Destination: strip.Destination, AircraftType: valueString(strip.AircraftType), LiveEngineType: strip.EngineType}, s.aircraft, s.engines, s.borders)
+	aircraft, engines, borders := s.allocations.referencesForAirport(airport, s.aircraft, s.engines, s.borders)
+	facts := sat.ResolveFlightCompatibilityFacts(sat.FlightCompatibilityInput{Direction: compatDirection, Origin: strip.Origin, Destination: strip.Destination, AircraftType: valueString(strip.AircraftType), LiveEngineType: strip.EngineType}, aircraft, engines, borders)
 	stage := StageConfirmed
 	var expiresAt *time.Time
 	if direction == sat.AssignmentDirectionDeparture {

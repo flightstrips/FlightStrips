@@ -706,7 +706,8 @@ func (s *ArrivalLifecycleService) resolveFacts(strip *models.Strip, flight vatsi
 		AircraftType:   aircraftType,
 		LiveEngineType: engineTypeValue(strip),
 	}
-	facts := sat.ResolveFlightCompatibilityFacts(input, s.aircraft, s.engines, s.borders)
+	aircraft, engines, borders := s.allocations.referencesForAirport(destination, s.aircraft, s.engines, s.borders)
+	facts := sat.ResolveFlightCompatibilityFacts(input, aircraft, engines, borders)
 	// A freshly created EuroScope session can briefly contain a strip whose
 	// source fields are incomplete or unrecognized while the same VATSIM flight
 	// already has usable facts. Do not let that transient strip state downgrade
@@ -727,7 +728,7 @@ func (s *ArrivalLifecycleService) resolveFacts(strip *models.Strip, flight vatsi
 		retryWithFlightFacts = true
 	}
 	if retryWithFlightFacts {
-		facts = sat.ResolveFlightCompatibilityFacts(input, s.aircraft, s.engines, s.borders)
+		facts = sat.ResolveFlightCompatibilityFacts(input, aircraft, engines, borders)
 	}
 	assignmentFacts := sat.AssignmentFlightFacts{
 		Callsign:     strip.Callsign,

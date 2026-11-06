@@ -182,7 +182,7 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 		if err != nil {
 			return fmt.Errorf("services.stand_assignment.stands: %w", err)
 		}
-		if _, err := sat.LoadAirlineAssignmentFile(resource("airline_assignment"), stands); err != nil {
+		if _, err := sat.LoadAirlineAssignmentFile(resource("airline_assignment"), stands.ForAirport(d.Airport())); err != nil {
 			return fmt.Errorf("services.stand_assignment.airline_assignment: %w", err)
 		}
 		if scenery, err := gsx.LoadSceneryConfig(resource("scenery")); err != nil {

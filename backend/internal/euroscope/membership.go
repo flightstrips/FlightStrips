@@ -30,6 +30,25 @@ type pluginTransport struct {
 	pendingLegacy string // retry failed admission, never an intentional removal
 }
 
+// HasLiveSourceDemand includes physical control instances waiting to rejoin.
+// Membership removal does not remove the transport's demand for staffing/radios.
+func (hub *Hub) HasLiveSourceDemand() bool {
+	hub.clientsMu.RLock()
+	defer hub.clientsMu.RUnlock()
+	for root := range hub.transports {
+		if root.isClosed() || !root.IsAuthenticated() || root.transport == nil {
+			continue
+		}
+		root.transport.mu.RLock()
+		live := root.transport.evidence.Environment == "LIVE"
+		root.transport.mu.RUnlock()
+		if live {
+			return true
+		}
+	}
+	return false
+}
+
 func newGeneration() uint64 {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {

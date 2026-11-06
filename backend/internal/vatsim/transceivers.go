@@ -11,11 +11,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 const defaultTransceiversURL = "https://data.vatsim.net/v3/transceivers-data.json"
 
 type TransceiverCache struct {
+	refreshes       singleflight.Group
 	client          *http.Client
 	transceiversURL string
 	refreshInterval time.Duration
@@ -25,6 +28,7 @@ type TransceiverCache struct {
 	frequenciesByCallsign map[string][]string
 	refreshPending        bool
 	lastUpdated           time.Time
+	lastRefreshError      error
 }
 
 type transceiverDataClient struct {
@@ -82,20 +86,45 @@ func (c *TransceiverCache) Start(ctx context.Context) {
 }
 
 func (c *TransceiverCache) GetFrequencies(callsign string) []string {
+	return c.Snapshot().GetFrequencies(callsign)
+}
+
+// TransceiverSnapshot holds one immutable radio generation and shared health.
+// Lookups clone slices; consumers cannot mutate the shared index.
+type TransceiverSnapshot struct {
+	Timestamp             time.Time
+	LastRefreshError      error
+	frequenciesByCallsign map[string][]string
+}
+
+func (c *TransceiverCache) Snapshot() TransceiverSnapshot {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return TransceiverSnapshot{c.lastUpdated, c.lastRefreshError, c.frequenciesByCallsign}
+}
+
+func (s TransceiverSnapshot) GetFrequencies(callsign string) []string {
 	normalizedCallsign := normalizeCallsign(callsign)
 	if normalizedCallsign == "" {
 		return nil
 	}
 
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return slices.Clone(c.frequenciesByCallsign[normalizedCallsign])
+	return slices.Clone(s.frequenciesByCallsign[normalizedCallsign])
 }
 
 func (c *TransceiverCache) refresh(ctx context.Context) error {
+	_, err, _ := c.refreshes.Do("transceivers", func() (any, error) {
+		return nil, c.refreshOnce(ctx)
+	})
+	return err
+}
+
+func (c *TransceiverCache) refreshOnce(ctx context.Context) error {
 	snapshot, err := c.fetch(ctx)
 	if err != nil {
+		c.mu.Lock()
+		c.lastRefreshError = err
+		c.mu.Unlock()
 		return err
 	}
 
@@ -104,6 +133,7 @@ func (c *TransceiverCache) refresh(ctx context.Context) error {
 	shouldNotify := c.onUpdate != nil && (changed || c.refreshPending)
 	c.frequenciesByCallsign = snapshot
 	c.lastUpdated = time.Now().UTC()
+	c.lastRefreshError = nil
 	c.mu.Unlock()
 
 	if !shouldNotify {

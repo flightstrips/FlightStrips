@@ -192,6 +192,7 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
       if (isTextPilot(strip)) {
         setLegacyPending(true);
         void sendFrequencyMessage(callsign, "", [{ type: ActionType.FrontendUpdateStripData, callsign, stand }], false, true).then(result => {
+          if (result.cancelled) return;
           setLegacyPending(false);
           if (!result.prepared) { toast.error(result.error ?? "Stand assignment rejected"); return; }
           close();

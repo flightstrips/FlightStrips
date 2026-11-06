@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStore } from 'zustand';
 import { createWebSocketStore } from './store.ts';
 import { WebSocketClient } from '../api/websocket.ts';
@@ -9,10 +9,33 @@ interface WebSocketStoreProviderProps {
   wsClient: WebSocketClient;
   connected: boolean;
   selectionControls?: ReactNode;
+  retainedState?: import("./store").WebSocketState;
+  onStateChanged?: (state: import("./store").WebSocketState) => void;
+  ownPluginAvailable?: boolean;
 }
 
-export const WebSocketStoreProvider = ({ children, wsClient, connected, selectionControls }: WebSocketStoreProviderProps) => {
-  const [store] = useState(() => createWebSocketStore(wsClient));
+export const WebSocketStoreProvider = ({ children, wsClient, connected, selectionControls, retainedState, onStateChanged, ownPluginAvailable }: WebSocketStoreProviderProps) => {
+  const [store] = useState(() => createWebSocketStore(wsClient, retainedState, true));
+
+  const mounted = useRef(true);
+  const ownPluginReady = useStore(store, state => state.ownPluginReady);
+  const observer = useStore(store, state => state.observer);
+  useEffect(() => {
+    mounted.current = true;
+    store.attach();
+    const capture = () => onStateChanged?.(store.getState());
+    capture();
+    const off = store.subscribe(capture);
+    return () => {
+      mounted.current = false;
+      off();
+      store.suspendBoard();
+      queueMicrotask(() => {if (!mounted.current) store.dispose();});
+    };
+  }, [onStateChanged, store]);
+  useEffect(() => {
+    if (ownPluginAvailable === false) store.suspendBoard();
+  }, [ownPluginAvailable, store]);
 
   const initialized = useStore(store, state => state.isInitialized);
   const readOnly = useStore(store, state => state.readOnly);
@@ -21,7 +44,7 @@ export const WebSocketStoreProvider = ({ children, wsClient, connected, selectio
     store.getState().setAMANConnectionState(connected ? "connected" : "disconnected");
   }, [connected, store]);
 
-  if (!connected) {
+  if (!connected && !initialized) {
     return (
       <div className="w-screen min-h-svh flex flex-col justify-center items-center bg-primary text-white">
         <div className="absolute top-4 right-4">{selectionControls}</div>
@@ -54,6 +77,7 @@ export const WebSocketStoreProvider = ({ children, wsClient, connected, selectio
 
   return (
     <WebSocketStoreContext.Provider value={store}>
+      {readOnly && <div role="status" className="fixed top-2 left-1/2 -translate-x-1/2 z-40 rounded bg-amber-200 px-4 py-1 text-black text-sm shadow">{observer ? "Observer · Read-only" : ownPluginReady ? "Read-only" : "Own plugin unavailable · Read-only"}</div>}
       {children}
     </WebSocketStoreContext.Provider>
   );

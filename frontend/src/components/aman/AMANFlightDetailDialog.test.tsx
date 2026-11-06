@@ -53,6 +53,20 @@ function Harness() {
 }
 
 describe("AMAN flight detail dialog integration", () => {
+  it("ignores an old API result after rebinding the same airport and callsign", async () => {
+    let resolveOld!: (value: AMANFlightDetail) => void;
+    fetchDetail.mockImplementationOnce(() => new Promise<AMANFlightDetail>(resolve => {resolveOld = resolve;}));
+    fetchDetail.mockResolvedValueOnce({...detail, revision: 99});
+    const board = {session_id:1,airport:"EKCH",environment:"LIVE",instance_id:"own",membership_id:"m",transport_generation:"1",generation:"2",definition_revision:"revision",subscription_id:"old"};
+    const view = render(<AMANFlightDetailDialog airport="EKCH" callsign="SAS123" board={board} onClose={() => {}}/>);
+    await waitFor(() => expect(resolveOld).toBeDefined());
+    view.rerender(<AMANFlightDetailDialog airport="EKCH" callsign="SAS123" board={{...board,generation:"3",subscription_id:"new"}} onClose={() => {}}/>);
+    const summary = await screen.findByLabelText("Flight information summary");
+    await waitFor(() => expect(summary).toHaveTextContent("state revision 99"));
+    await act(async () => resolveOld({...detail,revision:17}));
+    expect(summary).toHaveTextContent("state revision 99");
+  });
+
   it("refreshes an open flight on AMAN revisions while retaining the displayed detail until the response arrives", async () => {
     fetchDetail.mockResolvedValueOnce(detail);
     let resolveRefresh!: (value: AMANFlightDetail) => void;

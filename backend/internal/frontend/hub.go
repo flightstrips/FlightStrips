@@ -495,11 +495,27 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 		return
 	}
 	if source, ok := hub.server.GetEuroscopeHub().(frontendBoardSource); ok && client.selection.board != nil {
-		_, definition, readOnly, authErr := source.AuthorizeFrontendBoard(client.GetCid(), *client.selection.board)
+		controller, definition, readOnly, authErr := source.AuthorizeFrontendBoard(client.GetCid(), *client.selection.board)
 		if authErr != nil {
-			return
+			// Only this already-authorized live socket can retain/read its board
+			// after own loss. A new socket still requires live authorization.
+			if !client.readOnly || client.boardDefinition == nil {
+				return
+			}
+			definition = *client.boardDefinition
+			readOnly = true
+			event.Observer = client.boardObserver
+		} else {
+			client.boardDefinition = &definition
+			client.boardObserver = controller.Observer
+			event.Observer = controller.Observer
 		}
 		event.Definition = &definition
+		if readiness, ok := source.(interface {
+			FrontendBoardReady(string, events.BoardContext) bool
+		}); ok {
+			event.OwnPluginReady = readiness.FrontendBoardReady(client.GetCid(), *client.selection.board)
+		}
 		event.ReadOnly = readOnly
 		client.SetReadOnly(readOnly)
 	}
@@ -953,6 +969,12 @@ func (hub *Hub) handlePluginMembershipDisconnected(msg cidDisconnectMessage) {
 	for client := range hub.clients {
 		if client.GetCid() == cid && (session == 0 || client.session == session) {
 			if msg.membership != "" && client.selection.explicit() && (client.selection.instance != msg.instance || client.selection.membership != msg.membership) {
+				continue
+			}
+			if client.selection.board != nil {
+				client.initialPending = client.boardDefinition != nil
+				client.SetReadOnly(true)
+				client.Enqueue(frontend.DisconnectEvent{ReadOnly: true})
 				continue
 			}
 			readOnly := false

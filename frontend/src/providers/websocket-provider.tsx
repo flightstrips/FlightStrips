@@ -3,6 +3,7 @@ import {WebSocketClient, createWebSocketClient} from '@/api/websocket';
 import {WebSocketStoreProvider} from '@/store/store-provider';
 import {UserRatingContext} from '@/store/user-rating-context';
 import {useAuth0} from '@auth0/auth0-react';
+import type {WebSocketState} from "@/store/store";
 import type {OwnMembership} from "@/api/sessions";
 import {requireAccessToken, requiresLoginPrompt} from '@/lib/authenticated-fetch';
 
@@ -11,6 +12,9 @@ interface WebSocketProviderProps {
   url: string;
   selection?: OwnMembership;
   selectionControls?: ReactNode;
+  retainedState?: WebSocketState;
+  onStateChanged?: (state: WebSocketState) => void;
+  ownPluginAvailable?: boolean;
 }
 
 // Match the Auth0 SDK cache policy and refresh once the token enters its last minute.
@@ -62,10 +66,11 @@ function getTokenRefreshDelayMs(token: string, nowMs = Date.now()): number | nul
   return Math.max(Math.floor(remainingMs / 2), MIN_REFRESH_RETRY_MS);
 }
 
-export const WebSocketProvider = ({children, url, selection, selectionControls}: WebSocketProviderProps) => {
+export const WebSocketProvider = ({children, url, selection, selectionControls, retainedState, onStateChanged, ownPluginAvailable}: WebSocketProviderProps) => {
   // Get the authentication token from Auth0
   const {getAccessTokenSilently, isAuthenticated, isLoading, logout} = useAuth0();
 
+  const alive = useRef(true);
   const [wsConnected, setWsConnected] = useState(false);
   const [userRating, setUserRating] = useState(0);
 
@@ -74,6 +79,15 @@ export const WebSocketProvider = ({children, url, selection, selectionControls}:
     onConnected: () => setWsConnected(true),
     onDisconnected: () => setWsConnected(false)
   }, selection));
+
+  const previousAvailability = useRef(ownPluginAvailable);
+  useEffect(() => {
+    const wasAvailable = previousAvailability.current;
+    previousAvailability.current = ownPluginAvailable;
+    // A recovery hint requests a fresh authorized snapshot; it never grants
+    // editing permission directly from discovery or another plugin's mastership.
+    if (wasAvailable === false && ownPluginAvailable === true && wsClient.isConnected()) wsClient.reconnect();
+  }, [ownPluginAvailable, wsClient]);
 
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Stable ref so scheduleTokenRefresh can always call the latest refreshToken without
@@ -145,10 +159,12 @@ export const WebSocketProvider = ({children, url, selection, selectionControls}:
 
     try {
       const token = requireAccessToken(await getAccessTokenSilently());
+      if (!alive.current) return;
       wsClient.setToken(token);
       setUserRating(getTokenRating(token));
       scheduleTokenRefresh(token);
     } catch (error) {
+      if (!alive.current) return;
       await handleAccessTokenError(error, true, 'Error refreshing access token:');
     }
   }, [getAccessTokenSilently, handleAccessTokenError, isAuthenticated, scheduleTokenRefresh, wsClient]);
@@ -160,10 +176,12 @@ export const WebSocketProvider = ({children, url, selection, selectionControls}:
 
   // Set the authentication token and connect when it's available
   useEffect(() => {
+    let active = true;
     const getAndSetTokenAndConnect = async () => {
       if (isAuthenticated && !isLoading && wsClient && !reauthenticatingRef.current) {
         try {
           const token = requireAccessToken(await getAccessTokenSilently());
+          if (!active || !alive.current) return;
           wsClient.setToken(token);
           setUserRating(getTokenRating(token));
           scheduleTokenRefresh(token);
@@ -174,12 +192,14 @@ export const WebSocketProvider = ({children, url, selection, selectionControls}:
             });
           }
         } catch (error) {
+          if (!active || !alive.current) return;
           await handleAccessTokenError(error, false, 'Error getting access token:');
         }
       }
     };
 
     void getAndSetTokenAndConnect();
+    return () => {active = false;};
   }, [getAccessTokenSilently, handleAccessTokenError, isAuthenticated, isLoading, scheduleTokenRefresh, wsClient]);
 
   useEffect(() => {
@@ -190,9 +210,12 @@ export const WebSocketProvider = ({children, url, selection, selectionControls}:
   }, [clearRefreshTimeout, isAuthenticated]);
 
   useEffect(() => {
+    alive.current = true;
     return () => {
+      alive.current = false;
       clearRefreshTimeout();
       wsClient.disconnect();
+      queueMicrotask(() => {if (!alive.current) wsClient.dispose?.();});
     };
   }, [clearRefreshTimeout, wsClient]);
 
@@ -205,7 +228,7 @@ export const WebSocketProvider = ({children, url, selection, selectionControls}:
   // visible rejections are not discarded while the socket is unavailable.
   return (
     <UserRatingContext.Provider value={userRating}>
-      <WebSocketStoreProvider wsClient={wsClient} connected={wsConnected} selectionControls={selectionControls}>
+      <WebSocketStoreProvider wsClient={wsClient} connected={wsConnected} selectionControls={selectionControls} retainedState={retainedState} onStateChanged={onStateChanged} ownPluginAvailable={ownPluginAvailable}>
         {children}
       </WebSocketStoreProvider>
     </UserRatingContext.Provider>

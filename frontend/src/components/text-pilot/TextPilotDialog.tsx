@@ -119,6 +119,7 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
     }
     setPending(true); setError("");
     const result = await sendMessage(draft.callsign, text, actions, draft.variant === "clearance" && actions.length > 0);
+    if (result.cancelled) return;
     setPending(false);
     setRemainingActions(actions.slice(result.applied_actions));
     if (result.applied_actions > 0) setActionsApplied(true);

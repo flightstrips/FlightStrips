@@ -18,6 +18,9 @@ import (
 // full sync only after master election. Continue draining the socket throughout
 // the scenario so application publications exercise a live consumer.
 func connectFixtureController(ctx context.Context, endpoint, token string, login *es.LoginEvent, snapshot *es.SyncEvent, onEvent func(es.EventType, []byte, []byte)) (*websocket.Conn, error) {
+	return connectFixtureControllerInstance(ctx, endpoint, token, login, snapshot, onEvent, uuid.NewString())
+}
+func connectFixtureControllerInstance(ctx context.Context, endpoint, token string, login *es.LoginEvent, snapshot *es.SyncEvent, onEvent func(es.EventType, []byte, []byte), instance string) (*websocket.Conn, error) {
 	conn, response, err := websocket.DefaultDialer.DialContext(ctx, endpoint, nil)
 	if response != nil {
 		response.Body.Close()
@@ -26,7 +29,6 @@ func connectFixtureController(ctx context.Context, endpoint, token string, login
 		return nil, err
 	}
 	var writes sync.Mutex
-	instance := uuid.NewString()
 	var scope *es.MembershipContext
 	send := func(message proto.Message, kind es.EventType) error {
 		data, err := es.MarshalEnvelope(message, kind)

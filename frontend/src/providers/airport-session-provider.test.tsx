@@ -21,6 +21,16 @@ beforeEach(() => {sessionStorage.clear(); vi.clearAllMocks(); vi.useFakeTimers()
 afterEach(() => {cleanup(); vi.useRealTimers();});
 
 describe("per-tab airport selection", () => {
+  it("does not silently replace an unavailable saved airport with the only remaining eligible session", async () => {
+    sessionStorage.setItem("flightstrips.airport-session.v1",JSON.stringify({session:1,instance:"own"}));
+    mocks.discover.mockResolvedValue([session(member({session_id:2,airport:"BBBB"}))]);
+    await mount();
+    expect(screen.queryByTestId("board")).not.toBeInTheDocument();
+    expect(screen.getByText("Choose airport session")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:/BBBB/}));
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session","2");
+  });
+
   it("keeps the existing no-plugin waiting flow and automatically enters a single session", async () => {
     await mount();
     expect(screen.getByText("Waiting for ES connection")).toBeInTheDocument();

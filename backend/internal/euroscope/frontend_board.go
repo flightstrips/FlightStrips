@@ -69,3 +69,7 @@ func sendFrontendRunwayConfiguration(target shared.FrontendHub, member *Client, 
 	}
 	target.Send(session, cid, event)
 }
+
+func (hub *Hub) FrontendBoardReady(cid string, board events.BoardContext) bool {
+	return hub.MembershipReady(hub.frontendBoardMember(cid, board))
+}

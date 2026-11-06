@@ -9,7 +9,7 @@ export function AirportSessionChooser({sessions, onChoose, onCancel}: {
   onCancel?: () => void;
 }) {
   const [sessionID, setSessionID] = useState<number | null>(null);
-  const session = sessions.find(s => s.session_id === sessionID) ?? (sessions.length === 1 ? sessions[0] : null);
+  const session = sessions.find(s => s.session_id === sessionID) ?? (sessions.length === 1 && sessions[0].instances.length > 1 ? sessions[0] : null);
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary text-white p-6" role="dialog" aria-modal="true" aria-labelledby="airport-choice-title">
     <div className="w-full max-w-xl rounded-lg border border-white/20 bg-bay-dark p-6 shadow-xl">
       <h1 id="airport-choice-title" className="text-2xl font-semibold">{session ? "Choose your plugin instance" : "Choose airport session"}</h1>

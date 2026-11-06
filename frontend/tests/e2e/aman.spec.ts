@@ -74,7 +74,7 @@ async function rejectedCommand(page: Page, token: string, revision: number) {
   }, {token, revision});
 }
 
-test("running AMAN preserves healthy targets, diagnoses degradation and persists authorized commands", async ({page, request, context}, testInfo) => {
+test("running AMAN preserves healthy targets, diagnoses degradation and persists authorized commands", async ({page, request, session}, testInfo) => {
   const frames: unknown[] = [];
   let state: AMANState | undefined;
   let healthyNative = "";
@@ -156,8 +156,9 @@ test("running AMAN preserves healthy targets, diagnoses degradation and persists
       expect((await rejectedCommand(page, "__TEST_TOKEN__", 0)).code).toBe("revision_conflict");
       expect((await request.post(`${backend}/e2e/observer`)).ok()).toBe(true);
       expect((await rejectedCommand(page, "__TEST_FRONTEND_TOKEN__", state!.revision)).code).toBe("unauthorized");
-      const observer = await context.newPage();
-      await identity(observer, backend, "__TEST_FRONTEND_TOKEN__");
+      // Different CIDs need separate Auth0 caches. Airport tabs for one CID
+      // share authentication; this observer is a separately authenticated user.
+      const observer = await session("__TEST_FRONTEND_TOKEN__");
       await observer.clock.setFixedTime(new Date(epoch));
       await openAMAN(observer);
       await expect(target(observer, "SAS101")).toBeVisible();

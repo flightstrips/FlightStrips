@@ -11,6 +11,7 @@ import (
 	es "FlightStrips/pkg/events/euroscope"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v4"
+	"google.golang.org/protobuf/proto"
 )
 
 type coverageFixtureSettings struct {
@@ -69,6 +70,7 @@ func coverageTestInstance(t *testing.T) (*Hub, *Client, *Client, *Client) {
 	b := membershipTestMember(hub, root, 2, "BBBB", "LIVE", "b")
 	for _, member := range []*Client{a, b} {
 		member.callsign = "ZZXX_CTR"
+		member.position = "120.000"
 		member.definition, _ = hub.airports.Lookup(member.airport)
 		hub.master[member.session] = member
 	}
@@ -167,4 +169,73 @@ func TestCoverageConfirmedTakeoverCancelsWhenResponsibilityReturns(t *testing.T)
 	require.Empty(t, root.transport.takeovers)
 	apply(start.Add(60 * time.Second))
 	require.False(t, a.isClosed())
+}
+
+func TestCoverageUnknownAndStaleDoNotConfirmTakeoverOrAbsence(t *testing.T) {
+	for _, state := range []CoverageEvidenceState{CoverageUnknown, CoverageStale} {
+		for _, source := range []string{"inventory", "identity", "radios"} {
+			t.Run(string(state)+"/"+source, func(t *testing.T) {
+				hub, root, a, b := coverageTestInstance(t)
+				frame := coverageFrame(coverageEntry("1", "ZZXX_CTR", "120.000"), coverageEntry("3", "ZZZZ_APP", "119.000"))
+				switch source {
+				case "inventory":
+					frame.Inventory = state
+				case "identity":
+					frame.Controllers[1].Identity = state
+				case "radios":
+					frame.Controllers[0].Radios = state
+				}
+				for _, now := range []time.Time{time.Now(), time.Now().Add(time.Hour)} {
+					require.NoError(t, hub.ReconcileCoverage(root, []string{"AAAA", "BBBB"}, func(string) bool { return true }, frame, now))
+				}
+				require.Empty(t, root.transport.takeovers)
+				require.False(t, a.isClosed())
+				require.False(t, b.isClosed())
+			})
+		}
+	}
+}
+
+func TestCoverageConfirmedDeadlineSurvivesUnknownAndStaleEvidence(t *testing.T) {
+	for _, state := range []CoverageEvidenceState{CoverageUnknown, CoverageStale} {
+		t.Run(string(state), func(t *testing.T) {
+			hub, root, a, b := coverageTestInstance(t)
+			start := time.Now()
+			frame := coverageFrame(coverageEntry("1", "ZZXX_CTR", "120.000"), coverageEntry("3", "ZZZZ_APP", "119.000"))
+			apply := func(at time.Time) {
+				require.NoError(t, hub.ReconcileCoverage(root, []string{"AAAA", "BBBB"}, func(string) bool { return true }, frame, at))
+			}
+			apply(start)
+			frame.Inventory = state
+			frame.Controllers = nil
+			apply(start.Add(59 * time.Second))
+			require.False(t, a.isClosed())
+			apply(start.Add(time.Minute))
+			require.True(t, a.isClosed())
+			require.False(t, b.isClosed())
+		})
+	}
+}
+
+func TestCoverageRadioChangesWithoutCallsignChanges(t *testing.T) {
+	hub, root, a, b := coverageTestInstance(t)
+	frame := coverageFrame(coverageEntry("1", "ZZXX_CTR", "120.000"), coverageEntry("3", "ZZZZ_APP", "119.000"))
+	control := &es.ControlEvent{Environment: "LIVE", Callsign: "ZZXX_CTR", PrimaryFrequency: "120.000", TunedFrequenciesKnown: true, TunedFrequencies: []string{"118.000"}}
+	apply := func(at time.Time) {
+		payload, err := proto.Marshal(control)
+		require.NoError(t, err)
+		require.NoError(t, handleControlEvent(t.Context(), root, Message{Message: payload}))
+		frame.Controllers[0].TunedFrequencies = control.TunedFrequencies
+		require.NoError(t, hub.ReconcileCoverage(root, []string{"AAAA", "BBBB"}, func(string) bool { return true }, frame, at))
+	}
+	start := time.Now()
+	apply(start)
+	require.Empty(t, root.transport.takeovers)
+	control.TunedFrequencies = nil
+	apply(start.Add(time.Second))
+	require.Contains(t, root.transport.takeovers, "AAAA")
+	apply(start.Add(61 * time.Second))
+	require.True(t, a.isClosed())
+	require.False(t, b.isClosed())
+	require.Equal(t, "ZZXX_CTR", root.GetCallsign())
 }

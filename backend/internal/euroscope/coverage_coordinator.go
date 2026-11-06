@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/vatsim"
 )
 
 type coverageTakeover struct {
@@ -71,7 +72,7 @@ func (hub *Hub) reconcileCoverageLocked(root *Client, declared []string, authori
 			remove("airport participation is no longer authorized")
 			continue
 		}
-		complete := staffing.Environment == control.Environment && coverageEvidenceComplete(definition, staffing) && self != nil
+		complete := staffing.Environment == control.Environment && coverageEvidenceComplete(definition, staffing) && self != nil && self.PrimaryFrequency == vatsim.NormalizeFrequency(control.PrimaryFrequency)
 		pending, confirmed := t.takeovers[airport]
 		if complete {
 			assignments := definition.CoverageResponsibilities(participants)
@@ -119,7 +120,7 @@ func coverageEvidenceComplete(definition *config.AirportDefinition, staffing Cov
 	if staffing.Inventory != CoverageFresh {
 		return false
 	}
-	needsRadios := definition.Document().Coverage.Matching.TunedFrequencies
+	needsRadios := definition.CoverageUsesTunedFrequencies()
 	for _, controller := range staffing.Controllers {
 		if controller.Observer {
 			continue

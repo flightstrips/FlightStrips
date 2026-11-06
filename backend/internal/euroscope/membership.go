@@ -24,6 +24,8 @@ type pluginTransport struct {
 	generation    uint64
 	cleanupOnce   sync.Once
 	mu            sync.RWMutex
+	coverageMu    sync.Mutex // control evidence and this instance's membership deltas
+	takeovers     map[string]coverageTakeover
 	members       map[string]*Client
 	evidence      es.ControlEvent
 	evidenceAt    time.Time
@@ -172,6 +174,8 @@ func handleControlEvent(ctx context.Context, root *Client, message Message) erro
 	if t == nil || root.membership != nil || root.isClosed() {
 		return shared.RejectAction("control update requires physical transport")
 	}
+	t.coverageMu.Lock()
+	defer t.coverageMu.Unlock()
 	t.mu.Lock()
 	previous := t.evidence
 	pendingLegacy := t.pendingLegacy

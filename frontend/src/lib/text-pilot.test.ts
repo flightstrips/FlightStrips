@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultTextSelections, textPilotPhrases, taxiLimit, surfaceWind, togglePhraseText, isTextPilot, stationController } from "./text-pilot";
+import { airportTextPilotPhrases, defaultTextSelections, textPilotPhrases, taxiLimit, surfaceWind, togglePhraseText, isTextPilot, stationController } from "./text-pilot";
 import { CommunicationType, type FrontendController } from "@/api/models";
 
 describe("text pilot phrase rules", () => {
@@ -38,4 +38,12 @@ describe("text pilot phrase rules", () => {
     const controllers = [{ position: "118.105", callsign: "EKCH_TWR", owned_sectors: ["SEQ"] }, { position: "121.905", callsign: "EKCH_OBS", observer: true }] as FrontendController[];
     expect(stationController("121.905", controllers)?.position).toBe("118.105");
   });
+});
+
+it("uses explicit airport presets without EKCH fallback", () => {
+  const draft = { callsign: "SAS123", variant: "si" as const };
+  expect(airportTextPilotPhrases(null, draft, { runway: "09" }, "")).toEqual([]);
+  expect(airportTextPilotPhrases({ airport: "AAAA", preset_provider: "ekch/v1", layouts: {} }, draft, { runway: "09" }, "")).toEqual([]);
+  const inputs = { airport: "AAAA", preset_provider: "static/v1" as const, layouts: {}, presets: { si: [{ id: "hold", label: "LOCAL HOLD", text: "Synthetic hold.", tone: "phrase" as const }] } };
+  expect(airportTextPilotPhrases(inputs, draft, { runway: "09" }, "")).toEqual(inputs.presets.si);
 });

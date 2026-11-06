@@ -101,6 +101,7 @@ type Hub struct {
 	snapshotBuilder     *SnapshotBuilder
 	standActionService  *services.StandActionService
 	standCapabilities   *sat.StandCapabilityRegistry
+	textPilotInputs     func(string) *pkgModels.TextPilotInputs
 	amanStateProvider   AMANStateProvider
 	amanCommandService  aman.CommandService
 	amanCoordination    *coordinationrequest.Service
@@ -1776,6 +1777,7 @@ func (hub *Hub) getSnapshotBuilder() *SnapshotBuilder {
 		StandAssignmentRepo:    hub.server.GetStandAssignmentRepository(),
 		StandAssignmentEnabled: hub.server.GetStandAssignmentRepository() != nil,
 		StandCapabilities:      hub.standCapabilities,
+		TextPilotInputs:        hub.textPilotInputs,
 		EuroscopeHub:           hub.server.GetEuroscopeHub(),
 		BuildClxContext:        hub.makeClxValidationContext,
 		PopulateNextStrips:     hub.populateNextDisplaysContext,
@@ -1930,4 +1932,8 @@ func observerInSession(hub shared.EuroscopeHub, session int32, cid string) bool 
 
 func (hub *Hub) SetStandCapabilities(stands *sat.StandCapabilityRegistry) {
 	hub.standCapabilities = stands
+}
+
+func (hub *Hub) SetTextPilotInputs(lookup func(string) *pkgModels.TextPilotInputs) {
+	hub.textPilotInputs = lookup
 }

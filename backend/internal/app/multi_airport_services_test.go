@@ -48,6 +48,9 @@ func syntheticServiceAirports(t *testing.T) *appconfig.AirportRegistry {
 		require.NoError(t, os.WriteFile(filepath.Join(root, sceneryFile), []byte(`{"icao":"`+airport+`","gates":{}}`), 0600))
 		asset := func(path string) map[string]any { return map[string]any{"repo_path": path} }
 		services["stand_assignment"] = map[string]any{"availability": "enabled", "stands": asset(standFile), "aircraft_reference": asset("aircraft.txt"), "aircraft_icao": asset("aircraft.json"), "airline_assignment": asset(policyFile), "scenery": asset(sceneryFile)}
+		textFile := airport + ".text.json"
+		require.NoError(t, os.WriteFile(filepath.Join(root, textFile), []byte(`{"airport":"`+airport+`","preset_provider":"static/v1","layouts":{},"presets":{"si":[{"id":"hold","label":"HOLD","text":"Synthetic `+airport+` hold.","tone":"phrase"}]}}`), 0600))
+		services["text_pilot"] = map[string]any{"availability": "enabled", "provider": "frequency-message/v1", "layout_data": asset(textFile)}
 		services["cdm"] = map[string]any{"availability": "enabled", "config_root": "cdm", "config": map[string]any{"rateUri": "rates.json", "sidIntervalUri": "sid.json", "taxizonesUri": "taxi.json", "rate": 31 + i, "rateLvo": 11 + i, "defaultTaxiTime": 3 + i, "deice": map[string]any{"light": 1 + i, "medium": 2 + i, "heavy": 3 + i, "super": 4 + i, "platform": []any{}}}}
 		data, err := yaml.Marshal(doc)
 		require.NoError(t, err)
@@ -92,4 +95,15 @@ func TestProductionServiceInputsAreAirportBoundAndReferencesShared(t *testing.T)
 	require.False(t, ok)
 	_, ok = failed.registry.Lookup("BBBB")
 	require.True(t, ok)
+}
+
+func TestTextPilotInputsStayBoundToDefinitionAndSnapshot(t *testing.T) {
+	registry := syntheticServiceAirports(t)
+	a, _ := registry.Lookup("AAAA")
+	b, _ := registry.Lookup("BBBB")
+	first := a.TextPilotInputs()
+	require.Equal(t, "Synthetic AAAA hold.", first.Presets["si"][0].Text)
+	require.Equal(t, "Synthetic BBBB hold.", b.TextPilotInputs().Presets["si"][0].Text)
+	first.Presets["si"][0].Text = "changed"
+	require.Equal(t, "Synthetic AAAA hold.", a.TextPilotInputs().Presets["si"][0].Text)
 }

@@ -1,4 +1,4 @@
-import { ActionType, Bay, CommunicationType, type FrontendController, type FrontendSendEvent, type FrontendStrip as Strip } from "@/api/models";
+import { ActionType, Bay, CommunicationType, type FrontendController, type FrontendSendEvent, type TextPilotInputs, type FrontendStrip as Strip } from "@/api/models";
 import { decodeMetar } from "@/lib/metarDecode";
 
 export type TextPilotVariant = "push" | "apron-out" | "apron-in" | "tower-out" | "tower-in" | "si" | "runway" | "clearance";
@@ -163,4 +163,11 @@ export function clearancePreview(strip: Strip): string {
   if (straightAhead) text += " After departure, Climb straight ahead.";
   else if (!strip.sid && strip.heading && strip.heading > 0) text += ` After departure, Fly heading ${String(strip.heading).padStart(3,"0")}.`;
   return text;
+}
+
+export function airportTextPilotPhrases(inputs: TextPilotInputs | null | undefined, draft: TextPilotDraft, strip: Pick<Strip, "runway"> & { stand?: string }, metar: string): Phrase[] {
+  if (!inputs) return [];
+  if (inputs.airport === "EKCH" && inputs.preset_provider === "ekch/v1") return textPilotPhrases(draft, strip, metar);
+  if (inputs.preset_provider === "static/v1") return (inputs.presets?.[draft.variant] ?? []).map(p => ({ ...p }));
+  return [];
 }

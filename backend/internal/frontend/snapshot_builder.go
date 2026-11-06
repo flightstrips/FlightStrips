@@ -25,6 +25,7 @@ type InitialSnapshotRequest struct {
 }
 
 type SnapshotBuilderDependencies struct {
+	TextPilotInputs        func(string) *pkgModels.TextPilotInputs
 	ControllerRepo         repository.ControllerRepository
 	StripRepo              SnapshotStripStore
 	SectorRepo             repository.SectorOwnerRepository
@@ -42,6 +43,7 @@ type SnapshotBuilderDependencies struct {
 }
 
 type SnapshotBuilder struct {
+	textPilotInputs        func(string) *pkgModels.TextPilotInputs
 	controllerRepo         repository.ControllerRepository
 	stripRepo              SnapshotStripStore
 	sectorRepo             repository.SectorOwnerRepository
@@ -64,6 +66,7 @@ type pendingEuroscopeStripChecker interface {
 
 func NewSnapshotBuilder(deps SnapshotBuilderDependencies) *SnapshotBuilder {
 	return &SnapshotBuilder{
+		textPilotInputs:        deps.TextPilotInputs,
 		controllerRepo:         deps.ControllerRepo,
 		stripRepo:              deps.StripRepo,
 		sectorRepo:             deps.SectorRepo,
@@ -186,6 +189,9 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 		ReadOnly:           request.ReadOnly,
 		PositionAvailable:  positionAvailable,
 		LocalIP:            localIP,
+	}
+	if b.textPilotInputs != nil {
+		event.TextPilot = b.textPilotInputs(request.Airport)
 	}
 	if b.euroscopeHub != nil {
 		event.MasterCallsign = b.euroscopeHub.GetMasterCallsign(request.SessionID)

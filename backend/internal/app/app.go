@@ -37,6 +37,7 @@ import (
 	"FlightStrips/internal/websocket"
 	pkgEuroscope "FlightStrips/pkg/events/euroscope"
 	pkgFrontend "FlightStrips/pkg/events/frontend"
+	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"encoding/json"
 	"errors"
@@ -438,6 +439,15 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}
 		return nil, fmt.Errorf("initialize CDM service: %w", err)
 	}
+	if cfg.Airports != nil {
+		frontendHub.SetTextPilotInputs(func(airport string) *pkgModels.TextPilotInputs {
+			definition, ok := cfg.Airports.Lookup(airport)
+			if !ok {
+				return nil
+			}
+			return definition.TextPilotInputs()
+		})
+	}
 	stripService.SetCdmService(cdmService)
 	var vatsimReconciler *vatsim.Reconciler
 	if standAssignmentReadiness.Ready && vatsimGraph.source != nil && standAssignmentRepo != nil {
@@ -643,14 +653,15 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		standAirportReadiness:    standInputGraph.readiness,
 		amanRuntime:              amanRuntime,
 		handler: buildHandler(buildHandlerConfig{
-			amanRuntime:  amanRuntime,
-			now:          satNow,
-			authService:  authService,
-			frontendHub:  frontendHub,
-			euroscopeHub: euroscopeHub,
-			albHub:       albHub,
-			pdcService:   pdcService,
-			amanAPI:      amanAPI,
+			weatherPoller: metarPoller,
+			amanRuntime:   amanRuntime,
+			now:           satNow,
+			authService:   authService,
+			frontendHub:   frontendHub,
+			euroscopeHub:  euroscopeHub,
+			albHub:        albHub,
+			pdcService:    pdcService,
+			amanAPI:       amanAPI,
 			efbAPI: efb.NewWebAPI(efb.WebAPIConfig{
 				CallsignLookup: cfg.EFBCallsignLookup,
 				Training:       cfg.EFBTraining, TrainingStrips: stripRepo,
@@ -733,7 +744,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if cfg.EnableALB {
 		app.addWorker(func(context.Context) { albHub.Run() })
 	}
-	if cfg.EnableMetar {
+	if (cfg.EnableMetar || cfg.EnableEFB) && !cfg.EnableTestTools {
 		app.addWorker(metarPoller.Start)
 	}
 	if cfg.EnableTraffic {
@@ -1140,6 +1151,7 @@ func configureCDM(
 }
 
 type buildHandlerConfig struct {
+	weatherPoller              *metar.Poller
 	amanRuntime                *aman.Runtime
 	now                        func() time.Time
 	authService                shared.AuthenticationService
@@ -1189,6 +1201,9 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	}
 
 	apiMux := http.NewServeMux()
+	if cfg.weatherPoller != nil {
+		metar.RegisterRoutes(apiMux, cfg.authService, cfg.weatherPoller)
+	}
 	if cfg.euroscopeHub != nil {
 		apiMux.HandleFunc("/plugin-memberships", cfg.euroscopeHub.MembershipDiscovery(cfg.authService))
 	}

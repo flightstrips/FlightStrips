@@ -2,9 +2,9 @@ import { useState, type CSSProperties } from "react";
 import { ActionType, type FrontendSendEvent } from "@/api/models";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useWebSocketStore } from "@/store/store-hooks";
-import { clearancePreview, defaultTextSelections, stationController, textPilotPhrases, togglePhraseText, type TextPilotDraft, type Phrase } from "@/lib/text-pilot";
+import { clearancePreview, defaultTextSelections, stationController, airportTextPilotPhrases, togglePhraseText, type TextPilotDraft, type Phrase } from "@/lib/text-pilot";
 import "./TextPilotDialog.css";
-import storyboardLayouts from "./storyboard-layouts.json";
+
 
 export function TextPilotDialog() {
   const draft = useWebSocketStore(s => s.textPilotDraft);
@@ -14,6 +14,8 @@ export function TextPilotDialog() {
 function Composer({ draft }: { draft: TextPilotDraft }) {
   const strip = useWebSocketStore(s => s.strips.find(s => s.callsign === draft.callsign));
   const metar = useWebSocketStore(s => s.metar);
+  const inputs = useWebSocketStore(s => s.textPilotInputs);
+  const ekchPresets = inputs?.airport === "EKCH" && inputs.preset_provider === "ekch/v1";
   const controllers = useWebSocketStore(s => s.controllers);
   const position = useWebSocketStore(s => s.position);
   const transfer = useWebSocketStore(s => s.stripTransfers[draft.callsign]);
@@ -21,11 +23,11 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
   const close = useWebSocketStore(s => s.closeTextPilotMenu);
   const sendMessage = useWebSocketStore(s => s.sendFrequencyMessage);
   const markReadback = useWebSocketStore(s => s.markTextPilotReadback);
-  const phrases = textPilotPhrases(draft, { runway: strip?.runway ?? "", stand: strip?.stand }, metar);
-  const initial = [...defaultTextSelections(draft)];
-  if (draft.variant === "runway" && strip?.runway) initial.push(`rwy:${strip.runway}`);
+  const phrases = airportTextPilotPhrases(inputs, draft, { runway: strip?.runway ?? "", stand: strip?.stand }, metar);
+  const initial = ekchPresets ? [...defaultTextSelections(draft)] : [...(draft.initialSelected ?? [])];
+  if (ekchPresets && draft.variant === "runway" && strip?.runway) initial.push(`rwy:${strip.runway}`);
   const [selected, setSelected] = useState(initial);
-  const [text, setText] = useState(() => draft.initialText ?? (draft.variant === "clearance" && strip ? clearancePreview(strip) : undefined) ?? initial.map(id => phrases.find(p => p.id === id)?.text).filter(Boolean).join(" "));
+  const [text, setText] = useState(() => draft.initialText ?? (ekchPresets && draft.variant === "clearance" && strip ? clearancePreview(strip) : undefined) ?? initial.map(id => phrases.find(p => p.id === id)?.text).filter(Boolean).join(" "));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [remainingActions, setRemainingActions] = useState(draft.actions ?? []);
@@ -35,7 +37,7 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
   const toggle = (p: Phrase) => {
     if (controlsLocked) return;
     const removing = isSelected(p);
-    if (draft.variant === "push" && /^(limit$|release:|number:|face:)/.test(p.id)) {
+    if (ekchPresets && draft.variant === "push" && /^(limit$|release:|number:|face:)/.test(p.id)) {
       const tokenFor = (ids: string[]) => {
         if (ids.includes("limit")) return phrases.find(p => p.id === "limit")?.text ?? "";
         const face = ids.find(id => id.startsWith("face:"))?.slice(5);
@@ -142,30 +144,30 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
       {p.id.startsWith("freq:") ? <><span className="fs-text-pilot-station-name">{p.label.split("\n")[0]}</span><span className="fs-text-pilot-station-frequency">{p.label.split("\n")[1]}</span></> : p.id === "wind" && p.text ? p.text : visualLabel}
     </button>
   );
-  const runway = draft.variant === "runway";
-  const si = draft.variant === "si";
+  const runway = ekchPresets && draft.variant === "runway";
+  const si = ekchPresets && draft.variant === "si";
   type LayoutBox = { label: string; left: number; top: number; width: number; height: number; fontSize: number; background?: string; color?: string; fontWeight?: number; phraseId?: string };
-  const storyboard = storyboardLayouts[draft.variant as keyof typeof storyboardLayouts];
+  const storyboard = inputs?.layouts[draft.variant];
   if (storyboard) {
     const placement = (box: { left: number; top: number; width: number; height: number; fontSize?: number; background?: string; color?: string; fontWeight?: number }): CSSProperties => ({
       position: "absolute", left: `${box.left/storyboard.width*100}%`, top: `${box.top/storyboard.height*100}%`,
       width: `${box.width/storyboard.width*100}%`, height: `${box.height/storyboard.height*100}%`, fontSize: box.fontSize ? `${box.fontSize/storyboard.width*100}cqw` : undefined, background: box.background, color: box.color, fontWeight: box.fontWeight,
     });
-    const normalized = (value: string) => value.replace(/[\s.,]/g, "").toUpperCase();
+    const normalized = (value: string | undefined) => (value ?? "").replace(/[\s.,]/g, "").toUpperCase();
     return <Dialog open onOpenChange={open => { if (!open && !pending) close(); }}>
       <DialogContent className={`fs-text-pilot-dialog fs-text-pilot-storyboard fs-text-pilot-dialog-${draft.variant} [&>button]:hidden`} style={{ width: `min(94vw, ${90*storyboard.width/storyboard.height}dvh)` }} onEscapeKeyDown={e => { if (pending) e.preventDefault(); }}>
         <div className="fs-text-pilot-stage" style={{ aspectRatio: `${storyboard.width}/${storyboard.height}` }}>
           <div className="fs-text-pilot-frame" style={placement(storyboard.frame)} />
-          {"dividers" in storyboard && storyboard.dividers.map((line, index) => <div key={`divider:${index}`} className="fs-text-pilot-divider" aria-hidden style={{ ...placement(line), background: "#000" }} />)}
+          {storyboard.dividers?.map((line, index) => <div key={`divider:${index}`} className="fs-text-pilot-divider" aria-hidden style={{ ...placement(line), background: "#000" }} />)}
           {!storyboard.boxes.some(box => box.label === "CALLSIGN") && <DialogTitle className="fs-text-pilot-stage-title">{draft.callsign} text message</DialogTitle>}
           {storyboard.boxes.map((box, index) => {
             const style = placement(box as LayoutBox);
             if (box.label === "CALLSIGN") return <DialogTitle key={index} style={style} className="fs-text-pilot-stage-title">{draft.callsign}{draft.variant === "tower-out" ? <span className="sr-only"> text message</span> : " text message"}</DialogTitle>;
-            if (box.label === "text field" || box.label.startsWith("PUSH AND START APPROVED,")) return <textarea key={index} style={style} className="fs-text-pilot-stage-editor" aria-label="Text message" autoFocus value={text} disabled={controlsLocked} onChange={e => setText(e.target.value.replace(/[\r\n]/g," "))} />;
+            if (box.label === "text field" || (box.label ?? "").startsWith("PUSH AND START APPROVED,")) return <textarea key={index} style={style} className="fs-text-pilot-stage-editor" aria-label="Text message" autoFocus value={text} disabled={controlsLocked} onChange={e => setText(e.target.value.replace(/[\r\n]/g," "))} />;
             if (box.label === "ERASE") return <button key={index} style={style} className="fs-text-pilot-erase" disabled={controlsLocked} onClick={() => { setText(""); setSelected([]); }}>ERASE</button>;
             if (box.label === "SEND" || box.label === "ESC") return <button key={index} style={style} className="fs-text-pilot-stage-action" disabled={pending || box.label === "SEND" && (!strip || !text.trim())} onClick={box.label === "SEND" ? () => void send() : close}>{box.label === "SEND" && pending ? "SENDING…" : box.label}</button>;
             if (box.label === "------>") return <span key={index} style={style} className="fs-text-pilot-stage-group" aria-hidden>{"------>"}</span>;
-            if (["RELEASE POINT", "FACE TO THE", "CONTACT"].includes(box.label)) {
+            if (["RELEASE POINT", "FACE TO THE", "CONTACT"].includes(box.label ?? "")) {
               const contactSelected = box.label === "CONTACT" && selected.some(id => id.startsWith("freq:"));
               return <div key={index} style={{ ...style, ...(contactSelected ? { background: "#70ed45", color: "#000" } : {}) }} className="fs-text-pilot-stage-group" data-selected={contactSelected}>{box.label}</div>;
             }

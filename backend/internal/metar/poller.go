@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/sync/singleflight"
 	"io"
 	"log/slog"
 	"net/http"
@@ -44,6 +45,9 @@ type atisInfo struct {
 
 // Poller fetches METAR data for all active sessions and pushes it to connected frontend clients.
 type Poller struct {
+	polls         singleflight.Group
+	atisLastError error
+	metarCache    map[string]string
 	sessionRepo   repository.SessionRepository
 	hub           FrontendHub
 	interval      time.Duration
@@ -65,6 +69,7 @@ func NewPoller(sessionRepo repository.SessionRepository, hub FrontendHub) *Polle
 		metarBaseURL: "https://metar.vatsim.net",
 		atisDataURL:  "https://data.vatsim.net/v3/afv-atis-data.json",
 		atisCache:    make(map[string]atisInfo),
+		metarCache:   make(map[string]string),
 	}
 }
 
@@ -87,6 +92,10 @@ func (p *Poller) Start(ctx context.Context) {
 }
 
 func (p *Poller) poll(ctx context.Context) {
+	_, _, _ = p.polls.Do("weather", func() (any, error) { p.pollOnce(ctx); return nil, nil })
+}
+
+func (p *Poller) pollOnce(ctx context.Context) {
 	sessions, err := p.sessionRepo.List(ctx)
 	if err != nil {
 		slog.Error("metar poller: failed to list sessions", slog.Any("error", err))
@@ -96,23 +105,49 @@ func (p *Poller) poll(ctx context.Context) {
 	atisMap, err := p.fetchAllAtisData(ctx)
 	if err != nil {
 		slog.Warn("metar poller: failed to fetch ATIS data", slog.Any("error", err))
-		atisMap = map[string]atisInfo{}
+		p.atisMu.Lock()
+		p.atisLastError = err
+		atisMap = p.atisCache
+		p.atisMu.Unlock()
 	} else {
 		p.atisMu.Lock()
 		p.atisCache = atisMap
+		p.atisLastError = nil
 		p.atisFetchedAt = time.Now().UTC()
 		p.atisMu.Unlock()
 	}
 
+	type observation struct {
+		metar string
+		err   error
+	}
+	observations := make(map[string]observation)
 	for _, session := range sessions {
-		airport := session.Airport
-		metar, err := p.fetch(ctx, airport)
+		if session == nil {
+			continue
+		}
+		airport := strings.ToUpper(strings.TrimSpace(session.Airport))
+		observation, fetched := observations[airport]
+		if !fetched {
+			observation.metar, observation.err = p.fetch(ctx, airport)
+			observations[airport] = observation
+		}
+		metar, err := observation.metar, observation.err
 		if err != nil {
 			slog.Warn("metar poller: failed to fetch METAR",
 				slog.String("airport", airport),
 				slog.Any("error", err),
 			)
-			continue
+			p.atisMu.RLock()
+			metar = p.metarCache[airport]
+			p.atisMu.RUnlock()
+		} else {
+			p.atisMu.Lock()
+			if p.metarCache == nil {
+				p.metarCache = make(map[string]string)
+			}
+			p.metarCache[airport] = metar
+			p.atisMu.Unlock()
 		}
 
 		info := atisMap[strings.ToUpper(airport)]
@@ -132,6 +167,9 @@ func (p *Poller) fetch(ctx context.Context, icao string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("METAR feed returned status %d", resp.StatusCode)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -218,7 +256,7 @@ func (p *Poller) GetATIS(airport string, departure bool) *ATIS {
 		result = cloneATIS(info.arr)
 	}
 	if result != nil {
-		result.Stale = p.atisFetchedAt.IsZero() || time.Since(p.atisFetchedAt) > p.atisStaleAfter()
+		result.Stale = p.atisLastError != nil || p.atisFetchedAt.IsZero() || time.Since(p.atisFetchedAt) > p.atisStaleAfter() || (!result.LastUpdated.IsZero() && time.Since(result.LastUpdated) > p.atisStaleAfter())
 	}
 	return result
 }

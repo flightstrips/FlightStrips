@@ -244,8 +244,8 @@ func TestBuildStartsNavigationSourceForEFBWithoutAMAN(t *testing.T) {
 
 	require.NoError(t, err)
 	require.False(t, application.AMANRuntime().Enabled())
-	// The navigation source adds its own cache-refresh worker; AMAN stays off.
-	require.Len(t, application.workers, 5)
+	// The navigation source and shared EFB weather acquisition each add one worker; AMAN stays off.
+	require.Len(t, application.workers, 6)
 }
 
 func TestBuildRejectsTestToolsInLiveEnvironmentBeforeOpeningDatabase(t *testing.T) {

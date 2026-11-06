@@ -304,7 +304,22 @@ export interface SidInfo {
   runway: string;
 }
 
+export interface TextPilotBox {
+  label?: string; left: number; top: number; width: number; height: number;
+  fontSize?: number; background?: string; color?: string; fontWeight?: number; phraseId?: string;
+}
+export interface TextPilotLayout {
+  width: number; height: number; frame: TextPilotBox; boxes: TextPilotBox[]; dividers?: TextPilotBox[];
+}
+export interface TextPilotInputs {
+  airport: string;
+  preset_provider: "ekch/v1" | "static/v1";
+  layouts: Record<string, TextPilotLayout>;
+  presets?: Record<string, Array<{ id: string; label: string; text: string; tone: "light" | "phrase" | "point" }>>;
+}
+
 export interface FrontendInitialEvent {
+  text_pilot?: TextPilotInputs;
   master_callsign?: string;
   inbound_departures?: InboundDeparturesSnapshot;
   session_id?: number;

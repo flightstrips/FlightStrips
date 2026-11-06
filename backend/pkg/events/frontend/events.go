@@ -286,30 +286,31 @@ type SyncCoordination struct {
 }
 
 type InitialEvent struct {
-	MasterCallsign         string                  `json:"master_callsign"`
-	InboundDepartures      *InboundDeparturesEvent `json:"inbound_departures,omitempty"`
-	SessionID              int32                   `json:"session_id,omitempty"`
-	Contsollers            []Controller            `json:"controllers"`
-	Strips                 []Strip                 `json:"strips"`
-	TacticalStrips         []TacticalStripPayload  `json:"tactical_strips"`
-	Me                     Controller              `json:"me"`
-	Layout                 string                  `json:"layout"`
-	ResetLayout            string                  `json:"reset_layout"`
-	Airport                string                  `json:"airport"`
-	Callsign               string                  `json:"callsign"`
-	RunwaySetup            RunwayConfiguration     `json:"runway_setup"`
-	Coordinations          []SyncCoordination      `json:"coordinations"`
-	Messages               []MessageReceivedEvent  `json:"messages"`
-	AvailableSids          pkgModels.AvailableSids `json:"available_sids"`
-	InitialCFLByRunway     map[string]int32        `json:"initial_cfl_by_runway"`
-	TransitionAltitude     int32                   `json:"transition_altitude"`
-	ReadOnly               bool                    `json:"read_only"`
-	PositionAvailable      bool                    `json:"position_available"`
-	LocalIP                string                  `json:"local_ip,omitempty"`
-	StandAssignmentEnabled bool                    `json:"stand_assignment_enabled"`
-	StandAssignments       []StandAssignmentEntry  `json:"stand_assignments"`
-	StandBlocks            []StandBlockEntry       `json:"stand_blocks"`
-	Capabilities           FrontendCapabilities    `json:"capabilities"`
+	TextPilot              *pkgModels.TextPilotInputs `json:"text_pilot,omitempty"`
+	MasterCallsign         string                     `json:"master_callsign"`
+	InboundDepartures      *InboundDeparturesEvent    `json:"inbound_departures,omitempty"`
+	SessionID              int32                      `json:"session_id,omitempty"`
+	Contsollers            []Controller               `json:"controllers"`
+	Strips                 []Strip                    `json:"strips"`
+	TacticalStrips         []TacticalStripPayload     `json:"tactical_strips"`
+	Me                     Controller                 `json:"me"`
+	Layout                 string                     `json:"layout"`
+	ResetLayout            string                     `json:"reset_layout"`
+	Airport                string                     `json:"airport"`
+	Callsign               string                     `json:"callsign"`
+	RunwaySetup            RunwayConfiguration        `json:"runway_setup"`
+	Coordinations          []SyncCoordination         `json:"coordinations"`
+	Messages               []MessageReceivedEvent     `json:"messages"`
+	AvailableSids          pkgModels.AvailableSids    `json:"available_sids"`
+	InitialCFLByRunway     map[string]int32           `json:"initial_cfl_by_runway"`
+	TransitionAltitude     int32                      `json:"transition_altitude"`
+	ReadOnly               bool                       `json:"read_only"`
+	PositionAvailable      bool                       `json:"position_available"`
+	LocalIP                string                     `json:"local_ip,omitempty"`
+	StandAssignmentEnabled bool                       `json:"stand_assignment_enabled"`
+	StandAssignments       []StandAssignmentEntry     `json:"stand_assignments"`
+	StandBlocks            []StandBlockEntry          `json:"stand_blocks"`
+	Capabilities           FrontendCapabilities       `json:"capabilities"`
 }
 
 type MasterInfoEvent struct {

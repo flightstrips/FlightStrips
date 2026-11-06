@@ -2,6 +2,7 @@ package config
 
 import (
 	"FlightStrips/internal/vatsim"
+	pkgmodels "FlightStrips/pkg/models"
 	"bytes"
 	"crypto/sha256"
 	"fmt"
@@ -120,6 +121,7 @@ func (c *AirportCatalog) bind(doc *AirportDocument, settings *yaml.Node) error {
 }
 
 type AirportDefinition struct {
+	textPilot    *pkgmodels.TextPilotInputs
 	document     AirportDocument
 	source       string
 	revision     string
@@ -288,3 +290,10 @@ func (d *AirportDefinition) PositionSection(frequency string) string {
 }
 
 func (d *AirportDefinition) UsesStripOwnership() bool { return d.document.Ownership.Strips != "none" }
+
+func (d *AirportDefinition) TextPilotInputs() *pkgmodels.TextPilotInputs {
+	if d == nil || d.textPilot == nil {
+		return nil
+	}
+	return cloneAirportValue(reflect.ValueOf(d.textPilot)).Interface().(*pkgmodels.TextPilotInputs)
+}

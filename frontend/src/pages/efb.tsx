@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Form
 import { useAuth0 } from '@auth0/auth0-react';
 import { getApiUrl } from '@/lib/api-url';
 import { isLocalDevelopment } from '@/lib/local-development';
-import { fetchVatsimAtis, parseAtisWeather } from '@/api/atis';
+import { fetchCachedAtis, parseAtisWeather } from '@/api/atis';
 import { ArrowDown, Gauge, Thermometer, Wind } from 'lucide-react';
 import simbriefFplImg from '../assets/efb/simbrief-fpl.png';
 import fileVatsimFplImg from '../assets/efb/file-vatsim-fpl.png';
@@ -616,7 +616,7 @@ export default function EFBPage() {
     const controller = new AbortController();
     const refreshAtis = async () => {
       try {
-        const atis = await fetchVatsimAtis(previewAtisAirport, false, controller.signal);
+        const atis = await fetchCachedAtis(previewAtisAirport, false, authorizedFetch, controller.signal);
         if (controller.signal.aborted) return;
         setPreviewAtisError(null);
         setApiFlight((flight) => {
@@ -643,7 +643,7 @@ export default function EFBPage() {
     void refreshAtis();
     const timer = window.setInterval(() => void refreshAtis(), 60_000);
     return () => { controller.abort(); window.clearInterval(timer); };
-  }, [previewAtisAirport]);
+  }, [previewAtisAirport, authorizedFetch]);
 
   useEffect(() => {
     if (openDialog !== 'D1STAND' || !apiFlight) {

@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -49,9 +50,23 @@ func TestProductionEKCHPreservesAllLegacySettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(bytes.ReplaceAll(backend, []byte("\r\n"), []byte("\n")), bytes.ReplaceAll(frontend, []byte("\r\n"), []byte("\n"))) {
-		t.Fatal("text-pilot data differs from coded frontend")
+	var input struct {
+		Layouts json.RawMessage `json:"layouts"`
 	}
+	if err := json.Unmarshal(backend, &input); err != nil {
+		t.Fatal(err)
+	}
+	var actual, expected any
+	if err := json.Unmarshal(input.Layouts, &actual); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(frontend, &expected); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatal("text-pilot layout geometry differs from original EKCH baseline")
+	}
+
 }
 func TestProductionMasterPriorities(t *testing.T) {
 	registry, err := LoadAirportFiles(ProductionAirportCatalog(), []string{"backend/config/airports/ekch.airport.yaml"}, AirportLoadOptions{RepositoryRoot: testAirportRoot(t)})

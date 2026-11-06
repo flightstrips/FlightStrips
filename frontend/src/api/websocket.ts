@@ -42,6 +42,7 @@ import {
   type WebSocketEvent,
   type AvailableSidsEvent,
 } from "./models";
+import type {OwnMembership} from "./sessions";
 import { FRONTEND_VERSION } from "@/lib/app-version";
 import type {InboundDeparturesEvent} from "./inbound-departures";
 import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEvent} from "./aman";
@@ -119,7 +120,7 @@ export class WebSocketClient {
   private manuallyClosed = false;
   private delegate?: WebSocketClientDelegate;
 
-  constructor(url: string, delegate?: WebSocketClientDelegate) {
+  constructor(url: string, delegate?: WebSocketClientDelegate, private readonly selection?: OwnMembership) {
     this.url = url;
     this.delegate = delegate;
   }
@@ -261,6 +262,7 @@ export class WebSocketClient {
         type: ActionType.FrontendToken,
         token: this.token,
         version: FRONTEND_VERSION,
+        ...(this.selection ? {session_id: this.selection.session_id, plugin_instance_id: this.selection.instance_id, membership_id: this.selection.membership_id} : {}),
       });
     }
   }
@@ -272,7 +274,8 @@ export class WebSocketClient {
 
 export function createWebSocketClient(
   url: string,
-  delegate?: WebSocketClientDelegate
+  delegate?: WebSocketClientDelegate,
+  selection?: OwnMembership,
 ): WebSocketClient {
-  return new WebSocketClient(url, delegate);
+  return new WebSocketClient(url, delegate, selection);
 }

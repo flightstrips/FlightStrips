@@ -1,3 +1,6 @@
+import { AirportSwitcher } from "@/components/AirportSwitcher";
+import {useContext} from "react";
+import {AirportSessionContext} from "@/providers/airport-session-context";
 import { Fragment, useEffect, useState, type CSSProperties } from "react";
 import { ChevronDown, ChevronUp, Maximize, Minimize } from "lucide-react";
 import { toast } from "sonner";
@@ -102,6 +105,7 @@ function parseWindCompact(metar: string | null): string {
 }
 
 export default function CommandBar() {
+  const airportSession = useContext(AirportSessionContext);
   const metar = useMetar();
   const atisCode = useAtisCode();
   const currentLayout = useWebSocketStore((state) => state.displayedLayout);
@@ -215,6 +219,10 @@ export default function CommandBar() {
   const handleOpenEST = () => {
     const url = new URL("/app", window.location.origin);
     url.searchParams.set("layout", "EST");
+    if (airportSession) {
+      url.searchParams.set("session", String(airportSession.selected.session_id));
+      url.searchParams.set("instance", airportSession.selected.instance_id);
+    }
     const newWindow = window.open(url.href, "_blank", "popup");
     if (!newWindow) {
       toast.error("Could not open EST", { description: "Allow popups for FlightStrips and try again." });
@@ -341,6 +349,8 @@ export default function CommandBar() {
            >
              VERSION {FRONTEND_VERSION}
            </div>
+
+           <div className="absolute right-3 bottom-1 z-10"><AirportSwitcher /></div>
 
            {/* Inner border inset (SVG: 15.5px sides / 16.5px top-bottom at 2512×254) */}
            <div

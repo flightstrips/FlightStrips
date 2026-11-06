@@ -9,7 +9,7 @@ import AppPage from "./app";
 import layouts from "@/components/text-pilot/storyboard-layouts.json";
 
 vi.mock("@auth0/auth0-react", () => ({ useAuth0: () => ({ isAuthenticated: true, isLoading: false }) }));
-vi.mock("@/providers/websocket-provider", () => ({ WebSocketProvider: ({ children }: { children: ReactNode }) => children }));
+vi.mock("@/providers/airport-session-provider", () => ({ AirportSessionProvider: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/providers/vacs-provider", () => ({ VacsProvider: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/routes/AppRouter", () => ({ default: () => <div>Controller strips</div> }));
 vi.mock("@/components/commandbar/CommandBar", () => ({ default: () => null }));

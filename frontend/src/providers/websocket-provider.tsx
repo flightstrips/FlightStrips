@@ -3,11 +3,14 @@ import {WebSocketClient, createWebSocketClient} from '@/api/websocket';
 import {WebSocketStoreProvider} from '@/store/store-provider';
 import {UserRatingContext} from '@/store/user-rating-context';
 import {useAuth0} from '@auth0/auth0-react';
+import type {OwnMembership} from "@/api/sessions";
 import {requireAccessToken, requiresLoginPrompt} from '@/lib/authenticated-fetch';
 
 interface WebSocketProviderProps {
   children: ReactNode;
   url: string;
+  selection?: OwnMembership;
+  selectionControls?: ReactNode;
 }
 
 // Match the Auth0 SDK cache policy and refresh once the token enters its last minute.
@@ -59,7 +62,7 @@ function getTokenRefreshDelayMs(token: string, nowMs = Date.now()): number | nul
   return Math.max(Math.floor(remainingMs / 2), MIN_REFRESH_RETRY_MS);
 }
 
-export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
+export const WebSocketProvider = ({children, url, selection, selectionControls}: WebSocketProviderProps) => {
   // Get the authentication token from Auth0
   const {getAccessTokenSilently, isAuthenticated, isLoading, logout} = useAuth0();
 
@@ -70,7 +73,7 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
   const [wsClient] = useState<WebSocketClient>(() => createWebSocketClient(url, {
     onConnected: () => setWsConnected(true),
     onDisconnected: () => setWsConnected(false)
-  }));
+  }, selection));
 
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Stable ref so scheduleTokenRefresh can always call the latest refreshToken without
@@ -202,7 +205,7 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
   // visible rejections are not discarded while the socket is unavailable.
   return (
     <UserRatingContext.Provider value={userRating}>
-      <WebSocketStoreProvider wsClient={wsClient} connected={wsConnected}>
+      <WebSocketStoreProvider wsClient={wsClient} connected={wsConnected} selectionControls={selectionControls}>
         {children}
       </WebSocketStoreProvider>
     </UserRatingContext.Provider>

@@ -8,9 +8,10 @@ interface WebSocketStoreProviderProps {
   children: ReactNode;
   wsClient: WebSocketClient;
   connected: boolean;
+  selectionControls?: ReactNode;
 }
 
-export const WebSocketStoreProvider = ({ children, wsClient, connected }: WebSocketStoreProviderProps) => {
+export const WebSocketStoreProvider = ({ children, wsClient, connected, selectionControls }: WebSocketStoreProviderProps) => {
   const [store] = useState(() => createWebSocketStore(wsClient));
 
   const initialized = useStore(store, state => state.isInitialized);
@@ -23,6 +24,7 @@ export const WebSocketStoreProvider = ({ children, wsClient, connected }: WebSoc
   if (!connected) {
     return (
       <div className="w-screen min-h-svh flex flex-col justify-center items-center bg-primary text-white">
+        <div className="absolute top-4 right-4">{selectionControls}</div>
         <div className="flex items-center text-4xl font-semibold">
           <span className="inline-flex items-center">Connecting to <svg className="w-8 h-8 mx-2" viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="4" rx="1" fill="#a0dae4" /><rect x="3" y="12" width="22" height="4" rx="1" fill="#a0dae4" opacity="0.7" /><rect x="3" y="18" width="22" height="4" rx="1" fill="#a0dae4" opacity="0.4" /></svg>FlightStrips</span>
           <span className="ml-2 animate-bounce text-5xl">...</span>
@@ -34,6 +36,7 @@ export const WebSocketStoreProvider = ({ children, wsClient, connected }: WebSoc
   if (!initialized) {
     return (
       <div className="w-screen min-h-svh flex flex-col justify-center items-center bg-primary text-white">
+        <div className="absolute top-4 right-4">{selectionControls}</div>
         <a className="flex items-center text-4xl font-semibold text-white"><svg className="w-12 h-12" viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="4" rx="1" fill="#a0dae4"></rect><rect x="3" y="12" width="22" height="4" rx="1" fill="#a0dae4" opacity="0.7"></rect><rect x="3" y="18" width="22" height="4" rx="1" fill="#a0dae4" opacity="0.4"></rect></svg>FlightStrips</a>
         <br />
         <div className="flex items-center text-4xl font-semibold">

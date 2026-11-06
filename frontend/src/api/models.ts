@@ -1,3 +1,4 @@
+import type {BoardContext, BoardDefinition} from "./sessions";
 import type {AMANCommandMessage} from "./aman";
 import type {InboundDeparturesEvent, InboundDeparturesSnapshot} from "./inbound-departures";
 
@@ -320,6 +321,8 @@ export interface TextPilotInputs {
 
 export interface FrontendInitialEvent {
   text_pilot?: TextPilotInputs;
+  board?: BoardContext;
+  definition?: BoardDefinition;
   master_callsign?: string;
   inbound_departures?: InboundDeparturesSnapshot;
   session_id?: number;
@@ -476,9 +479,6 @@ export interface FrontendAuthenticationEvent {
   type: ActionType.FrontendToken;
   token: string;
   version: string;
-  session_id?: number;
-  plugin_instance_id?: string;
-  membership_id?: string;
 }
 
 export interface FrontendDisconnectEvent {

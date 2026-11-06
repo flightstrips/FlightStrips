@@ -9,6 +9,30 @@ export interface BoardCapabilities {
   aman: boolean;
 }
 
+export interface BoardContext {
+  session_id: number;
+  airport: string;
+  environment: string;
+  instance_id: string;
+  membership_id: string;
+  transport_generation: string;
+  generation: string;
+  definition_revision: string;
+  subscription_id: string;
+}
+export interface BoardDefinition {
+  definition_revision: string;
+  view: string;
+  actions: string[];
+  capabilities: BoardCapabilities;
+}
+export function boardContext(member: OwnMembership, subscription: string): BoardContext {
+  return {session_id: member.session_id, airport: member.airport, environment: member.environment, instance_id: member.instance_id, membership_id: member.membership_id, transport_generation: member.transport_generation, generation: member.generation, definition_revision: member.definition_revision, subscription_id: subscription};
+}
+export function sameBoard(a: BoardContext | undefined, b: BoardContext | undefined): boolean {
+  return !!a && !!b && (Object.keys(b) as Array<keyof BoardContext>).every(key => a[key] === b[key]);
+}
+
 export interface OwnMembership {
   instance_id: string;
   membership_id: string;

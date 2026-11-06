@@ -1,11 +1,13 @@
 package frontend
 
 import (
+	"FlightStrips/pkg/events"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +24,7 @@ type ReceivedMessage struct {
 
 // Client simulates a frontend WebSocket client for testing
 type Client struct {
+	board            *events.BoardContext
 	conn             *websocket.Conn
 	config           Config
 	done             chan struct{}
@@ -69,8 +72,12 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	c.conn = conn
 
+	if err := c.discoverBoard(ctx); err != nil {
+		c.conn.Close()
+		return err
+	}
 	// Send authentication token
-	authEvent := map[string]string{
+	authEvent := map[string]any{
 		"type":  "token",
 		"token": c.config.Token,
 	}
@@ -102,6 +109,15 @@ func (c *Client) SendRawMessage(message interface{}) error {
 	}
 
 	data, err := json.Marshal(message)
+	if err == nil && c.board != nil {
+		var object map[string]json.RawMessage
+		if err = json.Unmarshal(data, &object); err == nil {
+			object["board"], err = json.Marshal(c.board)
+			if err == nil {
+				data, err = json.Marshal(object)
+			}
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
@@ -169,7 +185,7 @@ func (c *Client) UpdateStrip(callsign string, version int32, updates map[string]
 		slog.Info("Frontend updating strip",
 			slog.String("callsign", callsign),
 			slog.Int("version", int(version)))
-		
+
 		// Log the actual event being sent
 		if jsonData, err := json.Marshal(event); err == nil {
 			slog.Info("Frontend sending JSON", slog.String("json", string(jsonData)))
@@ -248,4 +264,51 @@ func (c *Client) GetReceivedMessages() []ReceivedMessage {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return append([]ReceivedMessage{}, c.receivedMessages...)
+}
+
+// The simulator follows production authorized discovery and refuses ambiguous
+// own instances instead of selecting the first controller row.
+func (c *Client) discoverBoard(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	endpoint := strings.Replace(strings.Replace(c.config.ServerURL, "ws://", "http://", 1), "wss://", "https://", 1)
+	endpoint = strings.TrimSuffix(endpoint, "/frontEndEvents") + "/api/plugin-memberships"
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Authorization", "Bearer "+c.config.Token)
+		response, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		var found struct {
+			Transports []struct {
+				Memberships []events.BoardContext `json:"memberships"`
+			} `json:"transports"`
+		}
+		err = json.NewDecoder(response.Body).Decode(&found)
+		response.Body.Close()
+		if response.StatusCode != http.StatusOK || err != nil {
+			return fmt.Errorf("frontend discovery failed: %v (%d)", err, response.StatusCode)
+		}
+		var members []events.BoardContext
+		for _, transport := range found.Transports {
+			members = append(members, transport.Memberships...)
+		}
+		if len(members) > 1 {
+			return fmt.Errorf("frontend replay requires an explicit own instance")
+		}
+		if len(members) == 1 {
+			c.board = &members[0]
+			c.board.SubscriptionID = fmt.Sprintf("replay-%d", time.Now().UnixNano())
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
 }

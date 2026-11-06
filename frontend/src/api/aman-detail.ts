@@ -153,9 +153,9 @@ export interface AMANHoldingPlan {
   additional_approach_seconds?: number;
 }
 
-export async function fetchAMANFlightDetail(token: string, airport: string, callsign: string, signal?: AbortSignal): Promise<AMANFlightDetail> {
+export async function fetchAMANFlightDetail(token: string, airport: string, callsign: string, signal?: AbortSignal, board?: import("./sessions").BoardContext): Promise<AMANFlightDetail> {
   const response = await fetch(getApiUrl(`/api/aman/airports/${encodeURIComponent(airport)}/flights/${encodeURIComponent(callsign)}/detail`), {
-    headers: {Authorization: `Bearer ${token}`}, signal,
+    headers: {Authorization: `Bearer ${token}`, ...(board ? {"X-FlightStrips-Board": JSON.stringify(board)} : {})}, signal,
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as {error?: string} | null;

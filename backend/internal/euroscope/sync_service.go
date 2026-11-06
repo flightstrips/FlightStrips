@@ -783,7 +783,7 @@ func (s *EuroscopeSyncService) applyOrValidateRunways(ctx context.Context, reque
 			)
 		}
 		if evaluation.Changed {
-			s.server.GetFrontendHub().Send(request.Session, request.CID, frontendEvents.RunwayConfigurationEvent{
+			sendFrontendRunwayConfiguration(s.server.GetFrontendHub(), evaluation.Target, request.Session, request.CID, frontendEvents.RunwayConfigurationEvent{
 				RunwaySetup: buildFrontendRunwayConfiguration(currentSession.ActiveRunways, evaluation.DepartureMismatch, evaluation.ArrivalMismatch),
 			})
 		}

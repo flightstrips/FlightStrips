@@ -1,5 +1,34 @@
 package frontend
 
+import (
+	"FlightStrips/pkg/events"
+	"encoding/json"
+)
+
+// BoundMessage attaches the socket's immutable selection to every board event,
+// including rejection and deferred results. Business payloads remain unchanged.
+type BoundMessage struct {
+	Message events.OutgoingMessage
+	Board   events.BoardContext
+}
+
+func (b BoundMessage) Marshal() ([]byte, error) {
+	data, err := b.Message.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(data, &object); err != nil {
+		return nil, err
+	}
+	scope, err := json.Marshal(b.Board)
+	if err != nil {
+		return nil, err
+	}
+	object["board"] = scope
+	return json.Marshal(object)
+}
+
 // BoardDefinition is immutable startup metadata for a compiled frontend view.
 // Actions come from the bound workflow, service flags from the selected definition.
 // Readiness and observer state belong to each own membership, not this catalog.

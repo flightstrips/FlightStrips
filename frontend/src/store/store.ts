@@ -183,6 +183,8 @@ export interface BroadcastNotification {
 
 // Define the state interface for our store
 export interface WebSocketState {
+  boardContext: import("@/api/sessions").BoardContext | null;
+  boardDefinition: import("@/api/sessions").BoardDefinition | null;
   inboundDepartures: InboundDeparturesSnapshot | null;
   controllers: FrontendController[];
   strips: FrontendStrip[];
@@ -337,6 +339,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   }>();
   // Initial state
   const initialState = {
+    boardContext: null as import("@/api/sessions").BoardContext | null,
+    boardDefinition: null as import("@/api/sessions").BoardDefinition | null,
     textPilotDraft: null,
     textPilotReadbacks: {},
     inboundDepartures: null as InboundDeparturesSnapshot | null,
@@ -1229,6 +1233,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.identifier = data.me.identifier;
         state.airport = data.airport;
         state.textPilotInputs = data.text_pilot?.airport === data.airport ? data.text_pilot : null;
+        state.boardDefinition = data.definition ?? null;
+        state.boardContext = data.board ?? null;
         state.callsign = data.callsign;
         state.readOnly = data.read_only ?? false;
         state.amanFMPAuthority = data.capabilities?.aman_fmp ?? false;

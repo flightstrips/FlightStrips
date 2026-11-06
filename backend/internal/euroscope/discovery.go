@@ -72,21 +72,7 @@ func (hub *Hub) ControlPresence() []PluginPresence {
 			} else if hub.getMasterClient(member.session) == member {
 				role = "master"
 			}
-			board := fe.BoardDefinition{Actions: []string{}}
-			if member.definition != nil {
-				board.DefinitionRevision = member.definition.Revision()
-				board.View = member.definition.ViewID()
-				board.Capabilities = fe.BoardCapabilities{
-					CDM:       member.definition.ServiceEnabled("cdm"),
-					Stands:    member.definition.ServiceEnabled("stand_assignment"),
-					TextPilot: member.definition.ServiceEnabled("text_pilot"),
-					PDC:       member.definition.ServiceEnabled("pdc"),
-					AMAN:      member.definition.ServiceEnabled("aman"),
-				}
-			}
-			if member.workflow != nil {
-				board.Actions = member.workflow.ActionCatalog()
-			}
+			board := member.boardDefinition()
 			identity := member.identitySnapshot()
 			ready := hub.MembershipReady(member)
 			presence.Memberships = append(presence.Memberships, MembershipInfo{InstanceID: t.instance, MembershipID: scope.MembershipId, TransportGeneration: t.generation, Generation: scope.Generation, SessionID: scope.SessionId, Airport: scope.Airport, Environment: scope.Environment, Role: role, Ready: ready, ReadOnly: role == "observer" || !ready, MasterEpoch: scope.MasterEpoch, BoardDefinition: board, Callsign: identity.callsign, Position: identity.position})
@@ -142,4 +128,23 @@ func (hub *Hub) MembershipDiscovery(auth shared.AuthenticationService) http.Hand
 			Transports []PluginPresence `json:"transports"`
 		}{transports})
 	}
+}
+
+func (c *Client) boardDefinition() fe.BoardDefinition {
+	board := fe.BoardDefinition{Actions: []string{}}
+	if c.definition != nil {
+		board.DefinitionRevision = c.definition.Revision()
+		board.View = c.definition.ViewID()
+		board.Capabilities = fe.BoardCapabilities{
+			CDM:       c.definition.ServiceEnabled("cdm"),
+			Stands:    c.definition.ServiceEnabled("stand_assignment"),
+			TextPilot: c.definition.ServiceEnabled("text_pilot"),
+			PDC:       c.definition.ServiceEnabled("pdc"),
+			AMAN:      c.definition.ServiceEnabled("aman"),
+		}
+	}
+	if c.workflow != nil {
+		board.Actions = c.workflow.ActionCatalog()
+	}
+	return board
 }

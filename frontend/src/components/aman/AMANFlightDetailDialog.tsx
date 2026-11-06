@@ -417,7 +417,7 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
   </section>;
 }
 
-export function AMANFlightDetailDialog({airport, callsign, revision, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; callsign: string; revision?: number; coordination?: {
+export function AMANFlightDetailDialog({airport, callsign, revision, board, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; callsign: string; revision?: number; board?: import("@/api/sessions").BoardContext; coordination?: {
   requests: AMANCoordinationRequest[]; canSubmit: boolean; submitting: boolean; rejection?: string | null;
   onSubmit: (submission: {kind: "route_direct"; route?: string; direct_to?: string} | {kind: "speed"; requested: string}) => void;
 }; initialAction?: "missed-approach" | "removal"; missedApproach?: MissedApproachAction; removal?: RemovalAction; onClose: () => void}) {
@@ -453,7 +453,7 @@ export function AMANFlightDetailDialog({airport, callsign, revision, coordinatio
       setError(null);
       try {
         const token = requireAccessToken(await getAccessTokenSilently());
-        const value = await fetchAMANFlightDetail(token, airport, callsign, abort.signal);
+        const value = await fetchAMANFlightDetail(token, airport, callsign, abort.signal, board);
         if (!abort.signal.aborted) {
           loadedDetailKey.current = detailKey;
           setDetail(value);
@@ -465,7 +465,7 @@ export function AMANFlightDetailDialog({airport, callsign, revision, coordinatio
       }
     })();
     return () => abort.abort();
-  }, [airport, callsign, revision, getAccessTokenSilently, detailKey]);
+  }, [airport, callsign, revision, getAccessTokenSilently, detailKey, board]);
 
   const openMissedApproach = () => {
     setCoordinationOpen(false);

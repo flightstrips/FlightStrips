@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	pkgModels "FlightStrips/pkg/models"
 	"context"
@@ -16,6 +17,7 @@ import (
 )
 
 type InitialSnapshotRequest struct {
+	Board     *events.BoardContext
 	SessionID int32
 	Position  string
 	Airport   string
@@ -348,6 +350,11 @@ func (b *SnapshotBuilder) loadClientRuntimeState(request InitialSnapshotRequest)
 		return false, false, ""
 	}
 
+	if source, ok := b.euroscopeHub.(interface {
+		FrontendBoardRuntimeState(string, events.BoardContext) (bool, bool, string)
+	}); ok && request.Board != nil {
+		return source.FrontendBoardRuntimeState(request.UserCID, *request.Board)
+	}
 	departureMismatch, arrivalMismatch := b.euroscopeHub.GetRunwayMismatchStatus(request.SessionID, request.UserCID)
 	localIP := b.euroscopeHub.GetClientLocalIP(request.SessionID, request.UserCID)
 	return departureMismatch, arrivalMismatch, localIP

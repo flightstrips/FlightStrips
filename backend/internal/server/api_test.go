@@ -68,7 +68,7 @@ func TestAPIMiddlewareAddsCORSHeadersToNormalRequests(t *testing.T) {
 	if got := response.Header.Get("Access-Control-Allow-Methods"); got != "GET, POST, PUT, DELETE, OPTIONS" {
 		t.Fatalf("unexpected Access-Control-Allow-Methods header %q", got)
 	}
-	if got := response.Header.Get("Access-Control-Allow-Headers"); got != "Authorization, Content-Type" {
+	if got := response.Header.Get("Access-Control-Allow-Headers"); got != "Authorization, Content-Type, X-FlightStrips-Board" {
 		t.Fatalf("unexpected Access-Control-Allow-Headers header %q", got)
 	}
 }

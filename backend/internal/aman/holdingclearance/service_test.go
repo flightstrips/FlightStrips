@@ -113,6 +113,32 @@ type recordingPlanner struct {
 	holds   []string
 }
 
+func TestClearedLevelDescentReplansExistingHold(t *testing.T) {
+	now := time.Date(2026, 11, 2, 18, 25, 0, 0, time.UTC)
+	state := airportState(now)
+	previousLevel, descendedLevel := int32(11000), int32(9000)
+	state.Flights[0].HoldingClearance = &aman.HoldingClearance{
+		Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, HoldEAT: "1930",
+		ClearedAltitude: &previousLevel, ObservedAt: now.Add(-time.Minute),
+	}
+	repository := &memoryRepository{state: state}
+	planner := &recordingPlanner{}
+	pub := &publisher{}
+	service, err := New(Dependencies{Repository: repository, Publisher: pub, Planner: planner})
+	require.NoError(t, err)
+
+	require.NoError(t, service.ObserveHoldingClearance(context.Background(), aman.HoldingClearanceFact{
+		Callsign: "SAS123", Destination: "EKCH", Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute,
+		HoldEAT: "1930", ClearedAltitude: &descendedLevel, ObservedAt: now,
+	}))
+	require.Equal(t, [][]aman.Callsign{{"SAS123"}}, planner.batches)
+	require.Equal(t, []string{"OLPIB"}, planner.holds)
+	require.Equal(t, descendedLevel, *repository.state.Flights[0].HoldingClearance.ClearedAltitude)
+	require.Equal(t, "1930", repository.state.Flights[0].HoldingClearance.HoldEAT)
+	require.Equal(t, 1, repository.commits)
+	require.Equal(t, 1, pub.calls)
+}
+
 func (p *recordingPlanner) RefreshHoldingClearances(_ context.Context, state *aman.AirportState, callsigns []aman.Callsign) {
 	p.batches = append(p.batches, append([]aman.Callsign(nil), callsigns...))
 	for _, flight := range state.Flights {

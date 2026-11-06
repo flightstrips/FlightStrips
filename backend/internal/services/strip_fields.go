@@ -129,7 +129,8 @@ func (s *StripService) UpdateRequestedAltitude(ctx context.Context, session int3
 	return nil
 }
 
-// UpdateClearedAltitude updates the cleared altitude for a strip and notifies the frontend.
+// UpdateClearedAltitude updates the cleared altitude and immediately refreshes
+// AMAN's holding fact so stack ordering does not wait for another strip sync.
 func (s *StripService) UpdateClearedAltitude(ctx context.Context, session int32, callsign string, altitude int32) error {
 	count, err := s.fieldStore.UpdateClearedAltitude(ctx, session, callsign, &altitude, nil)
 	if err != nil {
@@ -139,6 +140,14 @@ func (s *StripService) UpdateClearedAltitude(ctx context.Context, session int32,
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "ClearedAltitude"))
 	} else {
 		s.publisher.SendClearedAltitudeEvent(session, callsign, altitude)
+		if s.holdingObserver != nil {
+			strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+			shared.AddDBOperations(ctx, 1)
+			if err != nil {
+				return err
+			}
+			return s.observeHoldingClearance(ctx, strip)
+		}
 	}
 	return nil
 }

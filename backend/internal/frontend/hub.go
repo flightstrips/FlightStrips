@@ -33,6 +33,7 @@ import (
 )
 
 type internalMessage struct {
+	board   *events.BoardContext
 	session int32
 	airport string
 	message frontend.OutgoingMessage
@@ -293,9 +294,19 @@ func (hub *Hub) PublishAMANStateEvent(event frontend.AMANStateEvent, session ...
 		hub.publish(internalMessage{session: session[0], message: event})
 		return
 	}
-	hub.publish(internalMessage{airport: event.Data.Airport, message: event})
+	if event.Data.SessionID > 0 {
+		hub.publish(internalMessage{session: event.Data.SessionID, message: event})
+	}
 }
 
+// SendToPluginMembership routes own-instance presentation data, such as runway
+// mismatches, to matching tabs without broadcasting it to another own instance.
+func (hub *Hub) SendToPluginMembership(cid string, board events.BoardContext, message frontend.OutgoingMessage) {
+	hub.publish(internalMessage{session: board.SessionID, cid: &cid, board: &board, message: message})
+}
+func matchesOwnBoard(selected, target *events.BoardContext) bool {
+	return target == nil || (selected != nil && selected.SessionID == target.SessionID && selected.InstanceID == target.InstanceID && selected.MembershipID == target.MembershipID && selected.Generation == target.Generation && selected.TransportGeneration == target.TransportGeneration)
+}
 func (hub *Hub) Send(session int32, cid string, message frontend.OutgoingMessage) {
 	hub.publish(internalMessage{
 		session: session,
@@ -381,6 +392,9 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 	if err != nil {
 		return nil, err
 	}
+	if _, production := hub.server.GetEuroscopeHub().(frontendBoardSource); production && selected.explicit() && selected.board == nil {
+		return nil, shared.RejectAction("complete board context required")
+	}
 	controller, err := hub.controllerForSelection(user.GetCid(), selected)
 
 	var session int32
@@ -404,6 +418,9 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 			return nil, err
 		}
 
+		if selected.board != nil && (dbSession.ID != selected.board.SessionID || dbSession.Airport != selected.board.Airport || dbSession.Name != selected.board.Environment) {
+			return nil, shared.RejectAction("selected board does not match its airport environment")
+		}
 		session = dbSession.ID
 		sessionName = dbSession.Name
 		position = controller.Position
@@ -411,6 +428,12 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		callsign = controller.Callsign
 		if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
 			readOnly = hub.controllerReadOnly(controller, user.GetCid())
+			if source, ok := esHub.(frontendBoardSource); ok && selected.board != nil {
+				_, _, readOnly, err = source.AuthorizeFrontendBoard(user.GetCid(), *selected.board)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 
@@ -459,6 +482,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 	builder := hub.getSnapshotBuilder()
 
 	event, cachedAtis, err := builder.Build(ctx, InitialSnapshotRequest{
+		Board:     client.selection.board,
 		SessionID: client.session,
 		Position:  client.position,
 		Airport:   client.airport,
@@ -470,7 +494,16 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 		slog.Error("Failed to build initial frontend snapshot", slog.Any("error", err), slog.Int("session", int(client.session)))
 		return
 	}
-	event.Capabilities.AMANFMP = hub.hasAMANFMPAuthority(client)
+	if source, ok := hub.server.GetEuroscopeHub().(frontendBoardSource); ok && client.selection.board != nil {
+		_, definition, readOnly, authErr := source.AuthorizeFrontendBoard(client.GetCid(), *client.selection.board)
+		if authErr != nil {
+			return
+		}
+		event.Definition = &definition
+		event.ReadOnly = readOnly
+		client.SetReadOnly(readOnly)
+	}
+	event.Capabilities.AMANFMP = !event.ReadOnly && hub.hasAMANFMPAuthority(client)
 	if provider, ok := hub.server.GetCdmService().(interface {
 		CurrentInboundDepartures(int32, string) frontend.InboundDeparturesEvent
 	}); ok {
@@ -1857,7 +1890,7 @@ func (hub *Hub) Run(ctx context.Context) {
 			if message.cid != nil {
 				kind = "direct"
 				for client := range hub.clients {
-					if message.session == client.session && *message.cid == client.GetCid() {
+					if message.session == client.session && *message.cid == client.GetCid() && matchesOwnBoard(client.selection.board, message.board) {
 						client.Enqueue(message.message)
 						fanout++
 					}

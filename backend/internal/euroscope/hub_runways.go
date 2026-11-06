@@ -253,7 +253,7 @@ func (hub *Hub) resyncSessionRunwayMismatchTargets(session int32, masterCID stri
 	frontendHub := hub.server.GetFrontendHub()
 	for _, evaluation := range evaluations {
 		if frontendHub != nil {
-			frontendHub.Send(session, evaluation.CID, frontendEvents.RunwayConfigurationEvent{
+			sendFrontendRunwayConfiguration(frontendHub, evaluation.Target, session, evaluation.CID, frontendEvents.RunwayConfigurationEvent{
 				RunwaySetup: buildFrontendRunwayConfiguration(master, evaluation.DepartureMismatch, evaluation.ArrivalMismatch),
 			})
 		}

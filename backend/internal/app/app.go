@@ -35,6 +35,7 @@ import (
 	"FlightStrips/internal/testtools"
 	"FlightStrips/internal/vatsim"
 	"FlightStrips/internal/websocket"
+	"FlightStrips/pkg/events"
 	pkgEuroscope "FlightStrips/pkg/events/euroscope"
 	pkgFrontend "FlightStrips/pkg/events/frontend"
 	pkgModels "FlightStrips/pkg/models"
@@ -402,8 +403,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	coverageCoordinator := euroscopeHub.ConfigureCoverage(coverageOptions)
 	if amanAPI != nil {
-		amanAPI.WithSessionResolver(func(ctx context.Context, cid, airport string) (int32, error) {
-			controller := euroscopeHub.GetFrontendController(cid)
+		amanAPI.WithSessionResolver(func(ctx context.Context, cid, airport string, board events.BoardContext) (int32, error) {
+			controller, _, _, authErr := euroscopeHub.AuthorizeFrontendBoard(cid, board)
+			if authErr != nil {
+				return 0, authErr
+			}
 			if controller == nil {
 				return 0, fmt.Errorf("no connected EuroScope session")
 			}

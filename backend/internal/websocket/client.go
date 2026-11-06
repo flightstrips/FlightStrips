@@ -304,7 +304,8 @@ func shouldTrackMessageDBOperations(source string, msgType string) bool {
 }
 
 type internalMessage[TType comparable] struct {
-	Type TType `json:"type"`
+	Type  TType                `json:"type"`
+	Board *events.BoardContext `json:"board"`
 }
 
 func parseMessage[TType comparable](message []byte) (shared.Message[TType], error) {
@@ -329,10 +330,20 @@ func parseMessage[TType comparable](message []byte) (shared.Message[TType], erro
 	if err != nil {
 		return shared.Message[TType]{}, err
 	}
-	return shared.Message[TType]{
-		Type:    msg.Type,
-		Message: message,
-	}, nil
+	// Transport metadata is not part of strict business schemas (e.g. AMAN).
+	if msg.Board != nil {
+		var payload map[string]json.RawMessage
+		if err := json.Unmarshal(message, &payload); err != nil {
+			return shared.Message[TType]{}, err
+		}
+		delete(payload, "board")
+		var err error
+		message, err = json.Marshal(payload)
+		if err != nil {
+			return shared.Message[TType]{}, err
+		}
+	}
+	return shared.Message[TType]{Type: msg.Type, Message: message, Board: msg.Board}, nil
 }
 
 func isEuroscopeType[TType comparable]() bool {

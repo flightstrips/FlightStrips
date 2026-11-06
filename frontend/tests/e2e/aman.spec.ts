@@ -49,21 +49,29 @@ function target(page: Page, callsign: string) {
 }
 
 async function rejectedCommand(page: Page, token: string, revision: number) {
-  return page.evaluate(({token, revision}) => new Promise<{code: string}>((resolve, reject) => {
+  return page.evaluate(async ({token, revision}) => {
+    const response = await fetch("http://127.0.0.1:4180/api/plugin-memberships", {headers: {Authorization: `Bearer ${token}`}});
+    const discovery = await response.json();
+    const members = discovery.transports.flatMap((t: {memberships: Array<Record<string, unknown>>}) => t.memberships);
+    if (members.length !== 1) throw new Error("mutation probe requires exactly one own membership");
+    const m = members[0];
+    const board = {session_id:m.session_id, airport:m.airport, environment:m.environment, instance_id:m.instance_id, membership_id:m.membership_id, transport_generation:m.transport_generation, generation:m.generation, definition_revision:m.definition_revision, subscription_id:crypto.randomUUID()};
+    return new Promise<{code: string}>((resolve, reject) => {
     const socket = new WebSocket("ws://127.0.0.1:4180/frontEndEvents");
     const deadline = setTimeout(() => {socket.close(); reject(new Error("no command rejection from backend"));}, 10_000);
     let sent = false;
-    socket.onopen = () => socket.send(JSON.stringify({type: "token", token, version: "e2e"}));
+    socket.onopen = () => socket.send(JSON.stringify({type: "token", token, version: "e2e", board}));
     socket.onerror = () => reject(new Error("command socket failed"));
     socket.onmessage = ({data}) => {
       const event = JSON.parse(data);
       if (event.type === "aman.state" && !sent) {
         sent = true;
-        socket.send(JSON.stringify({type: "aman.set_holding_eat_writeback", version: 1, data: {command_id: crypto.randomUUID(), expected_revision: revision, enabled: true}}));
+        socket.send(JSON.stringify({type: "aman.set_holding_eat_writeback", version: 1, board, data: {command_id: crypto.randomUUID(), expected_revision: revision, enabled: true}}));
       }
       if (event.type === "aman.command_rejected") {clearTimeout(deadline); socket.close(); resolve(event.data);}
     };
-  }), {token, revision});
+  });
+  }, {token, revision});
 }
 
 test("running AMAN preserves healthy targets, diagnoses degradation and persists authorized commands", async ({page, request, context}, testInfo) => {

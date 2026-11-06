@@ -11,8 +11,8 @@ async function setup(page: Page, members = [membership(1, "AAAA"), membership(2,
       const event = JSON.parse(String(raw));
       if (event.type !== "token") return;
       authentications.push(event);
-      const member = members.find(m => m.session_id === event.session_id && m.instance_id === event.plugin_instance_id)!;
-      ws.send(JSON.stringify({type: "initial", session_id: member.session_id, airport: member.airport, callsign: member.callsign, layout: "CLX", reset_layout: "CLX", read_only: false, position_available: true, controllers: [], strips: [], tactical_strips: [], me: {callsign: member.callsign, position: member.position, identifier: "D", section: "DEL", owned_sectors: []}, runway_setup: {departure: ["22R"], arrival: ["22L"], runway_status: {}}, coordinations: [], messages: [], available_sids: [], initial_cfl_by_runway: {}, transition_altitude: 5000, stand_assignment_enabled: false, stand_assignments: [], stand_blocks: []}));
+      const member = members.find(m => m.session_id === event.board.session_id && m.instance_id === event.board.instance_id)!;
+      ws.send(JSON.stringify({type: "initial", board: event.board, definition: {definition_revision: member.definition_revision, view: member.view, actions: member.actions, capabilities: member.capabilities}, session_id: member.session_id, airport: member.airport, callsign: member.callsign, layout: "CLX", reset_layout: "CLX", read_only: false, position_available: true, controllers: [], strips: [], tactical_strips: [], me: {callsign: member.callsign, position: member.position, identifier: "D", section: "DEL", owned_sectors: []}, runway_setup: {departure: ["22R"], arrival: ["22L"], runway_status: {}}, coordinations: [], messages: [], available_sids: [], initial_cfl_by_runway: {}, transition_altitude: 5000, stand_assignment_enabled: false, stand_assignments: [], stand_blocks: []}));
     });
   });
   return authentications;
@@ -33,8 +33,8 @@ test("separate tabs select and switch independent boards without membership comm
   await a.getByRole("button", {name: /BBBB/}).click();
   await expect(a.getByTestId("selected-board")).toHaveAttribute("data-session", "2");
   await expect(b.getByTestId("selected-board")).toHaveAttribute("data-session", "2");
-  expect(authA.map(x => x.session_id)).toEqual([1, 2]);
-  expect(authB.map(x => x.session_id)).toEqual([2]);
+  expect(authA.map(x => (x.board as {session_id: number}).session_id)).toEqual([1, 2]);
+  expect(authB.map(x => (x.board as {session_id: number}).session_id)).toEqual([2]);
   await a.screenshot({path: info.outputPath("selected-board.png")});
 });
 
@@ -55,5 +55,5 @@ test("multiple compatible own instances require a deliberate choice", async ({pa
   expect(auth).toHaveLength(0);
   await page.getByRole("button", {name: /second/}).click();
   await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "1");
-  expect(auth[0].plugin_instance_id).toBe("second");
+  expect((auth[0].board as {instance_id: string}).instance_id).toBe("second");
 });

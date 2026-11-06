@@ -34,12 +34,14 @@ export default function AppRouter() {
     }
   }, [setDisplayedLayout]);
 
+  const definition = useWebSocketStore(s => s.boardDefinition);
   const displayedLayout = useWebSocketStore((s) => s.displayedLayout);
   const readOnly = useWebSocketStore((s) => s.readOnly);
   const positionAvailable = useWebSocketStore((s) => s.positionAvailable);
   const layoutResetNonce = useWebSocketStore((s) => s.layoutResetNonce);
   const Component = LAYOUT_MAP[displayedLayout];
 
+  if (definition && definition.view !== "ekch") return <div role="alert">This airport view is not supported by this frontend version.</div>;
   if (!Component) {
     if (readOnly && !positionAvailable) {
       return <ObserverInvalidFrequencyScreen />;

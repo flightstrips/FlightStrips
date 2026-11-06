@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events"
 	"context"
 	"encoding/json"
 	"errors"
@@ -39,7 +40,7 @@ func (s *sessionStateReader) LoadAirportState(ctx context.Context, airport strin
 func TestFlightDetailUsesAuthenticatedSessionAndRejectsOtherAirport(t *testing.T) {
 	reader := &sessionStateReader{}
 	mux := http.NewServeMux()
-	New(testAuth{}, reader).WithSessionResolver(func(ctx context.Context, cid, airport string) (int32, error) {
+	New(testAuth{}, reader).WithSessionResolver(func(ctx context.Context, cid, airport string, board events.BoardContext) (int32, error) {
 		if airport != "EKCH" {
 			return 0, errors.New("wrong airport")
 		}
@@ -48,6 +49,8 @@ func TestFlightDetailUsesAuthenticatedSessionAndRejectsOtherAirport(t *testing.T
 	for _, airport := range []string{"EKCH", "EKBI"} {
 		request := httptest.NewRequest(http.MethodGet, "/aman/airports/"+airport+"/flights/SAS123/detail", nil)
 		request.Header.Set("Authorization", "Bearer token")
+		board, _ := json.Marshal(events.BoardContext{SessionID: 12, Airport: airport, Environment: "LIVE", InstanceID: "own", MembershipID: "member", TransportGeneration: 1, Generation: 2, DefinitionRevision: "revision", SubscriptionID: "tab"})
+		request.Header.Set("X-FlightStrips-Board", string(board))
 		response := httptest.NewRecorder()
 		mux.ServeHTTP(response, request)
 		if airport == "EKCH" {

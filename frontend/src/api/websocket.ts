@@ -42,7 +42,7 @@ import {
   type WebSocketEvent,
   type AvailableSidsEvent,
 } from "./models";
-import type {OwnMembership} from "./sessions";
+import {boardContext, sameBoard, type BoardContext, type OwnMembership} from "./sessions";
 import { FRONTEND_VERSION } from "@/lib/app-version";
 import type {InboundDeparturesEvent} from "./inbound-departures";
 import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEvent} from "./aman";
@@ -115,6 +115,7 @@ export class WebSocketClient {
   private readonly url: string;
   private token: string | null = null;
   private readOnly = false;
+  private board?: BoardContext;
   private reconnectAttempts = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private manuallyClosed = false;
@@ -142,6 +143,8 @@ export class WebSocketClient {
       this.manuallyClosed = false;
       const socket = new WebSocket(this.url);
       this.socket = socket;
+      this.board = this.selection ? boardContext(this.selection, crypto.randomUUID()) : undefined;
+      if (this.selection) this.readOnly = true; // Wait for the authorized snapshot.
 
       socket.onopen = () => {
         if (this.socket !== socket) return;
@@ -175,7 +178,12 @@ export class WebSocketClient {
       socket.onmessage = (event) => {
         if (this.socket !== socket) return;
         try {
-          const data = JSON.parse(event.data) as WebSocketEvent;
+          const data = JSON.parse(event.data) as WebSocketEvent & {board?: BoardContext};
+          if (this.selection) {
+            if (!sameBoard(data.board, this.board)) return;
+            if (data.type === EventType.FrontendInitial &&
+                (data.session_id !== this.selection.session_id || data.airport !== this.selection.airport || data.definition?.definition_revision !== this.selection.definition_revision || data.definition.view !== this.selection.view)) return;
+          }
           const handlers = this.eventHandlers.get(data.type as EventType);
           if (handlers) {
             handlers.forEach(handler => handler(data));
@@ -248,7 +256,7 @@ export class WebSocketClient {
     }
 
     try {
-      this.socket.send(JSON.stringify(event));
+      this.socket.send(JSON.stringify({...event, ...(this.board ? {board: this.board} : {})}));
       return true;
     } catch (error) {
       console.error('Error sending WebSocket message:', error);
@@ -262,7 +270,6 @@ export class WebSocketClient {
         type: ActionType.FrontendToken,
         token: this.token,
         version: FRONTEND_VERSION,
-        ...(this.selection ? {session_id: this.selection.session_id, plugin_instance_id: this.selection.instance_id, membership_id: this.selection.membership_id} : {}),
       });
     }
   }

@@ -286,6 +286,7 @@ type SyncCoordination struct {
 }
 
 type InitialEvent struct {
+	Definition             *BoardDefinition           `json:"definition,omitempty"`
 	TextPilot              *pkgModels.TextPilotInputs `json:"text_pilot,omitempty"`
 	MasterCallsign         string                     `json:"master_callsign"`
 	InboundDepartures      *InboundDeparturesEvent    `json:"inbound_departures,omitempty"`

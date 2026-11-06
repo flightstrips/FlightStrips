@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
+	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
 	"log/slog"
@@ -94,6 +95,9 @@ func (c *Client) GetSendChannel() chan events.OutgoingMessage {
 }
 
 func (c *Client) Enqueue(message events.OutgoingMessage) bool {
+	if c.selection.board != nil {
+		message = frontendEvents.BoundMessage{Message: message, Board: *c.selection.board}
+	}
 	select {
 	case <-c.closed:
 		return false
@@ -257,6 +261,17 @@ func (c *Client) PrepareMessageContext(ctx context.Context, message string) (con
 	if identity.readOnly {
 		return ctx, shared.RejectAction("observer clients are read-only")
 	}
+	if c.selection.board != nil {
+		source, ok := c.hub.server.GetEuroscopeHub().(frontendBoardSource)
+		if !ok {
+			return ctx, shared.RejectAction("board binding is unavailable")
+		}
+		binding, err := source.CaptureFrontendBoardBinding(c.GetCid(), *c.selection.board)
+		if err != nil {
+			return ctx, err
+		}
+		return shared.WithHumanCommand(ctx, binding)
+	}
 	if c.selection.explicit() {
 		if identity.session != c.selection.session {
 			return ctx, shared.RejectAction("selected membership is disconnected")
@@ -274,4 +289,27 @@ func (c *Client) PrepareMessageContext(ctx context.Context, message string) (con
 		return shared.WithHumanCommand(ctx, binding)
 	}
 	return shared.EnsureHumanCommand(ctx, c.hub.server.GetEuroscopeHub(), identity.session, c.GetCid())
+}
+
+// ApplyBoardMessage fences every incoming action before business dispatch. Socket
+// selection is immutable; changing airport or own incarnation needs a new socket.
+func (c *Client) ApplyBoardMessage(ctx context.Context, board *events.BoardContext, kind string, apply func(context.Context) error) error {
+	if c == nil {
+		return apply(ctx)
+	}
+	if c.selection.board != nil {
+		select {
+		case <-c.closed:
+			return shared.RejectAction("board subscription is closed")
+		default:
+		}
+		if board == nil || *board != *c.selection.board {
+			return shared.RejectAction("stale or wrong board subscription")
+		}
+	} else if c.hub != nil && c.hub.server != nil {
+		if _, production := c.hub.server.GetEuroscopeHub().(frontendBoardSource); production && kind != "token" {
+			return shared.RejectAction("authorized board selection required")
+		}
+	}
+	return apply(ctx)
 }

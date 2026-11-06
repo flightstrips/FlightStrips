@@ -113,6 +113,11 @@ func (r *Replayer) Replay(ctx context.Context) error {
 	// Start reading messages from server
 	r.client.ReadMessages(ctx, r.handleServerMessage)
 
+	// Send synthesized login event before replaying recorded events
+	if err := r.sendLoginEvent(ctx); err != nil {
+		return fmt.Errorf("failed to send login event: %w", err)
+	}
+
 	// Connect frontend client if there are frontend actions
 	if len(r.session.FrontendActions) > 0 {
 		if err := r.connectFrontendClient(ctx); err != nil {
@@ -120,11 +125,6 @@ func (r *Replayer) Replay(ctx context.Context) error {
 		} else {
 			defer r.frontendClient.Close()
 		}
-	}
-
-	// Send synthesized login event before replaying recorded events
-	if err := r.sendLoginEvent(ctx); err != nil {
-		return fmt.Errorf("failed to send login event: %w", err)
 	}
 
 	// Replay events

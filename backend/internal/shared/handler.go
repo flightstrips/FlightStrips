@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"FlightStrips/pkg/events"
 	es "FlightStrips/pkg/events/euroscope"
 	"context"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 )
 
 type Message[TType comparable] struct {
+	Board       *events.BoardContext
 	Type        TType
 	Message     []byte
 	Scope       *es.MembershipContext
@@ -24,6 +26,8 @@ func (m *Message[TType]) JsonUnmarshal(v interface{}) error {
 func (m *Message[TType]) ProtoUnmarshal(v proto.Message) error {
 	return proto.Unmarshal(m.Message, v)
 }
+
+type boardDispatchKey struct{}
 
 type Handler[TType comparable, T any] func(ctx context.Context, client T, message Message[TType]) error
 
@@ -62,6 +66,15 @@ func (handlers MessageHandlers[TType, TClient]) Handle(ctx context.Context, clie
 		scope := message.Scope
 		message.Scope = nil
 		return source.ApplyScopedMessage(ctx, scope, fmt.Sprint(message.Type), message.Message, message.Origin, message.ExecutionID, func(ctx context.Context) error { return handlers.Handle(ctx, client, message) })
+	}
+	if source, ok := any(client).(interface {
+		ApplyBoardMessage(context.Context, *events.BoardContext, string, func(context.Context) error) error
+	}); ok {
+		if _, applied := ctx.Value(boardDispatchKey{}).(bool); !applied {
+			return source.ApplyBoardMessage(ctx, message.Board, fmt.Sprint(message.Type), func(ctx context.Context) error {
+				return handlers.Handle(context.WithValue(ctx, boardDispatchKey{}, true), client, message)
+			})
+		}
 	}
 	if handler, ok := handlers.handlers[message.Type]; ok {
 		if handlers.controllerActions[message.Type] {

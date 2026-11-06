@@ -51,17 +51,25 @@ async function assertBay(request: APIRequestContext, pages: Page[], visualBay: s
 }
 
 async function rejected(page: Page, token: string, command: Record<string, unknown>) {
-  return page.evaluate(({token, command, backend}) => new Promise<{action: string; reason: string}>((resolve, reject) => {
+  return page.evaluate(async ({token, command, backend}) => {
+    const response = await fetch(`${backend}/api/plugin-memberships`, {headers: {Authorization: `Bearer ${token}`}});
+    const discovery = await response.json();
+    const members = discovery.transports.flatMap((t: {memberships: Array<Record<string, unknown>>}) => t.memberships);
+    if (members.length !== 1) throw new Error("mutation probe requires exactly one own membership");
+    const m = members[0];
+    const board = {session_id:m.session_id, airport:m.airport, environment:m.environment, instance_id:m.instance_id, membership_id:m.membership_id, transport_generation:m.transport_generation, generation:m.generation, definition_revision:m.definition_revision, subscription_id:crypto.randomUUID()};
+    return new Promise<{action: string; reason: string}>((resolve, reject) => {
     const socket = new WebSocket(`${backend.replace("http", "ws")}/frontEndEvents`);
     const deadline = setTimeout(() => {socket.close(); reject(new Error("no action rejection received"));}, 10_000);
-    socket.onopen = () => socket.send(JSON.stringify({type: "token", token, version: "e2e"}));
+    socket.onopen = () => socket.send(JSON.stringify({type: "token", token, version: "e2e", board}));
     socket.onerror = () => {clearTimeout(deadline); reject(new Error("command socket failed"));};
     socket.onmessage = ({data}) => {
       const event = JSON.parse(data);
-      if (event.type === "initial") socket.send(JSON.stringify(command));
+      if (event.type === "initial") socket.send(JSON.stringify({...command, board}));
       if (event.type === "action_rejected") {clearTimeout(deadline); socket.close(); resolve(event);}
     };
-  }), {token, command, backend});
+  });
+  }, {token, command, backend});
 }
 
 test("strip moves and reorders persist, respect ownership and reach a second browser", async ({session, request}, testInfo) => {

@@ -9,6 +9,7 @@ import (
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/aman/trajectory"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events"
 	"context"
 	"encoding/json"
 	"errors"
@@ -25,7 +26,7 @@ type WebAPI struct {
 	geometry        navdata.GeometryReader
 	snapshots       navdata.GeometrySnapshotReader
 	terminal        terminal.Configuration
-	sessionResolver func(context.Context, string, string) (int32, error)
+	sessionResolver func(context.Context, string, string, events.BoardContext) (int32, error)
 }
 
 func New(auth shared.AuthenticationService, states aman.AirportStateReader) *WebAPI {
@@ -41,7 +42,7 @@ func (a *WebAPI) WithTerminal(config terminal.Configuration) *WebAPI {
 
 // WithSessionResolver uses authenticated server-side membership, never a
 // caller-supplied session ID, to scope inspection to the caller's session.
-func (a *WebAPI) WithSessionResolver(resolve func(context.Context, string, string) (int32, error)) *WebAPI {
+func (a *WebAPI) WithSessionResolver(resolve func(context.Context, string, string, events.BoardContext) (int32, error)) *WebAPI {
 	a.sessionResolver = resolve
 	return a
 }
@@ -108,7 +109,12 @@ func (a *WebAPI) authenticate(w http.ResponseWriter, r *http.Request) bool {
 	}
 	if a.sessionResolver != nil {
 		airport := strings.ToUpper(strings.TrimSpace(r.PathValue("airport")))
-		id, err := a.sessionResolver(r.Context(), user.GetCid(), airport)
+		var board events.BoardContext
+		if err := json.Unmarshal([]byte(r.Header.Get("X-FlightStrips-Board")), &board); err != nil || !board.Complete() {
+			writeError(w, http.StatusForbidden, "selected board context is required")
+			return false
+		}
+		id, err := a.sessionResolver(r.Context(), user.GetCid(), airport, board)
 		if err != nil || id <= 0 {
 			writeError(w, http.StatusForbidden, "AMAN detail requires membership of this airport session")
 			return false

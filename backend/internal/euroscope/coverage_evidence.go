@@ -26,6 +26,7 @@ type CoverageControllerEvidence struct {
 // One normalized projection per environment for a coordinator pass. It is never
 // retained by an airport session or membership. Absence requires fresh inventory.
 type CoverageStaffingEvidence struct {
+	Environment string
 	Inventory   CoverageEvidenceState
 	Controllers []CoverageControllerEvidence
 }
@@ -99,7 +100,7 @@ func BuildCoverageEvidence(network vatsim.Snapshot, radios vatsim.TransceiverSna
 	}
 	result := map[string]CoverageStaffingEvidence{}
 	for environment, controllers := range byEnvironment {
-		entry := CoverageStaffingEvidence{Inventory: inventory[environment]}
+		entry := CoverageStaffingEvidence{Environment: environment, Inventory: inventory[environment]}
 		for _, controller := range controllers {
 			entry.Controllers = append(entry.Controllers, controller)
 		}

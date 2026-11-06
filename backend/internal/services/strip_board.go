@@ -150,7 +150,8 @@ func (s *StripService) initializeStripBoardState(ctx context.Context, session in
 		if strip.BoardState != nil {
 			return nil
 		}
-		updated, err := store.UpdateStripBoardState(ctx, session, strip.ID, strip.Version, &models.StripBoardState{})
+		created := s.boardTime()
+		updated, err := store.UpdateStripBoardState(ctx, session, strip.ID, strip.Version, &models.StripBoardState{CreatedAt: &created})
 		if err != nil {
 			return err
 		}
@@ -179,7 +180,7 @@ func (s *StripService) applyStripBoardDecision(ctx context.Context, session int3
 			state.RemovedAt = nil
 			state.RemovalReason = ""
 		} else {
-			now := time.Now().UTC()
+			now := s.boardTime()
 			state.RemovedAt = &now
 			state.RemovalReason = d.Visibility.Reason
 		}

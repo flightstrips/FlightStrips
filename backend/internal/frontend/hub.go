@@ -159,6 +159,9 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 
 	handlers.Add(frontend.Token, handleTokenEvent)
 	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
+	handlers.Add(frontend.StripCreateLocal, handleLocalStripCreation)
+	handlers.Add(frontend.FindConnectedFlights, handleConnectedFlightSearch)
+	handlers.Add(frontend.StripAdmitConnected, handleConnectedFlightAdmission)
 	handlers.Add(frontend.StripAnnotate, handleStripAnnotation)
 	handlers.Add(frontend.Move, handleMove)
 	handlers.Add(frontend.UpdateStripData, handleStripUpdate)

@@ -5,7 +5,9 @@ import (
 	"FlightStrips/internal/models"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 )
 
 // UpdateStripBoardState is a strip-identity and revision CAS. Generic source updates
@@ -17,6 +19,95 @@ func (r *stripRepository) UpdateStripBoardState(ctx context.Context, session, id
 	}
 	count, err := r.queries.UpdateStripBoardState(ctx, database.UpdateStripBoardStateParams{Session: session, ID: id, Version: version, BoardState: data})
 	return count == 1, err
+}
+
+// AdmitStripBoardEntry prevents duplicate identities under the board's existing DB lock.
+// FIND can reveal an existing planning row, but never unhides a removed strip.
+func (r *stripRepository) AdmitStripBoardEntry(ctx context.Context, strip *models.Strip, allowExisting bool, guard func() error) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if guard == nil {
+		return fmt.Errorf("admission validation is required")
+	}
+	commit := func() error {
+		if err := guard(); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
+	}
+	if _, err = tx.Exec(ctx, "SELECT id FROM sessions WHERE id=$1 FOR UPDATE", strip.Session); err != nil {
+		return err
+	}
+	q := r.queries.WithTx(tx)
+	row, err := q.LockStrip(ctx, database.LockStripParams{Session: strip.Session, Callsign: strip.Callsign})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if guardErr := guard(); guardErr != nil {
+		return guardErr
+	}
+	if err == nil {
+		if !allowExisting {
+			return fmt.Errorf("callsign already has an airport strip; open or restore it")
+		}
+		existing, err := stripToModel(row)
+		if err != nil {
+			return err
+		}
+		if existing.VatsimCID != nil && strip.VatsimCID != nil && *existing.VatsimCID != *strip.VatsimCID {
+			return fmt.Errorf("callsign belongs to another flight identity")
+		}
+		if existing.BoardState != nil {
+			if existing.BoardState.RemovedAt != nil {
+				return fmt.Errorf("removed strip must be restored under the airport policy")
+			}
+			if existing.VatsimCID == nil && strip.VatsimCID != nil {
+				if _, err = tx.Exec(ctx, "UPDATE strips SET vatsim_cid=$1,vatsim_revision=$2,vatsim_seen_at=$3,version=version+1 WHERE session=$4 AND id=$5", strip.VatsimCID, strip.VatsimRevision, strip.VatsimSeenAt, strip.Session, existing.ID); err != nil {
+					return err
+				}
+			}
+			return commit()
+		}
+		if existing.EuroscopeSeenAt == nil && strip.VatsimCID != nil && strip.VatsimSeenAt != nil {
+			bound := &stripRepository{db: tx, queries: q}
+			value := func(v *string) string {
+				if v != nil {
+					return *v
+				}
+				return ""
+			}
+			source := models.VatsimStripSource{CID: *strip.VatsimCID, Revision: *strip.VatsimRevision, SeenAt: *strip.VatsimSeenAt, Origin: strip.Origin, Destination: strip.Destination, Alternate: value(strip.Alternative), Route: value(strip.Route), Remarks: value(strip.Remarks), AssignedSquawk: value(strip.AssignedSquawk), AircraftType: value(strip.AircraftType), FlightRules: strip.FlightRules}
+			if _, err := bound.UpdateVatsimSource(ctx, strip.Session, strip.Callsign, source); err != nil {
+				return err
+			}
+		}
+		sequence, err := q.GetMaxSequenceInBay(ctx, database.GetMaxSequenceInBayParams{Session: strip.Session, Bay: strip.Bay})
+		if err != nil {
+			return err
+		}
+		data, err := json.Marshal(strip.BoardState)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, "UPDATE strips SET board_state=$1,bay=$2,sequence=$3,has_fp=CASE WHEN euroscope_seen_at IS NULL THEN false ELSE has_fp END,vatsim_cid=COALESCE(vatsim_cid,$6),vatsim_revision=$7,vatsim_seen_at=$8,version=version+1 WHERE session=$4 AND id=$5", data, strip.Bay, sequence+1000, strip.Session, existing.ID, strip.VatsimCID, strip.VatsimRevision, strip.VatsimSeenAt); err != nil {
+			return err
+		}
+		return commit()
+	}
+	sequence, err := q.GetMaxSequenceInBay(ctx, database.GetMaxSequenceInBayParams{Session: strip.Session, Bay: strip.Bay})
+	if err != nil {
+		return err
+	}
+	sequence += 1000
+	strip.Sequence = &sequence
+	bound := &stripRepository{db: tx, queries: q}
+	if err = bound.Create(ctx, strip); err != nil {
+		return err
+	}
+	return commit()
 }
 
 // ReorderStripBoard uses the same session-row serialization boundary as AppendToBay.

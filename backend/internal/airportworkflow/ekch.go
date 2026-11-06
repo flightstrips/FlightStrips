@@ -36,7 +36,7 @@ func EKCHDescriptor() Descriptor {
 				}
 			}
 		}
-		return h, []ActionDescriptor{Action("strip.move", h.move), Action("strip.state-for-move", h.moveState), Action("strip.clearance", h.clearance)}, nil
+		return h, []ActionDescriptor{Action("flightplan.create", func(Context, FlightPlanCreation) (Decision, error) { return Decision{}, nil }), Action("strip.move", h.move), Action("strip.state-for-move", h.moveState), Action("strip.clearance", h.clearance)}, nil
 	}}
 }
 

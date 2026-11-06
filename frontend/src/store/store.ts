@@ -1,4 +1,4 @@
-import type {StripAnnotations,StripFieldEdit,StripRevision} from "@/api/strip-board";
+import type {StripAnnotations,StripFieldEdit,StripRevision,LocalStripCreation,ConnectedFlightCandidate} from "@/api/strip-board";
 import {stripRevision} from "@/api/strip-board";
 import type { TextPilotInputs } from "@/api/models";
 import type { TextPilotDraft, FrequencyMessageResult } from "@/lib/text-pilot";
@@ -185,7 +185,12 @@ export interface BroadcastNotification {
 
 // Define the state interface for our store
 export interface WebSocketState {
-  ownPluginReady: boolean;
+  connectedFlightCandidates:ConnectedFlightCandidate[];
+ connectedFlightSearchRequest:string|null;
+ createLocalStrip:(local:LocalStripCreation)=>boolean;
+ findConnectedFlights:(query:string)=>boolean;
+ admitConnectedFlight:(flight:ConnectedFlightCandidate)=>boolean;
+ ownPluginReady: boolean;
   observer: boolean;
   boardContext: import("@/api/sessions").BoardContext | null;
   boardDefinition: import("@/api/sessions").BoardDefinition | null;
@@ -355,7 +360,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   }>();
   // Initial state
   const initialState = {
-    ownPluginReady: false,
+    connectedFlightCandidates:[] as ConnectedFlightCandidate[], connectedFlightSearchRequest:null as string|null,
+ ownPluginReady: false,
     observer: false,
     boardContext: null as import("@/api/sessions").BoardContext | null,
     boardDefinition: null as import("@/api/sessions").BoardDefinition | null,
@@ -425,7 +431,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     for (const key of Object.keys(initialState) as Array<keyof typeof initialState>) {
       if (key in retainedState) Object.assign(initialState, {[key]: retainedState[key]});
     }
-    Object.assign(initialState, {readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+    Object.assign(initialState, {connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
   }
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => {
@@ -675,6 +681,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       return sendGuardedStripEvent(callsign, { type: "generate_squawk" }, {type: ActionType.FrontendGenerateSquawk, callsign});
     },
 
+
+    createLocalStrip(local){const state=get(),definition=state.boardDefinition;if(!state.ownPluginReady || !definition?.actions.includes("strip.create-local"))return false;return sendIfWritable({type:"strip.create-local",...local,definition_revision:definition.definition_revision});},
+    findConnectedFlights(query){const state=get(),definition=state.boardDefinition;if(!state.ownPluginReady || !definition?.actions.includes("flight.find-connected"))return false;const request_id=crypto.randomUUID();if(!sendIfWritable({type:"flight.find-connected",request_id,query,definition_revision:definition.definition_revision}))return false;set({connectedFlightSearchRequest:request_id,connectedFlightCandidates:[]});return true;},
+    admitConnectedFlight(flight){const state=get(),definition=state.boardDefinition;if(!state.ownPluginReady || !definition?.actions.includes("strip.admit-connected"))return false;return sendIfWritable({type:"strip.admit-connected",flight,definition_revision:definition.definition_revision});},
     annotateStrip(callsign,field,value="",enabled=false,expected){
       const state=get(), strip=findStrip(callsign),revision=expected??stripRevision(strip,state.boardDefinition);
       return !!revision && state.ownPluginReady && !!state.boardDefinition?.actions.includes("strip.annotate") && sendIfWritable({type:"strip.annotate",callsign,...revision,field,value,enabled});
@@ -1257,7 +1267,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       pending.reject(new Error("Board context changed"));
     }
     pendingForceAssumeRoutes.clear();
-    store.setState({readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+    store.setState({connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
   };
   registrations.push(() => wsClient.onInvalidated?.(suspendBoard));
 
@@ -1822,6 +1832,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   };
 
   // Register event handlers
+  on(EventType.FrontendConnectedFlightResults, event => {if(!store.getState().readOnly && event.request_id===store.getState().connectedFlightSearchRequest)store.setState({connectedFlightCandidates:event.flights,connectedFlightSearchRequest:null});});
   on(EventType.FrontendInitial, handleInitialEvent);
   on(EventType.FrontendMasterInfo, (data) => {
     store.setState({ masterCallsign: data.master_callsign });
@@ -1882,6 +1893,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   on(EventType.FrontendAtisUpdate, handleAtisUpdateEvent);
 
   const handleActionRejectedEvent = (data: ActionRejectedEvent) => {
+ if(data.action === "flight.find-connected") store.setState({connectedFlightSearchRequest:null});
     if (store.getState().readOnly) return;
     if (data.action.startsWith("stand_assignment_")) {
       store.setState({ standActionRejection: data });

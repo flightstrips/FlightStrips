@@ -4,9 +4,11 @@ import (
 	"FlightStrips/internal/airportworkflow"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	"FlightStrips/internal/vatsim"
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	internalModels "FlightStrips/internal/models"
 )
@@ -19,37 +21,40 @@ const (
 )
 
 type StripService struct {
-	workflowSessions     SessionReader
-	workflows            *airportworkflow.Registry
-	sessionWorkflows     sync.Map
-	stripReader          StripReader
-	lifecycleStore       StripLifecycleStore
-	orderingStore        StripOrderingStore
-	fieldStore           StripFieldStore
-	ownerStore           StripOwnerStore
-	cdmStore             StripCdmStore
-	validationStore      StripValidationStatusStore
-	manualFplStore       StripManualFplStore
-	tacticalRepo         repository.TacticalStripRepository
-	sectorOwnerRepo      repository.SectorOwnerRepository
-	publisher            shared.StripEventPublisher
-	esCommander          StripEuroscopeCommander
-	coordRepo            CoordinationStore
-	controllerRepo       ControllerReader
-	sessionRepo          SessionReader
-	routeRecalculator    RouteRecalculator
-	routeComputer        StripRouteComputer
-	routeDisplayComputer StripRouteDisplayComputer
-	clearedOwnerResolver ClearedStripOwnerResolver
-	coordTargetResolver  CoordinationTargetResolver
-	pdcService           shared.PdcService
-	cdmService           StripCdmService
-	departureObserver    departurePositionObserver
-	arrivalObserver      arrivalPositionObserver
-	amanStripObserver    euroScopeAMANStripObserver
-	holdingObserver      holdingClearanceObserver
-	routeRefreshPending  sync.Map
-	positionTransitions  sync.Map
+	connectedSource       vatsim.SnapshotSource
+	connectedSourceMaxAge time.Duration
+	boardNow              func() time.Time
+	workflowSessions      SessionReader
+	workflows             *airportworkflow.Registry
+	sessionWorkflows      sync.Map
+	stripReader           StripReader
+	lifecycleStore        StripLifecycleStore
+	orderingStore         StripOrderingStore
+	fieldStore            StripFieldStore
+	ownerStore            StripOwnerStore
+	cdmStore              StripCdmStore
+	validationStore       StripValidationStatusStore
+	manualFplStore        StripManualFplStore
+	tacticalRepo          repository.TacticalStripRepository
+	sectorOwnerRepo       repository.SectorOwnerRepository
+	publisher             shared.StripEventPublisher
+	esCommander           StripEuroscopeCommander
+	coordRepo             CoordinationStore
+	controllerRepo        ControllerReader
+	sessionRepo           SessionReader
+	routeRecalculator     RouteRecalculator
+	routeComputer         StripRouteComputer
+	routeDisplayComputer  StripRouteDisplayComputer
+	clearedOwnerResolver  ClearedStripOwnerResolver
+	coordTargetResolver   CoordinationTargetResolver
+	pdcService            shared.PdcService
+	cdmService            StripCdmService
+	departureObserver     departurePositionObserver
+	arrivalObserver       arrivalPositionObserver
+	amanStripObserver     euroScopeAMANStripObserver
+	holdingObserver       holdingClearanceObserver
+	routeRefreshPending   sync.Map
+	positionTransitions   sync.Map
 }
 
 type departurePositionObserver interface {

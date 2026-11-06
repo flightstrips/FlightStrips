@@ -245,6 +245,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 
 	requireLiveCIDVerification := isLiveEnvironment(cfg.Environment)
 	vatsimGraph := assembleVATSIMSource(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready || amanNeedsVATSIM)
+	stripService.SetConnectedFlightSource(vatsimGraph.source, satStaleAfter(deps.VATSIMPollInterval), satNow)
 
 	var fsServer *server.Server
 	transports := assembleTransports(cfg, deps, func(ctx context.Context) error {

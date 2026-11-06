@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.4.1...plugin/v2.5.0) (2026-11-06)
+
+
+### Features
+
+* **session:** add typed plugin membership protocol context ([#1046](https://github.com/flightstrips/FlightStrips/issues/1046)) ([1ddb39a](https://github.com/flightstrips/FlightStrips/commit/1ddb39a9b7ba115d44d3058938b30930a3ac3c07))
+* **session:** elect and fence masters independently per membership ([#1052](https://github.com/flightstrips/FlightStrips/issues/1052)) ([d303af0](https://github.com/flightstrips/FlightStrips/commit/d303af0c8d4d5ab07f04c598a15d2b7ec8ff74d3))
+* **session:** maintain independent plugin memberships and inventories ([#1049](https://github.com/flightstrips/FlightStrips/issues/1049)) ([057ebfc](https://github.com/flightstrips/FlightStrips/commit/057ebfc4d3da75ce737dbcd5f0129030b60c2272))
+* **session:** rejoin airports automatically through retained control connections ([#1076](https://github.com/flightstrips/FlightStrips/issues/1076)) ([119fd91](https://github.com/flightstrips/FlightStrips/commit/119fd917001a44e934b7b280e07038f468906df8))
+* **session:** retain control presence and authorize membership discovery ([#1053](https://github.com/flightstrips/FlightStrips/issues/1053)) ([f52d1cd](https://github.com/flightstrips/FlightStrips/commit/f52d1cd63ce1fb83f2276bd4e82b2d3e0af4fa80))
+* **strip:** release tower tags on approach and centre ROF requests ([#967](https://github.com/flightstrips/FlightStrips/issues/967)) ([18c1d6b](https://github.com/flightstrips/FlightStrips/commit/18c1d6b0ccb7ab98126c54816ea7dec57be104eb))
+
 ## [2.4.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.4.0...plugin/v2.4.1) (2026-10-27)
 
 

@@ -94,6 +94,12 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await expect(other.locator(".radis-runway").getByTestId("radis-strip-RADIS1")).toBeHidden();
   });
   await test.step("manual removal survives refresh and restore retains identity", async () => {
+    // The DB reorder commits before its per-strip websocket publications. Wait
+    // for this controller to observe that revision before issuing another write.
+    await expect.poll(async () => {
+      const current=(await rows(request)).find(s=>s.Callsign==="RADIS1")!;
+      return await strip(b).getAttribute("data-strip-version")===String(current.Version);
+    }).toBe(true);
     const placement = (await rows(request)).find(s => s.Callsign === "RADIS1")!;
     await strip(b).getByText("EKBI", {exact: true}).click();
     await b.getByRole("button", {name: "Remove selected strip"}).click();

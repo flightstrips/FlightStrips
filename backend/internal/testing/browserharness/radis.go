@@ -30,6 +30,9 @@ type radisCommand struct {
 // and the external ES SDK peer are fixtures. It cannot be selected in deployment.
 func newRADISSuite() suite {
 	var mu sync.Mutex
+	// Connection handshakes can deliver command callbacks that acquire mu.
+	// Serialize own-peer lifecycle separately so those callbacks can drain.
+	var ownMu sync.Mutex
 	var clients []*websocket.Conn
 	var commands []radisCommand
 	epoch := time.Now().UTC()
@@ -122,8 +125,8 @@ func newRADISSuite() suite {
 			})
 			mux.HandleFunc("GET /e2e/commands", func(w http.ResponseWriter, r *http.Request) { mu.Lock(); defer mu.Unlock(); writeJSON(w, commands) })
 			mux.HandleFunc("POST /e2e/own-plugin/disconnect", func(w http.ResponseWriter, r *http.Request) {
-				mu.Lock()
-				defer mu.Unlock()
+				ownMu.Lock()
+				defer ownMu.Unlock()
 				if own != nil {
 					own.Close()
 					own = nil
@@ -131,8 +134,8 @@ func newRADISSuite() suite {
 				w.WriteHeader(204)
 			})
 			mux.HandleFunc("POST /e2e/own-plugin/reconnect", func(w http.ResponseWriter, r *http.Request) {
-				mu.Lock()
-				defer mu.Unlock()
+				ownMu.Lock()
+				defer ownMu.Unlock()
 				if own != nil {
 					http.Error(w, "already connected", 409)
 					return
@@ -143,7 +146,9 @@ func newRADISSuite() suite {
 					return
 				}
 				own = next
+				mu.Lock()
 				clients = append(clients, next)
+				mu.Unlock()
 				w.WriteHeader(204)
 			})
 			mux.HandleFunc("POST /e2e/runways", func(w http.ResponseWriter, r *http.Request) {
@@ -205,9 +210,9 @@ func newRADISSuite() suite {
 			if err != nil {
 				return err
 			}
-			mu.Lock()
+			ownMu.Lock()
 			own = c
-			mu.Unlock()
+			ownMu.Unlock()
 			mu.Lock()
 			clients = append(clients, c)
 			mu.Unlock()

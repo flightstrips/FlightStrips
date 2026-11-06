@@ -15,11 +15,11 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function previewResponse(input: RequestInfo | URL) {
-  if (String(input).includes('afv-atis-data.json')) {
-    return jsonResponse([{
-      callsign: 'EKCH_A_ATIS', atis_code: 'C', frequency: '122.755', last_updated: new Date().toISOString(),
-      text_atis: ['EKCH ARR ATIS C', 'RUNWAY 22L CONDITION REPORT AT 1750Z', 'END OF ATIS C'],
-    }]);
+  if (String(input).includes('/api/weather/atis')) {
+    return jsonResponse({
+      callsign: 'EKCH_A_ATIS', code: 'C', frequency: '122.755', last_updated: new Date().toISOString(), stale: false,
+      text: ['EKCH ARR ATIS C', 'RUNWAY 22L CONDITION REPORT AT 1750Z', 'END OF ATIS C'],
+    });
   }
   return jsonResponse({ error: 'EFB API unavailable' }, 503);
 }
@@ -1391,7 +1391,7 @@ describe('EFB page interactions', () => {
     try {
       let online = true;
       vi.stubGlobal('fetch', vi.fn().mockImplementation((input: RequestInfo | URL) => (
-        !online && String(input).includes('afv-atis-data.json') ? jsonResponse([]) : previewResponse(input)
+        !online && String(input).includes('/api/weather/atis') ? jsonResponse({ error: 'ATIS is offline or not yet acquired' }, 404) : previewResponse(input)
       )));
       render(<EFBPage />);
       fireEvent.click(screen.getByRole('button', { name: 'PREVIEW ARRIVAL' }));
@@ -1411,7 +1411,7 @@ describe('EFB page interactions', () => {
       expect(screen.queryByText('ATIS C')).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Open ATIS' }));
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-      expect(screen.getByText('EKCH_A_ATIS is offline')).toBeInTheDocument();
+      expect(screen.getByText('ATIS is offline or not yet acquired')).toBeInTheDocument();
       online = true;
       await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
       expect(screen.getByRole('group', { name: 'ATIS identifier' })).toHaveTextContent('ATIS C');

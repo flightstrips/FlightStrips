@@ -2,9 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, Bay } from "@/api/models";
 import { TextPilotDialog } from "./TextPilotDialog";
+import layouts from "./storyboard-layouts.json";
+import type { TextPilotInputs } from "@/api/models";
 import type { TextPilotDraft } from "@/lib/text-pilot";
 
 const state = vi.hoisted(() => ({
+  textPilotInputs: null as TextPilotInputs | null,
   textPilotDraft: null as TextPilotDraft | null,
   strips: [{ callsign: "SAS123", runway: "22R", communication_type: "T", owner: "121.905", stand: undefined as string | undefined }],
   metar: "EKCH 101220Z 24012KT CAVOK 12/10 Q1013",
@@ -15,6 +18,7 @@ const state = vi.hoisted(() => ({
 vi.mock("@/store/store-hooks", () => ({ useWebSocketStore: (selector: (s: typeof state) => unknown) => selector(state) }));
 
 beforeEach(() => {
+  state.textPilotInputs = { airport: "EKCH", preset_provider: "ekch/v1", layouts };
   vi.clearAllMocks(); state.stripTransfers = {}; state.strips[0].stand = undefined;
   state.sendFrequencyMessage.mockResolvedValue({ submitted: true, applied_actions: 0 });
   state.textPilotDraft = { callsign: "SAS123", variant: "apron-out", point: "A/B", actions: [{ type: ActionType.FrontendMove, callsign: "SAS123", bay: Bay.Taxi }] };

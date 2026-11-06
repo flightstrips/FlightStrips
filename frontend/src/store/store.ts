@@ -1,3 +1,4 @@
+import type { TextPilotInputs } from "@/api/models";
 import type { TextPilotDraft, FrequencyMessageResult } from "@/lib/text-pilot";
 import { isTextPilot } from "@/lib/text-pilot";
 import {createStore} from 'zustand/vanilla';
@@ -189,6 +190,7 @@ export interface WebSocketState {
   position: string;
   identifier: string;
   airport: string;
+  textPilotInputs: TextPilotInputs | null;
   callsign: string;
   layout: string;
   resetLayoutRecommendation: string;
@@ -344,6 +346,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     position: '',
     identifier: '',
     airport: '',
+    textPilotInputs: null as TextPilotInputs | null,
     callsign: '',
     layout: '',
     resetLayoutRecommendation: '',
@@ -1225,6 +1228,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.position = data.me.position;
         state.identifier = data.me.identifier;
         state.airport = data.airport;
+        state.textPilotInputs = data.text_pilot?.airport === data.airport ? data.text_pilot : null;
         state.callsign = data.callsign;
         state.readOnly = data.read_only ?? false;
         state.amanFMPAuthority = data.capabilities?.aman_fmp ?? false;

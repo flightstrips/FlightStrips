@@ -1,16 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchVatsimAtis, parseAtisWeather } from './atis';
-
-const arrival = {
-  callsign: 'EKCH_A_ATIS', atis_code: 'C', frequency: '122.755',
-  text_atis: ['EKCH ARR ATIS C', 'RWY IN USE 22L'], last_updated: new Date().toISOString(),
-};
-const departure = {
-  ...arrival, callsign: 'EKCH_D_ATIS', atis_code: 'D', frequency: '122.855',
-  text_atis: ['EKCH DEP ATIS D', 'RWY IN USE 22R'],
-};
-
-afterEach(() => vi.unstubAllGlobals());
+import { describe, expect, it, vi } from 'vitest';
+import { fetchCachedAtis, parseAtisWeather } from './atis';
 
 describe('ATIS weather widgets', () => {
   it.each([
@@ -40,28 +29,18 @@ describe('ATIS weather widgets', () => {
   });
 });
 
-describe('VATSIM ATIS', () => {
-  it('selects the exact arrival or departure callsign, not another station', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([departure, arrival])));
-    vi.stubGlobal('fetch', fetchMock);
-    expect(await fetchVatsimAtis('ekch', false)).toMatchObject({ callsign: 'EKCH_A_ATIS', code: 'C', text: arrival.text_atis });
-    fetchMock.mockResolvedValue(new Response(JSON.stringify([arrival, departure])));
-    expect(await fetchVatsimAtis('EKCH', true)).toMatchObject({ callsign: 'EKCH_D_ATIS', code: 'D', text: departure.text_atis });
+describe('backend ATIS cache', () => {
+  it('reads the selected airport and direction through authenticated backend consumption', async () => {
+    const observation = { callsign: 'AAAA_A_ATIS', code: 'C', text: ['Synthetic ATIS'], frequency: '118.000', last_updated: new Date().toISOString(), stale: false };
+    const request = vi.fn().mockResolvedValue(observation);
+    expect(await fetchCachedAtis('aaaa', false, request)).toEqual(observation);
+    expect(request).toHaveBeenCalledWith('/api/weather/atis?airport=AAAA&departure=false', { signal: undefined });
+    request.mockResolvedValue({ ...observation, stale: true });
+    expect((await fetchCachedAtis('AAAA', true, request)).stale).toBe(true);
+    expect(request).toHaveBeenLastCalledWith('/api/weather/atis?airport=AAAA&departure=true', { signal: undefined });
   });
-
-  it('marks an old station update stale', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([{ ...arrival, last_updated: '2020-01-01T00:00:00Z' }]))));
-    expect((await fetchVatsimAtis('EKCH', false)).stale).toBe(true);
-  });
-
-  it.each([
-    { body: [departure], error: 'EKCH_A_ATIS is offline', status: 200 },
-    { body: {}, error: 'Invalid ATIS feed', status: 200 },
-    { body: [{ ...arrival, text_atis: [12] }], error: 'Invalid ATIS data', status: 200 },
-    { body: [{ ...arrival, last_updated: 'invalid' }], error: 'Invalid ATIS data', status: 200 },
-    { body: [], error: 'ATIS feed unavailable (503)', status: 503 },
-  ])('reports offline, malformed, or failed feeds explicitly: $error', async ({ body, error, status }) => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status })));
-    await expect(fetchVatsimAtis('EKCH', false)).rejects.toThrow(error);
+  it('reports unavailable and malformed cached observations', async () => {
+    await expect(fetchCachedAtis('AAAA', false, vi.fn().mockRejectedValue(new Error('ATIS offline')))).rejects.toThrow('ATIS offline');
+    await expect(fetchCachedAtis('AAAA', false, vi.fn().mockResolvedValue({}))).rejects.toThrow('Invalid cached ATIS');
   });
 });

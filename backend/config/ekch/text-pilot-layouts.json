@@ -1,4 +1,8 @@
 {
+  "airport": "EKCH",
+  "preset_provider": "ekch/v1",
+  "layouts":
+{
   "runway": {
     "width": 822,
     "height": 697,
@@ -3159,4 +3163,5 @@
       }
     ]
   }
+}
 }

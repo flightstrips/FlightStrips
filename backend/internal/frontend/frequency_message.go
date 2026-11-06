@@ -115,6 +115,9 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 		client.Enqueue(frontend.FrequencyMessageResultEvent{RequestID: req.RequestID, Callsign: req.Callsign, Error: err.Error(), AppliedActions: applied, ValidationBlocked: blocked})
 		return nil
 	}
+	if client.hub.textPilotInputs != nil && client.hub.textPilotInputs(identity.airport) == nil {
+		return reject(errors.New("text pilot is disabled or unavailable for this airport"))
+	}
 	if err := validateFrequencyMessage(req); err != nil {
 		return reject(err)
 	}

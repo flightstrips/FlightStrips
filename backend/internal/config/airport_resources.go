@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/gsx"
 	"FlightStrips/internal/sat"
+	"FlightStrips/internal/textpilot"
 	"bytes"
 	"crypto/sha256"
 	"fmt"
@@ -195,6 +196,15 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 		if err := add("services.text_pilot.layout_data", s.LayoutData); err != nil {
 			return err
 		}
+		data, err := os.ReadFile(d.resources["services.text_pilot.layout_data"])
+		if err != nil {
+			return err
+		}
+		d.textPilot, err = textpilot.LoadInputs(d.Airport(), data)
+		if err != nil {
+			return fmt.Errorf("services.text_pilot.layout_data: %w", err)
+		}
+
 	}
 	if s := services.AMAN; s != nil && active("aman", s.Availability) {
 		// AMAN needs shared aircraft facts even when SAT and its other assets

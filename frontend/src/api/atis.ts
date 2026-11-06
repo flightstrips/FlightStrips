@@ -25,26 +25,16 @@ export function parseAtisWeather(text: string) {
   };
 }
 
-export async function fetchVatsimAtis(airport: string, departure: boolean, signal?: AbortSignal): Promise<Atis> {
-  const callsign = `${airport.trim().toUpperCase()}_${departure ? 'D' : 'A'}_ATIS`;
-  const response = await fetch('https://data.vatsim.net/v3/afv-atis-data.json', { signal });
-  if (!response.ok) throw new Error(`ATIS feed unavailable (${response.status})`);
-  const entries: unknown = await response.json();
-  if (!Array.isArray(entries)) throw new Error('Invalid ATIS feed');
-  const entry: unknown = entries.find((value: unknown) => (
-    typeof value === 'object' && value !== null && 'callsign' in value && value.callsign === callsign
-  ));
-  if (!entry) throw new Error(`${callsign} is offline`);
-  if (typeof entry !== 'object' || !('atis_code' in entry) || typeof entry.atis_code !== 'string'
-    || !/^[A-Z]$/.test(entry.atis_code) || !('text_atis' in entry) || !Array.isArray(entry.text_atis)
-    || entry.text_atis.length === 0 || !entry.text_atis.every((line: unknown) => typeof line === 'string')
-    || !('frequency' in entry) || typeof entry.frequency !== 'string'
-    || !('last_updated' in entry) || typeof entry.last_updated !== 'string'
-    || !Number.isFinite(Date.parse(entry.last_updated))) {
-    throw new Error(`Invalid ATIS data for ${callsign}`);
-  }
-  return {
-    callsign, code: entry.atis_code, text: entry.text_atis, frequency: entry.frequency,
-    last_updated: entry.last_updated, stale: Date.now() - Date.parse(entry.last_updated) > 5 * 60_000,
-  };
+// The caller supplies its authenticated backend fetch. Reading this cache
+// never downloads or indexes the global VATSIM feed in a browser.
+export async function fetchCachedAtis(airport: string, departure: boolean, request: (path: string, init?: RequestInit) => Promise<unknown>, signal?: AbortSignal): Promise<Atis> {
+  const query = new URLSearchParams({ airport: airport.trim().toUpperCase(), departure: String(departure) });
+  const entry = await request(`/api/weather/atis?${query}`, { signal });
+  if (!entry || typeof entry !== "object" || !("callsign" in entry) || typeof entry.callsign !== "string"
+    || !("code" in entry) || typeof entry.code !== "string" || !/^[A-Z]$/.test(entry.code)
+    || !("text" in entry) || !Array.isArray(entry.text) || !entry.text.every((line: unknown) => typeof line === "string")
+    || !("frequency" in entry) || typeof entry.frequency !== "string"
+    || !("last_updated" in entry) || typeof entry.last_updated !== "string"
+    || !("stale" in entry) || typeof entry.stale !== "boolean") throw new Error("Invalid cached ATIS observation");
+  return entry as Atis;
 }

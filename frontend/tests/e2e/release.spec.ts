@@ -62,6 +62,7 @@ test("EKCH moves and own-plugin reconnect preserve a concurrent RADIS board", as
   expect((await request.post(`${backend}/e2e/own-plugin/reconnect?airport=EKCH`)).ok()).toBe(true);
   await expect(ekchStrip(peer,"SAS404")).toHaveAttribute("aria-disabled","false");
   await peer.reload();
+  await peer.getByRole("button",{name:"TW / TE",exact:true}).click();
   await expect(peer.locator('[data-bay="RWY-DEP"] [data-strip="SAS301"]')).toBeVisible();
   await expect(ekchStrip(peer,"SAS404")).toHaveAttribute("aria-disabled","false");
   await editNote(radisBefore.BoardState?.annotations.notes ?? "");

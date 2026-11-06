@@ -19,6 +19,7 @@ import (
 )
 
 type WebAPI struct {
+	airportEnabled  func(string) bool
 	auth            shared.AuthenticationService
 	states          aman.AirportStateReader
 	geometry        navdata.GeometryReader
@@ -66,6 +67,10 @@ func (a *WebAPI) handleFlightDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	airport := strings.ToUpper(strings.TrimSpace(r.PathValue("airport")))
+	if a.airportEnabled != nil && !a.airportEnabled(airport) {
+		writeError(w, http.StatusForbidden, "AMAN is disabled for this airport")
+		return
+	}
 	callsign := strings.TrimSpace(r.PathValue("callsign"))
 	if airport == "" || callsign == "" {
 		writeError(w, http.StatusBadRequest, "airport and callsign are required")
@@ -647,4 +652,9 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func (a *WebAPI) WithAirportEnablement(enabled func(string) bool) *WebAPI {
+	a.airportEnabled = enabled
+	return a
 }

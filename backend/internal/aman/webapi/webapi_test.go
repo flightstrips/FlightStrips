@@ -18,6 +18,20 @@ import (
 
 type sessionStateReader struct{ session int32 }
 
+func TestDisabledAirportDetailCannotBypassSharedAMANReader(t *testing.T) {
+	reader := &sessionStateReader{}
+	mux := http.NewServeMux()
+	New(testAuth{}, reader).WithAirportEnablement(func(airport string) bool { return airport == "EKCH" }).RegisterRoutes(mux)
+	for _, airport := range []string{"EKBI", "EKYT"} {
+		request := httptest.NewRequest("GET", "/aman/airports/"+airport+"/flights/SAS123/detail", nil)
+		request.Header.Set("Authorization", "Bearer token")
+		response := httptest.NewRecorder()
+		mux.ServeHTTP(response, request)
+		require.Equal(t, http.StatusForbidden, response.Code)
+		require.Zero(t, reader.session)
+	}
+}
+
 func (s *sessionStateReader) LoadAirportState(ctx context.Context, airport string) (aman.AirportState, error) {
 	s.session = aman.SessionID(ctx)
 	return aman.AirportState{Airport: airport, Flights: []aman.AMANFlight{}}, nil

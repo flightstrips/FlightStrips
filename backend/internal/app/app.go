@@ -152,6 +152,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if airportErr != nil {
 		return nil, fmt.Errorf("initialize selected airports: %w", airportErr)
 	}
+	cfg, airportErr = enforceAirportCapabilities(cfg)
+	if airportErr != nil {
+		return nil, airportErr
+	}
 	if err := validateNavigationTerminalGeometry(cfg.Navigation); err != nil {
 		return nil, err
 	}
@@ -313,10 +317,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, errors.New("initialize AMAN commands: authoritative runtime requires typed command service")
 	}
 	if amanRuntime.Ownership().ControllerMutationAuthorized {
-		amanCommands = &amanCommandGate{health: amanRuntime.Health, commands: amanCommands}
+		amanCommands = &amanCommandGate{health: amanRuntime.Health, commands: amanCommands, scope: amanAirportScope(cfg, sessionRepo)}
 	}
 	var amanStateProvider frontend.AMANStateProvider
 	if defaultAMAN.transport != nil {
+		defaultAMAN.transport.scope = amanAirportScope(cfg, sessionRepo)
 		amanStateProvider = defaultAMAN.transport
 	} else if provider, ok := amanDependencies.Publisher.(frontend.AMANStateProvider); ok {
 		amanStateProvider = provider
@@ -339,7 +344,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}
 	}
 	if stateReader, ok := amanDependencies.Repositories.(aman.AirportStateReader); ok && amanEnabled {
-		amanAPI = amanWebAPI.New(authService, stateReader).WithTerminal(efbTerminal)
+		amanAPI = amanWebAPI.New(authService, stateReader).WithTerminal(efbTerminal).WithAirportEnablement(func(airport string) bool { return airportCapabilityEnabled(cfg, "aman", airport) })
 
 		if geometry, geometryOK := amanDependencies.NavigationReader.(navdata.GeometryReader); geometryOK {
 			if snapshots, snapshotOK := amanDependencies.NavigationReader.(navdata.GeometrySnapshotReader); snapshotOK {
@@ -529,11 +534,12 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	var ecfmpService *ecfmp.Service
 	if cfg.EnableECFMP || cfg.EnableECFMPAPI {
 		ecfmpService, err = ecfmp.NewService(ecfmp.ServiceDependencies{
-			Client:    ecfmp.NewClient(ecfmp.WithBaseURL(cfg.ECFMPBaseURL)),
-			Strips:    stripRepo,
-			Sessions:  sessionRepo,
-			Frontend:  frontendHub,
-			Euroscope: euroscopeHub,
+			AirportEnabled: func(airport string) bool { return airportCapabilityEnabled(cfg, "ecfmp", airport) },
+			Client:         ecfmp.NewClient(ecfmp.WithBaseURL(cfg.ECFMPBaseURL)),
+			Strips:         stripRepo,
+			Sessions:       sessionRepo,
+			Frontend:       frontendHub,
+			Euroscope:      euroscopeHub,
 		})
 		if err != nil {
 			if closeDB {
@@ -663,8 +669,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			pdcService:    pdcService,
 			amanAPI:       amanAPI,
 			efbAPI: efb.NewWebAPI(efb.WebAPIConfig{
-				CallsignLookup: cfg.EFBCallsignLookup,
-				Training:       cfg.EFBTraining, TrainingStrips: stripRepo,
+				AirportServiceEnabled: func(airport, service string) bool { return airportCapabilityEnabled(cfg, service, airport) },
+				CallsignLookup:        cfg.EFBCallsignLookup,
+				Training:              cfg.EFBTraining, TrainingStrips: stripRepo,
 				Network: vatsimGraph.source,
 				Auth:    authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
 				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil, Viff: efbViff,
@@ -1086,6 +1093,7 @@ func buildPDCService(
 	}
 
 	service, err := pdc.NewPDCService(pdc.ServiceDependencies{
+		Airports:               cfg.Airports,
 		Client:                 client,
 		Sessions:               sessionRepo,
 		Strips:                 stripRepo,

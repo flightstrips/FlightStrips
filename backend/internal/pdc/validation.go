@@ -28,8 +28,8 @@ type FlightPlanValidationFault struct {
 // PDCStripValidationFaults returns the PDC request faults that should surface as strip
 // validations. These should align with REQUESTED_WITH_FAULTS so controllers get the
 // shared validation flow instead of separate strip-local highlighting.
-func PDCStripValidationFaults(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids) []FlightPlanValidationFault {
-	faults := validatePDCFlightPlanFaults(strip, activeDepartureRunways, availableSids)
+func PDCStripValidationFaults(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids, configurations ...config.PDCValidationConfig) []FlightPlanValidationFault {
+	faults := validatePDCFlightPlanFaults(strip, activeDepartureRunways, availableSids, configurations...)
 	if strip == nil {
 		return faults
 	}
@@ -67,12 +67,15 @@ func normalizedValidationRunway(runway *string) string {
 }
 
 // RunwayTypeValidationFault returns the configured aircraft/runway incompatibility fault, if any.
-func RunwayTypeValidationFault(strip *models.Strip) *FlightPlanValidationFault {
+func RunwayTypeValidationFault(strip *models.Strip, configurations ...config.PDCValidationConfig) *FlightPlanValidationFault {
 	if strip == nil || strip.AircraftType == nil || strip.Runway == nil {
 		return nil
 	}
 
 	cfg := config.GetPDCValidationConfig()
+	if len(configurations) > 0 {
+		cfg = configurations[0]
+	}
 	aircraftType := normalizedValidationAircraftType(strip.AircraftType)
 	runway := normalizedValidationRunway(strip.Runway)
 	if aircraftType == "" || runway == "" {
@@ -103,12 +106,15 @@ func RunwayTypeValidationFault(strip *models.Strip) *FlightPlanValidationFault {
 	}
 }
 
-func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids) []FlightPlanValidationFault {
+func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids, configurations ...config.PDCValidationConfig) []FlightPlanValidationFault {
 	if strip == nil {
 		return nil
 	}
 
 	cfg := config.GetPDCValidationConfig()
+	if len(configurations) > 0 {
+		cfg = configurations[0]
+	}
 	var faults []FlightPlanValidationFault
 
 	var review *mandatoryRouteReview
@@ -175,7 +181,7 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 		}
 	}
 
-	if fault := RunwayTypeValidationFault(strip); fault != nil {
+	if fault := RunwayTypeValidationFault(strip, configurations...); fault != nil {
 		faults = append(faults, *fault)
 	}
 

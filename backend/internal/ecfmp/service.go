@@ -16,19 +16,21 @@ import (
 const refreshInterval = time.Minute
 
 type Service struct {
-	client       *Client
-	stripRepo    StripStore
-	sessionRepo  repository.SessionRepository
-	publisher    shared.CdmEventPublisher
-	euroscopeHub shared.EuroscopeHub
+	airportEnabled func(string) bool
+	client         *Client
+	stripRepo      StripStore
+	sessionRepo    repository.SessionRepository
+	publisher      shared.CdmEventPublisher
+	euroscopeHub   shared.EuroscopeHub
 }
 
 type ServiceDependencies struct {
-	Client    *Client
-	Strips    StripStore
-	Sessions  repository.SessionRepository
-	Frontend  shared.CdmEventPublisher
-	Euroscope shared.EuroscopeHub
+	AirportEnabled func(string) bool
+	Client         *Client
+	Strips         StripStore
+	Sessions       repository.SessionRepository
+	Frontend       shared.CdmEventPublisher
+	Euroscope      shared.EuroscopeHub
 }
 
 func NewService(deps ServiceDependencies) (*Service, error) {
@@ -49,11 +51,12 @@ func NewService(deps ServiceDependencies) (*Service, error) {
 	}
 
 	return &Service{
-		client:       deps.Client,
-		stripRepo:    deps.Strips,
-		sessionRepo:  deps.Sessions,
-		publisher:    deps.Frontend,
-		euroscopeHub: deps.Euroscope,
+		airportEnabled: deps.AirportEnabled,
+		client:         deps.Client,
+		stripRepo:      deps.Strips,
+		sessionRepo:    deps.Sessions,
+		publisher:      deps.Frontend,
+		euroscopeHub:   deps.Euroscope,
 	}, nil
 }
 
@@ -107,7 +110,7 @@ func (s *Service) applyMeasures(ctx context.Context, measures []FlowMeasure) err
 	}
 
 	for _, session := range sessions {
-		if session == nil {
+		if session == nil || (s.airportEnabled != nil && !s.airportEnabled(session.Airport)) {
 			continue
 		}
 

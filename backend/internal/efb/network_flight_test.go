@@ -395,3 +395,20 @@ func TestNetworkFlightRejectsUnrelatedAirport(t *testing.T) {
 		t.Fatalf("expected explicit airport scope: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestNetworkPDCRemainsUnavailableWhenAirportCapabilityIsDisabled(t *testing.T) {
+	strip := &models.Strip{Origin: "EKCH", Destination: "EKYT", PdcState: "CLEARED"}
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Network: networkTestSource(t, true, time.Now()), Viff: &networkTimingStub{}, PDCReady: true,
+		AirportServiceEnabled: func(string, string) bool { return false }, Flights: &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: strip}}})
+	request := httptest.NewRequest("GET", "/efb/flight", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	api.handleFlight(response, request)
+	var got snapshot
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &got) != nil {
+		t.Fatalf("%d %s", response.Code, response.Body.String())
+	}
+	if got.PDCAvailable || got.PDCCanSubmit || got.PDCRequiresPilotAction || got.Capabilities.PDC {
+		t.Fatalf("disabled PDC exposed actions: %s", response.Body.String())
+	}
+}

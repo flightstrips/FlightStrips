@@ -91,6 +91,7 @@ func (s sessionArrivalRunwaySource) ActiveArrivalRunway(ctx context.Context, air
 }
 
 type amanTransport struct {
+	scope             func(context.Context, string) error
 	repository        aman.AirportStateReader
 	geometry          navdata.GeometrySnapshotReader
 	mode              aman.RolloutMode
@@ -128,6 +129,11 @@ func (p *amanTransport) setHubs(frontendHub *internalFrontend.Hub, euroscopeHub 
 }
 
 func (p *amanTransport) CurrentAMANState(ctx context.Context, airport string) (frontendEvents.AMANStateEvent, error) {
+	if p.scope != nil {
+		if err := p.scope(ctx, airport); err != nil {
+			return frontendEvents.AMANStateEvent{}, err
+		}
+	}
 	state, err := p.repository.LoadAirportState(ctx, airport)
 	if err != nil {
 		return frontendEvents.AMANStateEvent{}, err
@@ -173,6 +179,11 @@ func (p *amanTransport) newStateEventWithGeometry(state aman.AirportState, healt
 }
 
 func (p *amanTransport) CurrentAMANGainLoss(ctx context.Context, airport string) (euroscopeEvents.AMANGainLossEvent, error) {
+	if p.scope != nil {
+		if err := p.scope(ctx, airport); err != nil {
+			return euroscopeEvents.AMANGainLossEvent{}, err
+		}
+	}
 	state, err := p.repository.LoadAirportState(ctx, airport)
 	if err != nil {
 		return euroscopeEvents.AMANGainLossEvent{}, err
@@ -185,6 +196,11 @@ func (p *amanTransport) CurrentAMANGainLoss(ctx context.Context, airport string)
 }
 
 func (p *amanTransport) CurrentAMANHoldingEAT(ctx context.Context, airport string) ([]euroscopeEvents.HoldEvent, error) {
+	if p.scope != nil {
+		if err := p.scope(ctx, airport); err != nil {
+			return nil, err
+		}
+	}
 	if !p.holdingEATEnabled {
 		return nil, nil
 	}
@@ -333,6 +349,11 @@ func (p *amanTransport) newGainLossEvent(_ context.Context, state aman.AirportSt
 }
 
 func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.AirportState) error {
+	if p.scope != nil {
+		if err := p.scope(aman.WithSession(ctx, state.SessionID), state.Airport); err != nil {
+			return err
+		}
+	}
 	health := p.currentTechnicalHealth(ctx)
 	// Both projections must use the same manifest, without loading all geometry
 	// twice. Keep the cache scoped to this publication so activation stays fresh.
@@ -377,6 +398,11 @@ func (p *amanTransport) rememberGainLossAuthority(ctx context.Context, event eur
 // It refreshes frontend projections, ensures EuroScope has received the
 // authoritative marker, and reevaluates holding EAT without a state mutation.
 func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.AirportState) error {
+	if p.scope != nil {
+		if err := p.scope(aman.WithSession(ctx, state.SessionID), state.Airport); err != nil {
+			return err
+		}
+	}
 	p.mu.RLock()
 	hub := p.euroscopeHub
 	frontendHub := p.frontendHub

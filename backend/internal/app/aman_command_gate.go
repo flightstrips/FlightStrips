@@ -11,6 +11,7 @@ import (
 // health snapshot instead of treating configured authoritative mode as a
 // permanent mutation grant.
 type amanCommandGate struct {
+	scope    func(context.Context, string) error
 	health   func(context.Context) aman.TechnicalHealth
 	commands aman.CommandService
 }
@@ -18,10 +19,23 @@ type amanCommandGate struct {
 func (*amanCommandGate) Name() string { return "health-gated AMAN command service" }
 
 func (g *amanCommandGate) CurrentRevision(ctx context.Context, airport string) (aman.SequenceRevision, error) {
+	if g.scope != nil {
+		if err := g.scope(ctx, airport); err != nil {
+			return 0, err
+		}
+	}
 	return g.commands.CurrentRevision(ctx, airport)
 }
 
-func (g *amanCommandGate) authorize(ctx context.Context) error {
+func (g *amanCommandGate) authorize(ctx context.Context, airport ...string) error {
+	if g.scope != nil {
+		if len(airport) == 0 || aman.SessionID(ctx) <= 0 {
+			return &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN requires an enabled airport session"}
+		}
+		if err := g.scope(ctx, airport[0]); err != nil {
+			return err
+		}
+	}
 	health := g.health(ctx)
 	if health.AuthorityAllowed {
 		return nil
@@ -34,210 +48,210 @@ func (g *amanCommandGate) authorize(ctx context.Context) error {
 }
 
 func (g *amanCommandGate) MoveFlight(ctx context.Context, auth aman.CommandContext, command aman.MoveFlightCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.MoveFlight(ctx, auth, command)
 }
 
 func (g *amanCommandGate) SwapFlights(ctx context.Context, auth aman.CommandContext, command aman.SwapFlightsCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.SwapFlights(ctx, auth, command)
 }
 
 func (g *amanCommandGate) PlaceFlightAtTime(ctx context.Context, auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.PlaceFlightAtTime(ctx, auth, command)
 }
 
 func (g *amanCommandGate) LockFlight(ctx context.Context, auth aman.CommandContext, command aman.LockFlightCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.LockFlight(ctx, auth, command)
 }
 
 func (g *amanCommandGate) UnlockFlight(ctx context.Context, auth aman.CommandContext, command aman.UnlockFlightCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.UnlockFlight(ctx, auth, command)
 }
 
 func (g *amanCommandGate) ExpediteFlight(ctx context.Context, auth aman.CommandContext, command aman.ExpediteFlightCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.ExpediteFlight(ctx, auth, command)
 }
 
 func (g *amanCommandGate) DesequenceFlight(ctx context.Context, auth aman.CommandContext, command aman.DesequenceFlightCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.DesequenceFlight(ctx, auth, command)
 }
 
 func (g *amanCommandGate) ResumeFlight(ctx context.Context, auth aman.CommandContext, command aman.ResumeFlightCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.ResumeFlight(ctx, auth, command)
 }
 
 func (g *amanCommandGate) RemoveFlight(ctx context.Context, auth aman.CommandContext, command aman.RemoveFlightCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.RemoveFlight(ctx, auth, command)
 }
 
 func (g *amanCommandGate) SetHoldingEATWriteback(ctx context.Context, auth aman.CommandContext, command aman.SetHoldingEATWritebackCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.SetHoldingEATWriteback(ctx, auth, command)
 }
 
 func (g *amanCommandGate) SetRate(ctx context.Context, auth aman.CommandContext, command aman.SetRateCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.SetRate(ctx, auth, command)
 }
 
 func (g *amanCommandGate) SelectRunwayGroup(ctx context.Context, auth aman.CommandContext, command aman.SelectRunwayGroupCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.SelectRunwayGroup(ctx, auth, command)
 }
 
 func (g *amanCommandGate) SetActiveRunwayGroups(ctx context.Context, auth aman.CommandContext, command aman.SetActiveRunwayGroupsCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.SetActiveRunwayGroups(ctx, auth, command)
 }
 
 func (g *amanCommandGate) CreateRunwayGap(ctx context.Context, auth aman.CommandContext, command aman.CreateRunwayGapCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.CreateRunwayGap(ctx, auth, command)
 }
 
 func (g *amanCommandGate) RemoveRunwayGap(ctx context.Context, auth aman.CommandContext, command aman.RemoveRunwayGapCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.RemoveRunwayGap(ctx, auth, command)
 }
 
 func (g *amanCommandGate) CreateRunwayClosure(ctx context.Context, auth aman.CommandContext, command aman.CreateRunwayClosureCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.CreateRunwayClosure(ctx, auth, command)
 }
 
 func (g *amanCommandGate) RemoveRunwayClosure(ctx context.Context, auth aman.CommandContext, command aman.RemoveRunwayClosureCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.RemoveRunwayClosure(ctx, auth, command)
 }
 
 func (g *amanCommandGate) CreateCapacityReservation(ctx context.Context, auth aman.CommandContext, command aman.CreateCapacityReservationCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.CreateCapacityReservation(ctx, auth, command)
 }
 
 func (g *amanCommandGate) RemoveCapacityReservation(ctx context.Context, auth aman.CommandContext, command aman.RemoveCapacityReservationCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.RemoveCapacityReservation(ctx, auth, command)
 }
 
 func (g *amanCommandGate) AcceptTETA(ctx context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.AcceptTETA(ctx, auth, command)
 }
 
 func (g *amanCommandGate) KeepFPLETA(ctx context.Context, auth aman.CommandContext, command aman.KeepFPLETACommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.KeepFPLETA(ctx, auth, command)
 }
 
 func (g *amanCommandGate) SetManualETA(ctx context.Context, auth aman.CommandContext, command aman.SetManualETACommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.SetManualETA(ctx, auth, command)
 }
 
 func (g *amanCommandGate) ResetTETAOverride(ctx context.Context, auth aman.CommandContext, command aman.ResetTETAOverrideCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.ResetTETAOverride(ctx, auth, command)
 }
 
 func (g *amanCommandGate) SetManualFeederETA(ctx context.Context, auth aman.CommandContext, command aman.SetManualFeederETACommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.SetManualFeederETA(ctx, auth, command)
 }
 
 func (g *amanCommandGate) ResetManualFeederETA(ctx context.Context, auth aman.CommandContext, command aman.ResetManualFeederETACommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.ResetManualFeederETA(ctx, auth, command)
 }
 
 func (g *amanCommandGate) RecomputeFlight(ctx context.Context, auth aman.CommandContext, command aman.RecomputeFlightCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.RecomputeFlight(ctx, auth, command)
 }
 
 func (g *amanCommandGate) ChangeRunway(ctx context.Context, auth aman.CommandContext, command aman.ChangeRunwayCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.ChangeRunway(ctx, auth, command)
 }
 
 func (g *amanCommandGate) ReportGoAround(ctx context.Context, auth aman.CommandContext, command aman.ReportGoAroundCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.ReportGoAround(ctx, auth, command)
 }
 
 func (g *amanCommandGate) ConfirmGoAround(ctx context.Context, auth aman.CommandContext, command aman.ConfirmGoAroundCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.ConfirmGoAround(ctx, auth, command)
 }
 
 func (g *amanCommandGate) RejectGoAround(ctx context.Context, auth aman.CommandContext, command aman.RejectGoAroundCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.RejectGoAround(ctx, auth, command)
@@ -246,7 +260,7 @@ func (g *amanCommandGate) RejectGoAround(ctx context.Context, auth aman.CommandC
 var _ aman.CommandService = (*amanCommandGate)(nil)
 
 func (g *amanCommandGate) RebuildArrivalSequence(ctx context.Context, auth aman.CommandContext, command aman.RebuildArrivalSequenceCommand) (aman.CommandExecution, error) {
-	if err := g.authorize(aman.WithSession(ctx, auth.SessionID)); err != nil {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err
 	}
 	return g.commands.RebuildArrivalSequence(ctx, auth, command)

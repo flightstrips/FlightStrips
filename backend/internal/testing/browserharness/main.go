@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -44,7 +45,11 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	os.Setenv("TEST_MODE", "true")
-	os.Setenv("GRPLUGIN_ICAO_AIRCRAFT_JSON", "config/test/ICAO_Aircraft.json")
+	aircraftFixture, err := filepath.Abs("config/test/ICAO_Aircraft.json")
+	if err != nil {
+		return err
+	}
+	os.Setenv("GRPLUGIN_ICAO_AIRCRAFT_JSON", aircraftFixture)
 	if err := config.InitEKCHTestConfig(); err != nil {
 		return err
 	}
@@ -69,11 +74,10 @@ func run() error {
 	if _, err := pool.Exec(ctx, "INSERT INTO airports (name) VALUES ('EKCH') ON CONFLICT DO NOTHING"); err != nil {
 		return err
 	}
-	definitions, err := config.LoadEKCHTestAirportRegistry()
-	if err != nil {
-		return err
-	}
-	selected.config.Airports = definitions
+	// Resolve the fixture's deployment flags through the production loader.
+	// The metadata-only test registry intentionally disables deployment services.
+	selected.config.AirportFiles = []string{"backend/config/airports/ekch.airport.yaml"}
+	selected.config.AirportRepositoryRoot = ".."
 	selected.dependencies.DBPool = pool
 	selected.dependencies.AuthenticationService = browserIdentity{}
 	application, err := app.Build(ctx, selected.config, selected.dependencies)

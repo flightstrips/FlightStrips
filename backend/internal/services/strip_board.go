@@ -7,7 +7,6 @@ import (
 	fe "FlightStrips/pkg/events/frontend"
 	pkg "FlightStrips/pkg/models"
 	"context"
-	"time"
 )
 
 type stripBoardStore interface {
@@ -102,7 +101,7 @@ func (s *StripService) AnnotateStrip(ctx context.Context, session int32, callsig
 	if strip.BoardState != nil && strip.BoardState.RemovedAt != nil {
 		return shared.RejectAction("restore the removed strip before editing")
 	}
-	d, err := b.Action(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource, Strip: workflowSnapshot(strip), Now: time.Now()}, "strip.annotate", edit)
+	d, err := b.Action(airportworkflow.Context{Session: session, Source: airportworkflow.HumanSource, Strip: workflowSnapshot(strip), Now: s.boardTime()}, "strip.annotate", edit)
 	if err != nil {
 		return err
 	}

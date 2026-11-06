@@ -77,6 +77,8 @@ workflow:
     removal_distance_nm: 47
     departure_removal_agl_ft: 3100
     recovery_seconds: 123
+    automatic_reappearance: true
+    disconnect_removal_seconds: 7
     timestamp_semantics: annotation-utc
   bays:
   - id: ACTIVE

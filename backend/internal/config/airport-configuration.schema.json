@@ -1671,6 +1671,14 @@
                 },
                 "timestamp_semantics": {
                   "const": "annotation-utc"
+                },
+                "automatic_reappearance": {
+                  "type": "boolean"
+                },
+                "disconnect_removal_seconds": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 3600
                 }
               },
               "required": [
@@ -1682,7 +1690,9 @@
                 "removal_distance_nm",
                 "departure_removal_agl_ft",
                 "recovery_seconds",
-                "timestamp_semantics"
+                "timestamp_semantics",
+                "automatic_reappearance",
+                "disconnect_removal_seconds"
               ],
               "additionalProperties": false
             },

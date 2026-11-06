@@ -22,6 +22,8 @@ it("sends revisioned RADIS actions without local authority and blocks every acti
   expect(store.getState().createLocalStrip({callsign:"LOCAL2",origin:"EKBI",destination:"EKBI",aircraft_type:"",route:"",registration:"",requested_altitude:0,runway:"",notes:""})).toBe(false);
   expect(store.getState().findConnectedFlights("")).toBe(false);
   expect(store.getState().admitConnectedFlight({callsign:"FOUND",cid:"1",logon_time:"2026-01-01T00:00:00Z",source_revision:"1",origin:"EKBI",destination:"EKYT",aircraft_type:""})).toBe(false);
+  expect(store.getState().removeStripBoardEntry("LOCAL1")).toBe(false);
+  expect(store.getState().restoreStripBoardEntry("LOCAL1")).toBe(false);
   expect(client.send).not.toHaveBeenCalled();
   expect(store.getState().strips).toBe(before);
   store.dispose();

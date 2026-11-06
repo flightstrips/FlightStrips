@@ -63,6 +63,9 @@ func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string,
 			}
 		}
 	}
+	if esStrip.Position != nil {
+		return s.reconcileStripVisibility(ctx, session, airport, esStrip.Callsign, airportworkflow.Observation{Kind: airportworkflow.FullFlight, Origin: esStrip.Origin, Destination: esStrip.Destination, Latitude: esStrip.Position.Lat, Longitude: esStrip.Position.Lon, Altitude: esStrip.Position.Altitude})
+	}
 	return nil
 }
 

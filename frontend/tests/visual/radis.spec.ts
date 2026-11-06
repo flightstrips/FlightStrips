@@ -1,7 +1,7 @@
 import {expect, test, type BrowserContext, type WebSocketRoute} from "@playwright/test";
 
 function strip(airport: string) {
-  return {id: airport === "EKBI" ? 11 : 21, version: 1, callsign: "SAME123", origin: "EKBI", destination: "EKYT", alternate: "", route: "DCT SYNTH", remarks: "", runway: "09", squawk: "2401", assigned_squawk: "2401", sid: "", star: "", cleared_altitude: 2300, requested_altitude: 7000, heading: 0, aircraft_type: "C172", aircraft_category: "L", stand: "", capabilities: "", communication_type: "V", eobt: "1200", tobt: "1200", tsat: "1210", ctot: "", eldt: "1230", bay: airport === "EKBI" ? "PASSIVE_TOP" : "PASSIVE_BOTTOM", sequence: 1000, version_label: "synthetic", next_controllers: [], previous_controllers: [], owner: "", pdc_state: "NONE", start_req: false, marked: false, runway_cleared: false, runway_confirmed: false, registration: "SYNTH", has_fp: true, board_state: {local: false, removed_at: null, removal_reason: "", annotations: {notes: "", deicing: false, rea: null, ata: null, atd: "", endurance_pob: "", qnh: "", rnav: "", vfr: false}}};
+  return {id: airport === "EKBI" ? 11 : 21, version: 1, callsign: "SAME123", origin: "EKBI", destination: "EKYT", alternate: "", route: "DCT SYNTH", remarks: "", runway: "09", squawk: "2401", assigned_squawk: "2401", sid: "", star: "", cleared_altitude: 2300, requested_altitude: 7000, heading: 0, aircraft_type: "C172", aircraft_category: "L", stand: "", capabilities: "", communication_type: "V", eobt: "1200", tobt: "1200", tsat: "1210", ctot: "", eldt: "1230", bay: airport === "EKBI" ? "PASSIVE_TOP" : "PASSIVE_BOTTOM", sequence: 1000, version_label: "synthetic", next_controllers: [], previous_controllers: [], owner: "", pdc_state: "NONE", start_req: false, marked: false, runway_cleared: false, runway_confirmed: false, registration: "SYNTH", has_fp: true, board_state: {local: false, removed_at: null as string|null, removal_reason: "", annotations: {notes: "", deicing: false, rea: null, ata: null, atd: "", endurance_pob: "", qnh: "", rnav: "", vfr: false}}};
 }
 
 async function setup(context: BrowserContext) {
@@ -40,6 +40,8 @@ async function setup(context: BrowserContext) {
         if (event.altitude !== undefined) current.cleared_altitude = event.altitude;
         if (event.assigned_squawk !== undefined) current.assigned_squawk = event.assigned_squawk;
       } else if (event.type === "move") current.bay = event.bay;
+      else if(event.type === "strip.remove"){current.board_state.removed_at=new Date().toISOString();current.board_state.removal_reason="manual";}
+      else if(event.type === "strip.restore"){current.board_state.removed_at=null;current.board_state.removal_reason="";}
       current.version++;
       emit(Number(board.session_id));
     });
@@ -102,6 +104,12 @@ test("NEW shares a local strip and FIND presents uncapped connected airport cand
  expect(server.actions[0]).toMatchObject({definition_revision:"synthetic-EKBI",callsign:"LOCAL77",board:expect.objectContaining({session_id:1})});
 });
 
+test("manual removal is shared and restores the same identity",async({context})=>{
+ const server=await setup(context);const a=await context.newPage(),b=await context.newPage();await Promise.all([a,b].map(p=>p.goto("/visual-tests/airport-session-preview.html")));await a.getByRole("button",{name:/EKBI/}).click();await b.getByRole("button",{name:/EKBI/}).click();
+ await a.getByTestId("radis-strip-SAME123").getByText("EKBI",{exact:true}).click();await a.getByRole("button",{name:"Remove selected strip",exact:true}).click();await expect(a.getByTestId("radis-strip-SAME123")).toHaveCount(0);await expect(b.getByTestId("radis-strip-SAME123")).toHaveCount(0);
+ await b.getByRole("button",{name:"RESTORE",exact:true}).click();await b.getByRole("button",{name:"Restore SAME123",exact:true}).click();await expect(a.getByTestId("radis-strip-SAME123")).toHaveCount(1);await expect(b.getByTestId("radis-strip-SAME123")).toHaveCount(1);
+ expect(server.actions.map(a=>a.type)).toEqual(["strip.remove","strip.restore"]);expect(server.actions[1]).toMatchObject({strip_id:11,version:2});
+});
 test("a dialog keeps its observed strip revision when another participant edits",async({context})=>{
  const server=await setup(context);const page=await context.newPage();await page.goto("/visual-tests/airport-session-preview.html");await page.getByRole("button",{name:/EKBI/}).click();await page.getByRole("button",{name:"Notes SAME123",exact:true}).click();
  server.boards.get(1)!.board_state.annotations.notes="PEER NOTE";server.boards.get(1)!.version=8;server.emit(1);

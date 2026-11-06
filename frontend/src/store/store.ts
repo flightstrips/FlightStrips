@@ -185,7 +185,9 @@ export interface BroadcastNotification {
 
 // Define the state interface for our store
 export interface WebSocketState {
-  connectedFlightCandidates:ConnectedFlightCandidate[];
+  removeStripBoardEntry:(callsign:string,expected?:StripRevision)=>boolean;
+ restoreStripBoardEntry:(callsign:string)=>boolean;
+ connectedFlightCandidates:ConnectedFlightCandidate[];
  connectedFlightSearchRequest:string|null;
  createLocalStrip:(local:LocalStripCreation)=>boolean;
  findConnectedFlights:(query:string)=>boolean;
@@ -292,9 +294,9 @@ export interface WebSocketState {
   sendFrequencyMessage: (callsign: string, message: string, actions?: FrontendSendEvent[], clearance?: boolean, prepare?: boolean) => Promise<FrequencyMessageResult>;
   dismissMessage: (id: number) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
- annotateStrip:(callsign:string,field:keyof StripAnnotations,value?:string,enabled?:boolean,revision?:StripRevision)=>boolean;
- moveBoardStrip:(callsign:string,bay:string,after:string|null,revision?:StripRevision)=>boolean;
- updateBoardStrip:(callsign:string,fields:StripFieldEdit,revision?:StripRevision)=>boolean;
+ annotateStrip:(callsign:string,field:keyof StripAnnotations,value?:string,enabled?:boolean,expected?:StripRevision)=>boolean;
+ moveBoardStrip:(callsign:string,bay:string,after:string|null,expected?:StripRevision)=>boolean;
+ updateBoardStrip:(callsign:string,fields:StripFieldEdit,expected?:StripRevision)=>boolean;
   setReleasePoint: (callsign: string, releasePoint: string) => void;
   setStartReq: (callsign: string, startReq: boolean) => void;
   issuePdcClearance: (callsign: string, remarks: string | null) => void;
@@ -682,6 +684,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     },
 
 
+
+    removeStripBoardEntry(callsign,expected){const state=get(),revision=expected??stripRevision(findStrip(callsign),state.boardDefinition);return !!revision && state.ownPluginReady && !!state.boardDefinition?.actions.includes("strip.remove") && sendIfWritable({type:"strip.remove",callsign,...revision});},
+    restoreStripBoardEntry(callsign){const state=get(),revision=stripRevision(findStrip(callsign),state.boardDefinition);return !!revision && state.ownPluginReady && !!state.boardDefinition?.actions.includes("strip.restore") && sendIfWritable({type:"strip.restore",callsign,...revision});},
     createLocalStrip(local){const state=get(),definition=state.boardDefinition;if(!state.ownPluginReady || !definition?.actions.includes("strip.create-local"))return false;return sendIfWritable({type:"strip.create-local",...local,definition_revision:definition.definition_revision});},
     findConnectedFlights(query){const state=get(),definition=state.boardDefinition;if(!state.ownPluginReady || !definition?.actions.includes("flight.find-connected"))return false;const request_id=crypto.randomUUID();if(!sendIfWritable({type:"flight.find-connected",request_id,query,definition_revision:definition.definition_revision}))return false;set({connectedFlightSearchRequest:request_id,connectedFlightCandidates:[]});return true;},
     admitConnectedFlight(flight){const state=get(),definition=state.boardDefinition;if(!state.ownPluginReady || !definition?.actions.includes("strip.admit-connected"))return false;return sendIfWritable({type:"strip.admit-connected",flight,definition_revision:definition.definition_revision});},

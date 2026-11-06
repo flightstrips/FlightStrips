@@ -164,6 +164,7 @@ type Cache struct {
 	snapshot         cacheSnapshot
 	dataURL          string
 	lastRefreshError error
+	lastAttempt      time.Time
 }
 
 type statusResponse struct {
@@ -318,7 +319,7 @@ func (c *Cache) VerifyPilotOwnsCallsign(ctx context.Context, cid string, callsig
 		return pilot.CID == normalizedCID && pilot.Online(), nil
 	}
 
-	if err := c.refresh(ctx); err != nil {
+	if err := c.refreshOnMiss(ctx); err != nil {
 		return false, err
 	}
 
@@ -339,7 +340,7 @@ func (c *Cache) GetCallsignByCID(ctx context.Context, cid string) (string, bool,
 		return pilot.Callsign, true, nil
 	}
 
-	if err := c.refresh(ctx); err != nil {
+	if err := c.refreshOnMiss(ctx); err != nil {
 		return "", false, err
 	}
 
@@ -358,6 +359,9 @@ func (c *Cache) refresh(ctx context.Context) error {
 }
 
 func (c *Cache) refreshOnce(ctx context.Context) error {
+	c.mu.Lock()
+	c.lastAttempt = time.Now()
+	c.mu.Unlock()
 	snapshot, dataURL, err := c.fetch(ctx)
 	if err != nil {
 		c.recordRefreshError(err)
@@ -387,6 +391,29 @@ func (c *Cache) refreshOnce(ctx context.Context) error {
 	slog.InfoContext(ctx, "SAT VATSIM feed refreshed", slog.Time("snapshot_at", snapshot.timestamp), slog.Duration("snapshot_age", age), slog.Int("pilots", pilots), slog.Int("prefiles", prefiles))
 
 	return nil
+}
+
+// Misses share the application's refresh cadence, including negative lookups
+// and failures. One offline EFB pilot or extra tab cannot amplify acquisition.
+// The requesting tab owns only its wait, never the shared in-flight HTTP work.
+func (c *Cache) refreshOnMiss(ctx context.Context) error {
+	result := c.refreshes.DoChan("network", func() (any, error) {
+		c.mu.RLock()
+		recent, previous := time.Since(c.lastAttempt) < c.refreshInterval, c.lastRefreshError
+		c.mu.RUnlock()
+		if recent {
+			return nil, previous
+		}
+		acquisition, cancel := context.WithTimeout(context.WithoutCancel(ctx), defaultHTTPTimeout)
+		defer cancel()
+		return nil, c.refreshOnce(acquisition)
+	})
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case done := <-result:
+		return done.Err
+	}
 }
 
 func (c *Cache) fetch(ctx context.Context) (cacheSnapshot, string, error) {

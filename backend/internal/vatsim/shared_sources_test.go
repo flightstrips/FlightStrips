@@ -91,3 +91,56 @@ func TestRadioSnapshotRetainsGenerationAndHealth(t *testing.T) {
 	require.NoError(t, before.LastRefreshError)
 	require.Equal(t, []string{"118.105"}, after.GetFrequencies("EKDK_CTR"))
 }
+
+func TestEFBLookupMissesShareAcquisitionCadence(t *testing.T) {
+	var requests atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/status" {
+			_, _ = w.Write([]byte(`{"data":{"v3":["http://` + r.Host + `/data"]}}`))
+			return
+		}
+		requests.Add(1)
+		_, _ = w.Write([]byte(`{"pilots":[]}`))
+	}))
+	defer upstream.Close()
+	c := NewCache(upstream.URL+"/status", time.Hour, upstream.Client())
+	for range 40 {
+		_, found, err := c.GetCallsignByCID(t.Context(), "123")
+		require.NoError(t, err)
+		require.False(t, found)
+		owned, err := c.VerifyPilotOwnsCallsign(t.Context(), "123", "SAS123")
+		require.NoError(t, err)
+		require.False(t, owned)
+	}
+	require.EqualValues(t, 1, requests.Load(), "negative results are shared across EFB tabs and verification consumers")
+}
+
+func TestCancellingOneLookupDoesNotCancelSharedAcquisition(t *testing.T) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	var requests atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/status" {
+			_, _ = w.Write([]byte(`{"data":{"v3":["http://` + r.Host + `/data"]}}`))
+			return
+		}
+		requests.Add(1)
+		close(entered)
+		<-release
+		_, _ = w.Write([]byte(`{"pilots":[{"cid":123,"callsign":"SAS123"}]}`))
+	}))
+	defer upstream.Close()
+	c := NewCache(upstream.URL+"/status", time.Hour, upstream.Client())
+	ctx, cancel := context.WithCancel(t.Context())
+	finished := make(chan error, 1)
+	go func() { _, _, err := c.GetCallsignByCID(ctx, "123"); finished <- err }()
+	<-entered
+	cancel()
+	require.ErrorIs(t, <-finished, context.Canceled)
+	close(release)
+	callsign, found, err := c.GetCallsignByCID(t.Context(), "123")
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, "SAS123", callsign)
+	require.NoError(t, c.Snapshot().LastRefreshError)
+	require.EqualValues(t, 1, requests.Load())
+}

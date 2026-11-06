@@ -5,6 +5,7 @@ import (
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 
 	internalModels "FlightStrips/internal/models"
@@ -92,6 +93,50 @@ func (s *FrontendStripUpdateService) UpdateStrip(ctx context.Context, req Fronte
 		return err
 	}
 
+	if strip.BoardState != nil {
+		r := req.Event.Revision
+		if r == nil || r.StripID != strip.ID || r.Version != strip.Version || r.Definition == "" {
+			return shared.RejectAction("stale RADIS field revision")
+		}
+		if strip.BoardState.RemovedAt != nil || strip.EuroscopeSeenAt == nil || !strip.HasFP {
+			return shared.RejectAction("an associated active EuroScope flight is required")
+		}
+		if req.Event.Altitude != nil && (*req.Event.Altitude < 0 || *req.Event.Altitude > 60000) {
+			return shared.RejectAction("invalid cleared altitude in feet")
+		}
+		if req.Event.Heading != nil && (*req.Event.Heading < 0 || *req.Event.Heading > 360) {
+			return shared.RejectAction("invalid heading")
+		}
+	}
+	if req.Event.Squawk != nil && strip.BoardState == nil {
+		return shared.RejectAction("explicit squawk edit requires RADIS")
+	}
+	if req.Event.Squawk != nil && !regexp.MustCompile(`^[0-7]{4}$`).MatchString(*req.Event.Squawk) {
+		return shared.RejectAction("squawk must contain four octal digits")
+	}
+	if strip.BoardState != nil {
+		store, ok := s.stripRepo.(interface {
+			UpdateStripBoardState(context.Context, int32, int32, int32, *internalModels.StripBoardState) (bool, error)
+		})
+		if !ok {
+			return shared.RejectAction("revisioned strip persistence unavailable")
+		}
+		accepted, err := store.UpdateStripBoardState(ctx, req.Session, strip.ID, req.Event.Revision.Version, strip.BoardState)
+		if err != nil {
+			return err
+		}
+		if !accepted {
+			return shared.RejectAction("stale RADIS field revision")
+		}
+		if s.stripUpdatePublisher != nil {
+			s.stripUpdatePublisher.SendStripUpdate(req.Session, req.Event.Callsign)
+		}
+	}
+	if req.Event.Squawk != nil {
+		if err := shared.DispatchCommand(ctx, req.Session, euroscope.AssignedSquawkEvent{Callsign: req.Event.Callsign, Squawk: *req.Event.Squawk}, nil); err != nil {
+			return err
+		}
+	}
 	isOwner := strip.Owner == nil || *strip.Owner == "" || *strip.Owner == req.Position
 	if !isOwner {
 		if req.Event.Sid != nil || req.Event.Route != nil || req.Event.Stand != nil || req.Event.Runway != nil || req.Event.Altitude != nil || req.Event.Heading != nil || req.Event.Remarks != nil || req.Event.Aircraft != nil {

@@ -1209,6 +1209,7 @@ func (hub *Hub) SendAssignedSquawkEvent(session int32, callsign string, squawk s
 		Squawk:   squawk,
 	}
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, callsign)
 }
 
 func (hub *Hub) SendSquawkEvent(session int32, callsign string, squawk string) {
@@ -1217,6 +1218,7 @@ func (hub *Hub) SendSquawkEvent(session int32, callsign string, squawk string) {
 		Squawk:   squawk,
 	}
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, callsign)
 }
 
 func (hub *Hub) SendRequestedAltitudeEvent(session int32, callsign string, altitude int32) {
@@ -1225,6 +1227,7 @@ func (hub *Hub) SendRequestedAltitudeEvent(session int32, callsign string, altit
 		Altitude: altitude,
 	}
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, callsign)
 }
 
 func (hub *Hub) SendClearedAltitudeEvent(session int32, callsign string, altitude int32) {
@@ -1233,6 +1236,7 @@ func (hub *Hub) SendClearedAltitudeEvent(session int32, callsign string, altitud
 		Altitude: altitude,
 	}
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, callsign)
 }
 
 func (hub *Hub) SendHoldEvent(session int32, callsign string, hold string, holdType string, holdEat string) {
@@ -1243,6 +1247,7 @@ func (hub *Hub) SendHoldEvent(session int32, callsign string, hold string, holdT
 		HoldEat:  holdEat,
 	}
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, callsign)
 }
 
 func (hub *Hub) SendBayEvent(session int32, callsign string, bay string, sequence int32) {
@@ -1252,10 +1257,14 @@ func (hub *Hub) SendBayEvent(session int32, callsign string, bay string, sequenc
 		Sequence: sequence,
 	}
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, callsign)
 }
 
 func (hub *Hub) SendBulkBayEvent(session int32, bay string, strips []frontend.BulkBayEntry) {
 	hub.Broadcast(session, frontend.BulkBayEvent{Bay: bay, Strips: strips})
+	for _, strip := range strips {
+		hub.publishRevisionedStrip(session, strip.Callsign)
+	}
 }
 
 func (hub *Hub) SendAircraftDisconnect(session int32, callsign string) {
@@ -1271,6 +1280,7 @@ func (hub *Hub) SendStandEvent(session int32, callsign string, stand string) {
 		Stand:    stand,
 	}
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, callsign)
 }
 
 func (hub *Hub) SendStandAssignmentBroadcast(session int32, entry frontend.StandAssignmentEntry) {
@@ -1518,6 +1528,7 @@ func (hub *Hub) SendSetHeadingEvent(session int32, callsign string, heading int3
 		Heading:  heading,
 	}
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, callsign)
 }
 
 func (hub *Hub) SendSetHeadingEventWithStrip(session int32, callsign string, heading int32, strip *internalModels.Strip) {
@@ -1535,6 +1546,7 @@ func (hub *Hub) SendCommunicationTypeEvent(session int32, callsign string, commu
 		CommunicationType: internalModels.NormalizeCommunicationType(communicationType),
 	}
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, callsign)
 }
 
 func (hub *Hub) SendCoordinationTransfer(session int32, callsign, from, to string) {
@@ -1678,6 +1690,7 @@ func (hub *Hub) SendLayoutUpdates(session int32, layoutMap, resetLayoutMap map[s
 
 func (hub *Hub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) {
 	hub.Broadcast(session, event)
+	hub.publishRevisionedStrip(session, event.Callsign)
 }
 
 func (hub *Hub) SendCdmUpdates(session int32, events []frontend.CdmDataEvent) {
@@ -1688,6 +1701,9 @@ func (hub *Hub) SendCdmUpdates(session int32, events []frontend.CdmDataEvent) {
 		hub.Broadcast(session, events[0])
 	default:
 		hub.Broadcast(session, frontend.CdmDataBatchEvent{Updates: events})
+	}
+	for _, event := range events {
+		hub.publishRevisionedStrip(session, event.Callsign)
 	}
 }
 
@@ -1999,4 +2015,16 @@ func (hub *Hub) SetStandCapabilities(stands *sat.StandCapabilityRegistry) {
 
 func (hub *Hub) SetTextPilotInputs(lookup func(string) *pkgModels.TextPilotInputs) {
 	hub.textPilotInputs = lookup
+}
+
+// Incremental legacy notifications omit some strip revisions. Revisioned boards
+// receive the committed replacement as well, so a service result cannot leave
+// their next action carrying an obsolete version. EKCH retains its event path.
+func (hub *Hub) publishRevisionedStrip(session int32, callsign string) {
+	policy, ok := hub.stripService.(interface {
+		UsesRevisionedStripState(context.Context, int32) bool
+	})
+	if ok && policy.UsesRevisionedStripState(context.Background(), session) {
+		hub.SendStripUpdate(session, callsign)
+	}
 }

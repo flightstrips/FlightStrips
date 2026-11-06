@@ -1,3 +1,5 @@
+import type {StripAnnotations,StripFieldEdit,StripRevision} from "@/api/strip-board";
+import {stripRevision} from "@/api/strip-board";
 import type { TextPilotInputs } from "@/api/models";
 import type { TextPilotDraft, FrequencyMessageResult } from "@/lib/text-pilot";
 import { isTextPilot } from "@/lib/text-pilot";
@@ -285,6 +287,9 @@ export interface WebSocketState {
   sendFrequencyMessage: (callsign: string, message: string, actions?: FrontendSendEvent[], clearance?: boolean, prepare?: boolean) => Promise<FrequencyMessageResult>;
   dismissMessage: (id: number) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
+ annotateStrip:(callsign:string,field:keyof StripAnnotations,value?:string,enabled?:boolean,revision?:StripRevision)=>boolean;
+ moveBoardStrip:(callsign:string,bay:string,after:string|null,revision?:StripRevision)=>boolean;
+ updateBoardStrip:(callsign:string,fields:StripFieldEdit,revision?:StripRevision)=>boolean;
   setReleasePoint: (callsign: string, releasePoint: string) => void;
   setStartReq: (callsign: string, startReq: boolean) => void;
   issuePdcClearance: (callsign: string, remarks: string | null) => void;
@@ -668,6 +673,19 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       }),
     generateSquawk: (callsign) => {
       return sendGuardedStripEvent(callsign, { type: "generate_squawk" }, {type: ActionType.FrontendGenerateSquawk, callsign});
+    },
+
+    annotateStrip(callsign,field,value="",enabled=false,expected){
+      const state=get(), strip=findStrip(callsign),revision=expected??stripRevision(strip,state.boardDefinition);
+      return !!revision && state.ownPluginReady && !!state.boardDefinition?.actions.includes("strip.annotate") && sendIfWritable({type:"strip.annotate",callsign,...revision,field,value,enabled});
+    },
+    moveBoardStrip(callsign,bay,after,expected){
+      const state=get(),revision=expected??stripRevision(findStrip(callsign),state.boardDefinition);
+      return !!revision && state.ownPluginReady && !!state.boardDefinition?.board_state?.revisioned && sendIfWritable({type:ActionType.FrontendMove,callsign,bay,revision,ordered:true,insert_after:after?{kind:"flight",callsign:after}:null});
+    },
+    updateBoardStrip(callsign,fields,expected){
+      const state=get(),revision=expected??stripRevision(findStrip(callsign),state.boardDefinition);
+      return !!revision && state.ownPluginReady && !!state.boardDefinition?.board_state?.revisioned && sendIfWritable({type:ActionType.FrontendUpdateStripData,callsign,...fields,revision});
     },
     updateStrip(callsign: string, update: UpdateStrip) {
       const fields = updateStripFieldsFromPayload(update);
@@ -1334,6 +1352,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       produce((state: WebSocketState) => {
         const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
 
+        if (!!state.boardDefinition?.board_state?.revisioned && stripIndex !== -1 && data.id === state.strips[stripIndex].id && data.version < state.strips[stripIndex].version) return;
         if (stripIndex !== -1) {
           // Update existing strip
           state.strips[stripIndex] = {

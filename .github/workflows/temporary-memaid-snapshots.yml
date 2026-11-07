@@ -1,0 +1,25 @@
+name: Generate MEMAID visual baselines
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  snapshots:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@master
+        with:
+          node-version: '26.11'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox
+      - run: npx playwright test strip-gallery.spec.ts --grep "every strip type" --update-snapshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: memaid-baselines
+          path: |
+            frontend/tests/visual/strip-gallery.spec.ts-snapshots/tactical-memaid-chromium-linux.png
+            frontend/tests/visual/strip-gallery.spec.ts-snapshots/tactical-memaid-firefox-linux.png
+          if-no-files-found: error

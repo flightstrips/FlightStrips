@@ -162,6 +162,25 @@ describe("tactical strip ownership interactions", () => {
     expect(actions.forceAssumeTacticalStrip).toHaveBeenCalledWith(42);
   });
 
+  it("lets a non-owner acknowledge a crossing strip with the hourglass", () => {
+    position = "EKCH_GND";
+    render(<TacticalCrossingStrip strip={tactical({ type: "CROSSING", label: "CROSSING TRAFFIC" })} />);
+
+    fireEvent.click(screen.getByAltText("Hourglass"));
+    expect(actions.confirmTacticalStrip).toHaveBeenCalledWith(42);
+  });
+
+  it("shows a check on a confirmed crossing strip and no hourglass action for the owner", () => {
+    const { rerender } = render(
+      <TacticalCrossingStrip strip={tactical({ type: "CROSSING", label: "CROSSING TRAFFIC" })} />,
+    );
+    fireEvent.click(screen.getByAltText("Hourglass"));
+    expect(actions.confirmTacticalStrip).not.toHaveBeenCalled();
+
+    rerender(<TacticalCrossingStrip strip={tactical({ type: "CROSSING", label: "CROSSING TRAFFIC", confirmed: true })} />);
+    expect(screen.getByText("✓")).toBeInTheDocument();
+  });
+
   it("keeps the MEMAID acknowledgement separate from force assume", () => {
     position = "EKCH_GND";
     render(<TacticalMemaidStrip strip={tactical({ type: "MEMAID", label: "STOP CLIMB" })} />);

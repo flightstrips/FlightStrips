@@ -35,11 +35,5 @@
   ],
   "operating_decisions": "https://github.com/flightstrips/FlightStrips/issues/1097#issuecomment-6705199725",
   "stand_count": 9,
-  "sids": [],
-  "pending": [
-    "Coverage and position exceptions require review",
-    "Stand allocation policy/scenery and blocked-stand references require review",
-    "Operational TEXT PILOT phrase source remains unidentified"
-  ],
-  "deployment_selected": false
+  "sids": []
 }

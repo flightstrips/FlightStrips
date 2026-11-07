@@ -6,4 +6,7 @@ window.__APP_CONFIG__ = {
   audience: "backend-dev",
   connection: "vatsim-dev",
   chartfoxClientId: "019f9418-0f93-73c8-b256-b587423759cf",
+  // Leave empty to disable analytics locally. Set a PostHog project key to test the consent flow.
+  posthogKey: "",
+  posthogHost: "https://eu.i.posthog.com",
 };

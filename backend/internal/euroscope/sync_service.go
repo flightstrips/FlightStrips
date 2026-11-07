@@ -227,14 +227,13 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 	}
 	syncState.GndOnline = hasGroundController(syncState.ExistingControllers)
 
-	runwaysChanged := false
-	if len(request.Event.Runways) > 0 {
-		phase = timings.begin()
-		runwaysChanged, err = s.applyOrValidateRunways(ctx, request, runwayValues(request.Event.Runways))
-		timings.observe(metrics.SyncPhaseRunways, phase)
-		if err != nil {
-			return EuroscopeSyncResult{}, syncFailure(span, err)
-		}
+	// Sync is a complete ES snapshot. An empty list clears the previous
+	// configuration instead of preserving a runway ES no longer reports.
+	phase = timings.begin()
+	runwaysChanged, err := s.applyOrValidateRunways(ctx, request, runwayValues(request.Event.Runways))
+	timings.observe(metrics.SyncPhaseRunways, phase)
+	if err != nil {
+		return EuroscopeSyncResult{}, syncFailure(span, err)
 	}
 
 	if runwaysChanged {

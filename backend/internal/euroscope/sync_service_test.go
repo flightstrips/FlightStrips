@@ -392,6 +392,14 @@ func TestEuroscopeSyncServiceApplySync_MasterRunwaysRecalculateSession(t *testin
 	assert.True(t, result.MarkSessionSynced)
 	assert.Equal(t, "cid-master", result.WakeFrontendCID)
 	assert.Equal(t, 4, result.Metrics.DBOperations)
+	_, err = service.ApplySync(context.Background(), EuroscopeSyncRequest{
+		Session: session, SessionName: "LIVE", Airport: "EKCH", CID: "cid-master", Callsign: "EKCH_TWR", IsMaster: true, HasMaster: true,
+		Event: esEvents.SyncEvent{},
+	})
+	require.NoError(t, err)
+	assert.Empty(t, sessionModel.ActiveRunways.DepartureRunways, "empty master snapshot clears previously selected runways")
+	assert.Empty(t, sessionModel.ActiveRunways.ArrivalRunways)
+	assert.Equal(t, 2, updateActiveRunwaysCalls)
 }
 
 func TestEuroscopeSyncServiceApplySync_SlaveRunwaysDoNotPersist(t *testing.T) {

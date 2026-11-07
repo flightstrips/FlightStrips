@@ -54,6 +54,11 @@ func TestRegionalRADISPersistsATDAndManualAdmissionWithRealDefinitions(t *testin
 			associated, err := repo.GetByCallsign(ctx, session, "NOFP")
 			require.NoError(t, err)
 			require.Equal(t, int32(geo.InitialCFLFT[unassociated.Runway]), *associated.ClearedAltitude, "first real flight-plan association receives initial clearance")
+			vfr := unassociated
+			vfr.Callsign, vfr.Destination, vfr.FlightRules = "CIRCUIT", airport, "V"
+			commandsBefore = len(commander.ClearedAltitudes)
+			require.NoError(t, s.SyncStrip(ctx, session, "MASTER", vfr, airport))
+			require.Len(t, commander.ClearedAltitudes, commandsBefore, "local VFR circuit must not receive an IFR FL60/FL120 clearance")
 			for _, departure := range []bool{true, false} {
 				callsign, origin, destination := "ARR1", "EGLL", airport
 				if departure {

@@ -142,6 +142,9 @@ func (hub *Hub) evaluateRunwayState(session int32, cid, callsign string, client 
 
 	hub.runwayStateMu.Lock()
 	defer hub.runwayStateMu.Unlock()
+	if hub.runwayStates == nil {
+		hub.runwayStates = make(map[string]*clientRunwayState)
+	}
 
 	key := runwayStateKey(session, cid)
 	if client != nil && client.membership != nil {

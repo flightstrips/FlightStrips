@@ -1,3 +1,8 @@
+# Legacy Compose configuration; NOT used for the production environment.
+# Production is deployed by Portainer to Docker Swarm from:
+# https://github.com/flightstrips/infrastructure/blob/main/stacks/flightstrips.yml
+# Apply production deployment changes in that repository; edits here do not deploy.
+
 services:
   postgres:
     image: postgres:14-alpine

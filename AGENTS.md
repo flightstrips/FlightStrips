@@ -1,3 +1,12 @@
+# Production Deployment
+
+Production runs on Docker Swarm, deployed by Portainer from the separate
+[flightstrips/infrastructure](https://github.com/flightstrips/infrastructure) repository.
+The authoritative stack is [`stacks/flightstrips.yml`](https://github.com/flightstrips/infrastructure/blob/main/stacks/flightstrips.yml).
+This repository's `docker-compose.prod.yml` is a legacy configuration and is not used for production.
+When changing production image tags, environment variables, resource paths, or mounts,
+update the infrastructure stack as needed; changing the legacy Compose file alone does not update production.
+
 # Commit Messages
 
 When asked to write a commit message, use Release Please compatible Conventional Commits so the message is suitable for release notes.

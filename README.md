@@ -41,6 +41,18 @@ FlightStrips is a full-stack application with three main components:
 | Euroscope Plugin | Real-time data sync with Euroscope | [euroscope-plugin/README.md](euroscope-plugin/README.md) |
 | Events Protocol | Communication specification | [events.md](events.md) |
 
+## Production Deployment
+
+Production is deployed by Portainer to Docker Swarm from the separate
+[flightstrips/infrastructure](https://github.com/flightstrips/infrastructure) repository.
+Its [`stacks/flightstrips.yml`](https://github.com/flightstrips/infrastructure/blob/main/stacks/flightstrips.yml)
+is the source of truth for production image tags, environment variables, resource paths, and mounts.
+See that repository's [deployment instructions](https://github.com/flightstrips/infrastructure#releasing-a-new-version).
+
+The `docker-compose.prod.yml` file in this repository is a legacy configuration;
+it is **not used for production**. Production deployment changes must be reflected
+in the infrastructure repository, including any required configuration changes alongside image version bumps.
+
 ## Local Development
 
 ### Prerequisites

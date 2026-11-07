@@ -166,7 +166,7 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 		for _, item := range []struct {
 			field    string
 			resource *AirportResource
-		}{{"stands", s.Stands}, {"aircraft_reference", s.AircraftReference}, {"aircraft_icao", s.AircraftICAO}, {"airline_assignment", s.AirlineAssignment}, {"scenery", s.Scenery}} {
+		}{{"stands", s.Stands}, {"aircraft_reference", s.AircraftReference}, {"aircraft_icao", s.AircraftICAO}, {"airline_assignment", s.AirlineAssignment}} {
 			if err := add("services.stand_assignment."+item.field, item.resource); err != nil {
 				return err
 			}
@@ -186,10 +186,15 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 		if _, err := sat.LoadAirlineAssignmentFile(resource("airline_assignment"), stands.ForAirport(d.Airport())); err != nil {
 			return fmt.Errorf("services.stand_assignment.airline_assignment: %w", err)
 		}
-		if scenery, err := gsx.LoadSceneryConfig(resource("scenery")); err != nil {
-			return fmt.Errorf("services.stand_assignment.scenery: %w", err)
-		} else if scenery.ICAO != d.Airport() {
-			return fmt.Errorf("services.stand_assignment.scenery: airport %s does not match %s", scenery.ICAO, d.Airport())
+		if s.Scenery != nil {
+			if err := add("services.stand_assignment.scenery", s.Scenery); err != nil {
+				return err
+			}
+			if scenery, err := gsx.LoadSceneryConfig(resource("scenery")); err != nil {
+				return fmt.Errorf("services.stand_assignment.scenery: %w", err)
+			} else if scenery.ICAO != d.Airport() {
+				return fmt.Errorf("services.stand_assignment.scenery: airport %s does not match %s", scenery.ICAO, d.Airport())
+			}
 		}
 	}
 	if s := services.TextPilot; s != nil && active("text_pilot", s.Availability) {
@@ -261,10 +266,7 @@ func (d *AirportDefinition) resolveResources(root string, options AirportLoadOpt
 			return fmt.Errorf("navigation terminal airport %s does not match %s", configuration.Airport, d.Airport())
 		}
 	}
-	if options.GSXEnabled && d.resources["services.stand_assignment.scenery"] == "" {
-		if services.StandAssignment == nil {
-			return fmt.Errorf("GSX: services.stand_assignment.scenery must be configured")
-		}
+	if options.GSXEnabled && services.StandAssignment != nil && services.StandAssignment.Scenery != nil && d.resources["services.stand_assignment.scenery"] == "" {
 		if err := add("services.stand_assignment.scenery", services.StandAssignment.Scenery); err != nil {
 			return err
 		}

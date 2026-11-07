@@ -235,7 +235,6 @@
     "ekch missing /services/stand_assignment/aircraft_reference",
     "ekch missing /services/stand_assignment/aircraft_icao",
     "ekch missing /services/stand_assignment/airline_assignment",
-    "ekch missing /services/stand_assignment/scenery",
     "ekch unknown /services/stand_assignment/aircraft_icao/unexpected_field",
     "ekch missing /services/stand_assignment/aircraft_icao/environment",
     "ekch missing /services/stand_assignment/aircraft_icao/default_repo_path",

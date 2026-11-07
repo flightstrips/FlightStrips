@@ -2295,18 +2295,6 @@
   {
     "base": "ekch",
     "environment": {},
-    "name": "ekch missing /services/stand_assignment/scenery",
-    "operations": [
-      {
-        "op": "remove",
-        "path": "/services/stand_assignment/scenery"
-      }
-    ],
-    "valid": false
-  },
-  {
-    "base": "ekch",
-    "environment": {},
     "name": "ekch unknown /services/stand_assignment/aircraft_icao/unexpected_field",
     "operations": [
       {
@@ -4604,6 +4592,18 @@
             "TWR"
           ]
         }
+      }
+    ],
+    "valid": true
+  },
+  {
+    "base": "ekch",
+    "environment": {},
+    "name": "stand assignment does not require GSX scenery",
+    "operations": [
+      {
+        "op": "remove",
+        "path": "/services/stand_assignment/scenery"
       }
     ],
     "valid": true

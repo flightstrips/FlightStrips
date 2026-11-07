@@ -15,7 +15,7 @@ export default defineConfig({
   use: {actionTimeout: 15_000, navigationTimeout: 30_000, ...devices["Desktop Chrome"], viewport: {width: 1920, height: 1080}, baseURL: "http://127.0.0.1:4181", screenshot: "only-on-failure", trace: "retain-on-failure", video: "retain-on-failure"},
   projects: [
     {name: "aman", workers: 1, testMatch: "aman.spec.ts", metadata: {backend: "http://127.0.0.1:4180"}},
-    {name: "radis", workers: 1, testMatch: "radis.spec.ts", metadata: {backend: "http://127.0.0.1:4184"}},
+    {name: "radis", workers: 1, testMatch: ["radis.spec.ts", "release.spec.ts"], metadata: {backend: "http://127.0.0.1:4184"}},
     {name: "strips", workers: 1, testMatch: "strips.spec.ts", metadata: {backend: "http://127.0.0.1:4182"}},
   ],
   webServer: [

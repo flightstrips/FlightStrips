@@ -1,0 +1,23 @@
+name: Inspect PR 1103 visual baselines
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  screenshots:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@master
+        with:
+          node-version: '26.11'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox
+      - run: npx playwright test strip-gallery.spec.ts --grep "every strip type" --update-snapshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr1103-visual-baselines
+          path: frontend/tests/visual/strip-gallery.spec.ts-snapshots/*-linux.png
+          if-no-files-found: error

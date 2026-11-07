@@ -45,6 +45,15 @@ func TestRegionalRADISPersistsATDAndManualAdmissionWithRealDefinitions(t *testin
 			require.NoError(t, err)
 			source := vatsim.NewSyntheticSource()
 			s.SetConnectedFlightSource(source, time.Minute, func() time.Time { return now })
+			unassociated := es.Strip{Callsign: "NOFP", Origin: airport, Destination: "EGLL", Runway: geo.Runways[0], Position: &es.Position{Lat: geo.Latitude, Lon: geo.Longitude}}
+			commandsBefore := len(commander.ClearedAltitudes)
+			require.NoError(t, s.SyncStrip(ctx, session, "MASTER", unassociated, airport))
+			require.Len(t, commander.ClearedAltitudes, commandsBefore, "no automatic ES amendment without a flight plan")
+			unassociated.HasFp = true
+			require.NoError(t, s.SyncStrip(ctx, session, "MASTER", unassociated, airport))
+			associated, err := repo.GetByCallsign(ctx, session, "NOFP")
+			require.NoError(t, err)
+			require.Equal(t, int32(geo.InitialCFLFT[unassociated.Runway]), *associated.ClearedAltitude, "first real flight-plan association receives initial clearance")
 			for _, departure := range []bool{true, false} {
 				callsign, origin, destination := "ARR1", "EGLL", airport
 				if departure {

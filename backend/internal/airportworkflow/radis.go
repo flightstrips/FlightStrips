@@ -66,6 +66,10 @@ func (h radis) Observe(c Context, o Observation) (Decision, error) {
 	d := Decision{Bay: &bay}
 	if o.Kind == FullFlight || o.Kind == Position {
 		d.Visibility = h.visibility(c, o)
+		if h.settings.AutomaticATDAGLFT != nil && c.Strip.BoardMember && c.Strip.RemovedAt == nil && !c.Strip.ATDManual && c.Strip.Annotations.ATD == "" && !c.Now.IsZero() && float64(o.Altitude)-h.elevation >= float64(*h.settings.AutomaticATDAGLFT) {
+			stamp := c.Now.UTC().Format("1504")
+			d.ReconciledATD = &stamp
+		}
 	}
 	if o.Kind == BackendState && c.Strip.GroundStateKnown {
 		d.ReconciledGroundState = &c.Strip.GroundState
@@ -82,7 +86,7 @@ func (h radis) Lifecycle(c Context, l Lifecycle) (LifecycleDecision, error) {
 	if l.Kind == Removal {
 		delay := time.Duration(h.settings.DisconnectRemovalSeconds * float64(time.Second))
 		d := LifecycleDecision{RemovalDelay: &delay}
-		if c.Strip.BoardMember && (c.Strip.EuroscopeSeen || c.Strip.HasFP) {
+		if c.Strip.BoardMember && !c.Strip.Local && !c.Strip.ManualAdmission && (c.Strip.EuroscopeSeen || c.Strip.HasFP) {
 			d.Visibility = &StripVisibility{Reason: l.Reason}
 		}
 		return d, nil
@@ -141,6 +145,7 @@ func (h radis) annotate(c Context, a StripAnnotation) (Decision, error) {
 			return Decision{}, fmt.Errorf("ATD must be HHMM UTC")
 		}
 		v.ATD = a.Value
+		return Decision{Annotations: &v, ATDManual: true}, nil
 	case "endurance_pob":
 		if len(a.Value) > 16 || !regexp.MustCompile(`^[0-9./]*$`).MatchString(a.Value) {
 			return Decision{}, fmt.Errorf("invalid endurance/POB")
@@ -165,7 +170,7 @@ func (h radis) annotate(c Context, a StripAnnotation) (Decision, error) {
 }
 
 func (h radis) visibility(c Context, o Observation) *StripVisibility {
-	if !c.Strip.BoardMember || c.Strip.Local && !c.Strip.HasFP {
+	if !c.Strip.BoardMember || c.Strip.Local || c.Strip.ManualAdmission {
 		return nil
 	}
 	origin, destination := o.Origin, o.Destination
@@ -178,15 +183,15 @@ func (h radis) visibility(c Context, o Observation) *StripVisibility {
 	distance := RADISDistanceNM(h.latitude, h.longitude, o.Latitude, o.Longitude)
 	agl := float64(o.Altitude) - h.elevation
 	if c.Strip.RemovedAt != nil {
-		if c.Strip.RemovalReason != "manual" && h.settings.AutomaticReappearance && !c.Now.IsZero() && !c.Now.Before(*c.Strip.RemovedAt) && c.Now.Before(c.Strip.RemovedAt.Add(time.Duration(h.settings.RecoverySeconds)*time.Second)) && (origin == h.airport || destination == h.airport) && distance <= h.settings.AdmissionDistanceNM && (origin != h.airport || agl <= float64(h.settings.DepartureAdmissionAGLFT)) {
+		if c.Strip.RemovalReason != "manual" && h.settings.AutomaticReappearance && !c.Now.IsZero() && !c.Now.Before(*c.Strip.RemovedAt) && c.Now.Before(c.Strip.RemovedAt.Add(time.Duration(h.settings.RecoverySeconds)*time.Second)) && (origin == h.airport || destination == h.airport) {
 			return &StripVisibility{Visible: true}
 		}
 		return nil
 	}
-	if origin == h.airport && agl >= float64(h.settings.DepartureRemovalAGLFT) {
+	if h.settings.DepartureRemovalAGLFT != nil && origin == h.airport && agl >= float64(*h.settings.DepartureRemovalAGLFT) {
 		return &StripVisibility{Reason: "departure-altitude"}
 	}
-	if distance > h.settings.RemovalDistanceNM {
+	if h.settings.RemovalDistanceNM != nil && distance > *h.settings.RemovalDistanceNM {
 		return &StripVisibility{Reason: "distance"}
 	}
 	return nil

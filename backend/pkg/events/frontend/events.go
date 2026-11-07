@@ -67,6 +67,7 @@ const (
 
 	Broadcast              EventType = "broadcast"
 	SendMessage            EventType = "send_message"
+	AcknowledgeMessage     EventType = "acknowledge_message"
 	SendPrivateMessage     EventType = "send_private_message"
 	SendFrequencyMessage   EventType = "send_frequency_message"
 	FrequencyMessageResult EventType = "frequency_message_result"
@@ -810,18 +811,25 @@ func (l BroadcastEvent) GetType() EventType {
 }
 
 type SendMessageEvent struct {
-	Text       string   `json:"text"`
-	Recipients []string `json:"recipients"`
-	Format     string   `json:"format,omitempty"`
+	Text               string   `json:"text"`
+	Recipients         []string `json:"recipients"`
+	RecipientPositions []string `json:"recipient_positions,omitempty"`
+	Format             string   `json:"format,omitempty"`
+}
+
+type AcknowledgeMessageEvent struct {
+	ID int64 `json:"id"`
 }
 
 type MessageReceivedEvent struct {
-	ID          int64    `json:"id"`
-	Sender      string   `json:"sender"`
-	Text        string   `json:"text"`
-	IsBroadcast bool     `json:"is_broadcast"`
-	Recipients  []string `json:"recipients"`
-	Format      string   `json:"format,omitempty"`
+	ID               int64    `json:"id"`
+	Sender           string   `json:"sender"`
+	Text             string   `json:"text"`
+	IsBroadcast      bool     `json:"is_broadcast"`
+	Recipients       []string `json:"recipients"`
+	Format           string   `json:"format,omitempty"`
+	ReceiptPositions []string `json:"receipt_positions,omitempty"`
+	Acknowledged     bool     `json:"acknowledged,omitempty"`
 }
 
 func (m MessageReceivedEvent) Marshal() ([]byte, error) {

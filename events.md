@@ -3,12 +3,24 @@
 ## Frontend messages
 
 `send_message` carries `text`, `recipients` (configured area names; an empty
-array means broadcast), and optional `format`: `AUTO`, `SMALL`, or `LARGE`.
+array means broadcast), optional aligned `recipient_positions` to target the
+selected online controller for each area, and optional `format`: `AUTO`,
+`SMALL`, or `LARGE`.
 `message_received` carries the same fields plus `id`, `sender`, and
-`is_broadcast`. Format is retained in the session message history and initial
-snapshot. Missing format is equivalent to `AUTO`: a single targeted recipient
-uses large text; broadcast and multiple recipients use small text. Explicit
-`SMALL` or `LARGE` overrides recipient-based sizing.
+`is_broadcast`. A message addressed to one configured area includes
+`receipt_positions` for the controller positions it reached; a recipient
+acknowledges it by sending `acknowledge_message` with the message `id`. The
+backend then sends an updated `message_received` event with `acknowledged: true`
+to the sender and recipients. Broadcasts and messages with multiple configured
+recipient areas cannot be acknowledged.
+
+The SI indicator is purple for system messages, split white/orange for an
+unacknowledged direct message, and fully orange after acknowledgement. Broadcast
+and multi-recipient messages are orange immediately. Format is retained in the
+session message history and initial snapshot. Missing format is equivalent to
+`AUTO`: a single targeted recipient uses large text; broadcast and multiple
+recipients use small text. Explicit `SMALL` or `LARGE` overrides
+recipient-based sizing.
 
 Targeted areas resolve to an online operational controller at the area's primary
 configured frequency, or otherwise to the current owner of its sector. Ground

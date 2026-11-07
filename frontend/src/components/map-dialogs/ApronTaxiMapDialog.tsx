@@ -3,6 +3,7 @@ import { useWebSocketStore, useApronOnline, useTwrOnline, useIsTwr, useMyPositio
 import { APRON_TAXI_POINTS, COORDINATION_APRON_TAXI_POINTS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 import { Bay } from "@/api/models";
+import { getAircraftMapRestrictions, isRestrictedMapPoint } from "./aircraftMapRestrictions";
 
 interface ApronTaxiMapDialogProps {
   open: boolean;
@@ -41,11 +42,15 @@ export function ApronTaxiMapDialog({
   const strip = useStrip(callsign);
   const airport = useWebSocketStore(s => s.airport);
   const myPosition = useMyPosition();
+  const restrictions = getAircraftMapRestrictions(strip?.aircraft_type, strip?.aircraft_category, "apron-taxi");
+  const isPointDisabled = (label: string) => isRestrictedMapPoint(label, restrictions);
+  const disabledMessage = "Aircraft type not approved for this Taxiway";
 
   const shouldAcknowledgeReleasePoint =
     strip?.unexpected_change_fields?.includes("release_point") && !!myPosition && strip.owner === myPosition;
 
   const handleSelect = (label: string) => {
+    if (isPointDisabled(label)) return;
     if (isTextPilot(strip)) {
       const splitOps = apronOnline || twrOnline;
       const soloTwr = isTwr && !apronOnline;
@@ -101,6 +106,8 @@ export function ApronTaxiMapDialog({
         points={coordinationMode ? COORDINATION_APRON_TAXI_POINTS : APRON_TAXI_POINTS}
         btnStyle={BTN_STYLE}
         onSelect={handleSelect}
+        isPointDisabled={isPointDisabled}
+        disabledPointMessage={disabledMessage}
         selectedPoint={strip?.release_point}
       >
       {/* Controls panel — bottom-left */}
@@ -116,7 +123,8 @@ export function ApronTaxiMapDialog({
           gap: "0.44cqh",
         }}
       >
-        <MapEraseControls onOk={handleSelect} onErase={handleErase} onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE} />
+        <MapEraseControls onOk={handleSelect} onErase={handleErase} onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE}
+          canSelect={label => !isPointDisabled(label)} disabledMessage={disabledMessage} />
       </div>
     </MapDialogShell>
   );

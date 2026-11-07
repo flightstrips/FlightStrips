@@ -40,6 +40,25 @@ TEST(AppConfigTest, ShippedConfigsDeclareEKCHAndRegionalAirportEligibility) {
         ASSERT_TRUE(std::filesystem::is_regular_file(path));
         auto config = AppConfig(path.string());
         EXPECT_THAT(config.GetEligibleAirports(), testing::ElementsAre("EKCH", "EKBI", "EKYT"));
+        const auto& prefixes = config.GetCallsignAirportMap();
+        EXPECT_THAT(prefixes.at("EKCH"), testing::ElementsAre("EKCH", "EKDK"));
+        EXPECT_THAT(prefixes.at("EKBI"), testing::ElementsAre("EKBI"));
+        EXPECT_THAT(prefixes.at("EKYT"), testing::ElementsAre("EKYT"));
+        const auto& points = config.GetAirportFallbackPoints();
+        ASSERT_EQ(points.size(), 3u);
+        for (const auto& point : points) {
+            if (point.airport == "EKBI") {
+                EXPECT_DOUBLE_EQ(point.latitude, 55.74032194);
+                EXPECT_DOUBLE_EQ(point.longitude, 9.15177778);
+            } else if (point.airport == "EKYT") {
+                EXPECT_DOUBLE_EQ(point.latitude, 57.09278889);
+                EXPECT_DOUBLE_EQ(point.longitude, 9.84916389);
+            } else {
+                EXPECT_EQ(point.airport, "EKCH");
+                EXPECT_DOUBLE_EQ(point.latitude, 55.6181);
+                EXPECT_DOUBLE_EQ(point.longitude, 12.6560);
+            }
+        }
     }
 }
 

@@ -1,0 +1,116 @@
+{
+  "airport": "EKBI",
+  "sector_package": "EKDK-Copenhagen_20261030104048-261101-0001",
+  "airac": "2611/1",
+  "sources": [
+    {
+      "file": "EKDK-Copenhagen_20261030104048-261101-0001.sct",
+      "sha256": "184adfa221f7d61eb1e3d5e7aa76c14891dd5161060e91840a4ec80edc3ba39c",
+      "sections": [
+        "AIRPORT",
+        "RUNWAY"
+      ]
+    },
+    {
+      "file": "EKDK-Copenhagen_20261030104048-261101-0001.ese",
+      "sha256": "d6a2f660834616fd0dd637032c0f8df7be520ecbddfda5ea530067b140d77e9d",
+      "sections": [
+        "POSITIONS",
+        "SIDSSTARS",
+        "AIRSPACE"
+      ]
+    },
+    {
+      "file": "EKDK/Plugins/GRplugin/GRpluginStands.txt",
+      "sha256": "83ba44ee55d5482dc4cd2efcaf28e38b6ba0c7504af97b5ef9c6f228c5dd849c"
+    },
+    {
+      "file": "EKDK/ASR/4_EKBI.asr",
+      "sha256": "6b2e65db9883210b8e619ecb59388001dc71261d57d6e2017df421391e2175b5"
+    },
+    {
+      "file": "EKDK/Plugins/TopSky/TopSkyAirspace.txt",
+      "sha256": "0b665d5964e463d092d38843895cd699d7e17325511655768dd5a28e6bcb3ff7"
+    }
+  ],
+  "operating_decisions": "https://github.com/flightstrips/FlightStrips/issues/1097#issuecomment-6705199725",
+  "stand_count": 28,
+  "sids": [
+    {
+      "runway": "09",
+      "name": "ABINO7B",
+      "route": "ABINO"
+    },
+    {
+      "runway": "09",
+      "name": "ALS7B",
+      "route": "ODFEX ALS"
+    },
+    {
+      "runway": "09",
+      "name": "BAMPI6B",
+      "route": "BI373 BI372 BAMPI"
+    },
+    {
+      "runway": "09",
+      "name": "ESIRU1B",
+      "route": "ODFEX ESIRU"
+    },
+    {
+      "runway": "09",
+      "name": "INTET3B",
+      "route": "INTET"
+    },
+    {
+      "runway": "09",
+      "name": "MIKRO6B",
+      "route": "ODFEX MIKRO"
+    },
+    {
+      "runway": "09",
+      "name": "RERPA3B",
+      "route": "BI367 RERPA"
+    },
+    {
+      "runway": "27",
+      "name": "ABINO7A",
+      "route": "BI364 ABINO"
+    },
+    {
+      "runway": "27",
+      "name": "ALS7A",
+      "route": "BI371 ALS"
+    },
+    {
+      "runway": "27",
+      "name": "BAMPI6A",
+      "route": "BI371 BI372 BAMPI"
+    },
+    {
+      "runway": "27",
+      "name": "ESIRU1A",
+      "route": "BI364 BI365 ESIRU"
+    },
+    {
+      "runway": "27",
+      "name": "INTET3A",
+      "route": "BI367 INTET"
+    },
+    {
+      "runway": "27",
+      "name": "MIKRO6A",
+      "route": "BI371 MIKRO"
+    },
+    {
+      "runway": "27",
+      "name": "RERPA3A",
+      "route": "BI367 RERPA"
+    }
+  ],
+  "pending": [
+    "Coverage and position exceptions require review",
+    "Stand allocation policy/scenery and blocked-stand references require review",
+    "Operational TEXT PILOT phrase source remains unidentified"
+  ],
+  "deployment_selected": false
+}

@@ -187,7 +187,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		newClearedAlt := strip.ClearedAltitude
-		if newClearedAlt == 0 && bay == shared.BAY_NOT_CLEARED {
+		if newClearedAlt == 0 && (bay == shared.BAY_NOT_CLEARED || bound.BoardStatePolicy().Revisioned && strip.Origin == airport) {
 			if autoCfl, ok := workflowInitialCFL(bound, runwayForStrip); ok {
 				newClearedAlt = int32(autoCfl)
 			}
@@ -399,7 +399,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			updateHeading = 0
 			updateClearedAlt = 0
 		}
-		if updateClearedAlt == 0 && bay == shared.BAY_NOT_CLEARED {
+		if updateClearedAlt == 0 && (bay == shared.BAY_NOT_CLEARED || bound.BoardStatePolicy().Revisioned && strip.Origin == airport && existingStrip.EuroscopeSeenAt == nil) {
 			existingCfl := int32(0)
 			if !restartLifecycle && existingStrip.ClearedAltitude != nil {
 				existingCfl = *existingStrip.ClearedAltitude

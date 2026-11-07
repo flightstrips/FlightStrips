@@ -79,6 +79,8 @@ const (
 	GroundStateLineup   = "LINEUP"
 	GroundStateDepart   = "DEPA"
 	GroundStateParked   = "PARK"
+	GroundStateTakeoff  = "TKOFF"
+	GroundStateLand     = "LAND"
 	SessionInfoMaster   = "master"
 	SessionInfoSlave    = "slave"
 	SessionInfoObserver = "observer"

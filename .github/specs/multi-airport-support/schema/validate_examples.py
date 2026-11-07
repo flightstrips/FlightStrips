@@ -550,6 +550,9 @@ def main():
     scalar_forms['routing']['ground'][0].update(forRunway=9.0,
         forStandRanges=['273-1','RI','RII','RIII','W1','A15-A30',12,12.0,'014','A0'])
     accepts('supported scalar stand forms and integral numeric selectors', scalar_forms, fake)
+    without_scenery = copy.deepcopy(airport)
+    del without_scenery['services']['stand_assignment']['scenery']
+    accepts('stand assignment does not require GSX scenery', without_scenery)
     accepts('complete EKCH document', copy.deepcopy(airport))
     accepts('complete fictional document', copy.deepcopy(fake), fake)
     for nonfinite in [math.nan, math.inf, -math.inf]:

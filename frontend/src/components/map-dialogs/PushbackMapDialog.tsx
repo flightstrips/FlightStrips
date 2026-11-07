@@ -5,6 +5,7 @@ import { useStrip, useWebSocketStore } from "@/store/store-hooks";
 import { ActionType, Bay } from "@/api/models";
 import { RELEASE_POINTS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
+import { getAircraftMapRestrictions, isRestrictedMapPoint } from "./aircraftMapRestrictions";
 
 interface PushbackMapDialogProps {
   open: boolean;
@@ -43,9 +44,12 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const strip = useStrip(callsign);
   const move = useWebSocketStore((s) => s.move);
+  const restrictions = getAircraftMapRestrictions(strip?.aircraft_type, strip?.aircraft_category, "pushback");
+  const isPointDisabled = (label: string) => isRestrictedMapPoint(label, restrictions);
+  const disabledMessage = "Aircraft type not approved for this Release point";
 
   const handleSelect = async (label: string) => {
-    if (checking) return;
+    if (checking || isPointDisabled(label)) return;
     if (isTextPilot(strip)) {
       const current = ++attempt.current;
       setChecking(true);
@@ -81,6 +85,8 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
       points={RELEASE_POINTS}
       btnStyle={BTN_STYLE}
       onSelect={handleSelect}
+      isPointDisabled={isPointDisabled}
+      disabledPointMessage={disabledMessage}
       selectedPoint={initialReleasePoint}
     >
       {/* Controls panel — bottom-left */}
@@ -99,20 +105,24 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
         {checking && <span role="status">Checking pushback timing...</span>}
         {/* Direction quick-select */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.52cqh" }}>
-          <button onClick={() => handleSelect("N")} style={BTN_STYLE}>N</button>
+          <button onClick={() => handleSelect("N")} disabled={isPointDisabled("N")} title={isPointDisabled("N") ? disabledMessage : undefined}
+            style={{ ...BTN_STYLE, ...(isPointDisabled("N") ? { color: "#B9B9B9", cursor: "not-allowed" } : {}) }}>N</button>
           <div style={{ display: "flex", gap: "0.52cqh" }}>
-            <button onClick={() => handleSelect("W")} style={BTN_STYLE}>W</button>
-            <button onClick={() => handleSelect("E")} style={BTN_STYLE}>E</button>
+            <button onClick={() => handleSelect("W")} disabled={isPointDisabled("W")} title={isPointDisabled("W") ? disabledMessage : undefined}
+              style={{ ...BTN_STYLE, ...(isPointDisabled("W") ? { color: "#B9B9B9", cursor: "not-allowed" } : {}) }}>W</button>
+            <button onClick={() => handleSelect("E")} disabled={isPointDisabled("E")} title={isPointDisabled("E") ? disabledMessage : undefined}
+              style={{ ...BTN_STYLE, ...(isPointDisabled("E") ? { color: "#B9B9B9", cursor: "not-allowed" } : {}) }}>E</button>
           </div>
-          <button onClick={() => handleSelect("S")} style={BTN_STYLE}>S</button>
+          <button onClick={() => handleSelect("S")} disabled={isPointDisabled("S")} title={isPointDisabled("S") ? disabledMessage : undefined}
+            style={{ ...BTN_STYLE, ...(isPointDisabled("S") ? { color: "#B9B9B9", cursor: "not-allowed" } : {}) }}>S</button>
         </div>
 
         {/* ERASE / input / OK — offset down to align with W/E row */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.52cqh", marginTop: "4.43cqh", width: "fit-content" }}>
-          <MapEraseControls onOk={handleSelect} onClose={() => handleOpenChange(false)} btnStyle={BTN_STYLE} maxLength={4} />
+          <MapEraseControls onOk={handleSelect} onClose={() => handleOpenChange(false)} btnStyle={BTN_STYLE} maxLength={4}
+            canSelect={label => !isPointDisabled(label)} disabledMessage={disabledMessage} />
         </div>
       </div>
     </MapDialogShell>
   );
 }
-

@@ -37,7 +37,7 @@ describe("message composition", () => {
     expect(preview()).toHaveAttribute("readonly");
     click("BROADCAST");
     click("OK");
-    expect(state.sendMessage).toHaveBeenCalledWith("RWY 04R Closed CLOSING POSITION SOON Expect delays STARTING AT 1450, until 1600", [], "AUTO");
+    expect(state.sendMessage).toHaveBeenCalledWith("RWY 04R Closed CLOSING POSITION SOON Expect delays STARTING AT 1450, until 1600", [], "AUTO", []);
   });
 
   it("selects only one taxiway and commits it only on OK", () => {
@@ -73,7 +73,7 @@ describe("message composition", () => {
     click("CLOSING POSITION SOON");
     click(format);
     click("OK");
-    expect(state.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", ["APRON ARR"], format);
+    expect(state.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", ["APRON ARR"], format, ["121.630"]);
   });
 
   it("broadcast clears recipient selection", () => {
@@ -83,7 +83,7 @@ describe("message composition", () => {
     expect(screen.getByRole("button", { name: "APRON ARR" })).toHaveAttribute("aria-pressed", "false");
     click("CLOSING POSITION SOON");
     click("OK");
-    expect(state.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", [], "AUTO");
+    expect(state.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", [], "AUTO", []);
   });
 
   it("ERASE removes the last word, DELETE MESSAGE clears all content and times, and ESC does not send", () => {

@@ -447,6 +447,9 @@ func handleSendMessage(ctx context.Context, client *Client, message Message) err
 	if recipients == nil {
 		recipients = []string{}
 	}
+	if len(req.RecipientPositions) > 0 && len(req.RecipientPositions) != len(recipients) {
+		return errors.New("recipient positions must match configured recipients")
+	}
 
 	msg := frontend.MessageReceivedEvent{
 		ID:          client.hub.NextMessageID(),
@@ -458,8 +461,23 @@ func handleSendMessage(ctx context.Context, client *Client, message Message) err
 	}
 
 	client.hub.storeMessage(identity.session, msg)
-	client.hub.dispatchMessage(identity.session, msg, client.GetCid())
+	if err := client.hub.dispatchMessageToPositions(identity.session, msg, client.GetCid(), req.RecipientPositions); err != nil {
+		client.hub.removeStoredMessage(identity.session, msg.ID)
+		return err
+	}
 	return nil
+}
+
+func handleAcknowledgeMessage(ctx context.Context, client *Client, message Message) error {
+	identity := client.messageIdentity(ctx)
+	var req frontend.AcknowledgeMessageEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	if req.ID <= 0 {
+		return shared.RejectAction("message ID must be positive")
+	}
+	return client.hub.acknowledgeMessage(identity.session, req.ID, identity.position)
 }
 
 func handleCdmReady(ctx context.Context, client *Client, message Message) error {

@@ -1,32 +1,33 @@
 import type { MessageReceived } from "@/api/models.ts";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
-import { COLOR_SI_ASSUMED, COLOR_SI_CONCERNED, getFramedStripStyle } from "@/components/strip/shared";
+import { COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_CONCERNED, getFramedStripStyle } from "@/components/strip/shared";
 
 export const MESSAGE_MAX_CHARS = 120;
 
 // Message strip color constants
 const COLOR_STRIP_BG       = "#285A5C"; // teal background for message strips
-const COLOR_SI_BROADCAST   = "#FF6D4D"; // sent-by-me broadcast indicator
 const COLOR_TEXT_MAIN      = "#E9E9E9"; // primary text / button border color
 const COLOR_TEXT_ON_LIGHT  = "#1a1a1a"; // dark text when SI background is light
 
-function getMessageSI(msg: MessageReceived, currentPosition: string): { color: string; initials: string } {
-  if (msg.sender === "SYSTEM") return { color: COLOR_SI_CONCERNED, initials: "SY" };
+function getMessageSI(msg: MessageReceived, currentPosition: string): { background: string; color: string; initials: string; canAcknowledge: boolean } {
+  if (msg.sender === "SYSTEM") return { background: COLOR_SI_CONCERNED, color: "white", initials: "SY", canAcknowledge: false };
 
-  const isSentByMe = msg.sender === currentPosition;
-
-  if (isSentByMe && (msg.is_broadcast || msg.recipients.length > 1)) {
-    return { color: COLOR_SI_BROADCAST, initials: "" };
+  const isSingleControllerMessage = !msg.is_broadcast && msg.recipients.length === 1 && (msg.receipt_positions?.length ?? 0) > 0;
+  if (!isSingleControllerMessage) {
+    return { background: COLOR_BTN_ORANGE, color: "white", initials: "", canAcknowledge: false };
   }
 
-  if (!isSentByMe && msg.is_broadcast) {
-    return { color: COLOR_SI_CONCERNED, initials: "" };
-  }
-
-  // Personal message — show sender's last 2 chars as initials
   const raw = msg.sender.replace(/[^A-Z0-9]/gi, "");
   const initials = raw.slice(-2).toUpperCase();
-  return { color: COLOR_SI_ASSUMED, initials };
+  const background = msg.acknowledged
+    ? COLOR_BTN_ORANGE
+    : `linear-gradient(to right, ${COLOR_SI_ASSUMED} 50%, ${COLOR_BTN_ORANGE} 50%)`;
+  return {
+    background,
+    color: msg.acknowledged ? "white" : COLOR_TEXT_ON_LIGHT,
+    initials,
+    canAcknowledge: !msg.acknowledged && msg.receipt_positions?.includes(currentPosition) === true,
+  };
 }
 
 interface MessageStripProps {
@@ -35,6 +36,7 @@ interface MessageStripProps {
 
 export function MessageStrip({ msg }: MessageStripProps) {
   const position = useWebSocketStore(s => s.position);
+  const acknowledgeMessage = useWebSocketStore(s => s.acknowledgeMessage);
   const dismissMessage = useWebSocketStore(s => s.dismissMessage);
   const si = getMessageSI(msg, position);
   const largeText = msg.format === "LARGE" ||
@@ -47,8 +49,19 @@ export function MessageStrip({ msg }: MessageStripProps) {
     >
       {/* SI box */}
       <div
-        className="flex items-center justify-center shrink-0 font-normal [-webkit-text-stroke:0.5px_currentColor]"
-        style={{ width: "1.88vw", background: si.color, color: si.color === COLOR_SI_ASSUMED ? COLOR_TEXT_ON_LIGHT : "white", fontSize: "0.73vw" }}
+        role={si.canAcknowledge ? "button" : undefined}
+        tabIndex={si.canAcknowledge ? 0 : undefined}
+        aria-label={si.canAcknowledge ? "Acknowledge message receipt" : undefined}
+        className={`flex items-center justify-center shrink-0 font-normal [-webkit-text-stroke:0.5px_currentColor]${si.canAcknowledge ? " cursor-pointer" : ""}`}
+        style={{ width: "1.88vw", background: si.background, color: si.color, fontSize: "0.73vw" }}
+        onClick={si.canAcknowledge ? () => acknowledgeMessage(msg.id) : undefined}
+        onKeyDown={si.canAcknowledge ? event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            acknowledgeMessage(msg.id);
+          }
+        } : undefined}
+        title={si.canAcknowledge ? "Acknowledge receipt" : undefined}
       >
         {si.initials}
       </div>

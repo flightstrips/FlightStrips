@@ -137,7 +137,7 @@ def validate_workflow(document):
     elif workflow['handler'] == 'radis/v1':
         require(document['ownership']['strips'] == 'none' and document['ownership']['sectors'] == 'none', 'RADIS requires no ownership')
         require(bays == {'ACTIVE', 'RUNWAY', 'PASSIVE_TOP', 'PASSIVE_BOTTOM'}, 'RADIS requires exactly four bays')
-        require(settings['removal_distance_nm'] >= settings['admission_distance_nm'] and settings['departure_removal_agl_ft'] > settings['departure_admission_agl_ft'], 'RADIS removal bounds must exceed admission bounds')
+        require((settings['removal_distance_nm'] is None or settings['removal_distance_nm'] >= settings['admission_distance_nm']) and (settings['departure_removal_agl_ft'] is None or settings['departure_removal_agl_ft'] > settings['departure_admission_agl_ft']), 'RADIS removal bounds must exceed admission bounds')
         require(all(document['services'].get(key, {}).get('availability', 'disabled') == 'disabled' for key in ['aman', 'pdc']), 'RADIS PDC/AMAN must be disabled')
     else:
         require(document['ownership']['strips'] == 'none' and document['ownership']['sectors'] == 'none', 'paper example requires ownership disabled')

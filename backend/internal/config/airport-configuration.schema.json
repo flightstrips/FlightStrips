@@ -1394,7 +1394,9 @@
                       "TAXI",
                       "LINEUP",
                       "DEPA",
-                      "PARK"
+                      "PARK",
+                      "TKOFF",
+                      "LAND"
                     ]
                   }
                 },
@@ -1408,7 +1410,9 @@
                       "TAXI",
                       "LINEUP",
                       "DEPA",
-                      "PARK"
+                      "PARK",
+                      "TKOFF",
+                      "LAND"
                     ]
                   },
                   "additionalProperties": {
@@ -1522,7 +1526,9 @@
                             "TAXI",
                             "LINEUP",
                             "DEPA",
-                            "PARK"
+                            "PARK",
+                            "TKOFF",
+                            "LAND"
                           ]
                         },
                         "arrival": {
@@ -1533,7 +1539,9 @@
                             "TAXI",
                             "LINEUP",
                             "DEPA",
-                            "PARK"
+                            "PARK",
+                            "TKOFF",
+                            "LAND"
                           ]
                         }
                       },
@@ -1554,7 +1562,9 @@
                             "TAXI",
                             "LINEUP",
                             "DEPA",
-                            "PARK"
+                            "PARK",
+                            "TKOFF",
+                            "LAND"
                           ]
                         },
                         "arrival": {
@@ -1565,7 +1575,9 @@
                             "TAXI",
                             "LINEUP",
                             "DEPA",
-                            "PARK"
+                            "PARK",
+                            "TKOFF",
+                            "LAND"
                           ]
                         }
                       },
@@ -1586,7 +1598,9 @@
                             "TAXI",
                             "LINEUP",
                             "DEPA",
-                            "PARK"
+                            "PARK",
+                            "TKOFF",
+                            "LAND"
                           ]
                         },
                         "arrival": {
@@ -1597,7 +1611,9 @@
                             "TAXI",
                             "LINEUP",
                             "DEPA",
-                            "PARK"
+                            "PARK",
+                            "TKOFF",
+                            "LAND"
                           ]
                         }
                       },
@@ -1618,7 +1634,9 @@
                             "TAXI",
                             "LINEUP",
                             "DEPA",
-                            "PARK"
+                            "PARK",
+                            "TKOFF",
+                            "LAND"
                           ]
                         },
                         "arrival": {
@@ -1629,7 +1647,9 @@
                             "TAXI",
                             "LINEUP",
                             "DEPA",
-                            "PARK"
+                            "PARK",
+                            "TKOFF",
+                            "LAND"
                           ]
                         }
                       },
@@ -1657,11 +1677,17 @@
                   "minimum": 0
                 },
                 "removal_distance_nm": {
-                  "type": "number",
+                  "type": [
+                    "number",
+                    "null"
+                  ],
                   "exclusiveMinimum": 0
                 },
                 "departure_removal_agl_ft": {
-                  "type": "integer",
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
                   "minimum": 1
                 },
                 "recovery_seconds": {
@@ -1679,6 +1705,10 @@
                   "type": "number",
                   "minimum": 0,
                   "maximum": 3600
+                },
+                "automatic_atd_agl_ft": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               },
               "required": [

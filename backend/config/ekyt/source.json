@@ -1,0 +1,45 @@
+{
+  "airport": "EKYT",
+  "sector_package": "EKDK-Copenhagen_20261030104048-261101-0001",
+  "airac": "2611/1",
+  "sources": [
+    {
+      "file": "EKDK-Copenhagen_20261030104048-261101-0001.sct",
+      "sha256": "184adfa221f7d61eb1e3d5e7aa76c14891dd5161060e91840a4ec80edc3ba39c",
+      "sections": [
+        "AIRPORT",
+        "RUNWAY"
+      ]
+    },
+    {
+      "file": "EKDK-Copenhagen_20261030104048-261101-0001.ese",
+      "sha256": "d6a2f660834616fd0dd637032c0f8df7be520ecbddfda5ea530067b140d77e9d",
+      "sections": [
+        "POSITIONS",
+        "SIDSSTARS",
+        "AIRSPACE"
+      ]
+    },
+    {
+      "file": "EKDK/Plugins/GRplugin/GRpluginStands.txt",
+      "sha256": "83ba44ee55d5482dc4cd2efcaf28e38b6ba0c7504af97b5ef9c6f228c5dd849c"
+    },
+    {
+      "file": "EKDK/ASR/6_EKYT.asr",
+      "sha256": "273efefc7cf5866bc7a43fdca905f05a8ba1190d23c4cce31f4f6e7db416eeeb"
+    },
+    {
+      "file": "EKDK/Plugins/TopSky/TopSkyAirspace.txt",
+      "sha256": "0b665d5964e463d092d38843895cd699d7e17325511655768dd5a28e6bcb3ff7"
+    }
+  ],
+  "operating_decisions": "https://github.com/flightstrips/FlightStrips/issues/1097#issuecomment-6705199725",
+  "stand_count": 9,
+  "sids": [],
+  "pending": [
+    "Coverage and position exceptions require review",
+    "Stand allocation policy/scenery and blocked-stand references require review",
+    "Operational TEXT PILOT phrase source remains unidentified"
+  ],
+  "deployment_selected": false
+}

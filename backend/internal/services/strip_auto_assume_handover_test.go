@@ -97,6 +97,7 @@ func TestAutoAssumeForClearedStrip_UsesRadioHandoverResolverWithoutCoordination(
 					NextOwners:  []string{target},
 				}, nil
 			}
+
 			owner := target
 			return &models.Strip{
 				Callsign:   callsign,
@@ -133,4 +134,61 @@ func TestAutoAssumeForClearedStrip_UsesRadioHandoverResolverWithoutCoordination(
 	require.NotNil(t, hub.OwnersUpdates[0].NextDisplay)
 	assert.Equal(t, "AD", hub.OwnersUpdates[0].NextDisplay.Label)
 	assert.Equal(t, "121.905", hub.OwnersUpdates[0].NextDisplay.Frequency)
+}
+
+func TestAutoAssumeUnownedClearedStrip_RechecksOwnership(t *testing.T) {
+	owner := "121.730"
+	strip := &models.Strip{Callsign: "SAS123", Origin: "EKCH", Bay: shared.BAY_CLEARED, Owner: &owner}
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil },
+	}
+	route := &clearedHandoverRouteStub{target: "121.905"}
+	hub := &testutil.MockFrontendHub{}
+	service := newWorkflowTestService(repo, WithRouteRecalculator(route), WithStripEventPublisher(hub))
+
+	require.NoError(t, service.AutoAssumeUnownedClearedStripByCid(context.Background(), 42, strip.Callsign, ""))
+	assert.Zero(t, route.resolveCalls)
+	assert.Equal(t, "121.730", *strip.Owner)
+	assert.Empty(t, hub.OwnersUpdates)
+}
+
+func TestAutoAssumeUnownedClearedStrip_UsesResolvedPlannerOrApron(t *testing.T) {
+	for _, target := range []string{"121.905", "121.730"} {
+		t.Run(target, func(t *testing.T) {
+			strip := &models.Strip{Callsign: "SAS123", Origin: "EKCH", Bay: shared.BAY_CLEARED, Version: 7}
+			repo := &testutil.MockStripRepository{
+				GetByCallsignFn:            func(context.Context, int32, string) (*models.Strip, error) { return strip, nil },
+				SetNextAndPreviousOwnersFn: func(context.Context, int32, string, []string, []string) error { return nil },
+				SetOwnerFn: func(_ context.Context, _ int32, _ string, owner *string, version int32) (int64, error) {
+					require.Equal(t, target, *owner)
+					require.EqualValues(t, 7, version)
+					return 1, nil
+				},
+			}
+
+			route := &clearedHandoverRouteStub{target: target}
+			hub := &testutil.MockFrontendHub{}
+			service := newWorkflowTestService(repo, WithRouteRecalculator(route), WithStripEventPublisher(hub))
+			require.NoError(t, service.AutoAssumeUnownedClearedStripByCid(context.Background(), 42, strip.Callsign, ""))
+			require.Equal(t, 1, route.resolveCalls)
+			require.Len(t, hub.OwnersUpdates, 1)
+			require.Equal(t, target, hub.OwnersUpdates[0].Owner)
+		})
+	}
+}
+
+func TestAutoAssumeUnownedClearedStrip_ReportsVersionConflict(t *testing.T) {
+	strip := &models.Strip{Callsign: "SAS123", Origin: "EKCH", Bay: shared.BAY_CLEARED, Version: 7}
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn:            func(context.Context, int32, string) (*models.Strip, error) { return strip, nil },
+		SetNextAndPreviousOwnersFn: func(context.Context, int32, string, []string, []string) error { return nil },
+		SetOwnerFn:                 func(context.Context, int32, string, *string, int32) (int64, error) { return 0, nil },
+	}
+	route := &clearedHandoverRouteStub{target: "121.905"}
+	hub := &testutil.MockFrontendHub{}
+	service := newWorkflowTestService(repo, WithRouteRecalculator(route), WithStripEventPublisher(hub))
+
+	err := service.AutoAssumeUnownedClearedStripByCid(context.Background(), 42, strip.Callsign, "")
+	require.ErrorContains(t, err, "strip changed")
+	assert.Empty(t, hub.OwnersUpdates)
 }

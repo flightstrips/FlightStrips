@@ -728,6 +728,19 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			return err
 		}
 	}
+	if restartLifecycle {
+		if resetter, ok := s.departureObserver.(departureStandReleaseResetter); ok {
+			if err := resetter.ResetDepartureStandRelease(ctx, session, strip.Callsign); err != nil {
+				return err
+			}
+		}
+	}
+	if observedPushback {
+		departure := &internalModels.Strip{Callsign: strip.Callsign, Origin: airport}
+		if err := s.releaseDepartureStandOnPush(ctx, session, departure, euroscope.GroundStatePush, airport); err != nil {
+			return err
+		}
+	}
 	s.sendCorrectedEuroscopeEobt(ctx, session, cid, strip.Callsign, correctedEobt, eobtClamped)
 
 	if syncState != nil {

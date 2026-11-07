@@ -491,6 +491,10 @@ func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int
 		if err := s.stripService.AutoAssumeForClearedStripByCid(ctx, sessionID, strip.Callsign, clearanceCid); err != nil {
 			slog.ErrorContext(ctx, "Failed to auto-assume confirmed PDC strip", slog.Any("error", err))
 		}
+	} else if strip.Owner == nil || strings.TrimSpace(*strip.Owner) == "" {
+		if err := s.stripService.AutoAssumeUnownedClearedStripByCid(ctx, sessionID, strip.Callsign, clearanceCid); err != nil {
+			slog.ErrorContext(ctx, "Failed to auto-assume unowned confirmed PDC strip", slog.Any("error", err))
+		}
 	}
 
 	s.CancelTimeout(strip.Callsign, sessionID)

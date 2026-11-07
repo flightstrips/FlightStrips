@@ -53,7 +53,7 @@ everyone receiving the message.
 
 ## Cleared strips
 
-Completing a voice clearance immediately assigns the strip to SEQ PLN when **121.905** or **119.905** is primed or cross-coupled, preferring coverage of **121.905**. For PDC, ownership changes only after the pilot acknowledges. The issuing scope does not change this selection. No receiving-controller acceptance is required.
+Completing a voice clearance immediately assigns the strip to SEQ PLN when **121.905** or **119.905** is primed or cross-coupled, preferring coverage of **121.905**. For PDC, ownership changes only after the pilot acknowledges, including when the strip is already marked cleared but remains unowned. An already transferred strip keeps its owner. The issuing scope does not change this selection. No receiving-controller acceptance is required.
 
 - **Any G or APRON SOUTH stand:** SEQ PLN → GE 121.830 → the applicable tower.
 - **W1, RI, RII, RIII:** SEQ PLN → GW 118.580 → the applicable tower.
@@ -78,6 +78,15 @@ in a planned departure bay. Coloring activates after clearance. This applies
 across all scopes and EST. TOBT colors and past-TOBT/EOBT warnings stop once
 a departure enters TWY DEP and remain disabled for later stages and inbounds.
 CTOT coloring is unchanged.
+
+On EST, a departure's READY, TOBT and TSAT are hidden during transfer from
+the current position and remain hidden after the receiving controller accepts
+it. CTOT remains visible. A rejected or cancelled transfer restores the
+display; the underlying CDM data is not deleted.
+
+On EST, an assigned inbound callsign appears on the vacant-grey stand until
+the arrival strip enters STAND, when it appears yellow. A planned arrival
+does not make the stand physically occupied.
 
 ### RNAV indication
 

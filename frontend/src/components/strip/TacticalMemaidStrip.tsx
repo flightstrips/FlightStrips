@@ -16,7 +16,7 @@ export function TacticalMemaidStrip({ strip, width }: Props) {
   const confirmTacticalStrip = useWebSocketStore(s => s.confirmTacticalStrip);
 
   const isOwner = strip.owner === myPosition;
-  const label = strip.aircraft ? `${strip.label} (${strip.aircraft})` : strip.label;
+  const label = strip.aircraft ? `(${strip.aircraft}) ${strip.label}` : strip.label;
 
   const canConfirm = !isOwner && !strip.confirmed;
   const confirmAction = (

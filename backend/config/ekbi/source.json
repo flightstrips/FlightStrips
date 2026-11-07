@@ -106,11 +106,5 @@
       "name": "RERPA3A",
       "route": "BI367 RERPA"
     }
-  ],
-  "pending": [
-    "Coverage and position exceptions require review",
-    "Stand allocation policy/scenery and blocked-stand references require review",
-    "Operational TEXT PILOT phrase source remains unidentified"
-  ],
-  "deployment_selected": false
+  ]
 }

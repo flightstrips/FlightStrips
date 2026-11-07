@@ -1056,8 +1056,7 @@
               "stands",
               "aircraft_reference",
               "aircraft_icao",
-              "airline_assignment",
-              "scenery"
+              "airline_assignment"
             ]
           }
         }

@@ -285,6 +285,48 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Nil(t, block.ExpiresAt, "an online aircraft on its assigned stand has no block expiry")
 	})
 
+	t.Run("push releases the stand and later observations cannot recreate the block", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		const callsign = "SAS603"
+		testdata.SeedTestStrip(t, queries, session, callsign)
+		flight := onlineFlight(callsign, 1)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), flight))
+		original, err := assignments.GetAssignment(ctx, session, callsign)
+		require.NoError(t, err)
+		var published []StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = append(published, result)
+			return nil
+		})
+
+		state := "PUSH"
+		_, err = strips.UpdateGroundState(ctx, session, callsign, &state, shared.BAY_PUSH, nil)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ReleaseDepartureStand(ctx, session, callsign))
+		_, err = assignments.GetAssignment(ctx, session, callsign)
+		require.Error(t, err)
+		require.NotNil(t, loadStrip(t, strips, session, callsign).Stand)
+		assert.Equal(t, original.Stand, *loadStrip(t, strips, session, callsign).Stand)
+		require.Len(t, published, 1)
+		assert.True(t, published[0].Removed)
+
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), flight))
+		state = ""
+		_, err = strips.UpdateGroundState(ctx, session, callsign, &state, shared.BAY_CLEARED, nil)
+		require.NoError(t, err)
+		stale := loadStrip(t, strips, session, callsign)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, stale, flight))
+		require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session, stale, flight.Latitude, flight.Longitude))
+		_, err = assignments.GetAssignment(ctx, session, callsign)
+		require.Error(t, err)
+		require.Len(t, published, 1)
+
+		require.NoError(t, lifecycle.ResetDepartureStandRelease(ctx, session, callsign))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, stale, flight))
+		_, err = assignments.GetAssignment(ctx, session, callsign)
+		require.NoError(t, err, "a new flight lifecycle may occupy a stand")
+	})
+
 	t.Run("moving away releases an occupied departure block with an active mismatch", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS609")

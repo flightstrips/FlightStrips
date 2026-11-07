@@ -4,6 +4,7 @@ import type { StoreApi } from "zustand/vanilla";
 import { ActionType, Bay, CommunicationType, EventType, type FrontendInitialEvent, type FrontendStrip } from "@/api/models";
 import type { WebSocketClient } from "@/api/websocket";
 import { createWebSocketStore, type WebSocketState } from "./store";
+import { getEstDepartureTransferTarget, isEstDepartureTransferActive, isEstDepartureTransferred } from "@/components/est/transferState";
 
 function createMockClient() {
   const handlers = new Map<string, Array<(data: unknown) => void>>();
@@ -106,6 +107,73 @@ describe("session master metadata", () => {
     client._emit(EventType.FrontendMasterInfo, { master_callsign: "EKDK_FMP" });
     client._emit(EventType.FrontendDisconnect, { reason: "ES disconnected" });
     expect(store.getState().masterCallsign).toBe("");
+  });
+
+  describe("EST transfer display lifecycle", () => {
+    it("stays hidden across acceptance and reconnect but not rejection or cancellation", () => {
+      const client = createMockClient();
+      const store = createWebSocketStore(client);
+      const position = "EKCH_B_GND";
+      const strip = { ...foreignStrip(), owner: position, bay: Bay.Cleared, start_req: true, tobt: "1420", tsat: "1425" };
+      store.setState({ position, strips: [strip] });
+      const hidden = () => {
+        const state = store.getState();
+        const current = state.strips[0];
+        return isEstDepartureTransferActive(state.stripTransfers[current.callsign], position, getEstDepartureTransferTarget(current, position))
+          || isEstDepartureTransferred(current, position);
+      };
+      const transfer = { callsign: strip.callsign, from: position, to: "EKCH_C_GND" };
+
+      expect(hidden()).toBe(false);
+      client._emit(EventType.FrontendCoordinationTransferBroadcast, transfer);
+      expect(hidden()).toBe(true);
+      client._emit(EventType.FrontendCoordinationRejectBroadcast, { callsign: strip.callsign, position: "EKCH_C_GND" });
+      expect(hidden()).toBe(false);
+      client._emit(EventType.FrontendCoordinationTransferBroadcast, transfer);
+      client._emit(EventType.FrontendCoordinationRejectBroadcast, { callsign: strip.callsign, position });
+      expect(hidden()).toBe(false);
+      client._emit(EventType.FrontendCoordinationTransferBroadcast, transfer);
+      client._emit(EventType.FrontendCoordinationAssumeBroadcast, { callsign: strip.callsign, position: "EKCH_C_GND" });
+      expect(hidden()).toBe(true);
+      expect(store.getState().strips[0]).toMatchObject({ owner: "EKCH_C_GND", previous_controllers: [position], tobt: "1420", tsat: "1425", start_req: true });
+      client._emit(EventType.FrontendOwnersUpdate, {
+        callsign: strip.callsign, owner: "EKCH_C_GND", next_owners: ["EKCH_TWR"], previous_owners: [position],
+      });
+      expect(hidden()).toBe(true);
+
+      client._emit(EventType.FrontendInitial, {
+        ...initialEvent("AD"),
+        me: { ...initialEvent("AD").me, position },
+        strips: [store.getState().strips[0]],
+      });
+      expect(hidden()).toBe(true);
+    });
+
+    it("does not treat a tag request or an unrelated assumption as a completed transfer", () => {
+      const client = createMockClient();
+      const store = createWebSocketStore(client);
+      store.setState({ strips: [foreignStrip()] });
+      client._emit(EventType.FrontendCoordinationTagRequestBroadcast, { callsign: "SAS123", from: "EKCH_A_GND", to: "EKCH_C_GND" });
+      client._emit(EventType.FrontendCoordinationAssumeBroadcast, { callsign: "SAS123", position: "EKCH_C_GND" });
+      expect(store.getState().strips[0].owner).toBe("EKCH_A_GND");
+      expect(store.getState().strips[0].previous_controllers).toEqual([]);
+      client._emit(EventType.FrontendCoordinationTransferBroadcast, { callsign: "SAS123", from: "EKCH_A_GND", to: "EKCH_C_GND" });
+      client._emit(EventType.FrontendCoordinationAssumeBroadcast, { callsign: "SAS123", position: "EKCH_TWR" });
+      expect(store.getState().strips[0].owner).toBe("EKCH_A_GND");
+      expect(store.getState().strips[0].previous_controllers).toEqual([]);
+    });
+
+    it("handles a snapshot with null previous owners when the transfer is accepted", () => {
+      const client = createMockClient();
+      const store = createWebSocketStore(client);
+      client._emit(EventType.FrontendInitial, {
+        ...initialEvent("AD"),
+        strips: [{ ...foreignStrip(), previous_controllers: null }],
+      });
+      client._emit(EventType.FrontendCoordinationTransferBroadcast, { callsign: "SAS123", from: "EKCH_A_GND", to: "EKCH_C_GND" });
+      client._emit(EventType.FrontendCoordinationAssumeBroadcast, { callsign: "SAS123", position: "EKCH_C_GND" });
+      expect(store.getState().strips[0].previous_controllers).toEqual(["EKCH_A_GND"]);
+    });
   });
 });
 

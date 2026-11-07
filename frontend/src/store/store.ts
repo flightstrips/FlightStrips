@@ -1762,6 +1762,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   const handleCoordinationAssumeBroadcastEvent = (data: FrontendCoordinationAssumeBroadcastEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
+        const transfer = state.stripTransfers[data.callsign];
+        const strip = state.strips.find((candidate) => candidate.callsign === data.callsign);
+        if (strip && transfer && !transfer.isTagRequest && transfer.to === data.position) {
+          strip.owner = data.position;
+          if (transfer.from && !strip.previous_controllers?.includes(transfer.from)) {
+            strip.previous_controllers = [...(strip.previous_controllers ?? []), transfer.from];
+          }
+        }
         delete state.stripTransfers[data.callsign];
       })
     );

@@ -70,6 +70,10 @@ func (s *noOpStripService) AutoAssumeForClearedStrip(_ context.Context, _ int32,
 func (s *noOpStripService) AutoAssumeForClearedStripByCid(_ context.Context, _ int32, _ string, _ string) error {
 	return nil
 }
+
+func (s *noOpStripService) AutoAssumeUnownedClearedStripByCid(_ context.Context, _ int32, _ string, _ string) error {
+	return nil
+}
 func (s *noOpStripService) AutoAssumeForControllerOnline(_ context.Context, _ int32, _ string) error {
 	return nil
 }

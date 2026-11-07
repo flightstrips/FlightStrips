@@ -78,6 +78,11 @@ func (m *mockPdcStripService) AutoAssumeForClearedStripByCid(ctx context.Context
 	return args.Error(0)
 }
 
+func (m *mockPdcStripService) AutoAssumeUnownedClearedStripByCid(ctx context.Context, session int32, callsign string, cid string) error {
+	args := m.Called(ctx, session, callsign, cid)
+	return args.Error(0)
+}
+
 func (m *mockPdcStripService) AutoAssumeForControllerOnline(ctx context.Context, session int32, controllerPosition string) error {
 	args := m.Called(ctx, session, controllerPosition)
 	return args.Error(0)

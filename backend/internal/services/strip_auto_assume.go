@@ -17,7 +17,7 @@ import (
 // owners update broadcast to all frontend clients. If no target is sensed, the
 // strip is left unchanged.
 func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error {
-	return s.autoAssumeForClearedStrip(ctx, session, callsign, "")
+	return s.autoAssumeForClearedStrip(ctx, session, callsign, "", false)
 }
 
 func (s *StripService) AutoAssumeForClearedStripByCid(ctx context.Context, session int32, callsign string, cid string) error {
@@ -26,10 +26,18 @@ func (s *StripService) AutoAssumeForClearedStripByCid(ctx context.Context, sessi
 		return err
 	}
 
-	return s.autoAssumeForClearedStrip(ctx, session, callsign, actingPosition)
+	return s.autoAssumeForClearedStrip(ctx, session, callsign, actingPosition, false)
 }
 
-func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, actingPosition string) error {
+func (s *StripService) AutoAssumeUnownedClearedStripByCid(ctx context.Context, session int32, callsign string, cid string) error {
+	actingPosition, err := s.resolveControllerPositionByCid(ctx, cid)
+	if err != nil {
+		return err
+	}
+	return s.autoAssumeForClearedStrip(ctx, session, callsign, actingPosition, true)
+}
+
+func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, actingPosition string, onlyIfUnowned bool) error {
 	if s.sectorOwnerRepo == nil && s.clearedOwnerResolver == nil {
 		return nil
 	}
@@ -37,6 +45,9 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 	strip, err := s.syncStripByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
+	}
+	if onlyIfUnowned && strip.Owner != nil && strings.TrimSpace(*strip.Owner) != "" {
+		return nil
 	}
 	if !s.shouldAutoAssumeClearedDeparture(ctx, session, strip) {
 		slog.DebugContext(ctx, "Skipping auto-assume for cleared non-departure strip",
@@ -68,6 +79,9 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &targetPosition, strip.Version)
 	if err != nil {
 		return err
+	}
+	if count != 1 && onlyIfUnowned {
+		return errors.New("failed to auto-assume unowned cleared strip: strip changed")
 	}
 
 	if count == 1 {

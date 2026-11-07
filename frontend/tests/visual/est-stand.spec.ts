@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-test("SAT assignments stay hidden while physical stand occupants remain visible", async ({ page }, testInfo) => {
+test("inbound assignments appear on grey until an arrival occupies the stand", async ({ page }, testInfo) => {
   await page.goto("/visual-tests/est-preview.html");
 
   const assignedInbound = page.getByTestId("assigned-inbound");
   const parkedArrival = page.getByTestId("parked-arrival");
   const reservedDeparture = page.getByTestId("reserved-departure");
 
-  await expect(assignedInbound.getByRole("button", { name: "A18" })).toHaveCSS("background-color", "rgb(217, 217, 217)");
-  await expect(assignedInbound).not.toContainText("SAS401");
+  await expect(assignedInbound.getByRole("button")).toHaveCSS("background-color", "rgb(217, 217, 217)");
+  await expect(assignedInbound.getByRole("button")).toContainText("SAS401");
   await expect(assignedInbound).not.toContainText(/CONFIRMED|AUTOMATIC|ETA|EXP/);
 
   const parkedStand = parkedArrival.getByRole("button");

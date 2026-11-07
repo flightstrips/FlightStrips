@@ -937,6 +937,9 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 			tried[selected] = struct{}{}
 		}
 		if !retryableStandAllocationError(err) {
+			if errors.Is(err, ErrDepartureStandReleased) {
+				return nil, err
+			}
 			if errors.Is(err, ErrNoTierImprovement) {
 				// Promotion probes are expected optimization misses. The lifecycle
 				// retains the valid current stand, so this is neither an operational
@@ -1093,6 +1096,7 @@ func automaticFailureKeyAndFingerprint(request StandAllocationRequest) (string, 
 func suppressAutomaticAllocationError(err error) error {
 	if isTerminalAutomaticStandShortage(err) ||
 		errors.Is(err, ErrAutomaticAllocationSuppressed) ||
+		errors.Is(err, ErrDepartureStandReleased) ||
 		errors.Is(err, ErrNoTierImprovement) {
 		return nil
 	}
@@ -1222,6 +1226,15 @@ func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx p
 	strip, err := txStrips.LockByCallsign(ctx, request.SessionID, request.Callsign)
 	if err != nil {
 		return nil, "", fmt.Errorf("load allocation strip: %w", err)
+	}
+	if request.Direction == sat.AssignmentDirectionDeparture {
+		var released bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM departure_stand_releases WHERE strip_id = $1)", strip.ID).Scan(&released); err != nil {
+			return nil, "", err
+		}
+		if released || departureStandReleasedByMovement(strip) {
+			return nil, "", ErrDepartureStandReleased
+		}
 	}
 	assignments, err := txAssignments.LockAssignments(ctx, request.SessionID, request.Callsign)
 	if err != nil {

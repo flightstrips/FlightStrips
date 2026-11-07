@@ -170,6 +170,16 @@ describe("tactical strip ownership interactions", () => {
     expect(actions.confirmTacticalStrip).toHaveBeenCalledWith(42);
     expect(screen.queryByRole("button", { name: "FORCE ASSUME" })).not.toBeInTheDocument();
   });
+
+  it("shows the aircraft before the MEMAID message, and leaves unassociated messages unchanged", () => {
+    const { rerender } = render(
+      <TacticalMemaidStrip strip={tactical({ type: "MEMAID", label: "STOP CLIMB", aircraft: "SAS123" })} />,
+    );
+    expect(screen.getByText("(SAS123) STOP CLIMB")).toBeInTheDocument();
+
+    rerender(<TacticalMemaidStrip strip={tactical({ type: "MEMAID", label: "STOP CLIMB" })} />);
+    expect(screen.getByText("STOP CLIMB")).toBeInTheDocument();
+  });
 });
 
 describe("START creation by bay", () => {

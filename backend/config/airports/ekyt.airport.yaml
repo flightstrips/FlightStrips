@@ -1,4 +1,4 @@
-# AIRAC 2611/1 candidate, not selected by deployment; pending review is tracked in #1097.
+# AIRAC 2611/1 sector-derived definition. Stand/text implementation is tracked in #1097.
 $schema: ../../internal/config/airport-configuration.schema.json
 schema_version: flightstrips-airport/v1
 kind: airport
@@ -202,4 +202,4 @@ services:
 validation: {}
 provenance:
 - path: backend/config/ekyt/source.json
-  sha256: dd46053bf374a7af7af6c28b4b0529ff64ddc4700aa172a47aeb5bebb7960d91
+  sha256: 7754bf1493b6ba036ef3ba94f4401b2cbb06d83e9f6769874f536d506b39955d

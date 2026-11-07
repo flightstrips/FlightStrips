@@ -42,7 +42,13 @@ jobs:
     - name: install Playwright browsers
       run: npx playwright install --with-deps chromium firefox
     - name: run browser visual tests
-      run: npm run test:visual
+      run: npm run test:visual -- --update-snapshots
+    - name: upload Linux visual baselines
+      if: always() && github.event_name == 'pull_request'
+      uses: actions/upload-artifact@v4
+      with:
+        name: pr-1102-visual-snapshots
+        path: frontend/tests/visual/strip-gallery.spec.ts-snapshots/
 
   docker:
     name: Docker build

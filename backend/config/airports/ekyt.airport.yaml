@@ -1,0 +1,205 @@
+# AIRAC 2611/1 candidate, not selected by deployment; pending review is tracked in #1097.
+$schema: ../../internal/config/airport-configuration.schema.json
+schema_version: flightstrips-airport/v1
+kind: airport
+airport: EKYT
+geography:
+  latitude: 57.09278889
+  longitude: 9.84916389
+  elevation_ft: 10
+  transition_altitude_ft: 3000
+  runways:
+  - '08R'
+  - '26L'
+  - '08L'
+  - '26R'
+  initial_cfl_ft:
+    '08R': 12000
+    '26L': 12000
+    '08L': 12000
+    '26R': 12000
+positions:
+- name: EKYT_TWR
+  frequency: '118.305'
+  section: TWR
+- name: EKYT_APP
+  frequency: '123.980'
+  section: APP
+- name: EKYT_F_APP
+  frequency: '120.705'
+  section: APP
+- name: EKDK_L_CTR
+  frequency: '124.555'
+  section: CTR
+- name: EKDK_V_CTR
+  frequency: '135.565'
+  section: CTR
+- name: EKDK_UV_CTR
+  frequency: '126.055'
+  section: CTR
+- name: EKDK_UN_CTR
+  frequency: '136.555'
+  section: CTR
+- name: EKDK_N_CTR
+  frequency: '134.680'
+  section: CTR
+coverage:
+  matching:
+    primary_frequency: true
+    tuned_frequencies: true
+    callsign_fallback: true
+    normalization: vatsim/v1
+    provider_selection: existing-coverage/v1
+  responsibilities:
+  - id: tower
+    name: TWR
+    providers:
+    - EKYT_TWR
+    - EKYT_APP
+    - EKDK_L_CTR
+    - EKDK_V_CTR
+    - EKDK_UV_CTR
+    - EKDK_UN_CTR
+    - EKDK_N_CTR
+  - id: approach
+    name: APP
+    providers:
+    - EKYT_APP
+    - EKDK_L_CTR
+    - EKDK_V_CTR
+    - EKDK_UV_CTR
+    - EKDK_UN_CTR
+    - EKDK_N_CTR
+  - id: final
+    name: FIN
+    providers:
+    - EKYT_F_APP
+  airborne_fallback: []
+  membership:
+    policy: remaining-responsibilities/v1
+    relinquish_grace_seconds: 0
+master:
+  priorities:
+  - position: EKYT_TWR
+    match: primary-frequency-or-callsign
+  - position: EKYT_APP
+    match: primary-frequency-or-callsign
+  - position: EKYT_F_APP
+    match: primary-frequency-or-callsign
+  - position: EKDK_L_CTR
+    match: primary-frequency-or-callsign
+  - position: EKDK_V_CTR
+    match: primary-frequency-or-callsign
+  - position: EKDK_UV_CTR
+    match: primary-frequency-or-callsign
+  - position: EKDK_UN_CTR
+    match: primary-frequency-or-callsign
+  - position: EKDK_N_CTR
+    match: primary-frequency-or-callsign
+  preempt_higher_priority: true
+  equal_priority: retain-current
+  fallback: any-non-observer-participant
+  observers_eligible: false
+ownership:
+  strips: none
+  sectors: none
+  callsign_prefixes: []
+routing:
+  ground: []
+  airborne: []
+  missed_approach: {}
+view:
+  id: radis
+  layouts: {}
+  airborne_fallback_layout: RADIS
+  message_areas: {}
+workflow:
+  handler: radis/v1
+  settings:
+    departure_initial_bay: PASSIVE_TOP
+    arrival_initial_bay: PASSIVE_BOTTOM
+    bay_ground_states:
+      ACTIVE:
+        departure: TAXI
+        arrival: TAXI
+      RUNWAY:
+        departure: TKOFF
+        arrival: LAND
+      PASSIVE_TOP:
+        departure: ''
+        arrival: ''
+      PASSIVE_BOTTOM:
+        departure: ''
+        arrival: PARK
+    admission_distance_nm: 150
+    departure_admission_agl_ft: 12990
+    removal_distance_nm: null
+    departure_removal_agl_ft: null
+    automatic_atd_agl_ft: 500
+    recovery_seconds: 300
+    automatic_reappearance: true
+    disconnect_removal_seconds: 60
+    timestamp_semantics: annotation-utc
+  bays:
+  - id: ACTIVE
+    label: ACTIVE
+  - id: RUNWAY
+    label: RUNWAY
+  - id: PASSIVE_TOP
+    label: PASSIVE_TOP
+  - id: PASSIVE_BOTTOM
+    label: PASSIVE_BOTTOM
+  annotations:
+    notes:
+      type: string
+      scope: session
+      default: ''
+    deicing:
+      type: boolean
+      scope: session
+      default: false
+    rea:
+      type: timestamp
+      scope: session
+      default: null
+    ata:
+      type: timestamp
+      scope: session
+      default: null
+    atd:
+      type: string
+      scope: session
+      default: ''
+    endurance_pob:
+      type: string
+      scope: session
+      default: ''
+    qnh:
+      type: string
+      scope: session
+      default: ''
+    rnav:
+      type: string
+      scope: session
+      default: ''
+    vfr:
+      type: boolean
+      scope: session
+      default: false
+services:
+  cdm:
+    availability: disabled
+  stand_assignment:
+    availability: disabled
+  text_pilot:
+    availability: disabled
+  aman:
+    availability: disabled
+  pdc:
+    availability: disabled
+  ecfmp:
+    availability: disabled
+validation: {}
+provenance:
+- path: backend/config/ekyt/source.json
+  sha256: dd46053bf374a7af7af6c28b4b0529ff64ddc4700aa172a47aeb5bebb7960d91

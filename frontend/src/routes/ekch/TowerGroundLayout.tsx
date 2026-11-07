@@ -61,10 +61,10 @@ const btnYellow = CLS_BTN_YELLOW;
 // Default bay heights (% of column); the last bay of each column fills the rest.
 const ARR_DEFAULTS = { final: 35, rwyArr: 20 };
 const DEP_DEFAULTS = { twyDep: 35, rwyDep: 20 };
-const CENTER_STARTUP_DEFAULTS = { controlzone: 21.65, pushback: 33 };
+const CENTER_STARTUP_DEFAULTS = { controlzone: 15, startup: 36, pushback: 29 };
 const CENTER_DEFAULTS = { controlzone: 35, pushback: 35 };
 const RIGHT_DEFAULTS = { clrDel: 80, deIce: 10 };
-const RIGHT_TWRGND_DEFAULTS = { clrDel: 60, deIce: 15 };
+const RIGHT_TWRGND_DEFAULTS = { clrDel: 78 };
 
 export type TowerGroundLayoutVariant = "TWTE" | "TWRGND";
 
@@ -73,7 +73,7 @@ type TowerGroundLayoutProps = {
 };
 
 export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
-  useDefaultHidePlannedDepartures();
+  useDefaultHidePlannedDepartures(variant === "TWTE");
   const showStartupBay = variant === "TWRGND";
 
   const myPosition = useMyPosition();
@@ -422,6 +422,19 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             <>
               <div className="bay-col-header bay-col-sep">
                 <BayResizeHandle {...centerResize.handleProps("controlzone")} />
+                <span className={CLS_LABEL}>STARTUP</span>
+              </div>
+              <SortableBay
+                strips={startupStrips}
+                bayId="STARTUP"
+                isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
+                standalone={false}
+                className="h-[var(--bay-h-startup)] bay-scroll-area-bottom"
+              >
+                {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
+              </SortableBay>
+              <div className="bay-col-header bay-col-sep">
+                <BayResizeHandle {...centerResize.handleProps("startup")} />
                 <span className={CLS_LABEL}>PUSHBACK</span>
               </div>
               <SortableBay
@@ -433,18 +446,23 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
               >
                 {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
               </SortableBay>
-              <div className="bay-col-header bay-col-sep">
+              <div className="bay-col-header bay-col-sep justify-between">
                 <BayResizeHandle {...centerResize.handleProps("pushback")} />
-                <span className={CLS_LABEL}>STARTUP</span>
+                <span className={CLS_LABEL}>DE-ICE</span>
+                <span className="flex gap-0.5">
+                  <DeicePlatformButton platform="A" className={CLS_BTN_DI} />
+                  <DeicePlatformButton platform="B" className={CLS_BTN_DI} />
+                  <DeicePlatformButton platform="V" className={CLS_BTN_DI} />
+                </span>
               </div>
               <SortableBay
-                strips={startupStrips}
-                bayId="STARTUP"
+                strips={deIceStrips}
+                bayId="DE-ICE"
                 isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
                 standalone={false}
                 className="flex-1 bay-scroll-area-bottom"
               >
-                {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
+                {(strip) => <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />}
               </SortableBay>
             </>
           ) : (
@@ -495,37 +513,31 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} fullWidth={true} myPosition={myPosition} />}
           </SortableBay>
 
-          <div className="bay-col-header bay-col-sep justify-between">
-            <BayResizeHandle {...rightResize.handleProps("clrDel")} />
-            <span className={CLS_LABEL}>{variant === "TWTE" ? "DE-ICE A" : "DE-ICE"}</span>
-            <span className="flex gap-0.5">
-              {variant === "TWTE" ? (
-                <>
+          {!showStartupBay && (
+            <>
+              <div className="bay-col-header bay-col-sep justify-between">
+                <BayResizeHandle {...rightResize.handleProps("clrDel")} />
+                <span className={CLS_LABEL}>DE-ICE A</span>
+                <span className="flex gap-0.5">
                   <DeiceLaneButton area="A" lane={1} frequency="130.650" className={CLS_BTN_LANE} />
                   <DeiceLaneButton area="A" lane={2} frequency="130.650" className={CLS_BTN_LANE} />
                   <DeiceLaneButton area="A" lane={3} frequency="123.400" className={CLS_BTN_LANE} />
-                </>
-              ) : (
-                <>
-                  <DeicePlatformButton platform="A" className={CLS_BTN_DI} />
-                  <DeicePlatformButton platform="B" className={CLS_BTN_DI} />
-                  <DeicePlatformButton platform="V" className={CLS_BTN_DI} />
-                </>
-              )}
-            </span>
-          </div>
-          <SortableBay
-            strips={deIceStrips}
-            bayId="DE-ICE"
-            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
-            standalone={false}
-            className="h-[var(--bay-h-deIce)] bay-scroll-area-bottom"
-          >
-            {(strip) => <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />}
-          </SortableBay>
+                </span>
+              </div>
+              <SortableBay
+                strips={deIceStrips}
+                bayId="DE-ICE"
+                isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
+                standalone={false}
+                className="h-[var(--bay-h-deIce)] bay-scroll-area-bottom"
+              >
+                {(strip) => <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} selectable={true} />}
+              </SortableBay>
+            </>
+          )}
 
           <div className="bay-col-header bay-col-sep">
-            <BayResizeHandle {...rightResize.handleProps("deIce")} />
+            <BayResizeHandle {...rightResize.handleProps(showStartupBay ? "clrDel" : "deIce")} />
             <span className={CLS_LABEL}>STAND</span>
           </div>
           <SortableBay

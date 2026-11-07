@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketClient } from "@/api/websocket";
 import { createWebSocketStore } from "@/store/store";
 import { WebSocketStoreContext } from "@/store/store-context";
+import { useLocalHiddenStrips } from "@/store/localHiddenStrips";
 import TowerGroundLayout from "./TowerGroundLayout";
 
 describe("arrival bay resizing", () => {
   beforeEach(() => {
     sessionStorage.clear();
+    useLocalHiddenStrips.setState({ defaultHidePlannedViews: 0 });
     HTMLElement.prototype.scrollIntoView = vi.fn();
     vi.stubGlobal("ResizeObserver", class {
       observe = vi.fn();
@@ -50,5 +52,25 @@ describe("arrival bay resizing", () => {
         rwyArr: Number.parseFloat(expected),
       });
     }
+  });
+
+  it.each([
+    ["TWTE", true],
+    ["TWRGND", false],
+  ] as const)("uses mini planned departure strips only for %s", (variant, useMiniStrips) => {
+    const store = createWebSocketStore(new WebSocketClient("ws://localhost"));
+    const { unmount } = render(
+      <WebSocketStoreContext.Provider value={store}>
+        <TowerGroundLayout variant={variant} />
+      </WebSocketStoreContext.Provider>,
+    );
+
+    try {
+      expect(useLocalHiddenStrips.getState().defaultHidePlannedViews).toBe(useMiniStrips ? 1 : 0);
+    } finally {
+      unmount();
+    }
+
+    expect(useLocalHiddenStrips.getState().defaultHidePlannedViews).toBe(0);
   });
 });

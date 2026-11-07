@@ -29,6 +29,7 @@ type euroScopeAMANStripRemover interface {
 // delay, unless cancelAircraftDisconnect stops and joins it first. Duplicate schedules
 // leave the existing worker in charge.
 func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay time.Duration) {
+	fixedDeadline := false
 	if policy, ok := hub.stripService.(interface {
 		AircraftDisconnectDelay(context.Context, int32) (time.Duration, bool, error)
 	}); ok {
@@ -39,6 +40,7 @@ func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay
 		}
 		if override {
 			delay = value
+			fixedDeadline = true
 		}
 	}
 
@@ -64,6 +66,13 @@ func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay
 		delete(hub.aircraftDisconnectTimers, key)
 	}
 	if existing := hub.aircraftDisconnectTimers[key]; existing != nil {
+		// A workflow's disappearance grace starts with the first missing
+		// observation. Repeated full syncs must not postpone it forever.
+		if fixedDeadline {
+			hub.aircraftDisconnectMu.Unlock()
+			cancel()
+			return
+		}
 		select {
 		case existing.reset <- delay:
 		default:

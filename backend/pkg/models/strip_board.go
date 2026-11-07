@@ -26,11 +26,13 @@ type StripRevision struct {
 }
 
 type StripBoardState struct {
-	CreatedAt     *time.Time       `json:"created_at,omitempty"`
-	Annotations   StripAnnotations `json:"annotations"`
-	RemovedAt     *time.Time       `json:"removed_at"`
-	RemovalReason string           `json:"removal_reason"`
-	Local         bool             `json:"local"`
+	CreatedAt       *time.Time       `json:"created_at,omitempty"`
+	Annotations     StripAnnotations `json:"annotations"`
+	RemovedAt       *time.Time       `json:"removed_at"`
+	RemovalReason   string           `json:"removal_reason"`
+	Local           bool             `json:"local"`
+	ManualAdmission bool             `json:"manual_admission,omitempty"`
+	ATDManual       bool             `json:"atd_manual,omitempty"`
 }
 
 type LocalStripCreation struct {

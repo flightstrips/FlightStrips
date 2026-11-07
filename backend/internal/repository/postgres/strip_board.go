@@ -64,6 +64,21 @@ func (r *stripRepository) AdmitStripBoardEntry(ctx context.Context, strip *model
 			if existing.BoardState.RemovedAt != nil {
 				return fmt.Errorf("removed strip must be restored under the airport policy")
 			}
+			if strip.BoardState != nil && strip.BoardState.ManualAdmission && !existing.BoardState.ManualAdmission {
+				state := *existing.BoardState
+				state.ManualAdmission = true
+				data, err := json.Marshal(&state)
+				if err != nil {
+					return err
+				}
+				count, err := q.UpdateStripBoardState(ctx, database.UpdateStripBoardStateParams{Session: strip.Session, ID: existing.ID, Version: existing.Version, BoardState: data})
+				if err != nil {
+					return err
+				}
+				if count != 1 {
+					return fmt.Errorf("strip changed during manual admission")
+				}
+			}
 			if existing.VatsimCID == nil && strip.VatsimCID != nil {
 				if _, err = tx.Exec(ctx, "UPDATE strips SET vatsim_cid=$1,vatsim_revision=$2,vatsim_seen_at=$3,version=version+1 WHERE session=$4 AND id=$5", strip.VatsimCID, strip.VatsimRevision, strip.VatsimSeenAt, strip.Session, existing.ID); err != nil {
 					return err
@@ -79,7 +94,7 @@ func (r *stripRepository) AdmitStripBoardEntry(ctx context.Context, strip *model
 				}
 				return ""
 			}
-			source := models.VatsimStripSource{FlightPlanEET:strip.FlightPlanEET,CID: *strip.VatsimCID, Revision: *strip.VatsimRevision, SeenAt: *strip.VatsimSeenAt, Origin: strip.Origin, Destination: strip.Destination, Alternate: value(strip.Alternative), Route: value(strip.Route), Remarks: value(strip.Remarks), AssignedSquawk: value(strip.AssignedSquawk), AircraftType: value(strip.AircraftType), FlightRules: strip.FlightRules}
+			source := models.VatsimStripSource{FlightPlanEET: strip.FlightPlanEET, CID: *strip.VatsimCID, Revision: *strip.VatsimRevision, SeenAt: *strip.VatsimSeenAt, Origin: strip.Origin, Destination: strip.Destination, Alternate: value(strip.Alternative), Route: value(strip.Route), Remarks: value(strip.Remarks), AssignedSquawk: value(strip.AssignedSquawk), AircraftType: value(strip.AircraftType), FlightRules: strip.FlightRules}
 			if _, err := bound.UpdateVatsimSource(ctx, strip.Session, strip.Callsign, source); err != nil {
 				return err
 			}

@@ -137,14 +137,17 @@ func (s *StripService) reconcileStripVisibility(ctx context.Context, session int
 		if err != nil {
 			return err
 		}
-		if d.Visibility == nil || strip.BoardState == nil {
+		if d.Visibility == nil && d.ReconciledATD == nil || strip.BoardState == nil {
 			return nil
 		}
 		state := *strip.BoardState
-		if d.Visibility.Visible {
+		if d.ReconciledATD != nil {
+			state.Annotations.ATD = *d.ReconciledATD
+		}
+		if d.Visibility != nil && d.Visibility.Visible {
 			state.RemovedAt = nil
 			state.RemovalReason = ""
-		} else {
+		} else if d.Visibility != nil {
 			now := s.boardTime()
 			state.RemovedAt = &now
 			state.RemovalReason = d.Visibility.Reason

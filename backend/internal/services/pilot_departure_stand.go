@@ -225,6 +225,15 @@ func (s *PilotDepartureStandService) advance(ctx context.Context, tx pgx.Tx, ses
 	if existing != nil {
 		state.Version = existing.Version
 	}
+	var released bool
+	if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM departure_stand_releases WHERE strip_id = $1)", strip.ID).Scan(&released); err != nil {
+		return nil, err
+	}
+	if released || departureStandReleasedByMovement(strip) {
+		state.Version, state.ExpiresAt, state.MismatchSince = 0, nil, nil
+		state.State = PilotStandExpired
+		return nil, nil
+	}
 	request := lifecycle.buildRequest(session, strip, flight, StageReserved, nil)
 	request.ProtectReservations = true
 	request.AllowUnsuitable = allowUnsuitable

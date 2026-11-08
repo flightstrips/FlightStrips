@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getEstDepartureTransferTarget, isEstDepartureTransferActive } from "./transferState";
+import { getEstDepartureTransferTarget, isEstDepartureTransferActive, isEstDepartureTransferred } from "./transferState";
 
 describe("isEstDepartureTransferActive", () => {
   it("recognizes the active START REQ transfer to APRON", () => {
@@ -49,6 +49,24 @@ describe("getEstDepartureTransferTarget", () => {
         "121.905",
       ),
     ).toBe("121.730");
+  });
+
+  describe("isEstDepartureTransferred", () => {
+    it("uses persisted ownership history after acceptance, including on reconnect", () => {
+      expect(isEstDepartureTransferred({
+        owner: "121.730",
+        previous_controllers: ["121.905"],
+      }, "121.905")).toBe(true);
+    });
+
+    it("does not hide CDM for unrelated, unowned or reacquired strips", () => {
+      expect(isEstDepartureTransferred({ owner: "121.730", previous_controllers: [] }, "121.905")).toBe(false);
+      expect(isEstDepartureTransferred({ owner: "121.730", previous_controllers: null }, "121.905")).toBe(false);
+      expect(isEstDepartureTransferred({ owner: "", previous_controllers: ["121.905"] }, "121.905")).toBe(false);
+      expect(isEstDepartureTransferred({ owner: "121.905", previous_controllers: ["121.905"] }, "121.905")).toBe(false);
+      expect(isEstDepartureTransferred({ owner: "121.730", previous_controllers: ["121.905"] }, "")).toBe(false);
+      expect(isEstDepartureTransferred(undefined, "121.905")).toBe(false);
+    });
   });
 
   it("returns no target when the route only contains the current primary", () => {

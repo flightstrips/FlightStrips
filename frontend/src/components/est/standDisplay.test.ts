@@ -35,11 +35,12 @@ describe("deriveEstStandDisplay", () => {
     },
   );
 
-  it("does not show inbound stand assignments before the aircraft occupies the stand", () => {
+  it("shows an inbound assignment separately from physical occupancy", () => {
     const assignedInbound = strip("SAS100", "A18", Bay.Final);
     const display = deriveEstStandDisplay([assignedInbound], [assignment(assignedInbound.callsign, "A18")], true);
 
     expect(display.stripsByStand.has("A18")).toBe(false);
+    expect(display.plannedArrivalsByStand.get("A18")).toBe("SAS100");
   });
 
   it("shows an arrival once it reaches the stand", () => {
@@ -47,6 +48,7 @@ describe("deriveEstStandDisplay", () => {
     const display = deriveEstStandDisplay([arrival], [assignment(arrival.callsign, "A18")], true);
 
     expect(display.stripsByStand.get("A18")).toBe(arrival);
+    expect(display.plannedArrivalsByStand.has("A18")).toBe(false);
   });
 
   it("does not show completed departures as stand occupants", () => {
@@ -77,6 +79,7 @@ describe("deriveEstStandDisplay", () => {
 
     expect(display.stripsByStand.get("A19")).toBe(occupant);
     expect(display.stripsByStand.has("A18")).toBe(false);
+    expect(display.plannedArrivalsByStand.has("A18")).toBe(false);
     expect([...display.stripsByStand.values()].filter((value) => value.callsign === callsign)).toHaveLength(1);
   });
 
@@ -87,5 +90,33 @@ describe("deriveEstStandDisplay", () => {
     const display = deriveEstStandDisplay([occupant, inbound], [], false);
 
     expect(display.stripsByStand.get("A18")).toBe(occupant);
+    expect(display.plannedArrivalsByStand.has("A18")).toBe(false);
+  });
+
+  it("shows a strip-based inbound assignment when SAT is disabled", () => {
+    const display = deriveEstStandDisplay([strip("SAS100", "A18", Bay.TwyArr)], [], false);
+    expect(display.stripsByStand.has("A18")).toBe(false);
+    expect(display.plannedArrivalsByStand.get("A18")).toBe("SAS100");
+  });
+
+  it("updates and removes planned assignments without retaining stale stands", () => {
+    expect(deriveEstStandDisplay([], [assignment("SAS100", "A19")], true).plannedArrivalsByStand.get("A19")).toBe("SAS100");
+    expect(deriveEstStandDisplay([], [], true).plannedArrivalsByStand.size).toBe(0);
+  });
+
+  it("uses the current assignment instead of an outdated strip stand", () => {
+    const display = deriveEstStandDisplay([strip("SAS100", "A18", Bay.Final)], [assignment("SAS100", "A19")], true);
+    expect(display.plannedArrivalsByStand.has("A18")).toBe(false);
+    expect(display.plannedArrivalsByStand.get("A19")).toBe("SAS100");
+  });
+
+  it("uses a strip's inbound stand when there is no SAT assignment", () => {
+    const display = deriveEstStandDisplay([strip("SAS100", "A18", Bay.Final)], [], true);
+    expect(display.plannedArrivalsByStand.get("A18")).toBe("SAS100");
+  });
+
+  it("does not display inactive arrival assignments", () => {
+    const display = deriveEstStandDisplay([], [assignment("SAS100", "A18", { stage: "RELEASED" })], true);
+    expect(display.plannedArrivalsByStand.size).toBe(0);
   });
 });

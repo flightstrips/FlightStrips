@@ -25,3 +25,16 @@ export function isEstDepartureTransferActive(
       transfer.to === targetPosition,
   );
 }
+
+export function isEstDepartureTransferred(
+  strip: { owner: string; previous_controllers: string[] | null } | undefined,
+  sourcePosition: string,
+): boolean {
+  return Boolean(
+    strip &&
+      sourcePosition &&
+      strip.owner &&
+      strip.owner !== sourcePosition &&
+      strip.previous_controllers?.includes(sourcePosition),
+  );
+}

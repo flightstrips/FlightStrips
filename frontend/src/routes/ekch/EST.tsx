@@ -11,7 +11,7 @@ import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { plannedDepartureSortModes } from "@/lib/stripSortModes";
 import { isActiveStripTransfer } from "@/components/strip/shared";
-import { getEstDepartureTransferTarget, isEstDepartureTransferActive } from "@/components/est/transferState";
+import { getEstDepartureTransferTarget, isEstDepartureTransferActive, isEstDepartureTransferred } from "@/components/est/transferState";
 import { deriveEstStandBlocking } from "@/components/est/standBlocking";
 import { deriveEstStandDisplay } from "@/components/est/standDisplay";
 import {
@@ -507,6 +507,7 @@ export default function EST() {
                   key={stand.label}
                   stand={stand}
                   strip={strip}
+                  plannedArrival={standDisplay.plannedArrivalsByStand.get(stand.label)}
                   selected={!!strip && selectedCallsign === strip.callsign}
                   blocked={!!blockedStandsDerived[stand.label]}
                   blockReason={standBlockReasons[stand.label]}
@@ -518,6 +519,7 @@ export default function EST() {
                     myPosition,
                     getEstDepartureTransferTarget(strip, myPosition),
                   )}
+                  departureTransferred={isEstDepartureTransferred(strip, myPosition)}
                   ctotImproved={strip ? !!ctotState.flags[strip.callsign] : false}
                   nowMs={nowMs}
                   containerStyle={{
@@ -538,6 +540,7 @@ export default function EST() {
           open
           anchor={menuState.anchor}
           strip={menuStrip}
+          departureTransferred={menuStrip.origin === airport && isEstDepartureTransferred(menuStrip, myPosition)}
           onClose={closeMenu}
           onStartTransfer={handleStartTransfer}
           startTransferDisabled={startTransferPending}

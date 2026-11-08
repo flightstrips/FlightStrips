@@ -55,6 +55,9 @@ func TestUpdateGroundState_CompletesDownstreamWorkBeforePushReleaseFailure(t *te
 		onRelease: func() { order = append(order, "release") },
 	}
 	service := newWorkflowTestService(stripRepo)
+	service.sessionRepo = &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+		return &models.Session{Airport: "EKCH"}, nil
+	}}
 	service.SetFrontendHub(&testutil.MockFrontendHub{})
 	service.SetCdmService(cdmService)
 	service.SetDeparturePositionObserver(observer)
@@ -62,6 +65,21 @@ func TestUpdateGroundState_CompletesDownstreamWorkBeforePushReleaseFailure(t *te
 	err := service.UpdateGroundState(context.Background(), 1, strip.Callsign, shared.BAY_PUSH, "EKCH")
 	require.ErrorIs(t, err, releaseErr)
 	require.Equal(t, []string{"move", "asat", "release"}, order)
+}
+
+func TestDepartureStandReleasedByMovement(t *testing.T) {
+	for _, bay := range []string{shared.BAY_PUSH, shared.BAY_TAXI, shared.BAY_TAXI_LWR, shared.BAY_TAXI_TWR, shared.BAY_DEPART, shared.BAY_AIRBORNE, shared.BAY_HIDDEN_DEP} {
+		t.Run(bay, func(t *testing.T) {
+			require.True(t, departureStandReleasedByMovement(&models.Strip{Bay: bay}))
+		})
+	}
+	for _, state := range []string{"PUSH", "TAXI", "LINEUP", "DEPA"} {
+		t.Run(state, func(t *testing.T) {
+			require.True(t, departureStandReleasedByMovement(&models.Strip{State: &state}))
+		})
+	}
+	require.False(t, departureStandReleasedByMovement(&models.Strip{Bay: shared.BAY_CLEARED}))
+	require.False(t, departureStandReleasedByMovement(&models.Strip{Bay: shared.BAY_NOT_CLEARED}))
 }
 
 func TestReleaseDepartureStandOnPush(t *testing.T) {
@@ -74,5 +92,24 @@ func TestReleaseDepartureStandOnPush(t *testing.T) {
 
 	require.NoError(t, service.releaseDepartureStandOnPush(context.Background(), 1, strip, "TAXI", "EKCH"))
 	require.NoError(t, service.releaseDepartureStandOnPush(context.Background(), 1, strip, shared.BAY_PUSH, "EKBI"))
+	require.Equal(t, 1, observer.calls)
+}
+
+func TestMoveToBay_ReleasesDepartureStandOnPush(t *testing.T) {
+	strip := &models.Strip{Callsign: "SAS123", Origin: "EKCH", Bay: shared.BAY_CLEARED}
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn:        func(context.Context, int32, string) (*models.Strip, error) { return strip, nil },
+		GetMaxSequenceInBayFn:  func(context.Context, int32, string) (int32, error) { return 0, nil },
+		UpdateBayAndSequenceFn: func(context.Context, int32, string, string, int32) (int64, error) { return 1, nil },
+	}
+	service := newWorkflowTestService(repo)
+	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	service.sessionRepo = &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+		return &models.Session{Airport: "EKCH"}, nil
+	}}
+	observer := &pushReleaseObserver{}
+	service.SetDeparturePositionObserver(observer)
+
+	require.NoError(t, service.MoveToBay(context.Background(), 1, strip.Callsign, shared.BAY_PUSH, true))
 	require.Equal(t, 1, observer.calls)
 }

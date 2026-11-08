@@ -1284,6 +1284,14 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	applyResolvedTerminalIdentity(&flight, terminalPath)
 	query := navdata.RouteQuery{Version: version, Origin: navdata.AirportID(observation.Origin), Destination: navdata.AirportID(observation.Destination), FiledRoute: *observation.FiledRoute, RunwayGroup: &group}
+	query.Callsign = observation.Callsign
+	if len(terminalPath.Legs) > 0 {
+		query.TerminalEntry = terminalPath.Legs[0].FromFix
+	}
+	var sourceRefresh time.Duration
+	if source, ok := s.deps.Materializer.(interface{ RouteRefreshInterval() time.Duration }); ok && flight.FreezeReason != aman.FreezeTMA {
+		sourceRefresh = source.RouteRefreshInterval()
+	}
 	revision := revisionValue(observation.FlightPlan.Revision)
 	projectionRevision := routeProjectionRevision(flight, revision)
 	datasetID := navigationDatasetID(version)
@@ -1293,6 +1301,9 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	var key navdata.RouteKey
 	reusable := canReuseActiveRoute(flight, projectionRevision, group, datasetID) || flight.ActiveRouteKey != nil && flight.ActiveRouteQueryKey == string(semanticKey) && flight.ActiveRouteDatasetID != nil && *flight.ActiveRouteDatasetID == datasetID
+	if sourceRefresh > 0 && flight.ActiveRouteQueryKey != string(semanticKey) {
+		reusable = false
+	}
 	var cached navdata.RouteGeometry
 	if reusable {
 		key = navdata.RouteKey(*flight.ActiveRouteKey)
@@ -1309,8 +1320,12 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	if key == "" && !due {
 		return flight, fmt.Errorf("route repair retry pending: unusable source geometry")
 	}
-	if key == "" || navdata.HasRouteGaps(cached) && due {
-		retryAt := now.Add(routeRepairRetryEvery)
+	if key == "" || (navdata.HasRouteGaps(cached) || sourceRefresh > 0) && due {
+		retryEvery := routeRepairRetryEvery
+		if sourceRefresh > 0 {
+			retryEvery = sourceRefresh
+		}
+		retryAt := now.Add(retryEvery)
 		flight.RouteRefreshAfter = &retryAt
 		newKey, materializeErr := s.deps.Materializer.MaterializeRoute(ctx, query, routeResolverVersion)
 		if materializeErr != nil {
@@ -1322,7 +1337,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 			activeKey := string(key)
 			flight.ActiveRouteKey, flight.ActiveRouteDatasetID = &activeKey, &datasetID
 			flight.ActiveRouteQueryKey = string(semanticKey)
-			if rebuilt, readErr := s.deps.Geometry.Route(ctx, key); readErr == nil && !navdata.HasRouteGaps(rebuilt) {
+			if rebuilt, readErr := s.deps.Geometry.Route(ctx, key); readErr == nil && !navdata.HasRouteGaps(rebuilt) && sourceRefresh == 0 {
 				flight.RouteRefreshAfter = nil
 			}
 		}

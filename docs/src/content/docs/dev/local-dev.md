@@ -151,8 +151,11 @@ go run ./cmd/server
 `ENABLE_VATSIM=false` disables the public VATSIM data feed, and
 `ENABLE_VATSIM_TRANSCEIVERS=false` disables the separate public transceiver
 feed. `AMAN_SOURCE_MODE=euroscope` prevents AMAN startup, readiness, and
-reconciliation from requiring either feed. `NAVIGATION_SOURCE=airacnet` is
-still required for AMAN route geometry and is independent of VATSIM.
+reconciliation from requiring either feed. `NAVIGATION_SOURCE=airacnet` acquires
+navigation geometry independently of VATSIM. `NAVIGATION_SOURCE=viff` instead
+uses vIFF's bulk arrivals paths and an existing current terminal cache; it only
+resolves flights present in vIFF, so it cannot resolve arbitrary Sweatbox or
+Playback callsigns. See `backend/config/aman/viff.md` for deployment details.
 
 Build and connect the local EuroScope plugin as described above, then open a
 Sweatbox or Playback session. Synchronize an arrival strip with `origin`,

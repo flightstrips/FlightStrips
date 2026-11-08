@@ -4,12 +4,14 @@ package navigation
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 )
 
 const (
 	SourceAIRACNet              = "airacnet"
+	SourceVIFF                  = "viff"
 	DefaultTerminalGeometryPath = "config/aman/ekch-terminal-2611.json"
 )
 
@@ -21,6 +23,11 @@ type Config struct {
 	Now                  func() time.Time
 	Source               string
 	TerminalGeometryPath string
+	// vIFF uses one shared backend key (optional for public arrivals), never a
+	// controller's subscription. Overrides also support isolated replay tests.
+	VIFFBaseURL string
+	VIFFAPIKey  string
+	HTTPClient  *http.Client
 }
 
 func (c Config) Normalize() Config {
@@ -42,7 +49,7 @@ func (c Config) Validate() error {
 		}
 		return nil
 	}
-	if c.Source != SourceAIRACNet {
+	if c.Source != SourceAIRACNet && c.Source != SourceVIFF {
 		return fmt.Errorf("navigation source %q is unsupported", c.Source)
 	}
 	if c.TerminalGeometryPath == "" {

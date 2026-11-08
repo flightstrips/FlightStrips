@@ -1,5 +1,7 @@
 # AMAN terminal configuration
 
+For the vIFF bulk route source, see [viff.md](viff.md).
+
 `ekch-terminal-2611.json` carries the operator-approved STAR-family and feeder-fix mappings from #553 and #605.
 
 AIRAC 2611 applies from 29 October 2026 until 26 November 2026 (exclusive). Compared the existing configuration with Naviair's [AIRAC AMDT 11/26](https://aim.naviair.dk/media/files/ct2vgpz44h2/EK_Amdt_A_2026_11_en.pdf), [EKCH aerodrome text](https://aim.naviair.dk/media/files/3bd5mzetodu/EK_AD_2_EKCH_en.pdf), [aerodrome chart](https://aim.naviair.dk/media/files/uhy2wmfxmo2/EK_AD_2_EKCH_ADC_en.pdf), and updated RNAV STAR tabular charts for [04](https://aim.naviair.dk/media/files/3n5oclptsoa/EK_AD_2_EKCH_RNAV_STAR_04_L_R_3_en.pdf), [22](https://aim.naviair.dk/media/files/hjrskkheed0/EK_AD_2_EKCH_RNAV_STAR_22_L_R_3_en.pdf), [12](https://aim.naviair.dk/media/files/iapc1jhpfbd/EK_AD_2_EKCH_RNAV_STAR_12_3_en.pdf), and [30](https://aim.naviair.dk/media/files/gw1d052hbc1/EK_AD_2_EKCH_RNAV_STAR_30_3_en.pdf). Magnetic variation changed to 5° E, changing published magnetic runway directions, holding tracks, and STAR continuation headings. The configured true courses, runway geometry and holding characteristics are unchanged. The ERNOV runway 22 path now follows the published CH647, CH637, CH631 and CH626 routing; other path mappings and operator-approved durations are retained. The STARs end in radar vectoring; the subsequent connection to an ILS final fix is a planning approximation, not a published or assigned clearance.

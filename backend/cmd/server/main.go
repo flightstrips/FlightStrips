@@ -285,7 +285,9 @@ func amanConfigFromEnv() (aman.RuntimeConfig, error) {
 
 func navigationConfigFromEnv() (navigation.Config, error) {
 	config := navigation.Config{
-		Source: strings.TrimSpace(os.Getenv("NAVIGATION_SOURCE")),
+		Source:      strings.TrimSpace(os.Getenv("NAVIGATION_SOURCE")),
+		VIFFBaseURL: strings.TrimSpace(os.Getenv("VIFF_API_BASE_URL")),
+		VIFFAPIKey:  strings.TrimSpace(os.Getenv("CDM_KEY")),
 	}
 	return config.Normalize(), config.Validate()
 }

@@ -19,7 +19,13 @@ import (
 const inboundPollInterval = 5 * time.Minute
 
 func (c *Client) IFPSByArrivalAirport(ctx context.Context, airport string) (BulkIFPSData, error) {
-	data, err := c.doRequest(ctx, http.MethodGet, "/ifps/arrAirport", map[string]string{"airport": airport}, nil, nil)
+	var data []byte
+	var err error
+	if c.arrivalSource != nil {
+		data, err = c.arrivalSource.Arrivals(ctx, airport)
+	} else {
+		data, err = c.doRequest(ctx, http.MethodGet, "/ifps/arrAirport", map[string]string{"airport": airport}, nil, nil)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -216,9 +222,9 @@ func (m *inboundDepartures) poll(entry *inboundAirport) {
 			m.service.publisher.SendInboundDepartures(session, event)
 		}
 		delay := inboundPollInterval
-		var apiError *APIError
-		if errors.As(err, &apiError) && apiError.RetryAfter > delay {
-			delay = apiError.RetryAfter
+		var backoff interface{ RetryDelay() time.Duration }
+		if errors.As(err, &backoff) && backoff.RetryDelay() > delay {
+			delay = backoff.RetryDelay()
 		}
 		if err != nil {
 			slog.WarnContext(entry.ctx, "Failed to refresh inbound CTOT findings", slog.String("airport", event.Airport), slog.Any("error", err))

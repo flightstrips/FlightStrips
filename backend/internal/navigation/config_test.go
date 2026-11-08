@@ -22,6 +22,13 @@ func TestConfigDefaultsBundledTerminalGeometry(t *testing.T) {
 	require.NoError(t, config.Validate())
 }
 
+func TestConfigSupportsVIFFWithCachedTerminalGeometry(t *testing.T) {
+	config := Config{Source: " VIFF "}.Normalize()
+	require.Equal(t, SourceVIFF, config.Source)
+	require.Equal(t, DefaultTerminalGeometryPath, config.TerminalGeometryPath)
+	require.NoError(t, config.Validate())
+}
+
 func TestConfigRejectsTerminalGeometryWithoutSource(t *testing.T) {
 	require.ErrorContains(t, (Config{TerminalGeometryPath: "terminal.json"}).Validate(), "requires a navigation source")
 }

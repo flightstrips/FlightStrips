@@ -264,6 +264,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}
 		return nil, fmt.Errorf("initialize navigation source: %w", err)
 	}
+	if navigationSource != nil && navigationSource.Arrivals != nil {
+		cdmClient.SetArrivalSource(navigationSource.Arrivals)
+	}
 	var defaultAMAN operationalAMANAssembly
 	if amanEnabled && amanDependencies.ObservationSink == nil {
 		defaultAMAN, err = assembleOperationalAMANWithDefinition(

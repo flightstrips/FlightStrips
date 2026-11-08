@@ -24,19 +24,29 @@ type APIError struct {
 	RetryAfter time.Duration
 }
 
-func (e *APIError) Error() string { return fmt.Sprintf("cdm api error (%d): %s", e.StatusCode, e.Body) }
+func (e *APIError) Error() string             { return fmt.Sprintf("cdm api error (%d): %s", e.StatusCode, e.Body) }
+func (e *APIError) RetryDelay() time.Duration { return e.RetryAfter }
 
 type Client struct {
-	baseURL    string
-	apiKey     string
-	httpClient *http.Client
-	isValid    bool
+	baseURL       string
+	apiKey        string
+	httpClient    *http.Client
+	isValid       bool
+	arrivalSource ArrivalSource
 
 	airportMasterCacheMu      sync.Mutex
 	airportMasterCacheTTL     time.Duration
 	airportMasterCacheUntil   time.Time
 	airportMasterCacheEntries []AirportMaster
 }
+
+// ArrivalSource shares the bulk response with flight-facing consumers such as
+// AMAN. Install it during application composition, before starting pollers.
+type ArrivalSource interface {
+	Arrivals(context.Context, string) ([]byte, error)
+}
+
+func (c *Client) SetArrivalSource(source ArrivalSource) { c.arrivalSource = source }
 
 type Option func(*Client)
 

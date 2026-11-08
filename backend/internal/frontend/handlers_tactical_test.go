@@ -99,6 +99,31 @@ func TestHandleConfirmTacticalStrip_InvalidTypeRejectedBeforeMutation(t *testing
 	assert.False(t, confirmCalled, "Confirm must not be called when the tactical strip type is invalid")
 }
 
+func TestHandleConfirmTacticalStrip_CrossingConfirmedByNonOwner(t *testing.T) {
+	confirmCalled := false
+	hub := buildTacticalRepoHub(&testutil.MockTacticalStripRepository{
+		GetByIDFn: func(_ context.Context, id int64, sessionID int32) (*models.TacticalStrip, error) {
+			return &models.TacticalStrip{
+				ID:        id,
+				SessionID: sessionID,
+				Type:      models.TacticalStripTypeCrossing,
+				Owner:     "EKCH_GND",
+			}, nil
+		},
+		ConfirmFn: func(_ context.Context, id int64, sessionID int32, confirmedBy string) (*models.TacticalStrip, error) {
+			confirmCalled = true
+			assert.Equal(t, "EKCH_TWR", confirmedBy)
+			return &models.TacticalStrip{ID: id, SessionID: sessionID, Type: models.TacticalStripTypeCrossing, Owner: "EKCH_GND", Confirmed: true}, nil
+		},
+	})
+	client := buildFrontendTestClient(hub, 1, "EKCH")
+	client.position = "EKCH_TWR"
+
+	err := handleConfirmTacticalStrip(context.Background(), client, marshalMessage(t, frontend.ConfirmTacticalStripAction{ID: 44}))
+	require.NoError(t, err)
+	assert.True(t, confirmCalled)
+}
+
 func TestHandleConfirmTacticalStrip_OwnerRejectedBeforeMutation(t *testing.T) {
 	confirmCalled := false
 	hub := buildTacticalRepoHub(&testutil.MockTacticalStripRepository{

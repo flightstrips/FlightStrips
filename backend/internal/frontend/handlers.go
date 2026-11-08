@@ -824,11 +824,11 @@ func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Mes
 		return err
 	}
 
-	if ts.Type != internalModels.TacticalStripTypeMemaid {
-		return errors.New("confirm is only valid for MEMAID strips")
+	if ts.Type != internalModels.TacticalStripTypeMemaid && ts.Type != internalModels.TacticalStripTypeCrossing {
+		return errors.New("confirm is only valid for MEMAID and CROSSING strips")
 	}
 	if ts.Owner == identity.position {
-		return errors.New("owner cannot confirm their own MEMAID strip")
+		return errors.New("owner cannot confirm their own " + ts.Type + " strip")
 	}
 
 	ts, err = tacticalRepo.Confirm(ctx, req.ID, identity.session, identity.position)

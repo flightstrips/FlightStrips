@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.7.0...frontend/v2.7.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **stand:** refine departure release and EST display ([#1104](https://github.com/flightstrips/FlightStrips/issues/1104)) ([19e0ff9](https://github.com/flightstrips/FlightStrips/commit/19e0ff988ac21031f943bfa207af0edcaba20805))
+
 ## [2.7.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.6.0...frontend/v2.7.0) (2026-11-06)
 
 

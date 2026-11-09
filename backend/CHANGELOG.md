@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.8.0...backend/v3.8.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **aman:** use vIFF routes without filed waypoint matching ([#1114](https://github.com/flightstrips/FlightStrips/issues/1114)) ([ab08ee5](https://github.com/flightstrips/FlightStrips/commit/ab08ee584d6de0067ed855646976398b658ab810))
+
 ## [3.8.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.7.0...backend/v3.8.0) (2026-11-08)
 
 

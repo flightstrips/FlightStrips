@@ -937,7 +937,10 @@ func (s *Service) sessionObservations(ctx context.Context, airport string) map[a
 			result[id] = combineSourceObservations(map[aman.ObservationProvider]aman.FlightObservation{
 				aman.ObservationProviderVATSIM: observation, observationOwner(local): local,
 			})
-		} else if !found {
+		} else {
+			// A session-local withdrawal only removes EuroScope as a source.
+			// Current network presence must still keep a LIVE arrival visible.
+			// Reconciliation reapplies the retained controller flight-plan facts.
 			result[id] = observation
 		}
 	}

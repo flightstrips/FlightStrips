@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.5.0...docs/v1.6.0) (2026-11-08)
+
+
+### Features
+
+* **aman:** resolve routes from shared vIFF arrivals ([#1105](https://github.com/flightstrips/FlightStrips/issues/1105)) ([832d20e](https://github.com/flightstrips/FlightStrips/commit/832d20ef6ca8bc812ebd130e8967772347788784))
+
+
+### Bug Fixes
+
+* **stand:** refine departure release and EST display ([#1104](https://github.com/flightstrips/FlightStrips/issues/1104)) ([19e0ff9](https://github.com/flightstrips/FlightStrips/commit/19e0ff988ac21031f943bfa207af0edcaba20805))
+
 ## [1.5.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.4.2...docs/v1.5.0) (2026-11-06)
 
 

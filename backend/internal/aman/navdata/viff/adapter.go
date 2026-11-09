@@ -24,7 +24,7 @@ import (
 const (
 	DefaultBaseURL  = "https://api.viffsys.com"
 	RefreshInterval = 30 * time.Second
-	ResolverVersion = "viff-route-v2"
+	ResolverVersion = "viff-route-v3"
 )
 
 type Config struct {
@@ -243,6 +243,17 @@ func (a *Adapter) Resolve(ctx context.Context, q navdata.RouteQuery) (navdata.Ro
 }
 
 var identifier = regexp.MustCompile(`^[A-Z0-9_-]+$`)
+var qualifiedIdentifier = regexp.MustCompile(`^([A-Z0-9_-]+)\([A-Z0-9_-]+\)$`)
+
+// vIFF can qualify a terminal point's name, for example ERNOV(AR2).
+// Matching the base identifier still requires the cached-coordinate check below.
+func terminalPointName(name string) string {
+	name = upper(name)
+	if match := qualifiedIdentifier.FindStringSubmatch(name); match != nil {
+		return match[1]
+	}
+	return name
+}
 
 func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySnapshot, at time.Time) (navdata.RouteGeometry, error) {
 	bad := func(message string) (navdata.RouteGeometry, error) { return navdata.RouteGeometry{}, problem(message) }
@@ -274,7 +285,7 @@ func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySna
 		if positions[i].Validate() != nil || (*p.Lat == 0 && *p.Lon == 0) {
 			return bad("vIFF route point has invalid coordinates")
 		}
-		if upper(p.Name) == string(*q.TerminalEntry) {
+		if terminalPointName(p.Name) == string(*q.TerminalEntry) {
 			if entry >= 0 {
 				return bad("vIFF terminal entry is ambiguous")
 			}
@@ -308,6 +319,10 @@ func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySna
 	nodes := make([]node, 0, entry+1)
 	for i := 0; i <= entry; i++ {
 		n := node{id: pointID(f.Path[i].Name, i), position: positions[i]}
+		if i == entry {
+			// The terminal composer needs the canonical fix at the boundary.
+			n.id = *q.TerminalEntry
+		}
 		if len(nodes) > 0 && navdata.CoordinateDistanceNM(nodes[len(nodes)-1].position, n.position) < 0.000001 {
 			// Co-located generated profile points do not create zero-length legs
 			// or disconnect named fixes. Always preserve the selected entry name.

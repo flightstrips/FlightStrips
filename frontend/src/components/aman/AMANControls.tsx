@@ -221,7 +221,7 @@ export function AMANControlsView({
       ))}
 
       <section aria-label="Arrival sequence rebuild" className="grid gap-2 rounded border border-slate-600 p-3">
-        <p className="text-sm">Rebuild all arrival runways: refresh automatic timings from current positions, keep TMA priority, release lower cleared levels first, and prioritize the longest-held eligible aircraft across holds. Replace existing order and automatic reservations; retain manual protections.</p>
+        <p className="text-sm">Rebuild all arrivals from scratch. Assign TMA traffic first from now at 90-second intervals, allowing for wake separation, then sequence holding and inbound traffic. Release lower cleared levels first and prioritize the longest-held eligible aircraft across holds. Discard all previous slots, EATs, manual protections, and reservations. Outside the TMA, aircraft without a current estimate receive no slot.</p>
         <button className={controlClass} disabled={disabled || pending.some((command) => command.type === "aman.rebuild_arrival_sequence") || Boolean(rebuildResult && state && rebuildResult.revision > state.revision)} onClick={() => onCommand({type: "aman.rebuild_arrival_sequence"})}>Rebuild arrival sequence</button>
         {rebuildResult && <div role="status" aria-live="polite">
           {rebuildResult.publication_status === "recovery_required" && (!state || state.revision < rebuildResult.revision) ? "Rebuild committed; reconnect to recover the displayed sequence" : state && state.revision < rebuildResult.revision ? "Waiting for rebuilt sequence snapshot" : !rebuildResult.changed || rebuildResult.duplicate ? "Already rebuilt" : rebuildResult.diagnostics.length > 0 ? "Rebuilt with exceptions" : "Rebuilt"}

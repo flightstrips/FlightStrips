@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/sequence"
 )
 
 // RefreshHoldingClearances updates the route timing in the same revision as
@@ -48,4 +49,19 @@ func (s *Service) RefreshHoldingClearances(ctx context.Context, state *aman.Airp
 			break
 		}
 	}
+
+	// Holding-order repair can move slots and invalidate offers calculated for
+	// the previous queue. Publish offers from the repaired slots in the same
+	// revision so stale candidates cannot reject the clearance and its EAT.
+	projected, err := sequence.ProjectQueueOffers(*state, s.sequenceInput(*state), sequence.QueueOfferConfig{Validity: queueOfferValidity}, now)
+	if err != nil {
+		// Offers are optional opportunities; an unavailable calculation must
+		// not prevent publication of the controller's clearance and EAT.
+		for index := range state.Flights {
+			state.Flights[index].QueueOffers = nil
+		}
+		slog.WarnContext(ctx, "AMAN holding clearance queue offers unavailable", "airport", state.Airport, "error", err)
+		return
+	}
+	*state = projected
 }

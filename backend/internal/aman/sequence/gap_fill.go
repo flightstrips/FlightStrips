@@ -7,10 +7,12 @@ import (
 	"FlightStrips/internal/aman"
 )
 
-// Fill capacity left between two arrivals by same-STAR spacing. Prefer holding
-// aircraft, then existing sequence order. Inbound traffic may use a vacancy
+// Fill unused capacity between arrivals, including vacancies left by removed
+// flights and same-STAR spacing. Prefer holding aircraft, then existing sequence
+// order. Inbound traffic may use a vacancy
 // after the preferred candidates fail the complete placement checks.
-func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at time.Time) []allocatedEntry {
+// This does not authorize a general reorder across controller constraints.
+func fillSequenceGaps(policy preparedPolicy, entries []allocatedEntry, at time.Time) []allocatedEntry {
 	if !policy.AllowCrossFeederOvertake {
 		return entries
 	}
@@ -20,28 +22,14 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 		filled := false
 		for gap := 0; gap+1 < len(entries) && !filled; gap++ {
 			leading := entries[gap]
-			if leading.flight.STARFamily == "" {
-				continue
-			}
-			// Cross-stream insertions do not consume the whole STAR interval.
-			// Find its next same-family reservation even when earlier fillers
-			// already separate the anchors, including on later reconciliations.
-			trailingIndex := gap + 1
-			for trailingIndex < len(entries) && entries[trailingIndex].flight.STARFamily != leading.flight.STARFamily {
-				trailingIndex++
-			}
-			if trailingIndex == len(entries) {
-				continue
-			}
-			trailing := entries[trailingIndex]
-			starGap := sameSTARGap(policy, leading.flight, trailing.flight, trailing.time)
-			if starGap <= policy.intervalAt(trailing.time) {
-				continue
-			}
-			for _, index := range gapFillCandidateOrder(entries, trailingIndex+1) {
+			trailing := entries[gap+1]
+			// Inspect each vacant interval independently. Candidates can already
+			// be inside a wider same-STAR interval, or have no later same-STAR
+			// anchor at all after a flight leaves the sequence.
+			for _, index := range gapFillCandidateOrder(entries, gap+2) {
 				target := entries[index]
 				flight := target.flight
-				if moved[flight.Callsign] || !gapFillEligible(flight) || flight.STARFamily == leading.flight.STARFamily {
+				if moved[flight.Callsign] || !gapFillEligible(flight) {
 					continue
 				}
 				lower := promotionLowerBound(policy, flight, at)
@@ -49,7 +37,7 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 					lower = *flight.SlotNotBefore
 				}
 				for _, crossed := range entries[gap+1 : index] {
-					if !canPassForSTARGap(flight, crossed.flight) {
+					if !canPassForGap(flight, crossed.flight) {
 						// An earlier filler from the same stream is an order
 						// boundary, but space after it can still be usable.
 						if boundary := crossed.time.Add(time.Nanosecond); boundary.After(lower) {
@@ -101,7 +89,7 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 func gapFillEligible(flight preparedFlight) bool {
 	return flight.STARFamily != "" && flight.ManualOrder == nil &&
 		(flight.ReleaseRank == nil || holdingGapCandidate(flight) && flight.HoldingTransit > 0) &&
-		!flight.RebuildRetained && !flight.RebuildTMA && flight.PromotionNotBefore != nil &&
+		!flight.RebuildTMA && flight.PromotionNotBefore != nil &&
 		(flight.FreezeReason == aman.FreezeNone || flight.FreezeReason == aman.FreezeSuperstable) &&
 		(flight.State == aman.StateStable || flight.State == aman.StateUnstable || flight.State == aman.StateAirborne)
 }
@@ -132,9 +120,9 @@ func gapFillPlacement(policy preparedPolicy, entries []allocatedEntry, flight pr
 	return placementWithStableOrder(policy, entries, flight, candidate, false)
 }
 
-func canPassForSTARGap(target, crossed preparedFlight) bool {
+func canPassForGap(target, crossed preparedFlight) bool {
 	return crossed.ManualOrder == nil && crossed.STARFamily != "" && crossed.STARFamily != target.STARFamily &&
 		(crossed.FreezeReason == aman.FreezeNone || crossed.FreezeReason == aman.FreezeSuperstable) &&
-		!crossed.RebuildRetained && !crossed.RebuildTMA &&
+		!crossed.RebuildTMA &&
 		(target.HoldingQueueID == "" || target.HoldingQueueID != crossed.HoldingQueueID)
 }

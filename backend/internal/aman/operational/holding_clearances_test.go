@@ -9,8 +9,68 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/holdingclearance"
 	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/sequence"
 	"github.com/stretchr/testify/require"
 )
+
+func TestHoldingClearanceRepairReplacesOffersBeforePublishingEAT(t *testing.T) {
+	service, state, now := holdingOrderRepairFixture(aman.FreezeNone)
+	state.PolicyVersion, state.Mode = "test", aman.ModeAuthoritative
+	_, complete, _ := holdingClearanceRefreshFixture(t)
+	for index := range state.Flights {
+		flight := &state.Flights[index]
+		prediction := *complete.Flights[0].Prediction
+		prediction.RawTETA, prediction.OperationalTETA = flight.Prediction.RawTETA, flight.Prediction.OperationalTETA
+		prediction.HoldingFixETA = flight.Prediction.HoldingFixETA
+		prediction.GeneratedAt, prediction.InputObservedAt = now, now
+		flight.Prediction = &prediction
+		observation := *complete.Flights[0].LatestObservation
+		observation.Callsign, observation.ReconciledAt, observation.Surveillance = flight.Callsign, now, nil
+		flight.LatestObservation = &observation
+		flight.DataStatus, flight.UpdatedAt = aman.DataFresh, now
+		flight.HoldingStack.ConsecutiveObservations = 2
+		if flight.FreezeReason != aman.FreezeNone {
+			flight.FrozenAt, flight.FrozenOperationalTETA = &now, &flight.Prediction.OperationalTETA
+		}
+	}
+	// The follower can move from third to second when the holding queue is
+	// repaired. Its existing offer for second then becomes its assigned slot.
+	follower := &state.Flights[1]
+	follower.Slot.Sequence = 3
+	follower.QueueOffers = []aman.QueueOffer{{
+		Callsign: follower.Callsign, RunwayGroupID: follower.Slot.RunwayGroupID,
+		CandidateSlot: aman.Slot{Time: now.Add(23 * time.Minute), RunwayGroupID: follower.Slot.RunwayGroupID, Sequence: 2, Revision: state.Revision, Reason: "rate_wtc"},
+		QueuePosition: 1, ExpiresAt: now.Add(time.Minute), AirportRevision: state.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot,
+	}}
+
+	require.NoError(t, state.Validate(), "the original queue and offer must be valid")
+	repository := &memoryRepository{state: state, has: true}
+	publisher := &recordingPublisher{}
+	clearances, err := holdingclearance.New(holdingclearance.Dependencies{Repository: repository, Publisher: publisher, Planner: service})
+	require.NoError(t, err)
+	altitude := int32(9000)
+	require.NoError(t, clearances.ObserveHoldingClearance(context.Background(), aman.HoldingClearanceFact{
+		Callsign: follower.Callsign, Destination: state.Airport, Hold: "ROSBI", HoldType: aman.HoldingClearanceEnroute,
+		ClearedAltitude: &altitude, ObservedAt: now,
+	}))
+	require.Len(t, publisher.states, 1, "the repaired queue and EAT must be committed and published together")
+	state = publisher.states[0]
+	require.NoError(t, state.Validate())
+
+	require.Equal(t, 2, state.Flights[1].Slot.Sequence)
+	require.Equal(t, now.Add(28*time.Minute), state.Flights[1].Slot.Time)
+	require.Equal(t, now.Add(11*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Empty(t, state.Flights[1].QueueOffers, "the old second-place offer is now the assigned slot")
+	model := holdingclearance.BuildReadModel(state)
+	require.Len(t, model.Entries, 2)
+	require.Empty(t, model.Warnings)
+	for _, entry := range model.Entries {
+		require.NotNil(t, entry.EAT, "queue repair must retain every holding EAT")
+	}
+	want, err := sequence.CalculateQueueOffers(service.sequenceInput(state), sequence.QueueOfferConfig{Validity: queueOfferValidity}, now)
+	require.NoError(t, err)
+	require.Empty(t, want)
+}
 
 func TestHoldingClearancePublishesEATWithoutWaitingForReconciliation(t *testing.T) {
 	service, state, now := holdingClearanceRefreshFixture(t)

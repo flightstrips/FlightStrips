@@ -60,6 +60,6 @@ func prioritizeHeldAircraft(policy preparedPolicy, entries []allocatedEntry) []a
 func holdingExchangeEligible(flight preparedFlight) bool {
 	return flight.HoldingPriorityExchange && flight.FreezeReason == aman.FreezeNone &&
 		flight.ManualOrder == nil && flight.ReleaseRank == nil &&
-		!flight.RebuildRetained && !flight.RebuildTMA &&
+		!flight.RebuildTMA &&
 		(flight.State == aman.StateStable || flight.State == aman.StateUnstable || flight.State == aman.StateAirborne)
 }

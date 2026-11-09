@@ -227,47 +227,95 @@ func TestRebuildRecapturesSuperstableAndCannotCommitOverConcurrentUpdate(t *test
 	require.Equal(t, late.Time, repository.state.Flights[0].Slot.Time)
 }
 
-func TestRebuildRefreshesFrozenTMATimingFromCurrentPositionPrediction(t *testing.T) {
+func TestRebuildAssignsTMAFromNowBeforeOutsideTrafficAndSurvivesReconciliation(t *testing.T) {
+	service, state, now := rebuildApproachStackFixture(t)
+	for i, id := range []aman.Callsign{"TMA1", "TMA2"} {
+		f := state.Flights[0]
+		f.Callsign = id
+		f.HoldingEpisode, f.HoldingStack, f.HoldingClearance, f.HoldingReleaseBasis = nil, nil, nil, nil
+		f.HoldingReleaseReservation, f.ApproachRelease = nil, nil
+		p := *f.Prediction
+		p.RawTETA = now.Add(time.Duration(i+1) * time.Hour)
+		p.OperationalTETA = p.RawTETA
+		f.Prediction = &p
+		old := *f.Slot
+		old.Time = p.RawTETA
+		if i == 0 {
+			// Matching timing alone must not reuse a capture without the
+			// rebuilt-TMA reason needed for the new 90-second cadence.
+			old.Time, old.Sequence, old.Reason = now.Add(90*time.Second), 1, string(sequence.ReasonFreezeTMA)
+			capturedAt := now.Add(-time.Minute)
+			f.FreezeReason, f.FrozenAt = aman.FreezeTMA, &capturedAt
+			f.FrozenOperationalTETA, f.FrozenSlot = &old.Time, &old
+			p.OperationalTETA, p.OperationalReason = old.Time, aman.OperationalReasonTMAFreeze
+		}
+		f.Slot = &old
+		state.Flights = append(state.Flights, f)
+	}
+	state.RunwayGroups[0].SameSTARSpacing = &aman.SameSTARSpacingPolicy{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	mutation, err := service.RebuildArrivalSequence(context.Background(), aman.CommandContext{Role: "EKDK_FMP", ReceivedAt: now}, aman.RebuildArrivalSequenceCommand{Metadata: aman.CommandMetadata{CommandID: "near-tma", ExpectedRevision: state.Revision}})
+	require.NoError(t, err)
+	change, err := mutation(state)
+	require.NoError(t, err)
+	for i := 2; i < 4; i++ {
+		got := change.State.Flights[i]
+		want := now.Add(time.Duration(i-1) * 90 * time.Second)
+		require.Equal(t, want, got.Slot.Time)
+		require.Equal(t, want, got.Prediction.OperationalTETA)
+		require.Equal(t, want, *got.FrozenOperationalTETA)
+		require.Equal(t, aman.FreezeTMA, got.FreezeReason)
+		require.Equal(t, string(sequence.ReasonRebuildTMA), got.FrozenSlot.Reason)
+	}
+	for _, f := range change.State.Flights[:2] {
+		require.True(t, f.Slot.Time.After(now.Add(3*time.Minute)), "outside traffic follows the immediate TMA queue")
+	}
+	var outcome aman.ArrivalSequenceRebuildOutcome
+	require.NoError(t, json.Unmarshal(change.Outcome, &outcome))
+	require.Empty(t, outcome.Diagnostics)
+	require.Equal(t, now, *change.State.Flights[2].FrozenAt, "a changed capture reason requires a new capture")
+	require.Equal(t, string(sequence.ReasonFreezeTMA), state.Flights[2].FrozenSlot.Reason, "the input capture must remain untouched")
+	again, err := mutation(change.State)
+	require.NoError(t, err)
+	require.False(t, again.Changed, "an already rebuilt capture must still support a semantic no-op")
+	candidate, err := sequence.Generate(service.sequenceInput(change.State))
+	require.NoError(t, err)
+	require.False(t, candidate.HasConflicts(), "ordinary sequencing must accept the rebuilt TMA slots")
+	got := change.State
+	service.resequence(&got, now)
+	require.Empty(t, got.RunwayGroups[0].SequenceWarnings, "routine spacing must accept the rebuilt TMA cadence")
+	for i := 2; i < 4; i++ {
+		require.Equal(t, change.State.Flights[i].Slot.Time, got.Flights[i].Slot.Time)
+	}
+	encoded, err := json.Marshal(change.State)
+	require.NoError(t, err)
+	var restored aman.AirportState
+	require.NoError(t, json.Unmarshal(encoded, &restored))
+	service.resequence(&restored, now)
+	require.Empty(t, restored.RunwayGroups[0].SequenceWarnings)
+	require.Equal(t, now.Add(90*time.Second), restored.Flights[2].Slot.Time)
+}
+
+func TestRebuildAssignsTMATimeWithoutAUsablePositionEstimate(t *testing.T) {
 	service, state, now := recomputeFlightFixture(t)
 	f := &state.Flights[0]
-	physicalETA := f.Prediction.RawTETA
-	oldETA, oldAt := now.Add(-5*time.Minute), now.Add(-10*time.Minute)
-	f.FreezeReason = aman.FreezeTMA
-	f.FrozenAt, f.FrozenOperationalTETA = &oldAt, &oldETA
-	f.Prediction.OperationalTETA, f.Prediction.OperationalReason = oldETA, aman.OperationalReasonTMAFreeze
-	f.Slot.Time = oldETA
-	captured := *f.Slot
-	f.FrozenSlot = &captured
-	f.TMAEntry = &aman.TMAEntryState{LastContainment: aman.TMAInside, LastObservedAt: f.Prediction.InputObservedAt, FreezeTriggered: true}
-	// A released aircraft can still lie in the published hold footprint. Its
-	// ended episode must not turn current TMA traffic back into a held aircraft.
-	hold := "OLD-HOLD"
-	started, ended := now.Add(-25*time.Minute), now.Add(-20*time.Minute)
-	f.SelectedHolding = &hold
-	f.HoldingStack = &aman.HoldingStackState{HoldingID: hold, FirstObservedAt: started, CandidateObservedAt: f.Prediction.InputObservedAt, Confirmed: true, ConsecutiveObservations: 2}
-	f.HoldingEpisode = &aman.HoldingEpisode{ID: "ended", HoldingID: hold, Fix: "FIX", StartedAt: &started, Source: "near_fix", EndedAt: &ended}
-	mutation, err := service.RebuildArrivalSequence(context.Background(), aman.CommandContext{Role: "EKDK_FMP", ReceivedAt: now}, aman.RebuildArrivalSequenceCommand{Metadata: aman.CommandMetadata{CommandID: "refresh-tma", ExpectedRevision: state.Revision}})
+	f.Prediction = nil
+	f.DataStatus = aman.DataDisconnected
+	f.LatestObservation.SourceStatus = aman.DataDisconnected
+	wake := "M"
+	f.LatestObservation.WakeCategory = &wake
+	f.TMAEntry = &aman.TMAEntryState{LastContainment: aman.TMAInside, LastObservedAt: now.Add(-10 * time.Minute)}
+	mutation, err := service.RebuildArrivalSequence(context.Background(), aman.CommandContext{Role: "EKDK_FMP", ReceivedAt: now}, aman.RebuildArrivalSequenceCommand{Metadata: aman.CommandMetadata{CommandID: "missing-tma"}})
 	require.NoError(t, err)
 	change, err := mutation(state)
 	require.NoError(t, err)
 	got := change.State.Flights[0]
+	require.Equal(t, now.Add(90*time.Second), got.Slot.Time)
+	require.Equal(t, got.Slot.Time, *got.FrozenOperationalTETA)
+	require.Nil(t, got.Prediction)
 	require.NoError(t, change.State.Validate())
-	require.Equal(t, physicalETA, got.Prediction.OperationalTETA)
-	require.False(t, got.Slot.Time.Before(physicalETA))
-	require.True(t, got.Slot.Time.After(now))
-	require.Equal(t, aman.FreezeTMA, got.FreezeReason)
-	require.Equal(t, got.Slot.Time, got.FrozenSlot.Time)
-	require.Equal(t, physicalETA, *got.FrozenOperationalTETA)
-	require.Equal(t, now, *got.FrozenAt)
-	require.Equal(t, oldETA, state.Flights[0].Slot.Time, "calculation must not mutate its revision-checked input")
-	require.Contains(t, string(change.Audit[0].Payload), "before_capture")
-	require.Len(t, got.RawTETASamples, 1, "routine smoothing must not restore the stale estimate")
-	noOp, err := mutation(change.State)
-	require.NoError(t, err)
-	require.False(t, noOp.Changed)
-	updated, err := service.reconcileFlight(context.Background(), change.State, got, *got.LatestObservation, now)
-	require.NoError(t, err)
-	require.Equal(t, physicalETA, updated.Prediction.OperationalTETA, "routine surveillance must retain the refreshed capture")
+	var outcome aman.ArrivalSequenceRebuildOutcome
+	require.NoError(t, json.Unmarshal(change.Outcome, &outcome))
+	require.Empty(t, outcome.Diagnostics)
 }
 
 func TestRebuildDoesNotPresentExpiredPositionEstimateAsFreshTiming(t *testing.T) {
@@ -287,11 +335,14 @@ func TestRebuildDoesNotPresentExpiredPositionEstimateAsFreshTiming(t *testing.T)
 	require.NoError(t, err)
 	change, err := mutation(state)
 	require.NoError(t, err)
-	require.Equal(t, target, change.State.Flights[0].Slot.Time)
-	require.Equal(t, capturedAt, *change.State.Flights[0].FrozenAt)
+	require.Nil(t, change.State.Flights[0].Slot)
+	require.Nil(t, change.State.Flights[0].FrozenAt)
+	require.Nil(t, change.State.Flights[0].Prediction)
+	require.NoError(t, change.State.Validate())
+	require.Equal(t, target, state.Flights[0].Slot.Time, "input state must remain untouched")
 	var outcome aman.ArrivalSequenceRebuildOutcome
 	require.NoError(t, json.Unmarshal(change.Outcome, &outcome))
-	require.Contains(t, outcome.Diagnostics, aman.RebuildDiagnostic{Code: "current_prediction_unavailable", Callsign: f.Callsign, Message: "A current position-based estimate is unavailable; the existing timing is retained"})
+	require.Contains(t, outcome.Diagnostics, aman.RebuildDiagnostic{Code: "current_prediction_unavailable", Callsign: f.Callsign, Message: "A current position-based estimate is unavailable; no slot is assigned"})
 }
 
 func TestRebuildRetriesStalePredictionFromAvailableCurrentRadar(t *testing.T) {
@@ -311,59 +362,154 @@ func TestRebuildRetriesStalePredictionFromAvailableCurrentRadar(t *testing.T) {
 	require.False(t, got.Slot.Time.Before(physicalETA))
 }
 
-func TestRebuildRetainsDueEATAndReportsOrderConflict(t *testing.T) {
+func TestRebuildDiscardsAllPreviousApproachAdmissions(t *testing.T) {
+	for _, kind := range []string{"future", "due", "observed", "manual"} {
+		t.Run(kind, func(t *testing.T) {
+			service, state, now := rebuildApproachStackFixture(t)
+			f := &state.Flights[0]
+			switch kind {
+			case "due":
+				f.ApproachRelease.ReleaseAt = now.Add(-time.Minute)
+			case "observed":
+				f.ApproachRelease.ReleaseAt = now.Add(-2 * time.Minute)
+				released := now.Add(-time.Minute)
+				f.ApproachRelease.ReleasedAt = &released
+			case "manual":
+				f.FreezeReason = aman.FreezeManual
+				f.FrozenAt = &now
+				f.FrozenSlot = f.Slot
+				f.FrozenOperationalTETA = &f.Prediction.OperationalTETA
+				f.Prediction.OperationalReason = aman.OperationalReasonManualOverride
+			}
+			oldRelease := f.ApproachRelease.ReleaseAt
+			mutation, err := service.RebuildArrivalSequence(context.Background(), aman.CommandContext{Role: "EKDK_FMP", ReceivedAt: now}, aman.RebuildArrivalSequenceCommand{Metadata: aman.CommandMetadata{CommandID: "fresh"}})
+			require.NoError(t, err)
+			change, err := mutation(state)
+			require.NoError(t, err)
+			upper, lower := change.State.Flights[0], change.State.Flights[1]
+			require.NotNil(t, upper.Prediction.HoldingPlan)
+			require.NotEqual(t, oldRelease, upper.Prediction.HoldingPlan.ApproachReleaseTime)
+			require.True(t, lower.Prediction.HoldingPlan.ApproachReleaseTime.Before(upper.Prediction.HoldingPlan.ApproachReleaseTime))
+			require.Nil(t, upper.Prediction.HoldingPlanBlockedBy)
+			require.NotEqual(t, aman.FreezeManual, upper.FreezeReason)
+			if upper.ApproachRelease != nil {
+				require.Nil(t, upper.ApproachRelease.ReleasedAt)
+				require.Equal(t, upper.Prediction.HoldingPlan.ApproachReleaseTime, upper.ApproachRelease.ReleaseAt)
+			}
+			var outcome aman.ArrivalSequenceRebuildOutcome
+			require.NoError(t, json.Unmarshal(change.Outcome, &outcome))
+			require.Empty(t, outcome.Diagnostics)
+			require.Equal(t, oldRelease, state.Flights[0].ApproachRelease.ReleaseAt, "input admissions must remain untouched")
+		})
+	}
+}
+
+func TestRebuildClearsUnavailableReservationsAndOldSpacingWarnings(t *testing.T) {
 	service, state, now := rebuildApproachStackFixture(t)
-	due := now.Add(-time.Minute)
-	state.Flights[0].ApproachRelease.ReleaseAt = due
-	mutation, err := service.RebuildArrivalSequence(context.Background(), aman.CommandContext{Role: "EKDK_FMP", ReceivedAt: now}, aman.RebuildArrivalSequenceCommand{Metadata: aman.CommandMetadata{CommandID: "due"}})
+	f := &state.Flights[0]
+	f.DataStatus = aman.DataDisconnected
+	f.LatestObservation.SourceStatus = aman.DataDisconnected
+	oldAt := now.Add(-time.Hour)
+	f.Prediction.InputObservedAt = oldAt
+	f.RawTETASamples = []aman.RawTETASample{{TETA: f.Prediction.RawTETA, GeneratedAt: oldAt}}
+	order := 1
+	f.ManualOrder = &order
+	f.HoldingReleaseReservation = &aman.HoldingReleaseReservation{CommandID: "old", EpisodeID: f.HoldingEpisode.ID, HoldingID: *f.SelectedHolding, Level: 12000, Rank: 1}
+	f.ApproachRelease.ReleaseAt = now.Add(-time.Minute)
+	state.RunwayGroups[0].SequenceWarnings = []aman.RunwayGroupSequenceWarning{{Code: "protected_same_star_spacing", Callsign: "UPPER", RelatedCallsign: "LOW", STARFamily: "STAR"}}
+	mutation, err := service.RebuildArrivalSequence(context.Background(), aman.CommandContext{Role: "EKDK_FMP", ReceivedAt: now}, aman.RebuildArrivalSequenceCommand{Metadata: aman.CommandMetadata{CommandID: "clear"}})
 	require.NoError(t, err)
 	change, err := mutation(state)
 	require.NoError(t, err)
-	upper := change.State.Flights[0]
-	require.NotNil(t, upper.ApproachRelease)
-	require.Equal(t, due, upper.ApproachRelease.ReleaseAt, "a due capacity commitment cannot be recalled")
-	require.NotNil(t, upper.Prediction.HoldingPlan)
-	require.Equal(t, due, upper.Prediction.HoldingPlan.ApproachReleaseTime, "a due EAT must remain visible despite a release-order conflict")
-	require.Equal(t, aman.Callsign("LOW"), *upper.Prediction.HoldingPlanBlockedBy)
-	var outcome aman.ArrivalSequenceRebuildOutcome
-	require.NoError(t, json.Unmarshal(change.Outcome, &outcome))
-	found := false
-	for _, d := range outcome.Diagnostics {
-		if d.Code == "holding_release_order_conflict" && d.Callsign == "UPPER" {
-			found = true
-		}
-	}
-	require.True(t, found, "the retained admission exception must be reported")
+	got := change.State.Flights[0]
+	require.Nil(t, got.Slot)
+	require.Nil(t, got.Order)
+	require.Nil(t, got.ManualOrder)
+	require.Nil(t, got.ApproachRelease)
+	require.Nil(t, got.HoldingReleaseReservation)
+	require.Nil(t, got.Prediction)
+	require.Empty(t, got.RawTETASamples)
+	require.Empty(t, change.State.RunwayGroups[0].SequenceWarnings)
+	require.NotNil(t, change.State.Flights[1].Slot)
+	require.NotNil(t, state.Flights[0].Slot)
+	require.Len(t, state.RunwayGroups[0].SequenceWarnings, 1, "the revision-checked input must not change")
 }
 
-func TestRebuildResetsOnlyFutureAutomaticApproachOffers(t *testing.T) {
-	for _, kind := range []string{"future", "manual", "unavailable", "due", "observed"} {
-		t.Run(kind, func(t *testing.T) {
-			_, state, now := rebuildApproachStackFixture(t)
-			f := state.Flights[0]
-			input := sequence.Flight{Callsign: f.Callsign}
-			switch kind {
-			case "manual":
-				input.FreezeReason = aman.FreezeManual
-			case "unavailable":
-				input.RebuildRetained = true
-			case "due":
-				f.ApproachRelease.ReleaseAt = now
-			case "observed":
-				at := f.ApproachRelease.ReleaseAt.Add(time.Second)
-				f.ApproachRelease.ReleasedAt = &at
-			}
-			old := f.ApproachRelease
-			plan := f.Prediction.HoldingPlan
-			resetRebuiltApproachRelease(&f, input, now)
-			if kind == "future" {
-				require.Nil(t, f.ApproachRelease)
-				require.Nil(t, f.Prediction.HoldingPlan)
-				require.NotNil(t, state.Flights[0].Prediction.HoldingPlan, "candidate preparation must not mutate the source")
-			} else {
-				require.Equal(t, old, f.ApproachRelease)
-				require.Equal(t, plan, f.Prediction.HoldingPlan)
-			}
-		})
+func TestRebuildPreservesPhysicalFeederEvidenceAndClearsTimingOverrides(t *testing.T) {
+	for _, inTMA := range []bool{false, true} {
+		for _, kind := range []string{"route", "passed", "manual with derived route", "legacy route", "manual only", "holding only"} {
+			t.Run(fmt.Sprintf("tma=%t/%s", inTMA, kind), func(t *testing.T) {
+				service, state, now := recomputeFlightFixture(t)
+				f := &state.Flights[0]
+				family, fix := "TESPI", "TNO"
+				f.SelectedSTARFamily, f.SelectedFeederFix = &family, &fix
+				progress := *f.RouteProgress
+				progress.TerminalDigest = "current-terminal"
+				f.RouteProgress = &progress
+				if inTMA {
+					f.TMAEntry = &aman.TMAEntryState{LastContainment: aman.TMAInside, LastObservedAt: now}
+				}
+				routeETA, manualETA := now.Add(2*time.Minute), now.Add(time.Hour)
+				route := &aman.FeederETAState{Source: aman.FeederETASourceRoute, ETA: &routeETA}
+				var want *aman.FeederETAState
+				switch kind {
+				case "route":
+					f.FeederETA, f.DerivedFeederETA, want = route, route, route
+				case "passed":
+					passed := &aman.FeederETAState{Source: aman.FeederETASourcePassed, Passed: true}
+					f.FeederETA, f.DerivedFeederETA, want = passed, passed, passed
+					f.Prediction.Calculation = &aman.PredictionCalculation{
+						NoWindDuration: time.Minute, Duration: time.Minute,
+						Legs: []aman.PredictionLeg{{ID: "final", From: fix, To: "RUNWAY", DistanceNM: 5, Duration: time.Minute}},
+					}
+				case "manual with derived route":
+					f.FeederETA = &aman.FeederETAState{Source: aman.FeederETASourceManual, ETA: &manualETA}
+					f.DerivedFeederETA, want = route, route
+				case "legacy route":
+					f.FeederETA, f.DerivedFeederETA, want = route, nil, route
+				case "manual only":
+					f.FeederETA = &aman.FeederETAState{Source: aman.FeederETASourceManual, ETA: &manualETA}
+					f.DerivedFeederETA = nil
+				case "holding only":
+					held := &aman.FeederETAState{Source: aman.FeederETASourceHolding, ETA: &manualETA}
+					f.FeederETA, f.DerivedFeederETA = held, held
+				}
+				beforeProgress := sequenceSTARProgress(*f)
+				if want != nil {
+					require.NotNil(t, beforeProgress)
+				}
+				original, err := json.Marshal(state)
+				require.NoError(t, err)
+				mutation, err := service.RebuildArrivalSequence(context.Background(), aman.CommandContext{Role: "EKDK_FMP", ReceivedAt: now}, aman.RebuildArrivalSequenceCommand{Metadata: aman.CommandMetadata{CommandID: "feeder"}})
+				require.NoError(t, err)
+				change, err := mutation(state)
+				require.NoError(t, err)
+				got := change.State.Flights[0]
+				require.Equal(t, want, got.FeederETA)
+				require.Equal(t, want, got.DerivedFeederETA)
+				require.Equal(t, beforeProgress, sequenceSTARProgress(got))
+				require.NoError(t, change.State.Validate())
+				after, err := json.Marshal(state)
+				require.NoError(t, err)
+				require.JSONEq(t, string(original), string(after), "rebuild must not mutate the source evidence")
+			})
+		}
 	}
+}
+
+func TestRebuildKeepsFeederETAFromRetriedPrediction(t *testing.T) {
+	service, state, now := recomputeFlightFixture(t)
+	f := &state.Flights[0]
+	want := cloneFeederETA(f.DerivedFeederETA)
+	require.NotNil(t, want)
+	f.FeederETA, f.DerivedFeederETA = nil, nil
+	f.Prediction.InputObservedAt = now.Add(-10 * time.Minute)
+	mutation, err := service.RebuildArrivalSequence(context.Background(), aman.CommandContext{Role: "EKDK_FMP", ReceivedAt: now}, aman.RebuildArrivalSequenceCommand{Metadata: aman.CommandMetadata{CommandID: "retry-feeder"}})
+	require.NoError(t, err)
+	change, err := mutation(state)
+	require.NoError(t, err)
+	got := change.State.Flights[0]
+	require.Equal(t, *got.LatestObservation.Surveillance.ObservedAt, got.Prediction.InputObservedAt)
+	require.Equal(t, want, got.FeederETA)
+	require.Equal(t, want, got.DerivedFeederETA)
 }

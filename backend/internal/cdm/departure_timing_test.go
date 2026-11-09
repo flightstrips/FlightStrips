@@ -352,6 +352,49 @@ func TestViffExportUsesProposalAndReceivedCtotReason(t *testing.T) {
 	}))
 }
 
+func TestViffProposalDoesNotInheritAssignedNetworkCtot(t *testing.T) {
+	for _, source := range []string{models.CtotSourceATFCM, models.CtotSourceManual} {
+		t.Run(source, func(t *testing.T) {
+			now := time.Date(2026, 11, 9, 19, 32, 0, 0, time.UTC)
+			stored := &models.CdmData{
+				Tobt: stringPtr("1908"), Tsat: stringPtr("193500"), Ttot: stringPtr("194800"),
+				Ctot: stringPtr("1950"), CtotSource: stringPtr(source),
+				EcfmpID:     stringPtr("ED-YYHOLJEV-O"),
+				Recalculate: true, RecalculationMode: models.CdmRecalculationRequired,
+			}
+			flight := func() *models.Strip {
+				return &models.Strip{Callsign: "EWG4TX", Origin: "EKCH", Runway: stringPtr("04R"), EuroscopeSeenAt: &now, CdmData: stored.Clone()}
+			}
+			repo := &testutil.MockStripRepository{
+				ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) { return []*models.Strip{flight()}, nil },
+				SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+					stored = data.Clone()
+					return 1, nil
+				},
+			}
+			config := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+			config.configs["EKCH"] = &CdmAirportConfig{Airport: "EKCH", DefaultTaxiMinutes: 13, DefaultRate: 30}
+			sequence := newTestSequenceService(repo, milestoneTestSessions(), config, nil, nil)
+			sequence.now = func() time.Time { return now }
+			require.NoError(t, sequence.RecalculateAirport(context.Background(), 1267, "EKCH"))
+			require.Equal(t, "1908", valueOrEmpty(stored.Tobt), "proposal calculation must not change the recorded TOBT")
+			require.Equal(t, "193700", valueOrEmpty(stored.Tsat), "the effective assignment still respects CTOT without expiring on TOBT")
+			require.Equal(t, "195000", valueOrEmpty(stored.Ttot))
+			state, ok := buildViffPushState("EWG4TX", flight(), stored)
+			require.True(t, ok)
+			require.Equal(t, "1950", state.Params.Ctot)
+			require.Equal(t, "ED-YYHOLJEV-O", state.Params.Reason, "vIFF must receive the CTOT reason alongside the proposal")
+			if source == models.CtotSourceManual {
+				require.Equal(t, "193700", state.Params.Tsat, "manual CTOT remains an authoritative proposal constraint")
+				require.Equal(t, "195000", state.Params.Ttot)
+			} else {
+				require.Equal(t, "193200", state.Params.Tsat, "the proposal must not inherit the prior CTOT through assigned TSAT")
+				require.Equal(t, "194500", state.Params.Ttot)
+			}
+		})
+	}
+}
+
 func TestViffExportUsesPluginDepartureInfoAndAsrtFormat(t *testing.T) {
 	tobt, tsat, ttot, asrt := "1200", "120500", "121500", "120300"
 	strip := &models.Strip{Runway: testStringPtr("22R"), Sid: testStringPtr("MIKLA1A")}

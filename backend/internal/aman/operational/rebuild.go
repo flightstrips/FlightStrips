@@ -16,8 +16,14 @@ func (s *Service) RebuildArrivalSequence(ctx context.Context, auth aman.CommandC
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
 		before := state
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		state.RunwayGroups = append([]aman.RunwayGroupPolicy(nil), state.RunwayGroups...)
+		setProtectedSameSTARWarnings(state.RunwayGroups, nil)
+		state.ReleaseBuffer = nil
+		diagnostics := []aman.RebuildDiagnostic{}
+		tma := make(map[aman.Callsign]bool)
 		for i := range state.Flights {
 			f := &state.Flights[i]
+			resetRebuiltTiming(f)
 			// Retry the physical calculation when radar is current but the last
 			// prediction failed or predates that position. Existing current raw
 			// estimates need no extra route/wind request.
@@ -45,27 +51,51 @@ func (s *Service) RebuildArrivalSequence(ctx context.Context, auth aman.CommandC
 					f.HoldingEpisode = &aman.HoldingEpisode{ID: aman.HoldingEpisodeID(f.Callsign, *f.SelectedHolding, at), HoldingID: *f.SelectedHolding, Fix: fix, StartedAt: &at, Source: source}
 				}
 			}
+			resetRebuiltTiming(f)
+			tma[f.Callsign] = rebuildTMATraffic(*f, auth.ReceivedAt)
+			if !tma[f.Callsign] && f.State != aman.StatePlanned && f.State != aman.StateLanded && f.State != aman.StateRemoved && f.SequenceDisposition.Participates() &&
+				(retainedTimingUnavailable(*f) || !currentRebuildPrediction(*f, auth.ReceivedAt) || f.Prediction.RawTETA.IsZero()) {
+				f.Prediction = nil
+				diagnostics = append(diagnostics, aman.RebuildDiagnostic{Code: "current_prediction_unavailable", Callsign: f.Callsign, Message: "A current position-based estimate is unavailable; no slot is assigned"})
+			}
 		}
 		input := s.sequenceInput(state)
-		diagnostics := []aman.RebuildDiagnostic{}
+		included := make(map[aman.Callsign]bool)
+		for i := range input.Flights {
+			f := &input.Flights[i]
+			f.RebuildTMA = tma[f.Callsign]
+			included[f.Callsign] = true
+		}
+		// TMA traffic gets an immediate landing queue even when its old
+		// prediction is missing. No old ETA is needed to reserve these slots.
+		for _, f := range state.Flights {
+			if !tma[f.Callsign] || included[f.Callsign] || !f.SequenceDisposition.Participates() || f.SelectedRunwayGroup == nil ||
+				f.State == aman.StatePlanned || f.State == aman.StateLanded || f.State == aman.StateRemoved {
+				continue
+			}
+			wake := ""
+			if f.LatestObservation != nil {
+				wake = stringValue(f.LatestObservation.WakeCategory)
+			}
+			input.Flights = append(input.Flights, sequence.Flight{Callsign: f.Callsign, RunwayGroupID: *f.SelectedRunwayGroup, State: f.State,
+				OperationalTETA: auth.ReceivedAt, WakeCategory: sequence.WakeCategory(wake), STARFamily: f.STARFamilyIdentity(), RebuildTMA: true})
+		}
 		for i := range input.Flights {
 			f := &input.Flights[i]
 			source := state.Flights[flightIndex(state.Flights, f.Callsign)]
-			f.RebuildTMA = source.TMAEntry != nil && source.TMAEntry.LastContainment == aman.TMAInside &&
-				!source.TMAEntry.LastObservedAt.After(auth.ReceivedAt) && auth.ReceivedAt.Sub(source.TMAEntry.LastObservedAt) <= tmaSurveillanceFresh
-			f.RebuildRetained = retainedTimingUnavailable(source) || source.Prediction != nil && source.Prediction.OperationalReason == aman.OperationalReasonManualOverride
-			if retainedTimingUnavailable(source) || !currentRebuildPrediction(source, auth.ReceivedAt) {
-				f.RebuildRetained = true
-				diagnostics = append(diagnostics, aman.RebuildDiagnostic{Code: "current_prediction_unavailable", Callsign: source.Callsign, Message: "A current position-based estimate is unavailable; the existing timing is retained"})
-			}
-			if !f.RebuildRetained && source.FreezeReason != aman.FreezeManual {
-				// Surveillance continues updating RawTETA during automatic freezes.
-				// An explicit rebuild uses that current physical estimate directly,
-				// bypassing the old capture and routine smoothing limits.
-				f.OperationalTETA = source.Prediction.RawTETA
-				if floor := auth.ReceivedAt.Add(time.Second); floor.After(f.OperationalTETA) {
-					f.OperationalTETA = floor
+			if f.RebuildTMA {
+				f.OperationalTETA = auth.ReceivedAt
+				if source.Prediction != nil && currentRebuildPrediction(source, auth.ReceivedAt) && !source.Prediction.RawTETA.IsZero() {
+					// Physical estimates order the TMA queue, never delay its slots.
+					f.OperationalTETA = source.Prediction.RawTETA
 				}
+				f.SlotNotBefore, f.PromotionNotBefore = nil, nil
+				continue
+			}
+			// Rebuild from physical timing, without smoothing or prior captures.
+			f.OperationalTETA = source.Prediction.RawTETA
+			if floor := auth.ReceivedAt.Add(time.Second); floor.After(f.OperationalTETA) {
+				f.OperationalTETA = floor
 			}
 			if e := aman.ActiveHoldingEpisode(source); e != nil {
 				f.HoldingStartedAt = e.StartedAt
@@ -83,16 +113,13 @@ func (s *Service) RebuildArrivalSequence(ctx context.Context, auth aman.CommandC
 				// cannot keep reserving a stack through its geometric footprint.
 				f.HoldingStackID = ""
 			}
-			// Aircraft still holding are in the stack queue even if the published
-			// holding pattern lies inside the TMA volume.
-			f.RebuildTMA = f.RebuildTMA && f.HoldingStartedAt == nil
-			if !f.RebuildRetained && source.FreezeReason != aman.FreezeManual && (f.HoldingStartedAt == nil || activeHoldingReleaseBasis(source) == nil) {
+			if f.HoldingStartedAt == nil || activeHoldingReleaseBasis(source) == nil {
 				earliest := f.OperationalTETA
 				if floor := auth.ReceivedAt.Add(time.Second); floor.After(earliest) {
 					earliest = floor
 				}
 				f.SlotNotBefore = &earliest
-			} else if !f.RebuildRetained && source.FreezeReason != aman.FreezeManual && source.Prediction.HoldingFixETA != nil {
+			} else if source.Prediction.HoldingFixETA != nil {
 				// A holding aircraft on an outbound leg cannot start the published
 				// fix-to-runway journey before it can reach the fix again.
 				earliest := source.Prediction.HoldingFixETA.Add(f.HoldingTransit)
@@ -106,21 +133,15 @@ func (s *Service) RebuildArrivalSequence(ctx context.Context, auth aman.CommandC
 			return sequence.CommandChange{}, err
 		}
 		decision.Outcome.Diagnostics = append(decision.Outcome.Diagnostics, diagnostics...)
-		for i := range state.Flights {
-			ranked := inputFor(decision.Input, state.Flights[i].Callsign)
-			if ranked.Callsign != "" {
-				resetRebuiltApproachRelease(&state.Flights[i], ranked, auth.ReceivedAt)
-			}
-		}
 		state = s.applyDecision(state, decision.Decision)
 		for i := range state.Flights {
 			f := &state.Flights[i]
 			old := before.Flights[i]
-			if f.Slot != nil && old.Slot != nil && f.Slot.Time.Equal(old.Slot.Time) && f.Slot.Sequence == old.Slot.Sequence && f.Slot.RunwayGroupID == old.Slot.RunwayGroupID {
+			if f.Slot != nil && old.Slot != nil && f.Slot.Time.Equal(old.Slot.Time) && f.Slot.Sequence == old.Slot.Sequence && f.Slot.RunwayGroupID == old.Slot.RunwayGroupID && f.Slot.Reason == old.Slot.Reason {
 				f.Slot = old.Slot
 			}
 			ranked := inputFor(decision.Input, f.Callsign)
-			if !ranked.RebuildRetained && ranked.FreezeReason != aman.FreezeManual && f.Prediction != nil && f.Slot != nil {
+			if ranked.Callsign != "" && f.Slot != nil {
 				for _, entry := range decision.Candidate.Entries {
 					if entry.Callsign == f.Callsign {
 						refreshRebuiltTiming(f, old, ranked, entry.OperationalTETA, auth.ReceivedAt)
@@ -164,14 +185,6 @@ func (s *Service) RebuildArrivalSequence(ctx context.Context, auth aman.CommandC
 			}
 		}
 		s.refreshHoldingPlans(&state)
-		for _, f := range state.Flights {
-			if r := f.ApproachRelease; r != nil && (r.ReleasedAt != nil || !r.ReleaseAt.After(auth.ReceivedAt)) {
-				decision.Outcome.Diagnostics = append(decision.Outcome.Diagnostics, aman.RebuildDiagnostic{Code: "approach_admission_retained", Callsign: f.Callsign, Message: "A due or observed approach admission remains capacity-consuming; its accepted EAT is retained while the landing estimate is refreshed"})
-			}
-			if f.Prediction != nil && f.Prediction.HoldingPlanBlockedBy != nil {
-				decision.Outcome.Diagnostics = append(decision.Outcome.Diagnostics, aman.RebuildDiagnostic{Code: "holding_release_order_conflict", Callsign: f.Callsign, Blocker: f.Prediction.HoldingPlanBlockedBy, Message: "Retained slot conflicts with the preferred holding release order; the calculated EAT remains available"})
-			}
-		}
 		changed := !statesEqual(before, state)
 		if changed {
 			for i := range state.Flights {
@@ -214,6 +227,15 @@ func (s *Service) RebuildArrivalSequence(ctx context.Context, auth aman.CommandC
 	}, nil
 }
 
+// Aircraft already in approach receive the immediate TMA landing queue.
+// A published holding pattern can lie inside the TMA; actual holding evidence
+// keeps those aircraft in the rebuild's release queue.
+func rebuildTMATraffic(f aman.AMANFlight, at time.Time) bool {
+	return f.TMAEntry != nil && f.TMAEntry.LastContainment == aman.TMAInside &&
+		!f.TMAEntry.LastObservedAt.After(at) &&
+		aman.ActiveHoldingEpisode(f) == nil && aman.ConfirmedActiveHoldingSince(f) == nil
+}
+
 func inputFor(input sequence.Input, id aman.Callsign) sequence.Flight {
 	for _, f := range input.Flights {
 		if f.Callsign == id {
@@ -240,7 +262,7 @@ func currentRebuildPrediction(flight aman.AMANFlight, now time.Time) bool {
 }
 
 func canRefreshRebuildPrediction(flight aman.AMANFlight, now time.Time) bool {
-	if flight.State == aman.StatePlanned || flight.State == aman.StateLanded || flight.State == aman.StateRemoved || !flight.SequenceDisposition.Participates() || flight.FreezeReason == aman.FreezeManual || flight.Prediction != nil && flight.Prediction.OperationalReason == aman.OperationalReasonManualOverride {
+	if flight.State == aman.StatePlanned || flight.State == aman.StateLanded || flight.State == aman.StateRemoved || !flight.SequenceDisposition.Participates() {
 		return false
 	}
 	o := flight.LatestObservation
@@ -248,7 +270,7 @@ func canRefreshRebuildPrediction(flight aman.AMANFlight, now time.Time) bool {
 }
 
 func refreshRebuiltTiming(flight *aman.AMANFlight, before aman.AMANFlight, input sequence.Flight, estimate time.Time, at time.Time) {
-	if input.ReleaseRank != nil {
+	if input.ReleaseRank != nil || input.RebuildTMA {
 		// The landing estimate now includes the newly allocated holding wait.
 		estimate = flight.Slot.Time
 	}
@@ -259,17 +281,19 @@ func refreshRebuiltTiming(flight *aman.AMANFlight, before aman.AMANFlight, input
 	} else if before.FreezeReason == aman.FreezeSuperstable {
 		freeze, reason = aman.FreezeSuperstable, aman.OperationalReasonSuperstableFreeze
 	}
-	p := *flight.Prediction
-	p.OperationalTETA, p.OperationalReason = estimate, reason
-	flight.Prediction = &p
-	flight.RawTETASamples = []aman.RawTETASample{{TETA: p.RawTETA, GeneratedAt: p.GeneratedAt}}
+	if flight.Prediction != nil {
+		p := *flight.Prediction
+		p.OperationalTETA, p.OperationalReason = estimate, reason
+		flight.Prediction = &p
+		flight.RawTETASamples = []aman.RawTETASample{{TETA: p.RawTETA, GeneratedAt: p.GeneratedAt}}
+	}
 	flight.FreezeReason = freeze
 	if freeze == aman.FreezeNone {
 		return
 	}
-	// Preserve capture provenance for a semantic no-op. A changed ETA alone
-	// requires a fresh capture even if its legal runway slot stays the same.
-	if before.FreezeReason == freeze && before.FrozenOperationalTETA != nil && before.FrozenOperationalTETA.Equal(estimate) && before.FrozenSlot != nil && before.FrozenSlot.Time.Equal(flight.Slot.Time) && before.FrozenSlot.Sequence == flight.Slot.Sequence && before.FrozenSlot.RunwayGroupID == flight.Slot.RunwayGroupID {
+	// Preserve capture provenance only for a semantic no-op. A changed ETA or
+	// slot reason requires a fresh capture even if the landing time is unchanged.
+	if before.FreezeReason == freeze && before.FrozenOperationalTETA != nil && before.FrozenOperationalTETA.Equal(estimate) && before.FrozenSlot != nil && before.FrozenSlot.Time.Equal(flight.Slot.Time) && before.FrozenSlot.Sequence == flight.Slot.Sequence && before.FrozenSlot.RunwayGroupID == flight.Slot.RunwayGroupID && before.FrozenSlot.Reason == flight.Slot.Reason {
 		flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = before.FrozenAt, before.FrozenOperationalTETA, before.FrozenSlot
 		return
 	}
@@ -294,20 +318,27 @@ func invalidateHoldingRebuild(state *aman.AirportState, id aman.Callsign) {
 	}
 }
 
-// Explicit rebuilds replace future automatic offers along with their slots.
-// Due/observed admissions and unavailable/manual timing remain commitments.
-func resetRebuiltApproachRelease(f *aman.AMANFlight, input sequence.Flight, at time.Time) {
-	if input.RebuildRetained || input.FreezeReason == aman.FreezeManual {
-		return
+// resetRebuiltTiming discards the previous plan while keeping observations,
+// routes and physical holding evidence needed to calculate its replacement.
+func resetRebuiltTiming(f *aman.AMANFlight) {
+	f.Slot, f.Order, f.ManualOrder, f.QueueOffers = nil, nil, nil, nil
+	f.FreezeReason, f.FrozenAt, f.FrozenOperationalTETA, f.FrozenSlot = aman.FreezeNone, nil, nil, nil
+	f.HoldingReleaseReservation, f.ApproachRelease, f.RunwayGapException = nil, nil, nil
+	f.ETAReview, f.PredictionFilter, f.RawTETASamples = nil, nil, nil
+	// Route timing and passed-fix facts describe physical progress, not the
+	// discarded plan. Remove manual/holding clocks and expose that evidence.
+	feeder := f.DerivedFeederETA
+	if feeder == nil {
+		feeder = f.FeederETA
 	}
-	if r := f.ApproachRelease; r != nil && (r.ReleasedAt != nil || !r.ReleaseAt.After(at)) {
-		return
+	if feeder != nil && feeder.Source != aman.FeederETASourceRoute && feeder.Source != aman.FeederETASourcePassed {
+		feeder = nil
 	}
-	f.ApproachRelease = nil
+	f.FeederETA = nil
+	applyDerivedFeederETA(f, feeder)
 	if f.Prediction != nil {
 		p := *f.Prediction
-		// applyDecision refreshes holding plans. Do not reconstruct an imminent
-		// legacy offer from the pre-rebuild plan before that refresh happens.
+		p.OperationalTETA, p.OperationalReason = p.RawTETA, aman.OperationalReasonPredicted
 		p.HoldingPlan, p.HoldingPlanBlockedBy = nil, nil
 		f.Prediction = &p
 	}

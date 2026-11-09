@@ -92,7 +92,7 @@ export function AMANAircraftTarget({
   });
   const lifecycle = lifecyclePresentation(flight);
   const retainedGuidance = !guidance.connected || flight.data_status !== "fresh";
-  const guidanceTone = delayTone(delay);
+  const guidanceTone = retainedGuidance ? "text-[#a0a0a0]" : delayTone(delay);
   const guidanceTitle = retainedGuidance ? "Last known gain/lose; awaiting current prediction" : undefined;
 
   return (

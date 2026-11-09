@@ -138,7 +138,6 @@ type Flight struct {
 	ProtectCurrentSlot bool
 	ReleaseRank        *int
 	RebuildTMA         bool
-	RebuildRetained    bool
 	HoldingStartedAt   *time.Time
 }
 
@@ -168,6 +167,7 @@ const (
 	ReasonRateWTC           CandidateReason = "rate_wtc"
 	ReasonFreezeSuperstable CandidateReason = "freeze_superstable"
 	ReasonFreezeTMA         CandidateReason = "freeze_tma"
+	ReasonRebuildTMA        CandidateReason = "rebuild_tma"
 	ReasonFreezeManual      CandidateReason = "freeze_manual"
 	ReasonStable            CandidateReason = "stable"
 	ReasonQueuePromotion    CandidateReason = "queue_promotion"
@@ -940,11 +940,22 @@ func adjacentValid(policy preparedPolicy, leading, trailing allocatedEntry) bool
 	return trailing.time.Sub(leading.time) >= requiredGap(policy, leading.flight, trailing.flight, trailing.time)
 }
 
+const rebuildTMAInterval = 90 * time.Second
+
+func rebuiltTMAFlight(f preparedFlight) bool {
+	return f.FreezeReason == aman.FreezeTMA && f.CapturedSlot != nil && f.CapturedSlot.Reason == string(ReasonRebuildTMA)
+}
+
 func requiredGap(policy preparedPolicy, leading, trailing preparedFlight, trailingAt time.Time) time.Duration {
 	required := spacingRequirements{
 		base:     policy.intervalAt(trailingAt),
 		wake:     policy.fallback,
 		sameSTAR: sameSTARGap(policy, leading, trailing, trailingAt),
+	}
+	if rebuiltTMAFlight(leading) && rebuiltTMAFlight(trailing) {
+		// Preserve an explicit rebuild's immediate TMA queue during routine
+		// reconciliation; holding demand and the intake rate govern outsiders.
+		required.base, required.sameSTAR = rebuildTMAInterval, 0
 	}
 	if leading.known && trailing.known {
 		required.wake = policy.spacing[categoryPair{leading.category, trailing.category}]

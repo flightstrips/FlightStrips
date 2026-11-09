@@ -31,27 +31,17 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 		}
 		if f.HoldingAltitudeFeet == nil || f.HoldingStartedAt == nil || f.HoldingTransit <= 0 {
 			blocked[f.HoldingStackID] = true
-			diagnose("holding_evidence_unavailable", f, "Holding level, entry time or fix-to-runway transit is unavailable; reservations in this hold are retained")
+			diagnose("holding_evidence_unavailable", f, "Holding level, entry time or fix-to-runway transit is unavailable; using current position-based timing")
 		}
 	}
 	for i := range working.Flights {
 		f := &working.Flights[i]
 		f.ManualOrder = nil
 		f.ReleaseRank = nil
-		if !f.RebuildTMA && blocked[f.HoldingStackID] {
-			f.RebuildRetained = true
-		}
-		if !f.RebuildRetained && f.FreezeReason != aman.FreezeManual {
-			f.ProtectCurrentSlot = false
-			if f.FreezeReason == aman.FreezeSuperstable || f.FreezeReason == aman.FreezeTMA {
-				f.FreezeReason = aman.FreezeNone
-				f.FrozenAt = nil
-				f.FrozenOperationalTETA = nil
-				f.CapturedSlot = nil
-			}
-		} else if f.FreezeReason == aman.FreezeNone && f.CurrentSlot != nil {
-			f.ProtectCurrentSlot = true
-		}
+		f.ProtectCurrentSlot = false
+		f.HoldingSlotProtected = false
+		f.FreezeReason = aman.FreezeNone
+		f.FrozenAt, f.FrozenOperationalTETA, f.CapturedSlot = nil, nil, nil
 	}
 	policies, groups, err := prepareInput(working)
 	if err != nil {
@@ -59,50 +49,27 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 	}
 	byID := map[aman.Callsign]preparedFlight{}
 	allocated := map[aman.RunwayGroupID][]allocatedEntry{}
-	tmaLast := map[aman.RunwayGroupID]time.Time{}
-	for group, flights := range groups {
+	for _, flights := range groups {
 		for _, f := range flights {
 			byID[f.Callsign] = f
-			if isRetained(f) {
-				slot := f.CurrentSlot
-				if f.CapturedSlot != nil {
-					slot = f.CapturedSlot
-				}
-				if slot == nil {
-					diagnose("retained_without_slot", f.Flight, "Aircraft cannot be rebuilt without usable timing")
-					continue
-				}
-				_, closed, _ := policies[group].blockingClosure(slot.Time)
-				if closed || policies[group].intervalAt(slot.Time) == 0 {
-					return RebuildDecision{}, invalidTransition("retained slot is incompatible with runway availability")
-				}
-				allocated[group] = append(allocated[group], allocatedEntry{flight: f, time: slot.Time, reason: protectedReason(f)})
-				if f.RebuildTMA && slot.Time.After(tmaLast[group]) {
-					tmaLast[group] = slot.Time
-				}
-			}
-		}
-		sortEntries(allocated[group])
-		for i := 1; i < len(allocated[group]); i++ {
-			if !allocated[group][i].time.Before(at) && !adjacentValid(policies[group], allocated[group][i-1], allocated[group][i]) {
-				return RebuildDecision{}, invalidTransition(fmt.Sprintf("retained reservations %s and %s violate runway separation", allocated[group][i-1].flight.Callsign, allocated[group][i].flight.Callsign))
-			}
 		}
 	}
 	queues := map[string][]preparedFlight{}
 	inbound := []preparedFlight{}
 	tma := []preparedFlight{}
+	tmaLast := map[aman.RunwayGroupID]time.Time{}
 	for _, f := range byID {
-		if f.RebuildTMA && !isRetained(f) {
+		if f.RebuildTMA {
 			tma = append(tma, f)
-		} else if f.HoldingStackID != "" && !blocked[f.HoldingStackID] && !f.RebuildTMA {
+		} else if f.HoldingStackID != "" && !blocked[f.HoldingStackID] {
 			queues[f.HoldingStackID] = append(queues[f.HoldingStackID], f)
-		} else if !isRetained(f) {
+		} else {
 			inbound = append(inbound, f)
 		}
 	}
-	// Current position-based estimates determine TMA order. Old automatic
-	// captures no longer reserve opportunities an aircraft cannot use.
+	// Near-runway traffic must not inherit distant forecasts or old captures.
+	// Start each runway's TMA queue at now + 90 seconds, then use that cadence
+	// (with any longer wake separation) before allocating outside traffic.
 	sort.Slice(tma, func(i, j int) bool {
 		if !tma[i].OperationalTETA.Equal(tma[j].OperationalTETA) {
 			return tma[i].OperationalTETA.Before(tma[j].OperationalTETA)
@@ -110,33 +77,24 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 		return tma[i].Callsign < tma[j].Callsign
 	})
 	for _, f := range tma {
-		lower := at.Add(time.Second)
-		if f.OperationalTETA.After(lower) {
-			lower = f.OperationalTETA
+		policy := policies[f.RunwayGroupID]
+		policy.rates = []RatePoint{{EffectiveAt: at, ArrivalsPerHour: 40}}
+		policy.ContinuousSpacing = true
+		policy.starFamilies = preparedSTARFamilyPolicies{authoritative: true}
+		lower := at.Add(rebuildTMAInterval)
+		if last := tmaLast[f.RunwayGroupID]; !last.IsZero() {
+			lower = last.Add(rebuildTMAInterval)
 		}
-		if tmaLast[f.RunwayGroupID].After(lower) {
-			lower = tmaLast[f.RunwayGroupID]
-		}
-		if f.SlotNotBefore != nil && f.SlotNotBefore.After(lower) {
-			lower = *f.SlotNotBefore
-		}
-		f.SlotNotBefore = &lower
+		f.OperationalTETA, f.SlotNotBefore, f.PromotionNotBefore = lower, &lower, nil
 		f.stableOrder = nil
 		f.HoldingQueueTime, f.ActiveHoldingSince, f.ArrivalQueueTime = nil, nil, nil
-		candidate, err := findCandidate(policies[f.RunwayGroupID], allocated[f.RunwayGroupID], f)
+		candidate, err := findCandidate(policy, allocated[f.RunwayGroupID], f)
 		if err != nil {
 			return RebuildDecision{}, err
 		}
-		allocated[f.RunwayGroupID] = append(allocated[f.RunwayGroupID], allocatedEntry{flight: f, time: candidate, reason: ReasonRateWTC})
+		allocated[f.RunwayGroupID] = append(allocated[f.RunwayGroupID], allocatedEntry{flight: f, time: candidate, reason: ReasonRebuildTMA})
 		sortEntries(allocated[f.RunwayGroupID])
 		tmaLast[f.RunwayGroupID] = candidate
-	}
-	for group, entries := range allocated {
-		for _, e := range entries {
-			if isRetained(e.flight) && !e.flight.RebuildTMA && e.time.Before(tmaLast[group]) {
-				diagnose("protected_tma_priority_exception", e.flight.Flight, "Retained reservation precedes traffic already in the TMA")
-			}
-		}
 	}
 	for id := range queues {
 		sort.Slice(queues[id], func(i, j int) bool {
@@ -170,24 +128,6 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 		index := flightIndex(working.Flights, f.Callsign)
 		working.Flights[index].ReleaseRank = &value
 		outcome.ReleaseOrder = append(outcome.ReleaseOrder, f.Callsign)
-		if isRetained(f) {
-			if f.CurrentSlot != nil {
-				release := f.CurrentSlot.Time.Add(-f.HoldingTransit)
-				if release.Before(globalRelease) || !releases[f.HoldingStackID].IsZero() && release.Before(releases[f.HoldingStackID].Add(time.Minute)) {
-					diagnose("protected_release_exception", f.Flight, "Retained reservation conflicts with the preferred release order; the calculated EAT remains available")
-				}
-				if release.After(globalRelease) {
-					globalRelease = release
-				}
-				if release.After(releases[f.HoldingStackID]) {
-					releases[f.HoldingStackID] = release
-				}
-				if f.CurrentSlot.Time.After(heldLast[f.RunwayGroupID]) {
-					heldLast[f.RunwayGroupID] = f.CurrentSlot.Time
-				}
-			}
-			continue
-		}
 		lower := globalRelease
 		if previous := releases[f.HoldingStackID]; !previous.IsZero() && previous.Add(time.Minute).After(lower) {
 			lower = previous.Add(time.Minute)
@@ -196,8 +136,8 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 		if f.SlotNotBefore != nil && f.SlotNotBefore.After(lower) {
 			lower = *f.SlotNotBefore
 		}
-		if tmaLast[f.RunwayGroupID].After(lower) {
-			lower = tmaLast[f.RunwayGroupID]
+		if last := tmaLast[f.RunwayGroupID]; last.After(lower) {
+			lower = last
 		}
 		f.OperationalTETA = lower
 		f.SlotNotBefore = &lower
@@ -260,7 +200,7 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 	for _, group := range groupIDs {
 		for i := range allocated[group] {
 			f := &allocated[group][i].flight
-			if f.ReleaseRank == nil && !f.RebuildTMA && !isRetained(*f) {
+			if f.ReleaseRank == nil && !f.RebuildTMA {
 				// The initial placement follows held traffic. That administrative
 				// bound must not hide an otherwise reachable cross-stream gap.
 				f.SlotNotBefore = byID[f.Callsign].SlotNotBefore
@@ -268,7 +208,7 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 		}
 		allocated[group] = fillSequenceGaps(policies[group], allocated[group], at)
 		for i, e := range allocated[group] {
-			entry := CandidateEntry{Callsign: e.flight.Callsign, RunwayGroupID: group, Sequence: i + 1, Time: e.time, OperationalTETA: e.flight.OperationalTETA, WakeCategory: e.flight.category, FreezeReason: e.flight.FreezeReason, Protected: isRetained(e.flight), Reason: e.reason}
+			entry := CandidateEntry{Callsign: e.flight.Callsign, RunwayGroupID: group, Sequence: i + 1, Time: e.time, OperationalTETA: e.flight.OperationalTETA, WakeCategory: e.flight.category, FreezeReason: e.flight.FreezeReason, Reason: e.reason}
 			result.Entries = append(result.Entries, entry)
 			if movement := movementFor(e.flight, entry); movement != nil {
 				result.Movements = append(result.Movements, *movement)
@@ -290,8 +230,4 @@ func holdingAgeLess(a, b preparedFlight) bool {
 		return a.HoldingStartedAt.Before(*b.HoldingStartedAt)
 	}
 	return a.Callsign < b.Callsign
-}
-
-func isRetained(f preparedFlight) bool {
-	return f.RebuildRetained || f.FreezeReason != aman.FreezeNone
 }

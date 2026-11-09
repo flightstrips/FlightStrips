@@ -2271,8 +2271,9 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			CapturedSlot: flight.FrozenSlot, CurrentSlot: flight.Slot,
 			ProtectCurrentSlot: flight.Slot != nil && flight.FreezeReason == aman.FreezeNone &&
 				(flight.State == aman.StateStable || holdingSlotProtected(flight) || retainedTimingUnavailable(flight)),
-			HoldingSlotProtected: holdingSlotProtected(flight),
-			HoldingStackID:       holdingStackID(flight), HoldingAltitudeFeet: holdingStackAltitude(flight),
+			HoldingSlotProtected:    holdingSlotProtected(flight),
+			HoldingPriorityExchange: holdingPriorityExchangeEligible(flight),
+			HoldingStackID:          holdingStackID(flight), HoldingAltitudeFeet: holdingStackAltitude(flight),
 			HoldingQueueID: holdingQueueID(flight), HoldingQueueTime: holdingQueueTime(flight, state.Flights), HoldingTransit: holdingTransit(flight),
 			ActiveHoldingSince: activeHoldingSince(flight), ArrivalQueueTime: arrivalQueueTime(flight), ReleaseRank: holdingReleaseRank(flight),
 		})
@@ -2336,6 +2337,13 @@ func retainedTimingUnavailable(flight aman.AMANFlight) bool {
 func holdingSlotProtected(flight aman.AMANFlight) bool {
 	return !isPreliminaryPrediction(flight.Prediction) && flight.Slot != nil && (holdingStackID(flight) != "" ||
 		flight.HoldingClearance != nil && flight.HoldingClearance.HoldType == aman.HoldingClearanceEnroute && strings.TrimSpace(flight.HoldingClearance.Hold) != "")
+}
+
+func holdingPriorityExchangeEligible(flight aman.AMANFlight) bool {
+	return flight.DataStatus == aman.DataFresh && !retainedTimingUnavailable(flight) && !isPreliminaryPrediction(flight.Prediction) &&
+		flight.Prediction.HoldingFixETA != nil && flight.Prediction.OperationalReason != aman.OperationalReasonManualOverride &&
+		flight.FreezeReason == aman.FreezeNone && flight.ManualOrder == nil && flight.ApproachRelease == nil &&
+		(flight.TMAEntry == nil || flight.TMAEntry.LastContainment != aman.TMAInside || activeHoldingSince(flight) != nil)
 }
 
 func manualETASlotPending(flight aman.AMANFlight) bool {

@@ -372,6 +372,11 @@ func stablePromotionEligible(flight preparedFlight) bool {
 
 func promotionLowerBound(policy preparedPolicy, flight preparedFlight, at time.Time) time.Time {
 	lower := flight.OperationalTETA.Add(-policy.EarlyTolerance)
+	if flight.HoldingPriorityExchange && flight.ActiveHoldingSince != nil && flight.PromotionNotBefore != nil {
+		// A delayed operational estimate is not a physical release bound for
+		// confirmed holding. Use the current journey when filling a vacancy.
+		lower = *flight.PromotionNotBefore
+	}
 	if !lower.After(at) {
 		lower = at.Add(time.Nanosecond)
 	}

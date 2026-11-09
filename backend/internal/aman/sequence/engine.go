@@ -126,6 +126,10 @@ type Flight struct {
 	// HoldingSlotProtected retains a controller's holding reservation even
 	// when a position update temporarily loses the confirmed stack footprint.
 	HoldingSlotProtected bool
+	// HoldingPriorityExchange permits fresh automatic reservations to exchange
+	// slots when confirmed holding traffic is behind an aircraft still inbound.
+	// Operational preparation excludes unavailable timing and approach commitments.
+	HoldingPriorityExchange bool
 	// SlotNotBefore is an operational lower bound needed when an earlier
 	// entrant to the same hold lands on a different runway group.
 	SlotNotBefore *time.Time
@@ -244,6 +248,8 @@ func (r Result) HasConflicts() bool {
 
 type preparedPolicy struct {
 	Policy
+	// Set only by the ordered gap-fill search, after preferred arrivals fail.
+	allowInboundGapFill   bool
 	rates                 []RatePoint
 	spacing               map[categoryPair]time.Duration
 	categories            map[WakeCategory]struct{}
@@ -661,6 +667,7 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 	}
 	allocated = optimizeMovableOrder(policy, entries, ordered, allocated)
 	allocated = optimizeStableSameSTAR(policy, allocated)
+	allocated = prioritizeHeldAircraft(policy, allocated)
 	// Validate protected spacing against the final slot order: a Stable
 	// exchange can resolve a conflict present in the captured reservations.
 	entries = nil
@@ -848,7 +855,7 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 			}
 		}
 	}
-	if flight.HoldingQueueTime != nil || flight.ArrivalQueueTime != nil {
+	if flight.HoldingQueueTime != nil || flight.ArrivalQueueTime != nil || flight.ReleaseRank != nil {
 		for _, entry := range entries {
 			older := entry.flight
 			if !policy.holdingPrecedes(older.Flight, flight.Flight) {
@@ -857,8 +864,9 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 			// Holding admission can be discovered after both targets have been
 			// committed. An earlier vacancy keeps that established order; do not
 			// impose the opposite holding order retroactively and deadlock both
-			// aircraft. New/unprotected arrivals still follow the occupied hold.
-			if flight.stableOrder != nil && flight.CurrentSlot != nil && older.CurrentSlot != nil &&
+			// aircraft. Fresh automatic inbound timing must follow the occupied
+			// hold rather than turn its earlier reservation into a queue jump.
+			if !flight.HoldingPriorityExchange && flight.stableOrder != nil && flight.CurrentSlot != nil && older.CurrentSlot != nil &&
 				candidate.Before(flight.CurrentSlot.Time) && flight.CurrentSlot.Time.Before(older.CurrentSlot.Time) &&
 				flight.CurrentSlot.Sequence < older.CurrentSlot.Sequence {
 				continue
@@ -897,7 +905,10 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 // HoldingPrecedes prevents later arrivals from passing traffic already holding
 // on the same runway, including traffic at a different holding fix.
 func (p preparedPolicy) holdingPrecedes(older, later Flight) bool {
-	if p.AllowCrossFeederOvertake && older.HoldingQueueID != later.HoldingQueueID {
+	if older.ReleaseRank != nil && later.ReleaseRank != nil {
+		return HoldingPrecedes(older, later)
+	}
+	if p.AllowCrossFeederOvertake && older.HoldingQueueID != later.HoldingQueueID && (later.ActiveHoldingSince != nil || p.allowInboundGapFill) {
 		return false
 	}
 	return HoldingPrecedes(older, later)

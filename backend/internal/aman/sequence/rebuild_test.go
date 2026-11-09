@@ -44,6 +44,32 @@ func TestRebuildFillsSTARSpacingGapWithoutCreatingManualOrders(t *testing.T) {
 	}
 }
 
+func TestRebuildUsesInboundWhenHoldingCannotUseGap(t *testing.T) {
+	input, at := rebuildTestInput()
+	input.Policies = input.Policies[:1]
+	input.Policies[0].AllowCrossFeederOvertake = true
+	input.Policies[0].SameSTARSpacing = SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	lead := rebuildHeld("LEAD", "A", "ERNOV", 10000, 20, at, 10*time.Minute)
+	tail := rebuildHeld("SAS891", "A", "ERNOV", 12000, 10, at, 10*time.Minute)
+	lead.STARFamily, tail.STARFamily = "ERNOV", "ERNOV"
+	lead.ActiveHoldingSince = lead.HoldingStartedAt
+	bound := at.Add(60 * time.Minute)
+	tail.SlotNotBefore = &bound
+	physical := at.Add(20 * time.Minute)
+	inbound := Flight{Callsign: "AUA460", RunwayGroupID: "A", State: aman.StateUnstable, FreezeReason: aman.FreezeNone,
+		OperationalTETA: physical, PromotionNotBefore: &physical, WakeCategory: "M", STARFamily: "MONAK"}
+	input.Flights = []Flight{lead, tail, inbound}
+	decision, err := ApplyArrivalSequenceRebuild(input, at)
+	require.NoError(t, err)
+	byID := map[aman.Callsign]CandidateEntry{}
+	for _, entry := range decision.Candidate.Entries {
+		byID[entry.Callsign] = entry
+	}
+	require.Equal(t, bound, byID["SAS891"].Time)
+	require.Equal(t, physical, byID["AUA460"].Time,
+		"inbound may fill the unused gap after the held aircraft's physical lower bound prevents an earlier slot")
+}
+
 func rebuildHeld(id aman.Callsign, group aman.RunwayGroupID, hold string, level, minutes int, at time.Time, transit time.Duration) Flight {
 	started := at.Add(-time.Duration(minutes) * time.Minute)
 	return Flight{Callsign: id, RunwayGroupID: group, State: aman.StateStable, FreezeReason: aman.FreezeNone, OperationalTETA: at.Add(30 * time.Minute), WakeCategory: "M", HoldingStackID: hold, HoldingQueueID: hold, HoldingAltitudeFeet: &level, HoldingStartedAt: &started, HoldingTransit: transit, ProtectCurrentSlot: true, CurrentSlot: &aman.Slot{Time: at.Add(30 * time.Minute), RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "stable"}}

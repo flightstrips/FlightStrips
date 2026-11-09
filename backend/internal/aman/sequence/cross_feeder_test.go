@@ -29,6 +29,7 @@ func TestCrossFeederOvertakeUsesSameSTARGapWithoutMovingProtectedSlots(t *testin
 	incoming.STARFamily = "TESPI"
 	incoming.HoldingQueueID = "HOLD-B"
 	incoming.ArrivalQueueTime = &later
+	incoming.ActiveHoldingSince = &later
 	input := sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{first, second, incoming}}
 	out, err := sequence.Generate(input)
 	require.NoError(t, err)

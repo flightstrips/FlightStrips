@@ -99,7 +99,7 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 
 func gapFillEligible(flight preparedFlight) bool {
 	return flight.STARFamily != "" && flight.ManualOrder == nil && flight.ReleaseRank == nil &&
-		!flight.RebuildRetained && !flight.RebuildTMA && flight.PromotionNotBefore != nil &&
+		!flight.RebuildTMA && flight.PromotionNotBefore != nil &&
 		(flight.FreezeReason == aman.FreezeNone || flight.FreezeReason == aman.FreezeSuperstable) &&
 		(flight.State == aman.StateStable || flight.State == aman.StateUnstable || flight.State == aman.StateAirborne)
 }
@@ -107,6 +107,6 @@ func gapFillEligible(flight preparedFlight) bool {
 func canPassForSTARGap(target, crossed preparedFlight) bool {
 	return crossed.ManualOrder == nil && crossed.STARFamily != "" && crossed.STARFamily != target.STARFamily &&
 		(crossed.FreezeReason == aman.FreezeNone || crossed.FreezeReason == aman.FreezeSuperstable) &&
-		!crossed.RebuildRetained && !crossed.RebuildTMA &&
+		!crossed.RebuildTMA &&
 		(target.HoldingQueueID == "" || target.HoldingQueueID != crossed.HoldingQueueID)
 }

@@ -110,6 +110,22 @@ func TestGeometryUsesSelectedTerminal(t *testing.T) {
 	}
 }
 
+func TestGeometryUsesDownstreamTNOEntryWithoutTESPI(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	tno := navdata.FixID("TNO")
+	q.TerminalEntry = &tno
+	q.FiledRoute = "AAL M725 ADSEN DCT TNO"
+	refs.snapshot.Fixes = append(refs.snapshot.Fixes, navdata.Fix{ID: tno, Position: navdata.Coordinate{LatitudeDeg: 55.8, LongitudeDeg: 12}})
+	f.Path[3] = testPoint("TNO", 55.8, 12)
+
+	g, err := geometry(q, f, refs.snapshot, now)
+
+	require.NoError(t, err)
+	require.NoError(t, g.Validate())
+	require.Len(t, g.Legs, 3)
+	require.Equal(t, tno, *g.Legs[2].ToFix)
+}
+
 func TestRejectsUnusableOrMismatchedPaths(t *testing.T) {
 	cases := []struct {
 		name string

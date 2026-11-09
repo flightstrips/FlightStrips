@@ -43,6 +43,35 @@ func TestFlightBasedRoutesRefreshPeriodicallyAndPassFlightIdentity(t *testing.T)
 	require.Equal(t, 2, cache.calls)
 }
 
+func TestFlightBasedRouteJoinsTESPIAtFiledTNOEndpoint(t *testing.T) {
+	s, state, now := recomputeFlightFixture(t)
+	geometry := s.deps.Geometry.(terminalIdentityGeometry)
+	tno, after := navdata.FixID("TNO"), navdata.FixID("AFTER")
+	geometry.route.Legs[0].ToFix = &tno
+	geometry.path.Legs = append(geometry.path.Legs, navdata.ProcedureLeg{ID: "TNO-ONWARD", PathTerminator: navdata.PathTF, FromFix: &tno, ToFix: &after})
+	geometry.fixes = append(geometry.fixes, navdata.Fix{ID: after, Position: navdata.Coordinate{LatitudeDeg: 55.3, LongitudeDeg: 12.3}})
+	s.deps.Terminal.Paths[0].Fixes = []navdata.FixID{"TESPI", tno, after}
+	cache := &amendmentRouteCache{terminalIdentityGeometry: geometry}
+	source := &bulkRefreshMaterializer{cache}
+	s.deps.Geometry, s.deps.Materializer = source, source
+	obs := *state.Flights[0].LatestObservation
+	obs.Callsign = "ICE212"
+	obs.FiledRoute = stringPointer("AAL M725 ADSEN DCT TNO")
+
+	f, err := s.reconcileFlight(t.Context(), state, newFlight(obs, now), obs, now)
+
+	require.NoError(t, err)
+	require.Len(t, cache.queries, 1)
+	require.NotNil(t, cache.queries[0].TerminalEntry)
+	require.Equal(t, tno, *cache.queries[0].TerminalEntry)
+	require.Equal(t, "TESPI", *f.SelectedSTARFamily)
+	require.Equal(t, "TNO", *f.SelectedFeederFix)
+	require.NotNil(t, f.Prediction)
+	require.True(t, f.Prediction.Publishable)
+	require.Equal(t, []string{"TNO", "AFTER"}, f.Prediction.RemainingRouteFixes)
+	require.True(t, f.Prediction.OperationalTETA.After(now))
+}
+
 func TestFlightBasedSourceRejectsAmendmentEvenWithoutRevisionChange(t *testing.T) {
 	s, state, now := recomputeFlightFixture(t)
 	cache := &amendmentRouteCache{terminalIdentityGeometry: s.deps.Geometry.(terminalIdentityGeometry), failure: errors.New("vIFF has not processed amendment")}

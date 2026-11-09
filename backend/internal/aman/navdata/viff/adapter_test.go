@@ -110,6 +110,90 @@ func TestGeometryUsesSelectedTerminal(t *testing.T) {
 	}
 }
 
+func TestGeometryRemovesQualifiersFromAllWaypointNames(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	want, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	f.Path[1].Name = "FIRST(XX)"
+	f.Path[2].Name = " mid(ar2) "
+	f.Path[3].Name = "TESPI(AR2)"
+	raw, err := json.Marshal(f)
+	require.NoError(t, err)
+
+	got, err := geometry(q, f, refs.snapshot, now)
+
+	require.NoError(t, err)
+	require.NoError(t, got.Validate())
+	require.Equal(t, want.Legs, got.Legs)
+	require.Equal(t, want.Digest, got.Digest)
+	after, err := json.Marshal(f)
+	require.NoError(t, err)
+	require.JSONEq(t, string(raw), string(after))
+}
+
+func TestGeometryUsesDownstreamTNOEntryWithoutTESPI(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	tno := navdata.FixID("TNO")
+	q.TerminalEntry = &tno
+	q.FiledRoute = "AAL M725 ADSEN DCT TNO"
+	refs.snapshot.Fixes = append(refs.snapshot.Fixes, navdata.Fix{ID: tno, Position: navdata.Coordinate{LatitudeDeg: 55.8, LongitudeDeg: 12}})
+	f.Path[3] = testPoint("TNO", 55.8, 12)
+
+	g, err := geometry(q, f, refs.snapshot, now)
+
+	require.NoError(t, err)
+	require.NoError(t, g.Validate())
+	require.Len(t, g.Legs, 3)
+	require.Equal(t, tno, *g.Legs[2].ToFix)
+}
+
+func TestGeometryUsesQualifiedERNOVTerminalPoint(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	ernov := navdata.FixID("ERNOV")
+	q.Callsign, q.Origin, q.FiledRoute, q.TerminalEntry = "TAP227", "ESGG", "TOPLA L996 ERNOV", &ernov
+	refs.snapshot.Fixes = []navdata.Fix{{ID: ernov, Position: navdata.Coordinate{LatitudeDeg: 56.168889, LongitudeDeg: 12.573889}}}
+	f.Path = []point{
+		testPoint("ESGG", 57.66, 12.291111),
+		testPoint("TOPLA", 57.135833, 12.338889),
+		testPoint("ATRIB", 56.423333, 12.513333),
+		testPoint("ERNOV(AR2)", 56.168889, 12.573889),
+		testPoint("CH647", 55.938142, 12.465944),
+		testPoint("EKCH", 55.617917, 12.655972),
+	}
+	raw, err := json.Marshal(f)
+	require.NoError(t, err)
+	g, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	require.NoError(t, g.Validate())
+	require.Len(t, g.Legs, 3)
+	require.Equal(t, ernov, *g.Legs[2].ToFix)
+	require.Equal(t, refs.snapshot.Fixes[0].Position, *g.Legs[2].ToPosition)
+	after, err := json.Marshal(f)
+	require.NoError(t, err)
+	require.JSONEq(t, string(raw), string(after), "canonicalization must not change the shared feed")
+
+	t.Run("wrong coordinates", func(t *testing.T) {
+		wrong := f
+		wrong.Path = append([]point(nil), f.Path...)
+		wrong.Path[3] = testPoint("ERNOV(AR2)", 56, 12)
+		_, err := geometry(q, wrong, refs.snapshot, now)
+		require.ErrorContains(t, err, "differs from cached terminal geometry")
+	})
+	t.Run("different fix", func(t *testing.T) {
+		wrong := f
+		wrong.Path = append([]point(nil), f.Path...)
+		wrong.Path[3].Name = "OTHER(AR2)"
+		_, err := geometry(q, wrong, refs.snapshot, now)
+		require.ErrorContains(t, err, "does not reach selected terminal entry")
+	})
+	t.Run("duplicate entry", func(t *testing.T) {
+		duplicate := f
+		duplicate.Path = append(f.Path[:4:4], append([]point{testPoint("ERNOV", 56.168889, 12.573889)}, f.Path[4:]...)...)
+		_, err := geometry(q, duplicate, refs.snapshot, now)
+		require.ErrorContains(t, err, "terminal entry is ambiguous")
+	})
+}
+
 func TestRejectsUnusableOrMismatchedPaths(t *testing.T) {
 	cases := []struct {
 		name string

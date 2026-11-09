@@ -1285,9 +1285,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	applyResolvedTerminalIdentity(&flight, terminalPath)
 	query := navdata.RouteQuery{Version: version, Origin: navdata.AirportID(observation.Origin), Destination: navdata.AirportID(observation.Destination), FiledRoute: *observation.FiledRoute, RunwayGroup: &group}
 	query.Callsign = observation.Callsign
-	if len(terminalPath.Legs) > 0 {
-		query.TerminalEntry = terminalPath.Legs[0].FromFix
-	}
+	query.TerminalEntry = filedTerminalEntry(*observation.FiledRoute, terminalPath)
 	var sourceRefresh time.Duration
 	if source, ok := s.deps.Materializer.(interface{ RouteRefreshInterval() time.Duration }); ok && flight.FreezeReason != aman.FreezeTMA {
 		sourceRefresh = source.RouteRefreshInterval()

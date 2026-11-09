@@ -31,7 +31,11 @@ The bundled configuration's cycle 2611 expires on 26 November 2026; this mode
 does not obtain the next terminal dataset automatically.
 
 Each route must match the flight's callsign, origin and destination, and reach
-the selected STAR entry at the cached coordinates. vIFF supplies the enroute
+the selected arrival join point at the cached coordinates. A filed downstream
+arrival fix such as TNO can be the join point instead of the STAR's first fix.
+Parenthetical provider qualifiers are stripped from all waypoint identifiers,
+so `ERNOV(AR2)` becomes `ERNOV`. The arrival join point must still pass the
+cached-coordinate check. vIFF supplies the enroute
 path; differences from the filed waypoints do not reject otherwise usable
 geometry. Only the path up to that entry is imported. AMAN retains its selected
 terminal continuation, aircraft/wind model and timing calculations; vIFF's speed,

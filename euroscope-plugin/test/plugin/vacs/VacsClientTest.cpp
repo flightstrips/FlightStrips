@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <atomic>
 #include <thread>
 #include "vacs/VacsClient.h"
@@ -42,6 +43,30 @@ TEST_F(VacsClientTest, RequiresDesktopStoreRecoveryBeforeIdle) {
     EXPECT_EQ(client.GetView().state, State::Synchronizing);
     Store({{"prio", false}});
     EXPECT_EQ(client.GetView().state, State::Idle);
+}
+TEST_F(VacsClientTest, ReportsVersionWithoutGatingBootstrapAndOnlyRequestsUntilLogged) {
+    Boot();
+    EXPECT_EQ(client.GetView().state, State::Idle);
+    const auto version = *std::find_if(sent.begin(), sent.end(), [](const Json& message) {
+        return message.value("cmd", "") == "app_get_version";
+    });
+    Reply(version, "3.0.1");
+    EXPECT_TRUE(client.TakeError().empty());
+    sent.clear();
+    Boot();
+    EXPECT_EQ(client.GetView().state, State::Idle);
+    EXPECT_TRUE(std::none_of(sent.begin(), sent.end(), [](const Json& message) {
+        return message.value("cmd", "") == "app_get_version";
+    }));
+}
+TEST_F(VacsClientTest, UnavailableVersionDoesNotPreventReadinessOrReportError) {
+    Boot();
+    const auto version = *std::find_if(sent.begin(), sent.end(), [](const Json& message) {
+        return message.value("cmd", "") == "app_get_version";
+    });
+    Reply(version, nullptr, false);
+    EXPECT_EQ(client.GetView().state, State::Idle);
+    EXPECT_TRUE(client.TakeError().empty());
 }
 TEST_F(VacsClientTest, SubscribesBeforeBootstrapAndPingsAtTwentySeconds) {
     Boot();

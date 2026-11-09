@@ -5,7 +5,7 @@
 1. In EuroScope's plugin dialog, unload the existing FlightStrips plugin first. Do not load the release loader and this development core simultaneously.
 2. Load `build/bin/FlightStripsPluginCore.dll` directly from this checkout. The core exports the EuroScope entry points; loading it directly avoids the release loader replacing the development build through its update check.
 3. Keep `flightstrips_config.ini` and the runtime DLLs beside the core in `build/bin`. The build copies the config and test runtime dependencies there. Existing installed plugin files and preferences are not modified by this build.
-4. Start VACS 2.8, enable remote control, sign in, and connect your controller position there.
+4. Start VACS, enable remote control, sign in, and connect your controller position there.
 5. In the FlightStrips panel, switch **VACS** to **On**. Use **Call...**, **Answer/Reject**, **Cancel**, or **End call**. No selected aircraft or FlightStrips backend login is required.
 6. Check **Show in mini**, then minimize to try the compact controls. Uncheck it to restore the original header-only minimized mode. The checkbox can be set while VACS is Off.
 
@@ -58,7 +58,7 @@ Do not mark the live checks passed from the render fixtures. In particular, the 
 - Checkout inspected: `63e7ab07e9494821731817c2c0cfe0a09e0369e1`, reconciled with the handoff rather than assuming its older baseline.
 - Build environment: Windows 11 Pro 10.0.26300, Visual Studio 2022 MSVC 19.44, Win32 Release.
 - Installed EuroScope executable: 3.2.3.2; the render fixtures use its installed EuroScope font. No live EuroScope call session is claimed.
-- Target protocol: `vacs-client-v2.8.0`, checked against the upstream remote server, protocol, call store, signaling listener and store-sync source, plus the existing browser client. VACS desktop version/audio behavior have not been live-tested.
+- Historical protocol reference: `vacs-client-v2.8.0` (not a required version), checked against the upstream remote server, protocol, call store, signaling listener and store-sync source, plus the existing browser client. VACS desktop version/audio behavior have not been live-tested.
 - Logs from this run: `build/build.log`, `build/vacs-tests.log` and `build/test-results.log`.
 
 No branch, commit, PR, release or deployment is created by this work.

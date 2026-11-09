@@ -245,9 +245,8 @@ func (a *Adapter) Resolve(ctx context.Context, q navdata.RouteQuery) (navdata.Ro
 var identifier = regexp.MustCompile(`^[A-Z0-9_-]+$`)
 var qualifiedIdentifier = regexp.MustCompile(`^([A-Z0-9_-]+)\([A-Z0-9_-]+\)$`)
 
-// vIFF can qualify a terminal point's name, for example ERNOV(AR2).
-// Matching the base identifier still requires the cached-coordinate check below.
-func terminalPointName(name string) string {
+// Parenthetical provider qualifiers are not part of waypoint identifiers.
+func canonicalPointName(name string) string {
 	name = upper(name)
 	if match := qualifiedIdentifier.FindStringSubmatch(name); match != nil {
 		return match[1]
@@ -264,7 +263,8 @@ func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySna
 	// Filter into a new slice so shared arrivals and CDM retain the raw feed.
 	path := make([]point, 0, len(f.Path))
 	for _, p := range f.Path {
-		if name := upper(p.Name); name != "T_O_D" && name != "T_O_C" {
+		p.Name = canonicalPointName(p.Name)
+		if p.Name != "T_O_D" && p.Name != "T_O_C" {
 			path = append(path, p)
 		}
 	}
@@ -285,7 +285,7 @@ func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySna
 		if positions[i].Validate() != nil || (*p.Lat == 0 && *p.Lon == 0) {
 			return bad("vIFF route point has invalid coordinates")
 		}
-		if terminalPointName(p.Name) == string(*q.TerminalEntry) {
+		if p.Name == string(*q.TerminalEntry) {
 			if entry >= 0 {
 				return bad("vIFF terminal entry is ambiguous")
 			}

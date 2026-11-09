@@ -33,8 +33,9 @@ does not obtain the next terminal dataset automatically.
 Each route must match the flight's callsign, origin and destination, and reach
 the selected arrival join point at the cached coordinates. A filed downstream
 arrival fix such as TNO can be the join point instead of the STAR's first fix.
-Provider-qualified names such as `ERNOV(AR2)` match the base fix `ERNOV` only
-when the cached-coordinate check also passes. vIFF supplies the enroute
+Parenthetical provider qualifiers are stripped from all waypoint identifiers,
+so `ERNOV(AR2)` becomes `ERNOV`. The arrival join point must still pass the
+cached-coordinate check. vIFF supplies the enroute
 path; differences from the filed waypoints do not reject otherwise usable
 geometry. Only the path up to that entry is imported. AMAN retains its selected
 terminal continuation, aircraft/wind model and timing calculations; vIFF's speed,

@@ -110,6 +110,27 @@ func TestGeometryUsesSelectedTerminal(t *testing.T) {
 	}
 }
 
+func TestGeometryRemovesQualifiersFromAllWaypointNames(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	want, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	f.Path[1].Name = "FIRST(XX)"
+	f.Path[2].Name = " mid(ar2) "
+	f.Path[3].Name = "TESPI(AR2)"
+	raw, err := json.Marshal(f)
+	require.NoError(t, err)
+
+	got, err := geometry(q, f, refs.snapshot, now)
+
+	require.NoError(t, err)
+	require.NoError(t, got.Validate())
+	require.Equal(t, want.Legs, got.Legs)
+	require.Equal(t, want.Digest, got.Digest)
+	after, err := json.Marshal(f)
+	require.NoError(t, err)
+	require.JSONEq(t, string(raw), string(after))
+}
+
 func TestGeometryUsesDownstreamTNOEntryWithoutTESPI(t *testing.T) {
 	q, refs, now, f := routeFixture()
 	tno := navdata.FixID("TNO")

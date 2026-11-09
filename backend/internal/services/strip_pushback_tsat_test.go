@@ -246,7 +246,9 @@ func TestFrontendPushbackWithinTsatWindowAcceptsCtot(t *testing.T) {
 	for _, hasCtot := range []bool{false, true} {
 		t.Run(fmt.Sprintf("ctot=%t", hasCtot), func(t *testing.T) {
 			now := time.Now().UTC()
-			tobt, tsat := now.Format("1504"), now.Add(2*time.Minute).Format("1504")
+			// An old TOBT must not trigger a timing correction while the
+			// assigned TSAT still permits pushback.
+			tobt, tsat := now.Add(-24*time.Minute).Format("1504"), now.Add(3*time.Minute).Format("1504")
 			ctot := ""
 			data := &models.CdmData{Tobt: &tobt, Tsat: &tsat}
 			if hasCtot {

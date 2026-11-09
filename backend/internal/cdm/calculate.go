@@ -18,6 +18,7 @@ type CalcInput struct {
 	WakeCat           string
 	Eobt              string
 	Tobt              string
+	AssignedTsat      string
 	TobtAuthoritative bool
 	Ctot              string
 	Aobt              string
@@ -64,7 +65,7 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 
 func calculateWithTrace(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now time.Time) (CalcResult, []calculationTraceEntry) {
 	nowHHMMSS := timeToClock(now)
-	if shouldInvalidateStaleTobt(input, nowHHMMSS) {
+	if shouldInvalidateStaleTobt(input, nowHHMMSS) || shouldInvalidateStaleTsat(input, input.AssignedTsat, nowHHMMSS) {
 		return CalcResult{}, nil
 	}
 
@@ -211,6 +212,14 @@ func unconstrainedTtot(input CalcInput, config *CdmAirportConfig, now time.Time)
 	if base == "" {
 		return ""
 	}
+	// An existing, unexpired TSAT keeps the flight in the sequence after its
+	// earlier TOBT passes. Reuse that assignment as the earliest feasible start
+	// instead of calculating an already-expired replacement from the old TOBT.
+	if _, valid := parseClock(input.AssignedTsat); valid && !hasStarted(input) &&
+		isMoreThanMinutesPast(base, timeToClock(now), 5) &&
+		!isMoreThanMinutesPast(input.AssignedTsat, timeToClock(now), 5) {
+		base = input.AssignedTsat
+	}
 
 	ttot := addMinutes(toHHMMSS(base), float64(input.exotMinutes()))
 	if input.HasManCtot && strings.TrimSpace(input.ManCtot) != "" {
@@ -252,6 +261,11 @@ func selectCalculationBaseWithSource(input CalcInput) (string, string) {
 
 func shouldInvalidateStaleTobt(input CalcInput, nowHHMMSS string) bool {
 	if hasStarted(input) {
+		return false
+	}
+	// Once an assignment exists, only TSAT controls expiry. TOBT is the
+	// fallback expiry signal for flights that have no assigned TSAT.
+	if _, valid := parseClock(input.AssignedTsat); valid {
 		return false
 	}
 

@@ -11,7 +11,7 @@ Flight Strips can use [VACS](https://github.com/vacs-project/vacs) for controlle
 
 ### EuroScope plugin controls
 
-The native FlightStrips panel supports the **VACS 2.8 remote-control API** independently of the browser, backend login, or selected aircraft. Start VACS, enable its remote control, sign in, and connect your controller position there. Audio, ringing, devices, and authentication remain in VACS.
+The native FlightStrips panel supports the **VACS remote-control API** independently of the browser, backend login, or selected aircraft. Start VACS, enable its remote control, sign in, and connect your controller position there. Audio, ringing, devices, and authentication remain in VACS.
 
 In the expanded panel, switch **VACS** to **On**. Use **Call...** to open EuroScope's controller list; select a callsign/frequency to dial. Incoming calls offer **Answer** and **Reject**, outgoing calls offer **Cancel**, and connecting/established calls offer **End call**. Answer/Reject always targets the oldest waiting call. Orange means ringing/connecting, and green means ready/confirmed connected. Hover over the VACS status for the full caller, queue count, or recovery instructions. The title-bar dot still represents the FlightStrips backend, not VACS.
 

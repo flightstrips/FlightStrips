@@ -1,4 +1,5 @@
 #include "VacsClient.h"
+#include "Logger.hpp"
 #include <algorithm>
 #include <utility>
 
@@ -48,6 +49,7 @@ namespace FlightStrips::vacs {
              "webrtc:call-error", "store:sync", "error"}) {
             send_(Json{{"type", "subscribe"}, {"event", name}}.dump());
         }
+        if (!versionLogged_) Invoke("app_get_version", Json::object(), now);
         Invoke("app_frontend_ready", Json::object(), now);
     }
     void VacsClient::Sync(Time now) {
@@ -63,6 +65,7 @@ namespace FlightStrips::vacs {
         bool resync = false;
         for (auto request = requests_.begin(); request != requests_.end();) {
             if (request->second.deadline > now) { ++request; continue; }
+            if (request->second.command == "app_get_version") { request = requests_.erase(request); continue; }
             error_ = "VACS command timed out: " + request->second.command + ". Resynchronizing; no call retried.";
             if (request->first == pendingId_) { pendingId_.clear(); uncertain_ = true; resync = true; }
             request = requests_.erase(request);
@@ -103,7 +106,7 @@ namespace FlightStrips::vacs {
     }
     void VacsClient::Snapshot(const Json& data) {
         if (!data.is_object() || !data.contains("connectionState") || !data.contains("clientId") || !data.contains("incomingCalls") || !data["incomingCalls"].is_array()) {
-            error_ = "VACS 2.8 compatibility error: invalid session snapshot."; return;
+            error_ = "VACS compatibility error: invalid session snapshot."; return;
         }
         ownId_ = Text(data, "clientId"); authenticated_ = !ownId_.empty();
         signaling_ = Text(data, "connectionState") == "connected";
@@ -227,12 +230,19 @@ namespace FlightStrips::vacs {
             if (request.command == "remote_get_session_state" && id != snapshotId_) return;
             if (id == pendingId_) pendingId_.clear();
             if (!message.contains("ok") || !message["ok"].is_boolean() || !message["ok"].get<bool>()) {
+                if (request.command == "app_get_version") return;
                 error_ = "VACS " + request.command + " failed: " + Text(message.value("error", Json{}), "detail");
-                if (request.command == "app_frontend_ready" || request.command == "remote_get_session_state" || request.command == "remote_request_store_sync") { snapshot_ = false; error_ += " Check VACS 2.8 remote-control compatibility."; }
+                if (request.command == "app_frontend_ready" || request.command == "remote_get_session_state" || request.command == "remote_request_store_sync") { snapshot_ = false; error_ += " Check VACS remote-control compatibility."; }
                 return;
             }
             const auto data = message.value("data", Json{});
-            if (request.command == "app_frontend_ready") Sync(now);
+            if (request.command == "app_get_version") {
+                if (!versionLogged_ && data.is_string() && !data.get_ref<const std::string&>().empty()) {
+                    Logger::Info("VACS version: {}", data.get<std::string>());
+                    versionLogged_ = true;
+                }
+            }
+            else if (request.command == "app_frontend_ready") Sync(now);
             else if (request.command == "remote_get_session_state") {
                 if (request.revision != revision_) { Invoke("remote_get_session_state", Json::object(), now); return; }
                 Snapshot(data);
@@ -306,7 +316,7 @@ namespace FlightStrips::vacs {
         else view.state = State::Idle;
         switch (view.state) {
             case State::Disabled: view.label = "Disabled"; view.mini = "Off"; view.tooltip = "Enable VACS remote call controls. Audio remains in VACS."; break;
-            case State::Unavailable: view.label = "VACS offline"; view.mini = "Offline"; view.tooltip = "Start VACS 2.8 and enable remote control on port 9600."; break;
+            case State::Unavailable: view.label = "VACS offline"; view.mini = "Offline"; view.tooltip = "Start VACS and enable remote control on port 9600."; break;
             case State::Reconnecting: view.label = "Retry in " + std::to_string(retrySeconds_) + "s"; view.mini = "Retry"; view.tooltip = "Reconnecting to VACS remote control. No calls are retried."; break;
             case State::Unauthenticated: view.label = "Sign in to VACS"; view.mini = "Sign in"; view.tooltip = "Complete sign-in inside VACS."; break;
             case State::Disconnected: view.label = "Connect position"; view.mini = "Position"; view.tooltip = "Connect your controller position in VACS."; break;

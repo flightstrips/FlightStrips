@@ -75,6 +75,42 @@ describe("VacsClient", () => {
     vi.useRealTimers();
   });
 
+  it("logs the reported version once without gating bootstrap or reconnects", async () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      client.start();
+      const ws = MockWebSocket.instances[0]!;
+      ws.simulateOpen();
+      await flushBootstrap(ws);
+      expect(client.getState().status).toBe("idle");
+      const version = JSON.parse(ws.sent.find((m) => m.includes("app_get_version"))!);
+      ws.emit("message", { data: response(version.id, "3.0.1") });
+      await Promise.resolve();
+      expect(log).toHaveBeenCalledExactlyOnceWith("VACS version:", "3.0.1");
+      client.stop();
+      client.start();
+      const next = MockWebSocket.instances[1]!;
+      next.simulateOpen();
+      await flushBootstrap(next);
+      expect(next.sent.some((m) => m.includes("app_get_version"))).toBe(false);
+      expect(log).toHaveBeenCalledTimes(1);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("stays ready when the version command is unsupported", async () => {
+    client.start();
+    const ws = MockWebSocket.instances[0]!;
+    ws.simulateOpen();
+    const version = JSON.parse(ws.sent.find((m) => m.includes("app_get_version"))!);
+    ws.emit("message", {
+      data: JSON.stringify({ type: "response", id: version.id, ok: false, error: { detail: "Unsupported command" } }),
+    });
+    await flushBootstrap(ws);
+    expect(client.getState().status).toBe("idle");
+  });
+
   it("connects to a configured remote host", () => {
     const remote = new VacsClient({
       url: buildVacsWsUrl("192.168.1.5"),

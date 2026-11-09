@@ -41,6 +41,7 @@ export class VacsClient implements VacsActions {
 
   private ws: WebSocket | null = null;
   private started = false;
+  private versionLogged = false;
   private nextId = 1;
   private backoffMs = 1_000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -194,6 +195,16 @@ export class VacsClient implements VacsActions {
   private onOpen(): void {
     this.wsConnected = true;
     this.backoffMs = 1_000;
+    if (!this.versionLogged) {
+      void this.invoke("app_get_version", {}, { suppressErrorToast: true })
+        .then((version) => {
+          if (!this.versionLogged && typeof version === "string" && version.length > 0) {
+            console.info("VACS version:", version);
+            this.versionLogged = true;
+          }
+        })
+        .catch(() => undefined);
+    }
     void this.bootstrap();
     this.startPing();
   }

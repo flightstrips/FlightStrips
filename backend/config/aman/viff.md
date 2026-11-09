@@ -31,10 +31,14 @@ The bundled configuration's cycle 2611 expires on 26 November 2026; this mode
 does not obtain the next terminal dataset automatically.
 
 Each route must match the flight's callsign, origin and destination, and reach
-a configured STAR entry at the cached coordinates. vIFF supplies the enroute
-path; differences from the filed waypoints do not reject otherwise usable
-geometry. Only the path up to the first configured entry is imported. If the
-controller assigns a STAR with a different entry in EuroScope, the last enroute
+a configured arrival entry at the cached coordinates. A filed downstream arrival
+fix such as TNO can be the join point instead of the STAR's first fix; vIFF's
+compatible path is retained up to that join.
+Parenthetical provider qualifiers are stripped from all waypoint identifiers,
+so `ERNOV(AR2)` becomes `ERNOV`. The arrival join point must still pass the
+cached-coordinate check. vIFF supplies the enroute path; differences from the
+filed waypoints do not reject otherwise usable geometry. If the controller
+assigns a STAR with a different entry in EuroScope, the last enroute
 point is joined directly to the new entry using cached local coordinates; vIFF
 does not need to update its previous STAR selection first. The old entry and
 terminal continuation are discarded. AMAN retains its selected

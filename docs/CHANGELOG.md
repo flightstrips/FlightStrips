@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.6.0...docs/v1.6.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **vacs:** log the version once without requiring a specific release ([#1107](https://github.com/flightstrips/FlightStrips/issues/1107)) ([ea97b42](https://github.com/flightstrips/FlightStrips/commit/ea97b42ad6ef3a21dfbdb849f523d2e462012bb8))
+
 ## [1.6.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.5.0...docs/v1.6.0) (2026-11-08)
 
 

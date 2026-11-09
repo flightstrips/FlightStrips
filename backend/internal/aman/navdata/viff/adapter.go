@@ -24,7 +24,7 @@ import (
 const (
 	DefaultBaseURL  = "https://api.viffsys.com"
 	RefreshInterval = 30 * time.Second
-	ResolverVersion = "viff-route-v3"
+	ResolverVersion = "viff-route-v4"
 )
 
 type Config struct {
@@ -275,8 +275,14 @@ func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySna
 	if upper(f.Path[0].Name) != string(q.Origin) || upper(f.Path[len(f.Path)-1].Name) != string(q.Destination) {
 		return bad("vIFF route path airport endpoints do not match flight")
 	}
+	var err error
+	var rejoined bool
+	f.Path, rejoined, err = arrivalPath(q, f.Path, snapshot)
+	if err != nil {
+		return navdata.RouteGeometry{}, err
+	}
 	positions := make([]navdata.Coordinate, len(f.Path))
-	entry := -1
+	entry := len(f.Path) - 1
 	for i, p := range f.Path {
 		if p.Lat == nil || p.Lon == nil {
 			return bad("vIFF route point has no coordinates")
@@ -285,32 +291,11 @@ func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySna
 		if positions[i].Validate() != nil || (*p.Lat == 0 && *p.Lon == 0) {
 			return bad("vIFF route point has invalid coordinates")
 		}
-		if p.Name == string(*q.TerminalEntry) {
-			if entry >= 0 {
-				return bad("vIFF terminal entry is ambiguous")
-			}
-			entry = i
-		}
-	}
-	if entry < 1 {
-		return bad("vIFF path does not reach selected terminal entry")
-	}
-	entryKnown := false
-	for _, fix := range snapshot.Fixes {
-		if fix.ID == *q.TerminalEntry {
-			entryKnown = true
-			if navdata.CoordinateDistanceNM(fix.Position, positions[entry]) > 0.5 {
-				return bad("vIFF terminal entry differs from cached terminal geometry")
-			}
-		}
-	}
-	if !entryKnown {
-		return bad("selected terminal entry is absent from cached references")
 	}
 	// vIFF supplies the enroute path. Filed ITEM15 can differ from its resolved
 	// route and must not veto otherwise usable geometry to the arrival entry.
 	g := navdata.RouteGeometry{Version: q.Version, Coverage: navdata.CoverageComplete, Provenance: navdata.Provenance{SourceID: "viff", SourceRevision: ResolverVersion, ImportedAt: at, EffectiveFrom: q.Version.EffectiveFrom, EffectiveUntil: q.Version.EffectiveUntil}}
-	// Stop at the STAR entry. vIFF's selected STAR/runway and closing airport
+	// Stop at the arrival join. vIFF's selected STAR/runway and closing airport
 	// segment must never override or duplicate AMAN's selected terminal path.
 	type node struct {
 		id       navdata.FixID
@@ -340,15 +325,88 @@ func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySna
 		lat1, lat2 := from.LatitudeDeg*math.Pi/180, to.LatitudeDeg*math.Pi/180
 		dlon := (to.LongitudeDeg - from.LongitudeDeg) * math.Pi / 180
 		course := math.Mod(math.Atan2(math.Sin(dlon)*math.Cos(lat2), math.Cos(lat1)*math.Sin(lat2)-math.Sin(lat1)*math.Cos(lat2)*math.Cos(dlon))*180/math.Pi+360, 360)
-		g.Legs = append(g.Legs, navdata.ProcedureLeg{ID: fmt.Sprintf("VIFF-%04d", i+1), PathTerminator: navdata.PathTF, FromFix: &fromID, ToFix: &toID, FromPosition: &from, ToPosition: &to, DistanceNM: &distance, CourseTrueDeg: &course})
+		id := fmt.Sprintf("VIFF-%04d", i+1)
+		if rejoined && i+1 == len(nodes)-1 {
+			id = "STAR-ENTRY-REJOIN"
+		}
+		g.Legs = append(g.Legs, navdata.ProcedureLeg{ID: id, PathTerminator: navdata.PathTF, FromFix: &fromID, ToFix: &toID, FromPosition: &from, ToPosition: &to, DistanceNM: &distance, CourseTrueDeg: &course})
 		g.TotalDistanceNM += distance
 	}
 	if len(g.Legs) == 0 || len(navdata.SuspectRouteDetours(g.Legs)) > 0 {
 		return bad("vIFF route geometry is empty or contains an implausible detour")
 	}
-	var err error
 	g.Digest, err = navdata.RouteGeometryDigest(q, g)
 	return g, err
+}
+
+// arrivalPath keeps vIFF geometry through a compatible selected arrival join.
+// A controller can select a different local STAR before vIFF has updated:
+// join the last enroute point directly to that STAR's cached entry.
+func arrivalPath(q navdata.RouteQuery, path []point, snapshot navdata.ActiveGeometrySnapshot) ([]point, bool, error) {
+	fixes := make(map[navdata.FixID]navdata.Coordinate, len(snapshot.Fixes))
+	for _, fix := range snapshot.Fixes {
+		fixes[fix.ID] = fix.Position
+	}
+	target, ok := fixes[*q.TerminalEntry]
+	if !ok || target.Validate() != nil || target == (navdata.Coordinate{}) {
+		return nil, false, problem("selected terminal entry is absent from cached references")
+	}
+	entries := map[navdata.FixID]bool{*q.TerminalEntry: true}
+	compatibleEntries := make(map[navdata.FixID]bool)
+	for _, terminal := range snapshot.TerminalPaths {
+		if terminal.Airport == q.Destination && terminal.Version.Equal(q.Version) && len(terminal.Legs) > 0 && terminal.Legs[0].FromFix != nil {
+			entry := *terminal.Legs[0].FromFix
+			entries[entry] = true
+			for _, leg := range terminal.Legs {
+				if leg.FromFix != nil && *leg.FromFix == *q.TerminalEntry || leg.ToFix != nil && *leg.ToFix == *q.TerminalEntry {
+					compatibleEntries[entry] = true
+					break
+				}
+			}
+		}
+	}
+	targetIndex := -1
+	for i := 1; i < len(path)-1; i++ {
+		if path[i].Name == string(*q.TerminalEntry) {
+			if targetIndex >= 0 {
+				return nil, false, problem("vIFF terminal entry is ambiguous")
+			}
+			targetIndex = i
+		}
+	}
+	for i := 1; i < len(path)-1; i++ {
+		id := navdata.FixID(upper(path[i].Name))
+		if !entries[id] {
+			continue
+		}
+		position, known := fixes[id]
+		p := path[i]
+		if !known || p.Lat == nil || p.Lon == nil {
+			return nil, false, problem("vIFF terminal entry has no cached coordinates")
+		}
+		observed := navdata.Coordinate{LatitudeDeg: *p.Lat, LongitudeDeg: *p.Lon}
+		if position.Validate() != nil || observed.Validate() != nil || navdata.CoordinateDistanceNM(position, observed) > 0.5 {
+			return nil, false, problem("vIFF terminal entry differs from cached terminal geometry")
+		}
+		if id == *q.TerminalEntry || compatibleEntries[id] && targetIndex >= i {
+			// A filed downstream join keeps vIFF's compatible STAR prefix;
+			// only the local continuation after that join is appended.
+			p := path[targetIndex]
+			if p.Lat == nil || p.Lon == nil {
+				return nil, false, problem("vIFF terminal entry has no coordinates")
+			}
+			observed := navdata.Coordinate{LatitudeDeg: *p.Lat, LongitudeDeg: *p.Lon}
+			if observed.Validate() != nil || navdata.CoordinateDistanceNM(target, observed) > 0.5 {
+				return nil, false, problem("vIFF terminal entry differs from cached terminal geometry")
+			}
+			return path[:targetIndex+1], false, nil
+		}
+		// path is a private filtered copy, so replacing the old entry cannot
+		// mutate the bulk response shared with other flights and CDM.
+		path[i] = point{Name: string(*q.TerminalEntry), Lat: &target.LatitudeDeg, Lon: &target.LongitudeDeg}
+		return path[:i+1], true, nil
+	}
+	return nil, false, problem("vIFF path does not reach selected terminal entry or a configured STAR entry")
 }
 
 func pointID(name string, index int) navdata.FixID {

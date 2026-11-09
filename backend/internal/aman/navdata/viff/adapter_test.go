@@ -147,6 +147,31 @@ func TestGeometryUsesDownstreamTNOEntryWithoutTESPI(t *testing.T) {
 	require.Equal(t, tno, *g.Legs[2].ToFix)
 }
 
+func TestGeometryKeepsCompatibleSTARPrefixToDownstreamJoin(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	entry, join := navdata.FixID("TESPI"), navdata.FixID("TNO")
+	q.TerminalEntry = &join
+	q.FiledRoute = "DCT TNO"
+	refs.snapshot.Fixes = append(refs.snapshot.Fixes, navdata.Fix{ID: join, Position: navdata.Coordinate{LatitudeDeg: 55.8, LongitudeDeg: 12}})
+	refs.snapshot.TerminalPaths = []navdata.TerminalPath{{
+		Version: q.Version, Airport: q.Destination,
+		Legs: []navdata.ProcedureLeg{{FromFix: &entry, ToFix: &join}},
+	}}
+	f.Path = append(f.Path[:4:4], append([]point{testPoint("TNO(AR2)", 55.8, 12)}, f.Path[4:]...)...)
+	g, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	require.NoError(t, g.Validate())
+	require.Len(t, g.Legs, 4)
+	require.Equal(t, entry, *g.Legs[2].ToFix, "a compatible STAR prefix must not be shortcut by reassignment handling")
+	require.Equal(t, entry, *g.Legs[3].FromFix)
+	require.Equal(t, join, *g.Legs[3].ToFix)
+	require.Equal(t, "VIFF-0004", g.Legs[3].ID)
+
+	f.Path[4] = testPoint("TNO(AR2)", 55, 12)
+	_, err = geometry(q, f, refs.snapshot, now)
+	require.ErrorContains(t, err, "differs from cached terminal geometry")
+}
+
 func TestGeometryUsesQualifiedERNOVTerminalPoint(t *testing.T) {
 	q, refs, now, f := routeFixture()
 	ernov := navdata.FixID("ERNOV")
@@ -377,6 +402,59 @@ func TestGeometryFiltersProfileMarkersWithoutChangingSharedPath(t *testing.T) {
 	after, err := json.Marshal(f)
 	require.NoError(t, err)
 	require.JSONEq(t, string(raw), string(after))
+}
+
+func TestGeometryRejoinsLocallyAssignedSTARBeforeVIFFUpdates(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	oldEntry, newEntry := navdata.FixID("TESPI"), navdata.FixID("TUDLO")
+	refs.snapshot.Fixes = append(refs.snapshot.Fixes, navdata.Fix{ID: newEntry, Position: navdata.Coordinate{LatitudeDeg: 56, LongitudeDeg: 11.3}})
+	for _, entry := range []navdata.FixID{oldEntry, newEntry} {
+		refs.snapshot.TerminalPaths = append(refs.snapshot.TerminalPaths, navdata.TerminalPath{
+			Version: q.Version, Airport: q.Destination,
+			Legs: []navdata.ProcedureLeg{{FromFix: &entry}},
+		})
+	}
+	original, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	raw, err := json.Marshal(f)
+	require.NoError(t, err)
+	q.TerminalEntry = &newEntry
+	// The old STAR and airport continuation are not geometry inputs.
+	f.Path[4].Lat = nil
+	f.Path[5].Lon = nil
+	reassigned, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	require.NoError(t, reassigned.Validate())
+	require.Len(t, reassigned.Legs, 3)
+	require.Equal(t, original.Legs[:2], reassigned.Legs[:2])
+	join := reassigned.Legs[2]
+	require.Equal(t, "STAR-ENTRY-REJOIN", join.ID)
+	require.Equal(t, navdata.FixID("MID"), *join.FromFix)
+	require.Equal(t, newEntry, *join.ToFix)
+	require.Equal(t, refs.snapshot.Fixes[1].Position, *join.ToPosition)
+	require.NotEqual(t, original.Digest, reassigned.Digest)
+	for _, leg := range reassigned.Legs {
+		require.NotEqual(t, oldEntry, *leg.ToFix)
+	}
+	// Changing back works against the same cached bulk response.
+	q.TerminalEntry = &oldEntry
+	restored, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	require.Equal(t, original.Digest, restored.Digest)
+	// Restore deliberately malformed, discarded tail fields before comparing.
+	f.Path[4], f.Path[5] = testPoint("WRONG-STAR", 54, 14), testPoint("EKCH", 55.617917, 12.655972)
+	after, err := json.Marshal(f)
+	require.NoError(t, err)
+	require.JSONEq(t, string(raw), string(after))
+}
+
+func TestGeometryRequiresRecognizedVIFFEntryForSTARRejoin(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	newEntry := navdata.FixID("TUDLO")
+	q.TerminalEntry = &newEntry
+	refs.snapshot.Fixes = append(refs.snapshot.Fixes, navdata.Fix{ID: newEntry, Position: navdata.Coordinate{LatitudeDeg: 56, LongitudeDeg: 11.3}})
+	_, err := geometry(q, f, refs.snapshot, now)
+	require.ErrorContains(t, err, "does not reach selected terminal entry or a configured STAR entry")
 }
 
 func TestFeedRejectsWrongIdentityAndMalformedResponses(t *testing.T) {

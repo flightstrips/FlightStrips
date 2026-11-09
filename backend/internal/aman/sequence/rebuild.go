@@ -206,7 +206,7 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 				f.SlotNotBefore = byID[f.Callsign].SlotNotBefore
 			}
 		}
-		allocated[group] = fillSTARSpacingGaps(policies[group], allocated[group], at)
+		allocated[group] = fillSequenceGaps(policies[group], allocated[group], at)
 		for i, e := range allocated[group] {
 			entry := CandidateEntry{Callsign: e.flight.Callsign, RunwayGroupID: group, Sequence: i + 1, Time: e.time, OperationalTETA: e.flight.OperationalTETA, WakeCategory: e.flight.category, FreezeReason: e.flight.FreezeReason, Reason: e.reason}
 			result.Entries = append(result.Entries, entry)

@@ -164,7 +164,7 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		for _, entry := range entries {
 			allocated = append(allocated, allocatedEntry{flight: entry.flight, time: entry.slot.Time, reason: CandidateReason(entry.slot.Reason)})
 		}
-		for _, entry := range fillSTARSpacingGaps(policy, allocated, at) {
+		for _, entry := range fillSequenceGaps(policy, allocated, at) {
 			previous := entries[queueEntryIndex(entries, entry.flight.Callsign)]
 			if !entry.time.Before(previous.slot.Time) {
 				continue

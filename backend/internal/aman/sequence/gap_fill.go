@@ -7,10 +7,11 @@ import (
 	"FlightStrips/internal/aman"
 )
 
-// Fill capacity left between two arrivals by same-STAR spacing. An aircraft
-// from another stream may use that capacity without moving either reservation.
+// Fill unused capacity between arrivals, including vacancies left by removed
+// flights and same-STAR spacing. A later aircraft may use that capacity without
+// moving either reservation.
 // This does not authorize a general reorder across controller constraints.
-func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at time.Time) []allocatedEntry {
+func fillSequenceGaps(policy preparedPolicy, entries []allocatedEntry, at time.Time) []allocatedEntry {
 	if !policy.AllowCrossFeederOvertake {
 		return entries
 	}
@@ -20,27 +21,14 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 		filled := false
 		for gap := 0; gap+1 < len(entries) && !filled; gap++ {
 			leading := entries[gap]
-			if leading.flight.STARFamily == "" {
-				continue
-			}
-			// Cross-stream insertions do not consume the whole STAR interval.
-			// Find its next same-family reservation even when earlier fillers
-			// already separate the anchors, including on later reconciliations.
-			trailingIndex := gap + 1
-			for trailingIndex < len(entries) && entries[trailingIndex].flight.STARFamily != leading.flight.STARFamily {
-				trailingIndex++
-			}
-			if trailingIndex == len(entries) {
-				continue
-			}
-			trailing := entries[trailingIndex]
-			if sameSTARGap(policy, leading.flight, trailing.flight, trailing.time) <= policy.intervalAt(trailing.time) {
-				continue
-			}
-			for index := trailingIndex + 1; index < len(entries); index++ {
+			trailing := entries[gap+1]
+			// Inspect each vacant interval independently. Candidates can already
+			// be inside a wider same-STAR interval, or have no later same-STAR
+			// anchor at all after a flight leaves the sequence.
+			for index := gap + 2; index < len(entries); index++ {
 				target := entries[index]
 				flight := target.flight
-				if moved[flight.Callsign] || !gapFillEligible(flight) || flight.STARFamily == leading.flight.STARFamily {
+				if moved[flight.Callsign] || !gapFillEligible(flight) {
 					continue
 				}
 				lower := promotionLowerBound(policy, flight, at)
@@ -48,7 +36,7 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 					lower = *flight.SlotNotBefore
 				}
 				for _, crossed := range entries[gap+1 : index] {
-					if !canPassForSTARGap(flight, crossed.flight) {
+					if !canPassForGap(flight, crossed.flight) {
 						// An earlier filler from the same stream is an order
 						// boundary, but space after it can still be usable.
 						if boundary := crossed.time.Add(time.Nanosecond); boundary.After(lower) {
@@ -104,7 +92,7 @@ func gapFillEligible(flight preparedFlight) bool {
 		(flight.State == aman.StateStable || flight.State == aman.StateUnstable || flight.State == aman.StateAirborne)
 }
 
-func canPassForSTARGap(target, crossed preparedFlight) bool {
+func canPassForGap(target, crossed preparedFlight) bool {
 	return crossed.ManualOrder == nil && crossed.STARFamily != "" && crossed.STARFamily != target.STARFamily &&
 		(crossed.FreezeReason == aman.FreezeNone || crossed.FreezeReason == aman.FreezeSuperstable) &&
 		!crossed.RebuildTMA &&

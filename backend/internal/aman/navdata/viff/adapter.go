@@ -24,7 +24,7 @@ import (
 const (
 	DefaultBaseURL  = "https://api.viffsys.com"
 	RefreshInterval = 30 * time.Second
-	ResolverVersion = "viff-route-v1"
+	ResolverVersion = "viff-route-v2"
 )
 
 type Config struct {
@@ -242,18 +242,23 @@ func (a *Adapter) Resolve(ctx context.Context, q navdata.RouteQuery) (navdata.Ro
 	return geometry(q, *selected, snapshot, at)
 }
 
-var (
-	identifier = regexp.MustCompile(`^[A-Z0-9_-]+$`)
-	airway     = regexp.MustCompile(`^U?[ABGHJLMNPQRTVWYZ][0-9]{1,4}$`)
-	procedure  = regexp.MustCompile(`^[A-Z]{2,5}[0-9]{1,2}[A-Z]$`)
-	speedLevel = regexp.MustCompile(`^[NKM][0-9]{3,4}[FASM][0-9]{3,4}$`)
-	track      = regexp.MustCompile(`^NAT[A-Z0-9]$`)
-	coordinate = regexp.MustCompile(`^([0-9]{2})([0-9]{2})?([NS])/?([0-9]{3})([0-9]{2})?([EW])$`)
-)
+var identifier = regexp.MustCompile(`^[A-Z0-9_-]+$`)
 
 func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySnapshot, at time.Time) (navdata.RouteGeometry, error) {
 	bad := func(message string) (navdata.RouteGeometry, error) { return navdata.RouteGeometry{}, problem(message) }
 	if len(f.Path) < 2 || len(f.Path) > 4096 {
+		return bad("vIFF route path is missing or too large")
+	}
+	// vIFF's climb/descent markers are profile metadata, not route fixes.
+	// Filter into a new slice so shared arrivals and CDM retain the raw feed.
+	path := make([]point, 0, len(f.Path))
+	for _, p := range f.Path {
+		if name := upper(p.Name); name != "T_O_D" && name != "T_O_C" {
+			path = append(path, p)
+		}
+	}
+	f.Path = path
+	if len(f.Path) < 2 {
 		return bad("vIFF route path is missing or too large")
 	}
 	if upper(f.Path[0].Name) != string(q.Origin) || upper(f.Path[len(f.Path)-1].Name) != string(q.Destination) {
@@ -291,36 +296,8 @@ func geometry(q navdata.RouteQuery, f flight, snapshot navdata.ActiveGeometrySna
 	if !entryKnown {
 		return bad("selected terminal entry is absent from cached references")
 	}
-	// Bulk arrivals does not echo ITEM15 or its revision. Require every explicit
-	// filed fix in order rather than accepting a path solely by callsign. Airways
-	// are already expanded by vIFF; procedures remain AMAN's selected terminal.
-	previous := 0
-	for _, token := range strings.Fields(strings.ReplaceAll(upper(q.FiledRoute), ",", " ")) {
-		if slash := strings.LastIndexByte(token, '/'); slash > 0 && (speedLevel.MatchString(token[slash+1:]) || procedure.MatchString(token[:slash])) {
-			token = token[:slash]
-		}
-		knownFix := false
-		for _, fix := range snapshot.Fixes {
-			if string(fix.ID) == token {
-				knownFix = true
-				break
-			}
-		}
-		if token == "DCT" || token == "IFR" || token == "VFR" || token == string(q.Origin) || token == string(q.Destination) || speedLevel.MatchString(token) || !knownFix && (airway.MatchString(token) || procedure.MatchString(token) || track.MatchString(token)) {
-			continue
-		}
-		found := -1
-		for i := previous; i < len(f.Path); i++ {
-			if matchesPoint(token, f.Path[i]) {
-				found = i
-				break
-			}
-		}
-		if found < 0 {
-			return bad("vIFF path does not match filed waypoint " + token)
-		}
-		previous = found
-	}
+	// vIFF supplies the enroute path. Filed ITEM15 can differ from its resolved
+	// route and must not veto otherwise usable geometry to the arrival entry.
 	g := navdata.RouteGeometry{Version: q.Version, Coverage: navdata.CoverageComplete, Provenance: navdata.Provenance{SourceID: "viff", SourceRevision: ResolverVersion, ImportedAt: at, EffectiveFrom: q.Version.EffectiveFrom, EffectiveUntil: q.Version.EffectiveUntil}}
 	// Stop at the STAR entry. vIFF's selected STAR/runway and closing airport
 	// segment must never override or duplicate AMAN's selected terminal path.
@@ -367,33 +344,6 @@ func pointID(name string, index int) navdata.FixID {
 	return navdata.FixID(fmt.Sprintf("VIFF-POINT-%04d", index))
 }
 
-func matchesPoint(token string, p point) bool {
-	if upper(p.Name) == token {
-		return true
-	}
-	m := coordinate.FindStringSubmatch(token)
-	if m == nil || p.Lat == nil || p.Lon == nil {
-		return false
-	}
-	lat, _ := strconv.Atoi(m[1])
-	latMinutes, _ := strconv.Atoi(m[2])
-	lon, _ := strconv.Atoi(m[4])
-	lonMinutes, _ := strconv.Atoi(m[5])
-	if lat > 90 || lon > 180 || latMinutes >= 60 || lonMinutes >= 60 {
-		return false
-	}
-	position := navdata.Coordinate{LatitudeDeg: float64(lat) + float64(latMinutes)/60, LongitudeDeg: float64(lon) + float64(lonMinutes)/60}
-	if m[3] == "S" {
-		position.LatitudeDeg = -position.LatitudeDeg
-	}
-	if m[6] == "W" {
-		position.LongitudeDeg = -position.LongitudeDeg
-	}
-	if position.Validate() != nil {
-		return false
-	}
-	return navdata.CoordinateDistanceNM(position, navdata.Coordinate{LatitudeDeg: *p.Lat, LongitudeDeg: *p.Lon}) < 0.1
-}
 func upper(s string) string { return strings.ToUpper(strings.TrimSpace(s)) }
 func problem(message string) error {
 	return &aman.DomainError{Class: navdata.ErrorSourceUnavailable, Message: message}

@@ -30,20 +30,20 @@ navigation unready with a diagnostic, rather than fabricating terminal geometry.
 The bundled configuration's cycle 2611 expires on 26 November 2026; this mode
 does not obtain the next terminal dataset automatically.
 
-Each route must match the flight's callsign, origin, destination and ordered
-filed waypoints, and reach the selected STAR entry at the cached coordinates.
-Only the path up to that entry is imported. AMAN retains its selected terminal
-continuation, aircraft/wind model and timing calculations; vIFF's speed,
-altitude and ETA are not prediction inputs. Co-located profile points are
-collapsed, and unusable paths are rejected per flight. Missing/newly amended
-flights wait for vIFF processing. Usable geometry for the same filed route can
+Each route must match the flight's callsign, origin and destination, and reach
+the selected STAR entry at the cached coordinates. vIFF supplies the enroute
+path; differences from the filed waypoints do not reject otherwise usable
+geometry. Only the path up to that entry is imported. AMAN retains its selected
+terminal continuation, aircraft/wind model and timing calculations; vIFF's speed,
+altitude and ETA are not prediction inputs. `T_O_D` and `T_O_C` profile markers
+are filtered out before coordinate validation, co-located points are collapsed,
+and unusable paths are rejected per flight. Flights absent from the bulk feed
+wait for vIFF processing. Usable geometry for the same filed route can
 continue from the canonical cache during a vIFF outage.
 
-Bulk arrivals does not supply the filed route revision or airway labels. Ordered
-waypoint matching catches missing/reordered fixes but cannot prove an airway-only
-amendment between identical fixes. This is a source limitation, and vIFF may lag
-the VATSIM/EuroScope flight plan. Live routes are checked again every 30 seconds;
-TMA-frozen routes retain their existing geometry.
+Bulk arrivals does not supply the filed route revision or airway labels, and
+vIFF may lag the VATSIM/EuroScope flight plan. Live routes are checked again every
+30 seconds; TMA-frozen routes retain their existing geometry.
 
 Before enabling this mode in production, verify the current EKCH manifest is
 readable, deploy with `NAVIGATION_SOURCE=viff`, and confirm a newly observed

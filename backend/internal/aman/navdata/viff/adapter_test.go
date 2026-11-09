@@ -88,7 +88,7 @@ func TestBulkArrivalsSharesRequestsAcrossFlightsAndSessions(t *testing.T) {
 	require.EqualValues(t, 2, requests.Load())
 }
 
-func TestGeometryMatchesFiledWaypointsAndUsesSelectedTerminal(t *testing.T) {
+func TestGeometryUsesSelectedTerminal(t *testing.T) {
 	q, refs, now, f := routeFixture()
 	// Generated profile points can be co-located with actual named fixes.
 	f.Path = append(f.Path[:2:2], append([]point{testPoint("MID(AR2)", 57, 10.7)}, f.Path[2:]...)...)
@@ -108,9 +108,6 @@ func TestGeometryMatchesFiledWaypointsAndUsesSelectedTerminal(t *testing.T) {
 		require.NotEqual(t, navdata.FixID("EKCH"), *leg.ToFix)
 		require.NotEqual(t, navdata.FixID("WRONG-STAR"), *leg.ToFix)
 	}
-	q.FiledRoute = "DCT AMENDED DCT TESPI"
-	_, err = geometry(q, f, refs.snapshot, now)
-	require.ErrorContains(t, err, "AMENDED")
 }
 
 func TestRejectsUnusableOrMismatchedPaths(t *testing.T) {
@@ -119,6 +116,9 @@ func TestRejectsUnusableOrMismatchedPaths(t *testing.T) {
 		edit func(*navdata.RouteQuery, *flight, *referenceReader)
 	}{
 		{"missing path", func(_ *navdata.RouteQuery, f *flight, _ *referenceReader) { f.Path = nil }},
+		{"only profile markers", func(_ *navdata.RouteQuery, f *flight, _ *referenceReader) {
+			f.Path = []point{{Name: "T_O_C"}, {Name: "T_O_D"}}
+		}},
 		{"missing coordinate", func(_ *navdata.RouteQuery, f *flight, _ *referenceReader) { f.Path[1].Lat = nil }},
 		{"null coordinate", func(_ *navdata.RouteQuery, f *flight, _ *referenceReader) { f.Path[1].Lon = nil }},
 		{"invalid coordinate", func(_ *navdata.RouteQuery, f *flight, _ *referenceReader) { f.Path[1] = testPoint("FIRST", 91, 11) }},
@@ -128,8 +128,6 @@ func TestRejectsUnusableOrMismatchedPaths(t *testing.T) {
 		{"missing selected entry", func(_ *navdata.RouteQuery, f *flight, _ *referenceReader) { f.Path[3].Name = "TUDLO" }},
 		{"wrong region entry", func(_ *navdata.RouteQuery, f *flight, _ *referenceReader) { f.Path[3] = testPoint("TESPI", 35, 120) }},
 		{"uncached entry", func(_ *navdata.RouteQuery, _ *flight, r *referenceReader) { r.snapshot.Fixes = nil }},
-		{"missing waypoint", func(q *navdata.RouteQuery, _ *flight, _ *referenceReader) { q.FiledRoute = "DCT UNKNOWN DCT TESPI" }},
-		{"wrong order", func(q *navdata.RouteQuery, _ *flight, _ *referenceReader) { q.FiledRoute = "TESPI FIRST" }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -253,18 +251,48 @@ func TestOneMalformedFlightPathDoesNotDiscardOtherFlightsOrCDMTiming(t *testing.
 	require.Equal(t, "1230", rows[1].CTOT)
 }
 
-func TestCoordinateAndOceanicRouteTokens(t *testing.T) {
-	for _, token := range []string{"5700N/01042E", "5700N01042E/N0440F330", "57N011E"} {
-		t.Run(token, func(t *testing.T) {
+func TestGeometryUsesVIFFPathRegardlessOfFiledWaypoints(t *testing.T) {
+	for _, route := range []string{
+		"DCT LIBSO DCT TESPI",
+		"TESPI FIRST",
+		"FIRST NATA 5700N01042E/N0440F330 DCT TESPI",
+		"DCT FIRST T_O_C T_O_D TESPI",
+	} {
+		t.Run(route, func(t *testing.T) {
 			q, refs, now, f := routeFixture()
-			q.FiledRoute = "FIRST NATA " + token + " DCT TESPI"
-			if token == "57N011E" {
-				f.Path[2] = testPoint("OCEANIC", 57, 11)
-			}
-			_, err := geometry(q, f, refs.snapshot, now)
+			want, err := geometry(q, f, refs.snapshot, now)
 			require.NoError(t, err)
+			q.FiledRoute = route
+			got, err := geometry(q, f, refs.snapshot, now)
+			require.NoError(t, err)
+			require.Equal(t, want.Legs, got.Legs)
+			require.Equal(t, want.TotalDistanceNM, got.TotalDistanceNM)
 		})
 	}
+}
+
+func TestGeometryFiltersProfileMarkersWithoutChangingSharedPath(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	want, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	// Markers may lack coordinates or carry positions that would cause detours.
+	f.Path = []point{
+		f.Path[0], {Name: "T_O_C"}, f.Path[1],
+		testPoint(" t_o_c ", 35, 120), f.Path[2],
+		testPoint("T_O_D", 0, 0), f.Path[3],
+		{Name: " t_o_d "}, f.Path[4], f.Path[5],
+	}
+	raw, err := json.Marshal(f)
+	require.NoError(t, err)
+	got, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	require.NoError(t, got.Validate())
+	require.Equal(t, want.Legs, got.Legs)
+	require.Equal(t, want.TotalDistanceNM, got.TotalDistanceNM)
+	require.Equal(t, want.Digest, got.Digest)
+	after, err := json.Marshal(f)
+	require.NoError(t, err)
+	require.JSONEq(t, string(raw), string(after))
 }
 
 func TestFeedRejectsWrongIdentityAndMalformedResponses(t *testing.T) {

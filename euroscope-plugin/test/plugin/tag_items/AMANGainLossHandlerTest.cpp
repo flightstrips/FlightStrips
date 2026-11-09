@@ -1,5 +1,7 @@
 #include "tag_items/AMANGainLossHandler.h"
 
+#include <tuple>
+
 #include <gtest/gtest.h>
 
 using FlightStrips::TagItems::AMANGainLossHandler;
@@ -74,16 +76,34 @@ TEST(AMANGainLossHandlerTest, DisplaysPlaceholderWhenGuidanceHasNeverBeenAvailab
     EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), "MISSING", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "----");
 }
 
-TEST(AMANGainLossHandlerTest, RetainsInterruptedGuidanceInGrey) {
+TEST(AMANGainLossHandlerTest, MarksGuidanceOnlyWhenDataIsStaleOrDisconnected) {
     for (const std::string controller : {"EKDK_CTR", "EKDK_FMP"}) {
         for (const std::string status : {"fresh", "stale", "disconnected"}) {
             for (const bool connected : {false, true}) {
-                if (connected && status == "fresh") continue;
-                const auto presentation = AMANGainLossHandler::Resolve(
-                    connected, Snapshot(true, status, -120), "SAS123", "EKCH", "EKCH", false, true, controller);
-                EXPECT_EQ(presentation.text, "L02");
-                EXPECT_EQ(presentation.color, RGB(160, 160, 160));
+                for (const auto& [seconds, label, color] : std::vector<std::tuple<long long, std::string, COLORREF>>{
+                         {60, "G01", RGB(150, 215, 150)},
+                         {0, "G00", RGB(150, 215, 150)},
+                         {-120, "L02", RGB(240, 225, 41)},
+                         {-240, "L04", RGB(156, 0, 0)}}) {
+                    const auto presentation = AMANGainLossHandler::Resolve(
+                        connected, Snapshot(true, status, seconds), "SAS123", "EKCH", "EKCH", false, true, controller);
+                    EXPECT_EQ(presentation.text, label);
+                    EXPECT_EQ(presentation.color, connected && status == "fresh" ? color : RGB(160, 160, 160))
+                        << controller << " " << status << " connected=" << connected;
+                }
             }
+        }
+    }
+}
+
+TEST(AMANGainLossHandlerTest, KeepsUnavailableGuidanceGreyAcrossConnectionChanges) {
+    for (const bool connected : {false, true}) {
+        for (const auto& snapshot : {Snapshot(false), Snapshot(true, "fresh", std::nullopt),
+                                    std::shared_ptr<FlightStrips::aman::GainLossSnapshot>{}}) {
+            const auto presentation = AMANGainLossHandler::Resolve(
+                connected, snapshot, "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR");
+            EXPECT_EQ(presentation.text, "----");
+            EXPECT_EQ(presentation.color, RGB(160, 160, 160));
         }
     }
 }

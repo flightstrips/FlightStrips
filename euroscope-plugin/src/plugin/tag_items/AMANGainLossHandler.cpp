@@ -104,6 +104,8 @@ namespace FlightStrips::TagItems {
         if (value == snapshot->byCallsign.end() || !value->second.seconds) {
             return unavailable;
         }
+        // Retention alone does not change the colour; only interrupted or
+        // stale data does. Current retained predictions use normal guidance.
         return {Format(*value->second.seconds), connected && value->second.dataStatus == "fresh"
             ? GuidanceColor(*value->second.seconds) : RetainedTagColor};
     }

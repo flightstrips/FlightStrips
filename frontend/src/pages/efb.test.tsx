@@ -1246,6 +1246,7 @@ describe('EFB page interactions', () => {
   });
 
   it('shows NIL on green without CTOT and does not confirm a failed departure TOBT update', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-09T19:00:00Z'));
     vi.stubGlobal('fetch', vi.fn().mockImplementation((input: RequestInfo | URL) => {
       if (String(input).includes('/me')) return jsonResponse({ live_mode: true, online_callsign: 'SAS123' });
       if (String(input).includes('/tobt')) return jsonResponse({ error: 'TOBT update unavailable' }, 503);

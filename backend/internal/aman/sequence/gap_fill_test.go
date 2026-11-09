@@ -170,8 +170,8 @@ func TestCrossSTARDeletedSlotVacancyPreservesConstraints(t *testing.T) {
 		{"same stream", func(input *sequence.Input, _ time.Time) { input.Flights[2].STARFamily = "TUDLO" }},
 		{"same hold", func(input *sequence.Input, _ time.Time) { input.Flights[2].HoldingQueueID = "TUDLO" }},
 		{"release rank", func(input *sequence.Input, _ time.Time) { rank := 3; input.Flights[2].ReleaseRank = &rank }},
-		{"retained target", func(input *sequence.Input, _ time.Time) { input.Flights[2].RebuildRetained = true }},
-		{"retained boundary", func(input *sequence.Input, _ time.Time) { input.Flights[1].RebuildRetained = true }},
+		{"rebuild TMA target", func(input *sequence.Input, _ time.Time) { input.Flights[2].RebuildTMA = true }},
+		{"rebuild TMA boundary", func(input *sequence.Input, _ time.Time) { input.Flights[1].RebuildTMA = true }},
 		{"unreachable", func(input *sequence.Input, at time.Time) {
 			lower := at.Add(14 * time.Minute)
 			input.Flights[2].PromotionNotBefore = &lower

@@ -295,6 +295,59 @@ func TestGeometryFiltersProfileMarkersWithoutChangingSharedPath(t *testing.T) {
 	require.JSONEq(t, string(raw), string(after))
 }
 
+func TestGeometryRejoinsLocallyAssignedSTARBeforeVIFFUpdates(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	oldEntry, newEntry := navdata.FixID("TESPI"), navdata.FixID("TUDLO")
+	refs.snapshot.Fixes = append(refs.snapshot.Fixes, navdata.Fix{ID: newEntry, Position: navdata.Coordinate{LatitudeDeg: 56, LongitudeDeg: 11.3}})
+	for _, entry := range []navdata.FixID{oldEntry, newEntry} {
+		refs.snapshot.TerminalPaths = append(refs.snapshot.TerminalPaths, navdata.TerminalPath{
+			Version: q.Version, Airport: q.Destination,
+			Legs: []navdata.ProcedureLeg{{FromFix: &entry}},
+		})
+	}
+	original, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	raw, err := json.Marshal(f)
+	require.NoError(t, err)
+	q.TerminalEntry = &newEntry
+	// The old STAR and airport continuation are not geometry inputs.
+	f.Path[4].Lat = nil
+	f.Path[5].Lon = nil
+	reassigned, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	require.NoError(t, reassigned.Validate())
+	require.Len(t, reassigned.Legs, 3)
+	require.Equal(t, original.Legs[:2], reassigned.Legs[:2])
+	join := reassigned.Legs[2]
+	require.Equal(t, "STAR-ENTRY-REJOIN", join.ID)
+	require.Equal(t, navdata.FixID("MID"), *join.FromFix)
+	require.Equal(t, newEntry, *join.ToFix)
+	require.Equal(t, refs.snapshot.Fixes[1].Position, *join.ToPosition)
+	require.NotEqual(t, original.Digest, reassigned.Digest)
+	for _, leg := range reassigned.Legs {
+		require.NotEqual(t, oldEntry, *leg.ToFix)
+	}
+	// Changing back works against the same cached bulk response.
+	q.TerminalEntry = &oldEntry
+	restored, err := geometry(q, f, refs.snapshot, now)
+	require.NoError(t, err)
+	require.Equal(t, original.Digest, restored.Digest)
+	// Restore deliberately malformed, discarded tail fields before comparing.
+	f.Path[4], f.Path[5] = testPoint("WRONG-STAR", 54, 14), testPoint("EKCH", 55.617917, 12.655972)
+	after, err := json.Marshal(f)
+	require.NoError(t, err)
+	require.JSONEq(t, string(raw), string(after))
+}
+
+func TestGeometryRequiresRecognizedVIFFEntryForSTARRejoin(t *testing.T) {
+	q, refs, now, f := routeFixture()
+	newEntry := navdata.FixID("TUDLO")
+	q.TerminalEntry = &newEntry
+	refs.snapshot.Fixes = append(refs.snapshot.Fixes, navdata.Fix{ID: newEntry, Position: navdata.Coordinate{LatitudeDeg: 56, LongitudeDeg: 11.3}})
+	_, err := geometry(q, f, refs.snapshot, now)
+	require.ErrorContains(t, err, "does not reach a configured terminal entry")
+}
+
 func TestFeedRejectsWrongIdentityAndMalformedResponses(t *testing.T) {
 	for _, kind := range []string{"missing flight", "duplicate callsign", "wrong departure", "wrong arrival", "null", "object", "malformed"} {
 		t.Run(kind, func(t *testing.T) {

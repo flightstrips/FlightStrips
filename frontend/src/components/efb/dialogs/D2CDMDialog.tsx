@@ -116,14 +116,14 @@ function TOBTMenu({
 
   return (
     <div
-      className="fixed top-0 left-0 z-[100] flex h-screen w-screen items-center justify-center bg-black/70"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70"
       onClick={() => { if (!isSubmitting) onClose(); }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label="TOBT"
-        style={{ top: `calc(${position === 'M2' ? '15%' : '57.5%'} + clamp(32px, 4.2vh, 44px))`, height: 'calc(40% - clamp(32px, 4.2vh, 44px))' }}
+        style={{ top: `calc(${position === 'M2' ? '15%' : '57.5%'} + clamp(32px, 4.2dvh, 44px))`, height: 'calc(40% - clamp(32px, 4.2dvh, 44px))' }}
         className={`absolute ${position === 'L3' ? 'left-[2.5%]' : 'left-[34.58%]'} box-border flex w-[30.83%] cursor-default flex-col rounded-none border-0 bg-[#000109]`}
         onClick={(e) => e.stopPropagation()}
       >

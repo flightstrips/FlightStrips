@@ -332,7 +332,7 @@ function ArrivalTileContent({ title, info, onInfoHoverChange, children }: { titl
       <div data-efb-tile-content inert={infoOpen} className="absolute inset-0 flex items-center justify-center bg-[#000109]">
         {children}
       </div>
-      <div data-efb-tile-info onClick={(event) => event.stopPropagation()} onMouseEnter={() => onInfoHoverChange(true)} onMouseLeave={() => { if (!infoOpen) onInfoHoverChange(false); }} className="absolute right-0 bottom-full left-0 z-20 h-[clamp(32px,4.2vh,44px)] cursor-default">
+      <div data-efb-tile-info onClick={(event) => event.stopPropagation()} onMouseEnter={() => onInfoHoverChange(true)} onMouseLeave={() => { if (!infoOpen) onInfoHoverChange(false); }} className="absolute right-0 bottom-full left-0 z-20 h-[clamp(32px,4.2dvh,44px)] cursor-default">
         <button
           ref={infoButtonRef}
           type="button"
@@ -372,12 +372,12 @@ function ArrivalTileContent({ title, info, onInfoHoverChange, children }: { titl
               onMouseEnter={() => { closeButtonHoveredRef.current = true; }}
               onMouseLeave={() => { closeButtonHoveredRef.current = false; }}
               onClick={closeInfo}
-              className={`absolute top-[calc(6px-clamp(32px,4.2vh,44px))] right-1.5 border-2 ${infoButtonClassName}`}
+              className={`absolute top-[calc(6px-clamp(32px,4.2dvh,44px))] right-1.5 border-2 ${infoButtonClassName}`}
             >
               <span aria-hidden="true">&times;</span>
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto pt-4 text-[clamp(14px,1.8vh,24px)] leading-relaxed text-slate-200">
+          <div className="efb-scroll min-h-0 flex-1 overflow-y-auto pt-4 text-[clamp(14px,1.8vh,24px)] leading-relaxed text-slate-200">
             {info ? info.map((paragraph, index) => (
               <div key={paragraph}>
                 {index > 0 && <hr className="my-3 border-white/10" />}
@@ -835,9 +835,9 @@ useEffect(() => {
   const tileStyle = (box: BoxType) => {
     const position = tilePosition(box);
     return {
-      top: `calc(${position.endsWith('2') ? '15%' : '57.5%'} + clamp(32px, 4.2vh, 44px))`,
+      top: `calc(${position.endsWith('2') ? '15%' : '57.5%'} + clamp(32px, 4.2dvh, 44px))`,
       left: position.startsWith('L') ? '2.5%' : position.startsWith('M') ? '34.58%' : '66.66%',
-      height: 'calc(40% - clamp(32px, 4.2vh, 44px))',
+      height: 'calc(40% - clamp(32px, 4.2dvh, 44px))',
     };
   };
 
@@ -1014,8 +1014,8 @@ useEffect(() => {
   };
 
   const standStateTextClass = (getStandM3Text()?.length ?? 0) > 14
-    ? 'text-[clamp(12px,2vh,28px)]'
-    : 'text-[clamp(14px,3.5vh,53px)]';
+    ? 'text-[clamp(12px,calc(2*var(--efb-vh)),28px)]'
+    : 'text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]';
 
   const getAtisColor = () => {
     return currentAtisKey !== null && currentAtisKey === acknowledgedAtis && !apiFlight?.atis?.stale
@@ -1054,10 +1054,10 @@ useEffect(() => {
   const atisWeatherWidgets = (
     <div role="group" aria-label="ATIS weather" className="absolute top-1/2 left-0 grid h-[30%] w-full grid-cols-3 items-center px-[3%] text-white">
       {weatherWidgets.map(({ label, icon: Icon, value }) => (
-        <div key={label} role="group" aria-label={label} className="flex min-w-0 flex-col items-center justify-center gap-[0.5vh] bg-transparent text-center">
+        <div key={label} role="group" aria-label={label} className="flex min-w-0 flex-col items-center justify-center gap-[0.5vh] bg-transparent text-center [container-type:inline-size]">
           <Icon role={label === 'WIND' && windDegrees !== null ? 'img' : undefined} aria-label={label === 'WIND' && windDegrees !== null ? `Wind from ${windDegrees} degrees` : undefined} aria-hidden={label !== 'WIND' || windDegrees === null ? true : undefined} style={label === 'WIND' && windArrowDegrees !== null ? { transform: `rotate(${windArrowDegrees}deg)` } : undefined} className="size-[clamp(16px,2.4vh,30px)] text-[#B8D9F0]" strokeWidth={1.5} />
-          <span className="text-[clamp(8px,1.1vh,14px)] tracking-wider text-[#B8D9F0]">{label}</span>
-          <span className="whitespace-nowrap text-[clamp(12px,2.2vh,32px)] leading-none font-bold">{value}</span>
+          <span className="text-[min(clamp(8px,calc(1.1*var(--efb-vh)),14px),13cqw)] tracking-wider text-[#B8D9F0]">{label}</span>
+          <span className="whitespace-nowrap text-[min(clamp(12px,calc(2.2*var(--efb-vh)),32px),20cqw)] leading-none font-bold">{value}</span>
         </div>
       ))}
     </div>
@@ -1090,7 +1090,7 @@ useEffect(() => {
   };
 
   const timingGuidance = (text: string) => (
-    <div className="absolute top-[76%] left-0 w-full whitespace-nowrap text-center text-[min(1.3vh,6cqw)] leading-tight text-white">{text}</div>
+    <div className="absolute top-[76%] left-0 w-full whitespace-nowrap text-center text-[min(calc(1.3*var(--efb-vh)),6cqw)] leading-tight text-white">{text}</div>
   );
 
   const getHoverClass = (boxType: BoxType) => (
@@ -1102,37 +1102,37 @@ useEffect(() => {
   const timingTile = (
     <>
       <div role="group" aria-label="TOBT" className={`${getCdmL1Color() === 'bg-[#000109]' ? '' : 'efb-action-bar'} absolute top-0 left-0 h-1/2 w-1/3 border-[clamp(5px,0.5vw,18px)] border-[#000109] [container-type:inline-size] ${getCdmL1Color()}`}>
-        <div className="absolute top-[8%] left-0 w-full text-center text-[clamp(14px,3.5vh,74px)] leading-none font-normal text-white">TOBT</div>
-        <div className="absolute top-[38%] left-0 w-full text-center text-[clamp(14px,5.5vh,106px)] leading-none font-bold text-white">{flightData.tobt}</div>
+        <div className="absolute top-[8%] left-0 w-full text-center text-[min(clamp(14px,calc(3.5*var(--efb-vh)),74px),20cqw)] leading-none font-normal text-white">TOBT</div>
+        <div className="absolute top-[38%] left-0 w-full text-center text-[min(clamp(14px,calc(5.5*var(--efb-vh)),106px),22cqw)] leading-none font-bold text-white">{flightData.tobt}</div>
         {timingGuidance('call for start within +/- 5min')}
       </div>
       <div role="group" aria-label="TSAT" className={`${getCdmR1Color() === 'bg-transparent' ? '' : 'efb-action-bar'} absolute top-0 left-1/3 h-1/2 w-1/3 border-[clamp(5px,0.5vw,18px)] border-[#000109] [container-type:inline-size] ${getCdmR1Color()}`}>
-        <div className="absolute top-[8%] left-0 w-full text-center text-[clamp(14px,3.5vh,74px)] leading-none font-normal text-white">TSAT</div>
+        <div className="absolute top-[8%] left-0 w-full text-center text-[min(clamp(14px,calc(3.5*var(--efb-vh)),74px),20cqw)] leading-none font-normal text-white">TSAT</div>
         {tsatDisplayed && (
           <>
-            <div className="absolute top-[38%] left-0 w-full text-center text-[clamp(14px,5.5vh,106px)] leading-none font-bold text-white">{flightData.tsat}</div>
+            <div className="absolute top-[38%] left-0 w-full text-center text-[min(clamp(14px,calc(5.5*var(--efb-vh)),106px),22cqw)] leading-none font-bold text-white">{flightData.tsat}</div>
             {timingGuidance('Expected startup time +/-5min')}
           </>
         )}
       </div>
       <div role="group" aria-label="CTOT" className={`efb-action-bar absolute top-0 left-2/3 h-1/2 w-1/3 border-[clamp(5px,0.5vw,18px)] border-[#000109] [container-type:inline-size] ${timingInhibited ? 'bg-[#2E343D]' : flightData.ctot === 'NIL' || ctotActive ? 'bg-[#41826E]' : 'bg-[#1A475F]'}`}>
-        <div className="absolute top-[8%] left-0 w-full text-center text-[clamp(14px,3.5vh,74px)] leading-none font-normal text-white">CTOT</div>
-        <div className="absolute top-[38%] left-0 w-full text-center text-[clamp(14px,5.5vh,106px)] leading-none font-bold text-white">{flightData.ctot}</div>
+        <div className="absolute top-[8%] left-0 w-full text-center text-[min(clamp(14px,calc(3.5*var(--efb-vh)),74px),20cqw)] leading-none font-normal text-white">CTOT</div>
+        <div className="absolute top-[38%] left-0 w-full text-center text-[min(clamp(14px,calc(5.5*var(--efb-vh)),106px),22cqw)] leading-none font-bold text-white">{flightData.ctot}</div>
         {ctotElapsed !== null && timingGuidance('Expect takeoff within -5 to +10')}
       </div>
       <div className="absolute top-1/2 left-0 flex h-[30%] w-full items-center justify-center">
         <img src={TOBTGuidance} alt="TOBT stand guidance" className="h-full w-full scale-[1.15] object-contain" />
       </div>
       {isArrival && !timingInhibited ? (
-        <a href="https://vats.im/vdgs" target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()} className="efb-action-bar efb-clickspot absolute top-[80%] left-0 flex h-[20%] w-full cursor-pointer items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] bg-[#1A475F] text-[clamp(14px,3.5vh,53px)] font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7]">UPDATE TOBT</a>
+        <a href="https://vats.im/vdgs" target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()} className="efb-action-bar efb-clickspot absolute top-[80%] left-0 flex h-[20%] w-full cursor-pointer items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] bg-[#1A475F] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7]">UPDATE TOBT</a>
       ) : (
-        <button type="button" disabled={timingInhibited || !apiFlight?.capabilities.tobt_update} onClick={(event) => { event.stopPropagation(); handleBoxClick('M3'); }} className={`efb-action-bar ${timingInhibited ? '' : 'efb-clickspot'} absolute top-[80%] left-0 flex h-[20%] w-full cursor-pointer items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7] ${timingInhibited ? 'bg-[#2E343D]' : tobtConfirmed ? 'bg-[#41826E]' : 'bg-[#1A475F]'} text-[clamp(14px,3.5vh,53px)] font-bold text-white disabled:cursor-default ${tobtConfirmed && !timingInhibited ? '' : 'disabled:bg-[#2E343D]'}`}>{timingInhibited ? 'INHIBITED IN AIR' : tobtConfirmed ? 'TOBT CONFIRMED' : 'UPDATE TOBT'}</button>
+        <button type="button" disabled={timingInhibited || !apiFlight?.capabilities.tobt_update} onClick={(event) => { event.stopPropagation(); handleBoxClick('M3'); }} className={`efb-action-bar ${timingInhibited ? '' : 'efb-clickspot'} absolute top-[80%] left-0 flex h-[20%] w-full cursor-pointer items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7] ${timingInhibited ? 'bg-[#2E343D]' : tobtConfirmed ? 'bg-[#41826E]' : 'bg-[#1A475F]'} text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white disabled:cursor-default ${tobtConfirmed && !timingInhibited ? '' : 'disabled:bg-[#2E343D]'}`}>{timingInhibited ? 'INHIBITED IN AIR' : tobtConfirmed ? 'TOBT CONFIRMED' : 'UPDATE TOBT'}</button>
       )}
     </>
   );
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[#1D293D]">
+    <div data-efb-dashboard className="relative h-dvh w-full overflow-hidden bg-[#1D293D]">
       {(profile?.live_mode === false || profile?.training_available) && (
         <form onSubmit={submitDevCallsign} className="absolute top-2 left-2 z-[50] flex gap-1.5 bg-black/70 p-1.5">
           {profile?.training_available && (
@@ -1201,7 +1201,7 @@ useEffect(() => {
           <form
             aria-label="Simulated arrival"
             onSubmit={submitArrivalPreview}
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto border-2 border-cyan-300 bg-[#011328] p-5 font-mono text-white shadow-2xl"
+            className="efb-scroll max-h-[90dvh] w-full max-w-3xl overflow-y-auto border-2 border-cyan-300 bg-[#011328] p-5 font-mono text-white shadow-2xl"
           >
             <h1 className="mb-2 text-xl font-bold text-cyan-100">Simulate an arrival</h1>
             <p className="mb-4 text-sm text-slate-300">Preview-only data. No flight or controller state will be changed.</p>
@@ -1371,17 +1371,17 @@ useEffect(() => {
         )}
 
         {showFlightplanElements && (
-          <button type="button" aria-label="Downloads" onClick={handleDownloadsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[2.5%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,3.5vh,53px)] font-bold text-white">
+          <button type="button" aria-label="Downloads" onClick={handleDownloadsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[2.5%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
             <img src={standArrow} alt="" className="absolute left-[3%] h-[85%] w-[12%] object-contain" />
             DOWNLOADS
           </button>
         )}
 
-        <button type="button" onClick={() => { if (!showFlightplanElements) void (profile === null ? loadProfile() : refreshFlight()); }} className={`absolute top-[2.5%] left-[34.58%] flex h-[60%] w-[30.83%] items-center justify-center bg-[#011328] text-center text-[clamp(24px,5.5vh,106px)] font-bold text-white ${showFlightplanElements ? 'cursor-default' : 'cursor-pointer'}`}>
+        <button type="button" onClick={() => { if (!showFlightplanElements) void (profile === null ? loadProfile() : refreshFlight()); }} className={`absolute top-[2.5%] left-[34.58%] flex h-[60%] w-[30.83%] items-center justify-center bg-[#011328] text-center text-[clamp(24px,calc(5.5*var(--efb-vh)),106px)] font-bold text-white ${showFlightplanElements ? 'cursor-default' : 'cursor-pointer'}`}>
           {showFlightplanElements ? flightData.callsign : loadState === 'LOADING' ? 'LOADING' : loadState === 'ERROR' ? 'CLICK TO RETRY' : 'CLICK TO REFRESH'}
         </button>
 
-        <div className={`absolute top-[66.66%] left-[34.58%] flex h-[40%] w-[30.83%] items-center justify-center text-center text-[clamp(24px,3.5vh,106px)] font-bold text-white ${getM1HeaderColor()}`}>
+        <div className={`absolute top-[66.66%] left-[34.58%] flex h-[40%] w-[30.83%] items-center justify-center text-center text-[clamp(min(24px,3vw),calc(3.5*var(--efb-vh)),106px)] font-bold text-white ${getM1HeaderColor()}`}>
           {getM1HeaderText()}
         </div>
 
@@ -1392,7 +1392,7 @@ useEffect(() => {
         )}
 
         {showFlightplanElements && (
-          <a href="https://flightboard.simfixr.com/?icao=EKCH" aria-label="Traffic Board" target="_blank" rel="noreferrer" className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[66.66%] flex h-[60%] w-[30.83%] items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,3.5vh,53px)] font-bold text-white">
+          <a href="https://flightboard.simfixr.com/?icao=EKCH" aria-label="Traffic Board" target="_blank" rel="noreferrer" className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[66.66%] flex h-[60%] w-[30.83%] items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
             TRAFFIC BOARD
             <img src={standArrow} alt="" className="absolute right-[3%] h-[85%] w-[12%] object-contain" />
           </a>
@@ -1409,8 +1409,8 @@ useEffect(() => {
               <>
                 <div role="group" aria-label="Stand" className={`efb-action-bar ${apiFlight?.capabilities.stand_reassignment ? 'efb-clickspot' : ''} absolute top-0 left-0 flex h-1/2 w-full flex-col border-[clamp(5px,0.5vw,18px)] border-[#000109] ${getStandM1Color()}`}>
                   <button type="button" aria-label="Open stand dialog" onClick={(event) => { event.stopPropagation(); handleBoxClick('L2'); }} className="flex h-full w-full cursor-pointer flex-col focus-visible:outline-2 focus-visible:outline-[#43C6E7]">
-                    <div className="flex h-[40%] w-full items-center justify-center text-[clamp(14px,3.5vh,88px)] font-normal text-white">{getL2Title()}</div>
-                    <div className="flex h-[66%] w-full items-center justify-center text-[clamp(14px,8.5vh,132px)] font-bold text-white">{flightData.stand}</div>
+                    <div className="flex h-[40%] w-full items-center justify-center text-[clamp(14px,calc(3.5*var(--efb-vh)),88px)] font-normal text-white">{getL2Title()}</div>
+                    <div className="flex h-[66%] w-full items-center justify-center text-[clamp(14px,calc(8.5*var(--efb-vh)),132px)] font-bold text-white">{flightData.stand}</div>
                   </button>
                 </div>
                 <div className="absolute top-1/2 left-0 flex h-[30%] w-full items-center justify-center bg-[#000109]">
@@ -1440,22 +1440,22 @@ useEffect(() => {
                   ['SID', flightData.sid, 'top-[66%] right-[2%]', true],
                 ] as const).map(([label, value, position, right]) => (
                   <div key={label} role="group" aria-label={label === 'CTOT' ? 'Departure CTOT' : label} className={`absolute ${position} h-[34%] w-[40%] text-white`}>
-                    <div className={`flex h-[40%] w-full items-center border-b border-[#38536E] text-[clamp(10px,1.7vh,30px)] font-bold tracking-[0.08em] text-[#B8D9F0] ${right ? 'justify-end text-right' : 'justify-start text-left'}`}>
+                    <div className={`flex h-[40%] w-full items-center border-b border-[#38536E] text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0] ${right ? 'justify-end text-right' : 'justify-start text-left'}`}>
                       {label.toUpperCase()}
                     </div>
-                    <div className={`flex h-[60%] w-full items-start gap-[4%] whitespace-nowrap pt-[2%] text-[clamp(14px,3.5vh,53px)] ${right ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`flex h-[60%] w-full items-start gap-[4%] whitespace-nowrap pt-[2%] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] ${right ? 'justify-end' : 'justify-start'}`}>
                       {label === 'Departure Freq' && <img src={Headset} alt="Headset" className="mt-[3%] aspect-square w-[18%] object-contain" />}
                       {value}
                     </div>
                     {label === 'Departure Freq' && value !== 'NIL' && (
-                      <div className="absolute top-[78%] right-0 w-full text-right text-[clamp(12px,1.8vh,32px)] leading-snug">
+                      <div className="absolute top-[78%] right-0 w-full text-right text-[clamp(12px,calc(1.8*var(--efb-vh)),32px)] leading-snug">
                         Contact <strong className="underline">AUTOMATICALLY</strong><br />after departure
-                        {departureFrequencyMismatch(apiFlight) && <div className="mt-1 text-[clamp(10px,1.4vh,24px)]">Unless otherwise instructed by TWR.</div>}
+                        {departureFrequencyMismatch(apiFlight) && <div className="mt-1 text-[clamp(10px,calc(1.4*var(--efb-vh)),24px)]">Unless otherwise instructed by TWR.</div>}
                       </div>
                     )}
                   </div>
                 ))}
-                <div role="group" aria-label="Departure runway" className="absolute bottom-[2%] left-[40%] flex w-[18%] justify-center text-[clamp(14px,3.5vh,53px)] text-white">
+                <div role="group" aria-label="Departure runway" className="absolute bottom-[2%] left-[40%] flex w-[18%] justify-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] text-white">
                   {flightData.assignedRunway}
                 </div>
               </>}
@@ -1466,14 +1466,14 @@ useEffect(() => {
 
               {isArrival && (
                 <div role="group" aria-label="Published holding" className="absolute top-0 left-[2%] h-[80%] w-[46%] text-white">
-                  <div className="absolute top-[2%] left-0 flex h-[14%] w-[86%] items-center justify-start whitespace-nowrap border-b border-[#38536E] text-left text-[clamp(10px,1.7vh,30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
+                  <div className="absolute top-[2%] left-0 flex h-[14%] w-[86%] items-center justify-start whitespace-nowrap border-b border-[#38536E] text-left text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
                     PUBLISHED HOLDING
                   </div>
                   <img src={HOLD} alt="Holding pattern" className={`absolute top-[16%] left-[2%] h-[46%] w-[30%] object-contain ${flightData.publishedHoldingDetail.endsWith('/LEFT') ? '-scale-x-100' : ''}`} />
-                  <div className="absolute top-[16%] left-[35%] flex h-[24%] w-[63%] items-center justify-start whitespace-nowrap text-[clamp(14px,3.5vh,53px)] font-bold">
+                  <div className="absolute top-[16%] left-[35%] flex h-[24%] w-[63%] items-center justify-start whitespace-nowrap text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold">
                     {flightData.publishedHoldingFix || 'NOT AVAILABLE'}
                   </div>
-                  <div className="absolute top-[38%] left-[35%] flex h-[20%] w-[63%] items-start justify-start whitespace-nowrap text-[clamp(14px,2.5vh,53px)]">
+                  <div className="absolute top-[38%] left-[35%] flex h-[20%] w-[63%] items-start justify-start whitespace-nowrap text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)]">
                     {flightData.publishedHoldingDetail || 'DETAILS UNAVAILABLE'}
                   </div>
                 </div>
@@ -1481,37 +1481,37 @@ useEffect(() => {
 
               {isArrival && (
                 <div role="group" aria-label="Expected APP" className="absolute top-[66%] right-[2%] h-[34%] w-[40%] text-right text-white">
-                  <div className="absolute top-0 right-0 flex h-[40%] w-[108%] items-center justify-end border-b border-[#38536E] text-[clamp(10px,1.7vh,30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
+                  <div className="absolute top-0 right-0 flex h-[40%] w-[108%] items-center justify-end border-b border-[#38536E] text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
                     EXPECTED APP
                   </div>
-                  <div className="absolute top-[40%] right-0 flex h-[60%] w-full items-start justify-end whitespace-nowrap pt-[2%] text-[clamp(14px,3.5vh,53px)]">
+                  <div className="absolute top-[40%] right-0 flex h-[60%] w-full items-start justify-end whitespace-nowrap pt-[2%] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]">
                     ILS{flightData.arrivalRunway ? ` ${flightData.arrivalRunway}` : ''}
                   </div>
                 </div>
               )}
 
               {isArrival && <div className="absolute top-0 h-[80%] right-[2%] w-[40%]">
-                  <div role="group" aria-label="After passing" className="absolute top-[2%] right-0 flex h-[14%] w-[108%] items-center justify-end border-b border-[#38536E] text-right text-[clamp(10px,1.7vh,30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
+                  <div role="group" aria-label="After passing" className="absolute top-[2%] right-0 flex h-[14%] w-[108%] items-center justify-end border-b border-[#38536E] text-right text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
                     AFTER PASSING
                   </div>
-                  <div className="absolute top-[16%] right-0 flex h-[24%] w-full items-center justify-end gap-[4%] text-[clamp(14px,3.5vh,53px)] text-white">
+                  <div className="absolute top-[16%] right-0 flex h-[24%] w-full items-center justify-end gap-[4%] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] text-white">
                     <div className="flex aspect-square w-[20%] items-center justify-center">
                       <img src={RNAVLOGO} alt="Arrival procedure" className="h-full w-full object-contain" />
                     </div>
                     <div>{flightData.terminalFix || 'STAR'}</div>
                   </div>
-                  <div className="absolute top-[38%] right-0 flex h-[20%] w-full flex-col items-end justify-start text-right text-[clamp(14px,1.5vh,36px)] text-white">
-                    {flightData.arrivalHeading && <div className="text-[clamp(14px,2.5vh,53px)] underline underline-offset-4">Maintain {flightData.arrivalHeading}</div>}
+                  <div className="absolute top-[38%] right-0 flex h-[20%] w-full flex-col items-end justify-start text-right text-[clamp(14px,calc(1.5*var(--efb-vh)),36px)] text-white">
+                    {flightData.arrivalHeading && <div className="text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)] underline underline-offset-4">Maintain {flightData.arrivalHeading}</div>}
                   </div>
               </div>}
 
               {isArrival && (
                 <div role="group" aria-label="Expected STAR" className="absolute top-[66%] left-[2%] h-[34%] w-[46%] text-left text-white">
-                  <div className="absolute top-0 left-0 flex h-[40%] w-[86%] items-center justify-start border-b border-[#38536E] text-[clamp(10px,1.7vh,30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
+                  <div className="absolute top-0 left-0 flex h-[40%] w-[86%] items-center justify-start border-b border-[#38536E] text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
                     EXPECTED STAR
-                    {apiFlight?.arrival_guidance_expected && <span className="ml-1 text-[clamp(9px,1.1vh,14px)]">(ROUTE / ATIS)</span>}
+                    {apiFlight?.arrival_guidance_expected && <span className="ml-1 text-[clamp(9px,calc(1.1*var(--efb-vh)),14px)]">(ROUTE / ATIS)</span>}
                   </div>
-                  <div className="absolute top-[40%] left-0 flex h-[60%] w-full items-start justify-start whitespace-nowrap pt-[2%] text-[clamp(14px,3.5vh,53px)]">
+                  <div className="absolute top-[40%] left-0 flex h-[60%] w-full items-start justify-start whitespace-nowrap pt-[2%] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]">
                     {flightData.star}
                   </div>
                 </div>
@@ -1552,7 +1552,7 @@ useEffect(() => {
               <>
                 <div onClick={handleL3M1Click} className={`efb-action-bar efb-clickspot absolute top-0 left-0 flex h-1/2 w-full cursor-pointer items-center border-[clamp(5px,0.5vw,18px)] border-[#000109] ${getAtisColor()}`}>
                   <div className="w-[66%] pr-[5%] text-right">
-                    <div className="-translate-x-[20%] text-[clamp(14px,5.5vh,88px)] font-bold text-white">{getAtisText()}</div>
+                    <div className="-translate-x-[20%] text-[clamp(14px,calc(5.5*var(--efb-vh)),88px)] font-bold text-white">{getAtisText()}</div>
                   </div>
                   <div className="flex aspect-square w-[20%] items-center justify-center">
                     <img src={ATISPicture} alt="ATIS" className="h-[120%] w-[120%] object-contain" />
@@ -1562,7 +1562,7 @@ useEffect(() => {
                 {atisWeatherWidgets}
                 <div className="absolute top-[80%] left-0 flex h-[20%] w-full items-center justify-center">
                   <button type="button" onClick={handleL3M2Click} disabled={pdcStatus === 'PENDING'} className={`efb-action-bar efb-clickspot flex h-full w-full min-w-0 cursor-pointer items-center justify-center rounded-none border-[clamp(5px,0.5vw,18px)] border-[#000109] px-[5%] [container-type:inline-size] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#43C6E7] disabled:cursor-default ${getClrM2Color()}`}>
-                    <span className={`w-full whitespace-nowrap text-center text-[min(3.5vh,53px,var(--pdc-label-size))] font-bold ${pdcStatus === 'RECEIVED' && !blinkOn ? 'text-[#43C6E7]' : 'text-white'}`} style={{ '--pdc-label-size': `${100 / (getClrM2Text().length * 0.75)}cqw` } as CSSProperties}>
+                    <span className={`w-full whitespace-nowrap text-center text-[min(calc(3.5*var(--efb-vh)),53px,var(--pdc-label-size))] font-bold ${pdcStatus === 'RECEIVED' && !blinkOn ? 'text-[#43C6E7]' : 'text-white'}`} style={{ '--pdc-label-size': `${100 / (getClrM2Text().length * 0.75)}cqw` } as CSSProperties}>
                       {getClrM2Text()}
                     </span>
                   </button>
@@ -1583,7 +1583,7 @@ useEffect(() => {
             isArrival ? (
               <button type="button" aria-label="Open ATIS" onClick={(event) => { event.stopPropagation(); handleBoxClick('M3'); }} className="efb-atis-control relative block h-full w-full cursor-pointer border-0 border-[#000109] bg-[#000109]">
                 <div role="group" aria-label="ATIS identifier" className={`efb-action-bar efb-clickspot absolute top-0 left-0 flex h-1/2 w-full flex-col items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] ${getAtisColor()}`}>
-                  <div className="flex h-[52%] w-full items-center justify-center text-center text-[clamp(14px,5.5vh,88px)] leading-none font-bold text-white">
+                  <div className="flex h-[52%] w-full items-center justify-center text-center text-[clamp(14px,calc(5.5*var(--efb-vh)),88px)] leading-none font-bold text-white">
                     {apiFlight?.atis?.code ? `ATIS ${apiFlight.atis.code}${apiFlight.atis.stale ? ' STALE' : ''}` : getAtisText()}
                   </div>
                   <div className="flex h-[44%] w-full items-center justify-center">
@@ -1591,7 +1591,7 @@ useEffect(() => {
                   </div>
                 </div>
                 {atisWeatherWidgets}
-                <div role="note" className="efb-action-bar absolute top-[80%] left-0 flex h-[20%] w-full items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] bg-[#1A475F] px-2 text-center text-[clamp(12px,2vh,28px)] leading-tight font-normal text-white">
+                <div role="note" className="efb-action-bar absolute top-[80%] left-0 flex h-[20%] w-full items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] bg-[#1A475F] px-2 text-center text-[clamp(12px,calc(2*var(--efb-vh)),28px)] leading-tight font-normal text-white">
                   At First Contact with APP, Stats A/C Type &amp; ATIS Info
                 </div>
               </button>
@@ -1613,8 +1613,8 @@ useEffect(() => {
               <>
                 <div role="group" aria-label="Stand" className={`efb-action-bar ${apiFlight?.capabilities.stand_reassignment ? 'efb-clickspot' : ''} absolute top-0 left-0 flex h-1/2 w-full flex-col border-[clamp(5px,0.5vw,18px)] border-[#000109] ${getStandM1Color()}`}>
                   <button type="button" aria-label="Open stand dialog" onClick={(event) => { event.stopPropagation(); handleBoxClick('R3'); }} className="flex h-full w-full cursor-pointer flex-col focus-visible:outline-2 focus-visible:outline-[#43C6E7]">
-                    <div className="flex h-[40%] w-full items-center justify-center text-[clamp(14px,3.5vh,88px)] font-normal text-white">{getL2Title()}</div>
-                    <div className="flex h-[66%] w-full items-center justify-center text-[clamp(14px,8.5vh,132px)] font-bold text-white">{flightData.stand}</div>
+                    <div className="flex h-[40%] w-full items-center justify-center text-[clamp(14px,calc(3.5*var(--efb-vh)),88px)] font-normal text-white">{getL2Title()}</div>
+                    <div className="flex h-[66%] w-full items-center justify-center text-[clamp(14px,calc(8.5*var(--efb-vh)),132px)] font-bold text-white">{flightData.stand}</div>
                   </button>
                 </div>
 
@@ -1622,7 +1622,7 @@ useEffect(() => {
                   <img src={standImage} alt="Stand Image" className="h-[90%] w-[90%] object-contain" />
                 </div>
 
-                <div role="status" aria-label="Stand state" className={`efb-action-bar ${apiFlight?.capabilities.stand_reassignment ? 'efb-clickspot' : ''} absolute top-[80%] left-0 flex h-[20%] w-full items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] text-[clamp(14px,3.5vh,53px)] font-bold text-white ${getStandM3Color()}`}>{getStandM3Text()}</div>
+                <div role="status" aria-label="Stand state" className={`efb-action-bar ${apiFlight?.capabilities.stand_reassignment ? 'efb-clickspot' : ''} absolute top-[80%] left-0 flex h-[20%] w-full items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white ${getStandM3Color()}`}>{getStandM3Text()}</div>
               </>
             ) : (
               <img src={briefingImage} alt="briefingImage" className="h-[95%] w-[95%] object-contain" />

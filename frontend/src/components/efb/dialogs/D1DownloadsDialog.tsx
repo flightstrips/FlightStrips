@@ -16,7 +16,7 @@ export default function D1DownloadsDialog({ isOpen, onClose }: D1DownloadsDialog
       <div
         role="dialog"
         aria-label="Downloads"
-        className="relative flex aspect-[3/2] max-h-[85vh] w-[95%] items-center justify-center overflow-hidden rounded-lg border-2 border-[#011328] bg-[#000109]"
+        className="relative flex aspect-[3/2] max-h-[85dvh] w-[95%] items-center justify-center overflow-hidden rounded-lg border-2 border-[#011328] bg-[#000109]"
         onClick={(event) => event.stopPropagation()}
       >
         <button

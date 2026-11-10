@@ -60,7 +60,7 @@ export default function BriefingDialog({ title, context, pages, currentPage, onP
             <div className="flex min-h-0 flex-1 items-center justify-center p-3">
               <img src={page.image} alt={page.imageAlt} className="max-h-full max-w-full rounded-xl object-contain shadow-[0_6px_24px_rgb(0_0_0_/_20%)]" />
             </div>
-            <div className="max-h-[30%] shrink-0 overflow-y-auto border-t border-white/10 bg-[#011328]/50 p-[clamp(12px,2vh,24px)] md:max-h-none md:w-[28%] md:border-t-0 md:border-l">
+            <div className="efb-scroll max-h-[30%] shrink-0 overflow-y-auto border-t border-white/10 bg-[#011328]/50 p-[clamp(12px,2vh,24px)] md:max-h-none md:w-[28%] md:border-t-0 md:border-l">
               <div className="mb-2 text-xs font-semibold tracking-widest text-[#B8D9F0] uppercase">Step {currentPage + 1} of {pages.length}</div>
               <h2 aria-live="polite" className="mb-4 text-[clamp(17px,2.5vh,28px)] leading-tight font-bold">{page.title}</h2>
               {page.description.map((paragraph, index) => (

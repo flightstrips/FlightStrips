@@ -228,8 +228,8 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70" onClick={close}>
-      <div role="dialog" aria-modal="true" aria-labelledby="efb-chart-title" className="flex h-[92vh] w-[98vw] max-w-[1800px] overflow-hidden rounded-xl border-2 border-[#1D293D] bg-[#011328]" onClick={(event) => event.stopPropagation()}>
-        <div className="flex min-w-0 flex-[3] flex-col border-r-[10px] border-[#1D293D] bg-[#001a2e]">
+      <div role="dialog" aria-modal="true" aria-labelledby="efb-chart-title" className="flex h-[92dvh] w-[98vw] max-w-[1800px] flex-col overflow-hidden rounded-xl border-2 border-[#1D293D] bg-[#011328] sm:flex-row" onClick={(event) => event.stopPropagation()}>
+        <div className="flex min-h-0 min-w-0 flex-[3] flex-col border-b-[10px] border-[#1D293D] bg-[#001a2e] sm:border-r-[10px] sm:border-b-0">
           <div className="min-h-0 flex-1 p-3">
             {loading ? <div className="flex h-full flex-col items-center justify-center gap-4 text-center text-[#E0E0E0]" role="status" aria-label="Loading ChartFox chart"><span className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" /><p>Loading ChartFox chart…</p></div>
               : canEmbed ? <iframe title={selectedChart.name} src={chartUrl} className="h-full w-full border-0 bg-white" />
@@ -242,8 +242,8 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
           </div>
         </div>
 
-        <div className="flex min-w-[300px] max-w-[420px] flex-1 flex-col bg-[#0d2540]">
-          <div className="min-h-0 flex-1 overflow-auto text-white">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#0d2540] sm:min-w-[300px] sm:max-w-[420px]">
+          <div className="efb-scroll min-h-0 flex-1 overflow-auto text-white">
             <div className="border-b border-[#58708a] bg-[#102d49] px-5 py-5">
               <p className="m-0 text-[11px] font-bold tracking-[0.18em] text-[#8ed7ec]">EFB CHARTS</p>
               <h2 id="efb-chart-title" className="mt-1 mb-0 text-[clamp(18px,2.5vh,24px)] font-bold">{validAirport || 'CHARTS'}</h2>

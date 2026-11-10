@@ -13,7 +13,7 @@ export default function EfbLayout() {
   }, [isAuthenticated, isLoading, location.pathname, location.search, loginWithRedirect]);
 
   if (isLoading || !isAuthenticated) {
-    return <div className="flex min-h-screen items-center justify-center bg-[#1d293d] font-mono text-cyan-100">LOADING EFB…</div>;
+    return <div className="flex min-h-dvh items-center justify-center bg-[#1d293d] font-mono text-cyan-100">LOADING EFB…</div>;
   }
   return <Outlet />;
 }

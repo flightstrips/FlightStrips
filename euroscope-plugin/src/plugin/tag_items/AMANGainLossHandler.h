@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -28,7 +29,8 @@ namespace FlightStrips::TagItems {
             bool connected, const std::shared_ptr<const aman::GainLossSnapshot>& snapshot,
             const std::string& callsign, const std::string& destination,
             const std::string& currentAirport, bool holding = false, bool trackedByMe = true,
-            const std::string& currentControllerCallsign = "");
+            const std::string& currentControllerCallsign = "",
+            std::chrono::system_clock::time_point now = std::chrono::system_clock::now());
 
     private:
         std::shared_ptr<aman::AMANGainLossStore> store_;

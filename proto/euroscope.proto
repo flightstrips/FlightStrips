@@ -439,6 +439,8 @@ message AMANGainLossValue {
   optional string feeder_fix_eta_source = 12;
   optional bool feeder_fix_passed = 13;
   optional bool inside_tma = 14;
+  // AMAN's calculated holding release, independent of EAT writeback.
+  optional int64 holding_eat_unix_seconds = 15;
 }
 
 message AMANGainLossEvent {

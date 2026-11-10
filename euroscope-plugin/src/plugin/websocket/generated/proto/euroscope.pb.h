@@ -11240,6 +11240,7 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     kFeederFixEtaFieldNumber = 11,
     kFeederFixEtaSourceFieldNumber = 12,
     kGainLossSecondsFieldNumber = 3,
+    kHoldingEatUnixSecondsFieldNumber = 15,
     kFeederFixPassedFieldNumber = 13,
     kInsideTmaFieldNumber = 14,
   };
@@ -11438,6 +11439,17 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
   void _internal_set_gain_loss_seconds(::int64_t value);
 
   public:
+  // optional int64 holding_eat_unix_seconds = 15;
+  bool has_holding_eat_unix_seconds() const;
+  void clear_holding_eat_unix_seconds() ;
+  ::int64_t holding_eat_unix_seconds() const;
+  void set_holding_eat_unix_seconds(::int64_t value);
+
+  private:
+  ::int64_t _internal_holding_eat_unix_seconds() const;
+  void _internal_set_holding_eat_unix_seconds(::int64_t value);
+
+  public:
   // optional bool feeder_fix_passed = 13;
   bool has_feeder_fix_passed() const;
   void clear_feeder_fix_passed() ;
@@ -11465,7 +11477,7 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 14, 0,
+      4, 15, 0,
       195, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -11495,6 +11507,7 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr feeder_fix_eta_;
     ::google::protobuf::internal::ArenaStringPtr feeder_fix_eta_source_;
     ::int64_t gain_loss_seconds_;
+    ::int64_t holding_eat_unix_seconds_;
     bool feeder_fix_passed_;
     bool inside_tma_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -33621,13 +33634,13 @@ inline void AMANGainLossValue::set_allocated_feeder_fix_eta_source(std::string* 
 
 // optional bool feeder_fix_passed = 13;
 inline bool AMANGainLossValue::has_feeder_fix_passed() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000200u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000400u) != 0;
   return value;
 }
 inline void AMANGainLossValue::clear_feeder_fix_passed() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.feeder_fix_passed_ = false;
-  _impl_._has_bits_[0] &= ~0x00000200u;
+  _impl_._has_bits_[0] &= ~0x00000400u;
 }
 inline bool AMANGainLossValue::feeder_fix_passed() const {
   // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_passed)
@@ -33635,7 +33648,7 @@ inline bool AMANGainLossValue::feeder_fix_passed() const {
 }
 inline void AMANGainLossValue::set_feeder_fix_passed(bool value) {
   _internal_set_feeder_fix_passed(value);
-  _impl_._has_bits_[0] |= 0x00000200u;
+  _impl_._has_bits_[0] |= 0x00000400u;
   // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_passed)
 }
 inline bool AMANGainLossValue::_internal_feeder_fix_passed() const {
@@ -33649,13 +33662,13 @@ inline void AMANGainLossValue::_internal_set_feeder_fix_passed(bool value) {
 
 // optional bool inside_tma = 14;
 inline bool AMANGainLossValue::has_inside_tma() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000400u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000800u) != 0;
   return value;
 }
 inline void AMANGainLossValue::clear_inside_tma() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.inside_tma_ = false;
-  _impl_._has_bits_[0] &= ~0x00000400u;
+  _impl_._has_bits_[0] &= ~0x00000800u;
 }
 inline bool AMANGainLossValue::inside_tma() const {
   // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.inside_tma)
@@ -33663,7 +33676,7 @@ inline bool AMANGainLossValue::inside_tma() const {
 }
 inline void AMANGainLossValue::set_inside_tma(bool value) {
   _internal_set_inside_tma(value);
-  _impl_._has_bits_[0] |= 0x00000400u;
+  _impl_._has_bits_[0] |= 0x00000800u;
   // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.inside_tma)
 }
 inline bool AMANGainLossValue::_internal_inside_tma() const {
@@ -33673,6 +33686,34 @@ inline bool AMANGainLossValue::_internal_inside_tma() const {
 inline void AMANGainLossValue::_internal_set_inside_tma(bool value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.inside_tma_ = value;
+}
+
+// optional int64 holding_eat_unix_seconds = 15;
+inline bool AMANGainLossValue::has_holding_eat_unix_seconds() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000200u) != 0;
+  return value;
+}
+inline void AMANGainLossValue::clear_holding_eat_unix_seconds() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.holding_eat_unix_seconds_ = ::int64_t{0};
+  _impl_._has_bits_[0] &= ~0x00000200u;
+}
+inline ::int64_t AMANGainLossValue::holding_eat_unix_seconds() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.holding_eat_unix_seconds)
+  return _internal_holding_eat_unix_seconds();
+}
+inline void AMANGainLossValue::set_holding_eat_unix_seconds(::int64_t value) {
+  _internal_set_holding_eat_unix_seconds(value);
+  _impl_._has_bits_[0] |= 0x00000200u;
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.holding_eat_unix_seconds)
+}
+inline ::int64_t AMANGainLossValue::_internal_holding_eat_unix_seconds() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.holding_eat_unix_seconds_;
+}
+inline void AMANGainLossValue::_internal_set_holding_eat_unix_seconds(::int64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.holding_eat_unix_seconds_ = value;
 }
 
 // -------------------------------------------------------------------

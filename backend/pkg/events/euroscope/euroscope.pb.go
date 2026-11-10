@@ -5443,8 +5443,10 @@ type AMANGainLossValue struct {
 	FeederFixEtaSource *string                `protobuf:"bytes,12,opt,name=feeder_fix_eta_source,json=feederFixEtaSource,proto3,oneof" json:"feeder_fix_eta_source,omitempty"`
 	FeederFixPassed    *bool                  `protobuf:"varint,13,opt,name=feeder_fix_passed,json=feederFixPassed,proto3,oneof" json:"feeder_fix_passed,omitempty"`
 	InsideTma          *bool                  `protobuf:"varint,14,opt,name=inside_tma,json=insideTma,proto3,oneof" json:"inside_tma,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// AMAN's calculated holding release, independent of EAT writeback.
+	HoldingEatUnixSeconds *int64 `protobuf:"varint,15,opt,name=holding_eat_unix_seconds,json=holdingEatUnixSeconds,proto3,oneof" json:"holding_eat_unix_seconds,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *AMANGainLossValue) Reset() {
@@ -5573,6 +5575,13 @@ func (x *AMANGainLossValue) GetInsideTma() bool {
 		return *x.InsideTma
 	}
 	return false
+}
+
+func (x *AMANGainLossValue) GetHoldingEatUnixSeconds() int64 {
+	if x != nil && x.HoldingEatUnixSeconds != nil {
+		return *x.HoldingEatUnixSeconds
+	}
+	return 0
 }
 
 type AMANGainLossEvent struct {
@@ -6528,7 +6537,7 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\"O\n" +
 	"\x17SendPrivateMessageEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x94\x06\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xef\x06\n" +
 	"\x11AMANGainLossValue\x12\x1b\n" +
 	"\tflight_id\x18\x01 \x01(\tR\bflightId\x12\x1a\n" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12/\n" +
@@ -6551,7 +6560,8 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x11feeder_fix_passed\x18\r \x01(\bH\tR\x0ffeederFixPassed\x88\x01\x01\x12\"\n" +
 	"\n" +
 	"inside_tma\x18\x0e \x01(\bH\n" +
-	"R\tinsideTma\x88\x01\x01B\x14\n" +
+	"R\tinsideTma\x88\x01\x01\x12<\n" +
+	"\x18holding_eat_unix_seconds\x18\x0f \x01(\x03H\vR\x15holdingEatUnixSeconds\x88\x01\x01B\x14\n" +
 	"\x12_gain_loss_secondsB\x12\n" +
 	"\x10_reference_pointB\x0e\n" +
 	"\f_target_timeB\x11\n" +
@@ -6562,7 +6572,8 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x0f_feeder_fix_etaB\x18\n" +
 	"\x16_feeder_fix_eta_sourceB\x14\n" +
 	"\x12_feeder_fix_passedB\r\n" +
-	"\v_inside_tma\"\xf2\x01\n" +
+	"\v_inside_tmaB\x1b\n" +
+	"\x19_holding_eat_unix_seconds\"\xf2\x01\n" +
 	"\x11AMANGainLossEvent\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x18\n" +
 	"\aairport\x18\x02 \x01(\tR\aairport\x12\x1a\n" +

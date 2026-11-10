@@ -86,7 +86,8 @@ namespace FlightStrips::TagItems {
                                       const std::string& callsign, const std::string& destination,
                                       const std::string& currentAirport,
                                       const bool holding, const bool trackedByMe,
-                                      const std::string& currentControllerCallsign) -> AMANGainLossPresentation {
+                                      const std::string& currentControllerCallsign,
+                                      const std::chrono::system_clock::time_point now) -> AMANGainLossPresentation {
         const auto controllerCallsign = Normalize(currentControllerCallsign);
         const auto isEsmmApproachOrCenter = controllerCallsign.starts_with("ESMM_") &&
             (controllerCallsign.ends_with("_APP") || controllerCallsign.ends_with("_CTR"));
@@ -96,11 +97,23 @@ namespace FlightStrips::TagItems {
         const auto unavailable = AMANGainLossPresentation{"----", RetainedTagColor};
         const auto normalizedAirport = Normalize(currentAirport);
         if (normalizedAirport.empty() || Normalize(destination) != normalizedAirport) return {"", ActiveTagColor};
-        if (holding) return {"", ActiveTagColor};
         if (!snapshot || !snapshot->authoritative ||
-            (!snapshot->airport.empty() && Normalize(snapshot->airport) != normalizedAirport)) return unavailable;
+            (!snapshot->airport.empty() && Normalize(snapshot->airport) != normalizedAirport)) {
+            return holding ? AMANGainLossPresentation{"", ActiveTagColor} : unavailable;
+        }
         const auto value = snapshot->byCallsign.find(Normalize(callsign));
         if (value != snapshot->byCallsign.end() && value->second.insideTMA) return {"", ActiveTagColor};
+        if (holding) {
+            if (value == snapshot->byCallsign.end() || !value->second.holdingEatUnixSeconds) return {"", ActiveTagColor};
+            const auto nowSeconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+            // Compare the actual EAT before rounding the displayed minutes.
+            // The absolute UTC timestamp also keeps this working across midnight
+            // and between backend replacements.
+            const auto seconds = nowSeconds - *value->second.holdingEatUnixSeconds;
+            if (seconds < -4 * 60) return {"", ActiveTagColor};
+            return {Format(seconds), connected && value->second.dataStatus == "fresh"
+                ? GuidanceColor(seconds) : RetainedTagColor};
+        }
         if (value == snapshot->byCallsign.end() || !value->second.seconds) {
             return unavailable;
         }

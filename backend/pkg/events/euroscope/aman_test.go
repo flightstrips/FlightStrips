@@ -80,6 +80,53 @@ func TestAMANGainLossIsAlwaysAuthoritativeForEuroScope(t *testing.T) {
 	require.True(t, event.Authoritative)
 }
 
+func TestAMANGainLossPublishesHoldingEATIndependentlyOfLandingGuidance(t *testing.T) {
+	now := time.Date(2026, time.November, 10, 23, 59, 0, 0, time.UTC)
+	eat := now.Add(4 * time.Minute)
+	flight := aman.AMANFlight{
+		Callsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh,
+		Slot:       &aman.Slot{Time: eat.Add(10 * time.Minute)},
+		Prediction: &aman.Prediction{Publishable: true, HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: eat}},
+	}
+	for _, status := range []aman.DataStatus{aman.DataFresh, aman.DataStale, aman.DataDisconnected} {
+		flight.DataStatus = status
+		event, err := euroscope.NewAMANGainLossEvent(aman.AirportState{Airport: "EKCH", GeneratedAt: now, Flights: []aman.AMANFlight{flight}})
+		require.NoError(t, err)
+		payload, err := event.Marshal()
+		require.NoError(t, err)
+		_, inner, err := euroscope.UnmarshalEnvelope(payload)
+		require.NoError(t, err)
+		var decoded euroscope.AMANGainLossEvent
+		require.NoError(t, proto.Unmarshal(inner, &decoded))
+		require.NotNil(t, decoded.Values[0].HoldingEatUnixSeconds)
+		require.Equal(t, eat.Unix(), decoded.Values[0].GetHoldingEatUnixSeconds())
+		require.Nil(t, decoded.Values[0].GainLossSeconds)
+		require.Equal(t, string(status), decoded.Values[0].DataStatus)
+	}
+
+	for _, change := range []struct {
+		name  string
+		apply func(*aman.AMANFlight)
+	}{
+		{"no prediction", func(f *aman.AMANFlight) { f.Prediction = nil }},
+		{"unpublishable", func(f *aman.AMANFlight) { f.Prediction.Publishable = false }},
+		{"no plan", func(f *aman.AMANFlight) { f.Prediction.HoldingPlan = nil }},
+		{"zero EAT", func(f *aman.AMANFlight) { f.Prediction.HoldingPlan.ApproachReleaseTime = time.Time{} }},
+		{"no slot", func(f *aman.AMANFlight) { f.Slot = nil }},
+		{"landed", func(f *aman.AMANFlight) { f.State = aman.StateLanded }},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			copy := flight
+			prediction, plan := *flight.Prediction, *flight.Prediction.HoldingPlan
+			copy.Prediction, prediction.HoldingPlan = &prediction, &plan
+			change.apply(&copy)
+			event, err := euroscope.NewAMANGainLossEvent(aman.AirportState{Airport: "EKCH", GeneratedAt: now, Flights: []aman.AMANFlight{copy}})
+			require.NoError(t, err)
+			require.Nil(t, event.Values[0].HoldingEatUnixSeconds)
+		})
+	}
+}
+
 func TestAMANGainLossUsesLiveRawTETAWhenOperationalTETAIsFrozen(t *testing.T) {
 	now := time.Date(2026, time.September, 8, 12, 0, 0, 0, time.UTC)
 	slot := aman.Slot{Time: now.Add(10 * time.Minute), RunwayGroupID: "22", Sequence: 1, Revision: 42, Reason: "sequence"}

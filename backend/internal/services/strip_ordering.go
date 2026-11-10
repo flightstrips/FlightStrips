@@ -288,24 +288,6 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 			}
 		}
 	}
-	if bay == shared.BAY_PUSH && strip != nil && ctx.Value(pushbackTransitionLoggedContextKey{}) != true {
-		if _, ok := s.departureObserver.(departureStandReleaser); ok {
-			sessionRepo := s.getSessionRepository()
-			if sessionRepo == nil {
-				return errors.New("session repository required to release departure stand")
-			}
-			currentSession, err := sessionRepo.GetByID(ctx, session)
-			if err != nil {
-				return err
-			}
-			if currentSession == nil {
-				return errors.New("session not found while releasing departure stand")
-			}
-			if err := s.releaseDepartureStandOnPush(ctx, session, strip, euroscope.GroundStatePush, currentSession.Airport); err != nil {
-				return err
-			}
-		}
-	}
 	if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, bay); err != nil {
 		return err
 	}

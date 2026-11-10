@@ -10,6 +10,8 @@ window.__APP_CONFIG__ = {
   audience: "${OIDC_AUDIENCE}",
   connection: "${OIDC_CONNECTION}",
   chartfoxClientId: "${CHARTFOX_CLIENT_ID}",
+  posthogKey: "${POSTHOG_KEY}",
+  posthogHost: "${POSTHOG_HOST}",
 };
 EOF
 

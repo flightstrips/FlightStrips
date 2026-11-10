@@ -6,13 +6,17 @@ import ChartFoxCallbackPage from "@/pages/chartfox-callback";
 import FlightStripsRoutes from "@/routes/FlightStripsRoutes";
 import { ThemeSync } from "@/components/public/ThemeSync";
 import { startAppUpdateMonitoring } from "@/lib/app-update";
+import { initAnalytics } from "@/lib/analytics";
+import { AnalyticsConsentBanner } from "@/components/AnalyticsConsentBanner";
 
+initAnalytics();
 startAppUpdateMonitoring();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeSync />
+      <AnalyticsConsentBanner />
       <Routes>
         <Route path="/efb/chartfox/callback" element={<ChartFoxCallbackPage />} />
         <Route path="*" element={<FlightStripsRoutes />} />

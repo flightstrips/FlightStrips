@@ -31,10 +31,20 @@
     {
       "file": "EKDK/Plugins/TopSky/TopSkyAirspace.txt",
       "sha256": "0b665d5964e463d092d38843895cd699d7e17325511655768dd5a28e6bcb3ff7"
+    },
+    {
+      "file": "EK_AD_2_EKBI_APDC_en.pdf",
+      "url": "https://aim.naviair.dk/media/files/an252onzflg/EK_AD_2_EKBI_APDC_en.pdf",
+      "effective_date": "2026-10-01",
+      "amendment": "AIRAC AMDT 10/26",
+      "sha256": "096675809b9ac7441d54d4b45a42ad4e03e53d021d4dfbfa36be63304ed7c70c",
+      "sections": [
+        "INS coordinates for aircraft stands: stand 36"
+      ]
     }
   ],
   "operating_decisions": "https://github.com/flightstrips/FlightStrips/issues/1097#issuecomment-6705199725",
-  "stand_count": 28,
+  "stand_count": 29,
   "sids": [
     {
       "runway": "09",
@@ -105,6 +115,19 @@
       "runway": "27",
       "name": "RERPA3A",
       "route": "BI367 RERPA"
+    }
+  ],
+  "stand_supplements": [
+    {
+      "stand": "36",
+      "position_source": "Naviair EKBI APDC AIRAC AMDT 10/26",
+      "latitude": "N055.44.42.780",
+      "longitude": "E009.08.57.200",
+      "observation_radius_m": 25,
+      "observation_radius_source": "Existing EKBI sector-file convention; not a published aircraft-size limit",
+      "manual_only": true,
+      "manual_only_reason": "Coordinates are published; aircraft compatibility limits and allocation preferences are not supplied by this chart.",
+      "blocking_relationship": "Existing sector stand 37 BLOCKS 36 retained; allocator checks blocking conflicts in both directions."
     }
   ]
 }

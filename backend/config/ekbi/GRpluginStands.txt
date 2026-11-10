@@ -107,6 +107,12 @@ SCHENGEN
 USE:A
 WINGSPAN:44
 
+;; Stand 36 position: Naviair EKBI APDC, AIRAC AMDT 10/26 (01 OCT 2026).
+;; Keep manual selection until aircraft compatibility is sourced; radius uses
+;; the existing EKBI 25 m observation convention, not an aircraft-size limit.
+STAND:EKBI:36:N055.44.42.780:E009.08.57.200:25
+MANUAL
+
 STAND:EKBI:37:N055.44.43.400:E009.08.58.010:25
 ENGINETYPE:J
 WTC:M

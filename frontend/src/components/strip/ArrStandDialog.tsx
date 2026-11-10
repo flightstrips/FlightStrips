@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { STAND_ASSIGNMENT_LAYOUTS, STAND_ASSIGNMENT_LETTERS as LETTERS } from "./standAssignmentLayouts";
 import { deriveStandAvailability, type StandBadge } from "./standAvailability";
+import { DEFAULT_BLOCKED_EST_STAND_SET } from "@/components/est/standBlocking";
 import StandStatusPage from "@/pages/stand-status";
 import "./ArrStandDialog.css";
 
@@ -184,8 +185,12 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   };
   const send = () => {
     if (legacyPending) return;
-    submittedStand.current = true;
     const stand = manualStand.trim().toUpperCase();
+    if (!automaticSelected && DEFAULT_BLOCKED_EST_STAND_SET.has(stand)) {
+      toast.error(`${stand} is not available for arrival stand assignment`);
+      return;
+    }
+    submittedStand.current = true;
     if (satEnabled && automaticSelected) {
       automatic();
     } else if (!satEnabled) {
@@ -208,7 +213,9 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
     }
   };
   const panel = group === "C" || group === "D" ? "C+D" : group;
-  const stands = panel === null ? [] : STAND_ASSIGNMENT_LAYOUTS[panel].map(([label, left, top]) => ({
+  const stands = panel === null ? [] : STAND_ASSIGNMENT_LAYOUTS[panel]
+    .filter(([label]) => !DEFAULT_BLOCKED_EST_STAND_SET.has(label))
+    .map(([label, left, top]) => ({
       label,
       displayLabel: label,
       style: position(left - 11, top - 7, 72, 96, 774, 751),
@@ -226,8 +233,13 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
             <MenuButton tone="dark" onClick={close}>ESC</MenuButton>
             {unsafeManual && <MenuButton tone="auto" onClick={automatic}>AUTO ASSIGN</MenuButton>}
             {unsafeManual && <MenuButton tone="dark" onClick={() => {
+              const stand = manualStand.trim().toUpperCase();
+              if (DEFAULT_BLOCKED_EST_STAND_SET.has(stand)) {
+                toast.error(`${stand} is not available for arrival stand assignment`);
+                return;
+              }
               submittedVersion.current = version;
-              confirmOverride(callsign, manualStand.trim().toUpperCase(), version, relevantRejection.reason);
+              confirmOverride(callsign, stand, version, relevantRejection.reason);
             }}>YES</MenuButton>}
           </div>
         </DialogContent>

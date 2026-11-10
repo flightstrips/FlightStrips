@@ -373,8 +373,8 @@ describe("arrival stand assignment dialog", () => {
   it.each([
     ["A", "A", "A34 A33 A32 A31 A30 A28 A27 A26 A25 A23 A22 A21 A20 A19 A18 A4 A7 A6 A9 A8 A11 A50 A17 A15 A14 A12"],
     ["B", "B", "B4 B7 B6 B9 B8 B15 B10 B19 B17"],
-    ["C", "C+D", "D1 D2 D3 D4 C26 C27 C28 C29 C30 C33 C32 C35 C34 C37 C36 C39"],
-    ["D", "C+D", "D1 D2 D3 D4 C26 C27 C28 C29 C30 C33 C32 C35 C34 C37 C36 C39"],
+    ["C", "C+D", "D1 D2 D3 D4 C27 C28 C29 C30 C33 C32 C35 C34 C37 C36 C39"],
+    ["D", "C+D", "D1 D2 D3 D4 C27 C28 C29 C30 C33 C32 C35 C34 C37 C36 C39"],
     ["E", "E", "E20 E25 E22 E27 E24 E29 E36 E31 E33 E35 E90 E89 E88 E87 E86 E85 E84 E83 E82 E71 E74 E70 E72 E73 E75 E76 E77 E78"],
     ["F", "F", "F1 F4 F5 F7 F8 F9 F97 F95 F93 F91 F98 F96 F94 F92 F90 F89"],
     ["G", "G", "G110 G111 G112 G113 G114 G118 G117 G119 G121 G120 G122 G124 G123 G125 G127 G126 G128 G130 G129 G131 G132 G133 G134 G136 G135 G137 G15 G16 G17 G18 G19"],
@@ -384,6 +384,22 @@ describe("arrival stand assignment dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: letter }));
     const buttons = within(screen.getByRole("group", { name: `${panelName} stands` })).getAllByRole("button");
     expect(buttons.map(button => button.textContent)).toEqual(expected.split(" "));
+  });
+
+  it.each(["C10", "C26", "B3", "B5"])("rejects legacy and SAT arrival assignment to %s", (stand) => {
+    const { rerender, props } = show();
+    fireEvent.change(screen.getByRole("textbox", { name: "Manual stand" }), { target: { value: stand } });
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
+
+    expect(state.updateStrip).not.toHaveBeenCalled();
+    expect(state.requestManualStand).not.toHaveBeenCalled();
+
+    state.satEnabled = true;
+    rerender(<ArrStandDialog {...props} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Manual stand" }), { target: { value: stand } });
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
+
+    expect(state.requestManualStand).not.toHaveBeenCalled();
   });
 
   it("keeps the combined C+D layout identical for either selector", () => {

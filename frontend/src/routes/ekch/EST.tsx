@@ -201,8 +201,11 @@ export default function EST() {
     () => deriveEstStandBlocking(standAssignments, standBlocks),
     [standAssignments, standBlocks],
   );
-  const blockedStandsDerived = satEnabled ? satStandBlocking.blocked : blockedStands;
-  const standBlockReasons = satEnabled ? satStandBlocking.reasons : {};
+  const defaultStandBlocking = useMemo(() => deriveEstStandBlocking([], []), []);
+  const blockedStandsDerived = satEnabled
+    ? satStandBlocking.blocked
+    : { ...blockedStands, ...defaultStandBlocking.blocked };
+  const standBlockReasons = satEnabled ? satStandBlocking.reasons : defaultStandBlocking.reasons;
 
   useEffect(() => {
     updateActionOverrides({ type: "prune", occupancy: standOccupancy });

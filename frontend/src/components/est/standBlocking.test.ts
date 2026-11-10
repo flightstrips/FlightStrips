@@ -15,9 +15,18 @@ describe("deriveEstStandBlocking", () => {
       },
     ]);
 
-    expect(state.blocked).toEqual({ A1: true, A2: true });
+    expect(state.blocked).toMatchObject({ A1: true, A2: true });
     expect(state.reasons.A1).toBe("Marshaller closed");
     expect(state.reasons.A2).toBe("Blocked by manual block A1: Marshaller closed");
+  });
+
+  it("blocks stands that are not available for arrival assignment by default", () => {
+    const state = deriveEstStandBlocking([], []);
+
+    expect(state.blocked).toMatchObject({ C10: true, C26: true, B3: true, B5: true, B16: true });
+    for (const stand of ["C10", "C26", "B3", "B5", "B16"]) {
+      expect(state.reasons[stand]).toBe("Not available for arrival stand assignment");
+    }
   });
 
   it("combines assignment and manual-block adjacency reasons", () => {

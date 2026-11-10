@@ -177,7 +177,9 @@ describe("EstStandCell", () => {
       />,
     );
 
-    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #dc2626");
+    expect(screen.getByRole("button")).toHaveStyle({
+      boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 2px #dc2626",
+    });
   });
 
   it("outlines a ready stand in green when TSAT is within the start request window", () => {
@@ -196,7 +198,9 @@ describe("EstStandCell", () => {
       />,
     );
 
-    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #00FF26");
+    expect(screen.getByRole("button")).toHaveStyle({
+      boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 2px #00FF26",
+    });
     expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.getByTestId("est-tsat-background").style.top).toBe("105px");
     expect(screen.getByText("TOBT:").parentElement?.style.color).toBe("");
@@ -248,7 +252,7 @@ describe("EstStandCell", () => {
     expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.queryByTestId("est-tsat-background")).toBeNull();
     expect(screen.getByRole("button")).toHaveClass("bg-[#131376]");
-    expect(screen.getByRole("button").style.boxShadow).not.toContain("0 0 0 2px");
+    expect(screen.getByRole("button")).toHaveStyle({ boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25)" });
     expect(screen.getByText("CTOT: 1430")).toBeDefined();
   });
 
@@ -275,7 +279,7 @@ describe("EstStandCell", () => {
     expect(screen.queryByTestId("est-ready-background")).toBeNull();
     expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.queryByTestId("est-tsat-background")).toBeNull();
-    expect(screen.getByRole("button").style.boxShadow).not.toContain("inset 0 0 0 2px");
+    expect(screen.getByRole("button")).toHaveStyle({ boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25)" });
     expect(screen.getByText("CTOT: 1430")).toBeDefined();
   });
 

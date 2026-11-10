@@ -578,14 +578,14 @@ describe('EFB page interactions', () => {
     expect(atisButton).toHaveClass('efb-atis-control');
     expect(atisButton).not.toHaveClass('efb-clickspot');
     expect(within(atisButton).getByRole('group', { name: 'ATIS identifier' })).toHaveClass('efb-action-bar', 'efb-clickspot');
-    expect(within(atisButton).getByText('ATIS B')).toHaveClass('text-[clamp(14px,5.5vh,88px)]');
+    expect(within(atisButton).getByText('ATIS B')).toHaveClass('text-[clamp(14px,calc(5.5*var(--efb-vh)),88px)]');
     expect(within(atisButton).queryByRole('group', { name: 'ATIS message' })).not.toBeInTheDocument();
     expect(screen.queryByText(arrivalAtis)).not.toBeInTheDocument();
     const weather = within(atisButton).getByRole('group', { name: 'ATIS weather' });
     expect(weather).toHaveClass('h-[30%]');
     const reminder = within(atisButton).getByRole('note');
     expect(reminder).toHaveTextContent('At First Contact with APP, Stats A/C Type & ATIS Info');
-    expect(reminder).toHaveClass('font-normal', 'text-[clamp(12px,2vh,28px)]');
+    expect(reminder).toHaveClass('font-normal', 'text-[clamp(12px,calc(2*var(--efb-vh)),28px)]');
     expect(reminder).toHaveClass('top-[80%]', 'h-[20%]', 'efb-action-bar');
     for (const [label, value] of [['WIND', '16 KT'], ['TEMPERATURE', '11 °C'], ['QNH', '1021 hPa']]) {
       const widget = within(weather).getByRole('group', { name: label });
@@ -628,7 +628,7 @@ describe('EFB page interactions', () => {
     if (state === 'REQUESTED') expect(button).toBeDisabled();
     else expect(button).toBeEnabled();
     expect(screen.queryByAltText('PDC')).not.toBeInTheDocument();
-    expect(text).toHaveClass('text-[min(3.5vh,53px,var(--pdc-label-size))]');
+    expect(text).toHaveClass('text-[min(calc(3.5*var(--efb-vh)),53px,var(--pdc-label-size))]');
     expect(text.style.getPropertyValue('--pdc-label-size')).toBe(`${100 / (label.length * 0.75)}cqw`);
   });
 
@@ -1010,7 +1010,7 @@ describe('EFB page interactions', () => {
     expect(within(departureFrequency).getByAltText('Headset')).toBeInTheDocument();
     expect(departureFrequency).toHaveTextContent('Contact AUTOMATICALLYafter departure');
     const automatically = within(departureFrequency).getByText('AUTOMATICALLY');
-    expect(automatically.parentElement).toHaveClass('text-[clamp(12px,1.8vh,32px)]');
+    expect(automatically.parentElement).toHaveClass('text-[clamp(12px,calc(1.8*var(--efb-vh)),32px)]');
     expect(automatically.tagName).toBe('STRONG');
     expect(automatically).toHaveClass('underline');
     expect(automatically).not.toHaveClass('text-red-500');
@@ -1047,7 +1047,7 @@ describe('EFB page interactions', () => {
     expect(within(tobtTile).queryByText('Confirmed')).not.toBeInTheDocument();
     expect(screen.queryByText('UPDATE UNAVAILABLE')).not.toBeInTheDocument();
     const updateTobtTile = screen.getByText('UPDATE TOBT');
-    expect(updateTobtTile).toHaveClass('efb-action-bar', 'top-[80%]', 'h-[20%]', 'border-[#000109]', 'bg-[#1A475F]', 'text-[clamp(14px,3.5vh,53px)]');
+    expect(updateTobtTile).toHaveClass('efb-action-bar', 'top-[80%]', 'h-[20%]', 'border-[#000109]', 'bg-[#1A475F]', 'text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]');
     expect(screen.getByAltText('TOBT stand guidance')).toHaveClass('h-full', 'w-full', 'scale-[1.15]', 'object-contain');
     fireEvent.click(tobtTile);
     expect(screen.queryByRole('dialog', { name: 'TOBT' })).not.toBeInTheDocument();
@@ -1118,7 +1118,7 @@ describe('EFB page interactions', () => {
     expect(atisIdentifier).toHaveTextContent('ATIS C');
     expect(within(atisIdentifier).getByAltText('ATIS icon')).toBeInTheDocument();
     expect(atisIdentifier).toHaveClass('flex-col', 'items-center');
-    expect(within(atisIdentifier).getByText('ATIS C')).toHaveClass('w-full', 'text-center', 'text-[clamp(14px,5.5vh,88px)]');
+    expect(within(atisIdentifier).getByText('ATIS C')).toHaveClass('w-full', 'text-center', 'text-[clamp(14px,calc(5.5*var(--efb-vh)),88px)]');
     expect(within(previewAtis).queryByRole('group', { name: 'ATIS message' })).not.toBeInTheDocument();
     expect(screen.queryByText(/EKCH ARR ATIS C/)).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Open arrival briefing' })).toBeInTheDocument();
@@ -1137,9 +1137,9 @@ describe('EFB page interactions', () => {
     const publishedHolding = screen.getByRole('group', { name: 'Published holding' });
     expect(within(publishedHolding).getByText('PUBLISHED HOLDING')).toHaveClass('whitespace-nowrap');
     expect(within(publishedHolding).getByText('PUBLISHED HOLDING')).toHaveClass('w-[86%]');
-    expect(within(publishedHolding).getByText('PUBLISHED HOLDING')).toHaveClass('text-[clamp(10px,1.7vh,30px)]');
-    expect(within(publishedHolding).getByText('MONAK')).toHaveClass('text-[clamp(14px,3.5vh,53px)]');
-    expect(within(publishedHolding).getByText('RIGHT 1 MIN')).toHaveClass('text-[clamp(14px,2.5vh,53px)]');
+    expect(within(publishedHolding).getByText('PUBLISHED HOLDING')).toHaveClass('text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)]');
+    expect(within(publishedHolding).getByText('MONAK')).toHaveClass('text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]');
+    expect(within(publishedHolding).getByText('RIGHT 1 MIN')).toHaveClass('text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)]');
     expect(within(publishedHolding).getByText('MONAK')).toHaveClass('top-[16%]', 'left-[35%]');
     expect(within(publishedHolding).getByText('RIGHT 1 MIN')).toHaveClass('top-[38%]', 'left-[35%]');
     expect(screen.getByText('Maintain HDG037').parentElement).toHaveClass('top-[38%]', 'right-0');

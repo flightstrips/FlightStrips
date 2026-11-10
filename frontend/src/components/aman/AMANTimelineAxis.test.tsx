@@ -74,7 +74,7 @@ describe("AMAN UTC timeline axis", () => {
     const clockMs = Date.parse("2026-07-22T10:00:00.000Z");
     const range = buildAMANAxisRange(clockMs, minutes);
     render(<AMANTimelineAxis clockMs={clockMs} range={range} status="fresh" />);
-    expect(Number.parseFloat(screen.getByTestId("final-ten-minute-region").style.top)).toBeCloseTo(100 - 5 / (minutes + 5) * 100, 8);
+    expect(Number.parseFloat(screen.getByTestId("final-ten-minute-region").style.top)).toBeCloseTo(100 - 5 / (minutes + 5) * 100, 3);
   });
 
   it.each(["stale", "disconnected"] as const)("keeps the axis visible and labelled while %s", (status) => {

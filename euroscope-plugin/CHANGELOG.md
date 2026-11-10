@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.5.1...plugin/v2.5.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* **aman:** align guidance colours with prediction freshness ([#1125](https://github.com/flightstrips/FlightStrips/issues/1125)) ([986f667](https://github.com/flightstrips/FlightStrips/commit/986f667f30e91d0601671f00dc919275faefd4d2))
+* **websocket:** allow more time for opening handshakes ([#1119](https://github.com/flightstrips/FlightStrips/issues/1119)) ([53d0ea8](https://github.com/flightstrips/FlightStrips/commit/53d0ea885c9223bbd1fe476a471dc2dde382fa5e))
+
 ## [2.5.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.5.0...plugin/v2.5.1) (2026-11-09)
 
 

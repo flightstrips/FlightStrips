@@ -27,9 +27,9 @@ for (const viewport of [{width: 1440, height: 960}, {width: 1920, height: 1080}]
         await expect(bar).toHaveCSS("background-color", "rgb(156, 0, 0)");
         await expect(bar).toHaveCSS("width", "6px");
       }
-      // Four minutes of the 90-minute timeline; future times run upward.
-      expect(gapBox.height / axisBox.height).toBeCloseTo(4 / 90, 3);
-      expect((gapBox.y - axisBox.y) / axisBox.height).toBeCloseTo(1 - 22 / 90, 3);
+      // Four minutes of the 40-minute default timeline (5 min past, 35 min ahead); future times run upward.
+      expect(gapBox.height / axisBox.height).toBeCloseTo(4 / 40, 3);
+      expect((gapBox.y - axisBox.y) / axisBox.height).toBeCloseTo(1 - 27 / 40, 3);
       tops.push(gapBox.y);
     }
     expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(1);
@@ -44,10 +44,10 @@ test("clips a gap at the horizon and preserves sub-minute duration", async ({pag
   const axis = (await timeline.getByRole("img", {name: /^UTC timeline/}).boundingBox())!;
   const clipped = (await timeline.locator("[data-gap-id]").boundingBox())!;
   expect(clipped.y).toBeCloseTo(axis.y, 1);
-  expect(clipped.height / axis.height).toBeCloseTo(2 / 90, 3);
+  expect(clipped.height / axis.height).toBeCloseTo(2 / 95, 3);
   await page.goto("/visual-tests/aman-gap-preview.html?gap=short");
   const short = (await page.getByTestId("fmp-timeline-1").locator("[data-gap-id]").boundingBox())!;
-  expect(short.height / axis.height).toBeCloseTo(0.1 / 90, 4);
+  expect(short.height / axis.height).toBeCloseTo(0.1 / 95, 4);
 });
 
 test("keeps the gap until removal is confirmed and sends the correct command", async ({page}) => {

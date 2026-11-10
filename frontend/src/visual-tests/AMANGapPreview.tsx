@@ -26,6 +26,13 @@ state.timeline_configuration = {version: "review-v1", mappings: [
   {id: 2, left: null, right: "ERNOV"},
   {id: 3, left: "OLPIB", right: "TIDVU"},
 ]};
+if (params.has("acc-layout")) {
+  state.timeline_configuration.mappings = [
+    {id: 1, left: "TESPI", right: "TUDLO"},
+    {id: 2, left: "MONAK", right: "TIDVU"},
+    {id: 3, left: "ERNOV", right: null},
+  ];
+}
 state.flights = ["LUGAS", "ROSBI", "ERNOV", "OLPIB", "TIDVU"].map((family, index) => ({
   ...state.flights[0], callsign: `SAS${123 + index}`, star_family: family,
   approach_release_time: `2026-07-22T10:${String(17 - index * 3).padStart(2, "0")}:00.000Z`,

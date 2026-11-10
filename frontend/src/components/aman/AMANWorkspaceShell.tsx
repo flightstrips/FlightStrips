@@ -1,6 +1,7 @@
-import type {ReactNode, Ref} from "react";
+import type {CSSProperties, ReactNode, Ref} from "react";
 
 interface AMANWorkspaceShellProps {
+  accCompactHoldingCount?: number;
   maestro: ReactNode;
   tmt: ReactNode;
   tmtRef?: Ref<HTMLElement>;
@@ -10,13 +11,17 @@ interface AMANWorkspaceShellProps {
  * Structural desktop frame for the paired MAESTRO and TMT workspaces.
  *
  * The middle track is intentionally empty: at the reference 3:2 composition
- * it preserves the separation in the design, and on wider screens it absorbs
- * most of the additional width without distorting either operational surface.
+ * it preserves separation, and on wider screens absorbs extra width. Compact
+ * ACC layouts instead keep TMT at the right edge while MAESTRO expands.
  */
-export function AMANWorkspaceShell({maestro, tmt, tmtRef}: AMANWorkspaceShellProps) {
+export function AMANWorkspaceShell({accCompactHoldingCount, maestro, tmt, tmtRef}: AMANWorkspaceShellProps) {
+  const compactLayout = accCompactHoldingCount !== undefined;
   return (
     <main aria-label="Arrival management workspace" className="aman-workspace-page">
-      <div className="aman-workspace-shell">
+      <div
+        className={`aman-workspace-shell${compactLayout ? " aman-workspace-shell-acc-compact" : ""}`}
+        style={compactLayout ? {"--aman-acc-holding-count": accCompactHoldingCount} as CSSProperties : undefined}
+      >
         <section aria-label="MAESTRO sequence workspace" className="aman-workspace-maestro">
           {maestro}
         </section>

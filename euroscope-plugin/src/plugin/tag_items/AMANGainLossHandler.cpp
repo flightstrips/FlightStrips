@@ -64,7 +64,9 @@ namespace FlightStrips::TagItems {
         const auto presentation = Resolve(
             connected_ && connected_(), store_ ? store_->Snapshot() : nullptr, callsign, destination, currentAirport,
             holding, flightPlan.IsValid() && flightPlan.GetTrackingControllerIsMe(),
-            currentControllerCallsign_ ? currentControllerCallsign_() : std::string{});
+            currentControllerCallsign_ ? currentControllerCallsign_() : std::string{},
+            std::chrono::system_clock::now(),
+            flightPlan.IsValid() ? flightPlan.GetSectorEntryMinutes() : -1);
         sItemString[0] = '\0';
         if (presentation.text.empty()) return;
         std::snprintf(sItemString, 16, "%s", presentation.text.c_str());
@@ -87,13 +89,17 @@ namespace FlightStrips::TagItems {
                                       const std::string& currentAirport,
                                       const bool holding, const bool trackedByMe,
                                       const std::string& currentControllerCallsign,
-                                      const std::chrono::system_clock::time_point now) -> AMANGainLossPresentation {
+                                      const std::chrono::system_clock::time_point now,
+                                      const int sectorEntryMinutes) -> AMANGainLossPresentation {
         const auto controllerCallsign = Normalize(currentControllerCallsign);
         const auto isEsmmApproachOrCenter = controllerCallsign.starts_with("ESMM_") &&
             (controllerCallsign.ends_with("_APP") || controllerCallsign.ends_with("_CTR"));
         if (!controllerCallsign.starts_with("EKDK_") && !isEsmmApproachOrCenter) return {"", ActiveTagColor};
         const auto isFmp = controllerCallsign.ends_with("_FMP");
-        if (!trackedByMe && !isFmp) return {"", ActiveTagColor};
+        // EuroScope reports 0 inside our sectors, a positive time before entry,
+        // and -1 when the aircraft will never enter. Only concerned aircraft
+        // gain visibility before assumption; FMP retains its overview.
+        if (!trackedByMe && sectorEntryMinutes < 0 && !isFmp) return {"", ActiveTagColor};
         const auto unavailable = AMANGainLossPresentation{"----", RetainedTagColor};
         const auto normalizedAirport = Normalize(currentAirport);
         if (normalizedAirport.empty() || Normalize(destination) != normalizedAirport) return {"", ActiveTagColor};

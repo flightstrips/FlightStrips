@@ -173,11 +173,59 @@ TEST(AMANGainLossHandlerTest, DoesNotRequireBackendFlightIdentity) {
     EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "G02");
 }
 
-TEST(AMANGainLossHandlerTest, HidesGuidanceUnlessTrackedByMe) {
+TEST(AMANGainLossHandlerTest, HidesUnconcernedGuidanceUnlessTrackedByMe) {
     EXPECT_TRUE(AMANGainLossHandler::Resolve(
         true, Snapshot(), "SAS123", "EKCH", "EKCH", false, false, "EKDK_CTR").text.empty());
     EXPECT_EQ(AMANGainLossHandler::Resolve(
         true, Snapshot(), "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "G02");
+}
+
+TEST(AMANGainLossHandlerTest, DisplaysUnassumedGuidanceOnlyForAircraftEnteringOurSectors) {
+    for (const std::string controller : {"EKDK_UC_CTR", "EKDK_UV_CTR", "ESMM_APP", "ESMM_S_CTR"}) {
+        for (const auto& [entryMinutes, expected] : std::vector<std::pair<int, std::string>>{
+                 {-1, ""}, {0, "G02"}, {1, "G02"}, {30, "G02"}}) {
+            EXPECT_EQ(AMANGainLossHandler::Resolve(
+                true, Snapshot(), "SAS123", "EKCH", "EKCH", false, false, controller, std::chrono::system_clock::now(), entryMinutes).text,
+                expected) << controller << " entryMinutes=" << entryMinutes;
+        }
+    }
+}
+
+TEST(AMANGainLossHandlerTest, HidesUnconcernedPlaceholders) {
+    for (const std::string controller : {"EKDK_UC_CTR", "EKDK_UV_CTR", "ESMM_APP", "ESMM_CTR"}) {
+        EXPECT_TRUE(AMANGainLossHandler::Resolve(
+            false, nullptr, "SAS123", "EKCH", "EKCH", false, false, controller, std::chrono::system_clock::now(), -1).text.empty())
+            << controller;
+    }
+}
+
+TEST(AMANGainLossHandlerTest, PreservesConcernedGuidancePresentation) {
+    for (const int entryMinutes : {0, 15}) {
+        for (const bool connected : {false, true}) {
+            const auto presentation = AMANGainLossHandler::Resolve(
+                connected, Snapshot(true, "fresh", -240), "SAS123", "EKCH", "EKCH",
+                false, false, "EKDK_UC_CTR", std::chrono::system_clock::now(), entryMinutes);
+            EXPECT_EQ(presentation.text, "L04");
+            EXPECT_EQ(presentation.color, connected ? RGB(156, 0, 0) : RGB(160, 160, 160));
+        }
+        const auto unavailable = AMANGainLossHandler::Resolve(
+            true, nullptr, "SAS123", "EKCH", "EKCH", false, false, "EKDK_UV_CTR", std::chrono::system_clock::now(), entryMinutes);
+        EXPECT_EQ(unavailable.text, "----");
+        EXPECT_EQ(unavailable.color, RGB(160, 160, 160));
+    }
+}
+
+TEST(AMANGainLossHandlerTest, PreservesConcernedArrivalHoldAndTmaFilters) {
+    for (const int entryMinutes : {0, 15}) {
+        EXPECT_TRUE(AMANGainLossHandler::Resolve(
+            true, Snapshot(), "SAS123", "ESSA", "EKCH", false, false, "EKDK_UC_CTR", std::chrono::system_clock::now(), entryMinutes).text.empty());
+        EXPECT_TRUE(AMANGainLossHandler::Resolve(
+            true, Snapshot(), "SAS123", "EKCH", "EKCH", true, false, "EKDK_UC_CTR", std::chrono::system_clock::now(), entryMinutes).text.empty());
+        auto snapshot = Snapshot();
+        snapshot->byCallsign["SAS123"].insideTMA = true;
+        EXPECT_TRUE(AMANGainLossHandler::Resolve(
+            true, snapshot, "SAS123", "EKCH", "EKCH", false, false, "EKDK_UC_CTR", std::chrono::system_clock::now(), entryMinutes).text.empty());
+    }
 }
 
 TEST(AMANGainLossHandlerTest, PreservesFmpGuidanceForUntrackedAircraft) {
@@ -191,12 +239,14 @@ TEST(AMANGainLossHandlerTest, HidesGuidanceAndPlaceholdersForOtherControllers) {
     for (const std::string controller : {"EKCH_APP", "EKCH_FMP", "ESMM_FMP", "ESMM_TWR", "ESMM_APP_OBS",
                                         "ESMMX_CTR", "EKDK", "EKDKX_CTR", ""}) {
         for (const bool trackedByMe : {false, true}) {
-            EXPECT_TRUE(AMANGainLossHandler::Resolve(
-                true, Snapshot(), "SAS123", "EKCH", "EKCH", false, trackedByMe, controller).text.empty())
-                << controller;
-            EXPECT_TRUE(AMANGainLossHandler::Resolve(
-                false, nullptr, "SAS123", "EKCH", "EKCH", false, trackedByMe, controller).text.empty())
-                << controller;
+            for (const int entryMinutes : {-1, 0, 15}) {
+                EXPECT_TRUE(AMANGainLossHandler::Resolve(
+                    true, Snapshot(), "SAS123", "EKCH", "EKCH", false, trackedByMe, controller, std::chrono::system_clock::now(), entryMinutes).text.empty())
+                    << controller;
+                EXPECT_TRUE(AMANGainLossHandler::Resolve(
+                    false, nullptr, "SAS123", "EKCH", "EKCH", false, trackedByMe, controller, std::chrono::system_clock::now(), entryMinutes).text.empty())
+                    << controller;
+            }
         }
     }
 }

@@ -30,7 +30,8 @@ namespace FlightStrips::TagItems {
             const std::string& callsign, const std::string& destination,
             const std::string& currentAirport, bool holding = false, bool trackedByMe = true,
             const std::string& currentControllerCallsign = "",
-            std::chrono::system_clock::time_point now = std::chrono::system_clock::now());
+            std::chrono::system_clock::time_point now = std::chrono::system_clock::now(),
+            int sectorEntryMinutes = -1);
 
     private:
         std::shared_ptr<aman::AMANGainLossStore> store_;

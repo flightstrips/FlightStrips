@@ -31,6 +31,10 @@ applies when clicking a red runway field. Leaving RWY ARR clears the status.
 
 ## EFB flight source and login
 
+The EFB dashboard fits the browser's visible viewport, including when browser
+toolbars change size. Long information, briefing, ATIS and clearance panels can
+be scrolled with touch; chart PDFs use the browser's own viewer.
+
 The EFB loads the authenticated pilot's online flight or prefile directly
 from the public VATSIM v3 feed, matching the verified VATSIM CID in the existing
 Auth0 login. It does not require a FlightStrips strip, controller, EuroScope

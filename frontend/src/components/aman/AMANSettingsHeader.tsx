@@ -11,7 +11,7 @@ interface AMANSettingsHeaderProps {
   connectionState: AMANConnectionState;
   commandRejections?: Record<string, AMANCommandRejection>;
   hasFMPAuthority?: boolean;
-  onCommand?: (intent: AMANCommandIntent) => void;
+  onCommand?: (intent: AMANCommandIntent) => string | null | void;
   onACCViewChange?: (view: string) => void;
   onStarFamiliesChange?: (families: string[]) => void;
   onRunwayGroupViewChange: (runwayGroupID: string) => void;
@@ -26,6 +26,12 @@ interface AMANSettingsHeaderProps {
   selectedRunwayGroupID: string | null;
   state: AMANState;
   view: AMANSettingsView;
+}
+
+interface QueuedRateCommands {
+  commands: AMANCommandIntent[];
+  expectedRevision: number;
+  commandID: string | null;
 }
 
 const DEFAULT_ARRIVAL_RATE = 40;
@@ -57,6 +63,7 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
   const [rateValues, setRateValues] = useState<Record<string, number>>({});
   const [rateBaseMs, setRateBaseMs] = useState(() => Date.now());
   const [applyOffsetMinutes, setApplyOffsetMinutes] = useState(0);
+  const [rateCommandQueue, setRateCommandQueue] = useState<QueuedRateCommands | null>(null);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1_000);
     return () => window.clearInterval(timer);
@@ -103,6 +110,39 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
   };
   const changedRates = displayRunways.filter((id) => (rateValues[id] ?? currentRateFor(id)) !== currentRateFor(id));
   const applyTimeLabel = new Date(rateBaseMs + applyOffsetMinutes * 60_000).toISOString().slice(11, 16);
+  useEffect(() => {
+    if (rateCommandQueue === null) return;
+    if (blocked) {
+      setRateCommandQueue(null);
+      return;
+    }
+
+    const {commandID, expectedRevision, commands} = rateCommandQueue;
+    if (commandID !== null) {
+      if (commandRejections[commandID] !== undefined) {
+        setRateCommandQueue(null);
+        return;
+      }
+      if (pendingCommands[commandID] !== undefined) return;
+    }
+    if (state.revision <= expectedRevision) return;
+
+    const [next, ...remaining] = commands;
+    if (next === undefined) {
+      setRateCommandQueue(null);
+      return;
+    }
+    const nextCommandID = onCommand(next);
+    if (nextCommandID === null) {
+      setRateCommandQueue(null);
+      return;
+    }
+    setRateCommandQueue(remaining.length === 0 ? null : {
+      commands: remaining,
+      expectedRevision: state.revision,
+      commandID: nextCommandID ?? null,
+    });
+  }, [blocked, commandRejections, onCommand, pendingCommands, rateCommandQueue, state.revision]);
   const openRunways = () => {
     setRunwayIDs(header.active_runway_groups.map((group) => group.id));
     setRunwayOpen(true);
@@ -115,7 +155,22 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
   };
   const applyRates = () => {
     const effectiveAt = applyOffsetMinutes === 0 ? state.generated_at : new Date(rateBaseMs + applyOffsetMinutes * 60_000).toISOString();
-    changedRates.forEach((id) => onCommand({type: "aman.set_rate", runway_group_id: `ARRIVAL-${id}`, arrivals_per_hour: rateValues[id], effective_at: effectiveAt}));
+    const commands = changedRates.map((id) => ({
+      type: "aman.set_rate" as const,
+      runway_group_id: `ARRIVAL-${id}`,
+      arrivals_per_hour: rateValues[id],
+      effective_at: effectiveAt,
+    }));
+    const [first, ...remaining] = commands;
+    if (first === undefined) return;
+    const commandID = onCommand(first);
+    if (remaining.length > 0 && commandID !== null) {
+      setRateCommandQueue({
+        commands: remaining,
+        expectedRevision: state.revision,
+        commandID: commandID ?? null,
+      });
+    }
   };
 
   return (
@@ -123,7 +178,7 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
       <span className="sr-only">{state.airport}</span><span className="sr-only">{presentationStatus}</span><span className="sr-only">{connectionState}</span><span className="sr-only">{header.effective_mode}</span>
       <div className="grid min-h-0 grid-cols-[minmax(4.5rem,0.7fr)_minmax(0,3.625fr)_minmax(0,0.975fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-1 overflow-hidden">
         <HeaderField className="bg-[#f3d02e]" label="RIU" value={<button aria-haspopup="dialog" className="w-full truncate text-center text-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-black" onClick={openRunways} type="button">{header.active_runway_groups.map((group) => group.id.replace(/^ARRIVAL-/, "")).join(", ") || "Unavailable"}</button>} />
-        <HeaderField className="relative bg-[#f3d02e] @container" label="Runway rate" value={<button aria-haspopup="dialog" className="absolute inset-0 grid grid-cols-4 pt-3 text-[length:min(5cqw,1.25rem)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-black" onClick={openRate} type="button">{rates}{ratePending && <span className="sr-only"> · PENDING</span>}</button>} />
+        <HeaderField className="relative bg-[#f3d02e] @container" label="Runway rate" value={<button aria-haspopup="dialog" className="absolute inset-0 grid grid-cols-4 pt-3 text-[length:min(5cqw,1.25rem)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-black" onClick={openRate} type="button">{rates}{(ratePending || rateCommandQueue !== null) && <span className="sr-only"> · PENDING</span>}</button>} />
         <HeaderField label="Wind surface / 10,000 ft" value={wind} />
         <HeaderField label={`Traffic · ${header.traffic_summary.status}`} value={traffic} />
         <HeaderField label="Current view" value={view === "acc" && selectedACCView !== undefined && onACCViewChange !== undefined
@@ -197,7 +252,7 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
                   <div className="grid grid-cols-[3rem_1fr] items-center gap-x-2" key={id}>
                     <span className="row-span-2 font-bold">{id}</span>
                     <span className="text-center text-sm">{value}/hr</span>
-                    <input aria-label={`Rate ${id}`} aria-valuetext={`${value} per hour`} className={rateSliderClass} disabled={blocked || !!ratePending} max={MAX_ARRIVAL_RATE} min={MIN_ARRIVAL_RATE} onChange={(event) => setRateValues((current) => ({...current, [id]: Number(event.target.value)}))} step={1} type="range" value={value} />
+                    <input aria-label={`Rate ${id}`} aria-valuetext={`${value} per hour`} className={rateSliderClass} disabled={blocked || !!ratePending || rateCommandQueue !== null} max={MAX_ARRIVAL_RATE} min={MIN_ARRIVAL_RATE} onChange={(event) => setRateValues((current) => ({...current, [id]: Number(event.target.value)}))} step={1} type="range" value={value} />
                   </div>
                 );
               })}
@@ -207,15 +262,15 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
               <div className="grid grid-cols-[3rem_1fr] items-center gap-x-2">
                 <span className="row-span-2 text-sm font-bold leading-tight">Apply rates at</span>
                 <span className="text-center text-sm">{applyTimeLabel}Z</span>
-                <input aria-label="Apply rates at" aria-valuetext={`${applyTimeLabel} UTC`} className={rateSliderClass} disabled={blocked || !!ratePending} max={MAX_APPLY_OFFSET_MINUTES} min={0} onChange={(event) => setApplyOffsetMinutes(Number(event.target.value))} step={1} type="range" value={applyOffsetMinutes} />
+                <input aria-label="Apply rates at" aria-valuetext={`${applyTimeLabel} UTC`} className={rateSliderClass} disabled={blocked || !!ratePending || rateCommandQueue !== null} max={MAX_APPLY_OFFSET_MINUTES} min={0} onChange={(event) => setApplyOffsetMinutes(Number(event.target.value))} step={1} type="range" value={applyOffsetMinutes} />
               </div>
             </fieldset>
-            {ratePending && <p aria-live="polite" className="text-sm" role="status">Pending rate: {ratePending.runway_group_id} · {ratePending.arrivals_per_hour}/h · waiting for server confirmation</p>}
+            {ratePending && <p aria-live="polite" className="text-sm" role="status">Pending rate: {ratePending.runway_group_id} · {ratePending.arrivals_per_hour}/h · waiting for server confirmation{rateCommandQueue !== null && ` · ${rateCommandQueue.commands.length} queued`}</p>}
             {rateRejection && <p role="alert" className="text-sm font-semibold text-amber-200">Rejected: {rateRejection.message} ({rateRejection.code}, server revision {rateRejection.current_revision})</p>}
             {blockReason && <p className="text-sm" role="status">Read-only: {mutationBlockLabels[blockReason]}.</p>}
           </div>
           <div className="flex justify-center gap-4 px-4 pb-3">
-            <button aria-label="Set arrival rate" className="h-7 w-24 rounded-sm bg-[#d6d6d6] font-bold text-black hover:bg-[#a3d5e8] disabled:opacity-50" disabled={blocked || !!ratePending || changedRates.length === 0} onClick={() => { applyRates(); setRateOpen(false); }} type="button">Ok</button>
+            <button aria-label="Set arrival rate" className="h-7 w-24 rounded-sm bg-[#d6d6d6] font-bold text-black hover:bg-[#a3d5e8] disabled:opacity-50" disabled={blocked || !!ratePending || rateCommandQueue !== null || changedRates.length === 0} onClick={() => { applyRates(); setRateOpen(false); }} type="button">Ok</button>
             <DialogClose aria-label="Cancel" className="h-7 w-24 rounded-sm bg-[#d6d6d6] text-center font-bold text-black hover:bg-[#a3d5e8]">Cancel</DialogClose>
           </div>
         </DialogContent>

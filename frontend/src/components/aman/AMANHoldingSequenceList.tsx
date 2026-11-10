@@ -13,16 +13,6 @@ const formatEAT = (value: string | null | undefined): string => {
   return Number.isNaN(date.getTime()) ? "--:--" : `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
 };
 
-/** Gain/loss belongs to the sequence slot: after a move every flight takes the value of the slot it now occupies. */
-export function reorderWithSlotGainLoss(flights: AMANFlight[], from: number, to: number): {order: AMANFlight[]; gainLoss: Map<string, number | null>} {
-  const order = [...flights];
-  const [moved] = order.splice(from, 1);
-  order.splice(to, 0, moved);
-  const gainLoss = new Map<string, number | null>();
-  order.forEach((flight, index) => gainLoss.set(flight.callsign, flights[index].gain_loss_seconds));
-  return {order, gainLoss};
-}
-
 export function moveIntentFor(flights: AMANFlight[], from: number, to: number): AMANCommandIntent | null {
   const flight = flights[from];
   const target = flights[to];
@@ -40,16 +30,11 @@ export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, o
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{key: string; gainLoss: Map<string, number | null>} | null>(null);
-
-  const key = flights.map((flight) => `${flight.callsign}:${flight.order ?? ""}:${flight.gain_loss_seconds ?? ""}`).join("|");
-  const gainLossOf = (flight: AMANFlight) => (preview?.key === key ? preview.gainLoss.get(flight.callsign) : undefined) ?? flight.gain_loss_seconds;
 
   const move = (from: number, to: number) => {
     if (disabled || to < 0 || to >= flights.length) return;
     const intent = moveIntentFor(flights, from, to);
     if (intent === null) return;
-    setPreview({key, gainLoss: reorderWithSlotGainLoss(flights, from, to).gainLoss});
     onCommand(intent);
   };
 
@@ -66,7 +51,7 @@ export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, o
     <section aria-label="Holding sequence" className="flex min-h-0 flex-1 flex-col-reverse justify-start overflow-y-auto border-[3px] border-[#dcdcdc] bg-[#3c3c3c] p-1 font-mono text-sm text-[#dcdcdc]">
       {flights.map((flight, index) => {
         const isSelected = selected === flight.callsign;
-        const gainLoss = gainLossOf(flight);
+        const gainLoss = flight.gain_loss_seconds;
         return (
           <div
             aria-label={`${flight.callsign} sequence position ${index + 1}`}

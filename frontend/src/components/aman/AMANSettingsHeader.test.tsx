@@ -1,7 +1,7 @@
 import {fireEvent, render, screen} from "@testing-library/react";
 import {describe, expect, it, vi} from "vitest";
 
-import type {AMANState} from "@/api/aman";
+import type {AMANPendingCommand, AMANState} from "@/api/aman";
 import {AMANSettingsHeader} from "./AMANSettingsHeader";
 
 const state = {
@@ -135,6 +135,39 @@ describe("AMANSettingsHeader", () => {
     rerender(<AMANSettingsHeader {...props} pendingCommands={{rate: {command_id: "rate", type: "aman.set_rate", expected_revision: 7, runway_group_id: "ARRIVAL-22R", arrivals_per_hour: 24, effective_at: writable.generated_at}}} />);
     fireEvent.click(screen.getByRole("button", {name: /^22L: 40.*PENDING$/, hidden: true}));
     expect(screen.getByRole("status")).toHaveTextContent("Pending rate: ARRIVAL-22R · 24/h");
+  });
+
+  it("sends runway rate changes one at a time as each revision is confirmed", () => {
+    const writable = structuredClone(state);
+    writable.authoritative = true;
+    writable.effective_mode = "authoritative";
+    writable.revision = 7;
+    writable.technical_health = {status: "ready", ready: true, blocked_reasons: [], ...({navigation: {status: "ready", reason: null, updated_at: null, age_seconds: null}, weather: {status: "ready", reason: null, updated_at: null, age_seconds: null}, vatsim: {status: "ready", reason: null, updated_at: null, age_seconds: null}, repository: {status: "ready", reason: null, updated_at: null, age_seconds: null}, predictor: {status: "ready", reason: null, updated_at: null, age_seconds: null}, replay_validation: {status: "ready", reason: null, updated_at: null, age_seconds: null}})};
+    writable.header!.active_runway_groups = [
+      {id: "ARRIVAL-22L", active_rate_per_hour: 30, rate_effective_at: null},
+      {id: "ARRIVAL-22R", active_rate_per_hour: 30, rate_effective_at: null},
+    ];
+    const onCommand = vi.fn().mockReturnValueOnce("rate-1").mockReturnValueOnce("rate-2");
+    const props = {commandRejections: {}, connectionState: "connected" as const, hasFMPAuthority: true, onCommand, onRunwayGroupViewChange: vi.fn(), onViewChange: vi.fn(), pendingCommands: {}, presentationStatus: "ready" as const, readOnly: false, selectedRunwayGroupID: "ARRIVAL-22L", state: writable, view: "holds" as const};
+    const {rerender} = render(<AMANSettingsHeader {...props} />);
+
+    fireEvent.click(screen.getByRole("button", {name: "22L: 3022R: 3012: 4030: 40"}));
+    fireEvent.change(screen.getByLabelText("Rate 22L"), {target: {value: "24"}});
+    fireEvent.change(screen.getByLabelText("Rate 22R"), {target: {value: "25"}});
+    fireEvent.click(screen.getByRole("button", {name: "Set arrival rate"}));
+
+    expect(onCommand).toHaveBeenCalledTimes(1);
+    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.set_rate", runway_group_id: "ARRIVAL-22L", arrivals_per_hour: 24, effective_at: writable.generated_at});
+    const firstPending = {rate: {command_id: "rate-1", type: "aman.set_rate", expected_revision: 7, runway_group_id: "ARRIVAL-22L", arrivals_per_hour: 24, effective_at: writable.generated_at}} satisfies Record<string, AMANPendingCommand>;
+    rerender(<AMANSettingsHeader {...props} pendingCommands={firstPending} />);
+    expect(onCommand).toHaveBeenCalledTimes(1);
+
+    const confirmed = structuredClone(writable);
+    confirmed.revision = 8;
+    rerender(<AMANSettingsHeader {...props} pendingCommands={{}} state={confirmed} />);
+
+    expect(onCommand).toHaveBeenCalledTimes(2);
+    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.set_rate", runway_group_id: "ARRIVAL-22R", arrivals_per_hour: 25, effective_at: writable.generated_at});
   });
 
   it("blocks empty, rejected, disconnected, and unauthorized runway mutations", () => {

@@ -227,11 +227,20 @@ export function AMANBoardView({
     if (timeline !== null) setTimelineViewportHeight(timeline.clientHeight);
     if (sectionRef.current !== null) setRailHeight(sectionRef.current.clientHeight);
   };
+  const hasTimelineState = state !== null;
   useEffect(() => {
     syncTimelineViewport();
+    const timeline = timelineScrollRef.current;
+    const section = sectionRef.current;
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(syncTimelineViewport);
+    if (timeline !== null) observer?.observe(timeline);
+    if (section !== null) observer?.observe(section);
     window.addEventListener("resize", syncTimelineViewport);
-    return () => window.removeEventListener("resize", syncTimelineViewport);
-  }, []);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", syncTimelineViewport);
+    };
+  }, [hasTimelineState]);
 
   if (state === null) {
     return (

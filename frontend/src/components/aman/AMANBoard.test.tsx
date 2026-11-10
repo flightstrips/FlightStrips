@@ -70,6 +70,20 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.queryByText("SAS123")).not.toBeInTheDocument();
   });
 
+  it("measures the timeline when its first state arrives after mounting", () => {
+    const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.querySelector("#aman-timeline-grid") === null ? 0 : 600;
+    });
+    const {rerender} = render(
+      <AMANBoardView connectionState="connected" error={null} onSelectFlight={() => undefined} presentationStatus="empty" selectedCallsign={null} state={null} />,
+    );
+
+    rerender(<AMANBoardView connectionState="connected" error={null} onSelectFlight={() => undefined} presentationStatus="ready" selectedCallsign={null} state={state()} />);
+
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "600px"});
+    clientHeight.mockRestore();
+  });
+
   it("renders the timeline when a flight prediction becomes unreliable", () => {
     const data = state();
     data.warnings = [{

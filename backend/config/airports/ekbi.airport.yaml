@@ -1,4 +1,4 @@
-# AIRAC 2611/1 sector-derived definition. Stand/text implementation is tracked in #1097.
+# AIRAC 2611/1 sector definition with Naviair APDC stand 36. Stand/text implementation: #1097.
 $schema: ../../internal/config/airport-configuration.schema.json
 schema_version: flightstrips-airport/v1
 kind: airport
@@ -214,4 +214,4 @@ services:
 validation: {}
 provenance:
 - path: backend/config/ekbi/source.json
-  sha256: cb90bc9137cfc0a3b980c23ea3b4eced45c0566fcec1a3f40421c28a6ae8564a
+  sha256: 2321518e0ad8d6739a842023ee402540cc2788ec0f1d1d1a2350d41d5632af4d

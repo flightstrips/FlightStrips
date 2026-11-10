@@ -153,11 +153,42 @@ body.public-content-page {
   }
 
   .aman-settings-header {
-    @apply grid min-h-0 grid-rows-[minmax(0,2fr)_minmax(2.25rem,1fr)] gap-1 overflow-hidden bg-[#292929] p-1;
+    @apply grid min-h-0 grid-rows-[minmax(0,1fr)_2.1875rem] gap-1 overflow-hidden bg-[#292929] p-1 pl-4;
   }
 
   .aman-settings-button {
-    @apply flex min-w-[4.25rem] items-center justify-center gap-1 whitespace-nowrap border border-black px-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white;
+    @apply flex h-[1.265625rem] min-w-[4.25rem] items-center justify-center gap-1 whitespace-nowrap rounded-sm border border-black px-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white;
+  }
+
+  .aman-rate-slider {
+    @apply m-0 block h-4 w-full cursor-pointer appearance-none rounded-none border border-white bg-transparent p-0 disabled:cursor-default disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white;
+    box-shadow: inset 2px 2px 0 #2a2a2c;
+  }
+
+  .aman-rate-slider::-webkit-slider-runnable-track {
+    @apply h-full rounded-none bg-transparent;
+  }
+
+  .aman-rate-slider::-webkit-slider-thumb {
+    @apply h-full w-8 appearance-none rounded-none border-0;
+    background:
+      linear-gradient(#000, #000) center / 2px 60% no-repeat,
+      linear-gradient(#6a6a6a, #6a6a6a) calc(50% + 2px) center / 1px 60% no-repeat,
+      #3f3f3f;
+    box-shadow: inset -2px -2px 0 #1c1c1c;
+  }
+
+  .aman-rate-slider::-moz-range-track {
+    @apply h-full rounded-none bg-transparent;
+  }
+
+  .aman-rate-slider::-moz-range-thumb {
+    @apply h-full w-8 rounded-none border-0;
+    background:
+      linear-gradient(#000, #000) center / 2px 60% no-repeat,
+      linear-gradient(#6a6a6a, #6a6a6a) calc(50% + 2px) center / 1px 60% no-repeat,
+      #3f3f3f;
+    box-shadow: inset -2px -2px 0 #1c1c1c;
   }
 
   .aman-workspace-separator {
@@ -172,6 +203,10 @@ body.public-content-page {
     display: grid;
     grid-template-rows: minmax(0, 28%) auto minmax(0, 1fr) calc(100% / 3);
     @apply h-full min-h-0;
+  }
+
+  .aman-tmt-dashboard-acc {
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .aman-tmt-non-compliance {

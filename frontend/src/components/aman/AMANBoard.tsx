@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useRef, useState} from "react";
+﻿import {useEffect, useMemo, useRef, useState} from "react";
 
 import type {
   AMANConnectionState,
@@ -10,7 +10,7 @@ import type {
 import {getAMANMutationBlockReason} from "@/api/aman";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {AMAN_ALL_VIEW, availableAMANViews, controllerAMANViews, readAMANViewPreference, resolveAMANView, type AMANView} from "@/lib/aman-view-preference";
-import {cn} from "@/lib/utils";
+import {defaultACCFamilies} from "@/lib/aman-default-families";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {AMANAircraftTarget, type AMANAircraftTargetField} from "./AMANAircraftTarget";
 import {AMANAircraftTargetPreferenceControls} from "./AMANAircraftTargetPreferences";
@@ -19,11 +19,11 @@ import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from 
 import {ACCTimeline} from "./ACCTimeline";
 import {FMPPairedTimeline, FMPPairedTimelineFooter} from "./FMPPairedTimeline";
 import {RWYPairedTimeline} from "./RWYPairedTimeline";
-import {AMANAxisTopPercent, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
+import {AMANAxisTopPercent, AMAN_MAXIMUM_HORIZON_MINUTES, AMAN_MINIMUM_HORIZON_MINUTES, useAMANTimelineAxis} from "./AMANTimelineAxis";
 import {buildAMANLanes, formatAMANTime} from "./presentation";
 
-const TIMELINE_PIXELS_PER_MINUTE = 32;
 const MINIMUM_TIMELINE_HEIGHT_PIXELS = 960;
+const HORIZON_WHEEL_STEP_MINUTES = 2;
 
 const STAR_FAMILY_COLORS: Record<string, string> = {
   ERNOV: "#95D692", TESPI: "#95D692", TUDLO: "#95D692",
@@ -31,31 +31,24 @@ const STAR_FAMILY_COLORS: Record<string, string> = {
 };
 const starFamilyColor = (family: string) => STAR_FAMILY_COLORS[family.trim().toUpperCase()];
 function TimelineScrollRail({
-  scrollTop,
+  horizonMinutes,
   viewportHeight,
-  contentHeight,
-  currentPosition,
-  onScrollTo,
-  onJumpToCurrent,
+  onHorizonChange,
 }: {
-  scrollTop: number;
+  horizonMinutes: number;
   viewportHeight: number;
-  contentHeight: number;
-  currentPosition: number | null;
-  onScrollTo: (scrollTop: number) => void;
-  onJumpToCurrent: () => void;
+  onHorizonChange: (minutes: number) => void;
 }) {
-  const maximumScroll = Math.max(0, contentHeight - viewportHeight);
-  const thumbHeight = viewportHeight > 0 && contentHeight > 0
-    ? Math.max(44, Math.min(viewportHeight - 28, viewportHeight * viewportHeight / contentHeight))
-    : 44;
-  const travel = Math.max(0, viewportHeight - 28 - thumbHeight);
-  const thumbTop = maximumScroll === 0 ? 0 : scrollTop / maximumScroll * travel;
-  const tickPositions = Array.from({length: 72}, (_, index) => index / 71 * 100);
-  const setScrollFromPointer = (clientY: number, rail: HTMLDivElement) => {
+  const thumbHeight = 132;
+  const railTopPad = 4;
+  const travel = Math.max(0, viewportHeight - railTopPad - 4 - thumbHeight);
+  const span = AMAN_MAXIMUM_HORIZON_MINUTES - AMAN_MINIMUM_HORIZON_MINUTES;
+  // Up is a longer timeline, so the thumb rests at the top at the maximum horizon.
+  const thumbTop = (AMAN_MAXIMUM_HORIZON_MINUTES - horizonMinutes) / span * travel;
+  const setHorizonFromPointer = (clientY: number, rail: HTMLDivElement) => {
     const bounds = rail.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (clientY - bounds.top - 14 - thumbHeight / 2) / Math.max(1, travel)));
-    onScrollTo(ratio * maximumScroll);
+    const ratio = Math.max(0, Math.min(1, (clientY - bounds.top - railTopPad - thumbHeight / 2) / Math.max(1, travel)));
+    onHorizonChange(AMAN_MAXIMUM_HORIZON_MINUTES - ratio * span);
   };
 
   return (
@@ -63,50 +56,37 @@ function TimelineScrollRail({
       aria-controls="aman-timeline-grid"
       aria-label="Timeline scroll position"
       aria-orientation="vertical"
-      aria-valuemax={maximumScroll}
-      aria-valuemin={0}
-      aria-valuenow={Math.round(scrollTop)}
-      className="absolute bottom-0 left-0 top-0 z-40 w-6 border border-[#dcdcdc] bg-[#242424] touch-none"
+      aria-valuemax={AMAN_MAXIMUM_HORIZON_MINUTES}
+      aria-valuemin={AMAN_MINIMUM_HORIZON_MINUTES}
+      aria-valuenow={horizonMinutes}
+      aria-valuetext={`${horizonMinutes} minutes ahead`}
+      className="absolute bottom-0 left-0 top-1 z-40 w-[13.2px] overflow-hidden rounded-md border border-white touch-none"
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
-        setScrollFromPointer(event.clientY, event.currentTarget);
+        setHorizonFromPointer(event.clientY, event.currentTarget);
       }}
       onPointerMove={(event) => {
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) setScrollFromPointer(event.clientY, event.currentTarget);
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) setHorizonFromPointer(event.clientY, event.currentTarget);
       }}
       onKeyDown={(event) => {
-        const lineStep = 64;
-        const pageStep = Math.max(lineStep, viewportHeight * 0.8);
         let next: number | null = null;
-        if (event.key === "ArrowUp") next = scrollTop - lineStep;
-        else if (event.key === "ArrowDown") next = scrollTop + lineStep;
-        else if (event.key === "PageUp") next = scrollTop - pageStep;
-        else if (event.key === "PageDown") next = scrollTop + pageStep;
-        else if (event.key === "Home") next = 0;
-        else if (event.key === "End") next = maximumScroll;
+        if (event.key === "ArrowUp") next = horizonMinutes + 1;
+        else if (event.key === "ArrowDown") next = horizonMinutes - 1;
+        else if (event.key === "PageUp") next = horizonMinutes + 5;
+        else if (event.key === "PageDown") next = horizonMinutes - 5;
+        else if (event.key === "Home") next = AMAN_MAXIMUM_HORIZON_MINUTES;
+        else if (event.key === "End") next = AMAN_MINIMUM_HORIZON_MINUTES;
         if (next === null) return;
         event.preventDefault();
-        onScrollTo(Math.max(0, Math.min(maximumScroll, next)));
+        onHorizonChange(next);
       }}
       role="scrollbar"
       tabIndex={0}
     >
-      <div className="absolute inset-x-2 bottom-8 top-1 border-x border-[#dadada]">
-        {tickPositions.map((position) => (
-          <span
-            className={cn("absolute left-1 right-1 h-px", currentPosition !== null && position < currentPosition ? "bg-lime-300" : "bg-[#e2e2e2]")}
-            key={position}
-            style={{top: `${position}%`}}
-          />
-        ))}
-      </div>
       <div
-        className="absolute left-1 right-1 z-10 rounded-md border-2 border-[#e4e4e4] bg-[#565656] shadow-[inset_0_0_0_2px_#2b2b2b]"
-        style={{height: `${thumbHeight}px`, top: `${14 + thumbTop}px`}}
-      >
-        <span className="absolute inset-x-1 top-1/2 border-t border-[#a8a8a8]" />
-      </div>
-      <button aria-label="Jump to current timeline time" className="absolute bottom-0 left-0 grid h-8 w-full place-items-center border-t border-[#ddd] text-lg font-bold text-white hover:bg-[#505050]" onClick={onJumpToCurrent} type="button">↻</button>
+        className="absolute left-0 right-0 z-10 rounded-sm border border-white bg-[#86a4af]"
+        style={{height: `${thumbHeight}px`, top: `${railTopPad + thumbTop}px`}}
+      />
     </div>
   );
 }
@@ -124,6 +104,7 @@ export interface AMANBoardViewProps {
   focusedRunwayGroupID?: string | null;
   accView?: AMANView;
   onACCViewChange?: (view: AMANView) => void;
+  onViewStateChange?: (viewState: {view: "holds" | "runway" | "acc"; starFamilies: string[]}) => void;
 }
 
 export function AMANBoardView({
@@ -133,14 +114,14 @@ export function AMANBoardView({
   connectionState,
   selectedCallsign,
   onSelectFlight,
-  onOpenControls,
   onOpenFlightActions,
-  onOpenFlightDetails,
   focusedRunwayGroupID = null,
   accView: suppliedACCView,
   onACCViewChange,
+  onViewStateChange,
 }: AMANBoardViewProps) {
   const position = useWebSocketStore((value) => value.position);
+  const controllers = useWebSocketStore((value) => value.controllers) ?? [];
   const storedACCView = useWebSocketStore((value) => value.amanSelectedView);
   const setStoredACCView = useWebSocketStore((value) => value.setAMANSelectedView);
   const readOnly = useWebSocketStore((value) => value.readOnly);
@@ -157,13 +138,18 @@ export function AMANBoardView({
   const setACCView = onACCViewChange ?? setStoredACCView;
   const lanes = useMemo(() => state ? buildAMANLanes(state) : [], [state]);
   const [view, setView] = useState<"holds" | "runway" | "acc">("holds");
+  const [selectedStarFamilies, setSelectedStarFamilies] = useState<string[]>([]);
+  useEffect(() => {
+    onViewStateChange?.({view, starFamilies: selectedStarFamilies});
+  }, [onViewStateChange, view, selectedStarFamilies]);
   const [selectedRunwayGroupID, setSelectedRunwayGroupID] = useState<string | null>(null);
   const [targetPreferences, setTargetPreferences] = useAMANAircraftTargetPreferences();
   const [targetPreferencesOpen, setTargetPreferencesOpen] = useState(false);
   const [gapRemoval, setGapRemoval] = useState<{gap: AMANRunwayGap; runway: string} | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
-  const initializedTimelineScroll = useRef(false);
-  const [timelineScroll, setTimelineScroll] = useState({top: 0, viewportHeight: 0, contentHeight: 0});
+  const [timelineViewportHeight, setTimelineViewportHeight] = useState(0);
+  const [railHeight, setRailHeight] = useState(0);
+  const sectionRef = useRef<HTMLElement>(null);
   const selectedFlightRunwayGroupID = state?.flights.find((flight) => flight.callsign === selectedCallsign)?.runway_group_id ?? null;
   const defaultRunwayGroupID = state?.active_runway_groups?.[0]
     ?? state?.runway_groups.find((group) => group.selected)?.id
@@ -176,10 +162,7 @@ export function AMANBoardView({
     ?? null;
   const axis = useAMANTimelineAxis(state?.generated_at ?? new Date(0).toISOString());
   const range = axis.range;
-  const timelineHeight = useMemo(
-    () => Math.max(MINIMUM_TIMELINE_HEIGHT_PIXELS, Math.ceil((range.endMs - range.startMs) / 60_000) * TIMELINE_PIXELS_PER_MINUTE),
-    [range],
-  );
+  const timelineHeight = timelineViewportHeight > 0 ? timelineViewportHeight : MINIMUM_TIMELINE_HEIGHT_PIXELS;
   const nowPosition = AMANAxisTopPercent(axis.clockMs, range);
   const sourceStatus = (state?.technical_health.observation_source ?? state?.technical_health.vatsim)?.status;
   const axisStatus = connectionState === "disconnected" ? "disconnected" : sourceStatus === "degraded" || sourceStatus === "unavailable" ? "stale" : "fresh";
@@ -194,6 +177,7 @@ export function AMANBoardView({
     ...(flight.aircraft_type ? [{id: "aircraft-type", label: "Aircraft type", value: flight.aircraft_type}] as const : []),
     ...(flight.feeder_fix ? [{id: "feeder-fix", label: "Feeder fix", value: flight.feeder_fix}] as const : []),
   ];
+  const isDimmedFamily = (family: string | null | undefined) => selectedStarFamilies.length > 0 && (family == null || !selectedStarFamilies.includes(family));
   const renderTarget = (flight: AMANFlight, compact = false) => (
     <AMANAircraftTarget
       compact={compact}
@@ -208,6 +192,7 @@ export function AMANBoardView({
         onOpenFlightActions?.(flight.callsign);
       }}
       selected={flight.callsign === selectedCallsign}
+      dimmed={isDimmedFamily(flight.star_family ?? flight.feeder ?? flight.star)}
       trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
     />
   );
@@ -215,7 +200,7 @@ export function AMANBoardView({
   const renderRWYTarget = (flight: AMANFlight) => (
     <div className="flex min-h-7 items-stretch">
       {renderTarget(flight)}
-      {flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]" style={{color: starFamilyColor(flight.star_family)}}>{flight.star_family}</span>}
+      {flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]" style={{color: isDimmedFamily(flight.star_family ?? flight.feeder ?? flight.star) ? "#747474" : starFamilyColor(flight.star_family)}}>{flight.star_family}</span>}
     </div>
   );
   const renderACCTarget = (flight: AMANFlight) => {
@@ -237,34 +222,16 @@ export function AMANBoardView({
       />
     );
   };
-  const syncTimelineScroll = () => {
+  const syncTimelineViewport = () => {
     const timeline = timelineScrollRef.current;
-    if (timeline === null) return;
-    setTimelineScroll({
-      top: timeline.scrollTop,
-      viewportHeight: timeline.clientHeight,
-      contentHeight: timeline.scrollHeight,
-    });
-  };
-  const jumpToCurrentTime = () => {
-    const timeline = timelineScrollRef.current;
-    if (timeline === null || nowPosition === null) return;
-    timeline.scrollTop = Math.max(0, (nowPosition / 100) * timelineHeight - timeline.clientHeight * 0.35);
-    syncTimelineScroll();
+    if (timeline !== null) setTimelineViewportHeight(timeline.clientHeight);
+    if (sectionRef.current !== null) setRailHeight(sectionRef.current.clientHeight);
   };
   useEffect(() => {
-    if (initializedTimelineScroll.current || nowPosition === null) return;
-    const timeline = timelineScrollRef.current;
-    if (timeline === null) return;
-    timeline.scrollTop = Math.max(0, (nowPosition / 100) * timelineHeight - timeline.clientHeight * 0.35);
-    initializedTimelineScroll.current = true;
-    syncTimelineScroll();
-  }, [nowPosition, timelineHeight]);
-  useEffect(() => {
-    syncTimelineScroll();
-    window.addEventListener("resize", syncTimelineScroll);
-    return () => window.removeEventListener("resize", syncTimelineScroll);
-  }, [timelineHeight]);
+    syncTimelineViewport();
+    window.addEventListener("resize", syncTimelineViewport);
+    return () => window.removeEventListener("resize", syncTimelineViewport);
+  }, []);
 
   if (state === null) {
     return (
@@ -278,33 +245,44 @@ export function AMANBoardView({
   }
 
   return (
-    <section aria-label="AMAN presentation" className="grid h-full min-h-[640px] w-full max-w-[1440px] grid-rows-[clamp(7.5rem,13.333%,9rem)_minmax(0,1fr)] overflow-hidden bg-[#505052] text-white shadow-2xl">
+    <section aria-label="AMAN presentation" className="relative grid h-full min-h-[640px] w-full max-w-[1440px] grid-rows-[clamp(7.425rem,12%,8.55rem)_minmax(0,1fr)] overflow-hidden bg-[#505052] text-white shadow-2xl" ref={sectionRef}>
       <AMANSettingsHeader
         connectionState={connectionState}
         commandRejections={commandRejections}
         hasFMPAuthority={hasFMPAuthority}
         onCommand={sendCommand}
         onRunwayGroupViewChange={setSelectedRunwayGroupID}
-        onViewChange={setView}
+        onStarFamiliesChange={setSelectedStarFamilies}
+        onViewChange={(next) => {
+          if (next === "acc") {
+            setACCView(AMAN_ALL_VIEW);
+            setSelectedStarFamilies(defaultACCFamilies(position, controllers, availableAMANViews(state)));
+          }
+          setView(next);
+        }}
         onACCViewChange={(next) => setACCView(next as AMANView)}
         presentationStatus={presentationStatus}
         pendingCommands={pendingCommands}
         readOnly={readOnly}
         runwayGroupOptions={state.runway_groups.map((group) => ({id: group.id, label: `${group.id} : ${state.flights.filter((flight) => flight.runway_group_id === group.id).length}`}))}
         secondaryAccessory={<>
-          <span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>
-          <button className="aman-settings-button bg-lime-400 text-black" onClick={onOpenControls} type="button">FMP</button>
-          <button className="aman-settings-button bg-[#4b5563] text-white disabled:opacity-50" disabled={selectedCallsign === null} onClick={() => selectedCallsign !== null && onOpenFlightDetails?.(selectedCallsign)} type="button">DETAIL</button>
           {state.technical_health.blocked_reasons.length > 0 && <span className="self-center text-xs text-red-900">{state.technical_health.blocked_reasons.join(", ")}</span>}
         </>}
         accViewOptions={[AMAN_ALL_VIEW, ...availableAMANViews(state)]}
         selectedACCView={accView}
+        selectedStarFamilies={selectedStarFamilies}
         selectedRunwayGroupID={activeRunwayLane?.id ?? null}
         state={state}
         view={view}
       />
       <div className="relative min-h-0 flex-1">
-        <div className="h-full overflow-auto pl-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
+        <div
+          className="h-full overflow-hidden pl-[13.2px]"
+          onWheel={(event) => {
+            if (event.deltaY !== 0) axis.setHorizonMinutes(axis.horizonMinutes + (event.deltaY < 0 ? HORIZON_WHEEL_STEP_MINUTES : -HORIZON_WHEEL_STEP_MINUTES));
+          }}
+          ref={timelineScrollRef}
+        >
           <div className="relative flex min-w-full" data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
             {view === "runway" ? (
               <RWYPairedTimeline
@@ -318,7 +296,7 @@ export function AMANBoardView({
                 state={state}
                 status={axisStatus}
               />
-            ) : view === "acc" ? (
+            ) : view === "acc" && accView !== AMAN_ALL_VIEW ? (
               <ACCTimeline
                 clockMs={axis.clockMs}
                 currentPosition={nowPosition}
@@ -356,26 +334,19 @@ export function AMANBoardView({
             )}
           </div>
         </div>
-        <TimelineScrollRail
-          contentHeight={timelineScroll.contentHeight || timelineHeight}
-          currentPosition={nowPosition}
-          onJumpToCurrent={jumpToCurrentTime}
-          onScrollTo={(scrollTop) => {
-            if (timelineScrollRef.current !== null) {
-              timelineScrollRef.current.scrollTop = scrollTop;
-              syncTimelineScroll();
-            }
-          }}
-          scrollTop={timelineScroll.top}
-          viewportHeight={timelineScroll.viewportHeight}
-        />
-        {view === "holds" && state.timeline_configuration !== undefined && <FMPPairedTimelineFooter
+        {(view === "holds" || (view === "acc" && accView === AMAN_ALL_VIEW)) && state.timeline_configuration !== undefined && <FMPPairedTimelineFooter
           clockMs={axis.clockMs}
           mappings={state.timeline_configuration.mappings}
+          selectedFamilies={selectedStarFamilies}
           onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
           range={range}
         />}
       </div>
+      <TimelineScrollRail
+        horizonMinutes={axis.horizonMinutes}
+        onHorizonChange={axis.setHorizonMinutes}
+        viewportHeight={Math.max(0, railHeight - 4)}
+      />
       <Dialog onOpenChange={setTargetPreferencesOpen} open={targetPreferencesOpen}>
         <DialogContent className="w-[min(493px,calc(100vw-2rem))] max-w-none gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-0 text-white [&>button]:hidden">
           <DialogTitle className="border-b-2 border-[#dcdcdc] px-5 py-3 text-center font-display text-lg font-bold uppercase">Target Information</DialogTitle>

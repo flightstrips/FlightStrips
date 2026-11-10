@@ -28,6 +28,7 @@ export interface AMANAircraftTargetProps {
   trailingFields?: readonly AMANAircraftTargetField[];
   onSelect?: () => void;
   emphasis?: "primary" | "subdued";
+  dimmed?: boolean;
   compact?: boolean;
   delayFirst?: boolean;
 }
@@ -83,6 +84,7 @@ export function AMANAircraftTarget({
   trailingFields = [],
   onSelect,
   emphasis,
+  dimmed = false,
   compact = false,
   delayFirst = false,
 }: AMANAircraftTargetProps) {
@@ -106,7 +108,9 @@ export function AMANAircraftTarget({
         selected && "border-[#f3d02e] bg-[#3f3f3f] ring-2 ring-inset ring-[#f3d02e]",
         emphasis === "primary" && "text-[#96d796] [&>span:not([data-retained-guidance])]:!text-[#96d796]",
         emphasis === "subdued" && "text-[#686868] [&>span:not([data-retained-guidance])]:!text-[#686868]",
+        dimmed && "text-[#747474] [&>span]:!text-[#747474]",
       )}
+      data-dimmed={dimmed || undefined}
       data-emphasis={emphasis}
       disabled={disabled}
       onClick={onSelect}

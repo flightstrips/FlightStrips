@@ -18,7 +18,9 @@ import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
 import {canSwapAMANFlight, getAMANMutationBlockReason, isExcludedAMANFlight} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
-import {EKCH_TMT_HOLDING_ORDER} from "@/config/aman";
+import {EKCH_STAR_FAMILY_HOLDING, EKCH_TMT_HOLDING_ORDER, holdingsForFamilies} from "@/config/aman";
+import {AMANHoldingSequenceList} from "@/components/aman/AMANHoldingSequenceList";
+import {orderAMANFlights} from "@/components/aman/presentation";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 
 export default function AMAN() {
@@ -49,6 +51,9 @@ export default function AMAN() {
   const [swapCommandID, setSwapCommandID] = useState<string | null>(null);
   const [focusedRunwayGroupID, setFocusedRunwayGroupID] = useState<string | null>(null);
   const [tmtTab, setTmtTab] = useState("holdings");
+  const [boardViewState, setBoardViewState] = useState<{view: "holds" | "runway" | "acc"; starFamilies: string[]}>({view: "holds", starFamilies: []});
+  const accActive = boardViewState.view === "acc";
+  const visibleHoldings = accActive ? holdingsForFamilies(boardViewState.starFamilies) : EKCH_TMT_HOLDING_ORDER;
   const stateAtMount = useRef(state);
 
   const effectiveSelectedCallsign = state?.flights.some((flight) => flight.callsign === selectedCallsign)
@@ -65,7 +70,7 @@ export default function AMAN() {
     {id: "ctot", label: `CTOT (${inboundDepartures?.ctot_flights?.length ?? 0})`},
     ...(!hasFMPAuthority ? [{id: "coordination", label: `Coordination (${state?.coordination_requests?.filter(request => request.state === "pending").length ?? 0})`}] : []),
   ];
-  const activeTmtTab = tmtTabs.some(tab => tab.id === tmtTab) ? tmtTab : "holdings";
+  const activeTmtTab = accActive || !tmtTabs.some(tab => tab.id === tmtTab) ? "holdings" : tmtTab;
   const mutationBlockReason = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority});
 
   const navigateToWarningFlight = (callsign: string): boolean => {
@@ -104,19 +109,20 @@ export default function AMAN() {
               setDetailOpen(true);
             }}
             onSelectFlight={setSelectedCallsign}
+            onViewStateChange={setBoardViewState}
             presentationStatus={presentationStatus}
             selectedCallsign={effectiveSelectedCallsign}
             state={state}
           />
         )}
         tmt={(
-          <div className="aman-tmt-dashboard">
-            <div className="aman-tmt-traffic">
+          <div className={accActive ? "aman-tmt-dashboard aman-tmt-dashboard-acc" : "aman-tmt-dashboard"}>
+            {!accActive && <div className="aman-tmt-traffic">
               {state?.traffic_prediction !== undefined
                 ? <TMTTrafficPrediction flights={state?.flights} prediction={state.traffic_prediction} />
                 : <section className="aman-tmt-placeholder" aria-label="TMT traffic prediction unavailable"><b>TMT · TRAFFIC PREDICTION</b><span>Prediction data unavailable</span></section>}
-            </div>
-            <div aria-label="TMT views" className="my-2 flex flex-wrap gap-1" role="tablist">
+            </div>}
+            <div aria-label="TMT views" className={accActive ? "hidden" : "my-2 flex flex-wrap gap-1"} role="tablist">
               {tmtTabs.map((tab, index) => <button
                 aria-controls={`tmt-${tab.id}-panel`}
                 aria-selected={activeTmtTab === tab.id}
@@ -140,11 +146,23 @@ export default function AMAN() {
                 type="button"
               >{tab.label}</button>)}
             </div>
-            {activeTmtTab === "holdings" && <div aria-label="TMT holding workspaces" aria-labelledby="tmt-holdings-tab" className="aman-tmt-holdings" id="tmt-holdings-panel" role="tabpanel" tabIndex={0}>
-              {EKCH_TMT_HOLDING_ORDER.map((holding) => <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} onOpenFlightActions={(callsign) => {
-                setSelectedCallsign(callsign);
-                setFlightActionsOpen(true);
-              }} />)}
+            {activeTmtTab === "holdings" && <div aria-label="TMT holding workspaces" aria-labelledby="tmt-holdings-tab" className="aman-tmt-holdings" id="tmt-holdings-panel" role="tabpanel" style={{gridTemplateColumns: `repeat(${accActive ? Math.max(3, visibleHoldings.length) : Math.max(1, visibleHoldings.length)}, minmax(0, 1fr))`}} tabIndex={0}>
+              {visibleHoldings.map((holding) => {
+                const graph = <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} onOpenFlightActions={(callsign) => {
+                  setSelectedCallsign(callsign);
+                  setFlightActionsOpen(true);
+                }} />;
+                if (!accActive) return graph;
+                const sequence = orderAMANFlights((state?.flights ?? []).filter((flight) => {
+                  const family = flight.star_family ?? flight.feeder ?? flight.star;
+                  return family !== null && EKCH_STAR_FAMILY_HOLDING[family.trim().toUpperCase()] === holding
+                    && !isExcludedAMANFlight(flight) && flight.lifecycle_state !== "landed" && flight.lifecycle_state !== "removed";
+                }));
+                return <div className="flex min-h-0 min-w-0 flex-col gap-1" key={holding}>
+                  <div className="min-h-0 flex-1">{graph}</div>
+                  <AMANHoldingSequenceList disabled={mutationBlockReason !== null} eats={Object.fromEntries(holdingInformation.map((entry) => [entry.callsign, entry.eat]))} flights={sequence} onCommand={sendCommand} />
+                </div>;
+              })}
             </div>}
             {activeTmtTab === "coordination" && <div aria-labelledby="tmt-coordination-tab" className="aman-tmt-notices" id="tmt-coordination-panel" role="tabpanel" tabIndex={0}>
               <AMANCoordinationInbox
@@ -174,7 +192,7 @@ export default function AMAN() {
               presentationStatus={presentationStatus}
               />
             </div>}
-            <div className="aman-tmt-non-compliance"><AMANCdmNonCompliance connected={connectionState === "connected"} snapshot={inboundDepartures ?? null} /></div>
+            {!accActive && <div className="aman-tmt-non-compliance"><AMANCdmNonCompliance connected={connectionState === "connected"} snapshot={inboundDepartures ?? null} /></div>}
           </div>
         )}
       />

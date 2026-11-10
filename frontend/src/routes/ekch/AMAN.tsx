@@ -54,6 +54,9 @@ export default function AMAN() {
   const [boardViewState, setBoardViewState] = useState<{view: "holds" | "runway" | "acc"; starFamilies: string[]}>({view: "holds", starFamilies: []});
   const accActive = boardViewState.view === "acc";
   const visibleHoldings = accActive ? holdingsForFamilies(boardViewState.starFamilies) : EKCH_TMT_HOLDING_ORDER;
+  const accCompactHoldingCount = accActive && boardViewState.starFamilies.length > 0 && boardViewState.starFamilies.length <= 2 && visibleHoldings.length > 0
+    ? visibleHoldings.length
+    : undefined;
   const stateAtMount = useRef(state);
 
   const effectiveSelectedCallsign = state?.flights.some((flight) => flight.callsign === selectedCallsign)
@@ -91,6 +94,7 @@ export default function AMAN() {
   return (
     <>
       <AMANWorkspaceShell
+        accCompactHoldingCount={accCompactHoldingCount}
         maestro={(
           <AMANBoardView
             connectionState={connectionState}
@@ -146,7 +150,7 @@ export default function AMAN() {
                 type="button"
               >{tab.label}</button>)}
             </div>
-            {activeTmtTab === "holdings" && <div aria-label="TMT holding workspaces" aria-labelledby="tmt-holdings-tab" className="aman-tmt-holdings" id="tmt-holdings-panel" role="tabpanel" style={{gridTemplateColumns: `repeat(${accActive ? Math.max(3, visibleHoldings.length) : Math.max(1, visibleHoldings.length)}, minmax(0, 1fr))`}} tabIndex={0}>
+            {activeTmtTab === "holdings" && <div aria-label="TMT holding workspaces" aria-labelledby="tmt-holdings-tab" className="aman-tmt-holdings" id="tmt-holdings-panel" role="tabpanel" style={{gridTemplateColumns: `repeat(${accCompactHoldingCount ?? (accActive ? Math.max(3, visibleHoldings.length) : Math.max(1, visibleHoldings.length))}, minmax(0, 1fr))`}} tabIndex={0}>
               {visibleHoldings.map((holding) => {
                 const graph = <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} onOpenFlightActions={(callsign) => {
                   setSelectedCallsign(callsign);

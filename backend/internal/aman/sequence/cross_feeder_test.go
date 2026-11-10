@@ -1,12 +1,84 @@
 package sequence_test
 
 import (
+	"testing"
+	"time"
+
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/sequence"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
+
+func TestCrossFeederArrivalsFollowOccupiedHoldsUnlessCapacityWouldBeUnused(t *testing.T) {
+	for _, protected := range []bool{false, true} {
+		for _, otherHold := range []string{"HOLD-B", ""} {
+			start := testTime()
+			policy := continuousCPHPolicy(start)
+			policy.AllowCrossFeederOvertake = true
+			entered, arrives := start.Add(-20*time.Minute), start.Add(5*time.Minute)
+			first := flight("HELD1", "A", start.Add(40*time.Minute), "M")
+			first.STARFamily, first.HoldingQueueID = "MONAK", "HOLD-A"
+			first.HoldingQueueTime, first.ActiveHoldingSince, first.ArrivalQueueTime = &entered, &entered, &entered
+			physical := start.Add(10 * time.Minute)
+			first.PromotionNotBefore = &physical
+			if protected {
+				first.ProtectCurrentSlot = true
+				first.CurrentSlot = &aman.Slot{RunwayGroupID: "A", Time: first.OperationalTETA, Sequence: 1}
+			}
+			second := first
+			second.Callsign = "HELD2"
+			second.OperationalTETA = start.Add(41*time.Minute + 30*time.Second)
+			if protected {
+				second.CurrentSlot = &aman.Slot{RunwayGroupID: "A", Time: second.OperationalTETA, Sequence: 2}
+			}
+			incoming := flight("NEW", "A", start.Add(15*time.Minute), "M")
+			incoming.STARFamily, incoming.HoldingQueueID = "TESPI", otherHold
+			incoming.ArrivalQueueTime = &arrives
+			input := sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{incoming, second, first}}
+			result, err := sequence.Generate(input)
+			require.NoError(t, err)
+			require.False(t, result.HasConflicts())
+			require.Equal(t, []aman.Callsign{"HELD1", "HELD2", "NEW"}, entryIDs(result))
+			require.Equal(t, start.Add(43*time.Minute), entryFor(t, result, "NEW").Time)
+		}
+	}
+}
+
+func TestCrossFeederOvertakeRequiresEvidenceOfUnusedCapacity(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		physical time.Duration
+		wantPass bool
+	}{
+		{"held aircraft can reach the slot", 10 * time.Minute, false},
+		{"held aircraft cannot reach the slot", 20 * time.Minute, true},
+		{"assigned delay is not physical evidence", 0, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			start := testTime()
+			policy := continuousCPHPolicy(start)
+			policy.AllowCrossFeederOvertake = true
+			entered, arrives := start.Add(-time.Minute), start.Add(5*time.Minute)
+			held := flight("HELD", "A", start.Add(40*time.Minute), "M")
+			held.STARFamily, held.HoldingQueueID = "MONAK", "HOLD-A"
+			held.ActiveHoldingSince = &entered
+			held.ProtectCurrentSlot = true
+			held.CurrentSlot = &aman.Slot{RunwayGroupID: "A", Time: held.OperationalTETA, Sequence: 1}
+			if test.physical > 0 {
+				physical := start.Add(test.physical)
+				held.PromotionNotBefore = &physical
+			}
+			incoming := flight("NEW", "A", start.Add(15*time.Minute), "M")
+			incoming.STARFamily, incoming.HoldingQueueID = "TESPI", "HOLD-B"
+			incoming.ArrivalQueueTime = &arrives
+			result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{incoming, held}})
+			require.NoError(t, err)
+			require.False(t, result.HasConflicts())
+			require.Equal(t, held.CurrentSlot.Time, entryFor(t, result, "HELD").Time)
+			require.Equal(t, test.wantPass, entryFor(t, result, "NEW").Time.Before(held.CurrentSlot.Time))
+		})
+	}
+}
 
 func TestCrossFeederOvertakeUsesSameSTARGapWithoutMovingProtectedSlots(t *testing.T) {
 	start := testTime()

@@ -50,7 +50,9 @@ type Policy struct {
 	// ContinuousSpacing applies the arrival rate as minimum time between
 	// landings. Wake spacing must not be rounded to an additional rate step.
 	// The nominal rate grid remains available for explicit grid commands.
-	ContinuousSpacing        bool
+	ContinuousSpacing bool
+	// AllowCrossFeederOvertake permits use of capacity that earlier holding
+	// traffic cannot use. It does not disable first-come holding priority.
 	AllowCrossFeederOvertake bool
 	Rates                    []RatePoint
 	Gaps                     []Gap
@@ -654,7 +656,10 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 	}
 	sortEntries(entries)
 
-	ordered := orderMovableFlights(policy, movable)
+	ordered, err := orderMovableFlights(movable)
+	if err != nil {
+		return nil, nil, err
+	}
 	allocated, err := allocateMovableFlights(policy, entries, ordered)
 	if err != nil {
 		return nil, nil, err
@@ -700,16 +705,18 @@ func allocateMovableFlights(policy preparedPolicy, protected []allocatedEntry, o
 }
 
 // Allocate earlier holding traffic before later entrants on the same runway,
-// so placement can enforce the holding priority against its assigned slot.
-func orderMovableFlights(policy preparedPolicy, flights []preparedFlight) []preparedFlight {
+// so placement can enforce holding priority against its assigned slot and
+// assess any cross-feeder gap without displacing it.
+func orderMovableFlights(flights []preparedFlight) ([]preparedFlight, error) {
 	remaining := slices.Clone(flights)
 	sort.Slice(remaining, func(i, j int) bool { return flightLess(remaining[i], remaining[j]) })
 	ordered := make([]preparedFlight, 0, len(remaining))
 	for len(remaining) > 0 {
+		pending := len(remaining)
 		for i, flight := range remaining {
 			olderPending := false
 			for _, other := range remaining {
-				if policy.holdingPrecedes(other.Flight, flight.Flight) {
+				if HoldingPrecedes(other.Flight, flight.Flight) {
 					// Explicit manual or committed Stable order retains its
 					// existing precedence over the automatic hold queue.
 					if flight.ManualOrder != nil && (other.ManualOrder == nil || *flight.ManualOrder < *other.ManualOrder) {
@@ -729,8 +736,19 @@ func orderMovableFlights(policy preparedPolicy, flights []preparedFlight) []prep
 			remaining = slices.Delete(remaining, i, i+1)
 			break
 		}
+		if len(remaining) == pending {
+			// Release ranks can conflict with admission times across holds.
+			// Never spin or silently discard a constraint when no flight can
+			// be allocated; let the caller retain the committed sequence.
+			blocked := make([]string, len(remaining))
+			for i, flight := range remaining {
+				blocked[i] = string(flight.Callsign)
+			}
+			sort.Strings(blocked)
+			return nil, invalidTransition(fmt.Sprintf("runway group %q has a holding precedence cycle blocking flights %s", remaining[0].RunwayGroupID, strings.Join(blocked, ", ")))
+		}
 	}
-	return ordered
+	return ordered, nil
 }
 
 func findCandidate(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight) (time.Time, error) {
@@ -851,7 +869,10 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 	if flight.HoldingQueueTime != nil || flight.ArrivalQueueTime != nil {
 		for _, entry := range entries {
 			older := entry.flight
-			if !policy.holdingPrecedes(older.Flight, flight.Flight) {
+			if !HoldingPrecedes(older.Flight, flight.Flight) {
+				continue
+			}
+			if canFillHoldingGap(policy, entries, entry, flight, candidate) {
 				continue
 			}
 			// Holding admission can be discovered after both targets have been
@@ -896,13 +917,6 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 
 // HoldingPrecedes prevents later arrivals from passing traffic already holding
 // on the same runway, including traffic at a different holding fix.
-func (p preparedPolicy) holdingPrecedes(older, later Flight) bool {
-	if p.AllowCrossFeederOvertake && older.HoldingQueueID != later.HoldingQueueID {
-		return false
-	}
-	return HoldingPrecedes(older, later)
-}
-
 func HoldingPrecedes(older, later Flight) bool {
 	if older.ReleaseRank != nil && later.ReleaseRank != nil {
 		return *older.ReleaseRank < *later.ReleaseRank

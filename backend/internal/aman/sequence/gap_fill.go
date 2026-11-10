@@ -7,6 +7,37 @@ import (
 	"FlightStrips/internal/aman"
 )
 
+// Earlier holding traffic owns usable capacity first. An independent stream
+// may pass it only when it cannot use this instant itself, either because it
+// cannot physically reach the runway or because runway/STAR spacing prevents
+// it. Allocation orders the hold first, so this insertion keeps its slot.
+func canFillHoldingGap(policy preparedPolicy, entries []allocatedEntry, older allocatedEntry, later preparedFlight, candidate time.Time) bool {
+	if !policy.AllowCrossFeederOvertake || !candidate.Before(older.time) ||
+		!canPassForGap(later, older.flight) || older.flight.ReleaseRank != nil || later.ReleaseRank != nil {
+		return false
+	}
+	if older.flight.PromotionNotBefore != nil && candidate.Before(*older.flight.PromotionNotBefore) {
+		return true
+	}
+	// OperationalTETA and the assigned slot can contain accumulated delay;
+	// neither proves that the held aircraft cannot arrive sooner.
+	var leading, trailing *allocatedEntry
+	for i := range entries {
+		entry := &entries[i]
+		if entry.flight.Callsign == older.flight.Callsign {
+			continue
+		}
+		if entry.time.Before(candidate) {
+			leading = entry
+		} else {
+			trailing = entry
+			break
+		}
+	}
+	return leading != nil && candidate.Sub(leading.time) < requiredGap(policy, leading.flight, older.flight, candidate) ||
+		trailing != nil && trailing.time.Sub(candidate) < requiredGap(policy, older.flight, trailing.flight, trailing.time)
+}
+
 // Fill unused capacity between arrivals, including vacancies left by removed
 // flights and same-STAR spacing. A later aircraft may use that capacity without
 // moving either reservation.

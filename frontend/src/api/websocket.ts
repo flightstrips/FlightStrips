@@ -1,4 +1,5 @@
 import {
+  type FrontendAircraftSelectionEvent,
   ActionType,
   EventType,
   type ActionRejectedEvent,
@@ -49,6 +50,7 @@ import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoor
 
 
 type EventMap = {
+  [EventType.FrontendAircraftSelection]: FrontendAircraftSelectionEvent;
  [EventType.FrontendConnectedFlightResults]:import("./strip-board").ConnectedFlightSearchResult;
   [EventType.FrontendMasterInfo]: FrontendMasterInfoEvent;
   [EventType.FrontendFrequencyMessageResult]: import("@/lib/text-pilot").FrequencyMessageResult;

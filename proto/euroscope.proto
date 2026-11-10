@@ -67,6 +67,7 @@ enum EventType {
   EVENT_MASTER_INFO = 56;
   EVENT_CONTROL = 57;
   EVENT_MEMBERSHIP_REMOVED = 58;
+  EVENT_AIRCRAFT_SELECTION = 59;
 }
 
 // Every websocket frame contains exactly one event. Using a oneof makes the
@@ -144,6 +145,7 @@ message Envelope {
     MasterInfoEvent master_info = 56;
     ControlEvent control = 57;
     MembershipRemovedEvent membership_removed = 58;
+    AircraftSelectionEvent aircraft_selection = 59;
   }
 }
 
@@ -498,3 +500,6 @@ message FrequencyMessageResultEvent {
 message MasterInfoEvent {
   string master_callsign = 1;
 }
+
+// Presentation state of the physical instance; empty callsign clears selection.
+message AircraftSelectionEvent { string callsign = 1; }

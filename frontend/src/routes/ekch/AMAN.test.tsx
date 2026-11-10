@@ -1,3 +1,4 @@
+import {useSyncExternalStore} from "react";
 import {fireEvent, render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
@@ -5,13 +6,16 @@ import type {WebSocketState} from "@/store/store";
 import type {AMANHoldingEntry, AMANState} from "@/api/aman";
 import AMAN from "./AMAN";
 
-const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.hoisted(() => ({
+const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeListeners, storeState} = vi.hoisted(() => ({
+  storeListeners: new Set<() => void>(),
   boardSpy: vi.fn(),
   controlsSpy: vi.fn(),
   detailSpy: vi.fn(),
   holdingSpy: vi.fn(),
   tmtSpy: vi.fn(),
   storeState: {
+    amanSelectedCallsign: null as string | null,
+    selectAMANFlight: vi.fn(),
     amanState: null as AMANState | null,
     amanPresentationStatus: "empty",
     amanError: null,
@@ -26,7 +30,10 @@ const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.ho
 }));
 
 vi.mock("@/store/store-hooks", () => ({
-  useWebSocketStore: (selector: (state: WebSocketState) => unknown) => selector(storeState as unknown as WebSocketState),
+  useWebSocketStore: (selector: (state: WebSocketState) => unknown) => useSyncExternalStore(
+    (listener) => { storeListeners.add(listener); return () => { storeListeners.delete(listener); }; },
+    () => selector(storeState as unknown as WebSocketState),
+  ),
 }));
 
 vi.mock("@/components/aman/AMANBoard", () => ({
@@ -80,6 +87,11 @@ describe("AMAN route authorization", () => {
   } as unknown as AMANState);
 
   beforeEach(() => {
+    storeState.amanSelectedCallsign = null;
+    storeState.selectAMANFlight.mockImplementation((callsign: string | null) => {
+      storeState.amanSelectedCallsign = callsign;
+      storeListeners.forEach(listener => listener());
+    });
     controlsSpy.mockClear();
     boardSpy.mockClear();
     holdingSpy.mockClear();
@@ -267,6 +279,7 @@ describe("AMAN route authorization", () => {
   });
 
   it("leaves selection and focus stable when a warning references an absent flight", () => {
+    storeState.amanSelectedCallsign = "SAS123";
     storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
     render(<AMAN />);
     fireEvent.click(screen.getByRole("tab", {name: "Warnings (0)"}));
@@ -310,4 +323,44 @@ describe("AMAN route authorization", () => {
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Holdings");
     expect(screen.queryByText("AMAN warnings")).not.toBeInTheDocument();
   });
+
+  it("moves the board selection without retargeting an open flight menu or command", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}, {callsign: "SAS456"}]);
+    const {rerender} = render(<AMAN />);
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: null}));
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    storeState.amanSelectedCallsign = "SAS456";
+    rerender(<AMAN />);
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS456"}));
+    expect(screen.getByRole("dialog", {name: "SAS123"})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Recompute"}));
+    expect(storeState.sendAMANCommand).toHaveBeenCalledWith({type: "aman.recompute_flight", callsign: "SAS123"});
+});
+
+  it("keeps details bound to their original flight while the board follows EuroScope", () => {
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}, {callsign: "SAS456"}]);
+    const {rerender} = render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open target"}));
+    storeState.amanSelectedCallsign = "SAS456";
+    rerender(<AMAN />);
+    expect(detailSpy).toHaveBeenLastCalledWith(expect.objectContaining({callsign: "SAS123"}));
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS456"}));
+  });
+
+  it("clears unmatched highlighting, matches delayed flights, and disables an absent dialog flight", () => {
+    storeState.amanSelectedCallsign = "SAS456";
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
+    const {rerender} = render(<AMAN />);
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: null}));
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}, {callsign: "SAS456"}]);
+    rerender(<AMAN />);
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS456"}));
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    storeState.amanState = authoritativeState([{callsign: "SAS456"}]);
+    rerender(<AMAN />);
+    expect(screen.getByRole("button", {name: "Recompute"})).toBeDisabled();
+    expect(storeState.sendAMANCommand).not.toHaveBeenCalled();
+  });
+
 });

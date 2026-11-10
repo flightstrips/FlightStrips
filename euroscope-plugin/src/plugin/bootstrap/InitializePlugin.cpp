@@ -21,6 +21,7 @@
 #include "handlers/ConnectionEventHandlers.h"
 #include "handlers/EkytApproachTrackingHandler.h"
 #include "handlers/GroundTagReleaseHandler.h"
+#include "handlers/AircraftSelectionHandler.h"
 #include "messages/MessageService.h"
 #include "runway/RunwayService.h"
 #include "tag_items/CdmStateHandler.h"
@@ -205,6 +206,8 @@ namespace FlightStrips {
         this->container->messageHandlers->RegisterHandler(this->container->messageService);
         this->container->timedEventHandlers->RegisterHandler(this->container->messageService);
         this->container->authenticationEventHandlers->RegisterHandler(this->container->webSocketService);
+        this->container->timedEventHandlers->RegisterHandler(
+            std::make_shared<handlers::AircraftSelectionHandler>(this->container->plugin, this->container->webSocketService));
 
         this->container->plugin->Information(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
         Logger::Info(std::format("Loaded plugin version {}.", PLUGIN_VERSION));

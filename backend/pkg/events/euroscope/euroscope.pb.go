@@ -85,6 +85,7 @@ const (
 	EventType_EVENT_MASTER_INFO                 EventType = 56
 	EventType_EVENT_CONTROL                     EventType = 57
 	EventType_EVENT_MEMBERSHIP_REMOVED          EventType = 58
+	EventType_EVENT_AIRCRAFT_SELECTION          EventType = 59
 )
 
 // Enum value maps for EventType.
@@ -149,6 +150,7 @@ var (
 		56: "EVENT_MASTER_INFO",
 		57: "EVENT_CONTROL",
 		58: "EVENT_MEMBERSHIP_REMOVED",
+		59: "EVENT_AIRCRAFT_SELECTION",
 	}
 	EventType_value = map[string]int32{
 		"EVENT_UNKNOWN":                     0,
@@ -210,6 +212,7 @@ var (
 		"EVENT_MASTER_INFO":                 56,
 		"EVENT_CONTROL":                     57,
 		"EVENT_MEMBERSHIP_REMOVED":          58,
+		"EVENT_AIRCRAFT_SELECTION":          59,
 	}
 )
 
@@ -360,6 +363,7 @@ type Envelope struct {
 	//	*Envelope_MasterInfo
 	//	*Envelope_Control
 	//	*Envelope_MembershipRemoved
+	//	*Envelope_AircraftSelection
 	Event         isEnvelope_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -945,6 +949,15 @@ func (x *Envelope) GetMembershipRemoved() *MembershipRemovedEvent {
 	return nil
 }
 
+func (x *Envelope) GetAircraftSelection() *AircraftSelectionEvent {
+	if x != nil {
+		if x, ok := x.Event.(*Envelope_AircraftSelection); ok {
+			return x.AircraftSelection
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Event interface {
 	isEnvelope_Event()
 }
@@ -1181,6 +1194,10 @@ type Envelope_MembershipRemoved struct {
 	MembershipRemoved *MembershipRemovedEvent `protobuf:"bytes,58,opt,name=membership_removed,json=membershipRemoved,proto3,oneof"`
 }
 
+type Envelope_AircraftSelection struct {
+	AircraftSelection *AircraftSelectionEvent `protobuf:"bytes,59,opt,name=aircraft_selection,json=aircraftSelection,proto3,oneof"`
+}
+
 func (*Envelope_Token) isEnvelope_Event() {}
 
 func (*Envelope_Login) isEnvelope_Event() {}
@@ -1296,6 +1313,8 @@ func (*Envelope_MasterInfo) isEnvelope_Event() {}
 func (*Envelope_Control) isEnvelope_Event() {}
 
 func (*Envelope_MembershipRemoved) isEnvelope_Event() {}
+
+func (*Envelope_AircraftSelection) isEnvelope_Event() {}
 
 type TokenEvent struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
@@ -6129,11 +6148,56 @@ func (x *MasterInfoEvent) GetMasterCallsign() string {
 	return ""
 }
 
+// Presentation state of the physical instance; empty callsign clears selection.
+type AircraftSelectionEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Callsign      string                 `protobuf:"bytes,1,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AircraftSelectionEvent) Reset() {
+	*x = AircraftSelectionEvent{}
+	mi := &file_proto_euroscope_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AircraftSelectionEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AircraftSelectionEvent) ProtoMessage() {}
+
+func (x *AircraftSelectionEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AircraftSelectionEvent.ProtoReflect.Descriptor instead.
+func (*AircraftSelectionEvent) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *AircraftSelectionEvent) GetCallsign() string {
+	if x != nil {
+		return x.Callsign
+	}
+	return ""
+}
+
 var File_proto_euroscope_proto protoreflect.FileDescriptor
 
 const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
-	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\xf7(\n" +
+	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\xdb)\n" +
 	"\bEnvelope\x12O\n" +
 	"\x0ecommand_origin\x18e \x01(\x0e2(.flightstrips.euroscope.v1.CommandOriginR\rcommandOrigin\x12!\n" +
 	"\fexecution_id\x18f \x01(\tR\vexecutionId\x12F\n" +
@@ -6200,7 +6264,8 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\vmaster_info\x188 \x01(\v2*.flightstrips.euroscope.v1.MasterInfoEventH\x00R\n" +
 	"masterInfo\x12C\n" +
 	"\acontrol\x189 \x01(\v2'.flightstrips.euroscope.v1.ControlEventH\x00R\acontrol\x12b\n" +
-	"\x12membership_removed\x18: \x01(\v21.flightstrips.euroscope.v1.MembershipRemovedEventH\x00R\x11membershipRemovedB\a\n" +
+	"\x12membership_removed\x18: \x01(\v21.flightstrips.euroscope.v1.MembershipRemovedEventH\x00R\x11membershipRemoved\x12b\n" +
+	"\x12aircraft_selection\x18; \x01(\v21.flightstrips.euroscope.v1.AircraftSelectionEventH\x00R\x11aircraftSelectionB\a\n" +
 	"\x05event\"\x8c\x01\n" +
 	"\n" +
 	"TokenEvent\x12\x14\n" +
@@ -6614,7 +6679,9 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x05error\x18\x04 \x01(\tR\x05error\x12'\n" +
 	"\x0fapplied_actions\x18\x05 \x01(\x05R\x0eappliedActions\":\n" +
 	"\x0fMasterInfoEvent\x12'\n" +
-	"\x0fmaster_callsign\x18\x01 \x01(\tR\x0emasterCallsign*\xf0\v\n" +
+	"\x0fmaster_callsign\x18\x01 \x01(\tR\x0emasterCallsign\"4\n" +
+	"\x16AircraftSelectionEvent\x12\x1a\n" +
+	"\bcallsign\x18\x01 \x01(\tR\bcallsign*\x8e\f\n" +
 	"\tEventType\x12\x11\n" +
 	"\rEVENT_UNKNOWN\x10\x00\x12\x0f\n" +
 	"\vEVENT_TOKEN\x10\x01\x12\x0f\n" +
@@ -6678,7 +6745,8 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x1eEVENT_FREQUENCY_MESSAGE_RESULT\x107\x12\x15\n" +
 	"\x11EVENT_MASTER_INFO\x108\x12\x11\n" +
 	"\rEVENT_CONTROL\x109\x12\x1c\n" +
-	"\x18EVENT_MEMBERSHIP_REMOVED\x10:*g\n" +
+	"\x18EVENT_MEMBERSHIP_REMOVED\x10:\x12\x1c\n" +
+	"\x18EVENT_AIRCRAFT_SELECTION\x10;*g\n" +
 	"\rCommandOrigin\x12\x1e\n" +
 	"\x1aCOMMAND_ORIGIN_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14COMMAND_ORIGIN_HUMAN\x10\x01\x12\x1c\n" +
@@ -6697,7 +6765,7 @@ func file_proto_euroscope_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_euroscope_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_euroscope_proto_msgTypes = make([]protoimpl.MessageInfo, 71)
+var file_proto_euroscope_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_proto_euroscope_proto_goTypes = []any{
 	(EventType)(0),                         // 0: flightstrips.euroscope.v1.EventType
 	(CommandOrigin)(0),                     // 1: flightstrips.euroscope.v1.CommandOrigin
@@ -6772,6 +6840,7 @@ var file_proto_euroscope_proto_goTypes = []any{
 	(*SendFrequencyMessageEvent)(nil),      // 70: flightstrips.euroscope.v1.SendFrequencyMessageEvent
 	(*FrequencyMessageResultEvent)(nil),    // 71: flightstrips.euroscope.v1.FrequencyMessageResultEvent
 	(*MasterInfoEvent)(nil),                // 72: flightstrips.euroscope.v1.MasterInfoEvent
+	(*AircraftSelectionEvent)(nil),         // 73: flightstrips.euroscope.v1.AircraftSelectionEvent
 }
 var file_proto_euroscope_proto_depIdxs = []int32{
 	1,  // 0: flightstrips.euroscope.v1.Envelope.command_origin:type_name -> flightstrips.euroscope.v1.CommandOrigin
@@ -6834,26 +6903,27 @@ var file_proto_euroscope_proto_depIdxs = []int32{
 	72, // 57: flightstrips.euroscope.v1.Envelope.master_info:type_name -> flightstrips.euroscope.v1.MasterInfoEvent
 	5,  // 58: flightstrips.euroscope.v1.Envelope.control:type_name -> flightstrips.euroscope.v1.ControlEvent
 	6,  // 59: flightstrips.euroscope.v1.Envelope.membership_removed:type_name -> flightstrips.euroscope.v1.MembershipRemovedEvent
-	10, // 60: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
-	12, // 61: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
-	11, // 62: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
-	12, // 63: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
-	8,  // 64: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	9,  // 65: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
-	8,  // 66: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	16, // 67: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	17, // 68: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
-	16, // 69: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	19, // 70: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
-	20, // 71: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
-	64, // 72: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
-	67, // 73: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
-	66, // 74: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
-	75, // [75:75] is the sub-list for method output_type
-	75, // [75:75] is the sub-list for method input_type
-	75, // [75:75] is the sub-list for extension type_name
-	75, // [75:75] is the sub-list for extension extendee
-	0,  // [0:75] is the sub-list for field type_name
+	73, // 60: flightstrips.euroscope.v1.Envelope.aircraft_selection:type_name -> flightstrips.euroscope.v1.AircraftSelectionEvent
+	10, // 61: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
+	12, // 62: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
+	11, // 63: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
+	12, // 64: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
+	8,  // 65: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	9,  // 66: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
+	8,  // 67: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	16, // 68: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	17, // 69: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
+	16, // 70: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	19, // 71: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
+	20, // 72: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
+	64, // 73: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
+	67, // 74: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
+	66, // 75: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
+	76, // [76:76] is the sub-list for method output_type
+	76, // [76:76] is the sub-list for method input_type
+	76, // [76:76] is the sub-list for extension type_name
+	76, // [76:76] is the sub-list for extension extendee
+	0,  // [0:76] is the sub-list for field type_name
 }
 
 func init() { file_proto_euroscope_proto_init() }
@@ -6920,6 +6990,7 @@ func file_proto_euroscope_proto_init() {
 		(*Envelope_MasterInfo)(nil),
 		(*Envelope_Control)(nil),
 		(*Envelope_MembershipRemoved)(nil),
+		(*Envelope_AircraftSelection)(nil),
 	}
 	file_proto_euroscope_proto_msgTypes[14].OneofWrappers = []any{}
 	file_proto_euroscope_proto_msgTypes[41].OneofWrappers = []any{}
@@ -6935,7 +7006,7 @@ func file_proto_euroscope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_euroscope_proto_rawDesc), len(file_proto_euroscope_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   71,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -277,3 +277,12 @@ TEST(ProtoCodecTest, DecodesPersistedHoldFromBackendSync) {
     EXPECT_EQ(event.strips[0].hold_type, "enroute");
     EXPECT_EQ(event.strips[0].hold_eat, "1422");
 }
+
+TEST(ProtoCodecTest, AircraftSelectionIncludesExplicitDeselection) {
+    for (const auto& callsign : {std::string("SAS123"), std::string{}}) {
+        protobuf::wire::Envelope envelope;
+        ASSERT_TRUE(protobuf::ParseEnvelope(protobuf::Serialize(AircraftSelectionEvent(callsign)), envelope));
+        ASSERT_TRUE(envelope.has_aircraft_selection());
+        EXPECT_EQ(envelope.aircraft_selection().callsign(), callsign);
+    }
+}

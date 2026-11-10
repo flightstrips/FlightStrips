@@ -106,7 +106,8 @@ describe("compact MAESTRO aircraft target", () => {
     target.focus();
     expect(target).toHaveFocus();
     expect(target).toHaveAttribute("aria-pressed", "true");
-    expect(target).toHaveClass("ring-inset", "ring-[#f3d02e]");
+    expect(target).toHaveClass("border-2", "border-white", "bg-[#5174B8]");
+    expect(target.className).not.toContain("hover:bg-[#a3d5e8]");
     fireEvent.click(target);
     expect(onSelect).toHaveBeenCalledOnce();
   });

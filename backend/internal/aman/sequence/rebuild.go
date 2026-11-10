@@ -37,6 +37,7 @@ func ApplyArrivalSequenceRebuild(input Input, at time.Time) (RebuildDecision, er
 	for i := range working.Flights {
 		f := &working.Flights[i]
 		f.ManualOrder = nil
+		f.ManualPosition = nil
 		f.ReleaseRank = nil
 		f.ProtectCurrentSlot = false
 		f.HoldingSlotProtected = false

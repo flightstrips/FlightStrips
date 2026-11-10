@@ -322,6 +322,7 @@ func invalidateHoldingRebuild(state *aman.AirportState, id aman.Callsign) {
 // routes and physical holding evidence needed to calculate its replacement.
 func resetRebuiltTiming(f *aman.AMANFlight) {
 	f.Slot, f.Order, f.ManualOrder, f.QueueOffers = nil, nil, nil, nil
+	f.ManualPosition = nil
 	f.FreezeReason, f.FrozenAt, f.FrozenOperationalTETA, f.FrozenSlot = aman.FreezeNone, nil, nil, nil
 	f.HoldingReleaseReservation, f.ApproachRelease, f.RunwayGapException = nil, nil, nil
 	f.ETAReview, f.PredictionFilter, f.RawTETASamples = nil, nil, nil

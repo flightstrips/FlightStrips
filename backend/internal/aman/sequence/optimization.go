@@ -72,6 +72,7 @@ func optimizeStableSameSTAR(policy preparedPolicy, entries []allocatedEntry) []a
 	for i := 0; i+1 < len(entries); i++ {
 		left, right := entries[i], entries[i+1]
 		if !stableSwapEligible(left.flight) || !stableSwapEligible(right.flight) ||
+			positionPrecedes(left.flight, right.flight) ||
 			left.reason != ReasonStable || right.reason != ReasonStable ||
 			left.flight.SelectedSTARFamily == "" || left.flight.SelectedSTARFamily != right.flight.SelectedSTARFamily {
 			continue

@@ -414,6 +414,7 @@ func TestRebuildClearsUnavailableReservationsAndOldSpacingWarnings(t *testing.T)
 	f.RawTETASamples = []aman.RawTETASample{{TETA: f.Prediction.RawTETA, GeneratedAt: oldAt}}
 	order := 1
 	f.ManualOrder = &order
+	f.ManualPosition = &aman.ManualSequencePosition{BeforeCallsign: "LOW"}
 	f.HoldingReleaseReservation = &aman.HoldingReleaseReservation{CommandID: "old", EpisodeID: f.HoldingEpisode.ID, HoldingID: *f.SelectedHolding, Level: 12000, Rank: 1}
 	f.ApproachRelease.ReleaseAt = now.Add(-time.Minute)
 	state.RunwayGroups[0].SequenceWarnings = []aman.RunwayGroupSequenceWarning{{Code: "protected_same_star_spacing", Callsign: "UPPER", RelatedCallsign: "LOW", STARFamily: "STAR"}}
@@ -425,6 +426,7 @@ func TestRebuildClearsUnavailableReservationsAndOldSpacingWarnings(t *testing.T)
 	require.Nil(t, got.Slot)
 	require.Nil(t, got.Order)
 	require.Nil(t, got.ManualOrder)
+	require.Nil(t, got.ManualPosition)
 	require.Nil(t, got.ApproachRelease)
 	require.Nil(t, got.HoldingReleaseReservation)
 	require.Nil(t, got.Prediction)

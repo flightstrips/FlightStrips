@@ -51,6 +51,47 @@ func TestPlaceFlightAtTimeAuditsGapExceptionAndRetriesAfterRestart(t *testing.T)
 	require.Len(t, repository.commits, 1)
 }
 
+func TestPlaceFlightAtTimeDetachesOldNeighbourReferences(t *testing.T) {
+	now := time.Date(2026, time.November, 10, 12, 0, 0, 0, time.UTC)
+	for _, neighbourState := range []aman.FlightState{aman.StateUnstable, aman.StateStable} {
+		t.Run(string(neighbourState), func(t *testing.T) {
+			state := manualPlacementState(now)
+			state.Flights = []aman.AMANFlight{
+				gapCommandFlight("A", "north", now.Add(10*time.Minute), 1, aman.StateStable, aman.FreezeNone),
+				gapCommandFlight("B", "north", now.Add(14*time.Minute), 2, neighbourState, aman.FreezeNone),
+				gapCommandFlight("C", "north", now.Add(18*time.Minute), 3, aman.StateStable, aman.FreezeNone),
+			}
+			state.Flights[0].ManualPosition = &aman.ManualSequencePosition{BeforeCallsign: "B"}
+			state.Flights[1].ManualPosition = &aman.ManualSequencePosition{AfterCallsign: "A", BeforeCallsign: "C"}
+			repository := &memoryRepository{has: true, state: cloneGapState(t, state)}
+			auth := aman.CommandContext{Airport: "EKCH", Actor: "123", Role: "EKDK_FMP", ReceivedAt: now}
+			command := aman.PlaceFlightAtTimeCommand{
+				Metadata: aman.CommandMetadata{CommandID: "place-after-neighbours", ExpectedRevision: 7}, Callsign: "A",
+				RunwayGroupID: "north", SlotTime: now.Add(22 * time.Minute),
+			}
+			_, err := manualPlacementActions(t, repository, now.Add(time.Second)).PlaceFlightAtTime(context.Background(), auth, command)
+			require.NoError(t, err)
+			placed := stateFlight(t, repository.state, "A")
+			require.Equal(t, command.SlotTime, placed.Slot.Time)
+			require.Equal(t, aman.FreezeManual, placed.FreezeReason)
+			require.Nil(t, placed.ManualPosition)
+			require.Equal(t, &aman.ManualSequencePosition{BeforeCallsign: "C"}, stateFlight(t, repository.state, "B").ManualPosition)
+			require.Equal(t, &aman.ManualSequencePosition{AfterCallsign: "A", BeforeCallsign: "C"}, state.Flights[1].ManualPosition, "placement must not mutate the source aggregate")
+
+			// The cleaned relationship must survive persistence and a later
+			// calculation in which B is movable, rather than merely accepting
+			// contradictory protected slots during the placement itself.
+			restored := cloneGapState(t, repository.state)
+			restored.Flights[1].State = aman.StateUnstable
+			service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: "north"}}}}}
+			result, err := sequence.Generate(service.sequenceInput(restored))
+			require.NoError(t, err)
+			require.False(t, result.HasConflicts())
+			require.Equal(t, []aman.Callsign{"B", "C", "A"}, []aman.Callsign{result.Entries[0].Callsign, result.Entries[1].Callsign, result.Entries[2].Callsign})
+		})
+	}
+}
+
 func TestPlaceFlightAtTimeEnforcesGapAuthorityAndPayloadTrust(t *testing.T) {
 	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	base := aman.PlaceFlightAtTimeCommand{

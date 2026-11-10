@@ -821,6 +821,7 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 			next.Flights[i].Slot = nil
 			next.Flights[i].Order = nil
 			next.Flights[i].ManualOrder = nil
+			next.Flights[i].ManualPosition = nil
 		}
 		if next.Flights[i].Slot != nil {
 			next.Flights[i].Slot.Revision = next.Revision
@@ -1890,6 +1891,10 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) sequenceCh
 // need delaying too; keeping them fixed used to leave persistent EAT conflicts.
 // Manual targets, unavailable timing and due admissions remain commitments.
 func enforceHoldingOrder(input *sequence.Input, result sequence.Result, state aman.AirportState, now time.Time, repaired map[aman.Callsign]bool) bool {
+	precedence, err := sequence.ManualPositionPrecedence(*input)
+	if err != nil {
+		return false
+	}
 	entries := make(map[aman.Callsign]sequence.CandidateEntry, len(result.Entries))
 	for _, entry := range result.Entries {
 		entries[entry.Callsign] = entry
@@ -1916,6 +1921,9 @@ func enforceHoldingOrder(input *sequence.Input, result sequence.Result, state am
 			olderSlot, ok := entries[older.Callsign]
 			if !ok || older.HoldingQueueTime == nil || older.HoldingTransit <= 0 ||
 				(!sequence.HoldingPrecedes(older, *later)) {
+				continue
+			}
+			if precedence[older.Callsign][later.Callsign] {
 				continue
 			}
 			// Match the sequence engine's overtake policy: independent holds
@@ -2270,6 +2278,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			SelectedSTARFamily: explicitSTARFamily(flight.SelectedSTARFamily),
 			STARProgress:       sequenceSTARProgress(flight),
 			ManualOrder:        flight.ManualOrder,
+			ManualPosition:     flight.ManualPosition,
 			FreezeReason:       flight.FreezeReason, FrozenAt: flight.FrozenAt, FrozenOperationalTETA: flight.FrozenOperationalTETA,
 			CapturedSlot: flight.FrozenSlot, CurrentSlot: flight.Slot,
 			ProtectCurrentSlot: flight.Slot != nil && flight.FreezeReason == aman.FreezeNone &&
@@ -3031,6 +3040,7 @@ func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObs
 }
 
 func clearGroundedOperationalState(flight *aman.AMANFlight) {
+	flight.ManualPosition = nil
 	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
 	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	flight.SelectedHolding, flight.HoldingStack = nil, nil
@@ -3112,6 +3122,7 @@ func markPredictionNonPublishable(flight *aman.AMANFlight, reason string) {
 }
 
 func clearSequencingState(flight *aman.AMANFlight) {
+	flight.ManualPosition = nil
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
 	flight.HoldingStack = nil

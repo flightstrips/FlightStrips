@@ -41,7 +41,7 @@ func TestHoldingPriorityExchangesConsecutiveInboundSlotsDeterministically(t *tes
 }
 
 func TestHoldingPriorityExchangeChecksWakeAndOtherHoldingReleases(t *testing.T) {
-	for _, scenario := range []string{"wake", "older release", "release reservation", "inbound cannot reach later slot"} {
+	for _, scenario := range []string{"wake", "older release", "release reservation", "inbound cannot reach later slot", "local controller order"} {
 		t.Run(scenario, func(t *testing.T) {
 			start := testTime()
 			entered, arriving := start.Add(-time.Minute), start.Add(5*time.Minute)
@@ -56,6 +56,8 @@ func TestHoldingPriorityExchangeChecksWakeAndOtherHoldingReleases(t *testing.T) 
 			policy := simplePolicy("A", start, 20)
 			input := sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{incoming, held}}
 			switch scenario {
+			case "local controller order":
+				input.Flights[0].ManualPosition = &aman.ManualSequencePosition{BeforeCallsign: "HELD"}
 			case "wake":
 				// The existing M->H order fits; H->M would need four minutes.
 				input.Policies[0].SeparationRules = []sequence.SeparationRule{

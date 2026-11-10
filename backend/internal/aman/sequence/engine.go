@@ -108,6 +108,7 @@ type Flight struct {
 	SelectedSTARFamily    string
 	STARProgress          *STARProgress
 	ManualOrder           *int
+	ManualPosition        *aman.ManualSequencePosition
 	FreezeReason          aman.FreezeReason
 	FrozenAt              *time.Time
 	FrozenOperationalTETA *time.Time
@@ -313,6 +314,8 @@ type preparedFlight struct {
 	category              WakeCategory
 	known                 bool
 	stableOrder           *int
+	positionPredecessors  map[aman.Callsign]bool
+	orderPredecessors     map[aman.Callsign]bool
 	holdingSequencePolicy navdata.HoldingSequencePolicy
 }
 
@@ -600,6 +603,11 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 		}
 		result[raw.RunwayGroupID] = append(result[raw.RunwayGroupID], prepared)
 	}
+	for _, flights := range result {
+		if err := prepareManualPositions(flights); err != nil {
+			return nil, err
+		}
+	}
 	return result, nil
 }
 
@@ -723,10 +731,14 @@ func orderMovableFlights(flights []preparedFlight) ([]preparedFlight, error) {
 		for i, flight := range remaining {
 			olderPending := false
 			for _, other := range remaining {
+				if orderPrecedes(other, flight) {
+					olderPending = true
+					break
+				}
 				if HoldingPrecedes(other.Flight, flight.Flight) {
 					// Explicit manual or committed Stable order retains its
 					// existing precedence over the automatic hold queue.
-					if flight.ManualOrder != nil && (other.ManualOrder == nil || *flight.ManualOrder < *other.ManualOrder) {
+					if orderPrecedes(flight, other) || (flight.ManualOrder != nil && (other.ManualOrder == nil || *flight.ManualOrder < *other.ManualOrder)) {
 						continue
 					}
 					if flight.stableOrder != nil && other.stableOrder != nil && *flight.stableOrder < *other.stableOrder {
@@ -829,6 +841,20 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 	index := sort.Search(len(entries), func(i int) bool { return !entries[i].time.Before(candidate) })
 	valid := true
 	earlier, later := candidate.Add(-time.Nanosecond), candidate.Add(time.Nanosecond)
+	for _, entry := range entries {
+		if positionPrecedes(flight, entry.flight) && !candidate.Before(entry.time) {
+			valid = false
+			if bound := entry.time.Add(-requiredGap(policy, flight, entry.flight, entry.time)); bound.Before(earlier) {
+				earlier = bound
+			}
+		}
+		if positionPrecedes(entry.flight, flight) && !candidate.After(entry.time) {
+			valid = false
+			if bound := entry.time.Add(requiredGap(policy, entry.flight, flight, candidate)); bound.After(later) {
+				later = bound
+			}
+		}
+	}
 	if index > 0 {
 		leading := entries[index-1]
 		if orderAfter(flight.ManualOrder, leading.flight.ManualOrder) || (preserveStableOrder && orderAfter(flight.stableOrder, leading.flight.stableOrder)) {
@@ -894,7 +920,8 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 			}
 			// An explicit controller order overrides automatic holding priority;
 			// the protected slot and runway separation checks still apply.
-			if (flight.ReleaseRank == nil || older.ReleaseRank == nil) && flight.ManualOrder != nil && (older.ManualOrder == nil || *flight.ManualOrder < *older.ManualOrder) {
+			if (flight.ReleaseRank == nil || older.ReleaseRank == nil) &&
+				(orderPrecedes(flight, older) || (flight.ManualOrder != nil && (older.ManualOrder == nil || *flight.ManualOrder < *older.ManualOrder))) {
 				continue
 			}
 			// A new aircraft cannot pass one already in this hold. Different

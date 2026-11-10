@@ -117,9 +117,11 @@ func (s *Service) displaceFlightsFromRunwayClosure(state *aman.AirportState, gro
 	}
 	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 	for _, id := range ordered {
+		sequence.ForgetManualPosition(&working, id)
 		candidate := byID[id]
 		candidate.FreezeReason, candidate.FrozenAt, candidate.FrozenOperationalTETA = aman.FreezeNone, nil, nil
 		candidate.CapturedSlot, candidate.CurrentSlot, candidate.ManualOrder, candidate.ProtectCurrentSlot = nil, nil, nil, false
+		candidate.ManualPosition = nil
 		selected := groupID
 		entry, ok := closureCandidate(working, candidate, groupID)
 		if !ok {

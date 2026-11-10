@@ -258,6 +258,12 @@ func TestCrossSTARDeletedSlotVacancyPreservesConstraints(t *testing.T) {
 		{"disabled", func(input *sequence.Input, _ time.Time) { input.Policies[0].AllowCrossFeederOvertake = false }},
 		{"manual target", func(input *sequence.Input, _ time.Time) { order := 3; input.Flights[2].ManualOrder = &order }},
 		{"manual boundary", func(input *sequence.Input, _ time.Time) { order := 2; input.Flights[1].ManualOrder = &order }},
+		{"local target order", func(input *sequence.Input, _ time.Time) {
+			input.Flights[2].ManualPosition = &aman.ManualSequencePosition{AfterCallsign: input.Flights[1].Callsign}
+		}},
+		{"local neighbour order", func(input *sequence.Input, _ time.Time) {
+			input.Flights[1].ManualPosition = &aman.ManualSequencePosition{BeforeCallsign: input.Flights[2].Callsign}
+		}},
 		{"TMA target", func(input *sequence.Input, _ time.Time) { input.Flights[2].FreezeReason = aman.FreezeTMA }},
 		{"TMA boundary", func(input *sequence.Input, _ time.Time) { input.Flights[1].FreezeReason = aman.FreezeTMA }},
 		{"manual freeze target", func(input *sequence.Input, _ time.Time) { input.Flights[2].FreezeReason = aman.FreezeManual }},
@@ -312,6 +318,74 @@ func TestCrossSTARDeletedSlotVacancyPreservesConstraints(t *testing.T) {
 			require.False(t, result.HasConflicts())
 			require.True(t, entryFor(t, result, "SAS2865").Time.After(entryFor(t, result, "HUN1F").Time))
 			require.Empty(t, promotions)
+		})
+	}
+}
+
+func TestManualMoveLeavesUnrelatedSTARGapAvailable(t *testing.T) {
+	for _, direction := range []string{"before", "after"} {
+		t.Run(direction, func(t *testing.T) {
+			input, at := starGapInput()
+			input.Policies[0].Rates[0].ArrivalsPerHour = 40
+			input.Flights[0].Callsign = "RYR2EF"
+			input.Flights[1].Callsign = "SAS449"
+			input.Flights[1].CurrentSlot.Time = at.Add(13 * time.Minute)
+			input.Flights[1].OperationalTETA = input.Flights[1].CurrentSlot.Time
+			input.Flights[2].Callsign = "DLH651"
+			input.Flights[2].CurrentSlot.Time = at.Add(870 * time.Second)
+			input.Flights[2].OperationalTETA = at.Add(11 * time.Minute)
+			input.Flights[2].PromotionNotBefore = &input.Flights[2].OperationalTETA
+			anchor := queueFlight("ANCHOR", "A", at.Add(2*time.Minute), "M", 1, at.Add(2*time.Minute))
+			moved := queueFlight("MOVED", "A", at.Add(2*time.Minute), "M", 2, at.Add(4*time.Minute))
+			anchor.ProtectCurrentSlot, moved.ProtectCurrentSlot = true, true
+			for i := range input.Flights {
+				input.Flights[i].CurrentSlot.Sequence += 2
+			}
+			if direction == "after" {
+				moved.CurrentSlot.Sequence, anchor.CurrentSlot.Sequence = 1, 2
+				moved.CurrentSlot.Time, anchor.CurrentSlot.Time = anchor.CurrentSlot.Time, moved.CurrentSlot.Time
+			}
+			input.Flights = append(input.Flights, anchor, moved)
+			command := sequence.MoveFlightCommand{Metadata: aman.CommandMetadata{CommandID: "move", ExpectedRevision: input.Revision}, Callsign: moved.Callsign, RunwayGroupID: "A"}
+			if direction == "before" {
+				command.BeforeCallsign = &anchor.Callsign
+			} else {
+				command.AfterCallsign = &anchor.Callsign
+			}
+			decision, err := sequence.ApplyMove(input, command)
+			require.NoError(t, err)
+			require.False(t, decision.Candidate.HasConflicts())
+			for _, f := range decision.Input.Flights {
+				require.Nil(t, f.ManualOrder, "%s must remain automatically timed", f.Callsign)
+				if f.Callsign == moved.Callsign {
+					require.NotNil(t, f.ManualPosition)
+				}
+			}
+			committed := decision.Input
+			for i := range committed.Flights {
+				// Persist the actual command result, including displaced Stable slots.
+				entry := entryFor(t, decision.Candidate, committed.Flights[i].Callsign)
+				committed.Flights[i].CurrentSlot.Time = entry.Time
+				committed.Flights[i].CurrentSlot.Sequence = entry.Sequence
+			}
+			result, promotions, err := sequence.GenerateWithVacancyPromotions(committed, nil, at)
+			require.NoError(t, err)
+			require.False(t, result.HasConflicts())
+			want := []aman.Callsign{"MOVED", "ANCHOR", "RYR2EF", "DLH651", "SAS449"}
+			if direction == "after" {
+				want[0], want[1] = want[1], want[0]
+			}
+			require.Equal(t, want, entryIDs(result))
+			require.Equal(t, at.Add(690*time.Second), entryFor(t, result, "DLH651").Time)
+			require.Equal(t, at.Add(10*time.Minute), entryFor(t, result, "RYR2EF").Time)
+			require.Equal(t, at.Add(13*time.Minute), entryFor(t, result, "SAS449").Time)
+			require.Contains(t, result.Operations, sequence.Operation{Callsign: "DLH651", Kind: "gap_fill"})
+			require.Len(t, promotions, 1)
+			slices.Reverse(committed.Flights)
+			replayed, replayedPromotions, err := sequence.GenerateWithVacancyPromotions(committed, nil, at)
+			require.NoError(t, err)
+			require.Equal(t, result, replayed)
+			require.Equal(t, promotions, replayedPromotions)
 		})
 	}
 }
@@ -387,6 +461,12 @@ func TestCrossSTARGapFillingPreservesOperationalConstraints(t *testing.T) {
 		{"disabled", func(input *sequence.Input, _ time.Time) { input.Policies[0].AllowCrossFeederOvertake = false }},
 		{"manual target", func(input *sequence.Input, _ time.Time) { order := 3; input.Flights[2].ManualOrder = &order }},
 		{"manual boundary", func(input *sequence.Input, _ time.Time) { order := 2; input.Flights[1].ManualOrder = &order }},
+		{"local target order", func(input *sequence.Input, _ time.Time) {
+			input.Flights[2].ManualPosition = &aman.ManualSequencePosition{AfterCallsign: input.Flights[1].Callsign}
+		}},
+		{"local neighbour order", func(input *sequence.Input, _ time.Time) {
+			input.Flights[1].ManualPosition = &aman.ManualSequencePosition{BeforeCallsign: input.Flights[2].Callsign}
+		}},
 		{"TMA target", func(input *sequence.Input, _ time.Time) { input.Flights[2].FreezeReason = aman.FreezeTMA }},
 		{"TMA boundary", func(input *sequence.Input, _ time.Time) { input.Flights[1].FreezeReason = aman.FreezeTMA }},
 		{"manual freeze", func(input *sequence.Input, _ time.Time) { input.Flights[2].FreezeReason = aman.FreezeManual }},

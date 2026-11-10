@@ -110,7 +110,8 @@ func TestManualMoveAnchorsAndCommandValidation(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, []aman.Callsign{"C", "A", "B"}, entryIDs(decision.Candidate))
-	require.Equal(t, 1, *policyFlight(t, decision.Input, "C").ManualOrder)
+	require.Nil(t, policyFlight(t, decision.Input, "C").ManualOrder)
+	require.Equal(t, &aman.ManualSequencePosition{BeforeCallsign: "A"}, policyFlight(t, decision.Input, "C").ManualPosition)
 
 	_, err = sequence.ApplyMove(input, sequence.MoveFlightCommand{
 		Metadata: aman.CommandMetadata{CommandID: "stale", ExpectedRevision: 10}, Callsign: "C", RunwayGroupID: "A", BeforeCallsign: &before,

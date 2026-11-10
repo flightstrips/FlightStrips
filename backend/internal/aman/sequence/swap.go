@@ -62,6 +62,7 @@ func ApplySwap(input Input, command aman.SwapFlightsCommand) (Decision, error) {
 	for position, id := range order {
 		index := flightIndex(working.Flights, id)
 		working.Flights[index].ManualOrder = intPointer(position + 1)
+		working.Flights[index].ManualPosition = nil
 		if position >= min(from, to) && working.Flights[index].FreezeReason == aman.FreezeNone {
 			working.Flights[index].ProtectCurrentSlot = false
 		}
@@ -76,5 +77,6 @@ func ApplySwap(input Input, command aman.SwapFlightsCommand) (Decision, error) {
 	for index := range working.Flights {
 		working.Flights[index].ProtectCurrentSlot = input.Flights[index].ProtectCurrentSlot
 	}
+	retainManualPositions(&working, input, order, first.Callsign, second.Callsign)
 	return Decision{Input: working, Candidate: candidate, Changed: true}, nil
 }

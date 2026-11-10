@@ -3,7 +3,41 @@ package airportworkflow
 import (
 	"FlightStrips/internal/shared"
 	"testing"
+	"time"
 )
+
+func TestEKCHStandExpiryRemovesStripAfterConfiguredDelay(t *testing.T) {
+	b, err := Bind(definition(t), EKCHDescriptor())
+	if err != nil {
+		t.Fatal(err)
+	}
+	strip := Snapshot{Exists: true, ID: 42, Bay: shared.BAY_STAND, Destination: "EKCH"}
+	admission, err := b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: Admission})
+	if err != nil || admission.StandRemovalDelay != 240*time.Second {
+		t.Fatalf("stand removal delay: %+v %v", admission, err)
+	}
+
+	expiry, err := b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: StandExpiry})
+	if err != nil || !expiry.Remove || expiry.Bay != nil {
+		t.Fatalf("stand expiry: %+v %v", expiry, err)
+	}
+
+	strip.Bay = shared.BAY_HIDDEN
+	expiry, err = b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: StandExpiry})
+	if err != nil || expiry.Remove {
+		t.Fatalf("non-stand strip should not expire: %+v %v", expiry, err)
+	}
+
+	strip.Bay, strip.Destination = shared.BAY_STAND, "EGLL"
+	admission, err = b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: Admission})
+	if err != nil || admission.StandRemovalDelay != 0 {
+		t.Fatalf("departure in stand should not get an arrival expiry: %+v %v", admission, err)
+	}
+	expiry, err = b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: StandExpiry})
+	if err != nil || expiry.Remove {
+		t.Fatalf("departure in stand should not be removed by arrival expiry: %+v %v", expiry, err)
+	}
+}
 
 func TestEKCHProductionDecisions(t *testing.T) {
 	b, err := Bind(definition(t), EKCHDescriptor())

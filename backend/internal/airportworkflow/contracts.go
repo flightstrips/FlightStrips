@@ -96,7 +96,7 @@ type LifecycleDecision struct {
 	RemovalDelay           *time.Duration
 	Admit, Restart, Remove bool
 	Bay                    *string
-	StandHideDelay         time.Duration
+	StandRemovalDelay      time.Duration
 }
 
 type Coordination struct {

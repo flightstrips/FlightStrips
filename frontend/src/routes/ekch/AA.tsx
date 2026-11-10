@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
+import { CrossingButton, MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { useMyPosition, useMessages, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
 import {
   useDeIceStrips,
@@ -26,7 +26,7 @@ import { StripListPopup } from "@/components/StripListPopup.tsx";
 import { arrivalSortModes } from "@/lib/stripSortModes";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
+import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 import { EQUAL_COLUMN_CLASSES } from "./productionBayLayouts";
@@ -223,7 +223,10 @@ export default function AA() {
         <div className="bay-col-header bay-col-sep justify-between">
           <BayResizeHandle {...col2Resize.handleProps("deIce")} />
           <span className={CLS_LABEL}>TWY ARR</span>
-          <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
+          <span className="flex gap-0.5">
+            <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
+            <CrossingButton bay={Bay.TwyArr} className={CLS_BTN_YELLOW} />
+          </span>
         </div>
         <SortableBay
           strips={twyArrStrips}
@@ -262,6 +265,7 @@ export default function AA() {
           <span className={CLS_LABEL}>TWY DEP</span>
           <span className="flex gap-0.5">
             <MemAidButton bay={Bay.Taxi} className={btnBlue} />
+            <CrossingButton bay={Bay.Taxi} className={CLS_BTN_YELLOW} />
           </span>
         </div>
         {/* TWY DEP-UPR (intermediate hold short, TAXI bay) */}

@@ -186,11 +186,11 @@ func (h ekch) Observe(c Context, o Observation) (Decision, error) {
 
 func (h ekch) Lifecycle(c Context, l Lifecycle) (LifecycleDecision, error) {
 	d := LifecycleDecision{Admit: true}
+	isArrival := strings.EqualFold(strings.TrimSpace(c.Strip.Destination), strings.TrimSpace(h.airport))
 	switch l.Kind {
 	case StandExpiry:
-		if c.Strip.Bay == shared.BAY_STAND {
-			bay := shared.BAY_HIDDEN
-			d.Bay = &bay
+		if c.Strip.Bay == shared.BAY_STAND && isArrival {
+			d.Remove = true
 		}
 		return d, nil
 	case BackendAdmission:
@@ -203,8 +203,8 @@ func (h ekch) Lifecycle(c Context, l Lifecycle) (LifecycleDecision, error) {
 	default:
 		return d, fmt.Errorf("unknown lifecycle kind")
 	}
-	if c.Strip.Bay == shared.BAY_STAND {
-		d.StandHideDelay = 240 * time.Second
+	if c.Strip.Bay == shared.BAY_STAND && isArrival {
+		d.StandRemovalDelay = 240 * time.Second
 	}
 	if !c.Strip.Exists {
 		return d, nil

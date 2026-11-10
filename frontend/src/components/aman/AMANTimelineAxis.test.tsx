@@ -48,7 +48,8 @@ describe("AMAN UTC timeline axis", () => {
 
     act(() => vi.advanceTimersByTime(6_000));
 
-    expect(Number.parseFloat(marker.style.top)).toBeCloseTo(99.8888888889, 6);
+    // CSSOM serializes percentages with less precision than the axis calculation.
+    expect(Number.parseFloat(marker.style.top)).toBeCloseTo(99.8888888889, 3);
   });
 
   it("formats UTC midnight rollover deterministically", () => {
@@ -67,7 +68,7 @@ describe("AMAN UTC timeline axis", () => {
   it.each([60, 90])("marks the final ten minutes of a %i-minute horizon", (minutes) => {
     const range = buildAMANAxisRange(Date.parse("2026-07-22T10:00:00.000Z"), minutes);
     render(<AMANTimelineAxis clockMs={range.startMs} range={range} status="fresh" />);
-    expect(Number.parseFloat(screen.getByTestId("final-ten-minute-region").style.top)).toBeCloseTo(100 - 10 / minutes * 100, 8);
+    expect(Number.parseFloat(screen.getByTestId("final-ten-minute-region").style.top)).toBeCloseTo(100 - 10 / minutes * 100, 3);
     expect(screen.getByText("FINAL 10")).toBeInTheDocument();
   });
 

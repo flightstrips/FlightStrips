@@ -136,16 +136,23 @@ body.public-content-page {
 
   .aman-workspace-shell {
     --aman-workspace-height: calc(95.28dvh - 1.5rem);
+    --aman-maestro-default-width: clamp(calc(var(--aman-workspace-height) * 0.666667), 42vw, calc(var(--aman-workspace-height) * 0.9));
+    --aman-separator-width: clamp(0.75rem, 1.5vw, 1.5rem);
+    --aman-tmt-default-width: max(calc(var(--aman-workspace-height) * 0.75), calc(100% - var(--aman-maestro-default-width) - var(--aman-separator-width)));
     display: grid;
     grid-template-columns:
-      clamp(
-        calc(var(--aman-workspace-height) * 0.666667),
-        42vw,
-        calc(var(--aman-workspace-height) * 0.9)
-      )
-      clamp(0.75rem, 1.5vw, 1.5rem)
+      var(--aman-maestro-default-width)
+      var(--aman-separator-width)
       minmax(calc(var(--aman-workspace-height) * 0.75), 1fr);
     @apply h-full min-h-0;
+  }
+
+  .aman-workspace-shell-acc-compact {
+    /* TMT's right padding and each holdings grid gap are both 0.25rem. */
+    grid-template-columns:
+      minmax(calc(var(--aman-workspace-height) * 0.666667), 1fr)
+      var(--aman-separator-width)
+      calc(var(--aman-tmt-default-width) * var(--aman-acc-holding-count) / 3);
   }
 
   .aman-workspace-maestro {

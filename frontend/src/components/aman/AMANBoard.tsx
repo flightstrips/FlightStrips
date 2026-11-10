@@ -245,7 +245,7 @@ export function AMANBoardView({
   }
 
   return (
-    <section aria-label="AMAN presentation" className="relative grid h-full min-h-[640px] w-full max-w-[1440px] grid-rows-[clamp(7.425rem,12%,8.55rem)_minmax(0,1fr)] overflow-hidden bg-[#505052] text-white shadow-2xl" ref={sectionRef}>
+    <section aria-label="AMAN presentation" className={`relative grid h-full min-h-[640px] w-full ${view === "acc" && selectedStarFamilies.length > 0 && selectedStarFamilies.length <= 2 ? "" : "max-w-[1440px]"} grid-rows-[clamp(7.425rem,12%,8.55rem)_minmax(0,1fr)] overflow-hidden bg-[#505052] text-white shadow-2xl`} ref={sectionRef}>
       <AMANSettingsHeader
         connectionState={connectionState}
         commandRejections={commandRejections}

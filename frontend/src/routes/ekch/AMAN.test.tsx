@@ -30,9 +30,9 @@ vi.mock("@/store/store-hooks", () => ({
 }));
 
 vi.mock("@/components/aman/AMANBoard", () => ({
-  AMANBoardView: (props: {state: AMANState | null; selectedCallsign: string | null; onOpenControls?: () => void; onOpenFlightActions?: (callsign: string) => void; onOpenFlightDetails?: (callsign: string) => void}) => {
+  AMANBoardView: (props: {state: AMANState | null; selectedCallsign: string | null; onOpenControls?: () => void; onOpenFlightActions?: (callsign: string) => void; onOpenFlightDetails?: (callsign: string) => void; onViewStateChange?: (viewState: {view: "holds" | "runway" | "acc"; starFamilies: string[]}) => void}) => {
     boardSpy(props);
-    return <><button onClick={props.onOpenControls} type="button">AMAN board</button><button onClick={() => props.onOpenFlightActions?.("SAS123")} type="button">Open actions</button><button onClick={() => props.onOpenFlightDetails?.("SAS123")} type="button">Open target</button></>;
+    return <><button onClick={props.onOpenControls} type="button">AMAN board</button><button onClick={() => props.onViewStateChange?.({view: "acc", starFamilies: ["TESPI"]})} type="button">Mock ACC with one STAR</button><button onClick={() => props.onViewStateChange?.({view: "acc", starFamilies: ["TESPI", "TUDLO"]})} type="button">Mock ACC with two STARs</button><button onClick={() => props.onViewStateChange?.({view: "acc", starFamilies: ["TESPI", "TUDLO", "MONAK"]})} type="button">Mock ACC with three STARs</button><button onClick={() => props.onOpenFlightActions?.("SAS123")} type="button">Open actions</button><button onClick={() => props.onOpenFlightDetails?.("SAS123")} type="button">Open target</button></>;
   },
 }));
 
@@ -142,6 +142,29 @@ describe("AMAN route authorization", () => {
     expect(holdingSpy.mock.calls.map(([props]) => props.holding)).toEqual(["TIDVU", "OLPIB", "LUGAS", "ROSBI", "ERNOV"]);
     expect(holdingSpy).not.toHaveBeenCalledWith(expect.objectContaining({holding: "NEWIX"}));
     expect(holdingSpy.mock.calls.flatMap(([props]) => props.entries)).toEqual([holdingInformation[0]]);
+  });
+
+  it.each([
+    {button: "Mock ACC with one STAR", columnCount: 1, compact: true, holdingCount: "1"},
+    {button: "Mock ACC with two STARs", columnCount: 2, compact: true, holdingCount: "2"},
+    {button: "Mock ACC with three STARs", columnCount: 3, compact: false, holdingCount: undefined},
+  ])("positions ACC holding graphics and sequences for $button", ({button, columnCount, compact, holdingCount}) => {
+    storeState.amanState = {...authoritativeState([]), holding_information: []} as unknown as AMANState;
+    render(<AMAN />);
+
+    fireEvent.click(screen.getByRole("button", {name: button}));
+
+    const shell = document.querySelector<HTMLElement>(".aman-workspace-shell");
+    if (compact) {
+      expect(shell).toHaveClass("aman-workspace-shell-acc-compact");
+      expect(shell).toHaveStyle({"--aman-acc-holding-count": holdingCount});
+    } else {
+      expect(shell).not.toHaveClass("aman-workspace-shell-acc-compact");
+      expect(shell?.style.getPropertyValue("--aman-acc-holding-count")).toBe("");
+    }
+    const holdings = screen.getByLabelText("TMT holding workspaces");
+    expect(holdings).toHaveStyle({gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`});
+    expect(holdings.children).toHaveLength(columnCount);
   });
 
   it.each([true, false])("opens the holding menu and information for the exact callsign with or without a sequence flight (sequenced=%s)", (sequenced) => {

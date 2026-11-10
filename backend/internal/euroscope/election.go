@@ -29,7 +29,7 @@ func mayPreemptMaster(client *Client) bool {
 // checks; ordinary reconciliation must come from the current master epoch.
 func controllerMembershipEvent(kind string) bool {
 	switch kind {
-	case "cdm_tobt_update", "cdm_asrt_toggle", "cdm_tsac_update", "cdm_deice_update", "cdm_manual_ctot", "cdm_ctot_remove", "cdm_ready", "issue_pdc_clearance", "pdc_revert_to_voice", "send_private_message", "fs_scratch_pad":
+	case "aircraft_selection", "cdm_tobt_update", "cdm_asrt_toggle", "cdm_tsac_update", "cdm_deice_update", "cdm_manual_ctot", "cdm_ctot_remove", "cdm_ready", "issue_pdc_clearance", "pdc_revert_to_voice", "send_private_message", "fs_scratch_pad":
 		return true
 	default:
 		return false

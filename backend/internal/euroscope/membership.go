@@ -321,6 +321,9 @@ func (hub *Hub) RemoveMembership(member *Client, reason string) {
 	}
 	member.Enqueue(es.MembershipRemovedEvent{Reason: reason})
 	member.Close()
+	member.aircraftSelectionMu.Lock()
+	member.aircraftSelection = nil
+	member.aircraftSelectionMu.Unlock()
 	t := member.transport
 	t.mu.Lock()
 	delete(t.members, member.membership.MembershipId)

@@ -102,10 +102,10 @@ export function AMANAircraftTarget({
       aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
       aria-pressed={selected}
       className={cn(
-        "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded border border-transparent bg-transparent text-left font-mono text-[11px] font-semibold leading-none text-[#dcdcdc]",
-        "hover:border-white hover:bg-[#a3d5e8] hover:text-white [&:hover>span]:!text-white focus-visible:border-white focus-visible:bg-[#a3d5e8] focus-visible:text-white [&:focus-visible>span]:!text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+        "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded border-2 border-transparent bg-transparent text-left font-mono text-[11px] font-semibold leading-none text-[#dcdcdc]",
+        !selected && "hover:border-white hover:bg-[#a3d5e8] hover:text-white [&:hover>span]:!text-white focus-visible:border-white focus-visible:bg-[#a3d5e8] focus-visible:text-white [&:focus-visible>span]:!text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         "disabled:cursor-not-allowed disabled:opacity-60",
-        selected && "border-[#f3d02e] bg-[#3f3f3f] ring-2 ring-inset ring-[#f3d02e]",
+        selected && "border-white bg-[#5174B8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         emphasis === "primary" && "text-[#96d796] [&>span:not([data-retained-guidance])]:!text-[#96d796]",
         emphasis === "subdued" && "text-[#686868] [&>span:not([data-retained-guidance])]:!text-[#686868]",
         dimmed && "text-[#747474] [&>span]:!text-[#747474]",

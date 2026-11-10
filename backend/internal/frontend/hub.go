@@ -527,6 +527,11 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 		event.ReadOnly = readOnly
 		client.SetReadOnly(readOnly)
 	}
+	if provider, ok := hub.server.GetEuroscopeHub().(interface {
+		CurrentAircraftSelection(string, events.BoardContext) *frontend.AircraftSelection
+	}); ok && client.selection.board != nil {
+		event.AircraftSelection = provider.CurrentAircraftSelection(client.GetCid(), *client.selection.board)
+	}
 	event.Capabilities.AMANFMP = !event.ReadOnly && hub.hasAMANFMPAuthority(client)
 	if provider, ok := hub.server.GetCdmService().(interface {
 		CurrentInboundDepartures(int32, string) frontend.InboundDeparturesEvent

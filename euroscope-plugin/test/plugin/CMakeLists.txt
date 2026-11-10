@@ -57,6 +57,7 @@ set(ALL_FILES
         plugin/LookupAuditTest.cpp
 
         # Handlers
+        handlers/AircraftSelectionHandlerTest.cpp
         handlers/GroundTagReleaseHandlerTest.cpp
         handlers/FlightPlanEventHandlersTest.cpp
         handlers/RadarTargetEventHandlersTest.cpp

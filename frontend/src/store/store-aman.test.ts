@@ -47,15 +47,18 @@ function initialSnapshot(amanFMP: boolean, readOnly = false): FrontendInitialEve
 
 function createMockClient() {
   const handlers = new Map<string, Array<(data: unknown) => void>>();
+  let invalidate: (() => void) | undefined;
   return {
     on: vi.fn((eventType: string, handler: (data: unknown) => void) => {
       handlers.set(eventType, [...(handlers.get(eventType) ?? []), handler]);
     }),
+    onInvalidated: (handler: () => void) => { invalidate = handler; return () => { invalidate = undefined; }; },
+    _invalidate: () => invalidate?.(),
     send: vi.fn(),
     reconnect: vi.fn(),
     setReadOnly: vi.fn(),
     _emit: (eventType: string, data: unknown) => handlers.get(eventType)?.forEach((handler) => handler(data)),
-  } as unknown as WebSocketClient & {_emit: (eventType: string, data: unknown) => void};
+  } as unknown as WebSocketClient & {_emit: (eventType: string, data: unknown) => void; _invalidate: () => void};
 }
 
 describe("AMAN command store", () => {
@@ -398,4 +401,55 @@ describe("AMAN command store", () => {
 
     expect(store.getState().amanCommandRejections[commandID].command_type).toBe("aman.select_runway_group");
   });
+});
+
+
+describe("EuroScope AMAN selection", () => {
+  it("lets local clicks win until a newer EuroScope revision arrives", () => {
+    const client = createMockClient();
+    const store = createWebSocketStore(client);
+    const initial = {...initialSnapshot(true), aircraft_selection: {callsign: "SAS123", revision: 1}};
+    client._emit(EventType.FrontendInitial, initial);
+    expect(store.getState().amanSelectedCallsign).toBe("SAS123");
+    store.getState().selectAMANFlight("SAS456");
+    client._emit(EventType.FrontendInitial, initial);
+    client._emit(EventType.FrontendAircraftSelection, {callsign: "SAS123", revision: 1});
+    expect(store.getState().amanSelectedCallsign).toBe("SAS456");
+    client._emit(EventType.FrontendAircraftSelection, {callsign: "OTHER", revision: 3});
+    client._emit(EventType.FrontendAircraftSelection, {callsign: "SAS123", revision: 2});
+    expect(store.getState().amanSelectedCallsign).toBe("OTHER");
+    expect(store.getState().selectedCallsign).toBeNull();
+    client._emit(EventType.FrontendAircraftSelection, {callsign: null, revision: 4});
+    expect(store.getState().amanSelectedCallsign).toBeNull();
+  });
+
+  it("restores snapshots after a session change and retains selection for delayed flights", () => {
+    const client = createMockClient();
+    const store = createWebSocketStore(client);
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 1, aircraft_selection: {callsign: "SAS123", revision: 9}});
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 2, aircraft_selection: {callsign: "SAS456", revision: 1}});
+    expect(store.getState().amanSelectedCallsign).toBe("SAS456");
+    expect(store.getState().amanEuroScopeSelectionRevision).toBe(1);
+    client._emit(EventType.FrontendAMANState, replacement(7));
+    expect(store.getState().amanSelectedCallsign).toBe("SAS456");
+    client._emit(EventType.FrontendInitial, {...initialSnapshot(true), session_id: 3});
+    expect(store.getState().amanSelectedCallsign).toBeNull();
+    expect(store.getState().amanEuroScopeSelectionRevision).toBe(0);
+  });
+
+  it("resets revisions on connection invalidation and on a different own instance", () => {
+    const client = createMockClient();
+    const store = createWebSocketStore(client);
+    const board = {session_id: 1, airport: "EKCH", environment: "LIVE", instance_id: "one", membership_id: "a", generation: "1", transport_generation: "1", definition_revision: "v1", subscription_id: "tab"};
+    const initial = {...initialSnapshot(true), session_id: 1, board, aircraft_selection: {callsign: "SAS123", revision: 9}};
+    client._emit(EventType.FrontendInitial, initial);
+    client._emit(EventType.FrontendInitial, {...initial, board: {...board, instance_id: "two"}, aircraft_selection: {callsign: "SAS456", revision: 1}});
+    expect(store.getState().amanSelectedCallsign).toBe("SAS456");
+    client._invalidate();
+    expect(store.getState().amanSelectedCallsign).toBeNull();
+    expect(store.getState().amanEuroScopeSelectionRevision).toBe(0);
+    client._emit(EventType.FrontendInitial, initial);
+    expect(store.getState().amanSelectedCallsign).toBe("SAS123");
+  });
+
 });

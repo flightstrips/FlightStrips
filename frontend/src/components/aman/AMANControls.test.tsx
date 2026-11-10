@@ -465,4 +465,15 @@ describe("AMAN FMP controls", () => {
     fireEvent.click(screen.getByRole("button", {name: /Remove closure closure-1/}));
     expect(onCommand).toHaveBeenLastCalledWith({type: "aman.remove_runway_closure", runway_group_id: "ARRIVAL-22", closure_id: "closure-1", reason: "inspection"});
   });
+
+  it.each([null, "MISSING"])("does not substitute the first flight for controlled selection %s", (selectedCallsign) => {
+    const {onCommand} = renderControls({selectedCallsign});
+    expect(screen.getByLabelText("Flight")).toHaveValue("");
+    expect(screen.queryByRole("region", {name: "SAS123 AMAN status"})).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Apply manual freeze"})).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", {name: "Apply manual freeze"}));
+    expect(onCommand).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", {name: "Rebuild arrival sequence"})).toBeEnabled();
+});
+
 });

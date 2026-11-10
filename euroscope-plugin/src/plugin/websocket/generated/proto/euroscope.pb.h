@@ -76,6 +76,9 @@ extern AircraftPositionUpdateEventDefaultTypeInternal _AircraftPositionUpdateEve
 class AircraftRunwayEvent;
 struct AircraftRunwayEventDefaultTypeInternal;
 extern AircraftRunwayEventDefaultTypeInternal _AircraftRunwayEvent_default_instance_;
+class AircraftSelectionEvent;
+struct AircraftSelectionEventDefaultTypeInternal;
+extern AircraftSelectionEventDefaultTypeInternal _AircraftSelectionEvent_default_instance_;
 class AssignedSpeed;
 struct AssignedSpeedDefaultTypeInternal;
 extern AssignedSpeedDefaultTypeInternal _AssignedSpeed_default_instance_;
@@ -333,6 +336,7 @@ enum EventType : int {
   EVENT_MASTER_INFO = 56,
   EVENT_CONTROL = 57,
   EVENT_MEMBERSHIP_REMOVED = 58,
+  EVENT_AIRCRAFT_SELECTION = 59,
   EventType_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   EventType_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -342,8 +346,8 @@ enum EventType : int {
 bool EventType_IsValid(int value);
 extern const uint32_t EventType_internal_data_[];
 constexpr EventType EventType_MIN = static_cast<EventType>(0);
-constexpr EventType EventType_MAX = static_cast<EventType>(58);
-constexpr int EventType_ARRAYSIZE = 58 + 1;
+constexpr EventType EventType_MAX = static_cast<EventType>(59);
+constexpr int EventType_ARRAYSIZE = 59 + 1;
 const std::string& EventType_Name(EventType value);
 template <typename T>
 const std::string& EventType_Name(T value) {
@@ -10205,6 +10209,162 @@ class AssignedSpeed final : public ::google::protobuf::MessageLite
 };
 // -------------------------------------------------------------------
 
+class AircraftSelectionEvent final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.AircraftSelectionEvent) */ {
+ public:
+  inline AircraftSelectionEvent() : AircraftSelectionEvent(nullptr) {}
+  ~AircraftSelectionEvent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR AircraftSelectionEvent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline AircraftSelectionEvent(const AircraftSelectionEvent& from) : AircraftSelectionEvent(nullptr, from) {}
+  inline AircraftSelectionEvent(AircraftSelectionEvent&& from) noexcept
+      : AircraftSelectionEvent(nullptr, std::move(from)) {}
+  inline AircraftSelectionEvent& operator=(const AircraftSelectionEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline AircraftSelectionEvent& operator=(AircraftSelectionEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const AircraftSelectionEvent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const AircraftSelectionEvent* internal_default_instance() {
+    return reinterpret_cast<const AircraftSelectionEvent*>(
+        &_AircraftSelectionEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 71;
+  friend void swap(AircraftSelectionEvent& a, AircraftSelectionEvent& b) { a.Swap(&b); }
+  inline void Swap(AircraftSelectionEvent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(AircraftSelectionEvent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  AircraftSelectionEvent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<AircraftSelectionEvent>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const AircraftSelectionEvent& from);
+  void MergeFrom(const AircraftSelectionEvent& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(AircraftSelectionEvent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.AircraftSelectionEvent"; }
+
+ protected:
+  explicit AircraftSelectionEvent(::google::protobuf::Arena* arena);
+  AircraftSelectionEvent(::google::protobuf::Arena* arena, const AircraftSelectionEvent& from);
+  AircraftSelectionEvent(::google::protobuf::Arena* arena, AircraftSelectionEvent&& from) noexcept
+      : AircraftSelectionEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kCallsignFieldNumber = 1,
+  };
+  // string callsign = 1;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.AircraftSelectionEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      0, 1, 0,
+      65, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
 class AircraftRunwayEvent final : public ::google::protobuf::MessageLite
 /* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.AircraftRunwayEvent) */ {
  public:
@@ -15079,6 +15239,7 @@ class Envelope final : public ::google::protobuf::MessageLite
     kMasterInfo = 56,
     kControl = 57,
     kMembershipRemoved = 58,
+    kAircraftSelection = 59,
     EVENT_NOT_SET = 0,
   };
   static inline const Envelope* internal_default_instance() {
@@ -15208,6 +15369,7 @@ class Envelope final : public ::google::protobuf::MessageLite
     kMasterInfoFieldNumber = 56,
     kControlFieldNumber = 57,
     kMembershipRemovedFieldNumber = 58,
+    kAircraftSelectionFieldNumber = 59,
   };
   // string execution_id = 102;
   void clear_execution_id() ;
@@ -16352,6 +16514,25 @@ class Envelope final : public ::google::protobuf::MessageLite
   ::flightstrips::euroscope::v1::MembershipRemovedEvent* _internal_mutable_membership_removed();
 
   public:
+  // .flightstrips.euroscope.v1.AircraftSelectionEvent aircraft_selection = 59;
+  bool has_aircraft_selection() const;
+  private:
+  bool _internal_has_aircraft_selection() const;
+
+  public:
+  void clear_aircraft_selection() ;
+  const ::flightstrips::euroscope::v1::AircraftSelectionEvent& aircraft_selection() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::AircraftSelectionEvent* release_aircraft_selection();
+  ::flightstrips::euroscope::v1::AircraftSelectionEvent* mutable_aircraft_selection();
+  void set_allocated_aircraft_selection(::flightstrips::euroscope::v1::AircraftSelectionEvent* value);
+  void unsafe_arena_set_allocated_aircraft_selection(::flightstrips::euroscope::v1::AircraftSelectionEvent* value);
+  ::flightstrips::euroscope::v1::AircraftSelectionEvent* unsafe_arena_release_aircraft_selection();
+
+  private:
+  const ::flightstrips::euroscope::v1::AircraftSelectionEvent& _internal_aircraft_selection() const;
+  ::flightstrips::euroscope::v1::AircraftSelectionEvent* _internal_mutable_aircraft_selection();
+
+  public:
   void clear_event();
   EventCase event_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.Envelope)
@@ -16415,11 +16596,12 @@ class Envelope final : public ::google::protobuf::MessageLite
   void set_has_master_info();
   void set_has_control();
   void set_has_membership_removed();
+  void set_has_aircraft_selection();
   inline bool has_event() const;
   inline void clear_has_event();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 61, 59,
+      2, 62, 60,
       111, 15>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -16501,6 +16683,7 @@ class Envelope final : public ::google::protobuf::MessageLite
       ::flightstrips::euroscope::v1::MasterInfoEvent* master_info_;
       ::flightstrips::euroscope::v1::ControlEvent* control_;
       ::flightstrips::euroscope::v1::MembershipRemovedEvent* membership_removed_;
+      ::flightstrips::euroscope::v1::AircraftSelectionEvent* aircraft_selection_;
     } event_;
     ::uint32_t _oneof_case_[1];
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -21156,6 +21339,83 @@ inline ::flightstrips::euroscope::v1::MembershipRemovedEvent* Envelope::_interna
 inline ::flightstrips::euroscope::v1::MembershipRemovedEvent* Envelope::mutable_membership_removed() ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::flightstrips::euroscope::v1::MembershipRemovedEvent* _msg = _internal_mutable_membership_removed();
   // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.membership_removed)
+  return _msg;
+}
+
+// .flightstrips.euroscope.v1.AircraftSelectionEvent aircraft_selection = 59;
+inline bool Envelope::has_aircraft_selection() const {
+  return event_case() == kAircraftSelection;
+}
+inline bool Envelope::_internal_has_aircraft_selection() const {
+  return event_case() == kAircraftSelection;
+}
+inline void Envelope::set_has_aircraft_selection() {
+  _impl_._oneof_case_[0] = kAircraftSelection;
+}
+inline void Envelope::clear_aircraft_selection() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (event_case() == kAircraftSelection) {
+    if (GetArena() == nullptr) {
+      delete _impl_.event_.aircraft_selection_;
+    }
+    clear_has_event();
+  }
+}
+inline ::flightstrips::euroscope::v1::AircraftSelectionEvent* Envelope::release_aircraft_selection() {
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.aircraft_selection)
+  if (event_case() == kAircraftSelection) {
+    clear_has_event();
+    auto* temp = _impl_.event_.aircraft_selection_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.event_.aircraft_selection_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::euroscope::v1::AircraftSelectionEvent& Envelope::_internal_aircraft_selection() const {
+  return event_case() == kAircraftSelection ? *_impl_.event_.aircraft_selection_ : reinterpret_cast<::flightstrips::euroscope::v1::AircraftSelectionEvent&>(::flightstrips::euroscope::v1::_AircraftSelectionEvent_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::AircraftSelectionEvent& Envelope::aircraft_selection() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.aircraft_selection)
+  return _internal_aircraft_selection();
+}
+inline ::flightstrips::euroscope::v1::AircraftSelectionEvent* Envelope::unsafe_arena_release_aircraft_selection() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.euroscope.v1.Envelope.aircraft_selection)
+  if (event_case() == kAircraftSelection) {
+    clear_has_event();
+    auto* temp = _impl_.event_.aircraft_selection_;
+    _impl_.event_.aircraft_selection_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Envelope::unsafe_arena_set_allocated_aircraft_selection(::flightstrips::euroscope::v1::AircraftSelectionEvent* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_event();
+  if (value) {
+    set_has_aircraft_selection();
+    _impl_.event_.aircraft_selection_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.aircraft_selection)
+}
+inline ::flightstrips::euroscope::v1::AircraftSelectionEvent* Envelope::_internal_mutable_aircraft_selection() {
+  if (event_case() != kAircraftSelection) {
+    clear_event();
+    set_has_aircraft_selection();
+    _impl_.event_.aircraft_selection_ =
+        ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::AircraftSelectionEvent>(GetArena());
+  }
+  return _impl_.event_.aircraft_selection_;
+}
+inline ::flightstrips::euroscope::v1::AircraftSelectionEvent* Envelope::mutable_aircraft_selection() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::euroscope::v1::AircraftSelectionEvent* _msg = _internal_mutable_aircraft_selection();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.aircraft_selection)
   return _msg;
 }
 
@@ -35037,6 +35297,60 @@ inline void MasterInfoEvent::set_allocated_master_callsign(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.MasterInfoEvent.master_callsign)
+}
+
+// -------------------------------------------------------------------
+
+// AircraftSelectionEvent
+
+// string callsign = 1;
+inline void AircraftSelectionEvent::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& AircraftSelectionEvent::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AircraftSelectionEvent.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void AircraftSelectionEvent::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AircraftSelectionEvent.callsign)
+}
+inline std::string* AircraftSelectionEvent::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.AircraftSelectionEvent.callsign)
+  return _s;
+}
+inline const std::string& AircraftSelectionEvent::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void AircraftSelectionEvent::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* AircraftSelectionEvent::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* AircraftSelectionEvent::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.AircraftSelectionEvent.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void AircraftSelectionEvent::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.AircraftSelectionEvent.callsign)
 }
 
 #ifdef __GNUC__

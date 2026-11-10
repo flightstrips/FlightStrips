@@ -1495,6 +1495,7 @@ inline constexpr AMANGainLossValue::Impl_::Impl_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         gain_loss_seconds_{::int64_t{0}},
+        holding_eat_unix_seconds_{::int64_t{0}},
         feeder_fix_passed_{false},
         inside_tma_{false} {}
 
@@ -23247,7 +23248,7 @@ PROTOBUF_NOINLINE void AMANGainLossValue::Clear() {
       _impl_.feeder_fix_eta_source_.ClearNonDefaultToEmpty();
     }
   }
-  if (cached_has_bits & 0x00000700u) {
+  if (cached_has_bits & 0x00000f00u) {
     ::memset(&_impl_.gain_loss_seconds_, 0, static_cast<::size_t>(
         reinterpret_cast<char*>(&_impl_.inside_tma_) -
         reinterpret_cast<char*>(&_impl_.gain_loss_seconds_)) + sizeof(_impl_.inside_tma_));
@@ -23264,15 +23265,15 @@ const char* AMANGainLossValue::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 14, 0, 195, 2> AMANGainLossValue::_table_ = {
+const ::_pbi::TcParseTable<4, 15, 0, 195, 2> AMANGainLossValue::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_._has_bits_),
     0, // no _extensions_
-    14, 120,  // max_field_number, fast_idx_mask
+    15, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294950912,  // skipmap
+    4294934528,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    14,  // num_field_entries
+    15,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_AMANGainLossValue_default_instance_._instance,
@@ -23320,11 +23321,13 @@ const ::_pbi::TcParseTable<4, 14, 0, 195, 2> AMANGainLossValue::_table_ = {
      {98, 7, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_eta_source_)}},
     // optional bool feeder_fix_passed = 13;
     {::_pbi::TcParser::FastV8S1,
-     {104, 9, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_)}},
+     {104, 10, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_)}},
     // optional bool inside_tma = 14;
     {::_pbi::TcParser::FastV8S1,
-     {112, 10, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_)}},
-    {::_pbi::TcParser::MiniParse, {}},
+     {112, 11, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_)}},
+    // optional int64 holding_eat_unix_seconds = 15;
+    {::_pbi::TcParser::FastV64S1,
+     {120, 9, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.holding_eat_unix_seconds_)}},
   }}, {{
     65535, 65535
   }}, {{
@@ -23365,11 +23368,14 @@ const ::_pbi::TcParseTable<4, 14, 0, 195, 2> AMANGainLossValue::_table_ = {
     {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_eta_source_), _Internal::kHasBitsOffset + 7, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // optional bool feeder_fix_passed = 13;
-    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_), _Internal::kHasBitsOffset + 9, 0,
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_), _Internal::kHasBitsOffset + 10, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // optional bool inside_tma = 14;
-    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_), _Internal::kHasBitsOffset + 10, 0,
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_), _Internal::kHasBitsOffset + 11, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // optional int64 holding_eat_unix_seconds = 15;
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.holding_eat_unix_seconds_), _Internal::kHasBitsOffset + 9, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
   }},
   // no aux_entries
   {{
@@ -23493,17 +23499,24 @@ const ::_pbi::TcParseTable<4, 14, 0, 195, 2> AMANGainLossValue::_table_ = {
   }
 
   // optional bool feeder_fix_passed = 13;
-  if (cached_has_bits & 0x00000200u) {
+  if (cached_has_bits & 0x00000400u) {
     target = stream->EnsureSpace(target);
     target = ::_pbi::WireFormatLite::WriteBoolToArray(
         13, this->_internal_feeder_fix_passed(), target);
   }
 
   // optional bool inside_tma = 14;
-  if (cached_has_bits & 0x00000400u) {
+  if (cached_has_bits & 0x00000800u) {
     target = stream->EnsureSpace(target);
     target = ::_pbi::WireFormatLite::WriteBoolToArray(
         14, this->_internal_inside_tma(), target);
+  }
+
+  // optional int64 holding_eat_unix_seconds = 15;
+  if (cached_has_bits & 0x00000200u) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt64ToArrayWithField<15>(
+            stream, this->_internal_holding_eat_unix_seconds(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -23594,20 +23607,26 @@ const ::_pbi::TcParseTable<4, 14, 0, 195, 2> AMANGainLossValue::_table_ = {
     }
 
   }
-  if (cached_has_bits & 0x00000700u) {
+  if (cached_has_bits & 0x00000f00u) {
     // optional int64 gain_loss_seconds = 3;
     if (cached_has_bits & 0x00000100u) {
       total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
           this->_internal_gain_loss_seconds());
     }
 
-    // optional bool feeder_fix_passed = 13;
+    // optional int64 holding_eat_unix_seconds = 15;
     if (cached_has_bits & 0x00000200u) {
+      total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+          this->_internal_holding_eat_unix_seconds());
+    }
+
+    // optional bool feeder_fix_passed = 13;
+    if (cached_has_bits & 0x00000400u) {
       total_size += 2;
     }
 
     // optional bool inside_tma = 14;
-    if (cached_has_bits & 0x00000400u) {
+    if (cached_has_bits & 0x00000800u) {
       total_size += 2;
     }
 
@@ -23670,14 +23689,17 @@ void AMANGainLossValue::MergeFrom(const AMANGainLossValue& from) {
       _this->_internal_set_feeder_fix_eta_source(from._internal_feeder_fix_eta_source());
     }
   }
-  if (cached_has_bits & 0x00000700u) {
+  if (cached_has_bits & 0x00000f00u) {
     if (cached_has_bits & 0x00000100u) {
       _this->_impl_.gain_loss_seconds_ = from._impl_.gain_loss_seconds_;
     }
     if (cached_has_bits & 0x00000200u) {
-      _this->_impl_.feeder_fix_passed_ = from._impl_.feeder_fix_passed_;
+      _this->_impl_.holding_eat_unix_seconds_ = from._impl_.holding_eat_unix_seconds_;
     }
     if (cached_has_bits & 0x00000400u) {
+      _this->_impl_.feeder_fix_passed_ = from._impl_.feeder_fix_passed_;
+    }
+    if (cached_has_bits & 0x00000800u) {
       _this->_impl_.inside_tma_ = from._impl_.inside_tma_;
     }
   }

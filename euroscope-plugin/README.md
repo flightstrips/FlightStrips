@@ -30,6 +30,12 @@ Use a test session with two EuroScope instances; unit tests cannot exercise live
 - Confirm malformed pulses or a pulse naming another aircraft do not drop the selected tag, and normal scratchpad/holding updates continue to work.
 - After assumption, check that FlightStrips receives the tracking-controller update and completes the existing coordination/bay transition.
 
+## AMAN holding release reminder
+
+The `AMAN G/L` tag item appears for aircraft with an active TopSky hold once AMAN's calculated EAT is four minutes away or less. It counts down as `L04`, `L03`, etc., then shows `G00` at EAT and gain minutes after EAT. Earlier holds and holds without a calculated EAT stay blank. This uses AMAN's EAT independently of EuroScope EAT writeback.
+
+The usual arrival, controller, tracking and TMA visibility rules apply. Stale or disconnected data is grey, as with other AMAN guidance.
+
 ## Credit
 
 Many parts of the plugin is inspired by the [UK Controller Plugin](https://github.com/VATSIM-UK/uk-controller-plugin)

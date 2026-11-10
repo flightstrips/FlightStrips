@@ -46,6 +46,12 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			insideTMA := flight.TMAEntry.LastContainment == aman.TMAInside
 			value.InsideTma = &insideTMA
 		}
+		if prediction := flight.Prediction; flight.State != aman.StateLanded && flight.Slot != nil &&
+			prediction != nil && prediction.Publishable && prediction.HoldingPlan != nil &&
+			!prediction.HoldingPlan.ApproachReleaseTime.IsZero() {
+			eat := prediction.HoldingPlan.ApproachReleaseTime.Unix()
+			value.HoldingEatUnixSeconds = &eat
+		}
 		if flight.FeederETA != nil {
 			if flight.FeederETA.ETA != nil {
 				feederETA, formatErr := aman.FormatTime(*flight.FeederETA.ETA)

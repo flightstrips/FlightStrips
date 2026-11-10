@@ -78,6 +78,27 @@ TEST(AMANGainLossStoreTest, UnavailableAircraftDoesNotRejectHealthyAircraftTimin
     EXPECT_EQ(store.FindByCallsign("STALE")->dataStatus, "stale");
 }
 
+TEST(AMANGainLossStoreTest, ReplacesAndClearsHoldingEatIndependentlyOfLandingGuidance) {
+    AMANGainLossStore store;
+    auto event = Event(42);
+    auto* value = event.mutable_aman_gain_loss()->mutable_values(0);
+    value->clear_gain_loss_seconds();
+    value->clear_reference_point();
+    value->clear_target_time();
+    value->clear_predicted_time();
+    value->set_holding_eat_unix_seconds(1794355380);
+    store.OnMessages({Bytes(event)});
+    ASSERT_TRUE(store.FindByCallsign("SAS123").has_value());
+    EXPECT_EQ(store.FindByCallsign("SAS123")->holdingEatUnixSeconds, 1794355380);
+    EXPECT_FALSE(store.FindByCallsign("SAS123")->seconds.has_value());
+    value->set_holding_eat_unix_seconds(1794355440);
+    store.OnMessages({Bytes(event)});
+    EXPECT_EQ(store.FindByCallsign("SAS123")->holdingEatUnixSeconds, 1794355440);
+    value->clear_holding_eat_unix_seconds();
+    store.OnMessages({Bytes(event)});
+    EXPECT_FALSE(store.FindByCallsign("SAS123")->holdingEatUnixSeconds.has_value());
+}
+
 TEST(AMANGainLossStoreTest, KeepsSameSessionReconnectButClearsDifferentSession) {
     AMANGainLossStore store;
     store.SessionChanged("EKCH/SWEATBOX-A");

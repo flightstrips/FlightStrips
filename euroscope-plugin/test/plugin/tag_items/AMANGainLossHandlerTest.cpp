@@ -42,6 +42,58 @@ TEST(AMANGainLossHandlerTest, RendersNothingWhileFlightHasAnActiveTopSkyHold) {
     EXPECT_TRUE(AMANGainLossHandler::Resolve(true, Snapshot(), "SAS123", "EKCH", "EKCH", true, true, "EKDK_CTR").text.empty());
 }
 
+TEST(AMANGainLossHandlerTest, ShowsHoldingCountdownFromExactlyFourMinutesBeforeEat) {
+    const auto now = std::chrono::system_clock::time_point{std::chrono::seconds{1794355140}};
+    auto snapshot = Snapshot(true, "fresh", -1800); // Landing guidance is not the holding countdown.
+    for (const auto& [untilEat, expected] : std::vector<std::pair<long long, std::string>>{
+             {300, ""}, {241, ""}, {240, "L04"}, {239, "L04"}, {180, "L03"},
+             {60, "L01"}, {0, "G00"}, {-60, "G01"}}) {
+        snapshot->byCallsign["SAS123"].holdingEatUnixSeconds = 1794355140 + untilEat;
+        EXPECT_EQ(AMANGainLossHandler::Resolve(
+            true, snapshot, "SAS123", "EKCH", "EKCH", true, true, "EKDK_CTR", now).text, expected)
+            << untilEat;
+    }
+}
+
+TEST(AMANGainLossHandlerTest, HoldingCountdownAdvancesAcrossMidnightWithoutANewSnapshot) {
+    auto snapshot = Snapshot(true, "fresh", std::nullopt);
+    snapshot->byCallsign["SAS123"].holdingEatUnixSeconds = 1794355380; // 2026-11-11 00:03 UTC.
+    const auto beforeMidnight = std::chrono::system_clock::time_point{std::chrono::seconds{1794355140}};
+    EXPECT_EQ(AMANGainLossHandler::Resolve(
+        true, snapshot, "SAS123", "EKCH", "EKCH", true, true, "EKDK_CTR", beforeMidnight).text, "L04");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(
+        true, snapshot, "SAS123", "EKCH", "EKCH", true, true, "EKDK_CTR", beforeMidnight + std::chrono::minutes{3}).text, "L01");
+}
+
+TEST(AMANGainLossHandlerTest, HoldingCountdownPreservesVisibilityAndDataStatusRules) {
+    const auto now = std::chrono::system_clock::time_point{std::chrono::seconds{1794355140}};
+    for (const std::string status : {"fresh", "stale", "disconnected"}) {
+        for (const bool connected : {true, false}) {
+            auto snapshot = Snapshot(true, status);
+            snapshot->byCallsign["SAS123"].holdingEatUnixSeconds = 1794355380;
+            const auto resolve = [&](const std::string& controller, bool tracked = true, const std::string& destination = "EKCH") {
+                return AMANGainLossHandler::Resolve(connected, snapshot, "SAS123", destination, "EKCH", true, tracked, controller, now);
+            };
+            for (const std::string controller : {"EKDK_CTR", "EKDK_FMP", "ESMM_APP", "ESMM_CTR"}) {
+                EXPECT_EQ(resolve(controller).text, "L04");
+                EXPECT_EQ(resolve(controller).color, connected && status == "fresh" ? RGB(156, 0, 0) : RGB(160, 160, 160));
+            }
+            EXPECT_TRUE(resolve("EKDK_CTR", false).text.empty());
+            EXPECT_EQ(resolve("EKDK_FMP", false).text, "L04");
+            EXPECT_TRUE(resolve("EKCH_APP").text.empty());
+            EXPECT_TRUE(resolve("EKDK_CTR", true, "ESSA").text.empty());
+            snapshot->byCallsign["SAS123"].insideTMA = true;
+            EXPECT_TRUE(resolve("EKDK_CTR").text.empty());
+            snapshot->byCallsign["SAS123"].insideTMA = false;
+            snapshot->airport = "ESSA";
+            EXPECT_TRUE(resolve("EKDK_CTR").text.empty());
+            snapshot->airport = "EKCH";
+            snapshot->authoritative = false;
+            EXPECT_TRUE(resolve("EKDK_CTR").text.empty());
+        }
+    }
+}
+
 TEST(AMANGainLossHandlerTest, RendersNothingWhileFlightIsInsideTMA) {
     auto snapshot = Snapshot();
     snapshot->byCallsign["SAS123"].insideTMA = true;

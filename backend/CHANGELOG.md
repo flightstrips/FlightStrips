@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.8.3](https://github.com/flightstrips/FlightStrips/compare/backend/v3.8.2...backend/v3.8.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* **aman:** fill vacant arrival slots across STAR streams ([#1124](https://github.com/flightstrips/FlightStrips/issues/1124)) ([16e08bd](https://github.com/flightstrips/FlightStrips/commit/16e08bd96ee509ea0230b7f121219680062dcb06))
+* **aman:** preserve EAT publication after holding queue repair ([#1123](https://github.com/flightstrips/FlightStrips/issues/1123)) ([7150049](https://github.com/flightstrips/FlightStrips/commit/715004915929270c3d2496adcc6122fe0f2e79d9))
+* **aman:** preserve holding priority across arrival streams ([#1135](https://github.com/flightstrips/FlightStrips/issues/1135)) ([3e75290](https://github.com/flightstrips/FlightStrips/commit/3e752905125838fb71007455f2e8d6789e10ba9a))
+* **aman:** preserve local order while optimizing arrival slots ([#1136](https://github.com/flightstrips/FlightStrips/issues/1136)) ([f669cdb](https://github.com/flightstrips/FlightStrips/commit/f669cdb2dbf8e69d0e1dcde675236bc766232ca7))
+* **aman:** prioritize holding traffic when filling arrival gaps ([#1127](https://github.com/flightstrips/FlightStrips/issues/1127)) ([7a40b76](https://github.com/flightstrips/FlightStrips/commit/7a40b763e20db9ad1f0996799adfe828f8fca90b))
+* **aman:** rebuild arrival sequences from scratch ([#1121](https://github.com/flightstrips/FlightStrips/issues/1121)) ([97cc35f](https://github.com/flightstrips/FlightStrips/commit/97cc35fccb98600cc220dd25e044d28b59b319f2))
+* **aman:** restore network arrivals after EuroScope withdrawal ([#1122](https://github.com/flightstrips/FlightStrips/issues/1122)) ([f8f65a3](https://github.com/flightstrips/FlightStrips/commit/f8f65a3136bc418bf37fdd1388f016879f55540d))
+* **aman:** support EuroScope STAR entry reassignment ([#1115](https://github.com/flightstrips/FlightStrips/issues/1115)) ([8f6583e](https://github.com/flightstrips/FlightStrips/commit/8f6583ea6d27211dca0cbfcdf25941b877d985ba))
+* **cdm:** preserve assigned TSAT when TOBT expires ([#1126](https://github.com/flightstrips/FlightStrips/issues/1126)) ([4b87d6a](https://github.com/flightstrips/FlightStrips/commit/4b87d6a64e2d1229a06def2357da43910e17fe30))
+
 ## [3.8.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.8.1...backend/v3.8.2) (2026-11-09)
 
 

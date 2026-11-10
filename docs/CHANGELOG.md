@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.6.1...docs/v1.7.0) (2026-11-10)
+
+
+### Features
+
+* **analytics:** add opt-in PostHog error tracking and session replay ([#954](https://github.com/flightstrips/FlightStrips/issues/954)) ([74c6452](https://github.com/flightstrips/FlightStrips/commit/74c64522b9688bc254bac85689706ea9093c9d59))
+
 ## [1.6.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.6.0...docs/v1.6.1) (2026-11-09)
 
 

@@ -88,14 +88,29 @@ This is a no-op without consent.
 
 ### 2. Deployment
 
-Add to the production `.env` used by `docker-compose.prod.yml`:
+Production runs on Docker Swarm, deployed by Portainer from the
+[flightstrips/infrastructure](https://github.com/flightstrips/infrastructure) repository. Add the
+settings to the `frontend` service in
+[`stacks/flightstrips.yml`](https://github.com/flightstrips/infrastructure/blob/main/stacks/flightstrips.yml),
+in the same change that bumps the frontend image to the first release containing this feature:
 
-```env
-POSTHOG_KEY=phc_xxxxxxxxxxxxxxxxxxxxxxxx
-POSTHOG_HOST=https://eu.i.posthog.com
+```yaml
+  frontend:
+    image: ghcr.io/flightstrips/frontend:<release with analytics>
+    environment:
+      # ...existing settings...
+      # Public browser settings, not secrets (the key is a client-side project key).
+      POSTHOG_KEY: phc_xxxxxxxxxxxxxxxxxxxxxxxx
+      POSTHOG_HOST: https://eu.i.posthog.com
 ```
 
-The project API key is a public client key; it is safe to expose in `config.js`.
+The project API key is a public client key; it is safe to expose in `config.js`, so it is kept in
+Git like the OIDC settings rather than in a Portainer stack Env (which can go stale). Leaving
+`POSTHOG_KEY` unset or empty keeps analytics disabled, so the image can be rolled out before the key
+is added.
+
+`docker-compose.prod.yml` in this repository also passes `POSTHOG_KEY` / `POSTHOG_HOST` through, but
+it is a legacy file and is **not** used for production; changing it alone does not enable analytics.
 
 ### 3. Verify
 

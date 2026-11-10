@@ -34,9 +34,11 @@ Startup → Push back (TWR) via pushback map → TWY DEP (TWR) / De-ice A as nee
 
 The complete departure route contains GE or GW followed by **TW** for 22R/04L/12 and **TE** for 04R/22L/30. TWY DEP SI creates pending coordination to that next logical step. The actionable target is the primary carrying its frequency.
 
+When a departure moves from RWY DEP to AIRBORNE above 200 ft AGL, Flight Strips attempts to initiate coordination and an EuroScope handoff to the SID's available departure or approach controller. Ownership remains with the sending controller until the handoff is accepted. An existing coordination is not replaced.
+
 ## Arrivals
 
-For North stands, TWY ARR SI targets **AA 121.630**. East/South and West arrivals have no GE/GW handover target. Final and RWY ARR (`TWR-ARR`) landing workflow and runway colour rules are documented in [TE + TW](/ekch/te-tw/).
+For 04L arrivals to apron stands, the default route is **TW → GW → AA**; from GE it continues **GE → GW → AA**. Cargo and W1 retain their separate routes. For other runway configurations, North-stand TWY ARR SI targets **AA 121.630**; East/South and West arrivals have no GE/GW handover target. Final and RWY ARR (`TWR-ARR`) landing workflow and runway colour rules are documented in [TE + TW](/ekch/te-tw/).
 
 ## Uncleared strips
 

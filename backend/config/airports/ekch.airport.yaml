@@ -968,15 +968,55 @@ routing:
     - GE
     - GWA
     - AA
+  - id: ground-route-034
+    name: Runway 04L to apron stands
+    forStandRanges:
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - G1-G109
+    - G138-G999
+    - H101-H107
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    - RI
+    - RII
+    - RIII
+    active:
+    - 04L
+    path:
+    - TW
+    - TE
+    - GWA
+    - AA
+    owner_overrides:
+      TE: TW
   - id: ground-route-028
-    name: Runway 04L/22R to high A stands
+    name: Runway 22R to high A stands
     forStandRanges:
     - A17-A34
     - A4
     - A6
     - A8
     active:
-    - 04L
     - 22R
     path:
     - TW
@@ -1020,7 +1060,7 @@ routing:
     owner_overrides:
       TW: TE
   - id: ground-route-032
-    name: Runway 04L/22R to rest
+    name: Runway 22R to rest
     forStandRanges:
     - A7
     - A9-A15
@@ -1031,7 +1071,6 @@ routing:
     - F1-F99
     - H101-H107
     active:
-    - 04L
     - 22R
     path:
     - TW
@@ -1041,6 +1080,44 @@ routing:
     owner_overrides:
       TE: TW
       GWA: TW
+  - id: ground-route-035
+    name: Ground east to apron stands for runway 04L
+    forStandRanges:
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - G1-G109
+    - G138-G999
+    - H101-H107
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    - RI
+    - RII
+    - RIII
+    active:
+    - 04L
+    path:
+    - GE
+    - GWA
+    - AA
   - id: ground-route-033
     name: Ground east to north stands for runway 04L/22R
     forStandRanges:

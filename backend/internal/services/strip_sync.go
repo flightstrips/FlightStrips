@@ -170,9 +170,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	eobtClamped := false
 	observedPushback := false
 	initialPushbackTiming := snapshotPushbackTransitionTiming(existingStrip)
-	previousPushbackBay := ""
+	previousBay := ""
 	if existingStrip != nil {
-		previousPushbackBay = existingStrip.Bay
+		previousBay = existingStrip.Bay
 	}
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -290,7 +290,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 		shared.AddDBOperations(ctx, 1)
 		if observedPushback {
-			logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousPushbackBay, initialPushbackTiming, newStrip)
+			logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousBay, initialPushbackTiming, newStrip)
 		}
 		s.cacheStrip(ctx, newStrip)
 		if syncState != nil {
@@ -689,13 +689,19 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			}
 			shared.AddDBOperations(ctx, 1)
 			if observedPushback && persisted {
-				logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousPushbackBay, initialPushbackTiming, updateStrip)
+				logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousBay, initialPushbackTiming, updateStrip)
 			}
 			if syncState != nil {
 				syncState.ChangedStrips++
 				applySyncStripUpdate(existingStrip, updateStrip)
 			}
 			s.cacheStrip(ctx, updateStrip)
+			if persisted && !restartLifecycle && previousBay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE &&
+				isLocalCdmDeparture(updateStrip.Origin, airport) && !strings.EqualFold(strings.TrimSpace(updateStrip.Destination), strings.TrimSpace(airport)) {
+				if err := s.AutoTransferAirborneStrip(ctx, session, strip.Callsign); err != nil {
+					return err
+				}
+			}
 		}
 		if bayChanged {
 			if err := s.applyBayChangeEffects(ctx, session, strip.Callsign, existingStrip.Bay, bay, false); err != nil {

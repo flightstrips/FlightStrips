@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -912,6 +913,153 @@ func TestSyncEuroscopeStrip_DepartWithoutStateTreatsStaleTaxiAsLineup(t *testing
 	require.NotNil(t, updatedStrip.State)
 	assert.Equal(t, euroscope.GroundStateLineup, *updatedStrip.State)
 	assert.Equal(t, shared.BAY_DEPART, updatedStrip.Bay)
+}
+
+func TestSyncEuroscopeStrip_AirborneTransitionInitiatesHandover(t *testing.T) {
+	for _, batch := range []bool{false, true} {
+		name := "incremental"
+		if batch {
+			name = "full-sync"
+		}
+		t.Run(name, func(t *testing.T) {
+			const session = int32(1)
+			const callsign = "SAS123"
+			owner, sid, cid := "118.105", "NEXEN2A", "123456"
+			current := &models.Strip{
+				ID: 1, Session: session, Callsign: callsign, Origin: "EKCH", Destination: "ESSA",
+				Bay: shared.BAY_DEPART, Owner: &owner, Sid: &sid,
+			}
+			stripRepo := &testutil.MockStripRepository{
+				GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+					return current, nil
+				},
+				UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+					copy := *strip
+					current = &copy
+					return 1, nil
+				},
+				UpdateAircraftPositionAndBayFn: func(_ context.Context, _ int32, _ string, lat, lon *float64, alt *int32, bay string, _ int32, _ int32) (int64, error) {
+					current.PositionLatitude, current.PositionLongitude, current.PositionAltitude = lat, lon, alt
+					current.Bay = bay
+					return 1, nil
+				},
+			}
+			svc, frontend, es := newSyncTestFixture(t, current, stripRepo)
+			svc.SetControllerRepo(&testutil.MockControllerRepository{
+				ListBySessionFn: func(context.Context, int32) ([]*models.Controller, error) {
+					return []*models.Controller{
+						{Callsign: "EKCH_A_TWR", Position: owner, Cid: &cid},
+						{Callsign: "EKCH_K_DEP", Position: "124.980"},
+					}, nil
+				},
+			})
+			var created []*models.Coordination
+			svc.SetCoordinationRepo(&testutil.MockCoordinationRepository{
+				GetByStripIDFn: func(context.Context, int32, int32) (*models.Coordination, error) {
+					if len(created) > 0 {
+						return created[0], nil
+					}
+					return nil, pgx.ErrNoRows
+				},
+				CreateFn: func(_ context.Context, coordination *models.Coordination) error {
+					created = append(created, coordination)
+					return nil
+				},
+			})
+			ctx := context.Background()
+			if batch {
+				ctx = shared.WithSyncState(ctx, &shared.SyncState{
+					Session: &models.Session{ID: session, Airport: "EKCH"},
+					ExistingStrips: map[string]*models.Strip{callsign: current},
+				})
+			}
+			incoming := euroscope.Strip{
+				Callsign: callsign, Origin: "EKCH", Destination: "ESSA", Cleared: true, Sid: sid,
+				Position: &euroscope.Position{Lat: shared.AirportLatitude, Lon: shared.AirportLongitude, Altitude: 250},
+			}
+			require.NoError(t, svc.syncEuroscopeStrip(ctx, session, "", incoming, "EKCH"))
+			require.Equal(t, shared.BAY_AIRBORNE, current.Bay)
+			require.Len(t, created, 1)
+			assert.Equal(t, owner, created[0].FromPosition)
+			assert.Equal(t, "124.980", created[0].ToPosition)
+			require.Len(t, frontend.CoordinationTransfers, 1)
+			require.Len(t, es.CoordinationHandovers, 1)
+			assert.Equal(t, cid, es.CoordinationHandovers[0].Cid)
+			assert.Equal(t, "EKCH_K_DEP", es.CoordinationHandovers[0].TargetCallsign)
+
+			require.NoError(t, svc.syncEuroscopeStrip(ctx, session, "", incoming, "EKCH"))
+			assert.Len(t, created, 1, "subsequent airborne observations must not initiate another handover")
+			assert.Len(t, es.CoordinationHandovers, 1)
+			require.NoError(t, svc.UpdateAircraftPosition(context.Background(), session, callsign, shared.AirportLatitude, shared.AirportLongitude, 300, "EKCH"))
+			assert.Len(t, created, 1, "later position updates must not initiate another handover")
+			assert.Len(t, es.CoordinationHandovers, 1)
+		})
+	}
+}
+
+func TestSyncEuroscopeStrip_AirborneTransitionRespectsExistingCoordination(t *testing.T) {
+	const callsign = "SAS123"
+	owner, sid, cid := "118.105", "NEXEN2A", "123456"
+	current := &models.Strip{
+		ID: 1, Session: 1, Callsign: callsign, Origin: "EKCH", Destination: "ESSA",
+		Bay: shared.BAY_DEPART, Owner: &owner, Sid: &sid,
+	}
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return current, nil },
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			copy := *strip
+			current = &copy
+			return 1, nil
+		},
+	}
+	svc, frontend, es := newSyncTestFixture(t, current, stripRepo)
+	svc.SetControllerRepo(&testutil.MockControllerRepository{
+		ListBySessionFn: func(context.Context, int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Callsign: "EKCH_A_TWR", Position: owner, Cid: &cid},
+				{Callsign: "EKCH_K_DEP", Position: "124.980"},
+			}, nil
+		},
+	})
+	svc.SetCoordinationRepo(&testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(context.Context, int32, int32) (*models.Coordination, error) {
+			return &models.Coordination{ToPosition: "120.255"}, nil
+		},
+		CreateFn: func(context.Context, *models.Coordination) error {
+			t.Fatal("must not replace pending coordination")
+			return nil
+		},
+	})
+	require.NoError(t, svc.syncEuroscopeStrip(context.Background(), 1, "", euroscope.Strip{
+		Callsign: callsign, Origin: "EKCH", Destination: "ESSA", Cleared: true, Sid: sid,
+		Position: &euroscope.Position{Lat: shared.AirportLatitude, Lon: shared.AirportLongitude, Altitude: 250},
+	}, "EKCH"))
+	assert.Equal(t, shared.BAY_AIRBORNE, current.Bay)
+	assert.Empty(t, frontend.CoordinationTransfers)
+	assert.Empty(t, es.CoordinationHandovers)
+}
+
+func TestSyncEuroscopeStrip_AirborneTransitionDoesNotTransferWhenPersistenceFails(t *testing.T) {
+	owner, sid := "118.105", "NEXEN2A"
+	current := &models.Strip{
+		ID: 1, Session: 1, Callsign: "SAS123", Origin: "EKCH", Destination: "ESSA",
+		Bay: shared.BAY_DEPART, Owner: &owner, Sid: &sid,
+	}
+	writeErr := errors.New("strip write failed")
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return current, nil },
+		UpdateFn: func(context.Context, *models.Strip) (int64, error) {
+			return 0, writeErr
+		},
+	}
+	svc, frontend, es := newSyncTestFixture(t, current, stripRepo)
+	err := svc.syncEuroscopeStrip(context.Background(), 1, "", euroscope.Strip{
+		Callsign: current.Callsign, Origin: "EKCH", Destination: "ESSA", Cleared: true, Sid: sid,
+		Position: &euroscope.Position{Lat: shared.AirportLatitude, Lon: shared.AirportLongitude, Altitude: 250},
+	}, "EKCH")
+	require.ErrorIs(t, err, writeErr)
+	assert.Empty(t, frontend.CoordinationTransfers)
+	assert.Empty(t, es.CoordinationHandovers)
 }
 
 func TestSyncEuroscopeStrip_AirborneIgnoresStaleTaxiGroundState(t *testing.T) {

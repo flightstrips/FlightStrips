@@ -116,6 +116,20 @@ namespace FlightStrips::websocket {
             else {m.inventory.erase(callsign);m.excluded.insert(callsign);}
         }
     }
+    void WebSocketService::SendRadarOnlyIntroduction(const StripUpdateEvent& event) {
+        if (event.has_fp || !ShouldSend()) return;
+        const auto source = source_aircraft_.find(event.callsign);
+        if (source == source_aircraft_.end()) return;
+        for (auto& [id, member] : memberships_.members) {
+            if (!active_membership_.empty() && id != active_membership_) continue;
+            if (member.role != STATE_MASTER || member.inventory.contains(event.callsign) || !member.Includes(source->second)) continue;
+            // A process-wide radar cache entry does not prove that this airport
+            // has received its initial strip. Send it before capturing positions.
+            SendObservation(event, member.context);
+            member.inventory.insert(event.callsign);
+            member.excluded.erase(event.callsign);
+        }
+    }
     std::vector<protobuf::wire::MembershipContext> WebSocketService::CaptureObservationContexts(const std::string& callsign) const {
         std::vector<protobuf::wire::MembershipContext> contexts;
         for(const auto& [id,m]:memberships_.members) if(m.role==STATE_MASTER && m.inventory.contains(callsign)) contexts.push_back(m.context);

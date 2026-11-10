@@ -148,6 +148,11 @@ func (c *Client) SendEvent(event recorder.RecordedEvent) error {
 		defer cancel()
 		return c.JoinMembership(ctx, login)
 	}
+	// A recorded SDK result is an observed state change in this replay, not a
+	// completion of a command issued by the current server. Keep normal current
+	// membership/master validation instead of forwarding historical authority.
+	envelope.CommandOrigin = euroscopeEvents.CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED
+	envelope.ExecutionId = ""
 	return c.sendEnvelope(&envelope)
 }
 
@@ -163,7 +168,13 @@ func (c *Client) JoinMembership(ctx context.Context, login *euroscopeEvents.Logi
 	}
 	control := &euroscopeEvents.ControlEvent{Environment: environment, Callsign: login.Callsign, PrimaryFrequency: login.Position, Observer: login.Observer, LocalIp: login.LocalIp, RelevantAirport: login.Airport, Range: login.Range}
 	c.mu.Lock()
-	if !proto.Equal(c.lastControl, control) {
+	previous := c.lastControl
+	// Frequency, range and local-IP updates preserve the current incarnation;
+	// the server need not announce its role again when applying those updates.
+	if previous == nil || previous.Environment != control.Environment ||
+		previous.Callsign != control.Callsign || previous.Observer != control.Observer ||
+		previous.RelevantAirport != control.RelevantAirport ||
+		strings.TrimSpace(control.PrimaryFrequency) == "" || control.PrimaryFrequency == "199.998" {
 		c.membershipScope = nil
 		c.membershipReady = false
 	}

@@ -12,6 +12,15 @@ namespace FlightStrips::flightplan {
     FlightPlan* FlightPlanService::GetSourceFlightPlan(const std::string& callsign) {
         const auto it=m_flightPlans.find(callsign);return it==m_flightPlans.end()?nullptr:&it->second;
     }
+    TopSkyHold FlightPlanService::ResolveHoldForEat(const std::string& callsign, const TopSkyHold& annotation) const {
+        // SDK commands describe the physical flight plan, independently of
+        // whichever membership is currently receiving the backend EAT.
+        const auto it = m_flightPlans.find(callsign);
+        if (it == m_flightPlans.end()) return annotation;
+        const auto& plan = it->second;
+        return ResolveTopSkyHoldForEat(annotation,
+            TopSkyHold{!plan.hold.empty(), plan.hold_type == "tsa", plan.hold}, plan.hold_command_observed);
+    }
     std::unordered_map<std::string,FlightPlan>& FlightPlanService::MembershipPlans() {
         const auto id=m_websocketService?m_websocketService->CurrentMembershipId():std::string{};
         return id.empty()?m_flightPlans:m_membershipPlans[id];
@@ -226,9 +235,9 @@ namespace FlightStrips::flightplan {
             FlightPlanEvent(fp);
         }
 
-        // For no-FP aircraft, on first encounter send a minimal StripUpdateEvent so the backend
-        // creates a record. Without this, all subsequent position/squawk events are silently dropped.
-        if (inserted && !hasFp) {
+        // Each newly applicable master membership needs its own initial strip,
+        // even when this radar target was already observed near another airport.
+        if (!hasFp) {
             const auto event = StripUpdateEvent{
                 callsign,
                 "",  // origin — unknown for VFR
@@ -246,7 +255,7 @@ namespace FlightStrips::flightplan {
                 "",          // engine_type
                 false        // has_fp — no flight plan received
             };
-            m_websocketService->SendEvent(event);
+            m_websocketService->SendRadarOnlyIntroduction(event);
         }
 
         if (shouldSendSquawkEvent) {
@@ -320,7 +329,7 @@ namespace FlightStrips::flightplan {
             std::string(radarPosition.GetSquawk()),
             std::string(controllerAssignedData.GetSquawk()),
             std::string(flightPlanData.GetSidName()),
-            isArrival ? std::string(flightPlanData.GetStarName()) : "",
+            std::string(flightPlanData.GetStarName()),
             flightPlan.GetClearenceFlag(),
             std::string(flightPlan.GetGroundState()),
             controllerAssignedData.GetClearedAltitude(),
@@ -336,7 +345,7 @@ namespace FlightStrips::flightplan {
             ResolveCommunicationType(flightPlanData.GetCommunicationType(), controllerAssignedData.GetCommunicationType()),
             flightPlanData.GetCapibilities() == 0 ? "?" : std::string{flightPlanData.GetCapibilities()},
             std::string(flightPlanData.GetEstimatedDepartureTime()),
-            isArrival ? GetEstimatedLandingTime(flightPlan) : "",
+            GetEstimatedLandingTime(flightPlan),
             std::string(flightPlan.GetTrackingControllerCallsign()),
             {flightPlanData.GetEngineType()},
             true,

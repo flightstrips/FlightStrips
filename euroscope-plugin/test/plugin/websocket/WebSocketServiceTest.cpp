@@ -197,6 +197,39 @@ TEST_F(WebSocketServiceOnTimerTest, HoldReplayCompletesIndependentlyForEachMembe
     for (size_t i = 5; i < 7; ++i) { EXPECT_TRUE(sent[i].has_hold()); EXPECT_EQ(sent[i].context().membership_id(), b.membership_id()); }
 }
 
+TEST_F(WebSocketServiceOnTimerTest, EatUsesPhysicalHoldCommandsAcrossIndependentMembershipCaches) {
+    state.relevant_airport = "AAAA";
+    AddMembership(*svc, 1, "AAAA", "master");
+    AddMembership(*svc, 2, "BBBB", "master");
+    auto socket = std::shared_ptr<WebSocketService>(svc.get(), [](WebSocketService*) {});
+    flightplan::FlightPlanService plans(socket, nullptr, nullptr, nullptr, nullptr);
+    svc->ForEachMembership([&](const std::string& airport) {
+        plans.ApplyBackendSyncHold("SAS123", airport == "AAAA" ? "ROSBI" : "OLPIB", "enroute", "1400");
+        // Backend state alone cannot establish a locally observed TopSky hold.
+        EXPECT_FALSE(plans.ResolveHoldForEat("SAS123", {}).active);
+    });
+    plans.CacheTrackedHold("SAS123", {});
+    auto* source = plans.GetSourceFlightPlan("SAS123");
+    ASSERT_NE(source, nullptr);
+    ASSERT_TRUE(flightplan::ApplyTopSkyHoldCommand(*source,
+        {flightplan::TopSkyHoldCommandType::Assign, "OLPIB"}));
+    svc->ForEachMembership([&](const std::string& airport) {
+        ASSERT_NE(plans.GetFlightPlan("SAS123"), source);
+        EXPECT_EQ(plans.GetFlightPlan("SAS123")->hold, airport == "AAAA" ? "ROSBI" : "OLPIB");
+        EXPECT_EQ(flightplan::BuildTopSkyHoldEatCommand(plans.ResolveHoldForEat("SAS123", {}),
+            "OLPIB", "enroute", "1422"), "/HOLD_EAT/1422/");
+        EXPECT_TRUE(flightplan::BuildTopSkyHoldEatCommand(plans.ResolveHoldForEat("SAS123", {}),
+            "ROSBI", "enroute", "1422").empty());
+    });
+    ASSERT_TRUE(flightplan::ApplyTopSkyHoldCommand(*source,
+        {flightplan::TopSkyHoldCommandType::Cancel, {}}));
+    svc->ForEachMembership([&](const std::string&) {
+        // XHOLD also wins over an annotation and a backend replay that are stale.
+        EXPECT_FALSE(plans.ResolveHoldForEat("SAS123", {true, false, "OLPIB"}).active);
+    });
+    EXPECT_EQ(plans.ResolveHoldForEat("UNKNOWN", {true, false, "ROSBI"}).point, "ROSBI");
+}
+
 TEST_F(WebSocketServiceOnTimerTest, CachedHoldReplayCannotConsumeOrSuppressTypedCommandResults) {
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     const auto a = AddMembership(*svc, 1, "AAAA", "master");
@@ -260,6 +293,65 @@ TEST_F(WebSocketServiceOnTimerTest, MultipleMastersAndNonMasterRouteIndependentl
     EXPECT_EQ(svc->Memberships().members.size(),2u);EXPECT_TRUE(svc->ShouldSend());
 }
 
+TEST_F(WebSocketServiceOnTimerTest, RadarOnlyMovementIntroducesEachMasterBeforeItsFirstPosition) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto a = AddMembership(*svc, 1, "AAAA", "master");
+    const auto b = AddMembership(*svc, 2, "BBBB", "master");
+    const auto slave = AddMembership(*svc, 3, "CCCC", "slave");
+    const auto observer = AddMembership(*svc, 4, "DDDD", "observer");
+    const auto geography = [&](const protobuf::wire::MembershipContext& context, double longitude) {
+        protobuf::wire::Envelope event; *event.mutable_context() = context;
+        event.mutable_backend_sync()->set_latitude(0);
+        event.mutable_backend_sync()->set_longitude(longitude);
+        svc->ProcessServerMessage(event.SerializeAsString());
+    };
+    geography(a, 0); geography(b, 2); geography(slave, 2); geography(observer, 2);
+    StripUpdateEvent introduction{
+        "VFR123", "", "", "", "", "", "", "7000", "", "", "",
+        false, "", 0, 0, 0, "", "", "", Position{0, 0, 1000}, "",
+        "", "", "", "", "", "", false
+    };
+    std::vector<protobuf::wire::Envelope> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope event; ASSERT_TRUE(event.ParseFromString(bytes)); sent.push_back(event);
+    }));
+    svc->RememberAircraft("VFR123", "", "", 0, 0, false);
+    svc->SendRadarOnlyIntroduction(introduction);
+    ASSERT_EQ(sent.size(), 1u);
+    ASSERT_TRUE(sent[0].has_strip_update());
+    EXPECT_EQ(sent[0].context().membership_id(), a.membership_id());
+    EXPECT_FALSE(sent[0].strip_update().strip().has_fp());
+    svc->SendRadarOnlyIntroduction(introduction);
+    EXPECT_EQ(sent.size(), 1u); // Already known at A; no repeated strip update.
+
+    // The same physical target is now inside B's range, without a flight-plan
+    // callback, a full sync, or a new entry in FlightPlanService's source cache.
+    introduction.position.lon = 2;
+    svc->RememberAircraft("VFR123", "", "", 0, 2, false);
+    EXPECT_FALSE(svc->Memberships().members.at(b.membership_id()).inventory.contains("VFR123"));
+    svc->SendRadarOnlyIntroduction(introduction);
+    ASSERT_EQ(sent.size(), 2u);
+    ASSERT_TRUE(sent[1].has_strip_update());
+    EXPECT_EQ(sent[1].context().membership_id(), b.membership_id());
+    EXPECT_EQ(sent[1].strip_update().strip().position().lon(), 2);
+    EXPECT_TRUE(sent[1].execution_id().empty());
+    EXPECT_EQ(sent[1].command_origin(), protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED);
+    const auto contexts = svc->CaptureObservationContexts("VFR123");
+    ASSERT_EQ(contexts.size(), 2u);
+    for (const auto& context : contexts) svc->SendObservation(PositionEvent("VFR123", 0, 2, 1000), context);
+    ASSERT_EQ(sent.size(), 4u);
+    bool bPosition = false;
+    for (size_t i = 2; i < sent.size(); ++i) {
+        EXPECT_TRUE(sent[i].has_aircraft_position_update());
+        if (sent[i].context().membership_id() == b.membership_id()) bPosition = true;
+        EXPECT_NE(sent[i].context().membership_id(), slave.membership_id());
+        EXPECT_NE(sent[i].context().membership_id(), observer.membership_id());
+    }
+    EXPECT_TRUE(bPosition);
+    svc->SendRadarOnlyIntroduction(introduction);
+    EXPECT_EQ(sent.size(), 4u);
+}
+
 TEST_F(WebSocketServiceOnTimerTest, CapturedObservationCannotSurviveElectionButControllerResultCan) {
     ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     auto context=AddMembership(*svc,1,"AAAA","slave");svc->RememberAircraft("SAS123","AAAA","BBBB",55,12);
@@ -275,27 +367,71 @@ TEST_F(WebSocketServiceOnTimerTest, CapturedObservationCannotSurviveElectionButC
 
 TEST_F(WebSocketServiceOnTimerTest, SharedFullSnapshotBuildsIndependentInventoriesAndProjections) {
     ON_CALL(*mockImpl,GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
-    const auto a=AddMembership(*svc,1,"AAAA","master"), b=AddMembership(*svc,2,"BBBB","master");
-    AddMembership(*svc,3,"CCCC","slave");
+    const auto a=AddMembership(*svc,1,"AAAA","master");
     Strip strip{"SAS123","AAAA","BBBB","","DCT","","04L","7000","7000","SID","STAR",false,"",0,0,0,"A320","M","",Position{55,12,1000},"","V","","1200","1300","","J"};
+    auto bOnly = strip; bOnly.callsign = "SAS456"; bOnly.origin = "BBBB"; bOnly.destination = "ZZZZ";
+    const SyncEvent physicalSnapshot{{strip, bOnly},{},{},{}};
     svc->RememberRunways("SAS123","04L","22R");
     std::vector<protobuf::wire::Envelope> sent;
     EXPECT_CALL(*mockImpl,Send(_)).Times(2).WillRepeatedly(Invoke([&](const std::string& bytes){protobuf::wire::Envelope e;ASSERT_TRUE(e.ParseFromString(bytes));sent.push_back(e);}));
-    svc->SendEvent(SyncEvent{{strip},{},{},{}});
+    svc->SendEvent(physicalSnapshot);
+    // Reuse the physical collection when B joins later in the dispatch batch.
+    const auto b=AddMembership(*svc,2,"BBBB","master");
+    AddMembership(*svc,3,"CCCC","slave");
+    svc->ForEachMembership([&](const std::string& airport) {
+        if (airport == "BBBB") svc->SendEvent(physicalSnapshot);
+    });
     ASSERT_EQ(sent.size(),2u);
     for(const auto& e:sent) {
-        ASSERT_EQ(e.sync().strips_size(),1);
-        if(e.context().airport()=="AAAA") {EXPECT_EQ(e.sync().strips(0).runway(),"04L");EXPECT_TRUE(e.sync().strips(0).star().empty());}
-        else {EXPECT_EQ(e.context().airport(),"BBBB");EXPECT_EQ(e.sync().strips(0).runway(),"22R");EXPECT_EQ(e.sync().strips(0).star(),"STAR");EXPECT_EQ(e.sync().strips(0).eldt(),"1300");}
+        if(e.context().airport()=="AAAA") {
+            ASSERT_EQ(e.sync().strips_size(),1);
+            EXPECT_EQ(e.sync().strips(0).runway(),"04L");EXPECT_TRUE(e.sync().strips(0).star().empty());
+        } else {
+            EXPECT_EQ(e.context().airport(),"BBBB");ASSERT_EQ(e.sync().strips_size(),2);
+            EXPECT_EQ(e.sync().strips(0).runway(),"22R");EXPECT_EQ(e.sync().strips(0).star(),"STAR");EXPECT_EQ(e.sync().strips(0).eldt(),"1300");
+            EXPECT_EQ(e.sync().strips(1).callsign(),"SAS456");
+        }
     }
     EXPECT_TRUE(svc->Memberships().members.at(a.membership_id()).inventory.contains("SAS123"));
     EXPECT_TRUE(svc->Memberships().members.at(b.membership_id()).inventory.contains("SAS123"));
+    EXPECT_FALSE(svc->Memberships().members.at(a.membership_id()).inventory.contains("SAS456"));
+    EXPECT_TRUE(svc->Memberships().members.at(b.membership_id()).inventory.contains("SAS456"));
     AddMembership(*svc,1,"AAAA","slave",2);
     EXPECT_TRUE(svc->Memberships().members.at(b.membership_id()).inventory.contains("SAS123"));
     EXPECT_EQ(svc->Memberships().members.at(b.membership_id()).role,STATE_MASTER);
 }
 
 
+
+TEST_F(WebSocketServiceOnTimerTest, IncrementalArrivalFieldsAreProjectedForTheDestinationMembership) {
+    state.relevant_airport = "AAAA";
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    AddMembership(*svc, 1, "AAAA", "master");
+    AddMembership(*svc, 2, "BBBB", "master");
+    Strip strip{"SAS123","AAAA","BBBB","","DCT","","04L","7000","7000","SID","STAR",false,"",0,0,0,"A320","M","",Position{55,12,1000},"","V","","1200","1300","","J"};
+    svc->RememberRunways("SAS123", "04L", "22R");
+    svc->SendEvent(SyncEvent{{strip},{},{},{}});
+    std::vector<protobuf::wire::Envelope> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope event; ASSERT_TRUE(event.ParseFromString(bytes)); sent.push_back(event);
+    }));
+    svc->SendEvent(StripUpdateEvent{"SAS123","AAAA","BBBB","","DCT","","04L","7000","7000","SID","NEWSTAR",false,"",0,0,0,"A320","M","",Position{55,12,1000},"","V","","1200","1330","","J"});
+    ASSERT_EQ(sent.size(), 2u);
+    for (const auto& event : sent) {
+        ASSERT_TRUE(event.has_strip_update());
+        const auto& updated = event.strip_update().strip();
+        if (event.context().airport() == "AAAA") {
+            EXPECT_EQ(updated.runway(), "04L");
+            EXPECT_TRUE(updated.star().empty());
+            EXPECT_TRUE(updated.eldt().empty());
+        } else {
+            EXPECT_EQ(event.context().airport(), "BBBB");
+            EXPECT_EQ(updated.runway(), "22R");
+            EXPECT_EQ(updated.star(), "NEWSTAR");
+            EXPECT_EQ(updated.eldt(), "1330");
+        }
+    }
+}
 
 TEST_F(WebSocketServiceOnTimerTest, SlaveReplaysActiveAnnotationAndAuthoritativeCancellation) {
     auto socket = std::shared_ptr<WebSocketService>(std::move(svc));

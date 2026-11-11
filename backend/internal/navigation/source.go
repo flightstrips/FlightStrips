@@ -9,6 +9,7 @@ import (
 	"FlightStrips/internal/aman/materializer"
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/navdata/airacnet"
+	"FlightStrips/internal/aman/navdata/sector"
 	"FlightStrips/internal/aman/navdata/viff"
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/repository/postgres"
@@ -29,7 +30,7 @@ type GeometryCache interface {
 // Source is the assembled provider, canonical cache, and terminal data for a
 // single airport. AMAN may consume it, but does not own its lifecycle.
 type Source struct {
-	Materializer *materializer.Materializer
+	Materializer Importer
 	Geometry     GeometryCache
 	Terminal     terminal.Configuration
 	// Arrivals is the shared bulk response used by CDM's existing inbound poll.
@@ -37,6 +38,13 @@ type Source struct {
 		Arrivals(context.Context, string) ([]byte, error)
 	}
 	routeSource string
+}
+
+// Importer owns acquisition and manifest activation, including local fallback.
+type Importer interface {
+	Refresh(context.Context, materializer.Request) error
+	MaterializeRoute(context.Context, navdata.RouteQuery, string) (navdata.RouteKey, error)
+	Health(navdata.AirportID) materializer.Health
 }
 
 func Assemble(config Config, pool *pgxpool.Pool) (*Source, error) {
@@ -71,7 +79,23 @@ type materializerCache interface {
 	navdata.GeometrySnapshotReader
 }
 
-func assembleMaterializer(config Config, terminalConfig terminal.Configuration, cache materializerCache, checkpoints airacnet.CheckpointStore) (*materializer.Materializer, *viff.Adapter, error) {
+func assembleMaterializer(config Config, terminalConfig terminal.Configuration, cache materializerCache, checkpoints airacnet.CheckpointStore) (Importer, *viff.Adapter, error) {
+	config = config.Normalize()
+	var local *sector.Adapter
+	if config.SectorFilePath != "" {
+		var err error
+		local, err = sector.Load(config.SectorFilePath, terminalConfig, config.Now)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	if config.Source == SourceSector {
+		if local == nil {
+			return nil, nil, fmt.Errorf("sector navigation source requires a sector file")
+		}
+		importer, err := sectorMaterializer(local, terminalConfig, cache, config.Now)
+		return importer, nil, err
+	}
 	deps := materializer.Dependencies{Cache: cache, Terminal: terminalConfig, Now: config.Now}
 	var arrivals *viff.Adapter
 	if config.Source == SourceVIFF {
@@ -88,8 +112,24 @@ func assembleMaterializer(config Config, terminalConfig terminal.Configuration, 
 		}
 		deps.Cycles, deps.Airports, deps.Procedures, deps.Fixes, deps.Routes, deps.Runways = source, source, source, source, source, terminalConfig
 	}
+	var routes *fallbackRoutes
+	if local != nil {
+		routes = &fallbackRoutes{primary: deps.Routes, local: local, references: cache, primaryRequiresCatalog: config.Source == SourceAIRACNet, checkFiledRoute: config.Source == SourceVIFF}
+		deps.Routes = routes
+	}
 	importer, err := materializer.New(deps)
-	return importer, arrivals, err
+	if err != nil || local == nil {
+		return importer, arrivals, err
+	}
+	fallback, err := sectorMaterializer(local, terminalConfig, cache, config.Now)
+	if err != nil {
+		return nil, nil, err
+	}
+	retained, err := materializer.New(materializer.Dependencies{CachedReferences: cache, Routes: local, Cache: cache, Terminal: terminalConfig, Now: config.Now})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &fallbackImporter{primary: importer, local: fallback, retained: retained, routes: routes}, arrivals, nil
 }
 
 func (*Source) Name() string { return "navigation source" }
@@ -102,6 +142,9 @@ func (s *Source) MaterializeRoute(ctx context.Context, query navdata.RouteQuery,
 	}
 	if s.routeSource == SourceVIFF {
 		resolverVersion = viff.ResolverVersion
+	}
+	if s.routeSource == SourceSector {
+		resolverVersion = sector.ResolverVersion
 	}
 	return s.Materializer.MaterializeRoute(ctx, query, resolverVersion)
 }
@@ -121,5 +164,16 @@ func (s *Source) Start(ctx context.Context) {
 	if s == nil || s.Materializer == nil || s.Terminal.Airport == "" {
 		return
 	}
-	s.Materializer.Run(ctx, refreshInterval, []navdata.AirportID{s.Terminal.Airport})
+	refresh := func() { _ = s.Materializer.Refresh(ctx, materializer.Request{Airport: s.Terminal.Airport}) }
+	refresh()
+	ticker := time.NewTicker(refreshInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			refresh()
+		}
+	}
 }

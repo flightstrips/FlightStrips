@@ -1754,4 +1754,4 @@ provenance:
 - path: backend/config/ekch_regions.json
   sha256: 772d29347e535ee6a3d9d058105ad9c9bc8fe2e1639bd8036c66541bcf9a1ddb
 - path: backend/internal/navigation/config.go
-  sha256: f9229ddccb5b89a44c903d563ae20e3671814ae0405bd2e77cfb501f0765d153
+  sha256: 82e8b5cfb5d3ac71dc0ebb1648bfc75c3662e6e92d5e67c71dbcf37e19e9f124

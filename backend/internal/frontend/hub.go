@@ -530,6 +530,11 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 		event.ReadOnly = readOnly
 		client.SetReadOnly(readOnly)
 	}
+	if provider, ok := hub.server.GetEuroscopeHub().(interface {
+		CurrentAircraftSelection(string, events.BoardContext) *frontend.AircraftSelection
+	}); ok && client.selection.board != nil {
+		event.AircraftSelection = provider.CurrentAircraftSelection(client.GetCid(), *client.selection.board)
+	}
 	event.Capabilities.AMANFMP = !event.ReadOnly && hub.hasAMANFMPAuthority(client)
 	if provider, ok := hub.server.GetCdmService().(interface {
 		CurrentInboundDepartures(int32, string) frontend.InboundDeparturesEvent
@@ -2024,6 +2029,7 @@ func observerInSession(hub shared.EuroscopeHub, session int32, cid string) bool 
 
 func (hub *Hub) SetStandCapabilities(stands *sat.StandCapabilityRegistry) {
 	hub.standCapabilities = stands
+	hub.snapshotBuilder = nil
 }
 
 func (hub *Hub) SetTextPilotInputs(lookup func(string) *pkgModels.TextPilotInputs) {

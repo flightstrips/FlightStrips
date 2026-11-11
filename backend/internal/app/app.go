@@ -264,6 +264,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}
 		return nil, fmt.Errorf("initialize navigation source: %w", err)
 	}
+	if navigationSource != nil && navigationSource.Arrivals != nil {
+		cdmClient.SetArrivalSource(navigationSource.Arrivals)
+	}
 	var defaultAMAN operationalAMANAssembly
 	if amanEnabled && amanDependencies.ObservationSink == nil {
 		defaultAMAN, err = assembleOperationalAMANWithDefinition(
@@ -392,6 +395,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, err
 	}
 	frontendHub := realtime.frontend
+	frontendHub.SetStandCapabilities(satGraph.stands)
 	if amanCoordination != nil {
 		amanCoordination.SetClearanceNotifier(frontendHub.RefreshAMANCoordination)
 	}
@@ -437,7 +441,6 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if standAllocationService != nil {
 		frontendHub.SetStandActionService(standActionService)
-		frontendHub.SetStandCapabilities(satGraph.stands)
 		standAllocationService.SetPublisher(frontendHub.PublishStandAllocation)
 		standAllocationService.SetBlockRemovalPublisher(frontendHub.PublishStandBlockRemoval)
 	}

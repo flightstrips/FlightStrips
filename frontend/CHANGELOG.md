@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.8.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.7.2...frontend/v2.8.0) (2026-11-10)
+
+
+### Features
+
+* **analytics:** add opt-in PostHog error tracking and session replay ([#954](https://github.com/flightstrips/FlightStrips/issues/954)) ([74c6452](https://github.com/flightstrips/FlightStrips/commit/74c64522b9688bc254bac85689706ea9093c9d59))
+
+
+### Bug Fixes
+
+* **aman:** align guidance colours with prediction freshness ([#1125](https://github.com/flightstrips/FlightStrips/issues/1125)) ([986f667](https://github.com/flightstrips/FlightStrips/commit/986f667f30e91d0601671f00dc919275faefd4d2))
+* **aman:** rebuild arrival sequences from scratch ([#1121](https://github.com/flightstrips/FlightStrips/issues/1121)) ([97cc35f](https://github.com/flightstrips/FlightStrips/commit/97cc35fccb98600cc220dd25e044d28b59b319f2))
+* **aman:** restore network arrivals after EuroScope withdrawal ([#1122](https://github.com/flightstrips/FlightStrips/issues/1122)) ([f8f65a3](https://github.com/flightstrips/FlightStrips/commit/f8f65a3136bc418bf37fdd1388f016879f55540d))
+* **efb:** fit dashboard to the visible viewport ([#1130](https://github.com/flightstrips/FlightStrips/issues/1130)) ([07a40e1](https://github.com/flightstrips/FlightStrips/commit/07a40e16143cf9dd59bd315f454681668302fb02))
+
+## [2.7.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.7.1...frontend/v2.7.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **vacs:** log the version once without requiring a specific release ([#1107](https://github.com/flightstrips/FlightStrips/issues/1107)) ([ea97b42](https://github.com/flightstrips/FlightStrips/commit/ea97b42ad6ef3a21dfbdb849f523d2e462012bb8))
+
+## [2.7.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.7.0...frontend/v2.7.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **stand:** refine departure release and EST display ([#1104](https://github.com/flightstrips/FlightStrips/issues/1104)) ([19e0ff9](https://github.com/flightstrips/FlightStrips/commit/19e0ff988ac21031f943bfa207af0edcaba20805))
+
 ## [2.7.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.6.0...frontend/v2.7.0) (2026-11-06)
 
 

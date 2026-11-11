@@ -181,6 +181,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 
 	handlers := shared.NewMessageHandlers[euroscope.EventType, *Client]()
 
+	handlers.Add(euroscope.AircraftSelection, handleAircraftSelection)
 	handlers.Add(euroscope.Control, handleControlEvent)
 	handlers.Add(euroscope.Authentication, handleTokenEvent)
 	handlers.Add(euroscope.ControllerOnline, handleControllerOnline)

@@ -37,7 +37,8 @@ namespace FlightStrips::websocket {
                 m_endpoint.clear_error_channels(websocketpp::log::elevel::all);
                 m_endpoint.init_asio();
                 m_endpoint.set_close_handshake_timeout(1000);
-                m_endpoint.set_open_handshake_timeout(1000);
+                // Allow slow proxies/servers enough time to complete the HTTP upgrade.
+                m_endpoint.set_open_handshake_timeout(15000);
 
                 if constexpr (Tls) {
                     m_endpoint.set_tls_init_handler([this](websocketpp::connection_hdl) {

@@ -43,10 +43,10 @@ export const useLocalHiddenStrips = create<LocalHiddenStripsState>((set, get) =>
   },
 }));
 
-/** Makes planned departures render as half strips by default while the calling view is mounted. */
-export function useDefaultHidePlannedDepartures() {
+/** Makes planned departures render as half strips by default while the enabled view is mounted. */
+export function useDefaultHidePlannedDepartures(enabled = true) {
   const register = useLocalHiddenStrips((s) => s.registerDefaultHidePlanned);
-  useEffect(() => register(), [register]);
+  useEffect(() => enabled ? register() : undefined, [enabled, register]);
 }
 
 export function useIsLocallyHidden(callsign: string) {

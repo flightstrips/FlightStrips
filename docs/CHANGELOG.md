@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.7.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.6.1...docs/v1.7.0) (2026-11-10)
+
+
+### Features
+
+* **analytics:** add opt-in PostHog error tracking and session replay ([#954](https://github.com/flightstrips/FlightStrips/issues/954)) ([74c6452](https://github.com/flightstrips/FlightStrips/commit/74c64522b9688bc254bac85689706ea9093c9d59))
+
+## [1.6.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.6.0...docs/v1.6.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **vacs:** log the version once without requiring a specific release ([#1107](https://github.com/flightstrips/FlightStrips/issues/1107)) ([ea97b42](https://github.com/flightstrips/FlightStrips/commit/ea97b42ad6ef3a21dfbdb849f523d2e462012bb8))
+
+## [1.6.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.5.0...docs/v1.6.0) (2026-11-08)
+
+
+### Features
+
+* **aman:** resolve routes from shared vIFF arrivals ([#1105](https://github.com/flightstrips/FlightStrips/issues/1105)) ([832d20e](https://github.com/flightstrips/FlightStrips/commit/832d20ef6ca8bc812ebd130e8967772347788784))
+
+
+### Bug Fixes
+
+* **stand:** refine departure release and EST display ([#1104](https://github.com/flightstrips/FlightStrips/issues/1104)) ([19e0ff9](https://github.com/flightstrips/FlightStrips/commit/19e0ff988ac21031f943bfa207af0edcaba20805))
+
 ## [1.5.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.4.2...docs/v1.5.0) (2026-11-06)
 
 

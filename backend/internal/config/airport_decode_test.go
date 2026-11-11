@@ -42,7 +42,7 @@ func TestDecodeCompleteAirport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.Airport != "EKCH" || len(doc.Workflow.Bays) != 18 || len(doc.Positions) != 25 || len(doc.Routing.Ground) != 33 {
+	if doc.Airport != "EKCH" || len(doc.Workflow.Bays) != 18 || len(doc.Positions) != 25 || len(doc.Routing.Ground) != 35 {
 		t.Fatalf("incomplete decoded airport: %+v", doc)
 	}
 	if _, ok := doc.Workflow.Settings.(EKCHSettings); !ok {

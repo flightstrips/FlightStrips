@@ -6,6 +6,7 @@
 #include <utility>
 #include "flightplan/FlightPlan.h"
 
+#define EVENT_AIRCRAFT_SELECTION_NAME "aircraft_selection"
 #define EVENT_UNKNOWN_NAME "unknown"
 #define EVENT_TOKEN_NAME "token"
 #define EVENT_LOGIN_NAME "login"
@@ -123,10 +124,12 @@ enum EventType {
     EVENT_SEND_FREQUENCY_MESSAGE,
     EVENT_FREQUENCY_MESSAGE_RESULT,
     EVENT_MASTER_INFO,
+    EVENT_AIRCRAFT_SELECTION = 59,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                              {EVENT_UNKNOWN, EVENT_UNKNOWN_NAME},
+                             {EVENT_AIRCRAFT_SELECTION, EVENT_AIRCRAFT_SELECTION_NAME},
                              {EVENT_MASTER_INFO, EVENT_MASTER_INFO_NAME},
                              {EVENT_TOKEN, EVENT_TOKEN_NAME},
                              {EVENT_LOGIN, EVENT_LOGIN_NAME},
@@ -543,6 +546,12 @@ struct PositionEvent final : Event {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(PositionEvent, callsign, lat, lon, altitude, groundspeed_knots, position_age_ms, type);
+};
+
+struct AircraftSelectionEvent final : Event {
+    std::string callsign;
+    explicit AircraftSelectionEvent(std::string value)
+        : Event(EVENT_AIRCRAFT_SELECTION), callsign(std::move(value)) {}
 };
 
 struct AircraftDisconnectEvent final : Event {

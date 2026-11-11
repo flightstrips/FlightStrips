@@ -15,6 +15,33 @@ type starResolution struct {
 	reason   string
 }
 
+// filedTerminalEntry lets a filed route join the selected arrival downstream
+// of its named STAR entry. The trajectory composer continues from that fix.
+func filedTerminalEntry(route string, path navdata.TerminalPath) *navdata.FixID {
+	fixes := make(map[navdata.FixID]struct{})
+	for _, leg := range path.Legs {
+		if leg.FromFix != nil {
+			fixes[*leg.FromFix] = struct{}{}
+		}
+		if leg.ToFix != nil {
+			fixes[*leg.ToFix] = struct{}{}
+		}
+	}
+	tokens := strings.Fields(strings.ToUpper(route))
+	for i := len(tokens) - 1; i >= 0; i-- {
+		// ITEM15 may attach a speed/level change to the waypoint.
+		name, _, _ := strings.Cut(tokens[i], "/")
+		fix := navdata.FixID(name)
+		if _, ok := fixes[fix]; ok {
+			return &fix
+		}
+	}
+	if len(path.Legs) > 0 {
+		return path.Legs[0].FromFix
+	}
+	return nil
+}
+
 // resolveObservationSTAR identifies only published, configured procedures.
 // A procedure for another runway can identify the family for a forecast, but
 // never changes the reported clearance or the flight's selected runway.

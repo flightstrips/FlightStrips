@@ -148,6 +148,44 @@ func TestCreateRunwayClosureDisplacesProtectedFlightToSameRunwayCapacity(t *test
 	require.Len(t, repository.commits[0].AuditRecords, 2, "closure and displacement audit must share one commit")
 }
 
+func TestRunwayClosureDetachesOldNeighbourReferencesBeforeDisplacement(t *testing.T) {
+	now := time.Date(2026, time.November, 10, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("north")
+	displaced := gapCommandFlight("B", group, now.Add(10*time.Minute), 1, aman.StateStable, aman.FreezeSuperstable)
+	neighbour := gapCommandFlight("A", group, now.Add(14*time.Minute), 2, aman.StateStable, aman.FreezeManual)
+	later := gapCommandFlight("D", group, now.Add(24*time.Minute), 3, aman.StateStable, aman.FreezeManual)
+	displaced.ManualPosition = &aman.ManualSequencePosition{BeforeCallsign: "A"}
+	neighbour.ManualPosition = &aman.ManualSequencePosition{AfterCallsign: "B", BeforeCallsign: "D"}
+	repository := closureRepository(now, []aman.RunwayGroupID{group}, displaced, neighbour, later)
+	start, end := now.Add(9*time.Minute), now.Add(13*time.Minute)
+	_, err := closureActions(t, repository, now).CreateRunwayClosure(context.Background(), closureAuth(now), aman.CreateRunwayClosureCommand{
+		Metadata: aman.CommandMetadata{CommandID: "displace-local-order", ExpectedRevision: 7},
+		Interval: aman.RunwayClosureIntervalInput{RunwayGroupID: group, Start: &start, End: &end}, Reason: "inspection",
+	})
+	require.NoError(t, err)
+	moved := stateFlight(t, repository.state, "B")
+	require.True(t, moved.SequenceDisposition.Participates(), "legal capacity after the neighbour must not be reported as closure_no_capacity")
+	require.Equal(t, now.Add(17*time.Minute), moved.Slot.Time)
+	require.Equal(t, aman.FreezeSuperstable, moved.FreezeReason)
+	require.Equal(t, moved.Slot.Time, moved.FrozenSlot.Time)
+	require.Nil(t, moved.ManualPosition)
+	require.Equal(t, neighbour.Slot.Time, stateFlight(t, repository.state, "A").Slot.Time)
+	require.Equal(t, later.Slot.Time, stateFlight(t, repository.state, "D").Slot.Time)
+	require.Equal(t, &aman.ManualSequencePosition{BeforeCallsign: "D"}, stateFlight(t, repository.state, "A").ManualPosition)
+	require.Equal(t, &aman.ManualSequencePosition{AfterCallsign: "B", BeforeCallsign: "D"}, neighbour.ManualPosition, "displacement must not mutate the source relationships")
+	var audit map[string]any
+	require.NoError(t, json.Unmarshal(repository.commits[0].AuditRecords[1].Payload, &audit))
+	require.Equal(t, "closure_displacement", audit["reason"])
+	require.NotNil(t, audit["new_opportunity"])
+
+	restored := cloneGapState(t, repository.state)
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	result, err := sequence.Generate(service.sequenceInput(restored))
+	require.NoError(t, err)
+	require.False(t, result.HasConflicts())
+	require.Equal(t, []aman.Callsign{"A", "B", "D"}, []aman.Callsign{result.Entries[0].Callsign, result.Entries[1].Callsign, result.Entries[2].Callsign})
+}
+
 func TestCreateIndefiniteRunwayClosureFallsBackToAlternateThenDSEQ(t *testing.T) {
 	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	north, south := aman.RunwayGroupID("north"), aman.RunwayGroupID("south")

@@ -21,6 +21,7 @@ namespace FlightStrips::aman {
         std::optional<std::string> predictedTime;
         std::string dataStatus;
         bool insideTMA = false;
+        std::optional<long long> holdingEatUnixSeconds;
     };
 
     struct GainLossSnapshot {

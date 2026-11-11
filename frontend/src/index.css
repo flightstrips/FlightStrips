@@ -136,16 +136,23 @@ body.public-content-page {
 
   .aman-workspace-shell {
     --aman-workspace-height: calc(95.28dvh - 1.5rem);
+    --aman-maestro-default-width: clamp(calc(var(--aman-workspace-height) * 0.666667), 42vw, calc(var(--aman-workspace-height) * 0.9));
+    --aman-separator-width: clamp(0.75rem, 1.5vw, 1.5rem);
+    --aman-tmt-default-width: max(calc(var(--aman-workspace-height) * 0.75), calc(100% - var(--aman-maestro-default-width) - var(--aman-separator-width)));
     display: grid;
     grid-template-columns:
-      clamp(
-        calc(var(--aman-workspace-height) * 0.666667),
-        42vw,
-        calc(var(--aman-workspace-height) * 0.9)
-      )
-      clamp(0.75rem, 1.5vw, 1.5rem)
+      var(--aman-maestro-default-width)
+      var(--aman-separator-width)
       minmax(calc(var(--aman-workspace-height) * 0.75), 1fr);
     @apply h-full min-h-0;
+  }
+
+  .aman-workspace-shell-acc-compact {
+    /* TMT's right padding and each holdings grid gap are both 0.25rem. */
+    grid-template-columns:
+      minmax(calc(var(--aman-workspace-height) * 0.666667), 1fr)
+      var(--aman-separator-width)
+      calc(var(--aman-tmt-default-width) * var(--aman-acc-holding-count) / 3);
   }
 
   .aman-workspace-maestro {
@@ -153,11 +160,42 @@ body.public-content-page {
   }
 
   .aman-settings-header {
-    @apply grid min-h-0 grid-rows-[minmax(0,2fr)_minmax(2.25rem,1fr)] gap-1 overflow-hidden bg-[#292929] p-1;
+    @apply grid min-h-0 grid-rows-[minmax(0,1fr)_2.1875rem] gap-1 overflow-hidden bg-[#292929] p-1 pl-4;
   }
 
   .aman-settings-button {
-    @apply flex min-w-[4.25rem] items-center justify-center gap-1 whitespace-nowrap border border-black px-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white;
+    @apply flex h-[1.265625rem] min-w-[4.25rem] items-center justify-center gap-1 whitespace-nowrap rounded-sm border border-black px-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white;
+  }
+
+  .aman-rate-slider {
+    @apply m-0 block h-4 w-full cursor-pointer appearance-none rounded-none border border-white bg-transparent p-0 disabled:cursor-default disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white;
+    box-shadow: inset 2px 2px 0 #2a2a2c;
+  }
+
+  .aman-rate-slider::-webkit-slider-runnable-track {
+    @apply h-full rounded-none bg-transparent;
+  }
+
+  .aman-rate-slider::-webkit-slider-thumb {
+    @apply h-full w-8 appearance-none rounded-none border-0;
+    background:
+      linear-gradient(#000, #000) center / 2px 60% no-repeat,
+      linear-gradient(#6a6a6a, #6a6a6a) calc(50% + 2px) center / 1px 60% no-repeat,
+      #3f3f3f;
+    box-shadow: inset -2px -2px 0 #1c1c1c;
+  }
+
+  .aman-rate-slider::-moz-range-track {
+    @apply h-full rounded-none bg-transparent;
+  }
+
+  .aman-rate-slider::-moz-range-thumb {
+    @apply h-full w-8 rounded-none border-0;
+    background:
+      linear-gradient(#000, #000) center / 2px 60% no-repeat,
+      linear-gradient(#6a6a6a, #6a6a6a) calc(50% + 2px) center / 1px 60% no-repeat,
+      #3f3f3f;
+    box-shadow: inset -2px -2px 0 #1c1c1c;
   }
 
   .aman-workspace-separator {
@@ -172,6 +210,10 @@ body.public-content-page {
     display: grid;
     grid-template-rows: minmax(0, 28%) auto minmax(0, 1fr) calc(100% / 3);
     @apply h-full min-h-0;
+  }
+
+  .aman-tmt-dashboard-acc {
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .aman-tmt-non-compliance {
@@ -707,6 +749,16 @@ body.public-content-page {
   border-radius: 0;
   background-image: linear-gradient(rgb(255 255 255 / 7%), transparent 45%, rgb(0 0 0 / 12%));
   box-shadow: inset 0 0 0 1px rgb(184 217 240 / 55%), inset 2px 3px 0 rgb(255 255 255 / 18%), inset -2px -3px 0 rgb(0 0 0 / 28%);
+}
+
+[data-efb-dashboard] {
+  --efb-vh: min(1dvh, 0.5625vw);
+}
+
+.efb-scroll {
+  touch-action: pan-x pan-y pinch-zoom;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 [data-efb-tile-content] {

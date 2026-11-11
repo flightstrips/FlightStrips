@@ -19,6 +19,7 @@ const (
 
 	Token EventType = "token"
 
+	AircraftSelectionType EventType = "aircraft_selection"
 	Initial            EventType = "initial"
 	MasterInfo         EventType = "master_info"
 	StripUpdate        EventType = "strip_update"
@@ -289,7 +290,18 @@ type SyncCoordination struct {
 	IsTagRequest bool   `json:"is_tag_request"`
 }
 
+// AircraftSelection is transient own-instance presentation state.
+type AircraftSelection struct {
+	Callsign *string `json:"callsign"`
+	Revision uint64  `json:"revision"`
+}
+type AircraftSelectionEvent struct{ AircraftSelection }
+
+func (e AircraftSelectionEvent) GetType() EventType       { return AircraftSelectionType }
+func (e AircraftSelectionEvent) Marshal() ([]byte, error) { return marshall(e) }
+
 type InitialEvent struct {
+	AircraftSelection      *AircraftSelection         `json:"aircraft_selection,omitempty"`
 	OwnPluginReady         bool                       `json:"own_plugin_ready"`
 	Observer               bool                       `json:"observer"`
 	Definition             *BoardDefinition           `json:"definition,omitempty"`
@@ -317,6 +329,7 @@ type InitialEvent struct {
 	StandAssignmentEnabled bool                       `json:"stand_assignment_enabled"`
 	StandAssignments       []StandAssignmentEntry     `json:"stand_assignments"`
 	StandBlocks            []StandBlockEntry          `json:"stand_blocks"`
+	StandArrivalRestrictions []StandArrivalRestrictionEntry `json:"stand_arrival_restrictions,omitempty"`
 	Capabilities           FrontendCapabilities       `json:"capabilities"`
 }
 
@@ -1194,6 +1207,11 @@ type StandBlockEntry struct {
 	CreatedBy *string    `json:"created_by,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	Version   int32      `json:"version"`
+}
+
+type StandArrivalRestrictionEntry struct {
+	Stand  string `json:"stand"`
+	Reason string `json:"reason"`
 }
 
 // StandStatusSnapshotEvent is broadcast to a newly connected frontend to seed stand state.

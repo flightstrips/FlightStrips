@@ -137,8 +137,9 @@ export function AMANControlsView({
   const [goAroundAt, setGoAroundAt] = useState("");
 
   const flights = state?.flights ?? [];
-  const requestedCallsign = selectedCallsign ?? callsign;
-  const selectedFlight = flights.find((flight) => flight.callsign === requestedCallsign) ?? flights[0] ?? null;
+  const controlled = selectedCallsign !== undefined;
+  const requestedCallsign = controlled ? selectedCallsign : callsign;
+  const selectedFlight = flights.find((flight) => flight.callsign === requestedCallsign) ?? (controlled ? null : flights[0] ?? null);
   const effectiveSelectedCallsign = selectedFlight?.callsign ?? "";
   const runwayGroupID = selectedFlight?.runway_group_id ?? state?.runway_groups[0]?.id ?? null;
   const activeRunwayGroups = state ? getActiveAMANRunwayGroups(state) : [];
@@ -153,6 +154,7 @@ export function AMANControlsView({
     has_fmp_authority: hasFMPAuthority,
   });
   const disabled = gateReason !== null;
+  const flightDisabled = disabled || selectedFlight === null;
   const pending = Object.values(pendingCommands);
   const rejections = Object.values(commandRejections);
   const ratePending = pending.some((command) => command.type === "aman.set_rate");
@@ -221,7 +223,7 @@ export function AMANControlsView({
       ))}
 
       <section aria-label="Arrival sequence rebuild" className="grid gap-2 rounded border border-slate-600 p-3">
-        <p className="text-sm">Rebuild all arrival runways: refresh automatic timings from current positions, keep TMA priority, release lower cleared levels first, and prioritize the longest-held eligible aircraft across holds. Replace existing order and automatic reservations; retain manual protections.</p>
+        <p className="text-sm">Rebuild all arrivals from scratch. Assign TMA traffic first from now at 90-second intervals, allowing for wake separation, then sequence holding and inbound traffic. Release lower cleared levels first and prioritize the longest-held eligible aircraft across holds. Discard all previous slots, EATs, manual protections, and reservations. Outside the TMA, aircraft without a current estimate receive no slot.</p>
         <button className={controlClass} disabled={disabled || pending.some((command) => command.type === "aman.rebuild_arrival_sequence") || Boolean(rebuildResult && state && rebuildResult.revision > state.revision)} onClick={() => onCommand({type: "aman.rebuild_arrival_sequence"})}>Rebuild arrival sequence</button>
         {rebuildResult && <div role="status" aria-live="polite">
           {rebuildResult.publication_status === "recovery_required" && (!state || state.revision < rebuildResult.revision) ? "Rebuild committed; reconnect to recover the displayed sequence" : state && state.revision < rebuildResult.revision ? "Waiting for rebuilt sequence snapshot" : !rebuildResult.changed || rebuildResult.duplicate ? "Already rebuilt" : rebuildResult.diagnostics.length > 0 ? "Rebuilt with exceptions" : "Rebuilt"}
@@ -288,20 +290,22 @@ export function AMANControlsView({
               setCallsign(event.target.value);
               onSelectedCallsignChange?.(event.target.value);
             }}>
+              {controlled && <option value="">Select a flight</option>}
               {flights.map((flight) => <option key={flight.callsign} value={flight.callsign}>{flight.callsign}</option>)}
             </select>
           </label>
 
+          <fieldset disabled={selectedFlight === null} className="contents">
           {selectedFlight && <FlightStatus flight={selectedFlight} />}
 
           {selectedFlight && <section aria-label={`${selectedFlight.callsign} sequence disposition`} className="grid gap-2 rounded border border-violet-500/70 bg-violet-950/40 p-3 text-sm">
             <div>Server-confirmed disposition: <b>{selectedFlight.lifecycle_state === "removed" ? "removed" : selectedFlight.expedited ? "expedited" : disposition}</b></div>
             {selectedFlight.lifecycle_state !== "removed" && <div className="flex flex-wrap gap-2">
               {disposition === "active" ? <>
-                <button className={controlClass} disabled={disabled || dispositionPending || !selectedFlight.slot || !["unstable", "stable", "go_around"].includes(selectedFlight.lifecycle_state)} onClick={() => onCommand({type: "aman.expedite_flight", callsign: selectedFlight.callsign})}>Expedite flight</button>
-                <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.desequence_flight", callsign: selectedFlight.callsign})}>Desequence flight</button></> : <>
-                <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.resume_flight", callsign: selectedFlight.callsign})}>Resume at earliest legal opportunity</button>
-                <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => setRemoveDialogOpen(true)}>Remove flight…</button>
+                <button className={controlClass} disabled={flightDisabled || dispositionPending || !selectedFlight.slot || !["unstable", "stable", "go_around"].includes(selectedFlight.lifecycle_state)} onClick={() => onCommand({type: "aman.expedite_flight", callsign: selectedFlight.callsign})}>Expedite flight</button>
+                <button className={controlClass} disabled={flightDisabled || dispositionPending} onClick={() => onCommand({type: "aman.desequence_flight", callsign: selectedFlight.callsign})}>Desequence flight</button></> : <>
+                <button className={controlClass} disabled={flightDisabled || dispositionPending} onClick={() => onCommand({type: "aman.resume_flight", callsign: selectedFlight.callsign})}>Resume at earliest legal opportunity</button>
+                <button className={controlClass} disabled={flightDisabled || dispositionPending} onClick={() => setRemoveDialogOpen(true)}>Remove flight…</button>
               </>}
             </div>}
             <p>Expedite takes the aircraft out of the managed sequence and brings following traffic forward where spacing allows. Coordinate its release with approach; the aircraft still counts in the approach buffer.</p>
@@ -314,7 +318,7 @@ export function AMANControlsView({
               <p className="text-sm">This removes the flight from the sequence for this session. Use the Excluded tab to add it back.</p>
               <DialogFooter className="gap-2">
                 <button className={controlClass} onClick={() => setRemoveDialogOpen(false)}>Cancel removal</button>
-                <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => {
+                <button className={controlClass} disabled={flightDisabled || dispositionPending} onClick={() => {
                   if (selectedFlight) onCommand({type: "aman.remove_flight", callsign: selectedFlight.callsign});
                   setRemoveDialogOpen(false);
                 }}>Confirm remove flight</button>
@@ -322,7 +326,7 @@ export function AMANControlsView({
             </DialogContent>
           </Dialog>
 
-          <button className={controlClass} disabled={disabled || alternateRunwayGroups.length === 0} onClick={() => setRunwayDialogOpen(true)}>Change runway</button>
+          <button className={controlClass} disabled={flightDisabled || alternateRunwayGroups.length === 0} onClick={() => setRunwayDialogOpen(true)}>Change runway</button>
           <Dialog open={runwayDialogOpen} onOpenChange={setRunwayDialogOpen}>
             <DialogContent className="w-[28rem] max-w-[calc(100vw-2rem)] border-slate-600 bg-slate-900 text-slate-100">
               <DialogHeader><DialogTitle>Change runway · {selectedFlight?.callsign}</DialogTitle></DialogHeader>
@@ -334,7 +338,7 @@ export function AMANControlsView({
                 {runwayPending && <div role="status" className="rounded border border-sky-600 bg-sky-950 p-2 text-sky-100">Waiting for server confirmation</div>}
                 {runwayRejection && <div role="alert" className="rounded border border-red-500 bg-red-950 p-2 text-red-100">Rejected: {runwayRejection.message} ({runwayRejection.code})</div>}
               </div>
-              <DialogFooter><button className={controlClass} disabled={disabled || runwayPending || !effectiveAlternateRunwayGroupID} onClick={() => {
+              <DialogFooter><button className={controlClass} disabled={flightDisabled || runwayPending || !effectiveAlternateRunwayGroupID} onClick={() => {
                 if (selectedFlight) onCommand({type: "aman.change_runway", callsign: selectedFlight.callsign, runway_group_id: effectiveAlternateRunwayGroupID});
               }}>Request runway change</button></DialogFooter>
             </DialogContent>
@@ -347,28 +351,28 @@ export function AMANControlsView({
               {flights.filter((flight) => flight.callsign !== effectiveSelectedCallsign).map((flight) => <option key={flight.callsign} value={flight.callsign}>{flight.callsign}</option>)}
             </select>
             <div className="flex flex-wrap gap-2">
-              <button className={controlClass} disabled={disabled || !targetCallsign || !runwayGroupID} onClick={() => sendMove("before")}>Move before</button>
-              <button className={controlClass} disabled={disabled || !targetCallsign || !runwayGroupID} onClick={() => sendMove("after")}>Move after</button>
-              <button className={controlClass} disabled={disabled || selectedFlight?.freeze_reason === "manual"} onClick={() => sendFlightCommand("aman.lock_flight")}>Apply manual freeze</button>
-              <button className={controlClass} disabled={disabled || selectedFlight?.freeze_reason !== "manual"} onClick={() => sendFlightCommand("aman.unlock_flight")}>Release manual freeze</button>
+              <button className={controlClass} disabled={flightDisabled || !targetCallsign || !runwayGroupID} onClick={() => sendMove("before")}>Move before</button>
+              <button className={controlClass} disabled={flightDisabled || !targetCallsign || !runwayGroupID} onClick={() => sendMove("after")}>Move after</button>
+              <button className={controlClass} disabled={flightDisabled || selectedFlight?.freeze_reason === "manual"} onClick={() => sendFlightCommand("aman.lock_flight")}>Apply manual freeze</button>
+              <button className={controlClass} disabled={flightDisabled || selectedFlight?.freeze_reason !== "manual"} onClick={() => sendFlightCommand("aman.unlock_flight")}>Release manual freeze</button>
             </div>
           </div>
 
           <div className="grid gap-2 rounded border border-slate-600 p-3">
             <h3 className="font-semibold">ETA review and override</h3>
             <div className="flex flex-wrap gap-2">
-              <button className={controlClass} disabled={disabled} onClick={() => sendFlightCommand("aman.accept_teta")}>Accept calculated TETA</button>
-              <button className={controlClass} disabled={disabled} onClick={() => sendFlightCommand("aman.keep_fpl_eta")}>Keep initial/FPL ETA</button>
-              <button className={controlClass} disabled={disabled} onClick={() => sendFlightCommand("aman.reset_teta_override")}>Reset ETA override</button>
+              <button className={controlClass} disabled={flightDisabled} onClick={() => sendFlightCommand("aman.accept_teta")}>Accept calculated TETA</button>
+              <button className={controlClass} disabled={flightDisabled} onClick={() => sendFlightCommand("aman.keep_fpl_eta")}>Keep initial/FPL ETA</button>
+              <button className={controlClass} disabled={flightDisabled} onClick={() => sendFlightCommand("aman.reset_teta_override")}>Reset ETA override</button>
             </div>
             <div className="flex flex-wrap gap-2">
               <input aria-label="Manual ETA" className={inputClass} type="datetime-local" value={manualETA} onChange={(event) => setManualETA(event.target.value)} />
-              <button className={controlClass} disabled={disabled || !toWireTimestamp(manualETA)} onClick={() => {
+              <button className={controlClass} disabled={flightDisabled || !toWireTimestamp(manualETA)} onClick={() => {
                 const value = toWireTimestamp(manualETA);
                 if (selectedFlight && value) onCommand({type: "aman.set_manual_eta", callsign: selectedFlight.callsign, manual_eta: value});
               }}>Set manual ETA</button>
             </div>
-            <button className={controlClass} disabled={disabled || !selectedFlight?.feeder_fix} onClick={() => setFeederDialogOpen(true)}>Edit feeder-fix ETA</button>
+            <button className={controlClass} disabled={flightDisabled || !selectedFlight?.feeder_fix} onClick={() => setFeederDialogOpen(true)}>Edit feeder-fix ETA</button>
           </div>
 
           <Dialog open={feederDialogOpen} onOpenChange={setFeederDialogOpen}>
@@ -385,10 +389,10 @@ export function AMANControlsView({
                 {feederRejection && <div role="alert" className="rounded border border-red-500 bg-red-950 p-2 text-red-100">Rejected: {feederRejection.message} ({feederRejection.code})</div>}
               </div>
               <DialogFooter className="justify-end gap-2">
-                <button className={controlClass} disabled={disabled || feederPending || selectedFlight?.feeder_fix_eta_source !== "manual"} onClick={() => {
+                <button className={controlClass} disabled={flightDisabled || feederPending || selectedFlight?.feeder_fix_eta_source !== "manual"} onClick={() => {
                   if (selectedFlight) onCommand({type: "aman.reset_manual_feeder_eta", callsign: selectedFlight.callsign});
                 }}>Reset to predicted ETA</button>
-                <button className={controlClass} disabled={disabled || feederPending || !toWireTimestamp(manualFeederETA)} onClick={() => {
+                <button className={controlClass} disabled={flightDisabled || feederPending || !toWireTimestamp(manualFeederETA)} onClick={() => {
                   const value = toWireTimestamp(manualFeederETA);
                   if (selectedFlight && value) onCommand({type: "aman.set_manual_feeder_eta", callsign: selectedFlight.callsign, feeder_eta: value});
                 }}>Set feeder ETA</button>
@@ -400,12 +404,13 @@ export function AMANControlsView({
             <h3 className="font-semibold">Go-around</h3>
             <div className="flex flex-wrap gap-2">
               <input aria-label="Go-around detected at" className={inputClass} type="datetime-local" value={goAroundAt} onChange={(event) => setGoAroundAt(event.target.value)} />
-              <button className={controlClass} disabled={disabled || !toWireTimestamp(goAroundAt)} onClick={() => {
+              <button className={controlClass} disabled={flightDisabled || !toWireTimestamp(goAroundAt)} onClick={() => {
                 const value = toWireTimestamp(goAroundAt);
                 if (selectedFlight && value) onCommand({type: "aman.report_go_around", callsign: selectedFlight.callsign, detected_at: value});
               }}>Report go-around</button>
             </div>
           </div>
+          </fieldset>
         </>
       )}
     </aside>

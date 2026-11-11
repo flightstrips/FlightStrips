@@ -14,6 +14,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNewSTARArrivalsDoNotJumpRunwayHoldsWithApproachReleaseEnabled(t *testing.T) {
+	now := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{
+		RunwayGroups:    []terminal.RunwayGroup{{ID: group}},
+		ApproachRelease: &aman.ApproachReleasePolicy{Enabled: true, TargetBuffer: 10, TaperStart: 6, MaxAdvanceSeconds: 600, LookaheadSeconds: 120},
+	}}}
+	a := groundPriorityHold("HELD-A", "MONAK", group, now, now.Add(40*time.Minute), 1)
+	b := groundPriorityHold("HELD-B", "TESPI", group, now, now.Add(43*time.Minute), 2)
+	state := aman.AirportState{Airport: "EKCH", Revision: 7, GeneratedAt: now,
+		Flights:      []aman.AMANFlight{a, b},
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &now}},
+	}
+	for pass := 0; pass < 3; pass++ {
+		incoming := operationalFlight(fmt.Sprintf("NEW%d", pass), group, "ERNOV", "M", now.Add(15*time.Minute))
+		incoming.Prediction.RawTETA, incoming.Prediction.GeneratedAt = now.Add(15*time.Minute), now
+		state.Flights = append(state.Flights, incoming)
+		service.resequence(&state, now)
+		require.Equal(t, a.Slot.Time, stateFlight(t, state, a.Callsign).Slot.Time)
+		require.Equal(t, b.Slot.Time, stateFlight(t, state, b.Callsign).Slot.Time)
+		for index := 0; index <= pass; index++ {
+			got := stateFlight(t, state, aman.Callsign(fmt.Sprintf("NEW%d", index)))
+			require.Equal(t, now.Add(time.Duration(46+index*3)*time.Minute), got.Slot.Time)
+		}
+		state = cloneGapState(t, state)
+	}
+}
+
 func TestIndependentHoldingFillsSTARSpacingGapWithoutMissingEATs(t *testing.T) {
 	for _, enabled := range []bool{true, false} {
 		for _, reversed := range []bool{false, true} {

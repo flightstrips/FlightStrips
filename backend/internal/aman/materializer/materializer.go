@@ -30,13 +30,16 @@ const (
 // Dependencies are explicit so replacing a provider only changes application
 // composition. None of these interfaces imply an HTTP transport.
 type Dependencies struct {
-	Cycles     navdata.CycleSource
-	Airports   navdata.AirportSource
-	Runways    navdata.RunwaySource
-	Procedures navdata.ProcedureSource
-	Fixes      navdata.FixSource
-	Routes     navdata.RouteResolver
-	Cache      interface {
+	// CachedReferences selects route-only acquisition. Terminal references are
+	// validated and reactivated locally; no catalog source is contacted.
+	CachedReferences navdata.GeometrySnapshotReader
+	Cycles           navdata.CycleSource
+	Airports         navdata.AirportSource
+	Runways          navdata.RunwaySource
+	Procedures       navdata.ProcedureSource
+	Fixes            navdata.FixSource
+	Routes           navdata.RouteResolver
+	Cache            interface {
 		navdata.NavigationCandidateWriter
 		navdata.NavigationManifestActivator
 		navdata.ActiveManifestReader
@@ -75,7 +78,7 @@ type Materializer struct {
 }
 
 func New(deps Dependencies) (*Materializer, error) {
-	if deps.Cycles == nil || deps.Airports == nil || deps.Runways == nil || deps.Procedures == nil || deps.Fixes == nil || deps.Routes == nil || deps.Cache == nil {
+	if deps.Routes == nil || deps.Cache == nil || deps.CachedReferences == nil && (deps.Cycles == nil || deps.Airports == nil || deps.Runways == nil || deps.Procedures == nil || deps.Fixes == nil) {
 		return nil, errors.New("navigation materializer requires all source, resolver and cache dependencies")
 	}
 	if deps.Now == nil {
@@ -119,6 +122,9 @@ func (m *Materializer) Run(ctx context.Context, interval time.Duration, airports
 func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 	if request.Airport == "" {
 		return m.failed(request.Airport, ReasonCandidateInvalid, false, false, errors.New("refresh airport is required"))
+	}
+	if m.deps.CachedReferences != nil {
+		return m.refreshCachedTerminal(ctx, request)
 	}
 	m.markAttempt(request.Airport)
 	current, currentErr := m.deps.Cache.ActiveManifest(ctx, request.Airport)

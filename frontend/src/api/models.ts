@@ -3,6 +3,7 @@ import type {AMANCommandMessage} from "./aman";
 import type {InboundDeparturesEvent, InboundDeparturesSnapshot} from "./inbound-departures";
 
 export enum EventType {
+  FrontendAircraftSelection = "aircraft_selection",
  FrontendConnectedFlightResults = "flight.connected-results",
   FrontendMasterInfo = "master_info",
   FrontendInitial = "initial",
@@ -326,7 +327,16 @@ export interface TextPilotInputs {
   presets?: Record<string, Array<{ id: string; label: string; text: string; tone: "light" | "phrase" | "point" }>>;
 }
 
+export interface AircraftSelection {
+  callsign: string | null;
+  revision: number;
+}
+export interface FrontendAircraftSelectionEvent extends AircraftSelection {
+  type: EventType.FrontendAircraftSelection;
+}
+
 export interface FrontendInitialEvent {
+  aircraft_selection?: AircraftSelection;
   text_pilot?: TextPilotInputs;
   own_plugin_ready?: boolean;
   observer?: boolean;
@@ -356,6 +366,7 @@ export interface FrontendInitialEvent {
   stand_assignment_enabled: boolean;
   stand_assignments: FrontendStandAssignmentEntry[];
   stand_blocks: FrontendStandBlockEntry[];
+  stand_arrival_restrictions?: FrontendStandArrivalRestrictionEntry[];
   capabilities?: {
     aman_fmp: boolean;
   };
@@ -717,6 +728,7 @@ export interface FrontendAtisUpdateEvent {
 
 // Union type for all events that can be received
 export type WebSocketEvent =
+  | FrontendAircraftSelectionEvent
   | FrontendMasterInfoEvent
   | InboundDeparturesEvent
   | FrontendInitialEvent
@@ -848,6 +860,11 @@ export interface FrontendStandBlockEntry {
   created_by?: string;
   expires_at?: string;
   version?: number;
+}
+
+export interface FrontendStandArrivalRestrictionEntry {
+  stand: string;
+  reason: string;
 }
 
 export interface FrontendStandStatusSnapshotEvent {

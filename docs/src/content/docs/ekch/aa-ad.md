@@ -38,6 +38,7 @@ Strips are organised into **bays**. A bay is either **ACTIVE** or **LOCKED**. St
 
 - **Others**, **SAS**, **Norwegian**: uncleared departures awaiting clearance. Issuing a clearance sends the strip to **Startup**.
 - **Startup** → **Push back** (release point chosen on pushback map) → **De-ice** / **TWY DEP-UPR** / **TWY DEP-LWR** via hold-short selections on the apron taxi map.
+- When push and start is cleared, the departure's SAT stand block is released immediately and is not recreated by later position updates. The strip retains its stand for routing.
 - Selecting **K2**, **K3**, **A**, **F**, **D**, **B**, **V2**, or **V1** on the apron taxi map moves the strip to **TWY DEP-LWR**, even without another apron or tower controller online. The existing **K1** lower-bay routing is unchanged.
 - **Startup** and **Push back** strips do not display the next frequency below the callsign. SI ownership indicators and transfer actions are unchanged.
 

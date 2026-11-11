@@ -3,6 +3,7 @@ package cdm
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -31,10 +32,26 @@ func (b *viffTestLogBuffer) Write(p []byte) (int, error) {
 	return b.buffer.Write(p)
 }
 
-func (b *viffTestLogBuffer) String() string {
+func (b *viffTestLogBuffer) forFlight(t *testing.T, session int32, callsign string) string {
+	t.Helper()
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.buffer.String()
+	var matched strings.Builder
+	for _, line := range strings.Split(b.buffer.String(), "\n") {
+		if line == "" {
+			continue
+		}
+		var record struct {
+			Session  int32  `json:"session"`
+			Callsign string `json:"callsign"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(line), &record))
+		if record.Session == session && record.Callsign == callsign {
+			matched.WriteString(line)
+			matched.WriteByte('\n')
+		}
+	}
+	return matched.String()
 }
 
 func TestPushViffAfterRecalcAsync_RetriesFeedLagWithoutAnotherRecalculation(t *testing.T) {
@@ -43,6 +60,9 @@ func TestPushViffAfterRecalcAsync_RetriesFeedLagWithoutAnotherRecalculation(t *t
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	defer slog.SetDefault(previous)
 	synctest.Test(t, func(t *testing.T) {
+		// Other sessions can still log from asynchronous work in earlier tests.
+		slog.Warn("Failed to register CDM master airport", slog.Int("session", 7), slog.String("airport", "EKCH"))
+		slog.Warn("Unrelated flight warning", slog.Int("session", 1), slog.String("callsign", "OTHER"))
 		start := time.Now()
 		var mu sync.Mutex
 		var proposals []string
@@ -93,8 +113,8 @@ func TestPushViffAfterRecalcAsync_RetriesFeedLagWithoutAnotherRecalculation(t *t
 		time.Sleep(60 * time.Second)
 		synctest.Wait()
 		require.Equal(t, []string{"151000", "151000", "151000", "151200", "151200"}, snapshot())
-		require.NotContains(t, logs.String(), `"level":"WARN"`)
-		require.Contains(t, logs.String(), `"level":"DEBUG"`)
+		require.NotContains(t, logs.forFlight(t, 1, "SAS1635"), `"level":"WARN"`)
+		require.Contains(t, logs.forFlight(t, 1, "SAS1635"), `"level":"DEBUG"`)
 		before := len(snapshot())
 		time.Sleep(10 * time.Minute)
 		synctest.Wait()
@@ -128,18 +148,18 @@ func TestPushViffAfterRecalcAsync_GivesUpAfterFiveMinutesOfFalse(t *testing.T) {
 		synctest.Wait()
 		time.Sleep(4 * time.Minute)
 		synctest.Wait()
-		require.Empty(t, logs.String(), "feed lag should not produce warnings")
+		require.Empty(t, logs.forFlight(t, 1, "SAS1635"), "feed lag should not produce warnings")
 		push("151100")
 		time.Sleep(time.Minute - time.Nanosecond)
 		synctest.Wait()
-		require.Empty(t, logs.String(), "changing proposals must not make early warnings")
+		require.Empty(t, logs.forFlight(t, 1, "SAS1635"), "changing proposals must not make early warnings")
 		time.Sleep(time.Nanosecond)
 		synctest.Wait()
 		require.Greater(t, requests.Load(), int32(6), "retrying must continue beyond the old six-attempt limit")
-		require.Equal(t, 1, strings.Count(logs.String(), `"level":"WARN"`), "the aircraft's outage survives changing proposals")
-		require.Contains(t, logs.String(), `"callsign":"SAS1635"`)
-		require.Contains(t, logs.String(), `"tsat":"151100"`)
-		require.Contains(t, logs.String(), "giving up")
+		require.Equal(t, 1, strings.Count(logs.forFlight(t, 1, "SAS1635"), `"level":"WARN"`), "the aircraft's outage survives changing proposals")
+		require.Contains(t, logs.forFlight(t, 1, "SAS1635"), `"callsign":"SAS1635"`)
+		require.Contains(t, logs.forFlight(t, 1, "SAS1635"), `"tsat":"151100"`)
+		require.Contains(t, logs.forFlight(t, 1, "SAS1635"), "giving up")
 		before := requests.Load()
 		push("151100")
 		synctest.Wait()
@@ -147,7 +167,7 @@ func TestPushViffAfterRecalcAsync_GivesUpAfterFiveMinutesOfFalse(t *testing.T) {
 		time.Sleep(10 * time.Minute)
 		synctest.Wait()
 		require.Equal(t, before, requests.Load(), "there must be no retries after the five-minute cutoff")
-		require.Equal(t, 1, strings.Count(logs.String(), `"level":"WARN"`), "warn once when giving up")
+		require.Equal(t, 1, strings.Count(logs.forFlight(t, 1, "SAS1635"), `"level":"WARN"`), "warn once when giving up")
 	})
 }
 

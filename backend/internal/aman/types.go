@@ -987,6 +987,13 @@ func (s TMAEntryState) Validate() error {
 	return requireUTCTime("TMA containment observed at", s.LastObservedAt)
 }
 
+// ManualSequencePosition retains the local order requested by a controller.
+// It constrains relative sequence only; all three targets may move in time.
+type ManualSequencePosition struct {
+	AfterCallsign  Callsign
+	BeforeCallsign Callsign
+}
+
 // AMANFlight is the persisted aggregate shape. All operational TETA, state,
 // freeze, slot, and order changes are backend-owned.
 type AMANFlight struct {
@@ -1053,6 +1060,7 @@ type AMANFlight struct {
 	Slot                   *Slot
 	Order                  *int
 	ManualOrder            *int
+	ManualPosition         *ManualSequencePosition
 	QueueOffers            []QueueOffer
 	ETAReview              *ETAReview
 	OperationalException   *OperationalException

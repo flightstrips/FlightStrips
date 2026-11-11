@@ -42,6 +42,7 @@ const NON_DEPARTURE_STAND_BAYS = new Set<string>([
 interface EstStandCellProps {
   stand: { label: string; column?: number; row?: number } | EstCanvasStand;
   strip?: FrontendStrip;
+  plannedArrival?: string;
   selected: boolean;
   blocked: boolean;
   blockReason?: string;
@@ -49,6 +50,7 @@ interface EstStandCellProps {
   blinking: boolean;
   startReqActive: boolean;
   departureTransferActive?: boolean;
+  departureTransferred?: boolean;
   ctotImproved: boolean;
   nowMs: number;
   containerStyle?: CSSProperties;
@@ -58,12 +60,14 @@ interface EstStandCellProps {
 export default function EstStandCell({
   stand,
   strip,
+  plannedArrival,
   blocked,
   blockReason: _blockReason,
   actionActive,
   blinking,
   startReqActive,
   departureTransferActive = false,
+  departureTransferred = false,
   ctotImproved,
   nowMs,
   containerStyle,
@@ -73,6 +77,7 @@ export default function EstStandCell({
   // marker. The backend reconciles that marker, but the board must remain
   // usable while websocket updates are in flight or after a missed update.
   const effectivelyBlocked = blocked && !strip;
+  const defaultBlocked = blocked && !strip;
   const gridStyle =
     "column" in stand && "row" in stand && stand.column !== undefined && stand.row !== undefined
       ? { gridColumn: stand.column, gridRow: stand.row }
@@ -82,7 +87,8 @@ export default function EstStandCell({
   // anything on a stand that isn't arriving or already moving counts as a departure.
   const isDeparture = !!strip && !NON_DEPARTURE_STAND_BAYS.has(strip.bay);
   const isClearedDeparture = isDeparture && strip.bay === Bay.Cleared;
-  const isReady = isDeparture && !!strip?.start_req && !departureTransferActive;
+  const hideDepartureCdm = departureTransferActive || departureTransferred;
+  const isReady = isDeparture && !!strip?.start_req && !hideDepartureCdm;
   const isPushing = strip?.bay === Bay.Push;
   const isArrival = strip?.bay === Bay.Stand;
 
@@ -93,8 +99,8 @@ export default function EstStandCell({
     backgroundClass = "bg-[#131376]";
     textClass = "text-white";
   } else if (effectivelyBlocked) {
-    backgroundClass = "bg-[#4A4A4A]";
-    textClass = "text-white";
+    backgroundClass = "bg-[#959595]";
+    textClass = "text-black";
   } else if (isPushing) {
     backgroundClass = "bg-[#DD6A12]";
     textClass = "text-white";
@@ -117,8 +123,8 @@ export default function EstStandCell({
     : { tobtBg: "", tsatBg: "" };
   const ctotColors = strip ? computeCTOTColors(strip.ctot, nowMs) : null;
 
-  const showTobt = isDeparture && !departureTransferActive && !!strip && strip.tobt !== "";
-  const showTsat = isDeparture && !departureTransferActive && !!strip && strip.tsat !== "";
+  const showTobt = isDeparture && !hideDepartureCdm && !!strip && strip.tobt !== "";
+  const showTsat = isDeparture && !hideDepartureCdm && !!strip && strip.tsat !== "";
   const showCtot = isClearedDeparture && !!strip?.ctot.trim() && (ctotImproved || !!ctotColors?.showCtot);
   const showReady = isReady;
   const showReleasePoint = isPushing && !!strip?.release_point.trim();
@@ -192,7 +198,10 @@ export default function EstStandCell({
             )}
             {/* Stand label */}
             <div
-              className="absolute left-0 right-0 flex items-center justify-center text-center font-bold"
+              className={cn(
+                "absolute left-0 right-0 flex items-center justify-center text-center",
+                defaultBlocked ? "font-normal text-[#333333]" : "font-bold",
+              )}
               style={{
                 top: STAND_ROW_TOP,
                 height: STAND_ROW_HEIGHT,
@@ -204,7 +213,7 @@ export default function EstStandCell({
             </div>
 
             {/* Callsign */}
-            {strip && (
+            {(strip || plannedArrival) && (
                <div
                  className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center"
                  style={{
@@ -216,7 +225,7 @@ export default function EstStandCell({
                   color: showMark ? "#000000" : undefined,
                 }}
               >
-                <span className="block truncate">{strip.callsign}</span>
+                <span className="block truncate">{strip?.callsign ?? plannedArrival}</span>
               </div>
             )}
 

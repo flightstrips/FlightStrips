@@ -197,6 +197,9 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 	if strip == nil || strings.TrimSpace(strip.Callsign) == "" {
 		return nil
 	}
+	if departureStandReleasedByMovement(strip) {
+		return s.ReleaseDepartureStand(ctx, session, strip.Callsign)
+	}
 	if s.pilotStands != nil {
 		if managed, err := s.pilotStands.reconcile(ctx, session, strip, flight); managed || err != nil {
 			return err
@@ -237,9 +240,13 @@ func (s *DepartureLifecycleService) releaseOfflinePrefileReservation(ctx context
 
 // ObserveDeparturePosition applies the live stand-detection path to an
 // EuroScope aircraft that has no VATSIM feed record.
-func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context, session int32, strip *models.Strip, latitude, longitude float64) error {
+func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context, session int32, strip *models.Strip, latitude, longitude float64) (err error) {
+	defer func() { err = suppressAutomaticAllocationError(err) }()
 	if strip == nil || strings.TrimSpace(strip.Callsign) == "" {
 		return nil
+	}
+	if departureStandReleasedByMovement(strip) {
+		return s.ReleaseDepartureStand(ctx, session, strip.Callsign)
 	}
 	if s.pilotStands != nil {
 		if managed, err := s.pilotStands.opened(ctx, session, strip); managed || err != nil {
@@ -324,6 +331,8 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		}
 		s.clearUnassignedStandWarning(session, strip.Callsign)
 		return true, nil
+	} else if errors.Is(err, ErrDepartureStandReleased) {
+		return false, err
 	} else if existing == nil {
 		automaticRequest := s.buildRequest(session, strip, flight, StageDepartureBlock, expiry)
 		result, allocationErr := s.allocations.Allocate(ctx, automaticRequest)
@@ -753,6 +762,9 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 		err := s.allocations.releaseAssignment(ctx, assignment, true)
 		recordSATExpiry(ctx, assignment, "strip_removed", err)
 		return err
+	}
+	if departureStandReleasedByMovement(strip) && assignment.Direction == string(sat.AssignmentDirectionDeparture) {
+		return s.ReleaseDepartureStand(ctx, session, assignment.Callsign)
 	}
 	if s.pilotStands != nil {
 		if managed, err := s.pilotStands.opened(ctx, session, strip); managed || err != nil {

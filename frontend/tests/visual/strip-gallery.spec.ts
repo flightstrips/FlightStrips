@@ -43,6 +43,7 @@ test("tactical SI cells retain their proportional width at different viewport sh
 
 test("every strip type keeps its content inside the framed height", async ({ page, browserName }) => {
   expect(page.viewportSize()).toEqual({ width: 1920, height: 1080 });
+  await page.clock.setFixedTime(new Date("2026-11-07T14:00:00Z"));
 
   for (const stripType of STRIP_TYPES) {
     await page.goto(`/strip-gallery?shot=${stripType}`);

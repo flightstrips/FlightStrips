@@ -1,4 +1,5 @@
 import { isTextPilot, stationController, TEXT_STATIONS } from "@/lib/text-pilot";
+import { airborneHandoverLabel } from "@/lib/airborneHandover";
 import { Bay } from "@/api/models";
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
@@ -80,14 +81,21 @@ export function SIBox({
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
 
   let nextLabel = "";
+  let labelTarget: string | undefined;
   if (isStand) {
     nextLabel = "";
   } else if (isSendingTransfer || isTagRequestOwner) {
     const targetController = controllers.find(c => c.position === transferringTo);
     nextLabel = nextDisplay?.label || (targetController ? targetController.identifier : "");
+    labelTarget = transferringTo;
   } else if (isAssumed && !isTagRequestOwner) {
     const nextController = controllers.find(c => c.position === nextPosition);
     nextLabel = nextDisplay?.label || (nextController ? nextController.identifier : "");
+    labelTarget = nextPosition;
+  }
+
+  if (labelTarget && (bay === Bay.Depart || bay === Bay.Airborne)) {
+    nextLabel = airborneHandoverLabel(nextDisplay?.frequency || labelTarget) ?? nextLabel;
   }
 
   const handleClick = (e: React.MouseEvent) => {

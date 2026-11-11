@@ -46,6 +46,7 @@ namespace FlightStrips::vacs {
         std::vector<Call> incoming_;
         std::string ownId_, position_, station_, callId_, peer_, error_, pendingId_, snapshotId_, lastError_;
         Json outgoingCall_;
+        bool versionLogged_ = false;
         bool enabled_ = false, online_ = false, authenticated_ = false, signaling_ = false, ambiguous_ = false;
         bool snapshot_ = false, store_ = false, uncertain_ = false, reconnecting_ = false;
         State callState_ = State::Idle;

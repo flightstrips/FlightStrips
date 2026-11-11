@@ -7,10 +7,43 @@ import (
 	"FlightStrips/internal/aman"
 )
 
-// Fill capacity left between two arrivals by same-STAR spacing. An aircraft
-// from another stream may use that capacity without moving either reservation.
+// Earlier holding traffic owns usable capacity first. An independent stream
+// may pass it only when it cannot use this instant itself, either because it
+// cannot physically reach the runway or because runway/STAR spacing prevents
+// it. Allocation orders the hold first, so this insertion keeps its slot.
+func canFillHoldingGap(policy preparedPolicy, entries []allocatedEntry, older allocatedEntry, later preparedFlight, candidate time.Time) bool {
+	if !policy.AllowCrossFeederOvertake || !candidate.Before(older.time) ||
+		!canPassForGap(later, older.flight) || older.flight.ReleaseRank != nil || later.ReleaseRank != nil {
+		return false
+	}
+	if older.flight.PromotionNotBefore != nil && candidate.Before(*older.flight.PromotionNotBefore) {
+		return true
+	}
+	// OperationalTETA and the assigned slot can contain accumulated delay;
+	// neither proves that the held aircraft cannot arrive sooner.
+	var leading, trailing *allocatedEntry
+	for i := range entries {
+		entry := &entries[i]
+		if entry.flight.Callsign == older.flight.Callsign {
+			continue
+		}
+		if entry.time.Before(candidate) {
+			leading = entry
+		} else {
+			trailing = entry
+			break
+		}
+	}
+	return leading != nil && candidate.Sub(leading.time) < requiredGap(policy, leading.flight, older.flight, candidate) ||
+		trailing != nil && trailing.time.Sub(candidate) < requiredGap(policy, older.flight, trailing.flight, trailing.time)
+}
+
+// Fill unused capacity between arrivals, including vacancies left by removed
+// flights and same-STAR spacing. Prefer holding aircraft, then existing sequence
+// order. Inbound traffic may use a vacancy
+// after the preferred candidates fail the complete placement checks.
 // This does not authorize a general reorder across controller constraints.
-func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at time.Time) []allocatedEntry {
+func fillSequenceGaps(policy preparedPolicy, entries []allocatedEntry, at time.Time) []allocatedEntry {
 	if !policy.AllowCrossFeederOvertake {
 		return entries
 	}
@@ -20,27 +53,14 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 		filled := false
 		for gap := 0; gap+1 < len(entries) && !filled; gap++ {
 			leading := entries[gap]
-			if leading.flight.STARFamily == "" {
-				continue
-			}
-			// Cross-stream insertions do not consume the whole STAR interval.
-			// Find its next same-family reservation even when earlier fillers
-			// already separate the anchors, including on later reconciliations.
-			trailingIndex := gap + 1
-			for trailingIndex < len(entries) && entries[trailingIndex].flight.STARFamily != leading.flight.STARFamily {
-				trailingIndex++
-			}
-			if trailingIndex == len(entries) {
-				continue
-			}
-			trailing := entries[trailingIndex]
-			if sameSTARGap(policy, leading.flight, trailing.flight, trailing.time) <= policy.intervalAt(trailing.time) {
-				continue
-			}
-			for index := trailingIndex + 1; index < len(entries); index++ {
+			trailing := entries[gap+1]
+			// Inspect each vacant interval independently. Candidates can already
+			// be inside a wider same-STAR interval, or have no later same-STAR
+			// anchor at all after a flight leaves the sequence.
+			for _, index := range gapFillCandidateOrder(entries, gap+2) {
 				target := entries[index]
 				flight := target.flight
-				if moved[flight.Callsign] || !gapFillEligible(flight) || flight.STARFamily == leading.flight.STARFamily {
+				if moved[flight.Callsign] || !gapFillEligible(flight) {
 					continue
 				}
 				lower := promotionLowerBound(policy, flight, at)
@@ -48,7 +68,7 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 					lower = *flight.SlotNotBefore
 				}
 				for _, crossed := range entries[gap+1 : index] {
-					if !canPassForSTARGap(flight, crossed.flight) {
+					if !canPassForGap(flight, crossed.flight) {
 						// An earlier filler from the same stream is an order
 						// boundary, but space after it can still be usable.
 						if boundary := crossed.time.Add(time.Nanosecond); boundary.After(lower) {
@@ -73,7 +93,7 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 					// Cross-stream committed order is relaxed only for this empty
 					// interval. Manual order, holding priority, gaps and spacing
 					// on both sides are still checked by normal placement.
-					valid, _, later := placementWithStableOrder(policy, remaining, flight, candidate, false)
+					valid, _, later := gapFillPlacement(policy, remaining, flight, candidate)
 					if valid {
 						target.time = candidate
 						noteOperation(&target.flight, "gap_fill")
@@ -98,15 +118,42 @@ func fillSTARSpacingGaps(policy preparedPolicy, entries []allocatedEntry, at tim
 }
 
 func gapFillEligible(flight preparedFlight) bool {
-	return flight.STARFamily != "" && flight.ManualOrder == nil && flight.ReleaseRank == nil &&
-		!flight.RebuildRetained && !flight.RebuildTMA && flight.PromotionNotBefore != nil &&
+	return flight.STARFamily != "" && flight.ManualOrder == nil &&
+		(flight.ReleaseRank == nil || holdingGapCandidate(flight) && flight.HoldingTransit > 0) &&
+		!flight.RebuildTMA && flight.PromotionNotBefore != nil &&
 		(flight.FreezeReason == aman.FreezeNone || flight.FreezeReason == aman.FreezeSuperstable) &&
 		(flight.State == aman.StateStable || flight.State == aman.StateUnstable || flight.State == aman.StateAirborne)
 }
 
-func canPassForSTARGap(target, crossed preparedFlight) bool {
+func holdingGapCandidate(flight preparedFlight) bool {
+	return flight.ActiveHoldingSince != nil || flight.HoldingStartedAt != nil && flight.HoldingStackID != ""
+}
+
+func gapFillCandidateOrder(entries []allocatedEntry, first int) []int {
+	indices := make([]int, 0, len(entries)-first)
+	for _, held := range []bool{true, false} {
+		for index := first; index < len(entries); index++ {
+			if holdingGapCandidate(entries[index].flight) == held {
+				indices = append(indices, index)
+			}
+		}
+	}
+	return indices
+}
+
+func gapFillPlacement(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time) (bool, time.Time, time.Time) {
+	if !holdingGapCandidate(flight) {
+		// The ordered candidate search has already tried the holding and earlier
+		// arrivals. Relax automatic admission priority only for this empty gap;
+		// same-hold release order, controller boundaries and spacing still apply.
+		policy.allowInboundGapFill = true
+	}
+	return placementWithStableOrder(policy, entries, flight, candidate, false)
+}
+
+func canPassForGap(target, crossed preparedFlight) bool {
 	return crossed.ManualOrder == nil && crossed.STARFamily != "" && crossed.STARFamily != target.STARFamily &&
 		(crossed.FreezeReason == aman.FreezeNone || crossed.FreezeReason == aman.FreezeSuperstable) &&
-		!crossed.RebuildRetained && !crossed.RebuildTMA &&
+		!crossed.RebuildTMA &&
 		(target.HoldingQueueID == "" || target.HoldingQueueID != crossed.HoldingQueueID)
 }

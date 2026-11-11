@@ -67,6 +67,7 @@ function PreviewCell({ stand }: { stand: string }) {
     <EstStandCell
       stand={{ label: stand }}
       strip={display.stripsByStand.get(stand)}
+      plannedArrival={display.plannedArrivalsByStand.get(stand)}
       selected={false}
       blocked={false}
       actionActive={false}
@@ -90,7 +91,7 @@ function EstStandPreview() {
         <section data-testid="assigned-inbound" className="flex flex-col items-center gap-3">
           <h2 className="font-semibold">Assigned inbound</h2>
           <PreviewCell stand="A18" />
-          <p className="max-w-44 text-center text-xs">No arrival information before physical occupancy</p>
+          <p className="max-w-44 text-center text-xs">Callsign on grey before physical occupancy</p>
         </section>
         <section data-testid="parked-arrival" className="flex flex-col items-center gap-3">
           <h2 className="font-semibold">Physically on stand</h2>

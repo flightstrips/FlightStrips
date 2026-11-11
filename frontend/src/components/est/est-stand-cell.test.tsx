@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import EstStandCell from "./EstStandCell";
+import EstStandMenu from "./EstStandMenu";
 import { Bay, type FrontendStrip } from "@/api/models";
 
 function makeStrip(overrides: Partial<FrontendStrip> = {}): FrontendStrip {
@@ -47,7 +48,60 @@ function makeStrip(overrides: Partial<FrontendStrip> = {}): FrontendStrip {
 
 const stand = { label: "A18", left: 0, top: 0 };
 
+describe("EstStandMenu", () => {
+  it("hides CDM details after transfer without removing controls", () => {
+    const props = {
+      open: true,
+      anchor: { top: 10, left: 10, right: 100, bottom: 100 },
+      strip: makeStrip({ bay: Bay.Cleared, start_req: true }),
+      onClose: () => {},
+      onStartTransfer: () => {},
+      startTransferDisabled: false,
+      onStartRequest: () => {},
+      onPush: () => {},
+      onTaxi: () => {},
+      onOpenDeIce: () => {},
+      onOpenFlightPlan: () => {},
+      onToggleMarked: () => {},
+      onOpenStandStatus: () => {},
+    };
+    const { rerender } = render(<EstStandMenu {...props} departureTransferred={false} />);
+    expect(screen.getByText("READY")).toBeDefined();
+    expect(screen.getByText("TOBT")).toBeDefined();
+    rerender(<EstStandMenu {...props} departureTransferred />);
+    expect(screen.queryByText("READY")).toBeNull();
+    expect(screen.queryByText("TOBT")).toBeNull();
+    expect(screen.queryByText(/TSAT/)).toBeNull();
+    expect(screen.getByText("PUSH")).toBeDefined();
+  });
+});
+
 describe("EstStandCell", () => {
+  it("shows a planned arrival on vacant grey without treating it as an occupant", () => {
+    const onClick = vi.fn();
+    render(
+      <EstStandCell
+        stand={stand}
+        plannedArrival="SAS401"
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive={false}
+        ctotImproved={false}
+        nowMs={Date.now()}
+        onClick={onClick}
+      />,
+    );
+    const button = screen.getByRole("button");
+    expect(button.className).toContain("bg-[#D9D9D9]");
+    expect(screen.getByText("SAS401")).toBeDefined();
+    expect(screen.queryByText("READY")).toBeNull();
+    expect(screen.queryByText(/TOBT|TSAT/)).toBeNull();
+    fireEvent.click(button);
+    expect(onClick).toHaveBeenCalledWith("A18", undefined, button);
+  });
+
   it("renders stand label", () => {
     render(
       <EstStandCell
@@ -123,7 +177,9 @@ describe("EstStandCell", () => {
       />,
     );
 
-    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #dc2626");
+    expect(screen.getByRole("button")).toHaveStyle({
+      boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 2px #dc2626",
+    });
   });
 
   it("outlines a ready stand in green when TSAT is within the start request window", () => {
@@ -142,7 +198,9 @@ describe("EstStandCell", () => {
       />,
     );
 
-    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #00FF26");
+    expect(screen.getByRole("button")).toHaveStyle({
+      boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 2px #00FF26",
+    });
     expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.getByTestId("est-tsat-background").style.top).toBe("105px");
     expect(screen.getByText("TOBT:").parentElement?.style.color).toBe("");
@@ -194,7 +252,34 @@ describe("EstStandCell", () => {
     expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.queryByTestId("est-tsat-background")).toBeNull();
     expect(screen.getByRole("button")).toHaveClass("bg-[#131376]");
-    expect(screen.getByRole("button").style.boxShadow).not.toContain("0 0 0 2px");
+    expect(screen.getByRole("button")).toHaveStyle({ boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25)" });
+    expect(screen.getByText("CTOT: 1430")).toBeDefined();
+  });
+
+  it("keeps READY, TOBT and TSAT hidden after transfer acceptance while retaining CTOT", () => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ bay: Bay.Cleared, ctot: "1430", start_req: true })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive
+        departureTransferred
+        ctotImproved={false}
+        nowMs={Date.UTC(2026, 6, 14, 14, 25, 0)}
+        onClick={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText(/TOBT:/)).toBeNull();
+    expect(screen.queryByText(/TSAT:/)).toBeNull();
+    expect(screen.queryByText("READY")).toBeNull();
+    expect(screen.queryByTestId("est-ready-background")).toBeNull();
+    expect(screen.queryByTestId("est-tobt-background")).toBeNull();
+    expect(screen.queryByTestId("est-tsat-background")).toBeNull();
+    expect(screen.getByRole("button")).toHaveStyle({ boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25)" });
     expect(screen.getByText("CTOT: 1430")).toBeDefined();
   });
 
@@ -331,7 +416,29 @@ describe("EstStandCell", () => {
       />,
     );
     const button = screen.getByRole("button");
-    expect(button.className).toContain("bg-[#4A4A4A]");
+    expect(button.className).toContain("bg-[#959595]");
+    expect(button.className).toContain("text-black");
+  });
+
+  it("uses subdued vacant-style stand labels for default-blocked stands", () => {
+    render(
+      <EstStandCell
+        stand={{ label: "C10", left: 0, top: 0 }}
+        blocked
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive={false}
+        ctotImproved={false}
+        nowMs={Date.now()}
+        onClick={() => {}}
+      />,
+    );
+
+    const label = screen.getByText("C10");
+    expect(label.className).toContain("font-normal");
+    expect(label.className).toContain("text-[#333333]");
+    expect(label.className).not.toContain("font-bold");
   });
 
   it("shows departure style for not-cleared strip", () => {

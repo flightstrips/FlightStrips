@@ -34,11 +34,13 @@ type Client struct {
 	receivedMessages []ReceivedMessage
 	mu               sync.Mutex
 	writes           sync.Mutex
+	joins            sync.Mutex
 	instance         string
 	transportScope   *euroscopeEvents.MembershipContext
 	membershipScope  *euroscopeEvents.MembershipContext
 	membershipReady  bool
 	lastControl      *euroscopeEvents.ControlEvent
+	pendingControl   *euroscopeEvents.ControlEvent
 	scopeChanged     chan struct{}
 }
 
@@ -148,12 +150,19 @@ func (c *Client) SendEvent(event recorder.RecordedEvent) error {
 		defer cancel()
 		return c.JoinMembership(ctx, login)
 	}
+	// A recorded SDK result is an observed state change in this replay, not a
+	// completion of a command issued by the current server. Keep normal current
+	// membership/master validation instead of forwarding historical authority.
+	envelope.CommandOrigin = euroscopeEvents.CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED
+	envelope.ExecutionId = ""
 	return c.sendEnvelope(&envelope)
 }
 
 // JoinMembership supplies physical evidence and waits for the server's scoped
 // role before replaying a snapshot. It uses no client-selected session IDs.
 func (c *Client) JoinMembership(ctx context.Context, login *euroscopeEvents.LoginEvent) error {
+	c.joins.Lock()
+	defer c.joins.Unlock()
 	environment := strings.ToUpper(strings.TrimSpace(login.Connection))
 	if environment == "" {
 		environment = "LIVE"
@@ -163,7 +172,17 @@ func (c *Client) JoinMembership(ctx context.Context, login *euroscopeEvents.Logi
 	}
 	control := &euroscopeEvents.ControlEvent{Environment: environment, Callsign: login.Callsign, PrimaryFrequency: login.Position, Observer: login.Observer, LocalIp: login.LocalIp, RelevantAirport: login.Airport, Range: login.Range}
 	c.mu.Lock()
-	if !proto.Equal(c.lastControl, control) {
+	previous := c.lastControl
+	// Range and local-IP updates preserve readiness. A frequency update can
+	// elect a different master without replacing the membership; wait for the
+	// server's applied-control echo even when no new role is announced.
+	if c.pendingControl != nil || (previous != nil && previous.PrimaryFrequency != control.PrimaryFrequency) {
+		c.pendingControl = proto.Clone(control).(*euroscopeEvents.ControlEvent)
+	}
+	if previous == nil || previous.Environment != control.Environment ||
+		previous.Callsign != control.Callsign || previous.Observer != control.Observer ||
+		previous.RelevantAirport != control.RelevantAirport ||
+		strings.TrimSpace(control.PrimaryFrequency) == "" || control.PrimaryFrequency == "199.998" {
 		c.membershipScope = nil
 		c.membershipReady = false
 	}
@@ -176,7 +195,7 @@ func (c *Client) JoinMembership(ctx context.Context, login *euroscopeEvents.Logi
 	defer timer.Stop()
 	for {
 		c.mu.Lock()
-		ready := c.membershipReady && c.membershipScope != nil && c.membershipScope.Airport == login.Airport && c.membershipScope.Environment == environment
+		ready := c.pendingControl == nil && c.membershipReady && c.membershipScope != nil && c.membershipScope.Airport == login.Airport && c.membershipScope.Environment == environment
 		c.mu.Unlock()
 		if ready {
 			return nil
@@ -215,6 +234,9 @@ func (c *Client) sendEnvelope(envelope *euroscopeEvents.Envelope) error {
 		scope := c.membershipScope
 		if envelope.GetControl() != nil {
 			scope = c.transportScope
+		} else if c.pendingControl != nil {
+			c.mu.Unlock()
+			return fmt.Errorf("control update has not been acknowledged")
 		}
 		if scope == nil {
 			c.mu.Unlock()
@@ -312,6 +334,10 @@ func (c *Client) ReadMessages(ctx context.Context, handler func(messageType int,
 						c.membershipScope = proto.Clone(envelope.Context).(*euroscopeEvents.MembershipContext)
 						if envelope.GetSessionInfo() != nil {
 							c.membershipReady = true
+						}
+						if c.pendingControl != nil && proto.Equal(envelope.GetControl(), c.pendingControl) &&
+							envelope.Context.Airport == c.pendingControl.RelevantAirport && envelope.Context.Environment == c.pendingControl.Environment {
+							c.pendingControl = nil
 						}
 					}
 					select {

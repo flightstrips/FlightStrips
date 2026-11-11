@@ -610,6 +610,10 @@ func (s FixSet) Validate() error {
 }
 
 type RouteQuery struct {
+	// Callsign and TerminalEntry are acquisition context for flight-based sources.
+	// They do not change the filed-route semantic key used by existing caches.
+	Callsign         aman.Callsign `json:",omitempty"`
+	TerminalEntry    *FixID        `json:",omitempty"`
 	Version          DatasetVersion
 	Origin           AirportID
 	Destination      AirportID
@@ -620,6 +624,12 @@ type RouteQuery struct {
 }
 
 func (q RouteQuery) Validate() error {
+	if q.Callsign != "" && !validIdentifier(string(q.Callsign)) {
+		return invalid("route query callsign is invalid")
+	}
+	if q.TerminalEntry != nil && !validIdentifier(string(*q.TerminalEntry)) {
+		return invalid("route query terminal entry is invalid")
+	}
 	if err := q.Version.Validate(); err != nil {
 		return err
 	}

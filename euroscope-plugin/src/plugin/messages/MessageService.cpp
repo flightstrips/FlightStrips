@@ -187,7 +187,9 @@ namespace FlightStrips::messages {
             m_flightPlanService->ReplayPendingHoldCommands();
             return;
         }
-        // Collect EuroScope sources once; SendEvent builds each membership inventory.
+        // Collect physical sources independently of the admitted airport set so
+        // later memberships in this batch can safely reuse the same snapshot.
+        // SendEvent builds and filters each membership inventory.
         std::vector<Controller> controllers;
         std::vector<Strip> strips;
 
@@ -199,7 +201,6 @@ namespace FlightStrips::messages {
 
         const auto relevantAirport = m_webSocketService->CurrentAirport();
         for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
-            if (!m_plugin->IsRelevant(it)) continue;;
             if (it.GetSimulated()) continue;;
             const auto flightPlanData = it.GetFlightPlanData();
             m_webSocketService->RememberRunways(it.GetCallsign(),flightPlanData.GetDepartureRwy(),flightPlanData.GetArrivalRwy());
@@ -207,19 +208,16 @@ namespace FlightStrips::messages {
             const auto callsign = std::string(it.GetCallsign());
             const auto remarks = std::string(flightPlanData.GetRemarks());
             const auto radarTarget = m_plugin->RadarTargetSelect(callsign.c_str());
+            // Airport filtering happens during fan-out, but a flight plan alone
+            // must not introduce a strip with fabricated surveillance data.
+            if (!radarTarget.IsValid()) continue;
             const auto radarPosition = radarTarget.GetPosition();
-            const auto hasRadarPosition = radarPosition.IsValid();
-            double latitude = 0.0;
-            double longitude = 0.0;
-            int altitude = 0;
-            std::string squawk;
-            if (hasRadarPosition) {
-                const auto position = radarPosition.GetPosition();
-                latitude = position.m_Latitude;
-                longitude = position.m_Longitude;
-                altitude = radarPosition.GetPressureAltitude();
-                squawk = std::string(radarPosition.GetSquawk());
-            }
+            if (!radarPosition.IsValid()) continue;
+            const auto position = radarPosition.GetPosition();
+            const auto latitude = position.m_Latitude;
+            const auto longitude = position.m_Longitude;
+            const auto altitude = radarPosition.GetPressureAltitude();
+            const auto squawk = std::string(radarPosition.GetSquawk());
             const auto isArrival = strcmp(it.GetFlightPlanData().GetDestination(), relevantAirport.c_str()) == 0;
             const auto runway = std::string(isArrival
                                                 ? it.GetFlightPlanData().GetArrivalRwy()
@@ -238,7 +236,7 @@ namespace FlightStrips::messages {
                 stand = info->stand;
             }
 
-            if (stand.empty() && hasRadarPosition && altitude < 1000) {
+            if (stand.empty() && altitude < 1000) {
                 if (const auto standPtr = m_standService->GetStandFromFlightPlan(it, radarTarget); standPtr != nullptr) {
                     stand = standPtr->GetName();
                     m_flightPlanService->SetStand(callsign, stand);
@@ -688,12 +686,8 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
 
         auto controllerData = flightPlan.GetControllerAssignedData();
         const auto annotation = controllerData.GetFlightStripAnnotation(flightplan::TOPSKY_HOLD_ANNOTATION);
-        const auto cached = m_flightPlanService->GetFlightPlan(event.callsign);
-        const auto observed = cached == nullptr ? flightplan::TopSkyHold{} : flightplan::TopSkyHold{
-            !cached->hold.empty(), cached->hold_type == "tsa", cached->hold};
-        const auto current = flightplan::ResolveTopSkyHoldForEat(
-            flightplan::ParseTopSkyHoldAnnotation(annotation == nullptr ? "" : annotation), observed,
-            cached != nullptr && cached->hold_command_observed);
+        const auto current = m_flightPlanService->ResolveHoldForEat(
+            event.callsign, flightplan::ParseTopSkyHoldAnnotation(annotation == nullptr ? "" : annotation));
         const auto command = flightplan::BuildTopSkyHoldEatCommand(
             current, event.hold, event.hold_type, event.hold_eat);
         if (command.empty()) return;

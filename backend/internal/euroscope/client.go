@@ -24,6 +24,9 @@ import (
 )
 
 type Client struct {
+	aircraftSelectionMu sync.Mutex
+	aircraftSelection   *aircraftSelectionState
+
 	announced         atomic.Bool
 	roleEligible      atomic.Bool
 	executionMu       sync.Mutex
@@ -258,7 +261,7 @@ func (c *Client) CanHandleMessage(messageType string) error {
 		}
 		return shared.RejectAction("operational message requires an airport membership")
 	}
-	if !c.identitySnapshot().observer || messageType == "token" || messageType == "login" || messageType == "runway" {
+	if !c.identitySnapshot().observer || messageType == "token" || messageType == "login" || messageType == "runway" || messageType == "aircraft_selection" {
 		return nil
 	}
 

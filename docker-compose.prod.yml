@@ -55,6 +55,7 @@ services:
       EFB_TRAINING: "false"
       # Navigation data is independently available to the EFB and AMAN.
       NAVIGATION_SOURCE: ${NAVIGATION_SOURCE:-}
+      VIFF_API_BASE_URL: ${VIFF_API_BASE_URL:-}
       # Local-only Go heap and goroutine profiling. It listens on 127.0.0.1:6060
       # inside the backend container and is disabled unless explicitly enabled.
       ENABLE_PPROF: ${ENABLE_PPROF:-false}
@@ -85,6 +86,8 @@ services:
       OIDC_AUDIENCE: ${OIDC_AUDIENCE}
       OIDC_CONNECTION: ${OIDC_CONNECTION}
       CHARTFOX_CLIENT_ID: ${CHARTFOX_CLIENT_ID:-019f940d-89a4-718c-862c-293f08fa3a76}
+      POSTHOG_KEY: ${POSTHOG_KEY:-}
+      POSTHOG_HOST: ${POSTHOG_HOST:-https://eu.i.posthog.com}
     depends_on:
       - backend
     networks:

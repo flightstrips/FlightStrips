@@ -65,6 +65,7 @@ func ApplyMove(input Input, command MoveFlightCommand) (Decision, error) {
 		index := flightIndex(working.Flights, id)
 		value := position + 1
 		working.Flights[index].ManualOrder = &value
+		working.Flights[index].ManualPosition = nil
 		// Controller reordering may shift the following Stable and holding
 		// reservations. Explicit freezes remain barriers to the move.
 		if position >= firstAffected && working.Flights[index].FreezeReason == aman.FreezeNone {
@@ -89,6 +90,7 @@ func ApplyMove(input Input, command MoveFlightCommand) (Decision, error) {
 	for index := range working.Flights {
 		working.Flights[index].ProtectCurrentSlot = input.Flights[index].ProtectCurrentSlot
 	}
+	retainManualPositions(&working, input, wantOrder, command.Callsign)
 	return Decision{Input: working, Candidate: candidate, Changed: !inputsEqualOrder(input, working) || len(candidate.Movements) > 0}, nil
 }
 
@@ -224,6 +226,7 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 	if target.CurrentSlot == nil {
 		return Decision{}, invalidTransition("go-around sequence policy requires a current slot")
 	}
+	ForgetManualPosition(&working, target.Callsign)
 	policies, prepared, err := prepareInput(working)
 	if err != nil {
 		return Decision{}, err
@@ -438,6 +441,10 @@ func cloneInput(input Input) Input {
 		copy.Flights[index].ReleaseRank = cloneInt(flight.ReleaseRank)
 		copy.Flights[index].HoldingStartedAt = cloneTime(flight.HoldingStartedAt)
 		copy.Flights[index].ManualOrder = cloneInt(flight.ManualOrder)
+		if flight.ManualPosition != nil {
+			position := *flight.ManualPosition
+			copy.Flights[index].ManualPosition = &position
+		}
 		copy.Flights[index].FrozenAt = cloneTime(flight.FrozenAt)
 		copy.Flights[index].FrozenOperationalTETA = cloneTime(flight.FrozenOperationalTETA)
 		copy.Flights[index].CapturedSlot = cloneSlot(flight.CapturedSlot)
@@ -519,6 +526,14 @@ func inputsEqualOrder(a, b Input) bool {
 		return false
 	}
 	for index := range a.Flights {
+		leftPosition, rightPosition := a.Flights[index].ManualPosition, b.Flights[index].ManualPosition
+		if leftPosition == nil || rightPosition == nil {
+			if leftPosition != nil || rightPosition != nil {
+				return false
+			}
+		} else if *leftPosition != *rightPosition {
+			return false
+		}
 		left, right := a.Flights[index].ManualOrder, b.Flights[index].ManualOrder
 		if left == nil || right == nil {
 			if left != nil || right != nil {

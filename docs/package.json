@@ -10,12 +10,12 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.42.8",
-    "astro": "^7.4.5",
+    "@astrojs/starlight": "^0.42.10",
+    "astro": "^7.4.7",
     "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.4",
+    "@tailwindcss/postcss": "^4.3.5",
     "autoprefixer": "^10.6.2",
     "postcss": "^8.5.32",
     "tailwindcss": "^4.3.3"

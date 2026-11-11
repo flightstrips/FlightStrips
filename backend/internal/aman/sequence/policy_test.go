@@ -3,6 +3,7 @@ package sequence_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -109,7 +110,8 @@ func TestManualMoveAnchorsAndCommandValidation(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, []aman.Callsign{"C", "A", "B"}, entryIDs(decision.Candidate))
-	require.Equal(t, 1, *policyFlight(t, decision.Input, "C").ManualOrder)
+	require.Nil(t, policyFlight(t, decision.Input, "C").ManualOrder)
+	require.Equal(t, &aman.ManualSequencePosition{BeforeCallsign: "A"}, policyFlight(t, decision.Input, "C").ManualPosition)
 
 	_, err = sequence.ApplyMove(input, sequence.MoveFlightCommand{
 		Metadata: aman.CommandMetadata{CommandID: "stale", ExpectedRevision: 10}, Callsign: "C", RunwayGroupID: "A", BeforeCallsign: &before,
@@ -221,6 +223,66 @@ func TestRateChangeMovesStableAndHoldingTargetsAndPreservesCommittedOrder(t *tes
 	reordered, err := sequence.ApplyRate(input, command)
 	require.NoError(t, err)
 	require.Equal(t, decision.Candidate, reordered.Candidate, "input order must not reorder committed reservations")
+}
+
+func TestRateChangeRejectsCyclicHoldingPrecedence(t *testing.T) {
+	start := testTime()
+	policy := continuousCPHPolicy(start)
+	policy.AllowCrossFeederOvertake = true
+	first := flight("RANK1", "A", start.Add(40*time.Minute), "M")
+	second := flight("RANK2", "A", start.Add(43*time.Minute), "M")
+	unranked := flight("UNRANKED", "A", start.Add(30*time.Minute), "M")
+	flights := []sequence.Flight{first, second, unranked}
+	for index, age := range []time.Duration{10 * time.Minute, 20 * time.Minute, 15 * time.Minute} {
+		entered := start.Add(-age)
+		value := &flights[index]
+		value.State = aman.StateStable
+		value.HoldingQueueID, value.STARFamily = "HOLD-A", "MONAK"
+		value.HoldingQueueTime, value.ActiveHoldingSince, value.ArrivalQueueTime = &entered, &entered, &entered
+		if index < 2 {
+			rank := index + 1
+			value.ReleaseRank = &rank
+			value.ProtectCurrentSlot = true
+			value.CurrentSlot = slot(value.OperationalTETA, "A", rank)
+		} else {
+			value.HoldingQueueID, value.STARFamily = "HOLD-B", "TESPI"
+		}
+	}
+	// RANK1 -> RANK2 by release rank; RANK2 -> UNRANKED -> RANK1
+	// by holding age. The new hold has no committed slot to break that cycle.
+	command := sequence.SetRateCommand{
+		Metadata:      aman.CommandMetadata{CommandID: "cyclic-holding-rate", ExpectedRevision: 7},
+		RunwayGroupID: "A", ArrivalsPerHour: 30, EffectiveAt: start,
+	}
+	var conflict string
+	for _, order := range [][3]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}} {
+		t.Run(fmt.Sprint(order), func(t *testing.T) {
+			input := sequence.Input{Revision: 7, Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{
+				flights[order[0]], flights[order[1]], flights[order[2]],
+				flight("UNRELATED", "A", start, "M"),
+			}}
+			baseline, err := sequence.Generate(input)
+			require.NoError(t, err, "protected holds can still be sequenced before the rate override")
+			require.False(t, baseline.HasConflicts())
+			before, err := json.Marshal(input)
+			require.NoError(t, err)
+			decision, err := sequence.ApplyRate(input, command)
+			requireDomainClass(t, err, aman.ErrorInvalidTransition)
+			require.ErrorContains(t, err, "holding precedence cycle")
+			for _, callsign := range []string{"RANK1", "RANK2", "UNRANKED"} {
+				require.Contains(t, err.Error(), callsign)
+			}
+			require.NotContains(t, err.Error(), "UNRELATED", "acyclic flights should be allocated before detecting the blocked remainder")
+			if conflict == "" {
+				conflict = err.Error()
+			}
+			require.Equal(t, conflict, err.Error(), "conflict diagnostics must not depend on input order")
+			require.Empty(t, decision.Candidate.Entries, "a conflict must not publish a partial sequence")
+			after, err := json.Marshal(input)
+			require.NoError(t, err)
+			require.JSONEq(t, string(before), string(after), "a rejected rate change must preserve all input slots, protection and rates")
+		})
+	}
 }
 
 func TestFutureRateChangeRetainsEarlierTargetsFrozenTimesAndOtherRunway(t *testing.T) {

@@ -334,6 +334,16 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 				proposalInput.Ctot = ""
 				proposalInput.HasManCtot = false
 				proposalInput.ManCtot = ""
+				// Assigned TSAT may include a received CTOT, so it cannot be
+				// the floor for the independent vIFF proposal. A still-active
+				// assignment permits a fresh proposal from now when TOBT is old;
+				// the recorded TOBT and effective assignment remain unchanged.
+				proposalInput.AssignedTsat = ""
+				if _, valid := parseClock(calcInput.AssignedTsat); valid && !hasStarted(calcInput) &&
+					!isMoreThanMinutesPast(calcInput.AssignedTsat, nowHHMMSS, 5) &&
+					shouldInvalidateStaleTobt(proposalInput, nowHHMMSS) {
+					proposalInput.Tobt = nowHHMMSS
+				}
 			}
 			proposal := Calculate(proposalInput, slots, config, now)
 			updated.ViffProposalTsat = stringPointerIfPresent(proposal.Tsat)
@@ -507,6 +517,7 @@ func buildCalcInput(strip *models.Strip, config *CdmAirportConfig) CalcInput {
 		WakeCat:           valueOrEmpty(strip.AircraftCategory),
 		Eobt:              normalizeCalculationClock(valueOrEmpty(data.EffectiveEobt())),
 		Tobt:              normalizeCalculationClock(valueOrEmpty(data.EffectiveTobt())),
+		AssignedTsat:      normalizeCalculationClock(valueOrEmpty(data.EffectiveTsat())),
 		TobtAuthoritative: data.TobtManuallyConfirmed,
 		Ctot:              valueOrEmpty(data.EffectiveCtot()),
 		Aobt:              normalizeCalculationClock(valueOrEmpty(data.EffectiveAobt())),
@@ -772,6 +783,14 @@ func hasPreservedSlotConflict(candidate SlotEntry, slots []SlotEntry, config *Cd
 
 func preservedSlotBlocksHigherPriorityCandidate(candidate sequencingCandidate, recalculate []sequencingCandidate, config *CdmAirportConfig, now time.Time) bool {
 	if candidate.started {
+		return false
+	}
+	// A TOBT update inside the five-minute TSAT window freezes the assignment.
+	// Do not undo that protection indirectly by promoting another departure
+	// ahead of its reserved slot. Explicit recalculation of this flight is
+	// handled separately before it enters the preserved candidates.
+	delta, valid := tobtTsatWindow(candidate.input.Tobt, valueOrEmpty(candidate.strip.EffectiveTsat()))
+	if valid && delta >= -5 && delta <= 5 {
 		return false
 	}
 

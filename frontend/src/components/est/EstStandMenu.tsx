@@ -24,6 +24,7 @@ interface EstStandMenuProps {
   open: boolean;
   anchor: EstMenuAnchor | null;
   strip: FrontendStrip;
+  departureTransferred: boolean;
   onClose: () => void;
   onStartTransfer: () => void;
   startTransferDisabled: boolean;
@@ -42,6 +43,7 @@ export default function EstStandMenu({
   open,
   anchor,
   strip,
+  departureTransferred,
   onClose,
   onStartTransfer,
   startTransferDisabled,
@@ -110,19 +112,19 @@ export default function EstStandMenu({
               {strip.stand}
             </div>
             <div className="flex h-[18px] items-center justify-center bg-[#D3D3D3] px-2 text-sm leading-none" style={EST_SUNKEN_EDGE}>{strip.callsign}</div>
-            <div className="grid grid-cols-2 gap-1 text-xs font-semibold">
+            {!departureTransferred && <div className="grid grid-cols-2 gap-1 text-xs font-semibold">
               <div className={CLS_CDM_TAG} style={{ backgroundColor: tobtBg || "#D3D3D3", color: cdmTextColor(tobtBg), ...EST_SUNKEN_EDGE }}>
                 <span>TOBT </span>
                 <span>{strip.tobt}</span>
               </div>
               <div className={CLS_CDM_TAG} style={{ backgroundColor: tsatBg || "#D3D3D3", color: cdmTextColor(tsatBg), ...EST_SUNKEN_EDGE }}>TSAT {strip.tsat}</div>
-            </div>
-            <div
+            </div>}
+            {!departureTransferred && <div
               className="flex h-[18px] items-center justify-center px-2 text-sm leading-none"
               style={{ backgroundColor: strip.start_req ? readyBg : "#D3D3D3", color: strip.start_req ? cdmTextColor(readyBg) : "black", ...EST_SUNKEN_EDGE }}
             >
               {strip.start_req ? "READY" : "\u00A0"}
-            </div>
+            </div>}
           </div>
 
           <div className="flex flex-col gap-2" style={{ marginTop: SPACER + 8 }}>

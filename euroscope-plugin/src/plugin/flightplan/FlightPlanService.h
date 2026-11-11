@@ -54,6 +54,7 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
 
     FlightPlan* GetFlightPlan(const std::string &callsign);
     FlightPlan* GetSourceFlightPlan(const std::string& callsign);
+    [[nodiscard]] TopSkyHold ResolveHoldForEat(const std::string& callsign, const TopSkyHold& annotation) const;
 
     void SetStand(const std::string& callsign, const std::string& stand);
     void ApplyCdmUpdate(const CdmUpdateEvent& event);

@@ -164,7 +164,7 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		for _, entry := range entries {
 			allocated = append(allocated, allocatedEntry{flight: entry.flight, time: entry.slot.Time, reason: CandidateReason(entry.slot.Reason)})
 		}
-		for _, entry := range fillSTARSpacingGaps(policy, allocated, at) {
+		for _, entry := range fillSequenceGaps(policy, allocated, at) {
 			previous := entries[queueEntryIndex(entries, entry.flight.Callsign)]
 			if !entry.time.Before(previous.slot.Time) {
 				continue
@@ -372,6 +372,11 @@ func stablePromotionEligible(flight preparedFlight) bool {
 
 func promotionLowerBound(policy preparedPolicy, flight preparedFlight, at time.Time) time.Time {
 	lower := flight.OperationalTETA.Add(-policy.EarlyTolerance)
+	if flight.HoldingPriorityExchange && flight.ActiveHoldingSince != nil && flight.PromotionNotBefore != nil {
+		// A delayed operational estimate is not a physical release bound for
+		// confirmed holding. Use the current journey when filling a vacancy.
+		lower = *flight.PromotionNotBefore
+	}
 	if !lower.After(at) {
 		lower = at.Add(time.Nanosecond)
 	}

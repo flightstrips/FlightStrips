@@ -10,6 +10,35 @@
 using namespace FlightStrips::websocket;
 using ::testing::HasSubstr;
 
+TEST(WebSocketTest, ConnectsWhenOpeningHandshakeTakesMoreThanOneSecond) {
+    websocketpp::server<websocketpp::config::asio> server;
+    server.clear_access_channels(websocketpp::log::alevel::all);
+    server.clear_error_channels(websocketpp::log::elevel::all);
+    server.init_asio();
+    server.set_validate_handler([](websocketpp::connection_hdl) {
+        // Simulate a slow proxy or server before the HTTP upgrade response.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        return true;
+    });
+    server.listen(asio::ip::tcp::endpoint(asio::ip::address_v4::loopback(), 0));
+    asio::error_code error;
+    const auto port = server.get_local_endpoint(error).port();
+    ASSERT_FALSE(error);
+    server.start_accept();
+    std::thread worker([&] { server.run(); });
+    std::promise<void> connected;
+    auto opened = connected.get_future();
+    auto socket = std::make_unique<WebSocket>(
+        "ws://127.0.0.1:" + std::to_string(port) + "/ws",
+        [](const std::string&) {}, [&] { connected.set_value(); });
+    socket->Connect();
+    const auto result = opened.wait_for(std::chrono::seconds(5));
+    socket.reset();
+    server.stop();
+    worker.join();
+    EXPECT_EQ(result, std::future_status::ready);
+}
+
 TEST(WebSocketTest, BinaryDefaultAndExplicitTextFramesRoundTripOnLoopback) {
     for (const bool text : {false, true}) {
         websocketpp::server<websocketpp::config::asio> server;

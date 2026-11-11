@@ -67,6 +67,7 @@ enum EventType {
   EVENT_MASTER_INFO = 56;
   EVENT_CONTROL = 57;
   EVENT_MEMBERSHIP_REMOVED = 58;
+  EVENT_AIRCRAFT_SELECTION = 59;
 }
 
 // Every websocket frame contains exactly one event. Using a oneof makes the
@@ -144,6 +145,7 @@ message Envelope {
     MasterInfoEvent master_info = 56;
     ControlEvent control = 57;
     MembershipRemovedEvent membership_removed = 58;
+    AircraftSelectionEvent aircraft_selection = 59;
   }
 }
 
@@ -439,6 +441,8 @@ message AMANGainLossValue {
   optional string feeder_fix_eta_source = 12;
   optional bool feeder_fix_passed = 13;
   optional bool inside_tma = 14;
+  // AMAN's calculated holding release, independent of EAT writeback.
+  optional int64 holding_eat_unix_seconds = 15;
 }
 
 message AMANGainLossEvent {
@@ -496,3 +500,6 @@ message FrequencyMessageResultEvent {
 message MasterInfoEvent {
   string master_callsign = 1;
 }
+
+// Presentation state of the physical instance; empty callsign clears selection.
+message AircraftSelectionEvent { string callsign = 1; }

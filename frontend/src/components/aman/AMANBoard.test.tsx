@@ -1,4 +1,4 @@
-import {readFileSync} from "node:fs";
+﻿import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {fireEvent, render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
@@ -70,6 +70,20 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.queryByText("SAS123")).not.toBeInTheDocument();
   });
 
+  it("measures the timeline when its first state arrives after mounting", () => {
+    const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.querySelector("#aman-timeline-grid") === null ? 0 : 600;
+    });
+    const {rerender} = render(
+      <AMANBoardView connectionState="connected" error={null} onSelectFlight={() => undefined} presentationStatus="empty" selectedCallsign={null} state={null} />,
+    );
+
+    rerender(<AMANBoardView connectionState="connected" error={null} onSelectFlight={() => undefined} presentationStatus="ready" selectedCallsign={null} state={state()} />);
+
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "600px"});
+    clientHeight.mockRestore();
+  });
+
   it("renders the timeline when a flight prediction becomes unreliable", () => {
     const data = state();
     data.warnings = [{
@@ -93,7 +107,7 @@ describe("complete AMAN timeline and strips", () => {
     const marker = screen.getByRole("button", {name: /Select SAS123; Stable; current delay G02/});
 
     expect(screen.getByText("EKCH")).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: "ARRIVAL-22"})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "22"})).toBeInTheDocument();
     expect(marker).toHaveTextContent("SAS123");
     expect(marker).toHaveTextContent("G02");
     expect(marker).not.toHaveTextContent("Prediction");
@@ -304,13 +318,11 @@ describe("complete AMAN timeline and strips", () => {
     expect(target).not.toHaveTextContent("—");
   });
 
-  it("opens the selected flight's on-demand route detail without changing the board state", () => {
-    const onOpenFlightDetails = vi.fn();
-    renderBoard(state(), {selectedCallsign: "SAS123", onOpenFlightDetails});
+  it("omits the FMP and DETAIL accessory buttons from the toolbar", () => {
+    renderBoard(state(), {selectedCallsign: "SAS123", onOpenControls: vi.fn(), onOpenFlightDetails: vi.fn()});
 
-    fireEvent.click(screen.getByRole("button", {name: "DETAIL"}));
-
-    expect(onOpenFlightDetails).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", {name: "FMP"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "DETAIL"})).not.toBeInTheDocument();
   });
 
   it("stacks near-simultaneous flight strips in their assigned ruler column", () => {
@@ -345,7 +357,7 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();
     expect(screen.getByRole("button", {name: /Select SKY404/})).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", {name: "ARRIVAL-22"}));
+    fireEvent.click(screen.getByRole("button", {name: "22"}));
     fireEvent.click(screen.getByRole("checkbox", {name: /ARRIVAL-04/}));
     fireEvent.click(screen.getByRole("button", {name: "Cancel"}));
     expect(screen.getByRole("button", {name: /Select SKY404/})).toBeInTheDocument();
@@ -358,24 +370,32 @@ describe("complete AMAN timeline and strips", () => {
     configured.active_runway_groups = ["ARRIVAL-22"];
 
     renderBoard(configured);
-    fireEvent.click(screen.getByRole("button", {name: "ARRIVAL-22"}));
+    fireEvent.click(screen.getByRole("button", {name: "22"}));
 
-    expect(screen.getByText("22")).toHaveClass("text-[#f3d02e]");
+    expect(screen.getByText("22", {selector: "span"})).toHaveClass("text-[#f3d02e]");
     expect(screen.getByText("04")).not.toHaveClass("text-[#f3d02e]");
   });
 
   it("switches to active runway timelines with the local horizon scale", () => {
     renderBoard(state());
 
-    expect(screen.getByText("10:00–11:30 UTC · 90 min")).toBeInTheDocument();
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "2880px"});
+    expect(screen.queryByText("10:00–11:30 UTC · 90 min")).not.toBeInTheDocument();
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "960px"});
     expect(screen.getByTestId("aman-timeline-footer")).toHaveClass("absolute", "bottom-0");
     const scrollRail = screen.getByRole("scrollbar", {name: "Timeline scroll position"});
     expect(scrollRail).toHaveAttribute("tabindex", "0");
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "35");
+    fireEvent.keyDown(scrollRail, {key: "ArrowDown"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "35");
+    fireEvent.keyDown(scrollRail, {key: "ArrowUp"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "36");
     fireEvent.keyDown(scrollRail, {key: "Home"});
-    expect(scrollRail).toHaveAttribute("aria-valuenow", "0");
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "90");
     fireEvent.keyDown(scrollRail, {key: "End"});
-    expect(scrollRail).toHaveAttribute("aria-valuenow", "2880");
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "35");
+    fireEvent.keyDown(scrollRail, {key: "Home"});
+    fireEvent.keyDown(scrollRail, {key: "End"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "35");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("rwy-lane-ARRIVAL-22")).toBeInTheDocument();
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
@@ -407,6 +427,46 @@ describe("complete AMAN timeline and strips", () => {
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("operational-marker-SAS123")).toHaveTextContent("TESPI");
     expect(screen.getByTestId("operational-marker-SAS123")).not.toHaveTextContent("LEGACY-STAR");
+  });
+
+  it("dims aircraft outside the locally selected STAR in FMP and RWY views", () => {
+    const configured = state();
+    configured.timeline_configuration = {version: "mapping-v1", mappings: [{id: 1, left: "TESPI", right: "TUDLO"}]};
+    configured.flights[0].star_family = "TESPI";
+    configured.flights.push({
+      ...structuredClone(configured.flights[0]),
+      callsign: "TUDLO2",
+      feeder: "TUDLO",
+      star: "TUDLO",
+      star_family: "TUDLO",
+      order: 2,
+      slot: {...configured.flights[0].slot!, sequence: 2, time: "2026-07-22T10:20:00.000Z"},
+    });
+
+    renderBoard(configured);
+    fireEvent.click(screen.getByRole("button", {name: "MAESTRO"}));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", {name: "TUDLO"}));
+    fireEvent.keyDown(screen.getByRole("menu", {name: "MAESTRO"}), {key: "Escape"});
+
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveAttribute("data-dimmed", "true");
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveClass("text-[#747474]");
+    expect(screen.getByRole("button", {name: /Select TUDLO2/})).not.toHaveAttribute("data-dimmed");
+
+    fireEvent.click(screen.getByRole("button", {name: "RWY"}));
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveAttribute("data-dimmed", "true");
+    expect(screen.getByRole("button", {name: /Select TUDLO2/})).not.toHaveAttribute("data-dimmed");
+
+    fireEvent.click(screen.getByRole("button", {name: "MAESTRO"}));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", {name: "TESPI"}));
+    fireEvent.keyDown(screen.getByRole("menu", {name: "MAESTRO"}), {key: "Escape"});
+    expect(screen.getByRole("button", {name: /Select SAS123/})).not.toHaveAttribute("data-dimmed");
+    expect(screen.getByRole("button", {name: /Select TUDLO2/})).not.toHaveAttribute("data-dimmed");
+
+    fireEvent.click(screen.getByRole("button", {name: "MAESTRO"}));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", {name: "TUDLO"}));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", {name: "TESPI"}));
+    fireEvent.keyDown(screen.getByRole("menu", {name: "MAESTRO"}), {key: "Escape"});
+    expect(screen.getByRole("button", {name: /Select SAS123/})).not.toHaveAttribute("data-dimmed");
   });
 
   it("emphasizes one ACC family without filtering traffic and exposes a local ALL override", () => {

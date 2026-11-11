@@ -821,6 +821,7 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 			next.Flights[i].Slot = nil
 			next.Flights[i].Order = nil
 			next.Flights[i].ManualOrder = nil
+			next.Flights[i].ManualPosition = nil
 		}
 		if next.Flights[i].Slot != nil {
 			next.Flights[i].Slot.Revision = next.Revision
@@ -937,7 +938,10 @@ func (s *Service) sessionObservations(ctx context.Context, airport string) map[a
 			result[id] = combineSourceObservations(map[aman.ObservationProvider]aman.FlightObservation{
 				aman.ObservationProviderVATSIM: observation, observationOwner(local): local,
 			})
-		} else if !found {
+		} else {
+			// A session-local withdrawal only removes EuroScope as a source.
+			// Current network presence must still keep a LIVE arrival visible.
+			// Reconciliation reapplies the retained controller flight-plan facts.
 			result[id] = observation
 		}
 	}
@@ -1284,6 +1288,12 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	applyResolvedTerminalIdentity(&flight, terminalPath)
 	query := navdata.RouteQuery{Version: version, Origin: navdata.AirportID(observation.Origin), Destination: navdata.AirportID(observation.Destination), FiledRoute: *observation.FiledRoute, RunwayGroup: &group}
+	query.Callsign = observation.Callsign
+	query.TerminalEntry = filedTerminalEntry(*observation.FiledRoute, terminalPath)
+	var sourceRefresh time.Duration
+	if source, ok := s.deps.Materializer.(interface{ RouteRefreshInterval() time.Duration }); ok && flight.FreezeReason != aman.FreezeTMA {
+		sourceRefresh = source.RouteRefreshInterval()
+	}
 	revision := revisionValue(observation.FlightPlan.Revision)
 	projectionRevision := routeProjectionRevision(flight, revision)
 	datasetID := navigationDatasetID(version)
@@ -1293,6 +1303,9 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	var key navdata.RouteKey
 	reusable := canReuseActiveRoute(flight, projectionRevision, group, datasetID) || flight.ActiveRouteKey != nil && flight.ActiveRouteQueryKey == string(semanticKey) && flight.ActiveRouteDatasetID != nil && *flight.ActiveRouteDatasetID == datasetID
+	if sourceRefresh > 0 && flight.ActiveRouteQueryKey != string(semanticKey) {
+		reusable = false
+	}
 	var cached navdata.RouteGeometry
 	if reusable {
 		key = navdata.RouteKey(*flight.ActiveRouteKey)
@@ -1309,8 +1322,12 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	if key == "" && !due {
 		return flight, fmt.Errorf("route repair retry pending: unusable source geometry")
 	}
-	if key == "" || navdata.HasRouteGaps(cached) && due {
-		retryAt := now.Add(routeRepairRetryEvery)
+	if key == "" || (navdata.HasRouteGaps(cached) || sourceRefresh > 0) && due {
+		retryEvery := routeRepairRetryEvery
+		if sourceRefresh > 0 {
+			retryEvery = sourceRefresh
+		}
+		retryAt := now.Add(retryEvery)
 		flight.RouteRefreshAfter = &retryAt
 		newKey, materializeErr := s.deps.Materializer.MaterializeRoute(ctx, query, routeResolverVersion)
 		if materializeErr != nil {
@@ -1322,7 +1339,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 			activeKey := string(key)
 			flight.ActiveRouteKey, flight.ActiveRouteDatasetID = &activeKey, &datasetID
 			flight.ActiveRouteQueryKey = string(semanticKey)
-			if rebuilt, readErr := s.deps.Geometry.Route(ctx, key); readErr == nil && !navdata.HasRouteGaps(rebuilt) {
+			if rebuilt, readErr := s.deps.Geometry.Route(ctx, key); readErr == nil && !navdata.HasRouteGaps(rebuilt) && sourceRefresh == 0 {
 				flight.RouteRefreshAfter = nil
 			}
 		}
@@ -1874,6 +1891,10 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) sequenceCh
 // need delaying too; keeping them fixed used to leave persistent EAT conflicts.
 // Manual targets, unavailable timing and due admissions remain commitments.
 func enforceHoldingOrder(input *sequence.Input, result sequence.Result, state aman.AirportState, now time.Time, repaired map[aman.Callsign]bool) bool {
+	precedence, err := sequence.ManualPositionPrecedence(*input)
+	if err != nil {
+		return false
+	}
 	entries := make(map[aman.Callsign]sequence.CandidateEntry, len(result.Entries))
 	for _, entry := range result.Entries {
 		entries[entry.Callsign] = entry
@@ -1900,6 +1921,9 @@ func enforceHoldingOrder(input *sequence.Input, result sequence.Result, state am
 			olderSlot, ok := entries[older.Callsign]
 			if !ok || older.HoldingQueueTime == nil || older.HoldingTransit <= 0 ||
 				(!sequence.HoldingPrecedes(older, *later)) {
+				continue
+			}
+			if precedence[older.Callsign][later.Callsign] {
 				continue
 			}
 			// Match the sequence engine's overtake policy: independent holds
@@ -2254,12 +2278,14 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			SelectedSTARFamily: explicitSTARFamily(flight.SelectedSTARFamily),
 			STARProgress:       sequenceSTARProgress(flight),
 			ManualOrder:        flight.ManualOrder,
+			ManualPosition:     flight.ManualPosition,
 			FreezeReason:       flight.FreezeReason, FrozenAt: flight.FrozenAt, FrozenOperationalTETA: flight.FrozenOperationalTETA,
 			CapturedSlot: flight.FrozenSlot, CurrentSlot: flight.Slot,
 			ProtectCurrentSlot: flight.Slot != nil && flight.FreezeReason == aman.FreezeNone &&
 				(flight.State == aman.StateStable || holdingSlotProtected(flight) || retainedTimingUnavailable(flight)),
-			HoldingSlotProtected: holdingSlotProtected(flight),
-			HoldingStackID:       holdingStackID(flight), HoldingAltitudeFeet: holdingStackAltitude(flight),
+			HoldingSlotProtected:    holdingSlotProtected(flight),
+			HoldingPriorityExchange: holdingPriorityExchangeEligible(flight),
+			HoldingStackID:          holdingStackID(flight), HoldingAltitudeFeet: holdingStackAltitude(flight),
 			HoldingQueueID: holdingQueueID(flight), HoldingQueueTime: holdingQueueTime(flight, state.Flights), HoldingTransit: holdingTransit(flight),
 			ActiveHoldingSince: activeHoldingSince(flight), ArrivalQueueTime: arrivalQueueTime(flight), ReleaseRank: holdingReleaseRank(flight),
 		})
@@ -2323,6 +2349,13 @@ func retainedTimingUnavailable(flight aman.AMANFlight) bool {
 func holdingSlotProtected(flight aman.AMANFlight) bool {
 	return !isPreliminaryPrediction(flight.Prediction) && flight.Slot != nil && (holdingStackID(flight) != "" ||
 		flight.HoldingClearance != nil && flight.HoldingClearance.HoldType == aman.HoldingClearanceEnroute && strings.TrimSpace(flight.HoldingClearance.Hold) != "")
+}
+
+func holdingPriorityExchangeEligible(flight aman.AMANFlight) bool {
+	return flight.DataStatus == aman.DataFresh && !retainedTimingUnavailable(flight) && !isPreliminaryPrediction(flight.Prediction) &&
+		flight.Prediction.HoldingFixETA != nil && flight.Prediction.OperationalReason != aman.OperationalReasonManualOverride &&
+		flight.FreezeReason == aman.FreezeNone && flight.ManualOrder == nil && flight.ApproachRelease == nil &&
+		(flight.TMAEntry == nil || flight.TMAEntry.LastContainment != aman.TMAInside || activeHoldingSince(flight) != nil)
 }
 
 func manualETASlotPending(flight aman.AMANFlight) bool {
@@ -3007,6 +3040,7 @@ func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObs
 }
 
 func clearGroundedOperationalState(flight *aman.AMANFlight) {
+	flight.ManualPosition = nil
 	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
 	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	flight.SelectedHolding, flight.HoldingStack = nil, nil
@@ -3088,6 +3122,7 @@ func markPredictionNonPublishable(flight *aman.AMANFlight, reason string) {
 }
 
 func clearSequencingState(flight *aman.AMANFlight) {
+	flight.ManualPosition = nil
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
 	flight.HoldingStack = nil

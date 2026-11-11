@@ -7,6 +7,7 @@ import {createStore} from 'zustand/vanilla';
 import {produce} from 'immer';
 import type {InboundDeparturesSnapshot} from "@/api/inbound-departures";
 import {
+  type AircraftSelection,
   ActionType,
   type ActionRejectedEvent,
   Bay,
@@ -39,6 +40,7 @@ import {
   type FrontendStandEvent,
   type FrontendStandAssignmentEntry,
   type FrontendStandBlockEntry,
+  type FrontendStandArrivalRestrictionEntry,
   type FrontendStandAssignmentUpdateEvent,
   type FrontendStandAssignmentRemovedEvent,
   type FrontendStandBlockUpdateEvent,
@@ -60,6 +62,7 @@ import {
   type SidInfo,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
+import {sameBoard} from '@/api/sessions';
 import { hasOtherRwyArrStrip } from '../lib/rwyArrRunway.ts';
 import {
   createAMANCommand, isAMANCoordinationStateEvent,
@@ -229,6 +232,9 @@ export interface WebSocketState {
 
   availableSids: SidInfo[];
 
+  amanSelectedCallsign: string | null;
+  amanEuroScopeSelectionRevision: number;
+  selectAMANFlight: (callsign: string | null) => void;
   amanSessionID: number | null;
   amanState: AMANState | null;
   amanPresentationStatus: AMANPresentationStatus;
@@ -268,6 +274,7 @@ export interface WebSocketState {
 
   standAssignments: FrontendStandAssignmentEntry[];
   standBlocks: FrontendStandBlockEntry[];
+  standArrivalRestrictions: FrontendStandArrivalRestrictionEntry[];
   satEnabled: boolean;
 
   occupyStand: (stand: string) => void;
@@ -404,6 +411,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     arrAtisCode: "",
     depAtisCode: "",
     availableSids: [],
+    amanSelectedCallsign: null,
+    amanEuroScopeSelectionRevision: 0,
     amanSessionID: null,
     amanState: null,
     amanPresentationStatus: "empty" as AMANPresentationStatus,
@@ -426,6 +435,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     standAssignments: [],
     standActionRejection: null,
     standBlocks: [],
+    standArrivalRestrictions: [],
     satEnabled: false,
   };
 
@@ -435,7 +445,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     for (const key of Object.keys(initialState) as Array<keyof typeof initialState>) {
       if (key in retainedState) Object.assign(initialState, {[key]: retainedState[key]});
     }
-    Object.assign(initialState, {connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+    Object.assign(initialState, {connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, amanSelectedCallsign:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
   }
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => {
@@ -535,6 +545,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
        const transfer = callsign ? state.stripTransfers[callsign] : undefined;
        return { selectedCallsign: transfer && !transfer.isTagRequest ? null : callsign };
      }),
+     selectAMANFlight: (callsign) => set({amanSelectedCallsign: callsign}),
      setAMANConnectionState: (connectionState) => set({
        amanConnectionState: connectionState,
        amanAwaitingSnapshot: true,
@@ -1278,16 +1289,27 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       pending.reject(new Error("Board context changed"));
     }
     pendingForceAssumeRoutes.clear();
-    store.setState({connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+    store.setState({connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, amanSelectedCallsign:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
   };
   registrations.push(() => wsClient.onInvalidated?.(suspendBoard));
 
   // Private methods to handle WebSocket events
+  const applyAircraftSelection = (state: WebSocketState, selection: AircraftSelection | undefined) => {
+    if (!selection || !Number.isSafeInteger(selection.revision) || selection.revision <= state.amanEuroScopeSelectionRevision
+      || !(selection.callsign === null || typeof selection.callsign === "string")) return;
+    state.amanSelectedCallsign = selection.callsign || null;
+    state.amanEuroScopeSelectionRevision = selection.revision;
+  };
   const handleInitialEvent = (data: FrontendInitialEvent) => {
     wsClient.setReadOnly(data.read_only ?? false);
     store.setState(
       produce((state: WebSocketState) => {
         const sessionID = data.session_id ?? null;
+        if (state.amanSessionID !== sessionID || ((state.boardContext || data.board) && !sameBoard(state.boardContext ?? undefined, data.board))) {
+          state.amanSelectedCallsign = null;
+          state.amanEuroScopeSelectionRevision = 0;
+        }
+        applyAircraftSelection(state, data.aircraft_selection);
         if (state.position !== data.me.position) state.textPilotDraft = null;
         if (state.amanSessionID !== sessionID) {
           state.textPilotReadbacks = {};
@@ -1356,6 +1378,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
         state.availableSids = data.available_sids ?? [];
         state.standAssignments = data.stand_assignments ?? [];
         state.standBlocks = data.stand_blocks ?? [];
+        state.standArrivalRestrictions = data.stand_arrival_restrictions ?? [];
         state.satEnabled = data.stand_assignment_enabled ?? false;
         state.standActionRejection = null;
       })
@@ -1774,6 +1797,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   const handleCoordinationAssumeBroadcastEvent = (data: FrontendCoordinationAssumeBroadcastEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
+        const transfer = state.stripTransfers[data.callsign];
+        const strip = state.strips.find((candidate) => candidate.callsign === data.callsign);
+        if (strip && transfer && !transfer.isTagRequest && transfer.to === data.position) {
+          strip.owner = data.position;
+          if (transfer.from && !strip.previous_controllers?.includes(transfer.from)) {
+            strip.previous_controllers = [...(strip.previous_controllers ?? []), transfer.from];
+          }
+        }
         delete state.stripTransfers[data.callsign];
       })
     );
@@ -1940,6 +1971,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
 
   on(EventType.FrontendActionRejected, handleActionRejectedEvent);
 
+  on(EventType.FrontendAircraftSelection, (event) => {
+    store.setState(produce((state: WebSocketState) => applyAircraftSelection(state, event)));
+  });
   on(EventType.FrontendAMANState, (event) => {
     // Revisions belong to the current backend/session. A fresh connection
     // must accept its first complete snapshot even if the revision restarted.

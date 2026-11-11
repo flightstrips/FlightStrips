@@ -170,9 +170,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	eobtClamped := false
 	observedPushback := false
 	initialPushbackTiming := snapshotPushbackTransitionTiming(existingStrip)
-	previousPushbackBay := ""
+	previousBay := ""
 	if existingStrip != nil {
-		previousPushbackBay = existingStrip.Bay
+		previousBay = existingStrip.Bay
 	}
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -290,7 +290,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 		shared.AddDBOperations(ctx, 1)
 		if observedPushback {
-			logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousPushbackBay, initialPushbackTiming, newStrip)
+			logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousBay, initialPushbackTiming, newStrip)
 		}
 		s.cacheStrip(ctx, newStrip)
 		if syncState != nil {
@@ -673,6 +673,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		if primaryChange {
+			previousStrip := *existingStrip
 			persisted := false
 			if appender, ok := s.lifecycleStore.(interface {
 				PersistAtEndOfBay(context.Context, *internalModels.Strip, bool, int32) error
@@ -689,13 +690,18 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			}
 			shared.AddDBOperations(ctx, 1)
 			if observedPushback && persisted {
-				logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousPushbackBay, initialPushbackTiming, updateStrip)
+				logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousBay, initialPushbackTiming, updateStrip)
 			}
 			if syncState != nil {
 				syncState.ChangedStrips++
 				applySyncStripUpdate(existingStrip, updateStrip)
 			}
 			s.cacheStrip(ctx, updateStrip)
+			if persisted {
+				if err := s.handleObservedDepartureTransition(ctx, session, &previousStrip, updateStrip, airport, restartLifecycle); err != nil {
+					return err
+				}
+			}
 		}
 		if bayChanged {
 			if err := s.applyBayChangeEffects(ctx, session, strip.Callsign, existingStrip.Bay, bay, false); err != nil {
@@ -725,6 +731,19 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 
 	if observedPushback && s.cdmService != nil {
 		if err := s.cdmService.SyncAsatForGroundState(ctx, session, strip.Callsign, euroscope.GroundStatePush); err != nil {
+			return err
+		}
+	}
+	if restartLifecycle {
+		if resetter, ok := s.departureObserver.(departureStandReleaseResetter); ok {
+			if err := resetter.ResetDepartureStandRelease(ctx, session, strip.Callsign); err != nil {
+				return err
+			}
+		}
+	}
+	if observedPushback {
+		departure := &internalModels.Strip{Callsign: strip.Callsign, Origin: airport}
+		if err := s.releaseDepartureStandOnPush(ctx, session, departure, euroscope.GroundStatePush, airport); err != nil {
 			return err
 		}
 	}

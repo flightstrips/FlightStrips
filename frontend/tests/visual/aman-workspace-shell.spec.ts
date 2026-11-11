@@ -23,8 +23,8 @@ for (const viewport of VIEWPORTS) {
     expect(tmtBox!.width / tmtBox!.height).toBeGreaterThanOrEqual(3 / 4);
 
     const settings = (await page.locator('header[aria-label="MAESTRO settings"]').boundingBox())!;
-    expect(settings.height / maestroBox!.height).toBeGreaterThanOrEqual(0.125);
-    expect(settings.height / maestroBox!.height).toBeLessThanOrEqual(0.145);
+    expect(settings.height / maestroBox!.height).toBeGreaterThanOrEqual(0.11);
+    expect(settings.height / maestroBox!.height).toBeLessThanOrEqual(0.14);
     await expect(page.getByTestId("timeline-reference")).toHaveCSS("width", "48px");
     await expect(page.getByTestId("target-reference")).toHaveCSS("width", "96px");
   });
@@ -44,8 +44,8 @@ test("gives useful extra width to MAESTRO on a wide viewport", async ({page}) =>
 test("shows keyboard focus and selected state without relying on color", async ({page}) => {
   await page.setViewportSize(VIEWPORTS[0]);
   await page.goto("/visual-tests/aman-workspace-shell-preview.html");
-  const riu = page.getByRole("button", {name: "ARRIVAL-22", exact: true});
-  const rate = page.getByRole("button", {name: "ARRIVAL-22: 30/h"});
+  const riu = page.getByRole("button", {name: "22", exact: true});
+  const rate = page.getByRole("button", {name: /^22L: \d+/});
   const maestro = page.getByRole("button", {name: "MAESTRO", exact: true});
   const all = page.getByRole("button", {name: "ALL"});
 

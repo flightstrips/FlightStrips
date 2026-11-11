@@ -192,6 +192,17 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 		PositionAvailable:  positionAvailable,
 		LocalIP:            localIP,
 	}
+	event.StandArrivalRestrictions = make([]frontendEvents.StandArrivalRestrictionEntry, 0)
+	if b.standCapabilities != nil {
+		for _, stand := range b.standCapabilities.Stands(request.Airport) {
+			if stand.ArrivalRestrictionReason != "" {
+				event.StandArrivalRestrictions = append(event.StandArrivalRestrictions, frontendEvents.StandArrivalRestrictionEntry{
+					Stand:  stand.Name,
+					Reason: stand.ArrivalRestrictionReason,
+				})
+			}
+		}
+	}
 	if b.textPilotInputs != nil {
 		event.TextPilot = b.textPilotInputs(request.Airport)
 	}

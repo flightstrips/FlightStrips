@@ -27,7 +27,7 @@ export default function D2PDCDialog({ isOpen, onClose, onConfirm, onUnable, posi
   return <div className="fixed inset-0 z-[999] flex bg-transparent" onClick={onClose}>
     <div role="dialog" aria-label="PDC clearance" className={`absolute flex h-[40%] w-[30.83%] flex-col bg-[#000109] p-1 text-white shadow-[0_10px_40px_rgba(0,0,0,0.3)] ${positions[position]}`} onClick={(event) => event.stopPropagation()}>
       <div className="sr-only">{content}</div>
-      <div className="flex min-h-0 flex-1 overflow-auto rounded-sm border-2 border-[#484b4c] bg-[#000109] p-1">
+      <div className="efb-scroll flex min-h-0 flex-1 overflow-auto rounded-sm border-2 border-[#484b4c] bg-[#000109] p-1">
         <div className="m-auto whitespace-pre-line text-center text-[clamp(12px,2vh,24px)] leading-[1.4] text-white">{pdcText || 'PDC CLEARANCE UNAVAILABLE'}</div>
       </div>
       {actionError && !acknowledged && <div role="alert" className="bg-[#B63F3F] px-2 py-1 text-center font-bold">{actionError}</div>}

@@ -136,8 +136,10 @@ func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.Place
 		target.FrozenOperationalTETA = &frozenTETA
 		target.FrozenSlot = &aman.Slot{Time: command.SlotTime, RunwayGroupID: command.RunwayGroupID, Sequence: 1, Revision: state.Revision, Reason: string(sequence.ReasonFreezeManual)}
 		target.ManualOrder, target.RunwayGapException, target.UpdatedAt = nil, nil, auth.ReceivedAt
+		target.ManualPosition = nil
 		invalidateHoldingRebuild(&candidate, command.Callsign)
 		input = s.sequenceInput(candidate)
+		sequence.ForgetManualPosition(&input, command.Callsign)
 		result, err := sequence.Generate(input)
 		if err != nil || result.HasConflicts() {
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "requested opportunity cannot produce a legal atomic sequence"}
@@ -361,6 +363,7 @@ func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlig
 		candidate.Flights[index].SequenceDisposition = aman.SequenceDispositionActive
 		candidate.Flights[index].Expedited = false
 		input := s.sequenceInput(candidate)
+		sequence.ForgetManualPosition(&input, command.Callsign)
 		for i := range input.Flights {
 			if input.Flights[i].Callsign != command.Callsign {
 				continue
@@ -918,6 +921,7 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 			candidate.RunwayGroupID = group
 			candidate.CurrentSlot = nil
 			candidate.ManualOrder = nil
+			candidate.ManualPosition = nil
 			trial := working
 			trial.Flights = append(append([]sequence.Flight(nil), working.Flights...), candidate)
 			result, err := sequence.Generate(trial)
@@ -939,6 +943,7 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 		}
 		assignFlightToRunwayGroup(&state.Flights[index], selected)
 		flight.RunwayGroupID, flight.CurrentSlot, flight.ManualOrder = selected, nil, nil
+		flight.ManualPosition = nil
 		working.Flights = append(working.Flights, flight)
 	}
 
@@ -967,6 +972,7 @@ func (s *Service) runwayAssignmentCompatible(flight aman.AMANFlight, group aman.
 }
 
 func assignFlightToRunwayGroup(flight *aman.AMANFlight, group aman.RunwayGroupID) {
+	flight.ManualPosition = nil
 	// Persist the rebuild until a new prediction is accepted, including across
 	// navigation outages and restarts with an unchanged radar/FPL revision.
 	flight.RunwayChangePending = true
@@ -1377,6 +1383,7 @@ func (s *Service) applyDecision(state aman.AirportState, decision sequence.Decis
 				state.Flights[i].FrozenSlot = input.CapturedSlot
 			}
 			state.Flights[i].ManualOrder = input.ManualOrder
+			state.Flights[i].ManualPosition = input.ManualPosition
 		}
 		if entry, ok := entries[state.Flights[i].Callsign]; ok {
 			state.Flights[i].Slot = &aman.Slot{Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence, Revision: state.Revision, Reason: string(entry.Reason)}

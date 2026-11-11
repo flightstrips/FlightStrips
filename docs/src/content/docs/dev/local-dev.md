@@ -157,6 +157,19 @@ uses vIFF's bulk arrivals paths and an existing current terminal cache; it only
 resolves flights present in vIFF, so it cannot resolve arbitrary Sweatbox or
 Playback callsigns. See `backend/config/aman/viff.md` for deployment details.
 
+During a provider outage, set `NAVIGATION_SECTOR_FILE` to a locally installed
+EuroScope `.sct` file to enable automatic route fallback. A matching sector file
+and terminal configuration also allow startup with an empty navigation cache.
+For fully local navigation, set `NAVIGATION_SOURCE=sector` with the same file
+path. This supports Sweatbox/Playback callsigns whose routes are covered by the
+file. Its AIRAC must match the terminal configuration; missing fixes or airway
+segments are rejected. See `backend/config/aman/sector.md` for setup and limits.
+
+Keeping `NAVIGATION_SOURCE=viff` with that file configured also handles a
+controller's flight-plan amendment before vIFF has updated: a stale vIFF path
+falls back to locally resolved current geometry, then returns to vIFF when its
+normal bulk feed catches up. Other flights retain the primary source.
+
 Build and connect the local EuroScope plugin as described above, then open a
 Sweatbox or Playback session. Synchronize an arrival strip with `origin`,
 `destination`, route/type fields when available, and no CID. The first

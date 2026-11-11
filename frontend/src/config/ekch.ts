@@ -70,6 +70,14 @@ export interface ClickPoint {
   visible?: (ctx: VisibilityContext) => boolean;
 }
 
+export interface StaticMapPoint {
+  label: string;
+  left: string;
+  top: string;
+  width?: string;
+  height?: string;
+}
+
 /**
  * EKCH pushback release points positioned over apron_push.png.
  * Positions are percentages relative to the image content area (1920×768).
@@ -108,6 +116,7 @@ export const RELEASE_POINTS: ClickPoint[] = [
   { label: "R2",  left: "60.68%", top: "60.81%" },
   { label: "R3",  left: "61.41%", top: "72.79%" },
   { label: "R4",  left: "61.41%", top: "78.26%" },
+  { label: "W1",  left: "63.00%", top: "67.26%" },
   { label: "B",  left: "61.00%", top: "95.00%" },
   { label: "S1",  left: "63.88%", top: "47.92%" },
   { label: "S2",  left: "64.48%", top: "60.81%" },
@@ -290,6 +299,7 @@ export interface HoldingPointRunway {
   imgWidth: number;
   imgHeight: number;
   points: ClickPoint[];
+  todaPoints: StaticMapPoint[];
 }
 
 export const HOLDING_POINT_RUNWAYS: HoldingPointRunway[] = [
@@ -300,7 +310,9 @@ export const HOLDING_POINT_RUNWAYS: HoldingPointRunway[] = [
     imgHeight: 284,
     points: [
       { label: "A10", left: "37.7%", top: "40.7%" },
-      { label: "A9",  left: "90.4%", top: "40.7%" },
+    ],
+    todaPoints: [
+      { label: "3001m", left: "37.7%", top: "78.0%" },
     ],
   },
   {
@@ -314,6 +326,12 @@ export const HOLDING_POINT_RUNWAYS: HoldingPointRunway[] = [
       { label: "B3", left: "41.3%", top: "42.3%" },
       { label: "B4", left: "85.5%", top: "42.3%" },
       { label: "C",  left: "95.8%", top: "42.3%" },
+    ],
+    todaPoints: [
+      { label: "3302m", left: "8.5%", top: "77.0%" },
+      { label: "3203m", left: "16.9%", top: "77.0%" },
+      { label: "2797m", left: "42.0%", top: "77.0%" },
+      { label: "1941m", left: "95.8%", top: "77.0%" },
     ],
   },
   {
@@ -329,6 +347,12 @@ export const HOLDING_POINT_RUNWAYS: HoldingPointRunway[] = [
       { label: "F1", left: "5.3%",  top: "85.2%" },
       { label: "F2", left: "61.8%", top: "87.9%" },
     ],
+    todaPoints: [
+      { label: "2800m", left: "26.7%", top: "62.0%" },
+      { label: "2699m", left: "35.0%", top: "62.3%" },
+      { label: "2481m", left: "47.9%", top: "63.0%" },
+      { label: "1798m", left: "94.0%", top: "64.3%" },
+    ],
   },
   {
     runway: "22L",
@@ -339,6 +363,10 @@ export const HOLDING_POINT_RUNWAYS: HoldingPointRunway[] = [
       { label: "V2", left: "53.5%", top: "27.5%" },
       { label: "V1", left: "92.4%", top: "27.5%" },
       { label: "I",  left: "41.6%", top: "89.0%" },
+    ],
+    todaPoints: [
+      { label: "2787m", left: "46.6%", top: "63.0%" },
+      { label: "3302m", left: "92.4%", top: "63.0%" },
     ],
   },
   {
@@ -353,6 +381,12 @@ export const HOLDING_POINT_RUNWAYS: HoldingPointRunway[] = [
       { label: "A1", left: "59.6%", top: "30.1%" },
       { label: "E1", left: "51.4%", top: "91.1%" },
     ],
+    todaPoints: [
+      { label: "3234m", left: "4.5%", top: "73.0%" },
+      { label: "3326m", left: "17.1%", top: "73.0%" },
+      { label: "3489m", left: "31.2%", top: "73.0%" },
+      { label: "3571m", left: "46.2%", top: "73.0%" },
+    ],
   },
   {
     runway: "30",
@@ -363,6 +397,9 @@ export const HOLDING_POINT_RUNWAYS: HoldingPointRunway[] = [
       { label: "G2", left: "16.2%", top: "43.2%" },
       { label: "G1", left: "82.0%", top: "43.2%" },
       { label: "N2", left: "18.4%", top: "88.7%" },
+    ],
+    todaPoints: [
+      { label: "2365m", left: "81.8%", top: "67.0%" },
     ],
   },
 ];

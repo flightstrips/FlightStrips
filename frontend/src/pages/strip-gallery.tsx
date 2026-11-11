@@ -123,6 +123,7 @@ const message: MessageReceived = {
   text: "SAS1234 REQUEST RELEASE",
   is_broadcast: false,
   recipients: ["121.905"],
+  receipt_positions: ["121.905"],
 };
 
 function AnnotatedStrip({ id, title, bayTitle, annotations, children }: { id: string; title: string; bayTitle: string; annotations: Annotation[]; children: ReactNode }) {

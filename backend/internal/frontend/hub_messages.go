@@ -4,10 +4,17 @@ import (
 	"FlightStrips/internal/config"
 	"FlightStrips/pkg/events/frontend"
 	"context"
+	"errors"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync/atomic"
 )
+
+type messageDelivery struct {
+	senderCID          string
+	recipientPositions map[string]bool
+}
 
 var messageAreaSectors = map[string]string{
 	"CLR-DEL":   "DEL",
@@ -36,12 +43,43 @@ func (hub *Hub) storeMessage(sessionID int32, msg frontend.MessageReceivedEvent)
 		msgs = msgs[:100]
 	}
 	hub.messages[sessionID] = msgs
+	if deliveries := hub.messageDeliveries[sessionID]; deliveries != nil {
+		kept := make(map[int64]bool, len(msgs))
+		for _, stored := range msgs {
+			kept[stored.ID] = true
+		}
+		for id := range deliveries {
+			if !kept[id] {
+				delete(deliveries, id)
+			}
+		}
+	}
+}
+
+func (hub *Hub) removeStoredMessage(sessionID int32, id int64) {
+	hub.msgMu.Lock()
+	defer hub.msgMu.Unlock()
+	msgs := hub.messages[sessionID]
+	for i := range msgs {
+		if msgs[i].ID == id {
+			hub.messages[sessionID] = append(msgs[:i], msgs[i+1:]...)
+			break
+		}
+	}
+	delete(hub.messageDeliveries[sessionID], id)
 }
 
 func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent, senderCID string) {
+	_ = hub.dispatchMessageToPositions(session, msg, senderCID, nil)
+}
+
+func (hub *Hub) dispatchMessageToPositions(session int32, msg frontend.MessageReceivedEvent, senderCID string, requestedPositions []string) error {
 	if msg.IsBroadcast {
+		if len(requestedPositions) > 0 {
+			return errors.New("broadcast messages cannot have recipient positions")
+		}
 		hub.Broadcast(session, msg)
-		return
+		return nil
 	}
 
 	ownedSectors := make(map[string][]string)
@@ -71,9 +109,15 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 	// Match composer availability: direct frequency first, then current sector coverage.
 	areaMap := config.GetMessageAreas()
 	recipientPositions := make(map[string]bool)
-	for _, area := range msg.Recipients {
+	if len(requestedPositions) > 0 && len(requestedPositions) != len(msg.Recipients) {
+		return errors.New("recipient positions must match configured recipients")
+	}
+	for i, area := range msg.Recipients {
 		positions, ok := areaMap[area]
 		if !ok || len(positions) == 0 {
+			if len(requestedPositions) > 0 {
+				return errors.New("unknown message recipient area")
+			}
 			slog.Warn("Unknown message recipient area", slog.String("area", area))
 			continue
 		}
@@ -81,7 +125,51 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 		if configuredPosition, err := config.GetPositionByName(pos); err == nil {
 			pos = configuredPosition.Frequency
 		} else if _, err := config.GetPositionBasedOnFrequency(pos); err != nil {
+			if len(requestedPositions) > 0 {
+				return errors.New("unknown message recipient position")
+			}
 			slog.Warn("Unknown message recipient position", slog.String("area", area), slog.String("position", pos))
+			continue
+		}
+		if len(requestedPositions) > 0 {
+			requested := requestedPositions[i]
+			if requested == "" {
+				return errors.New("recipient position is required")
+			}
+			directOnline := false
+			for client := range hub.clients {
+				if isCandidate(client) && client.position == pos {
+					directOnline = true
+					break
+				}
+			}
+			validTarget := requested == pos
+			if !validTarget && !directOnline {
+				sector, ok := messageAreaSectors[area]
+				if !ok {
+					return errors.New("unknown message recipient sector")
+				}
+				for _, ownedSector := range ownedSectors[requested] {
+					if ownedSector == "GWA" || ownedSector == "GWD" {
+						ownedSector = "GW"
+					}
+					if ownedSector == sector {
+						validTarget = true
+						break
+					}
+				}
+			}
+			found := false
+			for client := range hub.clients {
+				if isCandidate(client) && client.position == requested {
+					found = true
+					break
+				}
+			}
+			if !validTarget || !found {
+				return errors.New("recipient position is not available for the selected area")
+			}
+			recipientPositions[requested] = true
 			continue
 		}
 		found := false
@@ -116,6 +204,34 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 		}
 	}
 
+	if senderCID != "" && msg.Sender != "SYSTEM" && len(msg.Recipients) == 1 {
+		positions := make([]string, 0, len(recipientPositions))
+		for position := range recipientPositions {
+			positions = append(positions, position)
+		}
+		sort.Strings(positions)
+		msg.ReceiptPositions = positions
+
+		hub.msgMu.Lock()
+		if hub.messageDeliveries == nil {
+			hub.messageDeliveries = make(map[int32]map[int64]messageDelivery)
+		}
+		if hub.messageDeliveries[session] == nil {
+			hub.messageDeliveries[session] = make(map[int64]messageDelivery)
+		}
+		hub.messageDeliveries[session][msg.ID] = messageDelivery{
+			senderCID:          senderCID,
+			recipientPositions: recipientPositions,
+		}
+		for i := range hub.messages[session] {
+			if hub.messages[session][i].ID == msg.ID {
+				hub.messages[session][i].ReceiptPositions = positions
+				break
+			}
+		}
+		hub.msgMu.Unlock()
+	}
+
 	for client := range hub.clients {
 		if client.session != session {
 			continue
@@ -124,4 +240,54 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 			client.Enqueue(msg)
 		}
 	}
+	return nil
+}
+
+func (hub *Hub) acknowledgeMessage(session int32, id int64, position string) error {
+	hub.msgMu.Lock()
+	var msg frontend.MessageReceivedEvent
+	var delivery messageDelivery
+	var ok bool
+	found := false
+	for i := range hub.messages[session] {
+		if hub.messages[session][i].ID != id {
+			continue
+		}
+		msg = hub.messages[session][i]
+		if msg.IsBroadcast || len(msg.Recipients) != 1 || len(msg.ReceiptPositions) == 0 {
+			hub.msgMu.Unlock()
+			return errors.New("message does not accept receipt acknowledgement")
+		}
+		delivery, ok = hub.messageDeliveries[session][id]
+		if !ok || delivery.senderCID == "" || msg.Sender == position || !delivery.recipientPositions[position] {
+			hub.msgMu.Unlock()
+			return errors.New("controller is not an intended message recipient")
+		}
+		if msg.Acknowledged {
+			hub.msgMu.Unlock()
+			return nil
+		}
+		msg.Acknowledged = true
+		hub.messages[session][i] = msg
+		found = true
+		break
+	}
+	hub.msgMu.Unlock()
+
+	if !found {
+		return errors.New("message not found")
+	}
+
+	for client := range hub.clients {
+		if client.session != session {
+			continue
+		}
+		isSender := client.GetCid() == delivery.senderCID
+		isRecipient := delivery.recipientPositions[client.position] && !client.readOnly &&
+			!strings.HasSuffix(strings.ToUpper(client.callsign), "_OBS")
+		if isSender || isRecipient {
+			client.Enqueue(msg)
+		}
+	}
+	return nil
 }

@@ -291,7 +291,8 @@ export interface WebSocketState {
   moveToControlzone: (callsign: string) => void;
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
-  sendMessage: (text: string, recipients: string[], format?: MessageFormat) => void;
+  sendMessage: (text: string, recipients: string[], format?: MessageFormat, recipientPositions?: string[]) => void;
+  acknowledgeMessage: (id: number) => void;
   sendPrivateMessage: (callsign: string, message: string) => void;
   textPilotDraft: TextPilotDraft | null;
   textPilotReadbacks: Record<string, boolean>;
@@ -361,6 +362,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     return () => {};
   };
   const pendingFrequencyMessages = new Map<string, { callsign: string; session: number | null; position: string; resolve: (result: FrequencyMessageResult) => void; timeout: ReturnType<typeof setTimeout> }>();
+  const dismissedMessageIds = new Set<number>();
   let nextForceAssumeRequestId = 0;
   const pendingForceAssumeRoutes = new Map<string, {
     resolve: (nextOwners: string[]) => void;
@@ -816,8 +818,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
           : Math.floor((prevSeq + nextSeq) / 2);
       })(state)
     }),
-    sendMessage: (text, recipients, format = "AUTO") => {
-      sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients, format});
+    sendMessage: (text, recipients, format = "AUTO", recipient_positions = []) => {
+      sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients, recipient_positions, format});
+    },
+    acknowledgeMessage: (id) => {
+      sendIfWritable({type: ActionType.FrontendAcknowledgeMessage, id});
     },
     openTextPilotMenu: (draft) => { if (ensureWritable()) set({ textPilotDraft: draft }); },
     closeTextPilotMenu: () => set({ textPilotDraft: null }),
@@ -841,6 +846,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       sendIfWritable({type: ActionType.FrontendSendPrivateMessage, callsign, message});
     },
     dismissMessage: (id) => {
+      dismissedMessageIds.add(id);
       store.setState(
         produce((state: WebSocketState) => {
           state.messages = state.messages.filter(m => m.id !== id);
@@ -1679,9 +1685,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   }
 
   const handleMessageReceived = (data: FrontendMessageReceivedEvent) => {
+    if (dismissedMessageIds.has(data.id)) return;
     store.setState(
       produce((state: WebSocketState) => {
-        state.messages = [data, ...state.messages].slice(0, 100);
+        const index = state.messages.findIndex(message => message.id === data.id);
+        if (index === -1) {
+          state.messages = [data, ...state.messages].slice(0, 100);
+        } else {
+          state.messages[index] = { ...state.messages[index], ...data };
+        }
       })
     );
   };

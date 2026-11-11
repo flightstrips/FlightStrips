@@ -1,9 +1,10 @@
 import { isTextPilot, textTaxiActions } from "@/lib/text-pilot";
 import { controllerOwnsTowerSectors, useWebSocketStore, useRunwaySetup, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
-import { COORDINATION_WITH_APRON_TAXI_MAP_POINTS, COORDINATION_WITH_TWR_TAXI_MAP_POINTS, TAXI_MAP_POINTS } from "@/config/ekch";
-import type { VisibilityContext } from "@/config/ekch";
-import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
+import { COORDINATION_WITH_APRON_TAXI_MAP_POINTS, COORDINATION_WITH_TWR_TAXI_MAP_POINTS, HOLDING_POINT_RUNWAYS, TAXI_MAP_POINTS } from "@/config/ekch";
+import type { ClickPoint, VisibilityContext } from "@/config/ekch";
+import { MAP_BTN_BASE, MAP_POINT_STROKE_STYLE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 import { Bay } from "@/api/models";
+import { isRestrictedTwrPoint } from "./aircraftMapRestrictions";
 
 
 interface TaxiMapDialogProps {
@@ -36,6 +37,9 @@ export function TaxiMapDialog({
   const isTwr       = useIsTwr();
   const strip = useStrip(callsign);
   const myPosition = useMyPosition();
+  const isPointDisabled = (label: string, point?: Pick<ClickPoint, "type">) =>
+    isRestrictedTwrPoint(label, point?.type, strip?.aircraft_type, strip?.aircraft_category);
+  const disabledMessage = "Aircraft type not approved for this Taxiway";
   const layout = useWebSocketStore(s => s.displayedLayout || s.layout);
   const airport = useWebSocketStore((s) => s.airport);
   const controllers = useWebSocketStore((s) => s.controllers);
@@ -63,7 +67,24 @@ export function TaxiMapDialog({
       ? COORDINATION_WITH_TWR_TAXI_MAP_POINTS
       : COORDINATION_WITH_APRON_TAXI_MAP_POINTS;
 
-  const handleSelect = (label: string) => {
+  const getConfiguredPoint = (label: string) => TAXI_MAP_POINTS.find((point) =>
+    (typeof point.label === "string" ? point.label : point.label(visibilityContext)) === label
+  );
+  const isConfiguredHoldingPoint = (label: string) =>
+    HOLDING_POINT_RUNWAYS.some((runway) =>
+      runway.points.some((point) => point.label === label)
+    )
+    || TAXI_MAP_POINTS.some((point) =>
+      point.type === "hp"
+      && (typeof point.label === "string" ? point.label : point.label(visibilityContext)) === label
+    );
+  const getConfiguredPointType = (label: string) =>
+    getConfiguredPoint(label)?.type ?? (isConfiguredHoldingPoint(label) ? "hp" : undefined);
+  const canSelectManualPoint = (label: string) =>
+    !isPointDisabled(label, { type: getConfiguredPointType(label) });
+
+  const handleSelect = (label: string, point?: ClickPoint, manuallyEntered = false) => {
+    if (manuallyEntered ? !canSelectManualPoint(label) : isPointDisabled(label, point)) return;
     if (isTextPilot(strip)) {
       openTextPilotMenu({ callsign, variant: strip?.destination === airport && strip?.origin !== airport ? "tower-in" : "tower-out", point: label, splitTowerDefaults: ["GEGW", "TWTE"].includes(layout), actions: textTaxiActions(callsign, label, moveOnSelect ? Bay.TaxiLwr : undefined, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
       return;
@@ -100,8 +121,11 @@ export function TaxiMapDialog({
       imgWidth={1801}
       imgHeight={1013}
       points={isNotOwner ? coordinationPoints : TAXI_MAP_POINTS}
+      pointStyle={MAP_POINT_STROKE_STYLE}
       btnStyle={BTN_STYLE}
       onSelect={handleSelect}
+      isPointDisabled={isPointDisabled}
+      disabledPointMessage={disabledMessage}
       visibilityContext={visibilityContext}
       selectedPoint={strip?.release_point}
       >
@@ -118,7 +142,8 @@ export function TaxiMapDialog({
             gap: "0.39cqh",
           }}
         >
-          <MapEraseControls onOk={handleSelect} onErase={handleErase} onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE} />
+          <MapEraseControls onOk={label => handleSelect(label, undefined, true)} onErase={handleErase} onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE}
+            canSelect={canSelectManualPoint} disabledMessage={disabledMessage} />
         </div>
       </MapDialogShell>
   );

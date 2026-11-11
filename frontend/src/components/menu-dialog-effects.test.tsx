@@ -53,7 +53,7 @@ describe("menu dialog bevels", () => {
     fireEvent.click(screen.getByRole("button", { name: "CLOSING POSITION SOON" }));
     expectControlBevels();
     fireEvent.click(screen.getByRole("button", { name: "OK" }));
-    expect(actions.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", ["APRON ARR"], "AUTO");
+    expect(actions.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", ["APRON ARR"], "AUTO", ["121.630"]);
     expect(onClose).toHaveBeenCalledOnce();
   });
 

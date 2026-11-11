@@ -93,6 +93,10 @@ export function MessageComposeDialog({ open, onClose }: Props) {
   const message = [text.trim(), freeText.trim(), timing].filter(Boolean).join(" ");
   const timeError = (startTime && !validTime(startTime)) || (endTime && endTime !== "UFN" && !validTime(endTime));
   const offlineRecipient = selectedAreas.some(area => !availableRecipients.some(station => station.area === area));
+  const recipientPositions = selectedAreas.map(area => {
+    const station = RECIPIENTS.find(candidate => candidate.area === area);
+    return station && findStationController(station, controllers, ownPosition, ownCallsign)?.position;
+  });
   const error = timeError ? "Enter complete UTC times in HHMM format (0000-2359)." :
     message.length > MESSAGE_MAX_CHARS ? `Message exceeds ${MESSAGE_MAX_CHARS} characters (${message.length}).` :
       offlineRecipient ? "A selected recipient is no longer online. Choose another recipient or BROADCAST." : "";
@@ -106,7 +110,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
   }
   function send() {
     if (!message || error) return;
-    sendMessage(message, selectedAreas, format);
+    sendMessage(message, selectedAreas, format, recipientPositions.filter((position): position is string => !!position));
     resetMessage();
     setSelectedAreas([]);
     setBroadcast(false);

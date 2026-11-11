@@ -13,42 +13,42 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// scheduleStandAutoRemoval deletes the strip after its configured STAND delay,
+// scheduleStandAutoHide hides the strip after its configured STAND delay,
 // provided the same strip is still in BAY_STAND when the timer fires.
-func (s *StripService) scheduleStandAutoRemoval(session int32, callsign string) {
+func (s *StripService) scheduleStandAutoHide(session int32, callsign string) {
 	ctx := context.Background()
 	bound, err := s.workflowFor(ctx, session, "")
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to schedule stand strip removal", slog.Any("error", err), slog.String("callsign", callsign))
+		slog.ErrorContext(ctx, "Failed to schedule stand strip hiding", slog.Any("error", err), slog.String("callsign", callsign))
 		return
 	}
 	initial, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to schedule stand strip removal", slog.Any("error", err), slog.String("callsign", callsign))
+		slog.ErrorContext(ctx, "Failed to schedule stand strip hiding", slog.Any("error", err), slog.String("callsign", callsign))
 		return
 	}
 	policy, err := bound.Lifecycle(airportworkflow.Context{Session: session, Strip: workflowSnapshot(initial)}, airportworkflow.Lifecycle{Kind: airportworkflow.Admission})
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to schedule stand strip removal", slog.Any("error", err), slog.String("callsign", callsign))
+		slog.ErrorContext(ctx, "Failed to schedule stand strip hiding", slog.Any("error", err), slog.String("callsign", callsign))
 		return
 	}
-	if policy.StandRemovalDelay <= 0 {
+	if policy.StandHideDelay <= 0 {
 		return
 	}
 	id := initial.ID
 	go func() {
-		time.Sleep(policy.StandRemovalDelay)
-		s.removeExpiredStandStrip(ctx, session, callsign, id, bound)
+		time.Sleep(policy.StandHideDelay)
+		s.hideExpiredStandStrip(ctx, session, callsign, id, bound)
 	}()
 }
 
-func (s *StripService) removeExpiredStandStrip(ctx context.Context, session int32, callsign string, id int32, bound *airportworkflow.Bound) {
+func (s *StripService) hideExpiredStandStrip(ctx context.Context, session int32, callsign string, id int32, bound *airportworkflow.Bound) {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return
 	}
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to load stand strip for removal", slog.Any("error", err), slog.String("callsign", callsign))
+		slog.ErrorContext(ctx, "Failed to load stand strip for hiding", slog.Any("error", err), slog.String("callsign", callsign))
 		return
 	}
 	if strip.ID != id {
@@ -56,14 +56,14 @@ func (s *StripService) removeExpiredStandStrip(ctx context.Context, session int3
 	}
 	decision, err := bound.Lifecycle(airportworkflow.Context{Session: session, Strip: workflowSnapshot(strip)}, airportworkflow.Lifecycle{Kind: airportworkflow.StandExpiry})
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to evaluate stand strip removal", slog.Any("error", err), slog.String("callsign", callsign))
+		slog.ErrorContext(ctx, "Failed to evaluate stand strip hiding", slog.Any("error", err), slog.String("callsign", callsign))
 		return
 	}
-	if !decision.Remove {
+	if decision.Bay == nil {
 		return
 	}
-	if err := s.DeleteStrip(ctx, session, callsign); err != nil {
-		slog.ErrorContext(ctx, "Failed to remove expired stand strip", slog.Any("error", err), slog.String("callsign", callsign))
+	if err := s.MoveToBay(ctx, session, callsign, *decision.Bay, true); err != nil {
+		slog.ErrorContext(ctx, "Failed to hide expired stand strip", slog.Any("error", err), slog.String("callsign", callsign))
 	}
 }
 

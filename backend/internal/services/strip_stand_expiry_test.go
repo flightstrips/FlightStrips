@@ -10,15 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRemoveExpiredStandStripDeletesOnlySameStripStillInStand(t *testing.T) {
+func TestHideExpiredStandStripOnlyHidesSameArrivalStillInStand(t *testing.T) {
 	tests := []struct {
 		name        string
 		currentID   int32
 		currentBay  string
 		destination string
-		wantDeleted bool
+		wantHidden  bool
 	}{
-		{name: "same arrival still in stand", currentID: 42, currentBay: shared.BAY_STAND, destination: "EKCH", wantDeleted: true},
+		{name: "same arrival still in stand", currentID: 42, currentBay: shared.BAY_STAND, destination: "EKCH", wantHidden: true},
 		{name: "strip moved out of stand", currentID: 42, currentBay: shared.BAY_AIRBORNE, destination: "EKCH"},
 		{name: "callsign now belongs to another strip", currentID: 43, currentBay: shared.BAY_STAND, destination: "EKCH"},
 		{name: "same callsign reused for a departure", currentID: 42, currentBay: shared.BAY_STAND, destination: "EGLL"},
@@ -26,15 +26,17 @@ func TestRemoveExpiredStandStripDeletesOnlySameStripStillInStand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			deleted := false
 			strip := &models.Strip{ID: tt.currentID, Callsign: "THA123", Bay: tt.currentBay, Destination: tt.destination}
 			repo := &testutil.MockStripRepository{
 				GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
 					return strip, nil
 				},
-				DeleteFn: func(context.Context, int32, string) error {
-					deleted = true
-					return nil
+				GetMaxSequenceInBayFn: func(context.Context, int32, string) (int32, error) {
+					return 0, nil
+				},
+				UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+					strip.Bay = bay
+					return 1, nil
 				},
 			}
 			svc := newWorkflowTestService(repo)
@@ -42,9 +44,9 @@ func TestRemoveExpiredStandStripDeletesOnlySameStripStillInStand(t *testing.T) {
 			bound, err := svc.workflowFor(context.Background(), 1, "")
 			require.NoError(t, err)
 
-			svc.removeExpiredStandStrip(context.Background(), 1, strip.Callsign, 42, bound)
+			svc.hideExpiredStandStrip(context.Background(), 1, strip.Callsign, 42, bound)
 
-			require.Equal(t, tt.wantDeleted, deleted)
+			require.Equal(t, tt.wantHidden, strip.Bay == shared.BAY_HIDDEN)
 		})
 	}
 }

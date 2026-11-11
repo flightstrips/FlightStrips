@@ -68,6 +68,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	routeRefreshKey := positionRouteRefreshKey{session: session, callsign: strings.ToUpper(strings.TrimSpace(callsign))}
 	var existingStrip *internalModels.Strip
 	var observedStrip internalModels.Strip
+	var previousStrip internalModels.Strip
 	var previousBay string
 	var bay string
 	positionStored := false
@@ -124,6 +125,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 			return errors.New("position workflow omitted bay")
 		}
 		previousBay = existingStrip.Bay
+		previousStrip = *existingStrip
 		bay = *decision.Bay
 		routeRefreshNeeded = positionMayChangeRoute(existingStrip, airport, previousBay, bay, lat, lon)
 
@@ -273,7 +275,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 			}
 		}
 		if previousBay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE {
-			return s.AutoTransferAirborneStrip(ctx, session, callsign)
+			return s.handleObservedDepartureTransition(ctx, session, &previousStrip, existingStrip, airport, false)
 		}
 	}
 

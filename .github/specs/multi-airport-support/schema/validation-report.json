@@ -7,7 +7,7 @@
   ],
   "ekch_roundtrip": {
     "source": "backend/config/ekch.yaml",
-    "source_sha256": "36de2cc00a874ad2bc1794bca4f20e0f7222471c646a8d23030869e357698a49",
+    "source_sha256": "b99eade4c6d108cb27dc02b1ca902104bd05417e68f0a79670c052f01bc89c3e",
     "all_top_level_settings_preserved": [
       "airborne_altitude_agl",
       "airborne_fallback_layout",
@@ -32,7 +32,7 @@
     ],
     "positions": 25,
     "sector_variants": 21,
-    "ground_routes": 33,
+    "ground_routes": 35,
     "airborne_routes": 2,
     "layout_positions": 19,
     "master_priority": [

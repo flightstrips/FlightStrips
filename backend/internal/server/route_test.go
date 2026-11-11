@@ -844,6 +844,144 @@ func TestEKCHArrivalRoute_04LHighAFromTEOnlyOverridesEntryTower(t *testing.T) {
 	assert.False(t, hasGWAOverride)
 }
 
+func TestEKCHArrivalRoute_04LApronStandsUseGroundWest(t *testing.T) {
+	for _, stand := range []string{
+		"A1", "A7", "A12", "A34", "B3", "B19", "C10", "C39", "D1", "D4",
+		"E20", "E90", "F1", "F99", "G1", "G109", "G138", "G999",
+		"H101", "H107", "262", "273-1", "RI", "RII", "RIII",
+	} {
+		t.Run(stand, func(t *testing.T) {
+			for _, test := range []struct {
+				sector string
+				want   []string
+			}{
+				{"TW", []string{"TW", "TE", "GWA", "AA"}},
+				{"TE", []string{"TE", "GWA", "AA"}},
+				{"GWA", []string{"GWA", "AA"}},
+				{"GE", []string{"GE", "GWA", "AA"}},
+				{"AA", []string{"AA"}},
+			} {
+				route, ok := config.ComputeToStand([]string{"04L"}, test.sector, stand)
+				require.True(t, ok, "sector %s", test.sector)
+				assert.Equal(t, test.want, route.Path, "sector %s", test.sector)
+				assert.NotContains(t, route.OwnerOverrides, "GWA", "sector %s", test.sector)
+			}
+		})
+	}
+}
+
+func TestComputeRouteStateForStrip_04LApronHandoverSequence(t *testing.T) {
+	tower := frequencyForPosition(t, "EKCH_D_TWR")
+	ground := frequencyForPosition(t, "EKCH_GW_TWR")
+	apron := frequencyForPosition(t, "EKCH_A_GND")
+	session := &models.Session{
+		ID: 42, Airport: "EKCH",
+		ActiveRunways: pkgModels.ActiveRunways{
+			ArrivalRunways: []string{"04L"}, DepartureRunways: []string{"04R"},
+		},
+	}
+	owners := []*models.SectorOwner{
+		{Sector: []string{"TW"}, Position: tower},
+		{Sector: []string{"GWA"}, Position: ground},
+		{Sector: []string{"AA"}, Position: apron},
+	}
+	for _, stand := range []string{"A12", "A34", "B10", "C20", "G105", "262"} {
+		t.Run(stand, func(t *testing.T) {
+			for _, position := range []struct {
+				name string
+				lat  float64
+				lon  float64
+			}{
+				{"airborne", 0, 0},
+				{"ground-west", 55.6235, 12.6380},
+			} {
+				t.Run(position.name, func(t *testing.T) {
+					strip := &models.Strip{
+						Destination: "EKCH", Runway: stringPtr("04L"), Stand: stringPtr(stand),
+						Owner: stringPtr(tower), PositionLatitude: float64Ptr(position.lat), PositionLongitude: float64Ptr(position.lon),
+					}
+					result, updated, err := computeRouteStateForStrip(strip, session, owners, routeRadioState{})
+					require.NoError(t, err)
+					require.True(t, updated)
+					assert.Equal(t, []string{ground, apron}, result.NextOwners)
+					require.NotNil(t, result.NextDisplay)
+					assert.Equal(t, "GW", result.NextDisplay.Label)
+
+					strip.Owner = stringPtr(ground)
+					strip.PreviousOwners = []string{tower}
+					result, updated, err = computeRouteStateForStrip(strip, session, owners, routeRadioState{})
+					require.NoError(t, err)
+					require.True(t, updated)
+					assert.Equal(t, []string{apron}, result.NextOwners)
+					require.NotNil(t, result.NextDisplay)
+					assert.Equal(t, "AA", result.NextDisplay.Label)
+				})
+			}
+		})
+	}
+}
+
+func TestEKCHArrivalRoute_22LAnd22RRestKeepTowerOverrides(t *testing.T) {
+	for _, test := range []struct {
+		runway string
+		sector string
+		owner  string
+	}{
+		{"22L", "TE", "TE"},
+		{"22R", "TW", "TW"},
+	} {
+		t.Run(test.runway, func(t *testing.T) {
+			route, ok := config.ComputeToStand([]string{test.runway}, test.sector, "A12")
+			require.True(t, ok)
+			assert.Equal(t, test.owner, route.OwnerOverrides["GWA"])
+		})
+	}
+}
+
+func TestComputeRouteStateForStrip_04LApronCombinedPositions(t *testing.T) {
+	tower := frequencyForPosition(t, "EKCH_D_TWR")
+	ground := frequencyForPosition(t, "EKCH_GW_TWR")
+	apron := frequencyForPosition(t, "EKCH_A_GND")
+	session := &models.Session{
+		ID: 42, Airport: "EKCH",
+		ActiveRunways: pkgModels.ActiveRunways{ArrivalRunways: []string{"04L"}},
+	}
+	for _, test := range []struct {
+		name   string
+		owner  string
+		owners []*models.SectorOwner
+		want   []string
+	}{
+		{
+			name: "tower covers ground", owner: tower,
+			owners: []*models.SectorOwner{
+				{Sector: []string{"TW", "GWA"}, Position: tower},
+				{Sector: []string{"AA"}, Position: apron},
+			},
+			want: []string{apron},
+		},
+		{
+			name: "ground covers apron", owner: ground,
+			owners: []*models.SectorOwner{
+				{Sector: []string{"TW"}, Position: tower},
+				{Sector: []string{"GWA", "AA"}, Position: ground},
+			},
+			want: []string{},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			strip := &models.Strip{
+				Destination: "EKCH", Stand: stringPtr("A12"), Owner: stringPtr(test.owner),
+				PositionLatitude: float64Ptr(0), PositionLongitude: float64Ptr(0),
+			}
+			result, updated, err := computeRouteStateForStrip(strip, session, test.owners, routeRadioState{})
+			require.NoError(t, err)
+			require.True(t, updated)
+			assert.Equal(t, test.want, result.NextOwners)
+		})
+	}
+}
+
 func TestEKCHArrivalRoute_30RestFromGWAUsesTEOverride(t *testing.T) {
 
 	route, ok := config.ComputeToStand([]string{"30"}, "GWA", "A12")

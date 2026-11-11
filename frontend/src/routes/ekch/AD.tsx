@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { DeiceLaneButton, MemAidButton } from "@/components/strip/TacticalButtons.tsx";
+import { CrossingButton, DeiceLaneButton, MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { useMyPosition, useMessages, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
 import {
   useClearedStrips,
@@ -27,7 +27,7 @@ import { arrivalSortModes } from "@/lib/stripSortModes";
 import { orderStripsByTsat } from "@/lib/tsatOrder";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_LANE, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
+import { CLS_BTN_MISSED, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL, CLS_BTN_NEW, CLS_BTN_LANE, CLS_BTN_PLANNED, CLS_BTN_ARR } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 import { getDeiceHeaderArea, isDeiceHeaderTacticalStrip } from "@/lib/deiceLane";
@@ -186,8 +186,9 @@ export default function AD() {
         <div className="bay-col-header bay-col-sep">
           <BayResizeHandle {...col1Resize.handleProps("rwyArr")} />
           <span className={CLS_LABEL}>TWY ARR</span>
-          <span className="ml-auto">
+          <span className="ml-auto flex gap-0.5">
             <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
+            <CrossingButton bay={Bay.TwyArr} className={CLS_BTN_YELLOW} />
           </span>
         </div>
         <SortableBay
@@ -261,6 +262,7 @@ export default function AD() {
           <span className={CLS_LABEL}>TWY DEP</span>
           <span className="flex gap-0.5">
             <MemAidButton bay={Bay.Taxi} className={btnBlue} />
+            <CrossingButton bay={Bay.Taxi} className={CLS_BTN_YELLOW} />
           </span>
         </div>
         {/* TWY DEP-UPR (intermediate hold short, TAXI bay) */}

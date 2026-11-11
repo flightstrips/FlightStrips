@@ -73,6 +73,7 @@ export function CrossingButton({
   return (
     <button
       className={className}
+      aria-label="CROSSING"
       onClick={() => createTacticalStrip("CROSSING", bay, CROSSING_LABEL, selectedAircraft ?? "")}
     >
       X

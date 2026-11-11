@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Bay, type TacticalStrip } from "@/api/models";
-import { DeiceLaneButton, DeicePlatformButton, StartButton } from "./TacticalButtons";
+import { CrossingButton, DeiceLaneButton, DeicePlatformButton, StartButton } from "./TacticalButtons";
 import { TacticalCrossingStrip } from "./TacticalCrossingStrip";
 import { TacticalDeiceLaneStrip } from "./TacticalDeiceLaneStrip";
 import { TacticalMemaidStrip } from "./TacticalMemaidStrip";
@@ -65,6 +65,19 @@ afterEach(() => {
 });
 
 describe("tactical strip ownership interactions", () => {
+  it("creates a crossing strip in the requested bay for the selected aircraft", () => {
+    render(<CrossingButton bay={Bay.TwyArr} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "CROSSING" }));
+
+    expect(actions.createTacticalStrip).toHaveBeenCalledWith(
+      "CROSSING",
+      Bay.TwyArr,
+      "CROSSING TRAFFIC",
+      "SAS123",
+    );
+  });
+
   it("creates and renders a de-ice lane without ownership actions", () => {
     const { container } = render(
       <>

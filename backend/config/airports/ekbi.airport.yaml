@@ -1,4 +1,4 @@
-# AIRAC 2611/1 sector definition with Naviair APDC stand 36. Stand/text implementation: #1097.
+# AIRAC 2611/1 sector definition with Naviair APDC stand 36. Sector stand preferences enabled; TEXT PILOT deferred: #1097.
 $schema: ../../internal/config/airport-configuration.schema.json
 schema_version: flightstrips-airport/v1
 kind: airport
@@ -202,7 +202,16 @@ services:
   cdm:
     availability: disabled
   stand_assignment:
-    availability: disabled
+    availability: enabled
+    stands:
+      repo_path: backend/config/ekbi/GRpluginStands.txt
+    aircraft_reference:
+      repo_path: backend/config/ekch/GRpluginAircraftInfo.txt
+    aircraft_icao:
+      environment: GRPLUGIN_ICAO_AIRCRAFT_JSON
+      default_repo_path: backend/config/data/ICAO_Aircraft.json
+    airline_assignment:
+      repo_path: backend/config/ekbi/airline_assignment.json
   text_pilot:
     availability: disabled
   aman:
@@ -214,4 +223,4 @@ services:
 validation: {}
 provenance:
 - path: backend/config/ekbi/source.json
-  sha256: 2321518e0ad8d6739a842023ee402540cc2788ec0f1d1d1a2350d41d5632af4d
+  sha256: 66fe55d7e8ac9599c1f74123289317115c3a63cbcd848fb318d2f94caea146ec

@@ -79,7 +79,7 @@ func TestEvaluateStandCompatibilityIgnoresGRPreferenceDirectives(t *testing.T) {
 STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
 WTC:M
 PRIORITY:-99
-USE:ARR
+USE:C
 CALLSIGN:ZZZ
 NOTCALLSIGN:A20
 ROUTE:NEVER

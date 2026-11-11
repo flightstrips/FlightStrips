@@ -23,8 +23,8 @@ const (
 )
 
 // StandCapability is one GRPlugin STAND record and its capability directives.
-// Preference directives such as PRIORITY, USE, CALLSIGN, and route rules are
-// intentionally not represented here: they do not describe stand capability.
+// USE categories are retained for policies that enforce sector stand use.
+// PRIORITY and callsign/route preferences remain in the assignment policy.
 type StandCapability struct {
 	Airport string
 	Stand   string
@@ -34,7 +34,8 @@ type StandCapability struct {
 	Radius                   float64
 	ArrivalRestrictionReason string
 
-	Blocks []string
+	Blocks   []string
+	UseCodes []AircraftUseCode
 
 	BorderClass    StandBorderClass
 	WTC            []string
@@ -92,7 +93,7 @@ func LoadStandCapabilities(source io.Reader) (*StandCapabilityRegistry, error) {
 	var problems []error
 	var current *StandCapability
 	var knownDirectives = map[string]struct{}{
-		"PRIORITY": {}, "USE": {}, "CALLSIGN": {}, "NOTCALLSIGN": {},
+		"PRIORITY": {}, "CALLSIGN": {}, "NOTCALLSIGN": {},
 		"ADEP": {}, "NOTADEP": {}, "DEP": {}, "NOTDEP": {},
 		"ARR": {}, "NOTARR": {}, "ROUTE": {}, "NOTROUTE": {},
 		"STANDLIST": {},
@@ -311,6 +312,22 @@ func applyStandDirective(capability *StandCapability, key, value string, line in
 		return fmt.Errorf("line %d: directive %s requires a value", line, key)
 	}
 	switch key {
+	case "USE":
+		for _, code := range normalizeToken(value) {
+			if code == ',' || code == ' ' {
+				continue
+			}
+			use := AircraftUseCode(string(code))
+			if _, ok := validAircraftUseCodes[use]; !ok {
+				return fmt.Errorf("line %d: USE contains unsupported category %q", line, use)
+			}
+			if !slices.Contains(capability.UseCodes, use) {
+				capability.UseCodes = append(capability.UseCodes, use)
+			}
+		}
+		if len(capability.UseCodes) == 0 {
+			return fmt.Errorf("line %d: USE requires at least one category", line)
+		}
 	case "BLOCKS":
 		blocks := parseBlocks(value)
 		if len(blocks) == 0 {
@@ -477,6 +494,7 @@ func normalizeToken(value string) string {
 
 func cloneStandCapability(capability StandCapability) StandCapability {
 	capability.Blocks = slices.Clone(capability.Blocks)
+	capability.UseCodes = slices.Clone(capability.UseCodes)
 	capability.WTC = slices.Clone(capability.WTC)
 	capability.NotWTC = slices.Clone(capability.NotWTC)
 	capability.EngineTypes = slices.Clone(capability.EngineTypes)

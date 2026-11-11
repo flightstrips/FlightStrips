@@ -129,5 +129,13 @@
       "manual_only_reason": "Coordinates are published; aircraft compatibility limits and allocation preferences are not supplied by this chart.",
       "blocking_relationship": "Existing sector stand 37 BLOCKS 36 retained; allocator checks blocking conflicts in both directions."
     }
-  ]
+  ],
+  "stand_policy": {
+    "file": "backend/config/ekbi/airline_assignment.json",
+    "use": "Enforce sector USE categories for selection, preview and fallback. Unknown use defaults to airliner. Cargo airline prefixes and CARGO remarks select category C.",
+    "priority": "Descending sector PRIORITY mapped to ordered equal-weight tiers; no stand appears in multiple priority tiers.",
+    "manual": "Exclude MANUAL stands from automatic candidates; stand 36 remains explicitly selectable.",
+    "cargo_callsigns_source": "EKDK/Plugins/GRplugin/GRpluginCargoCallsigns.txt",
+    "cargo_callsigns_sha256": "94b1a28739d39c67f276246420b2976edc5dfdfcf609abf19aca19ccd1437c19"
+  }
 }

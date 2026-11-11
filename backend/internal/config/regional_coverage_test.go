@@ -10,7 +10,7 @@ import (
 func TestRegionalSectorCoverageNeedsNoAdditionalOperatingInputs(t *testing.T) {
 	for _, airport := range []string{"EKBI", "EKYT"} {
 		t.Run(airport, func(t *testing.T) {
-			registry, err := LoadAirportFiles(ProductionAirportCatalog(), []string{"backend/config/airports/" + strings.ToLower(airport) + ".airport.yaml"}, AirportLoadOptions{RepositoryRoot: testAirportRoot(t)})
+			registry, err := LoadAirportFiles(ProductionAirportCatalog(), []string{"backend/config/airports/" + strings.ToLower(airport) + ".airport.yaml"}, AirportLoadOptions{RepositoryRoot: testAirportRoot(t), LookupEnv: func(string) (string, bool) { return "backend/config/test/ICAO_Aircraft.json", true }})
 			require.NoError(t, err)
 			d, _ := registry.Lookup(airport)
 			frequency := func(name string) string {

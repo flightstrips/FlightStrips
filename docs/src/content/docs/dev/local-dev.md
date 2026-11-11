@@ -103,6 +103,9 @@ Dev server runs at `localhost:4321` by default.
 
 ## Wiring checks
 
+For a coordinated Windows startup with a dedicated EuroScope test profile, see
+[Manual testing launcher](../manual-testing/).
+
 With the backend on **8090**: the frontend shows live strips once auth and WebSockets succeed; the plugin negotiates the `euroscopeEvents` WebSocket independently of the frontend origin.
 
 ## Local SAT test console

@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: fs
+      POSTGRES_PASSWORD: local-testing-only
+      POSTGRES_DB: fsdb
+    ports:
+      - "127.0.0.1:${MANUAL_TEST_DATABASE_PORT:-55432}:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fs -d fsdb"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+volumes:
+  postgres:

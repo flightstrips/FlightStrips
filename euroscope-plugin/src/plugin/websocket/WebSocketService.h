@@ -61,6 +61,7 @@ namespace FlightStrips::websocket {
         protobuf::wire::MembershipContext CaptureContext() const;
         void RememberRunways(const std::string& callsign, const std::string& departure, const std::string& arrival);
         void RememberAircraft(const std::string& callsign,const std::string& origin,const std::string& destination,double latitude,double longitude,bool hasFp=true);
+        void SendRadarOnlyIntroduction(const StripUpdateEvent& event);
         bool KnowsAircraft(const std::string& callsign) const {
             if(source_aircraft_.contains(callsign)) return true;
             for(const auto& [id,m]:memberships_.members) if(m.inventory.contains(callsign)) return true;

@@ -1,0 +1,31 @@
+{
+  "EuroScopeExe": "",
+  "FsdExe": "",
+  "EuroScopeDataDirectory": "",
+  "BaseProfile": "",
+  "PluginUserConfig": "",
+  "StandsFile": "",
+  "AirlinesFile": "",
+  "AircraftFile": "",
+  "NodeDirectory": "",
+  "SuspendContainers": [],
+  "FrontendPort": 8080,
+  "BackendPort": 8090,
+  "DatabasePort": 55432,
+  "Callsign": "EKCH_A_GND",
+  "Facility": 3,
+  "DefaultScenario": "ekch-twr-22",
+  "Scenarios": {
+    "ekch-twr-22": {
+      "File": "../scenarios/ekch-twr-Rwy22.txt",
+      "ArrivalRunways": ["22L"],
+      "DepartureRunways": ["22R"]
+    }
+  },
+  "BackendEnvironment": {
+    "AMAN_SOURCE_MODE": "euroscope",
+    "AMAN_MODE": "shadow",
+    "AMAN_ENABLED_AIRPORTS": "EKCH",
+    "ENABLE_AMAN_HOLDING_EAT_WRITEBACK": "false"
+  }
+}

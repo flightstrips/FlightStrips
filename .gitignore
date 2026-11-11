@@ -35,3 +35,7 @@ docs/.DS_Store
 backend/config/data/
 /frontend/*e2e-artifacts/
 /backend/*e2e.log
+
+# Machine-specific manual testing configuration, credentials, builds, and logs
+/scripts/manual-test.local.json
+/.manual-test/

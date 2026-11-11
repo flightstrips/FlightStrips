@@ -40,6 +40,7 @@ import {
   type FrontendStandEvent,
   type FrontendStandAssignmentEntry,
   type FrontendStandBlockEntry,
+  type FrontendStandArrivalRestrictionEntry,
   type FrontendStandAssignmentUpdateEvent,
   type FrontendStandAssignmentRemovedEvent,
   type FrontendStandBlockUpdateEvent,
@@ -273,6 +274,7 @@ export interface WebSocketState {
 
   standAssignments: FrontendStandAssignmentEntry[];
   standBlocks: FrontendStandBlockEntry[];
+  standArrivalRestrictions: FrontendStandArrivalRestrictionEntry[];
   satEnabled: boolean;
 
   occupyStand: (stand: string) => void;
@@ -431,6 +433,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     standAssignments: [],
     standActionRejection: null,
     standBlocks: [],
+    standArrivalRestrictions: [],
     satEnabled: false,
   };
 
@@ -1369,6 +1372,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
         state.availableSids = data.available_sids ?? [];
         state.standAssignments = data.stand_assignments ?? [];
         state.standBlocks = data.stand_blocks ?? [];
+        state.standArrivalRestrictions = data.stand_arrival_restrictions ?? [];
         state.satEnabled = data.stand_assignment_enabled ?? false;
         state.standActionRejection = null;
       })

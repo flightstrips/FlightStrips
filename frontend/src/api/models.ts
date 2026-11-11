@@ -363,6 +363,7 @@ export interface FrontendInitialEvent {
   stand_assignment_enabled: boolean;
   stand_assignments: FrontendStandAssignmentEntry[];
   stand_blocks: FrontendStandBlockEntry[];
+  stand_arrival_restrictions?: FrontendStandArrivalRestrictionEntry[];
   capabilities?: {
     aman_fmp: boolean;
   };
@@ -856,6 +857,11 @@ export interface FrontendStandBlockEntry {
   created_by?: string;
   expires_at?: string;
   version?: number;
+}
+
+export interface FrontendStandArrivalRestrictionEntry {
+  stand: string;
+  reason: string;
 }
 
 export interface FrontendStandStatusSnapshotEvent {

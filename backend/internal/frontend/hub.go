@@ -2026,6 +2026,7 @@ func observerInSession(hub shared.EuroscopeHub, session int32, cid string) bool 
 
 func (hub *Hub) SetStandCapabilities(stands *sat.StandCapabilityRegistry) {
 	hub.standCapabilities = stands
+	hub.snapshotBuilder = nil
 }
 
 func (hub *Hub) SetTextPilotInputs(lookup func(string) *pkgModels.TextPilotInputs) {

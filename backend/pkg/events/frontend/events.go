@@ -328,6 +328,7 @@ type InitialEvent struct {
 	StandAssignmentEnabled bool                       `json:"stand_assignment_enabled"`
 	StandAssignments       []StandAssignmentEntry     `json:"stand_assignments"`
 	StandBlocks            []StandBlockEntry          `json:"stand_blocks"`
+	StandArrivalRestrictions []StandArrivalRestrictionEntry `json:"stand_arrival_restrictions,omitempty"`
 	Capabilities           FrontendCapabilities       `json:"capabilities"`
 }
 
@@ -1198,6 +1199,11 @@ type StandBlockEntry struct {
 	CreatedBy *string    `json:"created_by,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	Version   int32      `json:"version"`
+}
+
+type StandArrivalRestrictionEntry struct {
+	Stand  string `json:"stand"`
+	Reason string `json:"reason"`
 }
 
 // StandStatusSnapshotEvent is broadcast to a newly connected frontend to seed stand state.

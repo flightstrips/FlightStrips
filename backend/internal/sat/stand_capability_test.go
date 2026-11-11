@@ -90,6 +90,21 @@ func TestLoadStandCapabilitiesRejectsUnknownCapabilities(t *testing.T) {
 	assert.Nil(t, registry)
 }
 
+func TestLoadStandCapabilitiesKeepsArrivalRestrictedStandsPhysical(t *testing.T) {
+	const reason = "Not available for arrival stand assignment"
+	registry, err := LoadStandCapabilities(strings.NewReader(
+		"STAND:EKCH:C10:N055.37.39.290:E012.38.58.230:35\nARRIVAL_CLOSED:" + reason + "\n",
+	))
+	require.NoError(t, err)
+
+	stand, ok := registry.Lookup("EKCH", "C10")
+	require.True(t, ok)
+	assert.Equal(t, reason, stand.ArrivalRestrictionReason)
+	observed, found := registry.StandAtPosition("EKCH", stand.Latitude, stand.Longitude)
+	require.True(t, found)
+	assert.Equal(t, "C10", observed.Name)
+}
+
 func TestLoadStandCapabilitiesRejectsUnknownBlockTargets(t *testing.T) {
 	registry, err := LoadStandCapabilities(strings.NewReader("STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30\nBLOCKS:A99,A2\nSTAND:EKCH:A2:N055.37.42.000:E012.38.33.000:30\n"))
 	require.Error(t, err)
@@ -114,4 +129,16 @@ func TestLoadCommittedEKCHStandFileValidatesAllBlockReferences(t *testing.T) {
 	e71, ok := registry.Lookup("EKCH", "E71")
 	require.True(t, ok)
 	assert.Equal(t, []string{"E70", "E72", "E73", "E74"}, e71.Blocks)
+
+	for _, name := range []string{"B3", "B5", "B16", "C10", "C26"} {
+		stand, found := registry.Lookup("EKCH", name)
+		require.True(t, found)
+		assert.NotEmpty(t, stand.ArrivalRestrictionReason)
+		require.NotEmpty(t, stand.Variants)
+		assert.True(t, stand.Variants[0].Manual)
+		assert.Equal(t, 30.0, stand.Radius)
+		observed, detected := registry.StandAtPosition("EKCH", stand.Latitude, stand.Longitude)
+		require.True(t, detected)
+		assert.Equal(t, name, observed.Name)
+	}
 }

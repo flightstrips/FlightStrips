@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { FrontendStandArrivalRestrictionEntry } from "@/api/models";
 import { deriveEstStandBlocking } from "./standBlocking";
 
 describe("deriveEstStandBlocking", () => {
@@ -15,9 +16,22 @@ describe("deriveEstStandBlocking", () => {
       },
     ]);
 
-    expect(state.blocked).toEqual({ A1: true, A2: true });
+    expect(state.blocked).toMatchObject({ A1: true, A2: true });
     expect(state.reasons.A1).toBe("Marshaller closed");
     expect(state.reasons.A2).toBe("Blocked by manual block A1: Marshaller closed");
+  });
+
+  it("displays backend-provided arrival restrictions and reasons", () => {
+    const restrictions: FrontendStandArrivalRestrictionEntry[] = ["C10", "C26", "B3", "B5", "B16"].map(stand => ({
+      stand,
+      reason: "Not available for arrival stand assignment",
+    }));
+    const state = deriveEstStandBlocking([], [], restrictions);
+
+    expect(state.blocked).toMatchObject({ C10: true, C26: true, B3: true, B5: true, B16: true });
+    for (const stand of ["C10", "C26", "B3", "B5", "B16"]) {
+      expect(state.reasons[stand]).toBe("Not available for arrival stand assignment");
+    }
   });
 
   it("combines assignment and manual-block adjacency reasons", () => {

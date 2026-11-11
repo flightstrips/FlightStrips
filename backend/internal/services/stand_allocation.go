@@ -47,6 +47,7 @@ var (
 	ErrNoTierImprovement             = errors.New("no better stand tier is currently available")
 	ErrRelocationCycle               = errors.New("displaced arrival relocation revisited the same callsign")
 	errAllocationVersionConflict     = errors.New("stand assignment version conflict")
+	ErrArrivalStandRestricted        = errors.New("stand is closed to arrival assignments")
 )
 
 type manualStandAssignmentError struct {
@@ -1117,6 +1118,8 @@ func standAllocationFailureOutcome(err error) string {
 		return "manual_stand_unavailable"
 	case errors.Is(err, ErrUnknownManualOverrideStand):
 		return "unknown_stand"
+	case errors.Is(err, ErrArrivalStandRestricted):
+		return "arrival_stand_restricted"
 	default:
 		return "error"
 	}
@@ -1439,6 +1442,11 @@ func (s *StandAllocationService) AvailableStands(ctx context.Context, request St
 		slices.Sort(entry.ReservedBy)
 		_, compatible := matches[name]
 		entry.Unsuitable = !compatible
+		if request.Direction == sat.AssignmentDirectionArrival && stand.ArrivalRestrictionReason != "" {
+			entry.Reason = stand.ArrivalRestrictionReason
+			result = append(result, entry)
+			continue
+		}
 		entry.Selectable = len(unavailable[name]) == 0
 		if reasons := unavailable[name]; len(reasons) > 0 {
 			entry.Reason = joinAllocationReasons(reasons)
@@ -1496,6 +1504,23 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
 	for _, match := range evaluation.Matches {
 		matches[standName(match.Stand.Name)] = match
+	}
+	if request.Direction == sat.AssignmentDirectionArrival &&
+		(command == CompatibleManualStand || command == IncompatibleManualOverride) {
+		if stand, known := s.stands.Lookup(request.Airport, request.Stand); known && stand.ArrivalRestrictionReason != "" {
+			return request.Stand, nil, nil, nil, "", fmt.Errorf("%w: %s: %s", ErrArrivalStandRestricted, request.Stand, stand.ArrivalRestrictionReason)
+		}
+	}
+	if request.Direction == sat.AssignmentDirectionArrival &&
+		command != observedStandAllocation && command != pilotObservedStandAllocation {
+		for name, match := range matches {
+			if match.Stand.ArrivalRestrictionReason != "" {
+				delete(matches, name)
+			}
+		}
+		if len(matches) == 0 && len(evaluation.Matches) > 0 {
+			return "", nil, nil, nil, "", ErrNoAvailableStand
+		}
 	}
 	if command == observedStandAllocation || command == pilotObservedStandAllocation {
 		target := standName(request.Stand)

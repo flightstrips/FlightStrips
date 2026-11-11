@@ -416,7 +416,29 @@ describe("EstStandCell", () => {
       />,
     );
     const button = screen.getByRole("button");
-    expect(button.className).toContain("bg-[#4A4A4A]");
+    expect(button.className).toContain("bg-[#959595]");
+    expect(button.className).toContain("text-black");
+  });
+
+  it("uses subdued vacant-style stand labels for default-blocked stands", () => {
+    render(
+      <EstStandCell
+        stand={{ label: "C10", left: 0, top: 0 }}
+        blocked
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive={false}
+        ctotImproved={false}
+        nowMs={Date.now()}
+        onClick={() => {}}
+      />,
+    );
+
+    const label = screen.getByText("C10");
+    expect(label.className).toContain("font-normal");
+    expect(label.className).toContain("text-[#333333]");
+    expect(label.className).not.toContain("font-bold");
   });
 
   it("shows departure style for not-cleared strip", () => {

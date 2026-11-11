@@ -171,7 +171,7 @@ interface MapDialogShellProps {
   staticPoints?: StaticMapPoint[];
   pointStyle?: React.CSSProperties;
   btnStyle: React.CSSProperties;
-  onSelect: (label: string) => void;
+  onSelect: (label: string, point?: ClickPoint) => void;
   selectedPoint?: string;
   /** Controls panel overlay (e.g. arrows + ERASE/OK). Positioned absolutely over the image. */
   children?: React.ReactNode;
@@ -279,7 +279,7 @@ export function MapDialogShell({
                     type="button"
                     disabled={isDisabled}
                     aria-describedby={isDisabled ? tooltipId : undefined}
-                    onClick={() => onSelect(effectiveLabel)}
+                    onClick={() => onSelect(effectiveLabel, pt)}
                     style={{
                       ...btnStyle,
                       width: "100%",

@@ -38,7 +38,7 @@ describe("MapDialogShell restricted points", () => {
     const availablePoint = screen.getByRole("button", { name: "B" });
     expect(availablePoint).toBeEnabled();
     fireEvent.click(availablePoint);
-    expect(onSelect).toHaveBeenCalledWith("B");
+    expect(onSelect).toHaveBeenCalledWith("B", { label: "B", left: "75%", top: "75%" });
   });
 
   it("renders static map labels as non-pressable buttons", () => {

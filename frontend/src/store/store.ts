@@ -355,6 +355,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     return () => {};
   };
   const pendingFrequencyMessages = new Map<string, { callsign: string; session: number | null; position: string; resolve: (result: FrequencyMessageResult) => void; timeout: ReturnType<typeof setTimeout> }>();
+  const dismissedMessageIds = new Set<number>();
   let nextForceAssumeRequestId = 0;
   const pendingForceAssumeRoutes = new Map<string, {
     resolve: (nextOwners: string[]) => void;
@@ -834,6 +835,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       sendIfWritable({type: ActionType.FrontendSendPrivateMessage, callsign, message});
     },
     dismissMessage: (id) => {
+      dismissedMessageIds.add(id);
       store.setState(
         produce((state: WebSocketState) => {
           state.messages = state.messages.filter(m => m.id !== id);
@@ -1660,6 +1662,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   }
 
   const handleMessageReceived = (data: FrontendMessageReceivedEvent) => {
+    if (dismissedMessageIds.has(data.id)) return;
     store.setState(
       produce((state: WebSocketState) => {
         const index = state.messages.findIndex(message => message.id === data.id);

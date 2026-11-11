@@ -122,6 +122,7 @@ export default function EST() {
   const satEnabled = useSatEnabled();
   const standBlocks = useStandBlocks();
   const standAssignments = useStandAssignments();
+  const standArrivalRestrictions = useWebSocketStore((state) => state.standArrivalRestrictions);
   const occupyStand = useOccupyStand();
   const vacateStand = useVacateStand();
   const stripTransfers = useStripTransfers();
@@ -198,10 +199,13 @@ export default function EST() {
   );
 
   const satStandBlocking = useMemo(
-    () => deriveEstStandBlocking(standAssignments, standBlocks),
-    [standAssignments, standBlocks],
+    () => deriveEstStandBlocking(standAssignments, standBlocks, standArrivalRestrictions),
+    [standAssignments, standBlocks, standArrivalRestrictions],
   );
-  const defaultStandBlocking = useMemo(() => deriveEstStandBlocking([], []), []);
+  const defaultStandBlocking = useMemo(
+    () => deriveEstStandBlocking([], [], standArrivalRestrictions),
+    [standArrivalRestrictions],
+  );
   const blockedStandsDerived = satEnabled
     ? satStandBlocking.blocked
     : { ...blockedStands, ...defaultStandBlocking.blocked };

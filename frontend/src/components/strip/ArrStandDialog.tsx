@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { STAND_ASSIGNMENT_LAYOUTS, STAND_ASSIGNMENT_LETTERS as LETTERS } from "./standAssignmentLayouts";
 import { deriveStandAvailability, type StandBadge } from "./standAvailability";
-import { DEFAULT_BLOCKED_EST_STAND_SET } from "@/components/est/standBlocking";
 import StandStatusPage from "@/pages/stand-status";
 import "./ArrStandDialog.css";
 
@@ -117,6 +116,11 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   const assignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
   const assignments = useWebSocketStore(s => s.standAssignments);
   const blocks = useWebSocketStore(s => s.standBlocks);
+  const arrivalRestrictions = useWebSocketStore(s => s.standArrivalRestrictions);
+  const arrivalRestrictionReasons = useMemo(
+    () => new Map(arrivalRestrictions.map(({ stand, reason }) => [stand.toUpperCase(), reason])),
+    [arrivalRestrictions],
+  );
   const strips = useWebSocketStore(s => s.strips);
   const rejection = useWebSocketStore(s => s.standActionRejection);
   const requestAutomatic = useWebSocketStore(s => s.requestAutomaticStand);
@@ -186,8 +190,9 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   const send = () => {
     if (legacyPending) return;
     const stand = manualStand.trim().toUpperCase();
-    if (!automaticSelected && DEFAULT_BLOCKED_EST_STAND_SET.has(stand)) {
-      toast.error(`${stand} is not available for arrival stand assignment`);
+    const restrictionReason = arrivalRestrictionReasons.get(stand);
+    if (!automaticSelected && restrictionReason) {
+      toast.error(restrictionReason);
       return;
     }
     submittedStand.current = true;
@@ -214,7 +219,7 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   };
   const panel = group === "C" || group === "D" ? "C+D" : group;
   const stands = panel === null ? [] : STAND_ASSIGNMENT_LAYOUTS[panel]
-    .filter(([label]) => !DEFAULT_BLOCKED_EST_STAND_SET.has(label))
+    .filter(([label]) => !arrivalRestrictionReasons.has(label))
     .map(([label, left, top]) => ({
       label,
       displayLabel: label,
@@ -234,8 +239,9 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
             {unsafeManual && <MenuButton tone="auto" onClick={automatic}>AUTO ASSIGN</MenuButton>}
             {unsafeManual && <MenuButton tone="dark" onClick={() => {
               const stand = manualStand.trim().toUpperCase();
-              if (DEFAULT_BLOCKED_EST_STAND_SET.has(stand)) {
-                toast.error(`${stand} is not available for arrival stand assignment`);
+              const restrictionReason = arrivalRestrictionReasons.get(stand);
+              if (restrictionReason) {
+                toast.error(restrictionReason);
                 return;
               }
               submittedVersion.current = version;

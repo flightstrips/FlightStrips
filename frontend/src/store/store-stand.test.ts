@@ -71,9 +71,11 @@ describe("stand store events", () => {
         stand_assignment_enabled: true,
         stand_assignments: [],
         stand_blocks: [],
+        stand_arrival_restrictions: [{ stand: "C10", reason: "Not available for arrival stand assignment" }],
       };
       client._emit(EventType.FrontendInitial, init);
       expect(store.getState().satEnabled).toBe(true);
+      expect(store.getState().standArrivalRestrictions).toEqual(init.stand_arrival_restrictions);
     });
   });
 

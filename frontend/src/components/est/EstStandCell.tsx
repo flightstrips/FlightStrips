@@ -4,7 +4,6 @@ import { Bay, type FrontendStrip } from "@/api/models";
 import { SELECTION_COLOR } from "@/components/strip/shared";
 import { cn, getSimpleAircraftType } from "@/lib/utils";
 import { CDM_GREEN, CDM_RED, CTOT_BLUE, computeCDMColors, computeCTOTColors, isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
-import { DEFAULT_BLOCKED_EST_STAND_SET } from "@/components/est/standBlocking";
 
 import {
   EST_CELL_HEIGHT,
@@ -78,7 +77,7 @@ export default function EstStandCell({
   // marker. The backend reconciles that marker, but the board must remain
   // usable while websocket updates are in flight or after a missed update.
   const effectivelyBlocked = blocked && !strip;
-  const defaultBlocked = DEFAULT_BLOCKED_EST_STAND_SET.has(stand.label);
+  const defaultBlocked = blocked && !strip;
   const gridStyle =
     "column" in stand && "row" in stand && stand.column !== undefined && stand.row !== undefined
       ? { gridColumn: stand.column, gridRow: stand.row }

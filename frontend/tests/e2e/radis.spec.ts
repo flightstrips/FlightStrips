@@ -3,7 +3,7 @@ import {test} from "./fixtures";
 import {identity} from "./identity";
 
 const backend = "http://127.0.0.1:4184";
-type Row = {ID: number; Version: number; Callsign: string; Bay: string; Sequence: number; FlightPlanEET: string; CdmData: {tobt?: string}; BoardState: {local?: boolean; annotations: {notes: string}; removed_at?: string}};
+type Row = {ID: number; Version: number; Callsign: string; State: string; Bay: string; Sequence: number; FlightPlanEET: string; CdmData: {tobt?: string}; BoardState: {local?: boolean; annotations: {notes: string}; removed_at?: string}};
 const strip = (page: Page, callsign = "RADIS1") => page.getByTestId(`radis-strip-${callsign}`);
 async function rows(request: APIRequestContext, airport = "EKBI", environment = "LIVE"): Promise<Row[]> {
   const response = await request.get(`${backend}/e2e/persisted?airport=${airport}&environment=${environment}`);
@@ -111,6 +111,16 @@ test("RADIS production sessions converge through database, own-plugin commands a
       await drag(callsign,b.locator(".radis-runway"));
       await expect.poll(async () => (await rows(request)).find(s => s.Callsign === callsign)?.Bay).toBe("RUNWAY");
       for (const page of [a,b]) await expect(page.locator(".radis-runway").getByTestId(`radis-strip-${callsign}`)).toBeVisible();
+      // The bay publication precedes the own-plugin ground-state echo. Wait for
+      // that committed revision before starting the next optimistic write.
+      let observedVersion: number | undefined;
+      await expect.poll(async () => {
+        const current = (await rows(request)).find(s => s.Callsign === callsign)!;
+        const settled = current.State === "TKOFF" && observedVersion === current.Version &&
+          await strip(b,callsign).getAttribute("data-strip-version") === String(current.Version);
+        observedVersion = current.Version;
+        return settled;
+      }).toBe(true);
     }
     const runwayOrder = async () => (await rows(request)).filter(s => s.Bay === "RUNWAY").sort((a,b)=>a.Sequence-b.Sequence).map(s=>s.Callsign);
     const before = await runwayOrder();

@@ -1,4 +1,4 @@
-# AIRAC 2611/1 sector-derived definition. Stand/text implementation is tracked in #1097.
+# AIRAC 2611/1 sector-derived definition. Sector stand preferences enabled; TEXT PILOT deferred in #1097.
 $schema: ../../internal/config/airport-configuration.schema.json
 schema_version: flightstrips-airport/v1
 kind: airport
@@ -190,7 +190,16 @@ services:
   cdm:
     availability: disabled
   stand_assignment:
-    availability: disabled
+    availability: enabled
+    stands:
+      repo_path: backend/config/ekyt/GRpluginStands.txt
+    aircraft_reference:
+      repo_path: backend/config/ekch/GRpluginAircraftInfo.txt
+    aircraft_icao:
+      environment: GRPLUGIN_ICAO_AIRCRAFT_JSON
+      default_repo_path: backend/config/data/ICAO_Aircraft.json
+    airline_assignment:
+      repo_path: backend/config/ekyt/airline_assignment.json
   text_pilot:
     availability: disabled
   aman:
@@ -202,4 +211,4 @@ services:
 validation: {}
 provenance:
 - path: backend/config/ekyt/source.json
-  sha256: 7754bf1493b6ba036ef3ba94f4401b2cbb06d83e9f6769874f536d506b39955d
+  sha256: c1f4d296871d25018be26548ab4a255adf1ef72a6192d983448ae5aa100ed909

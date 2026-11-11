@@ -13,7 +13,7 @@ func TestGSXRemainsEKCHOnlyWhenRegionalsAreSelected(t *testing.T) {
 	require.NoError(t, err)
 	definitions, err := appconfig.LoadAirportFiles(appconfig.ProductionAirportCatalog(), []string{
 		"backend/config/airports/ekch.airport.yaml", "backend/config/airports/ekbi.airport.yaml", "backend/config/airports/ekyt.airport.yaml",
-	}, appconfig.AirportLoadOptions{RepositoryRoot: root, GSXEnabled: true})
+	}, appconfig.AirportLoadOptions{RepositoryRoot: root, GSXEnabled: true, LookupEnv: func(string) (string, bool) { return "backend/config/test/ICAO_Aircraft.json", true }})
 	require.NoError(t, err)
 	sceneries, err := loadGSXSceneriesDefinition(Config{Airports: definitions, EnableGSXStandFeed: true})
 	require.NoError(t, err)

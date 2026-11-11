@@ -21,7 +21,7 @@ import (
 func TestRegionalRADISPersistsATDAndManualAdmissionWithRealDefinitions(t *testing.T) {
 	pool, q := testdata.SetupTestDB(t)
 	ctx := t.Context()
-	definitions, err := config.LoadAirportFiles(config.ProductionAirportCatalog(), []string{"backend/config/airports/ekbi.airport.yaml", "backend/config/airports/ekyt.airport.yaml"}, config.AirportLoadOptions{RepositoryRoot: ".."})
+	definitions, err := config.LoadAirportFiles(config.ProductionAirportCatalog(), []string{"backend/config/airports/ekbi.airport.yaml", "backend/config/airports/ekyt.airport.yaml"}, config.AirportLoadOptions{RepositoryRoot: "..", LookupEnv: func(string) (string, bool) { return "backend/config/test/ICAO_Aircraft.json", true }})
 	require.NoError(t, err)
 	workflows, err := airportworkflow.NewRegistry(definitions, airportworkflow.RADISDescriptor())
 	require.NoError(t, err)

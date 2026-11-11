@@ -103,9 +103,13 @@ var requiredFallbacks = []string{
 // AirlineAssignmentConfig is the complete SAT preference configuration.
 // StandGroups are expanded before a tier is considered by the selector.
 type AirlineAssignmentConfig struct {
-	Rules         []AirlineAssignmentRule `json:"rules"`
-	StandGroups   map[string][]string     `json:"stand_groups"`
-	FallbackRules map[string]FallbackRule `json:"fallback_rules"`
+	// Regional sector policies enforce USE even when the allocator falls back.
+	// Existing policies retain their previous behavior unless explicitly enabled.
+	EnforceStandUse bool                    `json:"enforce_stand_use,omitempty"`
+	CargoCallsigns  []string                `json:"cargo_callsigns,omitempty"`
+	Rules           []AirlineAssignmentRule `json:"rules"`
+	StandGroups     map[string][]string     `json:"stand_groups"`
+	FallbackRules   map[string]FallbackRule `json:"fallback_rules"`
 
 	standRegistry *StandCapabilityRegistry
 }
@@ -113,6 +117,7 @@ type AirlineAssignmentConfig struct {
 // AssignmentFlightFacts contains only the facts needed to choose a rule. The
 // compatibility task is responsible for resolving these facts first.
 type AssignmentFlightFacts struct {
+	Remarks      string
 	Callsign     string
 	AircraftType string
 	AircraftUse  AircraftUseCode
@@ -238,6 +243,27 @@ func (c *AirlineAssignmentConfig) Validate(registry *StandCapabilityRegistry) er
 	}
 	if c.FallbackRules == nil {
 		return errors.New("fallback_rules must be present")
+	}
+	for _, prefix := range c.CargoCallsigns {
+		if len(prefix) != 3 || strings.Trim(prefix, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") != "" {
+			return fmt.Errorf("cargo_callsigns contains invalid airline prefix %q", prefix)
+		}
+	}
+	if c.EnforceStandUse {
+		for _, stand := range registry.AllStands() {
+			if len(stand.Variants) == 0 {
+				return fmt.Errorf("stand %s:%s has no capability variants", stand.Airport, stand.Name)
+			}
+			for _, variant := range stand.Variants[1:] {
+				sameUse := len(variant.UseCodes) == len(stand.Variants[0].UseCodes)
+				for _, use := range variant.UseCodes {
+					sameUse = sameUse && slices.Contains(stand.Variants[0].UseCodes, use)
+				}
+				if !sameUse {
+					return fmt.Errorf("stand %s:%s has conflicting variant USE categories", stand.Airport, stand.Name)
+				}
+			}
+		}
 	}
 	for _, name := range requiredFallbacks {
 		if _, ok := lookupFallback(c.FallbackRules, name); !ok {
@@ -389,6 +415,9 @@ func validateTiers(tiers []StandTier, path string, registry *StandCapabilityRegi
 }
 
 func (c *AirlineAssignmentConfig) normalize() {
+	for i := range c.CargoCallsigns {
+		c.CargoCallsigns[i] = normalizeCallsignPattern(c.CargoCallsigns[i])
+	}
 	groups := make(map[string][]string, len(c.StandGroups))
 	for name, members := range c.StandGroups {
 		cleanMembers := make([]string, 0, len(members))
@@ -612,7 +641,7 @@ func (c *AirlineAssignmentConfig) MatchRule(facts AssignmentFlightFacts) (*RuleM
 	if c == nil {
 		return nil, errors.New("airline assignment configuration is nil")
 	}
-	facts = normalizeAssignmentFacts(facts)
+	facts = c.assignmentFacts(facts)
 	match, err := c.matchAirlineRule(facts)
 	if err != nil {
 		return nil, err
@@ -632,6 +661,50 @@ func normalizeAssignmentFacts(facts AssignmentFlightFacts) AssignmentFlightFacts
 	facts.Direction = AssignmentDirection(strings.ToUpper(strings.TrimSpace(string(facts.Direction))))
 	facts.Special = strings.ToUpper(strings.TrimSpace(facts.Special))
 	return facts
+}
+
+func (c *AirlineAssignmentConfig) assignmentFacts(facts AssignmentFlightFacts) AssignmentFlightFacts {
+	facts = normalizeAssignmentFacts(facts)
+	if !c.EnforceStandUse {
+		return facts
+	}
+	if _, known := validAircraftUseCodes[facts.AircraftUse]; !known {
+		facts.AircraftUse = AircraftUseCodeA // GRPlugin defaults unknown use to airliner.
+	}
+	cargo := strings.Contains(strings.ToUpper(facts.Remarks), "CARGO")
+	for _, prefix := range c.CargoCallsigns {
+		cargo = cargo || strings.HasPrefix(facts.Callsign, prefix)
+	}
+	if cargo {
+		facts.AircraftUse = AircraftUseCodeC
+	}
+	return facts
+}
+
+func (c *AirlineAssignmentConfig) standAllowsUse(name string, use AircraftUseCode) bool {
+	if !c.EnforceStandUse {
+		return true
+	}
+	for _, stands := range c.standRegistry.byAirport {
+		stand, ok := stands[normalizeStandName(name)]
+		if !ok {
+			continue
+		}
+		for _, variant := range stand.Variants {
+			if !variant.Manual && (len(variant.UseCodes) == 0 || slices.Contains(variant.UseCodes, use)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *AirlineAssignmentConfig) restrictStandUse(eligible map[string]struct{}, facts AssignmentFlightFacts) {
+	for stand := range eligible {
+		if !c.standAllowsUse(stand, facts.AircraftUse) {
+			delete(eligible, stand)
+		}
+	}
 }
 
 // matchAirlineRule returns nil when no airline-specific rule applies. Keeping
@@ -748,7 +821,8 @@ func (c *AirlineAssignmentConfig) SelectStand(facts AssignmentFlightFacts, eligi
 			eligible[stand] = struct{}{}
 		}
 	}
-	facts = normalizeAssignmentFacts(facts)
+	facts = c.assignmentFacts(facts)
+	c.restrictStandUse(eligible, facts)
 
 	match, err := c.matchAirlineRule(facts)
 	if err != nil {
@@ -778,7 +852,8 @@ func (c *AirlineAssignmentConfig) PreviewStandSelection(facts AssignmentFlightFa
 			eligible[stand] = struct{}{}
 		}
 	}
-	facts = normalizeAssignmentFacts(facts)
+	facts = c.assignmentFacts(facts)
+	c.restrictStandUse(eligible, facts)
 	match, err := c.matchAirlineRule(facts)
 	if err != nil {
 		return StandSelectionPreview{}, err
@@ -804,7 +879,9 @@ func (c *AirlineAssignmentConfig) PreviewFallbackStandSelection(facts Assignment
 			eligible[stand] = struct{}{}
 		}
 	}
-	return c.previewFallback(normalizeAssignmentFacts(facts), eligible)
+	facts = c.assignmentFacts(facts)
+	c.restrictStandUse(eligible, facts)
+	return c.previewFallback(facts, eligible)
 }
 
 func (c *AirlineAssignmentConfig) previewFallback(facts AssignmentFlightFacts, eligible map[string]struct{}) (StandSelectionPreview, error) {
@@ -858,7 +935,7 @@ func (c *AirlineAssignmentConfig) FallbackStandPool(facts AssignmentFlightFacts)
 	if c == nil {
 		return nil, errors.New("airline assignment configuration is nil")
 	}
-	facts = normalizeAssignmentFacts(facts)
+	facts = c.assignmentFacts(facts)
 	names := []string{c.preferredFallbackName(facts)}
 	if names[0] != FallbackAirlinerDefault {
 		names = append(names, FallbackAirlinerDefault)
@@ -886,7 +963,7 @@ func (c *AirlineAssignmentConfig) FallbackStandPool(facts AssignmentFlightFacts)
 				}
 				for _, stand := range stands {
 					stand = normalizeStandName(stand)
-					if stand == "" {
+					if stand == "" || !c.standAllowsUse(stand, facts.AircraftUse) {
 						continue
 					}
 					if _, exists := seen[stand]; exists {
@@ -917,7 +994,9 @@ func (c *AirlineAssignmentConfig) SelectFallbackStand(facts AssignmentFlightFact
 			eligible[stand] = struct{}{}
 		}
 	}
-	return c.selectFallback(normalizeAssignmentFacts(facts), eligible, random)
+	facts = c.assignmentFacts(facts)
+	c.restrictStandUse(eligible, facts)
+	return c.selectFallback(facts, eligible, random)
 }
 
 func (c *AirlineAssignmentConfig) selectFallback(facts AssignmentFlightFacts, eligible map[string]struct{}, random func() float64) (*StandSelection, error) {

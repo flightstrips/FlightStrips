@@ -15,7 +15,7 @@ func regionalWorkflow(t *testing.T, airport string) *Bound {
 	t.Helper()
 	_, source, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(source), "..", "..", "..")
-	definitions, err := config.LoadAirportFiles(config.ProductionAirportCatalog(), []string{"backend/config/airports/" + strings.ToLower(airport) + ".airport.yaml"}, config.AirportLoadOptions{RepositoryRoot: root})
+	definitions, err := config.LoadAirportFiles(config.ProductionAirportCatalog(), []string{"backend/config/airports/" + strings.ToLower(airport) + ".airport.yaml"}, config.AirportLoadOptions{RepositoryRoot: root, LookupEnv: func(string) (string, bool) { return "backend/config/test/ICAO_Aircraft.json", true }})
 	require.NoError(t, err)
 	definition, ok := definitions.Lookup(airport)
 	require.True(t, ok)

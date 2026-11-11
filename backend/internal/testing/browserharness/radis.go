@@ -105,7 +105,7 @@ func newRADISSuite() suite {
 	}
 	return suite{
 		config: app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/config/airports/ekbi.airport.yaml", "backend/config/airports/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
-		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Second, CoverageSimulated: func(context.Context) ([]euroscope.CoverageStaffingEvidence, error) {
+		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Hour, CoverageSimulated: func(context.Context) ([]euroscope.CoverageStaffingEvidence, error) {
 			// The coordinator captures its evaluation time before reading this
 			// inventory. Model already-observed data, never future-dated evidence.
 			observedAt := time.Now().Add(-time.Second)

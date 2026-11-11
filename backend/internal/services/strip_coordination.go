@@ -10,6 +10,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -265,6 +266,16 @@ func shouldRefreshRouteAfterCoordinationAssume(bay string) bool {
 	default:
 		return false
 	}
+}
+
+func (s *StripService) handleObservedDepartureTransition(ctx context.Context, session int32, previous, updated *internalModels.Strip, airport string, restartLifecycle bool) error {
+	if previous == nil || updated == nil || restartLifecycle ||
+		previous.Bay != shared.BAY_DEPART || updated.Bay != shared.BAY_AIRBORNE ||
+		!isLocalCdmDeparture(updated.Origin, airport) ||
+		strings.EqualFold(strings.TrimSpace(updated.Destination), strings.TrimSpace(airport)) {
+		return nil
+	}
+	return s.AutoTransferAirborneStrip(ctx, session, updated.Callsign)
 }
 
 func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session int32, callsign string) error {

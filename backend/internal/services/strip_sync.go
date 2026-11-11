@@ -673,6 +673,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		if primaryChange {
+			previousStrip := *existingStrip
 			persisted := false
 			if appender, ok := s.lifecycleStore.(interface {
 				PersistAtEndOfBay(context.Context, *internalModels.Strip, bool, int32) error
@@ -696,9 +697,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				applySyncStripUpdate(existingStrip, updateStrip)
 			}
 			s.cacheStrip(ctx, updateStrip)
-			if persisted && !restartLifecycle && previousBay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE &&
-				isLocalCdmDeparture(updateStrip.Origin, airport) && !strings.EqualFold(strings.TrimSpace(updateStrip.Destination), strings.TrimSpace(airport)) {
-				if err := s.AutoTransferAirborneStrip(ctx, session, strip.Callsign); err != nil {
+			if persisted {
+				if err := s.handleObservedDepartureTransition(ctx, session, &previousStrip, updateStrip, airport, restartLifecycle); err != nil {
 					return err
 				}
 			}

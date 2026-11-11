@@ -37,7 +37,9 @@ func newRADISSuite() suite {
 	var ownMu sync.Mutex
 	var clients []*websocket.Conn
 	var commands []radisCommand
-	epoch := time.Now().UTC()
+	// PostgreSQL stores microseconds. Sub-microsecond fixture timestamps would
+	// make an unchanged flight appear newer after every database round trip.
+	epoch := time.Now().UTC().Truncate(time.Microsecond)
 	var pool *pgxpool.Pool
 	var own *websocket.Conn
 	var ekchOwn *websocket.Conn

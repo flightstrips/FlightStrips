@@ -341,7 +341,7 @@ func (s *StripService) applyBayChangeEffects(ctx context.Context, session int32,
 	}
 
 	if bay == shared.BAY_STAND {
-		s.scheduleStandAutoRemoval(session, callsign)
+		s.scheduleStandAutoHide(session, callsign)
 	}
 
 	return nil

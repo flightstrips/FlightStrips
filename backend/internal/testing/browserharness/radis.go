@@ -51,6 +51,8 @@ func newRADISSuite() suite {
 		case r.URL.Path == "/status":
 			writeJSON(w, map[string]any{"data": map[string]any{"v3": []string{"http://" + r.Host + "/vatsim"}}})
 		case r.URL.Path == "/vatsim":
+			// Model the real feed publication cadence while polling quickly for startup.
+			// Repeated reads of an unchanged generation must not advance strip revisions.
 			pilots := []any{}
 			for i := range 24 {
 				pilots = append(pilots, map[string]any{"cid": 910000 + i, "callsign": fmt.Sprintf("FIND%02d", i), "latitude": 2, "longitude": 2, "altitude": 9000, "groundspeed": 200, "logon_time": epoch.Add(-time.Hour), "last_updated": epoch, "flight_plan": map[string]any{"flight_rules": "I", "aircraft": "A320/M", "aircraft_short": "A320", "departure": "EKBI", "arrival": "EKYT", "enroute_time": "0130", "revision_id": 1}})
@@ -60,7 +62,7 @@ func newRADISSuite() suite {
 			for i, callsign := range []string{"RADIS1", "RADIS2"} {
 				pilots = append(pilots, map[string]any{"cid": 920000 + i, "callsign": callsign, "latitude": 57.09278889, "longitude": 9.84916389, "altitude": 100, "groundspeed": 0, "logon_time": epoch.Add(-time.Hour), "last_updated": epoch, "flight_plan": map[string]any{"flight_rules": "I", "aircraft": "A320/M", "aircraft_short": "A320", "departure": "EKBI", "arrival": "EKYT", "enroute_time": "0130", "revision_id": 1}})
 			}
-			writeJSON(w, map[string]any{"general": map[string]any{"update_timestamp": now}, "pilots": pilots, "prefiles": []any{}, "controllers": []any{}})
+			writeJSON(w, map[string]any{"general": map[string]any{"update_timestamp": epoch.Add(time.Since(epoch).Truncate(15 * time.Second))}, "pilots": pilots, "prefiles": []any{}, "controllers": []any{}})
 		case strings.Contains(r.URL.Path, "afv-atis"):
 			writeJSON(w, []any{map[string]any{"callsign": "EKBI_ATIS", "frequency": "118.000", "atis_code": "B", "text_atis": []string{"Synthetic EKBI weather"}, "last_updated": now}, map[string]any{"callsign": "EKYT_ATIS", "frequency": "119.000", "atis_code": "Y", "text_atis": []string{"Synthetic EKYT weather"}, "last_updated": now}})
 		default:
@@ -105,7 +107,7 @@ func newRADISSuite() suite {
 	}
 	return suite{
 		config: app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/config/airports/ekbi.airport.yaml", "backend/config/airports/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
-		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Hour, CoverageSimulated: func(context.Context) ([]euroscope.CoverageStaffingEvidence, error) {
+		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Second, CoverageSimulated: func(context.Context) ([]euroscope.CoverageStaffingEvidence, error) {
 			// The coordinator captures its evaluation time before reading this
 			// inventory. Model already-observed data, never future-dated evidence.
 			observedAt := time.Now().Add(-time.Second)

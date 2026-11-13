@@ -50,6 +50,39 @@ test("zero sessions wait and one own session enters without a chooser", async ({
   await expect(page.getByRole("heading", {name: "Choose airport session"})).not.toBeVisible();
 });
 
+test("a deleted saved SWEATBOX session falls back to the only authorized session and survives reload", async ({page}) => {
+  await page.addInitScript(() => {
+    const key = "flightstrips.airport-session.v1";
+    if (!sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify({session: 2, instance: "own"}));
+  });
+  const auth = await setup(page, [{...membership(3, "EKCH"), environment: "SWEATBOX"}]);
+  await page.goto("/visual-tests/airport-session-preview.html");
+  await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "3");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("flightstrips.airport-session.v1")!))).toEqual({session: 3, instance: "own"});
+  await page.reload();
+  await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "3");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  expect(auth.map(x => (x.board as {session_id: number}).session_id)).toEqual([3, 3]);
+});
+
+test("a saved session with a stale instance asks only for the instance and restores that choice on reload", async ({page}) => {
+  await page.addInitScript(() => {
+    const key = "flightstrips.airport-session.v1";
+    if (!sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify({session: 1, instance: "deleted"}));
+  });
+  const auth = await setup(page, [membership(1, "AAAA", "first"), membership(1, "AAAA", "second"), membership(2, "BBBB")]);
+  await page.goto("/visual-tests/airport-session-preview.html");
+  await expect(page.getByRole("heading", {name: "Choose your plugin instance"})).toBeVisible();
+  expect(auth).toHaveLength(0);
+  await page.getByRole("button", {name: /second/}).click();
+  await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "1");
+  await page.reload();
+  await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "1");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  expect(auth.map(x => (x.board as {instance_id: string}).instance_id)).toEqual(["second", "second"]);
+});
+
 test("multiple compatible own instances require a deliberate choice", async ({page}) => {
   const auth = await setup(page, [membership(1, "AAAA", "first"), membership(1, "AAAA", "second")]);
   await page.goto("/visual-tests/airport-session-preview.html");

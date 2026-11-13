@@ -51,10 +51,12 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
             // instances and airports remain explicit user choices.
             return own?.length === 1 ? own[0] : previous;
           }
-          const preferred = hint && next.find(s => s.session_id === hint.session)?.instances.filter(m => m.instance_id === hint.instance);
+          // A saved session narrows the choice only while it is authorized.
+          // Stale hints must not turn an unambiguous discovery into a prompt.
+          const session = (hint && next.find(s => s.session_id === hint.session)) || (next.length === 1 ? next[0] : undefined);
+          const preferred = hint && session?.instances.filter(m => m.instance_id === hint.instance && m.session_id === hint.session);
           if (preferred?.length === 1) return preferred[0];
-          if (hint) return null; // Reload/reconnect must not silently enter another airport.
-          return next.length === 1 && next[0].instances.length === 1 ? next[0].instances[0] : null;
+          return session?.instances.length === 1 ? session.instances[0] : null;
         });
         setLoaded(true);
         setError(null);
@@ -75,7 +77,7 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
   }, [selected]);
 
   if (!selected) {
-    if (loaded && sessions.length > 0) return <AirportSessionChooser sessions={sessions} onChoose={choose}/>;
+    if (loaded && sessions.length > 0) return <AirportSessionChooser sessions={sessions} initialSessionID={hint?.session} onChoose={choose}/>;
     return <div className="w-screen min-h-svh flex flex-col justify-center items-center bg-primary text-white">
       <h1 className="text-4xl font-semibold">{loaded ? "Waiting for ES connection" : "Connecting to FlightStrips..."}</h1>
       {error && <p role="status" className="mt-4">{error}. Retrying...</p>}

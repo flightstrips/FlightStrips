@@ -3,12 +3,13 @@ import type {AuthorizedSession, OwnMembership} from "@/api/sessions";
 import {membershipKey} from "@/api/sessions";
 import {Button} from "@/components/ui/button";
 
-export function AirportSessionChooser({sessions, onChoose, onCancel}: {
+export function AirportSessionChooser({sessions, initialSessionID, onChoose, onCancel}: {
   sessions: AuthorizedSession[];
+  initialSessionID?: number;
   onChoose: (member: OwnMembership) => void;
   onCancel?: () => void;
 }) {
-  const [sessionID, setSessionID] = useState<number | null>(null);
+  const [sessionID, setSessionID] = useState<number | null>(initialSessionID ?? null);
   const session = sessions.find(s => s.session_id === sessionID) ?? (sessions.length === 1 && sessions[0].instances.length > 1 ? sessions[0] : null);
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary text-white p-6" role="dialog" aria-modal="true" aria-labelledby="airport-choice-title">
     <div className="w-full max-w-xl rounded-lg border border-white/20 bg-bay-dark p-6 shadow-xl">

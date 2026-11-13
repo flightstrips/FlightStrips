@@ -1,5 +1,14 @@
 # Events
 
+## EuroScope control acknowledgements
+
+After applying a transport `control` update, the backend echoes its evidence in
+the scope of the membership matching `relevant_airport` and `environment`, when
+present. The echoed context captures the master epoch after any frequency-driven
+election. Replay waits for matching applied evidence before sending observations
+after a frequency change; an unchanged role does not require another
+`session_info` or full sync. Failed control updates are not acknowledged.
+
 ## Frontend messages
 
 `send_message` carries `text`, `recipients` (configured area names; an empty

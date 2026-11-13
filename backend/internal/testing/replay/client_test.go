@@ -101,6 +101,12 @@ func TestRecordedPeerUsesIssuedContextAndStopsAfterMembershipRemoval(t *testing.
 				peerErrors <- fmt.Errorf("in-place update lost control evidence or transport scope")
 				return
 			}
+			if update == updates[0] {
+				if err := send(member, control, es.Control); err != nil {
+					peerErrors <- err
+					return
+				}
+			}
 		}
 		event, err := read()
 		if err != nil {
@@ -242,6 +248,127 @@ func TestJoinMembershipWaitsForNewRoleAfterIdentityOrAssociationChange(t *testin
 				require.True(t, proto.Equal(client.transportScope, event.Context))
 			case <-time.After(time.Second):
 				t.Fatal("replacement control was not sent")
+			}
+		})
+	}
+}
+
+func TestFrequencyUpdateWaitsForAppliedControlContext(t *testing.T) {
+	for _, changedRole := range []bool{false, true} {
+		t.Run(fmt.Sprintf("role_changed=%t", changedRole), func(t *testing.T) {
+			releaseAck := make(chan struct{})
+			defer close(releaseAck)
+			received := make(chan *es.Envelope, 1)
+			peerErrors := make(chan error, 1)
+			epoch := uint64(7)
+			if changedRole {
+				epoch++
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				conn, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
+				if err != nil {
+					peerErrors <- err
+					return
+				}
+				defer conn.Close()
+				read := func() (*es.Envelope, error) {
+					_, data, err := conn.ReadMessage()
+					if err != nil {
+						return nil, err
+					}
+					var event es.Envelope
+					err = proto.Unmarshal(data, &event)
+					return &event, err
+				}
+				control, err := read()
+				if err != nil {
+					peerErrors <- err
+					return
+				}
+				scope := proto.Clone(control.Context).(*es.MembershipContext)
+				scope.MembershipId, scope.Airport, scope.Environment, scope.MasterEpoch = "member", "EKCH", "LIVE", epoch
+				send := func(message proto.Message, kind es.EventType) error {
+					data, err := es.MarshalEnvelope(message, kind)
+					if err != nil {
+						return err
+					}
+					var event es.Envelope
+					if err := proto.Unmarshal(data, &event); err != nil {
+						return err
+					}
+					event.Context = scope
+					data, err = proto.Marshal(&event)
+					if err != nil {
+						return err
+					}
+					return conn.WriteMessage(websocket.BinaryMessage, data)
+				}
+				// An earlier control echo must not acknowledge the new frequency.
+				stale := proto.Clone(control.GetControl()).(*es.ControlEvent)
+				stale.PrimaryFrequency = "119.500"
+				if err := send(stale, es.Control); err != nil {
+					peerErrors <- err
+					return
+				}
+				if changedRole {
+					if err := send(&es.SessionInfoEvent{Role: es.SessionInfoMaster}, es.SessionInfo); err != nil {
+						peerErrors <- err
+						return
+					}
+				}
+				<-releaseAck
+				if err := send(control.GetControl(), es.Control); err != nil {
+					peerErrors <- err
+					return
+				}
+				event, err := read()
+				if err != nil {
+					peerErrors <- err
+					return
+				}
+				received <- event
+			}))
+			defer server.Close()
+			config := DefaultConfig()
+			config.SessionFile = "frequency-election"
+			client, err := NewClient(config)
+			require.NoError(t, err)
+			client.conn, _, err = websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+			require.NoError(t, err)
+			defer client.Close()
+			client.transportScope = &es.MembershipContext{InstanceId: client.instance, TransportGeneration: 1}
+			client.membershipScope = &es.MembershipContext{InstanceId: client.instance, TransportGeneration: 1, MembershipId: "member", Airport: "EKCH", Environment: "LIVE", MasterEpoch: 7}
+			client.membershipReady = true
+			client.lastControl = &es.ControlEvent{Environment: "LIVE", Callsign: "EKCH_A_TWR", PrimaryFrequency: "119.500", RelevantAirport: "EKCH"}
+			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+			defer cancel()
+			client.ReadMessages(ctx, nil)
+			joined := make(chan error, 1)
+			go func() {
+				joined <- client.JoinMembership(ctx, &es.LoginEvent{Airport: "EKCH", Connection: "LIVE", Callsign: "EKCH_A_TWR", Position: "131.040"})
+			}()
+			messages := 1
+			if changedRole {
+				messages++
+			}
+			require.Eventually(t, func() bool { return len(client.GetReceivedMessages()) == messages }, time.Second, time.Millisecond)
+			select {
+			case err := <-joined:
+				t.Fatalf("frequency update completed before its acknowledgement: %v", err)
+			default:
+			}
+			require.ErrorContains(t, client.SendProtobuf(&es.GroundStateEvent{Callsign: "SAS123"}, es.GroundState), "not been acknowledged")
+			releaseAck <- struct{}{}
+			require.NoError(t, <-joined)
+			require.NoError(t, client.SendProtobuf(&es.GroundStateEvent{Callsign: "SAS123", GroundState: es.GroundStateTaxi}, es.GroundState))
+			select {
+			case event := <-received:
+				require.NotNil(t, event.GetGroundState())
+				require.Equal(t, epoch, event.Context.MasterEpoch)
+			case err := <-peerErrors:
+				t.Fatal(err)
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
 			}
 		})
 	}

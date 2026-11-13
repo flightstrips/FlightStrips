@@ -167,7 +167,7 @@ func (c *Client) ApplyScopedMessage(ctx context.Context, scope *es.MembershipCon
 
 var environmentName = regexp.MustCompile(`^(LIVE|SWEATBOX(?:_[A-Za-z0-9-]+)?|PLAYBACK_[A-Za-z0-9-]+)$`)
 
-func handleControlEvent(ctx context.Context, root *Client, message Message) error {
+func handleControlEvent(ctx context.Context, root *Client, message Message) (result error) {
 	var event es.ControlEvent
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
@@ -185,6 +185,19 @@ func handleControlEvent(ctx context.Context, root *Client, message Message) erro
 	t.coverageMu.Lock()
 	defer t.coverageMu.Unlock()
 	defer root.hub.notifyCoverage()
+	defer func() {
+		if result != nil {
+			return
+		}
+		// Echo applied evidence after position projection and any election. A
+		// frequency update need not change the role, so SessionInfo alone cannot
+		// serve as a barrier for replay clients waiting for the current epoch.
+		for _, member := range t.snapshot() {
+			if member.airport == event.RelevantAirport && member.sessionName == event.Environment {
+				member.Enqueue(*proto.Clone(&event).(*es.ControlEvent))
+			}
+		}
+	}()
 	t.mu.Lock()
 	previous := t.evidence
 	pendingLegacy := t.pendingLegacy

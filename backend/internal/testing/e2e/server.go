@@ -80,7 +80,9 @@ func StartTestServerWithConfig(configure func(*app.Config)) (*TestServer, error)
 	dependencyPool := dbpool
 	if cfg.EnablePostgresTracing {
 		poolConfig := dbpool.Config()
-		poolConfig.ConnConfig.Tracer = multitracer.New(loadDBTracer{}, otelpgx.NewTracer())
+		// Retain explicit query/prepare prefixes for the load collector. Recent
+		// otelpgx defaults name both kinds SELECT/UPDATE/etc., hiding query counts.
+		poolConfig.ConnConfig.Tracer = multitracer.New(loadDBTracer{}, otelpgx.NewTracer(otelpgx.WithQuerySpanNamePrefix()))
 		dependencyPool, err = pgxpool.NewWithConfig(ctx, poolConfig)
 		if err != nil {
 			dbpool.Close()

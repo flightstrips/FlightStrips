@@ -83,8 +83,8 @@ type STARFamilyPolicy struct {
 }
 
 // Flight is the narrow sequencing view of an AMAN flight. CapturedSlot is a
-// protected slot reference supplied by freeze/manual policy; CurrentSlot is
-// used only to report movements and never influences candidate generation.
+// protected slot reference supplied by freeze/manual policy; CurrentSlot also
+// retains committed same-STAR order when physical progress is incomparable.
 type Flight struct {
 	// Operations is diagnostic provenance within a single calculation only.
 	Operations    []string
@@ -731,7 +731,8 @@ func orderMovableFlights(flights []preparedFlight) ([]preparedFlight, error) {
 		for i, flight := range remaining {
 			olderPending := false
 			for _, other := range remaining {
-				if orderPrecedes(other, flight) {
+				if orderPrecedes(other, flight) ||
+					(other.CurrentSlot != nil && flight.CurrentSlot != nil && automaticSTARPrecedes(other, flight)) {
 					olderPending = true
 					break
 				}
@@ -842,6 +843,15 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 	valid := true
 	earlier, later := candidate.Add(-time.Nanosecond), candidate.Add(time.Nanosecond)
 	for _, entry := range entries {
+		// A free gap before an earlier same-STAR reservation is not permission
+		// to overtake it. This also covers initial insertion around Stable slots,
+		// before any optimizer or vacancy-promotion pass runs.
+		if automaticSTARPrecedes(entry.flight, flight) && !candidate.After(entry.time) {
+			valid = false
+			if bound := entry.time.Add(requiredGap(policy, entry.flight, flight, candidate)); bound.After(later) {
+				later = bound
+			}
+		}
 		if positionPrecedes(flight, entry.flight) && !candidate.Before(entry.time) {
 			valid = false
 			if bound := entry.time.Add(-requiredGap(policy, flight, entry.flight, entry.time)); bound.Before(earlier) {

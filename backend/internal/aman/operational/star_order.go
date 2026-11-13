@@ -11,7 +11,8 @@ import (
 
 // Use route-derived feeder timing, never a manual ETA or a holding release,
 // to detect terminal arrival order. Stale or missing evidence leaves the
-// existing sequence policy in control.
+// conservative same-STAR sequence boundaries in control. Neither fallback
+// landing timing nor holding-derived feeder timing proves physical order.
 func sequenceSTARProgress(flight aman.AMANFlight) *sequence.STARProgress {
 	if flight.DataStatus != aman.DataFresh || flight.SelectedSTARFamily == nil ||
 		flight.SelectedFeederFix == nil || flight.RouteProgress == nil ||

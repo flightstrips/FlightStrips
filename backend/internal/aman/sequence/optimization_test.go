@@ -71,14 +71,19 @@ func TestAutomaticOrderKeepsEqualCostAndManualOrders(t *testing.T) {
 
 func TestStableSameSTARSlotExchange(t *testing.T) {
 	start := testTime()
-	for _, test := range []string{"same STAR", "different STAR", "unknown STAR", "manual", "holding", "frozen", "physical bound", "wake boundary"} {
+	for _, test := range []string{"same STAR", "missing progress", "different STAR", "unknown STAR", "manual", "holding", "frozen", "physical bound", "wake boundary"} {
 		t.Run(test, func(t *testing.T) {
 			policy := continuousCPHPolicy(start)
 			first := queueFlight("FIRST", "A", start.Add(90*time.Second), "M", 1, start)
 			second := queueFlight("SECOND", "A", start, "M", 2, start.Add(90*time.Second))
 			first.ProtectCurrentSlot, second.ProtectCurrentSlot = true, true
 			first.SelectedSTARFamily, second.SelectedSTARFamily = "MONAK", "MONAK"
+			firstETA := start.Add(time.Minute)
+			first.STARProgress = &sequence.STARProgress{Fix: "FEEDER", ETA: &firstETA, TerminalDigest: "terminal"}
+			second.STARProgress = &sequence.STARProgress{Fix: "FEEDER", ETA: &start, TerminalDigest: "terminal"}
 			switch test {
+			case "missing progress":
+				second.STARProgress = nil
 			case "different STAR":
 				second.SelectedSTARFamily = "TUDLO"
 			case "unknown STAR":
@@ -129,6 +134,9 @@ func TestStableSlotExchangeReportsFinalSpacingConflicts(t *testing.T) {
 			second := queueFlight("SECOND", "A", start, "L", 2, start.Add(90*time.Second))
 			first.ProtectCurrentSlot, second.ProtectCurrentSlot = true, true
 			first.SelectedSTARFamily, second.SelectedSTARFamily = "MONAK", "MONAK"
+			firstETA := start.Add(time.Minute)
+			first.STARProgress = &sequence.STARProgress{Fix: "FEEDER", ETA: &firstETA, TerminalDigest: "terminal"}
+			second.STARProgress = &sequence.STARProgress{Fix: "FEEDER", ETA: &start, TerminalDigest: "terminal"}
 			if frozen {
 				first.FreezeReason = aman.FreezeTMA
 				first.CapturedSlot = cloneQueueSlot(first.CurrentSlot)
@@ -296,4 +304,135 @@ func totalDelay(result sequence.Result) time.Duration {
 		delay += max(time.Duration(0), entry.Time.Sub(entry.OperationalTETA))
 	}
 	return delay
+}
+
+func TestAutomaticSameSTARReorderNeedsComparablePhysicalEvidence(t *testing.T) {
+	start := testTime()
+	for _, evidence := range []string{"missing", "one missing", "different fix", "different terminal", "near equal", "ahead", "behind"} {
+		t.Run(evidence, func(t *testing.T) {
+			first := flight("SAS1778", "A", start, "M")
+			second := flight("SAS46R", "A", start.Add(time.Second), "L")
+			first.SelectedSTARFamily, second.SelectedSTARFamily = "TESPI", "TESPI"
+			later := start.Add(time.Minute)
+			first.STARProgress = &sequence.STARProgress{Fix: "ROSBI", ETA: &later, TerminalDigest: "terminal"}
+			second.STARProgress = &sequence.STARProgress{Fix: "ROSBI", ETA: &start, TerminalDigest: "terminal"}
+			switch evidence {
+			case "missing":
+				first.STARProgress = nil
+				second.STARProgress = nil
+			case "one missing":
+				first.STARProgress = nil
+			case "different fix":
+				second.STARProgress.Fix = "OTHER"
+			case "different terminal":
+				second.STARProgress.TerminalDigest = "other"
+			case "near equal":
+				second.STARProgress.ETA = &later
+			case "behind":
+				first.STARProgress.ETA, second.STARProgress.ETA = &start, &later
+			}
+			input := sequence.Input{Policies: []sequence.Policy{continuousCPHPolicy(start)}, Flights: []sequence.Flight{first, second}}
+			got, err := sequence.Generate(input)
+			require.NoError(t, err)
+			require.False(t, got.HasConflicts())
+			want := []aman.Callsign{"SAS1778", "SAS46R"}
+			if evidence == "ahead" {
+				want = []aman.Callsign{"SAS46R", "SAS1778"}
+				require.NotEmpty(t, got.Operations, "proven correction still saves wake delay")
+			} else {
+				require.Empty(t, got.Operations)
+			}
+			require.Equal(t, want, entryIDs(got))
+			slices.Reverse(input.Flights)
+			replayed, err := sequence.Generate(input)
+			require.NoError(t, err)
+			require.Equal(t, got, replayed)
+		})
+	}
+}
+
+func TestInitialInsertionCannotPassEarlierSameSTARReservationWithoutEvidence(t *testing.T) {
+	start := testTime()
+	for _, evidence := range []string{"missing", "behind", "ahead", "different STAR", "manual order"} {
+		t.Run(evidence, func(t *testing.T) {
+			first := queueFlight("SAS1778", "A", start.Add(17*time.Minute), "M", 1, start.Add(23*time.Minute))
+			first.ProtectCurrentSlot = true
+			second := flight("SAS46R", "A", start.Add(19*time.Minute), "M")
+			first.SelectedSTARFamily, second.SelectedSTARFamily = "TESPI", "TESPI"
+			switch evidence {
+			case "behind", "ahead":
+				firstETA, secondETA := start.Add(10*time.Minute), start.Add(12*time.Minute)
+				if evidence == "ahead" {
+					firstETA, secondETA = secondETA, firstETA
+				}
+				first.STARProgress = &sequence.STARProgress{Fix: "ROSBI", ETA: &firstETA, TerminalDigest: "terminal"}
+				second.STARProgress = &sequence.STARProgress{Fix: "ROSBI", ETA: &secondETA, TerminalDigest: "terminal"}
+			case "different STAR":
+				second.SelectedSTARFamily = "MONAK"
+			case "manual order":
+				firstOrder, secondOrder := 2, 1
+				first.ManualOrder, second.ManualOrder = &firstOrder, &secondOrder
+			}
+			input := sequence.Input{Policies: []sequence.Policy{continuousCPHPolicy(start)}, Flights: []sequence.Flight{first, second}}
+			got, err := sequence.Generate(input)
+			require.NoError(t, err)
+			require.False(t, got.HasConflicts())
+			if evidence == "missing" || evidence == "behind" {
+				require.Equal(t, []aman.Callsign{"SAS1778", "SAS46R"}, entryIDs(got))
+			} else {
+				require.Equal(t, []aman.Callsign{"SAS46R", "SAS1778"}, entryIDs(got))
+			}
+			require.Equal(t, first.CurrentSlot.Time, candidateEntry(got, first.Callsign).Time)
+			require.Nil(t, second.CurrentSlot)
+			slices.Reverse(input.Flights)
+			replayed, err := sequence.Generate(input)
+			require.NoError(t, err)
+			require.Equal(t, got, replayed)
+		})
+	}
+}
+
+func TestUncomparableSameSTARReservationsRetainOrderWhenEstimatesChange(t *testing.T) {
+	start := testTime()
+	first := queueFlight("FIRST", "A", start.Add(2*time.Minute), "M", 1, start.Add(10*time.Minute))
+	second := queueFlight("SECOND", "A", start, "M", 2, start.Add(12*time.Minute))
+	for _, f := range []*sequence.Flight{&first, &second} {
+		f.State = aman.StateUnstable
+		f.SelectedSTARFamily = "TESPI"
+	}
+	got, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{continuousCPHPolicy(start)}, Flights: []sequence.Flight{second, first}})
+	require.NoError(t, err)
+	require.Equal(t, []aman.Callsign{"FIRST", "SECOND"}, entryIDs(got))
+	require.False(t, got.HasConflicts())
+}
+
+func TestSTAROrderDiagnosticsCaptureEvidenceAndOmitUnchangedPairs(t *testing.T) {
+	start := testTime()
+	back := queueFlight("BACK", "A", start, "M", 1, start.Add(10*time.Minute))
+	front := queueFlight("FRONT", "A", start, "M", 2, start.Add(12*time.Minute))
+	for _, f := range []*sequence.Flight{&back, &front} {
+		f.ProtectCurrentSlot = true
+		f.SelectedSTARFamily = "TESPI"
+	}
+	later := start.Add(time.Minute)
+	back.STARProgress = &sequence.STARProgress{Fix: "ROSBI", ETA: &later, TerminalDigest: "terminal"}
+	front.STARProgress = &sequence.STARProgress{Fix: "ROSBI", ETA: &start, TerminalDigest: "terminal"}
+	input := sequence.Input{Policies: []sequence.Policy{continuousCPHPolicy(start)}, Flights: []sequence.Flight{front, back}}
+	result, err := sequence.Generate(input)
+	require.NoError(t, err)
+	evidence := sequence.STAROrderDiagnostics(input, result)
+	require.Len(t, evidence, 1)
+	require.True(t, *evidence[0].PreviousOrder)
+	require.False(t, evidence[0].CurrentOrder)
+	require.True(t, evidence[0].Comparable)
+	require.False(t, evidence[0].FirstPrecedes)
+	require.Equal(t, back.CurrentSlot, evidence[0].First.CurrentSlot)
+	require.NotSame(t, back.CurrentSlot, evidence[0].First.CurrentSlot)
+	require.Equal(t, back.STARProgress, evidence[0].First.Progress)
+	require.NotSame(t, back.STARProgress.ETA, evidence[0].First.Progress.ETA)
+	slices.Reverse(input.Flights)
+	require.Equal(t, evidence, sequence.STAROrderDiagnostics(input, result))
+	back.CurrentSlot.Time, back.CurrentSlot.Sequence = result.Entries[1].Time, 2
+	front.CurrentSlot.Time, front.CurrentSlot.Sequence = result.Entries[0].Time, 1
+	require.Empty(t, sequence.STAROrderDiagnostics(input, result))
 }

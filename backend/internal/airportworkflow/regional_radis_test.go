@@ -86,6 +86,37 @@ func TestRegionalRADISConfirmedBayEffectsAndLifecycle(t *testing.T) {
 	}
 }
 
+func TestRADISRecoveryWaitsUntilConfiguredRemovalBoundsClear(t *testing.T) {
+	altitude, distance := int32(1000), 10.0
+	for _, tc := range []struct {
+		name        string
+		settings    config.RADISSettings
+		observation Observation
+		reason      string
+	}{
+		{"altitude", config.RADISSettings{DepartureRemovalAGLFT: &altitude}, Observation{Altitude: 1000}, "departure-altitude"},
+		{"distance", config.RADISSettings{RemovalDistanceNM: &distance}, Observation{Latitude: 1}, "distance"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := radis{airport: "EKBI", settings: tc.settings}
+			h.settings.AutomaticReappearance, h.settings.RecoverySeconds = true, 300
+			c := Context{Now: time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC), Strip: Snapshot{BoardMember: true, Origin: "EKBI", Destination: "EGLL"}}
+			d := h.visibility(c, tc.observation)
+			require.NotNil(t, d)
+			require.Equal(t, tc.reason, d.Reason)
+			removed := c.Now
+			c.Strip.RemovedAt, c.Strip.RemovalReason = &removed, d.Reason
+			for range 3 {
+				c.Now = c.Now.Add(time.Second)
+				require.Nil(t, h.visibility(c, tc.observation), "a still-breached removal bound must not restore the strip")
+			}
+			d = h.visibility(c, Observation{})
+			require.NotNil(t, d)
+			require.True(t, d.Visible, "recovery resumes when the configured removal bound clears")
+		})
+	}
+}
+
 func TestRegionalRADISATDUsesAGLAndRetainsManualOverrides(t *testing.T) {
 	b := regionalWorkflow(t, "EKBI")
 	c := Context{Session: 1, Now: time.Date(2026, 11, 7, 12, 34, 0, 0, time.UTC), Strip: Snapshot{BoardMember: true, HasFP: true, Origin: "EGLL", Destination: "EKBI", Bay: "ACTIVE"}}

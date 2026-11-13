@@ -28,6 +28,7 @@ type Snapshot struct {
 	RemovalReason                                          string
 	BoardMember                                            bool
 	Local                                                  bool
+	ManualAdmission, ATDManual                             bool
 	HasFP                                                  bool
 	Annotations                                            pkgmodels.StripAnnotations
 	GroundStateKnown                                       bool
@@ -121,6 +122,8 @@ type Decision struct {
 	ConnectedFlights                  *ConnectedFlightLookup
 	Visibility                        *StripVisibility
 	Annotations                       *pkgmodels.StripAnnotations
+	ReconciledATD                     *string
+	ATDManual                         bool
 	AutoAssume, ConfirmVoiceClearance bool
 	Ignore                            bool
 	ReconciledGroundState             *string
@@ -242,6 +245,12 @@ func (b *Bound) context(c Context) (Context, error) {
 	return c, nil
 }
 func (b *Bound) Validate(c Context, d Decision) error {
+	if d.ReconciledATD != nil && (c.Source != ObservationSource || !b.boardState.Revisioned || b.annotations["atd"] != "string") {
+		return fmt.Errorf("invalid ATD observation decision")
+	}
+	if d.ATDManual && (c.Source != HumanSource || d.Annotations == nil) {
+		return fmt.Errorf("manual ATD requires a human annotation")
+	}
 	if d.Visibility != nil && !b.boardState.Revisioned {
 		return fmt.Errorf("invalid visibility decision")
 	}
@@ -266,7 +275,7 @@ func (b *Bound) Validate(c Context, d Decision) error {
 	}
 	if d.GroundState != nil {
 		switch *d.GroundState {
-		case euroscope.GroundStateUnknown, euroscope.GroundStateStartup, euroscope.GroundStatePush, euroscope.GroundStateTaxi, euroscope.GroundStateLineup, euroscope.GroundStateDepart, euroscope.GroundStateParked:
+		case euroscope.GroundStateUnknown, euroscope.GroundStateStartup, euroscope.GroundStatePush, euroscope.GroundStateTaxi, euroscope.GroundStateLineup, euroscope.GroundStateDepart, euroscope.GroundStateParked, euroscope.GroundStateTakeoff, euroscope.GroundStateLand:
 		default:
 			return fmt.Errorf("workflow returned invalid ground state %q", *d.GroundState)
 		}

@@ -1091,6 +1091,7 @@ func automaticFailureKeyAndFingerprint(request StandAllocationRequest) (string, 
 		facts.BorderEndpoint, facts.BorderStatus, assignmentFacts.AircraftType,
 		assignmentFacts.AircraftUse, assignmentFacts.BorderStatus, assignmentFacts.Direction,
 		assignmentFacts.Special)
+	fingerprint += "|" + strings.ToUpper(strings.TrimSpace(assignmentFacts.Remarks))
 	return key, fingerprint
 }
 

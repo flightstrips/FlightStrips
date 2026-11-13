@@ -723,6 +723,10 @@ func allocateMovableFlights(policy preparedPolicy, protected []allocatedEntry, o
 // so placement can enforce holding priority against its assigned slot and
 // assess any cross-feeder gap without displacing it.
 func orderMovableFlights(flights []preparedFlight) ([]preparedFlight, error) {
+	return orderFlightsByPrecedence(flights, true)
+}
+
+func orderFlightsByPrecedence(flights []preparedFlight, includeAutomaticSTAR bool) ([]preparedFlight, error) {
 	remaining := slices.Clone(flights)
 	sort.Slice(remaining, func(i, j int) bool { return flightLess(remaining[i], remaining[j]) })
 	ordered := make([]preparedFlight, 0, len(remaining))
@@ -732,7 +736,7 @@ func orderMovableFlights(flights []preparedFlight) ([]preparedFlight, error) {
 			olderPending := false
 			for _, other := range remaining {
 				if orderPrecedes(other, flight) ||
-					(other.CurrentSlot != nil && flight.CurrentSlot != nil && automaticSTARPrecedes(other, flight)) {
+					(includeAutomaticSTAR && other.CurrentSlot != nil && flight.CurrentSlot != nil && automaticSTARPrecedes(other, flight)) {
 					olderPending = true
 					break
 				}

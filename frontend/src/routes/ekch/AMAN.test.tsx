@@ -90,9 +90,9 @@ describe("AMAN route authorization", () => {
     storeState.amanFMPAuthority = false;
   });
 
-  it("opens the STAR swap from the aircraft menu and sends the selected pair", () => {
+  it.each(["none", "superstable"])("opens the STAR swap from the aircraft menu for a %s flight and sends the selected pair", (freeze_reason) => {
     storeState.amanFMPAuthority = true;
-    const first = {callsign: "SAS123", star_family: "TESPI", runway_group_id: "ARRIVAL-22", freeze_reason: "none", lifecycle_state: "stable", slot: {sequence: 1, time: "2026-07-22T12:10:00Z"}};
+    const first = {callsign: "SAS123", star_family: "TESPI", runway_group_id: "ARRIVAL-22", freeze_reason, lifecycle_state: "stable", slot: {sequence: 1, time: "2026-07-22T12:10:00Z"}};
     storeState.amanState = authoritativeState([first, {...first, callsign: "SAS456", slot: {sequence: 2, time: "2026-07-22T12:12:00Z"}}]);
     render(<AMAN />);
     fireEvent.click(screen.getByRole("button", {name: "Open actions"}));

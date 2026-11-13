@@ -12,7 +12,7 @@ const flight = (callsign: string, sequence: number, overrides: Partial<AMANFligh
 } as AMANFlight);
 
 describe("AMAN sequence swap", () => {
-  it("offers only sequenced, unfrozen aircraft on the same STAR and runway and sends one atomic command", () => {
+  it("offers sequenced aircraft without manual or TMA freezes on the same STAR and runway and sends one atomic command", () => {
     const selected = flight("SAS123", 1);
     const onCommand = vi.fn();
     render(<AMANSwapDialog flight={selected} flights={[
@@ -20,6 +20,7 @@ describe("AMAN sequence swap", () => {
       flight("OTHER-STAR", 4, {star_family: "TIDVU"}),
       flight("OTHER-RUNWAY", 4, {runway_group_id: "ARRIVAL-04"}),
       flight("LOCKED", 4, {freeze_reason: "manual"}),
+      flight("TMA", 4, {freeze_reason: "tma"}),
       flight("REMOVED", 4, {lifecycle_state: "removed"}),
       flight("EXPEDITED", 4, {expedited: true}),
       flight("DESEQUENCED", 4, {sequence_disposition: "desequenced"}),
@@ -33,6 +34,26 @@ describe("AMAN sequence swap", () => {
     fireEvent.click(screen.getByRole("button", {name: "Swap aircraft"}));
     expect(onCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.swap_flights", callsign: "SAS123", other_callsign: "SAS456"});
     expect(selected.slot?.sequence).toBe(1);
+  });
+
+  it.each([
+    {selectedFreeze: "superstable", otherFreeze: "none"},
+    {selectedFreeze: "none", otherFreeze: "superstable"},
+    {selectedFreeze: "superstable", otherFreeze: "superstable"},
+  ] as const)("allows an explicit swap of automatic superstable slots (%j)", ({selectedFreeze, otherFreeze}) => {
+    const selected = flight("CCA808", 1, {freeze_reason: selectedFreeze});
+    const other = flight("SAS1778", 2, {freeze_reason: otherFreeze});
+    const onCommand = vi.fn();
+    const props = {flight: selected, flights: [selected, other], disabled: false, busy: false, rejection: null, onClose: vi.fn(), onCommand};
+    const {rerender} = render(<AMANSwapDialog {...props} />);
+    fireEvent.change(screen.getByLabelText("Swap with"), {target: {value: "SAS1778"}});
+    expect(screen.getByRole("button", {name: "Swap aircraft"})).toBeEnabled();
+    // A routine transition to Superstable must not invalidate the chosen pair.
+    rerender(<AMANSwapDialog {...props} flights={[selected, {...other, freeze_reason: "superstable"}]} />);
+    fireEvent.click(screen.getByRole("button", {name: "Swap aircraft"}));
+    expect(onCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.swap_flights", callsign: "CCA808", other_callsign: "SAS1778"});
+    rerender(<AMANSwapDialog {...props} flights={[selected, {...other, freeze_reason: "manual"}]} />);
+    expect(screen.getByRole("button", {name: "Swap aircraft"})).toBeDisabled();
   });
 
   it("revalidates the pair when authoritative updates exclude or freeze an aircraft", () => {

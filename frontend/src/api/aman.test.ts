@@ -3,6 +3,7 @@ import {resolve} from "node:path";
 import {describe, expect, it} from "vitest";
 
 import {
+  canSwapAMANFlight,
   createAMANCommand,
   getActiveAMANRunwayGroups,
   getAMANHeaderReadModel,
@@ -28,6 +29,18 @@ function replacement(revision: number, callsign = "SAS123"): AMANStateEvent {
 }
 
 describe("AMAN V1 full replacement contract", () => {
+  it.each([
+    ["none", true], ["superstable", true], ["manual", false], ["tma", false],
+  ] as const)("allows explicit swaps with %s freeze: %s", (freeze_reason, allowed) => {
+    const flight = {...replacement(8).data.flights[0], lifecycle_state: "stable" as const,
+      star_family: "TESPI", runway_group_id: "ARRIVAL-22L", sequence_disposition: "active" as const, freeze_reason};
+    expect(canSwapAMANFlight(flight)).toBe(allowed);
+    expect(canSwapAMANFlight({...flight, slot: null})).toBe(false);
+    expect(canSwapAMANFlight({...flight, expedited: true})).toBe(false);
+    expect(canSwapAMANFlight({...flight, sequence_disposition: "desequenced"})).toBe(false);
+    expect(canSwapAMANFlight({...flight, lifecycle_state: "landed"})).toBe(false);
+    expect(canSwapAMANFlight(null)).toBe(false);
+  });
   it("keeps controller commands available with degraded weather and operational readiness", () => {
     const event = replacement(8);
     event.data.technical_health.status = "degraded";

@@ -322,7 +322,7 @@ export default function AMAN() {
         requests={(state.coordination_requests ?? []).filter((request) => request.callsign === dialogCallsign)}
         submitting={coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined}
       />}
-      {detailOpen && state !== null && dialogCallsign !== null && (dialogFlight !== null || detailAction === "none") && <AMANFlightDetailDialog board={boardContext ?? undefined} airport={state.airport} callsign={dialogCallsign} revision={state.revision} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" || dialogFlight === null ? undefined : {
+      {detailOpen && state !== null && dialogCallsign !== null && (dialogFlight !== null || detailAction === "none") && <AMANFlightDetailDialog board={boardContext ?? undefined} airport={state.airport} callsign={dialogCallsign} estimate={dialogFlight ?? undefined} revision={state.revision} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" || dialogFlight === null ? undefined : {
         blockReason: mutationBlockReason,
         confirmation: dialogFlight?.go_around_confirmation,
         confirmed: dialogFlight?.lifecycle_state === "go_around",

@@ -1,6 +1,7 @@
 import type {ReactNode} from "react";
 
 import type {AMANFlight} from "@/api/aman";
+import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
 import {cn} from "@/lib/utils";
 import {freezePresentation} from "./freeze-presentation";
 import {formatGainLoss, type AMANGainLossPresentationContext} from "./presentation";
@@ -96,10 +97,13 @@ export function AMANAircraftTarget({
   const retainedGuidance = !guidance.connected || flight.data_status !== "fresh";
   const guidanceTone = retainedGuidance ? "text-[#a0a0a0]" : delayTone(delay);
   const guidanceTitle = retainedGuidance ? "Last known gain/lose; awaiting current prediction" : undefined;
+  const estimateDescription = flight.basic_estimate
+    ? `Basic estimate${flight.prediction_reason ? `: ${flight.prediction_reason}` : ""}`
+    : undefined;
 
-  return (
+  const target = (
     <button
-      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
+      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${estimateDescription ? `; ${estimateDescription}` : ""}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
       aria-pressed={selected}
       className={cn(
         "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded border-2 border-transparent bg-transparent text-left font-mono text-[11px] font-semibold leading-none text-[#dcdcdc]",
@@ -118,13 +122,20 @@ export function AMANAircraftTarget({
     >
       <TargetFields fields={leadingFields} />
       {delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{delay}</span>}
-      <span className={cn("flex items-center truncate", compact ? "w-14 min-w-0 px-1.5" : "min-w-20 px-2", lifecycle.tone)}>{flight.callsign}</span>
+      <span className={cn("flex items-center", compact ? "min-w-14 px-1.5" : "min-w-20 px-2", lifecycle.tone)}>
+        {flight.callsign}
+        {flight.basic_estimate && <span aria-hidden="true" className="ml-0.5 shrink-0 font-normal">≈</span>}
+      </span>
       {!delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{delay}</span>}
       <TargetFields fields={trailingFields} />
       <span className="sr-only">{lifecycle.label}</span>
-      {flight.basic_estimate && <span className="flex items-center border-l border-amber-200 px-1 text-[9px] text-amber-100" title={flight.prediction_reason}>Basic estimate</span>}
       {flight.runway_gap_exception && <span className="flex items-center border-l border-dashed border-amber-200 bg-amber-950 px-1 text-[9px] text-amber-100" title={`Audited manual placement inside GAP ${flight.runway_gap_exception.gap_id}`}>GAP EXCEPTION</span>}
       {selected && <span className="sr-only">Selected</span>}
     </button>
   );
+
+  return <Tooltip>
+    <TooltipTrigger asChild>{target}</TooltipTrigger>
+    {estimateDescription && <TooltipContent className="max-w-xs break-words" sideOffset={4}>{estimateDescription}</TooltipContent>}
+  </Tooltip>;
 }

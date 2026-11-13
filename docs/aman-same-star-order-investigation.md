@@ -73,6 +73,14 @@ require affirmative physical precedence, while retaining reachability, wake,
 neighbor spacing and slot protections. Existing physical tolerances remain
 15 seconds before the feeder and 0.5 NM after it.
 
+Committed reservations determine the order in which movable flights are
+allocated. Physical corrections are evaluated during placement and optimization,
+where the other arrivals and their crossing constraints are available. Physical
+and reservation-fallback comparisons are not mixed as hard allocation
+dependencies: with committed A–B–C, missing progress for B and physical C-before-A
+would otherwise create a cycle and stop allocation for every runway. The
+incomparable pairs retain A–B–C; a fully comparable crossing can still be corrected.
+
 Controller manual order/position, manual freezes, explicit rebuild ranks,
 go-arounds and actual holding priorities retain their dedicated rules.
 Cross-family delay optimization and gap filling remain available. An already

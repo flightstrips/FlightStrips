@@ -736,7 +736,7 @@ func orderFlightsByPrecedence(flights []preparedFlight, includeAutomaticSTAR boo
 			olderPending := false
 			for _, other := range remaining {
 				if orderPrecedes(other, flight) ||
-					(includeAutomaticSTAR && other.CurrentSlot != nil && flight.CurrentSlot != nil && automaticSTARPrecedes(other, flight)) {
+					(includeAutomaticSTAR && automaticSTARReservationPrecedes(other, flight)) {
 					olderPending = true
 					break
 				}

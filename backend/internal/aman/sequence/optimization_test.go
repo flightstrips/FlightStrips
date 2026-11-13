@@ -406,6 +406,53 @@ func TestUncomparableSameSTARReservationsRetainOrderWhenEstimatesChange(t *testi
 	require.False(t, got.HasConflicts())
 }
 
+func TestMixedSTARProgressCannotCycleCommittedMovableOrder(t *testing.T) {
+	for _, complete := range []bool{false, true} {
+		name := "missing middle progress"
+		if complete {
+			name = "comparable full crossing"
+		}
+		t.Run(name, func(t *testing.T) {
+			start := testTime()
+			flights := []sequence.Flight{
+				queueFlight("A", "RWY-A", start, "M", 1, start.Add(10*time.Minute)),
+				queueFlight("B", "RWY-A", start, "M", 2, start.Add(12*time.Minute)),
+				queueFlight("C", "RWY-A", start, "M", 3, start.Add(14*time.Minute)),
+				flight("OTHER-RUNWAY", "RWY-B", start, "M"),
+			}
+			for i := range flights[:3] {
+				f := &flights[i]
+				f.State, f.ProtectCurrentSlot, f.SelectedSTARFamily = aman.StateUnstable, false, "TESPI"
+				if i != 1 || complete {
+					eta := start.Add(time.Duration(3-i) * time.Minute)
+					f.STARProgress = &sequence.STARProgress{Fix: "ROSBI", ETA: &eta, TerminalDigest: "terminal"}
+				}
+			}
+			want := []aman.Callsign{"A", "B", "C", "OTHER-RUNWAY"}
+			if complete {
+				want = []aman.Callsign{"C", "B", "A", "OTHER-RUNWAY"}
+			}
+			var expected sequence.Result
+			// Every input permutation must allocate both runways and preserve
+			// the unknown middle aircraft's relationships unless all crossings
+			// can be justified by comparable physical progress.
+			for _, order := range [][3]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}} {
+				input := sequence.Input{Policies: []sequence.Policy{simplePolicy("RWY-A", start, 60), simplePolicy("RWY-B", start, 60)},
+					Flights: []sequence.Flight{flights[order[0]], flights[3], flights[order[1]], flights[order[2]]}}
+				result, err := sequence.Generate(input)
+				require.NoError(t, err)
+				require.False(t, result.HasConflicts())
+				require.Equal(t, want, entryIDs(result))
+				require.Equal(t, start, entryFor(t, result, "OTHER-RUNWAY").Time)
+				if expected.Entries == nil {
+					expected = result
+				}
+				require.Equal(t, expected, result)
+			}
+		})
+	}
+}
+
 func TestSTAROrderDiagnosticsCaptureEvidenceAndOmitUnchangedPairs(t *testing.T) {
 	start := testTime()
 	back := queueFlight("BACK", "A", start, "M", 1, start.Add(10*time.Minute))

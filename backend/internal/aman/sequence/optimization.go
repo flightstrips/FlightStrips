@@ -175,12 +175,7 @@ func sameSelectedSTAR(a, b preparedFlight) bool {
 // earlier arrival on its selected STAR. Actual holding queues and controller
 // relationships have their own precedence rules and are deliberately excluded.
 func automaticSTARPrecedes(a, b preparedFlight) bool {
-	if !sameSelectedSTAR(a, b) || a.ManualOrder != nil || b.ManualOrder != nil ||
-		positionPrecedes(a, b) || positionPrecedes(b, a) ||
-		a.FreezeReason == aman.FreezeManual || b.FreezeReason == aman.FreezeManual ||
-		a.State == aman.StateGoAround || b.State == aman.StateGoAround ||
-		a.ReleaseRank != nil || b.ReleaseRank != nil || a.RebuildTMA || b.RebuildTMA ||
-		hasHoldingPriority(a) || hasHoldingPriority(b) {
+	if !automaticSTAROrderApplies(a, b) {
 		return false
 	}
 	if precedes, comparable := starPrecedes(a, b); comparable {
@@ -190,13 +185,33 @@ func automaticSTARPrecedes(a, b preparedFlight) bool {
 	// changing operational estimates. New arrivals use initial timing order;
 	// this is a conservative scheduling boundary, not claimed physical evidence.
 	if a.CurrentSlot != nil && b.CurrentSlot != nil {
-		if !a.CurrentSlot.Time.Equal(b.CurrentSlot.Time) {
-			return a.CurrentSlot.Time.Before(b.CurrentSlot.Time)
-		}
-		return a.CurrentSlot.Sequence < b.CurrentSlot.Sequence
+		return automaticSTARReservationPrecedes(a, b)
 	}
 	return a.OperationalTETA.Before(b.OperationalTETA) ||
 		(a.OperationalTETA.Equal(b.OperationalTETA) && a.Callsign < b.Callsign)
+}
+
+func automaticSTAROrderApplies(a, b preparedFlight) bool {
+	return sameSelectedSTAR(a, b) && a.ManualOrder == nil && b.ManualOrder == nil &&
+		!positionPrecedes(a, b) && !positionPrecedes(b, a) &&
+		a.FreezeReason != aman.FreezeManual && b.FreezeReason != aman.FreezeManual &&
+		a.State != aman.StateGoAround && b.State != aman.StateGoAround &&
+		a.ReleaseRank == nil && b.ReleaseRank == nil && !a.RebuildTMA && !b.RebuildTMA &&
+		!hasHoldingPriority(a) && !hasHoldingPriority(b)
+}
+
+// Process committed arrivals in reservation order, which remains acyclic even
+// when only some physical progress is comparable. Physical corrections belong
+// to placement and optimization, where all crossed arrivals remain visible;
+// mixing physical and fallback edges here can deadlock A -> B -> C -> A.
+func automaticSTARReservationPrecedes(a, b preparedFlight) bool {
+	if a.CurrentSlot == nil || b.CurrentSlot == nil || !automaticSTAROrderApplies(a, b) {
+		return false
+	}
+	if !a.CurrentSlot.Time.Equal(b.CurrentSlot.Time) {
+		return a.CurrentSlot.Time.Before(b.CurrentSlot.Time)
+	}
+	return a.CurrentSlot.Sequence < b.CurrentSlot.Sequence
 }
 
 func starInversions(entries []allocatedEntry) int {

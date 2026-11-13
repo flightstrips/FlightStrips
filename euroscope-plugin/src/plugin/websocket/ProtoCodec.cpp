@@ -250,6 +250,7 @@ namespace FlightStrips::websocket::protobuf {
         ENCODE_TWO(EVENT_GROUND_STATE, GroundStateEvent, ground_state, callsign, ground_state)
         ENCODE_TWO(EVENT_CLEARED_FLAG, ClearedFlagEvent, cleared_flag, callsign, cleared)
         ENCODE_TWO(EVENT_HEADING, HeadingEvent, heading, callsign, heading)
+        ENCODE_ONE(EVENT_AIRCRAFT_SELECTION, AircraftSelectionEvent, aircraft_selection, callsign)
         ENCODE_ONE(EVENT_AIRCRAFT_DISCONNECT, AircraftDisconnectEvent, aircraft_disconnect, callsign)
         ENCODE_TWO(EVENT_STAND, StandEvent, stand, callsign, stand)
         ENCODE_TWO(EVENT_TRACKING_CONTROLLER_CHANGED, TrackingControllerChangedEvent, tracking_controller_changed, callsign, tracking_controller)

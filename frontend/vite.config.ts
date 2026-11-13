@@ -20,6 +20,24 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(appVersion),
   },
   plugins: [
+    ...(process.env.FLIGHTSTRIPS_MANUAL_TEST_RUN ? [{
+      name: 'manual-test-launcher',
+      configureServer(server: import('vite').ViteDevServer) {
+        server.middlewares.use('/__manual-test', (_request, response) => {
+          response.setHeader('Content-Type', 'application/json');
+          response.end(JSON.stringify({ runId: process.env.FLIGHTSTRIPS_MANUAL_TEST_RUN, root: process.cwd().replaceAll('\\', '/') }));
+        });
+        server.middlewares.use('/config.js', (_request, response) => {
+          const apiBaseUrl = process.env.FLIGHTSTRIPS_MANUAL_TEST_API!;
+          const config = readFileSync(new URL('./public/config.js', import.meta.url), 'utf-8')
+            .replace('http://localhost:8090', apiBaseUrl)
+            .replace('ws://localhost:8090', apiBaseUrl.replace('http:', 'ws:'));
+          response.setHeader('Content-Type', 'application/javascript');
+          response.setHeader('Cache-Control', 'no-store');
+          response.end(config);
+        });
+      },
+    }] : []),
     react(),
     tailwindcss(),
     mdx(),

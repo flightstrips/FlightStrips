@@ -19,6 +19,7 @@ const (
 
 	Token EventType = "token"
 
+	AircraftSelectionType EventType = "aircraft_selection"
 	Initial            EventType = "initial"
 	MasterInfo         EventType = "master_info"
 	StripUpdate        EventType = "strip_update"
@@ -67,6 +68,7 @@ const (
 
 	Broadcast              EventType = "broadcast"
 	SendMessage            EventType = "send_message"
+	AcknowledgeMessage     EventType = "acknowledge_message"
 	SendPrivateMessage     EventType = "send_private_message"
 	SendFrequencyMessage   EventType = "send_frequency_message"
 	FrequencyMessageResult EventType = "frequency_message_result"
@@ -288,7 +290,18 @@ type SyncCoordination struct {
 	IsTagRequest bool   `json:"is_tag_request"`
 }
 
+// AircraftSelection is transient own-instance presentation state.
+type AircraftSelection struct {
+	Callsign *string `json:"callsign"`
+	Revision uint64  `json:"revision"`
+}
+type AircraftSelectionEvent struct{ AircraftSelection }
+
+func (e AircraftSelectionEvent) GetType() EventType       { return AircraftSelectionType }
+func (e AircraftSelectionEvent) Marshal() ([]byte, error) { return marshall(e) }
+
 type InitialEvent struct {
+	AircraftSelection      *AircraftSelection         `json:"aircraft_selection,omitempty"`
 	OwnPluginReady         bool                       `json:"own_plugin_ready"`
 	Observer               bool                       `json:"observer"`
 	Definition             *BoardDefinition           `json:"definition,omitempty"`
@@ -316,6 +329,7 @@ type InitialEvent struct {
 	StandAssignmentEnabled bool                       `json:"stand_assignment_enabled"`
 	StandAssignments       []StandAssignmentEntry     `json:"stand_assignments"`
 	StandBlocks            []StandBlockEntry          `json:"stand_blocks"`
+	StandArrivalRestrictions []StandArrivalRestrictionEntry `json:"stand_arrival_restrictions,omitempty"`
 	Capabilities           FrontendCapabilities       `json:"capabilities"`
 }
 
@@ -810,18 +824,25 @@ func (l BroadcastEvent) GetType() EventType {
 }
 
 type SendMessageEvent struct {
-	Text       string   `json:"text"`
-	Recipients []string `json:"recipients"`
-	Format     string   `json:"format,omitempty"`
+	Text               string   `json:"text"`
+	Recipients         []string `json:"recipients"`
+	RecipientPositions []string `json:"recipient_positions,omitempty"`
+	Format             string   `json:"format,omitempty"`
+}
+
+type AcknowledgeMessageEvent struct {
+	ID int64 `json:"id"`
 }
 
 type MessageReceivedEvent struct {
-	ID          int64    `json:"id"`
-	Sender      string   `json:"sender"`
-	Text        string   `json:"text"`
-	IsBroadcast bool     `json:"is_broadcast"`
-	Recipients  []string `json:"recipients"`
-	Format      string   `json:"format,omitempty"`
+	ID               int64    `json:"id"`
+	Sender           string   `json:"sender"`
+	Text             string   `json:"text"`
+	IsBroadcast      bool     `json:"is_broadcast"`
+	Recipients       []string `json:"recipients"`
+	Format           string   `json:"format,omitempty"`
+	ReceiptPositions []string `json:"receipt_positions,omitempty"`
+	Acknowledged     bool     `json:"acknowledged,omitempty"`
 }
 
 func (m MessageReceivedEvent) Marshal() ([]byte, error) {
@@ -1186,6 +1207,11 @@ type StandBlockEntry struct {
 	CreatedBy *string    `json:"created_by,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	Version   int32      `json:"version"`
+}
+
+type StandArrivalRestrictionEntry struct {
+	Stand  string `json:"stand"`
+	Reason string `json:"reason"`
 }
 
 // StandStatusSnapshotEvent is broadcast to a newly connected frontend to seed stand state.

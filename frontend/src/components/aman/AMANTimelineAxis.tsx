@@ -1,16 +1,18 @@
 /* eslint-disable react-refresh/only-export-components -- reusable axis model and hook intentionally share this module */
-import {useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 
 import type {AMANDataStatus} from "@/api/aman";
 import {cn} from "@/lib/utils";
 import type {AMANTimelineRange} from "./presentation";
 
 export const AMAN_HORIZON_PREFERENCE_KEY = "flightstrips.aman.timeline-horizon.v1";
-export const AMAN_DEFAULT_HORIZON_MINUTES = 90;
+export const AMAN_DEFAULT_HORIZON_MINUTES = 35;
+export const AMAN_MINIMUM_HORIZON_MINUTES = 35;
+export const AMAN_MAXIMUM_HORIZON_MINUTES = 90;
 export const AMAN_CLOCK_STEP_MS = 6_000;
 export const AMAN_TIMELINE_RULER_HALF_WIDTH = 23;
-const MINIMUM_HORIZON_MINUTES = 60;
-const MAXIMUM_HORIZON_MINUTES = 90;
+const MINIMUM_HORIZON_MINUTES = AMAN_MINIMUM_HORIZON_MINUTES;
+const MAXIMUM_HORIZON_MINUTES = AMAN_MAXIMUM_HORIZON_MINUTES;
 const ONE_MINUTE_MS = 60_000;
 
 export function validateAMANHorizon(value: unknown): number {
@@ -32,8 +34,11 @@ export function writeAMANHorizon(minutes: number, storage: Pick<Storage, "setIte
   storage.setItem(AMAN_HORIZON_PREFERENCE_KEY, JSON.stringify({version: 1, minutes: validateAMANHorizon(minutes)}));
 }
 
+/** Minutes of already-landed time shown below the red current-time line. */
+export const AMAN_PAST_MINUTES = 5;
+
 export function buildAMANAxisRange(clockMs: number, horizonMinutes: number): AMANTimelineRange {
-  return {startMs: clockMs, endMs: clockMs + validateAMANHorizon(horizonMinutes) * 60_000};
+  return {startMs: clockMs - AMAN_PAST_MINUTES * 60_000, endMs: clockMs + validateAMANHorizon(horizonMinutes) * 60_000};
 }
 
 /** Later UTC times run upward, matching the operational MAESTRO ruler. */
@@ -55,7 +60,16 @@ export function formatAMANAxisLabel(timestampMs: number, referenceMs: number): s
 
 export function useAMANTimelineAxis(authoritativeTime: string) {
   const authoritativeMs = Date.parse(authoritativeTime);
-  const [horizonMinutes] = useState(readAMANHorizon);
+  const [horizonMinutes, setHorizonState] = useState(readAMANHorizon);
+  const setHorizonMinutes = useCallback((minutes: number) => {
+    const next = validateAMANHorizon(minutes);
+    setHorizonState(next);
+    try {
+      writeAMANHorizon(next);
+    } catch {
+      // Storage may be unavailable; the horizon still applies for this session.
+    }
+  }, []);
   const [clock, setClock] = useState({anchorMs: authoritativeMs, valueMs: authoritativeMs});
 
   useEffect(() => {
@@ -69,8 +83,8 @@ export function useAMANTimelineAxis(authoritativeTime: string) {
 
   const clockMs = clock.anchorMs === authoritativeMs ? clock.valueMs : authoritativeMs;
   return useMemo(
-    () => ({clockMs, horizonMinutes, range: buildAMANAxisRange(authoritativeMs, horizonMinutes)}),
-    [authoritativeMs, clockMs, horizonMinutes],
+    () => ({clockMs, horizonMinutes, setHorizonMinutes, range: buildAMANAxisRange(authoritativeMs, horizonMinutes)}),
+    [authoritativeMs, clockMs, horizonMinutes, setHorizonMinutes],
   );
 }
 
@@ -80,7 +94,7 @@ export function AMANTimelineAxis({range, clockMs, status, onOpenTargetInformatio
     {length: Math.max(0, Math.floor((range.endMs - firstTick) / ONE_MINUTE_MS) + 1)},
     (_, index) => firstTick + index * ONE_MINUTE_MS,
   );
-  const finalRegionTop = AMANAxisTopPercent(clockMs + 10 * 60_000, range) ?? 100;
+  const finalRegionTop = AMANAxisTopPercent(clockMs, range) ?? 100;
 
   return (
     <div

@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   strips: [] as WebSocketState["strips"],
   standAssignments: [] as WebSocketState["standAssignments"],
   standBlocks: [] as WebSocketState["standBlocks"],
+  standArrivalRestrictions: [] as WebSocketState["standArrivalRestrictions"],
   standActionRejection: null as WebSocketState["standActionRejection"],
   requestAutomaticStand: vi.fn(),
   requestManualStand: vi.fn(),
@@ -51,6 +52,7 @@ beforeEach(() => {
   state.strips = [];
   state.standAssignments = [];
   state.standBlocks = [];
+  state.standArrivalRestrictions = [];
   state.standActionRejection = null;
 });
 
@@ -384,6 +386,23 @@ describe("arrival stand assignment dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: letter }));
     const buttons = within(screen.getByRole("group", { name: `${panelName} stands` })).getAllByRole("button");
     expect(buttons.map(button => button.textContent)).toEqual(expected.split(" "));
+  });
+
+  it.each(["C10", "C26", "B3", "B5", "B16"])("rejects legacy and SAT arrival assignment to %s", (stand) => {
+    state.standArrivalRestrictions = [{ stand, reason: "Not available for arrival stand assignment" }];
+    const { rerender, props } = show();
+    fireEvent.change(screen.getByRole("textbox", { name: "Manual stand" }), { target: { value: stand } });
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
+
+    expect(state.updateStrip).not.toHaveBeenCalled();
+    expect(state.requestManualStand).not.toHaveBeenCalled();
+
+    state.satEnabled = true;
+    rerender(<ArrStandDialog {...props} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Manual stand" }), { target: { value: stand } });
+    fireEvent.click(screen.getByRole("button", { name: /^ASSIGN/ }));
+
+    expect(state.requestManualStand).not.toHaveBeenCalled();
   });
 
   it("keeps the combined C+D layout identical for either selector", () => {

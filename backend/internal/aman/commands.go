@@ -25,6 +25,26 @@ type RebuildArrivalSequenceCommand struct{ Metadata CommandMetadata }
 
 func (c RebuildArrivalSequenceCommand) Validate() error { return validateCommandMetadata(c.Metadata) }
 
+type InsertFlightAfterCommand struct {
+	Metadata      CommandMetadata
+	Callsign      Callsign
+	AfterCallsign Callsign
+	STARFamily    *string
+}
+
+func (c InsertFlightAfterCommand) Validate() error {
+	if err := validateFlightCommand(c.Metadata, c.Callsign); err != nil {
+		return err
+	}
+	if !trimmed(string(c.AfterCallsign)) || c.AfterCallsign == c.Callsign {
+		return commandInvalid("insertion requires another anchor flight")
+	}
+	if c.STARFamily != nil && *c.STARFamily != "" && !trimmed(*c.STARFamily) {
+		return commandInvalid("STAR family must be normalized")
+	}
+	return nil
+}
+
 type MoveFlightCommand struct {
 	Metadata       CommandMetadata
 	Callsign       Callsign
@@ -237,6 +257,7 @@ type CommandService interface {
 	Component
 	CurrentRevision(context.Context, string) (SequenceRevision, error)
 	RebuildArrivalSequence(context.Context, CommandContext, RebuildArrivalSequenceCommand) (CommandExecution, error)
+	InsertFlightAfter(context.Context, CommandContext, InsertFlightAfterCommand) (CommandExecution, error)
 	MoveFlight(context.Context, CommandContext, MoveFlightCommand) (CommandExecution, error)
 	SwapFlights(context.Context, CommandContext, SwapFlightsCommand) (CommandExecution, error)
 	PlaceFlightAtTime(context.Context, CommandContext, PlaceFlightAtTimeCommand) (CommandExecution, error)

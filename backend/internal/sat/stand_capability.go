@@ -29,9 +29,10 @@ type StandCapability struct {
 	Airport string
 	Stand   string
 
-	Latitude  float64
-	Longitude float64
-	Radius    float64
+	Latitude                 float64
+	Longitude                float64
+	Radius                   float64
+	ArrivalRestrictionReason string
 
 	Blocks []string
 
@@ -63,9 +64,10 @@ type Stand struct {
 	Airport string
 	Name    string
 
-	Latitude  float64
-	Longitude float64
-	Radius    float64
+	Latitude                 float64
+	Longitude                float64
+	Radius                   float64
+	ArrivalRestrictionReason string
 
 	Blocks   []string
 	Variants []StandCapability
@@ -102,13 +104,14 @@ func LoadStandCapabilities(source io.Reader) (*StandCapabilityRegistry, error) {
 		}
 		variant := cloneStandCapability(*current)
 		stand := Stand{
-			Airport:   current.Airport,
-			Name:      current.Stand,
-			Latitude:  current.Latitude,
-			Longitude: current.Longitude,
-			Radius:    current.Radius,
-			Blocks:    slices.Clone(current.Blocks),
-			Variants:  []StandCapability{variant},
+			Airport:                  current.Airport,
+			Name:                     current.Stand,
+			Latitude:                 current.Latitude,
+			Longitude:                current.Longitude,
+			Radius:                   current.Radius,
+			ArrivalRestrictionReason: current.ArrivalRestrictionReason,
+			Blocks:                   slices.Clone(current.Blocks),
+			Variants:                 []StandCapability{variant},
 		}
 
 		airportStands := registry.byAirport[stand.Airport]
@@ -121,6 +124,12 @@ func LoadStandCapabilities(source io.Reader) (*StandCapabilityRegistry, error) {
 				problems = append(problems, fmt.Errorf("line %d: conflicting geometry for stand %s:%s (first declared on line %d)", stand.Variants[0].Line, stand.Airport, stand.Name, existing.Variants[0].Line))
 			}
 			existing.Blocks = unionTokens(existing.Blocks, stand.Blocks)
+			if existing.ArrivalRestrictionReason != "" && stand.ArrivalRestrictionReason != "" &&
+				existing.ArrivalRestrictionReason != stand.ArrivalRestrictionReason {
+				problems = append(problems, fmt.Errorf("line %d: conflicting arrival restrictions for stand %s:%s", stand.Variants[0].Line, stand.Airport, stand.Name))
+			} else if existing.ArrivalRestrictionReason == "" {
+				existing.ArrivalRestrictionReason = stand.ArrivalRestrictionReason
+			}
 			existing.Variants = append(existing.Variants, stand.Variants[0])
 			airportStands[stand.Name] = existing
 			for i := range registry.ordered {
@@ -308,6 +317,8 @@ func applyStandDirective(capability *StandCapability, key, value string, line in
 			return fmt.Errorf("line %d: BLOCKS requires at least one stand", line)
 		}
 		capability.Blocks = unionTokens(capability.Blocks, blocks)
+	case "ARRIVAL_CLOSED":
+		capability.ArrivalRestrictionReason = value
 	case "SCHENGEN":
 		return fmt.Errorf("line %d: SCHENGEN must be a flag without a value", line)
 	case "NON-SCHENGEN":

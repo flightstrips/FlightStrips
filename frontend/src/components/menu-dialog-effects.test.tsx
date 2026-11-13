@@ -19,12 +19,12 @@ vi.mock("@/store/store-hooks", () => ({
 
 function expectControlBevels() {
   for (const button of screen.getAllByRole("button").filter(button => button.textContent?.trim() !== "Close")) {
-    expect(button.style.boxShadow).toBe(MENU_BUTTON_BEVEL.boxShadow);
+    expect(button).toHaveStyle({ boxShadow: MENU_BUTTON_BEVEL.boxShadow });
     expect(button.style.borderTopColor).toBe("rgb(206, 206, 206)");
     expect(button.style.borderRightColor).toBe("rgb(57, 57, 57)");
   }
   for (const input of screen.getAllByRole("textbox")) {
-    expect(input.style.boxShadow).toBe(MENU_INPUT_BEVEL.boxShadow);
+    expect(input).toHaveStyle({ boxShadow: MENU_INPUT_BEVEL.boxShadow });
     expect(input.style.borderTopColor).toBe("rgb(57, 57, 57)");
     expect(input.style.borderRightColor).toBe("rgb(206, 206, 206)");
   }
@@ -53,7 +53,7 @@ describe("menu dialog bevels", () => {
     fireEvent.click(screen.getByRole("button", { name: "CLOSING POSITION SOON" }));
     expectControlBevels();
     fireEvent.click(screen.getByRole("button", { name: "OK" }));
-    expect(actions.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", ["APRON ARR"], "AUTO");
+    expect(actions.sendMessage).toHaveBeenCalledWith("CLOSING POSITION SOON", ["APRON ARR"], "AUTO", ["121.630"]);
     expect(onClose).toHaveBeenCalledOnce();
   });
 

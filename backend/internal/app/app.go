@@ -395,6 +395,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, err
 	}
 	frontendHub := realtime.frontend
+	frontendHub.SetStandCapabilities(satGraph.stands)
 	if amanCoordination != nil {
 		amanCoordination.SetClearanceNotifier(frontendHub.RefreshAMANCoordination)
 	}
@@ -440,7 +441,6 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if standAllocationService != nil {
 		frontendHub.SetStandActionService(standActionService)
-		frontendHub.SetStandCapabilities(satGraph.stands)
 		standAllocationService.SetPublisher(frontendHub.PublishStandAllocation)
 		standAllocationService.SetBlockRemovalPublisher(frontendHub.PublishStandBlockRemoval)
 	}

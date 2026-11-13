@@ -57,8 +57,14 @@ BLOCKS:A1
 
 func TestSnapshotBuilder_Build_IncludesAssociatedLocalIP(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "request-id", "snapshot-test")
+	standCapabilities, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:C10:N055.37.39.290:E012.38.58.230:35
+ARRIVAL_CLOSED:Not available for arrival stand assignment
+`))
+	require.NoError(t, err)
 
 	builder := NewSnapshotBuilder(SnapshotBuilderDependencies{
+		StandCapabilities: standCapabilities,
 		ControllerRepo: &testutil.MockControllerRepository{
 			ListBySessionFn: func(callCtx context.Context, session int32) ([]*internalModels.Controller, error) {
 				assert.Same(t, ctx, callCtx)
@@ -124,6 +130,9 @@ func TestSnapshotBuilder_Build_IncludesAssociatedLocalIP(t *testing.T) {
 	assert.Nil(t, cachedAtis)
 	assert.Equal(t, "192.168.1.25", event.LocalIP)
 	assert.Equal(t, "EKDK_FMP", event.MasterCallsign)
+	require.Len(t, event.StandArrivalRestrictions, 1)
+	assert.Equal(t, "C10", event.StandArrivalRestrictions[0].Stand)
+	assert.Equal(t, "Not available for arrival stand assignment", event.StandArrivalRestrictions[0].Reason)
 }
 
 func TestSnapshotBuilder_Build_ExcludesStripsOmittedByLatestEuroscopeSync(t *testing.T) {

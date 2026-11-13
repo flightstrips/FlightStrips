@@ -205,6 +205,19 @@ func TestNavigationConfigFromEnvSupportsVIFF(t *testing.T) {
 	}
 }
 
+func TestNavigationConfigFromEnvSupportsSectorFallback(t *testing.T) {
+	t.Setenv("NAVIGATION_SOURCE", " SECTOR ")
+	t.Setenv("NAVIGATION_SECTOR_FILE", " local.sct ")
+	t.Setenv("NAVIGATION_TERMINAL_GEOMETRY_PATH", " terminal.json ")
+	config, err := navigationConfigFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Source != navigation.SourceSector || config.SectorFilePath != "local.sct" || config.TerminalGeometryPath != "terminal.json" {
+		t.Fatalf("unexpected sector config: %#v", config)
+	}
+}
+
 func TestAMANConfigFromEnvRejectsInvalidTiming(t *testing.T) {
 	t.Setenv("AMAN_RECONCILIATION_INTERVAL", "later")
 	if _, err := amanConfigFromEnv(); err == nil {

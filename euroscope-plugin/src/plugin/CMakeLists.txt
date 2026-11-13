@@ -63,6 +63,8 @@ set(src__handlers
         handlers/ControllerEventHandler.h
         handlers/ControllerEventHandlers.cpp
         handlers/ControllerEventHandlers.h
+        handlers/AircraftSelectionHandler.h
+        handlers/AircraftSelectionHandler.cpp
         handlers/TimedEventHandler.h
         handlers/TimedEventHandlers.cpp
         handlers/TimedEventHandlers.h

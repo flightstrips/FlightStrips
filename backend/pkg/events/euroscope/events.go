@@ -67,6 +67,7 @@ const (
 	SendFrequencyMessage      = EventType_EVENT_SEND_FREQUENCY_MESSAGE
 	FrequencyMessageResult    = EventType_EVENT_FREQUENCY_MESSAGE_RESULT
 	FsScratchPad              = EventType_EVENT_FS_SCRATCH_PAD
+	AircraftSelection         = EventType_EVENT_AIRCRAFT_SELECTION
 )
 
 type SyncRunway = Runway
@@ -404,3 +405,6 @@ func (m ExecutionMessage) Marshal() ([]byte, error) {
 	envelope.ExecutionId = m.executionID
 	return proto.Marshal(&envelope)
 }
+
+func (e AircraftSelectionEvent) GetType() EventType       { return AircraftSelection }
+func (e AircraftSelectionEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }

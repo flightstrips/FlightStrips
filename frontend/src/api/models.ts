@@ -3,6 +3,7 @@ import type {AMANCommandMessage} from "./aman";
 import type {InboundDeparturesEvent, InboundDeparturesSnapshot} from "./inbound-departures";
 
 export enum EventType {
+  FrontendAircraftSelection = "aircraft_selection",
  FrontendConnectedFlightResults = "flight.connected-results",
   FrontendMasterInfo = "master_info",
   FrontendInitial = "initial",
@@ -67,6 +68,7 @@ export enum ActionType {
   FrontendUpdateStripData = "update_strip_data",
   FrontendUpdateOrder = "update_order",
   FrontendSendMessage = "send_message",
+  FrontendAcknowledgeMessage = "acknowledge_message",
   FrontendSendPrivateMessage = "send_private_message",
   FrontendCdmReady = "cdm_ready",
   FrontendReleasePoint = "release_point",
@@ -301,6 +303,8 @@ export interface MessageReceived {
   text: string;
   is_broadcast: boolean;
   recipients: string[];
+  receipt_positions?: string[];
+  acknowledged?: boolean;
   format?: MessageFormat;
 }
 
@@ -323,7 +327,16 @@ export interface TextPilotInputs {
   presets?: Record<string, Array<{ id: string; label: string; text: string; tone: "light" | "phrase" | "point" }>>;
 }
 
+export interface AircraftSelection {
+  callsign: string | null;
+  revision: number;
+}
+export interface FrontendAircraftSelectionEvent extends AircraftSelection {
+  type: EventType.FrontendAircraftSelection;
+}
+
 export interface FrontendInitialEvent {
+  aircraft_selection?: AircraftSelection;
   text_pilot?: TextPilotInputs;
   own_plugin_ready?: boolean;
   observer?: boolean;
@@ -353,6 +366,7 @@ export interface FrontendInitialEvent {
   stand_assignment_enabled: boolean;
   stand_assignments: FrontendStandAssignmentEntry[];
   stand_blocks: FrontendStandBlockEntry[];
+  stand_arrival_restrictions?: FrontendStandArrivalRestrictionEntry[];
   capabilities?: {
     aman_fmp: boolean;
   };
@@ -714,6 +728,7 @@ export interface FrontendAtisUpdateEvent {
 
 // Union type for all events that can be received
 export type WebSocketEvent =
+  | FrontendAircraftSelectionEvent
   | FrontendMasterInfoEvent
   | InboundDeparturesEvent
   | FrontendInitialEvent
@@ -847,6 +862,11 @@ export interface FrontendStandBlockEntry {
   version?: number;
 }
 
+export interface FrontendStandArrivalRestrictionEntry {
+  stand: string;
+  reason: string;
+}
+
 export interface FrontendStandStatusSnapshotEvent {
   type: EventType.FrontendStandStatusSnapshot;
   assignments: FrontendStandAssignmentEntry[];
@@ -929,7 +949,13 @@ export interface FrontendSendMessageEvent {
   type: ActionType.FrontendSendMessage;
   text: string;
   recipients: string[];
+  recipient_positions?: string[];
   format?: MessageFormat;
+}
+
+export interface FrontendAcknowledgeMessageEvent {
+  type: ActionType.FrontendAcknowledgeMessage;
+  id: number;
 }
 
 export interface FrontendSendPrivateMessageEvent {
@@ -1124,7 +1150,7 @@ export interface FrontendSendFrequencyMessageEvent {
   prepare?: boolean;
 }
 
-export type FrontendSendEvent = import("./strip-board").StripVisibilityEvent | import("./strip-board").StripCreateLocalEvent | import("./strip-board").FindConnectedFlightsEvent | import("./strip-board").StripAdmitConnectedEvent | import("./strip-board").StripAnnotationEvent | FrontendNextControllerSelectEvent | FrontendSendFrequencyMessageEvent | FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendSendPrivateMessageEvent | FrontendCdmReadyEvent | FrontendCdmDeicePlatformUpdateEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendSendResetRunwayClearanceEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendForceAssumeTacticalStripAction | FrontendMarkTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent | FrontendStandOccupyAction | FrontendStandVacateAction | FrontendStandAutomaticRequestAction | FrontendStandManualRequestAction | FrontendStandConfirmedOverrideAction | FrontendStandAcknowledgeAction | FrontendStandBlockCreateAction | FrontendStandBlockRemoveAction | AMANCommandMessage;
+export type FrontendSendEvent = import("./strip-board").StripVisibilityEvent | import("./strip-board").StripCreateLocalEvent | import("./strip-board").FindConnectedFlightsEvent | import("./strip-board").StripAdmitConnectedEvent | import("./strip-board").StripAnnotationEvent | FrontendNextControllerSelectEvent | FrontendSendFrequencyMessageEvent | FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendAcknowledgeMessageEvent | FrontendSendPrivateMessageEvent | FrontendCdmReadyEvent | FrontendCdmDeicePlatformUpdateEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendSendResetRunwayClearanceEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendForceAssumeTacticalStripAction | FrontendMarkTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent | FrontendStandOccupyAction | FrontendStandVacateAction | FrontendStandAutomaticRequestAction | FrontendStandManualRequestAction | FrontendStandConfirmedOverrideAction | FrontendStandAcknowledgeAction | FrontendStandBlockCreateAction | FrontendStandBlockRemoveAction | AMANCommandMessage;
 
 
 export type AnyStrip = FrontendStrip | TacticalStrip;

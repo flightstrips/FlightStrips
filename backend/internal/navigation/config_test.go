@@ -32,3 +32,13 @@ func TestConfigSupportsVIFFWithCachedTerminalGeometry(t *testing.T) {
 func TestConfigRejectsTerminalGeometryWithoutSource(t *testing.T) {
 	require.ErrorContains(t, (Config{TerminalGeometryPath: "terminal.json"}).Validate(), "requires a navigation source")
 }
+
+func TestConfigSupportsSectorSourceAndFallback(t *testing.T) {
+	for _, source := range []string{SourceSector, SourceAIRACNet, SourceVIFF} {
+		config := Config{Source: source, SectorFilePath: " local.sct "}.Normalize()
+		require.NoError(t, config.Validate())
+		require.Equal(t, "local.sct", config.SectorFilePath)
+	}
+	require.ErrorContains(t, (Config{Source: SourceSector}).Validate(), "NAVIGATION_SECTOR_FILE")
+	require.ErrorContains(t, (Config{SectorFilePath: "local.sct"}).Validate(), "requires a navigation source")
+}

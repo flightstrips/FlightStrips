@@ -177,7 +177,9 @@ describe("EstStandCell", () => {
       />,
     );
 
-    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #dc2626");
+    expect(screen.getByRole("button")).toHaveStyle({
+      boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 2px #dc2626",
+    });
   });
 
   it("outlines a ready stand in green when TSAT is within the start request window", () => {
@@ -196,7 +198,9 @@ describe("EstStandCell", () => {
       />,
     );
 
-    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #00FF26");
+    expect(screen.getByRole("button")).toHaveStyle({
+      boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 2px #00FF26",
+    });
     expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.getByTestId("est-tsat-background").style.top).toBe("105px");
     expect(screen.getByText("TOBT:").parentElement?.style.color).toBe("");
@@ -248,7 +252,7 @@ describe("EstStandCell", () => {
     expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.queryByTestId("est-tsat-background")).toBeNull();
     expect(screen.getByRole("button")).toHaveClass("bg-[#131376]");
-    expect(screen.getByRole("button").style.boxShadow).not.toContain("0 0 0 2px");
+    expect(screen.getByRole("button")).toHaveStyle({ boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25)" });
     expect(screen.getByText("CTOT: 1430")).toBeDefined();
   });
 
@@ -275,7 +279,7 @@ describe("EstStandCell", () => {
     expect(screen.queryByTestId("est-ready-background")).toBeNull();
     expect(screen.queryByTestId("est-tobt-background")).toBeNull();
     expect(screen.queryByTestId("est-tsat-background")).toBeNull();
-    expect(screen.getByRole("button").style.boxShadow).not.toContain("inset 0 0 0 2px");
+    expect(screen.getByRole("button")).toHaveStyle({ boxShadow: "inset 2px 2px 2px rgba(0, 0, 0, 0.25)" });
     expect(screen.getByText("CTOT: 1430")).toBeDefined();
   });
 
@@ -412,7 +416,29 @@ describe("EstStandCell", () => {
       />,
     );
     const button = screen.getByRole("button");
-    expect(button.className).toContain("bg-[#4A4A4A]");
+    expect(button.className).toContain("bg-[#959595]");
+    expect(button.className).toContain("text-black");
+  });
+
+  it("uses subdued vacant-style stand labels for default-blocked stands", () => {
+    render(
+      <EstStandCell
+        stand={{ label: "C10", left: 0, top: 0 }}
+        blocked
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive={false}
+        ctotImproved={false}
+        nowMs={Date.now()}
+        onClick={() => {}}
+      />,
+    );
+
+    const label = screen.getByText("C10");
+    expect(label.className).toContain("font-normal");
+    expect(label.className).toContain("text-[#333333]");
+    expect(label.className).not.toContain("font-bold");
   });
 
   it("shows departure style for not-cleared strip", () => {

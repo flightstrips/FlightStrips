@@ -157,6 +157,9 @@ type RETAResult struct {
 // WTC/L aircraft. Keeping this as a separate entry point prevents a future
 // change to the performance/wind model from silently changing Light traffic.
 func EstimateRETA(input PerformanceWindInput, config PerformanceWindConfig) (RETAResult, error) {
+	if input.WakeTurbulenceCategory == CategoryLight && config.MinimumGroundspeedKnots == 0 {
+		config.MinimumGroundspeedKnots = 1
+	}
 	config, err := config.normalized()
 	if err != nil {
 		return RETAResult{}, err

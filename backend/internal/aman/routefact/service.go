@@ -147,21 +147,65 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 		flight := state.Flights[flightIndex]
 		if fix != nil {
 			feederFix, legacySTARFamily := flight.TerminalPathIdentity()
-			if flight.ActiveRouteKey == nil || (feederFix == "" && legacySTARFamily == "") || flight.SelectedRunwayGroup == nil {
+			if (feederFix == "" && legacySTARFamily == "") || flight.SelectedRunwayGroup == nil {
 				return domain(aman.ErrorDegradedOrIncompleteGeometry, "flight has no active route geometry for direct-to validation")
 			}
-			route, routeErr := s.deps.Geometry.Route(ctx, navdata.RouteKey(*flight.ActiveRouteKey))
-			if routeErr != nil {
-				return routeErr
+			fallback := flight.Prediction != nil && flight.Prediction.Basis == aman.PredictionBasisFallback
+			prior, alternate := flight.RouteProgress, flight.FallbackRouteProgress
+			if fallback {
+				// Retained filed-route metadata may predate an amendment. The
+				// current fallback cursor owns its geometry and plan revision.
+				prior, alternate = flight.FallbackRouteProgress, flight.RouteProgress
+				if prior != nil && prior.RunwayGroupID != *flight.SelectedRunwayGroup {
+					return domain(aman.ErrorDegradedOrIncompleteGeometry, "fallback progress does not match the selected runway")
+				}
 			}
 			flightPlanRevision := uint64(0)
-			if flight.RouteProgress != nil {
-				flightPlanRevision = flight.RouteProgress.FlightPlanRevision
+			if prior != nil {
+				flightPlanRevision = prior.FlightPlanRevision
+			} else if flight.LatestObservation != nil && flight.LatestObservation.FlightPlan.Revision != nil {
+				flightPlanRevision = *flight.LatestObservation.FlightPlan.Revision
 			}
-			if !trajectory.DirectToTargetOnForwardPath(snapshot, route, trajectory.Input{
-				FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: *flight.SelectedRunwayGroup,
-				FlightPlanRevision: flightPlanRevision, Prior: flight.RouteProgress,
-			}, navdata.FixID(*fix)) {
+			input := trajectory.Input{Airport: navdata.AirportID(report.Airport), FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: *flight.SelectedRunwayGroup, FlightPlanRevision: flightPlanRevision, Prior: prior}
+			var route navdata.RouteGeometry
+			if fallback {
+				digest := flight.Prediction.GeometryDigest
+				if prior != nil {
+					digest = prior.GeometryDigest
+				}
+				terminal, terminalErr := trajectory.TerminalFallbackRoute(snapshot, input)
+				if terminalErr == nil && terminal.Digest == digest {
+					route = terminal
+				} else {
+					if flight.ActiveRouteKey == nil {
+						return domain(aman.ErrorDegradedOrIncompleteGeometry, "accepted fallback geometry is unavailable")
+					}
+					route, err = s.deps.Geometry.Route(ctx, navdata.RouteKey(*flight.ActiveRouteKey))
+					if err != nil {
+						return err
+					}
+					if route.Digest != digest {
+						return domain(aman.ErrorDegradedOrIncompleteGeometry, "retained filed route does not match the accepted fallback geometry")
+					}
+				}
+				// Do not silently drop a terminal progress floor after a
+				// snapshot change; prediction must first accept the new path.
+				compatibleInput := input
+				compatibleInput.Prior = nil
+				if prior != nil && trajectory.NewestCompatibleProgress(snapshot, route, compatibleInput, prior) == nil {
+					return domain(aman.ErrorDegradedOrIncompleteGeometry, "fallback progress does not match the active navigation snapshot")
+				}
+			} else {
+				if flight.ActiveRouteKey == nil {
+					return domain(aman.ErrorDegradedOrIncompleteGeometry, "flight has no active route geometry for direct-to validation")
+				}
+				route, err = s.deps.Geometry.Route(ctx, navdata.RouteKey(*flight.ActiveRouteKey))
+				if err != nil {
+					return err
+				}
+			}
+			input.Prior = trajectory.NewestCompatibleProgress(snapshot, route, input, alternate)
+			if !trajectory.DirectToTargetOnForwardPath(snapshot, route, input, navdata.FixID(*fix)) {
 				return domain(aman.ErrorDegradedOrIncompleteGeometry, "direct-to fix is not on the flight's forward route")
 			}
 		}
@@ -194,6 +238,16 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 			ObservedAt: report.ObservedAt, ReceivedAt: now, DatasetVersion: dataset, State: factState,
 		}
 		state.Revision++
+		for index := range state.Flights {
+			if slot := state.Flights[index].Slot; slot != nil {
+				copy := *slot
+				copy.Revision = state.Revision
+				state.Flights[index].Slot = &copy
+			}
+			// Offers belong to the prior aggregate revision and are recalculated
+			// by the operational reconciliation triggered after this commit.
+			state.Flights[index].QueueOffers = nil
+		}
 		state.GeneratedAt = now
 		committed, err := s.deps.Repository.Commit(ctx, aman.StateCommit{ExpectedRevision: state.Revision - 1, State: state})
 		if err != nil {

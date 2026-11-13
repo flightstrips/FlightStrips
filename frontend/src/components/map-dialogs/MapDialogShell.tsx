@@ -2,13 +2,18 @@ import { useState, useRef, useEffect } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useDragDisabled } from "@/components/bays/DragDisabledContext";
-import type { ClickPoint, VisibilityContext } from "@/config/ekch";
+import type { ClickPoint, StaticMapPoint, VisibilityContext } from "@/config/ekch";
 
 // Map dialog color constants (used in CSSProperties style objects)
 const COLOR_MAP_BTN_BG    = "#D6D6D6"; // light grey button background
 const COLOR_MAP_BTN_DARK  = "#3F3F3F"; // dark button (OK/ERASE)
 const COLOR_MAP_INPUT_BG  = "#D6D6D6"; // text input background (same as button)
 const COLOR_DIALOG_BORDER = "#888";    // dialog shell border
+// eslint-disable-next-line react-refresh/only-export-components
+export const MAP_POINT_STROKE_STYLE: React.CSSProperties = {
+  borderBottom: "1px solid #333",
+  borderRight: "1px solid #333",
+};
 const CONTROL_WIDE_BTN_WIDTH = "4.69cqw";
 const CONTROL_NARROW_BTN_WIDTH = "4.17cqw";
 const CONTROL_GAP = "0.52cqh";
@@ -60,15 +65,18 @@ interface MapEraseControlsProps {
   onClose?: () => void;
   btnStyle: React.CSSProperties;
   maxLength?: number;
+  canSelect?: (value: string) => boolean;
+  disabledMessage?: string;
 }
 
-export function MapEraseControls({ onOk, onErase, onClose, btnStyle, maxLength = 6 }: MapEraseControlsProps) {
+export function MapEraseControls({ onOk, onErase, onClose, btnStyle, maxLength = 6, canSelect, disabledMessage }: MapEraseControlsProps) {
   const [typed, setTyped] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const isTypedSelectionBlocked = !!typed.trim() && canSelect !== undefined && !canSelect(typed.trim().toUpperCase());
 
   const handleOk = () => {
     const value = typed.trim().toUpperCase();
-    if (value) {
+    if (value && (!canSelect || canSelect(value))) {
       onOk(value);
       setTyped("");
     }
@@ -114,7 +122,12 @@ export function MapEraseControls({ onOk, onErase, onClose, btnStyle, maxLength =
             ESC
           </button>
         )}
-        <button onClick={handleOk} style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white", width: CONTROL_NARROW_BTN_WIDTH }}>
+        <button
+          onClick={handleOk}
+          disabled={isTypedSelectionBlocked}
+          title={isTypedSelectionBlocked ? disabledMessage : undefined}
+          style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white", width: CONTROL_NARROW_BTN_WIDTH }}
+        >
           OK
         </button>
       </div>
@@ -154,8 +167,11 @@ interface MapDialogShellProps {
   /** Pixel height of the PNG — used to set the correct aspect ratio. */
   imgHeight: number;
   points: ClickPoint[];
+  /** Non-interactive labels positioned over the map, such as runway TODA distances. */
+  staticPoints?: StaticMapPoint[];
+  pointStyle?: React.CSSProperties;
   btnStyle: React.CSSProperties;
-  onSelect: (label: string) => void;
+  onSelect: (label: string, point?: ClickPoint) => void;
   selectedPoint?: string;
   /** Controls panel overlay (e.g. arrows + ERASE/OK). Positioned absolutely over the image. */
   children?: React.ReactNode;
@@ -171,17 +187,22 @@ interface MapDialogShellProps {
    * When omitted, all points render with their static label (backwards compatible).
    */
   visibilityContext?: VisibilityContext;
+  isPointDisabled?: (label: string, point: ClickPoint) => boolean;
+  disabledPointMessage?: string;
 }
 
 export function MapDialogShell({
   open, onOpenChange, title,
   imageSrc, imageAlt, imgWidth, imgHeight,
-  points, btnStyle, onSelect,
+  points, staticPoints = [], pointStyle, btnStyle, onSelect,
   selectedPoint,
   children,
   scaleMode = "height",
   visibilityContext,
+  isPointDisabled,
+  disabledPointMessage,
 }: MapDialogShellProps) {
+  const [hoveredRestrictedPoint, setHoveredRestrictedPoint] = useState<number | null>(null);
   const { setDragDisabled } = useDragDisabled();
 
   useEffect(() => {
@@ -236,12 +257,12 @@ export function MapDialogShell({
                 ? (visibilityContext ? pt.label(visibilityContext) : "")
                 : pt.label;
               const isSelected = selectedPoint !== undefined && effectiveLabel === selectedPoint;
+              const isDisabled = isPointDisabled?.(effectiveLabel, pt) ?? false;
+              const tooltipId = `map-point-restriction-${i}`;
               return (
-                <button
+                <div
                   key={i}
-                  onClick={() => onSelect(effectiveLabel)}
                   style={{
-                    ...btnStyle,
                     position: "absolute",
                     left: pt.left,
                     top: pt.top,
@@ -249,13 +270,85 @@ export function MapDialogShell({
                     zIndex: 10,
                     width: pt.width ?? btnStyle.width,
                     height: pt.height ?? btnStyle.height,
-                    ...(isSelected ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" } : {}),
+                    cursor: isDisabled ? "not-allowed" : undefined,
                   }}
+                  onMouseEnter={() => isDisabled && setHoveredRestrictedPoint(i)}
+                  onMouseLeave={() => setHoveredRestrictedPoint(null)}
                 >
-                  {effectiveLabel}
-                </button>
+                  <button
+                    type="button"
+                    disabled={isDisabled}
+                    aria-describedby={isDisabled ? tooltipId : undefined}
+                    onClick={() => onSelect(effectiveLabel, pt)}
+                    style={{
+                      ...btnStyle,
+                      width: "100%",
+                      height: "100%",
+                      ...pointStyle,
+                      ...(isDisabled ? { color: "#B9B9B9", cursor: "not-allowed", pointerEvents: "none" } : {}),
+                      ...(!isDisabled && isSelected ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" } : {}),
+                    }}
+                  >
+                    {effectiveLabel}
+                  </button>
+                  {isDisabled && hoveredRestrictedPoint === i && (
+                    <span
+                      id={tooltipId}
+                      role="tooltip"
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        bottom: "calc(100% + 6px)",
+                        transform: "translateX(-50%)",
+                        zIndex: 30,
+                        width: "max-content",
+                        maxWidth: "240px",
+                        padding: "4px 7px",
+                        border: "1px solid #777",
+                        borderRadius: "3px",
+                        background: "white",
+                        color: "#222",
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                        fontFamily: "Arial, sans-serif",
+                        fontSize: "max(12px, 1.4cqh)",
+                        fontWeight: "normal",
+                        lineHeight: 1.25,
+                        textAlign: "center",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {disabledPointMessage}
+                    </span>
+                  )}
+                </div>
               );
             })}
+
+            {staticPoints.map((pt, i) => (
+              <button
+                key={`static-${i}`}
+                type="button"
+                disabled
+                aria-label={`TODA ${pt.label}`}
+                style={{
+                  ...btnStyle,
+                  position: "absolute",
+                  left: pt.left,
+                  top: pt.top,
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 10,
+                  width: pt.width ?? btnStyle.width,
+                  height: pt.height ?? btnStyle.height,
+                  backgroundColor: "#938E8E",
+                  ...MAP_POINT_STROKE_STYLE,
+                  color: "black",
+                  opacity: 1,
+                  cursor: "default",
+                }}
+              >
+                {pt.label}
+              </button>
+            ))}
 
             {children}
           </div>

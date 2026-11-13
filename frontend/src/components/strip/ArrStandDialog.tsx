@@ -116,6 +116,11 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   const assignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
   const assignments = useWebSocketStore(s => s.standAssignments);
   const blocks = useWebSocketStore(s => s.standBlocks);
+  const arrivalRestrictions = useWebSocketStore(s => s.standArrivalRestrictions);
+  const arrivalRestrictionReasons = useMemo(
+    () => new Map(arrivalRestrictions.map(({ stand, reason }) => [stand.toUpperCase(), reason])),
+    [arrivalRestrictions],
+  );
   const strips = useWebSocketStore(s => s.strips);
   const rejection = useWebSocketStore(s => s.standActionRejection);
   const requestAutomatic = useWebSocketStore(s => s.requestAutomaticStand);
@@ -184,8 +189,13 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   };
   const send = () => {
     if (legacyPending) return;
-    submittedStand.current = true;
     const stand = manualStand.trim().toUpperCase();
+    const restrictionReason = arrivalRestrictionReasons.get(stand);
+    if (!automaticSelected && restrictionReason) {
+      toast.error(restrictionReason);
+      return;
+    }
+    submittedStand.current = true;
     if (satEnabled && automaticSelected) {
       automatic();
     } else if (!satEnabled) {
@@ -208,7 +218,9 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
     }
   };
   const panel = group === "C" || group === "D" ? "C+D" : group;
-  const stands = panel === null ? [] : STAND_ASSIGNMENT_LAYOUTS[panel].map(([label, left, top]) => ({
+  const stands = panel === null ? [] : STAND_ASSIGNMENT_LAYOUTS[panel]
+    .filter(([label]) => !arrivalRestrictionReasons.has(label))
+    .map(([label, left, top]) => ({
       label,
       displayLabel: label,
       style: position(left - 11, top - 7, 72, 96, 774, 751),
@@ -226,8 +238,14 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
             <MenuButton tone="dark" onClick={close}>ESC</MenuButton>
             {unsafeManual && <MenuButton tone="auto" onClick={automatic}>AUTO ASSIGN</MenuButton>}
             {unsafeManual && <MenuButton tone="dark" onClick={() => {
+              const stand = manualStand.trim().toUpperCase();
+              const restrictionReason = arrivalRestrictionReasons.get(stand);
+              if (restrictionReason) {
+                toast.error(restrictionReason);
+                return;
+              }
               submittedVersion.current = version;
-              confirmOverride(callsign, manualStand.trim().toUpperCase(), version, relevantRejection.reason);
+              confirmOverride(callsign, stand, version, relevantRejection.reason);
             }}>YES</MenuButton>}
           </div>
         </DialogContent>

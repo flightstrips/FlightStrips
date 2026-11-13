@@ -113,6 +113,11 @@ func (h ekch) Observe(c Context, o Observation) (Decision, error) {
 		strip.Position.Lon = o.Longitude
 		strip.Position.Altitude = o.Altitude
 		bay = shared.GetDepartureBayAt(strip, existing, h.airborneAGL, h.airport, c.GroundOnline, h.geography)
+		if s.Exists && s.Bay == shared.BAY_HIDDEN &&
+			isArrivalAtAirport(s.Origin, s.Destination, h.airport) &&
+			isArrivalAtAirport(o.Origin, o.Destination, h.airport) {
+			bay = s.Bay
+		}
 		if existing != nil && !o.Cleared && bay == shared.BAY_NOT_CLEARED && s.Bay != "" && s.Bay != shared.BAY_UNKNOWN && s.Bay != shared.BAY_NOT_CLEARED && (s.PDCState == "CLEARED" || (s.PDCState == "CONFIRMED" && s.Cleared)) {
 			bay = s.Bay
 		}
@@ -177,6 +182,9 @@ func (h ekch) Observe(c Context, o Observation) (Decision, error) {
 			return Decision{}, fmt.Errorf("position observation requires a strip")
 		}
 		bay = shared.GetDepartureBayFromPositionAt(o.Latitude, o.Longitude, int64(o.Altitude), *existing, h.airborneAGL, h.airport, h.geography)
+		if s.Bay == shared.BAY_HIDDEN && isArrivalAtAirport(s.Origin, s.Destination, h.airport) {
+			bay = s.Bay
+		}
 	default:
 		return Decision{}, fmt.Errorf("unknown observation kind %d", o.Kind)
 	}
@@ -184,11 +192,17 @@ func (h ekch) Observe(c Context, o Observation) (Decision, error) {
 	return d, nil
 }
 
+func isArrivalAtAirport(origin, destination, airport string) bool {
+	return strings.EqualFold(strings.TrimSpace(destination), strings.TrimSpace(airport)) &&
+		!strings.EqualFold(strings.TrimSpace(origin), strings.TrimSpace(airport))
+}
+
 func (h ekch) Lifecycle(c Context, l Lifecycle) (LifecycleDecision, error) {
 	d := LifecycleDecision{Admit: true}
+	isArrival := strings.EqualFold(strings.TrimSpace(c.Strip.Destination), strings.TrimSpace(h.airport))
 	switch l.Kind {
 	case StandExpiry:
-		if c.Strip.Bay == shared.BAY_STAND {
+		if c.Strip.Bay == shared.BAY_STAND && isArrival {
 			bay := shared.BAY_HIDDEN
 			d.Bay = &bay
 		}
@@ -203,8 +217,8 @@ func (h ekch) Lifecycle(c Context, l Lifecycle) (LifecycleDecision, error) {
 	default:
 		return d, fmt.Errorf("unknown lifecycle kind")
 	}
-	if c.Strip.Bay == shared.BAY_STAND {
-		d.StandHideDelay = 240 * time.Second
+	if c.Strip.Bay == shared.BAY_STAND && isArrival {
+		d.StandHideDelay = 60 * time.Second
 	}
 	if !c.Strip.Exists {
 		return d, nil

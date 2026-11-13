@@ -84,7 +84,9 @@ func TestRunwaySwitchRefreshesExistingSTARForecastAndRecoversAfterOutage(t *test
 				pending, err := service.reconcileFlight(t.Context(), state, flight, observation, now.Add(time.Minute))
 				require.Error(t, err)
 				pending = applyUnavailablePrediction(pending, observation, now.Add(time.Minute), err)
-				require.Equal(t, aman.DataStale, pending.DataStatus)
+				require.Equal(t, aman.DataStale, pending.DataStatus, "retained timing must be visibly stale when fallback is unavailable")
+				require.Equal(t, aman.DataFresh, pending.LatestObservation.SourceStatus)
+				require.NotNil(t, pending.PredictionFailureReason)
 				require.True(t, pending.Prediction.Publishable, "keep the previous estimate visibly stale")
 				require.Equal(t, oldPrediction.GeneratedAt, pending.Prediction.GeneratedAt)
 				require.True(t, pending.RunwayChangePending)
@@ -336,4 +338,93 @@ func TestProtectedFlightKeepsHoldingReservationWhenAssignedSTARRunwayChanges(t *
 	require.Equal(t, eta, updated.Prediction.OperationalTETA)
 	require.Contains(t, *updated.Prediction.DegradationReason, aman.STARRunwayInferred)
 	require.False(t, updated.RunwayChangePending)
+}
+
+func TestInferredSTARFallbackPreservesEvidenceAndRetryBackoffAfterRunwaySwitch(t *testing.T) {
+	for _, join := range []bool{true, false} {
+		t.Run(map[bool]string{true: "basic_join", false: "on_star"}[join], func(t *testing.T) {
+			now := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
+			service, state, observation, _ := runwaySTARFixture(now)
+			geometry := service.deps.Geometry.(runwaySTARGeometry)
+			for i := range geometry.paths {
+				geometry.paths[i].Coverage, geometry.paths[i].Digest = navdata.CoverageComplete, "terminal-"+string(geometry.paths[i].RunwayGroup)
+			}
+			if join {
+				geometry.fixes[0].Position = navdata.Coordinate{LatitudeDeg: 53, LongitudeDeg: 10}
+				for i := 1; i < len(geometry.fixes); i++ {
+					geometry.fixes[i].Position = navdata.Coordinate{LatitudeDeg: 56 + float64(i-1)*.1, LongitudeDeg: 13 + float64(i-1)*.1}
+				}
+			}
+			service.deps.Geometry = geometry
+			observation.AircraftType, observation.WakeCategory = stringPointer("A320"), stringPointer("M")
+			requested, altitude := 35000, 30000
+			observation.RequestedLevel = &requested
+			initialPosition := *observation.Surveillance
+			initialPosition.AltitudeFeet = &altitude
+			if join {
+				initialPosition.LatitudeDegrees, initialPosition.LongitudeDegrees = 54, 11
+			} else {
+				initialPosition.LatitudeDegrees, initialPosition.LongitudeDegrees = 55.15, 12.15
+			}
+			observation.Surveillance = &initialPosition
+			initial, err := service.reconcileFlight(t.Context(), state, newFlight(observation, now), observation, now)
+			require.NoError(t, err)
+			initial.State, initial.FreezeReason = aman.StateAirborne, aman.FreezeNone
+			state.Flights = []aman.AMANFlight{initial}
+			selectSTARTestRunway(&state, "ARRIVAL-04L")
+			flight := state.Flights[0]
+			provider := &failingRepairMaterializer{}
+			service.deps.Materializer = provider
+			var retryAt time.Time
+			for sample := 1; sample <= 3; sample++ {
+				at := now.Add(time.Duration(sample) * 15 * time.Second)
+				next := observation
+				position := initialPosition
+				nextAltitude := altitude - sample*200
+				position.AltitudeFeet, position.ObservedAt = &nextAltitude, &at
+				next.Surveillance, next.ReconciledAt = &position, at
+				flight, err = service.reconcileFlight(t.Context(), state, flight, next, at)
+				require.NoError(t, err)
+				require.Equal(t, aman.PredictionBasisFallback, flight.Prediction.Basis)
+				require.Nil(t, flight.RouteProgress)
+				require.False(t, flight.RunwayChangePending)
+				require.Equal(t, "TESPI", flight.STARFamilyIdentity())
+				require.Equal(t, aman.RunwayGroupID("ARRIVAL-04L"), *flight.SelectedRunwayGroup)
+				require.Equal(t, "TESPI1C", *flight.LatestObservation.AssignedSTAR)
+				require.NotNil(t, flight.RouteRefreshAfter)
+				if sample == 1 {
+					retryAt = *flight.RouteRefreshAfter
+				}
+				require.Equal(t, retryAt, *flight.RouteRefreshAfter)
+				require.Equal(t, 1, provider.calls, "the accepted path must retain the failed provider's retry backoff")
+				if join {
+					require.Nil(t, flight.FallbackRouteProgress)
+					require.EqualValues(t, min(sample, 2), flight.FallbackDescent.Samples)
+					require.Equal(t, sample >= 2, flight.FallbackDescent.Confirmed)
+				} else {
+					require.NotNil(t, flight.FallbackRouteProgress)
+					require.Equal(t, aman.RunwayGroupID("ARRIVAL-04L"), flight.FallbackRouteProgress.RunwayGroupID)
+				}
+				if sample == 1 {
+					// Persist the successful fallback rather than completing a
+					// primary route first, then resume with the same old STAR.
+					flight = cloneGapState(t, aman.AirportState{Flights: []aman.AMANFlight{flight}}).Flights[0]
+					service = &Service{deps: service.deps}
+				}
+			}
+			// Retry only when due, then recover normal routing on this runway.
+			service.deps.Materializer = fixedNavigation{key: "new-route"}
+			next := *flight.LatestObservation
+			position := *next.Surveillance
+			position.ObservedAt = &retryAt
+			next.Surveillance, next.ReconciledAt = &position, retryAt
+			recovered, err := service.reconcileFlight(t.Context(), state, flight, next, retryAt)
+			require.NoError(t, err)
+			require.NotEqual(t, aman.PredictionBasisFallback, recovered.Prediction.Basis)
+			require.Equal(t, aman.RunwayGroupID("ARRIVAL-04L"), recovered.RouteProgress.RunwayGroupID)
+			require.True(t, recovered.RouteProgress.DescentConfirmed)
+			require.Nil(t, recovered.FallbackDescent)
+			require.Nil(t, recovered.FallbackRouteProgress)
+		})
+	}
 }

@@ -1,3 +1,4 @@
+import {useSyncExternalStore} from "react";
 import {fireEvent, render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
@@ -5,13 +6,16 @@ import type {WebSocketState} from "@/store/store";
 import type {AMANHoldingEntry, AMANState} from "@/api/aman";
 import AMAN from "./AMAN";
 
-const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.hoisted(() => ({
+const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeListeners, storeState} = vi.hoisted(() => ({
+  storeListeners: new Set<() => void>(),
   boardSpy: vi.fn(),
   controlsSpy: vi.fn(),
   detailSpy: vi.fn(),
   holdingSpy: vi.fn(),
   tmtSpy: vi.fn(),
   storeState: {
+    amanSelectedCallsign: null as string | null,
+    selectAMANFlight: vi.fn(),
     amanState: null as AMANState | null,
     amanPresentationStatus: "empty",
     amanError: null,
@@ -26,13 +30,16 @@ const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.ho
 }));
 
 vi.mock("@/store/store-hooks", () => ({
-  useWebSocketStore: (selector: (state: WebSocketState) => unknown) => selector(storeState as unknown as WebSocketState),
+  useWebSocketStore: (selector: (state: WebSocketState) => unknown) => useSyncExternalStore(
+    (listener) => { storeListeners.add(listener); return () => { storeListeners.delete(listener); }; },
+    () => selector(storeState as unknown as WebSocketState),
+  ),
 }));
 
 vi.mock("@/components/aman/AMANBoard", () => ({
-  AMANBoardView: (props: {state: AMANState | null; selectedCallsign: string | null; onOpenControls?: () => void; onOpenFlightActions?: (callsign: string) => void; onOpenFlightDetails?: (callsign: string) => void}) => {
+  AMANBoardView: (props: {state: AMANState | null; selectedCallsign: string | null; onOpenControls?: () => void; onOpenFlightActions?: (callsign: string) => void; onOpenFlightDetails?: (callsign: string) => void; onViewStateChange?: (viewState: {view: "holds" | "runway" | "acc"; starFamilies: string[]}) => void}) => {
     boardSpy(props);
-    return <><button onClick={props.onOpenControls} type="button">AMAN board</button><button onClick={() => props.onOpenFlightActions?.("SAS123")} type="button">Open actions</button><button onClick={() => props.onOpenFlightDetails?.("SAS123")} type="button">Open target</button></>;
+    return <><button onClick={props.onOpenControls} type="button">AMAN board</button><button onClick={() => props.onViewStateChange?.({view: "acc", starFamilies: ["TESPI"]})} type="button">Mock ACC with one STAR</button><button onClick={() => props.onViewStateChange?.({view: "acc", starFamilies: ["TESPI", "TUDLO"]})} type="button">Mock ACC with two STARs</button><button onClick={() => props.onViewStateChange?.({view: "acc", starFamilies: ["TESPI", "TUDLO", "MONAK"]})} type="button">Mock ACC with three STARs</button><button onClick={() => props.onOpenFlightActions?.("SAS123")} type="button">Open actions</button><button onClick={() => props.onOpenFlightDetails?.("SAS123")} type="button">Open target</button></>;
   },
 }));
 
@@ -80,6 +87,11 @@ describe("AMAN route authorization", () => {
   } as unknown as AMANState);
 
   beforeEach(() => {
+    storeState.amanSelectedCallsign = null;
+    storeState.selectAMANFlight.mockImplementation((callsign: string | null) => {
+      storeState.amanSelectedCallsign = callsign;
+      storeListeners.forEach(listener => listener());
+    });
     controlsSpy.mockClear();
     boardSpy.mockClear();
     holdingSpy.mockClear();
@@ -88,6 +100,21 @@ describe("AMAN route authorization", () => {
     storeState.sendAMANCommand.mockClear();
     storeState.amanState = null;
     storeState.amanFMPAuthority = false;
+  });
+
+  it.each([true, false])("gates insertion on surveillance independently of prediction status (fresh=%s)", (fresh) => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = {...authoritativeState([{callsign: "SAS123", lifecycle_state: "airborne", data_status: fresh ? "stale" : "fresh", surveillance_fresh: fresh, star_selection_required: true}]), runway_groups: [], active_runway_groups: []};
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    const button = screen.getByRole("button", {name: "Insert behind…"});
+    if (fresh) {
+      expect(button).toBeEnabled();
+      fireEvent.click(button);
+      expect(screen.getByRole("dialog", {name: "Insert behind · SAS123"})).toBeInTheDocument();
+    } else {
+      expect(button).toBeDisabled();
+    }
   });
 
   it.each(["none", "superstable"])("opens the STAR swap from the aircraft menu for a %s flight and sends the selected pair", (freeze_reason) => {
@@ -142,6 +169,29 @@ describe("AMAN route authorization", () => {
     expect(holdingSpy.mock.calls.map(([props]) => props.holding)).toEqual(["TIDVU", "OLPIB", "LUGAS", "ROSBI", "ERNOV"]);
     expect(holdingSpy).not.toHaveBeenCalledWith(expect.objectContaining({holding: "NEWIX"}));
     expect(holdingSpy.mock.calls.flatMap(([props]) => props.entries)).toEqual([holdingInformation[0]]);
+  });
+
+  it.each([
+    {button: "Mock ACC with one STAR", columnCount: 1, compact: true, holdingCount: "1"},
+    {button: "Mock ACC with two STARs", columnCount: 2, compact: true, holdingCount: "2"},
+    {button: "Mock ACC with three STARs", columnCount: 3, compact: false, holdingCount: undefined},
+  ])("positions ACC holding graphics and sequences for $button", ({button, columnCount, compact, holdingCount}) => {
+    storeState.amanState = {...authoritativeState([]), holding_information: []} as unknown as AMANState;
+    render(<AMAN />);
+
+    fireEvent.click(screen.getByRole("button", {name: button}));
+
+    const shell = document.querySelector<HTMLElement>(".aman-workspace-shell");
+    if (compact) {
+      expect(shell).toHaveClass("aman-workspace-shell-acc-compact");
+      expect(shell).toHaveStyle({"--aman-acc-holding-count": holdingCount});
+    } else {
+      expect(shell).not.toHaveClass("aman-workspace-shell-acc-compact");
+      expect(shell?.style.getPropertyValue("--aman-acc-holding-count")).toBe("");
+    }
+    const holdings = screen.getByLabelText("TMT holding workspaces");
+    expect(holdings).toHaveStyle({gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`});
+    expect(holdings.children).toHaveLength(columnCount);
   });
 
   it.each([true, false])("opens the holding menu and information for the exact callsign with or without a sequence flight (sequenced=%s)", (sequenced) => {
@@ -244,6 +294,7 @@ describe("AMAN route authorization", () => {
   });
 
   it("leaves selection and focus stable when a warning references an absent flight", () => {
+    storeState.amanSelectedCallsign = "SAS123";
     storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
     render(<AMAN />);
     fireEvent.click(screen.getByRole("tab", {name: "Warnings (0)"}));
@@ -277,6 +328,8 @@ describe("AMAN route authorization", () => {
     fireEvent.keyDown(warnings, {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Settings");
     fireEvent.keyDown(screen.getByRole("tab", {name: "Settings"}), {key: "ArrowRight"});
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Without slots (0)");
+    fireEvent.keyDown(screen.getByRole("tab", {name: "Without slots (0)"}), {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Excluded (0)");
     fireEvent.keyDown(screen.getByRole("tab", {name: "Excluded (0)"}), {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("CTOT (0)");
@@ -287,4 +340,44 @@ describe("AMAN route authorization", () => {
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Holdings");
     expect(screen.queryByText("AMAN warnings")).not.toBeInTheDocument();
   });
+
+  it("moves the board selection without retargeting an open flight menu or command", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}, {callsign: "SAS456"}]);
+    const {rerender} = render(<AMAN />);
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: null}));
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    storeState.amanSelectedCallsign = "SAS456";
+    rerender(<AMAN />);
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS456"}));
+    expect(screen.getByRole("dialog", {name: "SAS123"})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Recompute"}));
+    expect(storeState.sendAMANCommand).toHaveBeenCalledWith({type: "aman.recompute_flight", callsign: "SAS123"});
+});
+
+  it("keeps details bound to their original flight while the board follows EuroScope", () => {
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}, {callsign: "SAS456"}]);
+    const {rerender} = render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open target"}));
+    storeState.amanSelectedCallsign = "SAS456";
+    rerender(<AMAN />);
+    expect(detailSpy).toHaveBeenLastCalledWith(expect.objectContaining({callsign: "SAS123"}));
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS456"}));
+  });
+
+  it("clears unmatched highlighting, matches delayed flights, and disables an absent dialog flight", () => {
+    storeState.amanSelectedCallsign = "SAS456";
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
+    const {rerender} = render(<AMAN />);
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: null}));
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}, {callsign: "SAS456"}]);
+    rerender(<AMAN />);
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS456"}));
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    storeState.amanState = authoritativeState([{callsign: "SAS456"}]);
+    rerender(<AMAN />);
+    expect(screen.getByRole("button", {name: "Recompute"})).toBeDisabled();
+    expect(storeState.sendAMANCommand).not.toHaveBeenCalled();
+  });
+
 });

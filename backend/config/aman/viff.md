@@ -49,6 +49,14 @@ and unusable paths are rejected per flight. Flights absent from the bulk feed
 wait for vIFF processing. Usable geometry for the same filed route can
 continue from the canonical cache during a vIFF outage.
 
+For controller flight-plan amendments that vIFF has not processed yet, configure
+`NAVIGATION_SECTOR_FILE` alongside `NAVIGATION_SOURCE=viff`. This enables a local
+route fallback even when the bulk endpoint is healthy: a path that conflicts
+with the current filed geometry uses the sector resolution until vIFF matches
+again. The filed-route acceptance described above applies to vIFF without this
+fallback; with the sector file configured, available local geometry is used to
+check it. See [sector.md](sector.md) for coverage limits and setup.
+
 Bulk arrivals does not supply the filed route revision or airway labels, and
 vIFF may lag the VATSIM/EuroScope flight plan. Live routes are checked again every
 30 seconds; TMA-frozen routes retain their existing geometry.

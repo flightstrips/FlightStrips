@@ -89,9 +89,10 @@ type Hub struct {
 
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
 
-	msgMu      sync.Mutex
-	msgCounter int64 // accessed atomically
-	messages   map[int32][]frontend.MessageReceivedEvent
+	msgMu             sync.Mutex
+	msgCounter        int64 // accessed atomically
+	messages          map[int32][]frontend.MessageReceivedEvent
+	messageDeliveries map[int32]map[int64]messageDelivery
 
 	metarMu          sync.RWMutex
 	metarCache       map[int32]string // session ID -> latest METAR string
@@ -178,6 +179,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.CoordinationAcceptTagRequestType, handleCoordinationAcceptTagRequest)
 	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
 	handlers.Add(frontend.SendMessage, handleSendMessage)
+	handlers.Add(frontend.AcknowledgeMessage, handleAcknowledgeMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
 	handlers.Add(frontend.CdmDeicePlatformUpdate, handleCdmDeicePlatformUpdate)
 	handlers.Add(frontend.ReleasePoint, handleReleasePoint)
@@ -225,6 +227,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		amanNow:               deps.Now,
 		amanRoleForPosition:   configuredAMANRole,
 		messages:              make(map[int32][]frontend.MessageReceivedEvent),
+		messageDeliveries:     make(map[int32]map[int64]messageDelivery),
 		metarCache:            make(map[int32]string),
 		arrAtisCodeCache:      make(map[int32]string),
 		depAtisCodeCache:      make(map[int32]string),
@@ -526,6 +529,11 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 		}
 		event.ReadOnly = readOnly
 		client.SetReadOnly(readOnly)
+	}
+	if provider, ok := hub.server.GetEuroscopeHub().(interface {
+		CurrentAircraftSelection(string, events.BoardContext) *frontend.AircraftSelection
+	}); ok && client.selection.board != nil {
+		event.AircraftSelection = provider.CurrentAircraftSelection(client.GetCid(), *client.selection.board)
 	}
 	event.Capabilities.AMANFMP = !event.ReadOnly && hub.hasAMANFMPAuthority(client)
 	if provider, ok := hub.server.GetCdmService().(interface {
@@ -2021,6 +2029,7 @@ func observerInSession(hub shared.EuroscopeHub, session int32, cid string) bool 
 
 func (hub *Hub) SetStandCapabilities(stands *sat.StandCapabilityRegistry) {
 	hub.standCapabilities = stands
+	hub.snapshotBuilder = nil
 }
 
 func (hub *Hub) SetTextPilotInputs(lookup func(string) *pkgModels.TextPilotInputs) {

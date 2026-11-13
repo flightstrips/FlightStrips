@@ -1,4 +1,4 @@
-import type { FrontendStandAssignmentEntry, FrontendStandBlockEntry } from "@/api/models";
+import type { FrontendStandArrivalRestrictionEntry, FrontendStandAssignmentEntry, FrontendStandBlockEntry } from "@/api/models";
 
 export interface EstStandBlockingState {
   blocked: Record<string, true>;
@@ -12,9 +12,15 @@ const addReason = (reasons: Record<string, string>, stand: string, reason: strin
 export function deriveEstStandBlocking(
   assignments: FrontendStandAssignmentEntry[],
   blocks: FrontendStandBlockEntry[],
+  arrivalRestrictions: FrontendStandArrivalRestrictionEntry[] = [],
 ): EstStandBlockingState {
   const blocked: Record<string, true> = {};
   const reasons: Record<string, string> = {};
+
+  for (const restriction of arrivalRestrictions) {
+    blocked[restriction.stand] = true;
+    addReason(reasons, restriction.stand, restriction.reason);
+  }
 
   for (const block of blocks) {
     blocked[block.stand] = true;

@@ -117,6 +117,7 @@ const RAW_STANDS: RawStandDefinition[] = [
   { label: "C35", x: 1391, y: 626 },
   { label: "C37", x: 1391, y: 779 },
   { label: "C39", x: 1391, y: 932 },
+  { label: "C10", x: 1300, y: 44 },
   { label: "C26", x: 1300, y: 197 },
   { label: "C28", x: 1300, y: 350 },
   { label: "C30", x: 1301, y: 503 },

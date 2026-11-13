@@ -1,7 +1,8 @@
 import { isTextPilot, textTaxiActions } from "@/lib/text-pilot";
 import { useMyPosition, useStrip, useWebSocketStore } from "@/store/store-hooks";
 import { HOLDING_POINT_RUNWAYS } from "@/config/ekch";
-import { MAP_BTN_BASE, MapCloseButton, MapDialogShell } from "./MapDialogShell";
+import { MAP_BTN_BASE, MAP_POINT_STROKE_STYLE, MapCloseButton, MapDialogShell } from "./MapDialogShell";
+import { isRestrictedTwrPoint } from "./aircraftMapRestrictions";
 
 interface HoldingPointDialogProps {
   open: boolean;
@@ -24,6 +25,9 @@ export function HoldingPointDialog({
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const strip = useStrip(callsign);
   const myPosition = useMyPosition();
+  const isPointDisabled = (label: string) =>
+    isRestrictedTwrPoint(label, "hp", strip?.aircraft_type, strip?.aircraft_category);
+  const disabledPointMessage = "Aircraft type not approved for this Taxiway";
 
   const activeRunway = HOLDING_POINT_RUNWAYS.find((r) => r.runway === runway)
     ?? HOLDING_POINT_RUNWAYS[0];
@@ -42,6 +46,7 @@ export function HoldingPointDialog({
     && strip.owner === myPosition;
 
   const handleSelect = (label: string) => {
+    if (isPointDisabled(label)) return;
     if (isTextPilot(strip)) {
       openTextPilotMenu({ callsign, variant: "tower-out", point: label, holdingPoint: true, actions: textTaxiActions(callsign, label, undefined, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
       return;
@@ -65,8 +70,12 @@ export function HoldingPointDialog({
       imgWidth={activeRunway.imgWidth}
       imgHeight={activeRunway.imgHeight}
       points={activeRunway.points}
+      staticPoints={activeRunway.todaPoints}
+      pointStyle={MAP_POINT_STROKE_STYLE}
       btnStyle={btnStyle}
       onSelect={handleSelect}
+      isPointDisabled={isPointDisabled}
+      disabledPointMessage={disabledPointMessage}
       selectedPoint={strip?.release_point}
       scaleMode="width"
     >

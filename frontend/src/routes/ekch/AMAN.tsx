@@ -9,16 +9,20 @@ import {AMANCoordinationInbox} from "@/components/aman/AMANCoordinationInbox";
 import {AMANCoordinationRequestDialog} from "@/components/aman/AMANCoordinationRequestDialog";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
 import {AMANQuickGapDialog} from "@/components/aman/AMANQuickGapDialog";
+import {AMANInsertBehindDialog} from "@/components/aman/AMANInsertBehindDialog";
+import {AMANUnslottedFlights} from "@/components/aman/AMANUnslottedFlights";
 import {AMANSwapDialog} from "@/components/aman/AMANSwapDialog";
 import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
 import {AMANSettingsPanel} from "@/components/aman/AMANSettingsPanel";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
-import {canSwapAMANFlight, getAMANMutationBlockReason, isExcludedAMANFlight} from "@/api/aman";
+import {canInsertAMANFlight, canSwapAMANFlight, getAMANMutationBlockReason, isExcludedAMANFlight, isUnslottedAMANFlight} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
-import {EKCH_TMT_HOLDING_ORDER} from "@/config/aman";
+import {EKCH_STAR_FAMILY_HOLDING, EKCH_TMT_HOLDING_ORDER, holdingsForFamilies} from "@/config/aman";
+import {AMANHoldingSequenceList} from "@/components/aman/AMANHoldingSequenceList";
+import {orderAMANFlights} from "@/components/aman/presentation";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 
 export default function AMAN() {
@@ -34,7 +38,9 @@ export default function AMAN() {
   const pendingCommands = useWebSocketStore((value) => value.amanPendingCommands);
   const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
   const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
-  const [selectedCallsign, setSelectedCallsign] = useState<string | null>(null);
+  const selectedCallsign = useWebSocketStore(value => value.amanSelectedCallsign);
+  const setSelectedCallsign = useWebSocketStore(value => value.selectAMANFlight);
+  const [dialogCallsign, setDialogCallsign] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailAction, setDetailAction] = useState<"none" | "all" | "missed" | "remove">("none");
   const [flightActionsOpen, setFlightActionsOpen] = useState(false);
@@ -45,27 +51,36 @@ export default function AMAN() {
   const [removalCommandID, setRemovalCommandID] = useState<string | null>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [quickGapOpen, setQuickGapOpen] = useState(false);
+  const [insertCallsign, setInsertCallsign] = useState<string | null>(null);
+  const insertFlight = state?.flights.find(flight => flight.callsign === insertCallsign);
   const [swapOpen, setSwapOpen] = useState(false);
   const [swapCommandID, setSwapCommandID] = useState<string | null>(null);
   const [focusedRunwayGroupID, setFocusedRunwayGroupID] = useState<string | null>(null);
   const [tmtTab, setTmtTab] = useState("holdings");
+  const [boardViewState, setBoardViewState] = useState<{view: "holds" | "runway" | "acc"; starFamilies: string[]}>({view: "holds", starFamilies: []});
+  const accActive = boardViewState.view === "acc";
+  const visibleHoldings = accActive ? holdingsForFamilies(boardViewState.starFamilies) : EKCH_TMT_HOLDING_ORDER;
+  const accCompactHoldingCount = accActive && boardViewState.starFamilies.length > 0 && boardViewState.starFamilies.length <= 2 && visibleHoldings.length > 0
+    ? visibleHoldings.length
+    : undefined;
   const stateAtMount = useRef(state);
 
   const effectiveSelectedCallsign = state?.flights.some((flight) => flight.callsign === selectedCallsign)
     || state?.holding_information?.some((entry) => entry.callsign === selectedCallsign)
     ? selectedCallsign
-    : state?.flights[0]?.callsign ?? null;
-  const selectedFlight = state?.flights.find((flight) => flight.callsign === effectiveSelectedCallsign) ?? null;
+    : null;
+  const dialogFlight = state?.flights.find((flight) => flight.callsign === dialogCallsign) ?? null;
   const holdingInformation = state?.holding_information ?? [];
   const tmtTabs = [
     {id: "holdings", label: "Holdings"},
     {id: "warnings", label: `Warnings (${warnings.items.length})`},
     {id: "settings", label: "Settings"},
+    {id: "unslotted", label: `Without slots (${state?.flights.filter(isUnslottedAMANFlight).length ?? 0})`},
     {id: "excluded", label: `Excluded (${state?.flights.filter(isExcludedAMANFlight).length ?? 0})`},
     {id: "ctot", label: `CTOT (${inboundDepartures?.ctot_flights?.length ?? 0})`},
     ...(!hasFMPAuthority ? [{id: "coordination", label: `Coordination (${state?.coordination_requests?.filter(request => request.state === "pending").length ?? 0})`}] : []),
   ];
-  const activeTmtTab = tmtTabs.some(tab => tab.id === tmtTab) ? tmtTab : "holdings";
+  const activeTmtTab = accActive || !tmtTabs.some(tab => tab.id === tmtTab) ? "holdings" : tmtTab;
   const mutationBlockReason = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority});
 
   const navigateToWarningFlight = (callsign: string): boolean => {
@@ -73,6 +88,17 @@ export default function AMAN() {
     setSelectedCallsign(callsign);
     return true;
   };
+
+  const dialogBoardIdentity = JSON.stringify(boardContext);
+  useEffect(() => {
+    setDialogCallsign(null);
+    setControlsOpen(false);
+    setFlightActionsOpen(false);
+    setDetailOpen(false);
+    setCoordinationOpen(false);
+    setQuickGapOpen(false);
+    setSwapOpen(false);
+  }, [dialogBoardIdentity, readOnly]);
 
   useLayoutEffect(() => {
     if (stateAtMount.current !== null) markAMANStateReceived(stateAtMount.current.revision);
@@ -86,37 +112,41 @@ export default function AMAN() {
   return (
     <>
       <AMANWorkspaceShell
+        accCompactHoldingCount={accCompactHoldingCount}
         maestro={(
           <AMANBoardView
             connectionState={connectionState}
             error={error}
             focusedRunwayGroupID={focusedRunwayGroupID}
-            onOpenControls={() => setControlsOpen(true)}
+            onOpenControls={() => { setDialogCallsign(effectiveSelectedCallsign); setControlsOpen(true); }}
             onOpenFlightActions={(callsign) => {
               setSelectedCallsign(callsign);
+              setDialogCallsign(callsign);
               setFlightActionsOpen(true);
             }}
             onOpenFlightDetails={(callsign) => {
               setSelectedCallsign(callsign);
+              setDialogCallsign(callsign);
               setDetailAction("all");
               setMissedApproachCommandID(null);
               setRemovalCommandID(null);
               setDetailOpen(true);
             }}
             onSelectFlight={setSelectedCallsign}
+            onViewStateChange={setBoardViewState}
             presentationStatus={presentationStatus}
             selectedCallsign={effectiveSelectedCallsign}
             state={state}
           />
         )}
         tmt={(
-          <div className="aman-tmt-dashboard">
-            <div className="aman-tmt-traffic">
+          <div className={accActive ? "aman-tmt-dashboard aman-tmt-dashboard-acc" : "aman-tmt-dashboard"}>
+            {!accActive && <div className="aman-tmt-traffic">
               {state?.traffic_prediction !== undefined
                 ? <TMTTrafficPrediction flights={state?.flights} prediction={state.traffic_prediction} />
                 : <section className="aman-tmt-placeholder" aria-label="TMT traffic prediction unavailable"><b>TMT · TRAFFIC PREDICTION</b><span>Prediction data unavailable</span></section>}
-            </div>
-            <div aria-label="TMT views" className="my-2 flex flex-wrap gap-1" role="tablist">
+            </div>}
+            <div aria-label="TMT views" className={accActive ? "hidden" : "my-2 flex flex-wrap gap-1"} role="tablist">
               {tmtTabs.map((tab, index) => <button
                 aria-controls={`tmt-${tab.id}-panel`}
                 aria-selected={activeTmtTab === tab.id}
@@ -140,11 +170,24 @@ export default function AMAN() {
                 type="button"
               >{tab.label}</button>)}
             </div>
-            {activeTmtTab === "holdings" && <div aria-label="TMT holding workspaces" aria-labelledby="tmt-holdings-tab" className="aman-tmt-holdings" id="tmt-holdings-panel" role="tabpanel" tabIndex={0}>
-              {EKCH_TMT_HOLDING_ORDER.map((holding) => <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} onOpenFlightActions={(callsign) => {
-                setSelectedCallsign(callsign);
-                setFlightActionsOpen(true);
-              }} />)}
+            {activeTmtTab === "holdings" && <div aria-label="TMT holding workspaces" aria-labelledby="tmt-holdings-tab" className="aman-tmt-holdings" id="tmt-holdings-panel" role="tabpanel" style={{gridTemplateColumns: `repeat(${accCompactHoldingCount ?? (accActive ? Math.max(3, visibleHoldings.length) : Math.max(1, visibleHoldings.length))}, minmax(0, 1fr))`}} tabIndex={0}>
+              {visibleHoldings.map((holding) => {
+                const graph = <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} onOpenFlightActions={(callsign) => {
+                  setSelectedCallsign(callsign);
+                  setDialogCallsign(callsign);
+                  setFlightActionsOpen(true);
+                }} />;
+                if (!accActive) return graph;
+                const sequence = orderAMANFlights((state?.flights ?? []).filter((flight) => {
+                  const family = flight.star_family ?? flight.feeder ?? flight.star;
+                  return family !== null && EKCH_STAR_FAMILY_HOLDING[family.trim().toUpperCase()] === holding
+                    && !isExcludedAMANFlight(flight) && flight.lifecycle_state !== "landed" && flight.lifecycle_state !== "removed";
+                }));
+                return <div className="flex min-h-0 min-w-0 flex-col gap-1" key={holding}>
+                  <div className="min-h-0 flex-1">{graph}</div>
+                  <AMANHoldingSequenceList disabled={mutationBlockReason !== null} eats={Object.fromEntries(holdingInformation.map((entry) => [entry.callsign, entry.eat]))} flights={sequence} onCommand={sendCommand} />
+                </div>;
+              })}
             </div>}
             {activeTmtTab === "coordination" && <div aria-labelledby="tmt-coordination-tab" className="aman-tmt-notices" id="tmt-coordination-panel" role="tabpanel" tabIndex={0}>
               <AMANCoordinationInbox
@@ -158,6 +201,9 @@ export default function AMAN() {
             </div>}
             {activeTmtTab === "settings" && <div aria-labelledby="tmt-settings-tab" className="aman-tmt-notices" id="tmt-settings-panel" role="tabpanel" tabIndex={0}>
               <AMANSettingsPanel state={state} connectionState={connectionState} hasFMPAuthority={hasFMPAuthority} readOnly={readOnly} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
+            </div>}
+            {activeTmtTab === "unslotted" && <div aria-labelledby="tmt-unslotted-tab" id="tmt-unslotted-panel" role="tabpanel" tabIndex={0}>
+              <AMANUnslottedFlights flights={state?.flights ?? []} disabled={mutationBlockReason !== null} onInsert={setInsertCallsign} />
             </div>}
             {activeTmtTab === "excluded" && <div aria-labelledby="tmt-excluded-tab" id="tmt-excluded-panel" role="tabpanel" tabIndex={0}>
               <AMANExcludedFlights flights={state?.flights ?? []} disabled={mutationBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
@@ -174,30 +220,30 @@ export default function AMAN() {
               presentationStatus={presentationStatus}
               />
             </div>}
-            <div className="aman-tmt-non-compliance"><AMANCdmNonCompliance connected={connectionState === "connected"} snapshot={inboundDepartures ?? null} /></div>
+            {!accActive && <div className="aman-tmt-non-compliance"><AMANCdmNonCompliance connected={connectionState === "connected"} snapshot={inboundDepartures ?? null} /></div>}
           </div>
         )}
       />
       <Dialog onOpenChange={setControlsOpen} open={controlsOpen}>
         <DialogContent className="max-h-[90dvh] w-[min(72rem,calc(100vw-2rem))] max-w-none overflow-y-auto border-slate-600 bg-slate-900 p-0 text-slate-100">
           <DialogTitle className="sr-only">AMAN FMP controls</DialogTitle>
-          <AMANControls hasFMPAuthority={hasFMPAuthority} onSelectedCallsignChange={setSelectedCallsign} selectedCallsign={effectiveSelectedCallsign} />
+          <AMANControls hasFMPAuthority={hasFMPAuthority} onSelectedCallsignChange={(callsign) => { setDialogCallsign(callsign); setSelectedCallsign(callsign); }} selectedCallsign={dialogCallsign} />
         </DialogContent>
       </Dialog>
       <Dialog onOpenChange={setFlightActionsOpen} open={flightActionsOpen}>
         <DialogContent className="w-40 max-w-[calc(100vw-1rem)] gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-1 font-display text-[11px] font-bold text-white [&>button]:hidden">
-          <DialogTitle className="px-2 py-1 text-center text-xs font-bold text-[#bba8ee]">{effectiveSelectedCallsign ?? "Unavailable"}</DialogTitle>
+          <DialogTitle className="px-2 py-1 text-center text-xs font-bold text-[#bba8ee]">{dialogCallsign ?? "Unavailable"}</DialogTitle>
           <div className="grid gap-0">
             <button className="flex min-h-6 items-center rounded-md border border-[#dcdcdc] bg-[#a3d5e8] px-3 text-left text-[#10265c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => {
-              if (effectiveSelectedCallsign !== null) {
+              if (dialogCallsign !== null) {
                 setFlightActionsOpen(false);
                 setDetailAction("none");
                 setDetailOpen(true);
               }
             }} type="button">Information</button>
-            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-50" disabled={mutationBlockReason !== null || effectiveSelectedCallsign === null} onClick={() => {
-              if (effectiveSelectedCallsign !== null) {
-                sendCommand({type: "aman.recompute_flight", callsign: effectiveSelectedCallsign});
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-50" disabled={mutationBlockReason !== null || dialogFlight === null} onClick={() => {
+              if (dialogCallsign !== null) {
+                sendCommand({type: "aman.recompute_flight", callsign: dialogCallsign});
                 setFlightActionsOpen(false);
               }
             }} type="button">Recompute</button>
@@ -209,7 +255,8 @@ export default function AMAN() {
               }} type="button"><span>{label}</span>{child && <span aria-hidden="true">▶</span>}</button>
             ))}
             <div className="mx-1 my-0.5 border-t-2 border-white" />
-            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canSwapAMANFlight(selectedFlight)} onClick={() => {
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canInsertAMANFlight(dialogFlight)} onClick={() => { setFlightActionsOpen(false); setInsertCallsign(dialogCallsign); }} type="button">Insert behind…</button>
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canSwapAMANFlight(dialogFlight)} onClick={() => {
               setFlightActionsOpen(false);
               setSwapCommandID(null);
               setSwapOpen(true);
@@ -219,8 +266,8 @@ export default function AMAN() {
               setCoordinationOpen(true);
             }} type="button">Coordination</button>
             <div className="mx-1 my-0.5 border-t-2 border-white" />
-            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || selectedFlight === null || !selectedFlight.slot || selectedFlight.sequence_disposition === "desequenced" || !["unstable", "stable", "go_around"].includes(selectedFlight.lifecycle_state) || Object.values(pendingCommands).some(command => command.callsign === effectiveSelectedCallsign && ["aman.expedite_flight", "aman.desequence_flight", "aman.resume_flight", "aman.remove_flight"].includes(command.type))} onClick={() => {
-              if (selectedFlight) sendCommand({type: "aman.expedite_flight", callsign: selectedFlight.callsign});
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || dialogFlight === null || !dialogFlight.slot || dialogFlight.sequence_disposition === "desequenced" || !["unstable", "stable", "go_around"].includes(dialogFlight.lifecycle_state) || Object.values(pendingCommands).some(command => command.callsign === dialogCallsign && ["aman.expedite_flight", "aman.desequence_flight", "aman.resume_flight", "aman.remove_flight"].includes(command.type))} onClick={() => {
+              if (dialogFlight) sendCommand({type: "aman.expedite_flight", callsign: dialogFlight.callsign});
               setFlightActionsOpen(false);
               setControlsOpen(true);
             }} type="button">Expedite</button>
@@ -242,10 +289,11 @@ export default function AMAN() {
           {mutationBlockReason !== null && <p className="sr-only">Operational changes are currently unavailable: {mutationBlockReason.replaceAll("_", " ")}.</p>}
         </DialogContent>
       </Dialog>
+      {insertFlight && state && <AMANInsertBehindDialog key={insertFlight.callsign} flight={insertFlight} state={state} disabled={mutationBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} onClose={() => setInsertCallsign(null)} />}
       <AMANQuickGapDialog
         busy={Object.values(pendingCommands).some((command) => command.type === "aman.create_gap" || command.type === "aman.remove_gap")}
-        disabled={mutationBlockReason !== null}
-        flight={selectedFlight}
+        disabled={mutationBlockReason !== null || dialogFlight === null}
+        flight={dialogFlight}
         groups={state?.runway_groups ?? []}
         onCommand={(intent) => {
           if (intent.type === "aman.create_gap") setFocusedRunwayGroupID(intent.runway_group_id);
@@ -255,49 +303,49 @@ export default function AMAN() {
         open={quickGapOpen}
         rejection={Object.values(commandRejections).find((item) => item.command_type === "aman.create_gap")?.message ?? null}
       />
-      {swapOpen && selectedFlight !== null && <AMANSwapDialog
-        key={selectedFlight.callsign}
+      {swapOpen && dialogFlight !== null && <AMANSwapDialog
+        key={dialogFlight.callsign}
         busy={Object.values(pendingCommands).some((command) => command.type === "aman.swap_flights" || command.type === "aman.move_flight" || command.type === "aman.rebuild_arrival_sequence")}
-        disabled={mutationBlockReason !== null}
-        flight={selectedFlight}
+        disabled={mutationBlockReason !== null || dialogFlight === null}
+        flight={dialogFlight}
         flights={state?.flights ?? []}
         onClose={() => setSwapOpen(false)}
         onCommand={(intent) => setSwapCommandID(sendCommand(intent))}
         rejection={swapCommandID ? commandRejections[swapCommandID]?.message ?? null : null}
       />}
-      {coordinationOpen && state !== null && effectiveSelectedCallsign !== null && selectedFlight !== null && <AMANCoordinationRequestDialog
-        callsign={selectedFlight.callsign}
+      {coordinationOpen && state !== null && dialogCallsign !== null && dialogFlight !== null && <AMANCoordinationRequestDialog
+        callsign={dialogFlight.callsign}
         canSubmit={mutationBlockReason === null}
         onClose={() => setCoordinationOpen(false)}
-        onSubmit={(submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", callsign: effectiveSelectedCallsign, ...submission}))}
+        onSubmit={(submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", callsign: dialogCallsign, ...submission}))}
         rejection={coordinationCommandID ? commandRejections[coordinationCommandID]?.message : null}
-        requests={(state.coordination_requests ?? []).filter((request) => request.callsign === effectiveSelectedCallsign)}
+        requests={(state.coordination_requests ?? []).filter((request) => request.callsign === dialogCallsign)}
         submitting={coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined}
       />}
-      {detailOpen && state !== null && effectiveSelectedCallsign !== null && (selectedFlight !== null || detailAction === "none") && <AMANFlightDetailDialog board={boardContext ?? undefined} airport={state.airport} callsign={effectiveSelectedCallsign} revision={state.revision} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" || selectedFlight === null ? undefined : {
+      {detailOpen && state !== null && dialogCallsign !== null && (dialogFlight !== null || detailAction === "none") && <AMANFlightDetailDialog board={boardContext ?? undefined} airport={state.airport} callsign={dialogCallsign} revision={state.revision} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" || dialogFlight === null ? undefined : {
         blockReason: mutationBlockReason,
-        confirmation: selectedFlight?.go_around_confirmation,
-        confirmed: selectedFlight?.lifecycle_state === "go_around",
+        confirmation: dialogFlight?.go_around_confirmation,
+        confirmed: dialogFlight?.lifecycle_state === "go_around",
         pending: missedApproachCommandID !== null && pendingCommands[missedApproachCommandID] !== undefined,
         rejection: missedApproachCommandID ? commandRejections[missedApproachCommandID] ?? null : null,
         onConfirm: () => {
-          const detection = selectedFlight?.go_around_confirmation;
+          const detection = dialogFlight?.go_around_confirmation;
           setMissedApproachCommandID(sendCommand(detection?.status === "pending"
-            ? {type: "aman.confirm_go_around", callsign: effectiveSelectedCallsign, episode_id: detection.episode_id}
-            : {type: "aman.report_go_around", callsign: effectiveSelectedCallsign, detected_at: new Date().toISOString()}));
+            ? {type: "aman.confirm_go_around", callsign: dialogCallsign, episode_id: detection.episode_id}
+            : {type: "aman.report_go_around", callsign: dialogCallsign, detected_at: new Date().toISOString()}));
         },
-      }} removal={detailAction === "none" || selectedFlight === null ? undefined : {
+      }} removal={detailAction === "none" || dialogFlight === null ? undefined : {
         blockReason: mutationBlockReason,
-        confirmed: selectedFlight?.lifecycle_state === "removed",
+        confirmed: dialogFlight?.lifecycle_state === "removed",
         pending: removalCommandID !== null && pendingCommands[removalCommandID] !== undefined,
         rejection: removalCommandID ? commandRejections[removalCommandID] ?? null : null,
-        onConfirm: () => setRemovalCommandID(sendCommand({type: "aman.remove_flight", callsign: effectiveSelectedCallsign})),
+        onConfirm: () => setRemovalCommandID(sendCommand({type: "aman.remove_flight", callsign: dialogCallsign})),
       }} coordination={detailAction === "all" && hasFMPAuthority ? {
-        requests: (state.coordination_requests ?? []).filter((request) => request.callsign === effectiveSelectedCallsign),
+        requests: (state.coordination_requests ?? []).filter((request) => request.callsign === dialogCallsign),
         canSubmit: getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority}) === null,
         submitting: coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined,
         rejection: coordinationCommandID ? commandRejections[coordinationCommandID]?.message : null,
-        onSubmit: (submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", callsign: effectiveSelectedCallsign, ...submission})),
+        onSubmit: (submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", callsign: dialogCallsign, ...submission})),
       } : undefined} />}
     </>
   );

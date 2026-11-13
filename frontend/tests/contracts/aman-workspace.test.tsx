@@ -61,7 +61,8 @@ describe("AMAN pre-merge smoke: publisher → event handler → store → worksp
     const start = Date.parse(event.data.generated_at);
     for (const flight of event.data.flights) {
       const slot = flight.slot && Date.parse(flight.slot.time);
-      if (slot && slot >= start && slot <= start + 90 * 60_000) {
+      // The default MAESTRO horizon shows 35 minutes ahead and 5 minutes behind the generated time.
+      if (slot && slot >= start - 5 * 60_000 && slot <= start + 35 * 60_000) {
         expect(screen.getByTestId(`operational-marker-${flight.callsign}`)).toBeInTheDocument();
       }
     }

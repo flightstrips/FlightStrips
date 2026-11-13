@@ -7,6 +7,7 @@ import {createStore} from 'zustand/vanilla';
 import {produce} from 'immer';
 import type {InboundDeparturesSnapshot} from "@/api/inbound-departures";
 import {
+  type AircraftSelection,
   ActionType,
   type ActionRejectedEvent,
   Bay,
@@ -39,6 +40,7 @@ import {
   type FrontendStandEvent,
   type FrontendStandAssignmentEntry,
   type FrontendStandBlockEntry,
+  type FrontendStandArrivalRestrictionEntry,
   type FrontendStandAssignmentUpdateEvent,
   type FrontendStandAssignmentRemovedEvent,
   type FrontendStandBlockUpdateEvent,
@@ -60,6 +62,7 @@ import {
   type SidInfo,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
+import {sameBoard} from '@/api/sessions';
 import { hasOtherRwyArrStrip } from '../lib/rwyArrRunway.ts';
 import {
   createAMANCommand, isAMANCoordinationStateEvent,
@@ -229,6 +232,9 @@ export interface WebSocketState {
 
   availableSids: SidInfo[];
 
+  amanSelectedCallsign: string | null;
+  amanEuroScopeSelectionRevision: number;
+  selectAMANFlight: (callsign: string | null) => void;
   amanSessionID: number | null;
   amanState: AMANState | null;
   amanPresentationStatus: AMANPresentationStatus;
@@ -268,6 +274,7 @@ export interface WebSocketState {
 
   standAssignments: FrontendStandAssignmentEntry[];
   standBlocks: FrontendStandBlockEntry[];
+  standArrivalRestrictions: FrontendStandArrivalRestrictionEntry[];
   satEnabled: boolean;
 
   occupyStand: (stand: string) => void;
@@ -284,7 +291,8 @@ export interface WebSocketState {
   moveToControlzone: (callsign: string) => void;
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
-  sendMessage: (text: string, recipients: string[], format?: MessageFormat) => void;
+  sendMessage: (text: string, recipients: string[], format?: MessageFormat, recipientPositions?: string[]) => void;
+  acknowledgeMessage: (id: number) => void;
   sendPrivateMessage: (callsign: string, message: string) => void;
   textPilotDraft: TextPilotDraft | null;
   textPilotReadbacks: Record<string, boolean>;
@@ -354,6 +362,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     return () => {};
   };
   const pendingFrequencyMessages = new Map<string, { callsign: string; session: number | null; position: string; resolve: (result: FrequencyMessageResult) => void; timeout: ReturnType<typeof setTimeout> }>();
+  const dismissedMessageIds = new Set<number>();
   let nextForceAssumeRequestId = 0;
   const pendingForceAssumeRoutes = new Map<string, {
     resolve: (nextOwners: string[]) => void;
@@ -402,6 +411,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     arrAtisCode: "",
     depAtisCode: "",
     availableSids: [],
+    amanSelectedCallsign: null,
+    amanEuroScopeSelectionRevision: 0,
     amanSessionID: null,
     amanState: null,
     amanPresentationStatus: "empty" as AMANPresentationStatus,
@@ -424,6 +435,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     standAssignments: [],
     standActionRejection: null,
     standBlocks: [],
+    standArrivalRestrictions: [],
     satEnabled: false,
   };
 
@@ -433,7 +445,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     for (const key of Object.keys(initialState) as Array<keyof typeof initialState>) {
       if (key in retainedState) Object.assign(initialState, {[key]: retainedState[key]});
     }
-    Object.assign(initialState, {connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+    Object.assign(initialState, {connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, amanSelectedCallsign:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
   }
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => {
@@ -533,6 +545,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
        const transfer = callsign ? state.stripTransfers[callsign] : undefined;
        return { selectedCallsign: transfer && !transfer.isTagRequest ? null : callsign };
      }),
+     selectAMANFlight: (callsign) => set({amanSelectedCallsign: callsign}),
      setAMANConnectionState: (connectionState) => set({
        amanConnectionState: connectionState,
        amanAwaitingSnapshot: true,
@@ -805,8 +818,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
           : Math.floor((prevSeq + nextSeq) / 2);
       })(state)
     }),
-    sendMessage: (text, recipients, format = "AUTO") => {
-      sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients, format});
+    sendMessage: (text, recipients, format = "AUTO", recipient_positions = []) => {
+      sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients, recipient_positions, format});
+    },
+    acknowledgeMessage: (id) => {
+      sendIfWritable({type: ActionType.FrontendAcknowledgeMessage, id});
     },
     openTextPilotMenu: (draft) => { if (ensureWritable()) set({ textPilotDraft: draft }); },
     closeTextPilotMenu: () => set({ textPilotDraft: null }),
@@ -830,6 +846,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       sendIfWritable({type: ActionType.FrontendSendPrivateMessage, callsign, message});
     },
     dismissMessage: (id) => {
+      dismissedMessageIds.add(id);
       store.setState(
         produce((state: WebSocketState) => {
           state.messages = state.messages.filter(m => m.id !== id);
@@ -1272,16 +1289,27 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       pending.reject(new Error("Board context changed"));
     }
     pendingForceAssumeRoutes.clear();
-    store.setState({connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+    store.setState({connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, amanSelectedCallsign:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
   };
   registrations.push(() => wsClient.onInvalidated?.(suspendBoard));
 
   // Private methods to handle WebSocket events
+  const applyAircraftSelection = (state: WebSocketState, selection: AircraftSelection | undefined) => {
+    if (!selection || !Number.isSafeInteger(selection.revision) || selection.revision <= state.amanEuroScopeSelectionRevision
+      || !(selection.callsign === null || typeof selection.callsign === "string")) return;
+    state.amanSelectedCallsign = selection.callsign || null;
+    state.amanEuroScopeSelectionRevision = selection.revision;
+  };
   const handleInitialEvent = (data: FrontendInitialEvent) => {
     wsClient.setReadOnly(data.read_only ?? false);
     store.setState(
       produce((state: WebSocketState) => {
         const sessionID = data.session_id ?? null;
+        if (state.amanSessionID !== sessionID || ((state.boardContext || data.board) && !sameBoard(state.boardContext ?? undefined, data.board))) {
+          state.amanSelectedCallsign = null;
+          state.amanEuroScopeSelectionRevision = 0;
+        }
+        applyAircraftSelection(state, data.aircraft_selection);
         if (state.position !== data.me.position) state.textPilotDraft = null;
         if (state.amanSessionID !== sessionID) {
           state.textPilotReadbacks = {};
@@ -1350,6 +1378,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
         state.availableSids = data.available_sids ?? [];
         state.standAssignments = data.stand_assignments ?? [];
         state.standBlocks = data.stand_blocks ?? [];
+        state.standArrivalRestrictions = data.stand_arrival_restrictions ?? [];
         state.satEnabled = data.stand_assignment_enabled ?? false;
         state.standActionRejection = null;
       })
@@ -1656,9 +1685,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   }
 
   const handleMessageReceived = (data: FrontendMessageReceivedEvent) => {
+    if (dismissedMessageIds.has(data.id)) return;
     store.setState(
       produce((state: WebSocketState) => {
-        state.messages = [data, ...state.messages].slice(0, 100);
+        const index = state.messages.findIndex(message => message.id === data.id);
+        if (index === -1) {
+          state.messages = [data, ...state.messages].slice(0, 100);
+        } else {
+          state.messages[index] = { ...state.messages[index], ...data };
+        }
       })
     );
   };
@@ -1936,6 +1971,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
 
   on(EventType.FrontendActionRejected, handleActionRejectedEvent);
 
+  on(EventType.FrontendAircraftSelection, (event) => {
+    store.setState(produce((state: WebSocketState) => applyAircraftSelection(state, event)));
+  });
   on(EventType.FrontendAMANState, (event) => {
     // Revisions belong to the current backend/session. A fresh connection
     // must accept its first complete snapshot even if the revision restarted.

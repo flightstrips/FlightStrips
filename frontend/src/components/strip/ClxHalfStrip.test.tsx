@@ -17,9 +17,9 @@ describe("CLR DEL half-strip background", () => {
   it.each([Bay.Push, Bay.Taxi])("uses gray in bay %s", bay => {
     const { container } = render(<ClxHalfStrip callsign="SAS123" bay={bay} />);
 
-    expect(container.firstElementChild?.firstElementChild).toHaveStyle({
-      backgroundColor: HALF_STRIP_VARIANT_BG["APN-PUSH"],
-    });
+    const strip = container.firstElementChild?.firstElementChild as HTMLElement;
+    // Check the assigned theme token; computed styles resolve CSS variables.
+    expect(strip.style.backgroundColor).toBe(HALF_STRIP_VARIANT_BG["APN-PUSH"]);
     expect(container.firstElementChild).toHaveStyle({
       backgroundColor: LIGHT_GRAY_STRIP_FRAME,
     });
@@ -31,11 +31,9 @@ describe("CLR DEL half-strip background", () => {
   it("keeps the normal departure background in other bays", () => {
     const { container } = render(<ClxHalfStrip callsign="SAS123" bay={Bay.Cleared} />);
 
-    expect(container.firstElementChild?.firstElementChild).toHaveStyle({
-      backgroundColor: "var(--color-strip-dep-bg)",
-    });
-    expect(container.firstElementChild).toHaveStyle({
-      backgroundColor: STRIP_FRAME_COLOR,
-    });
+    const strip = container.firstElementChild?.firstElementChild as HTMLElement;
+    expect(strip.style.backgroundColor).toBe("var(--color-strip-dep-bg)");
+    const frame = container.firstElementChild as HTMLElement;
+    expect(frame.style.backgroundColor).toBe(STRIP_FRAME_COLOR);
   });
 });

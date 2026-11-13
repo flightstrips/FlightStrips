@@ -63,7 +63,11 @@ for (const width of [1920, 1280, 1024]) {
       });
       expect(overflow, `${field} must fit its cell`).toBeLessThan(1);
     }
-    expect(await summary.locator("img").evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0))).toBe(true);
+    // Playwright 1.65's Firefox crashes when evaluateAll reads image dimensions
+    // through the chained label locator. Inspect descendants from the summary instead.
+    await expect.poll(() => summary.evaluate((element) =>
+      Array.from(element.querySelectorAll("img")).every((image) => image.complete && image.naturalWidth > 0),
+    )).toBe(true);
     await expect(summary).toBeInViewport({ratio: 1});
     const currentETA = (await page.getByLabel("Current runway ETA").boundingBox())!;
     const currentSTA = (await page.getByLabel("Current runway STA").boundingBox())!;

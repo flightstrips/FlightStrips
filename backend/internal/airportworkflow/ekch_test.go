@@ -3,7 +3,61 @@ package airportworkflow
 import (
 	"FlightStrips/internal/shared"
 	"testing"
+	"time"
 )
+
+func TestEKCHStandExpiryHidesStripAfterConfiguredDelay(t *testing.T) {
+	b, err := Bind(definition(t), EKCHDescriptor())
+	if err != nil {
+		t.Fatal(err)
+	}
+	strip := Snapshot{Exists: true, ID: 42, Bay: shared.BAY_STAND, Destination: "EKCH"}
+	admission, err := b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: Admission})
+	if err != nil || admission.StandHideDelay != time.Minute {
+		t.Fatalf("stand hide delay: %+v %v", admission, err)
+	}
+
+	expiry, err := b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: StandExpiry})
+	if err != nil || expiry.Remove || expiry.Bay == nil || *expiry.Bay != shared.BAY_HIDDEN {
+		t.Fatalf("stand expiry: %+v %v", expiry, err)
+	}
+
+	strip.Bay = shared.BAY_HIDDEN
+	expiry, err = b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: StandExpiry})
+	if err != nil || expiry.Remove {
+		t.Fatalf("non-stand strip should not expire: %+v %v", expiry, err)
+	}
+
+	strip.Bay, strip.Destination = shared.BAY_STAND, "EGLL"
+	admission, err = b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: Admission})
+	if err != nil || admission.StandHideDelay != 0 {
+		t.Fatalf("departure in stand should not get an arrival expiry: %+v %v", admission, err)
+	}
+	expiry, err = b.Lifecycle(Context{Session: 1, Strip: strip}, Lifecycle{Kind: StandExpiry})
+	if err != nil || expiry.Remove || expiry.Bay != nil {
+		t.Fatalf("departure in stand should not be removed by arrival expiry: %+v %v", expiry, err)
+	}
+}
+
+func TestEKCHHiddenArrivalStaysHiddenAcrossEuroScopeObservations(t *testing.T) {
+	b, err := Bind(definition(t), EKCHDescriptor())
+	if err != nil {
+		t.Fatal(err)
+	}
+	strip := Snapshot{
+		Exists: true, Bay: shared.BAY_HIDDEN, Origin: "ESSA", Destination: "EKCH",
+	}
+	observations := []Observation{
+		{Kind: FullFlight, Origin: "ESSA", Destination: "EKCH"},
+		{Kind: Position, Latitude: shared.AirportLatitude, Longitude: shared.AirportLongitude, Altitude: 20},
+	}
+	for _, observation := range observations {
+		decision, err := b.Observe(Context{Session: 1, Strip: strip}, observation)
+		if err != nil || decision.Bay == nil || *decision.Bay != shared.BAY_HIDDEN {
+			t.Fatalf("hidden arrival observation %d changed bay: %+v %v", observation.Kind, decision, err)
+		}
+	}
+}
 
 func TestEKCHProductionDecisions(t *testing.T) {
 	b, err := Bind(definition(t), EKCHDescriptor())

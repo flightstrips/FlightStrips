@@ -969,15 +969,39 @@ routing:
     - GWA
     - AA
   - id: ground-route-028
-    name: Runway 04L/22R to high A stands
+    name: Runway 04L to apron stands
     forStandRanges:
-    - A17-A34
-    - A4
-    - A6
-    - A8
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - G1-G109
+    - G138-G999
+    - H101-H107
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    - RI
+    - RII
+    - RIII
     active:
     - 04L
-    - 22R
     path:
     - TW
     - TE
@@ -986,6 +1010,22 @@ routing:
     owner_overrides:
       TE: TW
   - id: ground-route-029
+    name: Runway 22R to high A stands
+    forStandRanges:
+    - A17-A34
+    - A4
+    - A6
+    - A8
+    active:
+    - 22R
+    path:
+    - TW
+    - TE
+    - GWA
+    - AA
+    owner_overrides:
+      TE: TW
+  - id: ground-route-030
     name: Runway 04L/22R to cargo from AA
     forStandRanges:
     - G110-G137
@@ -995,7 +1035,7 @@ routing:
     path:
     - AA
     - GE
-  - id: ground-route-030
+  - id: ground-route-031
     name: Runway 04L/22R to cargo
     forStandRanges:
     - G110-G137
@@ -1006,7 +1046,7 @@ routing:
     - TW
     - GWA
     - GE
-  - id: ground-route-031
+  - id: ground-route-032
     name: Runway 04L/22R to W1
     forStandRanges:
     - W1
@@ -1019,8 +1059,8 @@ routing:
     - GWA
     owner_overrides:
       TW: TE
-  - id: ground-route-032
-    name: Runway 04L/22R to rest
+  - id: ground-route-033
+    name: Runway 22R to rest
     forStandRanges:
     - A7
     - A9-A15
@@ -1031,7 +1071,6 @@ routing:
     - F1-F99
     - H101-H107
     active:
-    - 04L
     - 22R
     path:
     - TW
@@ -1041,7 +1080,45 @@ routing:
     owner_overrides:
       TE: TW
       GWA: TW
-  - id: ground-route-033
+  - id: ground-route-034
+    name: Ground east to apron stands for runway 04L
+    forStandRanges:
+    - A1-A34
+    - B3-B19
+    - C10-C39
+    - D1-D4
+    - E20-E90
+    - F1-F99
+    - G1-G109
+    - G138-G999
+    - H101-H107
+    - 262
+    - 273-1
+    - 273
+    - 145
+    - 144
+    - 243
+    - 253
+    - 117
+    - 276
+    - 259
+    - 105
+    - 106
+    - 303
+    - 302
+    - 104
+    - 142
+    - 141
+    - RI
+    - RII
+    - RIII
+    active:
+    - 04L
+    path:
+    - GE
+    - GWA
+    - AA
+  - id: ground-route-035
     name: Ground east to north stands for runway 04L/22R
     forStandRanges:
     - A4
@@ -1746,12 +1823,12 @@ validation:
         - B4
 provenance:
 - path: backend/config/ekch.yaml
-  sha256: 36de2cc00a874ad2bc1794bca4f20e0f7222471c646a8d23030869e357698a49
+  sha256: b99eade4c6d108cb27dc02b1ca902104bd05417e68f0a79670c052f01bc89c3e
 - path: backend/internal/shared/bays.go
   sha256: eef7c0322f60384bfd560237ff5fc2998a9de4bd80a510180be4e0810dcf104d
 - path: backend/internal/euroscope/hub.go
-  sha256: 3d429c12d04922bb1a0bc5460fa4b2d1f3f0097e1b544887a9f7ee8ac1078004
+  sha256: bda05615061e8f372f5b6c4ad6eadac8e9111fd5cae506f9a3ddeface79a88ae
 - path: backend/config/ekch_regions.json
   sha256: 772d29347e535ee6a3d9d058105ad9c9bc8fe2e1639bd8036c66541bcf9a1ddb
 - path: backend/internal/navigation/config.go
-  sha256: f9229ddccb5b89a44c903d563ae20e3671814ae0405bd2e77cfb501f0765d153
+  sha256: 82e8b5cfb5d3ac71dc0ebb1648bfc75c3662e6e92d5e67c71dbcf37e19e9f124

@@ -59,6 +59,21 @@ func TestStandAvailabilityOmitsExpiredReservations(t *testing.T) {
 	assert.Empty(t, available[0].ReservedBy)
 }
 
+func TestStandAvailabilityPublishesArrivalRestrictionReason(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	service, session, _ := standAllocationFixture(t, pool, queries,
+		"ARRIVAL_CLOSED:Not available for arrival stand assignment", "")
+
+	available, err := service.AvailableStands(context.Background(), standAllocationRequest(session, "SAS123"))
+
+	require.NoError(t, err)
+	require.Len(t, available, 2)
+	assert.Equal(t, "A1", available[0].Stand)
+	assert.False(t, available[0].Available)
+	assert.False(t, available[0].Selectable)
+	assert.Equal(t, "Not available for arrival stand assignment", available[0].Reason)
+}
+
 func TestConfirmedUnsuitableStandProtectsOccupancyAndBlocks(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()

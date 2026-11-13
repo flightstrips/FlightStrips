@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -126,4 +127,26 @@ func TestVIFFStaleRouteDoesNotHideUnresolvableControllerAmendment(t *testing.T) 
 	_, err = routes.Resolve(t.Context(), q)
 	require.ErrorContains(t, err, "does not match current filed waypoints")
 	require.ErrorContains(t, err, "UNKNOWN")
+}
+
+func TestVIFFPrefersMatchingOnlineRouteWithPartialSectorCoverage(t *testing.T) {
+	config := sectorTestConfig()
+	now := fixture.EKCH().Provenance.ImportedAt.Add(time.Hour)
+	local, err := sector.Read(strings.NewReader(localTestSector), config, func() time.Time { return now })
+	require.NoError(t, err)
+	version, err := local.LatestVersion(t.Context())
+	require.NoError(t, err)
+	entry := navdata.FixID("SOK")
+	q := navdata.RouteQuery{Version: version, Origin: "ENGM", Destination: "EKCH", FiledRoute: "ENROUTE DCT SOK", TerminalEntry: &entry}
+	online, err := local.Resolve(t.Context(), q)
+	require.NoError(t, err)
+	online.Provenance.SourceID = "viff"
+	routes := &fallbackRoutes{local: local, checkFiledRoute: true, primary: resolverFunc(func(context.Context, navdata.RouteQuery) (navdata.RouteGeometry, error) { return online, nil })}
+	q.FiledRoute = "MISSING1A ENROUTE DCT SOK"
+	partial, err := local.Resolve(t.Context(), q)
+	require.NoError(t, err)
+	require.True(t, navdata.HasRouteGaps(partial))
+	preferred, err := routes.Resolve(t.Context(), q)
+	require.NoError(t, err)
+	require.Equal(t, "viff", preferred.Provenance.SourceID)
 }

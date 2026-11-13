@@ -73,13 +73,29 @@ future or mismatched data cannot supply fallback geometry. A fingerprint of the
 file identifies its dataset revision. The file stays local and is not uploaded
 or included in the repository or release image.
 
-Routes must contain at least two resolved points through the selected terminal
-join. DCT and consecutive named fixes, airway segments present in the file, and
-ITEM15 speed/level tokens are supported. Unknown or ambiguous fixes,
-disconnected or ambiguous airway paths, unsupported route tokens, and
-mismatching terminal join coordinates reject that flight's fallback. Missing
-airway segments are never replaced with straight-line shortcuts. Coverage is
-regional; this is not a worldwide database or an airway restriction validator.
+Routes must contain a continuous section of at least two resolved points ending
+at the selected terminal join. DCT and consecutive named fixes, airway segments
+present in the file, and ITEM15 speed/level tokens are supported. Unknown or
+ambiguous fixes and procedures, unsupported route tokens, and disconnected or
+ambiguous airway paths remain explicit gaps. Known sections after a gap are
+retained with partial coverage; no leg crosses the missing span. Airway
+expansion resumes only from a known filed entry to a known filed exit with one
+verified path through actual file segments.
+
+Using a section after a gap requires three distinct, fresh position reports
+consistent with that section, track and plausible motion. A gap ahead, ambiguous
+position or aircraft outside the route corridor blocks recovery. An explicit
+active direct-to can bypass a gap only when its downstream continuation is
+verified. Merely being near a later fix does not authorize a direct clearance.
+If there is no verified inbound filed leg at the terminal join, or its coordinates
+disagree with the cached terminal, sector fallback remains unavailable. The
+existing basic terminal estimate may still be used while route recovery is
+pending or unavailable.
+
+When online geometry matches all locally resolved sections and the explicit
+filed waypoint order, it remains preferred despite gaps in local coverage.
+Coverage is regional; this is not a worldwide database or an airway restriction
+validator.
 
 ## Validation and deployment
 

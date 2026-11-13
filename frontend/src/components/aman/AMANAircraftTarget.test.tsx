@@ -1,5 +1,5 @@
-import {act, fireEvent, render, screen} from "@testing-library/react";
-import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import {fireEvent, render, screen} from "@testing-library/react";
+import {describe, expect, it, vi} from "vitest";
 
 import type {AMANFlight} from "@/api/aman";
 import {AMANAircraftTarget, type AMANAircraftTargetField} from "./AMANAircraftTarget";
@@ -18,32 +18,28 @@ function flight(overrides: Partial<AMANFlight> = {}): AMANFlight {
 const guidance = {authoritative: true, connected: true};
 
 describe("compact MAESTRO aircraft target", () => {
-  beforeEach(() => {
-    vi.stubGlobal("ResizeObserver", class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    });
-  });
-  afterEach(() => vi.unstubAllGlobals());
-
-  it("marks a basic estimate beside the full callsign and exposes its reason on keyboard focus", async () => {
+  it("marks a basic estimate without exposing its technical reason on hover or keyboard focus", () => {
     const onSelect = vi.fn();
     render(<AMANAircraftTarget compact delayFirst flight={flight({callsign: "BAW81CB", basic_estimate: true, prediction_reason: "Provider unavailable"})} guidance={guidance} onSelect={onSelect} />);
-    const target = screen.getByRole("button", {name: /Select BAW81CB.*Basic estimate: Provider unavailable/});
+    const target = screen.getByRole("button", {name: /Select BAW81CB.*Basic estimate$/});
     expect(target).toHaveTextContent("L02BAW81CB≈");
     expect(screen.getByText("≈")).toHaveAttribute("aria-hidden", "true");
     expect(screen.queryByText("Basic estimate")).not.toBeInTheDocument();
-    await act(async () => target.focus());
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Basic estimate: Provider unavailable");
+    fireEvent.pointerMove(target, {pointerType: "mouse"});
+    target.focus();
+    expect(target).toHaveFocus();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(target).not.toHaveAttribute("title");
+    expect(target.outerHTML).not.toContain("Provider unavailable");
+    expect(target.querySelector("[title]")).not.toBeInTheDocument();
     fireEvent.click(target);
     expect(onSelect).toHaveBeenCalledOnce();
   });
 
-  it("clears the estimate marker and explanation without losing keyboard focus when the provider recovers", async () => {
+  it("clears the estimate marker and quality label without losing keyboard focus when the provider recovers", () => {
     const {rerender} = render(<AMANAircraftTarget flight={flight({basic_estimate: true})} guidance={guidance} />);
     const target = screen.getByRole("button");
-    await act(async () => target.focus());
+    target.focus();
     expect(target).toHaveAccessibleName(/Basic estimate/);
     expect(screen.getByText("≈")).toBeInTheDocument();
     rerender(<AMANAircraftTarget flight={flight({basic_estimate: false, prediction_reason: "Other prediction information"})} guidance={guidance} />);
@@ -159,6 +155,8 @@ describe("compact MAESTRO aircraft target", () => {
     render(<AMANAircraftTarget flight={flight()} guidance={guidance} leadingFields={leadingFields} trailingFields={trailingFields} />);
 
     expect(screen.getByRole("button")).toHaveTextContent("10:12SAS123L0222L");
+    expect(screen.getByText("10:12")).toHaveAttribute("title", "Feeder-fix ETA");
+    expect(screen.getByText("22L")).toHaveAttribute("title", "Runway");
   });
 
   it("vertically centers every added field with the callsign and delay", () => {

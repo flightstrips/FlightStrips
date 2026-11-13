@@ -1,7 +1,6 @@
 import type {ReactNode} from "react";
 
 import type {AMANFlight} from "@/api/aman";
-import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
 import {cn} from "@/lib/utils";
 import {freezePresentation} from "./freeze-presentation";
 import {formatGainLoss, type AMANGainLossPresentationContext} from "./presentation";
@@ -21,7 +20,7 @@ export interface AMANAircraftTargetField {
 }
 
 export interface AMANAircraftTargetProps {
-  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "expedited" | "runway_gap_exception" | "basic_estimate" | "prediction_reason">;
+  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "expedited" | "runway_gap_exception" | "basic_estimate">;
   guidance: Omit<AMANGainLossPresentationContext, "fresh">;
   selected?: boolean;
   disabled?: boolean;
@@ -97,13 +96,9 @@ export function AMANAircraftTarget({
   const retainedGuidance = !guidance.connected || flight.data_status !== "fresh";
   const guidanceTone = retainedGuidance ? "text-[#a0a0a0]" : delayTone(delay);
   const guidanceTitle = retainedGuidance ? "Last known gain/lose; awaiting current prediction" : undefined;
-  const estimateDescription = flight.basic_estimate
-    ? `Basic estimate${flight.prediction_reason ? `: ${flight.prediction_reason}` : ""}`
-    : undefined;
-
-  const target = (
+  return (
     <button
-      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${estimateDescription ? `; ${estimateDescription}` : ""}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
+      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${flight.basic_estimate ? "; Basic estimate" : ""}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
       aria-pressed={selected}
       className={cn(
         "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded border-2 border-transparent bg-transparent text-left font-mono text-[11px] font-semibold leading-none text-[#dcdcdc]",
@@ -133,9 +128,4 @@ export function AMANAircraftTarget({
       {selected && <span className="sr-only">Selected</span>}
     </button>
   );
-
-  return <Tooltip>
-    <TooltipTrigger asChild>{target}</TooltipTrigger>
-    {estimateDescription && <TooltipContent className="max-w-xs break-words" sideOffset={4}>{estimateDescription}</TooltipContent>}
-  </Tooltip>;
 }

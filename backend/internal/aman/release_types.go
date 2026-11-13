@@ -65,12 +65,15 @@ func (r ApproachReleaseReservation) Validate() error {
 
 type ReleaseBufferSummary struct {
 	BlockedReasons []string
-	Status         string
-	Target         int
-	InApproach     int
-	Reserved       int
-	Incoming       int
-	Unknown        int
+	// AdvisoryReasons describe recoverable timing mismatches. Admissions
+	// remain capacity consuming and independent intake can continue.
+	AdvisoryReasons []string
+	Status          string
+	Target          int
+	InApproach      int
+	Reserved        int
+	Incoming        int
+	Unknown         int
 }
 
 func (s ReleaseBufferSummary) Projected() int { return s.InApproach + s.Reserved + s.Incoming }

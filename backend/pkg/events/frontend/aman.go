@@ -77,14 +77,15 @@ type AMANHeader struct {
 }
 
 type AMANReleaseBuffer struct {
-	BlockedReasons []string `json:"blocked_reasons,omitempty"`
-	Status         string   `json:"status"`
-	Target         int      `json:"target"`
-	InApproach     int      `json:"in_approach"`
-	Reserved       int      `json:"reserved"`
-	Incoming       int      `json:"incoming"`
-	Projected      int      `json:"projected"`
-	Unknown        int      `json:"unknown"`
+	BlockedReasons  []string `json:"blocked_reasons,omitempty"`
+	AdvisoryReasons []string `json:"advisory_reasons,omitempty"`
+	Status          string   `json:"status"`
+	Target          int      `json:"target"`
+	InApproach      int      `json:"in_approach"`
+	Reserved        int      `json:"reserved"`
+	Incoming        int      `json:"incoming"`
+	Projected       int      `json:"projected"`
+	Unknown         int      `json:"unknown"`
 }
 
 type AMANHeaderRunwayGroup struct {
@@ -551,7 +552,7 @@ func projectAMANHeader(state aman.AirportState, health AMANTechnicalHealth, traf
 		TrafficSummary:     AMANHeaderTrafficSummary{Status: trafficStatus},
 	}
 	if b := state.ReleaseBuffer; b != nil {
-		result.ReleaseBuffer = &AMANReleaseBuffer{Status: b.Status, BlockedReasons: b.BlockedReasons, Target: b.Target, InApproach: b.InApproach, Reserved: b.Reserved, Incoming: b.Incoming, Projected: b.Projected(), Unknown: b.Unknown}
+		result.ReleaseBuffer = &AMANReleaseBuffer{Status: b.Status, BlockedReasons: b.BlockedReasons, AdvisoryReasons: b.AdvisoryReasons, Target: b.Target, InApproach: b.InApproach, Reserved: b.Reserved, Incoming: b.Incoming, Projected: b.Projected(), Unknown: b.Unknown}
 	}
 	for _, group := range groups {
 		_, explicitlyActive := active[group.ID]

@@ -10,6 +10,8 @@ import (
 
 const PolicyVersion = "aman-approach-release-v1"
 
+const TimingConflictReason = "approach_release_timing_conflict"
+
 // StreamSpacing carries the base and additional gaps effective from a rate point.
 type StreamSpacing struct {
 	EffectiveAt   time.Time
@@ -253,7 +255,16 @@ func Plan(input Input) Result {
 		}
 	}
 	for _, flight := range traffic {
-		result.Decisions = append(result.Decisions, Decision{Callsign: flight.Callsign, Reservation: reservations[flight.Callsign]})
+		r := reservations[flight.Callsign]
+		// Landing targets may be optimistic relative to the nominal route:
+		// controllers can shorten the approach. This does not free the reserved
+		// buffer place or prove departure, and must not stop additional intake.
+		// Report against final offers so a repaired future EAT leaves no warning.
+		if r != nil && !flight.Unknown && flight.Transit > 0 && !flight.EntryAt.IsZero() && !flight.BaselineReleaseAt.IsZero() &&
+			(r.ReleaseAt.After(flight.BaselineReleaseAt) || !flight.InApproach && !flight.Released && r.ReleasedAt == nil && !r.ReleaseAt.After(flight.EntryAt)) {
+			result.Buffer.AdvisoryReasons = []string{TimingConflictReason}
+		}
+		result.Decisions = append(result.Decisions, Decision{Callsign: flight.Callsign, Reservation: r})
 	}
 	sort.Slice(result.Decisions, func(i, j int) bool { return result.Decisions[i].Callsign < result.Decisions[j].Callsign })
 	return result
@@ -273,7 +284,7 @@ func wakeSpacing(leading, trailing string) time.Duration {
 func earliestStreamRelease(start time.Time, flight Traffic, traffic []Traffic, reservations map[aman.Callsign]*aman.ApproachReleaseReservation, busy bool) time.Time {
 	at := ceilReleaseTime(start)
 	for {
-		candidate, next := streamReleaseBoundary(at, flight, traffic, reservations, busy)
+		candidate, next := streamReleaseBoundary(at, flight, traffic, reservations, busy, true)
 		candidate = ceilReleaseTime(candidate)
 		if !next.IsZero() && !candidate.Before(next) {
 			at = ceilReleaseTime(next)
@@ -284,8 +295,9 @@ func earliestStreamRelease(start time.Time, flight Traffic, traffic []Traffic, r
 }
 
 // streamReleaseBoundary checks spacing at a fixed entry time without rounding
-// or moving across rate periods. Due/observed entries cannot be retimed.
-func streamReleaseBoundary(at time.Time, flight Traffic, traffic []Traffic, reservations map[aman.Callsign]*aman.ApproachReleaseReservation, busy bool) (time.Time, time.Time) {
+// or moving across rate periods. Predicted entry constrains future offers only;
+// due/observed validation uses accepted targets and physical departures.
+func streamReleaseBoundary(at time.Time, flight Traffic, traffic []Traffic, reservations map[aman.Callsign]*aman.ApproachReleaseReservation, busy, usePredictedEntry bool) (time.Time, time.Time) {
 	minimum, extra, next := streamSpacingAt(flight, at)
 	candidate := at
 	for _, other := range traffic {
@@ -303,6 +315,11 @@ func streamReleaseBoundary(at time.Time, flight Traffic, traffic []Traffic, rese
 		leadingAt := r.ReleaseAt
 		if r.ReleasedAt != nil && r.ReleasedAt.After(leadingAt) {
 			leadingAt = *r.ReleasedAt
+		} else if usePredictedEntry && r.ReleasedAt == nil && other.EntryAt.After(leadingAt) {
+			// A retained overdue EAT is not evidence that an aircraft whose
+			// holding arrival slipped has physically departed. Keep following
+			// offers behind its fresh readiness without moving the accepted EAT.
+			leadingAt = other.EntryAt.Add(time.Second)
 		}
 		boundary := leadingAt.Add(spacing)
 		if boundary.After(candidate) {
@@ -379,12 +396,11 @@ func revalidateReservations(input Input, traffic []Traffic, reservations map[ama
 			if r.ReleasedAt != nil && r.ReleasedAt.After(entryAt) {
 				entryAt = *r.ReleasedAt
 			}
-			boundary, _ := streamReleaseBoundary(entryAt, flight, preceding, reservations, false)
+			boundary, _ := streamReleaseBoundary(entryAt, flight, preceding, reservations, false, false)
 			if boundary.After(entryAt) {
 				reason = "approach_release_spacing_conflict"
 			}
 		} else if !flight.Unknown && flight.Transit > 0 && !flight.EntryAt.IsZero() && !flight.ReadyAt.IsZero() {
-			previousRelease := r.ReleaseAt
 			start := r.ReleaseAt
 			if flight.ReadyAt.After(start) {
 				start = flight.ReadyAt
@@ -396,9 +412,6 @@ func revalidateReservations(input Input, traffic []Traffic, reservations map[ama
 			r.HoldingEntryAt = flight.EntryAt
 			if !flight.BaselineReleaseAt.IsZero() {
 				r.AdditionalApproachTime = max(time.Duration(0), flight.BaselineReleaseAt.Sub(r.ReleaseAt))
-				if r.ReleaseAt.After(previousRelease) && r.ReleaseAt.After(flight.BaselineReleaseAt) {
-					reason = "approach_release_timing_conflict"
-				}
 			}
 		}
 		preceding = append(preceding, flight)

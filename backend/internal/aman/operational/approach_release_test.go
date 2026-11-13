@@ -140,8 +140,9 @@ func TestDueEATRetainsAcceptedJourneyWhenNewTransitCannotMeetSlot(t *testing.T) 
 	svc.refreshHoldingPlans(&state)
 	require.Equal(t, at, state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime)
 	require.Equal(t, 10*time.Minute, state.Flights[0].Prediction.HoldingPlan.PostHoldingTransit)
-	require.Contains(t, state.ReleaseBuffer.BlockedReasons, "approach_release_timing_conflict")
-	require.Equal(t, "degraded", state.ReleaseBuffer.Status)
+	require.Contains(t, state.ReleaseBuffer.AdvisoryReasons, "approach_release_timing_conflict")
+	require.Empty(t, state.ReleaseBuffer.BlockedReasons)
+	require.Equal(t, "ready", state.ReleaseBuffer.Status)
 }
 
 func TestReadinessSlipPostponesFutureEATButPreservesDueTarget(t *testing.T) {
@@ -178,9 +179,9 @@ func TestReadinessSlipPostponesFutureEATButPreservesDueTarget(t *testing.T) {
 			if due {
 				require.Equal(t, target, f.ApproachRelease.ReleaseAt)
 				require.Equal(t, target, f.Prediction.HoldingPlan.ApproachReleaseTime)
-				require.Equal(t, "degraded", state.ReleaseBuffer.Status)
-				require.Contains(t, state.ReleaseBuffer.BlockedReasons, "approach_release_timing_conflict")
-				require.Nil(t, state.Flights[1].ApproachRelease, "a due readiness conflict stops new advancement")
+				require.Equal(t, "ready", state.ReleaseBuffer.Status)
+				require.Contains(t, state.ReleaseBuffer.AdvisoryReasons, "approach_release_timing_conflict")
+				require.NotNil(t, state.Flights[1].ApproachRelease, "a retained due target must not block independent intake")
 			} else {
 				require.Equal(t, entry.Add(time.Second), f.ApproachRelease.ReleaseAt)
 				require.Equal(t, entry, f.Prediction.HoldingPlan.HoldingEntryTime)
@@ -215,10 +216,10 @@ func TestAcceptedEATSurvivesInfeasibleFreshHoldingPlan(t *testing.T) {
 			require.Equal(t, at, f.Prediction.HoldingPlan.ApproachReleaseTime)
 			require.Equal(t, 12*time.Minute, f.Prediction.HoldingPlan.PostHoldingTransit)
 			require.NoError(t, f.Prediction.HoldingPlan.Validate())
-			require.Equal(t, "degraded", state.ReleaseBuffer.Status)
-			require.Contains(t, state.ReleaseBuffer.BlockedReasons, "approach_release_timing_conflict")
-			require.Nil(t, state.Flights[1].ApproachRelease)
-			require.Equal(t, 1, state.ReleaseBuffer.Projected())
+			require.Equal(t, "ready", state.ReleaseBuffer.Status)
+			require.Contains(t, state.ReleaseBuffer.AdvisoryReasons, "approach_release_timing_conflict")
+			require.NotNil(t, state.Flights[1].ApproachRelease)
+			require.Equal(t, 2, state.ReleaseBuffer.Projected())
 		})
 	}
 }
@@ -262,6 +263,6 @@ func TestPostponementKeepsAcceptedFutureStreamOrder(t *testing.T) {
 	svc.refreshHoldingPlans(&state)
 	require.Equal(t, at.Add(18*time.Minute), first.ApproachRelease.ReleaseAt)
 	require.Equal(t, at.Add(18*time.Minute+90*time.Second), second.ApproachRelease.ReleaseAt)
-	require.Equal(t, "degraded", state.ReleaseBuffer.Status, "the follower needs a compatible landing slot")
-	require.Contains(t, state.ReleaseBuffer.BlockedReasons, "approach_release_timing_conflict")
+	require.Equal(t, "ready", state.ReleaseBuffer.Status, "the nominal landing mismatch must not stop intake")
+	require.Contains(t, state.ReleaseBuffer.AdvisoryReasons, "approach_release_timing_conflict")
 }

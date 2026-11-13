@@ -332,3 +332,111 @@ func TestDueEATSpacingUsesWakeAndEffectiveRateWithoutRoundingTargets(t *testing.
 		})
 	}
 }
+
+func TestNominalTimingConflictRetainsCapacityAndAllowsTaperedIntake(t *testing.T) {
+	in := fixture(9)
+	for i := range in.Traffic {
+		in.Traffic[i].BaselineReleaseAt = in.At.Add(8 * time.Minute)
+	}
+	f := &in.Traffic[0]
+	f.EntryAt, f.ReadyAt = in.At.Add(114*time.Second), in.At.Add(114*time.Second)
+	f.BaselineReleaseAt = in.At.Add(49 * time.Second)
+	f.Reservation = &aman.ApproachReleaseReservation{Episode: f.Episode, HoldingID: f.HoldingID, STARFamily: f.STARFamily,
+		FeederFix: f.FeederFix, RunwayGroupID: f.RunwayGroupID, HoldingEntryAt: f.EntryAt,
+		ReleaseAt: in.At.Add(116 * time.Second), Transit: f.Transit, RouteDigest: f.RouteDigest, PolicyVersion: PolicyVersion}
+	before, err := json.Marshal(in)
+	require.NoError(t, err)
+	out := Plan(in)
+	require.Equal(t, "ready", out.Buffer.Status)
+	require.Empty(t, out.Buffer.BlockedReasons)
+	require.Equal(t, []string{TimingConflictReason}, out.Buffer.AdvisoryReasons)
+	require.Equal(t, f.Reservation, out.Decisions[0].Reservation, "the incompatible nominal target does not cancel a reservation")
+	for _, d := range out.Decisions[1:6] {
+		require.NotNil(t, d.Reservation)
+		require.Equal(t, in.At, d.Reservation.ReleaseAt)
+	}
+	require.Equal(t, in.At.Add(30*time.Second), out.Decisions[6].Reservation.ReleaseAt, "the retained reservation still counts toward the seventh admission's taper")
+	require.Nil(t, out.Decisions[7].Reservation)
+	require.Nil(t, out.Decisions[8].Reservation)
+	require.Equal(t, 7, out.Buffer.Projected())
+	after, err := json.Marshal(in)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	slices.Reverse(in.Traffic)
+	require.Equal(t, out, Plan(in))
+
+	in.BlockedReason = "approach_absorption_budget_exceeded"
+	blocked := Plan(in)
+	require.Equal(t, "degraded", blocked.Buffer.Status)
+	require.Contains(t, blocked.Buffer.BlockedReasons, in.BlockedReason)
+	require.Equal(t, []string{TimingConflictReason}, blocked.Buffer.AdvisoryReasons)
+	require.Equal(t, 1, blocked.Buffer.Projected(), "an advisory must not override a real intake blocker")
+}
+
+func TestLateHoldingEntryConstrainsItsStreamWithoutBlockingIndependentIntake(t *testing.T) {
+	in := fixture(3)
+	f := &in.Traffic[0]
+	f.EntryAt, f.ReadyAt = in.At.Add(time.Minute), in.At.Add(time.Minute)
+	f.BaselineReleaseAt = in.At.Add(5 * time.Minute)
+	f.Reservation = &aman.ApproachReleaseReservation{Episode: f.Episode, HoldingID: f.HoldingID, STARFamily: f.STARFamily,
+		FeederFix: f.FeederFix, RunwayGroupID: f.RunwayGroupID, HoldingEntryAt: in.At.Add(-time.Minute),
+		ReleaseAt: in.At, Transit: f.Transit, RouteDigest: f.RouteDigest, PolicyVersion: PolicyVersion}
+	in.Traffic[1].STARFamily = f.STARFamily
+	in.Traffic[1].EntryAt, in.Traffic[1].ReadyAt = in.At.Add(70*time.Second), in.At.Add(70*time.Second)
+	in.Traffic[1].BaselineReleaseAt = in.At.Add(8 * time.Minute)
+	out := Plan(in)
+	require.Equal(t, "ready", out.Buffer.Status)
+	require.Equal(t, []string{TimingConflictReason}, out.Buffer.AdvisoryReasons)
+	require.Equal(t, in.At, out.Decisions[0].Reservation.ReleaseAt)
+	require.Nil(t, out.Decisions[0].Reservation.ReleasedAt)
+	require.Nil(t, out.Decisions[1].Reservation, "spacing after the late holding entry lies beyond lookahead")
+	require.NotNil(t, out.Decisions[2].Reservation)
+	require.Equal(t, 2, out.Buffer.Projected())
+}
+
+func TestPredictedEntrySlipCannotCreateDueSpacingConflict(t *testing.T) {
+	in := fixture(3)
+	base := in.At
+	in.At = base.Add(3 * time.Minute)
+	in.Traffic[1].STARFamily = in.Traffic[0].STARFamily
+	for i := 0; i < 2; i++ {
+		f := &in.Traffic[i]
+		f.Reservation = &aman.ApproachReleaseReservation{Episode: f.Episode, HoldingID: f.HoldingID, STARFamily: f.STARFamily,
+			FeederFix: f.FeederFix, RunwayGroupID: f.RunwayGroupID, HoldingEntryAt: f.EntryAt,
+			ReleaseAt: base.Add(time.Duration(i) * 90 * time.Second), Transit: f.Transit, RouteDigest: f.RouteDigest, PolicyVersion: PolicyVersion}
+	}
+	// Both EATs are due and correctly spaced. A new prediction moves the
+	// leader's holding arrival beyond its accepted EAT, without observing
+	// either departure. It must not rewrite their spacing history.
+	in.Traffic[0].EntryAt, in.Traffic[0].ReadyAt = base.Add(time.Minute), base.Add(time.Minute)
+	in.Traffic[2].ReadyAt, in.Traffic[2].BaselineReleaseAt = in.At, in.At.Add(5*time.Minute)
+	before, err := json.Marshal(in)
+	require.NoError(t, err)
+	out := Plan(in)
+	require.Equal(t, "ready", out.Buffer.Status)
+	require.Empty(t, out.Buffer.BlockedReasons)
+	require.Equal(t, []string{TimingConflictReason}, out.Buffer.AdvisoryReasons)
+	for i := 0; i < 2; i++ {
+		require.Equal(t, in.Traffic[i].Reservation, out.Decisions[i].Reservation, "accepted EATs and departure evidence must stay intact")
+	}
+	require.NotNil(t, out.Decisions[2].Reservation, "predicted timing must not block independent intake")
+	require.Equal(t, 3, out.Buffer.Projected())
+	after, err := json.Marshal(in)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	slices.Reverse(in.Traffic)
+	require.Equal(t, out, Plan(in))
+
+	// Actual departure evidence remains authoritative and can establish a
+	// genuine conflict against the due follower's unchanged commitment.
+	for i := range in.Traffic {
+		if in.Traffic[i].Callsign == "F0" {
+			in.Traffic[i].Released = true
+		}
+	}
+	observed := Plan(in)
+	require.Equal(t, "degraded", observed.Buffer.Status)
+	require.Contains(t, observed.Buffer.BlockedReasons, "approach_release_spacing_conflict")
+	require.Nil(t, observed.Decisions[2].Reservation)
+	require.Equal(t, 2, observed.Buffer.Projected())
+}

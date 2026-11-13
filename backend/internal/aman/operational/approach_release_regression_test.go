@@ -10,6 +10,84 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestProtectedNominalTimingSlipRetainsAdmissionAndAllowsIndependentIntake(t *testing.T) {
+	for _, freeze := range []aman.FreezeReason{aman.FreezeNone, aman.FreezeSuperstable} {
+		t.Run(string(freeze), func(t *testing.T) {
+			svc, state, at := approachFixture(t)
+			at = time.Date(2026, 11, 13, 19, 6, 0, 0, time.UTC)
+			svc.deps.Now = func() time.Time { return at }
+			independent := state.Flights[1]
+			independent.Slot.Time = at.Add(17 * time.Minute)
+			state.Flights = state.Flights[:1]
+			f := &state.Flights[0]
+			f.Callsign = "RYR25K"
+			f.HoldingStack, f.HoldingReleaseBasis = nil, nil
+			entry := at.Add(44 * time.Second)
+			f.Prediction.HoldingFixETA = &entry
+			f.Prediction.RawTETA = entry.Add(19 * time.Minute)
+			f.Prediction.Basis = aman.PredictionBasisFallback
+			f.Slot.Time = at.Add(20*time.Minute + 24*time.Second)
+			f.LatestObservation.Surveillance.ObservedAt = &at
+			f.FreezeReason = freeze
+			if freeze != aman.FreezeNone {
+				captured, target := *f.Slot, f.Prediction.OperationalTETA
+				f.FrozenSlot, f.FrozenOperationalTETA, f.FrozenAt = &captured, &target, &at
+			}
+			slot := *f.Slot
+			svc.refreshHoldingPlans(&state)
+			require.NotNil(t, f.ApproachRelease, "buffer=%+v slot=%+v plan=%+v", state.ReleaseBuffer, f.Slot, f.Prediction.HoldingPlan)
+			episode := f.ApproachRelease.Episode
+
+			// Reproduce the reported nominal mismatch after an accepted timing
+			// change. The controller may recover time with a shorter approach.
+			at = at.Add(15 * time.Second)
+			entry = time.Date(2026, 11, 13, 19, 7, 54, 0, time.UTC)
+			f.Prediction.RawTETA = entry.Add(19*time.Minute + 35*time.Second)
+			f.Prediction.Basis = aman.PredictionBasisPerformanceWind
+			state.Flights = append(state.Flights, independent)
+			for cycle := 0; cycle < 3; cycle++ {
+				for i := range state.Flights {
+					state.Flights[i].LatestObservation.Surveillance.ObservedAt = &at
+				}
+				svc.resequence(&state, at)
+				f = &state.Flights[0]
+				require.NotNil(t, f.ApproachRelease)
+				require.Equal(t, episode, f.ApproachRelease.Episode)
+				require.Equal(t, entry.Add(time.Second), f.ApproachRelease.ReleaseAt)
+				require.Nil(t, f.ApproachRelease.ReleasedAt, "nominal timing cannot prove a physical departure")
+				require.Equal(t, 19*time.Minute+35*time.Second, f.ApproachRelease.Transit, "do not invent a shortcut in the physical forecast")
+				require.Equal(t, slot.Time, f.Slot.Time)
+				require.Equal(t, freeze, f.FreezeReason)
+				require.Equal(t, "ready", state.ReleaseBuffer.Status)
+				require.Empty(t, state.ReleaseBuffer.BlockedReasons)
+				require.Contains(t, state.ReleaseBuffer.AdvisoryReasons, "approach_release_timing_conflict")
+				require.NotNil(t, state.Flights[1].ApproachRelease)
+				require.Equal(t, 2, state.ReleaseBuffer.Projected())
+				state = cloneGapState(t, state)
+			}
+		})
+	}
+}
+
+func TestNominalTimingAdvisoryCannotOverwriteAbsorptionBlocker(t *testing.T) {
+	svc, state, at := approachFixture(t)
+	state.Flights = state.Flights[:3]
+	svc.refreshHoldingPlans(&state)
+	state.Flights[0].Slot.Time = at.Add(40 * time.Minute)
+	state.Flights[1].ApproachRelease.ReleaseAt = at.Add(time.Minute)
+	state.Flights[1].HoldingReleaseBasis.PostHoldingTransit = 20 * time.Minute
+	state.Flights[2].ApproachRelease = nil
+	state.Flights[2].Prediction.HoldingPlan = nil
+	state.Flights[2].Slot.Time = at.Add(17 * time.Minute)
+	svc.refreshHoldingPlans(&state)
+	require.Equal(t, "degraded", state.ReleaseBuffer.Status)
+	require.Contains(t, state.ReleaseBuffer.BlockedReasons, "approach_absorption_budget_exceeded")
+	require.Equal(t, []string{"approach_release_timing_conflict"}, state.ReleaseBuffer.AdvisoryReasons)
+	require.NotNil(t, state.Flights[0].ApproachRelease)
+	require.NotNil(t, state.Flights[1].ApproachRelease)
+	require.Nil(t, state.Flights[2].ApproachRelease, "a genuine intake blocker still prevents additional advancement")
+}
+
 func TestRecoveredArrivalRestoresApproachBufferAfterRouteRejoin(t *testing.T) {
 	bufferService, bufferState, at := approachFixture(t)
 	for i := range bufferState.Flights {

@@ -29,6 +29,18 @@ func TestAMANStateEventMatchesSharedV1Golden(t *testing.T) {
 	require.Equal(t, expectedJSON, actualJSON)
 }
 
+func TestReleaseTimingAdvisoryIsSeparateFromIntakeBlockers(t *testing.T) {
+	state := goldenAMANState()
+	state.ReleaseBuffer = &aman.ReleaseBufferSummary{Status: "ready", Target: 10, Reserved: 1,
+		AdvisoryReasons: []string{"approach_release_timing_conflict"}}
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, "ready", event.Data.Header.ReleaseBuffer.Status)
+	require.Empty(t, event.Data.Header.ReleaseBuffer.BlockedReasons)
+	require.Equal(t, state.ReleaseBuffer.AdvisoryReasons, event.Data.Header.ReleaseBuffer.AdvisoryReasons)
+	require.Equal(t, 1, event.Data.Header.ReleaseBuffer.Projected)
+}
+
 func TestUnreliablePredictionSuppressesGuidanceInBothTransports(t *testing.T) {
 	state := goldenAMANState()
 	flight := &state.Flights[0]

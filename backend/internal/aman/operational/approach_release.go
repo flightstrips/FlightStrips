@@ -107,7 +107,10 @@ func (s *Service) refreshApproachReleases(state *aman.AirportState, at time.Time
 					traffic.ReservationOrderAt = prior.ReleaseAt
 					var reason string
 					traffic.Reservation, reason = refreshAcceptedApproachRelease(f, traffic, *policy, at)
-					if reason != "" {
+					// A nominal journey that no longer fits its landing target is
+					// advisory: controllers can recover time with route shortcuts.
+					// Retain the admission and keep unrelated intake available.
+					if reason != "" && reason != release.TimingConflictReason {
 						input.BlockedReason = reason
 					}
 				}
@@ -280,7 +283,7 @@ func refreshAcceptedApproachRelease(f aman.AMANFlight, t release.Traffic, policy
 	}
 	r.AdditionalApproachTime = max(time.Duration(0), f.Slot.Time.Sub(r.ReleaseAt)-r.Transit)
 	if conflict {
-		return &r, "approach_release_timing_conflict"
+		return &r, release.TimingConflictReason
 	}
 	if r.AdditionalApproachTime > time.Duration(policy.MaxAdvanceSeconds)*time.Second {
 		return &r, "approach_absorption_budget_exceeded"

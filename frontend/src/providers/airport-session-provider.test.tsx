@@ -244,6 +244,29 @@ describe("per-tab airport selection", () => {
     expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
   });
 
+  it.each([4, 6])("keeps counting membership loss while another instance advertises the selected airport for %i minutes", async minutes => {
+    saveHint(1);
+    const own = member();
+    const otherInstance = member({instance_id: "other", membership_id: "other-membership"});
+    const replacement = session(member({session_id: 2, airport: "BBBB"}));
+    mocks.discover.mockResolvedValue([session(own, otherInstance), replacement]);
+    await mount();
+    mocks.discover.mockResolvedValue([session(otherInstance), replacement]);
+    await refresh(minutes * 60_000);
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+    expect(screen.getByTestId("board")).toHaveAttribute("data-instance", "own");
+    expect(screen.getByTestId("board")).toHaveAttribute("data-available", "false");
+    mocks.discover.mockResolvedValue([replacement]);
+    await refresh();
+    if (minutes < 5) {
+      expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+      await refresh((5 - minutes) * 60_000);
+    }
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
+    expect(screen.getByTestId("board")).toHaveAttribute("data-instance", "own");
+    expect(JSON.parse(sessionStorage.getItem(selectionKey)!)).toEqual({session: 2, instance: "own"});
+  });
+
   it.each(["multiple sessions", "multiple instances", "offline plugin", "failed discovery"])("does not switch after five minutes with %s", async scenario => {
     saveHint(1);
     mocks.discover.mockResolvedValue([session(member())]);
@@ -273,6 +296,50 @@ describe("per-tab airport selection", () => {
     expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", {name: /BBBB/}));
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
+  });
+
+  it("keeps the current airport after cancelling an expired fallback and permits fallback after recovery", async () => {
+    saveHint(1);
+    const original = session(member());
+    const replacement = session(member({session_id: 2, airport: "BBBB"}));
+    mocks.discover.mockResolvedValue([original, replacement]);
+    await mount();
+    fireEvent.click(screen.getByRole("button", {name: "Local 0"}));
+    mocks.discover.mockResolvedValue([replacement]);
+    await refresh();
+    fireEvent.click(screen.getByRole("button", {name: "Switch airport session"}));
+    await refresh(300_000);
+    fireEvent.click(screen.getByRole("button", {name: "Keep current airport"}));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+    expect(screen.getByText("Local 1")).toBeInTheDocument();
+    await refresh(300_000);
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+    expect(JSON.parse(sessionStorage.getItem(selectionKey)!)).toEqual({session: 1, instance: "own"});
+    // A physical plugin outage must not discard the user's choice either.
+    mocks.discover.mockResolvedValue([]);
+    await refresh();
+    mocks.discover.mockResolvedValue([replacement]);
+    await refresh(310_000);
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+    mocks.discover.mockResolvedValue([original, replacement]);
+    await refresh();
+    mocks.discover.mockResolvedValue([replacement]);
+    await refresh(300_000);
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+    await refresh();
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
+  });
+
+  it("does not suppress a future fallback when cancelling the chooser with a healthy membership", async () => {
+    saveHint(1);
+    mocks.discover.mockResolvedValue([session(member())]);
+    await mount();
+    fireEvent.click(screen.getByRole("button", {name: "Switch airport session"}));
+    fireEvent.click(screen.getByRole("button", {name: "Keep current airport"}));
+    mocks.discover.mockResolvedValue([session(member({session_id: 2, airport: "BBBB"}))]);
+    await refresh(305_000);
     expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
   });
 });

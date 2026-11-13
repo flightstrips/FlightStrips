@@ -28,6 +28,7 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
   const [choosing, setChoosing] = useState(false);
   const [manualChoice, setManualChoice] = useState(false);
   const missingSession = useRef<{id: number; since: number} | null>(null);
+  const fallbackSuppressed = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +39,7 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
     setChoosing(false);
     setManualChoice(false);
     missingSession.current = null;
+    fallbackSuppressed.current = false;
   }, []);
 
   useEffect(() => {
@@ -67,9 +69,11 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
     if (!loaded) return;
     if (selected) {
       const currentSession = sessions.find(s => s.session_id === selected.session_id);
-      if (currentSession) {
+      const own = currentSession?.instances.filter(m => m.instance_id === selected.instance_id) ?? [];
+      if (own.length > 0) {
+        // Only this physical instance's membership counts as recovery.
         missingSession.current = null;
-        const own = currentSession.instances.filter(m => m.instance_id === selected.instance_id);
+        fallbackSuppressed.current = false;
         // Temporary plugin loss never rebinds to a different physical instance.
         if (own.length === 1) setSelected(own[0]);
         return;
@@ -86,7 +90,7 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
       }
       // Use a successful discovery after the grace period before falling back.
       // Explicit chooser navigation always takes precedence over automation.
-      if (!manualChoice && discoveredAt - missingSession.current.since >= SESSION_LOSS_GRACE_MS && sessions.length === 1 && sessions[0].instances.length === 1) {
+      if (!manualChoice && !fallbackSuppressed.current && discoveredAt - missingSession.current.since >= SESSION_LOSS_GRACE_MS && sessions.length === 1 && sessions[0].instances.length === 1) {
         choose(sessions[0].instances[0]);
       }
       return;
@@ -114,8 +118,15 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
   const retained = retainedState;
   const canRetain = retained?.boardContext?.session_id === selected.session_id && retained.boardContext.instance_id === selected.instance_id && retained.boardContext.environment === selected.environment && retained.boardDefinition?.definition_revision === selected.definition_revision;
   const ownPluginAvailable = sessions.some(s => s.session_id === selected.session_id && s.instances.some(m => membershipKey(m) === membershipKey(selected) && m.ready));
+  const keepCurrentAirport = () => {
+    // Cancellation applies to this loss episode, including a plugin outage.
+    // Recovery or an explicit selection restores normal automatic fallback.
+    fallbackSuppressed.current = !sessions.some(s => s.session_id === selected.session_id && s.instances.some(m => m.instance_id === selected.instance_id));
+    setChoosing(false);
+    setManualChoice(false);
+  };
   return <AirportSessionContext.Provider value={{selected, sessions, openChooser: () => {setManualChoice(true); setChoosing(true);}}}>
     <WebSocketProvider key={membershipKey(selected)} url={url} selection={selected} retainedState={canRetain ? retained : undefined} onStateChanged={captureState} ownPluginAvailable={ownPluginAvailable} selectionControls={<AirportSwitcher/>}>{children}</WebSocketProvider>
-    {choosing && <AirportSessionChooser sessions={sessions} onChoose={choose} onCancel={() => {setChoosing(false); setManualChoice(false);}}/>}
+    {choosing && <AirportSessionChooser sessions={sessions} onChoose={choose} onCancel={keepCurrentAirport}/>}
   </AirportSessionContext.Provider>;
 }

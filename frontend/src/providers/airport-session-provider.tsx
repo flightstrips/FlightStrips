@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState, type ReactNode} from "react";
+import {useCallback, useEffect, useRef, useState, type ReactNode} from "react";
 import {useAuth0} from "@auth0/auth0-react";
 import {discoverSessions, membershipKey, type AuthorizedSession, type OwnMembership} from "@/api/sessions";
 import {requiresLoginPrompt} from "@/lib/authenticated-fetch";
@@ -11,6 +11,7 @@ import {WebSocketProvider} from "./websocket-provider";
 // Session storage is private to this tab. It is only an affinity hint; discovery
 // still authorizes every choice. No storage event changes another tab's board.
 const SELECTION_KEY = "flightstrips.airport-session.v1";
+const SESSION_LOSS_GRACE_MS = 5 * 60_000;
 function readHint(): {session: number; instance: string} | null {
   const params = new URLSearchParams(window.location.search);
   if (params.has("session") && params.has("instance")) return {session: Number(params.get("session")), instance: params.get("instance")!};
@@ -21,10 +22,13 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
   const {getAccessTokenSilently, isAuthenticated, isLoading, logout} = useAuth0();
   const [retainedState, setRetainedState] = useState<WebSocketState | undefined>(undefined);
   const captureState = useCallback((state: WebSocketState) => {setRetainedState(state);}, []);
-  const [sessions, setSessions] = useState<AuthorizedSession[]>([]);
+  const [{sessions, discoveredAt}, setDiscovery] = useState<{sessions: AuthorizedSession[]; discoveredAt: number}>({sessions: [], discoveredAt: 0});
   const [selected, setSelected] = useState<OwnMembership | null>(null);
   const [hint] = useState(readHint);
   const [choosing, setChoosing] = useState(false);
+  const [manualChoice, setManualChoice] = useState(false);
+  const missingSession = useRef<{id: number; since: number} | null>(null);
+  const fallbackSuppressed = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +37,9 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
     setRetainedState(undefined);
     setSelected(member);
     setChoosing(false);
+    setManualChoice(false);
+    missingSession.current = null;
+    fallbackSuppressed.current = false;
   }, []);
 
   useEffect(() => {
@@ -43,19 +50,7 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
       try {
         const next = await discoverSessions(getAccessTokenSilently, abort.signal);
         if (abort.signal.aborted) return;
-        setSessions(next);
-        setSelected(previous => {
-          if (previous) {
-            const own = next.find(s => s.session_id === previous.session_id)?.instances.filter(m => m.instance_id === previous.instance_id);
-            // Only the same physical instance may rebind automatically. Other
-            // instances and airports remain explicit user choices.
-            return own?.length === 1 ? own[0] : previous;
-          }
-          const preferred = hint && next.find(s => s.session_id === hint.session)?.instances.filter(m => m.instance_id === hint.instance);
-          if (preferred?.length === 1) return preferred[0];
-          if (hint) return null; // Reload/reconnect must not silently enter another airport.
-          return next.length === 1 && next[0].instances.length === 1 ? next[0].instances[0] : null;
-        });
+        setDiscovery({sessions: next, discoveredAt: Date.now()});
         setLoaded(true);
         setError(null);
       } catch (e) {
@@ -68,14 +63,53 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
     };
     void refresh();
     return () => {abort.abort(); clearTimeout(timer);};
-  }, [getAccessTokenSilently, hint, isAuthenticated, isLoading, logout]);
+  }, [getAccessTokenSilently, isAuthenticated, isLoading, logout]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    if (selected) {
+      const currentSession = sessions.find(s => s.session_id === selected.session_id);
+      const own = currentSession?.instances.filter(m => m.instance_id === selected.instance_id) ?? [];
+      if (own.length > 0) {
+        // Only this physical instance's membership counts as recovery.
+        missingSession.current = null;
+        fallbackSuppressed.current = false;
+        // Temporary plugin loss never rebinds to a different physical instance.
+        if (own.length === 1) setSelected(own[0]);
+        return;
+      }
+      // Only a withdrawn airport membership may fall back. A disconnected
+      // physical plugin keeps its board until that plugin recovers.
+      const instanceOnline = sessions.some(s => s.instances.some(m => m.instance_id === selected.instance_id));
+      if (!instanceOnline) {
+        missingSession.current = null;
+        return;
+      }
+      if (missingSession.current?.id !== selected.session_id) {
+        missingSession.current = {id: selected.session_id, since: discoveredAt};
+      }
+      // Use a successful discovery after the grace period before falling back.
+      // Explicit chooser navigation always takes precedence over automation.
+      if (!manualChoice && !fallbackSuppressed.current && discoveredAt - missingSession.current.since >= SESSION_LOSS_GRACE_MS && sessions.length === 1 && sessions[0].instances.length === 1) {
+        choose(sessions[0].instances[0]);
+      }
+      return;
+    }
+    if (manualChoice) return;
+    // A saved session narrows the choice only while it is authorized.
+    // Stale hints must not turn an unambiguous discovery into a prompt.
+    const session = (hint && sessions.find(s => s.session_id === hint.session)) || (sessions.length === 1 ? sessions[0] : undefined);
+    const preferred = hint && session?.instances.filter(m => m.instance_id === hint.instance && m.session_id === hint.session);
+    if (preferred?.length === 1) choose(preferred[0]);
+    else if (session?.instances.length === 1) choose(session.instances[0]);
+  }, [choose, discoveredAt, hint, loaded, manualChoice, selected, sessions]);
 
   useEffect(() => {
     if (selected) sessionStorage.setItem(SELECTION_KEY, JSON.stringify({session:selected.session_id, instance:selected.instance_id}));
   }, [selected]);
 
   if (!selected) {
-    if (loaded && sessions.length > 0) return <AirportSessionChooser sessions={sessions} onChoose={choose}/>;
+    if (loaded && sessions.length > 0) return <AirportSessionChooser sessions={sessions} initialSessionID={hint?.session} onChoose={choose} onNavigate={() => setManualChoice(true)}/>;
     return <div className="w-screen min-h-svh flex flex-col justify-center items-center bg-primary text-white">
       <h1 className="text-4xl font-semibold">{loaded ? "Waiting for ES connection" : "Connecting to FlightStrips..."}</h1>
       {error && <p role="status" className="mt-4">{error}. Retrying...</p>}
@@ -84,8 +118,15 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
   const retained = retainedState;
   const canRetain = retained?.boardContext?.session_id === selected.session_id && retained.boardContext.instance_id === selected.instance_id && retained.boardContext.environment === selected.environment && retained.boardDefinition?.definition_revision === selected.definition_revision;
   const ownPluginAvailable = sessions.some(s => s.session_id === selected.session_id && s.instances.some(m => membershipKey(m) === membershipKey(selected) && m.ready));
-  return <AirportSessionContext.Provider value={{selected, sessions, openChooser: () => setChoosing(true)}}>
+  const keepCurrentAirport = () => {
+    // Cancellation applies to this loss episode, including a plugin outage.
+    // Recovery or an explicit selection restores normal automatic fallback.
+    fallbackSuppressed.current = !sessions.some(s => s.session_id === selected.session_id && s.instances.some(m => m.instance_id === selected.instance_id));
+    setChoosing(false);
+    setManualChoice(false);
+  };
+  return <AirportSessionContext.Provider value={{selected, sessions, openChooser: () => {setManualChoice(true); setChoosing(true);}}}>
     <WebSocketProvider key={membershipKey(selected)} url={url} selection={selected} retainedState={canRetain ? retained : undefined} onStateChanged={captureState} ownPluginAvailable={ownPluginAvailable} selectionControls={<AirportSwitcher/>}>{children}</WebSocketProvider>
-    {choosing && <AirportSessionChooser sessions={sessions} onChoose={choose} onCancel={() => setChoosing(false)}/>}
+    {choosing && <AirportSessionChooser sessions={sessions} onChoose={choose} onCancel={keepCurrentAirport}/>}
   </AirportSessionContext.Provider>;
 }

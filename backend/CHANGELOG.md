@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.9.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.8.3...backend/v3.9.0) (2026-11-13)
+
+
+### Features
+
+* add map restrictions and message acknowledgements ([#1102](https://github.com/flightstrips/FlightStrips/issues/1102)) ([a0b5e71](https://github.com/flightstrips/FlightStrips/commit/a0b5e71e26bff0374c79b46bb0cab9891630252c))
+* **aman:** add resilient estimates and STAR-aware insertion ([#1151](https://github.com/flightstrips/FlightStrips/issues/1151)) ([b53eb1b](https://github.com/flightstrips/FlightStrips/commit/b53eb1b89d1b883d4f613161b036562cfe4cbdea))
+* **aman:** add sector-file navigation fallback ([#1146](https://github.com/flightstrips/FlightStrips/issues/1146)) ([cc173f8](https://github.com/flightstrips/FlightStrips/commit/cc173f8f13a437cc97f15db38df8e81ac49e9d16))
+* **aman:** synchronize aircraft selection from EuroScope ([#1141](https://github.com/flightstrips/FlightStrips/issues/1141)) ([128322a](https://github.com/flightstrips/FlightStrips/commit/128322aa2e91bf6c62784bf78bedaf72c1109b50))
+* **ekch:** expire stand arrivals and add apron crossing controls ([#1129](https://github.com/flightstrips/FlightStrips/issues/1129)) ([357a61a](https://github.com/flightstrips/FlightStrips/commit/357a61af449611ac27a1a0705b71f1a2e9bda487))
+* **stand:** block unavailable arrival stands ([#1132](https://github.com/flightstrips/FlightStrips/issues/1132)) ([71cb07a](https://github.com/flightstrips/FlightStrips/commit/71cb07ad1e6f66ee640b573fa99877c5da9b29f2))
+
+
+### Bug Fixes
+
+* **aman:** keep timing advisories from blocking approach intake ([#1158](https://github.com/flightstrips/FlightStrips/issues/1158)) ([84281a5](https://github.com/flightstrips/FlightStrips/commit/84281a50a253e99f80eb75419b8e5da4ab6015ac))
+* **aman:** preserve same-STAR order and allow superstable swaps ([#1153](https://github.com/flightstrips/FlightStrips/issues/1153)) ([c878f98](https://github.com/flightstrips/FlightStrips/commit/c878f9827f041d03cc0c3e1b34e234fcdb0acb83))
+* **aman:** retain verified sector route suffixes ([#1155](https://github.com/flightstrips/FlightStrips/issues/1155)) ([c6df8bd](https://github.com/flightstrips/FlightStrips/commit/c6df8bdd54a7a439a0552359f3d125d4cc3539f4))
+* **aman:** show holding release guidance from EAT minus four minutes ([#1137](https://github.com/flightstrips/FlightStrips/issues/1137)) ([a4a960e](https://github.com/flightstrips/FlightStrips/commit/a4a960e200496f3bab5a7938c4a7bd07495b301b))
+* **session:** preserve observations across airport memberships ([#1144](https://github.com/flightstrips/FlightStrips/issues/1144)) ([310e6e1](https://github.com/flightstrips/FlightStrips/commit/310e6e16329e9a115e7f5ec34b9d95c3cdb43f79))
+* **session:** synchronize replay frequency updates with master elections ([#1147](https://github.com/flightstrips/FlightStrips/issues/1147)) ([da4cd4f](https://github.com/flightstrips/FlightStrips/commit/da4cd4fefab71c687e64c25ebd782fa9ae30f16d))
+* **strip:** correct EKCH arrival and departure transfers ([#1131](https://github.com/flightstrips/FlightStrips/issues/1131)) ([707da08](https://github.com/flightstrips/FlightStrips/commit/707da08126c8ac3700f85f6ced5a5f6c0dc2c9af))
+
 ## [3.8.3](https://github.com/flightstrips/FlightStrips/compare/backend/v3.8.2...backend/v3.8.3) (2026-11-10)
 
 

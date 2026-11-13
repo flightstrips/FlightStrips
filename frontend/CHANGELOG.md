@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.9.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.8.0...frontend/v2.9.0) (2026-11-13)
+
+
+### Features
+
+* add map restrictions and message acknowledgements ([#1102](https://github.com/flightstrips/FlightStrips/issues/1102)) ([a0b5e71](https://github.com/flightstrips/FlightStrips/commit/a0b5e71e26bff0374c79b46bb0cab9891630252c))
+* **aman:** add resilient estimates and STAR-aware insertion ([#1151](https://github.com/flightstrips/FlightStrips/issues/1151)) ([b53eb1b](https://github.com/flightstrips/FlightStrips/commit/b53eb1b89d1b883d4f613161b036562cfe4cbdea))
+* **aman:** synchronize aircraft selection from EuroScope ([#1141](https://github.com/flightstrips/FlightStrips/issues/1141)) ([128322a](https://github.com/flightstrips/FlightStrips/commit/128322aa2e91bf6c62784bf78bedaf72c1109b50))
+* **ekch:** expire stand arrivals and add apron crossing controls ([#1129](https://github.com/flightstrips/FlightStrips/issues/1129)) ([357a61a](https://github.com/flightstrips/FlightStrips/commit/357a61af449611ac27a1a0705b71f1a2e9bda487))
+* **stand:** block unavailable arrival stands ([#1132](https://github.com/flightstrips/FlightStrips/issues/1132)) ([71cb07a](https://github.com/flightstrips/FlightStrips/commit/71cb07ad1e6f66ee640b573fa99877c5da9b29f2))
+
+
+### Bug Fixes
+
+* **aman:** make basic estimate indicators less intrusive ([#1154](https://github.com/flightstrips/FlightStrips/issues/1154)) ([6b414ee](https://github.com/flightstrips/FlightStrips/commit/6b414eeb9eac551a36a1980a4d294b09eec11a7c))
+* **aman:** preserve same-STAR order and allow superstable swaps ([#1153](https://github.com/flightstrips/FlightStrips/issues/1153)) ([c878f98](https://github.com/flightstrips/FlightStrips/commit/c878f9827f041d03cc0c3e1b34e234fcdb0acb83))
+* **aman:** remove technical estimate reason tooltip ([#1157](https://github.com/flightstrips/FlightStrips/issues/1157)) ([484da26](https://github.com/flightstrips/FlightStrips/commit/484da26162eef917f624b29e9a4861ae34e1c46d))
+* preserve analytics opt-out and controller ACC defaults ([#1156](https://github.com/flightstrips/FlightStrips/issues/1156)) ([131bf20](https://github.com/flightstrips/FlightStrips/commit/131bf20975cf16e35cbf3950f6cb4e051200dc50))
+* **session:** handle stale and withdrawn airport sessions ([#1159](https://github.com/flightstrips/FlightStrips/issues/1159)) ([d5fce81](https://github.com/flightstrips/FlightStrips/commit/d5fce813ef8a9d9fa7d456e88a96e5c03eb448b1))
+
 ## [2.8.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.7.2...frontend/v2.8.0) (2026-11-10)
 
 

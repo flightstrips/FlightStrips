@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.6.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.5.2...plugin/v2.6.0) (2026-11-13)
+
+
+### Features
+
+* **aman:** synchronize aircraft selection from EuroScope ([#1141](https://github.com/flightstrips/FlightStrips/issues/1141)) ([128322a](https://github.com/flightstrips/FlightStrips/commit/128322aa2e91bf6c62784bf78bedaf72c1109b50))
+
+
+### Bug Fixes
+
+* **aman:** show guidance for concerned unassumed aircraft ([#1140](https://github.com/flightstrips/FlightStrips/issues/1140)) ([35efdbb](https://github.com/flightstrips/FlightStrips/commit/35efdbb00e55b7ea1d1a0a6c9bbcca28ef8b206f))
+* **aman:** show holding release guidance from EAT minus four minutes ([#1137](https://github.com/flightstrips/FlightStrips/issues/1137)) ([a4a960e](https://github.com/flightstrips/FlightStrips/commit/a4a960e200496f3bab5a7938c4a7bd07495b301b))
+* **session:** preserve observations across airport memberships ([#1144](https://github.com/flightstrips/FlightStrips/issues/1144)) ([310e6e1](https://github.com/flightstrips/FlightStrips/commit/310e6e16329e9a115e7f5ec34b9d95c3cdb43f79))
+
 ## [2.5.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.5.1...plugin/v2.5.2) (2026-11-10)
 
 

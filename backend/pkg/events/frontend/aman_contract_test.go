@@ -39,6 +39,17 @@ func TestAMANStateConsumerContract(t *testing.T) {
 		scenarios = append(scenarios, scenario{Name: name, Event: wire})
 	}
 	add("healthy", goldenAMANState(), goldenAMANHealth())
+	withFallback := goldenAMANState()
+	withFallback.Flights[0].Prediction.Basis = aman.PredictionBasisFallback
+	withFallback.Flights[0].ControllerSTARFamily = func() *string { value := "TESPI"; return &value }()
+	withFallback.Flights[0].Prediction.DegradationReason = func() *string { value := "basic_terminal_estimate:route provider unavailable"; return &value }()
+	withFallback.InsertionSTARFamilies = map[aman.RunwayGroupID][]string{withFallback.RunwayGroups[0].ID: {"MONAK", "TESPI"}}
+	add("basic_terminal_fallback", withFallback, goldenAMANHealth())
+	recovery := goldenAMANState()
+	recovery.Flights[0].DataStatus, recovery.Flights[0].STARSelectionRequired = aman.DataStale, true
+	altitude, speed := 10000, 200.0
+	recovery.Flights[0].LatestObservation = &aman.FlightObservation{Callsign: recovery.Flights[0].Callsign, Origin: "ESSA", Destination: recovery.Airport, ReconciledAt: recovery.GeneratedAt, SourceStatus: aman.DataFresh, Surveillance: &aman.SurveillanceFact{ObservedAt: &recovery.GeneratedAt, AltitudeFeet: &altitude, GroundspeedKnots: &speed, LatitudeDegrees: 56, LongitudeDegrees: 12}}
+	add("star_recovery_fresh_surveillance", recovery, goldenAMANHealth())
 	add("ground_forecast_with_spacing_conflict", groundForecastSpacingConflictState(), goldenAMANHealth())
 
 	// Reproduce the observations immediately before the reported 19:04 CET

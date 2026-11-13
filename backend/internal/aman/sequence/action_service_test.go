@@ -105,6 +105,10 @@ func (m *recordingActionMutations) mutation(name string, auth aman.CommandContex
 	}, nil
 }
 
+func (m *recordingActionMutations) InsertFlightAfter(_ context.Context, auth aman.CommandContext, _ aman.InsertFlightAfterCommand) (CommandMutation, error) {
+	return m.MoveFlight(auth, aman.MoveFlightCommand{})
+}
+
 func (m *recordingActionMutations) MoveFlight(auth aman.CommandContext, _ aman.MoveFlightCommand) (CommandMutation, error) {
 	return m.mutation("move", auth)
 }

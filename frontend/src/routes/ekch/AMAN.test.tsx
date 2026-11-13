@@ -102,6 +102,21 @@ describe("AMAN route authorization", () => {
     storeState.amanFMPAuthority = false;
   });
 
+  it.each([true, false])("gates insertion on surveillance independently of prediction status (fresh=%s)", (fresh) => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = {...authoritativeState([{callsign: "SAS123", lifecycle_state: "airborne", data_status: fresh ? "stale" : "fresh", surveillance_fresh: fresh, star_selection_required: true}]), runway_groups: [], active_runway_groups: []};
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    const button = screen.getByRole("button", {name: "Insert behind…"});
+    if (fresh) {
+      expect(button).toBeEnabled();
+      fireEvent.click(button);
+      expect(screen.getByRole("dialog", {name: "Insert behind · SAS123"})).toBeInTheDocument();
+    } else {
+      expect(button).toBeDisabled();
+    }
+  });
+
   it("opens the STAR swap from the aircraft menu and sends the selected pair", () => {
     storeState.amanFMPAuthority = true;
     const first = {callsign: "SAS123", star_family: "TESPI", runway_group_id: "ARRIVAL-22", freeze_reason: "none", lifecycle_state: "stable", slot: {sequence: 1, time: "2026-07-22T12:10:00Z"}};
@@ -313,6 +328,8 @@ describe("AMAN route authorization", () => {
     fireEvent.keyDown(warnings, {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Settings");
     fireEvent.keyDown(screen.getByRole("tab", {name: "Settings"}), {key: "ArrowRight"});
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Without slots (0)");
+    fireEvent.keyDown(screen.getByRole("tab", {name: "Without slots (0)"}), {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Excluded (0)");
     fireEvent.keyDown(screen.getByRole("tab", {name: "Excluded (0)"}), {key: "ArrowRight"});
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("CTOT (0)");

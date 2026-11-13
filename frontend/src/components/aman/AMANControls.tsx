@@ -73,6 +73,8 @@ function FlightStatus({flight}: {flight: AMANFlight}) {
         <strong>{flight.callsign}</strong>
         <span>Data: <b className={flight.data_status === "fresh" ? "text-emerald-300" : "text-amber-300"}>{flight.data_status}</b></span>
         <span>Confidence: {flight.confidence ?? "unavailable"}</span>
+        {flight.basic_estimate && <span>Basic estimate · {flight.prediction_reason}</span>}
+        {flight.controller_star_family && <span>Controller STAR: {flight.controller_star_family}</span>}
         <span>Input age: {flight.input_age_seconds === null ? "unavailable" : `${flight.input_age_seconds}s`}</span>
       </div>
 

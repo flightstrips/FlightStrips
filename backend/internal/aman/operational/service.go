@@ -43,7 +43,7 @@ const (
 	weatherRefreshEvery        = 30 * time.Minute
 	queueOfferValidity         = 2 * time.Minute
 	euroScopeSurveillanceFresh = 30 * time.Second
-	tmaSurveillanceFresh       = 2 * time.Minute
+	tmaSurveillanceFresh       = aman.ArrivalSurveillanceFreshness
 	wtcLightRETAPolicyReason   = "wtc_light_reta_policy"
 	wtcLightRETAMissingReason  = "wtc_light_reta_unavailable"
 	maxReconciliationAttempts  = 5
@@ -660,6 +660,7 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 	// again after this clock sample can make a later report appear future-dated.
 	now = s.deps.Now().UTC()
 	next := current
+	s.populateInsertionOptions(&next)
 	next.Mode = s.deps.Mode
 	next.Authoritative = s.deps.Mode == aman.ModeAuthoritative
 	next.PolicyVersion = policyVersion
@@ -1109,7 +1110,7 @@ func (s *Service) manuallyExcludedElsewhere(ctx context.Context, airport, callsi
 	return false, nil
 }
 
-func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) (aman.AMANFlight, error) {
+func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.AirportState, flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) (aman.AMANFlight, error) {
 	discardAutomaticPreliminarySlot(&flight)
 	flight = s.captureLegacyApproachRelease(flight, now)
 	if previous := flight.LatestObservation; previous != nil {
@@ -1135,6 +1136,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		copy := observation
 		flight.LatestObservation, flight.DataStatus, flight.UpdatedAt = &copy, observation.SourceStatus, now
 		flight.State = aman.StateRemoved
+		flight.ControllerSTARFamily = nil
 		clearSequencingState(&flight)
 		expireActiveRouteFact(&flight)
 		invalidateLiveGoAroundEpisode(&flight)
@@ -1163,16 +1165,17 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		flight = newFlight(observation, now)
 	}
 	previousObservation := flight.LatestObservation
+	flight.PredictionFailureReason = nil
 	if !s.deps.DisablePredictionFiltering {
 		flight = prediction.ExpireFilter(flight, now)
 	}
-	starChanged := previousObservation != nil && stringValue(previousObservation.AssignedSTAR) != stringValue(observation.AssignedSTAR)
+	starChanged := flight.ControllerSTARFamily == nil && previousObservation != nil && stringValue(previousObservation.AssignedSTAR) != stringValue(observation.AssignedSTAR)
 	routeChanged := previousObservation != nil && stringValue(previousObservation.FiledRoute) != stringValue(observation.FiledRoute)
 	if starChanged || routeChanged {
 		group, _ := s.selectedGroup(flight, state.RunwayGroups)
-		previousFeeder, previousKnown := s.observationFeeder(*previousObservation, group)
-		currentFeeder, currentKnown := s.observationFeeder(observation, group)
-		if previousFeeder != currentFeeder || previousKnown != currentKnown {
+		previous := s.resolveFlightSTAR(flight, *previousObservation, group)
+		current := s.resolveFlightSTAR(flight, observation, group)
+		if previous.feeder != current.feeder || previous.reason != current.reason {
 			flight.ArrivalPathChanged = true
 		}
 	}
@@ -1248,9 +1251,14 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		}
 		return flight, nil
 	}
-	resolved := s.resolveObservationSTAR(observation, group)
-	if resolved.inferred && (flight.RouteProgress == nil ||
-		flight.RouteProgress.RunwayGroupID != group || flight.STARFamilyIdentity() != string(resolved.feeder)) {
+	resolved := s.resolveFlightSTAR(flight, observation, group)
+	hasCurrentPath := flight.RouteProgress != nil && flight.RouteProgress.RunwayGroupID == group ||
+		flight.FallbackRouteProgress != nil && flight.FallbackRouteProgress.RunwayGroupID == group
+	// A successful basic join has no route anchor. Its accepted prediction and
+	// resolved identity still establish this path until an actual path change.
+	hasCurrentFallback := flight.Prediction != nil && flight.Prediction.Basis == aman.PredictionBasisFallback &&
+		!flight.RunwayChangePending && !flight.ArrivalPathChanged
+	if resolved.inferred && ((!hasCurrentPath && !hasCurrentFallback) || flight.STARFamilyIdentity() != string(resolved.feeder)) {
 		// Also recover persisted aircraft that failed resolution before this
 		// fallback existed, without filtering their new runway as an ETA spike.
 		// Use path identity: filter expiry and calculation failures can replace
@@ -1344,9 +1352,24 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 			}
 		}
 	}
-	directChanged := flight.ActiveRouteFact != nil && (flight.RouteProgress == nil || flight.RouteProgress.RouteFactID != flight.ActiveRouteFact.ID)
 	feederFix, legacySTARFamily := flight.TerminalPathIdentity()
-	prior := flight.RouteProgress
+	route, err := s.deps.Geometry.Route(ctx, key)
+	if err != nil {
+		return flight, err
+	}
+	snapshot, err := s.deps.Geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(observation.Destination))
+	if err != nil {
+		return flight, err
+	}
+	projectionInput := trajectory.Input{
+		Airport: navdata.AirportID(observation.Destination), RouteKey: key,
+		FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: group,
+		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: flight.RouteProgress, Recovery: flight.RouteRecovery,
+		HoldingClearanceFix: operationalHoldingClearanceFix(flight),
+	}
+	// Cached-route fallback may have the latest accepted physical report.
+	// Select it only after checking compatibility with the recovered geometry.
+	prior := trajectory.NewestCompatibleProgress(snapshot, route, projectionInput, flight.FallbackRouteProgress)
 	if prior != nil && prior.ObservedAt == nil && flight.Prediction != nil && !flight.Prediction.InputObservedAt.IsZero() {
 		// Legacy aggregates predate the progress timestamp. Their retained
 		// prediction supplies the last accepted observation until reprojection.
@@ -1354,21 +1377,48 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		copy.ObservedAt = &flight.Prediction.InputObservedAt
 		prior = &copy
 	}
-	projection, err := trajectory.Project(ctx, trajectory.Readers{Geometry: s.deps.Geometry, Snapshot: s.deps.Geometry}, trajectory.Input{
-		Airport: navdata.AirportID(observation.Destination), RouteKey: key,
-		FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: group,
-		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: prior, Recovery: flight.RouteRecovery,
-		HoldingClearanceFix: operationalHoldingClearanceFix(flight),
-	}, trajectory.Config{ReferenceTime: now, MaxObservationAge: 2 * time.Minute})
-	if err != nil {
-		return flight, err
-	}
+	projectionInput.Prior = prior
+	projection := trajectory.Reduce(snapshot, route, projectionInput, trajectory.Config{ReferenceTime: now, MaxObservationAge: tmaSurveillanceFresh})
 	flight.RouteRecovery = projection.Recovery
 	if projection.DistanceToGoNM == nil || len(projection.Remaining) == 0 || projection.Completeness == trajectory.Unresolved || projection.Completeness == trajectory.OffRoute {
-		return flight, fmt.Errorf("route geometry is not publishable: %s (%s)", projection.Completeness, strings.Join(projection.Reasons, ", "))
+		return flight, projectionFailure(projection)
 	}
-	directChanged = directChanged && flight.ActiveRouteFact.State == aman.RouteFactActive && slices.ContainsFunc(projection.Remaining, func(leg trajectory.RemainingLeg) bool { return leg.ID == "DIRECT_TO:"+flight.ActiveRouteFact.Fix })
-	descentConfirmed, descentEvidenceSamples := descentStateForRoute(flight.RouteProgress, previousObservation, observation, projection.InTMA)
+	directChanged := confirmedDirectChanged(flight.ActiveRouteFact, prior, projection)
+	return s.applyProjectedPrediction(ctx, state, flight, observation, now, projectedPrediction{projection: projection, version: version, key: key, resolved: resolved, prior: prior, previousObservation: previousObservation, directChanged: directChanged, groupChanged: groupChanged, starChanged: starChanged})
+}
+
+// A route fact changes timing only when it is new to accepted progress and
+// geometry has validated the direct-to leg. Unresolved facts retain filtering.
+func confirmedDirectChanged(fact *aman.RouteFact, prior *aman.RouteProgress, projection trajectory.Result) bool {
+	return fact != nil && fact.State == aman.RouteFactActive && (prior == nil || prior.RouteFactID != fact.ID) &&
+		slices.ContainsFunc(projection.Remaining, func(leg trajectory.RemainingLeg) bool { return leg.ID == "DIRECT_TO:"+fact.Fix })
+}
+
+type projectedPrediction struct {
+	projection                               trajectory.Result
+	version                                  navdata.DatasetVersion
+	key                                      navdata.RouteKey
+	resolved                                 starResolution
+	prior                                    *aman.RouteProgress
+	previousObservation                      *aman.FlightObservation
+	directChanged, groupChanged, starChanged bool
+	fallbackReason                           string
+}
+
+func (s *Service) applyProjectedPrediction(ctx context.Context, state aman.AirportState, flight aman.AMANFlight, observation aman.FlightObservation, now time.Time, route projectedPrediction) (aman.AMANFlight, error) {
+	projection, version, key, resolved, prior := route.projection, route.version, route.key, route.resolved, route.prior
+	previousObservation := route.previousObservation
+	directChanged, groupChanged, starChanged := route.directChanged, route.groupChanged, route.starChanged
+	feederFix, _ := flight.TerminalPathIdentity()
+	var err error
+	descentPrior := prior
+	if evidence := flight.FallbackDescent; evidence != nil {
+		descentPrior = &aman.RouteProgress{DescentConfirmed: evidence.Confirmed, DescentEvidenceSamples: evidence.Samples}
+	}
+	descentConfirmed, descentEvidenceSamples := descentStateForRoute(descentPrior, previousObservation, observation, projection.InTMA)
+	if route.fallbackReason != "" {
+		flight.FallbackDescent = &aman.DescentEvidence{Confirmed: descentConfirmed, Samples: descentEvidenceSamples}
+	}
 	if projection.Progress != nil {
 		projection.Progress.DescentConfirmed = descentConfirmed
 		projection.Progress.DescentEvidenceSamples = descentEvidenceSamples
@@ -1439,6 +1489,35 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		}
 		legDurations = estimate.LegDurations
 	}
+	if route.fallbackReason != "" {
+		if len(projection.Remaining) > 0 && projection.Remaining[0].ID == "BASIC_JOIN" && len(legDurations) > 0 {
+			duration := time.Duration(projection.Remaining[0].DistanceNM / *observation.Surveillance.GroundspeedKnots * float64(time.Hour))
+			delta := duration - legDurations[0]
+			raw.RawTETA = raw.RawTETA.Add(delta)
+			legDurations[0] = duration
+			if raw.Calculation != nil {
+				calculation := raw.Calculation
+				calculation.Duration += delta
+				calculation.NoWindDuration += duration - calculation.Legs[0].NoWindDuration
+				calculation.Legs[0].Duration, calculation.Legs[0].NoWindDuration = duration, duration
+				segments := []aman.PredictionSegment{{RouteLegIndex: 0, PhaseID: "basic_join", PhaseName: "Basic estimate to STAR entry", PhaseFormula: "distance / observed groundspeed", DistanceNM: projection.Remaining[0].DistanceNM, CourseTrueDegrees: projection.Remaining[0].CourseTrueDegrees, GroundspeedKnots: input.CurrentGroundspeedKnots, NoWindGroundspeedKnots: input.CurrentGroundspeedKnots, Duration: duration, NoWindDuration: duration}}
+				for _, segment := range calculation.Segments {
+					if segment.RouteLegIndex != 0 {
+						segments = append(segments, segment)
+					}
+				}
+				calculation.Segments = segments
+			}
+		}
+		raw.Basis = aman.PredictionBasisFallback
+		if reta, retaErr := predictor.EstimateRETA(input, predictor.PerformanceWindConfig{MinimumGroundspeedKnots: 1}); retaErr == nil {
+			raw.RawRETA = &reta.RawRETA
+		}
+		raw.Confidence = aman.ConfidenceLow
+		reason := "basic_terminal_estimate:" + route.fallbackReason
+		raw.DegradationReason = &reason
+		raw.Sources = []string{surveillanceRETASource(observation), "cached-terminal-fallback", "terminal-config:" + s.deps.Terminal.ConfigVersion}
+	}
 	if resolved.inferred {
 		reason := aman.STARRunwayInferred
 		if raw.DegradationReason != nil && *raw.DegradationReason != "" {
@@ -1462,7 +1541,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	rejoined := prior != nil && prior.RecoveryCandidateFix != "" && projection.Progress != nil && projection.Progress.RecoveryCandidateFix == ""
 	bypassFilter := flight.Prediction == nil || isPreliminaryPrediction(flight.Prediction) || flight.ArrivalPathChanged || flight.RunwayChangePending || starChanged ||
-		directChanged || groupChanged || flight.State == aman.StateGoAround || projection.ReacquiredProgress || rejoined || predictionRefreshRequested(ctx)
+		directChanged || groupChanged || flight.State == aman.StateGoAround || projection.ReacquiredProgress || rejoined || predictionRefreshRequested(ctx) || flight.Prediction != nil && flight.Prediction.Basis != raw.Basis
 	filtered, accepted, filterOutcome := prediction.Filter(flight, raw, candidateFeeder, bypassFilter, s.deps.DisablePredictionFiltering)
 	flight = filtered
 	metrics.RecordAMANPredictionFilter(ctx, filterOutcome)
@@ -1487,6 +1566,12 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		holding := string(projection.SelectedHolding.ID)
 		flight.SelectedHolding = &holding
 		raw.HoldingFixETA = holdingETA(predictionAt, legDurations, projection.Remaining, projection.SelectedHolding.Fix)
+		if raw.HoldingFixETA != nil && derivedFeeder != nil && derivedFeeder.ETA != nil {
+			transit := derivedFeeder.ETA.Sub(*raw.HoldingFixETA)
+			if transit >= 0 {
+				raw.HoldingToFeederTransit = &transit
+			}
+		}
 	}
 	observeHoldingEpisode(&flight, projection, observation, now)
 	if operationalHoldingClearanceFix(flight) == "" && raw.HoldingFixETA == nil {
@@ -1746,6 +1831,7 @@ func invalidateRunwayPath(flight *aman.AMANFlight) {
 	flight.PredictionFilter = nil
 	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
+	clearFallbackPredictionProgress(flight)
 	flight.RouteRecovery, flight.RouteRefreshAfter, flight.ActiveRouteQueryKey, flight.RouteRefreshQueryKey = nil, nil, "", ""
 	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	flight.SelectedHolding, flight.HoldingStack, flight.HoldingReleaseBasis = nil, nil, nil
@@ -1761,6 +1847,7 @@ func invalidateRunwayPath(flight *aman.AMANFlight) {
 // A legacy terminal path can identify its family, but an empty FeederFix is
 // intentionally retained as unknown rather than inferred from path geometry.
 func applyResolvedTerminalIdentity(flight *aman.AMANFlight, path navdata.TerminalPath) {
+	flight.STARSelectionRequired = false
 	starFamily := string(path.STARFamily)
 	if starFamily == "" {
 		starFamily = string(path.Feeder)
@@ -2115,9 +2202,9 @@ func (s *Service) checkHoldingPlanOrder(state *aman.AirportState, rebuiltOnly bo
 }
 
 // holdingFeederETA lets an active authoritative holding plan supersede the
-// route clock. It deliberately fails closed when the prediction and terminal
-// configuration versions differ or the selected path has no approved nominal
-// transit. A passed-feeder fact remains authoritative over any derived clock.
+// route clock using the configured transit, or accepted terminal-leg timing
+// when that transit is absent. Prediction and terminal configuration versions
+// must match. A passed-feeder fact remains authoritative over any derived clock.
 func holdingFeederETA(authoritative bool, flight aman.AMANFlight, prediction aman.Prediction, config terminal.Configuration) *aman.FeederETAState {
 	derived := flight.DerivedFeederETA
 	if derived == nil && (flight.FeederETA == nil || flight.FeederETA.Source != aman.FeederETASourceManual) {
@@ -2133,6 +2220,9 @@ func holdingFeederETA(authoritative bool, flight aman.AMANFlight, prediction ama
 		return derived
 	}
 	transit := configuredHoldingToFeederTransit(flight, prediction.ConfigVersion, config)
+	if transit == nil && prediction.ConfigVersion == config.ConfigVersion && prediction.HoldingToFeederTransit != nil {
+		transit = prediction.HoldingToFeederTransit
+	}
 	if transit == nil {
 		return nil
 	}
@@ -2342,7 +2432,7 @@ func sequenceEligible(flight aman.AMANFlight) bool {
 }
 
 func retainedTimingUnavailable(flight aman.AMANFlight) bool {
-	return flight.DataStatus == aman.DataStale || flight.DataStatus == aman.DataDisconnected || flight.Prediction == nil || !flight.Prediction.Publishable ||
+	return flight.PredictionFailureReason != nil || flight.DataStatus == aman.DataStale || flight.DataStatus == aman.DataDisconnected || flight.Prediction == nil || !flight.Prediction.Publishable ||
 		flight.Lifecycle != nil && flight.Lifecycle.Absence != nil
 }
 
@@ -2364,7 +2454,7 @@ func manualETASlotPending(flight aman.AMANFlight) bool {
 }
 
 func runwayAssignmentProtected(flight aman.AMANFlight) bool {
-	return flight.State == aman.StateStable || flight.FreezeReason != aman.FreezeNone || flight.ManualOrder != nil ||
+	return flight.State == aman.StateStable || flight.FreezeReason != aman.FreezeNone || flight.ManualOrder != nil || flight.ManualPosition != nil ||
 		holdingSlotProtected(flight) || flight.Slot != nil && retainedTimingUnavailable(flight)
 }
 
@@ -2817,6 +2907,7 @@ func resetFlightsForRunwayConfiguration(state *aman.AirportState) {
 		flight.ActiveRouteKey = nil
 		flight.ActiveRouteDatasetID = nil
 		flight.RouteProgress = nil
+		clearFallbackPredictionProgress(flight)
 		flight.RouteRecovery, flight.RouteRefreshAfter, flight.ActiveRouteQueryKey, flight.RouteRefreshQueryKey = nil, nil, "", ""
 		clearSequencingState(flight)
 	}
@@ -3040,12 +3131,14 @@ func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObs
 }
 
 func clearGroundedOperationalState(flight *aman.AMANFlight) {
+	flight.ControllerSTARFamily = nil
 	flight.ManualPosition = nil
 	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
 	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	flight.SelectedHolding, flight.HoldingStack = nil, nil
 	flight.HoldingReleaseBasis = nil
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
+	clearFallbackPredictionProgress(flight)
 	flight.RouteRecovery, flight.RouteRefreshAfter, flight.ActiveRouteQueryKey, flight.RouteRefreshQueryKey = nil, nil, "", ""
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
@@ -3104,6 +3197,7 @@ func invalidEssentialReason(surveillance aman.SurveillanceFact) string {
 }
 
 func markPredictionNonPublishable(flight *aman.AMANFlight, reason string) {
+	flight.PredictionFailureReason = &reason
 	retained := flight.Slot != nil || flight.FreezeReason != aman.FreezeNone && flight.FreezeReason != "" ||
 		(flight.ArrivalPathChanged || flight.RunwayChangePending) && flight.Prediction != nil && !isPreliminaryPrediction(flight.Prediction) && !flight.Prediction.OperationalTETA.IsZero()
 	if retained {
@@ -3166,6 +3260,15 @@ func descentStateForRoute(progress *aman.RouteProgress, previous *aman.FlightObs
 	if progress != nil {
 		samples = progress.DescentEvidenceSamples
 	}
+	// Reconciliation may process the same source report several times. It
+	// supplies no new descent sample and must not erase accumulated evidence.
+	if current.Surveillance != nil && current.Surveillance.ObservedAt != nil {
+		at := *current.Surveillance.ObservedAt
+		if progress != nil && progress.ObservedAt != nil && progress.ObservedAt.Equal(at) ||
+			previous != nil && previous.Surveillance != nil && previous.Surveillance.ObservedAt != nil && previous.Surveillance.ObservedAt.Equal(at) {
+			return samples >= descentEvidenceRequired, samples
+		}
+	}
 	if consecutiveDescentObservation(previous, current) {
 		if samples < descentEvidenceRequired {
 			samples++
@@ -3205,6 +3308,8 @@ func markUnknownSTARFamily(flight *aman.AMANFlight, now time.Time) {
 }
 
 func markUnresolvedSTARFamily(flight *aman.AMANFlight, reason string, now time.Time) {
+	flight.STARSelectionRequired = true
+	flight.PredictionFailureReason = &reason
 	if flight.Slot != nil {
 		markPredictionNonPublishable(flight, reason)
 		return
@@ -3218,6 +3323,7 @@ func markUnresolvedSTARFamily(flight *aman.AMANFlight, reason string, now time.T
 	flight.ActiveRouteKey = nil
 	flight.ActiveRouteDatasetID = nil
 	flight.RouteProgress = nil
+	clearFallbackPredictionProgress(flight)
 	flight.RouteRecovery, flight.RouteRefreshAfter, flight.ActiveRouteQueryKey, flight.RouteRefreshQueryKey = nil, nil, "", ""
 	flight.FeederETA = nil
 	flight.DerivedFeederETA = nil
@@ -3385,8 +3491,13 @@ func canReuseActiveRoute(flight aman.AMANFlight, revision uint64, group aman.Run
 // go-around may release that state; a late VATSIM FPL update must not send the
 // aircraft back to an earlier STAR leg.
 func routeProjectionRevision(flight aman.AMANFlight, observed uint64) uint64 {
-	if flight.FreezeReason == aman.FreezeTMA && flight.RouteProgress != nil {
-		return flight.RouteProgress.FlightPlanRevision
+	if flight.FreezeReason == aman.FreezeTMA {
+		if flight.RouteProgress != nil {
+			return flight.RouteProgress.FlightPlanRevision
+		}
+		if prior := flight.FallbackRouteProgress; prior != nil && flight.SelectedRunwayGroup != nil && prior.RunwayGroupID == *flight.SelectedRunwayGroup {
+			return prior.FlightPlanRevision
+		}
 	}
 	return observed
 }

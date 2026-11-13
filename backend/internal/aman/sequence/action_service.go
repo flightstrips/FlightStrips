@@ -12,6 +12,7 @@ import (
 // this service retains coordinator ownership of command IDs and revisions.
 type ActionMutations interface {
 	RebuildArrivalSequence(context.Context, aman.CommandContext, aman.RebuildArrivalSequenceCommand) (CommandMutation, error)
+	InsertFlightAfter(context.Context, aman.CommandContext, aman.InsertFlightAfterCommand) (CommandMutation, error)
 	MoveFlight(aman.CommandContext, aman.MoveFlightCommand) (CommandMutation, error)
 	SwapFlights(aman.CommandContext, aman.SwapFlightsCommand) (CommandMutation, error)
 	PlaceFlightAtTime(aman.CommandContext, aman.PlaceFlightAtTimeCommand) (CommandMutation, error)
@@ -72,6 +73,10 @@ func (*ActionService) Name() string { return "AMAN typed action service" }
 func (s *ActionService) CurrentRevision(ctx context.Context, airport string) (aman.SequenceRevision, error) {
 	state, err := s.coordinator.CurrentState(ctx, airport)
 	return state.Revision, err
+}
+
+func (s *ActionService) InsertFlightAfter(ctx context.Context, auth aman.CommandContext, command aman.InsertFlightAfterCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.InsertFlightAfter(ctx, auth, command) })
 }
 
 func (s *ActionService) MoveFlight(ctx context.Context, auth aman.CommandContext, command aman.MoveFlightCommand) (aman.CommandExecution, error) {

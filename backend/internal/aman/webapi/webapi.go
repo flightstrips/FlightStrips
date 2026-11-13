@@ -152,23 +152,24 @@ type initialTiming struct {
 }
 
 type flightSummary struct {
-	Callsign         string  `json:"callsign"`
-	Origin           string  `json:"origin"`
-	Destination      string  `json:"destination"`
-	LifecycleState   string  `json:"lifecycle_state"`
-	DataStatus       string  `json:"data_status"`
-	RunwayGroupID    *string `json:"runway_group_id"`
-	Feeder           *string `json:"feeder"`
-	Star             *string `json:"star"`
-	FeederFix        *string `json:"feeder_fix"`
-	FeederETA        *string `json:"feeder_eta"`
-	DerivedFeederETA *string `json:"derived_feeder_eta"`
-	FeederSTA        *string `json:"feeder_sta"`
-	DirectTo         *string `json:"direct_to"`
-	HoldingFix       *string `json:"holding_fix"`
-	AircraftType     *string `json:"aircraft_type"`
-	WakeCategory     *string `json:"wake_category"`
-	FiledRoute       *string `json:"filed_route"`
+	Callsign             string  `json:"callsign"`
+	Origin               string  `json:"origin"`
+	Destination          string  `json:"destination"`
+	LifecycleState       string  `json:"lifecycle_state"`
+	DataStatus           string  `json:"data_status"`
+	RunwayGroupID        *string `json:"runway_group_id"`
+	Feeder               *string `json:"feeder"`
+	Star                 *string `json:"star"`
+	FeederFix            *string `json:"feeder_fix"`
+	FeederETA            *string `json:"feeder_eta"`
+	DerivedFeederETA     *string `json:"derived_feeder_eta"`
+	FeederSTA            *string `json:"feeder_sta"`
+	DirectTo             *string `json:"direct_to"`
+	HoldingFix           *string `json:"holding_fix"`
+	ControllerSTARFamily *string `json:"controller_star_family,omitempty"`
+	AircraftType         *string `json:"aircraft_type"`
+	WakeCategory         *string `json:"wake_category"`
+	FiledRoute           *string `json:"filed_route"`
 }
 type position struct {
 	Latitude         float64  `json:"latitude"`
@@ -305,6 +306,7 @@ func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight 
 	}}
 	if observation := flight.LatestObservation; observation != nil {
 		result.Flight.Origin, result.Flight.Destination = observation.Origin, observation.Destination
+		result.Flight.ControllerSTARFamily = cloneString(flight.ControllerSTARFamily)
 		result.Flight.AircraftType, result.Flight.WakeCategory, result.Flight.FiledRoute = cloneString(observation.AircraftType), cloneString(observation.WakeCategory), cloneString(observation.FiledRoute)
 	}
 	if flight.FeederETA != nil && flight.FeederETA.ETA != nil {

@@ -3,6 +3,7 @@ package frontend
 import "FlightStrips/internal/coordinationrequest"
 
 const (
+	AMANInsertFlightAfterType         EventType = "aman.insert_flight_after"
 	AMANMoveFlightType                EventType = "aman.move_flight"
 	AMANSwapFlightsType               EventType = "aman.swap_flights"
 	AMANLockFlightType                EventType = "aman.lock_flight"
@@ -42,6 +43,19 @@ const (
 type AMANCommandMeta struct {
 	CommandID        string `json:"command_id"`
 	ExpectedRevision uint64 `json:"expected_revision"`
+}
+
+type AMANInsertFlightAfterRequest struct {
+	AMANCommandMeta
+	Callsign      string  `json:"callsign"`
+	AfterCallsign string  `json:"after_callsign"`
+	STARFamily    *string `json:"star_family,omitempty"`
+}
+
+type AMANInsertFlightAfterMessage struct {
+	Type    EventType                    `json:"type"`
+	Version int                          `json:"version"`
+	Data    AMANInsertFlightAfterRequest `json:"data"`
 }
 
 type AMANMoveFlightRequest struct {

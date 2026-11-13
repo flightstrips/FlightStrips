@@ -1340,7 +1340,10 @@ func TestDescentStateRequiresConsecutiveReportsAndThenLatches(t *testing.T) {
 	require.False(t, confirmed)
 	require.Equal(t, uint8(1), samples)
 
-	progress := &aman.RouteProgress{DescentEvidenceSamples: samples}
+	progress := &aman.RouteProgress{DescentEvidenceSamples: samples, ObservedAt: second.Surveillance.ObservedAt}
+	repeated, repeatedSamples := descentStateForRoute(progress, &first, second, false)
+	require.False(t, repeated, "fallback must not double-count a report already handled by primary projection")
+	require.Equal(t, uint8(1), repeatedSamples)
 	third := observation(base.Add(30*time.Second), 29_600)
 	confirmed, samples = descentStateForRoute(progress, &second, third, false)
 	require.True(t, confirmed)
@@ -2316,6 +2319,46 @@ func TestRefreshHoldingPlansDerivesFeederETAFromAuthoritativeReleaseAndConfigure
 	first := flight.FeederETA
 	service.refreshHoldingPlans(&state)
 	require.Equal(t, first, state.Flights[0].FeederETA, "replaying the same release and configuration must be deterministic")
+}
+
+func TestHoldingFeederETAUsesConfiguredTransitBeforeDerivedTiming(t *testing.T) {
+	for _, basis := range []aman.PredictionBasis{aman.PredictionBasisPerformanceWind, aman.PredictionBasisFallback} {
+		for _, test := range []struct {
+			name        string
+			configured  *int64
+			derived     bool
+			staleConfig bool
+			want        *int64
+		}{
+			{name: "configured", configured: int64Pointer(195), derived: true, want: int64Pointer(195)},
+			{name: "configured_zero", configured: int64Pointer(0), derived: true, want: int64Pointer(0)},
+			{name: "missing_configured", derived: true, want: int64Pointer(420)},
+			{name: "missing_both"},
+			{name: "mismatched_config", configured: int64Pointer(195), derived: true, staleConfig: true},
+		} {
+			t.Run(string(basis)+"/"+test.name, func(t *testing.T) {
+				now := time.Date(2026, time.November, 11, 12, 0, 0, 0, time.UTC)
+				service, state := holdingFeederETAServiceState(now, "TESPI", "TNO", "EKCH-TESPI-PRIMARY", "ARRIVAL-22L", test.configured)
+				prediction := state.Flights[0].Prediction
+				prediction.Basis = basis
+				if test.derived {
+					transit := 7 * time.Minute
+					prediction.HoldingToFeederTransit = &transit
+				}
+				if test.staleConfig {
+					prediction.ConfigVersion = "obsolete-config"
+				}
+				service.refreshHoldingPlans(&state)
+				require.NotNil(t, state.Flights[0].Prediction.HoldingPlan)
+				if test.want == nil {
+					require.Nil(t, state.Flights[0].FeederETA)
+					return
+				}
+				expected := state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime.Add(time.Duration(*test.want) * time.Second)
+				require.Equal(t, &aman.FeederETAState{ETA: &expected, Source: aman.FeederETASourceHolding}, state.Flights[0].FeederETA)
+			})
+		}
+	}
 }
 
 func TestRefreshHoldingPlansAllowsZeroDurationWhenHoldingAndFeederAreERNOV(t *testing.T) {

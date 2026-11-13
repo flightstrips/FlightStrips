@@ -927,3 +927,40 @@ func (r fixtureReader) TerminalPath(_ context.Context, airport navdata.AirportID
 func (r fixtureReader) ActiveGeometrySnapshot(context.Context, navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
 	return r.snapshot, nil
 }
+
+func TestNewestCompatibleProgressKeepsRouteAndSnapshotBoundaries(t *testing.T) {
+	for _, scenario := range []string{"same_route", "older", "different_route", "different_manifest", "different_terminal", "amended_plan", "different_runway"} {
+		t.Run(scenario, func(t *testing.T) {
+			snapshot, route, input := fixtureInput(t)
+			original := Reduce(snapshot, route, input, Config{}).Progress
+			require.NotNil(t, original)
+			alternativeSnapshot, alternativeRoute, alternativeInput := snapshot, route, input
+			nextAt := input.Observation.ObservedAt.Add(15 * time.Second)
+			alternativeInput.Observation.ObservedAt = &nextAt
+			alternativeInput.Observation.LongitudeDegrees = .75
+			switch scenario {
+			case "older":
+				nextAt = input.Observation.ObservedAt.Add(-15 * time.Second)
+			case "different_route":
+				alternativeRoute.Digest = "another-filed-route"
+			case "different_manifest":
+				alternativeSnapshot.ManifestRevision++
+			case "different_terminal":
+				alternativeSnapshot.Manifest.TerminalDigest = "another-terminal-snapshot"
+			case "amended_plan":
+				alternativeInput.FlightPlanRevision++
+			case "different_runway":
+				alternativeInput.RunwayGroup = "OTHER"
+			}
+			alternate := Reduce(alternativeSnapshot, alternativeRoute, alternativeInput, Config{}).Progress
+			require.NotNil(t, alternate)
+			input.Prior = original
+			chosen := NewestCompatibleProgress(snapshot, route, input, alternate)
+			if scenario == "same_route" {
+				require.Same(t, alternate, chosen)
+			} else {
+				require.Same(t, original, chosen)
+			}
+		})
+	}
+}

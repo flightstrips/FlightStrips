@@ -236,6 +236,16 @@ func TestEstimateRETAUsesOnlyAcceptedGroundspeedAndRouteDistance(t *testing.T) {
 	require.Equal(t, "aman-cph-reta-v1", result.ModelVersion)
 }
 
+func TestLightRETAKeepsObservedSpeedBelowJetMinimum(t *testing.T) {
+	input := performanceInput()
+	input.WakeTurbulenceCategory, input.CurrentGroundspeedKnots = CategoryLight, 80
+	input.Remaining[0].DistanceNM = 40
+	input.Remaining = input.Remaining[:1]
+	result, err := EstimateRETA(input, PerformanceWindConfig{})
+	require.NoError(t, err)
+	require.Equal(t, 30*time.Minute, result.Duration)
+}
+
 func TestAMANCPHUsesTurbopropDescentProfiles(t *testing.T) {
 	require.Equal(t, 220.0, descentIASForAircraft("AT76", CategoryMedium, 20_000, 280))
 	require.Equal(t, 200.0, descentIASForAircraft("DH8D", CategoryMedium, 8_000, 280))

@@ -11,6 +11,7 @@ const epoch = "2026-10-29T18:00:00.000Z";
 interface NativeMessage {generated_at: string; values: Array<{callsign: string; data_status: string; gain_loss_seconds?: number}>}
 const hasNativeGuidance = (event: NativeMessage, callsign: string) => event.values?.some(value => value.callsign === callsign && value.data_status === "fresh" && value.gain_loss_seconds !== undefined);
 
+
 async function nativeFrame(request: APIRequestContext, accepts: (event: NativeMessage) => boolean) {
   let selected = "";
   await expect.poll(async () => {
@@ -267,4 +268,41 @@ test("running AMAN preserves healthy targets, diagnoses degradation and persists
   } finally {
     await testInfo.attach("websocket-frames", {body: JSON.stringify(frames, null, 2), contentType: "application/json"});
   }
+});
+
+test("fallback prediction and insertion interleave another STAR and survive provider recovery", async ({page, request}) => {
+  let state: AMANState | undefined;
+  page.on("websocket", socket => socket.on("framereceived", ({payload}) => {
+    if (typeof payload !== "string") return;
+    const event = JSON.parse(payload);
+    if (event.type === "aman.state") state = event.data;
+  }));
+  await identity(page, backend);
+  expect((await request.post(`${backend}/e2e/scenario`, {data: {name: "provider-error"}})).ok()).toBe(true);
+  await openAMAN(page);
+  await page.getByRole("button", {name: "RWY", exact: true}).click();
+  await expect.poll(() => ["SAS202", "CCA877Q"].every(callsign => state?.flights.some(flight => flight.callsign === callsign && flight.basic_estimate && flight.data_status === "fresh" && flight.slot))).toBe(true);
+  await expect.poll(() => state?.technical_health.ready).toBe(true);
+  const insert = async (callsign: string, after: string) => {
+    await settledRevision(request, () => state?.revision);
+    await target(page, callsign).click();
+    await page.getByRole("button", {name: "Insert behind…", exact: true}).click();
+    const dialog = page.getByRole("dialog", {name: `Insert behind · ${callsign}`});
+    await dialog.getByLabel("Behind aircraft").selectOption(after);
+    await dialog.getByRole("button", {name: `Insert behind ${after}`, exact: true}).click();
+    await expect(dialog.getByText("Server confirmed insertion and updated the sequence.")).toBeVisible();
+    await dialog.getByRole("button", {name: "Close", exact: true}).click();
+  };
+  // The controller's relative instruction must leave the independent stream
+  // free to use the runway capacity between these two TESPI arrivals.
+  await insert("SAS202", "SAS101");
+  await expect.poll(() => state?.flights.filter(flight => flight.slot).sort((a, b) => a.slot!.sequence - b.slot!.sequence).map(flight => flight.callsign)).toEqual(["SAS101", "CCA877Q", "SAS202"]);
+  const inserted = state!.flights.find(flight => flight.callsign === "SAS202")!;
+  expect(inserted.feeder_fix_eta).toBeTruthy();
+  expect(inserted.approach_release_time).toBeTruthy();
+  const persisted = await (await request.get(`${backend}/e2e/persisted`)).json();
+  expect(persisted.Flights.find((flight: {Callsign: string}) => flight.Callsign === "SAS202").ManualPosition.AfterCallsign).toBe("SAS101");
+  expect((await request.post(`${backend}/e2e/scenario`, {data: {name: "provider-recovery"}})).ok()).toBe(true);
+  await expect.poll(() => state?.flights.filter(flight => flight.basic_estimate).length).toBe(0);
+  expect(state!.flights.find(flight => flight.callsign === "SAS202")!.slot!.sequence).toBeGreaterThan(state!.flights.find(flight => flight.callsign === "SAS101")!.slot!.sequence);
 });

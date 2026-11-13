@@ -20,6 +20,7 @@ export interface AMANFlightDetail {
     feeder_sta?: string | null;
     direct_to: string | null;
     holding_fix: string | null;
+    controller_star_family?: string;
     aircraft_type: string | null;
     wake_category: string | null;
     filed_route: string | null;
@@ -116,7 +117,7 @@ export interface AMANTETABasis {
   confidence: string;
   model_version: string;
   config_version: string;
-  prediction_basis: "" | "performance_wind" | "reta";
+  prediction_basis: "" | "performance_wind" | "reta" | "basic_terminal";
   performance_profile_id: string | null;
   weather_source: string | null;
   sources: string[];

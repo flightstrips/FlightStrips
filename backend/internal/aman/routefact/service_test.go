@@ -3,6 +3,7 @@ package routefact
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/trajectory"
 	"FlightStrips/internal/coordinationrequest"
 	internalModels "FlightStrips/internal/models"
 	"context"
@@ -302,4 +303,66 @@ func requireDomainClass(t *testing.T, err error, class aman.ErrorClass) {
 	require.Error(t, err)
 	require.True(t, errors.As(err, &domainErr))
 	require.Equal(t, class, domainErr.Class)
+}
+
+func TestLiveDirectToValidatesFallbackOnlyForwardTerminalPath(t *testing.T) {
+	now := time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
+	for _, scenario := range []string{"accepted", "unauthorized", "passed_fix", "off_path", "incomplete_terminal", "wrong_runway", "no_accepted_prediction", "retained_route_accepted", "retained_route_passed_fix", "stale_terminal_progress"} {
+		t.Run(scenario, func(t *testing.T) {
+			geo := geometry(now)
+			geo.snapshot.ManifestRevision = 1
+			path := navdata.TerminalPath{Airport: "EKCH", Version: geo.snapshot.Manifest.Version, Feeder: "FEEDER", FeederFix: "KEMAX", STARFamily: "FEEDER", RunwayGroup: "GROUP", Digest: "terminal-digest", Coverage: navdata.CoverageComplete, Legs: geo.route.Legs}
+			geo.snapshot.TerminalPaths = []navdata.TerminalPath{path}
+			at, speed, altitude := now, 300.0, 10000
+			input := trajectory.Input{Airport: "EKCH", Feeder: "FEEDER", FeederFix: "KEMAX", RunwayGroup: "GROUP", FlightPlanRevision: 7, Observation: aman.SurveillanceFact{LatitudeDegrees: 54.75, LongitudeDegrees: 11.75, ObservedAt: &at, GroundspeedKnots: &speed, AltitudeFeet: &altitude}}
+			projected, err := trajectory.ProjectTerminalFallback(geo.snapshot, path, input, trajectory.Config{})
+			require.NoError(t, err)
+			flight := routedFlight()
+			flight.ActiveRouteKey, flight.RouteProgress = nil, nil
+			feederFix := "KEMAX"
+			flight.SelectedFeederFix, flight.FallbackRouteProgress = &feederFix, projected.Progress
+			flight.Prediction = &aman.Prediction{Basis: aman.PredictionBasisFallback, Publishable: true, GeometryDigest: projected.GeometryDigest}
+			if scenario == "retained_route_accepted" || scenario == "retained_route_passed_fix" {
+				key, oldAt := "obsolete-filed-route", now.Add(-time.Minute)
+				flight.ActiveRouteKey = &key
+				flight.RouteProgress = &aman.RouteProgress{GeometryDigest: geo.route.Digest, ManifestRevision: geo.snapshot.ManifestRevision, FlightPlanRevision: 6, RunwayGroupID: "GROUP", ObservedAt: &oldAt, RejoinLegIndex: 0}
+			}
+			target, controller := "KEMAX", "EKCH_A_APP"
+			switch scenario {
+			case "unauthorized":
+				controller = "EKCH_B_APP"
+			case "passed_fix", "retained_route_passed_fix":
+				target = "PASSED"
+			case "off_path":
+				target = "OFFPATH"
+			case "incomplete_terminal":
+				geo.snapshot.TerminalPaths[0].Coverage = navdata.CoveragePartial
+			case "stale_terminal_progress":
+				geo.snapshot.ManifestRevision++
+			case "wrong_runway":
+				other := aman.RunwayGroupID("OTHER")
+				flight.SelectedRunwayGroup = &other
+			case "no_accepted_prediction":
+				flight.Prediction = nil
+			}
+			repo := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{flight}}}
+			pub, rec := &publisher{}, &reconciler{}
+			svc, err := New(Dependencies{Repository: repo, Strips: &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP"}}, Geometry: geo, Publisher: pub, Reconciler: rec, Now: func() time.Time { return now }, NewID: func() string { return "fallback-direct" }})
+			require.NoError(t, err)
+			err = svc.ReportDirectTo(t.Context(), 42, "EKCH", "SAS123", controller, &target, now)
+			if scenario != "accepted" && scenario != "retained_route_accepted" {
+				require.Error(t, err)
+				require.Zero(t, repo.commits)
+				require.Zero(t, pub.calls)
+				require.Zero(t, rec.calls)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, "KEMAX", repo.state.Flights[0].ActiveRouteFact.Fix)
+			require.Equal(t, 1, repo.commits)
+			require.Equal(t, 1, rec.calls)
+			require.NoError(t, svc.ReportDirectTo(t.Context(), 42, "EKCH", "SAS123", controller, &target, now))
+			require.Equal(t, 1, repo.commits, "the accepted direct remains idempotent")
+		})
+	}
 }

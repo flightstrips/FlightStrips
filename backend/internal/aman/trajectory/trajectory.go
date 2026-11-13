@@ -196,6 +196,19 @@ func Project(ctx context.Context, readers Readers, input Input, config Config) (
 	return Reduce(snapshot, route, input, config), nil
 }
 
+// NewestCompatibleProgress selects a newer accepted physical anchor without
+// transferring leg indices between routes, terminal snapshots or assignments.
+func NewestCompatibleProgress(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry, input Input, alternate *aman.RouteProgress) *aman.RouteProgress {
+	if !baseCompatible(alternate, route.Digest, snapshot, input) || alternate.ObservedAt == nil {
+		return input.Prior
+	}
+	prior := input.Prior
+	if baseCompatible(prior, route.Digest, snapshot, input) && prior.ObservedAt != nil && !alternate.ObservedAt.After(*prior.ObservedAt) {
+		return prior
+	}
+	return alternate
+}
+
 // ReadFiledRoute loads the full filed-route geometry for an on-demand display.
 // It reads only the active cache and never materializes or acquires navigation
 // data on the request path.

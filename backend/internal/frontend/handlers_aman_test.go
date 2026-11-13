@@ -23,6 +23,7 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		payload   string
 		operation string
 	}{
+		{"insert_after", frontendEvents.AMANInsertFlightAfterType, `{"type":"aman.insert_flight_after","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"TARGET","after_callsign":"ANCHOR","star_family":"TESPI"}}`, "insert_after"},
 		{"swap", frontendEvents.AMANSwapFlightsType, `{"type":"aman.swap_flights","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","other_callsign":"flight-2"}}`, "swap"},
 		{"move", frontendEvents.AMANMoveFlightType, `{"type":"aman.move_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1","runway_group_id":"A","before_callsign":"flight-2"}}`, "move"},
 		{"lock", frontendEvents.AMANLockFlightType, `{"type":"aman.lock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"callsign":"flight-1"}}`, "lock"},
@@ -387,6 +388,10 @@ func (s *recordingAMANCommandService) record(operation string, auth aman.Command
 	}
 	return s.execution, s.err
 }
+func (s *recordingAMANCommandService) InsertFlightAfter(_ context.Context, auth aman.CommandContext, command aman.InsertFlightAfterCommand) (aman.CommandExecution, error) {
+	return s.record("insert_after", auth, command.Metadata)
+}
+
 func (s *recordingAMANCommandService) MoveFlight(_ context.Context, auth aman.CommandContext, command aman.MoveFlightCommand) (aman.CommandExecution, error) {
 	return s.record("move", auth, command.Metadata)
 }

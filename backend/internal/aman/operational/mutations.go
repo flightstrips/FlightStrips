@@ -413,6 +413,7 @@ func (s *Service) RemoveFlight(auth aman.CommandContext, command aman.RemoveFlig
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		state.Flights[index] = result.Flight
+		state.Flights[index].ControllerSTARFamily = nil
 		clearSequencingState(&state.Flights[index])
 		expireActiveRouteFact(&state.Flights[index])
 		promotions := s.resequence(&state, auth.ReceivedAt)
@@ -980,6 +981,7 @@ func assignFlightToRunwayGroup(flight *aman.AMANFlight, group aman.RunwayGroupID
 	flight.SelectedHolding, flight.HoldingStack = nil, nil
 	flight.HoldingReleaseBasis = nil
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
+	clearFallbackPredictionProgress(flight)
 	flight.Slot, flight.Order, flight.ManualOrder = nil, nil, nil
 	flight.QueueOffers = nil
 }
@@ -1115,9 +1117,18 @@ func (s *Service) SetManualETA(auth aman.CommandContext, command aman.SetManualE
 
 func (s *Service) ResetTETAOverride(auth aman.CommandContext, command aman.ResetTETAOverrideCommand) (sequence.CommandMutation, error) {
 	return s.flightMutation("reset_teta_override", command.Callsign, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
+		starChanged := flight.ControllerSTARFamily != nil
+		if starChanged {
+			flight.ControllerSTARFamily = nil
+			flight.ArrivalPathChanged = true
+		}
 		if flight.ETAReview != nil && flight.ETAReview.Status != aman.ReviewNone {
 			result, err := etareview.ResolveReset(prediction.DefaultConfig(), flight, etareview.Reset{At: auth.ReceivedAt, Actor: auth.Actor})
 			return result.Flight, result.Changed, err
+		}
+		if starChanged && flight.FreezeReason != aman.FreezeManual {
+			flight.UpdatedAt = auth.ReceivedAt
+			return flight, true, nil
 		}
 		updated, err := prediction.ReleaseManualOperationalTETA(prediction.DefaultConfig(), flight, auth.ReceivedAt)
 		return updated, err == nil, err
@@ -1344,6 +1355,7 @@ func (s *Service) flightMutationWithAudit(action string, callsign aman.Callsign,
 
 func (s *Service) commandChange(state aman.AirportState, changed bool, action string, callsign aman.Callsign, extra map[string]any) (sequence.CommandChange, error) {
 	if changed {
+		s.populateInsertionOptions(&state)
 		state.Flights = slices.Clone(state.Flights)
 		s.refreshGroundArrivalPlans(&state, state.GeneratedAt)
 		s.refreshHoldingPlans(&state)

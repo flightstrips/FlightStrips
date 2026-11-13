@@ -29,7 +29,7 @@ func optimizeMovableOrder(policy preparedPolicy, protected []allocatedEntry, ord
 			trials++
 			ordered[i], ordered[i+1] = right, left
 			candidate, err := allocateMovableFlights(policy, protected, ordered)
-			if err == nil && starInversions(candidate) <= starInversions(best) && (sequenceDelay(candidate) < bestDelay ||
+			if err == nil && retainsSTAROrder(best, candidate) && (sequenceDelay(candidate) < bestDelay ||
 				(sequenceDelay(candidate) == bestDelay && reducesSTARInversions(best, candidate))) && retainsOrderBoundaries(best, candidate) {
 				best, bestDelay = candidate, sequenceDelay(candidate)
 				noteOperation(&ordered[i], "automatic_order_optimization")
@@ -87,8 +87,7 @@ func optimizeStableSameSTAR(policy preparedPolicy, entries []allocatedEntry) []a
 		afterDelay := sequenceDelay([]allocatedEntry{trialLeft, trialRight})
 		precedes, comparable := starPrecedes(right.flight, left.flight)
 		if !automaticTargetReachable(policy, trialLeft) || !automaticTargetReachable(policy, trialRight) ||
-			(comparable && !precedes) || afterDelay > beforeDelay ||
-			(afterDelay == beforeDelay && !precedes) ||
+			!comparable || !precedes || afterDelay > beforeDelay ||
 			!adjacentValid(policy, trialLeft, trialRight) ||
 			(i > 0 && !adjacentValid(policy, entries[i-1], trialLeft)) ||
 			(i+2 < len(entries) && !adjacentValid(policy, trialRight, entries[i+2])) {
@@ -146,6 +145,73 @@ func matchingRouteSuffix(a, b []string) bool {
 
 func reducesSTARInversions(before, after []allocatedEntry) bool {
 	return starInversions(after) < starInversions(before)
+}
+
+// Reallocation can move flights other than the adjacent trial pair. Check
+// every crossing, rather than an aggregate inversion count: unknown progress
+// must not authorize a crossing, nor may fixing one inversion pay for another.
+func retainsSTAROrder(before, after []allocatedEntry) bool {
+	positions := make(map[aman.Callsign]int, len(after))
+	for i, entry := range after {
+		positions[entry.flight.Callsign] = i
+	}
+	for i, entry := range before {
+		for _, later := range before[i+1:] {
+			if sameSelectedSTAR(entry.flight, later.flight) && positions[later.flight.Callsign] < positions[entry.flight.Callsign] {
+				if precedes, comparable := starPrecedes(later.flight, entry.flight); !comparable || !precedes {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+func sameSelectedSTAR(a, b preparedFlight) bool {
+	return a.SelectedSTARFamily != "" && a.SelectedSTARFamily == b.SelectedSTARFamily
+}
+
+// Ordinary inbound traffic needs positive physical evidence to pass an
+// earlier arrival on its selected STAR. Actual holding queues and controller
+// relationships have their own precedence rules and are deliberately excluded.
+func automaticSTARPrecedes(a, b preparedFlight) bool {
+	if !automaticSTAROrderApplies(a, b) {
+		return false
+	}
+	if precedes, comparable := starPrecedes(a, b); comparable {
+		return precedes
+	}
+	// With two reservations, retain their committed relative order despite
+	// changing operational estimates. New arrivals use initial timing order;
+	// this is a conservative scheduling boundary, not claimed physical evidence.
+	if a.CurrentSlot != nil && b.CurrentSlot != nil {
+		return automaticSTARReservationPrecedes(a, b)
+	}
+	return a.OperationalTETA.Before(b.OperationalTETA) ||
+		(a.OperationalTETA.Equal(b.OperationalTETA) && a.Callsign < b.Callsign)
+}
+
+func automaticSTAROrderApplies(a, b preparedFlight) bool {
+	return sameSelectedSTAR(a, b) && a.ManualOrder == nil && b.ManualOrder == nil &&
+		!positionPrecedes(a, b) && !positionPrecedes(b, a) &&
+		a.FreezeReason != aman.FreezeManual && b.FreezeReason != aman.FreezeManual &&
+		a.State != aman.StateGoAround && b.State != aman.StateGoAround &&
+		a.ReleaseRank == nil && b.ReleaseRank == nil && !a.RebuildTMA && !b.RebuildTMA &&
+		!hasHoldingPriority(a) && !hasHoldingPriority(b)
+}
+
+// Process committed arrivals in reservation order, which remains acyclic even
+// when only some physical progress is comparable. Physical corrections belong
+// to placement and optimization, where all crossed arrivals remain visible;
+// mixing physical and fallback edges here can deadlock A -> B -> C -> A.
+func automaticSTARReservationPrecedes(a, b preparedFlight) bool {
+	if a.CurrentSlot == nil || b.CurrentSlot == nil || !automaticSTAROrderApplies(a, b) {
+		return false
+	}
+	if !a.CurrentSlot.Time.Equal(b.CurrentSlot.Time) {
+		return a.CurrentSlot.Time.Before(b.CurrentSlot.Time)
+	}
+	return a.CurrentSlot.Sequence < b.CurrentSlot.Sequence
 }
 
 func starInversions(entries []allocatedEntry) int {

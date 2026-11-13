@@ -24,6 +24,7 @@ export function AMANSwapDialog({flight, flights, disabled, busy, rejection, onCl
     <DialogContent className="w-[min(28rem,calc(100vw-1rem))] border-2 border-[#dcdcdc] bg-[#5174b8] font-display text-sm text-white">
       <DialogTitle>Swap sequence · {flight.callsign}</DialogTitle>
       <p>Exchange sequence positions with another aircraft on {flight.star_family ?? "this STAR"}, runway {flight.runway_group_id ?? "unavailable"}. Spacing may change the assigned times.</p>
+      <p>Automatic superstable slots can be reassigned. Manual and TMA freezes remain protected.</p>
       <label className="grid gap-1">
         Swap with
         <select autoFocus className="rounded border border-[#dcdcdc] bg-[#244477] p-2 text-white disabled:opacity-50" disabled={disabled || busy || !eligible} onChange={(event) => setOtherCallsign(event.target.value)} value={other?.callsign ?? ""}>
@@ -32,7 +33,7 @@ export function AMANSwapDialog({flight, flights, disabled, busy, rejection, onCl
         </select>
       </label>
       {other && <p>#{flight.slot?.sequence} {flight.callsign} ↔ #{other.slot?.sequence} {other.callsign}</p>}
-      {(!eligible || candidates.length === 0) && <p role="status">Two sequenced, unfrozen aircraft on the same STAR and runway are required.</p>}
+      {(!eligible || candidates.length === 0) && <p role="status">Two sequenced aircraft on the same STAR and runway, without manual or TMA freezes, are required.</p>}
       {disabled && <p role="status">Sequence changes are currently unavailable.</p>}
       {busy && <p role="status">Waiting for the updated sequence…</p>}
       {rejection && <p className="rounded border border-red-200 bg-red-950 p-2" role="alert">{rejection}</p>}

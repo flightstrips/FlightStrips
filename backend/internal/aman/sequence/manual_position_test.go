@@ -22,6 +22,57 @@ func commitManualCandidate(input sequence.Input, result sequence.Result) sequenc
 	return input
 }
 
+func TestSwappedManualPositionSurvivesMixedSTARProgress(t *testing.T) {
+	for _, protected := range []bool{false, true} {
+		name := "movable"
+		if protected {
+			name = "protected"
+		}
+		t.Run(name, func(t *testing.T) {
+			at := testTime()
+			input := sequence.Input{Revision: 7, Policies: []sequence.Policy{simplePolicy("A", at, 60)}, Flights: []sequence.Flight{
+				queueFlight("FIRST", "A", at, "M", 1, at),
+				queueFlight("MIDDLE", "A", at.Add(time.Minute), "M", 2, at.Add(time.Minute)),
+				queueFlight("LAST", "A", at.Add(2*time.Minute), "M", 3, at.Add(2*time.Minute)),
+			}}
+			for i := range input.Flights {
+				f := &input.Flights[i]
+				f.SelectedSTARFamily, f.ProtectCurrentSlot = "TESPI", protected
+				if !protected {
+					f.State = aman.StateAirborne
+				}
+			}
+			// FIRST physically precedes LAST, while MIDDLE has no comparable
+			// progress. The controller explicitly reverses the committed order.
+			firstETA, lastETA := at.Add(10*time.Minute), at.Add(12*time.Minute)
+			input.Flights[0].STARProgress = &sequence.STARProgress{Fix: "ROSBI", ETA: &firstETA, TerminalDigest: "terminal"}
+			input.Flights[2].STARProgress = &sequence.STARProgress{Fix: "ROSBI", ETA: &lastETA, TerminalDigest: "terminal"}
+			decision, err := sequence.ApplySwap(input, aman.SwapFlightsCommand{
+				Metadata: aman.CommandMetadata{CommandID: "swap", ExpectedRevision: 7}, Callsign: "FIRST", OtherCallsign: "LAST",
+			})
+			require.NoError(t, err)
+			require.Equal(t, []aman.Callsign{"LAST", "MIDDLE", "FIRST"}, entryIDs(decision.Candidate))
+			working := commitManualCandidate(decision.Input, decision.Candidate)
+			encoded, err := json.Marshal(working)
+			require.NoError(t, err)
+			var restored sequence.Input
+			require.NoError(t, json.Unmarshal(encoded, &restored))
+			for attempt := 0; attempt < 2; attempt++ {
+				slices.Reverse(restored.Flights)
+				precedence, err := sequence.ManualPositionPrecedence(restored)
+				require.NoError(t, err)
+				require.True(t, precedence["FIRST"]["MIDDLE"])
+				require.True(t, precedence["MIDDLE"]["LAST"])
+				result, err := sequence.Generate(restored)
+				require.NoError(t, err)
+				require.False(t, result.HasConflicts())
+				require.Equal(t, entryIDs(decision.Candidate), entryIDs(result))
+				restored = commitManualCandidate(restored, result)
+			}
+		})
+	}
+}
+
 func TestManuallyPositionedFlightCanTakeEarlierSlot(t *testing.T) {
 	at := testTime()
 	input := sequence.Input{Revision: 7, Policies: []sequence.Policy{simplePolicy("A", at, 60)}, Flights: []sequence.Flight{

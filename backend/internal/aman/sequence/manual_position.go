@@ -89,7 +89,10 @@ func resolveManualHoldingOrder(flights []preparedFlight) error {
 			holding = append(holding, flight)
 		}
 	}
-	ordered, err := orderMovableFlights(holding)
+	// This pass orders holding candidates before merging their FIFO edges
+	// with controller relationships. Those relationships are absent from the
+	// copies above, so automatic STAR edges would lose their manual exceptions.
+	ordered, err := orderFlightsByPrecedence(holding, false)
 	if err != nil {
 		return err
 	}

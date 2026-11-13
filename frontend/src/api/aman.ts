@@ -934,7 +934,7 @@ export function isUnslottedAMANFlight(flight: AMANFlight): boolean {
 export function canSwapAMANFlight(flight: AMANFlight | null): flight is AMANFlight {
   return flight !== null && flight.slot !== null && flight.slot !== undefined
     && Boolean(flight.star_family) && Boolean(flight.runway_group_id)
-    && flight.freeze_reason === "none" && !flight.expedited
+    && (flight.freeze_reason === "none" || flight.freeze_reason === "superstable") && !flight.expedited
     && (flight.sequence_disposition ?? "active") === "active"
     && ["unstable", "stable", "go_around"].includes(flight.lifecycle_state);
 }

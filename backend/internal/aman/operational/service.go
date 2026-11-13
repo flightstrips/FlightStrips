@@ -1868,6 +1868,7 @@ func applyResolvedTerminalIdentity(flight *aman.AMANFlight, path navdata.Termina
 type sequenceChanges struct {
 	Promotions      []sequence.VacancyPromotion
 	Operations      []sequence.Operation
+	STAROrder       []sequence.STAROrderSnapshot
 	Spacing         []sequence.SpacingSnapshot
 	PreviousSpacing []sequence.SpacingSnapshot
 }
@@ -1969,6 +1970,7 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) sequenceCh
 	changes := sequenceChanges{Promotions: promotions, Operations: result.Operations}
 	if len(result.Movements) > 0 {
 		changes.Spacing = sequence.SpacingDiagnostics(input)
+		changes.STAROrder = sequence.STAROrderDiagnostics(input, result)
 	}
 	return changes
 }
@@ -2097,6 +2099,11 @@ func vacancyPromotionAuditEntries(promotions sequenceChanges) []sequence.AuditEn
 	for _, operation := range promotions.Operations {
 		payload, _ := json.Marshal(map[string]any{"callsign": operation.Callsign, "operation": operation.Kind})
 		entries = append(entries, sequence.AuditEntry{Category: "aman.sequence_operation", Payload: payload})
+	}
+	if len(promotions.STAROrder) > 0 {
+		if payload, err := json.Marshal(map[string]any{"pairs": promotions.STAROrder}); err == nil {
+			entries = append(entries, sequence.AuditEntry{Category: "aman.star_order_evaluated", Payload: payload})
+		}
 	}
 	if len(promotions.Spacing) > 0 {
 		payload, _ := json.Marshal(map[string]any{"previous": promotions.PreviousSpacing, "current": promotions.Spacing})

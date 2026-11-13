@@ -83,6 +83,46 @@ test("a saved session with a stale instance asks only for the instance and resto
   expect(auth.map(x => (x.board as {instance_id: string}).instance_id)).toEqual(["second", "second"]);
 });
 
+test("explicit chooser navigation survives discovery resolving a stale saved session", async ({page}) => {
+  await page.addInitScript(() => sessionStorage.setItem("flightstrips.airport-session.v1", JSON.stringify({session: 1, instance: "deleted"})));
+  const members = [membership(1, "AAAA", "first"), membership(1, "AAAA", "second"), membership(2, "BBBB", "b1"), membership(2, "BBBB", "b2")];
+  const auth = await setup(page, members);
+  await page.goto("/visual-tests/airport-session-preview.html");
+  await expect(page.getByRole("heading", {name: "Choose your plugin instance"})).toBeVisible();
+  await page.getByRole("button", {name: "Back to airports"}).click();
+  await page.getByRole("button", {name: /BBBB/}).click();
+  members.splice(1, 1);
+  members[1].callsign = "UPDATED_B";
+  await expect(page.getByRole("button", {name: /UPDATED_B/})).toBeVisible({timeout: 10_000});
+  await expect(page.getByTestId("selected-board")).not.toBeVisible();
+  expect(auth).toHaveLength(0);
+  await page.getByRole("button", {name: /b2/}).click();
+  await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "2");
+  expect((auth[0].board as {instance_id: string}).instance_id).toBe("b2");
+});
+
+test("a withdrawn membership switches to the same plugin's remaining session after five minutes", async ({page}) => {
+  const clockStart = new Date("2026-11-13T21:00:00Z");
+  await page.clock.install({time: clockStart});
+  await page.clock.pauseAt(new Date(clockStart.getTime() + 1000));
+  const members = [membership(1, "EKBI"), membership(2, "EKCH")];
+  const auth = await setup(page, members);
+  await page.goto("/visual-tests/airport-session-preview.html");
+  await page.getByRole("button", {name: /EKBI/}).click();
+  await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "1");
+  members.shift();
+  await page.clock.runFor(5000);
+  await expect(page.getByTestId("selected-board")).toHaveAttribute("data-read-only", "true");
+  const refreshed = page.waitForResponse("**/api/plugin-memberships");
+  await page.clock.fastForward(295_000);
+  await refreshed;
+  await page.clock.runFor(1000);
+  await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "1");
+  await page.clock.runFor(5000);
+  await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "2");
+  expect(auth.map(x => (x.board as {session_id: number}).session_id)).toEqual([1, 2]);
+});
+
 test("multiple compatible own instances require a deliberate choice", async ({page}) => {
   const auth = await setup(page, [membership(1, "AAAA", "first"), membership(1, "AAAA", "second")]);
   await page.goto("/visual-tests/airport-session-preview.html");

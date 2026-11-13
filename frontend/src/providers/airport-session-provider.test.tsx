@@ -18,7 +18,11 @@ const session = (m: OwnMembership, ...others: OwnMembership[]): AuthorizedSessio
 const mount = async () => {await act(async () => {render(<AirportSessionProvider url="ws://test"><AirportSwitcher/></AirportSessionProvider>);});};
 const selectionKey = "flightstrips.airport-session.v1";
 const saveHint = (session: number, instance = "own") => sessionStorage.setItem(selectionKey, JSON.stringify({session, instance}));
-const refresh = async () => {await act(async () => {await vi.advanceTimersByTimeAsync(5000);});};
+const refresh = async (ms = 5000) => {
+  for (let elapsed = 0; elapsed < ms; elapsed += 5000) {
+    await act(async () => {await vi.advanceTimersByTimeAsync(Math.min(5000, ms - elapsed));});
+  }
+};
 
 beforeEach(() => {sessionStorage.clear(); window.history.replaceState(null, "", "/"); vi.clearAllMocks(); vi.useFakeTimers(); mocks.discover.mockResolvedValue([]);});
 afterEach(() => {cleanup(); vi.useRealTimers();});
@@ -100,6 +104,36 @@ describe("per-tab airport selection", () => {
     expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
   });
 
+  it.each([false, true])("preserves explicit navigation when discovery makes the saved session unambiguous (open other session: %s)", async openOther => {
+    saveHint(1, "deleted");
+    const other = session(member({session_id: 2, airport: "BBBB", instance_id: "b1", callsign: "B1"}), member({session_id: 2, airport: "BBBB", instance_id: "b2", callsign: "B2"}));
+    mocks.discover.mockResolvedValue([session(member(), member({instance_id: "second"})), other]);
+    await mount();
+    fireEvent.click(screen.getByRole("button", {name: "Back to airports"}));
+    if (openOther) fireEvent.click(screen.getByRole("button", {name: /BBBB/}));
+    mocks.discover.mockResolvedValue([session(member()), other]);
+    await refresh();
+    expect(screen.queryByTestId("board")).not.toBeInTheDocument();
+    expect(screen.getByText(openOther ? "Choose your plugin instance" : "Choose airport session")).toBeInTheDocument();
+    // Even the exact saved instance returning must not override navigation.
+    mocks.discover.mockResolvedValue([session(member(), member({instance_id: "deleted"})), other]);
+    await refresh();
+    expect(screen.queryByTestId("board")).not.toBeInTheDocument();
+    if (!openOther) fireEvent.click(screen.getByRole("button", {name: /BBBB/}));
+    fireEvent.click(screen.getByRole("button", {name: /B2/}));
+    expect(screen.getByTestId("board")).toHaveAttribute("data-instance", "b2");
+  });
+
+  it("automatically resolves an ambiguous saved session on refresh before any explicit navigation", async () => {
+    saveHint(1, "deleted");
+    const other = session(member({session_id: 2, airport: "BBBB"}));
+    mocks.discover.mockResolvedValue([session(member(), member({instance_id: "second"})), other]);
+    await mount();
+    mocks.discover.mockResolvedValue([session(member()), other]);
+    await refresh();
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+  });
+
   it("requires an instance choice in the only session when the saved session no longer exists", async () => {
     saveHint(2);
     mocks.discover.mockResolvedValue([session(member(), member({instance_id: "second", callsign: "SECOND"}))]);
@@ -172,5 +206,73 @@ describe("per-tab airport selection", () => {
     expect(screen.getByTestId("board")).toHaveAttribute("data-membership", "rejoined");
     expect(screen.getByTestId("board")).toHaveAttribute("data-available", "true");
     expect(JSON.parse(sessionStorage.getItem(selectionKey)!)).toEqual({session: 1, instance: "own"});
+  });
+
+  it("switches to the sole remaining session on the same plugin after five minutes of membership loss", async () => {
+    saveHint(1);
+    mocks.discover.mockResolvedValue([session(member())]);
+    await mount();
+    fireEvent.click(screen.getByRole("button", {name: "Local 0"}));
+    mocks.discover.mockResolvedValue([session(member({session_id: 2, airport: "BBBB"}))]);
+    await refresh();
+    await refresh(295_000);
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+    expect(screen.getByText("Local 1")).toBeInTheDocument();
+    await refresh();
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
+    expect(screen.getByText("Local 0")).toBeInTheDocument();
+    expect(JSON.parse(sessionStorage.getItem(selectionKey)!)).toEqual({session: 2, instance: "own"});
+    cleanup();
+    await mount();
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
+  });
+
+  it("resets the grace period when the selected session recovers", async () => {
+    saveHint(1);
+    const original = session(member());
+    const other = session(member({session_id: 2, airport: "BBBB"}));
+    mocks.discover.mockResolvedValue([original, other]);
+    await mount();
+    mocks.discover.mockResolvedValue([other]);
+    await refresh(250_000);
+    mocks.discover.mockResolvedValue([original, other]);
+    await refresh();
+    mocks.discover.mockResolvedValue([other]);
+    await refresh(250_000);
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+    await refresh(55_000);
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
+  });
+
+  it.each(["multiple sessions", "multiple instances", "offline plugin", "failed discovery"])("does not switch after five minutes with %s", async scenario => {
+    saveHint(1);
+    mocks.discover.mockResolvedValue([session(member())]);
+    await mount();
+    const replacement = member({session_id: 2, airport: "BBBB"});
+    if (scenario === "multiple sessions") mocks.discover.mockResolvedValue([session(replacement), session(member({session_id: 3, airport: "CCCC"}))]);
+    if (scenario === "multiple instances") mocks.discover.mockResolvedValue([session(replacement, member({...replacement, instance_id: "other"}))]);
+    if (scenario === "offline plugin") mocks.discover.mockResolvedValue([session(member({...replacement, instance_id: "other"}))]);
+    if (scenario === "failed discovery") {
+      mocks.discover.mockResolvedValue([session(replacement)]);
+      await refresh();
+      mocks.discover.mockRejectedValue(new Error("Network error"));
+    }
+    await refresh(310_000);
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+    expect(JSON.parse(sessionStorage.getItem(selectionKey)!)).toEqual({session: 1, instance: "own"});
+  });
+
+  it("preserves an open manual chooser when the active session's grace period expires", async () => {
+    saveHint(1);
+    mocks.discover.mockResolvedValue([session(member())]);
+    await mount();
+    mocks.discover.mockResolvedValue([session(member({session_id: 2, airport: "BBBB"}))]);
+    await refresh();
+    fireEvent.click(screen.getByRole("button", {name: "Switch airport session"}));
+    await refresh(300_000);
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: /BBBB/}));
+    expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
   });
 });

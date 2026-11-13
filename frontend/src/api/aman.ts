@@ -21,6 +21,7 @@ export interface AMANStateEvent {
 }
 
 export interface AMANState {
+  insertion_star_families?: Record<string, string[]>;
   holding_eat_writeback_enabled?: boolean;
   holding_eat_writeback_available?: boolean;
   session_id?: number;
@@ -202,6 +203,12 @@ export interface AMANTrafficFlight {
 }
 
 export interface AMANFlight {
+  /** Current usable surveillance, independent of retained prediction quality. */
+  surveillance_fresh?: boolean;
+  basic_estimate?: boolean;
+  star_selection_required?: boolean;
+  prediction_reason?: string;
+  controller_star_family?: string;
   callsign: string;
   /** Optional for compatibility with older AMAN state publishers. */
   aircraft_type?: string;
@@ -388,6 +395,7 @@ export interface AMANCommandRejection {
 
 export type AMANCommandType =
   | "aman.rebuild_arrival_sequence"
+  | "aman.insert_flight_after"
   | "aman.move_flight"
   | "aman.swap_flights"
   | "aman.lock_flight"
@@ -429,6 +437,7 @@ export interface AMANCommandMeta {
 
 export type AMANCommandIntent =
   | {type: "aman.rebuild_arrival_sequence"}
+  | {type: "aman.insert_flight_after"; callsign: string; after_callsign: string; star_family?: string}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; before_callsign: string}
   | {type: "aman.swap_flights"; callsign: string; other_callsign: string}
   | {type: "aman.move_flight"; callsign: string; runway_group_id: string; after_callsign: string}
@@ -609,6 +618,11 @@ function isFlight(value: unknown): value is AMANFlight {
     && (value.expedited === undefined || typeof value.expedited === "boolean")
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)
     && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star)
+    && (value.surveillance_fresh === undefined || typeof value.surveillance_fresh === "boolean")
+    && (value.star_selection_required === undefined || typeof value.star_selection_required === "boolean")
+    && (value.basic_estimate === undefined || typeof value.basic_estimate === "boolean")
+    && (value.prediction_reason === undefined || isString(value.prediction_reason))
+    && (value.controller_star_family === undefined || isIdentity(value.controller_star_family))
     && isOptionalNullableIdentity(value.star_family) && isOptionalNullableIdentity(value.feeder_fix) && isNullableIdentity(value.holding_fix)
     && hasValidFeederETA(value)
     && (value.holding_started_at === undefined || isTimestamp(value.holding_started_at))
@@ -847,6 +861,7 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && Array.isArray(data.flights) && data.flights.every(isFlight)
     && Array.isArray(data.runway_groups) && data.runway_groups.every(isRunwayGroup)
     && hasValidActiveRunwayGroups(data)
+    && (data.insertion_star_families === undefined || isObject(data.insertion_star_families) && Object.values(data.insertion_star_families).every(value => Array.isArray(value) && value.every(isIdentity)))
     && (data.timeline_configuration === undefined || isTimelineConfiguration(data.timeline_configuration))
     && (data.traffic_prediction === undefined || isTrafficPrediction(data.traffic_prediction))
     && isTechnicalHealth(data.technical_health)
@@ -903,6 +918,17 @@ export function isExcludedAMANFlight(flight: AMANFlight): boolean {
   return flight.lifecycle_state === "removed"
     ? flight.lifecycle_reason === "manual_removal"
     : flight.lifecycle_state !== "landed" && flight.sequence_disposition === "desequenced";
+}
+
+export function canInsertAMANFlight(flight: AMANFlight | null): boolean {
+  return flight !== null && (flight.surveillance_fresh ?? flight.data_status === "fresh")
+    && ["airborne", "unstable", "stable", "go_around"].includes(flight.lifecycle_state)
+    && flight.sequence_disposition !== "desequenced" && !flight.expedited;
+}
+
+export function isUnslottedAMANFlight(flight: AMANFlight): boolean {
+  return !flight.slot && ["airborne", "unstable", "stable", "go_around"].includes(flight.lifecycle_state)
+    && flight.sequence_disposition !== "desequenced" && !flight.expedited;
 }
 
 export function canSwapAMANFlight(flight: AMANFlight | null): flight is AMANFlight {

@@ -9,13 +9,15 @@ import {AMANCoordinationInbox} from "@/components/aman/AMANCoordinationInbox";
 import {AMANCoordinationRequestDialog} from "@/components/aman/AMANCoordinationRequestDialog";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
 import {AMANQuickGapDialog} from "@/components/aman/AMANQuickGapDialog";
+import {AMANInsertBehindDialog} from "@/components/aman/AMANInsertBehindDialog";
+import {AMANUnslottedFlights} from "@/components/aman/AMANUnslottedFlights";
 import {AMANSwapDialog} from "@/components/aman/AMANSwapDialog";
 import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
 import {AMANSettingsPanel} from "@/components/aman/AMANSettingsPanel";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
-import {canSwapAMANFlight, getAMANMutationBlockReason, isExcludedAMANFlight} from "@/api/aman";
+import {canInsertAMANFlight, canSwapAMANFlight, getAMANMutationBlockReason, isExcludedAMANFlight, isUnslottedAMANFlight} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {EKCH_STAR_FAMILY_HOLDING, EKCH_TMT_HOLDING_ORDER, holdingsForFamilies} from "@/config/aman";
@@ -49,6 +51,8 @@ export default function AMAN() {
   const [removalCommandID, setRemovalCommandID] = useState<string | null>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [quickGapOpen, setQuickGapOpen] = useState(false);
+  const [insertCallsign, setInsertCallsign] = useState<string | null>(null);
+  const insertFlight = state?.flights.find(flight => flight.callsign === insertCallsign);
   const [swapOpen, setSwapOpen] = useState(false);
   const [swapCommandID, setSwapCommandID] = useState<string | null>(null);
   const [focusedRunwayGroupID, setFocusedRunwayGroupID] = useState<string | null>(null);
@@ -71,6 +75,7 @@ export default function AMAN() {
     {id: "holdings", label: "Holdings"},
     {id: "warnings", label: `Warnings (${warnings.items.length})`},
     {id: "settings", label: "Settings"},
+    {id: "unslotted", label: `Without slots (${state?.flights.filter(isUnslottedAMANFlight).length ?? 0})`},
     {id: "excluded", label: `Excluded (${state?.flights.filter(isExcludedAMANFlight).length ?? 0})`},
     {id: "ctot", label: `CTOT (${inboundDepartures?.ctot_flights?.length ?? 0})`},
     ...(!hasFMPAuthority ? [{id: "coordination", label: `Coordination (${state?.coordination_requests?.filter(request => request.state === "pending").length ?? 0})`}] : []),
@@ -197,6 +202,9 @@ export default function AMAN() {
             {activeTmtTab === "settings" && <div aria-labelledby="tmt-settings-tab" className="aman-tmt-notices" id="tmt-settings-panel" role="tabpanel" tabIndex={0}>
               <AMANSettingsPanel state={state} connectionState={connectionState} hasFMPAuthority={hasFMPAuthority} readOnly={readOnly} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
             </div>}
+            {activeTmtTab === "unslotted" && <div aria-labelledby="tmt-unslotted-tab" id="tmt-unslotted-panel" role="tabpanel" tabIndex={0}>
+              <AMANUnslottedFlights flights={state?.flights ?? []} disabled={mutationBlockReason !== null} onInsert={setInsertCallsign} />
+            </div>}
             {activeTmtTab === "excluded" && <div aria-labelledby="tmt-excluded-tab" id="tmt-excluded-panel" role="tabpanel" tabIndex={0}>
               <AMANExcludedFlights flights={state?.flights ?? []} disabled={mutationBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
             </div>}
@@ -247,6 +255,7 @@ export default function AMAN() {
               }} type="button"><span>{label}</span>{child && <span aria-hidden="true">▶</span>}</button>
             ))}
             <div className="mx-1 my-0.5 border-t-2 border-white" />
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canInsertAMANFlight(dialogFlight)} onClick={() => { setFlightActionsOpen(false); setInsertCallsign(dialogCallsign); }} type="button">Insert behind…</button>
             <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canSwapAMANFlight(dialogFlight)} onClick={() => {
               setFlightActionsOpen(false);
               setSwapCommandID(null);
@@ -280,6 +289,7 @@ export default function AMAN() {
           {mutationBlockReason !== null && <p className="sr-only">Operational changes are currently unavailable: {mutationBlockReason.replaceAll("_", " ")}.</p>}
         </DialogContent>
       </Dialog>
+      {insertFlight && state && <AMANInsertBehindDialog key={insertFlight.callsign} flight={insertFlight} state={state} disabled={mutationBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} onClose={() => setInsertCallsign(null)} />}
       <AMANQuickGapDialog
         busy={Object.values(pendingCommands).some((command) => command.type === "aman.create_gap" || command.type === "aman.remove_gap")}
         disabled={mutationBlockReason !== null || dialogFlight === null}

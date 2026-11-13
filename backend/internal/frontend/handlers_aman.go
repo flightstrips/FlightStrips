@@ -21,6 +21,7 @@ import (
 
 func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventType, *Client]) {
 	handlers.Add(events.AMANRebuildArrivalSequenceType, handleAMANRebuildArrivalSequence)
+	handlers.Add(events.AMANInsertFlightAfterType, handleAMANInsertFlightAfter)
 	handlers.Add(events.AMANMoveFlightType, handleAMANMoveFlight)
 	handlers.Add(events.AMANSwapFlightsType, handleAMANSwapFlights)
 	handlers.Add(events.AMANLockFlightType, handleAMANLockFlight)
@@ -239,6 +240,17 @@ func handleAMANPlaceFlightAtTime(ctx context.Context, client *Client, message Me
 	command := aman.PlaceFlightAtTimeCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), SlotTime: slotTime, AllowGap: *wire.Data.AllowGap}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.PlaceFlightAtTime(ctx, auth, command)
+	})
+}
+
+func handleAMANInsertFlightAfter(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANInsertFlightAfterMessage
+	if err := decodeAMANMessage(message, events.AMANInsertFlightAfterType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	command := aman.InsertFlightAfterCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), AfterCallsign: aman.Callsign(wire.Data.AfterCallsign), STARFamily: wire.Data.STARFamily}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.InsertFlightAfter(ctx, auth, command)
 	})
 }
 

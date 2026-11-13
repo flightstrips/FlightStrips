@@ -1,7 +1,7 @@
 import {readFileSync} from "node:fs";
 import {describe, expect, it} from "vitest";
 
-import {getAMANHeaderReadModel, isAMANStateEvent, replaceAMANState} from "../../src/api/aman";
+import {canInsertAMANFlight, getAMANHeaderReadModel, isAMANStateEvent, replaceAMANState} from "../../src/api/aman";
 
 const path = process.env.AMAN_CONTRACT_OUTPUT;
 if (!path) throw new Error("Run npm run test:contract:aman to generate real Go publisher output first.");
@@ -13,6 +13,20 @@ function scenario(name: string) {
 }
 
 describe("Go AMAN publisher → TypeScript state replacement", () => {
+  it("retains stale guidance while allowing STAR recovery from current surveillance", () => {
+    const event = scenario("star_recovery_fresh_surveillance");
+    expect(event.data.flights[0]).toMatchObject({data_status: "stale", surveillance_fresh: true, star_selection_required: true});
+    expect(canInsertAMANFlight(event.data.flights[0])).toBe(true);
+    const invalid = structuredClone(event);
+    (invalid.data.flights[0] as unknown as Record<string, unknown>).surveillance_fresh = "fresh";
+    expect(isAMANStateEvent(invalid)).toBe(false);
+  });
+
+  it("preserves fallback provenance and controller STAR choices", () => {
+    const event = scenario("basic_terminal_fallback");
+    expect(event.data.flights[0]).toMatchObject({basic_estimate: true, controller_star_family: "TESPI", prediction_reason: "basic_terminal_estimate:route provider unavailable"});
+    expect(Object.values(event.data.insertion_star_families ?? {})).toContainEqual(["MONAK", "TESPI"]);
+  });
   it.each(scenarios)("accepts the serialized $name state", ({name, event}) => {
     expect(isAMANStateEvent(event)).toBe(true);
     const result = replaceAMANState(null, event);

@@ -47,6 +47,13 @@ func (g *amanCommandGate) authorize(ctx context.Context, airport ...string) erro
 	return &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN controller mutations are blocked: " + reason}
 }
 
+func (g *amanCommandGate) InsertFlightAfter(ctx context.Context, auth aman.CommandContext, command aman.InsertFlightAfterCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.InsertFlightAfter(ctx, auth, command)
+}
+
 func (g *amanCommandGate) MoveFlight(ctx context.Context, auth aman.CommandContext, command aman.MoveFlightCommand) (aman.CommandExecution, error) {
 	if err := g.authorize(aman.WithSession(ctx, auth.SessionID), auth.Airport); err != nil {
 		return aman.CommandExecution{}, err

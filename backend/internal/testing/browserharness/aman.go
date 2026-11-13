@@ -75,14 +75,16 @@ func newAMANSuite() suite {
 					return
 				}
 				switch request.Name {
-				case "healthy", "spike", "unreliable", "recovery", "outage":
+				case "healthy", "spike", "unreliable", "recovery", "outage", "provider-error", "provider-recovery":
 				default:
 					http.Error(w, "unknown scenario", 400)
 					return
 				}
 				h.mu.Lock()
 				h.scenario = request.Name
-				if request.Name == "unreliable" {
+				if request.Name == "provider-recovery" {
+					h.clock.Advance(90 * time.Second)
+				} else if request.Name == "unreliable" {
 					h.clock.Advance(121 * time.Second)
 				} else {
 					h.clock.Advance(time.Second)

@@ -45,6 +45,37 @@ func TestUnreliablePredictionSuppressesGuidanceInBothTransports(t *testing.T) {
 	require.NotNil(t, front.Data.Flights[0].Slot, "a degraded prediction never releases the reservation")
 }
 
+func TestFreshSurveillanceDoesNotMakeRetainedStaleGuidanceCurrentInEitherTransport(t *testing.T) {
+	state := goldenAMANState()
+	flight := &state.Flights[0]
+	flight.DataStatus = aman.DataStale
+	altitude, speed := 10000, 200.0
+	flight.LatestObservation = &aman.FlightObservation{Callsign: flight.Callsign, Origin: "ESSA", Destination: state.Airport, SourceStatus: aman.DataFresh, ReconciledAt: state.GeneratedAt, Surveillance: &aman.SurveillanceFact{ObservedAt: &state.GeneratedAt, AltitudeFeet: &altitude, GroundspeedKnots: &speed, LatitudeDegrees: 56, LongitudeDegrees: 12}}
+	reason := "route provider and cached terminal prediction unavailable"
+	flight.PredictionFailureReason = &reason
+	flight.Prediction.DegradationReason = &reason
+	flight.Prediction.Calculation = &aman.PredictionCalculation{NoWindDuration: 20 * time.Minute, Duration: 20 * time.Minute, Legs: []aman.PredictionLeg{{ID: "terminal", From: "TESPI", To: "ILS-22L", DistanceNM: 80, NoWindDuration: 20 * time.Minute, Duration: 20 * time.Minute}}}
+	front, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, "stale", front.Data.Flights[0].DataStatus)
+	require.True(t, front.Data.Flights[0].SurveillanceFresh)
+	require.Equal(t, reason, *front.Data.Flights[0].PredictionReason)
+	require.NotNil(t, front.Data.Flights[0].GainLossSeconds)
+	require.NotNil(t, front.Data.Flights[0].Slot)
+	es, err := euroscopeEvents.NewAMANGainLossEvent(state)
+	require.NoError(t, err)
+	wire, err := es.Marshal()
+	require.NoError(t, err)
+	_, payload, err := euroscopeEvents.UnmarshalEnvelope(wire)
+	require.NoError(t, err)
+	var decoded euroscopeEvents.AMANGainLossEvent
+	require.NoError(t, proto.Unmarshal(payload, &decoded))
+	require.Equal(t, "stale", decoded.Values[0].DataStatus)
+	require.NotNil(t, decoded.Values[0].GainLossSeconds)
+	require.NotNil(t, decoded.Values[0].HoldingEatUnixSeconds)
+	require.Equal(t, aman.DataFresh, flight.LatestObservation.SourceStatus)
+}
+
 func TestAircraftDegradationIsScopedInBothTransports(t *testing.T) {
 	for _, unreliable := range []bool{false, true} {
 		t.Run(map[bool]string{false: "stale_input", true: "unreliable_prediction"}[unreliable], func(t *testing.T) {
@@ -709,4 +740,15 @@ func timePointer(value time.Time) *time.Time { return &value }
 func intPointer(value int) *int              { return &value }
 func testTime(hour, minute int) time.Time {
 	return time.Date(2026, 7, 22, hour, minute, 0, 0, time.UTC)
+}
+
+func TestSurveillanceEligibilityExpiresIndependentlyOfFreshPrediction(t *testing.T) {
+	state := goldenAMANState()
+	altitude, speed := 10000, 200.0
+	observed := state.GeneratedAt.Add(-aman.ArrivalSurveillanceFreshness - time.Second)
+	state.Flights[0].LatestObservation = &aman.FlightObservation{Callsign: state.Flights[0].Callsign, Origin: "ESSA", Destination: state.Airport, ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh, Surveillance: &aman.SurveillanceFact{ObservedAt: &observed, AltitudeFeet: &altitude, GroundspeedKnots: &speed, LatitudeDegrees: 56, LongitudeDegrees: 12}}
+	front, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, "fresh", front.Data.Flights[0].DataStatus)
+	require.False(t, front.Data.Flights[0].SurveillanceFresh)
 }

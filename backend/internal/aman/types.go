@@ -397,10 +397,14 @@ type SurveillanceFact struct {
 // used for lifecycle and sequencing. RawTETA continues to move during a
 // freeze; OperationalTETA is the only value consumers sequence.
 type Prediction struct {
-	RawTETA           time.Time
-	RawRETA           *time.Time
-	OperationalTETA   time.Time
-	OperationalReason OperationalReason
+	// HoldingToFeederTransit is derived from the same accepted terminal-leg
+	// durations as TETA. It supplies EAT-based feeder timing when the terminal
+	// configuration does not carry a nominal holding-to-feeder duration.
+	HoldingToFeederTransit *time.Duration
+	RawTETA                time.Time
+	RawRETA                *time.Time
+	OperationalTETA        time.Time
+	OperationalReason      OperationalReason
 
 	GeneratedAt       time.Time
 	InputObservedAt   time.Time
@@ -487,10 +491,11 @@ type PredictionBasis string
 const (
 	PredictionBasisPerformanceWind PredictionBasis = "performance_wind"
 	PredictionBasisRETA            PredictionBasis = "reta"
+	PredictionBasisFallback        PredictionBasis = "basic_terminal"
 )
 
 func (b PredictionBasis) Valid() bool {
-	return b == "" || b == PredictionBasisPerformanceWind || b == PredictionBasisRETA
+	return b == "" || b == PredictionBasisPerformanceWind || b == PredictionBasisRETA || b == PredictionBasisFallback
 }
 
 // HoldingPlan is the slot-derived arrival-management plan for a flight that
@@ -755,6 +760,13 @@ type RouteProgress struct {
 	// arrival from making the predictor project a return to filed cruise.
 	DescentConfirmed       bool
 	DescentEvidenceSamples uint8
+}
+
+// DescentEvidence persists surveillance evidence independently of route geometry.
+// A basic STAR join has no accepted route leg on which to store this evidence.
+type DescentEvidence struct {
+	Confirmed bool
+	Samples   uint8
 }
 
 // ETAReviewStatus is the durable state of the first-Unstable TETA review.
@@ -1050,6 +1062,13 @@ type AMANFlight struct {
 	// timing have been rebuilt. It does not release a protected holding slot.
 	RunwayChangePending bool
 	TMAEntry            *TMAEntryState
+	// Fallback progress must not become the physical anchor of a recovered
+	// provider route, whose leg indices and digest are different.
+	FallbackRouteProgress   *RouteProgress
+	FallbackDescent         *DescentEvidence
+	STARSelectionRequired   bool
+	ControllerSTARFamily    *string
+	PredictionFailureReason *string
 	// ManualSequenceIncluded is retained for persisted-state compatibility.
 	// WTC/L aircraft are automatically sequenceable regardless of engine.
 	ManualSequenceIncluded bool
@@ -1100,12 +1119,13 @@ func (f AMANFlight) TerminalPathIdentity() (feederFix, legacySTARFamily string) 
 // AirportState is the sole source for one coherent AMAN replacement state.
 // Revisions are allocated only when a committed domain result changes it.
 type AirportState struct {
-	SessionID     int32
-	Airport       string
-	Revision      SequenceRevision
-	GeneratedAt   time.Time
-	PolicyVersion string
-	Mode          RolloutMode
+	InsertionSTARFamilies map[RunwayGroupID][]string
+	SessionID             int32
+	Airport               string
+	Revision              SequenceRevision
+	GeneratedAt           time.Time
+	PolicyVersion         string
+	Mode                  RolloutMode
 	// Nil preserves the deployment feature flag default for existing sessions.
 	HoldingEATWritebackEnabled *bool
 	Authoritative              bool
@@ -1228,6 +1248,9 @@ func (s SurveillanceFact) validate() error {
 }
 
 func (p Prediction) Validate() error {
+	if p.HoldingToFeederTransit != nil && *p.HoldingToFeederTransit < 0 {
+		return invalid("holding-to-feeder transit cannot be negative")
+	}
 	if err := requireUTCTime("raw TETA", p.RawTETA); err != nil {
 		return err
 	}
@@ -1565,6 +1588,9 @@ func (f AMANFlight) Validate() error {
 		if f.RouteProgress.DescentConfirmed && f.RouteProgress.DescentEvidenceSamples == 0 {
 			return invalid("confirmed route descent requires surveillance evidence")
 		}
+	}
+	if f.FallbackDescent != nil && f.FallbackDescent.Confirmed && f.FallbackDescent.Samples == 0 {
+		return invalid("confirmed fallback descent requires surveillance evidence")
 	}
 	if f.TMAEntry != nil {
 		if err := f.TMAEntry.Validate(); err != nil {

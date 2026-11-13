@@ -44,24 +44,25 @@ func (e AMANStateEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (AMANStateEvent) GetType() EventType         { return AMANStateType }
 
 type AMANState struct {
-	SessionID                    int32                 `json:"session_id,omitempty"`
-	Airport                      string                `json:"airport"`
-	Revision                     uint64                `json:"revision"`
-	GeneratedAt                  string                `json:"generated_at"`
-	PolicyVersion                string                `json:"policy_version"`
-	EffectiveMode                string                `json:"effective_mode"`
-	HoldingEATWritebackEnabled   bool                  `json:"holding_eat_writeback_enabled"`
-	HoldingEATWritebackAvailable bool                  `json:"holding_eat_writeback_available"`
-	Authoritative                bool                  `json:"authoritative"`
-	Flights                      []AMANFlight          `json:"flights"`
-	RunwayGroups                 []AMANRunwayGroup     `json:"runway_groups"`
-	ActiveRunwayGroups           []string              `json:"active_runway_groups,omitempty"`
-	Header                       *AMANHeader           `json:"header,omitempty"`
-	TimelineConfig               *AMANTimelineConfig   `json:"timeline_configuration,omitempty"`
-	TrafficPrediction            AMANTrafficPrediction `json:"traffic_prediction"`
-	HoldingInformation           []AMANHoldingEntry    `json:"holding_information"`
-	Warnings                     []AMANWarning         `json:"warnings"`
-	TechnicalHealth              AMANTechnicalHealth   `json:"technical_health"`
+	InsertionSTARFamilies        map[aman.RunwayGroupID][]string `json:"insertion_star_families,omitempty"`
+	SessionID                    int32                           `json:"session_id,omitempty"`
+	Airport                      string                          `json:"airport"`
+	Revision                     uint64                          `json:"revision"`
+	GeneratedAt                  string                          `json:"generated_at"`
+	PolicyVersion                string                          `json:"policy_version"`
+	EffectiveMode                string                          `json:"effective_mode"`
+	HoldingEATWritebackEnabled   bool                            `json:"holding_eat_writeback_enabled"`
+	HoldingEATWritebackAvailable bool                            `json:"holding_eat_writeback_available"`
+	Authoritative                bool                            `json:"authoritative"`
+	Flights                      []AMANFlight                    `json:"flights"`
+	RunwayGroups                 []AMANRunwayGroup               `json:"runway_groups"`
+	ActiveRunwayGroups           []string                        `json:"active_runway_groups,omitempty"`
+	Header                       *AMANHeader                     `json:"header,omitempty"`
+	TimelineConfig               *AMANTimelineConfig             `json:"timeline_configuration,omitempty"`
+	TrafficPrediction            AMANTrafficPrediction           `json:"traffic_prediction"`
+	HoldingInformation           []AMANHoldingEntry              `json:"holding_information"`
+	Warnings                     []AMANWarning                   `json:"warnings"`
+	TechnicalHealth              AMANTechnicalHealth             `json:"technical_health"`
 }
 
 // AMANHeader is a display-ready projection of backend-owned state. It keeps
@@ -205,15 +206,20 @@ type AMANTrafficFlight struct {
 }
 
 type AMANFlight struct {
-	Callsign            string  `json:"callsign"`
-	AircraftType        *string `json:"aircraft_type,omitempty"`
-	WakeCategory        *string `json:"wake_category,omitempty"`
-	LifecycleState      string  `json:"lifecycle_state"`
-	LifecycleReason     string  `json:"lifecycle_reason,omitempty"`
-	Expedited           bool    `json:"expedited,omitempty"`
-	SequenceDisposition string  `json:"sequence_disposition"`
-	DataStatus          string  `json:"data_status"`
-	RunwayGroupID       *string `json:"runway_group_id"`
+	SurveillanceFresh     bool    `json:"surveillance_fresh"`
+	STARSelectionRequired bool    `json:"star_selection_required,omitempty"`
+	BasicEstimate         bool    `json:"basic_estimate,omitempty"`
+	PredictionReason      *string `json:"prediction_reason,omitempty"`
+	ControllerSTARFamily  *string `json:"controller_star_family,omitempty"`
+	Callsign              string  `json:"callsign"`
+	AircraftType          *string `json:"aircraft_type,omitempty"`
+	WakeCategory          *string `json:"wake_category,omitempty"`
+	LifecycleState        string  `json:"lifecycle_state"`
+	LifecycleReason       string  `json:"lifecycle_reason,omitempty"`
+	Expedited             bool    `json:"expedited,omitempty"`
+	SequenceDisposition   string  `json:"sequence_disposition"`
+	DataStatus            string  `json:"data_status"`
+	RunwayGroupID         *string `json:"runway_group_id"`
 	// Feeder and Star retain the deployed STAR-family aliases for older V1
 	// clients. New clients must use the explicit identities below.
 	Feeder                    *string                   `json:"feeder"`
@@ -422,7 +428,8 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		return AMANStateEvent{}, fmt.Errorf("map AMAN technical health: %w", err)
 	}
 	data := AMANState{
-		SessionID: state.SessionID, Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
+		InsertionSTARFamilies: state.InsertionSTARFamilies,
+		SessionID:             state.SessionID, Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
 		PolicyVersion: state.PolicyVersion, EffectiveMode: string(effectiveMode), Authoritative: state.Authoritative,
 		Flights: make([]AMANFlight, 0, len(state.Flights)), RunwayGroups: make([]AMANRunwayGroup, len(state.RunwayGroups)),
 		TechnicalHealth: technicalHealth,
@@ -676,6 +683,8 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		return AMANFlight{}, err
 	}
 	result := AMANFlight{
+		SurveillanceFresh:     aman.HasFreshArrivalSurveillance(flight.LatestObservation, generatedAt),
+		STARSelectionRequired: flight.STARSelectionRequired, ControllerSTARFamily: cloneString(flight.ControllerSTARFamily), PredictionReason: cloneString(flight.PredictionFailureReason), BasicEstimate: flight.Prediction != nil && flight.Prediction.Basis == aman.PredictionBasisFallback,
 		Callsign: flight.Callsign, LifecycleState: string(flight.State),
 		SequenceDisposition: string(flight.SequenceDisposition.OrDefault()),
 		Expedited:           flight.Expedited,
@@ -683,6 +692,9 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder),
 		STARFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		FreezeReason: freezeReason, Order: cloneInt(flight.Order), QueueOffers: make([]AMANQueueOffer, len(flight.QueueOffers)),
+	}
+	if result.PredictionReason == nil && flight.Prediction != nil {
+		result.PredictionReason = cloneString(flight.Prediction.DegradationReason)
 	}
 	if flight.LatestObservation != nil {
 		result.AircraftType = cloneString(flight.LatestObservation.AircraftType)

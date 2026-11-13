@@ -24,12 +24,28 @@ func (h *amanSuite) feed(w http.ResponseWriter, r *http.Request) {
 
 		pilots := []any{}
 		for i, callsign := range []string{"SAS101", "SAS202", "CCA877Q"} {
+			route := "DCT TESPI"
 			lat, lon, speed := 57.0+float64(i)*.15, 13.3, 420
 			lon = 13.4 + (lat-56.1)*(17.92-13.4)/(59.65-56.1)
+			if scenario == "provider-error" || scenario == "provider-recovery" {
+				route = "DCT BROKEN TESPI"
+				// Keep surveillance continuous: this scenario exercises route
+				// acquisition failure, not a rejected position discontinuity.
+				if callsign == "SAS202" && scenario == "provider-error" {
+					speed = 300
+				}
+				if callsign == "CCA877Q" {
+					route, lat, lon = "DCT BROKEN MONAK", 56.45, 11.4
+				}
+			}
 			if callsign == "CCA877Q" && (scenario == "spike" || scenario == "unreliable") {
 				speed = 180
 			}
-			pilots = append(pilots, map[string]any{"cid": 100000 + i, "callsign": callsign, "latitude": lat, "longitude": lon, "altitude": 25000, "groundspeed": speed, "logon_time": epoch.Add(-time.Hour), "last_updated": at, "flight_plan": map[string]any{"flight_rules": "I", "aircraft": "A320/M", "aircraft_short": "A320", "departure": "ESSA", "arrival": "EKCH", "deptime": epoch.Add(-30 * time.Minute).Format("1504"), "enroute_time": "0100", "altitude": "25000", "route": "DCT TESPI", "revision_id": 1}})
+			revision := 1
+			if scenario == "provider-error" || scenario == "provider-recovery" {
+				revision = 2 // The changed filed route requires fresh acquisition.
+			}
+			pilots = append(pilots, map[string]any{"cid": 100000 + i, "callsign": callsign, "latitude": lat, "longitude": lon, "altitude": 25000, "groundspeed": speed, "logon_time": epoch.Add(-time.Hour), "last_updated": at, "flight_plan": map[string]any{"flight_rules": "I", "aircraft": "A320/M", "aircraft_short": "A320", "departure": "ESSA", "arrival": "EKCH", "deptime": epoch.Add(-30 * time.Minute).Format("1504"), "enroute_time": "0100", "altitude": "25000", "route": route, "revision_id": revision}})
 		}
 		writeJSON(w, map[string]any{"general": map[string]any{"update_timestamp": at}, "pilots": pilots, "prefiles": []any{}})
 	case r.URL.Path == "/api/v1/airac/current":
@@ -41,7 +57,15 @@ func (h *amanSuite) feed(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(r.URL.Path, "/api/v1/waypoints/"):
 		writeJSON(w, map[string]any{"status": "success", "data": point(path.Base(r.URL.Path))})
 	case r.URL.Path == "/api/v1/routes/parse":
-		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"total_distance": 185, "segments": []any{map[string]any{"from": point("ESSA"), "to": point("TESPI"), "distance": 185, "bearing": 210}}, "errors": []any{}}})
+		if scenario == "provider-error" {
+			http.Error(w, "controlled third-party route error", http.StatusBadGateway)
+			return
+		}
+		entry := "TESPI"
+		if strings.Contains(r.URL.Query().Get("route"), "MONAK") {
+			entry = "MONAK"
+		}
+		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"total_distance": 185, "segments": []any{map[string]any{"from": point("ESSA"), "to": point(entry), "distance": 185, "bearing": 210}}, "errors": []any{}}})
 	case r.URL.Path == "/v1/gfs":
 		// A supported missing-weather response exercises the production fallback,
 		// including its warning and authority policy; no predictor is replaced.

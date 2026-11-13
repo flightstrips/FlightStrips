@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.7.0...docs/v1.8.0) (2026-11-13)
+
+
+### Features
+
+* **aman:** add sector-file navigation fallback ([#1146](https://github.com/flightstrips/FlightStrips/issues/1146)) ([cc173f8](https://github.com/flightstrips/FlightStrips/commit/cc173f8f13a437cc97f15db38df8e81ac49e9d16))
+
+
+### Bug Fixes
+
+* **aman:** preserve same-STAR order and allow superstable swaps ([#1153](https://github.com/flightstrips/FlightStrips/issues/1153)) ([c878f98](https://github.com/flightstrips/FlightStrips/commit/c878f9827f041d03cc0c3e1b34e234fcdb0acb83))
+* **strip:** correct EKCH arrival and departure transfers ([#1131](https://github.com/flightstrips/FlightStrips/issues/1131)) ([707da08](https://github.com/flightstrips/FlightStrips/commit/707da08126c8ac3700f85f6ced5a5f6c0dc2c9af))
+
 ## [1.7.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.6.1...docs/v1.7.0) (2026-11-10)
 
 

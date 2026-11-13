@@ -27,7 +27,12 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 describe("analytics consent", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     vi.clearAllMocks();
+    // Model the SDK's persisted consent check rather than a no-op opt-out.
+    posthogMock.opt_out_capturing.mockImplementation(() => localStorage.setItem("__ph_opt_in_out_phc_test", "0"));
+    posthogMock.opt_in_capturing.mockImplementation(() => localStorage.setItem("__ph_opt_in_out_phc_test", "1"));
+    posthogMock.has_opted_out_capturing.mockImplementation(() => localStorage.getItem("__ph_opt_in_out_phc_test") === "0");
     window.__APP_CONFIG__ = { posthogKey: "phc_test" };
   });
 
@@ -88,6 +93,9 @@ describe("analytics consent", () => {
     analytics.setConsent("granted");
     await flush();
     localStorage.setItem("ph_phc_test_posthog", "{}");
+    localStorage.setItem("__ph_identifier", "identifier");
+    sessionStorage.setItem("ph_phc_test_session", "session");
+    localStorage.setItem("unrelated-setting", "keep");
 
     analytics.setConsent("denied");
     await flush();
@@ -95,7 +103,37 @@ describe("analytics consent", () => {
     expect(posthogMock.opt_out_capturing).toHaveBeenCalled();
     expect(posthogMock.reset).toHaveBeenCalled();
     expect(localStorage.getItem("ph_phc_test_posthog")).toBeNull();
+    expect(localStorage.getItem("__ph_identifier")).toBeNull();
+    expect(sessionStorage.getItem("ph_phc_test_session")).toBeNull();
+    expect(localStorage.getItem("unrelated-setting")).toBe("keep");
+    expect(localStorage.getItem("__ph_opt_in_out_phc_test")).toBe("0");
+    expect(posthogMock.has_opted_out_capturing()).toBe(true);
     expect(analytics.readConsent()?.status).toBe("denied");
+  });
+
+  it("keeps the SDK disabled until consent is explicitly granted again", async () => {
+    const analytics = await loadModule();
+    analytics.setConsent("granted");
+    await flush();
+    analytics.setConsent("denied");
+    await flush();
+    expect(posthogMock.has_opted_out_capturing()).toBe(true);
+
+    analytics.setConsent("granted");
+    await flush();
+    expect(posthogMock.opt_in_capturing).toHaveBeenCalledOnce();
+    expect(posthogMock.startSessionRecording).toHaveBeenCalledOnce();
+    expect(posthogMock.has_opted_out_capturing()).toBe(false);
+  });
+
+  it("preserves a stored SDK opt-out when declining without loading analytics", async () => {
+    localStorage.setItem("__ph_opt_in_out_phc_test", "0");
+    localStorage.setItem("ph_phc_test_posthog", "{}");
+    const analytics = await loadModule();
+    analytics.setConsent("denied");
+    expect(posthogMock.init).not.toHaveBeenCalled();
+    expect(posthogMock.has_opted_out_capturing()).toBe(true);
+    expect(localStorage.getItem("ph_phc_test_posthog")).toBeNull();
   });
 });
 

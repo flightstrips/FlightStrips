@@ -120,7 +120,7 @@ export function AMANBoardView({
   onACCViewChange,
   onViewStateChange,
 }: AMANBoardViewProps) {
-  const position = useWebSocketStore((value) => value.position);
+  const callsign = useWebSocketStore((value) => value.callsign);
   const controllers = useWebSocketStore((value) => value.controllers) ?? [];
   const storedACCView = useWebSocketStore((value) => value.amanSelectedView);
   const setStoredACCView = useWebSocketStore((value) => value.setAMANSelectedView);
@@ -133,7 +133,7 @@ export function AMANBoardView({
   const accView = suppliedACCView ?? resolveAMANView(
     state,
     preferredACCView === null ? null : storedACCView,
-    controllerAMANViews(state, [position]),
+    controllerAMANViews(state, [callsign]),
   );
   const setACCView = onACCViewChange ?? setStoredACCView;
   const lanes = useMemo(() => state ? buildAMANLanes(state) : [], [state]);
@@ -265,7 +265,7 @@ export function AMANBoardView({
         onViewChange={(next) => {
           if (next === "acc") {
             setACCView(AMAN_ALL_VIEW);
-            setSelectedStarFamilies(defaultACCFamilies(position, controllers, availableAMANViews(state)));
+            setSelectedStarFamilies(defaultACCFamilies(callsign, controllers, availableAMANViews(state)));
           }
           setView(next);
         }}

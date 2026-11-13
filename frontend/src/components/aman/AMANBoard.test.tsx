@@ -11,6 +11,8 @@ const boardStore = vi.hoisted(() => ({
   amanFMPAuthority: true,
   amanPendingCommands: {},
   amanSelectedView: "ALL",
+  callsign: "",
+  controllers: [] as {callsign: string; observer?: boolean}[],
   position: "",
   readOnly: false,
   sendAMANCommand: vi.fn(),
@@ -56,6 +58,9 @@ describe("complete AMAN timeline and strips", () => {
   beforeEach(() => {
     localStorage.clear();
     boardStore.sendAMANCommand.mockClear();
+    boardStore.callsign = "";
+    boardStore.position = "";
+    boardStore.controllers = [];
   });
 
   it("renders null and invalid replacement state explicitly without stale partial data", () => {
@@ -467,6 +472,20 @@ describe("complete AMAN timeline and strips", () => {
     fireEvent.click(screen.getByRole("menuitemcheckbox", {name: "TESPI"}));
     fireEvent.keyDown(screen.getByRole("menu", {name: "MAESTRO"}), {key: "Escape"});
     expect(screen.getByRole("button", {name: /Select SAS123/})).not.toHaveAttribute("data-dimmed");
+  });
+
+  it("selects ACC holding defaults from the controller callsign rather than its frequency", () => {
+    boardStore.callsign = "EKDK_B_CTR";
+    boardStore.position = "119.555";
+    boardStore.controllers = ["EKDK_D_CTR", "EKDK_E_CTR", "EKDK_I_CTR"].map((callsign) => ({callsign}));
+    const onViewStateChange = vi.fn();
+    renderBoard(state(), {onViewStateChange});
+
+    fireEvent.click(screen.getByRole("button", {name: "ACC"}));
+    expect(onViewStateChange).toHaveBeenLastCalledWith({view: "acc", starFamilies: ["MONAK"]});
+    fireEvent.click(screen.getByRole("button", {name: "MAESTRO"}));
+    expect(screen.getByRole("menuitemcheckbox", {name: "MONAK"})).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("menuitemcheckbox", {name: "TESPI"})).toHaveAttribute("aria-checked", "false");
   });
 
   it("emphasizes one ACC family without filtering traffic and exposes a local ALL override", () => {

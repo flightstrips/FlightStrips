@@ -182,16 +182,18 @@ func (h radis) visibility(c Context, o Observation) *StripVisibility {
 	}
 	distance := RADISDistanceNM(h.latitude, h.longitude, o.Latitude, o.Longitude)
 	agl := float64(o.Altitude) - h.elevation
+	departureBreached := h.settings.DepartureRemovalAGLFT != nil && origin == h.airport && agl >= float64(*h.settings.DepartureRemovalAGLFT)
+	distanceBreached := h.settings.RemovalDistanceNM != nil && distance > *h.settings.RemovalDistanceNM
 	if c.Strip.RemovedAt != nil {
-		if c.Strip.RemovalReason != "manual" && h.settings.AutomaticReappearance && !c.Now.IsZero() && !c.Now.Before(*c.Strip.RemovedAt) && c.Now.Before(c.Strip.RemovedAt.Add(time.Duration(h.settings.RecoverySeconds)*time.Second)) && (origin == h.airport || destination == h.airport) {
+		if !departureBreached && !distanceBreached && c.Strip.RemovalReason != "manual" && h.settings.AutomaticReappearance && !c.Now.IsZero() && !c.Now.Before(*c.Strip.RemovedAt) && c.Now.Before(c.Strip.RemovedAt.Add(time.Duration(h.settings.RecoverySeconds)*time.Second)) && (origin == h.airport || destination == h.airport) {
 			return &StripVisibility{Visible: true}
 		}
 		return nil
 	}
-	if h.settings.DepartureRemovalAGLFT != nil && origin == h.airport && agl >= float64(*h.settings.DepartureRemovalAGLFT) {
+	if departureBreached {
 		return &StripVisibility{Reason: "departure-altitude"}
 	}
-	if h.settings.RemovalDistanceNM != nil && distance > *h.settings.RemovalDistanceNM {
+	if distanceBreached {
 		return &StripVisibility{Reason: "distance"}
 	}
 	return nil

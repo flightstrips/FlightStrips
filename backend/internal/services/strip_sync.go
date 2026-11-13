@@ -393,13 +393,18 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			existingStrip.Bay != "" &&
 			existingStrip.Bay != shared.BAY_NOT_CLEARED
 
+		flightRules := strip.FlightRules
+		if flightRules == "" && !restartLifecycle {
+			// Older plugin snapshots do not include flight rules.
+			flightRules = existingStrip.FlightRules
+		}
 		updateHeading := strip.Heading
 		updateClearedAlt := strip.ClearedAltitude
 		if restartLifecycle {
 			updateHeading = 0
 			updateClearedAlt = 0
 		}
-		if updateClearedAlt == 0 && (bay == shared.BAY_NOT_CLEARED || bound.BoardStatePolicy().Revisioned && strip.Origin == airport && strip.HasFp && strip.FlightRules != "V" && !existingStrip.HasFP) {
+		if updateClearedAlt == 0 && (bay == shared.BAY_NOT_CLEARED || bound.BoardStatePolicy().Revisioned && strip.Origin == airport && strip.HasFp && flightRules != "V" && (!existingStrip.HasFP || existingStrip.Runway == nil || *existingStrip.Runway == "")) {
 			existingCfl := int32(0)
 			if !restartLifecycle && existingStrip.ClearedAltitude != nil {
 				existingCfl = *existingStrip.ClearedAltitude
@@ -509,11 +514,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			holdEat = strip.HoldEat
 		}
 
-		flightRules := strip.FlightRules
-		if flightRules == "" && !restartLifecycle {
-			// Older plugin snapshots do not include flight rules.
-			flightRules = existingStrip.FlightRules
-		}
 		flightPlanEET := strip.GetEnrouteDuration()
 		if flightPlanEET == "" && !restartLifecycle {
 			flightPlanEET = existingStrip.FlightPlanEET

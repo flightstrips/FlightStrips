@@ -59,6 +59,30 @@ func TestRegionalRADISPersistsATDAndManualAdmissionWithRealDefinitions(t *testin
 			commandsBefore = len(commander.ClearedAltitudes)
 			require.NoError(t, s.SyncStrip(ctx, session, "MASTER", vfr, airport))
 			require.Len(t, commander.ClearedAltitudes, commandsBefore, "local VFR circuit must not receive an IFR FL60/FL120 clearance")
+			legacyVFR := vfr
+			legacyVFR.Callsign, legacyVFR.HasFp = "LEGACYVFR", false
+			require.NoError(t, s.SyncStrip(ctx, session, "MASTER", legacyVFR, airport))
+			legacyVFR.HasFp, legacyVFR.FlightRules = true, ""
+			require.NoError(t, s.SyncStrip(ctx, session, "MASTER", legacyVFR, airport))
+			storedVFR, err := repo.GetByCallsign(ctx, session, legacyVFR.Callsign)
+			require.NoError(t, err)
+			require.Equal(t, "V", storedVFR.FlightRules)
+			require.Zero(t, valueInt32(storedVFR.ClearedAltitude))
+			require.Len(t, commander.ClearedAltitudes, commandsBefore, "omitted flight rules must preserve the stored VFR classification")
+			delayedRunway := unassociated
+			delayedRunway.Callsign, delayedRunway.Runway, delayedRunway.FlightRules = "LATERWY", "", "I"
+			require.NoError(t, s.SyncStrip(ctx, session, "MASTER", delayedRunway, airport))
+			withoutRunway, err := repo.GetByCallsign(ctx, session, delayedRunway.Callsign)
+			require.NoError(t, err)
+			require.True(t, withoutRunway.HasFP)
+			require.Zero(t, valueInt32(withoutRunway.ClearedAltitude))
+			require.Len(t, commander.ClearedAltitudes, commandsBefore)
+			delayedRunway.Runway = geo.Runways[0]
+			require.NoError(t, s.SyncStrip(ctx, session, "MASTER", delayedRunway, airport))
+			withRunway, err := repo.GetByCallsign(ctx, session, delayedRunway.Callsign)
+			require.NoError(t, err)
+			require.Equal(t, int32(geo.InitialCFLFT[delayedRunway.Runway]), valueInt32(withRunway.ClearedAltitude))
+			require.Len(t, commander.ClearedAltitudes, commandsBefore+1, "initial clearance waits for the first known runway")
 			for _, departure := range []bool{true, false} {
 				callsign, origin, destination := "ARR1", "EGLL", airport
 				if departure {

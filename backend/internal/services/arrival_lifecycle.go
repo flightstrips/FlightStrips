@@ -732,6 +732,7 @@ func (s *ArrivalLifecycleService) resolveFacts(strip *models.Strip, flight vatsi
 	}
 	assignmentFacts := sat.AssignmentFlightFacts{
 		Callsign:     strip.Callsign,
+		Remarks:      valueString(strip.Remarks),
 		AircraftType: input.AircraftType,
 		AircraftUse:  facts.Aircraft.UseCode,
 		BorderStatus: facts.BorderStatus,

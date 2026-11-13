@@ -924,6 +924,7 @@ func (s *DepartureLifecycleService) resolveFacts(strip *models.Strip, flight vat
 	facts := sat.ResolveFlightCompatibilityFacts(input, aircraft, engines, borders)
 	assignmentFacts := sat.AssignmentFlightFacts{
 		Callsign:     strip.Callsign,
+		Remarks:      valueString(strip.Remarks),
 		AircraftType: aircraftType,
 		AircraftUse:  facts.Aircraft.UseCode,
 		BorderStatus: facts.BorderStatus,

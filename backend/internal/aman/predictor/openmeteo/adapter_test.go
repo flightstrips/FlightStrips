@@ -366,7 +366,7 @@ func TestAdapterRechecksCacheAfterAnotherCallerCompletesRefresh(t *testing.T) {
 	defer cancel()
 	providerStarted := make(chan struct{})
 	secondLookup := make(chan struct{})
-	releaseLookup := make(chan struct{})
+	releaseLookup := make(chan struct{}, 1)
 	defer close(releaseLookup)
 	var loads, calls atomic.Int32
 	persistent := &recordingPersistentCache{allowed: true, values: map[string]CachedSample{}}

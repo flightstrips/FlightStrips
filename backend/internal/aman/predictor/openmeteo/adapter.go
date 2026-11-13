@@ -184,11 +184,24 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 		})
 		refreshKey := strings.Join(missingKeys(requested), ",")
 		value, err, _ := a.refreshes.Do(refreshKey, func() (any, error) {
+			// Another caller may finish refreshing after our initial cache miss
+			// but before we enter singleflight. Reuse its completed batch.
+			refreshed := make(map[string]cacheEntry, len(requested))
+			a.mu.RLock()
+			for _, sample := range requested {
+				key, _ := cacheKey(sample)
+				if cached, found := a.cache[key]; found && now.Before(cached.expiresAt) {
+					refreshed[key] = cloneEntry(cached)
+				}
+			}
+			a.mu.RUnlock()
+			if len(refreshed) == len(requested) {
+				return refreshed, nil
+			}
 			levels, fetchErr := a.fetchSamples(ctx, requested)
 			if fetchErr != nil {
 				return nil, fetchErr
 			}
-			refreshed := make(map[string]cacheEntry, len(requested))
 			persisted := make([]CachedSample, 0, len(requested))
 			for i, sample := range requested {
 				key, _ := cacheKey(sample)

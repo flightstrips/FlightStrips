@@ -115,8 +115,13 @@ test("RADIS production sessions converge through database, own-plugin commands a
       await expect.poll(async () => (await rows(request)).find(s => s.Callsign === callsign)?.Bay).toBe("RUNWAY");
       for (const page of [a,b]) await expect(page.locator(".radis-runway").getByTestId(`radis-strip-${callsign}`)).toBeVisible();
     }
-    await drag("RADIS2",strip(b));
-    await expect.poll(async () => (await rows(request)).filter(s => s.Bay === "RUNWAY").sort((a,b)=>a.Sequence-b.Sequence).map(s=>s.Callsign)).toEqual(["RADIS2","RADIS1"]);
+    const runwayOrder = async () => (await rows(request)).filter(s => s.Bay === "RUNWAY").sort((a,b)=>a.Sequence-b.Sequence).map(s=>s.Callsign);
+    const before = await runwayOrder();
+    expect(before).toHaveLength(2);
+    // Dropping into RUNWAY can insert before an existing strip. Always move
+    // the current last strip ahead of the current first to exercise reordering.
+    await drag(before[1],strip(b,before[0]));
+    await expect.poll(runwayOrder).toEqual([...before].reverse());
     await expect(other.locator(".radis-runway").getByTestId("radis-strip-RADIS1")).toBeHidden();
   });
   await test.step("manual removal survives refresh and restore retains identity", async () => {

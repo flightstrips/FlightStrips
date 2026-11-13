@@ -360,15 +360,70 @@ func TestAdapterCacheIsSafeForConcurrentCallers(t *testing.T) {
 	require.Equal(t, int32(1), calls.Load(), "concurrent equal cache misses share one provider request")
 }
 
+func TestAdapterRechecksCacheAfterAnotherCallerCompletesRefresh(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	providerStarted := make(chan struct{})
+	secondLookup := make(chan struct{})
+	releaseLookup := make(chan struct{})
+	defer close(releaseLookup)
+	var loads, calls atomic.Int32
+	persistent := &recordingPersistentCache{allowed: true, values: map[string]CachedSample{}}
+	persistent.load = func(ctx context.Context, _ []string) ([]CachedSample, error) {
+		if loads.Add(1) == 2 {
+			close(secondLookup)
+			select {
+			case <-releaseLookup:
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+		return nil, nil
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if calls.Add(1) == 1 {
+			close(providerStarted)
+			select {
+			case <-secondLookup:
+			case <-ctx.Done():
+				return
+			}
+		}
+		_, _ = w.Write([]byte(gfsPayload()))
+	}))
+	defer server.Close()
+	adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent})
+	request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{At: now.Add(5 * time.Minute)}}}
+	first, second := make(chan error, 1), make(chan error, 1)
+	go func() { _, err := adapter.WindProfile(ctx, request); first <- err }()
+	select {
+	case <-providerStarted:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	go func() { _, err := adapter.WindProfile(ctx, request); second <- err }()
+	// The second caller already observed a miss, but its persistent-cache lookup
+	// finishes after the first caller has populated memory and left singleflight.
+	require.NoError(t, <-first)
+	releaseLookup <- struct{}{}
+	require.NoError(t, <-second)
+	require.Equal(t, int32(1), calls.Load(), "a completed refresh must satisfy the delayed cache miss")
+}
+
 var _ predictor.WindProfileReader = (*Adapter)(nil)
 
 type recordingPersistentCache struct {
+	load         func(context.Context, []string) ([]CachedSample, error)
 	values       map[string]CachedSample
 	allowed      bool
 	reservations int
 }
 
-func (c *recordingPersistentCache) Load(_ context.Context, keys []string) ([]CachedSample, error) {
+func (c *recordingPersistentCache) Load(ctx context.Context, keys []string) ([]CachedSample, error) {
+	if c.load != nil {
+		return c.load(ctx, keys)
+	}
 	result := make([]CachedSample, 0, len(keys))
 	for _, key := range keys {
 		if value, found := c.values[key]; found {

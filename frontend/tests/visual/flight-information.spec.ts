@@ -21,19 +21,28 @@ for (const width of [1920, 1280, 1024]) {
   });
 }
 
-test("keeps the compact marker visible, reveals its reason on focus, and opens information by keyboard and touch", async ({page}) => {
+test("keeps the compact marker without a reason tooltip and opens information by keyboard and touch", async ({page}) => {
   await page.goto("/visual-tests/flight-information-preview.html?targets&basic");
   const targets = page.getByRole("region", {name: "Aircraft target previews"}).getByRole("button");
   for (const target of await targets.all()) {
     await expect(target).toContainText("SAS1778≈");
+    await expect(target).toHaveAccessibleName(/; Basic estimate(?:;|$)/);
+    await expect(target).not.toHaveAccessibleName(/Prediction provider unavailable/);
     const marker = target.getByText("≈", {exact: true});
     const [targetBox, markerBox] = await Promise.all([target.boundingBox(), marker.boundingBox()]);
     expect(markerBox!.x + markerBox!.width).toBeLessThanOrEqual(targetBox!.x + targetBox!.width);
     const callsign = target.getByText("SAS1778", {exact: false}).first();
     expect(await callsign.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   }
+  await page.clock.install();
+  await targets.nth(1).hover();
+  await page.clock.runFor(1000);
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   await targets.nth(1).focus();
-  await expect(page.getByRole("tooltip")).toContainText("Prediction provider unavailable");
+  await page.clock.runFor(1000);
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await expect(targets.nth(1)).not.toHaveAttribute("title");
+  await expect(targets.nth(1).locator("[title]")).toHaveCount(0);
   await page.keyboard.press("Enter");
   await expect(page.getByLabel("Basic estimate reason")).toBeVisible();
   await page.keyboard.press("Escape");

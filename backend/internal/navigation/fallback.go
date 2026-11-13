@@ -57,7 +57,7 @@ func (r *fallbackRoutes) Resolve(ctx context.Context, q navdata.RouteQuery) (nav
 				}
 				return navdata.RouteGeometry{}, errors.Join(fmt.Errorf("vIFF route does not match current filed waypoints"), resolveErr)
 			}
-			if routeMatchesFiledGeometry(geometry, current) {
+			if routeMatchesFiledGeometry(geometry, current) && (!navdata.HasRouteGaps(current) || filedWaypointsMatch(q, geometry, r.local.HasFix)) {
 				return geometry, nil
 			}
 			localGeometry = &current

@@ -40,9 +40,36 @@ func (a *Adapter) Resolve(ctx context.Context, q navdata.RouteQuery) (navdata.Ro
 	if !joinAllowed {
 		return bad("sector route join is absent from selected terminal configuration")
 	}
-	var nodes []point
+	g := navdata.RouteGeometry{Version: q.Version, Coverage: navdata.CoverageComplete, Provenance: a.provenance}
+	var previous *point
 	airway := ""
 	reached := false
+	// Unknown tokens and failed airway expansions break continuity. Retain
+	// trustworthy sections on either side, but never bridge the missing span.
+	gap := func(message string) {
+		g.Coverage = navdata.CoveragePartial
+		g.Unresolved = append(g.Unresolved, message)
+		if len(g.Legs) == 0 || !navdata.IsRouteGap(g.Legs[len(g.Legs)-1]) {
+			g.Legs = append(g.Legs, navdata.ProcedureLeg{ID: fmt.Sprintf("%sSECTOR-%04d", navdata.RouteGapPrefix, len(g.Legs)+1), PathTerminator: navdata.PathUnsupported})
+		}
+		previous, airway = nil, ""
+	}
+	appendPoint := func(next point) {
+		if previous != nil && previous.id != next.id {
+			from := *previous
+			distance := navdata.CoordinateDistanceNM(from.position, next.position)
+			if distance < 0.000001 {
+				gap("sector route contains co-located distinct fixes")
+			} else {
+				lat1, lat2 := from.position.LatitudeDeg*math.Pi/180, next.position.LatitudeDeg*math.Pi/180
+				dlon := (next.position.LongitudeDeg - from.position.LongitudeDeg) * math.Pi / 180
+				course := math.Mod(math.Atan2(math.Sin(dlon)*math.Cos(lat2), math.Cos(lat1)*math.Sin(lat2)-math.Sin(lat1)*math.Cos(lat2)*math.Cos(dlon))*180/math.Pi+360, 360)
+				g.Legs = append(g.Legs, navdata.ProcedureLeg{ID: fmt.Sprintf("SECTOR-%04d", len(g.Legs)+1), PathTerminator: navdata.PathTF, FromFix: &from.id, ToFix: &next.id, FromPosition: &from.position, ToPosition: &next.position, DistanceNM: &distance, CourseTrueDeg: &course})
+				g.TotalDistanceNM += distance
+			}
+		}
+		previous = &next
+	}
 	for _, token := range strings.Fields(strings.ToUpper(q.FiledRoute)) {
 		if err := ctx.Err(); err != nil {
 			return navdata.RouteGeometry{}, err
@@ -51,37 +78,46 @@ func (a *Adapter) Resolve(ctx context.Context, q navdata.RouteQuery) (navdata.Ro
 		if speedLevel.MatchString(name) {
 			continue
 		}
-		if name == string(q.Origin) && len(nodes) == 0 {
+		if name == string(q.Origin) && len(g.Legs) == 0 && previous == nil {
 			continue
 		}
 		if name == "DCT" {
 			if airway != "" {
-				return bad("airway has no exit fix before DCT")
+				gap("airway has no exit fix before DCT")
 			}
 			continue
 		}
 		if _, ok := a.airways[name]; ok {
-			if len(nodes) == 0 || airway != "" {
-				return bad("airway requires an entry fix and an exit fix")
+			if previous == nil || airway != "" {
+				gap("airway requires an entry fix and an exit fix: " + name)
+			} else {
+				airway = name
 			}
-			airway = name
 			continue
 		}
 		id := navdata.FixID(name)
 		position, ok := a.fixes[id]
 		if !ok || a.ambiguous[id] {
-			return bad("sector route fix missing or ambiguous: " + name)
+			gap("sector route fix missing or ambiguous: " + name)
+			continue
 		}
 		next := point{id, position}
 		if airway != "" {
-			expanded, err := a.expandAirway(ctx, airway, nodes[len(nodes)-1], next)
+			expanded, err := a.expandAirway(ctx, airway, *previous, next)
 			if err != nil {
-				return navdata.RouteGeometry{}, err
+				if ctx.Err() != nil {
+					return navdata.RouteGeometry{}, ctx.Err()
+				}
+				gap(err.Error())
+				previous = &next // Only subsequent filed legs may resume here.
+			} else {
+				for _, p := range expanded {
+					appendPoint(p)
+				}
+				airway = ""
 			}
-			nodes = append(nodes, expanded...)
-			airway = ""
-		} else if len(nodes) == 0 || nodes[len(nodes)-1].id != id {
-			nodes = append(nodes, next)
+		} else {
+			appendPoint(next)
 		}
 		if id == *q.TerminalEntry {
 			reached = true
@@ -91,21 +127,15 @@ func (a *Adapter) Resolve(ctx context.Context, q navdata.RouteQuery) (navdata.Ro
 	if !reached || airway != "" {
 		return bad("sector route does not reach the selected terminal join")
 	}
-	if len(nodes) < 2 {
-		return bad("sector route needs at least two resolved points before the terminal continuation")
-	}
-	g := navdata.RouteGeometry{Version: q.Version, Coverage: navdata.CoverageComplete, Provenance: a.provenance}
-	for i := 1; i < len(nodes); i++ {
-		from, to := nodes[i-1], nodes[i]
-		distance := navdata.CoordinateDistanceNM(from.position, to.position)
-		if distance < 0.000001 {
-			return bad("sector route contains co-located distinct fixes")
+	// A bare join after a gap supplies no verified inbound filed leg. Require
+	// a continuous final section; aircraft positioning is the trajectory
+	// reducer's responsibility and must not manufacture a direct clearance.
+	if len(g.Legs) == 0 || navdata.IsRouteGap(g.Legs[len(g.Legs)-1]) {
+		message := "sector route needs at least two resolved points before the terminal continuation"
+		if len(g.Unresolved) > 0 {
+			message += ": " + strings.Join(g.Unresolved, "; ")
 		}
-		lat1, lat2 := from.position.LatitudeDeg*math.Pi/180, to.position.LatitudeDeg*math.Pi/180
-		dlon := (to.position.LongitudeDeg - from.position.LongitudeDeg) * math.Pi / 180
-		course := math.Mod(math.Atan2(math.Sin(dlon)*math.Cos(lat2), math.Cos(lat1)*math.Sin(lat2)-math.Sin(lat1)*math.Cos(lat2)*math.Cos(dlon))*180/math.Pi+360, 360)
-		g.Legs = append(g.Legs, navdata.ProcedureLeg{ID: fmt.Sprintf("SECTOR-%04d", i), PathTerminator: navdata.PathTF, FromFix: &from.id, ToFix: &to.id, FromPosition: &from.position, ToPosition: &to.position, DistanceNM: &distance, CourseTrueDeg: &course})
-		g.TotalDistanceNM += distance
+		return bad(message)
 	}
 	if len(navdata.SuspectRouteDetours(g.Legs)) > 0 {
 		return bad("sector route contains an implausible detour")

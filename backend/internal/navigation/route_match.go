@@ -18,6 +18,9 @@ func routeMatchesFiledGeometry(primary, current navdata.RouteGeometry) bool {
 	if !ok {
 		return false
 	}
+	if current.Coverage == navdata.CoveragePartial && navdata.HasRouteGaps(current) {
+		return resolvedSectionsMatch(online, current)
+	}
 	filed, ok := routeCoordinates(current)
 	if !ok {
 		return false
@@ -39,6 +42,52 @@ func routeMatchesFiledGeometry(primary, current navdata.RouteGeometry) bool {
 		}
 	}
 	return len(trimmed) >= 2 && followsPath(trimmed, filed) && followsPath(filed, trimmed)
+}
+
+// Compare every verified section without treating a source gap as a direct
+// segment. The caller separately checks filed waypoint order through gaps.
+func resolvedSectionsMatch(online []navdata.Coordinate, current navdata.RouteGeometry) bool {
+	var section []navdata.ProcedureLeg
+	var progress float64
+	check := func() bool {
+		if len(section) == 0 {
+			return true
+		}
+		points, ok := routeCoordinates(navdata.RouteGeometry{Coverage: navdata.CoverageComplete, Legs: section})
+		if !ok {
+			return false
+		}
+		start, _, found := pointOnPath(points[0], online, progress)
+		if !found {
+			return false
+		}
+		end, _, found := pointOnPath(points[len(points)-1], online, start)
+		if !found || end <= start {
+			return false
+		}
+		trimmed := []navdata.Coordinate{points[0]}
+		var offset float64
+		for i := 1; i < len(online); i++ {
+			offset += navdata.CoordinateDistanceNM(online[i-1], online[i])
+			if offset > start+0.000001 && offset < end-0.000001 {
+				trimmed = append(trimmed, online[i])
+			}
+		}
+		trimmed = append(trimmed, points[len(points)-1])
+		progress = end
+		return followsPath(trimmed, points) && followsPath(points, trimmed)
+	}
+	for _, leg := range current.Legs {
+		if navdata.IsRouteGap(leg) {
+			if !check() {
+				return false
+			}
+			section = nil
+		} else {
+			section = append(section, leg)
+		}
+	}
+	return len(section) > 0 && check() && navdata.CoordinateDistanceNM(online[len(online)-1], *section[len(section)-1].ToPosition) <= routeMatchToleranceNM
 }
 
 func routeCoordinates(route navdata.RouteGeometry) ([]navdata.Coordinate, bool) {

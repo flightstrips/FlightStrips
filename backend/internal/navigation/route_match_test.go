@@ -63,3 +63,22 @@ func TestPartialSectorCoverageStillRejectsStaleNamedFixesAndDirects(t *testing.T
 		require.Equal(t, matches, filedWaypointsMatch(q, g, checkKnown), route)
 	}
 }
+
+func TestPartialSectorGeometryChecksEveryResolvedSection(t *testing.T) {
+	a := navdata.Coordinate{LatitudeDeg: 54, LongitudeDeg: 12}
+	b := navdata.Coordinate{LatitudeDeg: 55, LongitudeDeg: 12}
+	c := navdata.Coordinate{LatitudeDeg: 56, LongitudeDeg: 12}
+	d := navdata.Coordinate{LatitudeDeg: 57, LongitudeDeg: 12}
+	detour := navdata.Coordinate{LatitudeDeg: 55.5, LongitudeDeg: 13}
+	gap := navdata.ProcedureLeg{ID: navdata.RouteGapPrefix + "UNKNOWN", PathTerminator: navdata.PathUnsupported}
+	partial := testRoutePath(a, b)
+	partial.Coverage = navdata.CoveragePartial
+	partial.Legs = append(partial.Legs, gap)
+	partial.Legs = append(partial.Legs, testRoutePath(c, d).Legs...)
+	require.True(t, routeMatchesFiledGeometry(testRoutePath(a, b, detour, c, d), partial), "online geometry inside the gap remains usable")
+	require.False(t, routeMatchesFiledGeometry(testRoutePath(a, detour, b, c, d), partial), "verified prefix must match")
+	require.False(t, routeMatchesFiledGeometry(testRoutePath(a, b, c, detour, d), partial), "verified suffix must match")
+	require.False(t, routeMatchesFiledGeometry(testRoutePath(a, b, c), partial), "terminal join must match")
+	partial.Legs = append(partial.Legs, gap)
+	require.False(t, routeMatchesFiledGeometry(testRoutePath(a, b, c, d), partial), "a trailing gap has no verified join")
+}

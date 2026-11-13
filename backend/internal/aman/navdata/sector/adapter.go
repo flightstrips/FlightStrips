@@ -20,7 +20,7 @@ import (
 	"FlightStrips/internal/aman/terminal"
 )
 
-const ResolverVersion = "sector-route-v1"
+const ResolverVersion = "sector-route-v2"
 
 var cyclePattern = regexp.MustCompile(`(?i)\bAIRAC\s+(\d{4})\b`)
 var infoCyclePattern = regexp.MustCompile(`\b(\d{4})/\d+`)

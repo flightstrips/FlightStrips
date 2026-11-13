@@ -87,6 +87,31 @@ func TestSectorStartupRoutesAndRestartWithoutProviders(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, projected.DistanceToGoNM)
 			require.Greater(t, *projected.DistanceToGoNM, 0.0)
+			// Missing departure data survives materialization as a gap, while
+			// the filed suffix can be confirmed from distinct physical reports.
+			partialQuery := q
+			partialQuery.FiledRoute = "MISSING1A UNKNOWN ENROUTE DCT SOK"
+			partialKey, err := source.MaterializeRoute(t.Context(), partialQuery, "test-route")
+			require.NoError(t, err)
+			partial, err := cache.Route(t.Context(), partialKey)
+			require.NoError(t, err)
+			require.NoError(t, partial.Validate())
+			require.True(t, navdata.HasRouteGaps(partial))
+			track := *partial.Legs[len(partial.Legs)-1].CourseTrueDeg
+			input := trajectory.Input{Airport: "EKCH", RouteKey: partialKey, Feeder: "SOK", RunwayGroup: group, Observation: aman.SurveillanceFact{LatitudeDegrees: 55.9, LongitudeDegrees: 12.0667, TrackTrueDegrees: &track}}
+			for sample := 0; sample < 3; sample++ {
+				at := now.Add(time.Duration(sample) * 10 * time.Second)
+				input.Observation.ObservedAt = &at
+				result, err := trajectory.Project(t.Context(), trajectory.Readers{Geometry: cache, Snapshot: cache}, input, trajectory.Config{ReferenceTime: at})
+				require.NoError(t, err)
+				if sample < 2 {
+					require.Nil(t, result.DistanceToGoNM)
+					input.Recovery = result.Recovery
+				} else {
+					require.NotNil(t, result.DistanceToGoNM)
+					require.True(t, result.ReacquiredProgress)
+				}
+			}
 			if mode == SourceSector {
 				require.Zero(t, requests.Load())
 			}
@@ -97,6 +122,10 @@ func TestSectorStartupRoutesAndRestartWithoutProviders(t *testing.T) {
 			recovered, err := cache.Route(t.Context(), key)
 			require.NoError(t, err)
 			require.Equal(t, g.Digest, recovered.Digest)
+			recoveredPartial, err := cache.Route(t.Context(), partialKey)
+			require.NoError(t, err)
+			require.Equal(t, partial.Digest, recoveredPartial.Digest)
+			require.True(t, navdata.HasRouteGaps(recoveredPartial))
 			_, err = fresh.MaterializeRoute(t.Context(), q, "restart")
 			require.NoError(t, err)
 			// Replacing a local file must activate a new local revision rather

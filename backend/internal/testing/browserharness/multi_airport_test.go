@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +22,17 @@ import (
 	"net/http/httptest"
 )
 
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if err := testdata.ShutdownTestDB(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		if code == 0 {
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
+
 // A physical peer with two memberships. This deliberately uses the production
 // app, migrated database and wire protocol rather than membershipTestHub mocks.
 func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
@@ -39,7 +51,6 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 	defer cancel()
 	pool, _, cleanup, err := testdata.OpenTestDB(ctx)
 	require.NoError(t, err)
-	defer testdata.ShutdownTestDB()
 	defer cleanup()
 	defer pool.Close()
 	_, err = pool.Exec(ctx, "INSERT INTO airports (name) VALUES ('EKCH'),('EKBI'),('EKYT') ON CONFLICT DO NOTHING")
@@ -117,6 +128,9 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 				mu.Unlock()
 				if first {
 					snapshot := &es.SyncEvent{Controllers: []*es.Controller{{Callsign: "MA08_CTR", Position: "118.000"}}, Strips: []*es.Strip{{Callsign: "SAME123", Origin: "EKBI", Destination: "EKYT", AircraftType: "A320", HasFp: true, GroundState: es.GroundStateStartup, AssignedSquawk: "2401", Position: &es.Position{Lat: 0, Lon: 0, Altitude: 100}}}}
+					probe := proto.Clone(snapshot.Strips[0]).(*es.Strip)
+					probe.Callsign = "FENCEPROBE"
+					snapshot.Strips = append(snapshot.Strips, probe)
 					if send(&es.Envelope{Context: scope, Event: &es.Envelope_Sync{Sync: snapshot}}) != nil {
 						return
 					}
@@ -135,11 +149,12 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 		}
 		return nil
 	}
-	state := func(airport string) string {
+	stateFor := func(airport, callsign string) string {
 		var value string
-		_ = pool.QueryRow(ctx, "SELECT state FROM strips JOIN sessions ON sessions.id=strips.session WHERE sessions.airport=$1 AND sessions.name='LIVE' AND callsign='SAME123'", airport).Scan(&value)
+		_ = pool.QueryRow(ctx, "SELECT state FROM strips JOIN sessions ON sessions.id=strips.session WHERE sessions.airport=$1 AND sessions.name='LIVE' AND callsign=$2", airport, callsign).Scan(&value)
 		return value
 	}
+	state := func(airport string) string { return stateFor(airport, "SAME123") }
 	require.Eventually(t, func() bool {
 		return member("EKBI") != nil && member("EKYT") != nil && state("EKBI") == es.GroundStateStartup && state("EKYT") == es.GroundStateStartup
 	}, 15*time.Second, 10*time.Millisecond)
@@ -150,9 +165,18 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 	ground := func(scope *es.MembershipContext, value string) error {
 		return send(&es.Envelope{Context: scope, Event: &es.Envelope_GroundState{GroundState: &es.GroundStateEvent{Callsign: "SAME123", GroundState: value}}})
 	}
+	// An update to a different strip on the same physical socket proves that
+	// preceding fenced writes were processed without overwriting their effects.
+	barrier := func(value string) {
+		require.NoError(t, send(&es.Envelope{Context: b, Event: &es.Envelope_GroundState{GroundState: &es.GroundStateEvent{Callsign: "FENCEPROBE", GroundState: value}}}))
+		require.Eventually(t, func() bool { return stateFor("EKYT", "FENCEPROBE") == value }, 5*time.Second, 10*time.Millisecond)
+	}
 	foreign := proto.Clone(a).(*es.MembershipContext)
 	foreign.SessionId = b.SessionId
 	require.NoError(t, ground(foreign, es.GroundStateDepart))
+	barrier(es.GroundStateTaxi)
+	require.Equal(t, es.GroundStateStartup, state("EKBI"))
+	require.Equal(t, es.GroundStateStartup, state("EKYT"))
 	require.NoError(t, ground(b, es.GroundStateTaxi))
 	require.Eventually(t, func() bool { return state("EKYT") == es.GroundStateTaxi }, 5*time.Second, 10*time.Millisecond)
 	require.Equal(t, es.GroundStateStartup, state("EKBI"))
@@ -162,11 +186,17 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 	require.Eventually(t, func() bool { return member("EKBI") == nil }, 5*time.Second, 10*time.Millisecond)
 	require.True(t, proto.Equal(b, member("EKYT")))
 	require.NoError(t, ground(a, es.GroundStateDepart))
+	barrier(es.GroundStateParked)
+	require.Equal(t, es.GroundStateStartup, state("EKBI"))
+	require.Equal(t, es.GroundStateTaxi, state("EKYT"))
 	require.NoError(t, ground(b, es.GroundStateParked))
 	require.Eventually(t, func() bool { return state("EKYT") == es.GroundStateParked }, 5*time.Second, 10*time.Millisecond)
 	require.NoError(t, control("118.000", "118.000", "119.000"))
 	require.Eventually(t, func() bool { return member("EKBI") != nil && member("EKBI").MembershipId != a.MembershipId }, 5*time.Second, 10*time.Millisecond)
 	require.NoError(t, ground(a, es.GroundStateDepart))
+	barrier(es.GroundStateTaxi)
+	require.Equal(t, es.GroundStateStartup, state("EKBI"))
+	require.Equal(t, es.GroundStateParked, state("EKYT"))
 	require.NoError(t, ground(b, es.GroundStateTaxi))
 	require.Eventually(t, func() bool { return state("EKYT") == es.GroundStateTaxi }, 5*time.Second, 10*time.Millisecond)
 	require.Equal(t, es.GroundStateStartup, state("EKBI"))

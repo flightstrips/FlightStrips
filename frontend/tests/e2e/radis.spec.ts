@@ -132,7 +132,10 @@ test("RADIS production sessions converge through database, own-plugin commands a
       return await strip(b).getAttribute("data-strip-version")===String(current.Version);
     }).toBe(true);
     const placement = (await rows(request)).find(s => s.Callsign === "RADIS1")!;
-    await strip(b).getByText("EKBI", {exact: true}).click();
+    if (!((await strip(b).getAttribute("class")) ?? "").includes("is-selected")) {
+      await strip(b).getByText("EKBI", {exact: true}).click();
+    }
+    await expect(strip(b)).toHaveClass(/is-selected/);
     await b.getByRole("button", {name: "Remove selected strip"}).click();
     for (const page of [a,b]) await expect(strip(page)).toBeHidden();
     await b.reload(); await expect(b.getByRole("main", {name: "RADIS board"})).toBeVisible();

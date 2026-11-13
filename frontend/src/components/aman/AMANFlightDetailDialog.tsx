@@ -5,7 +5,7 @@ import {divIcon, type LatLngTuple} from "leaflet";
 import {CircleMarker, MapContainer, Marker, Polyline, useMap} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-import type {AMANCoordinationRequest, AMANGoAroundConfirmation, AMANMutationBlockReason} from "@/api/aman";
+import type {AMANCoordinationRequest, AMANFlight, AMANGoAroundConfirmation, AMANMutationBlockReason} from "@/api/aman";
 import {fetchAMANFlightDetail, type AMANCalculation, type AMANCalculationLeg, type AMANCalculationSegment, type AMANFlightDetail} from "@/api/aman-detail";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {AMANCoordinationRequestDialog} from "./AMANCoordinationRequestDialog";
@@ -309,9 +309,10 @@ function runwayLabel(value: string | null): string {
   return value?.replace(/^ARRIVAL-/, "") || "";
 }
 
-function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical, technicalOpen}: {
+function FlightInformationSummary({detail, callsign, estimate, onClose, onToggleTechnical, technicalOpen}: {
   detail: AMANFlightDetail | null;
   callsign: string;
+  estimate?: Pick<AMANFlight, "basic_estimate" | "prediction_reason">;
   onClose: () => void;
   onToggleTechnical: () => void;
   technicalOpen: boolean;
@@ -335,6 +336,9 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
   const trajectoryKind = directTo ? "DCT" : detail?.calculation?.legs.length ? "ROUTE" : "";
   const trajectoryFix = directTo ?? detail?.calculation?.legs[0]?.to ?? "";
   const holdingEAT = stripTime(detail?.holding_plan?.approach_release_time);
+  // Prefer live board quality so recovery is reflected before refreshed HTTP detail arrives.
+  const basicEstimate = estimate ? estimate.basic_estimate : detail?.teta_basis?.prediction_basis === "basic_terminal";
+  const estimateReason = estimate ? estimate.prediction_reason : detail?.teta_basis?.degradation_reason;
 
   const headerCell = "grid min-w-0 place-items-center overflow-hidden bg-[#8ae1d9] text-center font-semibold leading-normal";
   const accentHeaderCell = `${headerCell} !bg-[#2dd3cc]`;
@@ -405,10 +409,14 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
         </div>
       </div>
     </div>
-    <dl aria-label="Holding information" className="col-start-1 row-start-3 flex h-[2.594cqw] items-stretch border-r-[0.121cqw] border-t-[0.121cqw] border-white bg-[#eff1e9] text-[clamp(9px,1.206cqw,20px)] font-semibold leading-normal">
-      <div className="flex items-center gap-[0.724cqw] border-r-[0.121cqw] border-white bg-[#c1d4c8] px-[0.965cqw]"><dt>HOLDING</dt><dd aria-label="Holding fix">{flight?.holding_fix || ""}</dd></div>
-      <div className="flex items-center gap-[0.724cqw] border-r-[0.121cqw] border-white bg-[#2dd3cc] px-[0.965cqw]" title="Expected approach time: AMAN’s calculated release from holding"><dt>EAT</dt><dd className="whitespace-nowrap tabular-nums"><span aria-label="Holding EAT">{holdingEAT}</span>{holdingEAT && <> <span className="text-[clamp(8px,0.965cqw,16px)] font-normal">UTC</span></>}</dd></div>
-      <div className="flex items-center gap-[0.724cqw] px-[0.965cqw]"><dt className="font-normal">Expected hold</dt><dd aria-label="Expected holding duration" className="tabular-nums">{detail?.holding_plan ? duration(detail.holding_plan.expected_holding_seconds) : ""}</dd></div>
+    <dl aria-label="Holding information" className="col-start-1 row-start-3 flex min-h-[2.594cqw] flex-wrap items-stretch border-r-[0.121cqw] border-t-[0.121cqw] border-white bg-[#eff1e9] text-[clamp(9px,1.206cqw,20px)] font-semibold leading-normal">
+      <div className="flex min-h-[2.473cqw] shrink-0 items-center gap-[0.724cqw] border-r-[0.121cqw] border-white bg-[#c1d4c8] px-[0.965cqw]"><dt>HOLDING</dt><dd aria-label="Holding fix">{flight?.holding_fix || ""}</dd></div>
+      <div className="flex min-h-[2.473cqw] shrink-0 items-center gap-[0.724cqw] border-r-[0.121cqw] border-white bg-[#2dd3cc] px-[0.965cqw]" title="Expected approach time: AMAN’s calculated release from holding"><dt>EAT</dt><dd className="whitespace-nowrap tabular-nums"><span aria-label="Holding EAT">{holdingEAT}</span>{holdingEAT && <> <span className="text-[clamp(8px,0.965cqw,16px)] font-normal">UTC</span></>}</dd></div>
+      <div className="flex min-h-[2.473cqw] shrink-0 items-center gap-[0.724cqw] px-[0.965cqw]"><dt className="font-normal">Expected hold</dt><dd aria-label="Expected holding duration" className="tabular-nums">{detail?.holding_plan ? duration(detail.holding_plan.expected_holding_seconds) : ""}</dd></div>
+      {basicEstimate && <div className="flex min-w-[min(100%,24rem)] flex-1 items-center gap-[0.724cqw] border-l-[0.121cqw] border-white px-[0.965cqw] py-[0.24cqw] text-[clamp(9px,0.965cqw,16px)] font-normal">
+        <dt className="shrink-0 font-semibold"><span aria-hidden="true">≈ </span>Basic estimate</dt>
+        <dd aria-label="Basic estimate reason" className="min-w-0 [overflow-wrap:anywhere]">{estimateReason || "Prediction reason unavailable."}</dd>
+      </div>}
     </dl>
     <div data-testid="flight-detail-close-panel" className="relative col-start-2 row-span-2 row-start-2 grid bg-[#555355] pb-[0.784cqw] pl-[0.362cqw] pr-[0.422cqw] pt-[0.603cqw]">
       <button aria-label="Close flight detail" className="grid place-items-center bg-[#313131] text-[clamp(9px,1.206cqw,20px)] font-semibold text-white outline-none hover:bg-[#3b3b3b] focus-visible:underline focus-visible:decoration-2 focus-visible:underline-offset-4" onClick={onClose} type="button">Close</button>
@@ -417,7 +425,7 @@ function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical,
   </section>;
 }
 
-export function AMANFlightDetailDialog({airport, callsign, revision, board, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; callsign: string; revision?: number; board?: import("@/api/sessions").BoardContext; coordination?: {
+export function AMANFlightDetailDialog({airport, callsign, revision, board, estimate, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; callsign: string; revision?: number; board?: import("@/api/sessions").BoardContext; estimate?: Pick<AMANFlight, "basic_estimate" | "prediction_reason">; coordination?: {
   requests: AMANCoordinationRequest[]; canSubmit: boolean; submitting: boolean; rejection?: string | null;
   onSubmit: (submission: {kind: "route_direct"; route?: string; direct_to?: string} | {kind: "speed"; requested: string}) => void;
 }; initialAction?: "missed-approach" | "removal"; missedApproach?: MissedApproachAction; removal?: RemovalAction; onClose: () => void}) {
@@ -485,7 +493,7 @@ export function AMANFlightDetailDialog({airport, callsign, revision, board, coor
 
   return <Dialog onOpenChange={(open) => !open && onClose()} open>
     <DialogContent ref={dialogRef} onOpenAutoFocus={(event) => {event.preventDefault(); dialogRef.current?.focus();}} className="flex max-h-[calc(100dvh-1rem)] w-[min(1658px,calc(100vw-1rem))] max-w-none flex-col gap-0 overflow-hidden border-0 bg-[#555355] p-0 text-white shadow-2xl outline-none [&>button]:hidden">
-      <FlightInformationSummary callsign={callsign} detail={detail} onClose={onClose} onToggleTechnical={() => setTechnicalOpen((open) => !open)} technicalOpen={technicalOpen} />
+      <FlightInformationSummary callsign={callsign} detail={detail} estimate={estimate} onClose={onClose} onToggleTechnical={() => setTechnicalOpen((open) => !open)} technicalOpen={technicalOpen} />
       {(missedApproach || removal || coordination) && <header className="flex items-center justify-between border-t-2 border-[#dcdcdc] bg-[#555355] px-3 py-2 font-['Rubik',sans-serif]">
         <span className="text-xs">state revision {detail?.revision ?? "—"}</span>
         <div className="flex gap-2">

@@ -53,6 +53,27 @@ function Harness() {
 }
 
 describe("AMAN flight detail dialog integration", () => {
+  it("shows the live basic estimate reason beside holding information without opening technical evidence", async () => {
+    fetchDetail.mockResolvedValue(detail);
+    const props = {airport: "EKCH", callsign: "SAS123", onClose: vi.fn()};
+    const {rerender} = render(<AMANFlightDetailDialog {...props} estimate={{basic_estimate: true, prediction_reason: "Provider unavailable; using terminal geometry"}} />);
+    await screen.findByText("A320");
+    expect(screen.getByLabelText("Holding information")).toHaveTextContent("≈ Basic estimateProvider unavailable; using terminal geometry");
+    expect(screen.getByLabelText("Basic estimate reason")).toBeVisible();
+    expect(screen.getByRole("button", {name: "Technical evidence"})).toHaveAttribute("aria-expanded", "false");
+    rerender(<AMANFlightDetailDialog {...props} estimate={{basic_estimate: true, prediction_reason: "Updated provider reason"}} />);
+    expect(screen.getByLabelText("Basic estimate reason")).toHaveTextContent("Updated provider reason");
+    rerender(<AMANFlightDetailDialog {...props} estimate={{basic_estimate: false}} />);
+    expect(screen.queryByLabelText("Basic estimate reason")).not.toBeInTheDocument();
+  });
+
+  it("keeps the basic estimate label when a reason is missing", async () => {
+    fetchDetail.mockResolvedValue(detail);
+    render(<AMANFlightDetailDialog airport="EKCH" callsign="SAS123" estimate={{basic_estimate: true}} onClose={vi.fn()} />);
+    await screen.findByText("A320");
+    expect(screen.getByLabelText("Basic estimate reason")).toHaveTextContent("Prediction reason unavailable.");
+  });
+
   it("ignores an old API result after rebinding the same airport and callsign", async () => {
     let resolveOld!: (value: AMANFlightDetail) => void;
     fetchDetail.mockImplementationOnce(() => new Promise<AMANFlightDetail>(resolve => {resolveOld = resolve;}));

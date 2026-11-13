@@ -4,6 +4,49 @@ import {flightInformationDetail} from "../../src/visual-tests/flight-information
 const detailURL = "**/api/aman/airports/EKCH/flights/SAS1778/detail";
 
 for (const width of [1920, 1280, 1024]) {
+  test(`shows the full basic estimate reason in the holding row at ${width}px`, async ({page}, testInfo) => {
+    await page.setViewportSize({width, height: 1080});
+    await page.goto("/visual-tests/flight-information-preview.html?basic");
+    const reason = page.getByLabel("Basic estimate reason", {exact: true});
+    await expect(reason).toHaveText("Prediction provider unavailable; using surveillance and terminal geometry.");
+    await expect(reason).toBeVisible();
+    await expect(page.getByRole("button", {name: "Technical evidence"})).toHaveAttribute("aria-expanded", "false");
+    const summary = page.getByLabel("Flight information summary");
+    await page.evaluate(() => document.fonts.ready);
+    expect(await reason.evaluate(element => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true);
+    expect(await summary.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const [holding, close] = await Promise.all([page.getByLabel("Holding information").boundingBox(), page.getByTestId("flight-detail-close-panel").boundingBox()]);
+    expect(holding!.y + holding!.height).toBeCloseTo(close!.y + close!.height, 0);
+    await summary.screenshot({path: testInfo.outputPath(`flight-information-basic-${width}.png`), animations: "disabled"});
+  });
+}
+
+test("keeps the compact marker visible, reveals its reason on focus, and opens information by keyboard and touch", async ({page}) => {
+  await page.goto("/visual-tests/flight-information-preview.html?targets&basic");
+  const targets = page.getByRole("region", {name: "Aircraft target previews"}).getByRole("button");
+  for (const target of await targets.all()) {
+    await expect(target).toContainText("SAS1778≈");
+    const marker = target.getByText("≈", {exact: true});
+    const [targetBox, markerBox] = await Promise.all([target.boundingBox(), marker.boundingBox()]);
+    expect(markerBox!.x + markerBox!.width).toBeLessThanOrEqual(targetBox!.x + targetBox!.width);
+    const callsign = target.getByText("SAS1778", {exact: false}).first();
+    expect(await callsign.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+  await targets.nth(1).focus();
+  await expect(page.getByRole("tooltip")).toContainText("Prediction provider unavailable");
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Basic estimate reason")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(targets.nth(1)).toBeFocused();
+  const touch = await page.context().browser()!.newContext({hasTouch: true, viewport: {width: 1024, height: 768}});
+  const touchPage = await touch.newPage();
+  await touchPage.goto("/visual-tests/flight-information-preview.html?targets&basic");
+  await touchPage.getByRole("button", {name: /Select SAS1778/}).first().tap();
+  await expect(touchPage.getByLabel("Basic estimate reason")).toBeVisible();
+  await touch.close();
+});
+
+for (const width of [1920, 1280, 1024]) {
   test(`keeps the holding row proportional to the Figma strip at ${width}px`, async ({page}, testInfo) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));

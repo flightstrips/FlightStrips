@@ -214,11 +214,11 @@ describe("AMAN route authorization", () => {
   });
 
   it("opens and closes the existing detail view for the activated target", () => {
-    storeState.amanState = authoritativeState([{callsign: "SAS123", lifecycle_state: "stable", go_around_confirmation: null}]);
+    storeState.amanState = authoritativeState([{callsign: "SAS123", lifecycle_state: "stable", go_around_confirmation: null, basic_estimate: true, prediction_reason: "Provider unavailable"}]);
     render(<AMAN />);
 
     fireEvent.click(screen.getByRole("button", {name: "Open target"}));
-    expect(detailSpy).toHaveBeenCalledWith(expect.objectContaining({airport: "EKCH", callsign: "SAS123"}));
+    expect(detailSpy).toHaveBeenCalledWith(expect.objectContaining({airport: "EKCH", callsign: "SAS123", estimate: expect.objectContaining({basic_estimate: true, prediction_reason: "Provider unavailable"})}));
     fireEvent.click(screen.getByRole("button", {name: "Close mocked detail"}));
     expect(screen.queryByRole("button", {name: "Close mocked detail"})).not.toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
-import {fireEvent, render, screen} from "@testing-library/react";
-import {describe, expect, it, vi} from "vitest";
+import {act, fireEvent, render, screen} from "@testing-library/react";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {AMANFlight} from "@/api/aman";
 import {AMANAircraftTarget, type AMANAircraftTargetField} from "./AMANAircraftTarget";
@@ -18,6 +18,47 @@ function flight(overrides: Partial<AMANFlight> = {}): AMANFlight {
 const guidance = {authoritative: true, connected: true};
 
 describe("compact MAESTRO aircraft target", () => {
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("marks a basic estimate beside the full callsign and exposes its reason on keyboard focus", async () => {
+    const onSelect = vi.fn();
+    render(<AMANAircraftTarget compact delayFirst flight={flight({callsign: "BAW81CB", basic_estimate: true, prediction_reason: "Provider unavailable"})} guidance={guidance} onSelect={onSelect} />);
+    const target = screen.getByRole("button", {name: /Select BAW81CB.*Basic estimate: Provider unavailable/});
+    expect(target).toHaveTextContent("L02BAW81CB≈");
+    expect(screen.getByText("≈")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.queryByText("Basic estimate")).not.toBeInTheDocument();
+    await act(async () => target.focus());
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Basic estimate: Provider unavailable");
+    fireEvent.click(target);
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it("clears the estimate marker and explanation without losing keyboard focus when the provider recovers", async () => {
+    const {rerender} = render(<AMANAircraftTarget flight={flight({basic_estimate: true})} guidance={guidance} />);
+    const target = screen.getByRole("button");
+    await act(async () => target.focus());
+    expect(target).toHaveAccessibleName(/Basic estimate/);
+    expect(screen.getByText("≈")).toBeInTheDocument();
+    rerender(<AMANAircraftTarget flight={flight({basic_estimate: false, prediction_reason: "Other prediction information"})} guidance={guidance} />);
+    expect(screen.queryByText("≈")).not.toBeInTheDocument();
+    expect(screen.getByRole("button")).not.toHaveAccessibleName(/Basic estimate|Other prediction information/);
+    expect(target).toHaveFocus();
+  });
+
+  it("keeps basic estimate quality separate from stale gain/lose guidance", () => {
+    render(<AMANAircraftTarget flight={flight({data_status: "stale", basic_estimate: true, prediction_reason: "Provider unavailable"})} guidance={guidance} />);
+    expect(screen.getByText("≈")).toBeInTheDocument();
+    expect(screen.getByText("L02")).toHaveAttribute("title", "Last known gain/lose; awaiting current prediction");
+    expect(screen.getByText("L02")).toHaveClass("text-[#a0a0a0]");
+  });
+
   it("keeps estimated EAT and holding duration out of timeline aircraft labels", () => {
     render(<AMANAircraftTarget flight={flight({
       gain_loss_seconds: -1800,

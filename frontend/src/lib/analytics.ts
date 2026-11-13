@@ -200,6 +200,9 @@ function clearPostHogStorage() {
   for (const storage of [localStorage, sessionStorage]) {
     for (let i = storage.length - 1; i >= 0; i--) {
       const key = storage.key(i);
+      // The loaded SDK checks this consent flag before capturing events.
+      // Removing it would undo opt_out_capturing() while clearing identifiers.
+      if (key?.startsWith("__ph_opt_in_out_")) continue;
       if (key && (key.startsWith("ph_") || key.startsWith("__ph"))) {
         storage.removeItem(key);
       }

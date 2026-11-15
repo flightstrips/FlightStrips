@@ -5,13 +5,6 @@ export interface ClientInfo {
   positionId?: string;
 }
 
-/** Wire format for signaling_start_call target (snake_case externally-tagged enum). */
-export type CallTargetWire =
-  | string
-  | { client: string }
-  | { position: string }
-  | { station: string };
-
 export interface CallSource {
   clientId: string;
   positionId?: string;
@@ -25,30 +18,8 @@ export interface CallInvite {
   prio: boolean;
 }
 
-export interface CallError {
-  callId: string;
-  reason: string;
-}
-
-export interface SessionInfo {
-  client: ClientInfo;
-  profile: { type: string };
-}
-
-export interface SessionStateSnapshot {
-  connectionState: "disconnected" | "connecting" | "connected" | "test";
-  sessionInfo: SessionInfo | null;
-  stations: unknown[];
-  clients: ClientInfo[];
-  clientId: string | null;
-  callConfig: unknown;
-  clientPageSettings: unknown;
-  capabilities: unknown;
-  incomingCalls: CallInvite[];
-  outgoingCall: CallInvite | null;
-}
-
-export type VacsState =
+export type VacsState = { actionable?: boolean; pending?: boolean; tooltip?: string; waiting?: number } & (
+  | { status: "disabled" | "reconnecting" | "synchronizing" }
   | { status: "unavailable" }
   | { status: "unauthenticated" }
   | { status: "disconnected" }
@@ -69,7 +40,30 @@ export type VacsState =
       ownPositionId: string;
       ownClientId: string | null;
     }
-  | { status: "connected"; callId: string; peer: ClientInfo | null };
+  | { status: "connected" | "connecting"; callId: string; peer: ClientInfo | null });
+
+export type VacsRelayAction = "status" | "dial" | "answer" | "reject" | "cancel" | "end";
+
+/** Native plugin snapshot, serialized by the backend with protobuf JSON tags. */
+export interface VacsRelaySnapshot {
+  status: string;
+  label?: string;
+  tooltip?: string;
+  call_id?: string;
+  pending?: boolean;
+  actionable?: boolean;
+  waiting?: number;
+  clients?: Array<{id: string; display_name?: string; frequency?: string; position_id?: string}>;
+  own_client_id?: string;
+  own_position_id?: string;
+  sequence: number;
+}
+
+export interface VacsRelayResult {
+  request_id: string;
+  state?: VacsRelaySnapshot;
+  error?: string;
+}
 
 export type VacsActions = {
   acceptCall(callId: string): Promise<void>;
@@ -77,45 +71,3 @@ export type VacsActions = {
   endCall(callId: string): Promise<void>;
   dialClient(client: ClientInfo): Promise<void>;
 };
-
-export type VacsInvokeMessage = {
-  type: "invoke";
-  id: string;
-  cmd: string;
-  args: Record<string, unknown>;
-};
-
-export type VacsSubscribeMessage = {
-  type: "subscribe";
-  event: string;
-};
-
-export type VacsPingMessage = {
-  type: "ping";
-};
-
-export type VacsClientMessage = VacsInvokeMessage | VacsSubscribeMessage | VacsPingMessage;
-
-export type VacsResponseMessage = {
-  type: "response";
-  id: string;
-  ok: boolean;
-  data?: unknown;
-  error?: {
-    type: string;
-    title?: string;
-    detail?: string;
-    isNonCritical?: boolean;
-  };
-};
-
-export type VacsEventMessage = {
-  type: "event";
-  name: string;
-  payload: unknown;
-};
-
-export type VacsServerMessage =
-  | VacsResponseMessage
-  | VacsEventMessage
-  | { type: "pong" };

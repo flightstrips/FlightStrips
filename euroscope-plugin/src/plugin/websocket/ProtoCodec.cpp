@@ -146,6 +146,7 @@ namespace FlightStrips::websocket::protobuf {
             payload->set_token(ToProtoValue(value.token));
             payload->set_version(ToProtoValue(value.version));
             payload->set_frequency_messages(true);
+            payload->set_vacs_relay(true);
             break;
         }
         case EVENT_LOGIN: {

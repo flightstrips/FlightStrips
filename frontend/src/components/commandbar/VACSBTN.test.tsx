@@ -25,8 +25,6 @@ beforeEach(() => {
   mockUseVacsSettings.mockReturnValue({
     vacsEnabled: true,
     setVacsEnabled: vi.fn(),
-    vacsHost: "",
-    setVacsHost: vi.fn(),
   });
 });
 
@@ -150,8 +148,6 @@ describe("VACSBTN", () => {
     mockUseVacsSettings.mockReturnValue({
       vacsEnabled: false,
       setVacsEnabled: vi.fn(),
-      vacsHost: "",
-      setVacsHost: vi.fn(),
     });
     mockUseVacs.mockReturnValue({
       state: { status: "unavailable" },
@@ -164,5 +160,21 @@ describe("VACSBTN", () => {
     });
     const { container } = render(<VACSBTN />);
     expect(container.querySelector("button")).toBeNull();
+  });
+
+  it("disables both call actions while native confirmation is pending", () => {
+    const acceptCall = vi.fn(), rejectCall = vi.fn();
+    mockUseVacs.mockReturnValue({
+      state: {status: "incoming", actionable: false, pending: true, waiting: 3,
+        calls: [{callId: "oldest", source: {clientId: "peer"}, target: {}, prio: false}],
+        clients: [], ownPositionId: "EKCH_TWR", ownClientId: "self"},
+      actions: {acceptCall, rejectCall, endCall: vi.fn(), dialClient: vi.fn()},
+    });
+    render(<VACSBTN />);
+    const button = screen.getByRole("button", {name: /vacs voice/i});
+    expect(button).toBeDisabled();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    fireEvent.click(button); fireEvent.contextMenu(button);
+    expect(acceptCall).not.toHaveBeenCalled(); expect(rejectCall).not.toHaveBeenCalled();
   });
 });

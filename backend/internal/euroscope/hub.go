@@ -213,6 +213,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 	handlers.AddAction(euroscope.SendPrivateMessage, handleSendPrivateMessage)
 	handlers.Add(euroscope.FrequencyMessageResult, handleFrequencyMessageResult)
+	handlers.Add(euroscope.VacsResult, handleVacsResult)
 	if deps.AMANRouteFacts != nil {
 		handlers.Add(euroscope.AMANRouteFact, handleAMANRouteFact)
 	}
@@ -543,7 +544,7 @@ func (hub *Hub) DecodeAuthentication(frameType int, message []byte) (events.Auth
 	if err := euroscope.UnmarshalEvent(message, euroscope.Authentication, &event); err != nil {
 		return events.AuthenticationEvent{}, err
 	}
-	return events.AuthenticationEvent{Token: event.Token, Version: event.Version, FrequencyMessages: event.FrequencyMessages, InstanceID: event.InstanceId}, nil
+	return events.AuthenticationEvent{Token: event.Token, Version: event.Version, FrequencyMessages: event.FrequencyMessages, VacsRelay: event.VacsRelay, InstanceID: event.InstanceId}, nil
 }
 
 func (hub *Hub) GetServer() shared.Server {
@@ -577,6 +578,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 	client := &Client{conn: conn, send: make(chan events.OutgoingMessage, clientSendQueueSize), closed: make(chan struct{}), hub: hub, user: user, version: strings.TrimSpace(authenticationEvent.Version)}
 	client.registered = make(chan struct{})
 	client.frequencyMessages.Store(authenticationEvent.FrequencyMessages)
+	client.vacsRelay.Store(authenticationEvent.VacsRelay)
 	client.transport = &pluginTransport{root: client, instance: authenticationEvent.InstanceID, generation: newGeneration(), members: make(map[string]*Client)}
 	hub.Register(client)
 	select {

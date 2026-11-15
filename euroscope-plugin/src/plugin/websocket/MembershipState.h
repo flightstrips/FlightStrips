@@ -47,7 +47,7 @@ namespace FlightStrips::websocket {
             case E::kGroundState:case E::kClearedFlag:case E::kHeading:case E::kStand:case E::kEobt:case E::kGenerateSquawk:
             case E::kRoute:case E::kRemarks:case E::kAircraftInfo:case E::kAircraftInfoRemarks:case E::kSid:case E::kAircraftRunway:
             case E::kCoordinationHandover:case E::kAssumeOnly:case E::kAssumeAndDrop:case E::kDropTracking:case E::kCreateFpl:
-            case E::kSendPrivateMessage:case E::kSendFrequencyMessage:case E::kHold:return true;
+            case E::kSendPrivateMessage:case E::kSendFrequencyMessage:case E::kVacsRequest:case E::kHold:return true;
             default:return false;
             }
         }

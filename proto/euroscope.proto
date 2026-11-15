@@ -68,6 +68,8 @@ enum EventType {
   EVENT_CONTROL = 57;
   EVENT_MEMBERSHIP_REMOVED = 58;
   EVENT_AIRCRAFT_SELECTION = 59;
+  EVENT_VACS_REQUEST = 60;
+  EVENT_VACS_RESULT = 61;
 }
 
 // Every websocket frame contains exactly one event. Using a oneof makes the
@@ -146,6 +148,8 @@ message Envelope {
     ControlEvent control = 57;
     MembershipRemovedEvent membership_removed = 58;
     AircraftSelectionEvent aircraft_selection = 59;
+    VacsRequestEvent vacs_request = 60;
+    VacsResultEvent vacs_result = 61;
   }
 }
 
@@ -155,6 +159,7 @@ message TokenEvent {
   bool frequency_messages = 3;
   // Random process identity, retained across websocket reconnects, never a CID.
   string instance_id = 4;
+  bool vacs_relay = 5;
 }
 
 // A membership incarnation is never reused, including after rejoin. Environment
@@ -505,3 +510,39 @@ message MasterInfoEvent {
 
 // Presentation state of the physical instance; empty callsign clears selection.
 message AircraftSelectionEvent { string callsign = 1; }
+
+// Call controls only. Audio and VACS authentication remain on the desktop.
+message VacsRequestEvent {
+  string request_id = 1;
+  string action = 2; // status, dial, answer, reject, cancel, end
+  string call_id = 3;
+  string client_id = 4;
+}
+
+message VacsPeer {
+  string id = 1;
+  string display_name = 2;
+  string frequency = 3;
+  string position_id = 4;
+}
+
+message VacsState {
+  string status = 1;
+  string label = 2;
+  string tooltip = 3;
+  string call_id = 4;
+  bool pending = 5;
+  bool actionable = 6;
+  uint32 waiting = 7;
+  repeated VacsPeer clients = 8;
+  string own_client_id = 9;
+  string own_position_id = 10;
+  // Monotonic within this plugin process; rejects reordered snapshots.
+  uint64 sequence = 11;
+}
+
+message VacsResultEvent {
+  string request_id = 1;
+  VacsState state = 2;
+  string error = 3;
+}

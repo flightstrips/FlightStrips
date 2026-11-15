@@ -659,14 +659,14 @@ TEST_F(VacsServiceTest, RelaySnapshotAndNativePanelShareClientsAndPendingActions
         {"incomingCalls", Json::array()}, {"outgoingCall", nullptr}});
     reply(nullptr);
     sockets[0]->receive(Json{{"type", "event"}, {"name", "store:sync"},
-        {"payload", {{"store", "call"}, {"state", {{"prio", false}}}}}}.dump());
+        {"payload", {{"store", "call"}, {"state", {{"prio", false}, {"incomingCalls", Json::array()}}}}}}.dump());
     service->Tick(now);
     const auto state = VacsRelay::Snapshot(*service, 2);
     EXPECT_EQ(state.status(), "idle"); EXPECT_TRUE(state.actionable());
     EXPECT_EQ(state.own_client_id(), "self"); EXPECT_EQ(state.own_position_id(), "EKCH_TWR");
     ASSERT_EQ(state.clients_size(), 1); EXPECT_EQ(state.clients(0).position_id(), "EKCH_APP");
     EXPECT_TRUE(service->Execute(Action::Call, "", "peer"));
-    EXPECT_EQ(sockets[0]->sent.back()["args"]["target"]["client"], "peer");
+    EXPECT_EQ(sockets[0]->sent.back()["args"]["targets"], Json::array({{{"client", "peer"}}}));
     EXPECT_TRUE(VacsRelay::Snapshot(*service, 3).pending());
     EXPECT_FALSE(service->GetView().actionable);
     EXPECT_FALSE(service->Execute(Action::Call, "", "peer"));

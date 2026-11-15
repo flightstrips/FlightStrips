@@ -106,6 +106,7 @@ func TestApproachReleaseAdvanceExcludesAbsorptionFromBothGuidanceTransports(t *t
 			require.NoError(t, err)
 			require.EqualValues(t, -1, *mapped.GainLossSeconds, "controllers lose only time not planned for approach")
 			require.EqualValues(t, 299, *mapped.ApproachAbsorptionSeconds)
+			require.Equal(t, !test.reserved, mapped.ApproachReleaseForecastTime != nil)
 			require.Equal(t, plan.AdditionalApproachTime > 0, mapped.AdditionalApproachSeconds != nil)
 			if test.reserved {
 				require.EqualValues(t, 299, *mapped.AdditionalApproachSeconds)
@@ -118,6 +119,11 @@ func TestApproachReleaseAdvanceExcludesAbsorptionFromBothGuidanceTransports(t *t
 			require.EqualValues(t, -1, *es.Values[0].GainLossSeconds)
 			require.Equal(t, *mapped.GuidanceTargetTime, *es.Values[0].TargetTime)
 			require.Equal(t, plan.ApproachReleaseTime.Unix(), *es.Values[0].HoldingEatUnixSeconds)
+			if test.reserved {
+				require.Nil(t, es.Values[0].ApproachReleaseForecastUnixSeconds)
+			} else {
+				require.Equal(t, entry.Add(time.Second).Unix(), *es.Values[0].ApproachReleaseForecastUnixSeconds)
+			}
 			predicted, err := time.Parse(time.RFC3339Nano, *es.Values[0].PredictedTime)
 			require.NoError(t, err)
 			target, err := time.Parse(time.RFC3339Nano, *es.Values[0].TargetTime)

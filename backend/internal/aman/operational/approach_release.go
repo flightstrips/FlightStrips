@@ -107,6 +107,17 @@ func (s *Service) refreshApproachReleases(state *aman.AirportState, at time.Time
 				traffic.Eligible = f.Prediction.HoldingPlan != nil && f.Prediction.HoldingPlanBlockedBy == nil && traffic.Active && f.SequenceDisposition.Participates() && traffic.STARFamily != "" &&
 					traffic.FeederFix != "" && traffic.RouteDigest != "" && !retainedTimingUnavailable(f) &&
 					f.FreezeReason != aman.FreezeManual && f.ManualOrder == nil
+				// A physical forecast just beyond the slot has no holding plan.
+				// It still constrains following releases without becoming an
+				// unready holder or acquiring an artificial admission.
+				if !held && !traffic.InApproach && f.ApproachRelease == nil && f.Prediction.HoldingPlan == nil &&
+					!f.Slot.Time.After(f.Prediction.RawTETA) && f.Prediction.HoldingPlanBlockedBy == nil &&
+					traffic.Active && f.SequenceDisposition.Participates() && !f.Expedited && f.State != aman.StateGoAround &&
+					f.FreezeReason != aman.FreezeManual && f.ManualOrder == nil && !retainedTimingUnavailable(f) {
+					passage := maxTime(at, traffic.EntryAt.Add(time.Second))
+					traffic.PredictedStreamPassage = &passage
+					traffic.Incoming = traffic.Incoming || !passage.After(horizon)
+				}
 				if prior := f.ApproachRelease; prior != nil && prior.HoldingID == traffic.HoldingID && !traffic.NewHoldingEpisode {
 					traffic.ReservationOrderAt = prior.ReleaseAt
 					var reason string

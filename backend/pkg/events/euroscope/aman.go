@@ -87,6 +87,10 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			value.ReferencePoint = &referencePoint
 			value.TargetTime = &targetTime
 			value.PredictedTime = &predictedTime
+			if target.Before(flight.Slot.Time) && flight.ApproachRelease == nil && flight.ApproachGuidance != nil {
+				forecast := flight.ApproachGuidance.Plan.ApproachReleaseTime.Unix()
+				value.ApproachReleaseForecastUnixSeconds = &forecast
+			}
 		}
 		event.Values = append(event.Values, value)
 	}

@@ -3,6 +3,8 @@ package operational
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/terminal"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
+	frontendEvents "FlightStrips/pkg/events/frontend"
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/require"
@@ -100,6 +102,97 @@ func TestApproachGuidancePreviewsFutureArrivalWithoutPublishingAnAdmission(t *te
 	seconds, err = aman.GainLossGuidance(raw, aman.GainLossTarget(state.Flights[0], raw))
 	require.NoError(t, err)
 	require.EqualValues(t, -300, seconds)
+}
+
+// Rounded Copenhagen stress-scenario timings isolate the observed lifecycle:
+// RYR25K's raw forecast crosses its fixed slot while EZY601 follows LUGAS.
+// These are repeated physical predictions, not evidence of cleared holding.
+func TestApproachPreviewSurvivesUnheldStreamLeaderCrossingItsSlot(t *testing.T) {
+	svc, state, at := approachFixture(t)
+	state.Flights = state.Flights[:2]
+	for i := range state.Flights {
+		f := &state.Flights[i]
+		f.HoldingStack, f.HoldingReleaseBasis, f.HoldingClearance = nil, nil, nil
+		f.SelectedHolding, f.SelectedSTARFamily, f.SelectedFeederFix = state.Flights[0].SelectedHolding, state.Flights[0].SelectedSTARFamily, state.Flights[0].SelectedFeederFix
+		entry := at.Add(time.Duration(6+i*3) * time.Minute)
+		f.Prediction.HoldingFixETA = &entry
+		f.Prediction.OperationalReason = aman.OperationalReasonPredicted
+		f.Prediction.RawTETA, f.Prediction.OperationalTETA = entry.Add(18*time.Minute), entry.Add(18*time.Minute)
+		f.Slot.Time = entry.Add(time.Duration(18+i*5) * time.Minute)
+		f.Prediction.Calculation = &aman.PredictionCalculation{Duration: entry.Sub(at) + 18*time.Minute, NoWindDuration: entry.Sub(at) + 18*time.Minute, Legs: []aman.PredictionLeg{
+			{ID: "to-hold", From: "PPOS", To: *f.SelectedHolding, DistanceNM: 40, StartLatitude: 1, StartLongitude: -10, EndLatitude: 1, EndLongitude: -1, Duration: entry.Sub(at)},
+			{ID: "to-runway", From: *f.SelectedHolding, To: "RWY", DistanceNM: 80, StartLatitude: 1, StartLongitude: -1, EndLatitude: 1, EndLongitude: 1, Duration: 18 * time.Minute},
+		}}
+	}
+	state.Flights[0].Callsign, state.Flights[1].Callsign = "RYR25K", "EZY601"
+	state.Mode, state.PolicyVersion = aman.ModeAuthoritative, "fixture"
+	for i := range state.Flights {
+		state.Flights[i].LatestObservation.Callsign = state.Flights[i].Callsign
+		state.Flights[i].LatestObservation.Origin, state.Flights[i].LatestObservation.Destination = "EGKK", "EKCH"
+		state.Flights[i].LatestObservation.SourceStatus = aman.DataFresh
+		state.Flights[i].LatestObservation.Provider = aman.ObservationProviderEuroScope
+		state.Flights[i].LatestObservation.SurveillanceSource = aman.SurveillanceSourceEuroScope
+		state.Flights[i].LatestObservation.ReconciledAt = at
+		state.Flights[i].SelectedFeeder = state.Flights[i].SelectedSTARFamily
+	}
+	leaderSlot, followerSlot := *state.Flights[0].Slot, *state.Flights[1].Slot
+	for i, drift := range []int{-20, 44, -1, 1, 0, -12, 40} {
+		tick := at.Add(time.Duration(i) * 15 * time.Second)
+		svc.deps.Now = func() time.Time { return tick }
+		state.GeneratedAt = tick
+		for j := range state.Flights {
+			f := &state.Flights[j]
+			f.UpdatedAt = tick
+			f.LatestObservation.Surveillance.ObservedAt = &tick
+			f.Prediction.GeneratedAt, f.Prediction.InputObservedAt = tick, tick
+			f.Prediction.Calculation.Legs[0].Duration = f.Prediction.HoldingFixETA.Sub(tick)
+			f.Prediction.Calculation.Duration = f.Prediction.Calculation.Legs[0].Duration + f.Prediction.Calculation.Legs[1].Duration
+			f.Prediction.Calculation.NoWindDuration = f.Prediction.Calculation.Duration
+		}
+		state.Flights[0].Prediction.RawTETA = leaderSlot.Time.Add(time.Duration(drift) * time.Second)
+		svc.refreshHoldingPlans(&state)
+		leader, follower := state.Flights[0], state.Flights[1]
+		require.Equal(t, drift < 0, leader.Prediction.HoldingPlan != nil)
+		require.NotNil(t, follower.ApproachGuidance, "normal unheld passage must not block the stream: tick=%d drift=%ds", i, drift)
+		require.Equal(t, follower.Prediction.HoldingFixETA.Add(time.Second), follower.ApproachGuidance.Plan.ApproachReleaseTime)
+		require.NoError(t, follower.ApproachGuidance.Validate())
+		require.Nil(t, follower.ApproachRelease)
+		require.Nil(t, leader.ApproachRelease)
+		require.Zero(t, state.ReleaseBuffer.Projected())
+		require.Equal(t, leaderSlot, *leader.Slot)
+		require.Equal(t, followerSlot, *follower.Slot)
+		require.Nil(t, follower.HoldingClearance)
+		require.Nil(t, follower.HoldingStack)
+		web, err := frontendEvents.NewAMANStateEvent(state, aman.EffectiveAuthoritative, aman.TechnicalHealth{DesiredMode: state.Mode, EffectiveMode: aman.EffectiveAuthoritative})
+		require.NoError(t, err)
+		tags, err := euroscopeEvents.NewAMANGainLossEvent(state)
+		require.NoError(t, err)
+		require.EqualValues(t, -1, *web.Data.Flights[1].GainLossSeconds)
+		require.Equal(t, web.Data.Flights[1].GainLossSeconds, tags.Values[1].GainLossSeconds)
+		require.Equal(t, web.Data.Flights[1].GuidanceTargetTime, tags.Values[1].TargetTime)
+		require.Equal(t, follower.ApproachGuidance.Plan.ApproachReleaseTime.Unix(), *tags.Values[1].ApproachReleaseForecastUnixSeconds)
+		require.NotNil(t, web.Data.Flights[1].ApproachReleaseForecastTime)
+		require.Equal(t, follower.Prediction.HoldingPlan.ApproachReleaseTime.Unix(), *tags.Values[1].HoldingEatUnixSeconds, "a forecast must not replace the EAT in either feed")
+		state = cloneGapState(t, state)
+	}
+	// Manual protection and actual holding remain valid stream blockers.
+	for _, protection := range []string{"manual", "holding", "stale"} {
+		t.Run(protection, func(t *testing.T) {
+			next := cloneGapState(t, state)
+			leader := &next.Flights[0]
+			leader.Prediction.RawTETA = leader.Slot.Time.Add(time.Minute)
+			switch protection {
+			case "manual":
+				leader.FreezeReason = aman.FreezeManual
+			case "holding":
+				leader.HoldingClearance = &aman.HoldingClearance{Hold: *leader.SelectedHolding, HoldType: aman.HoldingClearanceEnroute, ObservedAt: next.GeneratedAt}
+			case "stale":
+				leader.DataStatus = aman.DataStale
+			}
+			svc.refreshHoldingPlans(&next)
+			require.Nil(t, next.Flights[1].ApproachGuidance, "withdraw a forecast when its stream is no longer usable")
+		})
+	}
 }
 
 func TestReleaseBufferDoesNotInferReleaseFromCancellationOrElapsedSlot(t *testing.T) {

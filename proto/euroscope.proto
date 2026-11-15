@@ -443,6 +443,8 @@ message AMANGainLossValue {
   optional bool inside_tma = 14;
   // AMAN's calculated holding release, independent of EAT writeback.
   optional int64 holding_eat_unix_seconds = 15;
+  // Forecast only: affects pre-approach guidance without committing an EAT.
+  optional int64 approach_release_forecast_unix_seconds = 16;
 }
 
 message AMANGainLossEvent {

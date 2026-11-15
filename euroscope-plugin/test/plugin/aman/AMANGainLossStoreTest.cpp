@@ -50,6 +50,18 @@ TEST(AMANGainLossStoreTest, ReadsProtobufReplacement) {
     EXPECT_TRUE(store.FindByCallsign("SAS123")->insideTMA);
 }
 
+TEST(AMANGainLossStoreTest, ForecastMetadataDoesNotBecomeAHoldingEatAndClearsOnReplacement) {
+    AMANGainLossStore store;
+    auto event = Event(42);
+    event.mutable_aman_gain_loss()->mutable_values(0)->set_approach_release_forecast_unix_seconds(1794762680);
+    store.OnMessages({Bytes(event)});
+    ASSERT_TRUE(store.FindByCallsign("SAS123").has_value());
+    EXPECT_EQ(store.FindByCallsign("SAS123")->approachReleaseForecastUnixSeconds, 1794762680);
+    EXPECT_FALSE(store.FindByCallsign("SAS123")->holdingEatUnixSeconds.has_value());
+    store.OnMessages({Bytes(Event(43))});
+    EXPECT_FALSE(store.FindByCallsign("SAS123")->approachReleaseForecastUnixSeconds.has_value());
+}
+
 TEST(AMANGainLossStoreTest, UnavailableAircraftDoesNotRejectHealthyAircraftTimings) {
     AMANGainLossStore store;
     auto replacement = Event(43, "UNRELIABLE");

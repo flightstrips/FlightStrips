@@ -252,6 +252,8 @@ export interface AMANFlight {
   /** Effective guidance target after downstream absorption; slot stays authoritative. */
   guidance_target_time?: string;
   approach_absorption_seconds?: number;
+  /** Provisional release used in guidance, separate from the calculated EAT. */
+  approach_release_forecast_time?: string;
   freeze_reason: AMANFreezeReason;
   frozen_at: string | null;
   confidence: AMANConfidence | null;
@@ -637,6 +639,7 @@ function isFlight(value: unknown): value is AMANFlight {
     && isNullableTimestamp(value.raw_teta) && isNullableTimestamp(value.operational_teta)
     && isNullableFiniteNumber(value.gain_loss_seconds)
     && (value.guidance_target_time === undefined || isTimestamp(value.guidance_target_time))
+    && (value.approach_release_forecast_time === undefined || isTimestamp(value.approach_release_forecast_time))
     && (value.approach_absorption_seconds === undefined || isNonNegativeInteger(value.approach_absorption_seconds))
     && isString(value.freeze_reason)
     && freezeReasons.has(value.freeze_reason as AMANFreezeReason) && isNullableTimestamp(value.frozen_at)

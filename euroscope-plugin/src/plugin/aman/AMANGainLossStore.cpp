@@ -114,6 +114,9 @@ namespace FlightStrips::aman {
                 throw std::invalid_argument("invalid AMAN data status");
             }
             const auto hasPresentation = item.has_gain_loss_seconds();
+            if (item.has_approach_release_forecast_unix_seconds()) {
+                value.approachReleaseForecastUnixSeconds = item.approach_release_forecast_unix_seconds();
+            }
             if (hasPresentation != item.has_reference_point() || hasPresentation != item.has_target_time() ||
                 hasPresentation != item.has_predicted_time()) {
                 throw std::invalid_argument("partial AMAN presentation value");

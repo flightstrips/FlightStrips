@@ -200,6 +200,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
 	handlers.Add(frontend.SendPrivateMessage, handleSendPrivateMessage)
 	handlers.Add(frontend.SendFrequencyMessage, handleSendFrequencyMessage)
+	handlers.Add(frontend.VacsRequest, handleVacsRequest)
 	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 	handlers.Add(frontend.UpdateRunwayStatus, handleUpdateRunwayStatus)
 	handlers.Add(frontend.AcknowledgeValidationStatus, handleAcknowledgeValidationStatus)

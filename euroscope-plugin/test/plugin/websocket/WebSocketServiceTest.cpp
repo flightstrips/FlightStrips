@@ -5,6 +5,7 @@
 #include "version.h"
 #include "websocket/Events.h"
 #include "websocket/generated/proto/euroscope.pb.h"
+#include "vacs/VacsRelay.h"
 #include "mock/MockFlightStripsPlugin.h"
 #include "mock/MockAuthenticationService.h"
 #include "handlers/ConnectionEventHandlers.h"
@@ -2015,4 +2016,34 @@ TEST_F(WebSocketServiceOnTimerTest, DeferredSquawkValidatesRemovalAndAutomaticEp
     ASSERT_TRUE(queue.TakeReady([](const std::string&){return true;}));
     auto removal=command;removal.mutable_membership_removed();socket->ProcessServerMessage(removal.SerializeAsString());
     int sdkCalls=0;EXPECT_FALSE(queue.Execute("SAS125",[&]{++sdkCalls;}));EXPECT_EQ(sdkCalls,0);
+}
+
+TEST_F(WebSocketServiceOnTimerTest, VacsRelayKeepsOwnNonMasterContextAndRejectsRetiredRequests) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    auto socket = std::shared_ptr<WebSocketService>(std::move(svc));
+    auto context = AddMembership(*socket, 1, "AAAA", "slave");
+    AddMembership(*socket, 2, "BBBB", "master");
+    auto config = std::make_shared<configuration::UserConfig>("unused-vacs-relay-test.ini");
+    auto service = std::make_shared<vacs::VacsService>(config);
+    msgHandlers->RegisterHandler(std::make_shared<vacs::VacsRelay>(service, socket));
+    protobuf::wire::Envelope request;
+    *request.mutable_context() = context;
+    request.set_command_origin(protobuf::wire::COMMAND_ORIGIN_HUMAN);
+    request.mutable_vacs_request()->set_request_id("status-own");
+    request.mutable_vacs_request()->set_action("status");
+    EXPECT_CALL(*mockImpl, Send(_)).WillOnce(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope result; ASSERT_TRUE(result.ParseFromString(bytes));
+        EXPECT_EQ(result.context().membership_id(), context.membership_id());
+        EXPECT_EQ(result.vacs_result().request_id(), "status-own");
+        EXPECT_EQ(result.vacs_result().state().status(), "disabled");
+        EXPECT_FALSE(result.vacs_result().state().actionable());
+    }));
+    socket->ProcessServerMessage(request.SerializeAsString());
+    ::testing::Mock::VerifyAndClearExpectations(mockImpl);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(0);
+    auto stale = request; stale.mutable_context()->set_transport_generation(99);
+    socket->ProcessServerMessage(stale.SerializeAsString());
+    auto removal = request; removal.mutable_membership_removed()->set_reason("left");
+    socket->ProcessServerMessage(removal.SerializeAsString());
+    socket->ProcessServerMessage(request.SerializeAsString());
 }

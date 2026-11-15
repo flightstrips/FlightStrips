@@ -29,6 +29,8 @@ type Client struct {
 	boardObserver     bool
 	selection         membershipSelection // immutable authenticated socket selection
 	frequencyRequests sync.Map
+	vacsRequestMu     sync.Mutex
+	vacsRequests      map[string]time.Time
 	conn              *gorilla.Conn
 	session           int32
 	sessionName       string

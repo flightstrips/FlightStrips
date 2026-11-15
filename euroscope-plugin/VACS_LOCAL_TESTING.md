@@ -70,3 +70,12 @@ Regression fixtures cover the 3.x snapshot without legacy call fields, full/part
 Validation on 15 November 2026: Win32 Release build passed, all 57 VACS-related CTest checks passed, and the full plugin suite passed all 592 tests. Build and suite output are in `build/vacs3-build-final.log` and `build/vacs3-tests.log`. Live EuroScope/VACS calling and audio remain unverified.
 
 Review follow-up: regression coverage now includes repeated outgoing events for joined client/position/station targets, recovery of waiting calls alongside a finished-call display, and late answer replies after another call becomes active. The updated Win32 Release build passed all 62 VACS-related checks and all 597 plugin tests. Logs: `build/vacs3-review-build.log`, `build/vacs3-review-focused-tests.log`, and `build/vacs3-review-tests.log`.
+No branch, commit, PR, release or deployment is created by this work.
+
+## Browser relay verification
+
+With the updated backend and frontend running, select this own EuroScope instance in the strip board and enable browser VACS integration. Keep the native panel's VACS switch On. Open the board on a second computer or tablet; the browser needs only its normal FlightStrips connection, not access to port 9600.
+
+Verify dial, answer, reject, cancel and end from both native and browser controls. Changes should appear on the next browser refresh. Check multiple waiting calls, an existing desktop call on browser startup, native/browser actions competing for the same call, and reconnecting both the browser and plugin. Unload or disconnect the selected plugin and verify browser controls become unavailable without switching to another same-CID instance or the session master. Disable browser integration during a call and verify the desktop call continues. No call action should be replayed after reconnect or timeout.
+
+These are live acceptance checks; automated relay, state-machine and transport tests do not verify real audio or a deployed multi-device session.

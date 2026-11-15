@@ -31,6 +31,8 @@ namespace FlightStrips::vacs {
         bool Execute(Action action, const std::string& expectedCallId, Time now, const std::string& clientId = {});
         [[nodiscard]] View GetView() const;
         [[nodiscard]] std::vector<Client> GetClients() const;
+        [[nodiscard]] const std::string& OwnClientId() const { return ownId_; }
+        [[nodiscard]] const std::string& OwnPositionId() const { return position_; }
         std::string TakeError();
     private:
         struct Request {

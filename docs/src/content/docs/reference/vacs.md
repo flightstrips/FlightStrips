@@ -36,11 +36,13 @@ The plugin can answer and end calls that include several participants. Create co
 
 ### Set it up
 
-1. Start VACS.
-2. In VACS, sign in to VATSIM, connect to your controller position, and enable remote control.
-3. In Flight Strips, click the **settings gear** beside the clock.
-4. Select **Enable VACS voice integration**.
+1. Update the FlightStrips EuroScope plugin and connect FlightStrips to your own EuroScope instance.
+2. Start VACS on that computer. Sign in to VATSIM, connect to your controller position, and enable remote control.
+3. In the FlightStrips EuroScope panel, switch **VACS** to **On**.
+4. In the browser, click the **settings gear** beside the clock and select **Enable VACS voice integration**.
 5. Close settings. A **phone button** appears beside the gear.
+
+The browser can run on another computer or tablet. It uses the existing FlightStrips connection to control VACS through your selected EuroScope plugin. It does not need direct access to the VACS computer or TCP port 9600. Microphone, headset, ringing and audio remain on the VACS computer.
 
 If the phone button is grey, hover over it. The tooltip tells you what VACS still needs.
 
@@ -79,7 +81,11 @@ The button is green during a connected call. Click or right-click it to end the 
 
 ## How the integration works
 
-Flight Strips connects directly from your browser to the VACS remote-control WebSocket. The Flight Strips backend does not carry voice traffic. VACS and WebRTC handle the audio; Flight Strips sends only call-control actions such as dial, accept, reject, and end.
+The browser sends call controls over its existing authenticated FlightStrips WebSocket. The backend routes each request to the exact EuroScope plugin membership selected by that browser. The plugin uses its shared native VACS connection to dial, answer, reject, cancel, or end calls. Replies return only to the browser that requested them; another controller or plugin instance cannot supply its call state.
+
+The plugin owns VACS subscriptions, call recovery, and command validation. Browser controls refresh the native snapshot once per second, so calls started or answered in VACS or the native panel also appear in the browser. Pending or uncertain actions disable conflicting controls. A reconnect restores the current state; it never resends a call action. Closing the browser or disabling browser integration does not end desktop calls.
+
+VACS and WebRTC handle audio. The FlightStrips backend relays call controls and state only.
 
 To build the dial list, Flight Strips compares each controller on the strip board with the clients reported by VACS. A controller is available when one of these values matches:
 
@@ -94,25 +100,9 @@ Flight Strips does not use controller VATSIM CIDs for this matching. If the posi
 
 ### Choosing the VACS computer
 
-Flight Strips always connects to port **9600** at `/ws`. It chooses the hostname in this order:
+The **EuroScope plugin** chooses the VACS endpoint. By default it connects to `ws://localhost:9600/ws` on the EuroScope computer. For VACS on another trusted computer, configure `[vacs] host` in `flightstrips_user.ini` beside the loaded plugin core, using a hostname or IP without a scheme, port, or path. The plugin must be able to reach TCP port 9600 on that computer.
 
-1. The **VACS machine address** entered in Flight Strips settings.
-2. The local IP reported for the associated EuroScope computer.
-3. `localhost` when neither of the above is available.
-
-Normally, leave **VACS machine address** empty. Flight Strips then uses the EuroScope computer reported for your position, or the same computer as the browser when no address was reported.
-
-Enter an address only when you need to override that choice. Use an IP address or hostname, without `ws://`, a port, or a path.
-
-Examples:
-
-| Setting | Connection |
-| --- | --- |
-| Empty, with EuroScope IP `192.168.1.10` | `ws://192.168.1.10:9600/ws` |
-| Empty, without a reported EuroScope IP | `ws://localhost:9600/ws` |
-| `vacs-pc.local` | `ws://vacs-pc.local:9600/ws` |
-
-VACS remote control must be enabled on the selected computer, and the browser must be able to reach TCP port 9600. Saving another address reconnects the integration immediately when it is enabled.
+Browser host overrides are no longer used. Selecting another own EuroScope instance also selects that instance's VACS controls. An updated plugin is required; an older plugin reports an update instruction instead of falling back to a direct browser connection.
 
 ### Saved browser settings
 
@@ -121,7 +111,6 @@ The settings are stored in the current browser profile. They do not automaticall
 | Setting | Browser storage key | Default |
 | --- | --- | --- |
 | Integration enabled | `flightstrips.vacs.enabled` | Off |
-| VACS machine address | `flightstrips.vacs.host` | Empty |
 
 ## Troubleshooting
 
@@ -131,7 +120,10 @@ Hover over it and follow the displayed instruction:
 
 | Tooltip | What to check |
 | --- | --- |
-| VACS not running, or remote control not enabled | Start VACS and enable remote control in VACS settings |
+| Switch VACS On in the FlightStrips EuroScope panel | Enable the shared native VACS connection in the panel |
+| Update the EuroScope plugin | Install an updated plugin with VACS relay support |
+| VACS offline or retrying | Start VACS, enable remote control, and check connectivity from the EuroScope computer |
+| Synchronizing | Wait for the plugin to restore the desktop session and call store; resolve compatibility errors in VACS |
 | Sign in to VATSIM in VACS | Complete the VATSIM sign-in inside VACS |
 | VACS is not connected to a signaling position | Connect VACS to your controller position |
 | Your VACS position is ambiguous | Resolve the position selection in VACS |
@@ -150,6 +142,8 @@ Make sure VACS shows your own controller position as connected, then try again. 
 
 ## Developer reference
 
-The browser integration is implemented in `frontend/src/vacs/`, with the phone and dial controls in `frontend/src/components/commandbar/`. URL selection and hostname normalisation are in `frontend/src/lib/vacs-settings.ts`.
+The browser relay is implemented in `frontend/src/vacs/vacs-client.ts`, with controls in `frontend/src/components/commandbar/`. Each board socket has its own relay client; board invalidation clears call state and pending requests.
 
-The client uses VACS invoke commands including `signaling_start_call`, `signaling_accept_call`, and `signaling_end_call`. Rejecting a waiting call also uses `signaling_end_call`. Call-target enum tags are lowercase, and the outgoing call source contains `clientId`, `positionId`, and `stationId`.
+`vacs_request` and `vacs_result` travel over the existing frontend WebSocket and typed EuroScope protobuf transport. The backend captures the authenticated own-plugin binding, replaces browser request IDs with private relay IDs, and accepts only matching replies from that membership. Outstanding requests are bounded; stale incarnations, unsolicited replies and repeated action IDs are rejected.
+
+The native handler is `euroscope-plugin/src/plugin/vacs/VacsRelay.cpp`. It uses `VacsService` and `VacsClient`, sharing the connection and call state with the native panel. Dialing validates the current controller list, while call actions validate the current call ID and state. Native snapshot sequence numbers prevent reordered status replies from replacing newer call state in the browser.

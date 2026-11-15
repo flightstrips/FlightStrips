@@ -4,6 +4,7 @@
 #include <thread>
 #include "vacs/VacsClient.h"
 #include "vacs/VacsService.h"
+#include "vacs/VacsRelay.h"
 
 using namespace FlightStrips::vacs;
 
@@ -640,4 +641,34 @@ TEST_F(VacsClientTest, EndTimeoutPreservesConfirmedDisplayButGatesFurtherActions
     EXPECT_EQ(client.GetView().callId, "active");
     EXPECT_FALSE(client.GetView().actionable);
     EXPECT_FALSE(client.Execute(Action::End, "active", now));
+}
+
+TEST_F(VacsServiceTest, RelaySnapshotAndNativePanelShareClientsAndPendingActions) {
+    EXPECT_EQ(VacsRelay::Snapshot(*service, 1).status(), "disabled");
+    service->ToggleEnabled(); service->Tick(now); service->Tick(now);
+    ASSERT_EQ(sockets.size(), 1);
+    const auto reply = [&](Json data) {
+        const auto request = sockets[0]->sent.back();
+        sockets[0]->receive(Json{{"type", "response"}, {"id", request["id"]}, {"ok", true}, {"data", data}}.dump());
+        service->Tick(now);
+    };
+    reply(nullptr);
+    reply({{"connectionState", "connected"}, {"clientId", "self"},
+        {"sessionInfo", {{"client", {{"id", "self"}, {"positionId", "EKCH_TWR"}}}}},
+        {"clients", Json::array({{{"id", "peer"}, {"displayName", "Approach"}, {"positionId", "EKCH_APP"}, {"frequency", "119.800"}}})},
+        {"incomingCalls", Json::array()}, {"outgoingCall", nullptr}});
+    reply(nullptr);
+    sockets[0]->receive(Json{{"type", "event"}, {"name", "store:sync"},
+        {"payload", {{"store", "call"}, {"state", {{"prio", false}}}}}}.dump());
+    service->Tick(now);
+    const auto state = VacsRelay::Snapshot(*service, 2);
+    EXPECT_EQ(state.status(), "idle"); EXPECT_TRUE(state.actionable());
+    EXPECT_EQ(state.own_client_id(), "self"); EXPECT_EQ(state.own_position_id(), "EKCH_TWR");
+    ASSERT_EQ(state.clients_size(), 1); EXPECT_EQ(state.clients(0).position_id(), "EKCH_APP");
+    EXPECT_TRUE(service->Execute(Action::Call, "", "peer"));
+    EXPECT_EQ(sockets[0]->sent.back()["args"]["target"]["client"], "peer");
+    EXPECT_TRUE(VacsRelay::Snapshot(*service, 3).pending());
+    EXPECT_FALSE(service->GetView().actionable);
+    EXPECT_FALSE(service->Execute(Action::Call, "", "peer"));
+    EXPECT_FALSE(service->Execute(Action::End, "stale"));
 }

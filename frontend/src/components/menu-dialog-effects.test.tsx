@@ -33,6 +33,17 @@ function expectControlBevels() {
 beforeEach(() => vi.clearAllMocks());
 
 describe("menu dialog bevels", () => {
+  it("opens MEM AID without focusing the text field and allows custom entry", () => {
+    render(<MemaidDialog open bay="TWY-DEP" onOpenChange={vi.fn()} />);
+    expect(screen.getByRole("dialog")).toHaveFocus();
+    const input = screen.getByRole("textbox");
+    input.focus();
+    expect(input).toHaveFocus();
+    fireEvent.change(input, { target: { value: "CUSTOM MEMORY AID" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(actions.createTacticalStrip).toHaveBeenCalledWith("MEMAID", "TWY-DEP", "CUSTOM MEMORY AID", "SAS123");
+  });
+
   it("styles every MEM AID control while preserving preset submission", () => {
     const onOpenChange = vi.fn();
     render(<MemaidDialog open bay="TWY-DEP" onOpenChange={onOpenChange} />);

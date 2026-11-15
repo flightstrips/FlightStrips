@@ -50,6 +50,7 @@ import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoor
 
 
 type EventMap = {
+  [EventType.FrontendVacsResult]: import("@/vacs/types").VacsRelayResult;
   [EventType.FrontendAircraftSelection]: FrontendAircraftSelectionEvent;
  [EventType.FrontendConnectedFlightResults]:import("./strip-board").ConnectedFlightSearchResult;
   [EventType.FrontendMasterInfo]: FrontendMasterInfoEvent;

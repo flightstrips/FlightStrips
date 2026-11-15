@@ -129,8 +129,8 @@ namespace FlightStrips::vacs {
         }
         return view;
     }
-    bool VacsService::Execute(Action action, const std::string& callId) {
-        const auto result = client_.Execute(action, callId, std::chrono::steady_clock::now());
+    bool VacsService::Execute(Action action, const std::string& callId, const std::string& clientId) {
+        const auto result = client_.Execute(action, callId, std::chrono::steady_clock::now(), clientId);
         RefreshScreens();
         return result;
     }

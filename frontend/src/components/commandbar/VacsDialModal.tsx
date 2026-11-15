@@ -22,6 +22,7 @@ interface VacsDialModalProps {
   ownClientId: string | null;
   ownPositionId: string;
   ambiguous: boolean;
+  actionable?: boolean;
 }
 
 export default function VacsDialModal({
@@ -31,6 +32,7 @@ export default function VacsDialModal({
   ownClientId,
   ownPositionId,
   ambiguous,
+  actionable = true,
 }: VacsDialModalProps) {
   const [filter, setFilter] = useState("");
   const controllers = useControllers();
@@ -65,14 +67,14 @@ export default function VacsDialModal({
     };
   }, [clients, controllers, filter, myPosition, ownClientId]);
 
-  const canDial = !!ownPositionId && !ambiguous;
+  const canDial = !!ownPositionId && !ambiguous && actionable;
 
   const handleDial = async (entry: { controller: FrontendController; vacs: ClientInfo }) => {
     try {
       await actions.dialClient(entry.vacs);
       onOpenChange(false);
     } catch {
-      // placeCall already surfaces a toast
+      // The relay action already surfaces a toast
     }
   };
 

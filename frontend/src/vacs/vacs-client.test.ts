@@ -57,6 +57,21 @@ describe("VACS plugin relay", () => {
     f.reply({status: "idle", sequence: 2}, 1);
     expect(f.client.getState()).toMatchObject({status: "outgoing", callId: "new"}); f.client.stop();
   });
+  it.each(["timeout", "error"])("keeps newer call state when an older status poll fails with %s", async (failure) => {
+    const f = fixture(); f.client.start(); f.reply();
+    await vi.advanceTimersByTimeAsync(1000);
+    const statusRequest = f.send.mock.calls[1][0];
+    const action = f.client.dialClient({id: "peer", displayName: "Approach", frequency: "119.8"});
+    f.reply({status: "outgoing", call_id: "new", sequence: 3}); await action;
+    if (failure === "timeout") {
+      await vi.advanceTimersByTimeAsync(8000);
+    } else {
+      f.receive({request_id: statusRequest.request_id, error: "Old status request failed"});
+      await Promise.resolve();
+    }
+    expect(f.client.getState()).toMatchObject({status: "outgoing", callId: "new", actionable: true});
+    f.client.stop();
+  });
   it("clears pending actions on invalidation and ignores late replies", async () => {
     const f = fixture(); f.client.start(); f.reply({status: "incoming", call_id: "old", waiting: 3});
     const action = f.client.acceptCall("old"), rejection = expect(action).rejects.toThrow("disconnected");

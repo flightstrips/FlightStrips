@@ -79,8 +79,11 @@ export class VacsClient implements VacsActions {
   private refresh(): void {
     if ([...this.pending.values()].some(request => request.action === "status")) return;
     const generation = this.generation;
+    const sequence = this.sequence;
     void this.request("status").catch(error => {
-      if (this.interval !== null && generation === this.generation) this.publish({status: "unavailable", actionable: false, tooltip: error.message});
+      if (this.interval !== null && generation === this.generation && sequence === this.sequence) {
+        this.publish({status: "unavailable", actionable: false, tooltip: error.message});
+      }
     });
   }
   private receive(result: VacsRelayResult): void {

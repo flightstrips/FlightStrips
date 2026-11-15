@@ -2,7 +2,6 @@ package main
 
 import (
 	"FlightStrips/internal/aman"
-	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/navigation"
 	"context"
 	"log/slog"
@@ -10,26 +9,6 @@ import (
 	"testing"
 	"time"
 )
-
-func TestSimulatedStaffingServerConfiguration(t *testing.T) {
-	t.Setenv("SIMULATED_STAFFING_FILE", "")
-	if simulatedStaffingFromEnv() != nil {
-		t.Fatal("missing simulation source must remain unknown")
-	}
-	path := t.TempDir() + "/staffing.json"
-	t.Setenv("SIMULATED_STAFFING_FILE", path)
-	source := simulatedStaffingFromEnv()
-	if source == nil {
-		t.Fatal("server did not install the configured simulation acquisition")
-	}
-	if err := os.WriteFile(path, []byte(`{"version":"flightstrips-simulated-staffing/v1","environments":[{"environment":"SWEATBOX","observed_at":"2026-11-15T20:00:00Z","controllers_complete":false,"controllers":[]}]}`), 0600); err != nil {
-		t.Fatal(err)
-	}
-	frames, err := source(t.Context())
-	if err != nil || len(frames) != 1 || frames[0].Inventory != euroscope.CoverageUnknown {
-		t.Fatalf("server must preserve source completeness facts: %v, %v", frames, err)
-	}
-}
 
 func TestInitializeEnvironmentConfiguresLoggingFromDotEnv(t *testing.T) {
 	originalLogger := slog.Default()

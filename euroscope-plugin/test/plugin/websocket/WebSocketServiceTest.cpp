@@ -1046,6 +1046,56 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_DirectConnection_UsesSelectedS
     EXPECT_EQ(sent[1].control().environment(), "SWEATBOX");
 }
 
+TEST_F(WebSocketServiceReconnectTest, NonLiveControlAcquiresVisibleRosterBeforeMembershipAndResamplesChanges) {
+    state.connection_type = CONNECTION_TYPE_SWEATBOX;
+    state.callsign = "EKDK_CTR";
+    state.primary_frequency = "136.555";
+    state.relevant_airport = "EKCH";
+    ON_CALL(*mockAuth, GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
+    std::vector<VisibleController> controllers{{"EKDK_CTR", "136.555", false}};
+    ON_CALL(*mockPlugin, GetVisibleControllers()).WillByDefault(Invoke([&] { return std::optional{controllers}; }));
+    std::vector<protobuf::wire::ControlEvent> reports;
+    EXPECT_CALL(*mockImpl, Send(_)).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope envelope; ASSERT_TRUE(envelope.ParseFromString(bytes));
+        if (envelope.has_control()) reports.push_back(envelope.control());
+    }));
+    svc->SimulateConnected(*mockImpl);
+    ASSERT_EQ(reports.size(), 1u);
+    ASSERT_TRUE(reports[0].has_visible_staffing());
+    EXPECT_TRUE(reports[0].visible_staffing().complete());
+    EXPECT_GT(reports[0].visible_staffing().revision(), 0u);
+    EXPECT_EQ(reports[0].visible_staffing().observation_age_ms(), 0);
+    EXPECT_EQ(reports[0].visible_staffing().controllers(0).callsign(), "EKDK_CTR");
+    EXPECT_FALSE(reports[0].tuned_frequencies_known());
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    controllers.push_back({"EKBI_APP", "127.580", false});
+    svc->OnTimer(1);
+    ASSERT_EQ(reports.size(), 2u);
+    EXPECT_EQ(reports.back().visible_staffing().controllers_size(), 2);
+    controllers.pop_back();
+    svc->OnTimer(2);
+    ASSERT_EQ(reports.size(), 3u);
+    EXPECT_GT(reports.back().visible_staffing().revision(), reports[0].visible_staffing().revision());
+    EXPECT_EQ(reports.back().visible_staffing().controllers_size(), 1);
+    // Reconnecting retains no cached peers from the previous connection.
+    controllers.push_back({"EKBI_TWR", "119.005", false});
+    svc->SimulateConnected(*mockImpl);
+    ASSERT_EQ(reports.size(), 4u);
+    EXPECT_EQ(reports.back().visible_staffing().controllers(1).callsign(), "EKBI_TWR");
+}
+
+TEST_F(WebSocketServiceReconnectTest, LiveControlAcquiresVisibleRosterBeforeMembership) {
+    state.connection_type = CONNECTION_TYPE_DIRECT;
+    state.callsign = "EKDK_CTR";
+    state.primary_frequency = "136.555";
+    EXPECT_CALL(*mockPlugin, GetVisibleControllers()).WillOnce(Return(std::optional{std::vector<VisibleController>{{"EKDK_CTR", "136.555", false}}}));
+    EXPECT_CALL(*mockImpl, Send(_)).WillRepeatedly(Invoke([](const std::string& bytes) {
+        protobuf::wire::Envelope envelope; ASSERT_TRUE(envelope.ParseFromString(bytes));
+        if (envelope.has_control()) EXPECT_TRUE(envelope.control().has_visible_staffing());
+    }));
+    svc->SimulateConnected(*mockImpl);
+}
+
 TEST_F(WebSocketServiceReconnectTest, OnConnected_PlaybackConnection_OverridesManualPreferenceInLoginEvent) {
     state.range = 150;
     state.connection_type = CONNECTION_TYPE_PLAYBACK;

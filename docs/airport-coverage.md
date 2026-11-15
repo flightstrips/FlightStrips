@@ -12,78 +12,73 @@ authority, and configured identity/frequency matching. An optional application
 authority predicate can restrict participation further. No declaration grants
 session IDs, editable state, or command authority.
 
-One application coordinator reads one generation of the existing shared VATSIM
-and transceiver sources per pass. The reviewed prerequisite #1059 at `03032f5`
-already acquires controller inventory and retains LIVE source demand for control
-connections with zero memberships. No coverage worker performs upstream HTTP.
-Controllers without FlightStrips participate in coverage evidence. ATIS and
-observers do not take responsibility. Fresh own-instance plugin radio reports
-override provider radios; an unknown tuned list retains provider evidence.
-Duplicate plugin instances cannot inherit one another's tuning or eligibility.
+The application coordinator uses each physical instance's EuroScope controller
+observation. Controllers without FlightStrips participate in that evidence;
+ATIS and observers do not take responsibility. No coverage worker performs
+upstream HTTP or requires a public VATSIM feed to be working.
+
+Master participation and election use ES callsigns/primary frequencies plus the
+configured airport policies. The shared transceiver cache remains connected to
+server sector ownership, route selection and PDC, including relevant EKCH/EKBI
+frequency carriage. It is not an input to master admission/election. Other
+features retain their existing public-feed acquisition. Clearing tuned lists
+for master participation does not change airport definitions or sector matching.
 
 Inventory, identity and radios have explicit fresh, stale and unknown states.
-SWEATBOX environments use configured primary frequencies and callsigns only:
-additional tuned radios are unavailable there, so their evidence is neither
-required nor used for responsibility or takeover decisions. LIVE and playback
-keep their configured tuned-frequency policy.
+Visible-roster participation uses primary frequencies and callsigns in LIVE,
+SWEATBOX and playback. Additional radios are unavailable in exercises and are
+not required for master admission. LIVE sector/route selection still uses the
+existing transceiver observations where relevant.
 The default source age limit is 45 seconds, independent of airport grace and
 plugin startup delay; application assembly can inject a different age and clock.
 A failed refresh makes retained source data stale immediately. Expired or future
 timestamps cannot confirm takeover or absence. Unknown/stale evidence preserves
-established membership. Simulation providers must supply their own timestamped,
-environment-scoped inventory through `CoverageSimulated`; without it, inventory
-stays unknown. A connected simulated controller must also be present in that
-source's inventory: connected plugins cannot fill a supposedly complete empty
-roster. Public LIVE evidence is never substituted for training/playback.
+established membership. Public LIVE evidence is never substituted for
+training/playback.
 
-## Simulation staffing acquisition
+## Visible controller acquisition
 
-`cmd/server` accepts the optional `SIMULATED_STAFFING_FILE` path. The shared
-coordinator reads this local snapshot once per pass (normally once per second),
-regardless of the number of airports or memberships. An exercise-server bridge
-or another authoritative simulation source must atomically replace the file
-with its actual observations. No default roster is synthesized. The input is
-trusted server configuration; plugins and browsers cannot configure this path
-or declare roster completeness. This setting does not change LIVE admission.
+The deployment policy assumes the controllers visible to EuroScope constitute
+the complete relevant roster for master participation, in LIVE and exercises.
+Multi-airport use must load the relevant airports/controllers into that view.
 
-The versioned JSON document contains `environments`, each with:
+On the SDK thread, `GetVisibleControllers` reads `ControllerMyself` and exhausts
+`ControllerSelectFirst/Next`, including controllers without FlightStrips. It
+captures callsign, primary frequency and observer status without position-file
+or airport filtering. ATIS is excluded and observers do not take duties. An
+unavailable local identity yields unknown inventory rather than an empty roster.
 
-- `environment`: exact uppercase exercise/playback name from control evidence,
-  such as `SWEATBOX`, `SWEATBOX_EXERCISE1`, or `PLAYBACK_<instance-id>`. `LIVE`
-  and duplicate environments are rejected.
-- `observed_at`: RFC3339 observation time. Reading the file never advances it.
-  Future and expired observations cannot confirm membership or takeover.
-- `controllers_complete`: true only when the source has acquired the whole
-  exercise's controller inventory, including controllers without FlightStrips.
-  A partial view or one connected plugin does not establish this fact.
-- `controllers`: an explicit array of identities, each with `cid`, `callsign`,
-  `observer`, `primary_frequency`, `tuned_frequencies_known`, and
-  `tuned_frequencies`. CIDs must match the authenticated controller identities.
-  Decimal MHz and Hz frequencies normalize through `vatsim/v1`.
+`ControlEvent.visible_staffing` carries the complete flag, observation revision,
+age and visible controllers over the authenticated physical transport. The initial
+control report includes the list before any airport membership or operational
+sync exists. The timer resamples the list every SDK tick, sends changes promptly,
+and refreshes unchanged observations at the normal ten-second control interval.
+Reconnects acquire a fresh list; no membership-scoped sync list is reused.
 
-For sources that report known radios, an explicit array is required, including
-`[]` only when the source actually observed no additional tuned frequencies.
-Unknown radios remain
-unknown even if a partial list is supplied. Fresh own-instance plugin radio
-evidence may supplement the roster's same identity; it never establishes a
-complete inventory. SWEATBOX can omit radio facts and supplies coverage using
-the observed primary frequency and callsign. For LIVE/playback definitions that
-use tuned frequencies, all active controllers need fresh radio evidence before
-absence/takeover can be decided.
-Observers are ignored for responsibility selection.
+The normal `cmd/server` coordinator evaluates each instance's own observation in
+that instance's environment. It does not merge lists from other instances or
+borrow LIVE data. Duplicate/missing identities, a mismatched local frequency,
+incomplete or expired observations cannot authorize new membership or
+confirm a new takeover. An older observation cannot roll the same transport's
+roster backward or renew a reused snapshot. Freshness uses server receipt time
+and observation age rather than client UTC, so users need no clock matching or
+server access. Public datafeed and transceiver acquisition are not prerequisites
+for master membership in any environment. Missing source data preserves
+established membership and does not extend a previously confirmed takeover
+deadline.
 
-Missing files, invalid JSON, unknown fields, missing identity/inventory facts,
-and duplicate identities fail the read. Source errors cannot grant new
-membership or confirm a new takeover; established memberships and previously
-confirmed takeover deadlines keep the normal behavior. A producer must refresh
-observations within the 45-second source age limit. Do not touch/rewrite old
-data with a new timestamp or infer empty staffing from a failed source read.
+The SDK does not provide CIDs for visible peers. Responsibility matching uses
+their callsigns and primary frequencies; backend attachment confirmation matches
+the same airport/environment/callsign. Human actions still require their exact
+authenticated plugin instance and current membership context.
 
-The browser harness supplies explicit rosters for its fully controlled fixture
-exercises. These test peers and their radios are known by construction; their
-source is not a production acquisition mechanism.
+No manual JSON file, external roster producer, or `CoverageSimulated` dependency
+is required in normal runtime. The temporary `SIMULATED_STAFFING_FILE` input has
+been removed. Optional in-process staffing injection remains available for older
+test/replay providers without a native control report. The browser harness sends
+the same wire observations as the plugin rather than injecting a staffing feed.
 
-## PR #1095 SWEATBOX finding and remaining source requirement
+## PR #1095 SWEATBOX reproduction
 
 Read-only inspection of the isolated multi-airport test on 2026-11-15 confirmed
 the loaded plugin declares `EKCH EKBI EKYT`, its controller row is `EKDK_CTR` on
@@ -92,30 +87,16 @@ matches `136.555` to `EKDK_UN_CTR`, carrying tower, approach, and delivery dutie
 when the complete exercise roster leaves them available. The generic
 `EKDK_CTR` callsign and EKCH relevant-airport hint do not prevent that match.
 
-Two independent gates blocked regional admission in the unmodified test:
-`cmd/server` previously supplied no `CoverageSimulated` source, and the native
-plugin's `SendLoginEvent` sends no confirmed tuned-frequency list. The latter
-is now intentionally ignored for SWEATBOX. EKCH joins through
-`legacy-single-airport/v1`; EKBI uses `remaining-responsibilities/v1` and still
-waits for fresh, complete controller inventory. Selecting an airport in the
-backend or plugin eligibility does not replace that requirement.
-
-The bundled EuroScope SDK exposes `CController::GetPrimaryFrequency` and
-`ControllerSelectFirst/Next`. It exposes no complete tuned-radio list or
-exercise-wide inventory completeness signal. The existing `ControlEvent`
-contains only own-instance evidence, and operational sync controller lists are
-membership-scoped, lack full radio/identity facts, and cannot bootstrap a
-zero-membership connection. Public VATSIM/AFV LIVE feeds cannot describe local
-SWEATBOX staffing.
-
-An authoritative exercise roster producer is still required to make the
-real test join EKBI safely. The file input supplies the server acquisition
-boundary, but this repository does not contain a EuroScopeFsdServer adapter
-capable of establishing roster completeness. The unavailable additional radios
-are not a requirement in SWEATBOX. Do not generate a one-controller roster
-from plugin presence or mark a primary radio as a complete tuned list. The
-running test, its profile, plugin DLLs/config, scenario, processes and database
-were left unchanged.
+The original server had no non-LIVE roster acquisition, and tuned radios were
+required despite being unavailable in the exercise. Both gates are now handled
+through the visible-roster control protocol and primary-frequency matching.
+Production-app socket tests reproduce the `EKDK_CTR`/`136.555`, EKCH+EKBI case
+with the public datafeed disabled and without an injected staffing provider,
+then exercise non-plugin APP takeover in LIVE, SWEATBOX and playback,
+departure, stale observations, reconnects and exercise isolation. The already
+running test's profile, DLLs/config, scenario, processes and database are not
+modified by these tests. An updated plugin and backend must both be loaded in
+a subsequent authorized native run to use the new protocol.
 
 ## Membership lifecycle
 

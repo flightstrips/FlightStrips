@@ -88,7 +88,7 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 		mu.Lock()
 		scope := proto.Clone(transport).(*es.MembershipContext)
 		mu.Unlock()
-		return send(&es.Envelope{Context: scope, Event: &es.Envelope_Control{Control: &es.ControlEvent{Environment: "LIVE", Callsign: "MA08_CTR", PrimaryFrequency: frequency, TunedFrequencies: radios, TunedFrequenciesKnown: true, EligibleAirports: []string{"EKBI", "EKYT"}, Range: 300}}})
+		return send(&es.Envelope{Context: scope, Event: &es.Envelope_Control{Control: &es.ControlEvent{Environment: "LIVE", Callsign: "EKDK_CTR", PrimaryFrequency: frequency, TunedFrequencies: radios, TunedFrequenciesKnown: true, EligibleAirports: []string{"EKBI", "EKYT"}, Range: 300, VisibleStaffing: &es.VisibleStaffing{Complete: true, Revision: uint64(time.Now().UnixNano()), Controllers: []*es.VisibleController{{Callsign: "EKDK_CTR", PrimaryFrequency: frequency}}}}}})
 	}
 	require.NoError(t, send(&es.Envelope{Event: &es.Envelope_Token{Token: &es.TokenEvent{Token: services.TestToken, InstanceId: instance}}}))
 	done := make(chan struct{})
@@ -108,7 +108,7 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 			if scope.MembershipId == "" {
 				transport = proto.Clone(scope).(*es.MembershipContext)
 				mu.Unlock()
-				if control("119.005", "119.005", "118.305") != nil {
+				if control("136.555") != nil {
 					return
 				}
 				continue
@@ -127,7 +127,7 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 				}
 				mu.Unlock()
 				if first {
-					snapshot := &es.SyncEvent{Controllers: []*es.Controller{{Callsign: "MA08_CTR", Position: "119.005"}}, Strips: []*es.Strip{{Callsign: "SAME123", Origin: "EKBI", Destination: "EKYT", AircraftType: "A320", HasFp: true, GroundState: es.GroundStateStartup, AssignedSquawk: "2401", Position: &es.Position{Lat: 55.74032194, Lon: 9.15177778, Altitude: 100}}}}
+					snapshot := &es.SyncEvent{Controllers: []*es.Controller{{Callsign: "EKDK_CTR", Position: "136.555"}}, Strips: []*es.Strip{{Callsign: "SAME123", Origin: "EKBI", Destination: "EKYT", AircraftType: "A320", HasFp: true, GroundState: es.GroundStateStartup, AssignedSquawk: "2401", Position: &es.Position{Lat: 55.74032194, Lon: 9.15177778, Altitude: 100}}}}
 					probe := proto.Clone(snapshot.Strips[0]).(*es.Strip)
 					probe.Callsign = "FENCEPROBE"
 					snapshot.Strips = append(snapshot.Strips, probe)
@@ -180,7 +180,7 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 	require.NoError(t, ground(b, es.GroundStateTaxi))
 	require.Eventually(t, func() bool { return state("EKYT") == es.GroundStateTaxi }, 5*time.Second, 10*time.Millisecond)
 	require.Equal(t, es.GroundStateStartup, state("EKBI"))
-	// A tuned-radio change removes only EKBI; the socket and EKYT incarnation
+	// A primary-frequency change removes only EKBI; the socket and EKYT incarnation
 	// remain usable. Return coverage through that same zero/new-membership path.
 	require.NoError(t, control("118.305", "118.305"))
 	require.Eventually(t, func() bool { return member("EKBI") == nil }, 5*time.Second, 10*time.Millisecond)
@@ -191,7 +191,7 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 	require.Equal(t, es.GroundStateTaxi, state("EKYT"))
 	require.NoError(t, ground(b, es.GroundStateParked))
 	require.Eventually(t, func() bool { return state("EKYT") == es.GroundStateParked }, 5*time.Second, 10*time.Millisecond)
-	require.NoError(t, control("119.005", "119.005", "118.305"))
+	require.NoError(t, control("136.555"))
 	require.Eventually(t, func() bool { return member("EKBI") != nil && member("EKBI").MembershipId != a.MembershipId }, 5*time.Second, 10*time.Millisecond)
 	require.NoError(t, ground(a, es.GroundStateDepart))
 	barrier(es.GroundStateTaxi)

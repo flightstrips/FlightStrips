@@ -37,8 +37,10 @@ test was replaced by
 `TestApproachReleaseAdvanceExcludesAbsorptionFromBothGuidanceTransports`.
 The holding-priority implementation is unchanged.
 
-Airborne gain/loss still measures drift against the landing slot. Approach
-buffer advances change EAT and allocate additional time in approach without
+## Historical findings before the guidance fix
+
+Before the fix, airborne gain/loss measured drift against the landing slot.
+Approach buffer advances change EAT and allocate additional time in approach without
 moving that slot. This distinction was present when the buffer shipped; the
 history does not establish a regression that removed a buffer allowance from
 gain/loss. It can nevertheless create a controller-facing ambiguity about
@@ -220,32 +222,34 @@ for a several-minute allowance.
 The September reference change predates the user's Monday comparison point.
 It is historical context, not an explanation for a change after 9 November.
 
-## Current implementation
+## Implementation before the guidance fix
 
-`GainLossPrediction` in `backend/internal/aman/guidance.go` returns a smoothed
-physical estimate independently of operational freezes. Both event projections
-call `GainLossGuidance(predicted, flight.Slot.Time)`. Negative seconds become
-`Lnn`; neither the reservation nor additional approach time changes that
-landing reference. The diagnostic log uses the same calculation.
+At `84281a50`, `GainLossPrediction` in `backend/internal/aman/guidance.go`
+returned a smoothed physical estimate independently of operational freezes.
+Both event projections called `GainLossGuidance(predicted, flight.Slot.Time)`.
+Negative seconds became `Lnn`; neither the reservation nor additional approach
+time changed that landing reference. The diagnostic log used the same
+pre-fix calculation. The implemented fix above instead supplies the effective
+target from `GainLossTarget` to both projections and the diagnostic calculation.
 
-`release.Plan` first considers readiness, stream order and spacing, current
-workload and uncertainty, and the tapered advance allowance. It creates an
-offer only when the resulting release is within the admission lookahead.
-This is a window on the candidate release, not on its baseline EAT: a baseline
-EAT more than two minutes away can already advance if readiness and the
-candidate release fit the window.
+`release.Plan` first considered readiness, stream order and spacing, current
+workload and uncertainty, and the tapered advance allowance. It created an
+offer only when the resulting release was within the admission lookahead.
+This was a window on the candidate release, not on its baseline EAT: a baseline
+EAT more than two minutes away could already advance if readiness and the
+candidate release fit the window. The fix retains this admission behavior.
 
-`refreshApproachReleases` publishes an accepted reservation through the holding
-plan. The plan keeps physical transit separate from
+`refreshApproachReleases` published an accepted reservation through the holding
+plan. The plan kept physical transit separate from
 `slot - release - transit`, its additional approach time. The web detail dialog
-shows EAT, accepted transit and that additional time. EuroScope receives EAT
-separately and its holding tag counts down to it; ordinary airborne guidance
-still follows the landing slot, and tags are suppressed inside the TMA.
+showed EAT, accepted transit and that additional time. EuroScope received EAT
+separately and its holding tag counted down to it; ordinary airborne guidance
+still followed the landing slot, and tags were suppressed inside the TMA.
 
-## Scenario evidence and reproduction
+## Scenario evidence and reproduction before the fix
 
-The supplied live snapshot around 20:11 UTC has NSZ5YB physical TETA near
-20:28 and a landing slot near 20:33. A five-minute loss follows directly from
+The supplied pre-fix snapshot around 20:11 UTC had NSZ5YB physical TETA near
+20:28 and a landing slot near 20:33. A five-minute loss followed directly from
 those inputs. Its predicted holding entry and baseline EAT were still ahead,
 with no release reservation and zero additional approach time. That snapshot
 does not prove AMAN had committed to an early admission, or would do so later:
@@ -253,26 +257,30 @@ workload, uncertainty, spacing and readiness can change before admission.
 
 The scenario file independently establishes NSZ5YB's filed ERNOV route, but
 does not reconstruct its later surveillance or release decisions. The live
-environment was left unchanged. The following synthetic test uses rounded
+environment was left unchanged. The pre-fix characterization used rounded
 times resembling the supplied case, with an assumed 20:18 holding entry and
 ten-minute transit, rather than claiming an exact replay:
 
-| Calculation time UTC | Candidate release UTC | Reservation | Landing gain/loss | Additional approach time |
+| Calculation time UTC | Candidate release UTC | Reservation | Pre-fix gain/loss | Additional approach time |
 | --- | --- | --- | --- | --- |
 | 20:11:00 | 20:18:01 | None, outside lookahead | -300 seconds | None |
 | 20:16:00 | 20:18:01 | None, one second outside lookahead | -300 seconds | None |
 | 20:16:01 | 20:18:01 | Offered, at lookahead boundary | -300 seconds | 299 seconds |
 
 The baseline EAT is 20:23 throughout. The candidate remains strictly after
-holding entry. `TestApproachReleaseAdvanceKeepsLandingGuidanceAndEATSeparate`
-exercises the actual planner and both event projections, explicitly transferring
-the reservation into the holding plan as the operational service does. It
-characterizes current behavior rather than approving a new guidance policy.
+holding entry. The original
+`TestApproachReleaseAdvanceKeepsLandingGuidanceAndEATSeparate` exercised the
+planner and both event projections, explicitly transferring the reservation
+into the holding plan as the operational service did. It recorded the pre-fix
+behavior in the table. It has been replaced by
+`TestApproachReleaseAdvanceExcludesAbsorptionFromBothGuidanceTransports`,
+which asserts one second of actionable loss at all three stages while keeping
+the landing slot and physical prediction unchanged.
 Existing operational tests cover the service's reservation-to-plan mapping,
 slot preservation and physical transit, and planner tests cover tapering,
 blocked streams, uncertain workload and retained admissions.
 
-## Controller implications and recommendation
+## Controller implications and recommendation before the fix
 
 If a controller interprets `L05` as five minutes to lose before approach, the
 display does not reveal that AMAN may intend some of that time to be absorbed
@@ -299,10 +307,11 @@ It must remain distinguishable from an accepted EAT and capacity reservation.
 Simply subtracting the maximum allowance, today's buffer allowance, or the
 entire expected hold could hide real delay when no early admission is feasible.
 
-No runtime calculation or operational policy is changed by this investigation.
-The appropriate next product change is to define and present the release
-reference alongside landing drift, then decide whether provisional guidance
-before the reservation window is required. Validation should cover partial
+The original investigation changed no runtime calculation or operational
+policy. It recommended distinguishing the release guidance reference from
+landing drift and defining provisional guidance before the reservation window.
+The implemented guidance fix above addresses that recommendation while
+preserving holding priority. The proposed validation covered partial
 downstream absorption, full/degraded buffers, independent and shared streams,
 changing readiness/slots, retained or withdrawn offers, and agreement between
 web and EuroScope references.
@@ -316,7 +325,7 @@ go test ./internal/aman ./internal/aman/release ./internal/aman/sequence ./inter
 ```
 
 The guidance fix additionally passes the full backend suite with an isolated
-PostgreSQL test database (`go run ./internal/testing/testdb ./...`), 99 targeted
+PostgreSQL test database (`go run ./internal/testing/testdb ./...`), 97 targeted
 frontend tests and the production frontend build. The live scenario and
 running manual test services were not modified. All 62 AMAN consumer contract
 tests and lint on the changed frontend files also pass.

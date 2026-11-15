@@ -100,6 +100,7 @@ describe("REQ callsign coloring", () => {
     try {
       render(<ApnPushStrip callsign="SAS123" selectable />);
       expect(screen.getByText("SAS123").parentElement!.style.backgroundColor).toBe(SELECTION_COLOR);
+      expect(screen.getByText("SAS123").parentElement!.parentElement!.style.color).toBe("black");
     } finally {
       state.transfers = {};
       state.selectedCallsign = null;

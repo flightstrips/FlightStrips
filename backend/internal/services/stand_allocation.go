@@ -385,7 +385,33 @@ func (s *StandAllocationService) ReconcileUnsafeAssignments(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	losers := s.unsafeAssignmentLosers(airport, assignments, s.now())
+	// Only overlaps explicitly accepted by manual assignment may survive.
+	rows, err := tx.Query(ctx, `SELECT r.estimated_id, r.manual_id
+		FROM stand_retained_estimates r
+		JOIN stand_assignments e ON e.id = r.estimated_id
+		JOIN stand_assignments m ON m.id = r.manual_id
+		WHERE e.session_id = $1 AND m.session_id = $1
+		AND e.stage = 'ESTIMATED' AND e.direction = 'ARRIVAL'
+		AND m.stage = 'ASSIGNED' AND m.direction = 'ARRIVAL' AND m.manual
+		AND e.stand = r.estimated_stand AND m.stand = r.manual_stand`, session)
+	if err != nil {
+		return err
+	}
+	retained := make(map[[2]int64]bool)
+	for rows.Next() {
+		var estimateID, manualID int64
+		if err := rows.Scan(&estimateID, &manualID); err != nil {
+			rows.Close()
+			return err
+		}
+		retained[[2]int64{estimateID, manualID}] = true
+		retained[[2]int64{manualID, estimateID}] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	losers := s.unsafeAssignmentLosersWithRetainedEstimates(airport, assignments, s.now(), retained)
 	type removal struct {
 		assignment   models.StandAssignment
 		standChanged bool
@@ -439,6 +465,10 @@ func (s *StandAllocationService) ReconcileUnsafeAssignments(ctx context.Context,
 }
 
 func (s *StandAllocationService) unsafeAssignmentLosers(airport string, assignments []*models.StandAssignment, now time.Time) []*models.StandAssignment {
+	return s.unsafeAssignmentLosersWithRetainedEstimates(airport, assignments, now, nil)
+}
+
+func (s *StandAllocationService) unsafeAssignmentLosersWithRetainedEstimates(airport string, assignments []*models.StandAssignment, now time.Time, retained map[[2]int64]bool) []*models.StandAssignment {
 	ordered := make([]*models.StandAssignment, 0, len(assignments))
 	for _, assignment := range assignments {
 		if assignment != nil && strings.TrimSpace(assignment.Stand) != "" && !standAssignmentExpired(assignment, now) {
@@ -478,7 +508,7 @@ func (s *StandAllocationService) unsafeAssignmentLosers(airport string, assignme
 	for _, candidate := range ordered {
 		unsafe := false
 		for _, winner := range kept {
-			if !s.assignmentsOccupancyConflict(airport, candidate, winner, now) {
+			if retained[[2]int64{candidate.ID, winner.ID}] || !s.assignmentsOccupancyConflict(airport, candidate, winner, now) {
 				continue
 			}
 			if assignmentProtectedFromReconciliation(candidate) && assignmentProtectedFromReconciliation(winner) {
@@ -1296,6 +1326,22 @@ func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx p
 	assignment, err := s.persistStandAllocation(ctx, txAssignments, command, request, assignments, selection, match, conflict)
 	if err != nil {
 		return nil, selected, err
+	}
+	// Persist the precise overlaps accepted by this command, in the same
+	// transaction as the manual assignment. Do not infer consent from age or stage.
+	if command == CompatibleManualStand && request.Direction == sat.AssignmentDirectionArrival && request.Stage == StageAssigned && !request.ProtectReservations {
+		for _, estimate := range assignments {
+			if estimate.ID == assignment.ID || estimate.Stage != StageEstimated || estimate.Direction != string(sat.AssignmentDirectionArrival) ||
+				!s.assignmentsOccupancyConflict(request.Airport, estimate, assignment, s.now()) {
+				continue
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO stand_retained_estimates (estimated_id, manual_id, estimated_stand, manual_stand)
+				VALUES ($1, $2, $3, $4) ON CONFLICT (estimated_id, manual_id) DO UPDATE
+				SET estimated_stand = EXCLUDED.estimated_stand, manual_stand = EXCLUDED.manual_stand`,
+				estimate.ID, assignment.ID, estimate.Stand, assignment.Stand); err != nil {
+				return nil, selected, err
+			}
+		}
 	}
 	standChanged := strip.Stand == nil || !strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(selected))
 	if standChanged {

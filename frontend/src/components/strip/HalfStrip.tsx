@@ -114,7 +114,7 @@ export function HalfStrip({
         <>
           <div
             className={`relative h-full ${isArrivalVariant || arrival ? "w-[6.77vw]" : "w-[5.03vw]"} border-r-2 flex items-center pl-[0.42vw] font-normal [-webkit-text-stroke:0.5px_currentColor] truncate ${textColor}`}
-            style={{ borderRightColor: cellBorderColor, ...callsignStyle, backgroundColor: isSelected ? SELECTION_COLOR : callsignStyle.backgroundColor, color: manualBlue ?? callsignStyle.color, cursor: localHidden ? "pointer" : undefined }}
+            style={{ borderRightColor: cellBorderColor, ...callsignStyle, backgroundColor: isSelected ? SELECTION_COLOR : callsignStyle.backgroundColor, color: manualBlue ?? (isSelected && isTagRequest ? "black" : callsignStyle.color), cursor: localHidden ? "pointer" : undefined }}
             onClick={localHidden ? (e) => { e.stopPropagation(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); } : undefined}
           >
           <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />

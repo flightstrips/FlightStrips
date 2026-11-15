@@ -116,7 +116,7 @@ export function ClxClearedStrip({
   const manualBlue = isManual && !textWhite ? COLOR_MANUAL_BLUE : undefined;
   const callsignManualBlue = isManual && !(isTagRequest ? callsignStyle.color === "white" : textWhite) ? COLOR_MANUAL_BLUE : undefined;
   const callsignBackgroundColor = showClearedCallsignHighlight ? "var(--color-pdc-cleared)" : isSelected ? SELECTION_COLOR : callsignStyle.backgroundColor;
-  const callsignTextColor = showClearedCallsignHighlight ? "white" : callsignManualBlue ?? callsignStyle.color;
+  const callsignTextColor = showClearedCallsignHighlight ? "white" : callsignManualBlue ?? (isSelected && isTagRequest ? "black" : callsignStyle.color);
 
   return (
     <div

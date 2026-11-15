@@ -94,4 +94,23 @@ func TestControllerManualArrivalAssignmentKeepsEstimatedReservationUntilPromotio
 	require.NoError(t, err)
 	assert.Equal(t, "A1", retained.Stand)
 	assert.Equal(t, StageEstimated, retained.Stage)
+
+	require.NoError(t, allocation.ReconcileUnsafeAssignments(ctx, session, "EKCH"))
+	_, err = assignments.GetAssignment(ctx, session, "SAS901")
+	require.NoError(t, err, "explicitly retained overlap survives reconciliation")
+
+	// Changing stage ends consent, even if the manual assignment later returns.
+	assigned.Stage = StageConfirmed
+	updated, err := assignments.UpdateAssignment(ctx, assigned)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, updated)
+	assigned, err = assignments.GetAssignment(ctx, session, "SAS902")
+	require.NoError(t, err)
+	assigned.Stage = StageAssigned
+	updated, err = assignments.UpdateAssignment(ctx, assigned)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, updated)
+	require.NoError(t, allocation.ReconcileUnsafeAssignments(ctx, session, "EKCH"))
+	_, err = assignments.GetAssignment(ctx, session, "SAS901")
+	require.Error(t, err, "overlap without current consent is reconciled")
 }

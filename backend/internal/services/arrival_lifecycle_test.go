@@ -195,6 +195,13 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, estimated.Stand, retained.Stand, "manual assignment leaves the ESTIMATED reservation untouched")
 		assert.Equal(t, StageEstimated, retained.Stage)
 
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		afterSweep, err := assignments.GetAssignment(ctx, session, "SAS305")
+		require.NoError(t, err)
+		assert.Equal(t, retained.ID, afterSweep.ID)
+		assert.Equal(t, estimated.Stand, afterSweep.Stand)
+		assert.Equal(t, StageEstimated, afterSweep.Stage)
+
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS305"), arrivalFlight("SAS305", 2)))
 		stillEstimated, err := assignments.GetAssignment(ctx, session, "SAS305")
 		require.NoError(t, err)
@@ -210,6 +217,9 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, StageAssigned, recalculated.Stage)
 		assert.NotEqual(t, estimated.Stand, recalculated.Stand, "the estimate moves when its original stand remains occupied at promotion")
+		var retainedOverlaps int
+		require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM stand_retained_estimates WHERE estimated_id = $1", retained.ID).Scan(&retainedOverlaps))
+		assert.Zero(t, retainedOverlaps, "promotion ends the recorded overlap")
 	})
 
 	t.Run("transitions to CONFIRMED at ETA−2 min and below 3000 ft", func(t *testing.T) {

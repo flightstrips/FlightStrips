@@ -361,6 +361,79 @@ TEST_F(VacsClientTest, OutgoingEventBeforeDialReplyPreservesConfirmedConnection)
     EXPECT_EQ(sent.back(), dial);
     Event("signaling:outgoing-call", outgoing);
     EXPECT_EQ(client.GetView().state, State::Connected);
+    Event("webrtc:call-error", {{"callId", "outgoing"}, {"origin", {{"type", "client"}, {"value", "peer"}}}, {"reason", "peer failed"}});
+    EXPECT_EQ(client.GetView().state, State::Idle);
+    EXPECT_TRUE(client.GetView().actionable);
+}
+TEST_F(VacsClientTest, RepeatedOutgoingEventSkipsJoinedTargetsAndPreservesPendingInvitations) {
+    for (const auto& target : {Json{{"client", "peer"}}, Json{{"position", "EKCH_APP"}}, Json{{"station", "APP"}}}) {
+        Boot();
+        const Json outgoing{{"callId", "conference"}, {"targets", Json::array({target, {{"client", "other"}}})}};
+        Event("signaling:outgoing-call", outgoing);
+        Event("signaling:call-update", {{"callId", "conference"}, {"invitedTargets", Json::array({{{"client", "other"}}})}, {"joinedParticipants", {{"peer", target}}}});
+        PeerEvent("connected", "conference");
+        Event("signaling:outgoing-call", outgoing);
+        Event("webrtc:call-error", {{"callId", "conference"}, {"origin", {{"type", "client"}, {"value", "peer"}}}, {"reason", "peer failed"}});
+        EXPECT_EQ(client.GetView().state, State::Connecting);
+        EXPECT_EQ(client.GetView().callId, "conference");
+        Event("signaling:call-reject", {{"callId", "conference"}, {"targets", Json::array({{{"client", "other"}}})}});
+        EXPECT_EQ(client.GetView().state, State::Idle) << target;
+    }
+}
+TEST_F(VacsClientTest, RepeatedOutgoingClientTargetDoesNotReinviteJoinedPosition) {
+    Boot();
+    const Json outgoing{{"callId", "outgoing"}, {"targets", Json::array({{{"client", "peer"}}})}};
+    Event("signaling:outgoing-call", outgoing);
+    Event("signaling:call-update", {{"callId", "outgoing"}, {"invitedTargets", Json::array()}, {"joinedParticipants", {{"peer", {{"position", "EKCH_APP"}}}}}});
+    PeerEvent("connected", "outgoing");
+    Event("signaling:outgoing-call", outgoing);
+    Event("webrtc:call-error", {{"callId", "outgoing"}, {"origin", {{"type", "client"}, {"value", "peer"}}}, {"reason", "peer failed"}});
+    EXPECT_EQ(client.GetView().state, State::Idle);
+}
+TEST_F(VacsClientTest, RepeatedOutgoingEventAfterDesktopRecoverySkipsJoinedStation) {
+    Boot();
+    auto call = CallData("recovered");
+    call["joinedParticipants"] = {{"peer", {{"target", {{"station", "APP"}}}, {"state", "connected"}}}};
+    Store({{"prio", false}, {"incomingCalls", Json::array()}, {"callDisplay", {{"type", "accepted"}, {"call", call}}}});
+    Event("signaling:outgoing-call", {{"callId", "recovered"}, {"targets", Json::array({{{"station", "APP"}}})}});
+    Event("webrtc:call-error", {{"callId", "recovered"}, {"origin", {{"type", "client"}, {"value", "peer"}}}, {"reason", "peer failed"}});
+    EXPECT_EQ(client.GetView().state, State::Idle);
+}
+TEST_F(VacsClientTest, DesktopRecoverySkipsFinishedDisplayButRestoresWaitingCalls) {
+    Boot(); Connected();
+    ASSERT_TRUE(client.Execute(Action::End, "active", now));
+    now += std::chrono::seconds(10); client.Tick(now);
+    Event("signaling:call-end", "active");
+    Reply(sent.back(), snapshot); // The call-end event invalidates the first session snapshot.
+    ASSERT_EQ(sent.back()["cmd"], "remote_get_session_state");
+    Reply(sent.back(), snapshot);
+    ASSERT_EQ(sent.back()["cmd"], "remote_request_store_sync");
+    Reply(sent.back());
+    EXPECT_EQ(client.GetView().state, State::Synchronizing);
+    auto call = CallData("active");
+    call["joinedParticipants"] = {{"peer", {{"target", {{"client", "peer"}}}, {"state", "connected"}}}};
+    const Json display{{"type", "accepted"}, {"call", call}};
+    Store({{"prio", false}, {"callDisplay", display}, {"incomingCalls", nullptr}});
+    EXPECT_EQ(client.GetView().state, State::Synchronizing);
+    Store({{"prio", false}, {"callDisplay", nullptr}, {"incomingCalls", Json::array({CallData("waiting")})}});
+    EXPECT_EQ(client.GetView().state, State::Synchronizing);
+    Store({{"prio", false}, {"callDisplay", display}, {"incomingCalls", Json::array({CallData("waiting")})}});
+    EXPECT_EQ(client.GetView().state, State::Incoming);
+    EXPECT_EQ(client.GetView().callId, "waiting");
+    EXPECT_EQ(client.GetView().waiting, 1);
+    EXPECT_TRUE(client.GetView().actionable);
+}
+TEST_F(VacsClientTest, LateAcceptResponseCannotReplaceNewerDesktopCall) {
+    Boot(); Invite("first");
+    ASSERT_TRUE(client.Execute(Action::Answer, "first", now));
+    const auto accept = sent.back();
+    Connected("newer");
+    Reply(accept);
+    EXPECT_EQ(client.GetView().state, State::Connected);
+    EXPECT_EQ(client.GetView().callId, "newer");
+    EXPECT_EQ(client.GetView().label, "EKCH_APP");
+    ASSERT_TRUE(client.Execute(Action::End, "newer", now));
+    EXPECT_EQ(sent.back()["args"]["callId"], "newer");
 }
 TEST_F(VacsClientTest, DesktopOutgoingEventCanBeCancelledFromPlugin) {
     Boot();

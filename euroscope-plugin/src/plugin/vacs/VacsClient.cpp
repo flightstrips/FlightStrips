@@ -21,7 +21,7 @@ namespace FlightStrips::vacs {
     void VacsClient::Close(bool enabled, int retrySeconds) {
         enabled_ = enabled;
         online_ = authenticated_ = signaling_ = ambiguous_ = snapshot_ = store_ = uncertain_ = reconnecting_ = false;
-        invitedTargets_ = Json::array(); peerStates_.clear();
+        invitedTargets_ = Json::array(); peerStates_.clear(); joinedTargets_.clear();
         requests_.clear(); incoming_.clear(); clients_.clear(); terminated_.clear();
         ownId_.clear(); position_.clear(); station_.clear(); callId_.clear(); peer_.clear(); pendingId_.clear();
         callState_ = State::Idle;
@@ -95,7 +95,7 @@ namespace FlightStrips::vacs {
         std::erase_if(incoming_, [&](const Call& call) { return call.id == finished; });
         if (callId_ == finished) {
             callId_.clear(); peer_.clear(); callState_ = State::Idle; reconnecting_ = false;
-            invitedTargets_ = Json::array(); peerStates_.clear();
+            invitedTargets_ = Json::array(); peerStates_.clear(); joinedTargets_.clear();
         }
     }
     void VacsClient::SetIncoming(const Json& calls) {
@@ -113,10 +113,12 @@ namespace FlightStrips::vacs {
         if (id.empty() || terminated_.contains(id) || !targets.is_array() || targets.empty()) return;
         if (!callId_.empty() && callId_ != id) return;
         if (callId_.empty()) {
-            peerStates_.clear(); invitedTargets_ = Json::array();
+            peerStates_.clear(); joinedTargets_.clear(); invitedTargets_ = Json::array();
             Display(id, Target(targets.front()), State::Outgoing);
         }
         for (const auto& target : targets) {
+            // A repeated outgoing event must not turn a joined participant back into an invitation.
+            if (peerStates_.contains(Text(target, "client")) || std::any_of(joinedTargets_.begin(), joinedTargets_.end(), [&](const auto& peer) { return peer.second == target; })) continue;
             if (std::find(invitedTargets_.begin(), invitedTargets_.end(), target) == invitedTargets_.end()) invitedTargets_.push_back(target);
         }
     }
@@ -144,7 +146,9 @@ namespace FlightStrips::vacs {
         if (id != callId_) return;
         invitedTargets_ = targets;
         std::erase_if(peerStates_, [&](const auto& peer) { return !participants.contains(peer.first); });
+        joinedTargets_.clear();
         for (const auto& [peer, target] : participants.items()) {
+            joinedTargets_[peer] = target;
             if (peer != ownId_) peerStates_.try_emplace(peer, "connecting");
         }
         if (peerStates_.empty() && targets.empty()) { Finish(id); return; }
@@ -212,11 +216,12 @@ namespace FlightStrips::vacs {
         const auto targets = call.value("invitedTargets", Json{});
         if (!participants.is_object() || !targets.is_array()) return;
         if (type == "error" || type == "rejected") Finish(id);
-        else {
-            if (terminated_.contains(id)) return;
+        else if (!terminated_.contains(id)) {
             auto peer = type == "outgoing" ? Target(call.value("target", Json{})) : Text(call.value("source", Json{}), "clientId");
             peerStates_.clear();
+            joinedTargets_.clear();
             for (const auto& [clientId, participant] : participants.items()) {
+                joinedTargets_[clientId] = participant.value("target", Json{});
                 if (clientId != ownId_) peerStates_[clientId] = Text(participant, "state");
             }
             if (!peerStates_.empty() && !peerStates_.contains(peer)) peer = peerStates_.begin()->first;
@@ -277,6 +282,7 @@ namespace FlightStrips::vacs {
             else if (Text(origin, "type") == "targets") RemoveTargets(origin.value("value", Json{}));
             else if (Text(origin, "type") == "client") {
                 peerStates_.erase(Text(origin, "value"));
+                joinedTargets_.erase(Text(origin, "value"));
                 if (peerStates_.empty() && invitedTargets_.empty()) Finish(Id(payload));
                 else UpdateConnection();
             }
@@ -286,7 +292,7 @@ namespace FlightStrips::vacs {
             auto peer = peer_;
             for (const auto& call : incoming_) if (call.id == id) peer = call.peer;
             if (id == callId_ || std::any_of(incoming_.begin(), incoming_.end(), [&](const Call& call) { return call.id == id; })) {
-                if (id != callId_) { peerStates_.clear(); invitedTargets_ = Json::array(); }
+                if (id != callId_) { peerStates_.clear(); joinedTargets_.clear(); invitedTargets_ = Json::array(); }
                 Display(id, peer, State::Connecting);
                 UpdateConnection();
             }
@@ -339,14 +345,15 @@ namespace FlightStrips::vacs {
                 else if (callId_ == callId || terminated_.contains(callId)) return;
                 else if (request.revision == revision_) {
                     invitedTargets_ = request.args["targets"];
-                    peerStates_.clear();
+                    peerStates_.clear(); joinedTargets_.clear();
                     Display(callId, request.peer, State::Outgoing);
                 }
                 else if (!terminated_.contains(callId) && callId_.empty()) { uncertain_ = true; Sync(now); }
             }
             else if (request.command == "signaling_accept_call") {
                 if (terminated_.contains(request.callId)) return;
-                if (callId_ != request.callId) { peerStates_.clear(); invitedTargets_ = Json::array(); }
+                if (!callId_.empty() && callId_ != request.callId) return;
+                if (callId_ != request.callId) { peerStates_.clear(); joinedTargets_.clear(); invitedTargets_ = Json::array(); }
                 Display(request.callId, request.peer, State::Connecting);
                 UpdateConnection();
             }

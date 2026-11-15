@@ -47,6 +47,7 @@ namespace FlightStrips::vacs {
         std::string ownId_, position_, station_, callId_, peer_, error_, pendingId_, snapshotId_, lastError_;
         Json invitedTargets_ = Json::array();
         std::map<std::string, std::string> peerStates_;
+        std::map<std::string, Json> joinedTargets_;
         bool versionLogged_ = false;
         bool enabled_ = false, online_ = false, authenticated_ = false, signaling_ = false, ambiguous_ = false;
         bool snapshot_ = false, store_ = false, uncertain_ = false, reconnecting_ = false;

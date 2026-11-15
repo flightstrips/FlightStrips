@@ -167,6 +167,8 @@ set(ALL_FILES
         vacs/VacsClient.h
         vacs/VacsService.cpp
         vacs/VacsService.h
+        vacs/VacsRelay.cpp
+        vacs/VacsRelay.h
         graphics/VacsPanel.cpp
         graphics/VacsPanel.h
         ${src__plugin}

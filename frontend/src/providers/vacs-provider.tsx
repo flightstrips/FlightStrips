@@ -1,27 +1,15 @@
 import { useEffect } from "react";
-import { buildResolvedVacsWsUrl } from "@/lib/vacs-settings";
 import { useVacsSettings } from "@/hooks/useVacsSettings";
-import { useLocalIp } from "@/store/store-hooks";
-import { getVacsClient } from "@/vacs/vacs-client";
+import { useWebSocketStore } from "@/store/store-hooks";
 
 export function VacsProvider({ children }: { children: React.ReactNode }) {
-  const { vacsEnabled, vacsHost } = useVacsSettings();
-  const localIp = useLocalIp();
-
+  const { vacsEnabled } = useVacsSettings();
+  const client = useWebSocketStore(state => state.vacsClient);
+  const ready = useWebSocketStore(state => state.ownPluginReady && !state.readOnly);
   useEffect(() => {
-    const client = getVacsClient();
-
-    client.updateUrl(buildResolvedVacsWsUrl(localIp));
-    if (vacsEnabled) {
-      client.start();
-    } else {
-      client.stop();
-    }
-
-    return () => {
-      client.stop();
-    };
-  }, [localIp, vacsEnabled, vacsHost]);
-
+    if (vacsEnabled && ready) client.start();
+    else client.stop();
+    return () => client.stop();
+  }, [client, ready, vacsEnabled]);
   return children;
 }

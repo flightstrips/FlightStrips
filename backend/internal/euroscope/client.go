@@ -39,6 +39,7 @@ type Client struct {
 	workflow          *airportworkflow.Bound
 	definition        *config.AirportDefinition
 	frequencyMessages atomic.Bool
+	vacsRelay         atomic.Bool
 	draining          atomic.Bool
 	positionEpoch     atomic.Uint64
 	dispatcherMu      sync.Mutex

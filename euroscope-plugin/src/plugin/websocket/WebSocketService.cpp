@@ -197,6 +197,18 @@ namespace FlightStrips::websocket {
         catch (...) { active_membership_.clear();active_execution_.clear();active_origin_=protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED;throw; }
         active_membership_.clear();active_execution_.clear();active_origin_=protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED;
     }
+    void WebSocketService::SendVacsResult(const protobuf::wire::VacsResultEvent& result, const protobuf::wire::MembershipContext& context) {
+        const auto it = memberships_.members.find(context.membership_id());
+        if (!IsConnected() || it == memberships_.members.end()) return;
+        auto current = it->second.context, captured = context;
+        current.set_master_epoch(0); captured.set_master_epoch(0);
+        if (current.SerializeAsString() != captured.SerializeAsString()) return;
+        protobuf::wire::Envelope envelope;
+        *envelope.mutable_context() = context;
+        *envelope.mutable_vacs_result() = result;
+        ++tx;
+        webSocket->Send(envelope.SerializeAsString());
+    }
     void WebSocketService::SendCaptured(const Event& event,const protobuf::wire::MembershipContext& context) {
         const auto it=memberships_.members.find(context.membership_id());
         if(!IsConnected() || it==memberships_.members.end()) return;

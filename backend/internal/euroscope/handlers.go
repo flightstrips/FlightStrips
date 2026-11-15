@@ -114,10 +114,12 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 	}
 	client.SetUser(user)
 	client.frequencyMessages.Store(event.FrequencyMessages)
+	client.vacsRelay.Store(event.VacsRelay)
 	if client.transport != nil {
 		for _, member := range client.transport.snapshot() {
 			member.SetUser(user)
 			member.frequencyMessages.Store(event.FrequencyMessages)
+			member.vacsRelay.Store(event.VacsRelay)
 		}
 	}
 	if version := strings.TrimSpace(event.Version); version != "" {

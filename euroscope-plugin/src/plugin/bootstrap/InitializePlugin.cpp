@@ -1,5 +1,6 @@
 #include "InitializePlugin.h"
 #include "vacs/VacsService.h"
+#include "vacs/VacsRelay.h"
 
 #include "ExceptionHandling.h"
 #include "Logger.hpp"
@@ -90,6 +91,7 @@ namespace FlightStrips {
             this->container->authenticationService, this->container->plugin,
             this->container->connectionEventHandlers, this->container->messageHandlers);
         const auto weakWebSocket = std::weak_ptr<websocket::WebSocketService>(this->container->webSocketService);
+        this->container->messageHandlers->RegisterHandler(std::make_shared<vacs::VacsRelay>(this->container->vacsService, weakWebSocket));
         const auto weakPlugin = std::weak_ptr<FlightStripsPlugin>(this->container->plugin);
         this->container->amanGainLossHandler = std::make_shared<TagItems::AMANGainLossHandler>(
             this->container->amanGainLossStore,

@@ -1,332 +1,80 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildVacsWsUrl } from "@/lib/vacs-settings";
-import { MockWebSocket } from "@/test/mock-websocket";
-import { VacsClient, resetVacsClientForTest } from "./vacs-client";
-import type { SessionStateSnapshot } from "./types";
+import { ActionType, EventType, type FrontendVacsRequest } from "@/api/models";
+import type { WebSocketClient } from "@/api/websocket";
+import { VacsClient } from "./vacs-client";
+import type { VacsRelayResult, VacsRelaySnapshot } from "./types";
 
-function idleSnapshot(overrides: Partial<SessionStateSnapshot> = {}): SessionStateSnapshot {
-  return {
-    connectionState: "connected",
-    sessionInfo: {
-      client: {
-        id: "1000001",
-        displayName: "EKCH_TWR",
-        frequency: "118.300",
-        positionId: "EKCH_TWR",
-      },
-      profile: { type: "Unchanged" },
-    },
-    stations: [],
-    clients: [
-      {
-        id: "1000002",
-        displayName: "EKCH_APP",
-        frequency: "120.200",
-        positionId: "EKCH_APP",
-      },
-    ],
-    clientId: "1000001",
-    callConfig: {},
-    clientPageSettings: {},
-    capabilities: {},
-    incomingCalls: [],
-    outgoingCall: null,
-    ...overrides,
+function fixture() {
+  let receive: (result: VacsRelayResult) => void = () => {};
+  const off = vi.fn();
+  const send = vi.fn((_event: FrontendVacsRequest) => true);
+  const on = vi.fn((type, handler) => { expect(type).toBe(EventType.FrontendVacsResult); receive = handler; return off; });
+  const client = new VacsClient({send, on} as unknown as Pick<WebSocketClient, "send" | "on">);
+  let sequence = 0;
+  const reply = (snapshot: Partial<VacsRelaySnapshot> = {}, index = send.mock.calls.length - 1) => {
+    receive({request_id: send.mock.calls[index][0].request_id, state: {status: "idle", actionable: true,
+      own_client_id: "self", own_position_id: "EKCH_TWR", sequence: ++sequence, ...snapshot}});
   };
+  return {client, send, off, reply, receive: (result: VacsRelayResult) => receive(result)};
 }
+beforeEach(() => vi.useFakeTimers());
+afterEach(() => {vi.clearAllTimers(); vi.useRealTimers();});
 
-function response(id: string, data: unknown) {
-  return JSON.stringify({ type: "response", id, ok: true, data });
-}
-
-async function flushBootstrap(ws: MockWebSocket, snapshot = idleSnapshot()): Promise<void> {
-  await vi.waitFor(() => {
-    expect(ws.sent.some((m) => m.includes("app_frontend_ready"))).toBe(true);
+describe("VACS plugin relay", () => {
+  it("uses the backend socket and restores native call state without ending calls on stop", () => {
+    const f = fixture(); f.client.start();
+    expect(f.send).toHaveBeenCalledWith(expect.objectContaining({type: ActionType.FrontendVacsRequest, action: "status"}));
+    f.reply({status: "connected", call_id: "active", label: "EKCH_APP"});
+    expect(f.client.getState()).toMatchObject({status: "connected", callId: "active", peer: {displayName: "EKCH_APP"}});
+    f.client.stop(); expect(f.send).toHaveBeenCalledTimes(1); expect(f.off).toHaveBeenCalledOnce();
   });
-  const ready = JSON.parse(
-    ws.sent.find((m) => m.includes("app_frontend_ready"))!,
-  ) as { id: string };
-  ws.emit("message", { data: response(ready.id, null) });
-
-  await vi.waitFor(() => {
-    expect(ws.sent.some((m) => m.includes("remote_get_session_state"))).toBe(true);
+  it("bounds status requests while the plugin is unresponsive", async () => {
+    const f = fixture(); f.client.start(); await vi.advanceTimersByTimeAsync(7000);
+    expect(f.send).toHaveBeenCalledTimes(1); f.client.stop(); await Promise.resolve();
   });
-  const session = JSON.parse(
-    ws.sent.find((m) => m.includes("remote_get_session_state"))!,
-  ) as { id: string };
-  ws.emit("message", { data: response(session.id, snapshot) });
-  await Promise.resolve();
-}
-
-describe("VacsClient", () => {
-  let client: VacsClient;
-
-  beforeEach(() => {
-    MockWebSocket.reset();
-    vi.useFakeTimers();
-    client = new VacsClient({
-      createWebSocket: (url) => new MockWebSocket(url) as unknown as WebSocket,
-    });
+  it("cancels the native outgoing call and prevents duplicate actions", async () => {
+    const f = fixture(); f.client.start(); f.reply({status: "outgoing", call_id: "ringing"});
+    const action = f.client.endCall("ringing");
+    expect(f.send).toHaveBeenLastCalledWith(expect.objectContaining({action: "cancel", call_id: "ringing"}));
+    await expect(f.client.endCall("ringing")).rejects.toThrow("unavailable");
+    f.reply({status: "outgoing", pending: true, actionable: false, call_id: "ringing"}); await action;
+    expect(f.client.getState().actionable).toBe(false); f.client.stop();
   });
-
-  afterEach(() => {
-    client.stop();
-    resetVacsClientForTest();
-    vi.useRealTimers();
+  it("does not retry unconfirmed actions and recovers from native state", async () => {
+    const f = fixture(); f.client.start(); f.reply();
+    const action = f.client.dialClient({id: "peer", displayName: "Approach", frequency: "119.8"});
+    const rejection = expect(action).rejects.toThrow("timed out");
+    await vi.advanceTimersByTimeAsync(8000); await rejection;
+    expect(f.send.mock.calls.filter(call => call[0].action === "dial")).toHaveLength(1);
+    expect(f.client.getState().actionable).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000); f.reply({status: "connected", call_id: "recovered", sequence: 20});
+    expect(f.client.getState()).toMatchObject({status: "connected", callId: "recovered"}); f.client.stop();
   });
-
-  it("logs the reported version once without gating bootstrap or reconnects", async () => {
-    const log = vi.spyOn(console, "info").mockImplementation(() => {});
-    try {
-      client.start();
-      const ws = MockWebSocket.instances[0]!;
-      ws.simulateOpen();
-      await flushBootstrap(ws);
-      expect(client.getState().status).toBe("idle");
-      const version = JSON.parse(ws.sent.find((m) => m.includes("app_get_version"))!);
-      ws.emit("message", { data: response(version.id, "3.0.1") });
-      await Promise.resolve();
-      expect(log).toHaveBeenCalledExactlyOnceWith("VACS version:", "3.0.1");
-      client.stop();
-      client.start();
-      const next = MockWebSocket.instances[1]!;
-      next.simulateOpen();
-      await flushBootstrap(next);
-      expect(next.sent.some((m) => m.includes("app_get_version"))).toBe(false);
-      expect(log).toHaveBeenCalledTimes(1);
-    } finally {
-      log.mockRestore();
-    }
+  it("ignores reordered status replies after a newer action result", async () => {
+    const f = fixture(); f.client.start(); f.reply(); await vi.advanceTimersByTimeAsync(1000);
+    const action = f.client.dialClient({id: "peer", displayName: "Approach", frequency: "119.8"});
+    f.reply({status: "outgoing", call_id: "new", sequence: 3}); await action;
+    f.reply({status: "idle", sequence: 2}, 1);
+    expect(f.client.getState()).toMatchObject({status: "outgoing", callId: "new"}); f.client.stop();
   });
-
-  it("stays ready when the version command is unsupported", async () => {
-    client.start();
-    const ws = MockWebSocket.instances[0]!;
-    ws.simulateOpen();
-    const version = JSON.parse(ws.sent.find((m) => m.includes("app_get_version"))!);
-    ws.emit("message", {
-      data: JSON.stringify({ type: "response", id: version.id, ok: false, error: { detail: "Unsupported command" } }),
-    });
-    await flushBootstrap(ws);
-    expect(client.getState().status).toBe("idle");
+  it("clears pending actions on invalidation and ignores late replies", async () => {
+    const f = fixture(); f.client.start(); f.reply({status: "incoming", call_id: "old", waiting: 3});
+    const action = f.client.acceptCall("old"), rejection = expect(action).rejects.toThrow("disconnected");
+    f.client.invalidate(); await rejection; f.reply({status: "connected", call_id: "old"});
+    expect(f.client.getState().status).toBe("unavailable");
+    await vi.advanceTimersByTimeAsync(1000); f.reply({sequence: 1});
+    expect(f.client.getState().status).toBe("idle"); f.client.stop();
   });
-
-  it("connects to a configured remote host", () => {
-    const remote = new VacsClient({
-      url: buildVacsWsUrl("192.168.1.5"),
-      createWebSocket: (url) => new MockWebSocket(url) as unknown as WebSocket,
-    });
-    remote.start();
-    expect(MockWebSocket.instances[0]!.url).toBe("ws://192.168.1.5:9600/ws");
-    remote.stop();
+  it("reports unsupported plugins and gates actions during native recovery", async () => {
+    const f = fixture(); f.client.start();
+    f.receive({request_id: f.send.mock.calls[0][0].request_id, error: "Update the EuroScope plugin"});
+    await Promise.resolve(); expect(f.client.getState()).toMatchObject({status: "unavailable", tooltip: "Update the EuroScope plugin"});
+    await vi.advanceTimersByTimeAsync(1000); f.reply({status: "synchronizing", actionable: false});
+    await expect(f.client.rejectCall("old")).rejects.toThrow("unavailable"); f.client.stop();
   });
-
-  it("reconnects when updateUrl changes the host", () => {
-    client.start();
-    const first = MockWebSocket.instances[0]!;
-    expect(first.url).toContain("localhost");
-
-    client.updateUrl(buildVacsWsUrl("10.0.0.2"));
-    expect(MockWebSocket.instances.length).toBe(2);
-    expect(MockWebSocket.instances[1]!.url).toBe("ws://10.0.0.2:9600/ws");
-  });
-
-  it("connects, subscribes, and reaches idle from snapshot", async () => {
-    client.start();
-    const ws = MockWebSocket.instances[0]!;
-    ws.simulateOpen();
-    await flushBootstrap(ws);
-
-    expect(ws.url).toContain("9600");
-    expect(ws.sent.filter((m) => m.includes('"type":"subscribe"')).length).toBeGreaterThan(0);
-    expect(client.getState()).toEqual({
-      status: "idle",
-      clients: idleSnapshot().clients,
-      ownPositionId: "EKCH_TWR",
-      ownClientId: "1000001",
-    });
-  });
-
-  it("handles incoming call accept flow", async () => {
-    client.simulateOpenForTest();
-    const invite = {
-      callId: "call-in-1",
-      source: { clientId: "1000002", positionId: "EKCH_APP" },
-      target: { client: "1000001" },
-      prio: false,
-    };
-    client.handleMessageForTest(
-      JSON.stringify({ type: "event", name: "signaling:call-invite", payload: invite }),
-    );
-    expect(client.getState().status).toBe("incoming");
-
-    client.start();
-    const ws = MockWebSocket.instances[0]!;
-    const acceptPromise = client.acceptCall("call-in-1");
-    await vi.waitFor(() => expect(ws.sent.some((m) => m.includes("signaling_accept_call"))).toBe(true));
-    const invoke = ws.sent
-      .map((m) => JSON.parse(m) as { type: string; id?: string })
-      .find((m) => m.type === "invoke" && m.id);
-    ws.emit("message", { data: response(invoke!.id!, null) });
-    await acceptPromise;
-
-    client.handleMessageForTest(
-      JSON.stringify({
-        type: "event",
-        name: "webrtc:call-connected",
-        payload: "call-in-1",
-      }),
-    );
-    const state = client.getState();
-    expect(state.status).toBe("connected");
-    if (state.status === "connected") {
-      expect(state.callId).toBe("call-in-1");
-      expect(state.peer?.id).toBe("1000002");
-    }
-  });
-
-  it("handles outgoing dial flow", async () => {
-    client.simulateOpenForTest();
-    client.start();
-    const ws = MockWebSocket.instances[0]!;
-    const dialPromise = client.dialClient({
-      id: "1000002",
-      displayName: "EKCH_APP",
-      frequency: "120.200",
-      positionId: "EKCH_APP",
-    });
-    await vi.waitFor(() => expect(ws.sent.some((m) => m.includes("signaling_start_call"))).toBe(true));
-    const invokes = ws.sent.map((m) => JSON.parse(m) as { type: string; id?: string });
-    const invoke = [...invokes].reverse().find((m) => m.type === "invoke");
-    ws.emit("message", { data: response(invoke!.id!, "call-out-1") });
-    await dialPromise;
-    const outgoing = client.getState();
-    expect(outgoing.status).toBe("outgoing");
-    if (outgoing.status === "outgoing") {
-      expect(outgoing.peer.id).toBe("1000002");
-    }
-
-    client.handleMessageForTest(
-      JSON.stringify({
-        type: "event",
-        name: "webrtc:call-connected",
-        payload: "call-out-1",
-      }),
-    );
-    expect(client.getState().status).toBe("connected");
-  });
-
-  it("returns to idle after cancelling an outgoing call", async () => {
-    client.simulateOpenForTest();
-    client.start();
-    const ws = MockWebSocket.instances[0]!;
-    const lastInvokeId = () => {
-      const invokes = ws.sent.map((m) => JSON.parse(m) as { type: string; id?: string });
-      return [...invokes].reverse().find((m) => m.type === "invoke")!.id!;
-    };
-
-    const dialPromise = client.dialClient({
-      id: "1000002",
-      displayName: "EKCH_APP",
-      frequency: "120.200",
-      positionId: "EKCH_APP",
-    });
-    await vi.waitFor(() => expect(ws.sent.some((m) => m.includes("signaling_start_call"))).toBe(true));
-    ws.emit("message", { data: response(lastInvokeId(), "call-out-1") });
-    await dialPromise;
-    expect(client.getState().status).toBe("outgoing");
-
-    const endPromise = client.endCall("call-out-1");
-    await vi.waitFor(() => expect(ws.sent.some((m) => m.includes("signaling_end_call"))).toBe(true));
-    ws.emit("message", { data: response(lastInvokeId(), null) });
-    await endPromise;
-    expect(client.getState().status).toBe("idle");
-  });
-
-  it("restores idle state from snapshot after reconnect", async () => {
-    client.start();
-    const ws1 = MockWebSocket.instances[0]!;
-    ws1.simulateOpen();
-    await flushBootstrap(ws1);
-    client.handleMessageForTest(
-      JSON.stringify({
-        type: "event",
-        name: "webrtc:call-connected",
-        payload: "old-call",
-      }),
-    );
-    expect(client.getState().status).toBe("connected");
-
-    ws1.close();
-    expect(client.getState().status).toBe("unavailable");
-
-    await vi.advanceTimersByTimeAsync(1_000);
-    const ws2 = MockWebSocket.instances[1]!;
-    ws2.simulateOpen();
-    await flushBootstrap(ws2);
-    expect(client.getState().status).toBe("idle");
-  });
-
-  it("accepts FIFO for multiple incoming calls", async () => {
-    client.simulateOpenForTest();
-    client.handleMessageForTest(
-      JSON.stringify({
-        type: "event",
-        name: "signaling:call-invite",
-        payload: {
-          callId: "c1",
-          source: { clientId: "2", positionId: "P2" },
-          target: {},
-          prio: false,
-        },
-      }),
-    );
-    client.handleMessageForTest(
-      JSON.stringify({
-        type: "event",
-        name: "signaling:call-invite",
-        payload: {
-          callId: "c2",
-          source: { clientId: "3", positionId: "P3" },
-          target: {},
-          prio: false,
-        },
-      }),
-    );
-    const state = client.getState();
-    expect(state.status).toBe("incoming");
-    if (state.status === "incoming") {
-      expect(state.calls[0]!.callId).toBe("c1");
-    }
-
-    client.start();
-    const ws = MockWebSocket.instances[0]!;
-    const p = client.acceptCall("c1");
-    await vi.waitFor(() => expect(ws.sent.length).toBeGreaterThan(0));
-    const invokes = ws.sent.map((m) => JSON.parse(m) as { type: string; id?: string });
-    const invoke = [...invokes].reverse().find((m) => m.type === "invoke");
-    ws.emit("message", { data: response(invoke!.id!, null) });
-    await p;
-  });
-
-  it("rejects invoke on timeout", async () => {
-    client.simulateOpenForTest();
-    client.start();
-    const p = client.dialClient({
-      id: "999",
-      displayName: "UNKNOWN",
-      frequency: "118.000",
-    });
-    const assertion = expect(p).rejects.toThrow("VACS invoke timeout");
-    await vi.advanceTimersByTimeAsync(50_000);
-    await assertion;
-  });
-
-  it("transitions to unauthenticated on auth event", () => {
-    client.simulateOpenForTest();
-    client.handleMessageForTest(
-      JSON.stringify({ type: "event", name: "auth:unauthenticated", payload: null }),
-    );
-    expect(client.getState().status).toBe("unauthenticated");
+  it("rejects replies belonging to another board or browser", () => {
+    const a = fixture(), b = fixture(); a.client.start(); b.client.start();
+    b.receive({request_id: a.send.mock.calls[0][0].request_id, state: {status: "connected", sequence: 99, call_id: "foreign"}});
+    expect(b.client.getState().status).toBe("unavailable"); a.client.stop(); b.client.stop();
   });
 });

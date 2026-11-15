@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Settings } from "lucide-react";
 import {
   Dialog,
@@ -13,32 +12,18 @@ import { Button } from "@/components/ui/button";
 import { useAudioSettings } from "@/hooks/useAudioSettings";
 import { useVacsSettings } from "@/hooks/useVacsSettings";
 import { FRONTEND_VERSION } from "@/lib/app-version";
-import { useLocalIp, useWebSocketStore } from "@/store/store-hooks";
+import { useWebSocketStore } from "@/store/store-hooks";
 import { CLS_CMD_BEVEL } from "@/components/strip/shared";
 
 const CLS_DIALOG = "sm:max-w-[400px] bg-[#b3b3b3]";
 
 export default function CommandBarSettings() {
   const { muted, toggleMute } = useAudioSettings();
-  const { vacsEnabled, setVacsEnabled, vacsHost, setVacsHost } = useVacsSettings();
-  const localIp = useLocalIp();
+  const { vacsEnabled, setVacsEnabled } = useVacsSettings();
   const masterCallsign = useWebSocketStore((state) => state.masterCallsign);
-  const [hostDraft, setHostDraft] = useState(vacsHost);
-
-  const commitHost = () => {
-    if (hostDraft !== vacsHost) {
-      setVacsHost(hostDraft);
-    }
-  };
 
   return (
-    <Dialog
-      onOpenChange={(open) => {
-        if (open) {
-          setHostDraft(vacsHost);
-        }
-      }}
-    >
+    <Dialog>
       <DialogTrigger asChild>
         <button
           type="button"
@@ -89,28 +74,10 @@ export default function CommandBarSettings() {
                 <span>Enable VACS voice integration</span>
               </label>
 
-              <label className="block pl-7 space-y-1 text-sm text-black">
-                <span className="text-xs text-gray-800">VACS machine address (optional)</span>
-                <input
-                  type="text"
-                  value={hostDraft}
-                  onChange={(e) => setHostDraft(e.target.value)}
-                  onBlur={commitHost}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      commitHost();
-                    }
-                  }}
-                  placeholder="192.168.1.10"
-                  className="w-full px-2 py-1 text-sm border border-black bg-white text-black"
-                  aria-label="VACS machine address"
-                />
-                <span className="text-xs text-gray-600 block">
-                  {localIp
-                    ? `Leave empty to use the EuroScope machine (${localIp}).`
-                    : "Leave empty to use this machine (localhost)."}
-                </span>
-              </label>
+              <p className="pl-7 text-xs text-gray-600">
+                Enable VACS in your FlightStrips EuroScope panel. Calls use that computer;
+                audio and sign-in remain in VACS.
+              </p>
             </div>
           </div>
           <DialogFooter className="flex justify-center w-full h-14">

@@ -86,6 +86,8 @@ const (
 	EventType_EVENT_CONTROL                     EventType = 57
 	EventType_EVENT_MEMBERSHIP_REMOVED          EventType = 58
 	EventType_EVENT_AIRCRAFT_SELECTION          EventType = 59
+	EventType_EVENT_VACS_REQUEST                EventType = 60
+	EventType_EVENT_VACS_RESULT                 EventType = 61
 )
 
 // Enum value maps for EventType.
@@ -151,6 +153,8 @@ var (
 		57: "EVENT_CONTROL",
 		58: "EVENT_MEMBERSHIP_REMOVED",
 		59: "EVENT_AIRCRAFT_SELECTION",
+		60: "EVENT_VACS_REQUEST",
+		61: "EVENT_VACS_RESULT",
 	}
 	EventType_value = map[string]int32{
 		"EVENT_UNKNOWN":                     0,
@@ -213,6 +217,8 @@ var (
 		"EVENT_CONTROL":                     57,
 		"EVENT_MEMBERSHIP_REMOVED":          58,
 		"EVENT_AIRCRAFT_SELECTION":          59,
+		"EVENT_VACS_REQUEST":                60,
+		"EVENT_VACS_RESULT":                 61,
 	}
 )
 
@@ -364,6 +370,8 @@ type Envelope struct {
 	//	*Envelope_Control
 	//	*Envelope_MembershipRemoved
 	//	*Envelope_AircraftSelection
+	//	*Envelope_VacsRequest
+	//	*Envelope_VacsResult
 	Event         isEnvelope_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -958,6 +966,24 @@ func (x *Envelope) GetAircraftSelection() *AircraftSelectionEvent {
 	return nil
 }
 
+func (x *Envelope) GetVacsRequest() *VacsRequestEvent {
+	if x != nil {
+		if x, ok := x.Event.(*Envelope_VacsRequest); ok {
+			return x.VacsRequest
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetVacsResult() *VacsResultEvent {
+	if x != nil {
+		if x, ok := x.Event.(*Envelope_VacsResult); ok {
+			return x.VacsResult
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Event interface {
 	isEnvelope_Event()
 }
@@ -1198,6 +1224,14 @@ type Envelope_AircraftSelection struct {
 	AircraftSelection *AircraftSelectionEvent `protobuf:"bytes,59,opt,name=aircraft_selection,json=aircraftSelection,proto3,oneof"`
 }
 
+type Envelope_VacsRequest struct {
+	VacsRequest *VacsRequestEvent `protobuf:"bytes,60,opt,name=vacs_request,json=vacsRequest,proto3,oneof"`
+}
+
+type Envelope_VacsResult struct {
+	VacsResult *VacsResultEvent `protobuf:"bytes,61,opt,name=vacs_result,json=vacsResult,proto3,oneof"`
+}
+
 func (*Envelope_Token) isEnvelope_Event() {}
 
 func (*Envelope_Login) isEnvelope_Event() {}
@@ -1316,6 +1350,10 @@ func (*Envelope_MembershipRemoved) isEnvelope_Event() {}
 
 func (*Envelope_AircraftSelection) isEnvelope_Event() {}
 
+func (*Envelope_VacsRequest) isEnvelope_Event() {}
+
+func (*Envelope_VacsResult) isEnvelope_Event() {}
+
 type TokenEvent struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Token             string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
@@ -1323,6 +1361,7 @@ type TokenEvent struct {
 	FrequencyMessages bool                   `protobuf:"varint,3,opt,name=frequency_messages,json=frequencyMessages,proto3" json:"frequency_messages,omitempty"`
 	// Random process identity, retained across websocket reconnects, never a CID.
 	InstanceId    string `protobuf:"bytes,4,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	VacsRelay     bool   `protobuf:"varint,5,opt,name=vacs_relay,json=vacsRelay,proto3" json:"vacs_relay,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1383,6 +1422,13 @@ func (x *TokenEvent) GetInstanceId() string {
 		return x.InstanceId
 	}
 	return ""
+}
+
+func (x *TokenEvent) GetVacsRelay() bool {
+	if x != nil {
+		return x.VacsRelay
+	}
+	return false
 }
 
 // A membership incarnation is never reused, including after rejoin. Environment
@@ -6202,11 +6248,333 @@ func (x *AircraftSelectionEvent) GetCallsign() string {
 	return ""
 }
 
+// Call controls only. Audio and VACS authentication remain on the desktop.
+type VacsRequestEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Action        string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"` // status, dial, answer, reject, cancel, end
+	CallId        string                 `protobuf:"bytes,3,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
+	ClientId      string                 `protobuf:"bytes,4,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VacsRequestEvent) Reset() {
+	*x = VacsRequestEvent{}
+	mi := &file_proto_euroscope_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VacsRequestEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VacsRequestEvent) ProtoMessage() {}
+
+func (x *VacsRequestEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VacsRequestEvent.ProtoReflect.Descriptor instead.
+func (*VacsRequestEvent) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *VacsRequestEvent) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *VacsRequestEvent) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *VacsRequestEvent) GetCallId() string {
+	if x != nil {
+		return x.CallId
+	}
+	return ""
+}
+
+func (x *VacsRequestEvent) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+type VacsPeer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Frequency     string                 `protobuf:"bytes,3,opt,name=frequency,proto3" json:"frequency,omitempty"`
+	PositionId    string                 `protobuf:"bytes,4,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VacsPeer) Reset() {
+	*x = VacsPeer{}
+	mi := &file_proto_euroscope_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VacsPeer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VacsPeer) ProtoMessage() {}
+
+func (x *VacsPeer) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VacsPeer.ProtoReflect.Descriptor instead.
+func (*VacsPeer) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *VacsPeer) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *VacsPeer) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *VacsPeer) GetFrequency() string {
+	if x != nil {
+		return x.Frequency
+	}
+	return ""
+}
+
+func (x *VacsPeer) GetPositionId() string {
+	if x != nil {
+		return x.PositionId
+	}
+	return ""
+}
+
+type VacsState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Tooltip       string                 `protobuf:"bytes,3,opt,name=tooltip,proto3" json:"tooltip,omitempty"`
+	CallId        string                 `protobuf:"bytes,4,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
+	Pending       bool                   `protobuf:"varint,5,opt,name=pending,proto3" json:"pending,omitempty"`
+	Actionable    bool                   `protobuf:"varint,6,opt,name=actionable,proto3" json:"actionable,omitempty"`
+	Waiting       uint32                 `protobuf:"varint,7,opt,name=waiting,proto3" json:"waiting,omitempty"`
+	Clients       []*VacsPeer            `protobuf:"bytes,8,rep,name=clients,proto3" json:"clients,omitempty"`
+	OwnClientId   string                 `protobuf:"bytes,9,opt,name=own_client_id,json=ownClientId,proto3" json:"own_client_id,omitempty"`
+	OwnPositionId string                 `protobuf:"bytes,10,opt,name=own_position_id,json=ownPositionId,proto3" json:"own_position_id,omitempty"`
+	// Monotonic within this plugin process; rejects reordered snapshots.
+	Sequence      uint64 `protobuf:"varint,11,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VacsState) Reset() {
+	*x = VacsState{}
+	mi := &file_proto_euroscope_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VacsState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VacsState) ProtoMessage() {}
+
+func (x *VacsState) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VacsState.ProtoReflect.Descriptor instead.
+func (*VacsState) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *VacsState) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *VacsState) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *VacsState) GetTooltip() string {
+	if x != nil {
+		return x.Tooltip
+	}
+	return ""
+}
+
+func (x *VacsState) GetCallId() string {
+	if x != nil {
+		return x.CallId
+	}
+	return ""
+}
+
+func (x *VacsState) GetPending() bool {
+	if x != nil {
+		return x.Pending
+	}
+	return false
+}
+
+func (x *VacsState) GetActionable() bool {
+	if x != nil {
+		return x.Actionable
+	}
+	return false
+}
+
+func (x *VacsState) GetWaiting() uint32 {
+	if x != nil {
+		return x.Waiting
+	}
+	return 0
+}
+
+func (x *VacsState) GetClients() []*VacsPeer {
+	if x != nil {
+		return x.Clients
+	}
+	return nil
+}
+
+func (x *VacsState) GetOwnClientId() string {
+	if x != nil {
+		return x.OwnClientId
+	}
+	return ""
+}
+
+func (x *VacsState) GetOwnPositionId() string {
+	if x != nil {
+		return x.OwnPositionId
+	}
+	return ""
+}
+
+func (x *VacsState) GetSequence() uint64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
+type VacsResultEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	State         *VacsState             `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VacsResultEvent) Reset() {
+	*x = VacsResultEvent{}
+	mi := &file_proto_euroscope_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VacsResultEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VacsResultEvent) ProtoMessage() {}
+
+func (x *VacsResultEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_euroscope_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VacsResultEvent.ProtoReflect.Descriptor instead.
+func (*VacsResultEvent) Descriptor() ([]byte, []int) {
+	return file_proto_euroscope_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *VacsResultEvent) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *VacsResultEvent) GetState() *VacsState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+func (x *VacsResultEvent) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 var File_proto_euroscope_proto protoreflect.FileDescriptor
 
 const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
-	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\xdb)\n" +
+	"\x15proto/euroscope.proto\x12\x19flightstrips.euroscope.v1\"\xfc*\n" +
 	"\bEnvelope\x12O\n" +
 	"\x0ecommand_origin\x18e \x01(\x0e2(.flightstrips.euroscope.v1.CommandOriginR\rcommandOrigin\x12!\n" +
 	"\fexecution_id\x18f \x01(\tR\vexecutionId\x12F\n" +
@@ -6274,15 +6642,20 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"masterInfo\x12C\n" +
 	"\acontrol\x189 \x01(\v2'.flightstrips.euroscope.v1.ControlEventH\x00R\acontrol\x12b\n" +
 	"\x12membership_removed\x18: \x01(\v21.flightstrips.euroscope.v1.MembershipRemovedEventH\x00R\x11membershipRemoved\x12b\n" +
-	"\x12aircraft_selection\x18; \x01(\v21.flightstrips.euroscope.v1.AircraftSelectionEventH\x00R\x11aircraftSelectionB\a\n" +
-	"\x05event\"\x8c\x01\n" +
+	"\x12aircraft_selection\x18; \x01(\v21.flightstrips.euroscope.v1.AircraftSelectionEventH\x00R\x11aircraftSelection\x12P\n" +
+	"\fvacs_request\x18< \x01(\v2+.flightstrips.euroscope.v1.VacsRequestEventH\x00R\vvacsRequest\x12M\n" +
+	"\vvacs_result\x18= \x01(\v2*.flightstrips.euroscope.v1.VacsResultEventH\x00R\n" +
+	"vacsResultB\a\n" +
+	"\x05event\"\xab\x01\n" +
 	"\n" +
 	"TokenEvent\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12-\n" +
 	"\x12frequency_messages\x18\x03 \x01(\bR\x11frequencyMessages\x12\x1f\n" +
 	"\vinstance_id\x18\x04 \x01(\tR\n" +
-	"instanceId\"\xaa\x02\n" +
+	"instanceId\x12\x1d\n" +
+	"\n" +
+	"vacs_relay\x18\x05 \x01(\bR\tvacsRelay\"\xaa\x02\n" +
 	"\x11MembershipContext\x12\x1f\n" +
 	"\vinstance_id\x18\x01 \x01(\tR\n" +
 	"instanceId\x121\n" +
@@ -6692,7 +7065,39 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x0fMasterInfoEvent\x12'\n" +
 	"\x0fmaster_callsign\x18\x01 \x01(\tR\x0emasterCallsign\"4\n" +
 	"\x16AircraftSelectionEvent\x12\x1a\n" +
-	"\bcallsign\x18\x01 \x01(\tR\bcallsign*\x8e\f\n" +
+	"\bcallsign\x18\x01 \x01(\tR\bcallsign\"\x7f\n" +
+	"\x10VacsRequestEvent\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12\x17\n" +
+	"\acall_id\x18\x03 \x01(\tR\x06callId\x12\x1b\n" +
+	"\tclient_id\x18\x04 \x01(\tR\bclientId\"|\n" +
+	"\bVacsPeer\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1c\n" +
+	"\tfrequency\x18\x03 \x01(\tR\tfrequency\x12\x1f\n" +
+	"\vposition_id\x18\x04 \x01(\tR\n" +
+	"positionId\"\xe7\x02\n" +
+	"\tVacsState\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x18\n" +
+	"\atooltip\x18\x03 \x01(\tR\atooltip\x12\x17\n" +
+	"\acall_id\x18\x04 \x01(\tR\x06callId\x12\x18\n" +
+	"\apending\x18\x05 \x01(\bR\apending\x12\x1e\n" +
+	"\n" +
+	"actionable\x18\x06 \x01(\bR\n" +
+	"actionable\x12\x18\n" +
+	"\awaiting\x18\a \x01(\rR\awaiting\x12=\n" +
+	"\aclients\x18\b \x03(\v2#.flightstrips.euroscope.v1.VacsPeerR\aclients\x12\"\n" +
+	"\rown_client_id\x18\t \x01(\tR\vownClientId\x12&\n" +
+	"\x0fown_position_id\x18\n" +
+	" \x01(\tR\rownPositionId\x12\x1a\n" +
+	"\bsequence\x18\v \x01(\x04R\bsequence\"\x82\x01\n" +
+	"\x0fVacsResultEvent\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12:\n" +
+	"\x05state\x18\x02 \x01(\v2$.flightstrips.euroscope.v1.VacsStateR\x05state\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error*\xbd\f\n" +
 	"\tEventType\x12\x11\n" +
 	"\rEVENT_UNKNOWN\x10\x00\x12\x0f\n" +
 	"\vEVENT_TOKEN\x10\x01\x12\x0f\n" +
@@ -6757,7 +7162,9 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x11EVENT_MASTER_INFO\x108\x12\x11\n" +
 	"\rEVENT_CONTROL\x109\x12\x1c\n" +
 	"\x18EVENT_MEMBERSHIP_REMOVED\x10:\x12\x1c\n" +
-	"\x18EVENT_AIRCRAFT_SELECTION\x10;*g\n" +
+	"\x18EVENT_AIRCRAFT_SELECTION\x10;\x12\x16\n" +
+	"\x12EVENT_VACS_REQUEST\x10<\x12\x15\n" +
+	"\x11EVENT_VACS_RESULT\x10=*g\n" +
 	"\rCommandOrigin\x12\x1e\n" +
 	"\x1aCOMMAND_ORIGIN_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14COMMAND_ORIGIN_HUMAN\x10\x01\x12\x1c\n" +
@@ -6776,7 +7183,7 @@ func file_proto_euroscope_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_euroscope_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_euroscope_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
+var file_proto_euroscope_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
 var file_proto_euroscope_proto_goTypes = []any{
 	(EventType)(0),                         // 0: flightstrips.euroscope.v1.EventType
 	(CommandOrigin)(0),                     // 1: flightstrips.euroscope.v1.CommandOrigin
@@ -6852,6 +7259,10 @@ var file_proto_euroscope_proto_goTypes = []any{
 	(*FrequencyMessageResultEvent)(nil),    // 71: flightstrips.euroscope.v1.FrequencyMessageResultEvent
 	(*MasterInfoEvent)(nil),                // 72: flightstrips.euroscope.v1.MasterInfoEvent
 	(*AircraftSelectionEvent)(nil),         // 73: flightstrips.euroscope.v1.AircraftSelectionEvent
+	(*VacsRequestEvent)(nil),               // 74: flightstrips.euroscope.v1.VacsRequestEvent
+	(*VacsPeer)(nil),                       // 75: flightstrips.euroscope.v1.VacsPeer
+	(*VacsState)(nil),                      // 76: flightstrips.euroscope.v1.VacsState
+	(*VacsResultEvent)(nil),                // 77: flightstrips.euroscope.v1.VacsResultEvent
 }
 var file_proto_euroscope_proto_depIdxs = []int32{
 	1,  // 0: flightstrips.euroscope.v1.Envelope.command_origin:type_name -> flightstrips.euroscope.v1.CommandOrigin
@@ -6915,26 +7326,30 @@ var file_proto_euroscope_proto_depIdxs = []int32{
 	5,  // 58: flightstrips.euroscope.v1.Envelope.control:type_name -> flightstrips.euroscope.v1.ControlEvent
 	6,  // 59: flightstrips.euroscope.v1.Envelope.membership_removed:type_name -> flightstrips.euroscope.v1.MembershipRemovedEvent
 	73, // 60: flightstrips.euroscope.v1.Envelope.aircraft_selection:type_name -> flightstrips.euroscope.v1.AircraftSelectionEvent
-	10, // 61: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
-	12, // 62: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
-	11, // 63: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
-	12, // 64: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
-	8,  // 65: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	9,  // 66: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
-	8,  // 67: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
-	16, // 68: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	17, // 69: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
-	16, // 70: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
-	19, // 71: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
-	20, // 72: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
-	64, // 73: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
-	67, // 74: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
-	66, // 75: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
-	76, // [76:76] is the sub-list for method output_type
-	76, // [76:76] is the sub-list for method input_type
-	76, // [76:76] is the sub-list for extension type_name
-	76, // [76:76] is the sub-list for extension extendee
-	0,  // [0:76] is the sub-list for field type_name
+	74, // 61: flightstrips.euroscope.v1.Envelope.vacs_request:type_name -> flightstrips.euroscope.v1.VacsRequestEvent
+	77, // 62: flightstrips.euroscope.v1.Envelope.vacs_result:type_name -> flightstrips.euroscope.v1.VacsResultEvent
+	10, // 63: flightstrips.euroscope.v1.Strip.position:type_name -> flightstrips.euroscope.v1.Position
+	12, // 64: flightstrips.euroscope.v1.StripUpdateEvent.strip:type_name -> flightstrips.euroscope.v1.Strip
+	11, // 65: flightstrips.euroscope.v1.SyncEvent.controllers:type_name -> flightstrips.euroscope.v1.Controller
+	12, // 66: flightstrips.euroscope.v1.SyncEvent.strips:type_name -> flightstrips.euroscope.v1.Strip
+	8,  // 67: flightstrips.euroscope.v1.SyncEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	9,  // 68: flightstrips.euroscope.v1.SyncEvent.sids:type_name -> flightstrips.euroscope.v1.SidEntry
+	8,  // 69: flightstrips.euroscope.v1.RunwayEvent.runways:type_name -> flightstrips.euroscope.v1.Runway
+	16, // 70: flightstrips.euroscope.v1.CdmUpdateEvent.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	17, // 71: flightstrips.euroscope.v1.CdmUpdateBatchEvent.updates:type_name -> flightstrips.euroscope.v1.CdmUpdateEvent
+	16, // 72: flightstrips.euroscope.v1.BackendSyncCdmData.ecfmp_restrictions:type_name -> flightstrips.euroscope.v1.EcfmpRestriction
+	19, // 73: flightstrips.euroscope.v1.BackendSyncStrip.cdm:type_name -> flightstrips.euroscope.v1.BackendSyncCdmData
+	20, // 74: flightstrips.euroscope.v1.BackendSyncEvent.strips:type_name -> flightstrips.euroscope.v1.BackendSyncStrip
+	64, // 75: flightstrips.euroscope.v1.AMANGainLossEvent.values:type_name -> flightstrips.euroscope.v1.AMANGainLossValue
+	67, // 76: flightstrips.euroscope.v1.AMANRouteFactData.assigned_speed:type_name -> flightstrips.euroscope.v1.AssignedSpeed
+	66, // 77: flightstrips.euroscope.v1.AMANRouteFactEvent.data:type_name -> flightstrips.euroscope.v1.AMANRouteFactData
+	75, // 78: flightstrips.euroscope.v1.VacsState.clients:type_name -> flightstrips.euroscope.v1.VacsPeer
+	76, // 79: flightstrips.euroscope.v1.VacsResultEvent.state:type_name -> flightstrips.euroscope.v1.VacsState
+	80, // [80:80] is the sub-list for method output_type
+	80, // [80:80] is the sub-list for method input_type
+	80, // [80:80] is the sub-list for extension type_name
+	80, // [80:80] is the sub-list for extension extendee
+	0,  // [0:80] is the sub-list for field type_name
 }
 
 func init() { file_proto_euroscope_proto_init() }
@@ -7002,6 +7417,8 @@ func file_proto_euroscope_proto_init() {
 		(*Envelope_Control)(nil),
 		(*Envelope_MembershipRemoved)(nil),
 		(*Envelope_AircraftSelection)(nil),
+		(*Envelope_VacsRequest)(nil),
+		(*Envelope_VacsResult)(nil),
 	}
 	file_proto_euroscope_proto_msgTypes[14].OneofWrappers = []any{}
 	file_proto_euroscope_proto_msgTypes[41].OneofWrappers = []any{}
@@ -7017,7 +7434,7 @@ func file_proto_euroscope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_euroscope_proto_rawDesc), len(file_proto_euroscope_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   72,
+			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -16,17 +16,16 @@ const BTN_BASE =
 
 const ENDING_FLASH_MS = 700;
 
-function isRinging(state: VacsState): boolean {
-  return state.status === "incoming" || state.status === "outgoing";
-}
-
 function tooltipForState(state: VacsState, endingCall: boolean): string {
   if (endingCall) {
     return "Ending call…";
   }
+  if (state.tooltip) return state.tooltip;
   switch (state.status) {
-    case "unavailable":
-      return "VACS not running, or remote control not enabled in VACS settings.";
+    case "disabled": return "Switch VACS On in the FlightStrips EuroScope panel.";
+    case "reconnecting": return "The EuroScope plugin is reconnecting to VACS.";
+    case "synchronizing": return "Restoring VACS call state. Controls will be available when synchronized.";
+    case "unavailable": return "Connect your EuroScope plugin, start VACS and enable remote control.";
     case "unauthenticated":
       return "Sign in to VATSIM in VACS to enable voice.";
     case "disconnected":
@@ -44,6 +43,7 @@ function tooltipForState(state: VacsState, endingCall: boolean): string {
       const name = state.peer.displayName ?? state.peer.positionId ?? "controller";
       return `Calling ${name}…`;
     }
+    case "connecting":
     case "connected": {
       const name = state.peer?.displayName ?? "controller";
       return `On call with ${name}. Click to end call.`;
@@ -60,6 +60,7 @@ function buttonClass(state: VacsState, endingCall: boolean): string {
       return `${BTN_BASE} bg-bay-btn text-white`;
     case "incoming":
     case "outgoing":
+    case "connecting":
       return `${BTN_BASE} bg-[#FF8C00] text-white animate-vacs-pulse`;
     case "connected":
       return `${BTN_BASE} bg-[#1BFF16] text-black`;
@@ -95,23 +96,19 @@ export default function VACSBTN() {
   }, []);
 
   const endActiveCall = useCallback(async () => {
-    if (state.status !== "connected") {
+    if (state.status !== "connected" && state.status !== "connecting") {
       return;
     }
     flashEnding();
     await actions.endCall(state.callId);
   }, [actions, state, flashEnding]);
 
-  const disabled =
-    state.status === "unavailable" ||
-    state.status === "unauthenticated" ||
-    state.status === "disconnected" ||
-    state.status === "ambiguous";
-
-  const incomingCount = state.status === "incoming" ? state.calls.length : 0;
-  const isEndingCall = endingCall && state.status === "connected";
+  const disabled = state.actionable === false || !["idle", "incoming", "outgoing", "connecting", "connected"].includes(state.status);
+  const incomingCount = state.status === "incoming" ? state.waiting ?? state.calls.length : 0;
+  const isEndingCall = endingCall && (state.status === "connected" || state.status === "connecting");
 
   const handleClick = useCallback(async () => {
+    if (disabled) return;
     if (state.status === "idle") {
       setDialOpen(true);
       return;
@@ -127,14 +124,15 @@ export default function VACSBTN() {
       await actions.endCall(state.callId);
       return;
     }
-    if (state.status === "connected") {
+    if (state.status === "connected" || state.status === "connecting") {
       await endActiveCall();
     }
-  }, [actions, state, endActiveCall]);
+  }, [actions, state, endActiveCall, disabled]);
 
   const handleContextMenu = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
+      if (disabled) return;
       if (state.status === "incoming") {
         const oldest = state.calls[0];
         if (oldest) {
@@ -146,11 +144,11 @@ export default function VACSBTN() {
         await actions.endCall(state.callId);
         return;
       }
-      if (state.status === "connected") {
+      if (state.status === "connected" || state.status === "connecting") {
         await endActiveCall();
       }
     },
-    [actions, state, endActiveCall],
+    [actions, state, endActiveCall, disabled],
   );
 
   if (!vacsEnabled) {
@@ -163,10 +161,10 @@ export default function VACSBTN() {
         <TooltipTrigger asChild>
           <button
             type="button"
-            disabled={disabled && !isRinging(state)}
+            disabled={disabled}
             className={buttonClass(state, isEndingCall)}
-            onClick={() => void handleClick()}
-            onContextMenu={(e) => void handleContextMenu(e)}
+            onClick={() => void handleClick().catch(() => undefined)}
+            onContextMenu={(e) => void handleContextMenu(e).catch(() => undefined)}
             aria-label="VACS voice"
           >
             <Phone className="w-[1.6vw] h-[1.6vw]" />
@@ -190,6 +188,7 @@ export default function VACSBTN() {
           ownClientId={state.ownClientId}
           ownPositionId={state.ownPositionId}
           ambiguous={false}
+          actionable={state.actionable ?? true}
         />
       )}
     </>

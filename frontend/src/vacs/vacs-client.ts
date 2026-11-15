@@ -1,728 +1,130 @@
-import { toast } from "sonner";
-import { buildVacsWsUrl } from "@/lib/vacs-settings";
-import { useVacsStore } from "./vacs-store";
-import { VACS_SUBSCRIPTIONS } from "./subscriptions";
-import type {
-  CallInvite,
-  CallSource,
-  CallTargetWire,
-  ClientInfo,
-  SessionStateSnapshot,
-  VacsActions,
-  VacsClientMessage,
-  VacsServerMessage,
-  VacsState,
-} from "./types";
+import { ActionType, EventType } from "@/api/models";
+import type { WebSocketClient } from "@/api/websocket";
+import type { ClientInfo, VacsActions, VacsRelayAction, VacsRelayResult, VacsRelaySnapshot, VacsState } from "./types";
 
-const INVOKE_TIMEOUT_MS = 10_000;
-const PING_INTERVAL_MS = 20_000;
-const MAX_BACKOFF_MS = 30_000;
-
-export type VacsStateListener = (state: VacsState) => void;
-
-export interface VacsClientOptions {
-  url?: string;
-  createWebSocket?: (url: string) => WebSocket;
-  onStateChange?: VacsStateListener;
+export function relayState(snapshot: VacsRelaySnapshot): VacsState {
+  const common = { actionable: snapshot.actionable ?? false, pending: snapshot.pending ?? false,
+    tooltip: snapshot.tooltip, waiting: snapshot.waiting ?? 0 };
+  const clients = (snapshot.clients ?? []).map(peer => ({id: peer.id, displayName: peer.display_name ?? "",
+    frequency: peer.frequency ?? "", positionId: peer.position_id}));
+  const own = {clients, ownPositionId: snapshot.own_position_id ?? "", ownClientId: snapshot.own_client_id ?? null};
+  const peer: ClientInfo = {id: "", displayName: snapshot.label ?? "controller", frequency: ""};
+  const callId = snapshot.call_id ?? "";
+  switch (snapshot.status) {
+    case "idle": return {...common, ...own, status: "idle"};
+    case "incoming": return {...common, ...own, status: "incoming", calls: [{callId,
+      source: {clientId: "", positionId: snapshot.label}, target: {}, prio: false}]};
+    case "outgoing": return {...common, ...own, status: "outgoing", callId, peer};
+    case "connecting": case "connected": return {...common, status: snapshot.status, callId, peer};
+    case "disabled": case "reconnecting": case "synchronizing": case "unauthenticated": case "disconnected": case "ambiguous":
+      return {...common, status: snapshot.status};
+    default: return {...common, status: "unavailable"};
+  }
 }
 
 interface PendingRequest {
-  resolve: (data: unknown) => void;
+  action: VacsRelayAction;
+  resolve: () => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
-  cmd?: string;
-  suppressErrorToast?: boolean;
 }
 
+/** One relay per board socket; never opens a browser-to-VACS connection. */
 export class VacsClient implements VacsActions {
-  private url: string;
-  private readonly createWebSocket: (url: string) => WebSocket;
-  private readonly onStateChange?: VacsStateListener;
+  private state: VacsState = {status: "unavailable", actionable: false};
+  private listeners = new Set<() => void>();
+  private pending = new Map<string, PendingRequest>();
+  private sequence = 0;
+  private actionPending = false;
+  private generation = 0;
+  private interval: ReturnType<typeof setInterval> | null = null;
+  private unsubscribe?: () => void;
 
-  private ws: WebSocket | null = null;
-  private started = false;
-  private versionLogged = false;
-  private nextId = 1;
-  private backoffMs = 1_000;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private pingTimer: ReturnType<typeof setInterval> | null = null;
-  private readonly pending = new Map<string, PendingRequest>();
+  constructor(private readonly transport: Pick<WebSocketClient, "send" | "on">) {}
 
-  private wsConnected = false;
-  private authenticated = false;
-  private clientId: string | null = null;
-  private connectionState: SessionStateSnapshot["connectionState"] = "disconnected";
-  private ownPositionId = "";
-  private ownClient: ClientInfo | null = null;
-  private clients: ClientInfo[] = [];
-  private pendingIncoming: CallInvite[] = [];
-  private activeCallId: string | null = null;
-  private activePeer: ClientInfo | null = null;
-  private ambiguous = false;
-  private outgoingCallId: string | null = null;
-  private outgoingPeer: ClientInfo | null = null;
-  private inviteByCallId = new Map<string, CallInvite>();
-
-  constructor(options: VacsClientOptions = {}) {
-    this.url = options.url ?? buildVacsWsUrl();
-    this.createWebSocket =
-      options.createWebSocket ??
-      ((url) => new WebSocket(url));
-    this.onStateChange = options.onStateChange;
+  getState = (): VacsState => this.state;
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+  private publish(state: VacsState): void {
+    this.state = state;
+    for (const listener of this.listeners) listener();
   }
-
-  getState(): VacsState {
-    return this.deriveState();
-  }
-
   start(): void {
-    if (this.started) {
-      return;
-    }
-    this.started = true;
-    this.connect();
+    if (this.interval !== null) return;
+    this.unsubscribe = this.transport.on(EventType.FrontendVacsResult, result => this.receive(result));
+    this.refresh();
+    // Native VACS remains the single owner of event subscriptions and recovery.
+    this.interval = setInterval(() => this.refresh(), 1000);
   }
-
   stop(): void {
-    this.started = false;
-    this.clearReconnect();
-    this.clearPing();
-    this.cancelAllPending();
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    this.wsConnected = false;
-    this.resetSessionState();
-    this.emitState();
+    if (this.interval !== null) clearInterval(this.interval);
+    this.interval = null;
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
+    this.invalidate();
   }
-
-  updateUrl(url: string): void {
-    if (this.url === url) {
-      return;
-    }
-    this.url = url;
-    if (!this.started) {
-      return;
-    }
-    this.clearReconnect();
-    this.clearPing();
-    this.cancelAllPending();
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    this.wsConnected = false;
-    this.resetSessionState();
-    this.emitState();
-    this.connect();
-  }
-
-  acceptCall(callId: string): Promise<void> {
-    return this.invoke("signaling_accept_call", { callId }).then(() => undefined);
-  }
-
-  rejectCall(callId: string): Promise<void> {
-    return this.endCallLocally(callId);
-  }
-
-  endCall(callId: string): Promise<void> {
-    return this.endCallLocally(callId);
-  }
-
-  dialClient(client: ClientInfo): Promise<void> {
-    return this.placeCall(client);
-  }
-
-  /** Test hook: feed a server message without a live socket. */
-  handleMessageForTest(raw: string): void {
-    this.handleMessage(raw);
-  }
-
-  /** Test hook: seed connected idle state without a live WebSocket. */
-  simulateOpenForTest(snapshot?: SessionStateSnapshot): void {
-    this.wsConnected = true;
-    this.backoffMs = 1_000;
-    this.applySnapshot(
-      snapshot ?? {
-        connectionState: "connected",
-        sessionInfo: {
-          client: {
-            id: "1000001",
-            displayName: "EKCH_TWR",
-            frequency: "118.300",
-            positionId: "EKCH_TWR",
-          },
-          profile: { type: "Unchanged" },
-        },
-        stations: [],
-        clients: [
-          {
-            id: "1000002",
-            displayName: "EKCH_APP",
-            frequency: "120.200",
-            positionId: "EKCH_APP",
-          },
-        ],
-        clientId: "1000001",
-        callConfig: {},
-        clientPageSettings: {},
-        capabilities: {},
-        incomingCalls: [],
-        outgoingCall: null,
-      },
-    );
-    this.emitState();
-  }
-
-  private connect(): void {
-    if (!this.started) {
-      return;
-    }
-    this.clearReconnect();
-    try {
-      const ws = this.createWebSocket(this.url);
-      this.ws = ws;
-      ws.addEventListener("open", () => this.onOpen());
-      ws.addEventListener("message", (event) => this.handleMessage(String(event.data)));
-      ws.addEventListener("close", () => this.onClose());
-      ws.addEventListener("error", () => this.onClose());
-    } catch {
-      this.scheduleReconnect();
-    }
-  }
-
-  private onOpen(): void {
-    this.wsConnected = true;
-    this.backoffMs = 1_000;
-    if (!this.versionLogged) {
-      void this.invoke("app_get_version", {}, { suppressErrorToast: true })
-        .then((version) => {
-          if (!this.versionLogged && typeof version === "string" && version.length > 0) {
-            console.info("VACS version:", version);
-            this.versionLogged = true;
-          }
-        })
-        .catch(() => undefined);
-    }
-    void this.bootstrap();
-    this.startPing();
-  }
-
-  private onClose(): void {
-    this.wsConnected = false;
-    this.clearPing();
-    this.cancelAllPending();
-    this.ws = null;
-    if (!this.started) {
-      return;
-    }
-    this.resetSessionState();
-    this.emitState();
-    this.scheduleReconnect();
-  }
-
-  private scheduleReconnect(): void {
-    if (!this.started) {
-      return;
-    }
-    this.clearReconnect();
-    const delay = this.backoffMs;
-    this.backoffMs = Math.min(this.backoffMs * 2, MAX_BACKOFF_MS);
-    this.reconnectTimer = setTimeout(() => this.connect(), delay);
-  }
-
-  private clearReconnect(): void {
-    if (this.reconnectTimer !== null) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-  }
-
-  private startPing(): void {
-    this.clearPing();
-    this.pingTimer = setInterval(() => {
-      this.send({ type: "ping" });
-    }, PING_INTERVAL_MS);
-  }
-
-  private clearPing(): void {
-    if (this.pingTimer !== null) {
-      clearInterval(this.pingTimer);
-      this.pingTimer = null;
-    }
-  }
-
-  private async bootstrap(): Promise<void> {
-    if (!this.started) {
-      return;
-    }
-    try {
-      for (const event of VACS_SUBSCRIPTIONS) {
-        this.send({ type: "subscribe", event });
-      }
-      await this.invoke("app_frontend_ready", {});
-      if (!this.started) {
-        return;
-      }
-      const snapshot = (await this.invoke("remote_get_session_state", {})) as SessionStateSnapshot;
-      if (!this.started) {
-        return;
-      }
-      this.applySnapshot(snapshot);
-      this.emitState();
-    } catch {
-      if (this.started) {
-        this.emitState();
-      }
-    }
-  }
-
-  private applySnapshot(snapshot: SessionStateSnapshot): void {
-    this.connectionState = snapshot.connectionState;
-    this.clientId = snapshot.clientId;
-    this.authenticated = snapshot.clientId !== null;
-    this.clients = [...snapshot.clients];
-    this.pendingIncoming = [...snapshot.incomingCalls];
-    for (const invite of snapshot.incomingCalls) {
-      this.inviteByCallId.set(invite.callId, invite);
-    }
-    this.ownClient = snapshot.sessionInfo?.client ?? null;
-    this.ownPositionId = this.sessionPositionId(this.ownClient ?? undefined);
-    this.ambiguous = false;
-    this.activeCallId = null;
-    this.activePeer = null;
-    this.outgoingCallId = snapshot.outgoingCall?.callId ?? null;
-    this.outgoingPeer = this.peerFromOutgoingInvite(snapshot.outgoingCall);
-    if (snapshot.outgoingCall) {
-      this.inviteByCallId.set(snapshot.outgoingCall.callId, snapshot.outgoingCall);
-    }
-  }
-
-  private resetSessionState(): void {
-    this.authenticated = false;
-    this.clientId = null;
-    this.connectionState = "disconnected";
-    this.ownPositionId = "";
-    this.ownClient = null;
-    this.clients = [];
-    this.pendingIncoming = [];
-    this.activeCallId = null;
-    this.activePeer = null;
-    this.ambiguous = false;
-    this.outgoingCallId = null;
-    this.outgoingPeer = null;
-    this.inviteByCallId.clear();
-  }
-
-  private deriveState(): VacsState {
-    if (!this.wsConnected) {
-      return { status: "unavailable" };
-    }
-    if (!this.authenticated || !this.clientId) {
-      return { status: "unauthenticated" };
-    }
-    if (this.ambiguous) {
-      return { status: "ambiguous" };
-    }
-    if (this.connectionState !== "connected") {
-      return { status: "disconnected" };
-    }
-    if (this.activeCallId) {
-      return {
-        status: "connected",
-        callId: this.activeCallId,
-        peer: this.activePeer,
-      };
-    }
-    if (this.pendingIncoming.length > 0 && this.ownPositionId) {
-      return {
-        status: "incoming",
-        calls: [...this.pendingIncoming],
-        clients: [...this.clients],
-        ownPositionId: this.ownPositionId,
-        ownClientId: this.clientId,
-      };
-    }
-    if (this.outgoingCallId && this.outgoingPeer && this.ownPositionId) {
-      return {
-        status: "outgoing",
-        callId: this.outgoingCallId,
-        peer: this.outgoingPeer,
-        clients: [...this.clients],
-        ownPositionId: this.ownPositionId,
-        ownClientId: this.clientId,
-      };
-    }
-    if (this.ownPositionId) {
-      return {
-        status: "idle",
-        clients: [...this.clients],
-        ownPositionId: this.ownPositionId,
-        ownClientId: this.clientId,
-      };
-    }
-    return { status: "disconnected" };
-  }
-
-  private emitState(): void {
-    this.onStateChange?.(this.getState());
-  }
-
-  private send(message: VacsClientMessage): void {
-    if (this.ws && this.ws.readyState === 1) {
-      this.ws.send(JSON.stringify(message));
-    }
-  }
-
-  private invoke(
-    cmd: string,
-    args: Record<string, unknown>,
-    options?: { suppressErrorToast?: boolean },
-  ): Promise<unknown> {
-    const id = String(this.nextId++);
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error("VACS invoke timeout"));
-      }, INVOKE_TIMEOUT_MS);
-      this.pending.set(id, {
-        resolve,
-        reject,
-        timer,
-        cmd,
-        suppressErrorToast: options?.suppressErrorToast,
-      });
-      this.send({ type: "invoke", id, cmd, args });
-    });
-  }
-
-  private handleMessage(raw: string): void {
-    let message: VacsServerMessage;
-    try {
-      message = JSON.parse(raw) as VacsServerMessage;
-    } catch {
-      return;
-    }
-
-    if (message.type === "response") {
-      this.handleResponse(message);
-      return;
-    }
-    if (message.type === "event") {
-      this.handleEvent(message.name, message.payload);
-    }
-  }
-
-  private handleResponse(response: Extract<VacsServerMessage, { type: "response" }>): void {
-    const pending = this.pending.get(response.id);
-    if (!pending) {
-      return;
-    }
-    clearTimeout(pending.timer);
-    this.pending.delete(response.id);
-
-    if (response.ok) {
-      pending.resolve(response.data ?? null);
-      return;
-    }
-
-    const errorType = response.error?.type ?? "";
-    if (errorType === "urn:vacs:error:remote:desktop-only") {
-      console.warn("VACS desktop-only command rejected", response);
-      pending.resolve(null);
-      return;
-    }
-    if (errorType === "urn:vacs:error:remote:invalid-argument") {
-      console.warn("VACS invalid argument", {
-        cmd: pending.cmd,
-        detail: response.error?.detail,
-        type: response.error?.type,
-      });
-      if (!pending.suppressErrorToast) {
-        toast.error("Could not complete voice action — invalid target.");
-      }
-    } else if (errorType === "urn:vacs:error:remote:timeout") {
-      toast.error("VACS did not respond — please check that it is running.");
-    }
-    pending.reject(new Error(response.error?.detail ?? response.error?.title ?? "VACS error"));
-  }
-
-  private handleEvent(name: string, payload: unknown): void {
-    switch (name) {
-      case "auth:authenticated":
-        this.authenticated = true;
-        this.clientId = String(payload);
-        void this.refetchSession();
-        break;
-      case "auth:unauthenticated":
-        this.authenticated = false;
-        this.clientId = null;
-        this.resetSessionState();
-        this.emitState();
-        break;
-      case "signaling:connected": {
-        const info = payload as { client: ClientInfo };
-        this.connectionState = "connected";
-        this.ownClient = info.client;
-        this.ownPositionId = this.sessionPositionId(info.client);
-        this.emitState();
-        break;
-      }
-      case "signaling:disconnected":
-        this.connectionState = "disconnected";
-        this.ownPositionId = "";
-        this.ownClient = null;
-        this.emitState();
-        break;
-      case "signaling:client-list":
-        this.clients = payload as ClientInfo[];
-        this.emitState();
-        break;
-      case "signaling:client-connected":
-        this.clients = [...this.clients, payload as ClientInfo];
-        this.emitState();
-        break;
-      case "signaling:client-disconnected": {
-        const cid = String(payload);
-        this.clients = this.clients.filter((c) => c.id !== cid);
-        this.emitState();
-        break;
-      }
-      case "signaling:call-invite":
-      case "signaling:add-incoming-to-call-list": {
-        const invite = this.normalizeInvite(payload);
-        if (!this.pendingIncoming.some((c) => c.callId === invite.callId)) {
-          this.pendingIncoming.push(invite);
-        }
-        this.inviteByCallId.set(invite.callId, invite);
-        this.emitState();
-        break;
-      }
-      case "signaling:call-end":
-      case "signaling:call-reject":
-      case "signaling:force-call-end":
-        this.terminateCall(String(payload));
-        break;
-      case "signaling:ambiguous-position":
-        this.ambiguous = true;
-        this.emitState();
-        break;
-      case "signaling:outgoing-call-accepted":
-        break;
-      case "signaling:update-call-list":
-        break;
-      case "webrtc:call-connected": {
-        const callId = String(payload);
-        this.onWebRtcConnected(callId);
-        break;
-      }
-      case "webrtc:call-disconnected":
-        this.terminateCall(String(payload));
-        break;
-      case "webrtc:call-error": {
-        const err = payload as { callId: string; reason: string };
-        toast.error(err.reason);
-        this.terminateCall(err.callId);
-        break;
-      }
-      case "error":
-        console.warn("VACS error event", payload);
-        break;
-      default:
-        break;
-    }
-  }
-
-  private normalizeInvite(payload: unknown): CallInvite {
-    if (this.isCallInvite(payload)) {
-      return payload;
-    }
-    const entry = payload as { callId: string; source: CallInvite["source"] };
-    return {
-      callId: entry.callId,
-      source: entry.source,
-      target: {},
-      prio: false,
-    };
-  }
-
-  private isCallInvite(value: unknown): value is CallInvite {
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      "callId" in value &&
-      "source" in value
-    );
-  }
-
-  private onWebRtcConnected(callId: string): void {
-    this.activeCallId = callId;
-    this.pendingIncoming = this.pendingIncoming.filter((c) => c.callId !== callId);
-    if (this.outgoingCallId === callId && this.outgoingPeer) {
-      this.activePeer = this.outgoingPeer;
-    } else {
-      const invite = this.inviteByCallId.get(callId);
-      const peerCid = invite?.source.clientId;
-      this.activePeer = peerCid
-        ? (this.clients.find((c) => c.id === peerCid) ?? null)
-        : null;
-    }
-    this.outgoingCallId = null;
-    this.outgoingPeer = null;
-    this.emitState();
-  }
-
-  /**
-   * VACS does not emit an event back to the caller when it ends a call itself
-   * (e.g. cancelling a ringing outgoing call), so clear local state once the
-   * command succeeds.
-   */
-  private async endCallLocally(callId: string): Promise<void> {
-    await this.invoke("signaling_end_call", { callId });
-    this.terminateCall(callId);
-  }
-
-  private terminateCall(callId: string): void {
-    this.pendingIncoming = this.pendingIncoming.filter((c) => c.callId !== callId);
-    this.inviteByCallId.delete(callId);
-    if (this.outgoingCallId === callId) {
-      this.outgoingCallId = null;
-      this.outgoingPeer = null;
-    }
-    if (this.activeCallId === callId) {
-      this.activeCallId = null;
-      this.activePeer = null;
-    }
-    this.emitState();
-  }
-
-  private async refetchSession(): Promise<void> {
-    if (!this.wsConnected) {
-      return;
-    }
-    try {
-      const snapshot = (await this.invoke(
-        "remote_get_session_state",
-        {},
-      )) as SessionStateSnapshot;
-      this.applySnapshot(snapshot);
-      this.emitState();
-    } catch {
-      // ignore
-    }
-  }
-
-  private sessionPositionId(client?: ClientInfo): string {
-    return client?.positionId ?? client?.displayName ?? "";
-  }
-
-  private peerFromOutgoingInvite(invite: CallInvite | null): ClientInfo | null {
-    if (!invite) {
-      return null;
-    }
-    const target = invite.target;
-    if (typeof target === "string") {
-      return this.clients.find((c) => c.id === target) ?? null;
-    }
-    if (target && typeof target === "object") {
-      const record = target as Record<string, string>;
-      const cid = record.client ?? record.Client;
-      const position = record.position ?? record.Position;
-      return (
-        this.clients.find(
-          (c) =>
-            (cid && c.id === cid) ||
-            (position && (c.positionId === position || c.displayName === position)),
-        ) ?? null
-      );
-    }
-    return null;
-  }
-
-  private buildCallSource(): CallSource | null {
-    const positionId = this.sessionPositionId(this.ownClient ?? undefined) || this.ownPositionId;
-    const clientId = this.clientId ?? this.ownClient?.id ?? "";
-    if (!clientId || !positionId) {
-      return null;
-    }
-    return {
-      clientId,
-      positionId,
-      stationId: positionId,
-    };
-  }
-
-  private callTargetsFor(client: ClientInfo): CallTargetWire[] {
-    const targets: CallTargetWire[] = [{ client: client.id }, client.id];
-    if (client.positionId) {
-      targets.push({ position: client.positionId });
-    }
-    if (client.displayName && client.displayName !== client.positionId) {
-      targets.push({ position: client.displayName });
-    }
-    return targets;
-  }
-
-  private async placeCall(client: ClientInfo): Promise<void> {
-    const source = this.buildCallSource();
-    if (!source) {
-      throw new Error("No VACS position");
-    }
-
-    let lastError: Error | undefined;
-    for (const target of this.callTargetsFor(client)) {
-      try {
-        const callId = (await this.invoke(
-          "signaling_start_call",
-          { target, source, prio: false },
-          { suppressErrorToast: true },
-        )) as string;
-        this.outgoingCallId = callId;
-        this.outgoingPeer = client;
-        this.inviteByCallId.set(callId, {
-          callId,
-          source,
-          target,
-          prio: false,
-        });
-        this.emitState();
-        return;
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-      }
-    }
-
-    toast.error(
-      `Could not dial ${client.displayName} — check that VACS is connected to your position.`,
-    );
-    throw lastError ?? new Error("Dial failed");
-  }
-
-  private cancelAllPending(): void {
-    for (const [, pending] of this.pending) {
-      clearTimeout(pending.timer);
-      pending.reject(new Error("VACS cancelled"));
+  invalidate(): void {
+    this.generation++;
+    for (const request of this.pending.values()) {
+      clearTimeout(request.timer);
+      request.reject(new Error("VACS relay disconnected. No call action was retried."));
     }
     this.pending.clear();
+    this.sequence = 0;
+    this.actionPending = false;
+    this.publish({status: "unavailable", actionable: false, tooltip: "Connect your own EuroScope plugin to use VACS."});
   }
-}
-
-let singleton: VacsClient | null = null;
-
-export function getVacsClient(): VacsClient {
-  if (!singleton) {
-    singleton = new VacsClient({
-      url: buildVacsWsUrl(),
-      onStateChange: (state) => {
-        useVacsStore.getState().setState(state);
-      },
+  private refresh(): void {
+    if ([...this.pending.values()].some(request => request.action === "status")) return;
+    const generation = this.generation;
+    void this.request("status").catch(error => {
+      if (this.interval !== null && generation === this.generation) this.publish({status: "unavailable", actionable: false, tooltip: error.message});
     });
   }
-  return singleton;
-}
-
-export function resetVacsClientForTest(): void {
-  singleton?.stop();
-  singleton = null;
+  private receive(result: VacsRelayResult): void {
+    const pending = this.pending.get(result.request_id);
+    if (!pending) return; // Disconnected, timed out, or another board/tab.
+    this.pending.delete(result.request_id);
+    clearTimeout(pending.timer);
+    if (result.state && result.state.sequence > this.sequence) {
+      this.sequence = result.state.sequence;
+      const state = relayState(result.state);
+      this.publish(this.actionPending && pending.action === "status" ? {...state, actionable: false} : state);
+    }
+    if (result.error) pending.reject(new Error(result.error));
+    else if (!result.state) pending.reject(new Error("The EuroScope plugin returned no VACS state."));
+    else pending.resolve();
+  }
+  private request(action: VacsRelayAction, call_id?: string, client_id?: string): Promise<void> {
+    if (!this.unsubscribe) return Promise.reject(new Error("Enable VACS voice integration first."));
+    return new Promise((resolve, reject) => {
+      const request_id = crypto.randomUUID();
+      const timer = setTimeout(() => {
+        this.pending.delete(request_id);
+        if (action !== "status") this.publish({status: "synchronizing", actionable: false,
+          tooltip: "Call action unconfirmed. Check VACS; the action was not retried."});
+        reject(new Error("VACS relay timed out. Check the EuroScope plugin and VACS; no call action was retried."));
+      }, 8000);
+      this.pending.set(request_id, {action, resolve, reject, timer});
+      if (!this.transport.send({type: ActionType.FrontendVacsRequest, request_id, action, call_id, client_id})) {
+        clearTimeout(timer);
+        this.pending.delete(request_id);
+        reject(new Error("Connect your own EuroScope plugin to use VACS."));
+      }
+    });
+  }
+  private async execute(action: VacsRelayAction, callId?: string, clientId?: string): Promise<void> {
+    if (this.actionPending || this.state.actionable !== true) throw new Error("VACS controls are unavailable. Check the current call state.");
+    this.actionPending = true;
+    const generation = this.generation;
+    this.publish({...this.state, actionable: false, pending: true});
+    try { await this.request(action, callId, clientId); }
+    finally { if (generation === this.generation) this.actionPending = false; }
+  }
+  acceptCall(callId: string): Promise<void> { return this.execute("answer", callId); }
+  rejectCall(callId: string): Promise<void> { return this.execute("reject", callId); }
+  endCall(callId: string): Promise<void> { return this.execute(this.state.status === "outgoing" ? "cancel" : "end", callId); }
+  dialClient(client: ClientInfo): Promise<void> { return this.execute("dial", undefined, client.id); }
 }

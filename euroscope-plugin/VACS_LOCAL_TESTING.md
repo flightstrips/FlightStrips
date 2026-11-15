@@ -62,3 +62,11 @@ Do not mark the live checks passed from the render fixtures. In particular, the 
 - Logs from this run: `build/build.log`, `build/vacs-tests.log` and `build/test-results.log`.
 
 No branch, commit, PR, release or deployment is created by this work.
+
+## Browser relay verification
+
+With the updated backend and frontend running, select this own EuroScope instance in the strip board and enable browser VACS integration. Keep the native panel's VACS switch On. Open the board on a second computer or tablet; the browser needs only its normal FlightStrips connection, not access to port 9600.
+
+Verify dial, answer, reject, cancel and end from both native and browser controls. Changes should appear on the next browser refresh. Check multiple waiting calls, an existing desktop call on browser startup, native/browser actions competing for the same call, and reconnecting both the browser and plugin. Unload or disconnect the selected plugin and verify browser controls become unavailable without switching to another same-CID instance or the session master. Disable browser integration during a call and verify the desktop call continues. No call action should be replayed after reconnect or timeout.
+
+These are live acceptance checks; automated relay, state-machine and transport tests do not verify real audio or a deployed multi-device session.

@@ -68,9 +68,16 @@ const (
 	FrequencyMessageResult    = EventType_EVENT_FREQUENCY_MESSAGE_RESULT
 	FsScratchPad              = EventType_EVENT_FS_SCRATCH_PAD
 	AircraftSelection         = EventType_EVENT_AIRCRAFT_SELECTION
+	VacsRequest               = EventType_EVENT_VACS_REQUEST
+	VacsResult                = EventType_EVENT_VACS_RESULT
 )
 
 type SyncRunway = Runway
+
+func (e VacsRequestEvent) GetType() EventType       { return VacsRequest }
+func (e VacsRequestEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
+func (e VacsResultEvent) GetType() EventType        { return VacsResult }
+func (e VacsResultEvent) Marshal() ([]byte, error)  { return marshalMessage(&e) }
 
 const (
 	GroundStateUnknown  = ""

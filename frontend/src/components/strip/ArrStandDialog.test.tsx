@@ -62,6 +62,20 @@ afterEach(() => {
 });
 
 describe("arrival stand assignment dialog", () => {
+  it("focuses the dialog on opening and reopening while allowing manual entry", () => {
+    const { rerender, props } = show();
+    expect(screen.getByRole("dialog")).toHaveFocus();
+    const input = screen.getByRole("textbox", { name: "Manual stand" });
+    input.focus();
+    expect(input).toHaveFocus();
+    fireEvent.change(input, { target: { value: "c39" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(state.updateStrip).toHaveBeenCalledWith("SAS123", { stand: "C39" });
+    rerender(<ArrStandDialog {...props} open={false} />);
+    rerender(<ArrStandDialog {...props} />);
+    expect(screen.getByRole("dialog")).toHaveFocus();
+  });
+
   it("opens the compact session timeline from GRAPHIC and returns without assigning", async () => {
     const now = new Date();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { MENU_BUTTON_BEVEL, MENU_INPUT_BEVEL } from "@/components/ui/menuControlStyle";
@@ -32,6 +32,7 @@ interface Props {
 }
 
 export function MemaidDialog({ open, bay, onOpenChange }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [label, setLabel] = useState("");
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
 
@@ -63,6 +64,12 @@ export function MemaidDialog({ open, bay, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        ref={dialogRef}
+        onOpenAutoFocus={(event) => {
+          // Keep the on-screen keyboard closed until the user chooses to type.
+          event.preventDefault();
+          dialogRef.current?.focus();
+        }}
         style={{
           width: `min(${toVw(494)}, 95vw)`,
           background: "#E4E4E4",
@@ -76,7 +83,6 @@ export function MemaidDialog({ open, bay, onOpenChange }: Props) {
         }}
       >
         <input
-          autoFocus
           value={label}
           onChange={(e) => {
             setLabel(e.target.value);

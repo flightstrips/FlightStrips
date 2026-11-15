@@ -56,6 +56,52 @@ func TestApproachReleaseIntegrationPreservesSlotsAndPhysicalTransit(t *testing.T
 	require.Equal(t, state, restored)
 }
 
+func TestApproachGuidancePreviewsFutureArrivalWithoutPublishingAnAdmission(t *testing.T) {
+	svc, state, at := approachFixture(t)
+	state.Flights = state.Flights[:1]
+	f := &state.Flights[0]
+	f.Callsign = "NSZ5YB"
+	f.HoldingStack, f.HoldingReleaseBasis, f.HoldingClearance = nil, nil, nil
+	entry := at.Add(7 * time.Minute)
+	f.Prediction.HoldingFixETA = &entry
+	f.Prediction.RawTETA, f.Prediction.OperationalTETA = at.Add(17*time.Minute), at.Add(17*time.Minute)
+	f.Prediction.InputObservedAt, f.Prediction.GeneratedAt = at, at
+	f.Prediction.Calculation = &aman.PredictionCalculation{Legs: []aman.PredictionLeg{
+		{To: *f.SelectedHolding, StartLatitude: 1, StartLongitude: -10, EndLatitude: 1, EndLongitude: -1, Duration: 7 * time.Minute},
+		{To: "RWY", StartLatitude: 1, StartLongitude: -1, EndLatitude: 1, EndLongitude: 1, Duration: 10 * time.Minute},
+	}}
+	f.Slot.Time = at.Add(22 * time.Minute)
+	slot, raw := *f.Slot, f.Prediction.RawTETA
+	svc.refreshHoldingPlans(&state)
+	f = &state.Flights[0]
+	require.Equal(t, "ready", state.ReleaseBuffer.Status)
+	require.Zero(t, state.ReleaseBuffer.Projected())
+	require.Nil(t, f.ApproachRelease)
+	require.NotNil(t, f.ApproachGuidance)
+	require.NoError(t, f.ApproachGuidance.Validate())
+	require.Equal(t, 299*time.Second, f.ApproachGuidance.Plan.AdditionalApproachTime)
+	require.Equal(t, at.Add(12*time.Minute), f.Prediction.HoldingPlan.ApproachReleaseTime, "a preview must not write an earlier EAT")
+	require.Zero(t, f.Prediction.HoldingPlan.AdditionalApproachTime)
+	require.Equal(t, slot, *f.Slot)
+	require.Equal(t, raw, f.Prediction.RawTETA)
+	seconds, err := aman.GainLossGuidance(raw, aman.GainLossTarget(*f, raw))
+	require.NoError(t, err)
+	require.EqualValues(t, -1, seconds)
+
+	// Derived previews survive persistence only while their inputs remain
+	// usable; a disabled policy must clear them on the next refresh.
+	state = cloneGapState(t, state)
+	svc.refreshHoldingPlans(&state)
+	require.NotNil(t, state.Flights[0].ApproachGuidance)
+	svc.deps.Terminal.ApproachRelease.Enabled = false
+	svc.refreshHoldingPlans(&state)
+	require.Nil(t, state.Flights[0].ApproachGuidance)
+	require.Nil(t, state.Flights[0].ApproachRelease)
+	seconds, err = aman.GainLossGuidance(raw, aman.GainLossTarget(state.Flights[0], raw))
+	require.NoError(t, err)
+	require.EqualValues(t, -300, seconds)
+}
+
 func TestReleaseBufferDoesNotInferReleaseFromCancellationOrElapsedSlot(t *testing.T) {
 	svc, state, at := approachFixture(t)
 	svc.refreshHoldingPlans(&state)

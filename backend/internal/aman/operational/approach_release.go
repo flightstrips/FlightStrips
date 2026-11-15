@@ -41,6 +41,9 @@ func (s *Service) captureLegacyApproachRelease(f aman.AMANFlight, at time.Time) 
 }
 
 func (s *Service) refreshApproachReleases(state *aman.AirportState, at time.Time) {
+	for i := range state.Flights {
+		state.Flights[i].ApproachGuidance = nil
+	}
 	policy := s.deps.Terminal.ApproachRelease
 	if policy == nil {
 		return
@@ -89,6 +92,7 @@ func (s *Service) refreshApproachReleases(state *aman.AirportState, at time.Time
 		if f.Prediction != nil && f.Prediction.Publishable && fresh {
 			if !held && !traffic.InApproach {
 				entry := s.predictedTMAEntry(f)
+				traffic.PredictedApproachEntry = entry
 				traffic.Incoming = entry != nil && !entry.After(horizon)
 				if entry == nil && f.State != aman.StatePlanned {
 					traffic.Unknown = true
@@ -153,9 +157,21 @@ func (s *Service) refreshApproachReleases(state *aman.AirportState, at time.Time
 	for _, d := range result.Decisions {
 		decisions[d.Callsign] = d.Reservation
 	}
+	// Preview beyond the commitment window with the actual decisions already
+	// counted. These plans change guidance only; they cannot publish an EAT,
+	// consume a buffer place or change sequence/holding priority.
+	for i := range input.Traffic {
+		input.Traffic[i].Reservation = decisions[input.Traffic[i].Callsign]
+	}
+	guidance := release.GuidancePlans(input)
 	for i := range state.Flights {
 		f := &state.Flights[i]
 		f.ApproachRelease = decisions[f.Callsign]
+		if p, ok := guidance[f.Callsign]; ok && f.ApproachRelease == nil && f.Prediction != nil && !f.Prediction.GeneratedAt.IsZero() {
+			fact := facts[f.Callsign]
+			f.ApproachGuidance = &aman.ApproachGuidancePlan{HoldingID: fact.HoldingID, RunwayGroupID: fact.RunwayGroupID,
+				RouteDigest: fact.RouteDigest, SlotAt: f.Slot.Time, PredictionAt: f.Prediction.GeneratedAt, Plan: p}
+		}
 		r := f.ApproachRelease
 		if f.Expedited || r == nil || r.HoldingID != stringValue(f.SelectedHolding) || f.Prediction == nil || f.Slot == nil ||
 			retainedTimingUnavailable(*f) {

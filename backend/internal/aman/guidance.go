@@ -47,9 +47,43 @@ func SmoothedPhysicalPrediction(flight AMANFlight) (time.Time, bool) {
 	return values[len(values)/2], true
 }
 
-// GainLossGuidance limits actionable gain to two minutes. Keep target and
-// prediction timestamps intact so clients can still inspect the actual drift.
-// Loss is not capped: hiding a large delay would conceal a sequencing problem.
+// GainLossTarget removes only planned downstream absorption from remaining
+// loss before approach. Landing slots and physical predictions stay intact.
+// Never manufacture gain because an aircraft has already absorbed some delay.
+func GainLossTarget(flight AMANFlight, predicted time.Time) time.Time {
+	if flight.Slot == nil {
+		return time.Time{}
+	}
+	target := flight.Slot.Time
+	if !predicted.Before(target) || flight.Expedited || flight.State == StateGoAround || !flight.SequenceDisposition.Participates() ||
+		flight.TMAEntry != nil && flight.TMAEntry.LastContainment == TMAInside && ConfirmedActiveHoldingSince(flight) == nil {
+		return target
+	}
+	var absorption time.Duration
+	if r := flight.ApproachRelease; r != nil && r.RunwayGroupID == flight.Slot.RunwayGroupID && r.Transit > 0 &&
+		(flight.SelectedHolding == nil || r.HoldingID == *flight.SelectedHolding) {
+		// An accepted admission survives source outages and loss of holding
+		// timing. Recompute against the current slot rather than a cached budget.
+		absorption = max(time.Duration(0), target.Sub(r.ReleaseAt)-r.Transit)
+	} else if p := flight.ApproachGuidance; p != nil && flight.Prediction != nil && flight.Prediction.Publishable &&
+		flight.Prediction.HoldingPlanBlockedBy == nil &&
+		flight.DataStatus == DataFresh && flight.FreezeReason != FreezeManual && flight.ManualOrder == nil &&
+		flight.SelectedHolding != nil && p.HoldingID == *flight.SelectedHolding && p.RunwayGroupID == flight.Slot.RunwayGroupID &&
+		p.SlotAt.Equal(target) && p.PredictionAt.Equal(flight.Prediction.GeneratedAt) {
+		digest := flight.Prediction.GeometryDigest
+		if b := flight.HoldingReleaseBasis; b != nil && b.HoldingID == p.HoldingID && b.RunwayGroupID == p.RunwayGroupID {
+			digest = b.RouteDigest
+		}
+		if p.RouteDigest == digest {
+			absorption = p.Plan.AdditionalApproachTime
+		}
+	}
+	return target.Add(-min(max(time.Duration(0), absorption), target.Sub(predicted)))
+}
+
+// GainLossGuidance limits actionable gain to two minutes. Callers supply the
+// effective guidance target; the committed landing slot remains inspectable.
+// Loss beyond planned approach absorption is not capped.
 func GainLossGuidance(predicted, target time.Time) (int64, error) {
 	return WholeSeconds(min(predicted.Sub(target).Round(time.Second), MaxScheduledGain))
 }

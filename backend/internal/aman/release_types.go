@@ -39,6 +39,37 @@ type ApproachReleaseReservation struct {
 	PolicyVersion          string
 }
 
+// ApproachGuidancePlan is a replaceable preview, never an admission or EAT.
+// Bind it to the prediction, route and landing slot that produced it so a
+// changed input cannot reuse a former downstream absorption allowance.
+type ApproachGuidancePlan struct {
+	HoldingID     string
+	RunwayGroupID RunwayGroupID
+	RouteDigest   string
+	SlotAt        time.Time
+	PredictionAt  time.Time
+	Plan          HoldingPlan
+}
+
+func (p ApproachGuidancePlan) Validate() error {
+	if p.HoldingID == "" || p.RunwayGroupID == "" || p.RouteDigest == "" {
+		return invalid("approach guidance identity is incomplete")
+	}
+	if err := requireUTCTime("approach guidance slot", p.SlotAt); err != nil {
+		return err
+	}
+	if err := requireUTCTime("approach guidance prediction", p.PredictionAt); err != nil {
+		return err
+	}
+	if err := p.Plan.Validate(); err != nil {
+		return err
+	}
+	if p.SlotAt.Sub(p.Plan.ApproachReleaseTime)-p.Plan.PostHoldingTransit != p.Plan.AdditionalApproachTime {
+		return invalid("approach guidance absorption does not match its landing slot")
+	}
+	return nil
+}
+
 func (r ApproachReleaseReservation) Validate() error {
 	if r.Episode == "" || r.HoldingID == "" || r.STARFamily == "" || r.FeederFix == "" || r.RunwayGroupID == "" || r.Transit <= 0 || r.AdditionalApproachTime < 0 || r.RouteDigest == "" || r.PolicyVersion == "" {
 		return invalid("approach release reservation is incomplete")

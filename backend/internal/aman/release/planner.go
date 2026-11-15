@@ -108,6 +108,7 @@ func GuidancePlans(input Input) map[aman.Callsign]aman.HoldingPlan {
 	if forecast.Buffer.Status != "ready" {
 		return nil
 	}
+	stabilizeGuidancePlans(input, forecast.Decisions)
 	facts := make(map[aman.Callsign]Traffic, len(input.Traffic))
 	for _, f := range input.Traffic {
 		facts[f.Callsign] = f
@@ -115,13 +116,63 @@ func GuidancePlans(input Input) map[aman.Callsign]aman.HoldingPlan {
 	plans := make(map[aman.Callsign]aman.HoldingPlan)
 	for _, d := range forecast.Decisions {
 		f, r := facts[d.Callsign], d.Reservation
-		if f.Reservation != nil || r == nil || r.AdditionalApproachTime <= 0 || !r.ReleaseAt.After(f.EntryAt) {
+		if f.Reservation != nil || r == nil || r.AdditionalApproachTime <= 0 || !r.ReleaseAt.After(f.EntryAt) ||
+			r.ReleaseAt.After(input.At.Add(max(GuidanceLookahead, time.Duration(input.Policy.LookaheadSeconds)*time.Second))) {
 			continue
 		}
 		plans[d.Callsign] = aman.HoldingPlan{HoldingEntryTime: f.EntryAt, ApproachReleaseTime: r.ReleaseAt,
 			ExpectedHoldingDuration: r.ReleaseAt.Sub(f.EntryAt), PostHoldingTransit: r.Transit, AdditionalApproachTime: r.AdditionalApproachTime}
 	}
 	return plans
+}
+
+// A later-processed independent stream can release before an earlier offer.
+// Recheck every provisional offer against the final intake, only postponing
+// forecasts and retaining their initial stream order until all times settle.
+// The decisions are private forecast copies; accepted input reservations stay
+// untouched, and a postponed forecast never frees capacity through a landing.
+func stabilizeGuidancePlans(input Input, decisions []Decision) {
+	reservations := make(map[aman.Callsign]*aman.ApproachReleaseReservation, len(decisions))
+	for _, d := range decisions {
+		reservations[d.Callsign] = d.Reservation
+	}
+	var pending, fixed []Traffic
+	for _, f := range input.Traffic {
+		if f.Reservation == nil && reservations[f.Callsign] != nil {
+			f.Spacing = append([]StreamSpacing(nil), f.Spacing...)
+			sort.SliceStable(f.Spacing, func(i, j int) bool { return f.Spacing[i].EffectiveAt.Before(f.Spacing[j].EffectiveAt) })
+			pending = append(pending, f)
+		} else {
+			fixed = append(fixed, f)
+		}
+	}
+	sort.Slice(pending, func(i, j int) bool {
+		a, b := reservations[pending[i].Callsign], reservations[pending[j].Callsign]
+		if !a.ReleaseAt.Equal(b.ReleaseAt) {
+			return a.ReleaseAt.Before(b.ReleaseAt)
+		}
+		return pending[i].Callsign < pending[j].Callsign
+	})
+	for {
+		changed := false
+		preceding := append([]Traffic(nil), fixed...)
+		for _, f := range pending {
+			r := reservations[f.Callsign]
+			capacityAt := maxTime(r.ReleaseAt, input.At.Add(time.Duration(input.Policy.LookaheadSeconds)*time.Second))
+			count := previewOccupancy(capacityAt, f.Callsign, input.Traffic, reservations) + 1
+			at := maxTime(r.ReleaseAt, f.BaselineReleaseAt.Add(-Allowance(*input.Policy, count)))
+			at = earliestStreamRelease(at, f, preceding, reservations, count >= input.Policy.TargetBuffer)
+			if at.After(r.ReleaseAt) {
+				r.ReleaseAt = at
+				r.AdditionalApproachTime = max(time.Duration(0), f.BaselineReleaseAt.Sub(at))
+				changed = true
+			}
+			preceding = append(preceding, f)
+		}
+		if !changed {
+			return
+		}
+	}
 }
 
 func plan(input Input, previewHorizon time.Duration) Result {

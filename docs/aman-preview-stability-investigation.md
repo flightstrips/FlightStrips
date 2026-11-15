@@ -51,6 +51,14 @@ Each aircraft counts once; current approach traffic and released admissions
 remain counted, and no future landing is assumed to free capacity. A
 provisional later release cannot remove an earlier predicted arrival.
 
+After assigning forecasts, recheck every provisional release against the
+complete forecast intake until its capacity allowance and stream spacing are
+stable. A later-processed independent stream can release earlier and reduce
+another forecast's advance allowance. Propagate any postponement through the
+original stream order, rechecking rate periods and incoming traffic, and omit
+forecasts pushed beyond the planning horizon. Accepted admissions are not
+changed by this forecast-only pass.
+
 Fresh unheld leaders with no slot delay now contribute predicted stream
 passage and spacing rather than becoming blocked holders. Passage is never
 treated as observed movement or stored as an admission. Imminent passage
@@ -107,6 +115,9 @@ reloads, protected/held/stale withdrawal, pre-release capacity versus later
 incoming traffic, spacing crossing an arrival boundary, early enroute notice,
 unchanged slots and physical facts, matching web/EuroScope values, forecast
 metadata clearing on commitment, and web/plugin forecast presentation.
+Additional regressions cover later-processed earlier releases, cascading
+capacity/stream postponements, unsorted rate points and forecasts moved out
+of the planning horizon, with input immutability and permutation checks.
 
 Validation completed:
 

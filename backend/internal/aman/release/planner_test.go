@@ -136,6 +136,90 @@ func TestEnroutePreviewUsesCapacityAtReleaseRatherThanEndOfPlanningHorizon(t *te
 	}
 }
 
+func TestGuidancePreviewRevalidatesEarlierDecisionsAgainstFinalIntake(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		offset time.Duration
+	}{
+		{"later processed earlier release", 0},
+		{"revalidation exceeds preview horizon", 10*time.Minute + time.Second},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			in := fixture(3)
+			for i, baseline := range []time.Duration{25*time.Minute + test.offset, 24*time.Minute + test.offset, 13 * time.Minute} {
+				f := &in.Traffic[i]
+				f.EntryAt = in.At.Add(time.Duration(i-3) * time.Minute)
+				f.BaselineReleaseAt = in.At.Add(baseline)
+				f.SlotAt = f.BaselineReleaseAt.Add(f.Transit)
+			}
+			for i := 0; i < 5; i++ {
+				in.Traffic = append(in.Traffic, Traffic{Callsign: fmt.Sprintf("APP%d", i), Active: true, InApproach: true})
+			}
+			before, err := json.Marshal(in)
+			require.NoError(t, err)
+			actual := Plan(in)
+			plans := GuidancePlans(in)
+			require.Equal(t, in.At.Add(3*time.Minute), plans["F2"].ApproachReleaseTime)
+			require.Equal(t, in.At.Add(16*time.Minute+30*time.Second+test.offset), plans["F1"].ApproachReleaseTime)
+			if test.offset == 0 {
+				require.Equal(t, in.At.Add(20*time.Minute), plans["F0"].ApproachReleaseTime, "F1 crosses F0's initial release, requiring another capacity check")
+			} else {
+				require.NotContains(t, plans, aman.Callsign("F0"), "do not publish a release postponed beyond the planning horizon")
+			}
+			for callsign, p := range plans {
+				count := 5 + 1
+				for other, preceding := range plans {
+					if other != callsign && !preceding.ApproachReleaseTime.After(p.ApproachReleaseTime) {
+						count++
+					}
+				}
+				require.LessOrEqual(t, p.AdditionalApproachTime, Allowance(*in.Policy, count), "final capacity must support %s's published advance", callsign)
+				require.NoError(t, p.Validate())
+			}
+			after, err := json.Marshal(in)
+			require.NoError(t, err)
+			require.Equal(t, before, after)
+			require.Equal(t, actual, Plan(in), "preview stabilization cannot change actual admissions")
+			slices.Reverse(in.Traffic)
+			require.Equal(t, plans, GuidancePlans(in))
+		})
+	}
+}
+
+func TestGuidancePreviewPropagatesCapacityPostponementThroughItsStream(t *testing.T) {
+	in := fixture(3)
+	for i, baseline := range []time.Duration{25 * time.Minute, 26 * time.Minute, 13 * time.Minute} {
+		f := &in.Traffic[i]
+		f.EntryAt = in.At.Add(time.Duration(i-3) * time.Minute)
+		f.BaselineReleaseAt = in.At.Add(baseline)
+		f.SlotAt = f.BaselineReleaseAt.Add(f.Transit)
+	}
+	in.Traffic[1].HoldingID, in.Traffic[1].STARFamily, in.Traffic[1].FeederFix = in.Traffic[0].HoldingID, in.Traffic[0].STARFamily, in.Traffic[0].FeederFix
+	// A later rate period and a future arrival both constrain a postponed
+	// follower. Deliberately unsorted rate points must not mutate the input.
+	in.Traffic[1].Spacing = []StreamSpacing{
+		{EffectiveAt: in.At.Add(18 * time.Minute), Minimum: 4 * time.Minute},
+		{EffectiveAt: in.At.Add(-time.Hour), Minimum: 90 * time.Second},
+	}
+	for i := 0; i < 5; i++ {
+		in.Traffic = append(in.Traffic, Traffic{Callsign: fmt.Sprintf("APP%d", i), Active: true, InApproach: true})
+	}
+	entry := in.At.Add(20 * time.Minute)
+	in.Traffic = append(in.Traffic, Traffic{Callsign: "INCOMING", Active: true, PredictedApproachEntry: &entry})
+	before, err := json.Marshal(in)
+	require.NoError(t, err)
+	plans := GuidancePlans(in)
+	require.Equal(t, in.At.Add(3*time.Minute), plans["F2"].ApproachReleaseTime)
+	require.Equal(t, in.At.Add(17*time.Minute+30*time.Second), plans["F0"].ApproachReleaseTime)
+	require.Equal(t, in.At.Add(23*time.Minute+30*time.Second), plans["F1"].ApproachReleaseTime, "postponement must recheck both final occupancy and stream spacing")
+	require.Equal(t, 150*time.Second, plans["F1"].AdditionalApproachTime)
+	after, err := json.Marshal(in)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	slices.Reverse(in.Traffic)
+	require.Equal(t, plans, GuidancePlans(in))
+}
+
 func TestPreviewRechecksCapacityWhenSpacingPushesReleaseAcrossIncomingTraffic(t *testing.T) {
 	in := fixture(2)
 	for i := range in.Traffic {

@@ -3,6 +3,7 @@ package euroscope
 import (
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"FlightStrips/internal/config"
@@ -61,7 +62,7 @@ func (hub *Hub) reconcileCoverageLocked(root *Client, declared []string, authori
 		if entry.Key == key && self != nil {
 			entry = self
 		}
-		participants = append(participants, entry.CoverageParticipant)
+		participants = append(participants, coverageParticipantForEnvironment(entry.CoverageParticipant, staffing.Environment))
 		if entry.Key == key {
 			self = entry
 		}
@@ -90,7 +91,7 @@ func (hub *Hub) reconcileCoverageLocked(root *Client, declared []string, authori
 				}
 				continue
 			}
-			potential := definition.CoverageResponsibilities([]config.CoverageParticipant{self.CoverageParticipant})[key]
+			potential := definition.CoverageResponsibilities([]config.CoverageParticipant{coverageParticipantForEnvironment(self.CoverageParticipant, staffing.Environment)})[key]
 			if len(potential) == 0 {
 				remove("instance no longer covers airport responsibilities")
 				continue
@@ -126,7 +127,7 @@ func coverageEvidenceComplete(definition *config.AirportDefinition, staffing Cov
 	if staffing.Inventory != CoverageFresh {
 		return false
 	}
-	needsRadios := definition.CoverageUsesTunedFrequencies()
+	needsRadios := definition.CoverageUsesTunedFrequencies() && !sweatboxPrimaryOnly(staffing.Environment)
 	for _, controller := range staffing.Controllers {
 		if controller.Key == key && self != nil {
 			controller = *self
@@ -139,6 +140,21 @@ func coverageEvidenceComplete(definition *config.AirportDefinition, staffing Cov
 		}
 	}
 	return true
+}
+
+func sweatboxPrimaryOnly(environment string) bool {
+	return environment == "SWEATBOX" || strings.HasPrefix(environment, "SWEATBOX_")
+}
+
+// SWEATBOX cannot observe additional tuned radios. Use the same configured
+// provider ordering with primary frequency/callsign evidence only, both for
+// assignment and for takeover potential. Do not carry partial or synthetic
+// tuned lists into these decisions. LIVE and playback keep their radio policy.
+func coverageParticipantForEnvironment(participant config.CoverageParticipant, environment string) config.CoverageParticipant {
+	if sweatboxPrimaryOnly(environment) {
+		participant.TunedFrequencies = nil
+	}
+	return participant
 }
 
 func (hub *Hub) coverageReplacementsAttached(airport, environment string, keys []string) bool {

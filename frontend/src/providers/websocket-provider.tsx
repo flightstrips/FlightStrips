@@ -94,6 +94,8 @@ export const WebSocketProvider = ({children, url, selection, selectionControls, 
   // creating a circular dependency between the two useCallback hooks.
   const refreshTokenRef = useRef<() => Promise<void>>(async () => {});
   const reauthenticatingRef = useRef(false);
+  // Authentication can restart while a retry is awaiting Auth0 in this mount.
+  const authAttemptRef = useRef(0);
 
   const clearRefreshTimeout = useCallback(() => {
     if (refreshTimeoutRef.current) {
@@ -156,21 +158,22 @@ export const WebSocketProvider = ({children, url, selection, selectionControls, 
 
   const refreshToken = useCallback(async () => {
     if (!isAuthenticated || reauthenticatingRef.current) return;
+    const attempt = authAttemptRef.current;
 
     try {
       const token = requireAccessToken(await getAccessTokenSilently());
-      if (!alive.current) return;
+      if (!alive.current || attempt !== authAttemptRef.current) return;
       wsClient.setToken(token);
       setUserRating(getTokenRating(token));
       scheduleTokenRefresh(token);
       if (!wsClient.isConnected()) {
         wsClient.connect().catch(error => {
-          if (!alive.current) return;
+          if (!alive.current || attempt !== authAttemptRef.current) return;
           console.error('Failed to connect to WebSocket server:', error);
         });
       }
     } catch (error) {
-      if (!alive.current) return;
+      if (!alive.current || attempt !== authAttemptRef.current) return;
       await handleAccessTokenError(error, true, 'Error refreshing access token:');
     }
   }, [getAccessTokenSilently, handleAccessTokenError, isAuthenticated, scheduleTokenRefresh, wsClient]);
@@ -183,6 +186,7 @@ export const WebSocketProvider = ({children, url, selection, selectionControls, 
   // Set the authentication token and connect when it's available
   useEffect(() => {
     let active = true;
+    authAttemptRef.current += 1;
     const getAndSetTokenAndConnect = async () => {
       if (isAuthenticated && !isLoading && wsClient && !reauthenticatingRef.current) {
         try {
@@ -206,7 +210,7 @@ export const WebSocketProvider = ({children, url, selection, selectionControls, 
     };
 
     void getAndSetTokenAndConnect();
-    return () => {active = false;};
+    return () => {active = false; authAttemptRef.current += 1;};
   }, [getAccessTokenSilently, handleAccessTokenError, isAuthenticated, isLoading, scheduleTokenRefresh, wsClient]);
 
   useEffect(() => {

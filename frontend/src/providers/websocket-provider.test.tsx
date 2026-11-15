@@ -3,9 +3,10 @@ import type {ReactNode} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {WebSocketProvider} from './websocket-provider';
 
-const {getToken, logout, client} = vi.hoisted(() => ({
+const {getToken, logout, client, auth} = vi.hoisted(() => ({
   getToken: vi.fn(),
   logout: vi.fn(),
+  auth: {isAuthenticated: true, isLoading: false},
   client: {
     setToken: vi.fn(),
     connect: vi.fn(),
@@ -16,7 +17,7 @@ const {getToken, logout, client} = vi.hoisted(() => ({
 }));
 
 vi.mock('@auth0/auth0-react', () => ({
-  useAuth0: () => ({getAccessTokenSilently: getToken, logout, isAuthenticated: true, isLoading: false}),
+  useAuth0: () => ({getAccessTokenSilently: getToken, logout, ...auth}),
 }));
 vi.mock('@/api/websocket', () => ({createWebSocketClient: () => client}));
 vi.mock('@/store/store-provider', () => ({
@@ -27,6 +28,8 @@ describe('WebSocket authentication', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    auth.isAuthenticated = true;
+    auth.isLoading = false;
     logout.mockResolvedValue(undefined);
     client.connect.mockResolvedValue(undefined);
     client.isConnected.mockReturnValue(false);
@@ -94,6 +97,44 @@ describe('WebSocket authentication', () => {
     await act(async () => {await vi.advanceTimersByTimeAsync(1000);});
     expect(client.setToken).toHaveBeenCalledWith('token');
     expect(client.connect).toHaveBeenCalledOnce();
+  });
+
+  it.each(['login-required error', 'transient error', 'token'] as const)('ignores a superseded retry that completes with a %s', async outcome => {
+    let resolve!: (token: string) => void;
+    let reject!: (error: Error) => void;
+    const oldLookup = new Promise<string>((done, fail) => {resolve = done; reject = fail;});
+    const recoveredToken = `header.${btoa(JSON.stringify({exp: Math.floor(Date.now() / 1000) + 120}))}.signature`;
+    getToken.mockRejectedValueOnce(new Error('Temporary network failure'))
+      .mockReturnValueOnce(oldLookup)
+      .mockResolvedValue(recoveredToken);
+    const view = render(<WebSocketProvider url="ws://board"><span>Board</span></WebSocketProvider>);
+    await act(async () => {});
+    await act(async () => {await vi.advanceTimersByTimeAsync(1000);});
+    expect(getToken).toHaveBeenCalledTimes(2);
+
+    // Auth0 starts a new authentication cycle while the old retry is pending.
+    auth.isLoading = true;
+    view.rerender(<WebSocketProvider url="ws://board"><span>Board</span></WebSocketProvider>);
+    auth.isLoading = false;
+    view.rerender(<WebSocketProvider url="ws://board"><span>Board</span></WebSocketProvider>);
+    await act(async () => {});
+    expect(client.setToken).toHaveBeenCalledExactlyOnceWith(recoveredToken);
+    expect(client.connect).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      if (outcome === 'token') resolve('superseded-token');
+      else if (outcome === 'login-required error') reject(Object.assign(new Error('Login required'), {error: 'login_required'}));
+      else reject(new Error('Old network failure'));
+    });
+    expect(logout).not.toHaveBeenCalled();
+    expect(client.disconnect).not.toHaveBeenCalled();
+    expect(client.setToken).toHaveBeenCalledExactlyOnceWith(recoveredToken);
+    expect(client.connect).toHaveBeenCalledOnce();
+    // An obsolete error must not replace the recovered token's refresh timer
+    // with a one-second network retry either.
+    await act(async () => {await vi.advanceTimersByTimeAsync(1000);});
+    expect(getToken).toHaveBeenCalledTimes(3);
+    expect(vi.getTimerCount()).toBe(1);
   });
 
   it('requests an authorized replacement snapshot when the same own membership becomes ready again', async () => {

@@ -5464,8 +5464,10 @@ type AMANGainLossValue struct {
 	InsideTma          *bool                  `protobuf:"varint,14,opt,name=inside_tma,json=insideTma,proto3,oneof" json:"inside_tma,omitempty"`
 	// AMAN's calculated holding release, independent of EAT writeback.
 	HoldingEatUnixSeconds *int64 `protobuf:"varint,15,opt,name=holding_eat_unix_seconds,json=holdingEatUnixSeconds,proto3,oneof" json:"holding_eat_unix_seconds,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Forecast only: affects pre-approach guidance without committing an EAT.
+	ApproachReleaseForecastUnixSeconds *int64 `protobuf:"varint,16,opt,name=approach_release_forecast_unix_seconds,json=approachReleaseForecastUnixSeconds,proto3,oneof" json:"approach_release_forecast_unix_seconds,omitempty"`
+	unknownFields                      protoimpl.UnknownFields
+	sizeCache                          protoimpl.SizeCache
 }
 
 func (x *AMANGainLossValue) Reset() {
@@ -5599,6 +5601,13 @@ func (x *AMANGainLossValue) GetInsideTma() bool {
 func (x *AMANGainLossValue) GetHoldingEatUnixSeconds() int64 {
 	if x != nil && x.HoldingEatUnixSeconds != nil {
 		return *x.HoldingEatUnixSeconds
+	}
+	return 0
+}
+
+func (x *AMANGainLossValue) GetApproachReleaseForecastUnixSeconds() int64 {
+	if x != nil && x.ApproachReleaseForecastUnixSeconds != nil {
+		return *x.ApproachReleaseForecastUnixSeconds
 	}
 	return 0
 }
@@ -6602,7 +6611,7 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\"O\n" +
 	"\x17SendPrivateMessageEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xef\x06\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xf3\a\n" +
 	"\x11AMANGainLossValue\x12\x1b\n" +
 	"\tflight_id\x18\x01 \x01(\tR\bflightId\x12\x1a\n" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12/\n" +
@@ -6626,7 +6635,8 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\n" +
 	"inside_tma\x18\x0e \x01(\bH\n" +
 	"R\tinsideTma\x88\x01\x01\x12<\n" +
-	"\x18holding_eat_unix_seconds\x18\x0f \x01(\x03H\vR\x15holdingEatUnixSeconds\x88\x01\x01B\x14\n" +
+	"\x18holding_eat_unix_seconds\x18\x0f \x01(\x03H\vR\x15holdingEatUnixSeconds\x88\x01\x01\x12W\n" +
+	"&approach_release_forecast_unix_seconds\x18\x10 \x01(\x03H\fR\"approachReleaseForecastUnixSeconds\x88\x01\x01B\x14\n" +
 	"\x12_gain_loss_secondsB\x12\n" +
 	"\x10_reference_pointB\x0e\n" +
 	"\f_target_timeB\x11\n" +
@@ -6638,7 +6648,8 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x16_feeder_fix_eta_sourceB\x14\n" +
 	"\x12_feeder_fix_passedB\r\n" +
 	"\v_inside_tmaB\x1b\n" +
-	"\x19_holding_eat_unix_seconds\"\xf2\x01\n" +
+	"\x19_holding_eat_unix_secondsB)\n" +
+	"'_approach_release_forecast_unix_seconds\"\xf2\x01\n" +
 	"\x11AMANGainLossEvent\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x18\n" +
 	"\aairport\x18\x02 \x01(\tR\aairport\x12\x1a\n" +

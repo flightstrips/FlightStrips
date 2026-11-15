@@ -12,6 +12,10 @@ const PolicyVersion = "aman-approach-release-v1"
 
 const TimingConflictReason = "approach_release_timing_conflict"
 
+// GuidanceLookahead supports enroute planning independently of the two-minute
+// admission window. It never assumes that current approach traffic has landed.
+const GuidanceLookahead = 30 * time.Minute
+
 // StreamSpacing carries the base and additional gaps effective from a rate point.
 type StreamSpacing struct {
 	EffectiveAt   time.Time
@@ -34,6 +38,9 @@ type Traffic struct {
 	Transit, MinimumSpacing, BusySpacing                      time.Duration
 	Reservation                                               *aman.ApproachReleaseReservation
 	PredictedApproachEntry                                    *time.Time
+	// Fresh unheld traffic with no planned delay still precedes its stream.
+	// This is a forecast of passage, never a release reservation.
+	PredictedStreamPassage *time.Time
 }
 
 type Input struct {
@@ -91,17 +98,17 @@ func Plan(input Input) Result {
 
 // GuidancePlans projects the same constrained releases beyond the admission
 // window without committing them. Keep current approach occupancy throughout
-// this bounded preview and count all known incoming traffic in its horizon;
+// this bounded preview and count known incoming traffic by each release;
 // future landings never create assumed spare capacity.
 func GuidancePlans(input Input) map[aman.Callsign]aman.HoldingPlan {
 	if input.Policy == nil || !input.Policy.Enabled || input.Policy.Validate() != nil {
 		return nil
 	}
-	horizon := min(time.Hour, time.Duration(input.Policy.LookaheadSeconds+input.Policy.MaxAdvanceSeconds)*time.Second)
-	forecast := plan(input, horizon)
+	forecast := plan(input, GuidanceLookahead)
 	if forecast.Buffer.Status != "ready" {
 		return nil
 	}
+	stabilizeGuidancePlans(input, forecast.Decisions)
 	facts := make(map[aman.Callsign]Traffic, len(input.Traffic))
 	for _, f := range input.Traffic {
 		facts[f.Callsign] = f
@@ -109,13 +116,63 @@ func GuidancePlans(input Input) map[aman.Callsign]aman.HoldingPlan {
 	plans := make(map[aman.Callsign]aman.HoldingPlan)
 	for _, d := range forecast.Decisions {
 		f, r := facts[d.Callsign], d.Reservation
-		if f.Reservation != nil || r == nil || r.AdditionalApproachTime <= 0 || !r.ReleaseAt.After(f.EntryAt) {
+		if f.Reservation != nil || r == nil || r.AdditionalApproachTime <= 0 || !r.ReleaseAt.After(f.EntryAt) ||
+			r.ReleaseAt.After(input.At.Add(max(GuidanceLookahead, time.Duration(input.Policy.LookaheadSeconds)*time.Second))) {
 			continue
 		}
 		plans[d.Callsign] = aman.HoldingPlan{HoldingEntryTime: f.EntryAt, ApproachReleaseTime: r.ReleaseAt,
 			ExpectedHoldingDuration: r.ReleaseAt.Sub(f.EntryAt), PostHoldingTransit: r.Transit, AdditionalApproachTime: r.AdditionalApproachTime}
 	}
 	return plans
+}
+
+// A later-processed independent stream can release before an earlier offer.
+// Recheck every provisional offer against the final intake, only postponing
+// forecasts and retaining their initial stream order until all times settle.
+// The decisions are private forecast copies; accepted input reservations stay
+// untouched, and a postponed forecast never frees capacity through a landing.
+func stabilizeGuidancePlans(input Input, decisions []Decision) {
+	reservations := make(map[aman.Callsign]*aman.ApproachReleaseReservation, len(decisions))
+	for _, d := range decisions {
+		reservations[d.Callsign] = d.Reservation
+	}
+	var pending, fixed []Traffic
+	for _, f := range input.Traffic {
+		if f.Reservation == nil && reservations[f.Callsign] != nil {
+			f.Spacing = append([]StreamSpacing(nil), f.Spacing...)
+			sort.SliceStable(f.Spacing, func(i, j int) bool { return f.Spacing[i].EffectiveAt.Before(f.Spacing[j].EffectiveAt) })
+			pending = append(pending, f)
+		} else {
+			fixed = append(fixed, f)
+		}
+	}
+	sort.Slice(pending, func(i, j int) bool {
+		a, b := reservations[pending[i].Callsign], reservations[pending[j].Callsign]
+		if !a.ReleaseAt.Equal(b.ReleaseAt) {
+			return a.ReleaseAt.Before(b.ReleaseAt)
+		}
+		return pending[i].Callsign < pending[j].Callsign
+	})
+	for {
+		changed := false
+		preceding := append([]Traffic(nil), fixed...)
+		for _, f := range pending {
+			r := reservations[f.Callsign]
+			capacityAt := maxTime(r.ReleaseAt, input.At.Add(time.Duration(input.Policy.LookaheadSeconds)*time.Second))
+			count := previewOccupancy(capacityAt, f.Callsign, input.Traffic, reservations) + 1
+			at := maxTime(r.ReleaseAt, f.BaselineReleaseAt.Add(-Allowance(*input.Policy, count)))
+			at = earliestStreamRelease(at, f, preceding, reservations, count >= input.Policy.TargetBuffer)
+			if at.After(r.ReleaseAt) {
+				r.ReleaseAt = at
+				r.AdditionalApproachTime = max(time.Duration(0), f.BaselineReleaseAt.Sub(at))
+				changed = true
+			}
+			preceding = append(preceding, f)
+		}
+		if !changed {
+			return
+		}
+	}
 }
 
 func plan(input Input, previewHorizon time.Duration) Result {
@@ -156,11 +213,6 @@ func plan(input Input, previewHorizon time.Duration) Result {
 	}
 	if previewHorizon > lookahead {
 		lookahead = previewHorizon
-		for i := range traffic {
-			if entry := traffic[i].PredictedApproachEntry; entry != nil && !entry.After(input.At.Add(lookahead)) {
-				traffic[i].Incoming = true
-			}
-		}
 	}
 	countedReservation := func(r *aman.ApproachReleaseReservation) bool {
 		return r != nil && (r.ReleasedAt != nil || !r.ReleaseAt.After(input.At.Add(lookahead)))
@@ -221,7 +273,7 @@ func plan(input Input, previewHorizon time.Duration) Result {
 			olderPending := false
 			for _, older := range traffic {
 				if older.Callsign == flight.Callsign || !older.Active || !sharedStream(older, flight) ||
-					!older.EntryAt.Before(flight.EntryAt) || reservations[older.Callsign] != nil {
+					!older.EntryAt.Before(flight.EntryAt) || reservations[older.Callsign] != nil || older.PredictedStreamPassage != nil {
 					continue
 				}
 				// An older unready aircraft still owns its physical stream.
@@ -262,19 +314,22 @@ func plan(input Input, previewHorizon time.Duration) Result {
 			if flight.Incoming && !countedReservation(existing) {
 				count--
 			}
-			allowance := Allowance(*input.Policy, count)
-
-			at := flight.BaselineReleaseAt.Add(-allowance)
-			if flight.ReadyAt.After(at) {
-				at = flight.ReadyAt
+			at := maxTime(input.At, flight.ReadyAt, flight.EntryAt.Add(time.Second))
+			for {
+				if previewHorizon > 0 {
+					// A later arrival cannot fill the buffer before this release.
+					// Recheck after taper/spacing postpones it across an arrival.
+					capacityAt := maxTime(at, input.At.Add(time.Duration(input.Policy.LookaheadSeconds)*time.Second))
+					count = previewOccupancy(capacityAt, flight.Callsign, traffic, reservations) + 1
+				}
+				next := maxTime(at, flight.BaselineReleaseAt.Add(-Allowance(*input.Policy, count)))
+				next = earliestStreamRelease(next, flight, releasePredecessors(flight.Callsign, traffic, reservations), reservations, count >= input.Policy.TargetBuffer)
+				if previewHorizon == 0 || next.Equal(at) {
+					at = next
+					break
+				}
+				at = next
 			}
-			if input.At.After(at) {
-				at = input.At
-			}
-			if !at.After(flight.EntryAt) {
-				at = flight.EntryAt.Add(time.Second)
-			}
-			at = earliestStreamRelease(at, flight, releasePredecessors(flight.Callsign, traffic, reservations), reservations, count >= input.Policy.TargetBuffer)
 			advance := flight.BaselineReleaseAt.Sub(at)
 			if advance < 0 || existing != nil && !at.Before(existing.ReleaseAt) || at.After(input.At.Add(lookahead)) {
 				continue
@@ -312,6 +367,36 @@ func plan(input Input, previewHorizon time.Duration) Result {
 	return result
 }
 
+func maxTime(values ...time.Time) time.Time {
+	var at time.Time
+	for _, value := range values {
+		if value.After(at) {
+			at = value
+		}
+	}
+	return at
+}
+
+// Forecast occupancy is monotonic: count physical occupancy, commitments and
+// predicted intake, once per aircraft, with no assumed future departures.
+// A provisional later release cannot erase an earlier predicted arrival.
+func previewOccupancy(at time.Time, self aman.Callsign, traffic []Traffic, reservations map[aman.Callsign]*aman.ApproachReleaseReservation) int {
+	count := 0
+	for _, f := range traffic {
+		if !f.Active || f.Callsign == self {
+			continue
+		}
+		r := reservations[f.Callsign]
+		if f.InApproach || r != nil && (r.ReleasedAt != nil || !r.ReleaseAt.After(at)) ||
+			f.Incoming ||
+			f.PredictedApproachEntry != nil && !f.PredictedApproachEntry.After(at) ||
+			f.PredictedStreamPassage != nil && !f.PredictedStreamPassage.After(at) {
+			count++
+		}
+	}
+	return count
+}
+
 func wakeSpacing(leading, trailing string) time.Duration {
 	for _, rule := range sequence.CPHSeparationRules() {
 		if string(rule.Leading) == leading && string(rule.Trailing) == trailing {
@@ -344,7 +429,20 @@ func streamReleaseBoundary(at time.Time, flight Traffic, traffic []Traffic, rese
 	candidate := at
 	for _, other := range traffic {
 		r := reservations[other.Callsign]
-		if other.Callsign == flight.Callsign || r == nil || !sharedStream(other, flight) {
+		if other.Callsign == flight.Callsign || !sharedStream(other, flight) {
+			continue
+		}
+		var leadingAt time.Time
+		if r != nil {
+			leadingAt = r.ReleaseAt
+			if r.ReleasedAt != nil && r.ReleasedAt.After(leadingAt) {
+				leadingAt = *r.ReleasedAt
+			} else if usePredictedEntry && r.ReleasedAt == nil && other.EntryAt.After(leadingAt) {
+				leadingAt = other.EntryAt.Add(time.Second)
+			}
+		} else if usePredictedEntry && other.PredictedStreamPassage != nil && other.EntryAt.Before(flight.EntryAt) {
+			leadingAt = *other.PredictedStreamPassage
+		} else {
 			continue
 		}
 		spacing := max(minimum, wakeSpacing(other.WakeCategory, flight.WakeCategory))
@@ -353,15 +451,6 @@ func streamReleaseBoundary(at time.Time, flight Traffic, traffic []Traffic, rese
 		}
 		if flight.HoldingID == other.HoldingID {
 			spacing = max(spacing, time.Minute)
-		}
-		leadingAt := r.ReleaseAt
-		if r.ReleasedAt != nil && r.ReleasedAt.After(leadingAt) {
-			leadingAt = *r.ReleasedAt
-		} else if usePredictedEntry && r.ReleasedAt == nil && other.EntryAt.After(leadingAt) {
-			// A retained overdue EAT is not evidence that an aircraft whose
-			// holding arrival slipped has physically departed. Keep following
-			// offers behind its fresh readiness without moving the accepted EAT.
-			leadingAt = other.EntryAt.Add(time.Second)
 		}
 		boundary := leadingAt.Add(spacing)
 		if boundary.After(candidate) {
@@ -378,7 +467,7 @@ func releasePredecessors(callsign aman.Callsign, traffic []Traffic, reservations
 	}
 	var preceding []Traffic
 	for _, flight := range traffic {
-		if r := reservations[flight.Callsign]; r != nil && !r.ReleaseAt.After(self.ReleaseAt) {
+		if r := reservations[flight.Callsign]; r != nil && !r.ReleaseAt.After(self.ReleaseAt) || r == nil && flight.PredictedStreamPassage != nil {
 			preceding = append(preceding, flight)
 		}
 	}
@@ -427,6 +516,11 @@ func revalidateReservations(input Input, traffic []Traffic, reservations map[ama
 		return ordered[i].Callsign < ordered[j].Callsign
 	})
 	var preceding []Traffic
+	for _, flight := range traffic {
+		if reservations[flight.Callsign] == nil && flight.PredictedStreamPassage != nil {
+			preceding = append(preceding, flight)
+		}
+	}
 	reason := ""
 	for _, flight := range ordered {
 		r := reservations[flight.Callsign]

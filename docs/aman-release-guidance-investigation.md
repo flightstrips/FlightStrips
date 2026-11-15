@@ -12,8 +12,11 @@ preserving landing slots, raw prediction, EATs, release capacity and holding
 priority. Accepted admissions supply their release/transit budget. A bounded
 preview of the same release planner supplies provisional absorption outside
 the commitment window without acquiring reservations or changing EATs. The
-preview counts incoming traffic over its horizon, assumes no future departures
-from approach, and is withdrawn for unusable workload or changed inputs.
+preview now looks thirty minutes ahead, counts incoming traffic by candidate
+release time, assumes no future departures from approach, and is withdrawn
+for unusable workload or changed inputs. The follow-up
+[preview stability investigation](aman-preview-stability-investigation.md)
+describes the ordinary stream-leader fix and forecast markers.
 
 In the rounded NSZ5YB reproduction, the five-minute landing difference and
 299 seconds of planned approach absorption now produce one second of loss

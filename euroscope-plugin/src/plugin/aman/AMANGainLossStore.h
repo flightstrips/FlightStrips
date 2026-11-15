@@ -22,6 +22,7 @@ namespace FlightStrips::aman {
         std::string dataStatus;
         bool insideTMA = false;
         std::optional<long long> holdingEatUnixSeconds;
+        std::optional<long long> approachReleaseForecastUnixSeconds;
     };
 
     struct GainLossSnapshot {

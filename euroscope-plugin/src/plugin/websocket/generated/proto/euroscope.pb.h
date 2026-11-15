@@ -11401,6 +11401,7 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     kFeederFixEtaSourceFieldNumber = 12,
     kGainLossSecondsFieldNumber = 3,
     kHoldingEatUnixSecondsFieldNumber = 15,
+    kApproachReleaseForecastUnixSecondsFieldNumber = 16,
     kFeederFixPassedFieldNumber = 13,
     kInsideTmaFieldNumber = 14,
   };
@@ -11610,6 +11611,17 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
   void _internal_set_holding_eat_unix_seconds(::int64_t value);
 
   public:
+  // optional int64 approach_release_forecast_unix_seconds = 16;
+  bool has_approach_release_forecast_unix_seconds() const;
+  void clear_approach_release_forecast_unix_seconds() ;
+  ::int64_t approach_release_forecast_unix_seconds() const;
+  void set_approach_release_forecast_unix_seconds(::int64_t value);
+
+  private:
+  ::int64_t _internal_approach_release_forecast_unix_seconds() const;
+  void _internal_set_approach_release_forecast_unix_seconds(::int64_t value);
+
+  public:
   // optional bool feeder_fix_passed = 13;
   bool has_feeder_fix_passed() const;
   void clear_feeder_fix_passed() ;
@@ -11637,8 +11649,8 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 15, 0,
-      195, 2>
+      4, 16, 0,
+      203, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -11668,6 +11680,7 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr feeder_fix_eta_source_;
     ::int64_t gain_loss_seconds_;
     ::int64_t holding_eat_unix_seconds_;
+    ::int64_t approach_release_forecast_unix_seconds_;
     bool feeder_fix_passed_;
     bool inside_tma_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -33894,13 +33907,13 @@ inline void AMANGainLossValue::set_allocated_feeder_fix_eta_source(std::string* 
 
 // optional bool feeder_fix_passed = 13;
 inline bool AMANGainLossValue::has_feeder_fix_passed() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000400u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000800u) != 0;
   return value;
 }
 inline void AMANGainLossValue::clear_feeder_fix_passed() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.feeder_fix_passed_ = false;
-  _impl_._has_bits_[0] &= ~0x00000400u;
+  _impl_._has_bits_[0] &= ~0x00000800u;
 }
 inline bool AMANGainLossValue::feeder_fix_passed() const {
   // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_passed)
@@ -33908,7 +33921,7 @@ inline bool AMANGainLossValue::feeder_fix_passed() const {
 }
 inline void AMANGainLossValue::set_feeder_fix_passed(bool value) {
   _internal_set_feeder_fix_passed(value);
-  _impl_._has_bits_[0] |= 0x00000400u;
+  _impl_._has_bits_[0] |= 0x00000800u;
   // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_passed)
 }
 inline bool AMANGainLossValue::_internal_feeder_fix_passed() const {
@@ -33922,13 +33935,13 @@ inline void AMANGainLossValue::_internal_set_feeder_fix_passed(bool value) {
 
 // optional bool inside_tma = 14;
 inline bool AMANGainLossValue::has_inside_tma() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000800u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00001000u) != 0;
   return value;
 }
 inline void AMANGainLossValue::clear_inside_tma() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.inside_tma_ = false;
-  _impl_._has_bits_[0] &= ~0x00000800u;
+  _impl_._has_bits_[0] &= ~0x00001000u;
 }
 inline bool AMANGainLossValue::inside_tma() const {
   // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.inside_tma)
@@ -33936,7 +33949,7 @@ inline bool AMANGainLossValue::inside_tma() const {
 }
 inline void AMANGainLossValue::set_inside_tma(bool value) {
   _internal_set_inside_tma(value);
-  _impl_._has_bits_[0] |= 0x00000800u;
+  _impl_._has_bits_[0] |= 0x00001000u;
   // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.inside_tma)
 }
 inline bool AMANGainLossValue::_internal_inside_tma() const {
@@ -33974,6 +33987,34 @@ inline ::int64_t AMANGainLossValue::_internal_holding_eat_unix_seconds() const {
 inline void AMANGainLossValue::_internal_set_holding_eat_unix_seconds(::int64_t value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.holding_eat_unix_seconds_ = value;
+}
+
+// optional int64 approach_release_forecast_unix_seconds = 16;
+inline bool AMANGainLossValue::has_approach_release_forecast_unix_seconds() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000400u) != 0;
+  return value;
+}
+inline void AMANGainLossValue::clear_approach_release_forecast_unix_seconds() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.approach_release_forecast_unix_seconds_ = ::int64_t{0};
+  _impl_._has_bits_[0] &= ~0x00000400u;
+}
+inline ::int64_t AMANGainLossValue::approach_release_forecast_unix_seconds() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.approach_release_forecast_unix_seconds)
+  return _internal_approach_release_forecast_unix_seconds();
+}
+inline void AMANGainLossValue::set_approach_release_forecast_unix_seconds(::int64_t value) {
+  _internal_set_approach_release_forecast_unix_seconds(value);
+  _impl_._has_bits_[0] |= 0x00000400u;
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.approach_release_forecast_unix_seconds)
+}
+inline ::int64_t AMANGainLossValue::_internal_approach_release_forecast_unix_seconds() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.approach_release_forecast_unix_seconds_;
+}
+inline void AMANGainLossValue::_internal_set_approach_release_forecast_unix_seconds(::int64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.approach_release_forecast_unix_seconds_ = value;
 }
 
 // -------------------------------------------------------------------

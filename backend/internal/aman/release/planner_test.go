@@ -58,7 +58,7 @@ func TestGuidancePreviewBeforeAdmissionWindowPreservesActualCapacityAndStreamOrd
 }
 
 func TestGuidancePreviewRequiresUsableWorkloadAndCountsFutureIncoming(t *testing.T) {
-	for _, kind := range []string{"quiet", "disabled", "unknown", "blocked", "full", "future incoming", "distant incoming", "manual or blocked head", "beyond preview"} {
+	for _, kind := range []string{"quiet", "disabled", "unknown", "blocked", "full", "future incoming", "committed incoming", "distant incoming", "manual or blocked head", "beyond preview"} {
 		t.Run(kind, func(t *testing.T) {
 			in := fixture(1)
 			in.Traffic[0].EntryAt, in.Traffic[0].ReadyAt = in.At.Add(7*time.Minute), in.At.Add(7*time.Minute)
@@ -72,13 +72,17 @@ func TestGuidancePreviewRequiresUsableWorkloadAndCountsFutureIncoming(t *testing
 				in.WorkloadUnknown = true
 			case "blocked":
 				in.BlockedReason = "approach_release_spacing_conflict"
-			case "full", "future incoming", "distant incoming":
+			case "full", "future incoming", "committed incoming", "distant incoming":
 				for i := 0; i < 10; i++ {
 					f := Traffic{Callsign: fmt.Sprintf("OTHER%d", i), Active: true, InApproach: kind == "full"}
 					if kind != "full" {
-						entry := in.At.Add(8 * time.Minute)
+						entry := in.At.Add(6 * time.Minute)
 						if kind == "distant incoming" {
 							entry = in.At.Add(20 * time.Minute)
+						}
+						if kind == "committed incoming" {
+							entry = in.At.Add(time.Hour)
+							f.Incoming = true // An explicit expedite is already committed.
 						}
 						f.PredictedApproachEntry = &entry
 					}
@@ -101,6 +105,170 @@ func TestGuidancePreviewRequiresUsableWorkloadAndCountsFutureIncoming(t *testing
 				require.Empty(t, plans, "do not promise downstream absorption without a feasible preview")
 			}
 		})
+	}
+}
+
+func TestEnroutePreviewUsesCapacityAtReleaseRatherThanEndOfPlanningHorizon(t *testing.T) {
+	in := fixture(2)
+	for i := range in.Traffic {
+		f := &in.Traffic[i]
+		f.EntryAt = in.At.Add(time.Duration(18+i*4) * time.Minute)
+		f.ReadyAt = f.EntryAt
+		f.BaselineReleaseAt = f.EntryAt.Add(5 * time.Minute)
+		f.SlotAt = f.BaselineReleaseAt.Add(f.Transit)
+	}
+	// Ten aircraft arriving at minute 21 fill later capacity, without erasing
+	// an earlier opportunity. No future landing is assumed to free a place.
+	for i := 0; i < 10; i++ {
+		entry := in.At.Add(21 * time.Minute)
+		in.Traffic = append(in.Traffic, Traffic{Callsign: fmt.Sprintf("IN%d", i), Active: true, PredictedApproachEntry: &entry})
+	}
+	plans := GuidancePlans(in)
+	require.Contains(t, plans, aman.Callsign("F0"), "enroute sees a preview eighteen minutes before release")
+	require.Equal(t, in.At.Add(18*time.Minute+time.Second), plans["F0"].ApproachReleaseTime)
+	require.NotContains(t, plans, aman.Callsign("F1"), "later intake cannot assume that earlier traffic has landed")
+	require.Zero(t, Plan(in).Buffer.Projected())
+	// Crossing the old 12-minute horizon with unchanged physical facts cannot
+	// withdraw the preview, even as later arrivals enter the planning window.
+	for elapsed := time.Duration(0); elapsed <= 15*time.Minute; elapsed += 30 * time.Second {
+		in.At = fixture(0).At.Add(elapsed)
+		require.Equal(t, plans["F0"], GuidancePlans(in)["F0"], "elapsed=%s", elapsed)
+	}
+}
+
+func TestGuidancePreviewRevalidatesEarlierDecisionsAgainstFinalIntake(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		offset time.Duration
+	}{
+		{"later processed earlier release", 0},
+		{"revalidation exceeds preview horizon", 10*time.Minute + time.Second},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			in := fixture(3)
+			for i, baseline := range []time.Duration{25*time.Minute + test.offset, 24*time.Minute + test.offset, 13 * time.Minute} {
+				f := &in.Traffic[i]
+				f.EntryAt = in.At.Add(time.Duration(i-3) * time.Minute)
+				f.BaselineReleaseAt = in.At.Add(baseline)
+				f.SlotAt = f.BaselineReleaseAt.Add(f.Transit)
+			}
+			for i := 0; i < 5; i++ {
+				in.Traffic = append(in.Traffic, Traffic{Callsign: fmt.Sprintf("APP%d", i), Active: true, InApproach: true})
+			}
+			before, err := json.Marshal(in)
+			require.NoError(t, err)
+			actual := Plan(in)
+			plans := GuidancePlans(in)
+			require.Equal(t, in.At.Add(3*time.Minute), plans["F2"].ApproachReleaseTime)
+			require.Equal(t, in.At.Add(16*time.Minute+30*time.Second+test.offset), plans["F1"].ApproachReleaseTime)
+			if test.offset == 0 {
+				require.Equal(t, in.At.Add(20*time.Minute), plans["F0"].ApproachReleaseTime, "F1 crosses F0's initial release, requiring another capacity check")
+			} else {
+				require.NotContains(t, plans, aman.Callsign("F0"), "do not publish a release postponed beyond the planning horizon")
+			}
+			for callsign, p := range plans {
+				count := 5 + 1
+				for other, preceding := range plans {
+					if other != callsign && !preceding.ApproachReleaseTime.After(p.ApproachReleaseTime) {
+						count++
+					}
+				}
+				require.LessOrEqual(t, p.AdditionalApproachTime, Allowance(*in.Policy, count), "final capacity must support %s's published advance", callsign)
+				require.NoError(t, p.Validate())
+			}
+			after, err := json.Marshal(in)
+			require.NoError(t, err)
+			require.Equal(t, before, after)
+			require.Equal(t, actual, Plan(in), "preview stabilization cannot change actual admissions")
+			slices.Reverse(in.Traffic)
+			require.Equal(t, plans, GuidancePlans(in))
+		})
+	}
+}
+
+func TestGuidancePreviewPropagatesCapacityPostponementThroughItsStream(t *testing.T) {
+	in := fixture(3)
+	for i, baseline := range []time.Duration{25 * time.Minute, 26 * time.Minute, 13 * time.Minute} {
+		f := &in.Traffic[i]
+		f.EntryAt = in.At.Add(time.Duration(i-3) * time.Minute)
+		f.BaselineReleaseAt = in.At.Add(baseline)
+		f.SlotAt = f.BaselineReleaseAt.Add(f.Transit)
+	}
+	in.Traffic[1].HoldingID, in.Traffic[1].STARFamily, in.Traffic[1].FeederFix = in.Traffic[0].HoldingID, in.Traffic[0].STARFamily, in.Traffic[0].FeederFix
+	// A later rate period and a future arrival both constrain a postponed
+	// follower. Deliberately unsorted rate points must not mutate the input.
+	in.Traffic[1].Spacing = []StreamSpacing{
+		{EffectiveAt: in.At.Add(18 * time.Minute), Minimum: 4 * time.Minute},
+		{EffectiveAt: in.At.Add(-time.Hour), Minimum: 90 * time.Second},
+	}
+	for i := 0; i < 5; i++ {
+		in.Traffic = append(in.Traffic, Traffic{Callsign: fmt.Sprintf("APP%d", i), Active: true, InApproach: true})
+	}
+	entry := in.At.Add(20 * time.Minute)
+	in.Traffic = append(in.Traffic, Traffic{Callsign: "INCOMING", Active: true, PredictedApproachEntry: &entry})
+	before, err := json.Marshal(in)
+	require.NoError(t, err)
+	plans := GuidancePlans(in)
+	require.Equal(t, in.At.Add(3*time.Minute), plans["F2"].ApproachReleaseTime)
+	require.Equal(t, in.At.Add(17*time.Minute+30*time.Second), plans["F0"].ApproachReleaseTime)
+	require.Equal(t, in.At.Add(23*time.Minute+30*time.Second), plans["F1"].ApproachReleaseTime, "postponement must recheck both final occupancy and stream spacing")
+	require.Equal(t, 150*time.Second, plans["F1"].AdditionalApproachTime)
+	after, err := json.Marshal(in)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	slices.Reverse(in.Traffic)
+	require.Equal(t, plans, GuidancePlans(in))
+}
+
+func TestPreviewRechecksCapacityWhenSpacingPushesReleaseAcrossIncomingTraffic(t *testing.T) {
+	in := fixture(2)
+	for i := range in.Traffic {
+		f := &in.Traffic[i]
+		f.HoldingID, f.STARFamily, f.FeederFix = "HOLD", "STAR", "FEED"
+		f.EntryAt = in.At.Add(time.Duration(7+i) * time.Minute)
+		f.ReadyAt = f.EntryAt
+		f.BaselineReleaseAt = in.At.Add(13 * time.Minute)
+		f.SlotAt = f.BaselineReleaseAt.Add(f.Transit)
+	}
+	passage := in.At.Add(7 * time.Minute)
+	in.Traffic[0].Eligible = false
+	in.Traffic[0].PredictedStreamPassage = &passage
+	in.Traffic[1].MinimumSpacing = 3 * time.Minute
+	for i := 0; i < 10; i++ {
+		entry := in.At.Add(9 * time.Minute)
+		in.Traffic = append(in.Traffic, Traffic{Callsign: fmt.Sprintf("IN%d", i), Active: true, PredictedApproachEntry: &entry})
+	}
+	require.Empty(t, GuidancePlans(in), "spacing reaches a full buffer; do not retain the initial spare-capacity allowance")
+}
+
+func TestImminentAdmissionFollowsUnheldPassageWithoutReservingOrReleasingTheLeader(t *testing.T) {
+	in := fixture(2)
+	for i := range in.Traffic {
+		f := &in.Traffic[i]
+		f.HoldingID, f.STARFamily, f.FeederFix = "HOLD", "STAR", "FEED"
+		f.EntryAt = in.At.Add(time.Duration(10+i*20) * time.Second)
+		f.ReadyAt = f.EntryAt
+		f.BaselineReleaseAt = in.At.Add(3 * time.Minute)
+		f.SlotAt = f.BaselineReleaseAt.Add(f.Transit)
+	}
+	passage := in.Traffic[0].EntryAt.Add(time.Second)
+	in.Traffic[0].Eligible, in.Traffic[0].Incoming = false, true
+	in.Traffic[0].PredictedStreamPassage = &passage
+	result := Plan(in)
+	require.Nil(t, result.Decisions[0].Reservation, "a normal arrival must not acquire a fabricated admission")
+	require.False(t, in.Traffic[0].Released, "a forecast does not establish observed movement")
+	require.NotNil(t, result.Decisions[1].Reservation)
+	require.Equal(t, passage.Add(90*time.Second), result.Decisions[1].Reservation.ReleaseAt)
+	require.Nil(t, result.Decisions[1].Reservation.ReleasedAt)
+	require.Equal(t, 1, result.Buffer.Incoming)
+	require.Equal(t, 1, result.Buffer.Reserved)
+	// Once capacity is full, even that physical stream opportunity supplies no
+	// extra advance. The normal arrival remains counted throughout.
+	for i := 0; i < 9; i++ {
+		in.Traffic = append(in.Traffic, Traffic{Callsign: fmt.Sprintf("APP%d", i), Active: true, InApproach: true})
+	}
+	for _, d := range Plan(in).Decisions {
+		require.Nil(t, d.Reservation)
 	}
 }
 

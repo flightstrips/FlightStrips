@@ -38,6 +38,18 @@ TEST(AMANGainLossHandlerTest, RendersNothingUnlessFlightIsArrivalForCurrentAirpo
     EXPECT_TRUE(AMANGainLossHandler::Resolve(true, Snapshot(), "SAS123", "EKCH", "", false, true, "EKDK_CTR").text.empty());
 }
 
+TEST(AMANGainLossHandlerTest, MarksForecastAbsorptionWithoutChangingTheHoldingCountdown) {
+    auto snapshot = Snapshot(true, "fresh", -180);
+    auto& value = snapshot->byCallsign["SAS123"];
+    value.approachReleaseForecastUnixSeconds = 1794355140;
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "~L03");
+    value.holdingEatUnixSeconds = 1794355380;
+    const auto now = std::chrono::system_clock::time_point{std::chrono::seconds{1794355140}};
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH", true, true, "EKDK_CTR", now).text, "L04");
+    value.approachReleaseForecastUnixSeconds.reset();
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH", false, true, "EKDK_CTR").text, "L03");
+}
+
 TEST(AMANGainLossHandlerTest, RendersNothingWhileFlightHasAnActiveTopSkyHold) {
     EXPECT_TRUE(AMANGainLossHandler::Resolve(true, Snapshot(), "SAS123", "EKCH", "EKCH", true, true, "EKDK_CTR").text.empty());
 }

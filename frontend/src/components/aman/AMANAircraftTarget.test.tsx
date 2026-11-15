@@ -18,6 +18,15 @@ function flight(overrides: Partial<AMANFlight> = {}): AMANFlight {
 const guidance = {authoritative: true, connected: true};
 
 describe("compact MAESTRO aircraft target", () => {
+  it("marks forecast absorption and removes the marker when an admission is committed", () => {
+    const {rerender} = render(<AMANAircraftTarget flight={flight({approach_release_forecast_time: "2026-11-15T17:11:20Z"})} guidance={guidance} />);
+    expect(screen.getByText("~L02")).toHaveAttribute("title", "Gain/lose includes forecast approach absorption. Forecast release 17:11:20 UTC; release is not committed.");
+    expect(screen.getByRole("button")).toHaveAccessibleName(/Forecast approach release; not committed/);
+    rerender(<AMANAircraftTarget flight={flight()} guidance={guidance} />);
+    expect(screen.getByText("L02")).not.toHaveAttribute("title");
+    expect(screen.queryByText("~L02")).not.toBeInTheDocument();
+  });
+
   it("marks a basic estimate without exposing its technical reason on hover or keyboard focus", () => {
     const onSelect = vi.fn();
     render(<AMANAircraftTarget compact delayFirst flight={flight({callsign: "BAW81CB", basic_estimate: true, prediction_reason: "Provider unavailable"})} guidance={guidance} onSelect={onSelect} />);

@@ -548,8 +548,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
      selectAMANFlight: (callsign) => set({amanSelectedCallsign: callsign}),
      setAMANConnectionState: (connectionState) => set({
        amanConnectionState: connectionState,
-       amanAwaitingSnapshot: true,
-       ...(connectionState === "disconnected" ? {amanFMPAuthority: false} : {}),
+       // React may publish the open state after the socket has already delivered
+       // its snapshots. Only loss invalidates them; a late open effect must not
+       // turn an accepted replacement back into a pending initialization.
+       ...(connectionState === "disconnected" ? {amanAwaitingSnapshot: true, amanFMPAuthority: false} : {}),
      }),
      setAMANSelectedView: (view) => {
        const selected = resolveAMANView(get().amanState, view);

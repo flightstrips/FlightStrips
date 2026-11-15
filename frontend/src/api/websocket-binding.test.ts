@@ -17,7 +17,7 @@ class Socket {
   emit(event: unknown) {this.onmessage?.({data: JSON.stringify(event)});}
 }
 const own: OwnMembership = {session_id: 1, airport: "EKCH", environment: "LIVE", instance_id: "own", membership_id: "m", transport_generation: "18446744073709551615", generation: "18446744073709551614", master_epoch: "1", role: "slave", read_only: false, ready: true, definition_revision: "revision", view: "ekch", actions: ["strip.move"], capabilities: {cdm: true, stands: true, text_pilot: true, pdc: true, aman: true}, callsign: "OWN", position: "118.000"};
-afterEach(() => {vi.unstubAllGlobals(); Socket.instances = [];});
+afterEach(() => {vi.unstubAllGlobals(); vi.useRealTimers(); Socket.instances = [];});
 async function connect() {
   vi.stubGlobal("WebSocket", Socket);
   const client = new WebSocketClient("ws://board", undefined, own);
@@ -30,6 +30,61 @@ async function connect() {
 }
 
 describe("exact board subscription transport", () => {
+  it("shares an in-flight connection and cancels an obsolete retry when connecting early", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", Socket);
+    const client = new WebSocketClient("ws://board", undefined, own);
+    const pending = client.connect();
+    expect(client.connect()).toBe(pending);
+    expect(Socket.instances).toHaveLength(1);
+    Socket.instances[0].onopen!();
+    await pending;
+    await client.connect();
+    expect(Socket.instances).toHaveLength(1);
+    Socket.instances[0].onclose!({code: 1006, reason: "network lost"});
+    const next = client.connect(); // e.g. a successful token retry before backoff expires
+    expect(Socket.instances).toHaveLength(2);
+    Socket.instances[1].onopen!();
+    await next;
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(Socket.instances).toHaveLength(2);
+    client.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("settles a failed handshake and stops its retry on disposal", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", Socket);
+    const client = new WebSocketClient("ws://board", undefined, own);
+    const pending = client.connect();
+    const rejected = expect(pending).rejects.toThrow("closed before opening");
+    Socket.instances[0].onclose!({code: 1006, reason: "upgrade failed"});
+    await rejected;
+    expect(vi.getTimerCount()).toBe(1);
+    client.dispose();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(Socket.instances).toHaveLength(1);
+  });
+
+  it("retries a socket constructor failure without leaving a pending connection", async () => {
+    vi.useFakeTimers();
+    let fail = true;
+    class FlakySocket extends Socket {
+      constructor() {
+        if (fail) {fail = false; throw new Error("network unavailable");}
+        super();
+      }
+    }
+    vi.stubGlobal("WebSocket", FlakySocket);
+    const client = new WebSocketClient("ws://board", undefined, own);
+    await expect(client.connect()).rejects.toThrow("network unavailable");
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(Socket.instances).toHaveLength(1);
+    Socket.instances[0].onopen!();
+    expect(client.isConnected()).toBe(true);
+    client.dispose();
+  });
+
   it("authenticates and sends every action through the same exact own incarnation", async () => {
     const {client, socket, board} = await connect();
     expect(board).toMatchObject({session_id: 1, instance_id: "own", generation: "18446744073709551614", transport_generation: "18446744073709551615", environment: "LIVE"});

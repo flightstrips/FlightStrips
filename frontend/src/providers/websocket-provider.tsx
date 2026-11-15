@@ -163,6 +163,12 @@ export const WebSocketProvider = ({children, url, selection, selectionControls, 
       wsClient.setToken(token);
       setUserRating(getTokenRating(token));
       scheduleTokenRefresh(token);
+      if (!wsClient.isConnected()) {
+        wsClient.connect().catch(error => {
+          if (!alive.current) return;
+          console.error('Failed to connect to WebSocket server:', error);
+        });
+      }
     } catch (error) {
       if (!alive.current) return;
       await handleAccessTokenError(error, true, 'Error refreshing access token:');
@@ -188,12 +194,13 @@ export const WebSocketProvider = ({children, url, selection, selectionControls, 
 
           if (!wsClient.isConnected()) {
             wsClient.connect().catch(error => {
+              if (!active || !alive.current) return;
               console.error('Failed to connect to WebSocket server:', error);
             });
           }
         } catch (error) {
           if (!active || !alive.current) return;
-          await handleAccessTokenError(error, false, 'Error getting access token:');
+          await handleAccessTokenError(error, true, 'Error getting access token:');
         }
       }
     };

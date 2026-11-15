@@ -84,6 +84,18 @@ describe('WebSocket authentication', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('retries a transient initial token failure and opens the socket after recovery', async () => {
+    getToken.mockRejectedValueOnce(new Error('Temporary network failure')).mockResolvedValue('token');
+    await act(async () => {
+      render(<WebSocketProvider url="ws://board"><span>Board</span></WebSocketProvider>);
+    });
+    expect(client.connect).not.toHaveBeenCalled();
+    expect(logout).not.toHaveBeenCalled();
+    await act(async () => {await vi.advanceTimersByTimeAsync(1000);});
+    expect(client.setToken).toHaveBeenCalledWith('token');
+    expect(client.connect).toHaveBeenCalledOnce();
+  });
+
   it('requests an authorized replacement snapshot when the same own membership becomes ready again', async () => {
     getToken.mockResolvedValue("token");
     const view = render(<WebSocketProvider url="ws://board" ownPluginAvailable={false}><span>Board</span></WebSocketProvider>);

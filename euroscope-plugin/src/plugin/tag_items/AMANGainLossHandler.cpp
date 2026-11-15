@@ -125,8 +125,7 @@ namespace FlightStrips::TagItems {
         }
         // Retention alone does not change the colour; only interrupted or
         // stale data does. Current retained predictions use normal guidance.
-        const auto text = (value->second.approachReleaseForecastUnixSeconds ? "~" : "") + Format(*value->second.seconds);
-        return {text, connected && value->second.dataStatus == "fresh"
+        return {Format(*value->second.seconds), connected && value->second.dataStatus == "fresh"
             ? GuidanceColor(*value->second.seconds) : RetainedTagColor};
     }
 }

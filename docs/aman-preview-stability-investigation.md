@@ -93,14 +93,15 @@ the fix gave a 17:11:20 provisional release and -1 second in both feeds. This
 is a later snapshot projection, not a replay of the unrecorded earlier
 surveillance or a claim that every arrival should receive zero loss.
 
-Optional forecast timestamps now accompany applied provisional absorption in
-the web and EuroScope feeds. Both displays prefix that guidance with `~` so
-an enroute controller can distinguish a forecast from a committed release.
-The web hover gives the forecast release in UTC. The numeric guidance remains
-backend-owned. Complete websocket replacements clear metadata when a forecast
-is withdrawn or becomes an admission. EuroScope's holding countdown continues
-to use the separate calculated EAT. Older plugins can ignore the additive
-protobuf field; displaying the marker requires the updated plugin.
+Optional forecast timestamps accompany applied provisional absorption in the
+web and EuroScope feeds. Only the web timeline prefixes that guidance with
+`~` so an enroute controller can distinguish a forecast from a committed
+release; its hover gives the forecast release in UTC. EuroScope gain/loss
+tags remain unprefixed. The numeric guidance remains backend-owned. Complete
+websocket replacements clear metadata when a forecast is withdrawn or becomes
+an admission. EuroScope's holding countdown continues to use the separate
+calculated EAT. The additive protobuf field remains backward compatible and
+does not change the plugin's tag format.
 
 ## Scope and verification
 

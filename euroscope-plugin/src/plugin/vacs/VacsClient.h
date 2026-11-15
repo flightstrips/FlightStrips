@@ -45,7 +45,8 @@ namespace FlightStrips::vacs {
         std::vector<Client> clients_;
         std::vector<Call> incoming_;
         std::string ownId_, position_, station_, callId_, peer_, error_, pendingId_, snapshotId_, lastError_;
-        Json outgoingCall_;
+        Json invitedTargets_ = Json::array();
+        std::map<std::string, std::string> peerStates_;
         bool versionLogged_ = false;
         bool enabled_ = false, online_ = false, authenticated_ = false, signaling_ = false, ambiguous_ = false;
         bool snapshot_ = false, store_ = false, uncertain_ = false, reconnecting_ = false;
@@ -57,9 +58,13 @@ namespace FlightStrips::vacs {
         void Sync(Time now);
         void Snapshot(const Json& data);
         void Event(const std::string& name, const Json& payload, Time now);
-        void Store(const Json& payload, Time now);
+        void Store(const Json& payload);
         void Finish(const std::string& callId);
-        void PublishOutgoing(bool prio, Time now);
+        void Outgoing(const Json& payload);
+        void UpdateCall(const Json& payload);
+        void UpdateConnection();
+        void RemoveTargets(const Json& targets);
+        void SetIncoming(const Json& calls);
         void Display(const std::string& callId, const std::string& peer, State state);
         std::string PeerName(const std::string& id) const;
         void SetClients(const Json& clients);

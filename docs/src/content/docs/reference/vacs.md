@@ -11,7 +11,7 @@ Flight Strips can use [VACS](https://github.com/vacs-project/vacs) for controlle
 
 ### EuroScope plugin controls
 
-The native FlightStrips panel supports the **VACS remote-control API** independently of the browser, backend login, or selected aircraft. Start VACS, enable its remote control, sign in, and connect your controller position there. Audio, ringing, devices, and authentication remain in VACS.
+The native FlightStrips panel supports the **VACS 3.x remote-control API** independently of the browser, backend login, or selected aircraft. Start VACS, enable its remote control, sign in, and connect your controller position there. Audio, ringing, devices, and authentication remain in VACS.
 
 In the expanded panel, switch **VACS** to **On**. Use **Call...** to open EuroScope's controller list; select a callsign/frequency to dial. Incoming calls offer **Answer** and **Reject**, outgoing calls offer **Cancel**, and connecting/established calls offer **End call**. Answer/Reject always targets the oldest waiting call. Orange means ringing/connecting, and green means ready/confirmed connected. Hover over the VACS status for the full caller, queue count, or recovery instructions. The title-bar dot still represents the FlightStrips backend, not VACS.
 
@@ -29,6 +29,8 @@ host=localhost
 For a VACS instance on another computer, set `host` to its hostname or IP address (IPv6 is supported), without a scheme, port, or path. The plugin connects to `ws://<host>:9600/ws`. Only use remote control over a trusted network; this connection is not encrypted.
 
 The plugin restores desktop calls before enabling dialing. If it remains **Synchronizing**, check that the VACS desktop frontend is running and supports store synchronization. **Sign in to VACS**, **Connect position**, and **Select position** must be resolved inside VACS. Transport failures reconnect with bounded backoff; command failures appear as FlightStrips notifications. A timed-out action is never automatically retried: conflicting controls remain disabled until session/store recovery confirms the current call.
+
+The plugin can answer and end calls that include several participants. Create conferences and manage their participants inside VACS; the plugin's **Call...** menu dials one controller at a time.
 
 ### Browser controls
 

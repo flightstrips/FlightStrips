@@ -172,6 +172,46 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, assignment.Version, published[0].Assignment.Version)
 	})
 
+	t.Run("recalculates an estimated stand at ASSIGNED promotion when occupied", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(45 * time.Minute)
+		clock.set(arrivalETA.Add(-45 * time.Minute))
+		seedTestArrivalStrip(t, queries, session, "SAS305")
+		setArrivalETA(t, strips, session, "SAS305", arrivalETA)
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS305"), arrivalFlight("SAS305", 1)))
+		estimated, err := assignments.GetAssignment(ctx, session, "SAS305")
+		require.NoError(t, err)
+		require.Equal(t, StageEstimated, estimated.Stage)
+
+		seedTestArrivalStrip(t, queries, session, "SAS306")
+		actions := NewStandActionService(lifecycle.allocations, assignments, strips, nil, nil, nil)
+		assigned, err := actions.AssignManually(ctx, session, "EKCH", "GND", "SAS306", estimated.Stand, 0)
+		require.NoError(t, err)
+		assert.Equal(t, estimated.Stand, assigned.Assignment.Stand)
+		assert.Empty(t, assigned.ConflictReason)
+		retained, err := assignments.GetAssignment(ctx, session, "SAS305")
+		require.NoError(t, err)
+		assert.Equal(t, estimated.Stand, retained.Stand, "manual assignment leaves the ESTIMATED reservation untouched")
+		assert.Equal(t, StageEstimated, retained.Stage)
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS305"), arrivalFlight("SAS305", 2)))
+		stillEstimated, err := assignments.GetAssignment(ctx, session, "SAS305")
+		require.NoError(t, err)
+		assert.Equal(t, estimated.Stand, stillEstimated.Stand, "same-stage feed updates must not move the soft reservation")
+		assert.Equal(t, StageEstimated, stillEstimated.Stage)
+
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS305", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+		require.NoError(t, err)
+		clock.set(arrivalETA.Add(-40 * time.Minute))
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS305"), arrivalFlight("SAS305", 3)))
+
+		recalculated, err := assignments.GetAssignment(ctx, session, "SAS305")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, recalculated.Stage)
+		assert.NotEqual(t, estimated.Stand, recalculated.Stand, "the estimate moves when its original stand remains occupied at promotion")
+	})
+
 	t.Run("transitions to CONFIRMED at ETA−2 min and below 3000 ft", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)

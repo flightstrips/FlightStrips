@@ -89,3 +89,19 @@ func TestEnrichStandAssignmentBlockingIgnoresUnassignedAdvisories(t *testing.T) 
 	assert.Empty(t, entries[0].BlockedBy)
 	assert.Empty(t, entries[1].BlockedBy)
 }
+
+func TestEnrichStandAssignmentBlockingAllowsEstimatedReservationToShareManualAssignedStand(t *testing.T) {
+	entries := []frontendEvents.StandAssignmentEntry{
+		{Callsign: "ESTIMATED1", Stand: "A17", Direction: "ARRIVAL", Stage: "ESTIMATED"},
+		{Callsign: "MANUAL1", Stand: "A17", Direction: "ARRIVAL", Stage: "ASSIGNED", Manual: true},
+	}
+
+	enrichStandAssignmentBlocking(entries, "EKCH")
+	assert.Empty(t, entries[0].BlockedBy)
+	assert.Empty(t, entries[1].BlockedBy)
+
+	entries[0].Stage = "ASSIGNED"
+	enrichStandAssignmentBlocking(entries, "EKCH")
+	assert.Equal(t, []string{"MANUAL1"}, entries[0].BlockedBy)
+	assert.Equal(t, []string{"ESTIMATED1"}, entries[1].BlockedBy)
+}

@@ -913,7 +913,7 @@ func TestRestorePendingTimeouts_ExpiresClearedPdcAfterRestart(t *testing.T) {
 	}, time.Second, 25*time.Millisecond)
 }
 
-func TestConfirmVoiceClearance_ClearsPdcStateAndPublishesPdcMessage(t *testing.T) {
+func TestConfirmVoiceClearance_ClearsPdcStateWithoutPublishingMessage(t *testing.T) {
 	t.Parallel()
 	suite := &PDCIntegrationTestSuite{}
 	suite.SetupTest(t)
@@ -938,10 +938,10 @@ func TestConfirmVoiceClearance_ClearsPdcStateAndPublishesPdcMessage(t *testing.T
 	}))
 
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NONE", "").Return()
-	suite.mockFrontend.On("SendMessage", sessionID, "SYSTEM", "SAS123: CLEARANCE given / confirmed over voice.", []string{"CLR-DEL"}).Return()
 
 	err := suite.service.ConfirmVoiceClearance(ctx, callsign, sessionID)
 	require.NoError(t, err)
+	suite.mockFrontend.AssertNotCalled(t, "SendMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 
 	strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
 		Session:  sessionID,

@@ -1,23 +1,27 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Bay } from "@/api/models";
 import { ApnPushStrip } from "./ApnPushStrip";
+import { COLOR_CLOSED_RWY, SELECTION_COLOR } from "./shared";
 
 const state = vi.hoisted(() => ({
   displayedLayout: "AAAD",
   strips: [],
   localMarked: {} as Record<string, boolean>,
   transferStrip: vi.fn(),
+  selectedCallsign: null as string | null,
+  transfers: {} as Record<string, { from: string; to: string; isTagRequest: boolean }>,
+  runwayStatus: {} as Record<string, string>,
 }));
 
 vi.mock("@/store/store-hooks", () => ({
   useControllers: () => [],
-  useSelectedCallsign: () => null,
+  useSelectedCallsign: () => state.selectedCallsign,
   useSelectStrip: () => vi.fn(),
   useTagRequestArmed: () => false,
   useMarkArmed: () => false,
-  useStripTransfers: () => ({}),
-  useRunwaySetup: () => ({ runway_status: {} }),
+  useStripTransfers: () => state.transfers,
+  useRunwaySetup: () => ({ runway_status: state.runwayStatus }),
   useIsTwr: () => false,
   useWebSocketStore: (selector: (store: typeof state) => unknown) => selector(state),
 }));
@@ -58,5 +62,47 @@ describe("apron startup and pushback frequency display", () => {
     const si = screen.getByText("GW");
     fireEvent.click(si);
     expect(state.transferStrip).toHaveBeenCalledExactlyOnceWith("SAS123", "118.580");
+  });
+});
+
+describe("REQ callsign coloring", () => {
+  it("keeps both callsign rows on the normal background while the strip flashes", () => {
+    vi.useFakeTimers();
+    try {
+      state.transfers = { SAS123: { from: "121.730", to: "118.580", isTagRequest: true } };
+      state.runwayStatus = { "04L-22R": "CLOSED" };
+      state.selectedCallsign = null;
+      const { unmount } = render(<ApnPushStrip callsign="SAS123" runway="04L" />);
+      const callsignBox = screen.getByText("SAS123").parentElement!.parentElement!;
+      const strip = callsignBox.parentElement!;
+      expect(strip.style.backgroundColor).toBe(SELECTION_COLOR);
+      expect(callsignBox.style.backgroundColor).toBe(COLOR_CLOSED_RWY);
+      expect(callsignBox.style.color).toBe("white");
+      act(() => vi.advanceTimersByTime(1000));
+      expect(strip.style.backgroundColor).toBe(COLOR_CLOSED_RWY);
+      expect(callsignBox.style.backgroundColor).toBe(COLOR_CLOSED_RWY);
+      act(() => vi.advanceTimersByTime(1000));
+      expect(strip.style.backgroundColor).toBe(SELECTION_COLOR);
+      expect(callsignBox.style.backgroundColor).toBe(COLOR_CLOSED_RWY);
+      expect(callsignBox.style.color).toBe("white");
+      unmount();
+    } finally {
+      state.transfers = {};
+      state.runwayStatus = {};
+      state.selectedCallsign = null;
+      vi.useRealTimers();
+    }
+  });
+
+  it("retains the independent callsign selection highlight", () => {
+    state.transfers = { SAS123: { from: "121.730", to: "118.580", isTagRequest: true } };
+    state.selectedCallsign = "SAS123";
+    try {
+      render(<ApnPushStrip callsign="SAS123" selectable />);
+      expect(screen.getByText("SAS123").parentElement!.style.backgroundColor).toBe(SELECTION_COLOR);
+    } finally {
+      state.transfers = {};
+      state.selectedCallsign = null;
+    }
   });
 });

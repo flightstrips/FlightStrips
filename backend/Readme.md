@@ -17,6 +17,11 @@ Stages do not downgrade. Confirmed stands are protected from subsequent
 automatic planning changes; controller actions and physical-position
 reconciliation remain supported.
 
+A controller may manually assign a stand that is still held by an **ESTIMATED**
+arrival. The estimate is retained without a stand-conflict warning; when it
+reaches **ASSIGNED**, its stand is checked again and automatically recalculated
+if the stand is still occupied.
+
 Departure stand availability is projected at TSAT +5 minutes, falling back to
 TOBT +5 minutes when TSAT is missing. Once startup is requested (START REQ or
 START REQ+TRF), the projection becomes the later of the recorded actual startup

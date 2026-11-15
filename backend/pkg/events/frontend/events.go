@@ -595,6 +595,7 @@ type MoveEvent struct {
 	Bay              string                   `json:"bay"`
 	Clearance        bool                     `json:"clearance,omitempty"`
 	ConfirmedRemoval bool                     `json:"confirmed_removal,omitempty"`
+	ManualPlacement  bool                     `json:"manual_placement,omitempty"`
 	// Ordered makes the strip land immediately after InsertAfter (nil = top of bay) in the target bay.
 	Ordered     bool      `json:"ordered,omitempty"`
 	InsertAfter *StripRef `json:"insert_after,omitempty"`

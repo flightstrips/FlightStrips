@@ -516,8 +516,61 @@ func (s *ArrivalLifecycleService) reallocateIfBlocked(ctx context.Context, sessi
 		}
 		return nil
 	}
+	if existing.Stage == StageEstimated {
+		deferReallocation, err := s.estimatedConflictCanWait(ctx, request, existing)
+		if err != nil {
+			return err
+		}
+		if deferReallocation {
+			if arrivalTimingChanged(existing, eta, request.ETASource) {
+				return s.updateArrivalInPlace(ctx, existing, existing.Stage, eta, request.ETASource, existing.ExpiresAt)
+			}
+			return nil
+		}
+	}
 	_, err = s.allocations.Reallocate(ctx, request)
 	return err
+}
+
+func (s *ArrivalLifecycleService) estimatedConflictCanWait(ctx context.Context, request StandAllocationRequest, existing *models.StandAssignment) (bool, error) {
+	if existing == nil || existing.Stage != StageEstimated {
+		return false, nil
+	}
+	assignments, err := s.assignments.ListAssignments(ctx, request.SessionID)
+	if err != nil {
+		return false, err
+	}
+	blocks, err := s.assignments.ListBlocks(ctx, request.SessionID)
+	if err != nil {
+		return false, err
+	}
+	evaluation := s.allocations.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
+	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
+	for _, match := range evaluation.Matches {
+		matches[standName(match.Stand.Name)] = match
+	}
+	match, compatible := matches[standName(existing.Stand)]
+	if !compatible {
+		return false, nil
+	}
+	remaining := make([]*models.StandAssignment, 0, len(assignments))
+	manualConflict := false
+	for _, assignment := range assignments {
+		deferThisConflict := assignment != nil && assignment.Manual &&
+			assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.Stage == StageAssigned &&
+			assignmentBlocksRequest(assignment, request, s.allocations.now(), s.allocations.departureReleaseBuffer) &&
+			s.allocations.assignmentOverlapsSelectedStand(request.Airport, existing.Stand, match.Blocks, assignment)
+		if deferThisConflict {
+			manualConflict = true
+			continue
+		}
+		remaining = append(remaining, assignment)
+	}
+	if !manualConflict {
+		return false, nil
+	}
+	availability := s.allocations.availability(request, remaining, blocks, matches)
+	return len(availability[standName(existing.Stand)]) == 0, nil
 }
 
 func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, existing *models.StandAssignment, stage string, eta *time.Time, etaSource *string, expiresAt *time.Time) error {

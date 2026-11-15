@@ -95,7 +95,7 @@ export function ClxClearedStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const stripBackgroundPdcStatus = pdcStatus === "CLEARED" || pdcStatus === "REQUESTED_WITH_FAULTS" ? "NONE" : pdcStatus;
-  const { bg, textWhite } = useStripBg(
+  const { bg, textWhite, callsignStyle } = useStripBg(
     runway,
     getStripBg(stripBackgroundPdcStatus, arrival, bay),
     isTagRequest,
@@ -114,8 +114,9 @@ export function ClxClearedStrip({
   const stripFrameColor = getStripFrameColor(arrival ?? false);
   const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const manualBlue = isManual && !textWhite ? COLOR_MANUAL_BLUE : undefined;
-  const callsignBackgroundColor = showClearedCallsignHighlight ? "var(--color-pdc-cleared)" : isSelected ? SELECTION_COLOR : undefined;
-  const callsignTextColor = showClearedCallsignHighlight ? "white" : manualBlue;
+  const callsignManualBlue = isManual && !(isTagRequest ? callsignStyle.color === "white" : textWhite) ? COLOR_MANUAL_BLUE : undefined;
+  const callsignBackgroundColor = showClearedCallsignHighlight ? "var(--color-pdc-cleared)" : isSelected ? SELECTION_COLOR : callsignStyle.backgroundColor;
+  const callsignTextColor = showClearedCallsignHighlight ? "white" : callsignManualBlue ?? callsignStyle.color;
 
   return (
     <div
@@ -153,7 +154,7 @@ export function ClxClearedStrip({
         <button
           aria-label={callsign}
           className={`relative flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition) }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition, isTagRequest ? callsignBackgroundColor : undefined) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >

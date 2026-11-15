@@ -913,6 +913,7 @@ export interface FrontendMoveEvent {
   bay: string;
   clearance?: boolean;
   confirmed_removal?: boolean;
+  manual_placement?: boolean;
   ordered?: boolean;
   insert_after?: StripRef | null;
 }

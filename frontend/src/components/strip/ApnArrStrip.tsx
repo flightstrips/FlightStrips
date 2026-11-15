@@ -94,7 +94,7 @@ export function ApnArrStrip({
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const runwayBg = runwayYellow
     ? COLOR_UNEXPECTED_YELLOW
     : bay === Bay.RwyArr
@@ -129,7 +129,7 @@ export function ApnArrStrip({
       />
 
       {/* Callsign */}
-      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >

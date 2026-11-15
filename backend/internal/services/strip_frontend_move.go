@@ -15,8 +15,24 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type manualStripPlacementContextKey struct{}
+
+// WithManualStripPlacement marks a strip move as an explicit drag-and-drop placement.
+func WithManualStripPlacement(ctx context.Context, manual bool) context.Context {
+	if !manual {
+		return ctx
+	}
+	return context.WithValue(ctx, manualStripPlacementContextKey{}, true)
+}
+
+// IsManualStripPlacement reports whether the move was an explicit drag-and-drop placement.
+func IsManualStripPlacement(ctx context.Context) bool {
+	manual, _ := ctx.Value(manualStripPlacementContextKey{}).(bool)
+	return manual
+}
+
 func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool, confirmedRemoval bool) error {
-	return s.executeControllerWorkflow(ctx, session, callsign, cid, airport, clientPosition, "strip.move", airportworkflow.Move{Bay: targetBay, Clearance: clearance, ConfirmedRemoval: confirmedRemoval})
+	return s.executeControllerWorkflow(ctx, session, callsign, cid, airport, clientPosition, "strip.move", airportworkflow.Move{Bay: targetBay, Clearance: clearance, ConfirmedRemoval: confirmedRemoval, ManualPlacement: IsManualStripPlacement(ctx)})
 }
 
 // ExecuteWorkflowAction dispatches any handler-registered typed action through

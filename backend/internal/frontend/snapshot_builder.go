@@ -532,6 +532,9 @@ func standAssignmentsOperationallyConflict(left, right frontendEvents.StandAssig
 	if !overlaps {
 		return false
 	}
+	if isEstimatedManualAssignmentOverlap(left, right) {
+		return false
+	}
 	var arrival, departure *frontendEvents.StandAssignmentEntry
 	if strings.EqualFold(left.Direction, "ARRIVAL") && strings.EqualFold(right.Direction, "DEPARTURE") {
 		arrival, departure = &left, &right
@@ -542,6 +545,11 @@ func standAssignmentsOperationallyConflict(left, right frontendEvents.StandAssig
 		return true
 	}
 	return departure.ConflictReason != nil && strings.HasPrefix(*departure.ConflictReason, "observed departure conflicts with confirmed arrival:")
+}
+
+func isEstimatedManualAssignmentOverlap(left, right frontendEvents.StandAssignmentEntry) bool {
+	return (strings.EqualFold(left.Direction, "ARRIVAL") && strings.EqualFold(left.Stage, "ESTIMATED") && right.Manual && strings.EqualFold(right.Stage, "ASSIGNED")) ||
+		(strings.EqualFold(right.Direction, "ARRIVAL") && strings.EqualFold(right.Stage, "ESTIMATED") && left.Manual && strings.EqualFold(left.Stage, "ASSIGNED"))
 }
 
 func containsStandName(values []string, wanted string) bool {

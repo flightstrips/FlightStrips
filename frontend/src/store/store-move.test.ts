@@ -55,4 +55,17 @@ describe("strip move actions", () => {
       confirmed_removal: true,
     });
   });
+
+  it("marks manual drag placements explicitly", () => {
+    store.getState().move("OYABC", Bay.Taxi, false, false, undefined, true);
+
+    expect(client.send).toHaveBeenCalledWith({
+      type: ActionType.FrontendMove,
+      callsign: "OYABC",
+      bay: Bay.Taxi,
+      clearance: false,
+      confirmed_removal: false,
+      manual_placement: true,
+    });
+  });
 });

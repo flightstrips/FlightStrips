@@ -1,7 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { canForceAssumeStrip, getStripFrameColor, getValidationBlockedCursor, useNextFrequencyDisplay, useStripCallsignInteraction } from "./shared";
+import { Bay } from "@/api/models";
+import { canForceAssumeStrip, COLOR_CLOSED_RWY, COLOR_UNCONCERNED_BG, getStripFrameColor, getValidationBlockedCursor, SELECTION_COLOR, useNextFrequencyDisplay, useStripBg, useStripCallsignInteraction } from "./shared";
 
 const storeState = vi.hoisted(() => ({
   strips: [] as Array<Record<string, unknown>>,
@@ -14,6 +15,7 @@ const storeState = vi.hoisted(() => ({
   localMarked: {} as Record<string, boolean>,
   selectStrip: vi.fn(),
   stripTransfers: {} as Record<string, { from: string; to: string; isTagRequest: boolean }>,
+  runwayStatus: {} as Record<string, string>,
 }));
 
 vi.mock("@/store/store-hooks", () => ({
@@ -38,8 +40,54 @@ vi.mock("@/store/store-hooks", () => ({
   useTagRequestArmed: () => false,
   useMarkArmed: () => storeState.markArmed,
   useStripTransfers: () => storeState.stripTransfers,
+  useRunwaySetup: () => ({ runway_status: storeState.runwayStatus }),
   useWebSocketStore: (selector: (state: typeof storeState) => unknown) => selector(storeState),
 }));
+
+describe("tag request background blinking", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    storeState.runwayStatus = {};
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it.each([
+    { closed: false, unconcerned: false, pdc: undefined, expected: "normal", textWhite: false },
+    { closed: false, unconcerned: true, pdc: undefined, expected: COLOR_UNCONCERNED_BG, textWhite: false },
+    { closed: true, unconcerned: true, pdc: undefined, expected: COLOR_CLOSED_RWY, textWhite: true },
+    { closed: false, unconcerned: false, pdc: "CLEARED" as const, expected: "normal", textWhite: true },
+  ])("alternates pink with the regular background: $expected", ({ closed, unconcerned, pdc, expected, textWhite }) => {
+    storeState.runwayStatus = closed ? { "04L-22R": "CLOSED" } : {};
+    const { result, unmount } = renderHook(() => useStripBg("04L", "normal", true, unconcerned, pdc, Bay.Cleared));
+    const callsignStyle = { backgroundColor: expected, color: textWhite ? "white" : "black" };
+
+    expect(result.current).toEqual({ bg: SELECTION_COLOR, textWhite: false, callsignStyle });
+    act(() => vi.advanceTimersByTime(999));
+    expect(result.current.bg).toBe(SELECTION_COLOR);
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current).toEqual({ bg: expected, textWhite, callsignStyle });
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current).toEqual({ bg: SELECTION_COLOR, textWhite: false, callsignStyle });
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("stops immediately when the request ends and starts the next request pink", () => {
+    const { result, rerender } = renderHook(({ active }) => useStripBg(undefined, "normal", active, false), {
+      initialProps: { active: true },
+    });
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current.bg).toBe("normal");
+    rerender({ active: false });
+    expect(result.current.bg).toBe("normal");
+    expect(result.current.callsignStyle).toEqual({});
+    expect(vi.getTimerCount()).toBe(0);
+    rerender({ active: true });
+    expect(result.current.bg).toBe(SELECTION_COLOR);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current.bg).toBe("normal");
+  });
+});
 
 describe("useNextFrequencyDisplay", () => {
   it("prefers the backend-resolved cross-coupled frequency", () => {

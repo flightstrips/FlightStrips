@@ -44,7 +44,7 @@ export function GroundStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
 
   return (
     <div
@@ -72,7 +72,7 @@ export function GroundStrip({
       />
 
       {/* Callsign — 120px */}
-      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >

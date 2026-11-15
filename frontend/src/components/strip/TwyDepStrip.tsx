@@ -99,7 +99,7 @@ export function TwyDepStrip({
   const normalBg = grayTwyDepAppearance
     ? HALF_STRIP_VARIANT_BG["APN-PUSH"]
     : getStripBg(pdcStatus, arrival, bay);
-  const { bg, textWhite } = useStripBg(runway, normalBg, isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, normalBg, isTagRequest, isUnconcerned, pdcStatus, bay);
   const transitionAltitude = useTransitionAltitude();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
@@ -180,7 +180,7 @@ export function TwyDepStrip({
       {/* Callsign; top 2/3 = callsign, bottom 1/3 = :freq */}
       <div
         className="relative flex flex-col border-r-2 min-w-0 cursor-pointer"
-        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >

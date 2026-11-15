@@ -132,7 +132,7 @@ export default function AD() {
       }}
       onMove={(activeRef, bay, insertAfter) => {
         if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, insertAfter ?? null, bay);
-        else move(activeRef.callsign!, bay, false, false, insertAfter);
+        else move(activeRef.callsign!, bay, false, false, insertAfter, true);
       }}
       onBayDrop={handleDeiceBayDrop}
       renderDragOverlay={(strip: AnyStrip) => {

@@ -124,7 +124,7 @@ body.public-content-page {
 /* ── Validation status blink animation ──────────────────────────────────── */
 @keyframes validation-blink {
   0%   { background-color: #A7A7A7; }
-  50%  { background-color: transparent; }
+  50%  { background-color: var(--validation-blink-background, transparent); }
   100% { background-color: #A7A7A7; }
 }
 

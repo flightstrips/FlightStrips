@@ -287,7 +287,7 @@ export interface WebSocketState {
   clearStandActionRejection: () => void;
 
   // actions
-  move: (callsign: string, bay: Bay, clearance?: boolean, confirmedRemoval?: boolean, insertAfter?: StripRef | null) => void;
+  move: (callsign: string, bay: Bay, clearance?: boolean, confirmedRemoval?: boolean, insertAfter?: StripRef | null, manualPlacement?: boolean) => void;
   moveToControlzone: (callsign: string) => void;
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
@@ -629,7 +629,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     closeStripContextMenu: () => set({ contextMenu: null }),
     openValidationDialog,
     closeValidationDialog: () => set({ validationDialogCallsign: null }),
-     move: (callsign, bay, clearance = false, confirmedRemoval = false, insertAfter) => set((state) => {
+    move: (callsign, bay, clearance = false, confirmedRemoval = false, insertAfter, manualPlacement = false) => set((state) => {
           const transfer = state.stripTransfers[callsign];
           if (transfer && !transfer.isTagRequest) return state;
           if (clearance && isTextPilot(state.strips.find(s => s.callsign === callsign))) {
@@ -642,7 +642,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
             });
             return state;
           }
-          if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay, clearance, confirmed_removal: confirmedRemoval, ...(insertAfter !== undefined ? { ordered: true, insert_after: insertAfter } : {})})) {
+          if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay, clearance, confirmed_removal: confirmedRemoval, ...(manualPlacement ? { manual_placement: true } : {}), ...(insertAfter !== undefined ? { ordered: true, insert_after: insertAfter } : {})})) {
             return state;
           }
 

@@ -49,7 +49,7 @@ export function SIBox({
   baseBorderColor?: string;
   /** Use the combined startup request and transfer action. */
   startRequestTransfer?: boolean;
-  /** Hide the next-controller letter; the box keeps its ownership colour and click behaviour. */
+  /** Hide the normal next-controller letter; pending tag requests still show their requester. */
   hideLabel?: boolean;
 }) {
   const controllers = useControllers();
@@ -79,12 +79,16 @@ export function SIBox({
   const isTagRequestRequester = targetedToMe && !isAssumed && isTagRequest;
 
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
+  const showTagRequester = !!isTagRequest && !!transferringTo;
 
   let nextLabel = "";
   let labelTarget: string | undefined;
-  if (isStand) {
+  if (showTagRequester) {
+    const requester = controllers.find(c => c.position === transferringTo);
+    nextLabel = requester?.identifier || transferringTo;
+  } else if (isStand) {
     nextLabel = "";
-  } else if (isSendingTransfer || isTagRequestOwner) {
+  } else if (isSendingTransfer) {
     const targetController = controllers.find(c => c.position === transferringTo);
     nextLabel = nextDisplay?.label || (targetController ? targetController.identifier : "");
     labelTarget = transferringTo;
@@ -181,7 +185,7 @@ export function SIBox({
       }}
       onClick={isClickable ? handleClick : undefined}
     >
-      {hideLabel ? null : nextLabel}
+      {hideLabel && !showTagRequester ? null : nextLabel}
     </div>
   );
 }

@@ -20,6 +20,8 @@ import { CLS_CMDBTN, CLS_CMD_BEVEL } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
 import { effectiveStripMarked, toggleEffectiveStripMark } from "@/lib/strip-marking";
+import { isArrivalFlight } from "@/components/bays/stripMovement";
+import { useLocalHiddenStrips } from "@/store/localHiddenStrips";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -120,6 +122,12 @@ export default function CommandBar() {
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
   const strips = useStrips();
+  const airport = useWebSocketStore((state) => state.airport);
+  const locallyHiddenCallsigns = useLocalHiddenStrips((state) => state.hidden);
+  const unhideLocallyHidden = useLocalHiddenStrips((state) => state.unhide);
+  const hiddenArrivalsToUnhide = strips
+    .filter((strip) => locallyHiddenCallsigns.includes(strip.callsign) && isArrivalFlight(strip, airport))
+    .map((strip) => strip.callsign);
   const markArmed = useMarkArmed();
   const setMarkArmed = useSetMarkArmed();
   const move = useWebSocketStore((state) => state.move);
@@ -304,15 +312,33 @@ export default function CommandBar() {
         <REQBTN />
         {import.meta.env.VITE_CDM_SIM === 'true' && <CDMSIM />}
         <button
+          type="button"
           disabled={!isOwner}
+          aria-label="Delete selected strip"
           className={`${CLS_CMDBTN} ${!isOwner ? "opacity-50 cursor-not-allowed" : ""}`}
           onClick={handleDelete}
         >
-          X
+          <svg width="22" height="22" viewBox="0 0 100 100" fill="currentColor" aria-hidden="true">
+            <path d="M35 8C38 7 40 9 41 12c6 12 13 20 21 28 6-8 11-17 17-24 6-7 12-7 17 0 3 4 5 9 3 12-1 2-3 3-6 4-11 4-20 10-29 18 8 7 17 15 28 21 3 2 4 4 2 7-3 6-8 12-14 15-5 3-8 2-12-2-8-8-13-17-18-25-6 8-12 18-18 25-4 5-8 7-13 5-6-2-12-10-15-16-2-3-1-5 2-6 12-4 23-11 32-19 3-2 6-5 8-7-8-8-17-16-24-24-6-6-7-11-2-16 5-5 11-8 15-9Z" />
+          </svg>
         </button>
         <div className="relative flex items-center">
           <VACSBTN />
         </div>
+        {hiddenArrivalsToUnhide.length > 0 && (
+          <button
+            type="button"
+            aria-label="Unhide locally hidden arrivals"
+            title="Unhide locally hidden arrivals"
+            className={CLS_CMDBTN}
+            onClick={() => unhideLocallyHidden(hiddenArrivalsToUnhide)}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+              <path d="M12 16V3m-6 6 6-6 6 6" />
+            </svg>
+          </button>
+        )}
         <CommandBarSettings />
         <div className="bg-bay-light text-black h-[calc(4.72dvh-14px)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.5625vw] font-bold shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)]">
           <Time />

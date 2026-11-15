@@ -1610,7 +1610,14 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 			return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: fmt.Sprintf("%s is incompatible: %s",
 				request.Stand, compatibilityReason(request.Stand, evaluation.Rejections))}
 		}
-		if reasons := availability[request.Stand]; len(reasons) > 0 {
+		manualAvailability := availability
+		if request.Direction == sat.AssignmentDirectionArrival && request.Stage == StageAssigned && !request.ProtectReservations {
+			// Controller assignments may temporarily share a stand with a soft
+			// estimate. Keep that estimate intact; its lifecycle promotion will
+			// recalculate if the stand is still occupied when it becomes ASSIGNED.
+			manualAvailability = s.availabilityYieldingEstimated(request, assignments, blocks, matches)
+		}
+		if reasons := manualAvailability[request.Stand]; len(reasons) > 0 {
 			return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: fmt.Sprintf("%s is unavailable: %s",
 				request.Stand, joinAllocationReasons(reasons))}
 		}

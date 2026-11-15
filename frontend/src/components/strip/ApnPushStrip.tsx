@@ -109,7 +109,7 @@ export function ApnPushStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const isTwr = useIsTwr();
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
@@ -159,7 +159,7 @@ export function ApnPushStrip({
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
           onClick={delegateCallsignClick ? undefined : handleClick}
           onContextMenu={delegateCallsignClick ? undefined : handleContextMenu}
         >

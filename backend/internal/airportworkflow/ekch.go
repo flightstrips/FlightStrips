@@ -56,6 +56,9 @@ func (h ekch) move(c Context, a Move) (Decision, error) {
 	if c.Strip.Destination == h.airport && c.Strip.Origin != h.airport && a.Bay == shared.BAY_NOT_CLEARED {
 		return Decision{}, shared.RejectAction("arrival strips cannot be moved to the not-cleared bay")
 	}
+	if c.Strip.Bay == shared.BAY_TAXI_LWR && a.Bay == shared.BAY_TAXI && !a.ManualPlacement {
+		a.Bay = shared.BAY_TAXI_LWR
+	}
 	d := Decision{Bay: &a.Bay}
 	if a.Bay == shared.BAY_NOT_CLEARED || a.Bay == shared.BAY_CLEARED {
 		cleared := a.Bay == shared.BAY_CLEARED

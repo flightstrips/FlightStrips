@@ -556,6 +556,29 @@ func TestMoveFrontendStrip_ArrivalCanMoveToDepartureBay(t *testing.T) {
 	assert.Equal(t, []string{shared.BAY_TAXI_LWR}, fixture.updateBayTargets)
 }
 
+func TestMoveFrontendStrip_LowerTaxiStaysLowerForNonManualMove(t *testing.T) {
+	taxiState := "TAXI"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign: "SAS127D", Origin: "EKCH", Destination: "EGLL", Bay: shared.BAY_TAXI_LWR, State: &taxiState,
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS127D", shared.BAY_TAXI, "1234567", "EKCH", "EKCH_A_GND", false, false)
+	require.NoError(t, err)
+	assert.Empty(t, fixture.updateBayTargets)
+}
+
+func TestMoveFrontendStrip_ManualPlacementCanMoveLowerTaxiToUpper(t *testing.T) {
+	taxiState := "TAXI"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign: "SAS127E", Origin: "EKCH", Destination: "EGLL", Bay: shared.BAY_TAXI_LWR, State: &taxiState,
+	})
+	ctx := WithManualStripPlacement(fixture.ctx, true)
+
+	err := fixture.svc.MoveFrontendStrip(ctx, 1, "SAS127E", shared.BAY_TAXI, "1234567", "EKCH", "EKCH_A_GND", false, false)
+	require.NoError(t, err)
+	assert.Equal(t, []string{shared.BAY_TAXI}, fixture.updateBayTargets)
+}
+
 func TestMoveFrontendStrip_ArrivalToNotClearedBayRejected(t *testing.T) {
 	fixture := newFrontendMoveFixture(&internalModels.Strip{
 		Callsign:    "SAS128A",

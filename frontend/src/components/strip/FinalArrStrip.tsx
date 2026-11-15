@@ -68,7 +68,7 @@ export function FinalArrStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
   const resetRunwayClearance = useWebSocketStore(s => s.resetRunwayClearance);
@@ -118,7 +118,7 @@ export function FinalArrStrip({
       {/* Callsign; top 2/3 = callsign */}
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer"
-        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
         onClick={delegateCallsignClick ? undefined : handleClick}
         onContextMenu={delegateCallsignClick ? undefined : handleContextMenu}
       >

@@ -1110,13 +1110,6 @@ func (s *Service) ConfirmVoiceClearance(ctx context.Context, callsign string, se
 	if err := s.notifyStateChange(ctx, sessionID, callsign, StateNone, ""); err != nil {
 		return err
 	}
-
-	recipients := []string{}
-	if _, ok := config.GetMessageAreas()["CLR-DEL"]; ok {
-		recipients = []string{"CLR-DEL"}
-	}
-	s.frontendHub.SendMessage(sessionID, "SYSTEM", fmt.Sprintf("%s: CLEARANCE given / confirmed over voice.", callsign), recipients)
-
 	return nil
 }
 

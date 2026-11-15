@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.9.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.9.0...backend/v3.9.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **vacs:** relay browser controls through the selected plugin ([#1168](https://github.com/flightstrips/FlightStrips/issues/1168)) ([efad871](https://github.com/flightstrips/FlightStrips/commit/efad8711f8904e473267c572f82bb5f8001a9d96))
+
 ## [3.9.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.8.3...backend/v3.9.0) (2026-11-15)
 
 

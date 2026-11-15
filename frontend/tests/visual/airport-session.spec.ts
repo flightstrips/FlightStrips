@@ -20,6 +20,42 @@ async function setup(page: Page, members = [membership(1, "AAAA"), membership(2,
   return Object.assign(authentications, {sockets});
 }
 
+for (const viewport of [{width: 1280, height: 720}, {width: 1920, height: 1080}, {width: 2560, height: 1440}]) {
+  test(`scope selector keeps airport switching clear of OK at ${viewport.width}px`, async ({page}, info) => {
+    await page.setViewportSize(viewport);
+    await setup(page, [membership(1, "EKCH"), membership(2, "EKBI")].map(m => ({...m, environment: "SWEATBOX_MULTI-AIRPORT"})));
+    await page.goto("/visual-tests/airport-session-preview.html");
+    await page.getByRole("button", {name: /EKCH/}).click();
+    await page.getByText("CLR DEL", {exact: true}).first().click();
+    const selector = page.getByRole("group", {name: "Scope selector"});
+    const switcher = selector.getByRole("button", {name: "Switch airport session"});
+    for (const expanded of [false, true]) {
+      if (expanded) await selector.getByRole("button", {name: "Show more scopes"}).click();
+      const panel = (await selector.boundingBox())!;
+      const airport = (await switcher.boundingBox())!;
+      const buttons = await selector.getByRole("button").all();
+      for (const button of buttons) {
+        if (await button.getAttribute("aria-label") === "Switch airport session") continue;
+        const box = (await button.boundingBox())!;
+        expect(airport.y).toBeGreaterThanOrEqual(box.y + box.height);
+      }
+      expect(airport.x).toBeGreaterThanOrEqual(panel.x);
+      expect(airport.x + airport.width).toBeLessThanOrEqual(panel.x + panel.width);
+      expect(airport.y + airport.height).toBeLessThanOrEqual(panel.y + panel.height);
+      expect(panel.y).toBeGreaterThanOrEqual(0);
+      expect(panel.x + panel.width).toBeLessThanOrEqual(viewport.width);
+      await selector.screenshot({path: info.outputPath(`scope-selector-${expanded ? "expanded" : "collapsed"}.png`)});
+    }
+    await selector.getByRole("button", {name: "OK", exact: true}).click();
+    await expect(selector).not.toBeVisible();
+    await page.getByText("CLR DEL", {exact: true}).first().click();
+    await switcher.click();
+    await expect(page.getByRole("heading", {name: "Choose airport session"})).toBeVisible();
+    await page.getByRole("button", {name: /EKBI/}).click();
+    await expect(page.getByTestId("selected-board")).toHaveAttribute("data-session", "2");
+  });
+}
+
 test("separate tabs select and switch independent boards without membership commands", async ({context}, info) => {
   const a = await context.newPage(), b = await context.newPage();
   const authA = await setup(a), authB = await setup(b);

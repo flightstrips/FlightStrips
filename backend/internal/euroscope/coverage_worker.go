@@ -24,6 +24,8 @@ type CoverageOptions struct {
 	Authorize func(shared.AuthenticatedUser, string, string) bool
 	// Simulation providers supply their own scoped observations. A missing or
 	// wrong-environment inventory stays unknown; public LIVE data is never used.
+	// Complete inventories must include the actual connected controller identity,
+	// as well as controllers without FlightStrips; presences are not a roster.
 	Simulated func(context.Context) ([]CoverageStaffingEvidence, error)
 }
 

@@ -127,6 +127,11 @@ func BuildCoverageEvidence(network vatsim.Snapshot, radios vatsim.TransceiverSna
 		}
 		state := coverageSourceState(now, presence.EvidenceAt, maxAge, nil)
 		evidence := CoverageControllerEvidence{CoverageParticipant: config.CoverageParticipant{Key: key, Callsign: strings.ToUpper(strings.TrimSpace(control.Callsign)), PrimaryFrequency: vatsim.NormalizeFrequency(control.PrimaryFrequency), Observer: control.Observer}, Identity: state, Radios: CoverageUnknown}
+		if environment != "LIVE" && !control.Observer && !exists {
+			// A connected plugin is not an exercise roster. A supposedly complete
+			// inventory missing this identity cannot authorize membership or absence.
+			inventory[environment] = CoverageUnknown
+		}
 		if exists {
 			evidence.TunedFrequencies = slices.Clone(previous.TunedFrequencies)
 			evidence.Radios = previous.Radios

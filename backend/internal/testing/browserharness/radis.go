@@ -2,6 +2,7 @@ package main
 
 import (
 	"FlightStrips/internal/app"
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/services"
@@ -113,7 +114,14 @@ func newRADISSuite() suite {
 			// The coordinator captures its evaluation time before reading this
 			// inventory. Model already-observed data, never future-dated evidence.
 			observedAt := time.Now().Add(-time.Second)
-			return []euroscope.CoverageStaffingEvidence{{Environment: "SWEATBOX_MA08", Timestamp: observedAt, Inventory: euroscope.CoverageFresh}, {Environment: "PLAYBACK_MA08", Timestamp: observedAt, Inventory: euroscope.CoverageFresh}}, nil
+			// These exercises are fully owned by this harness. Their inventory
+			// contains the actual fixture peer, rather than an empty roster that
+			// is implicitly filled from whichever plugins happen to connect.
+			frames := make([]euroscope.CoverageStaffingEvidence, 0, 2)
+			for _, environment := range []string{"SWEATBOX_MA08", "PLAYBACK_MA08"} {
+				frames = append(frames, euroscope.CoverageStaffingEvidence{Environment: environment, Timestamp: observedAt, Inventory: euroscope.CoverageFresh, Controllers: []euroscope.CoverageControllerEvidence{{CoverageParticipant: config.CoverageParticipant{Key: "900001/EKBI_TWR", Callsign: "EKBI_TWR", PrimaryFrequency: "119.005"}, Identity: euroscope.CoverageFresh, Radios: euroscope.CoverageFresh}}})
+			}
+			return frames, nil
 		}},
 		close: func() {
 			mu.Lock()

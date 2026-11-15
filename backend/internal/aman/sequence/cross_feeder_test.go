@@ -49,10 +49,13 @@ func TestCrossFeederOvertakeRequiresEvidenceOfUnusedCapacity(t *testing.T) {
 		name     string
 		physical time.Duration
 		wantPass bool
+		holding  bool
 	}{
-		{"held aircraft can reach the slot", 10 * time.Minute, false},
-		{"held aircraft cannot reach the slot", 20 * time.Minute, true},
-		{"assigned delay is not physical evidence", 0, false},
+		{"held aircraft can reach the slot", 10 * time.Minute, false, false},
+		{"held aircraft cannot reach the slot", 20 * time.Minute, true, false},
+		{"assigned delay is not physical evidence", 0, false, false},
+		{"later holding aircraft respects earlier admission priority", 10 * time.Minute, false, true},
+		{"later holding aircraft may use unreachable capacity", 20 * time.Minute, true, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			start := testTime()
@@ -71,6 +74,10 @@ func TestCrossFeederOvertakeRequiresEvidenceOfUnusedCapacity(t *testing.T) {
 			incoming := flight("NEW", "A", start.Add(15*time.Minute), "M")
 			incoming.STARFamily, incoming.HoldingQueueID = "TESPI", "HOLD-B"
 			incoming.ArrivalQueueTime = &arrives
+			if test.holding {
+				since := start.Add(-30 * time.Second)
+				incoming.ActiveHoldingSince, incoming.HoldingQueueTime, incoming.ArrivalQueueTime = &since, &since, &since
+			}
 			result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{incoming, held}})
 			require.NoError(t, err)
 			require.False(t, result.HasConflicts())

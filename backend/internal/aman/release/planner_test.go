@@ -23,6 +23,87 @@ func fixture(n int) Input {
 	return in
 }
 
+func TestGuidancePreviewBeforeAdmissionWindowPreservesActualCapacityAndStreamOrder(t *testing.T) {
+	in := fixture(2)
+	for i := range in.Traffic {
+		f := &in.Traffic[i]
+		f.HoldingID, f.STARFamily, f.FeederFix = "HOLD", "STAR", "FEEDER"
+		f.EntryAt = in.At.Add(time.Duration(7+i) * time.Minute)
+		f.ReadyAt = f.EntryAt
+		f.Transit = 10 * time.Minute
+		f.BaselineReleaseAt = in.At.Add(time.Duration(12+i) * time.Minute)
+		f.SlotAt = f.BaselineReleaseAt.Add(f.Transit)
+	}
+	before, err := json.Marshal(in)
+	require.NoError(t, err)
+	actual := Plan(in)
+	require.Zero(t, actual.Buffer.Projected())
+	for _, d := range actual.Decisions {
+		require.Nil(t, d.Reservation)
+	}
+	plans := GuidancePlans(in)
+	require.Len(t, plans, 2)
+	require.Equal(t, in.At.Add(7*time.Minute+time.Second), plans["F0"].ApproachReleaseTime)
+	require.Equal(t, 299*time.Second, plans["F0"].AdditionalApproachTime)
+	require.Equal(t, in.At.Add(8*time.Minute+31*time.Second), plans["F1"].ApproachReleaseTime, "the preview retains base stream spacing")
+	for _, p := range plans {
+		require.NoError(t, p.Validate())
+	}
+	after, err := json.Marshal(in)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	require.Equal(t, actual, Plan(in), "guidance cannot create admissions or change the live buffer")
+	slices.Reverse(in.Traffic)
+	require.Equal(t, plans, GuidancePlans(in))
+}
+
+func TestGuidancePreviewRequiresUsableWorkloadAndCountsFutureIncoming(t *testing.T) {
+	for _, kind := range []string{"quiet", "disabled", "unknown", "blocked", "full", "future incoming", "distant incoming", "manual or blocked head", "beyond preview"} {
+		t.Run(kind, func(t *testing.T) {
+			in := fixture(1)
+			in.Traffic[0].EntryAt, in.Traffic[0].ReadyAt = in.At.Add(7*time.Minute), in.At.Add(7*time.Minute)
+			in.Traffic[0].BaselineReleaseAt = in.At.Add(12 * time.Minute)
+			in.Traffic[0].Transit = 10 * time.Minute
+			in.Traffic[0].SlotAt = in.At.Add(22 * time.Minute)
+			switch kind {
+			case "disabled":
+				in.Policy.Enabled = false
+			case "unknown":
+				in.WorkloadUnknown = true
+			case "blocked":
+				in.BlockedReason = "approach_release_spacing_conflict"
+			case "full", "future incoming", "distant incoming":
+				for i := 0; i < 10; i++ {
+					f := Traffic{Callsign: fmt.Sprintf("OTHER%d", i), Active: true, InApproach: kind == "full"}
+					if kind != "full" {
+						entry := in.At.Add(8 * time.Minute)
+						if kind == "distant incoming" {
+							entry = in.At.Add(20 * time.Minute)
+						}
+						f.PredictedApproachEntry = &entry
+					}
+					in.Traffic = append(in.Traffic, f)
+				}
+			case "manual or blocked head":
+				older := in.Traffic[0]
+				older.Callsign, older.Eligible = "OLDER", false
+				older.EntryAt = in.At.Add(6 * time.Minute)
+				in.Traffic = append(in.Traffic, older)
+			case "beyond preview":
+				in.Traffic[0].EntryAt, in.Traffic[0].ReadyAt = in.At.Add(30*time.Minute), in.At.Add(30*time.Minute)
+				in.Traffic[0].BaselineReleaseAt = in.At.Add(35 * time.Minute)
+				in.Traffic[0].SlotAt = in.At.Add(45 * time.Minute)
+			}
+			plans := GuidancePlans(in)
+			if kind == "quiet" || kind == "distant incoming" {
+				require.Contains(t, plans, aman.Callsign("F0"))
+			} else {
+				require.Empty(t, plans, "do not promise downstream absorption without a feasible preview")
+			}
+		})
+	}
+}
+
 func TestInitialGroupAndRestartReserveEachAircraftOnce(t *testing.T) {
 	in := fixture(6)
 	original, _ := json.Marshal(in)

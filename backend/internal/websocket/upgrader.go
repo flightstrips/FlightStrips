@@ -43,6 +43,15 @@ func (u ConnectionUpgrader[TType, TClient]) Upgrade(w http.ResponseWriter, r *ht
 		slog.Debug("Failed to upgrade connection", slog.Any("error", err))
 		return
 	}
+	// Upgrade hijacks the HTTP connection. Until both pumps take ownership,
+	// every failure must close it so the peer can retry instead of waiting on
+	// an open socket that will never receive an initial snapshot.
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			_ = conn.Close()
+		}
+	}()
 
 	// authentication
 	frameType, authenticationMessage, err := conn.ReadMessage()
@@ -76,6 +85,7 @@ func (u ConnectionUpgrader[TType, TClient]) Upgrade(w http.ResponseWriter, r *ht
 		return
 	}
 
+	handedOff = true
 	go WritePump(client)
 	go ReadPump(u.hub, client)
 }

@@ -15,6 +15,8 @@ type CoverageRadioSource interface {
 }
 
 type CoverageOptions struct {
+	// Legacy in-process/replay evidence only. Normal app assembly does not wire
+	// public inventory/radios into master participation or election.
 	Network        vatsim.SnapshotSource
 	Radios         CoverageRadioSource
 	Now            func() time.Time
@@ -22,10 +24,8 @@ type CoverageOptions struct {
 	// Optional additional server policy. Enabled definitions and their configured
 	// providers/radios are always required, even when this predicate allows entry.
 	Authorize func(shared.AuthenticatedUser, string, string) bool
-	// Simulation providers supply their own scoped observations. A missing or
-	// wrong-environment inventory stays unknown; public LIVE data is never used.
-	// Complete inventories must include the actual connected controller identity,
-	// as well as controllers without FlightStrips; presences are not a roster.
+	// Optional source for replay/test providers without a native SDK control
+	// report. Normal runtime uses each instance's visible roster in every mode.
 	Simulated func(context.Context) ([]CoverageStaffingEvidence, error)
 }
 
@@ -36,8 +36,8 @@ type CoverageCoordinator struct {
 }
 
 // ConfigureCoverage installs exactly one application coordinator before workers
-// start. It shares the existing source workers, including MA-05's zero-membership
-// LIVE demand, and never constructs a poller/cache for an airport membership.
+// start. Physical control evidence remains available at zero memberships. It
+// never constructs a poller/cache for an airport membership.
 func (hub *Hub) ConfigureCoverage(options CoverageOptions) *CoverageCoordinator {
 	if hub.coverage != nil {
 		return hub.coverage
@@ -118,7 +118,11 @@ func (c *CoverageCoordinator) Reconcile(ctx context.Context) (time.Time, error) 
 			authorize := func(airport string) bool {
 				return user.IsValid() && (c.options.Authorize == nil || c.options.Authorize(user, airport, presence.Evidence.Environment))
 			}
-			result = errors.Join(result, c.hub.reconcileCoverageLocked(root, presence.Evidence.EligibleAirports, authorize, frames[presence.Evidence.Environment], now))
+			staffing := frames[presence.Evidence.Environment]
+			if presence.Evidence.VisibleStaffing != nil {
+				staffing = visibleCoverageEvidence(presence, now, c.options.MaxEvidenceAge)
+			}
+			result = errors.Join(result, c.hub.reconcileCoverageLocked(root, presence.Evidence.EligibleAirports, authorize, staffing, now))
 		}
 		for _, takeover := range t.takeovers {
 			if next.IsZero() || takeover.Deadline.Before(next) {

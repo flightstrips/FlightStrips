@@ -5,7 +5,6 @@ import (
 	"FlightStrips/internal/app"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/envconfig"
-	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/telemetry"
 	"context"
@@ -137,7 +136,6 @@ func main() {
 		VATSIMPollInterval:   envDuration("VATSIM_POLL_INTERVAL", 15*time.Second),
 		TransceiversURL:      getEnv("VATSIM_TRANSCEIVERS_URL", ""),
 		TransceiversInterval: envDuration("VATSIM_TRANSCEIVER_POLL_INTERVAL", 30*time.Second),
-		CoverageSimulated:    simulatedStaffingFromEnv(),
 	})
 	if err != nil {
 		slog.Error("Failed to build application", slog.Any("error", err))
@@ -188,13 +186,6 @@ func main() {
 	}
 
 	slog.Info("Server shutdown complete")
-}
-
-func simulatedStaffingFromEnv() func(context.Context) ([]euroscope.CoverageStaffingEvidence, error) {
-	if path := strings.TrimSpace(os.Getenv("SIMULATED_STAFFING_FILE")); path != "" {
-		return euroscope.SimulatedStaffingFile(path)
-	}
-	return nil
 }
 
 func initializeEnvironment() {

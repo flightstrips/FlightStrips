@@ -402,10 +402,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	euroscopeHub := realtime.euroscope
 	euroscopeHub.SetAirportRegistry(cfg.Airports)
 	euroscopeHub.SetWorkflowRegistry(workflows)
-	coverageOptions := euroscope.CoverageOptions{Network: vatsimGraph.source, Now: satNow, Authorize: deps.CoverageAuthorize, Simulated: deps.CoverageSimulated}
-	if transceiverCache != nil {
-		coverageOptions.Radios = transceiverCache
-	}
+	// Master participation is based on the ES-visible roster, independently of
+	// public feeds. Transceivers remain wired to server sector selection and PDC.
+	coverageOptions := euroscope.CoverageOptions{Now: satNow, Authorize: deps.CoverageAuthorize, Simulated: deps.CoverageSimulated}
 	coverageCoordinator := euroscopeHub.ConfigureCoverage(coverageOptions)
 	if amanAPI != nil {
 		amanAPI.WithSessionResolver(func(ctx context.Context, cid, airport string, board events.BoardContext) (int32, error) {

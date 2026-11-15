@@ -26,6 +26,7 @@ type CoverageControllerEvidence struct {
 // One normalized projection per environment for a coordinator pass. It is never
 // retained by an airport session or membership. Absence requires fresh inventory.
 type CoverageStaffingEvidence struct {
+	ESOnly      bool // visible roster: primary/callsign participation, no public-feed prerequisite
 	Environment string
 	Timestamp   time.Time
 	Inventory   CoverageEvidenceState

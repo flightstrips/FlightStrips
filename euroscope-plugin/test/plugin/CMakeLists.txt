@@ -54,6 +54,7 @@ set(ALL_FILES
         plugin/GroundTagReleasePolicyTest.cpp
         plugin/ApproachHandoffPolicyTest.cpp
         plugin/AirportResolutionTest.cpp
+        plugin/VisibleControllersTest.cpp
         plugin/LookupAuditTest.cpp
 
         # Handlers

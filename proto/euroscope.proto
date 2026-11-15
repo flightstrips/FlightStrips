@@ -189,6 +189,24 @@ message ControlEvent {
   bool tuned_frequencies_known = 9;
   // Deployment eligibility is a declaration, intersected with backend policy.
   repeated string eligible_airports = 10;
+  // The controller list visible to EuroScope is the coverage roster.
+  // Sent before membership and refreshed from the SDK, never from session sync.
+  VisibleStaffing visible_staffing = 11;
+}
+
+message VisibleController {
+  string callsign = 1;
+  string primary_frequency = 2;
+  bool observer = 3;
+}
+
+message VisibleStaffing {
+  bool complete = 1;
+  // Monotonic per physical instance; resets are allowed on a new transport or
+  // exercise identity. Freshness uses server receipt time, not client UTC.
+  uint64 revision = 2;
+  repeated VisibleController controllers = 3;
+  int64 observation_age_ms = 4;
 }
 
 message MembershipRemovedEvent { string reason = 1; }

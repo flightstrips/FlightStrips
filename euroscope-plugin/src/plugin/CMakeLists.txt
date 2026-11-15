@@ -10,6 +10,7 @@ set(src__plugin
         plugin/ApproachHandoffPolicy.cpp
         plugin/AirportResolution.h
         plugin/AirportResolution.cpp
+        plugin/VisibleControllers.h
         plugin/FlightStripsPlugin.h
         plugin/FlightStripsPlugin.cpp
         plugin/FlightStripsPluginInterface.h)

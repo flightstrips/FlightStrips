@@ -240,8 +240,8 @@ func TestCoverageRadioChangesWithoutCallsignChanges(t *testing.T) {
 	require.Equal(t, "ZZXX_CTR", root.GetCallsign())
 }
 
-func TestCoverageSweatboxUsesPrimaryWithoutAdditionalRadioEvidence(t *testing.T) {
-	for _, environment := range []string{"SWEATBOX", "SWEATBOX_EXERCISE1"} {
+func TestCoverageNonLiveUsesPrimaryWithoutAdditionalRadioEvidence(t *testing.T) {
+	for _, environment := range []string{"SWEATBOX", "SWEATBOX_EXERCISE1", "PLAYBACK_EXERCISE1"} {
 		t.Run(environment, func(t *testing.T) {
 			hub, root, a, b := coverageTestInstance(t)
 			hub.airports = coverageFixtureRegistry(t, 0)
@@ -274,8 +274,8 @@ func TestCoverageSweatboxUsesPrimaryWithoutAdditionalRadioEvidence(t *testing.T)
 	}
 }
 
-func TestCoveragePrimaryOnlyExceptionDoesNotApplyToLiveOrPlayback(t *testing.T) {
-	for _, environment := range []string{"LIVE", "PLAYBACK_EXERCISE1"} {
+func TestCoveragePrimaryOnlyExceptionDoesNotApplyToLive(t *testing.T) {
+	for _, environment := range []string{"LIVE"} {
 		t.Run(environment, func(t *testing.T) {
 			hub, root, a, _ := coverageTestInstance(t)
 			hub.airports = coverageFixtureRegistry(t, 0)

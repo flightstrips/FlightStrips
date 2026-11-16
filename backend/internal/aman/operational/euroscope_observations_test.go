@@ -37,6 +37,48 @@ func TestEuroScopePositionObserverPublishesDerivedSurveillance(t *testing.T) {
 	require.InDelta(t, 0, *observation.Surveillance.TrackTrueDegrees, .1)
 }
 
+func TestEuroScopeTakeoffEvidenceRequiresFreshSurveillance(t *testing.T) {
+	for _, scenario := range []struct {
+		name string
+		age  time.Duration
+		want bool
+	}{
+		{"current report", 0, true},
+		{"within freshness limit", aman.ArrivalSurveillanceFreshness - time.Millisecond, true},
+		{"at freshness limit", aman.ArrivalSurveillanceFreshness, true},
+		{"outside freshness limit", aman.ArrivalSurveillanceFreshness + time.Millisecond, false},
+		{"delayed report", 5 * time.Minute, false},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			received := time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
+			sink := &euroScopeObservationSink{}
+			observer, err := NewEuroScopePositionObserver(EuroScopePositionObserverDependencies{
+				Sink: sink, EnabledAirports: []string{"EKCH"}, Now: func() time.Time { return received },
+			})
+			require.NoError(t, err)
+			strip := &models.Strip{Session: 1, Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH"}
+			speed, age := 250.0, scenario.age.Milliseconds()
+			ctx := shared.WithPositionMotion(shared.WithReceiptTime(t.Context(), received), shared.PositionMotion{
+				GroundspeedKnots: &speed, PositionAgeMS: &age,
+			})
+			require.NoError(t, observer.ObserveEuroScopePosition(ctx, 1, strip, 55, 12, 9000))
+			require.Len(t, sink.observations, 1)
+			observation := sink.observations[0]
+			require.Equal(t, received.Add(-scenario.age), *observation.Surveillance.ObservedAt)
+			require.Equal(t, speed, *observation.Surveillance.GroundspeedKnots)
+			if scenario.want {
+				require.NotNil(t, observation.TakeoffDetected)
+				require.Equal(t, received, *observation.TakeoffDetected, "fresh reports retain receipt-time takeoff evidence")
+				require.Equal(t, aman.StateAirborne, newFlight(observation, received).State)
+			} else {
+				require.Nil(t, observation.TakeoffDetected, "delayed reports must not create confirmed takeoff history")
+				require.Nil(t, takeoffEvidence(aman.AMANFlight{}, nil, observation, received))
+				require.Equal(t, aman.StatePlanned, newFlight(observation, received).State)
+			}
+		})
+	}
+}
+
 func TestEuroScopeSurveillanceOverlaysVATSIMUntilItExpires(t *testing.T) {
 	now := time.Date(2026, time.July, 27, 12, 0, 0, 0, time.UTC)
 	altitude, groundspeed := 9000, 250.0

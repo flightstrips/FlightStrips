@@ -1,6 +1,7 @@
 package sequence_test
 
 import (
+	"encoding/json"
 	"slices"
 	"testing"
 	"time"
@@ -73,6 +74,61 @@ func TestInboundCanFillGapWhenNoAircraftAreHolding(t *testing.T) {
 	require.Equal(t, []aman.Callsign{"SAS40G", "CTN480", "FIN3WR"}, entryIDs(result))
 	require.Equal(t, at.Add(12*time.Minute), entryFor(t, result, "CTN480").Time)
 	require.Len(t, promotions, 1)
+}
+
+func TestSameSTARSwapStillAllowsOtherStreamsToInterleave(t *testing.T) {
+	for _, freeze := range []aman.FreezeReason{aman.FreezeNone, aman.FreezeSuperstable} {
+		t.Run(string(freeze), func(t *testing.T) {
+			at := testTime()
+			policy := continuousCPHPolicy(at)
+			policy.Rates[0].ArrivalsPerHour = 30
+			policy.AllowCrossFeederOvertake = true
+			policy.SameSTARSpacing = sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 1, MinimumEmptySlots: 1}
+			input := sequence.Input{Revision: 7, Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{
+				queueFlight("LEAD", "A", at.Add(10*time.Minute), "M", 1, at.Add(10*time.Minute)),
+				queueFlight("TAIL", "A", at.Add(14*time.Minute), "M", 2, at.Add(14*time.Minute)),
+				queueFlight("FIRST", "A", at.Add(12*time.Minute), "M", 3, at.Add(16*time.Minute)),
+				queueFlight("OTHER", "A", at.Add(18*time.Minute), "M", 4, at.Add(18*time.Minute)),
+				queueFlight("LAST", "A", at.Add(12*time.Minute), "M", 5, at.Add(20*time.Minute)),
+			}}
+			for i, family := range []string{"ERNOV", "ERNOV", "MONAK", "TESPI", "MONAK"} {
+				f := &input.Flights[i]
+				f.STARFamily, f.SelectedSTARFamily, f.ProtectCurrentSlot = family, family, true
+				f.DemandArrivalAt = &f.OperationalTETA
+				f.PromotionNotBefore = &f.OperationalTETA
+			}
+			for _, i := range []int{2, 4} {
+				f := &input.Flights[i]
+				f.FreezeReason = freeze
+				if freeze == aman.FreezeSuperstable {
+					f.FrozenAt, f.FrozenOperationalTETA, f.CapturedSlot = &at, &f.OperationalTETA, f.CurrentSlot
+				}
+			}
+			decision, err := sequence.ApplySwap(input, aman.SwapFlightsCommand{
+				Metadata: aman.CommandMetadata{CommandID: "swap-stream-order", ExpectedRevision: 7}, Callsign: "FIRST", OtherCallsign: "LAST",
+			})
+			require.NoError(t, err)
+			require.Equal(t, []aman.Callsign{"LEAD", "TAIL", "LAST", "OTHER", "FIRST"}, entryIDs(decision.Candidate))
+			committed := commitManualCandidate(decision.Input, decision.Candidate)
+			encoded, err := json.Marshal(committed)
+			require.NoError(t, err)
+			var restored sequence.Input
+			require.NoError(t, json.Unmarshal(encoded, &restored))
+			slices.Reverse(restored.Flights)
+			result, _, err := sequence.GenerateWithVacancyPromotions(committed, nil, at)
+			require.NoError(t, err)
+			require.False(t, result.HasConflicts())
+			require.Equal(t, at.Add(12*time.Minute), entryFor(t, result, "LAST").Time,
+				"a same-STAR swap must not pin the selected flight behind an unrelated STAR's later slot")
+			require.Less(t, entryFor(t, result, "LAST").Sequence, entryFor(t, result, "FIRST").Sequence,
+				"interleaving must retain the controller's chosen order within the selected STAR")
+			require.Equal(t, []aman.Callsign{"LEAD", "LAST", "TAIL", "FIRST", "OTHER"}, entryIDs(result))
+			require.Equal(t, []time.Time{at.Add(10 * time.Minute), at.Add(12 * time.Minute), at.Add(14 * time.Minute), at.Add(16 * time.Minute), at.Add(18 * time.Minute)}, entryTimes(result))
+			replayed, _, err := sequence.GenerateWithVacancyPromotions(restored, nil, at)
+			require.NoError(t, err)
+			require.Equal(t, result, replayed)
+		})
+	}
 }
 
 func TestGapFillingPrefersHoldingThenEarlierSequence(t *testing.T) {

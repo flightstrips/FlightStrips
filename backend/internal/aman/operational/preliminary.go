@@ -6,6 +6,12 @@ import "FlightStrips/internal/aman"
 // flight is first observed. Recover automatic slots written from them by older
 // servers before holding or freeze logic can turn them into commitments.
 func discardAutomaticPreliminarySlot(flight *aman.AMANFlight) {
+	if flight.State == aman.StatePlanned {
+		if flight.Slot != nil || flight.FrozenSlot != nil {
+			clearSequencingState(flight)
+		}
+		return
+	}
 	if !isPreliminaryPrediction(flight.Prediction) || flight.FreezeReason == aman.FreezeManual {
 		return
 	}

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace FlightStrips {
     enum ConnectionType {
@@ -44,11 +45,21 @@ namespace FlightStrips {
         return GetEffectiveSessionName(state) == "SWEATBOX" ? "SWX" : "LIVE";
     }
 
+    struct VisibleController {
+        std::string callsign;
+        std::string primary_frequency;
+        bool observer = false;
+        bool operator==(const VisibleController&) const = default;
+    };
+
     class IFlightStripsPlugin {
     public:
         virtual ~IFlightStripsPlugin() = default;
         virtual ConnectionState& GetConnectionState() = 0;
         virtual std::vector<std::string> GetEligibleAirports() const { return {}; }
+        // Nullopt means the SDK connection/identity is not ready. An acquired
+        // visible list includes non-plugin controllers and the local controller.
+        virtual std::optional<std::vector<VisibleController>> GetVisibleControllers() const { return std::nullopt; }
         virtual void SetMembershipAirport(const std::string&,const std::string&,double,double) {}
         virtual void RemoveMembershipAirport(const std::string&) {}
     };

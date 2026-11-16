@@ -2,7 +2,6 @@ package main
 
 import (
 	"FlightStrips/internal/app"
-	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/services"
 	es "FlightStrips/pkg/events/euroscope"
@@ -108,13 +107,8 @@ func newRADISSuite() suite {
 		return connect(ctx, "EKCH", "LIVE", services.TestFrontendToken, "EKCH_GW_TWR", "118.580", nil, ekchInstance, nil)
 	}
 	return suite{
-		config: app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/config/airports/ekbi.airport.yaml", "backend/config/airports/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
-		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Second, CoverageSimulated: func(context.Context) ([]euroscope.CoverageStaffingEvidence, error) {
-			// The coordinator captures its evaluation time before reading this
-			// inventory. Model already-observed data, never future-dated evidence.
-			observedAt := time.Now().Add(-time.Second)
-			return []euroscope.CoverageStaffingEvidence{{Environment: "SWEATBOX_MA08", Timestamp: observedAt, Inventory: euroscope.CoverageFresh}, {Environment: "PLAYBACK_MA08", Timestamp: observedAt, Inventory: euroscope.CoverageFresh}}, nil
-		}},
+		config:       app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/config/airports/ekbi.airport.yaml", "backend/config/airports/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
+		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Second},
 		close: func() {
 			mu.Lock()
 			defer mu.Unlock()

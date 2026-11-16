@@ -26,7 +26,7 @@ func connectFixtureControllerInstance(ctx context.Context, endpoint, token strin
 
 // Optional protocol callbacks let a suite replace the external SDK boundary
 // while retaining production authentication, election, dispatch and echo checks.
-func connectFixtureControllerProtocol(ctx context.Context, endpoint, token string, login *es.LoginEvent, snapshot *es.SyncEvent, onEvent func(es.EventType, []byte, []byte), instance string, execute func(*es.Envelope) *es.Envelope, expose func(func(proto.Message, es.EventType) error)) (*websocket.Conn, error) {
+func connectFixtureControllerProtocol(ctx context.Context, endpoint, token string, login *es.LoginEvent, snapshot *es.SyncEvent, onEvent func(es.EventType, []byte, []byte), instance string, execute func(*es.Envelope) *es.Envelope, expose func(func(proto.Message, es.EventType) error), configure ...func(*es.ControlEvent)) (*websocket.Conn, error) {
 	conn, response, err := websocket.DefaultDialer.DialContext(ctx, endpoint, nil)
 	if response != nil {
 		response.Body.Close()
@@ -44,6 +44,18 @@ func connectFixtureControllerProtocol(ctx context.Context, endpoint, token strin
 			return err
 		}
 		if kind != es.Authentication {
+			// Mirror the native SDK observation on every exercise control report.
+			// This controlled fixture exercise contains exactly the login peer.
+			if control, ok := message.(*es.ControlEvent); ok {
+				control = proto.Clone(control).(*es.ControlEvent)
+				if control.VisibleStaffing == nil {
+					control.VisibleStaffing = &es.VisibleStaffing{Complete: true, Revision: uint64(time.Now().UnixMilli()), Controllers: []*es.VisibleController{{Callsign: control.Callsign, PrimaryFrequency: control.PrimaryFrequency, Observer: control.Observer}}}
+				}
+				data, err = es.MarshalEnvelope(control, kind)
+				if err != nil {
+					return err
+				}
+			}
 			var envelope es.Envelope
 			if err := proto.Unmarshal(data, &envelope); err != nil {
 				return err
@@ -80,6 +92,9 @@ func connectFixtureControllerProtocol(ctx context.Context, endpoint, token strin
 		environment = "PLAYBACK_" + instance
 	}
 	control := &es.ControlEvent{Environment: environment, Callsign: login.Callsign, PrimaryFrequency: login.Position, Observer: login.Observer, LocalIp: login.LocalIp, RelevantAirport: login.Airport, Range: login.Range, TunedFrequenciesKnown: execute != nil, EligibleAirports: []string{login.Airport}}
+	for _, apply := range configure {
+		apply(control)
+	}
 	readDone := make(chan struct{})
 	ready := make(chan error, 1)
 	go func() {

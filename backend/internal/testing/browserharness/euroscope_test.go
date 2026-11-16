@@ -148,7 +148,15 @@ func TestFixtureControllerRefreshesTransportControlAfterMembershipAdmission(t *t
 			result <- err
 			return
 		}
-		if !proto.Equal(transport, heartbeat.Context) || !proto.Equal(first.GetControl(), heartbeat.GetControl()) {
+		initial := first.GetControl()
+		refreshed := heartbeat.GetControl()
+		if initial.GetVisibleStaffing() == nil || refreshed.GetVisibleStaffing().GetRevision() <= initial.GetVisibleStaffing().GetRevision() {
+			result <- fmt.Errorf("control refresh did not acquire a fresh visible roster")
+			return
+		}
+		initial.VisibleStaffing.Revision = 0
+		refreshed.VisibleStaffing.Revision = 0
+		if !proto.Equal(transport, heartbeat.Context) || !proto.Equal(initial, refreshed) {
 			result <- fmt.Errorf("control refresh changed physical evidence or used membership context: %v", heartbeat)
 			return
 		}

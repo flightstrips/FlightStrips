@@ -48,6 +48,7 @@ namespace FlightStrips {
 
         int GetFrequencyMessageKey() const { return m_appConfig->GetFrequencyMessageKey(); }
         std::vector<std::string> GetEligibleAirports() const override { return m_appConfig->GetEligibleAirports(); }
+        std::optional<std::vector<VisibleController>> GetVisibleControllers() const override;
 
         bool IsValidAirports(EuroScopePlugIn::CFlightPlan flightPlan) const;
 

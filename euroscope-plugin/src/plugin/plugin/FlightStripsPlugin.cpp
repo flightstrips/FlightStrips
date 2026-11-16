@@ -2,6 +2,7 @@
 #include <cctype>
 #include "FlightStripsPlugin.h"
 #include "AirportResolution.h"
+#include "VisibleControllers.h"
 
 #include "Logger.hpp"
 #include "bootstrap/Container.h"
@@ -657,6 +658,12 @@ namespace FlightStrips {
         }, [this](const exceptions::ExceptionDetails&) noexcept {
             Error("FlightStrips failed to create the radar screen. See the log for details.");
         });
+    }
+
+    std::optional<std::vector<VisibleController>> FlightStripsPlugin::GetVisibleControllers() const {
+        if (GetConnectionType() == CONNECTION_TYPE_NO) return std::nullopt;
+        return ReadVisibleControllers(ControllerMyself(), [this] { return ControllerSelectFirst(); },
+            [this](auto controller) { return ControllerSelectNext(controller); });
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {

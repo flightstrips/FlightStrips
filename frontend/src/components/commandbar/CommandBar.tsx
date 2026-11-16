@@ -328,37 +328,23 @@ export default function CommandBar() {
           {/* Popup panel — matches Scope selector.svg (2512×254 design, 2560px vw base, 2160px dvh base) */}
           <div
             className="fixed z-50"
+            role="group"
+            aria-label="Scope selector"
             style={{
               bottom: "calc(4.72dvh + 0.5dvh)",
               left: "1vw",
               width: "max-content",
               maxWidth: "98vw",
-              height: upperScopesOpen ? "21.5dvh" : "11.76dvh",
               background: "#B3B3B3",
               border: "1px solid black",
             }}
           >
-           <div
-             className="absolute text-black/70 font-medium"
-             style={{
-               left: "0.90vw",
-               bottom: "0.20dvh",
-               zIndex: 1,
-               fontSize: "0.58vw",
-               fontFamily: "var(--font-bay)",
-             }}
-           >
-             VERSION {FRONTEND_VERSION}
-           </div>
-
-           <div className="absolute right-3 bottom-1 z-10"><AirportSwitcher /></div>
-
            {/* Inner border inset (SVG: 15.5px sides / 16.5px top-bottom at 2512×254) */}
            <div
               className="relative flex items-end"
               style={{
                 margin: "0.76dvh 0.60vw",
-                height: "calc(100% - 1.52dvh)",
+                height: upperScopesOpen ? "19.98dvh" : "10.24dvh",
                 border: "1px solid black",
               }}
             >
@@ -483,6 +469,12 @@ export default function CommandBar() {
               >
                 OK
               </button>
+            </div>
+            <div className="flex items-center justify-between gap-3 px-[0.90vw] pb-[0.76dvh]">
+              <span className="text-black/70 font-medium" style={{fontSize: "max(9px, 0.58vw)", fontFamily: "var(--font-bay)"}}>
+                VERSION {FRONTEND_VERSION}
+              </span>
+              <AirportSwitcher />
             </div>
           </div>
         </>

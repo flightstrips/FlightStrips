@@ -52,7 +52,7 @@ export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, o
       {flights.map((flight, index) => {
         const isSelected = selected === flight.callsign;
         const gainLoss = flight.gain_loss_seconds;
-        const time = formatEAT(eats[flight.callsign] ?? flight.holding_fix_eta);
+        const time = formatEAT(eats[flight.callsign]) ?? formatEAT(flight.holding_fix_eta);
         const tmaProtected = flight.freeze_reason === "tma";
         const unavailableTimeLabel = `${tmaProtected ? "TMA entry protection; " : ""}holding-fix ETA / EAT unavailable`;
         return (
@@ -88,10 +88,12 @@ export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, o
             <span className="flex items-center gap-3">
               <span className="w-9 text-right">{gainLoss === null ? "" : formatGainLoss(gainLoss, GAIN_LOSS_CONTEXT)}</span>
               <span
-                aria-label={time === null ? unavailableTimeLabel : undefined}
                 className={cn("w-12 text-right", time === null && "text-[#a9bdc5]")}
                 title={time === null ? unavailableTimeLabel : "Holding-fix ETA / EAT (UTC)"}
-              >{time ?? (tmaProtected ? "TMA" : "—")}</span>
+              >{time ?? <>
+                <span aria-hidden="true">{tmaProtected ? "TMA" : "—"}</span>
+                <span className="sr-only">{unavailableTimeLabel}</span>
+              </>}</span>
             </span>
           </div>
         );

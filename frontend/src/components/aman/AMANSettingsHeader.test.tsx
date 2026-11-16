@@ -17,6 +17,42 @@ const state = {
 } as unknown as AMANState;
 
 describe("AMANSettingsHeader", () => {
+  it("retains a polite status region through TMA pause and connection updates", () => {
+    const props = {connectionState: "connected" as const, onRunwayGroupViewChange: vi.fn(), onViewChange: vi.fn(), presentationStatus: "ready" as const, selectedRunwayGroupID: "ARRIVAL-22", view: "holds" as const};
+    const {container, rerender} = render(<AMANSettingsHeader {...props} state={state} />);
+    const liveRegion = container.querySelector('[aria-live="polite"]');
+    expect(liveRegion).not.toBeNull();
+    const paused = structuredClone(state);
+    paused.header!.release_buffer = {status: "degraded", target: 10, in_approach: 2, reserved: 0, incoming: 0, projected: 2, unknown: 1, unknown_callsigns: ["GRL780"]};
+    rerender(<AMANSettingsHeader {...props} state={paused} />);
+    const button = screen.getByRole("button", {name: /TMA PAUSED/});
+    expect(liveRegion).toContainElement(button);
+    button.focus();
+    expect(button).toHaveFocus();
+    rerender(<AMANSettingsHeader {...props} connectionState="disconnected" state={paused} />);
+    expect(container.querySelector('[aria-live="polite"]')).toBe(liveRegion);
+    expect(liveRegion).toHaveTextContent(/DISCONNECTED.*STALE.*TMA PAUSED/);
+    rerender(<AMANSettingsHeader {...props} state={state} />);
+    expect(container.querySelector('[aria-live="polite"]')).toBe(liveRegion);
+    expect(liveRegion).not.toHaveTextContent("TMA PAUSED");
+  });
+
+  it.each(["missing header", "missing buffer", "disabled"])("does not claim TMA recovery when diagnostics are %s", (kind) => {
+    const current = structuredClone(state);
+    current.header!.release_buffer = {status: "degraded", target: 10, in_approach: 2, reserved: 0, incoming: 0, projected: 2, unknown: 1};
+    const props = {connectionState: "connected" as const, onRunwayGroupViewChange: vi.fn(), onViewChange: vi.fn(), presentationStatus: "ready" as const, selectedRunwayGroupID: "ARRIVAL-22", view: "holds" as const};
+    const {rerender} = render(<AMANSettingsHeader {...props} state={current} />);
+    fireEvent.click(screen.getByRole("button", {name: /TMA PAUSED/}));
+    const replacement = structuredClone(current);
+    if (kind === "missing header") delete replacement.header;
+    else if (kind === "missing buffer") delete replacement.header!.release_buffer;
+    else replacement.header!.release_buffer!.status = "disabled";
+    rerender(<AMANSettingsHeader {...props} state={replacement} />);
+    const dialog = screen.getByRole("dialog", {name: "TMA promotion status"});
+    expect(dialog).toHaveTextContent(kind === "disabled" ? "Automatic TMA promotion is disabled." : "TMA promotion status is unavailable.");
+    expect(dialog).not.toHaveTextContent("TMA promotion is no longer paused.");
+  });
+
   it("shows the aircraft blocking TMA promotion and updates when workload recovers", () => {
     const current = structuredClone(state);
     current.header!.release_buffer = {status: "degraded", target: 10, in_approach: 2, reserved: 1, incoming: 0, projected: 3, unknown: 1, unknown_callsigns: ["GRL780"]};

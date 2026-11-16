@@ -361,6 +361,9 @@ func (s *Service) predictedTMAEntry(f aman.AMANFlight) *time.Time {
 		return &entry
 	}
 	// Legacy aggregates can still supply an unfiltered current calculation.
+	if f.RunwayChangePending {
+		return nil
+	}
 	return s.predictedTMAEntryFromCalculation(f.Prediction, fact)
 }
 

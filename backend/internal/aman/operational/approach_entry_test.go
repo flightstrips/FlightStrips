@@ -117,3 +117,49 @@ func TestApproachWorkloadStillCountsImminentTrafficAndRejectsInvalidEvidence(t *
 		})
 	}
 }
+
+func TestPendingRunwayChangeDoesNotReuseRetainedApproachTiming(t *testing.T) {
+	for _, stored := range []string{"absent", "previous runway", "selected runway"} {
+		t.Run(stored, func(t *testing.T) {
+			svc, state, at := approachFixture(t)
+			for i := range state.Flights {
+				state.Flights[i].Slot.Time = state.Flights[i].Slot.Time.Add(5 * time.Minute)
+			}
+			obs := tmaObservation(at, 1, -1, 12000)
+			raw := acceptedRawPrediction(at, at.Add(20*time.Minute))
+			raw.Calculation = &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "TMA", StartLatitude: 1, StartLongitude: -1, EndLatitude: 1, EndLongitude: 1, Duration: 2 * time.Minute}}}
+			remote := aman.AMANFlight{Callsign: "REMOTE", State: aman.StateAirborne, DataStatus: aman.DataFresh,
+				SelectedRunwayGroup: state.Flights[0].SelectedRunwayGroup, LatestObservation: &obs, Prediction: &raw}
+			svc.captureApproachEntry(&remote, raw)
+			assignFlightToRunwayGroup(&remote, "ARRIVAL-04R")
+			require.True(t, remote.RunwayChangePending)
+			require.True(t, remote.Prediction.Publishable)
+			switch stored {
+			case "absent":
+				remote.ApproachEntry = nil
+			case "selected runway":
+				svc.captureApproachEntry(&remote, raw)
+			}
+			// A release refresh can run before the pending prediction is rebuilt,
+			// including after this aggregate has been persisted and reloaded.
+			remote = cloneGapState(t, aman.AirportState{Flights: []aman.AMANFlight{remote}}).Flights[0]
+			state.Flights = append(state.Flights, remote)
+			svc.refreshHoldingPlans(&state)
+			if stored == "selected runway" {
+				require.NotNil(t, svc.predictedTMAEntry(remote), "fresh entry for the selected runway takes priority over the pending flag")
+				require.Equal(t, "ready", state.ReleaseBuffer.Status)
+				require.Equal(t, 1, state.ReleaseBuffer.Incoming)
+			} else {
+				require.Nil(t, svc.predictedTMAEntry(remote))
+				require.Equal(t, "degraded", state.ReleaseBuffer.Status)
+				require.Equal(t, []string{"REMOTE"}, state.ReleaseBuffer.UnknownCallsigns)
+				require.Zero(t, state.ReleaseBuffer.Incoming)
+				for _, f := range state.Flights[:6] {
+					require.Nil(t, f.ApproachRelease)
+				}
+			}
+			remote.RunwayChangePending = false
+			require.NotNil(t, svc.predictedTMAEntry(remote), "current legacy calculation is available after the rebuild clears the pending flag")
+		})
+	}
+}

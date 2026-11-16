@@ -217,14 +217,19 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
         })}
         <button aria-haspopup="dialog" className="aman-settings-button ml-1 bg-[#d6d6d6] text-black" onClick={() => setDseqOpen(true)} type="button">DSEQ · {desequenced}</button>
         {secondaryAccessory}
-        {releaseBuffer?.status === "degraded"
-          ? <button aria-haspopup="dialog" className="ml-auto flex items-center border border-amber-200 bg-[#3f3f3f] px-2 font-mono text-[0.68rem] font-bold text-amber-100" onClick={() => setReleaseOpen(true)} title={releaseBlockers.join("; ")} type="button">{[...stateCues, "△ TMA PAUSED"].join(" · ")}</button>
-          : <div aria-live="polite" className={cn("ml-auto flex items-center px-2 font-mono text-[0.68rem] font-bold", stateCues.length > 0 ? "border border-amber-200 bg-[#3f3f3f] text-amber-100" : "text-white")}>{stateCues.join(" · ") || "✓ READY"}</div>}
+        <div aria-live="polite" aria-atomic="true" className="ml-auto flex items-center">
+          {releaseBuffer?.status === "degraded"
+            ? <button aria-haspopup="dialog" className="flex items-center border border-amber-200 bg-[#3f3f3f] px-2 font-mono text-[0.68rem] font-bold text-amber-100" onClick={() => setReleaseOpen(true)} title={releaseBlockers.join("; ")} type="button">{[...stateCues, "△ TMA PAUSED"].join(" · ")}</button>
+            : <span className={cn("flex items-center px-2 font-mono text-[0.68rem] font-bold", stateCues.length > 0 ? "border border-amber-200 bg-[#3f3f3f] text-amber-100" : "text-white")}>{stateCues.join(" · ") || "✓ READY"}</span>}
+        </div>
       </div>
       <Dialog onOpenChange={setReleaseOpen} open={releaseOpen}>
         <DialogContent>
           <DialogTitle>TMA promotion {releaseBuffer?.status === "degraded" ? "paused" : "status"}</DialogTitle>
-          <p>{releaseBuffer?.status === "degraded" ? `${releaseBlockers.join("; ") || "approach release data needs review"}.` : "TMA promotion is no longer paused."}</p>
+          <p>{releaseBuffer?.status === "degraded" ? `${releaseBlockers.join("; ") || "approach release data needs review"}.`
+            : releaseBuffer?.status === "ready" ? "TMA promotion is no longer paused."
+            : releaseBuffer?.status === "disabled" ? "Automatic TMA promotion is disabled."
+            : "TMA promotion status is unavailable."}</p>
           {releaseBuffer && <p className="text-sm">In approach: {releaseBuffer.in_approach} · Reserved: {releaseBuffer.reserved} · Incoming: {releaseBuffer.incoming} · Unknown: {releaseBuffer.unknown}</p>}
         </DialogContent>
       </Dialog>

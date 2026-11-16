@@ -80,8 +80,15 @@ func (u ConnectionUpgrader[TType, TClient]) Upgrade(w http.ResponseWriter, r *ht
 
 	client, err := u.hub.HandleNewConnection(conn, user, authenticationEvent)
 	if err != nil {
-		span.RecordError(err)
-		slog.Warn("Failed to handle new connection", slog.Any("error", err))
+		// Admission uses the same typed rejection policy as message handling.
+		// Expected rejections are useful diagnostics, not server failures.
+		level := min(messageErrorLogLevel(err), slog.LevelWarn)
+		message := "Websocket connection rejected"
+		if level >= slog.LevelWarn {
+			span.RecordError(err)
+			message = "Failed to handle new connection"
+		}
+		slog.Log(ctx, level, message, slog.String("cid", user.GetCid()), slog.Any("error", err))
 		return
 	}
 

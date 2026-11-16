@@ -7,10 +7,10 @@ import {formatGainLoss} from "./presentation";
 
 const GAIN_LOSS_CONTEXT = {authoritative: true, connected: true, fresh: true};
 
-const formatEAT = (value: string | null | undefined): string => {
-  if (!value) return "--:--";
+const formatEAT = (value: string | null | undefined): string | null => {
+  if (!value) return null;
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "--:--" : `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
+  return Number.isNaN(date.getTime()) ? null : `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
 };
 
 export function moveIntentFor(flights: AMANFlight[], from: number, to: number): AMANCommandIntent | null {
@@ -52,6 +52,9 @@ export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, o
       {flights.map((flight, index) => {
         const isSelected = selected === flight.callsign;
         const gainLoss = flight.gain_loss_seconds;
+        const time = formatEAT(eats[flight.callsign]) ?? formatEAT(flight.holding_fix_eta);
+        const tmaProtected = flight.freeze_reason === "tma";
+        const unavailableTimeLabel = `${tmaProtected ? "TMA entry protection; " : ""}holding-fix ETA / EAT unavailable`;
         return (
           <div
             aria-label={`${flight.callsign} sequence position ${index + 1}`}
@@ -84,7 +87,13 @@ export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, o
             </span>
             <span className="flex items-center gap-3">
               <span className="w-9 text-right">{gainLoss === null ? "" : formatGainLoss(gainLoss, GAIN_LOSS_CONTEXT)}</span>
-              <span className="w-12 text-right">{formatEAT(eats[flight.callsign] ?? flight.holding_fix_eta)}</span>
+              <span
+                className={cn("w-12 text-right", time === null && "text-[#a9bdc5]")}
+                title={time === null ? unavailableTimeLabel : "Holding-fix ETA / EAT (UTC)"}
+              >{time ?? <>
+                <span aria-hidden="true">{tmaProtected ? "TMA" : "—"}</span>
+                <span className="sr-only">{unavailableTimeLabel}</span>
+              </>}</span>
             </span>
           </div>
         );

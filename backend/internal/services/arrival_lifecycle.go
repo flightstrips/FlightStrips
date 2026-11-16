@@ -37,6 +37,7 @@ const (
 	arrivalDisconnectGrace    = 5 * time.Minute
 
 	defaultArrivalSweepInterval = 30 * time.Second
+	arrivalPromotionConflictReason = "arrival promotion blocked: current stand is occupied and no safe replacement is available; retry pending"
 )
 
 type ArrivalLifecycleService struct {
@@ -454,6 +455,9 @@ func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session in
 		result, reallocateErr := s.allocations.Reallocate(ctx, request)
 		if reallocateErr == nil {
 			s.recordArrivalStagePromotion(ctx, existing, result.Assignment)
+		} else if errors.Is(reallocateErr, ErrNoAvailableStand) || errors.Is(reallocateErr, ErrNoPolicyStand) ||
+			errors.Is(reallocateErr, ErrNoCompatibleStand) || errors.Is(reallocateErr, ErrAutomaticAllocationSuppressed) {
+			return s.recordArrivalPromotionConflict(ctx, existing, eta, request.ETASource)
 		}
 		err = reallocateErr
 		return err
@@ -487,6 +491,27 @@ func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session in
 	return reallocateErr
 }
 
+func (s *ArrivalLifecycleService) recordArrivalPromotionConflict(ctx context.Context, existing *models.StandAssignment, eta *time.Time, etaSource *string) error {
+	if existing.ConflictReason != nil && *existing.ConflictReason == arrivalPromotionConflictReason &&
+		!arrivalTimingChanged(existing, eta, etaSource) {
+		return nil
+	}
+	updated := *existing
+	updated.ETA = eta
+	updated.ETASource = etaSource
+	reason := arrivalPromotionConflictReason
+	updated.ConflictReason = &reason
+	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("arrival promotion conflict update version conflict for %s", existing.Callsign)
+	}
+	updated.Version++
+	return s.allocations.PublishAssignment(ctx, updated)
+}
+
 func (s *ArrivalLifecycleService) recordArrivalStagePromotion(ctx context.Context, existing *models.StandAssignment, promoted models.StandAssignment) {
 	if existing == nil || existing.Stage == promoted.Stage {
 		return
@@ -511,6 +536,11 @@ func (s *ArrivalLifecycleService) reallocateIfBlocked(ctx context.Context, sessi
 		return err
 	}
 	if available {
+		if existing.ConflictReason != nil && *existing.ConflictReason == arrivalPromotionConflictReason {
+			resolved := *existing
+			resolved.ConflictReason = nil
+			return s.updateArrivalInPlace(ctx, &resolved, existing.Stage, eta, request.ETASource, existing.ExpiresAt)
+		}
 		if arrivalTimingChanged(existing, eta, request.ETASource) {
 			return s.updateArrivalInPlace(ctx, existing, existing.Stage, eta, request.ETASource, existing.ExpiresAt)
 		}
@@ -581,6 +611,9 @@ func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, exis
 	updated.ETASource = etaSource
 	updated.ExpiresAt = expiresAt
 	updated.AssignedAt = &now
+	if updated.ConflictReason != nil && *updated.ConflictReason == arrivalPromotionConflictReason {
+		updated.ConflictReason = nil
+	}
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {
 		return err

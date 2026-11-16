@@ -4,9 +4,11 @@ import { HalfStrip } from "./HalfStrip";
 import { getHalfStripFrameColor } from "./halfStripFrame";
 import { COLOR_DEP_STRIP_BG, SELECTION_COLOR } from "./shared";
 
+const stripState = vi.hoisted(() => ({ selectedCallsign: null as string | null }));
+
 vi.mock("@/store/store-hooks", () => ({
   useControllers: () => [],
-  useSelectedCallsign: () => null,
+  useSelectedCallsign: () => stripState.selectedCallsign,
   useSelectStrip: () => vi.fn(),
   useTagRequestArmed: () => false,
   useMarkArmed: () => false,
@@ -35,7 +37,7 @@ describe("compact special-strip frames", () => {
   it("flashes the request background instead of keeping the compact strip pink", () => {
     vi.useFakeTimers();
     try {
-      const { unmount } = render(<HalfStrip callsign="SAS123" />);
+      const { unmount } = render(<HalfStrip callsign="SAS123" selectable />);
       const callsign = screen.getByText("SAS123");
       const strip = callsign.parentElement!;
       expect(strip.style.backgroundImage).toBe(`linear-gradient(${SELECTION_COLOR}, ${SELECTION_COLOR})`);
@@ -50,6 +52,19 @@ describe("compact special-strip frames", () => {
       unmount();
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it("uses black text when a tag request is selected", () => {
+    stripState.selectedCallsign = "SAS123";
+    try {
+      const { unmount } = render(<HalfStrip callsign="SAS123" selectable />);
+      const callsign = screen.getByText("SAS123");
+      expect(callsign.style.backgroundColor).toBe(SELECTION_COLOR);
+      expect(callsign.style.color).toBe("black");
+      unmount();
+    } finally {
+      stripState.selectedCallsign = null;
     }
   });
 });

@@ -392,8 +392,9 @@ func (s *StandAllocationService) ReconcileUnsafeAssignments(ctx context.Context,
 		JOIN stand_assignments m ON m.id = r.manual_id
 		WHERE e.session_id = $1 AND m.session_id = $1
 		AND e.stage = 'ESTIMATED' AND e.direction = 'ARRIVAL'
+		AND e.conflict_reason IS DISTINCT FROM $2
 		AND m.stage = 'ASSIGNED' AND m.direction = 'ARRIVAL' AND m.manual
-		AND e.stand = r.estimated_stand AND m.stand = r.manual_stand`, session)
+		AND e.stand = r.estimated_stand AND m.stand = r.manual_stand`, session, arrivalPromotionConflictReason)
 	if err != nil {
 		return err
 	}

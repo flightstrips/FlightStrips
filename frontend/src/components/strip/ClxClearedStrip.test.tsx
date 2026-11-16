@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   strips: [] as { callsign: string; validation_status?: ValidationStatus }[],
   localMarked: {} as Record<string, boolean>,
   runwayStatus: {} as Record<string, string>,
+  selectedCallsign: null as string | null,
   transfers: {} as Record<string, { from: string; to: string; isTagRequest: boolean }>,
 }));
 
@@ -19,7 +20,7 @@ vi.mock("./ValidationStatusDialog", () => ({ ValidationStatusDialog: () => null 
 
 vi.mock("@/store/store-hooks", () => ({
   useControllers: () => [],
-  useSelectedCallsign: () => null,
+  useSelectedCallsign: () => state.selectedCallsign,
   useSelectStrip: () => vi.fn(),
   useTagRequestArmed: () => false,
   useMarkArmed: () => false,
@@ -83,6 +84,22 @@ describe("CLR DEL cleared-strip background", () => {
       unmount();
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it("uses black text for a selected tag request on a closed runway", () => {
+    state.runwayStatus = { "04L-22R": "CLOSED" };
+    state.transfers = { SAS123: { from: "121.905", to: "119.905", isTagRequest: true } };
+    state.selectedCallsign = "SAS123";
+    try {
+      render(<ClxClearedStrip callsign="SAS123" bay={Bay.Cleared} runway="04L" selectable />);
+      const callsign = screen.getByRole("button", { name: "SAS123" });
+      expect(callsign.style.backgroundColor).toBe(SELECTION_COLOR);
+      expect(callsign.style.color).toBe("black");
+    } finally {
+      state.runwayStatus = {};
+      state.transfers = {};
+      state.selectedCallsign = null;
     }
   });
 

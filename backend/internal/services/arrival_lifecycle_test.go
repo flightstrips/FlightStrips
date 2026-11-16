@@ -160,7 +160,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS301", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
 		require.NoError(t, err)
 
-		clock.set(arrivalETA.Add(-40 * time.Minute))
+		clock.set(arrivalETA.Add(5 * time.Minute))
 
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS301"), arrivalFlight("SAS301", 1)))
 
@@ -221,6 +221,109 @@ func TestArrivalLifecycle(t *testing.T) {
 		var retainedOverlaps int
 		require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM stand_retained_estimates WHERE estimated_id = $1", retained.ID).Scan(&retainedOverlaps))
 		assert.Zero(t, retainedOverlaps, "promotion ends the recorded overlap")
+	})
+
+	t.Run("sweep preserves shared estimate until blocked promotion becomes an advisory", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(45 * time.Minute)
+		clock.set(arrivalETA.Add(-45 * time.Minute))
+		seedTestArrivalStrip(t, queries, session, "SAS307")
+		seedTestArrivalStrip(t, queries, session, "SAS308")
+		seedTestArrivalStrip(t, queries, session, "SAS309")
+		setArrivalETA(t, strips, session, "SAS307", arrivalETA)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS307"), arrivalFlight("SAS307", 1)))
+		estimated, err := assignments.GetAssignment(ctx, session, "SAS307")
+		require.NoError(t, err)
+
+		actions := NewStandActionService(allocations, assignments, strips, nil, nil, nil)
+		_, err = actions.AssignManually(ctx, session, "EKCH", "GND", "SAS308", estimated.Stand, 0)
+		require.NoError(t, err)
+		otherStand := "A1"
+		if estimated.Stand == otherStand {
+			otherStand = "A2"
+		}
+		_, err = actions.AssignManually(ctx, session, "EKCH", "GND", "SAS309", otherStand, 0)
+		require.NoError(t, err)
+
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		retained, err := assignments.GetAssignment(ctx, session, "SAS307")
+		require.NoError(t, err)
+		assert.Equal(t, estimated.Stand, retained.Stand)
+		assert.Equal(t, StageEstimated, retained.Stage)
+
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS307", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+		require.NoError(t, err)
+		clock.set(arrivalETA.Add(5 * time.Minute))
+		arrivingStrip := loadStrip(t, strips, session, "SAS307")
+		assert.Equal(t, arrivalStagePriority(StageAssigned), lifecycle.ArrivalProcessingPriority(arrivingStrip, arrivalFlight("SAS307", 2), retained))
+		promotionRequest := lifecycle.buildRequest(session, arrivingStrip, arrivalFlight("SAS307", 2), StageAssigned, arrivalETATime(arrivingStrip), nil)
+		available, err := allocations.StandAvailable(ctx, promotionRequest, estimated.Stand)
+		require.NoError(t, err)
+		assert.False(t, available, "both stands are occupied by manual arrivals")
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, arrivingStrip, arrivalFlight("SAS307", 2)))
+		blocked, err := assignments.GetAssignment(ctx, session, "SAS307")
+		require.NoError(t, err)
+		assert.Equal(t, StageEstimated, blocked.Stage, "a blocked promotion remains retryable")
+		require.NotNil(t, blocked.ConflictReason)
+		assert.Equal(t, arrivalPromotionConflictReason, *blocked.ConflictReason)
+
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		advisory, err := assignments.GetAssignment(ctx, session, "SAS307")
+		require.NoError(t, err)
+		assert.Empty(t, advisory.Stand)
+		require.NotNil(t, advisory.ConflictReason)
+		assert.Contains(t, *advisory.ConflictReason, "physically displaced")
+
+		otherManual, err := assignments.GetAssignment(ctx, session, "SAS309")
+		require.NoError(t, err)
+		require.NoError(t, allocations.ReleaseAssignment(ctx, otherManual))
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS307"), arrivalFlight("SAS307", 3)))
+		recovered, err := assignments.GetAssignment(ctx, session, "SAS307")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, recovered.Stage)
+		assert.Equal(t, otherStand, recovered.Stand)
+		assert.Nil(t, recovered.ConflictReason)
+	})
+
+	t.Run("clears blocked-promotion conflict when the original stand becomes free", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(45 * time.Minute)
+		clock.set(arrivalETA.Add(-45 * time.Minute))
+		seedTestArrivalStrip(t, queries, session, "SAS310")
+		seedTestArrivalStrip(t, queries, session, "SAS311")
+		seedTestArrivalStrip(t, queries, session, "SAS312")
+		setArrivalETA(t, strips, session, "SAS310", arrivalETA)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS310"), arrivalFlight("SAS310", 1)))
+		estimated, err := assignments.GetAssignment(ctx, session, "SAS310")
+		require.NoError(t, err)
+		actions := NewStandActionService(allocations, assignments, strips, nil, nil, nil)
+		_, err = actions.AssignManually(ctx, session, "EKCH", "GND", "SAS311", estimated.Stand, 0)
+		require.NoError(t, err)
+		otherStand := "A1"
+		if estimated.Stand == otherStand {
+			otherStand = "A2"
+		}
+		_, err = actions.AssignManually(ctx, session, "EKCH", "GND", "SAS312", otherStand, 0)
+		require.NoError(t, err)
+
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS310", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+		require.NoError(t, err)
+		clock.set(arrivalETA.Add(5 * time.Minute))
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS310"), arrivalFlight("SAS310", 2)))
+		blocked, err := assignments.GetAssignment(ctx, session, "SAS310")
+		require.NoError(t, err)
+		require.NotNil(t, blocked.ConflictReason)
+		assert.Equal(t, arrivalPromotionConflictReason, *blocked.ConflictReason)
+
+		manualOnOriginalStand, err := assignments.GetAssignment(ctx, session, "SAS311")
+		require.NoError(t, err)
+		require.NoError(t, allocations.ReleaseAssignment(ctx, manualOnOriginalStand))
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS310"), arrivalFlight("SAS310", 3)))
+		recovered, err := assignments.GetAssignment(ctx, session, "SAS310")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, recovered.Stage)
+		assert.Equal(t, estimated.Stand, recovered.Stand)
+		assert.Nil(t, recovered.ConflictReason)
 	})
 
 	t.Run("transitions to CONFIRMED at ETA−2 min and below 3000 ft", func(t *testing.T) {

@@ -205,7 +205,7 @@ export default function AMAN() {
             {activeTmtTab === "unslotted" && <div aria-labelledby="tmt-unslotted-tab" id="tmt-unslotted-panel" role="tabpanel" tabIndex={0}>
               <AMANUnslottedFlights flights={state?.flights ?? []} disabled={mutationBlockReason !== null} onInsert={setInsertCallsign} />
             </div>}
-            {activeTmtTab === "excluded" && <div aria-labelledby="tmt-excluded-tab" id="tmt-excluded-panel" role="tabpanel" tabIndex={0}>
+            {activeTmtTab === "excluded" && <div aria-labelledby="tmt-excluded-tab" className="aman-tmt-notices" id="tmt-excluded-panel" role="tabpanel" tabIndex={0}>
               <AMANExcludedFlights flights={state?.flights ?? []} disabled={mutationBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
             </div>}
             {activeTmtTab === "ctot" && <div aria-labelledby="tmt-ctot-tab" className="aman-tmt-notices" id="tmt-ctot-panel" role="tabpanel" tabIndex={0}>

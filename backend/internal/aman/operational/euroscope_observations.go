@@ -152,7 +152,7 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitudeFeet, GroundspeedKnots: groundspeed, GroundspeedSource: speedSource, TrackTrueDegrees: track, ObservedAt: &current.at},
 		SurveillanceSource: aman.SurveillanceSourceEuroScope, Provider: aman.ObservationProviderEuroScope, ReconciledAt: now, SourceStatus: aman.DataFresh,
 	}
-	if airborneSurveillance(observation.Surveillance) {
+	if airborneSurveillance(observation.Surveillance) && now.Sub(current.at) <= aman.ArrivalSurveillanceFreshness {
 		observation.TakeoffDetected = &now
 	}
 	if err := observation.Validate(); err != nil {

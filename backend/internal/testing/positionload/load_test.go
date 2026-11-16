@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -24,7 +25,6 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/navigation"
-	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/services"
@@ -88,7 +88,7 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 		if s.Name() == "pool.acquire" {
 			c.pools[id] += float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond)
 		}
-		if len(s.Name()) >= 5 && s.Name()[:5] == "query" {
+		if strings.HasPrefix(s.Name(), "query ") {
 			c.queries[id]++
 			kind := "other"
 			for _, a := range s.Attributes() {
@@ -189,6 +189,9 @@ func TestPositionLoad(t *testing.T) {
 	require.NoError(t, os.Chdir("../../.."))
 	defer os.Chdir("internal/testing/positionload")
 	t.Setenv("TEST_MODE", "true")
+	aircraftFile, err := filepath.Abs("config/test/ICAO_Aircraft.json")
+	require.NoError(t, err)
+	t.Setenv("GRPLUGIN_ICAO_AIRCRAFT_JSON", aircraftFile)
 	require.NoError(t, config.InitEKCHTestConfig())
 	logger := slog.Default()
 	if os.Getenv("POSITION_LOAD_DEBUG") != "true" {
@@ -202,6 +205,10 @@ func TestPositionLoad(t *testing.T) {
 	defer otel.SetTracerProvider(old)
 	defer provider.Shutdown(context.Background())
 	server, err := e2e.StartTestServerWithConfig(func(c *app.Config) {
+		// Resolve deployment services with the production loader. The helper's
+		// metadata-only registry intentionally leaves those services disabled.
+		c.AirportFiles = []string{"backend/config/airports/ekch.airport.yaml"}
+		c.AirportRepositoryRoot = ".."
 		c.EnablePostgresTracing = true
 		c.Navigation = navigation.Config{Source: navigation.SourceAIRACNet}
 		c.EnableStandAssignment = true
@@ -210,9 +217,9 @@ func TestPositionLoad(t *testing.T) {
 		c.AMAN = aman.RuntimeConfig{Mode: aman.ModeShadow, EnabledAirports: []string{"EKCH"}}
 	})
 	require.NoError(t, err)
-	defer testdata.ShutdownTestDB()
 	defer server.Stop()
-	require.True(t, config.GetStandAssignmentReadiness().Ready, "stand lifecycle must actually be enabled")
+	require.True(t, server.App.StandAssignmentReadinessForAirport("EKCH").Ready, "stand lifecycle must actually be enabled")
+	require.True(t, server.App.AMANRuntime().Enabled(), "AMAN must actually be enabled")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	require.NoError(t, server.Queries.InsertAirport(ctx, "EKCH"))
@@ -238,7 +245,13 @@ func TestPositionLoad(t *testing.T) {
 		return err == nil && controller.Session == session.ID
 	}, 5*time.Second, 10*time.Millisecond)
 	repo := postgres.NewStripRepository(server.DBPool)
-	stands := config.GetStandCapabilities().Stands("EKCH")
+	definition, ok := server.App.Airports().Lookup("EKCH")
+	require.True(t, ok)
+	standFile, ok := definition.Resource("services.stand_assignment.stands")
+	require.True(t, ok)
+	capabilities, err := sat.LoadStandCapabilityFile(standFile)
+	require.NoError(t, err)
+	stands := capabilities.Stands("EKCH")
 	require.Greater(t, len(stands), 20)
 	arrivalPercent := 50
 	if raw := os.Getenv("POSITION_LOAD_ARRIVAL_PERCENT"); raw != "" {
@@ -607,6 +620,7 @@ func TestPositionLoad(t *testing.T) {
 		}
 	}
 	require.NotEmpty(t, times)
+	require.Positive(t, average(queries), "enabled SQL tracing must measure real position persistence work")
 	if pattern == "second-burst" {
 		require.Less(t, percentile(batchTimes, 1), 1000., "each measured batch must complete before the next second")
 	}

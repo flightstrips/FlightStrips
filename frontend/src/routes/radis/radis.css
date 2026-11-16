@@ -1,54 +1,68 @@
 @font-face { font-family: RadisRubik; src: url("../../components/text-pilot/fonts/Rubik.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+
 .radis-view { font-family: RadisRubik, var(--font-bay); height: 100svh; color: black; background: var(--color-bay-page); display: flex; flex-direction: column; }
-.radis-board { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .65vw; padding: 0 .3vw; }
+.radis-board { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .97vw; padding: 0 .48vw; }
 .radis-left, .radis-right { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.radis-board h1, .radis-board h2 { margin: 0; height: 3.9dvh; min-height: 28px; text-align: center; color: white; font: 700 clamp(14px, 1.5vw, 30px) RadisRubik, sans-serif; background: var(--color-bay-header); border: 1px solid #151515; }
-.radis-bay { min-height: 0; overflow-y: auto; padding: .3vw; background: var(--color-bay-panel); flex: 1; }
+.radis-board h1, .radis-board h2 { margin: 0; flex: none; height: 3.9dvh; min-height: 28px; display: grid; place-items: center; color: white; font: 700 clamp(16px, 1.66vw, 32px)/1 RadisRubik, sans-serif; background: var(--color-bay-header); border: 1px solid #151515; text-shadow: -1px -1px #000, 1px 1px #000, -1px 1px #000, 1px -1px #000; }
+.radis-bay { container-type: inline-size; min-height: 0; overflow-y: auto; padding: .3vw; background: var(--color-bay-panel); flex: 1; scrollbar-width: thin; scrollbar-color: var(--color-bay-page) var(--color-bay-panel); }
 .radis-runway { flex: none; height: var(--radis-runway-height); background: var(--color-bay-dark); }
-.radis-passive_bottom { border-top: 4px solid var(--color-bay-page); }
-.radis-bay.is-over { outline: 2px solid var(--color-bay-border); outline-offset: -2px; }
-.radis-runway-title { position: relative; }
-.radis-runway-title input { position: absolute; right: 1vw; top: 25%; width: 10%; height: 50%; opacity: .6; }
-.radis-strip { display: flex; background: white; width: 100%; height: auto; aspect-ratio: 9 / 1; min-height: 60px; border: 1px solid #404040; margin-bottom: .25vw; position: relative; font-size: clamp(8px, .85vw, 20px); }
+.radis-passive_bottom { border-top: 0; }
+.radis-bay.is-over { outline: 2px solid var(--color-drop-valid); outline-offset: -2px; }
+.radis-runway-title [role=separator] { display: grid; place-items: center; width: 100%; height: 100%; cursor: ns-resize; touch-action: none; user-select: none; }
+.radis-runway-title [role=separator]:focus-visible { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }
+.radis-strip { --radis-line: clamp(1px, .139cqw, 2px); display: flex; background: white; width: 100%; height: auto; aspect-ratio: 9 / 1; min-height: 72px; border: var(--radis-line) solid #404040; margin-bottom: .22cqw; position: relative; font-size: 2.05cqw; color: #2f2f2f; }
+.radis-strip > .border-r-2, .radis-times > .border-r-2 { height: auto; border-right-width: var(--radis-line); }
+.radis-strip .border-b-2 { border-bottom-width: var(--radis-line); }
 .radis-strip.is-selected { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }
 .radis-strip.is-dragging { opacity: .35; }
 .radis-strip button { cursor: pointer; }
 .radis-strip button:disabled { cursor: default; }
 .radis-strip button:focus-visible { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }
 .radis-cell-button { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; overflow: hidden; }
-.radis-cell-button small { font-size: .55em; line-height: 1.1; }
-.radis-cell-button strong { font-size: 1em; line-height: 1.3; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.radis-callsign { display: flex; flex-direction: column; justify-content: space-between; }
-.radis-callsign-title { font-family: var(--font-bay); text-align: left; padding: 0 .3vw; font-size: 1.4em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.radis-route-airports, .radis-aircraft-line { display: flex; justify-content: space-around; align-items: center; line-height: 1.2; }
-.radis-route-airports small { font-size: .65em; text-align: center; }
+.radis-cell-button strong { font-weight: 700; font-size: 1em; line-height: 1.05; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radis-labelled-cell { justify-content: flex-start; }
+.radis-labelled-cell small { font-size: .643em; line-height: 1.35; font-weight: 400; white-space: nowrap; }
+.radis-callsign { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); color: black; font-family: var(--font-bay); }
+.radis-callsign-title { text-align: left; padding: 0 .7cqw; font-size: 3.65cqw; font-weight: bold; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radis-route-airports, .radis-aircraft-line { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; text-align: center; line-height: 1; }
+.radis-route-airports > span, .radis-aircraft-line > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radis-route-airports small { display: flex; flex-direction: column; font-size: .857em; text-align: center; line-height: 1.05; overflow: hidden; }
+.radis-route-airports small span { overflow: hidden; text-overflow: ellipsis; }
+.radis-clearance-cell .border-b-2 { border-bottom: 0; }
+.radis-altitude-cell { display: flex; flex-direction: column; position: relative; }
+.radis-altitude-cell .radis-cell-button { height: 50%; align-items: flex-start; justify-content: flex-start; padding-left: .6cqw; }
+.radis-flight-rules { position: absolute; bottom: .4cqw; left: .6cqw; font-size: .857em; line-height: 1; pointer-events: none; }
 .radis-times { width: 20.8%; display: flex; }
-.radis-direction { position: relative; }
-.radis-direction-icon { position: absolute; right: 0; bottom: 0; width: 40%; height: 90%; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 1.4em; line-height: 1; }
-.radis-direction-icon img { width: auto; height: 48%; object-fit: contain; }
-.radis-notes { position: absolute; inset: 0 40% 35% 0; font-size: .6em; overflow: hidden; padding: 2px; }
-.radis-stand { position: absolute; bottom: 1px; left: 2px; font-size: .65em; line-height: 1.1; }
-.radis-strip-date { width: 4%; writing-mode: vertical-rl; transform: rotate(180deg); font-size: .6em; text-align: center; }
-.radis-drag-handle { height: 100%; width: 100%; touch-action: none; }
-.radis-commandbar { min-height: 4.72dvh; background: var(--color-bay-commandbar); display: flex; align-items: center; gap: .6vw; padding: .35vw; color: white; font-size: clamp(10px, .8vw, 18px); }
-.radis-commandbar > b { padding: .3vw .7vw; background: var(--color-bay-light); color: black; }
+.radis-direction { position: relative; color: black; }
+.radis-direction-icon { position: absolute; right: 0; bottom: 0; width: 40%; height: 90%; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 3.65cqw; font-weight: 700; line-height: 1; }
+.radis-direction-icon img { width: auto; height: 55%; object-fit: contain; }
+.radis-direction-icon strong { font-weight: 700; }
+.radis-notes { position: absolute; inset: 0 40% 35% 0; font-size: .643em; overflow: hidden; padding: .3cqw; text-align: left; }
+.radis-stand { position: absolute; bottom: .3cqw; left: .4cqw; font-size: .643em; line-height: 1.25; }
+.radis-strip-date { flex: 1; min-width: 0; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 1.17cqw; font-weight: 700; text-align: center; }
+.radis-drag-handle { height: 100%; width: 100%; touch-action: none; white-space: nowrap; }
+.radis-commandbar { flex: none; height: 4.72dvh; min-height: 42px; background: var(--color-bay-commandbar); display: flex; align-items: center; gap: .48vw; padding: .3dvh .3vw; color: white; font-size: clamp(10px, 1.04vw, 20px); font-weight: 700; }
+.radis-commandbar button { flex: none; border-radius: 0; height: 100%; padding: 0 .5vw; min-width: 3.9vw; background: var(--color-bay-btn); color: white; font: inherit; border: 1px solid; border-color: var(--color-bay-border) #393939 #393939 var(--color-bay-border); box-shadow: 1px 1px 1px #212121; }
+.radis-commandbar > button[aria-label="Switch airport session"] { display: flex; flex-direction: column; justify-content: center; gap: 2px; line-height: 1; width: 9.7vw; min-width: 76px; margin-right: .8vw; border: 0; background: #1bff16; color: #202020; font-size: 1.66vw; }
+.radis-commandbar > button[aria-label="Switch airport session"] small { font-size: .4em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.radis-toolbar-field { align-self: stretch; display: flex; align-items: center; gap: .9vw; margin-right: .7vw; }
+.radis-toolbar-field > button, .radis-toolbar-field > b, .radis-commandbar > b { display: grid; place-items: center; height: 100%; background: var(--color-bay-light); color: #202020; border: 0; box-shadow: none; min-width: 4.8vw; padding: 0 .6vw; }
+.radis-toolbar-field:nth-of-type(3) > b { background: var(--color-bay-dark); color: white; }
+.radis-commandbar > .radis-toolbar-atis { min-width: 3.4vw; }
+.radis-commandbar > .radis-toolbar-wind { min-width: 8.4vw; font-size: .85em; }
 .radis-toolbar-space { flex: 1; }
-.radis-dialog { font-family: RadisRubik, var(--font-bay); background: var(--color-bay-light); color: black; width: min(460px, 95vw); max-height: 90svh; overflow-y: auto; }
-.radis-dialog input:not([type=checkbox]), .radis-dialog select { border: 1px solid #666; background: white; padding: .35rem; width: 100%; }
+.radis-commandbar button:hover { filter: brightness(1.12); }
+.radis-commandbar button:disabled { filter: none; opacity: .5; }
+.radis-dialog { font-family: RadisRubik, var(--font-bay); color: black; width: min(460px, 95vw); max-height: 90svh; overflow-y: auto; border: 1px solid #202020; border-radius: 0; padding: 12px; background: var(--color-bay-header-light); gap: 12px; }
+.radis-dialog input:not([type=checkbox]), .radis-dialog select { border: 1px solid #666; background: white; padding: .35rem; width: 100%; border-radius: 0; font-family: inherit; }
 .radis-dialog-actions { display: flex; justify-content: space-between; margin-top: 1rem; }
-.radis-menu-presets { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.radis-menu-presets { flex-wrap: wrap; margin-top: 1rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 0 10px; gap: 8px; }
 .radis-fpl { width: min(660px, 95vw); background: white; }
-.radis-fpl fieldset { border: 1px solid #888; padding: .5rem; }
-.radis-fpl legend { text-align: center; font-size: .75rem; }
-.radis-fpl-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; gap: .75rem .35rem; margin-bottom: .5rem; }
-.radis-fpl-grid > label { min-width: 0; font-size: .7rem; }
-.radis-fpl-field { display: flex; flex-direction: column; text-align: center; min-width: 0; font-size: .75rem; }
+.radis-fpl-grid > label { min-width: 0; }
 .radis-fpl-field button { border: 1px solid #888; background: #e4e4e4; padding: .15rem; min-height: 1.5rem; overflow-wrap: anywhere; font-size: .9rem; font-weight: bold; }
-.radis-fpl-field button:disabled { background: #aaa7ab; }
-.radis-fpl-wide { display: grid; gap: .5rem; margin: .75rem 0; }
 
-.radis-clock { width: 7vw; min-width: 80px; align-self: stretch; background: var(--color-bay-light); color: black; }
-.radis-keypad { display: grid; grid-template-columns: repeat(3,1fr); gap: .5rem; margin-top: 1rem; }
+.radis-clock { width: 5.2vw; font-size: .58em; font-weight: 700; min-width: 80px; align-self: stretch; background: var(--color-bay-light); color: black; }
+.radis-keypad { display: grid; grid-template-columns: repeat(3,1fr); margin-top: 1rem; margin: 0; gap: 8px; }
 
 .radis-creation { width: min(640px,95vw); }
 .radis-local-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin-bottom:1rem; }
@@ -61,3 +75,61 @@
 .radis-service-controls {display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
 .radis-service-controls label {display:flex;gap:.5rem;align-items:center;}
 .radis-service-controls input {width:5rem;}
+
+/* Use the existing FlightStrips raised buttons inside the Figma panel frame. */
+
+.radis-dialog button:not([role=checkbox]) { border-radius: 0; font-family: inherit; font-weight: 700; }
+.radis-dialog button:not([role=checkbox]):not(:disabled):hover { filter: brightness(1.08); }
+
+.radis-dialog .radis-dialog-actions > button { background: #3f3f3f; color: white; border-radius: 0; }
+.radis-edit-dialog { width: min(320px, 95vw); padding: 8px; }
+.radis-edit-dialog.radis-numeric-dialog { width: min(280px, 95vw); }
+.radis-edit-panel { border: 1px solid #393939; padding: 10px; }
+.radis-edit-value { margin: 8px 0; }
+.radis-edit-dialog input { height: 46px; text-align: center; font-size: 22px; font-weight: 700; }
+.radis-edit-dialog .radis-dialog-actions { gap: 8px; margin-top: 10px; }
+.radis-edit-dialog .radis-dialog-actions > button { height: 44px; font-size: 20px; flex: 1; }
+
+.radis-keypad > button { height: 52px; padding: 0; font-size: 22px; box-shadow: 1px 2px 2px #777; }
+.radis-keypad input { grid-column: span 2; height: 52px !important; }
+.radis-keypad-corrections { display: flex; gap: 8px; margin-top: 8px; }
+.radis-keypad-corrections > button { flex: 1; padding: 0 4px; }
+
+.radis-menu-presets > button { height: 44px; font-size: 20px; }
+.radis-menu-presets > button[aria-pressed=true] { background: #1bff16; }
+@media (max-width: 1200px) {
+  .radis-commandbar { gap: 4px; font-size: 11px; }
+  .radis-toolbar-field { gap: 5px; margin-right: 4px; }
+  .radis-commandbar > button[aria-label="Switch airport session"] { font-size: 18px; margin-right: 4px; }
+  .radis-commandbar > .radis-toolbar-wind { min-width: 65px; }
+  .radis-clock { min-width: 65px; }
+}
+
+.radis-dialog.radis-fpl { width: min(760px, 95vw); padding: 20px 24px 16px; background: #d4d4d4; gap: 8px; }
+.radis-fpl fieldset { padding: 14px 20px 12px; border: 1px solid #555; }
+.radis-fpl legend { text-align: center; padding: 0 6px; font-size: 14px; font-weight: 400; }
+.radis-fpl-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; gap: 4px; margin-bottom: 0; }
+.radis-fpl-field { display: flex; flex-direction: column; text-align: center; min-width: 0; font-size: 14px; font-weight: 400; line-height: 1.15; }
+.radis-fpl-field button, .radis-fpl-field select { border: 1px solid #555; background: #ededed; min-height: 32px; padding: 1px 4px; font: 700 20px/1.15 RadisRubik, sans-serif; }
+.radis-fpl-field button:disabled { opacity: 1; color: black; background: #a29da2; }
+.radis-fpl-timing { display: flex; justify-content: space-between; margin: 18px 0 24px; }
+.radis-fpl-timing .radis-fpl-field { min-width: 74px; }
+.radis-fpl-timing .radis-fpl-field:nth-child(2) { min-width: 110px; }
+.radis-fpl-performance { display: grid; grid-template-columns: 1.6fr 1fr 1fr 3fr; gap: 8px; }
+.radis-fpl-wide { display: grid; gap: 12px; margin: 18px 0 24px; }
+.radis-fpl-wide .radis-fpl-field { text-align: left; }
+.radis-fpl .radis-fpl-wide button { text-align: left; font-size: 13px; font-weight: 400; }
+.radis-fpl-wide .radis-fpl-field:first-child button { min-height: 60px; text-align: center; }
+.radis-fpl-clearance { gap: 10px; }
+.radis-fpl-clearance input[type=checkbox] { width: 100%; height: 32px; margin: 0; appearance: none; border: 1px solid #555; background: #ededed; cursor: pointer; }
+.radis-fpl-clearance input[type=checkbox]:checked { background: #1bff16; }
+.radis-fpl-clearance input[type=checkbox]:checked::after { content: "✓"; display: block; text-align: center; color: black; font-size: 22px; }
+.radis-fpl-arrival { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 26px; padding: 12px 0 20px; }
+.radis-fpl-dismiss { justify-self: center; margin-top: 4px; width: 92px; height: 44px; }
+@media (max-width: 700px) {
+  .radis-dialog.radis-fpl { padding: 12px; }
+  .radis-fpl fieldset { padding: 10px; }
+  .radis-fpl-field { font-size: 11px; }
+  .radis-fpl-field button, .radis-fpl-field select { font-size: 14px; }
+  .radis-fpl-arrival, .radis-fpl-clearance { gap: 5px; }
+}

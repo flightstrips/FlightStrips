@@ -3,7 +3,7 @@ import {fireEvent, render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {WebSocketState} from "@/store/store";
-import type {AMANHoldingEntry, AMANState} from "@/api/aman";
+import type {AMANFlight, AMANHoldingEntry, AMANState} from "@/api/aman";
 import AMAN from "./AMAN";
 
 const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeListeners, storeState} = vi.hoisted(() => ({
@@ -100,6 +100,8 @@ describe("AMAN route authorization", () => {
     storeState.sendAMANCommand.mockClear();
     storeState.amanState = null;
     storeState.amanFMPAuthority = false;
+    storeState.amanConnectionState = "connected";
+    storeState.readOnly = false;
   });
 
   it.each([true, false])("gates insertion on surveillance independently of prediction status (fresh=%s)", (fresh) => {
@@ -128,6 +130,43 @@ describe("AMAN route authorization", () => {
     fireEvent.change(screen.getByLabelText("Swap with"), {target: {value: "SAS456"}});
     fireEvent.click(screen.getByRole("button", {name: "Swap aircraft"}));
     expect(storeState.sendAMANCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.swap_flights", callsign: "SAS123", other_callsign: "SAS456"});
+  });
+
+  it.each([
+    {overrides: {freeze_reason: "manual"}, reason: "A manual freeze protects this aircraft. Release the manual freeze in FMP controls to swap it."},
+    {overrides: {freeze_reason: "tma"}, reason: "A TMA freeze protects this aircraft from sequence changes."},
+    {overrides: {lifecycle_state: "airborne"}, reason: "This aircraft is airborne but has not entered an eligible sequencing state yet."},
+    {overrides: {slot: null}, reason: "This aircraft has no assigned sequence slot."},
+    {overrides: {expedited: true}, reason: "This aircraft is expedited and outside the sequence. Resume sequencing to swap it."},
+    {overrides: {sequence_disposition: "desequenced"}, reason: "This aircraft is de-sequenced. Resume sequencing to swap it."},
+  ] satisfies {overrides: Partial<AMANFlight>; reason: string}[])("shows the swap restriction in the aircraft menu: $reason", ({overrides, reason}) => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = authoritativeState([{
+      callsign: "SAS123", star_family: "MONAK", runway_group_id: "ARRIVAL-22L", freeze_reason: "none",
+      lifecycle_state: "stable", slot: {sequence: 1, time: "2026-07-22T12:10:00Z"}, ...overrides,
+    }]);
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    const swap = screen.getByRole("button", {name: "Swap sequence"});
+    expect(swap).toBeDisabled();
+    expect(swap).toHaveAccessibleDescription(`Swap unavailable: ${reason}`);
+    expect(screen.getByText(`Swap unavailable: ${reason}`)).toBeVisible();
+    fireEvent.click(swap);
+    expect(storeState.sendAMANCommand).not.toHaveBeenCalled();
+  });
+
+  it("explains session restrictions and updates when authority is restored", () => {
+    storeState.amanState = authoritativeState([{
+      callsign: "SAS123", star_family: "MONAK", runway_group_id: "ARRIVAL-22L", freeze_reason: "none",
+      lifecycle_state: "stable", slot: {sequence: 1, time: "2026-07-22T12:10:00Z"},
+    }]);
+    const {rerender} = render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    expect(screen.getByRole("button", {name: "Swap sequence"})).toHaveAccessibleDescription("Swap unavailable: FMP authority is required to change the sequence.");
+    storeState.amanFMPAuthority = true;
+    rerender(<AMAN />);
+    expect(screen.getByRole("button", {name: "Swap sequence"})).toBeEnabled();
+    expect(screen.queryByText(/Swap unavailable:/)).not.toBeInTheDocument();
   });
 
   it("keeps FMP controls unauthorized without a server-backed capability", () => {

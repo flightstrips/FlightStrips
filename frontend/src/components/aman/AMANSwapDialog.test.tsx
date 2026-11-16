@@ -25,11 +25,12 @@ describe("AMAN sequence swap", () => {
       flight("EXPEDITED", 4, {expedited: true}),
       flight("DESEQUENCED", 4, {sequence_disposition: "desequenced"}),
       flight("NO-SLOT", 4, {slot: null}),
-    ]} disabled={false} busy={false} rejection={null} onClose={vi.fn()} onCommand={onCommand} />);
+    ]} mutationBlockReason={null} busy={false} rejection={null} onClose={vi.fn()} onCommand={onCommand} />);
     expect(screen.getAllByRole("option").map(option => option.textContent)).toEqual([
       "Select aircraft", "SAS234 · #2 · 12:10 UTC", "SAS456 · #3 · 12:10 UTC",
     ]);
     expect(screen.getByRole("button", {name: "Swap aircraft"})).toBeDisabled();
+    expect(screen.getByRole("button", {name: "Swap aircraft"})).toHaveAccessibleDescription("Select an aircraft to swap with.");
     fireEvent.change(screen.getByLabelText("Swap with"), {target: {value: "SAS456"}});
     fireEvent.click(screen.getByRole("button", {name: "Swap aircraft"}));
     expect(onCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.swap_flights", callsign: "SAS123", other_callsign: "SAS456"});
@@ -44,7 +45,7 @@ describe("AMAN sequence swap", () => {
     const selected = flight("CCA808", 1, {freeze_reason: selectedFreeze});
     const other = flight("SAS1778", 2, {freeze_reason: otherFreeze});
     const onCommand = vi.fn();
-    const props = {flight: selected, flights: [selected, other], disabled: false, busy: false, rejection: null, onClose: vi.fn(), onCommand};
+    const props = {flight: selected, flights: [selected, other], mutationBlockReason: null, busy: false, rejection: null, onClose: vi.fn(), onCommand};
     const {rerender} = render(<AMANSwapDialog {...props} />);
     fireEvent.change(screen.getByLabelText("Swap with"), {target: {value: "SAS1778"}});
     expect(screen.getByRole("button", {name: "Swap aircraft"})).toBeEnabled();
@@ -54,28 +55,53 @@ describe("AMAN sequence swap", () => {
     expect(onCommand).toHaveBeenCalledExactlyOnceWith({type: "aman.swap_flights", callsign: "CCA808", other_callsign: "SAS1778"});
     rerender(<AMANSwapDialog {...props} flights={[selected, {...other, freeze_reason: "manual"}]} />);
     expect(screen.getByRole("button", {name: "Swap aircraft"})).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("SAS1778: A manual freeze protects this aircraft.");
   });
 
   it("revalidates the pair when authoritative updates exclude or freeze an aircraft", () => {
     const selected = flight("SAS123", 1);
     const onCommand = vi.fn();
-    const props = {flight: selected, flights: [selected, flight("SAS456", 2)], disabled: false, busy: false, rejection: null, onClose: vi.fn(), onCommand};
+    const props = {flight: selected, flights: [selected, flight("SAS456", 2)], mutationBlockReason: null, busy: false, rejection: null, onClose: vi.fn(), onCommand};
     const {rerender} = render(<AMANSwapDialog {...props} />);
     fireEvent.change(screen.getByLabelText("Swap with"), {target: {value: "SAS456"}});
     rerender(<AMANSwapDialog {...props} flights={[selected]} />);
     expect(screen.getByRole("button", {name: "Swap aircraft"})).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Two sequenced");
+    expect(screen.getByRole("status")).toHaveTextContent("SAS456 is no longer in the arrival sequence.");
     expect(onCommand).not.toHaveBeenCalled();
     rerender(<AMANSwapDialog {...props} flight={{...selected, freeze_reason: "tma"}} />);
     expect(screen.getByRole("button", {name: "Swap aircraft"})).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("A TMA freeze protects this aircraft");
   });
 
-  it.each([{disabled: true, busy: false}, {disabled: false, busy: true}])("blocks unavailable and pending swaps (%j)", (gate) => {
+  it("explains when no matching aircraft are available", () => {
+    const selected = flight("SAS123", 1);
+    render(<AMANSwapDialog flight={selected} flights={[selected, flight("OTHER-STAR", 2, {star_family: "MONAK"})]} mutationBlockReason={null} busy={false} rejection={null} onClose={vi.fn()} onCommand={vi.fn()} />);
+    expect(screen.getByRole("button", {name: "Swap aircraft"})).toHaveAccessibleDescription("No eligible aircraft on the same STAR and runway are available to swap with.");
+    expect(screen.getByRole("combobox")).toBeDisabled();
+  });
+
+  it("explains when the selected partner changes STAR", () => {
+    const selected = flight("SAS123", 1);
+    const other = flight("SAS456", 2);
+    const props = {flight: selected, flights: [selected, other], mutationBlockReason: null, busy: false, rejection: null, onClose: vi.fn(), onCommand: vi.fn()};
+    const {rerender} = render(<AMANSwapDialog {...props} />);
+    fireEvent.change(screen.getByLabelText("Swap with"), {target: {value: "SAS456"}});
+    rerender(<AMANSwapDialog {...props} flights={[selected, {...other, star_family: "MONAK"}]} />);
+    expect(screen.getByRole("button", {name: "Swap aircraft"})).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("SAS456: This aircraft is no longer on the same STAR and runway.");
+    expect(props.onCommand).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {mutationBlockReason: "disconnected", busy: false, reason: "AMAN is disconnected."},
+    {mutationBlockReason: null, busy: true, reason: "Waiting for the updated sequence…"},
+  ] as const)("blocks unavailable and pending swaps (%j)", ({reason, ...gate}) => {
     const selected = flight("SAS123", 1);
     const onCommand = vi.fn();
     render(<AMANSwapDialog flight={selected} flights={[selected, flight("SAS456", 2)]} {...gate} rejection="Protected slot prevents this swap" onClose={vi.fn()} onCommand={onCommand} />);
     expect(screen.getByRole("combobox")).toBeDisabled();
     expect(screen.getByRole("button", {name: "Swap aircraft"})).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(reason);
     expect(screen.getByRole("alert")).toHaveTextContent("Protected slot prevents this swap");
     expect(onCommand).not.toHaveBeenCalled();
   });

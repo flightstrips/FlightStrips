@@ -1,5 +1,6 @@
 import type {StripAnnotations,StripFieldEdit,StripRevision,LocalStripCreation,ConnectedFlightCandidate} from "@/api/strip-board";
 import {stripRevision} from "@/api/strip-board";
+import {VacsClient} from "@/vacs/vacs-client";
 import type { TextPilotInputs } from "@/api/models";
 import type { TextPilotDraft, FrequencyMessageResult } from "@/lib/text-pilot";
 import { isTextPilot } from "@/lib/text-pilot";
@@ -214,6 +215,7 @@ export interface WebSocketState {
   readOnly: boolean;
   positionAvailable: boolean;
   localIp: string;
+  vacsClient: VacsClient;
   masterCallsign: string;
   followRecommendedLayout: boolean;
   layoutChooserOpen: boolean;
@@ -352,6 +354,7 @@ export interface WebSocketState {
 
 // Create the store using createVanilla
 export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: WebSocketState, deferSubscriptions = false) => {
+  const vacsClient = new VacsClient(wsClient);
   let disposed = false;
   let lifecycleVersion = 0;
   const subscriptions: Array<() => void> = [];
@@ -541,6 +544,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
 
     return {
      ...initialState,
+     vacsClient,
      selectStrip: (callsign) => set((state) => {
        const transfer = callsign ? state.stripTransfers[callsign] : undefined;
        return { selectedCallsign: transfer && !transfer.isTagRequest ? null : callsign };
@@ -548,8 +552,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
      selectAMANFlight: (callsign) => set({amanSelectedCallsign: callsign}),
      setAMANConnectionState: (connectionState) => set({
        amanConnectionState: connectionState,
-       amanAwaitingSnapshot: true,
-       ...(connectionState === "disconnected" ? {amanFMPAuthority: false} : {}),
+       // React may publish the open state after the socket has already delivered
+       // its snapshots. Only loss invalidates them; a late open effect must not
+       // turn an accepted replacement back into a pending initialization.
+       ...(connectionState === "disconnected" ? {amanAwaitingSnapshot: true, amanFMPAuthority: false} : {}),
      }),
      setAMANSelectedView: (view) => {
        const selected = resolveAMANView(get().amanState, view);
@@ -1277,6 +1283,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
 
   const suspendBoard = () => {
     if (disposed) return;
+    vacsClient.invalidate();
     lifecycleVersion++;
     wsClient.setReadOnly?.(true);
     for (const [id, pending] of pendingFrequencyMessages) {
@@ -2148,6 +2155,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     if (disposed) return;
     suspendBoard();
     disposed = true;
+    vacsClient.stop();
     for (const off of subscriptions) off();
   }});
 };

@@ -20,7 +20,7 @@ export interface AMANAircraftTargetField {
 }
 
 export interface AMANAircraftTargetProps {
-  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "expedited" | "runway_gap_exception" | "basic_estimate">;
+  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "expedited" | "runway_gap_exception" | "basic_estimate" | "approach_release_forecast_time">;
   guidance: Omit<AMANGainLossPresentationContext, "fresh">;
   selected?: boolean;
   disabled?: boolean;
@@ -95,10 +95,13 @@ export function AMANAircraftTarget({
   const lifecycle = lifecyclePresentation(flight);
   const retainedGuidance = !guidance.connected || flight.data_status !== "fresh";
   const guidanceTone = retainedGuidance ? "text-[#a0a0a0]" : delayTone(delay);
-  const guidanceTitle = retainedGuidance ? "Last known gain/lose; awaiting current prediction" : undefined;
+  const forecastRelease = flight.approach_release_forecast_time;
+  const guidanceTitle = retainedGuidance ? "Last known gain/lose; awaiting current prediction"
+    : forecastRelease ? `Gain/lose includes forecast approach absorption. Forecast release ${new Date(forecastRelease).toISOString().slice(11, 19)} UTC; release is not committed.` : undefined;
+  const displayedDelay = forecastRelease && delay !== "Unavailable" ? `~${delay}` : delay;
   return (
     <button
-      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${flight.basic_estimate ? "; Basic estimate" : ""}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
+      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${forecastRelease ? "; Forecast approach release; not committed" : ""}${flight.basic_estimate ? "; Basic estimate" : ""}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
       aria-pressed={selected}
       className={cn(
         "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded border-2 border-transparent bg-transparent text-left font-mono text-[11px] font-semibold leading-none text-[#dcdcdc]",
@@ -116,12 +119,12 @@ export function AMANAircraftTarget({
       type="button"
     >
       <TargetFields fields={leadingFields} />
-      {delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{delay}</span>}
+      {delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{displayedDelay}</span>}
       <span className={cn("flex items-center", compact ? "min-w-14 px-1.5" : "min-w-20 px-2", lifecycle.tone)}>
         {flight.callsign}
         {flight.basic_estimate && <span aria-hidden="true" className="ml-0.5 shrink-0 font-normal">≈</span>}
       </span>
-      {!delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{delay}</span>}
+      {!delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{displayedDelay}</span>}
       <TargetFields fields={trailingFields} />
       <span className="sr-only">{lifecycle.label}</span>
       {flight.runway_gap_exception && <span className="flex items-center border-l border-dashed border-amber-200 bg-amber-950 px-1 text-[9px] text-amber-100" title={`Audited manual placement inside GAP ${flight.runway_gap_exception.gap_id}`}>GAP EXCEPTION</span>}

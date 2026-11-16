@@ -149,6 +149,7 @@ TEST(ProtoCodecTest, SerializesTokenAsOneofEnvelope) {
     EXPECT_EQ(envelope.token().token(), "access-token");
     EXPECT_EQ(envelope.token().version(), "2.4.0");
     EXPECT_TRUE(envelope.token().frequency_messages());
+    EXPECT_TRUE(envelope.token().vacs_relay());
     EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_TOKEN);
 }
 

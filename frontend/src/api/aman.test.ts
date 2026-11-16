@@ -95,6 +95,22 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(golden)).toBe(true);
   });
 
+  it("accepts optional approach guidance metadata and rejects unusable timing", () => {
+    const event = replacement(8);
+    event.data.flights[0].guidance_target_time = "2026-07-22T10:17:00.000Z";
+    event.data.flights[0].approach_absorption_seconds = 180;
+    event.data.flights[0].approach_release_forecast_time = "2026-07-22T10:07:00.000Z";
+    expect(isAMANStateEvent(event)).toBe(true);
+    event.data.flights[0].approach_release_forecast_time = "invalid";
+    expect(isAMANStateEvent(event)).toBe(false);
+    delete event.data.flights[0].approach_release_forecast_time;
+    event.data.flights[0].approach_absorption_seconds = -1;
+    expect(isAMANStateEvent(event)).toBe(false);
+    event.data.flights[0].approach_absorption_seconds = 180;
+    event.data.flights[0].guidance_target_time = "invalid";
+    expect(isAMANStateEvent(event)).toBe(false);
+  });
+
 	it("accepts the backend cleared-direct replacement and rejects an empty active fix", () => {
 		const cleared = replacement(8);
 		cleared.data.flights[0].route_fact = {id: "fact-clear", fix: "", observed_at: "2026-07-22T10:02:00.000Z", state: "cleared"};

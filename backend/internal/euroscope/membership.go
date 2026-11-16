@@ -154,8 +154,8 @@ func (c *Client) ApplyScopedMessage(ctx context.Context, scope *es.MembershipCon
 	if executionID != "" || origin != es.CommandOrigin_COMMAND_ORIGIN_UNSPECIFIED {
 		return shared.RejectAction("SDK result does not match an authorized execution")
 	}
-	if kind == "frequency_message_result" {
-		return shared.RejectAction("frequency result has no matching membership request")
+	if kind == "frequency_message_result" || kind == "vacs_result" {
+		return shared.RejectAction("plugin result has no matching membership request")
 	}
 	if !controllerMembershipEvent(kind) {
 		if scope.MasterEpoch != election.epoch.Load() || (!trackedMembershipEvent(kind) && c.hub.getMasterClient(c.session) != c) {
@@ -309,6 +309,7 @@ func (hub *Hub) JoinMembership(root *Client, airport string) (*Client, error) {
 	scope := &es.MembershipContext{InstanceId: t.instance, TransportGeneration: t.generation, MembershipId: fmt.Sprintf("%x", generation), SessionId: session, Airport: airport, Environment: event.Connection, Generation: generation}
 	member := &Client{transport: t, membership: scope, session: session, sessionName: event.Connection, send: make(chan events.OutgoingMessage, clientSendQueueSize), closed: make(chan struct{}), hub: hub, user: root.userSnapshot(), position: event.Position, callsign: event.Callsign, airport: airport, version: root.version, observer: event.Observer, localIP: event.LocalIp, definition: definition, workflow: workflow}
 	member.frequencyMessages.Store(root.frequencyMessages.Load())
+	member.vacsRelay.Store(root.vacsRelay.Load())
 	t.members[scope.MembershipId] = member
 	hub.clientsMu.Lock()
 	hub.clients[member] = true

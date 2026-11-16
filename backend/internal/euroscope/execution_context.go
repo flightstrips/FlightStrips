@@ -18,13 +18,14 @@ const executionLifetime = 30 * time.Second
 const squawkExecutionLifetime = 2 * time.Minute
 
 type commandExecution struct {
-	callsign string
-	response es.EventType
-	origin   es.CommandOrigin
-	epoch    uint64
-	deadline time.Time
-	deliver  func(front.FrequencyMessageResultEvent)
-	expected []byte
+	callsign    string
+	response    es.EventType
+	origin      es.CommandOrigin
+	epoch       uint64
+	deadline    time.Time
+	deliver     func(front.FrequencyMessageResultEvent)
+	deliverVacs func(front.VacsResultEvent)
+	expected    []byte
 }
 
 type executionResultKey struct{}
@@ -103,6 +104,16 @@ func (c *Client) registerExecution(event es.OutgoingMessage, origin es.CommandOr
 }
 
 func (c *Client) validateExecutionEcho(kind string, payload []byte, origin es.CommandOrigin, id string) bool {
+	if kind == "vacs_result" {
+		var event es.VacsResultEvent
+		if proto.Unmarshal(payload, &event) != nil {
+			return false
+		}
+		c.executionMu.Lock()
+		defer c.executionMu.Unlock()
+		request, ok := c.executions["vacs:"+event.RequestId]
+		return ok && request.response == es.VacsResult && time.Now().Before(request.deadline)
+	}
 	if kind == "frequency_message_result" {
 		var event es.FrequencyMessageResultEvent
 		if proto.Unmarshal(payload, &event) != nil {

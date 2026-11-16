@@ -244,6 +244,8 @@ type AMANFlight struct {
 	RawTETA                   *string                   `json:"raw_teta"`
 	OperationalTETA           *string                   `json:"operational_teta"`
 	GainLossSeconds           *int64                    `json:"gain_loss_seconds"`
+	GuidanceTargetTime        *string                   `json:"guidance_target_time,omitempty"`
+	ApproachAbsorptionSeconds *int64                    `json:"approach_absorption_seconds,omitempty"`
 	FreezeReason              AMANFreezeReason          `json:"freeze_reason"`
 	FrozenAt                  *string                   `json:"frozen_at"`
 	Confidence                *string                   `json:"confidence"`
@@ -258,6 +260,8 @@ type AMANFlight struct {
 	QueueOffers               []AMANQueueOffer          `json:"queue_offers"`
 	GoAroundConfirmation      *AMANGoAroundConfirmation `json:"go_around_confirmation"`
 	RunwayGapException        *AMANRunwayGapException   `json:"runway_gap_exception,omitempty"`
+
+	ApproachReleaseForecastTime *string `json:"approach_release_forecast_time,omitempty"`
 }
 
 type AMANRunwayGapException struct {
@@ -802,11 +806,26 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		}
 		result.Slot = &mapped
 		if predicted, available := aman.GainLossPrediction(flight); available {
-			seconds, secondsErr := aman.GainLossGuidance(predicted, flight.Slot.Time)
+			target := aman.GainLossTarget(flight, predicted)
+			seconds, secondsErr := aman.GainLossGuidance(predicted, target)
 			if secondsErr != nil {
 				return AMANFlight{}, secondsErr
 			}
 			result.GainLossSeconds = &seconds
+			if target.Before(flight.Slot.Time) {
+				result.GuidanceTargetTime, err = formatOptionalValue(target)
+				if err != nil {
+					return AMANFlight{}, err
+				}
+				absorbed := int64(flight.Slot.Time.Sub(target).Round(time.Second) / time.Second)
+				result.ApproachAbsorptionSeconds = &absorbed
+				if flight.ApproachRelease == nil && flight.ApproachGuidance != nil {
+					result.ApproachReleaseForecastTime, err = formatOptionalValue(flight.ApproachGuidance.Plan.ApproachReleaseTime)
+					if err != nil {
+						return AMANFlight{}, err
+					}
+				}
+			}
 		}
 	}
 	if flight.ETAReview != nil {

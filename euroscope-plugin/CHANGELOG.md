@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.6.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.6.0...plugin/v2.6.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **vacs:** align EuroScope call controls with VACS 3.x ([#1170](https://github.com/flightstrips/FlightStrips/issues/1170)) ([fd26ed1](https://github.com/flightstrips/FlightStrips/commit/fd26ed1e0dc69b0fe2e7a224f9f944ef48bfe778))
+* **vacs:** relay browser controls through the selected plugin ([#1168](https://github.com/flightstrips/FlightStrips/issues/1168)) ([efad871](https://github.com/flightstrips/FlightStrips/commit/efad8711f8904e473267c572f82bb5f8001a9d96))
+
+## [2.6.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.5.2...plugin/v2.6.0) (2026-11-15)
+
+
+### Features
+
+* **aman:** synchronize aircraft selection from EuroScope ([#1141](https://github.com/flightstrips/FlightStrips/issues/1141)) ([128322a](https://github.com/flightstrips/FlightStrips/commit/128322aa2e91bf6c62784bf78bedaf72c1109b50))
+
+
+### Bug Fixes
+
+* **aman:** keep forecast markers off EuroScope tags ([#1164](https://github.com/flightstrips/FlightStrips/issues/1164)) ([6de931c](https://github.com/flightstrips/FlightStrips/commit/6de931c991190f18d7835fb79efe97e3be1479dd))
+* **aman:** show guidance for concerned unassumed aircraft ([#1140](https://github.com/flightstrips/FlightStrips/issues/1140)) ([35efdbb](https://github.com/flightstrips/FlightStrips/commit/35efdbb00e55b7ea1d1a0a6c9bbcca28ef8b206f))
+* **aman:** show holding release guidance from EAT minus four minutes ([#1137](https://github.com/flightstrips/FlightStrips/issues/1137)) ([a4a960e](https://github.com/flightstrips/FlightStrips/commit/a4a960e200496f3bab5a7938c4a7bd07495b301b))
+* **aman:** stabilize early TMA release forecasts ([#1163](https://github.com/flightstrips/FlightStrips/issues/1163)) ([e761afc](https://github.com/flightstrips/FlightStrips/commit/e761afcac89eeae2fe25fddfa60a31c5f5dc4236))
+* **session:** preserve observations across airport memberships ([#1144](https://github.com/flightstrips/FlightStrips/issues/1144)) ([310e6e1](https://github.com/flightstrips/FlightStrips/commit/310e6e16329e9a115e7f5ec34b9d95c3cdb43f79))
+
 ## [2.5.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.5.1...plugin/v2.5.2) (2026-11-10)
 
 

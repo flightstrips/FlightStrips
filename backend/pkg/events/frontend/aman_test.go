@@ -8,6 +8,7 @@ import (
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/release"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 
 	"github.com/stretchr/testify/require"
@@ -39,6 +40,99 @@ func TestReleaseTimingAdvisoryIsSeparateFromIntakeBlockers(t *testing.T) {
 	require.Empty(t, event.Data.Header.ReleaseBuffer.BlockedReasons)
 	require.Equal(t, state.ReleaseBuffer.AdvisoryReasons, event.Data.Header.ReleaseBuffer.AdvisoryReasons)
 	require.Equal(t, 1, event.Data.Header.ReleaseBuffer.Projected)
+}
+
+// The times approximate the reported NSZ5YB case; this is not a live replay.
+func TestApproachReleaseAdvanceExcludesAbsorptionFromBothGuidanceTransports(t *testing.T) {
+	state := goldenAMANState()
+	state.GeneratedAt = time.Date(2026, time.November, 13, 20, 11, 0, 0, time.UTC)
+	flight := &state.Flights[0]
+	flight.Callsign = "NSZ5YB"
+	entry := state.GeneratedAt.Add(7 * time.Minute)
+	flight.Slot.Time = state.GeneratedAt.Add(22 * time.Minute)
+	flight.Prediction.RawTETA = state.GeneratedAt.Add(17 * time.Minute)
+	flight.Prediction.OperationalTETA = flight.Prediction.RawTETA
+	flight.Prediction.GeneratedAt, flight.Prediction.InputObservedAt = state.GeneratedAt, state.GeneratedAt
+	flight.Prediction.HoldingFixETA = &entry
+	flight.Prediction.GeometryDigest = "physical-path"
+	flight.Prediction.Calculation = &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}}
+	baseline := flight.Slot.Time.Add(-10 * time.Minute)
+	input := release.Input{
+		Policy: &aman.ApproachReleasePolicy{Enabled: true, TargetBuffer: 10, TaperStart: 6, MaxAdvanceSeconds: 600, LookaheadSeconds: 120},
+		Traffic: []release.Traffic{{
+			Callsign: flight.Callsign, Active: true, Eligible: true,
+			Episode: "future-hold", HoldingID: *flight.SelectedHolding, STARFamily: *flight.SelectedSTARFamily,
+			FeederFix: *flight.SelectedFeederFix, RunwayGroupID: flight.Slot.RunwayGroupID, RouteDigest: "physical-path",
+			EntryAt: entry, ReadyAt: entry, BaselineReleaseAt: baseline, SlotAt: flight.Slot.Time, Transit: 10 * time.Minute,
+		}},
+	}
+	for _, test := range []struct {
+		name     string
+		elapsed  time.Duration
+		reserved bool
+	}{
+		{"future readiness outside admission window", 0, false},
+		{"one second outside admission window", 5 * time.Minute, false},
+		{"early release enters admission window", 5*time.Minute + time.Second, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			input.At = state.GeneratedAt.Add(test.elapsed)
+			planned := release.Plan(input)
+			require.Equal(t, "ready", planned.Buffer.Status)
+			reservation := planned.Decisions[0].Reservation
+			flight.ApproachRelease = reservation
+			flight.ApproachGuidance = nil
+			if p, ok := release.GuidancePlans(input)[flight.Callsign]; ok && reservation == nil {
+				flight.ApproachGuidance = &aman.ApproachGuidancePlan{HoldingID: *flight.SelectedHolding,
+					RunwayGroupID: flight.Slot.RunwayGroupID, RouteDigest: "physical-path", SlotAt: flight.Slot.Time,
+					PredictionAt: flight.Prediction.GeneratedAt, Plan: p}
+			}
+			plan := &aman.HoldingPlan{HoldingEntryTime: entry, ApproachReleaseTime: baseline,
+				ExpectedHoldingDuration: 5 * time.Minute, PostHoldingTransit: 10 * time.Minute}
+			if test.reserved {
+				require.NotNil(t, reservation)
+				require.NoError(t, reservation.Validate())
+				require.Equal(t, entry.Add(time.Second), reservation.ReleaseAt)
+				require.Equal(t, 299*time.Second, reservation.AdditionalApproachTime)
+				plan.ApproachReleaseTime = reservation.ReleaseAt
+				plan.ExpectedHoldingDuration = reservation.ReleaseAt.Sub(entry)
+				plan.AdditionalApproachTime = reservation.AdditionalApproachTime
+			} else {
+				require.Nil(t, reservation, "spare capacity alone must not promise a distant admission")
+			}
+			require.NoError(t, plan.Validate())
+			flight.Prediction.HoldingPlan = plan
+			mapped, err := mapAMANFlight(input.At, *flight)
+			require.NoError(t, err)
+			require.EqualValues(t, -1, *mapped.GainLossSeconds, "controllers lose only time not planned for approach")
+			require.EqualValues(t, 299, *mapped.ApproachAbsorptionSeconds)
+			require.Equal(t, !test.reserved, mapped.ApproachReleaseForecastTime != nil)
+			require.Equal(t, plan.AdditionalApproachTime > 0, mapped.AdditionalApproachSeconds != nil)
+			if test.reserved {
+				require.EqualValues(t, 299, *mapped.AdditionalApproachSeconds)
+			}
+			eat, err := aman.FormatTime(plan.ApproachReleaseTime)
+			require.NoError(t, err)
+			require.Equal(t, eat, *mapped.ApproachReleaseTime)
+			es, err := euroscopeEvents.NewAMANGainLossEvent(aman.AirportState{Airport: state.Airport, GeneratedAt: input.At, Flights: []aman.AMANFlight{*flight}})
+			require.NoError(t, err)
+			require.EqualValues(t, -1, *es.Values[0].GainLossSeconds)
+			require.Equal(t, *mapped.GuidanceTargetTime, *es.Values[0].TargetTime)
+			require.Equal(t, plan.ApproachReleaseTime.Unix(), *es.Values[0].HoldingEatUnixSeconds)
+			if test.reserved {
+				require.Nil(t, es.Values[0].ApproachReleaseForecastUnixSeconds)
+			} else {
+				require.Equal(t, entry.Add(time.Second).Unix(), *es.Values[0].ApproachReleaseForecastUnixSeconds)
+			}
+			predicted, err := time.Parse(time.RFC3339Nano, *es.Values[0].PredictedTime)
+			require.NoError(t, err)
+			target, err := time.Parse(time.RFC3339Nano, *es.Values[0].TargetTime)
+			require.NoError(t, err)
+			require.Equal(t, flight.Prediction.RawTETA, predicted)
+			require.Equal(t, flight.Slot.Time.Add(-299*time.Second), target, "publish the effective runway target consistently with the guidance")
+			require.Equal(t, "2026-11-13T20:33:00.000Z", mapped.Slot.Time, "the landing slot remains unchanged and inspectable")
+		})
+	}
 }
 
 func TestUnreliablePredictionSuppressesGuidanceInBothTransports(t *testing.T) {

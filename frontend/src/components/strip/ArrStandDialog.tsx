@@ -105,6 +105,7 @@ export function ArrStandDialog(props: Props) {
 }
 
 function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const strip = useStrip(callsign);
   const isTower = useIsTwr();
   const openTextPilotMenu = useWebSocketStore(s => s.openTextPilotMenu);
@@ -250,7 +251,15 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
           </div>
         </DialogContent>
       ) : (
-        <DialogContent className="stand-assignment-frame block max-w-none gap-0 rounded-none border-black bg-[#e4e4e4] p-0 text-black [&>button]:hidden">
+        <DialogContent
+          ref={dialogRef}
+          onOpenAutoFocus={(event) => {
+            // Stand buttons should be usable without opening the on-screen keyboard.
+            event.preventDefault();
+            dialogRef.current?.focus();
+          }}
+          className="stand-assignment-frame block max-w-none gap-0 rounded-none border-black bg-[#e4e4e4] p-0 text-black [&>button]:hidden"
+        >
           <div className="stand-assignment-content">
             <DialogTitle className="stand-assignment-title" style={position(0, 48, 878, 22)}>STAND ASSIGNMENT</DialogTitle>
             <div className="stand-assignment-outline" style={position(14, 72, 815, 677)} />
@@ -274,7 +283,6 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
               maxLength={8}
               onChange={e => selectManualStand(e.target.value.toUpperCase())}
               onKeyDown={e => { if (e.key === "Enter") send(); }}
-              autoFocus
             />
             <div className="stand-assignment-panel" role="group" aria-label={panel ? `${panel} stands` : "Stand selection"} style={position(272, 153, 520, 505)}>
               {panel === "E" && (

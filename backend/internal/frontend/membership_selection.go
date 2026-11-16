@@ -37,6 +37,10 @@ type frontendBoardSource interface {
 	CaptureFrontendBoardBinding(string, events.BoardContext) (shared.CommandBinding, error)
 }
 
+type frontendBoardReadinessSource interface {
+	FrontendBoardReady(string, events.BoardContext) bool
+}
+
 func (hub *Hub) controllerForSelection(cid string, selected membershipSelection) (*models.Controller, error) {
 	if source, ok := hub.server.GetEuroscopeHub().(frontendBoardSource); ok {
 		if selected.board == nil {

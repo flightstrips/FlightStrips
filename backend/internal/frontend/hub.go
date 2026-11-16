@@ -200,6 +200,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
 	handlers.Add(frontend.SendPrivateMessage, handleSendPrivateMessage)
 	handlers.Add(frontend.SendFrequencyMessage, handleSendFrequencyMessage)
+	handlers.Add(frontend.VacsRequest, handleVacsRequest)
 	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 	handlers.Add(frontend.UpdateRunwayStatus, handleUpdateRunwayStatus)
 	handlers.Add(frontend.AcknowledgeValidationStatus, handleAcknowledgeValidationStatus)
@@ -522,9 +523,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 			event.Observer = controller.Observer
 		}
 		event.Definition = &definition
-		if readiness, ok := source.(interface {
-			FrontendBoardReady(string, events.BoardContext) bool
-		}); ok {
+		if readiness, ok := source.(frontendBoardReadinessSource); ok {
 			event.OwnPluginReady = readiness.FrontendBoardReady(client.GetCid(), *client.selection.board)
 		}
 		event.ReadOnly = readOnly
@@ -546,6 +545,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 	if !client.Enqueue(event) {
 		return
 	}
+	client.boardReady = event.OwnPluginReady
 	client.initialPending = false
 	if hub.amanStateProvider != nil {
 		amanState, stateErr := hub.amanStateProvider.CurrentAMANState(aman.WithSession(ctx, client.session), client.airport)
@@ -900,6 +900,20 @@ func (hub *Hub) retryPendingInitializations(ctx context.Context) {
 				continue
 			}
 			client.initialPending = true
+		}
+		// A complete read-only snapshot can precede this membership's readiness.
+		// Reconcile the exact subscription even when its online notification was
+		// missed or discovery never observed the intervening unavailable state.
+		if client.selection.board != nil && client.boardDefinition != nil {
+			if source, ok := hub.server.GetEuroscopeHub().(frontendBoardReadinessSource); ok {
+				ready := source.FrontendBoardReady(client.GetCid(), *client.selection.board)
+				if ready != client.boardReady {
+					client.initialPending = true
+					if !ready {
+						client.SetReadOnly(true)
+					}
+				}
+			}
 		}
 		if client.initialPending {
 			hub.sendInitialEvent(ctx, client)

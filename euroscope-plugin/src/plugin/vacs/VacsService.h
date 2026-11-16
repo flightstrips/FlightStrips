@@ -41,7 +41,10 @@ namespace FlightStrips::vacs {
         [[nodiscard]] bool MiniPreference() const { return config_->GetVacsShowInMinimized(); }
         [[nodiscard]] View GetView() const;
         [[nodiscard]] std::size_t QueuedEvents() const;
-        bool Execute(Action action, const std::string& callId);
+        bool Execute(Action action, const std::string& callId, const std::string& clientId = {});
+        [[nodiscard]] std::vector<Client> GetClients() const { return client_.GetClients(); }
+        [[nodiscard]] const std::string& OwnClientId() const { return client_.OwnClientId(); }
+        [[nodiscard]] const std::string& OwnPositionId() const { return client_.OwnPositionId(); }
         std::vector<PickerRow> OpenPicker();
         void Select(const std::string& label);
         std::string TakeError();

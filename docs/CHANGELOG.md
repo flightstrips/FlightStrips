@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.8.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.8.0...docs/v1.8.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **vacs:** align EuroScope call controls with VACS 3.x ([#1170](https://github.com/flightstrips/FlightStrips/issues/1170)) ([fd26ed1](https://github.com/flightstrips/FlightStrips/commit/fd26ed1e0dc69b0fe2e7a224f9f944ef48bfe778))
+* **vacs:** relay browser controls through the selected plugin ([#1168](https://github.com/flightstrips/FlightStrips/issues/1168)) ([efad871](https://github.com/flightstrips/FlightStrips/commit/efad8711f8904e473267c572f82bb5f8001a9d96))
+
+## [1.8.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.7.0...docs/v1.8.0) (2026-11-15)
+
+
+### Features
+
+* **aman:** add sector-file navigation fallback ([#1146](https://github.com/flightstrips/FlightStrips/issues/1146)) ([cc173f8](https://github.com/flightstrips/FlightStrips/commit/cc173f8f13a437cc97f15db38df8e81ac49e9d16))
+
+
+### Bug Fixes
+
+* **aman:** exclude planned approach absorption from gain-loss guidance ([#1161](https://github.com/flightstrips/FlightStrips/issues/1161)) ([bbe9c34](https://github.com/flightstrips/FlightStrips/commit/bbe9c34e0cff749f3cf3d105c45d275d88b179e8))
+* **aman:** keep forecast markers off EuroScope tags ([#1164](https://github.com/flightstrips/FlightStrips/issues/1164)) ([6de931c](https://github.com/flightstrips/FlightStrips/commit/6de931c991190f18d7835fb79efe97e3be1479dd))
+* **aman:** preserve same-STAR order and allow superstable swaps ([#1153](https://github.com/flightstrips/FlightStrips/issues/1153)) ([c878f98](https://github.com/flightstrips/FlightStrips/commit/c878f9827f041d03cc0c3e1b34e234fcdb0acb83))
+* **aman:** stabilize early TMA release forecasts ([#1163](https://github.com/flightstrips/FlightStrips/issues/1163)) ([e761afc](https://github.com/flightstrips/FlightStrips/commit/e761afcac89eeae2fe25fddfa60a31c5f5dc4236))
+* **strip:** correct EKCH arrival and departure transfers ([#1131](https://github.com/flightstrips/FlightStrips/issues/1131)) ([707da08](https://github.com/flightstrips/FlightStrips/commit/707da08126c8ac3700f85f6ced5a5f6c0dc2c9af))
+
 ## [1.7.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.6.1...docs/v1.7.0) (2026-11-10)
 
 

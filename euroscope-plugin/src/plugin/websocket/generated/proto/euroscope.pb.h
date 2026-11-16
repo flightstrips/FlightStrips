@@ -265,6 +265,18 @@ extern TokenEventDefaultTypeInternal _TokenEvent_default_instance_;
 class TrackingControllerChangedEvent;
 struct TrackingControllerChangedEventDefaultTypeInternal;
 extern TrackingControllerChangedEventDefaultTypeInternal _TrackingControllerChangedEvent_default_instance_;
+class VacsPeer;
+struct VacsPeerDefaultTypeInternal;
+extern VacsPeerDefaultTypeInternal _VacsPeer_default_instance_;
+class VacsRequestEvent;
+struct VacsRequestEventDefaultTypeInternal;
+extern VacsRequestEventDefaultTypeInternal _VacsRequestEvent_default_instance_;
+class VacsResultEvent;
+struct VacsResultEventDefaultTypeInternal;
+extern VacsResultEventDefaultTypeInternal _VacsResultEvent_default_instance_;
+class VacsState;
+struct VacsStateDefaultTypeInternal;
+extern VacsStateDefaultTypeInternal _VacsState_default_instance_;
 }  // namespace v1
 }  // namespace euroscope
 }  // namespace flightstrips
@@ -337,6 +349,8 @@ enum EventType : int {
   EVENT_CONTROL = 57,
   EVENT_MEMBERSHIP_REMOVED = 58,
   EVENT_AIRCRAFT_SELECTION = 59,
+  EVENT_VACS_REQUEST = 60,
+  EVENT_VACS_RESULT = 61,
   EventType_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   EventType_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -346,8 +360,8 @@ enum EventType : int {
 bool EventType_IsValid(int value);
 extern const uint32_t EventType_internal_data_[];
 constexpr EventType EventType_MIN = static_cast<EventType>(0);
-constexpr EventType EventType_MAX = static_cast<EventType>(59);
-constexpr int EventType_ARRAYSIZE = 59 + 1;
+constexpr EventType EventType_MAX = static_cast<EventType>(61);
+constexpr int EventType_ARRAYSIZE = 61 + 1;
 const std::string& EventType_Name(EventType value);
 template <typename T>
 const std::string& EventType_Name(T value) {
@@ -385,6 +399,426 @@ bool CommandOrigin_Parse(absl::string_view name, CommandOrigin* value);
 // ===================================================================
 
 
+// -------------------------------------------------------------------
+
+class VacsRequestEvent final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.VacsRequestEvent) */ {
+ public:
+  inline VacsRequestEvent() : VacsRequestEvent(nullptr) {}
+  ~VacsRequestEvent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR VacsRequestEvent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline VacsRequestEvent(const VacsRequestEvent& from) : VacsRequestEvent(nullptr, from) {}
+  inline VacsRequestEvent(VacsRequestEvent&& from) noexcept
+      : VacsRequestEvent(nullptr, std::move(from)) {}
+  inline VacsRequestEvent& operator=(const VacsRequestEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline VacsRequestEvent& operator=(VacsRequestEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const VacsRequestEvent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const VacsRequestEvent* internal_default_instance() {
+    return reinterpret_cast<const VacsRequestEvent*>(
+        &_VacsRequestEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 72;
+  friend void swap(VacsRequestEvent& a, VacsRequestEvent& b) { a.Swap(&b); }
+  inline void Swap(VacsRequestEvent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(VacsRequestEvent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  VacsRequestEvent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<VacsRequestEvent>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const VacsRequestEvent& from);
+  void MergeFrom(const VacsRequestEvent& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(VacsRequestEvent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.VacsRequestEvent"; }
+
+ protected:
+  explicit VacsRequestEvent(::google::protobuf::Arena* arena);
+  VacsRequestEvent(::google::protobuf::Arena* arena, const VacsRequestEvent& from);
+  VacsRequestEvent(::google::protobuf::Arena* arena, VacsRequestEvent&& from) noexcept
+      : VacsRequestEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kRequestIdFieldNumber = 1,
+    kActionFieldNumber = 2,
+    kCallIdFieldNumber = 3,
+    kClientIdFieldNumber = 4,
+  };
+  // string request_id = 1;
+  void clear_request_id() ;
+  const std::string& request_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_request_id(Arg_&& arg, Args_... args);
+  std::string* mutable_request_id();
+  PROTOBUF_NODISCARD std::string* release_request_id();
+  void set_allocated_request_id(std::string* value);
+
+  private:
+  const std::string& _internal_request_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_request_id(
+      const std::string& value);
+  std::string* _internal_mutable_request_id();
+
+  public:
+  // string action = 2;
+  void clear_action() ;
+  const std::string& action() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_action(Arg_&& arg, Args_... args);
+  std::string* mutable_action();
+  PROTOBUF_NODISCARD std::string* release_action();
+  void set_allocated_action(std::string* value);
+
+  private:
+  const std::string& _internal_action() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_action(
+      const std::string& value);
+  std::string* _internal_mutable_action();
+
+  public:
+  // string call_id = 3;
+  void clear_call_id() ;
+  const std::string& call_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_call_id(Arg_&& arg, Args_... args);
+  std::string* mutable_call_id();
+  PROTOBUF_NODISCARD std::string* release_call_id();
+  void set_allocated_call_id(std::string* value);
+
+  private:
+  const std::string& _internal_call_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_call_id(
+      const std::string& value);
+  std::string* _internal_mutable_call_id();
+
+  public:
+  // string client_id = 4;
+  void clear_client_id() ;
+  const std::string& client_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_client_id(Arg_&& arg, Args_... args);
+  std::string* mutable_client_id();
+  PROTOBUF_NODISCARD std::string* release_client_id();
+  void set_allocated_client_id(std::string* value);
+
+  private:
+  const std::string& _internal_client_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_client_id(
+      const std::string& value);
+  std::string* _internal_mutable_client_id();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.VacsRequestEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      2, 4, 0,
+      83, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr request_id_;
+    ::google::protobuf::internal::ArenaStringPtr action_;
+    ::google::protobuf::internal::ArenaStringPtr call_id_;
+    ::google::protobuf::internal::ArenaStringPtr client_id_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
+class VacsPeer final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.VacsPeer) */ {
+ public:
+  inline VacsPeer() : VacsPeer(nullptr) {}
+  ~VacsPeer() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR VacsPeer(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline VacsPeer(const VacsPeer& from) : VacsPeer(nullptr, from) {}
+  inline VacsPeer(VacsPeer&& from) noexcept
+      : VacsPeer(nullptr, std::move(from)) {}
+  inline VacsPeer& operator=(const VacsPeer& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline VacsPeer& operator=(VacsPeer&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const VacsPeer& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const VacsPeer* internal_default_instance() {
+    return reinterpret_cast<const VacsPeer*>(
+        &_VacsPeer_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 73;
+  friend void swap(VacsPeer& a, VacsPeer& b) { a.Swap(&b); }
+  inline void Swap(VacsPeer* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(VacsPeer* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  VacsPeer* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<VacsPeer>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const VacsPeer& from);
+  void MergeFrom(const VacsPeer& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(VacsPeer* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.VacsPeer"; }
+
+ protected:
+  explicit VacsPeer(::google::protobuf::Arena* arena);
+  VacsPeer(::google::protobuf::Arena* arena, const VacsPeer& from);
+  VacsPeer(::google::protobuf::Arena* arena, VacsPeer&& from) noexcept
+      : VacsPeer(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kIdFieldNumber = 1,
+    kDisplayNameFieldNumber = 2,
+    kFrequencyFieldNumber = 3,
+    kPositionIdFieldNumber = 4,
+  };
+  // string id = 1;
+  void clear_id() ;
+  const std::string& id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_id(Arg_&& arg, Args_... args);
+  std::string* mutable_id();
+  PROTOBUF_NODISCARD std::string* release_id();
+  void set_allocated_id(std::string* value);
+
+  private:
+  const std::string& _internal_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_id(
+      const std::string& value);
+  std::string* _internal_mutable_id();
+
+  public:
+  // string display_name = 2;
+  void clear_display_name() ;
+  const std::string& display_name() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_display_name(Arg_&& arg, Args_... args);
+  std::string* mutable_display_name();
+  PROTOBUF_NODISCARD std::string* release_display_name();
+  void set_allocated_display_name(std::string* value);
+
+  private:
+  const std::string& _internal_display_name() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_display_name(
+      const std::string& value);
+  std::string* _internal_mutable_display_name();
+
+  public:
+  // string frequency = 3;
+  void clear_frequency() ;
+  const std::string& frequency() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_frequency(Arg_&& arg, Args_... args);
+  std::string* mutable_frequency();
+  PROTOBUF_NODISCARD std::string* release_frequency();
+  void set_allocated_frequency(std::string* value);
+
+  private:
+  const std::string& _internal_frequency() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_frequency(
+      const std::string& value);
+  std::string* _internal_mutable_frequency();
+
+  public:
+  // string position_id = 4;
+  void clear_position_id() ;
+  const std::string& position_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_position_id(Arg_&& arg, Args_... args);
+  std::string* mutable_position_id();
+  PROTOBUF_NODISCARD std::string* release_position_id();
+  void set_allocated_position_id(std::string* value);
+
+  private:
+  const std::string& _internal_position_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_position_id(
+      const std::string& value);
+  std::string* _internal_mutable_position_id();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.VacsPeer)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      2, 4, 0,
+      77, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr id_;
+    ::google::protobuf::internal::ArenaStringPtr display_name_;
+    ::google::protobuf::internal::ArenaStringPtr frequency_;
+    ::google::protobuf::internal::ArenaStringPtr position_id_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
 // -------------------------------------------------------------------
 
 class TrackingControllerChangedEvent final : public ::google::protobuf::MessageLite
@@ -673,6 +1107,7 @@ class TokenEvent final : public ::google::protobuf::MessageLite
     kVersionFieldNumber = 2,
     kInstanceIdFieldNumber = 4,
     kFrequencyMessagesFieldNumber = 3,
+    kVacsRelayFieldNumber = 5,
   };
   // string token = 1;
   void clear_token() ;
@@ -732,12 +1167,22 @@ class TokenEvent final : public ::google::protobuf::MessageLite
   void _internal_set_frequency_messages(bool value);
 
   public:
+  // bool vacs_relay = 5;
+  void clear_vacs_relay() ;
+  bool vacs_relay() const;
+  void set_vacs_relay(bool value);
+
+  private:
+  bool _internal_vacs_relay() const;
+  void _internal_set_vacs_relay(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.TokenEvent)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 4, 0,
+      3, 5, 0,
       68, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -757,6 +1202,7 @@ class TokenEvent final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr version_;
     ::google::protobuf::internal::ArenaStringPtr instance_id_;
     bool frequency_messages_;
+    bool vacs_relay_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -11401,6 +11847,7 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     kFeederFixEtaSourceFieldNumber = 12,
     kGainLossSecondsFieldNumber = 3,
     kHoldingEatUnixSecondsFieldNumber = 15,
+    kApproachReleaseForecastUnixSecondsFieldNumber = 16,
     kFeederFixPassedFieldNumber = 13,
     kInsideTmaFieldNumber = 14,
   };
@@ -11610,6 +12057,17 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
   void _internal_set_holding_eat_unix_seconds(::int64_t value);
 
   public:
+  // optional int64 approach_release_forecast_unix_seconds = 16;
+  bool has_approach_release_forecast_unix_seconds() const;
+  void clear_approach_release_forecast_unix_seconds() ;
+  ::int64_t approach_release_forecast_unix_seconds() const;
+  void set_approach_release_forecast_unix_seconds(::int64_t value);
+
+  private:
+  ::int64_t _internal_approach_release_forecast_unix_seconds() const;
+  void _internal_set_approach_release_forecast_unix_seconds(::int64_t value);
+
+  public:
   // optional bool feeder_fix_passed = 13;
   bool has_feeder_fix_passed() const;
   void clear_feeder_fix_passed() ;
@@ -11637,8 +12095,8 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 15, 0,
-      195, 2>
+      4, 16, 0,
+      203, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -11668,8 +12126,322 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr feeder_fix_eta_source_;
     ::int64_t gain_loss_seconds_;
     ::int64_t holding_eat_unix_seconds_;
+    ::int64_t approach_release_forecast_unix_seconds_;
     bool feeder_fix_passed_;
     bool inside_tma_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
+class VacsState final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.VacsState) */ {
+ public:
+  inline VacsState() : VacsState(nullptr) {}
+  ~VacsState() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR VacsState(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline VacsState(const VacsState& from) : VacsState(nullptr, from) {}
+  inline VacsState(VacsState&& from) noexcept
+      : VacsState(nullptr, std::move(from)) {}
+  inline VacsState& operator=(const VacsState& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline VacsState& operator=(VacsState&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const VacsState& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const VacsState* internal_default_instance() {
+    return reinterpret_cast<const VacsState*>(
+        &_VacsState_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 74;
+  friend void swap(VacsState& a, VacsState& b) { a.Swap(&b); }
+  inline void Swap(VacsState* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(VacsState* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  VacsState* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<VacsState>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const VacsState& from);
+  void MergeFrom(const VacsState& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(VacsState* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.VacsState"; }
+
+ protected:
+  explicit VacsState(::google::protobuf::Arena* arena);
+  VacsState(::google::protobuf::Arena* arena, const VacsState& from);
+  VacsState(::google::protobuf::Arena* arena, VacsState&& from) noexcept
+      : VacsState(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kClientsFieldNumber = 8,
+    kStatusFieldNumber = 1,
+    kLabelFieldNumber = 2,
+    kTooltipFieldNumber = 3,
+    kCallIdFieldNumber = 4,
+    kOwnClientIdFieldNumber = 9,
+    kOwnPositionIdFieldNumber = 10,
+    kPendingFieldNumber = 5,
+    kActionableFieldNumber = 6,
+    kWaitingFieldNumber = 7,
+    kSequenceFieldNumber = 11,
+  };
+  // repeated .flightstrips.euroscope.v1.VacsPeer clients = 8;
+  int clients_size() const;
+  private:
+  int _internal_clients_size() const;
+
+  public:
+  void clear_clients() ;
+  ::flightstrips::euroscope::v1::VacsPeer* mutable_clients(int index);
+  ::google::protobuf::RepeatedPtrField<::flightstrips::euroscope::v1::VacsPeer>* mutable_clients();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::euroscope::v1::VacsPeer>& _internal_clients() const;
+  ::google::protobuf::RepeatedPtrField<::flightstrips::euroscope::v1::VacsPeer>* _internal_mutable_clients();
+  public:
+  const ::flightstrips::euroscope::v1::VacsPeer& clients(int index) const;
+  ::flightstrips::euroscope::v1::VacsPeer* add_clients();
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::euroscope::v1::VacsPeer>& clients() const;
+  // string status = 1;
+  void clear_status() ;
+  const std::string& status() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_status(Arg_&& arg, Args_... args);
+  std::string* mutable_status();
+  PROTOBUF_NODISCARD std::string* release_status();
+  void set_allocated_status(std::string* value);
+
+  private:
+  const std::string& _internal_status() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_status(
+      const std::string& value);
+  std::string* _internal_mutable_status();
+
+  public:
+  // string label = 2;
+  void clear_label() ;
+  const std::string& label() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_label(Arg_&& arg, Args_... args);
+  std::string* mutable_label();
+  PROTOBUF_NODISCARD std::string* release_label();
+  void set_allocated_label(std::string* value);
+
+  private:
+  const std::string& _internal_label() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_label(
+      const std::string& value);
+  std::string* _internal_mutable_label();
+
+  public:
+  // string tooltip = 3;
+  void clear_tooltip() ;
+  const std::string& tooltip() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_tooltip(Arg_&& arg, Args_... args);
+  std::string* mutable_tooltip();
+  PROTOBUF_NODISCARD std::string* release_tooltip();
+  void set_allocated_tooltip(std::string* value);
+
+  private:
+  const std::string& _internal_tooltip() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_tooltip(
+      const std::string& value);
+  std::string* _internal_mutable_tooltip();
+
+  public:
+  // string call_id = 4;
+  void clear_call_id() ;
+  const std::string& call_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_call_id(Arg_&& arg, Args_... args);
+  std::string* mutable_call_id();
+  PROTOBUF_NODISCARD std::string* release_call_id();
+  void set_allocated_call_id(std::string* value);
+
+  private:
+  const std::string& _internal_call_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_call_id(
+      const std::string& value);
+  std::string* _internal_mutable_call_id();
+
+  public:
+  // string own_client_id = 9;
+  void clear_own_client_id() ;
+  const std::string& own_client_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_own_client_id(Arg_&& arg, Args_... args);
+  std::string* mutable_own_client_id();
+  PROTOBUF_NODISCARD std::string* release_own_client_id();
+  void set_allocated_own_client_id(std::string* value);
+
+  private:
+  const std::string& _internal_own_client_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_own_client_id(
+      const std::string& value);
+  std::string* _internal_mutable_own_client_id();
+
+  public:
+  // string own_position_id = 10;
+  void clear_own_position_id() ;
+  const std::string& own_position_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_own_position_id(Arg_&& arg, Args_... args);
+  std::string* mutable_own_position_id();
+  PROTOBUF_NODISCARD std::string* release_own_position_id();
+  void set_allocated_own_position_id(std::string* value);
+
+  private:
+  const std::string& _internal_own_position_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_own_position_id(
+      const std::string& value);
+  std::string* _internal_mutable_own_position_id();
+
+  public:
+  // bool pending = 5;
+  void clear_pending() ;
+  bool pending() const;
+  void set_pending(bool value);
+
+  private:
+  bool _internal_pending() const;
+  void _internal_set_pending(bool value);
+
+  public:
+  // bool actionable = 6;
+  void clear_actionable() ;
+  bool actionable() const;
+  void set_actionable(bool value);
+
+  private:
+  bool _internal_actionable() const;
+  void _internal_set_actionable(bool value);
+
+  public:
+  // uint32 waiting = 7;
+  void clear_waiting() ;
+  ::uint32_t waiting() const;
+  void set_waiting(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_waiting() const;
+  void _internal_set_waiting(::uint32_t value);
+
+  public:
+  // uint64 sequence = 11;
+  void clear_sequence() ;
+  ::uint64_t sequence() const;
+  void set_sequence(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_sequence() const;
+  void _internal_set_sequence(::uint64_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.VacsState)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      4, 11, 1,
+      105, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::euroscope::v1::VacsPeer > clients_;
+    ::google::protobuf::internal::ArenaStringPtr status_;
+    ::google::protobuf::internal::ArenaStringPtr label_;
+    ::google::protobuf::internal::ArenaStringPtr tooltip_;
+    ::google::protobuf::internal::ArenaStringPtr call_id_;
+    ::google::protobuf::internal::ArenaStringPtr own_client_id_;
+    ::google::protobuf::internal::ArenaStringPtr own_position_id_;
+    bool pending_;
+    bool actionable_;
+    ::uint32_t waiting_;
+    ::uint64_t sequence_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -13914,6 +14686,198 @@ class AMANGainLossEvent final : public ::google::protobuf::MessageLite
 };
 // -------------------------------------------------------------------
 
+class VacsResultEvent final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.VacsResultEvent) */ {
+ public:
+  inline VacsResultEvent() : VacsResultEvent(nullptr) {}
+  ~VacsResultEvent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR VacsResultEvent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline VacsResultEvent(const VacsResultEvent& from) : VacsResultEvent(nullptr, from) {}
+  inline VacsResultEvent(VacsResultEvent&& from) noexcept
+      : VacsResultEvent(nullptr, std::move(from)) {}
+  inline VacsResultEvent& operator=(const VacsResultEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline VacsResultEvent& operator=(VacsResultEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  inline std::string* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<std::string>();
+  }
+
+  static const VacsResultEvent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const VacsResultEvent* internal_default_instance() {
+    return reinterpret_cast<const VacsResultEvent*>(
+        &_VacsResultEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 75;
+  friend void swap(VacsResultEvent& a, VacsResultEvent& b) { a.Swap(&b); }
+  inline void Swap(VacsResultEvent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(VacsResultEvent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  VacsResultEvent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::MessageLite::DefaultConstruct<VacsResultEvent>(arena);
+  }
+  void CheckTypeAndMergeFrom(
+      const ::google::protobuf::MessageLite& from) final;
+  void CopyFrom(const VacsResultEvent& from);
+  void MergeFrom(const VacsResultEvent& from);
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(VacsResultEvent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.euroscope.v1.VacsResultEvent"; }
+
+ protected:
+  explicit VacsResultEvent(::google::protobuf::Arena* arena);
+  VacsResultEvent(::google::protobuf::Arena* arena, const VacsResultEvent& from);
+  VacsResultEvent(::google::protobuf::Arena* arena, VacsResultEvent&& from) noexcept
+      : VacsResultEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kRequestIdFieldNumber = 1,
+    kErrorFieldNumber = 3,
+    kStateFieldNumber = 2,
+  };
+  // string request_id = 1;
+  void clear_request_id() ;
+  const std::string& request_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_request_id(Arg_&& arg, Args_... args);
+  std::string* mutable_request_id();
+  PROTOBUF_NODISCARD std::string* release_request_id();
+  void set_allocated_request_id(std::string* value);
+
+  private:
+  const std::string& _internal_request_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_request_id(
+      const std::string& value);
+  std::string* _internal_mutable_request_id();
+
+  public:
+  // string error = 3;
+  void clear_error() ;
+  const std::string& error() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_error(Arg_&& arg, Args_... args);
+  std::string* mutable_error();
+  PROTOBUF_NODISCARD std::string* release_error();
+  void set_allocated_error(std::string* value);
+
+  private:
+  const std::string& _internal_error() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_error(
+      const std::string& value);
+  std::string* _internal_mutable_error();
+
+  public:
+  // .flightstrips.euroscope.v1.VacsState state = 2;
+  bool has_state() const;
+  void clear_state() ;
+  const ::flightstrips::euroscope::v1::VacsState& state() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::VacsState* release_state();
+  ::flightstrips::euroscope::v1::VacsState* mutable_state();
+  void set_allocated_state(::flightstrips::euroscope::v1::VacsState* value);
+  void unsafe_arena_set_allocated_state(::flightstrips::euroscope::v1::VacsState* value);
+  ::flightstrips::euroscope::v1::VacsState* unsafe_arena_release_state();
+
+  private:
+  const ::flightstrips::euroscope::v1::VacsState& _internal_state() const;
+  ::flightstrips::euroscope::v1::VacsState* _internal_mutable_state();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.VacsResultEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      2, 3, 1,
+      65, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr request_id_;
+    ::google::protobuf::internal::ArenaStringPtr error_;
+    ::flightstrips::euroscope::v1::VacsState* state_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_proto_2feuroscope_2eproto;
+};
+// -------------------------------------------------------------------
+
 class SyncEvent final : public ::google::protobuf::MessageLite
 /* @@protoc_insertion_point(class_definition:flightstrips.euroscope.v1.SyncEvent) */ {
  public:
@@ -15240,6 +16204,8 @@ class Envelope final : public ::google::protobuf::MessageLite
     kControl = 57,
     kMembershipRemoved = 58,
     kAircraftSelection = 59,
+    kVacsRequest = 60,
+    kVacsResult = 61,
     EVENT_NOT_SET = 0,
   };
   static inline const Envelope* internal_default_instance() {
@@ -15370,6 +16336,8 @@ class Envelope final : public ::google::protobuf::MessageLite
     kControlFieldNumber = 57,
     kMembershipRemovedFieldNumber = 58,
     kAircraftSelectionFieldNumber = 59,
+    kVacsRequestFieldNumber = 60,
+    kVacsResultFieldNumber = 61,
   };
   // string execution_id = 102;
   void clear_execution_id() ;
@@ -16533,6 +17501,44 @@ class Envelope final : public ::google::protobuf::MessageLite
   ::flightstrips::euroscope::v1::AircraftSelectionEvent* _internal_mutable_aircraft_selection();
 
   public:
+  // .flightstrips.euroscope.v1.VacsRequestEvent vacs_request = 60;
+  bool has_vacs_request() const;
+  private:
+  bool _internal_has_vacs_request() const;
+
+  public:
+  void clear_vacs_request() ;
+  const ::flightstrips::euroscope::v1::VacsRequestEvent& vacs_request() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::VacsRequestEvent* release_vacs_request();
+  ::flightstrips::euroscope::v1::VacsRequestEvent* mutable_vacs_request();
+  void set_allocated_vacs_request(::flightstrips::euroscope::v1::VacsRequestEvent* value);
+  void unsafe_arena_set_allocated_vacs_request(::flightstrips::euroscope::v1::VacsRequestEvent* value);
+  ::flightstrips::euroscope::v1::VacsRequestEvent* unsafe_arena_release_vacs_request();
+
+  private:
+  const ::flightstrips::euroscope::v1::VacsRequestEvent& _internal_vacs_request() const;
+  ::flightstrips::euroscope::v1::VacsRequestEvent* _internal_mutable_vacs_request();
+
+  public:
+  // .flightstrips.euroscope.v1.VacsResultEvent vacs_result = 61;
+  bool has_vacs_result() const;
+  private:
+  bool _internal_has_vacs_result() const;
+
+  public:
+  void clear_vacs_result() ;
+  const ::flightstrips::euroscope::v1::VacsResultEvent& vacs_result() const;
+  PROTOBUF_NODISCARD ::flightstrips::euroscope::v1::VacsResultEvent* release_vacs_result();
+  ::flightstrips::euroscope::v1::VacsResultEvent* mutable_vacs_result();
+  void set_allocated_vacs_result(::flightstrips::euroscope::v1::VacsResultEvent* value);
+  void unsafe_arena_set_allocated_vacs_result(::flightstrips::euroscope::v1::VacsResultEvent* value);
+  ::flightstrips::euroscope::v1::VacsResultEvent* unsafe_arena_release_vacs_result();
+
+  private:
+  const ::flightstrips::euroscope::v1::VacsResultEvent& _internal_vacs_result() const;
+  ::flightstrips::euroscope::v1::VacsResultEvent* _internal_mutable_vacs_result();
+
+  public:
   void clear_event();
   EventCase event_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.Envelope)
@@ -16597,12 +17603,14 @@ class Envelope final : public ::google::protobuf::MessageLite
   void set_has_control();
   void set_has_membership_removed();
   void set_has_aircraft_selection();
+  void set_has_vacs_request();
+  void set_has_vacs_result();
   inline bool has_event() const;
   inline void clear_has_event();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 62, 60,
-      111, 15>
+      2, 64, 62,
+      119, 15>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -16684,6 +17692,8 @@ class Envelope final : public ::google::protobuf::MessageLite
       ::flightstrips::euroscope::v1::ControlEvent* control_;
       ::flightstrips::euroscope::v1::MembershipRemovedEvent* membership_removed_;
       ::flightstrips::euroscope::v1::AircraftSelectionEvent* aircraft_selection_;
+      ::flightstrips::euroscope::v1::VacsRequestEvent* vacs_request_;
+      ::flightstrips::euroscope::v1::VacsResultEvent* vacs_result_;
     } event_;
     ::uint32_t _oneof_case_[1];
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -21419,6 +22429,160 @@ inline ::flightstrips::euroscope::v1::AircraftSelectionEvent* Envelope::mutable_
   return _msg;
 }
 
+// .flightstrips.euroscope.v1.VacsRequestEvent vacs_request = 60;
+inline bool Envelope::has_vacs_request() const {
+  return event_case() == kVacsRequest;
+}
+inline bool Envelope::_internal_has_vacs_request() const {
+  return event_case() == kVacsRequest;
+}
+inline void Envelope::set_has_vacs_request() {
+  _impl_._oneof_case_[0] = kVacsRequest;
+}
+inline void Envelope::clear_vacs_request() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (event_case() == kVacsRequest) {
+    if (GetArena() == nullptr) {
+      delete _impl_.event_.vacs_request_;
+    }
+    clear_has_event();
+  }
+}
+inline ::flightstrips::euroscope::v1::VacsRequestEvent* Envelope::release_vacs_request() {
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.vacs_request)
+  if (event_case() == kVacsRequest) {
+    clear_has_event();
+    auto* temp = _impl_.event_.vacs_request_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.event_.vacs_request_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::euroscope::v1::VacsRequestEvent& Envelope::_internal_vacs_request() const {
+  return event_case() == kVacsRequest ? *_impl_.event_.vacs_request_ : reinterpret_cast<::flightstrips::euroscope::v1::VacsRequestEvent&>(::flightstrips::euroscope::v1::_VacsRequestEvent_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::VacsRequestEvent& Envelope::vacs_request() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.vacs_request)
+  return _internal_vacs_request();
+}
+inline ::flightstrips::euroscope::v1::VacsRequestEvent* Envelope::unsafe_arena_release_vacs_request() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.euroscope.v1.Envelope.vacs_request)
+  if (event_case() == kVacsRequest) {
+    clear_has_event();
+    auto* temp = _impl_.event_.vacs_request_;
+    _impl_.event_.vacs_request_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Envelope::unsafe_arena_set_allocated_vacs_request(::flightstrips::euroscope::v1::VacsRequestEvent* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_event();
+  if (value) {
+    set_has_vacs_request();
+    _impl_.event_.vacs_request_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.vacs_request)
+}
+inline ::flightstrips::euroscope::v1::VacsRequestEvent* Envelope::_internal_mutable_vacs_request() {
+  if (event_case() != kVacsRequest) {
+    clear_event();
+    set_has_vacs_request();
+    _impl_.event_.vacs_request_ =
+        ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::VacsRequestEvent>(GetArena());
+  }
+  return _impl_.event_.vacs_request_;
+}
+inline ::flightstrips::euroscope::v1::VacsRequestEvent* Envelope::mutable_vacs_request() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::euroscope::v1::VacsRequestEvent* _msg = _internal_mutable_vacs_request();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.vacs_request)
+  return _msg;
+}
+
+// .flightstrips.euroscope.v1.VacsResultEvent vacs_result = 61;
+inline bool Envelope::has_vacs_result() const {
+  return event_case() == kVacsResult;
+}
+inline bool Envelope::_internal_has_vacs_result() const {
+  return event_case() == kVacsResult;
+}
+inline void Envelope::set_has_vacs_result() {
+  _impl_._oneof_case_[0] = kVacsResult;
+}
+inline void Envelope::clear_vacs_result() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (event_case() == kVacsResult) {
+    if (GetArena() == nullptr) {
+      delete _impl_.event_.vacs_result_;
+    }
+    clear_has_event();
+  }
+}
+inline ::flightstrips::euroscope::v1::VacsResultEvent* Envelope::release_vacs_result() {
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.Envelope.vacs_result)
+  if (event_case() == kVacsResult) {
+    clear_has_event();
+    auto* temp = _impl_.event_.vacs_result_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.event_.vacs_result_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::euroscope::v1::VacsResultEvent& Envelope::_internal_vacs_result() const {
+  return event_case() == kVacsResult ? *_impl_.event_.vacs_result_ : reinterpret_cast<::flightstrips::euroscope::v1::VacsResultEvent&>(::flightstrips::euroscope::v1::_VacsResultEvent_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::VacsResultEvent& Envelope::vacs_result() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.Envelope.vacs_result)
+  return _internal_vacs_result();
+}
+inline ::flightstrips::euroscope::v1::VacsResultEvent* Envelope::unsafe_arena_release_vacs_result() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.euroscope.v1.Envelope.vacs_result)
+  if (event_case() == kVacsResult) {
+    clear_has_event();
+    auto* temp = _impl_.event_.vacs_result_;
+    _impl_.event_.vacs_result_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void Envelope::unsafe_arena_set_allocated_vacs_result(::flightstrips::euroscope::v1::VacsResultEvent* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_event();
+  if (value) {
+    set_has_vacs_result();
+    _impl_.event_.vacs_result_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.Envelope.vacs_result)
+}
+inline ::flightstrips::euroscope::v1::VacsResultEvent* Envelope::_internal_mutable_vacs_result() {
+  if (event_case() != kVacsResult) {
+    clear_event();
+    set_has_vacs_result();
+    _impl_.event_.vacs_result_ =
+        ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::VacsResultEvent>(GetArena());
+  }
+  return _impl_.event_.vacs_result_;
+}
+inline ::flightstrips::euroscope::v1::VacsResultEvent* Envelope::mutable_vacs_result() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::euroscope::v1::VacsResultEvent* _msg = _internal_mutable_vacs_result();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.Envelope.vacs_result)
+  return _msg;
+}
+
 inline bool Envelope::has_event() const {
   return event_case() != EVENT_NOT_SET;
 }
@@ -21602,6 +22766,28 @@ inline void TokenEvent::set_allocated_instance_id(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.TokenEvent.instance_id)
+}
+
+// bool vacs_relay = 5;
+inline void TokenEvent::clear_vacs_relay() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.vacs_relay_ = false;
+}
+inline bool TokenEvent::vacs_relay() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.TokenEvent.vacs_relay)
+  return _internal_vacs_relay();
+}
+inline void TokenEvent::set_vacs_relay(bool value) {
+  _internal_set_vacs_relay(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.TokenEvent.vacs_relay)
+}
+inline bool TokenEvent::_internal_vacs_relay() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.vacs_relay_;
+}
+inline void TokenEvent::_internal_set_vacs_relay(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.vacs_relay_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -33894,13 +35080,13 @@ inline void AMANGainLossValue::set_allocated_feeder_fix_eta_source(std::string* 
 
 // optional bool feeder_fix_passed = 13;
 inline bool AMANGainLossValue::has_feeder_fix_passed() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000400u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000800u) != 0;
   return value;
 }
 inline void AMANGainLossValue::clear_feeder_fix_passed() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.feeder_fix_passed_ = false;
-  _impl_._has_bits_[0] &= ~0x00000400u;
+  _impl_._has_bits_[0] &= ~0x00000800u;
 }
 inline bool AMANGainLossValue::feeder_fix_passed() const {
   // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_passed)
@@ -33908,7 +35094,7 @@ inline bool AMANGainLossValue::feeder_fix_passed() const {
 }
 inline void AMANGainLossValue::set_feeder_fix_passed(bool value) {
   _internal_set_feeder_fix_passed(value);
-  _impl_._has_bits_[0] |= 0x00000400u;
+  _impl_._has_bits_[0] |= 0x00000800u;
   // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_passed)
 }
 inline bool AMANGainLossValue::_internal_feeder_fix_passed() const {
@@ -33922,13 +35108,13 @@ inline void AMANGainLossValue::_internal_set_feeder_fix_passed(bool value) {
 
 // optional bool inside_tma = 14;
 inline bool AMANGainLossValue::has_inside_tma() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000800u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00001000u) != 0;
   return value;
 }
 inline void AMANGainLossValue::clear_inside_tma() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.inside_tma_ = false;
-  _impl_._has_bits_[0] &= ~0x00000800u;
+  _impl_._has_bits_[0] &= ~0x00001000u;
 }
 inline bool AMANGainLossValue::inside_tma() const {
   // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.inside_tma)
@@ -33936,7 +35122,7 @@ inline bool AMANGainLossValue::inside_tma() const {
 }
 inline void AMANGainLossValue::set_inside_tma(bool value) {
   _internal_set_inside_tma(value);
-  _impl_._has_bits_[0] |= 0x00000800u;
+  _impl_._has_bits_[0] |= 0x00001000u;
   // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.inside_tma)
 }
 inline bool AMANGainLossValue::_internal_inside_tma() const {
@@ -33974,6 +35160,34 @@ inline ::int64_t AMANGainLossValue::_internal_holding_eat_unix_seconds() const {
 inline void AMANGainLossValue::_internal_set_holding_eat_unix_seconds(::int64_t value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.holding_eat_unix_seconds_ = value;
+}
+
+// optional int64 approach_release_forecast_unix_seconds = 16;
+inline bool AMANGainLossValue::has_approach_release_forecast_unix_seconds() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000400u) != 0;
+  return value;
+}
+inline void AMANGainLossValue::clear_approach_release_forecast_unix_seconds() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.approach_release_forecast_unix_seconds_ = ::int64_t{0};
+  _impl_._has_bits_[0] &= ~0x00000400u;
+}
+inline ::int64_t AMANGainLossValue::approach_release_forecast_unix_seconds() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.approach_release_forecast_unix_seconds)
+  return _internal_approach_release_forecast_unix_seconds();
+}
+inline void AMANGainLossValue::set_approach_release_forecast_unix_seconds(::int64_t value) {
+  _internal_set_approach_release_forecast_unix_seconds(value);
+  _impl_._has_bits_[0] |= 0x00000400u;
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.approach_release_forecast_unix_seconds)
+}
+inline ::int64_t AMANGainLossValue::_internal_approach_release_forecast_unix_seconds() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.approach_release_forecast_unix_seconds_;
+}
+inline void AMANGainLossValue::_internal_set_approach_release_forecast_unix_seconds(::int64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.approach_release_forecast_unix_seconds_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -35351,6 +36565,1055 @@ inline void AircraftSelectionEvent::set_allocated_callsign(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.AircraftSelectionEvent.callsign)
+}
+
+// -------------------------------------------------------------------
+
+// VacsRequestEvent
+
+// string request_id = 1;
+inline void VacsRequestEvent::clear_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.ClearToEmpty();
+}
+inline const std::string& VacsRequestEvent::request_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsRequestEvent.request_id)
+  return _internal_request_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsRequestEvent::set_request_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsRequestEvent.request_id)
+}
+inline std::string* VacsRequestEvent::mutable_request_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_request_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsRequestEvent.request_id)
+  return _s;
+}
+inline const std::string& VacsRequestEvent::_internal_request_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.request_id_.Get();
+}
+inline void VacsRequestEvent::_internal_set_request_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.Set(value, GetArena());
+}
+inline std::string* VacsRequestEvent::_internal_mutable_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.request_id_.Mutable( GetArena());
+}
+inline std::string* VacsRequestEvent::release_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsRequestEvent.request_id)
+  return _impl_.request_id_.Release();
+}
+inline void VacsRequestEvent::set_allocated_request_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.request_id_.IsDefault()) {
+          _impl_.request_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsRequestEvent.request_id)
+}
+
+// string action = 2;
+inline void VacsRequestEvent::clear_action() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.action_.ClearToEmpty();
+}
+inline const std::string& VacsRequestEvent::action() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsRequestEvent.action)
+  return _internal_action();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsRequestEvent::set_action(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.action_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsRequestEvent.action)
+}
+inline std::string* VacsRequestEvent::mutable_action() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_action();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsRequestEvent.action)
+  return _s;
+}
+inline const std::string& VacsRequestEvent::_internal_action() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.action_.Get();
+}
+inline void VacsRequestEvent::_internal_set_action(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.action_.Set(value, GetArena());
+}
+inline std::string* VacsRequestEvent::_internal_mutable_action() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.action_.Mutable( GetArena());
+}
+inline std::string* VacsRequestEvent::release_action() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsRequestEvent.action)
+  return _impl_.action_.Release();
+}
+inline void VacsRequestEvent::set_allocated_action(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.action_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.action_.IsDefault()) {
+          _impl_.action_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsRequestEvent.action)
+}
+
+// string call_id = 3;
+inline void VacsRequestEvent::clear_call_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.call_id_.ClearToEmpty();
+}
+inline const std::string& VacsRequestEvent::call_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsRequestEvent.call_id)
+  return _internal_call_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsRequestEvent::set_call_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.call_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsRequestEvent.call_id)
+}
+inline std::string* VacsRequestEvent::mutable_call_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_call_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsRequestEvent.call_id)
+  return _s;
+}
+inline const std::string& VacsRequestEvent::_internal_call_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.call_id_.Get();
+}
+inline void VacsRequestEvent::_internal_set_call_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.call_id_.Set(value, GetArena());
+}
+inline std::string* VacsRequestEvent::_internal_mutable_call_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.call_id_.Mutable( GetArena());
+}
+inline std::string* VacsRequestEvent::release_call_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsRequestEvent.call_id)
+  return _impl_.call_id_.Release();
+}
+inline void VacsRequestEvent::set_allocated_call_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.call_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.call_id_.IsDefault()) {
+          _impl_.call_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsRequestEvent.call_id)
+}
+
+// string client_id = 4;
+inline void VacsRequestEvent::clear_client_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.client_id_.ClearToEmpty();
+}
+inline const std::string& VacsRequestEvent::client_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsRequestEvent.client_id)
+  return _internal_client_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsRequestEvent::set_client_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.client_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsRequestEvent.client_id)
+}
+inline std::string* VacsRequestEvent::mutable_client_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_client_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsRequestEvent.client_id)
+  return _s;
+}
+inline const std::string& VacsRequestEvent::_internal_client_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.client_id_.Get();
+}
+inline void VacsRequestEvent::_internal_set_client_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.client_id_.Set(value, GetArena());
+}
+inline std::string* VacsRequestEvent::_internal_mutable_client_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.client_id_.Mutable( GetArena());
+}
+inline std::string* VacsRequestEvent::release_client_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsRequestEvent.client_id)
+  return _impl_.client_id_.Release();
+}
+inline void VacsRequestEvent::set_allocated_client_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.client_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.client_id_.IsDefault()) {
+          _impl_.client_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsRequestEvent.client_id)
+}
+
+// -------------------------------------------------------------------
+
+// VacsPeer
+
+// string id = 1;
+inline void VacsPeer::clear_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.id_.ClearToEmpty();
+}
+inline const std::string& VacsPeer::id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsPeer.id)
+  return _internal_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsPeer::set_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsPeer.id)
+}
+inline std::string* VacsPeer::mutable_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsPeer.id)
+  return _s;
+}
+inline const std::string& VacsPeer::_internal_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.id_.Get();
+}
+inline void VacsPeer::_internal_set_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.id_.Set(value, GetArena());
+}
+inline std::string* VacsPeer::_internal_mutable_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.id_.Mutable( GetArena());
+}
+inline std::string* VacsPeer::release_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsPeer.id)
+  return _impl_.id_.Release();
+}
+inline void VacsPeer::set_allocated_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.id_.IsDefault()) {
+          _impl_.id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsPeer.id)
+}
+
+// string display_name = 2;
+inline void VacsPeer::clear_display_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.display_name_.ClearToEmpty();
+}
+inline const std::string& VacsPeer::display_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsPeer.display_name)
+  return _internal_display_name();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsPeer::set_display_name(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.display_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsPeer.display_name)
+}
+inline std::string* VacsPeer::mutable_display_name() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_display_name();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsPeer.display_name)
+  return _s;
+}
+inline const std::string& VacsPeer::_internal_display_name() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.display_name_.Get();
+}
+inline void VacsPeer::_internal_set_display_name(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.display_name_.Set(value, GetArena());
+}
+inline std::string* VacsPeer::_internal_mutable_display_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.display_name_.Mutable( GetArena());
+}
+inline std::string* VacsPeer::release_display_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsPeer.display_name)
+  return _impl_.display_name_.Release();
+}
+inline void VacsPeer::set_allocated_display_name(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.display_name_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.display_name_.IsDefault()) {
+          _impl_.display_name_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsPeer.display_name)
+}
+
+// string frequency = 3;
+inline void VacsPeer::clear_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_.ClearToEmpty();
+}
+inline const std::string& VacsPeer::frequency() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsPeer.frequency)
+  return _internal_frequency();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsPeer::set_frequency(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsPeer.frequency)
+}
+inline std::string* VacsPeer::mutable_frequency() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_frequency();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsPeer.frequency)
+  return _s;
+}
+inline const std::string& VacsPeer::_internal_frequency() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.frequency_.Get();
+}
+inline void VacsPeer::_internal_set_frequency(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_.Set(value, GetArena());
+}
+inline std::string* VacsPeer::_internal_mutable_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.frequency_.Mutable( GetArena());
+}
+inline std::string* VacsPeer::release_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsPeer.frequency)
+  return _impl_.frequency_.Release();
+}
+inline void VacsPeer::set_allocated_frequency(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.frequency_.IsDefault()) {
+          _impl_.frequency_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsPeer.frequency)
+}
+
+// string position_id = 4;
+inline void VacsPeer::clear_position_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_id_.ClearToEmpty();
+}
+inline const std::string& VacsPeer::position_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsPeer.position_id)
+  return _internal_position_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsPeer::set_position_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsPeer.position_id)
+}
+inline std::string* VacsPeer::mutable_position_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_position_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsPeer.position_id)
+  return _s;
+}
+inline const std::string& VacsPeer::_internal_position_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.position_id_.Get();
+}
+inline void VacsPeer::_internal_set_position_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_id_.Set(value, GetArena());
+}
+inline std::string* VacsPeer::_internal_mutable_position_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.position_id_.Mutable( GetArena());
+}
+inline std::string* VacsPeer::release_position_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsPeer.position_id)
+  return _impl_.position_id_.Release();
+}
+inline void VacsPeer::set_allocated_position_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.position_id_.IsDefault()) {
+          _impl_.position_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsPeer.position_id)
+}
+
+// -------------------------------------------------------------------
+
+// VacsState
+
+// string status = 1;
+inline void VacsState::clear_status() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.status_.ClearToEmpty();
+}
+inline const std::string& VacsState::status() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.status)
+  return _internal_status();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsState::set_status(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.status_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.status)
+}
+inline std::string* VacsState::mutable_status() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_status();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsState.status)
+  return _s;
+}
+inline const std::string& VacsState::_internal_status() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.status_.Get();
+}
+inline void VacsState::_internal_set_status(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.status_.Set(value, GetArena());
+}
+inline std::string* VacsState::_internal_mutable_status() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.status_.Mutable( GetArena());
+}
+inline std::string* VacsState::release_status() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsState.status)
+  return _impl_.status_.Release();
+}
+inline void VacsState::set_allocated_status(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.status_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.status_.IsDefault()) {
+          _impl_.status_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsState.status)
+}
+
+// string label = 2;
+inline void VacsState::clear_label() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.label_.ClearToEmpty();
+}
+inline const std::string& VacsState::label() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.label)
+  return _internal_label();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsState::set_label(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.label_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.label)
+}
+inline std::string* VacsState::mutable_label() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_label();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsState.label)
+  return _s;
+}
+inline const std::string& VacsState::_internal_label() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.label_.Get();
+}
+inline void VacsState::_internal_set_label(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.label_.Set(value, GetArena());
+}
+inline std::string* VacsState::_internal_mutable_label() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.label_.Mutable( GetArena());
+}
+inline std::string* VacsState::release_label() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsState.label)
+  return _impl_.label_.Release();
+}
+inline void VacsState::set_allocated_label(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.label_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.label_.IsDefault()) {
+          _impl_.label_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsState.label)
+}
+
+// string tooltip = 3;
+inline void VacsState::clear_tooltip() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tooltip_.ClearToEmpty();
+}
+inline const std::string& VacsState::tooltip() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.tooltip)
+  return _internal_tooltip();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsState::set_tooltip(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tooltip_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.tooltip)
+}
+inline std::string* VacsState::mutable_tooltip() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_tooltip();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsState.tooltip)
+  return _s;
+}
+inline const std::string& VacsState::_internal_tooltip() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tooltip_.Get();
+}
+inline void VacsState::_internal_set_tooltip(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tooltip_.Set(value, GetArena());
+}
+inline std::string* VacsState::_internal_mutable_tooltip() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.tooltip_.Mutable( GetArena());
+}
+inline std::string* VacsState::release_tooltip() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsState.tooltip)
+  return _impl_.tooltip_.Release();
+}
+inline void VacsState::set_allocated_tooltip(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tooltip_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.tooltip_.IsDefault()) {
+          _impl_.tooltip_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsState.tooltip)
+}
+
+// string call_id = 4;
+inline void VacsState::clear_call_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.call_id_.ClearToEmpty();
+}
+inline const std::string& VacsState::call_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.call_id)
+  return _internal_call_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsState::set_call_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.call_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.call_id)
+}
+inline std::string* VacsState::mutable_call_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_call_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsState.call_id)
+  return _s;
+}
+inline const std::string& VacsState::_internal_call_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.call_id_.Get();
+}
+inline void VacsState::_internal_set_call_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.call_id_.Set(value, GetArena());
+}
+inline std::string* VacsState::_internal_mutable_call_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.call_id_.Mutable( GetArena());
+}
+inline std::string* VacsState::release_call_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsState.call_id)
+  return _impl_.call_id_.Release();
+}
+inline void VacsState::set_allocated_call_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.call_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.call_id_.IsDefault()) {
+          _impl_.call_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsState.call_id)
+}
+
+// bool pending = 5;
+inline void VacsState::clear_pending() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.pending_ = false;
+}
+inline bool VacsState::pending() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.pending)
+  return _internal_pending();
+}
+inline void VacsState::set_pending(bool value) {
+  _internal_set_pending(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.pending)
+}
+inline bool VacsState::_internal_pending() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.pending_;
+}
+inline void VacsState::_internal_set_pending(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.pending_ = value;
+}
+
+// bool actionable = 6;
+inline void VacsState::clear_actionable() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.actionable_ = false;
+}
+inline bool VacsState::actionable() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.actionable)
+  return _internal_actionable();
+}
+inline void VacsState::set_actionable(bool value) {
+  _internal_set_actionable(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.actionable)
+}
+inline bool VacsState::_internal_actionable() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.actionable_;
+}
+inline void VacsState::_internal_set_actionable(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.actionable_ = value;
+}
+
+// uint32 waiting = 7;
+inline void VacsState::clear_waiting() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.waiting_ = 0u;
+}
+inline ::uint32_t VacsState::waiting() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.waiting)
+  return _internal_waiting();
+}
+inline void VacsState::set_waiting(::uint32_t value) {
+  _internal_set_waiting(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.waiting)
+}
+inline ::uint32_t VacsState::_internal_waiting() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.waiting_;
+}
+inline void VacsState::_internal_set_waiting(::uint32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.waiting_ = value;
+}
+
+// repeated .flightstrips.euroscope.v1.VacsPeer clients = 8;
+inline int VacsState::_internal_clients_size() const {
+  return _internal_clients().size();
+}
+inline int VacsState::clients_size() const {
+  return _internal_clients_size();
+}
+inline void VacsState::clear_clients() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.clients_.Clear();
+}
+inline ::flightstrips::euroscope::v1::VacsPeer* VacsState::mutable_clients(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsState.clients)
+  return _internal_mutable_clients()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::euroscope::v1::VacsPeer>* VacsState::mutable_clients()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.euroscope.v1.VacsState.clients)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_clients();
+}
+inline const ::flightstrips::euroscope::v1::VacsPeer& VacsState::clients(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.clients)
+  return _internal_clients().Get(index);
+}
+inline ::flightstrips::euroscope::v1::VacsPeer* VacsState::add_clients() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::flightstrips::euroscope::v1::VacsPeer* _add = _internal_mutable_clients()->Add();
+  // @@protoc_insertion_point(field_add:flightstrips.euroscope.v1.VacsState.clients)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::euroscope::v1::VacsPeer>& VacsState::clients() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.euroscope.v1.VacsState.clients)
+  return _internal_clients();
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::euroscope::v1::VacsPeer>&
+VacsState::_internal_clients() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.clients_;
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::euroscope::v1::VacsPeer>*
+VacsState::_internal_mutable_clients() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.clients_;
+}
+
+// string own_client_id = 9;
+inline void VacsState::clear_own_client_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.own_client_id_.ClearToEmpty();
+}
+inline const std::string& VacsState::own_client_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.own_client_id)
+  return _internal_own_client_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsState::set_own_client_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.own_client_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.own_client_id)
+}
+inline std::string* VacsState::mutable_own_client_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_own_client_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsState.own_client_id)
+  return _s;
+}
+inline const std::string& VacsState::_internal_own_client_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.own_client_id_.Get();
+}
+inline void VacsState::_internal_set_own_client_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.own_client_id_.Set(value, GetArena());
+}
+inline std::string* VacsState::_internal_mutable_own_client_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.own_client_id_.Mutable( GetArena());
+}
+inline std::string* VacsState::release_own_client_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsState.own_client_id)
+  return _impl_.own_client_id_.Release();
+}
+inline void VacsState::set_allocated_own_client_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.own_client_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.own_client_id_.IsDefault()) {
+          _impl_.own_client_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsState.own_client_id)
+}
+
+// string own_position_id = 10;
+inline void VacsState::clear_own_position_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.own_position_id_.ClearToEmpty();
+}
+inline const std::string& VacsState::own_position_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.own_position_id)
+  return _internal_own_position_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsState::set_own_position_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.own_position_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.own_position_id)
+}
+inline std::string* VacsState::mutable_own_position_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_own_position_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsState.own_position_id)
+  return _s;
+}
+inline const std::string& VacsState::_internal_own_position_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.own_position_id_.Get();
+}
+inline void VacsState::_internal_set_own_position_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.own_position_id_.Set(value, GetArena());
+}
+inline std::string* VacsState::_internal_mutable_own_position_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.own_position_id_.Mutable( GetArena());
+}
+inline std::string* VacsState::release_own_position_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsState.own_position_id)
+  return _impl_.own_position_id_.Release();
+}
+inline void VacsState::set_allocated_own_position_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.own_position_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.own_position_id_.IsDefault()) {
+          _impl_.own_position_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsState.own_position_id)
+}
+
+// uint64 sequence = 11;
+inline void VacsState::clear_sequence() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.sequence_ = ::uint64_t{0u};
+}
+inline ::uint64_t VacsState::sequence() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsState.sequence)
+  return _internal_sequence();
+}
+inline void VacsState::set_sequence(::uint64_t value) {
+  _internal_set_sequence(value);
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsState.sequence)
+}
+inline ::uint64_t VacsState::_internal_sequence() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.sequence_;
+}
+inline void VacsState::_internal_set_sequence(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.sequence_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// VacsResultEvent
+
+// string request_id = 1;
+inline void VacsResultEvent::clear_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.ClearToEmpty();
+}
+inline const std::string& VacsResultEvent::request_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsResultEvent.request_id)
+  return _internal_request_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsResultEvent::set_request_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsResultEvent.request_id)
+}
+inline std::string* VacsResultEvent::mutable_request_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_request_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsResultEvent.request_id)
+  return _s;
+}
+inline const std::string& VacsResultEvent::_internal_request_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.request_id_.Get();
+}
+inline void VacsResultEvent::_internal_set_request_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.Set(value, GetArena());
+}
+inline std::string* VacsResultEvent::_internal_mutable_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.request_id_.Mutable( GetArena());
+}
+inline std::string* VacsResultEvent::release_request_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsResultEvent.request_id)
+  return _impl_.request_id_.Release();
+}
+inline void VacsResultEvent::set_allocated_request_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.request_id_.IsDefault()) {
+          _impl_.request_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsResultEvent.request_id)
+}
+
+// .flightstrips.euroscope.v1.VacsState state = 2;
+inline bool VacsResultEvent::has_state() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.state_ != nullptr);
+  return value;
+}
+inline void VacsResultEvent::clear_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.state_ != nullptr) _impl_.state_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const ::flightstrips::euroscope::v1::VacsState& VacsResultEvent::_internal_state() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::euroscope::v1::VacsState* p = _impl_.state_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::euroscope::v1::VacsState&>(::flightstrips::euroscope::v1::_VacsState_default_instance_);
+}
+inline const ::flightstrips::euroscope::v1::VacsState& VacsResultEvent::state() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsResultEvent.state)
+  return _internal_state();
+}
+inline void VacsResultEvent::unsafe_arena_set_allocated_state(::flightstrips::euroscope::v1::VacsState* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.state_);
+  }
+  _impl_.state_ = reinterpret_cast<::flightstrips::euroscope::v1::VacsState*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.euroscope.v1.VacsResultEvent.state)
+}
+inline ::flightstrips::euroscope::v1::VacsState* VacsResultEvent::release_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::euroscope::v1::VacsState* released = _impl_.state_;
+  _impl_.state_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::euroscope::v1::VacsState* VacsResultEvent::unsafe_arena_release_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsResultEvent.state)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::euroscope::v1::VacsState* temp = _impl_.state_;
+  _impl_.state_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::euroscope::v1::VacsState* VacsResultEvent::_internal_mutable_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.state_ == nullptr) {
+    auto* p = ::google::protobuf::MessageLite::DefaultConstruct<::flightstrips::euroscope::v1::VacsState>(GetArena());
+    _impl_.state_ = reinterpret_cast<::flightstrips::euroscope::v1::VacsState*>(p);
+  }
+  return _impl_.state_;
+}
+inline ::flightstrips::euroscope::v1::VacsState* VacsResultEvent::mutable_state() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::flightstrips::euroscope::v1::VacsState* _msg = _internal_mutable_state();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsResultEvent.state)
+  return _msg;
+}
+inline void VacsResultEvent::set_allocated_state(::flightstrips::euroscope::v1::VacsState* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete (_impl_.state_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.state_ = reinterpret_cast<::flightstrips::euroscope::v1::VacsState*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsResultEvent.state)
+}
+
+// string error = 3;
+inline void VacsResultEvent::clear_error() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.error_.ClearToEmpty();
+}
+inline const std::string& VacsResultEvent::error() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.VacsResultEvent.error)
+  return _internal_error();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VacsResultEvent::set_error(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.error_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.VacsResultEvent.error)
+}
+inline std::string* VacsResultEvent::mutable_error() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_error();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.VacsResultEvent.error)
+  return _s;
+}
+inline const std::string& VacsResultEvent::_internal_error() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.error_.Get();
+}
+inline void VacsResultEvent::_internal_set_error(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.error_.Set(value, GetArena());
+}
+inline std::string* VacsResultEvent::_internal_mutable_error() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.error_.Mutable( GetArena());
+}
+inline std::string* VacsResultEvent::release_error() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.VacsResultEvent.error)
+  return _impl_.error_.Release();
+}
+inline void VacsResultEvent::set_allocated_error(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.error_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.error_.IsDefault()) {
+          _impl_.error_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.VacsResultEvent.error)
 }
 
 #ifdef __GNUC__

@@ -5,7 +5,7 @@
 1. In EuroScope's plugin dialog, unload the existing FlightStrips plugin first. Do not load the release loader and this development core simultaneously.
 2. Load `build/bin/FlightStripsPluginCore.dll` directly from this checkout. The core exports the EuroScope entry points; loading it directly avoids the release loader replacing the development build through its update check.
 3. Keep `flightstrips_config.ini` and the runtime DLLs beside the core in `build/bin`. The build copies the config and test runtime dependencies there. Existing installed plugin files and preferences are not modified by this build.
-4. Start VACS, enable remote control, sign in, and connect your controller position there.
+4. Start VACS 3.x, enable remote control, sign in, and connect your controller position there.
 5. In the FlightStrips panel, switch **VACS** to **On**. Use **Call...**, **Answer/Reject**, **Cancel**, or **End call**. No selected aircraft or FlightStrips backend login is required.
 6. Check **Show in mini**, then minimize to try the compact controls. Uncheck it to restore the original header-only minimized mode. The checkbox can be set while VACS is Off.
 
@@ -58,7 +58,24 @@ Do not mark the live checks passed from the render fixtures. In particular, the 
 - Checkout inspected: `63e7ab07e9494821731817c2c0cfe0a09e0369e1`, reconciled with the handoff rather than assuming its older baseline.
 - Build environment: Windows 11 Pro 10.0.26300, Visual Studio 2022 MSVC 19.44, Win32 Release.
 - Installed EuroScope executable: 3.2.3.2; the render fixtures use its installed EuroScope font. No live EuroScope call session is claimed.
-- Historical protocol reference: `vacs-client-v2.8.0` (not a required version), checked against the upstream remote server, protocol, call store, signaling listener and store-sync source, plus the existing browser client. VACS desktop version/audio behavior have not been live-tested.
+- Protocol reference: [`vacs-client-v3.0.1`](https://github.com/vacs-project/vacs/tree/vacs-client-v3.0.1), checked against the upstream remote server, protocol, call store, signaling/WebRTC listeners and store-sync source. VACS desktop version/audio behavior have not been live-tested.
 - Logs from this run: `build/build.log`, `build/vacs-tests.log` and `build/test-results.log`.
 
+## VACS 3.x protocol checks
+
+The session snapshot contains authentication, connection and client information; calls are recovered by `remote_request_store_sync`. A full call-store response carries `incomingCalls` and an optional `callDisplay`. Live updates use `null` to leave the queue or display unchanged. Dialing uses `signaling_invite_to_call` with a `targets` array. The plugin consumes `signaling:call-invitation`, `signaling:outgoing-call`, `signaling:call-update` and per-peer WebRTC events. It does not write synthesized outgoing calls into the desktop store.
+
+Regression fixtures cover the 3.x snapshot without legacy call fields, full/partial call-store recovery, outgoing events arriving before command replies, participant roster replacement, per-peer connection/degradation/reconnection, target rejection and scoped call errors. Live verification should include connecting the plugin during an existing call, dialing and answering in both the plugin and desktop, rejecting/cancelling calls, and a conference where one participant leaves or reconnects while another remains connected. Conference creation and participant management remain in VACS.
+
+Validation on 15 November 2026: Win32 Release build passed, all 57 VACS-related CTest checks passed, and the full plugin suite passed all 592 tests. Build and suite output are in `build/vacs3-build-final.log` and `build/vacs3-tests.log`. Live EuroScope/VACS calling and audio remain unverified.
+
+Review follow-up: regression coverage now includes repeated outgoing events for joined client/position/station targets, recovery of waiting calls alongside a finished-call display, and late answer replies after another call becomes active. The updated Win32 Release build passed all 62 VACS-related checks and all 597 plugin tests. Logs: `build/vacs3-review-build.log`, `build/vacs3-review-focused-tests.log`, and `build/vacs3-review-tests.log`.
 No branch, commit, PR, release or deployment is created by this work.
+
+## Browser relay verification
+
+With the updated backend and frontend running, select this own EuroScope instance in the strip board and enable browser VACS integration. Keep the native panel's VACS switch On. Open the board on a second computer or tablet; the browser needs only its normal FlightStrips connection, not access to port 9600.
+
+Verify dial, answer, reject, cancel and end from both native and browser controls. Changes should appear on the next browser refresh. Check multiple waiting calls, an existing desktop call on browser startup, native/browser actions competing for the same call, and reconnecting both the browser and plugin. Unload or disconnect the selected plugin and verify browser controls become unavailable without switching to another same-CID instance or the session master. Disable browser integration during a call and verify the desktop call continues. No call action should be replayed after reconnect or timeout.
+
+These are live acceptance checks; automated relay, state-machine and transport tests do not verify real audio or a deployed multi-device session.

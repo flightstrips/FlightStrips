@@ -8,6 +8,7 @@ type AuthenticationEvent struct {
 	Board             *BoardContext `json:"board,omitempty"`
 	InstanceID        string        `json:"-"`
 	FrequencyMessages bool          `json:"-"`
+	VacsRelay         bool          `json:"-"`
 	Type              string        `json:"type"`
 	Token             string        `json:"token"`
 	Version           string        `json:"version,omitempty"`

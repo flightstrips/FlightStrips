@@ -22,6 +22,66 @@ namespace flightstrips {
 namespace euroscope {
 namespace v1 {
 
+inline constexpr VacsRequestEvent::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : request_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        action_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        call_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        client_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR VacsRequestEvent::VacsRequestEvent(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VacsRequestEventDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VacsRequestEventDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VacsRequestEventDefaultTypeInternal() {}
+  union {
+    VacsRequestEvent _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VacsRequestEventDefaultTypeInternal _VacsRequestEvent_default_instance_;
+
+inline constexpr VacsPeer::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        display_name_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        frequency_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        position_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR VacsPeer::VacsPeer(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VacsPeerDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VacsPeerDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VacsPeerDefaultTypeInternal() {}
+  union {
+    VacsPeer _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VacsPeerDefaultTypeInternal _VacsPeer_default_instance_;
+
 inline constexpr TrackingControllerChangedEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : callsign_(
@@ -58,6 +118,7 @@ inline constexpr TokenEvent::Impl_::Impl_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         frequency_messages_{false},
+        vacs_relay_{false},
         _cached_size_{0} {}
 
 template <typename>
@@ -1517,6 +1578,7 @@ inline constexpr AMANGainLossValue::Impl_::Impl_(
             ::_pbi::ConstantInitialized()),
         gain_loss_seconds_{::int64_t{0}},
         holding_eat_unix_seconds_{::int64_t{0}},
+        approach_release_forecast_unix_seconds_{::int64_t{0}},
         feeder_fix_passed_{false},
         inside_tma_{false} {}
 
@@ -1533,6 +1595,47 @@ struct AMANGainLossValueDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 AMANGainLossValueDefaultTypeInternal _AMANGainLossValue_default_instance_;
+
+inline constexpr VacsState::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : clients_{},
+        status_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        label_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        tooltip_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        call_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        own_client_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        own_position_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        pending_{false},
+        actionable_{false},
+        waiting_{0u},
+        sequence_{::uint64_t{0u}},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR VacsState::VacsState(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VacsStateDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VacsStateDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VacsStateDefaultTypeInternal() {}
+  union {
+    VacsState _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VacsStateDefaultTypeInternal _VacsState_default_instance_;
 
 inline constexpr Strip::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -1855,6 +1958,31 @@ struct AMANGainLossEventDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 AMANGainLossEventDefaultTypeInternal _AMANGainLossEvent_default_instance_;
 
+inline constexpr VacsResultEvent::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        request_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        error_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        state_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR VacsResultEvent::VacsResultEvent(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VacsResultEventDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VacsResultEventDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VacsResultEventDefaultTypeInternal() {}
+  union {
+    VacsResultEvent _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VacsResultEventDefaultTypeInternal _VacsResultEvent_default_instance_;
+
 inline constexpr SyncEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : controllers_{},
@@ -2037,12 +2165,12 @@ namespace flightstrips {
 namespace euroscope {
 namespace v1 {
 PROTOBUF_CONSTINIT const uint32_t EventType_internal_data_[] = {
-    3932160u, 0u, };
+    4063232u, 0u, };
 bool EventType_IsValid(int value) {
-  return 0 <= value && value <= 59;
+  return 0 <= value && value <= 61;
 }
 static ::google::protobuf::internal::ExplicitlyConstructed<std::string>
-    EventType_strings[60] = {};
+    EventType_strings[62] = {};
 
 static const char EventType_names[] = {
     "EVENT_AIRCRAFT_DISCONNECT"
@@ -2105,6 +2233,8 @@ static const char EventType_names[] = {
     "EVENT_TOKEN"
     "EVENT_TRACKING_CONTROLLER_CHANGED"
     "EVENT_UNKNOWN"
+    "EVENT_VACS_REQUEST"
+    "EVENT_VACS_RESULT"
 };
 
 static const ::google::protobuf::internal::EnumEntry EventType_entries[] =
@@ -2169,6 +2299,8 @@ static const ::google::protobuf::internal::EnumEntry EventType_entries[] =
         {{&EventType_names[1122], 11}, 1},
         {{&EventType_names[1133], 33}, 17},
         {{&EventType_names[1166], 13}, 0},
+        {{&EventType_names[1179], 18}, 60},
+        {{&EventType_names[1197], 17}, 61},
 };
 
 static const int EventType_entries_by_number[] = {
@@ -2232,17 +2364,19 @@ static const int EventType_entries_by_number[] = {
     24,  // 57 -> EVENT_CONTROL
     41,  // 58 -> EVENT_MEMBERSHIP_REMOVED
     5,  // 59 -> EVENT_AIRCRAFT_SELECTION
+    60,  // 60 -> EVENT_VACS_REQUEST
+    61,  // 61 -> EVENT_VACS_RESULT
 };
 
 const std::string& EventType_Name(EventType value) {
   static const bool kDummy =
       ::google::protobuf::internal::InitializeEnumStrings(
           EventType_entries, EventType_entries_by_number,
-          60, EventType_strings);
+          62, EventType_strings);
   (void)kDummy;
 
   int idx = ::google::protobuf::internal::LookUpEnumName(
-      EventType_entries, EventType_entries_by_number, 60,
+      EventType_entries, EventType_entries_by_number, 62,
       value);
   return idx == -1 ? ::google::protobuf::internal::GetEmptyString()
                    : EventType_strings[idx].get();
@@ -2251,7 +2385,7 @@ const std::string& EventType_Name(EventType value) {
 bool EventType_Parse(absl::string_view name, EventType* value) {
   int int_value;
   bool success = ::google::protobuf::internal::LookUpEnumValue(
-      EventType_entries, 60, name, &int_value);
+      EventType_entries, 62, name, &int_value);
   if (success) {
     *value = static_cast<EventType>(int_value);
   }
@@ -3085,6 +3219,32 @@ void Envelope::set_allocated_aircraft_selection(::flightstrips::euroscope::v1::A
   }
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.aircraft_selection)
 }
+void Envelope::set_allocated_vacs_request(::flightstrips::euroscope::v1::VacsRequestEvent* vacs_request) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_event();
+  if (vacs_request) {
+    ::google::protobuf::Arena* submessage_arena = vacs_request->GetArena();
+    if (message_arena != submessage_arena) {
+      vacs_request = ::google::protobuf::internal::GetOwnedMessage(message_arena, vacs_request, submessage_arena);
+    }
+    set_has_vacs_request();
+    _impl_.event_.vacs_request_ = vacs_request;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.vacs_request)
+}
+void Envelope::set_allocated_vacs_result(::flightstrips::euroscope::v1::VacsResultEvent* vacs_result) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_event();
+  if (vacs_result) {
+    ::google::protobuf::Arena* submessage_arena = vacs_result->GetArena();
+    if (message_arena != submessage_arena) {
+      vacs_result = ::google::protobuf::internal::GetOwnedMessage(message_arena, vacs_result, submessage_arena);
+    }
+    set_has_vacs_result();
+    _impl_.event_.vacs_result_ = vacs_result;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.Envelope.vacs_result)
+}
 Envelope::Envelope(::google::protobuf::Arena* arena)
     : ::google::protobuf::MessageLite(arena) {
   SharedCtor(arena);
@@ -3292,6 +3452,12 @@ Envelope::Envelope(
         break;
       case kAircraftSelection:
         _impl_.event_.aircraft_selection_ = ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::AircraftSelectionEvent>(arena, *from._impl_.event_.aircraft_selection_);
+        break;
+      case kVacsRequest:
+        _impl_.event_.vacs_request_ = ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::VacsRequestEvent>(arena, *from._impl_.event_.vacs_request_);
+        break;
+      case kVacsResult:
+        _impl_.event_.vacs_result_ = ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::VacsResultEvent>(arena, *from._impl_.event_.vacs_result_);
         break;
   }
 
@@ -3687,6 +3853,18 @@ void Envelope::clear_event() {
       }
       break;
     }
+    case kVacsRequest: {
+      if (GetArena() == nullptr) {
+        delete _impl_.event_.vacs_request_;
+      }
+      break;
+    }
+    case kVacsResult: {
+      if (GetArena() == nullptr) {
+        delete _impl_.event_.vacs_result_;
+      }
+      break;
+    }
     case EVENT_NOT_SET: {
       break;
     }
@@ -3740,7 +3918,7 @@ const char* Envelope::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 62, 60, 111, 15> Envelope::_table_ = {
+const ::_pbi::TcParseTable<2, 64, 62, 119, 15> Envelope::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(Envelope, _impl_._has_bits_),
     0, // no _extensions_
@@ -3748,8 +3926,8 @@ const ::_pbi::TcParseTable<2, 62, 60, 111, 15> Envelope::_table_ = {
     offsetof(decltype(_table_), field_lookup_table),
     0,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    62,  // num_field_entries
-    60,  // num_aux_entries
+    64,  // num_field_entries
+    62,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_Envelope_default_instance_._instance,
     ::_pbi::TcParser::GenericFallbackLite,  // fallback
@@ -3759,7 +3937,7 @@ const ::_pbi::TcParseTable<2, 62, 60, 111, 15> Envelope::_table_ = {
   }, {{
     // .flightstrips.euroscope.v1.MembershipContext context = 100;
     {::_pbi::TcParser::FastMtS2,
-     {1698, 0, 59, PROTOBUF_FIELD_OFFSET(Envelope, _impl_.context_)}},
+     {1698, 0, 61, PROTOBUF_FIELD_OFFSET(Envelope, _impl_.context_)}},
     // .flightstrips.euroscope.v1.CommandOrigin command_origin = 101;
     {::_pbi::TcParser::FastV32S2,
      {1704, 63, 0, PROTOBUF_FIELD_OFFSET(Envelope, _impl_.command_origin_)}},
@@ -3769,7 +3947,7 @@ const ::_pbi::TcParseTable<2, 62, 60, 111, 15> Envelope::_table_ = {
     {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     33, 0, 5,
-    0, 32, 63488, 48, 65535, 59, 65535, 59, 65479, 59,
+    0, 32, 57344, 48, 65535, 61, 65535, 61, 65479, 61,
     65535, 65535
   }}, {{
     // .flightstrips.euroscope.v1.TokenEvent token = 1;
@@ -3949,8 +4127,14 @@ const ::_pbi::TcParseTable<2, 62, 60, 111, 15> Envelope::_table_ = {
     // .flightstrips.euroscope.v1.AircraftSelectionEvent aircraft_selection = 59;
     {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.event_.aircraft_selection_), _Internal::kOneofCaseOffset + 0, 58,
     (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.euroscope.v1.VacsRequestEvent vacs_request = 60;
+    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.event_.vacs_request_), _Internal::kOneofCaseOffset + 0, 59,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.euroscope.v1.VacsResultEvent vacs_result = 61;
+    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.event_.vacs_result_), _Internal::kOneofCaseOffset + 0, 60,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
     // .flightstrips.euroscope.v1.MembershipContext context = 100;
-    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.context_), _Internal::kHasBitsOffset + 0, 59,
+    {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.context_), _Internal::kHasBitsOffset + 0, 61,
     (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
     // .flightstrips.euroscope.v1.CommandOrigin command_origin = 101;
     {PROTOBUF_FIELD_OFFSET(Envelope, _impl_.command_origin_), -1, 0,
@@ -4018,9 +4202,11 @@ const ::_pbi::TcParseTable<2, 62, 60, 111, 15> Envelope::_table_ = {
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::ControlEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::MembershipRemovedEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::AircraftSelectionEvent>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VacsRequestEvent>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VacsResultEvent>()},
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::MembershipContext>()},
   }}, {{
-    "\42\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\14\0"
+    "\42\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\14\0\0\0\0\0\0\0"
     "flightstrips.euroscope.v1.Envelope"
     "execution_id"
   }},
@@ -4327,6 +4513,16 @@ const ::_pbi::TcParseTable<2, 62, 60, 111, 15> Envelope::_table_ = {
     case kAircraftSelection: {
       target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
           59, *_impl_.event_.aircraft_selection_, _impl_.event_.aircraft_selection_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kVacsRequest: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          60, *_impl_.event_.vacs_request_, _impl_.event_.vacs_request_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kVacsResult: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          61, *_impl_.event_.vacs_result_, _impl_.event_.vacs_result_->GetCachedSize(), target, stream);
       break;
     }
     default:
@@ -4743,6 +4939,18 @@ const ::_pbi::TcParseTable<2, 62, 60, 111, 15> Envelope::_table_ = {
     case kAircraftSelection: {
       total_size +=
           2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.event_.aircraft_selection_);
+      break;
+    }
+    // .flightstrips.euroscope.v1.VacsRequestEvent vacs_request = 60;
+    case kVacsRequest: {
+      total_size +=
+          2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.event_.vacs_request_);
+      break;
+    }
+    // .flightstrips.euroscope.v1.VacsResultEvent vacs_result = 61;
+    case kVacsResult: {
+      total_size +=
+          2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.event_.vacs_result_);
       break;
     }
     case EVENT_NOT_SET: {
@@ -5329,6 +5537,24 @@ void Envelope::MergeFrom(const Envelope& from) {
         }
         break;
       }
+      case kVacsRequest: {
+        if (oneof_needs_init) {
+          _this->_impl_.event_.vacs_request_ =
+              ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::VacsRequestEvent>(arena, *from._impl_.event_.vacs_request_);
+        } else {
+          _this->_impl_.event_.vacs_request_->MergeFrom(from._internal_vacs_request());
+        }
+        break;
+      }
+      case kVacsResult: {
+        if (oneof_needs_init) {
+          _this->_impl_.event_.vacs_result_ =
+              ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::VacsResultEvent>(arena, *from._impl_.event_.vacs_result_);
+        } else {
+          _this->_impl_.event_.vacs_result_->MergeFrom(from._internal_vacs_result());
+        }
+        break;
+      }
       case EVENT_NOT_SET:
         break;
     }
@@ -5392,7 +5618,13 @@ TokenEvent::TokenEvent(
   _internal_metadata_.MergeFrom<std::string>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
-  _impl_.frequency_messages_ = from._impl_.frequency_messages_;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, frequency_messages_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, frequency_messages_),
+           offsetof(Impl_, vacs_relay_) -
+               offsetof(Impl_, frequency_messages_) +
+               sizeof(Impl_::vacs_relay_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.TokenEvent)
 }
@@ -5406,7 +5638,12 @@ inline PROTOBUF_NDEBUG_INLINE TokenEvent::Impl_::Impl_(
 
 inline void TokenEvent::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
-  _impl_.frequency_messages_ = {};
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, frequency_messages_),
+           0,
+           offsetof(Impl_, vacs_relay_) -
+               offsetof(Impl_, frequency_messages_) +
+               sizeof(Impl_::vacs_relay_));
 }
 TokenEvent::~TokenEvent() {
   // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.TokenEvent)
@@ -5449,7 +5686,9 @@ PROTOBUF_NOINLINE void TokenEvent::Clear() {
   _impl_.token_.ClearToEmpty();
   _impl_.version_.ClearToEmpty();
   _impl_.instance_id_.ClearToEmpty();
-  _impl_.frequency_messages_ = false;
+  ::memset(&_impl_.frequency_messages_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.vacs_relay_) -
+      reinterpret_cast<char*>(&_impl_.frequency_messages_)) + sizeof(_impl_.vacs_relay_));
   _internal_metadata_.Clear<std::string>();
 }
 
@@ -5461,15 +5700,15 @@ const char* TokenEvent::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 4, 0, 68, 2> TokenEvent::_table_ = {
+const ::_pbi::TcParseTable<3, 5, 0, 68, 2> TokenEvent::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    4, 24,  // max_field_number, fast_idx_mask
+    5, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967280,  // skipmap
+    4294967264,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    4,  // num_field_entries
+    5,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_TokenEvent_default_instance_._instance,
@@ -5478,9 +5717,7 @@ const ::_pbi::TcParseTable<2, 4, 0, 68, 2> TokenEvent::_table_ = {
     ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::TokenEvent>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // string instance_id = 4;
-    {::_pbi::TcParser::FastUS1,
-     {34, 63, 0, PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.instance_id_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string token = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.token_)}},
@@ -5490,6 +5727,14 @@ const ::_pbi::TcParseTable<2, 4, 0, 68, 2> TokenEvent::_table_ = {
     // bool frequency_messages = 3;
     {::_pbi::TcParser::FastV8S1,
      {24, 63, 0, PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.frequency_messages_)}},
+    // string instance_id = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.instance_id_)}},
+    // bool vacs_relay = 5;
+    {::_pbi::TcParser::FastV8S1,
+     {40, 63, 0, PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.vacs_relay_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -5505,6 +5750,9 @@ const ::_pbi::TcParseTable<2, 4, 0, 68, 2> TokenEvent::_table_ = {
     // string instance_id = 4;
     {PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.instance_id_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool vacs_relay = 5;
+    {PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.vacs_relay_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
   }},
   // no aux_entries
   {{
@@ -5554,6 +5802,13 @@ const ::_pbi::TcParseTable<2, 4, 0, 68, 2> TokenEvent::_table_ = {
     target = stream->WriteStringMaybeAliased(4, _s, target);
   }
 
+  // bool vacs_relay = 5;
+  if (this->_internal_vacs_relay() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        5, this->_internal_vacs_relay(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -5594,6 +5849,11 @@ const ::_pbi::TcParseTable<2, 4, 0, 68, 2> TokenEvent::_table_ = {
     total_size += 2;
   }
 
+  // bool vacs_relay = 5;
+  if (this->_internal_vacs_relay() != 0) {
+    total_size += 2;
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
   }
@@ -5626,6 +5886,9 @@ void TokenEvent::MergeFrom(const TokenEvent& from) {
   if (from._internal_frequency_messages() != 0) {
     _this->_impl_.frequency_messages_ = from._impl_.frequency_messages_;
   }
+  if (from._internal_vacs_relay() != 0) {
+    _this->_impl_.vacs_relay_ = from._impl_.vacs_relay_;
+  }
   _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
 }
 
@@ -5648,7 +5911,12 @@ void TokenEvent::InternalSwap(TokenEvent* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.token_, &other->_impl_.token_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.instance_id_, &other->_impl_.instance_id_, arena);
-        swap(_impl_.frequency_messages_, other->_impl_.frequency_messages_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.vacs_relay_)
+      + sizeof(TokenEvent::_impl_.vacs_relay_)
+      - PROTOBUF_FIELD_OFFSET(TokenEvent, _impl_.frequency_messages_)>(
+          reinterpret_cast<char*>(&_impl_.frequency_messages_),
+          reinterpret_cast<char*>(&other->_impl_.frequency_messages_));
 }
 
 // ===================================================================
@@ -23318,7 +23586,7 @@ PROTOBUF_NOINLINE void AMANGainLossValue::Clear() {
       _impl_.feeder_fix_eta_source_.ClearNonDefaultToEmpty();
     }
   }
-  if (cached_has_bits & 0x00000f00u) {
+  if (cached_has_bits & 0x00001f00u) {
     ::memset(&_impl_.gain_loss_seconds_, 0, static_cast<::size_t>(
         reinterpret_cast<char*>(&_impl_.inside_tma_) -
         reinterpret_cast<char*>(&_impl_.gain_loss_seconds_)) + sizeof(_impl_.inside_tma_));
@@ -23335,15 +23603,15 @@ const char* AMANGainLossValue::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 15, 0, 195, 2> AMANGainLossValue::_table_ = {
+const ::_pbi::TcParseTable<4, 16, 0, 203, 2> AMANGainLossValue::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_._has_bits_),
     0, // no _extensions_
-    15, 120,  // max_field_number, fast_idx_mask
+    16, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294934528,  // skipmap
+    4294901760,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    15,  // num_field_entries
+    16,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_AMANGainLossValue_default_instance_._instance,
@@ -23352,7 +23620,9 @@ const ::_pbi::TcParseTable<4, 15, 0, 195, 2> AMANGainLossValue::_table_ = {
     ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::AMANGainLossValue>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    {::_pbi::TcParser::MiniParse, {}},
+    // optional int64 approach_release_forecast_unix_seconds = 16;
+    {::_pbi::TcParser::FastV64S2,
+     {384, 10, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.approach_release_forecast_unix_seconds_)}},
     // string flight_id = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.flight_id_)}},
@@ -23391,10 +23661,10 @@ const ::_pbi::TcParseTable<4, 15, 0, 195, 2> AMANGainLossValue::_table_ = {
      {98, 7, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_eta_source_)}},
     // optional bool feeder_fix_passed = 13;
     {::_pbi::TcParser::FastV8S1,
-     {104, 10, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_)}},
+     {104, 11, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_)}},
     // optional bool inside_tma = 14;
     {::_pbi::TcParser::FastV8S1,
-     {112, 11, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_)}},
+     {112, 12, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_)}},
     // optional int64 holding_eat_unix_seconds = 15;
     {::_pbi::TcParser::FastV64S1,
      {120, 9, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.holding_eat_unix_seconds_)}},
@@ -23438,18 +23708,21 @@ const ::_pbi::TcParseTable<4, 15, 0, 195, 2> AMANGainLossValue::_table_ = {
     {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_eta_source_), _Internal::kHasBitsOffset + 7, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // optional bool feeder_fix_passed = 13;
-    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_), _Internal::kHasBitsOffset + 10, 0,
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_), _Internal::kHasBitsOffset + 11, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // optional bool inside_tma = 14;
-    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_), _Internal::kHasBitsOffset + 11, 0,
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_), _Internal::kHasBitsOffset + 12, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // optional int64 holding_eat_unix_seconds = 15;
     {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.holding_eat_unix_seconds_), _Internal::kHasBitsOffset + 9, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+    // optional int64 approach_release_forecast_unix_seconds = 16;
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.approach_release_forecast_unix_seconds_), _Internal::kHasBitsOffset + 10, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
   }},
   // no aux_entries
   {{
-    "\53\11\10\0\17\13\16\13\13\12\13\16\25\0\0\0"
+    "\53\11\10\0\17\13\16\13\13\12\13\16\25\0\0\0\0\0\0\0\0\0\0\0"
     "flightstrips.euroscope.v1.AMANGainLossValue"
     "flight_id"
     "callsign"
@@ -23569,14 +23842,14 @@ const ::_pbi::TcParseTable<4, 15, 0, 195, 2> AMANGainLossValue::_table_ = {
   }
 
   // optional bool feeder_fix_passed = 13;
-  if (cached_has_bits & 0x00000400u) {
+  if (cached_has_bits & 0x00000800u) {
     target = stream->EnsureSpace(target);
     target = ::_pbi::WireFormatLite::WriteBoolToArray(
         13, this->_internal_feeder_fix_passed(), target);
   }
 
   // optional bool inside_tma = 14;
-  if (cached_has_bits & 0x00000800u) {
+  if (cached_has_bits & 0x00001000u) {
     target = stream->EnsureSpace(target);
     target = ::_pbi::WireFormatLite::WriteBoolToArray(
         14, this->_internal_inside_tma(), target);
@@ -23587,6 +23860,13 @@ const ::_pbi::TcParseTable<4, 15, 0, 195, 2> AMANGainLossValue::_table_ = {
     target = ::google::protobuf::internal::WireFormatLite::
         WriteInt64ToArrayWithField<15>(
             stream, this->_internal_holding_eat_unix_seconds(), target);
+  }
+
+  // optional int64 approach_release_forecast_unix_seconds = 16;
+  if (cached_has_bits & 0x00000400u) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteInt64ToArray(
+        16, this->_internal_approach_release_forecast_unix_seconds(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -23677,7 +23957,7 @@ const ::_pbi::TcParseTable<4, 15, 0, 195, 2> AMANGainLossValue::_table_ = {
     }
 
   }
-  if (cached_has_bits & 0x00000f00u) {
+  if (cached_has_bits & 0x00001f00u) {
     // optional int64 gain_loss_seconds = 3;
     if (cached_has_bits & 0x00000100u) {
       total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
@@ -23690,13 +23970,19 @@ const ::_pbi::TcParseTable<4, 15, 0, 195, 2> AMANGainLossValue::_table_ = {
           this->_internal_holding_eat_unix_seconds());
     }
 
-    // optional bool feeder_fix_passed = 13;
+    // optional int64 approach_release_forecast_unix_seconds = 16;
     if (cached_has_bits & 0x00000400u) {
+      total_size += 2 + ::_pbi::WireFormatLite::Int64Size(
+                                      this->_internal_approach_release_forecast_unix_seconds());
+    }
+
+    // optional bool feeder_fix_passed = 13;
+    if (cached_has_bits & 0x00000800u) {
       total_size += 2;
     }
 
     // optional bool inside_tma = 14;
-    if (cached_has_bits & 0x00000800u) {
+    if (cached_has_bits & 0x00001000u) {
       total_size += 2;
     }
 
@@ -23759,7 +24045,7 @@ void AMANGainLossValue::MergeFrom(const AMANGainLossValue& from) {
       _this->_internal_set_feeder_fix_eta_source(from._internal_feeder_fix_eta_source());
     }
   }
-  if (cached_has_bits & 0x00000f00u) {
+  if (cached_has_bits & 0x00001f00u) {
     if (cached_has_bits & 0x00000100u) {
       _this->_impl_.gain_loss_seconds_ = from._impl_.gain_loss_seconds_;
     }
@@ -23767,9 +24053,12 @@ void AMANGainLossValue::MergeFrom(const AMANGainLossValue& from) {
       _this->_impl_.holding_eat_unix_seconds_ = from._impl_.holding_eat_unix_seconds_;
     }
     if (cached_has_bits & 0x00000400u) {
-      _this->_impl_.feeder_fix_passed_ = from._impl_.feeder_fix_passed_;
+      _this->_impl_.approach_release_forecast_unix_seconds_ = from._impl_.approach_release_forecast_unix_seconds_;
     }
     if (cached_has_bits & 0x00000800u) {
+      _this->_impl_.feeder_fix_passed_ = from._impl_.feeder_fix_passed_;
+    }
+    if (cached_has_bits & 0x00001000u) {
       _this->_impl_.inside_tma_ = from._impl_.inside_tma_;
     }
   }
@@ -26329,6 +26618,1362 @@ void AircraftSelectionEvent::InternalSwap(AircraftSelectionEvent* PROTOBUF_RESTR
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+}
+
+// ===================================================================
+
+class VacsRequestEvent::_Internal {
+ public:
+};
+
+VacsRequestEvent::VacsRequestEvent(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.VacsRequestEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE VacsRequestEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : request_id_(arena, from.request_id_),
+        action_(arena, from.action_),
+        call_id_(arena, from.call_id_),
+        client_id_(arena, from.client_id_),
+        _cached_size_{0} {}
+
+VacsRequestEvent::VacsRequestEvent(
+    ::google::protobuf::Arena* arena,
+    const VacsRequestEvent& from)
+    : ::google::protobuf::MessageLite(arena) {
+  VacsRequestEvent* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.VacsRequestEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE VacsRequestEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : request_id_(arena),
+        action_(arena),
+        call_id_(arena),
+        client_id_(arena),
+        _cached_size_{0} {}
+
+inline void VacsRequestEvent::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+VacsRequestEvent::~VacsRequestEvent() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.VacsRequestEvent)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void VacsRequestEvent::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.request_id_.Destroy();
+  _impl_.action_.Destroy();
+  _impl_.call_id_.Destroy();
+  _impl_.client_id_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+VacsRequestEvent::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[43];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(VacsRequestEvent, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.VacsRequestEvent",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void VacsRequestEvent::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.VacsRequestEvent)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.request_id_.ClearToEmpty();
+  _impl_.action_.ClearToEmpty();
+  _impl_.call_id_.ClearToEmpty();
+  _impl_.client_id_.ClearToEmpty();
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* VacsRequestEvent::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 4, 0, 83, 2> VacsRequestEvent::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    4, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967280,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    4,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_VacsRequestEvent_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VacsRequestEvent>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string client_id = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(VacsRequestEvent, _impl_.client_id_)}},
+    // string request_id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(VacsRequestEvent, _impl_.request_id_)}},
+    // string action = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(VacsRequestEvent, _impl_.action_)}},
+    // string call_id = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(VacsRequestEvent, _impl_.call_id_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string request_id = 1;
+    {PROTOBUF_FIELD_OFFSET(VacsRequestEvent, _impl_.request_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string action = 2;
+    {PROTOBUF_FIELD_OFFSET(VacsRequestEvent, _impl_.action_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string call_id = 3;
+    {PROTOBUF_FIELD_OFFSET(VacsRequestEvent, _impl_.call_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string client_id = 4;
+    {PROTOBUF_FIELD_OFFSET(VacsRequestEvent, _impl_.client_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\52\12\6\7\11\0\0\0"
+    "flightstrips.euroscope.v1.VacsRequestEvent"
+    "request_id"
+    "action"
+    "call_id"
+    "client_id"
+  }},
+};
+
+::uint8_t* VacsRequestEvent::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.VacsRequestEvent)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string request_id = 1;
+  if (!this->_internal_request_id().empty()) {
+    const std::string& _s = this->_internal_request_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsRequestEvent.request_id");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string action = 2;
+  if (!this->_internal_action().empty()) {
+    const std::string& _s = this->_internal_action();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsRequestEvent.action");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string call_id = 3;
+  if (!this->_internal_call_id().empty()) {
+    const std::string& _s = this->_internal_call_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsRequestEvent.call_id");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // string client_id = 4;
+  if (!this->_internal_client_id().empty()) {
+    const std::string& _s = this->_internal_client_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsRequestEvent.client_id");
+    target = stream->WriteStringMaybeAliased(4, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.VacsRequestEvent)
+  return target;
+}
+
+::size_t VacsRequestEvent::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.VacsRequestEvent)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string request_id = 1;
+  if (!this->_internal_request_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_request_id());
+  }
+
+  // string action = 2;
+  if (!this->_internal_action().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_action());
+  }
+
+  // string call_id = 3;
+  if (!this->_internal_call_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_call_id());
+  }
+
+  // string client_id = 4;
+  if (!this->_internal_client_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_client_id());
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void VacsRequestEvent::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const VacsRequestEvent*>(
+      &from));
+}
+
+void VacsRequestEvent::MergeFrom(const VacsRequestEvent& from) {
+  VacsRequestEvent* const _this = this;
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.VacsRequestEvent)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_request_id().empty()) {
+    _this->_internal_set_request_id(from._internal_request_id());
+  }
+  if (!from._internal_action().empty()) {
+    _this->_internal_set_action(from._internal_action());
+  }
+  if (!from._internal_call_id().empty()) {
+    _this->_internal_set_call_id(from._internal_call_id());
+  }
+  if (!from._internal_client_id().empty()) {
+    _this->_internal_set_client_id(from._internal_client_id());
+  }
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void VacsRequestEvent::CopyFrom(const VacsRequestEvent& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.VacsRequestEvent)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool VacsRequestEvent::IsInitialized() const {
+  return true;
+}
+
+void VacsRequestEvent::InternalSwap(VacsRequestEvent* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.request_id_, &other->_impl_.request_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.action_, &other->_impl_.action_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.call_id_, &other->_impl_.call_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.client_id_, &other->_impl_.client_id_, arena);
+}
+
+// ===================================================================
+
+class VacsPeer::_Internal {
+ public:
+};
+
+VacsPeer::VacsPeer(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.VacsPeer)
+}
+inline PROTOBUF_NDEBUG_INLINE VacsPeer::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : id_(arena, from.id_),
+        display_name_(arena, from.display_name_),
+        frequency_(arena, from.frequency_),
+        position_id_(arena, from.position_id_),
+        _cached_size_{0} {}
+
+VacsPeer::VacsPeer(
+    ::google::protobuf::Arena* arena,
+    const VacsPeer& from)
+    : ::google::protobuf::MessageLite(arena) {
+  VacsPeer* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.VacsPeer)
+}
+inline PROTOBUF_NDEBUG_INLINE VacsPeer::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : id_(arena),
+        display_name_(arena),
+        frequency_(arena),
+        position_id_(arena),
+        _cached_size_{0} {}
+
+inline void VacsPeer::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+VacsPeer::~VacsPeer() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.VacsPeer)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void VacsPeer::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.id_.Destroy();
+  _impl_.display_name_.Destroy();
+  _impl_.frequency_.Destroy();
+  _impl_.position_id_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+VacsPeer::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[35];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(VacsPeer, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.VacsPeer",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void VacsPeer::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.VacsPeer)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.id_.ClearToEmpty();
+  _impl_.display_name_.ClearToEmpty();
+  _impl_.frequency_.ClearToEmpty();
+  _impl_.position_id_.ClearToEmpty();
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* VacsPeer::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 4, 0, 77, 2> VacsPeer::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    4, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967280,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    4,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_VacsPeer_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VacsPeer>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string position_id = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(VacsPeer, _impl_.position_id_)}},
+    // string id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(VacsPeer, _impl_.id_)}},
+    // string display_name = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(VacsPeer, _impl_.display_name_)}},
+    // string frequency = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(VacsPeer, _impl_.frequency_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string id = 1;
+    {PROTOBUF_FIELD_OFFSET(VacsPeer, _impl_.id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string display_name = 2;
+    {PROTOBUF_FIELD_OFFSET(VacsPeer, _impl_.display_name_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string frequency = 3;
+    {PROTOBUF_FIELD_OFFSET(VacsPeer, _impl_.frequency_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string position_id = 4;
+    {PROTOBUF_FIELD_OFFSET(VacsPeer, _impl_.position_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\42\2\14\11\13\0\0\0"
+    "flightstrips.euroscope.v1.VacsPeer"
+    "id"
+    "display_name"
+    "frequency"
+    "position_id"
+  }},
+};
+
+::uint8_t* VacsPeer::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.VacsPeer)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string id = 1;
+  if (!this->_internal_id().empty()) {
+    const std::string& _s = this->_internal_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsPeer.id");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string display_name = 2;
+  if (!this->_internal_display_name().empty()) {
+    const std::string& _s = this->_internal_display_name();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsPeer.display_name");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string frequency = 3;
+  if (!this->_internal_frequency().empty()) {
+    const std::string& _s = this->_internal_frequency();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsPeer.frequency");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // string position_id = 4;
+  if (!this->_internal_position_id().empty()) {
+    const std::string& _s = this->_internal_position_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsPeer.position_id");
+    target = stream->WriteStringMaybeAliased(4, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.VacsPeer)
+  return target;
+}
+
+::size_t VacsPeer::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.VacsPeer)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string id = 1;
+  if (!this->_internal_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_id());
+  }
+
+  // string display_name = 2;
+  if (!this->_internal_display_name().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_display_name());
+  }
+
+  // string frequency = 3;
+  if (!this->_internal_frequency().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_frequency());
+  }
+
+  // string position_id = 4;
+  if (!this->_internal_position_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_position_id());
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void VacsPeer::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const VacsPeer*>(
+      &from));
+}
+
+void VacsPeer::MergeFrom(const VacsPeer& from) {
+  VacsPeer* const _this = this;
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.VacsPeer)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_id().empty()) {
+    _this->_internal_set_id(from._internal_id());
+  }
+  if (!from._internal_display_name().empty()) {
+    _this->_internal_set_display_name(from._internal_display_name());
+  }
+  if (!from._internal_frequency().empty()) {
+    _this->_internal_set_frequency(from._internal_frequency());
+  }
+  if (!from._internal_position_id().empty()) {
+    _this->_internal_set_position_id(from._internal_position_id());
+  }
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void VacsPeer::CopyFrom(const VacsPeer& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.VacsPeer)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool VacsPeer::IsInitialized() const {
+  return true;
+}
+
+void VacsPeer::InternalSwap(VacsPeer* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.id_, &other->_impl_.id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.display_name_, &other->_impl_.display_name_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.frequency_, &other->_impl_.frequency_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.position_id_, &other->_impl_.position_id_, arena);
+}
+
+// ===================================================================
+
+class VacsState::_Internal {
+ public:
+};
+
+VacsState::VacsState(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.VacsState)
+}
+inline PROTOBUF_NDEBUG_INLINE VacsState::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : clients_{visibility, arena, from.clients_},
+        status_(arena, from.status_),
+        label_(arena, from.label_),
+        tooltip_(arena, from.tooltip_),
+        call_id_(arena, from.call_id_),
+        own_client_id_(arena, from.own_client_id_),
+        own_position_id_(arena, from.own_position_id_),
+        _cached_size_{0} {}
+
+VacsState::VacsState(
+    ::google::protobuf::Arena* arena,
+    const VacsState& from)
+    : ::google::protobuf::MessageLite(arena) {
+  VacsState* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, pending_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, pending_),
+           offsetof(Impl_, sequence_) -
+               offsetof(Impl_, pending_) +
+               sizeof(Impl_::sequence_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.VacsState)
+}
+inline PROTOBUF_NDEBUG_INLINE VacsState::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : clients_{visibility, arena},
+        status_(arena),
+        label_(arena),
+        tooltip_(arena),
+        call_id_(arena),
+        own_client_id_(arena),
+        own_position_id_(arena),
+        _cached_size_{0} {}
+
+inline void VacsState::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, pending_),
+           0,
+           offsetof(Impl_, sequence_) -
+               offsetof(Impl_, pending_) +
+               sizeof(Impl_::sequence_));
+}
+VacsState::~VacsState() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.VacsState)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void VacsState::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.status_.Destroy();
+  _impl_.label_.Destroy();
+  _impl_.tooltip_.Destroy();
+  _impl_.call_id_.Destroy();
+  _impl_.own_client_id_.Destroy();
+  _impl_.own_position_id_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+VacsState::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[36];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(VacsState, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.VacsState",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void VacsState::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.VacsState)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.clients_.Clear();
+  _impl_.status_.ClearToEmpty();
+  _impl_.label_.ClearToEmpty();
+  _impl_.tooltip_.ClearToEmpty();
+  _impl_.call_id_.ClearToEmpty();
+  _impl_.own_client_id_.ClearToEmpty();
+  _impl_.own_position_id_.ClearToEmpty();
+  ::memset(&_impl_.pending_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.sequence_) -
+      reinterpret_cast<char*>(&_impl_.pending_)) + sizeof(_impl_.sequence_));
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* VacsState::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<4, 11, 1, 105, 2> VacsState::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    11, 120,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294965248,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    11,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_VacsState_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VacsState>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string status = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.status_)}},
+    // string label = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.label_)}},
+    // string tooltip = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.tooltip_)}},
+    // string call_id = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.call_id_)}},
+    // bool pending = 5;
+    {::_pbi::TcParser::FastV8S1,
+     {40, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.pending_)}},
+    // bool actionable = 6;
+    {::_pbi::TcParser::FastV8S1,
+     {48, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.actionable_)}},
+    // uint32 waiting = 7;
+    {::_pbi::TcParser::FastV32S1,
+     {56, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.waiting_)}},
+    // repeated .flightstrips.euroscope.v1.VacsPeer clients = 8;
+    {::_pbi::TcParser::FastMtR1,
+     {66, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.clients_)}},
+    // string own_client_id = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.own_client_id_)}},
+    // string own_position_id = 10;
+    {::_pbi::TcParser::FastUS1,
+     {82, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.own_position_id_)}},
+    // uint64 sequence = 11;
+    {::_pbi::TcParser::FastV64S1,
+     {88, 63, 0, PROTOBUF_FIELD_OFFSET(VacsState, _impl_.sequence_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string status = 1;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.status_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string label = 2;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.label_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string tooltip = 3;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.tooltip_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string call_id = 4;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.call_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool pending = 5;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.pending_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // bool actionable = 6;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.actionable_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // uint32 waiting = 7;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.waiting_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt32)},
+    // repeated .flightstrips.euroscope.v1.VacsPeer clients = 8;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.clients_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // string own_client_id = 9;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.own_client_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string own_position_id = 10;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.own_position_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // uint64 sequence = 11;
+    {PROTOBUF_FIELD_OFFSET(VacsState, _impl_.sequence_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VacsPeer>()},
+  }}, {{
+    "\43\6\5\7\7\0\0\0\0\15\17\0\0\0\0\0"
+    "flightstrips.euroscope.v1.VacsState"
+    "status"
+    "label"
+    "tooltip"
+    "call_id"
+    "own_client_id"
+    "own_position_id"
+  }},
+};
+
+::uint8_t* VacsState::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.VacsState)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string status = 1;
+  if (!this->_internal_status().empty()) {
+    const std::string& _s = this->_internal_status();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsState.status");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string label = 2;
+  if (!this->_internal_label().empty()) {
+    const std::string& _s = this->_internal_label();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsState.label");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string tooltip = 3;
+  if (!this->_internal_tooltip().empty()) {
+    const std::string& _s = this->_internal_tooltip();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsState.tooltip");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // string call_id = 4;
+  if (!this->_internal_call_id().empty()) {
+    const std::string& _s = this->_internal_call_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsState.call_id");
+    target = stream->WriteStringMaybeAliased(4, _s, target);
+  }
+
+  // bool pending = 5;
+  if (this->_internal_pending() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        5, this->_internal_pending(), target);
+  }
+
+  // bool actionable = 6;
+  if (this->_internal_actionable() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        6, this->_internal_actionable(), target);
+  }
+
+  // uint32 waiting = 7;
+  if (this->_internal_waiting() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
+        7, this->_internal_waiting(), target);
+  }
+
+  // repeated .flightstrips.euroscope.v1.VacsPeer clients = 8;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_clients_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_clients().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            8, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  // string own_client_id = 9;
+  if (!this->_internal_own_client_id().empty()) {
+    const std::string& _s = this->_internal_own_client_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsState.own_client_id");
+    target = stream->WriteStringMaybeAliased(9, _s, target);
+  }
+
+  // string own_position_id = 10;
+  if (!this->_internal_own_position_id().empty()) {
+    const std::string& _s = this->_internal_own_position_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsState.own_position_id");
+    target = stream->WriteStringMaybeAliased(10, _s, target);
+  }
+
+  // uint64 sequence = 11;
+  if (this->_internal_sequence() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        11, this->_internal_sequence(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.VacsState)
+  return target;
+}
+
+::size_t VacsState::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.VacsState)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.euroscope.v1.VacsPeer clients = 8;
+  total_size += 1UL * this->_internal_clients_size();
+  for (const auto& msg : this->_internal_clients()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // string status = 1;
+  if (!this->_internal_status().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_status());
+  }
+
+  // string label = 2;
+  if (!this->_internal_label().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_label());
+  }
+
+  // string tooltip = 3;
+  if (!this->_internal_tooltip().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_tooltip());
+  }
+
+  // string call_id = 4;
+  if (!this->_internal_call_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_call_id());
+  }
+
+  // string own_client_id = 9;
+  if (!this->_internal_own_client_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_own_client_id());
+  }
+
+  // string own_position_id = 10;
+  if (!this->_internal_own_position_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_own_position_id());
+  }
+
+  // bool pending = 5;
+  if (this->_internal_pending() != 0) {
+    total_size += 2;
+  }
+
+  // bool actionable = 6;
+  if (this->_internal_actionable() != 0) {
+    total_size += 2;
+  }
+
+  // uint32 waiting = 7;
+  if (this->_internal_waiting() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(
+        this->_internal_waiting());
+  }
+
+  // uint64 sequence = 11;
+  if (this->_internal_sequence() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_sequence());
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void VacsState::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const VacsState*>(
+      &from));
+}
+
+void VacsState::MergeFrom(const VacsState& from) {
+  VacsState* const _this = this;
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.VacsState)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_clients()->MergeFrom(
+      from._internal_clients());
+  if (!from._internal_status().empty()) {
+    _this->_internal_set_status(from._internal_status());
+  }
+  if (!from._internal_label().empty()) {
+    _this->_internal_set_label(from._internal_label());
+  }
+  if (!from._internal_tooltip().empty()) {
+    _this->_internal_set_tooltip(from._internal_tooltip());
+  }
+  if (!from._internal_call_id().empty()) {
+    _this->_internal_set_call_id(from._internal_call_id());
+  }
+  if (!from._internal_own_client_id().empty()) {
+    _this->_internal_set_own_client_id(from._internal_own_client_id());
+  }
+  if (!from._internal_own_position_id().empty()) {
+    _this->_internal_set_own_position_id(from._internal_own_position_id());
+  }
+  if (from._internal_pending() != 0) {
+    _this->_impl_.pending_ = from._impl_.pending_;
+  }
+  if (from._internal_actionable() != 0) {
+    _this->_impl_.actionable_ = from._impl_.actionable_;
+  }
+  if (from._internal_waiting() != 0) {
+    _this->_impl_.waiting_ = from._impl_.waiting_;
+  }
+  if (from._internal_sequence() != 0) {
+    _this->_impl_.sequence_ = from._impl_.sequence_;
+  }
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void VacsState::CopyFrom(const VacsState& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.VacsState)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool VacsState::IsInitialized() const {
+  return true;
+}
+
+void VacsState::InternalSwap(VacsState* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  _impl_.clients_.InternalSwap(&other->_impl_.clients_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.status_, &other->_impl_.status_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.label_, &other->_impl_.label_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.tooltip_, &other->_impl_.tooltip_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.call_id_, &other->_impl_.call_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.own_client_id_, &other->_impl_.own_client_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.own_position_id_, &other->_impl_.own_position_id_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(VacsState, _impl_.sequence_)
+      + sizeof(VacsState::_impl_.sequence_)
+      - PROTOBUF_FIELD_OFFSET(VacsState, _impl_.pending_)>(
+          reinterpret_cast<char*>(&_impl_.pending_),
+          reinterpret_cast<char*>(&other->_impl_.pending_));
+}
+
+// ===================================================================
+
+class VacsResultEvent::_Internal {
+ public:
+  using HasBits = decltype(std::declval<VacsResultEvent>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(VacsResultEvent, _impl_._has_bits_);
+};
+
+VacsResultEvent::VacsResultEvent(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.VacsResultEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE VacsResultEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        request_id_(arena, from.request_id_),
+        error_(arena, from.error_) {}
+
+VacsResultEvent::VacsResultEvent(
+    ::google::protobuf::Arena* arena,
+    const VacsResultEvent& from)
+    : ::google::protobuf::MessageLite(arena) {
+  VacsResultEvent* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.state_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::VacsState>(
+                              arena, *from._impl_.state_)
+                        : nullptr;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.VacsResultEvent)
+}
+inline PROTOBUF_NDEBUG_INLINE VacsResultEvent::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        request_id_(arena),
+        error_(arena) {}
+
+inline void VacsResultEvent::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.state_ = {};
+}
+VacsResultEvent::~VacsResultEvent() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.VacsResultEvent)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void VacsResultEvent::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.request_id_.Destroy();
+  _impl_.error_.Destroy();
+  delete _impl_.state_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+VacsResultEvent::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[42];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(VacsResultEvent, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.VacsResultEvent",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void VacsResultEvent::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.VacsResultEvent)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.request_id_.ClearToEmpty();
+  _impl_.error_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.state_ != nullptr);
+    _impl_.state_->Clear();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* VacsResultEvent::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 3, 1, 65, 2> VacsResultEvent::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(VacsResultEvent, _impl_._has_bits_),
+    0, // no _extensions_
+    3, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967288,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    3,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_VacsResultEvent_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VacsResultEvent>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string request_id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(VacsResultEvent, _impl_.request_id_)}},
+    // .flightstrips.euroscope.v1.VacsState state = 2;
+    {::_pbi::TcParser::FastMtS1,
+     {18, 0, 0, PROTOBUF_FIELD_OFFSET(VacsResultEvent, _impl_.state_)}},
+    // string error = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(VacsResultEvent, _impl_.error_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string request_id = 1;
+    {PROTOBUF_FIELD_OFFSET(VacsResultEvent, _impl_.request_id_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // .flightstrips.euroscope.v1.VacsState state = 2;
+    {PROTOBUF_FIELD_OFFSET(VacsResultEvent, _impl_.state_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // string error = 3;
+    {PROTOBUF_FIELD_OFFSET(VacsResultEvent, _impl_.error_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VacsState>()},
+  }}, {{
+    "\51\12\0\5\0\0\0\0"
+    "flightstrips.euroscope.v1.VacsResultEvent"
+    "request_id"
+    "error"
+  }},
+};
+
+::uint8_t* VacsResultEvent::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.VacsResultEvent)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string request_id = 1;
+  if (!this->_internal_request_id().empty()) {
+    const std::string& _s = this->_internal_request_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsResultEvent.request_id");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .flightstrips.euroscope.v1.VacsState state = 2;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        2, *_impl_.state_, _impl_.state_->GetCachedSize(), target, stream);
+  }
+
+  // string error = 3;
+  if (!this->_internal_error().empty()) {
+    const std::string& _s = this->_internal_error();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VacsResultEvent.error");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.VacsResultEvent)
+  return target;
+}
+
+::size_t VacsResultEvent::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.VacsResultEvent)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string request_id = 1;
+  if (!this->_internal_request_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_request_id());
+  }
+
+  // string error = 3;
+  if (!this->_internal_error().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_error());
+  }
+
+  // .flightstrips.euroscope.v1.VacsState state = 2;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.state_);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void VacsResultEvent::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const VacsResultEvent*>(
+      &from));
+}
+
+void VacsResultEvent::MergeFrom(const VacsResultEvent& from) {
+  VacsResultEvent* const _this = this;
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.VacsResultEvent)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_request_id().empty()) {
+    _this->_internal_set_request_id(from._internal_request_id());
+  }
+  if (!from._internal_error().empty()) {
+    _this->_internal_set_error(from._internal_error());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.state_ != nullptr);
+    if (_this->_impl_.state_ == nullptr) {
+      _this->_impl_.state_ =
+          ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::VacsState>(arena, *from._impl_.state_);
+    } else {
+      _this->_impl_.state_->MergeFrom(*from._impl_.state_);
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void VacsResultEvent::CopyFrom(const VacsResultEvent& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.VacsResultEvent)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool VacsResultEvent::IsInitialized() const {
+  return true;
+}
+
+void VacsResultEvent::InternalSwap(VacsResultEvent* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.request_id_, &other->_impl_.request_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.error_, &other->_impl_.error_, arena);
+  swap(_impl_.state_, other->_impl_.state_);
 }
 
 // @@protoc_insertion_point(namespace_scope)

@@ -25,9 +25,12 @@ const (
 // Client represents a frontend gorilla client
 type Client struct {
 	boardDefinition   *frontendEvents.BoardDefinition // last authorized immutable snapshot metadata, hub-owned
+	boardReady        bool                            // readiness in the last successfully queued snapshot, hub-owned
 	boardObserver     bool
 	selection         membershipSelection // immutable authenticated socket selection
 	frequencyRequests sync.Map
+	vacsRequestMu     sync.Mutex
+	vacsRequests      map[string]time.Time
 	conn              *gorilla.Conn
 	session           int32
 	sessionName       string

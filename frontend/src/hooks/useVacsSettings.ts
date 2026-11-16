@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState, startTransition } from "react";
 import {
-  getVacsHost,
   isVacsIntegrationEnabled,
-  normalizeVacsHostInput,
-  setVacsHost,
   setVacsIntegrationEnabled,
 } from "@/lib/vacs-settings";
 
@@ -13,12 +10,10 @@ function notifyVacsSettingsChanged(): void {
 
 export function useVacsSettings() {
   const [enabled, setEnabled] = useState(isVacsIntegrationEnabled);
-  const [host, setHost] = useState(getVacsHost);
 
   useEffect(() => {
     const onChange = () => {
       setEnabled(isVacsIntegrationEnabled());
-      setHost(getVacsHost());
     };
     window.addEventListener("vacs-settings-changed", onChange);
     return () => window.removeEventListener("vacs-settings-changed", onChange);
@@ -32,19 +27,8 @@ export function useVacsSettings() {
     notifyVacsSettingsChanged();
   }, []);
 
-  const setVacsHostSetting = useCallback((value: string) => {
-    const normalized = normalizeVacsHostInput(value);
-    setVacsHost(normalized);
-    startTransition(() => {
-      setHost(normalized);
-    });
-    notifyVacsSettingsChanged();
-  }, []);
-
   return {
     vacsEnabled: enabled,
     setVacsEnabled,
-    vacsHost: host,
-    setVacsHost: setVacsHostSetting,
   };
 }

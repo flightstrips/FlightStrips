@@ -85,7 +85,7 @@ func diagnosticGuidance(f aman.AMANFlight) (int64, bool) {
 	if !ok {
 		return 0, false
 	}
-	seconds, err := aman.GainLossGuidance(p, f.Slot.Time)
+	seconds, err := aman.GainLossGuidance(p, aman.GainLossTarget(f, p))
 	return seconds, err == nil
 }
 func absSeconds(v int64) int64 {

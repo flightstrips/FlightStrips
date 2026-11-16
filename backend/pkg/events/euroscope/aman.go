@@ -68,12 +68,14 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			if referencePoint == "" {
 				return AMANGainLossEvent{}, fmt.Errorf("map AMAN gain/loss flight %q: terminal reference point is empty", flight.Callsign)
 			}
-			// The live guidance estimate remains independent of sequencing freezes.
-			seconds, secondsErr := aman.GainLossGuidance(predicted, flight.Slot.Time)
+			// Keep the physical runway reference, but publish the effective
+			// guidance target after planned downstream approach absorption.
+			target := aman.GainLossTarget(flight, predicted)
+			seconds, secondsErr := aman.GainLossGuidance(predicted, target)
 			if secondsErr != nil {
 				return AMANGainLossEvent{}, fmt.Errorf("map AMAN gain/loss flight %q: %w", flight.Callsign, secondsErr)
 			}
-			targetTime, targetErr := aman.FormatTime(flight.Slot.Time)
+			targetTime, targetErr := aman.FormatTime(target)
 			if targetErr != nil {
 				return AMANGainLossEvent{}, fmt.Errorf("map AMAN target time flight %q: %w", flight.Callsign, targetErr)
 			}
@@ -85,6 +87,10 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			value.ReferencePoint = &referencePoint
 			value.TargetTime = &targetTime
 			value.PredictedTime = &predictedTime
+			if target.Before(flight.Slot.Time) && flight.ApproachRelease == nil && flight.ApproachGuidance != nil {
+				forecast := flight.ApproachGuidance.Plan.ApproachReleaseTime.Unix()
+				value.ApproachReleaseForecastUnixSeconds = &forecast
+			}
 		}
 		event.Values = append(event.Values, value)
 	}

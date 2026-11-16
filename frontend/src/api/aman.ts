@@ -249,6 +249,11 @@ export interface AMANFlight {
   raw_teta: string | null;
   operational_teta: string | null;
   gain_loss_seconds: number | null;
+  /** Effective guidance target after downstream absorption; slot stays authoritative. */
+  guidance_target_time?: string;
+  approach_absorption_seconds?: number;
+  /** Provisional release used in guidance, separate from the calculated EAT. */
+  approach_release_forecast_time?: string;
   freeze_reason: AMANFreezeReason;
   frozen_at: string | null;
   confidence: AMANConfidence | null;
@@ -632,7 +637,11 @@ function isFlight(value: unknown): value is AMANFlight {
     && (value.additional_approach_seconds === undefined || isNonNegativeInteger(value.additional_approach_seconds))
     && isNullableFiniteNumber(value.expected_holding_seconds) && isNullableFiniteNumber(value.post_holding_transit_seconds) && (value.route_fact === null || isRouteFact(value.route_fact))
     && isNullableTimestamp(value.raw_teta) && isNullableTimestamp(value.operational_teta)
-    && isNullableFiniteNumber(value.gain_loss_seconds) && isString(value.freeze_reason)
+    && isNullableFiniteNumber(value.gain_loss_seconds)
+    && (value.guidance_target_time === undefined || isTimestamp(value.guidance_target_time))
+    && (value.approach_release_forecast_time === undefined || isTimestamp(value.approach_release_forecast_time))
+    && (value.approach_absorption_seconds === undefined || isNonNegativeInteger(value.approach_absorption_seconds))
+    && isString(value.freeze_reason)
     && freezeReasons.has(value.freeze_reason as AMANFreezeReason) && isNullableTimestamp(value.frozen_at)
     && (value.confidence === null || (isString(value.confidence) && confidences.has(value.confidence as AMANConfidence)))
     && (value.provenance === null || isProvenance(value.provenance)) && isNullableFiniteNumber(value.input_age_seconds)

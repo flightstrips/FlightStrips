@@ -1042,6 +1042,7 @@ type AMANFlight struct {
 	HoldingReleaseReservation *HoldingReleaseReservation
 	HoldingReleaseBasis       *HoldingReleaseBasis
 	ApproachRelease           *ApproachReleaseReservation
+	ApproachGuidance          *ApproachGuidancePlan
 	// HoldingClearanceCanceledAt retains the last actual cancellation time across blank strip snapshots.
 	HoldingClearanceCanceledAt *time.Time
 	ActiveRouteFact            *RouteFact
@@ -1660,6 +1661,11 @@ func (f AMANFlight) Validate() error {
 	}
 	if f.ApproachRelease != nil {
 		if err := f.ApproachRelease.Validate(); err != nil {
+			return err
+		}
+	}
+	if f.ApproachGuidance != nil {
+		if err := f.ApproachGuidance.Validate(); err != nil {
 			return err
 		}
 	}

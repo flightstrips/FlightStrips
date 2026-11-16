@@ -50,6 +50,7 @@ import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoor
 
 
 type EventMap = {
+  [EventType.FrontendVacsResult]: import("@/vacs/types").VacsRelayResult;
   [EventType.FrontendAircraftSelection]: FrontendAircraftSelectionEvent;
  [EventType.FrontendConnectedFlightResults]:import("./strip-board").ConnectedFlightSearchResult;
   [EventType.FrontendMasterInfo]: FrontendMasterInfoEvent;
@@ -125,6 +126,7 @@ export class WebSocketClient {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private manuallyClosed = false;
   private delegate?: WebSocketClientDelegate;
+  private pendingConnection: {promise: Promise<void>; resolve: () => void; reject: (error: Error) => void} | null = null;
 
   constructor(url: string, delegate?: WebSocketClientDelegate, private readonly selection?: OwnMembership) {
     this.url = url;
@@ -162,7 +164,19 @@ export class WebSocketClient {
   }
   connect(): Promise<void> {
     if (this.disposed) return Promise.reject(new Error("Board subscription is disposed"));
-    return new Promise((resolve,) => {
+    if (this.pendingConnection) return this.pendingConnection.promise;
+    if (this.isConnected()) return Promise.resolve();
+    // Token refresh and a retry timer may request the same connection. There
+    // must be only one socket and subscription for this board at a time.
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    let resolve!: () => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<void>((done, fail) => {resolve = done; reject = fail;});
+    this.pendingConnection = {promise, resolve, reject};
+    try {
       this.manuallyClosed = false;
       const socket = new WebSocket(this.url);
       this.socket = socket;
@@ -179,7 +193,7 @@ export class WebSocketClient {
         if (this.delegate?.onConnected) {
           this.delegate.onConnected();
         }
-        resolve();
+        this.finishConnection();
       };
 
       socket.onerror = (error) => {
@@ -191,6 +205,7 @@ export class WebSocketClient {
         // Ignore close events from a socket that has already been replaced (e.g. during reconnect)
         if (this.socket !== socket) return;
         this.socket = null;
+        this.finishConnection(new Error('WebSocket closed before opening'));
         this.invalidate();
         console.log('WebSocket connection closed:', event.code, event.reason);
         if (this.delegate?.onDisconnected) {
@@ -218,21 +233,27 @@ export class WebSocketClient {
           console.error('Error parsing WebSocket message:', error);
         }
       };
-    });
+    } catch (error) {
+      // Setup failures may happen before onclose is installed.
+      const failed = this.socket;
+      this.socket = null;
+      failed?.close();
+      this.finishConnection(error instanceof Error ? error : new Error(String(error)));
+      this.retryConnection();
+    }
+    return promise;
+  }
+
+  private finishConnection(error?: Error): void {
+    const pending = this.pendingConnection;
+    this.pendingConnection = null;
+    if (error) pending?.reject(error);
+    else pending?.resolve();
   }
 
   reconnect(): void {
     if (this.disposed) return;
-    this.invalidate();
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-    if (this.socket) {
-      const previous = this.socket;
-      this.socket = null;
-      previous.close();
-    }
+    this.disconnect();
     this.connect().catch(() => {
       // Connection errors are handled by socket.onerror; retryConnection kicks in via onclose
     });
@@ -257,7 +278,9 @@ export class WebSocketClient {
 
   disconnect(): void {
     this.manuallyClosed = true;
+    this.finishConnection(new Error('WebSocket connection cancelled'));
     this.invalidate();
+    this.delegate?.onDisconnected?.();
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;

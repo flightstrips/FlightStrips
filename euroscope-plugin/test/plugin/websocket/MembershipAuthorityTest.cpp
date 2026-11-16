@@ -39,3 +39,44 @@ TEST(MembershipAuthorityTest, HumanCommandCannotCrossMembershipGenerationOrReviv
     command.mutable_context()->set_environment("LIVE");EXPECT_FALSE(state.Accept(command,"instance",7,"LIVE"));
     state.Reset();EXPECT_FALSE(state.Accept(command,"instance",7,"LIVE"));
 }
+
+TEST(MembershipAuthorityTest, AirportRetirementAndEpochChangeLeaveOtherMembershipUsable) {
+    MembershipState state;
+    auto a=JoinedMembership();
+    auto b=a;
+    b.mutable_context()->set_membership_id("other");
+    b.mutable_context()->set_session_id(43);
+    b.mutable_context()->set_airport("BBBB");
+    b.mutable_context()->set_master_epoch(11);
+    b.mutable_session_info()->set_role("master");
+    ASSERT_TRUE(state.Accept(a,"instance",7,"LIVE"));
+    ASSERT_TRUE(state.Accept(b,"instance",7,"LIVE"));
+    auto inventory=b;
+    inventory.mutable_backend_sync()->add_strips()->set_callsign("SAME123");
+    ASSERT_TRUE(state.Accept(inventory,"instance",7,"LIVE"));
+    auto election=a;
+    election.mutable_context()->set_master_epoch(4);
+    election.mutable_session_info()->set_role("master");
+    ASSERT_TRUE(state.Accept(election,"instance",7,"LIVE"));
+    auto removed=election;
+    removed.mutable_membership_removed();
+    EXPECT_FALSE(state.Accept(removed,"instance",7,"LIVE"));
+    EXPECT_EQ(state.members.size(),1);
+    EXPECT_EQ(state.members.at("other").context.master_epoch(),11);
+    EXPECT_EQ(state.members.at("other").role,STATE_MASTER);
+    EXPECT_TRUE(state.members.at("other").inventory.contains("SAME123"));
+    auto command=b;
+    command.mutable_assigned_squawk()->set_callsign("SAME123");
+    command.set_command_origin(wire::COMMAND_ORIGIN_HUMAN);
+    EXPECT_TRUE(state.Accept(command,"instance",7,"LIVE"));
+    // Old queued A traffic cannot revive the retired membership, including
+    // after a new membership for A is announced on the same physical socket.
+    EXPECT_FALSE(state.Accept(a,"instance",7,"LIVE"));
+    auto rejoin=election;
+    rejoin.mutable_context()->set_membership_id("rejoined");
+    rejoin.mutable_context()->set_generation(9);
+    ASSERT_TRUE(state.Accept(rejoin,"instance",7,"LIVE"));
+    EXPECT_FALSE(state.Accept(a,"instance",7,"LIVE"));
+    EXPECT_TRUE(state.Accept(command,"instance",7,"LIVE"));
+    EXPECT_EQ(state.members.size(),2);
+}

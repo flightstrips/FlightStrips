@@ -17,7 +17,7 @@ import {AMANSettingsPanel} from "@/components/aman/AMANSettingsPanel";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
-import {canInsertAMANFlight, canSwapAMANFlight, getAMANMutationBlockReason, isExcludedAMANFlight, isUnslottedAMANFlight} from "@/api/aman";
+import {canInsertAMANFlight, getAMANSwapBlockReason, getAMANMutationBlockReason, isExcludedAMANFlight, isUnslottedAMANFlight} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {EKCH_STAR_FAMILY_HOLDING, EKCH_TMT_HOLDING_ORDER, holdingsForFamilies} from "@/config/aman";
@@ -82,6 +82,7 @@ export default function AMAN() {
   ];
   const activeTmtTab = accActive || !tmtTabs.some(tab => tab.id === tmtTab) ? "holdings" : tmtTab;
   const mutationBlockReason = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority});
+  const swapBlockReason = getAMANSwapBlockReason(dialogFlight, mutationBlockReason);
 
   const navigateToWarningFlight = (callsign: string): boolean => {
     if (!state?.flights.some((flight) => flight.callsign === callsign)) return false;
@@ -256,11 +257,12 @@ export default function AMAN() {
             ))}
             <div className="mx-1 my-0.5 border-t-2 border-white" />
             <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canInsertAMANFlight(dialogFlight)} onClick={() => { setFlightActionsOpen(false); setInsertCallsign(dialogCallsign); }} type="button">Insert behind…</button>
-            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canSwapAMANFlight(dialogFlight)} onClick={() => {
+            <button aria-describedby={swapBlockReason ? "aman-swap-menu-reason" : undefined} className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={swapBlockReason !== null} onClick={() => {
               setFlightActionsOpen(false);
               setSwapCommandID(null);
               setSwapOpen(true);
             }} type="button">Swap sequence</button>
+            {swapBlockReason && <p className="px-3 pb-2 text-[10px] font-normal leading-snug" id="aman-swap-menu-reason" role="status">Swap unavailable: {swapBlockReason}</p>}
             <button className="min-h-5 px-3 text-left hover:bg-[#6685c2]" onClick={() => {
               setFlightActionsOpen(false);
               setCoordinationOpen(true);
@@ -306,7 +308,7 @@ export default function AMAN() {
       {swapOpen && dialogFlight !== null && <AMANSwapDialog
         key={dialogFlight.callsign}
         busy={Object.values(pendingCommands).some((command) => command.type === "aman.swap_flights" || command.type === "aman.move_flight" || command.type === "aman.rebuild_arrival_sequence")}
-        disabled={mutationBlockReason !== null || dialogFlight === null}
+        mutationBlockReason={mutationBlockReason}
         flight={dialogFlight}
         flights={state?.flights ?? []}
         onClose={() => setSwapOpen(false)}

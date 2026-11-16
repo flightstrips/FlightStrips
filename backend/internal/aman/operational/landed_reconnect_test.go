@@ -99,7 +99,9 @@ func TestLandedRecoveryRejectsUnusableSurveillanceAndManualRemoval(t *testing.T)
 			case "replayed":
 				observation.Surveillance.ObservedAt = &landedAt
 			case "older-than-last-ground-report":
-				flight.LatestObservation = &aman.FlightObservation{Surveillance: &aman.SurveillanceFact{ObservedAt: timePointer(now.Add(-10 * time.Second))}}
+				altitude, speed := 478, 0.0
+				flight.LatestObservation = &aman.FlightObservation{SourceStatus: aman.DataFresh, ReconciledAt: now,
+					Surveillance: &aman.SurveillanceFact{ObservedAt: timePointer(now.Add(-10 * time.Second)), AltitudeFeet: &altitude, GroundspeedKnots: &speed}}
 				observation.Surveillance.ObservedAt = timePointer(now.Add(-20 * time.Second))
 			case "grounded":
 				*observation.Surveillance.AltitudeFeet, *observation.Surveillance.GroundspeedKnots = 478, 0
@@ -119,6 +121,75 @@ func TestLandedRecoveryRejectsUnusableSurveillanceAndManualRemoval(t *testing.T)
 			updated, _ := service.reconcileFlight(t.Context(), state, flight, observation, now)
 			require.Equal(t, flight.State, updated.State)
 			require.Nil(t, updated.Slot)
+		})
+	}
+}
+
+func TestRejectedLandedReportsPreserveRadarRecoveryWatermark(t *testing.T) {
+	for _, rejected := range []string{"missing-speed", "newer-missing-speed", "missing-altitude", "older-radar", "no-radar", "no-radar-time", "future-radar", "invalid-position", "stale-source", "missing"} {
+		t.Run(rejected, func(t *testing.T) {
+			landedAt := time.Date(2026, 11, 16, 19, 0, 0, 0, time.UTC)
+			now := landedAt.Add(2 * time.Minute)
+			service, state, airborne := fallbackFixture(t, now)
+			service.deps.Materializer = fixedNavigation{key: "new-route"}
+			groundAt := landedAt.Add(110 * time.Second)
+			ground := airborne
+			altitude, speed := 478, 0.0
+			ground.ReconciledAt = groundAt
+			ground.Surveillance = &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &speed, ObservedAt: &groundAt}
+			flight := aman.AMANFlight{Callsign: airborne.Callsign, State: aman.StateLanded, UpdatedAt: landedAt,
+				Lifecycle: &aman.LifecycleState{EnteredAt: landedAt, Reason: aman.LifecycleReasonLandingConfirmed}}
+			flight, err := service.reconcileFlight(t.Context(), state, flight, ground, now)
+			require.NoError(t, err)
+
+			bad := airborne
+			radar := *airborne.Surveillance
+			bad.Surveillance = &radar
+			bad.Surveillance.ObservedAt = timePointer(landedAt.Add(100 * time.Second))
+			switch rejected {
+			case "missing-speed":
+				bad.Surveillance.GroundspeedKnots = nil
+			case "newer-missing-speed":
+				bad.Surveillance.ObservedAt, bad.Surveillance.GroundspeedKnots = &now, nil
+			case "missing-altitude":
+				bad.Surveillance.ObservedAt, bad.Surveillance.AltitudeFeet = &now, nil
+			case "no-radar":
+				bad.Surveillance = nil
+			case "no-radar-time":
+				bad.Surveillance.ObservedAt = nil
+			case "future-radar":
+				bad.Surveillance.ObservedAt = timePointer(now.Add(time.Minute))
+			case "invalid-position":
+				bad.Surveillance.ObservedAt = &now
+				bad.Surveillance.LatitudeDegrees = 91
+			case "stale-source":
+				bad.SourceStatus = aman.DataStale
+			case "missing":
+				bad.Missing = true
+			}
+			flight, err = service.reconcileFlight(t.Context(), state, flight, bad, now)
+			require.NoError(t, err)
+			require.Equal(t, aman.StateLanded, flight.State)
+			require.NotNil(t, flight.LatestObservation.Surveillance)
+			require.Equal(t, groundAt, *flight.LatestObservation.Surveillance.ObservedAt)
+			// The guard must survive persistence, not just an in-memory retry.
+			flight = cloneGapState(t, aman.AirportState{Flights: []aman.AMANFlight{flight}}).Flights[0]
+			airborne.Surveillance.ObservedAt = timePointer(landedAt.Add(105 * time.Second))
+			flight, err = service.reconcileFlight(t.Context(), state, flight, airborne, now)
+			require.NoError(t, err)
+			require.Equal(t, groundAt, *flight.LatestObservation.Surveillance.ObservedAt)
+			state.Flights = []aman.AMANFlight{flight}
+			service.resequence(&state, now)
+			require.Equal(t, aman.StateLanded, state.Flights[0].State)
+			require.Nil(t, state.Flights[0].Slot)
+
+			airborne.Surveillance.ObservedAt = timePointer(landedAt.Add(115 * time.Second))
+			flight, err = service.reconcileFlight(t.Context(), state, flight, airborne, now)
+			require.NoError(t, err)
+			state.Flights = []aman.AMANFlight{flight}
+			service.resequence(&state, now)
+			require.NotEqual(t, aman.StateLanded, state.Flights[0].State)
+			require.NotNil(t, state.Flights[0].Slot)
 		})
 	}
 }

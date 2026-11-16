@@ -1169,6 +1169,12 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 		}
 		flight = newFlight(observation, now)
 	}
+	if flight.State == aman.StateLanded && (!hasFreshLandedRadar(observation, now) ||
+		!observation.Surveillance.ObservedAt.After(landedRecoveryWatermark(flight))) {
+		// LatestObservation is also the persisted recovery watermark. Rejected
+		// or replayed radar must not replace the last validated ground report.
+		return flight, nil
+	}
 	if canRecoverLandedFlight(flight, observation, now) {
 		// Reconnecting aircraft can retain a landing from an earlier source
 		// episode. Start again from current radar evidence rather than reusing
@@ -3144,15 +3150,33 @@ func canRecoverLandedFlight(flight aman.AMANFlight, observation aman.FlightObser
 	if *surveillance.AltitudeFeet < groundedMaximumAltitudeFeet || *surveillance.GroundspeedKnots <= groundedMaximumGroundspeedKnots {
 		return false
 	}
+	return surveillance.ObservedAt.After(landedRecoveryWatermark(flight))
+}
+
+// Ground reports can advance the watermark too, including zero groundspeed.
+func hasFreshLandedRadar(observation aman.FlightObservation, now time.Time) bool {
+	position := observation.Surveillance
+	if observation.Missing || observation.SourceStatus != aman.DataFresh || position == nil || position.ObservedAt == nil ||
+		position.ObservedAt.After(now) || now.Sub(*position.ObservedAt) > aman.ArrivalSurveillanceFreshness ||
+		position.AltitudeFeet == nil || position.GroundspeedKnots == nil {
+		return false
+	}
+	speed := *position.GroundspeedKnots
+	return *position.AltitudeFeet >= 0 && speed >= 0 && !math.IsNaN(speed) && !math.IsInf(speed, 0) &&
+		!math.IsNaN(position.LatitudeDegrees) && !math.IsInf(position.LatitudeDegrees, 0) && position.LatitudeDegrees >= -90 && position.LatitudeDegrees <= 90 &&
+		!math.IsNaN(position.LongitudeDegrees) && !math.IsInf(position.LongitudeDegrees, 0) && position.LongitudeDegrees >= -180 && position.LongitudeDegrees <= 180
+}
+
+func landedRecoveryWatermark(flight aman.AMANFlight) time.Time {
 	landedAt := flight.UpdatedAt
 	if flight.Lifecycle != nil {
 		landedAt = flight.Lifecycle.EnteredAt
 	}
-	if previous := flight.LatestObservation; previous != nil && previous.Surveillance != nil &&
-		previous.Surveillance.ObservedAt != nil && previous.Surveillance.ObservedAt.After(landedAt) {
+	if previous := flight.LatestObservation; previous != nil && hasFreshLandedRadar(*previous, previous.ReconciledAt) &&
+		previous.Surveillance.ObservedAt.After(landedAt) {
 		landedAt = *previous.Surveillance.ObservedAt
 	}
-	return surveillance.ObservedAt.After(landedAt)
+	return landedAt
 }
 
 // applyGroundedObservation treats low-and-slow surveillance as a lifecycle

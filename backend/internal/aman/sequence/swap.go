@@ -103,7 +103,7 @@ func ApplySwap(input Input, command aman.SwapFlightsCommand) (Decision, error) {
 	for index := range working.Flights {
 		working.Flights[index].ProtectCurrentSlot = input.Flights[index].ProtectCurrentSlot
 	}
-	retainManualPositions(&working, input, order, first.Callsign, second.Callsign)
+	retainSwapPositions(&working, input, order, first.Callsign, second.Callsign)
 	return Decision{Input: working, Candidate: candidate, Changed: true}, nil
 }
 

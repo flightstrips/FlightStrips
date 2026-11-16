@@ -35,6 +35,19 @@ function flight(id: string, order: number | null, minutes: number): AMANFlight {
 describe("AMAN presentation model", () => {
   const availableGuidance = {authoritative: true, connected: true, fresh: true};
 
+  it("excludes ground traffic from operational timelines even with a retained slot or forecast", () => {
+    const ground = {...flight("ground", 1, 5), lifecycle_state: "planned" as const};
+    const airborne = {...flight("airborne", 2, 6), lifecycle_state: "airborne" as const};
+    const range = {startMs: Date.UTC(2026, 6, 22, 10), endMs: Date.UTC(2026, 6, 22, 11)};
+    expect(operationalMarkerTimestamp(ground)).toBeNull();
+    expect(operationalMarkerTimestamp({...ground, slot: null, operational_teta: ground.slot!.time})).toBeNull();
+    expect(layoutTimelineMarkers([ground, airborne], range).map(marker => marker.flight.callsign)).toEqual(["AIRBORNE"]);
+    expect(buildAMANHoldingLanes([ground, airborne]).flatMap(lane => lane.flights)).toEqual([airborne]);
+    const state = {...golden.data, flights: [ground, airborne]};
+    expect(buildAMANLanes(state).flatMap(lane => lane.flights)).toEqual([airborne]);
+    expect(buildRWYTimelineLanes(state).lanes.flatMap(lane => lane.flights)).toEqual([airborne]);
+  });
+
   it.each([
     [-6001, "L99+"],
     [-5970, "L99+"],

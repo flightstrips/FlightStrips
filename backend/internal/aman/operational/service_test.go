@@ -319,6 +319,7 @@ func TestReconciliationPopulatesResolvedTerminalIdentities(t *testing.T) {
 		Terminal: terminal.Configuration{
 			ConfigVersion: "test-v1",
 			Feeders:       []terminal.Feeder{{ID: "TESPI"}},
+			RunwayGroups:  []terminal.RunwayGroup{{ID: group}},
 			Paths:         []terminal.Path{{Feeder: "TESPI", RunwayGroup: group}},
 		},
 	}}

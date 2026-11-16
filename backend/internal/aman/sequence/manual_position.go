@@ -181,7 +181,22 @@ func ForgetManualPosition(input *Input, id aman.Callsign) {
 // A controller command uses a complete temporary order for atomic placement.
 // Persist just its local relationships and compatible prior controller intent.
 func retainManualPositions(working *Input, original Input, order []aman.Callsign, selected ...aman.Callsign) {
+	retainScopedManualPositions(working, original, order, false, selected...)
+}
+
+// Swaps choose an order within one STAR, whereas before/after moves choose
+// runway-sequence neighbours. Retaining cross-STAR neighbours after a swap
+// would prevent future interleaving into otherwise usable capacity.
+func retainSwapPositions(working *Input, original Input, order []aman.Callsign, selected ...aman.Callsign) {
+	retainScopedManualPositions(working, original, order, true, selected...)
+}
+
+func retainScopedManualPositions(working *Input, original Input, order []aman.Callsign, sameSTAROnly bool, selected ...aman.Callsign) {
 	positions := make(map[aman.Callsign]int, len(order))
+	byID := make(map[aman.Callsign]Flight, len(working.Flights))
+	for _, flight := range working.Flights {
+		byID[flight.Callsign] = flight
+	}
 	for i, id := range order {
 		positions[id] = i
 	}
@@ -202,11 +217,17 @@ func retainManualPositions(working *Input, original Input, order []aman.Callsign
 		if slices.Contains(selected, flight.Callsign) {
 			flight.ManualOrder = nil
 			position = aman.ManualSequencePosition{}
-			if at > 0 {
-				position.AfterCallsign = order[at-1]
+			for previous := at - 1; previous >= 0; previous-- {
+				if !sameSTAROnly || byID[order[previous]].SelectedSTARFamily == flight.SelectedSTARFamily {
+					position.AfterCallsign = order[previous]
+					break
+				}
 			}
-			if at+1 < len(order) {
-				position.BeforeCallsign = order[at+1]
+			for next := at + 1; next < len(order); next++ {
+				if !sameSTAROnly || byID[order[next]].SelectedSTARFamily == flight.SelectedSTARFamily {
+					position.BeforeCallsign = order[next]
+					break
+				}
 			}
 		} else {
 			if previous, ok := positions[position.AfterCallsign]; !ok || previous >= at {

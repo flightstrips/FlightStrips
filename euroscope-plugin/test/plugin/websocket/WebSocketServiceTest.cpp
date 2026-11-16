@@ -1867,6 +1867,90 @@ TEST_F(WebSocketServiceOnTimerTest, TrackedAircraftFactsRequireTrackingButNotMas
     EXPECT_FALSE(svc->ShouldSendTrackedAircraft(true));
 }
 
+TEST_F(WebSocketServiceOnTimerTest, TrackingSlaveReportsClearedAltitudeToEachAircraftMembership) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto a = AddMembership(*svc, 1, "AAAA", "slave");
+    const auto b = AddMembership(*svc, 2, "BBBB", "slave");
+    const auto unrelated = AddMembership(*svc, 3, "CCCC", "slave");
+    svc->RememberAircraft("GAF1AB", "AAAA", "BBBB", 55, 12);
+    auto socket = std::shared_ptr<WebSocketService>(svc.get(), [](WebSocketService*) {});
+    flightplan::FlightPlanService plans(socket, {}, {}, {}, nullptr);
+    std::vector<protobuf::wire::Envelope> reports;
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope event;
+        ASSERT_TRUE(event.ParseFromString(bytes));
+        ASSERT_TRUE(event.has_cleared_altitude());
+        EXPECT_EQ(event.cleared_altitude().callsign(), "GAF1AB");
+        EXPECT_EQ(event.cleared_altitude().altitude(), 23000);
+        EXPECT_NE(event.context().membership_id(), unrelated.membership_id());
+        reports.push_back(event);
+    }));
+    EXPECT_FALSE(plans.ReportClearedAltitude("GAF1AB", 9000, false));
+    EXPECT_TRUE(plans.ReportClearedAltitude("GAF1AB", 23000, true));
+    ASSERT_EQ(reports.size(), 2u);
+    EXPECT_NE(reports[0].context().membership_id(), reports[1].context().membership_id());
+    EXPECT_TRUE(reports[0].context().membership_id() == a.membership_id() || reports[0].context().membership_id() == b.membership_id());
+    state.observer = true;
+    EXPECT_FALSE(plans.ReportClearedAltitude("GAF1AB", 9000, true));
+    state.observer = false;
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+    EXPECT_FALSE(plans.ReportClearedAltitude("GAF1AB", 9000, true));
+}
+
+TEST_F(WebSocketServiceOnTimerTest, ClearedAltitudeCommandResultsReachOtherTrackingMemberships) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto own = AddMembership(*svc, 1, "AAAA", "slave");
+    const auto other = AddMembership(*svc, 2, "BBBB", "slave");
+    const auto master = AddMembership(*svc, 3, "CCCC", "master");
+    const auto observer = AddMembership(*svc, 4, "DDDD", "observer");
+    AddMembership(*svc, 5, "EEEE", "slave"); // No inventory for this aircraft.
+    svc->RememberAircraft("GAF1AB", "AAAA", "BBBB", 55, 12);
+    for (const auto& context : {master, observer}) {
+        protobuf::wire::Envelope inventory;
+        *inventory.mutable_context() = context;
+        inventory.mutable_backend_sync()->add_strips()->set_callsign("GAF1AB");
+        svc->ProcessServerMessage(inventory.SerializeAsString());
+    }
+    auto socket = std::shared_ptr<WebSocketService>(svc.get(), [](WebSocketService*) {});
+    flightplan::FlightPlanService plans(socket, {}, {}, {}, nullptr);
+    for (const bool tracking : {false, true}) {
+        SCOPED_TRACE(tracking);
+        const std::string executionId = tracking ? "cfl-tracked" : "cfl-untracked";
+        protobuf::wire::Envelope command;
+        *command.mutable_context() = own;
+        command.set_command_origin(protobuf::wire::COMMAND_ORIGIN_HUMAN);
+        command.set_execution_id(executionId);
+        command.mutable_cleared_altitude()->set_callsign("GAF1AB");
+        command.mutable_cleared_altitude()->set_altitude(23000);
+        svc->ProcessServerMessage(command.SerializeAsString());
+        std::vector<protobuf::wire::Envelope> reports;
+        EXPECT_CALL(*mockImpl, Send(_)).Times(tracking ? 3 : 2).WillRepeatedly(Invoke([&](const std::string& bytes) {
+            protobuf::wire::Envelope event;
+            ASSERT_TRUE(event.ParseFromString(bytes));
+            reports.push_back(event);
+        }));
+        EXPECT_TRUE(plans.ReportClearedAltitude("GAF1AB", 23000, tracking));
+        ASSERT_FALSE(reports.empty());
+        EXPECT_EQ(reports[0].context().membership_id(), own.membership_id());
+        EXPECT_EQ(reports[0].execution_id(), executionId);
+        EXPECT_EQ(reports[0].command_origin(), protobuf::wire::COMMAND_ORIGIN_HUMAN);
+        std::unordered_set<std::string> observedMemberships;
+        for (size_t i = 1; i < reports.size(); ++i) {
+            const auto& report = reports[i];
+            EXPECT_TRUE(report.has_cleared_altitude());
+            EXPECT_EQ(report.cleared_altitude().callsign(), "GAF1AB");
+            EXPECT_EQ(report.cleared_altitude().altitude(), 23000);
+            EXPECT_EQ(report.command_origin(), protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED);
+            EXPECT_TRUE(report.execution_id().empty());
+            EXPECT_TRUE(observedMemberships.insert(report.context().membership_id()).second);
+        }
+        EXPECT_EQ(observedMemberships, tracking
+            ? (std::unordered_set<std::string>{master.membership_id(), other.membership_id()})
+            : (std::unordered_set<std::string>{master.membership_id()}));
+        ::testing::Mock::VerifyAndClearExpectations(mockImpl);
+    }
+}
+
 TEST_F(WebSocketServiceOnTimerTest, PositionEventsAreSuppressedAtSendBoundaryAfterMasterDemotion) {
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     const PositionEvent position("SAS123", 55.6, 12.6, 5000);

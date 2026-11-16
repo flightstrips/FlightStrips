@@ -38,6 +38,7 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
     void FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
     bool ReportAssignedSquawk(const std::string& callsign,const std::string& squawk);
+    bool ReportClearedAltitude(const std::string& callsign, int altitude, bool trackingControllerIsMe);
     void ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) override;
 
     void FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;

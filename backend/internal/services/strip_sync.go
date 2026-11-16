@@ -114,6 +114,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
+	preserveHoldingAltitude := false
 	if sender, authenticated := shared.StripSyncController(ctx); authenticated {
 		trackingController := strip.TrackingController
 		if existingStrip != nil {
@@ -124,6 +125,13 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			// controller's snapshot must not replace or clear holding facts.
 			strip.HoldSupported = false
 			strip.Hold, strip.HoldType, strip.HoldEat = "", "", ""
+			if existingStrip != nil && strings.TrimSpace(existingStrip.Hold) != "" && strings.TrimSpace(trackingController) != "" {
+				// Keep the level paired with the authoritative hold. A master's
+				// snapshot of another controller's aircraft can contain a local
+				// stale/unset CFL, even while its other strip fields are current.
+				strip.ClearedAltitude = helpers.ValueOrDefault(existingStrip.ClearedAltitude)
+				preserveHoldingAltitude = true
+			}
 		}
 	}
 
@@ -586,6 +594,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			VatsimRevision:           vatsimRevision,
 			VatsimSeenAt:             vatsimSeenAt,
 			EuroscopeSeenAt:          euroscopeSeenAt,
+		}
+		if preserveHoldingAltitude && !restartLifecycle {
+			updateStrip.ClearedAltitude = cloneSyncPointer(existingStrip.ClearedAltitude)
 		}
 		validationStrip = updateStrip
 		amanStrip = updateStrip

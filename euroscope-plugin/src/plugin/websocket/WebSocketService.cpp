@@ -76,7 +76,7 @@ namespace FlightStrips::websocket {
             [weak,id]{const auto socket=weak.lock();return socket && socket->ExecutionReady(id);},
             [weak,id](const std::function<void()>& action){const auto socket=weak.lock();return socket && socket->ExecuteDeferred(id,action);});
     }
-    bool WebSocketService::SendCommandResult(const Event& event) {
+    bool WebSocketService::SendCommandResult(const Event& event, bool trackingControllerIsMe) {
         if(pending_executions_.empty()) return false;
         Wire result;if(!result.ParseFromString(protobuf::Serialize(event))) return false;
         const auto callsign=ResultCallsign(result);if(callsign.empty()) return false;
@@ -94,9 +94,12 @@ namespace FlightStrips::websocket {
         ++tx;webSocket->Send(result.SerializeAsString());
         // The exact business result belongs to its initiating member. The
         // physical SDK fact is also an ordinary observation for every other
-        // applicable membership where this instance is the current master.
+        // applicable master membership, and for a tracked CFL, slave memberships.
+        const bool trackedClearedAltitude = result.has_cleared_altitude() && trackingControllerIsMe;
         for(const auto& [memberId,member]:memberships_.members) {
-            if(memberId==pending.context.membership_id() || member.role!=STATE_MASTER || !member.inventory.contains(callsign)) continue;
+            if(memberId==pending.context.membership_id() ||
+                (member.role!=STATE_MASTER && !(trackedClearedAltitude && member.role==STATE_SLAVE)) ||
+                !member.inventory.contains(callsign)) continue;
             auto observation=result;*observation.mutable_context()=member.context;observation.clear_command_origin();observation.clear_execution_id();
             ++tx;webSocket->Send(observation.SerializeAsString());
         }
@@ -287,7 +290,7 @@ namespace FlightStrips::websocket {
             if(own) send(*own);return;
         }
         for(auto& [id,member]:memberships_.members) {
-            if(member.role!=STATE_MASTER && !((source.has_hold() || source.has_aman_route_fact() || source.has_coordination_received()) && member.role==STATE_SLAVE)) continue;
+            if(member.role!=STATE_MASTER && !((source.has_hold() || source.has_cleared_altitude() || source.has_aman_route_fact() || source.has_coordination_received()) && member.role==STATE_SLAVE)) continue;
             if(!callsign.empty() && !member.inventory.contains(callsign)) continue;
             send(member);
             if(source.has_aircraft_disconnect()) {member.inventory.erase(callsign);member.excluded.insert(callsign);}

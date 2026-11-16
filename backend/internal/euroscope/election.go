@@ -44,7 +44,7 @@ func (hub *Hub) MembershipReady(client *Client) bool {
 }
 
 func trackedMembershipEvent(kind string) bool {
-	return kind == "runway" || kind == "hold" || kind == "aman_route_fact" || kind == "coordination_received"
+	return kind == "runway" || kind == "hold" || kind == "cleared_altitude" || kind == "aman_route_fact" || kind == "coordination_received"
 }
 
 type sessionApplicationKey struct{}

@@ -72,7 +72,7 @@ namespace FlightStrips::websocket {
         void ProcessServerMessage(const std::string& bytes);
         void ForEachMembership(const std::function<void(const std::string&)>& action);
         void DeferSquawk(PendingSquawkQueue& queue,const std::string& callsign);
-        bool SendCommandResult(const Event& event);
+        bool SendCommandResult(const Event& event, bool trackingControllerIsMe = false);
         void SendVacsResult(const protobuf::wire::VacsResultEvent& result, const protobuf::wire::MembershipContext& context);
         Stats GetStats() const;
         std::optional<int> GetDelaySecondsRemaining() const;

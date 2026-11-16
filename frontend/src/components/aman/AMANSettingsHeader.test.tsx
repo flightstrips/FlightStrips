@@ -17,6 +17,28 @@ const state = {
 } as unknown as AMANState;
 
 describe("AMANSettingsHeader", () => {
+  it("shows the aircraft blocking TMA promotion and updates when workload recovers", () => {
+    const current = structuredClone(state);
+    current.header!.release_buffer = {status: "degraded", target: 10, in_approach: 2, reserved: 1, incoming: 0, projected: 3, unknown: 1, unknown_callsigns: ["GRL780"]};
+    const props = {connectionState: "connected" as const, onRunwayGroupViewChange: vi.fn(), onViewChange: vi.fn(), presentationStatus: "ready" as const, selectedRunwayGroupID: "ARRIVAL-22", view: "holds" as const};
+    const {rerender} = render(<AMANSettingsHeader {...props} state={current} />);
+    fireEvent.click(screen.getByRole("button", {name: /TMA PAUSED/}));
+    expect(screen.getByRole("dialog", {name: "TMA promotion paused"})).toHaveTextContent("waiting for current approach estimates for GRL780");
+    expect(screen.getByRole("dialog")).toHaveTextContent("Unknown: 1");
+    current.header!.release_buffer = {...current.header!.release_buffer, status: "ready", unknown: 0, unknown_callsigns: []};
+    rerender(<AMANSettingsHeader {...props} state={structuredClone(current)} />);
+    expect(screen.queryByRole("button", {name: /TMA PAUSED/})).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent("TMA promotion is no longer paused.");
+  });
+
+  it("explains workload and spacing blocks from servers without callsign diagnostics", () => {
+    const current = structuredClone(state);
+    current.header!.release_buffer = {status: "degraded", target: 10, in_approach: 2, reserved: 0, incoming: 0, projected: 2, unknown: 1, blocked_reasons: ["approach_release_spacing_conflict"]};
+    render(<AMANSettingsHeader connectionState="connected" onRunwayGroupViewChange={vi.fn()} onViewChange={vi.fn()} presentationStatus="ready" selectedRunwayGroupID="ARRIVAL-22" state={current} view="holds" />);
+    fireEvent.click(screen.getByRole("button", {name: /TMA PAUSED/}));
+    expect(screen.getByRole("dialog")).toHaveTextContent("accepted releases conflict with stream spacing; waiting for complete approach workload data");
+  });
+
   it("does not mark the header stale or degraded for weather fallback and an individual retained estimate", () => {
     const current = structuredClone(state);
     current.header!.readiness = {status: "ready", ready: true, blocked_reasons: []};

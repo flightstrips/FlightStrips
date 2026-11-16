@@ -59,6 +59,7 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
   const [maestroOpen, setMaestroOpen] = useState(false);
   const [maestroAnchor, setMaestroAnchor] = useState<DOMRect | null>(null);
   const [dseqOpen, setDseqOpen] = useState(false);
+  const [releaseOpen, setReleaseOpen] = useState(false);
   const [runwayIDs, setRunwayIDs] = useState<string[]>([]);
   const [rateValues, setRateValues] = useState<Record<string, number>>({});
   const [rateBaseMs, setRateBaseMs] = useState(() => Date.now());
@@ -93,6 +94,19 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
     header.availability === "degraded" && "△ DEGRADED",
     (!header.authoritative || header.effective_mode !== "authoritative") && "▣ READ ONLY",
   ].filter(Boolean) as string[];
+  const releaseBuffer = header.release_buffer;
+  const releaseBlockers: string[] = releaseBuffer?.blocked_reasons?.map((reason) => {
+    switch (reason) {
+      case "approach_absorption_budget_exceeded": return "an accepted release exceeds the approach delay allowance";
+      case "approach_release_spacing_conflict": return "accepted releases conflict with stream spacing";
+      default: return "approach release data needs review";
+    }
+  }) ?? [];
+  if (releaseBuffer && releaseBuffer.unknown > 0) {
+    releaseBlockers.push(releaseBuffer.unknown_callsigns?.length
+      ? `waiting for current approach estimates for ${releaseBuffer.unknown_callsigns.join(", ")}`
+      : "waiting for complete approach workload data");
+  }
   const desequenced = state.flights.filter((flight) => flight.sequence_disposition === "desequenced").length;
   const desequencedFlights = state.flights.filter((flight) => flight.sequence_disposition === "desequenced");
   const maestroFixes = [...new Set(state.timeline_configuration?.mappings.flatMap((mapping) => [mapping.left, mapping.right]).filter((value): value is string => value !== null) ?? [])];
@@ -203,8 +217,17 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
         })}
         <button aria-haspopup="dialog" className="aman-settings-button ml-1 bg-[#d6d6d6] text-black" onClick={() => setDseqOpen(true)} type="button">DSEQ · {desequenced}</button>
         {secondaryAccessory}
-        <div aria-live="polite" className={cn("ml-auto flex items-center px-2 font-mono text-[0.68rem] font-bold", stateCues.length > 0 ? "border border-amber-200 bg-[#3f3f3f] text-amber-100" : "text-white")}>{stateCues.join(" · ") || "✓ READY"}</div>
+        {releaseBuffer?.status === "degraded"
+          ? <button aria-haspopup="dialog" className="ml-auto flex items-center border border-amber-200 bg-[#3f3f3f] px-2 font-mono text-[0.68rem] font-bold text-amber-100" onClick={() => setReleaseOpen(true)} title={releaseBlockers.join("; ")} type="button">{[...stateCues, "△ TMA PAUSED"].join(" · ")}</button>
+          : <div aria-live="polite" className={cn("ml-auto flex items-center px-2 font-mono text-[0.68rem] font-bold", stateCues.length > 0 ? "border border-amber-200 bg-[#3f3f3f] text-amber-100" : "text-white")}>{stateCues.join(" · ") || "✓ READY"}</div>}
       </div>
+      <Dialog onOpenChange={setReleaseOpen} open={releaseOpen}>
+        <DialogContent>
+          <DialogTitle>TMA promotion {releaseBuffer?.status === "degraded" ? "paused" : "status"}</DialogTitle>
+          <p>{releaseBuffer?.status === "degraded" ? `${releaseBlockers.join("; ") || "approach release data needs review"}.` : "TMA promotion is no longer paused."}</p>
+          {releaseBuffer && <p className="text-sm">In approach: {releaseBuffer.in_approach} · Reserved: {releaseBuffer.reserved} · Incoming: {releaseBuffer.incoming} · Unknown: {releaseBuffer.unknown}</p>}
+        </DialogContent>
+      </Dialog>
       {maestroOpen && <>
         <div aria-hidden="true" className="fixed inset-0 z-40" onClick={() => setMaestroOpen(false)} />
         <div aria-label="MAESTRO" className="fixed z-50 rounded-sm border border-white bg-[#5174b8] py-0.5 font-display text-[11px] font-bold text-white shadow-lg" onKeyDown={(event) => { if (event.key === "Escape") setMaestroOpen(false); }} role="menu" style={{left: maestroAnchor?.left ?? 0, top: maestroAnchor?.bottom ?? 0, minWidth: Math.max(maestroAnchor?.width ?? 0, 88)}}>

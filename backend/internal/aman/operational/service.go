@@ -1181,6 +1181,7 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 	}
 	copy := observation
 	flight.LatestObservation = &copy
+	flight.ApproachEntry = nil
 	flight.Callsign, flight.DataStatus = observation.Callsign, observation.SourceStatus
 	if observation.HoldingClearance != nil && (flight.HoldingClearance == nil || observation.HoldingClearance.ObservedAt.After(flight.HoldingClearance.ObservedAt)) {
 		flight.ReplaceHoldingClearance(cloneHoldingClearance(observation.HoldingClearance))
@@ -1534,6 +1535,9 @@ func (s *Service) applyProjectedPrediction(ctx context.Context, state aman.Airpo
 	}
 	// These deterministic calculations consume one flight's inputs. A rejected
 	// input degrades that flight, never the shared predictor's technical health.
+	// Workload follows the fresh physical path even if landing ETA filtering
+	// retains an older scheduling prediction.
+	s.captureApproachEntry(&flight, raw)
 	derivedFeeder := routeFeederETA(predictionAt, legDurations, projection.Remaining, navdata.FixID(feederFix), projection.FeederProgress)
 	var candidateFeeder *time.Time
 	if derivedFeeder != nil && derivedFeeder.Source == aman.FeederETASourceRoute {
@@ -1827,6 +1831,7 @@ func invalidateArrivalPath(flight *aman.AMANFlight) {
 // A runway rebuild invalidates geometry and timing, but keeps controller route
 // facts. Projection validates a direct against the rebuilt forward path.
 func invalidateRunwayPath(flight *aman.AMANFlight) {
+	flight.ApproachEntry = nil
 	flight.RawTETASamples = nil
 	flight.PredictionFilter = nil
 	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
@@ -3204,6 +3209,7 @@ func invalidEssentialReason(surveillance aman.SurveillanceFact) string {
 }
 
 func markPredictionNonPublishable(flight *aman.AMANFlight, reason string) {
+	flight.ApproachEntry = nil
 	flight.PredictionFailureReason = &reason
 	retained := flight.Slot != nil || flight.FreezeReason != aman.FreezeNone && flight.FreezeReason != "" ||
 		(flight.ArrivalPathChanged || flight.RunwayChangePending) && flight.Prediction != nil && !isPreliminaryPrediction(flight.Prediction) && !flight.Prediction.OperationalTETA.IsZero()

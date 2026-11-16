@@ -15,6 +15,10 @@ const state = {
   },
 } as unknown as AMANState;
 
+if (new URLSearchParams(window.location.search).has("release-blocked")) {
+  state.header!.release_buffer = {status: "degraded", target: 10, in_approach: 2, reserved: 1, incoming: 0, projected: 3, unknown: 1, unknown_callsigns: ["GRL780"]};
+}
+
 createRoot(document.getElementById("root")!).render(
   <AMANWorkspaceShell
     maestro={<div className="grid h-full min-h-0 grid-rows-[clamp(7.425rem,12%,8.55rem)_minmax(0,1fr)]">

@@ -86,18 +86,15 @@ func (s *Service) refreshApproachReleases(state *aman.AirportState, at time.Time
 			// fix must no longer occur in the physical remaining route.
 			traffic.Released = observedPastReservedHold(f, *f.ApproachRelease)
 		}
-		if traffic.Active && !held && !traffic.InApproach && (f.Prediction == nil || !f.Prediction.Publishable) {
-			traffic.Unknown = true
+		if traffic.Active && !held && !traffic.InApproach && fresh {
+			entry := s.predictedTMAEntry(f)
+			traffic.PredictedApproachEntry = entry
+			traffic.Incoming = entry != nil && !entry.After(horizon)
+			if entry == nil {
+				traffic.Unknown = true
+			}
 		}
 		if f.Prediction != nil && f.Prediction.Publishable && fresh {
-			if !held && !traffic.InApproach {
-				entry := s.predictedTMAEntry(f)
-				traffic.PredictedApproachEntry = entry
-				traffic.Incoming = entry != nil && !entry.After(horizon)
-				if entry == nil && f.State != aman.StatePlanned {
-					traffic.Unknown = true
-				}
-			}
 			if f.Slot != nil && populateApproachReleaseTiming(f, &traffic, at) {
 				traffic.NewHoldingEpisode = f.HoldingStack != nil && f.HoldingStack.Confirmed && f.HoldingStack.HoldingID == traffic.HoldingID && (f.ApproachRelease == nil || f.ApproachRelease.HoldingID != traffic.HoldingID || f.ApproachRelease.ReleasedAt != nil && f.HoldingStack.FirstObservedAt.After(*f.ApproachRelease.ReleasedAt))
 				traffic.Episode = fmt.Sprintf("%s/%s", traffic.HoldingID, traffic.EntryAt.UTC().Format(time.RFC3339Nano))
@@ -353,19 +350,45 @@ func (s *Service) releaseStreamSpacings(state aman.AirportState, groupID aman.Ru
 }
 
 func (s *Service) predictedTMAEntry(f aman.AMANFlight) *time.Time {
-	// InputObservedAt uses whole seconds even when the source report retains
-	// subsecond receipt precision. Compare both at the accepted precision.
-	if s.tmaVolume == nil || f.Prediction == nil || !f.Prediction.Publishable || isPreliminaryPrediction(f.Prediction) || f.Prediction.Calculation == nil ||
-		f.LatestObservation == nil || f.LatestObservation.Surveillance == nil ||
-		f.LatestObservation.Surveillance.AltitudeFeet == nil || f.LatestObservation.Surveillance.ObservedAt == nil ||
-		f.Prediction.InputObservedAt.Before(f.LatestObservation.Surveillance.ObservedAt.UTC().Truncate(time.Second)) {
+	if f.LatestObservation == nil || f.LatestObservation.Surveillance == nil {
 		return nil
 	}
-	at := f.Prediction.InputObservedAt
-	altitude := float64(*f.LatestObservation.Surveillance.AltitudeFeet)
-	for i, leg := range f.Prediction.Calculation.Legs {
+	fact := f.LatestObservation.Surveillance
+	if e := f.ApproachEntry; e != nil && fact.ObservedAt != nil &&
+		e.ObservedAt.Equal(fact.ObservedAt.UTC().Truncate(time.Second)) &&
+		f.SelectedRunwayGroup != nil && e.RunwayGroupID == *f.SelectedRunwayGroup && e.Validate() == nil {
+		entry := e.EntryAt
+		return &entry
+	}
+	// Legacy aggregates can still supply an unfiltered current calculation.
+	return s.predictedTMAEntryFromCalculation(f.Prediction, fact)
+}
+
+func (s *Service) captureApproachEntry(f *aman.AMANFlight, raw aman.Prediction) {
+	f.ApproachEntry = nil
+	if f.LatestObservation == nil || f.SelectedRunwayGroup == nil {
+		return
+	}
+	entry := s.predictedTMAEntryFromCalculation(&raw, f.LatestObservation.Surveillance)
+	if entry != nil {
+		f.ApproachEntry = &aman.ApproachEntryEstimate{ObservedAt: raw.InputObservedAt, EntryAt: *entry,
+			GeometryDigest: raw.GeometryDigest, RunwayGroupID: *f.SelectedRunwayGroup}
+	}
+}
+
+func (s *Service) predictedTMAEntryFromCalculation(p *aman.Prediction, fact *aman.SurveillanceFact) *time.Time {
+	// InputObservedAt uses whole seconds even when the source report retains
+	// subsecond receipt precision. Compare both at the accepted precision.
+	if s.tmaVolume == nil || p == nil || !p.Publishable || isPreliminaryPrediction(p) || p.Calculation == nil ||
+		fact == nil || fact.AltitudeFeet == nil || fact.ObservedAt == nil ||
+		p.InputObservedAt.Before(fact.ObservedAt.UTC().Truncate(time.Second)) {
+		return nil
+	}
+	at := p.InputObservedAt
+	altitude := float64(*fact.AltitudeFeet)
+	for i, leg := range p.Calculation.Legs {
 		endAltitude := altitude
-		for _, segment := range f.Prediction.Calculation.Segments {
+		for _, segment := range p.Calculation.Segments {
 			if segment.RouteLegIndex == i {
 				endAltitude = segment.EndAltitudeFeet
 			}

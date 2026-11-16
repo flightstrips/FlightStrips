@@ -77,6 +77,7 @@ export interface AMANCoordinationStateEvent {
 
 export interface AMANReleaseBuffer {
   blocked_reasons?: string[];
+  unknown_callsigns?: string[];
   status: "ready" | "degraded" | "disabled";
   target: number;
   in_approach: number;
@@ -707,6 +708,7 @@ function isReleaseBuffer(value: unknown): value is AMANReleaseBuffer {
   return isObject(value) && ["ready", "degraded", "disabled"].includes(value.status as string)
     && [value.target, value.in_approach, value.reserved, value.incoming, value.projected, value.unknown].every(isNonNegativeInteger)
     && (value.blocked_reasons === undefined || isStringArray(value.blocked_reasons))
+    && (value.unknown_callsigns === undefined || isStringArray(value.unknown_callsigns))
     && (value.target as number) > 0
     && value.projected === (value.in_approach as number) + (value.reserved as number) + (value.incoming as number);
 }

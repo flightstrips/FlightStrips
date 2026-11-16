@@ -1043,6 +1043,9 @@ type AMANFlight struct {
 	HoldingReleaseBasis       *HoldingReleaseBasis
 	ApproachRelease           *ApproachReleaseReservation
 	ApproachGuidance          *ApproachGuidancePlan
+	// ApproachEntry retains fresh physical workload timing independently of
+	// the landing ETA filter. It never changes a slot or holding release.
+	ApproachEntry *ApproachEntryEstimate
 	// HoldingClearanceCanceledAt retains the last actual cancellation time across blank strip snapshots.
 	HoldingClearanceCanceledAt *time.Time
 	ActiveRouteFact            *RouteFact
@@ -1666,6 +1669,11 @@ func (f AMANFlight) Validate() error {
 	}
 	if f.ApproachGuidance != nil {
 		if err := f.ApproachGuidance.Validate(); err != nil {
+			return err
+		}
+	}
+	if f.ApproachEntry != nil {
+		if err := f.ApproachEntry.Validate(); err != nil {
 			return err
 		}
 	}

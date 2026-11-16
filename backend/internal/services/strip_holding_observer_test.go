@@ -174,6 +174,55 @@ func (s *holdingObserverSpy) ObserveHoldingClearance(_ context.Context, strip *m
 
 type amanStripObserverSpy struct{ strips []*models.Strip }
 
+func TestStripSyncPreservesHoldingAltitudeFromTrackingController(t *testing.T) {
+	for _, scenario := range []struct {
+		name, sender string
+		missingLevel bool
+	}{
+		{name: "tracker updates level", sender: "EKDK_N_CTR"},
+		{name: "master preserves level", sender: "EKDK_FMP"},
+		{name: "master preserves missing level", sender: "EKDK_FMP", missingLevel: true},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			altitude := int32(23000)
+			existing := &models.Strip{
+				Session: 1, Callsign: "GAF1AB", Origin: "ETNG", Destination: "EKCH",
+				TrackingController: "EKDK_N_CTR", Hold: "OLPIB", HoldType: "enroute", ClearedAltitude: &altitude,
+			}
+			if scenario.missingLevel {
+				existing.ClearedAltitude = nil
+			}
+			var persisted *models.Strip
+			repo := &testutil.MockStripRepository{
+				GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return existing, nil },
+				UpdateFn:        func(_ context.Context, strip *models.Strip) (int64, error) { persisted = strip; return 1, nil },
+			}
+			service, _, esHub := newSyncTestFixture(t, existing, repo)
+			observer := &amanStripObserverSpy{}
+			service.SetEuroScopeAMANStripObserver(observer)
+			ctx := shared.WithStripSyncController(context.Background(), scenario.sender)
+			require.NoError(t, service.SyncStrip(ctx, 1, "", euroscope.Strip{
+				Callsign: "GAF1AB", Origin: "ETNG", Destination: "EKCH", TrackingController: "EKDK_N_CTR",
+				HoldSupported: true, Hold: "OLPIB", HoldType: "enroute", ClearedAltitude: 9000, Remarks: "changed",
+			}, "EKCH"))
+			want := int32(23000)
+			if scenario.sender == "EKDK_N_CTR" {
+				want = 9000
+			}
+			require.NotNil(t, persisted)
+			require.Len(t, observer.strips, 1)
+			if scenario.missingLevel {
+				require.Nil(t, persisted.ClearedAltitude)
+				require.Nil(t, observer.strips[0].ClearedAltitude, "missing CFL must not become FL000")
+			} else {
+				require.Equal(t, want, *persisted.ClearedAltitude)
+				require.Equal(t, want, *observer.strips[0].ClearedAltitude, "AMAN must receive the accepted holding level")
+			}
+			require.Empty(t, esHub.ClearedAltitudes, "ignoring another controller's local level must not issue an SDK command")
+		})
+	}
+}
+
 func (s *amanStripObserverSpy) ObserveEuroScopeStrip(_ context.Context, strip *models.Strip) error {
 	s.strips = append(s.strips, strip)
 	return nil

@@ -5,6 +5,7 @@ import type {StripFieldEdit, StripRevision} from "@/api/strip-board";
 import {paperClock} from "@/api/strip-board";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {StripCell, SplitStripCell} from "@/components/strip/StripCell";
+import {formatAltitude} from "@/lib/utils";
 import arrivalIcon from "./assets/arrival.png";
 import departureIcon from "./assets/departure.png";
 
@@ -18,29 +19,35 @@ export function RADISStrip({strip, open, edit}: {strip: FrontendStrip; open: () 
   const selected = useWebSocketStore(s => s.selectedCallsign === strip.callsign);
   const select = useWebSocketStore(s => s.selectStrip);
   const metar = useWebSocketStore(s => s.metar);
+  const transitionAltitude = useWebSocketStore(s => s.transitionAltitude);
   const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({id: strip.callsign, disabled: readOnly});
   const a = strip.board_state?.annotations;
   const date = strip.board_state?.created_at;
   const dep = strip.origin === airport;
-  const value = (label: string, content: string | number, onClick?: () => void, es = false) => <button type="button" aria-label={`${label} ${strip.callsign}`} disabled={!onClick || readOnly || (es && !strip.has_fp)} onClick={onClick} className="radis-cell-button"><small>{label}</small><strong>{content || ""}</strong></button>;
+  const routePoints = (strip.sid || strip.star || strip.route).split(/\s+/).filter(Boolean).slice(0, 2);
+  const value = (label: string, content: string | number, onClick?: () => void, es = false, showLabel = false) => <button type="button" aria-label={`${label} ${strip.callsign}`} disabled={!onClick || readOnly || (es && !strip.has_fp)} onClick={onClick} className={`radis-cell-button ${showLabel ? "radis-labelled-cell" : ""}`}><small className={showLabel ? undefined : "sr-only"}>{label}</small><strong>{content || ""}</strong></button>;
   const stampQNH = () => {const qnh = metar?.match(/\bQ\d{4}\b/)?.[0]; if (qnh) annotate(strip.callsign, "qnh", qnh);};
   return <article ref={setNodeRef} className={`radis-strip ${selected ? "is-selected" : ""} ${isDragging ? "is-dragging" : ""}`} style={{transform: CSS.Transform.toString(transform), transition}} data-testid={`radis-strip-${strip.callsign}`} data-strip-version={strip.version} onClick={() => select(strip.callsign)}>
     <StripCell width="27%" borderColor={border} className="radis-callsign">
       <button type="button" onClick={open} className="radis-callsign-title" aria-label={`Flight plan ${strip.callsign}`}>{strip.callsign}</button>
-      <div className="radis-route-airports"><span>{strip.origin}</span><small>RADIS<br/>{airport}</small><span>{strip.destination}</span></div>
-      <div className="radis-aircraft-line"><span>{strip.aircraft_type}</span><span>{a?.vfr ? "V" : strip.aircraft_category}</span><button disabled={readOnly || !strip.has_fp} onClick={() => edit("assigned_squawk", "Squawk", strip.assigned_squawk)} aria-label={`Squawk ${strip.callsign}`}>{strip.assigned_squawk}</button></div>
+      <div className="radis-route-airports"><span>{strip.origin}</span><small>{routePoints.map((point, index) => <span key={index}>{point}</span>)}</small><span>{strip.destination}</span></div>
+      <div className="radis-aircraft-line"><span>{strip.aircraft_type}</span><span>{strip.aircraft_category}</span><button disabled={readOnly || !strip.has_fp} onClick={() => edit("assigned_squawk", "Squawk", strip.assigned_squawk)} aria-label={`Squawk ${strip.callsign}`}>{strip.assigned_squawk}</button></div>
     </StripCell>
-    <SplitStripCell width="6.2%" borderColor={border} top={value("RWY", strip.runway, () => edit("runway", "Runway", strip.runway), true)} bottom={value("QNH", a?.qnh ?? "", stampQNH)}/>
-    <SplitStripCell width="12.3%" borderColor={border} top={value("HDG", strip.heading, () => edit("route_heading", "Route / heading", strip.heading ? String(strip.heading) : strip.route), true)} bottom={value("SID/POINT", strip.sid || strip.route.split(" ")[0], () => edit("sid", "SID", strip.sid), true)}/>
-    <SplitStripCell width="12.3%" borderColor={border} top={value("RFL", strip.requested_altitude)} bottom={value("ALT FT", strip.cleared_altitude, () => edit("altitude", "Cleared altitude (feet)", String(strip.cleared_altitude)), true)}/>
+    <SplitStripCell width="6.2%" borderColor={border} top={value("RWY", strip.runway, () => edit("runway", "Runway", strip.runway), true)} bottom={value("QNH", a?.qnh?.replace(/^Q/, "") ?? "", stampQNH)}/>
+    <SplitStripCell width="12.3%" borderColor={border} className="radis-clearance-cell" top={value("HDG", strip.heading ? String(strip.heading).padStart(3, "0") : "", () => edit("route_heading", "Route / heading", strip.heading ? String(strip.heading) : strip.route), true)} bottom={value("SID/POINT", strip.sid, () => edit("sid", "SID", strip.sid), true)}/>
+    <StripCell width="12.3%" borderColor={border} className="radis-altitude-cell">
+      {value("RFL", strip.requested_altitude ? formatAltitude(strip.requested_altitude, transitionAltitude) : "", undefined, false, !!strip.requested_altitude)}
+      {value("ALT FT", strip.cleared_altitude ? formatAltitude(strip.cleared_altitude, transitionAltitude) : "", () => edit("altitude", "Cleared altitude (feet)", String(strip.cleared_altitude)), true)}
+      <span className="radis-flight-rules">{a?.vfr ? "V" : strip.flight_rules?.slice(0, 1)}</span>
+    </StripCell>
     <div className="radis-times">
-      <SplitStripCell width="33.333%" borderColor={border} top={value("EOBT", strip.eobt, () => edit("eobt", "EOBT (UTC HHMM)", strip.eobt), true)} bottom={value("ATD", a?.atd ?? "", () => edit("atd", "ATD (UTC HHMM)", a?.atd ?? ""))}/>
-      <SplitStripCell width="33.333%" borderColor={border} top={value("EET", strip.flight_plan_eet ?? "")} bottom={value("END/POB", a?.endurance_pob ?? "", () => edit("endurance_pob", "Endurance / persons on board", a?.endurance_pob ?? ""))}/>
-      <SplitStripCell width="33.334%" borderColor={border} top={value("ETA", strip.eldt)} bottom={value("ATA", paperClock(a?.ata), () => annotate(strip.callsign, "ata", "", !a?.ata))}/>
+      <SplitStripCell width="33.333%" borderColor={border} top={value("EOBT", strip.eobt, () => edit("eobt", "EOBT (UTC HHMM)", strip.eobt), true, true)} bottom={value("ATD", a?.atd ?? "", () => edit("atd", "ATD (UTC HHMM)", a?.atd ?? ""), false, true)}/>
+      <SplitStripCell width="33.333%" borderColor={border} top={value("EET", strip.flight_plan_eet ?? "", undefined, false, true)} bottom={value("END/POB", a?.endurance_pob ?? "", () => edit("endurance_pob", "Endurance / persons on board", a?.endurance_pob ?? ""), false, true)}/>
+      <SplitStripCell width="33.334%" borderColor={border} top={value("ETA", strip.eldt, undefined, false, true)} bottom={value("ATA", paperClock(a?.ata), () => annotate(strip.callsign, "ata", "", !a?.ata), false, true)}/>
     </div>
     <StripCell width="17.4%" borderColor={border} className="radis-direction">
       <button className="radis-notes" disabled={readOnly} onClick={() => edit("notes", "RADIS notes", a?.notes ?? "")} aria-label={`Notes ${strip.callsign}`}>{a?.deicing ? "DE-ICE " : ""}{a?.notes}</button>
-      <button type="button" className="radis-stand" onClick={() => edit("stand", "Stand", strip.stand)} disabled={readOnly || !strip.has_fp}>Stand<br/><strong>{strip.stand}</strong></button>
+      <button type="button" className="radis-stand" onClick={() => edit("stand", "Stand", strip.stand)} disabled={readOnly || !strip.has_fp}>Stand<br/><strong>{strip.stand || "NIL"}</strong></button>
       <button type="button" className="radis-direction-icon" onClick={open} aria-label={`${dep ? "Departure" : "Arrival"} flight ${strip.callsign}`}><img src={dep ? departureIcon : arrivalIcon} alt=""/><strong>{airport.slice(-2)}</strong></button>
     </StripCell>
     <div className="radis-strip-date"><button type="button" {...attributes} {...listeners} aria-label={`Move ${strip.callsign}`} className="radis-drag-handle">{date ? `${date.slice(8,10)}/${date.slice(5,7)}/${date.slice(0,4)}` : strip.board_state?.local ? "LOCAL" : "MOVE"}</button></div>

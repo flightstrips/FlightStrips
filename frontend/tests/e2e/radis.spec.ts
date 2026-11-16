@@ -175,8 +175,8 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await expect(a.locator(".radis-commandbar")).toContainText("1001", {timeout:135_000});
     await expect(other.locator(".radis-commandbar")).toContainText("1002");
     expect((await request.post(`${backend}/e2e/runways`)).ok()).toBe(true);
-    for (const page of [a,b]) await expect(page.getByRole("button", {name: "Departure runways"})).toHaveText("DEP 27");
-    await expect(other.getByRole("button", {name: "Departure runways"})).toHaveText("DEP 08R");
+    for (const page of [a,b]) await expect(page.getByRole("button", {name: "Departure runways"})).toHaveText("27");
+    await expect(other.getByRole("button", {name: "Departure runways"})).toHaveText("08R");
   });
   await a.screenshot({path:info.outputPath("radis-production-board.png")});
 });

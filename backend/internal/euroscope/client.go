@@ -453,9 +453,11 @@ func (c *Client) rememberAircraftPosition(callsign string, position cachedAircra
 }
 
 func (c *Client) processAircraftPosition(ctx context.Context, callsign string, position cachedAircraftPosition) error {
-	resume := shared.SuspendPositionExecution(ctx)
+	resume := shared.SuspendPositionExecutionFor(ctx, "session_gate")
+	endWait := shared.TracePositionWait(ctx, "session_gate")
 	var release func()
 	ctx, release = c.hub.enterSessionApplication(ctx, c.session)
+	endWait()
 	resume()
 	defer release()
 	if c.isClosed() || ctx.Err() != nil || !c.validPositionFence(ctx) {
@@ -465,8 +467,10 @@ func (c *Client) processAircraftPosition(ctx context.Context, callsign string, p
 		return context.Canceled
 	}
 	processLock := c.positionProcessLock(callsign)
-	resumeProcess := shared.SuspendPositionExecution(ctx)
+	resumeProcess := shared.SuspendPositionExecutionFor(ctx, "aircraft_lock")
+	endWait = shared.TracePositionWait(ctx, "aircraft_lock")
 	processLock.Lock()
+	endWait()
 	resumeProcess()
 	defer processLock.Unlock()
 
@@ -554,17 +558,21 @@ func (c *Client) applyPendingPosition(ctx context.Context, key string, expected 
 	if expected.fence != nil {
 		ctx = expected.fence(ctx)
 	}
-	resume := shared.SuspendPositionExecution(ctx)
+	resume := shared.SuspendPositionExecutionFor(ctx, "session_gate")
+	endWait := shared.TracePositionWait(ctx, "session_gate")
 	var release func()
 	ctx, release = c.hub.enterSessionApplication(ctx, c.session)
+	endWait()
 	resume()
 	defer release()
 	if c.hub.getMasterClient(c.session) != c || c.isClosed() || ctx.Err() != nil || !c.validPositionFence(ctx) {
 		return
 	}
 	processLock := c.positionProcessLock(key)
-	resumeProcess := shared.SuspendPositionExecution(ctx)
+	resumeProcess := shared.SuspendPositionExecutionFor(ctx, "aircraft_lock")
+	endWait = shared.TracePositionWait(ctx, "aircraft_lock")
 	processLock.Lock()
+	endWait()
 	resumeProcess()
 	defer processLock.Unlock()
 

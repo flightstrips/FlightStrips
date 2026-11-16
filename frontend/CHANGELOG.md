@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.9.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.9.0...frontend/v2.9.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **strip:** prevent automatic keyboard opening in selection dialogs ([#1167](https://github.com/flightstrips/FlightStrips/issues/1167)) ([7256015](https://github.com/flightstrips/FlightStrips/commit/72560153d6ef640a6af0eaf43b4c7932ae061172))
+* **vacs:** relay browser controls through the selected plugin ([#1168](https://github.com/flightstrips/FlightStrips/issues/1168)) ([efad871](https://github.com/flightstrips/FlightStrips/commit/efad8711f8904e473267c572f82bb5f8001a9d96))
+
 ## [2.9.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.8.0...frontend/v2.9.0) (2026-11-15)
 
 

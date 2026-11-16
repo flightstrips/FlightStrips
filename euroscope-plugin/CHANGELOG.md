@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.6.0...plugin/v2.6.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **vacs:** align EuroScope call controls with VACS 3.x ([#1170](https://github.com/flightstrips/FlightStrips/issues/1170)) ([fd26ed1](https://github.com/flightstrips/FlightStrips/commit/fd26ed1e0dc69b0fe2e7a224f9f944ef48bfe778))
+* **vacs:** relay browser controls through the selected plugin ([#1168](https://github.com/flightstrips/FlightStrips/issues/1168)) ([efad871](https://github.com/flightstrips/FlightStrips/commit/efad8711f8904e473267c572f82bb5f8001a9d96))
+
 ## [2.6.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.5.2...plugin/v2.6.0) (2026-11-15)
 
 

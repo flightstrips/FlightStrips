@@ -8,6 +8,9 @@ export interface StripAnnotations {
 }
 export interface StripBoardState {
  created_at?:string;
+
+  manual_admission?: boolean;
+  atd_manual?: boolean;
   annotations: StripAnnotations; removed_at: string | null; removal_reason: string; local: boolean;
 }
 export interface StripRevision { strip_id: number; version: number; definition_revision: string }

@@ -37,7 +37,9 @@ func newRADISSuite() suite {
 	var ownMu sync.Mutex
 	var clients []*websocket.Conn
 	var commands []radisCommand
-	epoch := time.Now().UTC()
+	// PostgreSQL stores microseconds. Sub-microsecond fixture timestamps would
+	// make an unchanged flight appear newer after every database round trip.
+	epoch := time.Now().UTC().Truncate(time.Microsecond)
 	var pool *pgxpool.Pool
 	var own *websocket.Conn
 	var ekchOwn *websocket.Conn
@@ -51,11 +53,18 @@ func newRADISSuite() suite {
 		case r.URL.Path == "/status":
 			writeJSON(w, map[string]any{"data": map[string]any{"v3": []string{"http://" + r.Host + "/vatsim"}}})
 		case r.URL.Path == "/vatsim":
+			// Model the real feed publication cadence while polling quickly for startup.
+			// Repeated reads of an unchanged generation must not advance strip revisions.
 			pilots := []any{}
 			for i := range 24 {
-				pilots = append(pilots, map[string]any{"cid": 910000 + i, "callsign": fmt.Sprintf("FIND%02d", i), "latitude": 2, "longitude": 2, "altitude": 9000, "groundspeed": 200, "logon_time": epoch.Add(-time.Hour), "last_updated": now, "flight_plan": map[string]any{"flight_rules": "I", "aircraft": "A320/M", "aircraft_short": "A320", "departure": "EKBI", "arrival": "EKYT", "enroute_time": "0130", "revision_id": 1}})
+				pilots = append(pilots, map[string]any{"cid": 910000 + i, "callsign": fmt.Sprintf("FIND%02d", i), "latitude": 2, "longitude": 2, "altitude": 9000, "groundspeed": 200, "logon_time": epoch.Add(-time.Hour), "last_updated": epoch, "flight_plan": map[string]any{"flight_rules": "I", "aircraft": "A320/M", "aircraft_short": "A320", "departure": "EKBI", "arrival": "EKYT", "enroute_time": "0130", "revision_id": 1}})
 			}
-			writeJSON(w, map[string]any{"general": map[string]any{"update_timestamp": now}, "pilots": pilots, "prefiles": []any{}, "controllers": []any{}})
+			// Keep the ES snapshot flights online in the external feed too. Otherwise
+			// the arrival lifecycle correctly releases their stands as disconnected.
+			for i, callsign := range []string{"RADIS1", "RADIS2"} {
+				pilots = append(pilots, map[string]any{"cid": 920000 + i, "callsign": callsign, "latitude": 57.09278889, "longitude": 9.84916389, "altitude": 100, "groundspeed": 0, "logon_time": epoch.Add(-time.Hour), "last_updated": epoch, "flight_plan": map[string]any{"flight_rules": "I", "aircraft": "A320/M", "aircraft_short": "A320", "departure": "EKBI", "arrival": "EKYT", "enroute_time": "0130", "revision_id": 1}})
+			}
+			writeJSON(w, map[string]any{"general": map[string]any{"update_timestamp": epoch.Add(time.Since(epoch).Truncate(15 * time.Second))}, "pilots": pilots, "prefiles": []any{}, "controllers": []any{}})
 		case strings.Contains(r.URL.Path, "afv-atis"):
 			writeJSON(w, []any{map[string]any{"callsign": "EKBI_ATIS", "frequency": "118.000", "atis_code": "B", "text_atis": []string{"Synthetic EKBI weather"}, "last_updated": now}, map[string]any{"callsign": "EKYT_ATIS", "frequency": "119.000", "atis_code": "Y", "text_atis": []string{"Synthetic EKYT weather"}, "last_updated": now}})
 		default:
@@ -93,13 +102,13 @@ func newRADISSuite() suite {
 		}, expose)
 	}
 	reconnect := func(ctx context.Context) (*websocket.Conn, error) {
-		return connect(ctx, "EKBI", "LIVE", services.TestFrontendToken, "EKBI_PEER_TWR", "118.005", nil, instance, nil)
+		return connect(ctx, "EKBI", "LIVE", services.TestFrontendToken, "EKBI_APP", "127.580", nil, instance, nil)
 	}
 	reconnectEKCH := func(ctx context.Context) (*websocket.Conn, error) {
 		return connect(ctx, "EKCH", "LIVE", services.TestFrontendToken, "EKCH_GW_TWR", "118.580", nil, ekchInstance, nil)
 	}
 	return suite{
-		config: app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/internal/config/testdata/radis-services/ekbi.airport.yaml", "backend/internal/config/testdata/radis-services/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
+		config: app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/config/airports/ekbi.airport.yaml", "backend/config/airports/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
 		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Second, CoverageSimulated: func(context.Context) ([]euroscope.CoverageStaffingEvidence, error) {
 			// The coordinator captures its evaluation time before reading this
 			// inventory. Model already-observed data, never future-dated evidence.
@@ -227,13 +236,15 @@ func newRADISSuite() suite {
 			clients = append(clients, ekchOwn)
 			for _, selected := range []struct{ airport, environment string }{{"EKBI", "LIVE"}, {"EKYT", "LIVE"}, {"EKBI", "SWEATBOX_MA08"}, {"EKBI", "PLAYBACK_MA08"}} {
 				airport, environment := selected.airport, selected.environment
-				frequency := "118.000"
+				frequency, runway := "119.005", "09"
+				latitude, longitude := 55.74032194, 9.15177778
 				if airport == "EKYT" {
-					frequency = "119.000"
+					frequency, runway = "118.305", "08R"
+					latitude, longitude = 57.09278889, 9.84916389
 				}
-				snapshot := &es.SyncEvent{Controllers: []*es.Controller{{Position: frequency, Callsign: airport + "_TWR"}}, Runways: []*es.Runway{{Name: "09", Departure: true, Arrival: true}}}
+				snapshot := &es.SyncEvent{Controllers: []*es.Controller{{Position: frequency, Callsign: airport + "_TWR"}}, Runways: []*es.Runway{{Name: runway, Departure: true, Arrival: true}}}
 				for _, callsign := range []string{"RADIS1", "RADIS2"} {
-					snapshot.Strips = append(snapshot.Strips, &es.Strip{Callsign: callsign, Origin: "EKBI", Destination: "EKYT", AircraftType: "A320", AircraftCategory: "M", CommunicationType: "T", HasFp: true, GroundState: es.GroundStateStartup, ClearedAltitude: 3000, RequestedAltitude: 25000, AssignedSquawk: "2401", Route: "DCT TEST", Eobt: time.Now().UTC().Add(time.Hour).Format("1504"), EnrouteDuration: "0130", Runway: "09", Position: &es.Position{Lat: 0, Lon: 0, Altitude: 100}})
+					snapshot.Strips = append(snapshot.Strips, &es.Strip{Callsign: callsign, Origin: "EKBI", Destination: "EKYT", AircraftType: "A320", AircraftCategory: "M", CommunicationType: "T", HasFp: true, GroundState: es.GroundStateStartup, ClearedAltitude: 3000, RequestedAltitude: 25000, AssignedSquawk: "2401", Route: "DCT TEST", Eobt: time.Now().UTC().Add(time.Hour).Format("1504"), EnrouteDuration: "0130", Runway: runway, Position: &es.Position{Lat: latitude, Lon: longitude, Altitude: 100}})
 				}
 				var expose func(func(proto.Message, es.EventType) error)
 				if airport == "EKBI" && environment == "LIVE" {

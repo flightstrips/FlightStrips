@@ -573,6 +573,12 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		return err
 	}
 
+	// A repeated assume after completion must not accept or delete a newer
+	// outgoing coordination. Ownership already satisfies this command.
+	if position != "" && strip.Owner != nil && *strip.Owner == position {
+		return nil
+	}
+
 	// Check for a pending coordination first.
 	coordination, err := coordRepo.GetByStripID(ctx, session, strip.ID)
 	if err == nil {

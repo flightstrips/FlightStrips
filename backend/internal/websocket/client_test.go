@@ -157,6 +157,11 @@ func TestActionRejectedEvent_DoesNotParseOtherActions(t *testing.T) {
 	assert.Empty(t, rejection.RequestID)
 }
 
+func TestActionRejectedEvent_PreservesReconciliationRequestID(t *testing.T) {
+	rejection := actionRejectedEvent(string(frontend.ActionReconciliation), []byte(`{"request_id":"refresh-1"}`), errors.New("unavailable"))
+	assert.Equal(t, "refresh-1", rejection.RequestID)
+}
+
 func TestShouldTrackMessageDBOperations_IncludesAircraftPositionUpdates(t *testing.T) {
 	assert.True(t, shouldTrackMessageDBOperations("euroscope", "aircraft_position_update"))
 	assert.False(t, shouldTrackMessageDBOperations("frontend", "aircraft_position_update"))

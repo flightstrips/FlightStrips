@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { StoreApi } from "zustand/vanilla";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 
 import { ActionType, Bay, CommunicationType, EventType, type FrontendInitialEvent, type FrontendStrip } from "@/api/models";
 import type { WebSocketClient } from "@/api/websocket";
-import { createWebSocketStore, type WebSocketState } from "./store";
+import { createWebSocketStore } from "./store";
 import { getEstDepartureTransferTarget, isEstDepartureTransferActive, isEstDepartureTransferred } from "@/components/est/transferState";
 
 function createMockClient() {
@@ -179,12 +179,13 @@ describe("session master metadata", () => {
 
 describe("manual companion layout behavior", () => {
   let client: ReturnType<typeof createMockClient>;
-  let store: StoreApi<WebSocketState>;
+  let store: ReturnType<typeof createWebSocketStore>;
 
   beforeEach(() => {
     client = createMockClient();
     store = createWebSocketStore(client);
   });
+  afterEach(() => { store.dispose(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
   it("automatically opens the SEQ PLN scope from the server recommendation", () => {
     client._emit(EventType.FrontendInitial, initialEvent("SEQPLN"));
@@ -375,13 +376,113 @@ describe("manual companion layout behavior", () => {
     });
   });
 
-  it("resynchronizes after other rejected strip actions", () => {
+  it.each([
+    [ActionType.FrontendUpdateStripData, "non-owner cannot modify strip fields"],
+    [ActionType.FrontendMove, "pushback timing validation"],
+    [ActionType.FrontendReleasePoint, "strip is owned by another controller"],
+  ])("reconciles %s without resetting the board", (action, reason) => {
+    client._emit(EventType.FrontendInitial, initialEvent("AD"));
+    const serverStrip = { ...foreignStrip(), route: "DCT LANGO", bay: Bay.Cleared };
+    store.setState({ strips: [{ ...serverStrip, route: "STALE", bay: Bay.Push }],
+      displayedLayout: "GND", followRecommendedLayout: false, selectedCallsign: "SAS123",
+      validationDialogCallsign: "SAS123", contextMenu: { callsign: "SAS123", x: 1, y: 2 } });
     client._emit(EventType.FrontendActionRejected, {
       type: EventType.FrontendActionRejected,
-      action: ActionType.FrontendUpdateStripData,
-      reason: "stale strip version",
+      action, reason,
     });
 
-    expect(client.reconnect).toHaveBeenCalledOnce();
+    expect(client.reconnect).not.toHaveBeenCalled();
+    expect(store.getState().reconciling).toBe(true);
+    expect(client.send).toHaveBeenCalledExactlyOnceWith({ type: ActionType.FrontendActionReconciliation, request_id: "refresh-1" });
+    store.getState().move("SAS123", Bay.Taxi);
+    expect(client.send).toHaveBeenCalledTimes(1);
+    client._emit(EventType.FrontendActionReconciliation, {
+      ...initialEvent("AD"), type: EventType.FrontendActionReconciliation, request_id: "refresh-1",
+      strips: [serverStrip], coordinations: [{ callsign: "SAS123", from: "EKCH_A_GND", to: "EKCH_C_GND", is_tag_request: false }],
+    });
+    expect(store.getState()).toMatchObject({ reconciling: false, readOnly: false,
+      displayedLayout: "GND", followRecommendedLayout: false, selectedCallsign: "SAS123",
+      validationDialogCallsign: "SAS123", contextMenu: { callsign: "SAS123", x: 1, y: 2 },
+      stripTransfers: { SAS123: { from: "EKCH_A_GND", to: "EKCH_C_GND" } } });
+    expect(store.getState().strips).toEqual([serverStrip]);
+    expect(client.send).toHaveBeenCalledTimes(1); // Never replay a rejected command.
+    expect(client.setReadOnly).toHaveBeenLastCalledWith(false);
+  });
+
+  it("coalesces rejections and keeps writes fenced if refresh fails", () => {
+    vi.useFakeTimers();
+    client._emit(EventType.FrontendActionRejected, { action: "move", reason: "rejected" });
+    client._emit(EventType.FrontendActionRejected, { action: "update_strip_data", reason: "rejected" });
+    expect(client.send).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(5_000);
+    expect(store.getState().reconciling).toBe(true);
+    store.getState().setStartReq("SAS123", true);
+    expect(client.send).toHaveBeenCalledTimes(1);
+    // A late response to this same request can still recover the state.
+    client._emit(EventType.FrontendActionReconciliation, { ...initialEvent("AD"), request_id: "refresh-1" });
+    expect(store.getState().reconciling).toBe(false);
+    expect(client.reconnect).not.toHaveBeenCalled();
+  });
+
+  it("does not loop on a rejected refresh or accept an unrelated response", () => {
+    const errors = vi.spyOn(toast, "error");
+    client._emit(EventType.FrontendActionRejected, { action: "move", reason: "rejected" });
+    client._emit(EventType.FrontendActionReconciliation, { ...initialEvent("AD"), request_id: "old-request" });
+    expect(store.getState().reconciling).toBe(true);
+    client._emit(EventType.FrontendActionRejected, { action: ActionType.FrontendActionReconciliation, reason: "unavailable" });
+    expect(client.send).toHaveBeenCalledTimes(1);
+    expect(store.getState().reconciling).toBe(true);
+    const retry = errors.mock.calls.at(-1)?.[1]?.action;
+    if (!retry || typeof retry !== "object" || !("onClick" in retry)) throw new Error("Missing refresh retry action");
+    retry.onClick({} as React.MouseEvent<HTMLButtonElement>);
+    expect(client.send).toHaveBeenLastCalledWith({ type: ActionType.FrontendActionReconciliation, request_id: "refresh-2" });
+    client._emit(EventType.FrontendActionReconciliation, { ...initialEvent("AD"), request_id: "refresh-1" });
+    client._emit(EventType.FrontendActionRejected, { action: ActionType.FrontendActionReconciliation, request_id: "refresh-1", reason: "old failure" });
+    expect(store.getState().reconciling).toBe(true);
+    client._emit(EventType.FrontendActionReconciliation, { ...initialEvent("AD"), request_id: "refresh-2" });
+    expect(store.getState().reconciling).toBe(false);
+    expect(client.reconnect).not.toHaveBeenCalled();
+  });
+
+  it("sends one assumption until confirmed and leaves newer transfers alone", () => {
+    vi.useFakeTimers();
+    store.setState({ position: "EKCH_B_GND", strips: [foreignStrip()] });
+    for (let i = 0; i < 9; i++) store.getState().assumeStrip("SAS123");
+    expect(client.send).toHaveBeenCalledExactlyOnceWith({ type: ActionType.FrontendCoordinationAssumeRequest, callsign: "SAS123" });
+    expect(store.getState().pendingAssumptions.SAS123).toBe(true);
+    client._emit(EventType.FrontendCoordinationTransferBroadcast, { callsign: "SAS123", from: "EKCH_A_GND", to: "EKCH_B_GND" });
+    client._emit(EventType.FrontendCoordinationAssumeBroadcast, { callsign: "SAS123", position: "EKCH_B_GND" });
+    client._emit(EventType.FrontendCoordinationTransferBroadcast, { callsign: "SAS123", from: "EKCH_B_GND", to: "EKCH_C_GND" });
+    store.getState().assumeStrip("SAS123");
+    expect(store.getState().pendingAssumptions.SAS123).toBeUndefined();
+    vi.advanceTimersByTime(5_000);
+    expect(client.send).toHaveBeenCalledTimes(1);
+    expect(store.getState().stripTransfers.SAS123.to).toBe("EKCH_C_GND");
+  });
+
+  it("refreshes an unconfirmed assumption without resending it", () => {
+    vi.useFakeTimers();
+    store.setState({ strips: [foreignStrip()] });
+    store.getState().assumeStrip("SAS123");
+    vi.advanceTimersByTime(5_000);
+    expect(client.send).toHaveBeenLastCalledWith({ type: ActionType.FrontendActionReconciliation, request_id: "refresh-1" });
+    expect(client.send).toHaveBeenCalledTimes(2);
+    client._emit(EventType.FrontendActionReconciliation, { ...initialEvent("AD"), request_id: "refresh-1", strips: [foreignStrip()] });
+    expect(store.getState().pendingAssumptions).toEqual({});
+  });
+
+  it("skips unchanged edits and checks current ownership before any field edit", () => {
+    const strip = { ...foreignStrip(), owner: "EKCH_B_GND", route: "DCT LANGO", eobt: "1450" };
+    store.setState({ position: "EKCH_B_GND", strips: [strip] });
+    store.getState().updateStrip("SAS123", { route: strip.route, eobt: " 1450 " });
+    store.getState().assignRunway("SAS123", strip.runway);
+    expect(client.send).not.toHaveBeenCalled();
+    client._emit(EventType.FrontendOwnersUpdate, { callsign: "SAS123", owner: "EKCH_C_GND", next_owners: [], previous_owners: [] });
+    store.getState().updateStrip("SAS123", { route: "OTHER", heading: 180 });
+    store.getState().assignRunway("SAS123", "04L");
+    store.getState().setReleasePoint("SAS123", "J4");
+    expect(client.send).not.toHaveBeenCalled();
+    expect(store.getState().strips[0].route).toBe(strip.route);
+    expect(store.getState().strips[0].runway).toBe(strip.runway);
   });
 });

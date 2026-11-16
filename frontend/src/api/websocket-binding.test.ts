@@ -110,6 +110,19 @@ describe("exact board subscription transport", () => {
     expect(received).toBe(1);
     client.disconnect();
   });
+  it("refreshes state through the current socket while mutations are fenced", async () => {
+    const { client, socket, board } = await connect();
+    const receive = vi.fn();
+    client.on(EventType.FrontendActionReconciliation, receive);
+    expect(client.send({ type: ActionType.FrontendActionReconciliation, request_id: "refresh-1" })).toBe(true);
+    expect(socket.sent.at(-1)).toEqual({ type: ActionType.FrontendActionReconciliation, request_id: "refresh-1", board });
+    expect(client.send({ type: ActionType.FrontendMarked, callsign: "SAS123", marked: true })).toBe(false);
+    socket.emit({ type: EventType.FrontendActionReconciliation, request_id: "refresh-1", board });
+    expect(receive).toHaveBeenCalledOnce();
+    expect(Socket.instances).toHaveLength(1);
+    expect(socket.readyState).toBe(Socket.OPEN);
+    client.dispose();
+  });
   it("accepts snapshots only for the selected session, definition and compiled view", async () => {
     const {client, socket, board} = await connect();
     const receive = vi.fn();

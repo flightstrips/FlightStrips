@@ -61,6 +61,7 @@ export function SIBox({
   const transferStrip = useWebSocketStore(s => s.transferStrip);
   const startRequestAndTransfer = useWebSocketStore(s => s.startRequestAndTransfer);
   const assumeStrip = useWebSocketStore(s => s.assumeStrip);
+  const assumePending = useWebSocketStore(s => !!s.pendingAssumptions?.[callsign]);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const acceptTagRequest = useWebSocketStore(s => s.acceptTagRequest);
 
@@ -100,6 +101,7 @@ export function SIBox({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (assumePending) return;
     if (hasActiveHandover && !isStand) {
       if (isSendingTransfer) {
         openStripContextMenu(callsign, { x: e.clientX, y: e.clientY });
@@ -167,6 +169,7 @@ export function SIBox({
 
   return (
     <div
+      aria-busy={assumePending}
       className="flex items-center justify-center font-normal [-webkit-text-stroke:0.5px_currentColor]"
       style={{
         flex: `${flexGrow} 0 0%`,
@@ -177,7 +180,7 @@ export function SIBox({
         fontFamily: FONT,
         fontSize: "0.98vw",
         color: COLOR_SI_LABEL,
-        cursor: isClickable ? "pointer" : "default",
+        cursor: assumePending ? "wait" : isClickable ? "pointer" : "default",
       }}
       onClick={isClickable ? handleClick : undefined}
     >

@@ -4,7 +4,9 @@ import { Bay, type ClxValidationFault } from "@/api/models";
 import FlightPlanDialog from "./FlightPlanDialog";
 
 const state = vi.hoisted(() => ({
+  position: "121.630", readOnly: false, reconciling: false,
   strip: {
+    owner: "121.630",
     callsign: "SAS123", aircraft_type: "B738/M", aircraft_category: "M", destination: "ENGM",
     eobt: "1450", tobt: "1505", tsat: "1500", ttot: "1515", ctot: "", status: "",
     bay: "NOT_CLEARED", runway: "22R", sid: "LANGO2C", heading: 0, remarks: "", route: "",
@@ -48,6 +50,45 @@ beforeEach(() => {
   state.strip.heading = 0;
   state.strip.phase = "";
   state.strip.clx_validation.faults = [];
+  state.strip.owner = state.position;
+  state.strip.route = "DCT LANGO";
+  state.readOnly = false;
+  state.reconciling = false;
+});
+
+describe("route submissions", () => {
+  it("does not submit an unchanged route on blur, including an incoming route change", () => {
+    const { rerender } = render(<FlightPlanDialog callsign="SAS123" open />);
+    const route = screen.getByRole("textbox", { name: "ROUTE" });
+    fireEvent.focus(route);
+    state.strip.route = "DCT SORGA";
+    rerender(<FlightPlanDialog callsign="SAS123" open />);
+    fireEvent.blur(route);
+    expect(state.updateStrip).not.toHaveBeenCalled();
+    expect(route).toHaveValue("DCT SORGA");
+  });
+
+  it("submits an edited route once across Enter and blur", () => {
+    render(<FlightPlanDialog callsign="SAS123" open />);
+    const route = screen.getByRole("textbox", { name: "ROUTE" });
+    fireEvent.focus(route);
+    fireEvent.change(route, { target: { value: "DCT SORGA" } });
+    fireEvent.keyDown(route, { key: "Enter" });
+    fireEvent.blur(route);
+    expect(state.updateStrip).toHaveBeenCalledExactlyOnceWith("SAS123", { route: "DCT SORGA" });
+  });
+
+  it("disables another position's route and skips an edit if ownership changes during focus", () => {
+    const { rerender } = render(<FlightPlanDialog callsign="SAS123" open />);
+    const route = screen.getByRole("textbox", { name: "ROUTE" });
+    fireEvent.focus(route);
+    fireEvent.change(route, { target: { value: "DCT SORGA" } });
+    state.strip.owner = "121.730";
+    rerender(<FlightPlanDialog callsign="SAS123" open />);
+    expect(route).toBeDisabled();
+    fireEvent.blur(route);
+    expect(state.updateStrip).not.toHaveBeenCalled();
+  });
 });
 
 describe("clearance SID, heading, and REA controls", () => {

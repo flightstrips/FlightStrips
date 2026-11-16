@@ -18,6 +18,7 @@ const (
 	AtisUpdate                 EventType = "atis_update"
 
 	Token EventType = "token"
+	ActionReconciliation EventType = "action_reconciliation"
 
 	AircraftSelectionType EventType = "aircraft_selection"
 	Initial            EventType = "initial"
@@ -1143,6 +1144,14 @@ type ActionRejectedEvent struct {
 
 func (e ActionRejectedEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (e ActionRejectedEvent) GetType() EventType       { return ActionRejected }
+
+type ActionReconciliationEvent struct {
+	InitialEvent
+	RequestID string `json:"request_id"`
+}
+
+func (e ActionReconciliationEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e ActionReconciliationEvent) GetType() EventType       { return ActionReconciliation }
 
 type SendPrivateMessageEvent struct {
 	Callsign string `json:"callsign"`

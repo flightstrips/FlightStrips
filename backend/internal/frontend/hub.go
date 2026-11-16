@@ -159,6 +159,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers := shared.NewMessageHandlers[frontend.EventType, *Client]()
 
 	handlers.Add(frontend.Token, handleTokenEvent)
+	handlers.Add(frontend.ActionReconciliation, handleActionReconciliation)
 	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
 	handlers.Add(frontend.StripRemove, handleStripRemoval)
 	handlers.Add(frontend.StripRestore, handleStripRestoration)

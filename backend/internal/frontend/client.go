@@ -41,6 +41,9 @@ type Client struct {
 	userMu            sync.RWMutex
 	user              shared.AuthenticatedUser
 
+	deliveryMu           sync.Mutex
+	reconciliationBuffer []events.OutgoingMessage // nil outside snapshot construction; deliveryMu-owned
+
 	position       string
 	callsign       string
 	airport        string
@@ -100,6 +103,29 @@ func (c *Client) GetSendChannel() chan events.OutgoingMessage {
 }
 
 func (c *Client) Enqueue(message events.OutgoingMessage) bool {
+	c.deliveryMu.Lock()
+	defer c.deliveryMu.Unlock()
+	if c.reconciliationBuffer != nil {
+		select {
+		case <-c.closed:
+			return false
+		default:
+		}
+		// Snapshot reads must not turn a slow client's bounded queue into an
+		// unbounded buffer or stall the hub's fanout to other clients.
+		if len(c.reconciliationBuffer) >= cap(c.send) {
+			c.disconnectSlowConsumer()
+			return false
+		}
+		c.reconciliationBuffer = append(c.reconciliationBuffer, message)
+		return true
+	}
+	return c.enqueue(message)
+}
+
+// enqueue requires deliveryMu. Snapshot publication uses it to queue the
+// replacement and buffered events atomically, before normal delivery resumes.
+func (c *Client) enqueue(message events.OutgoingMessage) bool {
 	if c.selection.board != nil {
 		message = frontendEvents.BoundMessage{Message: message, Board: *c.selection.board}
 	}

@@ -174,7 +174,12 @@ func TestUpgradeAdmissionRejectionTelemetry(t *testing.T) {
 			var networkErr net.Error
 			require.False(t, errors.As(err, &networkErr) && networkErr.Timeout(), "rejection must still close the socket")
 
-			record := <-records
+			var record slog.Record
+			select {
+			case record = <-records:
+			default:
+				t.Fatal("upgrade completed without an admission log record")
+			}
 			require.Equal(t, tc.level, record.Level)
 			attrs := map[string]any{}
 			record.Attrs(func(attr slog.Attr) bool { attrs[attr.Key] = attr.Value.Any(); return true })

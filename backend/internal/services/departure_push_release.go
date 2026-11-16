@@ -50,6 +50,25 @@ func departureStandReleasedByMovement(strip *models.Strip) bool {
 // The strip keeps its origin stand because downstream routing still needs it.
 func (s *DepartureLifecycleService) ReleaseDepartureStand(ctx context.Context, session int32, callsign string) error {
 	s.clearUnassignedStandWarning(session, callsign)
+	// Every later radar tick used to take the session write lock again, even
+	// after the release marker existed and the departure assignment was gone.
+	// Check both facts in one fresh MVCC snapshot. This read is the no-op's
+	// linearization point; a concurrent reset/allocation is a later operation.
+	// Never trust a message cache or the marker alone: a new departure
+	// assignment still needs the locked transaction below.
+	var released bool
+	if err := s.allocations.pool.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM strips s
+		JOIN departure_stand_releases r ON r.strip_id = s.id
+		WHERE s.session = $1 AND s.callsign = $2
+		AND NOT EXISTS (SELECT 1 FROM stand_assignments a
+		 WHERE a.session_id = s.session AND a.callsign = s.callsign
+		 AND upper(a.direction) = 'DEPARTURE'))`, session, callsign).Scan(&released); err != nil {
+		return err
+	}
+	if released {
+		return nil
+	}
 	return retrySerializableOperation(ctx, func() error {
 		tx, err := s.allocations.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 		if err != nil {

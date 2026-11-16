@@ -1,5 +1,8 @@
 # Aircraft position throughput
 
+The [November 16 processing-delay investigation](performance/2026-11-16/position-processing-delay.md)
+separates batch readmission and lifecycle contention from physical SQL time.
+
 PostgreSQL remains authoritative. Each dedicated position report persists its
 position and EuroScope presence synchronously. The default path batches the
 database work from a single EuroScope burst while keeping lifecycle execution

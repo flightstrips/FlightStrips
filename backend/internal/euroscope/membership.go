@@ -124,8 +124,10 @@ func (c *Client) ApplyScopedMessage(ctx context.Context, scope *es.MembershipCon
 	}
 	// Position batches release their execution slot while awaiting SQL. A later
 	// report must not occupy that slot while waiting behind removal or election.
-	resume := shared.SuspendPositionExecution(ctx)
+	resume := shared.SuspendPositionExecutionFor(ctx, "membership_gate")
+	endWait := shared.TracePositionWait(ctx, "membership_gate")
 	c.applyMu.RLock()
+	endWait()
 	defer c.applyMu.RUnlock()
 	if !c.matches(scope) || !c.IsAuthenticated() {
 		resume()
@@ -134,7 +136,9 @@ func (c *Client) ApplyScopedMessage(ctx context.Context, scope *es.MembershipCon
 	kind = strings.TrimPrefix(strings.ToLower(kind), "event_")
 	election := c.hub.election(c.session)
 	var release func()
+	endWait = shared.TracePositionWait(ctx, "session_gate")
 	ctx, release = c.hub.enterSessionApplication(ctx, c.session)
+	endWait()
 	resume()
 	defer release()
 	if !c.matches(scope) || ctx.Err() != nil {

@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel"
+
 	internalModels "FlightStrips/internal/models"
 )
 
@@ -298,9 +300,13 @@ func (s *StripService) queueOrSendStripUpdate(ctx context.Context, session int32
 
 // Shared operational transitions serialize per session; ordinary position writes
 // and AMAN observations remain independent between aircraft.
-func (s *StripService) positionTransition(session int32) func() {
+func (s *StripService) positionTransition(ctx context.Context, session int32) func() {
 	value, _ := s.positionTransitions.LoadOrStore(session, &sync.Mutex{})
 	lock := value.(*sync.Mutex)
+	resume := shared.SuspendPositionExecutionFor(ctx, "transition_lock")
+	_, span := otel.Tracer("position").Start(ctx, "position.wait.transition")
 	lock.Lock()
+	span.End()
+	resume()
 	return lock.Unlock
 }

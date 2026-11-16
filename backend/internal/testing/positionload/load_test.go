@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -62,6 +63,7 @@ type capture struct {
 	queryDurations    map[trace.TraceID][]batchSample
 	positionQueries   []batchSample
 	operations        []batchSample
+	positionPhases    []batchSample
 }
 
 type batchSample struct {
@@ -75,6 +77,15 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, s := range spans {
+		if strings.HasPrefix(s.Name(), "position.") && !strings.HasPrefix(s.Name(), "position.batch.") {
+			kind := s.Name()
+			for _, a := range s.Attributes() {
+				if string(a.Key) == "position.wait.reason" || string(a.Key) == "position.batch.operation" {
+					kind += ":" + a.Value.AsString()
+				}
+			}
+			c.positionPhases = append(c.positionPhases, batchSample{At: s.StartTime(), Kind: kind, MS: float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond)})
+		}
 		if strings.HasPrefix(s.Name(), "position.batch.") {
 			entry := batchSample{At: s.StartTime(), Kind: s.Name(), MS: float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond)}
 			for _, a := range s.Attributes() {
@@ -88,7 +99,15 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 		if s.Name() == "pool.acquire" {
 			c.pools[id] += float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond)
 		}
-		if len(s.Name()) >= 5 && s.Name()[:5] == "query" {
+		// otelpgx now names SQL spans SELECT/UPDATE/etc. Detect the query
+		// attribute as well as the older query-prefixed span names.
+		isQuery := strings.HasPrefix(s.Name(), "query")
+		for _, a := range s.Attributes() {
+			if string(a.Key) == "db.statement" || string(a.Key) == "db.query.text" {
+				isQuery = true
+			}
+		}
+		if isQuery {
 			c.queries[id]++
 			kind := "other"
 			for _, a := range s.Attributes() {
@@ -189,6 +208,9 @@ func TestPositionLoad(t *testing.T) {
 	require.NoError(t, os.Chdir("../../.."))
 	defer os.Chdir("internal/testing/positionload")
 	t.Setenv("TEST_MODE", "true")
+	aircraftFile, err := filepath.Abs("config/test/ICAO_Aircraft.json")
+	require.NoError(t, err)
+	t.Setenv("GRPLUGIN_ICAO_AIRCRAFT_JSON", aircraftFile)
 	require.NoError(t, config.InitEKCHTestConfig())
 	logger := slog.Default()
 	if os.Getenv("POSITION_LOAD_DEBUG") != "true" {
@@ -202,6 +224,8 @@ func TestPositionLoad(t *testing.T) {
 	defer otel.SetTracerProvider(old)
 	defer provider.Shutdown(context.Background())
 	server, err := e2e.StartTestServerWithConfig(func(c *app.Config) {
+		c.AirportFiles = []string{"backend/config/airports/ekch.airport.yaml"}
+		c.AirportRepositoryRoot = ".."
 		c.EnablePostgresTracing = true
 		c.Navigation = navigation.Config{Source: navigation.SourceAIRACNet}
 		c.EnableStandAssignment = true
@@ -212,7 +236,7 @@ func TestPositionLoad(t *testing.T) {
 	require.NoError(t, err)
 	defer testdata.ShutdownTestDB()
 	defer server.Stop()
-	require.True(t, config.GetStandAssignmentReadiness().Ready, "stand lifecycle must actually be enabled")
+	require.True(t, server.App.StandAssignmentReadinessForAirport("EKCH").Ready, "stand lifecycle must actually be enabled")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	require.NoError(t, server.Queries.InsertAirport(ctx, "EKCH"))
@@ -238,7 +262,13 @@ func TestPositionLoad(t *testing.T) {
 		return err == nil && controller.Session == session.ID
 	}, 5*time.Second, 10*time.Millisecond)
 	repo := postgres.NewStripRepository(server.DBPool)
-	stands := config.GetStandCapabilities().Stands("EKCH")
+	definition, ok := server.App.Airports().Lookup("EKCH")
+	require.True(t, ok)
+	standsPath, ok := definition.Resource("services.stand_assignment.stands")
+	require.True(t, ok)
+	standRegistry, err := sat.LoadStandCapabilityFile(standsPath)
+	require.NoError(t, err)
+	stands := standRegistry.Stands("EKCH")
 	require.Greater(t, len(stands), 20)
 	arrivalPercent := 50
 	if raw := os.Getenv("POSITION_LOAD_ARRIVAL_PERCENT"); raw != "" {
@@ -510,6 +540,7 @@ func TestPositionLoad(t *testing.T) {
 	}
 	failures := collector.errors
 	batchSamples := append([]batchSample(nil), collector.batches...)
+	phaseSamples := append([]batchSample(nil), collector.positionPhases...)
 	positionQueries := append([]batchSample(nil), collector.positionQueries...)
 	operationalSamples := append([]batchSample(nil), collector.operations...)
 	operationalFailures := collector.operationalErrors
@@ -532,7 +563,7 @@ func TestPositionLoad(t *testing.T) {
 	require.NoError(t, server.DBPool.QueryRow(ctx, "SELECT version()").Scan(&postgresVersion))
 	report := map[string]any{"platform": runtime.GOOS + "/" + runtime.GOARCH, "cpus": runtime.NumCPU(), "go": runtime.Version(), "postgres": postgresVersion, "topology": loadTopology(), "pool_max_connections": server.DBPool.Config().MaxConns, "release": os.Getenv("POSITION_LOAD_REVISION"), "position_workers": os.Getenv("POSITION_WORKERS_PER_CLIENT"), "arrival_percent": arrivalPercent, "warmup": warmup.String(), "duration": measurement.String(), "sent": sent, "completed": collector.count(), "errors": failures, "operational_errors": operationalFailures, "observed_events": observedEvents, "samples": len(times), "p95_ms": percentile(times, .95), "p99_ms": percentile(times, .99), "average_ms": average(times), "average_db_operations": average(queries), "average_pool_wait_ms": average(pools), "p99_queue_ms": percentile(queueTimes, .99), "p99_processing_ms": percentile(processingTimes, .99), "max_outstanding": maxBacklog, "burst_drain_ms": float64(burstDrain) / float64(time.Millisecond), "sender_p99_lag_ms": percentile(senderLag, .99)}
 	// Diagnostic stage time sums are work, not additive end-to-end percentiles.
-	for name, entries := range map[string][]batchSample{"position_sql_stages": positionQueries, "other_message_processing": operationalSamples} {
+	for name, entries := range map[string][]batchSample{"position_sql_stages": positionQueries, "other_message_processing": operationalSamples, "position_phases": phaseSamples} {
 		stages := map[string]map[string]float64{}
 		durations := map[string][]float64{}
 		for _, entry := range entries {
@@ -546,6 +577,8 @@ func TestPositionLoad(t *testing.T) {
 			stages[entry.Kind]["total_ms"] += entry.MS
 			if name == "other_message_processing" {
 				stages[entry.Kind]["total_queries"] += float64(entry.Queries)
+			}
+			if name == "other_message_processing" || name == "position_phases" {
 				durations[entry.Kind] = append(durations[entry.Kind], entry.MS)
 			}
 		}
@@ -553,6 +586,8 @@ func TestPositionLoad(t *testing.T) {
 			stage["mean_ms"] = stage["total_ms"] / stage["count"]
 			if name == "other_message_processing" {
 				stage["mean_queries"] = stage["total_queries"] / stage["count"]
+			}
+			if name == "other_message_processing" || name == "position_phases" {
 				stage["p95_ms"] = percentile(durations[kind], .95)
 				stage["p99_ms"] = percentile(durations[kind], .99)
 			}

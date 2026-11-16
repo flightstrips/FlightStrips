@@ -1,0 +1,101 @@
+{
+  "investigation": "Live EKCH TMA promotion",
+  "date": "2026-11-16",
+  "session": 1292,
+  "deployed_version": "3.9.1+882a1238a602fb3627af14b45de61957513f7184",
+  "production_changed": false,
+  "production_code_changed": false,
+  "finding": "Filtered landing predictions can make remote airborne arrivals unknown approach workload and globally suppress new approach admissions and previews.",
+  "evidence": [
+    {
+      "source": "Production Loki logs, service_name=flightstrips-backend",
+      "message": "AMAN prediction filter evaluated",
+      "callsign": "GRL780",
+      "recorded_at_utc": "2026-11-16T19:57:12.384Z",
+      "outcome": "filtered",
+      "accepted_prediction_observed_at_utc": "2026-11-16T19:55:42Z",
+      "candidate_prediction_observed_at_utc": "2026-11-16T19:56:27Z",
+      "altitude_feet": 36529,
+      "remaining_distance_nm": 1868.524614312349,
+      "surveillance_source": "vatsim",
+      "accepted_raw_eta_unix_nanoseconds": "1794873035119747575",
+      "candidate_raw_eta_unix_nanoseconds": "1794873224018888440"
+    },
+    {
+      "source": "Production Loki logs, service_name=flightstrips-backend",
+      "message": "AMAN prediction filter evaluated",
+      "callsign": "GRL780",
+      "recorded_at_utc": "2026-11-16T19:57:21.698Z",
+      "outcome": "filtered",
+      "accepted_prediction_observed_at_utc": "2026-11-16T19:55:42Z",
+      "candidate_prediction_observed_at_utc": "2026-11-16T19:56:42Z",
+      "altitude_feet": 36522,
+      "remaining_distance_nm": 1866.5023618486466
+    },
+    {
+      "source": "Production Loki logs, service_name=flightstrips-backend",
+      "message": "AMAN prediction filter evaluated",
+      "callsign": "SAS409",
+      "recorded_at_utc": "2026-11-16T19:59:18.652Z",
+      "outcome": "filtered",
+      "accepted_prediction_observed_at_utc": "2026-11-16T19:58:29Z",
+      "candidate_prediction_observed_at_utc": "2026-11-16T19:59:09Z",
+      "altitude_feet": 33901,
+      "remaining_distance_nm": 261.2484243292271,
+      "surveillance_source": "euroscope"
+    },
+    {
+      "source": "https://data.vatsim.net/v3/vatsim-data.json",
+      "snapshot_at_utc": "2026-11-16T20:01:44.0768028Z",
+      "callsign": "GRL780",
+      "origin": "BGGH",
+      "destination": "EKCH",
+      "latitude": 64.66712,
+      "longitude": -46.74218,
+      "altitude_feet": 36525,
+      "groundspeed_knots": 487
+    },
+    {
+      "source": "https://api.flightstrips.dk/healthz",
+      "sampled_around_utc": "2026-11-16T20:01:56Z",
+      "aman_mode": "authoritative",
+      "aman_ready": true,
+      "aman_navigation_status": "ready",
+      "aman_weather_status": "ready",
+      "aman_repository_status": "ready",
+      "note": "Technical readiness does not include the session approach release-buffer state."
+    },
+    {
+      "source": "flightstrips/infrastructure stacks/flightstrips.yml, retrieved with gh api",
+      "backend_image": "ghcr.io/flightstrips/backend-api:3.9.1",
+      "navigation_source": "viff",
+      "aman_mode": "authoritative",
+      "note": "The deployed release includes approachRelease.enabled=true, targetBuffer=10, taperStart=6, maxAdvanceSeconds=600, lookaheadSeconds=120. Relevant code matches the checked-out revision."
+    }
+  ],
+  "code_path": [
+    "operational/service.go:1183 updates LatestObservation before prediction filtering.",
+    "operational/service.go:1545 runs prediction.Filter; line 1583 returns without replacing Prediction when the candidate is rejected.",
+    "operational/approach_release.go:355 predictedTMAEntry rejects a prediction older than the latest surveillance observation, including an intentionally retained filtered prediction.",
+    "operational/approach_release.go:98 classifies active, unheld, outside-approach traffic with no predicted entry as Unknown, without a geographic or time-horizon exclusion.",
+    "release/planner.go:259 marks the buffer degraded when Unknown is positive; line 266 skips the entire new-release sweep.",
+    "release/planner.go:105 GuidancePlans returns no forecasts when its buffer is not ready.",
+    "operational/approach_release.go:45 clears previous ApproachGuidance before each refresh, so the block also removes previously shown previews.",
+    "pkg/events/frontend/aman.go exposes release_buffer, but frontend components do not render it; the header TMA count is a different measure."
+  ],
+  "reproduction": {
+    "command": "go test ./internal/aman/operational -run '^TestInvestigationFilteredRemoteArrivalStopsIndependentTMAIntake$' -v -count=1",
+    "result": "PASS",
+    "method": "Temporary diagnostic test used the real EKCH TMA volume and actual GRL780 ETA delta and relative observation ages. Holding traffic and the remote flight's onward route were synthetic. The test was removed after execution.",
+    "cases": [
+      {"remote_prediction": "current", "buffer_status": "ready", "unknown": 0, "independent_admissions": 5, "independent_previews": 1},
+      {"remote_prediction": "filtered", "buffer_status": "degraded", "unknown": 1, "independent_admissions": 0, "independent_previews": 0}
+    ]
+  },
+  "recommended_fix": "Keep fresh physical TMA workload/entry evidence separate from the filtered landing ETA. Retain conservative accounting for genuinely unresolved imminent traffic and existing commitments; do not simply remove the Unknown guard or treat every old prediction as current. Expose which callsigns and conditions block the release buffer.",
+  "limits": [
+    "Production filter events and public surveillance verify the triggering conditions; the global blocking effect was reproduced in isolation.",
+    "The complete live airport state and outbound websocket payloads were not available through connected diagnostics, so this is not a full replay and does not establish the exact live buffer counts or every simultaneous blocker.",
+    "The finding explains a concrete failure path active during the reported session; it does not claim that every missing promotion had this same cause."
+  ]
+}

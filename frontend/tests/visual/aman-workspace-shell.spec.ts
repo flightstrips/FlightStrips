@@ -6,6 +6,22 @@ const VIEWPORTS = [
 ] as const;
 
 for (const viewport of VIEWPORTS) {
+  test(`exposes TMA workload blockers at ${viewport.name}`, async ({page}) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/visual-tests/aman-workspace-shell-preview.html?release-blocked");
+    const button = page.getByRole("button", {name: /TMA PAUSED/});
+    const header = (await page.locator('header[aria-label="MAESTRO settings"]').boundingBox())!;
+    const control = (await button.boundingBox())!;
+    expect(control.x).toBeGreaterThanOrEqual(header.x);
+    expect(control.x + control.width).toBeLessThanOrEqual(header.x + header.width);
+    expect(control.y + control.height).toBeLessThanOrEqual(header.y + header.height);
+    await button.click();
+    const dialog = page.getByRole("dialog", {name: "TMA promotion paused"});
+    await expect(dialog).toContainText("waiting for current approach estimates for GRL780");
+    await expect(dialog).toContainText("Unknown: 1");
+    await expect(dialog).toBeInViewport();
+  });
+
   test(`keeps MAESTRO and TMT separated at ${viewport.name}`, async ({page}) => {
     await page.setViewportSize(viewport);
     await page.goto("/visual-tests/aman-workspace-shell-preview.html");

@@ -412,12 +412,8 @@ namespace FlightStrips::flightplan {
         return m_websocketService && m_websocketService->SendCommandResult(AssignedSquawkEvent(callsign,squawk));
     }
     bool FlightPlanService::ReportClearedAltitude(const std::string& callsign, int altitude, bool trackingControllerIsMe) {
-        if (!m_websocketService) return false;
-        const auto event = ClearedAltitudeEvent(callsign, altitude);
-        if (m_websocketService->SendCommandResult(event, trackingControllerIsMe)) return true;
-        if (!m_websocketService->ShouldSend() && !m_websocketService->ShouldSendTrackedAircraft(trackingControllerIsMe)) return false;
-        m_websocketService->SendEvent(event);
-        return true;
+        return m_websocketService && m_websocketService->SendClearedAltitudeObservation(
+            ClearedAltitudeEvent(callsign, altitude), trackingControllerIsMe);
     }
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
@@ -426,9 +422,14 @@ namespace FlightStrips::flightplan {
         switch(dataType) {
         case EuroScopePlugIn::CTR_DATA_TYPE_SQUAWK:if(ReportAssignedSquawk(callsign,flightPlan.GetControllerAssignedData().GetSquawk())) return;break;
         case EuroScopePlugIn::CTR_DATA_TYPE_FINAL_ALTITUDE:if(m_websocketService->SendCommandResult(RequestedAltitudeEvent(callsign,flightPlan.GetControllerAssignedData().GetFinalAltitude()))) return;break;
-        case EuroScopePlugIn::CTR_DATA_TYPE_TEMPORARY_ALTITUDE:
-            ReportClearedAltitude(callsign, flightPlan.GetControllerAssignedData().GetClearedAltitude(), flightPlan.GetTrackingControllerIsMe());
+        case EuroScopePlugIn::CTR_DATA_TYPE_TEMPORARY_ALTITUDE: {
+            const auto altitude = flightPlan.GetControllerAssignedData().GetClearedAltitude();
+            const auto tracking = flightPlan.GetTrackingControllerIsMe();
+            if (!m_websocketService->SendCommandResult(ClearedAltitudeEvent(callsign, altitude), tracking)) {
+                ReportClearedAltitude(callsign, altitude, tracking);
+            }
             return;
+        }
         case EuroScopePlugIn::CTR_DATA_TYPE_COMMUNICATION_TYPE:if(m_websocketService->SendCommandResult(CommunicationTypeEvent(callsign,ResolveCommunicationType(data.GetCommunicationType(),flightPlan.GetControllerAssignedData().GetCommunicationType())))) return;break;
         case EuroScopePlugIn::CTR_DATA_TYPE_GROUND_STATE:if(m_websocketService->SendCommandResult(GroundStateEvent(callsign,flightPlan.GetGroundState()))) return;break;
         case EuroScopePlugIn::CTR_DATA_TYPE_CLEARENCE_FLAG:if(m_websocketService->SendCommandResult(ClearedFlagEvent(callsign,flightPlan.GetClearenceFlag()))) return;break;

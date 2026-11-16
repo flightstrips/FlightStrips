@@ -23,6 +23,21 @@ namespace FlightStrips::websocket {
         return false;
     }
 
+    bool WebSocketService::SendClearedAltitudeObservation(const ClearedAltitudeEvent& event, bool trackingControllerIsMe) {
+        if (!IsConnected() || m_plugin->GetConnectionState().observer) return false;
+        bool sent = false;
+        for (const auto& [id, member] : memberships_.members) {
+            if (!active_membership_.empty() && id != active_membership_) continue;
+            if (member.role != STATE_MASTER && !(trackingControllerIsMe && member.role == STATE_SLAVE)) continue;
+            if (!member.inventory.contains(event.callsign)) continue;
+            // Fresh source facts neither match pending executions nor inherit
+            // an SDK command's execution ID from the current callback context.
+            SendCaptured(event, member.context);
+            sent = true;
+        }
+        return sent;
+    }
+
     namespace {
         using Wire=protobuf::wire::Envelope;
         Wire::EventCase ExpectedResult(const Wire& event) {

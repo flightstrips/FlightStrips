@@ -69,6 +69,7 @@ namespace FlightStrips::websocket {
         }
         void ForgetAircraft(const std::string& callsign);
         bool SendHoldReplay(const HoldEvent& event);
+        bool SendClearedAltitudeObservation(const ClearedAltitudeEvent& event, bool trackingControllerIsMe);
         void ProcessServerMessage(const std::string& bytes);
         void ForEachMembership(const std::function<void(const std::string&)>& action);
         void DeferSquawk(PendingSquawkQueue& queue,const std::string& callsign);

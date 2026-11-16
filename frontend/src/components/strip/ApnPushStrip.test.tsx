@@ -98,9 +98,14 @@ describe("REQ callsign coloring", () => {
     state.transfers = { SAS123: { from: "121.730", to: "118.580", isTagRequest: true } };
     state.selectedCallsign = "SAS123";
     try {
-      render(<ApnPushStrip callsign="SAS123" selectable />);
+      state.displayedLayout = "AA";
+      render(<ApnPushStrip callsign="SAS123" selectable pdcStatus="CLEARED" bay={Bay.Cleared} owner="121.730" myPosition="121.730" nextControllers={["118.580"]} nextDisplay={{ label: "GW", frequency: "118.580" }} />);
       expect(screen.getByText("SAS123").parentElement!.style.backgroundColor).toBe(SELECTION_COLOR);
-      expect(screen.getByText("SAS123").parentElement!.parentElement!.style.color).toBe("black");
+      expect(screen.getByText("SAS123").parentElement!.style.color).toBe("black");
+      const column = screen.getByText("SAS123").parentElement!.parentElement!;
+      expect(column.style.color).toBe("white");
+      expect(screen.getByText(":118.580").parentElement!.style.color).toBe("");
+      expect(column.style.backgroundColor).not.toBe(SELECTION_COLOR);
     } finally {
       state.transfers = {};
       state.selectedCallsign = null;

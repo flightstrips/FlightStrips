@@ -195,6 +195,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, estimated.Stand, retained.Stand, "manual assignment leaves the ESTIMATED reservation untouched")
 		assert.Equal(t, StageEstimated, retained.Stage)
 
+		clock.set(arrivalETA.Add(time.Minute))
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		afterSweep, err := assignments.GetAssignment(ctx, session, "SAS305")
 		require.NoError(t, err)

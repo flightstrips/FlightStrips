@@ -1332,7 +1332,8 @@ func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx p
 	if command == CompatibleManualStand && request.Direction == sat.AssignmentDirectionArrival && request.Stage == StageAssigned && !request.ProtectReservations {
 		for _, estimate := range assignments {
 			if estimate.ID == assignment.ID || estimate.Stage != StageEstimated || estimate.Direction != string(sat.AssignmentDirectionArrival) ||
-				!s.assignmentsOccupancyConflict(request.Airport, estimate, assignment, s.now()) {
+				!s.assignmentOverlapsSelectedStand(request.Airport, selected, s.assignedBlocks(request.Airport, assignment), estimate) ||
+				!assignmentBlocksRequest(estimate, request, s.now(), s.departureReleaseBuffer) {
 				continue
 			}
 			if _, err := tx.Exec(ctx, `INSERT INTO stand_retained_estimates (estimated_id, manual_id, estimated_stand, manual_stand)

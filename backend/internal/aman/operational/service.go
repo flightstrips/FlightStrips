@@ -1023,7 +1023,7 @@ func defaultRateForAirport(airport string) uint32 {
 
 func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFlight {
 	state := aman.StatePlanned
-	if observation.TakeoffDetected != nil {
+	if observation.TakeoffDetected != nil && !groundedSurveillance(observation.Surveillance) {
 		state = aman.StateAirborne
 	}
 	copy := observation
@@ -1163,6 +1163,14 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 			return flight, nil
 		}
 		flight = newFlight(observation, now)
+	}
+	if canRecoverLandedFlight(flight, observation, now) {
+		// Reconnecting aircraft can retain a landing from an earlier source
+		// episode. Start again from current radar evidence rather than reusing
+		// its old takeoff, baseline, route progress or sequencing decisions.
+		observation.TakeoffDetected = observation.Surveillance.ObservedAt
+		flight = newFlight(observation, now)
+		updateLifecycle(&flight, aman.StateLanded, aman.StateAirborne, now)
 	}
 	previousObservation := flight.LatestObservation
 	flight.PredictionFailureReason = nil
@@ -3108,18 +3116,41 @@ func groundedSurveillance(surveillance *aman.SurveillanceFact) bool {
 		*surveillance.AltitudeFeet < groundedMaximumAltitudeFeet && *surveillance.GroundspeedKnots <= groundedMaximumGroundspeedKnots
 }
 
+func canRecoverLandedFlight(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) bool {
+	if flight.State != aman.StateLanded || !aman.HasFreshArrivalSurveillance(&observation, now) {
+		return false
+	}
+	surveillance := observation.Surveillance
+	if *surveillance.AltitudeFeet < groundedMaximumAltitudeFeet || *surveillance.GroundspeedKnots <= groundedMaximumGroundspeedKnots {
+		return false
+	}
+	landedAt := flight.UpdatedAt
+	if flight.Lifecycle != nil {
+		landedAt = flight.Lifecycle.EnteredAt
+	}
+	if previous := flight.LatestObservation; previous != nil && previous.Surveillance != nil &&
+		previous.Surveillance.ObservedAt != nil && previous.Surveillance.ObservedAt.After(landedAt) {
+		landedAt = *previous.Surveillance.ObservedAt
+	}
+	return surveillance.ObservedAt.After(landedAt)
+}
+
 // applyGroundedObservation treats low-and-slow surveillance as a lifecycle
-// fact. Before the VATSIM movement classifier has observed takeoff, the
-// flight remains planned; after that observation it has completed its AMAN
-// arrival and must no longer participate in route prediction or sequencing.
+// fact. A planned flight remains planned despite retained takeoff metadata;
+// a previously airborne flight has completed its AMAN arrival and must no
+// longer participate in route prediction or sequencing.
 func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) aman.AMANFlight {
 	clearGroundedOperationalState(&flight)
-	if observation.TakeoffDetected == nil && flight.State == aman.StatePlanned {
+	if flight.State == aman.StatePlanned {
 		flight.State = aman.StatePlanned
+		// A current ground report overrides any retained takeoff marker from
+		// before reconnecting. It is not evidence of a completed arrival.
 		// A previous airborne prediction cannot be reused while the aircraft is
 		// still on the ground. Rebuild the planned baseline from filed times.
 		flight.Prediction = nil
 		flight.ArrivalBaseline = nil
+		observation.TakeoffDetected = nil
+		flight.LatestObservation = &observation
 		applyPreliminaryPrediction(&flight, observation, now)
 		setGroundedLifecycle(&flight, aman.LifecycleReasonInitial, now)
 		return flight

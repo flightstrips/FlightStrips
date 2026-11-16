@@ -163,7 +163,7 @@ export function ApnPushStrip({
           onClick={delegateCallsignClick ? undefined : handleClick}
           onContextMenu={delegateCallsignClick ? undefined : handleContextMenu}
         >
-          <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
+          <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined) }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: isSelected && isTagRequest ? "black" : manualBlue }}>
               {callsign}
             </span>

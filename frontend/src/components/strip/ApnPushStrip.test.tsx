@@ -1,12 +1,12 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Bay } from "@/api/models";
+import { Bay, type ValidationStatus } from "@/api/models";
 import { ApnPushStrip } from "./ApnPushStrip";
 import { COLOR_CLOSED_RWY, SELECTION_COLOR } from "./shared";
 
 const state = vi.hoisted(() => ({
   displayedLayout: "AAAD",
-  strips: [],
+  strips: [] as { callsign: string; validation_status?: ValidationStatus }[],
   localMarked: {} as Record<string, boolean>,
   transferStrip: vi.fn(),
   selectedCallsign: null as string | null,
@@ -31,6 +31,7 @@ vi.mock("@/components/map-dialogs/ApronTaxiMapDialog", () => ({ ApronTaxiMapDial
 vi.mock("@/components/map-dialogs/TaxiMapDialog", () => ({ TaxiMapDialog: () => null }));
 vi.mock("./RunwayDialog", () => ({ RunwayDialog: () => null }));
 vi.mock("./DepartureAwareFlightPlanDialog", () => ({ DepartureAwareFlightPlanDialog: () => null }));
+vi.mock("./ValidationStatusDialog", () => ({ ValidationStatusDialog: () => null }));
 
 describe("apron startup and pushback frequency display", () => {
   it.each([
@@ -111,6 +112,25 @@ describe("REQ callsign coloring", () => {
       state.transfers = {};
       state.runwayStatus = {};
       state.selectedCallsign = null;
+    }
+  });
+
+  it("keeps selected REQ text on the selection background during validation blinking", () => {
+    state.transfers = { SAS123: { from: "121.730", to: "118.580", isTagRequest: true } };
+    state.selectedCallsign = "SAS123";
+    state.strips = [{ callsign: "SAS123", validation_status: {
+      issue_type: "STAND ASSIGNMENT", message: "Advisory", owning_position: "121.730", active: true, activation_key: "key",
+    } }];
+    try {
+      render(<ApnPushStrip callsign="SAS123" selectable pdcStatus="CLEARED" bay={Bay.Cleared} owner="121.730" myPosition="121.730" />);
+      const callsign = screen.getByText("SAS123");
+      expect(callsign.style.color).toBe("black");
+      expect(callsign.parentElement!.style.animation).toContain("validation-blink");
+      expect(callsign.parentElement!.style.getPropertyValue("--validation-blink-background")).toBe(SELECTION_COLOR);
+    } finally {
+      state.transfers = {};
+      state.selectedCallsign = null;
+      state.strips = [];
     }
   });
 });

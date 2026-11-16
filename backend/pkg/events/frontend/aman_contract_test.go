@@ -39,6 +39,15 @@ func TestAMANStateConsumerContract(t *testing.T) {
 		scenarios = append(scenarios, scenario{Name: name, Event: wire})
 	}
 	add("healthy", goldenAMANState(), goldenAMANHealth())
+	for _, reason := range []aman.FreezeReason{aman.FreezeManual, aman.FreezeTMA, aman.FreezeSuperstable} {
+		state := goldenAMANState()
+		flight := &state.Flights[0]
+		flight.FreezeReason, flight.FrozenAt = reason, timePointer(state.GeneratedAt)
+		flight.FrozenOperationalTETA = timePointer(flight.Prediction.OperationalTETA)
+		slot := *flight.Slot
+		flight.FrozenSlot = &slot
+		add("swap_freeze_"+string(reason), state, goldenAMANHealth())
+	}
 	withFallback := goldenAMANState()
 	withFallback.Flights[0].Prediction.Basis = aman.PredictionBasisFallback
 	withFallback.Flights[0].ControllerSTARFamily = func() *string { value := "TESPI"; return &value }()

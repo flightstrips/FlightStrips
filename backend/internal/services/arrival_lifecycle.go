@@ -36,7 +36,7 @@ const (
 	arrivalRetentionRefreshAt = 10 * time.Minute
 	arrivalDisconnectGrace    = 5 * time.Minute
 
-	defaultArrivalSweepInterval = 30 * time.Second
+	defaultArrivalSweepInterval    = 30 * time.Second
 	arrivalPromotionConflictReason = "arrival promotion blocked: current stand is occupied and no safe replacement is available; retry pending"
 )
 
@@ -611,7 +611,9 @@ func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, exis
 	updated.ETASource = etaSource
 	updated.ExpiresAt = expiresAt
 	updated.AssignedAt = &now
-	if updated.ConflictReason != nil && *updated.ConflictReason == arrivalPromotionConflictReason {
+	// Same-stage ETA refreshes do not resolve a failed promotion. Availability
+	// checks clear the warning explicitly, or a successful promotion clears it.
+	if existing.Stage != stage && updated.ConflictReason != nil && *updated.ConflictReason == arrivalPromotionConflictReason {
 		updated.ConflictReason = nil
 	}
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)

@@ -548,8 +548,15 @@ func standAssignmentsOperationallyConflict(left, right frontendEvents.StandAssig
 }
 
 func isEstimatedManualAssignmentOverlap(left, right frontendEvents.StandAssignmentEntry) bool {
-	return (strings.EqualFold(left.Direction, "ARRIVAL") && strings.EqualFold(left.Stage, "ESTIMATED") && right.Manual && strings.EqualFold(right.Stage, "ASSIGNED")) ||
-		(strings.EqualFold(right.Direction, "ARRIVAL") && strings.EqualFold(right.Stage, "ESTIMATED") && left.Manual && strings.EqualFold(left.Stage, "ASSIGNED"))
+	if !strings.EqualFold(left.Direction, "ARRIVAL") || !strings.EqualFold(right.Direction, "ARRIVAL") {
+		return false
+	}
+	canWait := func(estimate frontendEvents.StandAssignmentEntry) bool {
+		return strings.EqualFold(estimate.Stage, "ESTIMATED") &&
+			(estimate.ConflictReason == nil || strings.TrimSpace(*estimate.ConflictReason) == "")
+	}
+	return (canWait(left) && right.Manual && strings.EqualFold(right.Stage, "ASSIGNED")) ||
+		(canWait(right) && left.Manual && strings.EqualFold(left.Stage, "ASSIGNED"))
 }
 
 func containsStandName(values []string, wanted string) bool {

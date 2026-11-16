@@ -267,6 +267,18 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NotNil(t, blocked.ConflictReason)
 		assert.Equal(t, arrivalPromotionConflictReason, *blocked.ConflictReason)
 
+		// Feed evidence can briefly fall back to ESTIMATED after a failed
+		// promotion. An ETA refresh must not erase the unresolved warning.
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS307", posPtr(55.8), posPtr(12.642625), altPtr(20000), "", nil)
+		require.NoError(t, err)
+		setArrivalETA(t, strips, session, "SAS307", arrivalETA.Add(time.Minute))
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS307"), arrivalFlight("SAS307", 3)))
+		refreshed, err := assignments.GetAssignment(ctx, session, "SAS307")
+		require.NoError(t, err)
+		assert.Equal(t, StageEstimated, refreshed.Stage)
+		require.NotNil(t, refreshed.ConflictReason)
+		assert.Equal(t, arrivalPromotionConflictReason, *refreshed.ConflictReason)
+
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		advisory, err := assignments.GetAssignment(ctx, session, "SAS307")
 		require.NoError(t, err)
@@ -277,6 +289,9 @@ func TestArrivalLifecycle(t *testing.T) {
 		otherManual, err := assignments.GetAssignment(ctx, session, "SAS309")
 		require.NoError(t, err)
 		require.NoError(t, allocations.ReleaseAssignment(ctx, otherManual))
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS307", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+		require.NoError(t, err)
+		setArrivalETA(t, strips, session, "SAS307", arrivalETA)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS307"), arrivalFlight("SAS307", 3)))
 		recovered, err := assignments.GetAssignment(ctx, session, "SAS307")
 		require.NoError(t, err)

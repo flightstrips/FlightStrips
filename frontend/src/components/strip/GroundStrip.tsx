@@ -76,7 +76,7 @@ export function GroundStrip({
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
-        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
+        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined) }}>
           <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{callsign}</span>
         </div>
         <div style={{ height: BOT_H }} />

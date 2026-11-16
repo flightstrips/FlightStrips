@@ -129,11 +129,11 @@ export function ApnArrStrip({
       />
 
       {/* Callsign */}
-      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle, color: isSelected && isTagRequest ? "black" : callsignStyle?.color }}
+      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
-        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
+        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined) }}>
           <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: isSelected && isTagRequest ? "black" : manualBlue }}>{callsign}</span>
           <InboundCtotFlag callsign={callsign} />
         </div>

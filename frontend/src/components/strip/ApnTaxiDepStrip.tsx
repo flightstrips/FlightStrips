@@ -132,11 +132,11 @@ export function ApnTaxiDepStrip({
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle, color: isSelected && isTagRequest ? "black" : callsignStyle?.color }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
-          <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
+          <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined) }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{callsign}</span>
           </div>
           <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>

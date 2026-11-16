@@ -19,9 +19,9 @@ func TestGroundReconnectDoesNotReusePreviousTakeoff(t *testing.T) {
 	ground.Surveillance = &surveillance
 	eet := time.Hour
 	ground.PlannedTiming = &aman.PlannedTiming{EstimatedOffBlockTime: &now, EstimatedEnrouteTime: &eet}
-	// A retained provider observation can still carry the earlier flight's takeoff.
+	// A ground report must clear the earlier flight's takeoff at the source merge.
 	ground = mergeSurveillanceObservation(previous, ground)
-	require.NotNil(t, ground.TakeoffDetected)
+	require.Nil(t, ground.TakeoffDetected)
 
 	flight, err := service.reconcileFlight(t.Context(), state, newFlight(ground, now), ground, now)
 	require.NoError(t, err)
@@ -75,6 +75,69 @@ func TestPersistedLandedFlightRecoversOnFreshAirborneObservation(t *testing.T) {
 			require.Equal(t, now, *flight.LatestObservation.TakeoffDetected)
 		})
 	}
+}
+
+func TestEuroScopeProviderReconnectDoesNotReuseCachedTakeoffForBaseline(t *testing.T) {
+	for _, scenario := range []string{"cached-marker", "reported-marker"} {
+		t.Run(scenario, func(t *testing.T) {
+			groundAt := time.Date(2026, 11, 16, 19, 0, 0, 0, time.UTC)
+			service, state, observation := fallbackFixture(t, groundAt)
+			service.observed = map[string]map[aman.Callsign]aman.FlightObservation{}
+			service.deps.Airports = []string{"EKCH"}
+			oldTakeoff, eet := groundAt.Add(-2*time.Hour), time.Hour
+			observation.TakeoffDetected, observation.ReconciledAt = &oldTakeoff, oldTakeoff
+			observation.SurveillanceSource = aman.SurveillanceSourceEuroScope
+			observation.Surveillance.ObservedAt = &oldTakeoff
+			observation.PlannedTiming = &aman.PlannedTiming{EstimatedOffBlockTime: &groundAt, EstimatedEnrouteTime: &eet}
+			require.NoError(t, service.Observe(t.Context(), observation))
+
+			ground := observation
+			altitude, speed := 478, 0.0
+			ground.TakeoffDetected, ground.ReconciledAt = nil, groundAt
+			if scenario == "reported-marker" {
+				ground.TakeoffDetected = &oldTakeoff
+			}
+			ground.Surveillance = &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &speed, ObservedAt: &groundAt}
+			require.NoError(t, service.Observe(t.Context(), ground))
+			current := service.reconciliationObservations(t.Context(), "EKCH", nil)[observation.Callsign]
+			flight, err := service.reconcileFlight(t.Context(), state, newFlight(current, groundAt), current, groundAt)
+			require.NoError(t, err)
+			require.Equal(t, aman.StatePlanned, flight.State)
+			require.Nil(t, flight.LatestObservation.TakeoffDetected)
+			flight = cloneGapState(t, aman.AirportState{Flights: []aman.AMANFlight{flight}}).Flights[0]
+
+			// A strip refresh supplies no new marker or radar report, and must not
+			// reinstall the provider's earlier takeoff before the next airborne report.
+			strip := ground
+			strip.Surveillance, strip.ReconciledAt = nil, groundAt.Add(time.Minute)
+			strip.TakeoffDetected = nil
+			require.NoError(t, service.Observe(t.Context(), strip))
+			at := groundAt.Add(5 * time.Minute)
+			observation.TakeoffDetected, observation.ReconciledAt = nil, at
+			observation.Surveillance.ObservedAt = &at
+			require.NoError(t, service.Observe(t.Context(), observation))
+			current = service.reconciliationObservations(t.Context(), "EKCH", nil)[observation.Callsign]
+			flight, err = service.reconcileFlight(t.Context(), state, flight, current, at)
+			require.NoError(t, err)
+			require.NotNil(t, flight.ArrivalBaseline)
+			require.Equal(t, at.Add(eet), flight.ArrivalBaseline.ArrivalAt)
+			require.Equal(t, at, flight.ArrivalBaseline.AirborneSensedAt)
+			require.Nil(t, current.TakeoffDetected, "provider cache must not retain the old marker")
+		})
+	}
+}
+
+func TestEuroScopeGroundReplayDoesNotEraseNewerTakeoff(t *testing.T) {
+	at := time.Date(2026, 11, 16, 19, 5, 0, 0, time.UTC)
+	_, _, previous := fallbackFixture(t, at)
+	previous.TakeoffDetected = &at
+	altitude, speed := 478, 0.0
+	ground := previous
+	ground.TakeoffDetected = nil
+	ground.Surveillance = &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &speed, ObservedAt: timePointer(at.Add(-time.Minute))}
+	merged := mergeSurveillanceObservation(previous, ground)
+	require.NotNil(t, merged.TakeoffDetected)
+	require.Equal(t, at, *merged.TakeoffDetected)
 }
 
 func TestLandedRecoveryRejectsUnusableSurveillanceAndManualRemoval(t *testing.T) {

@@ -214,6 +214,7 @@ func (s *Service) Observe(ctx context.Context, observation aman.FlightObservatio
 	observation.Callsign = strings.ToUpper(strings.TrimSpace(observation.Callsign))
 	observation.Origin = strings.ToUpper(strings.TrimSpace(observation.Origin))
 	observation.Destination = strings.ToUpper(strings.TrimSpace(observation.Destination))
+	observation.TakeoffDetected = takeoffAfterGroundReport(observation.TakeoffDetected, observation)
 	owner := observationOwner(observation)
 	airport := strings.ToUpper(strings.TrimSpace(observation.Destination))
 	airport = aman.SessionAirportKey(ctx, airport)
@@ -358,6 +359,7 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 		if incoming.TakeoffDetected != nil {
 			merged.TakeoffDetected = incoming.TakeoffDetected
 		}
+		merged.TakeoffDetected = takeoffAfterGroundReport(merged.TakeoffDetected, incoming)
 		merged.Provider = incoming.Provider
 		merged.ReconciledAt = incoming.ReconciledAt
 		if previous.ReconciledAt.After(merged.ReconciledAt) {
@@ -3140,6 +3142,16 @@ const (
 func groundedSurveillance(surveillance *aman.SurveillanceFact) bool {
 	return surveillance != nil && surveillance.AltitudeFeet != nil && surveillance.GroundspeedKnots != nil &&
 		*surveillance.AltitudeFeet < groundedMaximumAltitudeFeet && *surveillance.GroundspeedKnots <= groundedMaximumGroundspeedKnots
+}
+
+func takeoffAfterGroundReport(takeoff *time.Time, observation aman.FlightObservation) *time.Time {
+	// Reset provider history as well as the flight aggregate. Otherwise a
+	// later strip/position merge can reinstall a previous flight's takeoff.
+	if takeoff != nil && groundedSurveillance(observation.Surveillance) && hasFreshLandedRadar(observation, observation.ReconciledAt) &&
+		!takeoff.After(*observation.Surveillance.ObservedAt) {
+		return nil
+	}
+	return takeoff
 }
 
 func canRecoverLandedFlight(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) bool {

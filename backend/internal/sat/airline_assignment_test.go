@@ -67,7 +67,7 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	config, err := LoadAirlineAssignmentFile(filepath.Join("..", "..", "config", "ekch", "airline_assignment.json"), standRegistry)
 	require.NoError(t, err)
 
-	assert.Len(t, config.Rules, 120)
+	assert.Len(t, config.Rules, 122)
 	for _, callsign := range []string{"FDX123", "UPS123", "UAE9000", "QTR8000", "THY6000"} {
 		match, err := config.MatchRule(AssignmentFlightFacts{Callsign: callsign})
 		require.NoError(t, err, callsign)
@@ -97,10 +97,37 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123", BorderStatus: BorderStatusNonSchengen})
 	require.NoError(t, err)
 	assert.Equal(t, "SAS_NON-SCHENGEN", match.Rule.ID)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123", AircraftType: "A21N", BorderStatus: BorderStatusNonSchengen})
+	require.NoError(t, err)
+	assert.Equal(t, "SAS_A21N_NON-SCHENGEN", match.Rule.ID)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123", AircraftType: "A21N", BorderStatus: BorderStatusSchengen})
+	require.NoError(t, err)
+	assert.Equal(t, "SAS_A21N", match.Rule.ID)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123", AircraftType: "A320", BorderStatus: BorderStatusSchengen})
+	require.NoError(t, err)
+	assert.Equal(t, "SAS", match.Rule.ID)
+	var selection *StandSelection
+	for _, tc := range []struct {
+		border   BorderStatus
+		fallback string
+	}{{BorderStatusNonSchengen, "C30"}, {BorderStatusSchengen, "E20"}} {
+		a21nFacts := AssignmentFlightFacts{Callsign: "SAS123", AircraftType: "A21N", BorderStatus: tc.border}
+		selection, err = config.SelectStand(a21nFacts, []string{"E36", tc.fallback}, func() float64 { return 0 })
+		require.NoError(t, err, tc.border)
+		require.NotNil(t, selection, tc.border)
+		assert.Equal(t, "E36", selection.Stand, tc.border)
+		assert.Equal(t, 1, selection.Tier, tc.border)
+		selection, err = config.SelectStand(a21nFacts, []string{tc.fallback}, func() float64 { return 0 })
+		require.NoError(t, err, tc.border)
+		require.NotNil(t, selection, tc.border)
+		assert.Equal(t, tc.fallback, selection.Stand, tc.border)
+		assert.Equal(t, 2, selection.Tier, tc.border)
+		assert.False(t, selection.FallbackUsed, tc.border)
+	}
 	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ITY210"})
 	require.NoError(t, err)
 	assert.Equal(t, "ITY", match.Rule.ID)
-	selection, err := config.SelectStand(
+	selection, err = config.SelectStand(
 		AssignmentFlightFacts{Callsign: "DTR123"},
 		[]string{"F90"},
 		func() float64 { return 0 },

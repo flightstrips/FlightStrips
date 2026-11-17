@@ -47,7 +47,7 @@ func TestArrivalEstimateDeferralUsesActiveBlocks(t *testing.T) {
 	}
 }
 
-func TestArrivalAirportPromotionResolvesOnlyFreeStandWarning(t *testing.T) {
+func TestArrivalAirportOperationalStandResolvesOnlyFreeStandWarning(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()
 	for _, releaseBeforeLanding := range []bool{false, true} {
@@ -56,13 +56,16 @@ func TestArrivalAirportPromotionResolvesOnlyFreeStandWarning(t *testing.T) {
 			seedTestArrivalStrip(t, queries, session, "SAS910")
 			seedTestArrivalStrip(t, queries, session, "SAS911")
 			setArrivalETA(t, strips, session, "SAS910", clock.current().Add(45*time.Minute))
+			_, err := strips.UpdateAircraftPosition(ctx, session, "SAS910", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+			require.NoError(t, err)
 			require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS910"), arrivalFlight("SAS910", 1)))
-			estimate, err := assignments.GetAssignment(ctx, session, "SAS910")
+			operational, err := assignments.GetAssignment(ctx, session, "SAS910")
 			require.NoError(t, err)
+			require.Equal(t, StageAssigned, operational.Stage, "the airport-area lock applies to an operational assignment")
 			actions := NewStandActionService(allocations, assignments, strips, nil, nil, nil)
-			blocker, err := actions.AssignManually(ctx, session, "EKCH", "GND", "SAS911", estimate.Stand, 0)
+			blocker, err := actions.Override(ctx, session, "EKCH", "GND", "SAS911", operational.Stand, "explicit controller overlap", 0)
 			require.NoError(t, err)
-			require.NoError(t, lifecycle.recordArrivalPromotionConflict(ctx, estimate, estimate.ETA, estimate.ETASource))
+			require.NoError(t, lifecycle.recordArrivalPromotionConflict(ctx, operational, operational.ETA, operational.ETASource))
 			if releaseBeforeLanding {
 				require.NoError(t, allocations.ReleaseAssignment(ctx, &blocker.Assignment))
 			}
@@ -72,8 +75,8 @@ func TestArrivalAirportPromotionResolvesOnlyFreeStandWarning(t *testing.T) {
 			confirmed, err := assignments.GetAssignment(ctx, session, "SAS910")
 			require.NoError(t, err)
 			assert.Equal(t, StageConfirmed, confirmed.Stage)
-			assert.Equal(t, estimate.Stand, confirmed.Stand)
-			assert.Equal(t, estimate.Stand, *loadStrip(t, strips, session, "SAS910").Stand)
+			assert.Equal(t, operational.Stand, confirmed.Stand)
+			assert.Equal(t, operational.Stand, *loadStrip(t, strips, session, "SAS910").Stand)
 			if !releaseBeforeLanding {
 				require.NotNil(t, confirmed.ConflictReason)
 				assert.Equal(t, arrivalPromotionConflictReason, *confirmed.ConflictReason)
@@ -83,7 +86,7 @@ func TestArrivalAirportPromotionResolvesOnlyFreeStandWarning(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Nil(t, confirmed.ConflictReason)
-			assert.Equal(t, estimate.Stand, confirmed.Stand)
+			assert.Equal(t, operational.Stand, confirmed.Stand)
 		})
 	}
 }

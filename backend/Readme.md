@@ -19,8 +19,11 @@ reconciliation remain supported.
 
 A controller may manually assign a stand that is still held by an **ESTIMATED**
 arrival. The estimate is retained without a stand-conflict warning; when it
-reaches **ASSIGNED**, its stand is checked again and automatically recalculated
-if the stand is still occupied.
+reaches **ASSIGNED**, or first appears in the airport area, its stand is checked
+again and recalculated if occupied. If no safe stand is available, it remains
+**ESTIMATED** for retry without writing a conflicting stand to the operational
+strip. Existing operational stands, controller choices and observed parked
+positions remain authoritative.
 
 Departure stand availability is projected at TSAT +5 minutes, falling back to
 TOBT +5 minutes when TSAT is missing. Once startup is requested (START REQ or

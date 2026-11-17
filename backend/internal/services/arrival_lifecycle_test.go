@@ -957,16 +957,19 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, originalVersion, stable.Version, "repeated CONFIRMED reconciliation must not rewrite or reassign the stand")
 	})
 
-	t.Run("arrival at the airport keeps its stand when the allocation becomes blocked", func(t *testing.T) {
+	t.Run("operational arrival at the airport keeps its stand when the allocation becomes blocked", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
 		seedTestArrivalStrip(t, queries, session, "SAS921")
 		setArrivalETA(t, strips, session, "SAS921", arrivalETA)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS921", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+		require.NoError(t, err)
 
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS921"), arrivalFlight("SAS921", 1)))
 		original, err := assignments.GetAssignment(ctx, session, "SAS921")
 		require.NoError(t, err)
+		require.Equal(t, StageAssigned, original.Stage)
 		require.Equal(t, "A1", original.Stand)
 
 		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{

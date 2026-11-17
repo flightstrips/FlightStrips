@@ -185,18 +185,27 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 	if err != nil && !isNotFound(err) {
 		return err
 	}
-	if existing == nil {
-		if targetStage == StageEstimated && eta != nil && eta.Sub(now) > defaultEstimatedBefore {
+	if existing == nil || strings.TrimSpace(existing.Stand) == "" {
+		if existing == nil && targetStage == StageEstimated && eta != nil && eta.Sub(now) > defaultEstimatedBefore {
 			return nil
 		}
 		// The airport-area guard only freezes an existing operational stand.
-		// An unassigned arrival still needs a compatible stand.
+		// New arrivals and non-occupying displacement advisories still need a
+		// compatible stand, with airport retention and physical observations.
 		var expiresAt *time.Time
+		if existing != nil {
+			expiresAt = existing.ExpiresAt
+		}
 		if atAirport {
-			expiresAt = arrivalStandExpiresAt(strip, nil, now)
+			expiresAt = arrivalStandExpiresAt(strip, expiresAt, now)
 			if !expiresAt.After(now) {
 				// A retained strip can outlive its stand-retention window. Do not
 				// recreate an assignment after ALDT + retention has elapsed.
+				if existing != nil {
+					err := s.allocations.ReleaseAssignment(ctx, existing)
+					recordSATExpiry(ctx, existing, "arrival_retention_elapsed", err)
+					return err
+				}
 				return nil
 			}
 			if observedStand, found := s.observedParkedArrivalStand(strip, flight.Destination); found {
@@ -209,20 +218,13 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 		}
 		return s.ensureAssignment(ctx, session, strip, flight, eta, targetStage, expiresAt)
 	}
-	if strings.TrimSpace(existing.Stand) == "" {
-		// A failed physical-displacement relocation deliberately leaves an
-		// advisory assignment with no occupying stand. Treat it as unassigned and
-		// retry selection when later feed state or departure timing frees capacity.
-		// Allocate updates the advisory record atomically when a stand is found.
-		return s.ensureAssignment(ctx, session, strip, flight, eta, targetStage, existing.ExpiresAt)
-	}
 	currentStage := existing.Stage
 	if !isArrivalStage(currentStage) {
 		return nil
 	}
-	// A low-altitude position within the airport area is operational evidence
-	// that this arrival is no longer a movable planning reservation. It may
-	// still advance its lifecycle stage and retention deadline in place.
+	// The airport area freezes established operational stands. Soft estimates
+	// still resolve their first promotion; controller choices and observed
+	// physical stands remain authoritative.
 	if atAirport {
 		expiresAt := arrivalStandExpiresAt(strip, existing.ExpiresAt, now)
 		if !expiresAt.After(now) {
@@ -250,6 +252,11 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 			if strings.EqualFold(existing.Stand, observedStand) {
 				nextObservedStand = &observedStand
 			}
+		}
+		if currentStage == StageEstimated && !existing.Manual && nextObservedStand == nil {
+			// A soft estimate has not established an operational stand. Resolve
+			// its first promotion even if the feed skipped intermediate reports.
+			return s.promoteArrival(ctx, session, strip, flight, existing, eta, targetStage, expiresAt)
 		}
 		promotionConflictResolved := false
 		if existing.ConflictReason != nil && *existing.ConflictReason == arrivalPromotionConflictReason {
@@ -286,7 +293,7 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 		}
 		return nil
 	}
-	return s.promoteArrival(ctx, session, strip, flight, existing, eta, targetStage)
+	return s.promoteArrival(ctx, session, strip, flight, existing, eta, targetStage, nil)
 }
 
 func (s *ArrivalLifecycleService) releaseOfflinePrefileAssignment(ctx context.Context, session int32, callsign string) error {
@@ -448,8 +455,8 @@ func (s *ArrivalLifecycleService) ensureAssignment(ctx context.Context, session 
 	return err
 }
 
-func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, existing *models.StandAssignment, eta *time.Time, targetStage string) error {
-	request := s.buildRequest(session, strip, flight, targetStage, eta, nil)
+func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, existing *models.StandAssignment, eta *time.Time, targetStage string, expiresAt *time.Time) error {
+	request := s.buildRequest(session, strip, flight, targetStage, eta, expiresAt)
 	// Controller choices advance lifecycle metadata but are never moved by
 	// automatic availability or tier optimization. Physical-position
 	// reconciliation remains the sole automatic exception.

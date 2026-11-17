@@ -4,10 +4,12 @@ import {SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinate
 import type {FrontendStrip} from "@/api/models";
 import {stripRevision, type StripRevision, type StripAnnotations, } from "@/api/strip-board";
 import {RADIS_BAYS,type RADISBay} from "./bays";
+import {radisCollisionDetection} from "./collision";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {Button} from "@/components/ui/button";
 import {AirportSwitcher} from "@/components/AirportSwitcher";
+import ATIS from "@/components/commandbar/ATIS";
 import Time from "@/components/Time";
 import {RADISEditDialog} from "./RADISEditDialog";
 import {RADISStrip, type RADISEdit} from "./RADISStrip";
@@ -64,17 +66,18 @@ export default function RADISBoard() {
     move(String(active.id), bay as RADISBay, index > 0 ? ordered[index - 1].callsign : null,dragRevision??undefined);
     setDragRevision(null);
   };
-  const submit = () => {
+  const submit = (selectedValue?: string) => {
     if (!menu || readOnly) return;
-    const {callsign, field, value} = menu;
+    const {callsign, field} = menu;
+    const value = selectedValue ?? menu.value;
     if (["notes", "atd", "endurance_pob"].includes(field)) annotate(callsign, field as keyof StripAnnotations, value,false,menu.revision);
-    else if (field === "route_heading") update(callsign, /^\d{1,3}$/.test(value) ? {heading: Number(value)} : {route: value.toUpperCase()},menu.revision);
+    else if (field === "route_heading") update(callsign, /^\d{1,3}$/.test(value) || (value === "" && /^\d{1,3}$/.test(menu.value)) ? {heading: Number(value)} : {route: value.toUpperCase()},menu.revision);
     else update(callsign, {[field]: ["altitude", "heading"].includes(field) ? Number(value) : value},menu.revision);
     setMenu(null);
   };
   const renderBay = (bay: RADISBay) => {const list = byBay(bay); return <RADISBayPanel bay={bay} strips={list}>{list.map(strip => <RADISStrip key={strip.id ?? strip.callsign} strip={strip} open={() => setFpl(strip.callsign)} edit={(field, title, value) => edit(strip, field, title, value)}/>)}</RADISBayPanel>;};
   return <div className="radis-view" style={{"--radis-runway-height": `${runwayHeight}dvh`} as CSSProperties}>
-    <DndContext sensors={sensors} onDragStart={({active})=>setDragRevision(stripRevision(strips.find(s=>s.callsign===active.id),definition))} onDragCancel={()=>setDragRevision(null)} onDragEnd={dragEnd}>
+    <DndContext sensors={sensors} collisionDetection={radisCollisionDetection} onDragStart={({active})=>setDragRevision(stripRevision(strips.find(s=>s.callsign===active.id),definition))} onDragCancel={()=>setDragRevision(null)} onDragEnd={dragEnd}>
       <main className="radis-board" aria-label="RADIS board">
         <div className="radis-left"><h1>ACTIVE</h1>{renderBay("ACTIVE")}<h2 className="radis-runway-title"><span role="separator" tabIndex={0} aria-label="Runway area height" aria-orientation="horizontal" aria-valuemin={15} aria-valuemax={60} aria-valuenow={Math.round(runwayHeight)} onKeyDown={e => {if (["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) {e.preventDefault(); setRunwayHeight(h => e.key === "Home" ? 15 : e.key === "End" ? 60 : Math.max(15, Math.min(60, h + (e.key === "ArrowUp" ? 1 : -1))));}}} onPointerDown={e => {runwayDrag.current = {y: e.clientY, height: runwayHeight}; e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e => {if (e.currentTarget.hasPointerCapture(e.pointerId)) setRunwayHeight(Math.max(15, Math.min(60, runwayDrag.current.height + (runwayDrag.current.y - e.clientY) / window.innerHeight * 100)));}}>RUNWAY</span></h2>{renderBay("RUNWAY")}</div>
         <div className="radis-right"><h2>PASSIVE</h2>{renderBay("PASSIVE_TOP")}{renderBay("PASSIVE_BOTTOM")}</div>
@@ -84,6 +87,7 @@ export default function RADISBoard() {
       <div className="radis-toolbar-field"><span>DEP</span><Button aria-label="Departure runways" onClick={() => setRunwayDialog(true)}>{runway.departure.join("/") || "—"}</Button></div>
       <div className="radis-toolbar-field"><span>ARR</span><Button aria-label="Arrival runways" onClick={() => setRunwayDialog(true)}>{runway.arrival.join("/") || "—"}</Button></div>
       <div className="radis-toolbar-field"><span>QNH</span><b>{metar?.match(/\bQ(\d{4})\b/)?.[1] ?? "—"}</b></div>
+      <ATIS label={metar?.match(/\bQ(\d{4})\b/)?.[1] ?? "—"} className="my-0 !w-[6.8vw]"/>
       <b className="radis-toolbar-atis" aria-label="ATIS">{atis || "—"}</b>
       <b className="radis-toolbar-wind" aria-label="Wind">{windLabel}</b>
       <span className="radis-toolbar-space"/>
@@ -95,7 +99,7 @@ export default function RADISBoard() {
       <div className="radis-clock"><Time/></div>
     </footer>
     </DndContext>
-    <RADISEditDialog menu={menu} setMenu={setMenu} submit={submit}/>
+    <RADISEditDialog key={menu ? `${menu.callsign}:${menu.field}` : "closed"} menu={menu} setMenu={setMenu} submit={submit}/>
     <Dialog open={runwayDialog} onOpenChange={setRunwayDialog}><DialogContent className="radis-dialog"><DialogTitle>Active airport runways</DialogTitle><p>DEP {runway.departure.join("/") || "—"} · ARR {runway.arrival.join("/") || "—"}</p><p>Set active departure and arrival runways in the master controller's EuroScope runway activity dialog. FlightStrips shares the confirmed configuration with this airport session.</p><Button onClick={() => setRunwayDialog(false)}>OK</Button></DialogContent></Dialog>
     {standCallsign && strips.find(s => s.callsign === standCallsign && !s.board_state?.removed_at) && <RADISStandDialog strip={strips.find(s => s.callsign === standCallsign)!} close={() => setStandCallsign(null)}/>}
     {recovery && <RADISRecovery close={()=>setRecovery(false)}/>}

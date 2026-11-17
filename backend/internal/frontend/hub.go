@@ -527,6 +527,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 			event.Observer = controller.Observer
 		}
 		event.Definition = &definition
+		event.TransitionAltitude = definition.TransitionAltitudeFT
 		if readiness, ok := source.(frontendBoardReadinessSource); ok {
 			event.OwnPluginReady = readiness.FrontendBoardReady(client.GetCid(), *client.selection.board)
 		}

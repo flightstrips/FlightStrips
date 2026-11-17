@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAirport, useAtisCode, useMetar, useUserRating } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
+import { cn } from "@/lib/utils";
 import {
   decodeMetar,
   type MetarDecoded,
@@ -217,7 +218,7 @@ function buildReadout(decoded: MetarDecoded): string {
   return parts.join(" ");
 }
 
-export default function ATIS() {
+export default function ATIS({label = "ATIS", className}: {label?: string; className?: string}) {
   const airport = useAirport();
   const metar = useMetar();
   const atisCode = useAtisCode();
@@ -228,9 +229,10 @@ export default function ATIS() {
   return (
     <Dialog>
       <DialogTrigger
-        className={`${CLS_CMDBTN} !w-[4.45vw]${atisCode === '' ? ' !bg-[#F43A3A]' : ''}`}
+        className={cn(`${CLS_CMDBTN} !w-[4.45vw]${atisCode === '' ? ' !bg-[#F43A3A]' : ''}`, className)}
+        aria-label={label === "ATIS" ? undefined : "Airport weather"}
       >
-        ATIS
+        {label}
       </DialogTrigger>
       <DialogContent className={CLS_DIALOG}>
         <DialogHeader>

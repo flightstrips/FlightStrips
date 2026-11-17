@@ -37,8 +37,8 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await b.getByRole("button", {name: "ALT FT RADIS1", exact: true}).click();
     await b.getByRole("textbox", {name: "Cleared altitude (feet)", exact: true}).fill("3400");
     await b.getByRole("button", {name: "OK", exact: true}).click();
-    await expect(a.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("3400");
-    await expect(other.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("3000");
+    await expect(a.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("F034");
+    await expect(other.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("A030");
     await expect.poll(async () => (await (await request.get(`${backend}/e2e/commands`)).json()).filter((c: {kind: string; token: string; airport: string}) => c.kind === "EVENT_CLEARED_ALTITUDE")).toEqual([expect.objectContaining({airport: "EKBI", token: "__TEST_FRONTEND_TOKEN__", callsign: "RADIS1"})]);
   });
   await test.step("same-profile tabs and LIVE, exercise and playback boards retain independent identities", async () => {

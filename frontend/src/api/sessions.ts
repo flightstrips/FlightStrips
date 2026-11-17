@@ -21,6 +21,7 @@ export interface BoardContext {
   subscription_id: string;
 }
 export interface BoardDefinition {
+  transition_altitude_ft?: number;
  runways?: string[];
  board_state?: {revisioned:boolean;recovery_seconds:number};
   definition_revision: string;

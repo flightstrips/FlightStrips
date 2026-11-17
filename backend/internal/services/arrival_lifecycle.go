@@ -195,6 +195,11 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 		var expiresAt *time.Time
 		if existing != nil {
 			expiresAt = existing.ExpiresAt
+			// Displacement clears the stand, not the accepted lifecycle stage.
+			// Missing or regressed feed facts must not turn recovery into a soft estimate.
+			if arrivalStagePriority(existing.Stage) > arrivalStagePriority(targetStage) {
+				targetStage = existing.Stage
+			}
 		}
 		if atAirport {
 			expiresAt = arrivalStandExpiresAt(strip, expiresAt, now)

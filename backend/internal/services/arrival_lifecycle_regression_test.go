@@ -11,6 +11,97 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestArrivalAdvisoryRecoveryPreservesAcceptedStage(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx := t.Context()
+	for _, accepted := range []string{"", StageEstimated, StageAssigned, StageConfirmed} {
+		for _, report := range []struct {
+			name     string
+			altitude *int32
+			stage    string
+		}{
+			{name: "missing_altitude", stage: StageEstimated},
+			{name: "high_altitude", altitude: altPtr(20000), stage: StageEstimated},
+			{name: "approaching", altitude: altPtr(8000), stage: StageAssigned},
+			{name: "final", altitude: altPtr(2000), stage: StageConfirmed},
+		} {
+			name := accepted
+			if name == "" {
+				name = "new_arrival"
+			}
+			t.Run(name+"/"+report.name, func(t *testing.T) {
+				lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+				clock.set(time.Now().UTC().Truncate(time.Second))
+				seedTestArrivalStrip(t, queries, session, "SAS940")
+				eta := clock.current().Add(time.Minute)
+				setArrivalETA(t, strips, session, "SAS940", eta)
+				if report.altitude != nil {
+					_, err := strips.UpdateAircraftPosition(ctx, session, "SAS940", posPtr(55.8), posPtr(12.642625), report.altitude, "FINAL", nil)
+					require.NoError(t, err)
+				}
+				var expiresAt *time.Time
+				if accepted != "" {
+					expiry := clock.current().Add(25 * time.Minute)
+					expiresAt = &expiry
+					require.NoError(t, lifecycle.recordDisplacedArrivalAdvisory(ctx, models.StandAssignment{
+						SessionID: session, Callsign: "SAS940", Direction: "ARRIVAL", Stand: "A1",
+						Stage: accepted, Source: "AUTOMATIC", ETA: &eta, ExpiresAt: expiresAt,
+					}, "physically displaced: no capacity"))
+				}
+				// A failed retry must leave the non-occupying record untouched.
+				var blocks []*models.StandBlock
+				for _, stand := range []string{"A1", "A2"} {
+					block := &models.StandBlock{SessionID: session, Stand: stand, BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}
+					require.NoError(t, allocations.CreateManualBlock(ctx, "EKCH", block))
+					blocks = append(blocks, block)
+				}
+				require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS940"), arrivalFlight("SAS940", 1)))
+				if accepted != "" {
+					pending, err := assignments.GetAssignment(ctx, session, "SAS940")
+					require.NoError(t, err)
+					require.Equal(t, accepted, pending.Stage)
+					require.Empty(t, pending.Stand)
+					require.NotNil(t, pending.ConflictReason)
+				}
+				require.Empty(t, loadStrip(t, strips, session, "SAS940").Stand)
+				_, err := allocations.DeleteManualBlock(ctx, session, blocks[1].ID, blocks[1].Version)
+				require.NoError(t, err)
+				var published []StandAllocationResult
+				allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+					published = append(published, result)
+					return nil
+				})
+				require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS940"), arrivalFlight("SAS940", 2)))
+				recovered, err := assignments.GetAssignment(ctx, session, "SAS940")
+				require.NoError(t, err)
+				wantStage := report.stage
+				if accepted == StageConfirmed || (accepted == StageAssigned && wantStage == StageEstimated) {
+					wantStage = accepted
+				}
+				assert.Equal(t, wantStage, recovered.Stage)
+				assert.Equal(t, "A2", recovered.Stand)
+				assert.Nil(t, recovered.ConflictReason)
+				if expiresAt == nil {
+					assert.Nil(t, recovered.ExpiresAt)
+				} else {
+					require.NotNil(t, recovered.ExpiresAt)
+					assert.True(t, expiresAt.Equal(*recovered.ExpiresAt), "recovery preserves the accepted retention deadline")
+				}
+				operational := wantStage != StageEstimated
+				if operational {
+					assert.Equal(t, strp("A2"), loadStrip(t, strips, session, "SAS940").Stand)
+				} else {
+					assert.Empty(t, loadStrip(t, strips, session, "SAS940").Stand)
+				}
+				require.Len(t, published, 1)
+				assert.Equal(t, wantStage, published[0].Assignment.Stage)
+				assert.Equal(t, operational, published[0].StandChanged)
+				assert.Equal(t, operational, published[0].NotifyEuroscope)
+			})
+		}
+	}
+}
+
 func TestArrivalEstimateDeferralUsesActiveBlocks(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()

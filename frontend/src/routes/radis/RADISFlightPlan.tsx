@@ -14,6 +14,8 @@ export function RADISFlightPlan({strip, onClose, edit}: {strip: FrontendStrip | 
   const capabilities = useWebSocketStore(s => s.boardDefinition?.capabilities);
   const transitionAltitude = useWebSocketStore(s => s.transitionAltitude);
   const showRequestedFlightLevel = !strip?.requested_altitude || strip.requested_altitude > transitionAltitude;
+  const clearedAltitude = strip?.cleared_altitude;
+  const clearedAltitudeDisplay = !clearedAltitude ? "" : clearedAltitude % 100 ? String(clearedAltitude) : formatAltitude(clearedAltitude, transitionAltitude).replace(/^FL(\d+)$/, (_, level: string) => `FL${level.padStart(3, "0")}`);
   const field = (label: string, content: string | number | undefined, action?: RADISEdit["field"], display = content) => <label className="radis-fpl-field"><span>{label}</span><button type="button" disabled={!action || readOnly || (action !== "notes" && !strip?.has_fp)} onClick={() => strip && action && edit(strip, action, label, String(content ?? ""))}>{display || ""}</button></label>;
   return <Dialog open={!!strip} onOpenChange={open => !open && onClose()}><DialogContent className="radis-dialog radis-fpl"><DialogTitle className="sr-only">Flight plan · {strip?.callsign}</DialogTitle>{strip && <>
     <div className="radis-fpl-sheet">
@@ -30,7 +32,7 @@ export function RADISFlightPlan({strip, onClose, edit}: {strip: FrontendStrip | 
         <div className="radis-fpl-remarks">{field("COOPANS REMARKS", strip.remarks, "remarks")}</div>
         <div className="radis-fpl-notes">{field("NITOS REMARKS", strip.board_state?.annotations.notes, "notes")}{field("IATA TYPE", undefined)}</div>
         <div className="radis-fpl-grid radis-fpl-clearance">
-          {field("CLIMB GR.", undefined)}{field("HDG", strip.heading, "heading")}{field("ALT", strip.cleared_altitude, "altitude", strip.cleared_altitude ? formatAltitude(strip.cleared_altitude, transitionAltitude).replace(/^FL(\d+)$/, (_, level: string) => `FL${level.padStart(3, "0")}`) : "")}
+          {field("CLIMB GR.", undefined)}{field("HDG", strip.heading, "heading")}{field("ALT", strip.cleared_altitude, "altitude", clearedAltitudeDisplay)}
           <label className="radis-fpl-field"><span>DE-ICE</span><input type="checkbox" checked={strip.board_state?.annotations.deicing ?? false} disabled={readOnly} onChange={e => annotate(strip.callsign, "deicing", "", e.target.checked)}/></label>
           {field("REG", strip.registration)}{field("STAND", strip.stand, "stand")}
         </div>

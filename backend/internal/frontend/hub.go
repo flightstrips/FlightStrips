@@ -81,6 +81,7 @@ type Hub struct {
 	layoutUpdates chan layoutUpdateMessage
 
 	register      chan *Client
+	snapshotRequests chan *Client
 	unregister    chan *Client
 	cidOnline     chan cidOnlineMessage
 	cidDisconnect chan cidDisconnectMessage
@@ -211,6 +212,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		send:                  make(chan internalMessage, hubSendQueueSize),
 		layoutUpdates:         make(chan layoutUpdateMessage),
 		register:              make(chan *Client),
+		snapshotRequests:      make(chan *Client, 128),
 		unregister:            make(chan *Client),
 		cidOnline:             make(chan cidOnlineMessage),
 		cidDisconnect:         make(chan cidDisconnectMessage),
@@ -1936,6 +1938,8 @@ func (hub *Hub) Run(ctx context.Context) {
 		case client := <-hub.register:
 			hub.clients[client] = true
 			hub.OnRegister(client)
+		case client := <-hub.snapshotRequests:
+			if hub.clients[client] { hub.OnRegisterSnapshot(ctx, client) }
 		case client := <-hub.unregister:
 			if _, ok := hub.clients[client]; ok {
 				delete(hub.clients, client)
@@ -2060,4 +2064,20 @@ func (hub *Hub) publishRevisionedStrip(session int32, callsign string) {
 	if ok && policy.UsesRevisionedStripState(context.Background(), session) {
 		hub.SendStripUpdate(session, callsign)
 	}
+}
+
+// RequestSnapshot schedules a read on the hub loop, preserving its single writer.
+func (hub *Hub) RequestSnapshot(client *Client) {
+	select {
+	case hub.snapshotRequests <- client:
+	default:
+	}
+}
+
+func (hub *Hub) OnRegisterSnapshot(ctx context.Context, client *Client) {
+	if hub.associateWaitingClientIfSessionReady(client) || client.GetSession() != WaitingForEuroscopeConnectionSessionId {
+		hub.sendInitialEvent(ctx, client)
+		return
+	}
+	client.Enqueue(frontend.DisconnectEvent{ReadOnly: true})
 }

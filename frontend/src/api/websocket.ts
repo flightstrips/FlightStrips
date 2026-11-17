@@ -45,6 +45,8 @@ import {
 } from "./models";
 import {boardContext, sameBoard, type BoardContext, type OwnMembership} from "./sessions";
 import { FRONTEND_VERSION } from "@/lib/app-version";
+import {ConnectionRecovery, type ConnectionPhase} from "./connection-recovery";
+export type {ConnectionPhase} from "./connection-recovery";
 import type {InboundDeparturesEvent} from "./inbound-departures";
 import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEvent} from "./aman";
 
@@ -111,6 +113,7 @@ type EventMap = {
 type WebSocketClientDelegate = {
   onConnected?: () => void;
   onDisconnected?: () => void;
+  onStateChanged?: (phase: ConnectionPhase) => void;
 };
 
 export class WebSocketClient {
@@ -127,6 +130,8 @@ export class WebSocketClient {
   private manuallyClosed = false;
   private delegate?: WebSocketClientDelegate;
   private pendingConnection: {promise: Promise<void>; resolve: () => void; reject: (error: Error) => void} | null = null;
+  private recovery: ConnectionRecovery | null = null;
+  private previousFailure = "";
 
   constructor(url: string, delegate?: WebSocketClientDelegate, private readonly selection?: OwnMembership) {
     this.url = url;
@@ -180,13 +185,19 @@ export class WebSocketClient {
       this.manuallyClosed = false;
       const socket = new WebSocket(this.url);
       this.socket = socket;
+      this.recovery = new ConnectionRecovery({
+        send: message => {if (this.socket === socket) socket.send(JSON.stringify(message));},
+        fail: reason => {if (this.socket === socket) this.loseConnection(reason);},
+        phase: phase => this.delegate?.onStateChanged?.(phase),
+        previousFailure: this.previousFailure, attempt: this.reconnectAttempts,
+      });
       this.board = this.selection ? boardContext(this.selection, crypto.randomUUID()) : undefined;
       if (this.selection) this.readOnly = true; // Wait for the authorized snapshot.
 
       socket.onopen = () => {
         if (this.socket !== socket) return;
         console.log('WebSocket connection established');
-        this.reconnectAttempts = 0;
+        this.recovery?.opened();
         if (this.token) {
           this.sendAuthenticationEvent();
         }
@@ -204,22 +215,19 @@ export class WebSocketClient {
       socket.onclose = (event) => {
         // Ignore close events from a socket that has already been replaced (e.g. during reconnect)
         if (this.socket !== socket) return;
-        this.socket = null;
         this.finishConnection(new Error('WebSocket closed before opening'));
-        this.invalidate();
         console.log('WebSocket connection closed:', event.code, event.reason);
-        if (this.delegate?.onDisconnected) {
-          this.delegate.onDisconnected();
-        }
-        if (!this.manuallyClosed) {
-          this.retryConnection();
-        }
+        this.loseConnection("socket_closed");
       };
 
       socket.onmessage = (event) => {
         if (this.socket !== socket) return;
         try {
           const data = JSON.parse(event.data) as WebSocketEvent & {board?: BoardContext};
+          if ((data as {type: string}).type === "connection_health") {
+            this.recovery?.receiveHealth(data as unknown as Record<string, unknown>);
+            return;
+          }
           if (this.selection) {
             if (!sameBoard(data.board, this.board)) return;
             if (data.type === EventType.FrontendInitial &&
@@ -229,6 +237,8 @@ export class WebSocketClient {
           if (handlers) {
             handlers.forEach(handler => handler(data));
           }
+          if (data.type === EventType.FrontendInitial) {this.reconnectAttempts = 0; this.recovery?.ready();}
+          else if (data.type === EventType.FrontendDisconnect) this.recovery?.waitingForPlugin();
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
@@ -237,8 +247,10 @@ export class WebSocketClient {
       // Setup failures may happen before onclose is installed.
       const failed = this.socket;
       this.socket = null;
+      this.recovery?.stop();
       failed?.close();
       this.finishConnection(error instanceof Error ? error : new Error(String(error)));
+      this.previousFailure = "setup_failed";
       this.retryConnection();
     }
     return promise;
@@ -259,9 +271,31 @@ export class WebSocketClient {
     });
   }
 
+  private loseConnection(reason: string): void {
+    const previous = this.socket;
+    this.socket = null;
+    this.recovery?.stop();
+    this.previousFailure = reason;
+    this.finishConnection(new Error(reason));
+    this.invalidate();
+    this.delegate?.onDisconnected?.();
+    this.delegate?.onStateChanged?.("disconnected");
+    previous?.close(4000, reason);
+    if (!this.manuallyClosed && !this.disposed) this.retryConnection();
+  }
+
+  requestSnapshot(): void {
+    if (this.disposed || !this.isConnected()) return;
+    this.invalidate();
+    if (!this.recovery?.requestSnapshot()) this.reconnect();
+  }
+
   private retryConnection() {
     this.reconnectAttempts += 1;
-    const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 30000); // Exponential backoff, max 30s
+    const ceiling = Math.min(1000 * 2 ** Math.min(this.reconnectAttempts, 5), 30000);
+    const delay = Math.floor(ceiling * (0.5 + Math.random() * 0.5));
+    console.info("WebSocket retry scheduled", {attempt: this.reconnectAttempts, retry_in_ms: delay, previous_failure: this.previousFailure});
+    this.delegate?.onStateChanged?.("reconnecting");
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -278,6 +312,8 @@ export class WebSocketClient {
 
   disconnect(): void {
     this.manuallyClosed = true;
+    this.recovery?.stop();
+    this.delegate?.onStateChanged?.("disconnected");
     this.finishConnection(new Error('WebSocket connection cancelled'));
     this.invalidate();
     this.delegate?.onDisconnected?.();

@@ -24,6 +24,10 @@ namespace FlightStrips::websocket {
     }
 
     namespace {
+        int JitteredRetryDelay(int ceilingMs) {
+            static thread_local std::mt19937 random(std::random_device{}());
+            return std::uniform_int_distribution<int>(ceilingMs / 2, ceilingMs)(random);
+        }
         using Wire=protobuf::wire::Envelope;
         Wire::EventCase ExpectedResult(const Wire& event) {
             switch(event.event_case()) {
@@ -392,7 +396,7 @@ namespace FlightStrips::websocket {
             if (!connect_after_.has_value()) {
                 pending_connect_ = true;
                 if (webSocket->GetStatus() == WEBSOCKET_STATUS_FAILED) {
-                    const auto delay_ms = BACKOFF_MS[std::min(fail_count_, static_cast<int>(BACKOFF_MS.size()) - 1)];
+                    const auto delay_ms = JitteredRetryDelay(BACKOFF_MS[std::min(fail_count_, static_cast<int>(BACKOFF_MS.size()) - 1)]);
                     fail_count_++;
                     connect_after_ = now + std::chrono::milliseconds(delay_ms);
                     Logger::Info("Connect failed (attempt {}), retrying in {}ms", fail_count_, delay_ms);
@@ -649,7 +653,7 @@ namespace FlightStrips::websocket {
     std::optional<std::chrono::steady_clock::time_point> WebSocketService::GetConnectNotBefore(
         const std::chrono::steady_clock::time_point now) const {
         if (has_connected_in_online_period_) {
-            return now + std::chrono::seconds(FAST_CONNECT_DELAY_SECONDS);
+            return now + std::chrono::milliseconds(JitteredRetryDelay(FAST_CONNECT_DELAY_SECONDS * 1000));
         }
         if (!online_since_.has_value()) {
             return std::nullopt;

@@ -1,0 +1,75 @@
+# Prometheus/Mimir rule format. Import into the Grafana Cloud metrics ruler;
+# configure its notification routing separately. Units follow OTLP translation.
+groups:
+  - name: flightstrips-connections
+    interval: 30s
+    rules:
+      - alert: FlightStripsDisconnectCluster
+        expr: sum(increase(websocket_connection_events_total{event=~"read_timeout|unexpected_close",source=~"frontend|euroscope"}[2m])) >= 5
+        for: 30s
+        labels:
+          severity: warning
+          service: flightstrips
+        annotations:
+          summary: Several FlightStrips connections failed together
+          description: At least five admitted connections timed out or closed unexpectedly in two minutes. Inspect connection IDs, CF-Ray, master changes, deployment history and public/origin probes.
+      - alert: FlightStripsPublicPathFailure
+        expr: |
+          (max by (check) (connection_probe_success{target="public"}) == 0)
+          and on (check) (max by (check) (connection_probe_success{target="origin"}) == 1)
+          and on (check) (time() - max by (check) (connection_probe_checked_at_seconds{target="public"}) < 120)
+          and on (check) (time() - max by (check) (connection_probe_checked_at_seconds{target="origin"}) < 120)
+        for: 1m
+        labels:
+          severity: warning
+          service: flightstrips
+        annotations:
+          summary: Public FlightStrips route fails while origin responds
+          description: Check public DNS, Cloudflare and the monitor's network path. The origin check preserves the public hostname and validates TLS. This observation does not prove a Cloudflare fault.
+      - alert: FlightStripsOriginPathFailure
+        expr: |
+          (max by (check) (connection_probe_success{target="public"}) == 0)
+          and on (check) (max by (check) (connection_probe_success{target="origin"}) == 0)
+          and on (check) (time() - max by (check) (connection_probe_checked_at_seconds{target="public"}) < 120)
+          and on (check) (time() - max by (check) (connection_probe_checked_at_seconds{target="origin"}) < 120)
+        for: 1m
+        labels:
+          severity: critical
+          service: flightstrips
+        annotations:
+          summary: Both FlightStrips network routes fail
+          description: Check the monitor's own egress, origin network, Traefik, backend process and deployment history. Both failing from one vantage point does not isolate a component.
+      - alert: FlightStripsDirectOriginProbeFailure
+        expr: |
+          (max by (check) (connection_probe_success{target="origin"}) == 0)
+          and on (check) (max by (check) (connection_probe_success{target="public"}) == 1)
+          and on (check) (time() - max by (check) (connection_probe_checked_at_seconds{target="public"}) < 120)
+          and on (check) (time() - max by (check) (connection_probe_checked_at_seconds{target="origin"}) < 120)
+        for: 5m
+        labels:
+          severity: warning
+          service: flightstrips
+        annotations:
+          summary: Direct origin comparison is unavailable
+          description: The public service responds. Check the configured origin address, firewall and origin certificate before relying on this comparison.
+      - alert: FlightStripsConnectionProbeMissing
+        expr: |
+          absent_over_time(connection_probe_checked_at_seconds[5m])
+          or (time() - max by (target, check) (connection_probe_checked_at_seconds) > 120)
+          or (count(max by (target, check) (connection_probe_checked_at_seconds)) < 4)
+        for: 2m
+        labels:
+          severity: warning
+          service: flightstrips
+        annotations:
+          summary: Connection monitoring is incomplete or stale
+          description: Four series are expected (public/origin times HTTP/WebSocket). Check the probe service and OTLP export. Missing data is not a healthy service.
+      - alert: FlightStripsMasterChurn
+        expr: sum(increase(websocket_connection_events_total{source="euroscope",event="master_assigned"}[5m])) >= 3
+        for: 30s
+        labels:
+          severity: warning
+          service: flightstrips
+        annotations:
+          summary: FlightStrips masters are being reassigned repeatedly
+          description: Three or more assignments across all sessions in five minutes. Inspect structured master change logs for the affected sessions and physical connections; compare planned controller changes.

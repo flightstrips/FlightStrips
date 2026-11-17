@@ -28,10 +28,10 @@ namespace FlightStrips::websocket {
         public:
             WebSocketImpl(std::string endpoint,
                           message_callback cb,
-                          on_connected_callback on_connected, bool textFrames)
+                          on_connected_callback on_connected, bool textFrames, ConnectionTiming timing)
                 : on_connected_cb(std::move(on_connected)),
                   message_cb(std::move(cb)),
-                  endpoint_(std::move(endpoint)), textFrames_(textFrames) {
+                  endpoint_(std::move(endpoint)), textFrames_(textFrames), timing_(timing) {
 
                 m_endpoint.clear_access_channels(websocketpp::log::alevel::all);
                 m_endpoint.clear_error_channels(websocketpp::log::elevel::all);
@@ -94,10 +94,17 @@ namespace FlightStrips::websocket {
                 }
 
                 const auto generation=++generation_;
+                con->set_pong_timeout(timing_.pongTimeoutMs);
+                con->set_pong_handler([this, generation](websocketpp::connection_hdl hdl, std::string payload) {
+                    if (generation == generation_.load() && payload == "flightstrips") ScheduleHeartbeat(hdl, generation);
+                });
+                con->set_pong_timeout_handler([this, generation](websocketpp::connection_hdl hdl, std::string payload) {
+                    if (payload == "flightstrips") FailHeartbeat(hdl, generation, "pong_timeout");
+                });
                 m_hdl = con->get_handle();
 
                 con->set_open_handler([this,generation](const websocketpp::connection_hdl& hdl) { if(generation==generation_.load()) OnOpen(hdl, generation); });
-                con->set_message_handler([this,generation](const websocketpp::connection_hdl& hdl, const typename ClientT::message_ptr& msg) { if(generation==generation_.load()) OnMessage(hdl, msg); });
+                con->set_message_handler([this,generation](const websocketpp::connection_hdl& hdl, const typename ClientT::message_ptr& msg) { if(generation==generation_.load()) OnMessage(hdl, msg, generation); });
                 con->set_fail_handler([this,generation](const websocketpp::connection_hdl& hdl) { if(generation==generation_.load()) OnFailure(hdl, generation); });
                 con->set_close_handler([this,generation](const websocketpp::connection_hdl& hdl) { if(generation==generation_.load()) OnClose(hdl, generation); });
 
@@ -110,6 +117,8 @@ namespace FlightStrips::websocket {
                 {
                     std::lock_guard lock(lifecycle_mutex_);
                     ++generation_;
+                    CancelHeartbeat();
+                    CancelInitialResponseDeadline();
                     handle = m_hdl;
                     m_hdl.reset();
                     status_ = WEBSOCKET_STATUS_DISCONNECTED;
@@ -130,6 +139,57 @@ namespace FlightStrips::websocket {
             [[nodiscard]] WebSocketStatus GetStatus() const override { return status_; }
 
         private:
+            // Called with lifecycle_mutex_ held. No operational messages are
+            // retried by the watchdog; reconnect gets a fresh membership/sync.
+            void CancelHeartbeat() {
+                if (heartbeat_timer_) {
+                    asio::error_code ignored;
+                    heartbeat_timer_->cancel(ignored);
+                    heartbeat_timer_.reset();
+                }
+            }
+
+            void ScheduleHeartbeat(const websocketpp::connection_hdl& hdl, uint64_t generation) {
+                std::lock_guard lock(lifecycle_mutex_);
+                if (generation != generation_.load() || status_ != WEBSOCKET_STATUS_CONNECTED) return;
+                CancelHeartbeat();
+                heartbeat_timer_ = m_endpoint.set_timer(timing_.heartbeatIntervalMs,
+                    [this, hdl, generation](const websocketpp::lib::error_code& error) {
+                        if (error || generation != generation_.load()) return;
+                        websocketpp::lib::error_code sendError;
+                        const auto con = m_endpoint.get_con_from_hdl(hdl, sendError);
+                        if (!sendError) con->ping("flightstrips", sendError);
+                        if (sendError) FailHeartbeat(hdl, generation, "ping_failed");
+                    });
+            }
+
+            void FailHeartbeat(const websocketpp::connection_hdl& hdl, uint64_t generation, const char* reason) {
+                // Retire only this generation, atomically with Disconnect/Connect.
+                // An expired timer must never close a replacement connection.
+                {
+                    std::lock_guard lock(lifecycle_mutex_);
+                    if (generation != generation_.load()) return;
+                    ++generation_;
+                    CancelHeartbeat();
+                    CancelInitialResponseDeadline();
+                    m_hdl.reset();
+                    status_ = WEBSOCKET_STATUS_FAILED;
+                }
+                websocketpp::lib::error_code lookupError;
+                const auto con = m_endpoint.get_con_from_hdl(hdl, lookupError);
+                Logger::Warning("WebSocket recovery reason={} connection_id={} cf_ray={}", reason,
+                    lookupError ? "" : con->get_response_header("X-Flightstrips-Connection-Id"),
+                    lookupError ? "" : con->get_response_header("CF-Ray"));
+                TryDisconnect(hdl);
+            }
+
+            void CancelInitialResponseDeadline() {
+                if (!initial_response_timer_) return;
+                asio::error_code ignored;
+                initial_response_timer_->cancel(ignored);
+                initial_response_timer_.reset();
+            }
+
             void TryDisconnect(const websocketpp::connection_hdl& handle) {
                 websocketpp::lib::error_code ec;
                 const auto connection = m_endpoint.get_con_from_hdl(handle, ec);
@@ -144,12 +204,15 @@ namespace FlightStrips::websocket {
                 }
             }
 
-            void OnMessage(const websocketpp::connection_hdl&, const typename ClientT::message_ptr& msg) const {
-                exceptions::RunGuarded("WebSocket::OnMessage", [this, &msg] {
+            void OnMessage(const websocketpp::connection_hdl&, const typename ClientT::message_ptr& msg, uint64_t generation) {
+                exceptions::RunGuarded("WebSocket::OnMessage", [this, &msg, generation] {
                     if (msg->get_opcode() != (textFrames_ ? websocketpp::frame::opcode::text : websocketpp::frame::opcode::binary)) {
                         Logger::Warning("Ignoring non-binary websocket message from server");
                         return;
                     }
+                    { std::lock_guard lock(lifecycle_mutex_);
+                      if (generation != generation_.load()) return;
+                      CancelInitialResponseDeadline(); }
                     auto payload = msg->get_payload();
                     Logger::Debug("Got protobuf message from server ({} bytes)", payload.size());
                     message_cb(payload);
@@ -163,7 +226,8 @@ namespace FlightStrips::websocket {
                       status_ = WEBSOCKET_STATUS_FAILED; }
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
                     const auto reason = con->get_ec().message();
-                    Logger::Warning("Failed to connect to server: {}", reason);
+                    Logger::Warning("Failed to connect to server: {} http_status={} cf_ray={}", reason,
+                        static_cast<int>(con->get_response_code()), con->get_response_header("CF-Ray"));
                 });
             }
 
@@ -174,10 +238,16 @@ namespace FlightStrips::websocket {
                     // Disconnect may retire this connection while the callback runs.
                     { std::lock_guard lock(lifecycle_mutex_);
                       if (generation != generation_.load()) return;
-                      status_ = WEBSOCKET_STATUS_CONNECTED; }
+                      status_ = WEBSOCKET_STATUS_CONNECTED;
+                      initial_response_timer_ = m_endpoint.set_timer(timing_.initialResponseTimeoutMs,
+                          [this, hdl, generation](const websocketpp::lib::error_code& error) {
+                              if (!error) FailHeartbeat(hdl, generation, "initial_response_timeout");
+                          }); }
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
                     auto server = con->get_response_header("Server");
-                    Logger::Info("Connected to server: {}", server);
+                    Logger::Info("Connected to server: {} connection_id={} cf_ray={}", server,
+                        con->get_response_header("X-Flightstrips-Connection-Id"), con->get_response_header("CF-Ray"));
+                    ScheduleHeartbeat(hdl, generation);
                 });
             }
 
@@ -185,15 +255,17 @@ namespace FlightStrips::websocket {
                 exceptions::RunGuarded("WebSocket::OnClose", [this, &hdl, generation] {
                     { std::lock_guard lock(lifecycle_mutex_);
                       if (generation != generation_.load()) return;
+                      CancelHeartbeat();
+                      CancelInitialResponseDeadline();
                       status_ = WEBSOCKET_STATUS_DISCONNECTED; }
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
-                    Logger::Info(detail::FormatCloseLogMessage(
+                    Logger::Info("{} connection_id={} cf_ray={}", detail::FormatCloseLogMessage(
                         con->get_remote_close_code(),
                         con->get_remote_close_reason(),
                         con->get_local_close_code(),
                         con->get_local_close_reason(),
                         con->get_ec().message()
-                    ));
+                    ), con->get_response_header("X-Flightstrips-Connection-Id"), con->get_response_header("CF-Ray"));
                 });
             }
 
@@ -209,6 +281,9 @@ namespace FlightStrips::websocket {
             message_callback message_cb;
             std::string endpoint_;
             bool textFrames_;
+            ConnectionTiming timing_;
+            typename ClientT::timer_ptr heartbeat_timer_;
+            typename ClientT::timer_ptr initial_response_timer_;
         };
     }
 
@@ -218,11 +293,11 @@ namespace FlightStrips::websocket {
 
     WebSocket::WebSocket(std::string endpoint,
                          message_callback cb,
-                         on_connected_callback on_connected, bool textFrames) {
+                         on_connected_callback on_connected, bool textFrames, ConnectionTiming timing) {
         if (is_tls_endpoint(endpoint)) {
-            impl_ = std::make_unique<WebSocketImpl<tls_client, true>>(std::move(endpoint), std::move(cb), std::move(on_connected), textFrames);
+            impl_ = std::make_unique<WebSocketImpl<tls_client, true>>(std::move(endpoint), std::move(cb), std::move(on_connected), textFrames, timing);
         } else {
-            impl_ = std::make_unique<WebSocketImpl<plain_client, false>>(std::move(endpoint), std::move(cb), std::move(on_connected), textFrames);
+            impl_ = std::make_unique<WebSocketImpl<plain_client, false>>(std::move(endpoint), std::move(cb), std::move(on_connected), textFrames, timing);
         }
     }
 

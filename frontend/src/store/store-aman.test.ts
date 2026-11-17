@@ -437,7 +437,7 @@ describe("EuroScope AMAN selection", () => {
     expect(store.getState().amanEuroScopeSelectionRevision).toBe(0);
   });
 
-  it("resets revisions on connection invalidation and on a different own instance", () => {
+  it("retains passive selection while invalidated and resets revisions for a fresh snapshot or own instance", () => {
     const client = createMockClient();
     const store = createWebSocketStore(client);
     const board = {session_id: 1, airport: "EKCH", environment: "LIVE", instance_id: "one", membership_id: "a", generation: "1", transport_generation: "1", definition_revision: "v1", subscription_id: "tab"};
@@ -446,7 +446,8 @@ describe("EuroScope AMAN selection", () => {
     client._emit(EventType.FrontendInitial, {...initial, board: {...board, instance_id: "two"}, aircraft_selection: {callsign: "SAS456", revision: 1}});
     expect(store.getState().amanSelectedCallsign).toBe("SAS456");
     client._invalidate();
-    expect(store.getState().amanSelectedCallsign).toBeNull();
+    expect(store.getState().amanSelectedCallsign).toBe("SAS456");
+    expect(store.getState().readOnly).toBe(true);
     expect(store.getState().amanEuroScopeSelectionRevision).toBe(0);
     client._emit(EventType.FrontendInitial, initial);
     expect(store.getState().amanSelectedCallsign).toBe("SAS123");

@@ -1,0 +1,71 @@
+rule_files:
+  - connection-alerts.yml
+evaluation_interval: 30s
+tests:
+  - name: Public path fails with fresh healthy origin evidence
+    interval: 30s
+    input_series:
+      - series: connection_probe_success{target="public",check="http"}
+        values: 0x12
+      - series: connection_probe_success{target="origin",check="http"}
+        values: 1x12
+      - series: connection_probe_checked_at_seconds{target="public",check="http"}
+        values: 0+30x12
+      - series: connection_probe_checked_at_seconds{target="origin",check="http"}
+        values: 0+30x12
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="FlightStripsPublicPathFailure",alertstate="firing"})
+        eval_time: 3m
+        exp_samples:
+          - labels: '{}'
+            value: 1
+      - expr: ALERTS{alertname="FlightStripsOriginPathFailure",alertstate="firing"}
+        eval_time: 3m
+        exp_samples: []
+  - name: Both routes fail with fresh evidence
+    interval: 30s
+    input_series:
+      - series: connection_probe_success{target="public",check="websocket"}
+        values: 0x12
+      - series: connection_probe_success{target="origin",check="websocket"}
+        values: 0x12
+      - series: connection_probe_checked_at_seconds{target="public",check="websocket"}
+        values: 0+30x12
+      - series: connection_probe_checked_at_seconds{target="origin",check="websocket"}
+        values: 0+30x12
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="FlightStripsOriginPathFailure",alertstate="firing"})
+        eval_time: 3m
+        exp_samples:
+          - labels: '{}'
+            value: 1
+      - expr: ALERTS{alertname="FlightStripsPublicPathFailure",alertstate="firing"}
+        eval_time: 3m
+        exp_samples: []
+  - name: Old success values cannot classify a new path failure
+    interval: 30s
+    input_series:
+      - series: connection_probe_success{target="public",check="http"}
+        values: 0x12
+      - series: connection_probe_success{target="origin",check="http"}
+        values: 1x12
+      - series: connection_probe_checked_at_seconds{target="public",check="http"}
+        values: 0x12
+      - series: connection_probe_checked_at_seconds{target="origin",check="http"}
+        values: 0x12
+    promql_expr_test:
+      - expr: ALERTS{alertname="FlightStripsPublicPathFailure",alertstate="firing"}
+        eval_time: 5m
+        exp_samples: []
+      - expr: count(ALERTS{alertname="FlightStripsConnectionProbeMissing",alertstate="firing"}) > 0
+        eval_time: 5m
+        exp_samples:
+          - labels: '{}'
+            value: 3
+  - name: Missing monitoring is visible even without any series
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="FlightStripsConnectionProbeMissing",alertstate="firing"})
+        eval_time: 3m
+        exp_samples:
+          - labels: '{}'
+            value: 1

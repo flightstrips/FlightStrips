@@ -9,6 +9,7 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testing/recorder"
+	"FlightStrips/internal/websocket"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
@@ -579,7 +580,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 	client.registered = make(chan struct{})
 	client.frequencyMessages.Store(authenticationEvent.FrequencyMessages)
 	client.vacsRelay.Store(authenticationEvent.VacsRelay)
-	client.transport = &pluginTransport{root: client, instance: authenticationEvent.InstanceID, generation: newGeneration(), members: make(map[string]*Client)}
+	client.transport = &pluginTransport{root: client, instance: authenticationEvent.InstanceID, generation: newGeneration(), members: make(map[string]*Client), connectionLogAttrs: websocket.ConnectionIdentityLogAttrs(conn)}
 	hub.Register(client)
 	select {
 	case <-client.registered:
@@ -828,6 +829,7 @@ func (hub *Hub) setMasterClientLocked(client *Client) {
 		hub.syncedSessions.Delete(client.session)
 	}
 	hub.master[client.session] = client
+	slog.Info("EuroScope master changed", append(masterConnectionLogAttrs(client), "session", client.session, "airport", client.airport, "callsign", identity.callsign, "cid", client.GetCid(), "master_epoch", hub.election(client.session).epoch.Load())...)
 	hub.masterCallsigns.Store(client.session, identity.callsign)
 	hub.masterCids.Store(client.session, client.GetCid())
 	metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, identity.callsign, client.version)
@@ -1071,8 +1073,19 @@ func (hub *Hub) clearMasterClient(session int32) {
 	hub.clearMasterClientLocked(session)
 }
 
+func masterConnectionLogAttrs(client *Client) []any {
+	if attrs := websocket.ConnectionLogAttrs(client.GetConnection()); len(attrs) > 0 {
+		return attrs
+	}
+	if client.transport != nil {
+		return client.transport.connectionLogAttrs
+	}
+	return nil
+}
+
 func (hub *Hub) clearMasterClientLocked(session int32) {
 	if current, ok := hub.master[session]; ok && current != nil {
+		slog.Info("EuroScope master lost", append(masterConnectionLogAttrs(current), "session", session, "callsign", current.GetCallsign(), "cid", current.GetCid())...)
 		current.positionEpoch.Add(1)
 		identity := current.identitySnapshot()
 		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, identity.callsign, current.version)

@@ -84,3 +84,51 @@ func TestAssumeStripCoordination_CurrentOwnerAcceptsIncomingEsCoordination(t *te
 	require.NoError(t, svc.AssumeStripCoordination(t.Context(), 1, strip.Callsign, position))
 	require.Len(t, hub.CoordinationAssumes, 1, "a subsequent duplicate remains a no-op")
 }
+
+func TestAssumeStripCoordination_AcceptsValidatedIncomingInsteadOfNewOutgoing(t *testing.T) {
+	position := "118.580"
+	strip := &models.Strip{ID: 70, Callsign: "DLH9TK", Owner: &position, Version: 2}
+	incoming := &models.Coordination{ID: 7, Session: 1, StripID: strip.ID, FromPosition: "119.805", ToPosition: position}
+	outgoing := &models.Coordination{ID: 8, Session: 1, StripID: strip.ID, FromPosition: position, ToPosition: "121.730"}
+	pending := map[int32]*models.Coordination{incoming.ID: incoming}
+	stripReads, coordinationReads := 0, 0
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+			stripReads++
+			if stripReads == 2 {
+				// A new transfer is inserted after the assume guard selected the
+				// incoming coordination, but before acceptance refreshes the strip.
+				pending[outgoing.ID] = outgoing
+			}
+			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, _ []string, previous []string) error {
+			require.Equal(t, []string{incoming.FromPosition}, previous)
+			return nil
+		},
+		SetOwnerFn: func(context.Context, int32, string, *string, int32) (int64, error) { return 1, nil },
+	}
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(context.Context, int32, int32) (*models.Coordination, error) {
+			coordinationReads++
+			if coordinationReads == 1 {
+				return incoming, nil
+			}
+			// Without an ORDER BY, a second lookup may return the new row.
+			return outgoing, nil
+		},
+		DeleteFn: func(_ context.Context, id int32) error {
+			require.Equal(t, incoming.ID, id, "acceptance must delete only the validated coordination")
+			delete(pending, id)
+			return nil
+		},
+	}
+	hub := &testutil.MockFrontendHub{}
+	svc := newWorkflowTestService(repo)
+	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+	require.NoError(t, svc.AssumeStripCoordination(t.Context(), 1, strip.Callsign, position))
+	require.Equal(t, 1, coordinationReads)
+	require.Equal(t, map[int32]*models.Coordination{outgoing.ID: outgoing}, pending)
+	require.Len(t, hub.CoordinationAssumes, 1)
+}

@@ -188,6 +188,12 @@ func (s *StripService) CreateEsArrivalCoordination(ctx context.Context, session 
 // It deletes the coordination, updates the next/previous owners, sets the strip owner, and
 // sends frontend notifications. Returns nil without error if no coordination exists.
 func (s *StripService) AcceptCoordination(ctx context.Context, session int32, callsign string, assumingPosition string) error {
+	return s.acceptCoordination(ctx, session, callsign, assumingPosition, nil)
+}
+
+// A validated coordination pins acceptance to that row; nil retains the public
+// lookup-based flow used by tracking-controller and automatic arrival callers.
+func (s *StripService) acceptCoordination(ctx context.Context, session int32, callsign string, assumingPosition string, coordination *internalModels.Coordination) error {
 	if s.publisher == nil {
 		return errors.New("frontend hub not configured")
 	}
@@ -201,12 +207,16 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 		return err
 	}
 
-	coordination, err := coordRepo.GetByStripID(ctx, session, strip.ID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return err
+	if coordination == nil {
+		coordination, err = coordRepo.GetByStripID(ctx, session, strip.ID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	} else if coordination.StripID != strip.ID || coordination.ToPosition != assumingPosition {
+		return shared.RejectAction("validated coordination does not target this strip and position")
 	}
 
 	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
@@ -638,7 +648,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			return shared.RejectAction("cannot assume strip which is not transferred to you")
 		}
 
-		if err := s.AcceptCoordination(ctx, session, callsign, position); err != nil {
+		if err := s.acceptCoordination(ctx, session, callsign, position, coordination); err != nil {
 			return err
 		}
 

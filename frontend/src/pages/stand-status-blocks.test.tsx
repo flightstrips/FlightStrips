@@ -51,6 +51,29 @@ describe("stand status manual blocks", () => {
     expect(standRow("A17").getByText("FREE")).toBeInTheDocument();
   });
 
+  it("colours stands blocked only by an adjacent stand gray, unlike the owning block", async () => {
+    await renderBlock();
+
+    for (const stand of ["A18", "A20"]) {
+      const card = standRow(stand).getByTitle(/blocked by A19/);
+      expect(card).toHaveAttribute("data-dependent-block", "true");
+      expect(card.className).toContain("bg-zinc-300/90");
+      expect(card.className).toContain("border-dashed");
+      expect(card.className).not.toContain("bg-amber-500/90");
+    }
+    const owner = standRow("A19").getByTitle(/^CLOSURE:/);
+    expect(owner).not.toHaveAttribute("data-dependent-block");
+    expect(owner.className).toContain("bg-amber-500/90");
+  });
+
+  it("keeps the history colour for adjacent blocks once the original block expires", async () => {
+    await renderBlock({ expired: true });
+
+    const card = standRow("A18").getByTitle(/blocked by A19/);
+    expect(card.className).toContain("bg-violet-500/70");
+    expect(card.className).not.toContain("bg-zinc-300/90");
+  });
+
   it("shows neighboring blocks as history after the original block expires", async () => {
     await renderBlock({ expired: true });
 

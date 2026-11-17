@@ -222,7 +222,27 @@ type StandTimelineItem = {
   plannedEnd?: Date;
   active: boolean;
   tone: string;
+  /** True for a stand that is only blocked by an occupied adjacent stand. */
+  dependent?: boolean;
 };
+
+// Dependent cards are not an aircraft or closure of their own: the stand is
+// unusable only because an adjacent stand that blocks it is occupied. Gray with
+// a dashed border keeps them distinct from both active owners and history.
+const DEPENDENT_BLOCK_TONE =
+  "border-dashed border-zinc-500/80 bg-zinc-300/90 text-zinc-900 dark:border-zinc-400/70 dark:bg-zinc-600/80 dark:text-zinc-50";
+
+function dependentBlockItem(item: StandTimelineItem, blocked: string, label: string, detail: string): StandTimelineItem {
+  return {
+    ...item,
+    id: `${item.id}-blocks-${blocked}`,
+    stand: blocked,
+    label,
+    detail,
+    dependent: true,
+    tone: item.active ? DEPENDENT_BLOCK_TONE : item.tone,
+  };
+}
 
 const comfortableTimelineLayout = {
   width: "w-full",
@@ -324,13 +344,9 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
     const blockedStands = [...new Set((assignment.blocks ?? []).map((blocked) => blocked.trim().toUpperCase()).filter(Boolean))];
     return [
       item,
-      ...blockedStands.filter((blocked) => blocked !== item.stand).map((blocked) => ({
-        ...item,
-        id: `${item.id}-blocks-${blocked}`,
-        stand: blocked,
-        label: `${assignment.callsign} blocks`,
-        detail: `${formatStatus(assignment.stage)} · blocked by ${item.stand}`,
-      })),
+      ...blockedStands.filter((blocked) => blocked !== item.stand).map((blocked) =>
+        dependentBlockItem(item, blocked, `${assignment.callsign} blocks`, `${formatStatus(assignment.stage)} · blocked by ${item.stand}`),
+      ),
     ];
   });
   const blocks = session.blocks.flatMap((block) => {
@@ -354,13 +370,9 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
     const blockedStands = [...new Set((block.blocks ?? []).map((blocked) => blocked.trim().toUpperCase()).filter(Boolean))];
     return [
       item,
-      ...blockedStands.filter((blocked) => blocked !== item.stand).map((blocked) => ({
-        ...item,
-        id: `${item.id}-blocks-${blocked}`,
-        stand: blocked,
-        label: `${item.label} blocks`,
-        detail: `${item.detail} · blocked by ${item.stand}`,
-      })),
+      ...blockedStands.filter((blocked) => blocked !== item.stand).map((blocked) =>
+        dependentBlockItem(item, blocked, `${item.label} blocks`, `${item.detail} · blocked by ${item.stand}`),
+      ),
     ];
   });
   return [...assignments, ...blocks].sort((left, right) => left.stand.localeCompare(right.stand) || left.start.getTime() - right.start.getTime());
@@ -413,7 +425,7 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand, c
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h3 className="text-base font-semibold">{compact ? `Section ${section} stand timeline` : "Stand occupancy timeline"}</h3>
-          <p className="text-sm text-muted-foreground">{compact ? "Two hours either side of now (UTC). Empty rows are free." : "The view shows two hours either side of now. Active cards are coloured by type; violet/slate cards are expired history."}</p>
+          <p className="text-sm text-muted-foreground">{compact ? "Two hours either side of now (UTC). Empty rows are free; gray dashed cards are blocked by an adjacent stand." : "The view shows two hours either side of now. Active cards are coloured by type; gray dashed cards are blocked by an occupied adjacent stand; violet/slate cards are expired history."}</p>
         </div>
         {!compact && <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -456,6 +468,7 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand, c
                         <div key={item.id}>
                           <div
                             title={`${item.label}: ${item.detail}. ${item.secondary}`}
+                            data-dependent-block={item.dependent ? "true" : undefined}
                             className={`absolute overflow-hidden rounded-md border px-2 py-1 shadow-sm ${item.tone}`}
                             style={{ left: `${start}%`, width: `${width}%`, top: `${6 + index * layout.laneHeight}px`, height: `${layout.laneHeight - 6}px` }}
                           >

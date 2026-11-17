@@ -37,7 +37,11 @@ func InvalidatePositionAssignment(ctx context.Context) {
 }
 
 // PublishStripUpdate preserves attribution for context-aware production hubs.
+// A missing publisher disables notification without affecting persisted state.
 func PublishStripUpdate(ctx context.Context, publisher interface{ SendStripUpdate(int32, string) }, session int32, callsign string) {
+	if publisher == nil {
+		return
+	}
 	if contextual, ok := publisher.(interface {
 		SendStripUpdateContext(context.Context, int32, string)
 	}); ok {

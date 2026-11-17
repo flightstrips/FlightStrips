@@ -246,6 +246,7 @@ func plan(input Input, previewHorizon time.Duration) Result {
 		r := reservations[flight.Callsign]
 		if flight.Unknown {
 			result.Buffer.Unknown++
+			result.Buffer.UnknownCallsigns = append(result.Buffer.UnknownCallsigns, flight.Callsign)
 		}
 		switch {
 		case flight.InApproach || r != nil && r.ReleasedAt != nil:
@@ -256,6 +257,7 @@ func plan(input Input, previewHorizon time.Duration) Result {
 			result.Buffer.Incoming++
 		}
 	}
+	sort.Strings(result.Buffer.UnknownCallsigns)
 	if enabled && (result.Buffer.Unknown > 0 || input.BlockedReason != "") {
 		result.Buffer.Status = "degraded"
 	}

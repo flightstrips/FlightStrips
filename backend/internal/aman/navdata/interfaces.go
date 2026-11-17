@@ -40,6 +40,14 @@ type GeometryReader interface {
 	TerminalPath(context.Context, AirportID, FeederID, aman.RunwayGroupID) (TerminalPath, error)
 }
 
+// GeometryReadScoper pins one validated navigation view for a synchronous
+// event, including its reconciliation. Routes are immutable and may be loaded
+// together. Implementations must invalidate the view after manifest activation
+// in this context, and must not share it with later events.
+type GeometryReadScoper interface {
+	WithGeometryReadScope(context.Context, AirportID, []RouteKey) (context.Context, error)
+}
+
 // Stable provider-independent navigation error aliases.
 const (
 	ErrorInvalidRequest       = aman.ErrorInvalidArgument

@@ -214,6 +214,7 @@ func (s *Service) Observe(ctx context.Context, observation aman.FlightObservatio
 	observation.Callsign = strings.ToUpper(strings.TrimSpace(observation.Callsign))
 	observation.Origin = strings.ToUpper(strings.TrimSpace(observation.Origin))
 	observation.Destination = strings.ToUpper(strings.TrimSpace(observation.Destination))
+	observation.TakeoffDetected = takeoffAfterGroundReport(observation.TakeoffDetected, observation)
 	owner := observationOwner(observation)
 	airport := strings.ToUpper(strings.TrimSpace(observation.Destination))
 	airport = aman.SessionAirportKey(ctx, airport)
@@ -358,6 +359,7 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 		if incoming.TakeoffDetected != nil {
 			merged.TakeoffDetected = incoming.TakeoffDetected
 		}
+		merged.TakeoffDetected = takeoffAfterGroundReport(merged.TakeoffDetected, incoming)
 		merged.Provider = incoming.Provider
 		merged.ReconciledAt = incoming.ReconciledAt
 		if previous.ReconciledAt.After(merged.ReconciledAt) {
@@ -482,6 +484,44 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 // deterministic replay/validation tooling; the runtime worker calls the same
 // internal operation on its configured interval.
 func (s *Service) Reconcile(ctx context.Context) { s.reconcileAll(ctx) }
+
+// ReconcileSession performs the complete synchronous replan caused by a
+// controller fact. Other sessions have independent aggregates and observations;
+// they are reconciled by the periodic worker, not by this event.
+func (s *Service) ReconcileSession(ctx context.Context, airport string) {
+	if aman.SessionID(ctx) <= 0 || !s.enabledAirport(airport) {
+		return
+	}
+	if session, ok := aman.ReadSessionSnapshot(ctx); ok && session.Airport == airport {
+		s.mu.Lock()
+		s.liveSessions[session.ID] = session.Live
+		s.mu.Unlock()
+	} else if s.deps.Sessions != nil {
+		sessions, err := s.deps.Sessions.AMANSessions(ctx)
+		if err != nil {
+			slog.WarnContext(ctx, "AMAN sessions unavailable", "error", err)
+			return
+		}
+		found := false
+		for _, session := range sessions {
+			if session.ID == aman.SessionID(ctx) && session.Airport == airport {
+				s.mu.Lock()
+				s.liveSessions[session.ID] = session.Live
+				s.mu.Unlock()
+				found = true
+				break
+			}
+		}
+		if !found {
+			return
+		}
+	}
+	s.observeNavigationCache(ctx, airport)
+	s.refreshWeather(ctx, airport, s.deps.Now().UTC())
+	if err := s.reconcileAirport(ctx, airport); err != nil {
+		slog.WarnContext(ctx, "AMAN session reconciliation failed", "session", aman.SessionID(ctx), "airport", airport, "error", err)
+	}
+}
 
 func (s *Service) reconcileAll(ctx context.Context) {
 	if s.deps.Sessions != nil {
@@ -735,6 +775,11 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 		updated, updateErr := s.reconcileFlight(ctx, next, flight, observation, now)
 		if updateErr != nil {
 			slog.WarnContext(ctx, "AMAN flight prediction degraded", "scope", "flight", "session", aman.SessionID(ctx), "airport", airport, "callsign", observation.Callsign, "error", updateErr)
+			// Reconciliation retains takeoff history and authoritative source
+			// facts. Do not overwrite them with the original report on failure.
+			if updated.LatestObservation != nil {
+				observation = *updated.LatestObservation
+			}
 			updated = applyUnavailablePrediction(updated, observation, now, updateErr)
 		}
 		next.Flights[index] = updated
@@ -1023,7 +1068,7 @@ func defaultRateForAirport(airport string) uint32 {
 
 func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFlight {
 	state := aman.StatePlanned
-	if observation.TakeoffDetected != nil {
+	if observation.TakeoffDetected != nil && !groundedSurveillance(observation.Surveillance) {
 		state = aman.StateAirborne
 	}
 	copy := observation
@@ -1162,7 +1207,29 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 			observation.Missing || observation.SourceStatus != aman.DataFresh || !reappearedAt.After(boundary) {
 			return flight, nil
 		}
+		groundedAt := flight.LastGroundedAt
 		flight = newFlight(observation, now)
+		flight.LastGroundedAt = groundedAt
+	}
+	if previous := flight.LatestObservation; previous != nil {
+		// Bootstrap aggregates persisted before the ground boundary was explicit.
+		recordGroundReport(&flight, *previous, previous.ReconciledAt)
+	}
+	if flight.State == aman.StateLanded && (!hasFreshLandedRadar(observation, now) ||
+		!observation.Surveillance.ObservedAt.After(landedRecoveryWatermark(flight))) {
+		// LatestObservation is also the persisted recovery watermark. Rejected
+		// or replayed radar must not replace the last validated ground report.
+		return flight, nil
+	}
+	if canRecoverLandedFlight(flight, observation, now) {
+		// Reconnecting aircraft can retain a landing from an earlier source
+		// episode. Start again from current radar evidence rather than reusing
+		// its old takeoff, baseline, route progress or sequencing decisions.
+		observation.TakeoffDetected = observation.Surveillance.ObservedAt
+		groundedAt := flight.LastGroundedAt
+		flight = newFlight(observation, now)
+		flight.LastGroundedAt = groundedAt
+		updateLifecycle(&flight, aman.StateLanded, aman.StateAirborne, now)
 	}
 	previousObservation := flight.LatestObservation
 	flight.PredictionFailureReason = nil
@@ -1179,8 +1246,15 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 			flight.ArrivalPathChanged = true
 		}
 	}
+	// Takeoff is confirmed history, including while the source is missing or
+	// stale. Preserve it before storing a report that may return early below.
+	observation.TakeoffDetected = takeoffAfterGroundedAt(observation.TakeoffDetected, flight.LastGroundedAt)
+	if observation.TakeoffDetected == nil && previousObservation != nil {
+		observation.TakeoffDetected = takeoffAfterGroundedAt(previousObservation.TakeoffDetected, flight.LastGroundedAt)
+	}
 	copy := observation
 	flight.LatestObservation = &copy
+	flight.ApproachEntry = nil
 	flight.Callsign, flight.DataStatus = observation.Callsign, observation.SourceStatus
 	if observation.HoldingClearance != nil && (flight.HoldingClearance == nil || observation.HoldingClearance.ObservedAt.After(flight.HoldingClearance.ObservedAt)) {
 		flight.ReplaceHoldingClearance(cloneHoldingClearance(observation.HoldingClearance))
@@ -1206,6 +1280,16 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 	if groundedSurveillance(observation.Surveillance) {
 		invalidateLiveGoAroundEpisode(&flight)
 		return applyGroundedObservation(flight, observation, now), nil
+	}
+	observation.TakeoffDetected = takeoffEvidence(flight, previousObservation, observation, now)
+	copy.TakeoffDetected = observation.TakeoffDetected
+	if observation.TakeoffDetected == nil && flight.State != aman.StateLanded &&
+		(flight.State == aman.StatePlanned || observationOwner(observation) == aman.ObservationProviderEuroScope) {
+		// Elevated departure airports can exceed the low-and-slow altitude
+		// cutoff. Recover their old physical slots too: neither a filed ETA
+		// nor a persisted lifecycle transition proves the flight is airborne.
+		invalidateLiveGoAroundEpisode(&flight)
+		return applyPredepartureObservation(flight, observation, now), nil
 	}
 	// Takeoff is lifecycle evidence even when the filed flight duration is
 	// absent. Baseline timing must not decide whether an observed aircraft is
@@ -1534,6 +1618,9 @@ func (s *Service) applyProjectedPrediction(ctx context.Context, state aman.Airpo
 	}
 	// These deterministic calculations consume one flight's inputs. A rejected
 	// input degrades that flight, never the shared predictor's technical health.
+	// Workload follows the fresh physical path even if landing ETA filtering
+	// retains an older scheduling prediction.
+	s.captureApproachEntry(&flight, raw)
 	derivedFeeder := routeFeederETA(predictionAt, legDurations, projection.Remaining, navdata.FixID(feederFix), projection.FeederProgress)
 	var candidateFeeder *time.Time
 	if derivedFeeder != nil && derivedFeeder.Source == aman.FeederETASourceRoute {
@@ -1827,6 +1914,7 @@ func invalidateArrivalPath(flight *aman.AMANFlight) {
 // A runway rebuild invalidates geometry and timing, but keeps controller route
 // facts. Projection validates a direct against the rebuilt forward path.
 func invalidateRunwayPath(flight *aman.AMANFlight) {
+	flight.ApproachEntry = nil
 	flight.RawTETASamples = nil
 	flight.PredictionFilter = nil
 	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
@@ -2984,7 +3072,7 @@ func isPreliminaryPrediction(value *aman.Prediction) bool {
 func lifecycleState(config lifecycle.Config, flight aman.AMANFlight, teta, now time.Time) aman.FlightState {
 	until := teta.Sub(now)
 	switch flight.State {
-	case aman.StatePlanned, aman.StateAirborne, aman.StateGoAround:
+	case aman.StateAirborne, aman.StateGoAround:
 		if until <= config.UnstableHorizon {
 			return aman.StateUnstable
 		}
@@ -3108,22 +3196,70 @@ func groundedSurveillance(surveillance *aman.SurveillanceFact) bool {
 		*surveillance.AltitudeFeet < groundedMaximumAltitudeFeet && *surveillance.GroundspeedKnots <= groundedMaximumGroundspeedKnots
 }
 
-// applyGroundedObservation treats low-and-slow surveillance as a lifecycle
-// fact. Before the VATSIM movement classifier has observed takeoff, the
-// flight remains planned; after that observation it has completed its AMAN
-// arrival and must no longer participate in route prediction or sequencing.
-func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) aman.AMANFlight {
-	clearGroundedOperationalState(&flight)
-	if observation.TakeoffDetected == nil && flight.State == aman.StatePlanned {
-		flight.State = aman.StatePlanned
-		// A previous airborne prediction cannot be reused while the aircraft is
-		// still on the ground. Rebuild the planned baseline from filed times.
-		flight.Prediction = nil
-		flight.ArrivalBaseline = nil
-		applyPreliminaryPrediction(&flight, observation, now)
-		setGroundedLifecycle(&flight, aman.LifecycleReasonInitial, now)
-		return flight
+func takeoffAfterGroundReport(takeoff *time.Time, observation aman.FlightObservation) *time.Time {
+	// Reset provider history as well as the flight aggregate. Otherwise a
+	// later strip/position merge can reinstall a previous flight's takeoff.
+	if takeoff != nil && groundedSurveillance(observation.Surveillance) && hasFreshLandedRadar(observation, observation.ReconciledAt) &&
+		!takeoff.After(*observation.Surveillance.ObservedAt) {
+		return nil
 	}
+	return takeoff
+}
+
+func canRecoverLandedFlight(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) bool {
+	if flight.State != aman.StateLanded || !aman.HasFreshArrivalSurveillance(&observation, now) {
+		return false
+	}
+	surveillance := observation.Surveillance
+	if *surveillance.AltitudeFeet < groundedMaximumAltitudeFeet || *surveillance.GroundspeedKnots <= groundedMaximumGroundspeedKnots {
+		return false
+	}
+	return surveillance.ObservedAt.After(landedRecoveryWatermark(flight))
+}
+
+// Ground reports can advance the watermark too, including zero groundspeed.
+func hasFreshLandedRadar(observation aman.FlightObservation, now time.Time) bool {
+	position := observation.Surveillance
+	if observation.Missing || observation.SourceStatus != aman.DataFresh || position == nil || position.ObservedAt == nil ||
+		position.ObservedAt.After(now) || now.Sub(*position.ObservedAt) > aman.ArrivalSurveillanceFreshness ||
+		position.AltitudeFeet == nil || position.GroundspeedKnots == nil {
+		return false
+	}
+	speed := *position.GroundspeedKnots
+	return *position.AltitudeFeet >= 0 && speed >= 0 && !math.IsNaN(speed) && !math.IsInf(speed, 0) &&
+		!math.IsNaN(position.LatitudeDegrees) && !math.IsInf(position.LatitudeDegrees, 0) && position.LatitudeDegrees >= -90 && position.LatitudeDegrees <= 90 &&
+		!math.IsNaN(position.LongitudeDegrees) && !math.IsInf(position.LongitudeDegrees, 0) && position.LongitudeDegrees >= -180 && position.LongitudeDegrees <= 180
+}
+
+func landedRecoveryWatermark(flight aman.AMANFlight) time.Time {
+	landedAt := flight.UpdatedAt
+	if flight.Lifecycle != nil {
+		landedAt = flight.Lifecycle.EnteredAt
+	}
+	if flight.LastGroundedAt != nil && flight.LastGroundedAt.After(landedAt) {
+		landedAt = *flight.LastGroundedAt
+	}
+	if previous := flight.LatestObservation; previous != nil && hasFreshLandedRadar(*previous, previous.ReconciledAt) &&
+		previous.Surveillance.ObservedAt.After(landedAt) {
+		landedAt = *previous.Surveillance.ObservedAt
+	}
+	return landedAt
+}
+
+// applyGroundedObservation treats low-and-slow surveillance as a lifecycle
+// fact. A planned flight remains planned despite retained takeoff metadata;
+// a previously airborne flight has completed its AMAN arrival and must no
+// longer participate in route prediction or sequencing.
+func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) aman.AMANFlight {
+	recordGroundReport(&flight, observation, now)
+	if flight.State == aman.StatePlanned {
+		// A current ground report overrides any retained takeoff marker from
+		// before reconnecting. It is not evidence of a completed arrival.
+		observation.TakeoffDetected = nil
+		flight.LatestObservation = &observation
+		return applyPredepartureObservation(flight, observation, now)
+	}
+	clearGroundedOperationalState(&flight)
 	flight.State = aman.StateLanded
 	expireActiveRouteFact(&flight)
 	if flight.Prediction != nil {
@@ -3204,6 +3340,7 @@ func invalidEssentialReason(surveillance aman.SurveillanceFact) string {
 }
 
 func markPredictionNonPublishable(flight *aman.AMANFlight, reason string) {
+	flight.ApproachEntry = nil
 	flight.PredictionFailureReason = &reason
 	retained := flight.Slot != nil || flight.FreezeReason != aman.FreezeNone && flight.FreezeReason != "" ||
 		(flight.ArrivalPathChanged || flight.RunwayChangePending) && flight.Prediction != nil && !isPreliminaryPrediction(flight.Prediction) && !flight.Prediction.OperationalTETA.IsZero()

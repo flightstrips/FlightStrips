@@ -42,6 +42,23 @@ func TestReleaseTimingAdvisoryIsSeparateFromIntakeBlockers(t *testing.T) {
 	require.Equal(t, 1, event.Data.Header.ReleaseBuffer.Projected)
 }
 
+func TestUnknownApproachWorkloadIdentifiesFlightsInHeader(t *testing.T) {
+	state := goldenAMANState()
+	state.ReleaseBuffer = &aman.ReleaseBufferSummary{Status: "degraded", Target: 10, Unknown: 2,
+		UnknownCallsigns: []string{"GRL780", "SAS409"}}
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	encoded, err := event.Marshal()
+	require.NoError(t, err)
+	var payload struct {
+		Data struct {
+			Header AMANHeader `json:"header"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &payload))
+	require.Equal(t, []string{"GRL780", "SAS409"}, payload.Data.Header.ReleaseBuffer.UnknownCallsigns)
+}
+
 // The times approximate the reported NSZ5YB case; this is not a live replay.
 func TestApproachReleaseAdvanceExcludesAbsorptionFromBothGuidanceTransports(t *testing.T) {
 	state := goldenAMANState()

@@ -58,7 +58,7 @@ func STAROrderDiagnostics(input Input, result Result) []STAROrderSnapshot {
 			for _, b := range flights[i+1:] {
 				aPosition, aFound := positions[a.Callsign]
 				bPosition, bFound := positions[b.Callsign]
-				if !aFound || !bFound || !sameSelectedSTAR(a, b) {
+				if !aFound || !bFound || !sameSelectedSTAR(&a, &b) {
 					continue
 				}
 				current := aPosition < bPosition
@@ -71,7 +71,7 @@ func STAROrderDiagnostics(input Input, result Result) []STAROrderSnapshot {
 						continue
 					}
 				}
-				precedes, comparable := starPrecedes(a, b)
+				precedes, comparable := starPrecedes(&a, &b)
 				snapshots = append(snapshots, STAROrderSnapshot{RunwayGroup: group, STARFamily: a.SelectedSTARFamily,
 					First: starOrderFlight(a), Second: starOrderFlight(b), PreviousOrder: previous, CurrentOrder: current,
 					Comparable: comparable, FirstPrecedes: precedes})
@@ -92,7 +92,7 @@ func starOrderFlight(f preparedFlight) STAROrderFlight {
 	return STAROrderFlight{Callsign: f.Callsign, State: f.State, OperationalTETA: f.OperationalTETA,
 		WakeCategory: f.WakeCategory,
 		CurrentSlot:  cloneSlot(f.CurrentSlot), Progress: cloneSTARProgress(f.STARProgress), FreezeReason: f.FreezeReason,
-		ManualOrder: f.ManualOrder, ManualPosition: f.ManualPosition, HoldingPriority: hasHoldingPriority(f), ProtectCurrentSlot: f.ProtectCurrentSlot}
+		ManualOrder: f.ManualOrder, ManualPosition: f.ManualPosition, HoldingPriority: hasHoldingPriority(&f), ProtectCurrentSlot: f.ProtectCurrentSlot}
 }
 
 func cloneSTARProgress(progress *STARProgress) *STARProgress {

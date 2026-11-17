@@ -14,19 +14,32 @@ owner to approve it. An incomplete file listing fails the ownership check.
 Comments do not erase decisions. Dismissed approvals and approvals of older
 commits do not count; an owner's outstanding request for changes blocks approval.
 
-The trusted `Review policy` workflow runs on PR changes, main pushes, manual
-dispatch, a five-minute fallback schedule, and completion of `Release Please` or `Review policy events`. The latter
-is a read-only notification on review submission, editing or dismissal, including
-fork reviews.
+The trusted `Review policy` workflow runs on PR changes, ownership/policy changes
+on main, manual dispatch, an hourly fallback schedule, and completion of
+`Release Please` or `Review policy events`. The latter is a read-only notification
+on review submission, editing or dismissal, including fork reviews.
 Automatic events only execute code from current `main`. A maintainer can explicitly
 select a revision for manual dispatch to validate a policy change before merging.
 Every run loads CODEOWNERS from an
 immutable snapshot of current `main`. A PR's recorded `base.sha` can predate the
 current rules, and a stack's direct parent branch is not an approved source of
 ownership rules. Automatic events never execute code or download artifacts from the PR.
-Every run reevaluates all open PRs, including stack layers, so coalesced events and missing fork PR
-metadata in workflow-run payloads do not lose updates. PRs sharing a commit must
-all satisfy policy before the shared status can pass. The workflow publishes a
+PR events evaluate the affected PR's current head and any open PRs sharing that
+commit. Synchronize and closed events also refresh PRs remaining on the old head.
+Title/body edits make no API calls; changing the target branch still refreshes
+the check. Review notifications use the associated PR numbers; when GitHub omits
+fork PR metadata, the run's head SHA and branch name select candidate PRs whose
+live state is then verified. Release Please completion refreshes only its release
+PR and any shared head. A lightweight paginated list of open PRs finds shared
+heads and stack layers; unrelated PRs' reviews, files and statuses are not read.
+Ownership/policy pushes, manual dispatch and the hourly fallback reevaluate all
+open PRs. Status writers share one concurrency group with `queue: max`, so pending
+targeted events for different PRs do not replace one another. GitHub allows up to
+100 pending runs; the hourly fallback reconciles missed events.
+See [GitHub's concurrency queue documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+PRs sharing a commit must all satisfy policy before the shared status can pass.
+The workflow reads only the latest status per context through the combined-status
+endpoint, avoiding pagination through historical decisions. It publishes a
 commit status only when its decision or explanation changes. New commits start
 pending; unchanged refreshes append nothing, avoiding the 1,000-status limit per
 context and commit. API failures for one commit do not prevent evaluating the other PRs.
@@ -34,7 +47,7 @@ context and commit. API failures for one commit do not prevent evaluating the ot
 Older PR branches can lack the review-event workflow. The scheduled run on `main`
 still picks up their approvals, dismissals, and change requests without changing
 their head commits or requiring a new approval. GitHub may delay scheduled runs;
-the five-minute interval is not a guaranteed update deadline. Polling leaves an
+the hourly interval is not a guaranteed update deadline. Polling leaves an
 unchanged check alone. The `Refresh code owner checks` job reports updater health;
 missing approvals fail only the affected PR's `Code owner review` check, not the
 batch job running on another PR. Technical API failures still fail the updater
@@ -56,8 +69,8 @@ trusted collaborators who do not deliberately spoof workflow check results.
 The required check belongs in the `main` ruleset only. GitHub's native stacks
 inherit their stack base's branch protections and required checks at every
 layer; workflows filtered to `main` also run for each layer of a stack based on
-`main`. The script lists all open PRs without a `base=main` filter so it publishes
-the result on each layer's own head commit. Each PR's changed-file list is used
+`main`. The script lists all open PRs without a `base=main` filter so event routing
+can find each layer and PRs sharing its head. Each PR's changed-file list is used
 independently, with ownership taken from trusted `main`.
 
 See [GitHub's stack rules and Actions behavior](https://docs.github.com/en/pull-requests/reference/stacked-pull-requests).
@@ -123,5 +136,9 @@ To reevaluate existing PRs manually, run `Review policy` from the Actions tab or
 
 ```powershell
 node --test .github/scripts/review-policy.test.cjs
-docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12 -shellcheck=
+docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12 -shellcheck= -ignore 'unexpected key "queue" for "concurrency" section'
 ```
+
+The narrow actionlint exception covers its
+[unsupported `concurrency.queue` key](https://github.com/rhysd/actionlint/issues/657).
+The policy tests check `queue: max` together with `cancel-in-progress: false`.

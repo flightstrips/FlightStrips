@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"FlightStrips/internal/shared"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type positionBatchKey struct{}
@@ -109,8 +112,13 @@ func joinPositionBatch(ctx context.Context, operation string, input any, execute
 	}
 	member.used[operation] = true // retries always obtain a fresh, individual snapshot
 	member.mu.Unlock()
-	resume := shared.SuspendPositionExecution(ctx)
+	resume := shared.SuspendPositionExecutionFor(ctx, "batch."+operation)
 	defer resume()
+	// End before deferred readmission: rendezvous/SQL and execution-slot waits
+	// are distinct, even though both remain part of message.processing_ms.
+	_, waitSpan := otel.Tracer("position").Start(ctx, "position.wait.batch",
+		trace.WithAttributes(attribute.String("position.batch.operation", operation)))
+	defer waitSpan.End()
 	b := member.batch
 	b.mu.Lock()
 	stage := b.stages[operation]

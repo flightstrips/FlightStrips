@@ -367,6 +367,9 @@ namespace FlightStrips::flightplan {
              !m_websocketService->ShouldSendTrackedAircraft(flightPlan.GetTrackingControllerIsMe()))) return;
         const auto callsign = std::string(flightPlan.GetCallsign());
         ReplayTrackedHold(callsign, flightPlan.GetTrackingControllerIsMe(), ReadHold(flightPlan), {});
+        if (flightPlan.GetTrackingControllerIsMe()) {
+            ReportClearedAltitude(callsign, flightPlan.GetControllerAssignedData().GetClearedAltitude(), true);
+        }
     }
 
     void FlightPlanService::ReplayTrackedHold(const std::string& callsign, bool trackingControllerIsMe,
@@ -408,6 +411,10 @@ namespace FlightStrips::flightplan {
     bool FlightPlanService::ReportAssignedSquawk(const std::string& callsign,const std::string& squawk) {
         return m_websocketService && m_websocketService->SendCommandResult(AssignedSquawkEvent(callsign,squawk));
     }
+    bool FlightPlanService::ReportClearedAltitude(const std::string& callsign, int altitude, bool trackingControllerIsMe) {
+        return m_websocketService && m_websocketService->SendClearedAltitudeObservation(
+            ClearedAltitudeEvent(callsign, altitude), trackingControllerIsMe);
+    }
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
         const auto data=flightPlan.GetFlightPlanData();
@@ -415,7 +422,14 @@ namespace FlightStrips::flightplan {
         switch(dataType) {
         case EuroScopePlugIn::CTR_DATA_TYPE_SQUAWK:if(ReportAssignedSquawk(callsign,flightPlan.GetControllerAssignedData().GetSquawk())) return;break;
         case EuroScopePlugIn::CTR_DATA_TYPE_FINAL_ALTITUDE:if(m_websocketService->SendCommandResult(RequestedAltitudeEvent(callsign,flightPlan.GetControllerAssignedData().GetFinalAltitude()))) return;break;
-        case EuroScopePlugIn::CTR_DATA_TYPE_TEMPORARY_ALTITUDE:if(m_websocketService->SendCommandResult(ClearedAltitudeEvent(callsign,flightPlan.GetControllerAssignedData().GetClearedAltitude()))) return;break;
+        case EuroScopePlugIn::CTR_DATA_TYPE_TEMPORARY_ALTITUDE: {
+            const auto altitude = flightPlan.GetControllerAssignedData().GetClearedAltitude();
+            const auto tracking = flightPlan.GetTrackingControllerIsMe();
+            if (!m_websocketService->SendCommandResult(ClearedAltitudeEvent(callsign, altitude), tracking)) {
+                ReportClearedAltitude(callsign, altitude, tracking);
+            }
+            return;
+        }
         case EuroScopePlugIn::CTR_DATA_TYPE_COMMUNICATION_TYPE:if(m_websocketService->SendCommandResult(CommunicationTypeEvent(callsign,ResolveCommunicationType(data.GetCommunicationType(),flightPlan.GetControllerAssignedData().GetCommunicationType())))) return;break;
         case EuroScopePlugIn::CTR_DATA_TYPE_GROUND_STATE:if(m_websocketService->SendCommandResult(GroundStateEvent(callsign,flightPlan.GetGroundState()))) return;break;
         case EuroScopePlugIn::CTR_DATA_TYPE_CLEARENCE_FLAG:if(m_websocketService->SendCommandResult(ClearedFlagEvent(callsign,flightPlan.GetClearenceFlag()))) return;break;
@@ -460,10 +474,6 @@ namespace FlightStrips::flightplan {
                 m_websocketService->SendEvent(
                     RequestedAltitudeEvent(callsign, flightPlan.GetControllerAssignedData().GetFinalAltitude()));
                 break;
-            case EuroScopePlugIn::CTR_DATA_TYPE_TEMPORARY_ALTITUDE:
-                m_websocketService->SendEvent(
-                    ClearedAltitudeEvent(callsign, flightPlan.GetControllerAssignedData().GetClearedAltitude()));
-                break;
             case EuroScopePlugIn::CTR_DATA_TYPE_COMMUNICATION_TYPE:
                 m_websocketService->SendEvent(
                     CommunicationTypeEvent(callsign, ResolveCommunicationType(flightPlan.GetFlightPlanData().GetCommunicationType(), flightPlan.GetControllerAssignedData().GetCommunicationType())));
@@ -490,6 +500,11 @@ namespace FlightStrips::flightplan {
                 // so a later role transition preserves the observed state.
                 if (command.type != TopSkyHoldCommandType::None) {
                     const auto changed = ApplyTopSkyHoldCommand(plan, command);
+                    // A newly assigned hold needs the tracking client's current
+                    // CFL even when that level has not changed since login.
+                    if (command.type == TopSkyHoldCommandType::Assign && shouldSendTracked) {
+                        ReportClearedAltitude(callsign, flightPlan.GetControllerAssignedData().GetClearedAltitude(), true);
+                    }
                     if (!m_websocketService->IsConnected()) {
                         plan.hold_command_pending = true;
                     }

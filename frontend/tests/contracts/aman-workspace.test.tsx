@@ -72,6 +72,36 @@ describe("AMAN pre-merge smoke: publisher → event handler → store → worksp
     }
   });
 
+  it("shows a formerly landed flight when the backend republishes it after reconnect", () => {
+    const {store, emit} = workspace("landed_before_reconnect");
+    expect(screen.queryByTestId("operational-marker-WZZ2105")).not.toBeInTheDocument();
+    emit(EventType.FrontendAMANState, scenario("airborne_after_reconnect"));
+    expect(store.getState().amanError).toBeNull();
+    expect(store.getState().amanState?.flights.find((flight) => flight.callsign === "WZZ2105")).toMatchObject({lifecycle_state: "unstable"});
+    expect(screen.getByTestId("operational-marker-WZZ2105")).toBeInTheDocument();
+  });
+
+  it.each([
+    {name: "swap_freeze_manual", reason: "A manual freeze protects this aircraft."},
+    {name: "swap_freeze_tma", reason: "A TMA freeze protects this aircraft"},
+    {name: "swap_freeze_superstable", reason: null},
+  ])("explains swap restrictions from published aircraft protection: $name", ({name, reason}) => {
+    const {send} = workspace(name);
+    fireEvent.click(screen.getByRole("button", {name: /Select SAS123/}));
+    const swap = screen.getByRole("button", {name: "Swap sequence"});
+    if (reason) {
+      expect(swap).toBeDisabled();
+      expect(swap).toHaveAccessibleDescription(expect.stringContaining(reason));
+      expect(screen.getByText((text) => text.startsWith("Swap unavailable:") && text.includes(reason))).toBeVisible();
+      fireEvent.click(swap);
+      expect(send).not.toHaveBeenCalled();
+    } else {
+      expect(swap).toBeEnabled();
+      fireEvent.click(swap);
+      expect(screen.getByRole("button", {name: "Swap aircraft"})).toHaveAccessibleDescription("No eligible aircraft on the same STAR and runway are available to swap with.");
+    }
+  });
+
   it("keeps healthy targets visible while an unreliable flight recovers", () => {
     const {store, emit} = workspace("unreliable_with_healthy_neighbour");
     expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();

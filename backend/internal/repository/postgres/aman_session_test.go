@@ -99,3 +99,21 @@ func TestAMANSessionRemovalPersistsOnlyWithinOwningSession(t *testing.T) {
 		})
 	}
 }
+
+func TestSessionAuditBatchPreservesEveryRecordAndOrder(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	session := testdata.SeedTestSession(t, queries)
+	ctx := aman.WithSession(t.Context(), session)
+	repo := NewAMANRepository(pool)
+	state := amanState(1, "unused", "SAS123")
+	state.SessionID = session
+	records := make([]aman.AuditRecord, 30)
+	for i := range records {
+		records[i] = aman.AuditRecord{Airport: state.Airport, Revision: state.Revision, Category: "aman.prediction", Payload: []byte{byte(i)}, RecordedAt: state.GeneratedAt}
+	}
+	_, err := repo.Commit(ctx, aman.StateCommit{State: state, AuditRecords: records})
+	require.NoError(t, err)
+	stored, err := repo.ListAuditRecords(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, records, stored)
+}

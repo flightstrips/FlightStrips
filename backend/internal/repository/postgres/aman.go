@@ -34,6 +34,16 @@ func (*amanRepository) Name() string { return "postgres AMAN repository" }
 
 func (r *amanRepository) LoadAirportState(ctx context.Context, airport string) (aman.AirportState, error) {
 	if aman.SessionID(ctx) > 0 {
+		if scope := r.factScope(ctx); scope != nil {
+			session, _ := scope.sessionSnapshot()
+			if session.Airport != airport {
+				return loadAMANSessionState(ctx, r.pool, airport)
+			}
+			if raw := scope.payload(); len(raw) > 0 {
+				return decodeFactState(ctx, airport, raw)
+			}
+			return r.reloadFactState(ctx, airport, scope)
+		}
 		return loadAMANSessionState(ctx, r.pool, airport)
 	}
 	state, err := loadAMANAirportState(ctx, r.queries, airport)

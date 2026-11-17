@@ -45,7 +45,7 @@ vi.mock("./shared", () => ({
   FONT: "Arial",
   getStripOwnership: () => ({ isUnconcerned: false, isAssumed: false }),
   getCellTextColor: () => "#000000",
-  useStripBg: () => ({ bg: "#b3ffff", textWhite: false }),
+  useStripBg: () => ({ bg: "#b3ffff", textWhite: false, callsignStyle: {} }),
   getValidationBlinkStyle: () => ({}),
   useNextFrequencyDisplay: () => "",
 }));

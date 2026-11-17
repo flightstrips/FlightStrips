@@ -134,6 +134,10 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     arrival: strip.destination === airport && strip.origin !== airport,
   };
 
+  if (localHidden && props.arrival) {
+    return null;
+  }
+
   if (localHidden && status !== "HALF" && status !== "CLX-HALF") {
     return <HalfStrip {...props} halfStripVariant={props.arrival ? "APN-ARR" : "APN-PUSH"} localHidden fullWidth={false} />;
   }

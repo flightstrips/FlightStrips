@@ -102,10 +102,15 @@ type StandAllocationRequest struct {
 	// or adopting a stand occupied by another departure.
 	ProtectReservations bool
 	AllowUnsuitable     bool
-	// ImproveTierBelow constrains a stage-boundary reallocation to tiers below
-	// the supplied value. Arrival promotion uses 2 so only Primary is accepted,
-	// preventing Secondary/Tertiary or equivalent-stand churn.
+	// ImproveTierBelow constrains a stage-boundary reallocation to non-fallback
+	// tiers below the supplied value. Arrival promotion uses 2 so only Primary
+	// is accepted, preventing Secondary/Tertiary or equivalent-stand churn.
 	ImproveTierBelow int32
+	// ImproveFromFallback marks a stage-boundary reallocation whose existing
+	// assignment came from a fallback rule. Any airline-rule selection is then
+	// an improvement regardless of tier; another fallback selection is churn
+	// and is rejected.
+	ImproveFromFallback bool
 }
 
 // StandAllocationResult is complete only after the transaction commits. The
@@ -372,6 +377,77 @@ func (s *StandAllocationService) releaseAssignmentChecked(ctx context.Context, a
 	return nil
 }
 
+// PromoteEstimatedArrivalInPlace advances a controller-owned or physically
+// observed ESTIMATED arrival without reselecting its authoritative stand.
+// Unobserved automatic estimates must use Reallocate, which checks occupancy
+// in the allocation transaction. These pinned stands may intentionally overlap.
+// Estimates keep the strip stand empty, so the assignment and strip are written
+// in one transaction. Controllers and EuroScope learn the stand after commit.
+// existing must be the persisted assignment that updated was derived from.
+func (s *StandAllocationService) PromoteEstimatedArrivalInPlace(ctx context.Context, existing *models.StandAssignment, updated models.StandAssignment) error {
+	if existing == nil || existing.SessionID <= 0 || strings.TrimSpace(existing.Callsign) == "" || strings.TrimSpace(updated.Stand) == "" {
+		return errors.New("estimated arrival promotion requires an assigned stand")
+	}
+	return retrySerializableOperation(ctx, func() error {
+		tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+		if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", existing.SessionID); err != nil {
+			return err
+		}
+		txStrips := s.strips.WithTx(tx)
+		txAssignments := s.assignments.WithTx(tx)
+		strip, err := txStrips.LockByCallsign(ctx, existing.SessionID, existing.Callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		currentAssignments, err := txAssignments.LockAssignments(ctx, existing.SessionID, existing.Callsign)
+		if err != nil {
+			return err
+		}
+		var current *models.StandAssignment
+		for _, candidate := range currentAssignments {
+			if candidate != nil && strings.EqualFold(candidate.Callsign, existing.Callsign) {
+				current = candidate
+				break
+			}
+		}
+		if current == nil || current.ID != existing.ID || current.Version != existing.Version {
+			return errAllocationVersionConflict
+		}
+		next := updated
+		affected, err := txAssignments.UpdateAssignment(ctx, &next)
+		if err != nil {
+			return err
+		}
+		if affected != 1 {
+			return errAllocationVersionConflict
+		}
+		next.Version++
+		standChanged := strip != nil && (strip.Stand == nil || !strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(next.Stand)))
+		if standChanged {
+			stand := next.Stand
+			written, err := txStrips.UpdateStand(ctx, existing.SessionID, existing.Callsign, &stand, nil)
+			if err != nil {
+				return err
+			}
+			if written != 1 {
+				return errAllocationVersionConflict
+			}
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		s.publishCommitted(ctx, StandAllocationResult{
+			Assignment: next, StandChanged: standChanged,
+			NotifyEuroscope: standChanged || next.Stage == StageConfirmed,
+		})
+		return nil
+	})
+}
+
 // ReconcileUnsafeAssignments removes automatic planning reservations that
 // overlap a higher-priority assignment persisted by an older deployment. It
 // never moves controller-owned or physically observed aircraft; conflicts
@@ -489,7 +565,7 @@ func (s *StandAllocationService) unsafeAssignmentLosers(airport string, assignme
 	for _, candidate := range ordered {
 		unsafe := false
 		for _, winner := range kept {
-			if !s.assignmentsOccupancyConflict(airport, candidate, winner, now) {
+			if estimatedSoftSharingAllowed(candidate, winner) || !s.assignmentsOccupancyConflict(airport, candidate, winner, now) {
 				continue
 			}
 			if assignmentProtectedFromReconciliation(candidate) && assignmentProtectedFromReconciliation(winner) {
@@ -1286,11 +1362,6 @@ func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx p
 	if err != nil {
 		return nil, selected, err
 	}
-	if !request.ProtectReservations && isAutomaticStandAllocation(command) && s.selectedHasOverlappingEstimatedReservation(
-		assignments, selected, matchBlocks(match), request, s.now(), s.departureReleaseBuffer,
-	) {
-		request.addDisplaceArrivalStage(StageEstimated)
-	}
 	var removedAssignments []models.StandAssignment
 	var removedStandChanges []models.StandAssignment
 	if request.displacesArrivalStage() && selected != "" {
@@ -1309,6 +1380,11 @@ func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx p
 		return nil, selected, err
 	}
 	standChanged := strip.Stand == nil || !strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(selected))
+	if request.Direction == sat.AssignmentDirectionArrival && request.Stage == StageEstimated {
+		// Estimates are EFB-only soft reservations: the controller strip and
+		// EuroScope learn the stand when the arrival reaches ASSIGNED.
+		standChanged = false
+	}
 	if standChanged {
 		updated, err := txStrips.UpdateStand(ctx, request.SessionID, request.Callsign, &selected, nil)
 		if err != nil {
@@ -1333,6 +1409,19 @@ func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx p
 // renew an existing reservation in place or reallocate. The transaction is
 // read-only and rolls back without persisting any state.
 func (s *StandAllocationService) StandAvailable(ctx context.Context, request StandAllocationRequest, stand string) (bool, error) {
+	return s.standAvailable(ctx, request, stand, false)
+}
+
+// StandAvailableForPromotion is StandAvailable with zero-weight ESTIMATED
+// semantics: overlapping ESTIMATED reservations, direct or neighbouring, do
+// not count as blocking for a later-stage arrival. A stage promotion uses this
+// so a soft reservation cannot divert it from the tier-improvement path; hard
+// conflicts still report the stand as unavailable.
+func (s *StandAllocationService) StandAvailableForPromotion(ctx context.Context, request StandAllocationRequest, stand string) (bool, error) {
+	return s.standAvailable(ctx, request, stand, true)
+}
+
+func (s *StandAllocationService) standAvailable(ctx context.Context, request StandAllocationRequest, stand string, yieldEstimated bool) (bool, error) {
 	if err := s.validateAirport(ctx, request.SessionID, request.Airport); err != nil {
 		return false, err
 	}
@@ -1368,7 +1457,7 @@ func (s *StandAllocationService) StandAvailable(ctx context.Context, request Sta
 	if _, compatible := matches[target]; !compatible {
 		return false, nil
 	}
-	availability := s.availability(request, assignments, blocks, matches)
+	availability := s.availabilityWithEstimated(request, assignments, blocks, matches, yieldEstimated)
 	return len(availability[target]) == 0, nil
 }
 
@@ -1471,6 +1560,16 @@ func (s *StandAllocationService) AvailableStands(ctx context.Context, request St
 	return result, nil
 }
 
+func activeManualStandBlocks(blocks []*models.StandBlock, now time.Time) []*models.StandBlock {
+	active := make([]*models.StandBlock, 0, len(blocks))
+	for _, block := range blocks {
+		if block != nil && block.Manual && !expired(block.ExpiresAt, now) {
+			active = append(active, block)
+		}
+	}
+	return active
+}
+
 // Preview reports the current policy candidates without reserving, updating,
 // or publishing anything. It is intended for controller diagnostics.
 func (s *StandAllocationService) Preview(ctx context.Context, request StandAllocationRequest) (StandAllocationPreview, error) {
@@ -1488,12 +1587,7 @@ func (s *StandAllocationService) Preview(ctx context.Context, request StandAlloc
 	if err != nil {
 		return StandAllocationPreview{}, err
 	}
-	activeBlocks := make([]*models.StandBlock, 0, len(blocks))
-	for _, block := range blocks {
-		if block != nil && block.Manual && !expired(block.ExpiresAt, s.now()) {
-			activeBlocks = append(activeBlocks, block)
-		}
-	}
+	activeBlocks := activeManualStandBlocks(blocks, s.now())
 
 	evaluation := s.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
@@ -1621,7 +1715,14 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 			return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: fmt.Sprintf("%s is incompatible: %s",
 				request.Stand, compatibilityReason(request.Stand, evaluation.Rejections))}
 		}
-		if reasons := availability[request.Stand]; len(reasons) > 0 {
+		manualAvailability := availability
+		if request.Direction == sat.AssignmentDirectionArrival && request.Stage == StageAssigned && !request.ProtectReservations {
+			// Controller assignments may temporarily share a stand with a soft
+			// estimate. Keep that estimate intact; its lifecycle promotion will
+			// recalculate if the stand is still occupied when it becomes ASSIGNED.
+			manualAvailability = s.availabilityYieldingEstimated(request, assignments, blocks, matches)
+		}
+		if reasons := manualAvailability[request.Stand]; len(reasons) > 0 {
 			return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: fmt.Sprintf("%s is unavailable: %s",
 				request.Stand, joinAllocationReasons(reasons))}
 		}
@@ -1632,23 +1733,20 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		return request.Stand, nil, &match, []string{request.Stand}, conflict, nil
 	}
 	if isAutomaticStandAllocation(command) && request.Stand != "" {
-		// A stage promotion may need to evict an overlapping ESTIMATED
-		// reservation while retaining its own operationally valid stand. Prefer
-		// that stand when only a neighbouring soft reservation blocks it. A
-		// direct reservation gets the open-pool selection first so it is displaced
-		// only when no equal policy candidate remains.
+		// Prefer the caller's pinned stand when only soft reservations overlap
+		// it: ESTIMATED arrivals carry no weight against a later stage, stay in
+		// place, and resolve the overlap at their own promotion.
 		preferredAvailability := availability
 		if request.Stage != StageEstimated {
 			preferredAvailability = s.availabilityYieldingEstimated(request, assignments, blocks, matches)
 		}
 		if match, compatible := matches[request.Stand]; compatible &&
-			len(preferredAvailability[request.Stand]) == 0 &&
-			!hasDirectOverlappingEstimatedReservation(assignments, request.Stand, request, s.now(), s.departureReleaseBuffer) {
+			len(preferredAvailability[request.Stand]) == 0 {
 			selection, selectionErr := s.policyForAirport(request.Airport).SelectStand(request.AssignmentFacts, []string{request.Stand}, s.random)
 			if selectionErr != nil {
 				return "", nil, nil, nil, "", selectionErr
 			}
-			if selection != nil && (request.ImproveTierBelow == 0 || int32(selection.Tier) < request.ImproveTierBelow) {
+			if selection != nil && improvementAccepted(request, selection) {
 				return request.Stand, selection, &match, []string{request.Stand}, "", nil
 			}
 		}
@@ -1671,11 +1769,36 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		}
 		return "", nil, nil, available, "", ErrNoAvailableStand
 	}
-	if request.ImproveTierBelow > 0 && int32(selection.Tier) >= request.ImproveTierBelow {
+	if !improvementAccepted(request, selection) {
 		return "", nil, nil, available, "", ErrNoTierImprovement
 	}
 	match := matches[selection.Stand]
 	return selection.Stand, selection, &match, available, "", nil
+}
+
+// improvementAccepted reports whether a selection satisfies the request's
+// stage-boundary improvement baseline. Requests without a baseline accept any
+// selection.
+func improvementAccepted(request StandAllocationRequest, selection *sat.StandSelection) bool {
+	if selection == nil {
+		return false
+	}
+	if request.ImproveFromFallback {
+		return !selection.FallbackUsed
+	}
+	if request.ImproveTierBelow > 0 {
+		return !selection.FallbackUsed && int32(selection.Tier) < request.ImproveTierBelow
+	}
+	return true
+}
+
+// IsFallbackAssignment reports whether an assignment's persisted rule ID
+// identifies a fallback rule of the airport's policy.
+func (s *StandAllocationService) IsFallbackAssignment(airport string, assignment *models.StandAssignment) bool {
+	if assignment == nil || assignment.RuleID == nil {
+		return false
+	}
+	return s.policyForAirport(airport).IsFallbackRule(*assignment.RuleID)
 }
 
 func (s *StandAllocationService) policyExhaustionError(request StandAllocationRequest, available []string, matches map[string]sat.StandCompatibilityMatch, assignments []*models.StandAssignment, blocks []*models.StandBlock) error {
@@ -1891,6 +2014,29 @@ func estimatedReservationCanYield(request StandAllocationRequest, assignment *mo
 	// Only a later lifecycle stage may take priority over an overlapping
 	// ESTIMATED reservation. Non-overlapping reservations already share safely.
 	return !strings.EqualFold(request.Stage, StageEstimated)
+}
+
+// estimatedSoftSharingAllowed reports whether an occupancy overlap between the
+// two assignments is a legitimate deferred state: an ESTIMATED arrival keeps
+// its soft reservation while a later-stage arrival holds the stand, and the
+// estimate's own promotion resolves the overlap. Estimates already marked with
+// a promotion conflict stay visible to reconciliation.
+func estimatedSoftSharingAllowed(left, right *models.StandAssignment) bool {
+	return estimatedSharingSide(left, right) || estimatedSharingSide(right, left)
+}
+
+func estimatedSharingSide(estimate, holder *models.StandAssignment) bool {
+	if estimate == nil || holder == nil {
+		return false
+	}
+	if estimate.Direction != string(sat.AssignmentDirectionArrival) || estimate.Stage != StageEstimated {
+		return false
+	}
+	if estimate.ConflictReason != nil && *estimate.ConflictReason == arrivalPromotionConflictReason {
+		return false
+	}
+	return holder.Direction == string(sat.AssignmentDirectionArrival) &&
+		(holder.Stage == StageAssigned || holder.Stage == StageConfirmed)
 }
 
 // futureArrivalBlocksRequest treats a future arrival as a reservation from its
@@ -2120,17 +2266,6 @@ func (request StandAllocationRequest) displacesArrivalStage() bool {
 	return request.DisplaceStage != "" || len(request.DisplaceArrivalStages) > 0
 }
 
-func (request *StandAllocationRequest) addDisplaceArrivalStage(stage string) {
-	if request == nil || stage == "" || request.DisplaceStage == stage || slices.Contains(request.DisplaceArrivalStages, stage) {
-		return
-	}
-	if request.DisplaceStage == "" {
-		request.DisplaceStage = stage
-		return
-	}
-	request.DisplaceArrivalStages = append(request.DisplaceArrivalStages, stage)
-}
-
 func (request StandAllocationRequest) displacesAssignment(assignment *models.StandAssignment) bool {
 	if assignment == nil || assignment.Direction != string(sat.AssignmentDirectionArrival) {
 		return false
@@ -2139,43 +2274,6 @@ func (request StandAllocationRequest) displacesAssignment(assignment *models.Sta
 		return true
 	}
 	return slices.Contains(request.DisplaceArrivalStages, assignment.Stage)
-}
-
-func matchBlocks(match *sat.StandCompatibilityMatch) []string {
-	if match == nil {
-		return nil
-	}
-	return match.Blocks
-}
-
-func hasDirectOverlappingEstimatedReservation(assignments []*models.StandAssignment, selected string, request StandAllocationRequest, now time.Time, departureReleaseBuffer time.Duration) bool {
-	selected = standName(selected)
-	for _, assignment := range assignments {
-		if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) {
-			continue
-		}
-		if assignment.Direction == string(sat.AssignmentDirectionArrival) &&
-			assignment.Stage == StageEstimated &&
-			standName(assignment.Stand) == selected &&
-			assignmentBlocksRequest(assignment, request, now, departureReleaseBuffer) {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *StandAllocationService) selectedHasOverlappingEstimatedReservation(assignments []*models.StandAssignment, selected string, selectedBlocks []string, request StandAllocationRequest, now time.Time, departureReleaseBuffer time.Duration) bool {
-	for _, assignment := range assignments {
-		if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) ||
-			assignment.Direction != string(sat.AssignmentDirectionArrival) || assignment.Stage != StageEstimated ||
-			!assignmentBlocksRequest(assignment, request, now, departureReleaseBuffer) {
-			continue
-		}
-		if s.assignmentOverlapsSelectedStand(request.Airport, selected, selectedBlocks, assignment) {
-			return true
-		}
-	}
-	return false
 }
 
 func standName(value string) string      { return strings.ToUpper(strings.TrimSpace(value)) }

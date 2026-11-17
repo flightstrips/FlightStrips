@@ -1086,11 +1086,11 @@ func (hub *Hub) SendStripUpdateContext(ctx context.Context, session int32, calls
 				all, _ = repo.ListAssignments(ctx, session)
 			}
 		}
-		if assignment != nil {
+		if assignment != nil && standAssignmentFrontendVisible(assignment) {
 			entry := mapStandAssignmentEntry(assignment)
 			entries := make([]frontend.StandAssignmentEntry, 0, len(all))
 			for _, item := range all {
-				if item != nil {
+				if standAssignmentFrontendVisible(item) {
 					entries = append(entries, mapStandAssignmentEntry(item))
 				}
 			}
@@ -1341,7 +1341,7 @@ func (hub *Hub) enrichedStandAssignmentEntry(sessionID int32, assignment *intern
 	}
 	entries := make([]frontend.StandAssignmentEntry, 0, len(all))
 	for _, item := range all {
-		if item != nil {
+		if standAssignmentFrontendVisible(item) {
 			entries = append(entries, mapStandAssignmentEntry(item))
 		}
 	}
@@ -1357,7 +1357,7 @@ func (hub *Hub) enrichedStandAssignmentEntry(sessionID int32, assignment *intern
 func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.StandAllocationResult) error {
 	sessionID := result.Assignment.SessionID
 	publishEntries := []frontend.StandAssignmentEntry{}
-	if !result.Removed {
+	if !result.Removed && standAssignmentFrontendVisible(&result.Assignment) {
 		publishEntries = append(publishEntries, mapStandAssignmentEntry(&result.Assignment))
 	}
 	blockEntries := []frontend.StandBlockEntry{}
@@ -1374,7 +1374,7 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 		} else {
 			publishEntries = make([]frontend.StandAssignmentEntry, 0, len(all))
 			for _, item := range all {
-				if item != nil {
+				if standAssignmentFrontendVisible(item) {
 					publishEntries = append(publishEntries, mapStandAssignmentEntry(item))
 				}
 			}

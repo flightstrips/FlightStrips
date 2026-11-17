@@ -15,8 +15,24 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type manualStripPlacementContextKey struct{}
+
+// WithManualStripPlacement marks a strip move as an explicit drag-and-drop placement.
+func WithManualStripPlacement(ctx context.Context, manual bool) context.Context {
+	if !manual {
+		return ctx
+	}
+	return context.WithValue(ctx, manualStripPlacementContextKey{}, true)
+}
+
+// IsManualStripPlacement reports whether the move was an explicit drag-and-drop placement.
+func IsManualStripPlacement(ctx context.Context) bool {
+	manual, _ := ctx.Value(manualStripPlacementContextKey{}).(bool)
+	return manual
+}
+
 func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool, confirmedRemoval bool) error {
-	return s.executeControllerWorkflow(ctx, session, callsign, cid, airport, clientPosition, "strip.move", airportworkflow.Move{Bay: targetBay, Clearance: clearance, ConfirmedRemoval: confirmedRemoval})
+	return s.executeControllerWorkflow(ctx, session, callsign, cid, airport, clientPosition, "strip.move", airportworkflow.Move{Bay: targetBay, Clearance: clearance, ConfirmedRemoval: confirmedRemoval, ManualPlacement: IsManualStripPlacement(ctx)})
 }
 
 // ExecuteWorkflowAction dispatches any handler-registered typed action through
@@ -113,7 +129,15 @@ func (s *StripService) executeControllerWorkflow(ctx context.Context, session in
 	}
 
 	if strip.Bay == targetBay && (decision.Cleared == nil || *decision.Cleared == strip.Cleared) && (decision.GroundState == nil || *decision.GroundState == workflowValue(strip.State)) {
-		return s.acknowledgeDeicePlatformInBay(ctx, session, callsign, targetBay)
+		if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, targetBay); err != nil {
+			return err
+		}
+		// Workflow rules may resolve an optimistic move back to its current bay.
+		// Publish the persisted bay and sequence even when no mutation is needed.
+		if s.publisher != nil {
+			shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+		}
+		return nil
 	}
 
 	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
@@ -168,7 +192,7 @@ func (s *StripService) executeControllerWorkflow(ctx context.Context, session in
 	}
 
 	s.syncAsatForGroundStateBestEffort(ctx, session, callsign, groundState)
-	if bound.BoardStatePolicy().Revisioned {
+	if bound.BoardStatePolicy().Revisioned && s.publisher != nil {
 		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	}
 	return nil

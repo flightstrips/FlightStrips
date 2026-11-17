@@ -1,14 +1,17 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { StripContextMenu } from "./StripContextMenu";
 
 const menuState = vi.hoisted(() => ({
-  strip: { callsign: "SAS123", owner: "118.105", ob: true },
+  strip: { callsign: "SAS123", owner: "118.105", ob: true, origin: "ESSA", destination: "EKCH" },
   controllers: [{ position: "118.105", identifier: "TE" }],
+  localHidden: false,
+  setHidden: vi.fn(),
 }));
 
 vi.mock("@/store/store-hooks", () => ({
   useControllers: () => menuState.controllers,
+  useAirport: () => "EKCH",
   useIsClrDel: () => false,
   useStrip: () => menuState.strip,
   useStripTransfers: () => ({}),
@@ -22,15 +25,17 @@ vi.mock("@/store/store-hooks", () => ({
 }));
 
 vi.mock("@/store/localHiddenStrips", () => ({
-  useIsLocallyHidden: () => false,
+  useIsLocallyHidden: () => menuState.localHidden,
   useLocalHiddenStrips: (selector: (state: { setHidden: ReturnType<typeof vi.fn> }) => unknown) =>
-    selector({ setHidden: vi.fn() }),
+    selector({ setHidden: menuState.setHidden }),
 }));
 
 describe("StripContextMenu", () => {
   beforeEach(() => {
-    menuState.strip = { callsign: "SAS123", owner: "118.105", ob: true };
+    menuState.strip = { callsign: "SAS123", owner: "118.105", ob: true, origin: "ESSA", destination: "EKCH" };
     menuState.controllers = [{ position: "118.105", identifier: "TE" }];
+    menuState.localHidden = false;
+    menuState.setHidden.mockClear();
   });
 
   it("shows the identifier for a frequency owner instead of OB or IB", () => {
@@ -54,10 +59,32 @@ describe("StripContextMenu", () => {
   });
 
   it("keeps the OB/IB toggle for a non-frequency owner", () => {
-    menuState.strip = { callsign: "SAS123", owner: "", ob: false };
+    menuState.strip = { callsign: "SAS123", owner: "", ob: false, origin: "ESSA", destination: "EKCH" };
 
     render(<StripContextMenu callsign="SAS123" position={{ x: 0, y: 0 }} onClose={vi.fn()} />);
 
     expect(screen.getByText("OB")).toBeInTheDocument();
+  });
+
+  it("offers LCL HIDE for arrivals and hides them locally", () => {
+    const onClose = vi.fn();
+    render(<StripContextMenu callsign="SAS123" position={{ x: 0, y: 0 }} onClose={onClose} />);
+
+    fireEvent.click(screen.getByText("LCL HIDE"));
+
+    expect(menuState.setHidden).toHaveBeenCalledWith("SAS123", true);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("keeps LCL MINI for departures and offers UNHIDE for an already hidden arrival", () => {
+    menuState.strip = { callsign: "SAS123", owner: "", ob: false, origin: "EKCH", destination: "ESSA" };
+    const departure = render(<StripContextMenu callsign="SAS123" position={{ x: 0, y: 0 }} onClose={vi.fn()} />);
+    expect(screen.getByText("LCL MINI")).toBeInTheDocument();
+    departure.unmount();
+
+    menuState.strip = { callsign: "SAS123", owner: "", ob: false, origin: "ESSA", destination: "EKCH" };
+    menuState.localHidden = true;
+    render(<StripContextMenu callsign="SAS123" position={{ x: 0, y: 0 }} onClose={vi.fn()} />);
+    expect(screen.getByText("UNHIDE")).toBeInTheDocument();
   });
 });

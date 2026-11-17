@@ -16,7 +16,7 @@ export type HalfStripVariant =
 
 export interface StripProps {
   halfStripVariant?: HalfStripVariant;
-  /** Rendered as a half strip because this controller used LCL HIDE. */
+  /** Rendered as a half strip because this controller used LCL MINI. */
   localHidden?: boolean;
   bay?: Bay;
   callsign: string;

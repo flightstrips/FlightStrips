@@ -23,6 +23,7 @@ const STRIP_BEVEL_EDGE_COLOR = "#DBDBDB";
 const STRIP_EDGE_DARK = "#8E8E8E";
 const STRIP_EDGE_MID = "#ABABAB";
 const VALIDATION_BLINK_CYCLE_MS = 1000;
+const TAG_REQUEST_BLINK_INTERVAL_MS = 1000;
 const PDC_CLEARED_CALLSIGN_BLINK_INTERVAL_MS = 500;
 const PDC_CLEARED_CALLSIGN_BLINK_DURATION_MS = 7000;
 
@@ -101,14 +102,16 @@ export function canForceAssumeStrip({
   return !!myPosition && owner !== myPosition && !isClrDel;
 }
 
-export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string): CSSProperties {
+export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string, fallbackBackground?: string, fallbackForeground?: string): CSSProperties {
   if (!isValidationActiveForPosition(validationStatus, myPosition)) {
     return {};
   }
 
   return {
-    animation: `validation-blink ${VALIDATION_BLINK_CYCLE_MS}ms step-start infinite`,
-  };
+    animation: `${fallbackForeground ? "validation-blink-callsign" : "validation-blink"} ${VALIDATION_BLINK_CYCLE_MS}ms step-start infinite`,
+    ...(fallbackBackground ? { "--validation-blink-background": fallbackBackground } : {}),
+    ...(fallbackForeground ? { "--validation-blink-foreground": fallbackForeground } : {}),
+  } as CSSProperties;
 }
 
 export function getValidationBlockedCursor(
@@ -445,7 +448,8 @@ export function resolveStripBg(normalBg: string, isTagRequest: boolean, isUnconc
  * Encapsulates runway-status lookup, closed-runway check, and resolveStripBg — one call per strip.
  *
  * Priority: tag-request (pink) → closed runway (red) → unconcerned (grey) → normalBg.
- * `textWhite` is true only when the closed-runway override is active.
+ * Tag requests alternate between pink and the otherwise applicable colors every second.
+ * The callsign style keeps its normal background and contrast during a request.
  */
 export function useStripBg(
   runway: string | undefined,
@@ -454,14 +458,33 @@ export function useStripBg(
   isUnconcerned: boolean,
   pdcStatus?: PdcStatus,
   bay?: Bay,
-): { bg: string; textWhite: boolean } {
+): { bg: string; textWhite: boolean; callsignStyle: CSSProperties } {
   const runwaySetup = useRunwaySetup();
+  const [blink, setBlink] = useState({ active: isTagRequest, highlighted: true });
+  if (blink.active !== isTagRequest) {
+    setBlink({ active: isTagRequest, highlighted: true });
+  }
+  useEffect(() => {
+    if (!isTagRequest) return;
+    const interval = setInterval(() => {
+      setBlink((current) => ({ ...current, highlighted: !current.highlighted }));
+    }, TAG_REQUEST_BLINK_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [isTagRequest]);
+
+  const showTagRequest = isTagRequest && (blink.active !== isTagRequest || blink.highlighted);
   const closedRwy = isRunwayClosed(runway, runwaySetup.runway_status);
-  const bg = resolveStripBg(normalBg, isTagRequest, isUnconcerned, closedRwy);
+  const bg = resolveStripBg(normalBg, showTagRequest, isUnconcerned, closedRwy);
   const pdcAllowed = !bay || bay === Bay.NotCleared || bay === Bay.Cleared;
-  const pdcDarkBg = pdcAllowed && pdcStatus === "CLEARED"
-    && !isTagRequest && !closedRwy && !isUnconcerned;
-  return { bg, textWhite: (closedRwy && !isTagRequest) || pdcDarkBg };
+  const normalTextWhite = closedRwy || (pdcAllowed && pdcStatus === "CLEARED" && !isUnconcerned);
+  return {
+    bg,
+    textWhite: !showTagRequest && normalTextWhite,
+    callsignStyle: isTagRequest ? {
+      backgroundColor: resolveStripBg(normalBg, false, isUnconcerned, closedRwy),
+      color: normalTextWhite ? "white" : "black",
+    } : {},
+  };
 }
 
 /** Returns the text color for a cell if the field was controller-modified, otherwise undefined. */

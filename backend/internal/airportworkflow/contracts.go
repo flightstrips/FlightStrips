@@ -134,8 +134,9 @@ type Decision struct {
 type Clearance struct{ Cleared bool }
 
 type Move struct {
-	Bay                         string
+	Bay                          string
 	Clearance, ConfirmedRemoval bool
+	ManualPlacement             bool
 }
 
 type Handler interface {

@@ -51,10 +51,11 @@ export function ApronTaxiMapDialog({
 
   const handleSelect = (label: string) => {
     if (isPointDisabled(label)) return;
+    const preserveLowerBay = strip?.bay === Bay.TaxiLwr;
     if (isTextPilot(strip)) {
       const splitOps = apronOnline || twrOnline;
       const soloTwr = isTwr && !apronOnline;
-      const targetBay = noMove ? undefined : (soloTwr || (splitOps && LWR_HOLD_POINTS.has(label))) ? Bay.TaxiLwr : Bay.Taxi;
+      const targetBay = noMove ? undefined : (preserveLowerBay || soloTwr || (splitOps && LWR_HOLD_POINTS.has(label))) ? Bay.TaxiLwr : Bay.Taxi;
       openTextPilotMenu({ callsign, variant: strip?.destination === airport && strip?.origin !== airport ? "apron-in" : "apron-out", point: label, actions: textTaxiActions(callsign, label, targetBay, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
       return;
     }
@@ -68,7 +69,7 @@ export function ApronTaxiMapDialog({
       // - Apron scopes or split ops: final hold points → TWY DEP-LWR, others → TWY DEP-UPR.
       const splitOps = displayedLayout === "AAAD" || displayedLayout === "AD" || apronOnline || twrOnline;
       const soloTwr = isTwr && !apronOnline;
-      const targetBay = (soloTwr || (splitOps && LWR_HOLD_POINTS.has(label)))
+      const targetBay = (preserveLowerBay || soloTwr || (splitOps && LWR_HOLD_POINTS.has(label)))
         ? Bay.TaxiLwr
         : Bay.Taxi;
       move(callsign, targetBay);

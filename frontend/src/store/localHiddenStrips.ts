@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { Bay } from "@/api/models";
 import { useStrip } from "@/store/store-hooks";
 
-// Per-browser "LCL HIDE"/"LCL SHOW" state: in-memory only, so it resets on every page refresh.
+// Per-browser local mini/hide state: in-memory only, so it resets on every page refresh.
 // Clean up keys persisted by earlier versions.
 try {
   localStorage.removeItem("flightstrips.localHiddenStrips");
@@ -13,13 +13,14 @@ try {
 }
 
 interface LocalHiddenStripsState {
-  /** Strips explicitly hidden with LCL HIDE. */
+  /** Strips explicitly hidden or minimized locally. */
   hidden: string[];
-  /** Strips explicitly shown with LCL SHOW while they would otherwise be hidden by default. */
+  /** Strips explicitly unminimized while they would otherwise be minimized by default. */
   shown: string[];
   /** Number of mounted views that render planned departures as half strips by default. */
   defaultHidePlannedViews: number;
   setHidden: (callsign: string, hide: boolean) => void;
+  unhide: (callsigns: string[]) => void;
   registerDefaultHidePlanned: () => () => void;
 }
 
@@ -36,6 +37,10 @@ export const useLocalHiddenStrips = create<LocalHiddenStripsState>((set, get) =>
       ? currentShown.filter((c) => c !== callsign)
       : (currentShown.includes(callsign) ? currentShown : [...currentShown, callsign]);
     set({ hidden, shown });
+  },
+  unhide: (callsigns) => {
+    const callsignsToUnhide = new Set(callsigns);
+    set((state) => ({ hidden: state.hidden.filter((callsign) => !callsignsToUnhide.has(callsign)) }));
   },
   registerDefaultHidePlanned: () => {
     set((s) => ({ defaultHidePlannedViews: s.defaultHidePlannedViews + 1 }));

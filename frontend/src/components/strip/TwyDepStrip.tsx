@@ -99,7 +99,7 @@ export function TwyDepStrip({
   const normalBg = grayTwyDepAppearance
     ? HALF_STRIP_VARIANT_BG["APN-PUSH"]
     : getStripBg(pdcStatus, arrival, bay);
-  const { bg, textWhite } = useStripBg(runway, normalBg, isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, normalBg, isTagRequest, isUnconcerned, pdcStatus, bay);
   const transitionAltitude = useTransitionAltitude();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
@@ -180,14 +180,14 @@ export function TwyDepStrip({
       {/* Callsign; top 2/3 = callsign, bottom 1/3 = :freq */}
       <div
         className="relative flex flex-col border-r-2 min-w-0 cursor-pointer"
-        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
         <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
         <div
           className="flex items-center pl-[0.42vw] overflow-hidden"
-          style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+          style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined, isSelected && isTagRequest ? "black" : callsignStyle.color ?? (textWhite ? "white" : "black")) }}
         >
           <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>
             {callsign}
@@ -226,7 +226,7 @@ export function TwyDepStrip({
           style={{ height: HALF_H, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined }}
           onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
         >
-          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.936vw", lineHeight: 1, color: getCellTextColor("stand", controllerModifiedFields) }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.936vw", lineHeight: 1, color: standYellow ? "black" : getCellTextColor("stand", controllerModifiedFields) }}>
             {stand}
           </span>
         </div>
@@ -266,7 +266,7 @@ export function TwyDepStrip({
           )}
         </div>
         <div className="flex items-center justify-center" style={{ flex: "1 1 0%", minHeight: 0 }}>
-          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", opacity: twyDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", opacity: twyDisplay ? 1 : 0.2, color: releasePointYellow && !isHp ? "black" : getCellTextColor("release_point", controllerModifiedFields) }}>
             {twyDisplay || "TWY"}
           </span>
         </div>
@@ -296,7 +296,7 @@ export function TwyDepStrip({
           style={{ flex: "1 1 0%", minHeight: 0, backgroundColor: releasePointYellow && isHp ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => setShowHpMap(true))}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+          <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", opacity: hpDisplay ? 1 : 0.2, color: releasePointYellow && isHp ? "black" : getCellTextColor("release_point", controllerModifiedFields) }}>
             {hpDisplay || "HP"}
           </span>
         </div>

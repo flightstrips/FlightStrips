@@ -138,3 +138,21 @@ func TestEKCHPreservesLegacyMoveAndNilStateSemantics(t *testing.T) {
 		t.Fatalf("arrival parking: %+v %v", d, err)
 	}
 }
+
+func TestEKCHLowerTaxiMoveRequiresManualPlacementToReturnUpper(t *testing.T) {
+	b, err := Bind(definition(t), EKCHDescriptor())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := Context{Session: 1, Source: HumanSource, Strip: Snapshot{Exists: true, Origin: "EKCH", Destination: "EGLL", Bay: shared.BAY_TAXI_LWR}}
+
+	d, err := b.Action(c, "strip.move", Move{Bay: shared.BAY_TAXI})
+	if err != nil || d.Bay == nil || *d.Bay != shared.BAY_TAXI_LWR {
+		t.Fatalf("non-manual move returned lower-bay strip to upper: %+v %v", d, err)
+	}
+
+	d, err = b.Action(c, "strip.move", Move{Bay: shared.BAY_TAXI, ManualPlacement: true})
+	if err != nil || d.Bay == nil || *d.Bay != shared.BAY_TAXI {
+		t.Fatalf("manual placement to upper was not allowed: %+v %v", d, err)
+	}
+}

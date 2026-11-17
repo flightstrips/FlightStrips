@@ -75,7 +75,6 @@ export function ApnArrStrip({
   } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripFrameColor = getStripFrameColor(arrival ?? true);
   const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
-  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const [runwayOpen, setRunwayOpen] = useState(false);
@@ -94,7 +93,10 @@ export function ApnArrStrip({
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const manualBlue = isManual && callsignStyle.color !== "white" ? COLOR_MANUAL_BLUE : undefined;
+  const callsignTextColor = isSelected && isTagRequest ? "black" : manualBlue ?? callsignStyle.color ?? (textWhite ? "white" : "black");
+  const callsignValidationStyle = getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined, callsignTextColor);
   const runwayBg = runwayYellow
     ? COLOR_UNEXPECTED_YELLOW
     : bay === Bay.RwyArr
@@ -129,12 +131,12 @@ export function ApnArrStrip({
       />
 
       {/* Callsign */}
-      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
-        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
-          <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: manualBlue }}>{callsign}</span>
+        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...callsignValidationStyle }}>
+          <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: callsignValidationStyle.animation && callsignTextColor !== "black" ? "inherit" : callsignTextColor }}>{callsign}</span>
           <InboundCtotFlag callsign={callsign} />
         </div>
         <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
@@ -172,7 +174,7 @@ export function ApnArrStrip({
         })}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{runway}</span>
+          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: runwayYellow ? "black" : undefined }}>{runway}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -205,7 +207,7 @@ export function ApnArrStrip({
       >
         <TextPilotIndicator divider={false} type={communicationType} borderColor={cellBorderColor} />
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: satStandStyle.color ?? getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: satStandStyle.color ?? (standYellow ? "black" : getCellTextColor("stand", controllerModifiedFields)) }}>{stand}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

@@ -44,7 +44,7 @@ export function GroundStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
 
   return (
     <div
@@ -72,11 +72,11 @@ export function GroundStrip({
       />
 
       {/* Callsign — 120px */}
-      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
-        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
+        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined, isSelected && isTagRequest ? "black" : callsignStyle.color ?? (textWhite ? "white" : "black")) }}>
           <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{callsign}</span>
         </div>
         <div style={{ height: BOT_H }} />

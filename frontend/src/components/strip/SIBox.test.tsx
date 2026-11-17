@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { FrontendController } from "@/api/models";
+import { Bay, type FrontendController } from "@/api/models";
 import { SIBox } from "./SIBox";
 
 const state = vi.hoisted(() => ({
@@ -14,6 +14,7 @@ const assumeStrip = vi.hoisted(() => vi.fn());
 const transferStrip = vi.hoisted(() => vi.fn());
 const startRequestAndTransfer = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 const openStripContextMenu = vi.hoisted(() => vi.fn());
+const acceptTagRequest = vi.hoisted(() => vi.fn());
 
 vi.mock("@/store/store-hooks", () => ({
   useControllers: () => state.controllers,
@@ -24,9 +25,71 @@ vi.mock("@/store/store-hooks", () => ({
     startRequestAndTransfer,
     assumeStrip,
     openStripContextMenu,
-    acceptTagRequest: vi.fn(),
+    acceptTagRequest,
   }),
 }));
+
+describe("tag request SI identifier", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    state.strips = [];
+    state.layout = "";
+    state.displayedLayout = "";
+    state.textPilotReadbacks = {};
+    state.controllers = [
+      { position: "121.730", identifier: "AD" },
+      { position: "118.105", identifier: "TE" },
+    ] as FrontendController[];
+  });
+
+  it.each(["121.905", "118.105", "121.730"])("shows the requester instead of the route target to position %s", myPosition => {
+    const { container } = render(
+      <SIBox
+        callsign="SAS123"
+        bay={Bay.Cleared}
+        owner="121.905"
+        myPosition={myPosition}
+        nextControllers={["121.730"]}
+        nextDisplay={{ label: "AD", frequency: "121.730" }}
+        transferFrom="121.905"
+        transferringTo="118.105"
+        isTagRequest
+      />,
+    );
+
+    expect(container.firstElementChild).toHaveTextContent("TE");
+    if (myPosition === "121.905") {
+      fireEvent.click(container.firstElementChild!);
+      expect(acceptTagRequest).toHaveBeenCalledWith("SAS123");
+      expect(transferStrip).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([Bay.Depart, Bay.Airborne, Bay.Stand, Bay.Taxi])("shows the requester in %s even when the ordinary label is hidden", bay => {
+    const { container } = render(
+      <SIBox callsign="SAS123" bay={bay} hideLabel transferFrom="121.905" transferringTo="118.105"
+        nextDisplay={{ label: "AD", frequency: "121.730" }} isTagRequest />,
+    );
+    expect(container.firstElementChild).toHaveTextContent("TE");
+  });
+
+  it("falls back to the requester's position if the controller is unavailable", () => {
+    state.controllers = [];
+    const { container } = render(<SIBox callsign="SAS123" transferFrom="121.905" transferringTo="118.105" isTagRequest />);
+    expect(container.firstElementChild).toHaveTextContent("118.105");
+  });
+
+  it("restores the normal route label when the request ends", () => {
+    const props = {
+      callsign: "SAS123", bay: Bay.Cleared, owner: "121.905", myPosition: "121.905",
+      nextControllers: ["121.730"], nextDisplay: { label: "AD", frequency: "121.730" },
+    };
+    const { container, rerender } = render(<SIBox {...props} transferFrom="121.905" transferringTo="118.105" isTagRequest />);
+    expect(container.firstElementChild).toHaveTextContent("TE");
+    rerender(<SIBox {...props} />);
+    expect(container.firstElementChild).toHaveTextContent("AD");
+  });
+});
 
 describe("startup SI transfer", () => {
   beforeEach(() => {

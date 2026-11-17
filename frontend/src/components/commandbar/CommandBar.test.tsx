@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import CommandBar from "./CommandBar";
-import type { FrontendStrip, RunwayConfiguration } from "@/api/models";
+import { Bay, type FrontendStrip, type RunwayConfiguration } from "@/api/models";
+import { useLocalHiddenStrips } from "@/store/localHiddenStrips";
 
 const runway = vi.hoisted(() => ({ departure: [], arrival: [] } as RunwayConfiguration));
 
@@ -12,6 +13,7 @@ const state = vi.hoisted(() => ({
   resetLayout: vi.fn(),
   readOnly: false,
   positionAvailable: true,
+  airport: "EKCH",
   masterCallsign: "EKCH_A_TWR",
   selectedCallsign: null as string | null,
   strips: [] as FrontendStrip[],
@@ -64,6 +66,7 @@ beforeEach(() => {
   state.selectedCallsign = null;
   state.strips = [];
   state.localMarked = {};
+  useLocalHiddenStrips.setState({ hidden: [], shown: [], defaultHidePlannedViews: 0 });
   Object.defineProperty(document, "fullscreenEnabled", { configurable: true, get: () => true });
   Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => null });
   Object.defineProperty(document, "exitFullscreen", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
@@ -99,6 +102,32 @@ describe("selected-strip marking", () => {
 
     expect(state.setLocalMarked).toHaveBeenCalledWith("SAS123", nextMarked);
     expect(state.toggleMarked).not.toHaveBeenCalled();
+  });
+});
+
+describe("hidden arrival restore control", () => {
+  it("unhides locally hidden arrivals in any bay while preserving departure minis", () => {
+    state.strips = [
+      { callsign: "ARR1", origin: "ESSA", destination: "EKCH", bay: Bay.Final },
+      { callsign: "ARR2", origin: "ESSA", destination: "EKCH", bay: Bay.Stand },
+      { callsign: "DEP1", origin: "EKCH", destination: "ESSA", bay: Bay.Push },
+    ] as FrontendStrip[];
+    useLocalHiddenStrips.setState({ hidden: ["ARR1", "ARR2", "DEP1"] });
+    render(<CommandBar />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Unhide locally hidden arrivals" }));
+
+    expect(useLocalHiddenStrips.getState().hidden).toEqual(["DEP1"]);
+  });
+
+  it("shows the restore control when the only locally hidden arrival is in STAND", () => {
+    state.strips = [
+      { callsign: "ARR2", origin: "ESSA", destination: "EKCH", bay: Bay.Stand },
+    ] as FrontendStrip[];
+    useLocalHiddenStrips.setState({ hidden: ["ARR2"] });
+    render(<CommandBar />);
+
+    expect(screen.getByRole("button", { name: "Unhide locally hidden arrivals" })).toBeInTheDocument();
   });
 });
 

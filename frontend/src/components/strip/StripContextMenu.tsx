@@ -4,6 +4,8 @@ import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { canForceAssumeStrip } from "./shared";
 import { EST_RAISED_EDGE, EST_SUNKEN_EDGE } from "@/components/est/bevel";
 import { useIsLocallyHidden, useLocalHiddenStrips } from "@/store/localHiddenStrips";
+import { useAirport } from "@/store/store-hooks";
+import { isArrivalFlight } from "@/components/bays/stripMovement";
 
 export interface StripContextMenuProps {
   callsign: string;
@@ -64,6 +66,7 @@ function ManIcon() {
 
 export function StripContextMenu({ callsign, position, onClose }: StripContextMenuProps) {
   const strip = useStrip(callsign);
+  const airport = useAirport();
   const controllers = useControllers();
   const myPosition = useWebSocketStore((s) => s.position);
   const stripTransfers = useStripTransfers();
@@ -73,6 +76,7 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
 
   const isClrDel = useIsClrDel();
   const localHidden = useIsLocallyHidden(callsign);
+  const isArrival = strip ? isArrivalFlight(strip, airport) : false;
   const setLocalHidden = useLocalHiddenStrips((s) => s.setHidden);
   const [showFpl, setShowFpl] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -254,7 +258,7 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
         VIEW FPL
       </div>
 
-      {/* LCL HIDE / LCL SHOW — local-only half-strip toggle */}
+      {/* Local-only arrival hide or departure mini toggle */}
       <div
         style={{ ...itemStyle, height: 44 }}
         onClick={() => {
@@ -262,7 +266,7 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
           onClose();
         }}
       >
-        {localHidden ? "LCL SHOW" : "LCL HIDE"}
+        {localHidden ? (isArrival ? "UNHIDE" : "UNMINI") : (isArrival ? "LCL HIDE" : "LCL MINI")}
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }} />

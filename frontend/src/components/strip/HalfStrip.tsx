@@ -76,14 +76,14 @@ export function HalfStrip({
   const baseCellBorderColor = isFreeText ? HALF_CELL_BASE : stripFrameColor;
 
   const cellBorderColor = getCellBorderColor(marked, baseCellBorderColor);
-  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
 
   const label = VARIANT_LABEL[halfStripVariant];
 
   // Use light text on dark backgrounds for readability
   const darkBg = ["MESSAGES", "MEM-AID", "LAND-START"].includes(halfStripVariant);
   const normalBackground = isFreeText ? HALF_STRIP_VARIANT_BG[halfStripVariant] : getStripBg(pdcStatus, arrival, bay);
-  const { bg, textWhite } = useStripBg(runway, normalBackground, isTagRequest, false, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, normalBackground, isTagRequest, false, pdcStatus, bay);
+  const manualBlue = isManual && callsignStyle.color !== "white" ? COLOR_MANUAL_BLUE : undefined;
   const textColor = (darkBg || textWhite) ? "text-white" : "text-black";
 
   return (
@@ -91,8 +91,8 @@ export function HalfStrip({
       className={`${fullWidth ? "w-full" : "w-fit"} flex text-[0.73vw] select-none${isSelectable ? " cursor-pointer" : ""}`}
       style={{
         height: "2.36dvh",
-        backgroundColor: isTagRequest ? SELECTION_COLOR : bg,
-        ...getFlatStripBorderStyle(isTagRequest ? SELECTION_COLOR : bg, stripFrameColor),
+        backgroundColor: bg,
+        ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
       onClick={handleClick}
     >
@@ -114,7 +114,7 @@ export function HalfStrip({
         <>
           <div
             className={`relative h-full ${isArrivalVariant || arrival ? "w-[6.77vw]" : "w-[5.03vw]"} border-r-2 flex items-center pl-[0.42vw] font-normal [-webkit-text-stroke:0.5px_currentColor] truncate ${textColor}`}
-            style={{ borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue, cursor: localHidden ? "pointer" : undefined }}
+            style={{ borderRightColor: cellBorderColor, ...callsignStyle, backgroundColor: isSelected ? SELECTION_COLOR : callsignStyle.backgroundColor, color: isSelected && isTagRequest ? "black" : manualBlue ?? callsignStyle.color, cursor: localHidden ? "pointer" : undefined }}
             onClick={localHidden ? (e) => { e.stopPropagation(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); } : undefined}
           >
           <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
@@ -150,7 +150,7 @@ export function HalfStrip({
           ) : null}
           <div
             className={`h-full ${fullWidth ? "flex-1" : "w-[2.92vw]"} flex items-center justify-center font-normal [-webkit-text-stroke:0.5px_currentColor] ${textColor}`}
-            style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow || isDepartureHalf ? "pointer" : undefined, color: getCellTextColor("stand", controllerModifiedFields) }}
+            style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow || isDepartureHalf ? "pointer" : undefined, color: standYellow ? "black" : getCellTextColor("stand", controllerModifiedFields) }}
             onClick={standYellow
               ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); }
               : isDepartureHalf ? (e) => { e.stopPropagation(); setFplOpen(true); } : undefined}

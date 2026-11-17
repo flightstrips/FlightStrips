@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"FlightStrips/internal/shared"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/testutil"
 	pkgFrontend "FlightStrips/pkg/events/frontend"
 	"context"
@@ -51,6 +52,7 @@ type moveFrontendStripCall struct {
 	clientPosition   string
 	clearance        bool
 	confirmedRemoval bool
+	manualPlacement  bool
 }
 
 type spyStripService struct {
@@ -59,7 +61,7 @@ type spyStripService struct {
 	moveFrontendStripErr   error
 }
 
-func (s *spyStripService) MoveFrontendStrip(_ context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool, confirmedRemoval bool) error {
+func (s *spyStripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool, confirmedRemoval bool) error {
 	s.moveFrontendStripCalls = append(s.moveFrontendStripCalls, moveFrontendStripCall{
 		session:          session,
 		callsign:         callsign,
@@ -69,6 +71,7 @@ func (s *spyStripService) MoveFrontendStrip(_ context.Context, session int32, ca
 		clientPosition:   clientPosition,
 		clearance:        clearance,
 		confirmedRemoval: confirmedRemoval,
+		manualPlacement:  services.IsManualStripPlacement(ctx),
 	})
 	return s.moveFrontendStripErr
 }
@@ -84,6 +87,7 @@ func TestHandleMove_DelegatesToStripService(t *testing.T) {
 		Callsign:         "SAS123",
 		Bay:              shared.BAY_HIDDEN,
 		ConfirmedRemoval: true,
+		ManualPlacement:  true,
 	})
 
 	err := handleMove(context.Background(), client, msg)
@@ -98,6 +102,7 @@ func TestHandleMove_DelegatesToStripService(t *testing.T) {
 		clientPosition:   "EKCH_DEL",
 		clearance:        false,
 		confirmedRemoval: true,
+		manualPlacement:  true,
 	}, spy.moveFrontendStripCalls[0])
 }
 

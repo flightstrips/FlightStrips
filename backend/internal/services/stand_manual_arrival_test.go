@@ -63,3 +63,51 @@ func TestManualArrivalStandImmediatelyBecomesAssigned(t *testing.T) {
 		}
 	}
 }
+
+func TestControllerManualArrivalAssignmentKeepsEstimatedReservationUntilPromotion(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	allocation, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+	ctx := context.Background()
+	for _, callsign := range []string{"SAS901", "SAS902"} {
+		testdata.SeedTestStrip(t, queries, session, callsign)
+		_, err := pool.Exec(ctx, "UPDATE strips SET origin = 'EDDF', destination = 'EKCH' WHERE session = $1 AND callsign = $2", session, callsign)
+		require.NoError(t, err)
+	}
+
+	estimated := withStand(standAllocationRequest(session, "SAS901"), "A1")
+	estimated.Stage = StageEstimated
+	estimatedResult, err := allocation.Allocate(ctx, estimated)
+	require.NoError(t, err)
+	assert.Equal(t, "A1", estimatedResult.Assignment.Stand)
+
+	actions := NewStandActionService(allocation, assignments, postgres.NewStripRepository(pool), nil, nil, nil)
+	result, err := actions.AssignManually(ctx, session, "EKCH", "GND", "SAS902", "A1", 0)
+	require.NoError(t, err)
+	assert.Empty(t, result.ConflictReason)
+	assert.Empty(t, result.RemovedAssignments, "manual assignment must not immediately displace the estimate")
+
+	assigned, err := assignments.GetAssignment(ctx, session, "SAS902")
+	require.NoError(t, err)
+	assert.Equal(t, "A1", assigned.Stand)
+	assert.Equal(t, StageAssigned, assigned.Stage)
+	retained, err := assignments.GetAssignment(ctx, session, "SAS901")
+	require.NoError(t, err)
+	assert.Equal(t, "A1", retained.Stand)
+	assert.Equal(t, StageEstimated, retained.Stage)
+
+	require.NoError(t, allocation.ReconcileUnsafeAssignments(ctx, session, "EKCH"))
+	_, err = assignments.GetAssignment(ctx, session, "SAS901")
+	require.NoError(t, err, "soft-shared estimate survives reconciliation")
+
+	// Sharing is unconditional: the estimate also survives later stage changes
+	// of the holder and resolves only at its own promotion.
+	assigned.Stage = StageConfirmed
+	updated, err := assignments.UpdateAssignment(ctx, assigned)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, updated)
+	require.NoError(t, allocation.ReconcileUnsafeAssignments(ctx, session, "EKCH"))
+	retained, err = assignments.GetAssignment(ctx, session, "SAS901")
+	require.NoError(t, err, "estimate still defers to its own promotion after the holder confirms")
+	assert.Equal(t, "A1", retained.Stand)
+	assert.Equal(t, StageEstimated, retained.Stage)
+}

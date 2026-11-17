@@ -53,7 +53,18 @@ func TestLocalStripCreationAndConnectedOnlyFindProductionStorage(t *testing.T) {
 	require.Error(t, s.CreateLocalStrip(ctx, live, "OWN", "EKBI", local))
 	// Local paper movement still requires the own plugin, but has no ES effect.
 	moving := WithWorkflowRevision(own, WorkflowRevision{StripID: stored.ID, Version: stored.Version, Definition: revision})
-	require.NoError(t, s.MoveFrontendStrip(moving, live, "LOCAL1", "ACTIVE", "OWN", "EKBI", "TWR", false, false))
+	t.Run("revisioned move without publisher", func(t *testing.T) {
+		publisher := s.publisher
+		s.SetFrontendHub(nil)
+		defer s.SetFrontendHub(publisher)
+		require.NotPanics(t, func() {
+			require.NoError(t, s.MoveFrontendStrip(moving, live, "LOCAL1", "ACTIVE", "OWN", "EKBI", "TWR", false, false))
+		})
+		moved, err := repo.GetByCallsign(ctx, live, "LOCAL1")
+		require.NoError(t, err)
+		require.Equal(t, "ACTIVE", moved.Bay)
+		require.Greater(t, moved.Version, stored.Version)
+	})
 	require.Empty(t, b.Sent())
 	require.Error(t, s.CreateManualFPL(own, live, fe.CreateManualFPLAction{Callsign: "LOCAL1"}, "OWN", "EKBI"))
 	require.Error(t, s.CreateVFRFPL(own, live, fe.CreateVFRFPLAction{Callsign: "LOCAL1"}, "OWN"))

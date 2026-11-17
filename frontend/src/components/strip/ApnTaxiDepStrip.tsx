@@ -87,7 +87,7 @@ export function ApnTaxiDepStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
@@ -132,11 +132,11 @@ export function ApnTaxiDepStrip({
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...callsignStyle }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
-          <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
+          <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined, isSelected && isTagRequest ? "black" : callsignStyle.color ?? (textWhite ? "white" : "black")) }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{callsign}</span>
           </div>
           <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
@@ -164,7 +164,7 @@ export function ApnTaxiDepStrip({
           onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
         >
           <div className="flex items-center justify-center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: BOT_H, borderBottom: showCtot && !deiceIndication ? `2px solid ${cellBorderColor}` : undefined }}>
-            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: standYellow ? "black" : getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
           </div>
           <div
             className="flex items-center justify-center overflow-hidden"
@@ -191,12 +191,12 @@ export function ApnTaxiDepStrip({
           onClick={(e) => guardValidationAction(e, () => setShowTaxiMap(true))}
         >
           <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.754vw", opacity: hasTwy ? 1 : 0.15, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.754vw", opacity: hasTwy ? 1 : 0.15, color: releasePointYellow ? "black" : getCellTextColor("release_point", controllerModifiedFields) }}>
               {hasTwy ? hpValue : "TWY"}
             </span>
           </div>
           <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.754vw", opacity: hasTwy || !hpValue ? 0.15 : 1, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+            <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.754vw", opacity: hasTwy || !hpValue ? 0.15 : 1, color: releasePointYellow ? "black" : getCellTextColor("release_point", controllerModifiedFields) }}>
               {hasTwy ? "HP" : hpValue || "HP"}
             </span>
           </div>
@@ -210,7 +210,7 @@ export function ApnTaxiDepStrip({
         >
           <div className="flex" style={{ height: HALF_H }}>
             <div className="flex items-center justify-center" style={{ flex: "2 0 0%", height: "100%" }}>
-              <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
+              <span style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: runwayYellow ? "black" : getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
             </div>
             <div style={{ flexShrink: 0, width: "2.36dvh", height: "100%", borderLeft: `1px solid ${cellBorderColor}`, borderBottom: `1px solid ${cellBorderColor}` }} />
           </div>

@@ -109,6 +109,7 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		}
 		ctx = services.WithWorkflowRevision(ctx, services.WorkflowRevision{StripID: move.Revision.StripID, Version: move.Revision.Version, Definition: move.Revision.Definition})
 	}
+	ctx = services.WithManualStripPlacement(ctx, move.ManualPlacement)
 	if err := client.hub.stripService.MoveFrontendStrip(ctx, identity.session, move.Callsign, move.Bay, client.GetCid(), identity.airport, identity.position, move.Clearance, move.ConfirmedRemoval); err != nil {
 		return err
 	}

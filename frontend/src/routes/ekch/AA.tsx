@@ -120,7 +120,7 @@ export default function AA() {
       }}
       onMove={(activeRef, bay, insertAfter) => {
         if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, insertAfter ?? null, bay);
-        else move(activeRef.callsign!, bay, false, false, insertAfter);
+        else move(activeRef.callsign!, bay, false, false, insertAfter, true);
       }}
       renderDragOverlay={(strip: AnyStrip) => {
         if (!isFlight(strip)) return <Strip strip={strip} width={APN_TAXI_DEP_STRIP_WIDTH} />;

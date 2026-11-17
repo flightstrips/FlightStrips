@@ -1939,7 +1939,7 @@ func (hub *Hub) Run(ctx context.Context) {
 			hub.clients[client] = true
 			hub.OnRegister(client)
 		case client := <-hub.snapshotRequests:
-			if hub.clients[client] { hub.OnRegisterSnapshot(ctx, client) }
+			hub.handleSnapshotRequest(ctx, client)
 		case client := <-hub.unregister:
 			if _, ok := hub.clients[client]; ok {
 				delete(hub.clients, client)
@@ -2068,9 +2068,20 @@ func (hub *Hub) publishRevisionedStrip(session int32, callsign string) {
 
 // RequestSnapshot schedules a read on the hub loop, preserving its single writer.
 func (hub *Hub) RequestSnapshot(client *Client) {
+	if client == nil || !client.snapshotRefreshPending.CompareAndSwap(false, true) {
+		return
+	}
 	select {
 	case hub.snapshotRequests <- client:
 	default:
+		client.snapshotRefreshPending.Store(false)
+	}
+}
+
+func (hub *Hub) handleSnapshotRequest(ctx context.Context, client *Client) {
+	defer client.snapshotRefreshPending.Store(false)
+	if hub.clients[client] {
+		hub.OnRegisterSnapshot(ctx, client)
 	}
 }
 

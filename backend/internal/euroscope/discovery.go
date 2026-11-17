@@ -133,6 +133,7 @@ func (hub *Hub) MembershipDiscovery(auth shared.AuthenticationService) http.Hand
 func (c *Client) boardDefinition() fe.BoardDefinition {
 	board := fe.BoardDefinition{Actions: []string{}}
 	if c.definition != nil {
+		board.TransitionAltitudeFT = int32(c.definition.Document().Geography.TransitionAltitudeFT)
 		board.DefinitionRevision = c.definition.Revision()
 		board.View = c.definition.ViewID()
 		if c.workflow != nil && c.workflow.BoardStatePolicy().Revisioned {

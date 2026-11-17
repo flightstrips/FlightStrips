@@ -61,7 +61,7 @@ func (s *boardRecoverySource) AuthorizeFrontendBoard(cid string, b events.BoardC
 	if !s.available {
 		return nil, fe.BoardDefinition{}, true, errors.New("own plugin unavailable")
 	}
-	return &models.Controller{Session: 42, Callsign: "EKCH_A_TWR", Position: "118.105"}, fe.BoardDefinition{DefinitionRevision: b.DefinitionRevision, View: "ekch", Actions: []string{"strip.move"}}, false, nil
+	return &models.Controller{Session: 42, Callsign: "EKCH_A_TWR", Position: "118.105"}, fe.BoardDefinition{DefinitionRevision: b.DefinitionRevision, View: "ekch", Actions: []string{"strip.move"}, TransitionAltitudeFT: 3000}, false, nil
 }
 func (s *boardRecoverySource) CaptureFrontendBoardBinding(cid string, b events.BoardContext) (shared.CommandBinding, error) {
 	if !s.available {
@@ -80,6 +80,7 @@ func TestSelectedBoardRetainsReadOnlySubscriptionAndResnapshotsAfterOwnLoss(t *t
 	hub.OnRegister(c)
 	initial := (<-c.send).(fe.BoundMessage).Message.(fe.InitialEvent)
 	require.False(t, initial.ReadOnly)
+	require.Equal(t, int32(3000), initial.TransitionAltitude)
 	source.available = false
 	hub.handlePluginMembershipDisconnected(cidDisconnectMessage{cid: "1234567", session: 42, instance: "own", membership: "member"})
 	require.Equal(t, int32(42), c.GetSession())
@@ -89,6 +90,7 @@ func TestSelectedBoardRetainsReadOnlySubscriptionAndResnapshotsAfterOwnLoss(t *t
 	hub.retryPendingInitializations(t.Context())
 	replacement := (<-c.send).(fe.BoundMessage).Message.(fe.InitialEvent)
 	require.True(t, replacement.ReadOnly)
+	require.Equal(t, int32(3000), replacement.TransitionAltitude)
 	require.False(t, replacement.OwnPluginReady)
 	require.Equal(t, initial.Definition, replacement.Definition)
 	require.Equal(t, int32(42), replacement.SessionID)

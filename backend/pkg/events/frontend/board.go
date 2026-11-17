@@ -33,12 +33,13 @@ func (b BoundMessage) Marshal() ([]byte, error) {
 // Actions come from the bound workflow, service flags from the selected definition.
 // Readiness and observer state belong to each own membership, not this catalog.
 type BoardDefinition struct {
-	Runways            []string            `json:"runways,omitempty"`
-	BoardState         *StripBoardSettings `json:"board_state,omitempty"`
-	DefinitionRevision string              `json:"definition_revision"`
-	View               string              `json:"view"`
-	Actions            []string            `json:"actions"`
-	Capabilities       BoardCapabilities   `json:"capabilities"`
+	TransitionAltitudeFT int32               `json:"transition_altitude_ft"`
+	Runways              []string            `json:"runways,omitempty"`
+	BoardState           *StripBoardSettings `json:"board_state,omitempty"`
+	DefinitionRevision   string              `json:"definition_revision"`
+	View                 string              `json:"view"`
+	Actions              []string            `json:"actions"`
+	Capabilities         BoardCapabilities   `json:"capabilities"`
 }
 
 type BoardCapabilities struct {

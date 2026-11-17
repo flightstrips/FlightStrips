@@ -48,6 +48,33 @@ func TestAMANFlightSequenceDispositionJSONReplaysDeterministically(t *testing.T)
 	}
 }
 
+func TestAMANFlightGroundBoundaryPersistsAndRequiresUTC(t *testing.T) {
+	now := time.Date(2026, 11, 16, 19, 0, 0, 0, time.UTC)
+	flight := validFlight(now)
+	if err := flight.Validate(); err != nil {
+		t.Fatalf("legacy flight without ground boundary: %v", err)
+	}
+	flight.LastGroundedAt = &now
+	wire, err := json.Marshal(flight)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored AMANFlight
+	if err := json.Unmarshal(wire, &restored); err != nil {
+		t.Fatal(err)
+	}
+	if restored.LastGroundedAt == nil || !restored.LastGroundedAt.Equal(now) {
+		t.Fatalf("ground boundary did not survive persistence: %v", restored.LastGroundedAt)
+	}
+	if err := restored.Validate(); err != nil {
+		t.Fatalf("restored flight: %v", err)
+	}
+	for _, invalid := range []time.Time{{}, now.In(time.FixedZone("local", 3600))} {
+		flight.LastGroundedAt = &invalid
+		assertInvalidArgument(t, flight.Validate())
+	}
+}
+
 func TestSequenceDispositionValuesAndDefault(t *testing.T) {
 	for _, valid := range []SequenceDisposition{SequenceDispositionActive, SequenceDispositionDesequenced} {
 		if !valid.Valid() {

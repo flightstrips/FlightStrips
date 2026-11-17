@@ -72,6 +72,15 @@ describe("AMAN pre-merge smoke: publisher → event handler → store → worksp
     }
   });
 
+  it("shows a formerly landed flight when the backend republishes it after reconnect", () => {
+    const {store, emit} = workspace("landed_before_reconnect");
+    expect(screen.queryByTestId("operational-marker-WZZ2105")).not.toBeInTheDocument();
+    emit(EventType.FrontendAMANState, scenario("airborne_after_reconnect"));
+    expect(store.getState().amanError).toBeNull();
+    expect(store.getState().amanState?.flights.find((flight) => flight.callsign === "WZZ2105")).toMatchObject({lifecycle_state: "unstable"});
+    expect(screen.getByTestId("operational-marker-WZZ2105")).toBeInTheDocument();
+  });
+
   it.each([
     {name: "swap_freeze_manual", reason: "A manual freeze protects this aircraft."},
     {name: "swap_freeze_tma", reason: "A TMA freeze protects this aircraft"},

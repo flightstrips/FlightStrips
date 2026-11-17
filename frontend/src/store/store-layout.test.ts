@@ -187,6 +187,38 @@ describe("manual companion layout behavior", () => {
   });
   afterEach(() => { store.dispose(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
+  it.each(["none", "transfer", "tag request"])("reconciles retained selection with a snapshot containing %s", kind => {
+    const board = {session_id: 1, airport: "EKCH", environment: "LIVE", instance_id: "own", membership_id: "member", transport_generation: "1", generation: "1", definition_revision: "revision", subscription_id: "old"};
+    const snapshot = {...initialEvent("AD"), session_id: 1, board, strips: [foreignStrip()]};
+    client._emit(EventType.FrontendInitial, snapshot);
+    store.getState().selectStrip("SAS123");
+    client._emit(EventType.FrontendDisconnect, {board, read_only: true});
+    expect(store.getState().selectedCallsign).toBe("SAS123");
+    const coordinations = kind === "none" ? [] : [{callsign: "SAS123", from: "EKCH_A_GND", to: "EKCH_C_GND", is_tag_request: kind === "tag request"}];
+    client._emit(EventType.FrontendInitial, {...snapshot, board: {...board, subscription_id: "new"}, coordinations});
+    expect(store.getState().selectedCallsign).toBe(kind === "transfer" ? null : "SAS123");
+    expect(client.send).not.toHaveBeenCalled();
+  });
+
+  it("preserves a manual working view and surviving selection while accepting authoritative replacement data", () => {
+    const board = {session_id: 1, airport: "EKCH", environment: "LIVE", instance_id: "own", membership_id: "member", transport_generation: "1", generation: "1", definition_revision: "revision", subscription_id: "old"};
+    const snapshot = {...initialEvent("AD"), session_id: 1, board, strips: [foreignStrip()]};
+    client._emit(EventType.FrontendInitial, snapshot);
+    store.getState().setDisplayedLayout("TWTE");
+    store.setState({selectedCallsign: "SAS123", validationDialogCallsign: "SAS123"});
+    client._emit(EventType.FrontendDisconnect, {board, read_only: true});
+    expect(store.getState()).toMatchObject({readOnly: true, displayedLayout: "TWTE", selectedCallsign: "SAS123"});
+    client._emit(EventType.FrontendInitial, {...snapshot, board: {...board, generation: "2", subscription_id: "new"}, strips: [{...foreignStrip(), owner: "NEW_OWNER"}]});
+    expect(store.getState()).toMatchObject({readOnly: false, displayedLayout: "TWTE", selectedCallsign: "SAS123", validationDialogCallsign: "SAS123"});
+    expect(store.getState().strips[0].owner).toBe("NEW_OWNER");
+    expect(client.send).not.toHaveBeenCalled();
+    client._emit(EventType.FrontendInitial, {...snapshot, strips: []});
+    expect(store.getState().selectedCallsign).toBeNull();
+    store.setState({selectedCallsign: "SAS123"});
+    client._emit(EventType.FrontendInitial, {...snapshot, board: {...board, instance_id: "different-plugin"}});
+    expect(store.getState().selectedCallsign).toBeNull();
+  });
+
   it("automatically opens the SEQ PLN scope from the server recommendation", () => {
     client._emit(EventType.FrontendInitial, initialEvent("SEQPLN"));
 

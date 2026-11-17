@@ -19,6 +19,7 @@ import (
 // A physical transport owns authentication and one writer. Only its logical
 // memberships enter the operational hub registry or refresh controller rows.
 type pluginTransport struct {
+	connectionLogAttrs []any // immutable physical identity, retained through teardown
 	root             *Client
 	instance         string
 	generation       uint64

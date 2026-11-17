@@ -15,12 +15,19 @@ import (
 )
 
 var (
-	once sync.Once
-	inst *instruments
+	once                   sync.Once
+	inst                   *instruments
+	connectionEventSources = []string{"frontend", "euroscope", "alb", "other"}
+	connectionEventNames   = []string{
+		"opened", "closed", "normal_close", "unexpected_close", "read_timeout", "write_failed",
+		"authentication_failed", "admission_failed", "client_stage_authenticating", "client_stage_synchronizing",
+		"client_stage_ready", "client_stage_waiting_for_plugin", "client_stage_other", "master_assigned", "master_cleared", "other",
+	}
 )
 
 type instruments struct {
 	activeConnections         metric.Int64UpDownCounter
+	connectionEvents          metric.Int64Counter
 	activeClients             metric.Int64UpDownCounter
 	activeMasterClients       metric.Int64UpDownCounter
 	messagesReceived          metric.Int64Counter
@@ -98,6 +105,12 @@ func get() *instruments {
 			metric.WithDescription("Active WebSocket connections"),
 			metric.WithUnit("{connection}"),
 		)
+		connectionEvents, _ := meter.Int64Counter("websocket.connection.events", metric.WithDescription("Physical connection lifecycle and bounded client recovery stages"), metric.WithUnit("{event}"))
+		for _, source := range connectionEventSources {
+			for _, event := range connectionEventNames {
+				connectionEvents.Add(context.Background(), 0, metric.WithAttributes(attribute.String("source", source), attribute.String("event", event)))
+			}
+		}
 		activeClients, _ := meter.Int64UpDownCounter(
 			"websocket.clients.active",
 			metric.WithDescription("Active session-bound client connections by callsign"),
@@ -317,6 +330,7 @@ func get() *instruments {
 		inst = &instruments{
 			amanPredictionFilter: amanPredictionFilter, amanGuidanceChanges: amanGuidanceChanges, amanTargetMovement: amanTargetMovement,
 			activeConnections:         activeConnections,
+			connectionEvents:          connectionEvents,
 			activeClients:             activeClients,
 			activeMasterClients:       activeMasterClients,
 			messagesReceived:          messagesReceived,
@@ -570,6 +584,18 @@ func ConnectionOpened(ctx context.Context, sessionName, airport, source, callsig
 	)
 }
 
+// InitializeConnectionEvents creates zero baselines before accepting connections.
+func InitializeConnectionEvents() {
+	get()
+}
+
+// RecordConnectionEvent keeps connection IDs, CIDs and Ray IDs out of metric labels.
+func RecordConnectionEvent(ctx context.Context, source, event string) {
+	source = fixedLabel(source, connectionEventSources...)
+	event = fixedLabel(event, connectionEventNames...)
+	get().connectionEvents.Add(ctx, 1, metric.WithAttributes(attribute.String("source", source), attribute.String("event", event)))
+}
+
 func ConnectionClosed(ctx context.Context, sessionName, airport, source, callsign, version string) {
 	get().activeConnections.Add(ctx, -1,
 		sessionAttributes(sessionName, airport,
@@ -597,6 +623,7 @@ func MasterClientAssigned(ctx context.Context, sessionName, airport, callsign, v
 	if callsign == "" {
 		return
 	}
+	RecordConnectionEvent(ctx, "euroscope", "master_assigned")
 
 	get().activeMasterClients.Add(ctx, 1,
 		sessionAttributes(sessionName, airport,
@@ -611,6 +638,7 @@ func MasterClientCleared(ctx context.Context, sessionName, airport, callsign, ve
 	if callsign == "" {
 		return
 	}
+	RecordConnectionEvent(ctx, "euroscope", "master_cleared")
 
 	get().activeMasterClients.Add(ctx, -1,
 		sessionAttributes(sessionName, airport,

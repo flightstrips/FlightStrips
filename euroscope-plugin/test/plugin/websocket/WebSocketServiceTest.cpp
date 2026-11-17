@@ -895,7 +895,7 @@ TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterConditionsLost_NextConnectUse
     svc->OnTimer(1);
     const auto delay = svc->GetDelaySecondsRemaining();
     ASSERT_TRUE(delay.has_value());
-    EXPECT_GE(*delay, 4);
+    EXPECT_GE(*delay, 2); // 2.5–5 seconds of jitter, displayed as whole seconds.
     EXPECT_LE(*delay, 5);
 }
 
@@ -911,7 +911,7 @@ TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterServerDrop_ConnectUsesFastDel
     svc->OnTimer(1);
     const auto delay = svc->GetDelaySecondsRemaining();
     ASSERT_TRUE(delay.has_value());
-    EXPECT_GE(*delay, 4);
+    EXPECT_GE(*delay, 2); // 2.5–5 seconds of jitter, displayed as whole seconds.
     EXPECT_LE(*delay, 5);
 }
 

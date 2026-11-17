@@ -17,6 +17,40 @@ func resetInstrumentsForTest() {
 	inst = nil
 }
 
+func TestConnectionFailureLabelsCannotIntroduceUnboundedCardinality(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previous := otel.GetMeterProvider()
+	otel.SetMeterProvider(provider)
+	resetInstrumentsForTest()
+	t.Cleanup(func() {
+		otel.SetMeterProvider(previous)
+		resetInstrumentsForTest()
+		_ = provider.Shutdown(context.Background())
+	})
+	RecordConnectionEvent(context.Background(), "frontend", "read_timeout")
+	RecordConnectionEvent(context.Background(), "cid-123456", "ray-unique")
+	rm := collectMetrics(t, reader)
+	if got := findInt64MetricValue(t, rm, "websocket.connection.events", map[string]string{"source": "frontend", "event": "read_timeout"}); got != 1 {
+		t.Fatalf("failure count = %d", got)
+	}
+	if got := findInt64MetricValue(t, rm, "websocket.connection.events", map[string]string{"source": "other", "event": "other"}); got != 1 {
+		t.Fatalf("bounded fallback count = %d", got)
+	}
+	for _, scope := range rm.ScopeMetrics {
+		for _, metric := range scope.Metrics {
+			if metric.Name != "websocket.connection.events" {
+				continue
+			}
+			for _, point := range metric.Data.(metricdata.Sum[int64]).DataPoints {
+				if point.Attributes.Len() != 2 {
+					t.Fatalf("unexpected diagnostic metric labels: %v", point.Attributes)
+				}
+			}
+		}
+	}
+}
+
 func collectMetrics(t *testing.T, reader *sdkmetric.ManualReader) metricdata.ResourceMetrics {
 	t.Helper()
 

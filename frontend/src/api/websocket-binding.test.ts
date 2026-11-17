@@ -30,6 +30,46 @@ async function connect() {
 }
 
 describe("exact board subscription transport", () => {
+  it("makes a silent ready connection read-only, ignores stale snapshots and never replays sent actions", async () => {
+    vi.useFakeTimers();
+    const {client, socket, board} = await connect();
+    client.on(EventType.FrontendInitial, event => client.setReadOnly(event.read_only ?? false));
+    const snapshot = {type: EventType.FrontendInitial, board, session_id: 1, airport: "EKCH", definition: {definition_revision: "revision", view: "ekch"}};
+    socket.emit(snapshot);
+    socket.emit({type: "connection_health", protocol: 1, connection_id: "first", waiting_for_plugin: false});
+    expect(client.send({type: ActionType.FrontendMarked, callsign: "SAS123", marked: true})).toBe(true);
+    const invalidated = vi.fn();
+    client.onInvalidated(invalidated);
+    await vi.advanceTimersByTimeAsync(40_000);
+    expect(invalidated).toHaveBeenCalledOnce();
+    expect(client.send({type: ActionType.FrontendMarked, callsign: "SAS123", marked: true})).toBe(false);
+    await vi.advanceTimersByTimeAsync(2_000);
+    const replacement = Socket.instances.at(-1)!;
+    expect(replacement).not.toBe(socket);
+    replacement.onopen!();
+    expect(replacement.sent.map(event => event.type)).toEqual([ActionType.FrontendToken]);
+    socket.emit(snapshot);
+    replacement.emit(snapshot); // Previous subscription cannot unlock this socket.
+    replacement.emit({type: "connection_health", protocol: 1, connection_id: "second", waiting_for_plugin: false});
+    expect(client.send({type: ActionType.FrontendMarked, callsign: "SAS123", marked: true})).toBe(false);
+    replacement.emit({...snapshot, board: replacement.sent[0].board});
+    expect(client.send({type: ActionType.FrontendMarked, callsign: "SAS123", marked: true})).toBe(true);
+    client.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("refreshes a supported subscription without replacing the socket or granting editing permission", async () => {
+    const {client, socket, board} = await connect();
+    socket.emit({type: "connection_health", protocol: 1, connection_id: "first", waiting_for_plugin: false});
+    client.setReadOnly(false);
+    client.requestSnapshot();
+    expect(socket.sent.at(-1)).toMatchObject({type: "connection_health", request_snapshot: true});
+    expect(Socket.instances).toHaveLength(1);
+    expect(client.send({type: ActionType.FrontendMarked, callsign: "SAS123", marked: true})).toBe(false);
+    expect(socket.sent[0].board).toBe(board);
+    client.dispose();
+  });
+
   it("shares an in-flight connection and cancels an obsolete retry when connecting early", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", Socket);
@@ -46,7 +86,7 @@ describe("exact board subscription transport", () => {
     expect(Socket.instances).toHaveLength(2);
     Socket.instances[1].onopen!();
     await next;
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(29_000);
     expect(Socket.instances).toHaveLength(2);
     client.dispose();
     expect(vi.getTimerCount()).toBe(0);

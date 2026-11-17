@@ -1366,7 +1366,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     wsClient.setReadOnly?.(true);
     for (const [id, pending] of pendingFrequencyMessages) {
       clearTimeout(pending.timeout);
-      pending.resolve({type:"frequency_message_result", request_id:id, callsign:pending.callsign, submitted:false, prepared:false, applied_actions:0, cancelled:true, error:"Board context changed. Check EuroScope before sending again."});
+      pending.resolve({type:"frequency_message_result", request_id:id, callsign:pending.callsign, submitted:false, prepared:false, applied_actions:0, cancelled:true, error:"Connection changed; delivery outcome is unknown. Check EuroScope before sending again."});
     }
     pendingFrequencyMessages.clear();
     for (const pending of pendingForceAssumeRoutes.values()) {
@@ -1374,7 +1374,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       pending.reject(new Error("Board context changed"));
     }
     pendingForceAssumeRoutes.clear();
-    store.setState({connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, amanSelectedCallsign:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+    // Keep the last board, layout and passive selections visible. No command is
+    // replayed: authority and mutation continuations are invalid until resynced.
+    store.setState({connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
   };
   registrations.push(() => wsClient.onInvalidated?.(suspendBoard));
 
@@ -1391,8 +1393,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     store.setState(
       produce((state: WebSocketState) => {
         const sessionID = data.session_id ?? null;
+        const sameLogicalBoard = state.isInitialized && state.amanSessionID === sessionID &&
+          state.airport === data.airport && state.boardContext?.instance_id === data.board?.instance_id &&
+          state.boardDefinition?.definition_revision === data.definition?.definition_revision;
         if (state.amanSessionID !== sessionID || ((state.boardContext || data.board) && !sameBoard(state.boardContext ?? undefined, data.board))) {
-          state.amanSelectedCallsign = null;
+          if (!sameLogicalBoard) state.amanSelectedCallsign = null;
           state.amanEuroScopeSelectionRevision = 0;
         }
         applyAircraftSelection(state, data.aircraft_selection);
@@ -1421,6 +1426,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
           tsat: normalizeCdmTime(strip.tsat),
           ctot: normalizeCdmTime(strip.ctot),
         }));
+        if (!sameLogicalBoard || !state.strips.some(strip => strip.callsign === state.selectedCallsign)) state.selectedCallsign = null;
+        if (!sameLogicalBoard || !state.strips.some(strip => strip.callsign === state.validationDialogCallsign)) state.validationDialogCallsign = null;
         state.tacticalStrips = data.tactical_strips ?? [];
         state.position = data.me.position;
         state.identifier = data.me.identifier;
@@ -1439,7 +1446,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
         state.resetLayoutRecommendation = normalizeLayout(data.reset_layout || data.layout);
-        if (state.isInitialized && data.board && !state.observer && state.displayedLayout && (!state.ownPluginReady || retainedState && !isServerSelectableLayout(data.layout))) {
+        if (sameLogicalBoard && state.displayedLayout && !state.followRecommendedLayout) {
+          // A replacement snapshot reconciles data without discarding the
+          // controller's chosen view on the same airport/physical instance.
+        } else if (state.isInitialized && data.board && !state.observer && state.displayedLayout && (!state.ownPluginReady || retainedState && !isServerSelectableLayout(data.layout))) {
           // Own loss does not change the selected compiled board or its layout.
         } else if (MANUAL_COMPANION_LAYOUTS.has(state.displayedLayout) && !state.followRecommendedLayout) {
           // Preserve a manually opened companion board across reconnects.
@@ -1460,6 +1470,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
           transfers[coord.callsign] = { from: coord.from, to: coord.to, isTagRequest: coord.is_tag_request };
         }
         state.stripTransfers = transfers;
+        if (state.selectedCallsign && transfers[state.selectedCallsign] && !transfers[state.selectedCallsign].isTagRequest) {
+          state.selectedCallsign = null;
+        }
         state.messages = data.messages ?? [];
         state.availableSids = data.available_sids ?? [];
         state.standAssignments = data.stand_assignments ?? [];

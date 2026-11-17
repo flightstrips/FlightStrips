@@ -15,6 +15,11 @@ typedef std::function<void()> on_connected_callback;
 typedef std::function<void(const std::string&)> message_callback;
 
 namespace FlightStrips::websocket {
+    struct ConnectionTiming {
+        long heartbeatIntervalMs = 15000;
+        long pongTimeoutMs = 30000;
+        long initialResponseTimeoutMs = 30000;
+    };
     enum WebSocketStatus {
         WEBSOCKET_STATUS_DISCONNECTED,
         WEBSOCKET_STATUS_CONNECTING,
@@ -32,7 +37,7 @@ namespace FlightStrips::websocket {
 
     class WebSocket {
     public:
-        WebSocket(std::string endpoint, message_callback cb, on_connected_callback on_connected, bool textFrames = false);
+        WebSocket(std::string endpoint, message_callback cb, on_connected_callback on_connected, bool textFrames = false, ConnectionTiming timing = {});
         ~WebSocket();
 
         void Connect() const;

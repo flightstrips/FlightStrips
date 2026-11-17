@@ -75,7 +75,6 @@ export function ApnArrStrip({
   } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripFrameColor = getStripFrameColor(arrival ?? true);
   const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
-  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const [runwayOpen, setRunwayOpen] = useState(false);
@@ -95,6 +94,7 @@ export function ApnArrStrip({
 
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const manualBlue = isManual && callsignStyle.color !== "white" ? COLOR_MANUAL_BLUE : undefined;
   const runwayBg = runwayYellow
     ? COLOR_UNEXPECTED_YELLOW
     : bay === Bay.RwyArr

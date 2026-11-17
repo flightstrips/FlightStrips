@@ -6,8 +6,9 @@ import { ApnPushStrip } from "./ApnPushStrip";
 import { ApnTaxiDepStrip } from "./ApnTaxiDepStrip";
 import { FinalArrStrip } from "./FinalArrStrip";
 import { GroundStrip } from "./GroundStrip";
+import { HalfStrip } from "./HalfStrip";
 import { TwyDepStrip } from "./TwyDepStrip";
-import { COLOR_CLOSED_RWY, SELECTION_COLOR } from "./shared";
+import { COLOR_CLOSED_RWY, COLOR_MANUAL_BLUE, SELECTION_COLOR } from "./shared";
 
 const state = vi.hoisted(() => ({
   selectedCallsign: null as string | null,
@@ -67,5 +68,35 @@ describe.each(Object.entries(layouts))("%s tag request contrast", (_, Component)
     act(() => vi.advanceTimersByTime(1000));
     expect(column.style.color).toBe("white");
     expect(row.style.color).toBe("black");
+  });
+});
+
+describe.each(Object.entries({ ApnArrStrip, ApnPushStrip, HalfStrip }))("%s manual tag request contrast", (_, Component) => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    state.selectedCallsign = null;
+    state.strips = [];
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it.each([
+    { name: "closed runway", runway: "04L", pdcStatus: "NONE" as const },
+    { name: "PDC clearance", runway: undefined, pdcStatus: "CLEARED" as const },
+  ])("keeps manual callsigns white on the $name background in both blink phases", ({ runway, pdcStatus }) => {
+    render(<Component callsign="SAS123" isManual runway={runway} bay={Bay.Cleared} pdcStatus={pdcStatus} />);
+    const callsign = screen.getByText("SAS123");
+    expect(callsign.style.color).not.toBe(COLOR_MANUAL_BLUE);
+    expect(getComputedStyle(callsign).color).toBe("rgb(255, 255, 255)");
+    act(() => vi.advanceTimersByTime(1000));
+    expect(callsign.style.color).not.toBe(COLOR_MANUAL_BLUE);
+    expect(getComputedStyle(callsign).color).toBe("rgb(255, 255, 255)");
+  });
+
+  it("preserves manual blue on a light callsign background", () => {
+    render(<Component callsign="SAS123" isManual bay={Bay.Cleared} />);
+    const callsign = screen.getByText("SAS123");
+    expect(callsign.style.color).toBe(COLOR_MANUAL_BLUE);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(callsign.style.color).toBe(COLOR_MANUAL_BLUE);
   });
 });

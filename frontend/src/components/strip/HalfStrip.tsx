@@ -76,7 +76,6 @@ export function HalfStrip({
   const baseCellBorderColor = isFreeText ? HALF_CELL_BASE : stripFrameColor;
 
   const cellBorderColor = getCellBorderColor(marked, baseCellBorderColor);
-  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
 
   const label = VARIANT_LABEL[halfStripVariant];
 
@@ -84,6 +83,7 @@ export function HalfStrip({
   const darkBg = ["MESSAGES", "MEM-AID", "LAND-START"].includes(halfStripVariant);
   const normalBackground = isFreeText ? HALF_STRIP_VARIANT_BG[halfStripVariant] : getStripBg(pdcStatus, arrival, bay);
   const { bg, textWhite, callsignStyle } = useStripBg(runway, normalBackground, isTagRequest, false, pdcStatus, bay);
+  const manualBlue = isManual && callsignStyle.color !== "white" ? COLOR_MANUAL_BLUE : undefined;
   const textColor = (darkBg || textWhite) ? "text-white" : "text-black";
 
   return (

@@ -105,11 +105,11 @@ export function ApnPushStrip({
   } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripFrameColor = getStripFrameColor(arrival ?? false);
   const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
-  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const manualBlue = isManual && callsignStyle.color !== "white" ? COLOR_MANUAL_BLUE : undefined;
   const isTwr = useIsTwr();
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);

@@ -83,14 +83,17 @@ func (s *DepartureLifecycleService) SetStandPublisher(publisher observedStandPub
 	s.standPublisher = publisher
 }
 
-// CancelDeparture cancels transient wrong-stand state when a departure
-// disappears from the live feed.
+// CancelDeparture cancels transient state and starts bounded stand retention
+// when a departure disappears from both the live feed and EuroScope.
 func (s *DepartureLifecycleService) CancelDeparture(ctx context.Context, session int32, callsign string) error {
 	s.clearUnassignedStandWarning(session, callsign)
 	if err := s.CancelPilotDeparture(ctx, session, callsign); err != nil {
 		return err
 	}
-	return s.cancelWrongStandEpisode(ctx, session, callsign)
+	if err := s.cancelWrongStandEpisode(ctx, session, callsign); err != nil {
+		return err
+	}
+	return s.expireDisconnectedDepartureBlock(ctx, session, callsign)
 }
 
 type lifecycleSessionLister interface {
@@ -215,6 +218,11 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 		}
 		return s.revalidateFacts(ctx, session, strip, flight)
 	}
+	// A prefile left behind after the pilot disconnects is not live occupancy
+	// evidence either. Its old departure block must use the same bounded grace.
+	if err := s.expireDisconnectedDepartureBlock(ctx, session, strip.Callsign); err != nil {
+		return err
+	}
 	if !s.allowPrefiles {
 		return s.releaseOfflinePrefileReservation(ctx, session, strip.Callsign)
 	}
@@ -286,11 +294,16 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 			slog.String("callsign", strip.Callsign),
 			slog.Float64("latitude", flight.Latitude),
 			slog.Float64("longitude", flight.Longitude))
-		if existing != nil && existing.Stage == StageDepartureBlock && validDeparturePosition(flight.Latitude, flight.Longitude) {
-			// The aircraft has positively moved away from every configured stand.
-			// Its previous stand is physically free now; do not retain a nil-expiry
-			// departure block until the EuroScope strip eventually disappears.
-			return false, s.allocations.ReleaseAssignmentRetainingStand(ctx, existing)
+		if existing != nil && existing.Stage == StageDepartureBlock {
+			if validDeparturePosition(flight.Latitude, flight.Longitude) {
+				// The aircraft has positively moved away from every configured stand.
+				// Its previous stand is physically free now; do not retain a nil-expiry
+				// departure block until the EuroScope strip eventually disappears.
+				return false, s.allocations.ReleaseAssignmentRetainingStand(ctx, existing)
+			}
+			// A live aircraft with temporarily missing coordinates is still online.
+			// Cancel disconnect expiry without treating missing data as movement.
+			return false, s.clearDepartureBlockExpiry(ctx, existing)
 		}
 		if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
 			return false, err
@@ -309,10 +322,20 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	awaitingReason := wrongStandAwaitingPrefix + observed.Name
 	if existing != nil && existing.ConflictReason != nil {
 		switch *existing.ConflictReason {
-		case pendingReason:
+		case pendingReason, awaitingReason:
+			// An unchanged mismatch is still a live observation. Cancel any
+			// disconnect expiry before taking either warning fast path.
+			if existing.ExpiresAt != nil {
+				if err := s.clearDepartureBlockExpiry(ctx, existing); err != nil {
+					return false, err
+				}
+				existing.ExpiresAt = nil
+				existing.Version++ // Warning delivery must use the persisted version.
+			}
+			if *existing.ConflictReason == awaitingReason {
+				return false, s.deliverWrongStandWarning(ctx, existing)
+			}
 			return false, nil
-		case awaitingReason:
-			return false, s.deliverWrongStandWarning(ctx, existing)
 		}
 	}
 
@@ -771,13 +794,18 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 			return err
 		}
 	}
-	if assignment.Stage == StageDepartureBlock && s.stripIsAtAssignedStand(strip, assignment.Stand) &&
+	// A retained strip's last gate position is not live occupancy evidence once
+	// both sources disappear. Preserve the disconnect deadline until a fresh
+	// feed observation or EuroScope reconnect clears it.
+	disconnectedBlock := assignment.Direction == string(sat.AssignmentDirectionDeparture) &&
+		assignment.Stage == StageDepartureBlock && strip.EuroscopeSeenAt == nil && assignment.ExpiresAt != nil
+	if !disconnectedBlock && assignment.Stage == StageDepartureBlock && s.stripIsAtAssignedStand(strip, assignment.Stand) &&
 		(assignment.ConflictReason == nil ||
 			(!strings.HasPrefix(*assignment.ConflictReason, wrongStandPendingPrefix) &&
 				!strings.HasPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix))) {
 		return s.clearDepartureBlockExpiry(ctx, assignment)
 	}
-	if assignment.ConflictReason != nil &&
+	if !disconnectedBlock && assignment.ConflictReason != nil &&
 		(strings.HasPrefix(*assignment.ConflictReason, wrongStandPendingPrefix) ||
 			strings.HasPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix)) {
 		// Clear deadlines written by older versions too. A restart must retain

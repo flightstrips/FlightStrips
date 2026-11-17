@@ -401,10 +401,17 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			}
 			// Prefiles may reserve a stand before EuroScope sees the flight, but
 			// an online VATSIM record alone must not create a departure block.
-			// EuroScope supplies the operational strip that makes the block
-			// controller-visible and authoritative.
+			// An existing block must still consume fresh positions after a retained
+			// disconnect clears EuroScope presence, so movement can free its stand.
 			prefileBeforeEuroscope := !flight.Online() && strip.EuroscopeSeenAt == nil
 			onlineAfterEuroscope := flight.Online() && strip.EuroscopeSeenAt != nil
+			if flight.Online() && strip.EuroscopeSeenAt == nil {
+				assignment, err := r.assignments.GetAssignment(ctx, session.ID, strip.Callsign)
+				if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+					return fmt.Errorf("load retained departure assignment for %s: %w", strip.Callsign, err)
+				}
+				onlineAfterEuroscope = assignment != nil && assignment.Direction == "DEPARTURE" && assignment.Stage == "DEPARTURE_BLOCK"
+			}
 			if prefileBeforeEuroscope || onlineAfterEuroscope {
 				if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight)); err != nil {
 					return err

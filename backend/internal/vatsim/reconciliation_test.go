@@ -584,6 +584,39 @@ func TestReconcileRequiresEuroscopeStripBeforeOnlineDepartureBlock(t *testing.T)
 		"the online departure may enter the block path after EuroScope has supplied the strip, while an ES-owned prefile must not reset that state")
 }
 
+func TestReconcileContinuesRetainedDepartureBlockWithoutEuroscope(t *testing.T) {
+	for _, tc := range []struct {
+		name, direction, stage string
+		wantProcessed          bool
+	}{
+		{name: "existing departure block", direction: "DEPARTURE", stage: "DEPARTURE_BLOCK", wantProcessed: true},
+		{name: "no assignment"},
+		{name: "offline reservation", direction: "DEPARTURE", stage: "RESERVED"},
+		{name: "arrival reservation", direction: "ARRIVAL", stage: "ESTIMATED"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			now := time.Date(2026, 11, 16, 19, 0, 0, 0, time.UTC)
+			strip := &models.Strip{Session: 7, Callsign: "SAS101", Origin: "EKCH", Destination: "EGLL", Bay: "NOT_CLEARED"}
+			cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: strip.Callsign, State: FlightStateOnline, LastUpdated: now, Latitude: 56, Longitude: 13, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL"}})
+			assignments := reconciliationTestAssignments{assignments: map[string]*models.StandAssignment{}}
+			if tc.stage != "" {
+				assignments.assignments[assignmentKey(7, strip.Callsign)] = &models.StandAssignment{SessionID: 7, Callsign: strip.Callsign, Direction: tc.direction, Stage: tc.stage, Stand: "A1"}
+			}
+			strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {strip}}}
+			lifecycle := &reconciliationTestDepartureLifecycle{}
+			reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, assignments, nil, time.Second)
+			reconciler.lifecycle = lifecycle
+			require.NoError(t, reconciler.Reconcile(context.Background()))
+			assert.Equal(t, 56.0, *strip.PositionLatitude)
+			if tc.wantProcessed {
+				assert.Equal(t, []string{strip.Callsign}, lifecycle.processed, "fresh movement must release an existing block even after EuroScope presence clears")
+			} else {
+				assert.Empty(t, lifecycle.processed, "API-only flights must not create a new departure block")
+			}
+		})
+	}
+}
+
 func TestReconcileFollowsOpenedPilotDepartureBeforeEuroscope(t *testing.T) {
 	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
 	cache := newReconciliationTestCache(now,

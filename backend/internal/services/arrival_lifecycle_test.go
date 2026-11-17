@@ -988,6 +988,42 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, StageConfirmed, retained.Stage, "the lifecycle still advances without changing the stand")
 	})
 
+	t.Run("estimate first seen at the airport writes its stand to the strip", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(45 * time.Minute)
+		clock.set(arrivalETA.Add(-45 * time.Minute))
+		seedTestArrivalStrip(t, queries, session, "SAS924")
+		setArrivalETA(t, strips, session, "SAS924", arrivalETA)
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS924"), arrivalFlight("SAS924", 1)))
+		estimate, err := assignments.GetAssignment(ctx, session, "SAS924")
+		require.NoError(t, err)
+		require.Equal(t, StageEstimated, estimate.Stage)
+		require.Empty(t, valueString(loadStrip(t, strips, session, "SAS924").Stand), "estimates keep the strip stand empty")
+
+		var published []StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = append(published, result)
+			return nil
+		})
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS924", posPtr(55.6285306), posPtr(12.644625), altPtr(0), "TAXI", nil)
+		require.NoError(t, err)
+		clock.advance(5 * time.Minute)
+		arrived := arrivalFlight("SAS924", 2)
+		arrived.Online = true
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS924"), arrived))
+
+		confirmed, err := assignments.GetAssignment(ctx, session, "SAS924")
+		require.NoError(t, err)
+		assert.Equal(t, StageConfirmed, confirmed.Stage)
+		assert.Equal(t, estimate.Stand, confirmed.Stand, "the airport-area guard keeps the estimated stand")
+		assert.Equal(t, estimate.Stand, valueString(loadStrip(t, strips, session, "SAS924").Stand), "promotion out of ESTIMATED must write the strip stand")
+		require.Len(t, published, 1)
+		assert.True(t, published[0].StandChanged)
+		assert.True(t, published[0].NotifyEuroscope)
+		assert.Equal(t, confirmed.Version, published[0].Assignment.Version)
+	})
+
 	t.Run("arrival at the airport refreshes fallback retention without moving stand", func(t *testing.T) {
 		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		var published []StandAllocationResult

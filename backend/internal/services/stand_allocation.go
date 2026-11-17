@@ -366,6 +366,75 @@ func (s *StandAllocationService) releaseAssignment(ctx context.Context, assignme
 	return nil
 }
 
+// PromoteEstimatedArrivalInPlace advances an ESTIMATED arrival to a later
+// stage on its current stand without reselecting it. Estimates keep the strip
+// stand empty, so the assignment and the strip stand are written in one
+// transaction; the stand reaches controllers and EuroScope only after commit.
+// existing must be the persisted assignment that updated was derived from.
+func (s *StandAllocationService) PromoteEstimatedArrivalInPlace(ctx context.Context, existing *models.StandAssignment, updated models.StandAssignment) error {
+	if existing == nil || existing.SessionID <= 0 || strings.TrimSpace(existing.Callsign) == "" || strings.TrimSpace(updated.Stand) == "" {
+		return errors.New("estimated arrival promotion requires an assigned stand")
+	}
+	return retrySerializableOperation(ctx, func() error {
+		tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+		if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", existing.SessionID); err != nil {
+			return err
+		}
+		txStrips := s.strips.WithTx(tx)
+		txAssignments := s.assignments.WithTx(tx)
+		strip, err := txStrips.LockByCallsign(ctx, existing.SessionID, existing.Callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		currentAssignments, err := txAssignments.LockAssignments(ctx, existing.SessionID, existing.Callsign)
+		if err != nil {
+			return err
+		}
+		var current *models.StandAssignment
+		for _, candidate := range currentAssignments {
+			if candidate != nil && strings.EqualFold(candidate.Callsign, existing.Callsign) {
+				current = candidate
+				break
+			}
+		}
+		if current == nil || current.ID != existing.ID || current.Version != existing.Version {
+			return errAllocationVersionConflict
+		}
+		next := updated
+		affected, err := txAssignments.UpdateAssignment(ctx, &next)
+		if err != nil {
+			return err
+		}
+		if affected != 1 {
+			return errAllocationVersionConflict
+		}
+		next.Version++
+		standChanged := strip != nil && (strip.Stand == nil || !strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(next.Stand)))
+		if standChanged {
+			stand := next.Stand
+			written, err := txStrips.UpdateStand(ctx, existing.SessionID, existing.Callsign, &stand, nil)
+			if err != nil {
+				return err
+			}
+			if written != 1 {
+				return errAllocationVersionConflict
+			}
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		s.publishCommitted(ctx, StandAllocationResult{
+			Assignment: next, StandChanged: standChanged,
+			NotifyEuroscope: standChanged || next.Stage == StageConfirmed,
+		})
+		return nil
+	})
+}
+
 // ReconcileUnsafeAssignments removes automatic planning reservations that
 // overlap a higher-priority assignment persisted by an older deployment. It
 // never moves controller-owned or physically observed aircraft; conflicts

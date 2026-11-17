@@ -681,6 +681,17 @@ func (s *ArrivalLifecycleService) updateArrivalAtAirport(ctx context.Context, ex
 	updated.Stage = stage
 	updated.ExpiresAt = expiresAt
 	updated.ObservedStand = observedStand
+	if stageChanged && existing.Stage == StageEstimated {
+		// An estimate never wrote the strip stand. The airport-area guard still
+		// keeps the stand fixed, so write it to the strip with the promotion
+		// instead of reselecting through the allocator.
+		if err := s.allocations.PromoteEstimatedArrivalInPlace(ctx, existing, updated); err != nil {
+			return err
+		}
+		slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
+		metrics.RecordSATLifecycleEvent(ctx, "stage_promotion", existing.Stage+"_to_"+stage, existing.Source)
+		return nil
+	}
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {
 		return err

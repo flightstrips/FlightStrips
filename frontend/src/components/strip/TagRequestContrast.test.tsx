@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
   localMarked: {},
   standAssignments: [],
   displayedLayout: "AA",
+  hasTagRequest: true,
 }));
 
 vi.mock("@/store/store-hooks", () => ({
@@ -24,7 +25,7 @@ vi.mock("@/store/store-hooks", () => ({
   useSelectStrip: () => vi.fn(),
   useTagRequestArmed: () => false,
   useMarkArmed: () => false,
-  useStripTransfers: () => ({ SAS123: { from: "121.730", to: "118.580", isTagRequest: true } }),
+  useStripTransfers: () => state.hasTagRequest ? { SAS123: { from: "121.730", to: "118.580", isTagRequest: true } } : {},
   useRunwaySetup: () => ({ runway_status: { "04L-22R": "CLOSED" } }),
   useIsTwr: () => false,
   useTransitionAltitude: () => 5000,
@@ -49,6 +50,7 @@ const layouts = { ApnArrStrip, ApnPushStrip, ApnTaxiDepStrip, FinalArrStrip, Gro
 describe.each(Object.entries(layouts))("%s tag request contrast", (_, Component) => {
   beforeEach(() => {
     vi.useFakeTimers();
+    state.hasTagRequest = true;
     state.selectedCallsign = "SAS123";
     state.strips = [{ callsign: "SAS123", validation_status: {
       issue_type: "STAND ASSIGNMENT", message: "Advisory", owning_position: "121.730", active: true, activation_key: "key",
@@ -74,6 +76,7 @@ describe.each(Object.entries(layouts))("%s tag request contrast", (_, Component)
 describe.each(Object.entries({ ApnArrStrip, ApnPushStrip, HalfStrip }))("%s manual tag request contrast", (_, Component) => {
   beforeEach(() => {
     vi.useFakeTimers();
+    state.hasTagRequest = true;
     state.selectedCallsign = null;
     state.strips = [];
   });
@@ -98,5 +101,78 @@ describe.each(Object.entries({ ApnArrStrip, ApnPushStrip, HalfStrip }))("%s manu
     expect(callsign.style.color).toBe(COLOR_MANUAL_BLUE);
     act(() => vi.advanceTimersByTime(1000));
     expect(callsign.style.color).toBe(COLOR_MANUAL_BLUE);
+  });
+});
+
+describe.each(Object.entries({ ApnArrStrip, ApnPushStrip, HalfStrip }))("%s callsign contrast without a request", (name, Component) => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    state.selectedCallsign = null;
+    state.strips = [];
+    state.hasTagRequest = false;
+  });
+  afterEach(() => vi.useRealTimers());
+
+  // HalfStrip uses a Tailwind class without a request; unit tests do not load Tailwind.
+  // The browser regression checks its resolved foreground as well.
+  const expectWhite = (callsign: HTMLElement) => {
+    if (name === "HalfStrip" && !state.hasTagRequest) {
+      expect(callsign).toHaveClass("text-white");
+      expect(callsign.style.color).toBe("");
+    } else {
+      expect(getComputedStyle(callsign).color).toBe("rgb(255, 255, 255)");
+    }
+  };
+
+  it.each([
+    { name: "closed runway", runway: "04L", pdcStatus: "NONE" as const },
+    { name: "PDC clearance", runway: undefined, pdcStatus: "CLEARED" as const },
+  ])("keeps dark $name callsigns white before, during, and after a request", ({ runway, pdcStatus }) => {
+    const props = { callsign: "SAS123", isManual: true, selectable: true, runway, bay: Bay.Cleared, pdcStatus };
+    const { rerender } = render(<Component {...props} />);
+    const callsign = screen.getByText("SAS123");
+    expectWhite(callsign);
+
+    state.hasTagRequest = true;
+    rerender(<Component {...props} />);
+    expectWhite(callsign);
+    act(() => vi.advanceTimersByTime(1000));
+    expectWhite(callsign);
+
+    state.selectedCallsign = "SAS123";
+    rerender(<Component {...props} />);
+    expect(getComputedStyle(callsign).color).toBe("rgb(0, 0, 0)");
+
+    state.selectedCallsign = null;
+    state.hasTagRequest = false;
+    rerender(<Component {...props} />);
+    expectWhite(callsign);
+    act(() => vi.advanceTimersByTime(1000));
+    expectWhite(callsign);
+  });
+
+  it.each([true, false])("keeps the light-background foreground for manual=%s with and without a request", (isManual) => {
+    const { rerender } = render(<Component callsign="SAS123" isManual={isManual} bay={Bay.Cleared} />);
+    const callsign = screen.getByText("SAS123");
+    for (const hasTagRequest of [false, true, false]) {
+      state.hasTagRequest = hasTagRequest;
+      rerender(<Component callsign="SAS123" isManual={isManual} bay={Bay.Cleared} />);
+      if (isManual) {
+        expect(callsign.style.color).toBe(COLOR_MANUAL_BLUE);
+      } else if (name === "HalfStrip" && !hasTagRequest) {
+        expect(callsign).toHaveClass("text-black");
+        expect(callsign.style.color).toBe("");
+      } else {
+        expect(getComputedStyle(callsign).color).toBe("rgb(0, 0, 0)");
+      }
+    }
+  });
+
+  it.each([
+    { runway: "04L", pdcStatus: "NONE" as const },
+    { runway: undefined, pdcStatus: "CLEARED" as const },
+  ])("keeps non-manual dark callsigns white ($pdcStatus)", ({ runway, pdcStatus }) => {
+    render(<Component callsign="SAS123" runway={runway} bay={Bay.Cleared} pdcStatus={pdcStatus} />);
+    expectWhite(screen.getByText("SAS123"));
   });
 });

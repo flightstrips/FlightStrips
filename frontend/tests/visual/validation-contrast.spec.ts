@@ -1,5 +1,49 @@
 import { expect, test } from "@playwright/test";
 
+for (const scenario of ["closed", "pdc"]) {
+  for (const validation of ["active", "inactive"]) {
+    for (const manual of [true, false]) {
+      test(`dark callsigns without a request: ${scenario}, validation=${validation}, manual=${manual}`, async ({ page }) => {
+        await page.goto(`/visual-tests/validation-contrast.html?scenario=${scenario}&request=none&validation=${validation}&manual=${manual}`);
+        for (const name of ["arrival", "pushback", "half"]) {
+          const fixture = page.getByTestId(name);
+          const callsign = fixture.getByText("SAS123", { exact: true });
+          await expect(callsign).toBeVisible();
+          const samples = await callsign.evaluate((element) => {
+            const row = element.parentElement!;
+            const frequency = row.parentElement!.querySelector<HTMLElement>(":scope > div:last-child > span");
+            const animations = row.getAnimations();
+            const sample = (time: number) => {
+              for (const animation of animations) {
+                animation.pause();
+                animation.currentTime = time;
+              }
+              return { color: getComputedStyle(element).color, frequency: frequency ? getComputedStyle(frequency).color : null };
+            };
+            return { count: animations.length, gray: sample(750), normal: sample(250) };
+          });
+          const animated = validation === "active" && name !== "half";
+          expect(samples.count).toBe(animated ? 1 : 0);
+          expect(samples.gray.color).toBe(animated ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)");
+          expect(samples.normal.color).toBe("rgb(255, 255, 255)");
+          if (name !== "half") {
+            expect(samples.normal.frequency).toBe("rgb(255, 255, 255)");
+            expect(samples.gray.frequency).toBe(samples.normal.frequency);
+          }
+        }
+      });
+    }
+  }
+
+  test(`removing a request preserves dark manual callsign contrast: ${scenario}`, async ({ page }) => {
+    await page.goto(`/visual-tests/validation-contrast.html?scenario=${scenario}&validation=inactive`);
+    await page.getByRole("button", { name: "Remove request", exact: true }).click();
+    for (const name of ["arrival", "pushback", "half"]) {
+      await expect(page.getByTestId(name).getByText("SAS123", { exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
+    }
+  });
+}
+
 for (const scenario of ["closed", "pdc", "selected", "light", "inactive"]) {
   test(`callsign validation contrast preserves both phases and the frequency row: ${scenario}`, async ({ page }) => {
     await page.goto(`/visual-tests/validation-contrast.html?scenario=${scenario}`);

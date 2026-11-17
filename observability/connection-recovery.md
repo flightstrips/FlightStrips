@@ -2,7 +2,7 @@
 
 The November 16 disruption established simultaneous connection failures, not
 their network cause. These changes bound silent failures and preserve enough
-evidence to distinguish paths during another event. They cannot prevent an
+evidence to correlate failures during another event. They cannot prevent an
 upstream outage or guarantee the outcome of an action sent before a disconnect.
 
 ## Recovery behavior
@@ -15,7 +15,7 @@ board or a removed strip clears passive selection. EuroScope aircraft selection
 in a snapshot remains authoritative for the AMAN selection.
 
 Each browser socket has a 15-second open deadline and 30-second initial snapshot
-deadline. Backends advertising connection-health protocol 1 receive a probe every
+deadline. Backends advertising connection-health protocol 1 receive a heartbeat every
 10 seconds, with a 30-second acknowledgement deadline. Acknowledged waiting for
 EuroScope keeps the connection alive without reconnect loops. Recovery discovery
 requests a fresh snapshot on the existing authenticated subscription. Older
@@ -56,69 +56,24 @@ recently responsive transport from a silent one.
 including read timeouts, unexpected closes, admission/authentication failures,
 client stages and master assignments. Under standard OTLP-to-Prometheus
 translation the counter is `websocket_connection_events_total`. Cluster alerts
-count admitted connection failures, excluding unauthenticated synthetic upgrades
-and normal close frames. Counts describe connections, not distinct controllers.
+count admitted connection failures, excluding normal close frames. Counts describe connections, not distinct controllers.
 
-## Public and direct-origin checks
+## Alerts and rollout
 
-The backend image also contains `/app/bin/connection-probe`. Its four concurrent
-checks run every 15 seconds with five-second deadlines:
-
-| Target | Check |
-| --- | --- |
-| public | HTTPS `/healthz` through normal DNS; WSS `/frontEndEvents` upgrade |
-| origin | The same requests with only the TCP destination overridden |
-
-Both targets use the public hostname for Host, SNI and certificate verification.
-There is no TLS bypass, operational token, command, or database access. A
-WebSocket probe closes immediately after HTTP 101; an authentication EOF on the
-backend from `FlightStrips-Connection-Probe/1` is expected. The opening log marks
-this untrusted User-Agent hint as `synthetic_probe`; it does not bypass any
-authentication or change alert counts. `/healthz` HTTP 200
-proves HTTP liveness, even when its optional subsystem report is degraded.
-Neither check proves authentication, strip synchronization or controller readiness.
-
-Required environment:
-
-```text
-CONNECTION_PROBE_PUBLIC_URL=https://api.flightstrips.dk
-CONNECTION_PROBE_ORIGIN_ADDRESS=159.195.249.133:443
-ENVIRONMENT=production
-OTEL_EXPORTER_OTLP_ENDPOINT=<existing collector>
-OTEL_EXPORTER_OTLP_HEADERS_FILE=/run/secrets/otel_exporter_otlp_headers
-OTEL_METRIC_EXPORT_INTERVAL=15000
-```
-
-The command uses the existing OTLP HTTP exporter configuration. Configure the
-same existing endpoint and secret, without giving the probe database or login
-credentials. Gauges `connection_probe_success` and
-`connection_probe_checked_at_seconds` have four `target`/`check` combinations;
-`connection_probe_duration_seconds` is a histogram. Transition logs include HTTP
-status, duration, CF-Ray, connection ID and network errors. Healthy repeated
-checks do not produce repetitive application logs.
-
-The infrastructure branch adds a disabled service in the authoritative Swarm
-stack. Its initial pinned image predates the new binary: **leave replicas at zero
-until the release PR updates all backend image references to a version containing
-the probe**. Then set replicas to one and deploy. No port is published. Import
-[connection-alerts.yml](prometheus/connection-alerts.yml) into the Grafana Cloud
-metrics ruler and route notifications through the existing contact point.
-Rules and the service are prepared here; no production service, alert or
-notification route has been changed.
+Import [connection-alerts.yml](prometheus/connection-alerts.yml) into the Grafana
+Cloud metrics ruler and route notifications through the existing contact point.
+The rules detect at least five unexpected closes/read timeouts in two minutes
+and at least three master assignments across sessions in five minutes. Planned
+deployments and controller changes can explain a cluster; correlate alerts with
+the structured logs before attributing a cause.
 
 Validate rules with `promtool check rules connection-alerts.yml` and
 `promtool test rules connection-alerts.test.yml` from `observability/prometheus`.
-The scenarios distinguish path failures, stale evidence and missing monitoring.
+The scenarios cover disconnect clusters, normal close traffic and master churn.
+No production alert or notification route has been changed.
 
-After rollout, verify all four fresh series before enabling alerts. Confirm that
-direct-origin TLS succeeds: an origin-only Cloudflare certificate or an
-origin firewall permitting only Cloudflare would prevent this comparison.
-Do not weaken TLS or broaden firewall access silently to make a probe green.
-For better independent evidence run another copy outside the production host;
-the on-host probe does not observe every controller's Internet route.
-
-During an event, compare public vs origin success and timings, then correlate
-the minute's read-timeout/unexpected-close events and master assignments by
-connection ID and CF-Ray. Public failing with origin healthy narrows the failing
-path; both failing also requires checking the monitor's own egress. Export the
-corresponding client log/console and backend logs before retention expires.
+During an event, correlate read-timeout/unexpected-close events and master
+assignments by connection ID, CID, session, CF-Ray and timestamp. Compare the
+client log/console with backend logs and deployment history. Export the relevant
+logs before retention expires. These diagnostics show which connections failed
+together; they do not by themselves identify a network component as the cause.

@@ -5,7 +5,7 @@ headers come from the standard `OTEL_EXPORTER_OTLP_*` environment variables, so
 nothing is configured in code. Dashboards live in `grafana/dashboards/` and are
 Grafana schema v2 documents.
 
-Connection recovery, correlated diagnostics and public/origin probes are covered
+Connection recovery and correlated diagnostics are covered
 in [connection-recovery.md](connection-recovery.md). Importable metrics alert
 rules live in [prometheus/connection-alerts.yml](prometheus/connection-alerts.yml).
 

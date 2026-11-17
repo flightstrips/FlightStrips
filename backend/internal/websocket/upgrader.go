@@ -43,8 +43,7 @@ func (u ConnectionUpgrader[TType, TClient]) Upgrade(w http.ResponseWriter, r *ht
 	diagnostic := newConnectionDiagnostics(r)
 	span.SetAttributes(attribute.String("connection.id", diagnostic.id), attribute.String("cf.ray", diagnostic.ray))
 	slog.InfoContext(ctx, "Websocket connection opening", "connection_id", diagnostic.id, "cf_ray", diagnostic.ray,
-		"peer_ip", diagnostic.peer, "reported_client_ip", diagnostic.reportedIP, "path", r.URL.Path,
-		"synthetic_probe", r.UserAgent() == "FlightStrips-Connection-Probe/1")
+		"peer_ip", diagnostic.peer, "reported_client_ip", diagnostic.reportedIP, "path", r.URL.Path)
 
 	conn, err := u.upgrader.Upgrade(w, r, http.Header{"X-Flightstrips-Connection-Id": []string{diagnostic.id}})
 	if err != nil {

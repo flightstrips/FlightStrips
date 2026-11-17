@@ -2,70 +2,34 @@ rule_files:
   - connection-alerts.yml
 evaluation_interval: 30s
 tests:
-  - name: Public path fails with fresh healthy origin evidence
+  - name: Multiple unexpected disconnects trigger a cluster alert
     interval: 30s
     input_series:
-      - series: connection_probe_success{target="public",check="http"}
-        values: 0x12
-      - series: connection_probe_success{target="origin",check="http"}
-        values: 1x12
-      - series: connection_probe_checked_at_seconds{target="public",check="http"}
-        values: 0+30x12
-      - series: connection_probe_checked_at_seconds{target="origin",check="http"}
-        values: 0+30x12
+      - series: websocket_connection_events_total{source="frontend",event="read_timeout"}
+        values: 0+2x12
     promql_expr_test:
-      - expr: count(ALERTS{alertname="FlightStripsPublicPathFailure",alertstate="firing"})
+      - expr: count(ALERTS{alertname="FlightStripsDisconnectCluster",alertstate="firing"})
         eval_time: 3m
         exp_samples:
           - labels: '{}'
             value: 1
-      - expr: ALERTS{alertname="FlightStripsOriginPathFailure",alertstate="firing"}
-        eval_time: 3m
-        exp_samples: []
-  - name: Both routes fail with fresh evidence
+  - name: Normal closes do not trigger a disconnect cluster
     interval: 30s
     input_series:
-      - series: connection_probe_success{target="public",check="websocket"}
-        values: 0x12
-      - series: connection_probe_success{target="origin",check="websocket"}
-        values: 0x12
-      - series: connection_probe_checked_at_seconds{target="public",check="websocket"}
-        values: 0+30x12
-      - series: connection_probe_checked_at_seconds{target="origin",check="websocket"}
-        values: 0+30x12
+      - series: websocket_connection_events_total{source="frontend",event="normal_close"}
+        values: 0+100x12
     promql_expr_test:
-      - expr: count(ALERTS{alertname="FlightStripsOriginPathFailure",alertstate="firing"})
-        eval_time: 3m
-        exp_samples:
-          - labels: '{}'
-            value: 1
-      - expr: ALERTS{alertname="FlightStripsPublicPathFailure",alertstate="firing"}
+      - expr: ALERTS{alertname="FlightStripsDisconnectCluster",alertstate="firing"}
         eval_time: 3m
         exp_samples: []
-  - name: Old success values cannot classify a new path failure
-    interval: 30s
+  - name: Repeated master assignments trigger a churn alert
+    interval: 1m
     input_series:
-      - series: connection_probe_success{target="public",check="http"}
-        values: 0x12
-      - series: connection_probe_success{target="origin",check="http"}
-        values: 1x12
-      - series: connection_probe_checked_at_seconds{target="public",check="http"}
-        values: 0x12
-      - series: connection_probe_checked_at_seconds{target="origin",check="http"}
-        values: 0x12
+      - series: websocket_connection_events_total{source="euroscope",event="master_assigned"}
+        values: 0+1x8
     promql_expr_test:
-      - expr: ALERTS{alertname="FlightStripsPublicPathFailure",alertstate="firing"}
-        eval_time: 5m
-        exp_samples: []
-      - expr: count(ALERTS{alertname="FlightStripsConnectionProbeMissing",alertstate="firing"}) > 0
-        eval_time: 5m
-        exp_samples:
-          - labels: '{}'
-            value: 3
-  - name: Missing monitoring is visible even without any series
-    promql_expr_test:
-      - expr: count(ALERTS{alertname="FlightStripsConnectionProbeMissing",alertstate="firing"})
-        eval_time: 3m
+      - expr: count(ALERTS{alertname="FlightStripsMasterChurn",alertstate="firing"})
+        eval_time: 6m
         exp_samples:
           - labels: '{}'
             value: 1

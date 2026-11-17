@@ -10,7 +10,6 @@ COPY . .
 
 ARG BUILD_VERSION
 RUN go build -ldflags "-w -s -X main.buildVersion=${BUILD_VERSION}" -a -o ./bin/api ./cmd/server
-RUN go build -ldflags "-w -s -X main.buildVersion=${BUILD_VERSION}" -o ./bin/connection-probe ./cmd/connection-probe
 
 # Final stage
 FROM alpine:latest
@@ -19,7 +18,6 @@ WORKDIR /app/backend
 RUN apk --no-cache add ca-certificates
 
 COPY --from=builder /app/bin/api /app/bin/api
-COPY --from=builder /app/bin/connection-probe /app/bin/connection-probe
 COPY ./config /app/backend/config
 
 ENV AIRPORT_REPOSITORY_ROOT=/app

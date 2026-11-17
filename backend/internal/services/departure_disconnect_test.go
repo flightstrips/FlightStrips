@@ -93,6 +93,56 @@ func TestDepartureDisconnectLifecycle(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	for _, tc := range []struct {
+		name, conflictPrefix string
+		warningAvailable     bool
+	}{
+		{name: "no wrong-stand conflict"},
+		{name: "warning awaiting delivery", conflictPrefix: wrongStandAwaitingPrefix},
+		{name: "warning already delivered", conflictPrefix: wrongStandPendingPrefix, warningAvailable: true},
+	} {
+		t.Run("enabled prefiles preserve disconnect grace with "+tc.name, func(t *testing.T) {
+			lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+			lifecycle.allowPrefiles = true
+			const callsign = "SASDISC10"
+			testdata.SeedTestStrip(t, queries, session, callsign)
+			if tc.conflictPrefix != "" {
+				lifecycle.SetWrongStandMessenger(&wrongStandTestMessenger{available: tc.warningAvailable})
+				createProtectedStandOccupant(t, assignments, session, "SASDISC10O", "A2")
+				require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session, loadStrip(t, strips, session, callsign), 55.6285306, 12.6434583))
+			} else {
+				require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlight(callsign, 1)))
+			}
+			original, err := assignments.GetAssignment(ctx, session, callsign)
+			require.NoError(t, err)
+			require.Equal(t, StageDepartureBlock, original.Stage)
+			if tc.conflictPrefix != "" {
+				require.NotNil(t, original.ConflictReason)
+				require.Equal(t, tc.conflictPrefix+"A2", *original.ConflictReason)
+			}
+			deadline := clock.current().Add(30 * time.Second)
+			require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), offlineFlight(callsign, 1)))
+			pending, err := assignments.GetAssignment(ctx, session, callsign)
+			require.NoError(t, err)
+			require.NotNil(t, pending.ExpiresAt)
+			assert.Equal(t, deadline.UTC(), pending.ExpiresAt.UTC(), "wrong-stand cleanup must not replace the disconnect deadline with a reservation hold")
+			assert.Nil(t, pending.ConflictReason)
+			assert.Equal(t, original.ID, pending.ID)
+			clock.advance(15 * time.Second)
+			require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), offlineFlight(callsign, 1)))
+			require.NoError(t, lifecycle.ReleaseExpired(ctx))
+			unchanged, err := assignments.GetAssignment(ctx, session, callsign)
+			require.NoError(t, err)
+			assert.Equal(t, pending.Version, unchanged.Version)
+			require.NotNil(t, unchanged.ExpiresAt)
+			assert.Equal(t, deadline.UTC(), unchanged.ExpiresAt.UTC())
+			clock.advance(15 * time.Second)
+			require.NoError(t, lifecycle.ReleaseExpired(ctx))
+			_, err = assignments.GetAssignment(ctx, session, callsign)
+			require.Error(t, err)
+		})
+	}
+
 	t.Run("returning feed without coordinates cancels disconnect expiry", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		const callsign = "SASDISC8"

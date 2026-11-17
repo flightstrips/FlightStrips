@@ -185,8 +185,9 @@ func (s reconciliationTestSessions) List(context.Context) ([]*models.Session, er
 }
 
 type reconciliationTestAssignments struct {
-	active      map[string]bool
-	assignments map[string]*models.StandAssignment
+	active       map[string]bool
+	assignments  map[string]*models.StandAssignment
+	lookupErrors map[string]error
 }
 
 type reconciliationBulkAssignments struct {
@@ -206,6 +207,9 @@ func (s *reconciliationBulkAssignments) GetAssignment(context.Context, int32, st
 }
 
 func (s reconciliationTestAssignments) GetAssignment(_ context.Context, session int32, callsign string) (*models.StandAssignment, error) {
+	if err := s.lookupErrors[callsign]; err != nil {
+		return nil, err
+	}
 	if assignment := s.assignments[assignmentKey(session, callsign)]; assignment != nil {
 		return assignment, nil
 	}
@@ -615,6 +619,38 @@ func TestReconcileContinuesRetainedDepartureBlockWithoutEuroscope(t *testing.T) 
 			}
 		})
 	}
+}
+
+func TestReconcileRetainedLookupFailureStillProcessesOtherDepartures(t *testing.T) {
+	now := time.Date(2026, 11, 16, 19, 0, 0, 0, time.UTC)
+	firstErr, secondErr := errors.New("first lookup failed"), errors.New("second lookup failed")
+	cache := newReconciliationTestCache(now,
+		Flight{CID: "1", Callsign: "AAAFAIL", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL"}},
+		Flight{CID: "2", Callsign: "BBBFAIL", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL"}},
+		Flight{CID: "3", Callsign: "CCCRET", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL"}},
+		Flight{CID: "4", Callsign: "DDDNEW", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL"}},
+		Flight{CID: "5", Callsign: "EEEES", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL"}},
+		Flight{CID: "6", Callsign: "ZZZARR", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EGLL", Destination: "EKCH"}},
+	)
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {
+		{Session: 7, Callsign: "EEEES", Origin: "EKCH", Destination: "EGLL", EuroscopeSeenAt: &now},
+	}}}
+	assignments := reconciliationTestAssignments{
+		lookupErrors: map[string]error{"AAAFAIL": firstErr, "BBBFAIL": secondErr},
+		assignments: map[string]*models.StandAssignment{assignmentKey(7, "CCCRET"): {
+			SessionID: 7, Callsign: "CCCRET", Direction: "DEPARTURE", Stage: "DEPARTURE_BLOCK", Stand: "A1",
+		}},
+	}
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, assignments, nil, time.Second)
+	departures := &reconciliationTestDepartureLifecycle{}
+	arrivals := &reconciliationTestArrivalLifecycle{}
+	reconciler.lifecycle, reconciler.arrivalLifecycle = departures, arrivals
+	err := reconciler.Reconcile(context.Background())
+	require.ErrorIs(t, err, firstErr)
+	assert.NotErrorIs(t, err, secondErr, "preserve the first retained-assignment lookup error")
+	assert.ErrorContains(t, err, "AAAFAIL")
+	assert.Equal(t, []string{"CCCRET", "EEEES"}, departures.processed, "later retained and EuroScope-owned departures must still reconcile")
+	assert.Empty(t, arrivals.processed, "arrivals must wait for complete departure occupancy")
 }
 
 func TestReconcileFollowsOpenedPilotDepartureBeforeEuroscope(t *testing.T) {

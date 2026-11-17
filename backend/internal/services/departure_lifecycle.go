@@ -218,6 +218,11 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 		}
 		return s.revalidateFacts(ctx, session, strip, flight)
 	}
+	if s.allowPrefiles {
+		if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
+			return err
+		}
+	}
 	// A prefile left behind after the pilot disconnects is not live occupancy
 	// evidence either. Its old departure block must use the same bounded grace.
 	if err := s.expireDisconnectedDepartureBlock(ctx, session, strip.Callsign); err != nil {
@@ -225,9 +230,6 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 	}
 	if !s.allowPrefiles {
 		return s.releaseOfflinePrefileReservation(ctx, session, strip.Callsign)
-	}
-	if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
-		return err
 	}
 	return s.ensureReservation(ctx, session, strip, flight)
 }

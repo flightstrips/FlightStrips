@@ -51,6 +51,12 @@ func loadAMANSessionOutcome(ctx context.Context, db amanSessionQuerier, id strin
 }
 
 func (r *amanRepository) commitSession(ctx context.Context, commit aman.StateCommit) (aman.CommitResult, error) {
+	if result, handled, err := r.commitScopedSession(ctx, commit, "", ""); handled {
+		return result, err
+	}
+	if scope := r.factScope(ctx); scope != nil {
+		scope.invalidate()
+	}
 	id := aman.SessionID(ctx)
 	if commit.State.SessionID != id {
 		return aman.CommitResult{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "AMAN commit belongs to another session"}
@@ -85,7 +91,16 @@ func (r *amanRepository) commitSession(ctx context.Context, commit aman.StateCom
 			return aman.CommitResult{}, err
 		}
 	}
-	previous, err := loadAMANSessionState(ctx, tx, commit.State.Airport)
+	// Existing aggregates serialize on their own row, including against the
+	// one-statement fact path. Creation still uses the advisory lock above.
+	var previousRaw []byte
+	err = tx.QueryRow(ctx, `SELECT payload FROM aman_session_states WHERE session_id=$1 AND airport=$2 FOR NO KEY UPDATE`, id, commit.State.Airport).Scan(&previousRaw)
+	var previous aman.AirportState
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN session state was not found"}
+	} else if err == nil {
+		previous, err = decodeFactState(ctx, commit.State.Airport, previousRaw)
+	}
 	var domain *aman.DomainError
 	missing := errors.As(err, &domain) && domain.Class == aman.ErrorNotFound
 	if err != nil && !missing {
@@ -110,9 +125,14 @@ func (r *amanRepository) commitSession(ctx context.Context, commit aman.StateCom
 		if err != nil {
 			return aman.CommitResult{}, err
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO aman_session_states(session_id,airport,revision,payload) VALUES($1,$2,$3,$4)
-ON CONFLICT(session_id,airport) DO UPDATE SET revision=EXCLUDED.revision,payload=EXCLUDED.payload`, id, stored.Airport, stored.Revision, raw); err != nil {
+		tag, err := tx.Exec(ctx, `INSERT INTO aman_session_states(session_id,airport,revision,payload) VALUES($1,$2,$3,$4)
+ON CONFLICT(session_id,airport) DO UPDATE SET revision=EXCLUDED.revision,payload=EXCLUDED.payload
+WHERE aman_session_states.revision=$5`, id, stored.Airport, stored.Revision, raw, commit.ExpectedRevision)
+		if err != nil {
 			return aman.CommitResult{}, err
+		}
+		if tag.RowsAffected() != 1 {
+			return aman.CommitResult{}, revisionConflict()
 		}
 		for _, fact := range coordinationExpiryFacts(previous, commit.State) {
 			if _, err := coordinationrequest.ExpirePendingTx(ctx, tx, fact); err != nil {
@@ -129,12 +149,16 @@ ON CONFLICT(session_id,airport) DO UPDATE SET revision=EXCLUDED.revision,payload
 			return aman.CommitResult{}, err
 		}
 	}
-	for _, record := range commit.AuditRecords {
-		raw, err := json.Marshal(record)
+	if len(commit.AuditRecords) > 0 {
+		// A replan may produce one diagnostic per arrival. Persist every record
+		// in one statement so event SQL does not grow with the arrival count.
+		raw, err := json.Marshal(commit.AuditRecords)
 		if err != nil {
 			return aman.CommitResult{}, err
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO aman_session_audit_records(session_id,airport,revision,payload) VALUES($1,$2,$3,$4)`, id, record.Airport, record.Revision, raw); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO aman_session_audit_records(session_id,airport,revision,payload)
+SELECT $1,record->>'Airport',(record->>'Revision')::bigint,record
+FROM jsonb_array_elements($2::jsonb) AS records(record)`, id, raw); err != nil {
 			return aman.CommitResult{}, err
 		}
 	}

@@ -25,7 +25,7 @@ func (r *factIdentityRepository) FindActiveFactFlight(context.Context, string, s
 	}
 	return "flight-1", nil
 }
-func TestRouteFactNarrowReadAvoidsAggregateForSpeedAndMissingFlight(t *testing.T) {
+func TestRouteFactSpeedUsesNarrowReadAndDirectLoadsAggregateOnce(t *testing.T) {
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	repo := &factIdentityRepository{memoryRepository: &memoryRepository{}}
 	correlator := &correlator{}
@@ -37,6 +37,6 @@ func TestRouteFactNarrowReadAvoidsAggregateForSpeedAndMissingFlight(t *testing.T
 	repo.missing = true
 	fix := "KEMAX"
 	require.Error(t, svc.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", &fix, now))
-	require.Zero(t, repo.loads)
+	require.Equal(t, 1, repo.loads, "direct validation already needs the aggregate, including active-flight identity")
 	require.Zero(t, repo.commits)
 }

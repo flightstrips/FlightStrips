@@ -736,7 +736,7 @@ func orderFlightsByPrecedence(flights []preparedFlight, includeAutomaticSTAR boo
 			olderPending := false
 			for _, other := range remaining {
 				if orderPrecedes(other, flight) ||
-					(includeAutomaticSTAR && automaticSTARReservationPrecedes(other, flight)) {
+					(includeAutomaticSTAR && automaticSTARReservationPrecedes(&other, &flight)) {
 					olderPending = true
 					break
 				}
@@ -846,23 +846,26 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 	index := sort.Search(len(entries), func(i int) bool { return !entries[i].time.Before(candidate) })
 	valid := true
 	earlier, later := candidate.Add(-time.Nanosecond), candidate.Add(time.Nanosecond)
-	for _, entry := range entries {
+	for i := range entries {
+		entry := &entries[i]
 		// A free gap before an earlier same-STAR reservation is not permission
 		// to overtake it. This also covers initial insertion around Stable slots,
 		// before any optimizer or vacancy-promotion pass runs.
-		if automaticSTARPrecedes(entry.flight, flight) && !candidate.After(entry.time) {
+		// Ordering can reject a placement only on the corresponding side of
+		// this reservation. Check time before copying/comparing flight policy.
+		if !candidate.After(entry.time) && automaticSTARPrecedes(&entry.flight, &flight) {
 			valid = false
 			if bound := entry.time.Add(requiredGap(policy, entry.flight, flight, candidate)); bound.After(later) {
 				later = bound
 			}
 		}
-		if positionPrecedes(flight, entry.flight) && !candidate.Before(entry.time) {
+		if !candidate.Before(entry.time) && positionPrecedes(flight, entry.flight) {
 			valid = false
 			if bound := entry.time.Add(-requiredGap(policy, flight, entry.flight, entry.time)); bound.Before(earlier) {
 				earlier = bound
 			}
 		}
-		if positionPrecedes(entry.flight, flight) && !candidate.After(entry.time) {
+		if !candidate.After(entry.time) && positionPrecedes(entry.flight, flight) {
 			valid = false
 			if bound := entry.time.Add(requiredGap(policy, entry.flight, flight, candidate)); bound.After(later) {
 				later = bound

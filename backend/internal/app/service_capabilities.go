@@ -57,6 +57,12 @@ func amanAirportScope(cfg Config, sessions repository.SessionRepository) func(co
 			return &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN airport is outside the enabled runtime"}
 		}
 		if session := aman.SessionID(ctx); session > 0 {
+			if snapshot, ok := aman.ReadSessionSnapshot(ctx); ok {
+				if !strings.EqualFold(snapshot.Airport, airport) {
+					return &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN airport does not match session"}
+				}
+				return nil
+			}
 			actual, err := sessions.GetByID(ctx, session)
 			if err != nil {
 				return err

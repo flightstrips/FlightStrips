@@ -13,6 +13,7 @@ export function RADISFlightPlan({strip, onClose, edit}: {strip: FrontendStrip | 
   const annotate = useWebSocketStore(s => s.annotateStrip);
   const capabilities = useWebSocketStore(s => s.boardDefinition?.capabilities);
   const transitionAltitude = useWebSocketStore(s => s.transitionAltitude);
+  const showRequestedFlightLevel = !strip?.requested_altitude || strip.requested_altitude > transitionAltitude;
   const field = (label: string, content: string | number | undefined, action?: RADISEdit["field"], display = content) => <label className="radis-fpl-field"><span>{label}</span><button type="button" disabled={!action || readOnly || (action !== "notes" && !strip?.has_fp)} onClick={() => strip && action && edit(strip, action, label, String(content ?? ""))}>{display || ""}</button></label>;
   return <Dialog open={!!strip} onOpenChange={open => !open && onClose()}><DialogContent className="radis-dialog radis-fpl"><DialogTitle className="sr-only">Flight plan · {strip?.callsign}</DialogTitle>{strip && <>
     <div className="radis-fpl-sheet">
@@ -24,7 +25,7 @@ export function RADISFlightPlan({strip, onClose, edit}: {strip: FrontendStrip | 
           <div className="radis-fpl-field"><span>CTOT</span><div className="radis-fpl-slot"><button type="button" aria-label="CTOT source" disabled>{strip.ctot_source || ""}</button><button type="button" aria-label="CTOT UTC" disabled>{strip.ctot}</button></div></div>
         </div>
         <div className="radis-fpl-timing">{field("EOBT", strip.eobt, "eobt")}{field("RWY", strip.runway, "runway")}<label className="radis-fpl-field"><span>REA</span><button disabled={readOnly} onClick={() => annotate(strip.callsign, "rea", "", !strip.board_state?.annotations.rea)}>{paperClock(strip.board_state?.annotations.rea)}</button></label></div>
-        <div className="radis-fpl-performance">{field("TYPE", strip.aircraft_type, "aircraft_type")}{field("FL", strip.requested_altitude ? strip.requested_altitude / 100 : "")}{field("SPEED", undefined)}{field("STS", strip.status)}</div>
+        <div className="radis-fpl-performance">{field("TYPE", strip.aircraft_type, "aircraft_type")}{field(showRequestedFlightLevel ? "FL" : "ALT", strip.requested_altitude ? showRequestedFlightLevel ? strip.requested_altitude / 100 : strip.requested_altitude : "")}{field("SPEED", undefined)}{field("STS", strip.status)}</div>
         <div className="radis-fpl-route">{field("ROUTE", strip.route, "route")}</div>
         <div className="radis-fpl-remarks">{field("COOPANS REMARKS", strip.remarks, "remarks")}</div>
         <div className="radis-fpl-notes">{field("NITOS REMARKS", strip.board_state?.annotations.notes, "notes")}{field("IATA TYPE", undefined)}</div>

@@ -285,6 +285,18 @@ func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context
 // An occupied or blocked observed stand leaves the reservation intact and
 // records the mismatch for the warning/deadline workflow.
 func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
+	for attempt := 1; ; attempt++ {
+		activated, err := s.activateObservedBlockAttempt(ctx, session, strip, flight)
+		if !errors.Is(err, errAllocationVersionConflict) || attempt == maxSerializableOperationAttempts {
+			return activated, err
+		}
+		if err := waitForSerializableRetry(ctx, attempt); err != nil {
+			return false, err
+		}
+	}
+}
+
+func (s *DepartureLifecycleService) activateObservedBlockAttempt(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
 	observed, found := s.stands.StandAtPosition(strings.TrimSpace(strip.Origin), flight.Latitude, flight.Longitude)
 	existing, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
 	if err != nil && !isNotFound(err) {
@@ -623,16 +635,15 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	}
 	// The position observer can run before the strip's stored coordinates are
 	// updated. Its resolved stand is the current occupancy evidence.
-	onAssignedStand := strings.EqualFold(existing.Stand, observedStand)
-	if onAssignedStand {
-		expiry = nil
+	if !strings.EqualFold(existing.Stand, observedStand) {
+		// The assignment changed after the observation's first read. Re-run
+		// stand selection and mismatch handling against the new reservation.
+		return fmt.Errorf("activate departure block for %s: %w", strip.Callsign, errAllocationVersionConflict)
 	}
+	expiry = nil
 	observedStandRecorded := existing.ObservedStand != nil && strings.EqualFold(strings.TrimSpace(*existing.ObservedStand), strings.TrimSpace(existing.Stand))
 	if existing.Stage == StageDepartureBlock {
-		if expiry == nil && existing.ExpiresAt != nil && !onAssignedStand {
-			return nil
-		}
-		if sameExpiry(existing.ExpiresAt, expiry) && sameExpiry(existing.ProjectedReleaseAt, projectedRelease) && (!onAssignedStand || observedStandRecorded) {
+		if sameExpiry(existing.ExpiresAt, expiry) && sameExpiry(existing.ProjectedReleaseAt, projectedRelease) && observedStandRecorded {
 			return nil
 		}
 	}
@@ -640,10 +651,7 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	updated.Stage = StageDepartureBlock
 	updated.ExpiresAt = expiry
 	updated.ProjectedReleaseAt = projectedRelease
-	if onAssignedStand {
-		observedStand := existing.Stand
-		updated.ObservedStand = &observedStand
-	}
+	updated.ObservedStand = &observedStand
 	if updated.ConflictReason != nil && strings.HasPrefix(*updated.ConflictReason, wrongStandPendingPrefix) {
 		updated.ConflictReason = nil
 	}
@@ -660,36 +668,9 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 		updated.Version++
 		return s.allocations.PublishAssignment(ctx, updated)
 	}
-	reloaded, reloadErr := s.assignments.GetAssignment(ctx, session, strip.Callsign)
-	if reloadErr != nil || reloaded == nil {
-		return nil
-	}
-	onAssignedStand = strings.EqualFold(reloaded.Stand, observedStand)
-	expiry = projectedRelease
-	if onAssignedStand {
-		expiry = nil
-	}
-	if reloaded.Stage == StageDepartureBlock && expiry == nil && reloaded.ExpiresAt != nil && !onAssignedStand {
-		return nil
-	}
-	reloaded.Stage = StageDepartureBlock
-	reloaded.ExpiresAt = expiry
-	reloaded.ProjectedReleaseAt = projectedRelease
-	if onAssignedStand {
-		observedStand := reloaded.Stand
-		reloaded.ObservedStand = &observedStand
-	}
-	reloaded.AssignedAt = &now
-	applyVatsimIdentity(reloaded, strip, flight.CID, flight.Revision)
-	affected, err = s.assignments.UpdateAssignment(ctx, reloaded)
-	if err != nil {
-		return err
-	}
-	if affected != 1 {
-		return fmt.Errorf("activate departure block version conflict for %s", strip.Callsign)
-	}
-	reloaded.Version++
-	return s.allocations.PublishAssignment(ctx, *reloaded)
+	// Retrying only this write could apply an occupancy deadline to a newer,
+	// different stand without the normal live-mismatch protection.
+	return fmt.Errorf("activate departure block for %s: %w", strip.Callsign, errAllocationVersionConflict)
 }
 
 // revalidateFacts re-runs compatibility against the strip's current aircraft and

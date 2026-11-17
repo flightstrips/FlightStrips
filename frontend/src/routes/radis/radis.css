@@ -57,7 +57,7 @@
 .radis-direction-icon strong { position: absolute; inset: auto 0 0; height: 3.58cqw; font-size: 3.655cqw; font-weight: 700; line-height: 1; }
 .radis-direction-icon.radis-circuit { display: grid; grid-template-columns: minmax(0, 74fr) minmax(0, 94fr); width: 12.281cqw; }
 .radis-circuit .radis-arrival-icon img { top: 1.57cqw; }
-.radis-notes { position: absolute; inset: 0 40% 35% 0; font-size: .643em; overflow: hidden; padding: .3cqw; text-align: left; }
+.radis-notes { position: absolute; z-index: 1; inset: 0 40% 35% 0; font-size: .643em; overflow: hidden; padding: .3cqw; text-align: left; }
 .radis-stand { position: absolute; bottom: .3cqw; left: .4cqw; font-size: .643em; line-height: 1.25; }
 .radis-strip-date { flex: 1; min-width: 0; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 1.17cqw; font-weight: 700; text-align: center; }
 .radis-drag-handle { height: 100%; width: 100%; touch-action: none; white-space: nowrap; }

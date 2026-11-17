@@ -71,7 +71,7 @@ export default function RADISBoard() {
     const {callsign, field} = menu;
     const value = selectedValue ?? menu.value;
     if (["notes", "atd", "endurance_pob"].includes(field)) annotate(callsign, field as keyof StripAnnotations, value,false,menu.revision);
-    else if (field === "route_heading") update(callsign, /^\d{1,3}$/.test(value) || (value === "" && /^\d{1,3}$/.test(menu.value)) ? {heading: Number(value)} : {route: value.toUpperCase()},menu.revision);
+    else if (field === "route_heading") update(callsign, /^\d{1,3}$/.test(value) ? {heading: Number(value)} : {route: value.toUpperCase()},menu.revision);
     else update(callsign, {[field]: ["altitude", "heading"].includes(field) ? Number(value) : value},menu.revision);
     setMenu(null);
   };

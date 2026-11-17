@@ -6,7 +6,9 @@
 .radis-board h1, .radis-board h2 { margin: 0; flex: none; height: 3.9dvh; min-height: 28px; display: grid; place-items: center; color: white; font: 700 clamp(16px, 1.66vw, 32px)/1 RadisRubik, sans-serif; background: var(--color-bay-header); border: 1px solid #151515; text-shadow: -1px -1px #000, 1px 1px #000, -1px 1px #000, 1px -1px #000; }
 .radis-bay { container-type: inline-size; min-height: 0; overflow-y: auto; padding: .3vw; background: var(--color-bay-panel); flex: 1; scrollbar-width: thin; scrollbar-color: var(--color-bay-page) var(--color-bay-panel); }
 .radis-runway { flex: none; height: var(--radis-runway-height); background: var(--color-bay-dark); }
-.radis-passive_bottom { border-top: 0; }
+.radis-passive_bottom { border-top: 0; display: flex; flex-direction: column; }
+.radis-passive_bottom > .radis-strip { flex-shrink: 0; }
+.radis-passive_bottom > .radis-strip:first-child { margin-top: auto; }
 .radis-bay.is-over { outline: 2px solid var(--color-drop-valid); outline-offset: -2px; }
 .radis-runway-title [role=separator] { display: grid; place-items: center; width: 100%; height: 100%; cursor: ns-resize; touch-action: none; user-select: none; }
 .radis-runway-title [role=separator]:focus-visible { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }

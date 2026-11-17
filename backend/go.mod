@@ -3,14 +3,14 @@ module FlightStrips
 go 1.26.0
 
 require (
-	github.com/MicahParks/keyfunc/v3 v3.9.1
+	github.com/MicahParks/keyfunc/v3 v3.9.2
 	github.com/dlclark/regexp2 v1.12.0
 	github.com/exaring/otelpgx v0.13.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang/geo v0.0.0-20260129164528-943061e2742c
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/jackc/pgx/v5 v5.12.0
+	github.com/jackc/pgx/v5 v5.13.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.2.1
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3

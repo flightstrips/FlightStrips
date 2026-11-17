@@ -129,7 +129,15 @@ func (s *StripService) executeControllerWorkflow(ctx context.Context, session in
 	}
 
 	if strip.Bay == targetBay && (decision.Cleared == nil || *decision.Cleared == strip.Cleared) && (decision.GroundState == nil || *decision.GroundState == workflowValue(strip.State)) {
-		return s.acknowledgeDeicePlatformInBay(ctx, session, callsign, targetBay)
+		if err := s.acknowledgeDeicePlatformInBay(ctx, session, callsign, targetBay); err != nil {
+			return err
+		}
+		// Workflow rules may resolve an optimistic move back to its current bay.
+		// Publish the persisted bay and sequence even when no mutation is needed.
+		if s.publisher != nil {
+			shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
+		}
+		return nil
 	}
 
 	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {

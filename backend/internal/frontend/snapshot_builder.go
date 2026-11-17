@@ -6,6 +6,7 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	frontendEvents "FlightStrips/pkg/events/frontend"
@@ -495,7 +496,11 @@ func mapStandAssignmentEntry(a *internalModels.StandAssignment) frontendEvents.S
 // they carry no planning weight for controllers, so they are excluded from
 // snapshots, publications, and conflict enrichment.
 func standAssignmentFrontendVisible(a *internalModels.StandAssignment) bool {
-	return a != nil && !(strings.EqualFold(a.Direction, "ARRIVAL") && strings.EqualFold(a.Stage, "ESTIMATED"))
+	if a == nil {
+		return false
+	}
+	return !strings.EqualFold(a.Direction, string(sat.AssignmentDirectionArrival)) ||
+		!strings.EqualFold(a.Stage, services.StageEstimated)
 }
 
 func enrichStandAssignmentBlocking(entries []frontendEvents.StandAssignmentEntry, airport string, registries ...*sat.StandCapabilityRegistry) {
@@ -558,9 +563,6 @@ func standAssignmentsOperationallyConflict(left, right frontendEvents.StandAssig
 	if !overlaps {
 		return false
 	}
-	if isEstimatedManualAssignmentOverlap(left, right) {
-		return false
-	}
 	var arrival, departure *frontendEvents.StandAssignmentEntry
 	if strings.EqualFold(left.Direction, "ARRIVAL") && strings.EqualFold(right.Direction, "DEPARTURE") {
 		arrival, departure = &left, &right
@@ -571,18 +573,6 @@ func standAssignmentsOperationallyConflict(left, right frontendEvents.StandAssig
 		return true
 	}
 	return departure.ConflictReason != nil && strings.HasPrefix(*departure.ConflictReason, "observed departure conflicts with confirmed arrival:")
-}
-
-func isEstimatedManualAssignmentOverlap(left, right frontendEvents.StandAssignmentEntry) bool {
-	if !strings.EqualFold(left.Direction, "ARRIVAL") || !strings.EqualFold(right.Direction, "ARRIVAL") {
-		return false
-	}
-	canWait := func(estimate frontendEvents.StandAssignmentEntry) bool {
-		return strings.EqualFold(estimate.Stage, "ESTIMATED") &&
-			(estimate.ConflictReason == nil || strings.TrimSpace(*estimate.ConflictReason) == "")
-	}
-	return (canWait(left) && right.Manual && strings.EqualFold(right.Stage, "ASSIGNED")) ||
-		(canWait(right) && left.Manual && strings.EqualFold(left.Stage, "ASSIGNED"))
 }
 
 func containsStandName(values []string, wanted string) bool {

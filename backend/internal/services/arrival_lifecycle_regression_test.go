@@ -128,3 +128,44 @@ func TestManualEstimatedArrivalPromotionWritesPinnedStripStand(t *testing.T) {
 		})
 	}
 }
+
+func TestAssignedArrivalKeepsStandAgainstSoftReservations(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	for _, neighbor := range []bool{false, true} {
+		t.Run(map[bool]string{false: "same_stand", true: "neighboring_stand"}[neighbor], func(t *testing.T) {
+			directive := ""
+			if neighbor {
+				directive = "BLOCKS:A2"
+			}
+			lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, directive, "", nil)
+			seedTestArrivalStrip(t, queries, session, "SAS930")
+			seedTestArrivalStrip(t, queries, session, "SAS931")
+			eta := clock.current().Add(45 * time.Minute)
+			setArrivalETA(t, strips, session, "SAS930", eta)
+			_, err := strips.UpdateAircraftPosition(ctx, session, "SAS930", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+			require.NoError(t, err)
+			require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS930"), arrivalFlight("SAS930", 1)))
+			assigned, err := assignments.GetAssignment(ctx, session, "SAS930")
+			require.NoError(t, err)
+			require.Equal(t, StageAssigned, assigned.Stage)
+			require.Equal(t, "A1", assigned.Stand)
+			estimatedStand := assigned.Stand
+			if neighbor {
+				estimatedStand = "A2"
+			}
+			require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+				SessionID: session, Callsign: "SAS931", Stand: estimatedStand, Direction: "ARRIVAL", Stage: StageEstimated, Source: "AUTOMATIC", ETA: &eta,
+			}))
+			require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS930"), arrivalFlight("SAS930", 2)))
+			updated, err := assignments.GetAssignment(ctx, session, "SAS930")
+			require.NoError(t, err)
+			assert.Equal(t, assigned.Stand, updated.Stand)
+			assert.Equal(t, assigned.Version, updated.Version, "a soft reservation must not trigger another allocation")
+			estimate, err := assignments.GetAssignment(ctx, session, "SAS931")
+			require.NoError(t, err)
+			assert.Equal(t, StageEstimated, estimate.Stage)
+			assert.Equal(t, estimatedStand, estimate.Stand)
+		})
+	}
+}

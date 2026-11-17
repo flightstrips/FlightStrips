@@ -582,7 +582,11 @@ func valueInt32(value *int32) int32 {
 
 func (s *ArrivalLifecycleService) reallocateIfBlocked(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, existing *models.StandAssignment, eta *time.Time, targetStage string) error {
 	request := s.buildRequest(session, strip, flight, existing.Stage, eta, nil)
-	available, err := s.allocations.StandAvailable(ctx, request, existing.Stand)
+	checkAvailability := s.allocations.StandAvailable
+	if existing.Stage != StageEstimated {
+		checkAvailability = s.allocations.StandAvailableForPromotion
+	}
+	available, err := checkAvailability(ctx, request, existing.Stand)
 	if err != nil {
 		return err
 	}

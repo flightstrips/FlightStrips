@@ -558,13 +558,18 @@ func TestMoveFrontendStrip_ArrivalCanMoveToDepartureBay(t *testing.T) {
 
 func TestMoveFrontendStrip_LowerTaxiStaysLowerForNonManualMove(t *testing.T) {
 	taxiState := "TAXI"
+	sequence := int32(42)
 	fixture := newFrontendMoveFixture(&internalModels.Strip{
-		Callsign: "SAS127D", Origin: "EKCH", Destination: "EGLL", Bay: shared.BAY_TAXI_LWR, State: &taxiState,
+		Callsign: "SAS127D", Origin: "EKCH", Destination: "EGLL", Bay: shared.BAY_TAXI_LWR, State: &taxiState, Sequence: &sequence,
 	})
 
 	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS127D", shared.BAY_TAXI, "1234567", "EKCH", "EKCH_A_GND", false, false)
 	require.NoError(t, err)
 	assert.Empty(t, fixture.updateBayTargets)
+	assert.Equal(t, shared.BAY_TAXI_LWR, fixture.strip.Bay)
+	assert.Equal(t, sequence, *fixture.strip.Sequence)
+	require.Len(t, fixture.hub.StripUpdates, 1, "publish authoritative state to correct the browser's optimistic bay and sequence")
+	assert.Equal(t, "SAS127D", fixture.hub.StripUpdates[0].Callsign)
 }
 
 func TestMoveFrontendStrip_ManualPlacementCanMoveLowerTaxiToUpper(t *testing.T) {

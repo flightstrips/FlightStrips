@@ -100,26 +100,3 @@ func TestStandAssignmentFrontendVisibilityExcludesEstimatedArrivals(t *testing.T
 	assert.True(t, standAssignmentFrontendVisible(&models.StandAssignment{
 		Callsign: "DEP1", Stand: "A17", Direction: "DEPARTURE", Stage: "DEPARTURE_BLOCK"}))
 }
-
-func TestEstimatedManualOverlapStillReportsUnresolvedConflicts(t *testing.T) {
-	for _, direction := range []string{"ARRIVAL", "DEPARTURE"} {
-		t.Run(direction, func(t *testing.T) {
-			reason := "arrival promotion blocked: current stand is occupied and no safe replacement is available; retry pending"
-			entries := []frontendEvents.StandAssignmentEntry{
-				{Callsign: "ESTIMATED1", Stand: "A17", Direction: "ARRIVAL", Stage: "ESTIMATED", ConflictReason: &reason},
-				{Callsign: "MANUAL1", Stand: "A17", Direction: direction, Stage: "ASSIGNED", Manual: true},
-			}
-			enrichStandAssignmentBlocking(entries, "EKCH")
-			assert.Equal(t, []string{"MANUAL1"}, entries[0].BlockedBy)
-			assert.Equal(t, []string{"ESTIMATED1"}, entries[1].BlockedBy)
-			for _, entry := range entries {
-				assert.Equal(t, entry, enrichPublishedStandAssignment(entry, entries, "EKCH"))
-			}
-			if direction == "DEPARTURE" {
-				entries[0].ConflictReason = nil
-				enrichStandAssignmentBlocking(entries, "EKCH")
-				assert.Equal(t, []string{"MANUAL1"}, entries[0].BlockedBy)
-			}
-		})
-	}
-}

@@ -186,6 +186,19 @@ describe("manual companion layout behavior", () => {
     store = createWebSocketStore(client);
   });
 
+  it.each(["none", "transfer", "tag request"])("reconciles retained selection with a snapshot containing %s", kind => {
+    const board = {session_id: 1, airport: "EKCH", environment: "LIVE", instance_id: "own", membership_id: "member", transport_generation: "1", generation: "1", definition_revision: "revision", subscription_id: "old"};
+    const snapshot = {...initialEvent("AD"), session_id: 1, board, strips: [foreignStrip()]};
+    client._emit(EventType.FrontendInitial, snapshot);
+    store.getState().selectStrip("SAS123");
+    client._emit(EventType.FrontendDisconnect, {board, read_only: true});
+    expect(store.getState().selectedCallsign).toBe("SAS123");
+    const coordinations = kind === "none" ? [] : [{callsign: "SAS123", from: "EKCH_A_GND", to: "EKCH_C_GND", is_tag_request: kind === "tag request"}];
+    client._emit(EventType.FrontendInitial, {...snapshot, board: {...board, subscription_id: "new"}, coordinations});
+    expect(store.getState().selectedCallsign).toBe(kind === "transfer" ? null : "SAS123");
+    expect(client.send).not.toHaveBeenCalled();
+  });
+
   it("preserves a manual working view and surviving selection while accepting authoritative replacement data", () => {
     const board = {session_id: 1, airport: "EKCH", environment: "LIVE", instance_id: "own", membership_id: "member", transport_generation: "1", generation: "1", definition_revision: "revision", subscription_id: "old"};
     const snapshot = {...initialEvent("AD"), session_id: 1, board, strips: [foreignStrip()]};

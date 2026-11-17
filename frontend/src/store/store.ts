@@ -1391,6 +1391,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
           transfers[coord.callsign] = { from: coord.from, to: coord.to, isTagRequest: coord.is_tag_request };
         }
         state.stripTransfers = transfers;
+        if (state.selectedCallsign && transfers[state.selectedCallsign] && !transfers[state.selectedCallsign].isTagRequest) {
+          state.selectedCallsign = null;
+        }
         state.messages = data.messages ?? [];
         state.availableSids = data.available_sids ?? [];
         state.standAssignments = data.stand_assignments ?? [];

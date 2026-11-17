@@ -425,7 +425,7 @@ function StandAllocationTimeline({ session, now, selectedStand, onSelectStand, c
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h3 className="text-base font-semibold">{compact ? `Section ${section} stand timeline` : "Stand occupancy timeline"}</h3>
-          <p className="text-sm text-muted-foreground">{compact ? "Two hours either side of now (UTC). Empty rows are free; gray dashed cards are blocked by an adjacent stand." : "The view shows two hours either side of now. Active cards are coloured by type; gray dashed cards are blocked by an occupied adjacent stand; violet/slate cards are expired history."}</p>
+          <p className="text-sm text-muted-foreground">{compact ? "Two hours either side of now (UTC). Empty rows are free; gray dashed cards are blocked by an adjacent stand." : "The view shows two hours either side of now. Active cards are coloured by type; gray dashed cards are blocked by an aircraft or closure on an adjacent stand; violet/slate cards are expired history."}</p>
         </div>
         {!compact && <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">

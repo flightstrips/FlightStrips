@@ -21,7 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Validate workflow syntax and expressions
-        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -shellcheck=
+        # actionlint does not yet recognize GitHub's concurrency.queue setting
+        # (rhysd/actionlint#657). Its exact value is covered by policy tests.
+        run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
+          -shellcheck= -ignore 'unexpected key "queue" for "concurrency" section'
       - name: Exercise code owner and release PR policy
         run: node --test .github/scripts/review-policy.test.cjs
       - name: Exercise announcement scripts with github-script runtime

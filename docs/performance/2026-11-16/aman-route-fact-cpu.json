@@ -1,0 +1,147 @@
+{
+  "environment": "same worktree, PostgreSQL 16 on Docker Desktop, serial runs, three samples per workload, setup excluded",
+  "scope": "full changed event including synchronous reconciliation and publication",
+  "measurements": {
+    "before": {
+      "measurements": [
+        {
+          "arrivals": 1,
+          "statements": 8,
+          "elapsed_ms": 21.0833,
+          "sql_and_result_ms": 20.053
+        },
+        {
+          "arrivals": 132,
+          "statements": 8,
+          "elapsed_ms": 1276.3907000000002,
+          "sql_and_result_ms": 162.1344
+        },
+        {
+          "arrivals": 2,
+          "statements": 8,
+          "elapsed_ms": 106.8519,
+          "sql_and_result_ms": 105.0896
+        },
+        {
+          "arrivals": 1,
+          "statements": 8,
+          "elapsed_ms": 18.7481,
+          "sql_and_result_ms": 18.2425
+        },
+        {
+          "arrivals": 132,
+          "statements": 8,
+          "elapsed_ms": 1166.2949,
+          "sql_and_result_ms": 190.8693
+        },
+        {
+          "arrivals": 2,
+          "statements": 8,
+          "elapsed_ms": 100.0694,
+          "sql_and_result_ms": 99.0479
+        },
+        {
+          "arrivals": 1,
+          "statements": 8,
+          "elapsed_ms": 14.045,
+          "sql_and_result_ms": 13.5387
+        },
+        {
+          "arrivals": 132,
+          "statements": 8,
+          "elapsed_ms": 1064.5666,
+          "sql_and_result_ms": 132.1785
+        },
+        {
+          "arrivals": 2,
+          "statements": 8,
+          "elapsed_ms": 101.1073,
+          "sql_and_result_ms": 101.1073
+        }
+      ],
+      "published_states_sha256": {
+        "1": "ce8f04c80d18fc73771c1edfc9ba1909f6a1a28a13e9ddec5f5b3000cd4c0fc6",
+        "132": "f135b2b2c19f77d1b5d7d5fbfb74ca45db7fbc780c8fb1e5cdc0d3e4a94a36d0",
+        "2": "689cbbfe351b351b3bfdf0bd124b689e9abd60eeedab5177b7786eace3bd7e3c"
+      }
+    },
+    "after": {
+      "measurements": [
+        {
+          "arrivals": 1,
+          "statements": 8,
+          "elapsed_ms": 17.7752,
+          "sql_and_result_ms": 15.3322
+        },
+        {
+          "arrivals": 132,
+          "statements": 8,
+          "elapsed_ms": 764.7061,
+          "sql_and_result_ms": 176.0695
+        },
+        {
+          "arrivals": 2,
+          "statements": 8,
+          "elapsed_ms": 101.2662,
+          "sql_and_result_ms": 99.5636
+        },
+        {
+          "arrivals": 1,
+          "statements": 8,
+          "elapsed_ms": 17.2197,
+          "sql_and_result_ms": 16.1803
+        },
+        {
+          "arrivals": 132,
+          "statements": 8,
+          "elapsed_ms": 775.2397,
+          "sql_and_result_ms": 192.1192
+        },
+        {
+          "arrivals": 2,
+          "statements": 8,
+          "elapsed_ms": 101.8486,
+          "sql_and_result_ms": 101.8486
+        },
+        {
+          "arrivals": 1,
+          "statements": 8,
+          "elapsed_ms": 13.7307,
+          "sql_and_result_ms": 11.481
+        },
+        {
+          "arrivals": 132,
+          "statements": 8,
+          "elapsed_ms": 718.3565,
+          "sql_and_result_ms": 136.7132
+        },
+        {
+          "arrivals": 2,
+          "statements": 8,
+          "elapsed_ms": 102.1996,
+          "sql_and_result_ms": 102.1996
+        }
+      ],
+      "published_states_sha256": {
+        "1": "ce8f04c80d18fc73771c1edfc9ba1909f6a1a28a13e9ddec5f5b3000cd4c0fc6",
+        "132": "f135b2b2c19f77d1b5d7d5fbfb74ca45db7fbc780c8fb1e5cdc0d3e4a94a36d0",
+        "2": "689cbbfe351b351b3bfdf0bd124b689e9abd60eeedab5177b7786eace3bd7e3c"
+      }
+    }
+  },
+  "before_profile": {
+    "wall_ms": 1214.9883,
+    "sql_and_result_ms": 214.7601,
+    "cpu_sample_ms": 1130,
+    "placement_cpu_sample_ms": 870,
+    "placement_cpu_percent": 76.99
+  },
+  "notes": "SQL and result timings include client result handling; CPU samples and query timings overlap. SHA256 covers both complete published states.",
+  "after_profile": {
+    "wall_ms": 760.9464,
+    "sql_and_result_ms": 190.4968,
+    "cpu_sample_ms": 660,
+    "placement_cpu_sample_ms": 350,
+    "placement_cpu_percent": 53.03
+  }
+}

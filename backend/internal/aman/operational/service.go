@@ -483,6 +483,44 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 // internal operation on its configured interval.
 func (s *Service) Reconcile(ctx context.Context) { s.reconcileAll(ctx) }
 
+// ReconcileSession performs the complete synchronous replan caused by a
+// controller fact. Other sessions have independent aggregates and observations;
+// they are reconciled by the periodic worker, not by this event.
+func (s *Service) ReconcileSession(ctx context.Context, airport string) {
+	if aman.SessionID(ctx) <= 0 || !s.enabledAirport(airport) {
+		return
+	}
+	if session, ok := aman.ReadSessionSnapshot(ctx); ok && session.Airport == airport {
+		s.mu.Lock()
+		s.liveSessions[session.ID] = session.Live
+		s.mu.Unlock()
+	} else if s.deps.Sessions != nil {
+		sessions, err := s.deps.Sessions.AMANSessions(ctx)
+		if err != nil {
+			slog.WarnContext(ctx, "AMAN sessions unavailable", "error", err)
+			return
+		}
+		found := false
+		for _, session := range sessions {
+			if session.ID == aman.SessionID(ctx) && session.Airport == airport {
+				s.mu.Lock()
+				s.liveSessions[session.ID] = session.Live
+				s.mu.Unlock()
+				found = true
+				break
+			}
+		}
+		if !found {
+			return
+		}
+	}
+	s.observeNavigationCache(ctx, airport)
+	s.refreshWeather(ctx, airport, s.deps.Now().UTC())
+	if err := s.reconcileAirport(ctx, airport); err != nil {
+		slog.WarnContext(ctx, "AMAN session reconciliation failed", "session", aman.SessionID(ctx), "airport", airport, "error", err)
+	}
+}
+
 func (s *Service) reconcileAll(ctx context.Context) {
 	if s.deps.Sessions != nil {
 		sessions, err := s.deps.Sessions.AMANSessions(ctx)

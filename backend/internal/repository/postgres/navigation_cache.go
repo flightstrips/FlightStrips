@@ -164,10 +164,15 @@ func (r *navigationCache) ActivateManifest(ctx context.Context, candidate navdat
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
+	r.invalidateGeometryReadScope(ctx)
 	return next, nil
 }
 
 func (r *navigationCache) ActiveVersion(ctx context.Context, airport navdata.AirportID) (navdata.DatasetVersion, error) {
+	if scope := r.geometryReadScope(ctx, airport); scope != nil {
+		snapshot, err := r.ActiveGeometrySnapshot(ctx, airport)
+		return snapshot.Manifest.Version, err
+	}
 	var v navdata.DatasetVersion
 	var airportDigest string
 	err := r.pool.QueryRow(ctx, `SELECT m.cycle,m.source_revision,m.effective_from,m.effective_until,m.airport_digest FROM aman_nav_active_manifests a JOIN aman_nav_manifests m ON m.manifest_id=a.manifest_id WHERE a.airport=$1`, airport).Scan(&v.Cycle, &v.SourceRevision, &v.EffectiveFrom, &v.EffectiveUntil, &airportDigest)
@@ -219,95 +224,31 @@ func (r *navigationCache) ActiveManifest(ctx context.Context, airport navdata.Ai
 	return result, nil
 }
 
-// ActiveGeometrySnapshot reads the active-manifest pointer and all named
-// fragments in a single repeatable-read transaction. Activation swaps that
-// pointer atomically, so callers cannot observe mixed fragment revisions.
+// ActiveGeometrySnapshot reads the pointer and all named fragments in one SQL
+// statement. PostgreSQL's statement snapshot prevents mixed manifest revisions.
 func (r *navigationCache) ActiveGeometrySnapshot(ctx context.Context, airport navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
-	if err != nil {
-		return navdata.ActiveGeometrySnapshot{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	var result navdata.ActiveGeometrySnapshot
-	var procedureDigests []byte
-	err = tx.QueryRow(ctx, `SELECT m.revision,m.cycle,m.source_revision,m.effective_from,m.effective_until,m.airport_digest,m.procedure_digests,m.fix_digest,COALESCE(m.terminal_digest,'') FROM aman_nav_active_manifests a JOIN aman_nav_manifests m ON m.manifest_id=a.manifest_id WHERE a.airport=$1`, airport).Scan(&result.ManifestRevision, &result.Manifest.Version.Cycle, &result.Manifest.Version.SourceRevision, &result.Manifest.Version.EffectiveFrom, &result.Manifest.Version.EffectiveUntil, &result.Manifest.AirportDigest, &procedureDigests, &result.Manifest.FixDigest, &result.Manifest.TerminalDigest)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return result, cacheNotFound("active geometry snapshot was not found")
-	}
-	if err != nil {
-		return result, err
-	}
-	result.Manifest.Airport, result.Manifest.ExpectedRevision = airport, result.ManifestRevision
-	result.Manifest.Version.EffectiveFrom = result.Manifest.Version.EffectiveFrom.UTC()
-	result.Manifest.Version.EffectiveUntil = result.Manifest.Version.EffectiveUntil.UTC()
-	if err := json.Unmarshal(procedureDigests, &result.Manifest.ProcedureDigests); err != nil {
-		return result, cacheCorrupt("decode active snapshot procedure digests")
-	}
-	if err := r.validateManifest(ctx, tx, result.Manifest); err != nil {
-		return result, err
-	}
-	airportFragment, err := loadAirportFragment(ctx, tx, result.Manifest.AirportDigest)
-	if err != nil {
-		return result, err
-	}
-	fixFragment, err := loadFixFragment(ctx, tx, result.Manifest.FixDigest)
-	if err != nil {
-		return result, err
-	}
-	result.Airport = airportFragment.Airport
-	result.Runways = append([]navdata.Runway(nil), airportFragment.Runways...)
-	result.Fixes = append([]navdata.Fix(nil), fixFragment.Fixes...)
-	holdingDigests := map[navdata.HoldingID]string{}
-	addHolding := func(value navdata.HoldingPattern) error {
-		digest, digestErr := navdata.HoldingDigest(value)
-		if digestErr != nil {
-			return cacheCorrupt("calculate snapshot holding digest")
-		}
-		if previous, exists := holdingDigests[value.ID]; exists {
-			if previous != digest {
-				return cacheCorrupt("snapshot has conflicting holding definitions")
+	if scope := r.geometryReadScope(ctx, airport); scope != nil {
+		scope.mu.Lock()
+		defer scope.mu.Unlock()
+		if scope.snapshot == nil {
+			snapshot, _, err := r.loadGeometryReadScope(ctx, airport, nil)
+			if err != nil {
+				return navdata.ActiveGeometrySnapshot{}, err
 			}
-			return nil
+			scope.snapshot = &snapshot
 		}
-		holdingDigests[value.ID] = digest
-		result.Holdings = append(result.Holdings, value)
-		return nil
+		return *scope.snapshot, nil
 	}
-	for _, digest := range result.Manifest.ProcedureDigests {
-		fragment, loadErr := loadProcedureFragment(ctx, tx, digest)
-		if loadErr != nil {
-			return result, loadErr
-		}
-		for _, procedure := range fragment.Procedures {
-			result.Procedures = append(result.Procedures, procedure)
-			for _, holding := range procedure.Holdings {
-				if addErr := addHolding(holding); addErr != nil {
-					return result, addErr
-				}
-			}
-		}
-	}
-	if result.Manifest.TerminalDigest != "" {
-		fragment, loadErr := loadTerminalFragment(ctx, tx, result.Manifest.TerminalDigest)
-		if loadErr != nil {
-			return result, loadErr
-		}
-		result.TerminalPaths = append([]navdata.TerminalPath(nil), fragment.Paths...)
-		result.TerminalVersion = fragment.ConfigVersion
-		result.TimelineMappings = append([]navdata.TimelineMapping(nil), fragment.TimelineMappings...)
-		for _, holding := range fragment.Holdings {
-			if addErr := addHolding(holding); addErr != nil {
-				return result, addErr
-			}
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return navdata.ActiveGeometrySnapshot{}, err
-	}
-	return result, nil
+	snapshot, _, err := r.loadGeometryReadScope(ctx, airport, nil)
+	return snapshot, err
 }
 
 func (r *navigationCache) Route(ctx context.Context, key navdata.RouteKey) (navdata.RouteGeometry, error) {
+	if scope := r.geometryReadScope(ctx, ""); scope != nil {
+		if route, ok, err := scope.route(key); ok {
+			return route, err
+		}
+	}
 	var queryJSON, payload []byte
 	var resolver, schema string
 	var created time.Time
@@ -338,6 +279,18 @@ func (r *navigationCache) Route(ctx context.Context, key navdata.RouteKey) (navd
 	return candidate.Geometry, nil
 }
 func (r *navigationCache) TerminalPath(ctx context.Context, airport navdata.AirportID, feeder navdata.FeederID, group aman.RunwayGroupID) (navdata.TerminalPath, error) {
+	if scope := r.geometryReadScope(ctx, airport); scope != nil {
+		snapshot, err := r.ActiveGeometrySnapshot(ctx, airport)
+		if err != nil {
+			return navdata.TerminalPath{}, err
+		}
+		for _, path := range snapshot.TerminalPaths {
+			if path.Airport == airport && path.Feeder == feeder && path.RunwayGroup == group {
+				return path, nil
+			}
+		}
+		return navdata.TerminalPath{}, cacheNotFound("terminal path was not found")
+	}
 	var digest string
 	err := r.pool.QueryRow(ctx, `SELECT m.terminal_digest FROM aman_nav_active_manifests a JOIN aman_nav_manifests m ON m.manifest_id=a.manifest_id WHERE a.airport=$1`, airport).Scan(&digest)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -438,12 +391,32 @@ func (r *navigationCache) validateManifest(ctx context.Context, db rowQuerier, m
 	if err != nil {
 		return err
 	}
-	if airport.State != navdata.ValidationValidated || airport.Airport.ID != m.Airport || !airport.Version.Equal(m.Version) {
-		return cacheCorrupt("manifest airport fragment is not validated or does not match")
-	}
 	fixes, err := loadFixFragment(ctx, db, m.FixDigest)
 	if err != nil {
 		return err
+	}
+	procedures := make([]navdata.CandidateProcedureFragment, 0, len(m.ProcedureDigests))
+	for _, digest := range m.ProcedureDigests {
+		fragment, err := loadProcedureFragment(ctx, db, digest)
+		if err != nil {
+			return err
+		}
+		procedures = append(procedures, fragment)
+	}
+	var terminal *navdata.CandidateTerminalFragment
+	if m.TerminalDigest != "" {
+		fragment, err := loadTerminalFragment(ctx, db, m.TerminalDigest)
+		if err != nil {
+			return err
+		}
+		terminal = &fragment
+	}
+	return validateManifestFragments(m, airport, fixes, procedures, terminal)
+}
+
+func validateManifestFragments(m navdata.ManifestCandidate, airport navdata.CandidateAirportFragment, fixes navdata.CandidateFixFragment, procedures []navdata.CandidateProcedureFragment, terminal *navdata.CandidateTerminalFragment) error {
+	if airport.State != navdata.ValidationValidated || airport.Airport.ID != m.Airport || !airport.Version.Equal(m.Version) {
+		return cacheCorrupt("manifest airport fragment is not validated or does not match")
 	}
 	if fixes.State != navdata.ValidationValidated || fixes.Coverage != navdata.CoverageComplete || !fixes.Version.Equal(m.Version) {
 		return cacheCorrupt("manifest fix fragment is not validated or does not match")
@@ -458,11 +431,7 @@ func (r *navigationCache) validateManifest(ctx context.Context, db rowQuerier, m
 	}
 	holdings := map[navdata.HoldingID]string{}
 	procedureKinds := map[navdata.ProcedureKind]struct{}{}
-	for _, digest := range m.ProcedureDigests {
-		fragment, err := loadProcedureFragment(ctx, db, digest)
-		if err != nil {
-			return err
-		}
+	for _, fragment := range procedures {
 		if fragment.State != navdata.ValidationValidated || fragment.Coverage == navdata.CoverageUnavailable || fragment.Airport != m.Airport || !fragment.Version.Equal(m.Version) {
 			return cacheCorrupt("manifest procedure fragment is not validated or does not match")
 		}
@@ -500,9 +469,8 @@ func (r *navigationCache) validateManifest(ctx context.Context, db rowQuerier, m
 		}
 	}
 	if m.TerminalDigest != "" {
-		terminal, err := loadTerminalFragment(ctx, db, m.TerminalDigest)
-		if err != nil {
-			return err
+		if terminal == nil {
+			return cacheCorrupt("manifest references missing terminal fragment")
 		}
 		if terminal.State != navdata.ValidationValidated || terminal.Airport != m.Airport || !terminal.Version.Equal(m.Version) {
 			return cacheCorrupt("manifest terminal fragment is not validated or does not match")

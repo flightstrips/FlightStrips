@@ -203,6 +203,9 @@ func (r *Repository) CorrelateAccepted(ctx context.Context, fact ClearanceFact) 
 		!present(fact.Value) || (fact.Kind != KindRouteDirect && fact.Kind != KindSpeed) || !utc(fact.ObservedAt) {
 		return CommitResult{}, errors.New("authoritative clearance fact is invalid")
 	}
+	if result, ok := committedAggregateClearance(ctx, r.pool, fact); ok {
+		return result, nil
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return CommitResult{}, err

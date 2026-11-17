@@ -1558,6 +1558,16 @@ func (s *StandAllocationService) AvailableStands(ctx context.Context, request St
 	return result, nil
 }
 
+func activeManualStandBlocks(blocks []*models.StandBlock, now time.Time) []*models.StandBlock {
+	active := make([]*models.StandBlock, 0, len(blocks))
+	for _, block := range blocks {
+		if block != nil && block.Manual && !expired(block.ExpiresAt, now) {
+			active = append(active, block)
+		}
+	}
+	return active
+}
+
 // Preview reports the current policy candidates without reserving, updating,
 // or publishing anything. It is intended for controller diagnostics.
 func (s *StandAllocationService) Preview(ctx context.Context, request StandAllocationRequest) (StandAllocationPreview, error) {
@@ -1575,12 +1585,7 @@ func (s *StandAllocationService) Preview(ctx context.Context, request StandAlloc
 	if err != nil {
 		return StandAllocationPreview{}, err
 	}
-	activeBlocks := make([]*models.StandBlock, 0, len(blocks))
-	for _, block := range blocks {
-		if block != nil && block.Manual && !expired(block.ExpiresAt, s.now()) {
-			activeBlocks = append(activeBlocks, block)
-		}
-	}
+	activeBlocks := activeManualStandBlocks(blocks, s.now())
 
 	evaluation := s.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))

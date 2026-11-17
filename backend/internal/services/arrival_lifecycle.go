@@ -251,7 +251,21 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 				nextObservedStand = &observedStand
 			}
 		}
-		if shouldPromoteArrival(currentStage, targetStage) || arrivalExpiryChanged(existing.ExpiresAt, expiresAt) || stringPointerChanged(existing.ObservedStand, nextObservedStand) {
+		promotionConflictResolved := false
+		if existing.ConflictReason != nil && *existing.ConflictReason == arrivalPromotionConflictReason {
+			request := s.buildRequest(session, strip, flight, targetStage, existing.ETA, expiresAt)
+			available, err := s.allocations.StandAvailableForPromotion(ctx, request, existing.Stand)
+			if err != nil {
+				return err
+			}
+			if available {
+				resolved := *existing
+				resolved.ConflictReason = nil
+				existing = &resolved
+				promotionConflictResolved = true
+			}
+		}
+		if shouldPromoteArrival(currentStage, targetStage) || arrivalExpiryChanged(existing.ExpiresAt, expiresAt) || stringPointerChanged(existing.ObservedStand, nextObservedStand) || promotionConflictResolved {
 			// Once the aircraft is in the airport area, ETA changes are no longer
 			// operational stand-planning inputs. Preserve the stand and its last
 			// accepted ETA while only advancing stage/retention metadata.
@@ -611,6 +625,7 @@ func (s *ArrivalLifecycleService) estimatedConflictCanWait(ctx context.Context, 
 	if err != nil {
 		return false, err
 	}
+	blocks = activeManualStandBlocks(blocks, s.allocations.now())
 	evaluation := s.allocations.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
 	for _, match := range evaluation.Matches {
@@ -656,6 +671,15 @@ func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, exis
 	// checks clear the warning explicitly, or a successful promotion clears it.
 	if existing.Stage != stage && updated.ConflictReason != nil && *updated.ConflictReason == arrivalPromotionConflictReason {
 		updated.ConflictReason = nil
+	}
+	if existing.Stage == StageEstimated && existing.Stage != stage {
+		// Manual estimates must keep their chosen stand while promotion writes
+		// that stand to the strip in the same transaction as the new stage.
+		if err := s.allocations.PromoteEstimatedArrivalInPlace(ctx, existing, updated); err != nil {
+			return err
+		}
+		s.recordArrivalStagePromotion(ctx, existing, updated)
+		return nil
 	}
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {

@@ -213,6 +213,8 @@ export interface WebSocketState {
   resetLayoutRecommendation: string;
   displayedLayout: string;
   readOnly: boolean;
+  reconciling: boolean;
+  pendingAssumptions: Record<string, boolean>;
   positionAvailable: boolean;
   localIp: string;
   vacsClient: VacsClient;
@@ -366,6 +368,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   };
   const pendingFrequencyMessages = new Map<string, { callsign: string; session: number | null; position: string; resolve: (result: FrequencyMessageResult) => void; timeout: ReturnType<typeof setTimeout> }>();
   const dismissedMessageIds = new Set<number>();
+  const assumptionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const reconciliationToastID = `action-reconciliation-${crypto.randomUUID()}`;
+  let reconciliationTimer: ReturnType<typeof setTimeout> | undefined;
+  let reconciliationRequested = false;
+  let reconciliationRequestID: string | null = null;
+  let nextReconciliationRequestID = 0;
   let nextForceAssumeRequestId = 0;
   const pendingForceAssumeRoutes = new Map<string, {
     resolve: (nextOwners: string[]) => void;
@@ -394,6 +402,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     resetLayoutRecommendation: '',
     displayedLayout: '',
     readOnly: wsClient.hasBoardSelection?.() ?? false,
+    reconciling: false,
+    pendingAssumptions: {},
     positionAvailable: true,
     localIp: '',
     masterCallsign: '',
@@ -448,11 +458,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     for (const key of Object.keys(initialState) as Array<keyof typeof initialState>) {
       if (key in retainedState) Object.assign(initialState, {[key]: retainedState[key]});
     }
+    initialState.reconciling = false;
+    initialState.pendingAssumptions = {};
     Object.assign(initialState, {connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, amanSelectedCallsign:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
   }
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => {
-    const ensureWritable = () => !disposed && !get().readOnly;
+    const ensureWritable = () => !disposed && !get().readOnly && !get().reconciling;
     const sendIfWritable = (event: FrontendSendEvent) => {
       if (!ensureWritable()) {
         return false;
@@ -722,6 +734,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       return !!revision && state.ownPluginReady && !!state.boardDefinition?.board_state?.revisioned && sendIfWritable({type:ActionType.FrontendUpdateStripData,callsign,...fields,revision});
     },
     updateStrip(callsign: string, update: UpdateStrip) {
+      const strip = findStrip(callsign);
+      if (!strip || (strip.owner && strip.owner !== get().position)) return;
+      // Compare against current store data, including changes since a dialog
+      // opened. Never submit an unchanged blur or optimistic duplicate.
+      update = Object.fromEntries(Object.entries(update).filter(([field, value]) => {
+        if (value === undefined) return false;
+        const current = field === "altitude" ? strip.cleared_altitude : strip[field as keyof FrontendStrip];
+        return field === "eobt" ? normalizeCdmTime(String(value)) !== normalizeCdmTime(strip.eobt) : value !== current;
+      })) as UpdateStrip;
+      if (Object.keys(update).length === 0) return;
       const fields = updateStripFieldsFromPayload(update);
       const normalizedEobt = update.eobt === undefined ? undefined : normalizeCdmTime(update.eobt);
       if (!sendGuardedStripEvent(callsign, { type: "update_strip", fields }, {
@@ -860,6 +882,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       );
     },
     setReleasePoint: (callsign, releasePoint) => {
+      const strip = findStrip(callsign);
+      if (!strip || strip.release_point === releasePoint || (strip.owner && strip.owner !== get().position)) return;
       if (!sendGuardedStripEvent(callsign, { type: "release_point" }, {type: ActionType.FrontendReleasePoint, callsign: callsign, release_point: releasePoint})) {
         return;
       }
@@ -975,7 +999,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       return true;
     },
     assumeStrip: (callsign) => {
-      sendGuardedStripEvent(callsign, { type: "coordination_assume_request" }, { type: ActionType.FrontendCoordinationAssumeRequest, callsign });
+      const strip = findStrip(callsign);
+      const transfer = get().stripTransfers[callsign];
+      const incoming = transfer && !transfer.isTagRequest && transfer.to === get().position && transfer.from !== get().position;
+      if (!strip || (strip.owner === get().position && !incoming) || get().pendingAssumptions[callsign]) return;
+      if (sendGuardedStripEvent(callsign, { type: "coordination_assume_request" }, { type: ActionType.FrontendCoordinationAssumeRequest, callsign })) {
+        set(state => ({ pendingAssumptions: { ...state.pendingAssumptions, [callsign]: true } }));
+        assumptionTimers.set(callsign, setTimeout(() => requestReconciliation(), 5_000));
+      }
     },
     // forceAssumeStrip: takes ownership regardless of next owners or any active transfer
     forceAssumeStrip: (callsign) => {
@@ -1028,6 +1059,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       sendIfWritable({ type: ActionType.FrontendClxOverrideValidation, callsign, override_key: overrideKey });
     },
     assignRunway: (callsign, runway) => {
+      const strip = findStrip(callsign);
+      if (!strip || strip.runway === runway || (strip.owner && strip.owner !== get().position)) return;
       if (!sendGuardedStripEvent(callsign, { type: "update_strip", fields: ["runway"] }, { type: ActionType.FrontendUpdateStripData, callsign, runway })) {
         return;
       }
@@ -1281,9 +1314,54 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     clearStandActionRejection: () => store.setState({ standActionRejection: null }),
   }});
 
+  const clearAssumption = (callsign: string) => {
+    clearTimeout(assumptionTimers.get(callsign));
+    assumptionTimers.delete(callsign);
+    store.setState(produce((state: WebSocketState) => { delete state.pendingAssumptions[callsign]; }));
+  };
+  const confirmAssumptionByOwnerChange = (callsign: string, owner: string | undefined) => {
+    const state = store.getState();
+    if (owner === state.position && state.strips.find(strip => strip.callsign === callsign)?.owner !== owner) {
+      clearAssumption(callsign);
+    }
+  };
+  const clearRecovery = () => {
+    toast.dismiss(reconciliationToastID);
+    clearTimeout(reconciliationTimer);
+    reconciliationRequested = false;
+    reconciliationRequestID = null;
+    for (const timer of assumptionTimers.values()) clearTimeout(timer);
+    assumptionTimers.clear();
+    store.setState({ reconciling: false, pendingAssumptions: {} });
+  };
+  const reconciliationFailed = () => {
+    clearTimeout(reconciliationTimer);
+    reconciliationRequested = false;
+    // Keep writes fenced: the displayed optimistic state is not authoritative.
+    toast.error("Unable to refresh strip state. Editing is paused until refreshed.", {
+      id: reconciliationToastID,
+      action: { label: "Retry refresh", onClick: () => requestReconciliation() },
+      duration: Infinity,
+      dismissible: false,
+    });
+  };
+  const requestReconciliation = () => {
+    if (disposed || store.getState().readOnly || reconciliationRequested) return;
+    reconciliationRequested = true;
+    reconciliationRequestID = `refresh-${++nextReconciliationRequestID}`;
+    store.setState({ reconciling: true });
+    wsClient.setReadOnly(true);
+    if (wsClient.send({ type: ActionType.FrontendActionReconciliation, request_id: reconciliationRequestID }) === false) {
+      reconciliationFailed();
+      return;
+    }
+    reconciliationTimer = setTimeout(reconciliationFailed, 5_000);
+  };
+
   const suspendBoard = () => {
     if (disposed) return;
     vacsClient.invalidate();
+    clearRecovery();
     lifecycleVersion++;
     wsClient.setReadOnly?.(true);
     for (const [id, pending] of pendingFrequencyMessages) {
@@ -1308,6 +1386,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     state.amanEuroScopeSelectionRevision = selection.revision;
   };
   const handleInitialEvent = (data: FrontendInitialEvent) => {
+    clearRecovery();
     wsClient.setReadOnly(data.read_only ?? false);
     store.setState(
       produce((state: WebSocketState) => {
@@ -1399,11 +1478,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   };
 
   const handleStripUpdateEvent = (data: FrontendStripUpdateEvent) => {
+    const state = store.getState();
+    const current = state.strips.find(strip => strip.callsign === data.callsign);
+    if (state.boardDefinition?.board_state?.revisioned && current && data.id === current.id && data.version < current.version) return;
+    confirmAssumptionByOwnerChange(data.callsign, data.owner);
     store.setState(
       produce((state: WebSocketState) => {
         const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
 
-        if (!!state.boardDefinition?.board_state?.revisioned && stripIndex !== -1 && data.id === state.strips[stripIndex].id && data.version < state.strips[stripIndex].version) return;
         if (stripIndex !== -1) {
           // Update existing strip
           state.strips[stripIndex] = {
@@ -1559,6 +1641,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       suspendBoard();
       return;
     }
+    clearRecovery();
     const readOnly = data.read_only ?? false;
     wsClient.setReadOnly(readOnly);
     store.setState({
@@ -1612,6 +1695,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   }
 
   const handleOwnersUpdateEvent = (data: FrontendOwnersUpdateEvent) => {
+    confirmAssumptionByOwnerChange(data.callsign, data.owner);
     store.setState(
       produce((state: WebSocketState) => {
         const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
@@ -1802,6 +1886,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   };
 
   const handleCoordinationAssumeBroadcastEvent = (data: FrontendCoordinationAssumeBroadcastEvent) => {
+    clearAssumption(data.callsign);
     store.setState(
       produce((state: WebSocketState) => {
         const transfer = state.stripTransfers[data.callsign];
@@ -1844,7 +1929,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   const handleTacticalStripCreatedEvent = (data: FrontendTacticalStripCreatedEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        state.tacticalStrips.push(data.strip);
+        // A create replay may already be represented by a newer snapshot.
+        if (!state.tacticalStrips.some(strip => strip.id === data.strip.id)) {
+          state.tacticalStrips.push(data.strip);
+        }
       })
     );
   };
@@ -1953,11 +2041,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     if (data.action.startsWith("stand_assignment_")) {
       store.setState({ standActionRejection: data });
       if (data.code === "stale_version") {
-        wsClient.reconnect();
+        requestReconciliation();
       }
       return;
     }
     toast.error(data.reason);
+    if (data.action === ActionType.FrontendActionReconciliation) {
+      if (data.request_id && data.request_id !== reconciliationRequestID) return;
+      reconciliationFailed();
+      return;
+    }
     if (data.action === ActionType.FrontendCoordinationForceAssumeRequest) {
       if (data.request_id) {
         const pending = pendingForceAssumeRoutes.get(data.request_id);
@@ -1971,12 +2064,32 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       // rejection can be handled without reconnecting.
       return;
     }
-    // Most strip actions update the store optimistically. Reconnect to obtain an
-    // authoritative snapshot when the backend rejects one of those mutations.
-    wsClient.reconnect();
+    requestReconciliation();
   };
 
   on(EventType.FrontendActionRejected, handleActionRejectedEvent);
+  on(EventType.FrontendActionReconciliation, (data) => {
+    if (!reconciliationRequestID || data.request_id !== reconciliationRequestID || store.getState().readOnly
+      || data.session_id !== (store.getState().amanSessionID ?? undefined)) return;
+    // Ordering and coordination couple several records. Replace operational
+    // data together while retaining layout, selections, drafts and dialogs.
+    store.setState(produce((state: WebSocketState) => {
+      state.strips = data.strips.map(strip => ({ ...strip,
+        eobt: normalizeCdmTime(strip.eobt), tobt: normalizeCdmTime(strip.tobt),
+        tsat: normalizeCdmTime(strip.tsat), ctot: normalizeCdmTime(strip.ctot),
+      }));
+      state.tacticalStrips = data.tactical_strips ?? [];
+      state.stripTransfers = Object.fromEntries(data.coordinations.map(coord => [coord.callsign,
+        { from: coord.from, to: coord.to, isTagRequest: coord.is_tag_request }]));
+      state.messages = (data.messages ?? []).filter(message => !dismissedMessageIds.has(message.id));
+      state.runwaySetup = data.runway_setup;
+      state.standAssignments = data.stand_assignments ?? [];
+      state.standBlocks = data.stand_blocks ?? [];
+      state.standArrivalRestrictions = data.stand_arrival_restrictions ?? [];
+    }));
+    clearRecovery();
+    wsClient.setReadOnly(store.getState().readOnly);
+  });
 
   on(EventType.FrontendAircraftSelection, (event) => {
     store.setState(produce((state: WebSocketState) => applyAircraftSelection(state, event)));

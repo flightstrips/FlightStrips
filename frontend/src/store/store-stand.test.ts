@@ -1,8 +1,9 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
-import { createWebSocketStore, type WebSocketState } from "./store";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
+import { createWebSocketStore } from "./store";
 import type { WebSocketClient } from "@/api/websocket";
 import {
   EventType,
+  ActionType,
   type FrontendStandStatusSnapshotEvent,
   type FrontendStandAssignmentUpdateEvent,
   type FrontendStandAssignmentRemovedEvent,
@@ -11,7 +12,6 @@ import {
   type FrontendStandBlockEntry,
   type FrontendInitialEvent,
 } from "@/api/models";
-import type { StoreApi } from "zustand/vanilla";
 
 function createMockClient() {
   const handlers = new Map<string, Array<(data: unknown) => void>>();
@@ -38,12 +38,13 @@ function createMockClient() {
 
 describe("stand store events", () => {
   let client: ReturnType<typeof createMockClient>;
-  let store: StoreApi<WebSocketState>;
+  let store: ReturnType<typeof createWebSocketStore>;
 
   beforeEach(() => {
     client = createMockClient();
     store = createWebSocketStore(client as unknown as WebSocketClient);
   });
+  afterEach(() => store.dispose());
 
   describe("satEnabled", () => {
     it("is false by default", () => {
@@ -110,7 +111,7 @@ describe("stand store events", () => {
   });
 
   describe("stand assignment update", () => {
-    it("reconnects after a stale stand assignment version", () => {
+    it("refreshes a stale stand assignment without reconnecting or discarding its rejection", () => {
       client._emit(EventType.FrontendActionRejected, {
         type: EventType.FrontendActionRejected,
         action: "stand_assignment_manual_request",
@@ -120,7 +121,13 @@ describe("stand store events", () => {
         version: 2,
       });
 
-      expect(client.reconnect).toHaveBeenCalledOnce();
+      expect(client.reconnect).not.toHaveBeenCalled();
+      expect(client.send).toHaveBeenCalledExactlyOnceWith({ type: ActionType.FrontendActionReconciliation, request_id: "refresh-1" });
+      client._emit(EventType.FrontendActionReconciliation, {
+        request_id: "refresh-1", strips: [], coordinations: [], runway_setup: { departure: [], arrival: [] },
+        stand_assignments: [{ callsign: "SAS456", stand: "A18", version: 3 }],
+      });
+      expect(store.getState().standAssignments[0].version).toBe(3);
       expect(store.getState().standActionRejection?.code).toBe("stale_version");
     });
 

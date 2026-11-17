@@ -239,11 +239,13 @@ func actionRejectedEvent(action string, payload []byte, err error) frontend.Acti
 		Action: action,
 		Reason: err.Error(),
 	}
-	if action != string(frontend.CoordinationForceAssumeRequestType) {
+	if action != string(frontend.CoordinationForceAssumeRequestType) && action != string(frontend.ActionReconciliation) {
 		return rejection
 	}
 
-	var request frontend.CoordinationForceAssumeRequestEvent
+	var request struct {
+		RequestID string `json:"request_id"`
+	}
 	if json.Unmarshal(payload, &request) == nil {
 		rejection.RequestID = request.RequestID
 	}

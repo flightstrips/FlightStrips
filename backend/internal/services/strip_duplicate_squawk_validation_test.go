@@ -56,6 +56,82 @@ func TestReevaluateDuplicateSquawkValidation_ActivatesForGroundOwnerInDepartureF
 	assert.NotEmpty(t, persisted.ActivationKey)
 }
 
+func TestAcceptCoordinationValidatesCommittedOwnerFromRequestCaches(t *testing.T) {
+	for _, cache := range []string{"sync", "message", "publication", "combined"} {
+		t.Run(cache, func(t *testing.T) {
+			oldOwner, newOwner, squawk, sector := "EKCH_A_GND", "EKCH_B_GND", "4231", "OLD"
+			original := &models.Strip{ID: 70, Session: 1, Callsign: "SAS123", Owner: &oldOwner, Version: 2,
+				Bay: shared.BAY_TAXI, AssignedSquawk: &squawk, NextControllerSector: &sector,
+				NextDisplay: &models.NextDisplay{Label: "OLD", Frequency: "121.730"}}
+			peer := &models.Strip{Callsign: "DLH456", Squawk: &squawk}
+			persisted := *original
+			var validation *models.ValidationStatus
+			repo := &testutil.MockStripRepository{
+				GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { copy := persisted; return &copy, nil },
+				ListFn: func(context.Context, int32) ([]*models.Strip, error) {
+					copy := persisted
+					return []*models.Strip{&copy, peer}, nil
+				},
+				AcceptCoordinationFn: func(_ context.Context, _ int32, _ *models.Strip, _ *models.Coordination, owner string, _, _ []string) (bool, error) {
+					persisted.Owner = &owner
+					persisted.Version++
+					return true, nil
+				},
+				SetValidationStatusFn: func(_ context.Context, _ int32, callsign string, status *models.ValidationStatus) error {
+					require.Equal(t, original.Callsign, callsign)
+					validation = status
+					return nil
+				},
+			}
+			syncState := &shared.SyncState{ExistingStrips: map[string]*models.Strip{original.Callsign: original, peer.Callsign: peer}}
+			messageState := &shared.WebsocketMessageState{ExistingStrips: map[string]*models.Strip{original.Callsign: original, peer.Callsign: peer}, StripList: []*models.Strip{original, peer}}
+			publication := &models.StripPublicationSnapshot{Strip: original, Session: &models.Session{ID: 1}}
+			ctx := t.Context()
+			if cache == "sync" || cache == "combined" {
+				ctx = shared.WithSyncState(ctx, syncState)
+			}
+			if cache == "message" || cache == "combined" {
+				ctx = shared.WithWebsocketMessageState(ctx, messageState)
+			}
+			if cache == "publication" || cache == "combined" {
+				ctx = shared.WithStripPublication(ctx, publication)
+			}
+			svc := newWorkflowTestService(repo)
+			svc.SetFrontendHub(&testutil.MockFrontendHub{})
+			svc.SetCoordinationRepo(&testutil.MockCoordinationRepository{GetByStripIDFn: func(context.Context, int32, int32) (*models.Coordination, error) {
+				return &models.Coordination{ID: 7, Session: 1, StripID: original.ID, FromPosition: oldOwner, ToPosition: newOwner}, nil
+			}})
+			require.NoError(t, svc.AcceptCoordination(ctx, 1, original.Callsign, newOwner))
+			require.NotNil(t, validation)
+			require.Equal(t, newOwner, validation.OwningPosition)
+			if cache == "sync" || cache == "combined" {
+				require.Equal(t, newOwner, *syncState.ExistingStrips[original.Callsign].Owner)
+				require.Nil(t, syncState.ExistingStrips[original.Callsign].NextControllerSector)
+				require.Nil(t, syncState.ExistingStrips[original.Callsign].NextDisplay)
+				require.Equal(t, original.Version+1, syncState.ExistingStrips[original.Callsign].Version)
+			}
+			if cache == "message" || cache == "combined" {
+				cached := messageState.ExistingStrips[original.Callsign]
+				require.Equal(t, newOwner, *cached.Owner)
+				for _, entry := range messageState.StripList {
+					if entry.Callsign == original.Callsign {
+						require.Same(t, cached, entry)
+					}
+				}
+			}
+			if cache == "publication" || cache == "combined" {
+				require.Equal(t, newOwner, *publication.Strip.Owner)
+			}
+			// A caller may still hold this original for a before/after sync diff.
+			require.Equal(t, oldOwner, *original.Owner)
+			require.Equal(t, &sector, original.NextControllerSector)
+			changed := *original
+			changed.Owner = &newOwner
+			require.True(t, syncStripChanged(original, &changed))
+		})
+	}
+}
+
 func TestReevaluateDuplicateSquawkValidation_ClearsForNonApplicableOwner(t *testing.T) {
 	t.Parallel()
 

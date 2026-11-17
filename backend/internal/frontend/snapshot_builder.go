@@ -87,6 +87,16 @@ func NewSnapshotBuilder(deps SnapshotBuilderDependencies) *SnapshotBuilder {
 }
 
 func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequest) (frontendEvents.InitialEvent, *frontendEvents.AtisUpdateEvent, error) {
+	return b.build(ctx, request, false)
+}
+
+// Reconciliation replaces existing operational state, so incomplete collections
+// must fail the refresh rather than erase data from the live board.
+func (b *SnapshotBuilder) BuildForReconciliation(ctx context.Context, request InitialSnapshotRequest) (frontendEvents.InitialEvent, *frontendEvents.AtisUpdateEvent, error) {
+	return b.build(ctx, request, true)
+}
+
+func (b *SnapshotBuilder) build(ctx context.Context, request InitialSnapshotRequest, requireComplete bool) (frontendEvents.InitialEvent, *frontendEvents.AtisUpdateEvent, error) {
 	if b.controllerRepo == nil || b.stripRepo == nil || b.sectorRepo == nil || b.sessionRepo == nil || b.coordinationRepo == nil {
 		return frontendEvents.InitialEvent{}, nil, fmt.Errorf("snapshot builder missing required repository dependencies")
 	}
@@ -160,7 +170,13 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 	}
 
 	coordinationModels := buildCoordinationModels(strips, coordinations)
-	tacticalStripModels := b.loadTacticalStrips(ctx, request.SessionID)
+	tacticalStripModels, err := b.loadTacticalStrips(ctx, request.SessionID)
+	if err != nil {
+		if requireComplete {
+			return frontendEvents.InitialEvent{}, nil, fmt.Errorf("list tactical strips: %w", err)
+		}
+		slog.Error("Failed to list tactical strips", slog.Any("error", err), slog.Int("session", int(request.SessionID)))
+	}
 	storedMessages := b.snapshotMessages(request.SessionID)
 	availableSids := b.loadAvailableSIDs(ctx, request.SessionID)
 	initialCFLByRunway := buildInitialCFLByRunway()
@@ -214,6 +230,9 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 		event.StandAssignmentEnabled = true
 		assignments, blocks, err := b.loadStandStatus(ctx, request.SessionID, request.Airport)
 		if err != nil {
+			if requireComplete {
+				return frontendEvents.InitialEvent{}, nil, fmt.Errorf("load stand status: %w", err)
+			}
 			slog.Error("Failed to load stand status for snapshot", slog.Any("error", err), slog.Int("session", int(request.SessionID)))
 		} else {
 			enrichStandAssignmentBlocking(assignments, request.Airport, b.standCapabilities)
@@ -321,22 +340,21 @@ func buildCoordinationModels(strips []*internalModels.Strip, coordinations []*in
 	return models
 }
 
-func (b *SnapshotBuilder) loadTacticalStrips(ctx context.Context, sessionID int32) []frontendEvents.TacticalStripPayload {
+func (b *SnapshotBuilder) loadTacticalStrips(ctx context.Context, sessionID int32) ([]frontendEvents.TacticalStripPayload, error) {
 	if b.tacticalStripRepo == nil {
-		return nil
+		return nil, nil
 	}
 
 	tacticalStrips, err := b.tacticalStripRepo.ListBySession(ctx, sessionID)
 	if err != nil {
-		slog.Error("Failed to list tactical strips", slog.Any("error", err), slog.Int("session", int(sessionID)))
-		return nil
+		return nil, err
 	}
 
 	models := make([]frontendEvents.TacticalStripPayload, 0, len(tacticalStrips))
 	for _, strip := range tacticalStrips {
 		models = append(models, MapTacticalStripToPayload(strip))
 	}
-	return models
+	return models, nil
 }
 
 func (b *SnapshotBuilder) loadAvailableSIDs(ctx context.Context, sessionID int32) pkgModels.AvailableSids {

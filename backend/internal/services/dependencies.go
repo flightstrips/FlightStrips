@@ -65,6 +65,7 @@ type StripFieldStore interface {
 }
 
 type StripOwnerStore interface {
+	AcceptCoordination(ctx context.Context, session int32, strip *internalModels.Strip, coordination *internalModels.Coordination, owner string, nextOwners, previousOwners []string) (bool, error)
 	SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
 	SetPreviousOwners(ctx context.Context, session int32, callsign string, previousOwners []string) error
 	SetNextAndPreviousOwners(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error

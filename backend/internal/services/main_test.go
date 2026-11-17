@@ -8,6 +8,8 @@ import (
 	"FlightStrips/internal/testutil"
 	"FlightStrips/pkg/events/euroscope"
 	"context"
+	"errors"
+	"github.com/jackc/pgx/v5"
 	"os"
 	"testing"
 )
@@ -16,6 +18,23 @@ var testWorkflows *airportworkflow.Registry
 
 func newWorkflowTestService(reader StripReader, options ...StripServiceOption) *StripService {
 	service := NewStripService(reader, append([]StripServiceOption{WithAirportWorkflows(testWorkflows)}, options...)...)
+	// Keep the existing narrow unit fixtures for owner writes. Production uses
+	// the transactional repository operation, covered by PostgreSQL race tests.
+	if owner, ok := service.ownerStore.(*testutil.MockStripRepository); ok && owner.AcceptCoordinationFn == nil {
+		owner.AcceptCoordinationFn = func(ctx context.Context, session int32, strip *internalModels.Strip, coordination *internalModels.Coordination, position string, next, previous []string) (bool, error) {
+			if err := service.getCoordinationRepository().Delete(ctx, coordination.ID); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return false, nil
+				}
+				return false, err
+			}
+			if err := owner.SetNextAndPreviousOwners(ctx, session, strip.Callsign, next, previous); err != nil {
+				return false, err
+			}
+			count, err := owner.SetOwner(ctx, session, strip.Callsign, &position, strip.Version)
+			return count == 1, err
+		}
+	}
 	b, _ := testWorkflows.Lookup("EKCH")
 	fixture, err := airportworkflow.Bind(config.AirportDefinitionWithTestGeometry(b.Definition()), airportworkflow.EKCHDescriptor())
 	if err != nil {

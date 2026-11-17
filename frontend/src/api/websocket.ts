@@ -3,6 +3,7 @@ import {
   ActionType,
   EventType,
   type ActionRejectedEvent,
+  type FrontendActionReconciliationEvent,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
   type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataBatchEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent, type FrontendCdmDeicePlatformUpdateEvent,
@@ -97,6 +98,7 @@ type EventMap = {
   [EventType.FrontendMessageReceived]: FrontendMessageReceivedEvent;
   [EventType.FrontendAtisUpdate]: FrontendAtisUpdateEvent;
   [EventType.FrontendActionRejected]: ActionRejectedEvent;
+  [EventType.FrontendActionReconciliation]: FrontendActionReconciliationEvent;
   [EventType.FrontendAvailableSids]: AvailableSidsEvent;
   [EventType.FrontendStandStatusSnapshot]: FrontendStandStatusSnapshotEvent;
   [EventType.FrontendStandAssignmentUpdate]: FrontendStandAssignmentUpdateEvent;
@@ -308,7 +310,7 @@ export class WebSocketClient {
       console.error('WebSocket is not connected');
       return false;
     }
-    if (this.readOnly && event.type !== ActionType.FrontendToken) {
+    if (this.readOnly && event.type !== ActionType.FrontendToken && event.type !== ActionType.FrontendActionReconciliation) {
       console.warn('WebSocket client is read-only');
       return false;
     }

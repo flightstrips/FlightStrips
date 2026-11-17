@@ -264,6 +264,11 @@ func (c *AirlineAssignmentConfig) Validate(registry *StandCapabilityRegistry) er
 		if err := validateRule(&c.Rules[i], fmt.Sprintf("rules[%d]", i), registry, groupKeys); err != nil {
 			return err
 		}
+		// Fallback selections persist the fallback name as the rule ID, so an
+		// airline rule sharing that ID would make fallback detection ambiguous.
+		if _, collides := lookupFallback(c.FallbackRules, c.Rules[i].ID); collides {
+			return fmt.Errorf("rules[%d].id %q collides with a fallback rule name", i, c.Rules[i].ID)
+		}
 	}
 	for name, fallback := range c.FallbackRules {
 		if normalizeFallbackName(name) == "" {
@@ -604,6 +609,18 @@ func (c *AirlineAssignmentConfig) GetFallbackRule(name string) (FallbackRule, bo
 		return FallbackRule{}, false
 	}
 	return lookupFallback(c.FallbackRules, name)
+}
+
+// IsFallbackRule reports whether a persisted rule ID identifies a fallback
+// rule. Fallback selections record the fallback name as their rule ID, and
+// Validate rejects airline rule IDs that collide with fallback names, so map
+// membership is unambiguous.
+func (c *AirlineAssignmentConfig) IsFallbackRule(ruleID string) bool {
+	if c == nil || strings.TrimSpace(ruleID) == "" {
+		return false
+	}
+	_, ok := lookupFallback(c.FallbackRules, ruleID)
+	return ok
 }
 
 // MatchRule applies the documented precedence order. Ambiguous matches are an

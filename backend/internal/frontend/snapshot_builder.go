@@ -398,7 +398,7 @@ func (b *SnapshotBuilder) loadStandStatus(ctx context.Context, sessionID int32, 
 
 	assignmentEntries := make([]frontendEvents.StandAssignmentEntry, 0, len(assignments))
 	for _, a := range assignments {
-		if a == nil {
+		if !standAssignmentFrontendVisible(a) {
 			continue
 		}
 		entry := mapStandAssignmentEntry(a)
@@ -470,6 +470,14 @@ func mapStandAssignmentEntry(a *internalModels.StandAssignment) frontendEvents.S
 		ConflictReason: a.ConflictReason, PendingAcknowledgement: !a.Acknowledged,
 		ETA: a.ETA, ExpiresAt: a.ExpiresAt, Version: a.Version}
 	return entry
+}
+
+// standAssignmentFrontendVisible reports whether an assignment appears in
+// controller-facing events. ESTIMATED arrivals are EFB-only soft reservations:
+// they carry no planning weight for controllers, so they are excluded from
+// snapshots, publications, and conflict enrichment.
+func standAssignmentFrontendVisible(a *internalModels.StandAssignment) bool {
+	return a != nil && !(strings.EqualFold(a.Direction, "ARRIVAL") && strings.EqualFold(a.Stage, "ESTIMATED"))
 }
 
 func enrichStandAssignmentBlocking(entries []frontendEvents.StandAssignmentEntry, airport string, registries ...*sat.StandCapabilityRegistry) {

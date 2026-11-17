@@ -442,15 +442,21 @@ func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session in
 	if existing.Manual {
 		return s.updateArrivalInPlace(ctx, existing, targetStage, eta, request.ETASource, existing.ExpiresAt)
 	}
-	available, err := s.allocations.StandAvailable(ctx, request, existing.Stand)
+	if targetStage == StageConfirmed {
+		// Every transition into CONFIRMED must reach EuroScope even when the
+		// reallocation reselects the stand already on the strip.
+		request.RequestStandSync = true
+	}
+	// ESTIMATED reservations carry no weight against a promotion: only a hard
+	// conflict (later-stage arrival, departure, or manual block) may divert it
+	// from the tier-improvement path. Soft-shared estimates stay put and
+	// resolve at their own promotion.
+	available, err := s.allocations.StandAvailableForPromotion(ctx, request, existing.Stand)
 	if err != nil {
 		return err
 	}
 	if !available {
-		// A later-stage arrival may take over an overlapping ESTIMATED direct or
-		// neighbouring reservation. Prefer the current stand so resolving that
-		// soft conflict cannot swap a valid Primary assignment for an equivalent
-		// Primary stand.
+		// The current stand is genuinely taken; find any valid replacement.
 		request.Stand = existing.Stand
 		result, reallocateErr := s.allocations.Reallocate(ctx, request)
 		if reallocateErr == nil {
@@ -462,33 +468,64 @@ func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session in
 		err = reallocateErr
 		return err
 	}
-	// Automatic Primary assignments are stable across the boundary.
-	if existing.Tier == nil || *existing.Tier <= 1 {
-		return s.updateArrivalInPlace(ctx, existing, targetStage, eta, request.ETASource, existing.ExpiresAt)
+	// Automatic airline-rule Primary assignments are stable across the
+	// boundary. A fallback assignment records its fallback tier, so it must not
+	// be mistaken for Primary: it always attempts to reach a real airline stand.
+	fromFallback := s.allocations.IsFallbackAssignment(request.Airport, existing)
+	if !fromFallback && (existing.Tier == nil || *existing.Tier <= 1) {
+		return s.retainArrivalStand(ctx, request, existing, eta, targetStage)
 	}
 
 	// A promotion is the only time a valid automatic assignment may move for
-	// preference alone. Constrain the allocator to Primary so a failed retry
-	// cannot churn between Secondary/Tertiary or equivalent stands. ESTIMATED
-	// reservations may yield; later stages remain protected.
-	request.ImproveTierBelow = 2
-	request.DisplaceArrivalStages = []string{StageEstimated}
+	// preference alone. Constrain the allocator so a failed retry cannot churn
+	// between equivalent stands: an airline assignment only accepts Primary,
+	// and a fallback assignment only accepts an airline-rule stand.
+	if fromFallback {
+		request.ImproveFromFallback = true
+	} else {
+		request.ImproveTierBelow = 2
+	}
 	result, reallocateErr := s.allocations.Reallocate(ctx, request)
 	if reallocateErr == nil {
 		s.recordArrivalStagePromotion(ctx, existing, result.Assignment)
 		slog.InfoContext(ctx, "SAT assignment tier improved at stage promotion",
 			slog.String("callsign", existing.Callsign), slog.String("from_stand", existing.Stand),
 			slog.String("to_stand", result.Assignment.Stand), slog.String("from_stage", existing.Stage),
-			slog.String("to_stage", targetStage), slog.Int("from_tier", int(*existing.Tier)),
+			slog.String("to_stage", targetStage), slog.Bool("from_fallback", fromFallback),
+			slog.Int("from_tier", int(valueInt32(existing.Tier))),
 			slog.Int("to_tier", int(valueInt32(result.Assignment.Tier))))
 		metrics.RecordSATLifecycleEvent(ctx, "tier_improvement", "stage_promotion", result.Assignment.Source)
 		return nil
 	}
 	if errors.Is(reallocateErr, ErrNoTierImprovement) || errors.Is(reallocateErr, ErrNoAvailableStand) ||
 		errors.Is(reallocateErr, ErrNoPolicyStand) || errors.Is(reallocateErr, ErrAutomaticAllocationSuppressed) {
-		return s.updateArrivalInPlace(ctx, existing, targetStage, eta, request.ETASource, existing.ExpiresAt)
+		return s.retainArrivalStand(ctx, request, existing, eta, targetStage)
 	}
 	return reallocateErr
+}
+
+// retainArrivalStand advances the lifecycle stage while keeping the current
+// stand. A promotion out of ESTIMATED goes through the allocator so the strip
+// stand and controller events are written transactionally — estimates keep the
+// strip empty, so an in-place metadata update would never surface the stand.
+// Later stage boundaries only touch lifecycle metadata.
+func (s *ArrivalLifecycleService) retainArrivalStand(ctx context.Context, request StandAllocationRequest, existing *models.StandAssignment, eta *time.Time, targetStage string) error {
+	if existing.Stage != StageEstimated {
+		return s.updateArrivalInPlace(ctx, existing, targetStage, eta, request.ETASource, existing.ExpiresAt)
+	}
+	request.ImproveTierBelow = 0
+	request.ImproveFromFallback = false
+	request.Stand = existing.Stand
+	result, err := s.allocations.Reallocate(ctx, request)
+	if err == nil {
+		s.recordArrivalStagePromotion(ctx, existing, result.Assignment)
+		return nil
+	}
+	if errors.Is(err, ErrNoAvailableStand) || errors.Is(err, ErrNoPolicyStand) ||
+		errors.Is(err, ErrNoCompatibleStand) || errors.Is(err, ErrAutomaticAllocationSuppressed) {
+		return s.recordArrivalPromotionConflict(ctx, existing, eta, request.ETASource)
+	}
+	return err
 }
 
 func (s *ArrivalLifecycleService) recordArrivalPromotionConflict(ctx context.Context, existing *models.StandAssignment, eta *time.Time, etaSource *string) error {
@@ -584,19 +621,23 @@ func (s *ArrivalLifecycleService) estimatedConflictCanWait(ctx context.Context, 
 		return false, nil
 	}
 	remaining := make([]*models.StandAssignment, 0, len(assignments))
-	manualConflict := false
+	laterStageConflict := false
 	for _, assignment := range assignments {
-		deferThisConflict := assignment != nil && assignment.Manual &&
-			assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.Stage == StageAssigned &&
+		// A later-stage arrival holding the estimated stand is a legitimate
+		// soft-share: it may log off before the estimate matures, and the
+		// estimate's own promotion resolves the overlap otherwise.
+		deferThisConflict := assignment != nil &&
+			assignment.Direction == string(sat.AssignmentDirectionArrival) &&
+			(assignment.Stage == StageAssigned || assignment.Stage == StageConfirmed) &&
 			assignmentBlocksRequest(assignment, request, s.allocations.now(), s.allocations.departureReleaseBuffer) &&
 			s.allocations.assignmentOverlapsSelectedStand(request.Airport, existing.Stand, match.Blocks, assignment)
 		if deferThisConflict {
-			manualConflict = true
+			laterStageConflict = true
 			continue
 		}
 		remaining = append(remaining, assignment)
 	}
-	if !manualConflict {
+	if !laterStageConflict {
 		return false, nil
 	}
 	availability := s.allocations.availability(request, remaining, blocks, matches)

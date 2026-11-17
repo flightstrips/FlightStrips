@@ -999,7 +999,7 @@ WTC:M
 
 	selected, selection, _, _, _, err := service.selectStand(AutomaticStandAllocation, request, evaluation, []*models.StandAssignment{a1}, nil, nil)
 	require.NoError(t, err)
-	assert.Contains(t, []string{"A1", "A2"}, selected, "a later stage may displace the overlapping ESTIMATED neighbour to retain tier 1")
+	assert.Contains(t, []string{"A1", "A2"}, selected, "a later stage treats the overlapping ESTIMATED reservation as vacant to retain tier 1")
 	require.NotNil(t, selection)
 	assert.Equal(t, 1, selection.Tier)
 
@@ -1009,9 +1009,6 @@ WTC:M
 	assert.Equal(t, "A2", selected, "promotion retains its current stand when only an ESTIMATED neighbour blocks it")
 	require.NotNil(t, selection)
 	require.NotNil(t, selectedMatch)
-	assert.True(t, service.selectedHasOverlappingEstimatedReservation(
-		[]*models.StandAssignment{a1}, selected, selectedMatch.Blocks, request, service.now(), defaultDepartureBlockExtension,
-	), "the neighbouring ESTIMATED reservation must be displaced atomically")
 	request.Stand = ""
 
 	a2 := &models.StandAssignment{
@@ -1023,7 +1020,6 @@ WTC:M
 	assert.Contains(t, []string{"A1", "A2"}, selected, "a soft reservation yields before forcing the request to tier 2")
 	require.NotNil(t, selection)
 	assert.Equal(t, 1, selection.Tier)
-	assert.True(t, service.selectedHasOverlappingEstimatedReservation([]*models.StandAssignment{a1, a2}, selected, nil, request, service.now(), defaultDepartureBlockExtension))
 
 	request.ImproveTierBelow = 2
 	assignedA1 := &models.StandAssignment{Callsign: "ARR3", Stand: "A1", Direction: string(sat.AssignmentDirectionArrival), Stage: StageAssigned}
@@ -1071,6 +1067,61 @@ WTC:M
 	assert.Equal(t, "A1", selected, "a soft reservation yields before forcing the request onto a fallback rule")
 	require.NotNil(t, selection)
 	assert.False(t, selection.FallbackUsed)
+}
+
+func TestPromotionImprovementUsesFallbackAwareGate(t *testing.T) {
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+WTC:M
+STAND:EKCH:A2:N055.37.42.711:E012.38.33.451:30
+WTC:M
+STAND:EKCH:A3:N055.37.42.712:E012.38.33.452:30
+WTC:M
+`))
+	require.NoError(t, err)
+	policy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules": [{"id":"test","callsigns":["TST"],"stands":{"tier1":{"A1":100},"tier2":{"A2":100}}}],
+  "stand_groups": {},
+  "fallback_rules": {`+testFallbackJSON("A3")+`}
+}`), registry)
+	require.NoError(t, err)
+	assert.True(t, policy.IsFallbackRule("airliner_default"))
+	assert.False(t, policy.IsFallbackRule("test"))
+
+	_, err = sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules": [{"id":"cargo","callsigns":["TST"],"stands":{"tier1":{"A1":100}}}],
+  "stand_groups": {},
+  "fallback_rules": {`+testFallbackJSON("A3")+`}
+}`), registry)
+	require.ErrorContains(t, err, "collides with a fallback rule name",
+		"airline rule IDs must stay distinguishable from fallback names")
+
+	service := &StandAllocationService{stands: registry, policy: policy, random: func() float64 { return 0 }, now: time.Now}
+	request := StandAllocationRequest{
+		Callsign: "TST9", Airport: "EKCH", Direction: sat.AssignmentDirectionArrival,
+		Stage:           StageAssigned,
+		FlightFacts:     sat.FlightCompatibilityFacts{Direction: sat.Arrival, WTC: "M"},
+		AssignmentFacts: sat.AssignmentFlightFacts{Callsign: "TST9", Direction: sat.AssignmentDirectionArrival},
+	}
+	evaluation := registry.EvaluateCompatibility(request.Airport, request.FlightFacts)
+	hardA1 := &models.StandAssignment{Callsign: "ARR1", Stand: "A1", Direction: string(sat.AssignmentDirectionArrival), Stage: StageAssigned}
+	hardA2 := &models.StandAssignment{Callsign: "ARR2", Stand: "A2", Direction: string(sat.AssignmentDirectionArrival), Stage: StageAssigned}
+
+	request.ImproveFromFallback = true
+	selected, selection, _, _, _, err := service.selectStand(AutomaticStandReallocation, request, evaluation, []*models.StandAssignment{hardA1}, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "A2", selected, "a fallback assignment escapes to an airline stand regardless of tier")
+	require.NotNil(t, selection)
+	assert.False(t, selection.FallbackUsed)
+	assert.Equal(t, 2, selection.Tier)
+
+	_, _, _, _, _, err = service.selectStand(AutomaticStandReallocation, request, evaluation, []*models.StandAssignment{hardA1, hardA2}, nil, nil)
+	require.ErrorIs(t, err, ErrNoTierImprovement, "fallback-to-fallback reselection is churn, not improvement")
+
+	request.ImproveFromFallback = false
+	request.ImproveTierBelow = 2
+	_, _, _, _, _, err = service.selectStand(AutomaticStandReallocation, request, evaluation, []*models.StandAssignment{hardA1, hardA2}, nil, nil)
+	require.ErrorIs(t, err, ErrNoTierImprovement, "an airline assignment must not improve onto a fallback stand")
 }
 
 func standAllocationFixture(t *testing.T, pool *pgxpool.Pool, queries *database.Queries, a1Directive, a2Directive string) (*StandAllocationService, int32, repository.StandAssignmentRepository) {

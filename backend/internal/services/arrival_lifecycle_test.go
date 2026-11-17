@@ -218,9 +218,6 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, StageAssigned, recalculated.Stage)
 		assert.NotEqual(t, estimated.Stand, recalculated.Stand, "the estimate moves when its original stand remains occupied at promotion")
-		var retainedOverlaps int
-		require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM stand_retained_estimates WHERE estimated_id = $1", retained.ID).Scan(&retainedOverlaps))
-		assert.Zero(t, retainedOverlaps, "promotion ends the recorded overlap")
 	})
 
 	t.Run("sweep preserves shared estimate until blocked promotion becomes an advisory", func(t *testing.T) {
@@ -486,7 +483,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, StageAssigned, assignment.Stage, "never downgrades from ASSIGNED back to ESTIMATED")
 	})
 
-	t.Run("later-stage arrival uses an open same-tier stand before displacing ESTIMATED", func(t *testing.T) {
+	t.Run("promotion keeps its estimated stand and leaves an overlapping estimate in place", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
@@ -501,10 +498,8 @@ func TestArrivalLifecycle(t *testing.T) {
 			SessionID: session, Callsign: "SAS702", Stand: "A1", Direction: "ARRIVAL",
 			Stage: StageEstimated, Source: "AUTOMATIC", ETA: &arrivalETA,
 		}))
-		_, err := strips.UpdateStand(ctx, session, "SAS702", strp("A1"), nil)
-		require.NoError(t, err)
 
-		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS702", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS702", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
 		require.NoError(t, err)
 		clock.set(arrivalETA.Add(-5 * time.Minute))
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS702"), arrivalFlight("SAS702", 2)))
@@ -512,14 +507,89 @@ func TestArrivalLifecycle(t *testing.T) {
 		updated702, err := assignments.GetAssignment(ctx, session, "SAS702")
 		require.NoError(t, err)
 		assert.Equal(t, StageAssigned, updated702.Stage)
-		assert.Equal(t, "A2", updated702.Stand, "an equal-tier open stand avoids unnecessary displacement")
+		assert.Equal(t, "A1", updated702.Stand, "a promotion keeps its own estimated stand; an overlapping estimate carries no weight")
+		strip702 := loadStrip(t, strips, session, "SAS702")
+		require.NotNil(t, strip702.Stand)
+		assert.Equal(t, "A1", *strip702.Stand, "the strip stand appears at ASSIGNED")
 
 		retained701, err := assignments.GetAssignment(ctx, session, "SAS701")
 		require.NoError(t, err)
-		assert.Equal(t, "A1", retained701.Stand, "the ESTIMATED reservation remains stable")
+		assert.Equal(t, "A1", retained701.Stand, "the ESTIMATED reservation remains stable until its own promotion")
+		assert.Equal(t, StageEstimated, retained701.Stage)
 		strip701 := loadStrip(t, strips, session, "SAS701")
-		require.NotNil(t, strip701.Stand)
-		assert.Equal(t, "A1", *strip701.Stand)
+		assert.Nil(t, strip701.Stand, "estimates keep the strip stand empty")
+	})
+
+	t.Run("fallback estimate escapes to an airline stand at promotion", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(45 * time.Minute)
+		clock.set(arrivalETA.Add(-45 * time.Minute))
+		seedTestArrivalStrip(t, queries, session, "SAS910")
+		setArrivalETA(t, strips, session, "SAS910", arrivalETA)
+
+		fallbackRule := "airliner_default"
+		fallbackTier := int32(1)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS910", Stand: "A2", Direction: "ARRIVAL",
+			Stage: StageEstimated, Source: "AUTOMATIC", ETA: &arrivalETA,
+			RuleID: &fallbackRule, Tier: &fallbackTier,
+		}))
+
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS910", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+		require.NoError(t, err)
+		clock.set(arrivalETA.Add(-5 * time.Minute))
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS910"), arrivalFlight("SAS910", 2)))
+
+		promoted, err := assignments.GetAssignment(ctx, session, "SAS910")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, promoted.Stage)
+		require.NotNil(t, promoted.RuleID)
+		assert.Equal(t, "sas", *promoted.RuleID, "a fallback tier must not masquerade as Primary; promotion reaches the airline rule")
+	})
+
+	t.Run("promotion ignores a neighbouring estimate and leaves it in place", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "BLOCKS:A2", "", nil)
+		arrivalETA := clock.current().Add(45 * time.Minute)
+		clock.set(arrivalETA.Add(-45 * time.Minute))
+		seedTestArrivalStrip(t, queries, session, "SAS920")
+		seedTestArrivalStrip(t, queries, session, "SAS921")
+		setArrivalETA(t, strips, session, "SAS920", arrivalETA)
+
+		ruleID := "sas"
+		tier := int32(1)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS921", Stand: "A1", Direction: "ARRIVAL",
+			Stage: StageEstimated, Source: "AUTOMATIC", ETA: &arrivalETA,
+		}))
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS920", Stand: "A2", Direction: "ARRIVAL",
+			Stage: StageEstimated, Source: "AUTOMATIC", ETA: &arrivalETA,
+			RuleID: &ruleID, Tier: &tier,
+		}))
+
+		strip920 := loadStrip(t, strips, session, "SAS920")
+		promotionRequest := lifecycle.buildRequest(session, strip920, arrivalFlight("SAS920", 2), StageAssigned, &arrivalETA, nil)
+		strict, err := allocations.StandAvailable(ctx, promotionRequest, "A2")
+		require.NoError(t, err)
+		assert.False(t, strict, "the neighbouring estimate still blocks the strict check")
+		relaxed, err := allocations.StandAvailableForPromotion(ctx, promotionRequest, "A2")
+		require.NoError(t, err)
+		assert.True(t, relaxed, "a soft reservation must not divert the promotion path")
+
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS920", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+		require.NoError(t, err)
+		clock.set(arrivalETA.Add(-5 * time.Minute))
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS920"), arrivalFlight("SAS920", 2)))
+
+		promoted, err := assignments.GetAssignment(ctx, session, "SAS920")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, promoted.Stage)
+		assert.Equal(t, "A2", promoted.Stand, "a Primary stand survives promotion despite the soft neighbour")
+
+		neighbour, err := assignments.GetAssignment(ctx, session, "SAS921")
+		require.NoError(t, err)
+		assert.Equal(t, StageEstimated, neighbour.Stage)
+		assert.Equal(t, "A1", neighbour.Stand, "the neighbouring estimate is neither displaced nor relocated")
 	})
 
 	t.Run("departure block expiring before arrival ETA is compatible", func(t *testing.T) {
@@ -734,7 +804,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		}))
 		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
 			SessionID: session, Callsign: "SAS814", Stand: "A2", Direction: "ARRIVAL",
-			Stage: StageEstimated, Source: "AUTOMATIC", ETA: &eta,
+			Stage: StageAssigned, Source: "AUTOMATIC", ETA: &eta,
 		}))
 		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
 			SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
@@ -752,6 +822,32 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NotNil(t, advisory.ConflictReason)
 		assert.Contains(t, *advisory.ConflictReason, "no compatible replacement")
 		assert.Nil(t, loadStrip(t, strips, session, "SAS814").Stand)
+	})
+
+	t.Run("unsafe cleanup retains an estimate soft-sharing with a later-stage arrival", func(t *testing.T) {
+		_, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "BLOCKS:A2", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS815")
+		seedTestArrivalStrip(t, queries, session, "SAS816")
+		eta := clock.current().Add(5 * time.Minute)
+		release := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS815", Stand: "A1", Direction: "ARRIVAL",
+			Stage: StageConfirmed, Source: "AUTOMATIC", ETA: &eta, ExpiresAt: &release,
+		}))
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS816", Stand: "A2", Direction: "ARRIVAL",
+			Stage: StageEstimated, Source: "AUTOMATIC", ETA: &eta,
+		}))
+		_, err := strips.UpdateStand(ctx, session, "SAS815", strp("A1"), nil)
+		require.NoError(t, err)
+
+		require.NoError(t, allocations.ReconcileUnsafeAssignments(ctx, session, "EKCH"))
+
+		retained, err := assignments.GetAssignment(ctx, session, "SAS816")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", retained.Stand, "the soft reservation defers to its own promotion instead of relocating")
+		assert.Equal(t, StageEstimated, retained.Stage)
+		assert.Nil(t, retained.ConflictReason)
 	})
 
 	t.Run("reallocation and released expired on restart", func(t *testing.T) {

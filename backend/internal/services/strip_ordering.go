@@ -597,7 +597,9 @@ func (s *StripService) recalculateFlightStripsOnly(ctx context.Context, session 
 }
 
 func (s *StripService) sendStripUpdate(session int32, callsign string, sequence int32, bay string) {
-	s.publisher.SendBayEvent(session, callsign, bay, sequence)
+	if s.publisher != nil {
+		s.publisher.SendBayEvent(session, callsign, bay, sequence)
+	}
 }
 
 func (s *StripService) sendBulkSequenceUpdate(session int32, callsigns []string, sequences []int32, bay string) {

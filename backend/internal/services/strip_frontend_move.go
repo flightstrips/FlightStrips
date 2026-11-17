@@ -192,7 +192,7 @@ func (s *StripService) executeControllerWorkflow(ctx context.Context, session in
 	}
 
 	s.syncAsatForGroundStateBestEffort(ctx, session, callsign, groundState)
-	if bound.BoardStatePolicy().Revisioned {
+	if bound.BoardStatePolicy().Revisioned && s.publisher != nil {
 		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	}
 	return nil

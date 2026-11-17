@@ -95,6 +95,8 @@ export function ApnArrStrip({
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const manualBlue = isManual && callsignStyle.color !== "white" ? COLOR_MANUAL_BLUE : undefined;
+  const callsignTextColor = isSelected && isTagRequest ? "black" : manualBlue ?? callsignStyle.color ?? (textWhite ? "white" : "black");
+  const callsignValidationStyle = getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined, callsignTextColor);
   const runwayBg = runwayYellow
     ? COLOR_UNEXPECTED_YELLOW
     : bay === Bay.RwyArr
@@ -133,8 +135,8 @@ export function ApnArrStrip({
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
-        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined) }}>
-          <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: isSelected && isTagRequest ? "black" : manualBlue }}>{callsign}</span>
+        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...callsignValidationStyle }}>
+          <span className="truncate w-full" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: callsignValidationStyle.animation && callsignTextColor !== "black" ? "inherit" : callsignTextColor }}>{callsign}</span>
           <InboundCtotFlag callsign={callsign} />
         </div>
         <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
@@ -172,7 +174,7 @@ export function ApnArrStrip({
         })}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>{runway}</span>
+          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: runwayYellow ? "black" : undefined }}>{runway}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -205,7 +207,7 @@ export function ApnArrStrip({
       >
         <TextPilotIndicator divider={false} type={communicationType} borderColor={cellBorderColor} />
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: satStandStyle.color ?? getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+          <span className="truncate" style={{ fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw", color: satStandStyle.color ?? (standYellow ? "black" : getCellTextColor("stand", controllerModifiedFields)) }}>{stand}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

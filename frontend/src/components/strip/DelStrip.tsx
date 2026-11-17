@@ -115,7 +115,7 @@ export function DelStrip({
         <button
           aria-label={callsign}
           className={`relative flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.15vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition, isTagRequest ? callsignBackgroundColor : undefined) }}
+          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.15vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition, callsignBackgroundColor, callsignTextColor ?? (textWhite ? "white" : "black")) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
@@ -134,7 +134,7 @@ export function DelStrip({
             </div>
             <div
               className="flex items-center justify-center overflow-hidden"
-              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined, color: manualBlue ?? getCellTextColor("stand", controllerModifiedFields) }}
+              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.73vw", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined, color: standYellow ? "black" : manualBlue ?? getCellTextColor("stand", controllerModifiedFields) }}
               onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
             >
               {stand}

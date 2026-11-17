@@ -150,7 +150,7 @@ export function HalfStrip({
           ) : null}
           <div
             className={`h-full ${fullWidth ? "flex-1" : "w-[2.92vw]"} flex items-center justify-center font-normal [-webkit-text-stroke:0.5px_currentColor] ${textColor}`}
-            style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow || isDepartureHalf ? "pointer" : undefined, color: getCellTextColor("stand", controllerModifiedFields) }}
+            style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow || isDepartureHalf ? "pointer" : undefined, color: standYellow ? "black" : getCellTextColor("stand", controllerModifiedFields) }}
             onClick={standYellow
               ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); }
               : isDepartureHalf ? (e) => { e.stopPropagation(); setFplOpen(true); } : undefined}

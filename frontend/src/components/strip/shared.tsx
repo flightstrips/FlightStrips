@@ -102,14 +102,15 @@ export function canForceAssumeStrip({
   return !!myPosition && owner !== myPosition && !isClrDel;
 }
 
-export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string, fallbackBackground?: string): CSSProperties {
+export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string, fallbackBackground?: string, fallbackForeground?: string): CSSProperties {
   if (!isValidationActiveForPosition(validationStatus, myPosition)) {
     return {};
   }
 
   return {
-    animation: `validation-blink ${VALIDATION_BLINK_CYCLE_MS}ms step-start infinite`,
+    animation: `${fallbackForeground ? "validation-blink-callsign" : "validation-blink"} ${VALIDATION_BLINK_CYCLE_MS}ms step-start infinite`,
     ...(fallbackBackground ? { "--validation-blink-background": fallbackBackground } : {}),
+    ...(fallbackForeground ? { "--validation-blink-foreground": fallbackForeground } : {}),
   } as CSSProperties;
 }
 

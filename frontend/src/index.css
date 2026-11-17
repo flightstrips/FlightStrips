@@ -128,6 +128,11 @@ body.public-content-page {
   100% { background-color: #A7A7A7; }
 }
 
+@keyframes validation-blink-callsign {
+  0%, 100% { background-color: #A7A7A7; color: black; }
+  50% { background-color: var(--validation-blink-background, transparent); color: var(--validation-blink-foreground); }
+}
+
 @layer components {
   /* ── AMAN desktop workspace ─────────────────────────────────────────────── */
   .aman-workspace-page {

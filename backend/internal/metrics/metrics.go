@@ -15,8 +15,14 @@ import (
 )
 
 var (
-	once sync.Once
-	inst *instruments
+	once                   sync.Once
+	inst                   *instruments
+	connectionEventSources = []string{"frontend", "euroscope", "alb", "other"}
+	connectionEventNames   = []string{
+		"opened", "closed", "normal_close", "unexpected_close", "read_timeout", "write_failed",
+		"authentication_failed", "admission_failed", "client_stage_authenticating", "client_stage_synchronizing",
+		"client_stage_ready", "client_stage_waiting_for_plugin", "client_stage_other", "master_assigned", "master_cleared", "other",
+	}
 )
 
 type instruments struct {
@@ -100,6 +106,11 @@ func get() *instruments {
 			metric.WithUnit("{connection}"),
 		)
 		connectionEvents, _ := meter.Int64Counter("websocket.connection.events", metric.WithDescription("Physical connection lifecycle and bounded client recovery stages"), metric.WithUnit("{event}"))
+		for _, source := range connectionEventSources {
+			for _, event := range connectionEventNames {
+				connectionEvents.Add(context.Background(), 0, metric.WithAttributes(attribute.String("source", source), attribute.String("event", event)))
+			}
+		}
 		activeClients, _ := meter.Int64UpDownCounter(
 			"websocket.clients.active",
 			metric.WithDescription("Active session-bound client connections by callsign"),
@@ -573,10 +584,15 @@ func ConnectionOpened(ctx context.Context, sessionName, airport, source, callsig
 	)
 }
 
-// Connection IDs, CIDs and Ray IDs are log fields, never metric dimensions.
+// InitializeConnectionEvents creates zero baselines before accepting connections.
+func InitializeConnectionEvents() {
+	get()
+}
+
+// RecordConnectionEvent keeps connection IDs, CIDs and Ray IDs out of metric labels.
 func RecordConnectionEvent(ctx context.Context, source, event string) {
-	source = fixedLabel(source, "frontend", "euroscope", "alb")
-	event = fixedLabel(event, "opened", "closed", "normal_close", "unexpected_close", "read_timeout", "write_failed", "authentication_failed", "admission_failed", "client_stage_authenticating", "client_stage_synchronizing", "client_stage_ready", "client_stage_waiting_for_plugin", "client_stage_other", "master_assigned", "master_cleared")
+	source = fixedLabel(source, connectionEventSources...)
+	event = fixedLabel(event, connectionEventNames...)
 	get().connectionEvents.Add(ctx, 1, metric.WithAttributes(attribute.String("source", source), attribute.String("event", event)))
 }
 

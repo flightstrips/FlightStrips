@@ -60,6 +60,22 @@ count admitted connection failures, excluding normal close frames. Counts descri
 
 ## Alerts and rollout
 
+All 64 bounded source/event combinations are initialized to zero. Startup makes
+a one-time OTLP metrics flush before serving connections, so the first burst
+does not get combined with the first periodic export. The flush has a five-second
+deadline; an export failure logs a warning and allows startup to continue. In
+that case early alerts can undercount until a baseline reaches the collector.
+The OTLP exporter regression test verifies explicit zero samples followed by
+the first disconnect/master-assignment burst; the alert tests cover that burst.
+
+Before enabling alerts after deployment, inspect
+`sum by (source, event) (websocket_connection_events_total)` in Grafana and verify
+the startup zero samples precede positive values in the stored time series.
+Retain both labels and zero samples through any collector or Adaptive Metrics
+rules. The new series is not present in production before this release, so this
+end-to-end verification remains a rollout step. Explicit samples avoid relying
+on [Mimir's optional start-time zero injection](https://grafana.com/docs/mimir/latest/configure/configuration-parameters/).
+
 Import [connection-alerts.yml](prometheus/connection-alerts.yml) into the Grafana
 Cloud metrics ruler and route notifications through the existing contact point.
 The rules detect at least five unexpected closes/read timeouts in two minutes

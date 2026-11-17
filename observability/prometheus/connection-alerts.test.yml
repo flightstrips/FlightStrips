@@ -2,6 +2,24 @@ rule_files:
   - connection-alerts.yml
 evaluation_interval: 30s
 tests:
+  - name: First burst after an exported zero baseline is counted
+    interval: 30s
+    input_series:
+      - series: websocket_connection_events_total{source="frontend",event="read_timeout"}
+        values: 0 5 5 5 5
+      - series: websocket_connection_events_total{source="euroscope",event="master_assigned"}
+        values: 0 3 3 3 3
+    promql_expr_test:
+      - expr: count(ALERTS{alertname="FlightStripsDisconnectCluster",alertstate="firing"})
+        eval_time: 1m
+        exp_samples:
+          - labels: '{}'
+            value: 1
+      - expr: count(ALERTS{alertname="FlightStripsMasterChurn",alertstate="firing"})
+        eval_time: 1m
+        exp_samples:
+          - labels: '{}'
+            value: 1
   - name: Multiple unexpected disconnects trigger a cluster alert
     interval: 30s
     input_series:

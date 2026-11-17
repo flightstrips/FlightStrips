@@ -140,6 +140,81 @@ func TestEuroScopeGroundReplayDoesNotEraseNewerTakeoff(t *testing.T) {
 	require.Equal(t, at, *merged.TakeoffDetected)
 }
 
+func TestGroundReconnectRejectsCrossProviderTakeoffBeforeLatestGroundReport(t *testing.T) {
+	for _, scenario := range []struct {
+		name                                                       string
+		markerAfterGround, latestGroundAfter, expectedTakeoffAfter time.Duration
+	}{
+		{"old-network-marker", -2 * time.Hour, 0, 5 * time.Minute},
+		{"marker-at-ground-report", 0, 0, 5 * time.Minute},
+		{"post-ground-takeoff", 2 * time.Minute, 0, 2 * time.Minute},
+		{"marker-before-later-ground-report", 2 * time.Minute, 4 * time.Minute, 5 * time.Minute},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			groundAt := time.Date(2026, 11, 16, 19, 0, 0, 0, time.UTC)
+			service, state, airborne := fallbackFixture(t, groundAt)
+			service.observed = map[string]map[aman.Callsign]aman.FlightObservation{}
+			service.deps.Airports = []string{"EKCH"}
+			eet := time.Hour
+			airborne.TakeoffDetected = nil
+			airborne.SurveillanceSource = aman.SurveillanceSourceEuroScope
+			airborne.PlannedTiming = &aman.PlannedTiming{EstimatedOffBlockTime: &groundAt, EstimatedEnrouteTime: &eet}
+			network := airborne
+			network.Provider, network.SurveillanceSource = aman.ObservationProviderVATSIM, aman.SurveillanceSourceVATSIM
+			network.Surveillance = nil
+			network.TakeoffDetected = timePointer(groundAt.Add(-2 * time.Hour))
+			require.NoError(t, service.Observe(t.Context(), network))
+			ground := airborne
+			altitude, speed := 478, 0.0
+			ground.Surveillance = &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &speed, ObservedAt: &groundAt}
+			require.NoError(t, service.Observe(t.Context(), ground))
+			current := service.reconciliationObservations(t.Context(), "EKCH", nil)[airborne.Callsign]
+			flight, err := service.reconcileFlight(t.Context(), state, newFlight(current, groundAt), current, groundAt)
+			require.NoError(t, err)
+			require.Equal(t, aman.StatePlanned, flight.State)
+
+			// Strip refreshes and persistence must not forget the ground boundary.
+			strip := ground
+			strip.ReconciledAt, strip.Surveillance = groundAt.Add(3*time.Minute), nil
+			require.NoError(t, service.Observe(t.Context(), strip))
+			// A session/source restart can leave only the strip metadata available.
+			flight, err = service.reconcileFlight(t.Context(), state, flight, strip, strip.ReconciledAt)
+			require.NoError(t, err)
+			require.Nil(t, flight.LatestObservation.Surveillance)
+			if scenario.latestGroundAfter > 0 {
+				later := groundAt.Add(scenario.latestGroundAfter)
+				ground.ReconciledAt, ground.Surveillance.ObservedAt = later, &later
+				require.NoError(t, service.Observe(t.Context(), ground))
+				current = service.reconciliationObservations(t.Context(), "EKCH", nil)[airborne.Callsign]
+				flight, err = service.reconcileFlight(t.Context(), state, flight, current, later)
+				require.NoError(t, err)
+				older := ground
+				radar := *ground.Surveillance
+				older.Surveillance = &radar
+				older.ReconciledAt, older.Surveillance.ObservedAt = later.Add(time.Second), timePointer(later.Add(-30*time.Second))
+				flight, err = service.reconcileFlight(t.Context(), state, flight, older, older.ReconciledAt)
+				require.NoError(t, err)
+			}
+			flight = cloneGapState(t, aman.AirportState{Flights: []aman.AMANFlight{flight}}).Flights[0]
+			require.NotNil(t, flight.LastGroundedAt)
+			require.Equal(t, groundAt.Add(scenario.latestGroundAfter), *flight.LastGroundedAt)
+			at := groundAt.Add(5 * time.Minute)
+			network.ReconciledAt, network.TakeoffDetected = at, timePointer(groundAt.Add(scenario.markerAfterGround))
+			require.NoError(t, service.Observe(t.Context(), network))
+			airborne.ReconciledAt, airborne.Surveillance.ObservedAt = at, &at
+			require.NoError(t, service.Observe(t.Context(), airborne))
+			current = service.reconciliationObservations(t.Context(), "EKCH", nil)[airborne.Callsign]
+			require.Equal(t, *network.TakeoffDetected, *current.TakeoffDetected, "the combined report contains the network marker")
+			flight, err = service.reconcileFlight(t.Context(), state, flight, current, at)
+			require.NoError(t, err)
+			require.NotNil(t, flight.ArrivalBaseline)
+			wantTakeoff := groundAt.Add(scenario.expectedTakeoffAfter)
+			require.Equal(t, wantTakeoff, flight.ArrivalBaseline.AirborneSensedAt)
+			require.Equal(t, wantTakeoff.Add(eet), flight.ArrivalBaseline.ArrivalAt)
+		})
+	}
+}
+
 func TestLandedRecoveryRejectsUnusableSurveillanceAndManualRemoval(t *testing.T) {
 	for _, scenario := range []string{"missing", "stale-source", "disconnected", "stale-radar", "future-radar", "replayed", "older-than-last-ground-report", "grounded", "slow", "missing-speed", "missing-altitude", "invalid-position", "no-radar-time", "manual-removal"} {
 		t.Run(scenario, func(t *testing.T) {
@@ -186,6 +261,20 @@ func TestLandedRecoveryRejectsUnusableSurveillanceAndManualRemoval(t *testing.T)
 			require.Nil(t, updated.Slot)
 		})
 	}
+}
+
+func TestLandedRecoveryRejectsRadarBeforePersistedGroundBoundary(t *testing.T) {
+	landedAt := time.Date(2026, 11, 16, 19, 0, 0, 0, time.UTC)
+	now := landedAt.Add(5 * time.Minute)
+	service, state, observation := fallbackFixture(t, now)
+	flight := aman.AMANFlight{Callsign: observation.Callsign, State: aman.StateLanded, UpdatedAt: landedAt,
+		LastGroundedAt: timePointer(landedAt.Add(4 * time.Minute)),
+		Lifecycle:      &aman.LifecycleState{EnteredAt: landedAt, Reason: aman.LifecycleReasonLandingConfirmed}}
+	observation.Surveillance.ObservedAt = timePointer(landedAt.Add(3 * time.Minute))
+	updated, err := service.reconcileFlight(t.Context(), state, flight, observation, now)
+	require.NoError(t, err)
+	require.Equal(t, aman.StateLanded, updated.State)
+	require.Nil(t, updated.Slot)
 }
 
 func TestRejectedLandedReportsPreserveRadarRecoveryWatermark(t *testing.T) {

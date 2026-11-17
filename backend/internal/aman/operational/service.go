@@ -1169,7 +1169,13 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 			observation.Missing || observation.SourceStatus != aman.DataFresh || !reappearedAt.After(boundary) {
 			return flight, nil
 		}
+		groundedAt := flight.LastGroundedAt
 		flight = newFlight(observation, now)
+		flight.LastGroundedAt = groundedAt
+	}
+	if previous := flight.LatestObservation; previous != nil {
+		// Bootstrap aggregates persisted before the ground boundary was explicit.
+		recordGroundReport(&flight, *previous, previous.ReconciledAt)
 	}
 	if flight.State == aman.StateLanded && (!hasFreshLandedRadar(observation, now) ||
 		!observation.Surveillance.ObservedAt.After(landedRecoveryWatermark(flight))) {
@@ -1182,7 +1188,9 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 		// episode. Start again from current radar evidence rather than reusing
 		// its old takeoff, baseline, route progress or sequencing decisions.
 		observation.TakeoffDetected = observation.Surveillance.ObservedAt
+		groundedAt := flight.LastGroundedAt
 		flight = newFlight(observation, now)
+		flight.LastGroundedAt = groundedAt
 		updateLifecycle(&flight, aman.StateLanded, aman.StateAirborne, now)
 	}
 	previousObservation := flight.LatestObservation
@@ -1202,8 +1210,9 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 	}
 	// Takeoff is confirmed history, including while the source is missing or
 	// stale. Preserve it before storing a report that may return early below.
+	observation.TakeoffDetected = takeoffAfterGroundedAt(observation.TakeoffDetected, flight.LastGroundedAt)
 	if observation.TakeoffDetected == nil && previousObservation != nil {
-		observation.TakeoffDetected = previousObservation.TakeoffDetected
+		observation.TakeoffDetected = takeoffAfterGroundedAt(previousObservation.TakeoffDetected, flight.LastGroundedAt)
 	}
 	copy := observation
 	flight.LatestObservation = &copy
@@ -3184,6 +3193,9 @@ func landedRecoveryWatermark(flight aman.AMANFlight) time.Time {
 	if flight.Lifecycle != nil {
 		landedAt = flight.Lifecycle.EnteredAt
 	}
+	if flight.LastGroundedAt != nil && flight.LastGroundedAt.After(landedAt) {
+		landedAt = *flight.LastGroundedAt
+	}
 	if previous := flight.LatestObservation; previous != nil && hasFreshLandedRadar(*previous, previous.ReconciledAt) &&
 		previous.Surveillance.ObservedAt.After(landedAt) {
 		landedAt = *previous.Surveillance.ObservedAt
@@ -3196,6 +3208,7 @@ func landedRecoveryWatermark(flight aman.AMANFlight) time.Time {
 // a previously airborne flight has completed its AMAN arrival and must no
 // longer participate in route prediction or sequencing.
 func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) aman.AMANFlight {
+	recordGroundReport(&flight, observation, now)
 	if flight.State == aman.StatePlanned {
 		// A current ground report overrides any retained takeoff marker from
 		// before reconnecting. It is not evidence of a completed arrival.

@@ -23,7 +23,7 @@ func handleActionReconciliation(ctx context.Context, client *Client, message Mes
 		return err
 	}
 	return client.reconcile(func() (events.OutgoingMessage, error) {
-		snapshot, _, err := client.hub.getSnapshotBuilder().Build(ctx, InitialSnapshotRequest{
+		snapshot, _, err := client.hub.getSnapshotBuilder().BuildForReconciliation(ctx, InitialSnapshotRequest{
 			Board: client.selection.board, SessionID: identity.session,
 			Position: identity.position, Airport: identity.airport, Callsign: identity.callsign,
 			UserCID: client.GetCid(), ReadOnly: identity.readOnly,

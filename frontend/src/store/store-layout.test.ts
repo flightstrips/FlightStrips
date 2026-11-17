@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 
-import { ActionType, Bay, CommunicationType, EventType, type FrontendInitialEvent, type FrontendStrip } from "@/api/models";
+import { ActionType, Bay, CommunicationType, EventType, type FrontendInitialEvent, type FrontendStrip, type TacticalStrip } from "@/api/models";
 import type { WebSocketClient } from "@/api/websocket";
 import { createWebSocketStore } from "./store";
 import { getEstDepartureTransferTarget, isEstDepartureTransferActive, isEstDepartureTransferred } from "@/components/est/transferState";
@@ -432,6 +432,7 @@ describe("manual companion layout behavior", () => {
     client._emit(EventType.FrontendActionRejected, { action: ActionType.FrontendActionReconciliation, reason: "unavailable" });
     expect(client.send).toHaveBeenCalledTimes(1);
     expect(store.getState().reconciling).toBe(true);
+    expect(errors.mock.calls.at(-1)?.[1]).toMatchObject({ dismissible: false, duration: Infinity });
     const retry = errors.mock.calls.at(-1)?.[1]?.action;
     if (!retry || typeof retry !== "object" || !("onClick" in retry)) throw new Error("Missing refresh retry action");
     retry.onClick({} as React.MouseEvent<HTMLButtonElement>);
@@ -442,6 +443,38 @@ describe("manual companion layout behavior", () => {
     client._emit(EventType.FrontendActionReconciliation, { ...initialEvent("AD"), request_id: "refresh-2" });
     expect(store.getState().reconciling).toBe(false);
     expect(client.reconnect).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])("replays tactical creates once whether included in the snapshot: %s", (included) => {
+    const created: TacticalStrip = {
+      id: 1, session_id: 42, type: "CROSSING", bay: Bay.Depart, label: "CREATED", aircraft: "",
+      produced_by: "TWR", owner: "118.580", marked: false, sequence: 1, timer_start: null,
+      confirmed: false, confirmed_by: "", created_at: "2026-11-16T20:00:00Z",
+    };
+    const snapshot = { ...created, label: "SNAPSHOT", confirmed: true };
+    const unrelated = { ...created, id: 2 };
+    client._emit(EventType.FrontendActionRejected, { action: "move", reason: "rejected" });
+    client._emit(EventType.FrontendActionReconciliation, {
+      ...initialEvent("AD"), request_id: "refresh-1", tactical_strips: included ? [snapshot, unrelated] : [unrelated],
+    });
+    client._emit(EventType.FrontendTacticalStripCreated, { strip: created });
+    client._emit(EventType.FrontendTacticalStripCreated, { strip: created });
+    expect(store.getState().tacticalStrips).toHaveLength(2);
+    expect(store.getState().tacticalStrips.find(strip => strip.id === created.id)).toEqual(included ? snapshot : created);
+    const updated = { ...created, label: "UPDATED", confirmed: true };
+    client._emit(EventType.FrontendTacticalStripUpdated, { strip: updated });
+    expect(store.getState().tacticalStrips.filter(strip => strip.id === created.id)).toEqual([updated]);
+    client._emit(EventType.FrontendTacticalStripDeleted, { id: created.id });
+    expect(store.getState().tacticalStrips).toEqual([unrelated]);
+  });
+
+  it("allows the current owner to accept an incoming ES coordination", () => {
+    const position = "118.580";
+    store.setState({ position, strips: [{ ...foreignStrip(), owner: position }],
+      stripTransfers: { SAS123: { from: "119.805", to: position, isTagRequest: false } } });
+    store.getState().assumeStrip("SAS123");
+    store.getState().assumeStrip("SAS123");
+    expect(client.send).toHaveBeenCalledExactlyOnceWith({ type: ActionType.FrontendCoordinationAssumeRequest, callsign: "SAS123" });
   });
 
   it("sends one assumption until confirmed and leaves newer transfers alone", () => {

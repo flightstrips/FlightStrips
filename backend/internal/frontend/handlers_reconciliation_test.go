@@ -60,6 +60,43 @@ func TestActionReconciliationDoesNotPublishFailedSnapshot(t *testing.T) {
 	require.Empty(t, client.send)
 }
 
+func TestActionReconciliationRejectsIncompleteCollections(t *testing.T) {
+	for _, collection := range []string{"tactical strips", "stand assignments", "stand blocks"} {
+		t.Run(collection, func(t *testing.T) {
+			hub := newAMANInitialTestHub(t, nil)
+			builder := hub.getSnapshotBuilder()
+			readErr := errors.New("collection unavailable")
+			var tacticalErr error
+			stands := &standAssignmentSnapshotRepository{}
+			switch collection {
+			case "tactical strips":
+				tacticalErr = readErr
+			case "stand assignments":
+				stands.assignmentsErr = readErr
+			case "stand blocks":
+				stands.blocksErr = readErr
+			}
+			builder.tacticalStripRepo = &testutil.MockTacticalStripRepository{
+				ListBySessionFn: func(context.Context, int32) ([]*models.TacticalStrip, error) { return nil, tacticalErr },
+			}
+			builder.standAssignmentEnabled = true
+			builder.standAssignmentRepo = stands
+			// Initial connection keeps its existing best-effort contract.
+			_, _, err := builder.Build(t.Context(), InitialSnapshotRequest{SessionID: 42, Airport: "EKCH"})
+			require.NoError(t, err)
+			client := startQueuedTestClient(&Client{hub: hub, session: 42, airport: "EKCH"})
+			t.Cleanup(func() { client.Close() })
+			request := Message{Message: []byte(`{"request_id":"refresh-1"}`)}
+			require.ErrorIs(t, handleActionReconciliation(t.Context(), client, request), readErr)
+			require.Empty(t, client.send, "an incomplete refresh must not erase existing client collections")
+			// Clearing the read failure allows a normal refresh on the same client.
+			tacticalErr, stands.assignmentsErr, stands.blocksErr = nil, nil, nil
+			require.NoError(t, handleActionReconciliation(t.Context(), client, request))
+			require.IsType(t, fe.ActionReconciliationEvent{}, waitForOutgoingMessage(t, client.send))
+		})
+	}
+}
+
 func TestActionReconciliationOrdersConcurrentOwnershipUpdates(t *testing.T) {
 	for _, failSnapshot := range []bool{false, true} {
 		t.Run(map[bool]string{false: "successful snapshot", true: "failed snapshot"}[failSnapshot], func(t *testing.T) {

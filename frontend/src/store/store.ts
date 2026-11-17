@@ -1000,7 +1000,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     },
     assumeStrip: (callsign) => {
       const strip = findStrip(callsign);
-      if (!strip || strip.owner === get().position || get().pendingAssumptions[callsign]) return;
+      const transfer = get().stripTransfers[callsign];
+      const incoming = transfer && !transfer.isTagRequest && transfer.to === get().position && transfer.from !== get().position;
+      if (!strip || (strip.owner === get().position && !incoming) || get().pendingAssumptions[callsign]) return;
       if (sendGuardedStripEvent(callsign, { type: "coordination_assume_request" }, { type: ActionType.FrontendCoordinationAssumeRequest, callsign })) {
         set(state => ({ pendingAssumptions: { ...state.pendingAssumptions, [callsign]: true } }));
         assumptionTimers.set(callsign, setTimeout(() => requestReconciliation(), 5_000));
@@ -1334,6 +1336,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       id: reconciliationToastID,
       action: { label: "Retry refresh", onClick: () => requestReconciliation() },
       duration: Infinity,
+      dismissible: false,
     });
   };
   const requestReconciliation = () => {
@@ -1917,7 +1920,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   const handleTacticalStripCreatedEvent = (data: FrontendTacticalStripCreatedEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        state.tacticalStrips.push(data.strip);
+        // A create replay may already be represented by a newer snapshot.
+        if (!state.tacticalStrips.some(strip => strip.id === data.strip.id)) {
+          state.tacticalStrips.push(data.strip);
+        }
       })
     );
   };

@@ -83,14 +83,17 @@ func (s *DepartureLifecycleService) SetStandPublisher(publisher observedStandPub
 	s.standPublisher = publisher
 }
 
-// CancelDeparture cancels transient wrong-stand state when a departure
-// disappears from the live feed.
+// CancelDeparture cancels transient state and starts bounded stand retention
+// when a departure disappears from both the live feed and EuroScope.
 func (s *DepartureLifecycleService) CancelDeparture(ctx context.Context, session int32, callsign string) error {
 	s.clearUnassignedStandWarning(session, callsign)
 	if err := s.CancelPilotDeparture(ctx, session, callsign); err != nil {
 		return err
 	}
-	return s.cancelWrongStandEpisode(ctx, session, callsign)
+	if err := s.cancelWrongStandEpisode(ctx, session, callsign); err != nil {
+		return err
+	}
+	return s.expireDisconnectedDepartureBlock(ctx, session, callsign)
 }
 
 type lifecycleSessionLister interface {
@@ -215,11 +218,18 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 		}
 		return s.revalidateFacts(ctx, session, strip, flight)
 	}
+	if s.allowPrefiles {
+		if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
+			return err
+		}
+	}
+	// A prefile left behind after the pilot disconnects is not live occupancy
+	// evidence either. Its old departure block must use the same bounded grace.
+	if err := s.expireDisconnectedDepartureBlock(ctx, session, strip.Callsign); err != nil {
+		return err
+	}
 	if !s.allowPrefiles {
 		return s.releaseOfflinePrefileReservation(ctx, session, strip.Callsign)
-	}
-	if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
-		return err
 	}
 	return s.ensureReservation(ctx, session, strip, flight)
 }
@@ -275,6 +285,18 @@ func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context
 // An occupied or blocked observed stand leaves the reservation intact and
 // records the mismatch for the warning/deadline workflow.
 func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
+	for attempt := 1; ; attempt++ {
+		activated, err := s.activateObservedBlockAttempt(ctx, session, strip, flight)
+		if !errors.Is(err, errAllocationVersionConflict) || attempt == maxSerializableOperationAttempts {
+			return activated, err
+		}
+		if err := waitForSerializableRetry(ctx, attempt); err != nil {
+			return false, err
+		}
+	}
+}
+
+func (s *DepartureLifecycleService) activateObservedBlockAttempt(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
 	observed, found := s.stands.StandAtPosition(strings.TrimSpace(strip.Origin), flight.Latitude, flight.Longitude)
 	existing, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
 	if err != nil && !isNotFound(err) {
@@ -286,11 +308,16 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 			slog.String("callsign", strip.Callsign),
 			slog.Float64("latitude", flight.Latitude),
 			slog.Float64("longitude", flight.Longitude))
-		if existing != nil && existing.Stage == StageDepartureBlock && validDeparturePosition(flight.Latitude, flight.Longitude) {
-			// The aircraft has positively moved away from every configured stand.
-			// Its previous stand is physically free now; do not retain a nil-expiry
-			// departure block until the EuroScope strip eventually disappears.
-			return false, s.allocations.ReleaseAssignmentRetainingStand(ctx, existing)
+		if existing != nil && existing.Stage == StageDepartureBlock {
+			if validDeparturePosition(flight.Latitude, flight.Longitude) {
+				// The aircraft has positively moved away from every configured stand.
+				// Its previous stand is physically free now; do not retain a nil-expiry
+				// departure block until the EuroScope strip eventually disappears.
+				return false, s.allocations.ReleaseAssignmentRetainingStand(ctx, existing)
+			}
+			// A live aircraft with temporarily missing coordinates is still online.
+			// Cancel disconnect expiry without treating missing data as movement.
+			return false, s.clearDepartureBlockExpiry(ctx, existing)
 		}
 		if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
 			return false, err
@@ -299,7 +326,7 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	}
 
 	if existing != nil && strings.EqualFold(existing.Stand, observed.Name) {
-		if err := s.activateBlock(ctx, session, strip, flight); err != nil {
+		if err := s.activateBlock(ctx, session, strip, flight, observed.Name); err != nil {
 			return true, err
 		}
 		return true, s.reconcileConfirmedArrivalConflict(ctx, session, strip, flight, observed.Name)
@@ -309,10 +336,20 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	awaitingReason := wrongStandAwaitingPrefix + observed.Name
 	if existing != nil && existing.ConflictReason != nil {
 		switch *existing.ConflictReason {
-		case pendingReason:
+		case pendingReason, awaitingReason:
+			// An unchanged mismatch is still a live observation. Cancel any
+			// disconnect expiry before taking either warning fast path.
+			if existing.ExpiresAt != nil {
+				if err := s.clearDepartureBlockExpiry(ctx, existing); err != nil {
+					return false, err
+				}
+				existing.ExpiresAt = nil
+				existing.Version++ // Warning delivery must use the persisted version.
+			}
+			if *existing.ConflictReason == awaitingReason {
+				return false, s.deliverWrongStandWarning(ctx, existing)
+			}
 			return false, nil
-		case awaitingReason:
-			return false, s.deliverWrongStandWarning(ctx, existing)
 		}
 	}
 
@@ -580,7 +617,7 @@ func (s *DepartureLifecycleService) renewInPlace(ctx context.Context, strip *mod
 // every subsequent poll. Aircraft without a prior reservation receive a fresh
 // block so an online departure that skipped the prefile stage still gets a
 // stand.
-func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) error {
+func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo, observedStand string) error {
 	existing, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
 	if err != nil && !isNotFound(err) {
 		return err
@@ -596,16 +633,17 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	if existing.Stage != StageReserved && existing.Stage != StageDepartureBlock {
 		return nil
 	}
-	onAssignedStand := s.stripIsAtAssignedStand(strip, existing.Stand)
-	if onAssignedStand {
-		expiry = nil
+	// The position observer can run before the strip's stored coordinates are
+	// updated. Its resolved stand is the current occupancy evidence.
+	if !strings.EqualFold(existing.Stand, observedStand) {
+		// The assignment changed after the observation's first read. Re-run
+		// stand selection and mismatch handling against the new reservation.
+		return fmt.Errorf("activate departure block for %s: %w", strip.Callsign, errAllocationVersionConflict)
 	}
+	expiry = nil
 	observedStandRecorded := existing.ObservedStand != nil && strings.EqualFold(strings.TrimSpace(*existing.ObservedStand), strings.TrimSpace(existing.Stand))
 	if existing.Stage == StageDepartureBlock {
-		if expiry == nil && existing.ExpiresAt != nil && !onAssignedStand {
-			return nil
-		}
-		if sameExpiry(existing.ExpiresAt, expiry) && sameExpiry(existing.ProjectedReleaseAt, projectedRelease) && (!onAssignedStand || observedStandRecorded) {
+		if sameExpiry(existing.ExpiresAt, expiry) && sameExpiry(existing.ProjectedReleaseAt, projectedRelease) && observedStandRecorded {
 			return nil
 		}
 	}
@@ -613,10 +651,7 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	updated.Stage = StageDepartureBlock
 	updated.ExpiresAt = expiry
 	updated.ProjectedReleaseAt = projectedRelease
-	if onAssignedStand {
-		observedStand := existing.Stand
-		updated.ObservedStand = &observedStand
-	}
+	updated.ObservedStand = &observedStand
 	if updated.ConflictReason != nil && strings.HasPrefix(*updated.ConflictReason, wrongStandPendingPrefix) {
 		updated.ConflictReason = nil
 	}
@@ -633,31 +668,9 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 		updated.Version++
 		return s.allocations.PublishAssignment(ctx, updated)
 	}
-	reloaded, reloadErr := s.assignments.GetAssignment(ctx, session, strip.Callsign)
-	if reloadErr != nil || reloaded == nil {
-		return nil
-	}
-	if reloaded.Stage == StageDepartureBlock && expiry == nil && reloaded.ExpiresAt != nil {
-		return nil
-	}
-	reloaded.Stage = StageDepartureBlock
-	reloaded.ExpiresAt = expiry
-	reloaded.ProjectedReleaseAt = projectedRelease
-	if onAssignedStand {
-		observedStand := reloaded.Stand
-		reloaded.ObservedStand = &observedStand
-	}
-	reloaded.AssignedAt = &now
-	applyVatsimIdentity(reloaded, strip, flight.CID, flight.Revision)
-	affected, err = s.assignments.UpdateAssignment(ctx, reloaded)
-	if err != nil {
-		return err
-	}
-	if affected != 1 {
-		return fmt.Errorf("activate departure block version conflict for %s", strip.Callsign)
-	}
-	reloaded.Version++
-	return s.allocations.PublishAssignment(ctx, *reloaded)
+	// Retrying only this write could apply an occupancy deadline to a newer,
+	// different stand without the normal live-mismatch protection.
+	return fmt.Errorf("activate departure block for %s: %w", strip.Callsign, errAllocationVersionConflict)
 }
 
 // revalidateFacts re-runs compatibility against the strip's current aircraft and
@@ -771,13 +784,18 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 			return err
 		}
 	}
-	if assignment.Stage == StageDepartureBlock && s.stripIsAtAssignedStand(strip, assignment.Stand) &&
+	// A retained strip's last gate position is not live occupancy evidence once
+	// both sources disappear. Preserve the disconnect deadline until a fresh
+	// feed observation or EuroScope reconnect clears it.
+	disconnectedBlock := assignment.Direction == string(sat.AssignmentDirectionDeparture) &&
+		assignment.Stage == StageDepartureBlock && strip.EuroscopeSeenAt == nil && assignment.ExpiresAt != nil
+	if !disconnectedBlock && assignment.Stage == StageDepartureBlock && s.stripIsAtAssignedStand(strip, assignment.Stand) &&
 		(assignment.ConflictReason == nil ||
 			(!strings.HasPrefix(*assignment.ConflictReason, wrongStandPendingPrefix) &&
 				!strings.HasPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix))) {
 		return s.clearDepartureBlockExpiry(ctx, assignment)
 	}
-	if assignment.ConflictReason != nil &&
+	if !disconnectedBlock && assignment.ConflictReason != nil &&
 		(strings.HasPrefix(*assignment.ConflictReason, wrongStandPendingPrefix) ||
 			strings.HasPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix)) {
 		// Clear deadlines written by older versions too. A restart must retain
@@ -787,7 +805,19 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 	if assignment.ExpiresAt == nil || assignment.ExpiresAt.After(now) {
 		return nil
 	}
-	if assignment.Stage == StageDepartureBlock {
+	if disconnectedBlock {
+		err = s.allocations.releaseAssignmentChecked(ctx, assignment, false, func(lockedStrip *models.Strip) error {
+			if lockedStrip != nil && lockedStrip.EuroscopeSeenAt != nil {
+				return errDepartureReconnected
+			}
+			return nil
+		})
+		if errors.Is(err, errDepartureReconnected) {
+			// Presence returned after our first read. Keep the assignment and
+			// cancel its deadline; optimistic versioning protects newer changes.
+			return s.clearDepartureBlockExpiry(ctx, assignment)
+		}
+	} else if assignment.Stage == StageDepartureBlock {
 		err = s.allocations.releaseAssignment(ctx, assignment, false)
 	} else {
 		err = s.allocations.releaseAssignment(ctx, assignment, true)

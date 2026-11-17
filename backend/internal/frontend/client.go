@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	gorilla "github.com/gorilla/websocket"
@@ -41,12 +42,18 @@ type Client struct {
 	userMu            sync.RWMutex
 	user              shared.AuthenticatedUser
 
+	deliveryMu           sync.Mutex
+	reconciliationBuffer []events.OutgoingMessage // nil outside snapshot construction; deliveryMu-owned
+
 	position       string
 	callsign       string
 	airport        string
 	version        string
 	readOnly       bool
 	initialPending bool // owned by the hub loop; retry until the snapshot is queued
+
+	snapshotRefreshPending   atomic.Bool // reader sets; hub clears before building
+	snapshotRefreshNotBefore atomic.Pointer[time.Time] // immutable monotonic deadline
 
 	// The hub owns identity transitions. Socket readers and writers use a
 	// snapshot so association/disconnect cannot expose a partial session identity.
@@ -100,6 +107,29 @@ func (c *Client) GetSendChannel() chan events.OutgoingMessage {
 }
 
 func (c *Client) Enqueue(message events.OutgoingMessage) bool {
+	c.deliveryMu.Lock()
+	defer c.deliveryMu.Unlock()
+	if c.reconciliationBuffer != nil {
+		select {
+		case <-c.closed:
+			return false
+		default:
+		}
+		// Snapshot reads must not turn a slow client's bounded queue into an
+		// unbounded buffer or stall the hub's fanout to other clients.
+		if len(c.reconciliationBuffer) >= cap(c.send) {
+			c.disconnectSlowConsumer()
+			return false
+		}
+		c.reconciliationBuffer = append(c.reconciliationBuffer, message)
+		return true
+	}
+	return c.enqueue(message)
+}
+
+// enqueue requires deliveryMu. Snapshot publication uses it to queue the
+// replacement and buffered events atomically, before normal delivery resumes.
+func (c *Client) enqueue(message events.OutgoingMessage) bool {
 	if c.selection.board != nil {
 		message = frontendEvents.BoundMessage{Message: message, Board: *c.selection.board}
 	}

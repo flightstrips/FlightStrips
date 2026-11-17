@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStore } from 'zustand';
 import { createWebSocketStore } from './store.ts';
-import { WebSocketClient } from '../api/websocket.ts';
+import { WebSocketClient, type ConnectionPhase } from '../api/websocket.ts';
 import { WebSocketStoreContext } from './store-context.ts';
 
 interface WebSocketStoreProviderProps {
   children: ReactNode;
   wsClient: WebSocketClient;
   connected: boolean;
+  connectionPhase?: ConnectionPhase;
   selectionControls?: ReactNode;
   retainedState?: import("./store").WebSocketState;
   onStateChanged?: (state: import("./store").WebSocketState) => void;
   ownPluginAvailable?: boolean;
 }
 
-export const WebSocketStoreProvider = ({ children, wsClient, connected, selectionControls, retainedState, onStateChanged, ownPluginAvailable }: WebSocketStoreProviderProps) => {
+export const WebSocketStoreProvider = ({ children, wsClient, connected, connectionPhase, selectionControls, retainedState, onStateChanged, ownPluginAvailable }: WebSocketStoreProviderProps) => {
   const [store] = useState(() => createWebSocketStore(wsClient, retainedState, true));
 
   const mounted = useRef(true);
@@ -77,7 +78,7 @@ export const WebSocketStoreProvider = ({ children, wsClient, connected, selectio
 
   return (
     <WebSocketStoreContext.Provider value={store}>
-      {readOnly && <div role="status" className="fixed top-2 left-1/2 -translate-x-1/2 z-40 rounded bg-amber-200 px-4 py-1 text-black text-sm shadow">{observer ? "Observer · Read-only" : ownPluginReady ? "Read-only" : "Own plugin unavailable · Read-only"}</div>}
+      {readOnly && <div role="status" className="fixed top-2 left-1/2 -translate-x-1/2 z-40 rounded bg-amber-200 px-4 py-1 text-black text-sm shadow">{!connected ? "Connection lost · Showing last received data · Read-only" : connectionPhase === "authenticating" || connectionPhase === "synchronizing" ? "Reconnecting · Updating strips · Read-only" : observer ? "Observer · Read-only" : ownPluginReady ? "Read-only" : "Own plugin unavailable · Showing last received data · Read-only"}</div>}
       {children}
     </WebSocketStoreContext.Provider>
   );

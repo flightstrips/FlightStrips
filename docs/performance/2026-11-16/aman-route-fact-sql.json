@@ -1,0 +1,367 @@
+{
+  "baseline_commit": "05ab62a53a43780a5c7bc3adaef30e9d28e0a7f6",
+  "environment": "Windows, Go 1.26, PostgreSQL 16 Alpine on Docker Desktop; serial before/after runs, three samples each; timings exclude fixture setup",
+  "measurements": {
+    "before": [
+      {
+        "event": "full",
+        "arrivals": 1,
+        "sql": 163,
+        "milliseconds": 81.028
+      },
+      {
+        "event": "repeat",
+        "arrivals": 1,
+        "sql": 24,
+        "milliseconds": 11.0944
+      },
+      {
+        "event": "full",
+        "arrivals": 132,
+        "sql": 5010,
+        "milliseconds": 3759.2268
+      },
+      {
+        "event": "repeat",
+        "arrivals": 132,
+        "sql": 24,
+        "milliseconds": 30.8829
+      },
+      {
+        "event": "full",
+        "arrivals": 1,
+        "sql": 163,
+        "milliseconds": 76.523
+      },
+      {
+        "event": "repeat",
+        "arrivals": 1,
+        "sql": 24,
+        "milliseconds": 10.8611
+      },
+      {
+        "event": "full",
+        "arrivals": 132,
+        "sql": 5010,
+        "milliseconds": 3705.5967
+      },
+      {
+        "event": "repeat",
+        "arrivals": 132,
+        "sql": 24,
+        "milliseconds": 40.9423
+      },
+      {
+        "event": "full",
+        "arrivals": 1,
+        "sql": 163,
+        "milliseconds": 80.645
+      },
+      {
+        "event": "repeat",
+        "arrivals": 1,
+        "sql": 24,
+        "milliseconds": 10.5208
+      },
+      {
+        "event": "full",
+        "arrivals": 132,
+        "sql": 5010,
+        "milliseconds": 3638.9543999999996
+      },
+      {
+        "event": "repeat",
+        "arrivals": 132,
+        "sql": 24,
+        "milliseconds": 31.2697
+      }
+    ],
+    "navigation_only": [
+      {
+        "event": "full",
+        "arrivals": 1,
+        "sql": 26,
+        "milliseconds": 22.4193
+      },
+      {
+        "event": "repeat",
+        "arrivals": 1,
+        "sql": 8,
+        "milliseconds": 6.6691
+      },
+      {
+        "event": "full",
+        "arrivals": 132,
+        "sql": 26,
+        "milliseconds": 1215.2142
+      },
+      {
+        "event": "repeat",
+        "arrivals": 132,
+        "sql": 8,
+        "milliseconds": 29.8132
+      },
+      {
+        "event": "full",
+        "arrivals": 1,
+        "sql": 26,
+        "milliseconds": 21.6275
+      },
+      {
+        "event": "repeat",
+        "arrivals": 1,
+        "sql": 8,
+        "milliseconds": 5.4087
+      },
+      {
+        "event": "full",
+        "arrivals": 132,
+        "sql": 26,
+        "milliseconds": 1162.4620000000002
+      },
+      {
+        "event": "repeat",
+        "arrivals": 132,
+        "sql": 8,
+        "milliseconds": 19.9067
+      },
+      {
+        "event": "full",
+        "arrivals": 1,
+        "sql": 26,
+        "milliseconds": 29.6128
+      },
+      {
+        "event": "repeat",
+        "arrivals": 1,
+        "sql": 8,
+        "milliseconds": 9.2117
+      },
+      {
+        "event": "full",
+        "arrivals": 132,
+        "sql": 26,
+        "milliseconds": 1631.4141
+      },
+      {
+        "event": "repeat",
+        "arrivals": 132,
+        "sql": 8,
+        "milliseconds": 29.5867
+      }
+    ],
+    "after": [
+      {
+        "event": "full",
+        "arrivals": 1,
+        "sql": 8,
+        "milliseconds": 15.6072,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "repeat",
+        "arrivals": 1,
+        "sql": 7,
+        "milliseconds": 5.5936,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "clear",
+        "arrivals": 1,
+        "sql": 4,
+        "milliseconds": 7.8285,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "full",
+        "arrivals": 132,
+        "sql": 8,
+        "milliseconds": 1279.0108,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "repeat",
+        "arrivals": 132,
+        "sql": 7,
+        "milliseconds": 23.5924,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "clear",
+        "arrivals": 132,
+        "sql": 4,
+        "milliseconds": 1217.3023,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "full",
+        "arrivals": 2,
+        "sql": 8,
+        "milliseconds": 99.2471,
+        "lifecycle_expiry": true
+      },
+      {
+        "event": "repeat",
+        "arrivals": 2,
+        "sql": 7,
+        "milliseconds": 6.2581,
+        "lifecycle_expiry": true
+      },
+      {
+        "event": "clear",
+        "arrivals": 2,
+        "sql": 4,
+        "milliseconds": 8.0742,
+        "lifecycle_expiry": true
+      },
+      {
+        "event": "full",
+        "arrivals": 1,
+        "sql": 8,
+        "milliseconds": 14.4887,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "repeat",
+        "arrivals": 1,
+        "sql": 7,
+        "milliseconds": 5.1686,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "clear",
+        "arrivals": 1,
+        "sql": 4,
+        "milliseconds": 6.3904,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "full",
+        "arrivals": 132,
+        "sql": 8,
+        "milliseconds": 1217.4823,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "repeat",
+        "arrivals": 132,
+        "sql": 7,
+        "milliseconds": 23.1241,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "clear",
+        "arrivals": 132,
+        "sql": 4,
+        "milliseconds": 1099.8604,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "full",
+        "arrivals": 2,
+        "sql": 8,
+        "milliseconds": 104.7873,
+        "lifecycle_expiry": true
+      },
+      {
+        "event": "repeat",
+        "arrivals": 2,
+        "sql": 7,
+        "milliseconds": 5.3178,
+        "lifecycle_expiry": true
+      },
+      {
+        "event": "clear",
+        "arrivals": 2,
+        "sql": 4,
+        "milliseconds": 7.1197,
+        "lifecycle_expiry": true
+      },
+      {
+        "event": "full",
+        "arrivals": 1,
+        "sql": 8,
+        "milliseconds": 13.2852,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "repeat",
+        "arrivals": 1,
+        "sql": 7,
+        "milliseconds": 5.0899,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "clear",
+        "arrivals": 1,
+        "sql": 4,
+        "milliseconds": 6.6246,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "full",
+        "arrivals": 132,
+        "sql": 8,
+        "milliseconds": 1210.5934,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "repeat",
+        "arrivals": 132,
+        "sql": 7,
+        "milliseconds": 22.9422,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "clear",
+        "arrivals": 132,
+        "sql": 4,
+        "milliseconds": 1204.5397,
+        "lifecycle_expiry": false
+      },
+      {
+        "event": "full",
+        "arrivals": 2,
+        "sql": 8,
+        "milliseconds": 101.5976,
+        "lifecycle_expiry": true
+      },
+      {
+        "event": "repeat",
+        "arrivals": 2,
+        "sql": 7,
+        "milliseconds": 5.4885,
+        "lifecycle_expiry": true
+      },
+      {
+        "event": "clear",
+        "arrivals": 2,
+        "sql": 4,
+        "milliseconds": 6.8268,
+        "lifecycle_expiry": true
+      }
+    ]
+  },
+  "production": {
+    "trace_id": "5799b7c97fdd8b7e2fb8db278205224b",
+    "service_version": "3.9.1+882a1238a602fb3627af14b45de61957513f7184",
+    "start_utc": "2026-11-16T20:16:07.262Z",
+    "session": 1292,
+    "event_milliseconds": 8032.982915,
+    "sql_statements": 5075,
+    "sql_total_milliseconds": 4398.396519,
+    "max_pool_acquire_milliseconds": 0.819,
+    "statement_counts": {
+      "procedure_fragments": 1632,
+      "terminal_fragments": 678,
+      "airport_fragments": 676,
+      "fix_fragments": 544,
+      "routes": 401,
+      "active_manifest": 272,
+      "repeatable_read_begin": 272
+    }
+  },
+  "worktree": "C:/Users/fsr19/.codex/worktrees/aman-route-fact-sql",
+  "branch": "codex/aman-route-fact-sql",
+  "budget": "Successful warm events without retries; all synchronous SQL, including both durable writes, audit, expiry, publication and correlation. Cold materialization, conflicts and failures can add SQL."
+}

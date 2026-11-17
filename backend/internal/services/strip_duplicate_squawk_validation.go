@@ -496,6 +496,13 @@ func (s *StripService) setOwnerAndReevaluateDuplicateSquawkValidation(ctx contex
 	if err != nil || count != 1 {
 		return count, err
 	}
+	if err := s.reevaluateAfterOwnerChange(ctx, session, callsign, owner); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (s *StripService) reevaluateAfterOwnerChange(ctx context.Context, session int32, callsign string, owner *string) error {
 	shared.AddDBOperations(ctx, 1)
 	clearSelection := func(strip *internalModels.Strip) {
 		if strip != nil && helpers.ValueOrDefault(strip.Owner) != helpers.ValueOrDefault(owner) {
@@ -512,13 +519,13 @@ func (s *StripService) setOwnerAndReevaluateDuplicateSquawkValidation(ctx contex
 		clearSelection(snapshot.Strip)
 	}
 	if err := s.ReevaluatePdcRequestValidations(ctx, session, callsign, true, true); err != nil {
-		return 0, err
+		return err
 	}
 	if err := s.ReevaluateLandingClearanceValidationsForSession(ctx, session, true, false); err != nil {
-		return 0, err
+		return err
 	}
 	if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, true, true); err != nil {
-		return 0, err
+		return err
 	}
-	return count, nil
+	return nil
 }

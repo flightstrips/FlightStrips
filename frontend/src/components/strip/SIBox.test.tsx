@@ -4,6 +4,7 @@ import { Bay, type FrontendController } from "@/api/models";
 import { SIBox } from "./SIBox";
 
 const state = vi.hoisted(() => ({
+  pendingAssumptions: {} as Record<string, boolean>,
   strips: [] as { callsign: string; communication_type: string }[],
   controllers: [] as FrontendController[],
   textPilotReadbacks: {} as Record<string, boolean>, layout: "", displayedLayout: "", callsign: "EKCH_GND",
@@ -92,11 +93,20 @@ describe("tag request SI identifier", () => {
 
 describe("startup SI transfer", () => {
   beforeEach(() => {
+    state.pendingAssumptions = {};
     state.strips = []; state.controllers = []; state.layout = ""; state.textPilotReadbacks = {};
     openTextPilotMenu.mockClear(); assumeStrip.mockClear();
     transferStrip.mockClear();
     startRequestAndTransfer.mockClear();
     openStripContextMenu.mockClear();
+  });
+
+  it("ignores an assume click while the store awaits confirmation", () => {
+    state.pendingAssumptions.SAS123 = true;
+    const { container } = render(<SIBox callsign="SAS123" bay="TAXI" owner="121.730"
+      myPosition="121.630" transferFrom="121.730" transferringTo="121.630" />);
+    fireEvent.click(container.firstElementChild!);
+    expect(assumeStrip).not.toHaveBeenCalled();
   });
 
   it("uses the reduced font size for the SI indicator", () => {

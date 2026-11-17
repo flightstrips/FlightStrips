@@ -77,6 +77,7 @@ export interface AMANCoordinationStateEvent {
 
 export interface AMANReleaseBuffer {
   blocked_reasons?: string[];
+  unknown_callsigns?: string[];
   status: "ready" | "degraded" | "disabled";
   target: number;
   in_approach: number;
@@ -707,6 +708,7 @@ function isReleaseBuffer(value: unknown): value is AMANReleaseBuffer {
   return isObject(value) && ["ready", "degraded", "disabled"].includes(value.status as string)
     && [value.target, value.in_approach, value.reserved, value.incoming, value.projected, value.unknown].every(isNonNegativeInteger)
     && (value.blocked_reasons === undefined || isStringArray(value.blocked_reasons))
+    && (value.unknown_callsigns === undefined || isStringArray(value.unknown_callsigns))
     && (value.target as number) > 0
     && value.projected === (value.in_approach as number) + (value.reserved as number) + (value.incoming as number);
 }
@@ -941,11 +943,39 @@ export function isUnslottedAMANFlight(flight: AMANFlight): boolean {
 }
 
 export function canSwapAMANFlight(flight: AMANFlight | null): flight is AMANFlight {
-  return flight !== null && flight.slot !== null && flight.slot !== undefined
-    && Boolean(flight.star_family) && Boolean(flight.runway_group_id)
-    && (flight.freeze_reason === "none" || flight.freeze_reason === "superstable") && !flight.expedited
-    && (flight.sequence_disposition ?? "active") === "active"
-    && ["unstable", "stable", "go_around"].includes(flight.lifecycle_state);
+  return getAMANSwapBlockReason(flight) === null;
+}
+
+/** Keep the explanation and eligibility check together so a disabled swap always has a reason. */
+export function getAMANSwapBlockReason(flight: AMANFlight | null, mutationBlockReason: AMANMutationBlockReason | null = null): string | null {
+  if (mutationBlockReason !== null) {
+    const messages: Record<AMANMutationBlockReason, string> = {
+      no_state: "Current AMAN state is unavailable.",
+      disconnected: "AMAN is disconnected. Reconnect to change the sequence.",
+      observer: "Observer mode cannot change the sequence.",
+      unauthorized: "FMP authority is required to change the sequence.",
+      not_authoritative: "AMAN must be in authoritative mode to change the sequence.",
+      not_ready: "AMAN is not ready for sequence changes.",
+    };
+    return messages[mutationBlockReason];
+  }
+  if (flight === null) return "This aircraft is no longer available in AMAN.";
+  if (flight.freeze_reason === "manual") return "A manual freeze protects this aircraft. Release the manual freeze in FMP controls to swap it.";
+  if (flight.freeze_reason === "tma") return "A TMA freeze protects this aircraft from sequence changes.";
+  if (flight.expedited) return "This aircraft is expedited and outside the sequence. Resume sequencing to swap it.";
+  if ((flight.sequence_disposition ?? "active") !== "active") return "This aircraft is de-sequenced. Resume sequencing to swap it.";
+  if (!flight.slot) return "This aircraft has no assigned sequence slot.";
+  if (!flight.star_family) return "This aircraft has no selected STAR family.";
+  if (!flight.runway_group_id) return "This aircraft has no selected runway group.";
+  if (flight.freeze_reason !== "none" && flight.freeze_reason !== "superstable") return "This aircraft's protection status is unavailable.";
+  switch (flight.lifecycle_state) {
+    case "unstable": case "stable": case "go_around": return null;
+    case "airborne": return "This aircraft is airborne but has not entered an eligible sequencing state yet.";
+    case "planned": return "This aircraft is still planned and has not entered the arrival sequence.";
+    case "landed": return "This aircraft has landed and cannot be swapped.";
+    case "removed": return "This aircraft has been removed from AMAN.";
+    default: return "This aircraft's arrival state is unavailable.";
+  }
 }
 
 /** Return only backend-projected header values; operational counts are never reconstructed in React. */

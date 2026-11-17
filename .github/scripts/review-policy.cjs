@@ -94,13 +94,61 @@ function evaluate({ pr, ownership, reviews, files, repository }) {
   return { state: 'failure', description: 'Code owners must approve the latest commit for all changed files.' };
 }
 
+function selectPulls(pulls, context) {
+  const payload = context.payload || {};
+  if (['push', 'schedule', 'workflow_dispatch'].includes(context.eventName)) return pulls;
+
+  const heads = new Set();
+  const include = pr => { if (pr?.head?.sha) heads.add(pr.head.sha); };
+  if (context.eventName === 'pull_request_target') {
+    if (!payload.pull_request?.number) throw new Error('PR event is missing its pull request.');
+    include(payload.pull_request);
+    include(pulls.find(pr => pr.number === payload.pull_request.number));
+    // A synchronized or closed PR may leave other open PRs on its old head.
+    if (payload.before) heads.add(payload.before);
+  } else if (context.eventName === 'workflow_run') {
+    const workflow = payload.workflow_run;
+    if (workflow?.name === 'Release Please') {
+      const repository = `${context.repo.owner}/${context.repo.repo}`;
+      pulls.filter(pr => isReleasePullRequest(pr, repository)).forEach(include);
+    } else if (workflow?.name === 'Review policy events') {
+      const notified = workflow.pull_requests || [];
+      for (const pr of notified) {
+        include(pr);
+        include(pulls.find(current => current.number === pr.number));
+      }
+      if (!notified.length) {
+        // Fork workflow runs can omit pull_requests. Branch names are only a
+        // routing hint: evaluate every matching candidate against the live API,
+        // including forks with the same branch name, without trusting PR code.
+        if (!workflow.head_sha && !workflow.head_branch) {
+          throw new Error('Review notification is missing its PR and head metadata.');
+        }
+        pulls.filter(pr => pr.head.sha === workflow.head_sha || pr.head.ref === workflow.head_branch)
+          .forEach(include);
+      }
+    } else {
+      throw new Error('Unexpected review policy workflow notification.');
+    }
+  } else {
+    throw new Error(`Unsupported review policy event: ${context.eventName}`);
+  }
+  // Statuses belong to commits. All open PRs sharing an affected head must pass.
+  return pulls.filter(pr => heads.has(pr.head.sha));
+}
+
 async function run({ github, context, core }) {
   const repo = context.repo;
   const repository = `${repo.owner}/${repo.repo}`;
   const targetUrl = `${context.serverUrl || 'https://github.com'}/${repository}/actions/runs/${context.runId}`;
-  const pulls = await github.paginate(github.rest.pulls.list, {
+  // Title/body edits do not affect ownership, approval or the PR's target.
+  if (context.eventName === 'pull_request_target' && context.payload?.action === 'edited' &&
+      !context.payload.changes?.base) return;
+  const openPulls = await github.paginate(github.rest.pulls.list, {
     ...repo, state: 'open', per_page: 100,
   });
+  const pulls = selectPulls(openPulls, context);
+  core.info(`Refreshing ${pulls.length} of ${openPulls.length} open PRs (${context.eventName}).`);
   // PR base.sha is the PR's recorded base, not necessarily today's main. Stacks
   // also target unmerged branches, so ownership always comes from trusted main.
   let ownershipPromise;
@@ -123,12 +171,15 @@ async function run({ github, context, core }) {
   const publish = async (sha, state, description) => {
     try {
       if (!statuses.has(sha)) {
-        const history = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
+        // The combined endpoint returns only the latest status per context,
+        // so request cost does not grow with this commit's status history.
+        // Octokit leaves this response object intact; extract each page's statuses.
+        const latest = await github.paginate(github.rest.repos.getCombinedStatusForRef, {
           ...repo, ref: sha, per_page: 100,
-        });
+        }, response => response.data.statuses);
         // Statuses are returned newest first. Unlike Actions-created check runs,
         // they do not inherit a workflow suite's event or cancellation state.
-        statuses.set(sha, history.find(status => status.context === REVIEW_CHECK_NAME));
+        statuses.set(sha, latest.find(status => status.context === REVIEW_CHECK_NAME));
       }
       const existing = statuses.get(sha);
       // Commit status history is limited to 1,000 entries per context/SHA.
@@ -221,4 +272,4 @@ async function run({ github, context, core }) {
   }
 }
 
-module.exports = { REVIEW_CHECK_NAME, RELEASE_BRANCH, RELEASE_FILES, parseOwnership, isReleasePullRequest, releaseMetadataOnly, evaluate, run };
+module.exports = { REVIEW_CHECK_NAME, RELEASE_BRANCH, RELEASE_FILES, parseOwnership, isReleasePullRequest, releaseMetadataOnly, evaluate, selectPulls, run };

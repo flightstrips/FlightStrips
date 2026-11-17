@@ -41,8 +41,9 @@ type internalMessage struct {
 }
 
 const (
-	hubSendQueueSize    = 256
-	clientSendQueueSize = 256
+	hubSendQueueSize        = 256
+	clientSendQueueSize     = 256
+	snapshotRefreshInterval = 5 * time.Second
 
 	// hubSource labels this hub's dispatch and back-pressure metrics.
 	hubSource = "frontend"
@@ -81,6 +82,7 @@ type Hub struct {
 	layoutUpdates chan layoutUpdateMessage
 
 	register      chan *Client
+	snapshotRequests chan *Client
 	unregister    chan *Client
 	cidOnline     chan cidOnlineMessage
 	cidDisconnect chan cidDisconnectMessage
@@ -159,6 +161,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers := shared.NewMessageHandlers[frontend.EventType, *Client]()
 
 	handlers.Add(frontend.Token, handleTokenEvent)
+	handlers.Add(frontend.ActionReconciliation, handleActionReconciliation)
 	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
 	handlers.Add(frontend.StripRemove, handleStripRemoval)
 	handlers.Add(frontend.StripRestore, handleStripRestoration)
@@ -211,6 +214,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		send:                  make(chan internalMessage, hubSendQueueSize),
 		layoutUpdates:         make(chan layoutUpdateMessage),
 		register:              make(chan *Client),
+		snapshotRequests:      make(chan *Client, 128),
 		unregister:            make(chan *Client),
 		cidOnline:             make(chan cidOnlineMessage),
 		cidDisconnect:         make(chan cidDisconnectMessage),
@@ -1936,6 +1940,8 @@ func (hub *Hub) Run(ctx context.Context) {
 		case client := <-hub.register:
 			hub.clients[client] = true
 			hub.OnRegister(client)
+		case client := <-hub.snapshotRequests:
+			hub.handleSnapshotRequest(ctx, client)
 		case client := <-hub.unregister:
 			if _, ok := hub.clients[client]; ok {
 				delete(hub.clients, client)
@@ -2060,4 +2066,55 @@ func (hub *Hub) publishRevisionedStrip(session int32, callsign string) {
 	if ok && policy.UsesRevisionedStripState(context.Background(), session) {
 		hub.SendStripUpdate(session, callsign)
 	}
+}
+
+// RequestSnapshot schedules a read on the hub loop, preserving its single writer.
+func (hub *Hub) RequestSnapshot(client *Client) {
+	if client == nil || !client.snapshotRefreshPending.CompareAndSwap(false, true) {
+		return
+	}
+	if next := client.snapshotRefreshNotBefore.Load(); next != nil {
+		if delay := time.Until(*next); delay > 0 {
+			// Keep the pending flag set while delayed so repeated requests create
+			// only one timer and the latest state is still eventually refreshed.
+			time.AfterFunc(delay, func() { hub.enqueueSnapshotRequest(client) })
+			return
+		}
+	}
+	hub.enqueueSnapshotRequest(client)
+}
+
+func (hub *Hub) enqueueSnapshotRequest(client *Client) {
+	select {
+	case <-client.closed:
+		client.snapshotRefreshPending.Store(false)
+		return
+	default:
+	}
+	select {
+	case hub.snapshotRequests <- client:
+	default:
+		client.snapshotRefreshPending.Store(false)
+	}
+}
+
+func (hub *Hub) handleSnapshotRequest(ctx context.Context, client *Client) {
+	if !hub.clients[client] {
+		client.snapshotRefreshPending.Store(false)
+		return
+	}
+	next := time.Now().Add(snapshotRefreshInterval)
+	client.snapshotRefreshNotBefore.Store(&next)
+	// Allow one queued or delayed follow-up during this build, without clearing
+	// its pending flag on completion. Publish the cooldown before accepting it.
+	client.snapshotRefreshPending.Store(false)
+	hub.OnRegisterSnapshot(ctx, client)
+}
+
+func (hub *Hub) OnRegisterSnapshot(ctx context.Context, client *Client) {
+	if hub.associateWaitingClientIfSessionReady(client) || client.GetSession() != WaitingForEuroscopeConnectionSessionId {
+		hub.sendInitialEvent(ctx, client)
+		return
+	}
+	client.Enqueue(frontend.DisconnectEvent{ReadOnly: true})
 }

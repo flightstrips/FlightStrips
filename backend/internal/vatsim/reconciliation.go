@@ -387,6 +387,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	// departure occupancy before selecting arrival stands. Otherwise a later
 	// callsign's physical departure block is only visible to an earlier arrival
 	// on the next pass over the identical snapshot, causing one-cycle churn.
+	var retainedLookupErr error
 	for _, flight := range relevantFlights {
 		strip := existing[flight.Callsign]
 		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
@@ -401,10 +402,20 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			}
 			// Prefiles may reserve a stand before EuroScope sees the flight, but
 			// an online VATSIM record alone must not create a departure block.
-			// EuroScope supplies the operational strip that makes the block
-			// controller-visible and authoritative.
+			// An existing block must still consume fresh positions after a retained
+			// disconnect clears EuroScope presence, so movement can free its stand.
 			prefileBeforeEuroscope := !flight.Online() && strip.EuroscopeSeenAt == nil
 			onlineAfterEuroscope := flight.Online() && strip.EuroscopeSeenAt != nil
+			if flight.Online() && strip.EuroscopeSeenAt == nil {
+				assignment, err := r.assignments.GetAssignment(ctx, session.ID, strip.Callsign)
+				if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+					if retainedLookupErr == nil {
+						retainedLookupErr = fmt.Errorf("load retained departure assignment for %s: %w", strip.Callsign, err)
+					}
+					continue
+				}
+				onlineAfterEuroscope = assignment != nil && assignment.Direction == "DEPARTURE" && assignment.Stage == "DEPARTURE_BLOCK"
+			}
 			if prefileBeforeEuroscope || onlineAfterEuroscope {
 				if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight)); err != nil {
 					return err
@@ -418,6 +429,9 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 				}
 			}
 		}
+	}
+	if retainedLookupErr != nil {
+		return retainedLookupErr
 	}
 	arrivalFlights := make([]Flight, 0, len(relevantFlights))
 	for _, flight := range relevantFlights {

@@ -14,7 +14,7 @@ export interface AMANFlightLane {
 
 function participatesInTimeline(flight: AMANFlight): boolean {
   return (flight.sequence_disposition ?? "active") === "active"
-    && flight.lifecycle_state !== "landed" && flight.lifecycle_state !== "removed";
+    && flight.lifecycle_state !== "planned" && flight.lifecycle_state !== "landed" && flight.lifecycle_state !== "removed";
 }
 
 export function buildRWYTimelineLanes(state: AMANState): {lanes: AMANFlightLane[]; unavailable: boolean; truncated: boolean} {

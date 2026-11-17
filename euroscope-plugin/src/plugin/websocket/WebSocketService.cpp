@@ -23,7 +23,26 @@ namespace FlightStrips::websocket {
         return false;
     }
 
+    bool WebSocketService::SendClearedAltitudeObservation(const ClearedAltitudeEvent& event, bool trackingControllerIsMe) {
+        if (!IsConnected() || m_plugin->GetConnectionState().observer) return false;
+        bool sent = false;
+        for (const auto& [id, member] : memberships_.members) {
+            if (!active_membership_.empty() && id != active_membership_) continue;
+            if (member.role != STATE_MASTER && !(trackingControllerIsMe && member.role == STATE_SLAVE)) continue;
+            if (!member.inventory.contains(event.callsign)) continue;
+            // Fresh source facts neither match pending executions nor inherit
+            // an SDK command's execution ID from the current callback context.
+            SendCaptured(event, member.context);
+            sent = true;
+        }
+        return sent;
+    }
+
     namespace {
+        int JitteredRetryDelay(int ceilingMs) {
+            static thread_local std::mt19937 random(std::random_device{}());
+            return std::uniform_int_distribution<int>(ceilingMs / 2, ceilingMs)(random);
+        }
         using Wire=protobuf::wire::Envelope;
         Wire::EventCase ExpectedResult(const Wire& event) {
             switch(event.event_case()) {
@@ -76,7 +95,7 @@ namespace FlightStrips::websocket {
             [weak,id]{const auto socket=weak.lock();return socket && socket->ExecutionReady(id);},
             [weak,id](const std::function<void()>& action){const auto socket=weak.lock();return socket && socket->ExecuteDeferred(id,action);});
     }
-    bool WebSocketService::SendCommandResult(const Event& event) {
+    bool WebSocketService::SendCommandResult(const Event& event, bool trackingControllerIsMe) {
         if(pending_executions_.empty()) return false;
         Wire result;if(!result.ParseFromString(protobuf::Serialize(event))) return false;
         const auto callsign=ResultCallsign(result);if(callsign.empty()) return false;
@@ -94,9 +113,12 @@ namespace FlightStrips::websocket {
         ++tx;webSocket->Send(result.SerializeAsString());
         // The exact business result belongs to its initiating member. The
         // physical SDK fact is also an ordinary observation for every other
-        // applicable membership where this instance is the current master.
+        // applicable master membership, and for a tracked CFL, slave memberships.
+        const bool trackedClearedAltitude = result.has_cleared_altitude() && trackingControllerIsMe;
         for(const auto& [memberId,member]:memberships_.members) {
-            if(memberId==pending.context.membership_id() || member.role!=STATE_MASTER || !member.inventory.contains(callsign)) continue;
+            if(memberId==pending.context.membership_id() ||
+                (member.role!=STATE_MASTER && !(trackedClearedAltitude && member.role==STATE_SLAVE)) ||
+                !member.inventory.contains(callsign)) continue;
             auto observation=result;*observation.mutable_context()=member.context;observation.clear_command_origin();observation.clear_execution_id();
             ++tx;webSocket->Send(observation.SerializeAsString());
         }
@@ -287,7 +309,7 @@ namespace FlightStrips::websocket {
             if(own) send(*own);return;
         }
         for(auto& [id,member]:memberships_.members) {
-            if(member.role!=STATE_MASTER && !((source.has_hold() || source.has_aman_route_fact() || source.has_coordination_received()) && member.role==STATE_SLAVE)) continue;
+            if(member.role!=STATE_MASTER && !((source.has_hold() || source.has_cleared_altitude() || source.has_aman_route_fact() || source.has_coordination_received()) && member.role==STATE_SLAVE)) continue;
             if(!callsign.empty() && !member.inventory.contains(callsign)) continue;
             send(member);
             if(source.has_aircraft_disconnect()) {member.inventory.erase(callsign);member.excluded.insert(callsign);}
@@ -392,7 +414,7 @@ namespace FlightStrips::websocket {
             if (!connect_after_.has_value()) {
                 pending_connect_ = true;
                 if (webSocket->GetStatus() == WEBSOCKET_STATUS_FAILED) {
-                    const auto delay_ms = BACKOFF_MS[std::min(fail_count_, static_cast<int>(BACKOFF_MS.size()) - 1)];
+                    const auto delay_ms = JitteredRetryDelay(BACKOFF_MS[std::min(fail_count_, static_cast<int>(BACKOFF_MS.size()) - 1)]);
                     fail_count_++;
                     connect_after_ = now + std::chrono::milliseconds(delay_ms);
                     Logger::Info("Connect failed (attempt {}), retrying in {}ms", fail_count_, delay_ms);
@@ -649,7 +671,7 @@ namespace FlightStrips::websocket {
     std::optional<std::chrono::steady_clock::time_point> WebSocketService::GetConnectNotBefore(
         const std::chrono::steady_clock::time_point now) const {
         if (has_connected_in_online_period_) {
-            return now + std::chrono::seconds(FAST_CONNECT_DELAY_SECONDS);
+            return now + std::chrono::milliseconds(JitteredRetryDelay(FAST_CONNECT_DELAY_SECONDS * 1000));
         }
         if (!online_since_.has_value()) {
             return std::nullopt;

@@ -11,6 +11,7 @@ const {getToken, logout, client, auth} = vi.hoisted(() => ({
     setToken: vi.fn(),
     connect: vi.fn(),
     reconnect: vi.fn(),
+    requestSnapshot: vi.fn(),
     disconnect: vi.fn(),
     isConnected: vi.fn(),
   },
@@ -143,9 +144,10 @@ describe('WebSocket authentication', () => {
     await act(async () => {});
     client.isConnected.mockReturnValue(true);
     view.rerender(<WebSocketProvider url="ws://board" ownPluginAvailable={true}><span>Board</span></WebSocketProvider>);
-    expect(client.reconnect).toHaveBeenCalledOnce();
+    expect(client.requestSnapshot).toHaveBeenCalledOnce();
     view.rerender(<WebSocketProvider url="ws://board" ownPluginAvailable={true}><span>Board</span></WebSocketProvider>);
-    expect(client.reconnect).toHaveBeenCalledOnce();
+    expect(client.requestSnapshot).toHaveBeenCalledOnce();
+    expect(client.reconnect).not.toHaveBeenCalled();
   });
 
 });

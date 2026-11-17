@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.opentelemetry.io/otel"
 )
 
 func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, session int32, callsign string, ownerPosition string) {
@@ -60,8 +61,12 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 
 // UpdateAircraftPosition updates the aircraft position and moves the strip to a new bay if needed.
 func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int32, airport string) (resultErr error) {
+	ctx, span := otel.Tracer("position").Start(ctx, "position.update")
+	defer span.End()
 	defer func() {
 		if resultErr == nil {
+			_, phase := otel.Tracer("position").Start(ctx, "position.visibility")
+			defer phase.End()
 			resultErr = s.reconcileStripVisibility(ctx, session, airport, callsign, airportworkflow.Observation{Kind: airportworkflow.Position, Latitude: lat, Longitude: lon, Altitude: altitude})
 		}
 	}()
@@ -77,7 +82,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	ensureTransitionLock := func() {
 		if unlockTransition == nil {
 			ctx = shared.WithoutPositionBatching(ctx)
-			unlockTransition = s.positionTransition(session)
+			unlockTransition = s.positionTransition(ctx, session)
 		}
 	}
 	defer func() {
@@ -92,6 +97,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	// strip cannot create an unbounded read loop.
 	for attempt := 0; attempt < 2; attempt++ {
 		var err error
+		_, snapshotSpan := otel.Tracer("position").Start(ctx, "position.snapshot")
 		if reader, ok := s.stripReader.(interface {
 			GetPositionSnapshot(context.Context, int32, string) (*internalModels.PositionSnapshot, error)
 		}); ok {
@@ -104,6 +110,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		} else {
 			existingStrip, err = s.stripReader.GetByCallsign(ctx, session, callsign)
 		}
+		snapshotSpan.End()
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "FlightStripOffline"))
@@ -117,17 +124,21 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		// must not independently reload it for one surveillance report.
 		s.cacheStrip(ctx, existingStrip)
 
+		_, decisionSpan := otel.Tracer("position").Start(ctx, "position.decide")
 		decision, err := s.observeWorkflow(ctx, session, airport, existingStrip, airportworkflow.Observation{Kind: airportworkflow.Position, Latitude: lat, Longitude: lon, Altitude: altitude}, false)
 		if err != nil {
+			decisionSpan.End()
 			return err
 		}
 		if decision.Bay == nil {
+			decisionSpan.End()
 			return errors.New("position workflow omitted bay")
 		}
 		previousBay = existingStrip.Bay
 		previousStrip = *existingStrip
 		bay = *decision.Bay
 		routeRefreshNeeded = positionMayChangeRoute(existingStrip, airport, previousBay, bay, lat, lon)
+		decisionSpan.End()
 
 		existingState := "<nil>"
 		if existingStrip.State != nil {
@@ -212,6 +223,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	}
 	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil && routeRefreshNeeded {
 		ensureTransitionLock()
+		_, phase := otel.Tracer("position").Start(ctx, "position.route")
 		if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, true); err != nil {
 			s.routeRefreshPending.Store(routeRefreshKey, struct{}{})
 			// The position is already persisted and drives safety-critical lifecycle
@@ -224,6 +236,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		} else {
 			s.routeRefreshPending.Delete(routeRefreshKey)
 		}
+		phase.End()
 	}
 
 	// An EuroScope position is authoritative evidence that the operational
@@ -234,6 +247,8 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		strings.EqualFold(strings.TrimSpace(observedStrip.Origin), strings.TrimSpace(airport)) {
 		err := func() error {
 			ensureTransitionLock()
+			_, phase := otel.Tracer("position").Start(ctx, "position.departure")
+			defer phase.End()
 			if err := s.departureObserver.ObserveDeparturePosition(ctx, session, &observedStrip, lat, lon); err != nil {
 				return err
 			}
@@ -249,7 +264,10 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		}
 	}
 	if s.arrivalObserver != nil && strings.EqualFold(strings.TrimSpace(observedStrip.Destination), strings.TrimSpace(airport)) {
-		if err := s.arrivalObserver.ObserveEuroScopePosition(ctx, session, &observedStrip, lat, lon, altitude); err != nil {
+		_, phase := otel.Tracer("position").Start(ctx, "position.aman")
+		err := s.arrivalObserver.ObserveEuroScopePosition(ctx, session, &observedStrip, lat, lon, altitude)
+		phase.End()
+		if err != nil {
 			return err
 		}
 	}
@@ -281,6 +299,8 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 
 	if observedStrip.Destination == airport {
 		ensureTransitionLock()
+		_, phase := otel.Tracer("position").Start(ctx, "position.arrival")
+		defer phase.End()
 		return s.handleArrivalPositionUpdate(ctx, session, callsign, lat, lon, int64(altitude), &observedStrip)
 	}
 

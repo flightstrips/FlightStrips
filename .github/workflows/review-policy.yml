@@ -9,10 +9,14 @@ on:
     types: [completed]
   push:
     branches: [main]
+    paths:
+      - '.github/CODEOWNERS'
+      - '.github/scripts/review-policy.cjs'
+      - '.github/workflows/review-policy*.yml'
   workflow_dispatch:
   schedule:
     # Refresh older PR branches that do not contain the review event notifier.
-    - cron: '2-59/5 * * * *'
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
@@ -20,11 +24,12 @@ permissions:
   checks: write
   statuses: write
 
-# Every run reevaluates all open PRs, so coalescing pending events cannot
-# lose an approval or a push. Serialize status writers without cancelling them.
+# Targeted events for different PRs must not replace one another while pending.
+# Serialize all status writers, including full reconciliation runs.
 concurrency:
   group: review-policy
   cancel-in-progress: false
+  queue: max
 
 jobs:
   evaluate:

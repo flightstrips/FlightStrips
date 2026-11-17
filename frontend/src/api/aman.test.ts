@@ -634,6 +634,16 @@ describe("AMAN V1 full replacement contract", () => {
 
 
 describe("approach release buffer contract", () => {
+  it("accepts optional blocker callsigns and rejects malformed diagnostics", () => {
+    const event = replacement(8);
+    event.data.header!.release_buffer = {status: "degraded", target: 10, in_approach: 2, reserved: 0, incoming: 0, projected: 2, unknown: 1, unknown_callsigns: ["GRL780"]};
+    expect(isAMANStateEvent(event)).toBe(true);
+    expect(getAMANHeaderReadModel(event.data).release_buffer?.unknown_callsigns).toEqual(["GRL780"]);
+    const malformed = structuredClone(event);
+    (malformed.data.header!.release_buffer as unknown as Record<string, unknown>).unknown_callsigns = [123];
+    expect(isAMANStateEvent(malformed)).toBe(false);
+  });
+
   it("accepts additive buffer and absorption fields and rejects inconsistent counts", () => {
     const event = replacement(8);
     event.data.header!.release_buffer = {status: "ready", target: 10, in_approach: 2, reserved: 4, incoming: 1, projected: 7, unknown: 0};

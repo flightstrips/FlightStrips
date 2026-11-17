@@ -22,6 +22,25 @@ func (p ApproachReleasePolicy) Validate() error {
 	return nil
 }
 
+// ApproachEntryEstimate describes physical entry into the TMA, even when a
+// landing ETA spike is withheld from operational guidance.
+type ApproachEntryEstimate struct {
+	ObservedAt     time.Time
+	EntryAt        time.Time
+	GeometryDigest string
+	RunwayGroupID  RunwayGroupID
+}
+
+func (e ApproachEntryEstimate) Validate() error {
+	if e.GeometryDigest == "" || e.RunwayGroupID == "" || e.EntryAt.Before(e.ObservedAt) {
+		return invalid("approach entry estimate is incomplete")
+	}
+	if err := requireUTCTime("approach entry observation", e.ObservedAt); err != nil {
+		return err
+	}
+	return requireUTCTime("predicted approach entry", e.EntryAt)
+}
+
 // ApproachReleaseReservation survives EAT expiry, source outages and restart.
 // ReleasedAt requires physical evidence; a cancelled hold is insufficient.
 type ApproachReleaseReservation struct {
@@ -95,7 +114,8 @@ func (r ApproachReleaseReservation) Validate() error {
 }
 
 type ReleaseBufferSummary struct {
-	BlockedReasons []string
+	BlockedReasons   []string
+	UnknownCallsigns []Callsign
 	// AdvisoryReasons describe recoverable timing mismatches. Admissions
 	// remain capacity consuming and independent intake can continue.
 	AdvisoryReasons []string

@@ -305,6 +305,12 @@ func (s *StandAllocationService) ReleaseAssignmentRetainingStand(ctx context.Con
 }
 
 func (s *StandAllocationService) releaseAssignment(ctx context.Context, assignment *models.StandAssignment, clearStand bool) error {
+	return s.releaseAssignmentChecked(ctx, assignment, clearStand, nil)
+}
+
+// releaseAssignmentChecked validates a release precondition against the locked
+// strip, so a reconnect cannot overtake an earlier expiry decision.
+func (s *StandAllocationService) releaseAssignmentChecked(ctx context.Context, assignment *models.StandAssignment, clearStand bool, check func(*models.Strip) error) error {
 	if assignment == nil || assignment.SessionID <= 0 || strings.TrimSpace(assignment.Callsign) == "" {
 		return errors.New("stand assignment release requires an assignment")
 	}
@@ -340,6 +346,11 @@ func (s *StandAllocationService) releaseAssignment(ctx context.Context, assignme
 	}
 	if current.ID != assignment.ID || current.Version != assignment.Version {
 		return errAllocationVersionConflict
+	}
+	if check != nil {
+		if err := check(strip); err != nil {
+			return err
+		}
 	}
 
 	standChanged := clearStand && strip != nil && strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(current.Stand))

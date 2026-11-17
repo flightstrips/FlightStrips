@@ -29,6 +29,12 @@ type Repository interface {
 	aman.StateCommitter
 }
 
+type transactionalRepository interface {
+	LoadRouteFactState(context.Context, string, string, string) (context.Context, aman.AirportState, error)
+	CommitRouteFact(context.Context, aman.StateCommit, string, string) (aman.CommitResult, error)
+	ValidateRouteFact(context.Context, aman.SequenceRevision, string, string, string) error
+}
+
 type StripReader interface {
 	GetByCallsign(context.Context, int32, string) (*internalModels.Strip, error)
 }
@@ -110,15 +116,17 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 	}
 
 	for attempt := 0; attempt < maxCommitAttempts; attempt++ {
-		if _, err := s.authorize(ctx, report); err != nil {
-			return err
-		}
-		if reader, ok := s.deps.Repository.(aman.FactFlightReader); ok {
-			if _, err := reader.FindActiveFactFlight(ctx, report.Airport, report.Callsign); err != nil {
-				return err
+		attemptCtx := ctx
+		var state aman.AirportState
+		var err error
+		transactional, guarded := s.deps.Repository.(transactionalRepository)
+		if guarded {
+			attemptCtx, state, err = transactional.LoadRouteFactState(ctx, report.Airport, report.Callsign, report.ControllerCallsign)
+		} else {
+			if _, err = s.authorize(ctx, report); err == nil {
+				state, err = s.deps.Repository.LoadAirportState(ctx, report.Airport)
 			}
 		}
-		state, err := s.deps.Repository.LoadAirportState(ctx, report.Airport)
 		if err != nil {
 			return err
 		}
@@ -135,8 +143,22 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 		if flightIndex < 0 {
 			return domain(aman.ErrorNotFound, "active AMAN flight was not found")
 		}
+		// Each attempt gets a fresh view. Keep it through publication and the
+		// synchronous replan, so every flight uses the same manifest revision.
+		if geometry, ok := s.deps.Geometry.(navdata.GeometryReadScoper); ok {
+			keys := make([]navdata.RouteKey, 0, len(state.Flights))
+			for _, flight := range state.Flights {
+				if flight.ActiveRouteKey != nil {
+					keys = append(keys, navdata.RouteKey(*flight.ActiveRouteKey))
+				}
+			}
+			attemptCtx, err = geometry.WithGeometryReadScope(attemptCtx, navdata.AirportID(report.Airport), keys)
+			if err != nil {
+				return err
+			}
+		}
 
-		snapshot, err := s.deps.Geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(report.Airport))
+		snapshot, err := s.deps.Geometry.ActiveGeometrySnapshot(attemptCtx, navdata.AirportID(report.Airport))
 		if err != nil {
 			return err
 		}
@@ -180,7 +202,7 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 					if flight.ActiveRouteKey == nil {
 						return domain(aman.ErrorDegradedOrIncompleteGeometry, "accepted fallback geometry is unavailable")
 					}
-					route, err = s.deps.Geometry.Route(ctx, navdata.RouteKey(*flight.ActiveRouteKey))
+					route, err = s.deps.Geometry.Route(attemptCtx, navdata.RouteKey(*flight.ActiveRouteKey))
 					if err != nil {
 						return err
 					}
@@ -199,7 +221,7 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 				if flight.ActiveRouteKey == nil {
 					return domain(aman.ErrorDegradedOrIncompleteGeometry, "flight has no active route geometry for direct-to validation")
 				}
-				route, err = s.deps.Geometry.Route(ctx, navdata.RouteKey(*flight.ActiveRouteKey))
+				route, err = s.deps.Geometry.Route(attemptCtx, navdata.RouteKey(*flight.ActiveRouteKey))
 				if err != nil {
 					return err
 				}
@@ -209,15 +231,29 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 				return domain(aman.ErrorDegradedOrIncompleteGeometry, "direct-to fix is not on the flight's forward route")
 			}
 		}
-		// Re-read current tracking authority after navigation resolution so a
-		// controller that handed the aircraft off while this request was being
-		// processed cannot commit using its earlier authority.
-		if _, err := s.authorize(ctx, report); err != nil {
-			return err
+		// Persistent adapters check tracking authority atomically in the write.
+		// Other adapters retain the explicit check after navigation validation.
+		if !guarded {
+			if _, err := s.authorize(ctx, report); err != nil {
+				return err
+			}
 		}
 
 		current := state.Flights[flightIndex].ActiveRouteFact
 		if sameFact(current, fix) {
+			if guarded {
+				err := transactional.ValidateRouteFact(attemptCtx, state.Revision, report.Airport, report.Callsign, report.ControllerCallsign)
+				if err != nil {
+					var domainErr *aman.DomainError
+					if errors.As(err, &domainErr) && domainErr.Class == aman.ErrorRevisionConflict {
+						if err := waitForFactRetry(ctx, attempt); err != nil {
+							return err
+						}
+						continue
+					}
+					return err
+				}
+			}
 			if fix != nil && s.deps.Correlator != nil {
 				return s.correlateDirect(context.WithoutCancel(ctx), report.Airport, state.Flights[flightIndex].Callsign, current.ID, *fix, current.Issuer, current.ObservedAt)
 			}
@@ -249,28 +285,61 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 			state.Flights[index].QueueOffers = nil
 		}
 		state.GeneratedAt = now
-		committed, err := s.deps.Repository.Commit(ctx, aman.StateCommit{ExpectedRevision: state.Revision - 1, State: state})
+		commit := aman.StateCommit{ExpectedRevision: state.Revision - 1, State: state}
+		var committed aman.CommitResult
+		if guarded {
+			committed, err = transactional.CommitRouteFact(attemptCtx, commit, report.Callsign, report.ControllerCallsign)
+		} else {
+			committed, err = s.deps.Repository.Commit(attemptCtx, commit)
+		}
 		if err != nil {
 			var domainErr *aman.DomainError
 			if errors.As(err, &domainErr) && domainErr.Class == aman.ErrorRevisionConflict {
+				if err := waitForFactRetry(ctx, attempt); err != nil {
+					return err
+				}
 				continue
 			}
 			return err
 		}
-		publishCtx := context.WithoutCancel(ctx)
+		publishCtx := context.WithoutCancel(attemptCtx)
+		if fix != nil && s.deps.Correlator != nil {
+			fact := state.Flights[flightIndex].ActiveRouteFact
+			publishCtx = coordinationrequest.WithAggregateClearance(publishCtx, coordinationrequest.ClearanceFact{Airport: report.Airport,
+				Callsign: coordinationrequest.Callsign(state.Flights[flightIndex].Callsign), FactID: fact.ID, Kind: coordinationrequest.KindRouteDirect,
+				Value: *fix, Issuer: report.ControllerCallsign, ObservedAt: report.ObservedAt})
+		}
 		if err := s.deps.Publisher.PublishAMANState(publishCtx, committed.State); err != nil {
 			return err
 		}
 		// The operational engine reloads the committed aggregate, resolves the
 		// direct leg from cached canonical geometry, and preserves frozen
 		// operational TETA/slot policy while updating raw drift.
-		s.deps.Reconciler.Reconcile(publishCtx)
+		if scoped, ok := s.deps.Reconciler.(interface{ ReconcileSession(context.Context, string) }); ok {
+			scoped.ReconcileSession(publishCtx, report.Airport)
+		} else {
+			s.deps.Reconciler.Reconcile(publishCtx)
+		}
 		if fix != nil && s.deps.Correlator != nil {
 			return s.correlateDirect(publishCtx, report.Airport, state.Flights[flightIndex].Callsign, state.Flights[flightIndex].ActiveRouteFact.ID, *fix, report.ControllerCallsign, report.ObservedAt)
 		}
 		return nil
 	}
 	return domain(aman.ErrorRevisionConflict, "direct-to fact conflicted with concurrent AMAN updates")
+}
+
+func waitForFactRetry(ctx context.Context, attempt int) error {
+	if attempt+1 >= maxCommitAttempts {
+		return nil
+	}
+	timer := time.NewTimer(5 * time.Millisecond << attempt)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func (s *Service) correlateDirect(ctx context.Context, airport string, callsign aman.Callsign, factID, fix, issuer string, observedAt time.Time) error {

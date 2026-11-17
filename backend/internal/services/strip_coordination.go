@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/vatsim"
 	"FlightStrips/pkg/events/euroscope"
+	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
 	"log/slog"
@@ -188,6 +189,12 @@ func (s *StripService) CreateEsArrivalCoordination(ctx context.Context, session 
 // It deletes the coordination, updates the next/previous owners, sets the strip owner, and
 // sends frontend notifications. Returns nil without error if no coordination exists.
 func (s *StripService) AcceptCoordination(ctx context.Context, session int32, callsign string, assumingPosition string) error {
+	return s.acceptCoordination(ctx, session, callsign, assumingPosition, nil)
+}
+
+// A validated coordination pins acceptance to that row; nil retains the public
+// lookup-based flow used by tracking-controller and automatic arrival callers.
+func (s *StripService) acceptCoordination(ctx context.Context, session int32, callsign string, assumingPosition string, coordination *internalModels.Coordination) error {
 	if s.publisher == nil {
 		return errors.New("frontend hub not configured")
 	}
@@ -201,16 +208,16 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 		return err
 	}
 
-	coordination, err := coordRepo.GetByStripID(ctx, session, strip.ID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
-		return err
+	if coordination == nil {
+		coordination, err = coordRepo.GetByStripID(ctx, session, strip.ID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	} else if coordination.StripID != strip.ID || coordination.ToPosition != assumingPosition {
+		return shared.RejectAction("validated coordination does not target this strip and position")
 	}
 
 	nextOwners := strip.NextOwners
@@ -219,23 +226,41 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 		nextOwners = nextOwners[index+1:]
 	}
 
-	previousOwners := append(strip.PreviousOwners, coordination.FromPosition)
-
-	if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
-		return err
-	}
-
-	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &assumingPosition, strip.Version)
+	previousOwners := append(slices.Clone(strip.PreviousOwners), coordination.FromPosition)
+	accepted, err := s.ownerStore.AcceptCoordination(ctx, session, strip, coordination, assumingPosition, nextOwners, previousOwners)
 	if err != nil {
 		return err
 	}
-	if count != 1 {
-		return errors.New("failed to set strip owner after accepting coordination")
+	if !accepted {
+		return shared.RejectAction("coordination or strip changed before acceptance")
 	}
 	resolvedOwner := assumingPosition
+	// Publish the committed state to request-local readers before validation.
+	// Replace snapshots so sync callers retain their original owner for diffs.
+	committed := *strip
+	if helpers.ValueOrDefault(strip.Owner) != assumingPosition {
+		committed.NextControllerSector = nil
+	}
+	strip = &committed
 	strip.Owner = &resolvedOwner
 	strip.NextOwners = slices.Clone(nextOwners)
 	strip.PreviousOwners = slices.Clone(previousOwners)
+	strip.NextDisplay = nil
+	strip.Version++
+	if syncState := shared.GetSyncState(ctx); syncState != nil {
+		for key := range syncState.ExistingStrips {
+			if normalizedCallsignKey(key) == normalizedCallsignKey(callsign) {
+				syncState.ExistingStrips[key] = strip
+			}
+		}
+	}
+	s.cacheStrip(ctx, strip)
+	if snapshot := shared.StripPublication(ctx, session); snapshot != nil && snapshot.Strip.Callsign == callsign {
+		snapshot.Strip = strip
+	}
+	if err := s.reevaluateAfterOwnerChange(ctx, session, callsign, &assumingPosition); err != nil {
+		return err
+	}
 
 	var nextDisplay *internalModels.NextDisplay
 	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil && shouldRefreshRouteAfterCoordinationAssume(strip.Bay) {
@@ -573,8 +598,18 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		return err
 	}
 
-	// Check for a pending coordination first.
 	coordination, err := coordRepo.GetByStripID(ctx, session, strip.ID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	// A current owner may still need to accept an incoming ES coordination.
+	// Completed assumptions must leave newer outgoing coordinations untouched.
+	if position != "" && strip.Owner != nil && *strip.Owner == position &&
+		(err != nil || coordination.ToPosition != position || coordination.FromPosition == position) {
+		return nil
+	}
+
+	// Check for a pending coordination first.
 	if err == nil {
 		// Coordination exists — validate it targets this position.
 		if coordination.ToPosition != position {
@@ -628,7 +663,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			return shared.RejectAction("cannot assume strip which is not transferred to you")
 		}
 
-		if err := s.AcceptCoordination(ctx, session, callsign, position); err != nil {
+		if err := s.acceptCoordination(ctx, session, callsign, position, coordination); err != nil {
 			return err
 		}
 

@@ -169,6 +169,7 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
   const reviewWrites = [];
   const contentReads = [];
   const pagination = [];
+  const prReads = [];
   const failures = [];
   const rest = {
     checks: {
@@ -182,7 +183,10 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
       },
     },
     pulls: { list() {}, listReviews() {}, listFiles() {},
-      get: async ({ pull_number }) => ({ data: getPr ? getPr(pull_number) : prs.find(pr => pr.number === pull_number) }),
+      get: async ({ pull_number }) => {
+        prReads.push(pull_number);
+        return { data: getPr ? getPr(pull_number) : prs.find(pr => pr.number === pull_number) };
+      },
     },
     repos: {
       getBranch: async ({ branch }) => {
@@ -193,7 +197,20 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
         contentReads.push(args);
         return { data: { type: 'file', encoding: 'base64', content: Buffer.from(content).toString('base64') } };
       },
-      listCommitStatusesForRef() {},
+      getCombinedStatusForRef: async args => {
+        if (statusError) statusError('list', { sha: args.ref });
+        const contexts = new Map();
+        for (const status of statusHistory.filter(status => status.sha === args.ref)) {
+          if (!contexts.has(status.context)) contexts.set(status.context, status);
+        }
+        const latest = [...contexts.values()];
+        const offset = ((args.page || 1) - 1) * args.per_page;
+        return { data: {
+          url: `https://api.github.com/repos/${repository}/commits/${args.ref}/status`,
+          sha: args.ref, total_count: latest.length,
+          statuses: latest.slice(offset, offset + args.per_page),
+        } };
+      },
       createCommitStatus: async args => {
         if (statusError) statusError('create', args);
         assert.ok(args.description.length <= 140);
@@ -204,13 +221,19 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
       },
     },
   };
-  const paginate = async (method, args) => {
+  const paginate = async (method, args, mapResults) => {
     pagination.push(args);
     if (method === rest.pulls.list) return prs;
     if (method === rest.checks.listForRef) return checkRuns.filter(check => check.head_sha === args.ref);
-    if (method === rest.repos.listCommitStatusesForRef) {
-      if (statusError) statusError('list', { sha: args.ref });
-      return statusHistory.filter(status => status.sha === args.ref);
+    if (method === rest.repos.getCombinedStatusForRef) {
+      const results = [];
+      for (let page = 1; ; page++) {
+        const response = await method({ ...args, page });
+        // github-script v9 leaves responses with a top-level URL intact.
+        // Without a mapping callback, paginate collects combined objects.
+        results.push(...(mapResults ? mapResults(response) : [response.data]));
+        if (page * args.per_page >= response.data.total_count) return results;
+      }
     }
     if (method === rest.pulls.listFiles) return files;
     if (method === rest.pulls.listReviews) {
@@ -220,10 +243,11 @@ function mockGitHub({ prs = [makePr()], reviews = [], files = [sourceFile], chec
     throw new Error('Unexpected API');
   };
   const github = { rest, paginate };
-  const context = { repo: { owner: 'flightstrips', repo: 'FlightStrips' }, runId: 123 };
+  const context = { repo: { owner: 'flightstrips', repo: 'FlightStrips' }, runId: 123,
+    eventName: 'workflow_dispatch', payload: {} };
   const core = { info() {}, error() {}, setFailed(message) { failures.push(message); } };
   return {
-    github, context, core, createdChecks, checkRuns, statusHistory, reviewWrites, contentReads, pagination, failures,
+    github, context, core, createdChecks, checkRuns, statusHistory, reviewWrites, contentReads, pagination, prReads, failures,
     latest(sha = head) { return statusHistory.find(status => status.sha === sha && status.context === REVIEW_CHECK_NAME); },
   };
 }
@@ -275,6 +299,7 @@ test('event and scheduled refreshes update approvals and dismissals without redu
     let reviews = [];
     const mock = mockGitHub({ reviews: () => reviews });
     mock.context.eventName = eventName;
+    mock.context.payload = { workflow_run: { name: 'Review policy events', pull_requests: [makePr()] } };
     for (const [updated, expected] of [
       [[], 'failure'], [[review('APPROVED')], 'success'],
       [[review('APPROVED'), review('DISMISSED')], 'failure'],
@@ -423,7 +448,9 @@ test('review notifier and fallback remain enabled; manual validation selects cod
   assert.match(notifier, /pull_request_review:\s*types: \[submitted, edited, dismissed\]/);
   const writer = fs.readFileSync('.github/workflows/review-policy.yml', 'utf8');
   assert.match(writer, /workflow_run:\s*workflows: \[Review policy events, Release Please\]\s*types: \[completed\]/);
-  assert.match(writer, /schedule:\s*(?:#[^\r\n]*\s*)?- cron: '2-59\/5 \* \* \* \*'/);
+  assert.match(writer, /schedule:\s*(?:#[^\r\n]*\s*)?- cron: '17 \* \* \* \*'/);
+  assert.match(writer, /push:\s*branches: \[main\]\s*paths:\s*- '\.github\/CODEOWNERS'\s*- '\.github\/scripts\/review-policy.cjs'\s*- '\.github\/workflows\/review-policy\*\.yml'/);
+  assert.match(writer, /concurrency:\s*group: review-policy\s*cancel-in-progress: false\s*queue: max/);
   assert.match(writer, /pull_request_target:\s*branches: \[main\]/);
   assert.match(writer, /statuses: write/);
   assert.match(writer, /ref: \$\{\{ github.event_name == 'workflow_dispatch' && github.sha \|\| 'main' \}\}/);
@@ -434,6 +461,161 @@ test('review notifier and fallback remain enabled; manual validation selects cod
   const mock = mockGitHub({ reviews: [review('APPROVED')] });
   await new AsyncFunction('github', 'context', 'core', 'require', script)(mock.github, mock.context, mock.core, requireFromRoot);
   assert.equal(mock.latest().state, 'success');
+});
+
+test('PR events read reviews and files only for affected heads, independent of unrelated PR count', async () => {
+  const target = makePr();
+  const unrelated = Array.from({ length: 100 }, (_, i) => makePr({
+    number: i + 1, head: { ...target.head, sha: `unrelated-${i}` },
+  }));
+  const mock = mockGitHub({ prs: [target, ...unrelated], reviews: [review('APPROVED')] });
+  mock.context.eventName = 'pull_request_target';
+  mock.context.payload = { action: 'synchronize', pull_request: target };
+  await run(mock);
+  assert.equal(mock.latest().state, 'success');
+  assert.deepEqual(mock.prReads, [target.number, target.number]);
+  assert.equal(mock.pagination.length, 4, 'One open-PR listing, one current-status read, reviews and files');
+  assert.equal(mock.contentReads.length, 1);
+  assert.ok(mock.reviewWrites.every(status => status.sha === head));
+});
+
+test('targeted review refreshes evaluate every open PR sharing a head', async () => {
+  const target = makePr({ number: 1, user: { login: owner } });
+  const sibling = makePr({ number: 2 });
+  const unrelated = makePr({ number: 3, head: { ...target.head, sha: 'unrelated' } });
+  const mock = mockGitHub({ prs: [target, sibling, unrelated] });
+  mock.context.eventName = 'workflow_run';
+  mock.context.payload = { workflow_run: { name: 'Review policy events', pull_requests: [target] } };
+  await run(mock);
+  assert.equal(mock.latest().state, 'failure', 'A shared commit cannot borrow the target author exemption');
+  assert.deepEqual(mock.prReads, [1, 2, 1, 2]);
+  assert.equal(mock.latest('unrelated'), undefined);
+});
+
+test('delayed review notifications follow the current PR head and preserve old shared heads', async () => {
+  const previous = makePr();
+  const current = makePr({ head: { ...previous.head, sha: 'new-head' } });
+  const sibling = makePr({ number: 2 });
+  const mock = mockGitHub({ prs: [current, sibling] });
+  mock.context.eventName = 'workflow_run';
+  mock.context.payload = { workflow_run: { name: 'Review policy events', pull_requests: [previous] } };
+  await run(mock);
+  assert.equal(mock.latest('new-head').state, 'failure');
+  assert.equal(mock.latest(head).state, 'failure');
+});
+
+test('synchronize and closed events refresh PRs remaining on the old shared head', async () => {
+  const previous = makePr();
+  const sibling = makePr({ number: 2 });
+  const current = makePr({ head: { ...previous.head, sha: 'new-head' } });
+  for (const action of ['synchronize', 'closed']) {
+    const mock = mockGitHub({ prs: action === 'closed' ? [sibling] : [current, sibling] });
+    mock.context.eventName = 'pull_request_target';
+    mock.context.payload = { action, before: head, pull_request: action === 'closed' ? previous : current };
+    await run(mock);
+    assert.equal(mock.latest(head).state, 'failure');
+    assert.equal(mock.latest('new-head')?.state, action === 'closed' ? undefined : 'failure');
+  }
+});
+
+test('fork review notifications without PR metadata route by branch without sweeping unrelated PRs', async () => {
+  const fork = makePr({ head: { ...makePr().head, repo: { full_name: 'fork/FlightStrips' } } });
+  const unrelated = makePr({ number: 2, head: { ...fork.head, ref: 'other', sha: 'unrelated' } });
+  for (const head_sha of [head, 'merge-commit']) {
+    const mock = mockGitHub({ prs: [fork, unrelated], reviews: [review('APPROVED')] });
+    mock.context.eventName = 'workflow_run';
+    mock.context.payload = { workflow_run: { name: 'Review policy events', pull_requests: [], head_sha, head_branch: 'feature' } };
+    await run(mock);
+    assert.equal(mock.latest().state, 'success');
+    assert.deepEqual(mock.prReads, [fork.number, fork.number]);
+    assert.equal(mock.latest('unrelated'), undefined);
+  }
+});
+
+test('Release Please completion refreshes only the real release PR and its shared head', async () => {
+  const pr = release();
+  const sibling = makePr({ number: 3 });
+  const unrelated = makePr({ number: 2, head: { ...pr.head, sha: 'unrelated' }, user: { login: owner } });
+  const mock = mockGitHub({ prs: [pr, sibling, unrelated], files: [{ filename: 'backend/version.txt', status: 'modified' }] });
+  mock.context.eventName = 'workflow_run';
+  mock.context.payload = { workflow_run: { name: 'Release Please', pull_requests: [] } };
+  await run(mock);
+  assert.deepEqual(mock.prReads, [pr.number, sibling.number, pr.number, sibling.number]);
+  assert.equal(mock.latest().state, 'failure');
+  assert.equal(mock.createdChecks.length, 2);
+  assert.equal(mock.latest('unrelated'), undefined);
+});
+
+test('notifications with no remaining target do not read ownership, reviews or statuses', async () => {
+  for (const workflow_run of [
+    { name: 'Release Please' },
+    { name: 'Review policy events', pull_requests: [{ number: 99, head: { sha: 'closed-head' } }] },
+    { name: 'Review policy events', pull_requests: [], head_sha: 'closed-head', head_branch: 'closed-branch' },
+  ]) {
+    const mock = mockGitHub();
+    mock.context.eventName = 'workflow_run';
+    mock.context.payload = { workflow_run };
+    await run(mock);
+    assert.equal(mock.pagination.length, 1, 'Only the lightweight open-PR list is needed');
+    assert.equal(mock.contentReads.length, 0);
+    assert.equal(mock.prReads.length, 0);
+    assert.equal(mock.reviewWrites.length, 0);
+  }
+});
+
+test('title and body edits make no API calls; retargeting still refreshes the PR', async () => {
+  for (const field of ['title', 'body']) {
+    const mock = mockGitHub();
+    mock.context.eventName = 'pull_request_target';
+    mock.context.payload = { action: 'edited', pull_request: makePr(), changes: { [field]: { from: 'previous' } } };
+    await run(mock);
+    assert.equal(mock.pagination.length, 0);
+    assert.equal(mock.prReads.length, 0);
+    assert.equal(mock.contentReads.length, 0);
+  }
+  const mock = mockGitHub();
+  mock.context.eventName = 'pull_request_target';
+  mock.context.payload = { action: 'edited', pull_request: makePr(), changes: { base: { ref: { from: 'old-base' } } } };
+  await run(mock);
+  assert.equal(mock.latest().state, 'failure');
+});
+
+test('unroutable notifications fail without evaluating every open PR', async () => {
+  for (const payload of [{}, { workflow_run: { name: 'Unexpected' } }, { workflow_run: { name: 'Review policy events' } }]) {
+    const mock = mockGitHub();
+    mock.context.eventName = 'workflow_run';
+    mock.context.payload = payload;
+    await assert.rejects(run(mock), /notification/);
+    assert.equal(mock.prReads.length, 0);
+    assert.equal(mock.reviewWrites.length, 0);
+  }
+});
+
+test('current status lookup does not paginate through thousands of historical decisions', async () => {
+  const description = 'Code owners approved the latest commit for all changed files.';
+  const mock = mockGitHub({ reviews: [review('APPROVED')], statuses: [
+    { state: 'success', description },
+    ...Array.from({ length: 2000 }, () => ({ state: 'failure', description: 'Old decision' })),
+  ] });
+  // No historical-status endpoint is provided by the mock: using it must fail.
+  await run(mock);
+  assert.equal(mock.latest().state, 'success');
+  assert.equal(mock.reviewWrites.length, 0);
+  assert.equal(mock.pagination.filter(args => args.ref === head).length, 1);
+  assert.equal(mock.failures.length, 0);
+});
+
+test('nested combined-status pages preserve an existing decision beyond the first page', async () => {
+  const description = 'Code owners approved the latest commit for all changed files.';
+  const mock = mockGitHub({ reviews: [review('APPROVED')], statuses: [
+    ...Array.from({ length: 101 }, (_, i) => ({ context: `Other check ${i}`, state: 'success' })),
+    { state: 'success', description },
+  ] });
+  await run(mock);
+  await run(mock);
+  assert.equal(mock.latest().description, description);
+  assert.equal(mock.reviewWrites.length, 0, 'Unchanged nested statuses must not produce pending/final pairs');
+  assert.equal(mock.failures.length, 0);
 });
 
 const ciWorkflows = [

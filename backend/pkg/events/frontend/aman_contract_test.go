@@ -39,6 +39,26 @@ func TestAMANStateConsumerContract(t *testing.T) {
 		scenarios = append(scenarios, scenario{Name: name, Event: wire})
 	}
 	add("healthy", goldenAMANState(), goldenAMANHealth())
+	landedReconnect := goldenAMANState()
+	landedReconnect.Flights[0].Callsign = "WZZ2105"
+	landedReconnect.Flights[0].State = aman.StateLanded
+	landedReconnect.Flights[0].Slot, landedReconnect.Flights[0].Order = nil, nil
+	landedReconnect.Flights[0].Prediction = nil
+	add("landed_before_reconnect", landedReconnect, goldenAMANHealth())
+	airborneReconnect := goldenAMANState()
+	airborneReconnect.Revision++
+	airborneReconnect.Flights[0].Callsign = "WZZ2105"
+	airborneReconnect.Flights[0].State = aman.StateUnstable
+	add("airborne_after_reconnect", airborneReconnect, goldenAMANHealth())
+	for _, reason := range []aman.FreezeReason{aman.FreezeManual, aman.FreezeTMA, aman.FreezeSuperstable} {
+		state := goldenAMANState()
+		flight := &state.Flights[0]
+		flight.FreezeReason, flight.FrozenAt = reason, timePointer(state.GeneratedAt)
+		flight.FrozenOperationalTETA = timePointer(flight.Prediction.OperationalTETA)
+		slot := *flight.Slot
+		flight.FrozenSlot = &slot
+		add("swap_freeze_"+string(reason), state, goldenAMANHealth())
+	}
 	withFallback := goldenAMANState()
 	withFallback.Flights[0].Prediction.Basis = aman.PredictionBasisFallback
 	withFallback.Flights[0].ControllerSTARFamily = func() *string { value := "TESPI"; return &value }()

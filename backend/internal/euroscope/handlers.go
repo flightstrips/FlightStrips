@@ -248,6 +248,21 @@ func handleClearedAltitude(ctx context.Context, client *Client, message Message)
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, event.Callsign)
+	if err != nil {
+		return err
+	}
+	if client.identitySnapshot().observer || strip == nil {
+		return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "cleared altitude requires an operational controller and existing strip"}
+	}
+	isTracker := shared.IsTrackingController(client.GetCallsign(), strip.TrackingController)
+	isMaster := client.hub.getMasterClient(client.session) == client
+	// Holding levels belong to the tracking controller, like the holding
+	// clearance itself. Another master's local CFL may be stale or unset.
+	masterMayReport := isMaster && (strings.TrimSpace(strip.Hold) == "" || strings.TrimSpace(strip.TrackingController) == "")
+	if !isTracker && !masterMayReport && !hasHumanExecution(ctx, client) {
+		return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "cleared altitude must come from the tracking controller or eligible session master"}
+	}
 	return client.hub.stripService.UpdateClearedAltitude(ctx, client.session, event.Callsign, event.Altitude)
 }
 

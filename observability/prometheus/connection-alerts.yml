@@ -1,0 +1,24 @@
+# Prometheus/Mimir rule format. Import into the Grafana Cloud metrics ruler;
+# configure its notification routing separately. Units follow OTLP translation.
+groups:
+  - name: flightstrips-connections
+    interval: 30s
+    rules:
+      - alert: FlightStripsDisconnectCluster
+        expr: sum(increase(websocket_connection_events_total{event=~"read_timeout|unexpected_close",source=~"frontend|euroscope"}[2m])) >= 5
+        for: 30s
+        labels:
+          severity: warning
+          service: flightstrips
+        annotations:
+          summary: Several FlightStrips connections failed together
+          description: At least five admitted connections timed out or closed unexpectedly in two minutes. Inspect connection IDs, CF-Ray, master changes, deployment history and client logs.
+      - alert: FlightStripsMasterChurn
+        expr: sum(increase(websocket_connection_events_total{source="euroscope",event="master_assigned"}[5m])) >= 3
+        for: 30s
+        labels:
+          severity: warning
+          service: flightstrips
+        annotations:
+          summary: FlightStrips masters are being reassigned repeatedly
+          description: Three or more assignments across all sessions in five minutes. Inspect structured master change logs for the affected sessions and physical connections; compare planned controller changes.

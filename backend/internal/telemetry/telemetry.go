@@ -94,6 +94,15 @@ func Initialize(ctx context.Context, cfg Config) (*Telemetry, error) {
 		propagation.Baggage{},
 	))
 
+	// Export actual zero samples before serving traffic: creating a counter with
+	// Add(0) alone can still combine the first burst into its first periodic export.
+	metrics.InitializeConnectionEvents()
+	baselineCtx, cancelBaseline := context.WithTimeout(ctx, 5*time.Second)
+	if err := meterProvider.ForceFlush(baselineCtx); err != nil {
+		slog.Warn("Failed to export connection-event zero baselines; startup alerts may undercount", "error", err)
+	}
+	cancelBaseline()
+
 	return &Telemetry{
 		tracerProvider: tracerProvider,
 		meterProvider:  meterProvider,

@@ -256,6 +256,9 @@ export default function FlightPlanDialog({
   const clearPdc = useWebSocketStore((state) => state.issuePdcClearance);
   const revertToVoice = useWebSocketStore((state) => state.revertToVoice);
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
+  const position = useWebSocketStore((state) => state.position);
+  const readOnly = useWebSocketStore((state) => state.readOnly || state.reconciling);
+  const canEditFields = !readOnly && !!strip && (!strip.owner || strip.owner === position);
   const clxUpdateTobt = useWebSocketStore((state) => state.clxUpdateTobt);
   const cdmReady = useWebSocketStore((state) => state.cdmReady);
   const clxOverrideValidation = useWebSocketStore((state) => state.clxOverrideValidation);
@@ -299,6 +302,13 @@ export default function FlightPlanDialog({
     if (ssrGenerating) setSsrGenerating(false);
   }
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
+  const routeAtFocus = useRef(strip?.route ?? "");
+  const commitRoute = () => {
+    if (canEditFields && !hasMandatoryRoute && route !== routeAtFocus.current && route !== strip?.route) {
+      updateStrip(callsign, { route });
+      routeAtFocus.current = route;
+    }
+  };
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [hdgTurnDirection, setHdgTurnDirection] = useState<HdgTurnDirection>();
   const [altDialogOpen, setAltDialogOpen] = useState(false);
@@ -609,16 +619,22 @@ export default function FlightPlanDialog({
           <div className="flex flex-col" style={{ width: CONTENT_WIDTH, gap: FIELD_GAP }}>
             <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ROUTE</Label>
             <textarea
+              aria-label="ROUTE"
               value={hasMandatoryRoute && mandatoryRouteToClear ? mandatoryRouteToClear : route}
               onChange={(event) => setRoute(event.target.value)}
-              onFocus={() => setRouteFocused(true)}
+              onFocus={() => { routeAtFocus.current = strip.route; setRouteFocused(true); }}
               onBlur={() => {
                 setRouteFocused(false);
-                updateStrip(callsign, { route });
+                commitRoute();
               }}
-              onKeyDown={(event) => event.key === "Enter" && !event.shiftKey && updateStrip(callsign, { route })}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  commitRoute();
+                }
+              }}
               className={CLS_TEXTAREA_EDITABLE}
-              disabled={hasMandatoryRoute}
+              disabled={hasMandatoryRoute || !canEditFields}
               style={{ height: TEXTAREA_HEIGHT, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD, ...(hasMandatoryRoute ? { backgroundColor: COLOR_ECFMP_YELLOW } : {}) }}
             />
           </div>

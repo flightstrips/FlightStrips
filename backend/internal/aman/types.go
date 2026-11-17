@@ -1022,6 +1022,9 @@ type AMANFlight struct {
 	ArrivalBaseline     *BaselineState
 	LatestObservation   *FlightObservation
 	SelectedRunwayGroup *RunwayGroupID
+	// LastGroundedAt is the latest validated ground radar time across providers.
+	// Retain it through metadata refreshes and restarts to reject old takeoffs.
+	LastGroundedAt *time.Time
 	// SelectedFeeder remains the deployed JSON compatibility field. It carries
 	// the STAR-family identity until all persisted-state consumers migrate.
 	SelectedFeeder     *string
@@ -1043,6 +1046,9 @@ type AMANFlight struct {
 	HoldingReleaseBasis       *HoldingReleaseBasis
 	ApproachRelease           *ApproachReleaseReservation
 	ApproachGuidance          *ApproachGuidancePlan
+	// ApproachEntry retains fresh physical workload timing independently of
+	// the landing ETA filter. It never changes a slot or holding release.
+	ApproachEntry *ApproachEntryEstimate
 	// HoldingClearanceCanceledAt retains the last actual cancellation time across blank strip snapshots.
 	HoldingClearanceCanceledAt *time.Time
 	ActiveRouteFact            *RouteFact
@@ -1429,6 +1435,11 @@ func (s BaselineSource) holdsAirborneBaseline() bool {
 }
 
 func (f AMANFlight) Validate() error {
+	if f.LastGroundedAt != nil {
+		if err := requireUTCTime("last grounded at", *f.LastGroundedAt); err != nil {
+			return err
+		}
+	}
 	if f.InitialTiming != nil {
 		if err := f.InitialTiming.Validate(); err != nil {
 			return err
@@ -1666,6 +1677,11 @@ func (f AMANFlight) Validate() error {
 	}
 	if f.ApproachGuidance != nil {
 		if err := f.ApproachGuidance.Validate(); err != nil {
+			return err
+		}
+	}
+	if f.ApproachEntry != nil {
+		if err := f.ApproachEntry.Validate(); err != nil {
 			return err
 		}
 	}

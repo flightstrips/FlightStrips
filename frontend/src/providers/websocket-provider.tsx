@@ -1,5 +1,5 @@
 import {type ReactNode, useCallback, useEffect, useRef, useState} from 'react';
-import {WebSocketClient, createWebSocketClient} from '@/api/websocket';
+import {WebSocketClient, createWebSocketClient, type ConnectionPhase} from '@/api/websocket';
 import {WebSocketStoreProvider} from '@/store/store-provider';
 import {UserRatingContext} from '@/store/user-rating-context';
 import {useAuth0} from '@auth0/auth0-react';
@@ -72,12 +72,14 @@ export const WebSocketProvider = ({children, url, selection, selectionControls, 
 
   const alive = useRef(true);
   const [wsConnected, setWsConnected] = useState(false);
+  const [connectionPhase, setConnectionPhase] = useState<ConnectionPhase>("disconnected");
   const [userRating, setUserRating] = useState(0);
 
   // Create the WebSocket client only once using lazy state initialization
   const [wsClient] = useState<WebSocketClient>(() => createWebSocketClient(url, {
     onConnected: () => setWsConnected(true),
-    onDisconnected: () => setWsConnected(false)
+    onDisconnected: () => setWsConnected(false),
+    onStateChanged: setConnectionPhase,
   }, selection));
 
   const previousAvailability = useRef(ownPluginAvailable);
@@ -86,7 +88,7 @@ export const WebSocketProvider = ({children, url, selection, selectionControls, 
     previousAvailability.current = ownPluginAvailable;
     // A recovery hint requests a fresh authorized snapshot; it never grants
     // editing permission directly from discovery or another plugin's mastership.
-    if (wasAvailable === false && ownPluginAvailable === true && wsClient.isConnected()) wsClient.reconnect();
+    if (wasAvailable === false && ownPluginAvailable === true && wsClient.isConnected()) wsClient.requestSnapshot();
   }, [ownPluginAvailable, wsClient]);
 
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -239,7 +241,7 @@ export const WebSocketProvider = ({children, url, selection, selectionControls, 
   // visible rejections are not discarded while the socket is unavailable.
   return (
     <UserRatingContext.Provider value={userRating}>
-      <WebSocketStoreProvider wsClient={wsClient} connected={wsConnected} selectionControls={selectionControls} retainedState={retainedState} onStateChanged={onStateChanged} ownPluginAvailable={ownPluginAvailable}>
+      <WebSocketStoreProvider wsClient={wsClient} connected={wsConnected} connectionPhase={connectionPhase} selectionControls={selectionControls} retainedState={retainedState} onStateChanged={onStateChanged} ownPluginAvailable={ownPluginAvailable}>
         {children}
       </WebSocketStoreProvider>
     </UserRatingContext.Provider>

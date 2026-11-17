@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/shared"
 	"context"
 	"log/slog"
@@ -50,6 +51,10 @@ func logWebsocketWriteError(ctx context.Context, client Client, message string, 
 		level = slog.LevelDebug
 	}
 	fields := []any{slog.String("source", client.GetSource()), slog.String("cid", client.GetCid()), slog.Any("error", err)}
+	fields = append(fields, ConnectionLogAttrs(client.GetConnection())...)
+	if !isClosedWriteError(err) {
+		metrics.RecordConnectionEvent(ctx, client.GetSource(), "write_failed")
+	}
 	slog.Log(ctx, level, message, append(fields, attrs...)...)
 }
 

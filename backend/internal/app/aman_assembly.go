@@ -62,20 +62,26 @@ func (s sessionArrivalRunwaySource) AMANSessions(ctx context.Context) ([]operati
 }
 
 func (s sessionArrivalRunwaySource) ActiveArrivalRunway(ctx context.Context, airport string) (string, error) {
-	sessions, err := s.sessions.List(ctx)
-	if err != nil {
-		return "", err
+	var runways []string
+	if snapshot, ok := aman.ReadSessionSnapshot(ctx); ok && strings.EqualFold(snapshot.Airport, airport) {
+		runways = snapshot.ArrivalRunways
+	} else {
+		sessions, err := s.sessions.List(ctx)
+		if err != nil {
+			return "", err
+		}
+		for _, session := range sessions {
+			if session == nil || (aman.SessionID(ctx) > 0 && session.ID != aman.SessionID(ctx)) || !strings.EqualFold(strings.TrimSpace(session.Airport), airport) {
+				continue
+			}
+			runways = append(runways, session.ActiveRunways.ArrivalRunways...)
+		}
 	}
 	active := make(map[string]struct{})
-	for _, session := range sessions {
-		if session == nil || (aman.SessionID(ctx) > 0 && session.ID != aman.SessionID(ctx)) || !strings.EqualFold(strings.TrimSpace(session.Airport), airport) {
-			continue
-		}
-		for _, runway := range session.ActiveRunways.ArrivalRunways {
-			runway = strings.ToUpper(strings.TrimSpace(runway))
-			if runway != "" {
-				active[runway] = struct{}{}
-			}
+	for _, runway := range runways {
+		runway = strings.ToUpper(strings.TrimSpace(runway))
+		if runway != "" {
+			active[runway] = struct{}{}
 		}
 	}
 	if len(active) == 0 {

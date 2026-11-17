@@ -59,6 +59,8 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		dispatcher = provider.PositionDispatcher()
 	}
 	defer func() {
+		defer physicalConnections.Delete(client.GetConnection())
+		metrics.RecordConnectionEvent(context.Background(), client.GetSource(), "closed")
 		if dispatcher != nil {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -76,6 +78,9 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		return
 	}
 	client.GetConnection().SetPongHandler(func(string) error {
+		if d := diagnostics(client.GetConnection()); d != nil {
+			d.lastPong.Store(time.Now().UnixNano())
+		}
 		err := client.GetConnection().SetReadDeadline(time.Now().Add(constants.PongWait))
 		if err != nil {
 			slog.Warn("Failed to set read deadline in pong handler", slog.Any("error", err))
@@ -118,6 +123,19 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		}
 
 		msgType := messageTypeName(parsedMessage.Type)
+		// Transport health and resnapshot requests cannot mutate operational state
+		// and remain available on an authenticated read-only subscription.
+		if client.GetSource() == "frontend" && msgType == "connection_health" {
+			refresh, healthErr := handleConnectionHealth(client, parsedMessage.Message)
+			if healthErr != nil {
+				slog.Warn("Rejected websocket health request", append(ConnectionLogAttrs(client.GetConnection()), "error", healthErr)...)
+			} else if refresh {
+				if refresher, ok := any(hub).(interface{ RequestSnapshot(TClient) }); ok {
+					refresher.RequestSnapshot(client)
+				}
+			}
+			continue
+		}
 		target := client
 		if router, ok := any(hub).(interface {
 			ResolveMessage(TClient, *euroscopeEvents.MembershipContext, string) (TClient, error)
@@ -154,6 +172,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 					attribute.Int("session", int(client.GetSession())),
 				),
 			)
+			span.SetAttributes(connectionSpanAttributes(client.GetConnection())...)
 			if shouldTrackMessageDBOperations(client.GetSource(), msgType) {
 				ctx = shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{
 					MessageType: msgType, AutoCountDBOperations: true,
@@ -239,11 +258,13 @@ func actionRejectedEvent(action string, payload []byte, err error) frontend.Acti
 		Action: action,
 		Reason: err.Error(),
 	}
-	if action != string(frontend.CoordinationForceAssumeRequestType) {
+	if action != string(frontend.CoordinationForceAssumeRequestType) && action != string(frontend.ActionReconciliation) {
 		return rejection
 	}
 
-	var request frontend.CoordinationForceAssumeRequestEvent
+	var request struct {
+		RequestID string `json:"request_id"`
+	}
 	if json.Unmarshal(payload, &request) == nil {
 		rejection.RequestID = request.RequestID
 	}
@@ -251,11 +272,22 @@ func actionRejectedEvent(action string, payload []byte, err error) frontend.Acti
 }
 
 func logReadError(client Client, err error) {
+	outcome := "unexpected_close"
+	var networkError interface{ Timeout() bool }
+	if errors.As(err, &networkError) && networkError.Timeout() {
+		outcome = "read_timeout"
+	}
+	var closeError *websocket.CloseError
+	if errors.As(err, &closeError) && (closeError.Code == 1000 || closeError.Code == 1001 || closeError.Code == 1005) {
+		outcome = "normal_close"
+	}
+	metrics.RecordConnectionEvent(context.Background(), client.GetSource(), outcome)
 	attrs := []any{
 		slog.String("source", client.GetSource()),
 		slog.String("cid", client.GetCid()),
 		slog.Int("session", int(client.GetSession())),
 	}
+	attrs = append(attrs, ConnectionLogAttrs(client.GetConnection())...)
 	if sessionName := client.GetSessionName(); sessionName != "" {
 		attrs = append(attrs, slog.String("session_name", sessionName))
 	}

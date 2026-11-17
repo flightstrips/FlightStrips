@@ -377,10 +377,12 @@ func (s *StandAllocationService) releaseAssignmentChecked(ctx context.Context, a
 	return nil
 }
 
-// PromoteEstimatedArrivalInPlace advances an ESTIMATED arrival to a later
-// stage on its current stand without reselecting it. Estimates keep the strip
-// stand empty, so the assignment and the strip stand are written in one
-// transaction; the stand reaches controllers and EuroScope only after commit.
+// PromoteEstimatedArrivalInPlace advances a controller-owned or physically
+// observed ESTIMATED arrival without reselecting its authoritative stand.
+// Unobserved automatic estimates must use Reallocate, which checks occupancy
+// in the allocation transaction. These pinned stands may intentionally overlap.
+// Estimates keep the strip stand empty, so the assignment and strip are written
+// in one transaction. Controllers and EuroScope learn the stand after commit.
 // existing must be the persisted assignment that updated was derived from.
 func (s *StandAllocationService) PromoteEstimatedArrivalInPlace(ctx context.Context, existing *models.StandAssignment, updated models.StandAssignment) error {
 	if existing == nil || existing.SessionID <= 0 || strings.TrimSpace(existing.Callsign) == "" || strings.TrimSpace(updated.Stand) == "" {

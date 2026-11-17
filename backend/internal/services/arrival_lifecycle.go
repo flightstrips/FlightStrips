@@ -722,9 +722,9 @@ func (s *ArrivalLifecycleService) updateArrivalAtAirport(ctx context.Context, ex
 	updated.ExpiresAt = expiresAt
 	updated.ObservedStand = observedStand
 	if stageChanged && existing.Stage == StageEstimated {
-		// An estimate never wrote the strip stand. The airport-area guard still
-		// keeps the stand fixed, so write it to the strip with the promotion
-		// instead of reselecting through the allocator.
+		// Only manual or physically observed estimates reach this branch;
+		// unobserved automatic estimates use promoteArrival and Reallocate.
+		// Write the authoritative stand with its promotion rather than reselect it.
 		if err := s.allocations.PromoteEstimatedArrivalInPlace(ctx, existing, updated); err != nil {
 			return err
 		}

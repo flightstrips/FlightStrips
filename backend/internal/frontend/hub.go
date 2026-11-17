@@ -2079,7 +2079,9 @@ func (hub *Hub) RequestSnapshot(client *Client) {
 }
 
 func (hub *Hub) handleSnapshotRequest(ctx context.Context, client *Client) {
-	defer client.snapshotRefreshPending.Store(false)
+	// Only queued requests coalesce. Allow one follow-up to queue while this
+	// snapshot is being built, without clearing its pending flag on completion.
+	client.snapshotRefreshPending.Store(false)
 	if hub.clients[client] {
 		hub.OnRegisterSnapshot(ctx, client)
 	}

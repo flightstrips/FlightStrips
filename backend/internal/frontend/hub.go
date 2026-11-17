@@ -41,8 +41,9 @@ type internalMessage struct {
 }
 
 const (
-	hubSendQueueSize    = 256
-	clientSendQueueSize = 256
+	hubSendQueueSize        = 256
+	clientSendQueueSize     = 256
+	snapshotRefreshInterval = 5 * time.Second
 
 	// hubSource labels this hub's dispatch and back-pressure metrics.
 	hubSource = "frontend"
@@ -2071,6 +2072,24 @@ func (hub *Hub) RequestSnapshot(client *Client) {
 	if client == nil || !client.snapshotRefreshPending.CompareAndSwap(false, true) {
 		return
 	}
+	if next := client.snapshotRefreshNotBefore.Load(); next != nil {
+		if delay := time.Until(*next); delay > 0 {
+			// Keep the pending flag set while delayed so repeated requests create
+			// only one timer and the latest state is still eventually refreshed.
+			time.AfterFunc(delay, func() { hub.enqueueSnapshotRequest(client) })
+			return
+		}
+	}
+	hub.enqueueSnapshotRequest(client)
+}
+
+func (hub *Hub) enqueueSnapshotRequest(client *Client) {
+	select {
+	case <-client.closed:
+		client.snapshotRefreshPending.Store(false)
+		return
+	default:
+	}
 	select {
 	case hub.snapshotRequests <- client:
 	default:
@@ -2079,12 +2098,16 @@ func (hub *Hub) RequestSnapshot(client *Client) {
 }
 
 func (hub *Hub) handleSnapshotRequest(ctx context.Context, client *Client) {
-	// Only queued requests coalesce. Allow one follow-up to queue while this
-	// snapshot is being built, without clearing its pending flag on completion.
-	client.snapshotRefreshPending.Store(false)
-	if hub.clients[client] {
-		hub.OnRegisterSnapshot(ctx, client)
+	if !hub.clients[client] {
+		client.snapshotRefreshPending.Store(false)
+		return
 	}
+	next := time.Now().Add(snapshotRefreshInterval)
+	client.snapshotRefreshNotBefore.Store(&next)
+	// Allow one queued or delayed follow-up during this build, without clearing
+	// its pending flag on completion. Publish the cooldown before accepting it.
+	client.snapshotRefreshPending.Store(false)
+	hub.OnRegisterSnapshot(ctx, client)
 }
 
 func (hub *Hub) OnRegisterSnapshot(ctx context.Context, client *Client) {

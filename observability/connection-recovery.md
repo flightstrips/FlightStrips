@@ -18,9 +18,14 @@ Each browser socket has a 15-second open deadline and 30-second initial snapshot
 deadline. Backends advertising connection-health protocol 1 receive a heartbeat every
 10 seconds, with a 30-second acknowledgement deadline. Acknowledged waiting for
 EuroScope keeps the connection alive without reconnect loops. Recovery discovery
-requests a fresh snapshot on the existing authenticated subscription. Older
-backends fall back to reconnecting for that request; the application heartbeat
+requests a fresh snapshot on the existing authenticated subscription.
+Older backends fall back to reconnecting for that request; the application heartbeat
 is enabled only after protocol negotiation. The server still sends native pings.
+
+Client-requested snapshot builds are limited to one start per five seconds per
+physical subscription. Repeated requests during this cooldown coalesce into one
+delayed refresh, including requests received during a build. This bounds repeated
+repository work on the shared hub loop while preserving eventual resynchronization.
 
 The plugin sends native pings 15 seconds after opening or receiving its previous
 pong and retires a connection after 30 seconds without a pong. A 30-second first

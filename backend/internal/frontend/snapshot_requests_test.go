@@ -33,6 +33,7 @@ func TestSnapshotRequestsCoalesceWhileQueued(t *testing.T) {
 	require.Empty(t, hub.snapshotRequests)
 	hub.handleSnapshotRequest(context.Background(), queued)
 	require.IsType(t, frontendEvents.DisconnectEvent{}, <-client.send)
+	client.snapshotRefreshNotBefore.Store(nil) // Advance past the cooldown.
 	hub.RequestSnapshot(client)
 	require.Len(t, hub.snapshotRequests, 1, "completed refresh must allow another request")
 }
@@ -67,8 +68,14 @@ func TestSnapshotRequestsDuringBuildScheduleExactlyOneFollowUp(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("snapshot build did not start")
 	}
+	deadline := client.snapshotRefreshNotBefore.Load()
+	require.NotNil(t, deadline)
+	require.True(t, time.Until(*deadline) > 0)
+	soon := time.Now().Add(50 * time.Millisecond)
+	client.snapshotRefreshNotBefore.Store(&soon) // Advance near the end of the cooldown.
 	requestSnapshotsConcurrently(hub, client)
-	require.Len(t, hub.snapshotRequests, 1, "requests during a build must schedule one follow-up")
+	require.True(t, client.snapshotRefreshPending.Load())
+	require.Eventually(t, func() bool { return len(hub.snapshotRequests) == 1 }, time.Second, time.Millisecond, "requests during a build must schedule one follow-up")
 	releaseOnce.Do(func() { close(release) })
 	select {
 	case <-finished:
@@ -85,6 +92,27 @@ func TestSnapshotRequestsDuringBuildScheduleExactlyOneFollowUp(t *testing.T) {
 	for range 2 {
 		require.IsType(t, frontendEvents.InitialEvent{}, <-client.send)
 	}
+}
+
+func TestSnapshotRequestsDuringCooldownCoalesceAndIgnoreClosedClients(t *testing.T) {
+	hub := &Hub{snapshotRequests: make(chan *Client, 128)}
+	client := &Client{closed: make(chan struct{})}
+	deadline := time.Now().Add(50 * time.Millisecond)
+	client.snapshotRefreshNotBefore.Store(&deadline)
+	requestSnapshotsConcurrently(hub, client)
+	if time.Now().Before(deadline) {
+		require.Empty(t, hub.snapshotRequests, "cooldown must defer the build")
+	}
+	require.True(t, client.snapshotRefreshPending.Load())
+	require.Eventually(t, func() bool { return len(hub.snapshotRequests) == 1 }, time.Second, time.Millisecond)
+	require.Same(t, client, <-hub.snapshotRequests)
+	client.snapshotRefreshPending.Store(false)
+	deadline = time.Now().Add(50 * time.Millisecond)
+	client.snapshotRefreshNotBefore.Store(&deadline)
+	hub.RequestSnapshot(client)
+	close(client.closed)
+	require.Eventually(t, func() bool { return !client.snapshotRefreshPending.Load() }, time.Second, time.Millisecond)
+	require.Empty(t, hub.snapshotRequests, "a deferred request must not requeue a closed client")
 }
 
 func TestSnapshotRequestCanRetryAfterQueueFullOrUnregister(t *testing.T) {

@@ -49,7 +49,8 @@ type Client struct {
 	readOnly       bool
 	initialPending bool // owned by the hub loop; retry until the snapshot is queued
 
-	snapshotRefreshPending atomic.Bool // reader sets; hub clears before building
+	snapshotRefreshPending   atomic.Bool // reader sets; hub clears before building
+	snapshotRefreshNotBefore atomic.Pointer[time.Time] // immutable monotonic deadline
 
 	// The hub owns identity transitions. Socket readers and writers use a
 	// snapshot so association/disconnect cannot expose a partial session identity.

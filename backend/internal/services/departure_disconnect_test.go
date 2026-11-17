@@ -7,11 +7,30 @@ import (
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/testdata"
+	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type departureReconnectStripRepository struct {
+	repository.StripRepository
+	callsign  string
+	afterRead func(context.Context, int32, string) error
+}
+
+func (r *departureReconnectStripRepository) GetByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error) {
+	strip, err := r.StripRepository.GetByCallsign(ctx, session, callsign)
+	if err == nil && callsign == r.callsign && r.afterRead != nil {
+		hook := r.afterRead
+		r.afterRead = nil
+		if err := hook(ctx, session, callsign); err != nil {
+			return nil, err
+		}
+	}
+	return strip, err
+}
 
 func TestDepartureDisconnectLifecycle(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
@@ -239,6 +258,72 @@ func TestDepartureDisconnectLifecycle(t *testing.T) {
 		_, err := assignments.GetAssignment(ctx, session, callsign)
 		require.Error(t, err)
 		assert.Equal(t, "A1", *loadStrip(t, strips, session, callsign).Stand)
+	})
+
+	t.Run("fresh assigned-stand observation overrides stale wrong-stand position", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		lifecycle.allowPrefiles = false
+		const callsign = "SASDISC11"
+		testdata.SeedTestStrip(t, queries, session, callsign)
+		createProtectedStandOccupant(t, assignments, session, "SASDISC11O", "A2")
+		require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session, loadStrip(t, strips, session, callsign), 55.6285306, 12.6434583))
+		_, err := pool.Exec(ctx, `UPDATE strips SET position_latitude = $1, position_longitude = $2 WHERE session = $3 AND callsign = $4`, 55.6285306, 12.6434583, session, callsign)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), offlineFlight(callsign, 1)))
+		pending, err := assignments.GetAssignment(ctx, session, callsign)
+		require.NoError(t, err)
+		require.NotNil(t, pending.ExpiresAt)
+		require.NotNil(t, pending.ConflictReason)
+		stale := loadStrip(t, strips, session, callsign)
+		require.False(t, lifecycle.stripIsAtAssignedStand(stale, pending.Stand))
+		clock.advance(10 * time.Second)
+		require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session, stale, 55.6285306, 12.642625))
+		resumed, err := assignments.GetAssignment(ctx, session, callsign)
+		require.NoError(t, err)
+		require.Nil(t, resumed.ExpiresAt, "use the fresh observation rather than the pre-update strip coordinates")
+		assert.Nil(t, resumed.ConflictReason)
+		require.NotNil(t, resumed.ObservedStand)
+		assert.Equal(t, "A1", *resumed.ObservedStand)
+		assert.Equal(t, pending.ID, resumed.ID)
+		clock.advance(time.Minute)
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, callsign)
+		require.NoError(t, err)
+	})
+
+	t.Run("reconnect between sweep read and release retains the stand", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		const callsign = "SASDISC12"
+		testdata.SeedTestStrip(t, queries, session, callsign)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlight(callsign, 1)))
+		require.NoError(t, lifecycle.CancelDeparture(ctx, session, callsign))
+		clock.advance(30 * time.Second)
+		reconnected := false
+		lifecycle.strips = &departureReconnectStripRepository{
+			StripRepository: strips, callsign: callsign,
+			afterRead: func(ctx context.Context, session int32, callsign string) error {
+				reconnected = true
+				return strips.MarkEuroscopeSeen(ctx, session, callsign)
+			},
+		}
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		require.True(t, reconnected)
+		assignment, err := assignments.GetAssignment(ctx, session, callsign)
+		require.NoError(t, err, "the locked strip must protect a reconnect that overtakes the sweep's first read")
+		assert.Nil(t, assignment.ExpiresAt, "the sweep should retry and cancel expiry after seeing the reconnect")
+	})
+
+	t.Run("connected aircraft movement still releases stand immediately", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		const callsign = "SASDISC13"
+		testdata.SeedTestStrip(t, queries, session, callsign)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlight(callsign, 1)))
+		require.NoError(t, strips.MarkEuroscopeSeen(ctx, session, callsign))
+		moving := onlineFlight(callsign, 1)
+		moving.Latitude, moving.Longitude = 56, 13
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), moving))
+		_, err := assignments.GetAssignment(ctx, session, callsign)
+		require.Error(t, err)
 	})
 
 	t.Run("EuroScope reconnect cancels disconnect expiry", func(t *testing.T) {

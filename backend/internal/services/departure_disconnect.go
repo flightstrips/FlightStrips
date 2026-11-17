@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -10,6 +11,8 @@ import (
 )
 
 const departureDisconnectGrace = 30 * time.Second
+
+var errDepartureReconnected = errors.New("departure reconnected before stand release")
 
 // expireDisconnectedDepartureBlock breaks the retention loop in which a stand
 // assignment keeps an absent strip alive and its stale gate position keeps the

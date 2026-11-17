@@ -424,6 +424,25 @@ describe("manual companion layout behavior", () => {
     expect(client.reconnect).not.toHaveBeenCalled();
   });
 
+  it("clears refresh and assumption timers on a legacy disconnect", () => {
+    vi.useFakeTimers();
+    const errors = vi.spyOn(toast, "error");
+    store.setState({ strips: [foreignStrip()] });
+    store.getState().assumeStrip("SAS123");
+    client._emit(EventType.FrontendActionRejected, { action: "move", reason: "rejected" });
+    expect(store.getState().reconciling).toBe(true);
+    client._emit(EventType.FrontendDisconnect, { read_only: false });
+    errors.mockClear();
+    vi.mocked(client.send).mockClear();
+    vi.advanceTimersByTime(5_000);
+    expect(errors).not.toHaveBeenCalled();
+    expect(client.send).not.toHaveBeenCalled();
+    expect(store.getState().pendingAssumptions).toEqual({});
+    // An old in-flight flag must not suppress recovery for the new board.
+    client._emit(EventType.FrontendActionRejected, { action: "move", reason: "new rejection" });
+    expect(client.send).toHaveBeenCalledExactlyOnceWith({ type: ActionType.FrontendActionReconciliation, request_id: "refresh-2" });
+  });
+
   it("does not loop on a rejected refresh or accept an unrelated response", () => {
     const errors = vi.spyOn(toast, "error");
     client._emit(EventType.FrontendActionRejected, { action: "move", reason: "rejected" });

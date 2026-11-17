@@ -219,28 +219,22 @@ func (s *StripService) acceptCoordination(ctx context.Context, session int32, ca
 		return shared.RejectAction("validated coordination does not target this strip and position")
 	}
 
-	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
-		return err
-	}
-
 	nextOwners := strip.NextOwners
 	index := slices.Index(nextOwners, assumingPosition)
 	if index >= 0 {
 		nextOwners = nextOwners[index+1:]
 	}
 
-	previousOwners := append(strip.PreviousOwners, coordination.FromPosition)
-
-	if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
-		return err
-	}
-
-	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &assumingPosition, strip.Version)
+	previousOwners := append(slices.Clone(strip.PreviousOwners), coordination.FromPosition)
+	accepted, err := s.ownerStore.AcceptCoordination(ctx, session, strip, coordination, assumingPosition, nextOwners, previousOwners)
 	if err != nil {
 		return err
 	}
-	if count != 1 {
-		return errors.New("failed to set strip owner after accepting coordination")
+	if !accepted {
+		return shared.RejectAction("coordination or strip changed before acceptance")
+	}
+	if err := s.reevaluateAfterOwnerChange(ctx, session, callsign, &assumingPosition); err != nil {
+		return err
 	}
 	resolvedOwner := assumingPosition
 	strip.Owner = &resolvedOwner

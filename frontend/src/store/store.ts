@@ -1633,6 +1633,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       suspendBoard();
       return;
     }
+    clearRecovery();
     const readOnly = data.read_only ?? false;
     wsClient.setReadOnly(readOnly);
     store.setState({

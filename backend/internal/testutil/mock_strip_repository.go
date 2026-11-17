@@ -12,6 +12,7 @@ import (
 // MockStripRepository is a configurable mock for repository.StripRepository.
 // Set function fields before each test; unset fields panic on call.
 type MockStripRepository struct {
+	AcceptCoordinationFn func(context.Context, int32, *models.Strip, *models.Coordination, string, []string, []string) (bool, error)
 	UpdateFsScratchPadFn            func(context.Context, int32, string, string) (int64, error)
 	CreateFn                        func(ctx context.Context, strip *models.Strip) error
 	GetByCallsignFn                 func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
@@ -83,6 +84,11 @@ type MockStripRepository struct {
 	AcknowledgeValidationStatusFn   func(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
 	ClearValidationStatusFn         func(ctx context.Context, session int32, callsign string) error
 	WithTxFn                        func(tx pgx.Tx) repository.StripRepository
+}
+
+func (m *MockStripRepository) AcceptCoordination(ctx context.Context, session int32, strip *models.Strip, coordination *models.Coordination, owner string, next, previous []string) (bool, error) {
+	if m.AcceptCoordinationFn == nil { panic("unexpected call to MockStripRepository.AcceptCoordination") }
+	return m.AcceptCoordinationFn(ctx, session, strip, coordination, owner, next, previous)
 }
 
 // WithTx returns a transaction-bound repository in production. The mock has

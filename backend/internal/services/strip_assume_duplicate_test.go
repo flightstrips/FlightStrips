@@ -132,3 +132,41 @@ func TestAssumeStripCoordination_AcceptsValidatedIncomingInsteadOfNewOutgoing(t 
 	require.Equal(t, map[int32]*models.Coordination{outgoing.ID: outgoing}, pending)
 	require.Len(t, hub.CoordinationAssumes, 1)
 }
+
+func TestAssumeStripCoordination_DoesNotReuseConsumedOrCancelledIncoming(t *testing.T) {
+	for _, transition := range []string{"consumed", "cancelled", "consumed and transferred again"} {
+		t.Run(transition, func(t *testing.T) {
+			position := "118.580"
+			strip := &models.Strip{ID: 70, Callsign: "DLH9TK", Version: 2}
+			incoming := &models.Coordination{ID: 7, Session: 1, StripID: strip.ID, FromPosition: "119.805", ToPosition: position}
+			reads := 0
+			repo := &testutil.MockStripRepository{
+				GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+					reads++
+					if reads == 2 && transition != "cancelled" {
+						owner := position
+						if transition == "consumed and transferred again" {
+							owner = "121.730"
+						}
+						strip.Owner = &owner
+						strip.Version++
+					}
+					return strip, nil
+				},
+			}
+			coord := &testutil.MockCoordinationRepository{
+				GetByStripIDFn: func(context.Context, int32, int32) (*models.Coordination, error) { return incoming, nil },
+				// The selected row was consumed/cancelled after validation. No
+				// owner/history write is allowed even with a fresh strip version.
+				DeleteFn: func(context.Context, int32) error { return pgx.ErrNoRows },
+			}
+			hub := &testutil.MockFrontendHub{}
+			svc := newWorkflowTestService(repo)
+			svc.SetFrontendHub(hub)
+			svc.SetCoordinationRepo(coord)
+			require.ErrorContains(t, svc.AssumeStripCoordination(t.Context(), 1, strip.Callsign, position), "changed before acceptance")
+			require.Empty(t, hub.CoordinationAssumes)
+			require.Empty(t, hub.OwnersUpdates)
+		})
+	}
+}

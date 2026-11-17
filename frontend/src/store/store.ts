@@ -1319,6 +1319,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     assumptionTimers.delete(callsign);
     store.setState(produce((state: WebSocketState) => { delete state.pendingAssumptions[callsign]; }));
   };
+  const confirmAssumptionByOwnerChange = (callsign: string, owner: string | undefined) => {
+    const state = store.getState();
+    if (owner === state.position && state.strips.find(strip => strip.callsign === callsign)?.owner !== owner) {
+      clearAssumption(callsign);
+    }
+  };
   const clearRecovery = () => {
     toast.dismiss(reconciliationToastID);
     clearTimeout(reconciliationTimer);
@@ -1472,12 +1478,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   };
 
   const handleStripUpdateEvent = (data: FrontendStripUpdateEvent) => {
-    if (data.owner === store.getState().position) clearAssumption(data.callsign);
+    const state = store.getState();
+    const current = state.strips.find(strip => strip.callsign === data.callsign);
+    if (state.boardDefinition?.board_state?.revisioned && current && data.id === current.id && data.version < current.version) return;
+    confirmAssumptionByOwnerChange(data.callsign, data.owner);
     store.setState(
       produce((state: WebSocketState) => {
         const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
 
-        if (!!state.boardDefinition?.board_state?.revisioned && stripIndex !== -1 && data.id === state.strips[stripIndex].id && data.version < state.strips[stripIndex].version) return;
         if (stripIndex !== -1) {
           // Update existing strip
           state.strips[stripIndex] = {
@@ -1687,7 +1695,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   }
 
   const handleOwnersUpdateEvent = (data: FrontendOwnersUpdateEvent) => {
-    if (data.owner === store.getState().position) clearAssumption(data.callsign);
+    confirmAssumptionByOwnerChange(data.callsign, data.owner);
     store.setState(
       produce((state: WebSocketState) => {
         const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);

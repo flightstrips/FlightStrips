@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/vatsim"
 	"FlightStrips/pkg/events/euroscope"
+	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
 	"log/slog"
@@ -233,13 +234,33 @@ func (s *StripService) acceptCoordination(ctx context.Context, session int32, ca
 	if !accepted {
 		return shared.RejectAction("coordination or strip changed before acceptance")
 	}
-	if err := s.reevaluateAfterOwnerChange(ctx, session, callsign, &assumingPosition); err != nil {
-		return err
-	}
 	resolvedOwner := assumingPosition
+	// Publish the committed state to request-local readers before validation.
+	// Replace snapshots so sync callers retain their original owner for diffs.
+	committed := *strip
+	if helpers.ValueOrDefault(strip.Owner) != assumingPosition {
+		committed.NextControllerSector = nil
+	}
+	strip = &committed
 	strip.Owner = &resolvedOwner
 	strip.NextOwners = slices.Clone(nextOwners)
 	strip.PreviousOwners = slices.Clone(previousOwners)
+	strip.NextDisplay = nil
+	strip.Version++
+	if syncState := shared.GetSyncState(ctx); syncState != nil {
+		for key := range syncState.ExistingStrips {
+			if normalizedCallsignKey(key) == normalizedCallsignKey(callsign) {
+				syncState.ExistingStrips[key] = strip
+			}
+		}
+	}
+	s.cacheStrip(ctx, strip)
+	if snapshot := shared.StripPublication(ctx, session); snapshot != nil && snapshot.Strip.Callsign == callsign {
+		snapshot.Strip = strip
+	}
+	if err := s.reevaluateAfterOwnerChange(ctx, session, callsign, &assumingPosition); err != nil {
+		return err
+	}
 
 	var nextDisplay *internalModels.NextDisplay
 	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil && shouldRefreshRouteAfterCoordinationAssume(strip.Bay) {

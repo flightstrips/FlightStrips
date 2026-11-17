@@ -496,6 +496,49 @@ describe("manual companion layout behavior", () => {
     expect(client.send).toHaveBeenCalledExactlyOnceWith({ type: ActionType.FrontendCoordinationAssumeRequest, callsign: "SAS123" });
   });
 
+  it.each([EventType.FrontendStripUpdate, EventType.FrontendOwnersUpdate])(
+    "keeps same-owner acceptance pending after unrelated %s", (event) => {
+      vi.useFakeTimers();
+      const position = "118.580";
+      const strip = { ...foreignStrip(), owner: position };
+      store.setState({ position, strips: [strip],
+        stripTransfers: { SAS123: { from: "119.805", to: position, isTagRequest: false } } });
+      store.getState().assumeStrip("SAS123");
+      client._emit(event, { ...strip, owner: position, next_owners: strip.next_controllers, previous_owners: [] });
+      expect(store.getState().pendingAssumptions.SAS123).toBe(true);
+      store.getState().assumeStrip("SAS123");
+      expect(client.send).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(5_000);
+      expect(client.send).toHaveBeenLastCalledWith({ type: ActionType.FrontendActionReconciliation, request_id: "refresh-1" });
+    },
+  );
+
+  it.each([EventType.FrontendStripUpdate, EventType.FrontendOwnersUpdate])(
+    "clears pending assumption when %s confirms an ownership change", (event) => {
+      vi.useFakeTimers();
+      const position = "118.580";
+      const strip = foreignStrip();
+      store.setState({ position, strips: [strip] });
+      store.getState().assumeStrip("SAS123");
+      client._emit(event, { ...strip, owner: position, next_owners: [], previous_owners: [] });
+      expect(store.getState().pendingAssumptions.SAS123).toBeUndefined();
+      vi.advanceTimersByTime(5_000);
+      expect(client.send).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("clears a same-owner pending acceptance when its coordination completes", () => {
+    vi.useFakeTimers();
+    const position = "118.580";
+    store.setState({ position, strips: [{ ...foreignStrip(), owner: position }],
+      stripTransfers: { SAS123: { from: "119.805", to: position, isTagRequest: false } } });
+    store.getState().assumeStrip("SAS123");
+    client._emit(EventType.FrontendCoordinationAssumeBroadcast, { callsign: "SAS123", position });
+    expect(store.getState().pendingAssumptions.SAS123).toBeUndefined();
+    vi.advanceTimersByTime(5_000);
+    expect(client.send).toHaveBeenCalledTimes(1);
+  });
+
   it("sends one assumption until confirmed and leaves newer transfers alone", () => {
     vi.useFakeTimers();
     store.setState({ position: "EKCH_B_GND", strips: [foreignStrip()] });

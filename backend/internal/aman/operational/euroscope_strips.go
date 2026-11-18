@@ -133,6 +133,7 @@ func (o *EuroScopeStripObserver) project(strip *models.Strip, observedAt time.Ti
 		Callsign: callsign, Origin: origin, Destination: destination,
 		AircraftType: aircraftType, WakeCategory: wakeCategory, FiledRoute: optionalStripString(strip.Route), RequestedLevel: requestedLevel(strip.RequestedAltitude),
 		AssignedSTAR:     optionalStripString(strip.Star),
+		ClearedAltitude:  clearedAltitude(strip.ClearedAltitude),
 		FlightPlan:       aman.FlightPlanFact{Revision: vatsimRevision(strip.VatsimRevision), ObservedAt: &observedAt},
 		HoldingClearance: normalizedStripHoldingClearance(strip, observedAt), Provider: aman.ObservationProviderEuroScope,
 		PlannedTiming: euroScopePlannedTiming(strip.FlightPlanEOBT, strip.FlightPlanEET, observedAt),

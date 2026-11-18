@@ -216,6 +216,8 @@ type AMANFlight struct {
 	Callsign              string  `json:"callsign"`
 	AircraftType          *string `json:"aircraft_type,omitempty"`
 	WakeCategory          *string `json:"wake_category,omitempty"`
+	// ClearedAltitude is the EuroScope CFL in feet, or 1 (ILS) / 2 (visual).
+	ClearedAltitude *int `json:"cleared_altitude,omitempty"`
 	LifecycleState        string  `json:"lifecycle_state"`
 	LifecycleReason       string  `json:"lifecycle_reason,omitempty"`
 	Expedited             bool    `json:"expedited,omitempty"`
@@ -705,6 +707,10 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 	if flight.LatestObservation != nil {
 		result.AircraftType = cloneString(flight.LatestObservation.AircraftType)
 		result.WakeCategory = cloneString(flight.LatestObservation.WakeCategory)
+		if level := flight.LatestObservation.ClearedAltitude; level != nil {
+			value := *level
+			result.ClearedAltitude = &value
+		}
 	}
 	if flight.Lifecycle != nil {
 		result.LifecycleReason = string(flight.Lifecycle.Reason)

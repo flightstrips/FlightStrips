@@ -215,6 +215,8 @@ export interface AMANFlight {
   aircraft_type?: string;
   /** Optional for compatibility with older AMAN state publishers. */
   wake_category?: string;
+  /** EuroScope CFL in feet, or 1 (cleared ILS) / 2 (cleared visual). Absent when none is set. */
+  cleared_altitude?: number;
   lifecycle_state: AMANLifecycleState;
   lifecycle_reason?: AMANLifecycleReason;
   /** Missing on older V1 publishers and therefore interpreted as active. */
@@ -618,6 +620,7 @@ function isFlight(value: unknown): value is AMANFlight {
   return isObject(value) && isString(value.callsign) && value.callsign !== "" && isString(value.callsign)
     && (value.aircraft_type === undefined || isIdentity(value.aircraft_type))
     && (value.wake_category === undefined || isIdentity(value.wake_category))
+    && (value.cleared_altitude === undefined || (isNonNegativeInteger(value.cleared_altitude) && value.cleared_altitude > 0))
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
     && (value.lifecycle_reason === undefined || (isString(value.lifecycle_reason) && lifecycleReasons.has(value.lifecycle_reason)))
     && (value.sequence_disposition === undefined || (isString(value.sequence_disposition) && sequenceDispositions.has(value.sequence_disposition as AMANSequenceDisposition)))

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CAPABILITIES } from "./content";
-import { Reveal, TextLink } from "./primitives";
+import { TextLink } from "./primitives";
 
 /**
  * Four capability entries in normal document order, with a sticky index that
@@ -42,7 +42,7 @@ export function CapabilityStory() {
               <li key={capability.id}>
                 <a
                   href={`#${capability.id}`}
-                  className={`flex gap-4 text-[15px] leading-snug transition-colors ${
+                  className={`flex min-h-11 items-center gap-4 py-2 text-[15px] leading-snug transition-colors ${
                     index === activeIndex
                       ? "text-[var(--fsl-ink)]"
                       : "text-[var(--fsl-ink-muted)] hover:text-[var(--fsl-ink)]"
@@ -50,7 +50,7 @@ export function CapabilityStory() {
                 >
                   <span
                     aria-hidden="true"
-                    className={`fsl-mono mt-0.5 text-[11px] ${
+                    className={`fsl-mono text-[11px] ${
                       index === activeIndex ? "text-[var(--fsl-brand-ink)]" : "opacity-40"
                     }`}
                   >
@@ -74,7 +74,7 @@ export function CapabilityStory() {
             }}
             className="scroll-mt-32 border-b border-[var(--fsl-line)] py-12 first:pt-0 last:border-b-0 last:pb-0"
           >
-            <Reveal>
+            <div>
               <p className="fsl-eyebrow mb-5 lg:hidden">{capability.eyebrow}</p>
               <h3 className="fsl-display mb-6 max-w-2xl text-[30px] sm:text-[38px] lg:text-[44px]">
                 {capability.title}
@@ -84,7 +84,7 @@ export function CapabilityStory() {
                 {capability.detail}
               </p>
               <TextLink label={capability.link.label} href={capability.link.href} ink arrow />
-            </Reveal>
+            </div>
           </article>
         ))}
       </div>

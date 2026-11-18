@@ -13,12 +13,6 @@ const LEGAL = [
 export function LandingFooter() {
   return (
     <footer data-fsl-theme="dark" className="fsl-footer flex flex-col border-t border-[var(--fsl-line)]">
-      <div className="fsl-rails" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
-
       <div className="fsl-gutter py-14 sm:py-20">
         <div>
           <Link to="/" className="fsl-footer__wordmark flex w-fit items-center gap-[0.18em]">
@@ -26,7 +20,7 @@ export function LandingFooter() {
             FlightStrips
           </Link>
           <p className="mt-6 max-w-xs text-sm leading-relaxed text-[var(--fsl-ink-muted)]">
-            A shared EFS (Electric Flight System) for VATSIM controllers. Built for EKCH, open source, free
+            A shared electronic strip board for VATSIM controllers. Built for EKCH, open source, free
             to use.
           </p>
 
@@ -37,7 +31,7 @@ export function LandingFooter() {
               ))}
               <TextLink label="Privacy settings" to="/privacy#analytics" onClick={openConsentSettings} />
             </div>
-            <p className="fsl-mono text-[11px] uppercase tracking-[0.08em] text-[var(--fsl-ink-muted)]">
+            <p className="text-xs text-[var(--fsl-ink-muted)]">
               © {new Date().getFullYear()} FlightStrips. For simulation use only. Not affiliated with VATSIM.
             </p>
           </div>

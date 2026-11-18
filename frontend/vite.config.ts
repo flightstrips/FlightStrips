@@ -43,7 +43,8 @@ export default defineConfig({
     mdx(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // main.tsx starts registration on operational routes, not public pages.
+      injectRegister: null,
       includeAssets: [
         'favicon/favicon.ico',
         'favicon/apple-touch-icon.png',

@@ -1,14 +1,5 @@
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
-
-/**
- * Arm the reveal animation. Set at module scope so it lands before the first
- * paint (no flash of visible-then-hidden), and stays unset when this bundle
- * never runs — in which case the CSS leaves revealed content plainly visible.
- */
-if (typeof document !== "undefined") {
-  document.documentElement.dataset.fslJs = "true";
-}
 
 /** Section themes. A section owns its canvas so adjacency drives spacing. */
 export type LandingTheme = "dark" | "light";
@@ -68,69 +59,6 @@ export function Eyebrow({ children, className = "" }: { children: ReactNode; cla
   return <p className={`fsl-eyebrow ${className}`}>{children}</p>;
 }
 
-/**
- * Fade-and-rise on first intersection. Content is fully readable without
- * JavaScript and the transition is dropped under reduced motion (see CSS).
- */
-export function Reveal({
-  children,
-  delay = 0,
-  className = "",
-}: {
-  children: ReactNode;
-  delay?: number;
-  className?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setVisible(true);
-            observer.disconnect();
-          }
-        }
-      },
-      { threshold: 0.15, rootMargin: "0px 0px -60px 0px" },
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      className={`fsl-reveal ${className}`}
-      data-visible={visible || undefined}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** Point a button's gradient at the cursor (see `.fsl-btn` in landing.css). */
-function trackGlow(event: PointerEvent<HTMLElement>) {
-  const target = event.currentTarget;
-  const rect = target.getBoundingClientRect();
-  target.style.setProperty("--glow-x", `${((event.clientX - rect.left) / rect.width) * 100}%`);
-  target.style.setProperty("--glow-y", `${((event.clientY - rect.top) / rect.height) * 100}%`);
-}
-
-function resetGlow(event: PointerEvent<HTMLElement>) {
-  event.currentTarget.style.removeProperty("--glow-x");
-  event.currentTarget.style.removeProperty("--glow-y");
-}
-
-const glowHandlers = { onPointerMove: trackGlow, onPointerLeave: resetGlow };
-
 const externalProps = { target: "_blank", rel: "noopener noreferrer" };
 
 type ActionProps = {
@@ -144,15 +72,18 @@ export function ActionButton({
   variant = "primary",
   className = "",
   onClick,
-}: ActionProps & { onClick: () => void }) {
+  pending = false,
+}: ActionProps & { onClick: () => void; pending?: boolean }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={pending ? undefined : onClick}
+      aria-disabled={pending || undefined}
+      aria-busy={pending || undefined}
       className={`fsl-btn fsl-btn--${variant} ${className}`}
-      {...glowHandlers}
     >
-      {label}
+      <span className={pending ? "invisible" : undefined} aria-hidden={pending || undefined}>{label}</span>
+      {pending ? <span className="absolute inset-0 flex items-center justify-center">Connecting…</span> : null}
     </button>
   );
 }
@@ -170,7 +101,7 @@ export function ActionLink({
 
   if ("to" in target) {
     return (
-      <Link to={target.to} onClick={onClick} className={classes} {...glowHandlers}>
+      <Link to={target.to} onClick={onClick} className={classes}>
         {label}
       </Link>
     );
@@ -181,27 +112,10 @@ export function ActionLink({
       href={target.href}
       onClick={onClick}
       className={classes}
-      {...glowHandlers}
       {...(external ? externalProps : {})}
     >
       {label}
     </a>
-  );
-}
-
-/**
- * A label that is swept by the brand gradient when its link is hovered. The
- * label is rendered twice; the travelling copy is hidden from assistive tech
- * so the link announces its text once.
- */
-export function GlowText({ children }: { children: string }) {
-  return (
-    <span className="fsl-glow">
-      <span>{children}</span>
-      <span className="fsl-glow__pass" aria-hidden="true">
-        {children}
-      </span>
-    </span>
   );
 }
 
@@ -241,7 +155,7 @@ export function TextLink({
   const classes = `fsl-link ${tone === "mono" ? "fsl-link--mono" : ""} ${ink ? "fsl-link--ink" : ""} ${className}`;
   const content = (
     <>
-      <GlowText>{label}</GlowText>
+      <span>{label}</span>
       {arrow ? <Arrow /> : null}
     </>
   );

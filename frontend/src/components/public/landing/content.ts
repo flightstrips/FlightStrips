@@ -16,22 +16,14 @@ export const SITE = {
   email: "info@flightstrips.dk",
 } as const;
 
-/** The strip under the header. Bump `id` to show it again to people who dismissed the last one. */
-export const ANNOUNCEMENT = {
-  id: "first-session",
-  lead: "New to Flightstrips?",
-  label: "Read the first-session checklist",
-  href: `${SITE.docs}/getting-started/first-session/`,
-} as const;
-
 export const HERO = {
-  badge: "Live at EKCH Kastrup",
-  headline: "The next generation of EFS for virtual Air Traffic Controllers",
+  badge: "For VATSIM controllers at EKCH",
+  headline: "Kastrup traffic. One shared strip board.",
   // src: docs/getting-started/intro.md — plugin supplies identity + live data,
   // server holds shared session state, web app is where strips are operated.
   standfirst:
-    "FlightStrips is a shared EFS — Electric Flight System — for VATSIM controllers. The EuroScope plugin supplies live flight data, the server holds one authoritative session, and every connected position reads and writes the same strips.",
-  note: "Built for EKCH Kastrup. Free for controllers. Open source.",
+    "Shared electronic flight strips for clearance, apron, ground and tower. EuroScope supplies the live traffic; every connected position shares ownership and handoffs.",
+  note: "Free for VATSIM controllers. Open source.",
 } as const;
 
 /** External systems the server actually talks to. */
@@ -270,7 +262,7 @@ export const CAPABILITIES = [
     // src: backend/internal/services/strip_validation.go + the per-rule files
     body: "Validation runs on the strip itself: wrong or duplicate squawk, CTOT conflicts, landing clearance, runway type against the aircraft, taxiway type, and PDC rules configured per airport.",
     detail: "Rules are prioritised so the strip shows the one that matters, and they are declared in the airport configuration rather than hard-coded into the client.",
-    link: { label: "Validation status", href: `${SITE.docs}/procedures/validation-status/` },
+    link: { label: "Validation status", href: `${SITE.docs}/concepts/validation-status/` },
   },
   {
     id: "pilots",
@@ -328,7 +320,7 @@ export const FOOTER_COLUMNS = [
       { label: "Strip anatomy", href: `${SITE.docs}/concepts/strip-anatomy/` },
       { label: "Ownership and handoffs", href: `${SITE.docs}/concepts/ownership/` },
       { label: "Pre-departure clearance", href: `${SITE.docs}/concepts/pre-departure-clearance/` },
-      { label: "Validation status", href: `${SITE.docs}/procedures/validation-status/` },
+      { label: "Validation status", href: `${SITE.docs}/concepts/validation-status/` },
       { label: "Alone as tower", href: `${SITE.docs}/procedures/twr-bandbox/` },
     ],
   },
@@ -345,8 +337,7 @@ export const FOOTER_COLUMNS = [
 ] as const;
 
 /**
- * Photography. Annotations follow the art-direction reference supplied with the
- * images; alt text describes what is in frame. These are stylised production
+ * Photography. Alt text describes what is in frame. These are stylised production
  * images of controllers working the board, not screenshots of the product.
  */
 export const PHOTOS = {
@@ -355,9 +346,6 @@ export const PHOTOS = {
     srcSmall: "/landing/ops-room-800.webp",
     width: 1448,
     height: 1086,
-    index: "01",
-    topLeft: ["Operations", "People", "Technology"],
-    bottomRight: ["Plan", "Coordinate", "Execute"],
     alt: "A controller speaking into a handheld microphone at a position, with the airport ground map on the monitors beside them and colleagues working further down the room.",
   },
   field: {
@@ -365,9 +353,6 @@ export const PHOTOS = {
     srcSmall: "/landing/controller-map-800.webp",
     width: 1448,
     height: 1086,
-    index: "02",
-    topLeft: ["Real", "Data", "Real", "Impact"],
-    bottomRight: ["From", "Runways", "To possibilities"],
     alt: "A controller at a laptop showing the airport ground map, with the tower view of runways and taxiways on the screen behind.",
   },
   together: {
@@ -375,9 +360,6 @@ export const PHOTOS = {
     srcSmall: "/landing/strip-board-800.webp",
     width: 1448,
     height: 1086,
-    index: "03",
-    topLeft: ["Better", "Systems", "Brighter", "Skies"],
-    bottomRight: ["Human", "Judgment", "Amplified"],
     alt: "Two controllers side by side at one screen, one pointing at a strip on the board, with the tower view and ground maps around them.",
   },
 } as const;

@@ -1,4 +1,4 @@
-import { ActionLink, Eyebrow, Reveal } from "@/components/public/landing/primitives";
+import { ActionLink, Eyebrow } from "@/components/public/landing/primitives";
 
 const principles = [
   {
@@ -30,11 +30,11 @@ export function AboutContent() {
     <>
       <section className={`${BAND} bg-[var(--fsl-surface)]`}>
         <div className="fsl-gutter grid gap-10 py-16 sm:py-24 lg:grid-cols-2 lg:gap-20">
-          <Reveal>
+          <div>
             <Eyebrow className="mb-5">Vision</Eyebrow>
             <h2 className={H2}>Our vision for a next-generation strip management system</h2>
-          </Reveal>
-          <Reveal delay={100} className={`space-y-6 ${BODY}`}>
+          </div>
+          <div className={`space-y-6 ${BODY}`}>
             <p>
               FlightStrips represents a fundamental reimagining of air traffic control strip management, designed
               specifically for virtual ATC environments. We combine precision engineering with intuitive design to
@@ -45,34 +45,33 @@ export function AboutContent() {
               efficient air traffic management. Every feature is crafted with the understanding that clarity and
               reliability are non-negotiable in high-stakes environments.
             </p>
-          </Reveal>
+          </div>
         </div>
       </section>
 
       <section className={BAND}>
         <div className="fsl-gutter py-16 sm:py-24">
-          <Reveal>
+          <div>
             <Eyebrow className="mb-5">Principles</Eyebrow>
             <h2 className={`${H2} mb-12 max-w-[16ch]`}>Built on core principles</h2>
-          </Reveal>
+          </div>
           <div className="grid border-l border-t border-[var(--fsl-line)] md:grid-cols-3">
-            {principles.map((item, index) => (
-              <Reveal
+            {principles.map((item) => (
+              <div
                 key={item.id}
-                delay={index * 80}
                 className="fsl-hoverbar border-b border-r border-[var(--fsl-line)] p-8"
               >
                 <p className="fsl-mono mb-4 text-[11px] tracking-[0.16em] text-[var(--fsl-brand-ink)]">{item.id}</p>
                 <h3 className="fsl-display mb-3 text-[24px]">{item.title}</h3>
                 <p className={BODY}>{item.description}</p>
-              </Reveal>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       <section className={`${BAND} bg-[var(--fsl-surface)]`}>
-        <Reveal className="fsl-gutter py-16 sm:py-24">
+        <div className="fsl-gutter py-16 sm:py-24">
           <blockquote className="max-w-3xl border-l border-[var(--fsl-brand-ink)] pl-6 md:pl-8">
             <p className="text-[19px] leading-relaxed sm:text-[22px]">
               &ldquo;FlightStrips has transformed how our vACC manages operations. The precision and clarity of the
@@ -84,11 +83,11 @@ export function AboutContent() {
               <p className="fsl-eyebrow mt-2">Simon Bjerre</p>
             </footer>
           </blockquote>
-        </Reveal>
+        </div>
       </section>
 
       <section>
-        <Reveal className="fsl-gutter py-16 sm:py-24">
+        <div className="fsl-gutter py-16 sm:py-24">
           <Eyebrow className="mb-5">Open source</Eyebrow>
           <h2 className={`${H2} mb-6`}>Free and open-source</h2>
           <p className={`mb-8 max-w-2xl ${BODY}`}>
@@ -97,7 +96,7 @@ export function AboutContent() {
             for better strip management.
           </p>
           <ActionLink label="View on GitHub" href="https://github.com/flightstrips/FlightStrips" external />
-        </Reveal>
+        </div>
       </section>
     </>
   );

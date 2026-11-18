@@ -1,9 +1,9 @@
-import {useState, type KeyboardEvent, type PointerEvent} from "react";
+import {useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent} from "react";
 
 import type {AMANCommandIntent, AMANFlight} from "@/api/aman";
 import {cn} from "@/lib/utils";
 
-import {formatGainLoss} from "./presentation";
+import {formatAMANClearedAltitude, formatGainLoss} from "./presentation";
 
 const GAIN_LOSS_CONTEXT = {authoritative: true, connected: true, fresh: true};
 
@@ -26,10 +26,25 @@ export function moveIntentFor(flights: AMANFlight[], from: number, to: number): 
  * Complete landing sequence for one holding, first flight at the bottom. Select a callsign
  * (click) then drag it, or use the arrow keys, to move it within the sequence.
  */
-export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, onCommand}: {flights: AMANFlight[]; eats?: Record<string, string | null | undefined>; disabled?: boolean; onCommand: (intent: AMANCommandIntent) => void}) {
+export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, transitionAltitude = 0, onCommand}: {
+  flights: AMANFlight[];
+  eats?: Record<string, string | null | undefined>;
+  disabled?: boolean;
+  /** Airport transition altitude in feet, for formatting the EuroScope CFL like the strips. */
+  transitionAltitude?: number;
+  onCommand: (intent: AMANCommandIntent) => void;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
+  // The first flight is drawn at the bottom. Keep the list scrolled to the
+  // bottom on open and while the user is there, as a bottom-anchored list would.
+  const listRef = useRef<HTMLElement>(null);
+  const atBottom = useRef(true);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list !== null && atBottom.current) list.scrollTop = list.scrollHeight;
+  }, [flights]);
 
   const move = (from: number, to: number) => {
     if (disabled || to < 0 || to >= flights.length) return;
@@ -48,7 +63,19 @@ export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, o
   };
 
   return (
-    <section aria-label="Holding sequence" className="flex min-h-0 flex-1 flex-col-reverse justify-start overflow-y-auto border-[3px] border-[#dcdcdc] bg-[#3c3c3c] p-1 font-mono text-sm text-[#dcdcdc]">
+    // One shared grid: each value column is only as wide as its widest value,
+    // aligned down the list, and the callsign column takes what is left and
+    // truncates. The scrollbar is hidden (wheel and drag still scroll) so the
+    // narrow ACC panel never needs to scroll sideways.
+    <section
+      aria-label="Holding sequence"
+      className="grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] gap-x-1 overflow-y-auto overflow-x-hidden border-[3px] border-[#dcdcdc] bg-[#3c3c3c] px-0.5 font-mono text-sm text-[#dcdcdc] [align-content:safe_end] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      onScroll={(event) => {
+        const list = event.currentTarget;
+        atBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 2;
+      }}
+      ref={listRef}
+    >
       {flights.map((flight, index) => {
         const isSelected = selected === flight.callsign;
         const gainLoss = flight.gain_loss_seconds;
@@ -58,7 +85,16 @@ export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, o
         return (
           <div
             aria-label={`${flight.callsign} sequence position ${index + 1}`}
-            className={cn("flex touch-none select-none items-center justify-between gap-2 px-1 py-0.5", hover === flight.callsign && dragging && selected !== flight.callsign && "bg-[#505052]")}
+            className={cn(
+              // The blue box surrounds the whole row, on hover and when selected,
+              // matching the timeline targets. A plain :hover is used because
+              // Tailwind's hover: is skipped on touch-capable displays.
+              // Mouse clicks draw no focus outline; keyboard focus still shows one.
+              "col-span-full grid touch-none select-none grid-cols-subgrid items-center rounded-md border border-transparent py-px outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white",
+              isSelected ? "border-white bg-[#5174b8]" : "[&:hover]:border-white [&:hover]:bg-[#5174b8]",
+              hover === flight.callsign && dragging && !isSelected && "bg-[#505052]",
+            )}
+            data-selected={isSelected || undefined}
             data-seq-callsign={flight.callsign}
             key={flight.callsign}
             onKeyDown={(event) => onKeyDown(event, index)}
@@ -75,29 +111,33 @@ export function AMANHoldingSequenceList({flights, eats = {}, disabled = false, o
               const target = rowAt(event);
               const from = flights.findIndex((item) => item.callsign === selected);
               const to = flights.findIndex((item) => item.callsign === target);
+              // The selection only exists for the press or drag; release clears it.
               setDragging(false);
               setHover(null);
+              setSelected(null);
               if (from >= 0 && to >= 0) move(from, to);
+            }}
+            onPointerCancel={() => {
+              setDragging(false);
+              setHover(null);
+              setSelected(null);
             }}
             tabIndex={0}
           >
-            <span className="flex items-center gap-2">
-              <span className="w-5 text-right text-[#a9bdc5]">{index + 1}</span>
-              <span className={cn("rounded-md border px-1.5 py-px font-bold", isSelected ? "border-white bg-[#5174b8]" : "border-transparent")}>{flight.callsign}</span>
-            </span>
-            <span className="flex items-center gap-3">
-              <span className="w-9 text-right">{gainLoss === null ? "" : formatGainLoss(gainLoss, GAIN_LOSS_CONTEXT)}</span>
-              <span
-                className={cn("w-12 text-right", time === null && "text-[#a9bdc5]")}
-                title={time === null ? unavailableTimeLabel : "Holding-fix ETA / EAT (UTC)"}
-              >{time ?? <>
-                <span aria-hidden="true">{tmaProtected ? "TMA" : "—"}</span>
-                <span className="sr-only">{unavailableTimeLabel}</span>
-              </>}</span>
-            </span>
+            <span className="text-right text-[#a9bdc5]">{index + 1}</span>
+            <span className="min-w-0 truncate font-bold" title={flight.callsign}>{flight.callsign}</span>
+            <span className="text-right text-[#a9bdc5]" data-field="cfl" title="Cleared flight level (EuroScope)">{formatAMANClearedAltitude(flight.cleared_altitude, transitionAltitude)}</span>
+            <span className="text-right">{gainLoss === null ? "" : formatGainLoss(gainLoss, GAIN_LOSS_CONTEXT)}</span>
+            <span
+              className={cn("text-right", time === null && "text-[#a9bdc5]")}
+              title={time === null ? unavailableTimeLabel : "Holding-fix ETA / EAT (UTC)"}
+            >{time ?? <>
+              <span aria-hidden="true">{tmaProtected ? "TMA" : "—"}</span>
+              <span className="sr-only">{unavailableTimeLabel}</span>
+            </>}</span>
           </div>
         );
-      })}
+      }).reverse()}
     </section>
   );
 }

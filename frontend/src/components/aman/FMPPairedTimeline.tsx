@@ -83,7 +83,9 @@ export function FMPPairedTimelineFooter({mappings, clockMs, range, onOpenTargetI
   selectedFamilies?: string[];
 }) {
   return (
-    <footer aria-label="Feeder lane footer" className="absolute bottom-0 left-[13.2px] right-0 z-40 h-14 border-t border-[#202020] bg-[#202020] font-display text-[#dcdcdc]" data-testid="aman-timeline-footer">
+    // Only the 2rem label row plus its 1px divider: the timelines above end
+    // at this height (bottom-[2.0625rem]) so they run to the bottom of the board.
+    <footer aria-label="Feeder lane footer" className="absolute bottom-0 left-[13.2px] right-0 z-40 h-[2.0625rem] border-t border-[#202020] bg-[#202020] font-display text-[#dcdcdc]" data-testid="aman-timeline-footer">
       <div className="relative h-8 bg-[#555355] text-sm font-semibold">
         {mappings.flatMap((mapping, index) => (["left", "right"] as const).map((side) => {
           const family = mapping[side];
@@ -108,9 +110,6 @@ export function FMPPairedTimelineFooter({mappings, clockMs, range, onOpenTargetI
           >{formatAMANAxisLabel(clockMs, range.startMs)}</button>;
         })}
       </div>
-      {mappings.flatMap((mapping, index) => (["left", "right"] as const).map((side) => mapping[side] === null ? null : (
-        <span aria-hidden="true" className="absolute top-8 -translate-x-1/2 text-[13px] leading-none text-[#d59400]" key={`${mapping.id}-${side}-cue`} style={{left: `${laneLabelPosition(index, side)}%`}}>⌄</span>
-      )))}
     </footer>
   );
 }
@@ -147,7 +146,7 @@ export function FMPPairedTimeline({
   const finalTenBoundary = currentPosition ?? 100;
   return (
     <div className="relative h-full min-w-0 flex-1" data-current-position={currentPosition ?? undefined} data-testid="fmp-paired-layout">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-14 top-5">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-[2.0625rem] top-5">
         <div className="absolute inset-x-0 bottom-0 border-t-2 border-[#9c0000] bg-[#3f3f3f]" style={{top: `${finalTenBoundary}%`}} />
       </div>
       {mappings.map((mapping, index) => {
@@ -155,7 +154,7 @@ export function FMPPairedTimeline({
         return (
           <section
             aria-label={`Timeline ${mapping.id}: ${mapping.left ?? "unused"} left, ${mapping.right ?? "unused"} right`}
-            className="absolute bottom-14 top-5 -translate-x-1/2"
+            className="absolute bottom-[2.0625rem] top-5 -translate-x-1/2"
             data-testid={`fmp-timeline-${mapping.id}`}
             key={mapping.id}
             style={{left: `${position}%`, width: "max(6%, 46px)"}}

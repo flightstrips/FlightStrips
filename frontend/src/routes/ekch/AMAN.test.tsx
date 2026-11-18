@@ -1,5 +1,5 @@
 import {useSyncExternalStore} from "react";
-import {fireEvent, render, screen} from "@testing-library/react";
+import {act, fireEvent, render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {WebSocketState} from "@/store/store";
@@ -393,6 +393,47 @@ describe("AMAN route authorization", () => {
     fireEvent.click(screen.getByRole("button", {name: "Recompute"}));
     expect(storeState.sendAMANCommand).toHaveBeenCalledWith({type: "aman.recompute_flight", callsign: "SAS123"});
 });
+
+  it("opens the flight menu over the clicked callsign and keeps it above the bottom of the screen", () => {
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
+    const width = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
+    const height = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(330);
+    try {
+      render(<AMAN />);
+      const open = (left: number, top: number) => {
+        const callsign = document.createElement("button");
+        callsign.getBoundingClientRect = () => new DOMRect(left, top, 80, 28);
+        act(() => boardSpy.mock.lastCall![0].onOpenFlightActions("SAS123", callsign));
+        return screen.getByTestId("aman-flight-actions-menu");
+      };
+
+      const menu = open(300, 120);
+      expect(screen.getByRole("dialog", {name: "SAS123"})).toBe(menu);
+      expect(menu).toHaveStyle({left: "300px", top: "120px"});
+      expect(menu).toHaveClass("max-h-[calc(100dvh-1rem)]", "overflow-y-auto");
+
+      // A callsign near the bottom pushes the 330px menu up to stay on screen.
+      act(() => fireEvent.keyDown(menu, {key: "Escape"}));
+      expect(open(300, window.innerHeight - 40)).toHaveStyle({top: `${window.innerHeight - 330 - 8}px`});
+    } finally {
+      width.mockRestore();
+      height.mockRestore();
+    }
+  });
+
+  it("removes the callsign highlight when the flight menu is dismissed", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
+    const {rerender} = render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    rerender(<AMAN />);
+    expect(storeState.amanSelectedCallsign).toBe("SAS123");
+
+    act(() => fireEvent.keyDown(screen.getByRole("dialog", {name: "SAS123"}), {key: "Escape"}));
+    rerender(<AMAN />);
+    expect(screen.queryByRole("dialog", {name: "SAS123"})).not.toBeInTheDocument();
+    expect(storeState.amanSelectedCallsign).toBeNull();
+  });
 
   it("keeps details bound to their original flight while the board follows EuroScope", () => {
     storeState.amanState = authoritativeState([{callsign: "SAS123"}, {callsign: "SAS456"}]);

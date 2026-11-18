@@ -6,6 +6,7 @@ import {
   AMAN_HORIZON_PREFERENCE_KEY,
   AMANTimelineAxis,
   buildAMANAxisRange,
+  clampAMANScrollOffset,
   formatAMANAxisLabel,
   readAMANHorizon,
   useAMANTimelineAxis,
@@ -75,6 +76,15 @@ describe("AMAN UTC timeline axis", () => {
     const range = buildAMANAxisRange(clockMs, minutes);
     render(<AMANTimelineAxis clockMs={clockMs} range={range} status="fresh" />);
     expect(Number.parseFloat(screen.getByTestId("final-ten-minute-region").style.top)).toBeCloseTo(100 - 5 / (minutes + 5) * 100, 3);
+  });
+
+  it("scrolls forward within the 90-minute look-ahead and hides the clock once it is out of view", () => {
+    expect([clampAMANScrollOffset(-3, 35), clampAMANScrollOffset(20, 35), clampAMANScrollOffset(80, 35), clampAMANScrollOffset(10, 90)]).toEqual([0, 20, 55, 0]);
+    const clockMs = Date.parse("2026-07-22T10:00:00.000Z");
+    const range = buildAMANAxisRange(clockMs, 35, 20);
+    expect([formatAMANAxisLabel(range.startMs, range.startMs), formatAMANAxisLabel(range.endMs, range.startMs)]).toEqual(["10:15", "10:55"]);
+    render(<AMANTimelineAxis clockMs={clockMs} range={range} status="fresh" />);
+    expect(screen.queryByTestId("aman-visual-clock")).not.toBeInTheDocument();
   });
 
   it.each(["stale", "disconnected"] as const)("keeps the axis visible and labelled while %s", (status) => {

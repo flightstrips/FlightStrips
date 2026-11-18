@@ -23,68 +23,128 @@ import {AMANAxisTopPercent, AMAN_MAXIMUM_HORIZON_MINUTES, AMAN_MINIMUM_HORIZON_M
 import {buildAMANLanes, formatAMANTime} from "./presentation";
 
 const MINIMUM_TIMELINE_HEIGHT_PIXELS = 960;
-const HORIZON_WHEEL_STEP_MINUTES = 2;
+const WHEEL_STEP_MINUTES = 2;
+/** Quiet time at "now" before a continued wheel-down starts compressing. */
+const WHEEL_COMPRESS_PAUSE_MS = 300;
 
 const STAR_FAMILY_COLORS: Record<string, string> = {
   ERNOV: "#95D692", TESPI: "#95D692", TUDLO: "#95D692",
   TIDVU: "#68A3C3", MONAK: "#68A3C3",
 };
 const starFamilyColor = (family: string) => STAR_FAMILY_COLORS[family.trim().toUpperCase()];
+type RailDrag =
+  | {mode: "scroll"; grab: number}
+  | {mode: "compress"; startY: number; startHorizon: number};
+
+const SCROLL_RANGE_MINUTES = AMAN_MAXIMUM_HORIZON_MINUTES - AMAN_MINIMUM_HORIZON_MINUTES;
+
+/**
+ * The rail is one continuous control, later times up. At the default
+ * horizon the thumb scrolls through the 90-minute look-ahead. Pushed past the
+ * bottom (now), it squashes: a smaller thumb is a more compressed timeline.
+ * Left-drag moves through both; right-drag compresses directly (down) or
+ * expands (up).
+ */
 function TimelineScrollRail({
   horizonMinutes,
+  offsetMinutes,
   viewportHeight,
-  onHorizonChange,
+  onViewChange,
 }: {
   horizonMinutes: number;
+  offsetMinutes: number;
   viewportHeight: number;
-  onHorizonChange: (minutes: number) => void;
+  onViewChange: (horizonMinutes: number, offsetMinutes: number) => void;
 }) {
-  const thumbHeight = 132;
   const railTopPad = 4;
-  const travel = Math.max(0, viewportHeight - railTopPad - 4 - thumbHeight);
-  const span = AMAN_MAXIMUM_HORIZON_MINUTES - AMAN_MINIMUM_HORIZON_MINUTES;
-  // Up is a longer timeline, so the thumb rests at the top at the maximum horizon.
-  const thumbTop = (AMAN_MAXIMUM_HORIZON_MINUTES - horizonMinutes) / span * travel;
-  const setHorizonFromPointer = (clientY: number, rail: HTMLDivElement) => {
-    const bounds = rail.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (clientY - bounds.top - railTopPad - thumbHeight / 2) / Math.max(1, travel)));
-    onHorizonChange(AMAN_MAXIMUM_HORIZON_MINUTES - ratio * span);
+  const inner = Math.max(1, viewportHeight - railTopPad - 4);
+  const baseHeight = inner * AMAN_MINIMUM_HORIZON_MINUTES / AMAN_MAXIMUM_HORIZON_MINUTES;
+  const travel = inner - baseHeight;
+  const compressed = horizonMinutes > AMAN_MINIMUM_HORIZON_MINUTES;
+  const thumbHeight = baseHeight * AMAN_MINIMUM_HORIZON_MINUTES / horizonMinutes;
+  const thumbTop = compressed ? inner - thumbHeight : travel * (1 - offsetMinutes / SCROLL_RANGE_MINUTES);
+  const drag = useRef<RailDrag | null>(null);
+  const pointerY = (clientY: number, rail: HTMLDivElement) => clientY - rail.getBoundingClientRect().top - railTopPad;
+  // Above the bottom the thumb top sets the scroll position; below it, the
+  // thumb is squashed against the bottom and its height sets the compression.
+  const moveThumbTo = (top: number) => {
+    if (top > travel) onViewChange(AMAN_MINIMUM_HORIZON_MINUTES * baseHeight / Math.max(1e-6, inner - top), 0);
+    else onViewChange(AMAN_MINIMUM_HORIZON_MINUTES, SCROLL_RANGE_MINUTES * (1 - top / Math.max(1, travel)));
   };
+  // Up scrolls later, or first expands a compressed timeline; down scrolls
+  // back toward now, then compresses.
+  const step = (minutes: number) => {
+    if (minutes > 0) {
+      if (compressed) onViewChange(Math.max(AMAN_MINIMUM_HORIZON_MINUTES, horizonMinutes - minutes), 0);
+      else onViewChange(AMAN_MINIMUM_HORIZON_MINUTES, offsetMinutes + minutes);
+    } else if (offsetMinutes > 0) {
+      onViewChange(AMAN_MINIMUM_HORIZON_MINUTES, Math.max(0, offsetMinutes + minutes));
+    } else {
+      onViewChange(horizonMinutes - minutes, 0);
+    }
+  };
+  const position = compressed ? AMAN_MINIMUM_HORIZON_MINUTES - horizonMinutes : Math.round(offsetMinutes);
 
   return (
     <div
       aria-controls="aman-timeline-grid"
       aria-label="Timeline scroll position"
       aria-orientation="vertical"
-      aria-valuemax={AMAN_MAXIMUM_HORIZON_MINUTES}
-      aria-valuemin={AMAN_MINIMUM_HORIZON_MINUTES}
-      aria-valuenow={horizonMinutes}
-      aria-valuetext={`${horizonMinutes} minutes ahead`}
+      aria-valuemax={SCROLL_RANGE_MINUTES}
+      aria-valuemin={-SCROLL_RANGE_MINUTES}
+      aria-valuenow={position}
+      aria-valuetext={`${Math.round(offsetMinutes)} to ${Math.round(offsetMinutes + horizonMinutes)} minutes ahead, ${horizonMinutes}-minute horizon`}
       className="absolute bottom-0 left-0 top-1 z-40 w-[13.2px] overflow-hidden rounded-md border border-white touch-none"
+      onContextMenu={(event) => event.preventDefault()}
       onPointerDown={(event) => {
+        if (event.button !== 0 && event.button !== 2) return;
+        event.preventDefault();
         event.currentTarget.setPointerCapture(event.pointerId);
-        setHorizonFromPointer(event.clientY, event.currentTarget);
+        if (event.button === 2) {
+          drag.current = {mode: "compress", startY: event.clientY, startHorizon: horizonMinutes};
+          return;
+        }
+        const y = pointerY(event.clientY, event.currentTarget);
+        // Grabbing the thumb keeps the grabbed point under the pointer; a click
+        // on the track centres the thumb there, like a page jump.
+        const onThumb = y >= thumbTop && y <= thumbTop + thumbHeight;
+        drag.current = {mode: "scroll", grab: onThumb ? y - thumbTop : thumbHeight / 2};
+        if (!onThumb) moveThumbTo(y - thumbHeight / 2);
       }}
       onPointerMove={(event) => {
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) setHorizonFromPointer(event.clientY, event.currentTarget);
+        const current = drag.current;
+        if (current === null || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        if (current.mode === "scroll") {
+          moveThumbTo(pointerY(event.clientY, event.currentTarget) - current.grab);
+        } else {
+          // Dragging down compresses, matching a left-drag past the bottom.
+          onViewChange(current.startHorizon + (event.clientY - current.startY) / inner * AMAN_MAXIMUM_HORIZON_MINUTES, 0);
+        }
+      }}
+      onPointerUp={(event) => {
+        drag.current = null;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
       }}
       onKeyDown={(event) => {
-        let next: number | null = null;
-        if (event.key === "ArrowUp") next = horizonMinutes + 1;
-        else if (event.key === "ArrowDown") next = horizonMinutes - 1;
-        else if (event.key === "PageUp") next = horizonMinutes + 5;
-        else if (event.key === "PageDown") next = horizonMinutes - 5;
-        else if (event.key === "Home") next = AMAN_MAXIMUM_HORIZON_MINUTES;
-        else if (event.key === "End") next = AMAN_MINIMUM_HORIZON_MINUTES;
-        if (next === null) return;
-        event.preventDefault();
-        onHorizonChange(next);
+        const minutes = event.key === "ArrowUp" ? 1 : event.key === "ArrowDown" ? -1 : event.key === "PageUp" ? 5 : event.key === "PageDown" ? -5 : null;
+        if (minutes !== null) {
+          event.preventDefault();
+          step(minutes);
+        } else if (event.key === "Home" || event.key === "End") {
+          // Home jumps to the latest look-ahead; End returns to the default view at now.
+          event.preventDefault();
+          onViewChange(AMAN_MINIMUM_HORIZON_MINUTES, event.key === "Home" ? SCROLL_RANGE_MINUTES : 0);
+        }
       }}
       role="scrollbar"
       tabIndex={0}
     >
       <div
         className="absolute left-0 right-0 z-10 rounded-sm border border-white bg-[#86a4af]"
+        data-testid="aman-timeline-scroll-thumb"
         style={{height: `${thumbHeight}px`, top: `${railTopPad + thumbTop}px`}}
       />
     </div>
@@ -99,7 +159,8 @@ export interface AMANBoardViewProps {
   selectedCallsign: string | null;
   onSelectFlight: (callsign: string) => void;
   onOpenControls?: () => void;
-  onOpenFlightActions?: (callsign: string) => void;
+  /** The anchor is the clicked target, so the flight menu can open over it. */
+  onOpenFlightActions?: (callsign: string, anchor?: HTMLElement) => void;
   onOpenFlightDetails?: (callsign: string) => void;
   focusedRunwayGroupID?: string | null;
   accView?: AMANView;
@@ -187,9 +248,9 @@ export function AMANBoardView({
         connected: connectionState === "connected",
       }}
       leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
-      onSelect={() => {
+      onSelect={(target) => {
         onSelectFlight(flight.callsign);
-        onOpenFlightActions?.(flight.callsign);
+        onOpenFlightActions?.(flight.callsign, target);
       }}
       selected={flight.callsign === selectedCallsign}
       dimmed={isDimmedFamily(flight.star_family ?? flight.feeder ?? flight.star)}
@@ -213,14 +274,38 @@ export function AMANBoardView({
         flight={flight}
         guidance={{authoritative: gainLossAuthoritative, connected: connectionState === "connected"}}
         leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
-        onSelect={() => {
+        onSelect={(target) => {
           onSelectFlight(flight.callsign);
-          onOpenFlightActions?.(flight.callsign);
+          onOpenFlightActions?.(flight.callsign, target);
         }}
         selected={flight.callsign === selectedCallsign}
         trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
       />
     );
+  };
+  // Mirrors the scroll rail. Wheel down scrolls back toward now and, once
+  // there, compresses the timeline (more minutes in view). Wheel up first
+  // expands a compressed timeline, then scrolls later in time. A scroll-back
+  // that reaches now holds there until the wheel pauses, so a flick or
+  // trackpad momentum cannot run on into compression unintentionally.
+  const wheelRef = useRef({lastAt: Number.NEGATIVE_INFINITY, holdingAtNow: false});
+  const handleTimelineWheel = (deltaY: number) => {
+    if (deltaY === 0) return;
+    const wheel = wheelRef.current;
+    const at = Date.now();
+    const paused = at - wheel.lastAt >= WHEEL_COMPRESS_PAUSE_MS;
+    wheel.lastAt = at;
+    if (deltaY < 0) {
+      wheel.holdingAtNow = false;
+      if (axis.horizonMinutes > AMAN_MINIMUM_HORIZON_MINUTES) axis.setView(Math.max(AMAN_MINIMUM_HORIZON_MINUTES, axis.horizonMinutes - WHEEL_STEP_MINUTES), 0);
+      else axis.setView(AMAN_MINIMUM_HORIZON_MINUTES, axis.offsetMinutes + WHEEL_STEP_MINUTES);
+    } else if (axis.offsetMinutes > 0) {
+      wheel.holdingAtNow = true;
+      axis.setView(AMAN_MINIMUM_HORIZON_MINUTES, Math.max(0, axis.offsetMinutes - WHEEL_STEP_MINUTES));
+    } else if (!wheel.holdingAtNow || paused) {
+      wheel.holdingAtNow = false;
+      axis.setView(axis.horizonMinutes + WHEEL_STEP_MINUTES, 0);
+    }
   };
   const syncTimelineViewport = () => {
     const timeline = timelineScrollRef.current;
@@ -287,9 +372,7 @@ export function AMANBoardView({
       <div className="relative min-h-0 flex-1">
         <div
           className="h-full overflow-hidden pl-[13.2px]"
-          onWheel={(event) => {
-            if (event.deltaY !== 0) axis.setHorizonMinutes(axis.horizonMinutes + (event.deltaY < 0 ? HORIZON_WHEEL_STEP_MINUTES : -HORIZON_WHEEL_STEP_MINUTES));
-          }}
+          onWheel={(event) => handleTimelineWheel(event.deltaY)}
           ref={timelineScrollRef}
         >
           <div className="relative flex min-w-full" data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
@@ -353,7 +436,8 @@ export function AMANBoardView({
       </div>
       <TimelineScrollRail
         horizonMinutes={axis.horizonMinutes}
-        onHorizonChange={axis.setHorizonMinutes}
+        offsetMinutes={axis.offsetMinutes}
+        onViewChange={axis.setView}
         viewportHeight={Math.max(0, railHeight - 4)}
       />
       <Dialog onOpenChange={setTargetPreferencesOpen} open={targetPreferencesOpen}>

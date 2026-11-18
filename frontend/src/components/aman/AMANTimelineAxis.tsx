@@ -37,8 +37,21 @@ export function writeAMANHorizon(minutes: number, storage: Pick<Storage, "setIte
 /** Minutes of already-landed time shown below the red current-time line. */
 export const AMAN_PAST_MINUTES = 5;
 
-export function buildAMANAxisRange(clockMs: number, horizonMinutes: number): AMANTimelineRange {
-  return {startMs: clockMs - AMAN_PAST_MINUTES * 60_000, endMs: clockMs + validateAMANHorizon(horizonMinutes) * 60_000};
+/**
+ * Scrolling and compression are one continuous control: at the minimum
+ * horizon the window scrolls later in time (up to the 90-minute look-ahead),
+ * and only at the current time does it compress. A compressed timeline is
+ * therefore always anchored at now.
+ */
+export function clampAMANScrollOffset(offsetMinutes: number, horizonMinutes: number): number {
+  if (validateAMANHorizon(horizonMinutes) > MINIMUM_HORIZON_MINUTES || !Number.isFinite(offsetMinutes)) return 0;
+  return Math.min(MAXIMUM_HORIZON_MINUTES - MINIMUM_HORIZON_MINUTES, Math.max(0, offsetMinutes));
+}
+
+export function buildAMANAxisRange(clockMs: number, horizonMinutes: number, offsetMinutes = 0): AMANTimelineRange {
+  const horizon = validateAMANHorizon(horizonMinutes);
+  const offsetMs = clampAMANScrollOffset(offsetMinutes, horizon) * ONE_MINUTE_MS;
+  return {startMs: clockMs - AMAN_PAST_MINUTES * ONE_MINUTE_MS + offsetMs, endMs: clockMs + horizon * ONE_MINUTE_MS + offsetMs};
 }
 
 /** Later UTC times run upward, matching the operational MAESTRO ruler. */
@@ -60,16 +73,21 @@ export function formatAMANAxisLabel(timestampMs: number, referenceMs: number): s
 
 export function useAMANTimelineAxis(authoritativeTime: string) {
   const authoritativeMs = Date.parse(authoritativeTime);
-  const [horizonMinutes, setHorizonState] = useState(readAMANHorizon);
-  const setHorizonMinutes = useCallback((minutes: number) => {
-    const next = validateAMANHorizon(minutes);
-    setHorizonState(next);
+  // The scroll offset is a transient view position, so unlike the horizon it
+  // is not persisted: a reload always returns to the current time.
+  const [view, setViewState] = useState(() => ({horizonMinutes: readAMANHorizon(), offsetMinutes: 0}));
+  const {horizonMinutes, offsetMinutes} = view;
+  const setView = useCallback((horizon: number, offset: number) => {
+    const next = validateAMANHorizon(horizon);
+    setViewState({horizonMinutes: next, offsetMinutes: clampAMANScrollOffset(offset, next)});
     try {
       writeAMANHorizon(next);
     } catch {
       // Storage may be unavailable; the horizon still applies for this session.
     }
   }, []);
+  const setHorizonMinutes = useCallback((minutes: number) => setView(minutes, offsetMinutes), [setView, offsetMinutes]);
+  const setOffsetMinutes = useCallback((minutes: number) => setView(horizonMinutes, minutes), [setView, horizonMinutes]);
   const [clock, setClock] = useState({anchorMs: authoritativeMs, valueMs: authoritativeMs});
 
   useEffect(() => {
@@ -83,8 +101,11 @@ export function useAMANTimelineAxis(authoritativeTime: string) {
 
   const clockMs = clock.anchorMs === authoritativeMs ? clock.valueMs : authoritativeMs;
   return useMemo(
-    () => ({clockMs, horizonMinutes, setHorizonMinutes, range: buildAMANAxisRange(authoritativeMs, horizonMinutes)}),
-    [authoritativeMs, clockMs, horizonMinutes, setHorizonMinutes],
+    () => ({
+      clockMs, horizonMinutes, setHorizonMinutes, offsetMinutes, setOffsetMinutes, setView,
+      range: buildAMANAxisRange(authoritativeMs, horizonMinutes, offsetMinutes),
+    }),
+    [authoritativeMs, clockMs, horizonMinutes, setHorizonMinutes, offsetMinutes, setOffsetMinutes, setView],
   );
 }
 
@@ -106,7 +127,7 @@ export function AMANTimelineAxis({range, clockMs, status, onOpenTargetInformatio
       <div className="absolute inset-x-0 bottom-0 border-t-2 border-[#9c0000] bg-[#3f3f3f]" data-testid="final-ten-minute-region" style={{top: `${finalRegionTop}%`}}>
         <span className="sr-only">FINAL 10</span>
       </div>
-      <div className="absolute inset-x-0 z-10 -translate-y-1/2 border-t border-dashed border-white/60" data-testid="aman-visual-clock" style={{top: `${AMANAxisTopPercent(clockMs, range) ?? 100}%`}} />
+      {clockMs >= range.startMs && <div className="absolute inset-x-0 z-10 -translate-y-1/2 border-t border-dashed border-white/60" data-testid="aman-visual-clock" style={{top: `${AMANAxisTopPercent(clockMs, range) ?? 100}%`}} />}
       {ticks.map((timeMs) => {
         const major = new Date(timeMs).getUTCMinutes() % 5 === 0;
         return <div className="absolute inset-x-0 z-[1] -translate-y-1/2" data-major={major} data-testid="aman-axis-tick" key={timeMs} style={{top: `${AMANAxisTopPercent(timeMs, range)}%`}}>

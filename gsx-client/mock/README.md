@@ -1,0 +1,122 @@
+# Mock stand feed
+
+A stand-in for `GET /api/gsx/stand` so the handler script can be flown without a
+controller on the other end. You edit a JSON file, the handler picks it up on its
+next poll, and you play both seats.
+
+```bash
+node gsx-client/mock/server.js
+```
+
+Or, on Windows, a keyboard-driven version for **Gate D2 at EKCH**. Park
+there, with the `EKCH-Simnord-Sonnich` profile active, before you start: the
+options are D2's route labels, and the mock does not know which stand you are
+on. `1`–`4` assign one of D2's four routes (`S1 Face N`, `S2 Face S`, `R1 Face N`, `S3 Face N`), `R` resets to nothing assigned, and the screen
+lists recent polls. A label the stand does not have gives "no route to it
+from this stand". Edit `$Points` at the top of the script to change the
+options.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File gsx-client\mock\api-tui.ps1
+```
+
+Then point the handler at it. Edit the **deployed** copy, not the one in this
+repo, so an ngrok URL never reaches a commit:
+
+```
+%APPDATA%\Virtuali\GSX\MSFS\EKCH-Simnord-Sonnich_handler.py
+```
+
+```python
+API_BASE = "http://localhost:8787"
+```
+
+`F5` in the GSX Handler Editor reloads the script without restarting the sim.
+
+## Do you actually need ngrok?
+
+The handler runs inside couatl on the same machine as the sim, so `localhost`
+reaches the server directly and no tunnel is involved. Use ngrok when the sim is
+on another machine, or when you want to hand the URL to someone else:
+
+```bash
+ngrok http 8787
+```
+
+```python
+API_BASE = "https://<your-subdomain>.ngrok-free.app"
+```
+
+If the handler starts logging JSON parse errors against an ngrok URL, you have
+hit the free plan's browser interstitial. It is skipped for non-browser clients,
+and couatl fetches over libcurl, so this should not happen — but that is what it
+looks like when it does.
+
+## Playing the controller
+
+`assignment.json` is read on every request, so saving it is the whole gesture:
+the change reaches the handler within five seconds. `examples.json` holds one
+payload per situation worth testing — copy one across.
+
+Gate A32 in `EKCH-Simnord-Sonnich` offers `J1 Face S`, `Z2 Face E` and
+`Z3 Face W`, which is enough to exercise every path. Other stands are in
+[`backend/config/ekch/gsx_sceneries.json`](../../backend/config/ekch/gsx_sceneries.json)
+under `available`.
+
+The sequence that matters, and the one this whole change exists for:
+
+1. Start with `pushback: null` — nothing assigned.
+2. Spawn cold on A32 and select **Prepare for Pushback and Departure** before
+   assigning anything. The log should say `added the ATC Assigned entry`.
+3. While the tug drives out, set `pushback` to `["Z2 Face E"]` and save. The
+   stand display should read `PUSH Z2 FACE E`.
+4. When GSX asks which way to push, the menu should hold every scenery route
+   plus `ATC Assigned: Z2 Face E`, and the message should name the point.
+5. Pick it. The push should go to Z2 facing east.
+6. Fly it again, this time changing to `["Z3 Face W"]` after the menu is up.
+   Expect `ATC changed your push to Z3 Face W - if the menu does not show
+   "ATC Assigned: Z3 Face W", cancel the pushback and request it again`. Note
+   what the menu shows, then push and note where it goes. If the label is
+   stale, cancel and re-request: the menu should now read Z3.
+7. Change it once more while the aircraft is moving: the entry must not move,
+   and the message should say `too late for this tug`.
+
+Answered at D2 on 2026-11-19: the menu keeps the label it was built with, but
+an entry moved after state 5 (by rewriting the whole list) is where the tug
+goes. A dict changed in place goes nowhere: reads of `pushbackAddPos` are
+copies.
+
+Watch `%APPDATA%\Virtuali\Couatl.log` for the `[stands]` lines, or the Handler
+Editor's output panel. `GSX departure state` is logged on every transition.
+
+## Contract
+
+Three fields, and the handler reads only the first two. At most one of them is
+ever set — a stand is where arriving traffic parks, a pushback point is how
+departing traffic leaves the stand it is on.
+
+| Field | Meaning |
+| --- | --- |
+| `stand` | The parking to select. Arrivals only. |
+| `pushback` | Every route reaching the assigned point. Departures only. A list, because a stand often offers the same taxiway in two facings; the pilot keeps the facing. |
+| `revision` | What the real endpoint puts in its `ETag`. The mock sends no `ETag`, so this is only along for the ride. |
+
+The mock answers `503` for malformed JSON, which is what the handler is built to
+ride out — a half-saved edit costs one skipped poll rather than a stall.
+
+## Tests
+
+`suite.py` exercises the handler against a stub of EKCH B8 — the real labels
+from the `.ini`, double spaces and all. It needs Python 3.7 (couatl's version),
+which Docker is the easiest way to get:
+
+```bash
+docker run --rm -v "$PWD/gsx-client:/w" -w /w python:3.7-alpine \
+  python mock/suite.py EKCH-Simnord-Sonnich_handler.py
+```
+
+The case that matters most: **marking must never write `pushback` or
+`pushbackAddPos`.** Those two writes leave the tug with no computable path, so
+GSX reaches "release parking brakes" and never moves. The suite asserts the
+bitmask, the extras list identity and both geometry pairs are untouched after
+every mark.

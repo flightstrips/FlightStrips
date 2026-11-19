@@ -156,6 +156,14 @@ describe('EFB operational dialogs', () => {
     expect(screen.getByAltText('Taxi-in guidance for Bravo stands on runway 22L').getAttribute('src')).toContain('taxiin-22bravo');
   });
 
+  it('reminds pilots about the GSX profile and the B3 departure on 04R', () => {
+    render(<D1Brief isOpen onClose={vi.fn()} stand="A12" sid="NEXEN2A" runway="04R" />);
+    expect(screen.getByText('Make sure you have latest GSX Profile for EKCH!! See Options in your EFB for more')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Taxi with EKCH_TWR: 04R' }));
+    const paragraphs = screen.getByRole('dialog').querySelectorAll('.efb-briefing-page p');
+    expect(paragraphs[0]).toHaveTextContent('All WTC/M or smaller are expected to depart from B3 unless otherwise instructed!');
+  });
+
   it.each([false, true])('supports briefing keyboard navigation, page transitions, wraparound, and closing (arrival: %s)', (arrival) => {
     const onClose = vi.fn();
     render(arrival

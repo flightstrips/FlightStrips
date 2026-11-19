@@ -288,7 +288,7 @@ const briefingPages = (stand: string, sid: string, runway: string): D1BriefPage[
       }
     : {
         image: image('TAXINEXT04R'),
-        description: ['TWR will clear you to cross runway 30 and assign holding point A1-A4 as required for traffic sequencing. Plan take-off performance for every holding point.', 'Be ready for departure when reaching the holding point. Advise ATC in advance if you are not ready so that an alternative holding point can be assigned. When cleared for take-off, do not linger.'],
+        description: ['All WTC/M or smaller are expected to depart from B3 unless otherwise instructed!', 'TWR will clear you to cross runway 30 and assign holding point A1-A4 as required for traffic sequencing. Plan take-off performance for every holding point.', 'Be ready for departure when reaching the holding point. Advise ATC in advance if you are not ready so that an alternative holding point can be assigned. When cleared for take-off, do not linger.'],
       };
 
   return [
@@ -297,7 +297,7 @@ const briefingPages = (stand: string, sid: string, runway: string): D1BriefPage[
       image: image('PUSHBACK READY'),
       imageAlt: 'Pushback readiness',
       title: 'Pushback ready',
-      description: ['Confirm the stand position, SID, and runway in use before continuing.', 'Your tug must be connected, GSX ready for pushback, and TOBT within +/- 5 minutes of the current time. Read the Pushback Manual and be ready for any assigned release point.'],
+      description: ['Confirm the stand position, SID, and runway in use before continuing.', 'Your tug must be connected, GSX ready for pushback, and TOBT within +/- 5 minutes of the current time. Read the Pushback Manual and be ready for any assigned release point.', 'Make sure you have latest GSX Profile for EKCH!! See Options in your EFB for more'],
     },
     {
       id: 'pushback-next',

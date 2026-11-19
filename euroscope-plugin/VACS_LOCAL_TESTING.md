@@ -13,6 +13,54 @@ Preferences are saved beside the loaded core in `flightstrips_user.ini`. For VAC
 
 Use `.fs open` to reopen the panel or `.fs reset` if it is off-screen. Normal header dragging, close/minimize controls, session selection, statistics, and PDC controls remain available.
 
+## Next-sector calling tag item
+
+The optional **VACS next sector** tag item shows `V:<sector ID>` (for example `V:KA`) for aircraft you track locally. Left-click calls that destination; right-click opens the controller picker. TopSky's **SI** field and its click bindings stay unchanged. Calling uses the existing VACS connection and works independently of FlightStrips backend login.
+
+### Destination selection
+
+The EuroScope SDK exposes callbacks for a plugin to fill its own tag items, but no API to read another plugin's rendered SI text. This field resolves a destination independently, in this order:
+
+1. **Active handoff:** the native handoff controller callsign and position ID.
+2. **Native coordination intent:** a nonempty `GetCoordinatedNextController()` in a known state other than `REFUSED`. Accepted, manually accepted, requested and `NONE` states are allowed. Whether particular EuroScope or TopSky manual assignments populate this field before acceptance, especially in `NONE`, needs live verification. Refused or unknown states fall back to prediction; that prediction may still name the controller who refused.
+3. **Route prediction:** the first valid controller ID different from your own, starting at `GetSectorExitMinutes()`. This avoids selecting an upstream sector when you assume an aircraft before it enters your airspace. Short sectors are valid destinations. Unknown exit time (`-1`) or an exit outside the available prediction data (up to 60 minutes) gives no prediction. The position ID is resolved through EuroScope to a connected controller's full callsign.
+
+Empty and punctuation-only position IDs such as `--` are ignored in predictions. Explicit handoff/coordination callsigns with no usable short ID use a derived display label; that label is never used as a VACS matching key.
+
+Agreement with TopSky SI has not been measured or verified live. How TopSky manual SI overrides affect native SDK data is also unverified. Prediction results are forecasts, not confirmation of coordination.
+
+### Display and calling
+
+- **Blank:** the aircraft is not tracked locally.
+- **`V:<sector ID>`:** a destination was resolved. The normal tag colour is used when VACS is ready and exactly one client matches; otherwise it stays visible in muted grey.
+- **`V:--`:** no destination resolved, shown in muted grey.
+- **Left-click:** checks VACS readiness, resolves the selected aircraft again and fetches a fresh client list. The freshly formatted label must match the clicked `ItemString`; empty, marker, truncated or changed labels cannot dial. The match compares VACS position/display name against the full callsign or genuine EuroScope short ID. Zero or multiple distinct client matches cannot dial. VACS filters your own client/position. Failed attempts show a FlightStrips notification.
+- **Right-click:** opens the two-column **VACS CALL** picker with controller labels and frequencies. If VACS is unavailable, the empty picker shows its state label.
+
+The click guard compares the displayed label, not a cached aircraft/controller identity. A different destination with the same visible sector label is not detected by that comparison; the call uses the freshly resolved identity and client match.
+
+### Manual EuroScope tag configuration
+
+No tag layout or `.prf` is shipped for this item. Add it to your own layout:
+
+1. Open EuroScope's **OTHER SET** menu and choose **TAG** to open Tag Items Setup.
+2. Select the tag family and label type you use.
+3. Add the **FlightStrips** item **VACS next sector** in a new field. Allow room for `V:` plus your sector IDs.
+4. Set that field's left-button function to **FlightStrips > VACS call next sector** and its right-button function to **FlightStrips > VACS call...**.
+5. Save the layout, keeping SI and its existing bindings intact.
+
+Dialog wording may vary with the EuroScope version; these steps have not been checked in the live host.
+
+Validation on 19 November 2026: Win32 Release build passed and all **658 CTest tests passed**. The resolver, matching, label and click-guard tests cover the automated paths; they do not verify host integration or audio. Logs: `build/vacs-tag-final-build.log` and `build/vacs-tag-final-tests.log`.
+
+### Live checks still required
+
+- Confirm EuroScope selects the clicked aircraft and passes the painted text through TopSky. A different or empty `ItemString` will safely refuse the call.
+- Compare the field with SI for normal routing, early assumption, skip-sector coordination, requested/refused coordination and manual SI overrides.
+- Check an aircraft still tracked after leaving your airspace: if exit time becomes `-1`, prediction is unavailable unless handoff or native coordination supplies a destination.
+- Check TopSky foreign-item filtering and all minimized/extended tag modes.
+- Verify the native picker and an end-to-end VACS call with two real controller clients, including ringing/audio.
+
 ## Rebuild and run tests
 
 From a Visual Studio developer PowerShell with CMake on PATH, at the repository root:

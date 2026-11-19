@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.9.2](https://github.com/flightstrips/FlightStrips/compare/backend/v3.9.1...backend/v3.9.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **aman:** explain why aircraft swaps are unavailable ([#1178](https://github.com/flightstrips/FlightStrips/issues/1178)) ([320ce2c](https://github.com/flightstrips/FlightStrips/commit/320ce2c98544feea6abf802dbb9cfdaf910134e8))
+* **aman:** keep holding cleared altitudes synchronized ([#1184](https://github.com/flightstrips/FlightStrips/issues/1184)) ([e69ed35](https://github.com/flightstrips/FlightStrips/commit/e69ed35c02befed3daf65fba4a613f22d416bb8d))
+* **aman:** preserve TMA promotion during ETA smoothing ([#1179](https://github.com/flightstrips/FlightStrips/issues/1179)) ([22e64cf](https://github.com/flightstrips/FlightStrips/commit/22e64cf789e2d10126086bc08d2a387267970395))
+* **aman:** recover landed flights after reconnect ([#1180](https://github.com/flightstrips/FlightStrips/issues/1180)) ([8cba945](https://github.com/flightstrips/FlightStrips/commit/8cba94570af05db179d4e524c152600e6aa25328))
+* **aman:** reduce route-fact queries and sequencing latency ([#1188](https://github.com/flightstrips/FlightStrips/issues/1188)) ([4a945ec](https://github.com/flightstrips/FlightStrips/commit/4a945ec3b874e6633764817a1349bae235e42ebb))
+* **aman:** require airborne evidence and preserve STAR interleaving ([#1181](https://github.com/flightstrips/FlightStrips/issues/1181)) ([3474b73](https://github.com/flightstrips/FlightStrips/commit/3474b73e3dc2c5f340c189e77de15d47ffce57a9))
+* **strip:** recheck departure observations after reassignment ([#1193](https://github.com/flightstrips/FlightStrips/issues/1193)) ([6059242](https://github.com/flightstrips/FlightStrips/commit/60592423cf25101aaf46c810dd81ca47a39674d9))
+* **strip:** recover rejected actions without resetting the board ([#1186](https://github.com/flightstrips/FlightStrips/issues/1186)) ([9a260bf](https://github.com/flightstrips/FlightStrips/commit/9a260bfe4aeac696693d22d379b90f21aa9ca08d))
+* **strip:** release stale departure stand blocks ([#1190](https://github.com/flightstrips/FlightStrips/issues/1190)) ([087db06](https://github.com/flightstrips/FlightStrips/commit/087db06892b21e869926e627612b89b8e0862b12))
+* **websocket:** classify connection rejections and log user CID ([#1182](https://github.com/flightstrips/FlightStrips/issues/1182)) ([834edf5](https://github.com/flightstrips/FlightStrips/commit/834edf5ea39488923eb03d25f2d0d807a759717e))
+* **websocket:** recover stalled connections and preserve board state ([#1189](https://github.com/flightstrips/FlightStrips/issues/1189)) ([2148642](https://github.com/flightstrips/FlightStrips/commit/2148642a8790219fd2e3ee399512fbf7e0db4f11))
+* **websocket:** reduce position processing contention ([#1185](https://github.com/flightstrips/FlightStrips/issues/1185)) ([9b76e8f](https://github.com/flightstrips/FlightStrips/commit/9b76e8f2c2c50037400b843309ff8c89de85054f))
+
 ## [3.9.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.9.0...backend/v3.9.1) (2026-11-15)
 
 

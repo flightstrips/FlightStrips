@@ -4,7 +4,7 @@ import "./landing/landing.css";
 import { setStoredPublicTheme, usePublicTheme } from "@/lib/public-theme";
 import { LandingFooter } from "./landing/LandingFooter";
 import { LandingHeader } from "./landing/LandingHeader";
-import { Eyebrow, GuideColumns, Reveal } from "./landing/primitives";
+import { Eyebrow, GuideColumns } from "./landing/primitives";
 
 function useThemeToggle() {
   const theme = usePublicTheme();
@@ -70,14 +70,14 @@ export function PageHero({
     <section className="relative isolate border-b border-[var(--fsl-line)]">
       <GuideColumns />
       <div className="fsl-gutter relative z-10 py-16 sm:py-24">
-        <Reveal>
+        <div>
           <Eyebrow className="mb-5">{eyebrow}</Eyebrow>
           <h1 className="fsl-display max-w-[18ch] text-[40px] sm:text-[56px] lg:text-[72px]">{title}</h1>
           {lead ? (
             <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-[var(--fsl-ink-muted)]">{lead}</p>
           ) : null}
           {children}
-        </Reveal>
+        </div>
       </div>
     </section>
   );

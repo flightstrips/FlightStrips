@@ -4,7 +4,7 @@ import { ArrivalSpecimen, ClearedSpecimen } from "./StripSpecimen";
 
 function PanelBody({ panel }: { panel: PositionPanel }) {
   return (
-    <div className="grid gap-10 lg:grid-cols-2">
+    <div className="fsl-position-body">
       <div>
         <h3 className="fsl-display mb-4 text-[28px] lg:text-[34px]">{panel.title}</h3>
         <p className="mb-8 max-w-lg text-[15px] leading-relaxed text-[var(--fsl-ink-muted)]">
@@ -27,7 +27,7 @@ function PanelBody({ panel }: { panel: PositionPanel }) {
         </div>
       </div>
 
-      <div className="flex flex-col justify-center gap-7 border border-[var(--fsl-line)] bg-[var(--fsl-surface)] p-6 sm:p-8">
+      <div className="fsl-position-examples">
         <p className="fsl-eyebrow">On the board</p>
         {panel.strips.map((strip) => (
           <div key={strip.caption}>
@@ -63,18 +63,19 @@ export function PositionExplorer() {
 
   const onTabKeyDown = (event: KeyboardEvent, index: number) => {
     const delta = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
-    if (delta === 0) return;
+    if (delta === 0 && event.key !== "Home" && event.key !== "End") return;
 
     event.preventDefault();
-    const next = POSITIONS[(index + delta + POSITIONS.length) % POSITIONS.length];
+    const next = POSITIONS[event.key === "Home" ? 0 : event.key === "End" ? POSITIONS.length - 1 : (index + delta + POSITIONS.length) % POSITIONS.length];
     setActive(next.key);
+    setOpenMobile(next.key);
     tabRefs.current[next.key]?.focus();
   };
 
   return (
     <>
       {/* Desktop: tab list beside the active panel. */}
-      <div className="hidden gap-12 lg:grid lg:grid-cols-[240px_1fr]">
+      <div className="fsl-position-explorer hidden gap-8 lg:grid lg:grid-cols-[200px_1fr] xl:gap-12">
         <div role="tablist" aria-label="Controller positions" aria-orientation="vertical" className="flex flex-col">
           {POSITIONS.map((panel, index) => {
             const selected = panel.key === active;
@@ -89,17 +90,17 @@ export function PositionExplorer() {
                 aria-selected={selected}
                 aria-controls={`fsl-panel-${panel.key}`}
                 tabIndex={selected ? 0 : -1}
-                onClick={() => setActive(panel.key)}
+                onClick={() => { setActive(panel.key); setOpenMobile(panel.key); }}
                 onKeyDown={(event) => onTabKeyDown(event, index)}
                 className={`border-b border-[var(--fsl-line)] py-4 text-left text-[15px] transition-colors first:border-t ${
                   selected
-                    ? "font-medium text-[var(--fsl-ink)]"
+                    ? "text-[var(--fsl-ink)]"
                     : "text-[var(--fsl-ink-muted)] hover:text-[var(--fsl-ink)]"
                 }`}
               >
                 <span
                   aria-hidden="true"
-                  className={`fsl-mono mr-3 text-[11px] ${selected ? "text-[var(--fsl-brand-ink)]" : "opacity-40"}`}
+                  className={`fsl-mono mr-3 text-xs ${selected ? "text-[var(--fsl-brand-ink)]" : "text-[var(--fsl-ink-muted)]"}`}
                 >
                   {String(index + 1).padStart(2, "0")}
                 </span>
@@ -109,13 +110,21 @@ export function PositionExplorer() {
           })}
         </div>
 
-        <div
-          role="tabpanel"
-          id={`fsl-panel-${activePanel.key}`}
-          aria-labelledby={`fsl-tab-${activePanel.key}`}
-          tabIndex={0}
-        >
-          <PanelBody panel={activePanel} />
+        <div className="fsl-position-panels">
+          {POSITIONS.map((panel) => (
+            <div
+              key={panel.key}
+              role="tabpanel"
+              id={`fsl-panel-${panel.key}`}
+              aria-labelledby={`fsl-tab-${panel.key}`}
+              aria-hidden={panel.key !== activePanel.key}
+              inert={panel.key !== activePanel.key}
+              tabIndex={panel.key === activePanel.key ? 0 : -1}
+              className="fsl-position-panel"
+            >
+              <PanelBody panel={panel} />
+            </div>
+          ))}
         </div>
       </div>
 
@@ -130,11 +139,11 @@ export function PositionExplorer() {
                   type="button"
                   aria-expanded={open}
                   aria-controls={`fsl-acc-${panel.key}`}
-                  onClick={() => setOpenMobile(open ? null : panel.key)}
+                  onClick={() => { setOpenMobile(open ? null : panel.key); setActive(panel.key); }}
                   className="flex w-full items-center justify-between gap-4 py-5 text-left text-[17px]"
                 >
                   <span>
-                    <span aria-hidden="true" className="fsl-mono mr-3 text-[11px] opacity-40">
+                    <span aria-hidden="true" className="fsl-mono mr-3 text-xs text-[var(--fsl-ink-muted)]">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     {panel.tab}

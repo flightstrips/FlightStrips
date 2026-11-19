@@ -111,12 +111,36 @@ const SERVER_ROWS = [
 export function SystemDiagram() {
   return (
     <figure className="m-0">
-      <div className="overflow-x-auto" tabIndex={0} aria-label="System diagram, scrollable">
+      <div className="fsl-system-mobile" aria-label="How FlightStrips connects">
+        <section>
+          <h3>1. Connect your clients</h3>
+          <ul>
+            <li>EuroScope plugin<span>Supplies your controller identity and live flight data</span></li>
+            <li>Controller web app<span>Read and operate your electronic flight strips</span></li>
+            <li>Pilot pages<span>Flight information and EFB access</span></li>
+          </ul>
+        </section>
+        <section>
+          <h3>2. Share one session</h3>
+          <ul>{SERVER_ROWS.map((row) => <li key={row}>{row}</li>)}</ul>
+          <p>The server sends each update to the connected clients. PostgreSQL stores sessions, strips and history.</p>
+        </section>
+        <section>
+          <h3>3. Bring in the services</h3>
+          <ul>
+            <li>VATSIM SSO<span>Identity matched by CID</span></li>
+            <li>VATSIM feed<span>Traffic, ATIS and METAR</span></li>
+            <li>Hoppie ACARS<span>Pre-departure clearance</span></li>
+            <li>ECFMP<span>Flow measures</span></li>
+          </ul>
+        </section>
+      </div>
+      <div className="fsl-system-desktop">
         <svg
           viewBox="0 0 980 548"
           role="img"
           aria-labelledby="fsl-diagram-title fsl-diagram-desc"
-          className="block h-auto w-full min-w-[860px]"
+          className="block h-auto w-full"
           style={{ fontFamily: "var(--fsl-font-mono)" }}
         >
           <title id="fsl-diagram-title">How FlightStrips connects controllers, pilots and services</title>

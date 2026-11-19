@@ -5,16 +5,16 @@ import './index.css'
 import ChartFoxCallbackPage from "@/pages/chartfox-callback";
 import FlightStripsRoutes from "@/routes/FlightStripsRoutes";
 import { ThemeSync } from "@/components/public/ThemeSync";
-import { startAppUpdateMonitoring } from "@/lib/app-update";
+import { AppUpdateMonitoring } from "@/components/AppUpdateMonitoring";
 import { initAnalytics } from "@/lib/analytics";
 import { AnalyticsConsentBanner } from "@/components/AnalyticsConsentBanner";
 
 initAnalytics();
-startAppUpdateMonitoring();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
+      <AppUpdateMonitoring />
       <ThemeSync />
       <AnalyticsConsentBanner />
       <Routes>

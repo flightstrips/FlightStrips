@@ -30,7 +30,7 @@ const SI_ASSUMED = "#F0F0F0";
 const SI_CONCERNED = "#FA02FC";
 const SI_UNCONCERNED = "#DD6A12";
 const BTN_ORANGE = "#DD6A12";
-const SI_LABEL = "#8F8F8F";
+const SI_LABEL = "#04100F";
 const CDM_GREEN = "#00FF26";
 const CTOT_YELLOW = "#F3EA1F";
 
@@ -61,7 +61,7 @@ function siBackground(state: SIState): string {
 }
 
 type Common = {
-  /** Maximum strip height in px; below that it scales with its own width.
+  /** Desktop strip height. Narrow containers use the readable summary layout.
       The product uses FULL_H = 4.72dvh, which is ~51px on a 1080 board. */
   height?: number;
   si?: SIState;
@@ -73,8 +73,7 @@ type Common = {
 /** Outer frame: src/components/strip/shared.tsx getFramedStripStyle(). */
 function frame(height: number, frameColor: string): CSSProperties {
   return {
-    // `.fsl-strip` turns this into min(height, 11.5cqw) so the strip scales
-    // as a whole instead of squeezing its cells.
+    // Narrow containers switch to a readable summary instead of shrinking type.
     ["--fsl-strip-max" as string]: `${height}px`,
     backgroundColor: frameColor,
     boxSizing: "border-box",
@@ -161,6 +160,24 @@ export type ClearedSpecimenProps = Common & {
   tsatIssued?: boolean;
 };
 
+function CompactSpecimen({ si, callsign, identity, fields, background }: {
+  si: SIState;
+  callsign: string;
+  identity: string;
+  fields: Array<[string, string]>;
+  background: string;
+}) {
+  return (
+    <div className="fsl-strip__compact" style={{ background }}>
+      <span className="fsl-strip__ownership" style={{ background: siBackground(si) }} aria-hidden="true" />
+      <div className="fsl-strip__identity"><strong>{callsign}</strong><span>{identity}</span></div>
+      <dl className="fsl-strip__fields">
+        {fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+      </dl>
+    </div>
+  );
+}
+
 /**
  * The CLX cleared strip. src: src/components/strip/ClxClearedStrip.tsx
  * Flex proportions: SI 8.44 | callsign 26.67 | dest+stand 13.33 | times 40.
@@ -184,8 +201,8 @@ export function ClearedSpecimen({
   return (
     <div className={`fsl-strip select-none ${className}`} style={frame(height, FRAME_DEP)}>
       <div
-        className="flex text-black"
-        style={{ height: "100%", overflow: "hidden", backgroundColor: BG_DEP }}
+        className="fsl-strip__full flex text-black"
+        style={{ height: "var(--sh)", overflow: "hidden", backgroundColor: BG_DEP }}
       >
         <SIBoxSpecimen
           flexGrow={8.44}
@@ -262,6 +279,9 @@ export function ClearedSpecimen({
           </div>
         </div>
       </div>
+      <CompactSpecimen si={si} callsign={callsign} identity={`${destination} · ${stand}`} background={BG_DEP} fields={[
+        ["EOBT", eobt], ...(ctot ? [["CTOT", ctot] as [string, string]] : []), ["TOBT", tobt], ["TSAT", tsat],
+      ]} />
     </div>
   );
 }
@@ -301,8 +321,8 @@ export function ArrivalSpecimen({
   return (
     <div className={`fsl-strip select-none ${className}`} style={frame(height, FRAME_ARR)}>
       <div
-        className="flex text-black"
-        style={{ height: "100%", overflow: "hidden", backgroundColor: BG_ARR }}
+        className="fsl-strip__full flex text-black"
+        style={{ height: "var(--sh)", overflow: "hidden", backgroundColor: BG_ARR }}
       >
         <SIBoxSpecimen
           flexGrow={40}
@@ -327,7 +347,7 @@ export function ArrivalSpecimen({
           <div className="flex items-center overflow-hidden" style={{ height: BOT, paddingLeft: "calc(0.157 * var(--sh))" }}>
             <span
               className="w-full truncate"
-              style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "calc(0.215 * var(--sh))" }}
+              style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "max(12px, calc(0.215 * var(--sh)))" }}
             >
               {nextFreq}
             </span>
@@ -385,6 +405,9 @@ export function ArrivalSpecimen({
           </div>
         ))}
       </div>
+      <CompactSpecimen si={si} callsign={callsign} identity={`${aircraftType} · ${registration}`} background={BG_ARR} fields={[
+        ["Runway", runway], ["Taxiway", taxiway], ["Stand", stand], ["Next frequency", nextFreq],
+      ]} />
     </div>
   );
 }

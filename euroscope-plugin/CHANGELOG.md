@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.7.0...plugin/v2.7.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **vacs:** validate next-sector calls and show a phone icon ([1e10b78](https://github.com/flightstrips/FlightStrips/commit/1e10b78649de33cbe792b454090d8de66dcec2ab))
+
 ## [2.7.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.6.1...plugin/v2.7.0) (2026-11-19)
 
 

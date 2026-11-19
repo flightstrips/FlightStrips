@@ -99,15 +99,17 @@ namespace FlightStrips::TagItems {
         const std::string& positionId,
         const std::vector<vacs::Client>& clients);
 
-    // The exact tag-item text Handle() paints for a resolution, including
-    // the explicit "V:--" marker for a tracked flight with nothing resolved
-    // (blank for a flight this controller is not tracking at all). Shared
-    // with the click guard below so "what the controller saw" and "what a
-    // click re-resolves" are compared using identical formatting and
-    // truncation. The click guard rejects any label that was truncated.
+    // Shared by paint and click: direct calls require an available label
+    // that fits completely in EuroScope's buffer (13 bytes after "V:")
+    // and is not a reserved punctuation-only marker.
+    bool IsVacsNextSectorLabelDialable(const VacsNextSectorResolution& resolution);
+
+    // Paint blank for untracked flights, V:-- for no destination, V:?? for
+    // an unusable label, otherwise the complete V:<sector ID>. Reserved
+    // markers can never collide with a dialable label on a later click.
     std::string FormatVacsNextSectorItemString(bool trackedByMe, const VacsNextSectorResolution& resolution);
 
-    enum class VacsCallGuardResult { Dialable, NoTarget, DestinationChanged };
+    enum class VacsCallGuardResult { Dialable, NoTarget, DestinationChanged, UnusableLabel };
 
     struct VacsCallDecision {
         VacsCallGuardResult result = VacsCallGuardResult::NoTarget;
@@ -122,7 +124,10 @@ namespace FlightStrips::TagItems {
     // ItemString, or one that no longer matches what was just resolved, is
     // reported as DestinationChanged rather than NoTarget whenever a real
     // target now exists, since the caller should tell the controller to
-    // refresh and retry rather than silently doing nothing.
+    // refresh and retry rather than silently doing nothing. An unusable
+    // current label returns UnusableLabel so the caller can suggest the
+    // picker; a refresh cannot make an overlong ID fit. This guard compares
+    // labels only: an identity change keeping the same label is not caught.
     VacsCallDecision DecideVacsCallTarget(
         bool trackedByMe,
         const VacsNextSectorResolution& resolution,

@@ -32,9 +32,10 @@ Agreement with TopSky SI has not been measured or verified live. How TopSky manu
 ### Display and calling
 
 - **Blank:** the aircraft is not tracked locally.
-- **`V:<sector ID>`:** a destination was resolved. The normal tag colour is used when VACS is ready and exactly one client matches; otherwise it stays visible in muted grey.
+- **`V:<sector ID>`:** a destination was resolved. The normal tag colour is used when the label is eligible for a direct call, VACS is ready and exactly one client matches; otherwise it stays visible in muted grey.
 - **`V:--`:** no destination resolved, shown in muted grey.
-- **Left-click:** checks VACS readiness, resolves the selected aircraft again and fetches a fresh client list. The freshly formatted label must match the clicked `ItemString`; empty, marker, truncated or changed labels cannot dial. The match compares VACS position/display name against the full callsign or genuine EuroScope short ID. Zero or multiple distinct client matches cannot dial. VACS filters your own client/position. Failed attempts show a FlightStrips notification.
+- **`V:??`:** a destination resolved but its label is unusable for direct calling (including IDs longer than 13 bytes), shown in muted grey. The marker cannot collide with a complete, dialable label. Left-click directs you to the right-click picker; refreshing an unchanged overlong ID will not help.
+- **Left-click:** checks VACS readiness, resolves the selected aircraft again and fetches a fresh client list. The freshly formatted label must match the clicked `ItemString`; empty, marker or changed labels cannot dial. Overlong IDs paint the reserved `V:??` marker instead of a truncated prefix. The match compares VACS position/display name against the full callsign or genuine EuroScope short ID. Zero or multiple distinct client matches cannot dial. VACS filters your own client/position. Failed attempts show a FlightStrips notification.
 - **Right-click:** opens the two-column **VACS CALL** picker with controller labels and frequencies. If VACS is unavailable, the empty picker shows its state label.
 
 The click guard compares the displayed label, not a cached aircraft/controller identity. A different destination with the same visible sector label is not detected by that comparison; the call uses the freshly resolved identity and client match.
@@ -51,7 +52,7 @@ No tag layout or `.prf` is shipped for this item. Add it to your own layout:
 
 Dialog wording may vary with the EuroScope version; these steps have not been checked in the live host.
 
-Validation on 19 November 2026: Win32 Release build passed and all **658 CTest tests passed**. The resolver, matching, label and click-guard tests cover the automated paths; they do not verify host integration or audio. Logs: `build/vacs-tag-final-build.log` and `build/vacs-tag-final-tests.log`.
+Validation on 19 November 2026: Win32 Release build passed and all **662 CTest tests passed**. The resolver, matching, label and click-guard tests cover the automated paths; they do not verify host integration or audio. Logs: `build/vacs-tag-coderabbit-build.log` and `build/vacs-tag-coderabbit-tests.log`.
 
 ### Live checks still required
 

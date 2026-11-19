@@ -36,11 +36,13 @@ The plugin can answer and end calls that include several participants. Create co
 
 A separate, optional tag item, **VACS next sector**, can be added to your own EuroScope tag layout to show `V:<sector ID>` (e.g. `V:KA`) for aircraft you are tracking, and to call that controller directly. It is independent of, and never changes, TopSky's own **SI** tag item or its click bindings.
 
-- **Left-click** calls the shown controller directly over VACS, after re-checking that the destination still matches what is on screen; if it changed, or there is no unique VACS client to call, FlightStrips tells you instead of guessing.
+- **Left-click** calls the freshly resolved controller over VACS when its displayed sector label still matches the clicked text and exactly one client matches. The guard detects label changes, not every controller change: a different controller with the same label (for example `V:KA`) can be called without a change notification.
 - **Right-click** opens the same two-column controller picker as the panel's **Call...** button.
 - `V:--` means no next controller resolved. Destinations come from an active handoff, native coordination intent in a known non-refused state, or a route prediction starting at your sector exit. Predictions remain estimates.
+- `V:??` means the destination label cannot be used for a direct call, including IDs longer than 13 bytes. It is muted; left-click directs you to the right-click picker.
 - A destination that cannot currently be called stays visible in muted grey. Calling requires VACS to be ready and exactly one matching client.
 - The field is computed independently from TopSky SI. Agreement with SI, including manual overrides, has not been verified live. EuroScope provides no API to read another plugin's rendered tag item.
+
 This item is not included in any shipped tag layout; add it to your own tag family in EuroScope's tag settings, under the **FlightStrips** plugin. See `euroscope-plugin/VACS_LOCAL_TESTING.md` for the exact steps and known limitations, including unverified behaviour under TopSky's minimized/extended tag modes.
 
 ### Browser controls

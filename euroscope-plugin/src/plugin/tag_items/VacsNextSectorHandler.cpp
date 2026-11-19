@@ -137,18 +137,20 @@ namespace FlightStrips::TagItems {
         return *matchedIds.begin();
     }
 
+    bool IsVacsNextSectorLabelDialable(const VacsNextSectorResolution& resolution) {
+        // EuroScope's 16-byte buffer has room for "V:", 13 bytes of ID and
+        // the terminator. Reserved punctuation-only markers cannot dial.
+        return resolution.available && resolution.sectorId.size() <= 13 &&
+               !NormalizePositionId(resolution.sectorId).empty();
+    }
+
     std::string FormatVacsNextSectorItemString(bool trackedByMe, const VacsNextSectorResolution& resolution) {
-        char buffer[16];
         if (!trackedByMe) return {};
-        if (resolution.available) {
-            std::snprintf(buffer, sizeof(buffer), "V:%s", resolution.sectorId.c_str());
-            return buffer;
-        }
-        if (trackedByMe) {
-            std::snprintf(buffer, sizeof(buffer), "V:--");
-            return buffer;
-        }
-        return {};
+        if (!resolution.available) return "V:--";
+        // Never paint a truncated prefix: it could match another complete
+        // destination if the resolution changes before the controller clicks.
+        if (!IsVacsNextSectorLabelDialable(resolution)) return "V:??";
+        return "V:" + resolution.sectorId;
     }
 
     VacsCallDecision DecideVacsCallTarget(
@@ -156,17 +158,20 @@ namespace FlightStrips::TagItems {
         const VacsNextSectorResolution& resolution,
         const std::optional<std::string>& matchedClientId,
         const char* paintedItemString) {
-        if (!trackedByMe || !resolution.available || !matchedClientId.has_value() || matchedClientId->empty()) {
+        if (!trackedByMe || !resolution.available) {
+            return {VacsCallGuardResult::NoTarget, {}};
+        }
+        if (!IsVacsNextSectorLabelDialable(resolution)) {
+            return {VacsCallGuardResult::UnusableLabel, {}};
+        }
+        if (!matchedClientId.has_value() || matchedClientId->empty()) {
             return {VacsCallGuardResult::NoTarget, {}};
         }
         const auto freshText = FormatVacsNextSectorItemString(trackedByMe, resolution);
         const std::string painted = paintedItemString != nullptr ? std::string(paintedItemString) : std::string{};
-        const auto completeText = "V:" + resolution.sectorId;
-        if (NormalizePositionId(resolution.sectorId).empty() || freshText != completeText ||
-            painted.empty() || painted == "V:--" || painted == "V:??" || painted != freshText) {
-            // A real target was just resolved, but what the controller
-            // clicked (null/empty/a stale marker/a different sector) does
-            // not match it: report the change rather than dialling blind.
+        if (painted.empty() || painted != freshText) {
+            // Eligible labels always contain letters/digits, so a painted
+            // reserved marker cannot match even if the destination changed.
             return {VacsCallGuardResult::DestinationChanged, {}};
         }
         return {VacsCallGuardResult::Dialable, *matchedClientId};
@@ -239,9 +244,9 @@ namespace FlightStrips::TagItems {
         if (text.empty()) return;  // not tracked by this controller: leave blank
         std::snprintf(sItemString, 16, "%s", text.c_str());
 
-        if (!resolution.available) {
-            // Locally tracked but no handoff, coordination, or
-            // prediction found: explicit "nothing yet" marker, muted.
+        if (!IsVacsNextSectorLabelDialable(resolution)) {
+            // Missing destinations and labels unusable for direct calling
+            // share the same muted appearance; neither can dial on click.
             if (pColorCode != nullptr) *pColorCode = TagColorRGBDefinedValue;
             if (pRGB != nullptr) *pRGB = MutedTagColor;
             return;

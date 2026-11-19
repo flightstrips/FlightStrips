@@ -708,17 +708,20 @@ namespace FlightStrips {
                     Information("VACS next-sector call: " + view.label + ".");
                     return;
                 }
-                // Re-select the clicked aircraft and re-resolve fresh rather than
-                // trusting anything computed for the last tag paint, so a stale
-                // target or a target that changed between paint and click can
-                // never be dialled. ItemString is what EuroScope says was
-                // actually painted for this click; the guard below refuses to
-                // dial unless the freshly resolved display still matches it.
+                // Resolve the selected aircraft and compare the fresh label
+                // with EuroScope's clicked ItemString. This detects visible
+                // label changes, not identity changes keeping the same label.
                 const auto flightPlan = FlightPlanSelectASEL();
                 if (!flightPlan.IsValid()) return;
                 const auto callsign = std::string(flightPlan.GetCallsign());
                 const auto clients = container->vacsService->GetClients();
                 const auto decision = container->vacsNextSectorHandler->ResolveCallTarget(flightPlan, clients, ItemString);
+                if (decision.result == TagItems::VacsCallGuardResult::UnusableLabel) {
+                    Information("VACS next-sector call: the sector label for " + callsign +
+                                " cannot be used for a direct call. Right-click the VACS tag to choose a controller.");
+                    Logger::Info("VACS next-sector call: sector label unusable for direct calling for {}", callsign);
+                    return;
+                }
                 if (decision.result == TagItems::VacsCallGuardResult::DestinationChanged) {
                     Information("VACS next-sector call: the destination for " + callsign + " changed. Refresh and try again.");
                     Logger::Info("VACS next-sector call: destination changed between paint and click for {}", callsign);

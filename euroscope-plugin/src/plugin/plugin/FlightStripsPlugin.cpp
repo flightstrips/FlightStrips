@@ -7,6 +7,7 @@
 #include "bootstrap/Container.h"
 #include "graphics/InfoScreen.h"
 #include "vacs/VacsService.h"
+#include "tag_items/VacsNextSectorHandler.h"
 #include "handlers/FlightPlanEventHandlers.h"
 #include "messages/MessageService.h"
 #include "runway/RunwayService.h"
@@ -202,6 +203,9 @@ namespace FlightStrips {
         RegisterTagItemType("EAT", TAG_ITEM_EAT);
         RegisterTagItemType("FS scratch pad", TAG_ITEM_FS_SCRATCH_PAD);
         RegisterTagItemFunction("Edit FS scratch pad", TAG_FUNC_EDIT_FS_SCRATCH_PAD);
+        RegisterTagItemType("VACS next sector", TAG_ITEM_VACS_NEXT_SECTOR);
+        RegisterTagItemFunction("VACS call next sector", TAG_FUNC_VACS_NEXT_SECTOR_CALL);
+        RegisterTagItemFunction("VACS call...", TAG_FUNC_VACS_NEXT_SECTOR_PICKER);
 
         RegisterTagItemFunction("Edit EOBT", TAG_FUNC_CDM_EOBT_ACTION);
         RegisterTagItemFunction("E/TOBT Options", TAG_FUNC_CDM_E_TOBT_OPTIONS);
@@ -691,6 +695,64 @@ namespace FlightStrips {
         if (FunctionId == TAG_FUNC_VACS_DIAL) {
             SafeCall("VACS controller selection", [&] {
                 if (container->vacsService && ItemString) container->vacsService->Select(ItemString);
+            });
+            return;
+        }
+        if (FunctionId == TAG_FUNC_VACS_NEXT_SECTOR_CALL) {
+            // Runs ahead of the messageService/backend gating below: VACS
+            // calling must work independently of FlightStrips backend login.
+            SafeCall("VACS next-sector call", [&] {
+                if (!container->vacsNextSectorHandler || !container->vacsService) return;
+                const auto view = container->vacsService->GetView();
+                if (view.state != vacs::State::Idle || !view.actionable) {
+                    Information("VACS next-sector call: " + view.label + ".");
+                    return;
+                }
+                // Resolve the selected aircraft and compare the fresh label
+                // with EuroScope's clicked ItemString. This detects visible
+                // label changes, not identity changes keeping the same label.
+                const auto flightPlan = FlightPlanSelectASEL();
+                if (!flightPlan.IsValid()) return;
+                const auto callsign = std::string(flightPlan.GetCallsign());
+                const auto clients = container->vacsService->GetClients();
+                const auto decision = container->vacsNextSectorHandler->ResolveCallTarget(flightPlan, clients, ItemString);
+                if (decision.result == TagItems::VacsCallGuardResult::UnusableLabel) {
+                    Information("VACS next-sector call: the sector label for " + callsign +
+                                " cannot be used for a direct call. Right-click the VACS tag to choose a controller.");
+                    Logger::Info("VACS next-sector call: sector label unusable for direct calling for {}", callsign);
+                    return;
+                }
+                if (decision.result == TagItems::VacsCallGuardResult::DestinationChanged) {
+                    Information("VACS next-sector call: the destination for " + callsign + " changed. Refresh and try again.");
+                    Logger::Info("VACS next-sector call: destination changed between paint and click for {}", callsign);
+                    return;
+                }
+                if (decision.result == TagItems::VacsCallGuardResult::NoTarget) {
+                    Information("VACS next-sector call: no unique controller available to call for " + callsign + ".");
+                    Logger::Info("VACS next-sector call: no unambiguous controller resolved for {}", callsign);
+                    return;
+                }
+                if (!container->vacsService->Execute(vacs::Action::Call, {}, decision.clientId)) {
+                    Information("VACS next-sector call: VACS rejected the call attempt for " + callsign + ".");
+                    Logger::Info("VACS next-sector call: VACS rejected the call attempt for {}", callsign);
+                }
+            });
+            return;
+        }
+        if (FunctionId == TAG_FUNC_VACS_NEXT_SECTOR_PICKER) {
+            // Same picker the FlightStrips panel's "Call..." button opens;
+            // selecting a row calls back through TAG_FUNC_VACS_DIAL above.
+            SafeCall("VACS next-sector picker", [&] {
+                if (!container->vacsService) return;
+                const auto rows = container->vacsService->OpenPicker();
+                OpenPopupList(Area, "VACS CALL", 2);
+                if (rows.empty()) {
+                    const auto view = container->vacsService->GetView();
+                    const auto notReady = view.state != vacs::State::Idle || !view.actionable;
+                    AddPopupListElement(notReady ? view.label.c_str() : "No controllers on VACS", "", TAG_FUNC_VACS_DIAL, false,
+                                        EuroScopePlugIn::POPUP_ELEMENT_NO_CHECKBOX, true);
+                }
+                for (const auto& row : rows) AddPopupListElement(row.label.c_str(), row.frequency.c_str(), TAG_FUNC_VACS_DIAL);
             });
             return;
         }

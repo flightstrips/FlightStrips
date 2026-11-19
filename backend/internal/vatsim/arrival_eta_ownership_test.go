@@ -40,7 +40,7 @@ func TestVATSIMETAFallsBackWhenAMANHasNoFreshETA(t *testing.T) {
 			strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {{
 				Callsign: "SAS101", Session: 7, Origin: "EGLL", Destination: "EKCH", Bay: hiddenArrivalBay, ArrivalETA: test.existing,
 			}}}}
-			reconciler := newTestReconciler(newReconciliationTestCache(now, flight), reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}},
+			reconciler := newTestReconciler(newReconciliationTestCache(now, flight), reconciliationTestSessions{items: []*models.Session{{ID: 7, Name: "LIVE", Airport: "EKCH"}}},
 				strips, reconciliationTestAssignments{}, nil, time.Second, WithClock(func() time.Time { return now }), WithLegacyArrivalETAWriter(false))
 
 			require.NoError(t, reconciler.Reconcile(context.Background()))

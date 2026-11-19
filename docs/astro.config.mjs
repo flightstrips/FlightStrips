@@ -32,6 +32,10 @@ export default defineConfig({
 					items: [{ autogenerate: { directory: 'ekch' } }],
 				},
 				{
+					label: 'GSX',
+					items: [{ autogenerate: { directory: 'gsx' } }],
+				},
+				{
 					label: 'Troubleshooting',
 					items: [{ autogenerate: { directory: 'troubleshooting' } }],
 				},

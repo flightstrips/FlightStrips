@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import D1ArrivalBrief from './D1ArrivalBrief';
 import D1Brief from './D1Brief';
 import D1Chart from './D1Chart';
+import D1OptionsDialog from './D1OptionsDialog';
 import D1Stand from './D1Stand';
 import D2ATISDialog from './D2ATISDialog';
 import D2CDMDialog from './D2CDMDialog';
@@ -523,5 +524,37 @@ describe('EFB operational dialogs', () => {
     await waitFor(() => expect(onUpdate).toHaveBeenCalledWith('1430Z'));
     expect(await screen.findByRole('alert')).toHaveTextContent('CDM unavailable');
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('EFB options', () => {
+  it('loads the declared scenery, saves a new tick and keeps exactly one ticked', async () => {
+    const saveScenery = vi.fn().mockResolvedValue({});
+    render(<D1OptionsDialog isOpen onClose={vi.fn()} loadScenery={vi.fn().mockResolvedValue('simnord')} saveScenery={saveScenery} />);
+    const sceneries = within(screen.getByRole('radiogroup', { name: 'AIRPORT SCENERY' })).getAllByRole('radio');
+    expect(sceneries.map((radio) => radio.textContent?.replace('✓', ''))).toEqual(['FlyTampa Copenhagen', 'SimNord Copenhagen', 'Default']);
+    await waitFor(() => expect(screen.getByRole('radio', { name: /SimNord Copenhagen/ })).toHaveAttribute('aria-checked', 'true'));
+
+    fireEvent.click(screen.getByRole('radio', { name: /FlyTampa Copenhagen/ }));
+    expect(saveScenery).toHaveBeenCalledWith('flytampa');
+    expect(screen.getByRole('radio', { name: /FlyTampa Copenhagen/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /SimNord Copenhagen/ })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('reverts the tick and says so when saving fails', async () => {
+    render(<D1OptionsDialog isOpen onClose={vi.fn()} loadScenery={vi.fn().mockResolvedValue(null)} saveScenery={vi.fn().mockRejectedValue(new Error('down'))} />);
+    fireEvent.click(screen.getByRole('radio', { name: /Default/ }));
+    expect(await screen.findByText('Could not save your scenery choice. Try again.')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Default/ })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('links each scenery to its product page and GSX profile', () => {
+    render(<D1OptionsDialog isOpen onClose={vi.fn()} />);
+    expect(screen.getByRole('link', { name: 'Buy FlyTampa Copenhagen' })).toHaveAttribute('href', 'https://www.flytampa.org/ekch.html');
+    expect(screen.getByRole('link', { name: 'Buy SimNord Copenhagen' })).toHaveAttribute('href', 'https://www.simnord.com/en/product/ekch-copenhagen-airport-msfs-2020-2024/');
+    expect(screen.getByRole('link', { name: 'GSX profile for FlyTampa Copenhagen' })).toHaveAttribute('href', 'https://flightsim.to/addon/97152/flytampa-ekch-gsx-profile-official-vatsca-publication');
+    expect(screen.getByRole('link', { name: 'GSX profile for SimNord Copenhagen' })).toHaveAttribute('href', 'https://flightsim.to/addon/114611/simnord-ekch-gsx-profile-official-vatsca-publication');
+    expect(screen.queryByRole('link', { name: /Default/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Traffic Board' })).not.toBeInTheDocument();
   });
 });

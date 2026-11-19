@@ -30,7 +30,7 @@ export default function D1DownloadsDialog({ isOpen, onClose }: D1DownloadsDialog
 
         <div className="flex h-full w-full items-center justify-center gap-[3%]">
           <a
-            href="https://www.flightsim.to"
+            href="https://flightsim.to/profile/vatsca"
             target="_blank"
             rel="noreferrer"
             aria-label="Download GSX profile"

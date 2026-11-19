@@ -24,6 +24,7 @@ import D1ArrivalBriefDialog from '../components/efb/dialogs/D1ArrivalBrief';
 import D1BRIEFDialog from '../components/efb/dialogs/D1Brief';
 import D1ChartDialog from '../components/efb/dialogs/D1Chart';
 import D1DownloadsDialog from '../components/efb/dialogs/D1DownloadsDialog';
+import D1OptionsDialog from '../components/efb/dialogs/D1OptionsDialog';
 import D1STANDDialog, { type StandAvailability } from '../components/efb/dialogs/D1Stand';
 import D2CDMDialog from '../components/efb/dialogs/D2CDMDialog';
 import D2ATISDialog from '../components/efb/dialogs/D2ATISDialog';
@@ -41,6 +42,11 @@ function elapsedSinceUtcTime(time: string, nowMs: number): number | null {
   target.setUTCHours(Number(time.slice(0, 2)), Number(time.slice(2, 4)), 0, 0);
   const day = 86_400_000;
   return ((nowMs - target.getTime() + day / 2) % day + day) % day - day / 2;
+}
+
+// The METAR stands in for the ATIS when no fresh ATIS is online.
+function usesMetarFallback(flight: ApiFlight | null | undefined): boolean {
+  return Boolean(flight?.metar) && (!flight?.atis || flight.atis.stale);
 }
 
 function atisAcknowledgementKey(flight: ApiFlight | null, source: string): string | null {
@@ -113,6 +119,8 @@ interface ApiFlight {
   eobt?: string | null;
   tsat?: string | null;
   atis?: { code: string; text: string[]; frequency?: string; last_updated?: string; stale: boolean } | null;
+  // Raw METAR, sent only when no fresh ATIS is online.
+  metar?: string | null;
   pdc_available: boolean;
   pdc_can_submit: boolean;
   capabilities: {
@@ -240,7 +248,7 @@ const unavailableFlightData: FlightDisplayData = {
   tobt: 'NIL', tobtStatus: 'DEFAULT', tsat: 'NIL', tsatStatus: 'DEFAULT',
 };
 
-type DialogType = 'D1ARRBRIEF' | 'D1BRIEF' | 'D1CHART' | 'D1DOWNLOADS' | 'D1STAND' | 'D2CDM' | 'D2ATIS' | 'D2PDC' | null;
+type DialogType = 'D1ARRBRIEF' | 'D1BRIEF' | 'D1CHART' | 'D1DOWNLOADS' | 'D1OPTIONS' | 'D1STAND' | 'D2CDM' | 'D2ATIS' | 'D2PDC' | null;
 type BoxType = 'L2' | 'M2' | 'R2' | 'L3' | 'M3' | 'R3';
 
 const arrivalTileInfo: Record<BoxType, string[]> = {
@@ -470,6 +478,15 @@ export default function EFBPage() {
     return body;
   }, [getAccessTokenSilently]);
 
+  const loadScenery = useCallback(async () => {
+    const body = await authorizedFetch('/api/efb/scenery') as { scenery?: string | null } | null;
+    return body?.scenery ?? null;
+  }, [authorizedFetch]);
+
+  const saveScenery = useCallback((scenery: string) => (
+    authorizedFetch('/api/efb/scenery', { method: 'PUT', body: JSON.stringify({ scenery }) })
+  ), [authorizedFetch]);
+
   const efbPath = useCallback((path: string, callsign?: string) => {
     const query = new URLSearchParams();
     if (trainingSession) query.set('training_session', trainingSession);
@@ -538,7 +555,10 @@ export default function EFBPage() {
       setLoadError(null);
       setFlightStale(false);
       setPdcStatus(flight.pdc_requires_pilot_action ? 'RECEIVED' : flight.pdc_state === 'CONFIRMED' ? 'CONFIRMED' : flight.pdc_state === 'REQUESTED' ? 'PENDING' : !flight.atis || flight.atis.stale ? 'NOATIS' : 'NOREQ');
-      if (flight.atis) {
+      if (usesMetarFallback(flight)) {
+        setAtisTextCurrent(flight.metar ?? '');
+        setAtisLetterCurrent('');
+      } else if (flight.atis) {
         setAtisTextCurrent(flight.atis.text.join('\n'));
         setAtisLetterCurrent(flight.atis.code);
       } else {
@@ -876,7 +896,13 @@ useEffect(() => {
     setActiveBox(null);
   };
 
-  const openAtisDialog = (box: BoxType, flight: ApiFlight) => {
+  const handleOptionsClick = () => {
+    if (!showFlightplanElements) return;
+    setOpenDialog('D1OPTIONS');
+    setActiveBox(null);
+  };
+
+  const openAtisDialog =(box: BoxType, flight: ApiFlight) => {
     setAcknowledgedAtis(atisAcknowledgementKey(flight, atisSource));
     setOpenDialog('D2ATIS');
     setActiveBox(box);
@@ -894,6 +920,11 @@ useEffect(() => {
       return;
     }
     const refreshedFlight = await refreshFlight();
+    if (refreshedFlight && usesMetarFallback(refreshedFlight)) {
+      setOpenDialog('D2ATIS');
+      setActiveBox(sourceBox);
+      return;
+    }
     if (!refreshedFlight?.atis) {
       setActionError('ATIS is currently unavailable');
       return;
@@ -1022,7 +1053,9 @@ useEffect(() => {
       ? 'bg-[#41826E]' : 'bg-[#1A475F]';
   };
 
+  const metarFallback = !arrivalPreview && usesMetarFallback(apiFlight);
   const getAtisText = () => {
+    if (metarFallback) return 'METAR';
     return atisLetterCurrent ? `ATIS ${atisLetterCurrent}${apiFlight?.atis?.stale ? ' STALE' : ''}` : 'REQ ATIS';
   };
 
@@ -1291,6 +1324,12 @@ useEffect(() => {
         isOpen={openDialog === 'D1DOWNLOADS'}
         onClose={handleCloseDialog}
       />
+      <D1OptionsDialog
+        isOpen={openDialog === 'D1OPTIONS'}
+        onClose={handleCloseDialog}
+        loadScenery={loadScenery}
+        saveScenery={saveScenery}
+      />
       {openDialog === 'D1STAND' && (
         <D1STANDDialog
           isOpen
@@ -1331,7 +1370,7 @@ useEffect(() => {
         isOpen={openDialog === 'D2ATIS'}
         onClose={handleCloseDialog}
         position={tilePosition(activeBox ?? 'L2')}
-        content={`${apiFlight?.atis?.stale ? 'STALE ' : ''}ATIS for ${flightData.callsign}`}
+        content={metarFallback ? `ATIS offline - METAR for ${flightData.callsign}` : `${apiFlight?.atis?.stale ? 'STALE ' : ''}ATIS for ${flightData.callsign}`}
         atisText={atisTextCurrent}
       />
       <D2PDCDialog
@@ -1392,10 +1431,10 @@ useEffect(() => {
         )}
 
         {showFlightplanElements && (
-          <a href="https://flightboard.simfixr.com/?icao=EKCH" aria-label="Traffic Board" target="_blank" rel="noreferrer" className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[66.66%] flex h-[60%] w-[30.83%] items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
-            TRAFFIC BOARD
+          <button type="button" aria-label="Options" onClick={handleOptionsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[66.66%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
+            OPTIONS
             <img src={standArrow} alt="" className="absolute right-[3%] h-[85%] w-[12%] object-contain" />
-          </a>
+          </button>
         )}
       </div>
 
@@ -1469,12 +1508,18 @@ useEffect(() => {
                   <div className="absolute top-[2%] left-0 flex h-[14%] w-[86%] items-center justify-start whitespace-nowrap border-b border-[#38536E] text-left text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
                     PUBLISHED HOLDING
                   </div>
-                  <img src={HOLD} alt="Holding pattern" className={`absolute top-[16%] left-[2%] h-[46%] w-[30%] object-contain ${flightData.publishedHoldingDetail.endsWith('/LEFT') ? '-scale-x-100' : ''}`} />
-                  <div className="absolute top-[16%] left-[35%] flex h-[24%] w-[63%] items-center justify-start whitespace-nowrap text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold">
-                    {flightData.publishedHoldingFix || 'NOT AVAILABLE'}
-                  </div>
-                  <div className="absolute top-[38%] left-[35%] flex h-[20%] w-[63%] items-start justify-start whitespace-nowrap text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)]">
-                    {flightData.publishedHoldingDetail || 'DETAILS UNAVAILABLE'}
+                  <div className="absolute top-[16%] left-0 flex h-[46%] w-full items-start gap-[3%]">
+                    <img src={HOLD} alt="Holding pattern" className={`h-full w-auto max-w-[30%] shrink-0 object-contain object-left ${flightData.publishedHoldingDetail.endsWith('/LEFT') ? '-scale-x-100' : ''}`} />
+                    <div className="flex h-full min-w-0 flex-col justify-start">
+                      <div className="flex h-[52%] items-center whitespace-nowrap text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold">
+                        {flightData.publishedHoldingFix || 'NIL'}
+                      </div>
+                      {flightData.publishedHoldingDetail && (
+                        <div className="flex items-start whitespace-nowrap text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)]">
+                          {flightData.publishedHoldingDetail}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1485,7 +1530,7 @@ useEffect(() => {
                     EXPECTED APP
                   </div>
                   <div className="absolute top-[40%] right-0 flex h-[60%] w-full items-start justify-end whitespace-nowrap pt-[2%] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]">
-                    ILS{flightData.arrivalRunway ? ` ${flightData.arrivalRunway}` : ''}
+                    {flightData.arrivalRunway && flightData.arrivalRunway !== 'NIL' ? `ILS ${flightData.arrivalRunway}` : 'NIL'}
                   </div>
                 </div>
               )}
@@ -1498,7 +1543,7 @@ useEffect(() => {
                     <div className="flex aspect-square w-[20%] items-center justify-center">
                       <img src={RNAVLOGO} alt="Arrival procedure" className="h-full w-full object-contain" />
                     </div>
-                    <div>{flightData.terminalFix || 'STAR'}</div>
+                    <div>{flightData.terminalFix || 'NIL'}</div>
                   </div>
                   <div className="absolute top-[38%] right-0 flex h-[20%] w-full flex-col items-end justify-start text-right text-[clamp(14px,calc(1.5*var(--efb-vh)),36px)] text-white">
                     {flightData.arrivalHeading && <div className="text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)] underline underline-offset-4">Maintain {flightData.arrivalHeading}</div>}
@@ -1507,9 +1552,9 @@ useEffect(() => {
 
               {isArrival && (
                 <div role="group" aria-label="Expected STAR" className="absolute top-[66%] left-[2%] h-[34%] w-[46%] text-left text-white">
-                  <div className="absolute top-0 left-0 flex h-[40%] w-[86%] items-center justify-start border-b border-[#38536E] text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
+                  <div className="absolute top-0 left-0 flex h-[40%] w-[86%] items-center justify-start whitespace-nowrap border-b border-[#38536E] text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
                     EXPECTED STAR
-                    {apiFlight?.arrival_guidance_expected && <span className="ml-1 text-[clamp(9px,calc(1.1*var(--efb-vh)),14px)]">(ROUTE / ATIS / WIND)</span>}
+                    {apiFlight?.arrival_guidance_expected && <span title="Estimated from filed route, ATIS or wind - not an ATC clearance" className="ml-1 text-[clamp(9px,calc(1.1*var(--efb-vh)),14px)]">(EST)</span>}
                   </div>
                   <div className="absolute top-[40%] left-0 flex h-[60%] w-full items-start justify-start whitespace-nowrap pt-[2%] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]">
                     {flightData.star}
@@ -1584,7 +1629,7 @@ useEffect(() => {
               <button type="button" aria-label="Open ATIS" onClick={(event) => { event.stopPropagation(); handleBoxClick('M3'); }} className="efb-atis-control relative block h-full w-full cursor-pointer border-0 border-[#000109] bg-[#000109]">
                 <div role="group" aria-label="ATIS identifier" className={`efb-action-bar efb-clickspot absolute top-0 left-0 flex h-1/2 w-full flex-col items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] ${getAtisColor()}`}>
                   <div className="flex h-[52%] w-full items-center justify-center text-center text-[clamp(14px,calc(5.5*var(--efb-vh)),88px)] leading-none font-bold text-white">
-                    {apiFlight?.atis?.code ? `ATIS ${apiFlight.atis.code}${apiFlight.atis.stale ? ' STALE' : ''}` : getAtisText()}
+                    {!metarFallback && apiFlight?.atis?.code ? `ATIS ${apiFlight.atis.code}${apiFlight.atis.stale ? ' STALE' : ''}` : getAtisText()}
                   </div>
                   <div className="flex h-[44%] w-full items-center justify-center">
                     <img src={ATISPicture} alt="ATIS icon" className="h-full w-auto max-w-[30%] object-contain" />

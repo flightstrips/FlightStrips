@@ -15,6 +15,16 @@ var arrivalRunwayInUsePattern = regexp.MustCompile(`(?i)\b(?:RWYS?|RUNWAYS?)\s+I
 var arrivalApproachPattern = regexp.MustCompile(`(?i)\bILS(?:\s+(?:APPROACH|APCH))?\s+(?:RWYS?|RUNWAYS?)?\s*((?:0[1-9]|[12][0-9]|3[0-6])[LRC]?\b[^\n.;]*)`)
 var arrivalRunwayPattern = regexp.MustCompile(`\b(?:(?:04|22)[LR]|12|30)\b`)
 
+// addMETARFallback supplies the airport METAR when its ATIS is offline or stale.
+func (a *WebAPI) addMETARFallback(ctx context.Context, result *snapshot, airport string) {
+	if a.metar == nil || (result.ATIS != nil && !result.ATIS.Stale) {
+		return
+	}
+	if raw := strings.TrimSpace(a.metar.GetMETAR(ctx, airport)); raw != "" {
+		result.METAR = &raw
+	}
+}
+
 // metarWindPattern matches the surface wind group, e.g. 24012KT, 24012G25KT, 24006MPS, VRB02KT.
 var metarWindPattern = regexp.MustCompile(`\b(\d{3}|VRB)(\d{2,3})(?:G\d{2,3})?(KT|MPS)\b`)
 

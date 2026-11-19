@@ -215,6 +215,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	standAssignmentRepo := satGraph.assignments
 	standAllocationService := satGraph.allocations
+	pilotSceneries := postgres.NewPilotSceneryRepository(dbpool)
 	standActionService := satGraph.actions
 	departureLifecycle := satGraph.departures
 	arrivalLifecycle := satGraph.arrivals
@@ -443,6 +444,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		frontendHub.SetStandActionService(standActionService)
 		standAllocationService.SetPublisher(frontendHub.PublishStandAllocation)
 		standAllocationService.SetBlockRemovalPublisher(frontendHub.PublishStandBlockRemoval)
+		standAllocationService.SetPilotSceneries(pilotSceneries)
 	}
 	cdmService, err := cdm.NewCdmService(cdm.ServiceDependencies{
 		Client:                cdmClient,
@@ -711,7 +713,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 				Auth:    authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
 				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil, Viff: efbViff,
 				Stands: standActionService, ATIS: metarPoller, METAR: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification, Terminal: efbTerminal, Navigation: efbNavigation,
-				PilotStands: satGraph.pilotStands,
+				PilotStands: satGraph.pilotStands, Sceneries: pilotSceneries,
 			}),
 			sessionRepo:                sessionRepo,
 			stripRepo:                  stripRepo,

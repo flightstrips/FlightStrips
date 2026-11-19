@@ -237,3 +237,44 @@ func TestArrivalGuidanceUsesWindWhenATISHasNoRunway(t *testing.T) {
 		})
 	}
 }
+
+type staleATISStub struct{}
+
+func (staleATISStub) GetATIS(string, bool) *metar.ATIS {
+	return &metar.ATIS{Code: "C", Text: []string{"RWY IN USE 22L"}, Stale: true}
+}
+
+func TestFlightIncludesMETARWhenATISIsOffline(t *testing.T) {
+	const raw = "EKCH 191150Z 24012KT 9999 FEW030 08/04 Q1012 NOSIG"
+	for _, tc := range []struct {
+		name      string
+		atis      ATISLookup
+		wantMETAR bool
+	}{
+		{name: "no ATIS online", wantMETAR: true},
+		{name: "stale ATIS", atis: staleATISStub{}, wantMETAR: true},
+		{name: "fresh ATIS", atis: &atisLookupStub{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lookup := &metarLookupStub{raw: raw}
+			api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Terminal: arrivalTestConfig(t), METAR: lookup, ATIS: tc.atis,
+				Network: networkTestFlightWithRoute(t, true, time.Now(), "SAS99X", "EDDF", "EKCH", "DCT TUDLO DCT EKCH"),
+				Viff:    &networkTimingStub{}, Flights: &finderStub{err: pdc.ErrWebStripNotFound},
+			})
+			req := httptest.NewRequest(http.MethodGet, "/efb/flight", nil)
+			req.Header.Set("Authorization", "Bearer token")
+			rec := httptest.NewRecorder()
+			api.handleFlight(rec, req)
+			var got snapshot
+			if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
+				t.Fatalf("%d %s", rec.Code, rec.Body.String())
+			}
+			if tc.wantMETAR && (got.METAR == nil || *got.METAR != raw || lookup.airport != "EKCH") {
+				t.Fatalf("expected the destination METAR as ATIS fallback: %s", rec.Body.String())
+			}
+			if !tc.wantMETAR && got.METAR != nil {
+				t.Fatalf("a fresh ATIS must not be replaced by the METAR: %s", rec.Body.String())
+			}
+		})
+	}
+}

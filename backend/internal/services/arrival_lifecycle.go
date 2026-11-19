@@ -642,11 +642,13 @@ func (s *ArrivalLifecycleService) estimatedConflictCanWait(ctx context.Context, 
 		return false, err
 	}
 	blocks = activeManualStandBlocks(blocks, s.allocations.now())
+	request = s.allocations.withPilotScenery(ctx, request)
 	evaluation := s.allocations.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
 	for _, match := range evaluation.Matches {
 		matches[standName(match.Stand.Name)] = match
 	}
+	removeSceneryExcluded(request, matches)
 	match, compatible := matches[standName(existing.Stand)]
 	if !compatible {
 		return false, nil

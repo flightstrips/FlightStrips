@@ -81,13 +81,14 @@ func (a *WebAPI) handleNetworkFlight(w http.ResponseWriter, r *http.Request, use
 	if flight.Online() {
 		result.Groundspeed = &flight.Groundspeed
 	}
+	atisAirport := result.Destination
+	if departure {
+		atisAirport = result.Origin
+	}
 	if a.atis != nil {
-		atisAirport := result.Destination
-		if departure {
-			atisAirport = result.Origin
-		}
 		result.ATIS = a.atis.GetATIS(atisAirport, departure)
 	}
+	a.addMETARFallback(r.Context(), &result, atisAirport)
 	timing, err := a.networkTiming(r.Context(), flight.Callsign)
 	if err != nil {
 		slog.WarnContext(r.Context(), "EFB vIFF timing lookup failed", "callsign", flight.Callsign, "error", err)
@@ -110,6 +111,9 @@ func (a *WebAPI) handleNetworkFlight(w http.ResponseWriter, r *http.Request, use
 	}
 	if departure && !a.callsignLookup {
 		a.addPilotDepartureStand(r.Context(), &result, flight)
+	}
+	if departure {
+		result.SID = withPublishedSIDVersion(result.Origin, result.Runway, result.SID)
 	}
 	applyDepartureRules(&result)
 	if a.callsignLookup {

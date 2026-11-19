@@ -86,6 +86,7 @@ type WebAPIConfig struct {
 	Training              bool
 	TrainingStrips        repository.StripRepository
 	PilotStands           PilotStandActions
+	Sceneries             PilotSceneryStore
 }
 
 type WebAPI struct {
@@ -111,10 +112,11 @@ type WebAPI struct {
 	training              bool
 	trainingStrips        repository.StripRepository
 	pilotStands           PilotStandActions
+	sceneries             PilotSceneryStore
 }
 
 func NewWebAPI(cfg WebAPIConfig) *WebAPI {
-	return &WebAPI{airportServiceEnabled: cfg.AirportServiceEnabled, auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, viff: cfg.Viff, stands: cfg.Stands, atis: cfg.ATIS, metar: cfg.METAR, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live, terminal: cfg.Terminal, navigation: cfg.Navigation, network: cfg.Network, callsignLookup: cfg.CallsignLookup && !cfg.Live, training: cfg.Training && !cfg.Live, trainingStrips: cfg.TrainingStrips, pilotStands: cfg.PilotStands}
+	return &WebAPI{airportServiceEnabled: cfg.AirportServiceEnabled, auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, viff: cfg.Viff, stands: cfg.Stands, atis: cfg.ATIS, metar: cfg.METAR, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live, terminal: cfg.Terminal, navigation: cfg.Navigation, network: cfg.Network, callsignLookup: cfg.CallsignLookup && !cfg.Live, training: cfg.Training && !cfg.Live, trainingStrips: cfg.TrainingStrips, pilotStands: cfg.PilotStands, sceneries: cfg.Sceneries}
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
@@ -125,6 +127,7 @@ func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/efb/stand/open", a.handleStandOpen)
 	mux.HandleFunc("/efb/stands", a.handleStandAvailability)
 	mux.HandleFunc("/efb/training-sessions", a.handleTrainingSessions)
+	mux.HandleFunc("/efb/scenery", a.handleScenery)
 }
 
 func (a *WebAPI) handleMe(w http.ResponseWriter, r *http.Request) {
@@ -190,6 +193,9 @@ type snapshot struct {
 	PDCClearanceText              *string            `json:"pdc_clearance_text"`
 	PDCRetryAfterMS               int64              `json:"pdc_retry_after_ms,omitempty"`
 	ATIS                          *metar.ATIS        `json:"atis"`
+	// METAR is the current raw METAR for the ATIS airport, sent only when no
+	// fresh ATIS is online so the EFB can show weather instead.
+	METAR *string `json:"metar,omitempty"`
 	Capabilities                  capabilities       `json:"capabilities"`
 }
 
@@ -258,13 +264,14 @@ func (a *WebAPI) buildSnapshot(ctx context.Context, match pdc.WebStripMatch, ses
 	}
 	applyPDCDeliveryDelay(&result, s.PdcData, time.Now())
 	applyArrivalStandRestriction(&result, s, session.Airport, time.Now())
+	airport := s.Destination
+	if departure {
+		airport = s.Origin
+	}
 	if a.atis != nil {
-		airport := s.Destination
-		if departure {
-			airport = s.Origin
-		}
 		result.ATIS = a.atis.GetATIS(airport, departure)
 	}
+	a.addMETARFallback(ctx, &result, airport)
 	return result
 }
 

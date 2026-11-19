@@ -39,7 +39,7 @@ func TestDepartureInfoPrefersMatchingStrip(t *testing.T) {
 			if got.SID == nil || *got.SID != sid || got.Runway == nil || *got.Runway != runway || got.ClearedAltitude == nil || *got.ClearedAltitude != altitude {
 				t.Fatalf("expected strip departure information: %s", rec.Body.String())
 			}
-		} else if got.SID == nil || *got.SID != "GOLGA" || got.Runway == nil || *got.Runway != "22R" || got.ClearedAltitude != nil {
+		} else if got.SID == nil || *got.SID != "GOLGA2C" || got.Runway == nil || *got.Runway != "22R" || got.ClearedAltitude != nil {
 			t.Fatalf("expected filed waypoint/ATIS fallback without invented clearance: %s", rec.Body.String())
 		}
 		if got.InitialClimb == nil || *got.InitialClimb != "FL70" || got.DepartureFrequency == nil || *got.DepartureFrequency != "120.255" {

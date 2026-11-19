@@ -111,6 +111,12 @@ type StandAllocationRequest struct {
 	// an improvement regardless of tier; another fallback selection is churn
 	// and is rejected.
 	ImproveFromFallback bool
+	// SceneryExcludedStands are stands missing from the pilot's declared
+	// scenery. They are never chosen automatically or by a compatible manual
+	// selection; an observed position or a controller override still wins.
+	// Resolved by the allocation service from VatsimCID when left nil.
+	SceneryExcludedStands map[string]struct{}
+	SceneryName           string
 }
 
 // StandAllocationResult is complete only after the transaction commits. The
@@ -210,8 +216,9 @@ type StandAllocationService struct {
 	now                    func() time.Time
 	failures               *standdiagnostics.AllocationFailureLog
 	departureReleaseBuffer time.Duration
+	sceneries              PilotSceneryLookup
 
-	automaticFailureMu        sync.Mutex
+	automaticFailureMu       sync.Mutex
 	automaticTerminalFailures map[string]automaticTerminalFailure
 }
 
@@ -965,6 +972,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 		}
 		return nil, err
 	}
+	request = s.withPilotScenery(ctx, request)
 	ctx = beginRelocationChain(ctx, request.Callsign)
 	previousAutomaticOutcome := ""
 	if isAutomaticStandAllocation(command) {
@@ -1432,6 +1440,9 @@ func (s *StandAllocationService) standAvailable(ctx context.Context, request Sta
 	if target == "" {
 		return false, errors.New("stand availability requires a stand")
 	}
+	if request = s.withPilotScenery(ctx, request); request.sceneryExcludes(target) {
+		return false, nil
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return false, err
@@ -1492,6 +1503,7 @@ func (s *StandAllocationService) AvailableStands(ctx context.Context, request St
 	if err := validateStandAllocationRequest(AutomaticStandAllocation, &request); err != nil {
 		return nil, err
 	}
+	request = s.withPilotScenery(ctx, request)
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return nil, err
@@ -1542,6 +1554,11 @@ func (s *StandAllocationService) AvailableStands(ctx context.Context, request St
 		slices.Sort(entry.ReservedBy)
 		_, compatible := matches[name]
 		entry.Unsuitable = !compatible
+		if request.sceneryExcludes(name) {
+			entry.Reason = request.sceneryExclusionReason(name)
+			result = append(result, entry)
+			continue
+		}
 		if request.Direction == sat.AssignmentDirectionArrival && stand.ArrivalRestrictionReason != "" {
 			entry.Reason = stand.ArrivalRestrictionReason
 			result = append(result, entry)
@@ -1589,11 +1606,13 @@ func (s *StandAllocationService) Preview(ctx context.Context, request StandAlloc
 	}
 	activeBlocks := activeManualStandBlocks(blocks, s.now())
 
+	request = s.withPilotScenery(ctx, request)
 	evaluation := s.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
 	for _, match := range evaluation.Matches {
 		matches[standName(match.Stand.Name)] = match
 	}
+	removeSceneryExcluded(request, matches)
 	available, selection, err := s.automaticStandPool(request, assignments, activeBlocks, matches, nil)
 	if err != nil {
 		return StandAllocationPreview{}, err
@@ -1614,6 +1633,15 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		(command == CompatibleManualStand || command == IncompatibleManualOverride) {
 		if stand, known := s.stands.Lookup(request.Airport, request.Stand); known && stand.ArrivalRestrictionReason != "" {
 			return request.Stand, nil, nil, nil, "", fmt.Errorf("%w: %s: %s", ErrArrivalStandRestricted, request.Stand, stand.ArrivalRestrictionReason)
+		}
+	}
+	if command == CompatibleManualStand && request.sceneryExcludes(request.Stand) {
+		return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: request.sceneryExclusionReason(request.Stand)}
+	}
+	if command != observedStandAllocation && command != pilotObservedStandAllocation && command != IncompatibleManualOverride {
+		removeSceneryExcluded(request, matches)
+		if len(matches) == 0 && len(evaluation.Matches) > 0 {
+			return "", nil, nil, nil, "", ErrNoAvailableStand
 		}
 	}
 	if request.Direction == sat.AssignmentDirectionArrival &&

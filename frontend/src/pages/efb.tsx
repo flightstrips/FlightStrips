@@ -5,7 +5,6 @@ import { getApiUrl } from '@/lib/api-url';
 import { isLocalDevelopment } from '@/lib/local-development';
 import { fetchCachedAtis, parseAtisWeather } from '@/api/atis';
 import { ArrowDown, Gauge, Thermometer, Wind } from 'lucide-react';
-import simbriefFplImg from '../assets/efb/simbrief-fpl.png';
 import standImage from '../assets/efb/stand-image.png';
 import standArrow from '@/assets/stand-arrow.png';
 import depinfoImage from '../assets/efb/depinfo-image.png';
@@ -890,7 +889,6 @@ useEffect(() => {
   };
 
   const handleDownloadsClick = () => {
-    if (!showFlightplanElements) return;
     setOpenDialog('D1DOWNLOADS');
     setActiveBox(null);
   };
@@ -1401,20 +1399,12 @@ useEffect(() => {
       ) : null}
 
       <div className="absolute top-[2.5%] left-0 h-[10%] w-full">
-        {showFlightplanElements === false && (
-          <a href="https://www.simbrief.com/home/" target="_blank" rel="noreferrer" className="absolute top-[2.5%] left-[2.5%] flex h-[84.16%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#2E343D] text-xs text-white">
-            <img src={simbriefFplImg} alt="L1 Picture" className="h-full w-full object-cover" />
-          </a>
-        )}
+        <button type="button" aria-label="Downloads" onClick={handleDownloadsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[2.5%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
+          <img src={standArrow} alt="" className="absolute left-[3%] h-[85%] w-[12%] object-contain" />
+          DOWNLOADS
+        </button>
 
-        {showFlightplanElements && (
-          <button type="button" aria-label="Downloads" onClick={handleDownloadsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[2.5%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
-            <img src={standArrow} alt="" className="absolute left-[3%] h-[85%] w-[12%] object-contain" />
-            DOWNLOADS
-          </button>
-        )}
-
-        <button type="button" onClick={() => { if (!showFlightplanElements) void (profile === null ? loadProfile() : refreshFlight()); }} className={`absolute top-[2.5%] left-[34.58%] flex h-[60%] w-[30.83%] items-center justify-center bg-[#011328] text-center text-[clamp(24px,calc(5.5*var(--efb-vh)),106px)] font-bold text-white ${showFlightplanElements ? 'cursor-default' : 'cursor-pointer'}`}>
+        <button type="button" onClick={() => { if (!showFlightplanElements) void (profile === null ? loadProfile() : refreshFlight()); }} className={`efb-imprint absolute top-[2.5%] left-[34.58%] flex h-[60%] w-[30.83%] items-center justify-center bg-[#011328] text-center text-[clamp(24px,calc(5.5*var(--efb-vh)),106px)] font-bold text-white ${showFlightplanElements ? 'cursor-default' : 'cursor-pointer'}`}>
           {showFlightplanElements ? flightData.callsign : loadState === 'LOADING' ? 'LOADING' : loadState === 'ERROR' ? 'CLICK TO RETRY' : 'CLICK TO REFRESH'}
         </button>
 

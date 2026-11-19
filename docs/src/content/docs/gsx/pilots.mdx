@@ -1,0 +1,136 @@
+---
+title: GSX for pilots
+description: Install the FlightStrips GSX script, then let ATC's stand and pushback point reach your simulator.
+sidebar:
+  order: 1
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+With the FlightStrips script installed, GSX follows what the controller has put on
+your strip:
+
+- **Arriving:** GSX selects the stand ATC assigned you, and follows if they move you.
+- **Departing:** the GSX pushback menu gets one extra entry, **ATC Assigned**,
+  which pushes you to the point ATC gave you.
+
+If you are not on VATSIM, or nobody is controlling with FlightStrips, nothing
+changes. GSX behaves exactly as it does without the script.
+
+## What you need
+
+- **GSX Pro** for MSFS 2020 or MSFS 2024.
+- **A supported scenery, with its GSX profile.** Today that is EKCH Copenhagen
+  with the `EKCH-Simnord-Sonnich` profile. The script only works with the
+  profile it was made for.
+- **A SimBrief plan with your VATSIM callsign.** This is how FlightStrips finds
+  your strip. See [Your callsign](#your-callsign).
+
+## Install
+
+<Steps>
+
+1. **Get both files from your profile's publisher.** You need the GSX profile
+   (for example `EKCH-Simnord-Sonnich.ini`) and its script (for example
+   `EKCH-Simnord-Sonnich_handler.py`). The script's name is the profile's name
+   plus `_handler`, and it only loads if the two names match exactly.
+
+2. **Copy both into your GSX profile folder.** Paste this into the Explorer
+   address bar:
+
+   ```
+   %APPDATA%\Virtuali\GSX\MSFS
+   ```
+
+   The folder is the same for MSFS 2020 and 2024.
+
+3. **Make the profile active.** If you have more than one GSX profile for the
+   airport, select this one in GSX's airport customization.
+
+</Steps>
+
+Nothing needs configuring. Airport scripts load on their own, and you do not
+need to enable GSX's handler script setting to use one.
+
+## Departing: push to the ATC point
+
+<Steps>
+
+1. **Select Prepare for Pushback and Departure** in GSX, as you normally would.
+   The **ATC Assigned** entry goes on the pushback menu now, whether or not ATC
+   has given you a point yet.
+
+2. **Wait for the tug.** Once it is connected, GSX shows **Select pushback
+   direction**.
+
+3. **Call ATC for pushback,** if you have not already. You can call before
+   requesting the tug or while the direction menu is on screen. Both work.
+
+4. **Pick ATC Assigned.** GSX pushes you to the point ATC assigned. All the
+   scenery's own routes stay on the menu, so you can still choose a different
+   one.
+
+</Steps>
+
+### Seeing which point ATC gave you
+
+| Where | What you see |
+| --- | --- |
+| GSX message | `ATC pushback: S1 Face N - pick "ATC Assigned"`, when it is assigned and again when the direction menu opens |
+| Stand display | `PUSH S1 FACE N`, at stands with a docking display |
+| The menu entry | `ATC Assigned: S1 Face N`, if ATC assigned it before the direction menu appeared |
+
+If ATC assigns the point after the menu is on screen, the entry still reads
+**ATC Assigned**, because GSX does not rename a menu once it is shown. It goes
+to the new point anyway.
+
+### If the point changes
+
+- **Before you pick:** the **ATC Assigned** entry follows the new point. The
+  message tells you where it goes now.
+- **Once you are moving:** the push already under way is not changed. If you
+  are told `too late for this tug`, cancel the pushback and request it again.
+
+### If there is no route
+
+`ATC assigned R2 Face N - no route to it from this stand` means your scenery has
+no pushback route to that point from your stand. Pick one of the scenery's
+routes, or ask ATC for a different point.
+
+## Arriving: the assigned stand
+
+GSX selects your stand once you are on the ground and slowing down. If ATC moves
+you, it follows. If you pick a different stand yourself, the script stops for
+the rest of that visit and never overrides your choice.
+
+## Your callsign
+
+FlightStrips finds your strip by the callsign you connected to VATSIM with, so
+the script has to reproduce it. It looks in this order:
+
+1. **Your SimBrief plan,** once GSX has loaded it. This is the reliable source.
+2. Your aircraft's airline code and flight number from the simulator.
+3. Your aircraft's registration.
+
+If the callsign the script finds is not your VATSIM callsign, nothing happens.
+File your SimBrief plan with the callsign you will connect with.
+
+GSX only loads a SimBrief plan whose aircraft type matches the loaded aircraft
+and whose departure time has not passed. If yours is not loading, turn on
+**Simbrief Ignore Time** in GSX settings.
+
+## Troubleshooting
+
+All script output goes to the GSX log, with `[stands]` at the start of each line:
+
+```
+%APPDATA%\Virtuali\Couatl.log
+```
+
+| In the log | Meaning |
+| --- | --- |
+| No `[stands]` lines at all | The script is not loading. Check that its name matches the active profile's name plus `_handler`. |
+| `WARNING: airport handler script ...` | The script has an error and was skipped. Report it to the profile publisher. |
+| `callsign XYZ123 (from the sim)` | SimBrief was not loaded, so the callsign may be wrong. |
+| `fetchJson error ...` | FlightStrips could not be reached. The script keeps retrying. |
+| `pilot took over` | You changed the stand yourself, so the script stopped for this visit. |

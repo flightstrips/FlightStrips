@@ -202,23 +202,177 @@ Each one is recorded in that stand's `review` note.
 
 ## Pushback points
 
-For departing traffic only. `getGate().pushback`, `pushbackLabels` and `pushbackAddPos` are all writable at
-any time, so the handler can narrow the pushback menu to the assigned route:
+For departing traffic only. The handler **adds one entry** to the pushback menu,
+named for the assigned point (`ATC Assigned: Z2 Face E`), and leaves every
+scenery route on offer. The pilot's side:
 
-- **Extra slots** defined by the profile: keep the wanted entries in
-  `pushbackAddPos` and drop the rest.
-- The **two defaults**: `pushbackLabels` is left then right, and the direction
-  enum is a bitmask - `1` left, `2` right, `3` both, `0` neither.
+1. Select **Prepare for Pushback and Departure**. The entry goes on the menu
+   now, assigned or not. With nothing assigned yet it is a bare `ATC Assigned`
+   leading to the scenery's first route.
+2. Wait for the tug. GSX asks which way to push once the tug is connected.
+   Calling ATC for pushback only now, with the menu on screen, is fine.
+3. Pick the **ATC Assigned** entry and push.
+
+The entry is a copy of the scenery route that reaches the point: same `pos`,
+same `approach`, and the extra fields (`wws`, `snap`, `startEngines`) of a
+slot the profile already defines. GSX drives geometry it already knows under
+another name. When the server lists two facings of one taxiway, the entry
+takes the first, and its label names that facing.
+
+The assigned point reaches the pilot in three ways, because `showMessage` only
+shows while the GSX menu is open:
+
+| Where | When |
+| --- | --- |
+| Menu entry label | only if assigned before the menu is built (state 5) |
+| Stand display (VDGS) | `PUSH Z2 FACE E`, from the moment it is assigned |
+| GSX message | on assignment, and again once as the route menu opens (state 5) |
+
+**Reads of `pushbackAddPos` are copies.** Changing a dict read out of it does
+nothing. Flown at D2: the entry kept its old name and the push went to its old
+route. So every change rewrites the whole list, with only the entry replaced,
+same length and same order. Appending the entry at the request is the same kind
+of write, and pushes normally.
+
+**GSX reads the routes again when the tug drives.** The menu's names are fixed
+at state 5, but where each entry leads is not. Also flown at D2: a point
+assigned with the route menu already on screen, by rewriting the list, and the
+bare "ATC Assigned" entry pushed there. This is the usual case, because most
+pilots call for pushback only once GSX shows the menu. After state 5 the
+handler leaves the label alone and only moves the route. The messages quote
+the entry by the name the menu actually shows.
+
+Two writes are never made:
+
+- **Before the request.** A parked, boarding aircraft keeps the scenery's own
+  menu. An early assignment is only announced, on the VDGS and in a message.
+- **Once the aircraft moves.** The tug is driving the entry's geometry. The
+  pilot is told to cancel and request again.
+
+`onAirportBypassPinConnected` re-checks the feed, because the pin goes in
+about twenty seconds before GSX builds the menu. A clearance that arrives just
+then reaches the menu without waiting up to five seconds for the poll.
+
+*Where the window closes*, below, describes the marking mode. That cutoff
+applies to labels, not to where an entry leads.
+
+`ATC_ENTRY = False` falls back to the earlier modes described below: marking a
+scenery route in place, and optionally narrowing the menu until state 5.
+
+### Why it does not simply narrow
+
+`getGate().pushback`, `pushbackLabels` and `pushbackAddPos` are all writable,
+and the obvious thing to do is drop the routes ATC did not assign: keep the
+wanted entries in `pushbackAddPos`, and set the direction bitmask (`1` left,
+`2` right, `3` both, `0` neither) to hide the unwanted defaults.
+
+**That breaks the pushback.** GSX reaches "release parking brakes" and then
+never moves. Measured at EKCH B8, one flight per combination:
+
+| `pushback` | `pushbackAddPos` | Result |
+| --- | --- | --- |
+| untouched | untouched | pushes normally |
+| written | untouched | hangs at "release parking brakes" |
+| untouched | written | hangs at "release parking brakes" |
+| written | written | hangs at "release parking brakes" |
+
+GSX builds the tug's path from those two properties when it prepares the
+parking. Writing either afterwards leaves the menu offering routes whose
+geometry no longer exists, so the push has nowhere to go — that is the
+`[workZoneGate] PushBack: NOT GATED - pose not computable` line present in every
+failing log. `pushbackLabels` has no such effect and is safe to write at any
+time, including after the menu has been built.
+
+Narrowing does work if the scenery's own values are written back at departure
+state 5, before the push runs (`SHOW_ONLY_ASSIGNED`). But it only helps when the
+point is known before state 5, and it rewrites both properties twice per push.
+The added entry rewrites the list once and needs no restore. The pilot can still
+pick a route ATC did not give them; what they cannot do is miss which one was
+assigned. That is why the label carries the point's name: the alternatives stay
+visible, so a bare "ATC Assigned" would not say *which* push among four.
+
+`SET_DIRECTION` and `SET_ADDPOS` in the script remain as switches, both off, so
+the finding can be re-checked against a future GSX build.
 
 **GSX has no `selectPushback()`.** A script cannot answer the menu on the
-pilot's behalf; it can only remove the routes that were not assigned, leaving
-the assigned one as the only routed choice. GSX always offers Straight Pushback
-and Pull Straight regardless of the parking preference, so the menu does not
-disappear — the pilot still confirms.
+pilot's behalf. It always offers Straight Pushback and Pull Straight regardless
+of the parking preference, so the pilot always confirms.
 
 The route applies to the stand the aircraft is already parked on, which is why
 this is a departure-only concern and why the script never pairs it with a stand
 selection.
+
+### The pilot does not have to wait for clearance
+
+Requesting pushback and choosing a route are two separate moments in GSX, and
+they are far apart. Timed from a departure at EKCH Gate A32:
+
+| T+ | |
+| --- | --- |
+| 0:16 | pilot requests departure — `onAirportDepartureRequested` fires |
+| 0:18 | handling operator chosen |
+| 0:28 | tug operator reaches the aircraft |
+| 1:13 | nose gear raised, aircraft frozen |
+| 1:25 | tug opens its arms — `FSDT_GSX_DEPARTURE_STATE` goes **4 → 5** |
+| 1:45 | nose gear raised, and **the route menu is built and shown** |
+
+So a pilot can call the tug the moment they are ready and pick up their
+clearance while it drives out, instead of waiting for ATC and then waiting again
+for a tug. `onAirportDepartureRequested` is no longer the last chance to narrow
+anything; it only applies whatever is already assigned and marks where the
+aircraft was standing. The 5-second poll carries the rest.
+
+### Where the window closes
+
+**GSX takes its own copy of the parking's pushback configuration when it builds
+that menu.** The properties stay writable afterwards and GSX stops reading them,
+so a late write changes nothing the pilot can see.
+
+This was measured at B8, not assumed. `Y1 Face E` written at T+1:20 (state 4)
+reached the menu; `Y2 Face W` written at T+2:52 (state 5, menu already up) did
+not, and the menu went on offering `Y1` until the pilot cancelled the request and
+made it again — at which point GSX rebuilt the parking, re-read it, and the new
+route took.
+
+The script therefore treats **departure state 5 as the cutoff**. That is twenty
+seconds earlier than the true boundary at the nose gear, but it is the last
+marker the script can observe, and erring early costs a pilot one honest "cancel
+and request again" where erring late costs them a push in the wrong direction
+that the script claimed to have fixed. Movement is kept as a backstop, for a sim
+where the LVar cannot be read at all.
+
+`FSDT_VAR_Frozen` is not used for any of this. It was the original cutoff and it
+is wrong in both directions: it goes to 1 at the nose-gear raise on an aircraft
+configured for full freeze, half a minute before the pilot is asked anything,
+and on the B8 test aircraft it stayed at 0 for the entire pushback.
+
+### Marking mode (`ATC_ENTRY = False`)
+
+- **The mark moves; it does not accumulate.** Marking renames in place, so the
+  previously marked route is given its own name back before the new one is
+  marked. Otherwise a reassignment would leave two entries both claiming to be
+  the ATC route. The script snapshots the scenery's own names — for the two
+  defaults and for every extra slot — and restores from that.
+- **The mark is re-asserted, not written once.** The labels are read back on
+  each poll and re-applied silently if GSX has restored its own, so a rebuild
+  cannot quietly leave the pilot with an unmarked menu.
+- **An extra slot was renamed by mutating its dict.** That was later shown to
+  have no effect: reads of `pushbackAddPos` are copies (see above).
+
+An assignment that lands before the cutoff is applied and the pilot is told to
+re-open the menu, rather than left waiting for GSX's own refresh. One that lands
+after it is still applied — renaming works at any time — but whether GSX rebuilds
+the menu from the labels at that point is not something the script can observe,
+so the pilot is told to cancel the pushback and request it again if the mark has
+not appeared.
+
+Calling the tug with nothing assigned says nothing at all. It is tempting to
+answer with "waiting for ATC", and `ANNOUNCE_WAITING` in the script turns that
+on, but it is off by default: the feed cannot tell "on a strip, nothing assigned
+yet" from "nobody is controlling", because it answers both with an empty payload
+so as never to disclose whether a callsign is known to FlightStrips. A pilot
+flying offline with the profile installed would be promised a narrowing that is
+never coming.
 
 ## Client
 
@@ -229,125 +383,10 @@ in `gsx_sceneries.json`.
 
 ## Adding this to your GSX profile
 
-If you build and publish GSX profiles, you can ship stand assignment with the
-profile you already distribute. Pilots install it the same way they install
-everything else — copy the files into `%APPDATA%\Virtuali\GSX\MSFS\` — and there
-is nothing for them to configure.
+The step-by-step guides live in the GSX section:
 
-### Naming
-
-GSX loads an airport handler only when its filename is the active `.ini`
-profile's name plus `_handler`. The stem must match exactly:
-
-| Your profile | Your handler script |
-| --- | --- |
-| `EKCH-Simnord-Sonnich.ini` | `EKCH-Simnord-Sonnich_handler.py` |
-| `ekbi-simnord24.ini` | `ekbi-simnord24_handler.py` |
-| `EGKK-MyScenery.ini` | `EGKK-MyScenery_handler.py` |
-
-That binding is what makes the script scenery-specific. It loads only for the
-scenery whose profile is active, so the stand names it resolves are the ones
-that scenery actually has — you do not need to worry about another developer's
-numbering for the same airport.
-
-### A complete working script
-
-Copy this, rename it to match your profile, and set `API_BASE`. It is the whole
-feature in about fifty lines; the script in `gsx-client/` is the same thing with
-more logging and edge-case handling.
-
-```python
-# -- coding: utf-8 --
-# Stand assignment from FlightStrips. Python 3.7.
-# Save next to your .ini as <profile name>_handler.py
-
-API_BASE = "https://api.flightstrips.dk"
-POLL_INTERVAL_MS = 30000
-POLL_LIMIT = 240
-
-
-def _standReadCallsign(self):
-    """The callsign the pilot filed with, from their SimBrief plan."""
-    try:
-        sb = getSimbrief()
-        if sb is not None and not sb.last_error and sb.callsign:
-            clean = "".join(c for c in sb.callsign.upper() if c.isalnum())
-            return clean[:12]
-    except Exception as err:
-        print("[stands] SimBrief unavailable: %s" % err)
-    return ""
-
-
-def _standCheck(self):
-    """Fetch the current stand and select it if it has changed."""
-    if not self._standCallsign:
-        return
-
-    airport = getAirport()
-    payload = fetchJson("%s/api/gsx/stand?callsign=%s&icao=%s"
-                        % (API_BASE, self._standCallsign,
-                           airport.icao if airport else ""),
-                        timeout=8, etag=True)
-
-    # None is a network error, and an unchanged stand costs a 304. In both
-    # cases there is nothing to do until the next poll.
-    if not payload or payload.get("revision") == self._standRevision:
-        return
-
-    stand = payload.get("stand")
-    if not stand:
-        self._standRevision = payload.get("revision")
-        return
-
-    result = selectGate(stand)
-    if isinstance(result, list) and result:
-        result = selectGate(result[0])   # ambiguous name: take the first match
-    if result is True:
-        self._standRevision = payload.get("revision")
-        showMessage("Stand %s assigned" % stand)   # visible with the menu open
-
-
-def onEnterAirport(self):
-    self._standCallsign = _standReadCallsign(self)
-    self._standRevision = None
-    self._standPoll = None
-
-    if getGate() is not None:
-        return          # the pilot already picked a stand - leave them alone
-
-    _standCheck(self)
-
-    def loop():
-        for _ in range(POLL_LIMIT):
-            truewait(POLL_INTERVAL_MS)   # wall clock, unaffected by sim rate
-            _standCheck(self)
-
-    self._standPoll = runAsync(loop)
-
-
-def onGateReset(self, reason):
-    """The pilot chose their own stand. Stop, for the rest of this visit."""
-    if reason in ("user_changed", "user_revoked"):
-        cancelAsync(getattr(self, "_standPoll", None))
-        self._standPoll = None
-```
-
-### What to check before publishing
-
-- **Set `API_BASE`** to the FlightStrips instance for your vACC, over HTTPS.
-  Pilots never edit this — it ships already set.
-- **Test with the profile active.** If the filename stem is wrong the script is
-  silently not loaded; GSX will not warn you.
-- **Watch the GSX Handler Editor output panel** on your first run. The script
-  prints there, and `F5` reloads it without restarting the sim.
-- **Confirm your stand names resolve.** `selectGate` matches the BGL name and
-  number first (`Gate A12`), then the UI name, then a suffix (`A12` matches
-  `Gate A12`). If your scenery numbers stands unusually, check that the strings
-  controllers type in FlightStrips actually resolve in your profile.
-
-### What pilots see
-
-Nothing, unless they have a stand. A pilot with no strip, no assignment, or no
-SimBrief plan gets one HTTP request on arrival and no further activity — GSX
-behaves exactly as it does without the script. It never overrides a stand the
-pilot picked themselves, and it stops for good the moment they change one.
+- [GSX for pilots](/gsx/pilots/): installing the script and using
+  **ATC Assigned**.
+- [GSX for profile makers](/gsx/profile-makers/): mapping a scenery in
+  `gsx_sceneries.json`, preparing and testing the script, and the constraints
+  any change to it has to respect.

@@ -12,6 +12,18 @@ import (
 
 const ArrivalETASource = "aman"
 
+// FreshFor is how long an AMAN ArrivalETA stays authoritative after it was
+// calculated. The AMAN projection refreshes well inside this window; once it
+// lapses (AMAN stopped, gated, or no longer predicting the flight) the VATSIM
+// estimator may take over the field as a fallback.
+const FreshFor = 5 * time.Minute
+
+// IsFresh reports whether eta is an AMAN projection that still owns the field.
+func IsFresh(eta *models.ArrivalETA, now time.Time) bool {
+	return eta != nil && eta.Source == ArrivalETASource && !eta.Time.IsZero() &&
+		!eta.CalculatedAt.Before(now.Add(-FreshFor))
+}
+
 // ArrivalETAStore is the narrow strip persistence capability required by the
 // AMAN compatibility adapter. A nil projection is written as SQL NULL rather
 // than leaving a legacy estimate visible in an operational AMAN mode.

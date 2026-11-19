@@ -1,6 +1,7 @@
 package vatsim
 
 import (
+	"FlightStrips/internal/aman/compatibility"
 	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
@@ -343,6 +344,12 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			writeLegacyETA := r.legacyArrivalETAWriter
 			if r.legacyETAForAirport != nil {
 				writeLegacyETA = r.legacyETAForAirport(session.Airport)
+			}
+			// Where AMAN owns the ETA, the VATSIM estimate is the fallback for
+			// flights AMAN has no fresh prediction for (not tracked, gated, or
+			// AMAN not running). Its LIVE/FILED source keeps the fallback visible.
+			if !writeLegacyETA && !compatibility.IsFresh(strip.ArrivalETA, r.now()) {
+				writeLegacyETA = true
 			}
 			if writeLegacyETA {
 				etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight)

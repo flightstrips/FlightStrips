@@ -44,7 +44,7 @@ func TestAMANArrivalETAProjectionWritesMissingAndChangedETAs(t *testing.T) {
 	seen := now
 	store := &fakeArrivalETAStore{strips: []*models.Strip{
 		{Callsign: "SAS123", EuroscopeSeenAt: &seen},
-		{Callsign: "DLH4", ArrivalETA: &models.ArrivalETA{Time: teta, Source: compatibility.ArrivalETASource}},
+		{Callsign: "DLH4", ArrivalETA: &models.ArrivalETA{Time: teta, Source: compatibility.ArrivalETASource, CalculatedAt: now.Add(-time.Minute)}},
 		{Callsign: "BAW9", ArrivalETA: &models.ArrivalETA{Time: teta, Source: "LIVE"}},
 	}}
 	var notified []string
@@ -71,23 +71,38 @@ func TestAMANArrivalETAProjectionWritesMissingAndChangedETAs(t *testing.T) {
 	require.Empty(t, store.clears)
 }
 
-func TestAMANArrivalETAProjectionClearsStalePredictions(t *testing.T) {
+func TestAMANArrivalETAProjectionLeavesFlightsWithoutPredictionToFallback(t *testing.T) {
 	now := time.Date(2026, time.November, 19, 12, 0, 0, 0, time.UTC)
 	teta := now.Add(20 * time.Minute)
 	store := &fakeArrivalETAStore{strips: []*models.Strip{
-		{Callsign: "SAS1", ArrivalETA: &models.ArrivalETA{Time: teta, Source: compatibility.ArrivalETASource}},
-		{Callsign: "SAS2"},
+		{Callsign: "SAS1", ArrivalETA: &models.ArrivalETA{Time: teta, Source: compatibility.ArrivalETASource, CalculatedAt: now.Add(-time.Hour)}},
+		{Callsign: "SAS2", ArrivalETA: &models.ArrivalETA{Time: teta, Source: "LIVE", CalculatedAt: now}},
 	}}
 	projection := newAMANArrivalETAProjection(aman.ModeAuthoritative, store, nil)
 
 	projection.project(context.Background(), aman.AirportState{SessionID: 7, Flights: []aman.AMANFlight{
-		{Callsign: "SAS1", Prediction: amanETAPrediction(teta, now.Add(-amanArrivalETAMaxAge-time.Minute))},
-		// Already empty: no redundant clear.
+		{Callsign: "SAS1", Prediction: amanETAPrediction(teta, now.Add(-compatibility.FreshFor-time.Minute))},
 		{Callsign: "SAS2"},
 	}}, aman.TechnicalHealth{AuthorityAllowed: true}, now)
 
-	require.Equal(t, []string{"SAS1"}, store.clears)
+	require.Empty(t, store.clears, "a missing AMAN ETA must not erase the VATSIM fallback")
 	require.Empty(t, store.updates)
+}
+
+func TestAMANArrivalETAProjectionRefreshesUnchangedETABeforeItGoesStale(t *testing.T) {
+	now := time.Date(2026, time.November, 19, 12, 0, 0, 0, time.UTC)
+	teta := now.Add(20 * time.Minute)
+	store := &fakeArrivalETAStore{strips: []*models.Strip{
+		{Callsign: "SAS1", ArrivalETA: &models.ArrivalETA{Time: teta, Source: compatibility.ArrivalETASource, CalculatedAt: now.Add(-amanArrivalETARefreshAfter - time.Second)}},
+	}}
+	projection := newAMANArrivalETAProjection(aman.ModeAuthoritative, store, nil)
+
+	projection.project(context.Background(), aman.AirportState{SessionID: 7, Flights: []aman.AMANFlight{
+		{Callsign: "SAS1", Prediction: amanETAPrediction(teta, now)},
+	}}, aman.TechnicalHealth{AuthorityAllowed: true}, now)
+
+	require.Contains(t, store.updates, "SAS1")
+	require.True(t, compatibility.IsFresh(&models.ArrivalETA{Time: store.updates["SAS1"].Time, Source: store.updates["SAS1"].Source, CalculatedAt: store.updates["SAS1"].CalculatedAt}, now))
 }
 
 func TestAMANArrivalETAProjectionDoesNotWriteWhenAuthorityIsBlocked(t *testing.T) {

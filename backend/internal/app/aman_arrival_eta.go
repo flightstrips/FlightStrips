@@ -11,9 +11,10 @@ import (
 	"FlightStrips/internal/models"
 )
 
-// amanArrivalETAMaxAge bounds how old an AMAN prediction may be before the
-// strip's ArrivalETA is cleared instead of showing a stale estimate.
-const amanArrivalETAMaxAge = 5 * time.Minute
+// amanArrivalETARefreshAfter rewrites an unchanged AMAN ETA well before it
+// stops being fresh, so the VATSIM fallback does not take over a flight AMAN is
+// still predicting.
+const amanArrivalETARefreshAfter = compatibility.FreshFor / 2
 
 // arrivalETAStripStore is the strip persistence needed to project AMAN's
 // operational TETA onto the strip ArrivalETA field read by stand allocation.
@@ -38,13 +39,14 @@ func newAMANArrivalETAProjection(mode aman.RolloutMode, store arrivalETAStripSto
 	}
 	return &amanArrivalETAProjection{
 		mode: mode, store: store, notify: notify,
-		writer: compatibility.NewWriter(mode, amanArrivalETAMaxAge, store),
+		writer: compatibility.NewWriter(mode, compatibility.FreshFor, store),
 	}
 }
 
 // project writes each AMAN flight's projected ETA to its strip when the value
-// differs from what the strip holds. Only Time and Source are compared:
-// GeneratedAt moves on every prediction and must not bump strip versions.
+// differs from what the strip holds, or when the stored AMAN value is nearing
+// the end of its freshness window. Flights without a usable prediction are left
+// alone: the VATSIM reconciler fills them in as the fallback estimate.
 func (p *amanArrivalETAProjection) project(ctx context.Context, state aman.AirportState, health aman.TechnicalHealth, now time.Time) {
 	if p == nil || state.SessionID == 0 || len(state.Flights) == 0 {
 		return
@@ -70,8 +72,11 @@ func (p *amanArrivalETAProjection) project(ctx context.Context, state aman.Airpo
 		if !found {
 			continue
 		}
-		projected := compatibility.ProjectArrivalETA(p.mode, flight.Prediction, now, amanArrivalETAMaxAge)
-		if sameArrivalETA(strip.ArrivalETA, projected) {
+		projected := compatibility.ProjectArrivalETA(p.mode, flight.Prediction, now, compatibility.FreshFor)
+		if projected == nil {
+			continue
+		}
+		if sameArrivalETA(strip.ArrivalETA, projected) && !strip.ArrivalETA.CalculatedAt.Before(now.Add(-amanArrivalETARefreshAfter)) {
 			continue
 		}
 		updated, err := p.writer.Apply(ctx, state.SessionID, strip.Callsign, flight.Prediction, now)
@@ -86,11 +91,8 @@ func (p *amanArrivalETAProjection) project(ctx context.Context, state aman.Airpo
 }
 
 func sameArrivalETA(existing, projected *models.ArrivalETA) bool {
-	existingEmpty := existing == nil || existing.Time.IsZero()
-	if projected == nil {
-		return existingEmpty
-	}
-	return !existingEmpty && existing.Time.Equal(projected.Time) && existing.Source == projected.Source
+	return existing != nil && !existing.Time.IsZero() &&
+		existing.Time.Equal(projected.Time) && existing.Source == projected.Source
 }
 
 func normalizeAMANCallsign(callsign string) string {

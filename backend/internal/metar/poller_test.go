@@ -238,3 +238,30 @@ func TestFetch_EmptyResponse_ReturnsEmptyString(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "", metar)
 }
+
+func TestGetMETARFetchesOnDemandAndCaches(t *testing.T) {
+	requests := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		assert.Equal(t, "/EKCH", r.URL.Path)
+		_, _ = w.Write([]byte("EKCH 191150Z 24012KT 9999 Q1012\n"))
+	}))
+	defer srv.Close()
+	p := newTestPoller(srv, nil)
+
+	assert.Equal(t, "EKCH 191150Z 24012KT 9999 Q1012", p.GetMETAR(context.Background(), " ekch "))
+	assert.Equal(t, "EKCH 191150Z 24012KT 9999 Q1012", p.GetMETAR(context.Background(), "EKCH"))
+	assert.Equal(t, 1, requests, "a fresh cached METAR must not be refetched")
+
+	p.atisMu.Lock()
+	p.metarFetched["EKCH"] = time.Now().Add(-time.Hour)
+	p.atisMu.Unlock()
+	p.GetMETAR(context.Background(), "EKCH")
+	assert.Equal(t, 2, requests, "a stale cached METAR must be refetched")
+}
+
+func TestGetMETARReturnsEmptyWhenFeedFails(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusBadGateway) }))
+	defer srv.Close()
+	assert.Equal(t, "", newTestPoller(srv, nil).GetMETAR(context.Background(), "EKCH"))
+}

@@ -33,7 +33,7 @@ describe('production EFB', () => {
     expect(screen.queryByRole('combobox', { name: 'EFB data source' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'PREVIEW ARRIVAL' })).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Expected STAR' })).toHaveTextContent('TUDLO');
-    expect(screen.getByRole('group', { name: 'Expected STAR' })).toHaveTextContent('ROUTE / ATIS');
+    expect(screen.getByRole('group', { name: 'Expected STAR' })).toHaveTextContent('ROUTE / ATIS / WIND');
     expect(screen.getByText('Maintain HDG037')).toBeInTheDocument();
     await waitFor(() => expect(window.sessionStorage.getItem('efb-training-session')).toBeNull());
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('training_session=') || String(url).includes('callsign='))).toBe(false);

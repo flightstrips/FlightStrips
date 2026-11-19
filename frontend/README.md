@@ -86,8 +86,13 @@ Trailing DCT, destination, and speed/level tokens are ignored; an unknown final
 waypoint is not replaced by an earlier recognised fix. The current arrival ATIS
 must declare one unambiguous arrival/runway-in-use/ILS runway; condition reports,
 departure-only declarations, stale ATIS, and multiple runways are not guessed.
+Without a usable ATIS runway (for example when no ATC is online), the runway
+with the largest headwind component from the current METAR mean wind is used.
+At EKCH, 12/30 are only chosen when the best 04/22 runway exceeds 20 kt of
+crosswind and 12/30 has less. Calm and variable winds are not guessed, and
+parallel runways resolve to the first one in the terminal configuration.
 This returns a family only, never an invented STAR version. The tile labels it
-`ROUTE / ATIS`; both briefing and charts explicitly say it is expected guidance,
+`ROUTE / ATIS / WIND`; both briefing and charts explicitly say it is expected guidance,
 not an ATC clearance, and charts require confirmation of the procedure version.
 Published terminal fix, holding and heading use that family
 and runway. Unsupported or unavailable briefing data no longer defaults to

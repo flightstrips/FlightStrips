@@ -153,7 +153,7 @@ function D1ArrivalBriefContent({ isOpen, onClose, ...briefing }: ArrivalBriefPro
   if (!isOpen) return null;
 
   return (
-    <BriefingDialog title="Arrival briefing" context={`${briefing.expected ? 'EXPECTED FROM ROUTE / ATIS - NOT AN ATC CLEARANCE  /  ' : ''}STAR ${briefing.star}  /  RWY ${briefing.runway}  /  STAND ${briefing.stand}`} pages={pages} currentPage={currentPage} onPageChange={setCurrentPage} onClose={onClose} />
+    <BriefingDialog title="Arrival briefing" context={`${briefing.expected ? 'EXPECTED FROM ROUTE / ATIS / WIND - NOT AN ATC CLEARANCE  /  ' : ''}STAR ${briefing.star}  /  RWY ${briefing.runway}  /  STAND ${briefing.stand}`} pages={pages} currentPage={currentPage} onPageChange={setCurrentPage} onClose={onClose} />
   );
 }
 

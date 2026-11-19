@@ -1509,7 +1509,7 @@ useEffect(() => {
                 <div role="group" aria-label="Expected STAR" className="absolute top-[66%] left-[2%] h-[34%] w-[46%] text-left text-white">
                   <div className="absolute top-0 left-0 flex h-[40%] w-[86%] items-center justify-start border-b border-[#38536E] text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
                     EXPECTED STAR
-                    {apiFlight?.arrival_guidance_expected && <span className="ml-1 text-[clamp(9px,calc(1.1*var(--efb-vh)),14px)]">(ROUTE / ATIS)</span>}
+                    {apiFlight?.arrival_guidance_expected && <span className="ml-1 text-[clamp(9px,calc(1.1*var(--efb-vh)),14px)]">(ROUTE / ATIS / WIND)</span>}
                   </div>
                   <div className="absolute top-[40%] left-0 flex h-[60%] w-full items-start justify-start whitespace-nowrap pt-[2%] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]">
                     {flightData.star}

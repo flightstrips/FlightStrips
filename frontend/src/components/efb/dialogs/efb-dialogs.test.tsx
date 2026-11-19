@@ -31,7 +31,7 @@ describe('EFB operational dialogs', () => {
 
   it('labels fallback guidance as expected and does not invent taxi routing to an unassigned stand', () => {
     render(<D1ArrivalBrief isOpen onClose={vi.fn()} expected stand="TBA" star="TUDLO" runway="22L" holdingFix="LUGAS" holdingDetail="077/LEFT" terminalFix="ABEGI" arrivalHeading="HDG037" />);
-    expect(screen.getByText(/EXPECTED FROM ROUTE \/ ATIS - NOT AN ATC CLEARANCE/)).toBeInTheDocument();
+    expect(screen.getByText(/EXPECTED FROM ROUTE \/ ATIS \/ WIND - NOT AN ATC CLEARANCE/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go to STAR and holding: TUDLO' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Go to Taxi to stand/ })).not.toBeInTheDocument();
   });

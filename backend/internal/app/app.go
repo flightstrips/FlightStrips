@@ -710,7 +710,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 				Network: vatsimGraph.source,
 				Auth:    authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
 				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil, Viff: efbViff,
-				Stands: standActionService, ATIS: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification, Terminal: efbTerminal, Navigation: efbNavigation,
+				Stands: standActionService, ATIS: metarPoller, METAR: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification, Terminal: efbTerminal, Navigation: efbNavigation,
 				PilotStands: satGraph.pilotStands,
 			}),
 			sessionRepo:                sessionRepo,

@@ -53,6 +53,12 @@ type ATISLookup interface {
 	GetATIS(airport string, departure bool) *metar.ATIS
 }
 
+// METARLookup returns the current raw METAR for an airport, or "" when no
+// fresh observation is available.
+type METARLookup interface {
+	GetMETAR(ctx context.Context, airport string) string
+}
+
 type DepartureFrequencyLookup interface {
 	ComputeDepartureFrequencyForStripContext(context.Context, *models.Strip, int32) (*string, error)
 }
@@ -69,6 +75,7 @@ type WebAPIConfig struct {
 	Viff                  ViffClient
 	Stands                StandActions
 	ATIS                  ATISLookup
+	METAR                 METARLookup
 	Departures            DepartureFrequencyLookup
 	PDCReady              bool
 	Live                  bool
@@ -93,6 +100,7 @@ type WebAPI struct {
 	viff                  ViffClient
 	stands                StandActions
 	atis                  ATISLookup
+	metar                 METARLookup
 	departures            DepartureFrequencyLookup
 	pdcReady              bool
 	live                  bool
@@ -106,7 +114,7 @@ type WebAPI struct {
 }
 
 func NewWebAPI(cfg WebAPIConfig) *WebAPI {
-	return &WebAPI{airportServiceEnabled: cfg.AirportServiceEnabled, auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, viff: cfg.Viff, stands: cfg.Stands, atis: cfg.ATIS, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live, terminal: cfg.Terminal, navigation: cfg.Navigation, network: cfg.Network, callsignLookup: cfg.CallsignLookup && !cfg.Live, training: cfg.Training && !cfg.Live, trainingStrips: cfg.TrainingStrips, pilotStands: cfg.PilotStands}
+	return &WebAPI{airportServiceEnabled: cfg.AirportServiceEnabled, auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, viff: cfg.Viff, stands: cfg.Stands, atis: cfg.ATIS, metar: cfg.METAR, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live, terminal: cfg.Terminal, navigation: cfg.Navigation, network: cfg.Network, callsignLookup: cfg.CallsignLookup && !cfg.Live, training: cfg.Training && !cfg.Live, trainingStrips: cfg.TrainingStrips, pilotStands: cfg.PilotStands}
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {

@@ -48,6 +48,7 @@ type Poller struct {
 	polls         singleflight.Group
 	atisLastError error
 	metarCache    map[string]string
+	metarFetched  map[string]time.Time
 	sessionRepo   repository.SessionRepository
 	hub           FrontendHub
 	interval      time.Duration
@@ -147,6 +148,7 @@ func (p *Poller) pollOnce(ctx context.Context) {
 				p.metarCache = make(map[string]string)
 			}
 			p.metarCache[airport] = metar
+			p.recordMETARFetch(airport)
 			p.atisMu.Unlock()
 		}
 
@@ -259,6 +261,50 @@ func (p *Poller) GetATIS(airport string, departure bool) *ATIS {
 		result.Stale = p.atisLastError != nil || p.atisFetchedAt.IsZero() || time.Since(p.atisFetchedAt) > p.atisStaleAfter() || (!result.LastUpdated.IsZero() && time.Since(result.LastUpdated) > p.atisStaleAfter())
 	}
 	return result
+}
+
+// recordMETARFetch must be called with atisMu held for writing.
+func (p *Poller) recordMETARFetch(airport string) {
+	if p.metarFetched == nil {
+		p.metarFetched = make(map[string]time.Time)
+	}
+	p.metarFetched[airport] = time.Now().UTC()
+}
+
+// GetMETAR returns a fresh METAR for any airport. Airports with an active
+// session are refreshed by the polling loop; any other airport (for example
+// when no controller is online) is fetched on demand and cached for the same
+// staleness window. An empty string means no fresh observation is available.
+func (p *Poller) GetMETAR(ctx context.Context, airport string) string {
+	airport = strings.ToUpper(strings.TrimSpace(airport))
+	if airport == "" {
+		return ""
+	}
+	p.atisMu.RLock()
+	cached, fetchedAt := p.metarCache[airport], p.metarFetched[airport]
+	p.atisMu.RUnlock()
+	if cached != "" && !fetchedAt.IsZero() && time.Since(fetchedAt) <= p.atisStaleAfter() {
+		return cached
+	}
+	value, err, _ := p.polls.Do("metar:"+airport, func() (any, error) {
+		metar, err := p.fetch(ctx, airport)
+		if err != nil {
+			return "", err
+		}
+		p.atisMu.Lock()
+		if p.metarCache == nil {
+			p.metarCache = make(map[string]string)
+		}
+		p.metarCache[airport] = metar
+		p.recordMETARFetch(airport)
+		p.atisMu.Unlock()
+		return metar, nil
+	})
+	if err != nil {
+		slog.WarnContext(ctx, "metar: on-demand fetch failed", slog.String("airport", airport), slog.Any("error", err))
+		return ""
+	}
+	return value.(string)
 }
 
 func (p *Poller) atisStaleAfter() time.Duration {

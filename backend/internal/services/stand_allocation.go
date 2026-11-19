@@ -2018,9 +2018,10 @@ func estimatedReservationCanYield(request StandAllocationRequest, assignment *mo
 
 // estimatedSoftSharingAllowed reports whether an occupancy overlap between the
 // two assignments is a legitimate deferred state: an ESTIMATED arrival keeps
-// its soft reservation while a later-stage arrival holds the stand, and the
-// estimate's own promotion resolves the overlap. Estimates already marked with
-// a promotion conflict stay visible to reconciliation.
+// its soft reservation whatever else holds the stand, and the estimate's own
+// promotion to ASSIGNED resolves the overlap. Estimates are never moved before
+// that boundary. Estimates already marked with a promotion conflict stay
+// visible to reconciliation.
 func estimatedSoftSharingAllowed(left, right *models.StandAssignment) bool {
 	return estimatedSharingSide(left, right) || estimatedSharingSide(right, left)
 }
@@ -2032,11 +2033,7 @@ func estimatedSharingSide(estimate, holder *models.StandAssignment) bool {
 	if estimate.Direction != string(sat.AssignmentDirectionArrival) || estimate.Stage != StageEstimated {
 		return false
 	}
-	if estimate.ConflictReason != nil && *estimate.ConflictReason == arrivalPromotionConflictReason {
-		return false
-	}
-	return holder.Direction == string(sat.AssignmentDirectionArrival) &&
-		(holder.Stage == StageAssigned || holder.Stage == StageConfirmed)
+	return estimate.ConflictReason == nil || *estimate.ConflictReason != arrivalPromotionConflictReason
 }
 
 // futureArrivalBlocksRequest treats a future arrival as a reservation from its

@@ -293,6 +293,16 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 		if currentStage == StageConfirmed {
 			return nil
 		}
+		// An ESTIMATED stand is a soft plan: keep it fixed and only refresh its
+		// timing. Any conflict is resolved once, at promotion to ASSIGNED, so
+		// controllers do not see the estimate hop between stands on every poll.
+		if currentStage == StageEstimated {
+			etaSource := arrivalETASource(strip, eta)
+			if arrivalTimingChanged(existing, eta, etaSource) {
+				return s.updateArrivalInPlace(ctx, existing, existing.Stage, eta, etaSource, existing.ExpiresAt)
+			}
+			return nil
+		}
 		if err := s.reallocateIfBlocked(ctx, session, strip, flight, existing, eta, targetStage); err != nil {
 			return err
 		}
@@ -592,13 +602,11 @@ func valueInt32(value *int32) int32 {
 	return *value
 }
 
+// reallocateIfBlocked moves an ASSIGNED arrival whose stand became unavailable.
+// ESTIMATED arrivals never reach it: they keep their stand until promotion.
 func (s *ArrivalLifecycleService) reallocateIfBlocked(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, existing *models.StandAssignment, eta *time.Time, targetStage string) error {
 	request := s.buildRequest(session, strip, flight, existing.Stage, eta, nil)
-	checkAvailability := s.allocations.StandAvailable
-	if existing.Stage != StageEstimated {
-		checkAvailability = s.allocations.StandAvailableForPromotion
-	}
-	available, err := checkAvailability(ctx, request, existing.Stand)
+	available, err := s.allocations.StandAvailableForPromotion(ctx, request, existing.Stand)
 	if err != nil {
 		return err
 	}
@@ -613,68 +621,8 @@ func (s *ArrivalLifecycleService) reallocateIfBlocked(ctx context.Context, sessi
 		}
 		return nil
 	}
-	if existing.Stage == StageEstimated {
-		deferReallocation, err := s.estimatedConflictCanWait(ctx, request, existing)
-		if err != nil {
-			return err
-		}
-		if deferReallocation {
-			if arrivalTimingChanged(existing, eta, request.ETASource) {
-				return s.updateArrivalInPlace(ctx, existing, existing.Stage, eta, request.ETASource, existing.ExpiresAt)
-			}
-			return nil
-		}
-	}
 	_, err = s.allocations.Reallocate(ctx, request)
 	return err
-}
-
-func (s *ArrivalLifecycleService) estimatedConflictCanWait(ctx context.Context, request StandAllocationRequest, existing *models.StandAssignment) (bool, error) {
-	if existing == nil || existing.Stage != StageEstimated {
-		return false, nil
-	}
-	assignments, err := s.assignments.ListAssignments(ctx, request.SessionID)
-	if err != nil {
-		return false, err
-	}
-	blocks, err := s.assignments.ListBlocks(ctx, request.SessionID)
-	if err != nil {
-		return false, err
-	}
-	blocks = activeManualStandBlocks(blocks, s.allocations.now())
-	request = s.allocations.withPilotScenery(ctx, request)
-	evaluation := s.allocations.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
-	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
-	for _, match := range evaluation.Matches {
-		matches[standName(match.Stand.Name)] = match
-	}
-	removeSceneryExcluded(request, matches)
-	match, compatible := matches[standName(existing.Stand)]
-	if !compatible {
-		return false, nil
-	}
-	remaining := make([]*models.StandAssignment, 0, len(assignments))
-	laterStageConflict := false
-	for _, assignment := range assignments {
-		// A later-stage arrival holding the estimated stand is a legitimate
-		// soft-share: it may log off before the estimate matures, and the
-		// estimate's own promotion resolves the overlap otherwise.
-		deferThisConflict := assignment != nil &&
-			assignment.Direction == string(sat.AssignmentDirectionArrival) &&
-			(assignment.Stage == StageAssigned || assignment.Stage == StageConfirmed) &&
-			assignmentBlocksRequest(assignment, request, s.allocations.now(), s.allocations.departureReleaseBuffer) &&
-			s.allocations.assignmentOverlapsSelectedStand(request.Airport, existing.Stand, match.Blocks, assignment)
-		if deferThisConflict {
-			laterStageConflict = true
-			continue
-		}
-		remaining = append(remaining, assignment)
-	}
-	if !laterStageConflict {
-		return false, nil
-	}
-	availability := s.allocations.availability(request, remaining, blocks, matches)
-	return len(availability[standName(existing.Stand)]) == 0, nil
 }
 
 func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, existing *models.StandAssignment, stage string, eta *time.Time, etaSource *string, expiresAt *time.Time) error {

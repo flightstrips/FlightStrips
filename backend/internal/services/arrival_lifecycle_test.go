@@ -615,7 +615,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, "A1", updated.Stand, "arrival keeps A1 when departure block expires before ETA")
 	})
 
-	t.Run("departure block extending past arrival ETA forces reallocation", func(t *testing.T) {
+	t.Run("departure block extending past arrival ETA keeps the estimate until promotion", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		now := time.Now().UTC()
 		clock.set(now)
@@ -635,7 +635,21 @@ func TestArrivalLifecycle(t *testing.T) {
 
 		updated, err := assignments.GetAssignment(ctx, session, "SAS1003")
 		require.NoError(t, err)
-		assert.NotEqual(t, "A1", updated.Stand, "arrival is reallocated when departure block extends past ETA")
+		assert.Equal(t, StageEstimated, updated.Stage)
+		assert.Equal(t, "A1", updated.Stand, "an ESTIMATED stand is not moved before promotion")
+
+		require.NoError(t, lifecycle.allocations.ReconcileUnsafeAssignments(ctx, session, "EKCH"))
+		kept, err := assignments.GetAssignment(ctx, session, "SAS1003")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", kept.Stand, "the overlap sweep leaves the estimate for its promotion to resolve")
+
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS1003", posPtr(55.6285306), posPtr(12.642625), altPtr(5000), "FINAL", nil)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS1003"), arrivalFlight("SAS1003", 2)))
+		promoted, err := assignments.GetAssignment(ctx, session, "SAS1003")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, promoted.Stage)
+		assert.NotEqual(t, "A1", promoted.Stand, "promotion to ASSIGNED moves away from the still-blocked stand")
 	})
 
 	t.Run("keeps the same optimal stand when retaining is correct", func(t *testing.T) {
@@ -905,7 +919,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Nil(t, assignment.ExpiresAt, "ETA alone must not start stand-retention expiry")
 	})
 
-	t.Run("blocked stand triggers reallocation at same stage", func(t *testing.T) {
+	t.Run("blocked stand does not move an ESTIMATED arrival", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
@@ -923,10 +937,10 @@ func TestArrivalLifecycle(t *testing.T) {
 		clock.advance(5 * time.Minute)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS920"), arrivalFlight("SAS920", 1)))
 
-		reallocated, err := assignments.GetAssignment(ctx, session, "SAS920")
+		kept, err := assignments.GetAssignment(ctx, session, "SAS920")
 		require.NoError(t, err)
-		assert.Equal(t, StageEstimated, reallocated.Stage)
-		assert.NotEqual(t, original.Stand, reallocated.Stand, "reallocated to a different stand when original is blocked")
+		assert.Equal(t, StageEstimated, kept.Stage)
+		assert.Equal(t, original.Stand, kept.Stand, "an ESTIMATED stand waits for promotion before moving")
 	})
 
 	t.Run("CONFIRMED never churns after entry even when its stand becomes blocked", func(t *testing.T) {

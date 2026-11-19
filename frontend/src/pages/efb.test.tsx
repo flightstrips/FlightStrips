@@ -407,8 +407,10 @@ describe('EFB page interactions', () => {
 
     expect(await screen.findByLabelText('Development callsign')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'L1 Picture' })).toHaveAttribute('href', 'https://www.simbrief.com/home/');
-    expect(screen.getByRole('link', { name: 'R1 Picture' })).toHaveAttribute('href', 'https://my.vatsim.net/pilots/flightplan');
+    expect(screen.queryByRole('link', { name: 'R1 Picture' })).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'CLICK TO REFRESH' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    expect(await screen.findByText('AIRPORT SCENERY')).toBeInTheDocument();
 
     const nilTiles = screen.getAllByAltText('Loading');
     for (const tile of nilTiles) fireEvent.click(tile);

@@ -6,7 +6,6 @@ import { isLocalDevelopment } from '@/lib/local-development';
 import { fetchCachedAtis, parseAtisWeather } from '@/api/atis';
 import { ArrowDown, Gauge, Thermometer, Wind } from 'lucide-react';
 import simbriefFplImg from '../assets/efb/simbrief-fpl.png';
-import fileVatsimFplImg from '../assets/efb/file-vatsim-fpl.png';
 import standImage from '../assets/efb/stand-image.png';
 import standArrow from '@/assets/stand-arrow.png';
 import depinfoImage from '../assets/efb/depinfo-image.png';
@@ -897,7 +896,6 @@ useEffect(() => {
   };
 
   const handleOptionsClick = () => {
-    if (!showFlightplanElements) return;
     setOpenDialog('D1OPTIONS');
     setActiveBox(null);
   };
@@ -1424,18 +1422,10 @@ useEffect(() => {
           {getM1HeaderText()}
         </div>
 
-        {showFlightplanElements === false && (
-          <a href="https://my.vatsim.net/pilots/flightplan" target="_blank" rel="noreferrer" className="absolute top-0 left-[66.66%] flex h-[86.66%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-white text-xs text-[#999]">
-            <img src={fileVatsimFplImg} alt="R1 Picture" className="h-full w-full object-cover" />
-          </a>
-        )}
-
-        {showFlightplanElements && (
-          <button type="button" aria-label="Options" onClick={handleOptionsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[66.66%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
-            OPTIONS
-            <img src={standArrow} alt="" className="absolute right-[3%] h-[85%] w-[12%] object-contain" />
-          </button>
-        )}
+        <button type="button" aria-label="Options" onClick={handleOptionsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[66.66%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
+          OPTIONS
+          <img src={standArrow} alt="" className="absolute right-[3%] h-[85%] w-[12%] object-contain" />
+        </button>
       </div>
 
       <div className="contents">

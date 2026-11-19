@@ -421,6 +421,53 @@ describe("AMAN route authorization", () => {
     }
   });
 
+  it("keeps an open flight menu on screen when the window or the menu changes size", () => {
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
+    const initialHeight = window.innerHeight;
+    let menuHeight = 200;
+    const observers: {callback: ResizeObserverCallback; disconnected: boolean}[] = [];
+    vi.stubGlobal("ResizeObserver", class {
+      entry: {callback: ResizeObserverCallback; disconnected: boolean};
+      constructor(callback: ResizeObserverCallback) {
+        this.entry = {callback, disconnected: false};
+        observers.push(this.entry);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() { this.entry.disconnected = true; }
+    });
+    const width = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
+    const height = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => menuHeight);
+    try {
+      render(<AMAN />);
+      const callsign = document.createElement("button");
+      callsign.getBoundingClientRect = () => new DOMRect(300, 400, 80, 28);
+      act(() => boardSpy.mock.lastCall![0].onOpenFlightActions("SAS123", callsign));
+      const menu = screen.getByTestId("aman-flight-actions-menu");
+      expect(menu).toHaveStyle({top: "400px"});
+
+      // Shrinking the window pushes the open menu up.
+      act(() => {
+        window.innerHeight = 500;
+        window.dispatchEvent(new Event("resize"));
+      });
+      expect(menu).toHaveStyle({top: `${500 - 200 - 8}px`});
+
+      // The menu growing while open is re-measured and placed again.
+      menuHeight = 300;
+      act(() => observers.at(-1)!.callback([], {} as ResizeObserver));
+      expect(menu).toHaveStyle({top: `${500 - 300 - 8}px`});
+
+      act(() => fireEvent.keyDown(menu, {key: "Escape"}));
+      expect(observers.at(-1)!.disconnected).toBe(true);
+    } finally {
+      window.innerHeight = initialHeight;
+      width.mockRestore();
+      height.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("removes the callsign highlight when the flight menu is dismissed", () => {
     storeState.amanFMPAuthority = true;
     storeState.amanState = authoritativeState([{callsign: "SAS123"}]);

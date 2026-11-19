@@ -68,11 +68,25 @@ export default function AMAN() {
     }
     flightActionsWasOpen.current = flightActionsOpen;
   }, [flightActionsOpen, selectedCallsign, dialogCallsign, setSelectedCallsign]);
+  // The menu is re-measured whenever its content changes size, and placed
+  // against the current viewport, so it stays on screen while it is open.
   const measureFlightActions = useCallback((node: HTMLDivElement | null) => {
-    if (node !== null) setFlightActionsSize({width: node.offsetWidth, height: node.offsetHeight});
+    if (node === null) return;
+    const measure = () => setFlightActionsSize({width: node.offsetWidth, height: node.offsetHeight});
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const [viewport, setViewport] = useState(() => ({width: window.innerWidth, height: window.innerHeight}));
+  useEffect(() => {
+    const onResize = () => setViewport({width: window.innerWidth, height: window.innerHeight});
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
   const flightActionsPlacement = flightActionsAnchor === null ? null
-    : placeFlightMenu(flightActionsAnchor, flightActionsSize, {width: window.innerWidth, height: window.innerHeight});
+    : placeFlightMenu(flightActionsAnchor, flightActionsSize, viewport);
   const [coordinationOpen, setCoordinationOpen] = useState(false);
   const [coordinationCommandID, setCoordinationCommandID] = useState<string | null>(null);
   const [missedApproachCommandID, setMissedApproachCommandID] = useState<string | null>(null);

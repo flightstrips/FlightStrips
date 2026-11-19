@@ -118,6 +118,8 @@ type amanTransport struct {
 	// lastHoldingEAT tracks the last complete authoritative projection so a
 	// later publication can explicitly withdraw values that disappeared.
 	lastHoldingEAT map[string]map[string]holdingEATProjection
+	// arrivalETA projects AMAN's TETA onto strip ArrivalETA for stand planning.
+	arrivalETA *amanArrivalETAProjection
 }
 
 func (*amanTransport) Name() string { return "AMAN frontend state publisher" }
@@ -361,6 +363,7 @@ func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.Airport
 		}
 	}
 	health := p.currentTechnicalHealth(ctx)
+	p.projectArrivalETAs(ctx, state, health)
 	// Both projections must use the same manifest, without loading all geometry
 	// twice. Keep the cache scoped to this publication so activation stays fresh.
 	geometry := sync.OnceValues(func() (navdata.ActiveGeometrySnapshot, error) {
@@ -413,6 +416,9 @@ func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.Air
 	hub := p.euroscopeHub
 	frontendHub := p.frontendHub
 	p.mu.RUnlock()
+	// Unchanged sequencing state still carries fresh predictions, and a strip
+	// created after the last mutation needs its ETA backfilled.
+	p.projectArrivalETAs(ctx, state, p.currentTechnicalHealth(ctx))
 	if frontendHub != nil {
 		// Reproject time-dependent views and health even when no sequencing
 		// mutation occurred. This also repairs a previously missed snapshot.

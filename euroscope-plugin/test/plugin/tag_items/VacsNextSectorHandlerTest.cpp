@@ -3,10 +3,12 @@
 #include <gtest/gtest.h>
 
 using FlightStrips::TagItems::DecideVacsCallTarget;
+using FlightStrips::TagItems::DecideVacsCallTargetFromPaintedTarget;
+using FlightStrips::TagItems::VacsNextSectorPaintedTarget;
 using FlightStrips::TagItems::DeriveFallbackSectorLabel;
 using FlightStrips::TagItems::FormatVacsNextSectorItemString;
 using FlightStrips::TagItems::IsCoordinationStateUsable;
-using FlightStrips::TagItems::IsVacsNextSectorLabelDialable;
+using FlightStrips::TagItems::IsVacsNextSectorTargetDialable;
 using FlightStrips::TagItems::MatchVacsClientId;
 using FlightStrips::TagItems::PredictionScan;
 using FlightStrips::TagItems::ResolvePredictionScanStart;
@@ -294,15 +296,15 @@ TEST(VacsNextSectorHandlerTest, MatchDoesNotLetBlankClientFieldsMatchAnEmptyTarg
 // FormatVacsNextSectorItemString
 // ---------------------------------------------------------------------------
 
-TEST(VacsNextSectorHandlerTest, FormatsResolvedSectorAsVPrefixedLabel) {
+TEST(VacsNextSectorHandlerTest, FormatsResolvedSectorAsOneBytePhoneIcon) {
     VacsNextSectorResolution resolution;
     resolution.available = true;
     resolution.sectorId = "KA";
-    EXPECT_EQ(FormatVacsNextSectorItemString(true, resolution), "V:KA");
+    EXPECT_EQ(FormatVacsNextSectorItemString(true, resolution), "\xB6");
 }
 
-TEST(VacsNextSectorHandlerTest, FormatsUnresolvedTrackedFlightAsExplicitMarker) {
-    EXPECT_EQ(FormatVacsNextSectorItemString(true, {}), "V:--");
+TEST(VacsNextSectorHandlerTest, FormatsUnresolvedTrackedFlightAsPhoneIcon) {
+    EXPECT_EQ(FormatVacsNextSectorItemString(true, {}), "\xB6");
 }
 
 TEST(VacsNextSectorHandlerTest, FormatsUntrackedFlightAsBlank) {
@@ -317,7 +319,7 @@ TEST(VacsNextSectorHandlerTest, DecideDialsWhenPaintedStringMatchesTheFreshResol
     VacsNextSectorResolution resolution;
     resolution.available = true;
     resolution.sectorId = "KA";
-    const auto decision = DecideVacsCallTarget(true, resolution, std::string("client-1"), "V:KA");
+    const auto decision = DecideVacsCallTarget(true, resolution, std::string("client-1"), "\xB6");
     EXPECT_EQ(decision.result, VacsCallGuardResult::Dialable);
     EXPECT_EQ(decision.clientId, "client-1");
 }
@@ -331,7 +333,7 @@ TEST(VacsNextSectorHandlerTest, DecideReportsNoTargetWhenNoUniqueClientMatched) 
     VacsNextSectorResolution resolution;
     resolution.available = true;
     resolution.sectorId = "KA";
-    const auto decision = DecideVacsCallTarget(true, resolution, std::nullopt, "V:KA");
+    const auto decision = DecideVacsCallTarget(true, resolution, std::nullopt, "\xB6");
     EXPECT_EQ(decision.result, VacsCallGuardResult::NoTarget);
 }
 
@@ -351,9 +353,9 @@ TEST(VacsNextSectorHandlerTest, DecideReportsDestinationChangedForAnEmptyPainted
     EXPECT_EQ(decision.result, VacsCallGuardResult::DestinationChanged);
 }
 
-TEST(VacsNextSectorHandlerTest, DecideReportsDestinationChangedWhenPaintedWasTheUnavailableMarker) {
-    // A real target resolved fresh, but the tag still showed "V:--" when
-    // clicked: the display had not caught up yet, so refuse and ask to retry.
+TEST(VacsNextSectorHandlerTest, DecideRejectsLegacyTextAsAGeneratedPhone) {
+    // A generated phone token is required; legacy text is not a valid
+    // renderer snapshot. This is not the external callback ItemString.
     VacsNextSectorResolution resolution;
     resolution.available = true;
     resolution.sectorId = "KA";
@@ -361,11 +363,11 @@ TEST(VacsNextSectorHandlerTest, DecideReportsDestinationChangedWhenPaintedWasThe
     EXPECT_EQ(decision.result, VacsCallGuardResult::DestinationChanged);
 }
 
-TEST(VacsNextSectorHandlerTest, DecideReportsDestinationChangedWhenTheSectorChangedBetweenPaintAndClick) {
+TEST(VacsNextSectorHandlerTest, DecideRejectsUnexpectedGeneratedContent) {
     VacsNextSectorResolution resolution;
     resolution.available = true;
     resolution.sectorId = "UC";
-    const auto decision = DecideVacsCallTarget(true, resolution, std::string("client-1"), "V:KA");
+    const auto decision = DecideVacsCallTarget(true, resolution, std::string("client-1"), "unexpected");
     EXPECT_EQ(decision.result, VacsCallGuardResult::DestinationChanged);
 }
 
@@ -390,7 +392,7 @@ TEST(VacsNextSectorHandlerTest, ResolveUsesFallbackLabelsAndDropsPlaceholderMatc
             EXPECT_TRUE(resolution.available);
             EXPECT_EQ(resolution.sectorId, "UC");
             EXPECT_TRUE(resolution.positionId.empty());
-            EXPECT_EQ(FormatVacsNextSectorItemString(true, resolution), "V:UC");
+            EXPECT_EQ(FormatVacsNextSectorItemString(true, resolution), "\xB6");
         }
     }
 }
@@ -405,18 +407,19 @@ TEST(VacsNextSectorHandlerTest, DecideRefusesPlaceholderLabelsEvenIfAClientMatch
     resolution.available = true;
     resolution.sectorId = "--";
     EXPECT_EQ(DecideVacsCallTarget(true, resolution, std::string("client-1"), "V:--").result,
-              VacsCallGuardResult::UnusableLabel);
+              VacsCallGuardResult::UnusableTarget);
 }
 
-TEST(VacsNextSectorHandlerTest, DecideReportsUnusableLabelForAnUnchangedOverlongDestination) {
+TEST(VacsNextSectorHandlerTest, PhoneIconAllowsLongSectorIdsWithoutTruncation) {
     VacsNextSectorResolution resolution;
     resolution.available = true;
     resolution.sectorId = "ABCDEFGHIJKLMNOP";
     const auto painted = FormatVacsNextSectorItemString(true, resolution);
-    ASSERT_EQ(painted, "V:??");
+    ASSERT_EQ(painted, "\xB6");
+    ASSERT_EQ(painted.size(), 1u);
     const auto decision = DecideVacsCallTarget(true, resolution, std::string("client-1"), painted.c_str());
-    EXPECT_EQ(decision.result, VacsCallGuardResult::UnusableLabel);
-    EXPECT_TRUE(decision.clientId.empty());
+    EXPECT_EQ(decision.result, VacsCallGuardResult::Dialable);
+    EXPECT_EQ(decision.clientId, "client-1");
 }
 
 TEST(VacsNextSectorHandlerTest, UntrackedFlightCannotPaintOrDialEvenWithAResolvedTarget) {
@@ -429,33 +432,24 @@ TEST(VacsNextSectorHandlerTest, UntrackedFlightCannotPaintOrDialEvenWithAResolve
 }
 
 
-TEST(VacsNextSectorHandlerTest, OverlongPaintedLabelCannotDialAfterDestinationChangesToItsPrefix) {
-    VacsNextSectorResolution oldResolution;
-    oldResolution.available = true;
-    oldResolution.sectorId = "ABCDEFGHIJKLMN";
-    oldResolution.fullCallsign = "EKDK_OLD_CTR";
-    const auto painted = FormatVacsNextSectorItemString(true, oldResolution);
-    ASSERT_EQ(painted, "V:??");
-
-    auto freshResolution = oldResolution;
-    freshResolution.sectorId = "ABCDEFGHIJKLM";
-    freshResolution.fullCallsign = "EKDK_NEW_CTR";
-    const auto decision = DecideVacsCallTarget(true, freshResolution, std::string("new-client"), painted.c_str());
-    EXPECT_EQ(decision.result, VacsCallGuardResult::DestinationChanged);
-    EXPECT_TRUE(decision.clientId.empty());
+TEST(VacsNextSectorHandlerTest, DifferentDestinationsRenderTheSamePhoneButAreValidatedByIdentity) {
+    VacsNextSectorResolution first;
+    first.available = true;
+    first.sectorId = "ABCDEFGHIJKLMN";
+    auto second = first;
+    second.sectorId = "ABCDEFGHIJKLM";
+    EXPECT_EQ(FormatVacsNextSectorItemString(true, first), "\xB6");
+    EXPECT_EQ(FormatVacsNextSectorItemString(true, first), FormatVacsNextSectorItemString(true, second));
 }
 
-TEST(VacsNextSectorHandlerTest, CompleteThirteenCharacterLabelRemainsDialable) {
-    VacsNextSectorResolution resolution;
-    resolution.available = true;
-    resolution.sectorId = "ABCDEFGHIJKLM";
-    ASSERT_TRUE(IsVacsNextSectorLabelDialable(resolution));
-    const auto painted = FormatVacsNextSectorItemString(true, resolution);
-    ASSERT_EQ(painted, "V:ABCDEFGHIJKLM");
-    ASSERT_EQ(painted.size(), 15u);
-    const auto decision = DecideVacsCallTarget(true, resolution, std::string("client-1"), painted.c_str());
-    EXPECT_EQ(decision.result, VacsCallGuardResult::Dialable);
-    EXPECT_EQ(decision.clientId, "client-1");
+TEST(VacsNextSectorHandlerTest, PhoneHasTheSameWidthForShortAndLongSectorIds) {
+    for (const auto& id : {"UN", "ABCDEFGHIJKLM", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"}) {
+        VacsNextSectorResolution resolution;
+        resolution.available = true;
+        resolution.sectorId = id;
+        EXPECT_TRUE(IsVacsNextSectorTargetDialable(resolution));
+        EXPECT_EQ(FormatVacsNextSectorItemString(true, resolution).size(), 1u);
+    }
 }
 
 TEST(VacsNextSectorHandlerTest, PaintAndClickUseTheSameLabelEligibilityDespiteAUniqueLiveMatch) {
@@ -467,23 +461,116 @@ TEST(VacsNextSectorHandlerTest, PaintAndClickUseTheSameLabelEligibilityDespiteAU
         resolution.fullCallsign = "EKDK_UC_CTR";
         const auto match = MatchVacsClientId(resolution.fullCallsign, "", {{"client-1", "Controller", "119.800", "EKDK_UC_CTR"}});
         ASSERT_TRUE(match.has_value());
-        const auto eligible = IsVacsNextSectorLabelDialable(resolution);
+        const auto eligible = IsVacsNextSectorTargetDialable(resolution);
         const auto painted = FormatVacsNextSectorItemString(true, resolution);
         const auto decision = DecideVacsCallTarget(true, resolution, match, painted.c_str());
         EXPECT_EQ(eligible, decision.result == VacsCallGuardResult::Dialable);
         if (!eligible) {
-            EXPECT_EQ(painted, "V:??");
-            EXPECT_EQ(decision.result, VacsCallGuardResult::UnusableLabel);
+            EXPECT_EQ(painted, "\xB6");
+            EXPECT_EQ(decision.result, VacsCallGuardResult::UnusableTarget);
             EXPECT_TRUE(decision.clientId.empty());
         }
     }
-    EXPECT_FALSE(IsVacsNextSectorLabelDialable({}));
+    EXPECT_FALSE(IsVacsNextSectorTargetDialable({}));
 }
 
-TEST(VacsNextSectorHandlerTest, UnusableLabelRequestsPickerEvenWithoutAClientMatch) {
+TEST(VacsNextSectorHandlerTest, UnusableTargetRequestsPickerEvenWithoutAClientMatch) {
     VacsNextSectorResolution resolution;
     resolution.available = true;
-    resolution.sectorId = "ABCDEFGHIJKLMN";
-    EXPECT_EQ(DecideVacsCallTarget(true, resolution, std::nullopt, "V:??").result,
-              VacsCallGuardResult::UnusableLabel);
+    resolution.sectorId = "--";
+    EXPECT_EQ(DecideVacsCallTarget(true, resolution, std::nullopt, "\xB6").result,
+              VacsCallGuardResult::UnusableTarget);
+}
+
+
+class VacsPaintedTargetGuardTest : public ::testing::Test {
+protected:
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point now{std::chrono::seconds(100)};
+    std::string aircraftCallsign = "RYR3WU";
+    bool trackedByMe = true;
+    VacsNextSectorResolution resolution{true, VacsNextSectorSource::Prediction, "UN", "UN", "EKDK_UN_CTR"};
+    std::optional<std::string> clientId = "client-1";
+    std::optional<VacsNextSectorPaintedTarget> painted{
+        VacsNextSectorPaintedTarget{"RYR3WU", "\xB6", "UN", "EKDK_UN_CTR", "client-1", now}};
+
+    FlightStrips::TagItems::VacsCallDecision Decide() {
+        return DecideVacsCallTargetFromPaintedTarget(aircraftCallsign, trackedByMe, resolution, clientId,
+                                                   painted ? &*painted : nullptr, now);
+    }
+};
+
+TEST_F(VacsPaintedTargetGuardTest, StableGeneratedTargetCanDial) {
+    const auto decision = Decide();
+    EXPECT_EQ(decision.result, VacsCallGuardResult::Dialable);
+    EXPECT_EQ(decision.clientId, "client-1");
+}
+
+TEST_F(VacsPaintedTargetGuardTest, FullControllerChangeIsRejectedEvenWithTheSameLabel) {
+    resolution.fullCallsign = "EKCH_UN_APP";
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::DestinationChanged);
+    EXPECT_TRUE(Decide().clientId.empty());
+}
+
+TEST_F(VacsPaintedTargetGuardTest, ClientReconnectIsRejectedEvenWithTheSameControllerAndLabel) {
+    clientId = "replacement-client";
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::DestinationChanged);
+}
+
+TEST_F(VacsPaintedTargetGuardTest, DifferentAircraftCannotUseAnotherAircraftsGeneratedTarget) {
+    aircraftCallsign = "SAS123";
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::DestinationChanged);
+}
+
+TEST_F(VacsPaintedTargetGuardTest, MissingGeneratedTargetCannotDial) {
+    painted.reset();
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::DestinationChanged);
+}
+
+TEST_F(VacsPaintedTargetGuardTest, GeneratedTargetExpiresAfterTenSeconds) {
+    now += std::chrono::seconds(10);
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::Dialable);
+    now += std::chrono::milliseconds(1);
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::DestinationChanged);
+}
+
+TEST_F(VacsPaintedTargetGuardTest, FutureGeneratedTimestampCannotDial) {
+    painted->paintedAt = now + std::chrono::seconds(1);
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::DestinationChanged);
+}
+
+TEST_F(VacsPaintedTargetGuardTest, GeneratedMarkerCannotDialANewlyAvailableTarget) {
+    painted->sectorId.clear();
+    painted->controllerCallsign.clear();
+    painted->clientId.clear();
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::DestinationChanged);
+}
+
+TEST_F(VacsPaintedTargetGuardTest, SectorChangeIsRejectedEvenWithTheSamePhoneControllerAndClient) {
+    painted->sectorId = "ABCDEFGHIJKLMN";
+    resolution.sectorId = "ABCDEFGHIJKLM";
+    ASSERT_EQ(painted->itemString, FormatVacsNextSectorItemString(true, resolution));
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::DestinationChanged);
+}
+
+TEST_F(VacsPaintedTargetGuardTest, RestoredVacsAvailabilityRequiresANewGeneratedTarget) {
+    painted->clientId.clear();
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::DestinationChanged);
+}
+
+TEST_F(VacsPaintedTargetGuardTest, IdentityComparisonNormalizesCallsigns) {
+    aircraftCallsign = " ryr3wu ";
+    resolution.fullCallsign = " ekdk_un_ctr ";
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::Dialable);
+}
+
+TEST_F(VacsPaintedTargetGuardTest, FreshFlightAndClientEligibilityAreStillRequired) {
+    trackedByMe = false;
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::NoTarget);
+    trackedByMe = true;
+    clientId.reset();
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::NoTarget);
+    clientId = "client-1";
+    resolution.sectorId = "--";
+    EXPECT_EQ(Decide().result, VacsCallGuardResult::UnusableTarget);
 }

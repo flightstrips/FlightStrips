@@ -15,7 +15,7 @@ Use `.fs open` to reopen the panel or `.fs reset` if it is off-screen. Normal he
 
 ## Next-sector calling tag item
 
-The optional **VACS next sector** tag item shows `V:<sector ID>` (for example `V:KA`) for aircraft you track locally. Left-click calls that destination; right-click opens the controller picker. TopSky's **SI** field and its click bindings stay unchanged. Calling uses the existing VACS connection and works independently of FlightStrips backend login.
+The optional **VACS next sector** tag item shows a small phone icon using EuroScope's native telephone glyph (ANSI byte `0xB6`, supported by the standard and DK COOPANS EuroScope fonts) for aircraft you track locally. Left-click calls that destination; right-click opens the controller picker. TopSky's **SI** field and its click bindings stay unchanged. Calling uses the existing VACS connection and works independently of FlightStrips backend login.
 
 ### Destination selection
 
@@ -32,13 +32,12 @@ Agreement with TopSky SI has not been measured or verified live. How TopSky manu
 ### Display and calling
 
 - **Blank:** the aircraft is not tracked locally.
-- **`V:<sector ID>`:** a destination was resolved. The normal tag colour is used when the label is eligible for a direct call, VACS is ready and exactly one client matches; otherwise it stays visible in muted grey.
-- **`V:--`:** no destination resolved, shown in muted grey.
-- **`V:??`:** a destination resolved but its label is unusable for direct calling (including IDs longer than 13 bytes), shown in muted grey. The marker cannot collide with a complete, dialable label. Left-click directs you to the right-click picker; refreshing an unchanged overlong ID will not help.
-- **Left-click:** checks VACS readiness, resolves the selected aircraft again and fetches a fresh client list. The freshly formatted label must match the clicked `ItemString`; empty, marker or changed labels cannot dial. Overlong IDs paint the reserved `V:??` marker instead of a truncated prefix. The match compares VACS position/display name against the full callsign or genuine EuroScope short ID. Zero or multiple distinct client matches cannot dial. VACS filters your own client/position. Failed attempts show a FlightStrips notification.
+- **Phone icon, normal tag colour:** VACS is ready and exactly one next-controller client matches.
+- **Phone icon, muted grey:** no destination resolved, VACS is not ready, or there is no unique VACS client match.
+- **Left-click:** checks VACS readiness, resolves the selected aircraft again and fetches a fresh client list. The sector ID, full controller callsign and VACS client ID must match the target FlightStrips last generated for that aircraft, within the previous 10 seconds. Missing, expired, changed or previously unavailable targets cannot dial. Callback `ItemString` text is diagnostic only, so a custom tag family's callback text does not cause a false destination-change refusal. Long sector IDs remain fully available for identity validation because only a one-character phone is displayed. Zero or multiple distinct VACS matches cannot dial. Failed attempts show a FlightStrips notification.
 - **Right-click:** opens the two-column **VACS CALL** picker with controller labels and frequencies. If VACS is unavailable, the empty picker shows its state label.
 
-The click guard compares the displayed label, not a cached aircraft/controller identity. A different destination with the same visible sector label is not detected by that comparison; the call uses the freshly resolved identity and client match.
+FlightStrips captures the aircraft, generated icon, sector ID, full controller callsign, matched client ID and timestamp during its own tag callback. It re-resolves the destination on click and requires the identities to agree; a different controller with the same icon is rejected too. The snapshot is used for comparison, not as a stale call destination. Callback text and both generated/fresh identities are logged for each target check.
 
 ### Manual EuroScope tag configuration
 
@@ -46,17 +45,17 @@ No tag layout or `.prf` is shipped for this item. Add it to your own layout:
 
 1. Open EuroScope's **OTHER SET** menu and choose **TAG** to open Tag Items Setup.
 2. Select the tag family and label type you use.
-3. Add the **FlightStrips** item **VACS next sector** in a new field. Allow room for `V:` plus your sector IDs.
+3. Add the **FlightStrips** item **VACS next sector** in a new field. The field needs only enough room for one phone glyph.
 4. Set that field's left-button function to **FlightStrips > VACS call next sector** and its right-button function to **FlightStrips > VACS call...**.
 5. Save the layout, keeping SI and its existing bindings intact.
 
 Dialog wording may vary with the EuroScope version; these steps have not been checked in the live host.
 
-Validation on 19 November 2026: Win32 Release build passed and all **662 CTest tests passed**. The resolver, matching, label and click-guard tests cover the automated paths; they do not verify host integration or audio. Logs: `build/vacs-tag-coderabbit-build.log` and `build/vacs-tag-coderabbit-tests.log`.
+Validation on 19 November 2026: Win32 Release build passed and all **674 CTest tests passed**. The resolver, matching, label and click-guard tests cover the automated paths; they do not verify host integration or audio. Logs: `build/vacs-phone-local-build.log` and `build/vacs-phone-local-tests.log`.
 
 ### Live checks still required
 
-- Confirm EuroScope selects the clicked aircraft and passes the painted text through TopSky. A different or empty `ItemString` will safely refuse the call.
+- Confirm EuroScope selects the clicked aircraft when the VACS item is clicked through TopSky. Inspect `VACS next-sector target check` logs for the callback text and generated/fresh destinations. Exact callback text is not required for validation.
 - Compare the field with SI for normal routing, early assumption, skip-sector coordination, requested/refused coordination and manual SI overrides.
 - Check an aircraft still tracked after leaving your airspace: if exit time becomes `-1`, prediction is unavailable unless handoff or native coordination supplies a destination.
 - Check TopSky foreign-item filtering and all minimized/extended tag modes.

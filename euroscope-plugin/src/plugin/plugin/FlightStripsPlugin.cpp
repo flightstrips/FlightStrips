@@ -708,23 +708,23 @@ namespace FlightStrips {
                     Information("VACS next-sector call: " + view.label + ".");
                     return;
                 }
-                // Resolve the selected aircraft and compare the fresh label
-                // with EuroScope's clicked ItemString. This detects visible
-                // label changes, not identity changes keeping the same label.
+                // Validate the selected aircraft against the recent tag that
+                // FlightStrips generated. Custom tag callbacks may supply text
+                // other than V:<sector>, so ItemString is diagnostic only.
                 const auto flightPlan = FlightPlanSelectASEL();
                 if (!flightPlan.IsValid()) return;
                 const auto callsign = std::string(flightPlan.GetCallsign());
                 const auto clients = container->vacsService->GetClients();
                 const auto decision = container->vacsNextSectorHandler->ResolveCallTarget(flightPlan, clients, ItemString);
-                if (decision.result == TagItems::VacsCallGuardResult::UnusableLabel) {
-                    Information("VACS next-sector call: the sector label for " + callsign +
+                if (decision.result == TagItems::VacsCallGuardResult::UnusableTarget) {
+                    Information("VACS next-sector call: the destination for " + callsign +
                                 " cannot be used for a direct call. Right-click the VACS tag to choose a controller.");
-                    Logger::Info("VACS next-sector call: sector label unusable for direct calling for {}", callsign);
+                    Logger::Info("VACS next-sector call: destination unusable for direct calling for {}", callsign);
                     return;
                 }
                 if (decision.result == TagItems::VacsCallGuardResult::DestinationChanged) {
-                    Information("VACS next-sector call: the destination for " + callsign + " changed. Refresh and try again.");
-                    Logger::Info("VACS next-sector call: destination changed between paint and click for {}", callsign);
+                    Information("VACS next-sector call: the destination for " + callsign + " is stale or changed. Let the tag refresh and try again.");
+                    Logger::Info("VACS next-sector call: rendered target is stale or changed for {}", callsign);
                     return;
                 }
                 if (decision.result == TagItems::VacsCallGuardResult::NoTarget) {

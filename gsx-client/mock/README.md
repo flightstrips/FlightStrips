@@ -73,11 +73,11 @@ The sequence that matters, and the one this whole change exists for:
 4. When GSX asks which way to push, the menu should hold every scenery route
    plus `ATC Assigned: Z2 Face E`, and the message should name the point.
 5. Pick it. The push should go to Z2 facing east.
-6. Fly it again, this time changing to `["Z3 Face W"]` after the menu is up.
-   Expect `ATC changed your push to Z3 Face W - if the menu does not show
-   "ATC Assigned: Z3 Face W", cancel the pushback and request it again`. Note
-   what the menu shows, then push and note where it goes. If the label is
-   stale, cancel and re-request: the menu should now read Z3.
+6. Fly it again, this time changing to `["Z3 Face W"]` with the menu up.
+   Expect `ATC changed your push to Z3 Face W - pick "ATC Assigned: Z2 Face E",
+   it now goes to Z3 Face W`. The menu keeps the name it was built with; that
+   is expected, not a failure. Keep the menu open, pick the entry, and check
+   the push goes to Z3.
 7. Change it once more while the aircraft is moving: the entry must not move,
    and the message should say `too late for this tug`.
 

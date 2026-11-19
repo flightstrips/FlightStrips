@@ -6,10 +6,19 @@
 #
 #     gsx-client/mock/deploy.sh                       # keep the deployed API_BASE
 #     gsx-client/mock/deploy.sh http://localhost:8787 # ...or set a new one
+#     gsx-client/mock/deploy.sh "" path/to/EGKK-MyScenery_handler.py
+#
+# The second argument is the handler to deploy, for a profile other than EKCH's.
+# It is installed under its own filename, which GSX requires to be the profile's
+# name plus "_handler".
 set -euo pipefail
 
-SRC="$(dirname "$0")/../EKCH-Simnord-Sonnich_handler.py"
-DEST="$APPDATA/Virtuali/GSX/MSFS/EKCH-Simnord-Sonnich_handler.py"
+SRC="${2:-$(dirname "$0")/../EKCH-Simnord-Sonnich_handler.py}"
+if [ ! -f "$SRC" ]; then
+  echo "no handler at $SRC" >&2
+  exit 1
+fi
+DEST="$APPDATA/Virtuali/GSX/MSFS/$(basename "$SRC")"
 
 base="${1:-}"
 if [ -z "$base" ] && [ -f "$DEST" ]; then

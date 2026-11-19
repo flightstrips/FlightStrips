@@ -172,12 +172,14 @@ controller.
    Edit `$Points` at the top to list route labels from the stand you will test
    at. The mock does not know which stand you are on.
 
-2. **Point your installed script at it.** This copies the script into your GSX
-   folder and sets `API_BASE`:
+2. **Point your installed script at it.** This copies your script into your GSX
+   folder under its own filename, and sets `API_BASE`:
 
    ```bash
-   gsx-client/mock/deploy.sh http://localhost:8787
+   gsx-client/mock/deploy.sh http://localhost:8787 path/to/EGKK-MyScenery_handler.py
    ```
+
+   Leave out the second argument to deploy the EKCH script from the repository.
 
    Never commit a local `API_BASE`. Set it back to the production URL before
    you publish.

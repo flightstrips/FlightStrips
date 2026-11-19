@@ -43,11 +43,17 @@ function Set-Assignment($route) {
     $state.Since = Get-Date
 }
 
+function ConvertTo-JsonString([string]$value) {
+    # One string as a JSON literal, quotes and backslashes escaped.
+    return ConvertTo-Json -InputObject $value -Compress
+}
+
 function Get-Body {
-    # Hand-built so an empty assignment is "null" rather than "[]" or a missing
-    # field, and one route stays a list - ConvertTo-Json in 5.1 unwraps it.
-    $push = if ($state.Route) { '["' + $state.Route + '"]' } else { "null" }
-    return '{"stand":null,"pushback":' + $push + ',"revision":"' + $state.Revision + '"}'
+    # Assembled by hand so an empty assignment is "null" rather than "[]" or a
+    # missing field, and one route stays a list - ConvertTo-Json in 5.1 unwraps
+    # a one-item array. Each string still goes through the serializer.
+    $push = if ($state.Route) { "[" + (ConvertTo-JsonString $state.Route) + "]" } else { "null" }
+    return '{"stand":null,"pushback":' + $push + ',"revision":' + (ConvertTo-JsonString $state.Revision) + '}'
 }
 
 function Show-Screen {

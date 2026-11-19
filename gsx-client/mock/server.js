@@ -46,6 +46,11 @@ const server = http.createServer((req, res) => {
   let payload;
   try {
     payload = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    // Valid JSON is not enough: "null" or "[]" parses, then reading a field
+    // off it would throw outside this block and stop the server.
+    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("expected an object with stand, pushback and revision");
+    }
   } catch (err) {
     // Answer 503 rather than 500: that is what the handler is built to ride
     // out, so a half-saved edit costs one skipped poll instead of a stall.

@@ -25,8 +25,10 @@
 # anything assigned in the meantime still reaches the menu. If the controller
 # changes your point after that, "ATC Assigned" follows them - no cancelling.
 #
-# Not on the network, or nobody controlling? GSX behaves exactly as it always
-# did - no messages, no gate changes, nothing.
+# Not on the network, or nobody controlling? No messages and no stand changes.
+# The pushback menu still gains a plain "ATC Assigned" entry when you request
+# pushback; with nothing assigned it goes where the scenery's first route goes,
+# and all the scenery's own routes are still there.
 # ---------------------------------------------------------------------------
 #
 # FOR WHOEVER PUBLISHES THE PROFILE
@@ -168,6 +170,11 @@ def _standFetch(self):
                 print("[stands] callsign %s (from %s)"
                       % (callsign, "SimBrief" if trusted else "the sim"))
                 self._standAssigned = None
+                if ATC_ENTRY and self._standPushback:
+                    # The old callsign's point is on the gate and the VDGS.
+                    # Take it back, so the new callsign starts clean; its own
+                    # point, if any, arrives through the normal path.
+                    _standWithdrawAtcEntry(self)
                 self._standPushback = None
                 self._standPushPoint = None
             self._standCallsign = callsign
@@ -316,6 +323,10 @@ def _standPushStarted(self):
                   "a push already under way will not be detected")
         return False
     if self._standAnchorPos is None:
+        # No position could be read when the tug was called. Anchor on the
+        # first one that can be, so a push is still caught once it moves on
+        # from here rather than never.
+        self._standAnchorPos = position
         return False
 
     if not self._standDepartureRequested:
@@ -543,11 +554,9 @@ def _standApplyAtcEntry(self, wanted):
     same approach path, and the same extra fields as a slot the profile already
     defines - so GSX is driving geometry it already knows, under another name.
 
-    The list is written once, before GSX builds the menu. After that only the
-    dict inside it is touched, which is the write that has never broken
-    anything: a reassignment moves where the entry leads without the list, or
-    the menu, changing shape. That is also why this cannot be added late - a
-    route GSX has not seen by the time it builds the menu is not on the menu.
+    The entry is appended once, before GSX builds the menu - a route GSX has
+    not seen by then is not on the menu. A reassignment rewrites the list with
+    the entry replaced, same length and same order; see _standAtcEntryTo.
     """
     gate = getGate()
     if gate is None or not wanted:
@@ -557,7 +566,36 @@ def _standApplyAtcEntry(self, wanted):
     if not pos:
         print("[stands] no route to %s at this stand" % ", ".join(wanted))
         return False
-    return _standAtcEntryTo(self, gate, pos, approach, _standAtcEntryLabel([name]))
+    return _standAtcEntryTo(self, gate, pos, approach, _standAtcEntryLabel([name]),
+                            _standRouteShape(self, gate, wanted))
+
+
+def _standRouteShape(self, gate, wanted):
+    """The matched route's own slot settings (snap, wws, startEngines...).
+
+    An extra slot carries them, so the entry takes that route's. A default
+    route has none in this form, so it gets _standDefaultShape.
+    """
+    snapshot = _standSnapshot(self, gate)
+    labels = snapshot["labels"]
+    for route in wanted:
+        isWanted = _standWantedTest([route])
+        if any(i < len(labels) and isWanted(labels[i]) for i in (0, 1)):
+            break
+        for slot, was in zip(snapshot["addPos"], snapshot["addPosLabels"]):
+            if was and isWanted(was) and isinstance(slot, dict):
+                return dict((k, v) for k, v in slot.items()
+                            if k not in ("label", "pos", "approach"))
+    return _standDefaultShape(self, gate)
+
+
+def _standDefaultShape(self, gate):
+    """Slot settings for a route without its own: a real slot's, else GSX's."""
+    for slot in _standSnapshot(self, gate)["addPos"]:
+        if isinstance(slot, dict):
+            return dict((k, v) for k, v in slot.items()
+                        if k not in ("label", "pos", "approach"))
+    return {"snap": False, "wws": 2, "startEngines": 0.0}
 
 
 def _standDefaultGeometry(self, gate):
@@ -614,7 +652,7 @@ def _standLiveAtcEntry(self, gate):
     return None
 
 
-def _standAtcEntryTo(self, gate, pos, approach, label):
+def _standAtcEntryTo(self, gate, pos, approach, label, shape=None):
     """Create the entry, or move where it leads and what it is called.
 
     GSX hands the script copies: a dict read out of pushbackAddPos can be
@@ -629,12 +667,16 @@ def _standAtcEntryTo(self, gate, pos, approach, label):
     so a point assigned while the pilot is looking at the menu still lands.
     """
     entry = _standLiveAtcEntry(self, gate)
+    if shape is None:
+        shape = _standDefaultShape(self, gate)
 
     if entry is not None:
         moved = dict(entry)
+        moved.update(shape)
         moved["pos"] = pos
-        if approach:
-            moved["approach"] = approach
+        # Always written, empty included: a route without an approach must not
+        # inherit the last one's waypoints.
+        moved["approach"] = approach or []
         if not self._standPushCommittedLatch:
             moved["label"] = label
         try:
@@ -650,17 +692,9 @@ def _standAtcEntryTo(self, gate, pos, approach, label):
         print("[stands] too late to add the ATC entry - GSX has built the menu")
         return False
 
-    snapshot = _standSnapshot(self, gate)
-    # Copy a real slot's shape so wws, snap and startEngines are whatever this
-    # profile uses, rather than something invented here.
-    template = None
-    for slot in snapshot["addPos"]:
-        if isinstance(slot, dict):
-            template = dict(slot)
-            break
-    if template is None:
-        template = {"snap": False, "wws": 2, "startEngines": 0.0}
-
+    # The route's own settings, so wws, snap and startEngines are whatever this
+    # profile uses for it, rather than something invented here.
+    template = dict(shape)
     template["label"] = label
     template["pos"] = pos
     template["approach"] = approach or []
@@ -684,10 +718,11 @@ def _standAtcEntryPresent(self, wanted):
     if entry is None:
         return False                         # never added, or GSX rebuilt the parking
     try:
-        pos, _, name = _standRouteMatch(self, gate, wanted)
+        pos, approach, name = _standRouteMatch(self, gate, wanted)
         label = _standAtcEntryLabel([name])
         # The label is frozen once the menu is built; only the route counts.
         ok = (bool(pos) and _standSamePos(entry.get("pos"), pos)
+              and _standSameApproach(entry.get("approach"), approach)
               and (self._standPushCommittedLatch or entry.get("label") == label))
         if not ok:
             # Say once per departure what was read back, so a flight shows
@@ -703,6 +738,12 @@ def _standAtcEntryPresent(self, wanted):
     except Exception as err:
         print("[stands] could not read the entry back: %s" % err)
         return False
+
+
+def _standSameApproach(a, b):
+    """Approach waypoint lists compared by value; None and empty are the same."""
+    a, b = list(a or []), list(b or [])
+    return len(a) == len(b) and all(_standSamePos(x, y) for x, y in zip(a, b))
 
 
 def _standSamePos(a, b):
@@ -790,14 +831,17 @@ def _standRestoreMenu(self, gate):
     except Exception:
         return
 
-    self._standMenuRestored = True
     # The one route the menu was built from, and therefore the entry the pilot
     # is about to pick. A later change redirects that entry rather than guessing.
-    self._standMenuRoute = self._standPushback
+    # Kept from the first attempt, so a retried restore cannot replace it.
+    if self._standMenuRoute is None:
+        self._standMenuRoute = self._standPushback
 
     try:
         gate.pushbackAddPos = snapshot["addPos"]
         gate.pushback = snapshot["pushback"]
+        # Only now: a half-done restore must be retried on the next poll.
+        self._standMenuRestored = True
         print("[stands] menu restored for the push")
     except Exception as err:
         print("[stands] could not restore the menu: %s" % err)
@@ -1028,8 +1072,11 @@ def _standCheck(self):
         _standWithdrawAtcEntry(self)
 
     # Nothing assigned. The entry still has to be on the menu before GSX builds
-    # it, or a clearance arriving later has nowhere to land.
+    # it, or a clearance arriving later has nowhere to land. Past state 5 the
+    # menu is built, and a slot appended now would not be on it.
     if self._standDepartureRequested:
+        if state >= PUSHBACK_COMMITTED_STATE:
+            self._standPushCommittedLatch = True
         _standEnsureAtcEntry(self, getGate())
     return True
 
@@ -1046,8 +1093,8 @@ def _standRemindAtMenu(self, state):
             or state < PUSHBACK_COMMITTED_STATE):
         return
     self._standMenuReminded = True
-    if _standPushStarted(self):
-        return
+    if _standPushStarted(self) or _standLiveAtcEntry(self, getGate()) is None:
+        return                               # nothing on the menu to point at
     _standSay(self, 'ATC pushback: %s - pick "%s"'
               % (self._standPushPoint, _standMenuLabel(self, getGate())))
 
@@ -1065,19 +1112,20 @@ def _standWithdrawAtcEntry(self):
 
     Left alone, it would go on naming, and leading to, a point nobody assigned.
     Not once the aircraft is moving: the tug is already driving that geometry.
+    False when the gate refused the write: the point is then kept, so the next
+    poll tries again rather than forgetting there is anything to undo.
     """
+    gate = getGate()
+    if (gate is not None and not _standPushStarted(self)
+            and _standLiveAtcEntry(self, gate) is not None):
+        pos, approach = _standDefaultGeometry(self, gate)
+        if pos and not _standAtcEntryTo(self, gate, pos, approach, ATC_ENTRY_LABEL):
+            return False                     # keep the point; retried next poll
     print("[stands] pushback point withdrawn (was %s)" % self._standPushback)
     self._standPushback = None
     self._standPushPoint = None
     _standClearVdgs(self)
-    gate = getGate()
-    if gate is None or _standPushStarted(self):
-        return
-    if _standLiveAtcEntry(self, gate) is None:
-        return
-    pos, approach = _standDefaultGeometry(self, gate)
-    if pos:
-        _standAtcEntryTo(self, gate, pos, approach, ATC_ENTRY_LABEL)
+    return True
 
 
 def _standCheckArrival(self, stand):
@@ -1157,7 +1205,7 @@ def _standCheckDeparture(self, pushback):
 
     # Past the menu the label is fixed, so move where the chosen route leads
     # instead. This is the only way to change the push without cancelling it.
-    redirected = stage != PUSH_OPEN and _standRedirect(self, pushback)
+    redirected = stage == PUSH_UNCERTAIN and _standRedirect(self, pushback)
 
     if stage == PUSH_ROLLING:
         _standSay(self, "%s - too late for this tug, cancel the pushback and "
@@ -1200,6 +1248,10 @@ def _standCheckDepartureEntry(self, pushback):
             self._standUnroutable = key
             _standSay(self, "ATC assigned %s - no route to it from this stand"
                       % " or ".join(_standPointName(r) for r in pushback))
+        if self._standPushback:
+            # The previous point no longer stands. Take it off the entry and
+            # the VDGS, which also stops the reminder naming it.
+            _standWithdrawAtcEntry(self)
         return True
     self._standUnroutable = None
 
@@ -1232,13 +1284,15 @@ def _standCheckDepartureEntry(self, pushback):
             _standShowOnVdgs(self, [point])
         return True
 
-    applied = _standAtcEntryTo(self, gate, pos, approach, label)
+    applied = _standAtcEntryTo(self, gate, pos, approach, label,
+                               _standRouteShape(self, gate, pushback))
     self._standPushback = key
     self._standPushPoint = point
 
     if not applied:
         # The menu was built without our entry - a reload mid-departure, say.
         # The scenery's own route still goes there, so name that instead.
+        self._standMenuReminded = True       # no entry to remind them of
         if not reasserting:
             _standSay(self, '%s - pick "%s" in the pushback menu' % (what, name))
             _standShowOnVdgs(self, [point])

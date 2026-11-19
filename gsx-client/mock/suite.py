@@ -46,6 +46,9 @@ class CopyingGate(Gate):
 
     @pushbackAddPos.setter
     def pushbackAddPos(self, value):
+        if getattr(self, "refuse", 0):
+            self.refuse -= 1
+            raise Exception("write refused")
         self._addPos = [dict(s) for s in value]
 
 
@@ -240,15 +243,22 @@ for base, expect in (("https://x.app", "https://x.app/api/gsx/stand"),
     assert seen[-1].startswith(expect), seen[-1]
 case("a trailing slash on API_BASE cannot produce a 404 double slash")
 
+# The callbacks catch and log their own exceptions, so surviving is not enough:
+# each has to have done its job, and nothing may have logged a failure.
 env = Env()
 g = load(env, restricted=True)
 h = Handler()
+del LOG[:]
 g["_standInit"](h)
 g["_standCheck"](h)
+env.payload = {"stand": None, "pushback": ["Y2 Face W"]}
 g["onAirportDepartureRequested"](h)
+assert env.gate.menu()[-1] == "ATC Assigned: Y2 Face W", env.gate.menu()
 g["onAirportGateReset"](h, "user_changed")
+assert any("pilot took over" in l for l in LOG), LOG
 g["onExitAirport"](h)
-case("every callback survives GSX's restricted builtins")
+assert not any("failed" in l for l in LOG), LOG
+case("every callback survives GSX's restricted builtins, and does its job")
 
 # MARK_LABEL = "" must leave every name as the scenery wrote it. Narrowing off
 # too, so this tests naming alone.
@@ -698,5 +708,109 @@ env.state = 5
 g["_standCheck"](self)
 assert not any("failed" in l for l in LOG), LOG
 case("the ATC entry path survives GSX's restricted builtins")
+
+# -- review fixes ------------------------------------------------------------
+
+def departing(**gate):
+    env = Env(copying=True)
+    for k, v in gate.items():
+        setattr(env.gate, k, v)
+    g = load(env)
+    h = Handler()
+    g["onEnterAirport"](h)
+    g["onAirportDepartureRequested"](h)
+    env.state = 4
+    return env, g, h
+
+
+# A route without an approach must not keep the last one's waypoints.
+env, g, h = departing()
+slots = env.gate.pushbackAddPos
+slots[0]["approach"] = [(9, 9, 9)]
+env.gate.pushbackAddPos = slots
+h._standGateSnapshot = None
+env.payload = {"stand": None, "pushback": ["Z6 Face E"]}
+g["_standCheck"](h)
+assert atc(env)["approach"] == [(9, 9, 9)], atc(env)
+env.payload = {"stand": None, "pushback": ["Z7 Face W"]}
+g["_standCheck"](h)
+assert atc(env)["approach"] == [], atc(env)
+case("a route without an approach clears the previous one's")
+
+# The entry takes the matched route's own slot settings.
+env, g, h = departing()
+slots = env.gate.pushbackAddPos
+slots[1]["snap"] = True
+slots[1]["wws"] = 0
+env.gate.pushbackAddPos = slots
+h._standGateSnapshot = None
+env.payload = {"stand": None, "pushback": ["Z7 Face W"]}
+g["_standCheck"](h)
+assert atc(env)["snap"] is True and atc(env)["wws"] == 0, atc(env)
+env.payload = {"stand": None, "pushback": ["Y1 Face E"]}
+g["_standCheck"](h)
+assert atc(env)["snap"] is False and atc(env)["wws"] == 2, atc(env)
+case("the entry carries the matched route's snap and wing walkers")
+
+# A new point the stand cannot reach takes the old one off the entry.
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": ["Y2 Face W"]}
+g["_standCheck"](h)
+env.payload = {"stand": None, "pushback": ["Z9 Face N"]}
+del LOG[:]
+g["_standCheck"](h)
+assert atc(env)["pos"] == LEFT and atc(env)["label"] == "ATC Assigned", atc(env)
+env.state = 5
+g["_standCheck"](h)
+assert not any("Y2" in l for l in said()), "no reminder of the withdrawn point"
+case("an unreachable new point withdraws the old one, and no reminder names it")
+
+# A new callsign takes the old callsign's point back.
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": ["Y2 Face W"]}
+g["_standCheck"](h)
+h._standCallsign, h._standCallsignTrusted = "OLD1", False
+env.payload = {"stand": None, "pushback": None}
+g["_standCheck"](h)
+assert h._standCallsign == "DAT99"
+assert atc(env)["pos"] == LEFT and atc(env)["label"] == "ATC Assigned", atc(env)
+case("a callsign change withdraws the previous callsign's point")
+
+# Past state 5 a missing entry is not appended: it would not be on the menu.
+env, g, h = departing()
+env.gate.rebuild()                              # GSX dropped our slot
+env.state = 5
+g["_standCheck"](h)
+assert len(env.gate.pushbackAddPos) == 2, env.gate.menu()
+case("no entry is appended to a menu already built")
+
+# A refused withdrawal is retried, not forgotten.
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": ["Y2 Face W"]}
+g["_standCheck"](h)
+env.gate.refuse = 1
+env.payload = {"stand": None, "pushback": None}
+g["_standCheck"](h)
+assert atc(env)["pos"] == RIGHT, "the refused write left it"
+g["_standCheck"](h)
+assert atc(env)["pos"] == LEFT, "and the next poll put it back"
+case("a refused withdrawal is retried on the next poll")
+
+# No position when the tug was called: anchor on the first one that can be read.
+env = Env(copying=True)
+g = load(env)
+h = Handler()
+g["onEnterAirport"](h)
+lat = env.lat
+env.lat = None
+g["onAirportDepartureRequested"](h)
+env.lat = lat
+env.state = 4
+g["_standCheck"](h)                             # anchors here
+env.lat += 0.001
+env.payload = {"stand": None, "pushback": ["Z7 Face W"]}
+g["_standCheck"](h)
+assert atc(env)["pos"] == LEFT, "the push was caught, and the entry left alone"
+case("a push is still caught when no position was readable at the request")
 
 print("\nall passed")

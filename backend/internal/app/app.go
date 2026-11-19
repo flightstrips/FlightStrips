@@ -9,11 +9,13 @@ import (
 	"FlightStrips/internal/aman/routefact"
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
+	"FlightStrips/internal/arrivalinfo"
 	amanWebAPI "FlightStrips/internal/aman/webapi"
 	"FlightStrips/internal/cdm"
 	appconfig "FlightStrips/internal/config"
 	"FlightStrips/internal/coordinationrequest"
 	"FlightStrips/internal/database"
+	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/ecfmp"
 	ecfmpWebAPI "FlightStrips/internal/ecfmp/webapi"
 	"FlightStrips/internal/efb"
@@ -578,6 +580,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 
 	var pdcService *pdc.Service
+	var arrivalInfoService *arrivalinfo.Service
 	fsServer, err = server.NewServer(server.Dependencies{
 		SessionCleanup: []func(int32){frontendHub.RemoveSession, euroscopeHub.RemoveSession,
 			func(session int32) {
@@ -596,6 +599,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			func(session int32) {
 				if defaultAMAN.transport != nil {
 					defaultAMAN.transport.RemoveSession(session)
+				}
+				if arrivalInfoService != nil {
+					arrivalInfoService.RemoveSession(session)
 				}
 			},
 		},
@@ -653,6 +659,18 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 				dbpool.Close()
 			}
 			return nil, fmt.Errorf("register EuroScope PDC handlers: %w", err)
+		}
+	}
+	if cfg.EnablePDC && amanRuntime.Enabled() && defaultAMAN.transport != nil {
+		arrivalInfoService, err = buildArrivalInfoService(cfg, deps.PDCClient, sessionRepo, stripRepo, dbpool, navigationSource, satNow)
+		if err != nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, err
+		}
+		if arrivalInfoService != nil {
+			defaultAMAN.transport.setArrivalInfo(arrivalInfoService)
 		}
 	}
 
@@ -755,6 +773,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if cfg.EnablePDC && pdcService != nil {
 		app.addWorker(pdcService.Start)
+	}
+	if arrivalInfoService != nil {
+		app.addWorker(arrivalInfoService.Start)
 	}
 	if cfg.EnableVATSIM && vatsimGraph.cache != nil {
 		if cfg.EnableEFB {
@@ -1147,6 +1168,44 @@ func buildPDCService(
 	if err != nil {
 		return nil, fmt.Errorf("initialize PDC service: %w", err)
 	}
+	return service, nil
+}
+
+// buildArrivalInfoService returns nil when Hoppie is not configured. Session,
+// LIVE and airport "pdc" capability gates are applied on every evaluation.
+func buildArrivalInfoService(
+	cfg Config,
+	client pdc.HoppieClientInterface,
+	sessionRepo repository.SessionRepository,
+	stripRepo repository.StripRepository,
+	dbpool *pgxpool.Pool,
+	navigationSource *navigation.Source,
+	now func() time.Time,
+) (*arrivalinfo.Service, error) {
+	if dependencies.IsNil(client) {
+		hoppieLogon := strings.TrimSpace(cfg.HoppieLogon)
+		if hoppieLogon == "" {
+			return nil, nil
+		}
+		client = pdc.NewClient(hoppieLogon)
+	}
+	var terminalConfig *terminal.Configuration
+	if navigationSource != nil {
+		terminalConfig = &navigationSource.Terminal
+	}
+	service, err := arrivalinfo.New(arrivalinfo.Dependencies{
+		Sender:         client,
+		Sessions:       sessionRepo,
+		Strips:         stripRepo,
+		Store:          postgres.NewArrivalTelexStore(dbpool),
+		Terminal:       terminalConfig,
+		AirportEnabled: func(airport string) bool { return airportCapabilityEnabled(cfg, "pdc", airport) },
+		Now:            now,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initialize arrival info telex: %w", err)
+	}
+	slog.Info("AMAN arrival info telex enabled")
 	return service, nil
 }
 

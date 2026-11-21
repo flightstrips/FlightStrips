@@ -2,6 +2,7 @@ package main
 
 import (
 	"FlightStrips/internal/app"
+	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/services"
 	es "FlightStrips/pkg/events/euroscope"
@@ -19,10 +20,11 @@ import (
 )
 
 type radisCommand struct {
-	Airport  string `json:"airport"`
-	Token    string `json:"token"`
-	Kind     string `json:"kind"`
-	Callsign string `json:"callsign"`
+	Airport     string `json:"airport"`
+	Environment string `json:"environment"`
+	Token       string `json:"token"`
+	Kind        string `json:"kind"`
+	Callsign    string `json:"callsign"`
 }
 
 // This suite runs app.Build, migrations, both scoped hubs, the CDM/SAT services,
@@ -67,15 +69,15 @@ func newRADISSuite() suite {
 	}))
 	original := http.DefaultTransport
 	http.DefaultTransport = fixtureTransport{upstream: original, redirects: map[string]string{"metar.vatsim.net": feed.URL, "data.vatsim.net": feed.URL}}
-	connect := func(ctx context.Context, airport, token, callsign, frequency string, snapshot *es.SyncEvent, physical string, expose func(func(proto.Message, es.EventType) error)) (*websocket.Conn, error) {
-		return connectFixtureControllerProtocol(ctx, endpoint, token, &es.LoginEvent{Airport: airport, Connection: "LIVE", Position: frequency, Callsign: callsign, Range: 300}, snapshot, nil, physical, func(event *es.Envelope) *es.Envelope {
+	connect := func(ctx context.Context, airport, environment, token, callsign, frequency string, snapshot *es.SyncEvent, physical string, expose func(func(proto.Message, es.EventType) error)) (*websocket.Conn, error) {
+		return connectFixtureControllerProtocol(ctx, endpoint, token, &es.LoginEvent{Airport: airport, Connection: environment, Position: frequency, Callsign: callsign, Range: 300}, snapshot, nil, physical, func(event *es.Envelope) *es.Envelope {
 			kind, payload, err := es.UnmarshalEnvelope(mustProto(event))
 			if err != nil {
 				return nil
 			}
 			if event.CommandOrigin == es.CommandOrigin_COMMAND_ORIGIN_HUMAN || kind == es.SendFrequencyMessage {
 				mu.Lock()
-				commands = append(commands, radisCommand{airport, token, kind.String(), commandCallsign(kind, payload)})
+				commands = append(commands, radisCommand{airport, environment, token, kind.String(), commandCallsign(kind, payload)})
 				mu.Unlock()
 			}
 			switch kind {
@@ -91,14 +93,19 @@ func newRADISSuite() suite {
 		}, expose)
 	}
 	reconnect := func(ctx context.Context) (*websocket.Conn, error) {
-		return connect(ctx, "EKBI", services.TestFrontendToken, "EKBI_PEER_TWR", "118.005", nil, instance, nil)
+		return connect(ctx, "EKBI", "LIVE", services.TestFrontendToken, "EKBI_PEER_TWR", "118.005", nil, instance, nil)
 	}
 	reconnectEKCH := func(ctx context.Context) (*websocket.Conn, error) {
-		return connect(ctx, "EKCH", services.TestFrontendToken, "EKCH_GW_TWR", "118.580", nil, ekchInstance, nil)
+		return connect(ctx, "EKCH", "LIVE", services.TestFrontendToken, "EKCH_GW_TWR", "118.580", nil, ekchInstance, nil)
 	}
 	return suite{
-		config:       app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/internal/config/testdata/radis-services/ekbi.airport.yaml", "backend/internal/config/testdata/radis-services/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
-		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Second},
+		config: app.Config{Environment: "test", AirportFiles: []string{"backend/config/airports/ekch.airport.yaml", "backend/internal/config/testdata/radis-services/ekbi.airport.yaml", "backend/internal/config/testdata/radis-services/ekyt.airport.yaml"}, EnableCDMConfigStore: true, EnableStandAssignment: true, EnableMetar: true, EnableVATSIM: true},
+		dependencies: app.Dependencies{VATSIMStatusURL: feed.URL + "/status", VATSIMPollInterval: time.Second, CoverageSimulated: func(context.Context) ([]euroscope.CoverageStaffingEvidence, error) {
+			// The coordinator captures its evaluation time before reading this
+			// inventory. Model already-observed data, never future-dated evidence.
+			observedAt := time.Now().Add(-time.Second)
+			return []euroscope.CoverageStaffingEvidence{{Environment: "SWEATBOX_MA08", Timestamp: observedAt, Inventory: euroscope.CoverageFresh}, {Environment: "PLAYBACK_MA08", Timestamp: observedAt, Inventory: euroscope.CoverageFresh}}, nil
+		}},
 		close: func() {
 			mu.Lock()
 			defer mu.Unlock()
@@ -112,12 +119,20 @@ func newRADISSuite() suite {
 			pool = db
 			mux.HandleFunc("GET /e2e/persisted", func(w http.ResponseWriter, r *http.Request) {
 				airport := r.URL.Query().Get("airport")
+				environment := r.URL.Query().Get("environment")
+				if environment == "" {
+					environment = "LIVE"
+				}
 				if airport != "EKCH" && airport != "EKBI" && airport != "EKYT" {
 					http.Error(w, "airport required", 400)
 					return
 				}
+				if environment != "LIVE" && environment != "SWEATBOX_MA08" && environment != "PLAYBACK_MA08" {
+					http.Error(w, "unknown fixture environment", 400)
+					return
+				}
 				var id int32
-				if err := pool.QueryRow(r.Context(), "SELECT id FROM sessions WHERE airport=$1 AND name='LIVE'", airport).Scan(&id); err != nil {
+				if err := pool.QueryRow(r.Context(), "SELECT id FROM sessions WHERE airport=$1 AND name=$2", airport, environment).Scan(&id); err != nil {
 					http.Error(w, err.Error(), 500)
 					return
 				}
@@ -179,7 +194,7 @@ func newRADISSuite() suite {
 			endpoint = url
 			// Keep the existing EKCH workflow active in the same application as
 			// RADIS, including two independently bound controllers and services.
-			ekch, err := connect(ctx, "EKCH", services.TestToken, "EKCH_A_TWR", "118.105", stripSnapshot(), uuid.NewString(), nil)
+			ekch, err := connect(ctx, "EKCH", "LIVE", services.TestToken, "EKCH_A_TWR", "118.105", stripSnapshot(), uuid.NewString(), nil)
 			if err != nil {
 				return err
 			}
@@ -210,7 +225,8 @@ func newRADISSuite() suite {
 				return err
 			}
 			clients = append(clients, ekchOwn)
-			for _, airport := range []string{"EKBI", "EKYT"} {
+			for _, selected := range []struct{ airport, environment string }{{"EKBI", "LIVE"}, {"EKYT", "LIVE"}, {"EKBI", "SWEATBOX_MA08"}, {"EKBI", "PLAYBACK_MA08"}} {
+				airport, environment := selected.airport, selected.environment
 				frequency := "118.000"
 				if airport == "EKYT" {
 					frequency = "119.000"
@@ -220,10 +236,10 @@ func newRADISSuite() suite {
 					snapshot.Strips = append(snapshot.Strips, &es.Strip{Callsign: callsign, Origin: "EKBI", Destination: "EKYT", AircraftType: "A320", AircraftCategory: "M", CommunicationType: "T", HasFp: true, GroundState: es.GroundStateStartup, ClearedAltitude: 3000, RequestedAltitude: 25000, AssignedSquawk: "2401", Route: "DCT TEST", Eobt: time.Now().UTC().Add(time.Hour).Format("1504"), EnrouteDuration: "0130", Runway: "09", Position: &es.Position{Lat: 0, Lon: 0, Altitude: 100}})
 				}
 				var expose func(func(proto.Message, es.EventType) error)
-				if airport == "EKBI" {
+				if airport == "EKBI" && environment == "LIVE" {
 					expose = func(send func(proto.Message, es.EventType) error) { mu.Lock(); primarySend = send; mu.Unlock() }
 				}
-				c, err := connect(ctx, airport, services.TestToken, airport+"_TWR", frequency, snapshot, uuid.NewString(), expose)
+				c, err := connect(ctx, airport, environment, services.TestToken, airport+"_TWR", frequency, snapshot, uuid.NewString(), expose)
 				if err != nil {
 					return err
 				}
@@ -241,7 +257,7 @@ func newRADISSuite() suite {
 				if err != nil {
 					return err
 				}
-				if count == 4 {
+				if count == 8 {
 					break
 				}
 				select {

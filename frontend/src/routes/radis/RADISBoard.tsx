@@ -6,7 +6,8 @@ import {stripRevision, type StripRevision, type StripAnnotations, } from "@/api/
 import {RADIS_BAYS,type RADISBay} from "./bays";
 import {radisCollisionDetection} from "./collision";
 import {useWebSocketStore} from "@/store/store-hooks";
-import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
+import {Dialog} from "@/components/ui/dialog";
+import {FlightStripsDialogContent} from "@/components/ui/flightstrips-dialog";
 import {Button} from "@/components/ui/button";
 import {AirportSwitcher} from "@/components/AirportSwitcher";
 import ATIS from "@/components/commandbar/ATIS";
@@ -116,7 +117,16 @@ export default function RADISBoard() {
       </DragOverlay>
     </DndContext>
     <RADISEditDialog key={menu ? `${menu.callsign}:${menu.field}` : "closed"} menu={menu} setMenu={setMenu} submit={submit}/>
-    <Dialog open={runwayDialog} onOpenChange={setRunwayDialog}><DialogContent className="radis-dialog"><DialogTitle>Active airport runways</DialogTitle><p>DEP {runway.departure.join("/") || "—"} · ARR {runway.arrival.join("/") || "—"}</p><p>Set active departure and arrival runways in the master controller's EuroScope runway activity dialog. FlightStrips shares the confirmed configuration with this airport session.</p><Button onClick={() => setRunwayDialog(false)}>OK</Button></DialogContent></Dialog>
+    <Dialog open={runwayDialog} onOpenChange={setRunwayDialog}>
+      <FlightStripsDialogContent title="Active airport runways" className="radis-dialog-font">
+        <dl className="grid grid-cols-2 gap-2 text-center">
+          <div className="border border-bay-header bg-bay-light p-2"><dt>DEP</dt><dd className="font-bold">{runway.departure.join("/") || "—"}</dd></div>
+          <div className="border border-bay-header bg-bay-light p-2"><dt>ARR</dt><dd className="font-bold">{runway.arrival.join("/") || "—"}</dd></div>
+        </dl>
+        <p>Set the active runways in the master controller's EuroScope runway activity dialog.</p>
+        <Button variant="darkaction" className="justify-self-center" onClick={() => setRunwayDialog(false)}>OK</Button>
+      </FlightStripsDialogContent>
+    </Dialog>
     {standCallsign && strips.find(s => s.callsign === standCallsign && !s.board_state?.removed_at) && <RADISStandDialog strip={strips.find(s => s.callsign === standCallsign)!} close={() => setStandCallsign(null)}/>}
     {recovery && <RADISRecovery close={()=>setRecovery(false)}/>}
     {creation && <RADISCreationDialogs mode={creation} close={()=>setCreation(null)}/>}

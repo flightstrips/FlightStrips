@@ -74,7 +74,8 @@
 .radis-toolbar-space { flex: 1; }
 .radis-commandbar button:hover { filter: brightness(1.12); }
 .radis-commandbar button:disabled { filter: none; opacity: .5; }
-.radis-dialog { font-family: RadisRubik, var(--font-bay); color: black; width: min(460px, 95vw); max-height: 90svh; overflow-y: auto; border: 1px solid #202020; border-radius: 0; padding: 12px; background: var(--color-bay-header-light); gap: 12px; }
+.radis-dialog, .radis-dialog-font { font-family: RadisRubik, var(--font-bay); }
+.radis-dialog { color: black; width: min(460px, 95vw); max-height: 90svh; overflow-y: auto; border: 1px solid #202020; border-radius: 0; padding: 12px; background: var(--color-bay-header-light); gap: 12px; }
 .radis-dialog input:not([type=checkbox]), .radis-dialog select { border: 1px solid #666; background: white; padding: .35rem; width: 100%; border-radius: 0; font-family: inherit; }
 .radis-dialog-actions { display: flex; justify-content: space-between; margin-top: 1rem; }
 .radis-fpl { width: min(660px, 95vw); background: white; }
@@ -83,11 +84,16 @@
 
 .radis-clock { width: 5.08vw; height: var(--command-bar-field-height); font-size: .5625vw; font-weight: 700; background: var(--color-bay-light); color: black; }
 
-.radis-creation { width: min(640px,95vw); }
-.radis-local-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin-bottom:1rem; }
-.radis-find-list { overflow-y:auto; max-height:55svh; display:grid; gap:.25rem; }
-.radis-find-list button { display:grid; grid-template-columns:1fr 1fr 5rem; padding:.5rem; border:1px solid #555; background:white; text-align:left; }
-.radis-find-search { display:flex; gap:.5rem; }
+.radis-dialog > button.absolute { display: none; }
+.radis-form-field { display: grid; min-width: 0; gap: .25rem; font-size: .875rem; }
+.radis-support-dialog input, .radis-support-dialog select { min-width: 0; width: 100%; border: 1px solid #555; background: #ededed; color: black; border-radius: 0; padding: .35rem .5rem; }
+.radis-support-dialog input:disabled, .radis-support-dialog select:disabled { background: #9f9c9f; }
+.radis-local-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: .5rem; }
+.radis-find-list { overflow-y: auto; max-height: 55svh; display: grid; gap: .375rem; padding-bottom: .25rem; }
+.radis-find-list button { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(4rem, auto); gap: .5rem; padding: .5rem; border: 1px solid #555; background: #d6d6d6; text-align: left; overflow-wrap: anywhere; }
+.radis-find-list button:hover:not(:disabled) { background: var(--color-bay-light); }
+.radis-find-list button:disabled { opacity: .55; }
+.radis-find-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; }
 
 .radis-delete-over { outline:3px solid red; }
 
@@ -167,6 +173,7 @@
 .radis-dialog.radis-fpl { width: min(829px, 95vw, calc(90svh * 829 / 918)); padding: 0; background: #d4d4d4; display: block; container-type: inline-size; }
 .radis-fpl-sheet { padding: 1.6888% 3.0157% 3.3776%; }
 .radis-fpl fieldset { min-width: 0; padding: 0; border: 1px solid #555; }
+.radis-fpl .radis-fpl-services { margin: 0 3% 3%; padding: 2%; }
 .radis-fpl legend { text-align: center; padding: 0 .3cqw; font: 300 2.4125cqw/1 RadisRubik, sans-serif; }
 .radis-fpl .radis-fpl-departure { height: 77.5633cqw; padding: 2.292cqw 5.6164cqw 1.5682cqw; }
 .radis-fpl-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; }

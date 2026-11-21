@@ -16,11 +16,11 @@ import {
 
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  DialogClose,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { FlightStripsDialogContent } from "@/components/ui/flightstrips-dialog";
+import { Button } from "@/components/ui/button";
 import { useAirport, useAtisCode, useMetar, useUserRating } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { cn } from "@/lib/utils";
@@ -29,8 +29,6 @@ import {
   type MetarDecoded,
   type FlightCategory,
 } from "@/lib/metarDecode";
-
-const CLS_DIALOG = "bg-[#e4e4e4] w-[42rem] border-4 border-primary";
 
 const CATEGORY_COLOR: Record<FlightCategory, string> = {
   VFR: "text-green-700",
@@ -234,15 +232,10 @@ export default function ATIS({label = "ATIS", className}: {label?: string; class
       >
         {label}
       </DialogTrigger>
-      <DialogContent className={CLS_DIALOG}>
-        <DialogHeader>
-          <DialogTitle className="text-primary font-semibold text-xl">
-            METAR — {airport || "EKCH"}
-          </DialogTitle>
-        </DialogHeader>
+      <FlightStripsDialogContent title={`METAR — ${airport || "EKCH"}`} className="w-[min(42rem,95vw)]">
         <div className="flex flex-col gap-5">
           {showDecoded && <DecodedGrid decoded={decoded} />}
-          <div className="rounded border-2 border-gray-300 bg-gray-50 p-4">
+          <div className="border border-bay-header bg-bay-light p-4">
             {showDecoded && (
               <>
                 <div className="text-gray-600 font-medium text-sm mb-2">Readout</div>
@@ -260,7 +253,10 @@ export default function ATIS({label = "ATIS", className}: {label?: string; class
             )}
           </div>
         </div>
-      </DialogContent>
+        <DialogClose asChild>
+          <Button variant="darkaction" className="justify-self-center">OK</Button>
+        </DialogClose>
+      </FlightStripsDialogContent>
     </Dialog>
   );
 }

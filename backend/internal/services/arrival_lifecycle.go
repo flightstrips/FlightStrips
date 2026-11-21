@@ -297,9 +297,15 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 		// timing. Any conflict is resolved once, at promotion to ASSIGNED, so
 		// controllers do not see the estimate hop between stands on every poll.
 		if currentStage == StageEstimated {
+			// The flight is not eligible to promote, so a pinned-stand warning
+			// from an earlier blocked promotion no longer applies (for example
+			// after a missed approach). Drop it, keeping the stand and any
+			// underlying controller conflict, so it is not republished and
+			// controller AUTO does not force the pin to ASSIGNED.
+			current, warningCleared := withoutPinnedArrivalPromotionConflict(existing)
 			etaSource := arrivalETASource(strip, eta)
-			if arrivalTimingChanged(existing, eta, etaSource) {
-				return s.updateArrivalInPlace(ctx, existing, existing.Stage, eta, etaSource, existing.ExpiresAt)
+			if warningCleared || arrivalTimingChanged(existing, eta, etaSource) {
+				return s.updateArrivalInPlace(ctx, current, existing.Stage, eta, etaSource, existing.ExpiresAt)
 			}
 			return nil
 		}
@@ -647,15 +653,19 @@ func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, exis
 		}
 		return nil
 	}
-	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
-	if err != nil {
-		return err
+	return s.allocations.refreshArrivalInPlace(ctx, existing, updated)
+}
+
+// withoutPinnedArrivalPromotionConflict removes the pinned-stand promotion
+// warning, restoring any prior controller conflict it wrapped. The automatic
+// retry reason is kept: it stays visible until a promotion resolves it.
+func withoutPinnedArrivalPromotionConflict(existing *models.StandAssignment) (*models.StandAssignment, bool) {
+	if !HasPinnedArrivalPromotionConflict(existing) {
+		return existing, false
 	}
-	if affected != 1 {
-		return fmt.Errorf("arrival stage update version conflict for %s", existing.Callsign)
-	}
-	updated.Version++
-	return s.allocations.PublishAssignment(ctx, updated)
+	cleared := *existing
+	cleared.ConflictReason = pinnedArrivalPromotionConflict(existing.Stand, existing.ConflictReason, nil)
+	return &cleared, true
 }
 
 func (s *ArrivalLifecycleService) updateArrivalAtAirport(ctx context.Context, existing *models.StandAssignment, stage string, expiresAt *time.Time, observedStand *string) error {

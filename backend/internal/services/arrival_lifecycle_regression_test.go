@@ -399,6 +399,61 @@ func (r *arrivalPriorityRefresh) ArrivalProcessingPriority(strip *models.Strip, 
 	return priority
 }
 
+// A blocked pin followed by a missed approach is no longer eligible to
+// promote: its pinned-stand warning clears, the controller's prior reason and
+// the stand are kept, and no operational stand is published.
+func TestPinnedArrivalPromotionWarningClearsAfterMissedApproach(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx := t.Context()
+	lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+	seedTestArrivalStrip(t, queries, session, "SAS910")
+	testdata.SeedTestStrip(t, queries, session, "SAS911")
+	eta := clock.current().Add(time.Minute)
+	setArrivalETA(t, strips, session, "SAS910", eta)
+	const priorReason = "controller approved a compatibility exception"
+	require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+		SessionID: session, Callsign: "SAS910", Stand: "A2", Direction: "ARRIVAL",
+		Stage: StageEstimated, Manual: true, Source: "MANUAL_OVERRIDE", ETA: &eta,
+		ETASource: strp("FILED"), ConflictReason: strp(priorReason), Acknowledged: true,
+	}))
+	departure := withStand(standAllocationRequest(session, "SAS911"), "A2")
+	departure.Direction = sat.AssignmentDirectionDeparture
+	departure.FlightFacts.Direction = sat.Departure
+	departure.Stage = StageDepartureBlock
+	departure.ObservedStand = strp("A2")
+	_, err := allocations.assignObservedStand(ctx, departure)
+	require.NoError(t, err)
+
+	latitude, longitude := 55.8, 12.642625
+	finalAltitude, missedAltitude := int32(2000), int32(20000)
+	_, err = strips.UpdateAircraftPosition(ctx, session, "SAS910", &latitude, &longitude, &finalAltitude, "FINAL", nil)
+	require.NoError(t, err)
+	require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS910"), arrivalFlight("SAS910", 1)))
+	waiting, err := assignments.GetAssignment(ctx, session, "SAS910")
+	require.NoError(t, err)
+	require.True(t, HasPinnedArrivalPromotionConflict(waiting), "the occupied pin waits with a warning")
+
+	var published []StandAllocationResult
+	allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+		published = append(published, result)
+		return nil
+	})
+	_, err = strips.UpdateAircraftPosition(ctx, session, "SAS910", &latitude, &longitude, &missedAltitude, "", nil)
+	require.NoError(t, err)
+	require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS910"), arrivalFlight("SAS910", 2)))
+
+	cleared, err := assignments.GetAssignment(ctx, session, "SAS910")
+	require.NoError(t, err)
+	assert.False(t, HasPinnedArrivalPromotionConflict(cleared))
+	assert.Equal(t, strp(priorReason), cleared.ConflictReason, "the controller's own reason is kept")
+	assert.Equal(t, StageEstimated, cleared.Stage)
+	assert.Equal(t, "A2", cleared.Stand)
+	assert.Nil(t, loadStrip(t, strips, session, "SAS910").Stand, "no operational stand is written to the strip")
+	require.Len(t, published, 1)
+	assert.False(t, published[0].StandChanged)
+	assert.False(t, published[0].NotifyEuroscope)
+}
+
 func TestPinnedArrivalPromotionWaitsForOccupiedStand(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	for _, tc := range []struct {

@@ -386,6 +386,59 @@ func (s *StandAllocationService) releaseAssignmentChecked(ctx context.Context, a
 	return nil
 }
 
+// refreshArrivalInPlace saves a same-stage timing or warning refresh. It
+// validates the pass's ETA snapshot under the strip locks in the same
+// transaction, so a concurrent AMAN write cannot be overwritten by an older
+// ETA and published.
+func (s *StandAllocationService) refreshArrivalInPlace(ctx context.Context, existing *models.StandAssignment, updated models.StandAssignment) error {
+	if existing == nil || existing.SessionID <= 0 || strings.TrimSpace(existing.Callsign) == "" {
+		return errors.New("arrival refresh requires an existing assignment")
+	}
+	return retrySerializableOperation(ctx, func() error {
+		tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+		if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", existing.SessionID); err != nil {
+			return err
+		}
+		txStrips := s.strips.WithTx(tx)
+		txAssignments := s.assignments.WithTx(tx)
+		if err := vatsim.CheckArrivalETASnapshot(ctx, existing.SessionID, txStrips.LockArrivalETAs, s.now); err != nil {
+			return err
+		}
+		currentAssignments, err := txAssignments.LockAssignments(ctx, existing.SessionID, existing.Callsign)
+		if err != nil {
+			return err
+		}
+		var current *models.StandAssignment
+		for _, candidate := range currentAssignments {
+			if candidate != nil && strings.EqualFold(candidate.Callsign, existing.Callsign) {
+				current = candidate
+				break
+			}
+		}
+		if current == nil || current.ID != existing.ID || current.Version != existing.Version {
+			return errAllocationVersionConflict
+		}
+		next := updated
+		affected, err := txAssignments.UpdateAssignment(ctx, &next)
+		if err != nil {
+			return err
+		}
+		if affected != 1 {
+			return errAllocationVersionConflict
+		}
+		next.Version++
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		s.publishCommitted(ctx, StandAllocationResult{Assignment: next})
+		return nil
+	})
+}
+
 // promoteArrivalInPlace validates timing under the strip lock and advances
 // the existing stand. Controller estimates wait if their pin is occupied.
 func (s *StandAllocationService) promoteArrivalInPlace(ctx context.Context, existing *models.StandAssignment, updated models.StandAssignment) (bool, error) {
@@ -2101,8 +2154,7 @@ func estimatedReservationCanYield(request StandAllocationRequest, assignment *mo
 // two assignments is a legitimate deferred state: an ESTIMATED arrival keeps
 // its soft reservation whatever else holds the stand, and the estimate's own
 // promotion to ASSIGNED resolves the overlap. Estimates are never moved before
-// that boundary. Estimates already marked with a promotion conflict stay
-// visible to reconciliation.
+// that boundary, including while a blocked promotion is waiting to retry.
 func estimatedSoftSharingAllowed(left, right *models.StandAssignment) bool {
 	return estimatedSharingSide(left, right) || estimatedSharingSide(right, left)
 }
@@ -2114,7 +2166,9 @@ func estimatedSharingSide(estimate, holder *models.StandAssignment) bool {
 	if estimate.Direction != string(sat.AssignmentDirectionArrival) || estimate.Stage != StageEstimated {
 		return false
 	}
-	return estimate.ConflictReason == nil || *estimate.ConflictReason != arrivalPromotionConflictReason
+	// Estimates waiting on a blocked promotion keep their stand too: the sweep
+	// must not delete them while their own promotion retry is pending.
+	return true
 }
 
 // futureArrivalBlocksRequest treats a future arrival as a reservation from its

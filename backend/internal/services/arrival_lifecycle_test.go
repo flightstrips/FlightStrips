@@ -220,7 +220,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.NotEqual(t, estimated.Stand, recalculated.Stand, "the estimate moves when its original stand remains occupied at promotion")
 	})
 
-	t.Run("sweep preserves shared estimate until blocked promotion becomes an advisory", func(t *testing.T) {
+	t.Run("sweep keeps a blocked estimate until its promotion succeeds", func(t *testing.T) {
 		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
@@ -276,12 +276,17 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NotNil(t, refreshed.ConflictReason)
 		assert.Equal(t, arrivalPromotionConflictReason, *refreshed.ConflictReason)
 
-		require.NoError(t, lifecycle.ReleaseExpired(ctx))
-		advisory, err := assignments.GetAssignment(ctx, session, "SAS307")
-		require.NoError(t, err)
-		assert.Empty(t, advisory.Stand)
-		require.NotNil(t, advisory.ConflictReason)
-		assert.Contains(t, *advisory.ConflictReason, "physically displaced")
+		// Repeated overlap sweeps keep the estimate and its pending warning
+		// while the promotion waits for capacity.
+		for range 2 {
+			require.NoError(t, lifecycle.ReleaseExpired(ctx))
+			pending, err := assignments.GetAssignment(ctx, session, "SAS307")
+			require.NoError(t, err)
+			assert.Equal(t, estimated.Stand, pending.Stand)
+			assert.Equal(t, StageEstimated, pending.Stage)
+			require.NotNil(t, pending.ConflictReason)
+			assert.Equal(t, arrivalPromotionConflictReason, *pending.ConflictReason)
+		}
 
 		otherManual, err := assignments.GetAssignment(ctx, session, "SAS309")
 		require.NoError(t, err)

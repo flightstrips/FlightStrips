@@ -61,15 +61,15 @@
 .radis-stand { position: absolute; bottom: .3cqw; left: .4cqw; font-size: .643em; line-height: 1.25; }
 .radis-strip-date { flex: 1; min-width: 0; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 1.17cqw; font-weight: 700; text-align: center; }
 .radis-drag-handle { height: 100%; width: 100%; touch-action: none; white-space: nowrap; }
-.radis-commandbar { flex: none; height: 4.72dvh; min-height: 42px; background: var(--color-bay-commandbar); display: flex; align-items: center; gap: .48vw; padding: .3dvh .3vw; color: white; font-size: clamp(10px, 1.04vw, 20px); font-weight: 700; }
-.radis-commandbar button { flex: none; border-radius: 0; height: 100%; padding: 0 .5vw; min-width: 3.9vw; background: var(--color-bay-btn); color: white; font: inherit; border: 1px solid; border-color: var(--color-bay-border) #393939 #393939 var(--color-bay-border); box-shadow: 1px 1px 1px #212121; }
-.radis-commandbar > button[aria-label="Switch airport session"] { display: flex; flex-direction: column; justify-content: center; gap: 2px; line-height: 1; width: 9.7vw; min-width: 76px; margin-right: .8vw; border: 0; background: #1bff16; color: #202020; font-size: 1.66vw; }
-.radis-commandbar > button[aria-label="Switch airport session"] small { font-size: .4em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.radis-toolbar-field { align-self: stretch; display: flex; align-items: center; gap: .9vw; margin-right: .7vw; }
-.radis-toolbar-field > button, .radis-toolbar-field > b, .radis-commandbar > b { display: grid; place-items: center; height: 100%; background: var(--color-bay-light); color: #202020; border: 0; box-shadow: none; min-width: 4.8vw; padding: 0 .6vw; }
-.radis-toolbar-field:nth-of-type(3) > b { background: var(--color-bay-dark); color: white; }
-.radis-commandbar > .radis-toolbar-atis { min-width: 3.4vw; }
-.radis-commandbar > .radis-toolbar-wind { min-width: 8.4vw; font-size: .85em; }
+.radis-commandbar { flex: none; height: var(--command-bar-height); border-top: 2px solid var(--color-bay-border); background: var(--color-bay-commandbar); display: flex; align-items: center; gap: .48vw; padding: 0 8px; color: white; font-size: 1.0575vw; font-weight: 700; }
+.radis-commandbar button { flex: none; border-radius: 0; height: var(--command-bar-button-height); padding: 0 .5vw; min-width: 3.52vw; background: var(--color-bay-btn); color: white; font: inherit; border: 1px solid; border-color: var(--color-bay-border) #393939 #393939 var(--color-bay-border); box-shadow: 1px 1px 1px #212121; }
+.radis-commandbar > button[aria-label="Switch airport session"] { display: flex; align-items: center; justify-content: center; height: var(--command-bar-field-height); line-height: 1; width: 9.73vw; margin-right: .8vw; border: 0; background: #1bff16; color: #202020; }
+.radis-toolbar-field { display: flex; align-items: center; gap: .9vw; margin-right: .7vw; }
+.radis-toolbar-field > span { font-size: .705vw; }
+.radis-toolbar-field > button, .radis-toolbar-field > b, .radis-commandbar > b { display: grid; place-items: center; height: var(--command-bar-field-height); background: var(--color-bay-light); color: #202020; border: 0; box-shadow: none; min-width: 3.13vw; padding: 0 .6vw; }
+.radis-toolbar-field > b { min-width: 3.75vw; background: var(--color-bay-dark); color: white; }
+.radis-commandbar > .radis-toolbar-atis { min-width: 3.36vw; font-size: 1.321875vw; }
+.radis-commandbar > .radis-toolbar-wind { min-width: 5.55vw; font-size: .88125vw; }
 .radis-toolbar-space { flex: 1; }
 .radis-commandbar button:hover { filter: brightness(1.12); }
 .radis-commandbar button:disabled { filter: none; opacity: .5; }
@@ -80,7 +80,7 @@
 .radis-fpl-grid > label { min-width: 0; }
 .radis-fpl-field button { border: 1px solid #888; background: #e4e4e4; padding: .15rem; min-height: 1.5rem; overflow-wrap: anywhere; font-size: .9rem; font-weight: bold; }
 
-.radis-clock { width: 5.2vw; font-size: .58em; font-weight: 700; min-width: 80px; align-self: stretch; background: var(--color-bay-light); color: black; }
+.radis-clock { width: 5.08vw; height: var(--command-bar-field-height); font-size: .5625vw; font-weight: 700; background: var(--color-bay-light); color: black; }
 
 .radis-creation { width: min(640px,95vw); }
 .radis-local-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin-bottom:1rem; }
@@ -103,11 +103,8 @@
 
 
 @media (max-width: 1200px) {
-  .radis-commandbar { gap: 4px; font-size: 11px; }
+  .radis-commandbar { gap: 4px; }
   .radis-toolbar-field { gap: 5px; margin-right: 4px; }
-  .radis-commandbar > button[aria-label="Switch airport session"] { font-size: 18px; margin-right: 4px; }
-  .radis-commandbar > .radis-toolbar-wind { min-width: 65px; }
-  .radis-clock { min-width: 65px; }
 }
 
 /* Dialog measurements follow the 300px Figma editing frames. */

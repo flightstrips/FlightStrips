@@ -553,7 +553,7 @@ export const CLS_CALLSIGN_ACTIVE = "active:bg-[var(--color-strip-callsign)]";
 /** Large variant used in the CommandBar toolbar. */
 // Bevelled bottom-bar button edge: light top/left, dark bottom/right, fading inward.
 export const CLS_CMD_BEVEL = "border-2 border-t-[#CECECE] border-l-[#CECECE] border-b-[#393939] border-r-[#393939] shadow-[inset_2px_2px_2px_-1px_rgba(206,206,206,0.55),inset_-2px_-2px_2px_-1px_rgba(57,57,57,0.55)] font-bay font-normal";
-export const CLS_CMDBTN = `bg-bay-btn text-[1.0575vw] h-[3.42dvh] my-[0.65dvh] w-[3.52vw] flex items-center justify-center ${CLS_CMD_BEVEL} outline-none`;
+export const CLS_CMDBTN = `bg-bay-btn text-[1.0575vw] h-[var(--command-bar-button-height)] my-[0.65dvh] w-[3.52vw] flex items-center justify-center ${CLS_CMD_BEVEL} outline-none`;
 const CLS_HEADER_BTN_BASE = "inline-flex h-[1.89dvh] items-center justify-center whitespace-nowrap border-2 px-[0.625vw] text-[0.62vw] leading-[0.88vw] font-bold";
 export const CLS_BTN        = `${CLS_HEADER_BTN_BASE} bg-bay-btn text-white border-white active:bg-[#424242]`;
 // Bevelled header button: 2px stroke (light top/left, dark bottom/right) fading into the fill via inset shadows.

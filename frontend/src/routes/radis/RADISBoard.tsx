@@ -82,12 +82,12 @@ export default function RADISBoard() {
         <div className="radis-left"><h1>ACTIVE</h1>{renderBay("ACTIVE")}<h2 className="radis-runway-title"><span role="separator" tabIndex={0} aria-label="Runway area height" aria-orientation="horizontal" aria-valuemin={15} aria-valuemax={60} aria-valuenow={Math.round(runwayHeight)} onKeyDown={e => {if (["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) {e.preventDefault(); setRunwayHeight(h => e.key === "Home" ? 15 : e.key === "End" ? 60 : Math.max(15, Math.min(60, h + (e.key === "ArrowUp" ? 1 : -1))));}}} onPointerDown={e => {runwayDrag.current = {y: e.clientY, height: runwayHeight}; e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e => {if (e.currentTarget.hasPointerCapture(e.pointerId)) setRunwayHeight(Math.max(15, Math.min(60, runwayDrag.current.height + (runwayDrag.current.y - e.clientY) / window.innerHeight * 100)));}}>RUNWAY</span></h2>{renderBay("RUNWAY")}</div>
         <div className="radis-right"><h2>PASSIVE</h2>{renderBay("PASSIVE_TOP")}{renderBay("PASSIVE_BOTTOM")}</div>
       </main>
-    <footer className="radis-commandbar">
+    <footer className="radis-commandbar" aria-label="RADIS command bar">
       <AirportSwitcher compact/>
       <div className="radis-toolbar-field"><span>DEP</span><Button aria-label="Departure runways" onClick={() => setRunwayDialog(true)}>{runway.departure.join("/") || "—"}</Button></div>
       <div className="radis-toolbar-field"><span>ARR</span><Button aria-label="Arrival runways" onClick={() => setRunwayDialog(true)}>{runway.arrival.join("/") || "—"}</Button></div>
       <div className="radis-toolbar-field"><span>QNH</span><b>{metar?.match(/\bQ(\d{4})\b/)?.[1] ?? "—"}</b></div>
-      <ATIS label={metar?.match(/\bQ(\d{4})\b/)?.[1] ?? "—"} className="my-0 !w-[6.8vw]"/>
+      <ATIS label={metar?.match(/\bQ(\d{4})\b/)?.[1] ?? "—"} className="my-0"/>
       <b className="radis-toolbar-atis" aria-label="ATIS">{atis || "—"}</b>
       <b className="radis-toolbar-wind" aria-label="Wind">{windLabel}</b>
       <span className="radis-toolbar-space"/>

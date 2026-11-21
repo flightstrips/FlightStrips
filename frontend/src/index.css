@@ -75,6 +75,12 @@
   --color-drop-invalid:      #ef4444; /* invalid drop target highlight */
 }
 
+:root {
+  --command-bar-height: 4.72dvh;
+  --command-bar-field-height: calc(var(--command-bar-height) - 14px);
+  --command-bar-button-height: 3.42dvh;
+}
+
 /* Contain scroll to inner panels (bay lists), not the viewport — avoids iOS whole-page bounce */
 html {
   height: 100dvh;

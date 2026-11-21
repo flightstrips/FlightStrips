@@ -11,7 +11,10 @@ async function rows(request: APIRequestContext, airport = "EKBI", environment = 
 }
 async function open(page: Page, airport: string, environment = "LIVE") {
   await page.goto("/app");
-  const choice = page.getByRole("button", {name: new RegExp(`${airport} · ${environment}`)});
+  const dialog = page.getByRole("dialog", {name: "Choose airport session"});
+  const label = page.getByText(`${airport} · ${environment}`, {exact: true});
+  const airportOnly = page.getByText(airport, {exact: true});
+  const choice = dialog.getByRole("button").filter({has: label.or(airportOnly)});
   await expect(choice.or(page.getByRole("main", {name: "RADIS board"}))).toBeVisible();
   if (await choice.isVisible()) await choice.click();
   await expect(strip(page)).toBeVisible();
@@ -45,6 +48,8 @@ test("RADIS production sessions converge through database, own-plugin commands a
     const tab = await a.context().newPage(), sweat = await a.context().newPage(), playback = await a.context().newPage();
     for (const page of [tab, sweat, playback]) await identity(page, backend);
     await Promise.all([open(tab,"EKYT"), open(sweat,"EKBI","SWEATBOX_MA08"), open(playback,"EKBI","PLAYBACK_MA08")]);
+    await expect(sweat.getByRole("button", {name: "Switch airport session"})).toHaveText("EKBI");
+    await expect(playback.getByRole("button", {name: "Switch airport session"})).toHaveText("EKBI");
     const contexts = await Promise.all([rows(request),rows(request,"EKYT"),rows(request,"EKBI","SWEATBOX_MA08"),rows(request,"EKBI","PLAYBACK_MA08")]);
     expect(new Set(contexts.map(list=>list.find(row=>row.Callsign==="RADIS1")!.ID)).size).toBe(4);
     await note(sweat,"EXERCISE ONLY"); await note(playback,"PLAYBACK ONLY"); await note(tab,"SECOND TAB EKYT");

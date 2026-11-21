@@ -338,6 +338,8 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 			merged.FlightPlan.ObservedAt = &at
 		}
 		merged.AssignedSTAR = incoming.AssignedSTAR
+		// EuroScope owns the CFL; a cleared value of nil removes it.
+		merged.ClearedAltitude = incoming.ClearedAltitude
 		if incoming.HoldingClearance != nil {
 			merged.HoldingClearance = incoming.HoldingClearance
 		}
@@ -390,6 +392,7 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 			incoming.PlannedTiming = previous.PlannedTiming
 		}
 		incoming.AssignedSTAR = previous.AssignedSTAR
+		incoming.ClearedAltitude = previous.ClearedAltitude
 		incoming.Provider = aman.ObservationProviderEuroScope
 	}
 	return incoming

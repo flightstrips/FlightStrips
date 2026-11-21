@@ -242,7 +242,8 @@ describe("complete AMAN timeline and strips", () => {
     fireEvent.click(marker);
 
     expect(onSelectFlight).toHaveBeenNthCalledWith(1, "SAS123");
-    expect(onOpenFlightActions).toHaveBeenNthCalledWith(1, "SAS123");
+    // The clicked target is passed on so the flight menu can open over it.
+    expect(onOpenFlightActions).toHaveBeenNthCalledWith(1, "SAS123", marker);
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
     expect(screen.getAllByTestId(/^fmp-timeline-/)).toHaveLength(3);
   });
@@ -258,7 +259,7 @@ describe("complete AMAN timeline and strips", () => {
 
     expect(target).toHaveFocus();
     expect(onSelectFlight).toHaveBeenCalledWith("SAS123");
-    expect(onOpenFlightActions).toHaveBeenCalledWith("SAS123");
+    expect(onOpenFlightActions).toHaveBeenCalledWith("SAS123", target);
   });
 
   it("renders GAP intervals and audited manual exceptions in every timeline view", () => {
@@ -389,21 +390,114 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByTestId("aman-timeline-footer")).toHaveClass("absolute", "bottom-0");
     const scrollRail = screen.getByRole("scrollbar", {name: "Timeline scroll position"});
     expect(scrollRail).toHaveAttribute("tabindex", "0");
-    expect(scrollRail).toHaveAttribute("aria-valuenow", "35");
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "0");
+    expect(scrollRail).toHaveAttribute("aria-valuemin", "-55");
+    expect(scrollRail).toHaveAttribute("aria-valuemax", "55");
+    // Down at now compresses; up expands back before scrolling later.
     fireEvent.keyDown(scrollRail, {key: "ArrowDown"});
-    expect(scrollRail).toHaveAttribute("aria-valuenow", "35");
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "-1");
     fireEvent.keyDown(scrollRail, {key: "ArrowUp"});
-    expect(scrollRail).toHaveAttribute("aria-valuenow", "36");
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "0");
+    fireEvent.keyDown(scrollRail, {key: "ArrowUp"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "1");
     fireEvent.keyDown(scrollRail, {key: "Home"});
-    expect(scrollRail).toHaveAttribute("aria-valuenow", "90");
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "55");
     fireEvent.keyDown(scrollRail, {key: "End"});
-    expect(scrollRail).toHaveAttribute("aria-valuenow", "35");
-    fireEvent.keyDown(scrollRail, {key: "Home"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "0");
+    fireEvent.keyDown(scrollRail, {key: "PageDown"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "-5");
+    expect(scrollRail).toHaveAttribute("aria-valuetext", "0 to 40 minutes ahead, 40-minute horizon");
     fireEvent.keyDown(scrollRail, {key: "End"});
-    expect(scrollRail).toHaveAttribute("aria-valuenow", "35");
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "0");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("rwy-lane-ARRIVAL-22")).toBeInTheDocument();
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
+  });
+
+  it("scrolls with a left-drag and compresses by pushing the thumb past the bottom", () => {
+    // 912px section -> 908px rail -> 900px inner height. The default 35-minute
+    // thumb is 350px with 550px of scroll travel above it.
+    const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(912);
+    try {
+      renderBoard(state());
+      const scrollRail = screen.getByRole("scrollbar", {name: "Timeline scroll position"});
+      const thumb = screen.getByTestId("aman-timeline-scroll-thumb");
+      const px = (value: string) => Number.parseFloat(value);
+      vi.spyOn(scrollRail, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 13, 908));
+      scrollRail.setPointerCapture = vi.fn();
+      scrollRail.releasePointerCapture = vi.fn();
+      scrollRail.hasPointerCapture = vi.fn(() => true);
+
+      expect(px(thumb.style.height)).toBeCloseTo(350);
+      expect(px(thumb.style.top)).toBeCloseTo(554);
+
+      // Left-drag the thumb up 200px: scroll 20 minutes later without rescaling.
+      fireEvent.pointerDown(scrollRail, {button: 0, pointerId: 1, clientY: 604});
+      fireEvent.pointerMove(scrollRail, {pointerId: 1, clientY: 404});
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "20 to 55 minutes ahead, 35-minute horizon");
+      expect(px(thumb.style.top)).toBeCloseTo(354);
+
+      // Continue the same drag down past the bottom: the thumb squashes to
+      // half its height and the timeline compresses to 70 minutes at now.
+      fireEvent.pointerMove(scrollRail, {pointerId: 1, clientY: 779});
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "0 to 70 minutes ahead, 70-minute horizon");
+      expect(px(thumb.style.height)).toBeCloseTo(175);
+      expect(px(thumb.style.top)).toBeCloseTo(729);
+
+      // Moving back up in the same drag expands, then scrolls again.
+      fireEvent.pointerMove(scrollRail, {pointerId: 1, clientY: 404});
+      fireEvent.pointerUp(scrollRail, {pointerId: 1});
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "20 to 55 minutes ahead, 35-minute horizon");
+
+      // Right-drag down 100px compresses directly, returning to now.
+      fireEvent.pointerDown(scrollRail, {button: 2, pointerId: 2, clientY: 500});
+      fireEvent.pointerMove(scrollRail, {pointerId: 2, clientY: 600});
+      fireEvent.pointerUp(scrollRail, {pointerId: 2});
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "0 to 45 minutes ahead, 45-minute horizon");
+      expect(fireEvent.contextMenu(scrollRail)).toBe(false);
+    } finally {
+      clientHeight.mockRestore();
+    }
+  });
+
+  it("scrolls with the wheel and compresses only after pausing at the current time", () => {
+    let nowMs = 1_000_000;
+    const now = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    try {
+      renderBoard(state());
+      const scrollRail = screen.getByRole("scrollbar", {name: "Timeline scroll position"});
+      const timeline = screen.getByTestId("aman-timeline-grid");
+      const wheel = (deltaY: number, afterMs: number) => {
+        nowMs += afterMs;
+        fireEvent.wheel(timeline, {deltaY});
+      };
+
+      wheel(-100, 1_000);
+      wheel(-100, 50);
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "4 to 39 minutes ahead, 35-minute horizon");
+
+      // A continuous scroll back stops at now instead of running into compression.
+      wheel(100, 1_000);
+      wheel(100, 50);
+      wheel(100, 50);
+      wheel(100, 50);
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "0 to 35 minutes ahead, 35-minute horizon");
+
+      // After a pause, wheeling down again compresses: more minutes in view.
+      wheel(100, 400);
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "0 to 37 minutes ahead, 37-minute horizon");
+      wheel(100, 50);
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "0 to 39 minutes ahead, 39-minute horizon");
+
+      // Wheel up expands back first, then scrolls later.
+      wheel(-100, 50);
+      wheel(-100, 50);
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "0 to 35 minutes ahead, 35-minute horizon");
+      wheel(-100, 50);
+      expect(scrollRail).toHaveAttribute("aria-valuetext", "2 to 37 minutes ahead, 35-minute horizon");
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("renders the backend-configured FMP paired timelines without inferring an unused family", () => {

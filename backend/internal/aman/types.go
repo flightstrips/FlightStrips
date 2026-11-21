@@ -275,7 +275,11 @@ type FlightObservation struct {
 	// AssignedSTAR is the authoritative EuroScope assignment; nil clears it.
 	AssignedSTAR   *string
 	RequestedLevel *int
-	PlannedTiming  *PlannedTiming
+	// ClearedAltitude is the EuroScope cleared flight level in feet, or the
+	// EuroScope approach codes 1 (ILS) and 2 (visual). It is display-only:
+	// holding logic reads the level from HoldingClearance instead.
+	ClearedAltitude *int
+	PlannedTiming   *PlannedTiming
 	FlightPlan     FlightPlanFact
 	Surveillance   *SurveillanceFact
 	// HoldingClearance is an optional EuroScope strip fact. Keeping it with the

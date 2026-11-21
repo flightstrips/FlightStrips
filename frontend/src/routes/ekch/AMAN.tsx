@@ -1,4 +1,4 @@
-import {useEffect, useLayoutEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useLayoutEffect, useRef, useState} from "react";
 
 import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
@@ -24,6 +24,8 @@ import {EKCH_STAR_FAMILY_HOLDING, EKCH_TMT_HOLDING_ORDER, holdingsForFamilies} f
 import {AMANHoldingSequenceList} from "@/components/aman/AMANHoldingSequenceList";
 import {orderAMANFlights} from "@/components/aman/presentation";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
+import {placeFlightMenu} from "@/components/aman/flightMenuPlacement";
+import {cn} from "@/lib/utils";
 
 export default function AMAN() {
   const boardContext = useWebSocketStore(s => s.boardContext);
@@ -34,6 +36,7 @@ export default function AMAN() {
   const connectionState = useWebSocketStore((value) => value.amanConnectionState);
   const hasFMPAuthority = useWebSocketStore((value) => value.amanFMPAuthority);
   const warnings = useWebSocketStore((value) => value.amanWarnings);
+  const transitionAltitude = useWebSocketStore((value) => value.transitionAltitude);
   const readOnly = useWebSocketStore((value) => value.readOnly);
   const pendingCommands = useWebSocketStore((value) => value.amanPendingCommands);
   const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
@@ -44,6 +47,46 @@ export default function AMAN() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailAction, setDetailAction] = useState<"none" | "all" | "missed" | "remove">("none");
   const [flightActionsOpen, setFlightActionsOpen] = useState(false);
+  // Where the flight menu opens: over the clicked callsign, kept on screen once measured.
+  const [flightActionsAnchor, setFlightActionsAnchor] = useState<{left: number; top: number} | null>(null);
+  const [flightActionsSize, setFlightActionsSize] = useState<{width: number; height: number} | null>(null);
+  const openFlightActions = (callsign: string, anchor?: HTMLElement) => {
+    const rect = anchor?.getBoundingClientRect();
+    setFlightActionsAnchor(rect ? {left: rect.left, top: rect.top} : null);
+    setFlightActionsSize(null);
+    setSelectedCallsign(callsign);
+    setDialogCallsign(callsign);
+    setFlightActionsOpen(true);
+  };
+  // Opening the menu highlights its callsign; closing the menu, however it
+  // closes, removes that highlight again. A selection EuroScope moved to
+  // another aircraft meanwhile is left alone.
+  const flightActionsWasOpen = useRef(false);
+  useEffect(() => {
+    if (flightActionsWasOpen.current && !flightActionsOpen && selectedCallsign !== null && selectedCallsign === dialogCallsign) {
+      setSelectedCallsign(null);
+    }
+    flightActionsWasOpen.current = flightActionsOpen;
+  }, [flightActionsOpen, selectedCallsign, dialogCallsign, setSelectedCallsign]);
+  // The menu is re-measured whenever its content changes size, and placed
+  // against the current viewport, so it stays on screen while it is open.
+  const measureFlightActions = useCallback((node: HTMLDivElement | null) => {
+    if (node === null) return;
+    const measure = () => setFlightActionsSize({width: node.offsetWidth, height: node.offsetHeight});
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const [viewport, setViewport] = useState(() => ({width: window.innerWidth, height: window.innerHeight}));
+  useEffect(() => {
+    const onResize = () => setViewport({width: window.innerWidth, height: window.innerHeight});
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const flightActionsPlacement = flightActionsAnchor === null ? null
+    : placeFlightMenu(flightActionsAnchor, flightActionsSize, viewport);
   const [coordinationOpen, setCoordinationOpen] = useState(false);
   const [coordinationCommandID, setCoordinationCommandID] = useState<string | null>(null);
   const [missedApproachCommandID, setMissedApproachCommandID] = useState<string | null>(null);
@@ -120,11 +163,7 @@ export default function AMAN() {
             error={error}
             focusedRunwayGroupID={focusedRunwayGroupID}
             onOpenControls={() => { setDialogCallsign(effectiveSelectedCallsign); setControlsOpen(true); }}
-            onOpenFlightActions={(callsign) => {
-              setSelectedCallsign(callsign);
-              setDialogCallsign(callsign);
-              setFlightActionsOpen(true);
-            }}
+            onOpenFlightActions={openFlightActions}
             onOpenFlightDetails={(callsign) => {
               setSelectedCallsign(callsign);
               setDialogCallsign(callsign);
@@ -173,11 +212,7 @@ export default function AMAN() {
             </div>
             {activeTmtTab === "holdings" && <div aria-label="TMT holding workspaces" aria-labelledby="tmt-holdings-tab" className="aman-tmt-holdings" id="tmt-holdings-panel" role="tabpanel" style={{gridTemplateColumns: `repeat(${accCompactHoldingCount ?? (accActive ? Math.max(3, visibleHoldings.length) : Math.max(1, visibleHoldings.length))}, minmax(0, 1fr))`}} tabIndex={0}>
               {visibleHoldings.map((holding) => {
-                const graph = <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} onOpenFlightActions={(callsign) => {
-                  setSelectedCallsign(callsign);
-                  setDialogCallsign(callsign);
-                  setFlightActionsOpen(true);
-                }} />;
+                const graph = <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} onOpenFlightActions={openFlightActions} />;
                 if (!accActive) return graph;
                 const sequence = orderAMANFlights((state?.flights ?? []).filter((flight) => {
                   const family = flight.star_family ?? flight.feeder ?? flight.star;
@@ -186,7 +221,7 @@ export default function AMAN() {
                 }));
                 return <div className="flex min-h-0 min-w-0 flex-col gap-1" key={holding}>
                   <div className="min-h-0 flex-1">{graph}</div>
-                  <AMANHoldingSequenceList disabled={mutationBlockReason !== null} eats={Object.fromEntries(holdingInformation.map((entry) => [entry.callsign, entry.eat]))} flights={sequence} onCommand={sendCommand} />
+                  <AMANHoldingSequenceList disabled={mutationBlockReason !== null} eats={Object.fromEntries(holdingInformation.map((entry) => [entry.callsign, entry.eat]))} flights={sequence} onCommand={sendCommand} transitionAltitude={transitionAltitude} />
                 </div>;
               })}
             </div>}
@@ -232,7 +267,15 @@ export default function AMAN() {
         </DialogContent>
       </Dialog>
       <Dialog onOpenChange={setFlightActionsOpen} open={flightActionsOpen}>
-        <DialogContent className="w-40 max-w-[calc(100vw-1rem)] gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-1 font-display text-[11px] font-bold text-white [&>button]:hidden">
+        <DialogContent
+          className={cn(
+            "max-h-[calc(100dvh-1rem)] w-40 max-w-[calc(100vw-1rem)] gap-0 overflow-y-auto rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-1 font-display text-[11px] font-bold text-white [&>button]:hidden",
+            flightActionsPlacement !== null && "translate-x-0 translate-y-0",
+          )}
+          data-testid="aman-flight-actions-menu"
+          ref={measureFlightActions}
+          style={flightActionsPlacement === null ? undefined : {left: flightActionsPlacement.left, top: flightActionsPlacement.top}}
+        >
           <DialogTitle className="px-2 py-1 text-center text-xs font-bold text-[#bba8ee]">{dialogCallsign ?? "Unavailable"}</DialogTitle>
           <div className="grid gap-0">
             <button className="flex min-h-6 items-center rounded-md border border-[#dcdcdc] bg-[#a3d5e8] px-3 text-left text-[#10265c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => {
